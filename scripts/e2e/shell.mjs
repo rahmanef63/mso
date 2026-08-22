@@ -177,6 +177,16 @@ async function session(browser, { width, height, label, touch = width < 768, exp
     // A spinner that never resolves is the exact failure window-content.tsx used to
     // sit in forever when a chunk import rejected.
     check((await page.locator(".animate-spin").count()) === 0, `/${slug} rendered without a stuck spinner`);
+
+    // iOS System Settings deliberately owns its own navigation chrome. Guard the
+    // Apple-style hierarchy so the generic app header (icon/title/Done) cannot
+    // silently reappear and duplicate the in-app Settings navigation.
+    if (slug === "settings" && shell === "ios") {
+      check((await page.locator('[data-slot="ios-settings-root"]').count()) === 1, "/settings uses the native iOS Settings root");
+      check((await page.locator('[data-slot="ios-settings-root"] h1', { hasText: "Settings" }).count()) === 1, "/settings shows the iOS large title");
+      check((await page.locator('[data-slot="ios-settings-root"] input[type="search"]').count()) === 1, "/settings exposes functional Search");
+      check((await page.getByRole("button", { name: "Done", exact: true }).count()) === 0, "/settings does not duplicate the generic iOS Done header");
+    }
   }
 
   // ── the regression that shipped for months: a tool/list that renders every file

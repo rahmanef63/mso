@@ -28,8 +28,8 @@ export function SettingsSection({
 }) {
   return (
     <section className={cn("space-y-2", className)}>
-      <div className="flex items-center gap-2 px-1 text-muted-foreground">
-        <span className="[&_svg]:size-3.5">{icon}</span>
+      <div data-slot="settings-section-heading" className="flex items-center gap-2 px-1 text-muted-foreground">
+        <span data-slot="settings-section-icon" className="[&_svg]:size-3.5">{icon}</span>
         <span data-slot="settings-section-title" className="text-[11px] font-semibold uppercase tracking-wide">{title}</span>
       </div>
       {bare ? children : <div data-slot="settings-card" className="overflow-hidden rounded-xl border bg-card">{children}</div>}

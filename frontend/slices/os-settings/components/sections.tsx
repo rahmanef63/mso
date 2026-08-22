@@ -22,7 +22,7 @@ import { AboutSection } from "./about-section";
 // The section content — one functional panel per SectionId, shared verbatim by
 // every shell's Settings layout (the per-shell seam only swaps the navigation
 // chrome around these, never the bodies).
-function SectionBody({ id }: { id: SectionId }) {
+export function SettingsSectionBody({ id }: { id: SectionId }) {
   switch (id) {
     case "appearance":
       return <AppearanceSection />;
@@ -88,18 +88,15 @@ export function SectionDetail({ id }: { id: SectionId }) {
               <p className="text-xs text-muted-foreground">{meta.blurb}</p>
             </header>
           ))}
-        <SectionBody id={id} />
+        <SettingsSectionBody id={id} />
       </div>
     </ScrollArea>
   );
 }
 
-// Mobile section index — Apple iOS System Settings: colored icon tiles in grouped
-// rounded cards, single-line rows with a trailing chevron, hairline separators
-// inset to the label. Tapping a row drills the MasterDetail into the section
-// content; the back arrow returns here. No large title in-pane — the mobile
-// app-chrome header already paints "Settings" (avoids a double title); no search
-// pill either (ten sections don't warrant one, and a dead field is a fake affordance).
+// Shared mobile fallback section index. Android uses this MasterDetail list; iOS
+// owns a richer native root in ios-settings.tsx (large title + functional Search),
+// so this stays deliberately generic rather than duplicating the iOS hierarchy.
 export function SectionList({
   active,
   onSelect,

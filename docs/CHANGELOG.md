@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `settings` adopt native iOS hierarchy
 - `icons` align mobile platform artwork
 - `responsive` harden mobile and landscape layouts
 - `git` isolate push-gate test repositories
