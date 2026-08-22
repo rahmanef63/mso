@@ -2,6 +2,7 @@
 // the walk stays about containment and budgets, and this stays about presentation.
 import path from "path";
 import { boundedGitMeta, packageMeta } from "./project-meta";
+import { projectCapabilities } from "./project-capabilities";
 import { PROJECT_LIMITS, type ProjectRow, type ScanReport } from "./project-containers";
 import { decodeCursor } from "./project-cursor";
 import { listProjectDirs } from "./project-roots";
@@ -30,7 +31,7 @@ export async function listProjects(
   const offset = Math.max(Math.round(options.offset ?? 0), 0);
   const page = matched.slice(offset, offset + limit);
   const projects = await Promise.all(page.map(async ({ container, dir }) => {
-    const [pkg, git] = await Promise.all([packageMeta(dir), boundedGitMeta(dir)]);
+    const [pkg, git, capabilities] = await Promise.all([packageMeta(dir), boundedGitMeta(dir), projectCapabilities(dir)]);
     const name = path.basename(dir);
     return {
       id: `${container.id}/${name}`,
@@ -42,6 +43,7 @@ export async function listProjects(
       ...(pkg.name ? { packageName: pkg.name } : {}),
       ...(pkg.version ? { packageVersion: pkg.version } : {}),
       ...(git.available ? { git: { branch: git.branch, head: git.head?.sha?.slice(0, 12) } } : {}),
+      ...(capabilities ? { capabilities } : {}),
     };
   }));
   const hasMore = offset + page.length < matched.length;

@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { normalizeProjectKey, projectAliasesFor, projectAliasTarget } from "./project-aliases";
 import { boundedGitMeta, fullGitMeta, packageMeta } from "./project-meta";
+import { projectCapabilities } from "./project-capabilities";
 import { homeDir, isUnderRoot } from "./paths";
 import { validateProjectChild, validateProjectDescendant, validateRootHint } from "./project-candidate";
 import { configuredRootPaths, containerById, containerFor, listProjectDirsIn, projectContainers, type ProjectContainer } from "./project-roots";
@@ -142,8 +143,10 @@ export async function resolveProjectHint(hint: string, rootHint?: string): Promi
 }
 
 export async function inspectProject(project: ProjectResolution, options: { includeGitStatus?: boolean } = {}) {
-  return {
-    git: options.includeGitStatus ? await fullGitMeta(project.path) : await boundedGitMeta(project.path),
-    package: await packageMeta(project.path),
-  };
+  const [git, pkg, capabilities] = await Promise.all([
+    options.includeGitStatus ? fullGitMeta(project.path) : boundedGitMeta(project.path),
+    packageMeta(project.path),
+    projectCapabilities(project.path),
+  ]);
+  return { git, package: pkg, ...(capabilities ? { capabilities } : {}) };
 }

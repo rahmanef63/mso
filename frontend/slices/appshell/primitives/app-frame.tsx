@@ -35,7 +35,7 @@ export function AppFrame({
       )}
       <div
         className={cn(
-          "min-h-0 flex-1 overflow-auto",
+          "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
           safeArea && "[padding-bottom:var(--sai-bottom)]",
           bodyClassName,
         )}

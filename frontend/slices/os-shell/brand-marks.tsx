@@ -3,27 +3,9 @@
 // Raster app artwork is intentionally WebP. Toolbar/menu/control glyphs stay
 // vector (Lucide), while app icons are allowed to carry richer platform-specific
 // illustration. macOS and Windows do NOT share the same art direction: the shell
-// chooses the correct image through data-shell CSS. Other shells keep the generic
-// fallback artwork until they receive their own generated set.
+// chooses the correct image through data-shell CSS. Mobile intentionally reuses
+// those families: iOS = macOS artwork, Android = Windows artwork.
 import type { AppIconComponent } from "@/features/appshell";
-
-function mark(src: string): AppIconComponent {
-  const Mark: AppIconComponent = ({ className: cls }) => (
-    // Tiny fixed local artwork; next/image would add optimizer overhead with no
-    // visual or transfer-size win at these dimensions.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt=""
-      aria-hidden
-      className={cls ?? "size-full object-contain"}
-      draggable={false}
-      decoding="async"
-    />
-  );
-  Mark.displayName = `AppArtwork(${src})`;
-  return Mark;
-}
 
 /** One app identity with distinct native-looking artwork per desktop shell. */
 function platformMark(fallback: string, macos: string, windows: string): AppIconComponent {
@@ -50,7 +32,7 @@ export const APP_MARKS: Record<string, AppIconComponent> = {
     "/app-icons/macos/files.webp",
     "/app-icons/windows/files.webp",
   ),
-  "camoufox-browser": mark("/brand/official/camoufox.webp"),
+  "camoufox-browser": platformMark("/brand/official/camoufox.webp", "/app-icons/macos/camoufox.webp", "/app-icons/windows/camoufox.webp"),
   "code-editor": platformMark(
     "/app-icons/code.webp",
     "/app-icons/macos/code.webp",
@@ -96,8 +78,8 @@ export const APP_MARKS: Record<string, AppIconComponent> = {
     "/app-icons/macos/docs.webp",
     "/app-icons/windows/docs.webp",
   ),
-  hermes: mark("/brand/official/hermes.webp"),
-  openclaw: mark("/brand/official/openclaw.webp"),
+  hermes: platformMark("/brand/official/hermes.webp", "/app-icons/macos/hermes.webp", "/app-icons/windows/hermes.webp"),
+  openclaw: platformMark("/brand/official/openclaw.webp", "/app-icons/macos/openclaw.webp", "/app-icons/windows/openclaw.webp"),
 };
 
 export const HermesMark = APP_MARKS.hermes;

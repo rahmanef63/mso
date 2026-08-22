@@ -24,6 +24,7 @@ import {
 } from "@/lib/managed-apps/origin";
 import { proxyPrefix, upstreamSocketHeaders } from "@/lib/managed-apps/proxy-headers";
 import { getManagedAppDefinition } from "@/lib/managed-apps/catalog";
+import { projectIngressDecision } from "@/lib/managed-apps/project-ingress";
 import { verifySession } from "@/lib/auth/session";
 import { isApproved } from "@/lib/auth/device-store";
 import { IS_DEMO } from "@/lib/demo";
@@ -149,6 +150,17 @@ export async function proxy(request: NextRequest) {
   // lie (claiming an app host while on the cockpit) only restricts the request.
   const host = request.headers.get("host") ?? request.nextUrl.host;
   const managedApp = managedAppIdForHost(host);
+
+  // Optional project integrations may expose ONE exact machine-to-machine POST
+  // lane on a managed-app host. Stock MSO has no routes because
+  // OS_PROJECT_INGRESS_ROUTES defaults to empty. The route config is fixed by the
+  // operator, targets loopback only, and the upstream still verifies the real
+  // HMAC secret; this edge check only rejects obvious public garbage before CSRF.
+  const ingress = projectIngressDecision(request, managedApp, pathname);
+  if (ingress.matched) {
+    if (!ingress.target) return blocked();
+    return NextResponse.rewrite(new URL(ingress.target));
+  }
 
   // A host inside the app namespace that is NOT an app (a new `X.mso.rahmanef.com`
   // record, or a `*.os` wildcard) must not serve the cockpit: the session cookie is

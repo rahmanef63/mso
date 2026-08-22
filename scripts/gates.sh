@@ -20,6 +20,16 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Git exports repository-local environment variables to hooks (GIT_DIR,
+# GIT_WORK_TREE, GIT_INDEX_FILE, object directories, and friends). The test suite
+# intentionally creates temporary Git repositories; if those variables leak into a
+# child `git init`, Git can operate on THIS repository instead of the fixture.
+# Locate the root first, then clear only Git's documented local env so every child
+# Git process discovers the repository from its own cwd.
+while IFS= read -r git_local_var; do
+  [ -n "$git_local_var" ] && unset "$git_local_var"
+done < <(git rev-parse --local-env-vars 2>/dev/null || true)
+
 if [ "${1-}" = "--install" ]; then
   HOOK="$ROOT/.git/hooks/pre-push"
   mkdir -p "$(dirname "$HOOK")"

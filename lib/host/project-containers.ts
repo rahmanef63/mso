@@ -63,6 +63,7 @@ export type ProjectRow = {
   packageName?: string;
   packageVersion?: string;
   git?: { branch?: string; head?: string };
+  capabilities?: import("./project-capabilities").ProjectCapabilities;
 };
 
 

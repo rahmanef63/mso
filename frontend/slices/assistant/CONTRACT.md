@@ -161,7 +161,13 @@ Four reasons, and the third is the one that settles it:
 
 **Reaffirmed 2026-08-20** when MCP gained global project/skill discovery: capability
 scoping stayed deleted on both surfaces, and the removed MSO image generation was NOT
-replaced by a per-agent toggle. **Done 2026-07-30.** The tool picker, the "Generalist / Curated — by skill" switch,
+replaced by a per-agent toggle.
+
+**Extended 2026-08-21 for project function calling:** project-specific function names
+remain DATA, never additions/removals to the model tool array. MCP exposes the stable
+`project_capabilities` + `project_function_call` pair; a project may opt in with
+`.mso/functions.json`. Alfa keeps its existing stable host catalog and can use project
+skills/files + approved `exec.run`; no project switch changes its cached tool prefix. **Done 2026-07-30.** The tool picker, the "Generalist / Curated — by skill" switch,
 the per-agent Skills grant list and every string that counted tools per agent are
 gone; `toolsForAgent()` went with them. `agent.allTools` and `agent.skills` remain on
 the type because they are persisted and `store-migration.test.ts` covers them — they

@@ -30,7 +30,7 @@ export function MobileShell() {
   const [cc, setCc] = useState(false);
   const [nc, setNc] = useState(false); // notification center (pull down, left half)
   const [appScrolled, setAppScrolled] = useState(false); // iOS nav-bar frost-on-scroll
-  const [closing, setClosing] = useState(false); // playing the dismiss-to-home zoom
+  const [closing, setClosing] = useState(false); // playing the dismiss-to-home slide
   const [actionsOpen, setActionsOpen] = useState(false); // in-app "•••" action drawer
 
   // Dock = manifest-pinned apps (AppDescriptor.pinned — the generic shell never
@@ -91,7 +91,7 @@ export function MobileShell() {
   };
   const goHome = () => {
     setSwitcher(false);
-    // Zoom the app down to the home (real-iOS dismiss) when it's actually
+    // Slide the app down to the home when it's actually
     // front-most and we're not coming from the switcher; the app layer's
     // onAnimationEnd finalises (minimise + show home). Otherwise go straight home.
     if (topId && !home && !switcher) {
@@ -100,7 +100,7 @@ export function MobileShell() {
     }
     setHome(true);
   };
-  // Called by the app layer once the dismiss zoom finishes.
+  // Called by the app layer once the dismiss transition finishes.
   const finishClose = () => {
     if (topId) minimizeWindow(topId);
     setClosing(false);
@@ -163,7 +163,7 @@ export function MobileShell() {
       <div className="absolute inset-0 z-[10] flex flex-col">
       {/* Home is inert while an app covers it (a11y: its grid, pager pages and
           home-indicator otherwise stay in tab/AT order under the opaque app
-          layer). It stays visually mounted for the appOpen zoom. */}
+          layer). It stays visually mounted behind the app transition. */}
       <MobileHome
         apps={apps}
         dockApps={dockApps}
@@ -180,11 +180,11 @@ export function MobileShell() {
         <div
           className={cn(
             "absolute inset-0 z-[10] flex flex-col [transform-origin:center_bottom]",
-            closing && "pointer-events-none", // lock interaction during the dismiss zoom
+            closing && "pointer-events-none", // lock interaction during the dismiss transition
           )}
           style={{
             background: "var(--surface)",
-            animation: `${closing ? "appClose" : "appOpen"} var(--shell-dur-slow) var(--shell-ease)`,
+            animation: `${closing ? "mobileAppClose" : "mobileAppOpen"} var(--shell-dur-slow) var(--shell-ease)`,
           }}
           // Finalise the dismiss only when the APP layer's OWN close animation
           // ends (guard against a child animation bubbling up).
@@ -249,7 +249,7 @@ export function MobileShell() {
               floor still applies, so nothing regresses where the sum used to be right. */}
           <main
             onScrollCapture={(e) => setAppScrolled((e.target as HTMLElement).scrollTop > 4)}
-            className="relative min-h-0 flex-1 overflow-auto [container-type:inline-size]"
+            className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]"
             style={{ "--sai-bottom": "max(env(safe-area-inset-bottom, 0px), 34px)" } as React.CSSProperties}
           >
             <WindowContent app={top.app} payload={top.payload} />

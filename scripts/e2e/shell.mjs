@@ -77,13 +77,13 @@ const IGNORE = [
   /openverse|unsplash/i,
 ];
 
-async function session(browser, { width, height, label }) {
+async function session(browser, { width, height, label, touch = width < 768, expectedSurface = width < 768 ? "mobile" : "desktop" }) {
   console.log(`\n▶ ${label} (${width}×${height})`);
   const ctx = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: 2,
-    hasTouch: width < 768,
-    isMobile: width < 768,
+    hasTouch: touch,
+    isMobile: touch,
   });
   const errors = [];
   ctx.on("console", (m) => {
@@ -140,8 +140,8 @@ async function session(browser, { width, height, label }) {
   check(me?.authenticated === true, `really signed in (authenticated=${me?.authenticated})`);
   if (!me?.authenticated) fail("everything below this line is testing MOCK data — fix auth first");
   check(
-    width < 768 ? ["ios", "android"].includes(shell) : ["macos", "windows", "dashboard"].includes(shell),
-    `${shell} is the right shell for this viewport`,
+    expectedSurface === "mobile" ? ["ios", "android"].includes(shell) : ["macos", "windows", "dashboard"].includes(shell),
+    `${shell} is the right ${expectedSurface} shell for this viewport`,
   );
 
   // ── no horizontal overflow. A shell that scrolls sideways is broken on a phone
@@ -160,7 +160,11 @@ async function session(browser, { width, height, label }) {
   // pointer, and the iOS home paginates so half the grid is off-screen. A launcher
   // that cannot be clicked is a real finding, but it is a DIFFERENT test from "does
   // this app render", and conflating them made both unreliable.
-  for (const slug of ["files", "monitor", "settings", "code", "terminal"]) {
+  const nativeSlugs = [
+    "files", "browser", "code", "terminal", "claude", "studio", "reel", "viewer",
+    "store", "create", "monitor", "assistant", "links", "docs", "settings",
+  ];
+  for (const slug of nativeSlugs) {
     await page.goto(`${BASE}/${slug}`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(1200);
     // Desktop puts the app in a [data-window]; iOS/Android render it full-screen in
@@ -191,13 +195,26 @@ async function session(browser, { width, height, label }) {
   check(realErrors.length === 0, `zero console errors${realErrors.length ? ` — first: ${realErrors[0].slice(0, 160)}` : ""}`);
   for (const e of realErrors.slice(0, 5)) console.log(`      · ${e.slice(0, 200)}`);
 
+  // Managed-app routes are cross-origin embeds in production. On a loopback E2E
+  // origin their own frame-ancestors/session policy correctly rejects the iframe,
+  // so exercise host routing/rendering here without treating that origin mismatch
+  // as an MSO host-network failure. Their own runtime has separate managed-app tests.
+  for (const slug of ["hermes", "openclaw"]) {
+    await page.goto(`${BASE}/${slug}`, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1200);
+    check(page.url().endsWith(`/${slug}`), `/${slug} managed-app deep-link kept the URL`);
+    if (width >= 768) check((await page.locator("[data-window]").count()) > 0, `/${slug} managed-app opened a window`);
+    check((await page.locator(".animate-spin").count()) === 0, `/${slug} managed-app host rendered without a stuck spinner`);
+  }
+
   await ctx.close();
 }
 
 const browser = await chromium.launch({ headless: HEADLESS });
 try {
   await session(browser, { width: 1280, height: 800, label: "desktop" });
-  await session(browser, { width: 390, height: 844, label: "mobile" });
+  await session(browser, { width: 390, height: 844, label: "mobile portrait" });
+  await session(browser, { width: 844, height: 390, label: "phone landscape → desktop", touch: true, expectedSurface: "desktop" });
 } finally {
   await browser.close();
 }

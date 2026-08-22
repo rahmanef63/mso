@@ -4,7 +4,7 @@
 
 ## Cross-repo contract
 
-MSO currently exposes **26 tool names** (server `1.5.3`, toolset `2026.08.20.6`). The gateway manifest still maps **15** of them through literal `x-upstream` strings:
+MSO currently exposes **28 tool names** (server `1.6.0`, toolset `2026.08.21.1`). The gateway manifest still maps **15** of them through literal `x-upstream` strings:
 
 ```json
 { "id": "mso.fs.delete", "x-upstream": "fs_delete" }
@@ -38,6 +38,8 @@ The gateway has not yet synchronized the tools added or deliberately withheld fr
 | `workflow_finish` | added later; exact-id verified recipe boundary |
 | `fs_upload_file` | added later; ChatGPT `openai/fileParams` binding the gateway does not model |
 | `projects_list` | added 2026-08-20; enumerates every configured project container |
+| `project_capabilities` | added 2026-08-21; detects opt-in project MCP/function manifests without exposing secrets |
+| `project_function_call` | added 2026-08-21; exec-scope generic runner for functions declared by a project |
 | `skills_list` | added 2026-08-20; global + per-project skill catalog with trust |
 | `skills_read` | added 2026-08-20; exact-catalog-id SKILL.md read, trusted tiers only |
 

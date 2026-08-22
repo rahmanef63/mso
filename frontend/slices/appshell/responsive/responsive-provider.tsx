@@ -12,6 +12,20 @@ import {
 export const MOBILE_W = 768; // phone-width cutoff — THE breakpoint (useIsMobile fallback imports it)
 const TABLET_W = 1024; // touch-portrait tablets below this read as mobile
 
+/** Whole-shell surface policy. Phones are mobile only in portrait; landscape is
+ * deliberately the desktop surface so a rotated phone gets the denser desktop
+ * workspace instead of a stretched phone shell. A forced phone preview follows
+ * the same rule — the override selects the portrait persona, not orientation. */
+export function shouldUseMobileSurface(device: DeviceMode, vw: number, vh: number, coarse: boolean): boolean {
+  const portrait = vh >= vw;
+  if (device === "desktop") return false;
+  // Keep the explicit Phone preview usable on a wide desktop: it renders inside
+  // PhoneFrame. On an actual phone-width landscape viewport, switch to desktop.
+  if (device === "phone") return portrait || vw >= TABLET_W;
+  if (!portrait) return false;
+  return vw < MOBILE_W || (coarse && vw < TABLET_W);
+}
+
 function bucket(vw: number): Pane {
   if (vw < 480) return "xs";
   if (vw < MOBILE_W) return "sm";
@@ -90,8 +104,7 @@ export function ResponsiveProvider({
       const vh = window.innerHeight;
       const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
       const portrait = vh >= vw;
-      const auto = vw < MOBILE_W || (coarse && portrait && vw < TABLET_W);
-      const isMobile = device === "phone" ? true : device === "desktop" ? false : auto;
+      const isMobile = shouldUseMobileSurface(device, vw, vh, coarse);
       const next: Responsive = {
         formFactor: isMobile ? "mobile" : "desktop",
         isMobile,

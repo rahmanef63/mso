@@ -4,6 +4,21 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-08-22
+
+**Fixed**
+
+- `icons` align mobile platform artwork
+- `responsive` harden mobile and landscape layouts
+- `git` isolate push-gate test repositories
+- `settings` improve MCP UI and activity scrolling
+
+## 2026-08-21
+
+**Added**
+
+- `projects` add opt-in function capabilities
+
 ## 2026-08-20
 
 **Added**

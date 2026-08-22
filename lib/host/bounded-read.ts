@@ -24,6 +24,8 @@ export const BOUNDED_READ = {
   gitHead: 4 * 1024,
   gitRef: 4 * 1024,
   packedRefs: 1024 * 1024,
+  projectFunctions: 256 * 1024,
+  projectMcpConfig: 256 * 1024,
 } as const;
 
 export async function readBoundedRegularFile(file: string, maxBytes: number): Promise<string | null> {

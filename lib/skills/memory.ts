@@ -207,6 +207,8 @@ const SAFE_TOOL_ARGS: Record<string, readonly string[]> = {
   fs_usage: ["path"],
   apps_logs: ["id"],
   projects_list: ["query", "limit", "offset"],
+  project_capabilities: ["project"],
+  project_function_call: ["project", "name"],
   skills_list: ["project", "trust", "limit", "offset"],
   skills_read: ["name"],
   screen_capture: ["shell", "width", "height"],

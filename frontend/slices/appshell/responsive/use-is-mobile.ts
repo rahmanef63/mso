@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ResponsiveContext } from "./use-responsive";
-import { MOBILE_W as MOBILE_BREAKPOINT } from "./responsive-provider";
+import { shouldUseMobileSurface } from "./responsive-provider";
 
 // True when the viewport is phone-sized. Inside the shell this reads the single
 // <ResponsiveProvider> source of truth; outside it (rare — a standalone preview,
@@ -15,11 +15,17 @@ export function useIsMobile(): boolean {
 
   React.useEffect(() => {
     if (ctx) return; // provider drives it; no standalone listener needed
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const onChange = () => setFallback(window.innerWidth < MOBILE_BREAKPOINT);
+    const onChange = () => {
+      const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+      setFallback(shouldUseMobileSurface("auto", window.innerWidth, window.innerHeight, coarse));
+    };
     onChange();
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
+    window.addEventListener("resize", onChange);
+    window.addEventListener("orientationchange", onChange);
+    return () => {
+      window.removeEventListener("resize", onChange);
+      window.removeEventListener("orientationchange", onChange);
+    };
   }, [ctx]);
 
   return ctx ? ctx.isMobile : fallback;

@@ -13,7 +13,7 @@
 import { Button } from "@/components/ui/button";
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useUrlHome } from "../../../hooks/use-url-home";
-import { Search, ArrowLeft, MoreHorizontal, Sparkles } from "lucide-react";
+import { Search, MoreHorizontal, Sparkles } from "lucide-react";
 import { useApps } from "../../../lib/registry";
 import { usePullDown } from "../../../hooks/use-pull-down";
 import { useWindowOrder, useFocused, useWindow } from "../../../hooks/use-shell";
@@ -178,16 +178,16 @@ function AndroidShell() {
         {/* Fullscreen app. Open = M3 SPATIAL SLOW (k=200, ζ=0.8, ~511ms). The speed
             tier is chosen by the SIZE of the thing that moves, not by how far it
             moves: this is the largest surface in the shell, so "slow" is right even
-            though appOpen only travels 14px. Most of the perceived movement is over
+            though mobileAppOpen only travels 10px. Most of the perceived movement is over
             by ~40% of that; the tail is the settle, which is exactly the part a
             cubic-bezier cannot express. Transform-only on purpose — no opacity,
             because pairing an effects fade with a spatial slide inside ONE animation
             would force a single easing on both families. */}
         {showApp && activeApp && top && (
-          <div className="absolute inset-0 z-[20] flex flex-col bg-background [animation:appOpen_var(--m3-dur-spatial-slow)_var(--m3-spatial)] [transform-origin:center_bottom]">
-            {/* M3 top app bar: flat surface (bg-card, hairline divider), leading
-                ArrowLeft up-affordance, Title Large regular weight — not a colored
-                brand header. The per-app color still reads on the icon + recents. */}
+          <div className="absolute inset-0 z-[20] flex flex-col bg-background [animation:mobileAppOpen_var(--m3-dur-spatial-slow)_var(--m3-spatial)] [transform-origin:center_bottom]">
+            {/* M3 top app bar: flat surface (bg-card, hairline divider), Title Large
+                regular weight — not a colored brand header. System Back stays in
+                the navigation row below, so this bar does not duplicate it. The per-app color still reads on the icon + recents. */}
             <header
               className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-3 text-foreground"
               style={{ height: "calc(3rem + var(--sai-top, 0px))", paddingTop: "var(--sai-top, 0px)" }}
@@ -196,8 +196,11 @@ function AndroidShell() {
                   small elements, so "fast" (k=800, ζ=0.6, ~322ms, 9.3% overshoot).
                   The overshoot is what makes a press feel like a physical button
                   releasing rather than a scale tween returning. */}
-              <Button type="button" variant="ghost" onClick={goHome} aria-label="Back" className={`-ml-2 h-auto p-0 font-normal hover:bg-transparent grid size-12 place-items-center active:scale-90 ${M3_PRESS}`}><ArrowLeft className="size-5" /></Button>
-              <span className="flex-1 truncate text-[19px] font-normal">{activeApp.title}</span>
+              {/* The system navigation bar below already owns Android Back. A second
+                  shell-level Back here performed the exact same goHome action and
+                  doubled the affordance in every app. Internal app navigation (for
+                  example Settings detail → Settings list) renders its own Back. */}
+              <span className="flex-1 truncate pl-1 text-[19px] font-normal">{activeApp.title}</span>
               {appActions.length > 0 && (
                 <>
                 <Button type="button" variant="ghost" aria-label="Ask Alfa" onClick={toggleInspector} className={`h-auto p-0 font-normal hover:bg-transparent grid size-12 place-items-center active:scale-90 ${M3_PRESS}`}><Sparkles className="size-5" /></Button>
@@ -205,7 +208,7 @@ function AndroidShell() {
               </>
               )}
             </header>
-            <main className="relative min-h-0 flex-1 overflow-auto [container-type:inline-size]">
+            <main className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]">
               <WindowContent app={top.app} payload={top.payload} />
             </main>
             <NavBar onBack={goHome} onHome={goHome} onRecents={() => setRecents(true)} />

@@ -8,6 +8,28 @@ Running log of what shipped each phase. Newest at top.
 > Read those phases as history. **This file is the source of truth for what exists** —
 > `ARCHITECTURE.md` is no longer maintained and carries a stale-warning banner.
 
+## 2026-08-21 — opt-in project MCP/function capabilities; stock MSO unchanged (DONE)
+
+Project-specific automation no longer requires a business-specific feature in MSO. A
+validated project may opt in with `.mcp.json` (presence only; contents/credentials are
+never exposed) and `.mso/functions.json` (versioned public schemas + fixed argv). The
+public MCP catalog stays stable: `project_capabilities` discovers one project's declared
+surface and `project_function_call` executes one declared function at **exec** scope.
+Function names are data, not dynamic MCP tool names, so switching projects does not alter
+the model tool prefix or invalidate the prompt cache. Caller input is JSON stdin to
+`spawn(argv)` — never shell interpolation — and child processes inherit the existing
+credential-scrubbed environment. No manifest means no extra capability.
+
+The same opt-in rule now applies to public machine ingress.
+`OS_PROJECT_INGRESS_ROUTES` defaults to empty; when explicitly configured it permits at
+most eight exact POST paths on known managed-app hosts, targets loopback HTTP only, and
+requires HMAC-V2-shaped JSON traffic before the app-host CSRF gate. The loopback app still
+verifies the real secret. There is no project/product name or webhook path compiled into
+MSO. Tests pin both sides: stock MSO remains closed, malformed/off-box/wildcard routes fail
+closed, `.mso` symlinks are ignored, project commands cannot interpolate caller strings
+into a shell, and project function execution remains exec-only. Toolset advances to
+`1.6.0` / `2026.08.21.1`: **28 tools** (15 read, 10 write, 3 exec).
+
 ## 2026-08-20 — lossless continuation and exact-id project resolution (DONE)
 
 The final fail-closed review found six remaining items. Five were continuation bugs of the

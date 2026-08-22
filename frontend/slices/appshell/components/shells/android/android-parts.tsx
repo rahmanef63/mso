@@ -163,13 +163,13 @@ export function AppDrawer({ apps, onLaunch, onClose }: { apps: AppDescriptor[]; 
   return (
     // Spatial SLOW (k=200, ζ=0.8, ~511ms): M3 picks the speed tier from the SIZE of
     // the moving element, and this is a full-screen surface. Only the model changed
-    // here — a 300ms cubic-bezier for the sampled spring — because appOpen's 14px
-    // UPWARD travel was already the right direction: the drawer is opened from the
+    // here — a sampled spring on mobileAppOpen's small UPWARD travel, which is
+    // already the right direction: the drawer is opened from the
     // "All apps" target at the BOTTOM of the home surface, so it should arrive
     // rising from where the finger was. (That target is drawn as a grabber but is a
     // plain tap — there is no swipe-up gesture in this shell, only usePullDown for
     // the shade and useSwipeUpClose for Recents cards.)
-    <div className="absolute inset-0 z-[30] flex flex-col bg-background/95 backdrop-blur-xl [animation:appOpen_var(--m3-dur-spatial-slow)_var(--m3-spatial)]">
+    <div className="absolute inset-0 z-[30] flex flex-col bg-background/95 backdrop-blur-xl [animation:mobileAppOpen_var(--m3-dur-spatial-slow)_var(--m3-spatial)]">
       {/* Visually a thin pull handle, but a ≥36px hit area (same treatment as
           the iOS home indicator) so it's actually closable by thumb. */}
       <Button

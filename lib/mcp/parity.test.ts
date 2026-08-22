@@ -35,6 +35,8 @@ const ALFA_ONLY: Record<string, string> = {
 const MCP_ONLY: Record<string, string> = {
   "screen.capture": "external MCP clients need visual proof of the rendered OS; in-shell Alfa already runs inside that browser UI",
   "projects.list": "an MCP client has no sidebar and no Files window, so it needs an explicit bounded enumeration of every project container; in-shell Alfa reads the same roots through fs.list and the Files app",
+  "project.capabilities": "external harnesses need a stable generic discovery seam for project-owned MCP/functions; Alfa can inspect the same project files through its existing fs/skills tools without changing its cached tool array",
+  "project.function.call": "external MCP clients need one no-shell bridge into project-declared functions; Alfa already has per-call-approved exec.run and must not receive a dynamic per-project tool catalog",
   "fs.upload.file": "external ChatGPT connectors need openai/fileParams to move conversation-generated files onto the VPS; in-shell Alfa already has direct host filesystem access",
   "workflow.start": "the external connector needs an actor-scoped task boundary; Alfa already owns an in-app conversation/run boundary",
   "workflow.cancel": "same actor-scoped boundary; external runs need explicit recovery from an interrupted task",
@@ -102,6 +104,8 @@ describe("MCP rate limits mirror the routes", () => {
       // Global discovery reads: no HTTP route mirrors them, and each one walks
       // every configured container, so they get their own small buckets.
       "projects.list": 30,
+      "projects.capabilities": 60,
+      "projects.function": 60,
       "skills.list": 30,
       "skills.read": 60,
     };

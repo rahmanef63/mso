@@ -59,14 +59,14 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 
 | Scope | Tools |
 |---|---|
-| `read` | `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` |
+| `read` | `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` |
 | `write` | + `workflow_start` `workflow_cancel` `workflow_finish` `fs_write` `fs_upload_file` `fs_mkdir` `fs_move` `fs_copy` `fs_delete` `apps_power` |
-| `exec` | + `exec_run` `browser_power` |
+| `exec` | + `project_function_call` `exec_run` `browser_power` |
 
 Alfa — the in-app assistant — has the same host capabilities under dot.case names,
 and `lib/mcp/parity.test.ts` fails if one surface gains a tool the other lacks
 without a written reason. `skills_search` maps to Alfa's `skills.search`.
-`screen_capture`, `projects_list`, `fs_upload_file`, `workflow_start`, `workflow_cancel` and
+`screen_capture`, `projects_list`, `project_capabilities`, `project_function_call`, `fs_upload_file`, `workflow_start`, `workflow_cancel` and
 `workflow_finish` are explicitly MCP-only: the external connector needs visual proof,
 an explicit project enumeration and an actor-scoped task boundary, while Alfa already
 runs inside the rendered shell, has the Files window and owns an in-app run boundary.
@@ -104,10 +104,58 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-Current catalog: **26 tools** (14 read, 10 write, 2 exec), server `1.5.3` / toolset
-`2026.08.20.6`. `projects_list`, `skills_list` and `skills_read` are the new public
-names in this release; `image_generation_status` and `image_generate` were removed
-(see the migration note below).
+Current catalog: **28 tools** (15 read, 10 write, 3 exec), server `1.6.0` / toolset
+`2026.08.21.1`. `project_capabilities` and `project_function_call` add one stable
+project-automation seam without creating a dynamic MCP tool catalog; existing tool names
+remain unchanged.
+
+## Opt-in project MCP/function capabilities
+
+MSO itself stays generic. A project opts into extra automation by placing files inside
+its own validated project directory:
+
+- `.mcp.json` — MSO reports only that the MCP config exists. It never returns the file
+  contents because MCP configs commonly contain env/credential wiring. MSO does not
+  automatically connect to arbitrary project MCP servers.
+- `.mso/functions.json` — a bounded manifest of project-owned functions.
+
+The manifest is versioned and intentionally uses **fixed argv**, not a shell template:
+
+```json
+{
+  "version": 1,
+  "functions": [{
+    "name": "asset_status",
+    "description": "Read the project's asset status.",
+    "inputSchema": {
+      "type": "object",
+      "properties": { "id": { "type": "string" } },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "command": ["bun", "run", "project:call", "--", "asset_status"]
+  }]
+}
+```
+
+`project_capabilities` is read-scope and returns only public name/description/schema
+metadata. `project_function_call` is always **exec-scope**, even for a function named
+"read": it executes project code. MSO spawns the manifest argv directly with no shell
+and sends the model/caller's JSON object on stdin; caller values are never interpolated
+into command arguments. The child receives the existing scrubbed environment, so MSO
+credentials and provider tokens are not inherited. Projects without either file gain no
+new behavior.
+
+This shape preserves the global-tool invariant: MCP clients always see the same two MSO
+tool names, while the project-specific function names are data returned after project
+resolution. It also means adding a function to a project does not change MSO's toolset
+hash or force a cold prompt-cache prefix.
+
+For project callbacks that must enter a managed app (for example a signed webhook into a
+loopback-only agent), deployments may opt into `OS_PROJECT_INGRESS_ROUTES`. It defaults
+to empty. Routes are exact POST paths, max eight, loopback-only targets, and currently
+require HMAC-V2-shaped JSON headers; the loopback service remains responsible for real
+cryptographic verification.
 
 ## Safe text inspection and overwrite
 

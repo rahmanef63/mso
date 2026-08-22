@@ -1,4 +1,4 @@
-import { writeFileGuarded, makeDir, remove, move, copy, runCommand } from "@/lib/host";
+import { writeFileGuarded, makeDir, remove, move, copy, runCommand, resolveProjectHint, runProjectFunction } from "@/lib/host";
 import { type McpTool, str, opt, S, PATH_P } from "./tool-kit";
 import { importOpenAiProvidedFile } from "./openai-file-upload";
 import { READ_TOOLS } from "./tools-read";
@@ -106,6 +106,34 @@ const MUTATE_TOOLS: McpTool[] = [
     run: async (a) => { await remove(str(a, "path")); return { ok: true, path: a.path }; },
   },
 
+  {
+    name: "project_function_call",
+    limit: { key: "projects.function", max: 60, windowMs: 60_000 },
+    audit: {
+      action: "exec.run" as const,
+      targetArg: "project",
+      outcome: (r) => {
+        const { code } = r as { code: number };
+        return { ok: code === 0, action: "exec.run", detail: `project function exit ${code}` };
+      },
+    },
+    description:
+      "Execute ONE function explicitly declared by a validated project's .mso/functions.json. " +
+      "This is project code execution and therefore requires exec scope. The manifest supplies fixed argv; model/user input is passed only as JSON on stdin and is NEVER interpolated into a shell command. " +
+      "Call project_capabilities first for function names and schemas. Projects without an opt-in manifest expose nothing.",
+    scope: "exec",
+    annotations: { destructiveHint: true, openWorldHint: true },
+    inputSchema: S({
+      project: { type: "string", description: "Exact project id from projects_list, absolute path, name or alias." },
+      name: { type: "string", description: "Function name returned by project_capabilities." },
+      input: { type: "object", description: "JSON object passed to the project function on stdin.", additionalProperties: true },
+    }, ["project", "name", "input"]),
+    run: async (a) => {
+      const project = await resolveProjectHint(str(a, "project"));
+      if (!project) throw new Error(`project not found: ${String(a.project)}`);
+      return runProjectFunction(project.path, str(a, "name"), a.input);
+    },
+  },
   {
     name: "exec_run",
     limit: { key: "exec", max: 60, windowMs: 60_000 },

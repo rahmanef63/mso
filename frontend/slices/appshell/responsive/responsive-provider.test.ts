@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sameGeometry } from "./responsive-provider";
+import { sameGeometry, shouldUseMobileSurface } from "./responsive-provider";
 import type { Responsive } from "./use-responsive";
 
 const base: Responsive = {
@@ -37,5 +37,31 @@ describe("sameGeometry", () => {
     ["breakpoint", { breakpoint: "md" as const }],
   ])("is false when %s changes", (_label, patch) => {
     expect(sameGeometry(base, { ...base, ...patch })).toBe(false);
+  });
+});
+
+
+describe("shouldUseMobileSurface", () => {
+  it("uses mobile for portrait phones and desktop for the same phone rotated landscape", () => {
+    expect(shouldUseMobileSurface("phone", 390, 844, true)).toBe(true);
+    expect(shouldUseMobileSurface("phone", 844, 390, true)).toBe(false);
+  });
+
+  it("keeps the explicit Phone preview framed on a wide desktop viewport", () => {
+    expect(shouldUseMobileSurface("phone", 1280, 800, false)).toBe(true);
+  });
+
+  it("keeps auto phone-width portrait mobile but makes phone-width landscape desktop", () => {
+    expect(shouldUseMobileSurface("auto", 390, 844, true)).toBe(true);
+    expect(shouldUseMobileSurface("auto", 667, 375, true)).toBe(false);
+  });
+
+  it("still treats a coarse portrait tablet below 1024px as mobile", () => {
+    expect(shouldUseMobileSurface("auto", 820, 1180, true)).toBe(true);
+    expect(shouldUseMobileSurface("auto", 820, 1180, false)).toBe(false);
+  });
+
+  it("desktop override always stays desktop", () => {
+    expect(shouldUseMobileSurface("desktop", 390, 844, true)).toBe(false);
   });
 });

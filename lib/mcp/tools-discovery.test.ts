@@ -25,6 +25,16 @@ async function skill(dir: string, name: string, description: string, body = "ste
 
 await skill(path.join(widgetA, ".claude/skills"), "widget-deploy", "Ship the widget service from root A.");
 await fs.writeFile(path.join(widgetA, "package.json"), JSON.stringify({ name: "widget", version: "0.1.0" }));
+await fs.writeFile(path.join(widgetA, ".mcp.json"), JSON.stringify({ mcpServers: { local: { command: "ignored-secret-free-fixture" } } }));
+await fs.mkdir(path.join(widgetA, ".mso"), { recursive: true });
+await fs.writeFile(path.join(widgetA, ".mso/functions.json"), JSON.stringify({
+  version: 1,
+  functions: [{
+    name: "widget_status", description: "Read widget status.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    command: [process.execPath, "-e", "process.stdout.write('ok')"],
+  }],
+}));
 await skill(path.join(widgetB, ".claude/skills"), "widget-deploy", "Ship the widget service from root B.");
 // A project whose skills ROOT escapes the project via symlink: the SKILL.md is a real
 // regular file, so it is discoverable — but containment fails, so it is untrusted and
@@ -76,12 +86,14 @@ describe("projects_list", () => {
 
   it("enumerates every project across BOTH containers, keeping same-named ones distinct", async () => {
     const result = await run("projects_list") as {
-      total: number; scan: Scan; projects: Array<{ id: string; name: string; rootId: string; packageName?: string }>;
+      total: number; scan: Scan; projects: Array<{ id: string; name: string; rootId: string; packageName?: string; capabilities?: Record<string, unknown> }>;
     };
     expect(result.projects.map((p) => p.name)).toEqual(["gadget", "widget", "widget"]);
     expect(new Set(result.projects.map((p) => p.id)).size).toBe(3);
     expect(result.total).toBe(3);
-    expect(result.projects.find((p) => p.packageName === "widget")).toBeDefined();
+    const optedIn = result.projects.find((p) => p.packageName === "widget");
+    expect(optedIn).toBeDefined();
+    expect(optedIn?.capabilities).toMatchObject({ mcp: { config: ".mcp.json" }, functions: { valid: true, count: 1 } });
   });
 
   it("reports a truthful scan report on a complete enumeration", async () => {
@@ -94,6 +106,17 @@ describe("projects_list", () => {
     const result = await run("projects_list", { query: "wid", limit: 1 }) as { total: number; limit: number; projects: Array<{ name: string }> };
     expect(result).toMatchObject({ total: 2, limit: 1 });
     expect(result.projects.map((p) => p.name)).toEqual(["widget"]);
+  });
+});
+
+describe("project_capabilities", () => {
+  it("returns only public capability metadata for one exact project", async () => {
+    const result = await run("project_capabilities", { project: await projectId(widgetA) }) as {
+      capabilities: { mcp?: { config: string }; functions?: { valid: boolean; tools?: Array<{ name: string }> } };
+    };
+    expect(result.capabilities.mcp).toEqual({ config: ".mcp.json" });
+    expect(result.capabilities.functions).toMatchObject({ valid: true, tools: [{ name: "widget_status" }] });
+    expect(JSON.stringify(result)).not.toContain(process.execPath);
   });
 });
 

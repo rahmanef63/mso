@@ -45,7 +45,7 @@ export function AndroidNotifications({ open, onClose }: { open: boolean; onClose
     // It had no animation at all before; the black wash appeared in one frame.
     <div className="absolute inset-0 z-[45] flex flex-col bg-black/40 animate-in fade-in duration-[var(--m3-dur-effects)] ease-[var(--m3-effects)]" onClick={onClose}>
       {/* The shade is pulled DOWN from the top edge, but it was animating with
-          `appOpen`, which travels 14px UPWARD from below — the panel arrived moving
+          the old app-open transition, which traveled UPWARD from below — the panel arrived moving
           against the gesture that summoned it. It now slides down from -100% (its
           own height, above the viewport) on the M3 SPATIAL SLOW spring (k=200,
           ζ=0.8, ~511ms): a full-width surface, so the slow tier.

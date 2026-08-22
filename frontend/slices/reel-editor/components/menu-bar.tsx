@@ -72,7 +72,7 @@ export function MenuBar(p: MenuBarProps) {
   const shortcuts = "Space play · S split · ⌘Z undo · ⌘⇧Z redo · ⌘D duplicate · ⌫ delete";
 
   return (
-    <header className="flex items-center gap-1 border-b border-border bg-card px-2 py-1">
+    <header className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-border bg-card px-2 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <FilePicker ref={imgRef} accept="image/*" onFiles={onFiles("image")} />
       <FilePicker ref={vidRef} accept="video/*" onFiles={onFiles("video")} />
       <FilePicker ref={audRef} accept="audio/*" onFiles={onFiles("audio")} />

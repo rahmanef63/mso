@@ -1,4 +1,4 @@
-import { listProjects, PROJECT_LIMITS } from "@/lib/host";
+import { listProjects, projectCapabilities, resolveProjectHint, PROJECT_LIMITS } from "@/lib/host";
 import { catalogSkillsDetailed, resolveSkill, readSkillFile, skillIsExecutableByDefault, SKILL_SCAN_LIMITS } from "@/lib/skills/catalog";
 import { type McpTool, str, opt, S, READ_ONLY } from "./tool-kit";
 
@@ -22,10 +22,29 @@ const page = (a: Record<string, unknown>, max: number, fallback: number) => ({
 
 export const DISCOVERY_TOOLS: McpTool[] = [
   {
+    name: "project_capabilities",
+    description:
+      "Inspect ONE validated project for opt-in automation capabilities without exposing secrets. " +
+      "Reports whether a regular .mcp.json exists and, when present, the public name/description/schema metadata from .mso/functions.json. " +
+      "Project function commands are deliberately withheld; execution is only through project_function_call at exec scope. " +
+      "Nothing is enabled globally: projects without these files return an empty capability object.",
+    scope: "read",
+    annotations: READ_ONLY,
+    limit: { key: "projects.capabilities", max: 60, windowMs: 60_000 },
+    inputSchema: S({
+      project: { type: "string", description: "Exact project id from projects_list, absolute path, name or alias." },
+    }, ["project"]),
+    run: async (a) => {
+      const project = await resolveProjectHint(str(a, "project"));
+      if (!project) throw new Error(`project not found: ${String(a.project)}`);
+      return { project: { id: project.id, name: project.name, path: project.path }, capabilities: (await projectCapabilities(project.path)) ?? {} };
+    },
+  },
+  {
     name: "projects_list",
     description:
       "Enumerate the owner's projects across EVERY configured project container (each OS_FS_READ_ROOTS entry and its projects/ subdirectory), not just ~/projects. " +
-      "Returns a globally unique id (<rootId>/<name>, so two roots may hold a project of the same name), absolute path, its container root, package name/version and bounded Git branch/head read straight off .git with no shell. " +
+      "Returns a globally unique id (<rootId>/<name>, so two roots may hold a project of the same name), absolute path, its container root, package name/version, bounded Git branch/head, and opt-in MCP/function capability summary. " +
       "USE THIS FIRST when the user names a project you have not located — it is one call, needs no shell scope, and its id or path is the input to workflow_start. " +
       "Hidden directories, symlinks, credential paths and directories not owned by the MSO user are excluded. " +
       "ALWAYS check `scan.truncated`: when true the listing is incomplete and `scan.truncationReasons` says which cap was hit — do not report that a project is absent from a truncated scan. " +

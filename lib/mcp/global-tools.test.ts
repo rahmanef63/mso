@@ -98,6 +98,13 @@ describe("no per-project or per-agent tool filter exists", () => {
       expect(tool.inputSchema.required ?? [], tool.name).not.toContain("workflow_id");
     }
   });
+
+  it("keeps project function execution in exec while discovery stays read", async () => {
+    expect(await names("read")).toContain("project_capabilities");
+    expect(await names("read")).not.toContain("project_function_call");
+    expect(await names("write")).not.toContain("project_function_call");
+    expect(await names("exec")).toContain("project_function_call");
+  });
 });
 
 describe("image generation is gone from every surface", () => {
@@ -137,6 +144,6 @@ describe("file import survives the image-generation removal", () => {
 describe("global discovery is part of the public catalog", () => {
   it("ships projects_list, skills_list and skills_read at read scope", async () => {
     const read = await names("read");
-    for (const name of ["projects_list", "skills_list", "skills_read", "skills_search"]) expect(read).toContain(name);
+    for (const name of ["projects_list", "project_capabilities", "skills_list", "skills_read", "skills_search"]) expect(read).toContain(name);
   });
 });

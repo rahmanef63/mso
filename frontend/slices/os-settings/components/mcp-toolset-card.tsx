@@ -34,19 +34,19 @@ export function McpToolsetCard({ info }: { info: McpToolsetInfo }) {
   const changed = Boolean(ack && !current);
 
   return (
-    <div className="mt-3 rounded-xl border border-border bg-secondary/30 p-3">
+    <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
       <div className="flex items-start gap-2">
         <Wrench className="mt-0.5 size-4 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="text-xs font-medium">MCP toolset {info.version}</p>
-            <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px]">{info.toolCount} tools</span>
-            <span className="font-mono text-[10px] text-muted-foreground">{info.hash}</span>
+            <p className="text-sm font-medium">MCP toolset {info.version}</p>
+            <span className="rounded-md bg-secondary px-2 py-0.5 font-mono text-[11px]">{info.toolCount} tools</span>
+            <span className="font-mono text-[11px] text-muted-foreground">{info.hash}</span>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
             Server {info.serverVersion} · read {info.byScope.read} · write {info.byScope.write} · exec {info.byScope.exec} · changed {info.changedAt.slice(0, 10)}
           </p>
-          <p className={`mt-1 text-[11px] ${changed ? "text-warning" : "text-muted-foreground"}`}>
+          <p className={`mt-2 text-xs leading-relaxed ${changed ? "text-warning" : "text-muted-foreground"}`}>
             {current
               ? "ChatGPT action snapshot marked current for this browser."
               : changed
@@ -56,15 +56,15 @@ export function McpToolsetCard({ info }: { info: McpToolsetInfo }) {
         </div>
         {current ? <BadgeCheck className="size-4 shrink-0 text-success" /> : <RefreshCw className="size-4 shrink-0 text-warning" />}
       </div>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <Button
-          type="button" variant="secondary" size="sm" className="h-8 text-[11px]"
+          type="button" variant="secondary" size="sm" className="min-h-9 flex-1 text-xs sm:flex-none [@media(pointer:coarse)]:min-h-[44px]"
           onClick={() => { window.localStorage.setItem(ACK_KEY, signature); window.dispatchEvent(new Event(ACK_EVENT)); }}
         >
           {current ? "Marked refreshed" : "Mark ChatGPT refreshed"}
         </Button>
         <Button
-          type="button" variant="ghost" size="sm" className="h-8 text-[11px]"
+          type="button" variant="ghost" size="sm" className="min-h-9 flex-1 text-xs sm:flex-none [@media(pointer:coarse)]:min-h-[44px]"
           onClick={() => void navigator.clipboard.writeText(signature).then(() => {
             setCopied(true); window.setTimeout(() => setCopied(false), 1500);
           })}
