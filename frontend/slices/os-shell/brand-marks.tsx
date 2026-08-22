@@ -7,6 +7,17 @@
 // those families: iOS = macOS artwork, Android = Windows artwork.
 import type { AppIconComponent } from "@/features/appshell";
 
+/** An official third-party brand mark is shell-invariant by definition. */
+function officialMark(src: string): AppIconComponent {
+  const Mark: AppIconComponent = ({ className: cls }) => (
+    // Small fixed local brand asset; image optimization adds no value here.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" aria-hidden className={cls ?? "size-full object-contain"} draggable={false} decoding="async" />
+  );
+  Mark.displayName = `OfficialArtwork(${src})`;
+  return Mark;
+}
+
 /** One app identity with distinct native-looking artwork per desktop shell. */
 function platformMark(fallback: string, macos: string, windows: string): AppIconComponent {
   const Mark: AppIconComponent = ({ className: cls }) => {
@@ -32,7 +43,7 @@ export const APP_MARKS: Record<string, AppIconComponent> = {
     "/app-icons/macos/files.webp",
     "/app-icons/windows/files.webp",
   ),
-  "camoufox-browser": platformMark("/brand/official/camoufox.webp", "/app-icons/macos/camoufox.webp", "/app-icons/windows/camoufox.webp"),
+  "camoufox-browser": officialMark("/brand/official/camoufox.webp"),
   "code-editor": platformMark(
     "/app-icons/code.webp",
     "/app-icons/macos/code.webp",
@@ -78,8 +89,8 @@ export const APP_MARKS: Record<string, AppIconComponent> = {
     "/app-icons/macos/docs.webp",
     "/app-icons/windows/docs.webp",
   ),
-  hermes: platformMark("/brand/official/hermes.webp", "/app-icons/macos/hermes.webp", "/app-icons/windows/hermes.webp"),
-  openclaw: platformMark("/brand/official/openclaw.webp", "/app-icons/macos/openclaw.webp", "/app-icons/windows/openclaw.webp"),
+  hermes: officialMark("/brand/official/hermes.webp"),
+  openclaw: officialMark("/brand/official/openclaw.webp"),
 };
 
 export const HermesMark = APP_MARKS.hermes;

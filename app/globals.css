@@ -396,6 +396,50 @@ body {
   transform-origin: bottom;
 }
 
+
+/* ── iOS System Settings app ───────────────────────────────────────────────
+   System Settings owns its iOS navigation chrome, matching the native hierarchy:
+   large-title/search root → grouped inset lists → blue Settings back on detail.
+   These selectors are fully iOS + Settings-slot scoped; Android/desktop shells
+   keep their existing layouts. */
+[data-shell="ios"] [data-slot="ios-settings-root"],
+[data-shell="ios"] [data-slot="ios-settings-detail"] {
+  font-family: var(--shell-font);
+  background: var(--grouped);
+}
+[data-shell="ios"] [data-slot="ios-settings-root"] [data-slot="settings-card"],
+[data-shell="ios"] [data-slot="ios-settings-detail"] [data-slot="settings-card"] {
+  border: 0;
+  border-radius: 16px;
+  box-shadow: none;
+}
+[data-shell="ios"] [data-slot="ios-settings-detail"] [data-slot="settings-section-heading"] {
+  gap: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+[data-shell="ios"] [data-slot="ios-settings-detail"] [data-slot="settings-section-icon"] {
+  display: none;
+}
+[data-shell="ios"] [data-slot="ios-settings-detail"] [data-slot="settings-section-title"] {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-dim);
+}
+[data-shell="ios"] [data-slot="ios-settings-detail"] [data-slot="settings-row"] {
+  min-height: 50px;
+}
+[data-shell="ios"] [data-slot="ios-settings-detail"] [data-slot="settings-row"]:has([role="switch"]) {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+[data-shell="ios"] [data-slot="ios-settings-detail"] [data-slot="settings-row"]:has([role="switch"]) > div:last-child {
+  width: auto;
+  flex-shrink: 0;
+}
+
 /* ── Touch-target a11y (HIG 44px / Material 48dp) ──────────────────────────
    The app root is 14px, so rem-based control heights fall short of 44px
    (h-8 = 28px, h-9 = 31.5px). Lift form controls + menu rows on ANY coarse

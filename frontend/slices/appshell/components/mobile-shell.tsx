@@ -204,6 +204,7 @@ export function MobileShell() {
               the app scrolls (onScrollCapture on <main> catches the app's own inner
               scroll container generically). Title stays put — mso apps carry no
               in-content large title to fade in. */}
+          {!activeApp.ownsMobileNavigation && (
           <header
             className={cn(
               "shrink-0 border-b transition-[background-color,border-color] duration-200",
@@ -238,6 +239,7 @@ export function MobileShell() {
               </Button>
             </div>
           </header>
+          )}
           {/* The home-indicator overlays the content edge-to-edge (real-iOS), so
               --sai-bottom INSIDE the app pane must clear its 34px band — every app
               already pads with var(--sai-bottom), so setting the var here clears the

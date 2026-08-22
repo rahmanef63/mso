@@ -12,6 +12,7 @@ import {
 } from "@/features/os-shell";
 import { SettingsTabs, SettingsSidebar, type SectionId } from "./components/nav";
 import { SectionDetail, SectionList } from "./components/sections";
+import { IosSettings } from "./components/ios-settings";
 
 // Default export so os-shell can lazy-load it as a window app.
 export default function OsSettings() {
@@ -68,8 +69,18 @@ export default function OsSettings() {
   const layout: "stack" | "sidebar" | "tabs" =
     surface === "mobile" ? "stack" : shellId === "macos" ? "sidebar" : "tabs";
 
-  // Mobile (iOS/Android): MasterDetail drill-down. The mobile shell chrome already
-  // paints the "Settings" app title above this, so no in-pane large-title here.
+  // iOS Settings owns its full native navigation stack: the generic iOS app
+  // header is disabled by the app descriptor, so the root can use Apple's
+  // large-title/search hierarchy and detail pages can own the Settings back row.
+  if (surface === "mobile" && shellId === "ios") {
+    return (
+      <AppFrame safeArea={false} bodyClassName="overflow-hidden">
+        <IosSettings active={active} onSelect={setActive} onBack={() => setActive(null)} />
+      </AppFrame>
+    );
+  }
+
+  // Android keeps the shared MasterDetail drill-down and Android shell chrome.
   if (layout === "stack") {
     return (
       <AppFrame>
