@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-08-23
 
+**Fixed**
+
+- `mobile` stabilize widgets back and viewport
+
 **Changed**
 
 - `ui` separate shell design systems

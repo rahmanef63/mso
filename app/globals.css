@@ -688,3 +688,16 @@ body {
 [data-slot="shell-dialog-surface"][data-shell-id="windows"] {
   background: color-mix(in srgb, var(--window-bg) 95%, var(--accent) 5%);
 }
+
+/* Mobile widget persona + containment. The widget behavior/data stays shared;
+   only the surface follows the active phone shell. X is always clipped at the
+   Today/Widgets boundary so one long Quicklink can never create a second axis. */
+[data-shell="ios"] { --widget-bg: var(--glass-menu); }
+[data-shell="android"] { --widget-bg: color-mix(in srgb, var(--card) 92%, var(--accent) 8%); }
+[data-shell="android"] [data-slot="widget-card"] {
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 24px;
+  backdrop-filter: none;
+}
+[data-shell="ios"] [data-slot="widget-card"] { border-radius: 22px; }
+[data-slot="mobile-widgets"], [data-slot="quicklinks-widget-grid"] { max-width: 100%; }

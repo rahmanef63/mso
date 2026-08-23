@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Code2, FileText, Globe, Moon, Palette, Sun, Timer as TimerIcon } from "lucide-react";
-import { setShell, shellsForSurface, useShellAppearance, useShellPrefs } from "@/features/appshell";
+import { setShell, shellsForSurface, useActiveShell, useShellAppearance, useShellPrefs } from "@/features/appshell";
 import { cn } from "@/lib/utils";
 import { Card } from "./widget-cards";
 import { mdToHtml } from "./md";
@@ -118,11 +118,13 @@ function HtmlWidget() {
   );
 }
 
-// Switches the active DESKTOP shell (macOS / Windows / Dashboard). VPS-native —
-// reads the shell registry directly (brand-free).
+// Switches the active shell for the CURRENT surface. On a phone this intentionally
+// offers iOS/Android; desktop widgets offer macOS/Windows/Dashboard.
 function ShellWidget() {
   const prefs = useShellPrefs();
-  const shells = shellsForSurface("desktop");
+  const { surface } = useActiveShell();
+  const shells = shellsForSurface(surface);
+  const active = prefs[surface];
   return (
     <Card className="pointer-events-auto">
       <div className="mb-2 flex items-center gap-2">
@@ -134,10 +136,10 @@ function ShellWidget() {
           <button
             key={s.id}
             type="button"
-            onClick={() => setShell("desktop", s.id)}
+            onClick={() => setShell(surface, s.id)}
             className={cn(
               "flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs",
-              prefs.desktop === s.id ? "bg-primary text-primary-foreground" : "hover:bg-white/10",
+              active === s.id ? "bg-primary text-primary-foreground" : "hover:bg-white/10",
             )}
           >
             <s.icon className="size-4 shrink-0" />

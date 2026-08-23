@@ -3,7 +3,7 @@
 import { createElement } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useApps, useShellUI, AppIcon, type AppDescriptor } from "@/features/appshell";
+import { useApps, useShellUI, useActiveShell, AppIcon, type AppDescriptor } from "@/features/appshell";
 import { Card } from "./widget-cards";
 import { useWidgetState, setPickerOpen } from "../widget-registry";
 import { WIDGET_RENDER } from "./widgets-defs";
@@ -16,15 +16,16 @@ import { WidgetPicker } from "./widget-picker";
 // app row from the shell-UI context.
 export function MobileWidgets() {
   const apps = useApps();
+  const shell = useActiveShell();
   const { quickAppIds: quickIds, openApp: onOpen } = useShellUI();
   const { enabled } = useWidgetState();
 
   const quick = quickIds.map((id) => apps.find((a) => a.id === id)).filter(Boolean) as AppDescriptor[];
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto px-4 py-3 [scrollbar-width:none]">
+    <div data-slot="mobile-widgets" className="flex h-full w-full min-w-0 max-w-full flex-col gap-3 overflow-x-clip overflow-y-auto px-4 py-3 [scrollbar-width:none]">
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-[28px] font-extrabold tracking-[-0.02em] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">Today</h2>
+        <h2 className="text-[28px] font-extrabold tracking-[-0.02em] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">{shell.id === "android" ? "Widgets" : "Today"}</h2>
         {/* Edit the glanceable VPS telemetry set right from the phone — opens the
             shared widget picker (add/remove Clock/Notes/Quicklinks/CPU/Mem/…). */}
         <Button
@@ -46,9 +47,9 @@ export function MobileWidgets() {
       {quick.length > 0 && (
         <Card>
           <span className="mb-2 block text-[12px] font-semibold text-muted-foreground">Quick open</span>
-          <div className="flex gap-4">
+          <div data-slot="quick-open-grid" className="grid min-w-0 max-w-full grid-cols-4 gap-x-3 gap-y-3 overflow-x-clip">
             {quick.map((app) => (
-              <Button key={app.id} type="button" variant="ghost" onClick={() => onOpen(app)} className="h-auto p-0 hover:bg-transparent flex flex-col items-center gap-1.5">
+              <Button key={app.id} type="button" variant="ghost" onClick={() => onOpen(app)} className="h-auto min-w-0 max-w-full p-0 hover:bg-transparent flex flex-col items-center gap-1.5 overflow-hidden">
                 <span className="size-12">
                   <AppIcon app={app} />
                 </span>

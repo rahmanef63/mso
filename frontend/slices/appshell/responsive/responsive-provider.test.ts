@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sameGeometry, shouldUseMobileSurface } from "./responsive-provider";
+import { effectiveVisualViewportHeight, sameGeometry, shouldUseMobileSurface } from "./responsive-provider";
 import type { Responsive } from "./use-responsive";
 
 const base: Responsive = {
@@ -61,7 +61,23 @@ describe("shouldUseMobileSurface", () => {
     expect(shouldUseMobileSurface("auto", 820, 1180, false)).toBe(false);
   });
 
+  it("does not flip a portrait phone to desktop when the keyboard shrinks innerHeight", () => {
+    expect(shouldUseMobileSurface("auto", 390, 320, true, true)).toBe(true);
+    expect(shouldUseMobileSurface("auto", 844, 390, true, false)).toBe(false);
+  });
+
   it("desktop override always stays desktop", () => {
     expect(shouldUseMobileSurface("desktop", 390, 844, true)).toBe(false);
+  });
+});
+
+
+describe("effectiveVisualViewportHeight", () => {
+  it("tracks browser chrome and keyboard at normal scale", () => {
+    expect(effectiveVisualViewportHeight(844, 706.4, 1)).toBe(706);
+  });
+
+  it("does not resize the shell during pinch zoom", () => {
+    expect(effectiveVisualViewportHeight(844, 422, 2)).toBe(844);
   });
 });

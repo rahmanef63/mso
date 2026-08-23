@@ -73,12 +73,12 @@ function Surface() {
   // value here: the pre-hydration script in app/layout.tsx sets data-theme before
   // first paint.
   if (!mounted) {
-    return <div id="main-content" className="relative h-dvh w-screen overflow-hidden bg-background" />;
+    return <div id="main-content" className="relative w-screen overflow-hidden bg-background" style={{ height: "var(--mso-visual-vh, 100dvh)" }} />;
   }
 
   return (
     <ActiveShellProvider id={desc.id} surface={surface}>
-      <div id="main-content" data-shell={desc.id} className="relative h-dvh w-screen overflow-hidden">
+      <div id="main-content" data-shell={desc.id} className="relative w-screen overflow-hidden" style={{ height: "var(--mso-visual-vh, 100dvh)" }}>
         <Wallpaper shellDefault={desc.wallpaper} />
         <ContextMenuHost>
           <Suspense fallback={null}>

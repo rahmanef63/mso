@@ -108,18 +108,18 @@ function QuicklinksWidget() {
         <Link2 className="size-4 text-muted-foreground" />
         <span className="text-[12.5px] font-semibold">Quicklinks</span>
       </div>
-      <div className="grid grid-cols-4 gap-2">
+      <div data-slot="quicklinks-widget-grid" className="grid min-w-0 max-w-full grid-cols-4 gap-2 overflow-x-clip">
         {items.slice(0, 8).map((link) => (
           <button
             key={link.id}
             type="button"
             onClick={() => open(link)}
-            className="flex flex-col items-center gap-1 rounded-md p-1 hover:bg-white/10"
+            className="flex min-w-0 max-w-full flex-col items-center gap-1 overflow-hidden rounded-md p-1 hover:bg-white/10"
           >
             <span className="size-8">
               <QuicklinkIcon link={link} />
             </span>
-            <span className="max-w-[52px] truncate text-[9px] font-medium">{link.title}</span>
+            <span className="w-full max-w-[52px] truncate text-center text-[9px] font-medium">{link.title}</span>
           </button>
         ))}
       </div>

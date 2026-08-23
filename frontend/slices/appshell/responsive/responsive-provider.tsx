@@ -16,14 +16,23 @@ const TABLET_W = 1024; // touch-portrait tablets below this read as mobile
  * deliberately the desktop surface so a rotated phone gets the denser desktop
  * workspace instead of a stretched phone shell. A forced phone preview follows
  * the same rule — the override selects the portrait persona, not orientation. */
-export function shouldUseMobileSurface(device: DeviceMode, vw: number, vh: number, coarse: boolean): boolean {
-  const portrait = vh >= vw;
+export function shouldUseMobileSurface(device: DeviceMode, vw: number, vh: number, coarse: boolean, portraitOverride?: boolean): boolean {
+  const portrait = portraitOverride ?? vh >= vw;
   if (device === "desktop") return false;
   // Keep the explicit Phone preview usable on a wide desktop: it renders inside
   // PhoneFrame. On an actual phone-width landscape viewport, switch to desktop.
   if (device === "phone") return portrait || vw >= TABLET_W;
   if (!portrait) return false;
   return vw < MOBILE_W || (coarse && vw < TABLET_W);
+}
+
+
+/** The visual viewport is the actually visible browser area after dynamic URL bars
+ * and the soft keyboard are accounted for. Ignore it while pinch-zoomed: resizing
+ * the entire shell to a zoomed viewport makes content jump under accessibility zoom. */
+export function effectiveVisualViewportHeight(innerHeight: number, visualHeight?: number, scale = 1): number {
+  if (visualHeight && visualHeight > 0 && Math.abs(scale - 1) < 0.01) return Math.round(visualHeight);
+  return Math.max(1, Math.round(innerHeight));
 }
 
 function bucket(vw: number): Pane {
@@ -102,9 +111,14 @@ export function ResponsiveProvider({
     const measure = () => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      const vv = window.visualViewport;
+      const visibleHeight = effectiveVisualViewportHeight(vh, vv?.height, vv?.scale ?? 1);
+      document.documentElement.style.setProperty("--mso-visual-vh", `${visibleHeight}px`);
       const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
-      const portrait = vh >= vw;
-      const isMobile = shouldUseMobileSurface(device, vw, vh, coarse);
+      // CSS orientation is based on the layout viewport and does not flip when a
+      // portrait phone opens its keyboard (innerHeight can temporarily become < width).
+      const portrait = window.matchMedia?.("(orientation: portrait)").matches ?? vh >= vw;
+      const isMobile = shouldUseMobileSurface(device, vw, vh, coarse, portrait);
       const next: Responsive = {
         formFactor: isMobile ? "mobile" : "desktop",
         isMobile,
@@ -138,10 +152,14 @@ export function ResponsiveProvider({
     measure();
     window.addEventListener("resize", schedule);
     window.addEventListener("orientationchange", schedule);
+    window.visualViewport?.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("scroll", schedule);
     return () => {
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener("resize", schedule);
       window.removeEventListener("orientationchange", schedule);
+      window.visualViewport?.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("scroll", schedule);
     };
   }, [device]);
 

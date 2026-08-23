@@ -29,10 +29,14 @@ import { ShellContextMenu, useShellContextMenu } from "../context-menu";
 import type { AppDescriptor } from "../../../lib/types";
 import { AndroidNotifications } from "./android-notifications";
 import { useMobileNavigationInfo } from "../../../lib/mobile-navigation";
+import { useResponsive } from "../../../responsive/use-responsive";
+import { useAndroidBrowserBack } from "./use-android-browser-back";
 import { AndroidFeatureHeader } from "./android-feature-header";
 
 function AndroidShell() {
   const apps = useApps();
+  const responsive = useResponsive();
+  const showSystemNav = responsive.vw >= 768; // only the desktop PhoneFrame preview draws fake Android system buttons
   const order = useWindowOrder();
   const focused = useFocused();
   const [drawer, setDrawer] = useState(false);
@@ -75,17 +79,34 @@ function AndroidShell() {
     },
     [apps, launch],
   );
-  const goHome = () => {
+  const goHome = useCallback(() => {
     if (topId) minimizeWindow(topId);
     setHome(true);
     setDrawer(false);
     setRecents(false);
-  };
+    setCc(false);
+    setNotif(false);
+  }, [topId, setHome]);
   const resume = (id: string) => {
     restoreWindow(id);
     setRecents(false);
     setHome(false);
   };
+  const browserLayer = drawer
+    ? { key: "drawer", onBack: () => setDrawer(false) }
+    : showApp && activeApp
+      ? {
+          key: mobileNav?.backLabel && mobileNav.backLabel !== "Home"
+            ? `detail:${activeApp.id}:${mobileNav.title}`
+            : `app:${activeApp.id}`,
+          onBack: mobileNav?.onBack ?? goHome,
+        }
+      : null;
+  // On a real Android phone the browser/OS already owns the system Back gesture.
+  // Mirror shell layers into same-URL history entries so that gesture closes the
+  // app drawer/detail/app before it ever navigates away from MSO. PhoneFrame keeps
+  // the simulated 3-button row for desktop preview and does not install this trap.
+  const browserBack = useAndroidBrowserBack(!showSystemNav, browserLayer);
   // Pull-DOWN on home: LEFT half → notifications, RIGHT half → Control Center
   // (mirrors the iOS split). The grid keeps scrolling — the pull only arms at top.
   const pullDown = usePullDown((sx) => (sx < window.innerWidth / 2 ? setNotif(true) : setCc(true)), gridRef);
@@ -116,12 +137,12 @@ function AndroidShell() {
     <ShellUIProvider value={shellUI}>
       <div
         className="absolute inset-0 z-[10] flex flex-col overflow-hidden text-foreground"
-        style={{ "--android-nav": "48px" } as CSSProperties}
+        style={{ "--android-nav": showSystemNav ? "48px" : "0px" } as CSSProperties}
       >
         {/* HOME (always mounted; app overlays it — inert while covered so its
             grid + NavBar drop out of tab/AT order under the z-20 app layer).
             Pull down → Control Center; clock+date live on the wallpaper. */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-1" inert={showApp} aria-hidden={showApp} onPointerDown={pullDown} onContextMenu={onHomeContext} style={{ paddingTop: "var(--sai-top, 0px)" }}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-1" inert={showApp} aria-hidden={showApp} onPointerDown={pullDown} onContextMenu={onHomeContext} style={{ paddingTop: "var(--sai-top, 0px)", paddingBottom: showSystemNav ? undefined : "var(--sai-bottom)" }}>
           {/* Same reason as the app labels: the clock sits on the wallpaper, so it
               needs its own light-on-dark treatment rather than the theme foreground. */}
           {/* `[&_div]:text-white/80` targets Clock mode="date", which hard-codes
@@ -141,7 +162,7 @@ function AndroidShell() {
             <span className="text-sm text-muted-foreground">Search</span>
           </button>
           {/* Home widgets — shared Today surface, height-capped so it never crowds the grid. */}
-          <div className="mt-4 max-h-[36vh] shrink-0 overflow-y-auto [scrollbar-width:none]">
+          <div className="mt-4 max-h-[36vh] min-w-0 max-w-full shrink-0 overflow-x-hidden overflow-y-auto [scrollbar-width:none]">
             <Slot region="today" />
           </div>
           {/* EVERY dockable app gets a home icon — the old slice(0, 12) cap hid most of
@@ -170,7 +191,7 @@ function AndroidShell() {
           </Button>
         </div>
 
-        <NavBar inactive={showApp} onBack={goHome} onHome={goHome} onRecents={() => setRecents(true)} />
+        {showSystemNav && <NavBar inactive={showApp} onBack={goHome} onHome={goHome} onRecents={() => setRecents(true)} />}
 
         {/* Fullscreen app. Open = M3 SPATIAL SLOW (k=200, ζ=0.8, ~511ms). The speed
             tier is chosen by the SIZE of the thing that moves, not by how far it
@@ -185,17 +206,17 @@ function AndroidShell() {
             <AndroidFeatureHeader
               title={mobileNav?.title ?? activeApp.title}
               backLabel={mobileNav?.backLabel ?? "Home"}
-              onBack={mobileNav?.onBack ?? goHome}
+              onBack={() => browserBack()}
               onAI={toggleInspector}
             />
             <main className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]">
               <WindowContent app={top.app} payload={top.payload} />
             </main>
-            <NavBar onBack={mobileNav?.onBack ?? goHome} onHome={goHome} onRecents={() => setRecents(true)} />
+            {showSystemNav && <NavBar onBack={mobileNav?.onBack ?? goHome} onHome={goHome} onRecents={() => setRecents(true)} />}
           </div>
         )}
 
-        {drawer && <AppDrawer apps={dockable} onLaunch={launch} onClose={() => setDrawer(false)} />}
+        {drawer && <AppDrawer apps={dockable} onLaunch={launch} onClose={() => browserBack()} />}
         {recents && <Recents order={order} apps={apps} onResume={resume} onHome={goHome} />}
         {/* live-activity chip (parity with iOS Dynamic Island) — renders only
             while an app reports an activity (render/copy…); reads the same store. */}
