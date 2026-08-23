@@ -156,7 +156,7 @@ export default function CamoufoxBrowser() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-black">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-black">
       <header className="flex shrink-0 items-center gap-2 border-b border-border bg-background px-2 py-1">
         <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
         <span className="truncate text-[11px] text-muted-foreground">Running on the server</span>
@@ -164,7 +164,7 @@ export default function CamoufoxBrowser() {
           type="button"
           disabled={busy}
           onClick={() => void power(false)}
-          className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50"
+          className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50 [@media(pointer:coarse)]:min-h-[44px]"
         >
           {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Power className="size-3.5" />}
           {busy ? "Working…" : "Turn off"}
@@ -172,9 +172,15 @@ export default function CamoufoxBrowser() {
       </header>
       {error && <p className="shrink-0 bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">{error}</p>}
       {src ? (
-        <iframe src={src} title="Camoufox browser" className="h-full w-full border-0 bg-black" allow="clipboard-read; clipboard-write" />
+        <iframe
+          src={src}
+          title="Camoufox browser"
+          className="min-h-0 w-full flex-1 border-0 bg-black"
+          allow="clipboard-read; clipboard-write"
+          allowFullScreen
+        />
       ) : (
-        <div className="flex h-full w-full items-center justify-center gap-2 bg-black text-xs text-white/60">
+        <div className="flex min-h-0 w-full flex-1 items-center justify-center gap-2 bg-black text-xs text-white/60">
           <Loader2 className="size-4 animate-spin" /> Connecting to the browser session…
         </div>
       )}

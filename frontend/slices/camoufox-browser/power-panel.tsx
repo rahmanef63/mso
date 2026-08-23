@@ -40,7 +40,7 @@ export function PowerPanel({
         the whole web — including the sites that refuse to be put in an iframe. It is switched off
         right now and using none of the server&apos;s memory or CPU.
       </p>
-      <Button className="mt-1" disabled={busy} onClick={onStart}>
+      <Button className="mt-1 [@media(pointer:coarse)]:min-h-[44px]" disabled={busy} onClick={onStart}>
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Power className="size-4" />}
         {busy ? "Starting the browser…" : "Turn the browser on"}
       </Button>
@@ -55,7 +55,7 @@ export function PowerPanel({
 
 function Shell({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 overflow-auto bg-background px-6 py-8 text-center">
+    <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3 overflow-auto bg-background px-4 py-6 text-center sm:px-6 sm:py-8">
       {icon}
       <p className="max-w-md text-sm font-medium">{title}</p>
       <div className="flex max-w-md flex-col items-center gap-3 text-[11px] leading-relaxed text-muted-foreground">

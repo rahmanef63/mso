@@ -19,6 +19,11 @@ import { childEnv } from "./child-env";
 const MAX_SESSIONS = 8; // concurrent live shells
 const BUFFER_CAP = 256 * 1024; // chars of replay buffer per session
 const IDLE_REAP_MS = 30 * 60_000; // no attached client for 30 min → kill
+// Hard browser/process exits cannot reliably send /term/close. If all eight slots are
+// occupied, a shell that has had NO stream listener for this long is safe to reclaim
+// under capacity pressure. The grace is deliberately longer than EventSource's normal
+// reconnect window, and attached shells are never candidates.
+const CAPACITY_RECLAIM_GRACE_MS = 10_000;
 const DEAD_LINGER_MS = 60_000; // exited sessions linger so streams deliver `exit`
 const REAP_TICK_MS = 60_000;
 
@@ -75,6 +80,24 @@ function clampDim(n: number): number {
   return Math.max(2, Math.min(500, Math.round(n)));
 }
 
+function reclaimDetachedSlot(now = Date.now()): boolean {
+  let candidate: Session | null = null;
+  for (const session of sessions.values()) {
+    if (session.dead || session.listeners.size > 0) continue;
+    if (now - session.idleSince < CAPACITY_RECLAIM_GRACE_MS) continue;
+    if (!candidate || session.idleSince < candidate.idleSince) candidate = session;
+  }
+  if (!candidate) return false;
+
+  // Delete first so the slot is immediately available even though node-pty emits its
+  // exit callback asynchronously. A late reconnect to the reclaimed id correctly gets
+  // “Unknown terminal session” and the client can Restart instead of reviving a shell
+  // we deliberately evicted under capacity pressure.
+  sessions.delete(candidate.id);
+  candidate.pty.kill();
+  return true;
+}
+
 export async function openPty(opts: {
   cols: number;
   rows: number;
@@ -82,7 +105,7 @@ export async function openPty(opts: {
 }): Promise<{ id: string; cwd: string }> {
   let live = 0;
   for (const s of sessions.values()) if (!s.dead) live++;
-  if (live >= MAX_SESSIONS)
+  if (live >= MAX_SESSIONS && !reclaimDetachedSlot())
     throw new HostError(`Too many terminal sessions (max ${MAX_SESSIONS}) — close one first`);
 
   const cwd = await resolveCwd(opts.cwd); // write-root bounded, falls back home

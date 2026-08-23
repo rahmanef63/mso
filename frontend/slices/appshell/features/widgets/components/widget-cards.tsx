@@ -12,7 +12,15 @@ export function gb(bytes: number): string {
 
 // className lets an interactive widget opt back into pointer events — the desktop
 // stack wrapper is pointer-events-none, so Notes/Quicklinks pass "pointer-events-auto".
-export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+export function Card({
+  children,
+  className,
+  surface = "card",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  surface?: "card" | "clear";
+}) {
   return (
     <div
       // Radius comes from --widget-radius with the mobile default (1rem) as the
@@ -26,7 +34,11 @@ export function Card({ children, className }: { children: React.ReactNode; class
         className,
       )}
       data-slot="widget-card"
-      style={{ background: "var(--widget-bg, var(--glass-menu))" }}
+      style={{
+        background: surface === "clear" ? "transparent" : "var(--widget-bg, var(--glass-menu))",
+        borderColor: surface === "clear" ? "transparent" : undefined,
+        backdropFilter: surface === "clear" ? "none" : undefined,
+      }}
     >
       {children}
     </div>

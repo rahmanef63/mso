@@ -77,7 +77,7 @@ function NotesWidget() {
     typeof localStorage !== "undefined" ? localStorage.getItem(NOTES_KEY) ?? "" : "",
   );
   return (
-    <Card className="pointer-events-auto">
+    <Card surface="clear" className="pointer-events-auto px-1 py-2">
       <div className="mb-2 flex items-center gap-2">
         <StickyNote className="size-4 text-muted-foreground" />
         <span className="text-[12.5px] font-semibold">Notes</span>

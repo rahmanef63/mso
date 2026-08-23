@@ -43,7 +43,7 @@ export function QuicklinksSection() {
         {items.map((ql, i) => {
           const src = faviconUrl(ql.url);
           return (
-            <SettingsBlock key={ql.id} className="flex items-center gap-2">
+            <SettingsBlock key={ql.id} className="flex flex-wrap items-center gap-2 @md:flex-nowrap">
               <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-md bg-white text-zinc-500">
                 {src ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -56,14 +56,14 @@ export function QuicklinksSection() {
                 value={ql.title}
                 onChange={(e) => update(ql.id, { title: e.target.value })}
                 aria-label="Label"
-                className="h-8 min-w-0 flex-1"
+                className="h-8 min-w-[100px] flex-1"
               />
               <Input
                 value={ql.url}
                 onChange={(e) => update(ql.id, { url: e.target.value })}
                 onBlur={(e) => update(ql.id, { url: normalizeUrl(e.target.value) })}
                 aria-label="URL"
-                className="h-8 min-w-0 flex-[2] font-mono text-[11px]"
+                className="order-last h-8 min-w-0 basis-full font-mono text-[11px] @md:order-none @md:basis-0 @md:flex-[2]"
               />
               <Button type="button" variant="ghost" size="icon" aria-label="Move up" onClick={() => move(ql.id, -1)} disabled={i === 0} className="[@media(pointer:coarse)]:size-[44px]">
                 <ArrowUp className="size-4" />
@@ -85,7 +85,7 @@ export function QuicklinksSection() {
           );
         })}
         {/* Add row — flush-free, iOS "+ new item at the list bottom" */}
-        <SettingsBlock className="flex flex-col gap-2 sm:flex-row">
+        <SettingsBlock className="flex flex-col gap-2 @md:flex-row">
           <Input
             placeholder="github.com"
             value={url}
@@ -99,7 +99,7 @@ export function QuicklinksSection() {
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
             aria-label="Label"
-            className="sm:max-w-[38%]"
+            className="@md:max-w-[38%]"
           />
           <Button type="button" onClick={submit} className="shrink-0">
             <Plus className="size-4" /> Add

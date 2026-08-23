@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-08-23
 
+**Added**
+
+- complete terminal and mobile app surfaces
+
 **Fixed**
 
 - `android` clear notch in app drawer

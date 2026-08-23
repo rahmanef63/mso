@@ -118,6 +118,44 @@ describe("PTY session cap", () => {
     expect(id9).toBeTruthy();
   });
 
+  it("reclaims the oldest detached shell under capacity pressure after the reconnect grace", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    try {
+      const { openPty, attachPty } = await importPty();
+      const ids: string[] = [];
+      for (let i = 0; i < 8; i++) ids.push((await openPty({ cols: 80, rows: 24 })).id);
+
+      // Seven active streams are protected. Leave only the eighth detached.
+      for (const id of ids.slice(0, 7)) attachPty(id, 0, { onData: () => {}, onExit: () => {} });
+      await vi.advanceTimersByTimeAsync(11_000);
+
+      const { id: replacement } = await openPty({ cols: 80, rows: 24 });
+      expect(replacement).toBeTruthy();
+      expect(fakePtys[7]!.killed).toBe(true);
+      expect(fakePtys.slice(0, 7).every((pty) => !pty.killed)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never reclaims an attached shell even when every slot is old", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    try {
+      const { openPty, attachPty } = await importPty();
+      const ids: string[] = [];
+      for (let i = 0; i < 8; i++) ids.push((await openPty({ cols: 80, rows: 24 })).id);
+      for (const id of ids) attachPty(id, 0, { onData: () => {}, onExit: () => {} });
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      await expect(openPty({ cols: 80, rows: 24 })).rejects.toThrow(/Too many terminal sessions/);
+      expect(fakePtys.every((pty) => !pty.killed)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("closePty is idempotent + returns false on a dead session", async () => {
     const { openPty, closePty } = await importPty();
     const { id } = await openPty({ cols: 80, rows: 24 });

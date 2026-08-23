@@ -14,6 +14,7 @@ describe("mobile widget layout policy", () => {
     const mobile = readFileSync(new URL("./mobile-widgets.tsx", import.meta.url), "utf8");
     expect(defs).toContain('data-slot="quicklinks-widget-grid"');
     expect(defs).toContain("overflow-x-clip");
+    expect(defs).toContain('surface="clear"');
     expect(mobile).toContain("overflow-x-clip");
     expect(mobile).toContain('data-slot="quick-open-grid"');
     expect(mobile).toContain("grid-cols-4");

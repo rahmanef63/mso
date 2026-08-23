@@ -99,4 +99,27 @@ fi
 # dropping both v6 listeners costs nothing.
 x11vnc -display "$DISPLAY" -localhost -noipv6 -rfbportv6 -1 -forever -shared -rfbauth "$VNC_PASSWD" -rfbport "$VNC_PORT" -quiet &
 
-exec websockify --web=/usr/share/novnc "127.0.0.1:${NOVNC_PORT}" "127.0.0.1:${VNC_PORT}"
+# Debian's noVNC package intentionally installs the web app without its upstream
+# package.json, but app/ui.js fetches ./package.json on every full-client launch to
+# show the version. Serving /usr/share/novnc directly therefore produces a noisy 404
+# in every MSO Browser session even though VNC itself works. Build a tiny RUNTIME
+# overlay instead of modifying /usr/share (root-owned): symlink every distro asset
+# and add only the missing metadata file. The overlay lives under XDG_RUNTIME_DIR,
+# is recreated on every start, and contains no browser profile/session data.
+NOVNC_SOURCE="${CAMOUFOX_NOVNC_SOURCE:-/usr/share/novnc}"
+NOVNC_WEBROOT="${CAMOUFOX_NOVNC_WEBROOT:-${XDG_RUNTIME_DIR:-/tmp}/mso-camoufox-novnc}"
+if [ ! -f "$NOVNC_SOURCE/vnc.html" ]; then
+  echo "camoufox-vnc: noVNC web assets missing at $NOVNC_SOURCE" >&2
+  exit 1
+fi
+rm -rf "$NOVNC_WEBROOT"
+mkdir -p "$NOVNC_WEBROOT"
+chmod 700 "$NOVNC_WEBROOT"
+for asset in "$NOVNC_SOURCE"/*; do
+  ln -s "$asset" "$NOVNC_WEBROOT/$(basename "$asset")"
+done
+NOVNC_VERSION="$(dpkg-query -W -f='${Version}' novnc 2>/dev/null || printf 'system')"
+printf '{"version":"%s"}\n' "$NOVNC_VERSION" >"$NOVNC_WEBROOT/package.json"
+chmod 600 "$NOVNC_WEBROOT/package.json"
+
+exec websockify --web="$NOVNC_WEBROOT" "127.0.0.1:${NOVNC_PORT}" "127.0.0.1:${VNC_PORT}"

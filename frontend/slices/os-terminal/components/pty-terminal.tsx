@@ -11,7 +11,15 @@ import KeyBar, { type KeyInterceptor } from "./key-bar";
 // xterm is dynamic-imported inside the effect — it touches the DOM at
 // construction and must never run during SSR. `gen` bumps re-run the whole
 // effect for a fresh session (Restart).
-export default function PtyTerminal({ onFallback, initialCommand }: { onFallback: (msg: string) => void; initialCommand?: string }) {
+export default function PtyTerminal({
+  onFallback,
+  initialCommand,
+  initialCwd,
+}: {
+  onFallback: (msg: string) => void;
+  initialCommand?: string;
+  initialCwd?: string;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<PtyStatus>({ kind: "connecting" });
   const [gen, setGen] = useState(0);
@@ -65,6 +73,7 @@ export default function PtyTerminal({ onFallback, initialCommand }: { onFallback
         handle = await startPty({
           cols: term.cols,
           rows: term.rows,
+          cwd: initialCwd,
           onData: (bytes) => term?.write(bytes),
           onStatus: (s) => {
             if (!disposed) setStatus(s);
@@ -106,7 +115,7 @@ export default function PtyTerminal({ onFallback, initialCommand }: { onFallback
       handle?.dispose(); // kills the server-side shell too
       term?.dispose();
     };
-  }, [gen, initialCommand]);
+  }, [gen, initialCommand, initialCwd]);
 
   // `@container` so the key bar's @max-md variant tracks the WINDOW width
   // (compact pane), not the viewport. Root padding already absorbs

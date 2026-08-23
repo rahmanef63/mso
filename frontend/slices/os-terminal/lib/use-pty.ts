@@ -41,6 +41,7 @@ function b64Bytes(b64: string): Uint8Array {
 export async function startPty(opts: {
   cols: number;
   rows: number;
+  cwd?: string;
   onData: (bytes: Uint8Array) => void;
   onStatus: (s: PtyStatus) => void;
 }): Promise<PtyHandle> {
@@ -49,7 +50,7 @@ export async function startPty(opts: {
 
   let res: Response;
   try {
-    res = await post("open", { cols: opts.cols, rows: opts.rows });
+    res = await post("open", { cols: opts.cols, rows: opts.rows, cwd: opts.cwd });
   } catch {
     throw new Error("network error opening the terminal");
   }
@@ -88,6 +89,28 @@ export async function startPty(opts: {
     else onStatus({ kind: "connecting" });
   };
 
+  // React cleanup reliably runs when an MSO window is closed, but it is NOT a
+  // browser-lifecycle guarantee: closing/reloading the whole tab can terminate the
+  // document before component unmount. Without this, those shells sit detached until
+  // the 30-minute idle reaper and can consume all eight PTY slots. pagehide is the
+  // browser-supported unload signal; keepalive lets the close request survive teardown.
+  //
+  // BFCache is not exempt: a cached whole document can otherwise pin a shell while it
+  // is invisible. If that document is restored with Back, reload it so React mounts a
+  // fresh terminal instead of reviving UI whose server-side shell was intentionally
+  // closed during pagehide. Client-side MSO navigation does not trigger pagehide.
+  const onPageHide = () => {
+    if (disposed) return;
+    disposed = true;
+    es.close();
+    void post("close", { id }, true);
+  };
+  const onPageShow = (event: PageTransitionEvent) => {
+    if (event.persisted && disposed) window.location.reload();
+  };
+  window.addEventListener("pagehide", onPageHide);
+  window.addEventListener("pageshow", onPageShow);
+
   // Keystroke batching: coalesce whatever arrives while a POST is in flight,
   // and never overlap requests (overlap could reorder keystrokes).
   let queue = "";
@@ -117,6 +140,8 @@ export async function startPty(opts: {
     dispose() {
       if (disposed) return;
       disposed = true;
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("pageshow", onPageShow);
       es.close();
       void post("close", { id }, true); // keepalive: survives unmount/nav
     },

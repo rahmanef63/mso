@@ -15,10 +15,12 @@ import { TabStrip } from "./components/tab-strip";
 import { StatusBar } from "./components/status-bar";
 import { NewFileModal } from "./components/new-file-modal";
 import { CloseGuardDialog } from "./components/close-guard-dialog";
+import { IntegratedTerminal } from "./components/integrated-terminal";
 import { useEditor } from "./lib/use-editor";
 import { useCloseGuard } from "./lib/use-close-guard";
 import { isPreviewable } from "./lib/build-preview";
 import { baseName, langOf } from "./lib/util";
+import { parentPath } from "@/lib/path";
 
 const TAB_SIZE = 2;
 
@@ -38,6 +40,7 @@ export default function CodeEditor({ payload, winId }: AppProps) {
   const [newOpen, setNewOpen] = useState(false);
   const [pos, setPos] = useState({ ln: 1, col: 1 });
   const [preview, setPreview] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   // Save-on-shortcut + dirty-window close guard. `saveRef` always points at the
   // current save (no stale closures in the global listener / Inspector action).
@@ -82,7 +85,7 @@ export default function CodeEditor({ payload, winId }: AppProps) {
   );
 
   return (
-    <div className="relative flex h-full bg-[#1e1e22]">
+    <div className="relative flex h-full min-h-0 w-full overflow-hidden bg-[#1e1e22]">
       {/* Explorer: inline rail on wide windows, left Sheet on narrow/mobile. */}
       <AppSidebar
         open={explorerOpen}
@@ -115,8 +118,10 @@ export default function CodeEditor({ payload, winId }: AppProps) {
           canSave={ed.active != null}
           canPreview={canPreview}
           previewing={showPreview}
+          terminalOpen={terminalOpen}
           onOpenExplorer={() => setExplorerOpen(true)}
           onTogglePreview={() => setPreview((p) => !p)}
+          onToggleTerminal={() => setTerminalOpen((open) => !open)}
           onSave={save}
         />
 
@@ -162,6 +167,8 @@ export default function CodeEditor({ payload, winId }: AppProps) {
             </div>
           )}
         </div>
+
+        {terminalOpen && <IntegratedTerminal cwd={path ? parentPath(path) : "~"} />}
 
         <StatusBar
           path={ed.active}

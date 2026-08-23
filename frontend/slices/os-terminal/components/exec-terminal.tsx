@@ -9,7 +9,7 @@ import { run, seedFs, NEOFETCH, type Line } from "../lib/commands";
 // + in-memory FS; `ls`/`cat` read live OsApi data and fall back to the model.
 // Glass aesthetic: monospace, colored `root@mso:/path$` prompt, red errors,
 // arrow-key history. Command logic lives in ./lib/commands to keep this < 200 LOC.
-export default function ExecTerminal() {
+export default function ExecTerminal({ initialCwd }: { initialCwd?: string } = {}) {
   const api = useOsApi();
   const apiRef = useRef(api);
   const fs = useMemo(() => seedFs(), []);
@@ -20,7 +20,7 @@ export default function ExecTerminal() {
   // Live starts at home (~); mock keeps its "/" sandbox root. A live shell at
   // "/" lists outside the host read roots and every `ls` fails — that read as
   // "terminal not working" when the mode was actually fine.
-  const [cwd, setCwd] = useState(api.mode === "live" ? "~" : "/");
+  const [cwd, setCwd] = useState(api.mode === "live" ? (initialCwd ?? "~") : "/");
   const cwdRef = useRef(cwd);
   const modeRef = useRef(api.mode);
   // Latest-ref mirrors for event handlers (post-render, per react-hooks/refs).
@@ -33,7 +33,7 @@ export default function ExecTerminal() {
   useEffect(() => {
     if (modeRef.current === api.mode) return;
     modeRef.current = api.mode;
-    setCwd(api.mode === "live" ? "~" : "/");
+    setCwd(api.mode === "live" ? (initialCwd ?? "~") : "/");
     setLines((l) => [
       ...l,
       {
@@ -41,7 +41,7 @@ export default function ExecTerminal() {
         v: api.mode === "live" ? "● switched to LIVE — real shell on this host" : "○ switched to MOCK — demo data",
       },
     ]);
-  }, [api.mode]);
+  }, [api.mode, initialCwd]);
   const [input, setInput] = useState("");
   const [hist, setHist] = useState<string[]>([]);
   const [hp, setHp] = useState(-1);

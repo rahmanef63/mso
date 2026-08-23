@@ -30,5 +30,5 @@ export default function ClaudeCodeApp({ payload }: AppProps) {
       ? (payload as { cwd?: unknown }).cwd
       : undefined;
   const initialCommand = typeof cwd === "string" && cwd ? cdPrefix(cwd) + BASE : BASE;
-  return <Terminal initialCommand={initialCommand} />;
+  return <Terminal initialCommand={initialCommand} tabbed={false} />;
 }
