@@ -58,6 +58,27 @@ export function AlfaSheet() {
             <X className="size-4" />
           </Button>
         </header>
+        {info?.actions?.length ? (
+          <div data-slot="mobile-ai-actions" className="shrink-0 border-b border-border bg-card px-3 py-2">
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Quick actions</p>
+            <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {info.actions.map((action) => (
+                <Button
+                  key={action.id}
+                  type="button"
+                  variant="secondary"
+                  className="min-h-11 shrink-0 rounded-full px-4 text-sm"
+                  onClick={() => {
+                    setInspectorOpen(false);
+                    void action.run();
+                  }}
+                >
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="min-h-0 flex-1">
           <AlfaThread
             ctx={{

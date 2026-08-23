@@ -8,7 +8,6 @@ export const osSettingsApp: AppDescriptor = {
   title: "Settings",
   icon: Settings,
   gradient: "linear-gradient(160deg,#8a8f99,#5b6068)",
-  ownsMobileNavigation: true,
   load: () => import("./app"),
   defaultSize: { w: 840, h: 600 },
 };

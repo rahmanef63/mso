@@ -14,6 +14,7 @@ import {
   type ResponsiveDialogSize,
 } from "./responsive-dialog-context";
 import type { ResponsiveDialogProps } from "./responsive-dialog";
+import { useShellDesign } from "../design/use-shell-design";
 
 // The HEAVY chunk (radix Dialog/AlertDialog/Sheet + vaul Drawer). Loaded via
 // next/dynamic from responsive-dialog.tsx only when a dialog first OPENS, so
@@ -48,7 +49,7 @@ export function ResponsiveDialogShell({
   onOpenChange,
   variant = "modal",
   size = "md",
-  mobileVariant = "drawer-bottom",
+  mobileVariant,
   sheetSide = "right",
   showCloseButton = true,
   dismissible = true,
@@ -56,6 +57,7 @@ export function ResponsiveDialogShell({
   children,
 }: ResponsiveDialogProps) {
   const isMobile = useIsMobile();
+  const design = useShellDesign();
 
   const contextValue = React.useMemo<ResponsiveDialogContextValue>(
     () => ({ variant, size, isMobile }),
@@ -63,16 +65,22 @@ export function ResponsiveDialogShell({
   );
 
   if (isMobile) {
-    const direction: "bottom" | "right" = mobileVariant === "drawer-right" ? "right" : "bottom";
-    const mobileHeight = direction === "bottom" ? "h-[90dvh] max-h-[90dvh]" : "h-full";
+    const nativeVariant = design.dialog.mobile === "drawer-right" ? "drawer-right" : "drawer-bottom";
+    const resolvedMobileVariant = mobileVariant ?? nativeVariant;
+    const direction: "bottom" | "right" = resolvedMobileVariant === "drawer-right" ? "right" : "bottom";
+    const mobileHeight = direction === "bottom" ? design.dialog.drawerHeightClass : "h-full";
     return (
       <ResponsiveDialogContext.Provider value={contextValue}>
         <Drawer open={open} onOpenChange={onOpenChange} direction={direction} dismissible={dismissible}>
           <DrawerContent
+            data-slot="shell-dialog-surface"
+            data-shell-id={design.id}
+            data-shell-family={design.family}
+            data-shell-mobile="true"
             className={cn(
               "flex flex-col gap-0 p-0",
               direction === "bottom"
-                ? "rounded-t-[1.25rem] border-x-0 border-b-0"
+                ? cn(design.dialog.drawerRadiusClass, "border-x-0 border-b-0")
                 : "w-full max-w-[95vw] sm:max-w-md",
               mobileHeight,
               contentClassName,
@@ -90,6 +98,10 @@ export function ResponsiveDialogShell({
       <ResponsiveDialogContext.Provider value={contextValue}>
         <AlertDialog open={open} onOpenChange={onOpenChange}>
           <AlertDialogContent
+            data-slot="shell-dialog-surface"
+            data-shell-id={design.id}
+            data-shell-family={design.family}
+            data-shell-mobile="false"
             className={cn("flex flex-col gap-0 overflow-hidden p-0", SIZE_DESKTOP_WIDTH[size], contentClassName)}
           >
             {children}
@@ -104,6 +116,10 @@ export function ResponsiveDialogShell({
       <ResponsiveDialogContext.Provider value={contextValue}>
         <Sheet open={open} onOpenChange={onOpenChange}>
           <SheetContent
+            data-slot="shell-dialog-surface"
+            data-shell-id={design.id}
+            data-shell-family={design.family}
+            data-shell-mobile="false"
             side={sheetSide}
             className={cn(
               "flex h-full w-full max-w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg",
@@ -121,6 +137,10 @@ export function ResponsiveDialogShell({
     <ResponsiveDialogContext.Provider value={contextValue}>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
+          data-slot="shell-dialog-surface"
+          data-shell-id={design.id}
+          data-shell-family={design.family}
+          data-shell-mobile="false"
           showCloseButton={showCloseButton}
           className={cn(
             "flex flex-col gap-0 overflow-hidden p-0",

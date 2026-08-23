@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { useShellDesign } from "../design/use-shell-design";
 
 // Standard app scaffold: optional header/toolbar row + a scrolling body that
 // honours safe-area insets. The whole frame is a CSS `@container` so children
@@ -25,15 +26,17 @@ export function AppFrame({
   /** Pad the body for notch/home-bar (mobile fullscreen). Default on. */
   safeArea?: boolean;
 }) {
+  const design = useShellDesign();
   return (
-    <div className={cn("@container flex h-full min-h-0 flex-col", className)}>
+    <div data-slot="app-frame" data-shell-family={design.family} data-shell-density={design.density} className={cn("@container flex h-full min-h-0 flex-col", className)}>
       {header && (
-        <div className="flex-none border-b border-border">{header}</div>
+        <div data-slot="app-frame-header" className="flex-none border-b border-border">{header}</div>
       )}
       {toolbar && (
-        <div className="flex-none border-b border-border">{toolbar}</div>
+        <div data-slot="app-frame-toolbar" className="flex-none border-b border-border">{toolbar}</div>
       )}
       <div
+        data-slot="app-frame-body"
         className={cn(
           "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
           safeArea && "[padding-bottom:var(--sai-bottom)]",
@@ -43,7 +46,7 @@ export function AppFrame({
         {children}
       </div>
       {footer && (
-        <div className="flex-none border-t border-border">{footer}</div>
+        <div data-slot="app-frame-footer" className="flex-none border-t border-border">{footer}</div>
       )}
     </div>
   );

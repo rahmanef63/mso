@@ -14,6 +14,7 @@ import {
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useResponsiveDialogContext } from "./responsive-dialog-context";
 import { cn } from "@/lib/utils";
+import { useShellDesign } from "../design/use-shell-design";
 
 export interface ResponsiveDialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -21,11 +22,16 @@ export interface ResponsiveDialogHeaderProps extends React.HTMLAttributes<HTMLDi
 
 export function ResponsiveDialogHeader({ className, children, ...props }: ResponsiveDialogHeaderProps) {
   const { variant, isMobile } = useResponsiveDialogContext("Header");
+  const design = useShellDesign();
   const baseClasses = "shrink-0 border-b text-left";
 
   if (isMobile) {
     return (
-      <DrawerHeader className={cn(baseClasses, "gap-1.5 px-5 pb-3 pt-3 md:text-left", className)} {...props}>
+      <DrawerHeader data-shell-family={design.family} className={cn(
+        baseClasses,
+        design.family === "apple" ? "gap-1 px-5 pb-3 pt-4 md:text-left" : "gap-1.5 px-5 pb-3 pt-4 md:text-left",
+        className,
+      )} {...props}>
         {children}
       </DrawerHeader>
     );
@@ -57,7 +63,8 @@ export interface ResponsiveDialogTitleProps extends React.HTMLAttributes<HTMLHea
 
 export function ResponsiveDialogTitle({ className, children, ...props }: ResponsiveDialogTitleProps) {
   const { variant, isMobile } = useResponsiveDialogContext("Title");
-  if (isMobile) return <DrawerTitle className={className} {...props}>{children}</DrawerTitle>;
+  const design = useShellDesign();
+  if (isMobile) return <DrawerTitle className={cn(design.family === "apple" ? "text-[17px] font-semibold" : "text-[20px] font-medium", className)} {...props}>{children}</DrawerTitle>;
   if (variant === "alert") return <AlertDialogTitle className={className} {...props}>{children}</AlertDialogTitle>;
   if (variant === "panel") return <SheetTitle className={className} {...props}>{children}</SheetTitle>;
   return <DialogTitle className={className} {...props}>{children}</DialogTitle>;
@@ -97,11 +104,16 @@ export interface ResponsiveDialogFooterProps extends React.HTMLAttributes<HTMLDi
 
 export function ResponsiveDialogFooter({ className, children, ...props }: ResponsiveDialogFooterProps) {
   const { variant, isMobile } = useResponsiveDialogContext("Footer");
+  const design = useShellDesign();
   const baseClasses = "shrink-0 border-t";
 
   if (isMobile) {
     return (
-      <DrawerFooter className={cn(baseClasses, "flex-col gap-2 px-5 pb-5 pt-3", className)} {...props}>
+      <DrawerFooter data-shell-family={design.family} className={cn(
+        baseClasses,
+        design.family === "apple" ? "flex-col gap-2 px-5 pb-[max(1.25rem,var(--sai-bottom,0px))] pt-3" : "flex-col gap-2 px-5 pb-[max(1rem,var(--sai-bottom,0px))] pt-3",
+        className,
+      )} {...props}>
         {children}
       </DrawerFooter>
     );

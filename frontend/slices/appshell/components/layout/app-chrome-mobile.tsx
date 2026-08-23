@@ -14,6 +14,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { useShellDesign } from "../../design/use-shell-design";
 
 export function MobileSideRegion({
   open,
@@ -34,9 +35,23 @@ export function MobileSideRegion({
   sheetClassName?: string;
   children: ReactNode;
 }) {
+  const design = useShellDesign();
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={side} className={cn(sheetWidth, "p-0", sheetClassName)}>
+      <SheetContent
+        data-slot="shell-side-region"
+        data-shell-id={design.id}
+        data-shell-family={design.family}
+        data-shell-density={design.density}
+        side={side}
+        className={cn(
+          sheetWidth,
+          "p-0",
+          design.family === "apple" && "rounded-r-[22px] border-y border-r",
+          design.family === "material" && "rounded-r-[28px] border-y border-r bg-card",
+          sheetClassName,
+        )}
+      >
         <SheetTitle className="sr-only">{title}</SheetTitle>
         <SheetDescription className="sr-only">{description ?? title}</SheetDescription>
         <div className="flex h-full w-full min-h-0 flex-col overflow-y-auto">{children}</div>

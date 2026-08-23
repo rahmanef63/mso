@@ -5,7 +5,7 @@ import { ExternalLink, File as FileIcon, Globe, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "../../primitives/responsive-dialog";
 import { openWindow } from "../../lib/store";
 import { useApps } from "../../lib/registry";
 import { AppIcon } from "../../components/app-icon";
@@ -155,11 +155,11 @@ function AddIconDialog() {
     close();
   };
   return (
-    <Dialog open={!!kind} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{kind === "link" ? "Add link" : "Add file"}</DialogTitle>
-        </DialogHeader>
+    <ResponsiveDialog open={!!kind} onOpenChange={(o) => !o && close()} size="sm">
+      <ResponsiveDialog.Header>
+        <ResponsiveDialog.Title>{kind === "link" ? "Add link" : "Add file"}</ResponsiveDialog.Title>
+      </ResponsiveDialog.Header>
+      <ResponsiveDialog.Body className="space-y-3">
         <Input
           autoFocus
           value={val}
@@ -173,12 +173,12 @@ function AddIconDialog() {
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="Label (optional)"
         />
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={close}>Cancel</Button>
-          <Button type="button" onClick={submit} disabled={!val.trim()}>Add</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialog.Body>
+      <ResponsiveDialog.Footer>
+        <Button type="button" variant="outline" onClick={close}>Cancel</Button>
+        <Button type="button" onClick={submit} disabled={!val.trim()}>Add</Button>
+      </ResponsiveDialog.Footer>
+    </ResponsiveDialog>
   );
 }
 

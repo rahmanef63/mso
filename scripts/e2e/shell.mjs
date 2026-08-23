@@ -65,8 +65,10 @@ const check = (cond, m) => (cond ? pass(m) : fail(m));
 // Noise we do not control and that does not indicate a broken shell.
 // App titles, for the mobile home where tiles are buttons rather than links.
 const TITLES = {
-  files: "Files", monitor: "System Monitor", settings: "Settings",
-  code: "Code", terminal: "Terminal",
+  files: "Files", browser: "Camoufox", code: "Code", terminal: "Terminal", claude: "Claude Code",
+  studio: "Image Editor", reel: "Video Editor", viewer: "Preview", store: "App Store", create: "Create App",
+  monitor: "System Monitor", assistant: "Alfa", links: "Quicklinks", docs: "Docs", settings: "Settings",
+  hermes: "Hermes", openclaw: "OpenClaw",
 };
 
 const IGNORE = [
@@ -178,14 +180,23 @@ async function session(browser, { width, height, label, touch = width < 768, exp
     // sit in forever when a chunk import rejected.
     check((await page.locator(".animate-spin").count()) === 0, `/${slug} rendered without a stuck spinner`);
 
-    // iOS System Settings deliberately owns its own navigation chrome. Guard the
-    // Apple-style hierarchy so the generic app header (icon/title/Done) cannot
-    // silently reappear and duplicate the in-app Settings navigation.
+    // Mobile navigation is shell-owned for EVERY feature. Root contract:
+    // < Home | centered feature title | AI. Feature slices may publish a parent
+    // + detail title for drill-down, but may never mount a second navigation bar.
+    if (expectedSurface === "mobile") {
+      const header = page.locator('[data-slot="mobile-feature-header"]');
+      check((await header.count()) === 1, `/${slug} has exactly one shell-owned mobile feature header`);
+      check((await header.getByRole("button", { name: "Back to Home" }).count()) === 1, `/${slug} exposes < Home`);
+      check((await header.getByRole("button", { name: "Ask AI" }).count()) === 1, `/${slug} exposes the AI action`);
+      const headerText = (await header.innerText()).replace(/\s+/g, " ").trim();
+      check(headerText.includes(TITLES[slug] ?? slug), `/${slug} centers the feature title`);
+      check((await page.getByRole("button", { name: "Done", exact: true }).count()) === 0, `/${slug} has no legacy Done control`);
+    }
+
     if (slug === "settings" && shell === "ios") {
-      check((await page.locator('[data-slot="ios-settings-root"]').count()) === 1, "/settings uses the native iOS Settings root");
-      check((await page.locator('[data-slot="ios-settings-root"] h1', { hasText: "Settings" }).count()) === 1, "/settings shows the iOS large title");
+      check((await page.locator('[data-slot="ios-settings-root"]').count()) === 1, "/settings uses the native iOS Settings renderer");
+      check((await page.locator('[data-slot="ios-settings-root"] h1', { hasText: "Settings" }).count()) === 0, "/settings does not duplicate the shell title in content");
       check((await page.locator('[data-slot="ios-settings-root"] input[type="search"]').count()) === 1, "/settings exposes functional Search");
-      check((await page.getByRole("button", { name: "Done", exact: true }).count()) === 0, "/settings does not duplicate the generic iOS Done header");
     }
   }
 

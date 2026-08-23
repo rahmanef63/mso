@@ -1,30 +1,35 @@
 "use client";
 
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { useShellUI } from "@/features/appshell";
+import { cn } from "@/lib/utils";
+import { useShellDesign, useShellUI } from "@/features/appshell";
 import { ControlCenterTiles } from "./control-center-tiles";
 
-// iPhone Control Center — pulls down from the top. Only REAL toggles (this is a
-// web app: no wifi/cellular/battery/brightness to fake). The tile grid is shared
-// with the desktop menu-bar popover (control-center-tiles). Open state is owned by
-// the mobile surface and read via the shell-UI context.
+// One quick-settings behavior model, shell-native presentation. iOS uses a glass
+// pull-down; Android uses a solid/tonal Material sheet. No fake Wi-Fi/cellular
+// controls — only real MSO toggles are shared between the two renderers.
 export function ControlCenter() {
-  const { controlCenterOpen: open, setControlCenterOpen: onOpenChange, openAppById } = useShellUI();
+  const { controlCenterOpen: open, setControlCenterOpen: onOpenChange } = useShellUI();
+  const design = useShellDesign();
+  const apple = design.family === "apple";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        data-slot="shell-control-center"
+        data-shell-id={design.id}
+        data-shell-family={design.family}
         side="top"
-        className="glass rounded-b-3xl border-border bg-[var(--glass-menu)] p-4 pt-9"
+        className={cn(
+          "border-border p-4 pt-[max(2.25rem,var(--sai-top,0px))]",
+          apple
+            ? "glass rounded-b-[28px] bg-[var(--glass-menu)]"
+            : "rounded-b-[28px] bg-card shadow-xl",
+        )}
       >
         <SheetTitle className="sr-only">Control Center</SheetTitle>
         <SheetDescription className="sr-only">Quick system toggles</SheetDescription>
         <div className="mx-auto w-full max-w-md">
-          {/* No onAssistant override: the tile toggles Alfa IN CONTEXT (right dock
-              on desktop, bottom sheet on mobile) rather than launching the app.
-              Both show the same conversation now, and the full app is already one
-              tap away in the dock — this tile is the only way to reach Alfa over
-              whatever app you are currently in, which on a phone did not exist. */}
           <ControlCenterTiles onClose={() => onOpenChange(false)} />
         </div>
       </SheetContent>

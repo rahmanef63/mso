@@ -13,7 +13,7 @@
 import { Button } from "@/components/ui/button";
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useUrlHome } from "../../../hooks/use-url-home";
-import { Search, MoreHorizontal, Sparkles } from "lucide-react";
+import { Search } from "lucide-react";
 import { useApps } from "../../../lib/registry";
 import { usePullDown } from "../../../hooks/use-pull-down";
 import { useWindowOrder, useFocused, useWindow } from "../../../hooks/use-shell";
@@ -27,9 +27,9 @@ import { AppCell, AppDrawer, NavBar, Recents } from "./android-parts";
 import { M3_PRESS } from "./android-motion";
 import { ShellContextMenu, useShellContextMenu } from "../context-menu";
 import type { AppDescriptor } from "../../../lib/types";
-import { useInspectorInfo } from "../../../lib/inspector";
-import { AppActionsSheet } from "../../app-actions-sheet";
 import { AndroidNotifications } from "./android-notifications";
+import { useMobileNavigationInfo } from "../../../lib/mobile-navigation";
+import { AndroidFeatureHeader } from "./android-feature-header";
 
 function AndroidShell() {
   const apps = useApps();
@@ -39,7 +39,6 @@ function AndroidShell() {
   const [cc, setCc] = useState(false); // control center (pull down on home)
   const [notif, setNotif] = useState(false); // notification shade (pull down, left half)
   const [recents, setRecents] = useState(false);
-  const [actionsOpen, setActionsOpen] = useState(false); // in-app "•••" action drawer
   const gridRef = useRef<HTMLDivElement>(null);
 
   // URL → surface (same derivation as the iOS shell): a pathname naming an app slug
@@ -56,9 +55,7 @@ function AndroidShell() {
   const top = useWindow(topId ?? "__none__"); // reactive: re-renders on the active window's own payload/title changes
   const showApp = !home && !!top;
   const activeApp = top ? apps.find((a) => a.id === top.app) : null;
-  // Running app's live inspector actions → the M3 top-app-bar "•••" drawer (same
-  // bus as iOS + the desktop menu-bar). Empty ⇒ no overflow button renders.
-  const appActions = useInspectorInfo(activeApp?.id)?.actions ?? [];
+  const mobileNav = useMobileNavigationInfo(activeApp?.id);
 
   const launch = useCallback(
     (app: AppDescriptor) => {
@@ -185,41 +182,21 @@ function AndroidShell() {
             would force a single easing on both families. */}
         {showApp && activeApp && top && (
           <div className="absolute inset-0 z-[20] flex flex-col bg-background [animation:mobileAppOpen_var(--m3-dur-spatial-slow)_var(--m3-spatial)] [transform-origin:center_bottom]">
-            {/* M3 top app bar: flat surface (bg-card, hairline divider), Title Large
-                regular weight — not a colored brand header. System Back stays in
-                the navigation row below, so this bar does not duplicate it. The per-app color still reads on the icon + recents. */}
-            <header
-              className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-3 text-foreground"
-              style={{ height: "calc(3rem + var(--sai-top, 0px))", paddingTop: "var(--sai-top, 0px)" }}
-            >
-              {/* Top-bar icon buttons get the same spatial-FAST press as the nav row:
-                  small elements, so "fast" (k=800, ζ=0.6, ~322ms, 9.3% overshoot).
-                  The overshoot is what makes a press feel like a physical button
-                  releasing rather than a scale tween returning. */}
-              {/* The system navigation bar below already owns Android Back. A second
-                  shell-level Back here performed the exact same goHome action and
-                  doubled the affordance in every app. Internal app navigation (for
-                  example Settings detail → Settings list) renders its own Back. */}
-              <span className="flex-1 truncate pl-1 text-[19px] font-normal">{activeApp.title}</span>
-              {appActions.length > 0 && (
-                <>
-                <Button type="button" variant="ghost" aria-label="Ask Alfa" onClick={toggleInspector} className={`h-auto p-0 font-normal hover:bg-transparent grid size-12 place-items-center active:scale-90 ${M3_PRESS}`}><Sparkles className="size-5" /></Button>
-                <Button type="button" variant="ghost" aria-label="Actions" onClick={() => setActionsOpen(true)} className={`-mr-2 h-auto p-0 font-normal hover:bg-transparent grid size-12 place-items-center active:scale-90 ${M3_PRESS}`}><MoreHorizontal className="size-5" /></Button>
-              </>
-              )}
-            </header>
+            <AndroidFeatureHeader
+              title={mobileNav?.title ?? activeApp.title}
+              backLabel={mobileNav?.backLabel ?? "Home"}
+              onBack={mobileNav?.onBack ?? goHome}
+              onAI={toggleInspector}
+            />
             <main className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]">
               <WindowContent app={top.app} payload={top.payload} />
             </main>
-            <NavBar onBack={goHome} onHome={goHome} onRecents={() => setRecents(true)} />
+            <NavBar onBack={mobileNav?.onBack ?? goHome} onHome={goHome} onRecents={() => setRecents(true)} />
           </div>
         )}
 
         {drawer && <AppDrawer apps={dockable} onLaunch={launch} onClose={() => setDrawer(false)} />}
         {recents && <Recents order={order} apps={apps} onResume={resume} onHome={goHome} />}
-        {activeApp && (
-          <AppActionsSheet app={activeApp} actions={appActions} open={actionsOpen} onOpenChange={setActionsOpen} />
-        )}
         {/* live-activity chip (parity with iOS Dynamic Island) — renders only
             while an app reports an activity (render/copy…); reads the same store. */}
         <Slot region="topPill" />

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useShellDesign } from "@/features/os-shell";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus } from "lucide-react";
 
@@ -22,6 +24,7 @@ export function ThreadList({
   onNew: () => void;
 }) {
   const [threads, setThreads] = useState<Summary[]>([]);
+  const design = useShellDesign();
 
   const load = useCallback(() => {
     fetch("/api/threads", { cache: "no-store" })
@@ -46,7 +49,17 @@ export function ThreadList({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-80 gap-0 p-0">
+      <SheetContent
+        data-slot="shell-thread-list"
+        data-shell-id={design.id}
+        data-shell-family={design.family}
+        side="left"
+        className={cn(
+          "w-80 gap-0 p-0",
+          design.family === "apple" && "rounded-r-[22px]",
+          design.family === "material" && "rounded-r-[28px]",
+        )}
+      >
         <SheetHeader className="flex-row items-center justify-between space-y-0 border-b border-border p-3">
           <SheetTitle>Chats</SheetTitle>
           <Button

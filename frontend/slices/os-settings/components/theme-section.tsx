@@ -22,6 +22,8 @@ import {
   SettingsBlock,
 } from "@/features/shell-settings";
 import { cn } from "@/lib/utils";
+import { useShellDesign } from "@/features/os-shell";
+import { ThemeModePicker } from "./theme-mode-picker";
 
 function PresetChip({ preset, active, onSelect }: { preset: PresetItem; active: boolean; onSelect: () => void }) {
   const swatches = presetSwatches(preset);
@@ -74,6 +76,8 @@ function ThemePreview() {
 
 export function ThemeSection() {
   const { tweaks, setTweaks } = useAppearance();
+  const design = useShellDesign();
+  const mobile = design.mobileNavigation !== "none";
   const [groups, setGroups] = useState<PresetGroup[] | null>(null);
 
   useEffect(() => {
@@ -86,11 +90,17 @@ export function ThemeSection() {
     <div className="space-y-4 sm:space-y-5">
       <Section icon={<SunMoon />} title="Display">
         <SettingsBlock>
-          <ThemePreview />
+          {mobile ? (
+            <ThemeModePicker value={tweaks.theme} onChange={(theme) => setTweaks({ theme })} />
+          ) : (
+            <ThemePreview />
+          )}
         </SettingsBlock>
-        <Row label="Appearance">
-          <Segmented options={THEME_MODE_OPTIONS} value={tweaks.theme} onChange={(v) => setTweaks({ theme: v as Theme })} />
-        </Row>
+        {!mobile && (
+          <Row label="Appearance">
+            <Segmented options={THEME_MODE_OPTIONS} value={tweaks.theme} onChange={(v) => setTweaks({ theme: v as Theme })} />
+          </Row>
+        )}
         <Row label="Text size">
           <Segmented options={FONT_SCALE_OPTIONS} value={String(tweaks.fontScale)} onChange={(v) => setTweaks({ fontScale: Number(v) })} />
         </Row>
