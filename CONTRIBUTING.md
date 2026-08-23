@@ -1,62 +1,86 @@
 # Contributing
 
-Solo-maintainer project — PRs and issues welcome, scope kept deliberately small.
+MSO is a focused, single-owner project. Issues and pull requests are welcome, but changes
+should preserve the narrow security and deployment model.
 
 ## Setup
 
 ```bash
 bun install
-cp .env.example .env.local   # set OS_LOGIN_PASSWORD + OS_SESSION_SECRET
-bun run dev                     # :3000, mock data by default (no host access needed)
+cp .env.example .env.local
+bun run dev
 ```
 
-Node `>=20.9` (see `.nvmrc`). The mock adapter means you can develop every app
-without a VPS or any credentials.
+Set `OS_LOGIN_PASSWORD` and `OS_SESSION_SECRET` for live auth. The mock adapters let most UI
+work proceed without VPS credentials or host access.
 
-## Before you open a PR
+## Before a PR
 
-A `pre-push` hook blocks the push on failure, so this checklist mostly describes what
-already happens. It runs four guards: typecheck + lint + test (via sc-git's `ci.js`),
-`check-cycles.mjs`, `scripts/audit.mjs`, and `scripts/verify-build.sh`. Budget ~70 s
-per push. `.github/workflows/ci.yml` is **manual** (`gh workflow run CI`) — run it
-before cutting a release or after touching `package.json`, `bun.lock` or
-`scripts/install.sh`, because a clean-checkout `bun install --frozen-lockfile` is
-the one thing the local hook cannot reproduce.
+Run:
 
-Two things about that hook are easy to get wrong:
+```bash
+bun run verify
+node scripts/check-docs.mjs
+bash scripts/verify-build.sh
+```
 
-- **The hook is UNTRACKED** (`.git/hooks/pre-push`), so nothing in this repo can carry
-  it. Re-running an sc-git hook installer overwrites it and silently drops the audit
-  and build guards. A healthy push prints `audit: clean at high/critical.` and
-  `build: HEAD compiles (out-of-tree).` — if those two lines are missing, it is gone.
-- **`ci.js` is invoked with `--skip build`, on purpose.** It would run the build in
-  the current directory, which on the VPS *is* `mso.service`'s WorkingDirectory, and
-  `next build` deletes `distDir` before it compiles. `scripts/verify-build.sh` builds
-  a throwaway copy of `HEAD` in a temp dir instead. Do not "fix" the skip.
+`bun run verify` covers typecheck, lint, the Vitest suite, repository checks and the
+high/critical dependency audit. `verify-build.sh` compiles a throwaway copy of `HEAD` so it
+is safe even when the checkout is also the production WorkingDirectory.
 
-- [ ] `bun run verify` — typecheck + lint + test + check + audit, in one command
-- [ ] `bun run build`
-- [ ] (optional) `bash scripts/verify-build.sh` — build `HEAD` out-of-tree; safe to
-      run against the prod checkout, unlike a bare `bun run build`
-- [ ] (optional) `bun run smoke` — e2e smoke against a running server
+Do **not** run a bare production build inside a live production checkout merely to prove
+that code compiles; replacing `.next` underneath `next start` can create a chunk mismatch
+until the service is replaced.
 
-## Conventions (the short version)
+The committed source of truth for pre-push policy is `scripts/gates.sh`. The actual
+`.git/hooks/pre-push` file is intentionally a tiny untracked shim. Install/reinstall it with:
 
-Full conventions live in [CLAUDE.md](./CLAUDE.md) and
-[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). The ones reviewers will hold
-you to:
+```bash
+bash scripts/gates.sh --install
+```
 
-- **Vertical slices**: every app lives in `frontend/slices/<slug>/`; cross-slice
-  imports go through the barrel `@/features/<slug>` only.
-- **Host seam**: each app's only host coupling is its `lib/host.ts`. API routes
-  never touch `fs`/`child_process` directly — always through `lib/host/*`
-  (bounds + realpath checks).
-- **Max ~200 lines/file**, single responsibility, shadcn/ui primitives only,
-  theme tokens not raw hex, mobile-first.
-- **Routing**: one catch-all route; URL writes via the History API, never
-  `router.push`; dock/launcher links keep `prefetch={false}`.
-- Conventional commits (`feat:`, `fix:`, `docs:`…).
+A healthy push runs the shared typecheck/lint/test path (or in-repo fallback), cycle/docs/
+changelog checks, dependency audit and the out-of-tree build. It should end with both:
+
+```text
+audit: clean at high/critical.
+build: HEAD compiles (out-of-tree).
+```
+
+The GitHub CI workflow is still useful for a clean-checkout dependency/install proof,
+especially after changes to `package.json`, `bun.lock` or installer/release scripts.
+
+## Conventions
+
+The current architecture is in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and the
+documentation map is [`docs/README.md`](./docs/README.md). Reviewers will hold changes to
+these rules:
+
+- vertical application slices live under `frontend/slices/<slug>/`;
+- cross-slice imports use public barrels;
+- host operations flow through `lib/host` instead of reimplementing path/process guards in
+  routes or components;
+- keep files small/single-purpose where practical and use the existing UI primitives/tokens;
+- keep responsive/mobile behaviour first-class;
+- preserve the single catch-all app routing model;
+- use conventional commit subjects.
+
+When you add/remove/rename a current capability, update the relevant current reference doc
+in the same change. `scripts/check-docs.mjs` catches selected machine-verifiable drift but
+cannot infer every semantic change.
+
+## Releasing maintainer changes
+
+Normal contributor PRs should not deploy production. The maintainer release path after a
+verified merge is:
+
+```bash
+bun run ship "feat(scope): describe the verified change"
+```
+
+A Git push by itself is not deployment. See [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md).
 
 ## Security issues
 
-Do **not** open a public issue — see [SECURITY.md](./SECURITY.md).
+Do not open a public issue containing exploit details or secrets. Follow
+[`SECURITY.md`](./SECURITY.md).

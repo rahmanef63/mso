@@ -1,0 +1,374 @@
+# ChatGPT plugin / custom MCP app for MSO
+
+> **Current reference.** In this project, people often say "the ChatGPT plugin". The
+> current ChatGPT product calls this a **custom MCP app/connector** in Developer Mode. It
+> is not a legacy ChatGPT Plugin manifest, browser extension, or a plugin installed inside
+> Hermes/OpenClaw.
+>
+> ChatGPT's Developer Mode UI and plan availability are controlled by OpenAI and may change
+> while full MCP is in beta. The stable contract on the MSO side is the remote MCP endpoint
+> plus OAuth metadata documented here. OpenAI's current overview is:
+> <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
+
+<!-- mcp-toolset: server=1.6.0 version=2026.08.21.1 tools=28 read=15 write=10 exec=3 -->
+
+MSO currently exposes MCP server **1.6.0**, toolset **2026.08.21.1**: **28 tools**
+(15 read, 10 write, 3 exec). Use `GET /mcp` or Settings → MCP as the live authority if
+this document and a deployed instance ever disagree.
+
+## 1. What this connection does
+
+The ChatGPT app lets ChatGPT call the MSO tool catalog on your server. OAuth controls which
+tier the bearer token can use; MSO then applies the same host path, project, managed-app
+and process guards used by its other surfaces.
+
+```mermaid
+flowchart LR
+  U[Owner in ChatGPT] --> CG[ChatGPT custom MCP app]
+  CG -->|OAuth 2.1 + PKCE| OA[MSO /oauth/*]
+  OA -->|bearer token: read/write/exec| CG
+  CG -->|MCP JSON-RPC| M[MSO /mcp]
+  M --> D[scope + rate limit + audit dispatcher]
+  D --> H[lib/host]
+  D --> PR[project discovery/functions]
+  D --> SK[skills + workflow memory]
+  H --> FS[filesystem roots]
+  H --> SYS[system / PTY / exec]
+  H --> AP[Hermes / OpenClaw]
+```
+
+The MCP client does **not** get a Linux credential or SSH key. It gets an MSO bearer token
+whose scope is re-checked on every tool call.
+
+## 2. Before connecting ChatGPT
+
+You need:
+
+1. a real owner MSO deployment over HTTPS;
+2. an approved browser device that can open the MSO OAuth consent page;
+3. `OS_MCP_ENABLED=1` on the running MSO service;
+4. an intentional server ceiling, `OS_MCP_MAX_SCOPE=read|write|exec` (default is `exec`);
+5. a ChatGPT plan/workspace that currently permits the MCP capability you need.
+
+ChatGPT connects to a **remote** MCP server. A private-only MSO endpoint therefore needs a
+supported remote path rather than an unreachable `localhost` URL. OpenAI's current docs
+name **Secure MCP Tunnel** as the supported option for private/on-prem/developer-machine
+servers; use the current OpenAI instructions rather than exposing the MSO shell port merely
+to satisfy discovery.
+
+After changing MSO environment configuration, use the normal MSO update/rebuild path; do
+not treat a Git push as deployment.
+
+### Current ChatGPT availability (external, as of 2026-08-24)
+
+OpenAI's current Developer Mode documentation says custom MCP apps are a **web** capability
+in beta. Full MCP including write/modify actions is available to Business, Enterprise and
+Edu workspaces under their workspace controls; Pro can connect custom MCP servers for
+read/fetch access. Workspace admins can further restrict or disable the capability. This
+availability is an OpenAI product decision and can change independently of MSO—check the
+current OpenAI article before treating the table as entitlement:
+<https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>.
+
+MSO itself does not special-case ChatGPT plans. It publishes the same scoped MCP server; the
+client decides which actions it will expose/allow.
+
+## 3. MSO endpoint values
+
+For an MSO origin such as `https://mso.example.com`:
+
+| Purpose | Value |
+|---|---|
+| MCP server | `https://mso.example.com/mcp` |
+| OAuth authorization | `https://mso.example.com/oauth/authorize` |
+| OAuth token | `https://mso.example.com/oauth/token` |
+| Dynamic client registration | `https://mso.example.com/oauth/register` |
+| Authorization-server metadata | `https://mso.example.com/.well-known/oauth-authorization-server` |
+| Protected-resource metadata | `https://mso.example.com/.well-known/oauth-protected-resource` |
+
+MSO supports public OAuth clients with PKCE S256 and token-endpoint authentication method
+`none`. ChatGPT can use the predefined public client id `chatgpt-mso`; a client secret is
+not required. Other MCP clients can use Dynamic Client Registration where supported.
+
+The exact ChatGPT form labels can change during the beta. In Developer Mode, create a
+custom MCP app, provide the remote MCP endpoint, select OAuth, then let ChatGPT scan tools.
+When the authorization browser opens, sign into MSO on an approved device, review the
+requested scope, and Allow only the tier you intend.
+
+## 4. OAuth lifecycle
+
+```mermaid
+sequenceDiagram
+  actor Owner
+  participant ChatGPT
+  participant Auth as MSO OAuth
+  participant Store as MSO token store
+  participant MCP as MSO /mcp
+
+  Owner->>ChatGPT: Create/enable MSO custom MCP app
+  ChatGPT->>Auth: authorization request + PKCE challenge
+  Auth->>Owner: signed-in consent page
+  Owner->>Auth: choose allowed scope and Allow
+  Auth-->>ChatGPT: one-time authorization code
+  ChatGPT->>Auth: exchange code + PKCE verifier
+  Auth->>Store: store hash of bearer token
+  Auth-->>ChatGPT: bearer token
+  ChatGPT->>MCP: initialize / tools.list / tools.call
+  MCP->>Store: validate token + scope on every call
+  MCP-->>ChatGPT: tool results
+```
+
+Authorization codes live for 60 seconds and are consumed once. MCP bearer tokens expire
+after 90 days unless revoked earlier. MSO stores token/code hashes, not reusable plaintext
+bearers. The current authorization metadata advertises only `authorization_code`; MSO does
+**not** issue refresh tokens. After a bearer expires (or is revoked), authorize the MCP app
+again rather than expecting an offline refresh grant.
+
+## 5. Scope ladder and exact tool catalog
+
+A token sees a scope prefix; there is no per-project or per-agent hidden tool filter.
+`tools/list` filters the catalog and `tools/call` independently re-checks the required
+scope.
+
+### `read` — 15 tools
+
+- `fs_list`
+- `fs_read`
+- `fs_search`
+- `fs_usage`
+- `sys_stats`
+- `sys_processes`
+- `apps_list`
+- `apps_logs`
+- `browser_status`
+- `projects_list`
+- `project_capabilities`
+- `skills_list`
+- `skills_read`
+- `skills_search`
+- `screen_capture`
+
+### `write` — read + 10 tools
+
+- `fs_write`
+- `fs_upload_file`
+- `fs_mkdir`
+- `fs_move`
+- `fs_copy`
+- `fs_delete`
+- `apps_power`
+- `workflow_start`
+- `workflow_cancel`
+- `workflow_finish`
+
+### `exec` — write + 3 tools
+
+- `exec_run`
+- `browser_power`
+- `project_function_call`
+
+`exec_run` is full host shell power as the MSO service user. The command filter is an
+accident tripwire, not a sandbox. Grant `exec` only to a ChatGPT app/workspace you trust
+with the same care as a remote shell.
+
+## 6. Tool-snapshot refresh: the part most often missed
+
+ChatGPT scans and caches the MCP action definitions. If MSO adds/removes/changes tools, a
+running ChatGPT app may continue using its previous snapshot until you refresh/recreate the
+app according to the current ChatGPT workspace controls.
+
+MSO exposes a schema-derived signature in `GET /mcp`, MCP `initialize`, `tools/list`, and
+Settings → MCP:
+
+```text
+server:  1.6.0
+toolset: 2026.08.21.1
+hash:    8c3c9092013069de
+count:   28
+```
+
+Use this sequence after an MSO MCP change:
+
+```mermaid
+flowchart LR
+  C[Deploy new MSO] --> S[Check Settings → MCP signature]
+  S --> R[Refresh/recreate ChatGPT MCP app and Scan Tools]
+  R --> V[Verify expected actions in ChatGPT]
+  V --> A[Mark ChatGPT refreshed in MSO Settings]
+```
+
+**Mark ChatGPT refreshed** is only an operator acknowledgement stored by MSO. It does not
+reach into ChatGPT and refresh anything by itself.
+
+OpenAI's current beta controls differ by plan: a published Business custom app must be
+recreated/republished to change tools or metadata, while Enterprise/Edu admins can use the
+workspace **Refresh** / action-control flow to pull new or changed definitions. New actions
+are not automatically enabled. Always follow the current workspace UI if OpenAI changes
+this behaviour.
+
+## 7. Multi-step work and `workflow_id`
+
+For a task needing several operational calls, ChatGPT should call `workflow_start` once.
+The returned exact `workflow_id` is then included on later operational calls. Missing id =
+a standalone call; an unknown id is refused.
+
+```mermaid
+flowchart TD
+  Q[User task] --> M{More than one operational call?}
+  M -->|No| O[Use smallest bounded tool]
+  M -->|Yes| W[workflow_start]
+  W --> I[carry exact workflow_id]
+  I --> T[bounded tools or one scoped exec batch]
+  T --> V[verify result independently]
+  V --> F{Completed?}
+  F -->|Yes| X[workflow_finish]
+  F -->|Abandoned/interrupted| C[workflow_cancel]
+```
+
+Successful runs can become redacted local recipes. MSO never stores raw file bodies,
+`fs_write.content`, bearer tokens, browser credentials or secret-looking command payloads
+in workflow memory.
+
+## 8. ChatGPT file/image → VPS bridge
+
+`fs_upload_file` is intentionally ChatGPT-aware through MCP metadata
+`openai/fileParams`. The normal flow is:
+
+```mermaid
+flowchart LR
+  G[ChatGPT creates/receives image or file] --> F[ChatGPT file reference]
+  F --> U[fs_upload_file]
+  U --> D[download temporary OpenAI HTTPS URL]
+  D --> V[revalidate host + redirects + MIME + size]
+  V --> J[OS_FS_WRITE_ROOTS + credential/path jail]
+  J --> W[write file]
+  W --> R[return path + bytes + SHA-256]
+```
+
+Current guardrails:
+
+- maximum 20 MiB;
+- PNG, WebP, JPEG or generic octet-stream only;
+- temporary URL must be from an allowed OpenAI content/storage host;
+- up to three redirects, and each redirect target is revalidated;
+- destination still has to be inside `OS_FS_WRITE_ROOTS`;
+- filename is sanitized;
+- an existing same-name file can be replaced, so treat this as a write/destructive action;
+- result includes byte count and SHA-256.
+
+MSO does **not** provide a second image generator. Generate with ChatGPT's native image
+capability, then use this bridge to move the result into the VPS when needed.
+
+## 9. Visual proof without arbitrary browser access
+
+`screen_capture` captures only the authenticated MSO UI. It cannot be pointed at an
+arbitrary URL. It supports macOS, Windows or Dashboard shells, 900–1920 px width and
+600–1200 px height.
+
+The call returns the MCP image directly plus a session-gated temporary preview/download
+link. The link expires after 15 minutes or 5 authenticated downloads, whichever comes
+first. This is intended for visual verification while avoiding a general read-token web
+exfiltration primitive.
+
+Camoufox is a separate capability. `browser_status` reveals only installed/running/autostart
+state. The VNC password, logged-in profile and cookies are deliberately never returned to
+an MCP client.
+
+## 10. Project-aware tools
+
+`projects_list` discovers validated projects across configured containers. Scans are
+bounded and may return a continuation cursor; never interpret a truncated scan as "the
+project does not exist".
+
+`project_capabilities` can report:
+
+- `.mcp.json` **presence only** — contents may contain credential wiring and are never
+  returned; MSO does not auto-connect arbitrary project MCP servers;
+- `.mso/functions.json` — public schemas for a version-1 project function manifest.
+
+A function manifest can declare at most 32 functions. Functions use fixed argv (at most 16
+strings), a maximum 30-second timeout, and receive caller JSON on stdin. User values are not
+interpolated into a shell command. `project_function_call` always requires `exec` scope,
+even when a project function is named "read".
+
+## 11. Four credentials people commonly confuse
+
+```mermaid
+flowchart TB
+  S[MSO browser session cookie] -->|human UI| UI[MSO web app]
+  B[MCP bearer token] -->|ChatGPT permission to MSO tools| MCP[/mcp]
+  K[BYOK API key] -->|Alfa model inference| API[Model provider API]
+  C[Alfa openai-codex OAuth] -->|Alfa model inference| COD[ChatGPT Codex backend]
+```
+
+| Credential | Purpose | Does not grant |
+|---|---|---|
+| MSO session cookie | human browser access | MCP access by itself |
+| MCP bearer | external client access to scoped MSO tools | an Alfa model credential |
+| BYOK provider API key | Alfa inference | permission for ChatGPT to operate MSO |
+| Alfa `openai-codex` OAuth | Alfa inference via ChatGPT subscription backend | MSO MCP scope |
+
+Authorizing the ChatGPT MCP app therefore does **not** automatically configure Alfa, and
+"Sign in with OpenAI" under Alfa provider settings is not the ChatGPT plugin setup.
+
+## 12. Security model
+
+- Connect only an MSO server you own and trust.
+- Start with `read` unless the workflow actually needs host changes.
+- `write` can change/delete files and control bounded managed apps.
+- `exec` is effectively a remote shell as the MSO Linux user.
+- Prompt injection still matters: data read from files/logs can influence the model. Scope
+  is the server-side boundary that prevents a read-only token from turning that influence
+  into a write/exec.
+- Tool inputs/results used in a ChatGPT conversation are processed by ChatGPT according to
+  the user's/workspace's OpenAI data controls; do not assume an MCP call stays on the VPS.
+- Revoke old tokens from Settings → MCP. Tokens also expire after 90 days.
+- Do not publish the MSO bearer, OAuth store, browser profile or `~/.mso` contents.
+
+OpenAI may additionally ask for confirmation or block some write actions based on the
+ChatGPT app/workspace permission model. That is an additional client control; it does not
+replace MSO's own scope checks.
+
+## 13. Troubleshooting
+
+### ChatGPT cannot discover the server
+
+- the endpoint must be remote/reachable from ChatGPT;
+- use HTTPS;
+- verify `OS_MCP_ENABLED=1` is present in the **running** service;
+- `GET /mcp` should return the public descriptor instead of 404.
+
+### OAuth page opens but cannot authorize
+
+The authorization page is a real MSO browser page. Log into MSO from an approved device,
+then retry the connector authorization. Check the requested scope against
+`OS_MCP_MAX_SCOPE`.
+
+### ChatGPT sees old/missing tools after a deploy
+
+Compare the toolset signature in Settings → MCP or `GET /mcp`, then refresh/recreate the
+ChatGPT app and run **Scan Tools**. Only after ChatGPT shows the new actions should you mark
+it refreshed in MSO Settings.
+
+### A tool is visible but returns a scope error
+
+The token was authorized at a lower tier than that action requires. Reauthorize deliberately
+at the needed scope; do not raise the whole server ceiling only to silence the error.
+
+### `fs_upload_file` fails
+
+Check destination write roots, file size/type, and whether ChatGPT supplied a current file
+reference. Temporary OpenAI URLs expire; retry from the actual attached/generated file
+rather than pasting an arbitrary public URL.
+
+### Project/skill seems missing
+
+Inspect the returned scan report. If `truncated:true`, follow its continuation cursor.
+Project and skill discovery are deliberately bounded.
+
+## 14. Deeper reference
+
+- `docs/MCP.md` — protocol, OAuth store, tool internals, project/skill discovery, rate limits
+- `docs/ARCHITECTURE.md` — whole-system boundaries
+- `docs/CONNECTORS-GATEWAY-INTEGRATION.md` — cross-repo action-name contract
+- `docs/MODELS-INTEGRATION.md` — Alfa model credentials and the separate Codex OAuth flow
+- `SECURITY.md` — deployment/security posture

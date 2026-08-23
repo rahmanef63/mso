@@ -28,16 +28,17 @@ agent — it runs AS a host process and controls its own machine.
   `WATCHDOG_USEC`), the OS's (`PATH`, `SHELL`), test-only ones (`E2E_BASE_URL`,
   `OPENCLAW_HOME`), and `OS_BROWSER_*`, which belong to the retired `os-browser/`
   sidecar and not to this app. Still grep `process.env` before adding a new one.
-- **The code wins over any doc.** `docs/ARCHITECTURE.md` is HISTORY, not current — it
-  still describes a retired Playwright browser sidecar, a managed-app "single-origin
-  mode" that was removed for security, and workspace modes that were reversed. It is
-  kept for the reasoning it records, not as a description of today.
+- **The code wins over any doc.** `docs/README.md` classifies the doc set. Current
+  reference docs (including `docs/ARCHITECTURE.md`) must track `main`; dated audits/plans
+  are explicitly historical and may preserve obsolete implementation details only inside
+  that historical context.
 - `frontend/slices/assistant/CONTRACT.md` — current, and authoritative for what an
   Agent / Tool / Skill / Playbook is and what reaches the model.
 
-**The doc set, and the one rule.** `docs/PROGRESS.md` is the SSOT; everything else is
-history, a live plan, or reference. Append to PROGRESS when you ship — do not start a
-second HAND-WRITTEN log. (`docs/CHANGELOG.md` was exactly that once and was merged
+**The doc set, and the one rule.** `docs/README.md` is the map. `docs/PROGRESS.md` is
+the SSOT for historical WHY; current reference docs describe today's contracts; dated
+plans/audits are historical. Append to PROGRESS when you ship — do not start a second
+HAND-WRITTEN log. (`docs/CHANGELOG.md` was exactly that once and was merged
 back in; the root `progress.md` is gitignored local scratch and claims authority it
 does not have.) `docs/CHANGELOG.md` exists again as of 2026-08-11 but is **generated
 from git subjects** by `scripts/gen-changelog.mjs` and gated stale-by-`gates.sh`, so
@@ -108,15 +109,12 @@ to `resources/` (rr) and drive any project from one manifest:
   (toast/activity/inspector), and `<AppShell manifest>` (the one entry point). It
   imports NO brand/feature and NO mso `@/lib/*` — only the universal `@/lib/utils`
   (`cn`). Everything project-specific arrives via `manifest.capabilities`.
-- `appshell/features/{search,inspector,notifications,control-center,widgets,quick-look,
-  clipboard,share,shortcut-help,lock-screen}` — each shell **feature** lives NESTED inside
-  the appshell slice (converged to the rr-canonical shape; they were flat top-level
-  `shell-*` slices before). Each mounts into a named `<Slot>` via `defineFeature({ id,
-  slots, provider? })` and is consumer-free (data via capabilities, not `@/lib`).
-  `appshell/defaults.ts` bundles all 10 as `DEFAULT_FEATURES` (one-line install:
-  `features: DEFAULT_FEATURES`); the barrel re-exports it LAST so the `defineFeature`
-  ES-cycle resolves. Buses live in core so apps fire them without depending on a feature
-  slice. (`shell-settings` stays a flat UI-primitives slice — not a feature unit.)
+- `appshell/features/` currently contains 10 directories: `clipboard`,
+  `control-center`, `desktop-icons`, `force-quit`, `inspector`, `lock-screen`,
+  `notifications`, `search`, `shortcut-help`, `widgets`. `desktop-icons` and
+  `force-quit` are shell infrastructure rather than normal slot features. Keep
+  `docs/SLICE-CATALOG.md` and the machine-checked count in sync with the directory tree.
+  (`shell-settings` stays a flat UI-primitives slice — not an AppShell feature directory.)
 - `os-shell` — the thin mso **consumer**: `shell.manifest.ts` (MSO brand + app
   list + slugs + features) + `capabilities.ts` (adapts `@/lib/appearance`+`os-api`+
   `ai/stream` to `ShellCapabilities`) + a re-export barrel (`@/features/os-shell`
@@ -178,13 +176,12 @@ to `resources/` (rr) and drive any project from one manifest:
   explicitly if you want it public. The checkout is a shallow clone of this repo with
   `node_modules` copied in; rebuild it with the flag (`NEXT_PUBLIC_OS_DEMO=1` is inlined
   at BUILD time) whenever you re-deploy it.
-- **Deploy prod:** `bun run build` **THEN** `sudo systemctl restart mso.service`. ALWAYS
-  build-then-restart, never the reverse, and never rebuild again after restarting
-  without restarting once more — `next start` loads the build manifest at boot, so if
-  the on-disk `.next/static` chunks don't match the running process's HTML refs, every
-  CSS/JS chunk 404s → unstyled/broken UI. On any chunk mismatch: `rm -rf .next && bun run
-  build && restart` (clean rebuild). Verify with
-  `curl -sI :4005/_next/static/chunks/<the-css-the-HTML-refs> | grep content-type` → must be `text/css`.
+- **Deploy prod:** use `bun run ship "<conventional commit>"`. It regenerates the
+  derived changelog, runs the committed pre-push gates/out-of-tree build, pushes the exact
+  SHA, then finalizes the in-place build/service replacement/chunk verification. Through
+  MSO/MCP, finalization runs in `mso-self-update.service`; completion is proven only when
+  the log ends `UPDATE OK`. Operator update/recovery is Settings → About or
+  `mso update run [--rebuild]`. Do not use a bare in-place build merely to verify code.
 - **Service worker** is served from `app/api/sw/route.ts` with a **`beforeFiles`
   rewrite `/sw.js`→`/api/sw`** (in `next.config`): a literal `app/sw.js/route.ts`
   gets shadowed by the optional catch-all, and routes under `/api` are never caught.
@@ -296,9 +293,11 @@ to `resources/` (rr) and drive any project from one manifest:
 
 ## MCP server (`/mcp`) — optional, OFF by default
 An MCP endpoint so ChatGPT / Claude.ai / Cursor can drive the host. `lib/mcp/*`
-(pkce · scope · store · tool-kit · tools-read · tools · dispatch) + `app/mcp/route.ts` + `app/oauth/*` +
-`app/.well-known/oauth-*`. **`OS_MCP_ENABLED=1` or every one of those routes 404s** —
-that is the kill switch, and demo mode forces it off. Read `docs/MCP.md` first.
+includes OAuth/PKCE/store/scope, read/discovery/learning/power/write tool catalogs,
+toolset metadata, workflow activity and dispatch; routes live under `/mcp`, `/oauth/*`
+and `/.well-known/oauth-*`. **`OS_MCP_ENABLED=1` or every one of those routes 404s** —
+that is the kill switch, and demo mode forces it off. Read `docs/MCP.md`; for ChatGPT
+setup/diagrams use `docs/CHATGPT-PLUGIN.md`.
 - **`/mcp` is deliberately NOT under `/api`.** `proxy.ts` blocks mutating `/api` that
   cannot prove same-origin and an MCP client is cross-origin by definition; the bearer
   is the control, not the CSRF gate. `proxy.ts` exempts `/mcp`, `/oauth/token`,
@@ -313,8 +312,10 @@ that is the kill switch, and demo mode forces it off. Read `docs/MCP.md` first.
   permitted tier; set the env to `read` or `write` to opt down. `tools/list` filters by
   it AND `tools/call` re-checks it — a client can call a name it was never shown.
 - **Tool names are a cross-repo contract.** `rahmanef63/connectors-gateway` registered
-  mso as a connector on 2026-08-17 and pins 15 of the 22 names as literal strings
-  (`x-upstream`), omitting `exec_run`, `browser_power`, and the five skill/workflow/visual tools added later. `GET /mcp` plus `_meta.toolset` now expose a version/hash/name manifest for parity checks. Renaming or removing
+  mso as a connector on 2026-08-17 and historically pinned a subset of the MCP names as
+  literal `x-upstream` strings. MSO itself currently exposes 28 tools (15 read, 10 write,
+  3 exec); `GET /mcp` plus `_meta.toolset` expose the current version/hash/name manifest.
+  Treat the gateway mapping as a separate cross-repo contract and verify it before renaming. Renaming or removing
   a tool here breaks it with **no error in either repo** — `parity.test.ts` guards the
   Alfa axis, not this one. Read `docs/CONNECTORS-GATEWAY-INTEGRATION.md` before touching
   a tool name.

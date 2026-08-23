@@ -26,17 +26,16 @@ Every feature is a self-contained **vertical slice** under `frontend/slices/<slu
 bun run verify   # typecheck + lint + test + check + audit (high/critical only)
 ```
 
-A **pre-push hook** blocks the push on failure. Four guards, ~70 s: sc-git's `ci.js`
-(typecheck + lint + test), `check-cycles.mjs`, `scripts/audit.mjs`, and
-`scripts/verify-build.sh`. None of them touch this checkout's `.next` — the build
-guard compiles a throwaway copy of `HEAD` in a temp dir — so all of it is safe to run
-against the prod checkout. A healthy push prints `audit: clean at high/critical.` and
-`build: HEAD compiles (out-of-tree).`
+The **committed source of truth** for pre-push policy is `scripts/gates.sh`. The
+actual `.git/hooks/pre-push` file is an intentionally tiny untracked shim; reinstall it
+idempotently with `bash scripts/gates.sh --install`.
 
-The hook is **untracked**, so nothing in this repo can carry it: re-running an sc-git
-hook installer overwrites the file and silently drops the audit and build guards (and
-re-adds a `check-slices.mjs` line for a script that no longer exists, which blocks
-every push). If those two lines stop appearing, the wiring is gone.
+The gate runs typecheck/lint/test (shared sc-git runner when present, otherwise the
+in-repo verify path), cycle checks, generated-changelog freshness, documentation/skill
+checks, the high/critical dependency audit, and an out-of-tree production build.
+`check-contrast.mjs` is informational. None of the build verification touches the live
+checkout's `.next`. A healthy push ends with `audit: clean at high/critical.` and
+`build: HEAD compiles (out-of-tree).`
 
 ## Deploy — and the build hazard ⚠️
 
@@ -71,7 +70,8 @@ instance** on a different port — e.g. a build with `NEXT_PUBLIC_OS_DEMO=1` (no
 no host access, forced mock data), served on `:4006` via its own systemd unit. For a
 non-destructive static check, `bun run typecheck && bun run lint` is the cheap gate.
 
-Recovery if a chunk mismatch is live: `sudo systemctl restart mso.service`.
+Recovery if a chunk mismatch is live: wait for any active self-update finalizer to
+finish, then run `mso update run --rebuild` and re-run the post-deploy smoke check.
 
 ## Package manager: bun installs, Node runs
 

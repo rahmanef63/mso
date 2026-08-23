@@ -19,6 +19,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `ui` separate shell design systems
 
+**Docs**
+
+- refresh architecture and ChatGPT MCP guide
+
 ## 2026-08-22
 
 **Fixed**

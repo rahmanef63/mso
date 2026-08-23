@@ -1,135 +1,154 @@
 # Security Policy
 
 Manef Shell OS is Public Alpha / Developer Preview software. It has not had a
-third-party security audit. Only the latest commit on `main` is supported; there
-are no release branches yet.
+third-party security audit. Only the latest commit on `main` is supported; there are no
+release branches yet.
 
 ## Reporting a vulnerability
 
-Please do not open a public issue for security vulnerabilities.
+Do not open a public issue containing exploit details or secrets. Use GitHub's private
+vulnerability-reporting flow for this repository. Include the affected commit, reproduction
+steps, impact and sanitized logs. If private reporting is unavailable, open only a minimal
+public issue asking the maintainer to enable private advisory intake.
 
-Use GitHub's private vulnerability reporting flow for this repository:
-
-1. Open the repository on GitHub.
-2. Go to **Security** → **Report a vulnerability**.
-3. Include the affected version or commit, reproduction steps, impact, and any
-   logs with secrets removed.
-
-If private vulnerability reporting is unavailable, open a minimal public issue
-asking the maintainer to enable private advisory intake. Do not include exploit
-details, passwords, session secrets, API keys, private file contents, or full
-environment files in that public issue.
+Never post passwords, session secrets, API keys, bearer tokens, private file contents,
+Camoufox profile data or full environment files.
 
 ## Deployment warning
 
-An authenticated MSO session can run commands and access files as the Linux user
+An authenticated MSO owner session can read allowed files and run commands as the Linux user
 that owns the process. Treat it like SSH in a browser.
 
 - Run MSO as a dedicated non-root user.
-- Prefer Tailscale or another VPN for real deployments.
-- If using a public domain, put HTTPS, firewall rules, and strict access control
-  in front of the app.
+- Prefer Tailscale/VPN for a real deployment.
+- Otherwise use HTTPS plus firewall/allowlist controls in front of the app.
 - Do not expose the raw app port directly to the public internet.
-- Do not commit `.env.local`, API keys, or data from `~/.mso`.
-- Use demo mode (`NEXT_PUBLIC_OS_DEMO=1`) for public showcases.
+- Keep `OS_FS_WRITE_ROOTS` narrow and review read roots deliberately.
+- Do not commit `.env.local`, model credentials or data under `~/.mso`.
+- Use `NEXT_PUBLIC_OS_DEMO=1` only in a separate mock-only public demo checkout.
+
+## Authentication and sessions
+
+The owner login is password + device approval. A correct password on a new browser creates a
+pending device; an already-approved device or the server must approve it before a normal
+session is issued. The browser session cookie is HMAC signed and `Secure`.
+
+Changing `OS_SESSION_SECRET` invalidates existing sessions. Removing a device from the
+allowlist revokes that browser. Device approval is an allowlist, not standards-based MFA.
+
+## Filesystem and command boundary
+
+File routes inherit `OS_FS_READ_ROOTS` / `OS_FS_WRITE_ROOTS`, canonical containment checks
+and a credential denylist. MSO's own private state, `.env*`, SSH/GPG material and other
+sensitive-home paths are hidden/refused unless the supervised sensitive-path escape hatch is
+explicitly enabled.
+
+`exec.run` / MCP `exec_run` runs as the MSO Linux user. The destructive-command matcher is a
+short accident tripwire, not a sandbox. Interactive Terminal PTYs are even more direct: raw
+keystrokes cannot be reliably parsed into commands, so authentication and PTY session
+lifecycle—not the one-shot command matcher—are the boundary.
+
+## Alfa model data
+
+Alfa credentials are stored server-side in private host config. BYOK means the owner controls
+the credential; it does **not** mean model traffic stays on the VPS. Messages and tool
+context included in a model request go to the selected provider.
+
+Alfa's read tools can supply file/process/log data to the model. Host mutations use the
+visible Alfa approval-card boundary. Treat file/log contents as untrusted prompt input and
+review the actual proposed mutation, not only the model's explanation.
+
+## MCP / ChatGPT / external AI clients
+
+The MCP server is off unless `OS_MCP_ENABLED=1`. External clients authenticate through MSO's
+OAuth 2.1 + PKCE flow and receive a bearer with `read`, `write` or `exec` scope, capped by
+`OS_MCP_MAX_SCOPE`.
+
+An MCP bearer is a standing credential. At `exec` scope it can execute host commands as the
+MSO user. Scope is rechecked on every tool call. Tool inputs and results are also processed
+by the connected AI client/provider according to that product's data controls.
+
+Use `read` unless a workflow truly needs more, revoke stale clients in Settings → MCP and
+refresh the client tool snapshot when MSO's toolset signature changes. See
+[`docs/MCP.md`](./docs/MCP.md) and [`docs/CHATGPT-PLUGIN.md`](./docs/CHATGPT-PLUGIN.md).
+
+`browser_status` deliberately never returns Camoufox's viewer password or profile data.
+`screen_capture` is limited to MSO itself, not arbitrary web pages.
 
 ## Managed applications and per-app origins
 
-MSO can manage separate applications that already run on the box (Hermes, OpenClaw)
-and frame each one's own dashboard in a window. Those apps keep their own runtime,
-config, data and privileges; MSO talks to them through their CLIs, their HTTP surfaces
-and systemd, and writes nothing into their state directories.
+MSO can manage Hermes and OpenClaw as separate applications. They keep their own runtime,
+config, state and host privileges. MSO can install them, control lifecycle, read logs,
+update, back up, restore and conservatively uninstall through explicit managed-app paths.
+Restore is the intentional exception to the general rule that MSO should not edit another
+app's state: it is heavily gated, requires the app stopped, creates a pre-restore safety
+snapshot and writes only into the verified state directory.
 
-The dashboards are framed with `allow-same-origin`, because their SPAs do not boot
-without it. On the cockpit's own origin that also made upstream JavaScript same-origin
-**with the cockpit**, so it could take `window.top.fetch` and call `/api/v1/exec/run`
-with the signed-in session. No Content-Security-Policy can prevent that: a policy binds
-a realm, not a reference held across realms. Each dashboard is therefore served from its
-own host on the same process (`hermes.os.<domain>`, `openclaw.os.<domain>`), which makes
-`window.top` cross-origin and opaque. Middleware enforces the other half: on one of those
-hosts **every** path is rewritten into that app's dashboard proxy (and `/_next/*` is refused
-outright), so no cockpit route — not `/api/v1/exec/run`, not `/api/auth/*`, not a page — can
-be reached there at all.
+Vendor dashboards require `allow-same-origin` to function. Running that JavaScript on the
+cockpit origin would give it the owner's browser realm/session. MSO therefore has no
+supported same-origin dashboard mode.
 
-**This boundary is browser-realm only.** A plugin or extension installed into Hermes or
-OpenClaw runs inside that daemon, with that daemon's privileges, and those daemons execute
-shell commands on the host. Installing an untrusted plugin into either application is
-handing it arbitrary code execution as the user that runs it. Separate origins do not
-change that, and neither does anything else MSO can do.
+The safe default is **no embedded vendor dashboard**. To embed dashboards, set both
+`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN` and give each app a
+separate hostname, for example:
 
-Operational rules for anyone maintaining a split-origin deployment:
+```text
+mso.example.com
+hermes.mso.example.com
+openclaw.mso.example.com
+```
 
-- **Never create a `*.os.<domain>` wildcard record, and never point a new
-  `X.os.<domain>` name at the app port** without deciding what serves it. The session
-  cookie is widened to that whole namespace. MSO 404s unknown names in the namespace as a
-  backstop, but DNS is the primary control.
-- **`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN` are one
-  decision.** Set both or neither. The second alone widens the session cookie to every
-  host under the domain while each of them still serves the full cockpit API.
-- **`SameSite=Strict` keeps working only while the app hosts share the cockpit's
-  registrable domain.** Moving one to a different domain makes those requests cross-site
-  and the framed dashboard stops authenticating; that is a design change, not a config
-  tweak.
-- Leaving both variables unset is the default and is safe: MSO then serves no upstream
-  dashboard at all, and the feature windows fall back to their CLI view. The old
-  single-origin mode (dashboards under a path on the cockpit origin) has been removed —
-  it handed upstream JS a realm holding your session, and no header could take it back.
-- **MSO expects HTTPS** (or `localhost`). The session cookie is `Secure`, so a plain-http
-  deployment on an IP cannot log in at all — that is deliberate, not a bug to work around.
-- A managed-app **backup** copies that application's state directory into
-  `~/.mso/backups/<app>/<timestamp>/`, including any credentials the application keeps there —
-  `~/.openclaw/credentials/` and `identity/` are in scope, and so is anything secret in
-  `openclaw.json` or under `~/.hermes`. Treat those copies exactly like the application's own
-  config: never publish them, and include them when you rotate that application's secrets. The
-  copy directory is created `0700` and the manifest `0600`, but nothing encrypts the contents.
-  Symlinks are skipped rather than followed, so a link inside the state dir cannot pull bytes in
-  from outside it, and a restore cannot be aimed outside the tree by an absolute link
-  ([docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) §6).
+On a managed-app hostname every request is routed only into that app's proxy and cockpit
+pages/API/static chunks are not served there. Keep DNS explicit; do not point arbitrary
+wildcards inside the shared cookie domain at MSO.
+
+This is a browser-realm boundary only. A plugin installed **inside Hermes or OpenClaw**
+runs with that daemon's host privileges. Installing an untrusted daemon plugin is equivalent
+to trusting code with that user's capabilities; iframe origin separation does not sandbox
+it.
+
+## Managed-app backups
+
+Managed-app snapshots live under `~/.mso/backups/<app>/<timestamp>/` and can contain the
+application's own credentials, pairings and history. Treat those copies like the source
+state. They are private but not encrypted by MSO.
+
+Backups skip symlinks and reinstallable/cache directories. Restore validates the manifest,
+app identity, state path and symlink collisions before writing, then creates an additional
+`pre-restore` safety snapshot. See [`docs/MANAGED-APPS.md`](./docs/MANAGED-APPS.md).
 
 ## In scope
 
-- Auth bypass: session forgery without `OS_SESSION_SECRET`, device-approval
-  bypass, or rate-limit defeat that enables practical brute force.
-- Filesystem jail escape: reading or writing outside `OS_FS_READ_ROOTS` /
-  `OS_FS_WRITE_ROOTS`, or reaching denied credential material such as `.env*` or
-  `~/.mso/*` through the file APIs.
-- Unauthenticated access to live host routes such as `/api/v1/*`,
-  `/api/assistant`, `/api/config`, or `/api/auth/devices`.
-- CSRF or clickjacking that triggers host actions cross-origin.
-- Escape from a managed-app origin: reaching any cockpit route, the cockpit realm, or a
-  sibling managed app's origin from inside a framed dashboard on `hermes.os.<domain>` /
-  `openclaw.os.<domain>`, or getting the proxy to fetch something other than its own
-  loopback upstream.
+- auth/session/device-approval bypass;
+- practical login rate-limit defeat;
+- filesystem-jail or credential-denylist escape;
+- unauthenticated access to live host/config routes;
+- CSRF/clickjacking that triggers owner host actions;
+- MCP scope/OAuth bypass or bearer validation failure;
+- managed-app origin escape into the cockpit or a sibling app;
+- managed-app proxy SSRF/target escape;
+- backup/restore path escape or symlink-following writes;
+- secret leakage through logs, tool descriptors, temporary shares or browser-status APIs.
 
 ## Out of scope
 
-- An already-authenticated owner session doing documented owner actions such as
-  running commands or accessing files within configured roots.
-- Bypassing the destructive-command guard with shell tricks. It is an accident
-  tripwire, not a sandbox.
-- Deployments that ignore the minimum posture: non-root user, strong secrets,
-  Tailscale/VPN or protected HTTPS, and narrow filesystem roots.
-- What a plugin installed into Hermes or OpenClaw can do inside that daemon, including
-  running host commands. That is the application's trust model, not MSO's boundary.
-- Single-origin mode (`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` unset) behaving as
-  documented: a framed dashboard's JavaScript can reach the cockpit realm there. Serving
-  the dashboards from their own origins is the fix, and it is a deployment choice.
+- an already-authenticated owner intentionally using documented owner capabilities;
+- bypassing the one-shot destructive-command regex after the user already granted shell
+  execution—it is not presented as a sandbox;
+- deployments that ignore the minimum documented posture;
+- what trusted/untrusted code installed *inside* Hermes/OpenClaw can do with that daemon's
+  own host permissions;
+- prompt/model quality issues that do not bypass MSO's server-side permission boundary.
 
-## Key rotation
+## Rotation and retention
 
-BYOK AI credentials are stored server-side in `~/.mso/config.json`, never in
-the client bundle. To rotate a key, stop MSO, edit the config file or remove the
-provider from Settings → AI, then restart/sign in again.
+- change `OS_SESSION_SECRET` to invalidate browser sessions;
+- change `OS_LOGIN_PASSWORD` to rotate the owner password;
+- remove entries from `~/.mso/auth-devices.json` to revoke browsers;
+- remove/revoke MCP tokens from Settings → MCP;
+- rotate provider credentials from Settings → AI or the corresponding environment source;
+- rotate managed-app credentials if a state snapshot containing them was exposed.
 
-To rotate auth secrets:
-
-- Change `OS_SESSION_SECRET` and restart to invalidate sessions.
-- Change `OS_LOGIN_PASSWORD` and restart to require the new password.
-- Remove entries from `~/.mso/auth-devices.json` to revoke devices.
-
-## Audit log retention
-
-The JSONL audit trail defaults to `~/.mso/audit.log` and can grow over time.
-Use logrotate or your normal host log retention system. Do not publish audit
-logs without checking for private paths, command names, or other sensitive
-context.
+`~/.mso/audit.log` is append-oriented local forensic data and can grow. Use normal host log
+retention/rotation and inspect it before sharing because paths and command context can be
+sensitive.

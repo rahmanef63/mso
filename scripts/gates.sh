@@ -59,6 +59,7 @@ fi
 # NOTE: check-slices.mjs used to run here. It and all 20 slice.json were deleted on
 # 2026-08-03 (commit 844eef3) — do NOT let a hook reinstall re-add that line.
 node scripts/check-cycles.mjs || fail "check-cycles: new import cycle introduced."
+node scripts/check-docs.mjs || fail "documentation drift detected." "fix current docs or their machine-readable markers before pushing."
 # docs/CHANGELOG.md is derived from git, so it can only be stale, never wrong —
 # and a stale one is what Settings → About would show. `bun run ship` regenerates
 # it before committing; this catches a plain `git push`.

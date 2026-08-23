@@ -1,36 +1,38 @@
-# Demo Script
+# 60-second demo script
 
-## 0-5 sec
+> **Marketing/demo collateral, not a runtime contract.** Use a separate
+> `NEXT_PUBLIC_OS_DEMO=1` build unless recording a private owner-only walkthrough.
 
-Show MSO opening on a phone.
+## 0–6 sec — phone home
 
-## 5-15 sec
+Open MSO on a phone and show the iOS/Android shell adapting to the viewport.
 
-Open System Monitor and show server health.
+## 6–14 sec — system health
 
-## 15-25 sec
+Open System Monitor and show CPU, memory, disk and processes.
 
-Open Files and browse the sample `example-next-app` project.
+## 14–24 sec — project files
 
-## 25-35 sec
+Open Files and browse a sample project. Show one real file preview without exposing secrets.
 
-Launch Terminal from the project folder and run a harmless mock command.
+## 24–34 sec — Code + terminal
 
-## 35-45 sec
+Open Code, then reveal its integrated Terminal. Run a harmless mock/read-only command so the
+editor and terminal relationship is visible without implying a public demo has host access.
 
-Open Alfa and ask about the mock warning:
+## 34–44 sec — Alfa
 
-```text
-Why did the background worker restart?
-```
+Ask Alfa a simple mock diagnosis question and show a read tool/activity row. If demonstrating
+a mutation in a private build, show the human Approve/Deny card rather than auto-approving.
 
-## 45-52 sec
+## 44–52 sec — Browser / managed app
 
-Switch between mobile and desktop layouts.
+Show the Camoufox Browser power surface or a Hermes/OpenClaw Details panel. In a public demo,
+do not expose a real logged-in browser profile or vendor credentials.
 
-## 52-60 sec
+## 52–60 sec — responsive switch + CTA
 
-Show CTA:
+Switch to desktop/landscape, then show:
 
 ```text
 Open source.

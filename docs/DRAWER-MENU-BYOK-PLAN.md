@@ -1,5 +1,10 @@
 # Shell Action Contract + BYOK Add-Provider — Plan
 
+> **Historical implementation plan.** Phases A/B/C and OpenAI Codex OAuth D1 shipped in
+> 2026; current provider behaviour is documented in [`MODELS-INTEGRATION.md`](./MODELS-INTEGRATION.md).
+> D2–D4 below are old design ideas, not current commitments. Paths/test counts/commands in
+> the original plan describe their point in time unless a note explicitly says otherwise.
+
 > **Ask (2026-07-16):** (1) mobile **drawer** not applied in-app; (2) feature slices not
 > refactored to feed the **OS menu / drawer format** like the Apple mock; (3) BYOK not like
 > the **"add provider"** flow in `../models-rahmanef-com`.
@@ -94,7 +99,9 @@ Framework: `OsConfig.oauthTokens` (0600 host file) + in-memory handshake (`lib/a
   `decodeAccountId` + models) + bespoke Responses streamer `lib/ai/codex-stream.ts` (ChatGPT backend
   `…/codex/responses`, not `/chat/completions`; bearer + account-id header + `response.output_text.delta` SSE).
   Public Codex-CLI client id, no secret. UI: `oauth-connect.tsx` "Sign in with OpenAI". Start verified live.
-  **Caveats:** consumer endpoint (needs ChatGPT Plus/Pro, may break), **chat-only (no Alfa tools)**, tokens plaintext in 0600 file.
+  **Current correction:** the consumer endpoint remains more fragile than the public Platform API,
+  but current `app/api/assistant/route.ts` can pass Alfa tools through the Codex adapter; the old
+  "chat-only" caveat is no longer true. OAuth material remains private host state (0600).
 - **D2 Claude** (PKCE paste) — TODO. `/v1/messages` with Bearer (not x-api-key) + mandatory betas + a "You are Claude Code" system block.
 - **D3 Copilot** (device-code) — TODO. gh→copilot token exchange + 5 editor headers; ToS caveat.
 - **D4 OpenRouter** (PKCE redirect) — TODO, low value (yields a normal `sk-or-` key you can already paste); needs a public callback URL.
@@ -104,7 +111,8 @@ Framework: `OsConfig.oauthTokens` (0600 host file) + in-memory handshake (`lib/a
   Files-specific menu when Files focused; Android "•••" → drawer. Screenshot each.
 - BYOK: add a custom OpenAI-compatible endpoint from the UI, key-test returns a badge, provider appears in the
   list, assistant streams through the custom baseUrl; delete removes it. Verify SSRF rejects `http://169.254.169.254`.
-- Gates: `pnpm verify` (tsc · lint · vitest) green before ship. Never `pnpm build` in prod to verify.
+- Historical gate at plan time used pnpm. Current repository policy is `bun run verify` plus
+  `bash scripts/verify-build.sh`; never use a bare in-place production build only as verification.
 
 ## 5. Log
 - 2026-07-16 — plan written from the 3-probe audit.
@@ -119,5 +127,3 @@ Framework: `OsConfig.oauthTokens` (0600 host file) + in-memory handshake (`lib/a
   bespoke ChatGPT-backend Responses streamer + "Sign in with OpenAI" UI. tsc + lint + vitest (301) green;
   device-flow **start verified against the live OpenAI endpoint** (HTTP 200 + user_code). Full round-trip
   needs the owner's ChatGPT auth. Claude/Copilot/OpenRouter (D2–D4) scaffolded, not yet built.
-</content>
-</invoke>

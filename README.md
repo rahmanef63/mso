@@ -64,7 +64,7 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 **Extend** — Alfa AI, modular slices, and custom apps.
 
 - **Use BYOK AI** — Alfa uses credentials stored on your server, not committed to the repo.
-- **Drive the box from ChatGPT, Claude.ai or Cursor** — an optional MCP server (OAuth 2.1 + PKCE) exposes files, system health, every project and every trusted skill across all of them, ChatGPT file import, and, if you grant it, a shell. A token sees the *whole* catalog for its tier: the read/write/exec ladder is the only thing that narrows it, never a per-project or per-agent filter. Off unless you set `OS_MCP_ENABLED=1`, revocable from Settings. See [docs/MCP.md](./docs/MCP.md).
+- **Drive the box from ChatGPT, Claude.ai or Cursor** — an optional MCP server (OAuth 2.1 + PKCE) exposes files, system health, global project/skill discovery, ChatGPT file import and, at `exec`, a shell. The read/write/exec ladder is the server-side permission boundary. See the [ChatGPT custom MCP app guide](./docs/CHATGPT-PLUGIN.md) for setup/diagrams and [MCP reference](./docs/MCP.md) for internals.
 - **Add app slices** — features are modular under `frontend/slices/<slug>/`.
 - **Personalize the interface** — macOS, Windows, iOS, and Android shell layouts are UI preferences, not the core product.
 
@@ -162,9 +162,9 @@ An authenticated MSO session can read allowed files and run commands as the user
 - Approve only devices you own; device approval is an allowlist, not standards-based 2FA.
 - Keep write roots narrow with `OS_FS_WRITE_ROOTS`.
 - Never commit `.env.local`, API keys, or data from `~/.mso`.
-- Serve each managed app's dashboard from its own hostname (`hermes.os.example.com`), because a framed dashboard needs `allow-same-origin` and would otherwise be same-origin with the cockpit and able to call the host API with your session.
-- That boundary is browser-only: a plugin installed into Hermes or OpenClaw runs inside that daemon and can run host commands, whatever the browser thinks about origins.
-- With an API-key provider set, Alfa is a tool-calling agent, not a chatbot. Twelve tools run with no confirmation (`fs.list`, `fs.read`, `fs.search`, `fs.usage`, `sys.stats`, `sys.processes`, `apps.list`, `app.open`, `skills.list`, `skills.read`, `memory.remember`, `memory.forget`); six park an Approve/Deny card showing the exact call (`fs.write`, `fs.mkdir`, `fs.move`, `fs.copy`, `fs.delete`, `exec.run`).
+- Managed-app dashboards are not embedded by default. If enabled, give Hermes/OpenClaw separate explicit hostnames such as `hermes.mso.example.com`; there is no supported same-origin iframe mode.
+- That boundary is browser-only: a plugin installed into Hermes or OpenClaw runs inside that daemon and can run host commands according to the daemon's own trust model.
+- With a model provider configured, Alfa is a tool-calling agent, not a plain chatbot. Its complete current catalog and human-approval contract are generated from `frontend/slices/assistant/host-tools/*` and documented in `frontend/slices/assistant/CONTRACT.md`; avoid copying a tool count into overview docs because the catalog changes independently of MCP.
 - Everything Alfa reads — file contents, command output, process lists — is sent to your model provider, and is re-sent on every following turn of the same run. BYOK means you own the key, not that the data stays on the box.
 - Treat any file Alfa reads as untrusted input. The approval card is the only thing between text hidden inside a file and an `exec.run`. Read the command on the card, not Alfa's summary of it.
 - Agents and Skills group tools for your own convenience. They are not a permission boundary: every agent can call every tool.
@@ -226,8 +226,8 @@ bun run dev
 Quality gates:
 
 ```bash
-bun run verify              # typecheck + lint + test + check + audit
-bun run build
+bun run verify              # typecheck + lint + test + checks + audit
+node scripts/check-docs.mjs   # docs links/toolset/slice drift
 bash scripts/verify-build.sh   # build HEAD out-of-tree — safe on the prod checkout
 bash -n scripts/install.sh
 ```
@@ -261,18 +261,20 @@ Not currently supported:
 
 | Doc | What's in it |
 |---|---|
-| [docs/INSTALL.md](./docs/INSTALL.md) | Server install, credentials, systemd, TLS/VPN, updates, rollback |
-| [docs/CLI.md](./docs/CLI.md) | The `mso` command-line reference (generated from `mso --help`) |
-| [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | Local dev, quality gates, bun, deploy hazards |
-| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | App shell, host layer, slices, routing |
-| [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) | Managing Hermes/OpenClaw, per-app origins, workspace modes |
-| [docs/MODELS-INTEGRATION.md](./docs/MODELS-INTEGRATION.md) | Alfa AI and BYOK model providers |
-| [docs/MCP.md](./docs/MCP.md) | The MCP server: connecting ChatGPT/Claude/Cursor, scopes, revoking |
-| [docs/FAQ.md](./docs/FAQ.md) | Security posture, device approval, costs, product boundaries |
-| [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | Common install, build, and deployment failures |
-| [SECURITY.md](./SECURITY.md) | Responsible disclosure and deployment warnings |
-| [docs/PRODUCT_HUNT.md](./docs/PRODUCT_HUNT.md) | Product Hunt launch copy and feedback prompts |
-| [docs/DEMO-SCRIPT.md](./docs/DEMO-SCRIPT.md) | 60-second demo video script |
+| [docs/README.md](./docs/README.md) | Documentation map: current reference vs generated vs historical |
+| [docs/INSTALL.md](./docs/INSTALL.md) | Server install, credentials, TLS/VPN, update/rebuild, persistence |
+| [docs/CLI.md](./docs/CLI.md) | Generated `mso` command-line reference |
+| [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | Local dev, gates and exact release flow |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Current AppShell/host/MCP/managed-app architecture |
+| [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) | Hermes/OpenClaw lifecycle, jobs, update, backup/restore and origins |
+| [docs/HERMES-INTEGRATION.md](./docs/HERMES-INTEGRATION.md) | Hermes-specific managed-app behaviour |
+| [docs/OPENCLAW-INTEGRATION.md](./docs/OPENCLAW-INTEGRATION.md) | OpenClaw-specific managed-app behaviour |
+| [docs/MODELS-INTEGRATION.md](./docs/MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex model credentials |
+| [docs/MCP.md](./docs/MCP.md) | MCP/OAuth tools, discovery, workflow memory and security internals |
+| [docs/CHATGPT-PLUGIN.md](./docs/CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup + architecture/OAuth/tool/file diagrams |
+| [docs/FAQ.md](./docs/FAQ.md) | Security, product and operator boundaries |
+| [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | Current symptom → cause → supported recovery |
+| [SECURITY.md](./SECURITY.md) | Security posture and vulnerability reporting |
 
 ## Status
 

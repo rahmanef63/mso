@@ -1,5 +1,10 @@
 # MCP — drive this VPS from ChatGPT, Claude.ai or Cursor
 
+> **Current deep reference.** For ChatGPT specifically, use
+> [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for current custom-MCP-app terminology,
+> setup values and diagrams. This file owns protocol, tool, discovery, workflow and
+> security internals.
+
 mso ships an MCP server so an AI client can call the same host operations the web
 UI does: list and read files, write them, check CPU/memory/disk, list processes and
 managed apps, and — if you grant it — run shell commands.
@@ -13,45 +18,45 @@ unauthenticated one.
 ```bash
 # .env.local
 OS_MCP_ENABLED=1
-OS_MCP_MAX_SCOPE=exec    # optional: exec is the default; use read/write to opt down
+OS_MCP_MAX_SCOPE=read    # read | write | exec; default ceiling is exec
 ```
 
-Then `bun run build && sudo systemctl restart mso.service` (build THEN restart —
-see CLAUDE.md's deploy hazard).
+After changing deployment environment, use the normal MSO update/rebuild path (Settings →
+About or `mso update run --rebuild`). A Git push or editing `.env.local` does not change the
+running service by itself.
 
-## Connect ChatGPT
+## Connect an MCP client
 
-Settings → Connectors → New App. Every field is copy-pasteable from
-**mso → Settings → MCP**.
+The stable server contract is the remote HTTPS endpoint plus OAuth discovery:
 
-| Field | Value |
+| Purpose | Path |
 |---|---|
-| MCP Server URL | `https://mso.rahmanef.com/mcp` |
-| Authentication | `OAuth` |
-| Registration method | `User-Defined OAuth Client` |
-| Client ID | `chatgpt-mso` (any string) |
-| Client Secret | *empty* |
-| Token endpoint auth method | `none` |
-| Auth URL | `https://mso.rahmanef.com/oauth/authorize` |
-| Token URL | `https://mso.rahmanef.com/oauth/token` |
-| Resource | `https://mso.rahmanef.com/mcp` |
+| MCP | `/mcp` |
+| authorize | `/oauth/authorize` |
+| token | `/oauth/token` |
+| dynamic registration | `/oauth/register` |
+| authorization metadata | `/.well-known/oauth-authorization-server` |
+| protected-resource metadata | `/.well-known/oauth-protected-resource` |
 
-Clicking Create sends you to mso's consent screen. **You must already be signed in
-to mso on that device** — the consent page cannot authorize anything on its own;
-it converts an existing approved session into a bearer.
+MSO supports OAuth 2.1-style authorization-code flow with PKCE S256 and public clients
+(token endpoint auth `none`). The current authorization metadata advertises only
+`authorization_code`; there is no refresh-token grant. The authorization page is a normal
+signed-in MSO page: an approved human browser session converts into a scoped MCP bearer; the
+consent page is not a second login mechanism. Expired/revoked bearers therefore require a
+new authorization flow.
 
-Claude.ai, Cursor and `mcp-remote` register themselves through RFC 7591 DCR — give
-them the MCP Server URL and nothing else.
+For ChatGPT, the current product surface is a **custom MCP app/connector in Developer
+Mode**. Its UI and plan availability are owned by OpenAI and can change during the beta, so
+this deep reference does not freeze ChatGPT menu labels. Use
+[`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for the current field mapping, OAuth sequence,
+tool-snapshot refresh and troubleshooting.
 
-Verify discovery before you click Create:
+Clients that support RFC 7591 Dynamic Client Registration can register through
+`/oauth/register`. ChatGPT can also use the predefined public `chatgpt-mso` client without a
+secret.
 
-```bash
-curl -s https://mso.rahmanef.com/.well-known/oauth-protected-resource | jq
-curl -s https://mso.rahmanef.com/.well-known/oauth-authorization-server | jq
-```
-
-A 404 there is the cause of ChatGPT's unhelpful "MCP server does not implement
-OAuth" — it means `OS_MCP_ENABLED` is not set on the running process.
+A 404 from either well-known discovery document normally means `OS_MCP_ENABLED=1` is not
+active in the **running** process (demo mode also forces MCP off).
 
 ## The three scopes
 
@@ -103,6 +108,8 @@ pins all of this, including that a token's visible list matches its callable set
 The catalog has a stable server version plus a schema-derived toolset signature. It is returned by public `GET /mcp`, MCP `initialize`, scoped `tools/list`, and the authenticated Settings → MCP endpoint. The signature changes when a name, description, input schema, scope, annotation or per-operation limit changes—not only when the tool count changes.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
+
+<!-- mcp-toolset: server=1.6.0 version=2026.08.21.1 tools=28 read=15 write=10 exec=3 -->
 
 Current catalog: **28 tools** (15 read, 10 write, 3 exec), server `1.6.0` / toolset
 `2026.08.21.1`. `project_capabilities` and `project_function_call` add one stable
@@ -402,10 +409,14 @@ between them — usually wrong, and the MSO one billed a separate API key. Nothi
 replaces it: ask the client to generate the image with its own capability.
 
 Importing the result is unchanged and deliberately preserved: **`fs_upload_file`** takes
-one ChatGPT conversation/generated file through `openai/fileParams`, downloads the
-temporary OpenAI URL immediately (HTTPS only, `*.oaiusercontent.com` or an OpenAI
-regional `oaisdmnt*.blob.core.windows.net` storage account, redirects re-validated),
-checks type and size, writes inside `OS_FS_WRITE_ROOTS`, and returns bytes plus SHA-256.
+one ChatGPT conversation/generated file through `openai/fileParams`, downloads its
+temporary OpenAI HTTPS URL immediately, re-validates up to three redirects, caps the file
+at **20 MiB**, accepts PNG/WebP/JPEG or generic octet-stream, and writes inside
+`OS_FS_WRITE_ROOTS`. Allowed download hosts are OpenAI `*.oaiusercontent.com` content hosts
+or the explicitly matched `oaisdmntpr<region>.blob.core.windows.net` storage-account
+family—not arbitrary Azure Blob hosts. The result returns path, bytes and SHA-256. An
+existing same-name file may be replaced, so the tool is classified as a write/destructive
+action. See `CHATGPT-PLUGIN.md` for the end-to-end diagram.
 
 `OS_CODEX_BUILTIN_TOOLS` still exists and still takes an allowlisted list, but its
 default is now EMPTY and `image_generation` is no longer an accepted value — naming it

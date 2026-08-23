@@ -1,106 +1,136 @@
 # FAQ
 
-### Is this a real operating system?
+### Is MSO a real operating system?
 
-No. It's a single Next.js app with a desktop-style UI metaphor. The value is
-utility — terminal, files, monitor, media, a real remote browser — in one
-mobile-first pane. See the [README](../README.md) for the current positioning.
+No. It is a self-hosted Next.js application with an OS-style workspace metaphor. The value
+is practical server control—Files, Terminal, Code, metrics, Browser, AI and managed apps—in
+one responsive browser UI.
 
 ### Is it safe to expose to the public internet?
 
-Treat an authenticated session like an SSH login: the owner can read files
-(within roots) and run shell commands. The app ships signed cookies, device
-approval as a browser allowlist, rate limits, an FS jail and an audit log —
-but it has **not** had a third-party security audit. Recommended posture:
-Tailscale/VPN, or a TLS reverse proxy + IP allowlist. Public exposure is for the
-[demo build](./INSTALL.md#8-optional-public-demo-mode) (no auth, no host
-access), not the real thing.
+Treat an authenticated owner session like SSH. MSO has signed sessions, device approval,
+filesystem bounds, rate limits and audits, but no third-party security audit. Prefer
+Tailscale/VPN or a tightly controlled HTTPS reverse proxy. Public showcases should use a
+separate `NEXT_PUBLIC_OS_DEMO=1` mock-only build.
 
-### Why a password AND device approval?
+### Why password plus device approval?
 
-The password protects login, and the device allowlist prevents a new browser
-from receiving a session until you approve it. A leaked password alone gets an
-attacker a *pending* device and nothing else. You approve devices from an
-already-approved device, or from the server with `node scripts/approve-device.js
-<deviceId> "label"`.
+The password proves the owner knows the login secret; device approval prevents a new browser
+from receiving an owner session until an existing trusted device or the server approves it.
+It is a browser allowlist, not standards-based MFA.
 
-### I lost all my approved devices. How do I get back in?
+### I lost all approved devices. How do I get back in?
 
-SSH to the box. Either approve your current device id (shown on the login
-screen) with `scripts/approve-device.js`, or inspect
-`~/.mso/auth-devices.json` directly. Deleting an entry revokes a device.
+Use a trusted host-admin path to approve the device id shown on the login page with
+`scripts/approve-device.js`, or inspect the allowlist on the server. Do not expose the
+allowlist through the normal Files API.
 
-### Can multiple people use it?
+### Can multiple people use one MSO installation?
 
-It's single-owner by design: one password, one trust level, every session is
-"the owner". Don't hand out sessions you wouldn't hand a shell.
+It is single-owner by design. There is no multi-user RBAC for the cockpit. Do not hand out
+sessions you would not hand a shell.
 
-### Why is there no database?
+### Why no database?
 
-Nothing needs one. Sessions are stateless signed cookies; the device
-allowlist, BYOK key and audit log are small JSON/JSONL files under
-`~/.mso/`; window layout lives in the browser's localStorage. One process,
-no migrations, nothing to back up except `~/.mso`.
+Core state is small: signed sessions are stateless, device/config/MCP/audit state lives in
+private owner-local files, and UI/window state is browser-side or in the existing preference
+store. Managed applications keep their own independent state.
 
-### Can I run it as root so it can manage the whole box?
+### Can I run MSO as root?
 
-Don't. Run as a normal user and widen `OS_FS_READ_ROOTS=/` if you want
-read-only browsing of the whole filesystem. Writes and exec stay bounded to
-what the process user can do — that's the point.
+Do not. Run it as a normal dedicated user. The process user's Unix permissions are another
+important boundary beyond MSO's own path checks.
 
-### What are "mock" and "live" modes?
+### What are mock and live modes?
 
-Every app works against an in-browser mock by default (zero risk, great for
-trying the UI). Settings → Server flips an app to the live host API. The
-public demo build is mock-only and does not call live host APIs.
+The shell can use mock adapters for safe demos/development and live host adapters for the
+real VPS. A public demo build is forced mock-only and does not expose live host operations.
 
-### How do I add my own app? (the modular part)
+### How do I add an MSO app?
 
-Each app is a self-contained vertical slice under `frontend/slices/<slug>/`
-that exports an `AppDescriptor`. Register it in `os-shell/shell.manifest.ts`
-(one entry: id, title, icon, slug, `load`) — dock, launcher, Spotlight, URL
-routing and windowing pick it up with **no surface edits**. Shell features
-(search, inspector, control-center, widgets…) are their own `shell-*` slices
-contributed through the same manifest. See
-[ARCHITECTURE.md](./ARCHITECTURE.md) and the slice list in
-[SLICE-CATALOG.md](./SLICE-CATALOG.md).
+Create a vertical slice under `frontend/slices/<slug>/` and register its descriptor in the
+MSO shell manifest. Dock/launcher/search/routing/windowing consume the manifest rather than
+requiring per-surface edits. Shell features are nested under `appshell/features/*`; see
+`docs/ARCHITECTURE.md` and `docs/SLICE-CATALOG.md`.
 
-### Can I reuse the apps outside mso?
+### Can I reuse slices outside MSO?
 
-Yes — that's deliberate. The shell framework (`appshell`) and several apps
-(image editor, video editor, file explorer, media viewer, code editor) are
-published as copy-in slices in the [Rahman Resources](https://resource.rahmanef.com)
-catalog (`npx rr add <slug>`). Each slice's only host coupling is a small
-`lib/host.ts` seam with injectable adapters, so the same code runs inside
-mso or standalone in any Next.js app.
+That is a design goal. AppShell is generic and application slices keep their host coupling
+behind small adapters/contracts so they can be lifted into compatible Next.js projects.
 
-### Why is the repo called `mso` but the product is "Manef Shell OS"?
+### What does the Browser app actually run?
 
-Three names, three jobs: **`mso`** is the repo/service/deploy slug (stable
-for paths, systemd units and the domain); **Manef Shell OS** is the product
-name; **MSO** is the short mark shown in the UI chrome. Renaming the slug would
-break every deploy path, so it stays.
+Camoufox: a real anti-fingerprinting Firefox on a headless X display, streamed through
+noVNC. It is optional and off when not needed. The old Playwright browser daemon is retired;
+Playwright remaining under `os-browser/` is development/test tooling only.
+
+### Why can Browser status not return the VNC password?
+
+The persistent Camoufox profile can contain live logged-in cookies. Model-facing status APIs
+therefore return only installed/running/autostart state. Human viewer credentials stay on
+the owner side.
+
+### What are Hermes and OpenClaw inside MSO?
+
+Independent managed applications. MSO can install/control/log/update/back up/restore them and
+optionally frame each vendor dashboard from a separate hostname. Their plugins still run
+with the daemon's host privileges; MSO's browser origin split does not sandbox daemon code.
+
+### Why is a managed-app dashboard not embedded by default?
+
+Vendor SPAs need `allow-same-origin`. On the cockpit origin that would share the owner's
+browser realm/session. The safe default is no embedded dashboard; split-origin embedding is
+an explicit two-variable deployment decision. See `docs/MANAGED-APPS.md`.
+
+### Can ChatGPT control MSO?
+
+Yes, through the optional remote MCP server. Enable it deliberately, connect a ChatGPT
+custom MCP app/connector over OAuth 2.1 + PKCE, and grant `read`, `write` or `exec` scope.
+Full details and diagrams are in `docs/CHATGPT-PLUGIN.md`; protocol/security internals are in
+`docs/MCP.md`.
+
+### Is "Sign in with OpenAI" in Alfa the same as the ChatGPT plugin?
+
+No. Alfa's `openai-codex` option is a model-inference credential using a ChatGPT consumer
+flow. The ChatGPT MCP app gives ChatGPT a scoped MSO bearer so it can call VPS tools. One
+does not grant the other.
+
+### Can ChatGPT send a generated image/file into the VPS?
+
+Yes. `fs_upload_file` accepts a ChatGPT-provided temporary file reference, validates the
+OpenAI download host/redirects/type/size, and writes it inside `OS_FS_WRITE_ROOTS`. MSO does
+not maintain a second image generator; use ChatGPT's native generation, then transfer the
+result.
+
+### Does MCP expose every project automatically?
+
+Project discovery searches configured containers with containment/ownership checks and hard
+work bounds. A truncated scan comes with continuation metadata; it must not be interpreted
+as a complete "not found" result. Project function calling is opt-in through
+`.mso/functions.json` and always exec-scope.
 
 ### What does it cost to run?
 
-It's a normal Node process. Idle it sits around a few hundred MB RSS; the
-systemd unit caps it at 3 GB. The optional headless Chromium (`os-browser`)
-adds the usual browser footprint — skip it on tiny boxes.
+The MSO Node process is modest compared with a full remote desktop, but exact RSS/build
+needs depend on the host and enabled features. A production build needs significantly more
+memory than idle runtime. Camoufox adds a real Firefox/X/VNC stack while it is running, so
+leave it off on small boxes when not needed.
 
-### How was the codebase audited?
+### How is the codebase checked?
 
-The maintainer's initial cross-cutting sweep — security, perf, a11y, slice
-boundaries — is `docs/AUDIT-2026-06-11.md`; several source comments still cite its
-findings by number. A follow-up pass and its scorecard were deleted on 2026-08-10
-once every row had either shipped or gone stale (`git show
-421ab7f:docs/AUDIT-2026-06-14.md`). A third pass on 2026-08-03 ran five
-adversarially-verified lenses (over-engineering, security, Next 16/React 19,
-package-manager migration, repo health) — see the top of `docs/PROGRESS.md`. Quality
-gates run on every push via the pre-push hook: typecheck, lint, 1100+ vitest tests,
-import-cycle check, a high/critical dependency audit, and an out-of-tree build.
+Every normal push is expected to pass typecheck, lint, the full Vitest suite, cycle/doc/skill
+checks, high/critical dependency audit and an out-of-tree production build. Dated audits are
+historical evidence; current behaviour is validated continuously by the gates and current
+reference docs.
 
 ### Phone support?
 
-Mobile-first is the point: the shell switches to a home-screen/app-switcher
-surface on small viewports, apps get sheet-based sidebars, and the whole
-thing is comfortable from a phone browser.
+Mobile is a first-class surface. Portrait uses iOS/Android-style shells with safe-area and
+single-owner navigation rules; phone landscape can resolve to the desktop surface. Current
+shell E2E covers desktop, phone portrait and phone landscape.
+
+### Why is the repo called `mso` but product text says MSO / Manef Shell OS?
+
+`mso` is the stable repo/service/deploy slug. **Manef Shell OS** is the product name and
+**MSO** is the short UI mark. Keeping the technical slug stable avoids churn in paths,
+services and URLs.

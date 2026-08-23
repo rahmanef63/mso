@@ -2,11 +2,51 @@
 
 Running log of what shipped each phase. Newest at top.
 
-> **Architecture note:** Phases 0–14 below were built on **Convex self-hosted +
-> a Control-Room host-agent bridge**. That stack was **removed** in Phase 15 —
-> mso is now a self-contained Next.js app (`lib/host` + signed-cookie auth).
-> Read those phases as history. **This file is the source of truth for what exists** —
-> `ARCHITECTURE.md` is no longer maintained and carries a stale-warning banner.
+> **How to read this log:** it is the source of truth for **why/when work shipped**, not
+> today's API/runbook. Phases 0–14 were built on **Convex self-hosted + a Control-Room
+> host-agent bridge**; that stack was removed in Phase 15 and later entries describe the
+> self-contained Next.js/`lib/host` architecture. For the current implementation start at
+> [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
+> entries intact as historical evidence even when their commands/counts have been superseded.
+
+## 2026-08-24 — documentation authority + ChatGPT MCP guide (DONE)
+
+The documentation set was audited against current source and the deployed/public MCP
+contract instead of patching isolated stale paragraphs. `docs/README.md` now classifies the
+repository into current reference, generated/current records, historical point-in-time
+plans/audits, and marketing collateral; `docs/ARCHITECTURE.md` is current again, while the
+June audit and old shell/BYOK plans keep their original evidence behind explicit historical
+banners. The long-standing `PROGRESS.md` header that incorrectly said Architecture was no
+longer maintained was corrected without rewriting old entries.
+
+MCP/ChatGPT documentation is now split by responsibility. `docs/MCP.md` remains the deep
+protocol/security/discovery/workflow reference, and new `docs/CHATGPT-PLUGIN.md` is the
+operator-facing custom MCP app guide with architecture, OAuth sequence, scope/tool,
+tool-snapshot refresh, workflow-id, ChatGPT-file-upload and credential-boundary Mermaid
+diagrams. It pins the live MSO MCP contract at server `1.6.0`, toolset `2026.08.21.1`, 28
+tools (15 read / 10 write / 3 exec), documents the authorization-code-only PKCE flow and
+90-day bearer reauthorization boundary, and clearly separates MSO MCP OAuth from Alfa's
+OpenAI Codex/ChatGPT-subscription OAuth. Current OpenAI Developer Mode availability and
+frozen-action behaviour are labeled as an external dated dependency rather than an MSO
+promise.
+
+Managed-app, Hermes, OpenClaw, install, security, troubleshooting, FAQ, model-provider and
+slice references were brought to current behaviour: no runtime `/features` scraping or
+workspace modes, no supported same-origin vendor dashboard, restore/update/install jobs are
+documented, Camoufox replaces the retired Playwright daemon, current persistent profile
+paths are explicit, and deploy/recovery uses `bun run ship` / `mso update run --rebuild`
+instead of stale manual production build instructions. Official operational skills were
+updated where their managed-app/deploy capability maps had drifted.
+
+A new committed `scripts/check-docs.mjs` now makes common drift a quality-gate failure. It
+checks relative Markdown links and generated CLI freshness, requires every `docs/*.md` to
+be classified, validates current MCP version/scope/tool **names** in the three contract
+docs, and validates actual slice/AppShell feature names/counts. `package.json` and
+`scripts/gates.sh` both run it. Verification: full `bun run verify` exit 0; 181 test files
+passed (1 skipped), 1573 tests passed (1 expected fail, 4 skipped); 0 value cycles; docs
+checker reports 38 Markdown files / 28 MCP tools / 21 slices / 10 AppShell feature dirs;
+9 official skills valid; WCAG palette audit 0 AA failures; dependency audit clean at
+high/critical. One pre-existing max-lines lint warning remains in `lib/mcp/dispatch.test.ts`.
 
 ## 2026-08-21 — opt-in project MCP/function capabilities; stock MSO unchanged (DONE)
 

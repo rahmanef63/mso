@@ -1,345 +1,299 @@
-# Installing mso (Manef Shell OS) on your VPS
+# Installing MSO on a Linux server
 
-Step-by-step setup for a server you own. For the short path, see
-[Install](../README.md#install). This guide covers credentials, systemd, TLS,
-the optional browser service, demo mode, updating, and rollback.
+> **Current reference.** The one-command installer is the supported path for a normal
+> deployment. Manual commands below explain the model and recovery boundaries; release
+> developers should use `bun run ship`, while operators update through Settings → About or
+> `mso update run`.
 
 ## 0. Requirements
 
-- A Linux VPS (any distro with systemd; 1 vCPU / 2 GB RAM works, build wants
-  ≥2 GB free — see [Troubleshooting](./TROUBLESHOOTING.md)).
-- **Node.js 20.9+** (22 recommended) — the RUNTIME — and **bun** as the package manager.
-- A **non-root user** that owns the install. Never run mso as root —
-  an authenticated session can run shell commands as the process user.
-- Optional: a domain + reverse proxy (Caddy/nginx/Traefik) **or** Tailscale.
+- Linux with systemd;
+- Node.js 20.9+ (Node 22 recommended/current production runtime);
+- Bun for dependency installation/scripts;
+- a non-root user that owns MSO;
+- enough memory/swap for a Next production build (build needs more than idle runtime);
+- HTTPS through Tailscale Serve or a reverse proxy for normal non-localhost browser use.
 
-## 1. Clone + install
+Optional Browser support additionally needs Camoufox, Xvfb, a lightweight X window manager,
+x11vnc, noVNC/websockify and a user systemd runtime.
+
+## 1. Recommended one-command install
+
+Run as the normal server user, not root:
 
 ```bash
-# as your normal user (NOT root)
-git clone https://github.com/<you>/mso.git ~/mso
-cd ~/mso
-bun install
+curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 ```
 
-## 2. Credentials — read this section carefully
+The installer:
 
-mso is single-owner. A password, signed session cookie, and device allowlist
-gate owner access. All of it lives in two places:
+1. resolves/creates the checkout;
+2. installs Bun/dependencies as needed;
+3. creates private owner auth configuration when missing;
+4. runs the production build;
+5. installs the `mso.service` system unit when systemd is available;
+6. enables the owner's lingering user manager needed by self-update/managed-app user units;
+7. installs the `mso` CLI convenience link and official skills;
+8. starts/replaces the service only after a successful build.
 
-| What | Where | Committed? |
-|---|---|---|
-| Secrets/env | `.env.local` | **NEVER** (gitignored) |
-| Device allowlist, BYOK AI key, audit log | `~/.mso/*.json`, `~/.mso/audit.log` | outside the repo |
+Useful flags:
 
-```bash
-cp .env.example .env.local
+```text
+--dir PATH       installation directory
+--ref REF        branch/tag/ref (default main)
+--port N         app port (default 4005)
+--bind ADDR      listen address (default 127.0.0.1)
+--no-service     build without installing the system unit
+--uninstall      remove the system unit; keep code + ~/.mso
 ```
 
-Edit `.env.local`:
+Re-running the installer updates an existing installation with the same build-before-replace
+safety rule.
+
+## 2. Network exposure
+
+The installer binds `127.0.0.1` by default. This is intentional: an authenticated MSO owner
+session can execute host commands.
+
+For an initial connection, use a localhost tunnel:
 
 ```bash
-# Owner password (min 6 chars). Use a strong password for any exposed host.
-OS_LOGIN_PASSWORD=pick-something-strong
-
-# The HMAC key that signs session cookies. MUST be strong and random:
-OS_SESSION_SECRET=$(openssl rand -hex 32)   # paste the output, don't keep the $( )
+ssh -N -L 4005:127.0.0.1:4005 you@your-server
 ```
 
-**Device approval.** The first time a browser logs in with the right password
-it does NOT get a session — it lands *pending*. Promote it once, from the
-server. This is a local browser allowlist, not standards-based 2FA:
+Then open `http://localhost:4005`. A `Secure` cookie is accepted on localhost, but ordinary
+plain-HTTP IP/hostnames will drop it.
 
-```bash
-# the device id is shown on that browser's login screen
-node scripts/approve-device.js <deviceId> "rahman's phone"
+### Tailscale (recommended)
+
+Keep MSO on loopback and publish it with Tailscale Serve so the browser reaches an HTTPS
+origin.
+
+### Caddy/nginx/Traefik
+
+Terminate TLS at the reverse proxy and forward to `127.0.0.1:4005`. Preserve the real host
+and client IP headers consistently. Set `OS_PUBLIC_ORIGIN=https://mso.example.com` when a
+reverse proxy is the stable public origin; MCP discovery and managed-app CSP use it as
+deployment-owned authority.
+
+Do not bind `0.0.0.0` merely because a reverse proxy exists. Bind wider only when the host
+firewall/network design explicitly requires it.
+
+## 3. Owner authentication
+
+If installing manually, copy `.env.example` to `.env.local` and set at minimum:
+
+```dotenv
+OS_LOGIN_PASSWORD=choose-a-strong-owner-password
+OS_SESSION_SECRET=<stable random 32+ byte secret>
 ```
 
-After you have one approved device, you can approve new ones from the UI
-(Settings → Devices) instead of SSH. The allowlist is a plain JSON file at
-`~/.mso/auth-devices.json` — deleting an entry revokes that device.
+The first correct login from a browser creates a **pending device**. Approve the device id
+shown on that login screen from the server with `scripts/approve-device.js`. After one
+browser is approved, additional devices can be approved in Settings → Devices.
 
-**Filesystem bounds.** Reads and writes are jailed to configured roots
-(default: `~` + `~/projects`, realpath-checked so symlinks can't escape):
+Changing `OS_SESSION_SECRET` invalidates all existing browser sessions while leaving the
+device allowlist intact.
 
-```bash
-# widen reads to the whole box (read-only browsing), keep writes narrow:
-OS_FS_READ_ROOTS=/
+## 4. Filesystem roots
+
+Defaults allow the owner's home/project area. Override deliberately:
+
+```dotenv
+OS_FS_READ_ROOTS=~:~/projects
 OS_FS_WRITE_ROOTS=~:~/projects
-
-# narrow reads to projects only (hides the rest of $HOME entirely):
-OS_FS_READ_ROOTS=~/projects
 ```
 
-Even inside legal roots, credential material is always blocked: `~/.mso`,
-the app's own `.env*`, and the sensitive-home denylist (`~/.ssh`, `~/.gnupg`,
-`~/.secrets`, `~/vault`, `~/.bash_history`, `~/.npmrc`) — those paths are
-unreadable AND hidden from listings. Escape hatch for a supervised session:
-`OS_FS_ALLOW_SENSITIVE=1`.
+`OS_FS_READ_ROOTS=/` permits broad **read** browsing subject to the process user's Unix
+permissions, but write roots should stay narrow. The credential denylist still blocks MSO's
+private state, `.env*`, SSH/GPG paths and other sensitive-home material.
 
-**Rotation.** To rotate the session secret just change `OS_SESSION_SECRET`
-and restart — every session is invalidated, approved devices stay approved.
-To rotate the password change `OS_LOGIN_PASSWORD`; pending devices reset on
-their next attempt.
+## 5. Service model
 
-**Checklist before going live** (same as the README security checklist):
-strong `OS_SESSION_SECRET`, VPN/TLS in front, tight read roots, non-root
-user, `.env.local` never committed, review `~/.mso/audit.log`.
+The installed production process is a normal systemd system unit running as the non-root
+owner, with its working directory set to the checkout and `.env.local` loaded as the
+environment file.
 
-## 3. First run
+The installer also sets `XDG_RUNTIME_DIR=/run/user/<uid>` and enables user lingering. This
+is required because MSO itself controls systemd **user** units such as Camoufox and managed
+applications; without a persistent user manager those calls look like "not installed" even
+when the application exists.
+
+Production health is:
+
+```text
+GET /api/health -> {status, buildId, uptime, version}
+```
+
+## 6. Optional Browser app — Camoufox
+
+The current Browser app is **Camoufox**, not the retired Playwright browser daemon.
+`scripts/camoufox-vnc-service` launches:
+
+```text
+Xvfb -> matchbox window manager -> Camoufox -> x11vnc -> websockify/noVNC
+```
+
+The service should be a systemd **user** unit named `camoufox-vnc.service`. It is intended
+to stay **disabled at boot**, with `Restart=no` and a finite runtime lease; the Browser UI
+powers it on only when needed.
+
+Important paths/defaults:
+
+- persistent logged-in profile:
+  `~/.local/share/camoufox/profiles/linkedin`;
+- VNC password file: `~/.vnc/passwd`;
+- rolling login/session safety snapshots:
+  `~/.local/state/camoufox/session-backup/`;
+- runtime noVNC overlay: under `XDG_RUNTIME_DIR` and recreated each start.
+
+The profile can contain live Google/LinkedIn cookies. Keep the profile and session backups
+private (`0700` parent tree) and do **not** add them to an ordinary broad backup without
+considering the account-takeover impact of a stolen cookie database.
+
+The old `os-browser/` directory that remains in this checkout is development/test tooling
+because it carries the Playwright dependency. It is not a production browser service and
+uses none of the old `OS_BROWSER_*` runtime configuration.
+
+## 7. Optional Alfa AI
+
+Settings → AI can store BYOK provider credentials in private host config. Common built-ins
+include Anthropic/OpenAI/OpenRouter/Google/Groq/xAI/DeepSeek/Mistral; custom compatible
+endpoints are supported and SSRF-checked.
+
+The optional `openai-codex` provider uses a separate ChatGPT consumer OAuth/device flow for
+Alfa inference. It is unrelated to the ChatGPT MCP connector. See
+`docs/MODELS-INTEGRATION.md`.
+
+## 8. Optional MCP / ChatGPT custom app
+
+MCP is **off by default**. Enable it only for a deployment that needs external AI clients:
+
+```dotenv
+OS_MCP_ENABLED=1
+OS_MCP_MAX_SCOPE=read   # raise to write/exec only when required
+```
+
+Use `docs/CHATGPT-PLUGIN.md` for ChatGPT setup and diagrams, and `docs/MCP.md` for the
+complete protocol/security model. After changing the MCP toolset, refresh/re-scan the
+ChatGPT app; MSO's "Mark ChatGPT refreshed" button is only a local acknowledgement.
+
+## 9. Optional managed-app dashboards
+
+Hermes/OpenClaw lifecycle management works without embedding their web dashboards. The safe
+default is therefore no vendor dashboard on the MSO origin.
+
+To opt into split-origin embedding, configure **both**:
+
+```dotenv
+NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE={id}.mso.example.com
+OS_SESSION_COOKIE_DOMAIN=.mso.example.com
+OS_PUBLIC_ORIGIN=https://mso.example.com
+```
+
+Provision DNS/TLS only for the explicit `hermes` and `openclaw` hostnames and sign out/in
+after changing the cookie domain. There is no supported same-origin iframe fallback. See
+`docs/MANAGED-APPS.md`.
+
+## 10. Public demo mode
+
+A public showcase must be a separate checkout/service built with:
 
 ```bash
-bun run build
-bun run start          # serves on :3000, or PORT=4005 bun run start
+NEXT_PUBLIC_OS_DEMO=1 bun run build
 ```
 
-Open it, note the device id on the login screen, approve it (step 2), log in.
+Demo mode is mock-only: no normal owner auth, no live host API, no real PTY/exec, no MCP and
+no API-key storage. Do not toggle demo mode in the production owner checkout.
 
-## 4. Run as a systemd service
+## 11. Updating
 
-`/etc/systemd/system/mso.service` (adjust user + paths):
+### Operator update
 
-```ini
-[Unit]
-Description=Manef Shell OS — browser-based visual shell for a Linux server
-After=network.target
-
-[Service]
-Type=simple
-User=youruser
-WorkingDirectory=/home/youruser/mso
-EnvironmentFile=/home/youruser/mso/.env.local
-Environment=PORT=4005
-Environment=HOSTNAME=127.0.0.1
-ExecStart=/usr/bin/npm run start -- --hostname 127.0.0.1 --port 4005
-Restart=always
-RestartSec=5
-MemoryMax=3G
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=mso
-
-[Install]
-WantedBy=multi-user.target
-```
+Use Settings → About or:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now mso.service
-journalctl -u mso -f        # watch logs
+mso update status
+mso update run
+mso update log
 ```
 
-That `ExecStart` runs the `start` script from `package.json` (`next start`) — note the
-`--` before the flags, which is what forwards them to `next` rather than to npm.
+The updater verifies the incoming checkout/build before replacing the service. A successful
+finalizer log ends with `UPDATE OK`.
 
-**npm here is deliberate, and is not a typo for bun.** bun is this project's
-*installer*; the *runtime* stays Node, because `node-pty` is a native addon compiled
-against Node's ABI and `lib/host/index.ts` re-exports it into all 51 `/api/v1` routes.
-npm ships with Node, so `/usr/bin/npm` exists on a box where a bun install path may not
-— and systemd resolves `ExecStart` with no shell and no user PATH. Verify the binary
-really is where the unit says (`command -v npm` → adjust `ExecStart=` accordingly;
-`/usr/local/bin/npm` on some distros). Dependencies are still installed with
-`bun install --frozen-lockfile` from `bun.lock` — don't substitute npm/yarn/pnpm for
-*that* step, or lockfile drift defeats the audit trail.
-
-**Graceful shutdown**: add to the `[Service]` block:
-
-```ini
-KillSignal=SIGTERM
-TimeoutStopSec=20
-```
-
-This gives 20 s for in-flight requests + PTY sessions to drain on
-restart. Without it, systemd waits the default 90 s then SIGKILLs —
-fine for normal use, but interactive PTY sessions get cut mid-keystroke.
-
-## 5. Put TLS in front (pick ONE)
-
-**Tailscale (recommended for a personal box):** don't expose anything.
-`tailscale up`, then `tailscale serve 4005`, and browse the
-`https://<machine>.<tailnet>.ts.net` URL it prints.
-
-`tailscale serve` is required, not a nicer alternative: reaching
-`http://<machine>:4005` directly over the tailnet **cannot log in**. The session
-cookie is `Secure` (`lib/auth/session-cookie.ts`), and a browser only keeps a
-`Secure` cookie over plain http on `localhost` / `127.0.0.1` / `::1`. A
-`100.64.0.0/10` address or a MagicDNS name is neither, so the login returns 200
-and the cookie is dropped — an endless login loop with the right password. The
-same is true of every `http://<ip>:4005` URL.
-
-**Caddy (public domain):**
-
-```caddy
-os.example.com {
-    reverse_proxy 127.0.0.1:4005
-}
-```
-
-**nginx:** a standard `proxy_pass http://127.0.0.1:4005;` server block with
-TLS (certbot). Keep `proxy_set_header Host $host;` and forward
-`X-Forwarded-For` (the login rate limiter keys on client IP).
-
-Either way the app should stay on `127.0.0.1:4005` (the installer's default), so
-the proxy is the only thing that can reach it and there is no public port to
-firewall in the first place. If you deliberately bind wider with
-`--bind 0.0.0.0`, firewall :4005 as well.
-
-## 6. Optional — the Browser app (Camoufox)
-
-The Browser app streams a real anti-fingerprinting Firefox from a headless X
-display over noVNC, run by the `camoufox-vnc.service` systemd USER unit whose
-ExecStart is `scripts/camoufox-vnc-service` in this repo. Skip it and everything
-else still works. See CLAUDE.md for the host-side prerequisites (`enable-linger`,
-the `XDG_RUNTIME_DIR` drop-in, and the VNC password file it refuses to start
-without).
-
-An earlier `os-browser/` Playwright sidecar on :4002 filled this role; it was
-stopped, disabled, and finally deleted on 2026-08-10. Only its vendored
-Playwright install remains, used by `scripts/gen-readme-media.mjs`.
-
-## 7. Optional — AI assistant (BYOK)
-
-Set `ANTHROPIC_API_KEY` in `.env.local`, **or** paste a key in the OS under
-Settings → AI (stored in `~/.mso/config.json`, never in the repo). Unset
-= the assistant endpoint returns 501 and the rest of the OS is unaffected.
-
-## 8. Optional — public demo mode
+If the installed source is correct but the production build tree is inconsistent, use:
 
 ```bash
-NEXT_PUBLIC_OS_DEMO=1 bun run build && bun run start
+mso update run --rebuild
 ```
 
-Demo builds have **no real login, no host access, no PTY, no shell command
-execution, no live host API, and no API-key storage**. They use mock data only
-and show a permanent demo banner. Use a separate checkout/service for the demo;
-the flag is baked at build time.
+### Developer release
 
-## 9. Updating
+After code/docs changes and verification:
 
 ```bash
-cd ~/mso
-git status --short          # must be clean before updating
-git fetch origin main
-git merge --ff-only FETCH_HEAD
-bun install --frozen-lockfile
-bun run build                  # ALWAYS build before restarting
-sudo systemctl restart mso.service
-./scripts/post-deploy-smoke.sh   # catches the chunk/MIME drift the README warns about
+bun run ship "feat(scope): describe the verified change"
 ```
 
-The installer follows the same rule: it shows the old and new commit, refuses
-dirty worktrees, exits non-zero if the target ref cannot be fetched, builds only
-after a successful update, and restarts only after a successful build.
+The command updates the generated changelog, runs pre-push gates (including an out-of-tree
+production build), pushes the exact commit, then performs the in-place build/replacement and
+post-deploy chunk verification. When started through MCP, finalization is handed to the
+owner user manager so replacing MSO cannot kill its own deploy controller.
 
-Build **then** restart, never the reverse — `next start` loads the build
-manifest at boot, and mismatched on-disk chunks cause every CSS/JS request to
-404 (see [Troubleshooting](./TROUBLESHOOTING.md#ui-is-unstyledbroken-after-a-deploy)).
+A Git push by itself is **not** a production deployment.
 
-## 9b. Rolling back
+## 12. Rollback
 
-If a deploy breaks production:
+Prefer an explicit known-good Git commit and the same verified rebuild/update machinery,
+not ad-hoc partial `.next` changes. Keep the old running process alive if the candidate
+build itself fails.
 
-1. Find the prior good commit: `git log --oneline -10`
-2. Check out the known-good commit: `git switch --detach <good-sha>`
-3. Rebuild: `bun run build`
-4. Restart: `sudo systemctl restart mso.service`
-5. Verify: `curl -s http://localhost:4005/api/health | jq .buildId`
+For a live chunk mismatch after the source ref is already correct, `mso update run --rebuild`
+is the supported recovery path. Verify `/api/health` and `scripts/post-deploy-smoke.sh`
+afterward.
 
-If the build itself broke (TypeScript or compile error), leave the running
-service alone, fix the checkout, and rebuild before restarting. If chunks are
-404ing after restart (build/run version mismatch): stop the service, remove
-`.next`, rebuild, then start it again.
+## 13. Backups and persistence
 
-## 9c. Healthcheck
+MSO owner-local state under `~/.mso/` includes:
 
-`GET /api/health` returns `{status, buildId, uptime, version}` with
-`Cache-Control: no-store`. Wire it into:
+- approved devices;
+- AI/provider configuration;
+- MCP OAuth client/token hashes;
+- audit/activity/workflow memory;
+- managed-app snapshots under `~/.mso/backups/`.
 
-**systemd watchdog** (implemented + live): the production unit keeps
-`Type=simple` (no readiness handshake → no startup race) plus:
+Back up `~/.mso` with the same care as credentials. Managed-app snapshots can contain the
+managed application's secrets and are not encrypted by MSO.
 
-```ini
-[Service]
-WatchdogSec=30
-NotifyAccess=all
-```
+Camoufox login state is **not** under `~/.mso`; it lives in the local-share/local-state
+paths documented above and is even more sensitive because it can contain reusable session
+cookies.
 
-`instrumentation.ts` `register()` pings `WATCHDOG=1` every ~10 s via the
-`systemd-notify` binary — Node has no native AF_UNIX SOCK_DGRAM, and
-`NotifyAccess=all` is required because the ping comes from a child PID, not
-`main`. A wedged event loop that misses the 30 s deadline → systemd
-auto-restarts (catches hangs that `Restart=always`, crash-only, can't). All a
-no-op when `NOTIFY_SOCKET` is unset (dev / demo / CI).
+Rotate/retain `~/.mso/audit.log` with normal host log management. Inspect logs before
+sharing them because command/path context may be private.
 
-After editing the unit: `sudo systemctl daemon-reload && sudo systemctl restart mso.service`
-Verify: `systemctl show mso -p WatchdogUSec,NRestarts,ActiveState`
+## 14. Uninstall
 
-**External monitor** (Uptime Kuma / Healthchecks.io / etc):
-
-- URL: `https://mso.rahmanef.com/api/health`
-- Expected: HTTP 200 + JSON body
-- Interval: 60s
-- Timeout: 5s
-- Alert when: `status!="ok"` OR 2 consecutive failures
-
-**Dokploy**: configure the application healthcheck endpoint at `/api/health`.
-
-## 9e. Backup & retention
-
-`~/.mso/` is the persistence root:
-
-- `auth-devices.json` — approved-device allowlist (losing it = re-approve every device)
-- `config.json` — BYOK key + AI model preferences
-- `audit.log` — append-only JSONL forensic trail
-- `chrome-profile/` — Playwright user data (browser app, optional)
-
-**Backup recommendation**: nightly `restic` (or `rsync` to off-host) of `~/.mso/`. ≤10MB typical.
+The supported installer uninstall removes the MSO systemd unit but deliberately keeps the
+checkout and `~/.mso` data:
 
 ```bash
-# example: restic to S3-compatible / Backblaze B2 / local NAS
-restic -r b2:my-bucket backup ~/.mso --tag mso --exclude chrome-profile
+curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --uninstall
 ```
 
-**Audit log rotation** (avoid unbounded growth):
+Delete code/private state only as a separate deliberate owner action after deciding what to
+retain. Camoufox is a separate user service/profile and is not silently deleted by the MSO
+installer.
 
-```
-# /etc/logrotate.d/mso
-/home/rahman/.mso/audit.log {
-    su rahman rahman
-    size 1M
-    rotate 4
-    copytruncate
-    compress
-    delaycompress
-    missingok
-    notifempty
-}
-```
+## 15. Verification checklist
 
-The `su` directive tells logrotate which user owns the rotated files
-(required when the path lives under a non-root home). `copytruncate` is
-the right choice here: the audit writer in `lib/host/audit.ts` opens the
-log with each `appendFile` call, so no HUP/USR1 signal is needed to make
-it reopen the fd — truncate-in-place is safe.
+After install/update:
 
-## 9d. Zero-downtime restart (advanced)
-
-`systemctl restart` kills the running process then starts the new one — brief
-200-500 ms gap during which `/_next/static` chunks 404 mid-flight. For higher
-availability:
-
-1. Run two instances on adjacent ports (4005 + 4006) behind a reverse proxy
-   (Caddy/nginx).
-2. Update systemd to a socket-activated `mso@.service` template.
-3. Rolling restart: `systemctl restart mso@4006.service` first; verify
-   `/api/health`; then 4005.
-
-For a single-owner personal tool, this is overkill — the 200-500 ms gap is fine.
-
-## 10. Uninstall
-
-```bash
-sudo systemctl disable --now mso.service os-browser.service 2>/dev/null
-sudo rm /etc/systemd/system/mso.service /etc/systemd/system/os-browser.service
-rm -rf ~/mso ~/.mso      # ~/.mso holds devices/config/audit log
-```
+1. service is active;
+2. local and public `/api/health` report the expected build id;
+3. login works on an approved browser over HTTPS/localhost;
+4. `scripts/post-deploy-smoke.sh` passes;
+5. if UI changed, test desktop + phone portrait + phone landscape;
+6. if MCP changed, compare Settings → MCP signature and refresh the external app/tool
+   snapshot;
+7. if managed-app origins changed, sign in again and test each explicit app hostname.

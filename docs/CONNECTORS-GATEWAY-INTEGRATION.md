@@ -1,80 +1,107 @@
-# mso → Connectors Gateway
+# MSO ↔ Connectors Gateway contract
 
-**Status:** mso is a registered connector in `rahmanef63/connectors-gateway` as of 2026-08-17. MSO is the provider; the gateway is one consumer alongside ChatGPT, Claude.ai and Cursor. Every client reaches `https://mso.rahmanef.com/mcp` through the same OAuth and scope rules documented in [`MCP.md`](./MCP.md).
+> **Current MSO-side reference.** This file pins what **MSO** exposes. A gateway repository
+> can evolve independently, so do not claim its mapping count is current without checking
+> that repository at the time of the change.
 
-## Cross-repo contract
+<!-- mcp-toolset: server=1.6.0 version=2026.08.21.1 tools=28 read=15 write=10 exec=3 -->
 
-MSO currently exposes **28 tool names** (server `1.6.0`, toolset `2026.08.21.1`). The gateway manifest still maps **15** of them through literal `x-upstream` strings:
+MSO currently exposes MCP server **1.6.0**, toolset **2026.08.21.1**: **28 tools**
+(15 read, 10 write, 3 exec). `GET /mcp` exposes the live names, version/hash and scoped
+manifest and is the machine-readable parity source.
+
+## Why this contract matters
+
+Connector/gateway manifests commonly bind an action to an MSO tool with a literal upstream
+name such as:
 
 ```json
 { "id": "mso.fs.delete", "x-upstream": "fs_delete" }
 ```
 
-Renaming or removing a tool here breaks that action at runtime even when both repositories typecheck. Adding a tool here does not make it appear in the gateway until its manifest is deliberately updated.
+Renaming/removing an MSO tool can therefore break a gateway without a TypeScript error in
+either repository. `lib/mcp/parity.test.ts` covers MSO MCP ↔ Alfa intent, not an external
+gateway's literal strings.
 
-The runtime contract is no longer invisible:
+Before changing an MCP tool name:
 
-- unauthenticated `GET /mcp` returns the current toolset version, hash, count and names;
-- MCP `initialize` and `tools/list` return `_meta.toolset` for the token's visible scope;
-- Settings → MCP shows the same signature and lets the operator mark the ChatGPT action snapshot as refreshed;
-- the signature hashes names, descriptions, schemas, scope, annotations and limits, so a schema-only change is visible too.
+1. inspect the live `GET /mcp` manifest;
+2. search the gateway's connector manifest for the exact upstream string;
+3. decide whether the external action is renamed, migrated or intentionally dropped;
+4. update both repos in a coordinated release if necessary;
+5. refresh/re-scan connected ChatGPT/custom apps because action definitions are cached.
 
-A consumer CI should compare the upstream names it pins against this runtime manifest. Source parsing remains useful for review, but it is no longer the only way to detect drift.
+## Current MSO catalog
 
-## What the gateway exposes
+### Read (15)
 
-**Removed 2026-08-20 — a gateway that pinned either name must drop it:** `image_generation_status` and `image_generate`. MSO no longer generates images on any surface (a GPT client already carries its own; a second tool for the same job made the model choose wrong). Neither name was in the gateway's 15, so nothing breaks there today. `fs_upload_file` is unchanged and remains how a conversation-generated file reaches the VPS.
+`fs_list`, `fs_read`, `fs_search`, `fs_usage`, `sys_stats`, `sys_processes`,
+`apps_list`, `apps_logs`, `browser_status`, `projects_list`, `project_capabilities`,
+`skills_list`, `skills_read`, `skills_search`, `screen_capture`.
 
-The gateway has not yet synchronized the tools added or deliberately withheld from its 15-action manifest:
+### Write (10 beyond read)
 
-| Not mapped in gateway | Reason/status |
-|---|---|
-| `exec_run` | deliberately omitted: arbitrary owner-level shell |
-| `browser_power` | deliberately omitted: controls a browser profile holding live sessions |
-| `skills_search` | added to MSO after the original gateway manifest |
-| `screen_capture` | added later; secure MSO-only visual artifact, requires a product decision in the gateway |
-| `workflow_start` | added later; starts the actor-scoped task lease |
-| `workflow_cancel` | added later; exact-id recovery for an interrupted run |
-| `workflow_finish` | added later; exact-id verified recipe boundary |
-| `fs_upload_file` | added later; ChatGPT `openai/fileParams` binding the gateway does not model |
-| `projects_list` | added 2026-08-20; enumerates every configured project container |
-| `project_capabilities` | added 2026-08-21; detects opt-in project MCP/function manifests without exposing secrets |
-| `project_function_call` | added 2026-08-21; exec-scope generic runner for functions declared by a project |
-| `skills_list` | added 2026-08-20; global + per-project skill catalog with trust |
-| `skills_read` | added 2026-08-20; exact-catalog-id SKILL.md read, trusted tiers only |
+`fs_write`, `fs_upload_file`, `fs_mkdir`, `fs_move`, `fs_copy`, `fs_delete`,
+`apps_power`, `workflow_start`, `workflow_cancel`, `workflow_finish`.
 
-`fs_delete` and `apps_power` remain the gateway's highest-risk mapped actions and should keep its human approval policy. The gateway's policy layer supplements, never replaces, MSO's scope checks, path jail, audit trail and per-operation rate limits.
+### Exec (3 beyond write)
 
-## Change procedure
+`exec_run`, `browser_power`, `project_function_call`.
 
-Before changing the MCP catalog:
+## Scope and workflow compatibility
 
-1. Read `lib/mcp/tools.ts`, `tools-read.ts`, `tools-learning.ts` and `toolset.ts`.
-2. Do not rename a public tool unless migration is intentional.
-3. Run MSO parity, dispatch and toolset tests.
-4. Compare the new `GET /mcp` signature and names with the gateway manifest.
-5. Update the gateway mapping or explicitly document why a capability stays absent.
-6. Refresh affected custom-app action snapshots after deployment.
+The MSO scope ladder (`read < write < exec`) is the server permission boundary. A gateway
+may add stricter approvals/policy, but it must not assume that hiding an action changes the
+MSO bearer scope.
 
-The Alfa ↔ MCP axis is guarded by `lib/mcp/parity.test.ts`; this document and the runtime toolset signature cover the cross-repo axis until the gateway adds an automated parity check.
+Operational MCP tools also accept optional `workflow_id`. A gateway that does not expose
+that field can still call the tools, but those calls are standalone and will not join an
+MSO learned workflow. For multi-step orchestration, expose the workflow trio and propagate
+the exact id returned by `workflow_start`.
 
-## Scope ceiling
+## Project functions are data, not dynamic MCP names
 
-The running MSO instance currently allows tokens up to:
+A project may publish `.mso/functions.json`. The gateway does not need a new MSO action for
+each project function: it calls `project_capabilities` to see validated public schemas and
+`project_function_call` to run one at exec scope. This is intentional so switching projects
+does not change the global MCP tool prefix.
+
+`.mcp.json` is different: MSO reports presence only and never returns its contents or
+implicitly connects to an arbitrary project's MCP server.
+
+## ChatGPT file parameters
+
+`fs_upload_file` uses OpenAI MCP metadata `openai/fileParams` on its top-level `file`
+parameter. A generic gateway that cannot preserve that metadata may still proxy ordinary
+MSO JSON actions, but it cannot manufacture the ChatGPT-provided temporary file object from
+a string path. Preserve metadata if file import parity is required.
+
+## Security-sensitive mapped actions
+
+Treat these as particularly important in any external approval layer:
+
+- `fs_delete` / `fs_write` / `fs_upload_file` — host data mutation;
+- `apps_power` — bounded daemon control and state backup;
+- `exec_run` — host shell as the MSO user;
+- `browser_power` — starts a browser profile with live logged-in sessions;
+- `project_function_call` — executes project-owned fixed argv and is always exec-scope.
+
+External policy supplements MSO's own scope/path/audit/rate-limit checks; it does not replace
+them.
+
+## Removed names
+
+Provider-backed MSO image generation was removed on 2026-08-20. Do not map
+`image_generation_status` or `image_generate`. A GPT/ChatGPT client should use its native
+image capability and, when needed, transfer the resulting file through `fs_upload_file`.
+
+## Verification
+
+For an integration update, compare the gateway's literal upstream names with:
 
 ```text
-OS_MCP_MAX_SCOPE=exec
+GET https://<mso-origin>/mcp
 ```
 
-The gateway's mapped actions do not require `exec`, so narrowing the gateway token to `write` costs it nothing. The server-wide ceiling remains an owner decision because it also governs separately minted ChatGPT, Claude or Cursor tokens.
-
-## Operator checks
-
-```bash
-curl -s https://mso.rahmanef.com/mcp | jq '.toolset'
-mso mcp list
-mso mcp activity 100
-mso audit 50 mcp.
-```
-
-The gateway strategy and its user-facing OAuth are maintained in the gateway repository. This file owns only the provider-side contract and drift procedure.
+Then run MSO's MCP parity/global-tool tests and the gateway's own connector-contract tests.
+Do not infer external-gateway parity merely because MSO's internal tests are green.

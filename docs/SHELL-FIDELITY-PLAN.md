@@ -1,5 +1,12 @@
 # Shell Fidelity Plan — five lightweight, convincing OS clones
 
+> **Historical design plan / backlog baseline.** The inventory below was written from the
+> 2026-06-11 shell state and intentionally preserves its original gaps/budgets. Several
+> phases subsequently shipped and the AppShell structure changed. Current shell contracts
+> live in [`ARCHITECTURE.md`](./ARCHITECTURE.md), the per-shell design files under
+> `frontend/slices/appshell/design/`, and current E2E tests. Treat unchecked items here as
+> ideas to re-validate, not current bugs or promises.
+
 > Goal: each shell (macOS · Windows 11 · iOS · Android · Dashboard) should feel
 > *native to its OS* — visually and behaviourally — while the whole thing stays
 > a lightweight web app. Builds on the multishell port (done; its plan doc was

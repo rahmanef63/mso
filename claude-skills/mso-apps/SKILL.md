@@ -34,7 +34,7 @@ When the current environment exposes bounded MSO tools, use those first. The CLI
 | Reel Editor | timeline/render | browser/client; shell only for explicit media preprocessing |
 | Settings | devices/provider/theme/server mode | dedicated settings/UI; never expose secrets |
 | Assistant | chat + tools + skills | `/api/assistant`; trusted skills only |
-| Managed apps | status/logs/start/stop/restart/backup | bounded managed-app capability |
+| Managed apps | detect/install/status/logs/start/stop/restart/backup/update/restore/uninstall/jobs | bounded list/log/power for direct actions; MSO Details/API/CLI for long-running update/install/restore/uninstall workflows |
 | Runtime apps | app-defined actions | use declared app capability; command runtimes are full shell risk |
 
 ## Important boundaries

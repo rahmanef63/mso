@@ -5,7 +5,7 @@
 // made them same-origin with the cockpit: upstream JS could reach `window.top` and
 // call /api/v1/exec with the user's session, and no CSP can stop it (CSP binds a
 // realm, not a reference across realms). So each app gets its OWN host, pointed at
-// this same process: `hermes.mso.rahmanef.com`, `openclaw.mso.rahmanef.com`.
+// this same process: `hermes.mso.example.com`, `openclaw.mso.example.com`.
 // `window.top` is then cross-origin and opaque.
 //
 // One host PER APP, not one shared host: a shared one would put Hermes and
@@ -13,27 +13,27 @@
 //
 // Middleware (`proxy.ts`) enforces the other half: on an app host, every path is
 // rewritten into that app's proxy and everything else 404s, so /api/v1/exec does
-// not exist on those origins at all. Unset template = single-origin mode (dev,
-// demo, any deployment without the DNS records), where the path-scoped CSP in
-// proxy-csp.ts is the only containment and the window.top reach stays open.
+// not exist on those origins at all. An unset/invalid template disables vendor
+// dashboard embedding entirely; MSO's own Details management surface remains usable.
+// There is deliberately no same-origin iframe fallback.
 //
 // Edge-safe and client-safe: no node builtins, no catalog import (that one reads
 // node:os). NEXT_PUBLIC_ because the iframe `src` is built in the browser.
 import { MANAGED_APP_IDS, type ManagedAppId } from "./types";
 
-/** e.g. `{id}.mso.rahmanef.com`. Empty/unset = single-origin mode. */
+/** e.g. `{id}.mso.example.com`. Empty/unset = vendor dashboard embedding disabled. */
 const TEMPLATE = process.env.NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE?.trim() ?? "";
 
 const TOKEN = "{id}";
 
 export const splitOriginEnabled = (): boolean => TEMPLATE.includes(TOKEN);
 
-/** The host this app's dashboard is served from, or null in single-origin mode. */
+/** The host this app's dashboard is served from, or null when dashboard embedding is disabled. */
 export function managedAppHost(id: ManagedAppId): string | null {
   return splitOriginEnabled() ? TEMPLATE.replace(TOKEN, id).toLowerCase() : null;
 }
 
-/** `https://<host>` — the iframe origin. null in single-origin mode. */
+/** `https://<host>` — the iframe origin. null when dashboard embedding is disabled. */
 export function managedAppOrigin(id: ManagedAppId): string | null {
   const host = managedAppHost(id);
   return host ? `https://${host}` : null;
@@ -47,8 +47,8 @@ export function managedAppIdForHost(host: string | null | undefined): ManagedApp
   return MANAGED_APP_IDS.find((id) => managedAppHost(id) === bare) ?? null;
 }
 
-/** The name the app hosts live under (`{id}.mso.rahmanef.com` → `mso.rahmanef.com`).
- *  Deployment-owned; null in single-origin mode or when the leftover is a single
+/** The name the app hosts live under (`{id}.mso.example.com` → `mso.example.com`).
+ *  Deployment-owned; null when embedding is disabled or when the leftover is a single
  *  label ("com", ""), which is nobody's deployment. */
 function templateParent(): string | null {
   if (!splitOriginEnabled()) return null;
@@ -59,10 +59,10 @@ function templateParent(): string | null {
 }
 
 /** A host INSIDE the app namespace that is not one of the apps — e.g. someone adds
- *  `staging.mso.rahmanef.com` pointing at this port, or a `*.os` wildcard appears.
+ *  `staging.mso.example.com` pointing at this port, or a wildcard appears.
  *
  *  Such a host must 404, not serve the cockpit: the session cookie is widened to
- *  `Domain=mso.rahmanef.com` so it is sent there, and a page on it would be
+ *  `Domain=mso.example.com` so it is sent there, and a page on it would be
  *  same-origin with a full cockpit — the exact reach the split removes, handed back
  *  by a DNS edit nobody connected to this file. Only the namespace is refused, never
  *  the parent itself, so this cannot lock the operator out of the cockpit.
@@ -93,8 +93,8 @@ export const MANAGED_APP_HOST_HEADER = "x-os-managed-app-host";
  *  OS_PUBLIC_ORIGIN is not NEXT_PUBLIC — in the browser only the fallback
  *  resolves, and every caller is server-side.
  *
- *  Fallback is the template's parent name (`{id}.mso.rahmanef.com` →
- *  `https://mso.rahmanef.com`), which is deployment-owned too. A wrong value fails
+ *  Fallback is the template's parent name (`{id}.mso.example.com` →
+ *  `https://mso.example.com`), which is deployment-owned too. A wrong value fails
  *  CLOSED — naming the wrong origin means the frame is refused, which is visible.
  *  null when nothing resolves, and the caller must then refuse framing outright
  *  rather than guess. */

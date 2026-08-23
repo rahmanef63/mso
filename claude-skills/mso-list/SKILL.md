@@ -32,7 +32,7 @@ A route not probed is **UNPROBED**, never green by association. Dynamic app jobs
 | Terminal / runtime command apps | full host execution; highest-risk fallback |
 | System Monitor | stats/processes; maintenance routes are separate |
 | Browser | Camoufox status/power; secret viewer credential is human-only |
-| Managed Apps | list/status/logs/start/stop/restart/backup/update/install/jobs |
+| Managed Apps | list/status/logs/start/stop/restart/backup/update/install/restore/uninstall/jobs |
 | Image/Media Studio | shared editor document registry; browser rendering |
 | Settings / Assistant | configuration, devices, models, tools, trusted skills |
 

@@ -1,64 +1,87 @@
-# @rahmanef/models → mso AI integration
+# Alfa model and credential integration
 
-**Status: first slice SHIPPED + verified (2026-07-15).** Designed by a 3-agent workflow
-(`models-integration-design`) that mapped both codebases; grounded against live code.
+> **Current reference.** Alfa supports BYOK API providers, custom OpenAI/Anthropic-compatible
+> endpoints, and a separate OpenAI Codex/ChatGPT-subscription OAuth path. Do not confuse
+> that provider login with the ChatGPT MCP connector OAuth described in
+> `docs/CHATGPT-PLUGIN.md`.
 
-## What it does
-mso's AI (the **Alfa** assistant) now resolves its model + BYOK key + host-gated
-endpoint through the vendored **`@rahmanef/models`** registry (`resolveModel()`),
-instead of a single hardcoded Anthropic key. Multi-provider, single-owner, self-contained.
+## 1. Credential store
 
-## Key decisions
-- **Vendored the lib** (`lib/models/*.js`, 7 files) rather than an npm/file/github dep —
-  the src is **zero-dep ESM** (`node:` builtins + relative imports only), so it drops in with
-  **0 new npm deps** and no install-graph/deploy risk. Server-only (reads `node:fs`/env — never
-  import from a client component). *Sync from `models-rahmanef-com/src/*.js` when it updates.*
-- **`resolveModel()` only, not `chat()`** — the lib's `chat()` returns buffered JSON; mso
-  streams SSE. So we use the lib for key + **host-gate** (a provider's key is pinned to its own
-  `baseUrl`, can't be redirected) + model + protocol, and **keep the Anthropic SDK** for the stream.
-- **`hostCredentialStore()`** (`lib/config/store.ts`) implements the lib's `CredentialStore` over the
-  existing **0600 `~/.mso/config.json`**, per-provider, with the env chain (`ANTHROPIC_API_KEY`…)
-  as fallback. Single-owner → `tenantId` ignored. Legacy `anthropicApiKey` stays a read alias →
-  **existing installs migrate for free**.
-- **No new cloud/Convex** — reuses the host config file. Essence intact.
+Alfa's server-side selection and credentials live in private host state (normally
+`~/.mso/config.json`, mode `0600`). Built-in environment variables remain fallback inputs.
+Credentials are not compiled into the client bundle.
 
-## The seam (`app/api/assistant/route.ts`)
-`resolveModel(await resolveModelRef(), { store: hostCredentialStore() })` → `{apiKey, baseUrl,
-model, protocol}`; `new Anthropic({ apiKey, baseURL })`; `model: resolved.model`. Throws on no key →
-`501 no_api_key` (unchanged UX). Non-anthropic protocol → `501 provider_not_wired` (fenced until the
-streaming adapter lands). SSE writer, abort→billing-cutoff, rate-limit, auth, approve-per-call gate
-all **untouched**; every client speaks the neutral `delta|tool_use|done|error` vocab → zero client changes.
+The current provider picker covers the common built-ins (Anthropic, OpenAI, OpenRouter,
+Google, Groq, xAI, DeepSeek and Mistral) and can use the vendored model registry for a
+broader catalog. Custom providers can define a base URL and OpenAI- or
+Anthropic-compatible protocol; custom URLs are SSRF-checked before use.
 
-## Verified
-`GET /api/config` → `{provider, model, hasApiKey, apiKeyMasked}`; Settings → AI shows a **model
-`<Select>`** (claude-opus-4-8/sonnet-5/haiku-4-5/fable-5); Alfa with no key → graceful "No Anthropic
-API key set…" (the resolveModel path ran + threw → 501). With a key (config file or `ANTHROPIC_API_KEY`
-in `.env.local`) Alfa streams via the resolved provider/model. Build bundles the vendored ESM cleanly.
+## 2. Streaming architecture
 
-## Slices 2 + 3 — SHIPPED (2026-07-15)
-- **Slice 2 — openai-protocol streaming adapter** (`lib/ai/openai-stream.ts`): native `fetch`
-  `POST {baseUrl}/chat/completions {stream:true}`, parses `choices[].delta` → `delta`, accumulates
-  `tool_calls[]` by index → `tool_use`+`done`; `toOpenAITools`/`toOpenAIMessages` translate tools +
-  `tool_use`/`tool_result` both ways. The `route.ts` 501 fence is **gone** — it now branches on
-  `resolved.protocol` (anthropic = SDK, else = adapter), sharing the SSE writer / abort / rate-limit;
-  the client's `delta|tool_use|done|error` vocab is unchanged (zero client changes). Unit-tested
-  (`openai-stream.test.ts`: cross-read SSE buffering + split tool_call reassembly). **Unlocks OpenAI
-  + ~34 compatible providers** (`registry.js`).
-- **Slice 3 — provider picker**: `GET /api/models[?provider=]` (`app/api/models/route.ts`,
-  session-gated, `listModels()` from the offline-tolerant models.dev cache) + a provider `<Select>`
-  in `ai-section.tsx` (8 curated providers) with catalog-backed free-text model suggestions
-  (`<datalist>`, so an id absent from the catalog still works offline). `config/route.ts` +
-  `store.ts` already persisted keys per-provider → unchanged. (Optional: `MODELS_CACHE_DIR=~/.mso/models-cache`.)
-- **Verified live:** `/api/models?provider=openai` → 56 models; picker lists Anthropic / OpenAI /
-  OpenRouter / Google / Groq / xAI / DeepSeek / Mistral; Alfa streams via the resolved provider once
-  a key is set (Settings → AI or the provider env var).
+```mermaid
+flowchart LR
+  UI[Alfa UI] --> R[/api/assistant]
+  R --> RES[resolve provider + model + credential]
+  RES -->|Anthropic protocol| AN[Anthropic streaming adapter]
+  RES -->|OpenAI-compatible| OA[OpenAI streaming adapter]
+  RES -->|openai-codex| CX[ChatGPT Codex Responses adapter]
+  AN --> S[neutral delta / tool_use / done / error stream]
+  OA --> S
+  CX --> S
+  S --> UI
+```
 
-## Out of scope
-Usage/spend stats, simultaneous multi-model, and **OAuth sign-in**: the OpenAI *platform* API
-(`/v1`) is **BYOK-key-only** — there is no OAuth flow that mints `/v1` credentials. The only "OpenAI
-OAuth" that exists is the ChatGPT-*consumer* device-auth (Codex backend, unofficial / ToS-gray, NOT
-`/v1`) — a separate, large, fragile effort against an unofficial API, deliberately not bundled here.
+The client consumes one neutral stream vocabulary. Provider-specific wire formats are
+translated server-side, so changing model provider does not fork the shell UI.
 
-## Files
-`lib/models/` (vendored), `lib/config/store.ts`, `app/api/assistant/route.ts`,
-`app/api/config/route.ts`, `frontend/slices/os-settings/components/ai-section.tsx`.
+## 3. BYOK API-key providers
+
+For normal OpenAI Platform usage, Alfa uses a user-supplied API key. The OpenAI Platform
+API does not mint ordinary `/v1` credentials through the ChatGPT MCP connector flow.
+Likewise, an Anthropic/OpenRouter/etc API key is unrelated to MSO's own OAuth server.
+
+A custom endpoint stores its provider metadata in the host config and routes through the
+same streaming abstraction after URL/protocol validation.
+
+## 4. OpenAI Codex / ChatGPT subscription provider
+
+`openai-codex` is a distinct optional Alfa provider. It uses the ChatGPT consumer
+OAuth/device flow and the ChatGPT Codex backend rather than the OpenAI Platform
+`/v1/chat/completions` API. Its implementation lives in `lib/ai/oauth/codex.ts` and
+`lib/ai/codex-stream.ts`.
+
+This path exists so the owner can choose to run Alfa against an eligible ChatGPT
+subscription. It is a consumer-backend integration and can be more fragile than the public
+Platform API. Tokens are host-side private state.
+
+Current Alfa requests through this adapter can carry Alfa's tool definitions; the older
+"chat-only/no tools" limitation from the original July plan no longer describes `main`.
+
+## 5. ChatGPT MCP OAuth is different
+
+There are two completely independent OAuth stories:
+
+| Flow | Who is the OAuth server/provider? | Credential grants access to | Stored by |
+|---|---|---|---|
+| ChatGPT ↔ MSO MCP | **MSO** is the OAuth server | MSO MCP tools (`read/write/exec`) | ChatGPT holds bearer; MSO stores only its hash |
+| Alfa `openai-codex` | OpenAI/ChatGPT consumer flow | ChatGPT Codex backend for Alfa model inference | MSO host config |
+
+Authorizing ChatGPT as an MCP client does **not** give Alfa a model credential. Connecting
+Alfa to `openai-codex` does **not** grant ChatGPT permission to operate the VPS.
+
+## 6. Data boundary
+
+BYOK means the owner controls the credential; it does not mean prompt/tool data stays on
+the VPS. Messages and any tool context included in a model request go to the selected model
+provider. Host mutation approval and filesystem boundaries remain separate MSO controls.
+
+## 7. Source map
+
+- `lib/config/store.ts` — credential/provider persistence
+- `app/api/config/route.ts` — Settings configuration API
+- `app/api/models/route.ts`, `app/api/models/test/route.ts` — catalog/test surfaces
+- `app/api/assistant/route.ts` — common assistant gateway
+- `lib/ai/openai-stream.ts` — OpenAI-compatible streaming
+- `lib/ai/codex-stream.ts` — ChatGPT Codex Responses streaming
+- `lib/ai/oauth/codex.ts` — Codex OAuth/device flow
+- `frontend/slices/os-settings/components/` — provider Settings UI

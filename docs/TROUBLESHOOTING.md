@@ -1,171 +1,241 @@
 # Troubleshooting
 
-Symptoms → causes → fixes. Errors are quoted as the UI/logs print them.
+> **Current reference.** Symptoms → likely cause → supported recovery. Historical browser
+> sidecar and manual deploy instructions are intentionally not used here.
 
 ## Login & sessions
 
 ### Login returns `not_configured` (HTTP 500)
 
-`OS_SESSION_SECRET` is missing/shorter than 32 bytes, or `OS_LOGIN_PASSWORD`
-is shorter than 6 chars. The app **fails closed** on weak config. Fix
-`.env.local` (`openssl rand -hex 32` for the secret) and restart.
+`OS_SESSION_SECRET` is missing/too short or `OS_LOGIN_PASSWORD` is invalid. MSO fails
+closed. Fix `.env.local`, then restart through your normal service/update path.
 
 ### "Too many attempts, try again later" (HTTP 429)
 
-Per-IP login rate limit tripped. Wait for the window to pass (minutes, not
-hours) and try again. Behind a reverse proxy, make sure it forwards
-`X-Forwarded-For` — otherwise every user shares the proxy's IP and one
-person's typos rate-limit everyone.
+The per-IP login limiter tripped. Wait for the window to pass. Behind a reverse proxy,
+forward the real client IP consistently so every user does not share the proxy address.
 
-### Logged in but stuck "pending approval"
+### Correct password but "pending approval"
 
-Working as designed: a correct password only creates a *pending* device.
-Approve it from an already-approved device (Settings → Devices) or from the
-server: `node scripts/approve-device.js <deviceId> "label"` — the id is shown
-on that browser's login screen.
+Expected for a new browser. Approve the shown device id from an already-approved browser
+(Settings → Devices) or from the server using the approval script.
 
-### Login succeeds but I'm immediately logged out (no session)
+### Login returns success but the browser is logged out immediately
 
-The session cookie is `Secure` — over plain HTTP the browser **silently drops
-it**. Serve the app over HTTPS (reverse proxy with TLS, or Tailscale HTTPS).
-TLS is mandatory even inside a VPN.
+The session cookie is `Secure`. Plain HTTP on a normal IP/hostname causes browsers to drop
+it. Use HTTPS/Tailscale Serve or access through a localhost SSH tunnel.
 
-### Session drops sooner than expected
+### Existing sessions suddenly died
 
-Default lifetime is 24h (`SESSION_EXPIRY_HOURS`). Changing
-`OS_SESSION_SECRET` (or restarting with a different one) invalidates ALL
-sessions immediately — check you're not regenerating it on every deploy.
+A changed `OS_SESSION_SECRET` invalidates all signed sessions. Confirm deployment automation
+is not regenerating it.
 
 ## Deploy & build
 
-### UI is unstyled/broken after a deploy
+### UI is unstyled or JS/CSS chunks 404 after deploy
 
-Chunk mismatch: `next start` loaded one build's manifest but `.next/static`
-on disk is from another. Browser console shows CSS/JS 404s or a wrong-MIME
-refusal (`X-Content-Type-Options: nosniff` makes that fatal on purpose).
-
-**Rule: build, THEN restart — never restart then rebuild.** If already
-mismatched:
+The running `next start` process and on-disk `.next` tree do not match. Do **not** keep
+mutating the live `.next` tree manually. After any active updater/finalizer has finished,
+run the supported recovery rebuild:
 
 ```bash
-rm -rf .next && bun run build && sudo systemctl restart mso.service
+mso update run --rebuild
 ```
 
-### Build runs out of memory ("Ineffective mark-compacts near heap limit")
+Then verify `/api/health` and run the post-deploy smoke check. Developer changes should be
+released with `bun run ship "<conventional commit>"`, which performs the verified
+build/restart sequence.
 
-The Next build wants ~2 GB+. Give Node more heap and/or add swap:
+### Build runs out of memory
 
-```bash
-NODE_OPTIONS=--max-old-space-size=4096 bun run build
-```
+A Next production build can need multiple GiB. Add swap or raise the Node heap for the
+build process, then run the supported build/release path again. Do not restart a healthy
+old service after a failed build.
 
 ### "Another next build process is already running"
 
-Usually a stale lock from a killed build: `rm -f .next/lock` and rebuild.
-First confirm nothing is actually building: `ps -eo pid,args | grep "[.]bin/next build"`.
+First confirm a release/self-update is not actually active. Multiple simultaneous builds
+against the production checkout are unsafe. If no process owns the build and only a stale
+lock remains, remove the stale lock, then use the normal update/release command.
 
-### A brand-new route/page 404s after deploy
+### A new route still 404s after deployment
 
-Incremental builds occasionally miss a new `app/**/route.ts`/page folder.
-Clean rebuild: `rm -rf .next && bun run build`, restart.
+Confirm Git `HEAD`, `origin/main`, `/api/health` build id and the deployment log all refer to
+the expected release. If the deployment is correct but the build tree is inconsistent, use
+`mso update run --rebuild` rather than hand-restarting around a partial build.
 
-### "Versi baru" (new version) toast loops or update never arrives
+### Update button says a newer version exists forever
 
-The service worker bakes the BUILD_ID into its cache name; a loop means the
-served build keeps flip-flopping (two processes serving different builds?).
-One-off fix in the browser: DevTools → Application → Service Workers →
-Unregister, then hard-reload.
+Check Settings → About and `~/.mso/self-update.log`. A successful self-update ends with
+`UPDATE OK`. Also verify only one production process is serving the public origin. If the
+browser cached an old service worker, unregister it once and hard reload after the server is
+confirmed healthy.
 
-## Files app
+## Files
 
-### "Folder is outside the writable area (OS_FS_WRITE_ROOTS)"
+### "Folder is outside the writable area"
 
-You tried to create/rename/delete outside the write jail. Widen it in
-`.env.local` (`OS_FS_WRITE_ROOTS=~:~/projects:/srv/data`) and restart.
-Top-level system dirs are refused even if listed — keep writes narrow.
+The target is outside `OS_FS_WRITE_ROOTS`. Widen the write jail deliberately in
+`.env.local` if needed; do not use the sensitive-path escape hatch as a convenience.
 
-### Folder tree is empty / can't browse where I expect
+### Folder tree cannot see an expected path
 
-Reads are bounded by `OS_FS_READ_ROOTS` (default home + `~/projects`). Set
-`OS_FS_READ_ROOTS=/` for read-only browsing of the whole box. Also remember
-the process user's own permissions still apply — mso can't read what
-`youruser` can't.
+Reads are bounded by `OS_FS_READ_ROOTS` plus the process user's Unix permissions. Credential
+paths remain hidden even when they are physically beneath an allowed root.
 
-### "Access to mso credential files is blocked"
+### "Access to credential files is blocked"
 
-By design: the FS API refuses the app's own `.env*` files and everything
-under `~/.mso/` (device allowlist, BYOK key, audit log, browser profile),
-even inside a legal read/write root — otherwise one stolen session could read
-`OS_SESSION_SECRET` and forge cookies forever. Edit those files over SSH.
+Expected. MSO blocks its own private state, `.env*` and sensitive-home paths through the
+normal file API. Edit such material through a trusted host-admin channel rather than
+teaching the web file manager to read it.
 
-### Mutating API call returns `cross_origin_blocked` (HTTP 403)
+## Terminal / Code integrated terminal
 
-`proxy.ts` rejects mutating `/api` requests whose `Sec-Fetch-Site`/`Origin`
-isn't same-origin (CSRF depth-2). Hitting the API from another web page won't
-work by design; scripts/curl without browser headers pass normally.
+### Terminal says too many sessions
 
-### Upload fails on big files
+MSO caps concurrent live PTYs. Close unused tabs. Normal page/tab navigation sends a close,
+and stale detached shells can be reclaimed after a grace period when capacity is exhausted;
+attached active terminals are not reclaimed to make room.
 
-Request body is capped at 500 MB. Move bigger files with `scp`/`rsync`.
+### Terminal disappears after server restart
 
-## Terminal / exec
+PTYs are processes, not persisted sessions. A server restart terminates them. The client
+can open a fresh shell; command history/persistent work should live in the shell/tool itself
+(e.g. files, tmux when intentionally used), not PTY memory.
 
-### Command refused by the destructive-command guard
+### Code editor Terminal button works but starts in the wrong directory
 
-`rm -rf /`, `mkfs`, `dd` to a block device, fork bombs, recursive
-`chmod/chown` on `/` etc. are refused. Do real disk surgery over SSH, or (not
-recommended) set `OS_EXEC_ALLOW_DESTRUCTIVE=1`.
+Integrated Code Terminal uses the editor/project working directory passed as `cwd`. Confirm
+the opened file/project path is inside an allowed writable root; otherwise host cwd
+resolution falls back/refuses according to the host policy.
 
-### Command output cut off / command killed after a while
+## Camoufox Browser
 
-One-shot exec has a 30 s timeout and a 1 MiB output cap. Long jobs: run them
-detached (`nohup … &`, `tmux`) and tail the log file instead.
+### Browser says Camoufox is not installed
 
-## Browser app
+The current Browser app uses the `camoufox-vnc.service` **user unit** plus
+`scripts/camoufox-vnc-service`. The retired Playwright browser daemon and
+`OS_BROWSER_URL`/`OS_BROWSER_SECRET` are not part of current MSO.
 
-### Browser app shows as disabled / errors immediately
+Check the prerequisites documented in `docs/INSTALL.md`: Camoufox, a headless X server,
+x11vnc, noVNC/websockify, the VNC password file and the user systemd runtime/linger setup.
 
-`OS_BROWSER_URL`/`OS_BROWSER_SECRET` unset in `.env.local`, or the
-`os-browser` service isn't running. Check `journalctl -u os-browser -f`.
+### Browser is installed but Off
 
-### os-browser refuses to start: "OS_BROWSER_SECRET missing/short (>=16)"
+That is the expected idle state. The user unit is intentionally not enabled at boot and has
+a finite lease. Start it from Browser/Settings; stop it again when done.
 
-Exactly that — give it a real secret (`openssl rand -hex 16`) and use the
-same value in the main app's `.env.local`.
+### noVNC loads but the viewer reports missing metadata/assets
 
-### Chromium fails to launch on a fresh box
+MSO's launcher builds a private runtime noVNC webroot that symlinks the distribution assets
+and provides the package metadata Debian omits. Restart the Camoufox session so the runtime
+webroot is rebuilt from the installed noVNC package.
 
-Missing system deps: `npx playwright install chromium --with-deps` (needs
-sudo once for the deps).
+### Camoufox starts with no saved logins
 
-## Assistant (AI)
+Verify `CAMOUFOX_PROFILE` points at the persistent profile under the user's local share tree,
+not a cache directory. Stop the session before restoring the profile/session backup. Treat
+the profile as account credentials: it can contain live cookies.
 
-### Assistant returns 501
+### Browser is slow on mobile
 
-No API key. Set `ANTHROPIC_API_KEY` in `.env.local` or paste a key under
-Settings → AI (stored in `~/.mso/config.json`). It's BYOK — without a key
-the endpoint stays off and everything else works.
+The app is a real remote Firefox canvas, not a responsive website renderer. MSO's container
+is responsive, but the remote browser itself still has a desktop viewport. Use landscape or
+zoom/pan as appropriate; do not "fix" it by exposing VNC credentials to the client model.
 
-## Service & networking
+## Managed applications
 
-### Port already in use
+### Hermes/OpenClaw is reported "not installed" but you know it exists
 
-Another process owns :4005 (or :3000 locally). `ss -ltnp | grep 4005`, stop
-the squatter or change `Environment=PORT=` in the unit.
+Look for the diagnostic that says MSO cannot reach the owner systemd user bus. Detection
+fails closed for install/restore because rerunning an installer or restoring over a live
+unknown service is unsafe. Fix the user bus/linger/service environment first.
 
-### Works on the VPS, unreachable from outside
+### Installed app is stopped and shows no dashboard
 
-By design you should firewall :4005/:4002 and reach it via Tailscale or the
-reverse proxy. Check the proxy is pointing at `127.0.0.1:4005` and the
-firewall allows the proxy, not the app port.
+Expected. MSO mounts the vendor dashboard only when there is a live upstream. Start the app;
+management/log/update actions remain under Details.
 
-### Service restarts in a loop
+### App is healthy but dashboard is not embedded
 
-`journalctl -u mso -n 50` — most common: missing `.env.local`
-(`EnvironmentFile=` path wrong), Node not at `/usr/bin` (adjust `ExecStart`),
-or the build is absent (`bun run build` never ran in that WorkingDirectory).
+Embedded dashboards are opt-in. Confirm both
+`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN`, DNS/TLS for the
+explicit app hosts, and sign in again after changing the cookie domain. With both variables
+unset, no vendor dashboard is served by design.
 
-## Still stuck?
+### Update fails before invoking the upstream updater
 
-Check the audit log (`~/.mso/audit.log`) for what the server actually did,
-and `journalctl -u mso` for stack traces. Issues/PRs welcome.
+The mandatory MSO pre-update state snapshot failed. Fix that first; the update is designed
+to abort before changing the app if it cannot create its recovery point.
+
+### Restore is refused
+
+The app must be stopped and MSO must be able to prove that. The backup manifest/source and
+current state directory must match, and symlink collisions are rejected before writes.
+Follow the specific refusal instead of bypassing the guard.
+
+## Alfa / model providers
+
+### Alfa says no API key/provider configured
+
+Configure a BYOK provider in Settings → AI, set the corresponding server environment key,
+or intentionally connect the optional `openai-codex` provider. These are model credentials,
+not MCP credentials.
+
+### Custom provider URL is rejected
+
+MSO SSRF-checks custom base URLs and refuses private/link-local/unsafe destinations according
+to its custom-provider policy. Use a legitimate endpoint reachable under that policy.
+
+### OpenAI Codex sign-in and ChatGPT MCP are being confused
+
+They are different flows. `openai-codex` under Settings → AI is an Alfa inference provider.
+The ChatGPT custom MCP app authorizes ChatGPT to call MSO tools through MSO's `/oauth/*`.
+See `docs/MODELS-INTEGRATION.md` and `docs/CHATGPT-PLUGIN.md`.
+
+## MCP / ChatGPT custom app
+
+### `/mcp` or OAuth discovery returns 404
+
+`OS_MCP_ENABLED=1` is not active in the running service (or demo mode forced MCP off).
+After changing config, use the supported rebuild/update path and recheck `GET /mcp`.
+
+### ChatGPT says the MCP server does not support OAuth
+
+Check both well-known endpoints from the same public origin ChatGPT reaches. A 404 normally
+means MCP is disabled in the running MSO process.
+
+### OAuth opens but cannot complete
+
+The consent page is a normal MSO browser page. Use an already-approved device and active
+MSO session, review the requested `read/write/exec` tier, then Allow.
+
+### ChatGPT still shows old tools after MSO changed
+
+Compare Settings → MCP toolset version/hash/count, refresh/recreate the ChatGPT custom MCP
+app, and run Scan Tools. "Mark ChatGPT refreshed" in MSO is only an acknowledgement; it
+does not refresh ChatGPT remotely.
+
+### Tool exists but returns scope denied
+
+The OAuth bearer was granted below that tool's tier. Reauthorize intentionally at the needed
+scope rather than raising `OS_MCP_MAX_SCOPE` blindly.
+
+### `fs_upload_file` fails
+
+The bridge accepts a current ChatGPT-provided file reference, up to 20 MiB, and writes only
+inside `OS_FS_WRITE_ROOTS`. Temporary OpenAI download URLs expire and are host/type/redirect
+validated. Reattach/regenerate the file instead of supplying an arbitrary public URL.
+
+### Project/skill seems missing
+
+Check the scan report. Project and skill enumeration are bounded; if `truncated:true`,
+continue with the returned cursor instead of concluding absence.
+
+## Where to look next
+
+- release/update: `docs/DEVELOPMENT.md`, `docs/INSTALL.md`
+- ChatGPT connector: `docs/CHATGPT-PLUGIN.md`, `docs/MCP.md`
+- managed apps: `docs/MANAGED-APPS.md`
+- Camoufox: `claude-skills/mso-camoufox/SKILL.md`
+- security: `SECURITY.md`
