@@ -39,6 +39,7 @@
 #   status               Public service status (no session needed)
 #   health               Is this CLI's session valid?
 #   doctor               Check deps, env, service, session, device — and say what broke
+#   onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
 #
 #  Browser
 #   camoufox *           Power the anti-detection VNC browser + read its password
@@ -52,10 +53,10 @@
 #   ai <prompt…>         One turn with the assistant
 #   threads *            Conversation history: list | show | rm
 #   memory *             Assistant memories: list | add | rm
-#   config *             BYOK provider + model: show | set | rm
+#   config *             BYOK provider + model/style: show | set | key | style | rm
 #   prefs *              UI preferences: show | set
 #   models *             Model catalog: list | test
-#   skills *             Skills across every project: list | read <id> | search <query>
+#   skills *             Discover host skills + curated market: available/install/remove
 #   changelog            What shipped, newest first (same text Settings → About shows)
 #   mcp *                MCP tokens + live activity: list | activity [n] | revoke <id> | revoke all
 #   oauth <prov> *       Provider sign-in (device code): start | poll
@@ -112,7 +113,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
@@ -220,6 +221,216 @@ kv_args() { local j='{}' kv k v; for kv in "$@"; do k="${kv%%=*}"; v="${kv#*=}"
   else j=$(jq -c --arg k "$k" --arg v "$v" '.+{($k):$v}' <<<"$j"); fi; done; printf '%s' "$j"; }
 json_arg() { jq -e . >/dev/null 2>&1 <<<"${1-}" || die "not valid JSON: ${1-}"; printf '%s' "$1"; }
 
+# POST a JSON value that may contain a credential without putting the JSON in
+# curl's argv. We force a fresh login first so there is no retry that would need to
+# replay consumed stdin. The body exists only in this shell process and the pipe.
+secret_post() {
+  local route="$1" body="$2" out code payload
+  login
+  out=$(printf '%s' "$body" | curl -sS -b "$JAR" "${ORIGIN[@]}" -w $'\n%{http_code}' \
+    -H 'content-type: application/json' -d @- "$B$route" || true)
+  code="${out##*$'\n'}"; payload="${out%$'\n'*}"
+  case "$code" in 2*) printf '%s' "$payload" ;; *) die "request failed ($code): $payload" ;; esac
+}
+
+tty_ok() { [ -r /dev/tty ] && [ -w /dev/tty ]; }
+tty_print() { if tty_ok; then printf '%s' "$*" > /dev/tty; else printf '%s' "$*"; fi; }
+tty_line() {
+  local prompt="$1" default="${2-}" value=""
+  if ! tty_ok; then REPLY="$default"; return; fi
+  tty_print "$prompt"
+  IFS= read -r value < /dev/tty || true
+  REPLY="${value:-$default}"
+}
+tty_secret() {
+  local prompt="$1" value=""
+  tty_ok || die "a terminal is required to enter a secret; run this command interactively"
+  tty_print "$prompt"
+  stty -echo < /dev/tty
+  IFS= read -r value < /dev/tty || true
+  stty echo < /dev/tty
+  tty_print $'\n'
+  REPLY="$value"
+}
+
+ensure_local_cli_device() {
+  local d; d=$(cli_device)
+  case "$B" in
+    http://127.0.0.1:*|http://localhost:*|http://[::1]:*) ;;
+    *) return 0 ;;
+  esac
+  if ! dev_script --list 2>/dev/null | grep -q "$d"; then
+    dev_script "$d" "mso cli" >/dev/null
+    echo "  ✓ approved this local CLI device"
+  fi
+}
+
+onboard_ai() {
+  local yes="$1" choice provider key body response interval code url poll
+  if [ "$yes" = 1 ]; then
+    echo "  -- AI provider skipped (-y keeps external accounts unconfigured)"
+    return
+  fi
+  echo
+  echo "AI for Alfa"
+  echo "  0) Skip for now"
+  echo "  1) OpenAI ChatGPT OAuth (Codex consumer backend; no API key)"
+  echo "  2) Anthropic API key"
+  echo "  3) OpenAI Platform API key"
+  echo "  4) OpenRouter API key"
+  echo "  5) Google Gemini API key"
+  echo "  6) Groq API key"
+  echo "  7) xAI API key"
+  echo "  8) DeepSeek API key"
+  echo "  9) Mistral API key"
+  tty_line "Choose [0]: " 0; choice="$REPLY"
+  case "$choice" in
+    0|'') echo "  -- skipped"; return ;;
+    1)
+      response=$(jpost "/api/oauth/openai" '{"action":"start"}')
+      code=$(jq -r '.userCode // empty' <<<"$response")
+      url=$(jq -r '.verificationUrl // empty' <<<"$response")
+      interval=$(jq -r '.intervalMs // 5000' <<<"$response")
+      [ -n "$code" ] && [ -n "$url" ] || die "OpenAI OAuth did not return a device code"
+      echo
+      echo "Open this URL in any browser: $url"
+      echo "Enter code: $code"
+      echo "Waiting for authorization (Ctrl-C cancels this local wait; it does not expose the code)..."
+      while true; do
+        sleep "$(( interval / 1000 > 2 ? interval / 1000 : 3 ))"
+        poll=$(jpost "/api/oauth/openai" '{"action":"poll"}')
+        if [ "$(jq -r '.ok // false' <<<"$poll")" = true ]; then
+          echo "  ✓ OpenAI connected as $(jq -r '.slug' <<<"$poll")"
+          return
+        fi
+        [ "$(jq -r '.pending // false' <<<"$poll")" = true ] || die "OpenAI OAuth failed: $poll"
+        tty_print "."
+      done ;;
+    2) provider=anthropic ;;
+    3) provider=openai ;;
+    4) provider=openrouter ;;
+    5) provider=google ;;
+    6) provider=groq ;;
+    7) provider=xai ;;
+    8) provider=deepseek ;;
+    9) provider=mistral ;;
+    *) echo "  ! unknown choice; skipped"; return ;;
+  esac
+  echo "  $provider uses an API key here (not OAuth). The key is never placed in argv."
+  tty_secret "Paste $provider API key: "; key="$REPLY"
+  [ -n "$key" ] || { echo "  -- empty key; skipped"; return; }
+  body=$(jq -nc --arg p "$provider" --arg k "$key" '{provider:$p,apiKey:$k}')
+  secret_post "/api/config" "$body" >/dev/null
+  unset key body REPLY
+  echo "  ✓ $provider configured for Alfa"
+}
+
+onboard_style() {
+  local yes="$1" choice style
+  if [ "$yes" = 1 ]; then
+    echo "  -- response preset left unchanged (-y keeps existing/default settings)"
+    return
+  else
+    echo
+    echo "Alfa response preset (this is a response style, not a SKILL.md install)"
+    echo "  0) Normal / off"
+    echo "  1) Caveman — terse fragments, preserve technical substance"
+    echo "  2) Ponytail — minimal senior-dev solution, avoid unnecessary code"
+    tty_line "Choose [0]: " 0; choice="$REPLY"
+    case "$choice" in 1) style=caveman ;; 2) style=ponytail ;; *) style=off ;; esac
+  fi
+  jpost "/api/config" "$(jq -nc --arg v "$style" '{tokenSaver:$v}')" >/dev/null
+  echo "  ✓ Alfa response preset: $style"
+}
+
+wait_managed_job() {
+  local app="$1" id="$2" since=0 data chunk status next
+  echo "  installing $app (job $id)..."
+  while true; do
+    data=$(jget "/api/v1/managed-apps/$(enc "$app")/jobs/$(enc "$id")?since=$since")
+    chunk=$(jq -r '.job.log // empty' <<<"$data")
+    [ -z "$chunk" ] || printf '%s' "$chunk"
+    next=$(jq -r '.job.logOffset // 0' <<<"$data"); since="$next"
+    status=$(jq -r '.job.status // "unknown"' <<<"$data")
+    case "$status" in
+      succeeded) echo "  ✓ $app installed"; return ;;
+      failed|interrupted) die "$app install ended: $status — $(jq -r '.job.error // "see job log"' <<<"$data")" ;;
+    esac
+    sleep 2
+  done
+}
+
+onboard_apps() {
+  local yes="$1" choice apps app response id
+  if [ "$yes" = 1 ]; then
+    echo "  -- optional managed apps skipped (-y uses minimal defaults)"
+    return
+  fi
+  echo
+  echo "Optional managed applications"
+  echo "  These have their own runtime/provider settings; Alfa credentials above do not configure them."
+  echo "  0) None"
+  echo "  1) Hermes"
+  echo "  2) OpenClaw"
+  echo "  3) Both"
+  tty_line "Choose [0]: " 0; choice="$REPLY"
+  case "$choice" in 1) apps="hermes" ;; 2) apps="openclaw" ;; 3) apps="hermes openclaw" ;; *) return ;; esac
+  for app in $apps; do
+    if jget "/api/v1/managed-apps" | jq -e --arg id "$app" '.apps[] | select(.id==$id and .installed==true)' >/dev/null; then
+      echo "  ✓ $app already installed"
+      continue
+    fi
+    response=$(jpost "/api/v1/managed-apps/$(enc "$app")/install" '{}')
+    id=$(jq -r '.job.id // empty' <<<"$response")
+    [ -n "$id" ] || die "could not start $app install: $response"
+    wait_managed_job "$app" "$id"
+  done
+}
+
+onboard_skills() {
+  local yes="$1" choice ids
+  echo
+  echo "Curated installable skills"
+  node "$ROOT/scripts/skill-market.mjs" available
+  if [ "$yes" = 1 ]; then
+    echo "  -- none installed automatically; run: mso skills install ponytail caveman rtk -y"
+    return
+  fi
+  echo "Enter skill ids separated by spaces/commas, 'all', or blank to skip."
+  tty_line "Skills: " ""; choice="$REPLY"
+  [ -n "$choice" ] || return
+  if [ "$choice" = all ]; then ids=$(node "$ROOT/scripts/skill-market.mjs" available --json | jq -r '.skills[].id' | tr '\n' ' ')
+  else ids=$(printf '%s' "$choice" | tr ',' ' '); fi
+  # The user's selection is the confirmation; suppress per-skill install prompts.
+  # shellcheck disable=SC2086
+  node "$ROOT/scripts/skill-market.mjs" install $ids -y
+}
+
+run_onboard() {
+  local yes=0
+  case "${1-}" in -y|--yes) yes=1 ;; "") ;; *) die "usage: mso onboard [-y|--yes]" ;; esac
+  echo "MSO onboarding"
+  echo "=============="
+  ensure_local_cli_device
+  if [ "$yes" = 0 ] && ! tty_ok; then
+    die "interactive onboarding needs a terminal; use 'mso onboard -y' for safe minimal defaults"
+  fi
+  # Prove the local service/auth path before asking for account credentials.
+  jget "/api/health" >/dev/null
+  jget "/api/auth/me" >/dev/null
+  onboard_ai "$yes"
+  onboard_style "$yes"
+  onboard_apps "$yes"
+  onboard_skills "$yes"
+  echo
+  echo "Onboarding complete."
+  echo "  mso -h                 command reference"
+  echo "  mso doctor             verify this install"
+  echo "  mso skills available   installable skills"
+  echo "  mso config show        Alfa provider/style"
+  echo "  mso mapp list          Hermes/OpenClaw state"
+}
+
 # Print the header block verbatim — stops at the first non-comment line, so the
 # help can never drift out of sync with the comment above.
 usage() { awk 'NR>1 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "$0"; }
@@ -244,12 +455,12 @@ U_service="service status|start|stop|restart|logs [n]"
 U_update="update status|run [true]|log"
 U_threads="threads list|show <id>|save <json>|rm <id>"
 U_memory="memory list|add <text>|rm <id>"
-U_config="config show|set <json>|rm <provider>"
+U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
 U_prefs="prefs show|set <json>"
 U_models="models list|test"
-U_skills="skills list|read <id>|search <query…>"
+U_skills="skills list|read <id>|search <query…>|available|info <id>|install <id…> [-y] [--force]|remove <id…> [-y]"
 U_mcp="mcp list|activity [n]|revoke <id>|revoke all"
-U_oauth="oauth <provider> start|poll   e.g. mso oauth openai start"
+U_oauth="oauth <provider> start|poll   OAuth currently: openai (ChatGPT Codex)"
 U_audit="audit [n] [prefix]   e.g. mso audit 20 exec."
 U_crud="crud list <dir> | get <path> | set <path> <cmd k=v…|text> | del <path> | cmds"
 U_api="api <METHOD> <path> [json]   e.g. mso api GET /api/v1/sys/stats"
@@ -342,6 +553,8 @@ case "$cmd" in
     [ "$fails" -eq 0 ] && echo "all good." || echo "$fails check(s) failed."
     exit $(( fails > 0 ? 1 : 0 )) ;;
 
+  onboard) run_onboard "${1-}" ;;
+
   # ── camoufox (the real browser the Browser app drives) ────────────────────
   camoufox)
     case "${1:-status}" in
@@ -413,6 +626,16 @@ case "$cmd" in
     case "${1:-show}" in
       show) jget "/api/config" ;;
       set)  jpost "/api/config" "$(json_arg "${2:?json, e.g. '{\"model\":\"gpt-5.6\"}'}")" ;;
+      key)  provider="${2:?provider}"
+            case "$provider" in anthropic|openai|openrouter|google|groq|xai|deepseek|mistral) ;;
+              *) die "API-key provider must be one of: anthropic openai openrouter google groq xai deepseek mistral" ;; esac
+            tty_secret "Paste $provider API key: "; key="$REPLY"
+            [ -n "$key" ] || die "empty API key"
+            body=$(jq -nc --arg p "$provider" --arg k "$key" '{provider:$p,apiKey:$k}')
+            secret_post "/api/config" "$body"; unset key body REPLY ;;
+      style) style="${2:?off|caveman|ponytail}"
+             case "$style" in off|caveman|ponytail) ;; *) die "style must be off, caveman or ponytail" ;; esac
+             jpost "/api/config" "$(jq -nc --arg v "$style" '{tokenSaver:$v}')" ;;
       rm)   jdel "/api/config?provider=$(enc "${2:?provider}")" ;;
       *) die "usage: mso $U_config" ;;
     esac ;;
@@ -435,6 +658,10 @@ case "$cmd" in
               jget "/api/skills?name=$(enc "$2")" ;;
       search) shift; [ $# -gt 0 ] || die "usage: mso $U_skills"
               jget "/api/skills?q=$(enc "$*")" ;;
+      available) shift; node "$ROOT/scripts/skill-market.mjs" available "$@" ;;
+      info)    shift; node "$ROOT/scripts/skill-market.mjs" info "$@" ;;
+      install) shift; node "$ROOT/scripts/skill-market.mjs" install "$@" ;;
+      remove|rm) shift; node "$ROOT/scripts/skill-market.mjs" remove "$@" ;;
       *)      jget "/api/skills?name=$(enc "$1")" ;;
     esac ;;
   # Generated from git subjects by scripts/gen-changelog.mjs; `jq -r` because the

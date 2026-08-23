@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-08-24",
+  "skills": [
+    {
+      "id": "ponytail",
+      "title": "Ponytail",
+      "description": "Minimalist senior-developer coding mode: YAGNI, standard library first, smallest working change.",
+      "file": "ponytail/SKILL.md",
+      "sha256": "dd240060d5734a58fe2783916a63f9401fed75c5f87742dd663a66f9ed4c8c65",
+      "sourceRef": "@dietrichgebert/ponytail",
+      "sourceVersion": "4.9.0",
+      "sourceUrl": "https://clawhub.ai/dietrichgebert/skills/ponytail",
+      "license": "MIT",
+      "security": "clean"
+    },
+    {
+      "id": "caveman",
+      "title": "Caveman",
+      "description": "Ultra-terse response mode that cuts filler while preserving technical substance.",
+      "file": "caveman/SKILL.md",
+      "sha256": "8d3e45d3084847228cbd80b1562323fc19f781e2f06fa955ea5bd671a0e45d9e",
+      "sourceRef": "@skaravind/caveman",
+      "sourceVersion": "1.0.2",
+      "sourceUrl": "https://clawhub.ai/skaravind/skills/caveman",
+      "license": "MIT-0",
+      "security": "clean-with-warnings"
+    },
+    {
+      "id": "rtk",
+      "title": "RTK (safe wrapper)",
+      "description": "Use an already-installed RTK to compress verbose shell output; never auto-installs binaries or global hooks.",
+      "file": "rtk/SKILL.md",
+      "sha256": "fb33a65e48f29266681fd01be939ac398306bae5cb3df688ab100a9914902453",
+      "sourceRef": "mso-curated/rtk",
+      "sourceVersion": "1",
+      "sourceUrl": "https://clawhub.ai/davydenkovm/skills/rtk-integration",
+      "license": "MIT",
+      "security": "mso-safe-wrapper",
+      "upstreamNote": "The upstream rtk-integration 1.1.0 scan was suspicious because it auto-runs an unpinned remote installer and edits shell profiles. This committed wrapper deliberately removes that behavior."
+    }
+  ]
+}

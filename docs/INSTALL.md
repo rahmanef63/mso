@@ -27,14 +27,17 @@ curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install
 
 The installer:
 
-1. resolves/creates the checkout;
+1. resolves/creates the checkout and records whether this is a fresh install;
 2. installs Bun/dependencies as needed;
 3. creates private owner auth configuration when missing;
 4. runs the production build;
 5. installs the `mso.service` system unit when systemd is available;
 6. enables the owner's lingering user manager needed by self-update/managed-app user units;
-7. installs the `mso` CLI convenience link and official skills;
-8. starts/replaces the service only after a successful build.
+7. installs `~/.local/bin/mso` plus a guarded `/usr/local/bin/mso` launcher so the parent
+   shell can resolve `mso` immediately after `curl | bash` returns;
+8. persists an idempotent `~/.local/bin` PATH fallback for future shells;
+9. starts/replaces the service only after a successful build;
+10. on a fresh interactive install, opens `/dev/tty` and launches `mso onboard`.
 
 Useful flags:
 
@@ -44,11 +47,41 @@ Useful flags:
 --port N         app port (default 4005)
 --bind ADDR      listen address (default 127.0.0.1)
 --no-service     build without installing the system unit
+--onboard        force guided onboarding (including on an update)
+--no-onboard     suppress automatic onboarding
+-y, --yes        non-interactive safe defaults; no external accounts/apps/skills
 --uninstall      remove the system unit; keep code + ~/.mso
 ```
 
-Re-running the installer updates an existing installation with the same build-before-replace
-safety rule.
+`curl | bash` cannot use stdin for questions because stdin carries the script itself. The
+installer therefore prompts through `/dev/tty`. If there is no controlling terminal it
+never waits for input and tells the operator to run `mso onboard` later. Re-running the
+installer updates an existing installation with the same build-before-replace safety rule
+and does not repeat onboarding unless `--onboard` is requested.
+
+### Guided onboarding
+
+Run or resume it at any time:
+
+```bash
+mso onboard
+```
+
+It first approves the **local CLI device** in the owner allowlist (a process already running
+as the owning Unix account has equivalent host authority), then verifies the local service
+and session before asking for provider credentials. API keys are read with terminal echo
+disabled and posted from stdin; they are not placed in the CLI/curl argv.
+
+The current provider choices are OpenAI ChatGPT/Codex device OAuth, plus API-key providers
+Anthropic, OpenAI Platform, OpenRouter, Google, Groq, xAI, DeepSeek and Mistral. OpenRouter
+is an API-key integration here, not OAuth. The OpenAI OAuth path is the ChatGPT consumer
+Codex backend; it is separate from OpenAI Platform API keys and separate again from MSO's
+ChatGPT MCP OAuth.
+
+Hermes/OpenClaw installation is optional and uses each app's existing managed-job installer.
+Their model/provider configuration belongs to those applications and is not implicitly
+filled from Alfa's credential. Selected app installs stream their job transcript until a
+terminal status.
 
 ## 2. Network exposure
 
@@ -165,7 +198,32 @@ The optional `openai-codex` provider uses a separate ChatGPT consumer OAuth/devi
 Alfa inference. It is unrelated to the ChatGPT MCP connector. See
 `docs/MODELS-INTEGRATION.md`.
 
-## 8. Optional MCP / ChatGPT custom app
+## 8. Curated skill installation
+
+MSO distinguishes **discovery** from **installation**. `mso skills list/search/read` inspect
+the live trusted/discovered catalog. The curated market is a smaller committed review set:
+
+```bash
+mso skills available
+mso skills info ponytail
+mso skills install ponytail caveman rtk -y
+mso skills remove ponytail -y
+```
+
+Market packages are pinned in `skill-market/catalog.json`. The installer verifies the
+committed `SKILL.md` SHA-256 and frontmatter before copying it to `~/.mso/skills/<id>`
+(override only for CLI/operator workflows with `MSO_SKILL_INSTALL_ROOT`), then writes
+`.mso-market.json` provenance. `-y` makes a selected normal install/removal
+non-interactive, but it does **not** overwrite a modified/local skill; replacement requires
+`--force` explicitly. Removal also refuses directories without MSO market provenance.
+
+Ponytail and Caveman are pinned reviewed snapshots. `rtk` is deliberately an MSO-safe
+wrapper rather than the current upstream RTK Integration package: the upstream scan warns
+about automatically executing an unpinned remote installer and editing shell profiles. The
+MSO wrapper only teaches use of an already-installed RTK binary and requires a separate
+explicit request for system installation/hooks.
+
+## 9. Optional MCP / ChatGPT custom app
 
 MCP is **off by default**. Enable it only for a deployment that needs external AI clients:
 
@@ -178,7 +236,7 @@ Use `docs/CHATGPT-PLUGIN.md` for ChatGPT setup and diagrams, and `docs/MCP.md` f
 complete protocol/security model. After changing the MCP toolset, refresh/re-scan the
 ChatGPT app; MSO's "Mark ChatGPT refreshed" button is only a local acknowledgement.
 
-## 9. Optional managed-app dashboards
+## 10. Optional managed-app dashboards
 
 Hermes/OpenClaw lifecycle management works without embedding their web dashboards. The safe
 default is therefore no vendor dashboard on the MSO origin.
@@ -195,7 +253,7 @@ Provision DNS/TLS only for the explicit `hermes` and `openclaw` hostnames and si
 after changing the cookie domain. There is no supported same-origin iframe fallback. See
 `docs/MANAGED-APPS.md`.
 
-## 10. Public demo mode
+## 11. Public demo mode
 
 A public showcase must be a separate checkout/service built with:
 
@@ -206,7 +264,7 @@ NEXT_PUBLIC_OS_DEMO=1 bun run build
 Demo mode is mock-only: no normal owner auth, no live host API, no real PTY/exec, no MCP and
 no API-key storage. Do not toggle demo mode in the production owner checkout.
 
-## 11. Updating
+## 12. Updating
 
 ### Operator update
 

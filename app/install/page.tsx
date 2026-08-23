@@ -9,7 +9,7 @@ import { Copy } from "./copy";
 export const metadata: Metadata = {
   title: "Install Manef Shell OS on your own server",
   description:
-    "One command installs MSO on a Linux server you own: a browser terminal, file manager, live metrics and a BYOK AI assistant, behind password + device approval.",
+    "One command installs MSO, makes the mso CLI immediately available, and opens guided terminal onboarding for AI providers, optional managed apps and reviewed skills.",
 };
 
 const INSTALL = "curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash";
@@ -25,30 +25,39 @@ const STEPS = [
   {
     n: 1,
     title: "Run the installer",
-    body: "As your normal user, not root. It installs prerequisites, clones the repo, builds, generates a login password and session secret, and sets up the systemd unit.",
+    body: "As your normal user, not root. It installs prerequisites, clones the repo, builds production, generates owner credentials, installs the service, and makes `mso` resolvable immediately through a guarded /usr/local/bin launcher plus the ~/.local/bin fallback.",
     code: INSTALL,
-    note: "It prints your login password once. Save it — it is written only to .env.local on the server.",
+    note: "It prints your login password once. Save it — the secret is written only to .env.local on the server.",
   },
   {
     n: 2,
-    title: "Reach it",
-    body: "The installer binds 127.0.0.1, so :4005 is closed to every other machine and there is nothing to firewall. Tunnel in from whatever you browse on. The tunnel is not only for privacy: the session cookie is Secure, and a browser only keeps a Secure cookie over plain http on localhost — so an http://<ip>:4005 URL returns a successful login and then silently drops the cookie.",
-    code: "ssh -N -L 4005:127.0.0.1:4005 you@your-server",
-    note: "Then open http://localhost:4005. For something permanent use `tailscale serve 4005`, or a TLS reverse proxy on the server pointed at 127.0.0.1:4005 — both give the browser a trustworthy origin. Only pass --bind 0.0.0.0 if a proxy you control is already in front.",
+    title: "Complete terminal onboarding",
+    body: "On a fresh interactive install, the same command opens /dev/tty after the service is healthy. Choose an Alfa provider (OpenAI ChatGPT OAuth or supported API-key providers including OpenRouter), a response preset, optional Hermes/OpenClaw installs, and reviewed skills. If no terminal exists, nothing hangs: run `mso onboard` later.",
+    code: "mso onboard\nmso skills available\nmso skills install ponytail caveman rtk -y",
+    note: "`-y` is available for a safe non-interactive install, but it does not silently connect accounts, install managed apps, or trust community skills you did not select.",
   },
   {
     n: 3,
-    title: "Pair your first device",
-    body: "Open the app and enter the password. Your browser lands in a PENDING state and shows a device id — correct password alone is not enough. Approve it from a shell on the server:",
+    title: "Reach it",
+    body: "The installer binds 127.0.0.1, so :4005 is closed to other machines by default. Tunnel in from whatever you browse on. The session cookie is Secure, so ordinary plain-http IP addresses are not a valid permanent login origin.",
+    code: "ssh -N -L 4005:127.0.0.1:4005 you@your-server",
+    note: "Then open http://localhost:4005. For something permanent use `tailscale serve 4005`, or a TLS reverse proxy pointed at 127.0.0.1:4005.",
+  },
+  {
+    n: 4,
+    title: "Pair your browser",
+    body: "Open the app and enter the password. Your browser lands PENDING and shows a device id. Terminal onboarding approves only the local CLI device; browser devices remain explicit owner approvals.",
     code: "mso device pending\nmso device approve <deviceId> \"my laptop\"",
     note: "Device approval is a browser allowlist, not standards-based 2FA. Approve only devices you own.",
   },
   {
-    n: 4,
+    n: 5,
     title: "Reload and sign in",
-    body: "That device can now log in with the password. Approve later devices the same way, or from Settings → Devices once you are in.",
+    body: "That browser can now log in. Approve later devices from Settings → Devices. Re-run `mso onboard` whenever you want to change the first-run choices.",
+    code: undefined,
+    note: undefined,
   },
-];
+] as const;
 
 export default function InstallPage() {
   return (
@@ -83,7 +92,7 @@ export default function InstallPage() {
       </section>
 
       <section className="mb-12">
-        <h2 className="mb-5 text-lg font-semibold">Four steps</h2>
+        <h2 className="mb-5 text-lg font-semibold">Five steps</h2>
         <ol className="space-y-8">
           {STEPS.map((s) => (
             <li key={s.n} className="grid grid-cols-[2rem_1fr] gap-x-3">
@@ -111,12 +120,11 @@ export default function InstallPage() {
       <section className="mb-12">
         <h2 className="mb-3 text-lg font-semibold">Drive it from a shell</h2>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          The installer also puts <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">mso</code> on
-          your PATH. It reaches the same API the browser does — files, host shell, metrics,
-          managed apps, devices — so nothing is UI-only. Start with{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">mso doctor</code>.
+          The service install creates a guarded <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">/usr/local/bin/mso</code> launcher,
+          because a child <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">curl | bash</code> process cannot export PATH back into its parent shell.
+          The normal <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">~/.local/bin</code> fallback is persisted too. So the first command after install can be <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">mso -h</code>.
         </p>
-        <Copy text="mso doctor" />
+        <Copy text={'mso -h\nmso doctor\nmso onboard\nmso skills available'} />
       </section>
 
       <footer className="flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-6 text-sm">

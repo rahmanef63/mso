@@ -69,6 +69,34 @@ Each skill is a directory containing `SKILL.md` with YAML frontmatter (`name`, `
 
 Skill roots are intentionally read outside the normal filesystem jail, because agent skill registries may live outside `OS_FS_READ_ROOTS`. The reader therefore opens only a file named exactly `SKILL.md` after `realpath`; a symlink such as `SKILL.md -> ~/.ssh/config` is refused. Root trust/precedence handles the remaining instruction-supply-chain risk.
 
+## Curated installable market
+
+The discovery catalog above is not an invitation to trust arbitrary internet instructions.
+MSO therefore has a separate **reviewed install market** under `skill-market/`. It is
+driven from the CLI:
+
+```bash
+mso skills available
+mso skills info ponytail
+mso skills install ponytail caveman rtk -y
+mso skills remove ponytail -y
+```
+
+A market entry is committed with an exact `SKILL.md` hash, source/version/license metadata
+and review status. `scripts/skill-market.mjs` verifies that hash and the frontmatter name
+before installing to the explicit operator-trust root `~/.mso/skills`. Installed entries
+carry `.mso-market.json` provenance. A same-name local modification is never overwritten by
+`-y`; `--force` is required. Removal refuses skills that do not carry MSO's market marker.
+
+Current reviewed entries are Ponytail, Caveman, and `rtk`. Ponytail/Caveman are pinned
+third-party snapshots. `rtk` is an MSO-authored safe wrapper around the RTK usage pattern:
+it never auto-runs a remote installer or edits shell startup/hooks. Installing the RTK
+binary remains a separate operator decision.
+
+This market is intentionally curated rather than a pass-through search of ClawHub. A future
+entry should be reviewed, pinned and committed before it can become `local` trusted with one
+install command.
+
 ## Bundled third-party skill
 
 `camoufox-browse` comes from ClawHub (`zenaufa`, installed version 1.0.7). Its `.clawhub/origin.json` records the artifact and skill hashes. Do not edit its `SKILL.md` in place: a modification intentionally invalidates verification. Put MSO-specific policy in an official wrapper skill instead.

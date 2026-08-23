@@ -9,6 +9,58 @@ Running log of what shipped each phase. Newest at top.
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
 > entries intact as historical evidence even when their commands/counts have been superseded.
 
+## 2026-08-24 — one-line install now ends in terminal onboarding + reviewed skill market (DONE)
+
+The one-line installer previously did the build/service work but stopped at a block of
+printed next steps. It created `~/.local/bin/mso` and merely warned when that directory was
+not on the current PATH; because `curl | bash` runs in a child process, exporting PATH there
+cannot make `mso -h` available in the parent shell. It was also intentionally
+non-interactive, so a successful fresh install felt like "nothing happened" once the build
+finished.
+
+Fresh service installs now create the user launcher plus a guarded `/usr/local/bin/mso`
+symlink (only when the name is free or already points into this install), persist an
+idempotent `~/.local/bin` fallback in the normal shell profile, and assert that `mso` is
+resolvable before finishing. Uninstall removes only launchers that still point into the
+MSO checkout. The bootstrap remains pipe-safe, but a **fresh** interactive install opens
+`/dev/tty` after health succeeds and launches new `mso onboard`; existing installs do not
+repeat it unless `--onboard` is passed, `--no-onboard` suppresses it, and no-TTY/cloud-init
+installs never block. `-y` runs safe minimal onboarding: it leaves external AI accounts,
+response style, optional managed apps and community skills untouched.
+
+`mso onboard` is reusable and configures the existing surfaces rather than inventing a
+second settings store. It can connect Alfa through OpenAI ChatGPT/Codex device OAuth, or
+securely read an Anthropic/OpenAI Platform/OpenRouter/Google/Groq/xAI/DeepSeek/Mistral API
+key from the controlling terminal with echo disabled and post it via stdin rather than
+process argv. It exposes Normal/Caveman/Ponytail response presets, optionally runs the real
+Hermes/OpenClaw managed-app install jobs while streaming their transcripts, then presents
+the reviewed skill market. Managed-app provider state remains explicitly separate from
+Alfa credentials. Settings' old "Codex is chat-only" copy was removed because the current
+Codex Responses adapter forwards Alfa tools.
+
+The new curated skill market is intentionally different from general skill discovery.
+`mso skills available/info/install/remove` installs exact committed, SHA-256-checked
+`SKILL.md` files into the explicit operator-trust root `~/.mso/skills`, recording
+`.mso-market.json` provenance. `-y` confirms only the entries the operator selected; it
+will not overwrite a modified/local skill without an additional explicit `--force`, and
+removal refuses directories it did not install. Initial reviewed entries are pinned
+Ponytail 4.9.0, Caveman 1.0.2, and an MSO-authored safe RTK wrapper. RTK deliberately does
+not copy the current upstream auto-setup instructions: it uses RTK only when the binary is
+already installed and never runs an unpinned remote installer, edits shell profiles or
+enables global hooks without a separate explicit system-change request. Caveman/Ponytail
+remain available independently as Alfa response presets; selecting a preset never silently
+installs the full skill.
+
+README, `docs/INSTALL.md`, generated `docs/CLI.md`, `skills/README.md`, and the public
+`/install` page now describe this same lifecycle. Regression tests pin installer TTY/PATH
+behaviour, public install copy, credential transport, safe `-y`, skill hash/provenance,
+modified-skill overwrite refusal, and unmanaged-skill deletion refusal. Full verification:
+185 test files / 1,585 tests passed (1 expected fail, 4 skipped), typecheck green, lint has
+the one pre-existing max-lines warning and zero errors, docs checker reports 38 Markdown
+files / 28 MCP tools / 21 slices / 10 AppShell feature dirs, 9 official skills are valid,
+value cycles remain zero, contrast has zero AA failures, and the high/critical dependency
+audit is clean.
+
 ## 2026-08-24 — documentation authority + ChatGPT MCP guide (DONE)
 
 The documentation set was audited against current source and the deployed/public MCP

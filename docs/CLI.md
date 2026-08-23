@@ -73,6 +73,7 @@ Commands:
   status               Public service status (no session needed)
   health               Is this CLI's session valid?
   doctor               Check deps, env, service, session, device — and say what broke
+  onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
 
  Browser
   camoufox *           Power the anti-detection VNC browser + read its password
@@ -86,10 +87,10 @@ Commands:
   ai <prompt…>         One turn with the assistant
   threads *            Conversation history: list | show | rm
   memory *             Assistant memories: list | add | rm
-  config *             BYOK provider + model: show | set | rm
+  config *             BYOK provider + model/style: show | set | key | style | rm
   prefs *              UI preferences: show | set
   models *             Model catalog: list | test
-  skills *             Skills across every project: list | read <id> | search <query>
+  skills *             Discover host skills + curated market: available/install/remove
   changelog            What shipped, newest first (same text Settings → About shows)
   mcp *                MCP tokens + live activity: list | activity [n] | revoke <id> | revoke all
   oauth <prov> *       Provider sign-in (device code): start | poll

@@ -94,34 +94,98 @@ Demo mode skips real login, forces mock data, blocks live host API access, and s
 
 ## Install
 
-One command on your Linux server installs prerequisites, builds MSO, generates local credentials, and sets up the `mso.service` systemd unit:
+Run one command on the Linux server as your normal user, **not root**:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 ```
 
-Run it as your normal server user, **not root**. The installer prints the first-login password once and explains how to approve your first browser device.
+A fresh install now finishes with a **guided terminal onboarding** when a controlling
+terminal is available. `curl | bash` uses stdin for the downloaded script, so the
+installer deliberately opens `/dev/tty` for the prompts instead of silently skipping them.
+The flow lets you choose:
 
-It binds **`127.0.0.1` by default**, so nothing is published to your network. Reach it with an SSH tunnel and open `http://localhost:4005`:
+- **Alfa AI provider** — OpenAI ChatGPT/Codex device OAuth, or an API-key provider such
+  as Anthropic, OpenAI Platform, OpenRouter, Google, Groq, xAI, DeepSeek or Mistral;
+- **Alfa response preset** — normal, Caveman or Ponytail;
+- optional **Hermes / OpenClaw** installation (their provider settings remain separate
+  from Alfa's credentials);
+- reviewed **installable skills** such as Ponytail, Caveman and the MSO-safe RTK wrapper.
+
+The installer also generates the owner login credentials, builds production, installs and
+starts `mso.service`, and installs the CLI in both `~/.local/bin/mso` and—when the normal
+service install has sudo available—`/usr/local/bin/mso`. That system launcher is important:
+a child `curl | bash` process cannot modify the PATH of the shell that launched it, so
+`mso -h` must work immediately **after the installer returns**, without asking you to
+restart the shell. The installer also adds an idempotent `~/.local/bin` fallback to the
+normal shell profile for future sessions.
+
+If the environment has no controlling TTY (CI/cloud-init), the installer never blocks. It
+prints the resume command instead:
+
+```bash
+mso onboard
+```
+
+For an intentionally non-interactive install, use safe minimal defaults. `-y` does **not**
+auto-connect external accounts, install large managed apps, or silently add community
+skills:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- -y
+```
+
+After installation these should work immediately:
+
+```bash
+mso -h
+mso doctor
+mso onboard                 # run/re-run guided setup
+mso skills available        # reviewed installable skill list
+mso skills install ponytail caveman rtk -y
+```
+
+`Caveman`/`Ponytail` appear in two intentionally different places. **Response presets**
+(`mso config style caveman|ponytail`) are lightweight Alfa output policies. The market
+entries are full `SKILL.md` packages installed into the trusted operator root
+`~/.mso/skills`. Selecting a preset does not secretly install a skill, and installing a
+skill does not rewrite the global response preset.
+
+The curated `rtk` skill is an MSO-safe wrapper: it teaches agents to use RTK when the
+binary is already present, but it does **not** run an unpinned remote installer, modify
+shell profiles, or enable global hooks. Installing the RTK binary is a separate explicit
+system change.
+
+MSO binds **`127.0.0.1` by default**, so nothing is published directly to your network.
+Reach it with an SSH tunnel and open `http://localhost:4005`:
 
 ```bash
 ssh -N -L 4005:127.0.0.1:4005 you@your-server
 ```
 
-That tunnel is not just hygiene. The session cookie is `Secure`, and browsers only keep a `Secure` cookie over plain http on `localhost` — so an `http://<ip>:4005` URL logs in successfully and then drops the cookie. For a permanent setup use `tailscale serve 4005` or a TLS reverse proxy pointed at `127.0.0.1:4005`; pass `--bind 0.0.0.0` only when a proxy you control is already in front.
+The tunnel is not just hygiene. The session cookie is `Secure`; ordinary plain-HTTP IP
+addresses drop it. For a permanent setup use Tailscale Serve or a TLS reverse proxy to
+`127.0.0.1:4005`. Bind wider only when the network/firewall design explicitly requires it.
 
-Useful options:
+Useful installer controls:
 
 ```bash
+# force onboarding even while updating an existing install
+curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --onboard
+
+# update/build without onboarding
+curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --no-onboard
+
+# other existing controls
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --port 4005
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --bind 0.0.0.0
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --no-service
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --uninstall
 ```
 
-There is also a no-login install guide you can share: **<https://mso.rahmanef.com/install>** (every MSO instance serves it at `/install`).
-
-Full production setup, TLS/VPN notes, filesystem roots, updates, and rollback steps live in [docs/INSTALL.md](./docs/INSTALL.md).
+There is also a no-login install guide at **<https://mso.rahmanef.com/install>**. Full
+production setup, TLS/VPN notes, filesystem roots, update/rollback and onboarding details
+live in [docs/INSTALL.md](./docs/INSTALL.md).
 
 ## CLI
 
@@ -132,6 +196,9 @@ covers anything without one.
 ```bash
 mso -h                       # grouped command list; `mso <command> --help` per command
 mso doctor                   # deps, env, service, session, device — names what broke
+mso onboard                  # guided AI/app/skill setup
+mso skills available         # curated installable skills
+mso skills install ponytail caveman rtk -y
 mso device pending           # who typed the password and is waiting
 mso device approve <id> "my phone"
 mso ls ~/projects            # files; `raw` for binaries, `zip`/`upload` for transfers

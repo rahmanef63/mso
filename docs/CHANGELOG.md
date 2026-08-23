@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- add interactive onboarding and skill market
 - complete terminal and mobile app surfaces
 
 **Fixed**

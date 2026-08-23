@@ -4,9 +4,9 @@
 #   curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 #
 # Idempotent: re-running updates the checkout, rebuilds, and restarts the
-# service. Fully non-interactive (safe for curl|bash — no tty): the login
-# password + session secret are GENERATED, never prompted, and an existing
-# .env.local is preserved.
+# service. The bootstrap never needs stdin, so curl|bash stays safe. After a
+# FRESH install it uses /dev/tty (when present) for guided onboarding; CI/headless
+# installs never hang and can run `mso onboard` later. Existing .env.local is preserved.
 set -euo pipefail
 
 # ---- config: env override > flag > default ----
@@ -32,6 +32,9 @@ BIND="${MSO_BIND:-127.0.0.1}"
 SERVICE="mso.service"
 DO_SERVICE=1
 DO_UNINSTALL=0
+YES=0
+ONBOARD_MODE=auto
+FRESH_INSTALL=0
 # bun is the package manager; the RUNTIME stays node (see ensure_bun below).
 export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
 
@@ -55,6 +58,9 @@ mso installer
   --bind ADDR    listen address (default: 127.0.0.1). 0.0.0.0 publishes a shell
                  to every network this host is on — see the note in this file.
   --no-service   build only; skip the systemd unit
+  --onboard      run guided onboarding even on an existing install
+  --no-onboard   never start onboarding automatically
+  -y, --yes      safe non-interactive defaults (no external accounts/apps/skills)
   --uninstall    stop+disable+remove the systemd unit (keeps code + ~/.mso)
   -h, --help     this help
 Env: MSO_DIR  MSO_REF  MSO_PORT  MSO_BIND  MSO_REPO
@@ -68,6 +74,9 @@ while [ $# -gt 0 ]; do
     --port)       PORT="$2"; shift 2 ;;
     --bind)       BIND="$2"; shift 2 ;;
     --no-service) DO_SERVICE=0; shift ;;
+    --onboard)    ONBOARD_MODE=always; shift ;;
+    --no-onboard) ONBOARD_MODE=never; shift ;;
+    -y|--yes)     YES=1; shift ;;
     --uninstall)  DO_UNINSTALL=1; shift ;;
     -h|--help)    usage; exit 0 ;;
     *)            die "unknown arg: $1 (see --help)" ;;
@@ -85,6 +94,7 @@ if [ "$DIR_EXPLICIT" -eq 0 ] && command -v systemctl >/dev/null 2>&1; then
   existing="$(systemctl show -p WorkingDirectory --value "$SERVICE" 2>/dev/null || true)"
   [ -n "$existing" ] && [ -d "$existing/.git" ] && DIR="$existing" && info "found existing service → updating $DIR"
 fi
+[ -d "$DIR/.git" ] || FRESH_INSTALL=1
 
 # ---- uninstall ----
 if [ "$DO_UNINSTALL" -eq 1 ]; then
@@ -105,6 +115,9 @@ if [ "$DO_UNINSTALL" -eq 1 ]; then
   UNINST_BIN="${MSO_BIN_DIR:-$HOME/.local/bin}/mso"
   if [ -L "$UNINST_BIN" ] && case "$(readlink "$UNINST_BIN")" in "$DIR/"*) true ;; *) false ;; esac; then
     rm -f "$UNINST_BIN"; ok "removed cli symlink $UNINST_BIN"
+  fi
+  if [ -L /usr/local/bin/mso ] && case "$(readlink /usr/local/bin/mso)" in "$DIR/"*) true ;; *) false ;; esac; then
+    sudo_do rm -f /usr/local/bin/mso; ok "removed cli symlink /usr/local/bin/mso"
   fi
   UNINST_SKILLS="${MSO_SKILL_DIR:-$HOME/.claude/skills}"
   if [ -d "$UNINST_SKILLS" ]; then
@@ -351,10 +364,58 @@ BIN_DIR="${MSO_BIN_DIR:-$HOME/.local/bin}"
 mkdir -p "$BIN_DIR"
 ln -sfn "$DIR/bin/mso" "$BIN_DIR/mso"
 ok "cli → $BIN_DIR/mso"
+
+# Make the command available to the PARENT shell immediately after curl|bash returns.
+# A child installer cannot export PATH back into its parent. /usr/local/bin is already
+# on the normal system PATH, so install a second launcher there when the name is free
+# (or already ours). Never overwrite an unrelated system command.
+if [ "$DO_SERVICE" -eq 1 ]; then
+  SYSTEM_CLI=/usr/local/bin/mso
+  if [ ! -e "$SYSTEM_CLI" ] && [ ! -L "$SYSTEM_CLI" ]; then
+    sudo_do ln -s "$DIR/bin/mso" "$SYSTEM_CLI"
+    ok "system cli → $SYSTEM_CLI"
+  elif [ -L "$SYSTEM_CLI" ]; then
+    current_cli="$(readlink "$SYSTEM_CLI")"
+    case "$current_cli" in
+      "$DIR/"*) sudo_do ln -sfn "$DIR/bin/mso" "$SYSTEM_CLI"; ok "system cli → $SYSTEM_CLI" ;;
+      *) warn "$SYSTEM_CLI already points elsewhere ($current_cli) — left untouched" ;;
+    esac
+  else
+    warn "$SYSTEM_CLI already exists and is not a symlink — left untouched"
+  fi
+else
+  info "--no-service: skipped /usr/local/bin launcher (user CLI still at $BIN_DIR/mso)"
+fi
+
+# A fresh distro often omits ~/.local/bin from PATH. Persist one small idempotent
+# block for future shells, and export it now so onboarding can invoke `mso`.
+path_block() {
+  local rc="$1"
+  [ -e "$rc" ] || : > "$rc"
+  grep -q '^# >>> mso cli >>>$' "$rc" 2>/dev/null && return
+  cat >> "$rc" <<'EOF'
+
+# >>> mso cli >>>
 case ":$PATH:" in
-  *":$BIN_DIR:"*) ;;
-  *) warn "$BIN_DIR is not on PATH — add: export PATH=\"\$PATH:$BIN_DIR\"" ;;
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
 esac
+# <<< mso cli <<<
+EOF
+  info "added ~/.local/bin to PATH in $rc"
+}
+if [ "$BIN_DIR" = "$HOME/.local/bin" ]; then
+  path_block "$HOME/.profile"
+  case "${SHELL:-}" in
+    */bash) path_block "$HOME/.bashrc" ;;
+    */zsh)  path_block "$HOME/.zshrc" ;;
+  esac
+else
+  warn "custom MSO_BIN_DIR=$BIN_DIR is not written into shell profiles; add it to PATH yourself"
+fi
+export PATH="$BIN_DIR:$PATH"
+command -v mso >/dev/null 2>&1 || die "CLI symlink exists but is not executable: $BIN_DIR/mso"
+ok "mso command ready ($(command -v mso))"
 
 # ---- optional Claude Code integration ----
 # MSO catalogs $DIR/claude-skills directly, so these symlinks are NOT required by MSO.
@@ -411,6 +472,33 @@ cat <<EOF
   Env:      $DIR/.env.local
 EOF
 [ -n "$GEN_PW" ] && printf '  Password: %s   (shown once — save it now; edit OS_LOGIN_PASSWORD in .env.local + restart to change)\n' "$GEN_PW"
+
+# A successful fresh install should lead directly into a usable product. curl|bash
+# owns stdin, so interactive setup uses the controlling terminal explicitly.
+RUN_ONBOARD=0
+case "$ONBOARD_MODE" in
+  always) RUN_ONBOARD=1 ;;
+  never) RUN_ONBOARD=0 ;;
+  auto) [ "$FRESH_INSTALL" -eq 1 ] && RUN_ONBOARD=1 ;;
+esac
+if [ "$RUN_ONBOARD" -eq 1 ] && [ "$DO_SERVICE" -eq 1 ]; then
+  if [ "$YES" -eq 1 ]; then
+    echo
+    info "running minimal non-interactive onboarding (-y)…"
+    "$BIN_DIR/mso" onboard -y || warn "onboarding did not finish — rerun: mso onboard"
+  elif [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    echo
+    info "starting guided onboarding…"
+    if ! "$BIN_DIR/mso" onboard </dev/tty >/dev/tty 2>/dev/tty; then
+      warn "onboarding stopped early — resume anytime with: mso onboard"
+    fi
+  else
+    echo
+    warn "no interactive terminal detected — onboarding skipped. Run: mso onboard"
+  fi
+elif [ "$RUN_ONBOARD" -eq 1 ]; then
+  warn "--no-service leaves no running API to configure — run 'mso onboard' after starting MSO"
+fi
 cat <<EOF
 
   Pair your first device (device approval is a browser allowlist, not standards-based 2FA):

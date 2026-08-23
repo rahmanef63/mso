@@ -78,14 +78,8 @@ export function OAuthConnect({ onConnected }: { onConnected: () => void }) {
           <Button variant="outline" size="sm" className="[@media(pointer:coarse)]:min-h-[44px]" disabled={busy} onClick={start}>
             {busy ? "Starting…" : "Sign in with OpenAI (ChatGPT)"}
           </Button>
-          {/* Said out loud because this path is the ZERO-FRICTION one — no key to paste —
-              and it silently turns off the thing the product leads with. The Codex branch
-              in app/api/assistant/route.ts never forwards the tools array (codex-stream.ts
-              sends no `tools` field at all), so Alfa answers fluently and simply cannot
-              call anything. Without this line the only symptom is an assistant that
-              politely explains what it would do. */}
           <p className="text-xs text-muted-foreground">
-            Chat only. Alfa&apos;s host tools need an API-key provider — Anthropic, or OpenAI platform.
+            Uses your ChatGPT Codex subscription through device OAuth. Alfa&apos;s normal tool catalog is forwarded on this path too.
           </p>
         </div>
       ) : (
