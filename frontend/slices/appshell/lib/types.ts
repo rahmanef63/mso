@@ -91,11 +91,6 @@ export type AppDescriptor = {
   /** Pinned to the mobile dock / quick-shortcut set (consumer manifest decides
    *  — the generic shell never hardcodes project app ids). */
   pinned?: boolean;
-  /** Let the iOS fullscreen app own its navigation bar instead of receiving the
-   *  shell's generic app-icon/title/Done header. Used by apps whose native UI
-   *  already has a complete iOS navigation stack (System Settings). Android has
-   *  separate shell chrome and is intentionally unaffected. */
-  ownsMobileNavigation?: boolean;
   /** Allow several windows at once (e.g. Files); default = single instance. */
   multi?: boolean;
 

@@ -146,6 +146,10 @@ export {
   useActiveShell,
 } from "./registry/shells";
 export type { ShellId, ShellSurface, ShellDescriptor, ShellPrefs, ActiveShell } from "./registry/shells";
+export { SHELL_DESIGN_PROFILES, designProfileFor, useShellDesign } from "./design";
+export type { ShellDesignProfile, SettingsNavigationStyle, DialogPresentation, MobileNavigationStyle } from "./design";
+export { useMobileNavigationInfo, usePublishMobileNavigation, publishMobileNavigation, clearMobileNavigation } from "./lib/mobile-navigation";
+export type { MobileNavigationInfo } from "./lib/mobile-navigation";
 
 // ── Responsive: the single source of truth (provider + hook + container) ─────
 export { ResponsiveProvider } from "./responsive/responsive-provider";

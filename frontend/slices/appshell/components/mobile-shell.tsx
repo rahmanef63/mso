@@ -3,14 +3,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { useUrlHome } from "../hooks/use-url-home";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Sparkles } from "lucide-react";
 import { useApps } from "../lib/registry";
-import { useInspectorInfo } from "../lib/inspector";
-import { AppActionsSheet } from "./app-actions-sheet";
 import { useWindowOrder, useFocused, useWindow } from "../hooks/use-shell";
 import { shellStore, openWindow, focusApp, minimizeWindow, restoreWindow, toggleSpotlight, toggleInspector } from "../lib/store";
-import { AppIcon } from "./app-icon";
 import { HomeIndicator } from "./home-indicator";
 import { WindowContent } from "./window-content";
 import { MobileSwitcher } from "./mobile-switcher";
@@ -19,6 +14,8 @@ import { MobileNotifications } from "./mobile-notifications";
 import { Slot } from "../registry/feature-registry";
 import { useShellConfig } from "../registry/shell-config";
 import { ShellUIProvider, type ShellUI } from "../registry/shell-ui";
+import { useMobileNavigationInfo } from "../lib/mobile-navigation";
+import { IosFeatureHeader } from "./shells/ios/ios-feature-header";
 
 // Phones: no floating windows — a paged home + one fullscreen app at a time.
 // Reuses the same store (open/minimize/focus) so state matches the desktop.
@@ -31,7 +28,6 @@ export function MobileShell() {
   const [nc, setNc] = useState(false); // notification center (pull down, left half)
   const [appScrolled, setAppScrolled] = useState(false); // iOS nav-bar frost-on-scroll
   const [closing, setClosing] = useState(false); // playing the dismiss-to-home slide
-  const [actionsOpen, setActionsOpen] = useState(false); // in-app "•••" action drawer
 
   // Dock = manifest-pinned apps (AppDescriptor.pinned — the generic shell never
   // hardcodes project app ids); falls back to the first 4 dockable apps.
@@ -59,9 +55,7 @@ export function MobileShell() {
   const top = useWindow(topId ?? "__none__"); // reactive: re-renders on the active window's own payload/title changes
   const showApp = !home && top;
   const activeApp = top ? apps.find((a) => a.id === top.app) : null;
-  // The running app's live inspector actions → the in-app "•••" drawer (same bus
-  // as the desktop menu-bar app menu). Empty ⇒ no "•••" button renders.
-  const appActions = useInspectorInfo(activeApp?.id)?.actions ?? [];
+  const mobileNav = useMobileNavigationInfo(activeApp?.id);
 
   // SSOT navigation: open / resume bring a window to the front; home minimises.
   // Resume-don't-duplicate (real-iOS): a home tap brings the existing window
@@ -200,46 +194,13 @@ export function MobileShell() {
             style={{ height: "var(--sai-top)" }}
             onPointerDown={onAppTopPointerDown}
           />
-          {/* Nav bar: transparent at rest, frosting into a hairline glass bar once
-              the app scrolls (onScrollCapture on <main> catches the app's own inner
-              scroll container generically). Title stays put — mso apps carry no
-              in-content large title to fade in. */}
-          {!activeApp.ownsMobileNavigation && (
-          <header
-            className={cn(
-              "shrink-0 border-b transition-[background-color,border-color] duration-200",
-              appScrolled ? "glass border-border bg-[var(--glass-bar)]" : "border-transparent bg-transparent",
-            )}
-            style={{ paddingTop: "var(--sai-top)" }}
-          >
-            {/* iOS nav bar: 46px band below the notch. Title CENTERED (16/600);
-                the leading app-icon (cockpit identity) + trailing Done are absolute
-                so they never shift the centered title. */}
-            <div className="relative flex h-[46px] items-center px-3.5">
-              <span className="absolute left-3.5 top-1/2 size-[30px] -translate-y-1/2">
-                <AppIcon app={activeApp} />
-              </span>
-              <span className="mx-auto max-w-[55%] truncate text-[16px] font-semibold">{activeApp.title}</span>
-              {/* Alfa, in every app. The right dock is desktop-only and Control
-                  Center is a swipe gesture, so on a phone there was no way to reach
-                  her from inside an app at all — which is most of the time. Same
-                  shared thread as the dock and the Assistant app. */}
-              <Button type="button" variant="ghost" aria-label="Ask Alfa" onClick={toggleInspector} className="absolute right-[54px] top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-md text-primary">
-                <Sparkles className="size-5" />
-              </Button>
-              {/* app-provided actions (inspector bus) → in-app drawer; left of Alfa */}
-              {appActions.length > 0 && (
-                <Button type="button" variant="ghost" aria-label="Actions" onClick={() => setActionsOpen(true)} className="absolute right-[106px] top-1/2 grid h-[44px] w-[44px] -translate-y-1/2 place-items-center rounded-md text-primary">
-                  <MoreHorizontal className="size-5" />
-                </Button>
-              )}
-              {/* primary exit control — 44pt HIG touch target */}
-              <Button type="button" variant="ghost" onClick={goHome} className="absolute right-2 top-1/2 h-[44px] min-w-[44px] -translate-y-1/2 rounded-md px-3 text-sm font-medium text-primary">
-                Done
-              </Button>
-            </div>
-          </header>
-          )}
+          <IosFeatureHeader
+            title={mobileNav?.title ?? activeApp.title}
+            backLabel={mobileNav?.backLabel ?? "Home"}
+            onBack={mobileNav?.onBack ?? goHome}
+            onAI={toggleInspector}
+            scrolled={appScrolled}
+          />
           {/* The home-indicator overlays the content edge-to-edge (real-iOS), so
               --sai-bottom INSIDE the app pane must clear its 34px band — every app
               already pads with var(--sai-bottom), so setting the var here clears the
@@ -264,9 +225,6 @@ export function MobileShell() {
 
       {switcher && <MobileSwitcher onPick={resume} onHome={goHome} />}
       <MobileNotifications open={nc} onClose={() => setNc(false)} />
-      {activeApp && (
-        <AppActionsSheet app={activeApp} actions={appActions} open={actionsOpen} onOpenChange={setActionsOpen} />
-      )}
       <Slot region="controlCenter" />
       <Slot region="topPill" />
       </div>

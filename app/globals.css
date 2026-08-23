@@ -397,11 +397,11 @@ body {
 }
 
 
-/* ── iOS System Settings app ───────────────────────────────────────────────
-   System Settings owns its iOS navigation chrome, matching the native hierarchy:
-   large-title/search root → grouped inset lists → blue Settings back on detail.
+/* ── iOS System Settings content ───────────────────────────────────────────
+   The shell owns the single mobile navigation header. Settings contributes only
+   Search/grouped content at root and detail content below the published parent/title.
    These selectors are fully iOS + Settings-slot scoped; Android/desktop shells
-   keep their existing layouts. */
+   keep their own layouts. */
 [data-shell="ios"] [data-slot="ios-settings-root"],
 [data-shell="ios"] [data-slot="ios-settings-detail"] {
   font-family: var(--shell-font);
@@ -582,3 +582,109 @@ body {
 @keyframes wpFloatB { 0%, 100% { transform: translate(8%, 10%) scale(1.1); } 50% { transform: translate(-10%, -8%) scale(0.92); } }
 @keyframes bootPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: 0.85; } }
 @keyframes toastIn { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+
+/* ── Shell design-profile surfaces ─────────────────────────────────────────
+   Behavior stays shared; these selectors are the presentation seam. Per-shell
+   design.md files live in frontend/slices/appshell/design/<shell>/design.md. */
+[data-slot="shell-dialog-surface"][data-shell-id="ios"] {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", var(--font-ui);
+  background: var(--card);
+}
+[data-slot="shell-dialog-surface"][data-shell-id="android"] {
+  font-family: Roboto, "Google Sans Text", system-ui, var(--font-ui);
+  background: var(--card);
+}
+[data-slot="shell-dialog-surface"][data-shell-id="macos"] {
+  border-radius: 12px;
+  background: var(--window-bg);
+}
+[data-slot="shell-dialog-surface"][data-shell-id="windows"] {
+  border-radius: 8px;
+  background: var(--mica-win, var(--window-bg));
+}
+[data-slot="shell-dialog-surface"][data-shell-id="dashboard"] {
+  border-radius: 10px;
+  background: var(--card);
+}
+
+/* macOS Settings: compact sidebar + solid inset content groups. */
+[data-shell="macos"] [data-slot="settings-card"] { border-radius: 10px; }
+[data-shell="macos"] [data-slot="settings-row"] { min-height: 42px; }
+[data-shell="macos"] [data-slot="settings-section-title"] {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Material 3 Settings: larger touch rows and tonal rounded containers. */
+[data-shell="android"] [data-slot="settings-pane"] { background: var(--background); }
+[data-shell="android"] [data-slot="settings-card"] {
+  border-color: transparent;
+  border-radius: 24px;
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+[data-shell="android"] [data-slot="settings-row"] { min-height: 56px; }
+[data-shell="android"] [data-slot="settings-section-title"] {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+[data-shell="android"] [data-slot="settings-footnote"] {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Windows 11 Settings: compact Fluent geometry, no mobile-style pill cards. */
+[data-shell="windows"] [data-slot="settings-card"] { border-radius: 8px; }
+[data-shell="windows"] [data-slot="settings-row"] { min-height: 44px; }
+[data-shell="windows"] [data-slot="settings-section-title"] {
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+[data-shell="windows"] [data-slot="settings-desktop-tabs"] {
+  gap: 2px;
+  padding: 6px;
+  background: var(--mica-win, var(--sidebar));
+}
+
+/* Dashboard: intentionally denser than consumer OS shells. */
+[data-shell="dashboard"] [data-slot="settings-card"] { border-radius: 8px; }
+[data-shell="dashboard"] [data-slot="settings-row"] { min-height: 40px; padding-top: 8px; padding-bottom: 8px; }
+[data-shell="dashboard"] [data-slot="settings-desktop-tabs"] { padding: 4px; gap: 2px; }
+[data-shell="dashboard"] [data-slot="settings-section-title"] { font-size: 10px; }
+/* Native mobile sheet geometry wins over the base Drawer radius. Scoped to the
+   shell + design family so desktop dialogs and the other persona are untouched. */
+[data-slot="shell-dialog-surface"][data-shell-id="ios"][data-shell-mobile="true"] {
+  border-top-left-radius: 24px !important;
+  border-top-right-radius: 24px !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+[data-slot="shell-dialog-surface"][data-shell-id="android"][data-shell-mobile="true"] {
+  border-top-left-radius: 28px !important;
+  border-top-right-radius: 28px !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+/* Portaled shell surfaces cannot inherit the active surface's --shell-font because
+   Radix/Vaul mount them under <body>. data-shell-id makes typography self-contained. */
+[data-shell-id="ios"], [data-shell-id="macos"] {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", var(--font-ui);
+}
+[data-shell-id="android"] {
+  font-family: Roboto, "Google Sans Text", system-ui, var(--font-ui);
+}
+[data-shell-id="windows"] {
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, var(--font-ui);
+}
+[data-shell-id="dashboard"] {
+  font-family: var(--font-ui);
+}
+[data-slot="shell-dialog-surface"][data-shell-id="windows"] {
+  background: color-mix(in srgb, var(--window-bg) 95%, var(--accent) 5%);
+}

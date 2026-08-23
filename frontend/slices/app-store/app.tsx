@@ -38,9 +38,11 @@ export default function AppStore() {
   // measurement, and the chips live inside the AppFrame's own @container.
   const [paneRef, pane] = useContainer<HTMLDivElement>();
   const compact = pane === "xs" || pane === "sm";
-  // iOS shell nav already shows the app icon + "App Store" → drop the in-content
-  // title (double-title fix); the search field becomes a systemFill pill.
-  const ios = useActiveShell().id === "ios";
+  // Mobile shell navigation already owns the App Store title on both mobile OSes,
+  // so the in-content title is desktop-only; iOS still gets its systemFill search.
+  const activeShell = useActiveShell();
+  const ios = activeShell.id === "ios";
+  const mobile = activeShell.surface === "mobile";
 
   const rows = useApps();
   const disabled = useDisabledIds();
@@ -105,8 +107,8 @@ export default function AppStore() {
         header={
           <header className="space-y-3 p-4">
             <div className="flex items-center gap-2">
-              {!ios && <Store className="size-4 text-primary" />}
-              {!ios && <h2 className="text-sm font-semibold">App Store</h2>}
+              {!mobile && <Store className="size-4 text-primary" />}
+              {!mobile && <h2 className="text-sm font-semibold">App Store</h2>}
               <span className="ml-auto text-[11px] text-muted-foreground">
                 {count} {count === 1 ? noun : `${noun}s`}
               </span>

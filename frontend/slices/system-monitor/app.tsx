@@ -6,7 +6,6 @@ import {
   usePublishInspector,
   useOsApi,
   useResponsive,
-  useActiveShell,
   ResponsiveToolbar,
   type ToolbarItem,
 } from "./lib/host";
@@ -23,9 +22,7 @@ import { fmtGiBPair, fmtMBs, fmtPct } from "./lib/format";
 export default function SystemMonitor() {
   const api = useOsApi();
   const { isMobile } = useResponsive();
-  // iOS shell nav already paints the app icon + "System Monitor" title → drop the
-  // in-content title here to avoid a double title (keep the chip + Refresh).
-  const ios = useActiveShell().id === "ios";
+  // Mobile shell navigation owns the feature title on both iOS and Android.
   const { stats, procs, cpuSeries, netSeries, gpu, error, refresh } = useStatsHistory();
 
   usePublishInspector(
@@ -88,8 +85,8 @@ export default function SystemMonitor() {
       header={
         <header className="flex items-center justify-between gap-2 px-3 py-2">
           <div className="flex min-w-0 items-center gap-2">
-            {!ios && <Activity className="size-4 shrink-0 text-primary" />}
-            {!ios && <h2 className="truncate text-sm font-semibold">System Monitor</h2>}
+            {!isMobile && <Activity className="size-4 shrink-0 text-primary" />}
+            {!isMobile && <h2 className="truncate text-sm font-semibold">System Monitor</h2>}
             <span className="shrink-0 rounded-full bg-[color:var(--inset)] px-2 py-0.5 font-mono text-[10px] text-[color:var(--text-dim)]">
               {chipLabel}
             </span>

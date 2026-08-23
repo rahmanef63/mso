@@ -3,18 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ImageEditor, type EditorApi } from "@/features/image-editor";
 import { rawUrl } from "./lib/host";
-import { closeWindow, setCloseGuard, toast, useContainer, useIsMobile } from "@/features/os-shell";
+import { closeWindow, setCloseGuard, toast, useContainer, useIsMobile, FormDrawer } from "@/features/os-shell";
 import type { AppProps } from "@/features/os-shell";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { SaveImageDialog } from "./components/save-image-dialog";
 import { autoName, loadSavePrefs, saveImageToHost } from "./lib/save-image";
@@ -112,19 +102,17 @@ export default function MediaStudio({ payload, winId }: AppProps) {
         onSaved={onDialogSaved}
       />
 
-      <AlertDialog open={confirmClose} onOpenChange={(o) => !o && setConfirmClose(false)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Save changes before closing?</AlertDialogTitle>
-            <AlertDialogDescription>Your image has unsaved edits. They’ll be lost if you don’t save.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel onClick={() => setConfirmClose(false)}>Cancel</AlertDialogCancel>
-            <Button variant="ghost" className="text-destructive" onClick={() => { setConfirmClose(false); forceClose(); }}>Don’t Save</Button>
-            <AlertDialogAction onClick={saveThenClose}>Save</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <FormDrawer open={confirmClose} onOpenChange={(o) => !o && setConfirmClose(false)} variant="alert" size="sm">
+        <FormDrawer.Header>
+          <FormDrawer.Title>Save changes before closing?</FormDrawer.Title>
+          <FormDrawer.Description>Your image has unsaved edits. They’ll be lost if you don’t save.</FormDrawer.Description>
+        </FormDrawer.Header>
+        <FormDrawer.Footer>
+          <Button variant="ghost" onClick={() => setConfirmClose(false)}>Cancel</Button>
+          <Button variant="ghost" className="text-destructive" onClick={() => { setConfirmClose(false); forceClose(); }}>Don’t Save</Button>
+          <Button onClick={saveThenClose}>Save</Button>
+        </FormDrawer.Footer>
+      </FormDrawer>
     </>
   );
 }
