@@ -169,21 +169,44 @@ export function AppDrawer({ apps, onLaunch, onClose }: { apps: AppDescriptor[]; 
     // rising from where the finger was. (That target is drawn as a grabber but is a
     // plain tap — there is no swipe-up gesture in this shell, only usePullDown for
     // the shade and useSwipeUpClose for Recents cards.)
-    <div className="absolute inset-0 z-[30] flex flex-col bg-background/95 backdrop-blur-xl [animation:mobileAppOpen_var(--m3-dur-spatial-slow)_var(--m3-spatial)]">
-      {/* Visually a thin pull handle, but a ≥36px hit area (same treatment as
-          the iOS home indicator) so it's actually closable by thumb. */}
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={onClose}
-        aria-label="Close app drawer"
-        className="mx-auto flex h-9 w-24 items-center justify-center p-0 hover:bg-transparent"
+    <div data-slot="android-app-drawer" className="absolute inset-0 z-[30] flex flex-col bg-background/95 backdrop-blur-xl [animation:mobileAppOpen_var(--m3-dur-spatial-slow)_var(--m3-spatial)]">
+      {/* Keep every top control below the physical notch/status area. The extra
+          8px gives the grab handle breathing room even when env(safe-area-inset-top)
+          resolves to zero in a normal browser/PWA window. */}
+      <div
+        data-slot="android-app-drawer-top"
+        className="shrink-0"
+        style={{ paddingTop: "calc(var(--sai-top, 0px) + 8px)" }}
       >
-        <span className="h-1 w-10 rounded-full bg-foreground/30" />
-      </Button>
-      <div className="mx-4 mt-1 flex h-11 items-center gap-3 rounded-full border border-border bg-card px-4">
-        <Search className="size-4 text-muted-foreground" />
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search apps" placeholder="Search apps" className="w-full bg-transparent text-sm outline-none" />
+        {/* The handle remains a close target, but it is no longer the ONLY visible
+            way out. On real phones onClose is routed through the same history-aware
+            Back bridge as the hardware/browser gesture. */}
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onClose}
+          aria-label="Close app drawer"
+          className="mx-auto flex h-[28px] w-24 items-center justify-center p-0 hover:bg-transparent"
+        >
+          <span className="h-1 w-10 rounded-full bg-foreground/30" />
+        </Button>
+        <div className="relative flex h-[48px] items-center px-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            aria-label="Back to Home"
+            className={`absolute left-1 top-1/2 h-[48px] min-h-[48px] -translate-y-1/2 gap-0 rounded-full px-1.5 text-[15px] font-medium hover:bg-secondary ${M3_PRESS}`}
+          >
+            <ChevronLeft className="size-6 shrink-0" aria-hidden />
+            <span>Home</span>
+          </Button>
+          <h1 className="mx-auto text-[18px] font-medium">All apps</h1>
+        </div>
+        <div className="mx-4 mb-3 mt-1 flex h-[48px] items-center gap-3 rounded-full border border-border bg-card px-4">
+          <Search className="size-4 text-muted-foreground" />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search apps" placeholder="Search apps" className="min-w-0 w-full bg-transparent text-sm outline-none" />
+        </div>
       </div>
       <div
         className="grid min-h-0 flex-1 grid-cols-4 content-start gap-x-3 gap-y-5 overflow-auto p-5"

@@ -15,6 +15,7 @@ Design family: Material 3 / Material You.
 ## Real-device navigation
 - On an actual narrow Android handset, do not draw a second simulated 3-button system navigation bar; the device/browser already owns that system chrome.
 - MSO internal layers publish same-URL history entries so Android/browser Back closes All Apps, a detail view, or the current MSO app before leaving the shell.
+- All Apps also exposes a visible **‹ Home** control using that same history-aware close action; the top grab handle and search/header region must begin below `safe-area-inset-top` plus breathing room so notches/status bars never overlap it.
 - The simulated Back/Home/Recents row is reserved for the desktop PhoneFrame preview where no real Android system navigation exists.
 
 ## Widgets
