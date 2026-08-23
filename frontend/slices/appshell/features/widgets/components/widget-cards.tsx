@@ -22,10 +22,11 @@ export function Card({ children, className }: { children: React.ReactNode; class
       // (Border needs no var: the global `* { border-color: --border }` in
       // globals.css already unifies every border to the window edge color.)
       className={cn(
-        "rounded-[var(--widget-radius,1rem)] border border-white/15 p-3.5 text-foreground backdrop-blur-xl",
+        "min-w-0 max-w-full rounded-[var(--widget-radius,1rem)] border border-white/15 p-3.5 text-foreground backdrop-blur-xl",
         className,
       )}
-      style={{ background: "var(--glass-menu)" }}
+      data-slot="widget-card"
+      style={{ background: "var(--widget-bg, var(--glass-menu))" }}
     >
       {children}
     </div>

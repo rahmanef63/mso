@@ -152,6 +152,14 @@ async function session(browser, { width, height, label, touch = width < 768, exp
     document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   check(overflow <= 1, `no horizontal overflow (${overflow}px)`);
+  if (expectedSurface === "mobile") {
+    const viewportDelta = await page.evaluate(() => {
+      const root = document.querySelector("#main-content");
+      const visible = window.visualViewport?.height ?? window.innerHeight;
+      return Math.abs((root?.getBoundingClientRect().height ?? 0) - visible);
+    });
+    check(viewportDelta <= 1, `root height follows the visual viewport (${viewportDelta.toFixed(1)}px delta)`);
+  }
 
   // ── open every app by DEEP LINK rather than by clicking the dock.
   //
