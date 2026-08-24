@@ -39,3 +39,18 @@ export function featureSource(feature: ManagedAppFeature): string | null {
   const origin = managedAppOrigin(feature.applicationId);
   return origin ? `${origin}/${feature.route.replace(/^\/+/, "")}` : null;
 }
+
+/** Pick the browser surface without confusing availability with preference.
+ * A configured split-origin host is the primary UI because it can be embedded safely in
+ * the MSO feature shell. A direct public-IP URL is only the no-domain fallback. */
+export function dashboardSurfaceSource(
+  embeddedSource: string | null,
+  publicDashboardUrl: string | null | undefined,
+): { source: string | null; kind: "embedded" | "direct" | "none" } {
+  // An explicit HTTPS app domain is already a safe separate origin and usually carries
+  // the app's existing cookies/session, so do not invent a second MSO subdomain for it.
+  if (publicDashboardUrl?.startsWith("https://")) return { source: publicDashboardUrl, kind: "embedded" };
+  if (embeddedSource) return { source: embeddedSource, kind: "embedded" };
+  if (publicDashboardUrl) return { source: publicDashboardUrl, kind: "direct" };
+  return { source: null, kind: "none" };
+}

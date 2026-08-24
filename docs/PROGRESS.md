@@ -9,6 +9,23 @@ Running log of what shipped each phase. Newest at top.
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
 > entries intact as historical evidence even when their commands/counts have been superseded.
 
+## 2026-08-25 — 9Router configured-domain UI + official icon correction (DONE)
+
+The first public-IP fallback pass made the fallback the preference: because every managed
+9Router container publishes port 20128, `publicDashboardUrl` was always present and the UI
+selected it before the already-configured split-origin host. On deployments such as this one
+with `{id}.mso.rahmanef.com`, that replaced the real in-shell dashboard with a card that only
+opened a new tab. Source precedence is now explicit: configured split-origin domain first,
+public IP only when no embeddable domain exists. UI therefore renders the 9Router dashboard
+inside the same managed-feature iframe shell as Hermes/OpenClaw.
+
+9Router also no longer uses the generic Lucide Route placeholder. MSO copies the official
+`/app/public/icons/icon-512.svg` from the current 9Router Docker distribution into its local
+official-brand asset set and uses it in the shell, launcher, window and Details cards. The
+`sc-all`, `sc-dokploy`, and legacy `si-coder` deployment guidance now records the same
+existing-domain-first/public-IP-fallback contract so future automation does not recreate this
+regression.
+
 ## 2026-08-25 — 9Router public-IP-first managed-app correction (DONE)
 
 The first 9Router managed-app pass incorrectly coupled the app surface to MSO's optional

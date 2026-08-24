@@ -5,17 +5,18 @@ import { Suspense, useCallback, useState } from "react";
 import type { AppProps } from "@/features/appshell";
 import { Terminal } from "@/features/os-terminal";
 import type { ManagedAppFeature } from "@/lib/managed-apps/types";
-import { cliCommand, featureSource } from "./feature-cli";
+import { cliCommand, dashboardSurfaceSource, featureSource } from "./feature-cli";
 
 export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { feature: ManagedAppFeature; publicDashboardUrl?: string | null }) {
   const embeddedSource = featureSource(feature);
-  const directSource = publicDashboardUrl ?? null;
-  const uiAvailable = Boolean(directSource || embeddedSource);
+  const surface = dashboardSurfaceSource(embeddedSource, publicDashboardUrl);
+  const directSource = surface.kind === "direct" ? surface.source : null;
+  const uiAvailable = surface.source !== null;
   const command = cliCommand(feature);
-  // A direct public source is intentionally preferred when present: it works on a
-  // fresh VPS without DNS/TLS and is already a separate browser origin. We do NOT
-  // iframe its http:// URL inside an https:// cockpit (mixed content), and we do
-  // NOT fall back to a same-origin proxy (that would give vendor JS the MSO realm).
+  // Existing configured domain wins: that split-origin URL is the safe embeddable UI,
+  // exactly like Hermes/OpenClaw. The public-IP URL is only a no-domain fallback. We do
+  // not iframe an http:// public IP inside an https:// cockpit (mixed content), and we
+  // never fall back to a same-origin vendor iframe.
   const [generation, setGeneration] = useState(0);
   const [view, setView] = useState<"ui" | "cli">(() => (uiAvailable ? "ui" : "cli"));
 
@@ -32,7 +33,7 @@ export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { 
         {uiAvailable ? (
           <>
             {!directSource ? <button type="button" onClick={reload} className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Refresh feature"><RefreshCw className="size-3.5" /></button> : null}
-            <a href={directSource ?? embeddedSource ?? undefined} target="_blank" rel="noreferrer" className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Open feature in dedicated tab"><ExternalLink className="size-3.5" /></a>
+            <a href={surface.source ?? undefined} target="_blank" rel="noreferrer" className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Open feature in dedicated tab"><ExternalLink className="size-3.5" /></a>
           </>
         ) : null}
       </header>
@@ -75,7 +76,7 @@ export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { 
       ) : (
         <iframe
           key={generation}
-          src={embeddedSource ?? undefined}
+          src={surface.kind === "embedded" ? surface.source ?? undefined : undefined}
           title={`${feature.applicationId} ${feature.title}`}
           className="min-h-0 flex-1 border-0 bg-background"
           // allow-same-origin stays, and is the whole point: these SPAs need their own

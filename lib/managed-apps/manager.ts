@@ -97,6 +97,17 @@ export function hostPublicIpv4(): string | null {
 }
 
 function directDashboardUrl(definition: ManagedAppDefinition): string | null {
+  const configured = definition.publicUrl?.trim();
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if ((url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password) {
+        return configured.replace(/\/$/, "");
+      }
+    } catch {
+      // Bad operator config is not an app-health failure; fall through to the IP path.
+    }
+  }
   if (!definition.publicPort) return null;
   const address = hostPublicIpv4();
   return address ? `http://${address}:${definition.publicPort}` : null;

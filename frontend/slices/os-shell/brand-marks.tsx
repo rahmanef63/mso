@@ -91,8 +91,10 @@ export const APP_MARKS: Record<string, AppIconComponent> = {
   ),
   hermes: officialMark("/brand/official/hermes.webp"),
   openclaw: officialMark("/brand/official/openclaw.webp"),
+  "9router": officialMark("/brand/official/9router.webp"),
 };
 
 export const HermesMark = APP_MARKS.hermes;
 export const OpenClawMark = APP_MARKS.openclaw;
+export const NineRouterMark = APP_MARKS["9router"];
 export const CamoufoxMark = APP_MARKS["camoufox-browser"];

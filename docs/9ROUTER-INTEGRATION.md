@@ -34,7 +34,7 @@ version/update check: GET http://127.0.0.1:20128/api/version
 MSO uses loopback for trusted internal health/version calls even though Docker publishes the
 port publicly.
 
-## Public-IP-first UI
+## Domain-first UI with public-IP fallback
 
 A 9Router installation must not depend on a domain. When MSO sees a globally-routable IPv4
 on the host, its managed-app view advertises:
@@ -43,18 +43,27 @@ on the host, its managed-app view advertises:
 http://<public-ip>:20128
 ```
 
-The MSO 9Router window offers **UI / CLI**. UI opens that direct URL in a dedicated tab. It
-is intentionally not put in an HTTPS iframe because browsers block HTTP mixed content.
-Because the direct URL is a different origin, vendor JavaScript also cannot inherit the MSO
-cockpit origin/session.
+The MSO 9Router window offers **UI / CLI**. When a split-origin domain is already configured,
+**UI embeds that dashboard inside the feature shell**, the same way Hermes does. The direct
+public-IP URL is only the fallback for installations without a domain. An HTTP public-IP URL
+is not put in an HTTPS iframe because browsers block mixed content; in that fallback case MSO
+opens the direct UI as a separate origin.
 
 A custom domain is optional. Hostinger/Cloudflare automation may later configure DNS/TLS,
-but it is not part of install health and must never be assumed to exist.
+but it is not part of install health and must never be assumed to exist. If a domain already
+exists, set it explicitly instead of generating another hostname:
 
-## Optional split-origin embedding
+```dotenv
+NINE_ROUTER_PUBLIC_URL=https://9-router.example.com
+```
 
-If an operator wants 9Router embedded inside an HTTPS MSO window, use the same explicit
-split-origin contract as other vendor dashboards:
+Source precedence is: explicit HTTPS `NINE_ROUTER_PUBLIC_URL` → MSO split-origin host →
+public `IP:20128`. An explicit HTTPS app domain is framed directly because it is already a
+separate origin; this also preserves the application's own origin-scoped browser session.
+
+## Split-origin embedding when a domain is configured
+
+When the deployment already has a domain, use the same explicit split-origin contract as other vendor dashboards. This is the preferred UI path on that deployment:
 
 ```dotenv
 NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE={id}.mso.example.com
@@ -62,9 +71,10 @@ OS_SESSION_COOKIE_DOMAIN=.mso.example.com
 OS_PUBLIC_ORIGIN=https://mso.example.com
 ```
 
-Then create only the explicit `9router.mso.example.com` DNS/TLS route and re-authenticate so
-the widened session cookie is actually issued. This path is optional; a failing split-origin
-hostname must not make the running 9Router app appear unavailable.
+Create only the explicit `9router.mso.example.com` DNS/TLS route and re-authenticate so the
+widened session cookie is actually issued. When this route exists, MSO prefers it over the
+public-IP fallback and renders the dashboard in-shell. A failing domain must still not make the
+running 9Router runtime appear unavailable.
 
 An older standalone hostname such as `9-router.example.com` may continue proxying directly
 to port 20128. MSO does not need to delete or replace it when enabling managed-app support.

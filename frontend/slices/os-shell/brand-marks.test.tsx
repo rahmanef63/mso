@@ -13,6 +13,7 @@ describe("third-party official app marks", () => {
     ["camoufox-browser", "/brand/official/camoufox.webp"],
     ["hermes", "/brand/official/hermes.webp"],
     ["openclaw", "/brand/official/openclaw.webp"],
+    ["9router", "/brand/official/9router.webp"],
   ])("keeps %s shell-invariant and official", (id, src) => {
     const html = markup(id);
     expect(html).toContain(`src="${src}"`);

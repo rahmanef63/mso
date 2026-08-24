@@ -239,8 +239,9 @@ ChatGPT app; MSO's "Mark ChatGPT refreshed" button is only a local acknowledgeme
 ## 10. Optional managed-app dashboards
 
 Hermes, OpenClaw and 9Router lifecycle management works without a domain. 9Router is
-public-IP-first on the managed Docker/VPS path: after health succeeds, its UI can be opened
-at `http://<public-ip>:20128` when the host has a globally-routable IPv4. Hermes/OpenClaw
+domain-aware on the managed Docker/VPS path: a configured application domain is used as the
+in-shell UI; otherwise, after health succeeds, its UI can be opened at `http://<public-ip>:20128`
+when the host has a globally-routable IPv4. Hermes/OpenClaw
 remain loopback-only unless an operator adds an external route.
 
 The safe default is no vendor dashboard on the **MSO cockpit origin**. To opt into

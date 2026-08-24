@@ -63,6 +63,7 @@ const definitions = {
     // installation a usable UI without requiring DNS, TLS or a domain provider.
     // Embedding inside HTTPS MSO remains a separate optional split-origin feature.
     publicPort: 20128,
+    publicUrl: process.env.NINE_ROUTER_PUBLIC_URL,
     stateDirName: ".9router",
     gradient: "linear-gradient(160deg,#0ea5e9,#2563eb)",
   },

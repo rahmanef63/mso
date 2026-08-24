@@ -167,7 +167,7 @@ uninstall them. Long-running install/update/uninstall/restore work is represente
 with bounded logs and status.
 
 A domain is not a lifecycle dependency. 9Router's Docker/server form deliberately publishes
-port 20128; when the host has a global IPv4 MSO advertises `http://<public-ip>:20128` as a
+port 20128; a configured split-origin host is the primary in-shell dashboard, while a global IPv4 lets MSO advertise `http://<public-ip>:20128` as a
 direct separate-origin UI. Hermes/OpenClaw stay loopback-only by default.
 
 Embedded vendor dashboards are optional. A split-origin deployment opts in by setting

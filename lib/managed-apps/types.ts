@@ -37,6 +37,10 @@ export interface ManagedAppDefinition {
    *  globally routable IPv4 address. It is never used as the internal health
    *  target, and it does not imply that a domain exists. */
   publicPort?: number;
+  /** Existing browser-facing URL owned by this application/deployment, e.g.
+   *  https://9-router.example.com. When valid, this is preferred over generated
+   *  managed-app hosts and public-IP fallbacks. */
+  publicUrl?: string;
 }
 
 export interface ManagedAppView {
@@ -49,9 +53,9 @@ export interface ManagedAppView {
   healthy: boolean | null;
   version: string | null;
   dashboardAvailable: boolean;
-  /** Direct browser URL when the runtime deliberately exposes its UI on a public
-   *  host port. null for loopback-only apps and hosts without a public interface.
-   *  This is an access convenience, not the upstream URL MSO trusts for health. */
+  /** Preferred browser-facing URL outside the MSO cockpit: an explicit configured
+   *  application domain when present, otherwise a public-IP:port fallback. null for
+   *  loopback-only apps/hosts. This is never the trusted internal health target. */
   publicDashboardUrl: string | null;
   supportedActions: ManagedAppAction[];
   /** Why this reading may be wrong, when MSO knows that it might be.

@@ -54,12 +54,13 @@ Opening a managed app first detects it:
 - **Details** → MSO-owned lifecycle, logs, update, backup/restore and uninstall controls.
 
 The app surface can switch between **UI** and **CLI** where a UI is available. Hermes and
-OpenClaw use their safe split-origin embedded dashboard when configured. 9Router is
-**public-IP-first**: its Docker runtime publishes port `20128`, so MSO advertises the direct
+OpenClaw use their safe split-origin embedded dashboard when configured. 9Router follows the
+same rule: **a configured application domain is the primary in-shell UI**. Its Docker runtime
+also publishes port `20128`, so MSO advertises the direct
 separate-origin URL and opens it in a dedicated browser tab. This requires no domain, DNS
 provider, wildcard record, or TLS configuration.
 
-MSO intentionally does not iframe `http://<public-ip>:20128` inside an HTTPS cockpit: browsers
+When no domain is configured, MSO intentionally does not iframe `http://<public-ip>:20128` inside an HTTPS cockpit: browsers
 block that as mixed content. It also does not proxy a vendor SPA under the cockpit origin,
 because a same-origin SPA with `allow-same-origin` could reach the owner's MSO session/API.
 
@@ -195,10 +196,10 @@ confirmation is still required for a real removal.
 **Lifecycle does not require a domain.** These are separate concerns:
 
 1. **Runtime management** — install/start/stop/update/backup/uninstall; no DNS required.
-2. **Direct public access** — currently used by 9Router because its server distribution is
+2. **Direct public access** — fallback for 9Router when no embeddable domain is configured; its server distribution is
    deliberately published on host port `20128`; MSO derives a globally-routable IPv4 from
    local network interfaces and returns `publicDashboardUrl`.
-3. **Embedded dashboard access** — optional split-origin mode for a vendor UI shown inside
+3. **Embedded dashboard access** — preferred when configured: split-origin mode for a vendor UI shown inside
    MSO.
 
 The safe embedded-dashboard default is **off**. To opt in, configure all parts of one
@@ -261,8 +262,7 @@ the real secret verification.
 
 - app says "not installed" but you know it exists → check systemd-user visibility/detection
   evidence before rerunning an installer;
-- 9Router is healthy but its new `*.mso...` host fails → use the direct public-IP UI first;
-  the split-origin host is optional and has independent DNS/TLS/session-cookie requirements;
+- 9Router is healthy but its configured `*.mso...` host fails → diagnose DNS/TLS/session-cookie state; the runtime remains healthy and the direct public-IP UI is the fallback;
 - 9Router UI button has no public URL → the host has no globally-routable IPv4 on a local
   interface, or the runtime was deliberately changed to loopback/private-only networking;
 - dashboard frame missing but service is healthy → split-origin embedding may be absent by

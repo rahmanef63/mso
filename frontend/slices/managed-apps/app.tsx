@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, FileText, Loader2, Play, RefreshCw, Route, Save, SlidersHorizontal, Square, Workflow, type LucideIcon } from "lucide-react";
+import { Bot, FileText, Loader2, Play, RefreshCw, Save, SlidersHorizontal, Square, Workflow, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ManagedAppAction, ManagedAppId, ManagedAppView } from "@/lib/managed-apps/types";
 import { dashboardFeature } from "./feature-cli";
@@ -85,15 +85,21 @@ export function NineRouterApp() {
 
 const NAME: Record<ManagedAppId, string> = { hermes: "Hermes", openclaw: "OpenClaw", "9router": "9Router" };
 
-const MARK: Record<ManagedAppId, { Icon: LucideIcon; tone: string }> = {
+const MARK: Record<ManagedAppId, { Icon?: LucideIcon; tone?: string; artwork?: string }> = {
   hermes: { Icon: Bot, tone: "text-violet-400" },
   openclaw: { Icon: Workflow, tone: "text-orange-400" },
-  "9router": { Icon: Route, tone: "text-sky-400" },
+  "9router": { artwork: "/brand/official/9router.webp" },
 };
 
 function AppMark({ id, className }: { id: ManagedAppId; className?: string }) {
-  const { Icon, tone } = MARK[id];
-  return <Icon className={`${className ?? "size-4"} ${tone}`} />;
+  const mark = MARK[id];
+  if (mark.artwork) {
+    // Official upstream artwork; keep it identical across every shell and Details card.
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={mark.artwork} alt="" aria-hidden className={`${className ?? "size-4"} object-contain`} draggable={false} />;
+  }
+  const Icon = mark.Icon!;
+  return <Icon className={`${className ?? "size-4"} ${mark.tone ?? ""}`} />;
 }
 
 const ICON: Record<ManagedAppId, React.ReactNode> = {

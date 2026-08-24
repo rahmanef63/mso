@@ -68,7 +68,7 @@ const TITLES = {
   files: "Files", browser: "Camoufox", code: "Code", terminal: "Terminal", claude: "Claude Code",
   studio: "Image Editor", reel: "Video Editor", viewer: "Preview", store: "App Store", create: "Create App",
   monitor: "System Monitor", assistant: "Alfa", links: "Quicklinks", docs: "Docs", settings: "Settings",
-  hermes: "Hermes", openclaw: "OpenClaw",
+  hermes: "Hermes", openclaw: "OpenClaw", "9router": "9Router",
 };
 
 const IGNORE = [
@@ -228,7 +228,7 @@ async function session(browser, { width, height, label, touch = width < 768, exp
   // origin their own frame-ancestors/session policy correctly rejects the iframe,
   // so exercise host routing/rendering here without treating that origin mismatch
   // as an MSO host-network failure. Their own runtime has separate managed-app tests.
-  for (const slug of ["hermes", "openclaw"]) {
+  for (const slug of ["hermes", "openclaw", "9router"]) {
     await page.goto(`${BASE}/${slug}`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(1200);
     check(page.url().endsWith(`/${slug}`), `/${slug} managed-app deep-link kept the URL`);

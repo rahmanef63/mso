@@ -44,7 +44,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("public-IP-first dashboard access", () => {
+describe("public-IP dashboard fallback", () => {
   it("advertises 9Router on a globally routable host interface without requiring DNS", async () => {
     vi.spyOn(os, "networkInterfaces").mockReturnValue({
       eth0: [
