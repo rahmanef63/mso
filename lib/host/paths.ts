@@ -95,9 +95,15 @@ const SENSITIVE_HOME = [
   ".bashrc", ".bash_profile", ".bash_login", ".bash_aliases", ".profile",
   ".zshrc", ".zprofile", ".zshenv", ".zlogin", ".kshrc",
   ".config/fish/config.fish", ".config/fish/conf.d",
-  // loose private keys saved outside ~/.ssh (heredoc dumps, exports, etc.)
+  // root-level loose private keys; nested copies are caught by basename below too.
   "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa",
 ];
+
+// Loose private keys are identified by BASENAME anywhere inside a legal read root.
+// Keeping these in SENSITIVE_HOME only protected ~/id_rsa, while the common deploy-key
+// shape ~/projects/app/id_rsa stayed readable to a session/read-scope MCP bearer.
+const PRIVATE_KEY_BASENAMES = ["id_rsa", "id_ed25519", "id_ecdsa", "id_dsa"] as const;
+const PRIVATE_KEY_NAMES = new Set<string>(PRIVATE_KEY_BASENAMES);
 
 export function isSensitivePath(real: string): boolean {
   if (process.env.OS_FS_ALLOW_SENSITIVE === "1") return false;
@@ -123,10 +129,23 @@ export function isCredentialPath(real: string): boolean {
   if (real === store || isUnderRoot(real, store)) return true;
   if (isSensitivePath(real)) return true;
   const base = path.basename(real);
-  // Private keys land anywhere (heredoc dumps, downloaded service accounts); the
-  // extension is the only reliable marker outside the fixed ~/ locations above.
-  if (base.endsWith(".pem")) return true;
+  // Private keys land anywhere (heredoc dumps, deploy keys, downloaded service
+  // accounts). Their basename/extension is the reliable marker outside fixed ~/ paths.
+  if (PRIVATE_KEY_NAMES.has(base) && process.env.OS_FS_ALLOW_SENSITIVE !== "1") return true;
+  if (base.toLowerCase().endsWith(".pem")) return true;
   return isAppSecret(real);
+}
+
+// `zip -r` validates the selected top-level names, then walks descendants itself.
+// These patterns enforce the same basename-anywhere private-key rule inside that
+// recursive walk. Info-ZIP `*` spans `/`; explicit root forms cover the no-slash case.
+export function looseCredentialExcludes(): string[] {
+  const privateNames = process.env.OS_FS_ALLOW_SENSITIVE === "1"
+    ? []
+    : PRIVATE_KEY_BASENAMES.flatMap((name) => [name, `*/${name}`]);
+  // *.pem has historically been a hard credential boundary, independent of the
+  // SENSITIVE_HOME escape hatch; keep that contract while extending id_* safely.
+  return ["*.pem", ...privateNames];
 }
 
 /** The app's own secrets sitting UNDER `realBase` — empty when APP_DIR is not a

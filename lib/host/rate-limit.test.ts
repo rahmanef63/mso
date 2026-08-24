@@ -1,7 +1,7 @@
 // Unit tests for the fixed-window in-memory rate limiter (lib/host/rate-limit.ts).
 // Uses fake timers to exercise window expiry without sleeping.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { rateLimited } from "./rate-limit";
+import { rateLimited, rateLimitedUntrusted } from "./rate-limit";
 
 describe("rateLimited", () => {
   beforeEach(() => {
@@ -58,6 +58,26 @@ describe("rateLimited", () => {
     expect(rateLimited(dev, 2, 1000)).toBe(true);
     expect(rateLimited(global, 5, 1000)).toBe(false);
     expect(rateLimited(global, 5, 1000)).toBe(false);
+  });
+
+  it("isolates attacker-controlled pre-auth churn from privileged buckets", () => {
+    const victim = `privileged-victim-${Math.random()}`;
+    expect(rateLimited(victim, 1, 60_000)).toBe(false);
+    expect(rateLimited(victim, 1, 60_000)).toBe(true);
+
+    // More public keys than the table ceiling. The vulnerable implementation used
+    // one Map and clear()ed it, silently restoring the victim's allowance.
+    for (let i = 0; i < 4200; i++) {
+      expect(rateLimitedUntrusted(`spoofed-ip-${Math.random()}-${i}`, 1, 60_000)).toBe(false);
+    }
+    expect(rateLimited(victim, 1, 60_000)).toBe(true);
+  });
+
+  it("evicts cold pre-auth keys instead of turning table pressure into a global 429", () => {
+    for (let i = 0; i < 4200; i++) {
+      expect(rateLimitedUntrusted(`public-churn-${Math.random()}-${i}`, 1, 60_000)).toBe(false);
+    }
+    expect(rateLimitedUntrusted(`fresh-public-${Math.random()}`, 1, 60_000)).toBe(false);
   });
 
   it("counts the call as a hit only when not blocked", () => {

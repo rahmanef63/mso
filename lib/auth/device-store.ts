@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
+import { withSecurityStoreLock } from "@/lib/security-store-lock";
 
 // Server-side device allowlist, ported from the VPS Control Room. The login
 // password is a weak/memorable factor; the strong factor is a 128-bit device
@@ -65,9 +66,20 @@ async function read(): Promise<DeviceStore> {
 
 async function write(store: DeviceStore): Promise<void> {
   await fs.mkdir(path.dirname(STORE_PATH), { recursive: true, mode: 0o700 });
-  const tmp = `${STORE_PATH}.tmp`;
+  const tmp = `${STORE_PATH}.${process.pid}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(store, null, 2), { encoding: "utf8", mode: 0o600 });
   await fs.rename(tmp, STORE_PATH);
+}
+
+// Approval/revocation is a security decision, so serialize the entire read-modify-
+// write transaction. A plain atomic rename is not enough: two requests can read the
+// same approved set and a later `touchApproved` can otherwise overwrite a revoke.
+let mutationChain: Promise<unknown> = Promise.resolve();
+function mutate<T>(fn: () => Promise<T>): Promise<T> {
+  const locked = () => withSecurityStoreLock(STORE_PATH, fn);
+  const run = mutationChain.then(locked, locked);
+  mutationChain = run.then(() => undefined, () => undefined);
+  return run;
 }
 
 export async function isApproved(deviceId: string): Promise<boolean> {
@@ -76,13 +88,15 @@ export async function isApproved(deviceId: string): Promise<boolean> {
 }
 
 /** Mark an approved device as just-seen (best effort). */
-export async function touchApproved(deviceId: string): Promise<void> {
-  const store = await read();
-  const entry = store.approved[deviceId];
-  if (!entry) return;
-  entry.lastSeen = Date.now();
-  delete store.pending[deviceId];
-  await write(store);
+export function touchApproved(deviceId: string): Promise<void> {
+  return mutate(async () => {
+    const store = await read();
+    const entry = store.approved[deviceId];
+    if (!entry) return;
+    entry.lastSeen = Date.now();
+    delete store.pending[deviceId];
+    await write(store);
+  });
 }
 
 export async function listDevices(): Promise<DeviceStore> {
@@ -90,45 +104,51 @@ export async function listDevices(): Promise<DeviceStore> {
 }
 
 /** Approve a device (moves it out of pending). Used by the in-app panel + CLI. */
-export async function approveDevice(deviceId: string, label?: string): Promise<void> {
-  const store = await read();
-  const pending = store.pending[deviceId];
-  store.approved[deviceId] = {
-    label: (label && label.slice(0, 80)) || pending?.label || "approved device",
-    approvedAt: Date.now(),
-  };
-  delete store.pending[deviceId];
-  await write(store);
+export function approveDevice(deviceId: string, label?: string): Promise<void> {
+  return mutate(async () => {
+    const store = await read();
+    const pending = store.pending[deviceId];
+    store.approved[deviceId] = {
+      label: (label && label.slice(0, 80)) || pending?.label || "approved device",
+      approvedAt: Date.now(),
+    };
+    delete store.pending[deviceId];
+    await write(store);
+  });
 }
 
 /** Un-trust a device (and clear any pending record for the same id). */
-export async function revokeDevice(deviceId: string): Promise<void> {
-  const store = await read();
-  if (!(deviceId in store.approved) && !(deviceId in store.pending)) return;
-  delete store.approved[deviceId];
-  delete store.pending[deviceId];
-  await write(store);
+export function revokeDevice(deviceId: string): Promise<void> {
+  return mutate(async () => {
+    const store = await read();
+    if (!(deviceId in store.approved) && !(deviceId in store.pending)) return;
+    delete store.approved[deviceId];
+    delete store.pending[deviceId];
+    await write(store);
+  });
 }
 
 /** Record (or bump) a device that presented the right password but isn't approved. */
-export async function recordPending(deviceId: string, label: string, ip: string): Promise<void> {
-  const store = await read();
-  const now = Date.now();
-  const existing = store.pending[deviceId];
-  if (existing) {
-    existing.lastSeen = now;
-    existing.attempts += 1;
-    existing.label = label || existing.label;
-    existing.ip = ip;
-  } else {
-    store.pending[deviceId] = { label, firstSeen: now, lastSeen: now, ip, attempts: 1 };
-  }
-  const ids = Object.keys(store.pending);
-  if (ids.length > MAX_PENDING) {
-    ids
-      .sort((a, b) => store.pending[a].lastSeen - store.pending[b].lastSeen)
-      .slice(0, ids.length - MAX_PENDING)
-      .forEach((id) => delete store.pending[id]);
-  }
-  await write(store);
+export function recordPending(deviceId: string, label: string, ip: string): Promise<void> {
+  return mutate(async () => {
+    const store = await read();
+    const now = Date.now();
+    const existing = store.pending[deviceId];
+    if (existing) {
+      existing.lastSeen = now;
+      existing.attempts += 1;
+      existing.label = label || existing.label;
+      existing.ip = ip;
+    } else {
+      store.pending[deviceId] = { label, firstSeen: now, lastSeen: now, ip, attempts: 1 };
+    }
+    const ids = Object.keys(store.pending);
+    if (ids.length > MAX_PENDING) {
+      ids
+        .sort((a, b) => store.pending[a].lastSeen - store.pending[b].lastSeen)
+        .slice(0, ids.length - MAX_PENDING)
+        .forEach((id) => delete store.pending[id]);
+    }
+    await write(store);
+  });
 }

@@ -2,7 +2,7 @@ import { dispatch, isNotification, rpcError, UNAUTHORIZED, RATE_LIMITED } from "
 import { validateToken, touchToken } from "@/lib/mcp/store";
 import { mcpEnabled } from "@/lib/mcp/scope";
 import { publicOrigin, clientIp } from "@/lib/mcp/origin";
-import { rateLimited } from "@/lib/host";
+import { rateLimited, rateLimitedUntrusted } from "@/lib/host";
 import { TOOLS } from "@/lib/mcp/tools";
 import { toolsetInfo } from "@/lib/mcp/toolset";
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
 
   // Pre-auth flood guard: an invalid token still costs a sha256 + a file read.
-  if (rateLimited(`mcp:ip:${clientIp(req)}`, PREAUTH_PER_MIN, 60_000)) {
+  if (rateLimitedUntrusted(`mcp:ip:${clientIp(req)}`, PREAUTH_PER_MIN, 60_000)) {
     return Response.json(rpcError(null, RATE_LIMITED, "rate limited"), { status: 429, headers: { "Retry-After": "60" } });
   }
 

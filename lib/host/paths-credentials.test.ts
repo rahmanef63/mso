@@ -6,7 +6,9 @@ import {
   appSecretCopyFilter,
   assertNoAppSecretDescendants,
   assertNoSensitiveDescendants,
+  isCredentialPath,
   isSensitivePath,
+  looseCredentialExcludes,
   sensitiveExcludes,
 } from "./paths";
 
@@ -58,6 +60,15 @@ describe("recursive credential guard", () => {
     expect(isSensitivePath(path.join(fakeHome, ".gitconfig"))).toBe(false);
   });
 
+  it("blocks loose private-key basenames anywhere under a legal root", () => {
+    vi.stubEnv("HOME", fakeHome);
+    for (const name of ["id_rsa", "id_ed25519", "id_ecdsa", "id_dsa", "deploy.pem", "DEPLOY.PEM"]) {
+      expect(isCredentialPath(path.join(fakeHome, "safe", "nested", name)), name).toBe(true);
+    }
+    expect(isCredentialPath(path.join(fakeHome, "safe", "nested", "id_rsa.pub"))).toBe(false);
+    expect(looseCredentialExcludes()).toEqual(expect.arrayContaining(["*.pem", "id_rsa", "*/id_rsa"]));
+  });
+
   it("excludes a credential dir nested under the zip base", () => {
     vi.stubEnv("HOME", fakeHome);
     expect(isSensitivePath(parent)).toBe(false); // the exact gap this guard closes
@@ -76,6 +87,9 @@ describe("recursive credential guard", () => {
     vi.stubEnv("HOME", fakeHome);
     vi.stubEnv("OS_FS_ALLOW_SENSITIVE", "1");
     expect(sensitiveExcludes(fakeHome)).toEqual([]);
+    expect(looseCredentialExcludes()).toEqual(["*.pem"]);
+    expect(isCredentialPath(path.join(fakeHome, "safe", "id_rsa"))).toBe(false);
+    expect(isCredentialPath(path.join(fakeHome, "safe", "deploy.pem"))).toBe(true);
     expect(() => assertNoSensitiveDescendants(parent)).not.toThrow();
   });
 });

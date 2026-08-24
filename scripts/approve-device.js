@@ -12,6 +12,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { randomUUID } = require("crypto");
 
 const STORE =
   process.env.OS_DEVICE_STORE || path.join(os.homedir(), ".mso", "auth-devices.json");
@@ -21,15 +22,72 @@ function read() {
   try {
     const p = JSON.parse(fs.readFileSync(STORE, "utf8"));
     return { approved: p.approved || {}, pending: p.pending || {} };
-  } catch {
-    return { approved: {}, pending: {} };
+  } catch (error) {
+    if (error && error.code === "ENOENT") return { approved: {}, pending: {} };
+    throw error;
   }
 }
 function write(store) {
-  fs.mkdirSync(path.dirname(STORE), { recursive: true });
-  const tmp = `${STORE}.tmp`;
+  fs.mkdirSync(path.dirname(STORE), { recursive: true, mode: 0o700 });
+  const tmp = `${STORE}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(store, null, 2), { mode: 0o600 });
   fs.renameSync(tmp, STORE);
+}
+
+// The web process edits the same allowlist. Lock the full read-modify-write so a
+// local revoke cannot be overwritten by a concurrent login `lastSeen` touch. The
+// lock owner is recorded so a crashed helper/server is recoverable without turning
+// a stale file into a permanent authentication outage.
+const LOCK = `${STORE}.lock`;
+const LOCK_WAIT_MS = 25;
+const LOCK_TIMEOUT_MS = 3000;
+const LOCK_STALE_MS = 30000;
+const sleeper = new Int32Array(new SharedArrayBuffer(4));
+function sleep(ms) { Atomics.wait(sleeper, 0, 0, ms); }
+function pidIsGone(pid) {
+  try { process.kill(pid, 0); return false; }
+  catch (error) { return error && error.code === "ESRCH"; }
+}
+function abandonedLock() {
+  try {
+    const st = fs.statSync(LOCK);
+    let owner = "";
+    try { owner = fs.readFileSync(LOCK, "utf8"); } catch {}
+    const pid = Number(owner.split(":", 1)[0]);
+    if (Number.isInteger(pid) && pid > 1) return pidIsGone(pid);
+    return Date.now() - st.mtimeMs > LOCK_STALE_MS;
+  } catch (error) {
+    if (error && error.code === "ENOENT") return true;
+    throw error;
+  }
+}
+function acquireLock() {
+  fs.mkdirSync(path.dirname(STORE), { recursive: true, mode: 0o700 });
+  const token = `${process.pid}:${randomUUID()}`;
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  while (true) {
+    try {
+      const fd = fs.openSync(LOCK, "wx", 0o600);
+      try { fs.writeFileSync(fd, token, "utf8"); }
+      catch (error) { try { fs.closeSync(fd); } catch {} try { fs.unlinkSync(LOCK); } catch {} throw error; }
+      return { fd, token };
+    } catch (error) {
+      if (!error || error.code !== "EEXIST") throw error;
+      if (abandonedLock()) { try { fs.unlinkSync(LOCK); } catch {} continue; }
+      if (Date.now() >= deadline) throw new Error("security store is busy; retry the operation");
+      sleep(LOCK_WAIT_MS);
+    }
+  }
+}
+function withMutation(fn) {
+  const held = acquireLock();
+  try { return fn(); }
+  finally {
+    try { fs.closeSync(held.fd); } catch {}
+    let owner = "";
+    try { owner = fs.readFileSync(LOCK, "utf8"); } catch {}
+    if (owner === held.token) { try { fs.unlinkSync(LOCK); } catch {} }
+  }
 }
 const ts = (t) => (t ? new Date(t).toISOString() : "—");
 
@@ -89,10 +147,15 @@ if (args[0] === "--revoke-all") {
     console.error("  mso device approve <deviceId> \"label\"");
     process.exit(1);
   }
-  s.approved = {};
-  write(s);
-  console.log(`revoked ${ids.length} device(s):`);
-  for (const id of ids) console.log(`  ${id}`);
+  const revokedIds = withMutation(() => {
+    const current = read();
+    const currentIds = Object.keys(current.approved);
+    current.approved = {};
+    write(current);
+    return currentIds;
+  });
+  console.log(`revoked ${revokedIds.length} device(s):`);
+  for (const id of revokedIds) console.log(`  ${id}`);
   console.log("\nno device can sign in until you approve one again.");
   process.exit(0);
 }
@@ -100,16 +163,20 @@ if (args[0] === "--revoke-all") {
 if (args[0] === "--revoke") {
   const id = args[1];
   if (!id) { console.error("usage: --revoke <deviceId>"); process.exit(1); }
-  const s = read();
-  if (!s.approved[id]) {
+  const result = withMutation(() => {
+    const s = read();
+    if (!s.approved[id]) return null;
+    const label = s.approved[id].label;
+    delete s.approved[id];
+    write(s);
+    return { label, left: Object.keys(s.approved).length };
+  });
+  if (!result) {
     console.error(`not approved: ${id}`);
     if (id === "all") console.error("to revoke every device: mso device revoke all --yes");
     process.exit(1);
   }
-  const label = s.approved[id].label;
-  delete s.approved[id];
-  write(s);
-  const left = Object.keys(s.approved).length;
+  const { label, left } = result;
   // Say what is left, so the obvious follow-up (`device list`) isn't needed — and
   // so revoking your last device is impossible to do without noticing.
   console.log(`revoked ${id}  "${label}"`);
@@ -124,13 +191,16 @@ if (!id || !DEVICE_ID_RE.test(id)) {
   console.error("deviceId must be 16-128 hex/uuid chars");
   process.exit(1);
 }
-const store = read();
-const pending = store.pending[id];
-store.approved[id] = {
-  label: label !== "seeded device" ? label : (pending && pending.label) || label,
-  approvedAt: Date.now(),
-};
-delete store.pending[id];
-write(store);
-console.log(`approved ${id}  "${store.approved[id].label}"`);
+const approvedLabel = withMutation(() => {
+  const store = read();
+  const pending = store.pending[id];
+  store.approved[id] = {
+    label: label !== "seeded device" ? label : (pending && pending.label) || label,
+    approvedAt: Date.now(),
+  };
+  delete store.pending[id];
+  write(store);
+  return store.approved[id].label;
+});
+console.log(`approved ${id}  "${approvedLabel}"`);
 console.log("-> that device can now sign in with the password.");

@@ -25,6 +25,6 @@ export { audit, readAuditTail } from "./audit";
 export { createTempShare, inspectTempShare, consumeTempShare, revokeTempShare, tempShareUrl } from "./temp-share";
 export type { TempShareInfo, ConsumedTempShare } from "./temp-share";
 export type { AuditAction, AuditEntry, AuditRecord } from "./audit";
-export { rateLimited } from "./rate-limit";
+export { rateLimited, rateLimitedUntrusted } from "./rate-limit";
 export { HostError } from "./host-error";
 export { apiError, readJson, requireString, optionalString, requireInt, invalidRequest } from "./api-error";

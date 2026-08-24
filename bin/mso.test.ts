@@ -155,6 +155,23 @@ describe("bin/mso", () => {
     expect(JSON.parse(fs.readFileSync(store, "utf8")).approved).toEqual({});
   });
 
+  it("fails closed instead of replacing a corrupt device allowlist", () => {
+    const fs = require("node:fs") as typeof import("node:fs");
+    const os = require("node:os") as typeof import("node:os");
+    const store = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "mso-dev-")), "devices.json");
+    const corrupt = "{ this is not valid json";
+    fs.writeFileSync(store, corrupt);
+    const id = "e".repeat(32);
+
+    expect(() =>
+      execFileSync(CLI, ["device", "approve", id, "test"], {
+        encoding: "utf8",
+        env: { ...process.env, MSO_ENV: "/dev/null", OS_DEVICE_STORE: store },
+      }),
+    ).toThrow();
+    expect(fs.readFileSync(store, "utf8")).toBe(corrupt);
+  });
+
   it("prints a paste-ready command under every device, quoted safely", () => {
     const fs = require("node:fs") as typeof import("node:fs");
     const os = require("node:os") as typeof import("node:os");

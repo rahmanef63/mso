@@ -79,6 +79,20 @@ describe("zipStream against the real zip binary", () => {
     expect(names).toContain("proj/src.txt");
   });
 
+  it("force-strips nested loose private keys from recursive archives", async () => {
+    const dir = path.join(base, "secrets-fixture");
+    mkdirSync(path.join(dir, "nested"), { recursive: true });
+    writeFileSync(path.join(dir, "nested", "id_rsa"), "dummy-private-key\n");
+    writeFileSync(path.join(dir, "nested", "deploy.pem"), "dummy-pem\n");
+    writeFileSync(path.join(dir, "nested", "id_rsa.pub"), "public-key\n");
+    writeFileSync(path.join(dir, "nested", "readme.txt"), "keep\n");
+    const names = entries(await read(await zipStream(base, ["secrets-fixture"])));
+    expect(names).not.toContain("secrets-fixture/nested/id_rsa");
+    expect(names).not.toContain("secrets-fixture/nested/deploy.pem");
+    expect(names).toContain("secrets-fixture/nested/id_rsa.pub");
+    expect(names).toContain("secrets-fixture/nested/readme.txt");
+  });
+
   it("returns the archive when one file is unreadable (zip exit 18)", async () => {
     const dir = path.join(base, "partial");
     mkdirSync(dir, { recursive: true });

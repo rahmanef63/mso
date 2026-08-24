@@ -66,6 +66,16 @@ describe("device-store — an unreadable file must never look like an empty one"
     await expect(isApproved(OTHER)).resolves.toBe(false);
   });
 
+  it("keeps a device revoked when login touches race the kill switch", async () => {
+    const { approveDevice, revokeDevice, touchApproved, isApproved } = await load();
+    await approveDevice(DEV, "my laptop");
+    await Promise.all([
+      ...Array.from({ length: 16 }, () => touchApproved(DEV)),
+      revokeDevice(DEV),
+    ]);
+    await expect(isApproved(DEV)).resolves.toBe(false);
+  });
+
   it("writes the store 0600 inside a 0700 dir", async () => {
     const { approveDevice } = await load();
     await approveDevice(DEV, "my laptop");

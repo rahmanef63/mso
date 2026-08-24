@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { sha256hex } from "./pkce";
 import type { Scope } from "./scope";
+import { withSecurityStoreLock } from "@/lib/security-store-lock";
 
 // OAuth clients, authorization codes and bearer tokens for the MCP server.
 // mso has no database, so this is the same shape lib/auth/device-store.ts uses:
@@ -68,9 +69,24 @@ async function read(): Promise<Store> {
 
 async function write(store: Store): Promise<void> {
   await fs.mkdir(path.dirname(STORE_PATH), { recursive: true, mode: 0o700 });
-  const tmp = `${STORE_PATH}.tmp`;
+  // Per-process temp name prevents an operator-side helper / another server process
+  // from clobbering the exact temp path while this process is committing a write.
+  const tmp = `${STORE_PATH}.${process.pid}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(store, null, 2), { encoding: "utf8", mode: 0o600 });
   await fs.rename(tmp, STORE_PATH);
+}
+
+// Every credential mutation is a read-modify-write. Atomic rename only makes ONE
+// write indivisible; without serialising the whole transaction, concurrent requests
+// can both read the same old state and then overwrite each other's decisions. That
+// is security-significant here: a token touch must never resurrect a token that a
+// concurrent revoke just killed, and an OAuth code must be consumable exactly once.
+let mutationChain: Promise<unknown> = Promise.resolve();
+function mutate<T>(fn: () => Promise<T>): Promise<T> {
+  const locked = () => withSecurityStoreLock(STORE_PATH, fn);
+  const run = mutationChain.then(locked, locked);
+  mutationChain = run.then(() => undefined, () => undefined);
+  return run;
 }
 
 /** Drop expired codes on every write path — they are single-use and short-lived,
@@ -81,34 +97,38 @@ function sweep(store: Store): Store {
   return store;
 }
 
-export async function registerClient(name: string, redirectUris: string[]): Promise<string> {
-  const store = sweep(await read());
-  // Re-registering the same redirect set returns the existing id instead of
+export function registerClient(name: string, redirectUris: string[]): Promise<string> {
+  return mutate(async () => {
+    const store = sweep(await read());
+    // Re-registering the same redirect set returns the existing id instead of
   // minting a new one — mcp-remote and Cursor re-register on every launch.
-  const key = [...redirectUris].sort().join(" ");
-  for (const [id, c] of Object.entries(store.clients)) {
-    if ([...c.redirectUris].sort().join(" ") === key) return id;
-  }
-  const ids = Object.keys(store.clients);
-  if (ids.length >= MAX_CLIENTS) {
-    ids.sort((a, b) => store.clients[a].createdAt - store.clients[b].createdAt)
-      .slice(0, ids.length - MAX_CLIENTS + 1)
-      .forEach((id) => delete store.clients[id]);
-  }
-  const clientId = "mcpc_" + sha256hex(key + Date.now()).slice(0, 24);
-  store.clients[clientId] = { name: name.slice(0, 80) || "MCP Client", redirectUris, createdAt: Date.now() };
-  await write(store);
-  return clientId;
+    const key = [...redirectUris].sort().join(" ");
+    for (const [id, c] of Object.entries(store.clients)) {
+      if ([...c.redirectUris].sort().join(" ") === key) return id;
+    }
+    const ids = Object.keys(store.clients);
+    if (ids.length >= MAX_CLIENTS) {
+      ids.sort((a, b) => store.clients[a].createdAt - store.clients[b].createdAt)
+        .slice(0, ids.length - MAX_CLIENTS + 1)
+        .forEach((id) => delete store.clients[id]);
+    }
+    const clientId = "mcpc_" + sha256hex(key + Date.now()).slice(0, 24);
+    store.clients[clientId] = { name: name.slice(0, 80) || "MCP Client", redirectUris, createdAt: Date.now() };
+    await write(store);
+    return clientId;
+  });
 }
 
 export async function getClient(clientId: string): Promise<McpClient | null> {
   return (await read()).clients[clientId] ?? null;
 }
 
-export async function storeCode(code: string, rec: McpCode): Promise<void> {
-  const store = sweep(await read());
-  store.codes[sha256hex(code)] = rec;
-  await write(store);
+export function storeCode(code: string, rec: McpCode): Promise<void> {
+  return mutate(async () => {
+    const store = sweep(await read());
+    store.codes[sha256hex(code)] = rec;
+    await write(store);
+  });
 }
 
 /**
@@ -116,21 +136,25 @@ export async function storeCode(code: string, rec: McpCode): Promise<void> {
  * replayed code finds nothing and gets `invalid_grant` — and the table does not
  * grow a dead "consumed" row per successful login.
  */
-export async function consumeCode(code: string): Promise<McpCode | null> {
-  const store = sweep(await read());
-  const hash = sha256hex(code);
-  const rec = store.codes[hash];
-  if (!rec || rec.expiresAt < Date.now()) return null;
-  delete store.codes[hash];
-  await write(store);
-  return rec;
+export function consumeCode(code: string): Promise<McpCode | null> {
+  return mutate(async () => {
+    const store = sweep(await read());
+    const hash = sha256hex(code);
+    const rec = store.codes[hash];
+    if (!rec || rec.expiresAt < Date.now()) return null;
+    delete store.codes[hash];
+    await write(store);
+    return rec;
+  });
 }
 
-export async function storeToken(token: string, rec: Omit<McpToken, "createdAt" | "expiresAt">): Promise<void> {
-  const store = sweep(await read());
-  const now = Date.now();
-  store.tokens[sha256hex(token)] = { ...rec, createdAt: now, expiresAt: now + TOKEN_TTL_MS };
-  await write(store);
+export function storeToken(token: string, rec: Omit<McpToken, "createdAt" | "expiresAt">): Promise<void> {
+  return mutate(async () => {
+    const store = sweep(await read());
+    const now = Date.now();
+    store.tokens[sha256hex(token)] = { ...rec, createdAt: now, expiresAt: now + TOKEN_TTL_MS };
+    await write(store);
+  });
 }
 
 /** Returns the live token record, or null for unknown / revoked / expired. Both
@@ -145,12 +169,14 @@ export async function validateToken(token: string): Promise<(McpToken & { hash: 
   return { ...rec, hash };
 }
 
-export async function touchToken(hash: string): Promise<void> {
-  const store = await read();
-  const rec = store.tokens[hash];
-  if (!rec) return;
-  rec.lastUsedAt = Date.now();
-  await write(store);
+export function touchToken(hash: string): Promise<void> {
+  return mutate(async () => {
+    const store = await read();
+    const rec = store.tokens[hash];
+    if (!rec) return;
+    rec.lastUsedAt = Date.now();
+    await write(store);
+  });
 }
 
 export interface TokenView extends McpToken {
@@ -174,20 +200,24 @@ export async function listTokens(): Promise<TokenView[]> {
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function revokeToken(id: string): Promise<boolean> {
-  const store = await read();
-  const hit = Object.keys(store.tokens).find((h) => h.startsWith(id));
-  if (!hit || store.tokens[hit].revokedAt) return false;
-  store.tokens[hit].revokedAt = Date.now();
-  await write(store);
-  return true;
+export function revokeToken(id: string): Promise<boolean> {
+  return mutate(async () => {
+    const store = await read();
+    const hit = Object.keys(store.tokens).find((h) => h.startsWith(id));
+    if (!hit || store.tokens[hit].revokedAt) return false;
+    store.tokens[hit].revokedAt = Date.now();
+    await write(store);
+    return true;
+  });
 }
 
 /** Panic button — kills every live bearer at once. */
-export async function revokeAllTokens(): Promise<number> {
-  const store = await read();
-  let n = 0;
-  for (const t of Object.values(store.tokens)) if (!t.revokedAt) { t.revokedAt = Date.now(); n++; }
-  if (n) await write(store);
-  return n;
+export function revokeAllTokens(): Promise<number> {
+  return mutate(async () => {
+    const store = await read();
+    let n = 0;
+    for (const t of Object.values(store.tokens)) if (!t.revokedAt) { t.revokedAt = Date.now(); n++; }
+    if (n) await write(store);
+    return n;
+  });
 }

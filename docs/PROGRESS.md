@@ -9,6 +9,30 @@ Running log of what shipped each phase. Newest at top.
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
 > entries intact as historical evidence even when their commands/counts have been superseded.
 
+## 2026-08-24 — Fable/Ultracode security audit + security-state hardening (DONE)
+
+A point-in-time security audit combined Claude Fable 5 in Ultracode mode with an independent
+dynamic/manual lane. Fable actually fan-out to 8 workstreams / 27 sub-agents (7 domain finders
+plus 20 adversarial verifiers), while the second lane ran the security-relevant tests, route/auth
+inventory, dependency audit, trust-boundary review, unauthenticated live probes and targeted race
+reproducers. Full evidence and rejected candidates are in `AUDIT-2026-08-24.md`.
+
+Three vulnerability classes survived verification. A nested deploy key named `id_rsa` was not
+covered by the fixed `$HOME` credential denylist, and recursive ZIP could carry nested `id_*` /
+`*.pem`; both are now basename-aware / force-excluded. More importantly, MCP OAuth/token and
+device-approval JSON stores used atomic rename without serializing the enclosing read-modify-write
+transaction. Stress proved single-use OAuth codes could be consumed twice, concurrent mints could
+lose state, and successful token/device revocations could be overwritten by a simultaneous usage
+touch. Security-store mutations now serialize in process and use one fail-closed cross-process
+lock protocol shared with the operator device CLI; corrupt CLI store reads also fail closed. The
+shared limiter no longer lets attacker-controlled pre-auth IP churn share eviction state with
+authenticated token/owner-action buckets; public and privileged pools are separately bounded.
+
+Permanent regressions pin concurrency, kill-switch integrity, nested private-key classification,
+ZIP filtering, corrupt-store handling and limiter churn. Pre/post stress evidence is kept in the
+audit rather than this running log. Release verification and live post-ship probes are required
+before this entry is considered shipped.
+
 ## 2026-08-24 — one-line install now ends in terminal onboarding + reviewed skill market (DONE)
 
 The one-line installer previously did the build/service work but stopped at a block of

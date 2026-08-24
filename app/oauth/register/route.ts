@@ -2,7 +2,7 @@ import { registerClient } from "@/lib/mcp/store";
 import { isAllowedRedirect } from "@/lib/mcp/pkce";
 import { mcpEnabled } from "@/lib/mcp/scope";
 import { clientIp } from "@/lib/mcp/origin";
-import { rateLimited } from "@/lib/host";
+import { rateLimitedUntrusted } from "@/lib/host";
 
 // RFC 7591 Dynamic Client Registration. Open by design and safe to be: a
 // registered client is INERT until the owner approves it on the consent page and
@@ -15,7 +15,7 @@ const bad = (error: string, description: string, status = 400) =>
 
 export async function POST(req: Request) {
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
-  if (rateLimited(`mcp:dcr:${clientIp(req)}`, 10, 3_600_000)) {
+  if (rateLimitedUntrusted(`mcp:dcr:${clientIp(req)}`, 10, 3_600_000)) {
     return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": "3600" } });
   }
 

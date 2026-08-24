@@ -21,7 +21,7 @@ import os from "os";
 import path from "path";
 import type { Readable } from "stream";
 import { HostError } from "./host-error";
-import { appDir, resolveReadable, sensitiveExcludes } from "./paths";
+import { appDir, looseCredentialExcludes, resolveReadable, sensitiveExcludes } from "./paths";
 
 // A selectable item is a single basename in the listed dir — never a path. Reject
 // separators/traversal/NUL so a name can't escape `base` (defense-in-depth; the
@@ -70,6 +70,7 @@ export async function zipStream(
   }
   patterns.push(...appSecretExcludes(real)); // forced credential guard, see above
   patterns.push(...sensitiveExcludes(real)); // same, for ~/ credential dirs nested under `base`
+  patterns.push(...looseCredentialExcludes()); // basename-anywhere private keys / *.pem
   if (patterns.length) args.push("-x", ...patterns);
 
   // All stdio ignored — zip writes to the temp FILE, not a pipe, so there's no

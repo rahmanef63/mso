@@ -36,6 +36,12 @@ describe("codes", () => {
     expect(await store.consumeCode("old")).toBeNull();
   });
 
+  it("serializes concurrent code exchanges so exactly one caller can consume a code", async () => {
+    await store.storeCode("race-code", rec());
+    const results = await Promise.all(Array.from({ length: 16 }, () => store.consumeCode("race-code")));
+    expect(results.filter(Boolean)).toHaveLength(1);
+  });
+
   it("never writes the raw code to disk", async () => {
     await store.storeCode("super-secret-code", rec());
     const raw = await fs.readFile(process.env.OS_MCP_STORE!, "utf8");
@@ -82,6 +88,28 @@ describe("tokens", () => {
     await mint("rw", "exec");
     expect((await store.validateToken("ro"))!.scope).toBe("read");
     expect((await store.validateToken("rw"))!.scope).toBe("exec");
+  });
+
+  it("does not lose concurrent token mints", async () => {
+    const tokens = Array.from({ length: 16 }, (_, i) => `parallel-${i}`);
+    await Promise.all(tokens.map((token) => mint(token)));
+    const listed = await store.listTokens();
+    expect(listed).toHaveLength(tokens.length);
+    for (const token of tokens) expect(await store.validateToken(token)).not.toBeNull();
+  });
+
+  it("keeps a token revoked when last-used touches race the kill switch", async () => {
+    await mint("tok-race", "exec");
+    const live = await store.validateToken("tok-race");
+    expect(live).not.toBeNull();
+    const id = (await store.listTokens())[0].id;
+    const operations = [
+      ...Array.from({ length: 16 }, () => store.touchToken(live!.hash)),
+      store.revokeToken(id),
+    ];
+    const results = await Promise.all(operations);
+    expect(results.at(-1)).toBe(true);
+    expect(await store.validateToken("tok-race")).toBeNull();
   });
 });
 

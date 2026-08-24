@@ -2,7 +2,7 @@ import { consumeCode, storeToken, TOKEN_TTL_MS } from "@/lib/mcp/store";
 import { verifyPkce, randomToken } from "@/lib/mcp/pkce";
 import { mcpEnabled } from "@/lib/mcp/scope";
 import { clientIp } from "@/lib/mcp/origin";
-import { rateLimited } from "@/lib/host";
+import { rateLimitedUntrusted } from "@/lib/host";
 
 // OAuth token endpoint. authorization_code only, PKCE mandatory.
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ const json = (body: unknown, status: number) =>
 
 export async function POST(req: Request) {
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
-  if (rateLimited(`mcp:token:${clientIp(req)}`, 30, 60_000)) {
+  if (rateLimitedUntrusted(`mcp:token:${clientIp(req)}`, 30, 60_000)) {
     return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": "60" } });
   }
 
