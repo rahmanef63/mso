@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# The "CLI" for 9Router, which ships no CLI of its own — only a Docker image
-# (decolua/9router). lib/managed-apps drives every app through one adapter
+# MSO's lifecycle adapter for the Docker/server distribution of 9Router. Upstream
+# ALSO ships an npm `9router` CLI; MSO intentionally does not use that launcher to
+# own the server because invoking it starts another runtime. lib/managed-apps drives
+# every managed app through one adapter
 # contract (--version / check / update / uninstall), so this script speaks it.
 # The catalog points `command` here with commandProvesInstall: false, because
 # this file exists on every checkout whether or not 9Router is installed.

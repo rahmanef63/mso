@@ -11,12 +11,13 @@ export function dashboardFeature(id: ManagedAppId, title: string): ManagedAppFea
   return { id: `${id}:overview`, applicationId: id, title, route: "/", source: "nav-bundle", available: true };
 }
 
-/** The CLI the window falls back to when no dashboard origin is configured, and what the
- *  UI/CLI toggle shows. `status` only: it exists on both (verified on this host against
- *  `hermes --help` / `openclaw --help`) and only reads. Nothing here may be a verb that
- *  starts WRITING unasked — `openclaw config`, `openclaw doctor` and `hermes model` all
- *  do, which is why this is a fixed command and not a lookup the caller can widen. */
+/** Safe read-only command shown when switching a managed-app window to CLI.
+ *  Hermes/OpenClaw expose `status`. 9Router does NOT: its upstream CLI starts the
+ *  server when invoked, while MSO manages the Docker runtime, so auto-running it
+ *  would race the container for port 20128. Docker logs are the useful read-only
+ *  server CLI surface and leave the terminal interactive afterwards. */
 export function cliCommand(feature: ManagedAppFeature): string {
+  if (feature.applicationId === "9router") return "docker logs --tail 80 9router";
   return `${feature.applicationId} status`;
 }
 

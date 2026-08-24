@@ -33,6 +33,7 @@ const view = (id: string, state: string) => ({
   healthy: state === "running",
   version: null,
   dashboardAvailable: state === "running",
+  publicDashboardUrl: null,
   diagnostic: null,
   supportedActions: ["start", "stop", "restart", "backup"],
 });

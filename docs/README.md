@@ -26,9 +26,10 @@ machine-verifiable facts. The repository quality gate runs it automatically.
 | [`MCP.md`](./MCP.md) | MCP/OAuth internals and full external-tool security model |
 | [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup, diagrams, scopes and file bridge |
 | [`CONNECTORS-GATEWAY-INTEGRATION.md`](./CONNECTORS-GATEWAY-INTEGRATION.md) | MSO ↔ connectors-gateway action-name contract |
-| [`MANAGED-APPS.md`](./MANAGED-APPS.md) | Hermes/OpenClaw lifecycle, jobs, update, backup/restore, dashboard boundary |
+| [`MANAGED-APPS.md`](./MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, backup/restore and dashboard access boundary |
 | [`HERMES-INTEGRATION.md`](./HERMES-INTEGRATION.md) | Hermes-specific integration behaviour |
 | [`OPENCLAW-INTEGRATION.md`](./OPENCLAW-INTEGRATION.md) | OpenClaw-specific integration behaviour |
+| [`9ROUTER-INTEGRATION.md`](./9ROUTER-INTEGRATION.md) | 9Router Docker/CLI ownership, public-IP-first UI and optional domain embedding |
 | [`MODELS-INTEGRATION.md`](./MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex provider model |
 | [`SLICE-CATALOG.md`](./SLICE-CATALOG.md) | Current slice/AppShell feature inventory |
 | [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) | Symptom → cause → supported recovery |

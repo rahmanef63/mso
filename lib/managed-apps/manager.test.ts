@@ -44,6 +44,37 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("public-IP-first dashboard access", () => {
+  it("advertises 9Router on a globally routable host interface without requiring DNS", async () => {
+    vi.spyOn(os, "networkInterfaces").mockReturnValue({
+      eth0: [
+        { address: "10.0.0.5", netmask: "255.0.0.0", family: "IPv4", mac: "00:00:00:00:00:00", internal: false, cidr: "10.0.0.5/8" },
+        { address: "76.13.23.37", netmask: "255.255.255.0", family: "IPv4", mac: "00:00:00:00:00:01", internal: false, cidr: "76.13.23.37/24" },
+      ],
+    });
+    systemctl({});
+    vi.mocked(commandExists).mockImplementation(async (command: string) => command === "docker");
+    vi.mocked(runProgram).mockImplementation(async (command: string, args: readonly string[]) => {
+      if (command === "systemctl") return NOT_FOUND;
+      if (command === "docker" && args[0] === "ps") return ok("9router\n");
+      if (command === "docker" && args[0] === "inspect") return ok("true\n");
+      return ok("");
+    });
+    vi.mocked(resolveCommand).mockResolvedValue(null);
+
+    const view = await getManagedApp("9router");
+    expect(view.publicDashboardUrl).toBe("http://76.13.23.37:20128");
+  });
+
+  it("does not invent a public URL for loopback-only managed apps", async () => {
+    vi.spyOn(os, "networkInterfaces").mockReturnValue({
+      eth0: [{ address: "76.13.23.37", netmask: "255.255.255.0", family: "IPv4", mac: "00:00:00:00:00:01", internal: false, cidr: "76.13.23.37/24" }],
+    });
+    systemctl({ "hermes-dashboard.service": ACTIVE });
+    expect((await getManagedApp("hermes")).publicDashboardUrl).toBeNull();
+  });
+});
+
 describe("systemd detection tells a stopped unit from one that does not exist", () => {
   it("skips a not-found unit and detects the next configured name", async () => {
     // OpenClaw's real shape: the first catalog name never existed on this host.

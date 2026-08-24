@@ -1,4 +1,5 @@
 import "server-only";
+import os from "node:os";
 import { createBackup } from "./backups";
 import { getManagedAppDefinition, listManagedAppDefinitions } from "./catalog";
 import { acquireOperation, activeOperation, releaseOperation } from "./lock";
@@ -71,6 +72,36 @@ async function health(definition: ManagedAppDefinition): Promise<boolean | null>
   }
 }
 
+/** Globally-routable IPv4 only. Private/CGNAT/link-local addresses are useful for
+ *  MSO's internal proxy but are not the "works without a domain" address a user
+ *  can open from their own browser. No external IP-discovery service is called. */
+function isPublicIpv4(address: string): boolean {
+  const parts = address.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  const [a, b] = parts;
+  if (a === 0 || a === 10 || a === 127 || a >= 224) return false;
+  if (a === 100 && b >= 64 && b <= 127) return false; // RFC 6598 CGNAT
+  if (a === 169 && b === 254) return false;
+  if (a === 172 && b >= 16 && b <= 31) return false;
+  if (a === 192 && b === 168) return false;
+  return true;
+}
+
+export function hostPublicIpv4(): string | null {
+  for (const addresses of Object.values(os.networkInterfaces())) {
+    for (const address of addresses ?? []) {
+      if (address.family === "IPv4" && !address.internal && isPublicIpv4(address.address)) return address.address;
+    }
+  }
+  return null;
+}
+
+function directDashboardUrl(definition: ManagedAppDefinition): string | null {
+  if (!definition.publicPort) return null;
+  const address = hostPublicIpv4();
+  return address ? `http://${address}:${definition.publicPort}` : null;
+}
+
 // `--version` forks the app's own binary, which is not free (hermes: ~0.44 s of CPU
 // per call on this host) — and the Managed Apps panel re-polls every 10 s, for a
 // string that only changes on upgrade. Cached per app id; performManagedAppAction
@@ -124,6 +155,7 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
     healthy: isHealthy,
     version: await version(definition),
     dashboardAvailable: isRunning && isHealthy !== false,
+    publicDashboardUrl: directDashboardUrl(definition),
     supportedActions: actionsFor(installation),
     // Only ever attached to a NEGATIVE reading. An app detected as present has
     // been seen, and nothing about the bus can make that observation wrong.

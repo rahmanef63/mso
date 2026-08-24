@@ -55,7 +55,7 @@ frontend/slices/             vertical application slices
 lib/auth/                    login/session/device approval
 lib/host/                    bounded host capability implementation
 lib/mcp/                     OAuth/MCP tool catalog and dispatcher
-lib/managed-apps/            Hermes/OpenClaw lifecycle/update/backup/proxy
+lib/managed-apps/            Hermes/OpenClaw/9Router lifecycle/update/backup/proxy
 lib/skills/                  trusted skill discovery and semantic search
 scripts/                     install, release, checks and service helpers
 claude-skills/               official trusted operational playbooks
@@ -112,7 +112,7 @@ through the app catch-all.
 - `term/*` — interactive PTY lifecycle and streaming
 - `sys/*` — stats, processes, cleanup, audit and self-update
 - `camoufox/*` — browser service/session control
-- `managed-apps/*` — Hermes/OpenClaw lifecycle, jobs, backups and proxying
+- `managed-apps/*` — Hermes/OpenClaw/9Router lifecycle, jobs, backups and optional proxying
 
 `OS_FS_READ_ROOTS` and `OS_FS_WRITE_ROOTS` constrain filesystem access. The implementation
 uses canonical path/containment checks and additionally blocks credential material such as
@@ -161,22 +161,26 @@ fed directly to the model. See `skills/README.md`.
 
 ## 8. Managed applications
 
-Hermes and OpenClaw are managed, not embedded into MSO's process model. MSO can detect,
-install, start/stop/restart, read logs, update, back up, restore and conservatively uninstall
-them. Long-running install/update/uninstall/restore work is represented as jobs with bounded
-logs and status.
+Hermes, OpenClaw and 9Router are managed, not embedded into MSO's process model. MSO can
+detect, install, start/stop/restart, read logs, update, back up, restore and conservatively
+uninstall them. Long-running install/update/uninstall/restore work is represented as jobs
+with bounded logs and status.
 
-Their vendor dashboards are optional. The safe default is no embedded dashboard. A
-split-origin deployment opts in by setting both `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and
-`OS_SESSION_COOKIE_DOMAIN`, giving each dashboard its own hostname while the same MSO
-process proxies its loopback upstream. There is no supported same-origin dashboard mode.
+A domain is not a lifecycle dependency. 9Router's Docker/server form deliberately publishes
+port 20128; when the host has a global IPv4 MSO advertises `http://<public-ip>:20128` as a
+direct separate-origin UI. Hermes/OpenClaw stay loopback-only by default.
 
-There is also no runtime navigation/feature scraping of Hermes/OpenClaw bundles. The old
+Embedded vendor dashboards are optional. A split-origin deployment opts in by setting
+`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN`, giving each embedded
+dashboard its own hostname while the same MSO process proxies its loopback upstream. There
+is no supported same-origin dashboard mode.
+
+There is also no runtime navigation/feature scraping of managed-app bundles. The old
 `/features` route and parser pipeline were removed; current MSO presents the vendor's own
 dashboard as one surface plus MSO's Details management surface.
 
-See `docs/MANAGED-APPS.md`, `docs/HERMES-INTEGRATION.md` and
-`docs/OPENCLAW-INTEGRATION.md`.
+See `docs/MANAGED-APPS.md`, `docs/HERMES-INTEGRATION.md`,
+`docs/OPENCLAW-INTEGRATION.md` and `docs/9ROUTER-INTEGRATION.md`.
 
 ## 9. Camoufox Browser
 

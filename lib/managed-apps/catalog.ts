@@ -48,16 +48,21 @@ const definitions = {
     id: "9router",
     name: "9Router",
     description: "9Router AI gateway — one endpoint routing coding agents across 40+ providers",
-    // No upstream CLI exists: 9Router ships only a Docker image. The command is a
-    // wrapper script in this repo speaking the verbs the adapter drives
-    // (--version / check / update / uninstall), which is why commandProvesInstall
-    // is false — the script exists on every checkout, installed or not.
+    // Upstream ships BOTH an npm CLI and Docker images. MSO deliberately manages
+    // the Docker form on servers/VPSes (the upstream README recommends Docker for
+    // that case). `command` is therefore MSO's lifecycle/update adapter, not the
+    // upstream `9router` launcher. commandProvesInstall stays false because this
+    // repo-owned adapter exists on every checkout, installed or not.
     command: join(process.cwd(), "scripts", "managed-app-9router"),
     commandProvesInstall: false,
     serviceNames: [],
     containerNames: ["9router"],
     dashboardUrl: process.env.NINE_ROUTER_DASHBOARD_URL ?? "http://127.0.0.1:20128",
     healthPath: "/api/health",
+    // The Docker install publishes this port on 0.0.0.0. That gives a fresh MSO
+    // installation a usable UI without requiring DNS, TLS or a domain provider.
+    // Embedding inside HTTPS MSO remains a separate optional split-origin feature.
+    publicPort: 20128,
     stateDirName: ".9router",
     gradient: "linear-gradient(160deg,#0ea5e9,#2563eb)",
   },

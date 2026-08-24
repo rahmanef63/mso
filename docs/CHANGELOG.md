@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `managed-apps` make 9router public-ip first
 - harden security state and credential guards
 
 ## 2026-08-23

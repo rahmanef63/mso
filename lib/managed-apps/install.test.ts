@@ -34,6 +34,7 @@ const view = (installed: boolean): ManagedAppView =>
     healthy: null,
     version: null,
     dashboardAvailable: false,
+    publicDashboardUrl: null,
     diagnostic: null,
     supportedActions: [],
   }) as ManagedAppView;

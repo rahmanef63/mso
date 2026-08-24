@@ -42,9 +42,10 @@ hermes | openclaw | 9router) ;;
   ;;
 esac
 
-# 9Router is a Docker container, not a systemd user unit — the user-bus
-# preflight below protects installs it will never perform, and failing on it
-# would block a docker-only install for no reason. Hand off and stop here.
+# MSO installs the Docker/server distribution of 9Router (upstream also has an npm
+# CLI, but Docker is the documented VPS path). It needs no systemd user unit, so
+# the user-bus preflight below would only create a false install dependency. Hand
+# off to the Docker adapter and stop here.
 if [ "$APP" = "9router" ]; then
   exec "$(dirname "$0")/managed-app-9router" install
 fi

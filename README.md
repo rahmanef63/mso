@@ -53,7 +53,7 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 - **Manage files** — browse, upload, search, preview, rename, move, copy, zip, and delete within configured filesystem roots.
 - **Inspect system health** — view live CPU, memory, disk, network, process, and uptime signals.
 - **Update itself** — Settings → About shows what is on `origin/main`, lists the incoming commits, and runs the whole deploy (pull → verify the build out-of-tree → build → restart) from a button. The verification runs first on purpose: a commit that does not compile becomes a refusal, not an outage. The updater runs in the owner's systemd user manager and does not require passwordless sudo. Same thing from a shell: `mso update run`.
-- **Manage other apps on the box** — detect, start/stop/restart, health, version, logs, and state backups for separate applications you already run (Hermes, OpenClaw), driven through their own CLIs and systemd units. Each app's own dashboard opens in a window; give each one its own hostname and it is served from its own origin (opt-in, two env vars). See [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md).
+- **Manage other apps on the box** — detect, start/stop/restart, health, version, logs, and state backups for separate applications you already run (Hermes, OpenClaw, 9Router), driven through their own systemd/Docker/CLI contracts. 9Router works public-IP-first without a domain; embedded vendor dashboards use explicit separate origins only when configured. See [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md).
 
 **Work** — code/text editor, browser, and media tools in the same workspace.
 
@@ -108,7 +108,7 @@ The flow lets you choose:
 - **Alfa AI provider** — OpenAI ChatGPT/Codex device OAuth, or an API-key provider such
   as Anthropic, OpenAI Platform, OpenRouter, Google, Groq, xAI, DeepSeek or Mistral;
 - **Alfa response preset** — normal, Caveman or Ponytail;
-- optional **Hermes / OpenClaw** installation (their provider settings remain separate
+- optional **Hermes / OpenClaw / 9Router** installation (their provider settings remain separate
   from Alfa's credentials);
 - reviewed **installable skills** such as Ponytail, Caveman and the MSO-safe RTK wrapper.
 
@@ -205,7 +205,7 @@ mso ls ~/projects            # files; `raw` for binaries, `zip`/`upload` for tra
 mso exec "df -h"             # host shell
 mso stats                    # cpu / mem / disk
 mso camoufox start           # power the anti-detection browser
-mso mapp logs hermes         # managed apps (hermes, openclaw)
+mso mapp logs hermes         # managed apps (hermes, openclaw, 9router)
 mso term open                # interactive PTY
 mso service restart          # systemd
 mso api GET /api/v1/sys/stats   # escape hatch — any endpoint
@@ -229,7 +229,7 @@ An authenticated MSO session can read allowed files and run commands as the user
 - Approve only devices you own; device approval is an allowlist, not standards-based 2FA.
 - Keep write roots narrow with `OS_FS_WRITE_ROOTS`.
 - Never commit `.env.local`, API keys, or data from `~/.mso`.
-- Managed-app dashboards are not embedded by default. If enabled, give Hermes/OpenClaw separate explicit hostnames such as `hermes.mso.example.com`; there is no supported same-origin iframe mode.
+- Managed-app dashboards are not embedded by default. 9Router can use its direct public-IP port without a domain. If embedding is enabled, give each vendor UI a separate explicit hostname such as `hermes.mso.example.com`; there is no supported same-origin iframe mode.
 - That boundary is browser-only: a plugin installed into Hermes or OpenClaw runs inside that daemon and can run host commands according to the daemon's own trust model.
 - With a model provider configured, Alfa is a tool-calling agent, not a plain chatbot. Its complete current catalog and human-approval contract are generated from `frontend/slices/assistant/host-tools/*` and documented in `frontend/slices/assistant/CONTRACT.md`; avoid copying a tool count into overview docs because the catalog changes independently of MCP.
 - Everything Alfa reads — file contents, command output, process lists — is sent to your model provider, and is re-sent on every following turn of the same run. BYOK means you own the key, not that the data stays on the box.
@@ -253,7 +253,7 @@ flowchart LR
     HOST["Host layer<br/>fs · PTY · sys metrics"]
     SLICES["Feature slices<br/>Files · Terminal · Monitor · Assistant"]
     AI["Alfa AI<br/>BYOK"]
-    MANAGED["Managed apps<br/>Hermes · OpenClaw<br/>own runtime + data"]
+    MANAGED["Managed apps<br/>Hermes · OpenClaw · 9Router<br/>own runtime + data"]
   end
   U -->|"HTTPS or Tailscale/VPN"| APP
   U -->|"framed dashboard, per-app origin<br/>same process, different origin"| APP
@@ -333,9 +333,10 @@ Not currently supported:
 | [docs/CLI.md](./docs/CLI.md) | Generated `mso` command-line reference |
 | [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | Local dev, gates and exact release flow |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Current AppShell/host/MCP/managed-app architecture |
-| [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) | Hermes/OpenClaw lifecycle, jobs, update, backup/restore and origins |
+| [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, update, backup/restore and origins |
 | [docs/HERMES-INTEGRATION.md](./docs/HERMES-INTEGRATION.md) | Hermes-specific managed-app behaviour |
 | [docs/OPENCLAW-INTEGRATION.md](./docs/OPENCLAW-INTEGRATION.md) | OpenClaw-specific managed-app behaviour |
+| [docs/9ROUTER-INTEGRATION.md](./docs/9ROUTER-INTEGRATION.md) | 9Router server ownership, public-IP-first UI and optional domain embedding |
 | [docs/MODELS-INTEGRATION.md](./docs/MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex model credentials |
 | [docs/MCP.md](./docs/MCP.md) | MCP/OAuth tools, discovery, workflow memory and security internals |
 | [docs/CHATGPT-PLUGIN.md](./docs/CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup + architecture/OAuth/tool/file diagrams |

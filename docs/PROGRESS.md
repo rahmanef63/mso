@@ -9,6 +9,29 @@ Running log of what shipped each phase. Newest at top.
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
 > entries intact as historical evidence even when their commands/counts have been superseded.
 
+## 2026-08-25 — 9Router public-IP-first managed-app correction (DONE)
+
+The first 9Router managed-app pass incorrectly coupled the app surface to MSO's optional
+split-origin hostname and documented 9Router as Docker-only. Live inspection disproved both
+assumptions: the existing container was healthy on host port 20128 and the older standalone
+hostname still worked, while the new `9router.mso...` path was an authenticated MSO proxy;
+upstream also ships a real npm `9router` CLI. The result made a healthy app look like a DNS
+problem and generated an invalid `9router status` terminal command.
+
+The managed server runtime remains Docker by design (upstream's VPS path), but domain/DNS is
+now explicitly optional. Definitions can declare a public host port; MSO derives a global
+IPv4 locally and advertises 9Router at `http://<public-ip>:20128`. The UI opens that endpoint
+as a separate top-level origin rather than attempting insecure same-origin proxying or an
+HTTP iframe inside HTTPS. The CLI view starts with read-only Docker logs and never launches a
+second 9Router process. Existing standalone domain routing is left untouched. Install/update/
+uninstall continue through the Docker adapter and preserve `~/.9router`; dry-run removal is
+part of the verification path.
+
+Current managed-app, install, architecture, troubleshooting, env, README, and dedicated
+9Router documentation now agree on the three-layer model: runtime management requires no
+domain; direct public access is available where intentionally exposed; split-origin DNS/TLS
+is optional embedding infrastructure.
+
 ## 2026-08-24 — 9Router joins the managed apps (one-click install/update/uninstall) (DONE)
 
 Third managed app: 9Router (decolua/9router), the Docker-only AI gateway already serving

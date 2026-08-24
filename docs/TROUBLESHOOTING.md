@@ -145,7 +145,7 @@ zoom/pan as appropriate; do not "fix" it by exposing VNC credentials to the clie
 
 ## Managed applications
 
-### Hermes/OpenClaw is reported "not installed" but you know it exists
+### A managed app is reported "not installed" but you know it exists
 
 Look for the diagnostic that says MSO cannot reach the owner systemd user bus. Detection
 fails closed for install/restore because rerunning an installer or restoring over a live
@@ -156,12 +156,19 @@ unknown service is unsafe. Fix the user bus/linger/service environment first.
 Expected. MSO mounts the vendor dashboard only when there is a live upstream. Start the app;
 management/log/update actions remain under Details.
 
+### 9Router is healthy, the old hostname works, but a new `9router.mso...` host does not
+
+Use the direct public-IP URL first. A 9Router install does not require the new hostname. The
+`*.mso...` route belongs to optional split-origin embedding and has independent DNS/TLS,
+`OS_SESSION_COOKIE_DOMAIN`, build-time host-template and re-login requirements. A `401` from
+that host does not mean the 9Router container is down.
+
 ### App is healthy but dashboard is not embedded
 
-Embedded dashboards are opt-in. Confirm both
+Embedded dashboards are opt-in. Confirm
 `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN`, DNS/TLS for the
-explicit app hosts, and sign in again after changing the cookie domain. With both variables
-unset, no vendor dashboard is served by design.
+explicit app hosts, and sign in again after changing the cookie domain. With those variables
+unset, no vendor iframe is served by design. 9Router can still expose its direct public-IP UI.
 
 ### Update fails before invoking the upstream updater
 

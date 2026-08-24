@@ -238,10 +238,13 @@ ChatGPT app; MSO's "Mark ChatGPT refreshed" button is only a local acknowledgeme
 
 ## 10. Optional managed-app dashboards
 
-Hermes/OpenClaw lifecycle management works without embedding their web dashboards. The safe
-default is therefore no vendor dashboard on the MSO origin.
+Hermes, OpenClaw and 9Router lifecycle management works without a domain. 9Router is
+public-IP-first on the managed Docker/VPS path: after health succeeds, its UI can be opened
+at `http://<public-ip>:20128` when the host has a globally-routable IPv4. Hermes/OpenClaw
+remain loopback-only unless an operator adds an external route.
 
-To opt into split-origin embedding, configure **both**:
+The safe default is no vendor dashboard on the **MSO cockpit origin**. To opt into
+split-origin embedding, configure:
 
 ```dotenv
 NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE={id}.mso.example.com
@@ -249,9 +252,10 @@ OS_SESSION_COOKIE_DOMAIN=.mso.example.com
 OS_PUBLIC_ORIGIN=https://mso.example.com
 ```
 
-Provision DNS/TLS only for the explicit `hermes` and `openclaw` hostnames and sign out/in
-after changing the cookie domain. There is no supported same-origin iframe fallback. See
-`docs/MANAGED-APPS.md`.
+Provision DNS/TLS only for explicit hostnames you intend to embed (`hermes`, `openclaw`,
+and optionally `9router`) and sign out/in after changing the cookie domain. These records
+are optional and are not created by managed-app install. There is no supported same-origin
+iframe fallback. See `docs/MANAGED-APPS.md` and `docs/9ROUTER-INTEGRATION.md`.
 
 ## 11. Public demo mode
 

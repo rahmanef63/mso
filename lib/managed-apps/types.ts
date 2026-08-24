@@ -32,6 +32,11 @@ export interface ManagedAppDefinition {
    *  on every checkout — detection must rest on its container alone, or an
    *  uninstalled 9Router reads as "package" and Install is refused forever. */
   commandProvesInstall?: boolean;
+  /** Optional host port intentionally exposed by this managed runtime. MSO uses it
+   *  only to advertise a direct, separate-origin UI when this machine has a
+   *  globally routable IPv4 address. It is never used as the internal health
+   *  target, and it does not imply that a domain exists. */
+  publicPort?: number;
 }
 
 export interface ManagedAppView {
@@ -44,6 +49,10 @@ export interface ManagedAppView {
   healthy: boolean | null;
   version: string | null;
   dashboardAvailable: boolean;
+  /** Direct browser URL when the runtime deliberately exposes its UI on a public
+   *  host port. null for loopback-only apps and hosts without a public interface.
+   *  This is an access convenience, not the upstream URL MSO trusts for health. */
+  publicDashboardUrl: string | null;
   supportedActions: ManagedAppAction[];
   /** Why this reading may be wrong, when MSO knows that it might be.
    *

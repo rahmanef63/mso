@@ -7,15 +7,17 @@ import { Terminal } from "@/features/os-terminal";
 import type { ManagedAppFeature } from "@/lib/managed-apps/types";
 import { cliCommand, featureSource } from "./feature-cli";
 
-export function ManagedFeatureApp({ feature }: AppProps & { feature: ManagedAppFeature }) {
-  const source = featureSource(feature);
+export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { feature: ManagedAppFeature; publicDashboardUrl?: string | null }) {
+  const embeddedSource = featureSource(feature);
+  const directSource = publicDashboardUrl ?? null;
+  const uiAvailable = Boolean(directSource || embeddedSource);
   const command = cliCommand(feature);
-  // No dashboard origin = no vendor UI here at all, so the CLI is not a fallback, it is
-  // the view. With an origin, the vendor UI is always the opening view: the gateway
-  // sockets both dashboards drive now ride the proxy (they did not when this defaulted
-  // OpenClaw to a terminal), so there is no longer a surface that opens dead.
+  // A direct public source is intentionally preferred when present: it works on a
+  // fresh VPS without DNS/TLS and is already a separate browser origin. We do NOT
+  // iframe its http:// URL inside an https:// cockpit (mixed content), and we do
+  // NOT fall back to a same-origin proxy (that would give vendor JS the MSO realm).
   const [generation, setGeneration] = useState(0);
-  const [view, setView] = useState<"ui" | "cli">(() => (source ? "ui" : "cli"));
+  const [view, setView] = useState<"ui" | "cli">(() => (uiAvailable ? "ui" : "cli"));
 
   const reload = useCallback(() => setGeneration((value) => value + 1), []);
 
@@ -24,13 +26,13 @@ export function ManagedFeatureApp({ feature }: AppProps & { feature: ManagedAppF
       {/* No name row: the window header above already says which app this is. Repeating it
           cost a 48px band on every mount and pushed the app itself down the screen. */}
       <header className="flex h-9 shrink-0 items-center justify-end gap-1.5 border-b border-border px-2">
-        {source ? (
+        {uiAvailable ? (
           <button type="button" onClick={() => setView((current) => (current === "ui" ? "cli" : "ui"))} className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground" aria-label="Toggle upstream UI or CLI"><TerminalSquare className="size-3.5" />{view === "ui" ? "CLI" : "UI"}</button>
         ) : null}
-        {source ? (
+        {uiAvailable ? (
           <>
-            <button type="button" onClick={reload} className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Refresh feature"><RefreshCw className="size-3.5" /></button>
-            <a href={source} target="_blank" rel="noreferrer" className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Open feature in dedicated tab"><ExternalLink className="size-3.5" /></a>
+            {!directSource ? <button type="button" onClick={reload} className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Refresh feature"><RefreshCw className="size-3.5" /></button> : null}
+            <a href={directSource ?? embeddedSource ?? undefined} target="_blank" rel="noreferrer" className="rounded-md border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Open feature in dedicated tab"><ExternalLink className="size-3.5" /></a>
           </>
         ) : null}
       </header>
@@ -46,24 +48,34 @@ export function ManagedFeatureApp({ feature }: AppProps & { feature: ManagedAppF
           terminal, and a terminal is indistinguishable from a dashboard that broke. It
           reads as a fault in the app and sends the operator to look at the app. It is not:
           it is a deployment that serves no dashboards, and only this file knows that. */}
-      {!source ? (
+      {!uiAvailable ? (
         <p className="shrink-0 border-b border-border px-3 py-1.5 text-[11px] leading-snug text-muted-foreground">
-          No dashboard on this deployment — the CLI below is the view.{" "}
-          <span className="font-mono">NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE</span> is unset, so{" "}
-          {feature.applicationId} has no host of its own to be framed from. Setting it needs a
-          rebuild, not just a restart. See docs/MANAGED-APPS.md §5.
+          No browser UI is exposed by this deployment, so the CLI below is the view. A managed app can work without a domain; split-origin dashboard hosts are optional.
         </p>
       ) : null}
-      {view === "cli" || !source ? (
+      {view === "cli" || !uiAvailable ? (
         <div className="min-h-0 flex-1">
           <Suspense fallback={null}>
             <Terminal initialCommand={command} />
           </Suspense>
         </div>
+      ) : directSource ? (
+        <div className="flex h-full min-h-0 items-center justify-center p-6">
+          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className="flex items-center gap-2 text-sm font-semibold"><ExternalLink className="size-4" />{feature.title} UI</div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              This server exposes the app directly on its public IP, so no domain or DNS provider is required. Open it as a separate origin; HTTPS MSO cannot safely embed this HTTP endpoint.
+            </p>
+            <code className="mt-3 block overflow-x-auto rounded-md bg-muted px-3 py-2 text-[11px]">{directSource}</code>
+            <a href={directSource} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
+              <ExternalLink className="size-3.5" /> Open {feature.title}
+            </a>
+          </div>
+        </div>
       ) : (
         <iframe
           key={generation}
-          src={source}
+          src={embeddedSource ?? undefined}
           title={`${feature.applicationId} ${feature.title}`}
           className="min-h-0 flex-1 border-0 bg-background"
           // allow-same-origin stays, and is the whole point: these SPAs need their own
@@ -102,6 +114,6 @@ export function ManagedFeatureApp({ feature }: AppProps & { feature: ManagedAppF
 
 // NoDashboardPanel lived here and explained NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE at
 // length. Deleted: it was unreachable (see the render branch above), and a deployment with
-// no dashboard origin gets the CLI — which is the app's real surface there, not a
-// consolation prize that needs three sentences of apology. The reasoning it carried lives
-// in featureSource() in feature-cli.ts, where the decision is actually made.
+// no browser UI gets the CLI. Public-port apps can instead advertise a direct,
+// separate-origin URL without requiring split-origin DNS; featureSource() remains the
+// embedded-dashboard decision for apps that do use dedicated hosts.

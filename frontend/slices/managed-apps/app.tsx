@@ -186,7 +186,7 @@ function ManagedAppsSurface({ focus }: { focus: ManagedAppId }) {
             </p>
           </Hero>
         ) : (
-          <ManagedFeatureApp feature={feature} />
+          <ManagedFeatureApp feature={feature} publicDashboardUrl={app.publicDashboardUrl} />
         )}
       </div>
     </div>
