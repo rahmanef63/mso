@@ -28,7 +28,7 @@ const INSTALL_SCRIPT = path.join(process.cwd(), "scripts", "managed-app-install"
 /** Hermes fetches uv, a Python, Node and ffmpeg before it does anything of its
  *  own, so it needs a budget several times OpenClaw's `npm i -g`. Both stay
  *  under the job layer's 1 h ceiling. */
-const INSTALL_TIMEOUT_MS: Record<ManagedAppId, number> = { hermes: 2_700_000, openclaw: 900_000 };
+const INSTALL_TIMEOUT_MS: Record<ManagedAppId, number> = { hermes: 2_700_000, openclaw: 900_000, "9router": 900_000 };
 
 /** A key is never inspected beyond this: it is opaque upstream credential
  *  material, so the only questions worth asking are "could it break the

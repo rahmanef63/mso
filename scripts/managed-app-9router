@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# The "CLI" for 9Router, which ships no CLI of its own — only a Docker image
+# (decolua/9router). lib/managed-apps drives every app through one adapter
+# contract (--version / check / update / uninstall), so this script speaks it.
+# The catalog points `command` here with commandProvesInstall: false, because
+# this file exists on every checkout whether or not 9Router is installed.
+#
+# Docker is called bare, not via sudo: mso runs as a user in the docker group,
+# and that is already what manager.ts assumes for start/stop/restart/logs.
+set -euo pipefail
+
+NAME="${NINE_ROUTER_CONTAINER:-9router}"
+PORT="${NINE_ROUTER_PORT:-20128}"
+IMAGE="${NINE_ROUTER_IMAGE:-decolua/9router:latest}"
+DATA="${NINE_ROUTER_DATA:-$HOME/.9router}"
+BASE="http://127.0.0.1:${PORT}"
+
+installed() { docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; }
+
+# The running image's own version label — offline, no fork of the app.
+label_version() {
+  docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' \
+    "$(docker inspect --format '{{.Image}}' "$NAME" 2>/dev/null)" 2>/dev/null || true
+}
+
+cmd_version() {
+  installed || { echo "9router container not found" >&2; exit 1; }
+  local v
+  v="$(label_version)"
+  [ -n "$v" ] && { echo "$v"; return; }
+  # Image built without the label: ask the app itself.
+  curl -fsS -m 5 "$BASE/api/version" | sed -n 's/.*"currentVersion":"\([^"]*\)".*/\1/p'
+}
+
+# 9Router self-checks against Docker Hub and answers
+# {"currentVersion":"…","latestVersion":"…","hasUpdate":bool} at /api/version —
+# relayed verbatim (update-probe.ts parses exactly this shape).
+cmd_check() {
+  installed || { echo "9router container not found" >&2; exit 1; }
+  curl -fsS -m 30 "$BASE/api/version" || { echo "9router is not answering on $BASE — is it running?" >&2; exit 1; }
+  echo
+}
+
+# Pull latest, recreate the container, keep the data mount. Also the install:
+# `docker run` against an absent container IS installing it.
+cmd_update() {
+  echo "==> pull $IMAGE"
+  docker pull "$IMAGE"
+
+  # Port guard: recreating onto a port some OTHER container holds would rm the
+  # wrong thing's ability to come back up and fail late. Named container wins.
+  local owner
+  owner="$(docker ps -a --format '{{.Names}} {{.Ports}}' | grep ":${PORT}->" | awk '{print $1}' || true)"
+  if [ -n "$owner" ] && [ "$owner" != "$NAME" ]; then
+    echo "abort: port $PORT is held by container '$owner', not $NAME" >&2
+    exit 1
+  fi
+
+  mkdir -p "$DATA"
+  echo "==> recreate $NAME"
+  docker rm -f "$NAME" 2>/dev/null || true
+  docker run -d \
+    --name "$NAME" \
+    --restart unless-stopped \
+    -p "$PORT:$PORT" \
+    -v "$DATA:/app/data" \
+    -e DATA_DIR=/app/data \
+    "$IMAGE"
+
+  echo "==> wait for $BASE"
+  local i
+  for i in $(seq 1 30); do
+    sleep 1
+    if curl -fsS -o /dev/null -m 3 "$BASE/api/health"; then
+      echo "==> healthy after ${i}s ($(label_version))"
+      return 0
+    fi
+  done
+  echo "container is running but $BASE/api/health has not answered within 30s" >&2
+  docker ps --filter "name=$NAME" --format '{{.Status}} {{.Ports}}' >&2
+  exit 1
+}
+
+# Conservative, like the Hermes uninstall: the container goes, the image and
+# ~/.9router data stay. A reinstall finds its providers and stats untouched.
+cmd_uninstall() {
+  local dry=0
+  case "${1:-}" in --dry-run) dry=1 ;; esac
+  if [ "$dry" = 1 ]; then
+    echo "would remove container: $NAME"
+    echo "kept: image $IMAGE, data $DATA"
+    exit 0
+  fi
+  installed || { echo "9router container not found — nothing to remove" >&2; exit 0; }
+  docker rm -f "$NAME"
+  echo "removed container $NAME (kept image $IMAGE and data $DATA)"
+}
+
+case "${1:-}" in
+--version) cmd_version ;;
+check) cmd_check ;;
+status)
+  installed && docker ps --filter "name=$NAME" --format '{{.Status}} {{.Ports}}' || echo "not installed"
+  ;;
+install | update)
+  [ "${2:-}" = "--yes" ] || [ "$1" = "install" ] || { echo "update requires --yes" >&2; exit 2; }
+  cmd_update
+  ;;
+uninstall)
+  shift
+  case "${1:-}" in
+  --help)
+    # update.ts reads this output to verify --dry-run is still honoured
+    # before offering "Preview removal".
+    echo "usage: managed-app-9router uninstall --yes [--dry-run]"
+    exit 0
+    ;;
+  --yes) shift; cmd_uninstall "${1:-}" ;;
+  *) echo "uninstall requires --yes" >&2; exit 2 ;;
+  esac
+  ;;
+*)
+  echo "usage: managed-app-9router --version|check [--json]|status|install|update --yes|uninstall --yes [--dry-run]" >&2
+  exit 2
+  ;;
+esac

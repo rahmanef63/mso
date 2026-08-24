@@ -9,7 +9,24 @@ Running log of what shipped each phase. Newest at top.
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
 > entries intact as historical evidence even when their commands/counts have been superseded.
 
-## 2026-08-24 — Fable/Ultracode security audit + security-state hardening (DONE)
+## 2026-08-24 — 9Router joins the managed apps (one-click install/update/uninstall) (DONE)
+
+Third managed app: 9Router (decolua/9router), the Docker-only AI gateway already serving
+9-router.rahmanef.com from host port 20128. Unlike Hermes/OpenClaw it ships no CLI, so the
+adapter contract is spoken by `scripts/managed-app-9router` — a repo-owned wrapper whose
+verbs map onto Docker (`--version` reads the image's OCI version label, `check --json`
+relays the app's own `/api/version` self-check, `update --yes` pulls latest and recreates
+the container with the `~/.9router` data mount intact, `uninstall --yes [--dry-run]`
+removes only the container). Two small seams were added to the definition for it:
+`healthPath` (9Router answers `/api/health`, and the default `/health` 404s — which would
+read as unhealthy forever) and `commandProvesInstall: false` (the wrapper exists on every
+checkout, so its presence must not make an uninstalled 9Router read as "package" and lock
+the Install button out). Everything else — install/update/rollback/uninstall jobs, backups,
+the split-origin dashboard proxy, the Details panel — is the existing generic machinery;
+`9router.mso.rahmanef.com` was added to the Traefik managed-apps file and the wildcard DNS
+already covered it. The container itself was updated 0.5.50 → 0.5.55 the same day.
+
+
 
 A point-in-time security audit combined Claude Fable 5 in Ultracode mode with an independent
 dynamic/manual lane. Fable actually fan-out to 8 workstreams / 27 sub-agents (7 domain finders

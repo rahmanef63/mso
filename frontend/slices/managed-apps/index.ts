@@ -1,21 +1,27 @@
-import { Bot, Workflow } from "lucide-react";
+import { Bot, Route, Workflow, type LucideIcon } from "lucide-react";
 import type { AppDescriptor } from "@/features/os-shell";
 
-type ManagedApp = "hermes" | "openclaw";
+type ManagedApp = "hermes" | "openclaw" | "9router";
+
+const LOOK: Record<ManagedApp, { title: string; icon: LucideIcon; gradient: string; loader: string }> = {
+  hermes: { title: "Hermes", icon: Bot, gradient: "linear-gradient(160deg,#8b5cf6,#4f46e5)", loader: "HermesApp" },
+  openclaw: { title: "OpenClaw", icon: Workflow, gradient: "linear-gradient(160deg,#f97316,#dc2626)", loader: "OpenClawApp" },
+  "9router": { title: "9Router", icon: Route, gradient: "linear-gradient(160deg,#0ea5e9,#2563eb)", loader: "NineRouterApp" },
+};
 
 // Ordinary apps, dock and all. They were `noDock` while MSO could swap its whole shell
 // into a Hermes/OpenClaw "workspace mode" that opened them by itself — that is gone: each
 // ships its own sidebar, so re-hosting its navigation bought nothing. One window per app.
 function managedDescriptor(app: ManagedApp): AppDescriptor {
-  const hermes = app === "hermes";
+  const look = LOOK[app];
   return {
     id: app,
-    title: hermes ? "Hermes" : "OpenClaw",
-    icon: hermes ? Bot : Workflow,
-    gradient: hermes ? "linear-gradient(160deg,#8b5cf6,#4f46e5)" : "linear-gradient(160deg,#f97316,#dc2626)",
+    title: look.title,
+    icon: look.icon,
+    gradient: look.gradient,
     load: async () => {
       const loaded = await import("./app");
-      return { default: hermes ? loaded.HermesApp : loaded.OpenClawApp };
+      return { default: loaded[look.loader as "HermesApp" | "OpenClawApp" | "NineRouterApp"] };
     },
     defaultSize: { w: 1100, h: 720 },
   };
@@ -23,3 +29,4 @@ function managedDescriptor(app: ManagedApp): AppDescriptor {
 
 export const hermesApp = managedDescriptor("hermes");
 export const openclawApp = managedDescriptor("openclaw");
+export const nineRouterApp = managedDescriptor("9router");

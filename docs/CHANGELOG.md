@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-08-24
 
+**Added**
+
+- `managed-apps` add 9Router as a one-click managed app
+
 **Fixed**
 
 - harden security state and credential guards

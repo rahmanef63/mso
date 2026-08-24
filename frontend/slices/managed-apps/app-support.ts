@@ -69,6 +69,22 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
       "Removes the gateway service and local state; the `openclaw` CLI itself stays on PATH. `--dry-run` prints the actions, `--all` also removes the workspace.",
     stateDir: "~/.openclaw",
   },
+  "9router": {
+    dryRun: false,
+    rollbackPin: false,
+    pinLabel: "Version",
+    pinHint:
+      "9Router ships one Docker tag (latest), so there is no version pin. A rollback restores the ~/.9router data snapshot; the image stays whatever is installed. Running an older image is a by-hand `docker run` with an explicit tag.",
+    pinPlaceholder: "0.5.55",
+    installCommand:
+      "docker run -d --name 9router --restart unless-stopped -p 20128:20128 -v ~/.9router:/app/data -e DATA_DIR=/app/data decolua/9router:latest",
+    installNote:
+      "Pulls the decolua/9router image and starts it on port 20128 with its data in ~/.9router. Needs a user in the docker group; no sudo, no systemd unit — Docker's restart policy keeps it up.",
+    uninstallCommand: "docker rm -f 9router",
+    uninstallEffect:
+      "Stops and removes the container. The image and ~/.9router data (providers, keys, stats) stay, so a reinstall comes back configured.",
+    stateDir: "~/.9router",
+  },
 };
 
 export const supportFor = (id: ManagedAppId): AppSupport => SUPPORT[id];

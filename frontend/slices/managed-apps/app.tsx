@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, FileText, Loader2, Play, RefreshCw, Save, SlidersHorizontal, Square, Workflow } from "lucide-react";
+import { Bot, FileText, Loader2, Play, RefreshCw, Route, Save, SlidersHorizontal, Square, Workflow, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ManagedAppAction, ManagedAppId, ManagedAppView } from "@/lib/managed-apps/types";
 import { dashboardFeature } from "./feature-cli";
@@ -79,11 +79,27 @@ export function OpenClawApp() {
   return <ManagedAppsSurface focus="openclaw" />;
 }
 
-const NAME: Record<ManagedAppId, string> = { hermes: "Hermes", openclaw: "OpenClaw" };
+export function NineRouterApp() {
+  return <ManagedAppsSurface focus="9router" />;
+}
+
+const NAME: Record<ManagedAppId, string> = { hermes: "Hermes", openclaw: "OpenClaw", "9router": "9Router" };
+
+const MARK: Record<ManagedAppId, { Icon: LucideIcon; tone: string }> = {
+  hermes: { Icon: Bot, tone: "text-violet-400" },
+  openclaw: { Icon: Workflow, tone: "text-orange-400" },
+  "9router": { Icon: Route, tone: "text-sky-400" },
+};
+
+function AppMark({ id, className }: { id: ManagedAppId; className?: string }) {
+  const { Icon, tone } = MARK[id];
+  return <Icon className={`${className ?? "size-4"} ${tone}`} />;
+}
 
 const ICON: Record<ManagedAppId, React.ReactNode> = {
-  hermes: <Bot className="size-4 text-violet-400" />,
-  openclaw: <Workflow className="size-4 text-orange-400" />,
+  hermes: <AppMark id="hermes" />,
+  openclaw: <AppMark id="openclaw" />,
+  "9router": <AppMark id="9router" />,
 };
 
 /** ONE surface, and what it shows is the thing itself: the app's own dashboard when the
@@ -199,7 +215,7 @@ function ManagePane({ focus, state }: { focus: ManagedAppId; state: ReturnType<t
 
 function ManagedCard({ app, busy, onAction, onChanged }: { app: ManagedAppView; busy: string | null; onAction: (id: ManagedAppId, action: ManagedAppAction) => Promise<void>; onChanged: () => void }) {
   const [logs, setLogs] = useState<string[] | null>(null);
-  const icon = app.id === "hermes" ? <Bot className="size-5 text-violet-400" /> : <Workflow className="size-5 text-orange-400" />;
+  const icon = <AppMark id={app.id} className="size-5" />;
   const run = app.state === "running";
   async function loadLogs() {
     const response = await fetch(`/api/v1/managed-apps/${app.id}/logs`, { cache: "no-store" });

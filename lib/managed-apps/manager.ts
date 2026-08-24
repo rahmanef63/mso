@@ -49,7 +49,7 @@ async function detect(definition: ManagedAppDefinition): Promise<Installation> {
     const containerName = definition.containerNames.find((name) => names.has(name));
     if (containerName) return { type: "docker", containerName };
   }
-  if (await commandExists(definition.command)) return { type: "package" };
+  if (definition.commandProvesInstall !== false && await commandExists(definition.command)) return { type: "package" };
   return { type: "not-installed" };
 }
 
@@ -64,7 +64,7 @@ async function running(installation: Installation): Promise<boolean> {
 
 async function health(definition: ManagedAppDefinition): Promise<boolean | null> {
   try {
-    const response = await fetch(`${definition.dashboardUrl.replace(/\/$/, "")}/health`, { cache: "no-store", signal: AbortSignal.timeout(4_000) });
+    const response = await fetch(`${definition.dashboardUrl.replace(/\/$/, "")}${definition.healthPath ?? "/health"}`, { cache: "no-store", signal: AbortSignal.timeout(4_000) });
     return response.ok;
   } catch {
     return null;

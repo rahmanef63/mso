@@ -1,6 +1,6 @@
 import "server-only";
 import type { ManagedAppId } from "./types";
-import { probeHermes, probeOpenclaw, type ProbeResult } from "./update-probe";
+import { probe9Router, probeHermes, probeOpenclaw, type ProbeResult } from "./update-probe";
 import { MANAGED_APP_UPDATE_CHANNELS } from "./update-types";
 import type { ManagedAppUpdateCapabilities, ManagedAppUpdateOptions } from "./update-types";
 
@@ -165,6 +165,34 @@ const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
     // --dry-run alone; update.ts verifies the CLI still declares it.
     uninstallArgv: (program, dryRun) => [program, "uninstall", "--non-interactive", "--yes", "--service", "--state", ...(dryRun ? [UNINSTALL_PREVIEW_FLAG] : [])],
     probe: probeOpenclaw,
+  },
+  "9router": {
+    capabilities: {
+      check: true,
+      apply: true,
+      // The wrapper's update is pull + recreate; a rehearsal of a docker pull
+      // predicts nothing useful, so there is no dry run.
+      dryRun: false,
+      channel: false,
+      rollback: true,
+      uninstall: true,
+      installCommand:
+        "docker run -d --name 9router --restart unless-stopped -p 20128:20128 -v ~/.9router:/app/data -e DATA_DIR=/app/data decolua/9router:latest",
+      uninstallCommand: null,
+    },
+    // No pin: the image ships one meaningful tag (latest). A rollback restores
+    // the ~/.9router data snapshot; the image stays whatever is installed.
+    pin: null,
+    updateArgv: (program, options) => {
+      if (options.dryRun) reject("dry run", "9router");
+      if (options.channel) reject("channel switching", "9router");
+      if (options.tag) reject("tag pinning", "9router");
+      if (options.branch) reject("branch switching", "9router");
+      if (options.noRestart) reject("--no-restart", "9router");
+      return [program, "update", "--yes"];
+    },
+    uninstallArgv: (program, dryRun) => [program, "uninstall", "--yes", ...(dryRun ? [UNINSTALL_PREVIEW_FLAG] : [])],
+    probe: probe9Router,
   },
 };
 

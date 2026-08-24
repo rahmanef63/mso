@@ -15,7 +15,7 @@ import { appStoreApp } from "@/features/app-store";
 import { createAppApp } from "@/features/create-app";
 import { systemMonitorApp } from "@/features/system-monitor";
 import { assistantApp } from "@/features/assistant";
-import { hermesApp, openclawApp } from "@/features/managed-apps";
+import { hermesApp, nineRouterApp, openclawApp } from "@/features/managed-apps";
 import { osSettingsApp } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
@@ -61,6 +61,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(assistantApp), "assistant"),
   withSlug(withArtwork(hermesApp), "hermes"),
   withSlug(withArtwork(openclawApp), "openclaw"),
+  withSlug(withArtwork(nineRouterApp), "9router"),
   withSlug(withArtwork(quicklinksApp), "links"),
   // Docs is deliberately dockable, not noDock: for a signed-out visitor it is the
   // only app that explains what they are looking at and how to get their own.

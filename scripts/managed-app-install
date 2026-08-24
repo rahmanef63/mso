@@ -35,12 +35,19 @@ APP_ORIGIN="${MSO_INSTALL_APP_ORIGIN:-}"
 log() { printf '\n=== %s\n' "$*"; }
 
 case "$APP" in
-hermes | openclaw) ;;
+hermes | openclaw | 9router) ;;
 *)
-  echo "usage: managed-app-install <hermes|openclaw>" >&2
+  echo "usage: managed-app-install <hermes|openclaw|9router>" >&2
   exit 2
   ;;
 esac
+
+# 9Router is a Docker container, not a systemd user unit — the user-bus
+# preflight below protects installs it will never perform, and failing on it
+# would block a docker-only install for no reason. Hand off and stop here.
+if [ "$APP" = "9router" ]; then
+  exec "$(dirname "$0")/managed-app-9router" install
+fi
 
 # Both apps are installed as systemd USER units, and `systemctl --user` finds the
 # user's systemd instance through XDG_RUNTIME_DIR. MSO may be running as a systemd

@@ -1,4 +1,4 @@
-export const MANAGED_APP_IDS = ["hermes", "openclaw"] as const;
+export const MANAGED_APP_IDS = ["hermes", "openclaw", "9router"] as const;
 export type ManagedAppId = (typeof MANAGED_APP_IDS)[number];
 
 export const MANAGED_APP_ACTIONS = ["start", "stop", "restart", "backup"] as const;
@@ -24,6 +24,14 @@ export interface ManagedAppDefinition {
   gradient: string;
   /** Override for the upstream state/install home. Empty = `~/<stateDirName>`. */
   homeDir?: string;
+  /** Health endpoint path on `dashboardUrl`. Default "/health"; 9Router answers
+   *  at "/api/health" and 404s the default, which would read as unhealthy. */
+  healthPath?: string;
+  /** false = the command's mere presence proves nothing about the install.
+   *  9Router's `command` is a wrapper script SHIPPED IN THIS REPO, so it exists
+   *  on every checkout — detection must rest on its container alone, or an
+   *  uninstalled 9Router reads as "package" and Install is refused forever. */
+  commandProvesInstall?: boolean;
 }
 
 export interface ManagedAppView {

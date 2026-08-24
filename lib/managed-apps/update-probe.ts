@@ -95,6 +95,33 @@ function parseJson(text: string): Record<string, unknown> | null {
 const asRecord = (value: unknown): Record<string, unknown> => (value && typeof value === "object" ? (value as Record<string, unknown>) : {});
 const asString = (value: unknown): string | null => (typeof value === "string" && value ? value : null);
 
+// --------------------------------------------------------------- 9Router ----
+// The "CLI" is scripts/managed-app-9router (this repo). Its `check --json`
+// relays the app's own /api/version — {currentVersion, latestVersion,
+// hasUpdate} — which 9Router computes against Docker Hub itself.
+
+export const NINE_ROUTER_CHANNEL_NOTE =
+  "9Router ships a single Docker tag (latest); an update pulls the newest image and recreates the container with ~/.9router data intact.";
+
+export async function probe9Router(program: string): Promise<ProbeResult> {
+  const channel: ManagedAppChannel = { value: null, kind: null, available: [], switchable: false, reason: NINE_ROUTER_CHANNEL_NOTE };
+  const check = await runProgram(program, ["check", "--json"], 60_000);
+  const parsed = parseJson(clean(check.stdout));
+  if (check.code !== 0 || !parsed) {
+    const why = clean(check.stderr).split(/\r?\n/).find(Boolean) ?? "9router check --json returned no JSON";
+    return { currentVersion: null, latestVersion: null, updateAvailable: null, detail: null, channel, installKind: "docker", error: redact(why) };
+  }
+  return {
+    currentVersion: asString(parsed.currentVersion),
+    latestVersion: asString(parsed.latestVersion),
+    updateAvailable: typeof parsed.hasUpdate === "boolean" ? parsed.hasUpdate : null,
+    detail: asString(parsed.detail),
+    channel,
+    installKind: "docker",
+    error: null,
+  };
+}
+
 export async function probeOpenclaw(program: string): Promise<ProbeResult> {
   const version = await runProgram(program, ["--version"], 20_000);
   const currentVersion = version.code === 0 ? clean(version.stdout).split(/\r?\n/)[0]?.trim().slice(0, 160) || null : null;

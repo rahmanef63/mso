@@ -160,3 +160,20 @@ describe("reading what Hermes says back", () => {
     expect(parseHermesCheck(result("", 1)).updateAvailable).toBeNull();
   });
 });
+
+describe("the 9Router wrapper argv", () => {
+  const NINE = "/home/rahman/projects/mso/scripts/managed-app-9router";
+
+  it("builds update and uninstall in the wrapper's own grammar", () => {
+    expect(updateAdapter("9router").updateArgv(NINE, {})).toEqual([NINE, "update", "--yes"]);
+    expect(updateAdapter("9router").uninstallArgv(NINE, false)).toEqual([NINE, "uninstall", "--yes"]);
+    expect(updateAdapter("9router").uninstallArgv(NINE, true)).toEqual([NINE, "uninstall", "--yes", UNINSTALL_PREVIEW_FLAG]);
+  });
+
+  it("refuses every option the single-tag Docker flow cannot honour", () => {
+    for (const options of [{ dryRun: true }, { channel: "beta" }, { tag: "latest" }, { branch: "main" }, { noRestart: true }]) {
+      expect(() => updateAdapter("9router").updateArgv(NINE, options)).toThrow("not supported for 9router");
+    }
+    expect(updateAdapter("9router").pin).toBeNull();
+  });
+});
