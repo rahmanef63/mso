@@ -72,13 +72,14 @@ if ((${#shell_args[@]} > 0)); then
 fi
 
 if [[ "${MSO_SECURITY_SKIP_CODEX:-0}" != "1" ]]; then
-  run_capture "Codex Security repository" env CODEX_SECURITY_MODE="${MSO_SECURITY_CODEX_MODE:-standard}" CODEX_SECURITY_FAIL_ON_SEVERITY=high \
-    CODEX_SECURITY_MAX_COST_USD="${CODEX_SECURITY_MAX_COST_USD:-15}" \
+  run_capture "Codex Security components" env CODEX_SECURITY_FAIL_ON_SEVERITY=high \
+    CODEX_SECURITY_COMPONENT_WORKERS="${CODEX_SECURITY_COMPONENT_WORKERS:-2}" \
+    CODEX_SECURITY_COMPONENT_MAX_COST_USD="${CODEX_SECURITY_COMPONENT_MAX_COST_USD:-5}" \
     CODEX_SECURITY_OUTPUT_ROOT="$RUN_DIR/codex-results" \
     CODEX_SECURITY_STATE_DIR="$RUN_DIR/codex-state" \
-    ./scripts/codex-security-scan.sh
+    ./scripts/codex-security-components.sh
 else
-  printf '%-28s %s\n' "Codex Security repository" SKIPPED
+  printf '%-28s %s\n' "Codex Security components" SKIPPED
 fi
 
 if [[ "${MSO_SECURITY_SKIP_DAST:-0}" != "1" ]]; then

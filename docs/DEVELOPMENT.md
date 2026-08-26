@@ -24,7 +24,7 @@ Every feature is a self-contained **vertical slice** under `frontend/slices/<slu
 
 ```bash
 bun run verify              # fast/full repository quality gate
-bun run security:ultimate   # release security assurance: independent scanners + deep review + DAST
+bun run security:ultimate   # release assurance: independent scanners + component security review + DAST
 ```
 
 The **committed source of truth** for pre-push policy is `scripts/gates.sh`. The

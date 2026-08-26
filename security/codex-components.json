@@ -1,0 +1,113 @@
+{
+  "components": [
+    {
+      "name": "server-routes-and-core-services",
+      "paths": [
+        "app",
+        "lib",
+        "instrumentation.ts",
+        "instrumentation.test.ts",
+        "proxy.ts",
+        "proxy.test.ts",
+        "proxy-websocket.test.ts"
+      ]
+    },
+    {
+      "name": "desktop-shell-and-system-ui",
+      "paths": [
+        "frontend/slices/appshell",
+        "frontend/slices/os-shell",
+        "frontend/slices/os-settings",
+        "frontend/slices/shell-settings",
+        "frontend/slices/system-monitor",
+        "frontend/slices/quicklinks"
+      ]
+    },
+    {
+      "name": "assistant-auth-and-app-management-ui",
+      "paths": [
+        "frontend/slices/assistant",
+        "frontend/slices/auth",
+        "frontend/slices/app-store",
+        "frontend/slices/create-app",
+        "frontend/slices/managed-apps",
+        "frontend/slices/docs"
+      ]
+    },
+    {
+      "name": "workspace-browser-and-terminal-ui",
+      "paths": [
+        "frontend/slices/camoufox-browser",
+        "frontend/slices/code-editor",
+        "frontend/slices/files-manager",
+        "frontend/slices/os-terminal"
+      ]
+    },
+    {
+      "name": "media-and-image-editing-ui",
+      "paths": [
+        "frontend/slices/image-editor",
+        "frontend/slices/image-picker",
+        "frontend/slices/media-studio",
+        "frontend/slices/media-viewer",
+        "frontend/slices/reel-editor"
+      ]
+    },
+    {
+      "name": "shared-ui-and-hooks",
+      "paths": [
+        "components",
+        "hooks",
+        "components.json"
+      ]
+    },
+    {
+      "name": "os-browser-package",
+      "paths": [
+        "os-browser"
+      ]
+    },
+    {
+      "name": "skills-and-extension-content",
+      "paths": [
+        "claude-skills",
+        "skill-market",
+        "skills",
+        "templates"
+      ]
+    },
+    {
+      "name": "automation-ci-and-security-tooling",
+      "paths": [
+        ".github",
+        "bin",
+        "scripts",
+        "security",
+        ".env.example",
+        ".gitignore",
+        ".gitleaksignore",
+        ".nvmrc",
+        "bun.lock",
+        "eslint.config.mjs",
+        "global.d.ts",
+        "next.config.mjs",
+        "package.json",
+        "postcss.config.mjs",
+        "tsconfig.json",
+        "vitest.config.mts"
+      ]
+    },
+    {
+      "name": "documentation-and-static-assets",
+      "paths": [
+        "docs",
+        "public",
+        "CLAUDE.md",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "README.md",
+        "SECURITY.md"
+      ]
+    }
+  ]
+}
