@@ -4,6 +4,16 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-08-26
+
+**Docs**
+
+- refresh changelog
+
+**Chores**
+
+- `security` add Codex Security scanning
+
 ## 2026-08-24
 
 **Added**
