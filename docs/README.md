@@ -24,6 +24,7 @@ machine-verifiable facts. The repository quality gate runs it automatically.
 | [`DEVELOPMENT.md`](./DEVELOPMENT.md) | Development and release workflow |
 | [`CLI.md`](./CLI.md) | Generated `mso` CLI contract |
 | [`MCP.md`](./MCP.md) | MCP/OAuth internals and full external-tool security model |
+| [`MCP-FEATURE-IMPLEMENTATION.md`](./MCP-FEATURE-IMPLEMENTATION.md) | Stepwise reverse-engineering workflow for MCP tools, trusted skills and project capabilities |
 | [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup, diagrams, scopes and file bridge |
 | [`CONNECTORS-GATEWAY-INTEGRATION.md`](./CONNECTORS-GATEWAY-INTEGRATION.md) | MSO ↔ connectors-gateway action-name contract |
 | [`MANAGED-APPS.md`](./MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, backup/restore and dashboard access boundary |

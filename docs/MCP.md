@@ -5,6 +5,11 @@
 > setup values and diagrams. This file owns protocol, tool, discovery, workflow and
 > security internals.
 
+> For implementation or repair work, follow
+> [`MCP-FEATURE-IMPLEMENTATION.md`](./MCP-FEATURE-IMPLEMENTATION.md): resolve the live
+> target, map patterns and limits, reverse-engineer a working analogue, change one reversible
+> layer, then prove tool/skill parity and runtime behavior.
+
 mso ships an MCP server so an AI client can call the same host operations the web
 UI does: list and read files, write them, check CPU/memory/disk, list processes and
 managed apps, and — if you grant it — run shell commands.
