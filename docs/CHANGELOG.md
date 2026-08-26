@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` bound Codex component scope
 - `security` use complete Codex component scans
 - `security` size Codex budget for full scan
 
