@@ -2,79 +2,219 @@
   "components": [
     {
       "name": "application-routes-and-proxy",
-      "paths": ["app", "instrumentation.ts", "instrumentation.test.ts", "proxy.ts", "proxy.test.ts", "proxy-websocket.test.ts"]
+      "paths": [
+        "app",
+        "instrumentation.ts",
+        "instrumentation.test.ts",
+        "proxy.ts",
+        "proxy.test.ts",
+        "proxy-websocket.test.ts"
+      ]
     },
     {
       "name": "host-filesystem-and-execution",
-      "paths": ["lib/host"]
+      "paths": [
+        "lib/host"
+      ]
     },
     {
       "name": "authentication-mcp-and-os-api",
-      "paths": ["lib/auth", "lib/mcp", "lib/os-api", "lib/config", "lib/security-store-lock.ts", "lib/path.ts", "lib/path.test.ts"]
+      "paths": [
+        "lib/auth",
+        "lib/mcp",
+        "lib/os-api",
+        "lib/config",
+        "lib/security-store-lock.ts",
+        "lib/path.ts",
+        "lib/path.test.ts"
+      ]
     },
     {
       "name": "managed-app-lifecycle",
-      "paths": ["lib/managed-apps"]
+      "paths": [
+        "lib/managed-apps"
+      ]
     },
     {
       "name": "appearance-models-and-preferences",
-      "paths": ["lib/appearance", "lib/prefs", "lib/quicklinks", "lib/models", "lib/utils.ts", "lib/demo.ts"]
+      "paths": [
+        "lib/appearance",
+        "lib/prefs",
+        "lib/quicklinks",
+        "lib/models",
+        "lib/utils.ts",
+        "lib/demo.ts"
+      ]
     },
     {
       "name": "skills-ai-and-integrations",
-      "paths": ["lib/skills", "lib/ai", "lib/camoufox", "lib/agent", "lib/install-contract.test.ts", "lib/onboard-contract.test.ts", "lib/skill-market.test.ts"]
+      "paths": [
+        "lib/skills",
+        "lib/ai",
+        "lib/camoufox",
+        "lib/agent",
+        "lib/install-contract.test.ts",
+        "lib/onboard-contract.test.ts",
+        "lib/skill-market.test.ts"
+      ]
     },
     {
       "name": "appshell-rendering-components",
-      "paths": ["frontend/slices/appshell/components"]
+      "paths": [
+        "frontend/slices/appshell/components"
+      ]
     },
     {
       "name": "appshell-state-and-runtime",
-      "paths": ["frontend/slices/appshell/lib", "frontend/slices/appshell/hooks", "frontend/slices/appshell/provider", "frontend/slices/appshell/registry", "frontend/slices/appshell/responsive", "frontend/slices/appshell/runtime", "frontend/slices/appshell/defaults.ts", "frontend/slices/appshell/index.ts"]
+      "paths": [
+        "frontend/slices/appshell/lib",
+        "frontend/slices/appshell/hooks",
+        "frontend/slices/appshell/provider",
+        "frontend/slices/appshell/registry",
+        "frontend/slices/appshell/responsive",
+        "frontend/slices/appshell/runtime",
+        "frontend/slices/appshell/defaults.ts",
+        "frontend/slices/appshell/index.ts"
+      ]
     },
     {
       "name": "appshell-features-and-primitives",
-      "paths": ["frontend/slices/appshell/design", "frontend/slices/appshell/features", "frontend/slices/appshell/primitives"]
+      "paths": [
+        "frontend/slices/appshell/design",
+        "frontend/slices/appshell/features",
+        "frontend/slices/appshell/primitives"
+      ]
     },
     {
       "name": "system-shell-and-settings",
-      "paths": ["frontend/slices/os-shell", "frontend/slices/os-settings", "frontend/slices/shell-settings", "frontend/slices/system-monitor", "frontend/slices/quicklinks"]
+      "paths": [
+        "frontend/slices/os-shell",
+        "frontend/slices/os-settings",
+        "frontend/slices/shell-settings",
+        "frontend/slices/system-monitor",
+        "frontend/slices/quicklinks"
+      ]
     },
     {
       "name": "assistant-auth-and-app-store-ui",
-      "paths": ["frontend/slices/assistant", "frontend/slices/auth", "frontend/slices/app-store", "frontend/slices/create-app", "frontend/slices/docs"]
+      "paths": [
+        "frontend/slices/assistant",
+        "frontend/slices/auth",
+        "frontend/slices/app-store",
+        "frontend/slices/create-app",
+        "frontend/slices/docs"
+      ]
     },
     {
       "name": "managed-apps-ui",
-      "paths": ["frontend/slices/managed-apps"]
+      "paths": [
+        "frontend/slices/managed-apps"
+      ]
     },
     {
       "name": "workspace-browser-and-terminal-ui",
-      "paths": ["frontend/slices/camoufox-browser", "frontend/slices/code-editor", "frontend/slices/files-manager", "frontend/slices/os-terminal"]
+      "paths": [
+        "frontend/slices/camoufox-browser",
+        "frontend/slices/code-editor",
+        "frontend/slices/files-manager",
+        "frontend/slices/os-terminal"
+      ]
     },
     {
       "name": "image-editor-and-picker-ui",
-      "paths": ["frontend/slices/image-editor", "frontend/slices/image-picker"]
+      "paths": [
+        "frontend/slices/image-editor",
+        "frontend/slices/image-picker"
+      ]
     },
     {
       "name": "media-studio-viewer-and-reel-ui",
-      "paths": ["frontend/slices/media-studio", "frontend/slices/media-viewer", "frontend/slices/reel-editor"]
+      "paths": [
+        "frontend/slices/media-studio",
+        "frontend/slices/media-viewer",
+        "frontend/slices/reel-editor"
+      ]
     },
     {
       "name": "shared-ui-browser-and-extension-content",
-      "paths": ["components", "hooks", "components.json", "os-browser", "claude-skills", "skill-market", "skills", "templates"]
+      "paths": [
+        "components",
+        "hooks",
+        "components.json",
+        "os-browser",
+        "claude-skills",
+        "skill-market",
+        "skills",
+        "templates"
+      ]
     },
     {
       "name": "automation-ci-and-security-tooling",
-      "paths": [".github", "bin", "scripts", "security", ".env.example", ".gitignore", ".gitleaksignore", ".nvmrc", "bun.lock", "eslint.config.mjs", "global.d.ts", "next.config.mjs", "package.json", "postcss.config.mjs", "tsconfig.json", "vitest.config.mts"]
+      "paths": [
+        ".github",
+        "bin",
+        "scripts",
+        "security",
+        ".env.example",
+        ".gitignore",
+        ".gitleaksignore",
+        ".nvmrc",
+        "bun.lock",
+        "eslint.config.mjs",
+        "global.d.ts",
+        "next.config.mjs",
+        "package.json",
+        "postcss.config.mjs",
+        "tsconfig.json",
+        "vitest.config.mts"
+      ]
     },
     {
-      "name": "documentation-and-policy",
-      "paths": ["docs", "CLAUDE.md", "CONTRIBUTING.md", "LICENSE", "README.md", "SECURITY.md"]
+      "name": "security-architecture-and-operations-docs",
+      "paths": [
+        "docs/9ROUTER-INTEGRATION.md",
+        "docs/ARCHITECTURE.md",
+        "docs/AUDIT-2026-06-11.md",
+        "docs/AUDIT-2026-08-24.md",
+        "docs/CHATGPT-PLUGIN.md",
+        "docs/CONNECTORS-GATEWAY-INTEGRATION.md",
+        "docs/DEVELOPMENT.md",
+        "docs/FAQ.md",
+        "docs/HERMES-INTEGRATION.md",
+        "docs/INSTALL.md",
+        "docs/MANAGED-APPS.md",
+        "docs/MCP.md",
+        "docs/MODELS-INTEGRATION.md",
+        "docs/OPENCLAW-INTEGRATION.md",
+        "docs/SECURITY-ASSURANCE.md",
+        "docs/TROUBLESHOOTING.md",
+        "SECURITY.md"
+      ]
+    },
+    {
+      "name": "product-history-and-media-docs",
+      "paths": [
+        "docs/CHANGELOG.md",
+        "docs/CLI.md",
+        "docs/DEMO-SCRIPT.md",
+        "docs/DRAWER-MENU-BYOK-PLAN.md",
+        "docs/PRODUCT_HUNT.md",
+        "docs/PROGRESS.md",
+        "docs/README.md",
+        "docs/SHELL-FIDELITY-PLAN.md",
+        "docs/SLICE-CATALOG.md",
+        "docs/media",
+        "CLAUDE.md",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "README.md"
+      ]
     },
     {
       "name": "public-static-assets",
-      "paths": ["public"]
+      "paths": [
+        "public"
+      ]
     }
   ]
 }
