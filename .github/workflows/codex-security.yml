@@ -31,7 +31,7 @@ jobs:
       CODEX_SECURITY_AUTH: api-key
       CODEX_SECURITY_MODE: ${{ inputs.mode }}
       CODEX_SECURITY_FAIL_ON_SEVERITY: high
-      CODEX_SECURITY_MAX_COST_USD: "5"
+      CODEX_SECURITY_MAX_COST_USD: "15"
       CODEX_SECURITY_MAX_TIME_HOURS: "1.5"
 
     steps:

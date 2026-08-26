@@ -73,7 +73,7 @@ fi
 
 if [[ "${MSO_SECURITY_SKIP_CODEX:-0}" != "1" ]]; then
   run_capture "Codex Security repository" env CODEX_SECURITY_MODE="${MSO_SECURITY_CODEX_MODE:-standard}" CODEX_SECURITY_FAIL_ON_SEVERITY=high \
-    CODEX_SECURITY_MAX_COST_USD="${CODEX_SECURITY_MAX_COST_USD:-5}" \
+    CODEX_SECURITY_MAX_COST_USD="${CODEX_SECURITY_MAX_COST_USD:-15}" \
     CODEX_SECURITY_OUTPUT_ROOT="$RUN_DIR/codex-results" \
     CODEX_SECURITY_STATE_DIR="$RUN_DIR/codex-state" \
     ./scripts/codex-security-scan.sh
