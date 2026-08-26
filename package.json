@@ -16,6 +16,7 @@
     "check": "node scripts/check-cycles.mjs && node scripts/check-docs.mjs && node scripts/check-contrast.mjs && node scripts/check-skill-flows.mjs",
     "audit": "node scripts/audit.mjs",
     "verify": "bun run typecheck && bun run lint && bun run coverage && bun run check && bun run audit",
+    "security:ultimate": "bash scripts/security-ultimate.sh",
     "e2e": "node scripts/e2e/shell.mjs",
     "e2e:preview": "node scripts/e2e/preview.mjs",
     "changelog": "node scripts/gen-changelog.mjs",

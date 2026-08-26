@@ -35,7 +35,16 @@ args=(
 )
 
 if [[ "$MODE" == "deep" ]]; then
-  args+=(--max-time-hours "${CODEX_SECURITY_MAX_TIME_HOURS:-1.5}")
+  # Use OpenAI's conservative documented Deep Scan profile by default. Keeping
+  # worker/subagent counts explicit makes the assurance run reproducible across
+  # hosts and avoids silently inheriting more aggressive engine defaults.
+  args+=(
+    --workers "${CODEX_SECURITY_WORKERS:-2}"
+    --subagents "${CODEX_SECURITY_SUBAGENTS:-0}"
+    --stop-after-no-new "${CODEX_SECURITY_STOP_AFTER_NO_NEW:-3}"
+    --max-discovery-runs "${CODEX_SECURITY_MAX_DISCOVERY_RUNS:-10}"
+    --max-time-hours "${CODEX_SECURITY_MAX_TIME_HOURS:-1.5}"
+  )
 fi
 if [[ "${CODEX_SECURITY_DRY_RUN:-0}" == "1" ]]; then
   args+=(--dry-run)

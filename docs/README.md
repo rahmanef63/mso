@@ -22,6 +22,7 @@ machine-verifiable facts. The repository quality gate runs it automatically.
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Current runtime, shell, host, MCP and deployment architecture |
 | [`INSTALL.md`](./INSTALL.md) | Owner installation, TLS, updates, backup and uninstall |
 | [`DEVELOPMENT.md`](./DEVELOPMENT.md) | Development and release workflow |
+| [`SECURITY-ASSURANCE.md`](./SECURITY-ASSURANCE.md) | Repeatable security verification lanes, public evidence, and claim boundaries |
 | [`CLI.md`](./CLI.md) | Generated `mso` CLI contract |
 | [`MCP.md`](./MCP.md) | MCP/OAuth internals and full external-tool security model |
 | [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup, diagrams, scopes and file bridge |

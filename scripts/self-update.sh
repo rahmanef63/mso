@@ -14,7 +14,8 @@
 # from. That build is unrecoverable in place — there is no old .next to put back.
 set -uo pipefail
 
-cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
+cd "$ROOT" || exit 1
 
 LOG="${MSO_UPDATE_LOG:-$HOME/.mso/self-update.log}"
 mkdir -p "$(dirname "$LOG")"

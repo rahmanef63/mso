@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Reproducible MSO security assurance gate. Scanner details stay private; stdout is a pass/fail summary.
+set -euo pipefail
+umask 077
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
+cd "$ROOT"
+
+TRIVY_IMAGE='aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969' # 0.74.0
+OSV_IMAGE='ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734' # 2.5.1
+GITLEAKS_IMAGE='zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f' # 8.30.1
+SEMGREP_IMAGE='semgrep/semgrep@sha256:f1f7b71861c7b28b6e0f661225a2c4f58a484f5d0f182465c6d6b3b22f972ade' # 1.174.0
+SHELLCHECK_IMAGE='koalaman/shellcheck-alpine@sha256:9955be09ea7f0dbf7ae942ac1f2094355bb30d96fffba0ec09f5432207544002' # 0.11.0
+ZAP_IMAGE="${MSO_SECURITY_ZAP_IMAGE:-ghcr.io/zaproxy/zaproxy@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef}" # 2.17.0
+DAST_URL="${MSO_SECURITY_DAST_URL:-https://mso.rahmanef.com}"
+
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+STATE_BASE="${MSO_SECURITY_STATE_BASE:-$HOME/.mso/security-assurance}"
+RUN_DIR="${MSO_SECURITY_OUTPUT_DIR:-$STATE_BASE/$STAMP}"
+SRC="$RUN_DIR/source"
+LOGS="$RUN_DIR/logs"
+mkdir -p "$SRC" "$LOGS"
+chmod 700 "$RUN_DIR" "$SRC" "$LOGS"
+
+cleanup() {
+  rm -rf "$SRC"
+}
+trap cleanup EXIT INT TERM
+
+need() { command -v "$1" >/dev/null 2>&1 || { echo "security: missing dependency: $1" >&2; exit 2; }; }
+need git; need docker; need bun; need tar
+
+echo "MSO ultimate security gate"
+echo "revision=$(git rev-parse --short=12 HEAD)"
+echo "private_logs=$LOGS"
+
+# Snapshot tracked files only: current tracked edits are included, untracked .env/state files are not.
+git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$SRC"
+
+run_capture() {
+  local name="$1"; shift
+  local safe_name="${name//[^A-Za-z0-9._-]/-}"
+  local log="$LOGS/$safe_name.log"
+  mkdir -p "$LOGS"
+  printf '%-28s ' "$name"
+  if "$@" >"$log" 2>&1; then
+    echo PASS
+  else
+    echo FAIL
+    echo "security: $name failed; private diagnostics: $log" >&2
+    return 1
+  fi
+}
+
+run_capture "repository verify" bun run verify
+run_capture "installer syntax" bash -n scripts/install.sh
+run_capture "Trivy high/critical" docker run --rm -v "$SRC:/src:ro" "$TRIVY_IMAGE" \
+  fs --scanners vuln,misconfig,secret --severity HIGH,CRITICAL --exit-code 1 /src
+run_capture "OSV dependencies" docker run --rm -v "$SRC:/src:ro" "$OSV_IMAGE" \
+  scan source --recursive /src
+run_capture "Gitleaks history" docker run --rm -v "$ROOT:/repo:ro" "$GITLEAKS_IMAGE" \
+  git --no-banner --redact --gitleaks-ignore-path /repo/.gitleaksignore /repo
+run_capture "Semgrep OWASP/SAST" docker run --rm -v "$SRC:/src:ro" "$SEMGREP_IMAGE" \
+  semgrep scan --metrics=off --config=p/javascript --config=p/typescript --config=p/owasp-top-ten --error /src
+
+mapfile -t shell_files < <(git grep -Il '^#!.*sh' -- '*.sh' 'bin/*' 'scripts/*' 'claude-skills/*' || true)
+shell_args=()
+for file in "${shell_files[@]}"; do shell_args+=("/src/$file"); done
+if ((${#shell_args[@]} > 0)); then
+  run_capture "ShellCheck warnings" docker run --rm -v "$SRC:/src:ro" "$SHELLCHECK_IMAGE" \
+    shellcheck --severity=warning -e SC1090,SC2034 "${shell_args[@]}"
+fi
+
+if [[ "${MSO_SECURITY_SKIP_CODEX:-0}" != "1" ]]; then
+  run_capture "Codex Security repository" env CODEX_SECURITY_MODE="${MSO_SECURITY_CODEX_MODE:-standard}" CODEX_SECURITY_FAIL_ON_SEVERITY=high \
+    CODEX_SECURITY_MAX_COST_USD="${CODEX_SECURITY_MAX_COST_USD:-5}" \
+    CODEX_SECURITY_OUTPUT_ROOT="$RUN_DIR/codex-results" \
+    CODEX_SECURITY_STATE_DIR="$RUN_DIR/codex-state" \
+    ./scripts/codex-security-scan.sh
+else
+  printf '%-28s %s\n' "Codex Security repository" SKIPPED
+fi
+
+if [[ "${MSO_SECURITY_SKIP_DAST:-0}" != "1" ]]; then
+  if [[ -z "$ZAP_IMAGE" ]]; then
+    echo "security: MSO_SECURITY_ZAP_IMAGE is required unless MSO_SECURITY_SKIP_DAST=1" >&2
+    exit 2
+  fi
+  ZAP_WORK="$RUN_DIR/zap-work"
+  mkdir -p "$ZAP_WORK"
+  cp "$ROOT/security/zap-baseline.conf" "$ZAP_WORK/zap-baseline.conf"
+  # ZAP 2.17's Automation Framework writes zap.yaml/report state under /zap/wrk.
+  # The parent RUN_DIR is 0700; this child is writable only so the unprivileged
+  # container user can create its ephemeral files. It contains no credentials.
+  chmod 777 "$ZAP_WORK"
+  chmod 644 "$ZAP_WORK/zap-baseline.conf"
+  run_capture "OWASP ZAP baseline" docker run --rm -t \
+    -v "$ZAP_WORK:/zap/wrk:rw" "$ZAP_IMAGE" \
+    zap-baseline.py -t "$DAST_URL" -m 2 -c zap-baseline.conf
+  chmod 700 "$ZAP_WORK"
+else
+  printf '%-28s %s\n' "OWASP ZAP baseline" SKIPPED
+fi
+
+echo "security: ULTIMATE PASS"

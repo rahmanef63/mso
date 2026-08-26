@@ -53,7 +53,7 @@ login() {
   code=$(jq -n --arg p "$PASS" --arg d "$DEV" '{password:$p,deviceId:$d,deviceLabel:"os-image-editor cli"}' \
     | curl -sS -o /dev/null -w '%{http_code}' -c "$JAR" "${ORIGIN[@]}" -X POST "$B/api/auth/login" \
     -H 'content-type: application/json' -d @- || true)
-  [ "$code" = "200" ] || { echo "login failed ($code). approve device? → node "$MSO_ROOT/scripts/approve-device.js" "$DEV"" >&2; exit 1; }
+  [ "$code" = "200" ] || { printf 'login failed (%s). approve device? → node "%s" "%s"\n' "$code" "$MSO_ROOT/scripts/approve-device.js" "$DEV" >&2; exit 1; }
 }
 [ -f "$JAR" ] || login
 

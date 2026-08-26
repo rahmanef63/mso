@@ -1,47 +1,43 @@
 name: CI
 
-# MANUAL ONLY — `gh workflow run CI`, or the Actions tab.
-#
-# This ran on every push to main and every PR until 2026-07-30, at roughly 80 s of
-# hosted-runner time per push, duplicating a `pre-push` hook that already runs
-# typecheck + lint + test + check locally and blocks the push when they fail.
-#
-# Three steps here are NOT covered by that hook, and they are the reason this file
-# still exists rather than being deleted:
-#   • `bun install --frozen-lockfile` from a clean checkout — the only thing that
-#     catches lockfile drift, because the hook runs against an existing node_modules
-#   • `bash -n scripts/install.sh`
-#   • `bun run build`
-# So run it by hand before cutting a release, or after touching package.json,
-# bun.lock or scripts/install.sh.
-#
-# bun is the INSTALLER only. Node 22 is still set up below and is what actually runs
-# tsc/eslint/vitest/next — they all carry a `#!/usr/bin/env node` shebang and bun
-# honours it — which matches production, where the unit's ExecStart is `npm run start`.
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     name: Verify
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Validate native dependency
+        run: node -e "require('node-pty')"
 
       - name: Validate installer syntax
         run: bash -n scripts/install.sh
@@ -52,28 +48,14 @@ jobs:
       - name: Lint
         run: bun run lint
 
-      # `bun run test`, never `bun test`: the latter is bun's builtin runner, which
-      # shadows the script, ignores vitest.config.mts and exits 0 having run nothing.
-      - name: Test
-        run: bun run test
+      - name: Tests and coverage
+        run: bun run coverage
 
-      - name: Slice checks
+      - name: Repository checks
         run: bun run check
 
-      # RAW command, and fail-closed ON PURPOSE — deliberately NOT `bun run audit`.
-      # `bun audit` exits 1 both for "found a high" and for "could not reach the
-      # registry". scripts/audit.mjs (what `bun run audit` calls) treats the second
-      # case as a skip, so a flaky VPS cannot manufacture a fake CVE locally. A
-      # release gate must make the opposite trade: never pass an audit it could not
-      # actually perform. Added 2026-08-03, when the first run ever caught
-      # sharp <0.35.0 (libvips CVEs) sitting transitively under next.
-      #
-      # If a high ever lands with no upstream fix, do NOT lower this to `critical` —
-      # that silently disables the ENTIRE high tier. Add the GHSA id to the IGNORE map
-      # in scripts/audit.mjs with a reason and a date, then mirror it here with
-      # `--ignore=<id>` so the two halves agree.
       - name: Audit dependencies
         run: bun audit --audit-level=high
 
-      - name: Build
+      - name: Production build
         run: bun run build

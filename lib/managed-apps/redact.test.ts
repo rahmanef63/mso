@@ -36,18 +36,18 @@ describe("secrets that reached a persisted transcript before this widened", () =
       "remote: HTTP Basic: Access denied. The provided token ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6 is invalid.",
       "ghp_A1b2",
     ],
-    ["an npm registry auth line, where the key is a compound", "//registry.npmjs.org/:_authToken=npm_Xy12Ab34Cd56Ef78Gh90Ij12Kl34Mn", "npm_"],
+    ["an npm registry auth line, where the key is a compound", "//registry.npmjs.org/:_authToken=npm_Xy12Ab34Cd56Ef78Gh90Ij12Kl34Mn", "npm_"], // gitleaks:allow — intentionally synthetic redaction fixture
     ["an env assignment with no word boundary before API", "ANTHROPIC_API_KEY=sk-ant-api03-Zz99Yy88Xx77Ww66Vv55", "sk-ant"],
-    ["the same, exported by a shell line the CLI echoed", "export OPENAI_API_KEY=sk-proj-Qq11Ww22Ee33Rr44Tt55Yy66", "sk-proj"],
-    ['json with the quote between key and colon', '{"api_key": "sk-live-Aa11Bb22Cc33Dd44Ee55"}', "sk-live"],
-    ["the camelCase json spelling openclaw --json prints", '{"apiKey":"sk-live-Ff66Gg77Hh88Ii99Jj00"}', "sk-live"],
+    ["the same, exported by a shell line the CLI echoed", "export OPENAI_API_KEY=sk-proj-Qq11Ww22Ee33Rr44Tt55Yy66", "sk-proj"], // gitleaks:allow — intentionally synthetic redaction fixture
+    ['json with the quote between key and colon', '{"api_key": "sk-live-Aa11Bb22Cc33Dd44Ee55"}', "sk-live"], // gitleaks:allow — intentionally synthetic redaction fixture
+    ["the camelCase json spelling openclaw --json prints", '{"apiKey":"sk-live-Ff66Gg77Hh88Ii99Jj00"}', "sk-live"], // gitleaks:allow — intentionally synthetic redaction fixture
     ["credentials inside a URL", "fatal: unable to access https://rahman:hunter2horse@github.com/x/y.git/", "hunter2horse"],
     // Assembled rather than written out: as one literal this fixture trips
     // GitHub's push protection and the push is rejected. It is a made-up value,
     // but a scanner cannot know that, and the test needs the shape, not a string.
     ["a slack bot token", `posting to ${"xoxb"}-1111111111-2222222222-AbCdEfGhIjKlMnOp`, "xoxb-"],
     ["an AWS key id", "aws configure: found AKIAIOSFODNN7EXAMPLE in the environment", "AKIA"],
-    ["a JWT", "auth failed for eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U", "eyJhbGciOi"],
+    ["a JWT", "auth failed for eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U", "eyJhbGciOi"], // gitleaks:allow — intentionally synthetic redaction fixture
   ];
 
   for (const [what, line, leaked] of cases) {
@@ -62,7 +62,7 @@ describe("secrets that reached a persisted transcript before this widened", () =
     expect(redact("fatal: unable to access https://rahman:hunter2horse@github.com/x/y.git/")).toBe(
       "fatal: unable to access https://rahman:[redacted]@github.com/x/y.git/",
     );
-    expect(redact('{"apiKey":"sk-live-Ff66Gg77Hh88Ii99Jj00"}')).toBe('{"apiKey":"[redacted]"}');
+    expect(redact('{"apiKey":"sk-live-Ff66Gg77Hh88Ii99Jj00"}')).toBe('{"apiKey":"[redacted]"}'); // gitleaks:allow — intentionally synthetic redaction fixture
     // Still a header line, still named — only the credential is gone.
     const header = redact("Authorization: Bearer abcdefghijklmnop");
     expect(header).toContain("Authorization");

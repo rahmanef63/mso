@@ -16,6 +16,9 @@
 
 <p align="center">
   <a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a>
+  <a href="https://github.com/rahmanef63/mso/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rahmanef63/mso/actions/workflows/codeql.yml/badge.svg" /></a>
+  <a href="https://github.com/rahmanef63/mso/actions/workflows/security-core.yml"><img alt="Security Core" src="https://github.com/rahmanef63/mso/actions/workflows/security-core.yml/badge.svg" /></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/rahmanef63/mso"><img alt="OpenSSF Scorecard" src="https://api.scorecard.dev/projects/github.com/rahmanef63/mso/badge" /></a>
   <img alt="Open Source" src="https://img.shields.io/badge/Open%20Source-MIT-green" />
   <img alt="Self-hosted" src="https://img.shields.io/badge/Self--hosted-yes-2f7bf6" />
   <img alt="Public Alpha" src="https://img.shields.io/badge/Public%20Alpha-Developer%20Preview-f59e0b" />
@@ -36,6 +39,8 @@
 MSO is **Public Alpha / Developer Preview** software. It runs on top of Linux as a normal non-root Node process. It is not an operating system, Linux distribution, desktop environment, VPS provider, or production-grade security platform.
 
 For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy with tight access control**. Do not expose the raw app port to the public internet.
+
+**Security assurance:** MSO publishes its [security policy](./SECURITY.md) and [repeatable assurance process](./docs/SECURITY-ASSURANCE.md), with CodeQL, independent SAST/dependency/secret scanners, OpenSSF Scorecard, SBOM generation, passive OWASP ZAP checks, and MSO-specific security regression tests. The evidence is intentionally presented as testing—not as a security certification.
 
 ## Product screenshot/video
 

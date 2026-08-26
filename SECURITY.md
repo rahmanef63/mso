@@ -4,12 +4,15 @@ Manef Shell OS is Public Alpha / Developer Preview software. It has not had a
 third-party security audit. Only the latest commit on `main` is supported; there are no
 release branches yet.
 
+The project's repeatable automated and manual verification lanes are documented in
+[`docs/SECURITY-ASSURANCE.md`](./docs/SECURITY-ASSURANCE.md). They are security evidence, not
+a certification or a substitute for an independent third-party audit.
+
 ## Reporting a vulnerability
 
-Do not open a public issue containing exploit details or secrets. Use GitHub's private
-vulnerability-reporting flow for this repository. Include the affected commit, reproduction
-steps, impact and sanitized logs. If private reporting is unavailable, open only a minimal
-public issue asking the maintainer to enable private advisory intake.
+Do not open a public issue containing exploit details or secrets. GitHub private
+vulnerability reporting is enabled for this repository; use **Security → Report a vulnerability**.
+Include the affected commit, reproduction steps, impact and sanitized logs.
 
 Never post passwords, session secrets, API keys, bearer tokens, private file contents,
 Camoufox profile data or full environment files.

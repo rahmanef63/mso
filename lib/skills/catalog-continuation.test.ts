@@ -16,6 +16,11 @@ afterEach(async () => { await Promise.all(temps.splice(0).map((d) => rm(d, { rec
 
 const body = (name: string) => `---\nname: ${name}\ndescription: ${name} desc\n---\n\n# ${name}\n`;
 
+// These two continuation tests intentionally create 300+ real filesystem entries.
+// The production scanner still enforces maxScanMs=4s; this timeout only prevents
+// coverage/loaded-CI overhead from turning correct cursor behavior into a 5s Vitest flake.
+const LARGE_FS_TEST_TIMEOUT_MS = 15_000;
+
 async function skillsIn(root: string, count: number, prefix: string) {
   await mkdir(root, { recursive: true });
   await Promise.all(Array.from({ length: count }, async (_, i) => {
@@ -57,7 +62,7 @@ describe("maxProjectSkills continuation returns the remainder of a partially con
     const all = await drain(opts);
     // 310 project skills in total, none dropped.
     expect([...all].filter((id) => id.includes("/")).length).toBe(310);
-  });
+  }, LARGE_FS_TEST_TIMEOUT_MS);
 
   it("records the exact interrupted root rather than marking it complete", async () => {
     const workspace = await temp();
@@ -74,7 +79,7 @@ describe("maxProjectSkills continuation returns the remainder of a partially con
 
     const all = await drain(opts);
     expect([...all].filter((id) => id.includes("/")).length).toBe(SKILL_SCAN_LIMITS.maxProjectSkills + 20);
-  });
+  }, LARGE_FS_TEST_TIMEOUT_MS);
 });
 
 describe("a deadline never advances the cursor past an unprocessed entry", () => {
