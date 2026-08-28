@@ -14,6 +14,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `security` block recursive credential relocation
 
+**Chores**
+
+- `security` update Codex Security to 0.1.21
+
 ## 2026-08-26
 
 **Added**
