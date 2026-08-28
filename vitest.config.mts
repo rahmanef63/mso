@@ -28,7 +28,7 @@ export default defineConfig({
       "frontend/slices/**/*.test.{ts,tsx}",
       "lib/**/*.test.{ts,tsx}",
       "bin/**/*.test.{ts,tsx}",
-      "scripts/e2e/**/*.test.{ts,tsx}",
+      "scripts/**/*.test.{ts,tsx}",
       "instrumentation.test.ts",
       // Root-level modules Next requires by name (middleware is `proxy.ts` in 16),
       // so their tests are colocated at the root and named one by one. NAMED, not

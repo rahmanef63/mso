@@ -32,7 +32,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `quicklinks` | Website shortcuts/favicons |
 | `reel-editor` | Video/reel timeline editor |
 | `shell-settings` | Shared shell settings UI primitives |
-| `system-monitor` | CPU/memory/disk/process monitoring |
+| `system-monitor` | Live metrics/processes plus service inventory/logs/allowlisted lifecycle and cache-only package updates |
 
 ## AppShell feature directories (10)
 

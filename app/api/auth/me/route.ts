@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/require-session";
+import { getSessionContext } from "@/lib/auth/require-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Lightweight session probe for the client AuthGate. No secrets returned.
+// Lightweight live authorization probe. Role is resolved from the device store on
+// every request, never trusted from a long-lived cookie.
 export async function GET() {
-  const session = await getSession();
+  const context = await getSessionContext();
   return NextResponse.json({
-    authenticated: session !== null,
-    deviceId: session?.device_id ?? null,
-  });
+    authenticated: context !== null,
+    deviceId: context?.session.device_id ?? null,
+    deviceLabel: context?.device.label ?? null,
+    role: context?.role ?? null,
+  }, { headers: { "Cache-Control": "no-store" } });
 }

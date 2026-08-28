@@ -39,7 +39,7 @@ Usage: mso [options] <command> [args]
 
 mso.rahmanef.com is only ONE frontend. Everything it can do is a call to the
 same /api surface, so this CLI reaches every feature without a browser.
-Auth = signed session cookie (password + approved device), cached in a jar.
+Auth = signed session cookie (password + approved device role), cached in a jar.
 
 Options:
   --base <url>         API base to talk to (default http://127.0.0.1:4005)
@@ -69,6 +69,9 @@ Commands:
   exec <cmd…>          Run a shell command on the host (full power)
   stats                CPU, memory, disk
   ps                   Process table
+  units [query]        systemd service inventory (system + user)
+  unit *               logs | start | stop | restart for exact allowlisted units
+  packages             Cached package-update visibility (never applies updates)
   cleanup [--run]      Reclaimable junk; --run actually deletes it
   status               Public service status (no session needed)
   health               Is this CLI's session valid?
@@ -98,9 +101,9 @@ Commands:
   stock <query> [page] Stock-image search (Unsplash key optional, Openverse fallback)
 
  Devices  (a local file — these work while the service is down)
-  device *             list | pending | approve | revoke | revoke all --yes
+  device *             list | pending | approve [--role] | role | revoke | revoke all --yes
   devices              Alias for `device list`
-  approve <id> [label] Approve a device id
+  approve <id> [label] [--role ...]  Approve a device id
   revoke <id>          Revoke one device
   whoami               This CLI's device id + session state
   login                Force a fresh login
@@ -123,8 +126,8 @@ Examples:
     First thing to run when something is off — it names the broken layer.
   mso device pending
     See who typed the correct password and is waiting to be let in.
-  mso device approve <id> "my phone"
-    Let that device sign in.
+  mso device approve <id> "my phone" --role viewer
+    Let that device sign in with least-privilege read access.
   mso exec "systemctl status nginx"
     Run anything on the host, as the user that owns the process.
   mso camoufox start && mso camoufox session

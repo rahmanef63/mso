@@ -26,7 +26,7 @@ const PASSWD_FILE = process.env.CAMOUFOX_VNC_PASSWD_TEXT
 export async function GET() {
   // Demo has no host, no display and no session — never hand out a credential there.
   if (IS_DEMO) return NextResponse.json({ error: "unavailable" }, { status: 404 });
-  if (!(await requireSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireSession("operator"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const password = (await fs.readFile(PASSWD_FILE, "utf8").catch(() => "")).trim();
   // Absent file = the operator has not set one. Say so plainly rather than 500 — the

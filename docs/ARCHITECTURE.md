@@ -10,8 +10,8 @@ bounded host layer rather than each implementing filesystem or process access.
 
 ```mermaid
 flowchart LR
-  B[Browser / phone] -->|HTTPS + signed session| N[MSO Next.js :4005]
-  C[CLI `mso`] -->|local HTTP + approved device session| N
+  B[Browser / phone] -->|HTTPS + live device role| N[MSO Next.js :4005]
+  C[CLI `mso`] -->|local HTTP + approved device role| N
   A[Alfa] -->|HostTool catalog + per-call approvals| H[lib/host]
   X[ChatGPT / Claude / Cursor] -->|OAuth bearer + MCP| M[/mcp dispatcher]
   N --> API[/api/v1/*]
@@ -19,7 +19,7 @@ flowchart LR
   M --> H
   M --> D[project + skill discovery]
   H --> F[filesystem jail]
-  H --> P[PTY / exec / system metrics]
+  H --> P[PTY / exec / metrics / services / packages]
   H --> MA[managed apps]
   MA --> HE[Hermes]
   MA --> OC[OpenClaw]
@@ -30,9 +30,9 @@ flowchart LR
 
 | Boundary | Authority | Notes |
 |---|---|---|
-| Browser owner session | `lib/auth/*`, `/api/auth/*` | Password + approved device + HMAC-signed cookie. |
+| Browser device session | `lib/auth/*`, `/api/auth/*` | Password + approved device + HMAC-signed cookie; live Viewer/Operator/Owner role. |
 | Host operations | `lib/host/*` | Filesystem roots, credential denylist, process/system operations, audit. |
-| Web host API | `/api/v1/*` | Session-gated routes; routes delegate into `lib/host`. |
+| Web host API | `/api/v1/*` | Live-role-gated routes; unknown mutations fail up to Owner and routes delegate into `lib/host`. |
 | CLI | `bin/mso` | Another frontend over the same web API; `docs/CLI.md` is generated from it. |
 | Alfa | `frontend/slices/assistant/host-tools/*` | Stable tool catalog; reads run immediately, mutations require human approval. |
 | MCP | `lib/mcp/*`, `/mcp`, `/oauth/*` | OAuth 2.1 + PKCE; `read < write < exec` token scope. |
@@ -52,7 +52,7 @@ frontend/slices/             vertical application slices
   appshell/                  generic shell framework
     features/                shell features
   os-shell/                  MSO manifest + capability adapters
-lib/auth/                    login/session/device approval
+lib/auth/                    login/session/device approval + live roles
 lib/host/                    bounded host capability implementation
 lib/mcp/                     OAuth/MCP tool catalog and dispatcher
 lib/managed-apps/            Hermes/OpenClaw/9Router lifecycle/update/backup/proxy
@@ -110,7 +110,7 @@ through the app catch-all.
 - `fs/*` — list/read/search/write/upload/move/copy/delete/zip/usage
 - `exec/run` — one-shot captured command execution
 - `term/*` — interactive PTY lifecycle and streaming
-- `sys/*` — stats, processes, cleanup, audit and self-update
+- `sys/*` — stats, processes, service inventory/journal/allowlisted lifecycle, package-cache visibility, cleanup, audit and self-update
 - `camoufox/*` — browser service/session control
 - `managed-apps/*` — Hermes/OpenClaw/9Router lifecycle, jobs, backups and optional proxying
 
@@ -122,6 +122,20 @@ operator explicitly enables the documented escape hatch.
 Interactive PTYs are intentionally stronger than filtered one-shot exec. A PTY is a real
 login shell; raw keystrokes do not have reliable command boundaries. Authentication and
 session lifecycle are therefore the boundary, not the one-shot destructive-command regex.
+
+### 5.1 Device role policy
+
+Approved browsers carry no role claim in their cookie. `getSessionContext()` resolves the current
+device record on every request, so demotion/revocation is immediate. Viewer owns bounded read
+surfaces; Operator receives only named operational exceptions; Owner receives mutation/shell/config
+authority. The centralized route policy treats every explicit read routes as Viewer and every unclassified route as Owner, so a newly added POST fails closed until deliberately classified. The shell
+filters app descriptors for usability, but server policy—not hidden UI—is the authorization layer.
+
+System Monitor's Service Center follows the same model: inventory is Viewer, journal is Operator,
+and lifecycle is Operator plus an exact `OS_SERVICE_CONTROL_UNITS` match. Package visibility runs
+cache-only and exposes no apply action. These are MSO roles over one Unix process account, not an
+identity directory, Linux-user switch, or tenant boundary. Appearance/Theme/Quicklinks are still a
+single deployment-wide prefs document: delegated devices read it; Owner is the only writer.
 
 ## 6. Alfa versus MCP
 
@@ -187,7 +201,7 @@ See `docs/MANAGED-APPS.md`, `docs/HERMES-INTEGRATION.md`,
 
 The Browser app is a real Camoufox Firefox session on a headless X display. It is streamed
 through noVNC on a reserved split-origin host such as `camoufox.mso.example.com`. That host
-verifies the approved device, strips cockpit cookies/authorization before upstream, and maps
+verifies an Operator/Owner device, strips cockpit cookies/authorization before upstream, and maps
 every path only to loopback noVNC. The old same-origin `/camoufox-vnc/*` route always returns
 404. The service is a systemd **user** unit and is deliberately off by default; the UI starts it
 when needed. `scripts/camoufox-vnc-service` owns the launch contract.
@@ -219,11 +233,11 @@ supported recovery rebuild. See `docs/INSTALL.md`, `docs/DEVELOPMENT.md` and
 When sources disagree, use this order:
 
 1. current code + runtime descriptors (`GET /mcp`, `/api/health`);
-2. generated contracts (`docs/CLI.md`, `docs/CHANGELOG.md`);
+2. generated contracts (`docs/CLI.md`, `docs/CHANGELOG.md`, `docs/COMPARISON.md`);
 3. current reference docs listed in `docs/README.md`;
 4. `docs/PROGRESS.md` for historical reasoning;
 5. dated audits/plans for their point-in-time context only.
 
-`node scripts/check-docs.mjs` checks current-reference links and selected machine-verifiable
-facts (MCP toolset and slice counts) so common drift becomes a gate failure instead of a
+`node scripts/check-docs.mjs` plus `node scripts/gen-comparison.mjs --check` check current-reference links,
+selected machine-verifiable facts, comparison evidence and source-review freshness so common drift becomes a gate failure instead of a
 future archaeology task.

@@ -14,8 +14,9 @@ Manage your Linux server from any browser.
 ## Description
 
 MSO is an open-source, mobile-friendly visual shell for a Linux server you own. It combines
-Files, real PTY Terminal, Code with an integrated terminal, live system metrics, a remote
-Camoufox browser, media tools, optional BYOK Alfa AI, and managed Hermes/OpenClaw controls
+Files, real PTY Terminal, Code with an integrated terminal, live metrics, a safe Service Center,
+cached package-update visibility, a remote Camoufox browser, device-scoped roles, media tools,
+optional BYOK Alfa AI, and managed Hermes/OpenClaw controls
 inside one private browser workspace.
 
 ## First comment draft
@@ -27,9 +28,11 @@ transfer tools, metrics dashboards, docs and AI chat.
 MSO is not a Linux distribution, desktop environment or VPS provider. "OS" is the interface
 metaphor: a responsive workspace over a server you already own.
 
-It is deliberately single-owner. An authenticated session can access files and run commands
-as the Linux user that owns the process, so the recommended deployment is behind Tailscale
-or another tightly controlled HTTPS path. The public demo uses mock data only.
+It is owner-first, with live Viewer, Operator, and Owner roles assigned per approved device.
+Owner remains shell-equivalent to the Linux service account; Operator is limited to bounded,
+owner-allowlisted operations; Viewer is read-oriented. This is not enterprise identity or SSO,
+so the recommended deployment is still behind Tailscale or another tightly controlled HTTPS path.
+The public demo uses mock data only.
 
 The project is Public Alpha / Developer Preview and has not had a third-party security
 audit. I am looking for feedback on the core workflow before widening scope.
@@ -44,7 +47,8 @@ audit. I am looking for feedback on the core workflow before widening scope.
 ## Known limitations to disclose
 
 - Public Alpha / Developer Preview
-- Single-owner, no multi-user RBAC
+- Device-scoped roles, but no named-user directory, OIDC/SSO, Linux-account mapping, or tenant isolation
 - No third-party security audit
 - Private-network/TLS deployment strongly recommended
+- Service actions are disabled until exact units are owner-allowlisted; package updates are visibility-only
 - Some integrations (Camoufox, Hermes/OpenClaw, MCP, model providers) are optional

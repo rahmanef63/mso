@@ -3,7 +3,7 @@
 import { Lock, ShieldCheck } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { DevicesPanel } from "@/features/auth";
+import { DevicesPanel, useSession } from "@/features/auth";
 import { useActiveShell } from "@/features/os-shell";
 import { SettingsSection } from "@/features/shell-settings";
 import { SECTIONS, type SectionId } from "../lib/sections";
@@ -22,7 +22,20 @@ import { AboutSection } from "./about-section";
 // The section content — one functional panel per SectionId, shared verbatim by
 // every shell's Settings layout (the per-shell seam only swaps the navigation
 // chrome around these, never the bodies).
+const OWNER_ONLY = new Set<SectionId>(["appearance", "theme", "ai", "quicklinks", "mcp", "devices", "cleanup", "backup"]);
+
 export function SettingsSectionBody({ id }: { id: SectionId }) {
+  const { status, role } = useSession();
+  if (status === "in" && role !== "owner" && OWNER_ONLY.has(id)) {
+    return (
+      <SettingsSection icon={<Lock />} title="Owner access required">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          This section changes shared workspace preferences, credentials, host state, access policy, or owner backups.
+          The current <strong className="text-foreground">{role ?? "viewer"}</strong> device can use read-only workspace features but cannot open this control surface.
+        </p>
+      </SettingsSection>
+    );
+  }
   switch (id) {
     case "appearance":
       return <AppearanceSection />;

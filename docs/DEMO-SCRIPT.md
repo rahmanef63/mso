@@ -9,28 +9,28 @@ Open MSO on a phone and show the iOS/Android shell adapting to the viewport.
 
 ## 6–14 sec — system health
 
-Open System Monitor and show CPU, memory, disk and processes.
+Open System Monitor: show Overview metrics, then Services status/log affordances and the read-only Updates cache. In a public demo these use mock data; in a private recording show that non-allowlisted services have no lifecycle controls.
 
-## 14–24 sec — project files
+## 14–26 sec — project files
 
 Open Files and browse a sample project. Show one real file preview without exposing secrets.
 
-## 24–34 sec — Code + terminal
+## 26–36 sec — role boundary + Code
 
-Open Code, then reveal its integrated Terminal. Run a harmless mock/read-only command so the
-editor and terminal relationship is visible without implying a public demo has host access.
+Briefly show Settings → Devices with Viewer / Operator / Owner, then open Code and its integrated
+Terminal as Owner. Run a harmless mock/read-only command so the demo does not imply public host access.
 
-## 34–44 sec — Alfa
+## 36–46 sec — Alfa
 
 Ask Alfa a simple mock diagnosis question and show a read tool/activity row. If demonstrating
 a mutation in a private build, show the human Approve/Deny card rather than auto-approving.
 
-## 44–52 sec — Browser / managed app
+## 46–54 sec — Browser / managed app
 
 Show the Camoufox Browser power surface or a Hermes/OpenClaw Details panel. In a public demo,
 do not expose a real logged-in browser profile or vendor credentials.
 
-## 52–60 sec — responsive switch + CTA
+## 54–60 sec — responsive switch + CTA
 
 Switch to desktop/landscape, then show:
 

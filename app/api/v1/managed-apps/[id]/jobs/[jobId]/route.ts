@@ -42,7 +42,7 @@ export async function GET(req: Request, context: { params: Promise<{ id: string;
 // is still inside its mandatory pre-flight backup — abandoning that copy is the
 // outcome the backup exists to prevent.
 export async function DELETE(req: Request, context: { params: Promise<{ id: string; jobId: string }> }) {
-  if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await verifyAuth(req, "owner"))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (IS_DEMO) return NextResponse.json({ error: "demo mode is read-only" }, { status: 403 });
   const { id, jobId } = await context.params;
   if (!isManagedAppId(id)) return NextResponse.json({ error: "unknown managed application" }, { status: 404 });

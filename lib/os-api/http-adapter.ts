@@ -1,4 +1,4 @@
-import { API_VERSION, type OsApi, type SysStats } from "./types";
+import { API_VERSION, type HostAccessRole, type OsApi, type SysStats } from "./types";
 import type { ManagedAppView } from "@/lib/managed-apps/types";
 import { uploadChunked } from "./upload";
 
@@ -44,7 +44,14 @@ const toSummary = (a: ManagedAppWire): ManagedApp => ({
 // {baseUrl}/api/v1. Auth = the signed session cookie, sent automatically on
 // same-origin requests (no Bearer token). Host actions stay allowlisted
 // server-side; this is just the client.
-export function HttpAdapter(cfg: { url?: string }): OsApi {
+export function HttpAdapter(cfg: { url?: string; role?: Exclude<HostAccessRole, "demo"> }): OsApi {
+  const role = cfg.role ?? "viewer";
+  const access = {
+    role,
+    canRead: true,
+    canOperate: role === "operator" || role === "owner",
+    canOwn: role === "owner",
+  } as const;
   const root = (cfg.url || "").replace(/\/$/, "") + "/api/" + API_VERSION;
 
   async function req<T>(
@@ -85,6 +92,7 @@ export function HttpAdapter(cfg: { url?: string }): OsApi {
 
   return {
     mode: "live",
+    access,
     auth: {
       token: (username, password) =>
         req("POST", "/auth/token", { body: { username, password } }),
@@ -113,6 +121,12 @@ export function HttpAdapter(cfg: { url?: string }): OsApi {
       statsStream: (onEvent) =>
         sse("/sys/stats/stream", {}, (d) => onEvent(d as Partial<SysStats>)),
       processes: () => req("GET", "/sys/processes"),
+      services: () => req("GET", "/sys/services"),
+      serviceLogs: (scope, unit, limit = 120) => req("GET", "/sys/services/logs", {
+        query: { scope, unit, limit: String(limit) },
+      }),
+      servicePower: (scope, unit, action) => req("POST", "/sys/services", { body: { scope, unit, action } }),
+      packageUpdates: () => req("GET", "/sys/packages"),
     },
     apps: {
       // UNWRAP, then TRANSLATE. Both managed-app routes answer in an envelope —

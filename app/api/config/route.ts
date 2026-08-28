@@ -26,7 +26,7 @@ const mask = (k: string) => (k ? `${k.slice(0, 6)}…${k.slice(-4)}` : "");
 // raw keys never leave the server.
 
 export async function GET() {
-  if (!(await requireSession())) {
+  if (!(await requireSession("owner"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const cfg = await readConfig();
@@ -64,7 +64,7 @@ export async function GET() {
 type CustomBody = { name?: string; baseURL?: string; baseUrl?: string; apiKey?: string; protocol?: string; models?: string[] };
 
 export async function POST(req: NextRequest) {
-  if (!(await requireSession())) {
+  if (!(await requireSession("owner"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   let body: {
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!(await requireSession())) {
+  if (!(await requireSession("owner"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const slug = new URL(req.url).searchParams.get("provider")?.trim();

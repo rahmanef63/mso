@@ -19,8 +19,9 @@ Camoufox profile data or full environment files.
 
 ## Deployment warning
 
-An authenticated MSO owner session can read allowed files and run commands as the Linux user
-that owns the process. Treat it like SSH in a browser.
+An authenticated MSO **Owner** session can read allowed files and run commands as the Linux user
+that owns the process. Treat Owner like SSH in a browser. Viewer and Operator are narrower
+application roles, but they still share the same deployment and underlying Unix account.
 
 - Run MSO as a dedicated non-root user.
 - Prefer Tailscale/VPN for a real deployment.
@@ -32,12 +33,26 @@ that owns the process. Treat it like SSH in a browser.
 
 ## Authentication and sessions
 
-The owner login is password + device approval. A correct password on a new browser creates a
-pending device; an already-approved device or the server must approve it before a normal
-session is issued. The browser session cookie is HMAC signed and `Secure`.
+The deployment login is password + device approval. A correct password on a new browser creates a
+pending device; an Owner device or the local server CLI assigns it one live role before a normal
+session is issued:
 
-Changing `OS_SESSION_SECRET` invalidates existing sessions. Removing a device from the
-allowlist revokes that browser. Device approval is an allowlist, not standards-based MFA.
+- **Viewer** — read-scoped workspace surfaces such as bounded files, telemetry, service inventory,
+  package visibility, docs and previews;
+- **Operator** — Viewer plus bounded operational surfaces such as Camoufox, managed-app start/stop/restart/backup,
+  service journals and exact-allowlisted service actions;
+- **Owner** — full MSO host authority, including writes, PTY/exec, credentials, self-update, MCP,
+  device administration and managed-app install/update.
+
+Roles are read from the private device store on every request; demotion and revocation therefore do
+not wait for the signed cookie to expire. Shared Appearance, Theme and Quicklink preferences may be read by delegated devices but changed only by Owner because the current store is deployment-wide, not per-device. The UI also filters inaccessible apps, but the route policy
+is the actual boundary: unknown mutations fail up to Owner by default. Role-less records created by
+older MSO versions migrate as Owner; malformed role values fail down to Viewer.
+
+Changing `OS_SESSION_SECRET` invalidates existing sessions. Removing a device from the allowlist
+revokes that browser. Device approval is an allowlist, not standards-based MFA, a named-user
+directory, Linux-account mapping, or enterprise SSO. Multiple people can use distinct approved
+devices, but they still authenticate to one deployment secret and one Unix service account.
 
 ## Filesystem and command boundary
 
@@ -50,6 +65,19 @@ explicitly enabled.
 short accident tripwire, not a sandbox. Interactive Terminal PTYs are even more direct: raw
 keystrokes cannot be reliably parsed into commands, so authentication and PTY session
 lifecycle—not the one-shot command matcher—are the boundary.
+
+## Service and package operations
+
+System Monitor exposes system/user `systemd` inventory to Viewer devices. Journal reads require
+Operator, are capped, and accept only validated `.service` unit names. Lifecycle actions require
+Operator or Owner **and** an exact `scope:unit` entry in `OS_SERVICE_CONTROL_UNITS`; empty is the
+default, wildcards and malformed entries are rejected, and the host helper uses fixed argv without
+a shell. System-scope control additionally depends on the Unix user's existing permission, or an
+explicit `OS_SERVICE_CONTROL_USE_SUDO=1` deployment with narrowly-scoped non-interactive sudo.
+
+Package Updates is visibility-only. It reads the supported package manager's existing local cache
+with bounded commands (`apt list --upgradable`, cache-only DNF/YUM, `pacman -Qu`, or no-refresh
+Zypper). It does not refresh metadata, install packages, or perform an upgrade.
 
 ## Alfa model data
 
@@ -106,7 +134,7 @@ pages/API/static chunks are not served there. Keep DNS explicit; do not point ar
 wildcards inside the shared cookie domain at MSO.
 
 Camoufox/noVNC uses the same browser-realm principle through the reserved `camoufox` host in
-that namespace. The host accepts only approved-session GET/HEAD requests, strips cockpit
+that namespace. The host accepts only Operator/Owner-session GET/HEAD requests, strips cockpit
 cookies/authorization before loopback noVNC, and applies a restrictive CSP. The old
 `/camoufox-vnc/*` cockpit path is permanently closed. Revoking an approved device also stops the
 Camoufox service cgroup so an already-established VNC WebSocket is evicted.
@@ -133,10 +161,11 @@ app identity, state path and symlink collisions before writing, then creates an 
 
 ## In scope
 
-- auth/session/device-approval bypass;
+- auth/session/device-approval or role-escalation bypass;
 - practical login rate-limit defeat;
 - filesystem-jail or credential-denylist escape;
-- unauthenticated access to live host/config routes;
+- unauthorized access to live host/config routes or a role-restricted app;
+- service-control allowlist bypass, unit/argv injection, or package-visibility mutation;
 - CSRF/clickjacking that triggers owner host actions;
 - MCP scope/OAuth bypass or bearer validation failure;
 - managed-app origin escape into the cockpit or a sibling app;
@@ -146,7 +175,8 @@ app identity, state path and symlink collisions before writing, then creates an 
 
 ## Out of scope
 
-- an already-authenticated owner intentionally using documented owner capabilities;
+- an already-authenticated Owner intentionally using documented Owner capabilities;
+- an Operator intentionally controlling an exact owner-allowlisted service;
 - bypassing the one-shot destructive-command regex after the user already granted shell
   execution—it is not presented as a sandbox;
 - deployments that ignore the minimum documented posture;
@@ -158,7 +188,7 @@ app identity, state path and symlink collisions before writing, then creates an 
 
 - change `OS_SESSION_SECRET` to invalidate browser sessions;
 - change `OS_LOGIN_PASSWORD` to rotate the owner password;
-- remove entries from `~/.mso/auth-devices.json` to revoke browsers;
+- change device roles or revoke browsers in Settings → Devices / `mso device`; use the local CLI for recovery;
 - remove/revoke MCP tokens from Settings → MCP;
 - rotate provider credentials from Settings → AI or the corresponding environment source;
 - rotate managed-app credentials if a state snapshot containing them was exposed.

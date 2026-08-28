@@ -5,7 +5,7 @@
 #
 # mso.rahmanef.com is only ONE frontend. Everything it can do is a call to the
 # same /api surface, so this CLI reaches every feature without a browser.
-# Auth = signed session cookie (password + approved device), cached in a jar.
+# Auth = signed session cookie (password + approved device role), cached in a jar.
 #
 # Options:
 #   --base <url>         API base to talk to (default http://127.0.0.1:4005)
@@ -35,6 +35,9 @@
 #   exec <cmd…>          Run a shell command on the host (full power)
 #   stats                CPU, memory, disk
 #   ps                   Process table
+#   units [query]        systemd service inventory (system + user)
+#   unit *               logs | start | stop | restart for exact allowlisted units
+#   packages             Cached package-update visibility (never applies updates)
 #   cleanup [--run]      Reclaimable junk; --run actually deletes it
 #   status               Public service status (no session needed)
 #   health               Is this CLI's session valid?
@@ -64,9 +67,9 @@
 #   stock <query> [page] Stock-image search (Unsplash key optional, Openverse fallback)
 #
 #  Devices  (a local file — these work while the service is down)
-#   device *             list | pending | approve | revoke | revoke all --yes
+#   device *             list | pending | approve [--role] | role | revoke | revoke all --yes
 #   devices              Alias for `device list`
-#   approve <id> [label] Approve a device id
+#   approve <id> [label] [--role ...]  Approve a device id
 #   revoke <id>          Revoke one device
 #   whoami               This CLI's device id + session state
 #   login                Force a fresh login
@@ -89,8 +92,8 @@
 #     First thing to run when something is off — it names the broken layer.
 #   mso device pending
 #     See who typed the correct password and is waiting to be let in.
-#   mso device approve <id> "my phone"
-#     Let that device sign in.
+#   mso device approve <id> "my phone" --role viewer
+#     Let that device sign in with least-privilege read access.
 #   mso exec "systemctl status nginx"
 #     Run anything on the host, as the user that owns the process.
 #   mso camoufox start && mso camoufox session
@@ -462,8 +465,9 @@ verbs() {
 U_camoufox="camoufox status|start|stop|session"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
-U_device="device list|pending|approve <id> [label]|revoke <id>|revoke all --yes"
+U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
 U_service="service status|start|stop|restart|logs [n]"
+U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> <unit>"
 U_update="update status|run [true]|log"
 U_threads="threads list|show <id>|save <json>|rm <id>"
 U_memory="memory list|add <text>|rm <id>"
@@ -520,6 +524,23 @@ case "$cmd" in
   exec)   jpost "/api/v1/exec/run" "$(jq -n --arg c "$*" '{cmd:$c}')" ;;
   stats)  jget "/api/v1/sys/stats" ;;
   ps)     jget "/api/v1/sys/processes" ;;
+  units)
+    data=$(jget "/api/v1/sys/services")
+    if [ -n "${1-}" ]; then
+      jq -r --arg q "${1,,}" '.services[] | select(((.unit+" "+.description+" "+.scope+" "+.active+" "+.sub)|ascii_downcase|contains($q))) | "\(.scope):\(.unit)\t\(.active)/\(.sub)\t\(.description)\(if .controllable then " [allowlisted]" else "" end)"' <<<"$data"
+    else
+      jq -r '.services[] | "\(.scope):\(.unit)\t\(.active)/\(.sub)\t\(.description)\(if .controllable then " [allowlisted]" else "" end)"' <<<"$data"
+    fi ;;
+  unit)
+    sub="${1:-}"; scope="${2:-}"; unit="${3:-}"
+    case "$sub" in
+      logs) [ -n "$scope" ] && [ -n "$unit" ] || die "usage: mso $U_unit"
+            jget "/api/v1/sys/services/logs?scope=$(enc "$scope")&unit=$(enc "$unit")&limit=$(enc "${4:-120}")" | jq -r '.entries[]?' ;;
+      start|stop|restart) [ -n "$scope" ] && [ -n "$unit" ] || die "usage: mso $U_unit"
+            jpost "/api/v1/sys/services" "$(jq -n --arg s "$scope" --arg u "$unit" --arg a "$sub" '{scope:$s,unit:$u,action:$a}')" ;;
+      *) die "usage: mso $U_unit" ;;
+    esac ;;
+  packages) jget "/api/v1/sys/packages" ;;
   cleanup) if [ "${1-}" = "--run" ]; then jpost "/api/v1/sys/cleanup"; else jget "/api/v1/sys/cleanup"; fi ;;
   status) jget "/api/status" ;;
   health) jget "/api/auth/me" ;;
@@ -693,14 +714,16 @@ case "$cmd" in
     case "${1:-list}" in
       list)    dev_script --list ;;
       pending) dev_script --pending ;;
-      approve) [ -n "${2-}" ] || die "usage: mso device approve <deviceId> [label]"
+      approve) [ -n "${2-}" ] || die "usage: mso device approve <deviceId> [label] [--role viewer|operator|owner]"
                dev_script "$2" "${@:3}" ;;
+      role)    [ -n "${2-}" ] && [ -n "${3-}" ] || die "usage: mso device role <deviceId> <viewer|operator|owner>"
+               dev_script --set-role "$2" "$3" ;;
       revoke)  [ -n "${2-}" ] || die "usage: mso device revoke <deviceId> | all --yes"
                if [ "$2" = "all" ]; then dev_script --revoke-all "${3-}"
                else dev_script --revoke "$2"; fi ;;
       *) die "usage: mso $U_device" ;;
     esac ;;
-  approve) [ -n "${1-}" ] || die "usage: mso approve <deviceId> [label]  (ids: mso device list)"
+  approve) [ -n "${1-}" ] || die "usage: mso approve <deviceId> [label] [--role viewer|operator|owner]  (ids: mso device list)"
            dev_script "$1" "${@:2}" ;;
   revoke)  [ -n "${1-}" ] || die "usage: mso revoke <deviceId>  (ids: mso device list)"
            dev_script --revoke "$1" ;;

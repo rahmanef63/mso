@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // Session-gated; the token bundle lands in the 0600 host config file, and on
 // success the provider is selected so the assistant uses it immediately.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ provider: string }> }) {
-  if (!(await requireSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { provider } = await ctx.params;
   let body: { action?: string };
   try {

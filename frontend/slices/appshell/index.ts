@@ -66,8 +66,9 @@ export type { Activity } from "./lib/activity";
 // it in its own OsApiProvider). The OsApi type IS the portability contract.
 export { HostApiProvider, useOsApi } from "./lib/host-api";
 export type {
-  OsApi, Unsub, SysStats, FsEntry, FsRoot, FsList, FsUsage, FsHit,
-  UploadFile, UploadResult, UploadProgress, ExecResult, Process, AppManifest,
+  OsApi, Unsub, HostAccessRole, HostAccess, SysStats, FsEntry, FsRoot, FsList, FsUsage, FsHit,
+  UploadFile, UploadResult, UploadProgress, ExecResult, Process, ServiceScope, ServiceAction,
+  SystemService, ServiceInventory, ServiceLogs, PackageUpdate, PackageUpdateSummary, AppManifest,
 } from "./lib/host-api";
 // F1–F20 window-manager + productivity libs (each module exports its own
 // public surface — commands/badges/layouts/recents/window-commands/window-title/

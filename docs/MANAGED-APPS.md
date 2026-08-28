@@ -199,9 +199,10 @@ confirmation is still required for a real removal.
 **Lifecycle does not require a domain.** These are separate concerns:
 
 1. **Runtime management** — install/start/stop/update/backup/uninstall; no DNS required.
-2. **Direct public access** — fallback for 9Router when no embeddable domain is configured; its server distribution is
-   deliberately published on host port `20128`; MSO derives a globally-routable IPv4 from
-   local network interfaces and returns `publicDashboardUrl`.
+2. **Direct public access** — an explicit 9Router exception only when no embeddable domain is
+   configured **and** `NINE_ROUTER_EXPOSE_PUBLIC=1`; only then is port `20128` published beyond
+   loopback and MSO may derive a routable address for `publicDashboardUrl`. The normal install is
+   loopback-only and has no direct-address fallback.
 3. **Embedded dashboard access** — preferred when configured: split-origin mode for a vendor UI shown inside
    MSO.
 
@@ -266,8 +267,8 @@ the real secret verification.
 - app says "not installed" but you know it exists → check systemd-user visibility/detection
   evidence before rerunning an installer;
 - 9Router is healthy but its configured `*.mso...` host fails → diagnose DNS/TLS/session-cookie state; the runtime remains healthy and the explicitly enabled direct public-IP UI is the fallback;
-- 9Router UI button has no public URL → the host has no globally-routable IPv4 on a local
-  interface, or the runtime was deliberately changed to loopback/private-only networking;
+- 9Router UI button has no public URL → `NINE_ROUTER_EXPOSE_PUBLIC` is unset/false (the safe
+  default), or the explicitly exposed host has no routable address on a local interface;
 - dashboard frame missing but service is healthy → split-origin embedding may be absent by
   design; Details and direct access (where defined) still work;
 - update refused → inspect the pre-update backup error first;

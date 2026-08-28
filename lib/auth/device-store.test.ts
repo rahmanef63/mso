@@ -61,6 +61,7 @@ describe("device-store — an unreadable file must never look like an empty one"
 
     const s = await listDevices();
     expect(Object.keys(s.approved)).toEqual([DEV]); // survived the second write
+    expect(s.approved[DEV].role).toBe("owner");
     expect(s.pending[OTHER].ip).toBe("203.0.113.2");
     await expect(isApproved(DEV)).resolves.toBe(true);
     await expect(isApproved(OTHER)).resolves.toBe(false);
@@ -69,6 +70,7 @@ describe("device-store — an unreadable file must never look like an empty one"
   it("keeps a device revoked when login touches race the kill switch", async () => {
     const { approveDevice, revokeDevice, touchApproved, isApproved } = await load();
     await approveDevice(DEV, "my laptop");
+    await approveDevice(OTHER, "recovery owner");
     await Promise.all([
       ...Array.from({ length: 16 }, () => touchApproved(DEV)),
       revokeDevice(DEV),
@@ -81,5 +83,47 @@ describe("device-store — an unreadable file must never look like an empty one"
     await approveDevice(DEV, "my laptop");
     expect((await fs.stat(store)).mode & 0o777).toBe(0o600);
     expect((await fs.stat(path.dirname(store))).mode & 0o777).toBe(0o700);
+  });
+});
+
+describe("device-store — delegated roles", () => {
+  it("treats a pre-role approved entry as owner for backward compatibility", async () => {
+    await fs.writeFile(store, JSON.stringify({
+      approved: { [DEV]: { label: "legacy laptop", approvedAt: 1 } },
+      pending: {},
+    }));
+    const { getApprovedDevice, listDevices } = await load();
+    await expect(getApprovedDevice(DEV)).resolves.toMatchObject({ role: "owner" });
+    expect((await listDevices()).approved[DEV].role).toBe("owner");
+  });
+
+  it("approves a least-privilege viewer and changes its role live", async () => {
+    const { approveDevice, getApprovedDevice, setDeviceRole } = await load();
+    await approveDevice(DEV, "guest phone", "viewer");
+    await expect(getApprovedDevice(DEV)).resolves.toMatchObject({ role: "viewer" });
+    await setDeviceRole(DEV, "operator");
+    await expect(getApprovedDevice(DEV)).resolves.toMatchObject({ role: "operator" });
+  });
+
+  it("refuses approval as a role-change bypass for an existing device", async () => {
+    const { approveDevice, getApprovedDevice } = await load();
+    await approveDevice(DEV, "owner laptop", "owner");
+    await expect(approveDevice(DEV, "same laptop", "viewer")).rejects.toThrow("already approved");
+    await expect(getApprovedDevice(DEV)).resolves.toMatchObject({ role: "owner", label: "owner laptop" });
+  });
+
+  it("never lets the web role API remove the last owner", async () => {
+    const { approveDevice, revokeDevice, setDeviceRole } = await load();
+    await approveDevice(DEV, "only owner", "owner");
+    await expect(setDeviceRole(DEV, "viewer")).rejects.toThrow("at least one owner");
+    await expect(revokeDevice(DEV)).rejects.toThrow("at least one owner");
+  });
+
+  it("allows owner demotion after another owner exists", async () => {
+    const { approveDevice, getApprovedDevice, setDeviceRole } = await load();
+    await approveDevice(DEV, "owner one", "owner");
+    await approveDevice(OTHER, "owner two", "owner");
+    await setDeviceRole(DEV, "viewer");
+    await expect(getApprovedDevice(DEV)).resolves.toMatchObject({ role: "viewer" });
   });
 });

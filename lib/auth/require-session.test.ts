@@ -14,7 +14,11 @@ vi.mock("next/headers", () => ({
     getAll: (name: string) => jar.filter((cookie) => cookie.name === name),
   }),
 }));
-vi.mock("./device-store", () => ({ isApproved: async (id: string) => id === "dev-1" }));
+vi.mock("./device-store", () => ({
+  getApprovedDevice: async (id: string) => id === "dev-1"
+    ? { label: "device", approvedAt: 1, role: "operator" }
+    : null,
+}));
 
 const valid = () => signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "dev-1" }, SECRET);
 
@@ -43,5 +47,14 @@ describe("getSession with a shadowed cookie", () => {
       value: signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "revoked" }, SECRET),
     });
     expect(await getSession()).toBeNull();
+  });
+
+  it("rechecks the live device role for every authorization decision", async () => {
+    const { getSessionContext, requireSession } = await import("./require-session");
+    jar.push({ name: "session", value: valid() });
+    await expect(getSessionContext()).resolves.toMatchObject({ role: "operator" });
+    await expect(requireSession("viewer")).resolves.toBe(true);
+    await expect(requireSession("operator")).resolves.toBe(true);
+    await expect(requireSession("owner")).resolves.toBe(false);
   });
 });

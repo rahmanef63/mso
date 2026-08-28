@@ -9,9 +9,15 @@ import { makeMockFs } from "./mock-fs";
 export function MockAdapter(): OsApi {
   const tree = loadDemoTree();
   const persist = () => saveDemoTree(tree);
+  const services = [
+    { unit: "mso.service", scope: "user" as const, load: "loaded", active: "active", sub: "running", description: "Manef Shell OS", controllable: true },
+    { unit: "demo-worker.service", scope: "user" as const, load: "loaded", active: "failed", sub: "failed", description: "Demo background worker", controllable: true },
+    { unit: "ssh.service", scope: "system" as const, load: "loaded", active: "active", sub: "running", description: "OpenBSD Secure Shell server", controllable: false },
+  ];
 
   return {
     mode: "mock",
+    access: { role: "demo", canRead: true, canOperate: true, canOwn: true },
     auth: {
       token: (u) => delay({ token: "mock." + btoa(u || "root"), expires_at: Date.now() + 36e5 }),
       me: () => delay({ user: { name: "root", id: "u_local" } }),
@@ -54,6 +60,33 @@ export function MockAdapter(): OsApi {
           { pid: 201, name: "background-worker", status: "restarted 2m ago", cpu: 7, mem: 142 },
           { pid: 318, name: "preview-proxy", status: "running", cpu: 3, mem: 88 },
         ]),
+      services: () => delay({
+        services: services.map((service) => ({ ...service })),
+        diagnostics: [],
+        truncated: false,
+        controlAllowlistConfigured: true,
+        generatedAt: new Date().toISOString(),
+      }),
+      serviceLogs: (scope, unit) => delay({
+        unit, scope, available: true, entries: [
+          `[mock] ${unit}: started successfully`,
+          `[mock] ${unit}: health check passed`,
+        ],
+      }),
+      servicePower: (scope, unit, action) => {
+        const service = services.find((entry) => entry.scope === scope && entry.unit === unit);
+        if (!service || !service.controllable) return Promise.reject(new Error("service action is not allowlisted"));
+        service.active = action === "stop" ? "inactive" : "active";
+        service.sub = action === "stop" ? "dead" : "running";
+        return delay({ ...service }, 250);
+      },
+      packageUpdates: () => delay({
+        manager: "apt" as const, available: true, truncated: false, checkedAt: new Date().toISOString(), source: "local-cache" as const,
+        updates: [
+          { name: "openssl", current: "3.0.2-0ubuntu1", candidate: "3.0.2-0ubuntu1.18", architecture: "amd64" },
+          { name: "curl", current: "8.5.0-2", candidate: "8.5.0-2ubuntu10", architecture: "amd64" },
+        ],
+      }),
     },
     apps: {
       list: () =>

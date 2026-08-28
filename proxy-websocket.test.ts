@@ -6,8 +6,12 @@ import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { signSession } from "./lib/auth/session";
 
-const approved = vi.hoisted(() => ({ value: true }));
-vi.mock("@/lib/auth/device-store", () => ({ isApproved: async () => approved.value }));
+const approved = vi.hoisted(() => ({ value: true, role: "owner" as "viewer" | "operator" | "owner" }));
+vi.mock("@/lib/auth/device-store", () => ({
+  getApprovedDevice: async () => approved.value
+    ? { label: "test device", approvedAt: 1, role: approved.role }
+    : null,
+}));
 
 const TEMPLATE = "{id}.mso.rahmanef.com";
 
@@ -52,6 +56,7 @@ describe("WebSocket upgrade on an app host", () => {
     vi.stubEnv("OS_SESSION_SECRET", SECRET);
     vi.stubEnv("OPENCLAW_DASHBOARD_URL", GATEWAY);
     approved.value = true;
+    approved.role = "owner";
     return loadProxy(TEMPLATE);
   }
 
@@ -60,6 +65,14 @@ describe("WebSocket upgrade on an app host", () => {
     const res = await proxy(upgradeReq("openclaw.mso.rahmanef.com", "/chat?tab=1", session()));
     // Cross-origin destination = Next proxies it; that fork IS the transport.
     expect(rewriteOf(res)).toBe(`${GATEWAY}/chat?tab=1`);
+  });
+
+  it("requires operator or owner for a managed-app upgrade", async () => {
+    const proxy = await load();
+    approved.role = "viewer";
+    expect((await proxy(upgradeReq("openclaw.mso.rahmanef.com", "/chat", session()))).status).toBe(404);
+    approved.role = "operator";
+    expect(rewriteOf(await proxy(upgradeReq("openclaw.mso.rahmanef.com", "/chat", session())))).toBe(`${GATEWAY}/chat`);
   });
 
   it("refuses an upgrade carrying no session — nothing downstream would have", async () => {
@@ -183,6 +196,7 @@ describe("the Camoufox split-origin VNC bridge", () => {
     vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.rahmanef.com");
     vi.stubEnv("CAMOUFOX_NOVNC_URL", novnc);
     approved.value = true;
+    approved.role = "owner";
     return loadProxy(TEMPLATE);
   }
 
@@ -216,6 +230,14 @@ describe("the Camoufox split-origin VNC bridge", () => {
     expect(target.pathname).toBe("/vnc_lite.html");
     expect(res.headers.get("content-security-policy")).toContain("frame-ancestors https://mso.rahmanef.com");
     expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+  });
+
+  it("requires operator or owner for the live browser viewer", async () => {
+    const proxy = await load();
+    approved.role = "viewer";
+    expect((await proxy(vnc(session()))).status).toBe(404);
+    approved.role = "operator";
+    expect(new URL(rewriteOf(await proxy(vnc(session())))!).origin).toBe(NOVNC);
   });
 
   it("maps the viewer-host root to the full noVNC UI", async () => {

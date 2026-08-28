@@ -12,14 +12,17 @@ cannot quietly become today's architecture documentation.
 5. Historical plans/audits for their dated context only.
 
 Run `node scripts/check-docs.mjs` to validate relative links plus selected
-machine-verifiable facts. The repository quality gate runs it automatically.
+machine-verifiable facts, and `node scripts/gen-comparison.mjs --check` to validate comparison
+evidence and review freshness. The repository quality gate runs both automatically.
 
 ## Current reference
 
 | Document | Contract |
 |---|---|
 | [`../README.md`](../README.md) | Product overview and quickstart |
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Current runtime, shell, host, MCP and deployment architecture |
+| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Current runtime, shell, role, host, MCP and deployment architecture |
+| [`COMPARISON.md`](./COMPARISON.md) | Generated product comparison methodology, evidence and notes |
+| [`COMPETITIVE-ROADMAP.md`](./COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate specialist boundaries and next investments |
 | [`INSTALL.md`](./INSTALL.md) | Owner installation, TLS, updates, backup and uninstall |
 | [`DEVELOPMENT.md`](./DEVELOPMENT.md) | Development and release workflow |
 | [`SECURITY-ASSURANCE.md`](./SECURITY-ASSURANCE.md) | Repeatable security verification lanes, public evidence, and claim boundaries |
@@ -47,6 +50,7 @@ machine-verifiable facts. The repository quality gate runs it automatically.
 |---|---|
 | [`CLI.md`](./CLI.md) | `node scripts/gen-cli-docs.mjs` / `bin/mso --help` |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Git subjects via `scripts/gen-changelog.mjs`; never hand-edit |
+| [`COMPARISON.md`](./COMPARISON.md) | `docs/comparison-data.json` via `scripts/gen-comparison.mjs`; never hand-edit |
 | [`PROGRESS.md`](./PROGRESS.md) | Hand-written shipping rationale; newest first; canonical historical WHY |
 
 ## Historical point-in-time documents

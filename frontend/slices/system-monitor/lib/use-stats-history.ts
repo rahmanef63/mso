@@ -22,7 +22,7 @@ export type StatsHistory = {
 // Polls sys.stats on an interval, accumulating a ~40-point rolling history for
 // the CPU + network sparklines, plus a local GPU mock walk (GPU isn't in the
 // contract). Refs avoid re-subscribing the interval on every tick.
-export function useStatsHistory(): StatsHistory {
+export function useStatsHistory(enabled = true): StatsHistory {
   const api = useOsApi();
   const [stats, setStats] = useState<SysStats | null>(null);
   const [procs, setProcs] = useState<Process[]>([]);
@@ -61,6 +61,7 @@ export function useStatsHistory(): StatsHistory {
 
   useEffect(() => {
     aliveRef.current = true;
+    if (!enabled) return () => { aliveRef.current = false; };
     // Poll only while the tab is visible. Minimizing the window unmounts this, but
     // BACKGROUNDING the tab does not — and hydrateBoot restores the window on reload,
     // so an untended cockpit otherwise fires 80 authenticated requests/min at its own
@@ -80,7 +81,7 @@ export function useStatsHistory(): StatsHistory {
       clearInterval(iv);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [pull]);
+  }, [pull, enabled]);
 
   return { stats, procs, cpuSeries, netSeries, gpu, error, refresh: pull };
 }

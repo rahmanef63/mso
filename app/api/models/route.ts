@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 // Each row carries capability/pricing meta (context, cost, tools, reasoning); the
 // model field stays free-text so an id not in the catalog still works.
 export async function GET(req: NextRequest) {
-  if (!(await requireSession())) {
+  if (!(await requireSession("owner"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const provider = req.nextUrl.searchParams.get("provider");

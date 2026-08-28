@@ -67,7 +67,7 @@ Run or resume it at any time:
 mso onboard
 ```
 
-It first approves the **local CLI device** in the owner allowlist (a process already running
+It first approves the **local CLI device** as Owner in the device allowlist (a process already running
 as the owning Unix account has equivalent host authority), then verifies the local service
 and session before asking for provider credentials. API keys are read with terminal echo
 disabled and posted from stdin; they are not placed in the CLI/curl argv.
@@ -85,8 +85,8 @@ terminal status.
 
 ## 2. Network exposure
 
-The installer binds `127.0.0.1` by default. This is intentional: an authenticated MSO owner
-session can execute host commands.
+The installer binds `127.0.0.1` by default. This is intentional: an authenticated MSO Owner
+session can execute host commands, and delegated roles still expose private server data.
 
 For an initial connection, use a localhost tunnel:
 
@@ -112,7 +112,7 @@ deployment-owned authority.
 Do not bind `0.0.0.0` merely because a reverse proxy exists. Bind wider only when the host
 firewall/network design explicitly requires it.
 
-## 3. Owner authentication
+## 3. Authentication and device roles
 
 If installing manually, copy `.env.example` to `.env.local` and set at minimum:
 
@@ -121,12 +121,25 @@ OS_LOGIN_PASSWORD=choose-a-strong-owner-password
 OS_SESSION_SECRET=<stable random 32+ byte secret>
 ```
 
-The first correct login from a browser creates a **pending device**. Approve the device id
-shown on that login screen from the server with `scripts/approve-device.js`. After one
-browser is approved, additional devices can be approved in Settings → Devices.
+The first correct login from a browser creates a **pending device**. Bootstrap an Owner from the
+server, then approve additional devices from Settings → Devices or the CLI:
 
-Changing `OS_SESSION_SECRET` invalidates all existing browser sessions while leaving the
-device allowlist intact.
+```bash
+mso device approve <device-id> "owner laptop" --role owner
+mso device approve <device-id> "read-only tablet" --role viewer
+mso device role <device-id> operator
+```
+
+Viewer is read-oriented; Operator adds bounded managed-app/Camoufox/service operations; Owner has
+write, Terminal/exec, credential, device, MCP and update authority. Web approvals default to Viewer.
+Role changes are resolved from the private device store on every request, so they do not wait for the
+session cookie to expire. The local CLI remains the recovery path if browser Owners are lost.
+
+These roles are tied to approved devices under one deployment password and one Unix service user.
+They are not named-user accounts, Linux-user switching, OIDC/SSO, or tenant isolation. Shared Appearance, Theme and Quicklinks remain deployment-wide; delegated devices read/use them and Owner edits them.
+
+Changing `OS_SESSION_SECRET` invalidates all existing browser sessions while leaving the device
+allowlist and its roles intact.
 
 ## 4. Filesystem roots
 
@@ -157,6 +170,33 @@ Production health is:
 ```text
 GET /api/health -> {status, buildId, uptime, version}
 ```
+
+### Service Center policy
+
+System Monitor can inventory system and user services without extra configuration. Inventory is
+read-only. Journal access needs Operator/Owner, and lifecycle is disabled until an Owner adds exact
+entries—no wildcards—to `.env.local`:
+
+```dotenv
+OS_SERVICE_CONTROL_UNITS=user:mso.service,system:nginx.service
+```
+
+User-unit actions use the owner's user systemd bus. System-unit actions use the process user's
+normal permission by default. Only when deliberately configured may MSO invoke non-interactive
+sudo:
+
+```dotenv
+OS_SERVICE_CONTROL_USE_SUDO=1
+```
+
+If that flag is used, grant only the exact `systemctl` actions/units required; do not give the MSO
+user broad passwordless sudo. The application allowlist is an additional control, not a replacement
+for Unix/sudo policy. Advanced binary overrides (`MSO_SYSTEMCTL_BIN`, `MSO_JOURNALCTL_BIN`,
+`MSO_SUDO_BIN`) exist for unusual installations/testing and should normally stay unset.
+
+The Updates tab is visibility-only. It reads the supported package manager's **existing local
+cache** and does not refresh repositories, install packages, or upgrade the host. Optional manager
+and binary overrides are documented in `.env.example`; normal installations should use detection.
 
 ## 6. Optional Browser app — Camoufox
 
@@ -244,11 +284,10 @@ ChatGPT app; MSO's "Mark ChatGPT refreshed" button is only a local acknowledgeme
 
 ## 10. Optional managed-app dashboards
 
-Hermes, OpenClaw and 9Router lifecycle management works without a domain. 9Router is
-domain-aware on the managed Docker/VPS path: a configured application domain is used as the
-in-shell UI; otherwise, after health succeeds, its UI can be opened at `http://<public-ip>:20128`
-when the host has a globally-routable IPv4. Hermes/OpenClaw
-remain loopback-only unless an operator adds an external route.
+Hermes, OpenClaw and 9Router lifecycle management works without a domain. A configured 9Router
+application URL is preferred for its in-shell UI. Without one, 9Router stays loopback-only unless
+the owner explicitly sets `NINE_ROUTER_EXPOSE_PUBLIC=1` and accepts the firewall/authentication
+consequences. Hermes/OpenClaw remain loopback-only unless an operator adds an external route.
 
 The safe default is no vendor dashboard on the **MSO cockpit origin**. To opt into
 split-origin embedding, configure:
@@ -311,7 +350,7 @@ owner user manager so replacing MSO cannot kill its own deploy controller.
 
 A Git push by itself is **not** a production deployment.
 
-## 12. Rollback
+## 13. Rollback
 
 Prefer an explicit known-good Git commit and the same verified rebuild/update machinery,
 not ad-hoc partial `.next` changes. Keep the old running process alive if the candidate
@@ -321,11 +360,11 @@ For a live chunk mismatch after the source ref is already correct, `mso update r
 is the supported recovery path. Verify `/api/health` and `scripts/post-deploy-smoke.sh`
 afterward.
 
-## 13. Backups and persistence
+## 14. Backups and persistence
 
 MSO owner-local state under `~/.mso/` includes:
 
-- approved devices;
+- approved devices and their Viewer/Operator/Owner roles;
 - AI/provider configuration;
 - MCP OAuth client/token hashes;
 - audit/activity/workflow memory;
@@ -341,7 +380,7 @@ cookies.
 Rotate/retain `~/.mso/audit.log` with normal host log management. Inspect logs before
 sharing them because command/path context may be private.
 
-## 14. Uninstall
+## 15. Uninstall
 
 The supported installer uninstall removes the MSO systemd unit but deliberately keeps the
 checkout and `~/.mso` data:
@@ -354,7 +393,7 @@ Delete code/private state only as a separate deliberate owner action after decid
 retain. Camoufox is a separate user service/profile and is not silently deleted by the MSO
 installer.
 
-## 15. Verification checklist
+## 16. Verification checklist
 
 After install/update:
 
@@ -365,4 +404,6 @@ After install/update:
 5. if UI changed, test desktop + phone portrait + phone landscape;
 6. if MCP changed, compare Settings → MCP signature and refresh the external app/tool
    snapshot;
-7. if managed-app origins changed, sign in again and test each explicit app hostname.
+7. if managed-app origins changed, sign in again and test each explicit app hostname;
+8. test Viewer/Operator/Owner route behaviour on separate devices when authorization changed;
+9. if Service Center changed, prove inventory, bounded logs, allowlist refusal/action and cache-only package visibility.

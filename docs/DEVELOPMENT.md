@@ -8,7 +8,7 @@ curl -fsSL https://bun.sh/install | bash   # if bun is missing (see "Package man
 bun install
 cp .env.example .env.local   # set OS_LOGIN_PASSWORD + OS_SESSION_SECRET (openssl rand -hex 32)
 bun run dev                     # http://localhost:3000
-node scripts/approve-device.js <deviceId> "my laptop"   # deviceId shows on the login screen
+node scripts/approve-device.js <deviceId> "my laptop" --role owner   # deviceId shows on login
 ```
 
 ## Layout
@@ -17,7 +17,7 @@ Every feature is a self-contained **vertical slice** under `frontend/slices/<slu
 (its own components, hooks, and a `lib/host.ts` seam for host I/O). One manifest,
 `frontend/slices/os-shell/shell.manifest.ts`, wires slices into the shell — so
 **adding an app = one slice + one manifest entry**. Host access is bounded in
-`lib/host` (Node `fs`/`child_process`, filesystem-jailed) behind signed-cookie auth
+`lib/host` (Node `fs`/`child_process`, filesystem-jailed) behind signed-cookie plus live device-role auth
 (`lib/auth`). See [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Quality gates
@@ -32,11 +32,30 @@ actual `.git/hooks/pre-push` file is an intentionally tiny untracked shim; reins
 idempotently with `bash scripts/gates.sh --install`.
 
 The gate runs typecheck/lint/test (shared sc-git runner when present, otherwise the
-in-repo verify path), cycle checks, generated-changelog freshness, documentation/skill
-checks, the high/critical dependency audit, and an out-of-tree production build.
+in-repo verify path), cycle checks, generated-changelog freshness, documentation/skill checks,
+comparison evidence/freshness, the high/critical dependency audit, and an out-of-tree production
+build.
 `check-contrast.mjs` is informational. None of the build verification touches the live
 checkout's `.next`. A healthy push ends with `audit: clean at high/critical.` and
 `build: HEAD compiles (out-of-tree).`
+
+
+## Comparison governance
+
+`docs/comparison-data.json` is the only hand-edited comparison source. It records criterion
+definitions, per-product notes, official source URLs, and repository evidence for every MSO rating.
+Do not hand-edit the generated README table or `docs/COMPARISON.md`. After an implementation or
+source review:
+
+```bash
+node scripts/gen-comparison.mjs
+node scripts/gen-comparison.mjs --check
+```
+
+The checker validates MSO evidence paths, restricts competitor links to reviewed official hosts,
+and expires the comparison after 90 days. A rating may improve only after its repository evidence
+exists. Specialist boundaries and the prioritized execution sequence live in
+`docs/COMPETITIVE-ROADMAP.md`.
 
 ## Deploy — and the build hazard ⚠️
 

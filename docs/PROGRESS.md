@@ -1,7 +1,3 @@
-# Ultimate assurance remediation — 2026-08-28
-
-Codex Security completed all twenty explicit repository components and surfaced one High plus a set of Medium/Low findings. This remediation batch removes predictable shared-temporary session files, adds owner-only private shell state with symlink/ownership/mode checks and atomic writes, authenticates and byte-bounds MCP bodies before parsing, reapplies the deployment scope ceiling on every MCP dispatch, hardens custom-provider network destinations, skill discovery/cursors/search, approval disclosures, Camoufox isolation/revocation, media/project resource limits, security-store locking, and managed-app artifact identity. Dedicated adversarial regressions accompany each changed boundary. The release remains fail-closed until the final committed SHA completes repository verification, isolated production build, all Codex components, OWASP ZAP, hosted security workflows, deployment, and live health checks.
-
 # mso — Progress Log
 
 Running log of what shipped each phase. Newest at top.
@@ -12,6 +8,33 @@ Running log of what shipped each phase. Newest at top.
 > self-contained Next.js/`lib/host` architecture. For the current implementation start at
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
 > entries intact as historical evidence even when their commands/counts have been superseded.
+
+## 2026-08-29 — evidence-backed comparison, delegated roles and Service Center (SHIPPED)
+
+The old README comparison mixed unrelated tools into one hand-written scorecard. It is now generated
+from `docs/comparison-data.json`: six defined criteria, official-source links for every comparison
+product, an existing repository-evidence requirement for every MSO rating, and a 90-day review
+freshness gate. The chosen category is deliberately narrow—mobile-first, AI-native private Linux
+workspace for an owner or small trusted team—while specialist strengths and unfinished gaps remain
+explicit in `docs/COMPARISON.md` and `docs/COMPETITIVE-ROADMAP.md`.
+
+Device approval now carries a live Viewer, Operator or Owner role. The store migrates legacy
+role-less devices to Owner, fails malformed roles down to Viewer, prevents browser self-demotion and
+last-Owner removal, and re-resolves role/revocation on every request. The shell filters inaccessible
+apps for clarity, while a centralized server policy makes the actual decision: explicit reads are Viewer and every unclassified route fails up to Owner; PTY/exec/config/MCP/update remain Owner, and only
+explicit bounded operational surfaces are Operator.
+
+System Monitor now includes Services and Updates beside live telemetry. It inventories system/user
+`systemd` units, bounds journals, and permits start/stop/restart only for validated exact units in
+`OS_SERVICE_CONTROL_UNITS`; no shell or wildcard path exists. Package visibility reads only the
+existing local cache for apt/dnf/yum/pacman/zypper and exposes no refresh/install/upgrade action. The
+same contracts are available through `mso units`, `mso unit ...`, `mso packages`, and role-aware
+device CLI commands. Current-reference docs, env examples, generated CLI/comparison docs, Product
+Hunt copy, contributor rules and security boundaries were synchronized in the same release.
+
+Release contract: the exact commit must pass repository verification, an out-of-tree production
+build, `bun run ship`, deployment, live health checks and the project security gate. The release
+record below is generated from that immutable commit rather than from an uncommitted worktree.
 
 ## 2026-08-28 (security) — full-repository Codex remediation (DONE)
 

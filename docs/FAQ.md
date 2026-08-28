@@ -8,27 +8,52 @@ one responsive browser UI.
 
 ### Is it safe to expose to the public internet?
 
-Treat an authenticated owner session like SSH. MSO has signed sessions, device approval,
+Treat an authenticated Owner session like SSH. MSO has signed sessions, device approval,
 filesystem bounds, rate limits and audits, but no third-party security audit. Prefer
 Tailscale/VPN or a tightly controlled HTTPS reverse proxy. Public showcases should use a
 separate `NEXT_PUBLIC_OS_DEMO=1` mock-only build.
 
 ### Why password plus device approval?
 
-The password proves the owner knows the login secret; device approval prevents a new browser
-from receiving an owner session until an existing trusted device or the server approves it.
-It is a browser allowlist, not standards-based MFA.
+The password proves the deployment secret; device approval prevents a new browser from receiving
+any live role until an Owner device or the local server approves it. Approvals can be Viewer,
+Operator, or Owner and are rechecked on every request. This is a browser/device allowlist, not
+standards-based MFA or an independent identity provider.
 
 ### I lost all approved devices. How do I get back in?
 
-Use a trusted host-admin path to approve the device id shown on the login page with
-`scripts/approve-device.js`, or inspect the allowlist on the server. Do not expose the
+Use a trusted host-admin path and run `mso device approve <id> "recovery device" --role owner`
+(or the underlying `scripts/approve-device.js`). Do not expose the
 allowlist through the normal Files API.
 
 ### Can multiple people use one MSO installation?
 
-It is single-owner by design. There is no multi-user RBAC for the cockpit. Do not hand out
-sessions you would not hand a shell.
+Yes, for a small trusted team, through **device-scoped** Viewer, Operator, and Owner roles. Viewer
+gets bounded read surfaces; Operator adds explicit operational controls; Owner has shell-equivalent
+host authority. This is not full multi-user RBAC: there are no named people, per-person passwords,
+OIDC/SSO, Linux-account mapping, or tenant isolation yet. Every device belongs to one deployment
+and one underlying Unix service account.
+
+
+### What can Viewer, Operator, and Owner do?
+
+**Viewer** can use bounded files, telemetry, service inventory, cached package-update visibility,
+docs and previews. **Operator** adds Camoufox, managed-app start/stop/restart/backup, status and logs, service logs and lifecycle
+for units the owner explicitly allowlists. **Owner** adds file mutations, Terminal/exec, AI/MCP
+credentials, device administration, self-update and install/update authority. New web approvals
+default to Viewer; the local CLI can bootstrap an Owner. Unknown API mutations default to Owner. Appearance, Theme and Quicklink data are shared deployment preferences: delegated devices may use them, while only Owner may edit them.
+
+### Can System Monitor restart any Linux service?
+
+No. Service inventory is read-only by default. A lifecycle button appears only when the current
+device is Operator/Owner and the exact `system:unit.service` or `user:unit.service` entry exists in
+`OS_SERVICE_CONTROL_UNITS`. Wildcards, paths, flags and non-service units are rejected. System-scope
+actions also need the process user's normal permission or narrowly configured non-interactive sudo.
+
+### Does the Updates tab upgrade the server?
+
+No. It reads the package manager's existing local cache with no refresh and has no install/upgrade
+action. Use the Owner terminal or the host's normal maintenance process to review and apply updates.
 
 ### Why no database?
 
@@ -118,7 +143,7 @@ leave it off on small boxes when not needed.
 
 ### How is the codebase checked?
 
-Every normal push is expected to pass typecheck, lint, the full Vitest suite, cycle/doc/skill
+Every normal push is expected to pass typecheck, lint, the full Vitest suite, cycle/doc/skill/comparison freshness
 checks, high/critical dependency audit and an out-of-tree production build. Dated audits are
 historical evidence; current behaviour is validated continuously by the gates and current
 reference docs.
@@ -126,7 +151,7 @@ reference docs.
 ### Phone support?
 
 Mobile is a first-class surface. Portrait uses iOS/Android-style shells with safe-area and
-single-owner navigation rules; phone landscape can resolve to the desktop surface. Current
+role-aware navigation rules; phone landscape can resolve to the desktop surface. Current
 shell E2E covers desktop, phone portrait and phone landscape.
 
 ### Why is the repo called `mso` but product text says MSO / Manef Shell OS?

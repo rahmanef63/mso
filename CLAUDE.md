@@ -8,17 +8,18 @@ agent — it runs AS a host process and controls its own machine.
 
 - Stack: Next 16 (App Router) · React 19 · Tailwind 4 · shadcn/ui · TypeScript.
   **No `middleware.ts` — `proxy.ts`** (Next 16 rename).
-- Auth: password + device approval → HMAC signed-cookie session (`lib/auth/`).
-  No Convex, no Clerk.
+- Auth: password + device approval → HMAC signed-cookie session plus live
+  Viewer/Operator/Owner role (`lib/auth/`). No Convex, no Clerk; roles are device-scoped
+  over one Unix service account, not named-user SSO.
 - Host access: `lib/host/` does fs/exec/sys directly (Node `fs` + `child_process`),
   bounded by `OS_FS_READ_ROOTS` / `OS_FS_WRITE_ROOTS`.
 - Layout: `app/` + `frontend/slices/<slug>/`; barrel-only cross-slice imports
   (`@/features/<slug>`).
 
 ## Read first
-- `docs/PROGRESS.md` — **THE source of truth for what exists.** Newest entry at top;
-  read the top few and you know the current state. Everything else in `docs/` is
-  history or a plan, and history goes stale.
+- `docs/PROGRESS.md` — source of truth for historical **WHY**, newest entry first.
+  Current code and the current-reference documents classified by `docs/README.md` define what
+  exists now; dated audits/plans may intentionally preserve obsolete details.
 - `README.md` — what it is, features, security model, quickstart.
 - `.env.example` — every var you can actually set. Reconciled against `process.env`
   in code on 2026-08-03 (Camoufox, memory/threads paths, `NEXT_DEPLOYMENT_ID`,
@@ -47,6 +48,18 @@ from git subjects** by `scripts/gen-changelog.mjs` and gated stale-by-`gates.sh`
 there is nothing to keep in sync and no way for it to disagree with history. PROGRESS
 is the WHY; CHANGELOG is the WHAT, and it is what Settings → About renders as
 "What's new" so a shipped change is visible in the running app.
+
+
+**Comparison is generated policy, not hand-written marketing.** Edit only
+`docs/comparison-data.json`, then run `node scripts/gen-comparison.mjs`. The generator owns the
+README block and `docs/COMPARISON.md`, requires an existing repo evidence path for each MSO cell,
+restricts competitor sources to reviewed official hosts, and expires review after 90 days. Do not
+raise a rating because a feature is planned; implementation evidence must land first.
+
+**Service Center never becomes a shell-shaped button collection.** Inventory is Viewer, bounded
+journal is Operator, and lifecycle is Operator plus an exact `OS_SERVICE_CONTROL_UNITS` match. Unit
+names/actions are fixed argv and wildcards are rejected. Package visibility is cache-only and has no
+apply action. New network/storage/user/firewall modules need their own typed policy and tests.
 
 **New workflow skills use `bun run skill:new`, then `bun run skill:check`.** The source template is `templates/mso-skill-flow/SKILL.md.template`; do not hand-copy an untrusted skill into the official root.
 
@@ -97,15 +110,17 @@ browser ──https──> mso (Next.js :4005) ──── lib/host → Node fs
               signed-cookie auth (lib/auth)
 ```
 The Browser app is **Camoufox** — a real anti-fingerprinting Firefox on a headless
-X display on this host, streamed in over noVNC through `/camoufox-vnc/*` (gated in
-`proxy.ts` by the same verified-session check that guards `/api/v1/exec`). It
-replaced BOTH the old Playwright sidecar (`os-browser`, :4002, retired) and the
-sandboxed-iframe browser that briefly followed it — an iframe cannot render most of
-the web, because X-Frame-Options refuses framing on the majority of real sites.
+X display on this host, streamed over noVNC from the reserved split-origin host
+`camoufox.<managed-app-domain>`. `proxy.ts` requires a live Operator/Owner device role,
+strips cockpit credentials before loopback noVNC, and permanently 404s the retired
+same-origin `/camoufox-vnc/*` path. It replaced BOTH the old Playwright sidecar
+(`os-browser`, :4002, retired) and the sandboxed-iframe browser that briefly followed it—an
+iframe cannot render most of the web because X-Frame-Options refuses framing on many sites.
 `os-browser/` stays in-repo only as dev tooling (scripts/e2e use its Playwright
 install). See the Browser/camoufox note further down for the systemd user unit.
 - `/api/v1/*` = the host API (fs/exec/sys/term/apps/camoufox/managed-apps), every
-  route `verifyAuth` (session cookie) first. There is no `/api/v1/browser`.
+  route resolves the live device role first. Only explicitly listed reads are Viewer; every unclassified route
+  fails up to Owner. Operator exceptions must be explicit and bounded. There is no `/api/v1/browser`.
   Client picks mock (default) vs live in Settings → Server.
 - `/api/auth/*` = login/logout/me/devices. `/api/config` = BYOK AI key.
 - Persistence is local: window layout + app registry in localStorage; device
@@ -362,8 +377,8 @@ the escape hatch for anything without a named verb.
 - One shared CLI device id lives in `~/.mso/cli.device.id` (auto-created, approve
   once with `mso approve $(cat ~/.mso/cli.device.id)`). `audit.js` and
   `image-editor.sh` read the same file — do not reintroduce per-script hardcoded ids.
-- Local verbs (`-h`, `approve`, `devices`, `service`, `build`) never log in, so they
-  still work while the service is down.
+- Local verbs (`-h`, `approve`, `devices`, `device role`, `service`, `build`) can use the
+  private device store/systemd directly where documented, so recovery still works while the service is down.
 
 ## Local dev
 ```bash
@@ -371,7 +386,7 @@ bun install
 cp .env.example .env.local   # set OS_LOGIN_PASSWORD + OS_SESSION_SECRET
 bun run typecheck
 bun run dev                     # OS desktop at :3000 (mock data by default)
-node scripts/approve-device.js <deviceId> "my device"   # approve a login device
+node scripts/approve-device.js <deviceId> "my device" --role owner   # bootstrap login
 ```
 
 ## Package manager: bun installs, Node runs (migrated from pnpm 2026-08-03)

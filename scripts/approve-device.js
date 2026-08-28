@@ -2,7 +2,7 @@
 // Seed / list / revoke trusted login devices for mso (no Convex — flat JSON,
 // same model as the VPS Control Room).
 //
-//   node scripts/approve-device.js <deviceId> [label]   # approve a device
+//   node scripts/approve-device.js <deviceId> [label] [--role viewer|operator|owner]
 //   node scripts/approve-device.js --list               # show approved + pending
 //   node scripts/approve-device.js --revoke <deviceId>  # un-trust a device
 //
@@ -14,6 +14,7 @@ const os = require("os");
 const path = require("path");
 const { randomUUID } = require("crypto");
 const { spawnSync } = require("child_process");
+const { DEVICE_ROLES, normalizeApproved, parseApprovalArgs, roleOf, setRoleResult } = require("./lib/device-role-cli");
 
 const STORE =
   process.env.OS_DEVICE_STORE || path.join(os.homedir(), ".mso", "auth-devices.json");
@@ -22,7 +23,8 @@ const DEVICE_ID_RE = /^[a-f0-9-]{16,128}$/i;
 function read() {
   try {
     const p = JSON.parse(fs.readFileSync(STORE, "utf8"));
-    return { approved: p.approved || {}, pending: p.pending || {} };
+    const approved = normalizeApproved(p.approved);
+    return { approved, pending: p.pending || {} };
   } catch (error) {
     if (error && error.code === "ENOENT") return { approved: {}, pending: {} };
     throw error;
@@ -132,7 +134,7 @@ const ts = (t) => (t ? new Date(t).toISOString() : "—");
 // Two ways to act on a device: copy the bare id (compose your own command), or
 // copy the whole line below it and paste it. JSON.stringify does the quoting, so
 // a label containing a quote or a space still pastes as ONE argument.
-const approveCmd = (id, label) => `    mso device approve ${id} ${JSON.stringify(label || "my device")}`;
+const approveCmd = (id, label) => `    mso device approve ${id} ${JSON.stringify(label || "my device")} --role viewer`;
 const revokeCmd = (id) => `    mso device revoke ${id}`;
 
 // A live VNC WebSocket has already passed its session check, so changing the
@@ -154,7 +156,7 @@ function terminateCamoufoxSessions() {
 const listApproved = (ap) => {
   if (!ap.length) return void console.log("  (none)");
   for (const [id, d] of ap) {
-    console.log(`  ${id}  "${d.label}"  approved=${ts(d.approvedAt)} lastSeen=${ts(d.lastSeen)}`);
+    console.log(`  ${id}  "${d.label}"  role=${roleOf(d)} approved=${ts(d.approvedAt)} lastSeen=${ts(d.lastSeen)}`);
     console.log(revokeCmd(id));
   }
 };
@@ -182,6 +184,13 @@ if (args[0] === "--pending") {
   console.log(`store: ${STORE}\n\nPENDING (typed correct password, awaiting approval):`);
   listPending(Object.entries(s.pending));
   process.exit(0);
+}
+
+
+if (args[0] === "--set-role") {
+  const result = setRoleResult({ args, deviceIdRe: DEVICE_ID_RE, withMutation, read, write });
+  for (const line of result.lines) (result.error ? console.error : console.log)(line);
+  process.exit(result.code);
 }
 
 if (args[0] === "--revoke-all") {
@@ -240,23 +249,24 @@ if (args[0] === "--revoke") {
   process.exit(0);
 }
 
-const id = args[0];
-const label = args.slice(1).join(" ") || "seeded device";
-if (!id || !DEVICE_ID_RE.test(id)) {
-  console.error("usage: approve-device.js <deviceId> [label] | --list | --revoke <id>");
-  console.error("deviceId must be 16-128 hex/uuid chars");
+const { id, label, role } = parseApprovalArgs(args);
+if (!id || !DEVICE_ID_RE.test(id) || !DEVICE_ROLES.has(role)) {
+  console.error("usage: approve-device.js <deviceId> [label] [--role viewer|operator|owner] | --list | --set-role <id> <role> | --revoke <id>");
+  console.error("deviceId must be 16-128 hex/uuid chars; role must be viewer, operator, or owner");
   process.exit(1);
 }
-const approvedLabel = withMutation(() => {
+const approved = withMutation(() => {
   const store = read();
+  if (store.approved[id]) throw new Error("device is already approved; use --set-role");
   const pending = store.pending[id];
   store.approved[id] = {
     label: label !== "seeded device" ? label : (pending && pending.label) || label,
     approvedAt: Date.now(),
+    role,
   };
   delete store.pending[id];
   write(store);
-  return store.approved[id].label;
+  return store.approved[id];
 });
-console.log(`approved ${id}  "${approvedLabel}"`);
+console.log(`approved ${id}  "${approved.label}"  role=${approved.role}`);
 console.log("-> that device can now sign in with the password.");

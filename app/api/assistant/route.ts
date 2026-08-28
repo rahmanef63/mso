@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { getSession } from "@/lib/auth/require-session";
+import { getSessionContext } from "@/lib/auth/require-session";
 import {
   resolveModelRef,
   hostCredentialStore,
@@ -116,13 +116,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const session = await getSession();
-  if (!session) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const context = await getSessionContext();
+  if (!context) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (context.role !== "owner") return Response.json({ error: "owner_role_required" }, { status: 403 });
 
-  // Per-session bucket so two browsers on different approved devices each get
-  // their own quota. Falls back to "anon" only when the typed payload is missing
-  // a device_id (shouldn't happen — getSession() already rejects those).
-  if (rateLimited(`assistant:${session.device_id ?? "anon"}`, ASSISTANT_MAX, ASSISTANT_WINDOW_MS)) {
+  // Per-device bucket so two owner browsers each get their own quota. Role is
+  // resolved live from the store; a demotion takes effect before any provider call.
+  if (rateLimited(`assistant:${context.session.device_id}`, ASSISTANT_MAX, ASSISTANT_WINDOW_MS)) {
     return Response.json(
       { error: "rate_limited" },
       { status: 429, headers: { "Retry-After": String(Math.ceil(ASSISTANT_WINDOW_MS / 1000)) } },

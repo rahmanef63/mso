@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // Returns { ok:true } or { ok:false, error } (HTTP 200 either way — a failed key is
 // a normal UX outcome, not a server error). Mirrors models-rahmanef-com testCredential.
 export async function POST() {
-  if (!(await requireSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let resolved;
   let customProvider = false;

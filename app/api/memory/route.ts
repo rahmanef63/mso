@@ -8,12 +8,12 @@ export const dynamic = "force-dynamic";
 // Alfa's cross-session memory (facts recalled into the system prompt). Session-gated.
 //   GET → list · POST { text } → add · DELETE ?id=<id> → remove
 export async function GET() {
-  if (!(await requireSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   return NextResponse.json({ memories: await listMemories() });
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await requireSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   let body: { text?: string };
   try {
     body = await req.json();
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!(await requireSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   await removeMemory(id);

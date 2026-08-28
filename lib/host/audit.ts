@@ -24,6 +24,7 @@ export type AuditAction =
   | "fs.upload"
   | "fs.zip"
   | "sys.cleanup"
+  | "sys.service"
   /** The cockpit replacing its own code (Settings → About, or `mso update run`). */
   | "sys.update"
   | "managed-app.action"
@@ -40,6 +41,7 @@ export type AuditAction =
   | "auth.denied"
   | "auth.ratelimited"
   | "auth.logout"
+  | "auth.device"
   | "framework.error";
 
 export interface AuditEntry {

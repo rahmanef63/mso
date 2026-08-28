@@ -7,7 +7,18 @@
 
 export type { AppDescriptor } from "@/features/os-shell";
 export { usePublishInspector } from "@/features/os-shell";
-export { useOsApi, type SysStats, type Process } from "@/features/os-shell";
+export {
+  useOsApi,
+  type SysStats,
+  type Process,
+  type HostAccess,
+  type ServiceScope,
+  type ServiceAction,
+  type SystemService,
+  type ServiceInventory,
+  type ServiceLogs,
+  type PackageUpdateSummary,
+} from "@/features/os-shell";
 export { useResponsive, ResponsiveToolbar } from "@/features/os-shell";
 export type { ToolbarItem } from "@/features/os-shell";
 export { useActiveShell } from "@/features/os-shell";

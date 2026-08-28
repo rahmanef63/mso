@@ -38,6 +38,17 @@ skill. Public MCP tool names, schemas, scope, audit metadata, parity, toolset si
 external mappings, skill trust/routing, and client action refresh are one release contract.
 Do not declare an MCP change complete until that full contract is verified.
 
+
+## Comparison and privileged operations
+
+- `docs/comparison-data.json` is the comparison SSOT. Generate README/`docs/COMPARISON.md` with
+  `node scripts/gen-comparison.mjs`; never edit those outputs manually or improve an MSO rating
+  without existing code evidence. Use official sources and honor the freshness gate.
+- Preserve the live Viewer/Operator/Owner route policy. UI filtering is not authorization; unknown
+  mutations must fail to Owner. Device roles are not Linux users or SSO.
+- System service actions require exact owner allowlisting and fixed argv. Do not add wildcard units,
+  raw `systemctl` arguments, or package-update/apply buttons to the Viewer/Operator surface.
+
 ## Shipping
 
 Follow `CLAUDE.md`: update `docs/PROGRESS.md`, run the relevant gates, and ship through

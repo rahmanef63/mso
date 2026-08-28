@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `operations` add evidence-backed comparison and delegated control
 - `mcp` add bounded async exec jobs
 
 **Fixed**

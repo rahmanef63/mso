@@ -7,10 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Mocked BEFORE the route is imported. Each test resets the modules so the
 // per-process rate-limit bucket starts clean (otherwise tests leak state via
 // the singleton Map in lib/host/rate-limit).
-const stableSession = { device_id: "test-device" };
+const stableContext = {
+  session: { device_id: "test-device", issued_at: 1, expires_at: 2 },
+  device: { label: "test owner", approvedAt: 1, role: "owner" as const },
+  role: "owner" as const,
+};
 
 vi.mock("@/lib/auth/require-session", () => ({
-  getSession: vi.fn(async () => stableSession),
+  getSessionContext: vi.fn(async () => stableContext),
 }));
 
 // Stub config: a valid key short-circuits the early 501 path so we hit the
@@ -96,10 +100,23 @@ describe("/api/assistant rate limit", () => {
 
   it("does not rate-limit when the session is missing — returns 401 instead", async () => {
     const mod = await import("@/lib/auth/require-session");
-    vi.mocked(mod.getSession).mockResolvedValueOnce(null);
+    vi.mocked(mod.getSessionContext).mockResolvedValueOnce(null);
     const { POST } = await import("./route");
     const res = await POST(makeReq());
     expect(res.status).toBe(401);
+  });
+
+  it("rejects a delegated non-owner before touching provider state", async () => {
+    const mod = await import("@/lib/auth/require-session");
+    vi.mocked(mod.getSessionContext).mockResolvedValueOnce({
+      ...stableContext,
+      device: { ...stableContext.device, role: "operator" },
+      role: "operator",
+    });
+    const { POST } = await import("./route");
+    const res = await POST(makeReq());
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({ error: "owner_role_required" });
   });
 
   it("reports the selected provider when its API key is missing", async () => {

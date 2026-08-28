@@ -7,6 +7,8 @@ export const API_VERSION = "v1";
 
 export type {
   Unsub,
+  HostAccessRole,
+  HostAccess,
   SysStats,
   FsEntry,
   FsRoot,
@@ -18,6 +20,13 @@ export type {
   UploadProgress,
   ExecResult,
   Process,
+  ServiceScope,
+  ServiceAction,
+  SystemService,
+  ServiceInventory,
+  ServiceLogs,
+  PackageUpdate,
+  PackageUpdateSummary,
   AppManifest,
   OsApi,
 } from "@/features/appshell";

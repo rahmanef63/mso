@@ -195,13 +195,13 @@ describe("bin/mso", () => {
       });
 
     const list = withStore("device", "list");
-    expect(list).toContain(`mso device approve ${pendingId} ${JSON.stringify(nasty)}`);
+    expect(list).toContain(`mso device approve ${pendingId} ${JSON.stringify(nasty)} --role viewer`);
     expect(list).toContain(`mso device revoke ${approvedId}`);
     // The bare id stays on its own line — way (1) still works.
     expect(list).toMatch(new RegExp(`^ {2}${pendingId} `, "m"));
 
     expect(withStore("device", "pending")).toContain(
-      `mso device approve ${pendingId} ${JSON.stringify(nasty)}`,
+      `mso device approve ${pendingId} ${JSON.stringify(nasty)} --role viewer`,
     );
   });
 

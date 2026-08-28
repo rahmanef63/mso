@@ -10,10 +10,11 @@ vi.mock("server-only", () => ({}));
 
 const demo = vi.hoisted(() => ({ value: false }));
 const authed = vi.hoisted(() => ({ value: true }));
+const requiredRoles = vi.hoisted(() => [] as Array<string | undefined>);
 const limited = vi.hoisted(() => ({ value: false }));
 const actor = vi.hoisted(() => ({ value: "device-7f3a" as string | null }));
 
-vi.mock("@/lib/agent/server", () => ({ verifyAuth: async () => authed.value }));
+vi.mock("@/lib/agent/server", () => ({ verifyAuth: async (_req: Request, role?: string) => { requiredRoles.push(role); return authed.value; } }));
 vi.mock("@/lib/auth/require-session", () => ({ getSessionActor: async () => actor.value }));
 vi.mock("@/lib/demo", () => ({
   get IS_DEMO() {
@@ -44,6 +45,7 @@ beforeEach(() => {
   authed.value = true;
   limited.value = false;
   actor.value = "device-7f3a";
+  requiredRoles.length = 0;
   vi.mocked(audit).mockClear();
   vi.mocked(rateLimited).mockClear();
   vi.mocked(cancelManagedAppJob).mockClear().mockReturnValue(true);
@@ -54,6 +56,7 @@ describe("cancelling a wedged job", () => {
     const response = await del();
 
     expect(response.status).toBe(202);
+    expect(requiredRoles).toEqual(["owner"]);
     expect(cancelManagedAppJob).toHaveBeenCalledWith(JOB_ID, "hermes");
     expect(vi.mocked(audit)).toHaveBeenCalledWith(
       expect.objectContaining({ target: "hermes", ok: true, detail: "job.cancel", actor: "device-7f3a" }),

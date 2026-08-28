@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       ? NextResponse.json({ skill, content: `# ${skill.name}\n\n${skill.description}\n\nDemo mode only lists this skill; it does not run host automation.` })
       : NextResponse.json({ skills: demoSkills, recipes: [] });
   }
-  if (!(await requireSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (query) {
     const { TOOLS } = await import("@/lib/mcp/tools");

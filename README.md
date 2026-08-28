@@ -22,7 +22,7 @@
   <img alt="Open Source" src="https://img.shields.io/badge/Open%20Source-MIT-green" />
   <img alt="Self-hosted" src="https://img.shields.io/badge/Self--hosted-yes-2f7bf6" />
   <img alt="Public Alpha" src="https://img.shields.io/badge/Public%20Alpha-Developer%20Preview-f59e0b" />
-  <img alt="Single-owner" src="https://img.shields.io/badge/Single--owner-focused-111827" />
+  <img alt="Device roles" src="https://img.shields.io/badge/Device%20roles-Viewer%20%C2%B7%20Operator%20%C2%B7%20Owner-111827" />
   <img alt="Tailscale recommended" src="https://img.shields.io/badge/Tailscale%20recommended-VPN%20first-7c3aed" />
 </p>
 
@@ -34,7 +34,7 @@
   <img alt="bun" src="https://img.shields.io/badge/bun-1.3-fbf0df?logo=bun&logoColor=black" />
 </p>
 
-**Manef Shell OS** (**MSO** in the UI) is an open-source, mobile-friendly visual shell for a Linux server you own. It brings a real terminal, file manager, live system metrics, and a BYOK AI assistant into one private browser workspace without running a full remote desktop.
+**Manef Shell OS** (**MSO** in the UI) is an open-source, mobile-friendly visual shell for a Linux server you own. It brings a real terminal, file manager, live system metrics, service/package visibility, device-scoped roles, and a BYOK AI assistant into one private browser workspace without running a full remote desktop.
 
 MSO is **Public Alpha / Developer Preview** software. It runs on top of Linux as a normal non-root Node process. It is not an operating system, Linux distribution, desktop environment, VPS provider, or production-grade security platform.
 
@@ -52,11 +52,13 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 
 ## What you can do
 
-**Control** — terminal, files, and system monitor for the server you own.
+**Control** — terminal, files, services, package visibility, and system health for the server you own.
 
 - **Open a real terminal** — interactive PTY support for tools like `vim`, `top`, and `ssh`.
 - **Manage files** — browse, upload, search, preview, rename, move, copy, zip, and delete within configured filesystem roots.
 - **Inspect system health** — view live CPU, memory, disk, network, process, and uptime signals.
+- **Operate services safely** — inventory system and user `systemd` units, read bounded journal output, and expose start/stop/restart only for exact owner-configured allowlist entries.
+- **See pending package updates** — read the package manager’s existing local cache without refreshing repositories or applying an upgrade.
 - **Update itself** — Settings → About shows what is on `origin/main`, lists the incoming commits, and runs the whole deploy (pull → verify the build out-of-tree → build → restart) from a button. The verification runs first on purpose: a commit that does not compile becomes a refusal, not an outage. The updater runs in the owner's systemd user manager and does not require passwordless sudo. Same thing from a shell: `mso update run`.
 - **Manage other apps on the box** — detect, start/stop/restart, health, version, logs, and state backups for separate applications you already run (Hermes, OpenClaw, 9Router), driven through their own systemd/Docker/CLI contracts. 9Router uses its configured application domain or split-origin host as the in-shell dashboard; its Docker port is loopback-only unless public exposure is explicitly enabled. See [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md).
 
@@ -64,7 +66,8 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 
 - **Edit project files** — open text/code files from the file manager without context switching.
 - **Preview almost anything** — images (including HEIC/TIFF), audio, video, PDFs, plain text, Markdown, CSV/TSV and HTML, with ← → paging through the folder. Formats no browser can render (Office, iWork, archives, installers) say so and offer the download instead of a blank frame. HTML renders in a fully sandboxed frame, never as a document on MSO's own origin.
-- **Keep admin context together** — move between terminal, files, metrics, and browser views.
+- **Keep admin context together** — move between terminal, files, metrics, services, package updates, and browser views.
+- **Delegate by device** — approve a browser as Viewer, Operator, or Owner. Roles are rechecked on every request; they are an MSO application boundary, not Linux accounts or enterprise SSO.
 
 **Extend** — Alfa AI, modular slices, and custom apps.
 
@@ -76,13 +79,13 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 ## What can you do with MSO?
 
 **Fix a server issue from your phone**  
-Check system health, open a real terminal, inspect logs, and restart a service without opening a laptop.
+Check system health, inspect a failed unit and its logs, restart an exact allowlisted service, or open the owner terminal without opening a laptop.
 
 **Manage project files visually**  
 Browse, upload, rename, preview, and edit files without remembering every shell command.
 
 **Work with your server in one workspace**  
-Move between terminal, files, metrics, browser, and AI without switching between several admin tools.
+Move between terminal, files, metrics, services, package updates, browser, and AI without switching between several admin tools.
 
 ## Live demo
 
@@ -205,10 +208,13 @@ mso onboard                  # guided AI/app/skill setup
 mso skills available         # curated installable skills
 mso skills install ponytail caveman rtk -y
 mso device pending           # who typed the password and is waiting
-mso device approve <id> "my phone"
+mso device approve <id> "my phone" --role viewer
 mso ls ~/projects            # files; `raw` for binaries, `zip`/`upload` for transfers
 mso exec "df -h"             # host shell
 mso stats                    # cpu / mem / disk
+mso units                    # system + user systemd inventory
+mso unit logs user mso.service
+mso packages                 # cached updates; never applies them
 mso camoufox start           # power the anti-detection browser
 mso mapp logs hermes         # managed apps (hermes, openclaw, 9router)
 mso term open                # interactive PTY
@@ -226,13 +232,14 @@ links every committed official skill in `claude-skills/` into `~/.claude/skills/
 
 ## Security warning
 
-An authenticated MSO session can read allowed files and run commands as the user that owns the process. Treat it like SSH in a browser.
+An authenticated **Owner** session can read allowed files and run commands as the Unix user that owns the process. Viewer and Operator devices are server-gated to narrower surfaces, but all roles still share one MSO deployment and one underlying Unix account.
 
 - Run as a dedicated non-root user.
 - Prefer Tailscale or a VPN; otherwise use HTTPS plus a strict firewall or allowlist.
 - Use a strong `OS_SESSION_SECRET` and a strong `OS_LOGIN_PASSWORD`.
-- Approve only devices you own; device approval is an allowlist, not standards-based 2FA.
+- Approve only trusted devices; use Viewer by default, Operator only for bounded operational work, and Owner only where full host authority is intended. Device approval is an allowlist, not standards-based MFA or a named-user directory.
 - Keep write roots narrow with `OS_FS_WRITE_ROOTS`.
+- Service inventory is read-only by default. Lifecycle buttons require Operator/Owner **and** an exact `OS_SERVICE_CONTROL_UNITS` entry; wildcards are rejected. Package visibility reads only the existing local cache and never upgrades the host.
 - Never commit `.env.local`, API keys, or data from `~/.mso`.
 - Managed-app dashboards are not embedded by default. 9Router is loopback-only by default; a direct public-IP bind requires `NINE_ROUTER_EXPOSE_PUBLIC=1`, while a configured application hostname remains its preferred in-shell UI. Give each vendor UI a separate explicit hostname such as `hermes.mso.example.com`; there is no supported same-origin iframe mode.
 - Camoufox/noVNC is also never served on the cockpit origin. It uses the reserved split-origin host such as `camoufox.mso.example.com`; the legacy `/camoufox-vnc/*` path is permanently closed.
@@ -256,7 +263,7 @@ flowchart LR
   U["Phone / Browser"]
   subgraph VPS["Your Linux server"]
     APP["MSO / mso<br/>Next.js 16 · React 19"]
-    HOST["Host layer<br/>fs · PTY · sys metrics"]
+    HOST["Host layer<br/>fs · PTY · metrics · services · packages"]
     SLICES["Feature slices<br/>Files · Terminal · Monitor · Assistant"]
     AI["Alfa AI<br/>BYOK"]
     MANAGED["Managed apps<br/>Hermes · OpenClaw · 9Router<br/>own runtime + data"]
@@ -273,20 +280,26 @@ Deep dive: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Comparison
 
-The tools below have different scopes. This comparison is intended to explain where MSO fits, not to claim it replaces every specialized server administration tool.
+<!-- comparison:start -->
+**Positioning:** MSO is designed to be the most complete mobile-first, AI-native private Linux workspace for an owner or small trusted team. It does not claim to replace specialist products at their strongest specialty.
 
-| | **MSO** | Cockpit | ttyd | FileBrowser | Netdata | Tailscale SSH |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Product maturity | Early alpha | Mature | Varies | Mature | Mature | Mature |
-| Third-party security audit | No | Varies | Varies | Varies | Varies | Yes |
-| Multi-user support | No | Yes | Varies | Yes | Yes | Yes |
-| Mobile-first interface | Yes | Partial | Varies | Partial | Partial | Not a focus |
-| Real PTY | Yes | Yes | Yes | No | No | Yes |
-| File manager | Yes | Partial | No | Yes | No | No |
-| Metrics | Yes | Yes | No | No | Yes | No |
-| Built-in AI | Yes, BYOK | No | No | No | No | No |
-| Setup complexity | One script | Varies | Low | Low | Varies | Low |
-| Service/package administration | Basic | Strong | Not a focus | Not a focus | Metrics focus | SSH only |
+● strong · ◐ partial/scope-limited · — not a product surface
+
+| Product | Best fit | Workspace | Host ops | Delivery | Observability | Delegation | AI / MCP |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **MSO** | Mobile-first private Linux workspace | ● | ◐ | ◐ | ◐ | ◐ | ● |
+| **Cockpit** | Deep graphical Linux administration | ◐ | ● | ◐ | ◐ | ● | — |
+| **Coolify** | Self-hosted Git/PaaS delivery | ◐ | ◐ | ● | ◐ | ● | — |
+| **Portainer** | Container and stack operations | ◐ | ◐ | ● | ◐ | ◐ | — |
+| **Netdata** | High-resolution observability and RCA | ◐ | — | — | ● | ◐ | ◐ |
+| **Tailscale SSH** | Identity-aware private remote access | — | ◐ | — | — | ● | — |
+| **File Browser** | Focused web file management | ◐ | — | — | — | ◐ | — |
+| **ttyd** | Small, focused web terminal | ◐ | — | — | — | ◐ | — |
+| **CasaOS** | Friendly personal-cloud home server | ◐ | ◐ | ◐ | ◐ | — | — |
+| **Runtipi** | Curated one-click self-hosted apps | ◐ | — | ● | ◐ | — | — |
+
+Reviewed against official product documentation on **2026-08-29**. Ratings describe product scope, not benchmark scores. See [methodology, evidence, and per-cell notes](docs/COMPARISON.md) and the [execution roadmap](docs/COMPETITIVE-ROADMAP.md).
+<!-- comparison:end -->
 
 ## Development
 
@@ -301,6 +314,7 @@ Quality gates:
 ```bash
 bun run verify              # typecheck + lint + test + checks + audit
 node scripts/check-docs.mjs   # docs links/toolset/slice drift
+node scripts/gen-comparison.mjs --check  # comparison evidence + 90-day freshness
 bash scripts/verify-build.sh   # build HEAD out-of-tree — safe on the prod checkout
 bash -n scripts/install.sh
 ```
@@ -339,6 +353,8 @@ Not currently supported:
 | [docs/CLI.md](./docs/CLI.md) | Generated `mso` command-line reference |
 | [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | Local dev, gates and exact release flow |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Current AppShell/host/MCP/managed-app architecture |
+| [docs/COMPARISON.md](./docs/COMPARISON.md) | Generated comparison methodology, evidence and per-cell notes |
+| [docs/COMPETITIVE-ROADMAP.md](./docs/COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate boundaries and next measurable investments |
 | [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, update, backup/restore and origins |
 | [docs/HERMES-INTEGRATION.md](./docs/HERMES-INTEGRATION.md) | Hermes-specific managed-app behaviour |
 | [docs/OPENCLAW-INTEGRATION.md](./docs/OPENCLAW-INTEGRATION.md) | OpenClaw-specific managed-app behaviour |
@@ -352,7 +368,7 @@ Not currently supported:
 
 ## Status
 
-MSO is **Public Alpha / Developer Preview**. The core auth, filesystem bounds, terminal, metrics, and slice architecture are implemented, but the project is still early and unaudited. Expect rough edges, breaking changes, and missing production hardening.
+MSO is **Public Alpha / Developer Preview**. The core role-aware auth, filesystem bounds, terminal, metrics, Service Center, and slice architecture are implemented, but the project is still early and unaudited. Expect rough edges, breaking changes, and missing production hardening.
 
 ## License
 

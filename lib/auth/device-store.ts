@@ -2,17 +2,24 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
+import {
+  DeviceRoleError,
+  isDeviceRole,
+  storedDeviceRole,
+  type DeviceRole,
+} from "./roles";
 
 // Server-side device allowlist, ported from the VPS Control Room. The login
 // password is a weak/memorable factor; the strong factor is a 128-bit device
 // id that must be pre-approved here. A new device with the right password is
 // NOT let in — it lands in `pending` until an approved device (or the CLI)
-// promotes it. This is the "something you have" leg.
+// promotes it. A role then constrains the approved browser at every API call.
 
 export interface ApprovedDevice {
   label: string;
   approvedAt: number;
   lastSeen?: number;
+  role: DeviceRole;
 }
 
 export interface PendingDevice {
@@ -23,7 +30,7 @@ export interface PendingDevice {
   attempts: number;
 }
 
-interface DeviceStore {
+export interface DeviceStore {
   approved: Record<string, ApprovedDevice>;
   pending: Record<string, PendingDevice>;
 }
@@ -42,16 +49,48 @@ export function isValidDeviceId(id: unknown): id is string {
   return typeof id === "string" && DEVICE_ID_RE.test(id);
 }
 
+function finiteTime(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeApproved(raw: unknown): Record<string, ApprovedDevice> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, ApprovedDevice> = {};
+  for (const [id, value] of Object.entries(raw)) {
+    if (!isValidDeviceId(id) || !value || typeof value !== "object" || Array.isArray(value)) continue;
+    const row = value as Record<string, unknown>;
+    out[id] = {
+      label: typeof row.label === "string" && row.label ? row.label.slice(0, 80) : "approved device",
+      approvedAt: finiteTime(row.approvedAt, 0),
+      ...(typeof row.lastSeen === "number" && Number.isFinite(row.lastSeen) ? { lastSeen: row.lastSeen } : {}),
+      // Stores written before delegated roles had no role field. Preserve their
+      // historical full access, while malformed future values fail down to viewer.
+      role: storedDeviceRole(row.role),
+    };
+  }
+  return out;
+}
+
+function normalizePending(raw: unknown): Record<string, PendingDevice> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, PendingDevice> = {};
+  for (const [id, value] of Object.entries(raw)) {
+    if (!isValidDeviceId(id) || !value || typeof value !== "object" || Array.isArray(value)) continue;
+    const row = value as Record<string, unknown>;
+    out[id] = {
+      label: typeof row.label === "string" && row.label ? row.label.slice(0, 80) : "unknown device",
+      firstSeen: finiteTime(row.firstSeen, Date.now()),
+      lastSeen: finiteTime(row.lastSeen, Date.now()),
+      ip: typeof row.ip === "string" ? row.ip.slice(0, 120) : "unknown",
+      attempts: Math.max(1, Math.floor(finiteTime(row.attempts, 1))),
+    };
+  }
+  return out;
+}
+
 // "No file yet" is the ONLY failure that may look like an empty store. Anything else
-// — corrupt JSON, EACCES, EIO — must throw.
-//
-// This used to `catch { return {…empty} }` for every error, and that was a silent way
-// to lose every approved device: read() feeds a read-modify-write, and two callers
-// (recordPending, approveDevice) write unconditionally. So one unparseable byte in
-// auth-devices.json meant the next login from an unapproved device read "no devices",
-// then PERSISTED that — wiping the allowlist and locking the owner out of their own
-// host. recordPending is reachable from the internet by anyone holding the password.
-// Failing loudly here costs a 500 on login; failing quietly cost the allowlist.
+// — corrupt JSON, EACCES, EIO — must throw. A normalized read also migrates legacy
+// role-less entries in memory; the next legitimate mutation persists the role field.
 async function read(): Promise<DeviceStore> {
   let raw: string;
   try {
@@ -60,8 +99,11 @@ async function read(): Promise<DeviceStore> {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return { approved: {}, pending: {} };
     throw e;
   }
-  const parsed = JSON.parse(raw) as Partial<DeviceStore>;
-  return { approved: parsed.approved ?? {}, pending: parsed.pending ?? {} };
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  return {
+    approved: normalizeApproved(parsed.approved),
+    pending: normalizePending(parsed.pending),
+  };
 }
 
 async function write(store: DeviceStore): Promise<void> {
@@ -82,9 +124,17 @@ function mutate<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-export async function isApproved(deviceId: string): Promise<boolean> {
+function ownerCount(store: DeviceStore): number {
+  return Object.values(store.approved).filter((entry) => entry.role === "owner").length;
+}
+
+export async function getApprovedDevice(deviceId: string): Promise<ApprovedDevice | null> {
   const store = await read();
-  return deviceId in store.approved;
+  return store.approved[deviceId] ?? null;
+}
+
+export async function isApproved(deviceId: string): Promise<boolean> {
+  return (await getApprovedDevice(deviceId)) !== null;
 }
 
 /** Mark an approved device as just-seen (best effort). */
@@ -103,16 +153,34 @@ export async function listDevices(): Promise<DeviceStore> {
   return read();
 }
 
-/** Approve a device (moves it out of pending). Used by the in-app panel + CLI. */
-export function approveDevice(deviceId: string, label?: string): Promise<void> {
+/** Approve a device (moves it out of pending). Omitted role preserves legacy owner semantics. */
+export function approveDevice(deviceId: string, label?: string, role: DeviceRole = "owner"): Promise<void> {
+  if (!isDeviceRole(role)) return Promise.reject(new DeviceRoleError("invalid device role"));
   return mutate(async () => {
     const store = await read();
+    if (store.approved[deviceId]) throw new DeviceRoleError("device is already approved; use set_role");
     const pending = store.pending[deviceId];
     store.approved[deviceId] = {
       label: (label && label.slice(0, 80)) || pending?.label || "approved device",
       approvedAt: Date.now(),
+      role,
     };
     delete store.pending[deviceId];
+    await write(store);
+  });
+}
+
+/** Change an approved device's live role. Demotion takes effect on its next request. */
+export function setDeviceRole(deviceId: string, role: DeviceRole): Promise<void> {
+  if (!isDeviceRole(role)) return Promise.reject(new DeviceRoleError("invalid device role"));
+  return mutate(async () => {
+    const store = await read();
+    const entry = store.approved[deviceId];
+    if (!entry) throw new DeviceRoleError("device is not approved");
+    if (entry.role === "owner" && role !== "owner" && ownerCount(store) <= 1) {
+      throw new DeviceRoleError("at least one owner device must remain approved");
+    }
+    entry.role = role;
     await write(store);
   });
 }
@@ -121,7 +189,11 @@ export function approveDevice(deviceId: string, label?: string): Promise<void> {
 export function revokeDevice(deviceId: string): Promise<void> {
   return mutate(async () => {
     const store = await read();
-    if (!(deviceId in store.approved) && !(deviceId in store.pending)) return;
+    const approved = store.approved[deviceId];
+    if (!approved && !(deviceId in store.pending)) return;
+    if (approved?.role === "owner" && ownerCount(store) <= 1) {
+      throw new DeviceRoleError("at least one owner device must remain approved");
+    }
     delete store.approved[deviceId];
     delete store.pending[deviceId];
     await write(store);

@@ -19,7 +19,7 @@ export async function approve(form: FormData): Promise<ApprovalResult> {
   if (!mcpEnabled()) return { ok: false, error: "MCP is disabled on this server." };
   // The session cookie is the ONLY thing authorizing this. Re-checked here and not
   // inherited from the page render — a page can be cached, an action cannot.
-  if (!(await requireSession())) return { ok: false, error: "Not signed in." };
+  if (!(await requireSession("owner"))) return { ok: false, error: "Not signed in." };
 
   const clientId = String(form.get("client_id") ?? "");
   const redirectUri = String(form.get("redirect_uri") ?? "");

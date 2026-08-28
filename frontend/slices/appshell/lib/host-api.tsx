@@ -12,6 +12,14 @@ import { createContext, useContext, type ReactNode } from "react";
 
 export type Unsub = () => void;
 
+export type HostAccessRole = "viewer" | "operator" | "owner" | "demo";
+export type HostAccess = {
+  role: HostAccessRole;
+  canRead: boolean;
+  canOperate: boolean;
+  canOwn: boolean;
+};
+
 export type SysStats = {
   cpu: { pct: number; cores: number };
   mem: { used: number; total: number };
@@ -62,6 +70,47 @@ export type Process = {
   mem: number;
 };
 
+export type ServiceScope = "system" | "user";
+export type ServiceAction = "start" | "stop" | "restart";
+export type SystemService = {
+  unit: string;
+  scope: ServiceScope;
+  load: string;
+  active: string;
+  sub: string;
+  description: string;
+  controllable: boolean;
+};
+export type ServiceInventory = {
+  services: SystemService[];
+  diagnostics: string[];
+  truncated: boolean;
+  controlAllowlistConfigured: boolean;
+  generatedAt: string;
+};
+export type ServiceLogs = {
+  unit: string;
+  scope: ServiceScope;
+  entries: string[];
+  available: boolean;
+  diagnostic?: string;
+};
+export type PackageUpdate = {
+  name: string;
+  current?: string;
+  candidate: string;
+  architecture?: string;
+};
+export type PackageUpdateSummary = {
+  manager: "apt" | "dnf" | "yum" | "pacman" | "zypper" | null;
+  available: boolean;
+  updates: PackageUpdate[];
+  truncated: boolean;
+  checkedAt: string;
+  source: "local-cache";
+  diagnostic?: string;
+};
+
 export type AppManifest = { name: string; slug: string; runtime: string; entry: string };
 
 /** A managed application on the host (hermes, openclaw) — the thing that actually
@@ -72,6 +121,7 @@ export type BrowserState = { installed: boolean; running: boolean; autostart: bo
 
 export type OsApi = {
   mode: "mock" | "live";
+  access: HostAccess;
   auth: {
     token: (u: string, p: string) => Promise<{ token: string; expires_at: number }>;
     me: () => Promise<{ user: { name: string; id: string } }>;
@@ -105,6 +155,10 @@ export type OsApi = {
     stats: () => Promise<SysStats>;
     statsStream: (onEvent: (s: Partial<SysStats>) => void) => Unsub;
     processes: () => Promise<Process[]>;
+    services: () => Promise<ServiceInventory>;
+    serviceLogs: (scope: ServiceScope, unit: string, limit?: number) => Promise<ServiceLogs>;
+    servicePower: (scope: ServiceScope, unit: string, action: ServiceAction) => Promise<SystemService>;
+    packageUpdates: () => Promise<PackageUpdateSummary>;
   };
   // Managed apps, not the UI app list. `start`/`stop` used to sit here pointed at
   // /apps/:slug/start and /apps/:slug/stop — neither of which is a route — while

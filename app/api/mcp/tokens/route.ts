@@ -13,12 +13,12 @@ import { toolsetInfo } from "@/lib/mcp/toolset";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await verifyAuth(req, "owner"))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   return NextResponse.json({ enabled: mcpEnabled(), maxScope: maxScope(), toolset: toolsetInfo(TOOLS), tokens: await listTokens() });
 }
 
 export async function DELETE(req: Request) {
-  if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await verifyAuth(req, "owner"))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const id = new URL(req.url).searchParams.get("id");
   if (id === "all") return NextResponse.json({ revoked: await revokeAllTokens() });
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });

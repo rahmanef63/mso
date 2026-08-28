@@ -60,7 +60,7 @@ NINE_ROUTER_PUBLIC_URL=https://9-router.example.com
 ```
 
 Source precedence is: explicit HTTPS `NINE_ROUTER_PUBLIC_URL` → MSO split-origin host →
-public `IP:20128`. An explicit HTTPS app domain is framed directly because it is already a
+direct `IP:20128` **only when `NINE_ROUTER_EXPOSE_PUBLIC=1`**. An explicit HTTPS app domain is framed directly because it is already a
 separate origin; this also preserves the application's own origin-scoped browser session.
 
 ## Split-origin embedding when a domain is configured

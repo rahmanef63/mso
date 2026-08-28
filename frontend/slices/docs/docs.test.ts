@@ -18,7 +18,7 @@ describe("docs app", () => {
   it("is promoted while signed out, so the menu matches the state", () => {
     const osRoot = read("../../../app/os-root.tsx");
     expect(osRoot).toContain('status === "out"');
-    expect(osRoot).toContain('a.id === "docs"');
+    expect(osRoot).toContain('app.id === "docs"');
   });
 
   it("leads with the install guide this instance serves itself", () => {

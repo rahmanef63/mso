@@ -16,7 +16,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await requireSession())) {
+  // These preferences are shared across every approved device, not personal to
+  // the caller. Delegated devices may consume them, but only Owner may mutate them.
+  if (!(await requireSession("owner"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   let body: { tweaks?: Record<string, unknown>; quicklinks?: unknown };
