@@ -64,9 +64,9 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 
 | Scope | Tools |
 |---|---|
-| `read` | `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` |
+| `read` | `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` `exec_job_status` |
 | `write` | + `workflow_start` `workflow_cancel` `workflow_finish` `fs_write` `fs_upload_file` `fs_mkdir` `fs_move` `fs_copy` `fs_delete` `apps_power` |
-| `exec` | + `project_function_call` `exec_run` `browser_power` |
+| `exec` | + `project_function_call` `exec_run` `exec_job_start` `exec_job_cancel` `browser_power` |
 
 Alfa — the in-app assistant — has the same host capabilities under dot.case names,
 and `lib/mcp/parity.test.ts` fails if one surface gains a tool the other lacks
@@ -109,10 +109,10 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.08.21.1 tools=28 read=15 write=10 exec=3 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.08.28.1 tools=31 read=16 write=10 exec=5 -->
 
-Current catalog: **28 tools** (15 read, 10 write, 3 exec), server `1.6.0` / toolset
-`2026.08.21.1`. `project_capabilities` and `project_function_call` add one stable
+Current catalog: **31 tools** (16 read, 10 write, 5 exec), server `1.6.0` / toolset
+`2026.08.28.1`. `project_capabilities` and `project_function_call` add one stable
 project-automation seam without creating a dynamic MCP tool catalog; existing tool names
 remain unchanged.
 
@@ -572,3 +572,8 @@ app/.well-known/*         RFC 9728 + RFC 8414 discovery
 cannot prove same-origin, and an MCP client is cross-origin by definition. The
 CSRF gate is not the control here — the bearer is, and a browser never attaches
 one on its own the way it does a cookie.
+
+
+### Bounded asynchronous execution
+
+`exec_job_start` starts a client/workflow-bound command that may run up to 20 minutes; `exec_job_status` reads its bounded output and final exit state; `exec_job_cancel` stops a still-running job. Use this trio for test/build pipelines instead of wrapping `exec_run` in host-specific background-process plumbing.

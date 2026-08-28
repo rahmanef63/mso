@@ -1,4 +1,4 @@
-import { writeFileGuarded, makeDir, remove, move, copy, runCommand, resolveProjectHint, runProjectFunction } from "@/lib/host";
+import { writeFileGuarded, makeDir, remove, move, copy, runCommand, startExecJob, getExecJob, cancelExecJob, resolveProjectHint, runProjectFunction } from "@/lib/host";
 import { type McpTool, str, opt, S, PATH_P } from "./tool-kit";
 import { importOpenAiProvidedFile } from "./openai-file-upload";
 import { READ_TOOLS } from "./tools-read";
@@ -133,6 +133,52 @@ const MUTATE_TOOLS: McpTool[] = [
       if (!project) throw new Error(`project not found: ${String(a.project)}`);
       return runProjectFunction(project.path, str(a, "name"), a.input);
     },
+  },
+  {
+    name: "exec_job_start",
+    limit: { key: "exec.job.start", max: 12, windowMs: 60_000 },
+    audit: {
+      action: "exec.job.start" as const,
+      targetArg: "command",
+      outcome: (r) => {
+        const row = r as { state: string };
+        const refused = row.state === "refused";
+        return { ok: !refused, action: refused ? "exec.blocked" : "exec.job.start", detail: refused ? "refused" : "started" };
+      },
+    },
+    description:
+      "Start one bounded asynchronous shell job for legitimate test/build pipelines that exceed exec_run's 30s request budget. " +
+      "The job is client/workflow-bound, capped at 20 minutes and 1 MiB per output stream, limited to four concurrent jobs per client, and uses the same cwd jail and catastrophic-command filter as exec_run. Use exec_job_status to read it and exec_job_cancel to stop it.",
+    scope: "exec",
+    annotations: { destructiveHint: true, openWorldHint: true },
+    inputSchema: S({
+      command: { type: "string", description: "The shell command line to run asynchronously." },
+      cwd: { type: "string", description: "Working directory. Defaults to the owner's home." },
+    }, ["command"]),
+    run: (a, context) => startExecJob({
+      command: str(a, "command"), cwd: opt(a, "cwd"), actor: context.actor, workflowId: context.workflowId,
+    }),
+  },
+  {
+    name: "exec_job_status",
+    limit: { key: "exec.job.status", max: 120, windowMs: 60_000 },
+    description:
+      "Read one asynchronous exec job owned by this MCP client. Returns state, bounded stdout/stderr, exit code when finished, and whether output was truncated.",
+    scope: "read",
+    annotations: { readOnlyHint: true, idempotentHint: true },
+    inputSchema: S({ job_id: { type: "string", description: "Exact id returned by exec_job_start." } }, ["job_id"]),
+    run: (a, context) => Promise.resolve(getExecJob(str(a, "job_id"), context.actor, context.workflowId)),
+  },
+  {
+    name: "exec_job_cancel",
+    limit: { key: "exec.job.cancel", max: 30, windowMs: 60_000 },
+    audit: { action: "exec.job.cancel" as const, targetArg: "job_id" },
+    description:
+      "Cancel one still-running asynchronous exec job owned by this MCP client. Repeated cancellation is idempotent.",
+    scope: "exec",
+    annotations: { destructiveHint: true, idempotentHint: true },
+    inputSchema: S({ job_id: { type: "string", description: "Exact id returned by exec_job_start." } }, ["job_id"]),
+    run: (a, context) => Promise.resolve(cancelExecJob(str(a, "job_id"), context.actor, context.workflowId)),
   },
   {
     name: "exec_run",

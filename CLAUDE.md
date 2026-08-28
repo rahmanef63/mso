@@ -313,7 +313,7 @@ setup/diagrams use `docs/CHATGPT-PLUGIN.md`.
   it AND `tools/call` re-checks it — a client can call a name it was never shown.
 - **Tool names are a cross-repo contract.** `rahmanef63/connectors-gateway` registered
   mso as a connector on 2026-08-17 and historically pinned a subset of the MCP names as
-  literal `x-upstream` strings. MSO itself currently exposes 28 tools (15 read, 10 write,
+  literal `x-upstream` strings. MSO itself currently exposes 31 tools (16 read, 10 write,
   3 exec); `GET /mcp` plus `_meta.toolset` expose the current version/hash/name manifest.
   Treat the gateway mapping as a separate cross-repo contract and verify it before renaming. Renaming or removing
   a tool here breaks it with **no error in either repo** — `parity.test.ts` guards the

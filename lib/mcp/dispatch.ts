@@ -39,7 +39,7 @@ function instructions(scope: Scope): string {
   const startup = scope === "read"
     ? "This token is read-only: use skills_search for capability discovery, then bounded read tools. Verify the answer without attempting workflow memory writes."
     : "For any task needing two or more operational calls, call workflow_start directly as the ONE startup call; it already searches trusted skills and recipes, resolves the project, and reports the current toolset. Multiple workflows may run in parallel on one token. Use workflow_finish or workflow_cancel with the exact id, and pass that workflow_id on every operational call in its run; omit it for standalone work. Verify before workflow_finish.";
-  return `${startup} Prefer bounded tools for one or two direct operations. At exec scope, use one narrow exec_run batch for repository-wide search, git, tests, builds, or three or more related checks. Show concise progress using badges such as [Skills], [Files], [Terminal], [Git], [Build], [Verify], and [Screenshot]; never expose private chain-of-thought.`;
+  return `${startup} Prefer bounded tools for one or two direct operations. At exec scope, use one narrow exec_run batch for short repository-wide search/git checks; use exec_job_start + exec_job_status for tests/builds that may exceed 30 seconds. Show concise progress using badges such as [Skills], [Files], [Terminal], [Git], [Build], [Verify], and [Screenshot]; never expose private chain-of-thought.`;
 }
 
 function flowFields(workflow: ActiveWorkflow | null | undefined) {

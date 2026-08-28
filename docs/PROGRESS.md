@@ -9,6 +9,10 @@ Running log of what shipped each phase. Newest at top.
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
 > entries intact as historical evidence even when their commands/counts have been superseded.
 
+## 2026-08-28 (mcp) — bounded async exec jobs (DONE)
+
+Added `exec_job_start`, `exec_job_status`, and `exec_job_cancel` so long test/build pipelines no longer need `systemd-run`/sentinel-file orchestration around the 30-second `exec_run` request limit. Jobs reuse the cwd jail and destructive-command filter, are actor/workflow-bound, capped at 20 minutes and four concurrent jobs per actor, cap each output stream at 1 MiB, and retain completed state for 30 minutes. Toolset is now `1.6.0` / `2026.08.28.1`: **31 tools** (16 read, 10 write, 5 exec).
+
 ## 2026-08-25 — 9Router configured-domain UI + official icon correction (DONE)
 
 The first public-IP fallback pass made the fallback the preference: because every managed
@@ -201,7 +205,7 @@ verifies the real secret. There is no project/product name or webhook path compi
 MSO. Tests pin both sides: stock MSO remains closed, malformed/off-box/wildcard routes fail
 closed, `.mso` symlinks are ignored, project commands cannot interpolate caller strings
 into a shell, and project function execution remains exec-only. Toolset advances to
-`1.6.0` / `2026.08.21.1`: **28 tools** (15 read, 10 write, 3 exec).
+`1.6.0` / `2026.08.28.1`: **31 tools** (16 read, 10 write, 5 exec).
 
 ## 2026-08-20 — lossless continuation and exact-id project resolution (DONE)
 

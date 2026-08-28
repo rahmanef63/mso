@@ -76,7 +76,7 @@ export const LEARNING_TOOLS: McpTool[] = [
           ],
           policy: {
             simple: "Use bounded tools for one or two direct operations.",
-            repository: "For repository-wide search, git, tests, builds, or 3+ related checks, use one narrow exec_run batch when exec scope is available.",
+            repository: "For short repository-wide search/git checks use one narrow exec_run batch; for tests/builds that may exceed 30 seconds use exec_job_start and poll exec_job_status.",
             progress: "Show only high-level feature/tool badges and outcomes; never private chain-of-thought.",
             finish: "Call workflow_finish with this exact workflow id only after independent verification; use workflow_cancel for an abandoned run.",
           },
