@@ -4,6 +4,7 @@
 // media restores fully.
 
 import { type Composition } from "./mock-timeline";
+import { compositionBoundsError } from "./limits";
 
 const KEY = "reel.draft";
 
@@ -13,7 +14,7 @@ export function loadDraft(): Composition | null {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const c = JSON.parse(raw) as Composition;
-    if (!c || !Array.isArray(c.tracks) || !Array.isArray(c.clips) || !c.w || !c.h || !c.fps) return null;
+    if (!c || !Array.isArray(c.tracks) || !Array.isArray(c.clips) || compositionBoundsError(c)) return null;
     return migrateLayerOrder(c);
   } catch {
     return null;

@@ -28,8 +28,8 @@ export interface AppSupport {
   pinPlaceholder: string;
   /** The by-hand command, kept even though MSO now installs for real: a button
    *  that fails on someone else's machine and leaves them with nothing is worse
-   *  than the copy-paste it replaced. The automated path is
-   *  scripts/managed-app-install; this is what it does, written out. */
+   *  than the copy-paste it replaced. These commands call the same committed,
+   *  checksum-verifying installer used by the API. */
   installCommand: string;
   installNote: string;
   uninstallCommand: string;
@@ -45,10 +45,9 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     pinHint:
       "Hermes has no version pin. `update --branch NAME` switches the checkout and auto-stashes local changes — and a restore leaves ~/.hermes dirty against an unchanged HEAD, so it would stash the files just restored. Switch the branch from the Update tab afterwards if you meant to move the code.",
     pinPlaceholder: "main",
-    installCommand:
-      "curl -fsSL https://hermes-agent.nousresearch.com/install.sh -o /tmp/h.sh && bash /tmp/h.sh --non-interactive && hermes setup --non-interactive && hermes gateway install --start-now",
+    installCommand: "bash scripts/managed-app-install hermes install",
     installNote:
-      "The installer pulls uv, Python 3.11, Node and ffmpeg — expect several minutes. `--non-interactive` skips every stage that would ask a question, and `hermes setup` then takes its API key from the environment instead of a prompt.",
+      "MSO downloads the reviewed Hermes release installer from its pinned tag, verifies SHA-256, and forces the checkout to the locked upstream commit before setup. The immutable values live in security/managed-app-artifacts.env.",
     uninstallCommand: "hermes uninstall --yes",
     uninstallEffect:
       "Removes Hermes but keeps ~/.hermes config and data (add --full to remove those too). `hermes uninstall --dry-run` prints what it would remove.",
@@ -58,12 +57,11 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     dryRun: true,
     rollbackPin: true,
     pinLabel: "Version",
-    pinHint: "OpenClaw pins with `update --tag` — an exact version, or one of latest/stable/extended-stable/beta/dev. Package specs (a fork, a git ref) are refused.",
+    pinHint: "Rollback accepts an exact reviewed OpenClaw version. Moving channels or mutable dist-tags is an explicit update action, not the install default.",
     pinPlaceholder: "2026.7.1-2",
-    installCommand:
-      "npm install -g openclaw@latest && openclaw onboard --non-interactive --accept-risk --flow quickstart --gateway-auth token --gateway-bind loopback --install-daemon",
+    installCommand: "bash scripts/managed-app-install openclaw install",
     installNote:
-      "`npm i -g` needs no sudo where npm's prefix is a user directory. `onboard --non-interactive` requires `--accept-risk` — the acknowledgement that an agent with system access is a loaded gun — and binds the gateway to loopback unless told otherwise.",
+      "MSO downloads the exact OpenClaw tarball named in security/managed-app-artifacts.env, verifies SHA-512 before npm can run lifecycle hooks, and confirms the installed version before onboarding it on loopback.",
     uninstallCommand: "openclaw uninstall --non-interactive --yes --service --state",
     uninstallEffect:
       "Removes the gateway service and local state; the `openclaw` CLI itself stays on PATH. `--dry-run` prints the actions, `--all` also removes the workspace.",
@@ -74,12 +72,11 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     rollbackPin: false,
     pinLabel: "Version",
     pinHint:
-      "9Router ships one Docker tag (latest), so there is no version pin. A rollback restores the ~/.9router data snapshot; the image stays whatever is installed. Running an older image is a by-hand `docker run` with an explicit tag.",
-    pinPlaceholder: "0.5.55",
-    installCommand:
-      "docker run -d --name 9router --restart unless-stopped -p 20128:20128 -v ~/.9router:/app/data -e DATA_DIR=/app/data decolua/9router:latest",
+      "MSO installs one reviewed multi-architecture image digest. Update reconciles the container to the digest committed in security/managed-app-artifacts.env; rollback restores data, not an unreviewed tag.",
+    pinPlaceholder: "sha256:f00fe389…",
+    installCommand: "bash scripts/managed-app-9router install",
     installNote:
-      "Pulls the decolua/9router image and starts it on port 20128 with its data in ~/.9router. Needs a user in the docker group; no sudo, no systemd unit — Docker's restart policy keeps it up.",
+      "MSO pulls and verifies the committed 9Router digest, binds 20128 to loopback by default, and stores data in ~/.9router. Set NINE_ROUTER_EXPOSE_PUBLIC=1 only for an explicitly accepted public-IP deployment.",
     uninstallCommand: "docker rm -f 9router",
     uninstallEffect:
       "Stops and removes the container. The image and ~/.9router data (providers, keys, stats) stay, so a reinstall comes back configured.",

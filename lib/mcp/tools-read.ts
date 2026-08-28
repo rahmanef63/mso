@@ -117,9 +117,10 @@ export const READ_TOOLS: McpTool[] = [
       top_k: { type: "number", minimum: 1, maximum: 20, description: "Maximum matches. Default 8." },
       include_untrusted: { type: "boolean", description: "Include metadata-only matches from untrusted skill roots. Default false." },
     }, ["query"]),
-    run: async (a) => {
+    run: async (a, context) => {
       const { TOOLS } = await import("./tools");
       return searchSkillMemory(str(a, "query"), {
+        ...(context.actor ? { recipeAccess: { actor: context.actor, scope: context.scope } } : {}),
         topK: typeof a.top_k === "number" ? a.top_k : undefined,
         includeUntrusted: a.include_untrusted === true,
         toolDocs: TOOLS.map((t) => ({ name: t.name, description: t.description, scope: t.scope, inputSchema: t.inputSchema })),

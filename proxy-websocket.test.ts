@@ -168,9 +168,10 @@ describe("per-app upgrade adapters", () => {
 // gate had been a check that a cookie NAMED "session" existed, which any value
 // satisfied. It is open again only behind the verified check, so these tests are the
 // difference between a browser app and an unauthenticated remote-control relay.
-describe("the camoufox VNC bridge", () => {
+describe("the Camoufox split-origin VNC bridge", () => {
   const SECRET = "y".repeat(48);
   const NOVNC = "http://127.0.0.1:6080";
+  const VIEWER_HOST = "camoufox.mso.rahmanef.com";
 
   function session(secret = SECRET): string {
     const now = Date.now();
@@ -179,14 +180,14 @@ describe("the camoufox VNC bridge", () => {
 
   async function load(novnc = NOVNC) {
     vi.stubEnv("OS_SESSION_SECRET", SECRET);
+    vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.rahmanef.com");
     vi.stubEnv("CAMOUFOX_NOVNC_URL", novnc);
     approved.value = true;
-    // Single-origin mode: the bridge lives on the cockpit host, not an app host.
-    return loadProxy("");
+    return loadProxy(TEMPLATE);
   }
 
-  const vnc = (cookie?: string, path = "/camoufox-vnc/vnc_lite.html", extra: Record<string, string> = {}) =>
-    req("mso.rahmanef.com", path, cookie ? { cookie: `session=${cookie}`, ...extra } : extra);
+  const vnc = (cookie?: string, path = "/vnc_lite.html", extra: Record<string, string> = {}) =>
+    req(VIEWER_HOST, path, cookie ? { cookie: `session=${cookie}`, ...extra } : extra);
 
   it("404s a request with no cookie at all", async () => {
     const proxy = await load();
@@ -195,55 +196,78 @@ describe("the camoufox VNC bridge", () => {
     expect(rewriteOf(res)).toBeNull();
   });
 
-  it("404s the forged cookie the old gate accepted", async () => {
+  it("404s a forged or wrongly signed cookie", async () => {
     const proxy = await load();
-    // `Cookie: session=anything` — this exact request used to reach websockify.
-    const res = await proxy(vnc("anything"));
-    expect(res.status).toBe(404);
-    expect(rewriteOf(res)).toBeNull();
+    expect((await proxy(vnc("anything"))).status).toBe(404);
+    expect((await proxy(vnc(session("z".repeat(48))))).status).toBe(404);
   });
 
-  it("404s a cookie signed with the wrong secret", async () => {
-    const proxy = await load();
-    const res = await proxy(vnc(session("z".repeat(48))));
-    expect(res.status).toBe(404);
-    expect(rewriteOf(res)).toBeNull();
-  });
-
-  it("404s a valid signature once the device is no longer approved", async () => {
+  it("404s a valid signature once the device is revoked", async () => {
     const proxy = await load();
     approved.value = false;
-    const res = await proxy(vnc(session()));
-    expect(res.status).toBe(404);
-    expect(rewriteOf(res)).toBeNull();
+    expect((await proxy(vnc(session()))).status).toBe(404);
   });
 
-  it("rewrites an authenticated request to loopback websockify, prefix stripped", async () => {
+  it("maps the dedicated host to loopback noVNC without a cockpit prefix", async () => {
     const proxy = await load();
     const res = await proxy(vnc(session()));
     const target = new URL(rewriteOf(res)!);
     expect(target.origin).toBe(NOVNC);
-    expect(target.pathname).toBe("/vnc_lite.html"); // the /camoufox-vnc prefix is ours, not websockify's
+    expect(target.pathname).toBe("/vnc_lite.html");
+    expect(res.headers.get("content-security-policy")).toContain("frame-ancestors https://mso.rahmanef.com");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
   });
 
-  it("carries the query string, which is where noVNC's socket path lives", async () => {
+  it("maps the viewer-host root to the full noVNC UI", async () => {
     const proxy = await load();
-    const res = await proxy(vnc(session(), "/camoufox-vnc/vnc_lite.html?path=camoufox-vnc/websockify&scale=true"));
-    expect(new URL(rewriteOf(res)!).search).toBe("?path=camoufox-vnc/websockify&scale=true");
+    expect(new URL(rewriteOf(await proxy(vnc(session(), "/")))!).pathname).toBe("/vnc.html");
   });
 
-  it("carries an authenticated upgrade — noVNC is dead without the socket", async () => {
+  it("carries only the query string noVNC needs", async () => {
     const proxy = await load();
-    const res = await proxy(
-      vnc(session(), "/camoufox-vnc/websockify", { upgrade: "websocket", connection: "Upgrade" }),
-    );
+    const res = await proxy(vnc(session(), "/vnc.html?path=websockify&resize=remote"));
+    expect(new URL(rewriteOf(res)!).search).toBe("?path=websockify&resize=remote");
+  });
+
+  it("carries an authenticated upgrade and strips cockpit credentials upstream", async () => {
+    const proxy = await load();
+    const res = await proxy(vnc(session(), "/websockify", {
+      upgrade: "websocket", connection: "Upgrade", authorization: "Bearer must-not-leak",
+    }));
     expect(new URL(rewriteOf(res)!).pathname).toBe("/websockify");
+    expect(res.headers.get("x-middleware-request-cookie")).toBeNull();
+    expect(res.headers.get("x-middleware-request-authorization")).toBeNull();
   });
 
-  it("refuses an off-box destination — an env typo must not make this an open relay", async () => {
-    const proxy = await load("http://evil.example");
-    const res = await proxy(vnc(session()));
+  it("strips the Domain session cookie from ordinary noVNC asset requests too", async () => {
+    const proxy = await load();
+    const res = await proxy(vnc(session(), "/app/ui.js", { authorization: "Basic must-not-leak" }));
+    expect(res.headers.get("x-middleware-request-cookie")).toBeNull();
+    expect(res.headers.get("x-middleware-request-authorization")).toBeNull();
+  });
+
+  it("never exposes the old same-origin cockpit bridge", async () => {
+    const proxy = await load();
+    const res = await proxy(req("mso.rahmanef.com", "/camoufox-vnc/vnc.html", { cookie: `session=${session()}` }));
     expect(res.status).toBe(404);
     expect(rewriteOf(res)).toBeNull();
+  });
+
+  it("never maps cockpit API names on the viewer host back into MSO", async () => {
+    const proxy = await load();
+    const res = await proxy(vnc(session(), "/api/v1/exec/run"));
+    expect(new URL(rewriteOf(res)!).toString()).toBe(`${NOVNC}/api/v1/exec/run`);
+  });
+
+  it("refuses non-read methods and an off-box destination", async () => {
+    const proxy = await load();
+    const postHeaders = new Headers({ host: VIEWER_HOST, cookie: `session=${session()}` });
+    const post = new NextRequest(`https://${VIEWER_HOST}/vnc.html`, {
+      method: "POST", headers: postHeaders, body: "x",
+    });
+    expect((await proxy(post)).status).toBe(404);
+
+    const offBox = await load("http://evil.example");
+    expect((await offBox(vnc(session()))).status).toBe(404);
   });
 });

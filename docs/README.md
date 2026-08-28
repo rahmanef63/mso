@@ -31,7 +31,7 @@ machine-verifiable facts. The repository quality gate runs it automatically.
 | [`MANAGED-APPS.md`](./MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, backup/restore and dashboard access boundary |
 | [`HERMES-INTEGRATION.md`](./HERMES-INTEGRATION.md) | Hermes-specific integration behaviour |
 | [`OPENCLAW-INTEGRATION.md`](./OPENCLAW-INTEGRATION.md) | OpenClaw-specific integration behaviour |
-| [`9ROUTER-INTEGRATION.md`](./9ROUTER-INTEGRATION.md) | 9Router Docker/CLI ownership, domain-first embedded UI and public-IP fallback |
+| [`9ROUTER-INTEGRATION.md`](./9ROUTER-INTEGRATION.md) | 9Router immutable Docker ownership, loopback default and explicit dashboard exposure |
 | [`MODELS-INTEGRATION.md`](./MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex provider model |
 | [`SLICE-CATALOG.md`](./SLICE-CATALOG.md) | Current slice/AppShell feature inventory |
 | [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) | Symptom → cause → supported recovery |

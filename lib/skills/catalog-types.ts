@@ -15,6 +15,13 @@ export const SKILL_SCAN_LIMITS = {
   maxSkillBytes: 256 * 1024,
   /** Wall-clock ceiling for one whole catalog build. */
   maxScanMs: 4000,
+  /** Signed continuation payload cap before base64/HMAC framing. */
+  maxCursorBytes: 64 * 1024,
+  /** A valid continuation may fast-forward only this many directory entries. */
+  maxResumeEntriesPerRoot: 5_000,
+  /** Semantic routing accepts bounded owner intent, never an unbounded embedding job. */
+  maxSemanticQueryBytes: 4 * 1024,
+  maxSemanticQueryTerms: 256,
 } as const;
 
 export type SkillTrust = "official" | "verified" | "local" | "untrusted";

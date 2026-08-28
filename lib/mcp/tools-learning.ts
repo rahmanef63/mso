@@ -27,6 +27,8 @@ export const LEARNING_TOOLS: McpTool[] = [
       constraints: { type: "string", description: "Optional important constraints, such as no downtime or WebP only." },
     }, ["intent"]),
     run: async (a, context) => {
+      const actor = context.actor;
+      if (!actor) throw new Error("workflow memory needs an authenticated MCP actor");
       const intent = str(a, "intent");
       const projectHint = opt(a, "project");
       const project = projectHint ? await resolveProjectHint(projectHint).catch(() => null) : null;
@@ -36,6 +38,7 @@ export const LEARNING_TOOLS: McpTool[] = [
       // leave a run the client never received an id for and therefore cannot close.
       const search = await searchSkillMemory(intent, {
         topK: 8,
+        recipeAccess: { actor, scope: context.scope },
         toolDocs: tools.map((tool) => ({
           name: tool.name, description: tool.description, scope: tool.scope, inputSchema: tool.inputSchema,
         })),
@@ -52,14 +55,17 @@ export const LEARNING_TOOLS: McpTool[] = [
         complete: !search.catalog.truncated,
       };
       const started = await startWorkflow({
-        actor: context.actor,
+        actor,
+        scope: context.scope,
         intent,
         project: project?.path ?? projectHint,
         constraints: opt(a, "constraints"),
       });
       // Recommendation telemetry is useful, but failure to persist lastUsedAt must
       // never turn a successfully-created workflow into an opaque tool failure.
-      if (search.recommendedRecipe) await markRecipeUsed(search.recommendedRecipe.id).catch(() => undefined);
+      if (search.recommendedRecipe) {
+        await markRecipeUsed(search.recommendedRecipe.id, { actor, scope: context.scope }).catch(() => undefined);
+      }
       return {
         ...started,
         bootstrap: {

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useEditor } from "../lib/store";
-import type { Project } from "../lib/project";
+import { parseProject, readBoundedProjectResponse } from "../lib/project";
 
 // Loads a saved Doc/Project JSON from a URL into the live store on mount —
 // accepts a full Project or a bare Doc (wrapped with empty paint). Renders null.
@@ -22,22 +22,12 @@ export function ProjectLoader({
   useEffect(() => {
     let on = true;
     fetch(src)
-      .then((r) => {
-        if (!r.ok) throw new Error(`Failed to load project (${r.status})`);
-        return r.json();
-      })
-      .then((j: unknown) => {
+      .then(readBoundedProjectResponse)
+      .then((text) => {
         if (!on) return;
-        if (!j || typeof j !== "object") throw new Error("Project file is empty or malformed");
-        const o = j as { v?: number; doc?: unknown; layers?: unknown };
-        const proj: Project | null =
-          o.v === 1 && o.doc
-            ? (o as Project)
-            : Array.isArray(o.layers)
-              ? { v: 1, doc: o as Project["doc"], paint: {} }
-              : null;
-        if (!proj) throw new Error("Unrecognized project format");
-        loadProject(proj);
+        const project = parseProject(text);
+        if (!project) throw new Error("Project file is malformed, unsafe, or exceeds editor limits");
+        loadProject(project);
         onDone(true);
       })
       .catch((err: unknown) => {

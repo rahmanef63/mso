@@ -81,11 +81,13 @@ export async function streamOpenAI(opts: {
   system: string;
   signal: AbortSignal;
   emit: (event: "delta" | "tool_use" | "done", data: unknown) => void;
+  fetchImpl?: typeof fetch;
 }): Promise<void> {
   const { resolved, messages, tools, system, signal, emit } = opts;
+  const fetchImpl = opts.fetchImpl ?? fetch;
   if (signal.aborted) return;
 
-  const res = await fetch(`${resolved.baseUrl}/chat/completions`, {
+  const res = await fetchImpl(`${resolved.baseUrl}/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${resolved.apiKey}` },
     body: JSON.stringify({

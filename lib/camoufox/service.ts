@@ -19,6 +19,8 @@ export interface CamoufoxServiceStatus {
   enabled: boolean;
   /** No such unit on this host — never true on a normal install. */
   installed: boolean;
+  /** Loopback noVNC has finished booting and can serve the viewer document. */
+  viewerReady?: boolean;
 }
 
 /** Parses one `systemctl show -p ...` block. Split out from the spawn so the
@@ -55,8 +57,32 @@ async function show(): Promise<CamoufoxServiceStatus> {
   return parseUnitShow(result.stdout);
 }
 
+const LOOPBACK = /^(?:127(?:\.\d{1,3}){3}|\[?::1\]?)$/;
+
+async function probeViewer(): Promise<boolean> {
+  const raw = process.env.CAMOUFOX_NOVNC_URL || "http://127.0.0.1:6080";
+  let base: URL;
+  try { base = new URL(raw); } catch { return false; }
+  if ((base.protocol !== "http:" && base.protocol !== "https:") || !LOOPBACK.test(base.hostname)) return false;
+  const target = new URL(base);
+  target.pathname = "/vnc.html";
+  target.search = "";
+  try {
+    const response = await fetch(target, {
+      method: "HEAD",
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(1_500),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function camoufoxStatus(): Promise<CamoufoxServiceStatus> {
-  return show();
+  const status = await show();
+  return { ...status, viewerReady: status.running ? await probeViewer() : false };
 }
 
 /** Powers the display on or off for THIS session only — plain `start`/`stop`, never
@@ -76,4 +102,37 @@ export async function setCamoufoxEnabled(on: boolean): Promise<CamoufoxServiceSt
     throw new Error(`systemctl --user ${on ? "start" : "stop"} failed (rc ${result.code})`);
   }
   return show();
+}
+
+/** Revocation kill-switch. A WebSocket is authenticated only at its handshake, so
+ * removing a device from the allowlist cannot evict an already-established VNC
+ * channel by itself. Stopping the unit tears down websockify, x11vnc and the browser
+ * cgroup; a SIGKILL fallback handles a unit that refuses a graceful stop. */
+export async function terminateCamoufoxSessions(): Promise<void> {
+  let status = await show();
+  if (!status.installed || !status.running) return;
+
+  const stopped = await runProgram("systemctl", ["--user", "stop", UNIT], 30_000);
+  if (stopped.code !== 0) {
+    const killed = await runProgram(
+      "systemctl",
+      ["--user", "kill", "--kill-who=all", "--signal=SIGKILL", UNIT],
+      15_000,
+    );
+    if (killed.code !== 0) {
+      throw new Error(`could not terminate Camoufox sessions (stop rc ${stopped.code}, kill rc ${killed.code})`);
+    }
+  }
+
+  status = await show();
+  if (status.running) {
+    const killed = await runProgram(
+      "systemctl",
+      ["--user", "kill", "--kill-who=all", "--signal=SIGKILL", UNIT],
+      15_000,
+    );
+    if (killed.code !== 0) throw new Error(`Camoufox remained active after stop (kill rc ${killed.code})`);
+    status = await show();
+  }
+  if (status.running) throw new Error("Camoufox remained active after forced termination");
 }

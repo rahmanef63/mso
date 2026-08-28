@@ -36,9 +36,8 @@ await fs.writeFile(path.join(widgetA, ".mso/functions.json"), JSON.stringify({
   }],
 }));
 await skill(path.join(widgetB, ".claude/skills"), "widget-deploy", "Ship the widget service from root B.");
-// A project whose skills ROOT escapes the project via symlink: the SKILL.md is a real
-// regular file, so it is discoverable — but containment fails, so it is untrusted and
-// its instructions are withheld.
+// A project whose skills ROOT escapes via symlink. The hardened scanner rejects the
+// root before opening any metadata, so the outside tree is not cataloged at all.
 const escaped = path.join(base, "escaped-skills");
 await skill(escaped, "gadget-wild", "Unverified, outside its project.");
 await fs.mkdir(path.join(gadget, ".codex"), { recursive: true });
@@ -141,12 +140,10 @@ describe("skills_list spans global and project roots", () => {
     expect(skills.map((s) => s.id)).toEqual(expect.arrayContaining([a, b]));
   });
 
-  it("marks a project skill outside its project untrusted and unreadable", async () => {
+  it("does not traverse a project skill root that escapes through a symlink", async () => {
     const { skills } = await run("skills_list", { limit: 200 }) as { skills: SkillRow[] };
     const wild = await skillId(gadget, "gadget-wild");
-    expect(skills.find((s) => s.id === wild)).toMatchObject({
-      trust: "untrusted", instructionsReadable: false,
-    });
+    expect(skills.map((s) => s.id)).not.toContain(wild);
   });
 
   it("DROPS a skill whose SKILL.md is a symlink — nofollow means it is not a skill", async () => {

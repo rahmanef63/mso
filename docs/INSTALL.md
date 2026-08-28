@@ -171,6 +171,12 @@ The service should be a systemd **user** unit named `camoufox-vnc.service`. It i
 to stay **disabled at boot**, with `Restart=no` and a finite runtime lease; the Browser UI
 powers it on only when needed.
 
+The noVNC document is never served on the cockpit origin. Configure
+`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` plus `OS_SESSION_COOKIE_DOMAIN`, provision the reserved
+viewer host (for example `camoufox.mso.example.com`) with DNS/TLS, and keep
+`CAMOUFOX_NOVNC_URL` loopback-only. The historical `/camoufox-vnc/*` route intentionally returns
+404; the dedicated host strips cockpit cookies and authorization before forwarding to noVNC.
+
 Important paths/defaults:
 
 - persistent logged-in profile:

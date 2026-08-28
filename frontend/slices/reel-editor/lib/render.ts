@@ -7,6 +7,7 @@
 import type { Composition } from "./mock-timeline";
 import { drawFrame } from "./draw";
 import type { MediaCache } from "./media-cache";
+import { assertCompositionBounds } from "./limits";
 
 const VMIMES = [
   "video/webm;codecs=vp9,opus",
@@ -50,6 +51,7 @@ export async function renderToWebM(
   onProgress: (pct: number) => void,
   signal?: AbortSignal,
 ): Promise<Blob> {
+  assertCompositionBounds(comp);
   const canvas = document.createElement("canvas");
   canvas.width = comp.w;
   canvas.height = comp.h;

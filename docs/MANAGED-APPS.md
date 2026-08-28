@@ -104,13 +104,16 @@ There is intentionally no `/features` endpoint.
 MSO installs all three apps non-interactively through `scripts/managed-app-install` and the
 same persisted job layer used for updates.
 
-- **Hermes/OpenClaw** use their upstream installers and user-systemd lifecycle.
-- **9Router** delegates to `scripts/managed-app-9router`, pulls `decolua/9router:latest`,
-  creates `~/.9router`, and runs the container with `--restart unless-stopped`,
-  `-p 20128:20128`, and `~/.9router:/app/data`.
+- **Hermes** verifies the SHA-256 of a pinned release installer and forces the checkout to
+  the reviewed upstream commit before setup.
+- **OpenClaw** verifies the SHA-512 of an exact npm tarball before lifecycle scripts can run.
+- **9Router** delegates to `scripts/managed-app-9router`, pulls and verifies the reviewed
+  multi-architecture digest, creates `~/.9router`, and runs the container with
+  `--restart unless-stopped`, `-p 127.0.0.1:20128:20128`, and `~/.9router:/app/data`.
 
-A domain is **not an install prerequisite**. In particular, 9Router is usable through the
-VPS public IP immediately after its health check succeeds. Domain-provider integrations
+A domain is **not an install prerequisite** for lifecycle management. 9Router's dashboard is
+loopback-only after install unless a configured URL/split-origin host exists or the operator
+explicitly sets `NINE_ROUTER_EXPOSE_PUBLIC=1`. Domain-provider integrations
 (Cloudflare, Hostinger, etc.) are a separate optional concern and are not called by the
 managed-app installer.
 
@@ -262,7 +265,7 @@ the real secret verification.
 
 - app says "not installed" but you know it exists → check systemd-user visibility/detection
   evidence before rerunning an installer;
-- 9Router is healthy but its configured `*.mso...` host fails → diagnose DNS/TLS/session-cookie state; the runtime remains healthy and the direct public-IP UI is the fallback;
+- 9Router is healthy but its configured `*.mso...` host fails → diagnose DNS/TLS/session-cookie state; the runtime remains healthy and the explicitly enabled direct public-IP UI is the fallback;
 - 9Router UI button has no public URL → the host has no globally-routable IPv4 on a local
   interface, or the runtime was deliberately changed to loopback/private-only networking;
 - dashboard frame missing but service is healthy → split-origin embedding may be absent by

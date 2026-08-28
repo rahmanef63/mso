@@ -25,16 +25,7 @@ export function LibraryGrid({
   const isAgent = kind === "agent";
   const items: (Agent | Skill)[] = isAgent ? store.agents : store.skills;
 
-  const toolCount = (it: Agent | Skill) =>
-    isAgent
-      ? (it as Agent).allTools
-        ? OS_TOOLS.length
-        : new Set(
-            (it as Agent).skills.flatMap(
-              (id) => store.skills.find((x) => x.id === id)?.tools ?? [],
-            ),
-          ).size
-      : (it as Skill).tools.length;
+  const toolCount = (it: Agent | Skill) => isAgent ? OS_TOOLS.length : (it as Skill).tools.length;
 
   return (
     <ScrollArea className="flex-1">
@@ -44,7 +35,7 @@ export function LibraryGrid({
             <div className="text-base font-bold tracking-tight">{isAgent ? "Agents" : "Skills"}</div>
             <div className="text-xs text-muted-foreground">
               {isAgent
-                ? "Personas that own skills and run tools."
+                ? "Personas share one global tool catalog; skills organize instructions, not grants."
                 : "Bundles of tools + instructions you give to agents."}
             </div>
           </div>
@@ -72,7 +63,7 @@ export function LibraryGrid({
                       ) : null}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      {toolCount(it)} tools
+                      {toolCount(it)} {isAgent ? "global tools" : "tools"}
                     </div>
                   </div>
                 </div>

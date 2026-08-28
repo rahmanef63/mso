@@ -18,6 +18,7 @@ import { useHistory } from "./history";
 import { useProjectIO } from "./project";
 import { useMaskOps } from "./mask";
 import type { Brush, Ctx } from "./store-types";
+import { assertImageCanvasBounds, validateImageEditorDoc } from "./project-validation";
 
 export type { Brush, Pan } from "./store-types";
 
@@ -27,7 +28,7 @@ const DEFAULT_BG = "#ffffff";
 const EditorContext = createContext<Ctx | null>(null);
 
 export function EditorProvider({ initialDoc, children }: { initialDoc?: Doc; children: ReactNode }) {
-  const [doc, setDocState] = useState<Doc>(() => initialDoc ?? blankDoc());
+  const [doc, setDocState] = useState<Doc>(() => validateImageEditorDoc(initialDoc ?? blankDoc(), { allowBlobImages: true }));
   // Selection + mask-edit live in ONE state so their invariant (mask-editing is
   // scoped to the selected layer) is enforced atomically in the setters instead
   // of an effect-driven reset (react-hooks/set-state-in-effect).
@@ -103,8 +104,9 @@ export function EditorProvider({ initialDoc, children }: { initialDoc?: Doc; chi
   const setDoc = useCallback((next: Doc | ((d: Doc) => Doc), track = true) => {
     setDocState((prev) => {
       const n = typeof next === "function" ? next(prev) : next;
-      if (track) push({ type: "doc", before: prev, after: n });
-      return n;
+      const safe = validateImageEditorDoc(n, { allowBlobImages: true });
+      if (track) push({ type: "doc", before: prev, after: safe });
+      return safe;
     });
   }, [push]);
 
@@ -118,6 +120,7 @@ export function EditorProvider({ initialDoc, children }: { initialDoc?: Doc; chi
   const recordPaint = useCallback((id: string, before: string, after: string) => push({ type: "paint", id, before, after }), [push]);
 
   const canvasFor = useCallback((id: string, w: number, h: number) => {
+    assertImageCanvasBounds(w, h);
     let c = canvases.current.get(id);
     if (!c) {
       c = document.createElement("canvas");

@@ -59,10 +59,9 @@ const definitions = {
     containerNames: ["9router"],
     dashboardUrl: process.env.NINE_ROUTER_DASHBOARD_URL ?? "http://127.0.0.1:20128",
     healthPath: "/api/health",
-    // The Docker install publishes this port on 0.0.0.0. That gives a fresh MSO
-    // installation a usable UI without requiring DNS, TLS or a domain provider.
-    // Embedding inside HTTPS MSO remains a separate optional split-origin feature.
-    publicPort: 20128,
+    // Loopback is the secure default. Direct public-IP access is an explicit operator
+    // choice because 9Router stores provider credentials and is not an MSO auth surface.
+    publicPort: process.env.NINE_ROUTER_EXPOSE_PUBLIC === "1" ? 20128 : undefined,
     publicUrl: process.env.NINE_ROUTER_PUBLIC_URL,
     stateDirName: ".9router",
     gradient: "linear-gradient(160deg,#0ea5e9,#2563eb)",

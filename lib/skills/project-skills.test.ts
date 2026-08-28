@@ -106,7 +106,7 @@ describe("project skill trust is earned, not assumed", () => {
 
     await expect(projectSkillTrust(evil, proj)).resolves.toBe("untrusted");
     const rows = await catalog(await temp(), await temp(), [proj]);
-    expect(rows).toEqual([expect.objectContaining({ id: idFor(proj, "escape"), trust: "untrusted", source: "project" })]);
+    expect(rows).toEqual([]);
   });
 
   it("refuses a SKILL.md that is a symlink rather than a regular file", async () => {

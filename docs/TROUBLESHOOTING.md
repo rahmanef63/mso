@@ -125,6 +125,13 @@ x11vnc, noVNC/websockify, the VNC password file and the user systemd runtime/lin
 That is the expected idle state. The user unit is intentionally not enabled at boot and has
 a finite lease. Start it from Browser/Settings; stop it again when done.
 
+### Browser reports secure embedding is unavailable
+
+The Browser requires a reserved split-origin host. Configure
+`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN`, then provision DNS/TLS
+for the resolved Camoufox host (for example `camoufox.mso.example.com`). Do not restore the old
+same-origin `/camoufox-vnc/*` route; it is a deliberate 404 security boundary.
+
 ### noVNC loads but the viewer reports missing metadata/assets
 
 MSO's launcher builds a private runtime noVNC webroot that symlinks the distribution assets
@@ -158,7 +165,7 @@ management/log/update actions remain under Details.
 
 ### 9Router is healthy, the old hostname works, but a new `9router.mso...` host does not
 
-Use the direct public-IP URL first. A 9Router install does not require the new hostname. The
+Verify the loopback dashboard first (`curl http://127.0.0.1:20128/api/version`). The
 `*.mso...` route belongs to optional split-origin embedding and has independent DNS/TLS,
 `OS_SESSION_COOKIE_DOMAIN`, build-time host-template and re-login requirements. A `401` from
 that host does not mean the 9Router container is down.
@@ -168,7 +175,8 @@ that host does not mean the 9Router container is down.
 Embedded dashboards are opt-in. Confirm
 `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN`, DNS/TLS for the
 explicit app hosts, and sign in again after changing the cookie domain. With those variables
-unset, no vendor iframe is served by design. 9Router can still expose its direct public-IP UI.
+unset, no vendor iframe is served by design. A direct 9Router public-IP UI exists only when
+`NINE_ROUTER_EXPOSE_PUBLIC=1` was deliberately configured.
 
 ### Update fails before invoking the upstream updater
 

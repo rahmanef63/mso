@@ -68,6 +68,25 @@ export const MUTATE_TOOLS: HostTool[] = [
     },
   },
   {
+    name: "memory.remember",
+    group: "agent",
+    label: "Remember",
+    effect: "mutate",
+    description:
+      "Save the exact displayed text as durable cross-session memory. It may be recalled into future chats and sent to whichever AI provider the owner selects later, so every new memory requires explicit approval.",
+    parameters: obj({ "text!": str("The exact durable fact to remember — one concise sentence") }),
+    run: async (_api, a) => {
+      const text = String(a.text ?? "").trim();
+      if (!text) return "nothing to remember (empty text)";
+      const r = await fetch("/api/memory", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      return r.ok ? `remembered: ${text}` : "couldn't save the memory";
+    },
+  },
+  {
     name: "memory.forget",
     group: "agent",
     label: "Forget",

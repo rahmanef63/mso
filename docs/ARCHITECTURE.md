@@ -166,9 +166,10 @@ detect, install, start/stop/restart, read logs, update, back up, restore and con
 uninstall them. Long-running install/update/uninstall/restore work is represented as jobs
 with bounded logs and status.
 
-A domain is not a lifecycle dependency. 9Router's Docker/server form deliberately publishes
-port 20128; a configured split-origin host is the primary in-shell dashboard, while a global IPv4 lets MSO advertise `http://<public-ip>:20128` as a
-direct separate-origin UI. Hermes/OpenClaw stay loopback-only by default.
+A domain is not a lifecycle dependency. All managed-app dashboard ports are loopback-only by
+default. 9Router can expose `http://<public-ip>:20128` only when the operator explicitly sets
+`NINE_ROUTER_EXPOSE_PUBLIC=1`; otherwise a configured application URL or split-origin host is
+the only browser-facing surface.
 
 Embedded vendor dashboards are optional. A split-origin deployment opts in by setting
 `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN`, giving each embedded
@@ -185,8 +186,10 @@ See `docs/MANAGED-APPS.md`, `docs/HERMES-INTEGRATION.md`,
 ## 9. Camoufox Browser
 
 The Browser app is a real Camoufox Firefox session on a headless X display. It is streamed
-through noVNC and proxied under `/camoufox-vnc/*` after normal MSO session verification.
-The service is a systemd **user** unit and is deliberately off by default; the UI starts it
+through noVNC on a reserved split-origin host such as `camoufox.mso.example.com`. That host
+verifies the approved device, strips cockpit cookies/authorization before upstream, and maps
+every path only to loopback noVNC. The old same-origin `/camoufox-vnc/*` route always returns
+404. The service is a systemd **user** unit and is deliberately off by default; the UI starts it
 when needed. `scripts/camoufox-vnc-service` owns the launch contract.
 
 The logged-in Firefox profile is intentionally outside `~/.mso`, under the user's local

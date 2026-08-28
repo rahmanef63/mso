@@ -117,3 +117,16 @@ describe("a complete catalog build reports no continuation", () => {
     expect(scan.continuation).toBeUndefined();
   });
 });
+
+describe("continuation cursor integrity", () => {
+  it("rejects a forged offset instead of fast-forwarding the directory walk", async () => {
+    const app = await temp();
+    await skillsIn(path.join(app, "claude-skills"), 3, "f");
+    const forged = Buffer.from(JSON.stringify({
+      doneRoots: [], projectOffset: 0,
+      resume: { root: path.join(app, "claude-skills"), entriesConsumed: 10_000_000 },
+    })).toString("base64url");
+    const page = await catalogSkillsDetailed({ appDir: app, homeDir: await temp(), projects: [], cursor: forged });
+    expect(page.skills.map((s) => s.id).filter((id) => id.startsWith("f"))).toHaveLength(3);
+  });
+});

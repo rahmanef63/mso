@@ -58,7 +58,7 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 - **Manage files** — browse, upload, search, preview, rename, move, copy, zip, and delete within configured filesystem roots.
 - **Inspect system health** — view live CPU, memory, disk, network, process, and uptime signals.
 - **Update itself** — Settings → About shows what is on `origin/main`, lists the incoming commits, and runs the whole deploy (pull → verify the build out-of-tree → build → restart) from a button. The verification runs first on purpose: a commit that does not compile becomes a refusal, not an outage. The updater runs in the owner's systemd user manager and does not require passwordless sudo. Same thing from a shell: `mso update run`.
-- **Manage other apps on the box** — detect, start/stop/restart, health, version, logs, and state backups for separate applications you already run (Hermes, OpenClaw, 9Router), driven through their own systemd/Docker/CLI contracts. 9Router uses its configured application domain as the in-shell dashboard when available, with public IP as the no-domain fallback. See [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md).
+- **Manage other apps on the box** — detect, start/stop/restart, health, version, logs, and state backups for separate applications you already run (Hermes, OpenClaw, 9Router), driven through their own systemd/Docker/CLI contracts. 9Router uses its configured application domain or split-origin host as the in-shell dashboard; its Docker port is loopback-only unless public exposure is explicitly enabled. See [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md).
 
 **Work** — code/text editor, browser, and media tools in the same workspace.
 
@@ -234,7 +234,8 @@ An authenticated MSO session can read allowed files and run commands as the user
 - Approve only devices you own; device approval is an allowlist, not standards-based 2FA.
 - Keep write roots narrow with `OS_FS_WRITE_ROOTS`.
 - Never commit `.env.local`, API keys, or data from `~/.mso`.
-- Managed-app dashboards are not embedded by default. 9Router can use its direct public-IP port without a domain; when a application hostname is configured, that existing domain becomes its primary in-shell UI. Give each vendor UI a separate explicit hostname such as `hermes.mso.example.com`; there is no supported same-origin iframe mode.
+- Managed-app dashboards are not embedded by default. 9Router is loopback-only by default; a direct public-IP bind requires `NINE_ROUTER_EXPOSE_PUBLIC=1`, while a configured application hostname remains its preferred in-shell UI. Give each vendor UI a separate explicit hostname such as `hermes.mso.example.com`; there is no supported same-origin iframe mode.
+- Camoufox/noVNC is also never served on the cockpit origin. It uses the reserved split-origin host such as `camoufox.mso.example.com`; the legacy `/camoufox-vnc/*` path is permanently closed.
 - That boundary is browser-only: a plugin installed into Hermes or OpenClaw runs inside that daemon and can run host commands according to the daemon's own trust model.
 - With a model provider configured, Alfa is a tool-calling agent, not a plain chatbot. Its complete current catalog and human-approval contract are generated from `frontend/slices/assistant/host-tools/*` and documented in `frontend/slices/assistant/CONTRACT.md`; avoid copying a tool count into overview docs because the catalog changes independently of MCP.
 - Everything Alfa reads — file contents, command output, process lists — is sent to your model provider, and is re-sent on every following turn of the same run. BYOK means you own the key, not that the data stays on the box.
@@ -341,7 +342,7 @@ Not currently supported:
 | [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, update, backup/restore and origins |
 | [docs/HERMES-INTEGRATION.md](./docs/HERMES-INTEGRATION.md) | Hermes-specific managed-app behaviour |
 | [docs/OPENCLAW-INTEGRATION.md](./docs/OPENCLAW-INTEGRATION.md) | OpenClaw-specific managed-app behaviour |
-| [docs/9ROUTER-INTEGRATION.md](./docs/9ROUTER-INTEGRATION.md) | 9Router server ownership, existing-domain-first in-shell UI and public-IP fallback |
+| [docs/9ROUTER-INTEGRATION.md](./docs/9ROUTER-INTEGRATION.md) | 9Router immutable-image ownership, loopback default and explicit dashboard exposure |
 | [docs/MODELS-INTEGRATION.md](./docs/MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex model credentials |
 | [docs/MCP.md](./docs/MCP.md) | MCP/OAuth tools, discovery, workflow memory and security internals |
 | [docs/CHATGPT-PLUGIN.md](./docs/CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup + architecture/OAuth/tool/file diagrams |

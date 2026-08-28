@@ -5,6 +5,7 @@ import { Loader2, Power, ScanEye } from "lucide-react";
 import { IS_DEMO } from "@/lib/demo";
 import { PowerPanel } from "./power-panel";
 import { fetchStatus, setPower, waitForViewer, type CamoufoxServiceStatus } from "./service-client";
+import { camoufoxViewerOrigin } from "@/lib/camoufox/origin";
 
 // A REAL Firefox (Camoufox, anti-fingerprinting) running on a headless X display on
 // this host, shown over noVNC. This replaced the old iframe browser because an iframe
@@ -13,8 +14,9 @@ import { fetchStatus, setPower, waitForViewer, type CamoufoxServiceStatus } from
 // opted in. Here the page is rendered by an actual browser process and only PIXELS
 // cross into the cockpit — nothing to refuse, and no third-party JS in this origin.
 //
-// `/camoufox-vnc/*` is gated in proxy.ts by the same verified-session check that
-// guards /api/v1/exec, and rewritten to loopback websockify from there.
+// noVNC runs only on the reserved split-origin viewer host. proxy.ts verifies the
+// approved device at that host, strips cockpit credentials, and maps every path only
+// to loopback websockify; the historical same-origin /camoufox-vnc path is closed.
 //
 // The window OWNS the host session's power (see service-client + power-panel):
 // hiding this app used to leave a browser, an Xvfb and an x11vnc running for nobody,
@@ -33,11 +35,15 @@ import { fetchStatus, setPower, waitForViewer, type CamoufoxServiceStatus } from
 //    for 1:1 pixels and no letterbox. It only works because a window manager now runs
 //    on the display (see scripts/camoufox-vnc-service) — without one the browser
 //    window never reflows on the RANDR change and the client gets a cropped corner.
-const VIEWER = "/camoufox-vnc/vnc.html?path=camoufox-vnc/websockify&autoconnect=1&resize=remote";
+const VIEWER_ORIGIN = camoufoxViewerOrigin();
+const VIEWER = VIEWER_ORIGIN
+  ? `${VIEWER_ORIGIN}/vnc.html?path=websockify&autoconnect=1&resize=remote`
+  : null;
 
 /** The display's VNC password, fetched for this already-authenticated session so
  *  noVNC does not prompt on every open. Absent = none configured; let noVNC ask. */
-async function viewerSrc(): Promise<string> {
+async function viewerSrc(): Promise<string | null> {
+  if (!VIEWER) return null;
   try {
     const response = await fetch("/api/v1/camoufox/session", { cache: "no-store" });
     if (response.ok) {
@@ -63,7 +69,8 @@ export default function CamoufoxBrowser() {
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
 
-  // Connect = wait for websockify to actually answer, THEN mount the iframe. Split
+  // Connect = wait for the same-origin service API to confirm loopback noVNC readiness,
+  // THEN mount the cross-origin iframe. Split
   // from the power action because it is also the mount path for a session that was
   // already up before this window opened.
   const connect = useCallback(async (signal: AbortSignal) => {
@@ -75,7 +82,12 @@ export default function CamoufoxBrowser() {
       return;
     }
     const source = await viewerSrc();
-    if (!signal.aborted) setSrc(source);
+    if (signal.aborted) return;
+    if (!source) {
+      setError("Secure browser embedding is unavailable until the split-origin host template is configured.");
+      return;
+    }
+    setSrc(source);
   }, []);
 
   useEffect(() => {
@@ -176,7 +188,9 @@ export default function CamoufoxBrowser() {
           src={src}
           title="Camoufox browser"
           className="min-h-0 w-full flex-1 border-0 bg-black"
-          allow="clipboard-read; clipboard-write"
+          allow="clipboard-read; clipboard-write; fullscreen"
+          sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads"
+          referrerPolicy="no-referrer"
           allowFullScreen
         />
       ) : (

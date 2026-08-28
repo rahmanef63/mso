@@ -4,6 +4,7 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import { embedSkillText, hybridSemanticScore, normalizeSemanticText, SKILL_EMBEDDING_VERSION } from "./semantic";
+import { allows, type Scope } from "@/lib/mcp/scope";
 
 export type WorkflowStepState = "completed" | "failed" | "denied" | "rate_limited";
 
@@ -23,6 +24,7 @@ type WorkflowStepInput = Omit<WorkflowStep, "args"> & { args?: Record<string, un
 export type ActiveWorkflow = {
   id: string;
   actor: string;
+  scope: Scope;
   intent: string;
   project?: string;
   constraints?: string;
@@ -32,6 +34,8 @@ export type ActiveWorkflow = {
 
 export type LearnedRecipe = {
   id: string;
+  actor: string;
+  scope: Scope;
   intent: string;
   normalizedIntent: string;
   project?: string;
@@ -56,7 +60,7 @@ export type LearnedRecipe = {
 type ActiveWorkflowBuckets = Record<string, Record<string, ActiveWorkflow>>;
 
 type SkillMemoryStore = {
-  version: 2;
+  version: 3;
   active: ActiveWorkflowBuckets;
   recipes: Record<string, LearnedRecipe>;
 };
@@ -75,7 +79,7 @@ export type CancelWorkflowResult = {
   reason?: string;
 };
 
-const EMPTY = (): SkillMemoryStore => ({ version: 2, active: {}, recipes: {} });
+const EMPTY = (): SkillMemoryStore => ({ version: 3, active: {}, recipes: {} });
 let cache: SkillMemoryStore | null = null;
 let cachePath = "";
 const loadInFlight = new Map<string, Promise<SkillMemoryStore>>();
@@ -102,18 +106,63 @@ function normalizeActive(value: unknown): ActiveWorkflowBuckets {
   for (const [legacyActor, candidate] of Object.entries(value as Record<string, unknown>)) {
     if (isActiveWorkflow(candidate)) {
       const actor = candidate.actor || legacyActor;
-      (active[actor] ??= {})[candidate.id] = candidate;
+      (active[actor] ??= {})[candidate.id] = {
+        ...candidate,
+        scope: candidate.scope ?? "read",
+        intent: safeMemoryText(candidate.intent, 1000),
+        project: candidate.project ? safeMemoryText(candidate.project, 240) || undefined : undefined,
+        constraints: candidate.constraints ? safeMemoryText(candidate.constraints, 500) || undefined : undefined,
+        steps: candidate.steps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)),
+      };
       continue;
     }
     if (!candidate || typeof candidate !== "object") continue;
     for (const workflow of Object.values(candidate as Record<string, unknown>)) {
       if (!isActiveWorkflow(workflow)) continue;
       const actor = workflow.actor || legacyActor;
-      (active[actor] ??= {})[workflow.id] = workflow;
+      (active[actor] ??= {})[workflow.id] = {
+        ...workflow,
+        scope: workflow.scope ?? "read",
+        intent: safeMemoryText(workflow.intent, 1000),
+        project: workflow.project ? safeMemoryText(workflow.project, 240) || undefined : undefined,
+        constraints: workflow.constraints ? safeMemoryText(workflow.constraints, 500) || undefined : undefined,
+        steps: workflow.steps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)),
+      };
     }
   }
   return active;
 }
+
+function normalizeRecipes(value: unknown): Record<string, LearnedRecipe> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, LearnedRecipe> = {};
+  for (const [id, candidate] of Object.entries(value as Record<string, unknown>)) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const row = candidate as Partial<LearnedRecipe>;
+    if (typeof row.id !== "string" || typeof row.intent !== "string" || !Array.isArray(row.bestSteps)) continue;
+    const scope: Scope = row.scope === "write" || row.scope === "exec" ? row.scope : "read";
+    const intent = safeMemoryText(row.intent, 1000);
+    if (!intent) continue;
+    out[id] = {
+      ...(row as LearnedRecipe),
+      // Legacy global recipes remain owner-visible but are never replayed to an MCP token.
+      actor: typeof row.actor === "string" && row.actor ? row.actor : "legacy:owner",
+      scope,
+      intent,
+      project: row.project ? safeMemoryText(row.project, 240) || undefined : undefined,
+      summary: safeMemoryText(typeof row.summary === "string" ? row.summary : "completed", 1200) || "completed",
+      bestSteps: row.bestSteps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)),
+      lastSteps: Array.isArray(row.lastSteps)
+        ? row.lastSteps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step))
+        : [],
+    };
+  }
+  return out;
+}
+
+export type RecipeAccess =
+  | { actor: string; scope: Scope; ownerView?: false }
+  | { ownerView: true; actor?: never; scope?: never };
 
 async function loadStore(): Promise<SkillMemoryStore> {
   const file = storePath();
@@ -135,11 +184,9 @@ async function loadStore(): Promise<SkillMemoryStore> {
     }
     const parsed = JSON.parse(raw) as { active?: unknown; recipes?: unknown };
     cache = {
-      version: 2,
+      version: 3,
       active: normalizeActive(parsed.active),
-      recipes: parsed.recipes && typeof parsed.recipes === "object"
-        ? parsed.recipes as Record<string, LearnedRecipe>
-        : {},
+      recipes: normalizeRecipes(parsed.recipes),
     };
     cachePath = file;
     return cache;
@@ -180,22 +227,30 @@ function safeMemoryText(value: string, max: number): string {
   return out.length > max ? `${out.slice(0, max)}…` : out;
 }
 
+function safeCommandShape(command: string): string | undefined {
+  const programs: string[] = [];
+  for (const segment of command.replace(/[\r\n]+/g, " ").split(/&&|\|\||[;|]/)) {
+    const tokens = segment.trim().split(/\s+/).filter(Boolean);
+    let program: string | undefined;
+    for (const token of tokens) {
+      if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(token)) continue;
+      if (!/^[A-Za-z0-9_./@+-]+$/.test(token) || token.startsWith("-")) continue;
+      program = path.basename(token).slice(0, 64);
+      break;
+    }
+    if (program && !programs.includes(program)) programs.push(program);
+    if (programs.length >= 8) break;
+  }
+  return programs.length ? programs.join(" → ") : undefined;
+}
+
 function safeTarget(tool: string, target?: string): string | undefined {
   if (!target) return undefined;
+  if (tool === "exec_run") return safeCommandShape(target);
   let out = target
     .replace(/([?&](?:token|key|secret|password|code)=)[^&\s]+/gi, "$1[redacted]")
     .replace(/\b(?:bearer\s+)?(?:sk|pk|ghp|mso_mcp)_[a-z0-9_-]{8,}\b/gi, "[redacted]")
     .replace(/\b(password|token|secret|api[_-]?key)\s*[:=]\s*\S+/gi, "$1=[redacted]");
-  if (tool === "exec_run") {
-    // Keep the command shape, not every argument. Quoted payloads and long opaque
-    // values are where credentials most often hide.
-    out = out
-      .replace(/(['"])[\s\S]*?\1/g, "[value]")
-      .replace(/\b[a-f0-9]{32,}\b/gi, "[id]")
-      .split(/\s+/)
-      .slice(0, 12)
-      .join(" ");
-  }
   out = out.replace(new RegExp(`^${os.homedir().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`), "~");
   return out.length > 160 ? `${out.slice(0, 160)}…` : out;
 }
@@ -218,7 +273,7 @@ const SAFE_TOOL_ARGS: Record<string, readonly string[]> = {
   fs_copy: ["from", "to"],
   fs_delete: ["path"],
   apps_power: ["id", "action"],
-  exec_run: ["command", "cwd"],
+  exec_run: ["cwd"],
   browser_power: ["on"],
 };
 
@@ -231,11 +286,31 @@ function safeArgs(tool: string, args?: Record<string, unknown>): Record<string, 
     const value = args[key];
     if (typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value))) out[key] = value;
     else if (typeof value === "string" && value) {
-      const safe = key === "command" ? safeTarget("exec_run", value) : safeMemoryText(value, 240);
+      const safe = safeMemoryText(value, 240);
       if (safe) out[key] = safe;
     }
   }
   return Object.keys(out).length ? out : undefined;
+}
+
+function sanitizeStoredStep(value: unknown): WorkflowStep | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Partial<WorkflowStepInput>;
+  if (typeof row.id !== "string" || typeof row.tool !== "string" ||
+      !["completed", "failed", "denied", "rate_limited"].includes(String(row.state)) ||
+      typeof row.ts !== "string") return null;
+  const durationMs = typeof row.durationMs === "number" && Number.isFinite(row.durationMs)
+    ? Math.max(0, Math.min(86_400_000, Math.round(row.durationMs)))
+    : undefined;
+  return {
+    id: safeMemoryText(row.id, 160),
+    tool: safeMemoryText(row.tool, 120),
+    state: row.state as WorkflowStepState,
+    target: safeTarget(row.tool, row.target),
+    args: safeArgs(row.tool, row.args),
+    ...(durationMs != null ? { durationMs } : {}),
+    ts: Number.isFinite(Date.parse(row.ts)) ? new Date(row.ts).toISOString() : new Date(0).toISOString(),
+  };
 }
 
 function enrichBestSteps(best: WorkflowStep[], current: WorkflowStep[]): WorkflowStep[] {
@@ -298,9 +373,10 @@ function recipeText(intent: string, project?: string, summary?: string): string 
   return [intent, project, summary].filter(Boolean).join("\n");
 }
 
-function closestRecipe(store: SkillMemoryStore, intent: string, project?: string): LearnedRecipe | undefined {
+function closestRecipe(store: SkillMemoryStore, actor: string, scope: Scope, intent: string, project?: string): LearnedRecipe | undefined {
   let best: { recipe: LearnedRecipe; score: number } | undefined;
   for (const recipe of Object.values(store.recipes)) {
+    if (recipe.actor !== actor || recipe.scope !== scope) continue;
     const semantic = hybridSemanticScore(recipeText(intent, project), recipeText(recipe.intent, recipe.project));
     const exact = recipe.normalizedIntent === normalizeSemanticText(intent) ? 0.2 : 0;
     const projectBonus = project && recipe.project && normalizeSemanticText(project) === normalizeSemanticText(recipe.project) ? 0.08 : 0;
@@ -341,11 +417,13 @@ function removeActiveWorkflow(store: SkillMemoryStore, actor: string, workflowId
 
 export async function startWorkflow(input: {
   actor?: string;
+  scope?: Scope;
   intent: string;
   project?: string;
   constraints?: string;
 }): Promise<{ workflow: ActiveWorkflow; activeWorkflowCount: number }> {
   const actor = actorKey(input.actor);
+  const scope: Scope = input.scope ?? "read";
   const intent = safeMemoryText(input.intent, 1000);
   if (!intent) throw new Error("intent must be a non-empty string");
   const store = await loadStore();
@@ -357,6 +435,7 @@ export async function startWorkflow(input: {
   const workflow: ActiveWorkflow = {
     id: randomUUID(),
     actor,
+    scope,
     intent,
     project: input.project ? safeMemoryText(input.project, 240) || undefined : undefined,
     constraints: input.constraints ? safeMemoryText(input.constraints, 500) || undefined : undefined,
@@ -386,11 +465,9 @@ export async function recordWorkflowStep(actor: string | undefined, workflowId: 
   const workflow = workflowFor(store, actor, workflowId);
   if (!workflow) return;
   if (["skills_search", "workflow_start", "workflow_finish", "workflow_cancel"].includes(step.tool)) return;
-  workflow.steps.push({
-    ...step,
-    target: safeTarget(step.tool, step.target),
-    args: safeArgs(step.tool, step.args),
-  });
+  const sanitized = sanitizeStoredStep(step);
+  if (!sanitized) return;
+  workflow.steps.push(sanitized);
   if (workflow.steps.length > 300) workflow.steps.splice(0, workflow.steps.length - 300);
   await persist(store);
 }
@@ -424,7 +501,7 @@ export async function finishWorkflow(input: {
   const now = new Date();
   const wallMs = Math.max(0, now.getTime() - new Date(workflow.startedAt).getTime());
   const durationMs = elapsedMs(workflow.steps, wallMs);
-  const existing = closestRecipe(store, workflow.intent, workflow.project);
+  const existing = closestRecipe(store, actor, workflow.scope, workflow.intent, workflow.project);
   const previousFastestMs = existing?.fastestDurationMs;
   const summary = safeMemoryText(input.summary, 1200) || (input.success ? "completed" : "failed");
   const vector = embedSkillText(recipeText(workflow.intent, workflow.project, summary));
@@ -439,6 +516,8 @@ export async function finishWorkflow(input: {
     const faster = input.success && (existing.fastestDurationMs == null || durationMs < existing.fastestDurationMs);
     recipe = {
       ...existing,
+      actor,
+      scope: workflow.scope,
       intent: workflow.intent,
       normalizedIntent: normalizeSemanticText(workflow.intent),
       project: workflow.project,
@@ -460,6 +539,8 @@ export async function finishWorkflow(input: {
   } else {
     recipe = {
       id: randomUUID(),
+      actor,
+      scope: workflow.scope,
       intent: workflow.intent,
       normalizedIntent: normalizeSemanticText(workflow.intent),
       project: workflow.project,
@@ -510,15 +591,18 @@ export async function finishWorkflow(input: {
   };
 }
 
-export async function listLearnedRecipes(): Promise<LearnedRecipe[]> {
+export async function listLearnedRecipes(access: RecipeAccess): Promise<LearnedRecipe[]> {
   const store = await loadStore();
-  return Object.values(store.recipes).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  return Object.values(store.recipes)
+    .filter((recipe) => access.ownerView || (recipe.actor === access.actor && allows(access.scope, recipe.scope)))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
-export async function markRecipeUsed(id: string): Promise<void> {
+export async function markRecipeUsed(id: string, access: RecipeAccess): Promise<void> {
   const store = await loadStore();
   const recipe = store.recipes[id];
   if (!recipe) return;
+  if (!access.ownerView && (recipe.actor !== access.actor || !allows(access.scope, recipe.scope))) return;
   recipe.lastUsedAt = new Date().toISOString();
   await persist(store);
 }

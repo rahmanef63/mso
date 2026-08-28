@@ -95,9 +95,10 @@ export async function projectSkillRoots(projects: ProjectRef[]): Promise<{ roots
   for (const project of capped) {
     for (const [index, sub] of PROJECT_SKILL_DIRS.entries()) {
       const root = path.join(project.path, sub);
-      // A symlinked skill root is still LISTED (projectSkillTrust downgrades it to
-      // untrusted); what must not happen is it silently becoming `local`.
-      if (!(await fs.stat(root).catch(() => null))?.isDirectory()) continue;
+      // A project-root symlink is never traversed: otherwise metadata is opened before
+      // containment can make a trust decision.
+      const rootStat = await fs.lstat(root).catch(() => null);
+      if (!rootStat?.isDirectory() || rootStat.isSymbolicLink()) continue;
       out.push({ path: root, project, priority: 60 - index });
     }
   }

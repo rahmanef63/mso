@@ -10,14 +10,48 @@
 # Docker is called bare, not via sudo: mso runs as a user in the docker group,
 # and that is already what manager.ts assumes for start/stop/restart/logs.
 set -euo pipefail
+umask 077
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ARTIFACT_LOCK="$ROOT/security/managed-app-artifacts.env"
+[ -r "$ARTIFACT_LOCK" ] || { echo "missing managed-app artifact lock: $ARTIFACT_LOCK" >&2; exit 2; }
+# shellcheck source=security/managed-app-artifacts.env
+. "$ARTIFACT_LOCK"
 
 NAME="${NINE_ROUTER_CONTAINER:-9router}"
 PORT="${NINE_ROUTER_PORT:-20128}"
-IMAGE="${NINE_ROUTER_IMAGE:-decolua/9router:latest}"
+IMAGE="${NINE_ROUTER_IMAGE:-$NINE_ROUTER_IMAGE_REF}"
+case "$IMAGE" in
+  *@sha256:????????????????????????????????????????????????????????????????) ;;
+  *) echo "NINE_ROUTER_IMAGE must be an immutable @sha256 reference" >&2; exit 2 ;;
+esac
+EXPECTED_DIGEST="${IMAGE##*@}"
+[[ "$EXPECTED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+  echo "NINE_ROUTER_IMAGE digest must be lowercase sha256" >&2
+  exit 2
+}
+readonly NINE_ROUTER_IMAGE_REF IMAGE EXPECTED_DIGEST
+EXPOSE_PUBLIC="${NINE_ROUTER_EXPOSE_PUBLIC:-0}"
+case "$EXPOSE_PUBLIC" in 0) BIND=127.0.0.1 ;; 1) BIND=0.0.0.0 ;; *) echo "NINE_ROUTER_EXPOSE_PUBLIC must be 0 or 1" >&2; exit 2 ;; esac
 DATA="${NINE_ROUTER_DATA:-$HOME/.9router}"
 BASE="http://127.0.0.1:${PORT}"
 
 installed() { docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; }
+
+image_has_expected_digest() {
+  local image="$1"
+  docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" 2>/dev/null \
+    | grep -Eq "@${EXPECTED_DIGEST}$"
+}
+
+running_image_matches_lock() {
+  installed || return 1
+  local image_id
+  image_id="$(docker inspect --format '{{.Image}}' "$NAME" 2>/dev/null)" || return 1
+  docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image_id" 2>/dev/null \
+    | grep -Eq "@${EXPECTED_DIGEST}$"
+}
 
 # The running image's own version label — offline, no fork of the app.
 label_version() {
@@ -34,13 +68,16 @@ cmd_version() {
   curl -fsS -m 5 "$BASE/api/version" | sed -n 's/.*"currentVersion":"\([^"]*\)".*/\1/p'
 }
 
-# 9Router self-checks against Docker Hub and answers
-# {"currentVersion":"…","latestVersion":"…","hasUpdate":bool} at /api/version —
-# relayed verbatim (update-probe.ts parses exactly this shape).
+# Update availability is measured against MSO's reviewed immutable digest, never a
+# mutable registry tag or the app's own "latest" endpoint.
 cmd_check() {
   installed || { echo "9router container not found" >&2; exit 1; }
-  curl -fsS -m 30 "$BASE/api/version" || { echo "9router is not answering on $BASE — is it running?" >&2; exit 1; }
-  echo
+  local current latest has_update
+  current="$(docker inspect --format '{{.Image}}' "$NAME" 2>/dev/null | cut -c1-19)"
+  latest="${EXPECTED_DIGEST:0:19}"
+  if running_image_matches_lock; then has_update=false; else has_update=true; fi
+  printf '{"currentVersion":"%s","latestVersion":"%s","hasUpdate":%s}
+' "$current" "$latest" "$has_update"
 }
 
 # Pull latest, recreate the container, keep the data mount. Also the install:
@@ -48,6 +85,10 @@ cmd_check() {
 cmd_update() {
   echo "==> pull $IMAGE"
   docker pull "$IMAGE"
+  image_has_expected_digest "$IMAGE" || {
+    echo "pulled 9Router image does not expose the locked digest $EXPECTED_DIGEST" >&2
+    exit 1
+  }
 
   # Port guard: recreating onto a port some OTHER container holds would rm the
   # wrong thing's ability to come back up and fail late. Named container wins.
@@ -59,12 +100,12 @@ cmd_update() {
   fi
 
   mkdir -p "$DATA"
-  echo "==> recreate $NAME"
+  echo "==> recreate $NAME (bind $BIND:$PORT)"
   docker rm -f "$NAME" 2>/dev/null || true
   docker run -d \
     --name "$NAME" \
     --restart unless-stopped \
-    -p "$PORT:$PORT" \
+    -p "$BIND:$PORT:$PORT" \
     -v "$DATA:/app/data" \
     -e DATA_DIR=/app/data \
     "$IMAGE"
@@ -74,6 +115,7 @@ cmd_update() {
   for i in $(seq 1 30); do
     sleep 1
     if curl -fsS -o /dev/null -m 3 "$BASE/api/health"; then
+      running_image_matches_lock || { echo "running 9Router image does not match the locked digest" >&2; return 1; }
       echo "==> healthy after ${i}s ($(label_version))"
       return 0
     fi

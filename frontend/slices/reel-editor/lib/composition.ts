@@ -12,6 +12,7 @@ import {
 } from "./mock-timeline";
 import { upsertKey } from "./keyframes";
 import { getSettings } from "./settings";
+import { finitePositive, REEL_LIMITS } from "./limits";
 
 export type RatioPreset = { label: string; dims: string; w: number; h: number };
 
@@ -101,7 +102,7 @@ export function addMediaClip(c: Composition, media: MediaRef, name: string, fram
   if (!track) return c;
   const start = Math.max(0, Math.round(frame));
   const len =
-    media.type !== "image" && media.dur
+    media.type !== "image" && finitePositive(media.dur) && media.dur <= REEL_LIMITS.maxDurationSeconds
       ? Math.max(1, Math.round(media.dur * c.fps))
       : Math.max(6, Math.round(getSettings().imageDur * c.fps));
   const clip: Clip = {
@@ -126,10 +127,15 @@ export function clampTrim(
   len: number,
   speed = 1,
 ): { srcIn: number; len: number } {
-  const srcIn = durSec != null ? Math.max(0, Math.min(srcInSec, durSec)) : Math.max(0, srcInSec);
+  const safeFps = finitePositive(fps) ? Math.min(REEL_LIMITS.maxFps, fps) : 30;
+  const safeSpeed = finitePositive(speed) ? Math.min(4, Math.max(0.25, speed)) : 1;
+  const safeDuration = finitePositive(durSec) && durSec <= REEL_LIMITS.maxDurationSeconds ? durSec : undefined;
+  const safeSrcIn = Number.isFinite(srcInSec) ? srcInSec : 0;
+  const safeLen = Number.isFinite(len) ? len : 6;
+  const srcIn = safeDuration != null ? Math.max(0, Math.min(safeSrcIn, safeDuration)) : Math.max(0, safeSrcIn);
   // At speed S, `len` timeline frames consume len*S/fps source seconds.
-  const maxLen = durSec != null ? Math.max(6, Math.round(((durSec - srcIn) * fps) / speed)) : Infinity;
-  return { srcIn, len: Math.max(6, Math.min(len, maxLen)) };
+  const maxLen = safeDuration != null ? Math.max(6, Math.round(((safeDuration - srcIn) * safeFps) / safeSpeed)) : Infinity;
+  return { srcIn, len: Math.max(6, Math.min(safeLen, maxLen)) };
 }
 
 /** Set a clip's playback speed, rescaling its timeline length so the SAME source

@@ -17,7 +17,7 @@ import { ASPECT_PRESETS, createLayer } from "../lib/model";
 import { fileToDataURL, loadImage } from "../lib/image-io";
 import { removeImageBackground } from "../lib/bg-removal";
 import { exportStage, stageToDataURL } from "../lib/export";
-import { downloadProject, parseProject } from "../lib/project";
+import { downloadProject, parseProject, readBoundedProjectFile } from "../lib/project";
 import type { LayerKind } from "../lib/types";
 
 // Photoshop-style menu bar (desktop): File · Edit · Image · Layer · Select · View,
@@ -59,7 +59,7 @@ export function MenuBar({
     const w = Math.round(img.width * k), h = Math.round(img.height * k);
     addLayer(createLayer("image", { name: file.name, src, t: { x: Math.round((doc.width - w) / 2), y: Math.round((doc.height - h) / 2), width: w, height: h, rotation: 0, scaleX: 1, scaleY: 1 } }));
   }
-  async function openProject(file: File) { const p = parseProject(await file.text()); if (p) loadProject(p); }
+  async function openProject(file: File) { const p = parseProject(await readBoundedProjectFile(file)); if (p) loadProject(p); }
   async function removeBg() {
     if (!selected || selected.kind !== "image" || !selected.src) return;
     setBusy(true);

@@ -1,7 +1,8 @@
-// Off-screen media metadata probe — natural pixel dims + (video/audio) duration.
+// Off-screen media metadata probe — natural pixel dims + finite media duration.
 // Used at import time, before a clip's element is added to the MediaCache.
 
 import type { MediaType } from "./mock-timeline";
+import { finitePositive } from "./limits";
 
 /** Probe a media URL for natural pixel dims + (video) duration, off-screen. */
 export function probeMedia(
@@ -21,7 +22,7 @@ export function probeMedia(
       const a = document.createElement("audio");
       a.crossOrigin = "anonymous";
       a.preload = "metadata";
-      a.onloadedmetadata = () => resolve({ natW: 0, natH: 0, dur: a.duration || undefined });
+      a.onloadedmetadata = () => resolve({ natW: 0, natH: 0, dur: finitePositive(a.duration) ? a.duration : undefined });
       a.onerror = () => reject(new Error("Could not load audio"));
       a.src = url;
       return;
@@ -31,7 +32,7 @@ export function probeMedia(
     v.muted = true;
     v.preload = "metadata";
     v.onloadedmetadata = () =>
-      resolve({ natW: v.videoWidth || 1280, natH: v.videoHeight || 720, dur: v.duration || undefined });
+      resolve({ natW: v.videoWidth || 1280, natH: v.videoHeight || 720, dur: finitePositive(v.duration) ? v.duration : undefined });
     v.onerror = () => reject(new Error("Could not load video"));
     v.src = url;
   });

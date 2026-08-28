@@ -1,3 +1,5 @@
+import { IMAGE_EDITOR_LIMITS } from "./project-validation";
+
 // Konva-free image I/O — kept OUT of konva-helpers.ts so the editor chrome (top
 // bar, menu bar) that only reads a File doesn't drag the whole Konva canvas lib
 // into its chunk. Konva loads with the stage (dynamic import), not the chrome.
@@ -19,6 +21,9 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
 // the document unloads, so it gets serialized into autosave/Save and renders null
 // after a reload. Data URLs round-trip through persistence intact.
 export function fileToDataURL(file: File): Promise<string> {
+  if (file.size > IMAGE_EDITOR_LIMITS.maxPickedImageBytes) {
+    return Promise.reject(new Error("image exceeds the 16 MiB import limit"));
+  }
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(r.result as string);

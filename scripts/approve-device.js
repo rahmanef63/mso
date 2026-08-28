@@ -13,6 +13,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { randomUUID } = require("crypto");
+const { spawnSync } = require("child_process");
 
 const STORE =
   process.env.OS_DEVICE_STORE || path.join(os.homedir(), ".mso", "auth-devices.json");
@@ -39,6 +40,7 @@ function write(store) {
 // lock owner is recorded so a crashed helper/server is recoverable without turning
 // a stale file into a permanent authentication outage.
 const LOCK = `${STORE}.lock`;
+const RECOVERY = `${LOCK}.recovery`;
 const LOCK_WAIT_MS = 25;
 const LOCK_TIMEOUT_MS = 3000;
 const LOCK_STALE_MS = 30000;
@@ -61,33 +63,69 @@ function abandonedLock() {
     throw error;
   }
 }
+function openExclusive(file, token) {
+  // Publish only a fully-written owner record; linkSync is the atomic create point.
+  const candidate = `${file}.${randomUUID()}.candidate`;
+  let fd;
+  try {
+    fd = fs.openSync(candidate, "wx", 0o600);
+    fs.writeFileSync(fd, token, "utf8");
+    fs.fsyncSync(fd);
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd); } catch {}
+  }
+  try { fs.linkSync(candidate, file); }
+  finally { try { fs.unlinkSync(candidate); } catch {} }
+  return { token };
+}
+function releaseLock(file, held) {
+  let owner = "";
+  try { owner = fs.readFileSync(file, "utf8"); } catch {}
+  if (owner === held.token) { try { fs.unlinkSync(file); } catch {} }
+}
 function acquireLock() {
   fs.mkdirSync(path.dirname(STORE), { recursive: true, mode: 0o700 });
   const token = `${process.pid}:${randomUUID()}`;
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
   while (true) {
-    try {
-      const fd = fs.openSync(LOCK, "wx", 0o600);
-      try { fs.writeFileSync(fd, token, "utf8"); }
-      catch (error) { try { fs.closeSync(fd); } catch {} try { fs.unlinkSync(LOCK); } catch {} throw error; }
-      return { fd, token };
-    } catch (error) {
+    // Every process takes the recovery gate before inspecting or publishing LOCK.
+    // This closes the stat/read/unlink ABA race where a stale recoverer could delete
+    // a newly-created live lock at the same pathname.
+    let gate;
+    try { gate = openExclusive(RECOVERY, `${process.pid}:${randomUUID()}`); }
+    catch (error) {
       if (!error || error.code !== "EEXIST") throw error;
-      if (abandonedLock()) { try { fs.unlinkSync(LOCK); } catch {} continue; }
-      if (Date.now() >= deadline) throw new Error("security store is busy; retry the operation");
-      sleep(LOCK_WAIT_MS);
     }
+
+    if (gate) {
+      try {
+        try { return openExclusive(LOCK, token); }
+        catch (error) { if (!error || error.code !== "EEXIST") throw error; }
+
+        if (abandonedLock()) {
+          try { fs.unlinkSync(LOCK); }
+          catch (error) { if (!error || error.code !== "ENOENT") throw error; }
+          // Publish our owner record while the recovery gate is still held. Every
+          // supported writer obeys this gate, so no contender can occupy the gap.
+          try { return openExclusive(LOCK, token); }
+          catch (error) { if (!error || error.code !== "EEXIST") throw error; }
+        }
+      } finally {
+        // Never auto-break a recovery guard. A crash fails closed until manual
+        // cleanup rather than risking a revocation-losing concurrent write.
+        releaseLock(RECOVERY, gate);
+      }
+    }
+
+    if (Date.now() >= deadline) throw new Error("security store is busy; retry the operation");
+    sleep(LOCK_WAIT_MS);
   }
 }
+
 function withMutation(fn) {
   const held = acquireLock();
   try { return fn(); }
-  finally {
-    try { fs.closeSync(held.fd); } catch {}
-    let owner = "";
-    try { owner = fs.readFileSync(LOCK, "utf8"); } catch {}
-    if (owner === held.token) { try { fs.unlinkSync(LOCK); } catch {} }
-  }
+  finally { releaseLock(LOCK, held); }
 }
 const ts = (t) => (t ? new Date(t).toISOString() : "—");
 
@@ -96,6 +134,22 @@ const ts = (t) => (t ? new Date(t).toISOString() : "—");
 // a label containing a quote or a space still pastes as ONE argument.
 const approveCmd = (id, label) => `    mso device approve ${id} ${JSON.stringify(label || "my device")}`;
 const revokeCmd = (id) => `    mso device revoke ${id}`;
+
+// A live VNC WebSocket has already passed its session check, so changing the
+// allowlist alone cannot evict it. The local CLI applies the same kill switch as
+// the authenticated API. The binary override supports hermetic tests and unusual
+// systemctl locations; the caller is already the host owner.
+function terminateCamoufoxSessions() {
+  const systemctl = process.env.MSO_SYSTEMCTL_BIN || "systemctl";
+  const result = spawnSync(systemctl, ["--user", "stop", "camoufox-vnc.service"], {
+    encoding: "utf8",
+    timeout: 30000,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`device was revoked, but Camoufox session teardown failed (rc ${result.status}): ${(result.stderr || "").trim().slice(0, 160)}`);
+  }
+}
 
 const listApproved = (ap) => {
   if (!ap.length) return void console.log("  (none)");
@@ -154,6 +208,7 @@ if (args[0] === "--revoke-all") {
     write(current);
     return currentIds;
   });
+  terminateCamoufoxSessions();
   console.log(`revoked ${revokedIds.length} device(s):`);
   for (const id of revokedIds) console.log(`  ${id}`);
   console.log("\nno device can sign in until you approve one again.");
@@ -177,6 +232,7 @@ if (args[0] === "--revoke") {
     process.exit(1);
   }
   const { label, left } = result;
+  terminateCamoufoxSessions();
   // Say what is left, so the obvious follow-up (`device list`) isn't needed — and
   // so revoking your last device is impossible to do without noticing.
   console.log(`revoked ${id}  "${label}"`);

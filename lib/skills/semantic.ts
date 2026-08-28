@@ -10,6 +10,8 @@
  */
 export const SKILL_EMBEDDING_VERSION = "mso-local-hybrid-v1";
 export const SKILL_EMBEDDING_DIM = 384;
+export const MAX_SEMANTIC_QUERY_BYTES = 4 * 1024;
+export const MAX_SEMANTIC_QUERY_TERMS = 256;
 
 const STOP = new Set([
   "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "how", "i", "in", "is", "it", "of", "on", "or", "that", "the", "this", "to", "with",
@@ -60,16 +62,34 @@ function add(vec: number[], feature: string, weight: number): void {
   vec[index] += sign * weight;
 }
 
-function terms(text: string): string[] {
+function terms(text: string, limit = Number.POSITIVE_INFINITY): string[] {
   return normalizeSemanticText(text)
     .split(" ")
     .map((v) => v.trim())
-    .filter((v) => v.length > 1 && !STOP.has(v));
+    .filter((v) => v.length > 1 && !STOP.has(v))
+    .slice(0, limit);
 }
 
-export function embedSkillText(text: string): number[] {
+export type PreparedSemanticQuery = {
+  raw: string;
+  vector: number[];
+  terms: ReadonlySet<string>;
+};
+
+export function prepareSemanticQuery(query: string): PreparedSemanticQuery {
+  const raw = query.trim();
+  if (!raw) throw new Error("query must be a non-empty string");
+  if (Buffer.byteLength(raw, "utf8") > MAX_SEMANTIC_QUERY_BYTES) throw new Error("query exceeds byte limit");
+  return {
+    raw,
+    vector: embedSkillText(raw, MAX_SEMANTIC_QUERY_TERMS),
+    terms: new Set(terms(raw, MAX_SEMANTIC_QUERY_TERMS)),
+  };
+}
+
+export function embedSkillText(text: string, termLimit = Number.POSITIVE_INFINITY): number[] {
   const vec = Array<number>(SKILL_EMBEDDING_DIM).fill(0);
-  const xs = terms(text);
+  const xs = terms(text, termLimit);
   for (let i = 0; i < xs.length; i += 1) {
     const token = xs[i];
     add(vec, `w:${token}`, token.includes("_") ? 2.2 : 1);
@@ -103,10 +123,13 @@ export function lexicalSimilarity(a: string, b: string): number {
   return overlap / Math.sqrt(aa.size * bb.size);
 }
 
-export function hybridSemanticScore(query: string, text: string, vector?: number[]): number {
-  const qv = embedSkillText(query);
+export function hybridSemanticScore(query: string | PreparedSemanticQuery, text: string, vector?: number[]): number {
+  const prepared = typeof query === "string" ? prepareSemanticQuery(query) : query;
   const dv = vector ?? embedSkillText(text);
-  const cosine = Math.max(0, cosineSimilarity(qv, dv));
-  const lexical = lexicalSimilarity(query, text);
+  const cosine = Math.max(0, cosineSimilarity(prepared.vector, dv));
+  const docTerms = new Set(terms(text));
+  let overlap = 0;
+  for (const term of prepared.terms) if (docTerms.has(term)) overlap += 1;
+  const lexical = prepared.terms.size && docTerms.size ? overlap / Math.sqrt(prepared.terms.size * docTerms.size) : 0;
   return Math.max(0, Math.min(1, cosine * 0.74 + lexical * 0.26));
 }

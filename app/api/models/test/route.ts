@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { requireSession } from "@/lib/auth/require-session";
 import { resolveModelRef, hostCredentialStore, selectedCustomConn } from "@/lib/config/store";
 import { resolveModel } from "@/lib/models";
+import { safeProviderFetch } from "@/lib/host/ssrf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,8 +15,10 @@ export async function POST() {
   if (!(await requireSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let resolved;
+  let customProvider = false;
   try {
     const custom = await selectedCustomConn();
+    customProvider = Boolean(custom);
     resolved = await resolveModel(await resolveModelRef(), {
       store: hostCredentialStore(),
       baseUrl: custom?.baseUrl,
@@ -27,10 +30,13 @@ export async function POST() {
 
   try {
     if (resolved.protocol === "anthropic") {
-      const a = new Anthropic({ apiKey: resolved.apiKey, baseURL: resolved.baseUrl });
+      const a = new Anthropic({
+        apiKey: resolved.apiKey, baseURL: resolved.baseUrl,
+        ...(customProvider ? { fetch: safeProviderFetch } : {}),
+      });
       await a.messages.create({ model: resolved.model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] });
     } else {
-      const r = await fetch(`${resolved.baseUrl}/chat/completions`, {
+      const r = await (customProvider ? safeProviderFetch : fetch)(`${resolved.baseUrl}/chat/completions`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${resolved.apiKey}` },
         body: JSON.stringify({ model: resolved.model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] }),

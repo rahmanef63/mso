@@ -1,6 +1,6 @@
 import { catalogSkillsDetailed, readSkillFile, type ProjectRef, type SkillInfo, type SkillScanReport } from "./catalog";
-import { listLearnedRecipes, type LearnedRecipe } from "./memory";
-import { embedSkillText, hybridSemanticScore, SKILL_EMBEDDING_VERSION } from "./semantic";
+import { listLearnedRecipes, type LearnedRecipe, type RecipeAccess } from "./memory";
+import { embedSkillText, hybridSemanticScore, prepareSemanticQuery, SKILL_EMBEDDING_VERSION } from "./semantic";
 
 export type SkillSearchToolDoc = {
   name: string;
@@ -35,6 +35,8 @@ export type SkillSearchOptions = {
   homeDir?: string;
   /** Forwarded to catalogSkills; `[]` restricts the search to global roots. */
   projects?: ProjectRef[];
+  /** Explicit recipe visibility. Omit to search skills/tools only. */
+  recipeAccess?: RecipeAccess;
 };
 
 function skillQuality(skill: SkillInfo): number {
@@ -59,13 +61,13 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
   catalog: SkillScanReport;
   recommendedRecipe?: SkillSearchHit;
 }> {
-  const q = query.trim();
-  if (!q) throw new Error("query must be a non-empty string");
+  const preparedQuery = prepareSemanticQuery(query);
+  const q = preparedQuery.raw;
   const topK = Math.min(Math.max(Math.round(options.topK ?? 8), 1), 20);
   const hits: SkillSearchHit[] = [];
   const availableTools = options.toolDocs?.length ? new Set(options.toolDocs.map((t) => t.name)) : null;
 
-  const recipes = await listLearnedRecipes();
+  const recipes = options.recipeAccess ? await listLearnedRecipes(options.recipeAccess) : [];
   for (const recipe of recipes) {
     const text = [
       recipe.intent,
@@ -73,7 +75,7 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
       recipe.summary,
       recipe.bestSteps.map((s) => `${s.tool} ${s.target ?? ""}`).join(" "),
     ].filter(Boolean).join("\n");
-    const raw = hybridSemanticScore(q, text, recipe.embeddingVersion === SKILL_EMBEDDING_VERSION ? recipe.embedding : embedSkillText(text));
+    const raw = hybridSemanticScore(preparedQuery, text, recipe.embeddingVersion === SKILL_EMBEDDING_VERSION ? recipe.embedding : embedSkillText(text));
     const missingTools = availableTools
       ? [...new Set(recipe.bestSteps.map((s) => s.tool).filter((tool) => !availableTools.has(tool)))]
       : [];
@@ -103,7 +105,7 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
       id: skill.id,
       name: skill.name,
       ...(skill.project ? { project: skill.project } : {}),
-      score: Math.max(0, Math.min(1, hybridSemanticScore(q, text) + skillQuality(skill))),
+      score: Math.max(0, Math.min(1, hybridSemanticScore(preparedQuery, text) + skillQuality(skill))),
       description: skill.description,
       source: skill.source,
       trust: skill.trust,
@@ -117,7 +119,7 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
       kind: "tool",
       id: tool.name,
       name: tool.name,
-      score: Math.min(1, hybridSemanticScore(q, text) + 0.055),
+      score: Math.min(1, hybridSemanticScore(preparedQuery, text) + 0.055),
       description: tool.description,
       source: "mcp",
       trust: "official",

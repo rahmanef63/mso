@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/managed-apps/runner", () => ({ runProgram: vi.fn() }));
 
 import { runProgram } from "@/lib/managed-apps/runner";
-import { camoufoxStatus, parseUnitShow, setCamoufoxEnabled } from "./service";
+import { camoufoxStatus, parseUnitShow, setCamoufoxEnabled, terminateCamoufoxSessions } from "./service";
 
 const mockRun = vi.mocked(runProgram);
 
@@ -20,7 +20,11 @@ const OFF = show({ LoadState: "loaded", ActiveState: "inactive", UnitFileState: 
 // The steady state after a UI "on": powered up, and STILL not armed for boot.
 const ON = show({ LoadState: "loaded", ActiveState: "active", UnitFileState: "disabled" });
 
-beforeEach(() => mockRun.mockReset());
+beforeEach(() => {
+  mockRun.mockReset();
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
+});
+afterEach(() => vi.unstubAllGlobals());
 
 describe("camoufox unit status parsing", () => {
   it("reads a running, boot-persistent unit", () => {
@@ -75,6 +79,23 @@ describe("camoufox lifecycle", () => {
     await expect(camoufoxStatus()).rejects.toThrow(/No medium found/);
   });
 
+  it("reports viewer readiness only after the loopback document answers", async () => {
+    mockRun.mockResolvedValue(ok(RUNNING));
+    await expect(camoufoxStatus()).resolves.toMatchObject({ running: true, viewerReady: true });
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("not listening"); }));
+    await expect(camoufoxStatus()).resolves.toMatchObject({ running: true, viewerReady: false });
+  });
+
+  it("never probes an off-box noVNC URL from configuration", async () => {
+    vi.stubEnv("CAMOUFOX_NOVNC_URL", "https://evil.example/vnc.html");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    mockRun.mockResolvedValue(ok(RUNNING));
+    await expect(camoufoxStatus()).resolves.toMatchObject({ viewerReady: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
   it("powers the session without ever re-arming boot autostart", async () => {
     // The bug this guards: `enable --now` made every "Turn on" click re-create
     // default.target.wants, so the browser came back at every boot and sat there for a
@@ -99,4 +120,36 @@ describe("camoufox lifecycle", () => {
     mockRun.mockResolvedValueOnce(ok(OFF)).mockResolvedValueOnce({ code: 5, stdout: "", stderr: "boom" });
     await expect(setCamoufoxEnabled(true)).rejects.toThrow(/rc 5/);
   });
+  it("tears down a running viewer and verifies that the unit is inactive", async () => {
+    mockRun.mockResolvedValueOnce(ok(ON)).mockResolvedValueOnce(ok("")).mockResolvedValueOnce(ok(OFF));
+    await expect(terminateCamoufoxSessions()).resolves.toBeUndefined();
+    expect(mockRun.mock.calls[1]![1]).toEqual(["--user", "stop", "camoufox-vnc.service"]);
+  });
+
+  it("does nothing when no viewer process exists", async () => {
+    mockRun.mockResolvedValueOnce(ok(OFF));
+    await expect(terminateCamoufoxSessions()).resolves.toBeUndefined();
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to killing the service cgroup when graceful stop fails", async () => {
+    mockRun
+      .mockResolvedValueOnce(ok(ON))
+      .mockResolvedValueOnce({ code: 5, stdout: "", stderr: "stop failed" })
+      .mockResolvedValueOnce(ok(""))
+      .mockResolvedValueOnce(ok(OFF));
+    await expect(terminateCamoufoxSessions()).resolves.toBeUndefined();
+    expect(mockRun.mock.calls[2]![1]).toEqual([
+      "--user", "kill", "--kill-who=all", "--signal=SIGKILL", "camoufox-vnc.service",
+    ]);
+  });
+
+  it("fails closed when neither stop nor cgroup kill succeeds", async () => {
+    mockRun
+      .mockResolvedValueOnce(ok(ON))
+      .mockResolvedValueOnce({ code: 5, stdout: "", stderr: "stop failed" })
+      .mockResolvedValueOnce({ code: 6, stdout: "", stderr: "kill failed" });
+    await expect(terminateCamoufoxSessions()).rejects.toThrow(/stop rc 5, kill rc 6/);
+  });
+
 });

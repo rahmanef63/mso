@@ -9,6 +9,32 @@ Running log of what shipped each phase. Newest at top.
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
 > entries intact as historical evidence even when their commands/counts have been superseded.
 
+## 2026-08-28 (security) — full-repository Codex remediation (DONE)
+
+The first terminal Codex Security component review completed all 20 tracked-repository
+partitions and produced one High, sixteen Medium and three Low groups. Every reported group
+was traced to its actual boundary and remediated rather than suppressed: MCP now authenticates
+before bounded JSON parsing and reapplies the deployment scope ceiling on every call; durable
+Alfa memory requires approval of the exact text; learned recipes are actor-isolated; skill
+discovery is symlink-safe with authenticated, bounded cursors and one bounded semantic query
+embedding; and mutation approvals disclose the complete canonical arguments.
+
+Browser and media boundaries were hardened as well. Camoufox/noVNC moved off the cockpit origin
+to a dedicated authenticated host, strips cockpit credentials, and is torn down when a device
+is revoked. Custom provider connections resolve and validate every destination and redirect
+against private, loopback, link-local and metadata ranges. Image-editor projects and Reel media
+now enforce finite dimension, byte, sample and duration budgets before canvas allocation, decode
+or export. CLI/editor cookies and documents live only under verified owner-only 0700/0600 state
+with atomic no-symlink writes. Security-store stale recovery now uses one shared acquisition gate
+across web and CLI writers, closing the check/unlink ABA race.
+
+Managed-app execution identities are immutable: Hermes installer bytes and checkout commit, the
+exact OpenClaw package, and the 9Router OCI digest are committed and verified before execution.
+9Router binds loopback unless public exposure is explicitly enabled. The release remains
+fail-closed: full regression, isolated build, all 20 Codex components, passive ZAP, scanner gates,
+push gates and exact-SHA production health must all terminate successfully before `main` is
+promoted; skipped lanes are never reported as the ultimate result.
+
 ## 2026-08-28 (mcp) — bounded async exec jobs (DONE)
 
 Added `exec_job_start`, `exec_job_status`, and `exec_job_cancel` so long test/build pipelines no longer need `systemd-run`/sentinel-file orchestration around the 30-second `exec_run` request limit. Jobs reuse the cwd jail and destructive-command filter, are actor/workflow-bound, capped at 20 minutes and four concurrent jobs per actor, cap each output stream at 1 MiB, and retain completed state for 30 minutes. Toolset is now `1.6.0` / `2026.08.28.1`: **31 tools** (16 read, 10 write, 5 exec).

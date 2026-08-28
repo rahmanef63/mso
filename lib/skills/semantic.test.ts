@@ -14,3 +14,19 @@ describe("local skill embeddings", () => {
     expect(score).toBeGreaterThan(0.25);
   });
 });
+
+describe("bounded prepared semantic queries", () => {
+  it("rejects oversized owner intent before embedding", async () => {
+    const { prepareSemanticQuery, MAX_SEMANTIC_QUERY_BYTES } = await import("./semantic");
+    expect(() => prepareSemanticQuery("x".repeat(MAX_SEMANTIC_QUERY_BYTES + 1))).toThrow(/byte limit/);
+  });
+
+  it("reuses one prepared query vector across candidate scoring", async () => {
+    const { prepareSemanticQuery, hybridSemanticScore } = await import("./semantic");
+    const prepared = prepareSemanticQuery("deploy mso safely");
+    const identity = prepared.vector;
+    hybridSemanticScore(prepared, "deploy release workflow");
+    hybridSemanticScore(prepared, "unrelated media editor");
+    expect(prepared.vector).toBe(identity);
+  });
+});

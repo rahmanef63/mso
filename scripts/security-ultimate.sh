@@ -2,6 +2,9 @@
 # Reproducible MSO security assurance gate. Scanner details stay private; stdout is a pass/fail summary.
 set -euo pipefail
 umask 077
+# Transient/systemd jobs do not inherit an interactive shell PATH. Keep the gate
+# reproducible when Bun was installed in its standard per-user location.
+export PATH="$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 cd "$ROOT"

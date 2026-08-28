@@ -11,6 +11,7 @@ import {
 } from "@/lib/config/store";
 import { resolveModel } from "@/lib/models";
 import { streamOpenAI } from "@/lib/ai/openai-stream";
+import { safeProviderFetch } from "@/lib/host/ssrf";
 import { ensureFreshCodex } from "@/lib/ai/oauth/codex";
 import { streamCodex } from "@/lib/ai/codex-stream";
 import { recall } from "@/lib/ai/memory";
@@ -150,6 +151,7 @@ export async function POST(req: Request) {
   // Empty means "let the caller surface that nothing is selected".
   const codexModel = cfg.model || "";
   let resolved: Awaited<ReturnType<typeof resolveModel>> | null = null;
+  let customProvider = false;
   let codexBundle: Awaited<ReturnType<typeof readOAuthBundle>> = null;
   if (isCodex) {
     const b = await readOAuthBundle("openai-codex");
@@ -165,6 +167,7 @@ export async function POST(req: Request) {
       // Custom providers resolve against their own baseUrl+protocol; built-ins pass
       // null and stay registry-pinned (a key can't be redirected to another host).
       const custom = await selectedCustomConn();
+      customProvider = Boolean(custom);
       resolved = await resolveModel(await resolveModelRef(), {
         store: hostCredentialStore(),
         baseUrl: custom?.baseUrl,
@@ -177,16 +180,17 @@ export async function POST(req: Request) {
   }
   // Anthropic streams via its SDK; openai-protocol providers via our adapter; Codex
   // via the ChatGPT backend. All emit the same neutral delta|tool_use|done|error vocab.
-  const anthropic = new Anthropic({ apiKey: resolved?.apiKey ?? "", baseURL: resolved?.baseUrl });
+  const anthropic = new Anthropic({ apiKey: resolved?.apiKey ?? "", baseURL: resolved?.baseUrl,
+    ...(customProvider ? { fetch: safeProviderFetch } : {}) });
 
   // Host-side system augmentation: recall cross-session memory relevant to the
   // latest user turn + apply the owner's token-saver style. Applies to every
   // provider path (codex / anthropic / openai).
   const lastUser = [...rawMessages].reverse().find((m) => m.role === "user");
   const recalled = await recall(lastUser && lastUser.role === "user" ? lastUser.text : "");
-  // Framed as DATA, deliberately. These lines are written by the memory.remember
-  // tool, which runs without an approval card, so any file or command output Alfa
-  // reads can propose a "fact" — and unlike a tool result it would then reappear in
+  // Framed as DATA, deliberately. These lines are written only after the owner
+  // approves the exact memory.remember text, but unlike a one-turn tool result they
+  // can reappear in
   // the SYSTEM prompt of every later turn, in every thread. The fence does not make
   // that safe, it makes it inert as an instruction.
   if (recalled.length)
@@ -250,7 +254,10 @@ export async function POST(req: Request) {
           // openai-protocol: the adapter POSTs {baseUrl}/chat/completions
           // {stream:true} with the host-gated BYOK key and emits the same events.
           // req.signal cancels the upstream fetch (billing cutoff on abort).
-          await streamOpenAI({ resolved, messages: rawMessages, tools, system: sys, signal: req.signal, emit });
+          await streamOpenAI({
+            resolved, messages: rawMessages, tools, system: sys, signal: req.signal, emit,
+            ...(customProvider ? { fetchImpl: safeProviderFetch } : {}),
+          });
         }
       } catch (err) {
         // Abort isn't an error to report — the consumer is already gone.

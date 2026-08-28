@@ -80,7 +80,7 @@ refresh the client tool snapshot when MSO's toolset signature changes. See
 
 ## Managed applications and per-app origins
 
-MSO can manage Hermes and OpenClaw as separate applications. They keep their own runtime,
+MSO can manage Hermes, OpenClaw and 9Router as separate applications. They keep their own runtime,
 config, state and host privileges. MSO can install them, control lifecycle, read logs,
 update, back up, restore and conservatively uninstall through explicit managed-app paths.
 Restore is the intentional exception to the general rule that MSO should not edit another
@@ -104,6 +104,17 @@ openclaw.mso.example.com
 On a managed-app hostname every request is routed only into that app's proxy and cockpit
 pages/API/static chunks are not served there. Keep DNS explicit; do not point arbitrary
 wildcards inside the shared cookie domain at MSO.
+
+Camoufox/noVNC uses the same browser-realm principle through the reserved `camoufox` host in
+that namespace. The host accepts only approved-session GET/HEAD requests, strips cockpit
+cookies/authorization before loopback noVNC, and applies a restrictive CSP. The old
+`/camoufox-vnc/*` cockpit path is permanently closed. Revoking an approved device also stops the
+Camoufox service cgroup so an already-established VNC WebSocket is evicted.
+
+Managed-app installation is also fail-closed. Hermes installer bytes and checkout commit,
+OpenClaw package bytes/version, and the 9Router image digest are committed in
+`security/managed-app-artifacts.env` and verified before execution. 9Router binds to loopback by
+default; `NINE_ROUTER_EXPOSE_PUBLIC=1` is an explicit operator exception, not an inferred fallback.
 
 This is a browser-realm boundary only. A plugin installed **inside Hermes or OpenClaw**
 runs with that daemon's host privileges. Installing an untrusted daemon plugin is equivalent

@@ -98,43 +98,50 @@ export async function scanRoot(
   try {
     for await (const entry of handle) {
       seen += 1;
-      if (seen <= skipEntries) continue;
-      // EVERY dirent costs budget, accepted or not — and every stop check happens before
-      // the entry is processed, so `consumed` never runs ahead of the work.
+      if (seen <= skipEntries) {
+        // A continuation is signed, but directory contents may have grown. Fast-forwarding
+        // still obeys the same wall-clock guard and a hard lifetime offset cap.
+        if (seen > SKILL_SCAN_LIMITS.maxResumeEntriesPerRoot) { stop = "maxEntriesPerRoot"; break; }
+        if (Date.now() > deadlineAt) { stop = "deadline"; break; }
+        continue;
+      }
+      // EVERY new dirent costs budget, accepted or not — and every stop check happens
+      // before the entry is processed, so `consumed` never runs ahead of the work.
       if (processed >= SKILL_SCAN_LIMITS.maxEntriesPerRoot) { stop = "maxEntriesPerRoot"; break; }
       if (Date.now() > deadlineAt) { stop = "deadline"; break; }
       if (found.length >= budget) { stop = "budget"; break; }
       processed += 1;
 
-      if (entry.isDirectory() || entry.isSymbolicLink()) {
+      // Never follow a directory symlink into an attacker-controlled tree. For project
+      // skills, containment/ownership/shape are established BEFORE SKILL.md is opened.
+      if (entry.isDirectory()) {
         const dir = path.join(spec.path, entry.name);
-        if ((await fs.stat(dir).catch(() => null))?.isDirectory()) {
-          const md = await readSkillFile(path.join(dir, SKILL_FILE));
-          if (md !== null) {
-            let trust = spec.trust;
-            let provenance: SkillInfo["provenance"];
-            if (spec.verifyClawHub) {
-              const verified = await verifiedBundledSkill(dir, md);
-              trust = verified.trust;
-              provenance = verified.provenance;
-            } else if (spec.project) {
-              // Path alone grants nothing: containment, ownership and SKILL.md shape decide.
-              trust = await projectSkillTrust(dir, spec.project.path);
-            }
-            found.push({
-              priority: spec.priority,
-              skill: {
-                id: spec.project ? `${spec.project.id}/${entry.name}` : entry.name,
-                name: entry.name,
-                path: path.join(dir, SKILL_FILE),
-                description: skillDescription(md),
-                source: spec.source,
-                trust,
-                ...(spec.project ? { project: spec.project } : {}),
-                ...(provenance ? { provenance } : {}),
-              },
-            });
+        let trust = spec.trust;
+        if (spec.project) {
+          trust = await projectSkillTrust(dir, spec.project.path);
+          if (trust !== "local") { consumed = seen; continue; }
+        }
+        const md = await readSkillFile(path.join(dir, SKILL_FILE));
+        if (md !== null) {
+          let provenance: SkillInfo["provenance"];
+          if (spec.verifyClawHub) {
+            const verified = await verifiedBundledSkill(dir, md);
+            trust = verified.trust;
+            provenance = verified.provenance;
           }
+          found.push({
+            priority: spec.priority,
+            skill: {
+              id: spec.project ? `${spec.project.id}/${entry.name}` : entry.name,
+              name: entry.name,
+              path: path.join(dir, SKILL_FILE),
+              description: skillDescription(md),
+              source: spec.source,
+              trust,
+              ...(spec.project ? { project: spec.project } : {}),
+              ...(provenance ? { provenance } : {}),
+            },
+          });
         }
       }
       consumed = seen; // ONLY now — the entry is fully handled.

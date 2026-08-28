@@ -97,11 +97,11 @@ const asString = (value: unknown): string | null => (typeof value === "string" &
 
 // --------------------------------------------------------------- 9Router ----
 // The "CLI" is scripts/managed-app-9router (this repo). Its `check --json`
-// relays the app's own /api/version — {currentVersion, latestVersion,
-// hasUpdate} — which 9Router computes against Docker Hub itself.
+// compares the running image's RepoDigest with MSO's reviewed immutable digest;
+// it never asks a mutable registry tag what "latest" means.
 
 export const NINE_ROUTER_CHANNEL_NOTE =
-  "9Router ships a single Docker tag (latest); an update pulls the newest image and recreates the container with ~/.9router data intact.";
+  "9Router is pinned to the reviewed digest in security/managed-app-artifacts.env; update reconciles the container to that digest while keeping ~/.9router data intact.";
 
 export async function probe9Router(program: string): Promise<ProbeResult> {
   const channel: ManagedAppChannel = { value: null, kind: null, available: [], switchable: false, reason: NINE_ROUTER_CHANNEL_NOTE };

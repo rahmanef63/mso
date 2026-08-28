@@ -73,7 +73,7 @@ const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
       channel: false,
       rollback: true,
       uninstall: true,
-      installCommand: "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash",
+      installCommand: "bash scripts/managed-app-install hermes install",
       uninstallCommand: null,
     },
     // NO rollback pin. Hermes' only pin is `--branch`, and a rollback restores
@@ -123,7 +123,7 @@ const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
       channel: true,
       rollback: true,
       uninstall: true,
-      installCommand: "npm install -g openclaw@latest",
+      installCommand: "bash scripts/managed-app-install openclaw install",
       uninstallCommand: null,
     },
     pin: (value) => ["--tag", assertTag(value)],
@@ -176,12 +176,11 @@ const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
       channel: false,
       rollback: true,
       uninstall: true,
-      installCommand:
-        "docker run -d --name 9router --restart unless-stopped -p 20128:20128 -v ~/.9router:/app/data -e DATA_DIR=/app/data decolua/9router:latest",
+      installCommand: "bash scripts/managed-app-9router install",
       uninstallCommand: null,
     },
-    // No pin: the image ships one meaningful tag (latest). A rollback restores
-    // the ~/.9router data snapshot; the image stays whatever is installed.
+    // The image is already pinned by reviewed digest. Rollback restores the
+    // ~/.9router data snapshot and keeps that digest in place.
     pin: null,
     updateArgv: (program, options) => {
       if (options.dryRun) reject("dry run", "9router");

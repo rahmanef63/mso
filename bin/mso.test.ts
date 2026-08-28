@@ -133,7 +133,7 @@ describe("bin/mso", () => {
     const withStore = (...args: string[]) =>
       execFileSync(CLI, args, {
         encoding: "utf8",
-        env: { ...process.env, MSO_ENV: "/dev/null", OS_DEVICE_STORE: store },
+        env: { ...process.env, MSO_ENV: "/dev/null", OS_DEVICE_STORE: store, MSO_SYSTEMCTL_BIN: "/bin/true" },
       });
 
     // Revoking everything signs every browser out; one keystroke from `revoke <id>`.
@@ -166,7 +166,7 @@ describe("bin/mso", () => {
     expect(() =>
       execFileSync(CLI, ["device", "approve", id, "test"], {
         encoding: "utf8",
-        env: { ...process.env, MSO_ENV: "/dev/null", OS_DEVICE_STORE: store },
+        env: { ...process.env, MSO_ENV: "/dev/null", OS_DEVICE_STORE: store, MSO_SYSTEMCTL_BIN: "/bin/true" },
       }),
     ).toThrow();
     expect(fs.readFileSync(store, "utf8")).toBe(corrupt);
@@ -191,7 +191,7 @@ describe("bin/mso", () => {
     const withStore = (...args: string[]) =>
       execFileSync(CLI, args, {
         encoding: "utf8",
-        env: { ...process.env, MSO_ENV: "/dev/null", OS_DEVICE_STORE: store },
+        env: { ...process.env, MSO_ENV: "/dev/null", OS_DEVICE_STORE: store, MSO_SYSTEMCTL_BIN: "/bin/true" },
       });
 
     const list = withStore("device", "list");
@@ -219,7 +219,7 @@ describe("bin/mso", () => {
     const withStore = (...args: string[]) =>
       execFileSync(CLI, args, {
         encoding: "utf8",
-        env: { ...process.env, MSO_ENV: "/dev/null", OS_DEVICE_STORE: store },
+        env: { ...process.env, MSO_ENV: "/dev/null", OS_DEVICE_STORE: store, MSO_SYSTEMCTL_BIN: "/bin/true" },
       });
 
     seed();

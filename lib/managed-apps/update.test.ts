@@ -114,8 +114,9 @@ describe("checkUpdate normalises two CLIs that agree on nothing", () => {
     expect(status.error).toContain("not installed");
     expect(status.updateAvailable).toBeNull();
     expect(status.capabilities).toMatchObject({ apply: false, uninstall: false });
-    // Install is never automated — both installers are interactive.
-    expect(status.capabilities.installCommand).toContain("install.sh");
+    // The recovery command uses MSO's committed checksum-verifying installer,
+    // never a mutable upstream curl|bash entrypoint.
+    expect(status.capabilities.installCommand).toContain("scripts/managed-app-install");
   });
 });
 

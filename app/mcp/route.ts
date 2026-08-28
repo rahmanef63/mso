@@ -1,6 +1,6 @@
 import { dispatch, isNotification, rpcError, UNAUTHORIZED, RATE_LIMITED } from "@/lib/mcp/dispatch";
 import { validateToken, touchToken } from "@/lib/mcp/store";
-import { mcpEnabled } from "@/lib/mcp/scope";
+import { clampScope, mcpEnabled } from "@/lib/mcp/scope";
 import { publicOrigin, clientIp } from "@/lib/mcp/origin";
 import { rateLimited, rateLimitedUntrusted } from "@/lib/host";
 import { TOOLS } from "@/lib/mcp/tools";
@@ -16,6 +16,39 @@ export const dynamic = "force-dynamic";
 const CALLS_PER_MIN = 120;
 const CALLS_PER_DAY = 5_000;
 const PREAUTH_PER_MIN = 240;
+export const MAX_MCP_BODY_BYTES = 2 * 1024 * 1024;
+
+class BodyTooLarge extends Error {}
+
+async function parseBoundedJson(req: Request): Promise<unknown> {
+  const rawLength = req.headers.get("content-length");
+  if (rawLength) {
+    const length = Number(rawLength);
+    if (Number.isFinite(length) && length > MAX_MCP_BODY_BYTES) throw new BodyTooLarge();
+  }
+
+  if (!req.body) return JSON.parse("");
+  const reader = req.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_MCP_BODY_BYTES) {
+        await reader.cancel("MCP request body too large").catch(() => {});
+        throw new BodyTooLarge();
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return JSON.parse(text);
+  } finally {
+    reader.releaseLock();
+  }
+}
 
 export async function POST(req: Request) {
   const origin = publicOrigin(req);
@@ -33,19 +66,11 @@ export async function POST(req: Request) {
   const bearer = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!bearer) return unauthorized("missing bearer token");
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }, { status: 400 });
-  }
-
-  // Ack EVERY notification, not just notifications/initialized — a client that
-  // sends notifications/cancelled hangs waiting for a response it will never get.
-  if (isNotification(body)) return new Response(null, { status: 202 });
-
+  // Authenticate before reading any caller-controlled body. A rejected bearer must
+  // cost only the bounded token lookup, never a multi-megabyte JSON allocation.
   const token = await validateToken(bearer);
   if (!token) return unauthorized("invalid, revoked or expired MCP token");
+  const effectiveScope = clampScope(token.scope);
 
   if (rateLimited(`mcp:tok:${token.hash}`, CALLS_PER_MIN, 60_000)) {
     return Response.json(rpcError(null, RATE_LIMITED, "rate limited — retry in 60s"), { status: 429, headers: { "Retry-After": "60" } });
@@ -56,10 +81,27 @@ export async function POST(req: Request) {
     return Response.json(rpcError(null, RATE_LIMITED, "daily call limit reached for this token"), { status: 429, headers: { "Retry-After": "3600" } });
   }
 
+  let body: unknown;
+  try {
+    body = await parseBoundedJson(req);
+  } catch (error) {
+    if (error instanceof BodyTooLarge) {
+      return Response.json(
+        { jsonrpc: "2.0", id: null, error: { code: -32600, message: "request body too large" } },
+        { status: 413, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }, { status: 400 });
+  }
+
+  // Ack EVERY authenticated notification, not just notifications/initialized — a
+  // client that sends notifications/cancelled hangs waiting for a response otherwise.
+  if (isNotification(body)) return new Response(null, { status: 202 });
+
   void touchToken(token.hash).catch(() => {});
   // Same 16-char id the Settings table and `mso mcp list` show, so an audit line
   // maps straight back to the token you would revoke.
-  const result = await dispatch(body as Parameters<typeof dispatch>[0], token.scope, `mcp:${token.hash.slice(0, 16)}`);
+  const result = await dispatch(body as Parameters<typeof dispatch>[0], effectiveScope, `mcp:${token.hash.slice(0, 16)}`);
   return Response.json(result, { status: 200, headers: { "Cache-Control": "no-store" } });
 }
 

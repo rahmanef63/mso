@@ -9,7 +9,8 @@ optional MSO dashboard proxy.
 Upstream publishes both:
 
 - npm CLI: `npm install -g 9router` then `9router`;
-- Docker: `decolua/9router:latest` with port `20128` and persistent `/app/data`.
+- Docker: upstream tag `decolua/9router:latest`, resolved by MSO to the reviewed immutable
+  digest in `security/managed-app-artifacts.env`, with port `20128` and persistent `/app/data`.
 
 MSO uses **Docker for the managed server runtime**. The upstream README recommends Docker for
 server/VPS use, and one owner avoids running two 9Router servers against the same port/data.
@@ -22,21 +23,22 @@ Default container:
 
 ```text
 name: 9router
-image: decolua/9router:latest
+image: decolua/9router@sha256:<reviewed digest from security/managed-app-artifacts.env>
 restart: unless-stopped
-host port: 20128 -> container 20128
+host bind: 127.0.0.1:20128 -> container 20128 (0.0.0.0 only with NINE_ROUTER_EXPOSE_PUBLIC=1)
 state: ~/.9router -> /app/data
 DATA_DIR: /app/data
 health: GET http://127.0.0.1:20128/api/health
-version/update check: GET http://127.0.0.1:20128/api/version
+health/version display: GET http://127.0.0.1:20128/api/health and /api/version
+update identity: running RepoDigest == security/managed-app-artifacts.env
 ```
 
-MSO uses loopback for trusted internal health/version calls even though Docker publishes the
-port publicly.
+MSO uses loopback for trusted internal health/version calls. Docker does not publish the
+port publicly unless the operator explicitly opts in.
 
-## Domain-first UI with public-IP fallback
+## Domain/split-origin UI with explicit public-IP exception
 
-A 9Router installation must not depend on a domain. When MSO sees a globally-routable IPv4
+A 9Router installation must not depend on a domain. Only when `NINE_ROUTER_EXPOSE_PUBLIC=1` and MSO sees a globally-routable IPv4
 on the host, its managed-app view advertises:
 
 ```text

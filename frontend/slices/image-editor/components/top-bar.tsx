@@ -30,7 +30,7 @@ import { createLayer } from "../lib/model";
 import { fileToDataURL, loadImage } from "../lib/image-io";
 import { removeImageBackground } from "../lib/bg-removal";
 import { stageToDataURL } from "../lib/export";
-import { downloadProject, parseProject } from "../lib/project";
+import { downloadProject, parseProject, readBoundedProjectFile } from "../lib/project";
 
 // Compact mobile command bar: a "⋯" menu folds the less-used file actions (open,
 // remove BG, project open/save) so undo/redo, zoom, and Save stay one tap away.
@@ -41,7 +41,7 @@ export function TopBar({ onSave, onSaveAs }: { onSave?: (dataUrl: string) => voi
   const [busy, setBusy] = useState(false);
 
   async function openProject(file: File) {
-    const p = parseProject(await file.text());
+    const p = parseProject(await readBoundedProjectFile(file));
     if (p) loadProject(p);
   }
 

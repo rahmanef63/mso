@@ -13,7 +13,7 @@ import {
   removeOAuthBundle,
 } from "@/lib/config/store";
 import { defaultModelFor } from "@/lib/models/defaults";
-import { assertSafeUrl } from "@/lib/host/ssrf";
+import { resolveSafeProviderEndpoint } from "@/lib/host/ssrf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     if (!c.apiKey || !c.apiKey.trim()) return NextResponse.json({ error: "API key is required" }, { status: 400 });
     let safe: URL;
     try {
-      safe = assertSafeUrl(String(c.baseURL ?? c.baseUrl ?? ""));
+      safe = (await resolveSafeProviderEndpoint(String(c.baseURL ?? c.baseUrl ?? ""))).url;
     } catch (e) {
       return NextResponse.json({ error: (e as Error).message }, { status: 400 });
     }

@@ -136,7 +136,9 @@ ENVF="${ENV_OVERRIDE:-${MSO_ENV:-${OS_ENV:-$ROOT/.env.local}}}"
 set -a; . "$ENVF" 2>/dev/null || true; set +a
 
 need() { command -v "$1" >/dev/null || die "missing dependency: $1"; }
-need curl; need jq
+need curl; need jq; need realpath; need stat; need mktemp; need sha256sum
+# shellcheck source=scripts/lib/private-state.sh
+. "$ROOT/scripts/lib/private-state.sh"
 
 # ── local ops (no HTTP, no login) ───────────────────────────────────────────
 # These edit ~/.mso/auth-devices.json on THIS machine. They are deliberately local
@@ -165,8 +167,12 @@ cli_device() {
 }
 
 # Jar is per-base as well as per-user: switching --base must not reuse a cookie
-# minted for a different origin (it would 401 and look like a broken password).
-JAR="${MSO_JAR:-${TMPDIR:-/tmp}/mso-$(id -u)-$(printf '%s' "$B" | cksum | cut -d' ' -f1).jar}"
+# minted for a different origin. Live bearer material belongs only in an owner-only
+# directory, never a predictable shared /tmp name.
+PRIVATE_STATE_ROOT="${MSO_PRIVATE_STATE_DIR:-$HOME/.mso/private}"
+BASE_KEY=$(printf '%s' "$B" | sha256sum | cut -c1-32)
+JAR_REQUESTED="${MSO_JAR:-$PRIVATE_STATE_ROOT/cli/cookies/$BASE_KEY.jar}"
+JAR=$(mso_private_state_ensure_file "$JAR_REQUESTED") || die "refusing unsafe cookie jar: $JAR_REQUESTED"
 
 # proxy.ts blocks mutating /api requests that can't prove same-origin. A browser
 # proves it with Sec-Fetch-Site; the documented fallback for non-browser clients
@@ -177,12 +183,9 @@ ORIGIN=(-H "origin: $B")
 login() {
   local d code; d=$(cli_device)
   [ -n "$PASS" ] || die "no OS_LOGIN_PASSWORD in $ENVF (or export MSO_PASSWORD)"
-  # Create the jar 0600 BEFORE curl does. `curl -c` creates it 0644 & ~umask, and it
-  # holds a live session cookie whose path is fully derivable (uid + cksum of base).
-  # Any other account on the host could replay it against /api/v1/exec/run — which is
-  # a shell as this user, bypassing every HttpOnly/Secure/SameSite/HMAC guarantee the
-  # cookie itself carries.
-  [ -f "$JAR" ] || { : > "$JAR"; chmod 600 "$JAR"; }
+  # Revalidate immediately before curl writes a live bearer. The private-state helper
+  # rejects symlinks, non-regular files, another owner, and any mode other than 0600.
+  JAR=$(mso_private_state_ensure_file "$JAR") || die "refusing unsafe cookie jar: $JAR"
   # Body over stdin, never argv: a `-d "$(jq …)"` expansion puts the cleartext
   # password in curl's /proc/<pid>/cmdline for the life of the request.
   code=$(jq -n --arg p "$PASS" --arg d "$d" '{password:$p,deviceId:$d,deviceLabel:"mso cli"}' \
@@ -197,18 +200,26 @@ login() {
 # local-only and must keep working while the service is down or unapproved.
 req() {
   local out code body
-  [ -f "$JAR" ] || login
+  JAR=$(mso_private_state_ensure_file "$JAR") || die "refusing unsafe cookie jar: $JAR"
+  [ -s "$JAR" ] || login
+  JAR=$(mso_private_state_validate_file "$JAR") || die "refusing unsafe cookie jar: $JAR"
   out=$(curl -sS -b "$JAR" "${ORIGIN[@]}" -w $'\n%{http_code}' "$@" || true)
   code="${out##*$'\n'}"; body="${out%$'\n'*}"
   if [ "$code" = "401" ] || [ "$code" = "403" ]; then
     login
+    JAR=$(mso_private_state_validate_file "$JAR") || die "refusing unsafe cookie jar: $JAR"
     out=$(curl -sS -b "$JAR" "${ORIGIN[@]}" -w $'\n%{http_code}' "$@" || true)
     code="${out##*$'\n'}"; body="${out%$'\n'*}"
   fi
   case "$code" in 2*) printf '%s' "$body" ;; *) die "request failed ($code): $body" ;; esac
 }
 # Binary-safe variant: streams straight to stdout, no capture, no code check.
-reqraw() { [ -f "$JAR" ] || login; curl -fsS -b "$JAR" "${ORIGIN[@]}" "$@"; }
+reqraw() {
+  JAR=$(mso_private_state_ensure_file "$JAR") || die "refusing unsafe cookie jar: $JAR"
+  [ -s "$JAR" ] || login
+  JAR=$(mso_private_state_validate_file "$JAR") || die "refusing unsafe cookie jar: $JAR"
+  curl -fsS -b "$JAR" "${ORIGIN[@]}" "$@"
+}
 
 enc()   { jq -rn --arg v "$1" '$v|@uri'; }
 jget()  { req "$B$1"; }
@@ -227,6 +238,7 @@ json_arg() { jq -e . >/dev/null 2>&1 <<<"${1-}" || die "not valid JSON: ${1-}"; 
 secret_post() {
   local route="$1" body="$2" out code payload
   login
+  JAR=$(mso_private_state_validate_file "$JAR") || die "refusing unsafe cookie jar: $JAR"
   out=$(printf '%s' "$body" | curl -sS -b "$JAR" "${ORIGIN[@]}" -w $'\n%{http_code}' \
     -H 'content-type: application/json' -d @- "$B$route" || true)
   code="${out##*$'\n'}"; payload="${out%$'\n'*}"
@@ -548,7 +560,12 @@ case "$cmd" in
         chk "device known" "dev_script --list | grep -q '$d'" "this CLI device is not approved — mso device approve $d 'mso cli'" ;;
       *) echo "  --  device known    (skipped: --base is remote; check it on that host)" ;;
     esac
-    chk "session"        "[ \"\$(rm -f '$JAR'; jget /api/auth/me | jq -r .authenticated)\" = true ]" "cannot sign in — see the checks above"
+    fresh_session_check() {
+      mso_private_state_remove_file "$JAR" || return 1
+      JAR=$(mso_private_state_ensure_file "$JAR") || return 1
+      [ "$(jget /api/auth/me | jq -r .authenticated)" = true ]
+    }
+    chk "session"        "fresh_session_check" "cannot sign in — see the checks above"
     echo
     [ "$fails" -eq 0 ] && echo "all good." || echo "$fails check(s) failed."
     exit $(( fails > 0 ? 1 : 0 )) ;;
@@ -711,9 +728,12 @@ case "$cmd" in
     jget "/api/v1/sys/audit?$q" ;;
 
   whoami)  echo "cli device: $(cli_device)"; jget "/api/auth/me" ;;
-  login)   rm -f "$JAR"; login; echo "logged in as device $(cli_device)" ;;
-  logout)  [ -f "$JAR" ] && jpost "/api/auth/logout" >/dev/null 2>&1 || true
-           rm -f "$JAR"; echo "signed out (jar cleared)" ;;
+  login)   mso_private_state_remove_file "$JAR" || die "refusing unsafe cookie jar: $JAR"
+           JAR=$(mso_private_state_ensure_file "$JAR") || die "refusing unsafe cookie jar: $JAR"
+           login; echo "logged in as device $(cli_device)" ;;
+  logout)  if [ -s "$JAR" ]; then jpost "/api/auth/logout" >/dev/null 2>&1 || true; fi
+           mso_private_state_remove_file "$JAR" || die "refusing unsafe cookie jar: $JAR"
+           echo "signed out (jar cleared)" ;;
 
   # ── service (local systemd) ──────────────────────────────────────────────
   service)

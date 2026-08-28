@@ -5,7 +5,7 @@ import os from "os";
 import path from "path";
 
 // Same fixture as tools-discovery.test.ts (see its header). This half covers
-// skills_read: exact ids, ambiguity refusal and withheld untrusted instructions.
+// skills_read: exact ids, ambiguity refusal, and fail-closed symlink roots.
 //
 // TWO configured containers, each holding a project called `widget`. That duplicate is
 // the point: it is exactly the case that used to collapse into one row, hiding a whole
@@ -29,9 +29,8 @@ async function skill(dir: string, name: string, description: string, body = "ste
 await skill(path.join(widgetA, ".claude/skills"), "widget-deploy", "Ship the widget service from root A.");
 await fs.writeFile(path.join(widgetA, "package.json"), JSON.stringify({ name: "widget", version: "0.1.0" }));
 await skill(path.join(widgetB, ".claude/skills"), "widget-deploy", "Ship the widget service from root B.");
-// A project whose skills ROOT escapes the project via symlink: the SKILL.md is a real
-// regular file, so it is discoverable — but containment fails, so it is untrusted and
-// its instructions are withheld.
+// A project whose skills ROOT escapes via symlink. The scanner rejects the root before
+// opening any metadata, so it is not a readable or discoverable skill.
 const escaped = path.join(base, "escaped-skills");
 await skill(escaped, "gadget-wild", "Unverified, outside its project.");
 await fs.mkdir(path.join(gadget, ".codex"), { recursive: true });
@@ -87,12 +86,9 @@ describe("skills_read reads the exact catalog id only", () => {
     expect(result.content.length).toBeGreaterThan(0);
   });
 
-  it("withholds instructions for an untrusted skill but still reports metadata", async () => {
-    const result = await run("skills_read", { name: await skillId(gadget, "gadget-wild") }) as
-      { instructionsWithheld: boolean; reason: string; content?: string; trust: string };
-    expect(result).toMatchObject({ instructionsWithheld: true, trust: "untrusted" });
-    expect(result.content).toBeUndefined();
-    expect(result.reason).toContain("~/.mso/skills");
+  it("refuses an exact id whose project skill root escapes through a symlink", async () => {
+    await expect(run("skills_read", { name: await skillId(gadget, "gadget-wild") }))
+      .rejects.toThrow(/unknown skill id/);
   });
 
   it("REFUSES an ambiguous bare name and lists the exact ids", async () => {
@@ -103,10 +99,8 @@ describe("skills_read reads the exact catalog id only", () => {
     await expect(run("skills_read", { name: "widget-deploy" })).rejects.toThrow(await projectId(widgetA));
   });
 
-  it("resolves an UNambiguous bare project-skill name", async () => {
-    await expect(run("skills_read", { name: "gadget-wild" })).resolves.toMatchObject({
-      id: await skillId(gadget, "gadget-wild"),
-    });
+  it("does not resolve a bare name from a rejected symlink root", async () => {
+    await expect(run("skills_read", { name: "gadget-wild" })).rejects.toThrow(/unknown skill id/);
   });
 
   it("refuses an unknown id rather than guessing", async () => {

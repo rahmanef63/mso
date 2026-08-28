@@ -177,25 +177,6 @@ const READ_TOOLS: HostTool[] = [
     },
   },
   ...SKILL_TOOLS,
-  {
-    name: "memory.remember",
-    group: "agent",
-    label: "Remember",
-    effect: "read",
-    description:
-      "Save a durable fact about the user or their setup to long-term memory (recalled into future chats when relevant). Use it when the user states a lasting preference, fact, or instruction worth keeping — not for one-off task details.",
-    parameters: obj({ "text!": str("The fact to remember — one concise sentence") }),
-    run: async (_api, a) => {
-      const text = String(a.text ?? "").trim();
-      if (!text) return "nothing to remember (empty text)";
-      const r = await fetch("/api/memory", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      return r.ok ? `remembered: ${text}` : "couldn't save the memory";
-    },
-  },
 ];
 
 // The catalog the rest of the app sees: read tools then mutate tools, one array.

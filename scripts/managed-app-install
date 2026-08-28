@@ -20,6 +20,23 @@
 # (JOB_STDIO), so a prompt does not hang — it gets EOF and the install dies
 # halfway, which is worse than not starting.
 set -euo pipefail
+umask 077
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ARTIFACT_LOCK="$ROOT/security/managed-app-artifacts.env"
+[ -r "$ARTIFACT_LOCK" ] || { echo "missing managed-app artifact lock: $ARTIFACT_LOCK" >&2; exit 2; }
+# shellcheck source=security/managed-app-artifacts.env
+. "$ARTIFACT_LOCK"
+
+validate_artifact_lock() {
+  [[ "$HERMES_INSTALLER_URL" == "https://raw.githubusercontent.com/NousResearch/hermes-agent/$HERMES_INSTALLER_TAG/scripts/install.sh" ]] || return 1
+  [[ "$HERMES_INSTALLER_COMMIT" =~ ^[0-9a-f]{40}$ ]] || return 1
+  [[ "$HERMES_INSTALLER_SHA256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$OPENCLAW_VERSION" =~ ^[0-9][0-9A-Za-z.-]*$ ]] || return 1
+  [[ "$OPENCLAW_TARBALL_SHA512" =~ ^[0-9a-f]{128}$ ]] || return 1
+}
+validate_artifact_lock || { echo "invalid managed-app artifact lock" >&2; exit 2; }
 
 APP="${1:-}"
 # loopback by default, deliberately. This runs on machines that are not mine: a
@@ -114,9 +131,15 @@ install_hermes() {
   # Downloaded, then run from a file — not `curl | bash`. The bytes that execute
   # are the bytes on disk, a truncated download fails at curl instead of running
   # half a script, and the job transcript can name what it fetched.
-  log "downloading the Hermes installer"
-  curl -fsSL --max-time 300 https://hermes-agent.nousresearch.com/install.sh -o "$tmp/install.sh"
-  printf 'installer: %s bytes, sha256 %s\n' "$(wc -c <"$tmp/install.sh")" "$(sha256sum <"$tmp/install.sh" | cut -c1-16)"
+  log "downloading the pinned Hermes installer ($HERMES_INSTALLER_TAG)"
+  curl -fsSL --proto '=https' --tlsv1.2 --max-time 300 "$HERMES_INSTALLER_URL" -o "$tmp/install.sh"
+  printf '%s  %s
+' "$HERMES_INSTALLER_SHA256" "$tmp/install.sh" | sha256sum -c - >/dev/null || {
+    echo "Hermes installer integrity check failed" >&2
+    return 1
+  }
+  printf 'installer: %s bytes, verified sha256 %s
+' "$(wc -c <"$tmp/install.sh")" "${HERMES_INSTALLER_SHA256:0:16}"
 
   # The upstream installer is NOT safely re-runnable against a live install: on a
   # second pass it prints "Virtual environment already exists, recreating…" and
@@ -143,7 +166,10 @@ install_hermes() {
     # --non-interactive makes it skip every stage that would ask (install.sh:3211).
     # It pulls uv, Python, Node and ffmpeg itself; sudo is used only to apt-get git
     # and degrades to a no-op without it.
-    bash "$tmp/install.sh" --non-interactive
+    # Installer bytes and checkout are independently pinned. --force-commit
+    # prevents a broken pre-existing checkout from keeping unreviewed source.
+    bash "$tmp/install.sh" --non-interactive --branch main \
+      --commit "$HERMES_INSTALLER_COMMIT" --force-commit
   fi
 
   hermes_cmd
@@ -278,14 +304,27 @@ hermes_cmd() {
 
 # -------------------------------------------------------------- openclaw ----
 install_openclaw() {
-  log "installing the OpenClaw CLI"
-  # No sudo: npm's prefix is a user directory on any host set up this way
-  # (`npm config get prefix` → ~/.local here). A root-owned prefix is the one
-  # case this cannot fix, and npm says so plainly enough to act on.
-  npm install -g openclaw@latest
+  local tmp tarball actual openclaw installed_version
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
 
-  local openclaw
+  log "installing the pinned OpenClaw CLI ($OPENCLAW_VERSION)"
+  # Verify the exact package bytes before npm can execute lifecycle hooks.
+  tarball="$(cd "$tmp" && npm pack "openclaw@$OPENCLAW_VERSION" --silent)"
+  [ -n "$tarball" ] && [ -f "$tmp/$tarball" ] || { echo "OpenClaw package download failed" >&2; return 1; }
+  actual="$(sha512sum "$tmp/$tarball" | awk '{print $1}')"
+  [ "$actual" = "$OPENCLAW_TARBALL_SHA512" ] || {
+    echo "OpenClaw tarball integrity check failed" >&2
+    return 1
+  }
+  npm install -g "$tmp/$tarball"
+
   openclaw="$(openclaw_bin)"
+  installed_version="$("$openclaw" --version 2>/dev/null | head -1)"
+  printf '%s' "$installed_version" | grep -Fq "$OPENCLAW_VERSION" || {
+    echo "installed OpenClaw version does not match lock: $installed_version" >&2
+    return 1
+  }
 
   local -a auth=(--auth-choice skip)
   if [ -n "$KEY" ]; then

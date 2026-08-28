@@ -28,6 +28,10 @@ import { projectIngressDecision } from "@/lib/managed-apps/project-ingress";
 import { verifySession } from "@/lib/auth/session";
 import { isApproved } from "@/lib/auth/device-store";
 import { IS_DEMO } from "@/lib/demo";
+import {
+  camoufoxViewerCsp,
+  isCamoufoxViewerHost,
+} from "@/lib/camoufox/origin";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -151,6 +155,37 @@ export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? request.nextUrl.host;
   const managedApp = managedAppIdForHost(host);
 
+  // noVNC gets one reserved split-origin host. Every path on it goes ONLY to the
+  // loopback viewer; no cockpit route exists there. The Domain session cookie is
+  // used solely at this edge gate and is stripped before noVNC receives the request.
+  if (isCamoufoxViewerHost(host)) {
+    if (!(await hasApprovedSession(request))) return notFound();
+    if (request.method !== "GET" && request.method !== "HEAD") return notFound();
+    let base: URL;
+    try {
+      base = new URL(CAMOUFOX_NOVNC_URL);
+    } catch {
+      return notFound();
+    }
+    if ((base.protocol !== "http:" && base.protocol !== "https:") || !LOOPBACK_HOST.test(base.hostname)) {
+      return notFound();
+    }
+    const target = new URL(base);
+    // Assign pathname/search separately: resolving a caller path beginning `//`
+    // against base would otherwise change the destination host.
+    target.pathname = pathname === "/" ? "/vnc.html" : pathname;
+    target.search = request.nextUrl.search;
+    const response = NextResponse.rewrite(target, {
+      request: { headers: upstreamSocketHeaders(request.headers) },
+    });
+    response.headers.set("Content-Security-Policy", camoufoxViewerCsp());
+    response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
+    return response;
+  }
+
   // Optional project integrations may expose ONE exact machine-to-machine POST
   // lane on a managed-app host. Stock MSO has no routes because
   // OS_PROJECT_INGRESS_ROUTES defaults to empty. The route config is fixed by the
@@ -243,35 +278,9 @@ export async function proxy(request: NextRequest) {
     pathname === "/oauth/token" ||
     pathname === "/oauth/register";
   const isApi = pathname.startsWith("/api/") || isMcp;
-  const isCamoufoxVnc = pathname.startsWith("/camoufox-vnc/");
-
-  // Camoufox's VNC bridge — noVNC + websockify in front of x11vnc, i.e. live
-  // keyboard and mouse on a real browser session. This was hard-403'd because its
-  // only gate had been `request.cookies.get("session")`, which proves a cookie of
-  // that NAME exists and nothing else: `Cookie: session=x` from anywhere on the
-  // internet walked straight through. It is open again ONLY because the check is
-  // now the real one — hasApprovedSession verifies the HMAC and re-checks that the
-  // device is still approved, the same gate /api/v1/exec sits behind. The comment
-  // that used to live here claimed middleware could not do this; it already did,
-  // twelve lines up, for the managed-app socket.
-  //
-  // Rewritten from HERE rather than via a next.config rewrite, for two reasons:
-  // a config rewrite runs AFTER middleware but bypasses route handlers, so the gate
-  // would have to live here anyway — and this is the same different-origin rewrite
-  // the managed-app upgrade uses, which is the one form proven to carry a WebSocket
-  // (websockify needs the upgrade; noVNC is dead without it).
-  if (isCamoufoxVnc) {
-    if (!(await hasApprovedSession(request))) return notFound();
-    const base = new URL(CAMOUFOX_NOVNC_URL);
-    // Same reasoning as the managed-app hop: this rewrite LEAVES this server, so an
-    // env typo pointing it off-box would turn the cockpit into an open relay.
-    if (!LOOPBACK_HOST.test(base.hostname)) return notFound();
-    const upstream = pathname.slice("/camoufox-vnc".length) || "/";
-    const target = new URL(`${upstream}${request.nextUrl.search}`, base);
-    return WEBSOCKET_UPGRADE.test(request.headers.get("upgrade") ?? "")
-      ? NextResponse.rewrite(target, { request: { headers: upstreamSocketHeaders(request.headers) } })
-      : NextResponse.rewrite(target);
-  }
+  // The historical same-origin bridge is permanently closed. noVNC is executable
+  // third-party code and is served only from its reserved split-origin host above.
+  if (pathname.startsWith("/camoufox-vnc/")) return notFound();
 
   // CSRF depth-2 for mutating /api (unchanged semantics). `isMcp` is excluded —
   // see the note above: bearer-authenticated, so same-origin proof is meaningless

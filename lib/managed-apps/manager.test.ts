@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe("public-IP dashboard fallback", () => {
-  it("advertises 9Router on a globally routable host interface without requiring DNS", async () => {
+  it("does not advertise 9Router's host port without explicit public exposure", async () => {
     vi.spyOn(os, "networkInterfaces").mockReturnValue({
       eth0: [
         { address: "10.0.0.5", netmask: "255.0.0.0", family: "IPv4", mac: "00:00:00:00:00:00", internal: false, cidr: "10.0.0.5/8" },
@@ -63,7 +63,8 @@ describe("public-IP dashboard fallback", () => {
     vi.mocked(resolveCommand).mockResolvedValue(null);
 
     const view = await getManagedApp("9router");
-    expect(view.publicDashboardUrl).toBe("http://76.13.23.37:20128");
+    expect(view.publicDashboardUrl).not.toBe("http://76.13.23.37:20128");
+    if (view.publicDashboardUrl) expect(view.publicDashboardUrl).toMatch(/^https:\/\//);
   });
 
   it("does not invent a public URL for loopback-only managed apps", async () => {

@@ -6,6 +6,7 @@ import type {
   LayerStyle,
   Transform,
 } from "./types";
+import { assertImageCanvasBounds } from "./project-validation";
 
 // ── Defaults ────────────────────────────────────────────────────────────────
 export const ADJ_DEFAULT: Adjustments = {
@@ -77,6 +78,7 @@ export function createLayer(kind: LayerKind, extra: Partial<Layer> = {}): Layer 
 
 // A blank document — one empty paint layer so the brush works immediately.
 export function blankDoc(width = 1080, height = 1080): Doc {
+  assertImageCanvasBounds(width, height);
   return {
     width,
     height,

@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
   if (query) {
     const { TOOLS } = await import("@/lib/mcp/tools");
     return NextResponse.json(await searchSkillMemory(query, {
+      recipeAccess: { ownerView: true },
       topK: Number(req.nextUrl.searchParams.get("top") ?? 8),
       includeUntrusted: req.nextUrl.searchParams.get("include_untrusted") === "1",
       toolDocs: TOOLS.map((t) => ({ name: t.name, description: t.description, scope: t.scope, inputSchema: t.inputSchema })),
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
 
   const { skills, scan } = await catalogSkillsDetailed();
   if (!name) {
-    const recipes = (await listLearnedRecipes()).map((r) => ({
+    const recipes = (await listLearnedRecipes({ ownerView: true })).map((r) => ({
       id: r.id, intent: r.intent, project: r.project, summary: r.summary, attempts: r.attempts,
       successes: r.successes, failures: r.failures, fastestDurationMs: r.fastestDurationMs, updatedAt: r.updatedAt,
     }));

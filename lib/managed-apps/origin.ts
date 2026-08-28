@@ -28,9 +28,19 @@ const TOKEN = "{id}";
 
 export const splitOriginEnabled = (): boolean => TEMPLATE.includes(TOKEN);
 
+const NAMESPACE_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+/** A reserved host in the split-origin namespace. The label is code-owned, not a
+ * request value; validating it here prevents accidental host-template injection. */
+export function appNamespaceHost(label: string): string | null {
+  return splitOriginEnabled() && NAMESPACE_LABEL.test(label)
+    ? TEMPLATE.replace(TOKEN, label).toLowerCase()
+    : null;
+}
+
 /** The host this app's dashboard is served from, or null when dashboard embedding is disabled. */
 export function managedAppHost(id: ManagedAppId): string | null {
-  return splitOriginEnabled() ? TEMPLATE.replace(TOKEN, id).toLowerCase() : null;
+  return appNamespaceHost(id);
 }
 
 /** `https://<host>` — the iframe origin. null when dashboard embedding is disabled. */

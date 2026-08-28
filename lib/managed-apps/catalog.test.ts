@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { getManagedAppDefinition, isManagedAppId, listManagedAppDefinitions } from "./catalog";
 import { MANAGED_APP_ACTIONS } from "./types";
@@ -25,4 +26,13 @@ describe("managed app catalog", () => {
     const openclaw = getManagedAppDefinition("openclaw");
     expect(hermes.serviceNames).not.toEqual(openclaw.serviceNames);
   });
+  it("keeps 9Router loopback-only unless public exposure is explicitly enabled", () => {
+    const source = readFileSync(new URL("../../scripts/managed-app-9router", import.meta.url), "utf8");
+    expect(source).toContain('EXPOSE_PUBLIC="${NINE_ROUTER_EXPOSE_PUBLIC:-0}"');
+    expect(source).toContain('0) BIND=127.0.0.1');
+    expect(source).toContain('-p "$BIND:$PORT:$PORT"');
+    expect(source).not.toContain('-p "$PORT:$PORT"');
+    expect(getManagedAppDefinition("9router").publicPort).toBeUndefined();
+  });
+
 });

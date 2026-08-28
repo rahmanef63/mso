@@ -6,11 +6,60 @@
 // stride scan bounds CPU on long files. One shared decode context, module-cached.
 
 import { useEffect, useState } from "react";
+import { REEL_LIMITS } from "./limits";
 
 const BUCKETS = 160;
+const MAX_CACHE_ENTRIES = 128;
 const peaks = new Map<string, Uint8Array>();
 const pending = new Map<string, Promise<Uint8Array | null>>();
 let ctx: AudioContext | null = null;
+
+
+export async function readBoundedAudioBytes(response: Response): Promise<ArrayBuffer> {
+  if (!response.ok) throw new Error(`waveform source HTTP ${response.status}`);
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > REEL_LIMITS.maxWaveformBytes) {
+    throw new Error("waveform source exceeds byte limit");
+  }
+  if (!response.body) {
+    const data = await response.arrayBuffer();
+    if (data.byteLength > REEL_LIMITS.maxWaveformBytes) throw new Error("waveform source exceeds byte limit");
+    return data;
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > REEL_LIMITS.maxWaveformBytes) {
+        await reader.cancel("waveform source exceeds byte limit").catch(() => {});
+        throw new Error("waveform source exceeds byte limit");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { out.set(chunk, offset); offset += chunk.byteLength; }
+  return out.buffer;
+}
+
+export function waveformWithinDecodeBudget(audio: Pick<AudioBuffer, "duration" | "numberOfChannels" | "length">): boolean {
+  return Number.isFinite(audio.duration) && audio.duration > 0 && audio.duration <= REEL_LIMITS.maxWaveformSeconds &&
+    Number.isSafeInteger(audio.numberOfChannels) && audio.numberOfChannels >= 1 && audio.numberOfChannels <= REEL_LIMITS.maxWaveformChannels &&
+    Number.isSafeInteger(audio.length) && audio.length > 0 && audio.length * audio.numberOfChannels <= REEL_LIMITS.maxWaveformSampleValues;
+}
+
+function rememberPeaks(url: string, value: Uint8Array) {
+  peaks.delete(url);
+  peaks.set(url, value);
+  while (peaks.size > MAX_CACHE_ENTRIES) peaks.delete(peaks.keys().next().value!);
+}
 
 function decodeCtx(): AudioContext {
   if (!ctx) {
@@ -27,8 +76,10 @@ export function computePeaks(url: string): Promise<Uint8Array | null> {
   if (inflight) return inflight;
   const job = (async () => {
     try {
-      const buf = await fetch(url).then((r) => r.arrayBuffer());
+      const response = await fetch(url);
+      const buf = await readBoundedAudioBytes(response);
       const audio = await decodeCtx().decodeAudioData(buf);
+      if (!waveformWithinDecodeBudget(audio)) return null;
       const ch = audio.getChannelData(0);
       const n = ch.length;
       const block = Math.max(1, Math.floor(n / BUCKETS));
@@ -44,7 +95,7 @@ export function computePeaks(url: string): Promise<Uint8Array | null> {
         }
         out[b] = Math.min(255, Math.round(peak * 255));
       }
-      peaks.set(url, out); // `audio` AudioBuffer now unreferenced → GC'd
+      rememberPeaks(url, out); // `audio` AudioBuffer now unreferenced → GC'd
       return out;
     } catch {
       return null;

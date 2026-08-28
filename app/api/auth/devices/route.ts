@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   approveDevice,
+  isApproved,
   isValidDeviceId,
   listDevices,
   revokeDevice,
 } from "@/lib/auth/device-store";
 import { requireSession } from "@/lib/auth/require-session";
+import { terminateCamoufoxSessions } from "@/lib/camoufox/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +40,20 @@ export async function POST(req: NextRequest) {
   if (action === "approve") {
     await approveDevice(deviceId, typeof label === "string" ? label : undefined);
   } else if (action === "revoke") {
+    const wasApproved = await isApproved(deviceId);
+    // Revoke first: after this write, the target device cannot start a new viewer
+    // or reconnect. Then tear down the shared VNC unit to evict any live socket.
     await revokeDevice(deviceId);
+    if (wasApproved) {
+      try {
+        await terminateCamoufoxSessions();
+      } catch {
+        return NextResponse.json(
+          { error: "device_revoked_browser_teardown_failed", revoked: true },
+          { status: 503, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+    }
   } else {
     return NextResponse.json({ error: "action must be approve or revoke" }, { status: 400 });
   }

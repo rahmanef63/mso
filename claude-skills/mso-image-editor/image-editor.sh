@@ -17,12 +17,17 @@
 #                                      sidecar, deleted 2026-08-10. Use /mso-camoufox.
 #
 # k=v values coerce: 12 / 1.5 → number, true/false → bool, else string.
-# Session file: $OS_EDITOR_SESSION (default $TMPDIR/mso-image-editor.session.json).
+# Session file: $OS_EDITOR_SESSION (default ~/.mso/private/image-editor/session.json).
 set -euo pipefail
 
 B="${OS_BASE:-http://127.0.0.1:4005}"
 SCRIPT_REAL="$(readlink -f "$0")"
 MSO_ROOT="${MSO_DIR:-$(cd "$(dirname "$SCRIPT_REAL")/../.." && pwd)}"
+for dep in curl jq realpath stat mktemp sha256sum; do
+  command -v "$dep" >/dev/null 2>&1 || { echo "missing dependency: $dep" >&2; exit 1; }
+done
+# shellcheck source=scripts/lib/private-state.sh
+. "$MSO_ROOT/scripts/lib/private-state.sh"
 ENVF="${OS_ENV:-$MSO_ROOT/.env.local}"
 # shellcheck disable=SC1090
 set -a; . "$ENVF" 2>/dev/null || true; set +a
@@ -36,42 +41,59 @@ DEV="${OS_DEVICE:-$(cat "$HOME/.mso/cli.device.id" 2>/dev/null)}"
 # proxy.ts blocks mutating /api without same-origin proof; Origin==Host is the
 # documented non-browser path.
 ORIGIN=(-H "origin: $B")
-SESS="${OS_EDITOR_SESSION:-${TMPDIR:-/tmp}/mso-image-editor.session.json}"
+PRIVATE_STATE_ROOT="${MSO_PRIVATE_STATE_DIR:-$HOME/.mso/private}"
+EDITOR_STATE_DIR="$PRIVATE_STATE_ROOT/image-editor"
+SESS_REQUESTED="${OS_EDITOR_SESSION:-$EDITOR_STATE_DIR/session.json}"
+SESS=$(mso_private_state_path "$SESS_REQUESTED") || { echo "refusing unsafe editor session path: $SESS_REQUESTED" >&2; exit 1; }
 [ -n "$PASS" ] || { echo "no OS_LOGIN_PASSWORD in $ENVF (set OS_PASSWORD)" >&2; exit 1; }
 
 # Persistent cookie jar reused across invocations — log in only when the session
 # is missing/expired (avoids the login rate-limiter on multi-command sequences).
-JAR="${OS_EDITOR_JAR:-${TMPDIR:-/tmp}/mso-image-editor.jar}"
+BASE_KEY=$(printf '%s' "$B" | sha256sum | cut -c1-32)
+JAR_REQUESTED="${OS_EDITOR_JAR:-$EDITOR_STATE_DIR/cookies/$BASE_KEY.jar}"
+JAR=$(mso_private_state_ensure_file "$JAR_REQUESTED") || { echo "refusing unsafe editor cookie jar: $JAR_REQUESTED" >&2; exit 1; }
 EXEC="$B/api/v1/editor/exec"
 
 login() {
   local code
-  # Jar created 0600 before curl touches it (curl -c would make it 0644 & ~umask) —
-  # it holds a live session cookie at a fixed, guessable path. Body goes over stdin
-  # so the cleartext password never lands in curl's argv.
-  [ -f "$JAR" ] || { : > "$JAR"; chmod 600 "$JAR"; }
+  # Validate immediately before curl writes the live owner session. Body goes over
+  # stdin so the cleartext password never lands in curl's argv.
+  JAR=$(mso_private_state_ensure_file "$JAR") || { echo "refusing unsafe editor cookie jar: $JAR" >&2; exit 1; }
   code=$(jq -n --arg p "$PASS" --arg d "$DEV" '{password:$p,deviceId:$d,deviceLabel:"os-image-editor cli"}' \
     | curl -sS -o /dev/null -w '%{http_code}' -c "$JAR" "${ORIGIN[@]}" -X POST "$B/api/auth/login" \
     -H 'content-type: application/json' -d @- || true)
   [ "$code" = "200" ] || { printf 'login failed (%s). approve device? → node "%s" "%s"\n' "$code" "$MSO_ROOT/scripts/approve-device.js" "$DEV" >&2; exit 1; }
 }
-[ -f "$JAR" ] || login
+[ -s "$JAR" ] || login
 
 # Run a request with the cached cookie; on 401 (expired) log in once + retry.
 req() {
   local out code body
+  JAR=$(mso_private_state_validate_file "$JAR") || { echo "refusing unsafe editor cookie jar: $JAR" >&2; exit 1; }
   out=$(curl -sS -b "$JAR" "${ORIGIN[@]}" -w $'\n%{http_code}' "$@" || true)
   code="${out##*$'\n'}"; body="${out%$'\n'*}"
   if [ "$code" = "401" ] || [ "$code" = "403" ]; then
-    login; out=$(curl -sS -b "$JAR" "${ORIGIN[@]}" -w $'\n%{http_code}' "$@" || true)
+    login
+    JAR=$(mso_private_state_validate_file "$JAR") || { echo "refusing unsafe editor cookie jar: $JAR" >&2; exit 1; }
+    out=$(curl -sS -b "$JAR" "${ORIGIN[@]}" -w $'\n%{http_code}' "$@" || true)
     code="${out##*$'\n'}"; body="${out%$'\n'*}"
   fi
   [ "$code" = "200" ] || { echo "request failed ($code): $body" >&2; exit 1; }
   printf '%s' "$body"
 }
 post() { local p; p=$(cat); req -H 'content-type: application/json' -d "$p" "$EXEC"; }
-have_session() { [ -f "$SESS" ] || { echo "no session — run 'open <img>' or 'new' first" >&2; exit 1; }; }
-save_doc() { jq -e '.doc' >/dev/null <<<"$1" && jq '.doc' <<<"$1" >"$SESS"; }
+have_session() {
+  [ -e "$SESS" ] || { echo "no session — run 'open <img>' or 'new' first" >&2; exit 1; }
+  SESS=$(mso_private_state_validate_file "$SESS") || { echo "refusing unsafe editor session file: $SESS" >&2; exit 1; }
+}
+save_doc() {
+  jq -e '.doc' >/dev/null <<<"$1"
+  jq '.doc' <<<"$1" | mso_private_state_atomic_write "$SESS" >/dev/null || {
+    echo "refusing unsafe editor session file: $SESS" >&2
+    exit 1
+  }
+  SESS=$(mso_private_state_validate_file "$SESS") || exit 1
+}
 show_results() { jq -r '.results[]? | "  \(.name) \(if .ok then "ok" else "ERR" end) — \(.result)"' <<<"$1"; }
 
 # Build a JSON args object from k=v pairs, coercing numbers + booleans.

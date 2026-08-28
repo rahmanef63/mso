@@ -28,7 +28,7 @@ describe("learned workflow recipes", () => {
       id: "b", tool: "screen_capture", state: "completed", args: { shell: "macos", width: 1440, height: 900 }, durationMs: 2200, ts: new Date().toISOString(),
     });
     const two = await memory.finishWorkflow({ actor: "mcp:test", workflowId: second.workflow.id, summary: "same result in one faster call", success: true });
-    const recipes = await memory.listLearnedRecipes();
+    const recipes = await memory.listLearnedRecipes({ ownerView: true });
     expect(recipes).toHaveLength(1);
     expect(two.recipe.attempts).toBe(2);
     expect(two.recipe.fastestDurationMs).toBe(2200);
@@ -55,7 +55,7 @@ describe("learned workflow recipes", () => {
     expect(done.recipe.bestSteps[0].args).toEqual({ shell: "macos", width: 1440, height: 900 });
   });
 
-  it("stores redacted command shape rather than credential payloads", async () => {
+  it("stores only a program sequence and never command arguments or credential payloads", async () => {
     const started = await memory.startWorkflow({ actor: "mcp:test", intent: "run a scoped deployment command with token=top-secret" });
     expect(started.workflow.intent).not.toContain("top-secret");
     await memory.recordWorkflowStep("mcp:test", started.workflow.id, {
@@ -69,7 +69,9 @@ describe("learned workflow recipes", () => {
     expect(stored).not.toContain("super-secret");
     expect(stored).not.toContain("token=abc");
     expect(stored).not.toContain("must-not-persist");
-    expect(done.recipe.bestSteps[0].args).toMatchObject({ cwd: "/home/test/project" });
+    expect(done.recipe.bestSteps[0].target).toBe("npm → curl");
+    expect(done.recipe.bestSteps[0].args).toEqual({ cwd: "/home/test/project" });
+    expect(done.recipe.bestSteps[0].args).not.toHaveProperty("command");
   });
 
   it("keeps replayable allowlisted args but never write bodies", async () => {
@@ -119,7 +121,7 @@ describe("learned workflow recipes", () => {
 
   it("migrates a live v1 actor workflow into an exact-id v2 bucket", async () => {
     const legacy: ActiveWorkflow = {
-      id: "legacy-workflow", actor: "mcp:legacy", intent: "finish the pre-deploy task",
+      id: "legacy-workflow", actor: "mcp:legacy", scope: "read", intent: "finish the pre-deploy task",
       project: "~/projects/mso", startedAt: new Date().toISOString(), steps: [],
     };
     await fs.writeFile(process.env.OS_SKILL_MEMORY_STORE!, JSON.stringify({
@@ -133,7 +135,7 @@ describe("learned workflow recipes", () => {
     const stored = JSON.parse(await fs.readFile(process.env.OS_SKILL_MEMORY_STORE!, "utf8")) as {
       version: number; active: Record<string, Record<string, ActiveWorkflow>>;
     };
-    expect(stored.version).toBe(2);
+    expect(stored.version).toBe(3);
     expect(stored.active["mcp:legacy"][legacy.id]).toMatchObject({ intent: legacy.intent });
     expect(stored.active["mcp:legacy"][current.workflow.id]).toMatchObject({ intent: "new parallel task" });
   });
@@ -170,6 +172,64 @@ describe("learned workflow recipes", () => {
     expect(done.recipe.bestSteps.every((step) => step.state === "completed")).toBe(true);
     expect(done.recipe.bestSteps.map((step) => step.tool)).toEqual(expect.arrayContaining(["fs_write", "exec_run", "screen_capture"]));
     expect(done.recipe.bestSteps.some((step) => step.id === "failed")).toBe(false);
+  });
+
+  it("partitions learned recipes by actor and never escalates caller scope", async () => {
+    const execRun = await memory.startWorkflow({ actor: "mcp:actor-a", scope: "exec", intent: "deploy private service" });
+    await memory.recordWorkflowStep("mcp:actor-a", execRun.workflow.id, {
+      id: "exec", tool: "exec_run", state: "completed", target: "deploy --private",
+      args: { command: "deploy --private", cwd: "/srv/private" }, durationMs: 10, ts: new Date().toISOString(),
+    });
+    await memory.finishWorkflow({ actor: "mcp:actor-a", workflowId: execRun.workflow.id, summary: "verified", success: true });
+
+    const writeRun = await memory.startWorkflow({ actor: "mcp:actor-a", scope: "write", intent: "write release note" });
+    await memory.recordWorkflowStep("mcp:actor-a", writeRun.workflow.id, {
+      id: "write", tool: "fs_write", state: "completed", target: "/srv/note.md",
+      args: { path: "/srv/note.md", content: "private" }, durationMs: 5, ts: new Date().toISOString(),
+    });
+    await memory.finishWorkflow({ actor: "mcp:actor-a", workflowId: writeRun.workflow.id, summary: "verified", success: true });
+
+    await expect(memory.listLearnedRecipes({ actor: "mcp:actor-b", scope: "exec" })).resolves.toEqual([]);
+    const readVisible = await memory.listLearnedRecipes({ actor: "mcp:actor-a", scope: "read" });
+    expect(readVisible).toEqual([]);
+    const writeVisible = await memory.listLearnedRecipes({ actor: "mcp:actor-a", scope: "write" });
+    expect(writeVisible).toHaveLength(1);
+    expect(writeVisible[0]).toMatchObject({ actor: "mcp:actor-a", scope: "write" });
+    expect(JSON.stringify(writeVisible)).not.toContain("deploy --private");
+    const execVisible = await memory.listLearnedRecipes({ actor: "mcp:actor-a", scope: "exec" });
+    expect(execVisible.map((r) => r.scope).sort()).toEqual(["exec", "write"]);
+  });
+
+  it("scrubs legacy raw command and write-body payloads while loading the store", async () => {
+    const now = new Date().toISOString();
+    await fs.writeFile(process.env.OS_SKILL_MEMORY_STORE!, JSON.stringify({
+      version: 2,
+      active: {},
+      recipes: {
+        legacy: {
+          id: "legacy", actor: "mcp:legacy", scope: "exec", intent: "deploy safely",
+          normalizedIntent: "deploy safely", summary: "done", embeddingVersion: "old", embedding: [],
+          bestSteps: [{
+            id: "exec", tool: "exec_run", state: "completed",
+            target: "TOKEN=raw-secret npm run build && curl https://x.invalid/private-value",
+            args: { command: "TOKEN=raw-secret npm run build", cwd: "/srv/app" }, ts: now,
+          }, {
+            id: "write", tool: "fs_write", state: "completed", target: "/srv/app/.env",
+            args: { path: "/srv/app/.env", content: "API_KEY=raw-secret" }, ts: now,
+          }],
+          lastSteps: [], attempts: 1, successes: 1, failures: 0,
+          averageDurationMs: 1, lastDurationMs: 1, averageWallDurationMs: 1, lastWallDurationMs: 1,
+          createdAt: now, updatedAt: now,
+        },
+      },
+    }), { mode: 0o600 });
+    memory.resetSkillMemoryCache();
+    const [recipe] = await memory.listLearnedRecipes({ actor: "mcp:legacy", scope: "exec" });
+    const serialized = JSON.stringify(recipe);
+    expect(serialized).not.toContain("raw-secret");
+    expect(serialized).not.toContain("private-value");
+    expect(recipe.bestSteps[0]).toMatchObject({ target: "npm → curl", args: { cwd: "/srv/app" } });
+    expect(recipe.bestSteps[1].args).toEqual({ path: "/srv/app/.env" });
   });
 
 });

@@ -9,6 +9,7 @@ import type {
   Tool,
 } from "../types";
 import { createLayer } from "../model";
+import { assertImageCanvasBounds, validateImageEditorDoc } from "../project-validation";
 
 // A React-free editor context that implements the exact subset of the store
 // surface the command registry calls (see commands/*.commands.ts). It mirrors
@@ -31,7 +32,7 @@ export type HeadlessCtx = {
 } & Record<string, unknown>;
 
 export function createHeadlessEditor(initial: Doc): HeadlessCtx {
-  let doc = initial;
+  let doc = validateImageEditorDoc(initial);
   let selectedId: string | null = doc.layers.at(-1)?.id ?? null;
   let tool: Tool = "move";
   let brush = { size: 28, color: "#111827", opacity: 1, hardness: 0.8 };
@@ -46,7 +47,7 @@ export function createHeadlessEditor(initial: Doc): HeadlessCtx {
       past.push(doc);
       future.length = 0;
     }
-    doc = n;
+    doc = validateImageEditorDoc(n);
   };
   const mapLayer = (id: string, fn: (l: Layer) => Layer) =>
     setDoc((d) => ({ ...d, layers: d.layers.map((l) => (l.id === id ? fn(l) : l)) }));
@@ -104,14 +105,20 @@ export function createHeadlessEditor(initial: Doc): HeadlessCtx {
       }),
     raise: (id: string) => move(id, 1),
     lower: (id: string) => move(id, -1),
-    setDocSize: (w: number, h: number) => setDoc((d) => ({ ...d, width: w, height: h })),
-    applyCrop: (x: number, y: number, w: number, h: number) =>
+    setDocSize: (w: number, h: number) => {
+      assertImageCanvasBounds(w, h);
+      setDoc((d) => ({ ...d, width: w, height: h }));
+    },
+    applyCrop: (x: number, y: number, w: number, h: number) => {
+      if (![x, y].every(Number.isFinite)) throw new Error("crop origin must be finite");
+      assertImageCanvasBounds(Math.round(w), Math.round(h));
       setDoc((d) => ({
         ...d,
         width: Math.round(w),
         height: Math.round(h),
         layers: d.layers.map((l) => ({ ...l, t: { ...l.t, x: l.t.x - x, y: l.t.y - y } })),
-      })),
+      }));
+    },
 
     update: (id: string, patch: Partial<Layer>) => mapLayer(id, (l) => ({ ...l, ...patch })),
     patchStyle: (id: string, p: Partial<LayerStyle>) => mapLayer(id, (l) => ({ ...l, style: { ...l.style, ...p } })),

@@ -5,6 +5,7 @@ export interface CamoufoxServiceStatus {
   running: boolean;
   enabled: boolean;
   installed: boolean;
+  viewerReady?: boolean;
 }
 
 export async function fetchStatus(signal?: AbortSignal): Promise<CamoufoxServiceStatus> {
@@ -29,19 +30,16 @@ export async function setPower(on: boolean, signal?: AbortSignal): Promise<Camou
   return payload;
 }
 
-/** systemd reports `active` the instant ExecStart forks, but the unit's script then
- *  brings up Xvfb, a window manager, the browser, x11vnc and only LAST websockify —
- *  several seconds later. Mounting the viewer on `running` alone therefore frames a
- *  502 and the user sees a dead rectangle after clicking Start. So readiness is the
- *  thing the iframe actually needs: the proxied noVNC document answering 200. */
+/** systemd reports `active` before websockify/noVNC is listening. The cockpit cannot
+ * fetch the dedicated viewer origin directly without widening CORS, so the authenticated
+ * same-origin status route performs the bounded loopback probe and returns viewerReady. */
 export async function waitForViewer(signal: AbortSignal, timeoutMs = 30_000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (!signal.aborted) {
     try {
-      const response = await fetch("/camoufox-vnc/vnc.html", { cache: "no-store", signal });
-      if (response.ok) return true;
+      const status = await fetchStatus(signal);
+      if (status.running && status.viewerReady) return true;
     } catch {
-      // Aborted, or the rewrite target refused while the unit is still coming up.
       if (signal.aborted) return false;
     }
     if (Date.now() >= deadline) return false;

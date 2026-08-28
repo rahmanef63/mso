@@ -82,41 +82,68 @@ export function ApprovalCard({
   );
 }
 
-// Tool-specific argument display: the exact shell command / file path is what the
-// user is actually approving, so surface it clearly (not raw JSON).
+// The exact input object passed to the tool is the approval artifact. Mutation-critical
+// values are never truncated; large values stay fully present inside a bounded scroll area.
+export function canonicalToolInput(input: Record<string, unknown>): string {
+  return JSON.stringify(input, null, 2);
+}
+
+function FullValue({ children }: { children: string }) {
+  return (
+    <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-background/60 px-2 py-1 font-mono text-[10px]">
+      {children}
+    </pre>
+  );
+}
+
 function ToolArgs({ name, input }: { name: string; input: Record<string, unknown> }) {
   if (name === "exec.run") {
     return (
       <div className="mt-1.5 space-y-1">
-        <pre className="overflow-x-auto rounded bg-background/60 px-2 py-1 font-mono text-[11px]">$ {String(input.cmd ?? "")}</pre>
-        {input.cwd ? <p className="text-[10px] text-muted-foreground">in {String(input.cwd)}</p> : null}
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Exact command</p>
+        <FullValue>{String(input.cmd ?? "")}</FullValue>
+        {input.cwd !== undefined ? (
+          <><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Working directory</p><FullValue>{String(input.cwd)}</FullValue></>
+        ) : null}
       </div>
     );
   }
   if (name === "fs.write") {
     const content = String(input.content ?? "");
+    const bytes = new TextEncoder().encode(content).byteLength;
     return (
       <div className="mt-1.5 text-[11px]">
-        <p className="font-mono">
-          {String(input.path ?? "")} <span className="text-muted-foreground">({content.length} bytes)</span>
-        </p>
-        <details className="mt-1">
-          <summary className="cursor-pointer text-muted-foreground">view content</summary>
-          <pre className="mt-1 max-h-40 overflow-auto rounded bg-background/60 px-2 py-1 font-mono text-[10px]">
-            {content.length > 2000 ? `${content.slice(0, 2000)}…` : content}
-          </pre>
-        </details>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Exact destination</p>
+        <FullValue>{String(input.path ?? "")}</FullValue>
+        <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Full content ({bytes} bytes)</p>
+        <FullValue>{content}</FullValue>
       </div>
     );
   }
-  if (name === "fs.move") {
+  if (name === "fs.move" || name === "fs.copy") {
     return (
-      <p className="mt-1.5 font-mono text-[11px]">
-        {String(input.from ?? "")} → {String(input.to ?? "")}
-      </p>
+      <div className="mt-1.5 text-[11px]">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Exact source</p>
+        <FullValue>{String(input.from ?? "")}</FullValue>
+        <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Exact destination</p>
+        <FullValue>{String(input.to ?? "")}</FullValue>
+      </div>
     );
   }
-  const s = JSON.stringify(input);
-  if (s === "{}") return null;
-  return <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">{s.length > 200 ? `${s.slice(0, 200)}…` : s}</p>;
+  if (name === "fs.delete" || name === "fs.mkdir") {
+    return (
+      <div className="mt-1.5 text-[11px]">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Exact path</p>
+        <FullValue>{String(input.path ?? "")}</FullValue>
+      </div>
+    );
+  }
+  const canonical = canonicalToolInput(input);
+  if (canonical === "{}") return null;
+  return (
+    <div className="mt-1.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Complete arguments</p>
+      <FullValue>{canonical}</FullValue>
+    </div>
+  );
 }

@@ -15,17 +15,15 @@ import { findHostTool, HOST_AI_TOOLS, HOST_SYSTEM } from "./registry";
 describe("host-tools registry", () => {
   it("classifies reads as read; fs mutations + exec as mutate", () => {
     const eff = (n: string) => findHostTool(n)?.effect;
-    for (const n of ["fs.list", "fs.read", "fs.search", "fs.usage", "sys.stats", "sys.processes", "apps.list", "apps.logs", "browser.status", "skills.list", "skills.read", "memory.remember"]) expect(eff(n)).toBe("read");
-    for (const n of ["fs.write", "fs.mkdir", "fs.move", "fs.copy", "fs.delete", "exec.run", "memory.forget", "apps.power", "browser.power"]) expect(eff(n)).toBe("mutate");
+    for (const n of ["fs.list", "fs.read", "fs.search", "fs.usage", "sys.stats", "sys.processes", "apps.list", "apps.logs", "browser.status", "skills.list", "skills.read"]) expect(eff(n)).toBe("read");
+    for (const n of ["fs.write", "fs.mkdir", "fs.move", "fs.copy", "fs.delete", "exec.run", "memory.remember", "memory.forget", "apps.power", "browser.power"]) expect(eff(n)).toBe("mutate");
   });
 
-  it("memory.forget parks a card; memory.remember does not", () => {
-    // Asymmetric on purpose. remember ADDS one line and the owner can delete it.
-    // forget deletes EVERY fact containing a substring, rewrites the file with no
-    // backup, and cannot be undone — so one injected "forget everything" is
-    // availability loss unless a human sees the card first.
+  it("requires approval for every durable memory change", () => {
+    // Remembered text crosses session and provider boundaries later, so even an add
+    // must show the exact text to the owner before it is persisted.
     expect(findHostTool("memory.forget")?.effect).toBe("mutate");
-    expect(findHostTool("memory.remember")?.effect).toBe("read");
+    expect(findHostTool("memory.remember")?.effect).toBe("mutate");
   });
 
   it("does NOT expose upload or PTY — a decision, not a backlog", () => {
