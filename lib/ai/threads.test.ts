@@ -27,10 +27,12 @@ describe("thread YAML store", () => {
     expect(await getThread("thread_abc")).toBeNull();
   });
 
-  it("jails the filename against path traversal", async () => {
-    await saveThread({ id: "a/../b", title: "x", createdAt: 1, updatedAt: 1, messages: [], history: [] });
+  it("rejects traversal instead of rewriting it into a colliding filename", async () => {
+    await expect(saveThread({ id: "a/../b", title: "x", createdAt: 1, updatedAt: 1, messages: [], history: [] }))
+      .rejects.toThrow("invalid thread id");
+    await expect(getThread("../outside")).rejects.toThrow("invalid thread id");
+    await expect(deleteThread("../outside")).rejects.toThrow("invalid thread id");
     const names = await fs.readdir(process.env.OS_THREADS_DIR!);
-    expect(names).toContain("ab.yml"); // "a/../b" → strip non-[a-z0-9_-] → "ab"
     expect(names.every((n) => !n.includes("/") && !n.includes(".."))).toBe(true);
   });
 });

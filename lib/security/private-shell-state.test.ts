@@ -64,11 +64,11 @@ describe("private shell state", () => {
     // the create mode, so `{ mode: 0o644 }` alone can silently create 0600 and make
     // this negative fixture test the safe path instead. Force the post-create mode.
     fs.chmodSync(file, 0o644);
-    expect(fs.statSync(file).mode & 0o777).toBe(0o644);
     const run = bash(`mso_private_state_ensure_file ${JSON.stringify(file)}`);
     expect(run.status).not.toBe(0);
     expect(run.stderr).toContain("file must be mode 0600");
     expect(fs.readFileSync(file, "utf8")).toBe("exposed");
+    expect(fs.statSync(file).mode & 0o777).toBe(0o644);
   });
 
   it("atomically replaces only a validated regular session file", () => {

@@ -71,6 +71,12 @@ describe("resolveReadable bounds", () => {
     await expect(resolveReadable(sneaky)).rejects.toThrow(/outside readable roots/i);
   });
 
+  it("rejects a nonexistent outside path before probing it with realpath", async () => {
+    useRoots(readRoot, writeRoot);
+    await expect(resolveReadable(path.join(outside, "does-not-exist.txt")))
+      .rejects.toThrow(/outside readable roots/i);
+  });
+
   it("rejects a symlink inside the root that points outside it", async () => {
     useRoots(readRoot, writeRoot);
     await expect(resolveReadable(path.join(readRoot, "sneaky"))).rejects.toThrow(
@@ -149,6 +155,12 @@ describe("safeWritePath bounds", () => {
     await expect(safeWritePath(path.join(readRoot, "new.txt"), false)).rejects.toThrow(
       /outside writable roots/i,
     );
+  });
+
+  it("rejects a nonexistent outside parent before resolving filesystem metadata", async () => {
+    useRoots(readRoot, writeRoot);
+    await expect(safeWritePath(path.join(outside, "missing", "new.txt"), false))
+      .rejects.toThrow(/outside writable roots/i);
   });
 
   it("rejects ../ traversal out of the write root", async () => {

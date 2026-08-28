@@ -24,6 +24,13 @@ last-Owner removal, and re-resolves role/revocation on every request. The shell 
 apps for clarity, while a centralized server policy makes the actual decision: explicit reads are Viewer and every unclassified route fails up to Owner; PTY/exec/config/MCP/update remain Owner, and only
 explicit bounded operational surfaces are Operator.
 
+A hosted CodeQL follow-up on the first release candidate was not treated as cosmetic backlog.
+The release was reopened to harden validated config maps, strict thread identifiers, external iframe
+policy, descriptor-bound file reads, dual root containment, private collision fixtures, bounded
+models.dev cache writes, exclusive upload staging, and immutable CodeQL workflow pins. Regression
+tests accompany each changed boundary; the replacement SHA must repeat the full repository,
+build, hosted-analysis, deploy and ultimate-assurance gates before the branch is considered closed.
+
 System Monitor now includes Services and Updates beside live telemetry. It inventories system/user
 `systemd` units, bounds journals, and permits start/stop/restart only for validated exact units in
 `OS_SERVICE_CONTROL_UNITS`; no shell or wildcard path exists. Package visibility reads only the

@@ -27,27 +27,30 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ provider: 
 
   const SLUG = "openai-codex";
   try {
-    if (body.action === "start") {
-      const { deviceAuthId, userCode, intervalMs } = await codexStart();
-      setFlow(SLUG, { deviceAuthId, userCode });
-      return NextResponse.json({ verificationUrl: CODEX.verificationUrl, userCode, intervalMs });
+    switch (body.action) {
+      case "start": {
+        const { deviceAuthId, userCode, intervalMs } = await codexStart();
+        setFlow(SLUG, { deviceAuthId, userCode });
+        return NextResponse.json({ verificationUrl: CODEX.verificationUrl, userCode, intervalMs });
+      }
+      case "poll": {
+        const flow = getFlow(SLUG);
+        if (!flow?.deviceAuthId || !flow.userCode) return NextResponse.json({ error: "no_flow" }, { status: 400 });
+        const res = await codexPoll(flow.deviceAuthId, flow.userCode);
+        if ("pending" in res) return NextResponse.json({ pending: true });
+        clearFlow(SLUG);
+        await writeOAuthBundle(SLUG, res.bundle);
+        const models = await codexModels(res.bundle);
+        // The account's own first model. No literal fallback — "gpt-5-codex" is refused
+        // by the backend, so writing it here just made the first request after a
+        // successful sign-in fail.
+        const model = models[0] ?? "";
+        await writeConfig({ provider: SLUG, model });
+        return NextResponse.json({ ok: true, slug: SLUG, model });
+      }
+      default:
+        return NextResponse.json({ error: "bad_action" }, { status: 400 });
     }
-    if (body.action === "poll") {
-      const flow = getFlow(SLUG);
-      if (!flow?.deviceAuthId || !flow.userCode) return NextResponse.json({ error: "no_flow" }, { status: 400 });
-      const res = await codexPoll(flow.deviceAuthId, flow.userCode);
-      if ("pending" in res) return NextResponse.json({ pending: true });
-      clearFlow(SLUG);
-      await writeOAuthBundle(SLUG, res.bundle);
-      const models = await codexModels(res.bundle);
-      // The account's own first model. No literal fallback — "gpt-5-codex" is refused
-      // by the backend, so writing it here just made the first request after a
-      // successful sign-in fail.
-      const model = models[0] ?? "";
-      await writeConfig({ provider: SLUG, model });
-      return NextResponse.json({ ok: true, slug: SLUG, model });
-    }
-    return NextResponse.json({ error: "bad_action" }, { status: 400 });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 502 });
   }

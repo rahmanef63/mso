@@ -1,7 +1,7 @@
 // SERVER-ONLY. Host filesystem ops behind /api/v1/fs/*. Reads follow READ
 // roots (browse), mutations follow WRITE roots (see paths.ts). Returns the
 // os-rr shapes directly so route handlers are thin.
-import { promises as fs, createReadStream, type ReadStream } from "fs";
+import { promises as fs, constants as fsConstants, createReadStream, type ReadStream } from "fs";
 import path from "path";
 import type { FsList, FsUsage } from "@/lib/os-api/types";
 import { HostError } from "./host-error";
@@ -55,10 +55,19 @@ export async function listDir(requested: string, includeHidden = true): Promise<
 
 export async function readFile(requested: string): Promise<string> {
   const p = await resolveReadable(requested);
-  const stat = await fs.stat(p);
-  if (stat.isDirectory()) throw new HostError("Is a directory");
-  if (stat.size > 5_000_000) throw new HostError("File too large to read (max 5 MiB)");
-  return fs.readFile(p, "utf8");
+  let handle;
+  try {
+    handle = await fs.open(p, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const stat = await handle.stat();
+    if (!stat.isFile()) throw new HostError(stat.isDirectory() ? "Is a directory" : "Not a regular file");
+    if (stat.size > 5_000_000) throw new HostError("File too large to read (max 5 MiB)");
+    return await handle.readFile("utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ELOOP") throw new HostError("Refusing symlink file");
+    throw error;
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
 }
 
 export async function writeFile(requested: string, content: string): Promise<void> {

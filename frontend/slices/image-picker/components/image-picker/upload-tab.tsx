@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { ImageValue, UploadFn } from "../../types";
 
 const MAX = 8 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"]);
 
 export function UploadTab({ onSelect, onUpload }: { onSelect: (c: ImageValue) => void; onUpload: UploadFn }) {
   const [file, setFile] = React.useState<File | null>(null);
@@ -13,9 +14,13 @@ export function UploadTab({ onSelect, onUpload }: { onSelect: (c: ImageValue) =>
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
 
+  React.useEffect(() => () => {
+    if (preview) URL.revokeObjectURL(preview);
+  }, [preview]);
+
   const pick = (f: File | undefined) => {
     if (!f) return;
-    if (!f.type.startsWith("image/")) { setErr("Images only"); return; }
+    if (!ALLOWED_IMAGE_TYPES.has(f.type)) { setErr("PNG, JPEG, WebP, GIF or AVIF only"); return; }
     if (f.size > MAX) { setErr("Max 8 MB"); return; }
     setErr(null);
     setFile(f);

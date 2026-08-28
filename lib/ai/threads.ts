@@ -20,7 +20,10 @@ export type ThreadSummary = Pick<ChatThread, "id" | "title" | "createdAt" | "upd
 
 const DIR = process.env.OS_THREADS_DIR || path.join(os.homedir(), ".mso", "threads");
 // ids are app-generated but jail them anyway (path-traversal guard): alnum + -_ only.
-const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+const safeId = (id: string) => {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new Error("invalid thread id");
+  return id;
+};
 const fileFor = (id: string) => path.join(DIR, `${safeId(id)}.yml`);
 
 export async function listThreads(): Promise<ThreadSummary[]> {
@@ -44,8 +47,9 @@ export async function listThreads(): Promise<ThreadSummary[]> {
 }
 
 export async function getThread(id: string): Promise<ChatThread | null> {
+  const file = fileFor(id); // validate before the not-found/corrupt-file catch
   try {
-    return parse(await fs.readFile(fileFor(id), "utf8")) as ChatThread;
+    return parse(await fs.readFile(file, "utf8")) as ChatThread;
   } catch {
     return null;
   }
@@ -60,8 +64,9 @@ export async function saveThread(t: ChatThread): Promise<void> {
 }
 
 export async function deleteThread(id: string): Promise<void> {
+  const file = fileFor(id); // invalid ids are authorization/input errors, not "already gone"
   try {
-    await fs.unlink(fileFor(id));
+    await fs.unlink(file);
   } catch {
     /* already gone */
   }

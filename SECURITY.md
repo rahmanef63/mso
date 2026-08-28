@@ -66,6 +66,30 @@ short accident tripwire, not a sandbox. Interactive Terminal PTYs are even more 
 keystrokes cannot be reliably parsed into commands, so authentication and PTY session
 lifecycle—not the one-shot command matcher—are the boundary.
 
+## Static-analysis and file-safety boundaries
+
+Hosted CodeQL findings are treated as release blockers until they are either remediated or proven
+false positives with a narrow, reviewable justification. The current implementation applies the
+following source-level controls in addition to route authorization:
+
+- provider/config/OAuth maps accept validated provider identifiers and rebuild records from entry
+  lists rather than assigning or deleting attacker-selected object properties;
+- thread identifiers are accepted or rejected as a whole and are never rewritten into colliding
+  filesystem names;
+- bounded host reads, lock recovery, skill/catalog reads and model-cache reads bind metadata and
+  content to the same `O_NOFOLLOW` file descriptor where the platform supports it;
+- read/write root policy performs lexical containment before filesystem resolution and canonical
+  containment afterward, so nonexistent outside paths and escaping symlinks both fail closed;
+- the models.dev catalog uses one fixed HTTPS endpoint, bounded streaming, object-shape validation,
+  a private `0700` cache directory and atomic `0600` cache replacement;
+- external widget embeds allow only credential-free external HTTPS URLs, omit `allow-same-origin`,
+  and send no referrer; local image previews accept a raster MIME allowlist and revoke object URLs;
+- uploaded files use random exclusive temporary names, revalidate the destination after directory
+  creation, reject traversal instead of normalizing it away, and remove partial files on every exit.
+
+These controls reduce known classes of path race, prototype-pollution, DOM trust, and unbounded
+network-to-disk issues. They do not turn automated static analysis into a proof of complete security.
+
 ## Service and package operations
 
 System Monitor exposes system/user `systemd` inventory to Viewer devices. Journal reads require

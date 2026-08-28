@@ -136,7 +136,9 @@ const details = [
 ].join("\n");
 
 function writeOrCheck(file, next) {
-  const current = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  let current = "";
+  try { current = fs.readFileSync(file, "utf8"); }
+  catch (error) { if (error?.code !== "ENOENT") throw error; }
   if (check) {
     if (current !== next) fail(`${path.relative(root, file)} is stale; run node scripts/gen-comparison.mjs`);
   } else {

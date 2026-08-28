@@ -301,6 +301,14 @@ async function realRoots(list: string[]): Promise<string[]> {
   );
 }
 
+function lexicalRoots(list: string[]): string[] {
+  return list.map((root) => path.resolve(root));
+}
+
+function assertLexicalContainment(target: string, roots: string[], message: string): void {
+  if (!roots.some((root) => isUnderRoot(target, root))) throw new HostError(message);
+}
+
 // Realpath-resolved WRITE roots — shared by safeWritePath/assertNotRoot here and
 // exec.ts's cwd bounds, so the realpath-fallback strategy lives in one place.
 export async function resolveWriteRoots(): Promise<string[]> {
@@ -315,8 +323,11 @@ export async function resolveReadable(requested: string): Promise<string> {
   if (!requested || requested === "~") absolute = h;
   else if (requested.startsWith("~/")) absolute = path.join(h, requested.slice(2));
   else absolute = path.resolve(requested);
-  const real = await fs.realpath(path.resolve(absolute));
-  const rr = await realRoots(readRootList());
+  const normalized = path.resolve(absolute);
+  const configured = lexicalRoots(readRootList());
+  assertLexicalContainment(normalized, configured, "Path outside readable roots");
+  const real = await fs.realpath(normalized);
+  const rr = await realRoots(configured);
   if (!rr.some((r) => isUnderRoot(real, r))) throw new HostError("Path outside readable roots");
   assertNotCredential(real);
   return real;
@@ -330,16 +341,20 @@ export async function safeWritePath(requested: string, mustExist: boolean): Prom
   if (!requested || requested === "~" || requested === "/") absolute = h;
   else if (requested.startsWith("~/")) absolute = path.join(h, requested.slice(2));
   else absolute = path.resolve(requested);
-  const rr = await realRoots(writeRootList());
+  const normalized = path.resolve(absolute);
+  const configured = lexicalRoots(writeRootList());
+  const lexicalTarget = mustExist ? normalized : path.dirname(normalized);
+  assertLexicalContainment(lexicalTarget, configured, "Path outside writable roots");
+  const rr = await realRoots(configured);
   if (mustExist) {
-    const real = await fs.realpath(absolute);
+    const real = await fs.realpath(normalized);
     if (!rr.some((r) => isUnderRoot(real, r))) throw new HostError("Path outside writable roots");
     assertNotCredential(real);
     return real;
   }
-  const parent = await fs.realpath(path.dirname(absolute));
+  const parent = await fs.realpath(path.dirname(normalized));
   if (!rr.some((r) => isUnderRoot(parent, r))) throw new HostError("Path outside writable roots");
-  const joined = path.join(parent, path.basename(absolute));
+  const joined = path.join(parent, path.basename(normalized));
   assertNotCredential(joined);
   return joined;
 }

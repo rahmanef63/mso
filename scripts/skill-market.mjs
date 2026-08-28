@@ -9,7 +9,18 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "..");
 const market = path.join(repo, "skill-market");
-const catalog = JSON.parse(fs.readFileSync(path.join(market, "catalog.json"), "utf8"));
+function readRegularFile(file, maxBytes = 1024 * 1024) {
+  let fd;
+  try {
+    fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.size <= 0 || stat.size > maxBytes) throw new Error(`invalid regular file: ${file}`);
+    return fs.readFileSync(fd);
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+const catalog = JSON.parse(readRegularFile(path.join(market, "catalog.json"), 512 * 1024).toString("utf8"));
 const root = path.resolve(process.env.MSO_SKILL_INSTALL_ROOT || path.join(os.homedir(), ".mso", "skills"));
 const sha = (data) => crypto.createHash("sha256").update(data).digest("hex");
 const fail = (message) => { console.error(`mso skills: ${message}`); process.exitCode = 1; };
@@ -20,10 +31,9 @@ function safeEntry(id) {
   if (!/^[a-z][a-z0-9-]{0,63}$/.test(entry.id)) throw new Error(`invalid catalog id: ${entry.id}`);
   const file = path.resolve(market, entry.file);
   if (!file.startsWith(`${market}${path.sep}`)) throw new Error(`catalog path escapes market: ${entry.file}`);
-  const stat = fs.lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${entry.id}: SKILL.md must be a regular file`);
-  const body = fs.readFileSync(file);
-  if (body.length === 0 || body.length > 256 * 1024) throw new Error(`${entry.id}: invalid SKILL.md size`);
+  let body;
+  try { body = readRegularFile(file, 256 * 1024); }
+  catch { throw new Error(`${entry.id}: SKILL.md must be a non-empty regular file <= 256 KiB`); }
   if (sha(body) !== entry.sha256) throw new Error(`${entry.id}: catalog hash mismatch; repository review is stale`);
   const text = body.toString("utf8");
   const match = text.match(/^---\s*\n[\s\S]*?^name:\s*["']?([^\n"']+)["']?\s*$[\s\S]*?^---\s*$/m);
@@ -39,12 +49,12 @@ function ensureRoot() {
 
 function installedState(entry) {
   const dir = path.join(root, entry.id);
-  if (!fs.existsSync(dir)) return "not-installed";
-  const st = fs.lstatSync(dir);
+  let st;
+  try { st = fs.lstatSync(dir); }
+  catch (error) { if (error?.code === "ENOENT") return "not-installed"; throw error; }
   if (!st.isDirectory() || st.isSymbolicLink()) return "conflict";
-  const skill = path.join(dir, "SKILL.md");
-  if (!fs.existsSync(skill) || fs.lstatSync(skill).isSymbolicLink()) return "conflict";
-  return sha(fs.readFileSync(skill)) === entry.sha256 ? "installed" : "modified";
+  try { return sha(readRegularFile(path.join(dir, "SKILL.md"), 256 * 1024)) === entry.sha256 ? "installed" : "modified"; }
+  catch { return "conflict"; }
 }
 
 async function confirm(question, yes) {
@@ -93,11 +103,12 @@ async function installOne(id, { yes, force }) {
 async function removeOne(id, { yes }) {
   const { entry } = safeEntry(id);
   const target = path.join(root, entry.id);
-  if (!fs.existsSync(target)) { console.log(`${id}: not installed`); return; }
+  try { fs.lstatSync(target); }
+  catch (error) { if (error?.code === "ENOENT") { console.log(`${id}: not installed`); return; } throw error; }
   const marker = path.join(target, ".mso-market.json");
-  if (!fs.existsSync(marker)) throw new Error(`${id}: refusing to delete an unmanaged/local skill`);
   let managed;
-  try { managed = JSON.parse(fs.readFileSync(marker, "utf8")); } catch { throw new Error(`${id}: invalid market marker; refusing removal`); }
+  try { managed = JSON.parse(readRegularFile(marker, 64 * 1024).toString("utf8")); }
+  catch { throw new Error(`${id}: invalid or missing market marker; refusing removal`); }
   if (managed.id !== id) throw new Error(`${id}: market marker mismatch; refusing removal`);
   if (!(await confirm(`Remove ${id}?`, yes))) throw new Error(`${id}: not removed (pass -y for non-interactive removal)`);
   fs.rmSync(target, { recursive: true, force: true });

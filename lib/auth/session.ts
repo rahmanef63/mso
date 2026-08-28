@@ -7,16 +7,14 @@ import crypto from "crypto";
 export const MIN_SECRET_LEN = 32;
 
 /**
- * Length-safe constant-time string compare. Hashes both sides to a fixed
- * 32-byte SHA-256 digest before `timingSafeEqual`, so the comparison time
- * does NOT depend on the inputs' lengths. A naive `a.length === b.length`
- * early-exit would leak the secret's length over the network. Use this for
- * every password / token / signature compare. Mirrors lib/agent/server.ts.
+ * Length-safe constant-time string compare. A domain-separated HMAC maps both
+ * values to a fixed width before `timingSafeEqual`; it is not password storage
+ * and no verifier is persisted. A naive length early-exit would leak metadata.
  */
+const COMPARE_DOMAIN_KEY = Buffer.from("mso.constant-time-compare.v1", "utf8");
 export function constantTimeEq(a: string, b: string): boolean {
-  const ha = crypto.createHash("sha256").update(a).digest();
-  const hb = crypto.createHash("sha256").update(b).digest();
-  return crypto.timingSafeEqual(ha, hb);
+  const digest = (value: string) => crypto.createHmac("sha256", COMPARE_DOMAIN_KEY).update(value).digest();
+  return crypto.timingSafeEqual(digest(a), digest(b));
 }
 
 export interface SessionPayload {
