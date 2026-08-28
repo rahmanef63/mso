@@ -10,10 +10,10 @@
 > plus OAuth metadata documented here. OpenAI's current overview is:
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 
-<!-- mcp-toolset: server=1.6.0 version=2026.08.21.1 tools=28 read=15 write=10 exec=3 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.08.28.1 tools=31 read=16 write=10 exec=5 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.08.21.1**: **28 tools**
-(15 read, 10 write, 3 exec). Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.08.28.1**: **31 tools**
+(16 read, 10 write, 5 exec). Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
 
 ## 1. What this connection does
@@ -372,3 +372,8 @@ Project and skill discovery are deliberately bounded.
 - `docs/CONNECTORS-GATEWAY-INTEGRATION.md` — cross-repo action-name contract
 - `docs/MODELS-INTEGRATION.md` — Alfa model credentials and the separate Codex OAuth flow
 - `SECURITY.md` — deployment/security posture
+
+
+### Bounded asynchronous execution
+
+`exec_job_start` starts a client/workflow-bound command that may run up to 20 minutes; `exec_job_status` reads its bounded output and final exit state; `exec_job_cancel` stops a still-running job. Use this trio for test/build pipelines instead of wrapping `exec_run` in host-specific background-process plumbing.

@@ -41,6 +41,9 @@ const MCP_ONLY: Record<string, string> = {
   "workflow.start": "the external connector needs an actor-scoped task boundary; Alfa already owns an in-app conversation/run boundary",
   "workflow.cancel": "same actor-scoped boundary; external runs need explicit recovery from an interrupted task",
   "workflow.finish": "same actor-scoped learning loop; Alfa recipes can use the session route later without weakening MCP scope semantics",
+  "exec.job.start": "external MCP requests have a hard request-time budget and need a bounded resumable shell job; in-shell Alfa can keep using its interactive Terminal/approved exec.run surfaces",
+  "exec.job.status": "status exists only to resume an MCP async exec job; Alfa has no corresponding external request timeout to recover from",
+  "exec.job.cancel": "cancellation is paired with the MCP-only async exec lifecycle and remains actor/workflow-bound",
 };
 
 describe("Alfa ↔ MCP capability parity", () => {
@@ -101,6 +104,9 @@ describe("MCP rate limits mirror the routes", () => {
       // MCP clients and is expensive enough to deserve a much smaller bucket.
       "screen.capture": 10,
       "workflow.memory": 30,
+      "exec.job.start": 12,
+      "exec.job.status": 120,
+      "exec.job.cancel": 30,
       // Global discovery reads: no HTTP route mirrors them, and each one walks
       // every configured container, so they get their own small buckets.
       "projects.list": 30,

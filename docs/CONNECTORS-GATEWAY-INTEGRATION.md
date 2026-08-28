@@ -4,10 +4,10 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.08.21.1 tools=28 read=15 write=10 exec=3 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.08.28.1 tools=31 read=16 write=10 exec=5 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.08.21.1**: **28 tools**
-(15 read, 10 write, 3 exec). `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.08.28.1**: **31 tools**
+(16 read, 10 write, 5 exec). `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
 ## Why this contract matters
@@ -105,3 +105,8 @@ GET https://<mso-origin>/mcp
 
 Then run MSO's MCP parity/global-tool tests and the gateway's own connector-contract tests.
 Do not infer external-gateway parity merely because MSO's internal tests are green.
+
+
+### Bounded asynchronous execution
+
+`exec_job_start` starts a client/workflow-bound command that may run up to 20 minutes; `exec_job_status` reads its bounded output and final exit state; `exec_job_cancel` stops a still-running job. Use this trio for test/build pipelines instead of wrapping `exec_run` in host-specific background-process plumbing.

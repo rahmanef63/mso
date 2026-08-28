@@ -8,6 +8,7 @@ export { zipStream } from "./fs-zip";
 export { parseMultipart, boundaryFromContentType, UploadTooLargeError } from "./multipart";
 export type { MultipartPart } from "./multipart";
 export { runCommand } from "./exec";
+export { startExecJob, getExecJob, cancelExecJob } from "./exec-jobs";
 export { sha256Text, utf8Bytes } from "./hash";
 export { writeFileGuarded } from "./guarded-write";
 export { resolveProjectHint, inspectProject } from "./projects";
