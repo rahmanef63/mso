@@ -13,6 +13,24 @@ Running log of what shipped each phase. Newest at top.
 
 Added `exec_job_start`, `exec_job_status`, and `exec_job_cancel` so long test/build pipelines no longer need `systemd-run`/sentinel-file orchestration around the 30-second `exec_run` request limit. Jobs reuse the cwd jail and destructive-command filter, are actor/workflow-bound, capped at 20 minutes and four concurrent jobs per actor, cap each output stream at 1 MiB, and retain completed state for 30 minutes. Toolset is now `1.6.0` / `2026.08.28.1`: **31 tools** (16 read, 10 write, 5 exec).
 
+## 2026-08-27 — systematic reverse-engineering + MCP feature playbook (DONE)
+
+Implementation work now has one durable default across Claude, Codex/general agents and MSO:
+resolve the canonical source/runtime first, reproduce and preserve evidence, map the end-to-end
+pattern and limits, compare a working analogue, test one hypothesis at a time, make the smallest
+reversible change, and prove the exact live outcome. This prevents the repeated failure mode where
+an agent edits a temporary clone, retries a connector with the same invalid shape, stacks several
+speculative fixes, or reports success from a build without checking the running feature.
+
+`docs/MCP-FEATURE-IMPLEMENTATION.md` records the complete MCP implementation contract for tools,
+trusted skills and project functions: public schema/name stability, scope, thin `lib/host`
+delegation, audit metadata, limits/cursors, Alfa parity, toolset signature, external mappings,
+client action refresh, trust/id routing, release handoff and layered runtime/browser proof. The
+new official `mso-mcp-feature-engineering` skill makes that workflow searchable and reusable,
+while root `AGENTS.md` gives non-Claude agents the same repository routing. Global agent
+instruction files point to the same pattern; volatile host facts and secrets remain outside the
+skill and repository policy.
+
 ## 2026-08-25 — 9Router configured-domain UI + official icon correction (DONE)
 
 The first public-IP fallback pass made the fallback the preference: because every managed

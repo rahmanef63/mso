@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-08-26
 
+**Added**
+
+- `mcp` add reverse-engineering implementation playbook
+
 **Fixed**
 
 - `security` split documentation scan scope

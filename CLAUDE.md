@@ -34,6 +34,8 @@ agent — it runs AS a host process and controls its own machine.
   that historical context.
 - `frontend/slices/assistant/CONTRACT.md` — current, and authoritative for what an
   Agent / Tool / Skill / Playbook is and what reaches the model.
+- `docs/MCP-FEATURE-IMPLEMENTATION.md` — stepwise observe/map/bound/reverse-engineer/
+  verify playbook for MCP tools, trusted skills and project capabilities.
 
 **The doc set, and the one rule.** `docs/README.md` is the map. `docs/PROGRESS.md` is
 the SSOT for historical WHY; current reference docs describe today's contracts; dated
@@ -47,6 +49,15 @@ is the WHY; CHANGELOG is the WHAT, and it is what Settings → About renders as
 "What's new" so a shipped change is visible in the running app.
 
 **New workflow skills use `bun run skill:new`, then `bun run skill:check`.** The source template is `templates/mso-skill-flow/SKILL.md.template`; do not hand-copy an untrusted skill into the official root.
+
+**Systematic implementation is the default.** Resolve the canonical source and running target;
+reproduce before editing; map the end-to-end pattern and every relevant limit; compare a working
+analogue; run one discriminating experiment at a time; make the smallest reversible change; then
+verify targeted contract, build, runtime and browser/client state. Do not repeatedly retry the same
+failed operation, edit temporary/generated copies, or claim completion from a zero exit code. For
+MCP features use `docs/MCP-FEATURE-IMPLEMENTATION.md` and the
+`mso-mcp-feature-engineering` skill; tool name/schema/scope/audit/parity/toolset/client refresh and
+skill trust/routing are one release contract.
 
 **Shipping is `bun run ship "<conventional commit>"`, not `git push`.** Prod is
 systemd with NO webhook, so a pushed commit changes nothing the owner can see until
@@ -298,6 +309,8 @@ toolset metadata, workflow activity and dispatch; routes live under `/mcp`, `/oa
 and `/.well-known/oauth-*`. **`OS_MCP_ENABLED=1` or every one of those routes 404s** —
 that is the kill switch, and demo mode forces it off. Read `docs/MCP.md`; for ChatGPT
 setup/diagrams use `docs/CHATGPT-PLUGIN.md`.
+Implementation changes must also follow `docs/MCP-FEATURE-IMPLEMENTATION.md`; inspect
+the real runtime and working analogue before changing a tool or skill contract.
 - **`/mcp` is deliberately NOT under `/api`.** `proxy.ts` blocks mutating `/api` that
   cannot prove same-origin and an MCP client is cross-origin by definition; the bearer
   is the control, not the CSRF gate. `proxy.ts` exempts `/mcp`, `/oauth/token`,
