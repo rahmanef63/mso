@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` raise complete component scan budget
 - `security` keep Codex scan state private
 - `security` block recursive credential relocation
 
