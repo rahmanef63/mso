@@ -23,6 +23,8 @@ jobs:
       CODEX_SECURITY_FAIL_ON_SEVERITY: high
       CODEX_SECURITY_COMPONENT_WORKERS: "2"
       CODEX_SECURITY_COMPONENT_MAX_COST_USD: "5"
+      CODEX_SECURITY_MODEL: "gpt-5.6-terra"
+      CODEX_SECURITY_EFFORT: "high"
 
     steps:
       - name: Checkout

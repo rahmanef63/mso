@@ -11,7 +11,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { move, remove, writeFile } from "./fs";
+import { copy, move, remove, writeFile } from "./fs";
 
 // Mirrors paths.test.ts setup. Layout:
 //   base/read/             ← read root
@@ -135,5 +135,21 @@ describe("remove", () => {
   it("refuses to remove a write root itself", async () => {
     useRoots(readRoot, writeRoot);
     await expect(remove(writeRoot)).rejects.toThrow(/root directory/i);
+  });
+});
+
+describe("recursive credential mutation guard", () => {
+  it("refuses copy, move, and delete when a nested loose credential exists", async () => {
+    useRoots(readRoot, writeRoot);
+    const source = path.join(writeRoot, "credential-tree");
+    const nested = path.join(source, "nested");
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(path.join(nested, "deploy.pem"), "synthetic");
+
+    await expect(copy(source, path.join(writeRoot, "copied-tree"))).rejects.toThrow(/credential/i);
+    await expect(move(source, path.join(writeRoot, "moved-tree"))).rejects.toThrow(/credential/i);
+    await expect(remove(source)).rejects.toThrow(/credential/i);
+    expect(existsSync(path.join(nested, "deploy.pem"))).toBe(true);
+    rmSync(source, { recursive: true, force: true });
   });
 });

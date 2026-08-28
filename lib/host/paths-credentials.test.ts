@@ -1,10 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   appSecretCopyFilter,
   assertNoAppSecretDescendants,
+  assertNoCredentialDescendants,
   assertNoSensitiveDescendants,
   isCredentialPath,
   isSensitivePath,
@@ -81,6 +82,32 @@ describe("recursive credential guard", () => {
     vi.stubEnv("HOME", fakeHome);
     expect(() => assertNoSensitiveDescendants(parent)).toThrow(/credential/i);
     expect(() => assertNoSensitiveDescendants(path.join(fakeHome, "safe"))).not.toThrow();
+  });
+
+  it("recursively rejects loose private keys and PEM files at arbitrary depth", async () => {
+    vi.stubEnv("HOME", fakeHome);
+    const tree = path.join(fakeHome, "safe", "recursive-credentials");
+    const nested = path.join(tree, "a", "b");
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(path.join(nested, "id_ed25519"), "synthetic");
+    await expect(assertNoCredentialDescendants(tree)).rejects.toThrow(/id_ed25519/);
+    rmSync(path.join(nested, "id_ed25519"));
+    writeFileSync(path.join(nested, "deploy.PEM"), "synthetic");
+    await expect(assertNoCredentialDescendants(tree)).rejects.toThrow(/deploy\.PEM/i);
+    rmSync(tree, { recursive: true, force: true });
+  });
+
+  it("does not follow descendant symlinks while inspecting a recursive source", async () => {
+    vi.stubEnv("HOME", fakeHome);
+    const tree = path.join(fakeHome, "safe", "symlink-tree");
+    const outside = path.join(base, "outside-credential-dir");
+    mkdirSync(tree, { recursive: true });
+    mkdirSync(outside, { recursive: true });
+    writeFileSync(path.join(outside, "id_rsa"), "synthetic");
+    symlinkSync(outside, path.join(tree, "external"));
+    await expect(assertNoCredentialDescendants(tree)).resolves.toBeUndefined();
+    rmSync(tree, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
   });
 
   it("honours the OS_FS_ALLOW_SENSITIVE escape hatch", () => {

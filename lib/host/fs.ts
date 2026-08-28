@@ -9,6 +9,7 @@ import { projectAliasTarget } from "./project-aliases";
 import {
   appSecretCopyFilter,
   assertNoAppSecretDescendants,
+  assertNoCredentialDescendants,
   assertNoSensitiveDescendants,
   assertNotRoot,
   isSensitivePath,
@@ -76,14 +77,16 @@ export async function makeDir(requested: string): Promise<void> {
 export async function remove(requested: string): Promise<void> {
   const p = await safeWritePath(requested, true);
   await assertNotRoot(p);
+  await assertNoCredentialDescendants(p);
   await fs.rm(p, { recursive: true, force: true });
 }
 
 export async function move(from: string, to: string): Promise<void> {
   const src = await safeWritePath(from, true);
   await assertNotRoot(src);
-  assertNoSensitiveDescendants(src); // rename/cp recurse past the per-path gate
-  assertNoAppSecretDescendants(src); // ...and so do they past the app's own .env*
+  assertNoSensitiveDescendants(src); // fixed sensitive locations under a parent
+  assertNoAppSecretDescendants(src); // the cockpit's own .env* under a parent
+  await assertNoCredentialDescendants(src); // loose id_* / *.pem anywhere below
   const dest = await safeWritePath(to, false);
   try {
     await fs.rename(src, dest);
@@ -99,7 +102,10 @@ export async function move(from: string, to: string): Promise<void> {
 
 export async function copy(from: string, to: string): Promise<void> {
   const src = await safeWritePath(from, true);
-  assertNoSensitiveDescendants(src); // fs.cp recurses past the per-path gate
+  assertNoSensitiveDescendants(src); // fixed sensitive locations under a parent
+  // The app's own .env* are intentionally filtered below; every other credential
+  // descendant (including arbitrary nested id_* / *.pem) makes the copy fail closed.
+  await assertNoCredentialDescendants(src, { ignoreAppSecrets: true });
   const dest = await safeWritePath(to, false);
   // Skip the cockpit's own .env* rather than refuse the copy — on the default
   // roots APP_DIR sits under ~/projects, so refusing would block copying it.

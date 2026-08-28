@@ -198,6 +198,41 @@ export function assertNoSensitiveDescendants(real: string): void {
     );
 }
 
+/** Walk a recursive mutation source and apply the same credential predicate used
+ * by per-path reads/writes to every descendant. Directory operations otherwise
+ * let fs.cp/fs.rename/fs.rm walk past the top-level gate. Symlinks are inspected
+ * by their own path/name but never followed, so this guard cannot escape the
+ * already-resolved mutation root or traverse a cycle. */
+export async function assertNoCredentialDescendants(
+  realBase: string,
+  options: { ignoreAppSecrets?: boolean } = {},
+): Promise<void> {
+  const rootStat = await fs.lstat(realBase).catch(() => null);
+  if (!rootStat?.isDirectory()) return;
+
+  const stack = [realBase];
+  while (stack.length) {
+    const dir = stack.pop()!;
+    let entries: import("fs").Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch (error) {
+      throw new HostError(`Refusing recursive mutation: cannot inspect ${path.relative(realBase, dir) || "."}`);
+    }
+    for (const entry of entries) {
+      const child = path.join(dir, entry.name);
+      const credential = isCredentialPath(child);
+      const ignoredAppSecret = options.ignoreAppSecrets === true && isAppSecret(child);
+      if (credential && !ignoredAppSecret) {
+        throw new HostError(
+          `Refusing: this directory contains a credential path (${path.relative(realBase, child)})`,
+        );
+      }
+      if (entry.isDirectory()) stack.push(child);
+    }
+  }
+}
+
 // The app's own `.env*` needed the narrower fix the ~/ list can't give: on the
 // DEFAULT roots (~ and ~/projects) APP_DIR is a descendant of a copyable dir, so
 // `copy(~/projects, ~/backup)` walked past the per-path gate and duplicated
