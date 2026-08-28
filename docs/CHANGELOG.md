@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` remediate ultimate assurance findings
 - `security` resolve full assurance findings
 - `security` raise complete component scan budget
 - `security` keep Codex scan state private

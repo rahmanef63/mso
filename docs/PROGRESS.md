@@ -1,3 +1,7 @@
+# Ultimate assurance remediation — 2026-08-28
+
+Codex Security completed all twenty explicit repository components and surfaced one High plus a set of Medium/Low findings. This remediation batch removes predictable shared-temporary session files, adds owner-only private shell state with symlink/ownership/mode checks and atomic writes, authenticates and byte-bounds MCP bodies before parsing, reapplies the deployment scope ceiling on every MCP dispatch, hardens custom-provider network destinations, skill discovery/cursors/search, approval disclosures, Camoufox isolation/revocation, media/project resource limits, security-store locking, and managed-app artifact identity. Dedicated adversarial regressions accompany each changed boundary. The release remains fail-closed until the final committed SHA completes repository verification, isolated production build, all Codex components, OWASP ZAP, hosted security workflows, deployment, and live health checks.
+
 # mso — Progress Log
 
 Running log of what shipped each phase. Newest at top.
