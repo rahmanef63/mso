@@ -43,7 +43,8 @@ Do not declare an MCP change complete until that full contract is verified.
 
 - `docs/comparison-data.json` is the comparison SSOT. Generate README/`docs/COMPARISON.md` with
   `node scripts/gen-comparison.mjs`; never edit those outputs manually or improve an MSO rating
-  without existing code evidence. Use official sources and honor the freshness gate.
+  without existing code evidence. Use SEO-readable words (`Strong`, `Partial`, `Not offered`),
+  never icon-only status legends; use official sources and honor the freshness gate.
 - Preserve the live Viewer/Operator/Owner route policy. UI filtering is not authorization; unknown
   mutations must fail to Owner. Device roles are not Linux users or SSO.
 - System service actions require exact owner allowlisting and fixed argv. Do not add wildcard units,

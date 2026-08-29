@@ -53,8 +53,9 @@ is the WHY; CHANGELOG is the WHAT, and it is what Settings → About renders as
 **Comparison is generated policy, not hand-written marketing.** Edit only
 `docs/comparison-data.json`, then run `node scripts/gen-comparison.mjs`. The generator owns the
 README block and `docs/COMPARISON.md`, requires an existing repo evidence path for each MSO cell,
-restricts competitor sources to reviewed official hosts, and expires review after 90 days. Do not
-raise a rating because a feature is planned; implementation evidence must land first.
+restricts competitor sources to reviewed official hosts, requires the SEO-readable words `Strong`,
+`Partial`, and `Not offered` rather than icon-only status legends, and expires review after 90 days.
+Do not raise a rating because a feature is planned; implementation evidence must land first.
 
 **Service Center never becomes a shell-shaped button collection.** Inventory is Viewer, bounded
 journal is Operator, and lifecycle is Operator plus an exact `OS_SERVICE_CONTROL_UNITS` match. Unit

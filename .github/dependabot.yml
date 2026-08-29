@@ -8,6 +8,17 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    # Major toolchain updates stay opt-in until the complete repository gate passes
+    # against the matching Next.js/typescript-eslint plugin stack. This prevents
+    # Dependabot from repeatedly reopening known-incompatible PRs while minor/patch
+    # and security updates continue normally.
+    ignore:
+      - dependency-name: eslint
+        update-types:
+          - version-update:semver-major
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
     groups:
       production-minor-patch:
         dependency-type: production
