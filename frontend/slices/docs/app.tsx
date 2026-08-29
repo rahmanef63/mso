@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, BookOpen, Github, LogIn, Rocket } from "lucide-react";
+import { ArrowUpRight, BookOpen, GitFork, LogIn, Rocket } from "lucide-react";
 import { AppFrame, openWindow } from "@/features/os-shell";
 import { useSession } from "@/features/auth";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ export default function DocsApp() {
             </Button>
             <Button size="sm" variant="outline" asChild>
               <a href={REPO} target="_blank" rel="noopener noreferrer">
-                <Github className="size-4" aria-hidden />
+                <GitFork className="size-4" aria-hidden />
                 GitHub
               </a>
             </Button>
