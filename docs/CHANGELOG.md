@@ -4,6 +4,17 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-08-29
+
+**Docs**
+
+- `comparison` use explicit SEO-friendly ratings
+
+**Chores**
+
+- `deps` hold incompatible toolchain majors
+- `deps` migrate to lucide-react 1.33.0
+
 ## 2026-08-28
 
 **Added**
@@ -22,6 +33,13 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Chores**
 
+- `deps` bump actions/setup-python from 6.3.0 to 7.0.0
+- `deps` bump zaproxy/action-baseline
+- `deps` bump actions/setup-node from 6.5.0 to 7.0.0
+- `deps` bump actions/upload-artifact from 4.6.2 to 7.0.1
+- `deps` bump ossf/scorecard-action in the actions-minor-patch group
+- `deps-dev` bump the development-minor-patch group with 4 updates
+- `deps` bump the production-minor-patch group with 4 updates
 - `security` update Codex Security to 0.1.21
 
 ## 2026-08-26
