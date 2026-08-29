@@ -246,12 +246,15 @@ flowchart LR
 
 Current guardrails:
 
-- maximum 20 MiB;
+- write scope is required;
+- maximum 20 MiB, enforced while streaming even without a trustworthy `Content-Length`;
 - PNG, WebP, JPEG or generic octet-stream only;
+- response MIME is allowlisted; PNG/JPEG/WebP bytes must match their declared signature;
 - temporary URL must be from an allowed OpenAI content/storage host;
 - up to three redirects, and each redirect target is revalidated;
-- destination still has to be inside `OS_FS_WRITE_ROOTS`;
-- filename is sanitized;
+- destination still has to be inside `OS_FS_WRITE_ROOTS` and pass the credential/path jail;
+- filename is sanitized and the write uses an exclusive random temporary file plus atomic rename;
+- transferred bytes are never executed automatically by MSO;
 - an existing same-name file can be replaced, so treat this as a write/destructive action;
 - result includes byte count and SHA-256.
 

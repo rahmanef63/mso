@@ -18,13 +18,22 @@ export interface ChatThread {
 
 export type ThreadSummary = Pick<ChatThread, "id" | "title" | "createdAt" | "updatedAt">;
 
-const DIR = process.env.OS_THREADS_DIR || path.join(os.homedir(), ".mso", "threads");
-// ids are app-generated but jail them anyway (path-traversal guard): alnum + -_ only.
-const safeId = (id: string) => {
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new Error("invalid thread id");
-  return id;
-};
-const fileFor = (id: string) => path.join(DIR, `${safeId(id)}.yml`);
+const DIR = path.resolve(process.env.OS_THREADS_DIR || path.join(os.homedir(), ".mso", "threads"));
+const THREAD_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+// ids are app-generated but still arrive over HTTP. Keep the allowlist, then use
+// an explicit path.relative containment guard before a filesystem sink. The
+// latter is both symlink-independent lexical defence and a pattern CodeQL can
+// verify rather than having to trust a project-specific sanitizer helper.
+function fileFor(id: string): string {
+  if (!THREAD_ID.test(id)) throw new Error("invalid thread id");
+  const candidate = path.resolve(DIR, `${id}.yml`);
+  const relative = path.relative(DIR, candidate);
+  if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
+    throw new Error("invalid thread id");
+  }
+  return candidate;
+}
 
 export async function listThreads(): Promise<ThreadSummary[]> {
   let names: string[];

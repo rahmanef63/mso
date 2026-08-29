@@ -6,15 +6,29 @@ import crypto from "crypto";
 /** Minimum length for the signing secret. A short/empty key is forgeable. */
 export const MIN_SECRET_LEN = 32;
 
+/** Maximum UTF-8 size accepted by the fixed-width secret comparator. */
+export const MAX_COMPARE_BYTES = 1024;
+
 /**
- * Length-safe constant-time string compare. A domain-separated HMAC maps both
- * values to a fixed width before `timingSafeEqual`; it is not password storage
- * and no verifier is persisted. A naive length early-exit would leak metadata.
+ * Length-safe constant-time string compare. This is comparison, not password
+ * storage: both cleartext inputs are copied into fixed-width buffers and their
+ * byte lengths are included in the compared bytes. No fast password verifier is
+ * created or persisted, and unequal lengths do not take an early-return path.
+ * Callers reject over-limit network input before invoking it.
  */
-const COMPARE_DOMAIN_KEY = Buffer.from("mso.constant-time-compare.v1", "utf8");
+function fixedCompareBuffer(value: string): { buffer: Buffer; valid: boolean } {
+  const bytes = Buffer.from(value, "utf8");
+  const out = Buffer.alloc(MAX_COMPARE_BYTES + 4);
+  bytes.copy(out, 0, 0, Math.min(bytes.length, MAX_COMPARE_BYTES));
+  out.writeUInt32BE(Math.min(bytes.length, MAX_COMPARE_BYTES + 1), MAX_COMPARE_BYTES);
+  return { buffer: out, valid: bytes.length <= MAX_COMPARE_BYTES };
+}
+
 export function constantTimeEq(a: string, b: string): boolean {
-  const digest = (value: string) => crypto.createHmac("sha256", COMPARE_DOMAIN_KEY).update(value).digest();
-  return crypto.timingSafeEqual(digest(a), digest(b));
+  const left = fixedCompareBuffer(a);
+  const right = fixedCompareBuffer(b);
+  const same = crypto.timingSafeEqual(left.buffer, right.buffer);
+  return left.valid && right.valid && same;
 }
 
 export interface SessionPayload {

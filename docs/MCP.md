@@ -415,13 +415,16 @@ replaces it: ask the client to generate the image with its own capability.
 
 Importing the result is unchanged and deliberately preserved: **`fs_upload_file`** takes
 one ChatGPT conversation/generated file through `openai/fileParams`, downloads its
-temporary OpenAI HTTPS URL immediately, re-validates up to three redirects, caps the file
-at **20 MiB**, accepts PNG/WebP/JPEG or generic octet-stream, and writes inside
-`OS_FS_WRITE_ROOTS`. Allowed download hosts are OpenAI `*.oaiusercontent.com` content hosts
-or the explicitly matched `oaisdmntpr<region>.blob.core.windows.net` storage-account
-family—not arbitrary Azure Blob hosts. The result returns path, bytes and SHA-256. An
-existing same-name file may be replaced, so the tool is classified as a write/destructive
-action. See `CHATGPT-PLUGIN.md` for the end-to-end diagram.
+temporary OpenAI HTTPS URL immediately, re-validates up to three redirects, and consumes the
+body incrementally with a hard **20 MiB** ceiling even when `Content-Length` is absent or false.
+It accepts PNG/WebP/JPEG or generic octet-stream, rejects a conflicting response MIME, validates
+PNG/JPEG/WebP magic bytes, and writes only inside `OS_FS_WRITE_ROOTS`. Allowed download hosts are
+OpenAI `*.oaiusercontent.com` content hosts or the explicitly matched
+`oaisdmntpr<region>.blob.core.windows.net` storage-account family—not arbitrary Azure Blob hosts.
+The final write uses the normal credential/path jail, an exclusive random temporary file and an
+atomic rename; MSO never executes the transferred bytes automatically. The result returns path,
+bytes and SHA-256. An existing same-name file may be replaced, so the tool is classified as a
+write/destructive action. See `CHATGPT-PLUGIN.md` for the end-to-end diagram.
 
 `OS_CODEX_BUILTIN_TOOLS` still exists and still takes an allowlisted list, but its
 default is now EMPTY and `image_generation` is no longer an accepted value — naming it

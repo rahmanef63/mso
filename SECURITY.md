@@ -74,8 +74,10 @@ following source-level controls in addition to route authorization:
 
 - provider/config/OAuth maps accept validated provider identifiers and rebuild records from entry
   lists rather than assigning or deleting attacker-selected object properties;
-- thread identifiers are accepted or rejected as a whole and are never rewritten into colliding
-  filesystem names;
+- login-secret equality uses a fixed-width constant-time byte comparison; no fast password hash
+  or reusable password verifier is created, and over-limit UTF-8 input fails closed;
+- thread identifiers are accepted or rejected as a whole, then pass an explicit `path.relative`
+  containment check before any filesystem operation; they are never rewritten into colliding names;
 - bounded host reads, lock recovery, skill/catalog reads and model-cache reads bind metadata and
   content to the same `O_NOFOLLOW` file descriptor where the platform supports it;
 - read/write root policy performs lexical containment before filesystem resolution and canonical
@@ -85,10 +87,19 @@ following source-level controls in addition to route authorization:
 - external widget embeds allow only credential-free external HTTPS URLs, omit `allow-same-origin`,
   and send no referrer; local image previews accept a raster MIME allowlist and revoke object URLs;
 - uploaded files use random exclusive temporary names, revalidate the destination after directory
-  creation, reject traversal instead of normalizing it away, and remove partial files on every exit.
+  creation, reject traversal instead of normalizing it away, and remove partial files on every exit;
+- the intentional ChatGPT-to-VPS file bridge is write-scope only, accepts temporary URLs only from
+  reviewed OpenAI content/storage hosts, revalidates every redirect, streams with a 20 MiB hard cap,
+  checks response MIME and PNG/JPEG/WebP signatures, then enters the same write-root, credential,
+  exclusive-temporary-file and atomic-rename path as an ordinary authenticated upload. Generic
+  `application/octet-stream` remains deliberately content-agnostic because this is a file-transfer
+  surface, not an executable installer; transferred bytes are never executed automatically by MSO.
 
 These controls reduce known classes of path race, prototype-pollution, DOM trust, and unbounded
-network-to-disk issues. They do not turn automated static analysis into a proof of complete security.
+network-to-disk issues. CodeQL can still correctly describe the last bridge as network data written
+to disk: that data flow is the feature itself, so any GitHub dismissal must use the narrow
+`won't fix` classification with this control rationale—not `false positive`. None of these controls
+turn automated static analysis into a proof of complete security.
 
 ## Service and package operations
 

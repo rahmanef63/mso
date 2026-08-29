@@ -35,8 +35,13 @@ describe("bounded models.dev catalog cache", () => {
     await expect(mod.getCatalog({ force: true })).resolves.toMatchObject({ openai: { models: { "gpt-test": {} } } });
     expect(fetchMock).toHaveBeenCalledWith("https://models.dev/api.json", expect.objectContaining({ redirect: "error" }));
     expect(fs.statSync(root).mode & 0o777).toBe(0o700);
-    expect(fs.statSync(cache).mode & 0o777).toBe(0o600);
-    expect(JSON.parse(fs.readFileSync(cache, "utf8")).data.openai.models).toHaveProperty("gpt-test");
+    const handle = fs.openSync(cache, "r");
+    try {
+      expect(fs.fstatSync(handle).mode & 0o777).toBe(0o600);
+      expect(JSON.parse(fs.readFileSync(handle, "utf8")).data.openai.models).toHaveProperty("gpt-test");
+    } finally {
+      fs.closeSync(handle);
+    }
     expect(fs.readdirSync(root).filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 

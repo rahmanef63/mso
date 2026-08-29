@@ -28,9 +28,18 @@ explicit bounded operational surfaces are Operator.
 A hosted CodeQL follow-up on the first release candidate was not treated as cosmetic backlog.
 The release was reopened to harden validated config maps, strict thread identifiers, external iframe
 policy, descriptor-bound file reads, dual root containment, private collision fixtures, bounded
-models.dev cache writes, exclusive upload staging, and immutable CodeQL workflow pins. Regression
-tests accompany each changed boundary; the replacement SHA must repeat the full repository,
-build, hosted-analysis, deploy and ultimate-assurance gates before the branch is considered closed.
+models.dev cache writes, exclusive upload staging, and immutable CodeQL workflow pins. The first
+PR rescan then reported eight changed-line alerts rather than being called green because the
+analyzer process exited successfully: a password-comparison model, five path/race flows, one test
+TOCTOU and the intentional ChatGPT file-transfer sink. The comparator now uses fixed-width bytes
+without creating a stored/fast password hash; thread and host paths use analyzer-recognized
+`path.relative` containment adjacent to the sink; the cache test binds mode and read to one file
+descriptor; and the ChatGPT bridge now streams under 20 MiB, validates redirect host, MIME and raster
+signatures, then enters the guarded atomic upload path. Its remaining network-to-disk data flow is
+the documented purpose of `fs_upload_file`; it may be classified only as reviewed `won't fix`, never
+as a false positive or by weakening CodeQL. Regression tests accompany each changed boundary; the
+replacement SHA must repeat the full repository, build, hosted-analysis, deploy and
+ultimate-assurance gates before the branch is considered closed.
 
 The same release reconciles all ten open Dependabot PRs instead of merging them blindly. Seven
 minor/patch or action updates with green hosted checks are integrated, and Lucide 1.x is migrated
