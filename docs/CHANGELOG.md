@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-08-29
 
+**Fixed**
+
+- `security` close follow-up CodeQL flows
+
 **Docs**
 
 - `comparison` use explicit SEO-friendly ratings
