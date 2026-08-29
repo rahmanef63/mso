@@ -32,8 +32,8 @@ models.dev cache writes, exclusive upload staging, and immutable CodeQL workflow
 PR rescan then reported eight changed-line alerts rather than being called green because the
 analyzer process exited successfully: a password-comparison model, five path/race flows, one test
 TOCTOU and the intentional ChatGPT file-transfer sink. The comparator now uses fixed-width bytes
-without creating a stored/fast password hash; thread IDs use explicit `path.relative` containment, while host paths use normalized
-exact-or-separator-bound root-prefix checks immediately before each filesystem sink; the cache test binds mode and read to one file
+without creating a stored/fast password hash; thread IDs and host paths use explicit `path.relative` containment, with every host
+filesystem sink kept inside the analyzer-recognized safe branch; the cache test binds mode and read to one file
 descriptor; and the ChatGPT bridge now streams under 20 MiB, validates redirect host, MIME and raster
 signatures, then enters the guarded atomic upload path. Its remaining network-to-disk data flow is
 the documented purpose of `fs_upload_file`; it may be classified only as reviewed `won't fix`, never

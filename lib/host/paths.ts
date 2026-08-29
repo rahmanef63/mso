@@ -322,28 +322,29 @@ export async function resolveReadable(requested: string): Promise<string> {
   const normalized = path.resolve(absolute);
   const configured = lexicalRoots(readRootList());
 
-  // Select one configured root with an exact-or-separator-bound prefix after
-  // path.resolve normalization. `/safe/root-two` must never satisfy `/safe/root`.
-  // Keep this recognized containment guard immediately before fs.realpath: the
-  // realpath call itself touches the filesystem and must not receive an unchecked
-  // arbitrary path even though a second symlink-aware containment check follows.
-  let lexicalRoot: string | null = null;
+  // Keep each filesystem sink inside the SAFE branch of CodeQL's documented
+  // path.relative sanitizer. Runtime-equivalent flags/helpers hide the proof from
+  // the analyzer. The second check uses real paths, so symlinks cannot escape.
   for (const root of configured) {
-    const rootPrefix = root.endsWith(path.sep) ? root : root + path.sep;
-    if (normalized !== root && !normalized.startsWith(rootPrefix)) continue;
-    lexicalRoot = root;
-    break;
+    const relative = path.relative(root, normalized);
+    if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
+      continue;
+    } else {
+      const real = await fs.realpath(normalized);
+      const realRoot = await fs.realpath(root).catch(() => path.resolve(root));
+      const realRelative = path.relative(realRoot, real);
+      if (
+        realRelative === ".." ||
+        realRelative.startsWith(".." + path.sep) ||
+        path.isAbsolute(realRelative)
+      ) {
+        throw new HostError("Path outside readable roots");
+      }
+      assertNotCredential(real);
+      return real;
+    }
   }
-  if (!lexicalRoot) throw new HostError("Path outside readable roots");
-
-  const real = await fs.realpath(normalized);
-  const realRoot = await fs.realpath(lexicalRoot).catch(() => path.resolve(lexicalRoot));
-  const realRootPrefix = realRoot.endsWith(path.sep) ? realRoot : realRoot + path.sep;
-  if (real !== realRoot && !real.startsWith(realRootPrefix)) {
-    throw new HostError("Path outside readable roots");
-  }
-  assertNotCredential(real);
-  return real;
+  throw new HostError("Path outside readable roots");
 }
 
 // WRITE: "/" collapses to home (never the FS root). When !mustExist the parent
@@ -358,32 +359,41 @@ export async function safeWritePath(requested: string, mustExist: boolean): Prom
   const configured = lexicalRoots(writeRootList());
   const lexicalTarget = mustExist ? normalized : path.dirname(normalized);
 
-  let lexicalRoot: string | null = null;
   for (const root of configured) {
-    const rootPrefix = root.endsWith(path.sep) ? root : root + path.sep;
-    if (lexicalTarget !== root && !lexicalTarget.startsWith(rootPrefix)) continue;
-    lexicalRoot = root;
-    break;
-  }
-  if (!lexicalRoot) throw new HostError("Path outside writable roots");
+    const relative = path.relative(root, lexicalTarget);
+    if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
+      continue;
+    } else {
+      const realRoot = await fs.realpath(root).catch(() => path.resolve(root));
+      if (mustExist) {
+        const real = await fs.realpath(normalized);
+        const realRelative = path.relative(realRoot, real);
+        if (
+          realRelative === ".." ||
+          realRelative.startsWith(".." + path.sep) ||
+          path.isAbsolute(realRelative)
+        ) {
+          throw new HostError("Path outside writable roots");
+        }
+        assertNotCredential(real);
+        return real;
+      }
 
-  const realRoot = await fs.realpath(lexicalRoot).catch(() => path.resolve(lexicalRoot));
-  const realRootPrefix = realRoot.endsWith(path.sep) ? realRoot : realRoot + path.sep;
-  if (mustExist) {
-    const real = await fs.realpath(normalized);
-    if (real !== realRoot && !real.startsWith(realRootPrefix)) {
-      throw new HostError("Path outside writable roots");
+      const parent = await fs.realpath(lexicalTarget);
+      const parentRelative = path.relative(realRoot, parent);
+      if (
+        parentRelative === ".." ||
+        parentRelative.startsWith(".." + path.sep) ||
+        path.isAbsolute(parentRelative)
+      ) {
+        throw new HostError("Path outside writable roots");
+      }
+      const joined = path.join(parent, path.basename(normalized));
+      assertNotCredential(joined);
+      return joined;
     }
-    assertNotCredential(real);
-    return real;
   }
-  const parent = await fs.realpath(path.dirname(normalized));
-  if (parent !== realRoot && !parent.startsWith(realRootPrefix)) {
-    throw new HostError("Path outside writable roots");
-  }
-  const joined = path.join(parent, path.basename(normalized));
-  assertNotCredential(joined);
-  return joined;
+  throw new HostError("Path outside writable roots");
 }
 
 export async function assertNotRoot(p: string): Promise<void> {

@@ -76,8 +76,8 @@ following source-level controls in addition to route authorization:
   lists rather than assigning or deleting attacker-selected object properties;
 - login-secret equality uses a fixed-width constant-time byte comparison; no fast password hash
   or reusable password verifier is created, and over-limit UTF-8 input fails closed;
-- thread identifiers are accepted or rejected as a whole, then pass an explicit normalized exact-or-root-prefix
-  containment check before any filesystem operation; they are never rewritten into colliding names;
+- thread identifiers are accepted or rejected as a whole, then pass an explicit `path.relative`
+  containment check whose filesystem sink stays inside the proven-safe branch before any filesystem operation; they are never rewritten into colliding names;
 - bounded host reads, lock recovery, skill/catalog reads and model-cache reads bind metadata and
   content to the same `O_NOFOLLOW` file descriptor where the platform supports it;
 - read/write root policy performs lexical containment before filesystem resolution and canonical

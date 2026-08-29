@@ -19,12 +19,8 @@ import { assertNotRoot, assertUploadTarget, isUnderRoot, resolveReadable, safeWr
 //   base/read/write/      ← write root (narrower than read)
 //   base/read/write/wlink → symlink to base/outside/secret.txt
 //   base/outside/secret.txt
-let base = "";
-let readRoot = "";
-let writeRoot = "";
-let readPrefixSibling = "";
-let writePrefixSibling = "";
-let outside = "";
+let base = "", readRoot = "", writeRoot = "";
+let readPrefixSibling = "", writePrefixSibling = "", outside = "";
 
 beforeAll(() => {
   base = realpathSync(mkdtempSync(path.join(os.tmpdir(), "mso-paths-")));
