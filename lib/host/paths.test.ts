@@ -22,17 +22,25 @@ import { assertNotRoot, assertUploadTarget, isUnderRoot, resolveReadable, safeWr
 let base = "";
 let readRoot = "";
 let writeRoot = "";
+let readPrefixSibling = "";
+let writePrefixSibling = "";
 let outside = "";
 
 beforeAll(() => {
   base = realpathSync(mkdtempSync(path.join(os.tmpdir(), "mso-paths-")));
   readRoot = path.join(base, "read");
   writeRoot = path.join(readRoot, "write");
+  readPrefixSibling = `${readRoot}-sibling`;
+  writePrefixSibling = `${writeRoot}-sibling`;
   outside = path.join(base, "outside");
   mkdirSync(writeRoot, { recursive: true });
+  mkdirSync(readPrefixSibling, { recursive: true });
+  mkdirSync(writePrefixSibling, { recursive: true });
   mkdirSync(outside, { recursive: true });
   writeFileSync(path.join(readRoot, "inside.txt"), "ok");
   writeFileSync(path.join(writeRoot, "wfile.txt"), "ok");
+  writeFileSync(path.join(readPrefixSibling, "lookalike.txt"), "nope");
+  writeFileSync(path.join(writePrefixSibling, "lookalike.txt"), "nope");
   writeFileSync(path.join(outside, "secret.txt"), "nope");
   symlinkSync(path.join(outside, "secret.txt"), path.join(readRoot, "sneaky"));
   symlinkSync(path.join(outside, "secret.txt"), path.join(writeRoot, "wlink"));
@@ -74,6 +82,12 @@ describe("resolveReadable bounds", () => {
   it("rejects a nonexistent outside path before probing it with realpath", async () => {
     useRoots(readRoot, writeRoot);
     await expect(resolveReadable(path.join(outside, "does-not-exist.txt")))
+      .rejects.toThrow(/outside readable roots/i);
+  });
+
+  it("rejects a sibling whose name merely starts with the read-root string", async () => {
+    useRoots(readRoot, writeRoot);
+    await expect(resolveReadable(path.join(readPrefixSibling, "lookalike.txt")))
       .rejects.toThrow(/outside readable roots/i);
   });
 
@@ -155,6 +169,14 @@ describe("safeWritePath bounds", () => {
     await expect(safeWritePath(path.join(readRoot, "new.txt"), false)).rejects.toThrow(
       /outside writable roots/i,
     );
+  });
+
+  it("rejects existing and new paths under a write-root prefix lookalike", async () => {
+    useRoots(readRoot, writeRoot);
+    await expect(safeWritePath(path.join(writePrefixSibling, "lookalike.txt"), true))
+      .rejects.toThrow(/outside writable roots/i);
+    await expect(safeWritePath(path.join(writePrefixSibling, "new.txt"), false))
+      .rejects.toThrow(/outside writable roots/i);
   });
 
   it("rejects a nonexistent outside parent before resolving filesystem metadata", async () => {
