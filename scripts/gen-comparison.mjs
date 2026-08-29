@@ -10,6 +10,7 @@ const readmePath = path.join(root, "README.md");
 const detailPath = path.join(root, "docs/COMPARISON.md");
 const check = process.argv.includes("--check");
 const allowedRatings = new Set(["strong", "partial", "none"]);
+const requiredLabels = { strong: "Strong", partial: "Partial", none: "Not offered" };
 const officialHosts = new Set([
   "github.com",
   "cockpit-project.org",
@@ -28,6 +29,9 @@ const escape = (value) => String(value).replaceAll("|", "\\|").replaceAll("\n", 
 if (data.schemaVersion !== 1) fail("unsupported schemaVersion");
 if (!Array.isArray(data.criteria) || !data.criteria.length) fail("criteria are required");
 if (!Array.isArray(data.products) || !data.products.length) fail("products are required");
+for (const [rating, label] of Object.entries(requiredLabels)) {
+  if (data.legend?.[rating] !== label) fail(`legend.${rating} must be the SEO-readable text ${JSON.stringify(label)}`);
+}
 const reviewed = new Date(`${data.reviewedAt}T00:00:00Z`);
 if (!Number.isFinite(reviewed.getTime())) fail("reviewedAt must be YYYY-MM-DD");
 const ageDays = Math.floor((Date.now() - reviewed.getTime()) / 86_400_000);
@@ -59,16 +63,16 @@ for (const product of data.products) {
   }
 }
 
-const symbol = (value) => data.legend[value];
+const ratingLabel = (value) => data.legend[value];
 const tableHeader = `| Product | Best fit | ${data.criteria.map((criterion) => escape(criterion.label)).join(" | ")} |`;
 const tableRule = `|---|---|${data.criteria.map(() => ":---:").join("|")}|`;
 const tableRows = data.products.map((product) =>
-  `| **${escape(product.name)}** | ${escape(product.bestFor)} | ${data.criteria.map((criterion) => symbol(product.ratings[criterion.id].value)).join(" | ")} |`
+  `| **${escape(product.name)}** | ${escape(product.bestFor)} | ${data.criteria.map((criterion) => ratingLabel(product.ratings[criterion.id].value)).join(" | ")} |`
 );
 const compact = [
   `**Positioning:** ${data.positioning}`,
   "",
-  `${data.legend.strong} strong · ${data.legend.partial} partial/scope-limited · ${data.legend.none} not a product surface`,
+  `Strong = a first-class product strength · Partial = available with scope limitations · Not offered = not a core product surface`,
   "",
   tableHeader,
   tableRule,
@@ -96,7 +100,7 @@ const details = [
   "## Method",
   "",
   "- Ratings describe the documented product surface, not speed, popularity, or a universal winner.",
-  "- `●` means a first-class strength, `◐` means partial or deliberately narrow scope, and `—` means it is not a meaningful product surface.",
+  "- `Strong` means a first-class product strength, `Partial` means available with deliberate scope limitations, and `Not offered` means it is not a core product surface.",
   "- MSO cells must point to repository evidence that exists at build time.",
   "- Competitor claims use official project documentation only and must be manually re-reviewed before the freshness window expires.",
   "- Edition-dependent or adjacent capabilities are marked partial unless they are consistently core to the product.",
@@ -122,7 +126,7 @@ const details = [
       const evidence = (rating.evidence ?? []).length
         ? ` Evidence: ${(rating.evidence ?? []).map((entry) => `\`${entry}\``).join(", ")}.`
         : "";
-      return [`- **${criterion.label} ${symbol(rating.value)}:** ${rating.note}${evidence}`];
+      return [`- **${criterion.label} (${ratingLabel(rating.value)}):** ${rating.note}${evidence}`];
     }),
     "",
     "Official sources:",

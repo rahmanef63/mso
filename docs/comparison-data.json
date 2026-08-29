@@ -4,39 +4,39 @@
   "expiresAfterDays": 90,
   "positioning": "MSO is designed to be the most complete mobile-first, AI-native private Linux workspace for an owner or small trusted team. It does not claim to replace specialist products at their strongest specialty.",
   "legend": {
-    "strong": "●",
-    "partial": "◐",
-    "none": "—"
+    "strong": "Strong",
+    "partial": "Partial",
+    "none": "Not offered"
   },
   "criteria": [
     {
       "id": "workspace",
-      "label": "Workspace",
+      "label": "Browser workspace",
       "definition": "A unified browser workspace with mobile-aware navigation across files, terminal, editors, apps, and host views."
     },
     {
       "id": "hostOps",
-      "label": "Host ops",
+      "label": "Linux host administration",
       "definition": "General Linux host operations such as services, logs, package visibility, network, storage, users, and system configuration."
     },
     {
       "id": "delivery",
-      "label": "Delivery",
+      "label": "Application delivery",
       "definition": "Application/container deployment, Git integration, previews, lifecycle, backups, and rollback."
     },
     {
       "id": "observability",
-      "label": "Observability",
+      "label": "Monitoring and observability",
       "definition": "Metrics, history, alerting, anomaly detection, correlations, and incident analysis."
     },
     {
       "id": "delegation",
-      "label": "Delegation",
+      "label": "Roles and delegation",
       "definition": "Least-privilege roles, multiple identities/devices, auditability, and SSO or policy integration."
     },
     {
       "id": "aiControl",
-      "label": "AI / MCP",
+      "label": "Built-in AI and MCP",
       "definition": "Built-in AI assistance plus structured remote tool/API control of the workspace."
     }
   ],
@@ -123,12 +123,30 @@
         }
       ],
       "ratings": {
-        "workspace": { "value": "partial", "note": "Integrated browser administration and terminal, with optional applications; not an editor-centric mobile workspace." },
-        "hostOps": { "value": "strong", "note": "Network, firewall, storage, logs, software updates, users, systemd, VMs, containers, and multi-server administration." },
-        "delivery": { "value": "partial", "note": "Can administer containers and VMs, but is not primarily a Git-to-production PaaS." },
-        "observability": { "value": "partial", "note": "Detailed host metrics and journal correlation, without Netdata-class alerting/anomaly depth." },
-        "delegation": { "value": "strong", "note": "Uses normal Linux users and privileges and supports network-wide login/SSO approaches." },
-        "aiControl": { "value": "none", "note": "No built-in AI assistant or remote MCP control plane in the core product." }
+        "workspace": {
+          "value": "partial",
+          "note": "Integrated browser administration and terminal, with optional applications; not an editor-centric mobile workspace."
+        },
+        "hostOps": {
+          "value": "strong",
+          "note": "Network, firewall, storage, logs, software updates, users, systemd, VMs, containers, and multi-server administration."
+        },
+        "delivery": {
+          "value": "partial",
+          "note": "Can administer containers and VMs, but is not primarily a Git-to-production PaaS."
+        },
+        "observability": {
+          "value": "partial",
+          "note": "Detailed host metrics and journal correlation, without Netdata-class alerting/anomaly depth."
+        },
+        "delegation": {
+          "value": "strong",
+          "note": "Uses normal Linux users and privileges and supports network-wide login/SSO approaches."
+        },
+        "aiControl": {
+          "value": "none",
+          "note": "No built-in AI assistant or remote MCP control plane in the core product."
+        }
       }
     },
     {
@@ -136,16 +154,40 @@
       "name": "Coolify",
       "bestFor": "Self-hosted Git/PaaS delivery",
       "sources": [
-        { "label": "Coolify features", "url": "https://coolify.io/docs" },
-        { "label": "Coolify CI/CD", "url": "https://coolify.io/docs/applications/ci-cd" }
+        {
+          "label": "Coolify features",
+          "url": "https://coolify.io/docs"
+        },
+        {
+          "label": "Coolify CI/CD",
+          "url": "https://coolify.io/docs/applications/ci-cd"
+        }
       ],
       "ratings": {
-        "workspace": { "value": "partial", "note": "Dashboard and real-time terminal center on deployed resources rather than a general files/editors workspace." },
-        "hostOps": { "value": "partial", "note": "Server setup automations, terminal, monitoring, and cleanup; not a general Linux administration cockpit." },
-        "delivery": { "value": "strong", "note": "Git integrations, automatic and preview deployments, one-click services, SSL, databases, backups, webhooks, and API." },
-        "observability": { "value": "partial", "note": "Deployment/server/container monitoring and notifications, but not deep per-second anomaly/RCA analytics." },
-        "delegation": { "value": "strong", "note": "Team projects, roles, and permissions are first-class product features." },
-        "aiControl": { "value": "none", "note": "No native AI workspace or MCP host control comparable to MSO." }
+        "workspace": {
+          "value": "partial",
+          "note": "Dashboard and real-time terminal center on deployed resources rather than a general files/editors workspace."
+        },
+        "hostOps": {
+          "value": "partial",
+          "note": "Server setup automations, terminal, monitoring, and cleanup; not a general Linux administration cockpit."
+        },
+        "delivery": {
+          "value": "strong",
+          "note": "Git integrations, automatic and preview deployments, one-click services, SSL, databases, backups, webhooks, and API."
+        },
+        "observability": {
+          "value": "partial",
+          "note": "Deployment/server/container monitoring and notifications, but not deep per-second anomaly/RCA analytics."
+        },
+        "delegation": {
+          "value": "strong",
+          "note": "Team projects, roles, and permissions are first-class product features."
+        },
+        "aiControl": {
+          "value": "none",
+          "note": "No native AI workspace or MCP host control comparable to MSO."
+        }
       }
     },
     {
@@ -153,16 +195,40 @@
       "name": "Portainer",
       "bestFor": "Container and stack operations",
       "sources": [
-        { "label": "Portainer documentation", "url": "https://docs.portainer.io/" },
-        { "label": "Portainer stack operations", "url": "https://docs.portainer.io/2.33-lts/user/docker/stacks/edit" }
+        {
+          "label": "Portainer documentation",
+          "url": "https://docs.portainer.io/"
+        },
+        {
+          "label": "Portainer stack operations",
+          "url": "https://docs.portainer.io/2.33-lts/user/docker/stacks/edit"
+        }
       ],
       "ratings": {
-        "workspace": { "value": "partial", "note": "Container consoles, logs, stack editors, and resource views; not a general host files/editor workspace." },
-        "hostOps": { "value": "partial", "note": "Strong container-platform operations, but host systemd/network/storage administration is outside the core scope." },
-        "delivery": { "value": "strong", "note": "Docker/Swarm/Kubernetes/Podman resources, stacks, GitOps updates, environment management, and migration/duplication." },
-        "observability": { "value": "partial", "note": "Container state, logs, and resource inspection; not a Netdata-class observability system." },
-        "delegation": { "value": "partial", "note": "Access controls are available; advanced RBAC is edition-dependent." },
-        "aiControl": { "value": "none", "note": "No native AI/MCP workspace control plane." }
+        "workspace": {
+          "value": "partial",
+          "note": "Container consoles, logs, stack editors, and resource views; not a general host files/editor workspace."
+        },
+        "hostOps": {
+          "value": "partial",
+          "note": "Strong container-platform operations, but host systemd/network/storage administration is outside the core scope."
+        },
+        "delivery": {
+          "value": "strong",
+          "note": "Docker/Swarm/Kubernetes/Podman resources, stacks, GitOps updates, environment management, and migration/duplication."
+        },
+        "observability": {
+          "value": "partial",
+          "note": "Container state, logs, and resource inspection; not a Netdata-class observability system."
+        },
+        "delegation": {
+          "value": "partial",
+          "note": "Access controls are available; advanced RBAC is edition-dependent."
+        },
+        "aiControl": {
+          "value": "none",
+          "note": "No native AI/MCP workspace control plane."
+        }
       }
     },
     {
@@ -170,16 +236,40 @@
       "name": "Netdata",
       "bestFor": "High-resolution observability and RCA",
       "sources": [
-        { "label": "Netdata charts", "url": "https://learn.netdata.cloud/docs/dashboards-and-charts/charts" },
-        { "label": "Netdata AI Insights", "url": "https://learn.netdata.cloud/docs/netdata-ai/insights" }
+        {
+          "label": "Netdata charts",
+          "url": "https://learn.netdata.cloud/docs/dashboards-and-charts/charts"
+        },
+        {
+          "label": "Netdata AI Insights",
+          "url": "https://learn.netdata.cloud/docs/netdata-ai/insights"
+        }
       ],
       "ratings": {
-        "workspace": { "value": "partial", "note": "Rich monitoring dashboard rather than a files/terminal/editor workspace." },
-        "hostOps": { "value": "none", "note": "Observes hosts and services; it is not a general administration shell." },
-        "delivery": { "value": "none", "note": "Does not provide general application deployment workflows." },
-        "observability": { "value": "strong", "note": "Per-second metrics, alerts, anomaly scores, correlation, cross-node analysis, and AI-generated incident insights." },
-        "delegation": { "value": "partial", "note": "Cloud/team access exists, but identity and remote host access are not its primary comparison axis." },
-        "aiControl": { "value": "partial", "note": "AI Insights explains telemetry and recommends actions; it does not expose a general host-action MCP surface." }
+        "workspace": {
+          "value": "partial",
+          "note": "Rich monitoring dashboard rather than a files/terminal/editor workspace."
+        },
+        "hostOps": {
+          "value": "none",
+          "note": "Observes hosts and services; it is not a general administration shell."
+        },
+        "delivery": {
+          "value": "none",
+          "note": "Does not provide general application deployment workflows."
+        },
+        "observability": {
+          "value": "strong",
+          "note": "Per-second metrics, alerts, anomaly scores, correlation, cross-node analysis, and AI-generated incident insights."
+        },
+        "delegation": {
+          "value": "partial",
+          "note": "Cloud/team access exists, but identity and remote host access are not its primary comparison axis."
+        },
+        "aiControl": {
+          "value": "partial",
+          "note": "AI Insights explains telemetry and recommends actions; it does not expose a general host-action MCP surface."
+        }
       }
     },
     {
@@ -187,15 +277,36 @@
       "name": "Tailscale SSH",
       "bestFor": "Identity-aware private remote access",
       "sources": [
-        { "label": "Tailscale SSH", "url": "https://tailscale.com/docs/features/tailscale-ssh" }
+        {
+          "label": "Tailscale SSH",
+          "url": "https://tailscale.com/docs/features/tailscale-ssh"
+        }
       ],
       "ratings": {
-        "workspace": { "value": "none", "note": "An access layer, not a graphical workspace." },
-        "hostOps": { "value": "partial", "note": "Carries SSH sessions to the host; administration remains command-line tooling on the target." },
-        "delivery": { "value": "none", "note": "No application delivery control plane." },
-        "observability": { "value": "none", "note": "Connection/audit data is not host observability." },
-        "delegation": { "value": "strong", "note": "Identity, ACLs, SSH checks, session controls, revocation, and recording integrations are core strengths." },
-        "aiControl": { "value": "none", "note": "No built-in AI/MCP host workspace." }
+        "workspace": {
+          "value": "none",
+          "note": "An access layer, not a graphical workspace."
+        },
+        "hostOps": {
+          "value": "partial",
+          "note": "Carries SSH sessions to the host; administration remains command-line tooling on the target."
+        },
+        "delivery": {
+          "value": "none",
+          "note": "No application delivery control plane."
+        },
+        "observability": {
+          "value": "none",
+          "note": "Connection/audit data is not host observability."
+        },
+        "delegation": {
+          "value": "strong",
+          "note": "Identity, ACLs, SSH checks, session controls, revocation, and recording integrations are core strengths."
+        },
+        "aiControl": {
+          "value": "none",
+          "note": "No built-in AI/MCP host workspace."
+        }
       }
     },
     {
@@ -203,15 +314,36 @@
       "name": "File Browser",
       "bestFor": "Focused web file management",
       "sources": [
-        { "label": "File Browser repository", "url": "https://github.com/filebrowser/filebrowser" }
+        {
+          "label": "File Browser repository",
+          "url": "https://github.com/filebrowser/filebrowser"
+        }
       ],
       "ratings": {
-        "workspace": { "value": "partial", "note": "Strong upload/delete/preview/edit file surface, without a complete server workspace." },
-        "hostOps": { "value": "none", "note": "No general service, package, network, or storage administration." },
-        "delivery": { "value": "none", "note": "No application deployment control plane." },
-        "observability": { "value": "none", "note": "No host metrics/alerting system." },
-        "delegation": { "value": "partial", "note": "File-focused users/scopes, not a complete host privilege model." },
-        "aiControl": { "value": "none", "note": "No native AI/MCP control." }
+        "workspace": {
+          "value": "partial",
+          "note": "Strong upload/delete/preview/edit file surface, without a complete server workspace."
+        },
+        "hostOps": {
+          "value": "none",
+          "note": "No general service, package, network, or storage administration."
+        },
+        "delivery": {
+          "value": "none",
+          "note": "No application deployment control plane."
+        },
+        "observability": {
+          "value": "none",
+          "note": "No host metrics/alerting system."
+        },
+        "delegation": {
+          "value": "partial",
+          "note": "File-focused users/scopes, not a complete host privilege model."
+        },
+        "aiControl": {
+          "value": "none",
+          "note": "No native AI/MCP control."
+        }
       }
     },
     {
@@ -219,15 +351,36 @@
       "name": "ttyd",
       "bestFor": "Small, focused web terminal",
       "sources": [
-        { "label": "ttyd repository", "url": "https://github.com/tsl0922/ttyd" }
+        {
+          "label": "ttyd repository",
+          "url": "https://github.com/tsl0922/ttyd"
+        }
       ],
       "ratings": {
-        "workspace": { "value": "partial", "note": "Excellent terminal transport, but intentionally only one command/terminal surface." },
-        "hostOps": { "value": "none", "note": "Any operations come from the command it exposes, not from structured host controls." },
-        "delivery": { "value": "none", "note": "No application deployment workflow." },
-        "observability": { "value": "none", "note": "No host observability system." },
-        "delegation": { "value": "partial", "note": "Basic/auth-proxy options and read-only mode, without a product-wide role model." },
-        "aiControl": { "value": "none", "note": "No native AI/MCP workspace." }
+        "workspace": {
+          "value": "partial",
+          "note": "Excellent terminal transport, but intentionally only one command/terminal surface."
+        },
+        "hostOps": {
+          "value": "none",
+          "note": "Any operations come from the command it exposes, not from structured host controls."
+        },
+        "delivery": {
+          "value": "none",
+          "note": "No application deployment workflow."
+        },
+        "observability": {
+          "value": "none",
+          "note": "No host observability system."
+        },
+        "delegation": {
+          "value": "partial",
+          "note": "Basic/auth-proxy options and read-only mode, without a product-wide role model."
+        },
+        "aiControl": {
+          "value": "none",
+          "note": "No native AI/MCP workspace."
+        }
       }
     },
     {
@@ -235,15 +388,36 @@
       "name": "CasaOS",
       "bestFor": "Friendly personal-cloud home server",
       "sources": [
-        { "label": "CasaOS repository", "url": "https://github.com/IceWhaleTech/CasaOS" }
+        {
+          "label": "CasaOS repository",
+          "url": "https://github.com/IceWhaleTech/CasaOS"
+        }
       ],
       "ratings": {
-        "workspace": { "value": "partial", "note": "Friendly personal-cloud dashboard, files, widgets, and apps, but not a developer/operations workspace with full PTY/editor depth." },
-        "hostOps": { "value": "partial", "note": "Home-server status and storage/app management rather than deep Linux administration." },
-        "delivery": { "value": "partial", "note": "One-click Docker application ecosystem, not Git/preview-oriented PaaS delivery." },
-        "observability": { "value": "partial", "note": "Dashboard status/widgets without specialist alerting and RCA depth." },
-        "delegation": { "value": "none", "note": "Not positioned around least-privilege team administration." },
-        "aiControl": { "value": "none", "note": "No native AI/MCP workspace control." }
+        "workspace": {
+          "value": "partial",
+          "note": "Friendly personal-cloud dashboard, files, widgets, and apps, but not a developer/operations workspace with full PTY/editor depth."
+        },
+        "hostOps": {
+          "value": "partial",
+          "note": "Home-server status and storage/app management rather than deep Linux administration."
+        },
+        "delivery": {
+          "value": "partial",
+          "note": "One-click Docker application ecosystem, not Git/preview-oriented PaaS delivery."
+        },
+        "observability": {
+          "value": "partial",
+          "note": "Dashboard status/widgets without specialist alerting and RCA depth."
+        },
+        "delegation": {
+          "value": "none",
+          "note": "Not positioned around least-privilege team administration."
+        },
+        "aiControl": {
+          "value": "none",
+          "note": "No native AI/MCP workspace control."
+        }
       }
     },
     {
@@ -251,16 +425,40 @@
       "name": "Runtipi",
       "bestFor": "Curated one-click self-hosted apps",
       "sources": [
-        { "label": "Runtipi app store", "url": "https://runtipi.io/docs/learn/apps-and-app-store" },
-        { "label": "Runtipi folder and backup model", "url": "https://runtipi.io/docs/reference/folder-structure" }
+        {
+          "label": "Runtipi app store",
+          "url": "https://runtipi.io/docs/learn/apps-and-app-store"
+        },
+        {
+          "label": "Runtipi folder and backup model",
+          "url": "https://runtipi.io/docs/reference/folder-structure"
+        }
       ],
       "ratings": {
-        "workspace": { "value": "partial", "note": "App-centric home-server dashboard rather than a unified developer/operations workspace." },
-        "hostOps": { "value": "none", "note": "General Linux host administration is not the primary product surface." },
-        "delivery": { "value": "strong", "note": "Curated/custom app stores, preconfigured Compose apps, lifecycle, logs, updates, persistence, and per-app backups." },
-        "observability": { "value": "partial", "note": "App state/logs, not deep infrastructure observability." },
-        "delegation": { "value": "none", "note": "Not positioned as a multi-admin identity/RBAC control plane." },
-        "aiControl": { "value": "none", "note": "No native AI/MCP host workspace." }
+        "workspace": {
+          "value": "partial",
+          "note": "App-centric home-server dashboard rather than a unified developer/operations workspace."
+        },
+        "hostOps": {
+          "value": "none",
+          "note": "General Linux host administration is not the primary product surface."
+        },
+        "delivery": {
+          "value": "strong",
+          "note": "Curated/custom app stores, preconfigured Compose apps, lifecycle, logs, updates, persistence, and per-app backups."
+        },
+        "observability": {
+          "value": "partial",
+          "note": "App state/logs, not deep infrastructure observability."
+        },
+        "delegation": {
+          "value": "none",
+          "note": "Not positioned as a multi-admin identity/RBAC control plane."
+        },
+        "aiControl": {
+          "value": "none",
+          "note": "No native AI/MCP host workspace."
+        }
       }
     }
   ]

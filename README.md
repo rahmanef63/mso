@@ -283,20 +283,20 @@ Deep dive: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 <!-- comparison:start -->
 **Positioning:** MSO is designed to be the most complete mobile-first, AI-native private Linux workspace for an owner or small trusted team. It does not claim to replace specialist products at their strongest specialty.
 
-● strong · ◐ partial/scope-limited · — not a product surface
+Strong = a first-class product strength · Partial = available with scope limitations · Not offered = not a core product surface
 
-| Product | Best fit | Workspace | Host ops | Delivery | Observability | Delegation | AI / MCP |
+| Product | Best fit | Browser workspace | Linux host administration | Application delivery | Monitoring and observability | Roles and delegation | Built-in AI and MCP |
 |---|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **MSO** | Mobile-first private Linux workspace | ● | ◐ | ◐ | ◐ | ◐ | ● |
-| **Cockpit** | Deep graphical Linux administration | ◐ | ● | ◐ | ◐ | ● | — |
-| **Coolify** | Self-hosted Git/PaaS delivery | ◐ | ◐ | ● | ◐ | ● | — |
-| **Portainer** | Container and stack operations | ◐ | ◐ | ● | ◐ | ◐ | — |
-| **Netdata** | High-resolution observability and RCA | ◐ | — | — | ● | ◐ | ◐ |
-| **Tailscale SSH** | Identity-aware private remote access | — | ◐ | — | — | ● | — |
-| **File Browser** | Focused web file management | ◐ | — | — | — | ◐ | — |
-| **ttyd** | Small, focused web terminal | ◐ | — | — | — | ◐ | — |
-| **CasaOS** | Friendly personal-cloud home server | ◐ | ◐ | ◐ | ◐ | — | — |
-| **Runtipi** | Curated one-click self-hosted apps | ◐ | — | ● | ◐ | — | — |
+| **MSO** | Mobile-first private Linux workspace | Strong | Partial | Partial | Partial | Partial | Strong |
+| **Cockpit** | Deep graphical Linux administration | Partial | Strong | Partial | Partial | Strong | Not offered |
+| **Coolify** | Self-hosted Git/PaaS delivery | Partial | Partial | Strong | Partial | Strong | Not offered |
+| **Portainer** | Container and stack operations | Partial | Partial | Strong | Partial | Partial | Not offered |
+| **Netdata** | High-resolution observability and RCA | Partial | Not offered | Not offered | Strong | Partial | Partial |
+| **Tailscale SSH** | Identity-aware private remote access | Not offered | Partial | Not offered | Not offered | Strong | Not offered |
+| **File Browser** | Focused web file management | Partial | Not offered | Not offered | Not offered | Partial | Not offered |
+| **ttyd** | Small, focused web terminal | Partial | Not offered | Not offered | Not offered | Partial | Not offered |
+| **CasaOS** | Friendly personal-cloud home server | Partial | Partial | Partial | Partial | Not offered | Not offered |
+| **Runtipi** | Curated one-click self-hosted apps | Partial | Not offered | Strong | Partial | Not offered | Not offered |
 
 Reviewed against official product documentation on **2026-08-29**. Ratings describe product scope, not benchmark scores. See [methodology, evidence, and per-cell notes](docs/COMPARISON.md) and the [execution roadmap](docs/COMPETITIVE-ROADMAP.md).
 <!-- comparison:end -->
