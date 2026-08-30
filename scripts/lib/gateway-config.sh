@@ -56,8 +56,8 @@ try { st = fs.fstatSync(fd); text = fs.readFileSync(fd, 'utf8'); } finally { fs.
 if (!st.isFile() || st.uid !== process.getuid() || (st.mode & 0o077) !== 0) process.exit(2);
 if (action === 'set') {
   const line = `OS_PUBLIC_ORIGIN=${value}`;
-  text = /^OS_PUBLIC_ORIGIN=.*$/m.test(text) ? text.replace(/^OS_PUBLIC_ORIGIN=.*$/m, line)
-    : text + `${text.endsWith('\n') || !text ? '' : '\n'}${line}\n`;
+  text = text.replace(/^OS_PUBLIC_ORIGIN=.*\n?/gm, '');
+  text += `${text.endsWith('\n') || !text ? '' : '\n'}${line}\n`;
 } else if (action === 'clear') text = text.replace(/^OS_PUBLIC_ORIGIN=.*\n?/gm, '');
 else process.exit(2);
 const tmp = `${file}.mso-gateway-${process.pid}`;

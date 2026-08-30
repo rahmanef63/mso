@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `gateway` canonicalize public origin assignment
 - `git` restore executable script modes
 - `runtime` close service installer and notice races
 - `install` hold update lock across checkout refresh
