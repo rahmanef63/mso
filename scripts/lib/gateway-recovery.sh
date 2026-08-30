@@ -43,3 +43,43 @@ gateway_wait_runtime_stopped() {
   done
   return 1
 }
+
+RUNTIME_PENDING_PID=0
+RUNTIME_PENDING_TICKS=''
+RUNTIME_PENDING_GATE=''
+
+gateway_track_pending_runtime() {
+  local pid="$1" ticks i
+  RUNTIME_PENDING_PID="$pid"; RUNTIME_PENDING_TICKS=''
+  for i in $(seq 1 20); do
+    ticks="$(gateway_proc_start_ticks "$pid" 2>/dev/null || true)"
+    [ -n "$ticks" ] && { RUNTIME_PENDING_TICKS="$ticks"; GATEWAY_PENDING_CLEANUP=1; return 0; }
+    gateway_pid_alive "$pid" || return 1
+    sleep 0.01
+  done
+  return 1
+}
+
+gateway_runtime_pending_gate_cleanup() {
+  local gate="${RUNTIME_PENDING_GATE:-}"
+  [ -n "$gate" ] || return 0
+  if [ -e "$gate" ] || [ -L "$gate" ]; then mso_private_state_remove_file "$gate" >/dev/null 2>&1 || true; fi
+  RUNTIME_PENDING_GATE=''
+}
+
+gateway_stop_pending_runtime() {
+  local pid="${RUNTIME_PENDING_PID:-0}" ticks="${RUNTIME_PENDING_TICKS:-}" live i
+  gateway_runtime_pending_gate_cleanup
+  [ "$pid" -gt 1 ] 2>/dev/null && [ -n "$ticks" ] || return 0
+  live="$(gateway_proc_start_ticks "$pid" 2>/dev/null || true)"
+  [ "$live" = "$ticks" ] || { RUNTIME_PENDING_PID=0; RUNTIME_PENDING_TICKS=''; return 0; }
+  kill "$pid" 2>/dev/null || true
+  for i in $(seq 1 25); do
+    live="$(gateway_proc_start_ticks "$pid" 2>/dev/null || true)"
+    [ "$live" != "$ticks" ] && break
+    sleep 0.04
+  done
+  live="$(gateway_proc_start_ticks "$pid" 2>/dev/null || true)"
+  [ "$live" != "$ticks" ] || kill -KILL "$pid" 2>/dev/null || true
+  RUNTIME_PENDING_PID=0; RUNTIME_PENDING_TICKS=''
+}

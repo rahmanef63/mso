@@ -35,8 +35,11 @@ application roles, but they still share the same deployment and underlying Unix 
 - Gateway/update lifecycle state is owner-only and fail-closed: public tunneling requires verified
   loopback-only exposure; offline recovery uses checkout-scoped receipts, an exclusive process-identity
   lock, and durable pre-quiesce recovery intent rather than treating Git HEAD as deployment proof.
-  Tunnel startup additionally uses a parent/child release handshake, so Cloudflared cannot execute
-  before its process lifetime is tracked; interruption before release makes the held child self-exit.
+  Tunnel and fallback-runtime startup additionally use a parent/child release handshake, so neither
+  Cloudflared nor Next can execute before its process lifetime is tracked; interruption before release
+  makes the held child self-exit. Gateway state is namespaced by canonical checkout + loopback origin,
+  lifecycle/update serialization uses crash-released kernel `flock`, and public readiness must match
+  the exact local build/runtime identity rather than only the MSO version.
 - Use `NEXT_PUBLIC_OS_DEMO=1` only in a separate mock-only public demo checkout.
 
 The core gateway client follows the same immutable-artifact rule as managed apps: MSO pins the

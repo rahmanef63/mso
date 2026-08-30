@@ -118,7 +118,8 @@ describe("one-line installer contract", () => {
     expect(src).toContain('export PATH="$BIN_DIR:$PATH"');
     expect(src).toContain('custom MSO_BIN_DIR is not persisted automatically');
     expect(src).toContain("ensure_cli_tools()");
-    expect(src).toContain("curl jq coreutils");
+    expect(src).toContain("curl jq coreutils util-linux");
+    expect(src).toContain("sha256sum flock");
     expect(src).toContain('[ -x "$BIN_DIR/mso" ]');
     expect(src).toContain('CLI launcher self-check failed');
   });

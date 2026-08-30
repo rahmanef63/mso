@@ -16,7 +16,7 @@ gateway_runtime_from_state() {
 }
 
 gateway_start_runtime_if_needed() {
-  local next host port pid identity instance node_exe current_exe i
+  local next host port pid identity instance node_exe current_exe i parent_ticks gate
   [ "$RUNTIME_OWNED" = true ] && gateway_health_url_ok "$LOCAL_URL" "$RUNTIME_INSTANCE_ID" && return 0
   if gateway_health_ok; then
     RUNTIME_IDENTITY='null'; RUNTIME_INSTANCE_ID=''; RUNTIME_OWNED=false; RUNTIME_STARTED_NOW=false
@@ -34,12 +34,20 @@ gateway_start_runtime_if_needed() {
   instance="$(node -e 'process.stdout.write(require("crypto").randomBytes(16).toString("hex"))')"
   node_exe="$(readlink -f -- "$(command -v node)")"
   gateway_private_file "$RUNTIME_LOG"; : >"$RUNTIME_LOG"
+  parent_ticks="$(gateway_proc_start_ticks $$)" || gateway_fail "cannot identify runtime-launch parent"
+  gate="$STATE_ROOT/.runtime-release.$$.$RANDOM"
+  RUNTIME_PENDING_GATE="$gate"; RUNTIME_PENDING_PID=0; RUNTIME_PENDING_TICKS=''
   (
     cd "$ROOT" || exit 1
-    nohup env MSO_RUNTIME_INSTANCE_ID="$instance" node "$next" start --hostname 127.0.0.1 --port "$port" >>"$RUNTIME_LOG" 2>&1 &
+    nohup /bin/bash "$ROOT/scripts/lib/gateway-held-child.sh" "$$" "$parent_ticks" "$gate" \
+      env MSO_RUNTIME_INSTANCE_ID="$instance" node "$next" start --hostname 127.0.0.1 --port "$port" \
+      >>"$RUNTIME_LOG" 2>&1 &
     printf '%s\n' "$!"
   ) >"$STATE_ROOT/.runtime-pid.$$"
   pid="$(cat "$STATE_ROOT/.runtime-pid.$$")"; rm -f "$STATE_ROOT/.runtime-pid.$$"
+  gateway_track_pending_runtime "$pid" || { kill "$pid" 2>/dev/null || true; gateway_runtime_pending_gate_cleanup; gateway_fail "runtime held child could not be tracked"; }
+  printf '1\n' | mso_private_state_atomic_write "$gate" >/dev/null \
+    || { gateway_stop_pending_runtime; gateway_fail "runtime release gate could not be persisted"; }
   identity=''
   for i in $(seq 1 30); do
     if gateway_pid_alive "$pid"; then
@@ -51,22 +59,25 @@ gateway_start_runtime_if_needed() {
     else break; fi
     sleep 0.05
   done
-  if [ -z "$identity" ]; then kill "$pid" 2>/dev/null || true; gateway_fail "runtime did not start as the expected Node process"; fi
+  if [ -z "$identity" ]; then gateway_stop_pending_runtime; gateway_fail "runtime did not start as the expected Node process"; fi
+  gateway_runtime_pending_gate_cleanup
   identity="$(jq -c --arg instance "$instance" '.cmdHash=null | .instanceId=$instance' <<<"$identity")"
   if ! gateway_wait_health "$instance"; then
     gateway_stop_identity "$identity"
     gateway_fail "runtime did not become this launch's MSO health instance; see $RUNTIME_LOG"
   fi
   RUNTIME_IDENTITY="$identity"; RUNTIME_INSTANCE_ID="$instance"; RUNTIME_OWNED=true; RUNTIME_STARTED_NOW=true
+  RUNTIME_PENDING_PID=0; RUNTIME_PENDING_TICKS=''
   GATEWAY_PENDING_CLEANUP=1
 }
 
 gateway_write_state() {
   local provider="$1" mode="$2" url="$3" tunnel_identity="$4"
-  jq -nc --arg provider "$provider" --arg mode "$mode" --arg url "$url" --arg local "$LOCAL_URL" \
+  jq -nc --arg scopeId "$GATEWAY_SCOPE_ID" --arg root "$GATEWAY_CANONICAL_ROOT" \
+    --arg provider "$provider" --arg mode "$mode" --arg url "$url" --arg local "$LOCAL_URL" \
     --argjson tunnelIdentity "$tunnel_identity" --argjson runtimeIdentity "$RUNTIME_IDENTITY" \
     --argjson runtimeOwned "$RUNTIME_OWNED" --arg startedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{provider:$provider,mode:$mode,url:$url,localUrl:$local,tunnelIdentity:$tunnelIdentity,
+    '{scopeId:$scopeId,root:$root,provider:$provider,mode:$mode,url:$url,localUrl:$local,tunnelIdentity:$tunnelIdentity,
       runtimeIdentity:$runtimeIdentity,runtimeOwned:$runtimeOwned,startedAt:$startedAt}' \
     | mso_private_state_atomic_write "$STATE_FILE" >/dev/null
 }

@@ -127,7 +127,7 @@ gateway_quick_edge_health_ok() {
     # random trycloudflare hostname, and the body must match this launch's nonce.
     body="$("$CURL" -fsS --max-time 5 --resolve "$host:443:$ip" \
       "$GATEWAY_PUBLIC_URL/api/health" 2>/dev/null || true)"
-    gateway_health_body_ok "$body" "${RUNTIME_INSTANCE_ID:-}" && return 0
+    gateway_health_body_matches_identity "$body" "$LOCAL_HEALTH_IDENTITY" && return 0
   done < <(gateway_quick_public_ipv4s || true)
   return 1
 }
@@ -141,7 +141,7 @@ gateway_probe_public() {
   # propagated. Do not weaken the MSO health/instance check; give the provider a
   # bounded readiness window instead. Named tunnels usually pass on the first poll.
   for i in $(seq 1 "$seconds"); do
-    gateway_health_url_ok "$GATEWAY_PUBLIC_URL" "${RUNTIME_INSTANCE_ID:-}" && return 0
+    gateway_health_url_matches_identity "$GATEWAY_PUBLIC_URL" "$LOCAL_HEALTH_IDENTITY" && return 0
     gateway_quick_edge_health_ok && return 0
     sleep 1
   done
@@ -151,7 +151,8 @@ gateway_probe_public() {
 gateway_cleanup_failed_start() {
   if [ "${TUNNEL_IDENTITY:-null}" != null ]; then gateway_stop_identity "$TUNNEL_IDENTITY"
   else gateway_stop_pending_tunnel; fi
-  [ "${RUNTIME_STARTED_NOW:-false}" != true ] || gateway_stop_identity "$RUNTIME_IDENTITY"
+  if [ "${RUNTIME_STARTED_NOW:-false}" = true ]; then gateway_stop_identity "$RUNTIME_IDENTITY"
+  else gateway_stop_pending_runtime; fi
 }
 
 gateway_cmd_start_locked() {
@@ -166,6 +167,8 @@ gateway_cmd_start_locked() {
   gateway_runtime_from_state "$state"
   gateway_start_runtime_if_needed
   gateway_assert_port_loopback_only
+  LOCAL_HEALTH_IDENTITY="$(gateway_health_url_identity "$LOCAL_URL" "${RUNTIME_INSTANCE_ID:-}")" \
+    || { gateway_cleanup_failed_start; gateway_fail "selected local runtime did not return a stable MSO health identity"; }
   TUNNEL_IDENTITY=null; GATEWAY_PUBLIC_URL="${GATEWAY_PUBLIC_URL:-}"
   gateway_spawn_tunnel || { gateway_cleanup_failed_start; gateway_fail "cloudflared failed to start with the expected argv"; }
   if [ "$GATEWAY_MODE" = temporary ]; then

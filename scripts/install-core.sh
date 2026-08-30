@@ -278,20 +278,21 @@ ensure_buildtools() {
 }
 
 ensure_cli_tools() {
-  # bin/mso uses jq for JSON shaping and coreutils for guarded file identity.
+  # bin/mso uses jq for JSON shaping, coreutils for guarded file identity, and
+  # util-linux flock for crash-safe gateway/update transaction locks.
   # A pristine WSL/Ubuntu image may have Node+Bun but no jq. Install these before
   # creating the launcher so `mso -h` is a real installer postcondition.
   local missing=0 tool
-  for tool in curl jq realpath stat mktemp sha256sum; do
+  for tool in curl jq realpath stat mktemp sha256sum flock; do
     command -v "$tool" >/dev/null 2>&1 || { missing=1; break; }
   done
   [ "$missing" -eq 0 ] && return
-  info "installing CLI runtime tools (curl, jq, coreutils)…"
-  if   command -v apt-get >/dev/null 2>&1; then sudo_do apt-get update -qq && sudo_do apt-get install -y -qq curl jq coreutils
-  elif command -v dnf     >/dev/null 2>&1; then sudo_do dnf install -y -q curl jq coreutils
-  elif command -v pacman  >/dev/null 2>&1; then sudo_do pacman -Sy --noconfirm curl jq coreutils
-  else die "mso CLI needs curl, jq, realpath, stat, mktemp and sha256sum; install the missing tools, then rerun."; fi
-  for tool in curl jq realpath stat mktemp sha256sum; do
+  info "installing CLI runtime tools (curl, jq, coreutils, util-linux)…"
+  if   command -v apt-get >/dev/null 2>&1; then sudo_do apt-get update -qq && sudo_do apt-get install -y -qq curl jq coreutils util-linux
+  elif command -v dnf     >/dev/null 2>&1; then sudo_do dnf install -y -q curl jq coreutils util-linux
+  elif command -v pacman  >/dev/null 2>&1; then sudo_do pacman -Sy --noconfirm curl jq coreutils util-linux
+  else die "mso CLI needs curl, jq, realpath, stat, mktemp, sha256sum and flock; install the missing tools, then rerun."; fi
+  for tool in curl jq realpath stat mktemp sha256sum flock; do
     command -v "$tool" >/dev/null 2>&1 || die "CLI runtime dependency still missing after package install: $tool"
   done
 }

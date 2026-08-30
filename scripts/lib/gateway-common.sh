@@ -41,6 +41,7 @@ gateway_private_file() {
 }
 
 gateway_state_read() {
+  local state scope local_url
   if [ -e "$STATE_FILE" ] || [ -L "$STATE_FILE" ]; then
     if ! mso_private_state_validate_file "$STATE_FILE" >/dev/null; then
       printf 'mso gateway: unsafe gateway state file\n' >&2; return 2
@@ -48,9 +49,15 @@ gateway_state_read() {
     if [ ! -s "$STATE_FILE" ]; then
       printf 'mso gateway: gateway state is empty; inspect %s before removing it\n' "$STATE_FILE" >&2; return 2
     fi
-    if ! jq -e . "$STATE_FILE" 2>/dev/null; then
-      printf 'mso gateway: gateway state is corrupt; inspect %s before removing it\n' "$STATE_FILE" >&2; return 2
+    state="$(jq -ce . "$STATE_FILE" 2>/dev/null)" || {
+      printf 'mso gateway: gateway state is corrupt; inspect %s before removing it\n' "$STATE_FILE" >&2; return 2;
+    }
+    scope="$(jq -r '.scopeId // empty' <<<"$state")"
+    local_url="$(jq -r '.localUrl // empty' <<<"$state")"
+    if [ "$scope" != "$GATEWAY_SCOPE_ID" ] || [ "$local_url" != "$LOCAL_URL" ]; then
+      printf 'mso gateway: gateway state belongs to another checkout/origin; refusing reuse\n' >&2; return 2
     fi
+    printf '%s\n' "$state"
   else
     printf '{}\n'
   fi
@@ -149,33 +156,4 @@ gateway_stop_identity() {
     sleep 0.1
   done
   gateway_identity_matches "$identity" && kill -KILL "$pid" 2>/dev/null || true
-}
-
-gateway_health_body_ok() {
-  local body="$1" expected_instance="${2-}"
-  [ -n "$body" ] || return 1
-  jq -e --arg version "$GATEWAY_EXPECTED_VERSION" --arg instance "$expected_instance" '
-    type == "object" and .status == "ok" and .version == $version and
-    (.buildId | type == "string") and (.buildId | length > 0) and
-    (if $instance == "" then has("runtimeInstanceId") else .runtimeInstanceId == $instance end)
-  ' <<<"$body" >/dev/null 2>&1
-}
-
-gateway_health_url_ok() {
-  local base="$1" expected_instance="${2-}" body loopback
-  local -a curl_args=(-fsS --max-time 4)
-  loopback="$(gateway_validate_loopback_origin "$base" 2>/dev/null || true)"
-  # A user's http_proxy/HTTP_PROXY must never redirect the trusted local-health
-  # decision through a proxy. Public HTTPS probes retain ordinary proxy behavior.
-  [ -z "$loopback" ] || curl_args+=(--noproxy '*')
-  body="$("$CURL" "${curl_args[@]}" "$base/api/health" 2>/dev/null || true)"
-  gateway_health_body_ok "$body" "$expected_instance"
-}
-
-gateway_health_ok() { gateway_health_url_ok "$LOCAL_URL"; }
-
-gateway_wait_health() {
-  local expected_instance="${1-}" i
-  for i in $(seq 1 40); do gateway_health_url_ok "$LOCAL_URL" "$expected_instance" && return 0; sleep 0.25; done
-  return 1
 }

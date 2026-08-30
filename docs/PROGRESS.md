@@ -36,7 +36,11 @@ writer now propagates write/rename failures explicitly even when called from a s
 full pre-push run then exposed a fork/signal race before the tunnel fingerprint existed. Tunnel launch
 now uses a held-child handshake: the scrubbed child cannot `exec cloudflared` until its parent records
 PID + kernel start-ticks and releases an owner-only gate; if the parent disappears first, the child
-self-terminates. This closes the last pre-persistence orphan window without weakening process identity.
+self-terminates. The same handshake now protects the detached Next fallback. Final review also moved
+gateway/update serialization to kernel `flock` (no stale-lock ABA reclaim), scoped gateway state by
+canonical checkout + selected loopback origin, and made public readiness compare the exact local
+`version + buildId + runtimeInstanceId`. This closes the cross-clone control and wrong-deployment
+readiness classes without widening the raw app bind.
 
 The global response policy additionally sends `X-Robots-Tag: noindex, nofollow, noarchive` because an
 MSO control plane should not be indexed merely because a temporary HTTPS endpoint exists. The

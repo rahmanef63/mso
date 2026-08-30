@@ -14,6 +14,7 @@
 - a non-root user that owns MSO;
 - enough memory/swap for a Next production build (build needs more than idle runtime);
 - HTTPS through Tailscale Serve or a reverse proxy for normal non-localhost browser use.
+- CLI runtime tools `curl`, `jq`, GNU coreutils and util-linux `flock` (the installer adds missing packages on supported package managers).
 
 Optional Browser support additionally needs Camoufox, Xvfb, a lightweight X window manager,
 x11vnc, noVNC/websockify and a user systemd runtime.
@@ -164,7 +165,13 @@ never changes the application bind to `0.0.0.0`. The tool cache is user-local an
 with Cloudflare auto-update disabled. The tunnel process also receives a scrubbed environment rather
 than inheriting MSO login/session/BYOK secrets from the application shell. If systemd is unavailable (common on WSL), it may start the
 already-built Next production runtime itself, still on `127.0.0.1`, and records whether that process
-is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. Private state and logs are owner-only.
+is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. Private state and logs are owner-only and scoped by the canonical checkout plus selected loopback
+origin. The fallback Next process uses the same held-child release handshake as Cloudflared, so neither
+child may execute before the parent records PID + kernel start-ticks. Gateway/update lifecycle
+transactions use kernel `flock`, which is released automatically when a process exits instead of
+trying to reclaim stale lock directories. Before a public tunnel is accepted, MSO snapshots the
+selected local `{version, buildId, runtimeInstanceId}` and requires the HTTPS endpoint to return the
+exact same identity; a same-version deployment routed from the wrong hostname is rejected.
 
 This is intentionally labeled **temporary preview**. The random `trycloudflare.com` URL changes on
 restart, and Cloudflare Quick Tunnels do not support Server-Sent Events; MSO Terminal's live output

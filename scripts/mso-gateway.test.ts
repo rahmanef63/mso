@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  CLI, GATEWAY, VERSION, cleanupGatewayFixtures, fixture, readFileSnapshot, readState, runGateway as run,
+  CLI, GATEWAY, ROOT, VERSION, cleanupGatewayFixtures, fixture, readFileSnapshot, readState, runGateway as run,
 } from "./mso-gateway-test-fixture";
 
 afterEach(cleanupGatewayFixtures);

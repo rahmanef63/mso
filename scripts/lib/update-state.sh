@@ -7,6 +7,7 @@ DEPLOY_RECEIPT=''
 RESTART_MARKER=''
 UPDATE_LOCK_DIR=''
 UPDATE_LOCK_HELD=0
+UPDATE_LOCK_FD=''
 
 update_proc_start_ticks() {
   local pid="$1" line rest
@@ -63,37 +64,25 @@ clear_restart_pending() {
   mso_private_state_remove_file "$RESTART_MARKER" >/dev/null 2>&1 || true
 }
 
-update_lock_owner_valid() {
-  local owner="$UPDATE_LOCK_DIR/owner" pid ticks live
-  [ -f "$owner" ] && [ ! -L "$owner" ] || return 1
-  read -r pid ticks <"$owner" || return 1
-  [[ "$pid" =~ ^[0-9]+$ && "$ticks" =~ ^[0-9]+$ ]] || return 1
-  live="$(update_proc_start_ticks "$pid" 2>/dev/null || true)"
-  [ -n "$live" ] && [ "$live" = "$ticks" ]
-}
-
 update_lock_acquire() {
-  local self_ticks candidate stale i
   init_update_state
-  self_ticks="$(update_proc_start_ticks $$)" || fail "cannot identify update process"
-  for i in $(seq 1 1200); do
-    candidate="$UPDATE_STATE_DIR/.transaction-lock.$$.$RANDOM"
-    if ! mkdir -m 700 -- "$candidate" 2>/dev/null; then sleep 0.01; continue; fi
-    printf '%s %s\n' "$$" "$self_ticks" >"$candidate/owner"; chmod 600 "$candidate/owner"
-    if mv -T -- "$candidate" "$UPDATE_LOCK_DIR" 2>/dev/null; then UPDATE_LOCK_HELD=1; return 0; fi
-    rm -rf -- "$candidate"
-    if [ -d "$UPDATE_LOCK_DIR" ] && [ ! -L "$UPDATE_LOCK_DIR" ] && ! update_lock_owner_valid; then
-      stale="$UPDATE_STATE_DIR/.transaction-stale.$$.$RANDOM"
-      mv -T -- "$UPDATE_LOCK_DIR" "$stale" 2>/dev/null && rm -rf -- "$stale" || true
-    fi
-    sleep 0.05
-  done
-  fail "another offline update transaction is still running"
+  mso_private_state_ensure_file "$UPDATE_LOCK_DIR" >/dev/null || fail "unsafe offline update transaction lock"
+  exec {UPDATE_LOCK_FD}<>"$UPDATE_LOCK_DIR" || fail "cannot open offline update transaction lock"
+  if ! flock -x -w 900 "$UPDATE_LOCK_FD"; then
+    exec {UPDATE_LOCK_FD}>&- || true
+    UPDATE_LOCK_FD=''
+    fail "another offline update transaction is still running"
+  fi
+  UPDATE_LOCK_HELD=1
 }
 
 update_lock_release() {
   [ "$UPDATE_LOCK_HELD" = 1 ] || return 0
-  if update_lock_owner_valid; then rm -f -- "$UPDATE_LOCK_DIR/owner"; rmdir -- "$UPDATE_LOCK_DIR" 2>/dev/null || true; fi
+  if [ -n "${UPDATE_LOCK_FD:-}" ]; then
+    flock -u "$UPDATE_LOCK_FD" 2>/dev/null || true
+    exec {UPDATE_LOCK_FD}>&- || true
+    UPDATE_LOCK_FD=''
+  fi
   UPDATE_LOCK_HELD=0
 }
 

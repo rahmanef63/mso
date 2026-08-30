@@ -42,7 +42,12 @@ function identity(pid: number) {
   return { pid, startTicks: rest[19], exe: fs.realpathSync(`/proc/${pid}/exe`),
     cmdHash: createHash("sha256").update(fs.readFileSync(`/proc/${pid}/cmdline`)).digest("hex") };
 }
-function writeState(dir: string, value: unknown) { fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify(value), { mode: 0o600 }); }
+function writeState(dir: string, value: Record<string, unknown>) {
+  const localUrl = String(value.localUrl ?? "http://127.0.0.1:4005");
+  const root = fs.realpathSync(ROOT);
+  const scopeId = createHash("sha256").update(`${root}\n${localUrl}`).digest("hex");
+  fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify({ scopeId, root, ...value }), { mode: 0o600 });
+}
 function readRegularSnapshot(file: string) {
   const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
   try {

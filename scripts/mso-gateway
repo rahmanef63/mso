@@ -8,11 +8,14 @@ ROOT="${MSO_GATEWAY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ENVF="${MSO_GATEWAY_ENV:-$ROOT/.env.local}"
 LOCAL_URL_OVERRIDE="${MSO_GATEWAY_LOCAL_URL:-}"
 LOCAL_URL=""
-STATE_ROOT="${MSO_GATEWAY_STATE_DIR:-$HOME/.mso/private/gateway}"
+STATE_ROOT_OVERRIDE="${MSO_GATEWAY_STATE_DIR:-}"
+STATE_ROOT=''
+GATEWAY_CANONICAL_ROOT=''
+GATEWAY_SCOPE_ID=''
 CLOUDFLARED=""
 CURL="${MSO_GATEWAY_CURL:-$(command -v curl 2>/dev/null || true)}"
 
-for dep in node jq sha256sum realpath stat mktemp; do command -v "$dep" >/dev/null || { echo "mso gateway: missing dependency: $dep" >&2; exit 1; }; done
+for dep in node jq sha256sum realpath stat mktemp flock; do command -v "$dep" >/dev/null || { echo "mso gateway: missing dependency: $dep" >&2; exit 1; }; done
 [ -n "$CURL" ] || { echo "mso gateway: curl is required" >&2; exit 1; }
 
 # shellcheck source=scripts/lib/private-state.sh
@@ -34,12 +37,22 @@ fi
 LOCAL_URL="${LOCAL_URL_OVERRIDE:-${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}}"
 LOCAL_URL="$(gateway_validate_loopback_origin "$LOCAL_URL" 2>/dev/null || true)"
 [ -n "$LOCAL_URL" ] || gateway_fail "refusing non-loopback/invalid upstream; use a clean http://127/8, localhost, or ::1 origin with an explicit port"
-STATE_ROOT="$(mso_private_state_dir "$STATE_ROOT")" || gateway_fail "unsafe gateway state directory"
+GATEWAY_CANONICAL_ROOT="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
+[ -n "$GATEWAY_CANONICAL_ROOT" ] || gateway_fail "cannot canonicalize MSO checkout: $ROOT"
+GATEWAY_SCOPE_ID="$(printf '%s\n%s' "$GATEWAY_CANONICAL_ROOT" "$LOCAL_URL" | sha256sum | awk '{print $1}')"
+[[ "$GATEWAY_SCOPE_ID" =~ ^[0-9a-f]{64}$ ]] || gateway_fail "cannot derive gateway state scope"
+if [ -n "$STATE_ROOT_OVERRIDE" ]; then
+  STATE_ROOT="$(mso_private_state_dir "$STATE_ROOT_OVERRIDE")" || gateway_fail "unsafe gateway state directory"
+else
+  STATE_BASE="$(mso_private_state_dir "$HOME/.mso/private/gateway")" || gateway_fail "unsafe gateway state base"
+  STATE_ROOT="$(mso_private_state_dir "$STATE_BASE/$GATEWAY_SCOPE_ID")" || gateway_fail "unsafe scoped gateway state directory"
+fi
 STATE_FILE="$STATE_ROOT/state.json"
 CF_LOG="$STATE_ROOT/cloudflared.log"
 RUNTIME_LOG="$STATE_ROOT/runtime.log"
-LOCK_DIR="$STATE_ROOT/lifecycle.lock"
+LOCK_FILE="$STATE_ROOT/lifecycle.lock"
 LOCK_HELD=0
+GATEWAY_LOCK_FD=''
 
 # shellcheck source=scripts/lib/gateway-network.sh
 . "$ROOT/scripts/lib/gateway-network.sh"
@@ -47,6 +60,8 @@ LOCK_HELD=0
 . "$ROOT/scripts/lib/gateway-tool.sh"
 # shellcheck source=scripts/lib/gateway-lock.sh
 . "$ROOT/scripts/lib/gateway-lock.sh"
+# shellcheck source=scripts/lib/gateway-health.sh
+. "$ROOT/scripts/lib/gateway-health.sh"
 # shellcheck source=scripts/lib/gateway-recovery.sh
 . "$ROOT/scripts/lib/gateway-recovery.sh"
 # shellcheck source=scripts/lib/gateway-runtime.sh

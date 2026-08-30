@@ -205,8 +205,9 @@ mso gateway stop
 Temporary mode uses a Cloudflare Quick Tunnel and does **not** change `OS_PUBLIC_ORIGIN`, the
 MSO bind address, router/NAT rules, or the Windows firewall. The normal password + approved-device
 gate, live device roles, Secure/HttpOnly/SameSite cookie, same-origin mutation gate, CSP and login
-rate limits remain in front of the host APIs. Gateway state/logs live under owner-only
-`~/.mso/private/gateway`; `stop` validates process identity before terminating anything. On first use, MSO downloads the reviewed `cloudflared` release pinned in
+rate limits remain in front of the host APIs. Gateway state/logs live under an owner-only
+checkout+loopback-origin namespace below `~/.mso/private/gateway`, so two clones/ports cannot control
+each other's tunnel. `stop` validates process identity before terminating anything. On first use, MSO downloads the reviewed `cloudflared` release pinned in
 `security/gateway-artifacts.env` into user-local `~/.mso/tools`, verifies its SHA-256 before first
 execution and again before every reuse, and passes `--no-autoupdate`. No root package install,
 mutable `latest`, or `curl | sh` is involved. Use `mso gateway install` to prefetch it explicitly.
