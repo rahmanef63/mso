@@ -56,7 +56,14 @@ function readRegularSnapshot(file: string) {
     return { mode: stat.mode & 0o777, text: fs.readFileSync(fd, "utf8") };
   } finally { fs.closeSync(fd); }
 }
-function alive(pid: number) { try { process.kill(pid, 0); return true; } catch { return false; } }
+function alive(pid: number) {
+  try {
+    process.kill(pid, 0);
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, "utf8");
+    const rest = stat.slice(stat.lastIndexOf(") ") + 2);
+    return rest[0] !== "Z";
+  } catch { return false; }
+}
 function asyncStart(env: NodeJS.ProcessEnv) {
   return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
     const child = spawn(GATEWAY, ["start"], { env, stdio: ["ignore", "pipe", "pipe"] });
@@ -81,7 +88,7 @@ exec /bin/mv "$@"
     const out = spawnSync(GATEWAY, ["start"], { encoding: "utf8",
       env: f.env });
     expect(out.status).not.toBe(0); expect(out.stderr).toContain("rolled back");
-    const pid = Number(fs.readFileSync(pidFile, "utf8").trim()); expect(alive(pid)).toBe(false);
+    const pid = Number(fs.readFileSync(pidFile, "utf8").trim()); pids.add(pid); expect(alive(pid)).toBe(false);
     expect(fs.existsSync(path.join(f.state, "state.json"))).toBe(false);
   });
 
