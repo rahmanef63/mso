@@ -165,8 +165,12 @@ gateway_cmd_stop_locked() {
   tunnel="$(jq -c '.tunnelIdentity // null' <<<"$state")"
   runtime="$(jq -c '.runtimeIdentity // null' <<<"$state")"
   owned="$(jq -r '.runtimeOwned // false' <<<"$state")"
-  [ "$tunnel" = null ] || gateway_stop_identity "$tunnel"
-  [ "$owned" != true ] || [ "$runtime" = null ] || gateway_stop_identity "$runtime"
+  if [ "$tunnel" != null ]; then
+    gateway_stop_identity "$tunnel" || gateway_fail "tunnel process could not be proven stopped; lifecycle state was preserved"
+  fi
+  if [ "$owned" = true ] && [ "$runtime" != null ]; then
+    gateway_stop_identity "$runtime" || gateway_fail "runtime process could not be proven stopped; lifecycle state was preserved"
+  fi
   mso_private_state_remove_file "$STATE_FILE" >/dev/null 2>&1 || true
   gateway_info "gateway stopped; MSO remains loopback-only"
 }

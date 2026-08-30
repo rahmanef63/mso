@@ -33,6 +33,26 @@ fetch_main() { git -C "$ROOT" fetch --quiet origin main || fail "could not reach
 
 service_is_active() { command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet mso.service; }
 
+service_port() {
+  local raw port
+  raw="$(systemctl show -p Environment --value mso.service 2>/dev/null || true)"
+  port="$(printf '%s\n' "$raw" | tr ' ' '\n' | sed -n 's/^PORT=//p' | head -1)"
+  if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then port=4005; fi
+  printf '%s' "$port"
+}
+
+service_build_sha() {
+  local timeout="${1:-3}" port body sha
+  port="$(service_port)"
+  body="$(curl --noproxy '*' -fsS --connect-timeout "$timeout" --max-time "$timeout" "http://127.0.0.1:$port/api/health" 2>/dev/null)" || return 1
+  sha="$(printf '%s' "$body" | jq -er '
+    select(.status == "ok" and .service == "mso")
+    | .buildSha
+    | select(type == "string" and test("^[0-9a-f]{7,40}$"))
+  ' 2>/dev/null)" || return 1
+  printf '%s' "$sha"
+}
+
 require_service_checkout() {
   local configured canonical_root canonical_service
   configured="$(systemctl show -p WorkingDirectory --value mso.service 2>/dev/null || true)"
@@ -59,8 +79,17 @@ print_status() {
     return
   fi
   if service_is_active; then
+    local running_sha head_short
     require_service_checkout
-    printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "${head:0:7}"
+    head_short="$(git -C "$ROOT" rev-parse --short HEAD)"
+    running_sha="$(service_build_sha 2>/dev/null || true)"
+    if [ -z "$running_sha" ]; then
+      printf 'source is current at %s, but the active service build identity is unavailable. deployment verification/rebuild is pending. run: mso update --rebuild\n' "$head_short"
+    elif [[ "$head" != "$running_sha"* ]]; then
+      printf 'source is current at %s, but mso.service is still running %s. deployment verification/rebuild is pending. run: mso update --rebuild\n' "$head_short" "$running_sha"
+    else
+      printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "$head_short"
+    fi
     return
   fi
   init_update_state
@@ -82,9 +111,28 @@ notice() {
     printf '%s\n' "$now" | mso_private_state_atomic_write "$stamp" >/dev/null 2>&1 || true
     (cd "$ROOT" && nohup git fetch --quiet origin main >/dev/null 2>&1 </dev/null &) || true
   fi
-  n="$(behind)"; [ "$n" -gt 0 ] || return 0; local_v="$(current_version)"; remote_v="$(remote_version)"
-  printf 'MSO update available: %s -> %s (%s commit%s). Run: mso update\n' \
-    "${local_v:-current}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)" >&2
+  n="$(behind)"
+  if [ "$n" -gt 0 ]; then
+    local_v="$(current_version)"; remote_v="$(remote_version)"
+    printf 'MSO update available: %s -> %s (%s commit%s). Run: mso update\n' \
+      "${local_v:-current}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)" >&2
+    return 0
+  fi
+  if service_is_active; then
+    local running_sha head_short head_full configured canonical_root canonical_service
+    configured="$(systemctl show -p WorkingDirectory --value mso.service 2>/dev/null || true)"
+    canonical_root="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
+    canonical_service="$(realpath -e -- "$configured" 2>/dev/null || true)"
+    if [ -n "$canonical_root" ] && [ "$canonical_service" = "$canonical_root" ]; then
+      head_short="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)"
+      head_full="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
+      running_sha="$(service_build_sha 0.5 2>/dev/null || true)"
+      if [ -n "$head_short" ] && { [ -z "$running_sha" ] || [[ "$head_full" != "$running_sha"* ]]; }; then
+        printf 'MSO deployment rebuild pending: source %s, running %s. Run: mso update --rebuild\n' \
+          "$head_short" "${running_sha:-unknown}" >&2
+      fi
+    fi
+  fi
 }
 
 offline_build_locked() {

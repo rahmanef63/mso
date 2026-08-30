@@ -165,7 +165,7 @@ never changes the application bind to `0.0.0.0`. The tool cache is user-local an
 with Cloudflare auto-update disabled. The tunnel process also receives a scrubbed environment rather
 than inheriting MSO login/session/BYOK secrets from the application shell. If systemd is unavailable (common on WSL), it may start the
 already-built Next production runtime itself, still on `127.0.0.1`, and records whether that process
-is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. Private state and logs are owner-only and scoped by the canonical checkout plus selected loopback
+is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. After TERM/SIGKILL, MSO re-verifies that the exact recorded process identity disappeared before deleting lifecycle state; an unverified survivor leaves state intact and the stop fails closed. Private state and logs are owner-only and scoped by the canonical checkout plus selected loopback
 origin. The fallback Next process uses the same held-child release handshake as Cloudflared, so neither
 child may execute before the parent records PID + kernel start-ticks. Gateway/update lifecycle
 transactions use kernel `flock`, which is released automatically when a process exits instead of
@@ -284,7 +284,7 @@ when the application exists.
 Production health is:
 
 ```text
-GET /api/health -> {status, buildId, uptime, version}
+GET /api/health -> {status, service, buildId, buildSha, runtimeInstanceId, uptime, version}
 ```
 
 ### Service Center policy
@@ -453,8 +453,11 @@ Git already reached `origin/main` is retried by the next ordinary `mso update` i
 mislabeled "already up to date". The state is keyed by canonical checkout path, so two clones at the
 same SHA cannot borrow each other's receipt. One owner-only transaction lock covers every service-active or offline in-place update, from source/receipt reconciliation through gateway runtime restore and receipt write. Recovery intent is written to private state
 before a gateway-owned runtime is quiesced, so an interrupted post-quiesce state update stays retryable.
-Interactive CLI commands also show a throttled Git-backed update notice;
-the notice never depends on port 4005. A successful service finalizer log ends with `UPDATE OK`.
+Interactive CLI commands also show a throttled Git-backed source-update notice. When the system
+service is active and source is already current, the notice/status path performs a bounded loopback
+`/api/health` identity check and offers `mso update --rebuild` if the running build SHA differs or
+cannot be proven. The offline updater itself remains API-independent. A successful service finalizer
+log ends with `UPDATE OK`.
 
 If the installed source is correct but the production build tree is inconsistent, use:
 

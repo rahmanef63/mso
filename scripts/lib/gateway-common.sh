@@ -155,5 +155,16 @@ gateway_stop_identity() {
     gateway_identity_matches "$identity" || return 0
     sleep 0.1
   done
-  gateway_identity_matches "$identity" && kill -KILL "$pid" 2>/dev/null || true
+  if gateway_identity_matches "$identity"; then
+    kill -KILL "$pid" 2>/dev/null || true
+    for i in $(seq 1 20); do
+      gateway_identity_matches "$identity" || return 0
+      sleep 0.05
+    done
+  fi
+  if gateway_identity_matches "$identity"; then
+    printf 'mso gateway: process %s survived SIGKILL; preserving lifecycle state\n' "$pid" >&2
+    return 1
+  fi
+  return 0
 }

@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `runtime` verify live update identities
 - `runtime` close final update web edges
 - `update` emit success after runtime restore
 - `update` serialize all checkout runtimes

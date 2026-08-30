@@ -38,6 +38,8 @@ when Git HEAD already equals `origin/main`. Offline transactions are serialized;
 owner-only update-state directory just to bypass a pending recovery. Recovery intent is written before
 a gateway-owned runtime is quiesced, so an interrupted state update remains safely retryable. Use
 `mso update status` for source/deployment state and `mso update log` for the service-updater transcript.
+When `mso.service` is active, status also compares the commit baked into the live loopback `/api/health`
+response with source `HEAD`; source equality alone is not treated as proof that deployment finished.
 
 ### `mso update` says the active service belongs to another checkout
 
