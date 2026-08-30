@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-trap 'rc=$?; trap - EXIT; [ -z "${TMP_INSTALLER:-}" ] || rm -f "$TMP_INSTALLER"; if [ "$rc" -eq 0 ]; then printf "mso installer bootstrap ended before verified-core handoff; retry the download.\n" >&2; rc=97; fi; exit "$rc"' EXIT
+trap 'case $? in 0) trap - EXIT; [ -z "${TMP_INSTALLER:-}" ] || rm -f "$TMP_INSTALLER"; printf "mso installer bootstrap ended before verified-core handoff; retry the download.\n" >&2; exit 97 ;; *) trap - EXIT; [ -z "${TMP_INSTALLER:-}" ] || rm -f "$TMP_INSTALLER"; exit 1 ;; esac' EXIT
 # MSO one-line installer bootstrap.
 #
 #   curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
