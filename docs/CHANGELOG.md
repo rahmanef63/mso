@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `runtime` close service installer and notice races
 - `install` hold update lock across checkout refresh
 - `install` restore service after pre-mutation abort
 - `runtime` close update authority and stop races

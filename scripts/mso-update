@@ -107,7 +107,7 @@ notice() {
   if [ -s "$stamp" ] && mso_private_state_validate_file "$stamp" >/dev/null 2>&1; then last="$(cat "$stamp" 2>/dev/null || printf 0)"; fi
   if ! [[ "$last" =~ ^[0-9]+$ ]] || [ $((now-last)) -ge 21600 ]; then
     printf '%s\n' "$now" | mso_private_state_atomic_write "$stamp" >/dev/null 2>&1 || true
-    (cd "$ROOT" && nohup git fetch --quiet origin main >/dev/null 2>&1 </dev/null &) || true
+    (cd "$ROOT" && nohup git fetch --quiet --no-write-fetch-head origin main >/dev/null 2>&1 </dev/null &) || true
   fi
   read -r relation ahead n < <(update_git_relation "$ROOT") || return 0
   if [ "$relation" = ahead ] || [ "$relation" = diverged ]; then

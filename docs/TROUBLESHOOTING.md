@@ -41,6 +41,13 @@ a gateway-owned runtime is quiesced, so an interrupted state update remains safe
 When `mso.service` is active, status also compares the commit baked into the live loopback `/api/health`
 response with source `HEAD`; source equality alone is not treated as proof that deployment finished.
 
+### `mso service start` or `restart` while `mso web` is serving locally
+
+MSO takes the checkout runtime exclusion exclusively before service handoff. If the unit is inactive and
+its loopback port is occupied by a **gateway-owned** fallback, MSO quiesces only that recorded process,
+preserves any public tunnel, then starts the system service on the freed port. If the service action fails,
+the fallback is restored. An unowned/manual responder is never killed automatically.
+
 ### `mso update` says local main is ahead/diverged from `origin/main`
 
 This is an authority refusal, not an updater failure. Normal update may deploy only the fetched `origin/main`

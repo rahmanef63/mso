@@ -308,49 +308,58 @@ INSTALL_EARLY_UPDATE_LOCK_FD=''
 INSTALL_EARLY_UPDATE_LOCK_FILE=''
 INSTALL_EARLY_UPDATE_CANONICAL_ROOT=''
 
+install_private_state_dir() {
+  local requested="${1:-}" created=0 canonical owner mode old_umask
+  [ -n "$requested" ] || die "empty installer private-state directory"
+  case "$requested" in /*) ;; *) die "installer private-state directory must be absolute: $requested" ;; esac
+  [ ! -L "$requested" ] || die "refusing symlink installer private-state directory: $requested"
+  if [ ! -e "$requested" ]; then old_umask=$(umask); umask 077; mkdir -p -- "$requested"; umask "$old_umask"; created=1; fi
+  [ -d "$requested" ] && [ ! -L "$requested" ] || die "not a real installer private-state directory: $requested"
+  canonical="$(realpath -e -- "$requested" 2>/dev/null || true)"; [ -n "$canonical" ] || die "cannot resolve installer private-state directory: $requested"
+  owner="$(stat -c '%u' -- "$canonical" 2>/dev/null || true)"; mode="$(stat -c '%a' -- "$canonical" 2>/dev/null || true)"
+  [ "$owner" = "$(id -u)" ] || die "installer private-state directory is not owned by current uid: $canonical"
+  if [ "$created" = 1 ]; then chmod 700 -- "$canonical"; mode="$(stat -c '%a' -- "$canonical")"; fi
+  [ "$mode" = 700 ] || die "installer private-state directory must be mode 0700, got $mode: $canonical"
+  printf '%s' "$canonical"
+}
+
+install_private_state_ensure_file() {
+  local requested="$1" parent name canonical_parent resolved tmp old_umask owner mode
+  parent="$(dirname -- "$requested")"; name="$(basename -- "$requested")"
+  [ -n "$name" ] && [ "$name" != . ] && [ "$name" != / ] || die "invalid installer private-state file: $requested"
+  canonical_parent="$(install_private_state_dir "$parent")"; resolved="$canonical_parent/$name"
+  if [ -e "$resolved" ] || [ -L "$resolved" ]; then
+    [ ! -L "$resolved" ] && [ -f "$resolved" ] || die "unsafe installer private-state lock: $resolved"
+    owner="$(stat -c '%u' -- "$resolved" 2>/dev/null || true)"; mode="$(stat -c '%a' -- "$resolved" 2>/dev/null || true)"
+    [ "$owner" = "$(id -u)" ] && [ "$mode" = 600 ] || die "installer private-state lock must be owner mode 0600: $resolved"
+    printf '%s' "$resolved"; return 0
+  fi
+  old_umask=$(umask); umask 077; tmp="$(mktemp "$canonical_parent/.mso-install-lock.XXXXXX")"; umask "$old_umask"; chmod 600 -- "$tmp"
+  if ! mv -Tn -- "$tmp" "$resolved"; then rm -f -- "$tmp"; fi
+  [ ! -L "$resolved" ] && [ -f "$resolved" ] || die "could not create safe installer private-state lock: $resolved"
+  owner="$(stat -c '%u' -- "$resolved" 2>/dev/null || true)"; mode="$(stat -c '%a' -- "$resolved" 2>/dev/null || true)"
+  [ "$owner" = "$(id -u)" ] && [ "$mode" = 600 ] || die "installer private-state lock must be owner mode 0600: $resolved"
+  printf '%s' "$resolved"
+}
+
 install_early_update_lock_release() {
   [ "$INSTALL_EARLY_UPDATE_LOCK_HELD" = 1 ] || return 0
-  if [ -n "${INSTALL_EARLY_UPDATE_LOCK_FD:-}" ]; then
-    flock -u "$INSTALL_EARLY_UPDATE_LOCK_FD" 2>/dev/null || true
-    exec {INSTALL_EARLY_UPDATE_LOCK_FD}>&- || true
-    INSTALL_EARLY_UPDATE_LOCK_FD=''
-  fi
+  if [ -n "${INSTALL_EARLY_UPDATE_LOCK_FD:-}" ]; then flock -u "$INSTALL_EARLY_UPDATE_LOCK_FD" 2>/dev/null || true; exec {INSTALL_EARLY_UPDATE_LOCK_FD}>&- || true; INSTALL_EARLY_UPDATE_LOCK_FD=''; fi
   INSTALL_EARLY_UPDATE_LOCK_HELD=0
 }
 
 install_early_update_lock_acquire() {
-  local private_helper canonical base key state lock timeout
+  local canonical base key state lock timeout
   [ -d "$DIR/.git" ] || return 0
-  [ -z "$(git -C "$DIR" status --porcelain)" ] \
-    || die "checkout has uncommitted changes at $DIR; refusing an unlocked in-place upgrade"
-  private_helper="$DIR/scripts/lib/private-state.sh"
-  [ -f "$private_helper" ] && [ ! -L "$private_helper" ] \
-    || die "existing checkout is missing the secure private-state helper; restore the tracked file or install into another --dir"
-  [ "$(stat -c '%u' -- "$private_helper" 2>/dev/null || true)" = "$(id -u)" ] \
-    || die "private-state helper is not owned by the installing user: $private_helper"
-  # shellcheck source=scripts/lib/private-state.sh
-  . "$private_helper"
-  canonical="$(realpath -e -- "$DIR" 2>/dev/null || true)"
-  [ -n "$canonical" ] || die "cannot canonicalize existing checkout before update lock"
-  base="$(mso_private_state_dir "${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}")" \
-    || die "unsafe installer update-state directory"
-  key="$(printf '%s' "$canonical" | sha256sum | awk '{print $1}')"
-  [[ "$key" =~ ^[0-9a-f]{64}$ ]] || die "cannot derive installer update-lock scope"
-  state="$(mso_private_state_dir "$base/$key")" || die "unsafe checkout-scoped installer update state"
-  lock="$state/transaction.lock"
-  mso_private_state_ensure_file "$lock" >/dev/null || die "unsafe installer update transaction lock"
+  [ -z "$(git -C "$DIR" status --porcelain)" ] || die "checkout has uncommitted changes at $DIR; refusing an unlocked in-place upgrade"
+  canonical="$(realpath -e -- "$DIR" 2>/dev/null || true)"; [ -n "$canonical" ] || die "cannot canonicalize existing checkout before update lock"
+  base="$(install_private_state_dir "${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}")"
+  key="$(printf '%s' "$canonical" | sha256sum | awk '{print $1}')"; [[ "$key" =~ ^[0-9a-f]{64}$ ]] || die "cannot derive installer update-lock scope"
+  state="$(install_private_state_dir "$base/$key")"; lock="$(install_private_state_ensure_file "$state/transaction.lock")"
   exec {INSTALL_EARLY_UPDATE_LOCK_FD}<>"$lock" || die "cannot open installer update transaction lock"
-  timeout="${MSO_UPDATE_LOCK_TIMEOUT_SECONDS:-900}"
-  [[ "$timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "invalid installer update-lock timeout"
-  if ! flock -x -w "$timeout" "$INSTALL_EARLY_UPDATE_LOCK_FD"; then
-    exec {INSTALL_EARLY_UPDATE_LOCK_FD}>&- || true
-    INSTALL_EARLY_UPDATE_LOCK_FD=''
-    die "another MSO installer/update/deploy transaction is still running for $canonical"
-  fi
-  INSTALL_EARLY_UPDATE_LOCK_HELD=1
-  INSTALL_EARLY_UPDATE_LOCK_FILE="$lock"
-  INSTALL_EARLY_UPDATE_CANONICAL_ROOT="$canonical"
-  trap install_early_update_lock_release EXIT
+  timeout="${MSO_UPDATE_LOCK_TIMEOUT_SECONDS:-900}"; [[ "$timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "invalid installer update-lock timeout"
+  if ! flock -x -w "$timeout" "$INSTALL_EARLY_UPDATE_LOCK_FD"; then exec {INSTALL_EARLY_UPDATE_LOCK_FD}>&- || true; INSTALL_EARLY_UPDATE_LOCK_FD=''; die "another MSO installer/update/deploy transaction is still running for $canonical"; fi
+  INSTALL_EARLY_UPDATE_LOCK_HELD=1; INSTALL_EARLY_UPDATE_LOCK_FILE="$lock"; INSTALL_EARLY_UPDATE_CANONICAL_ROOT="$canonical"; trap install_early_update_lock_release EXIT
 }
 
 install_early_update_lock_acquire

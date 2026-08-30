@@ -20,4 +20,11 @@ describe("installer update transaction ordering", () => {
     expect(helper).toContain('UPDATE_LOCK_FD="$INSTALL_EARLY_UPDATE_LOCK_FD"');
     expect(helper).toContain('[ "$UPDATE_LOCK_HELD" = 1 ] || update_lock_acquire');
   });
+  it("does not require the private-state helper from the pre-upgrade checkout", () => {
+    const core = fs.readFileSync(path.join(ROOT, "scripts/install-core.sh"), "utf8");
+    expect(core).not.toContain('$DIR/scripts/lib/private-state.sh');
+    expect(core).toContain("install_private_state_dir()");
+    expect(core).toContain("install_private_state_ensure_file()");
+  });
+
 });

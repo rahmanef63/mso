@@ -201,24 +201,74 @@ require_service_checkout_cli() {
     || die "mso.service belongs to $canonical_service, not this checkout $canonical_root"
 }
 
-service_with_runtime_shared() {
-  local rc=0
-  runtime_exclusion_acquire_shared \
-    || die "offline update/deploy is mutating this checkout; retry the service action after it finishes"
-  "$@" || rc=$?
+service_unit_local_url() {
+  local raw port
+  raw="$(service_manager_read show -p Environment --value mso.service 2>/dev/null || true)"
+  port="$(printf '%s\n' "$raw" | tr ' ' '\n' | sed -n 's/^PORT=//p' | head -1)"
+  if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then port=4005; fi
+  printf 'http://127.0.0.1:%s' "$port"
+}
+
+service_handoff_marker() {
+  local canonical base key dir
+  canonical="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
+  [ -n "$canonical" ] || die "cannot canonicalize checkout for service handoff"
+  base="$(mso_private_state_dir "${MSO_SERVICE_HANDOFF_DIR:-$HOME/.mso/private/service-handoff}")" \
+    || die "unsafe service handoff state directory"
+  key="$(printf '%s' "$canonical" | sha256sum | awk '{print $1}')"
+  [[ "$key" =~ ^[0-9a-f]{64}$ ]] || die "cannot derive service handoff scope"
+  dir="$(mso_private_state_dir "$base/$key")" || die "unsafe scoped service handoff directory"
+  printf '%s/runtime' "$dir"
+}
+
+service_handoff_fallback_locked() {
+  local gateway local_url marker probe out
+  SERVICE_FALLBACK_QUIESCED=0
+  gateway="${MSO_GATEWAY_BIN:-$ROOT/scripts/mso-gateway}"
+  [ -x "$gateway" ] || die "missing gateway lifecycle helper: $gateway"
+  local_url="$(service_unit_local_url)"; marker="$(service_handoff_marker)"
+  probe="$(MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$local_url" \
+    "$gateway" runtime-assert-update-safe 2>&1)" || die "cannot hand off service port $local_url: $probe"
+  case "$probe" in
+    *'runtime: update-owned'*)
+      out="$(MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$local_url" \
+        MSO_GATEWAY_RECOVERY_MARKER="$marker" "$gateway" runtime-stop 2>&1)" \
+        || die "could not quiesce gateway-owned fallback at $local_url: $out"
+      case "$out" in
+        *'runtime: stopped-owned'*|*'runtime: recovered-stale-owned'*|*'runtime: already-down'*) SERVICE_FALLBACK_QUIESCED=1 ;;
+        *) die "unexpected fallback handoff result at $local_url: $out" ;;
+      esac ;;
+    *'runtime: update-safe'*) ;;
+    *) die "unexpected service handoff probe at $local_url: $probe" ;;
+  esac
+  SERVICE_HANDOFF_URL="$local_url"; SERVICE_HANDOFF_MARKER="$marker"
+}
+
+service_restore_fallback_after_failure() {
+  local gateway="${MSO_GATEWAY_BIN:-$ROOT/scripts/mso-gateway}"
+  [ "${SERVICE_FALLBACK_QUIESCED:-0}" = 1 ] || return 0
+  MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$SERVICE_HANDOFF_URL" \
+    "$gateway" local-start >/dev/null 2>&1 \
+    || printf 'mso: service action failed and fallback restore also failed at %s\n' "$SERVICE_HANDOFF_URL" >&2
+  mso_private_state_remove_file "$SERVICE_HANDOFF_MARKER" >/dev/null 2>&1 || true
+}
+
+service_lifecycle_safe() {
+  local verb="$1" rc=0 active=0
+  require_service_checkout_cli
+  runtime_exclusion_acquire_exclusive \
+    || die "offline update/deploy is mutating this checkout or another service handoff is active; retry after it finishes"
+  service_manager_read is-active --quiet mso.service && active=1 || true
+  SERVICE_FALLBACK_QUIESCED=0; SERVICE_HANDOFF_URL=''; SERVICE_HANDOFF_MARKER=''
+  [ "$active" = 1 ] || service_handoff_fallback_locked
+  service_manager_write "$verb" mso.service || rc=$?
   runtime_exclusion_release
-  return "$rc"
+  if [ "$rc" -ne 0 ]; then service_restore_fallback_after_failure; return "$rc"; fi
+  [ -z "${SERVICE_HANDOFF_MARKER:-}" ] || mso_private_state_remove_file "$SERVICE_HANDOFF_MARKER" >/dev/null 2>&1 || true
 }
 
-service_start_safe() {
-  require_service_checkout_cli
-  service_with_runtime_shared service_manager_write start mso.service
-}
-
-service_restart_safe() {
-  require_service_checkout_cli
-  service_with_runtime_shared service_manager_write restart mso.service
-}
+service_start_safe() { service_lifecycle_safe start; }
+service_restart_safe() { service_lifecycle_safe restart; }
 
 deploy_safe() {
   local local_url helper
