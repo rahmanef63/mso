@@ -11,7 +11,7 @@ a certification or a substitute for an independent third-party audit.
 ## Reporting a vulnerability
 
 Do not open a public issue containing exploit details or secrets. GitHub private
-vulnerability reporting is enabled for this repository; use **Security → Report a vulnerability**.
+vulnerability reporting is enabled for this repository; use [**Report a vulnerability**](https://github.com/rahmanef63/mso/security/advisories/new).
 Include the affected commit, reproduction steps, impact and sanitized logs.
 
 Never post passwords, session secrets, API keys, bearer tokens, private file contents,

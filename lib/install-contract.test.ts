@@ -29,4 +29,14 @@ describe("one-line installer contract", () => {
     expect(src).toContain('export PATH="$BIN_DIR:$PATH"');
     expect(src).toContain('command -v mso');
   });
+
+  it("verifies a commit-pinned Bun bootstrap before execution", () => {
+    const src = fs.readFileSync(INSTALL, "utf8");
+    expect(src).toMatch(/BUN_BOOTSTRAP_COMMIT="[0-9a-f]{40}"/);
+    expect(src).toMatch(/BUN_BOOTSTRAP_SHA256="[0-9a-f]{64}"/);
+    expect(src).toContain('raw.githubusercontent.com/oven-sh/bun/$BUN_BOOTSTRAP_COMMIT/src/cli/install.sh');
+    expect(src).toContain('sha256sum "$bootstrap"');
+    expect(src).toContain('[ "$actual" = "$BUN_BOOTSTRAP_SHA256" ]');
+    expect(src).not.toContain('https://bun.sh/install | bash');
+  });
 });

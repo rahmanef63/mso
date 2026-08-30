@@ -37,6 +37,10 @@ ONBOARD_MODE=auto
 FRESH_INSTALL=0
 # bun is the package manager; the RUNTIME stays node (see ensure_bun below).
 export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+# Reproducible bootstrap: this is Bun v1.3.14's installer source, pinned by
+# immutable Git commit and verified before execution. Update both values together.
+BUN_BOOTSTRAP_COMMIT="0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
+BUN_BOOTSTRAP_SHA256="bab8acfb046aac8c72407bdcce903957665d655d7acaa3e11c7c4616beae68dd"
 
 # ---- pretty output (tty + NO_COLOR aware) ----
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -163,8 +167,19 @@ ensure_node() {
 # node's ABI and the whole /api/v1 surface imports it.
 ensure_bun() {
   command -v bun >/dev/null 2>&1 && { info "bun $(bun -v) ok"; return; }
-  info "installing bun…"
-  curl -fsSL https://bun.sh/install | bash >/dev/null 2>&1 || die "bun install failed."
+  command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required to verify the Bun bootstrap."
+  info "installing Bun from a pinned, verified bootstrap…"
+  local bootstrap actual url
+  bootstrap="$(mktemp)"
+  url="https://raw.githubusercontent.com/oven-sh/bun/$BUN_BOOTSTRAP_COMMIT/src/cli/install.sh"
+  curl -fsSL "$url" -o "$bootstrap" || { rm -f "$bootstrap"; die "Bun bootstrap download failed."; }
+  actual="$(sha256sum "$bootstrap" | awk '{print $1}')"
+  [ "$actual" = "$BUN_BOOTSTRAP_SHA256" ] || {
+    rm -f "$bootstrap"
+    die "Bun bootstrap integrity check failed."
+  }
+  bash "$bootstrap" >/dev/null 2>&1 || { rm -f "$bootstrap"; die "bun install failed."; }
+  rm -f "$bootstrap"
   export PATH="$BUN_INSTALL/bin:$PATH"
   command -v bun >/dev/null 2>&1 || die "bun installed but not on PATH — add $BUN_INSTALL/bin."
 }

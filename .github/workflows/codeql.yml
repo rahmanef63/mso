@@ -11,7 +11,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -22,6 +21,9 @@ jobs:
     name: Analyze JavaScript/TypeScript
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
