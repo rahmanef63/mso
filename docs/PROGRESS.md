@@ -61,7 +61,9 @@ not exist.
 The public `scripts/install.sh` is now an intentionally small bootstrap. It downloads the complete
 `scripts/install-core.sh` to an owner-private temporary file first, retries the transfer, requires
 a minimum payload size and exact EOF marker, verifies the committed SHA-256, runs `bash -n`, and
-only then executes the core with the original arguments. The core carries phase-only error
+only then hands off with a final `exec`. There is deliberately no earlier "done" assignment: any
+normal bootstrap exit before that `exec` is converted to a non-zero truncation failure, including
+a syntactically complete network prefix. The core carries phase-only error
 reporting (no raw command/secret echo). A second clean-image reproduction found that `bin/mso` also
 requires `jq`: Node and Bun alone were not enough, and the old installer never installed that CLI
 runtime dependency. The core now verifies/installs `curl`, `jq` and the required coreutils before

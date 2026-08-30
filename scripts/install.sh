@@ -13,15 +13,18 @@ umask 077
 CORE_URL="${MSO_INSTALL_CORE_URL:-https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-core.sh}"
 CORE_SHA256="913350997e568a279c6582e752d38151f20798cb1f1e471b557aba06b71821ad"
 CORE_EOF='# MSO_INSTALLER_CORE_EOF'
-BOOTSTRAP_DONE=0
 TMP_INSTALLER=''
 
 bootstrap_exit() {
   rc=$?
   trap - EXIT
   [ -z "$TMP_INSTALLER" ] || rm -f "$TMP_INSTALLER"
-  if [ "$rc" -eq 0 ] && [ "$BOOTSTRAP_DONE" -ne 1 ]; then
-    printf 'mso installer bootstrap ended before verification completed; retry the download.\n' >&2
+  # The bootstrap has exactly one success path: the final `exec` replaces this
+  # process with the verified core. Therefore ANY normal return from this streamed
+  # bootstrap means the response ended before handoff, even if the last complete
+  # prefix happened to have status 0.
+  if [ "$rc" -eq 0 ]; then
+    printf 'mso installer bootstrap ended before verified-core handoff; retry the download.\n' >&2
     rc=97
   fi
   exit "$rc"
@@ -42,9 +45,10 @@ ACTUAL_SHA="$(sha256sum "$TMP_INSTALLER" | awk '{print $1}')"
 [ "$ACTUAL_SHA" = "$CORE_SHA256" ] || fail 'installer payload hash mismatch (main may have changed during download); retry.'
 bash -n "$TMP_INSTALLER" || fail 'installer payload failed shell syntax validation.'
 
-BOOTSTRAP_DONE=1
-set +e
-bash "$TMP_INSTALLER" "$@"
-rc=$?
-set -e
-exit "$rc"
+# Keep the verified payload alive on an fd, unlink its pathname, then replace this
+# streamed bootstrap process. If the network stream ends before the final exec,
+# the EXIT trap above converts even a syntactically complete prefix into failure.
+exec 3<"$TMP_INSTALLER"
+rm -f "$TMP_INSTALLER"
+TMP_INSTALLER=''
+exec bash /proc/self/fd/3 "$@"

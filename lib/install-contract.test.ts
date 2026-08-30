@@ -26,10 +26,31 @@ describe("one-line installer contract", () => {
     expect(bootstrap).toContain("installer payload is unexpectedly short");
     expect(bootstrap).toContain("EOF marker missing");
     expect(bootstrap).toContain('bash -n "$TMP_INSTALLER"');
-    expect(bootstrap).toContain('bash "$TMP_INSTALLER" "$@"');
+    expect(bootstrap).toContain('exec bash /proc/self/fd/3 "$@"');
     const declared = bootstrap.match(/CORE_SHA256="([0-9a-f]{64})"/)?.[1];
     expect(declared).toBe(crypto.createHash("sha256").update(core).digest("hex"));
     expect(core.toString("utf8").trimEnd().endsWith("# MSO_INSTALLER_CORE_EOF")).toBe(true);
+  });
+
+  it("rejects a syntactically complete bootstrap prefix before the final exec handoff", () => {
+    const bootstrap = fs.readFileSync(BOOTSTRAP, "utf8");
+    const cutoff = bootstrap.indexOf('exec bash /proc/self/fd/3 "$@"');
+    expect(cutoff).toBeGreaterThan(0);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mso-bootstrap-prefix-"));
+    try {
+      const truncated = path.join(dir, "install.sh");
+      // Stop after TMP_INSTALLER='' — a syntactically complete prefix that used to
+      // be able to return 0 when a completion marker was set before handoff.
+      fs.writeFileSync(truncated, bootstrap.slice(0, cutoff));
+      const result = spawnSync("bash", [truncated, "--help"], {
+        encoding: "utf8",
+        env: { ...process.env, MSO_INSTALL_CORE_URL: `file://${CORE}` },
+      });
+      expect(result.status).toBe(97);
+      expect(result.stderr).toContain("before verified-core handoff");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("runs the verified local core and rejects a syntactically complete truncated payload", () => {
