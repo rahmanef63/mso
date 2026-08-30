@@ -136,6 +136,54 @@ ssh -N -L 4005:127.0.0.1:4005 you@your-server
 Then open `http://localhost:4005`. A `Secure` cookie is accepted on localhost, but ordinary
 plain-HTTP IP/hostnames will drop it.
 
+### Public preview from a laptop / WSL (no custom domain)
+
+Keep MSO bound to loopback. With the official `cloudflared` client installed:
+
+```bash
+mso gateway doctor
+mso gateway start
+mso gateway url
+mso web
+# when finished
+mso gateway stop
+```
+
+`gateway start` creates an outbound Cloudflare Quick Tunnel to `127.0.0.1:4005`; it never changes
+the application bind to `0.0.0.0`. If systemd is unavailable (common on WSL), it may start the
+already-built Next production runtime itself, still on `127.0.0.1`, and records whether that process
+is gateway-owned. `gateway stop` only terminates a recorded process after its live command line
+matches the expected MSO/cloudflared identity. Private state and logs are owner-only.
+
+This is intentionally labeled **temporary preview**. The random `trycloudflare.com` URL changes on
+restart, and Cloudflare Quick Tunnels do not support Server-Sent Events; MSO Terminal's live output
+uses SSE. Use a named tunnel/stable HTTPS origin for full functionality.
+
+Do not add the random Quick Tunnel URL to `OS_PUBLIC_ORIGIN`: that variable is deployment authority
+for stable MCP/share/CSP URLs. If a stable value is already configured, temporary mode leaves it
+untouched and warns that generated links may continue to name the stable origin.
+
+### Stable custom domain / named Cloudflare Tunnel
+
+```bash
+mso gateway domain set https://mso.example.com
+```
+
+The command validates a clean HTTPS origin, atomically updates only `OS_PUBLIC_ORIGIN` in
+`.env.local`, and prints a named-tunnel ingress example whose upstream remains loopback. Create the
+Cloudflare tunnel/DNS credentials using Cloudflare's official CLI, then start it without putting a
+token on the command line:
+
+```bash
+mso gateway start --config ~/.cloudflared/config.yml --tunnel mso
+mso web
+```
+
+The config must be a regular file owned by the current user and must not be group/world-writable.
+For a permanent Internet-facing control plane, add Cloudflare Access/WAF policy (or equivalent) in
+front of MSO in addition to MSO's password + approved-device gate. Rebuild/restart MSO after
+changing stable origin or split-host environment configuration.
+
 ### Tailscale (recommended)
 
 Keep MSO on loopback and publish it with Tailscale Serve so the browser reaches an HTTPS

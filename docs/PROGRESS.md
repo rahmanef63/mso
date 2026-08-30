@@ -2,6 +2,23 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-08-30 — Loopback-only public gateway + `mso web` (SHIPPED)
+
+MSO now has an explicit public-access lifecycle for laptop/WSL installs without weakening the
+application bind. `mso gateway start` keeps the Next server on `127.0.0.1`, launches an outbound
+HTTPS Cloudflare tunnel, stores process state/logs under owner-only private state, verifies process
+identity before stop, and can bootstrap the existing production build on WSL when systemd is
+unavailable. `mso web` opens the active gateway URL first and otherwise falls back to the stable
+public origin or loopback. Non-default loopback `--base` ports are preserved.
+
+Temporary Quick Tunnel mode is intentionally disclosed as preview-only because the provider does
+not support SSE, which MSO Terminal uses. Stable mode is configuration-driven:
+`mso gateway domain set https://…` atomically manages `OS_PUBLIC_ORIGIN`, and named-tunnel mode
+accepts only an owner-controlled, non-writable cloudflared config while keeping credentials out of
+argv. The global response policy also adds `X-Robots-Tag: noindex, nofollow, noarchive`. Regression
+tests exercise start/status/url/web/stop, private-state permissions, non-loopback refusal, custom
+ports, domain mutation, and unsafe config rejection.
+
 ## 2026-08-30 — WSL Bun bin-metadata build resilience (SHIPPED)
 
 A second real Ubuntu/WSL install reached checkout and a complete Bun 1.3.14 dependency install,

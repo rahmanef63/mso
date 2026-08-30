@@ -77,6 +77,8 @@ Commands:
   health               Is this CLI's session valid?
   doctor               Check deps, env, service, session, device — and say what broke
   onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
+  gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | domain
+  web                   Open the MSO browser UI (active gateway first, else loopback)
 
  Browser
   camoufox *           Power the anti-detection VNC browser + read its password
@@ -144,6 +146,7 @@ Environment:
   MSO_ENV              Same as --env
   MSO_PASSWORD         Overrides OS_LOGIN_PASSWORD from the env file
   MSO_DEVICE           Overrides this CLI's device id (~/.mso/cli.device.id)
+  MSO_GATEWAY_LOCAL_URL Loopback upstream for gateway/web (default http://127.0.0.1:4005)
 
 READ = OS_FS_READ_ROOTS; WRITE = home + ~/projects; exec = full host power.
 

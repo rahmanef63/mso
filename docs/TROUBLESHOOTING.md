@@ -20,6 +20,25 @@ forward the real client IP consistently so every user does not share the proxy a
 Expected for a new browser. Approve the shown device id from an already-approved browser
 (Settings → Devices) or from the server using the approval script.
 
+### `mso gateway start` says cloudflared is missing
+
+MSO does not download a mutable/unpinned tunnel binary automatically. Install the official
+Cloudflare Tunnel client for this machine, then run `mso gateway doctor`. The MSO application must
+remain on loopback; do not work around a missing tunnel client by changing the service to
+`0.0.0.0:4005`.
+
+### Temporary gateway opens, but Terminal does not stream
+
+Cloudflare Quick Tunnels are the no-custom-domain preview mode and do not support Server-Sent
+Events. MSO Terminal output is an SSE stream, so use a named Cloudflare Tunnel/stable HTTPS origin
+for full Terminal behavior. `mso gateway status` labels a Quick Tunnel as temporary.
+
+### `mso gateway stop` leaves my manually-started MSO runtime running
+
+Expected. The gateway only stops a Next runtime when it launched that exact loopback process and
+recorded it as gateway-owned. An existing systemd/manual runtime is outside the gateway lifecycle.
+This prevents `stop` from terminating an unrelated or pre-existing process.
+
 ### Login returns success but the browser is logged out immediately
 
 The session cookie is `Secure`. Plain HTTP on a normal IP/hostname causes browsers to drop

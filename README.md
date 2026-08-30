@@ -187,15 +187,51 @@ shell profiles, or enable global hooks. Installing the RTK binary is a separate 
 system change.
 
 MSO binds **`127.0.0.1` by default**, so nothing is published directly to your network.
-Reach it with an SSH tunnel and open `http://localhost:4005`:
+On a laptop/WSL install, the supported public-preview path keeps that invariant and creates an
+**outbound HTTPS tunnel** instead of opening port 4005 to the LAN/Internet:
+
+```bash
+mso gateway doctor
+mso gateway start          # temporary HTTPS URL; requires the official cloudflared client
+mso web                    # opens the active public URL, or loopback when no gateway is running
+mso gateway status
+mso gateway stop
+```
+
+Temporary mode uses a Cloudflare Quick Tunnel and does **not** change `OS_PUBLIC_ORIGIN`, the
+MSO bind address, router/NAT rules, or the Windows firewall. The normal password + approved-device
+gate, live device roles, Secure/HttpOnly/SameSite cookie, same-origin mutation gate, CSP and login
+rate limits remain in front of the host APIs. Gateway state/logs live under owner-only
+`~/.mso/private/gateway`; `stop` validates process identity before terminating anything. MSO does
+not silently download an unpinned tunnel binary: install `cloudflared` from Cloudflare's official
+package/release channel first.
+
+Quick Tunnels are a **preview/testing** surface, not the permanent deployment path. Cloudflare
+documents a 200-concurrent-request limit and no Server-Sent Events support; MSO's live Terminal
+uses SSE, so that stream can be unavailable in temporary mode. Files, Settings and ordinary UI/API
+requests still use the normal authenticated HTTPS surface. For full-time/full-feature access, use a
+named tunnel/custom domain or another production HTTPS reverse proxy.
+
+For a stable domain, keep MSO on loopback and make the public origin explicit:
+
+```bash
+mso gateway domain set https://mso.example.com
+# create/configure the named Cloudflare Tunnel using the example printed above, then:
+mso gateway start --config ~/.cloudflared/config.yml --tunnel mso
+mso web
+```
+
+`mso gateway domain set` updates `OS_PUBLIC_ORIGIN` atomically and prints a loopback-only ingress
+example. It does not create DNS credentials or put tunnel tokens on a command line. A permanent
+Cloudflare deployment can then add Cloudflare Access/WAF policy in front of MSO. If you prefer an
+SSH-only connection instead, use:
 
 ```bash
 ssh -N -L 4005:127.0.0.1:4005 you@your-server
 ```
 
-The tunnel is not just hygiene. The session cookie is `Secure`; ordinary plain-HTTP IP
-addresses drop it. For a permanent setup use Tailscale Serve or a TLS reverse proxy to
-`127.0.0.1:4005`. Bind wider only when the network/firewall design explicitly requires it.
+The local tunnel is not just hygiene. The session cookie is `Secure`; ordinary plain-HTTP public IP
+addresses drop it. Bind wider only when the network/firewall design explicitly requires it.
 
 Useful installer controls:
 

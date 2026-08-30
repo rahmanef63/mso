@@ -29,7 +29,10 @@ describe("security-store stale recovery", () => {
         entered.push(index);
         await new Promise((resolve) => setTimeout(resolve, 2));
         active -= 1;
-      }, { waitMs: 1, busyTimeoutMs: 2_000, staleMs: 1 }),
+      // Coverage runs instrument hundreds of files in parallel and can delay fsync-heavy
+      // contenders beyond 2s without changing mutual exclusion. Keep the test budget
+      // below Vitest's outer timeout while avoiding a scheduler-dependent false failure.
+      }, { waitMs: 1, busyTimeoutMs: 4_000, staleMs: 1 }),
     ));
     expect(maxActive).toBe(1);
     expect(entered).toHaveLength(24);

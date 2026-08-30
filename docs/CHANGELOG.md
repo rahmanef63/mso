@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-08-30
 
+**Added**
+
+- `gateway` add loopback-only public web gateway
+
 **Fixed**
 
 - `install` survive Bun bin metadata corruption

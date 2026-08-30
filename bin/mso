@@ -43,6 +43,8 @@
 #   health               Is this CLI's session valid?
 #   doctor               Check deps, env, service, session, device — and say what broke
 #   onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
+#   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | domain
+#   web                   Open the MSO browser UI (active gateway first, else loopback)
 #
 #  Browser
 #   camoufox *           Power the anti-detection VNC browser + read its password
@@ -110,13 +112,14 @@
 #   MSO_ENV              Same as --env
 #   MSO_PASSWORD         Overrides OS_LOGIN_PASSWORD from the env file
 #   MSO_DEVICE           Overrides this CLI's device id (~/.mso/cli.device.id)
+#   MSO_GATEWAY_LOCAL_URL Loopback upstream for gateway/web (default http://127.0.0.1:4005)
 #
 # READ = OS_FS_READ_ROOTS; WRITE = home + ~/projects; exec = full host power.
 #
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
@@ -140,6 +143,29 @@ set -a; . "$ENVF" 2>/dev/null || true; set +a
 
 need() { command -v "$1" >/dev/null || die "missing dependency: $1"; }
 need curl; need jq; need realpath; need stat; need mktemp; need sha256sum
+
+# Resolve the LOCAL upstream for gateway/web without ever widening the app bind.
+# Priority: explicit override → a loopback --base/MSO_BASE → the installed service's
+# PORT → MSO_PORT → 4005. This keeps non-default installer ports working on Linux
+# while WSL/no-systemd users still have an explicit override for manually-started
+# runtimes.
+gateway_local_url() {
+  local port=""
+  if [ -n "${MSO_GATEWAY_LOCAL_URL:-}" ]; then
+    printf '%s' "$MSO_GATEWAY_LOCAL_URL"
+    return
+  fi
+  case "$B" in
+    http://127.*:*|http://localhost:*|http://[::1]:*) printf '%s' "$B"; return ;;
+  esac
+  if command -v systemctl >/dev/null 2>&1; then
+    port=$(systemctl show -p Environment --value mso.service 2>/dev/null \
+      | tr ' ' '\n' | sed -n 's/^PORT=//p' | head -1)
+  fi
+  port="${port:-${MSO_PORT:-4005}}"
+  [[ "$port" =~ ^[0-9]{1,5}$ ]] || die "invalid MSO gateway port: $port"
+  printf 'http://127.0.0.1:%s' "$port"
+}
 # shellcheck source=scripts/lib/private-state.sh
 . "$ROOT/scripts/lib/private-state.sh"
 
@@ -463,6 +489,7 @@ verbs() {
 # so the help you get when you ask cannot disagree with the help you get when
 # you're wrong.
 U_camoufox="camoufox status|start|stop|session"
+U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|domain show|set <https://host>|clear"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
@@ -592,6 +619,10 @@ case "$cmd" in
     exit $(( fails > 0 ? 1 : 0 )) ;;
 
   onboard) run_onboard "${1-}" ;;
+
+  # ── local/public gateway + browser launcher ───────────────────────────────
+  gateway) local_url="$(gateway_local_url)"; MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$local_url" "$ROOT/scripts/mso-gateway" "$@" ;;
+  web)     local_url="$(gateway_local_url)"; MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$local_url" "$ROOT/scripts/mso-gateway" web "$@" ;;
 
   # ── camoufox (the real browser the Browser app drives) ────────────────────
   camoufox)
