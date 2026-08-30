@@ -9,6 +9,18 @@ const ROOT = path.resolve(__dirname, "../..");
 const GATEWAY = path.join(ROOT, "scripts/mso-gateway");
 const roots: string[] = [];
 const sha = (value: string) => createHash("sha256").update(value).digest("hex");
+const snapshot = (file: string) => {
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile()) throw new Error(`not a regular file: ${file}`);
+    return { mode: stat.mode & 0o777, text: fs.readFileSync(fd, "utf8") };
+  } finally { fs.closeSync(fd); }
+};
+const appendNoFollow = (file: string, value: string) => {
+  const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW);
+  try { fs.writeSync(fd, value); } finally { fs.closeSync(fd); }
+};
 
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
@@ -40,8 +52,9 @@ describe("gateway supply chain", () => {
     const first = execFileSync(GATEWAY, ["install"], { encoding: "utf8", env });
     expect(first).toContain("pinned-fixture");
     const installed = path.join(tools, "fixture", "cloudflared");
-    expect(fs.statSync(installed).mode & 0o777).toBe(0o700);
-    expect(sha(fs.readFileSync(installed, "utf8"))).toBe(digest);
+    let installedSnapshot = snapshot(installed);
+    expect(installedSnapshot.mode).toBe(0o700);
+    expect(sha(installedSnapshot.text)).toBe(digest);
     expect(fs.readFileSync(count, "utf8")).toBe("x");
 
     execFileSync(GATEWAY, ["install"], { encoding: "utf8", env });
