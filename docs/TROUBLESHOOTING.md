@@ -34,10 +34,12 @@ existing device role still requires the explicit `mso device role` command.
 Run `mso update`. The CLI updater reads/fetches `origin/main` directly and does not need the MSO API.
 On WSL without an active service it verifies and builds the clean updated checkout. If the fallback
 runtime is gateway-owned, it is quiesced before `.next` changes and restored afterward while an
-active tunnel identity is preserved. A private deployment receipt/restart marker survives partial
-failures, so rerunning the same `mso update` retries dependency/build/restart work even when Git HEAD
-already equals `origin/main`. Use `mso update status` for source/deployment state and `mso update log`
-for the service-updater transcript.
+active tunnel identity is preserved. Checkout-scoped private deployment receipts/restart markers
+survive partial failures, so rerunning the same `mso update` retries dependency/build/restart work even
+when Git HEAD already equals `origin/main`. Offline transactions are serialized; do not remove the
+owner-only update-state directory just to bypass a pending recovery. Recovery intent is written before
+a gateway-owned runtime is quiesced, so an interrupted state update remains safely retryable. Use
+`mso update status` for source/deployment state and `mso update log` for the service-updater transcript.
 
 ### `mso update` says the active service belongs to another checkout
 

@@ -32,6 +32,9 @@ application roles, but they still share the same deployment and underlying Unix 
   access policy for a permanent Internet-facing control plane.
 - Keep `OS_FS_WRITE_ROOTS` narrow and review read roots deliberately.
 - Do not commit `.env.local`, model credentials or data under `~/.mso`.
+- Gateway/update lifecycle state is owner-only and fail-closed: public tunneling requires verified
+  loopback-only exposure; offline recovery uses checkout-scoped receipts, an exclusive process-identity
+  lock, and durable pre-quiesce recovery intent rather than treating Git HEAD as deployment proof.
 - Use `NEXT_PUBLIC_OS_DEMO=1` only in a separate mock-only public demo checkout.
 
 The core gateway client follows the same immutable-artifact rule as managed apps: MSO pins the

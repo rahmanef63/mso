@@ -47,6 +47,8 @@ LOCK_HELD=0
 . "$ROOT/scripts/lib/gateway-tool.sh"
 # shellcheck source=scripts/lib/gateway-lock.sh
 . "$ROOT/scripts/lib/gateway-lock.sh"
+# shellcheck source=scripts/lib/gateway-recovery.sh
+. "$ROOT/scripts/lib/gateway-recovery.sh"
 # shellcheck source=scripts/lib/gateway-runtime.sh
 . "$ROOT/scripts/lib/gateway-runtime.sh"
 # shellcheck source=scripts/lib/gateway-tunnel.sh

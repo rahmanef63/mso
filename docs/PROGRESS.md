@@ -28,7 +28,11 @@ fallback runtime first. Re-approving the same device+role is idempotent, while r
 `mso device role`. CLI version is now 1.4.0. `mso update` is API-independent and is the preferred
 operator command: it can fetch/fast-forward/verify/build even when port 4005 is down, and normal
 interactive CLI use emits a throttled Git-backed update notice when `origin/main` is ahead.
-`mso update run` remains accepted for compatibility.
+`mso update run` remains accepted for compatibility. Final PR review then hardened crash/concurrency
+recovery: offline deployment state is keyed by canonical checkout, the whole offline transaction is
+serialized with a PID/start-ticks lock, recovery intent is durable before an owned runtime is quiesced,
+and an interrupted post-quiesce state write is reconciled on retry. The shared private-state atomic
+writer now propagates write/rename failures explicitly even when called from a shell conditional.
 
 The global response policy additionally sends `X-Robots-Tag: noindex, nofollow, noarchive` because an
 MSO control plane should not be indexed merely because a temporary HTTPS endpoint exists. The

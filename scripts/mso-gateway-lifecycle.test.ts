@@ -150,6 +150,42 @@ esac
     expect(alive(tunnel.pid!)).toBe(false); expect(alive(runtime.pid!)).toBe(false);
   });
 
+  it("persists recovery intent before stopping and reconciles stale ownership after a state-write failure", async () => {
+    const f = fixture();
+    const pid = Number(execFileSync("bash", ["-c", `nohup ${JSON.stringify(process.execPath)} -e \"process.title='next-server (fixture)';process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)\" >/dev/null 2>&1 & echo $!`], { encoding: "utf8" }).trim());
+    pids.add(pid);
+    await new Promise((r) => setTimeout(r, 120));
+    const rid = { ...identity(pid), cmdHash: null, instanceId: "fixture" };
+    writeState(f.state, { provider: "cloudflare-quick", mode: "temporary", url: "https://life-fixture.trycloudflare.com",
+      localUrl: "http://127.0.0.1:4005", tunnelIdentity: null, runtimeIdentity: rid, runtimeOwned: true, startedAt: "2026-01-01T00:00:00Z" });
+    const recoveryDir = path.join(f.dir, "update-recovery");
+    fs.mkdirSync(recoveryDir, { mode: 0o700 });
+    const markerPath = path.join(recoveryDir, "restart-runtime");
+    const mv = path.join(f.dir, "bin", "mv");
+    fs.writeFileSync(mv, `#!/bin/sh
+case "$*" in *mso-private-write*state.json*) exit 1;; esac
+exec /bin/mv "$@"
+`, { mode: 0o700 });
+    const env = { ...f.env, MSO_GATEWAY_RECOVERY_MARKER: markerPath };
+    const first = spawnSync(GATEWAY, ["runtime-stop"], { encoding: "utf8", env });
+    expect(first.status).not.toBe(0);
+    expect(first.stderr).toContain("recovery marker preserved");
+    for (let i = 0; i < 80 && alive(pid); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(alive(pid)).toBe(false);
+    expect(fs.statSync(markerPath).mode & 0o777).toBe(0o600);
+    expect(fs.readFileSync(markerPath, "utf8").trim()).toBe("1");
+    expect(JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8")).runtimeOwned).toBe(true);
+
+    fs.unlinkSync(mv);
+    fs.writeFileSync(f.curl, "#!/bin/sh\nexit 7\n", { mode: 0o700 });
+    const second = run(["runtime-stop"], env);
+    expect(second).toContain("runtime: recovered-stale-owned");
+    const reconciled = JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8"));
+    expect(reconciled.runtimeOwned).toBe(false);
+    expect(reconciled.runtimeIdentity).toBeNull();
+    expect(fs.readFileSync(markerPath, "utf8").trim()).toBe("1");
+  });
+
   it("serializes concurrent starts so only one public tunnel is spawned", async () => {
     const f = fixture(), startFile = f.startFile, env = f.env;
     const [a, b] = await Promise.all([asyncStart(env), asyncStart(env)]);

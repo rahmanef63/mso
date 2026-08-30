@@ -9,7 +9,8 @@ gateway_runtime_from_state() {
   owned="$(jq -r '.runtimeOwned // false' <<<"$state")"
   identity="$(jq -c '.runtimeIdentity // null' <<<"$state")"
   instance="$(jq -r '.runtimeIdentity.instanceId // empty' <<<"$state")"
-  if [ "$owned" = true ] && [ "$identity" != null ] && [ -n "$instance" ]       && gateway_identity_matches_retry "$identity" && gateway_health_url_ok "$LOCAL_URL" "$instance"; then
+  if [ "$owned" = true ] && [ "$identity" != null ] && [ -n "$instance" ] \
+      && gateway_runtime_identity_matches "$identity"; then
     RUNTIME_IDENTITY="$identity"; RUNTIME_INSTANCE_ID="$instance"; RUNTIME_OWNED=true
   fi
 }
@@ -101,28 +102,50 @@ gateway_cmd_local_start_locked() {
   gateway_info "runtime: healthy MSO at $LOCAL_URL"
 }
 
-gateway_cmd_runtime_stop_locked() {
-  local state tunnel runtime owned provider mode url
-  state="$(gateway_state_read)"
+gateway_persist_quiesced_state() {
+  local state="$1" tunnel provider mode url
   tunnel="$(jq -c '.tunnelIdentity // null' <<<"$state")"
+  provider="$(jq -r '.provider // "local"' <<<"$state")"
+  mode="$(jq -r '.mode // "local"' <<<"$state")"
+  url="$(jq -r --arg local "$LOCAL_URL" '.url // $local' <<<"$state")"
+  RUNTIME_IDENTITY=null; RUNTIME_INSTANCE_ID=''; RUNTIME_OWNED=false; RUNTIME_STARTED_NOW=false
+  gateway_write_state "$provider" "$mode" "$url" "$tunnel"
+}
+
+gateway_cmd_runtime_stop_locked() {
+  local state runtime owned
+  gateway_recovery_marker_path >/dev/null
+  state="$(gateway_state_read)"
   runtime="$(jq -c '.runtimeIdentity // null' <<<"$state")"
   owned="$(jq -r '.runtimeOwned // false' <<<"$state")"
   if [ "$owned" = true ] && [ "$runtime" != null ]; then
-    gateway_runtime_from_state "$state"
-    [ "$RUNTIME_OWNED" = true ] || gateway_fail "recorded runtime ownership no longer matches a live MSO instance; refusing offline rebuild"
-    gateway_stop_identity "$runtime"
-    provider="$(jq -r '.provider // "local"' <<<"$state")"
-    mode="$(jq -r '.mode // "local"' <<<"$state")"
-    url="$(jq -r --arg local "$LOCAL_URL" '.url // $local' <<<"$state")"
-    RUNTIME_IDENTITY=null; RUNTIME_INSTANCE_ID=''; RUNTIME_OWNED=false; RUNTIME_STARTED_NOW=false
-    gateway_write_state "$provider" "$mode" "$url" "$tunnel" || gateway_fail "could not persist quiesced runtime state"
-    gateway_info "runtime: stopped-owned"
-    return 0
+    if gateway_runtime_process_matches "$runtime"; then
+      # PID + start ticks + Node executable prove this is the same recorded
+      # process even if its HTTP listener is already unhealthy. Persist recovery
+      # intent before terminating it; a failed state write is then retryable.
+      gateway_mark_recovery_pending
+      gateway_stop_identity "$runtime"
+      gateway_wait_runtime_stopped "$runtime" || gateway_fail "owned runtime did not stop; recovery marker preserved"
+      gateway_persist_quiesced_state "$state" \
+        || gateway_fail "runtime stopped but quiesced state did not persist; recovery marker preserved for retry"
+      gateway_info "runtime: stopped-owned"
+      return 0
+    fi
+    # A prior attempt may have killed the verified runtime and then lost the
+    # state write. Reconcile only when durable intent exists, the recorded
+    # process identity is gone, and no other MSO responder owns the local port.
+    if gateway_recovery_pending && ! gateway_runtime_process_matches "$runtime" && ! gateway_health_ok; then
+      gateway_persist_quiesced_state "$state" \
+        || gateway_fail "could not reconcile stale owned runtime; recovery marker preserved"
+      gateway_info "runtime: recovered-stale-owned"
+      return 0
+    fi
+    gateway_fail "recorded runtime ownership no longer matches a safely recoverable MSO instance; refusing offline rebuild"
   fi
   if gateway_health_ok; then
     gateway_fail "a loopback MSO runtime is active but is not gateway-owned; stop it before an offline update"
   fi
-  gateway_info "runtime: already-down"
+  if gateway_recovery_pending; then gateway_info "runtime: recovery-pending"; else gateway_info "runtime: already-down"; fi
 }
 
 gateway_cmd_stop_locked() {

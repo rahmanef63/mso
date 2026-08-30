@@ -8,11 +8,10 @@ NOTICE_DIR="${MSO_UPDATE_NOTICE_DIR:-$HOME/.mso/private/update-notice}"
 UPDATE_STATE_DIR_REQUESTED="${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}"
 LOCAL_URL="${MSO_UPDATE_LOCAL_URL:-${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}}"
 GATEWAY="$ROOT/scripts/mso-gateway"
-UPDATE_STATE_DIR=''
-DEPLOY_RECEIPT=''
-RESTART_MARKER=''
 # shellcheck source=scripts/lib/private-state.sh
 . "$ROOT/scripts/lib/private-state.sh"
+# shellcheck source=scripts/lib/update-state.sh
+. "$ROOT/scripts/lib/update-state.sh"
 
 fail() { printf 'mso update: %s\n' "$*" >&2; exit 1; }
 git_root() { [ "$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)" = "$ROOT" ]; }
@@ -42,43 +41,19 @@ require_service_checkout() {
     || fail "active mso.service belongs to $canonical_service, not this checkout $canonical_root; run update from the service checkout"
 }
 
-init_update_state() {
-  [ -n "$UPDATE_STATE_DIR" ] && return 0
-  UPDATE_STATE_DIR="$(mso_private_state_dir "$UPDATE_STATE_DIR_REQUESTED")" || fail "unsafe update state directory"
-  DEPLOY_RECEIPT="$UPDATE_STATE_DIR/deployed-sha"
-  RESTART_MARKER="$UPDATE_STATE_DIR/restart-runtime"
-}
-
-read_receipt() {
-  init_update_state
-  if [ ! -e "$DEPLOY_RECEIPT" ] && [ ! -L "$DEPLOY_RECEIPT" ]; then return 1; fi
-  mso_private_state_validate_file "$DEPLOY_RECEIPT" >/dev/null || fail "unsafe deployed-sha receipt"
-  local sha; sha="$(cat "$DEPLOY_RECEIPT")"
-  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || fail "invalid deployed-sha receipt"
-  printf '%s' "$sha"
-}
-
-write_receipt() {
-  init_update_state
-  git -C "$ROOT" rev-parse HEAD | mso_private_state_atomic_write "$DEPLOY_RECEIPT" >/dev/null
-}
-
-restart_pending() {
-  init_update_state
-  if [ ! -e "$RESTART_MARKER" ] && [ ! -L "$RESTART_MARKER" ]; then return 1; fi
-  mso_private_state_validate_file "$RESTART_MARKER" >/dev/null || fail "unsafe runtime restart marker"
-  [ "$(cat "$RESTART_MARKER")" = 1 ] || fail "invalid runtime restart marker"
-}
-
-mark_restart_pending() { printf '1\n' | mso_private_state_atomic_write "$RESTART_MARKER" >/dev/null; }
-clear_restart_pending() { mso_private_state_remove_file "$RESTART_MARKER" >/dev/null 2>&1 || true; }
-
 quiesce_offline_runtime() {
   local out
   [ -x "$GATEWAY" ] || return 0
-  out="$(MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ROOT/.env.local" MSO_GATEWAY_LOCAL_URL="$LOCAL_URL" "$GATEWAY" runtime-stop)" \
+  init_update_state
+  out="$(MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ROOT/.env.local" MSO_GATEWAY_LOCAL_URL="$LOCAL_URL" \
+    MSO_GATEWAY_RECOVERY_MARKER="$RESTART_MARKER" "$GATEWAY" runtime-stop)" \
     || fail "could not safely quiesce the local MSO runtime before rebuilding"
-  case "$out" in *'runtime: stopped-owned'*) mark_restart_pending ;; esac
+  case "$out" in
+    *'runtime: stopped-owned'*|*'runtime: recovered-stale-owned'*|*'runtime: recovery-pending'*)
+      restart_pending || fail "gateway stopped/recovered an owned runtime without durable recovery intent" ;;
+    *'runtime: already-down'*) ;;
+    *) fail "unexpected gateway runtime-stop result" ;;
+  esac
 }
 
 restore_offline_runtime() {
@@ -126,8 +101,10 @@ notice() {
     "${local_v:-current}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)" >&2
 }
 
-offline_build() {
+offline_build_locked() {
   local rebuild_only="$1" n head receipt=''
+  require_checkout
+  service_is_active && fail "mso.service became active while waiting for the offline update lock; rerun mso update"
   init_update_state
   if [ "$rebuild_only" != 1 ]; then
     fetch_main
@@ -152,6 +129,11 @@ offline_build() {
   write_receipt
   if restart_pending; then fail "runtime restart marker remained after restore"; fi
   printf 'updated to %s. No system service was active; run: mso web\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
+}
+
+offline_build() {
+  init_update_state
+  update_with_lock offline_build_locked "$1"
 }
 
 run_update() {
