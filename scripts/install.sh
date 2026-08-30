@@ -581,7 +581,7 @@ cat <<EOF
   Logs:     $LOG_STATUS
   Update:   re-run this installer (pull + verify + build + service refresh), or --uninstall to remove
   Listen:   $BIND:$PORT   (change with --bind / MSO_BIND)
-  Security: verify from OUTSIDE the box — `curl -m5 http://<public-ip>:$PORT/api/health`
+  Security: verify from OUTSIDE the box — \`curl -m5 http://<public-ip>:$PORT/api/health\`
             run on your laptop is the only test that proves what is reachable.
             Review ~/.mso/audit.log.
 EOF
