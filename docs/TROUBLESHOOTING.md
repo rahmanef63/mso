@@ -39,6 +39,12 @@ failures, so rerunning the same `mso update` retries dependency/build/restart wo
 already equals `origin/main`. Use `mso update status` for source/deployment state and `mso update log`
 for the service-updater transcript.
 
+### `mso update` says the active service belongs to another checkout
+
+This is a safety refusal. A machine may contain multiple MSO clones, but an active `mso.service` has
+one canonical `WorkingDirectory`. Run the update from that checkout (normally the directory targeted
+by the installer) instead of letting a secondary clone rebuild itself and restart someone else's unit.
+
 ### `mso gateway start` cannot install or verify cloudflared
 
 Current MSO installs a reviewed `cloudflared` release automatically into `~/.mso/tools` on first
@@ -53,6 +59,13 @@ start` waits up to 60 seconds by default and still requires the exact MSO health
 contract; this is readiness tolerance, not a weaker health check. A local resolver can cache the
 initial NXDOMAIN longer than the record creation itself; temporary mode therefore has a Cloudflare
 DoH fallback that still verifies HTTPS for the generated hostname and the exact runtime nonce.
+
+### `mso gateway` misdetects local health when my shell uses an HTTP proxy
+
+Current MSO explicitly bypasses configured HTTP/HTTPS proxies for the already-validated loopback
+`/api/health` probe. Public HTTPS readiness still follows normal proxy policy. If `mso gateway doctor`
+still cannot verify the local runtime, inspect the local bind/build rather than adding the public
+Quick Tunnel hostname to `NO_PROXY`.
 
 ### Temporary gateway opens, but Terminal does not stream
 

@@ -77,6 +77,23 @@ esac
     expect(out.stderr).toContain("non-loopback listener");
   });
 
+
+  it("bypasses configured HTTP proxies for the trusted loopback health probe", () => {
+    const f = fixture();
+    const capture = path.join(f.dir, "curl-argv");
+    fs.writeFileSync(f.curl, `#!/bin/sh
+printf '%s\n' "$@" > "${capture}"
+printf '%s\n' '{"status":"ok","buildId":"fixture","runtimeInstanceId":"fixture","version":"${VERSION}"}'
+`, { mode: 0o700 });
+    const out = run(["doctor"], { ...f.baseEnv, HTTP_PROXY: "http://proxy.invalid:8080", http_proxy: "http://proxy.invalid:8080", NO_PROXY: "", no_proxy: "" });
+    expect(out).toContain("verified MSO runtime");
+    const argv = fs.readFileSync(capture, "utf8").trim().split(/\n/);
+    const noproxy = argv.indexOf("--noproxy");
+    expect(noproxy).toBeGreaterThanOrEqual(0);
+    expect(argv[noproxy + 1]).toBe("*");
+    expect(argv.at(-1)).toBe("http://127.0.0.1:4005/api/health");
+  });
+
   it("fails closed on a non-loopback upstream", () => {
     const f = fixture();
     const out = spawnSync(GATEWAY, ["start"], {

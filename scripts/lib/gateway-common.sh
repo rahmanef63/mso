@@ -162,8 +162,13 @@ gateway_health_body_ok() {
 }
 
 gateway_health_url_ok() {
-  local base="$1" expected_instance="${2-}" body
-  body="$("$CURL" -fsS --max-time 4 "$base/api/health" 2>/dev/null || true)"
+  local base="$1" expected_instance="${2-}" body loopback
+  local -a curl_args=(-fsS --max-time 4)
+  loopback="$(gateway_validate_loopback_origin "$base" 2>/dev/null || true)"
+  # A user's http_proxy/HTTP_PROXY must never redirect the trusted local-health
+  # decision through a proxy. Public HTTPS probes retain ordinary proxy behavior.
+  [ -z "$loopback" ] || curl_args+=(--noproxy '*')
+  body="$("$CURL" "${curl_args[@]}" "$base/api/health" 2>/dev/null || true)"
   gateway_health_body_ok "$body" "$expected_instance"
 }
 

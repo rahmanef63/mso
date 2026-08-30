@@ -429,7 +429,9 @@ mso update log
 ```
 
 The updater verifies the incoming checkout/build before replacing the service. With an active
-`mso.service` it runs outside that service cgroup so the updater survives the restart. With no active
+`mso.service` it first canonicalizes the unit's `WorkingDirectory` and requires it to equal the checkout
+that invoked `mso update`; a secondary clone is never allowed to restart an unrelated live service.
+The updater then runs outside that service cgroup so it survives the restart. With no active
 service (including WSL without systemd), it performs the clean fast-forward/dependency/verify/build
 path locally. If `mso web`/gateway owns the detached Next runtime, update first quiesces only that
 verified runtime, leaves an active tunnel identity intact, rebuilds, then restores the runtime. A

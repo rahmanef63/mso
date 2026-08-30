@@ -9,7 +9,7 @@ const PRIVATE = path.join(process.cwd(), "scripts/lib/private-state.sh");
 const roots: string[] = [];
 
 function git(cwd: string, ...args: string[]) { return execFileSync("git", args, { cwd, encoding: "utf8" }).trim(); }
-function fixture(options: { failInstallOnce?: boolean } = {}) {
+function fixture(options: { failInstallOnce?: boolean; activeService?: "same" | "other" } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mso-update-")); roots.push(root);
   const repo = path.join(root, "repo"), remote = path.join(root, "remote.git"), bin = path.join(root, "bin"), capture = path.join(root, "capture");
   fs.mkdirSync(path.join(repo, "scripts/lib"), { recursive: true }); fs.mkdirSync(path.join(repo, "bin")); fs.mkdirSync(bin);
@@ -28,7 +28,14 @@ case "$1" in runtime-stop) echo 'runtime: stopped-owned' ;; local-start) echo 'r
   fs.writeFileSync(path.join(repo, "bin/mso"), '#!/bin/sh\nVERSION="1.4.0"\n', { mode: 0o755 });
   git(repo, "add", "bin/mso"); git(repo, "commit", "-q", "-m", "new cli"); const newer = git(repo, "rev-parse", "HEAD"); git(repo, "push", "-q", "origin", "main");
   git(repo, "reset", "--hard", "-q", old);
-  fs.writeFileSync(path.join(bin, "systemctl"), "#!/bin/sh\nexit 3\n", { mode: 0o755 });
+  const serviceRoot = options.activeService === "same" ? repo : options.activeService === "other" ? path.join(root, "other-service") : "";
+  if (serviceRoot && serviceRoot !== repo) fs.mkdirSync(serviceRoot, { recursive: true });
+  fs.writeFileSync(path.join(bin, "systemctl"), `#!/bin/sh
+if [ "$1" = is-active ]; then [ -n "${serviceRoot}" ] && exit 0; exit 3; fi
+if [ "$1" = show ]; then printf '%s\n' "${serviceRoot}"; exit 0; fi
+if [ "$1" = --user ]; then exit 1; fi
+exit 3
+`, { mode: 0o755 });
   const failOnce = path.join(root, "fail-install-once");
   fs.writeFileSync(path.join(bin, "bun"), `#!/bin/sh
 printf 'bun %s\\n' "$*" >> "${capture}"
@@ -58,6 +65,18 @@ describe("mso update without a running web API", () => {
     expect(calls).toContain("node node_modules/next/dist/bin/next build");
     expect(calls).toContain("gateway runtime-stop");
     expect(calls).toContain("gateway local-start");
+    const status = execFileSync(SCRIPT, ["status"], { env: f.env, encoding: "utf8" });
+    expect(status).toContain("is up to date");
+    expect(status).not.toContain("deployment verification/restart is pending");
+  });
+
+  it("refuses update handoff when the active mso.service belongs to another checkout", () => {
+    const f = fixture({ activeService: "other" });
+    const out = require("node:child_process").spawnSync(SCRIPT, [], { env: f.env, encoding: "utf8" });
+    expect(out.status).not.toBe(0);
+    expect(out.stderr).toContain("active mso.service belongs to");
+    expect(out.stderr).toContain("not this checkout");
+    expect(fs.existsSync(f.capture)).toBe(false);
   });
 
   it("retries an incomplete offline deployment even after HEAD already reached origin/main", () => {

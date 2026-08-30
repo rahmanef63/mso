@@ -28,6 +28,20 @@ require_checkout() {
 
 fetch_main() { git -C "$ROOT" fetch --quiet origin main || fail "could not reach origin/main"; }
 
+service_is_active() { command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet mso.service; }
+
+require_service_checkout() {
+  local configured canonical_root canonical_service
+  configured="$(systemctl show -p WorkingDirectory --value mso.service 2>/dev/null || true)"
+  [ -n "$configured" ] || fail "active mso.service has no readable WorkingDirectory; refusing update handoff"
+  canonical_root="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
+  canonical_service="$(realpath -e -- "$configured" 2>/dev/null || true)"
+  [ -n "$canonical_root" ] && [ -n "$canonical_service" ] \
+    || fail "cannot canonicalize active mso.service WorkingDirectory; refusing update handoff"
+  [ "$canonical_service" = "$canonical_root" ] \
+    || fail "active mso.service belongs to $canonical_service, not this checkout $canonical_root; run update from the service checkout"
+}
+
 init_update_state() {
   [ -n "$UPDATE_STATE_DIR" ] && return 0
   UPDATE_STATE_DIR="$(mso_private_state_dir "$UPDATE_STATE_DIR_REQUESTED")" || fail "unsafe update state directory"
@@ -83,10 +97,12 @@ print_status() {
     printf 'run: mso update\n'
     return
   fi
-  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet mso.service; then
+  if service_is_active; then
+    require_service_checkout
     printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "${head:0:7}"
     return
   fi
+  init_update_state
   if [ -e "$DEPLOY_RECEIPT" ] || [ -L "$DEPLOY_RECEIPT" ]; then receipt="$(read_receipt)"; fi
   if [ "$receipt" != "$head" ] || restart_pending; then
     printf 'source is current at %s, but offline deployment verification/restart is pending. run: mso update\n' "${head:0:7}"
@@ -142,7 +158,8 @@ run_update() {
   local rebuild_only="$1" arg=""
   require_checkout
   [ "$rebuild_only" != 1 ] || arg="--rebuild-only"
-  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet mso.service; then
+  if service_is_active; then
+    require_service_checkout
     if command -v systemd-run >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
       mkdir -p "$(dirname "$LOG")"; chmod 700 "$(dirname "$LOG")" 2>/dev/null || true
       systemd-run --user --collect --unit=mso-self-update --property=TimeoutStartSec=3600 \
