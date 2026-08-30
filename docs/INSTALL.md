@@ -447,7 +447,10 @@ The updater verifies the incoming checkout/build before replacing the service. W
 that invoked `mso update`; a secondary clone is never allowed to restart an unrelated live service.
 The updater then runs outside that service cgroup so it survives the restart. With no active
 service (including WSL without systemd), it performs the clean fast-forward/dependency/verify/build
-path locally. Before either the service-active or offline in-place build, update inventories every gateway state for the canonical checkout, quiesces each verified owned fallback runtime, leaves active tunnel identities intact, rebuilds, then restores every previously-owned origin. A
+path locally. Before an offline build mutates dependencies or `.next`, MSO also verifies the selected
+loopback origin is either down or represented by gateway-owned lifecycle state; a manually started or
+otherwise unowned healthy MSO runtime is refused and must be stopped first. Before either the
+service-active or offline in-place build, update inventories every gateway state for the canonical checkout, quiesces each verified owned fallback runtime, leaves active tunnel identities intact, rebuilds, then restores every previously-owned origin. A
 checkout-scoped private deployment receipt and restart marker mean a dependency/build failure after
 Git already reached `origin/main` is retried by the next ordinary `mso update` instead of being
 mislabeled "already up to date". The state is keyed by canonical checkout path, so two clones at the

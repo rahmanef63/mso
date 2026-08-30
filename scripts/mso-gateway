@@ -90,6 +90,7 @@ case "${1:-status}" in
   domain) shift; gateway_cmd_domain "$@" ;;
   web) gateway_cmd_web "$@" ;;
   local-start) gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked ;; # internal: onboard/web/update fallback
+  runtime-assert-update-safe) gateway_with_lock gateway_cmd_runtime_assert_update_safe_locked ;; # internal: read-only offline-build preflight
   runtime-stop) gateway_with_lock gateway_cmd_runtime_stop_locked ;; # internal: quiesce owned runtime before offline build
   *) gateway_fail "usage: mso gateway start|stop|status|url|doctor|install|domain ..." ;;
 esac

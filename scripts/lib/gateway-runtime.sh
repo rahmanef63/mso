@@ -14,7 +14,6 @@ gateway_runtime_from_state() {
     RUNTIME_IDENTITY="$identity"; RUNTIME_INSTANCE_ID="$instance"; RUNTIME_OWNED=true
   fi
 }
-
 gateway_start_runtime_if_needed() {
   local next host port pid identity instance node_exe current_exe i parent_ticks gate
   [ "$RUNTIME_OWNED" = true ] && gateway_health_url_ok "$LOCAL_URL" "$RUNTIME_INSTANCE_ID" && return 0
@@ -121,6 +120,23 @@ gateway_persist_quiesced_state() {
   url="$(jq -r --arg local "$LOCAL_URL" '.url // $local' <<<"$state")"
   RUNTIME_IDENTITY=null; RUNTIME_INSTANCE_ID=''; RUNTIME_OWNED=false; RUNTIME_STARTED_NOW=false
   gateway_write_state "$provider" "$mode" "$url" "$tunnel"
+}
+
+gateway_cmd_runtime_assert_update_safe_locked() {
+  local state runtime owned
+  state="$(gateway_state_read)"
+  runtime="$(jq -c '.runtimeIdentity // null' <<<"$state")"
+  owned="$(jq -r '.runtimeOwned // false' <<<"$state")"
+  # A recorded owned runtime is handled by the subsequent checkout-wide quiesce
+  # inventory. Do not stop anything here: this command is intentionally read-only.
+  if [ "$owned" = true ] && [ "$runtime" != null ]; then
+    gateway_info "runtime: update-owned"
+    return 0
+  fi
+  if gateway_health_ok; then
+    gateway_fail "a loopback MSO runtime is active but is not gateway-owned; stop it before an offline update"
+  fi
+  gateway_info "runtime: update-safe"
 }
 
 gateway_cmd_runtime_stop_locked() {

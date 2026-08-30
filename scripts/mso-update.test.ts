@@ -11,7 +11,6 @@ const RUNTIME_EXCLUSION = path.join(process.cwd(), "scripts/lib/runtime-exclusio
 const UPDATE_GATEWAYS = path.join(process.cwd(), "scripts/lib/update-gateway-runtimes.sh");
 const SERVICE_UPDATE = path.join(process.cwd(), "scripts/mso-service-update");
 const roots: string[] = [];
-
 function git(cwd: string, ...args: string[]) { return execFileSync("git", args, { cwd, encoding: "utf8" }).trim(); }
 function fixture(options: { failInstallOnce?: boolean; activeService?: "same" | "other"; installDelayMs?: number } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mso-update-")); roots.push(root);
@@ -27,6 +26,12 @@ function fixture(options: { failInstallOnce?: boolean; activeService?: "same" | 
   fs.writeFileSync(path.join(repo, "scripts/mso-gateway"), `#!/bin/sh
 printf 'gateway %s %s\\n' "$*" "\${MSO_GATEWAY_LOCAL_URL:-}" >> "${capture}"
 case "$1" in
+  runtime-assert-update-safe)
+    if [ "\${MSO_TEST_UNOWNED_RUNTIME:-0}" = 1 ]; then
+      echo 'mso gateway: a loopback MSO runtime is active but is not gateway-owned; stop it before an offline update' >&2
+      exit 31
+    fi
+    echo 'runtime: update-safe' ;;
   runtime-stop)
     [ -n "\${MSO_GATEWAY_RECOVERY_MARKER:-}" ] || exit 9
     mkdir -p "$(dirname "\$MSO_GATEWAY_RECOVERY_MARKER")"
@@ -110,6 +115,18 @@ describe("mso update without a running web API", () => {
     const status = execFileSync(SCRIPT, ["status"], { env: f.env, encoding: "utf8" });
     expect(status).toContain("is up to date");
     expect(status).not.toContain("deployment verification/restart is pending");
+  });
+
+  it("refuses an offline build before dependency or .next mutation when the selected origin is unowned", () => {
+    const f = fixture();
+    fs.rmSync(path.join(f.home, ".mso/private/gateway"), { recursive: true, force: true });
+    const out = spawnSync(SCRIPT, [], { env: { ...f.env, MSO_TEST_UNOWNED_RUNTIME: "1" }, encoding: "utf8" });
+    expect(out.status).not.toBe(0);
+    expect(out.stderr).toContain("selected loopback runtime is active but not safely update-owned");
+    const calls = fs.existsSync(f.capture) ? fs.readFileSync(f.capture, "utf8") : "";
+    expect(calls).toContain("runtime-assert-update-safe");
+    expect(calls).not.toContain("bun install");
+    expect(calls).not.toContain("node node_modules/next/dist/bin/next build");
   });
 
   it("refuses update handoff when the active mso.service belongs to another checkout", () => {

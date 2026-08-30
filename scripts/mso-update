@@ -65,7 +65,7 @@ require_service_checkout() {
     || fail "active mso.service belongs to $canonical_service, not this checkout $canonical_root; run update from the service checkout"
 }
 
-quiesce_offline_runtime() { update_gateway_quiesce_all; }
+quiesce_offline_runtime() { update_gateway_assert_offline_selected_origin_safe; update_gateway_quiesce_all; }
 
 restore_offline_runtime() { update_gateway_restore_all; }
 

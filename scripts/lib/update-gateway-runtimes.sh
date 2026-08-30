@@ -61,6 +61,14 @@ update_gateway_write_restore_urls() {
     || fail "could not persist gateway restore inventory"
 }
 
+update_gateway_assert_offline_selected_origin_safe() {
+  local selected
+  selected="${LOCAL_URL:-${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}}"
+  MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ROOT/.env.local" MSO_GATEWAY_LOCAL_URL="$selected" \
+    "$GATEWAY" runtime-assert-update-safe >/dev/null \
+    || fail "selected loopback runtime is active but not safely update-owned; stop it before offline update"
+}
+
 update_gateway_quiesce_all() {
   local url out collected
   local -a urls=()

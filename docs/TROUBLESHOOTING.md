@@ -47,6 +47,13 @@ This is a safety refusal. A machine may contain multiple MSO clones, but an acti
 one canonical `WorkingDirectory`. Run the update from that checkout (normally the directory targeted
 by the installer) instead of letting a secondary clone rebuild itself and restart someone else's unit.
 
+### `mso update` says the selected loopback runtime is not safely update-owned
+
+MSO found a healthy loopback responder while `mso.service` is inactive, but that process is not
+recorded as a gateway-owned fallback runtime. This is commonly a manual `bun run start`/`next start`.
+Stop that manual runtime first, then rerun `mso update`. MSO refuses here before dependency or `.next`
+mutation rather than rebuilding underneath a process that is actively serving the old build.
+
 ### `mso gateway start` says an offline update is mutating this checkout
 
 This is an intentional safety exclusion. Every in-place `mso update` (service-active or offline) holds the checkout-wide runtime lock while `.next` can change, so `mso web`, onboarding fallback, and gateway runtime recovery cannot start
