@@ -36,6 +36,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `cli` lock offline update dispatch
 - `gateway` harden hosted security fixtures
 
 **Docs**
