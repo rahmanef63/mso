@@ -2,6 +2,29 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-08-30 — WSL Bun bin-metadata build resilience (SHIPPED)
+
+A second real Ubuntu/WSL install reached checkout and a complete Bun 1.3.14 dependency install,
+then failed at `bun run build` with `could not open bin metadata file` / `Bun failed to remap this
+bin`. The important distinction is that Bun's package-bin metadata can be damaged while the actual
+`node_modules/next` package payload remains readable. The previous ordering also meant this build
+failure still happened before the CLI launcher was created, so an operator again ended with no
+`mso -h` despite a valid checkout.
+
+The installer now treats the CLI as the earliest post-checkout recovery surface: it creates and
+self-checks the launcher before dependency installation, configuration, build, or service setup.
+Production build no longer asks Bun to remap the `next` package binary; it executes
+`node node_modules/next/dist/bin/next build` directly. A force reinstall is reserved for the
+stronger condition that the package entrypoint itself is missing after dependency installation.
+This keeps real compile errors fail-closed while avoiding a WSL-specific package-bin indirection.
+
+Regression coverage asserts the new phase order, forbids an executable `bun run build` in the
+installer core, and proves the direct Next entrypoint still runs while `node_modules/.bin/next` is
+absent. A WSL-like end-to-end run using Bun 1.3.14 deliberately replaced `.bin/next` with a failing
+launcher immediately after dependency installation; the production build still completed through
+the direct Node entrypoint, the broken launcher remained broken (proving it was not silently fixed),
+and the parent shell resolved `mso -h` successfully.
+
 ## 2026-08-30 — WSL installer reliability and recognized property fuzzing (SHIPPED)
 
 A WSL install exposed two assumptions that were true on the production VPS but not on a fresh

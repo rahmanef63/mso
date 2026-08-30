@@ -34,13 +34,16 @@ installer is therefore never executed while bytes are still arriving over the ne
 The installer core:
 
 1. resolves/creates the checkout and records whether this is a fresh install;
-2. installs Bun/dependencies as needed;
-3. creates private owner auth configuration when missing;
-4. runs the production build;
-5. installs `~/.local/bin/mso` **before service setup**, then attempts a guarded launcher in
-   `/usr/local/bin` when that directory is already on the invoking shell's PATH;
-6. verifies whether the invoking shell will actually resolve `mso` after the child installer
+2. installs and validates `~/.local/bin/mso` **before dependency installation or build**, then
+   attempts a guarded `/usr/local/bin` launcher when that directory is already on the invoking
+   shell's PATH;
+3. verifies whether the invoking shell will actually resolve `mso` after the child installer
    returns, and persists an idempotent `~/.local/bin` PATH fallback for future shells;
+4. installs Bun/dependencies as needed;
+5. creates private owner auth configuration when missing;
+6. runs the production build through `node node_modules/next/dist/bin/next build`, bypassing Bun's
+   package-bin remapper; if the Next package payload itself is absent, it performs one bounded
+   `bun install --force` repair before failing;
 7. installs the `mso.service` system unit only when systemd is really PID 1 (not merely when a
    `systemctl` executable exists);
 8. enables the owner's lingering user manager needed by self-update/managed-app user units;
@@ -110,6 +113,14 @@ Then exit all WSL sessions from Windows, reopen the distro, confirm `ps -p 1 -o 
 If the installer reports that the current shell did not already contain a reachable launcher
 directory, use the exact PATH command it prints for that shell; the profile change is already
 persisted for future shells.
+
+If Bun 1.3.x reports `could not open bin metadata file` / `Bun failed to remap this bin`, that
+is a package-bin metadata failure rather than evidence that the installed Next package is absent.
+The supported installer does not use `bun run build` for the production build anymore: it invokes
+Next's Node entrypoint directly. The CLI has already been installed at that point, so even an
+unrelated build failure leaves `mso -h` available and the installer still exits non-zero with the
+failed phase. Re-running the same one-liner is the supported recovery path.
+
 
 ## 2. Network exposure
 

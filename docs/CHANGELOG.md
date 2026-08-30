@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `install` survive Bun bin metadata corruption
 - `install` keep bootstrap guard shellcheck-clean
 - `install` guard earliest bootstrap prefix
 - `install` make bootstrap handoff truncation-safe
