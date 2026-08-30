@@ -102,8 +102,10 @@ describe("one-line installer contract", () => {
     expect(src).toContain('FRESH_INSTALL=1');
   });
 
-  it("installs the CLI before service setup and proves it against the invoking PATH", () => {
+  it("installs the CLI before dependencies, build, and service setup and proves it against the invoking PATH", () => {
     const src = fs.readFileSync(CORE, "utf8");
+    expect(src.indexOf("# ---- CLI on PATH")).toBeLessThan(src.indexOf("INSTALL_PHASE=dependencies"));
+    expect(src.indexOf("# ---- CLI on PATH")).toBeLessThan(src.indexOf("INSTALL_PHASE=build"));
     expect(src.indexOf("# ---- CLI on PATH")).toBeLessThan(src.indexOf("# ---- systemd unit ----"));
     expect(src).toContain('PARENT_PATH="${PATH:-}"');
     expect(src).toContain('PARENT_CWD="$PWD"');
@@ -119,6 +121,16 @@ describe("one-line installer contract", () => {
     expect(src).toContain("curl jq coreutils");
     expect(src).toContain('[ -x "$BIN_DIR/mso" ]');
     expect(src).toContain('CLI launcher self-check failed');
+  });
+
+  it("bypasses Bun bin remapping for production build and repairs only a missing package payload", () => {
+    const src = fs.readFileSync(CORE, "utf8");
+    expect(src).toContain('NEXT_BIN="$DIR/node_modules/next/dist/bin/next"');
+    expect(src).toContain('node "$NEXT_BIN" build');
+    expect(src).not.toMatch(/^\s*bun run build\s*$/m);
+    expect(src).toContain('if [ ! -f "$NEXT_BIN" ]; then');
+    expect(src).toContain("bun install --force --frozen-lockfile || bun install --force");
+    expect(src.indexOf('if [ ! -f "$NEXT_BIN" ]; then')).toBeGreaterThan(src.indexOf("bun install --frozen-lockfile || bun install"));
   });
 
   it("requires systemd as PID 1 before service setup and gates onboarding on verified health", () => {

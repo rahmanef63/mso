@@ -126,12 +126,14 @@ The flow lets you choose:
   from Alfa's credentials);
 - reviewed **installable skills** such as Ponytail, Caveman and the MSO-safe RTK wrapper.
 
-The installer generates the owner login credentials, builds production, and installs the CLI
-**before** it touches systemd. It always creates `~/.local/bin/mso`; when the invoking shell
-already has `/usr/local/bin` on `PATH`, it also installs a guarded `/usr/local/bin/mso`
-launcher (using sudo when needed). That order matters on WSL: a distro may ship a `systemctl`
-binary even when systemd is not PID 1, and a service setup problem must never prevent the CLI
-from being installed.
+Immediately after checkout, the installer installs and validates the CLI **before dependency
+installation, the production build, or systemd setup**. It always creates `~/.local/bin/mso`;
+when the invoking shell already has `/usr/local/bin` on `PATH`, it also installs a guarded
+`/usr/local/bin/mso` launcher (using sudo when needed). That order matters on WSL: even if a
+subsequent Bun/Next build fails, `mso -h` remains available for diagnosis and a safe rerun.
+The production build invokes Next's installed Node entrypoint directly instead of resolving
+`next` through Bun's `.bin` remapper, avoiding Bun 1.3.x's intermittent WSL `bin metadata file`
+corruption path.
 
 A child `curl | bash` process cannot modify its parent shell's `PATH`. The installer therefore
 checks the **original invoking PATH** after creating the launchers and explicitly reports whether
