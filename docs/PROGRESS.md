@@ -17,13 +17,17 @@ already-reachable system bin directory when possible. It checks the original inv
 than its child-process PATH and prints an exact fallback export when immediate discovery cannot be
 proven. WSL without systemd remains a supported CLI-only shape; background service/onboarding waits
 for a verified service. An isolated clean-HOME/PATH install proved the child installer returns to a
-parent shell where `command -v mso` and `mso -h` succeed.
+parent shell where `command -v mso` and `mso -h` succeed. The invoking cwd is captured too: relative
+PATH entries such as `bin` are normalized against that cwd before discoverability is claimed, so a
+later `cd` into the checkout cannot manufacture a false positive.
 
 The service readiness gate was also corrected for explicit `NEXT_DEPLOYMENT_ID`. Build ID change is
 still the preferred takeover proof, but a deliberately stable deployment ID can no longer make a
 healthy restart look stale: the installer records the pre-restart systemd MainPID and accepts a
 healthy response from a changed live MainPID as the fallback proof. This keeps the old-process/stale-
-chunk defense without assuming every deployment changes its public build ID.
+chunk defense without assuming every deployment changes its public build ID. Runtime reporting also
+distinguishes “WSL without systemd” from “systemd existed, the unit was attempted, but health/takeover
+verification failed,” so a failed WSL service keeps its journal recovery path instead of being mislabeled.
 
 OpenSSF's remaining Fuzzing posture gap is addressed with real TypeScript property testing rather
 than a dismissed alert. `fast-check` now generates adversarial cases for filesystem containment,

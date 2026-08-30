@@ -41,7 +41,9 @@ export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
 # curl|bash process cannot export back into its parent, so this is the only PATH
 # that matters when proving `mso -h` will resolve immediately after we return.
 PARENT_PATH="${PATH:-}"
+PARENT_CWD="$PWD"
 SERVICE_READY=0
+SERVICE_ATTEMPTED=0
 # Reproducible bootstrap: this is Bun v1.3.14's installer source, pinned by
 # immutable Git commit and verified before execution. Update both values together.
 BUN_BOOTSTRAP_COMMIT="0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
@@ -109,6 +111,27 @@ systemd_ready() {
 
 path_has_dir() {
   case ":$1:" in *":$2:"*) return 0 ;; *) return 1 ;; esac
+}
+
+# PATH entries are resolved by the caller relative to the caller's cwd. The
+# installer later cd's into the checkout, so replaying a raw relative PATH there
+# would prove the wrong shell. Convert each entry to the directory the parent
+# shell will actually search after this child returns. Empty entries mean cwd.
+normalize_parent_path() {
+  local raw="$1" cwd="$2" out="" entry last=0
+  while [ "$last" -eq 0 ]; do
+    case "$raw" in
+      *:*) entry="${raw%%:*}"; raw="${raw#*:}" ;;
+      *) entry="$raw"; raw=""; last=1 ;;
+    esac
+    case "$entry" in
+      "") entry="$cwd" ;;
+      /*) ;;
+      *) entry="$cwd/$entry" ;;
+    esac
+    if [ -n "$out" ]; then out="$out:$entry"; else out="$entry"; fi
+  done
+  printf '%s' "$out"
 }
 
 # Create/update one CLI symlink without ever replacing an unrelated command.
@@ -347,17 +370,19 @@ fi
 # directory was already there, nothing else is needed. Otherwise use a guarded
 # launcher in /usr/local/bin (or MSO_SYSTEM_BIN_DIR) only when that directory is
 # already on the invoking PATH. This also makes `--no-service` useful on WSL.
+PARENT_PATH_RESOLVED="$(normalize_parent_path "$PARENT_PATH" "$PARENT_CWD")"
 SYSTEM_BIN_DIR="${MSO_SYSTEM_BIN_DIR:-/usr/local/bin}"
+case "$SYSTEM_BIN_DIR" in /*) ;; *) SYSTEM_BIN_DIR="$PARENT_CWD/$SYSTEM_BIN_DIR" ;; esac
 SYSTEM_CLI="$SYSTEM_BIN_DIR/mso"
 TARGET_CLI_REAL="$(readlink -f "$DIR/bin/mso")"
 CLI_IMMEDIATE=0
-parent_cli="$(PATH="$PARENT_PATH" command -v mso 2>/dev/null || true)"
+parent_cli="$(PATH="$PARENT_PATH_RESOLVED" command -v mso 2>/dev/null || true)"
 if [ -n "$parent_cli" ] && [ "$(readlink -f "$parent_cli" 2>/dev/null || true)" = "$TARGET_CLI_REAL" ]; then
   CLI_IMMEDIATE=1
-elif path_has_dir "$PARENT_PATH" "$SYSTEM_BIN_DIR"; then
+elif path_has_dir "$PARENT_PATH_RESOLVED" "$SYSTEM_BIN_DIR"; then
   if link_cli_guarded "$SYSTEM_CLI" "$DIR/bin/mso"; then
     ok "current-PATH cli → $SYSTEM_CLI"
-    parent_cli="$(PATH="$PARENT_PATH" command -v mso 2>/dev/null || true)"
+    parent_cli="$(PATH="$PARENT_PATH_RESOLVED" command -v mso 2>/dev/null || true)"
     if [ -n "$parent_cli" ] && [ "$(readlink -f "$parent_cli" 2>/dev/null || true)" = "$TARGET_CLI_REAL" ]; then
       CLI_IMMEDIATE=1
     fi
@@ -383,6 +408,7 @@ fi
 
 # ---- systemd unit ----
 if [ "$DO_SERVICE" -eq 1 ] && systemd_ready; then
+  SERVICE_ATTEMPTED=1
   # Start via npm (always on PATH, ships with node) to match the proven prod unit;
   # PORT/HOSTNAME are set as env too so `next start` binds correctly regardless.
   NPM_BIN="$(command -v npm)"
@@ -564,12 +590,15 @@ if [ "$SERVICE_READY" -eq 1 ]; then
 elif [ "$DO_SERVICE" -eq 0 ]; then
   OPEN_STATUS="not running (--no-service). Start manually: cd $DIR && PORT=$PORT bun run start"
   LOG_STATUS="no system service installed"
+elif [ "$SERVICE_ATTEMPTED" -eq 1 ]; then
+  OPEN_STATUS="service was installed/restarted but did not pass health verification; inspect the journal before opening the UI"
+  LOG_STATUS="journalctl -u mso -e"
 elif is_wsl; then
   OPEN_STATUS="not running (WSL systemd is unavailable). Enable systemd or start manually from $DIR"
   LOG_STATUS="no system service installed"
 else
-  OPEN_STATUS="service did not pass health verification; inspect the service journal before opening the UI"
-  LOG_STATUS="journalctl -u mso -e"
+  OPEN_STATUS="systemd is unavailable; start manually from $DIR"
+  LOG_STATUS="no system service installed"
 fi
 
 ok "mso installed at $DIR"
