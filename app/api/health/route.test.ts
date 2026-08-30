@@ -22,6 +22,14 @@ describe("/api/health", () => {
     expect((body.version as string).length).toBeGreaterThan(0);
   });
 
+  it("returns the runtime instance id supplied by the service manager", async () => {
+    vi.stubEnv("MSO_RUNTIME_INSTANCE_ID", "restart-proof-123");
+    const { GET } = await import("./route");
+    const res = await GET();
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.runtimeInstanceId).toBe("restart-proof-123");
+  });
+
   it("sets Cache-Control: no-store", async () => {
     const { GET } = await import("./route");
     const res = await GET();

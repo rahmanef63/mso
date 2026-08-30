@@ -403,7 +403,11 @@ if [ "$CLI_IMMEDIATE" -eq 1 ]; then
 else
   warn "mso is installed, but this shell's existing PATH cannot see it yet"
   warn "for this shell run: export PATH=\"$BIN_DIR:\$PATH\""
-  info "future shells will load the persisted ~/.local/bin PATH block"
+  if [ "$BIN_DIR" = "$HOME/.local/bin" ]; then
+    info "future shells will load the persisted ~/.local/bin PATH block"
+  else
+    warn "custom MSO_BIN_DIR is not persisted automatically; add $BIN_DIR to your shell profile"
+  fi
 fi
 
 # ---- systemd unit ----
@@ -412,6 +416,7 @@ if [ "$DO_SERVICE" -eq 1 ] && systemd_ready; then
   # Start via npm (always on PATH, ships with node) to match the proven prod unit;
   # PORT/HOSTNAME are set as env too so `next start` binds correctly regardless.
   NPM_BIN="$(command -v npm)"
+  RUNTIME_INSTANCE_ID="$(rand_hex 16)"
   info "installing $SERVICE (needs sudo)…"
   sudo_do tee "/etc/systemd/system/$SERVICE" >/dev/null <<EOF
 [Unit]
@@ -425,6 +430,10 @@ WorkingDirectory=$DIR
 EnvironmentFile=$DIR/.env.local
 Environment=PORT=$PORT
 Environment=HOSTNAME=$BIND
+# Fresh on every installer-driven restart. /api/health echoes this non-secret nonce
+# so readiness proves the HTTP response came from THIS restarted unit, not a stale
+# process that happened to keep answering on the configured port.
+Environment=MSO_RUNTIME_INSTANCE_ID=$RUNTIME_INSTANCE_ID
 # A system unit with User= inherits no login session, so it gets no user-bus
 # address and every \`systemctl --user\` it runs answers "Failed to connect to bus:
 # No medium found". That silently broke the managed-app installs (which create
@@ -461,15 +470,6 @@ EOF
   HEALTH_HOST="$BIND"
   case "$BIND" in 0.0.0.0|::|"") HEALTH_HOST=127.0.0.1 ;; esac
 
-  # Record BOTH the build id and service PID that are CURRENTLY answering before
-  # the restart. Normally next.config.mjs mints a fresh build id, but an explicit
-  # NEXT_DEPLOYMENT_ID intentionally makes that id stable across deploys. In that
-  # supported mode, a changed MainPID plus a healthy response proves takeover.
-  prev_build="$(curl -fsS --max-time 3 "http://$HEALTH_HOST:$PORT/api/health" 2>/dev/null \
-                | sed -n 's/.*"buildId":"\([^"]*\)".*/\1/p' || true)"
-  prev_pid="$(systemctl show "$SERVICE" -p MainPID --value 2>/dev/null || true)"
-  case "$prev_pid" in ''|*[!0-9]*) prev_pid=0 ;; esac
-
   # Makes /run/user/<uid> — where the user bus lives — exist without a login
   # session and survive logout. The XDG_RUNTIME_DIR above names that directory, so
   # without linger it would point at nothing after the installing shell exits.
@@ -503,17 +503,14 @@ EOF
     body="$(curl -fsS --max-time 3 "http://$HEALTH_HOST:$PORT/api/health" 2>/dev/null || true)"
     if [ -n "$body" ]; then
       now_build="$(printf '%s' "$body" | sed -n 's/.*"buildId":"\([^"]*\)".*/\1/p')"
-      # Do not trust curl alone: the OLD process can answer /api/health while
-      # serving stale chunks. Prefer a changed build id; when a configured
-      # deployment id keeps it stable, require systemd to report a different
-      # live MainPID. Fresh installs have no previous healthy build and pass.
-      now_pid="$(systemctl show "$SERVICE" -p MainPID --value 2>/dev/null || true)"
-      case "$now_pid" in ''|*[!0-9]*) now_pid=0 ;; esac
-      if [ -z "$prev_build" ] \
-        || [ "$now_build" != "$prev_build" ] \
-        || { [ "$now_pid" -gt 0 ] && [ "$now_pid" != "$prev_pid" ]; }; then
+      now_instance="$(printf '%s' "$body" | sed -n 's/.*"runtimeInstanceId":"\([^"]*\)".*/\1/p')"
+      # A healthy response is accepted only when it carries the nonce injected into
+      # THIS service unit before restart. This remains correct when NEXT_DEPLOYMENT_ID
+      # intentionally keeps buildId stable and cannot be satisfied by a stale or
+      # unrelated process still listening on the same port.
+      if [ "$now_instance" = "$RUNTIME_INSTANCE_ID" ]; then
         up=1; SERVICE_READY=1
-        ok "health OK (build ${now_build:-unknown}, pid ${now_pid:-unknown})"
+        ok "health OK (build ${now_build:-unknown}, runtime instance verified)"
         break
       fi
     fi
@@ -522,7 +519,7 @@ EOF
   if [ "$up" -ne 1 ]; then
     # is-active needs no privileges — do not spend a sudo prompt on the sad path.
     if systemctl is-active --quiet "$SERVICE"; then
-      warn "service is running but build/process identity did not change (build $prev_build, pid $prev_pid) — check: journalctl -u mso -e"
+      warn "service is running but /api/health did not prove the restarted runtime instance — check: journalctl -u mso -e"
     else
       warn "$SERVICE is not running — check: journalctl -u mso -e"
     fi

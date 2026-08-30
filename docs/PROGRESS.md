@@ -21,11 +21,12 @@ parent shell where `command -v mso` and `mso -h` succeed. The invoking cwd is ca
 PATH entries such as `bin` are normalized against that cwd before discoverability is claimed, so a
 later `cd` into the checkout cannot manufacture a false positive.
 
-The service readiness gate was also corrected for explicit `NEXT_DEPLOYMENT_ID`. Build ID change is
-still the preferred takeover proof, but a deliberately stable deployment ID can no longer make a
-healthy restart look stale: the installer records the pre-restart systemd MainPID and accepts a
-healthy response from a changed live MainPID as the fallback proof. This keeps the old-process/stale-
-chunk defense without assuming every deployment changes its public build ID. Runtime reporting also
+The service readiness gate was also corrected for explicit `NEXT_DEPLOYMENT_ID`. Each installer-
+driven service restart now receives a fresh random runtime instance ID in the systemd unit, and the
+public no-store health route echoes that non-secret value. Readiness accepts the response only when
+it carries the exact freshly injected ID. This is stronger than either build-ID or MainPID change:
+it still works when the deployment ID intentionally stays stable, while a stale or unrelated process
+that happens to answer on the same port cannot satisfy the gate. Runtime reporting also
 distinguishes “WSL without systemd” from “systemd existed, the unit was attempted, but health/takeover
 verification failed,” so a failed WSL service keeps its journal recovery path instead of being mislabeled.
 

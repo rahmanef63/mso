@@ -13,6 +13,7 @@ export async function GET() {
       {
         status: "ok",
         buildId: process.env.NEXT_PUBLIC_BUILD_ID || "dev",
+        runtimeInstanceId: process.env.MSO_RUNTIME_INSTANCE_ID || null,
         version: pkg.version ?? "0.0.0",
         demo: true,
       },
@@ -24,6 +25,7 @@ export async function GET() {
     {
       status: "ok",
       buildId: process.env.NEXT_PUBLIC_BUILD_ID || "dev",
+      runtimeInstanceId: process.env.MSO_RUNTIME_INSTANCE_ID || null,
       uptime: Math.round(process.uptime()),
       version: pkg.version ?? "0.0.0",
     },

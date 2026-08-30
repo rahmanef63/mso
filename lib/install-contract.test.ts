@@ -34,6 +34,7 @@ describe("one-line installer contract", () => {
     expect(src).toContain('"$BIN_DIR/mso" -h');
     expect(src).toContain("# >>> mso cli >>>");
     expect(src).toContain('export PATH="$BIN_DIR:$PATH"');
+    expect(src).toContain('custom MSO_BIN_DIR is not persisted automatically');
   });
 
   it("requires systemd as PID 1 before service setup and gates onboarding on verified health", () => {
@@ -46,8 +47,9 @@ describe("one-line installer contract", () => {
     expect(src).toContain("SERVICE_ATTEMPTED=1");
     expect(src).toContain('elif [ "$SERVICE_ATTEMPTED" -eq 1 ]; then');
     expect(src.indexOf('elif [ "$SERVICE_ATTEMPTED" -eq 1 ]; then')).toBeLessThan(src.indexOf('elif is_wsl; then'));
-    expect(src).toContain('systemctl show "$SERVICE" -p MainPID --value');
-    expect(src).toContain('[ "$now_pid" -gt 0 ] && [ "$now_pid" != "$prev_pid" ]');
+    expect(src).toContain('RUNTIME_INSTANCE_ID="$(rand_hex 16)"');
+    expect(src).toContain('Environment=MSO_RUNTIME_INSTANCE_ID=$RUNTIME_INSTANCE_ID');
+    expect(src).toContain('[ "$now_instance" = "$RUNTIME_INSTANCE_ID" ]');
     expect(src).toContain('[ "$RUN_ONBOARD" -eq 1 ] && [ "$SERVICE_READY" -eq 1 ]');
   });
 
