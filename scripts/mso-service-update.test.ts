@@ -17,11 +17,16 @@ function copy(root: string, rel: string, source: string) {
   fs.copyFileSync(source, dst); fs.chmodSync(dst, 0o755);
 }
 
-function state(home: string, name: string, root: string, localUrl: string, runtimeOwned = true) {
+function envIdentity(file: string) {
+  const stat = fs.statSync(file);
+  return { path: fs.realpathSync(file), dev: String(stat.dev), ino: String(stat.ino) };
+}
+
+function state(home: string, name: string, root: string, localUrl: string, envFile: string, runtimeOwned = true) {
   const dir = path.join(home, ".mso/private/gateway", name);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   for (const p of [path.join(home, ".mso"), path.join(home, ".mso/private"), path.join(home, ".mso/private/gateway")]) fs.chmodSync(p, 0o700);
-  fs.writeFileSync(path.join(dir, "state.json"), `${JSON.stringify({ root, localUrl, runtimeOwned })}\n`, { mode: 0o600 });
+  fs.writeFileSync(path.join(dir, "state.json"), `${JSON.stringify({ root, localUrl, runtimeOwned, envFile: envIdentity(envFile) })}\n`, { mode: 0o600 });
 }
 
 function fixture(delayMs = 0, failRestoreUrl = "") {
@@ -31,7 +36,7 @@ function fixture(delayMs = 0, failRestoreUrl = "") {
   copy(repo, "scripts/lib/private-state.sh", PRIVATE); copy(repo, "scripts/lib/update-state.sh", UPDATE_STATE);
   copy(repo, "scripts/lib/runtime-exclusion.sh", RUNTIME_EXCLUSION); copy(repo, "scripts/lib/update-gateway-runtimes.sh", UPDATE_GATEWAYS);
   fs.writeFileSync(path.join(repo, "scripts/mso-gateway"), `#!/bin/sh
-printf '%s %s\n' "$1" "\${MSO_GATEWAY_LOCAL_URL:-}" >> ${JSON.stringify(capture)}
+printf '%s %s env=%s expected=%s\n' "$1" "\${MSO_GATEWAY_LOCAL_URL:-}" "\${MSO_GATEWAY_ENV:-}" "\${MSO_GATEWAY_EXPECT_ENV_IDENTITY:-}" >> ${JSON.stringify(capture)}
 if [ "$1" = runtime-stop ]; then printf '1\n' > "$MSO_GATEWAY_RECOVERY_MARKER"; chmod 600 "$MSO_GATEWAY_RECOVERY_MARKER"; echo 'runtime: stopped-owned'; exit 0; fi
 [ "$1" = local-start ] && { [ "${failRestoreUrl}" = "\${MSO_GATEWAY_LOCAL_URL:-}" ] && exit 31; exit 0; }
 exit 2
@@ -42,12 +47,14 @@ sleep ${Math.max(0, delayMs) / 1000}
 printf 'self-end\n' >> ${JSON.stringify(capture)}
 `, { mode: 0o755 });
   const canonical = fs.realpathSync(repo);
-  state(home, "one", canonical, "http://127.0.0.1:4555");
-  state(home, "two", canonical, "http://127.0.0.1:4666");
-  state(home, "other", path.join(base, "other-checkout"), "http://127.0.0.1:4777");
+  const envOne = path.join(base, "one.env"), envTwo = path.join(base, "two.env"), envOther = path.join(base, "other.env");
+  for (const file of [envOne, envTwo, envOther]) fs.writeFileSync(file, "OS_SESSION_SECRET=fixture\n", { mode: 0o600 });
+  state(home, "one", canonical, "http://127.0.0.1:4555", envOne);
+  state(home, "two", canonical, "http://127.0.0.1:4666", envTwo);
+  state(home, "other", path.join(base, "other-checkout"), "http://127.0.0.1:4777", envOther);
   const env = { ...process.env, HOME: home, MSO_UPDATE_ROOT: repo,
     MSO_UPDATE_STATE_DIR: path.join(base, "update-state"), MSO_RUNTIME_EXCLUSION_DIR: path.join(base, "runtime-exclusion") };
-  return { base, repo, capture, env };
+  return { base, repo, capture, env, envOne, envTwo };
 }
 
 function runAsync(env: NodeJS.ProcessEnv) {
@@ -71,6 +78,27 @@ describe("service-active update lifecycle", () => {
     expect(calls).not.toContain("4777");
     expect(calls.indexOf("runtime-stop")).toBeLessThan(calls.indexOf("self-start"));
     expect(calls.lastIndexOf("local-start")).toBeGreaterThan(calls.indexOf("self-end"));
+  });
+
+
+  it("restores each fallback with the exact env-file identity it was launched with", () => {
+    const f = fixture(); execFileSync(WRAPPER, [], { env: f.env, encoding: "utf8" });
+    const calls = fs.readFileSync(f.capture, "utf8");
+    expect(calls).toContain(`local-start http://127.0.0.1:4555 env=${fs.realpathSync(f.envOne)} expected={`);
+    expect(calls).toContain(`local-start http://127.0.0.1:4666 env=${fs.realpathSync(f.envTwo)} expected={`);
+    expect(calls).toContain(`\"path\":\"${fs.realpathSync(f.envOne)}\"`);
+    expect(calls).toContain(`\"path\":\"${fs.realpathSync(f.envTwo)}\"`);
+  });
+
+  it("refuses to stop a legacy owned runtime before its env identity is migrated", () => {
+    const f = fixture();
+    const file = path.join(f.env.HOME as string, ".mso/private/gateway/one/state.json");
+    const legacy = JSON.parse(fs.readFileSync(file, "utf8")); delete legacy.envFile;
+    fs.writeFileSync(file, `${JSON.stringify(legacy)}\n`, { mode: 0o600 });
+    const out = spawnSync(WRAPPER, [], { env: f.env, encoding: "utf8" });
+    expect(out.status).not.toBe(0);
+    expect(out.stderr).toContain("predates env identity");
+    expect(fs.existsSync(f.capture) ? fs.readFileSync(f.capture, "utf8") : "").not.toContain("runtime-stop");
   });
 
   it("writes UPDATE OK only after every fallback runtime has been restored", () => {

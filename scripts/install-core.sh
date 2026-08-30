@@ -411,6 +411,16 @@ else
 fi
 
 
+INSTALL_PHASE=runtime-safety
+# ---- freeze every runtime that can read this checkout before dependency/build mutation ----
+# The lifecycle remains open through service refresh. On failure, EXIT releases locks
+# but intentionally keeps gateway restore intent so a broken build is never served.
+# shellcheck source=scripts/lib/install-runtime-lifecycle.sh
+. "$DIR/scripts/lib/install-runtime-lifecycle.sh"
+trap install_runtime_lifecycle_cleanup EXIT
+trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
+install_runtime_lifecycle_begin
+
 INSTALL_PHASE=dependencies
 # ---- deps (compiles node-pty) ----
 info "installing dependencies…"
@@ -580,6 +590,13 @@ elif [ "$DO_SERVICE" -eq 1 ]; then
     warn "systemd is not available as PID 1 — service install skipped; run manually: PORT=$PORT bun run start"
   fi
 fi
+
+INSTALL_PHASE=runtime-restore
+# `.next` and service state are stable. Release the exclusive mutation lock before
+# local-start takes its shared side, then restore every previously-owned fallback
+# using the exact env-file identity persisted with that runtime.
+install_runtime_lifecycle_finish
+trap - EXIT HUP INT TERM
 
 INSTALL_PHASE=integrations
 # ---- optional Claude Code integration ----

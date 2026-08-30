@@ -12,6 +12,7 @@ STATE_ROOT_OVERRIDE="${MSO_GATEWAY_STATE_DIR:-}"
 STATE_ROOT=''
 GATEWAY_CANONICAL_ROOT=''
 GATEWAY_SCOPE_ID=''
+GATEWAY_ENV_IDENTITY=''
 CLOUDFLARED=""
 CURL="${MSO_GATEWAY_CURL:-$(command -v curl 2>/dev/null || true)}"
 
@@ -27,10 +28,10 @@ for dep in node jq sha256sum realpath stat mktemp flock; do command -v "$dep" >/
 . "$ROOT/scripts/lib/gateway-config.sh"
 
 # Direct `scripts/mso-gateway` calls and `mso gateway` must have the same runtime
-# environment. The file is owner/private checked before sourcing. cloudflared is
-# spawned later with a scrubbed environment so these secrets never reach it.
+# environment. Persist only the validated file identity — never env contents.
+GATEWAY_ENV_IDENTITY="$(gateway_env_identity)"
+gateway_assert_expected_env_identity "$GATEWAY_ENV_IDENTITY"
 if [ "$ENVF" != /dev/null ] && { [ -e "$ENVF" ] || [ -L "$ENVF" ]; }; then
-  gateway_safe_env_file
   # shellcheck disable=SC1090
   set -a; . "$ENVF"; set +a
 fi

@@ -70,7 +70,7 @@ if [ "${options.failInstallOnce ? "1" : "0"}" = 1 ] && [ "$1" = install ] && [ !
   const gatewayScope = path.join(home, ".mso/private/gateway/default-scope");
   fs.mkdirSync(gatewayScope, { recursive: true, mode: 0o700 }); fs.chmodSync(path.join(home, ".mso"), 0o700);
   fs.chmodSync(path.join(home, ".mso/private"), 0o700); fs.chmodSync(path.join(home, ".mso/private/gateway"), 0o700);
-  fs.writeFileSync(path.join(gatewayScope, "state.json"), JSON.stringify({ root: fs.realpathSync(repo), localUrl: "http://127.0.0.1:4555", runtimeOwned: true }) + "\n", { mode: 0o600 });
+  fs.writeFileSync(path.join(gatewayScope, "state.json"), JSON.stringify({ root: fs.realpathSync(repo), localUrl: "http://127.0.0.1:4555", runtimeOwned: true, envFile: { path: "/dev/null", dev: null, ino: null } }) + "\n", { mode: 0o600 });
   const env = { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, MSO_UPDATE_ROOT: repo,
     MSO_UPDATE_NOTICE_DIR: path.join(root, "notice"), MSO_UPDATE_STATE_DIR: path.join(root, "update-state"),
     MSO_RUNTIME_EXCLUSION_DIR: path.join(root, "runtime-exclusion"), MSO_UPDATE_LOCAL_URL: "http://127.0.0.1:4555" };

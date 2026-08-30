@@ -41,6 +41,14 @@ a gateway-owned runtime is quiesced, so an interrupted state update remains safe
 When `mso.service` is active, status also compares the commit baked into the live loopback `/api/health`
 response with source `HEAD`; source equality alone is not treated as proof that deployment finished.
 
+### Re-running the installer while MSO is already running
+
+Supported reruns now use the same checkout-wide mutation boundary as self-update before dependency install
+or `.next` build. A same-checkout service is quiesced and refreshed as part of the installer lifecycle;
+gateway-owned WSL/no-systemd fallbacks are inventoried, stopped and restored afterward with their original
+env-file identities. A service from another checkout, an unowned loopback runtime, or `--no-service` against
+an active same-checkout service is refused before mutation.
+
 ### `mso update` says the active service belongs to another checkout
 
 This is a safety refusal. A machine may contain multiple MSO clones, but an active `mso.service` has
@@ -53,6 +61,15 @@ MSO found a healthy loopback responder while `mso.service` is inactive, but that
 recorded as a gateway-owned fallback runtime. This is commonly a manual `bun run start`/`next start`.
 Stop that manual runtime first, then rerun `mso update`. MSO refuses here before dependency or `.next`
 mutation rather than rebuilding underneath a process that is actively serving the old build.
+
+### `mso update` says a gateway-owned runtime predates env identity
+
+The fallback was created by an older MSO version that did not record which env file launched it. MSO
+refuses before stopping that runtime because guessing `.env.local` could restart it with different auth,
+provider or public-origin configuration. Re-run the same local launcher once with the env file that runtime
+uses (for example `mso --env /same/private.env web`), then retry the update. This rewrites only the owner-only
+gateway lifecycle state with the env file's canonical path/device/inode; env contents are never copied into
+state. Do not delete the private restore/update state to bypass this check.
 
 ### `mso gateway start` says an offline update is mutating this checkout
 

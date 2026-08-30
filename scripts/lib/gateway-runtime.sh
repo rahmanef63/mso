@@ -4,14 +4,19 @@
 GATEWAY_EXPECTED_VERSION="$(node -p "require('$ROOT/package.json').version")" || gateway_fail "cannot read MSO version"
 
 gateway_runtime_from_state() {
-  local state="$1" identity owned instance
+  local state="$1" identity owned instance stored_env
   RUNTIME_IDENTITY='null'; RUNTIME_INSTANCE_ID=''; RUNTIME_OWNED=false; RUNTIME_STARTED_NOW=false
   owned="$(jq -r '.runtimeOwned // false' <<<"$state")"
   identity="$(jq -c '.runtimeIdentity // null' <<<"$state")"
   instance="$(jq -r '.runtimeIdentity.instanceId // empty' <<<"$state")"
-  if [ "$owned" = true ] && [ "$identity" != null ] && [ -n "$instance" ] \
-      && gateway_runtime_identity_matches "$identity"; then
-    RUNTIME_IDENTITY="$identity"; RUNTIME_INSTANCE_ID="$instance"; RUNTIME_OWNED=true
+  stored_env="$(jq -c '.envFile // null' <<<"$state")"
+  if [ "$owned" = true ] && [ "$identity" != null ] && [ -n "$instance" ]; then
+    # Legacy state may be migrated by one explicit local-start using the same env.
+    [ "$stored_env" = null ] || [ "$(jq -cS . <<<"$stored_env")" = "$(jq -cS . <<<"$GATEWAY_ENV_IDENTITY")" ] \
+      || gateway_fail "recorded runtime belongs to another env-file identity; use its original --env or stop it first"
+    if gateway_runtime_identity_matches "$identity"; then
+      RUNTIME_IDENTITY="$identity"; RUNTIME_INSTANCE_ID="$instance"; RUNTIME_OWNED=true
+    fi
   fi
 }
 gateway_start_runtime_if_needed() {
@@ -74,13 +79,13 @@ gateway_write_state() {
   local provider="$1" mode="$2" url="$3" tunnel_identity="$4"
   jq -nc --arg scopeId "$GATEWAY_SCOPE_ID" --arg root "$GATEWAY_CANONICAL_ROOT" \
     --arg provider "$provider" --arg mode "$mode" --arg url "$url" --arg local "$LOCAL_URL" \
-    --argjson tunnelIdentity "$tunnel_identity" --argjson runtimeIdentity "$RUNTIME_IDENTITY" \
-    --argjson runtimeOwned "$RUNTIME_OWNED" --arg startedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{scopeId:$scopeId,root:$root,provider:$provider,mode:$mode,url:$url,localUrl:$local,tunnelIdentity:$tunnelIdentity,
-      runtimeIdentity:$runtimeIdentity,runtimeOwned:$runtimeOwned,startedAt:$startedAt}' \
+    --argjson envFile "$GATEWAY_ENV_IDENTITY" --argjson tunnelIdentity "$tunnel_identity" \
+    --argjson runtimeIdentity "$RUNTIME_IDENTITY" --argjson runtimeOwned "$RUNTIME_OWNED" \
+    --arg startedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{scopeId:$scopeId,root:$root,provider:$provider,mode:$mode,url:$url,localUrl:$local,envFile:$envFile,
+      tunnelIdentity:$tunnelIdentity,runtimeIdentity:$runtimeIdentity,runtimeOwned:$runtimeOwned,startedAt:$startedAt}' \
     | mso_private_state_atomic_write "$STATE_FILE" >/dev/null
 }
-
 gateway_active_state() {
   local state identity rc
   if state="$(gateway_state_read)"; then :; else rc=$?; return "$rc"; fi
@@ -127,8 +132,6 @@ gateway_cmd_runtime_assert_update_safe_locked() {
   state="$(gateway_state_read)"
   runtime="$(jq -c '.runtimeIdentity // null' <<<"$state")"
   owned="$(jq -r '.runtimeOwned // false' <<<"$state")"
-  # A recorded owned runtime is handled by the subsequent checkout-wide quiesce
-  # inventory. Do not stop anything here: this command is intentionally read-only.
   if [ "$owned" = true ] && [ "$runtime" != null ]; then
     gateway_info "runtime: update-owned"
     return 0
@@ -158,9 +161,6 @@ gateway_cmd_runtime_stop_locked() {
       gateway_info "runtime: stopped-owned"
       return 0
     fi
-    # A prior attempt may have killed the verified runtime and then lost the
-    # state write. Reconcile only when durable intent exists, the recorded
-    # process identity is gone, and no other MSO responder owns the local port.
     if gateway_recovery_pending && ! gateway_runtime_process_matches "$runtime" && ! gateway_health_ok; then
       gateway_persist_quiesced_state "$state" \
         || gateway_fail "could not reconcile stale owned runtime; recovery marker preserved"

@@ -10,6 +10,35 @@ gateway_safe_env_file() {
     || gateway_fail "env file contains secrets and must not be group/world-accessible (got mode $mode)"
 }
 
+gateway_env_identity() {
+  local canonical dev ino
+  # Missing/default env and explicit /dev/null are the same runtime contract: no
+  # file is sourced. Persist /dev/null so a later restore cannot accidentally pick
+  # up a newly-created .env.local with different credentials.
+  if [ "$ENVF" = /dev/null ] || { [ ! -e "$ENVF" ] && [ ! -L "$ENVF" ]; }; then
+    jq -nc '{path:"/dev/null",dev:null,ino:null}'
+    return 0
+  fi
+  gateway_safe_env_file
+  canonical="$(realpath -e -- "$ENVF" 2>/dev/null || true)"
+  [ -n "$canonical" ] || gateway_fail "cannot canonicalize env file: $ENVF"
+  dev="$(stat -c '%d' -- "$ENVF")"; ino="$(stat -c '%i' -- "$ENVF")"
+  [[ "$dev" =~ ^[0-9]+$ && "$ino" =~ ^[0-9]+$ ]] || gateway_fail "cannot identify env file: $ENVF"
+  jq -nc --arg path "$canonical" --arg dev "$dev" --arg ino "$ino" '{path:$path,dev:$dev,ino:$ino}'
+}
+
+gateway_assert_expected_env_identity() {
+  local current="$1" expected="${MSO_GATEWAY_EXPECT_ENV_IDENTITY:-}"
+  [ -n "$expected" ] || return 0
+  jq -e 'type=="object" and (.path|type=="string") and
+    ((.path=="/dev/null" and .dev==null and .ino==null) or
+     ((.path|startswith("/")) and .path!="/dev/null" and
+      (.dev|type=="string" and test("^[0-9]+$")) and (.ino|type=="string" and test("^[0-9]+$"))))' <<<"$expected" >/dev/null 2>&1 \
+    || gateway_fail "invalid expected env-file identity"
+  [ "$(jq -cS . <<<"$current")" = "$(jq -cS . <<<"$expected")" ] \
+    || gateway_fail "env file identity changed while runtime was quiesced; restore state was preserved"
+}
+
 gateway_env_origin() {
   gateway_safe_env_file
   sed -n 's/^OS_PUBLIC_ORIGIN=//p' "$ENVF" | tail -1

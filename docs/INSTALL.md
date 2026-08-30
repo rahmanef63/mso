@@ -40,16 +40,19 @@ The installer core:
    shell's PATH;
 3. verifies whether the invoking shell will actually resolve `mso` after the child installer
    returns, and persists an idempotent `~/.local/bin` PATH fallback for future shells;
-4. installs Bun/dependencies as needed;
-5. creates private owner auth configuration when missing;
-6. runs the production build through `node node_modules/next/dist/bin/next build`, bypassing Bun's
+4. before dependency or `.next` mutation, acquires the same checkout transaction/runtime exclusion used by
+   self-update, validates every owned gateway fallback, quiesces an active service only when it belongs to
+   this checkout, then quiesces gateway-owned fallback runtimes while preserving their public tunnels;
+5. installs Bun/dependencies as needed;
+6. creates private owner auth configuration when missing;
+7. runs the production build through `node node_modules/next/dist/bin/next build`, bypassing Bun's
    package-bin remapper; if the Next package payload itself is absent, it performs one bounded
    `bun install --force` repair before failing;
-7. installs the `mso.service` system unit only when systemd is really PID 1 (not merely when a
+8. installs the `mso.service` system unit only when systemd is really PID 1 (not merely when a
    `systemctl` executable exists);
-8. enables the owner's lingering user manager needed by self-update/managed-app user units;
-9. activates the service only after a successful build;
-10. on a fresh interactive install with a verified running service, opens `/dev/tty` and launches `mso onboard`.
+9. enables the owner's lingering user manager needed by self-update/managed-app user units;
+10. activates the service only after a successful build;
+11. on a fresh interactive install with a verified running service, opens `/dev/tty` and launches `mso onboard`.
 
 Useful flags:
 
@@ -68,8 +71,11 @@ Useful flags:
 The public bootstrap is delivered through pipeline stdin, and the core deliberately does not
 make interactive setup depend on that stream. It prompts through `/dev/tty`. If there is no controlling terminal it
 never waits for input and tells the operator to run `mso onboard` later. Re-running the
-installer updates an existing installation with the same build-before-replace safety rule
-and does not repeat onboarding unless `--onboard` is requested.
+installer updates an existing installation under the same checkout-wide runtime lifecycle: a WSL/no-systemd
+fallback is stopped before dependency/build mutation and restored afterward, and an existing system service
+must belong to the same checkout before the installer may quiesce it. `--no-service` refuses to rebuild a
+checkout that is already serving through its system service. Onboarding is not repeated unless `--onboard`
+is requested.
 
 ### Guided onboarding
 
@@ -166,7 +172,11 @@ with Cloudflare auto-update disabled. The tunnel process also receives a scrubbe
 than inheriting MSO login/session/BYOK secrets from the application shell. If systemd is unavailable (common on WSL), it may start the
 already-built Next production runtime itself, still on `127.0.0.1`, and records whether that process
 is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. After TERM/SIGKILL, MSO re-verifies that the exact recorded process identity disappeared before deleting lifecycle state; an unverified survivor leaves state intact and the stop fails closed. Private state and logs are owner-only and scoped by the canonical checkout plus selected loopback
-origin. The fallback Next process uses the same held-child release handshake as Cloudflared, so neither
+origin. When a fallback is launched through a custom `mso --env /path/file web`, state stores only the
+validated env-file identity (canonical path, device and inode), never its secret contents. Update/installer
+restore revalidates that same owner/private non-symlink file and identity before sourcing it; a replacement
+or moved file fails closed while restore intent remains persisted instead of silently switching to
+`.env.local`. The fallback Next process uses the same held-child release handshake as Cloudflared, so neither
 child may execute before the parent records PID + kernel start-ticks. Gateway/update lifecycle
 transactions use kernel `flock`, which is released automatically when a process exits instead of
 trying to reclaim stale lock directories. A second checkout-wide shared/exclusive runtime lock blocks
@@ -450,7 +460,7 @@ service (including WSL without systemd), it performs the clean fast-forward/depe
 path locally. Before an offline build mutates dependencies or `.next`, MSO also verifies the selected
 loopback origin is either down or represented by gateway-owned lifecycle state; a manually started or
 otherwise unowned healthy MSO runtime is refused and must be stopped first. Before either the
-service-active or offline in-place build, update inventories every gateway state for the canonical checkout, quiesces each verified owned fallback runtime, leaves active tunnel identities intact, rebuilds, then restores every previously-owned origin. A
+service-active or offline in-place build, update inventories every gateway state for the canonical checkout, quiesces each verified owned fallback runtime, leaves active tunnel identities intact, rebuilds, then restores every previously-owned origin with the exact env-file identity recorded for that fallback. Older owned state that predates env identity is refused before the runtime is stopped; run the same `mso --env ... web`/gateway path once to migrate it safely. A
 checkout-scoped private deployment receipt and restart marker mean a dependency/build failure after
 Git already reached `origin/main` is retried by the next ordinary `mso update` instead of being
 mislabeled "already up to date". The state is keyed by canonical checkout path, so two clones at the

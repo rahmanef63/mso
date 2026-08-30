@@ -124,6 +124,22 @@ describe("one-line installer contract", () => {
     expect(src).toContain('CLI launcher self-check failed');
   });
 
+  it("holds the checkout runtime lifecycle across dependency/build and service refresh", () => {
+    const src = fs.readFileSync(CORE, "utf8");
+    const begin = src.indexOf("install_runtime_lifecycle_begin");
+    const deps = src.indexOf("INSTALL_PHASE=dependencies");
+    const build = src.indexOf('node "$NEXT_BIN" build');
+    const service = src.indexOf("# ---- systemd unit ----");
+    const finish = src.indexOf("install_runtime_lifecycle_finish");
+    expect(begin).toBeGreaterThan(0);
+    expect(begin).toBeLessThan(deps);
+    expect(deps).toBeLessThan(build);
+    expect(build).toBeLessThan(service);
+    expect(service).toBeLessThan(finish);
+    expect(src).toContain('trap install_runtime_lifecycle_cleanup EXIT');
+    expect(src).toContain('scripts/lib/install-runtime-lifecycle.sh');
+  });
+
   it("bypasses Bun bin remapping for production build and repairs only a missing package payload", () => {
     const src = fs.readFileSync(CORE, "utf8");
     expect(src).toContain('NEXT_BIN="$DIR/node_modules/next/dist/bin/next"');
