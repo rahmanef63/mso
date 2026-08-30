@@ -8,6 +8,7 @@ UPDATE_STATE_DIR_REQUESTED="${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-st
 LOCAL_URL="${MSO_UPDATE_LOCAL_URL:-${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}}"
 GATEWAY="$ROOT/scripts/mso-gateway"
 SELF_UPDATE="$ROOT/scripts/self-update.sh"
+LOG="${MSO_UPDATE_LOG:-$HOME/.mso/self-update.log}"
 
 fail() { printf 'mso service update: %s\n' "$*" >&2; exit 1; }
 [ -x "$GATEWAY" ] || fail "missing gateway lifecycle helper: $GATEWAY"
@@ -43,5 +44,8 @@ fi
 
 runtime_exclusion_release
 update_gateway_restore_all
+# Settings polls this exact marker. It belongs to the OUTER lifecycle, not the
+# inner build/restart stage: fallback restoration is part of update success.
+printf 'UPDATE OK\n' >>"$LOG" || fail "could not persist final update success marker"
 update_lock_release
 trap - EXIT HUP INT TERM

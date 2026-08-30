@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `update` emit success after runtime restore
 - `update` serialize all checkout runtimes
 - `gateway` reject active named tunnel switches
 - `gateway` serialize runtime recovery and updates

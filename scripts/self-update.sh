@@ -147,5 +147,5 @@ case "$TYPE" in
   *) die "chunk mismatch: $CSS served as '${TYPE:-nothing}'. Recover with: rm -rf .next && bun run build && sudo systemctl restart mso.service" ;;
 esac
 
-step "done — now at $(git rev-parse --short HEAD)"
-printf 'UPDATE OK\n'
+step "inner update stage complete — now at $(git rev-parse --short HEAD)"
+printf 'INNER STAGE COMPLETE\n'

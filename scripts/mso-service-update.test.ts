@@ -24,7 +24,7 @@ function state(home: string, name: string, root: string, localUrl: string, runti
   fs.writeFileSync(path.join(dir, "state.json"), `${JSON.stringify({ root, localUrl, runtimeOwned })}\n`, { mode: 0o600 });
 }
 
-function fixture(delayMs = 0) {
+function fixture(delayMs = 0, failRestoreUrl = "") {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "mso-service-update-")); roots.push(base);
   const repo = path.join(base, "repo"), home = path.join(base, "home"), capture = path.join(base, "capture");
   fs.mkdirSync(path.join(repo, "scripts/lib"), { recursive: true }); fs.mkdirSync(home);
@@ -33,7 +33,7 @@ function fixture(delayMs = 0) {
   fs.writeFileSync(path.join(repo, "scripts/mso-gateway"), `#!/bin/sh
 printf '%s %s\n' "$1" "\${MSO_GATEWAY_LOCAL_URL:-}" >> ${JSON.stringify(capture)}
 if [ "$1" = runtime-stop ]; then printf '1\n' > "$MSO_GATEWAY_RECOVERY_MARKER"; chmod 600 "$MSO_GATEWAY_RECOVERY_MARKER"; echo 'runtime: stopped-owned'; exit 0; fi
-[ "$1" = local-start ] && exit 0
+[ "$1" = local-start ] && { [ "${failRestoreUrl}" = "\${MSO_GATEWAY_LOCAL_URL:-}" ] && exit 31; exit 0; }
 exit 2
 `, { mode: 0o755 });
   fs.writeFileSync(path.join(repo, "scripts/self-update.sh"), `#!/bin/sh
@@ -71,6 +71,23 @@ describe("service-active update lifecycle", () => {
     expect(calls).not.toContain("4777");
     expect(calls.indexOf("runtime-stop")).toBeLessThan(calls.indexOf("self-start"));
     expect(calls.lastIndexOf("local-start")).toBeGreaterThan(calls.indexOf("self-end"));
+  });
+
+  it("writes UPDATE OK only after every fallback runtime has been restored", () => {
+    const f = fixture(); execFileSync(WRAPPER, [], { env: f.env, encoding: "utf8" });
+    const log = fs.readFileSync(path.join(f.env.HOME as string, ".mso/self-update.log"), "utf8");
+    expect(log).toContain("UPDATE OK");
+    const inner = fs.readFileSync(path.join(process.cwd(), "scripts/self-update.sh"), "utf8");
+    expect(inner).not.toContain("printf 'UPDATE OK");
+  });
+
+  it("does not leave a success marker when fallback restoration fails", () => {
+    const f = fixture(0, "http://127.0.0.1:4666");
+    const out = spawnSync(WRAPPER, [], { env: f.env, encoding: "utf8" });
+    expect(out.status).not.toBe(0);
+    expect(out.stderr).toContain("fallback runtime restore failed");
+    const log = path.join(f.env.HOME as string, ".mso/self-update.log");
+    expect(fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "").not.toContain("UPDATE OK");
   });
 
   it("fails closed on a corrupt persisted gateway restore inventory", () => {
