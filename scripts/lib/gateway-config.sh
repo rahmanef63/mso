@@ -101,14 +101,20 @@ gateway_cmd_web() {
   done
   case "$mode" in
     public)
-      if state="$(gateway_active_state)"; then url="$(jq -r .url <<<"$state")"
+      if state="$(gateway_active_state)"; then
+        gateway_with_lock gateway_with_runtime_shared gateway_cmd_start_locked >/dev/null
+        state="$(gateway_active_state)" || gateway_fail "public gateway stopped during reconciliation"
+        url="$(jq -r .url <<<"$state")"
       else rc=$?; [ "$rc" = 1 ] || return "$rc"; gateway_fail "public gateway is not running; run: mso gateway start"; fi ;;
-    local) gateway_health_ok || gateway_with_lock gateway_cmd_local_start_locked >/dev/null; url="$LOCAL_URL" ;;
+    local) gateway_health_ok || gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked >/dev/null; url="$LOCAL_URL" ;;
     auto)
-      if state="$(gateway_active_state)"; then url="$(jq -r .url <<<"$state")"
+      if state="$(gateway_active_state)"; then
+        gateway_with_lock gateway_with_runtime_shared gateway_cmd_start_locked >/dev/null
+        state="$(gateway_active_state)" || gateway_fail "public gateway stopped during reconciliation"
+        url="$(jq -r .url <<<"$state")"
       else rc=$?; [ "$rc" = 1 ] || return "$rc"
         if [ -n "${OS_PUBLIC_ORIGIN:-}" ]; then url="$(gateway_validate_public_origin "$OS_PUBLIC_ORIGIN" 2>/dev/null || true)"
-        else gateway_health_ok || gateway_with_lock gateway_cmd_local_start_locked >/dev/null; url="$LOCAL_URL"; fi
+        else gateway_health_ok || gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked >/dev/null; url="$LOCAL_URL"; fi
       fi ;;
   esac
   case "$url" in http:*) url="$(gateway_validate_loopback_origin "$url" 2>/dev/null || true)" ;;

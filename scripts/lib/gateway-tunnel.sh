@@ -157,7 +157,7 @@ gateway_cleanup_failed_start() {
 
 gateway_cmd_start_locked() {
   local state active rc
-  if active="$(gateway_active_state)"; then gateway_cmd_status; return 0; else rc=$?; fi
+  if active="$(gateway_active_state)"; then gateway_reconcile_active_tunnel "$active"; return 0; else rc=$?; fi
   [ "$rc" = 1 ] || return "$rc"
   [ -z "$GATEWAY_CONFIG$GATEWAY_TUNNEL" ] || gateway_validate_named_tunnel
   gateway_resolve_cloudflared

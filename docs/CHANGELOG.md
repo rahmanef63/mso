@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `gateway` serialize runtime recovery and updates
 - `gateway` close final lifecycle boundaries
 - `gateway` close tunnel fork signal race
 - `gateway` serialize offline recovery state

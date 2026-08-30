@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 const SCRIPT = path.join(process.cwd(), "scripts/mso-update");
 const PRIVATE = path.join(process.cwd(), "scripts/lib/private-state.sh");
 const UPDATE_STATE = path.join(process.cwd(), "scripts/lib/update-state.sh");
+const RUNTIME_EXCLUSION = path.join(process.cwd(), "scripts/lib/runtime-exclusion.sh");
 const roots: string[] = [];
 
 function git(cwd: string, ...args: string[]) { return execFileSync("git", args, { cwd, encoding: "utf8" }).trim(); }
@@ -16,6 +17,7 @@ function fixture(options: { failInstallOnce?: boolean; activeService?: "same" | 
   fs.mkdirSync(path.join(repo, "scripts/lib"), { recursive: true }); fs.mkdirSync(path.join(repo, "bin")); fs.mkdirSync(bin);
   fs.copyFileSync(PRIVATE, path.join(repo, "scripts/lib/private-state.sh"));
   fs.copyFileSync(UPDATE_STATE, path.join(repo, "scripts/lib/update-state.sh"));
+  fs.copyFileSync(RUNTIME_EXCLUSION, path.join(repo, "scripts/lib/runtime-exclusion.sh"));
   fs.writeFileSync(path.join(repo, "scripts/verify-build.sh"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   fs.writeFileSync(path.join(repo, "scripts/mso-gateway"), `#!/bin/sh
 printf 'gateway %s\\n' "$*" >> "${capture}"
@@ -160,6 +162,25 @@ describe("mso update without a running web API", () => {
     expect((calls.match(/gateway runtime-stop/g) ?? [])).toHaveLength(1);
     expect((calls.match(/gateway local-start/g) ?? [])).toHaveLength(1);
     expect([a.stdout, b.stdout].join("\n")).toContain("offline deployment receipt matches");
+  });
+
+  it("holds the checkout-wide runtime exclusion exclusively through the mutable build phase", async () => {
+    const f = fixture({ installDelayMs: 900 });
+    const exclusionBase = path.join(f.root, "runtime-exclusion");
+    const env = { ...f.env, MSO_RUNTIME_EXCLUSION_DIR: exclusionBase };
+    const update = runAsync(env);
+    for (let i = 0; i < 120; i++) {
+      if (fs.existsSync(f.capture) && fs.readFileSync(f.capture, "utf8").includes("bun install")) break;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    const key = require("node:crypto").createHash("sha256").update(fs.realpathSync(f.repo)).digest("hex");
+    const lock = path.join(exclusionBase, key, "runtime.lock");
+    expect(fs.existsSync(lock)).toBe(true);
+    const during = spawnSync("flock", ["-s", "-n", lock, "-c", "true"], { encoding: "utf8" });
+    expect(during.status).not.toBe(0);
+    const result = await update; expect(result.code).toBe(0);
+    const after = spawnSync("flock", ["-s", "-n", lock, "-c", "true"], { encoding: "utf8" });
+    expect(after.status).toBe(0);
   });
 
   it("prints an update notice from cached Git state without touching the web API", () => {

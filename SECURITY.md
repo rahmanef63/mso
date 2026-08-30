@@ -38,8 +38,10 @@ application roles, but they still share the same deployment and underlying Unix 
   Tunnel and fallback-runtime startup additionally use a parent/child release handshake, so neither
   Cloudflared nor Next can execute before its process lifetime is tracked; interruption before release
   makes the held child self-exit. Gateway state is namespaced by canonical checkout + loopback origin,
-  lifecycle/update serialization uses crash-released kernel `flock`, and public readiness must match
-  the exact local build/runtime identity rather than only the MSO version.
+  lifecycle/update serialization uses crash-released kernel `flock`; a checkout-wide runtime
+  exclusion prevents `mso web`/gateway runtime starts during offline `.next` mutation, and a live
+  tunnel with a dead local runtime is reconciled before reuse. Public readiness must match the exact
+  local build/runtime identity rather than only the MSO version.
 - Use `NEXT_PUBLIC_OS_DEMO=1` only in a separate mock-only public demo checkout.
 
 The core gateway client follows the same immutable-artifact rule as managed apps: MSO pins the

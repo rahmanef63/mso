@@ -169,7 +169,12 @@ is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflare
 origin. The fallback Next process uses the same held-child release handshake as Cloudflared, so neither
 child may execute before the parent records PID + kernel start-ticks. Gateway/update lifecycle
 transactions use kernel `flock`, which is released automatically when a process exits instead of
-trying to reclaim stale lock directories. Before a public tunnel is accepted, MSO snapshots the
+trying to reclaim stale lock directories. A second checkout-wide shared/exclusive runtime lock blocks
+`mso web`/`gateway start` while an offline update is mutating `.next`; the updater releases that
+exclusive lock only after the build tree and deployment receipt are stable, then restores the runtime.
+If a tunnel is still alive but its local runtime died, `mso gateway start` reconciles/restarts the
+runtime, preserves the existing tunnel identity, and re-verifies the public endpoint before reporting
+success. Before a public tunnel is accepted, MSO snapshots the
 selected local `{version, buildId, runtimeInstanceId}` and requires the HTTPS endpoint to return the
 exact same identity; a same-version deployment routed from the wrong hostname is rejected.
 

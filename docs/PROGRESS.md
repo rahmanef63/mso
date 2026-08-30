@@ -40,7 +40,11 @@ self-terminates. The same handshake now protects the detached Next fallback. Fin
 gateway/update serialization to kernel `flock` (no stale-lock ABA reclaim), scoped gateway state by
 canonical checkout + selected loopback origin, and made public readiness compare the exact local
 `version + buildId + runtimeInstanceId`. This closes the cross-clone control and wrong-deployment
-readiness classes without widening the raw app bind.
+readiness classes without widening the raw app bind. The last P1 review pass added a checkout-wide
+shared/exclusive runtime exclusion: offline update owns it exclusively through `.next` mutation and
+deployment-receipt persistence, while all runtime-start paths take the shared side. An already-live
+tunnel is no longer treated as sufficient proof of readiness; `gateway start` recovers a dead local
+runtime, preserves the tunnel PID, and re-probes the exact public health identity before success.
 
 The global response policy additionally sends `X-Robots-Tag: noindex, nofollow, noarchive` because an
 MSO control plane should not be indexed merely because a temporary HTTPS endpoint exists. The

@@ -12,6 +12,8 @@ GATEWAY="$ROOT/scripts/mso-gateway"
 . "$ROOT/scripts/lib/private-state.sh"
 # shellcheck source=scripts/lib/update-state.sh
 . "$ROOT/scripts/lib/update-state.sh"
+# shellcheck source=scripts/lib/runtime-exclusion.sh
+. "$ROOT/scripts/lib/runtime-exclusion.sh"
 
 fail() { printf 'mso update: %s\n' "$*" >&2; exit 1; }
 git_root() { [ "$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)" = "$ROOT" ]; }
@@ -118,15 +120,20 @@ offline_build_locked() {
     return 0
   fi
 
-  # Never mutate .next under a gateway-owned detached Next process. If an earlier
-  # attempt failed after quiescing it, the private restart marker survives and the
-  # next ordinary `mso update` finishes the deployment instead of trusting HEAD.
+  # Exclude every local-start/gateway-start from this checkout while .next can
+  # change. Runtime-starting gateway paths take a shared lock; this updater holds
+  # the exclusive side through quiesce/install/verify/build/receipt. The lock is
+  # released only after the build tree is stable, then restoration may safely race
+  # another post-build local-start without serving a partially-mutated .next.
+  runtime_exclusion_acquire_exclusive \
+    || fail "could not acquire checkout runtime exclusion; another runtime start/update is active"
   quiesce_offline_runtime
   (cd "$ROOT" && bun install) || fail "dependency install failed"
   (cd "$ROOT" && bash scripts/verify-build.sh) || fail "candidate build verification failed"
   (cd "$ROOT" && node node_modules/next/dist/bin/next build) || fail "production build failed"
-  restore_offline_runtime
   write_receipt
+  runtime_exclusion_release
+  restore_offline_runtime
   if restart_pending; then fail "runtime restart marker remained after restore"; fi
   printf 'updated to %s. No system service was active; run: mso web\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
 }

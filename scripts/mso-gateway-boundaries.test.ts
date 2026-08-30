@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -55,6 +55,25 @@ esac
     expect(out.stderr).toContain("public endpoint did not return the MSO health contract");
     expect(fs.existsSync(path.join(f.state, "state.json"))).toBe(false);
   }, 15_000);
+
+  it("refuses local runtime starts while an offline update holds the checkout exclusion", async () => {
+    const f = fixture(), base = path.join(f.dir, "runtime-exclusion");
+    const key = require("node:crypto").createHash("sha256").update(fs.realpathSync(ROOT)).digest("hex");
+    const dir = path.join(base, key); fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    fs.chmodSync(base, 0o700); fs.chmodSync(dir, 0o700);
+    const lock = path.join(dir, "runtime.lock"); fs.writeFileSync(lock, "", { mode: 0o600 });
+    const holder = spawn("flock", ["-x", lock, "-c", "sleep 2"], { stdio: "ignore" });
+    await new Promise((r) => setTimeout(r, 100));
+    try {
+      const out = spawnSync(GATEWAY, ["local-start"], { encoding: "utf8", env: { ...f.baseEnv,
+        MSO_RUNTIME_EXCLUSION_DIR: base, MSO_RUNTIME_EXCLUSION_TIMEOUT_SECONDS: "0.1" } });
+      expect(out.status).not.toBe(0);
+      expect(out.stderr).toContain("offline update is mutating this checkout");
+    } finally {
+      try { holder.kill("SIGTERM"); } catch {}
+      await new Promise<void>((resolve) => holder.once("close", () => resolve()));
+    }
+  });
 
   it("uses kernel flock locks instead of stale-directory reclamation", () => {
     for (const name of ["gateway-lock.sh", "update-state.sh"]) {

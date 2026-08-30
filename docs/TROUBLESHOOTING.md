@@ -47,6 +47,12 @@ This is a safety refusal. A machine may contain multiple MSO clones, but an acti
 one canonical `WorkingDirectory`. Run the update from that checkout (normally the directory targeted
 by the installer) instead of letting a secondary clone rebuild itself and restart someone else's unit.
 
+### `mso gateway start` says an offline update is mutating this checkout
+
+This is an intentional safety exclusion. An offline `mso update` holds the checkout-wide runtime lock
+while `.next` can change, so `mso web`, onboarding fallback, and gateway runtime recovery cannot start
+Next from a partially-mutated build. Let the update finish, then rerun the same gateway/web command.
+
 ### `mso gateway start` cannot install or verify cloudflared
 
 Current MSO installs a reviewed `cloudflared` release automatically into `~/.mso/tools` on first

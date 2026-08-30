@@ -60,6 +60,8 @@ GATEWAY_LOCK_FD=''
 . "$ROOT/scripts/lib/gateway-tool.sh"
 # shellcheck source=scripts/lib/gateway-lock.sh
 . "$ROOT/scripts/lib/gateway-lock.sh"
+# shellcheck source=scripts/lib/runtime-exclusion.sh
+. "$ROOT/scripts/lib/runtime-exclusion.sh"
 # shellcheck source=scripts/lib/gateway-health.sh
 . "$ROOT/scripts/lib/gateway-health.sh"
 # shellcheck source=scripts/lib/gateway-recovery.sh
@@ -70,8 +72,16 @@ GATEWAY_LOCK_FD=''
 . "$ROOT/scripts/lib/gateway-pending.sh"
 # shellcheck source=scripts/lib/gateway-tunnel.sh
 . "$ROOT/scripts/lib/gateway-tunnel.sh"
+# shellcheck source=scripts/lib/gateway-reconcile.sh
+. "$ROOT/scripts/lib/gateway-reconcile.sh"
+gateway_with_runtime_shared() {
+  runtime_exclusion_acquire_shared || gateway_fail "offline update is mutating this checkout; retry after mso update finishes"
+  "$@"
+  runtime_exclusion_release
+}
+
 case "${1:-status}" in
-  start) gateway_parse_start_args "$@"; gateway_with_lock gateway_cmd_start_locked ;;
+  start) gateway_parse_start_args "$@"; gateway_with_lock gateway_with_runtime_shared gateway_cmd_start_locked ;;
   stop) gateway_with_lock gateway_cmd_stop_locked ;;
   status) gateway_cmd_status ;;
   url) gateway_cmd_url ;;
@@ -79,7 +89,7 @@ case "${1:-status}" in
   install) gateway_cmd_install_tool ;;
   domain) shift; gateway_cmd_domain "$@" ;;
   web) gateway_cmd_web "$@" ;;
-  local-start) gateway_with_lock gateway_cmd_local_start_locked ;; # internal: onboard/web/update fallback
+  local-start) gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked ;; # internal: onboard/web/update fallback
   runtime-stop) gateway_with_lock gateway_cmd_runtime_stop_locked ;; # internal: quiesce owned runtime before offline build
   *) gateway_fail "usage: mso gateway start|stop|status|url|doctor|install|domain ..." ;;
 esac
