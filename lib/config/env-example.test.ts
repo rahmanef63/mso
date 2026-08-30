@@ -21,6 +21,7 @@ const NOT_A_KNOB: Record<string, string> = {
   // Injected by the framework or the runtime.
   NEXT_RUNTIME: "set by Next itself",
   NEXT_PUBLIC_BUILD_ID: "injected by next.config.mjs at build time",
+  MSO_RUNTIME_INSTANCE_ID: "injected by the installer-managed service to prove restart readiness",
   VITEST: "set by the test runner",
   // The OS gives these to every process.
   SHELL: "the OS's",

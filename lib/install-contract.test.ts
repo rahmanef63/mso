@@ -22,12 +22,35 @@ describe("one-line installer contract", () => {
     expect(src).toContain('FRESH_INSTALL=1');
   });
 
-  it("makes mso discoverable immediately and persists the user PATH fallback", () => {
+  it("installs the CLI before service setup and proves it against the invoking PATH", () => {
     const src = fs.readFileSync(INSTALL, "utf8");
-    expect(src).toContain("SYSTEM_CLI=/usr/local/bin/mso");
+    expect(src.indexOf("# ---- CLI on PATH")).toBeLessThan(src.indexOf("# ---- systemd unit ----"));
+    expect(src).toContain('PARENT_PATH="${PATH:-}"');
+    expect(src).toContain('PARENT_CWD="$PWD"');
+    expect(src).toContain('normalize_parent_path()');
+    expect(src).toContain('PARENT_PATH_RESOLVED="$(normalize_parent_path "$PARENT_PATH" "$PARENT_CWD")"');
+    expect(src).toContain('SYSTEM_BIN_DIR="${MSO_SYSTEM_BIN_DIR:-/usr/local/bin}"');
+    expect(src).toContain('PATH="$PARENT_PATH_RESOLVED" command -v mso');
+    expect(src).toContain('"$BIN_DIR/mso" -h');
     expect(src).toContain("# >>> mso cli >>>");
     expect(src).toContain('export PATH="$BIN_DIR:$PATH"');
-    expect(src).toContain('command -v mso');
+    expect(src).toContain('custom MSO_BIN_DIR is not persisted automatically');
+  });
+
+  it("requires systemd as PID 1 before service setup and gates onboarding on verified health", () => {
+    const src = fs.readFileSync(INSTALL, "utf8");
+    expect(src).toContain("systemd_ready()");
+    expect(src).toContain("/proc/1/comm");
+    expect(src).toContain('= "systemd"');
+    expect(src).toContain("WSL detected without systemd as PID 1");
+    expect(src).toContain("SERVICE_READY=1");
+    expect(src).toContain("SERVICE_ATTEMPTED=1");
+    expect(src).toContain('elif [ "$SERVICE_ATTEMPTED" -eq 1 ]; then');
+    expect(src.indexOf('elif [ "$SERVICE_ATTEMPTED" -eq 1 ]; then')).toBeLessThan(src.indexOf('elif is_wsl; then'));
+    expect(src).toContain('RUNTIME_INSTANCE_ID="$(rand_hex 16)"');
+    expect(src).toContain('Environment=MSO_RUNTIME_INSTANCE_ID=$RUNTIME_INSTANCE_ID');
+    expect(src).toContain('[ "$now_instance" = "$RUNTIME_INSTANCE_ID" ]');
+    expect(src).toContain('[ "$RUN_ONBOARD" -eq 1 ] && [ "$SERVICE_READY" -eq 1 ]');
   });
 
   it("verifies a commit-pinned Bun bootstrap before execution", () => {

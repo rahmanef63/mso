@@ -8,6 +8,11 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `install` bind readiness to runtime instance
+- `install` preserve caller path semantics
+- `install` prove stable-id service takeover
+- `install` keep security hint literal
+- `install` make WSL CLI setup reliable
 - `security` harden GitHub quality controls
 - `security` canonicalize writable path containment
 
