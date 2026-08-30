@@ -16,6 +16,8 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 cd "$ROOT" || exit 1
+# shellcheck source=scripts/lib/update-git-authority.sh
+. "$ROOT/scripts/lib/update-git-authority.sh"
 
 LOG="${MSO_UPDATE_LOG:-$HOME/.mso/self-update.log}"
 mkdir -p "$(dirname "$LOG")"
@@ -60,11 +62,19 @@ fi
 if [ "$REBUILD_ONLY" -eq 0 ]; then
   step "fetching origin/main"
   git fetch --quiet origin main || die "could not reach the remote"
-  step "fast-forwarding"
-  # --ff-only, never a merge: this checkout must stay a mirror of main. A refusal
-  # here means someone committed on the host, and silently merging their work into
-  # a deploy is worse than stopping.
-  git merge --ff-only origin/main || die "cannot fast-forward — the checkout has diverged from origin/main"
+  step "verifying remote authority / fast-forwarding"
+  read -r RELATION AHEAD_COUNT BEHIND_COUNT < <(update_git_relation "$ROOT") \
+    || die "could not compare checkout with origin/main"
+  case "$RELATION" in
+    exact) ;;
+    behind) git merge --ff-only origin/main || die "cannot fast-forward — the checkout has diverged from origin/main" ;;
+    ahead) die "local main is ahead of origin/main by $AHEAD_COUNT commit(s); refusing to deploy unpushed code" ;;
+    diverged) die "local main has diverged from origin/main (ahead $AHEAD_COUNT, behind $BEHIND_COUNT)" ;;
+    *) die "unknown Git authority state" ;;
+  esac
+  read -r RELATION AHEAD_COUNT BEHIND_COUNT < <(update_git_relation "$ROOT") \
+    || die "could not re-check origin/main after fast-forward"
+  [ "$RELATION" = exact ] || die "checkout does not exactly match origin/main after update"
   git log -1 --format='now at %h — %s'
 
   step "installing dependencies"

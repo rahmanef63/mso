@@ -34,6 +34,7 @@ function fixture() {
     "scripts/lib/update-state.sh",
     "scripts/lib/runtime-exclusion.sh",
     "scripts/lib/update-gateway-runtimes.sh",
+    "scripts/lib/update-git-authority.sh",
   ]) copy(repo, rel);
   fs.writeFileSync(
     path.join(fakebin, "curl"),

@@ -20,6 +20,7 @@ function fixture(options: { failInstallOnce?: boolean; activeService?: "same" | 
   fs.copyFileSync(UPDATE_STATE, path.join(repo, "scripts/lib/update-state.sh"));
   fs.copyFileSync(RUNTIME_EXCLUSION, path.join(repo, "scripts/lib/runtime-exclusion.sh"));
   fs.copyFileSync(UPDATE_GATEWAYS, path.join(repo, "scripts/lib/update-gateway-runtimes.sh"));
+  fs.copyFileSync(path.join(process.cwd(), "scripts/lib/update-git-authority.sh"), path.join(repo, "scripts/lib/update-git-authority.sh"));
   fs.copyFileSync(SERVICE_UPDATE, path.join(repo, "scripts/mso-service-update")); fs.chmodSync(path.join(repo, "scripts/mso-service-update"), 0o755);
   fs.writeFileSync(path.join(repo, "scripts/self-update.sh"), `#!/bin/sh\nprintf 'self-update %s\\n' "$*" >> "${capture}"\n`, { mode: 0o755 });
   fs.writeFileSync(path.join(repo, "scripts/verify-build.sh"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
@@ -76,7 +77,6 @@ if [ "${options.failInstallOnce ? "1" : "0"}" = 1 ] && [ "$1" = install ] && [ !
     MSO_RUNTIME_EXCLUSION_DIR: path.join(root, "runtime-exclusion"), MSO_UPDATE_LOCAL_URL: "http://127.0.0.1:4555" };
   return { root, repo, remote, old, newer, capture, env, home };
 }
-
 function receipts(base: string) {
   if (!fs.existsSync(base)) return [] as Array<{ path: string; root: string; sha: string }>;
   return fs.readdirSync(base, { withFileTypes: true }).filter((e) => e.isDirectory()).flatMap((e) => {

@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `runtime` close update authority and stop races
 - `runtime` preserve installer and env lifecycles
 - `runtime` serialize deploy and service starts
 - `gateway` recheck web state under lock

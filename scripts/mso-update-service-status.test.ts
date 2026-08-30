@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const SCRIPT = path.join(process.cwd(), "scripts/mso-update");
-const LIBS = ["private-state.sh", "update-state.sh", "runtime-exclusion.sh", "update-gateway-runtimes.sh"];
+const LIBS = ["private-state.sh", "update-state.sh", "runtime-exclusion.sh", "update-gateway-runtimes.sh", "update-git-authority.sh"];
 const roots: string[] = [];
 
 function git(cwd: string, ...args: string[]) {

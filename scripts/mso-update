@@ -16,23 +16,19 @@ GATEWAY="$ROOT/scripts/mso-gateway"
 . "$ROOT/scripts/lib/runtime-exclusion.sh"
 # shellcheck source=scripts/lib/update-gateway-runtimes.sh
 . "$ROOT/scripts/lib/update-gateway-runtimes.sh"
-
+# shellcheck source=scripts/lib/update-git-authority.sh
+. "$ROOT/scripts/lib/update-git-authority.sh"
 fail() { printf 'mso update: %s\n' "$*" >&2; exit 1; }
 git_root() { [ "$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)" = "$ROOT" ]; }
 current_version() { sed -n 's/^VERSION="\([^"]*\)".*/\1/p' "$ROOT/bin/mso" | head -1; }
 remote_version() { git -C "$ROOT" show origin/main:bin/mso 2>/dev/null | sed -n 's/^VERSION="\([^"]*\)".*/\1/p' | head -1; }
-behind() { git -C "$ROOT" rev-list --count HEAD..origin/main 2>/dev/null || printf 0; }
-
 require_checkout() {
   git_root || fail "$ROOT is not a Git checkout; reinstall from the official repository"
   [ "$(git -C "$ROOT" branch --show-current)" = main ] || fail "updates require the installed checkout to be on main"
   [ -z "$(git -C "$ROOT" status --porcelain)" ] || fail "checkout has local changes; refusing to overwrite them"
 }
-
 fetch_main() { git -C "$ROOT" fetch --quiet origin main || fail "could not reach origin/main"; }
-
 service_is_active() { command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet mso.service; }
-
 service_port() {
   local raw port
   raw="$(systemctl show -p Environment --value mso.service 2>/dev/null || true)"
@@ -40,7 +36,6 @@ service_port() {
   if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then port=4005; fi
   printf '%s' "$port"
 }
-
 service_build_sha() {
   local timeout="${1:-3}" port body sha
   port="$(service_port)"
@@ -52,7 +47,6 @@ service_build_sha() {
   ' 2>/dev/null)" || return 1
   printf '%s' "$sha"
 }
-
 require_service_checkout() {
   local configured canonical_root canonical_service
   configured="$(systemctl show -p WorkingDirectory --value mso.service 2>/dev/null || true)"
@@ -64,10 +58,19 @@ require_service_checkout() {
   [ "$canonical_service" = "$canonical_root" ] \
     || fail "active mso.service belongs to $canonical_service, not this checkout $canonical_root; run update from the service checkout"
 }
-
 print_status() {
-  local n local_v remote_v head receipt=''
-  require_checkout; fetch_main; n="$(behind)"; local_v="$(current_version)"; remote_v="$(remote_version)"; head="$(git -C "$ROOT" rev-parse HEAD)"
+  local relation ahead n local_v remote_v head receipt=''
+  require_checkout; fetch_main
+  read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
+  local_v="$(current_version)"; remote_v="$(remote_version)"; head="$(git -C "$ROOT" rev-parse HEAD)"
+  if [ "$relation" = ahead ]; then
+    printf 'local main is ahead of origin/main by %s commit%s; refusing to deploy unpushed code. push/reset the checkout first.\n' "$ahead" "$([ "$ahead" = 1 ] || printf s)"
+    return
+  fi
+  if [ "$relation" = diverged ]; then
+    printf 'local main has diverged from origin/main (ahead %s, behind %s); refusing update. reconcile the checkout first.\n' "$ahead" "$n"
+    return
+  fi
   if [ "$n" -gt 0 ]; then
     printf 'update available: mso %s -> %s (%s commit%s)\n' "${local_v:-unknown}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)"
     git -C "$ROOT" log --format='  %h  %s' -5 HEAD..origin/main
@@ -96,9 +99,8 @@ print_status() {
     printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "${head:0:7}"
   fi
 }
-
 notice() {
-  local dir stamp now last=0 n local_v remote_v
+  local dir stamp now last=0 relation ahead n local_v remote_v
   git_root || return 0
   [ "$(git -C "$ROOT" branch --show-current 2>/dev/null || true)" = main ] || return 0
   dir="$(mso_private_state_dir "$NOTICE_DIR")" || return 0; stamp="$dir/last-fetch"; now="$(date +%s)"
@@ -107,7 +109,12 @@ notice() {
     printf '%s\n' "$now" | mso_private_state_atomic_write "$stamp" >/dev/null 2>&1 || true
     (cd "$ROOT" && nohup git fetch --quiet origin main >/dev/null 2>&1 </dev/null &) || true
   fi
-  n="$(behind)"
+  read -r relation ahead n < <(update_git_relation "$ROOT") || return 0
+  if [ "$relation" = ahead ] || [ "$relation" = diverged ]; then
+    printf 'MSO update refused: local main is %s origin/main (ahead %s, behind %s). Reconcile/push the checkout first.\n' \
+      "$relation" "$ahead" "$n" >&2
+    return 0
+  fi
   if [ "$n" -gt 0 ]; then
     local_v="$(current_version)"; remote_v="$(remote_version)"
     printf 'MSO update available: %s -> %s (%s commit%s). Run: mso update\n' \
@@ -137,9 +144,18 @@ offline_build_locked() {
   service_is_active && fail "mso.service became active while waiting for the offline update lock; rerun mso update"
   init_update_state
   if [ "$rebuild_only" != 1 ]; then
+    local relation ahead
     fetch_main
-    n="$(behind)"
-    [ "$n" -eq 0 ] || git -C "$ROOT" merge --ff-only origin/main || fail "cannot fast-forward to origin/main"
+    read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
+    case "$relation" in
+      exact) ;;
+      behind) git -C "$ROOT" merge --ff-only origin/main || fail "cannot fast-forward to origin/main" ;;
+      ahead) fail "local main is ahead of origin/main by $ahead commit(s); refusing to deploy unpushed code" ;;
+      diverged) fail "local main has diverged from origin/main (ahead $ahead, behind $n); reconcile it before update" ;;
+      *) fail "unknown Git authority state" ;;
+    esac
+    read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not re-check origin/main after fast-forward"
+    [ "$relation" = exact ] || fail "checkout does not exactly match origin/main after update; refusing deployment"
   fi
   head="$(git -C "$ROOT" rev-parse HEAD)"
   if [ -e "$DEPLOY_RECEIPT" ] || [ -L "$DEPLOY_RECEIPT" ]; then receipt="$(read_receipt)"; fi

@@ -171,7 +171,7 @@ never changes the application bind to `0.0.0.0`. The tool cache is user-local an
 with Cloudflare auto-update disabled. The tunnel process also receives a scrubbed environment rather
 than inheriting MSO login/session/BYOK secrets from the application shell. If systemd is unavailable (common on WSL), it may start the
 already-built Next production runtime itself, still on `127.0.0.1`, and records whether that process
-is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. After TERM/SIGKILL, MSO re-verifies that the exact recorded process identity disappeared before deleting lifecycle state; an unverified survivor leaves state intact and the stop fails closed. Private state and logs are owner-only and scoped by the canonical checkout plus selected loopback
+is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. After TERM/SIGKILL, MSO re-verifies that the exact recorded process identity disappeared before deleting lifecycle state; an unverified survivor leaves state intact and the stop fails closed. User-facing `gateway stop` also takes the checkout update transaction lock before the gateway lifecycle lock, so an in-flight update/installer must finish its runtime restore first; the operator's later stop is therefore final instead of being undone by stale restore inventory. Internal updater `runtime-stop` deliberately does not reacquire that transaction lock. Private state and logs are owner-only and scoped by the canonical checkout plus selected loopback
 origin. When a fallback is launched through a custom `mso --env /path/file web`, state stores only the
 validated env-file identity (canonical path, device and inode), never its secret contents. Update/installer
 restore revalidates that same owner/private non-symlink file and identity before sourcing it; a replacement
@@ -452,7 +452,7 @@ mso update            # preferred: update safely even if :4005 is down
 mso update log
 ```
 
-The updater verifies the incoming checkout/build before replacing the service. With an active
+The updater verifies the incoming checkout/build before replacing the service. A normal `mso update` treats fetched `origin/main` as the release authority: after any fast-forward, local `main` must equal that remote commit exactly. A clean branch that is locally ahead or diverged is refused before dependency/build mutation instead of deploying unpushed code. `mso update status` reports that state explicitly. `mso update --rebuild` is different by design: it rebuilds the already-selected clean checkout without changing Git history. With an active
 `mso.service` it first canonicalizes the unit's `WorkingDirectory` and requires it to equal the checkout
 that invoked `mso update`; a secondary clone is never allowed to restart an unrelated live service.
 The updater then runs outside that service cgroup so it survives the restart. With no active

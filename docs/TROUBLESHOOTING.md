@@ -41,6 +41,14 @@ a gateway-owned runtime is quiesced, so an interrupted state update remains safe
 When `mso.service` is active, status also compares the commit baked into the live loopback `/api/health`
 response with source `HEAD`; source equality alone is not treated as proof that deployment finished.
 
+### `mso update` says local main is ahead/diverged from `origin/main`
+
+This is an authority refusal, not an updater failure. Normal update may deploy only the fetched `origin/main`
+release. Push the intended commit to `origin/main`, or reconcile/reset the checkout, then rerun `mso update`.
+MSO will not silently build a clean but unpushed local commit. If Git source is intentionally already correct
+and only the production build needs repair, `mso update --rebuild` rebuilds that selected clean checkout
+without fetching or rewriting Git history.
+
 ### Re-running the installer while MSO is already running
 
 Supported reruns now use the same checkout-wide mutation boundary as self-update before dependency install
@@ -110,7 +118,9 @@ for full Terminal behavior. `mso gateway status` labels a Quick Tunnel as tempor
 
 Expected. The gateway only stops a Next runtime when it launched that exact loopback process and
 recorded it as gateway-owned. An existing systemd/manual runtime is outside the gateway lifecycle.
-This prevents `stop` from terminating an unrelated or pre-existing process.
+This prevents `stop` from terminating an unrelated or pre-existing process. If an update/installer is in
+flight, user-facing `mso gateway stop` waits for that checkout transaction to finish restoring its recorded
+fallbacks, then applies the stop under the gateway lifecycle lock; the updater cannot restart it afterward.
 
 ### Login returns success but the browser is logged out immediately
 
