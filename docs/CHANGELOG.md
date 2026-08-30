@@ -20,6 +20,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `security` harden GitHub quality controls
 - `security` canonicalize writable path containment
 
+**Docs**
+
+- `security` disclose scorecard posture gaps
+
 ## 2026-08-29
 
 **Fixed**

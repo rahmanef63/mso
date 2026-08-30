@@ -68,10 +68,19 @@ The automated suite materially exercises ASVS areas including authentication, se
 
 Automation cannot establish every ASVS requirement. Deployment architecture, host hardening, operator practices, recovery procedures, threat modeling and some manual design requirements still need human verification. A self-hosted MSO deployment also inherits risk from the Linux host, reverse proxy, installed managed applications and any third-party AI provider selected by the owner.
 
+## Current OpenSSF posture gaps
+
+OpenSSF Scorecard is deliberately treated as external posture evidence rather than a scanner whose score MSO can self-declare. Two current findings remain open and must not be hidden or dismissed just to make the security tab look green:
+
+- **Code-Review — High.** The repository currently has one human collaborator, so recent changes do not have independent human approvals. Scorecard explicitly does not count bot/AI reviews as human code review. This closes only after a second human maintainer participates in real review history; enabling a one-approval rule without a second reviewer would only lock the repository and would not create legitimate review evidence.
+- **CII / OpenSSF Best Practices — Low.** The project is not yet enrolled in the OpenSSF Best Practices program. Enrollment and its questionnaire are maintainer-attested work and must not be faked by adding a badge image without registering the project.
+
+These are repository-process posture findings, not detected application CVEs or leaked secrets. They remain part of the public security evidence.
+
 ## What is safe to say publicly
 
 When the latest `main` workflows and the latest full assurance run are green, the project may say:
 
-> MSO is continuously tested with CodeQL, Semgrep, Trivy, OSV-Scanner, Gitleaks, ShellCheck, Dependency Review and OpenSSF Scorecard, with a passive OWASP ZAP production baseline and a separate component-partitioned Codex Security review covering the tracked repository. The public repository has private vulnerability reporting, secret scanning/push protection, dependency alerts, an SBOM workflow and MSO-specific security regression tests. The latest published assurance run has no known unresolved High/Critical findings from those gates.
+> MSO is continuously tested with CodeQL, Semgrep, Trivy, OSV-Scanner, Gitleaks, ShellCheck and Dependency Review, with a passive OWASP ZAP production baseline and a separate component-partitioned Codex Security review covering the tracked repository. The public repository has private vulnerability reporting, secret scanning/push protection, dependency alerts, an SBOM workflow and MSO-specific security regression tests. OpenSSF Scorecard is published separately as repository-process posture evidence, and any open Scorecard findings are disclosed rather than folded into a zero-finding claim.
 
-Do **not** shorten this into “certified secure”, “OWASP certified”, “penetration-tested by OWASP”, “100% secure”, or “third-party audited”. Those claims are not established by this process.
+Do **not** claim “no unresolved High/Critical findings across all gates” while a High Scorecard posture finding is open. Also do **not** shorten the evidence into “certified secure”, “OWASP certified”, “penetration-tested by OWASP”, “100% secure”, or “third-party audited”. Those claims are not established by this process.
