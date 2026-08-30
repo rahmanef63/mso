@@ -91,35 +91,41 @@ gateway_cmd_doctor() {
   return "$fails"
 }
 
+gateway_cmd_web_resolve_locked() {
+  local mode="$1" state rc
+  case "$mode" in
+    public|auto)
+      if state="$(gateway_active_state)"; then
+        # The lifecycle decision and reconciliation share the SAME exclusive lock.
+        # Only the checkout-wide runtime lock nests inside it while Next may start.
+        gateway_with_runtime_shared gateway_reconcile_active_tunnel "$state" >/dev/null
+        state="$(gateway_active_state)" || gateway_fail "public gateway stopped during reconciliation"
+        jq -r .url <<<"$state"
+        return 0
+      else rc=$?; fi
+      [ "$rc" = 1 ] || return "$rc"
+      if [ "$mode" = public ]; then
+        gateway_fail "public gateway is not running; run: mso gateway start"
+      fi
+      gateway_with_runtime_shared gateway_cmd_local_start_locked >/dev/null
+      printf '%s\n' "$LOCAL_URL"
+      ;;
+    local)
+      gateway_with_runtime_shared gateway_cmd_local_start_locked >/dev/null
+      printf '%s\n' "$LOCAL_URL"
+      ;;
+  esac
+}
+
 gateway_cmd_web() {
-  local mode=auto print_only=0 url state opener
+  local mode=auto print_only=0 url opener
   shift || true
   while [ $# -gt 0 ]; do
     case "$1" in --local) mode=local ;; --public) mode=public ;; --print) print_only=1 ;;
       *) gateway_fail "usage: mso web [--local|--public] [--print]" ;; esac
     shift
   done
-  case "$mode" in
-    public)
-      if state="$(gateway_active_state)"; then
-        gateway_with_lock gateway_with_runtime_shared gateway_cmd_start_locked >/dev/null
-        state="$(gateway_active_state)" || gateway_fail "public gateway stopped during reconciliation"
-        url="$(jq -r .url <<<"$state")"
-      else rc=$?; [ "$rc" = 1 ] || return "$rc"; gateway_fail "public gateway is not running; run: mso gateway start"; fi ;;
-    local) gateway_health_ok || gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked >/dev/null; url="$LOCAL_URL" ;;
-    auto)
-      if state="$(gateway_active_state)"; then
-        gateway_with_lock gateway_with_runtime_shared gateway_cmd_start_locked >/dev/null
-        state="$(gateway_active_state)" || gateway_fail "public gateway stopped during reconciliation"
-        url="$(jq -r .url <<<"$state")"
-      else rc=$?; [ "$rc" = 1 ] || return "$rc"
-        # A configured public origin is metadata, not proof that its tunnel/proxy is
-        # reachable. Auto mode uses public only when gateway state is actually active;
-        # otherwise guarantee the supported local UI and open loopback.
-        gateway_health_ok || gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked >/dev/null
-        url="$LOCAL_URL"
-      fi ;;
-  esac
+  url="$(gateway_with_lock gateway_cmd_web_resolve_locked "$mode")"
   case "$url" in http:*) url="$(gateway_validate_loopback_origin "$url" 2>/dev/null || true)" ;;
     https:*) url="$(gateway_validate_public_origin "$url" 2>/dev/null || true)" ;; *) url="" ;; esac
   [ -n "$url" ] || gateway_fail "refusing unsafe browser URL"
