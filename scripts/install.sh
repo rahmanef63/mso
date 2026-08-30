@@ -435,11 +435,14 @@ EOF
   HEALTH_HOST="$BIND"
   case "$BIND" in 0.0.0.0|::|"") HEALTH_HOST=127.0.0.1 ;; esac
 
-  # Read the id of the build that is CURRENTLY answering, before we touch the
-  # unit. Every build gets a fresh NEXT_PUBLIC_BUILD_ID (next.config.mjs), so a
-  # changed id is what proves the new process took over.
+  # Record BOTH the build id and service PID that are CURRENTLY answering before
+  # the restart. Normally next.config.mjs mints a fresh build id, but an explicit
+  # NEXT_DEPLOYMENT_ID intentionally makes that id stable across deploys. In that
+  # supported mode, a changed MainPID plus a healthy response proves takeover.
   prev_build="$(curl -fsS --max-time 3 "http://$HEALTH_HOST:$PORT/api/health" 2>/dev/null \
                 | sed -n 's/.*"buildId":"\([^"]*\)".*/\1/p' || true)"
+  prev_pid="$(systemctl show "$SERVICE" -p MainPID --value 2>/dev/null || true)"
+  case "$prev_pid" in ''|*[!0-9]*) prev_pid=0 ;; esac
 
   # Makes /run/user/<uid> — where the user bus lives — exist without a login
   # session and survive logout. The XDG_RUNTIME_DIR above names that directory, so
@@ -474,11 +477,18 @@ EOF
     body="$(curl -fsS --max-time 3 "http://$HEALTH_HOST:$PORT/api/health" 2>/dev/null || true)"
     if [ -n "$body" ]; then
       now_build="$(printf '%s' "$body" | sed -n 's/.*"buildId":"\([^"]*\)".*/\1/p')"
-      # Gate on the id, not on curl's exit status: the old process answers
-      # /api/health perfectly while serving stale chunks, which is exactly how
-      # a failed update used to report "health OK".
-      if [ -z "$prev_build" ] || [ "$now_build" != "$prev_build" ]; then
-        up=1; SERVICE_READY=1; ok "health OK (build ${now_build:-unknown})"; break
+      # Do not trust curl alone: the OLD process can answer /api/health while
+      # serving stale chunks. Prefer a changed build id; when a configured
+      # deployment id keeps it stable, require systemd to report a different
+      # live MainPID. Fresh installs have no previous healthy build and pass.
+      now_pid="$(systemctl show "$SERVICE" -p MainPID --value 2>/dev/null || true)"
+      case "$now_pid" in ''|*[!0-9]*) now_pid=0 ;; esac
+      if [ -z "$prev_build" ] \
+        || [ "$now_build" != "$prev_build" ] \
+        || { [ "$now_pid" -gt 0 ] && [ "$now_pid" != "$prev_pid" ]; }; then
+        up=1; SERVICE_READY=1
+        ok "health OK (build ${now_build:-unknown}, pid ${now_pid:-unknown})"
+        break
       fi
     fi
     sleep 2
@@ -486,7 +496,7 @@ EOF
   if [ "$up" -ne 1 ]; then
     # is-active needs no privileges — do not spend a sudo prompt on the sad path.
     if systemctl is-active --quiet "$SERVICE"; then
-      warn "service is running but still serving build $prev_build — check: journalctl -u mso -e"
+      warn "service is running but build/process identity did not change (build $prev_build, pid $prev_pid) — check: journalctl -u mso -e"
     else
       warn "$SERVICE is not running — check: journalctl -u mso -e"
     fi

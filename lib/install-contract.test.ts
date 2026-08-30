@@ -40,6 +40,8 @@ describe("one-line installer contract", () => {
     expect(src).toContain('= "systemd"');
     expect(src).toContain("WSL detected without systemd as PID 1");
     expect(src).toContain("SERVICE_READY=1");
+    expect(src).toContain('systemctl show "$SERVICE" -p MainPID --value');
+    expect(src).toContain('[ "$now_pid" -gt 0 ] && [ "$now_pid" != "$prev_pid" ]');
     expect(src).toContain('[ "$RUN_ONBOARD" -eq 1 ] && [ "$SERVICE_READY" -eq 1 ]');
   });
 

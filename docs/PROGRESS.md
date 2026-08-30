@@ -2,6 +2,41 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-08-30 — WSL installer reliability and recognized property fuzzing (SHIPPED)
+
+A WSL install exposed two assumptions that were true on the production VPS but not on a fresh
+Linux shell. The installer treated the presence of a `systemctl` executable as proof that systemd
+was PID 1, and it did service setup before creating the CLI launchers. On WSL with systemd disabled,
+`systemctl` therefore aborted the `set -e` installer before `mso` existed. Separately, `curl | bash`
+can never modify the parent shell's PATH, so claiming `mso -h` was immediately available without
+checking the invoking PATH was not a valid installation contract.
+
+The installer now creates and validates the CLI before service setup, requires systemd to actually
+be PID 1, persists `~/.local/bin` for future bash/zsh sessions, and uses a guarded launcher in an
+already-reachable system bin directory when possible. It checks the original invoking PATH rather
+than its child-process PATH and prints an exact fallback export when immediate discovery cannot be
+proven. WSL without systemd remains a supported CLI-only shape; background service/onboarding waits
+for a verified service. An isolated clean-HOME/PATH install proved the child installer returns to a
+parent shell where `command -v mso` and `mso -h` succeed.
+
+The service readiness gate was also corrected for explicit `NEXT_DEPLOYMENT_ID`. Build ID change is
+still the preferred takeover proof, but a deliberately stable deployment ID can no longer make a
+healthy restart look stale: the installer records the pre-restart systemd MainPID and accepts a
+healthy response from a changed live MainPID as the fallback proof. This keeps the old-process/stale-
+chunk defense without assuming every deployment changes its public build ID.
+
+OpenSSF's remaining Fuzzing posture gap is addressed with real TypeScript property testing rather
+than a dismissed alert. `fast-check` now generates adversarial cases for filesystem containment,
+private-provider SSRF rejection, and PKCE exactness; the package/import form is one that Scorecard's
+Fuzzing check recognizes. Code Review and CII Best Practices remain external governance evidence:
+they require genuine independent review and OpenSSF badge enrollment rather than repository-side
+alert suppression.
+
+Verification: installer Bash syntax + hosted ShellCheck, installer contract tests, hundreds of
+property-generated security cases, full TypeScript/lint/test gates, docs/changelog parity, dependency
+audit, isolated production build, an isolated clean-HOME/PATH install, and protected-branch hosted
+CodeQL/dependency/Gitleaks/Trivy/OSV/Semgrep checks.
+
 > **How to read this log:** it is the source of truth for **why/when work shipped**, not
 > today's API/runbook. Phases 0–14 were built on **Convex self-hosted + a Control-Room
 > host-agent bridge**; that stack was removed in Phase 15 and later entries describe the
