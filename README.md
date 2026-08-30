@@ -224,6 +224,8 @@ For a stable domain, keep MSO on loopback and make the public origin explicit:
 mso gateway domain set https://mso.example.com
 # create/configure the named Cloudflare Tunnel using the example printed above, then:
 mso gateway start --config ~/.cloudflared/config.yml --tunnel mso
+
+If another gateway is already active, stop it first with `mso gateway stop`. MSO refuses to silently ignore explicit named-tunnel arguments or switch tunnel modes underneath an active endpoint.
 mso web
 ```
 

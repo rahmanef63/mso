@@ -199,6 +199,8 @@ token on the command line:
 
 ```bash
 mso gateway start --config ~/.cloudflared/config.yml --tunnel mso
+
+If another gateway is already active, stop it first with `mso gateway stop`. MSO refuses to silently ignore explicit named-tunnel arguments or switch tunnel modes underneath an active endpoint.
 mso web
 ```
 

@@ -75,6 +75,26 @@ esac
     }
   });
 
+  it("does not silently ignore named-tunnel arguments while another gateway is active", () => {
+    const f = fixture();
+    run(["start"], f.baseEnv);
+    const credentials = path.join(f.dir, "switch-tunnel.json");
+    fs.writeFileSync(credentials, "{}\n", { mode: 0o600 });
+    const config = path.join(f.dir, "switch-tunnel.yml");
+    fs.writeFileSync(config, `tunnel: fixture\ncredentials-file: ${credentials}\ningress:\n  - hostname: mso.example.test\n    service: http://127.0.0.1:4005\n  - service: http_status:404\n`, { mode: 0o600 });
+    const before = JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8")) as { mode: string; tunnelIdentity: { pid: number } };
+    const out = spawnSync(GATEWAY, ["start", "--config", config, "--tunnel", "fixture"], {
+      encoding: "utf8", env: { ...f.baseEnv, OS_PUBLIC_ORIGIN: "https://mso.example.test" },
+    });
+    expect(out.status).not.toBe(0);
+    expect(out.stderr).toContain("gateway is already active");
+    expect(out.stderr).toContain("mso gateway stop");
+    const after = JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8")) as { mode: string; tunnelIdentity: { pid: number } };
+    expect(after.mode).toBe("temporary");
+    expect(after.tunnelIdentity.pid).toBe(before.tunnelIdentity.pid);
+    run(["stop"], f.baseEnv);
+  });
+
   it("uses kernel flock locks instead of stale-directory reclamation", () => {
     for (const name of ["gateway-lock.sh", "update-state.sh"]) {
       const source = fs.readFileSync(path.join(ROOT, "scripts/lib", name), "utf8");
