@@ -80,7 +80,7 @@
 #  Service  (local systemd)
 #   service *            status | start | stop | restart | logs
 #   build                Compile HEAD out-of-tree (safe against the live checkout)
-#   deploy               next build, then restart the service
+#   deploy               Rebuild active service with runtime quiesce/restore
 #   update [--rebuild]   Update from origin/main safely; works even when the web runtime is down
 #
 #  Escape hatches
@@ -176,6 +176,63 @@ maybe_update_notice() {
 }
 # shellcheck source=scripts/lib/private-state.sh
 . "$ROOT/scripts/lib/private-state.sh"
+# shellcheck source=scripts/lib/runtime-exclusion.sh
+. "$ROOT/scripts/lib/runtime-exclusion.sh"
+
+service_manager_read() {
+  local manager="${MSO_SYSTEMCTL_BIN:-systemctl}"
+  "$manager" "$@"
+}
+
+service_manager_write() {
+  if [ -n "${MSO_SYSTEMCTL_BIN:-}" ]; then "$MSO_SYSTEMCTL_BIN" "$@";
+  else sudo systemctl "$@"; fi
+}
+
+require_service_checkout_cli() {
+  local configured canonical_root canonical_service
+  configured="$(service_manager_read show -p WorkingDirectory --value mso.service 2>/dev/null || true)"
+  [ -n "$configured" ] || die "mso.service has no readable WorkingDirectory; refusing lifecycle action"
+  canonical_root="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
+  canonical_service="$(realpath -e -- "$configured" 2>/dev/null || true)"
+  [ -n "$canonical_root" ] && [ -n "$canonical_service" ] \
+    || die "cannot canonicalize mso.service WorkingDirectory"
+  [ "$canonical_service" = "$canonical_root" ] \
+    || die "mso.service belongs to $canonical_service, not this checkout $canonical_root"
+}
+
+service_with_runtime_shared() {
+  local rc=0
+  runtime_exclusion_acquire_shared \
+    || die "offline update/deploy is mutating this checkout; retry the service action after it finishes"
+  "$@" || rc=$?
+  runtime_exclusion_release
+  return "$rc"
+}
+
+service_start_safe() {
+  require_service_checkout_cli
+  service_with_runtime_shared service_manager_write start mso.service
+}
+
+service_restart_safe() {
+  require_service_checkout_cli
+  service_with_runtime_shared service_manager_write restart mso.service
+}
+
+deploy_safe() {
+  local local_url helper
+  require_service_checkout_cli
+  service_manager_read is-active --quiet mso.service \
+    || die "mso.service is not active; start the intended service first, then run mso deploy"
+  local_url="$(gateway_local_url)"
+  # The outer helper owns checkout-wide runtime inventory/quiesce/restore around
+  # the in-place build, so deploy never mutates `.next` under a fallback runtime.
+  helper="${MSO_SERVICE_UPDATE_BIN:-$ROOT/scripts/mso-service-update}"
+  [ -x "$helper" ] || [ -f "$helper" ] || die "missing service deployment helper: $helper"
+  MSO_UPDATE_ROOT="$ROOT" MSO_UPDATE_LOCAL_URL="$local_url" /bin/bash "$helper" --rebuild-only
+  echo "deployed → $B"
+}
 
 # ── local ops (no HTTP, no login) ───────────────────────────────────────────
 # These edit ~/.mso/auth-devices.json on THIS machine. They are deliberately local
@@ -816,18 +873,18 @@ case "$cmd" in
   service)
     case "${1:-status}" in
       status)  systemctl status --no-pager mso.service ;;
-      start)   sudo systemctl start mso.service ;;
+      start)   service_start_safe ;;
       stop)    sudo systemctl stop mso.service ;;
-      restart) sudo systemctl restart mso.service ;;
+      restart) service_restart_safe ;;
       logs)    journalctl -u mso.service -n "${2:-50}" --no-pager ;;
       *) die "usage: mso $U_service" ;;
     esac ;;
   # NOT `next build` — this is mso.service's WorkingDirectory, and a build here
   # deletes .next under the running process, 404ing every chunk until a restart.
-  # verify-build.sh compiles HEAD in a temp dir instead. `deploy` is the in-place
-  # one, and it restarts immediately after.
+  # verify-build.sh compiles HEAD in a temp dir instead. `deploy` uses the same
+  # checkout-wide quiesce/build/restart/restore lifecycle as service self-update.
   build)  (cd "$ROOT" && bash scripts/verify-build.sh) ;;
-  deploy) (cd "$ROOT" && npm run build) && sudo systemctl restart mso.service && echo "deployed → $B" ;;
+  deploy) deploy_safe ;;
   # The same self-update Settings → About drives, so both surfaces get the same
   # preflight and the same transient-unit handoff (a build spawned from the service
   # would be killed by the restart it performs).

@@ -56,8 +56,10 @@ mutation rather than rebuilding underneath a process that is actively serving th
 
 ### `mso gateway start` says an offline update is mutating this checkout
 
-This is an intentional safety exclusion. Every in-place `mso update` (service-active or offline) holds the checkout-wide runtime lock while `.next` can change, so `mso web`, onboarding fallback, and gateway runtime recovery cannot start
-Next from a partially-mutated build. Let the update finish, then rerun the same gateway/web command.
+This is an intentional safety exclusion. Every in-place `mso update` (service-active or offline) holds the checkout-wide runtime lock while `.next` can change, so `mso web`, onboarding fallback, gateway runtime recovery, and `mso service start/restart` cannot start
+Next from a partially-mutated build. Let the update finish, then rerun the same gateway/web/service command.
+`mso deploy` uses the same runtime-quiesce lifecycle and requires the active service to belong to the
+checkout invoking the command.
 
 ### `mso gateway start` cannot install or verify cloudflared
 

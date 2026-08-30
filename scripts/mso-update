@@ -65,10 +65,6 @@ require_service_checkout() {
     || fail "active mso.service belongs to $canonical_service, not this checkout $canonical_root; run update from the service checkout"
 }
 
-quiesce_offline_runtime() { update_gateway_assert_offline_selected_origin_safe; update_gateway_quiesce_all; }
-
-restore_offline_runtime() { update_gateway_restore_all; }
-
 print_status() {
   local n local_v remote_v head receipt=''
   require_checkout; fetch_main; n="$(behind)"; local_v="$(current_version)"; remote_v="$(remote_version)"; head="$(git -C "$ROOT" rev-parse HEAD)"
@@ -159,13 +155,18 @@ offline_build_locked() {
   # another post-build local-start without serving a partially-mutated .next.
   runtime_exclusion_acquire_exclusive \
     || fail "could not acquire checkout runtime exclusion; another runtime start/update is active"
-  quiesce_offline_runtime
+  # A service start may have raced the earlier pre-lock check. Service-starting CLI
+  # paths take the shared side of this lock, so this second check closes the TOCTOU
+  # window before any dependency/.next mutation.
+  service_is_active && fail "mso.service became active before the offline build; rerun mso update"
+  update_gateway_assert_offline_selected_origin_safe
+  update_gateway_quiesce_all
   (cd "$ROOT" && bun install) || fail "dependency install failed"
   (cd "$ROOT" && bash scripts/verify-build.sh) || fail "candidate build verification failed"
   (cd "$ROOT" && node node_modules/next/dist/bin/next build) || fail "production build failed"
   write_receipt
   runtime_exclusion_release
-  restore_offline_runtime
+  update_gateway_restore_all
   if update_gateway_restore_pending; then fail "gateway runtime restore inventory remained after restore"; fi
   printf 'updated to %s. No system service was active; run: mso web\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
 }

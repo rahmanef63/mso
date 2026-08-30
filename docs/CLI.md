@@ -114,7 +114,7 @@ Commands:
  Service  (local systemd)
   service *            status | start | stop | restart | logs
   build                Compile HEAD out-of-tree (safe against the live checkout)
-  deploy               next build, then restart the service
+  deploy               Rebuild active service with runtime quiesce/restore
   update [--rebuild]   Update from origin/main safely; works even when the web runtime is down
 
  Escape hatches

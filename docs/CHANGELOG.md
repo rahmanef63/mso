@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `runtime` serialize deploy and service starts
 - `gateway` recheck web state under lock
 - `update` reject unowned live runtimes
 - `runtime` verify live update identities
@@ -42,6 +43,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `gateway` treat zombie children as stopped
 - `gateway` isolate lifecycle fixtures
 - `cli` lock offline update dispatch
 - `gateway` harden hosted security fixtures

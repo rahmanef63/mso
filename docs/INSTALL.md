@@ -468,6 +468,13 @@ If the installed source is correct but the production build tree is inconsistent
 mso update --rebuild
 ```
 
+`mso deploy` is the developer-facing rebuild for an already-active `mso.service`. It now uses the same
+outer checkout runtime lifecycle as self-update: verify the service belongs to this checkout, hold the
+exclusive mutation boundary, quiesce every owned fallback runtime, rebuild/restart the service, then
+restore those fallbacks. `mso service start` and `mso service restart` take the shared side of that same
+checkout lock and refuse while an offline update/deploy is mutating `.next`; they also refuse when the
+installed service belongs to another checkout.
+
 ### Developer release
 
 After code/docs changes and verification:
