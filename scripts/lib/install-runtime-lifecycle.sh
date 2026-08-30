@@ -22,6 +22,18 @@ install_runtime_lifecycle_init() {
   . "$ROOT/scripts/lib/runtime-exclusion.sh"
   # shellcheck source=scripts/lib/update-gateway-runtimes.sh
   . "$ROOT/scripts/lib/update-gateway-runtimes.sh"
+
+  if [ "${INSTALL_EARLY_UPDATE_LOCK_HELD:-0}" = 1 ]; then
+    init_update_state
+    [ "$UPDATE_CANONICAL_ROOT" = "${INSTALL_EARLY_UPDATE_CANONICAL_ROOT:-}" ] \
+      || die "early installer update lock belongs to another checkout"
+    [ "$UPDATE_LOCK_DIR" = "${INSTALL_EARLY_UPDATE_LOCK_FILE:-}" ] \
+      || die "early installer update lock path does not match current lifecycle state"
+    UPDATE_LOCK_FD="$INSTALL_EARLY_UPDATE_LOCK_FD"
+    UPDATE_LOCK_HELD=1
+    INSTALL_EARLY_UPDATE_LOCK_FD=''
+    INSTALL_EARLY_UPDATE_LOCK_HELD=0
+  fi
 }
 
 install_runtime_lifecycle_cleanup() {
@@ -69,7 +81,7 @@ install_runtime_active_service_preflight() {
 
 install_runtime_lifecycle_begin() {
   install_runtime_lifecycle_init
-  update_lock_acquire
+  [ "$UPDATE_LOCK_HELD" = 1 ] || update_lock_acquire
   INSTALL_RUNTIME_LIFECYCLE=1
   runtime_exclusion_acquire_exclusive \
     || die "could not acquire checkout runtime exclusion before installer build"

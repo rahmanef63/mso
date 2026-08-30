@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -11,7 +12,7 @@ const roots: string[] = [];
 function copy(src: string, dst: string) { fs.mkdirSync(path.dirname(dst), { recursive: true }); fs.copyFileSync(src, dst); fs.chmodSync(dst, 0o755); }
 function envIdentity(file: string) { const st = fs.statSync(file); return { path: fs.realpathSync(file), dev: String(st.dev), ino: String(st.ino) }; }
 
-function fixture(systemd = false, doService = 1) {
+function fixture(systemd = false, doService = 1, earlyLock = false) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "mso-install-runtime-")); roots.push(base);
   const repo = path.join(base, "repo"), home = path.join(base, "home"), bin = path.join(base, "bin"), capture = path.join(base, "capture");
   fs.mkdirSync(home); fs.mkdirSync(bin); fs.mkdirSync(path.join(repo, "scripts/lib"), { recursive: true });
@@ -38,14 +39,26 @@ case "$*" in
   'show -p WorkingDirectory --value mso.service') printf '%s\n' ${JSON.stringify(canonical)} ;;
 esac
 `, { mode: 0o755 });
+  const updateBase = path.join(base, "update-state");
+  const updateKey = crypto.createHash("sha256").update(canonical).digest("hex");
+  const updateScope = path.join(updateBase, updateKey);
+  fs.mkdirSync(updateScope, { recursive: true, mode: 0o700 });
+  fs.chmodSync(updateBase, 0o700); fs.chmodSync(updateScope, 0o700);
+  const earlyLockFile = path.join(updateScope, "transaction.lock");
+  fs.writeFileSync(earlyLockFile, "", { mode: 0o600 });
   const runner = path.join(base, "runner.sh");
   fs.writeFileSync(runner, `#!/bin/bash
 set -euo pipefail
 DIR=${JSON.stringify(repo)}; PORT=4005; DO_SERVICE=${doService}; SERVICE=mso.service
-export HOME=${JSON.stringify(home)} PATH=${JSON.stringify(`${bin}:${process.env.PATH}`)} MSO_UPDATE_STATE_DIR=${JSON.stringify(path.join(base, "update-state"))} MSO_RUNTIME_EXCLUSION_DIR=${JSON.stringify(path.join(base, "runtime-exclusion"))}
+export HOME=${JSON.stringify(home)} PATH=${JSON.stringify(`${bin}:${process.env.PATH}`)} MSO_UPDATE_STATE_DIR=${JSON.stringify(path.join(base, "update-state"))} MSO_RUNTIME_EXCLUSION_DIR=${JSON.stringify(path.join(base, "runtime-exclusion"))} MSO_UPDATE_LOCK_TIMEOUT_SECONDS=0.2
 die(){ echo "installer: $*" >&2; exit 1; }
 sudo_do(){ "$@"; }
 systemd_ready(){ ${systemd ? "return 0" : "return 1"}; }
+${earlyLock ? `exec {INSTALL_EARLY_UPDATE_LOCK_FD}<>${JSON.stringify(earlyLockFile)}
+flock -x "$INSTALL_EARLY_UPDATE_LOCK_FD"
+INSTALL_EARLY_UPDATE_LOCK_HELD=1
+INSTALL_EARLY_UPDATE_LOCK_FILE=${JSON.stringify(earlyLockFile)}
+INSTALL_EARLY_UPDATE_CANONICAL_ROOT=${JSON.stringify(canonical)}` : ""}
 . "$DIR/scripts/lib/install-runtime-lifecycle.sh"
 trap install_runtime_lifecycle_cleanup EXIT
 install_runtime_lifecycle_begin
@@ -59,6 +72,14 @@ trap - EXIT
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 describe("installer runtime lifecycle", () => {
+  it("adopts a transaction lock acquired before checkout instead of reacquiring it", () => {
+    const f = fixture(false, 1, true);
+    const out = spawnSync(f.runner, [], { encoding: "utf8", timeout: 5_000 });
+    expect(out.status).toBe(0);
+    expect(out.error).toBeUndefined();
+    expect(fs.readFileSync(f.capture, "utf8")).toContain("MUTATE");
+  });
+
   it("quiesces and restores a no-systemd fallback around installer mutation with its custom env", () => {
     const f = fixture(false, 1); execFileSync(f.runner, [], { encoding: "utf8" });
     const calls = fs.readFileSync(f.capture, "utf8");

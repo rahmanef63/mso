@@ -299,6 +299,62 @@ ensure_cli_tools() {
 
 ensure_git; ensure_node; ensure_bun; ensure_buildtools; ensure_cli_tools
 
+# Existing checkouts already ship the private-state primitive. Hold the SAME
+# checkout-scoped transaction.lock used by `mso update`/`mso deploy` before Git
+# fetch/checkout mutates source. The FD stays open and is adopted by the freshly
+# checked-out lifecycle helper, so there is no unlock/relock window.
+INSTALL_EARLY_UPDATE_LOCK_HELD=0
+INSTALL_EARLY_UPDATE_LOCK_FD=''
+INSTALL_EARLY_UPDATE_LOCK_FILE=''
+INSTALL_EARLY_UPDATE_CANONICAL_ROOT=''
+
+install_early_update_lock_release() {
+  [ "$INSTALL_EARLY_UPDATE_LOCK_HELD" = 1 ] || return 0
+  if [ -n "${INSTALL_EARLY_UPDATE_LOCK_FD:-}" ]; then
+    flock -u "$INSTALL_EARLY_UPDATE_LOCK_FD" 2>/dev/null || true
+    exec {INSTALL_EARLY_UPDATE_LOCK_FD}>&- || true
+    INSTALL_EARLY_UPDATE_LOCK_FD=''
+  fi
+  INSTALL_EARLY_UPDATE_LOCK_HELD=0
+}
+
+install_early_update_lock_acquire() {
+  local private_helper canonical base key state lock timeout
+  [ -d "$DIR/.git" ] || return 0
+  [ -z "$(git -C "$DIR" status --porcelain)" ] \
+    || die "checkout has uncommitted changes at $DIR; refusing an unlocked in-place upgrade"
+  private_helper="$DIR/scripts/lib/private-state.sh"
+  [ -f "$private_helper" ] && [ ! -L "$private_helper" ] \
+    || die "existing checkout is missing the secure private-state helper; restore the tracked file or install into another --dir"
+  [ "$(stat -c '%u' -- "$private_helper" 2>/dev/null || true)" = "$(id -u)" ] \
+    || die "private-state helper is not owned by the installing user: $private_helper"
+  # shellcheck source=scripts/lib/private-state.sh
+  . "$private_helper"
+  canonical="$(realpath -e -- "$DIR" 2>/dev/null || true)"
+  [ -n "$canonical" ] || die "cannot canonicalize existing checkout before update lock"
+  base="$(mso_private_state_dir "${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}")" \
+    || die "unsafe installer update-state directory"
+  key="$(printf '%s' "$canonical" | sha256sum | awk '{print $1}')"
+  [[ "$key" =~ ^[0-9a-f]{64}$ ]] || die "cannot derive installer update-lock scope"
+  state="$(mso_private_state_dir "$base/$key")" || die "unsafe checkout-scoped installer update state"
+  lock="$state/transaction.lock"
+  mso_private_state_ensure_file "$lock" >/dev/null || die "unsafe installer update transaction lock"
+  exec {INSTALL_EARLY_UPDATE_LOCK_FD}<>"$lock" || die "cannot open installer update transaction lock"
+  timeout="${MSO_UPDATE_LOCK_TIMEOUT_SECONDS:-900}"
+  [[ "$timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "invalid installer update-lock timeout"
+  if ! flock -x -w "$timeout" "$INSTALL_EARLY_UPDATE_LOCK_FD"; then
+    exec {INSTALL_EARLY_UPDATE_LOCK_FD}>&- || true
+    INSTALL_EARLY_UPDATE_LOCK_FD=''
+    die "another MSO installer/update/deploy transaction is still running for $canonical"
+  fi
+  INSTALL_EARLY_UPDATE_LOCK_HELD=1
+  INSTALL_EARLY_UPDATE_LOCK_FILE="$lock"
+  INSTALL_EARLY_UPDATE_CANONICAL_ROOT="$canonical"
+  trap install_early_update_lock_release EXIT
+}
+
+install_early_update_lock_acquire
+
 # portable 32-byte hex RNG (node is guaranteed present by now)
 rand_hex() {
   if command -v openssl >/dev/null 2>&1; then openssl rand -hex "$1"
