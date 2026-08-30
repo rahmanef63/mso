@@ -78,6 +78,7 @@ gateway_spawn_tunnel() {
   fi
   [ -n "$identity" ] || { kill "$pid" 2>/dev/null || true; return 1; }
   TUNNEL_IDENTITY="$identity"
+  GATEWAY_PENDING_CLEANUP=1
 }
 
 gateway_discover_quick_url() {
@@ -175,6 +176,7 @@ gateway_cmd_start_locked() {
     gateway_cleanup_failed_start
     gateway_fail "could not persist gateway state; newly launched processes were rolled back"
   fi
+  GATEWAY_PENDING_CLEANUP=0
 
   gateway_info "gateway started"
   gateway_info "public: $GATEWAY_PUBLIC_URL"

@@ -164,8 +164,7 @@ never changes the application bind to `0.0.0.0`. The tool cache is user-local an
 with Cloudflare auto-update disabled. The tunnel process also receives a scrubbed environment rather
 than inheriting MSO login/session/BYOK secrets from the application shell. If systemd is unavailable (common on WSL), it may start the
 already-built Next production runtime itself, still on `127.0.0.1`, and records whether that process
-is gateway-owned. `gateway stop` only terminates a recorded process after its live command line
-matches the expected MSO/cloudflared identity. Private state and logs are owner-only.
+is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. Private state and logs are owner-only.
 
 This is intentionally labeled **temporary preview**. The random `trycloudflare.com` URL changes on
 restart, and Cloudflare Quick Tunnels do not support Server-Sent Events; MSO Terminal's live output
@@ -432,9 +431,12 @@ mso update log
 The updater verifies the incoming checkout/build before replacing the service. With an active
 `mso.service` it runs outside that service cgroup so the updater survives the restart. With no active
 service (including WSL without systemd), it performs the clean fast-forward/dependency/verify/build
-path locally and finishes by telling you to run `mso web`. Interactive CLI commands also show a
-throttled update notice when cached `origin/main` is ahead; the notice never depends on port 4005.
-A successful service finalizer log ends with `UPDATE OK`.
+path locally. If `mso web`/gateway owns the detached Next runtime, update first quiesces only that
+verified runtime, leaves an active tunnel identity intact, rebuilds, then restores the runtime. A
+private deployment receipt and restart marker mean a dependency/build failure after Git already
+reached `origin/main` is retried by the next ordinary `mso update` instead of being mislabeled
+"already up to date". Interactive CLI commands also show a throttled Git-backed update notice;
+the notice never depends on port 4005. A successful service finalizer log ends with `UPDATE OK`.
 
 If the installed source is correct but the production build tree is inconsistent, use:
 

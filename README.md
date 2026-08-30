@@ -175,7 +175,7 @@ If it explicitly says the current shell cannot see the user launcher yet, run th
 **WSL2:** the CLI is supported even when systemd is not active. In that case the installer now
 finishes the CLI instead of failing in `systemctl`, but it skips `mso.service`. `mso onboard` and
 `mso web` can start the already-built production runtime detached on `127.0.0.1` and track ownership
-under private state; `mso update` can update/verify/build without a running API. For the full
+under private state; `mso update` can update/verify/build without a running API and safely quiesces/restores a gateway-owned fallback runtime instead of rebuilding `.next` underneath it. For the full
 background service, enable systemd in `/etc/wsl.conf`, exit all WSL sessions from Windows, reopen
 the distro, then re-run the installer with `--onboard`.
 

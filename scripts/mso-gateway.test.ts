@@ -163,6 +163,27 @@ esac
     expect(out.trim()).toBe("http://[::1]:4556");
   });
 
+
+  it("opens the Windows browser from WSL with the URL passed as data, not PowerShell code", async () => {
+    const f = fixture();
+    const capture = path.join(f.dir, "powershell-argv");
+    const powershell = path.join(f.bin, "powershell.exe");
+    fs.writeFileSync(powershell, `#!/bin/sh
+printf '%s\n' "$@" > "${capture}"
+`, { mode: 0o700 });
+    const out = execFileSync(CLI, ["--base", "http://127.0.0.1:4555", "web", "--local"], {
+      encoding: "utf8",
+      env: { ...process.env, HOME: f.dir, PATH: `${f.bin}:${process.env.PATH}`, MSO_ENV: "/dev/null",
+        MSO_GATEWAY_STATE_DIR: f.state, MSO_GATEWAY_CURL: f.curl, MSO_GATEWAY_CLOUDFLARED: f.cloudflared },
+    });
+    expect(out).toContain("opened http://127.0.0.1:4555");
+    for (let i = 0; i < 50 && !fs.existsSync(capture); i++) await new Promise((r) => setTimeout(r, 10));
+    const argv = fs.readFileSync(capture, "utf8").trim().split(/\n/);
+    expect(argv).toContain("Start-Process $args[0]");
+    expect(argv.at(-1)).toBe("http://127.0.0.1:4555");
+    expect(argv.filter((v) => v.includes("http://127.0.0.1:4555"))).toHaveLength(1);
+  });
+
   it("mso web follows an explicit loopback --base including a non-default port", () => {
     const f = fixture();
     const out = execFileSync(CLI, ["--base", "http://127.0.0.1:4555", "web", "--local", "--print"], {

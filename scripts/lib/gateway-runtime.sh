@@ -57,6 +57,7 @@ gateway_start_runtime_if_needed() {
     gateway_fail "runtime did not become this launch's MSO health instance; see $RUNTIME_LOG"
   fi
   RUNTIME_IDENTITY="$identity"; RUNTIME_INSTANCE_ID="$instance"; RUNTIME_OWNED=true; RUNTIME_STARTED_NOW=true
+  GATEWAY_PENDING_CLEANUP=1
 }
 
 gateway_write_state() {
@@ -78,17 +79,50 @@ gateway_active_state() {
 }
 
 gateway_cmd_local_start_locked() {
-  local state
+  local state tunnel provider mode url
   state="$(gateway_state_read)"
   gateway_runtime_from_state "$state"
   gateway_start_runtime_if_needed
+  tunnel="$(jq -c '.tunnelIdentity // null' <<<"$state")"
+  if [ "$tunnel" != null ] && gateway_identity_matches_retry "$tunnel"; then
+    provider="$(jq -r '.provider // "cloudflare-quick"' <<<"$state")"
+    mode="$(jq -r '.mode // "temporary"' <<<"$state")"
+    url="$(jq -r --arg local "$LOCAL_URL" '.url // $local' <<<"$state")"
+  else
+    tunnel=null; provider=local; mode=local; url="$LOCAL_URL"
+  fi
   if [ "$RUNTIME_STARTED_NOW" = true ] || [ "$RUNTIME_OWNED" = true ]; then
-    if ! gateway_write_state local local "$LOCAL_URL" null; then
+    if ! gateway_write_state "$provider" "$mode" "$url" "$tunnel"; then
       [ "$RUNTIME_STARTED_NOW" = true ] && gateway_stop_identity "$RUNTIME_IDENTITY"
       gateway_fail "could not persist local runtime state; newly started runtime was rolled back"
     fi
+    GATEWAY_PENDING_CLEANUP=0
   fi
   gateway_info "runtime: healthy MSO at $LOCAL_URL"
+}
+
+gateway_cmd_runtime_stop_locked() {
+  local state tunnel runtime owned provider mode url
+  state="$(gateway_state_read)"
+  tunnel="$(jq -c '.tunnelIdentity // null' <<<"$state")"
+  runtime="$(jq -c '.runtimeIdentity // null' <<<"$state")"
+  owned="$(jq -r '.runtimeOwned // false' <<<"$state")"
+  if [ "$owned" = true ] && [ "$runtime" != null ]; then
+    gateway_runtime_from_state "$state"
+    [ "$RUNTIME_OWNED" = true ] || gateway_fail "recorded runtime ownership no longer matches a live MSO instance; refusing offline rebuild"
+    gateway_stop_identity "$runtime"
+    provider="$(jq -r '.provider // "local"' <<<"$state")"
+    mode="$(jq -r '.mode // "local"' <<<"$state")"
+    url="$(jq -r --arg local "$LOCAL_URL" '.url // $local' <<<"$state")"
+    RUNTIME_IDENTITY=null; RUNTIME_INSTANCE_ID=''; RUNTIME_OWNED=false; RUNTIME_STARTED_NOW=false
+    gateway_write_state "$provider" "$mode" "$url" "$tunnel" || gateway_fail "could not persist quiesced runtime state"
+    gateway_info "runtime: stopped-owned"
+    return 0
+  fi
+  if gateway_health_ok; then
+    gateway_fail "a loopback MSO runtime is active but is not gateway-owned; stop it before an offline update"
+  fi
+  gateway_info "runtime: already-down"
 }
 
 gateway_cmd_stop_locked() {

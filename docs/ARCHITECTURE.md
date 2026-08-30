@@ -224,7 +224,7 @@ out-of-tree production build), pushes the exact commit, then hands the in-place
 build/restart/final verification to the owner user manager when launched through MSO/MCP.
 A successful finalizer ends `~/.mso/self-update.log` with `UPDATE OK`.
 
-For operator updates use Settings → About or `mso update run`; use `--rebuild` for the
+For operator updates use Settings → About or `mso update`; use `--rebuild` for the
 supported recovery rebuild. See `docs/INSTALL.md`, `docs/DEVELOPMENT.md` and
 `docs/TROUBLESHOOTING.md`.
 

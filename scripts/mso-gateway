@@ -45,6 +45,8 @@ LOCK_HELD=0
 . "$ROOT/scripts/lib/gateway-network.sh"
 # shellcheck source=scripts/lib/gateway-tool.sh
 . "$ROOT/scripts/lib/gateway-tool.sh"
+# shellcheck source=scripts/lib/gateway-lock.sh
+. "$ROOT/scripts/lib/gateway-lock.sh"
 # shellcheck source=scripts/lib/gateway-runtime.sh
 . "$ROOT/scripts/lib/gateway-runtime.sh"
 # shellcheck source=scripts/lib/gateway-tunnel.sh
@@ -58,6 +60,7 @@ case "${1:-status}" in
   install) gateway_cmd_install_tool ;;
   domain) shift; gateway_cmd_domain "$@" ;;
   web) gateway_cmd_web "$@" ;;
-  local-start) gateway_with_lock gateway_cmd_local_start_locked ;; # internal: onboard/web WSL fallback
+  local-start) gateway_with_lock gateway_cmd_local_start_locked ;; # internal: onboard/web/update fallback
+  runtime-stop) gateway_with_lock gateway_cmd_runtime_stop_locked ;; # internal: quiesce owned runtime before offline build
   *) gateway_fail "usage: mso gateway start|stop|status|url|doctor|install|domain ..." ;;
 esac

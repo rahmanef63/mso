@@ -9,12 +9,16 @@ const PRIVATE = path.join(process.cwd(), "scripts/lib/private-state.sh");
 const roots: string[] = [];
 
 function git(cwd: string, ...args: string[]) { return execFileSync("git", args, { cwd, encoding: "utf8" }).trim(); }
-function fixture() {
+function fixture(options: { failInstallOnce?: boolean } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mso-update-")); roots.push(root);
   const repo = path.join(root, "repo"), remote = path.join(root, "remote.git"), bin = path.join(root, "bin"), capture = path.join(root, "capture");
   fs.mkdirSync(path.join(repo, "scripts/lib"), { recursive: true }); fs.mkdirSync(path.join(repo, "bin")); fs.mkdirSync(bin);
   fs.copyFileSync(PRIVATE, path.join(repo, "scripts/lib/private-state.sh"));
   fs.writeFileSync(path.join(repo, "scripts/verify-build.sh"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  fs.writeFileSync(path.join(repo, "scripts/mso-gateway"), `#!/bin/sh
+printf 'gateway %s\\n' "$*" >> "${capture}"
+case "$1" in runtime-stop) echo 'runtime: stopped-owned' ;; local-start) echo 'runtime: healthy MSO at fixture' ;; *) exit 2 ;; esac
+`, { mode: 0o755 });
   fs.writeFileSync(path.join(repo, "bin/mso"), '#!/bin/sh\nVERSION="1.3.0"\n', { mode: 0o755 });
   fs.mkdirSync(path.join(repo, "node_modules/next/dist/bin"), { recursive: true });
   fs.writeFileSync(path.join(repo, "node_modules/next/dist/bin/next"), "fixture\n");
@@ -25,10 +29,15 @@ function fixture() {
   git(repo, "add", "bin/mso"); git(repo, "commit", "-q", "-m", "new cli"); const newer = git(repo, "rev-parse", "HEAD"); git(repo, "push", "-q", "origin", "main");
   git(repo, "reset", "--hard", "-q", old);
   fs.writeFileSync(path.join(bin, "systemctl"), "#!/bin/sh\nexit 3\n", { mode: 0o755 });
-  fs.writeFileSync(path.join(bin, "bun"), `#!/bin/sh\nprintf 'bun %s\\n' "$*" >> "${capture}"\n`, { mode: 0o755 });
+  const failOnce = path.join(root, "fail-install-once");
+  fs.writeFileSync(path.join(bin, "bun"), `#!/bin/sh
+printf 'bun %s\\n' "$*" >> "${capture}"
+if [ "${options.failInstallOnce ? "1" : "0"}" = 1 ] && [ "$1" = install ] && [ ! -f "${failOnce}" ]; then touch "${failOnce}"; exit 23; fi
+`, { mode: 0o755 });
   fs.writeFileSync(path.join(bin, "node"), `#!/bin/sh\nprintf 'node %s\\n' "$*" >> "${capture}"\n`, { mode: 0o755 });
   const env = { ...process.env, HOME: path.join(root, "home"), PATH: `${bin}:${process.env.PATH}`, MSO_UPDATE_ROOT: repo,
-    MSO_UPDATE_NOTICE_DIR: path.join(root, "notice") };
+    MSO_UPDATE_NOTICE_DIR: path.join(root, "notice"), MSO_UPDATE_STATE_DIR: path.join(root, "update-state"),
+    MSO_UPDATE_LOCAL_URL: "http://127.0.0.1:4555" };
   return { root, repo, old, newer, capture, env };
 }
 
@@ -47,6 +56,24 @@ describe("mso update without a running web API", () => {
     expect(git(f.repo, "rev-parse", "HEAD")).toBe(f.newer);
     const calls = fs.readFileSync(f.capture, "utf8"); expect(calls).toContain("bun install");
     expect(calls).toContain("node node_modules/next/dist/bin/next build");
+    expect(calls).toContain("gateway runtime-stop");
+    expect(calls).toContain("gateway local-start");
+  });
+
+  it("retries an incomplete offline deployment even after HEAD already reached origin/main", () => {
+    const f = fixture({ failInstallOnce: true });
+    const first = require("node:child_process").spawnSync(SCRIPT, [], { env: f.env, encoding: "utf8" });
+    expect(first.status).not.toBe(0);
+    expect(first.stderr).toContain("dependency install failed");
+    expect(git(f.repo, "rev-parse", "HEAD")).toBe(f.newer);
+
+    const second = execFileSync(SCRIPT, [], { env: f.env, encoding: "utf8" });
+    expect(second).toContain("No system service was active");
+    const calls = fs.readFileSync(f.capture, "utf8");
+    expect(calls.match(/bun install/g)?.length).toBe(2);
+    expect(calls).toContain("gateway local-start");
+    const receipt = fs.readFileSync(path.join(f.root, "update-state", "deployed-sha"), "utf8").trim();
+    expect(receipt).toBe(f.newer);
   });
 
   it("prints an update notice from cached Git state without touching the web API", () => {

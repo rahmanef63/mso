@@ -5,6 +5,12 @@ umask 077
 ROOT="${MSO_UPDATE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 LOG="${MSO_UPDATE_LOG:-$HOME/.mso/self-update.log}"
 NOTICE_DIR="${MSO_UPDATE_NOTICE_DIR:-$HOME/.mso/private/update-notice}"
+UPDATE_STATE_DIR_REQUESTED="${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}"
+LOCAL_URL="${MSO_UPDATE_LOCAL_URL:-${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}}"
+GATEWAY="$ROOT/scripts/mso-gateway"
+UPDATE_STATE_DIR=''
+DEPLOY_RECEIPT=''
+RESTART_MARKER=''
 # shellcheck source=scripts/lib/private-state.sh
 . "$ROOT/scripts/lib/private-state.sh"
 
@@ -22,14 +28,71 @@ require_checkout() {
 
 fetch_main() { git -C "$ROOT" fetch --quiet origin main || fail "could not reach origin/main"; }
 
+init_update_state() {
+  [ -n "$UPDATE_STATE_DIR" ] && return 0
+  UPDATE_STATE_DIR="$(mso_private_state_dir "$UPDATE_STATE_DIR_REQUESTED")" || fail "unsafe update state directory"
+  DEPLOY_RECEIPT="$UPDATE_STATE_DIR/deployed-sha"
+  RESTART_MARKER="$UPDATE_STATE_DIR/restart-runtime"
+}
+
+read_receipt() {
+  init_update_state
+  if [ ! -e "$DEPLOY_RECEIPT" ] && [ ! -L "$DEPLOY_RECEIPT" ]; then return 1; fi
+  mso_private_state_validate_file "$DEPLOY_RECEIPT" >/dev/null || fail "unsafe deployed-sha receipt"
+  local sha; sha="$(cat "$DEPLOY_RECEIPT")"
+  [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || fail "invalid deployed-sha receipt"
+  printf '%s' "$sha"
+}
+
+write_receipt() {
+  init_update_state
+  git -C "$ROOT" rev-parse HEAD | mso_private_state_atomic_write "$DEPLOY_RECEIPT" >/dev/null
+}
+
+restart_pending() {
+  init_update_state
+  if [ ! -e "$RESTART_MARKER" ] && [ ! -L "$RESTART_MARKER" ]; then return 1; fi
+  mso_private_state_validate_file "$RESTART_MARKER" >/dev/null || fail "unsafe runtime restart marker"
+  [ "$(cat "$RESTART_MARKER")" = 1 ] || fail "invalid runtime restart marker"
+}
+
+mark_restart_pending() { printf '1\n' | mso_private_state_atomic_write "$RESTART_MARKER" >/dev/null; }
+clear_restart_pending() { mso_private_state_remove_file "$RESTART_MARKER" >/dev/null 2>&1 || true; }
+
+quiesce_offline_runtime() {
+  local out
+  [ -x "$GATEWAY" ] || return 0
+  out="$(MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ROOT/.env.local" MSO_GATEWAY_LOCAL_URL="$LOCAL_URL" "$GATEWAY" runtime-stop)" \
+    || fail "could not safely quiesce the local MSO runtime before rebuilding"
+  case "$out" in *'runtime: stopped-owned'*) mark_restart_pending ;; esac
+}
+
+restore_offline_runtime() {
+  restart_pending || return 0
+  MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ROOT/.env.local" MSO_GATEWAY_LOCAL_URL="$LOCAL_URL" "$GATEWAY" local-start >/dev/null \
+    || fail "build succeeded but the previously-owned local MSO runtime could not be restored"
+  clear_restart_pending
+}
+
 print_status() {
-  local n local_v remote_v
-  require_checkout; fetch_main; n="$(behind)"; local_v="$(current_version)"; remote_v="$(remote_version)"
+  local n local_v remote_v head receipt=''
+  require_checkout; fetch_main; n="$(behind)"; local_v="$(current_version)"; remote_v="$(remote_version)"; head="$(git -C "$ROOT" rev-parse HEAD)"
   if [ "$n" -gt 0 ]; then
     printf 'update available: mso %s -> %s (%s commit%s)\n' "${local_v:-unknown}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)"
     git -C "$ROOT" log --format='  %h  %s' -5 HEAD..origin/main
     printf 'run: mso update\n'
-  else printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "$(git -C "$ROOT" rev-parse --short HEAD)"; fi
+    return
+  fi
+  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet mso.service; then
+    printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "${head:0:7}"
+    return
+  fi
+  if [ -e "$DEPLOY_RECEIPT" ] || [ -L "$DEPLOY_RECEIPT" ]; then receipt="$(read_receipt)"; fi
+  if [ "$receipt" != "$head" ] || restart_pending; then
+    printf 'source is current at %s, but offline deployment verification/restart is pending. run: mso update\n' "${head:0:7}"
+  else
+    printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "${head:0:7}"
+  fi
 }
 
 notice() {
@@ -48,15 +111,30 @@ notice() {
 }
 
 offline_build() {
-  local rebuild_only="$1"
+  local rebuild_only="$1" n head receipt=''
+  init_update_state
   if [ "$rebuild_only" != 1 ]; then
     fetch_main
-    [ "$(behind)" -gt 0 ] || { printf 'MSO is already up to date.\n'; return 0; }
-    git -C "$ROOT" merge --ff-only origin/main || fail "cannot fast-forward to origin/main"
-    (cd "$ROOT" && bun install) || fail "dependency install failed"
+    n="$(behind)"
+    [ "$n" -eq 0 ] || git -C "$ROOT" merge --ff-only origin/main || fail "cannot fast-forward to origin/main"
   fi
+  head="$(git -C "$ROOT" rev-parse HEAD)"
+  if [ -e "$DEPLOY_RECEIPT" ] || [ -L "$DEPLOY_RECEIPT" ]; then receipt="$(read_receipt)"; fi
+  if [ "$rebuild_only" != 1 ] && [ "$receipt" = "$head" ] && ! restart_pending; then
+    printf 'MSO is already up to date and the offline deployment receipt matches.\n'
+    return 0
+  fi
+
+  # Never mutate .next under a gateway-owned detached Next process. If an earlier
+  # attempt failed after quiescing it, the private restart marker survives and the
+  # next ordinary `mso update` finishes the deployment instead of trusting HEAD.
+  quiesce_offline_runtime
+  (cd "$ROOT" && bun install) || fail "dependency install failed"
   (cd "$ROOT" && bash scripts/verify-build.sh) || fail "candidate build verification failed"
   (cd "$ROOT" && node node_modules/next/dist/bin/next build) || fail "production build failed"
+  restore_offline_runtime
+  write_receipt
+  if restart_pending; then fail "runtime restart marker remained after restore"; fi
   printf 'updated to %s. No system service was active; run: mso web\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
 }
 

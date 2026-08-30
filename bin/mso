@@ -831,7 +831,7 @@ case "$cmd" in
   # The same self-update Settings → About drives, so both surfaces get the same
   # preflight and the same transient-unit handoff (a build spawned from the service
   # would be killed by the restart it performs).
-  update) MSO_UPDATE_ROOT="$ROOT" "$ROOT/scripts/mso-update" "$@" ;;
+  update) local_url="$(gateway_local_url)"; MSO_UPDATE_ROOT="$ROOT" MSO_UPDATE_LOCAL_URL="$local_url" "$ROOT/scripts/mso-update" "$@" ;;
 
   # ── editor-document CRUD (one pattern, all editor features) ──────────────
   crud)

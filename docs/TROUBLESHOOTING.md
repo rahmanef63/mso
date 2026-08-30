@@ -32,8 +32,11 @@ existing device role still requires the explicit `mso device role` command.
 ### How do I update when the web UI / port 4005 is down?
 
 Run `mso update`. The CLI updater reads/fetches `origin/main` directly and does not need the MSO API.
-On WSL without an active service it verifies and builds the clean updated checkout, then tells you to
-run `mso web`. Use `mso update status` to see the incoming CLI version/commits and `mso update log`
+On WSL without an active service it verifies and builds the clean updated checkout. If the fallback
+runtime is gateway-owned, it is quiesced before `.next` changes and restored afterward while an
+active tunnel identity is preserved. A private deployment receipt/restart marker survives partial
+failures, so rerunning the same `mso update` retries dependency/build/restart work even when Git HEAD
+already equals `origin/main`. Use `mso update status` for source/deployment state and `mso update log`
 for the service-updater transcript.
 
 ### `mso gateway start` cannot install or verify cloudflared

@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `gateway` close lifecycle review gaps
 - `security` harden gateway scanner fixtures
 - `install` survive Bun bin metadata corruption
 - `install` keep bootstrap guard shellcheck-clean

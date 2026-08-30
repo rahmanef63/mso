@@ -107,6 +107,49 @@ exec /bin/mv "$@"
     expect(alive(child.pid!)).toBe(false);
   });
 
+
+  it("rolls back an unpersisted tunnel when the launcher is terminated during readiness", async () => {
+    const f = fixture();
+    const curl = path.join(f.dir, "bin", "curl-wait");
+    fs.writeFileSync(curl, `#!/bin/sh
+case "$*" in
+  *127.0.0.1:4005/api/health*) printf '%s\n' '{"status":"ok","buildId":"fixture","runtimeInstanceId":"fixture","version":"${VERSION}"}' ;;
+  *) exit 22 ;;
+esac
+`, { mode: 0o700 });
+    const env = { ...f.env, MSO_GATEWAY_CURL: curl, MSO_GATEWAY_SKIP_PUBLIC_PROBE: "0", MSO_GATEWAY_PUBLIC_READY_SECONDS: "10" };
+    const child = spawn(GATEWAY, ["start"], { env, stdio: ["ignore", "pipe", "pipe"] });
+    for (let i = 0; i < 100 && !fs.existsSync(f.startFile); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(fs.existsSync(f.startFile)).toBe(true);
+    const tunnelPid = Number(fs.readFileSync(f.startFile, "utf8").trim().split(/\n+/).at(-1));
+    pids.add(tunnelPid);
+    child.kill("SIGTERM");
+    await new Promise<void>((resolve) => child.once("close", () => resolve()));
+    for (let i = 0; i < 50 && alive(tunnelPid); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(alive(tunnelPid)).toBe(false);
+    expect(fs.existsSync(path.join(f.state, "state.json"))).toBe(false);
+  });
+
+  it("local-start preserves an active tunnel while retaining an owned runtime", async () => {
+    const f = fixture();
+    const tunnel = spawn(f.cloudflared, ["tunnel", "--no-autoupdate", "--url", "http://127.0.0.1:4005"], { env: f.env });
+    const runtime = spawn(process.execPath, ["-e", "process.title='next-server (fixture)';process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)"]);
+    await new Promise((r) => setTimeout(r, 150));
+    pids.add(tunnel.pid!); pids.add(runtime.pid!);
+    const tid = identity(tunnel.pid!);
+    const rid = { ...identity(runtime.pid!), cmdHash: null, instanceId: "fixture" };
+    writeState(f.state, { provider: "cloudflare-quick", mode: "temporary", url: "https://life-fixture.trycloudflare.com",
+      localUrl: "http://127.0.0.1:4005", tunnelIdentity: tid, runtimeIdentity: rid, runtimeOwned: true, startedAt: "2026-01-01T00:00:00Z" });
+    run(["local-start"], f.env);
+    const state = JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8"));
+    expect(state.tunnelIdentity).toEqual(tid);
+    expect(state.runtimeIdentity).toEqual(rid);
+    expect(alive(tunnel.pid!)).toBe(true);
+    run(["stop"], f.env);
+    for (let i = 0; i < 50 && (alive(tunnel.pid!) || alive(runtime.pid!)); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(alive(tunnel.pid!)).toBe(false); expect(alive(runtime.pid!)).toBe(false);
+  });
+
   it("serializes concurrent starts so only one public tunnel is spawned", async () => {
     const f = fixture(), startFile = f.startFile, env = f.env;
     const [a, b] = await Promise.all([asyncStart(env), asyncStart(env)]);
