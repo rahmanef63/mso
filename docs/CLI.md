@@ -5,7 +5,7 @@
 The browser UI at your instance's domain is one frontend, not the product. `mso`
 reaches the same `/api` surface from a shell, so every feature is scriptable.
 
-`scripts/install.sh` symlinks `bin/mso` to `~/.local/bin/mso`. To install it by
+`scripts/install.sh` verifies and launches `scripts/install-core.sh`, which symlinks `bin/mso` to `~/.local/bin/mso`. To install it by
 hand from a checkout:
 
 ```bash

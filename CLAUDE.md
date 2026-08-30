@@ -238,7 +238,7 @@ to `resources/` (rr) and drive any project from one manifest:
   in THIS repo** (it used to live untracked under `~/.openclaw/workspace/`, so a fresh
   clone could not start the Browser at all and the `-nopw` → `-rfbauth` hardening had no
   version control). The script refuses to start without a VNC password file. Two further
-  host-side facts that `scripts/install.sh` NOW CARRIES ITSELF, and that the feature dies
+  host-side facts that the installer flow (`scripts/install.sh` → verified `scripts/install-core.sh`) NOW CARRIES, and that the feature dies
   quietly without: (1) `loginctl enable-linger <user>`, or the unit stops at
   logout and never starts at boot; (2) `Environment=XDG_RUNTIME_DIR=/run/user/<uid>` in
   mso.service — a system unit running as `User=` gets NO user-bus address, so without it
@@ -246,7 +246,7 @@ to `resources/` (rr) and drive any project from one manifest:
   `lib/camoufox/service.ts` reports that as an error rather than as "not installed", so the
   panel tells you which one it is.
   Treating these as un-carryable host lore was itself the bug: a host set up by
-  `scripts/install.sh` alone had neither, so the Browser app looked uninstalled and every
+  the installer flow had neither, so the Browser app looked uninstalled and every
   managed-app install died at the step that registers its user service. The installer sets
   both now, and `lib/managed-apps/user-bus.ts` re-derives the bus address at call time so a
   cockpit installed BEFORE this change is not left broken until someone re-runs the
@@ -365,7 +365,7 @@ the real runtime and working analogue before changing a tool or skill contract.
 ## CLI (`bin/mso`) — the web UI is only one frontend
 `bin/mso` reaches the same `/api` surface from a shell — every route has a named verb
 (enforced by a test in `bin/mso.test.ts`), plus `doctor`, `completion` and `--base`.
-`scripts/install.sh` symlinks
+`scripts/install.sh` verifies and launches `scripts/install-core.sh`; the core symlinks
 it to `~/.local/bin/mso` and symlinks `claude-skills/*` into `~/.claude/skills/`
 (every committed directory under `claude-skills/`, including `/mso-skill-authoring`).
 `mso -h` lists every verb; `mso api <METHOD> <path> [json]` is
