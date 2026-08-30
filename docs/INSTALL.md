@@ -447,13 +447,11 @@ The updater verifies the incoming checkout/build before replacing the service. W
 that invoked `mso update`; a secondary clone is never allowed to restart an unrelated live service.
 The updater then runs outside that service cgroup so it survives the restart. With no active
 service (including WSL without systemd), it performs the clean fast-forward/dependency/verify/build
-path locally. If `mso web`/gateway owns the detached Next runtime, update first quiesces only that
-verified runtime, leaves an active tunnel identity intact, rebuilds, then restores the runtime. A
+path locally. Before either the service-active or offline in-place build, update inventories every gateway state for the canonical checkout, quiesces each verified owned fallback runtime, leaves active tunnel identities intact, rebuilds, then restores every previously-owned origin. A
 checkout-scoped private deployment receipt and restart marker mean a dependency/build failure after
 Git already reached `origin/main` is retried by the next ordinary `mso update` instead of being
 mislabeled "already up to date". The state is keyed by canonical checkout path, so two clones at the
-same SHA cannot borrow each other's receipt. One owner-only transaction lock covers source/receipt
-reconciliation through runtime restore and receipt write. Recovery intent is written to private state
+same SHA cannot borrow each other's receipt. One owner-only transaction lock covers every service-active or offline in-place update, from source/receipt reconciliation through gateway runtime restore and receipt write. Recovery intent is written to private state
 before a gateway-owned runtime is quiesced, so an interrupted post-quiesce state update stays retryable.
 Interactive CLI commands also show a throttled Git-backed update notice;
 the notice never depends on port 4005. A successful service finalizer log ends with `UPDATE OK`.

@@ -5,6 +5,7 @@ UPDATE_STATE_DIR=''
 UPDATE_CANONICAL_ROOT=''
 DEPLOY_RECEIPT=''
 RESTART_MARKER=''
+GATEWAY_RESTORE_FILE=''
 UPDATE_LOCK_DIR=''
 UPDATE_LOCK_HELD=0
 UPDATE_LOCK_FD=''
@@ -29,6 +30,7 @@ init_update_state() {
   UPDATE_STATE_DIR="$(mso_private_state_dir "$base/$key")" || fail "unsafe checkout-scoped update state directory"
   DEPLOY_RECEIPT="$UPDATE_STATE_DIR/deployed.json"
   RESTART_MARKER="$UPDATE_STATE_DIR/restart-runtime"
+  GATEWAY_RESTORE_FILE="$UPDATE_STATE_DIR/gateway-runtimes.json"
   UPDATE_LOCK_DIR="$UPDATE_STATE_DIR/transaction.lock"
 }
 

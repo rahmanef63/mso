@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# self-update.sh — pull main, prove it compiles, build, restart. The body of the
-# Settings → About update button.
+# self-update.sh — inner pull/verify/build/restart stage. All public update entry points
+# go through scripts/mso-service-update first so checkout runtime inventory/locks are enforced.
 #
 # RUN BY systemd-run --user, NOT by mso.service (lib/host/self-update.ts explains
 # why: replacing mso.service kills that service's whole cgroup, so an updater child

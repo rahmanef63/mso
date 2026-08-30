@@ -33,6 +33,7 @@ function fixture() {
     "scripts/lib/private-state.sh",
     "scripts/lib/update-state.sh",
     "scripts/lib/runtime-exclusion.sh",
+    "scripts/lib/update-gateway-runtimes.sh",
   ]) copy(repo, rel);
   fs.writeFileSync(
     path.join(fakebin, "curl"),

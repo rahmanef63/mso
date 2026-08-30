@@ -8,6 +8,8 @@ const SCRIPT = path.join(process.cwd(), "scripts/mso-update");
 const PRIVATE = path.join(process.cwd(), "scripts/lib/private-state.sh");
 const UPDATE_STATE = path.join(process.cwd(), "scripts/lib/update-state.sh");
 const RUNTIME_EXCLUSION = path.join(process.cwd(), "scripts/lib/runtime-exclusion.sh");
+const UPDATE_GATEWAYS = path.join(process.cwd(), "scripts/lib/update-gateway-runtimes.sh");
+const SERVICE_UPDATE = path.join(process.cwd(), "scripts/mso-service-update");
 const roots: string[] = [];
 
 function git(cwd: string, ...args: string[]) { return execFileSync("git", args, { cwd, encoding: "utf8" }).trim(); }
@@ -18,9 +20,12 @@ function fixture(options: { failInstallOnce?: boolean; activeService?: "same" | 
   fs.copyFileSync(PRIVATE, path.join(repo, "scripts/lib/private-state.sh"));
   fs.copyFileSync(UPDATE_STATE, path.join(repo, "scripts/lib/update-state.sh"));
   fs.copyFileSync(RUNTIME_EXCLUSION, path.join(repo, "scripts/lib/runtime-exclusion.sh"));
+  fs.copyFileSync(UPDATE_GATEWAYS, path.join(repo, "scripts/lib/update-gateway-runtimes.sh"));
+  fs.copyFileSync(SERVICE_UPDATE, path.join(repo, "scripts/mso-service-update")); fs.chmodSync(path.join(repo, "scripts/mso-service-update"), 0o755);
+  fs.writeFileSync(path.join(repo, "scripts/self-update.sh"), `#!/bin/sh\nprintf 'self-update %s\\n' "$*" >> "${capture}"\n`, { mode: 0o755 });
   fs.writeFileSync(path.join(repo, "scripts/verify-build.sh"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   fs.writeFileSync(path.join(repo, "scripts/mso-gateway"), `#!/bin/sh
-printf 'gateway %s\\n' "$*" >> "${capture}"
+printf 'gateway %s %s\\n' "$*" "\${MSO_GATEWAY_LOCAL_URL:-}" >> "${capture}"
 case "$1" in
   runtime-stop)
     [ -n "\${MSO_GATEWAY_RECOVERY_MARKER:-}" ] || exit 9
@@ -56,10 +61,15 @@ if [ "${options.installDelayMs ?? 0}" -gt 0 ] && [ "$1" = install ]; then sleep 
 if [ "${options.failInstallOnce ? "1" : "0"}" = 1 ] && [ "$1" = install ] && [ ! -f "${failOnce}" ]; then touch "${failOnce}"; exit 23; fi
 `, { mode: 0o755 });
   fs.writeFileSync(path.join(bin, "node"), `#!/bin/sh\nprintf 'node %s\\n' "$*" >> "${capture}"\n`, { mode: 0o755 });
-  const env = { ...process.env, HOME: path.join(root, "home"), PATH: `${bin}:${process.env.PATH}`, MSO_UPDATE_ROOT: repo,
+  const home = path.join(root, "home");
+  const gatewayScope = path.join(home, ".mso/private/gateway/default-scope");
+  fs.mkdirSync(gatewayScope, { recursive: true, mode: 0o700 }); fs.chmodSync(path.join(home, ".mso"), 0o700);
+  fs.chmodSync(path.join(home, ".mso/private"), 0o700); fs.chmodSync(path.join(home, ".mso/private/gateway"), 0o700);
+  fs.writeFileSync(path.join(gatewayScope, "state.json"), JSON.stringify({ root: fs.realpathSync(repo), localUrl: "http://127.0.0.1:4555", runtimeOwned: true }) + "\n", { mode: 0o600 });
+  const env = { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, MSO_UPDATE_ROOT: repo,
     MSO_UPDATE_NOTICE_DIR: path.join(root, "notice"), MSO_UPDATE_STATE_DIR: path.join(root, "update-state"),
-    MSO_UPDATE_LOCAL_URL: "http://127.0.0.1:4555" };
-  return { root, repo, remote, old, newer, capture, env };
+    MSO_RUNTIME_EXCLUSION_DIR: path.join(root, "runtime-exclusion"), MSO_UPDATE_LOCAL_URL: "http://127.0.0.1:4555" };
+  return { root, repo, remote, old, newer, capture, env, home };
 }
 
 function receipts(base: string) {

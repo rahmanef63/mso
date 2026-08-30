@@ -32,9 +32,7 @@ existing device role still requires the explicit `mso device role` command.
 ### How do I update when the web UI / port 4005 is down?
 
 Run `mso update`. The CLI updater reads/fetches `origin/main` directly and does not need the MSO API.
-On WSL without an active service it verifies and builds the clean updated checkout. If the fallback
-runtime is gateway-owned, it is quiesced before `.next` changes and restored afterward while an
-active tunnel identity is preserved. Checkout-scoped private deployment receipts/restart markers
+On WSL without an active service it verifies and builds the clean updated checkout. Every gateway-owned fallback runtime for that canonical checkout is inventoried and quiesced before `.next` changes, then restored afterward while active tunnel identities are preserved. Checkout-scoped private deployment receipts/restart markers
 survive partial failures, so rerunning the same `mso update` retries dependency/build/restart work even
 when Git HEAD already equals `origin/main`. Offline transactions are serialized; do not remove the
 owner-only update-state directory just to bypass a pending recovery. Recovery intent is written before
@@ -49,8 +47,7 @@ by the installer) instead of letting a secondary clone rebuild itself and restar
 
 ### `mso gateway start` says an offline update is mutating this checkout
 
-This is an intentional safety exclusion. An offline `mso update` holds the checkout-wide runtime lock
-while `.next` can change, so `mso web`, onboarding fallback, and gateway runtime recovery cannot start
+This is an intentional safety exclusion. Every in-place `mso update` (service-active or offline) holds the checkout-wide runtime lock while `.next` can change, so `mso web`, onboarding fallback, and gateway runtime recovery cannot start
 Next from a partially-mutated build. Let the update finish, then rerun the same gateway/web command.
 
 ### `mso gateway start` cannot install or verify cloudflared

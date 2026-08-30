@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Serialize an in-place service update with every checkout-owned fallback runtime.
+set -euo pipefail
+umask 077
+
+ROOT="${MSO_UPDATE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+UPDATE_STATE_DIR_REQUESTED="${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}"
+LOCAL_URL="${MSO_UPDATE_LOCAL_URL:-${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}}"
+GATEWAY="$ROOT/scripts/mso-gateway"
+SELF_UPDATE="$ROOT/scripts/self-update.sh"
+
+fail() { printf 'mso service update: %s\n' "$*" >&2; exit 1; }
+[ -x "$GATEWAY" ] || fail "missing gateway lifecycle helper: $GATEWAY"
+[ -f "$SELF_UPDATE" ] || fail "missing service updater: $SELF_UPDATE"
+
+# shellcheck source=scripts/lib/private-state.sh
+. "$ROOT/scripts/lib/private-state.sh"
+# shellcheck source=scripts/lib/update-state.sh
+. "$ROOT/scripts/lib/update-state.sh"
+# shellcheck source=scripts/lib/runtime-exclusion.sh
+. "$ROOT/scripts/lib/runtime-exclusion.sh"
+# shellcheck source=scripts/lib/update-gateway-runtimes.sh
+. "$ROOT/scripts/lib/update-gateway-runtimes.sh"
+
+cleanup_locks() {
+  runtime_exclusion_release || true
+  update_lock_release || true
+}
+trap cleanup_locks EXIT
+trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
+
+update_lock_acquire
+runtime_exclusion_acquire_exclusive \
+  || fail "could not acquire checkout runtime exclusion before service update"
+update_gateway_quiesce_all
+
+if ! /bin/bash "$SELF_UPDATE" "$@"; then
+  # Do not restart fallback runtimes against an in-place tree whose build may have
+  # failed. The private restore inventory survives and the next successful update
+  # will restore every previously-owned origin.
+  fail "service update failed; fallback runtime restore intent was preserved"
+fi
+
+runtime_exclusion_release
+update_gateway_restore_all
+update_lock_release
+trap - EXIT HUP INT TERM

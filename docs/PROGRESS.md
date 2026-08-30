@@ -29,8 +29,7 @@ fallback runtime first. Re-approving the same device+role is idempotent, while r
 operator command: it can fetch/fast-forward/verify/build even when port 4005 is down, and normal
 interactive CLI use emits a throttled Git-backed update notice when `origin/main` is ahead.
 `mso update run` remains accepted for compatibility. Final PR review then hardened crash/concurrency
-recovery: offline deployment state is keyed by canonical checkout, the whole offline transaction is
-serialized with a PID/start-ticks lock, recovery intent is durable before an owned runtime is quiesced,
+recovery: deployment state is keyed by canonical checkout, update transactions are serialized with kernel `flock`, recovery intent is durable before an owned runtime is quiesced,
 and an interrupted post-quiesce state write is reconciled on retry. The shared private-state atomic
 writer now propagates write/rename failures explicitly even when called from a shell conditional. A
 full pre-push run then exposed a fork/signal race before the tunnel fingerprint existed. Tunnel launch
@@ -41,8 +40,7 @@ gateway/update serialization to kernel `flock` (no stale-lock ABA reclaim), scop
 canonical checkout + selected loopback origin, and made public readiness compare the exact local
 `version + buildId + runtimeInstanceId`. This closes the cross-clone control and wrong-deployment
 readiness classes without widening the raw app bind. The last P1 review pass added a checkout-wide
-shared/exclusive runtime exclusion: offline update owns it exclusively through `.next` mutation and
-deployment-receipt persistence, while all runtime-start paths take the shared side. An already-live
+shared/exclusive runtime exclusion: every in-place update owns it exclusively through `.next` mutation and deployment-state persistence, while all runtime-start paths take the shared side. Service-active updates now inventory and restore all gateway-owned fallback origins for the checkout instead of assuming only one runtime exists. An already-live
 tunnel is no longer treated as sufficient proof of readiness; `gateway start` recovers a dead local
 runtime, preserves the tunnel PID, and re-probes the exact public health identity before success.
 

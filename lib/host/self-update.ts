@@ -78,7 +78,7 @@ export function updateUnitArgs(root: string, logPath: string, rebuildOnly = fals
     "--property=TimeoutStartSec=3600",
     `--setenv=MSO_UPDATE_LOG=${logPath}`,
     "/bin/bash",
-    path.join(root, "scripts", "self-update.sh"),
+    path.join(root, "scripts", "mso-service-update"),
     ...(rebuildOnly ? ["--rebuild-only"] : []),
   ];
 }
@@ -268,7 +268,7 @@ export async function startUpdate(rebuildOnly = false): Promise<UpdateStatus> {
   const blocked = blockingReason(status, rebuildOnly);
   if (blocked) throw new HostError(blocked);
 
-  const script = path.join(repoRoot(), "scripts", "self-update.sh");
+  const script = path.join(repoRoot(), "scripts", "mso-service-update");
   if (!(await fs.stat(script).catch(() => null))) throw new HostError(`missing ${script}`);
 
   const started = await run(
