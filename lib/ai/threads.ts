@@ -18,10 +18,22 @@ export interface ChatThread {
 
 export type ThreadSummary = Pick<ChatThread, "id" | "title" | "createdAt" | "updatedAt">;
 
-const DIR = process.env.OS_THREADS_DIR || path.join(os.homedir(), ".mso", "threads");
-// ids are app-generated but jail them anyway (path-traversal guard): alnum + -_ only.
-const safeId = (id: string) => id.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
-const fileFor = (id: string) => path.join(DIR, `${safeId(id)}.yml`);
+const DIR = path.resolve(process.env.OS_THREADS_DIR || path.join(os.homedir(), ".mso", "threads"));
+const THREAD_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+// ids are app-generated but still arrive over HTTP. Keep the allowlist, then use
+// an explicit path.relative containment guard before a filesystem sink. The
+// latter is both symlink-independent lexical defence and a pattern CodeQL can
+// verify rather than having to trust a project-specific sanitizer helper.
+function fileFor(id: string): string {
+  if (!THREAD_ID.test(id)) throw new Error("invalid thread id");
+  const candidate = path.resolve(DIR, `${id}.yml`);
+  const relative = path.relative(DIR, candidate);
+  if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
+    throw new Error("invalid thread id");
+  }
+  return candidate;
+}
 
 export async function listThreads(): Promise<ThreadSummary[]> {
   let names: string[];
@@ -44,8 +56,9 @@ export async function listThreads(): Promise<ThreadSummary[]> {
 }
 
 export async function getThread(id: string): Promise<ChatThread | null> {
+  const file = fileFor(id); // validate before the not-found/corrupt-file catch
   try {
-    return parse(await fs.readFile(fileFor(id), "utf8")) as ChatThread;
+    return parse(await fs.readFile(file, "utf8")) as ChatThread;
   } catch {
     return null;
   }
@@ -60,8 +73,9 @@ export async function saveThread(t: ChatThread): Promise<void> {
 }
 
 export async function deleteThread(id: string): Promise<void> {
+  const file = fileFor(id); // invalid ids are authorization/input errors, not "already gone"
   try {
-    await fs.unlink(fileFor(id));
+    await fs.unlink(file);
   } catch {
     /* already gone */
   }

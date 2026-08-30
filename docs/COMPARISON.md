@@ -8,51 +8,51 @@ MSO is designed to be the most complete mobile-first, AI-native private Linux wo
 ## Method
 
 - Ratings describe the documented product surface, not speed, popularity, or a universal winner.
-- `●` means a first-class strength, `◐` means partial or deliberately narrow scope, and `—` means it is not a meaningful product surface.
+- `Strong` means a first-class product strength, `Partial` means available with deliberate scope limitations, and `Not offered` means it is not a core product surface.
 - MSO cells must point to repository evidence that exists at build time.
 - Competitor claims use official project documentation only and must be manually re-reviewed before the freshness window expires.
 - Edition-dependent or adjacent capabilities are marked partial unless they are consistently core to the product.
 
 ## Criteria
 
-### Workspace
+### Browser workspace
 
 A unified browser workspace with mobile-aware navigation across files, terminal, editors, apps, and host views.
 
-### Host ops
+### Linux host administration
 
 General Linux host operations such as services, logs, package visibility, network, storage, users, and system configuration.
 
-### Delivery
+### Application delivery
 
 Application/container deployment, Git integration, previews, lifecycle, backups, and rollback.
 
-### Observability
+### Monitoring and observability
 
 Metrics, history, alerting, anomaly detection, correlations, and incident analysis.
 
-### Delegation
+### Roles and delegation
 
 Least-privilege roles, multiple identities/devices, auditability, and SSO or policy integration.
 
-### AI / MCP
+### Built-in AI and MCP
 
 Built-in AI assistance plus structured remote tool/API control of the workspace.
 
 ## Matrix
 
-| Product | Best fit | Workspace | Host ops | Delivery | Observability | Delegation | AI / MCP |
+| Product | Best fit | Browser workspace | Linux host administration | Application delivery | Monitoring and observability | Roles and delegation | Built-in AI and MCP |
 |---|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **MSO** | Mobile-first private Linux workspace | ● | ◐ | ◐ | ◐ | ◐ | ● |
-| **Cockpit** | Deep graphical Linux administration | ◐ | ● | ◐ | ◐ | ● | — |
-| **Coolify** | Self-hosted Git/PaaS delivery | ◐ | ◐ | ● | ◐ | ● | — |
-| **Portainer** | Container and stack operations | ◐ | ◐ | ● | ◐ | ◐ | — |
-| **Netdata** | High-resolution observability and RCA | ◐ | — | — | ● | ◐ | ◐ |
-| **Tailscale SSH** | Identity-aware private remote access | — | ◐ | — | — | ● | — |
-| **File Browser** | Focused web file management | ◐ | — | — | — | ◐ | — |
-| **ttyd** | Small, focused web terminal | ◐ | — | — | — | ◐ | — |
-| **CasaOS** | Friendly personal-cloud home server | ◐ | ◐ | ◐ | ◐ | — | — |
-| **Runtipi** | Curated one-click self-hosted apps | ◐ | — | ● | ◐ | — | — |
+| **MSO** | Mobile-first private Linux workspace | Strong | Partial | Partial | Partial | Partial | Strong |
+| **Cockpit** | Deep graphical Linux administration | Partial | Strong | Partial | Partial | Strong | Not offered |
+| **Coolify** | Self-hosted Git/PaaS delivery | Partial | Partial | Strong | Partial | Strong | Not offered |
+| **Portainer** | Container and stack operations | Partial | Partial | Strong | Partial | Partial | Not offered |
+| **Netdata** | High-resolution observability and RCA | Partial | Not offered | Not offered | Strong | Partial | Partial |
+| **Tailscale SSH** | Identity-aware private remote access | Not offered | Partial | Not offered | Not offered | Strong | Not offered |
+| **File Browser** | Focused web file management | Partial | Not offered | Not offered | Not offered | Partial | Not offered |
+| **ttyd** | Small, focused web terminal | Partial | Not offered | Not offered | Not offered | Partial | Not offered |
+| **CasaOS** | Friendly personal-cloud home server | Partial | Partial | Partial | Partial | Not offered | Not offered |
+| **Runtipi** | Curated one-click self-hosted apps | Partial | Not offered | Strong | Partial | Not offered | Not offered |
 
 ## Notes and evidence
 
@@ -60,12 +60,12 @@ Built-in AI assistance plus structured remote tool/API control of the workspace.
 
 **Best fit:** Mobile-first private Linux workspace
 
-- **Workspace ●:** Files, real PTY, code/media editors, managed apps, responsive shells, PWA, and CLI share one API surface. Evidence: `app/os-root.tsx`, `frontend/slices/files-manager/app.tsx`, `frontend/slices/os-terminal/components/pty-terminal.tsx`, `frontend/slices/appshell/responsive/responsive-provider.tsx`.
-- **Host ops ◐:** Live metrics/processes, service inventory and logs, exact allowlisted systemd lifecycle, package-cache visibility, full owner shell. No first-class network/storage/user administration yet. Evidence: `lib/host/sys.ts`, `lib/host/services.ts`, `lib/host/package-updates.ts`, `frontend/slices/system-monitor/app.tsx`.
-- **Delivery ◐:** Pinned managed-app install/update/backup/rollback paths exist, but MSO is not yet a general Git-to-container PaaS. Evidence: `lib/managed-apps/install.ts`, `lib/managed-apps/update.ts`, `lib/managed-apps/backups.ts`.
-- **Observability ◐:** Live host metrics and processes are built in; long-term history, alert rules, anomaly correlation, and RCA remain specialist gaps. Evidence: `frontend/slices/system-monitor/app.tsx`, `frontend/slices/system-monitor/lib/use-stats-history.ts`, `lib/host/sys.ts`.
-- **Delegation ◐:** Approved devices have live Viewer, Operator, and Owner roles with audit and immediate revocation. This is not a full user directory, Linux-account mapping, or SSO system. Evidence: `lib/auth/roles.ts`, `lib/auth/device-store.ts`, `app/api/auth/devices/route.ts`, `app/os-root.tsx`.
-- **AI / MCP ●:** BYOK Alfa, structured host/editor tools, remote OAuth/PKCE MCP, CLI parity, and project-aware tool discovery are native product surfaces. Evidence: `app/api/assistant/route.ts`, `app/mcp/route.ts`, `lib/mcp/dispatch.ts`, `frontend/slices/assistant/app.tsx`.
+- **Browser workspace (Strong):** Files, real PTY, code/media editors, managed apps, responsive shells, PWA, and CLI share one API surface. Evidence: `app/os-root.tsx`, `frontend/slices/files-manager/app.tsx`, `frontend/slices/os-terminal/components/pty-terminal.tsx`, `frontend/slices/appshell/responsive/responsive-provider.tsx`.
+- **Linux host administration (Partial):** Live metrics/processes, service inventory and logs, exact allowlisted systemd lifecycle, package-cache visibility, full owner shell. No first-class network/storage/user administration yet. Evidence: `lib/host/sys.ts`, `lib/host/services.ts`, `lib/host/package-updates.ts`, `frontend/slices/system-monitor/app.tsx`.
+- **Application delivery (Partial):** Pinned managed-app install/update/backup/rollback paths exist, but MSO is not yet a general Git-to-container PaaS. Evidence: `lib/managed-apps/install.ts`, `lib/managed-apps/update.ts`, `lib/managed-apps/backups.ts`.
+- **Monitoring and observability (Partial):** Live host metrics and processes are built in; long-term history, alert rules, anomaly correlation, and RCA remain specialist gaps. Evidence: `frontend/slices/system-monitor/app.tsx`, `frontend/slices/system-monitor/lib/use-stats-history.ts`, `lib/host/sys.ts`.
+- **Roles and delegation (Partial):** Approved devices have live Viewer, Operator, and Owner roles with audit and immediate revocation. This is not a full user directory, Linux-account mapping, or SSO system. Evidence: `lib/auth/roles.ts`, `lib/auth/device-store.ts`, `app/api/auth/devices/route.ts`, `app/os-root.tsx`.
+- **Built-in AI and MCP (Strong):** BYOK Alfa, structured host/editor tools, remote OAuth/PKCE MCP, CLI parity, and project-aware tool discovery are native product surfaces. Evidence: `app/api/assistant/route.ts`, `app/mcp/route.ts`, `lib/mcp/dispatch.ts`, `frontend/slices/assistant/app.tsx`.
 
 Official sources:
 - [MSO repository](https://github.com/rahmanef63/mso)
@@ -74,12 +74,12 @@ Official sources:
 
 **Best fit:** Deep graphical Linux administration
 
-- **Workspace ◐:** Integrated browser administration and terminal, with optional applications; not an editor-centric mobile workspace.
-- **Host ops ●:** Network, firewall, storage, logs, software updates, users, systemd, VMs, containers, and multi-server administration.
-- **Delivery ◐:** Can administer containers and VMs, but is not primarily a Git-to-production PaaS.
-- **Observability ◐:** Detailed host metrics and journal correlation, without Netdata-class alerting/anomaly depth.
-- **Delegation ●:** Uses normal Linux users and privileges and supports network-wide login/SSO approaches.
-- **AI / MCP —:** No built-in AI assistant or remote MCP control plane in the core product.
+- **Browser workspace (Partial):** Integrated browser administration and terminal, with optional applications; not an editor-centric mobile workspace.
+- **Linux host administration (Strong):** Network, firewall, storage, logs, software updates, users, systemd, VMs, containers, and multi-server administration.
+- **Application delivery (Partial):** Can administer containers and VMs, but is not primarily a Git-to-production PaaS.
+- **Monitoring and observability (Partial):** Detailed host metrics and journal correlation, without Netdata-class alerting/anomaly depth.
+- **Roles and delegation (Strong):** Uses normal Linux users and privileges and supports network-wide login/SSO approaches.
+- **Built-in AI and MCP (Not offered):** No built-in AI assistant or remote MCP control plane in the core product.
 
 Official sources:
 - [Cockpit project overview](https://cockpit-project.org/)
@@ -88,12 +88,12 @@ Official sources:
 
 **Best fit:** Self-hosted Git/PaaS delivery
 
-- **Workspace ◐:** Dashboard and real-time terminal center on deployed resources rather than a general files/editors workspace.
-- **Host ops ◐:** Server setup automations, terminal, monitoring, and cleanup; not a general Linux administration cockpit.
-- **Delivery ●:** Git integrations, automatic and preview deployments, one-click services, SSL, databases, backups, webhooks, and API.
-- **Observability ◐:** Deployment/server/container monitoring and notifications, but not deep per-second anomaly/RCA analytics.
-- **Delegation ●:** Team projects, roles, and permissions are first-class product features.
-- **AI / MCP —:** No native AI workspace or MCP host control comparable to MSO.
+- **Browser workspace (Partial):** Dashboard and real-time terminal center on deployed resources rather than a general files/editors workspace.
+- **Linux host administration (Partial):** Server setup automations, terminal, monitoring, and cleanup; not a general Linux administration cockpit.
+- **Application delivery (Strong):** Git integrations, automatic and preview deployments, one-click services, SSL, databases, backups, webhooks, and API.
+- **Monitoring and observability (Partial):** Deployment/server/container monitoring and notifications, but not deep per-second anomaly/RCA analytics.
+- **Roles and delegation (Strong):** Team projects, roles, and permissions are first-class product features.
+- **Built-in AI and MCP (Not offered):** No native AI workspace or MCP host control comparable to MSO.
 
 Official sources:
 - [Coolify features](https://coolify.io/docs)
@@ -103,12 +103,12 @@ Official sources:
 
 **Best fit:** Container and stack operations
 
-- **Workspace ◐:** Container consoles, logs, stack editors, and resource views; not a general host files/editor workspace.
-- **Host ops ◐:** Strong container-platform operations, but host systemd/network/storage administration is outside the core scope.
-- **Delivery ●:** Docker/Swarm/Kubernetes/Podman resources, stacks, GitOps updates, environment management, and migration/duplication.
-- **Observability ◐:** Container state, logs, and resource inspection; not a Netdata-class observability system.
-- **Delegation ◐:** Access controls are available; advanced RBAC is edition-dependent.
-- **AI / MCP —:** No native AI/MCP workspace control plane.
+- **Browser workspace (Partial):** Container consoles, logs, stack editors, and resource views; not a general host files/editor workspace.
+- **Linux host administration (Partial):** Strong container-platform operations, but host systemd/network/storage administration is outside the core scope.
+- **Application delivery (Strong):** Docker/Swarm/Kubernetes/Podman resources, stacks, GitOps updates, environment management, and migration/duplication.
+- **Monitoring and observability (Partial):** Container state, logs, and resource inspection; not a Netdata-class observability system.
+- **Roles and delegation (Partial):** Access controls are available; advanced RBAC is edition-dependent.
+- **Built-in AI and MCP (Not offered):** No native AI/MCP workspace control plane.
 
 Official sources:
 - [Portainer documentation](https://docs.portainer.io/)
@@ -118,12 +118,12 @@ Official sources:
 
 **Best fit:** High-resolution observability and RCA
 
-- **Workspace ◐:** Rich monitoring dashboard rather than a files/terminal/editor workspace.
-- **Host ops —:** Observes hosts and services; it is not a general administration shell.
-- **Delivery —:** Does not provide general application deployment workflows.
-- **Observability ●:** Per-second metrics, alerts, anomaly scores, correlation, cross-node analysis, and AI-generated incident insights.
-- **Delegation ◐:** Cloud/team access exists, but identity and remote host access are not its primary comparison axis.
-- **AI / MCP ◐:** AI Insights explains telemetry and recommends actions; it does not expose a general host-action MCP surface.
+- **Browser workspace (Partial):** Rich monitoring dashboard rather than a files/terminal/editor workspace.
+- **Linux host administration (Not offered):** Observes hosts and services; it is not a general administration shell.
+- **Application delivery (Not offered):** Does not provide general application deployment workflows.
+- **Monitoring and observability (Strong):** Per-second metrics, alerts, anomaly scores, correlation, cross-node analysis, and AI-generated incident insights.
+- **Roles and delegation (Partial):** Cloud/team access exists, but identity and remote host access are not its primary comparison axis.
+- **Built-in AI and MCP (Partial):** AI Insights explains telemetry and recommends actions; it does not expose a general host-action MCP surface.
 
 Official sources:
 - [Netdata charts](https://learn.netdata.cloud/docs/dashboards-and-charts/charts)
@@ -133,12 +133,12 @@ Official sources:
 
 **Best fit:** Identity-aware private remote access
 
-- **Workspace —:** An access layer, not a graphical workspace.
-- **Host ops ◐:** Carries SSH sessions to the host; administration remains command-line tooling on the target.
-- **Delivery —:** No application delivery control plane.
-- **Observability —:** Connection/audit data is not host observability.
-- **Delegation ●:** Identity, ACLs, SSH checks, session controls, revocation, and recording integrations are core strengths.
-- **AI / MCP —:** No built-in AI/MCP host workspace.
+- **Browser workspace (Not offered):** An access layer, not a graphical workspace.
+- **Linux host administration (Partial):** Carries SSH sessions to the host; administration remains command-line tooling on the target.
+- **Application delivery (Not offered):** No application delivery control plane.
+- **Monitoring and observability (Not offered):** Connection/audit data is not host observability.
+- **Roles and delegation (Strong):** Identity, ACLs, SSH checks, session controls, revocation, and recording integrations are core strengths.
+- **Built-in AI and MCP (Not offered):** No built-in AI/MCP host workspace.
 
 Official sources:
 - [Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh)
@@ -147,12 +147,12 @@ Official sources:
 
 **Best fit:** Focused web file management
 
-- **Workspace ◐:** Strong upload/delete/preview/edit file surface, without a complete server workspace.
-- **Host ops —:** No general service, package, network, or storage administration.
-- **Delivery —:** No application deployment control plane.
-- **Observability —:** No host metrics/alerting system.
-- **Delegation ◐:** File-focused users/scopes, not a complete host privilege model.
-- **AI / MCP —:** No native AI/MCP control.
+- **Browser workspace (Partial):** Strong upload/delete/preview/edit file surface, without a complete server workspace.
+- **Linux host administration (Not offered):** No general service, package, network, or storage administration.
+- **Application delivery (Not offered):** No application deployment control plane.
+- **Monitoring and observability (Not offered):** No host metrics/alerting system.
+- **Roles and delegation (Partial):** File-focused users/scopes, not a complete host privilege model.
+- **Built-in AI and MCP (Not offered):** No native AI/MCP control.
 
 Official sources:
 - [File Browser repository](https://github.com/filebrowser/filebrowser)
@@ -161,12 +161,12 @@ Official sources:
 
 **Best fit:** Small, focused web terminal
 
-- **Workspace ◐:** Excellent terminal transport, but intentionally only one command/terminal surface.
-- **Host ops —:** Any operations come from the command it exposes, not from structured host controls.
-- **Delivery —:** No application deployment workflow.
-- **Observability —:** No host observability system.
-- **Delegation ◐:** Basic/auth-proxy options and read-only mode, without a product-wide role model.
-- **AI / MCP —:** No native AI/MCP workspace.
+- **Browser workspace (Partial):** Excellent terminal transport, but intentionally only one command/terminal surface.
+- **Linux host administration (Not offered):** Any operations come from the command it exposes, not from structured host controls.
+- **Application delivery (Not offered):** No application deployment workflow.
+- **Monitoring and observability (Not offered):** No host observability system.
+- **Roles and delegation (Partial):** Basic/auth-proxy options and read-only mode, without a product-wide role model.
+- **Built-in AI and MCP (Not offered):** No native AI/MCP workspace.
 
 Official sources:
 - [ttyd repository](https://github.com/tsl0922/ttyd)
@@ -175,12 +175,12 @@ Official sources:
 
 **Best fit:** Friendly personal-cloud home server
 
-- **Workspace ◐:** Friendly personal-cloud dashboard, files, widgets, and apps, but not a developer/operations workspace with full PTY/editor depth.
-- **Host ops ◐:** Home-server status and storage/app management rather than deep Linux administration.
-- **Delivery ◐:** One-click Docker application ecosystem, not Git/preview-oriented PaaS delivery.
-- **Observability ◐:** Dashboard status/widgets without specialist alerting and RCA depth.
-- **Delegation —:** Not positioned around least-privilege team administration.
-- **AI / MCP —:** No native AI/MCP workspace control.
+- **Browser workspace (Partial):** Friendly personal-cloud dashboard, files, widgets, and apps, but not a developer/operations workspace with full PTY/editor depth.
+- **Linux host administration (Partial):** Home-server status and storage/app management rather than deep Linux administration.
+- **Application delivery (Partial):** One-click Docker application ecosystem, not Git/preview-oriented PaaS delivery.
+- **Monitoring and observability (Partial):** Dashboard status/widgets without specialist alerting and RCA depth.
+- **Roles and delegation (Not offered):** Not positioned around least-privilege team administration.
+- **Built-in AI and MCP (Not offered):** No native AI/MCP workspace control.
 
 Official sources:
 - [CasaOS repository](https://github.com/IceWhaleTech/CasaOS)
@@ -189,12 +189,12 @@ Official sources:
 
 **Best fit:** Curated one-click self-hosted apps
 
-- **Workspace ◐:** App-centric home-server dashboard rather than a unified developer/operations workspace.
-- **Host ops —:** General Linux host administration is not the primary product surface.
-- **Delivery ●:** Curated/custom app stores, preconfigured Compose apps, lifecycle, logs, updates, persistence, and per-app backups.
-- **Observability ◐:** App state/logs, not deep infrastructure observability.
-- **Delegation —:** Not positioned as a multi-admin identity/RBAC control plane.
-- **AI / MCP —:** No native AI/MCP host workspace.
+- **Browser workspace (Partial):** App-centric home-server dashboard rather than a unified developer/operations workspace.
+- **Linux host administration (Not offered):** General Linux host administration is not the primary product surface.
+- **Application delivery (Strong):** Curated/custom app stores, preconfigured Compose apps, lifecycle, logs, updates, persistence, and per-app backups.
+- **Monitoring and observability (Partial):** App state/logs, not deep infrastructure observability.
+- **Roles and delegation (Not offered):** Not positioned as a multi-admin identity/RBAC control plane.
+- **Built-in AI and MCP (Not offered):** No native AI/MCP host workspace.
 
 Official sources:
 - [Runtipi app store](https://runtipi.io/docs/learn/apps-and-app-store)

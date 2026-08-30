@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { MIN_SECRET_LEN, signSession, verifySession, type SessionPayload } from "./session";
+import { constantTimeEq, MAX_COMPARE_BYTES, MIN_SECRET_LEN, signSession, verifySession, type SessionPayload } from "./session";
 
 const SECRET = "s".repeat(MIN_SECRET_LEN);
 
@@ -20,6 +20,20 @@ function forgeToken(encodedPayload: string, secret: string): string {
   hmac.update(encodedPayload);
   return `${encodedPayload}.${b64url(hmac.digest())}`;
 }
+
+describe("constantTimeEq fixed-width comparison", () => {
+  it("compares equal and unequal values without creating a password hash", () => {
+    expect(constantTimeEq("correct-horse", "correct-horse")).toBe(true);
+    expect(constantTimeEq("correct-horse", "correct-house")).toBe(false);
+    expect(constantTimeEq("short", "shorter")).toBe(false);
+  });
+
+  it("fails closed when either UTF-8 value exceeds the fixed-width ceiling", () => {
+    const oversized = "a".repeat(MAX_COMPARE_BYTES + 1);
+    expect(constantTimeEq(oversized, oversized)).toBe(false);
+    expect(constantTimeEq("a", oversized)).toBe(false);
+  });
+});
 
 describe("signSession / verifySession roundtrip", () => {
   it("verifies a token it signed and returns the exact payload", () => {

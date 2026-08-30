@@ -13,7 +13,8 @@ Running log of what shipped each phase. Newest at top.
 
 The old README comparison mixed unrelated tools into one hand-written scorecard. It is now generated
 from `docs/comparison-data.json`: six defined criteria, official-source links for every comparison
-product, an existing repository-evidence requirement for every MSO rating, and a 90-day review
+product, an existing repository-evidence requirement for every MSO rating, explicit searchable
+status words (`Strong`, `Partial`, `Not offered`) instead of icon-only cells, and a 90-day review
 freshness gate. The chosen category is deliberately narrow—mobile-first, AI-native private Linux
 workspace for an owner or small trusted team—while specialist strengths and unfinished gaps remain
 explicit in `docs/COMPARISON.md` and `docs/COMPETITIVE-ROADMAP.md`.
@@ -23,6 +24,30 @@ role-less devices to Owner, fails malformed roles down to Viewer, prevents brows
 last-Owner removal, and re-resolves role/revocation on every request. The shell filters inaccessible
 apps for clarity, while a centralized server policy makes the actual decision: explicit reads are Viewer and every unclassified route fails up to Owner; PTY/exec/config/MCP/update remain Owner, and only
 explicit bounded operational surfaces are Operator.
+
+A hosted CodeQL follow-up on the first release candidate was not treated as cosmetic backlog.
+The release was reopened to harden validated config maps, strict thread identifiers, external iframe
+policy, descriptor-bound file reads, dual root containment, private collision fixtures, bounded
+models.dev cache writes, exclusive upload staging, and immutable CodeQL workflow pins. The first
+PR rescan then reported eight changed-line alerts rather than being called green because the
+analyzer process exited successfully: a password-comparison model, five path/race flows, one test
+TOCTOU and the intentional ChatGPT file-transfer sink. The comparator now uses fixed-width bytes
+without creating a stored/fast password hash; thread IDs and host paths use explicit `path.relative` containment, with every host
+filesystem sink kept inside the analyzer-recognized safe branch; the cache test binds mode and read to one file
+descriptor; and the ChatGPT bridge now streams under 20 MiB, validates redirect host, MIME and raster
+signatures, then enters the guarded atomic upload path. Its remaining network-to-disk data flow is
+the documented purpose of `fs_upload_file`; it may be classified only as reviewed `won't fix`, never
+as a false positive or by weakening CodeQL. Regression tests accompany each changed boundary; the
+replacement SHA must repeat the full repository, build, hosted-analysis, deploy and
+ultimate-assurance gates before the branch is considered closed.
+
+The same release reconciles all ten open Dependabot PRs instead of merging them blindly. Seven
+minor/patch or action updates with green hosted checks are integrated, and Lucide 1.x is migrated
+with its removed GitHub brand glyph replaced by a supported repository glyph. ESLint 10 and
+TypeScript 7 remain on a documented compatibility hold because the current Next.js React lint
+plugin crashes under ESLint 10 and the current `typescript-eslint` stack rejects TypeScript 7;
+Dependabot now suppresses only those semver-major repeats while continuing minor, patch, and
+security updates.
 
 System Monitor now includes Services and Updates beside live telemetry. It inventories system/user
 `systemd` units, bounds journals, and permits start/stop/restart only for validated exact units in

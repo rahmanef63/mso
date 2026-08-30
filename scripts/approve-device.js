@@ -53,16 +53,20 @@ function pidIsGone(pid) {
   catch (error) { return error && error.code === "ESRCH"; }
 }
 function abandonedLock() {
+  let fd;
   try {
-    const st = fs.statSync(LOCK);
-    let owner = "";
-    try { owner = fs.readFileSync(LOCK, "utf8"); } catch {}
+    fd = fs.openSync(LOCK, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const st = fs.fstatSync(fd);
+    if (!st.isFile()) return false;
+    const owner = fs.readFileSync(fd, "utf8");
     const pid = Number(owner.split(":", 1)[0]);
     if (Number.isInteger(pid) && pid > 1) return pidIsGone(pid);
     return Date.now() - st.mtimeMs > LOCK_STALE_MS;
   } catch (error) {
     if (error && error.code === "ENOENT") return true;
-    throw error;
+    return false;
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd); } catch {}
   }
 }
 function openExclusive(file, token) {

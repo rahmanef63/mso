@@ -4,6 +4,7 @@
 // writeFile/move/copy (so an upload can't write ~/.ssh/authorized_keys or escape
 // the dest through a symlinked subdir). Split out of fs.ts for single responsibility.
 import { promises as fs, createWriteStream } from "fs";
+import { randomBytes } from "crypto";
 import { once } from "events";
 import path from "path";
 import { HostError } from "./host-error";
@@ -33,14 +34,18 @@ export async function uploadInto(
       failed.push(relPath);
       continue;
     }
+    const tmp = privateTempPath(full);
     try {
-      await fs.mkdir(path.dirname(full), { recursive: true });
-      const tmp = `${full}.tmp-${process.pid}`;
-      await fs.writeFile(tmp, data, { mode: 0o644 });
+      await fs.mkdir(path.dirname(full), { recursive: true, mode: 0o700 });
+      await assertUploadTarget(full, destReal); // parent may have appeared since the first check
+      await fs.writeFile(tmp, data, { mode: 0o600, flag: "wx" });
+      await fs.chmod(tmp, 0o644);
       await fs.rename(tmp, full);
       written++;
     } catch {
       failed.push(relPath);
+    } finally {
+      await fs.rm(tmp, { force: true }).catch(() => {});
     }
   }
   return { written, failed };
@@ -76,9 +81,11 @@ export async function streamFileInto(
     return "bad-path";
   }
 
-  await fs.mkdir(path.dirname(full), { recursive: true });
-  const tmp = `${full}.tmp-${process.pid}-${Date.now()}`;
-  const out = createWriteStream(tmp, { mode: 0o644 });
+  await fs.mkdir(path.dirname(full), { recursive: true, mode: 0o700 });
+  try { await assertUploadTarget(full, destReal); }
+  catch { await drain(body); return "bad-path"; }
+  const tmp = privateTempPath(full);
+  const out = createWriteStream(tmp, { mode: 0o600, flags: "wx" });
   let bytes = 0;
   let tooLarge = false;
   try {
@@ -100,12 +107,20 @@ export async function streamFileInto(
     await fs.rm(tmp, { force: true });
     return "too-large";
   }
+  await fs.chmod(tmp, 0o644);
   await fs.rename(tmp, full);
   return "ok";
 }
 
+function privateTempPath(full: string): string {
+  return `${full}.mso-upload-${process.pid}-${randomBytes(8).toString("hex")}.tmp`;
+}
+
 function sanitiseSegments(relPath: string): string[] {
-  return relPath.split("/").map((s) => s.trim()).filter((s) => s && s !== "." && s !== "..");
+  if (!relPath || relPath.length > 1024 || relPath.includes("\0")) return [];
+  const segments = relPath.split("/").map((segment) => segment.trim());
+  if (segments.some((segment) => !segment || segment === "." || segment === ".." || segment.length > 255)) return [];
+  return segments;
 }
 
 async function drain(body: AsyncIterable<Uint8Array>): Promise<void> {

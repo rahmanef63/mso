@@ -6,17 +6,29 @@ import crypto from "crypto";
 /** Minimum length for the signing secret. A short/empty key is forgeable. */
 export const MIN_SECRET_LEN = 32;
 
+/** Maximum UTF-8 size accepted by the fixed-width secret comparator. */
+export const MAX_COMPARE_BYTES = 1024;
+
 /**
- * Length-safe constant-time string compare. Hashes both sides to a fixed
- * 32-byte SHA-256 digest before `timingSafeEqual`, so the comparison time
- * does NOT depend on the inputs' lengths. A naive `a.length === b.length`
- * early-exit would leak the secret's length over the network. Use this for
- * every password / token / signature compare. Mirrors lib/agent/server.ts.
+ * Length-safe constant-time string compare. This is comparison, not password
+ * storage: both cleartext inputs are copied into fixed-width buffers and their
+ * byte lengths are included in the compared bytes. No fast password verifier is
+ * created or persisted, and unequal lengths do not take an early-return path.
+ * Callers reject over-limit network input before invoking it.
  */
+function fixedCompareBuffer(value: string): { buffer: Buffer; valid: boolean } {
+  const bytes = Buffer.from(value, "utf8");
+  const out = Buffer.alloc(MAX_COMPARE_BYTES + 4);
+  bytes.copy(out, 0, 0, Math.min(bytes.length, MAX_COMPARE_BYTES));
+  out.writeUInt32BE(Math.min(bytes.length, MAX_COMPARE_BYTES + 1), MAX_COMPARE_BYTES);
+  return { buffer: out, valid: bytes.length <= MAX_COMPARE_BYTES };
+}
+
 export function constantTimeEq(a: string, b: string): boolean {
-  const ha = crypto.createHash("sha256").update(a).digest();
-  const hb = crypto.createHash("sha256").update(b).digest();
-  return crypto.timingSafeEqual(ha, hb);
+  const left = fixedCompareBuffer(a);
+  const right = fixedCompareBuffer(b);
+  const same = crypto.timingSafeEqual(left.buffer, right.buffer);
+  return left.valid && right.valid && same;
 }
 
 export interface SessionPayload {

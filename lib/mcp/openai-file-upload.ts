@@ -58,6 +58,53 @@ async function fetchTrustedFile(initialUrl: URL): Promise<Response> {
   throw new HostError("OpenAI file download exceeded the redirect limit");
 }
 
+async function readBoundedBody(response: Response): Promise<Buffer> {
+  const rawLength = response.headers.get("content-length");
+  if (rawLength !== null) {
+    const declared = Number(rawLength);
+    if (!Number.isFinite(declared) || declared < 0 || declared > MAX_FILE_BYTES) {
+      throw new HostError("file exceeds the 20 MiB MCP import limit");
+    }
+  }
+  if (!response.body) throw new HostError("OpenAI file download was empty");
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_FILE_BYTES) {
+        await reader.cancel("MCP import size limit exceeded").catch(() => {});
+        throw new HostError("file exceeds the 20 MiB MCP import limit");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (bytes === 0) throw new HostError("OpenAI file download was empty");
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), bytes);
+}
+
+function responseMime(response: Response): string | null {
+  const value = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+  if (!value) return null;
+  if (!ALLOWED_MIME.has(value)) throw new HostError(`unsupported response file type: ${value}`);
+  return value;
+}
+
+function hasExpectedSignature(data: Buffer, mimeType: string): boolean {
+  if (mimeType === "image/png") {
+    return data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  }
+  if (mimeType === "image/jpeg") return data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+  if (mimeType === "image/webp") return data.length >= 12 && data.subarray(0, 4).toString("ascii") === "RIFF" && data.subarray(8, 12).toString("ascii") === "WEBP";
+  return true; // application/octet-stream is intentionally a generic file bridge.
+}
+
 function safeFilename(input: string | undefined, fallback: string): string {
   const value = path.basename((input || fallback).trim());
   if (!value || value === "." || value === ".." || value.length > 200) throw new HostError("filename is invalid");
@@ -88,11 +135,18 @@ export async function importOpenAiProvidedFile(opts: {
 
   const response = await fetchTrustedFile(url);
   if (!response.ok) throw new HostError(`OpenAI file download failed (${response.status})`);
-  const declared = Number(response.headers.get("content-length") || 0);
-  if (declared > MAX_FILE_BYTES) throw new HostError("file exceeds the 20 MiB MCP import limit");
-  const data = Buffer.from(await response.arrayBuffer());
-  if (data.byteLength === 0) throw new HostError("OpenAI file download was empty");
-  if (data.byteLength > MAX_FILE_BYTES) throw new HostError("file exceeds the 20 MiB MCP import limit");
+  const wireMime = responseMime(response);
+  if (
+    mimeType !== "application/octet-stream" &&
+    wireMime &&
+    wireMime !== "application/octet-stream" &&
+    wireMime !== mimeType
+  ) {
+    throw new HostError(`response file type ${wireMime} does not match ${mimeType}`);
+  }
+  const data = await readBoundedBody(response);
+  const effectiveMime = mimeType === "application/octet-stream" ? (wireMime || mimeType) : mimeType;
+  if (!hasExpectedSignature(data, effectiveMime)) throw new HostError(`file signature does not match ${effectiveMime}`);
 
   const fallback = file.file_name || file.name || `${file.file_id}.bin`;
   const filename = safeFilename(opts.filename, fallback);

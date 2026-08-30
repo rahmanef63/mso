@@ -61,14 +61,9 @@ describe("streamFileInto — the upload write boundary", () => {
     const destReal = await resolveUploadDest(dir);
 
     const res = await streamFileInto(destReal, relPath, text("pwned"));
-    // Either rejected outright, or the ".." segments were stripped so it landed
-    // INSIDE dest. What must never happen is a write above dest.
-    if (res === "ok") {
-      const escaped = path.resolve(dir, "..", "escape.txt");
-      await expect(fs.access(escaped)).rejects.toThrow();
-    } else {
-      expect(res).toBe("bad-path");
-    }
+    expect(res).toBe("bad-path");
+    const escaped = path.resolve(dir, "..", "escape.txt");
+    await expect(fs.access(escaped)).rejects.toThrow();
     await expect(fs.access("/etc/cron.d/pwn")).rejects.toThrow();
   });
 
@@ -78,7 +73,7 @@ describe("streamFileInto — the upload write boundary", () => {
 
     expect(await streamFileInto(destReal, "big.bin", bytes(101 * 1024 * 1024))).toBe("too-large");
     await expect(fs.access(path.join(dir, "big.bin"))).rejects.toThrow();
-    expect((await fs.readdir(dir)).filter((f) => f.includes(".tmp-"))).toEqual([]);
+    expect((await fs.readdir(dir)).filter((f) => f.includes("mso-upload") || f.endsWith(".tmp"))).toEqual([]);
   });
 
   it("rejects a destination outside the WRITE roots", async () => {

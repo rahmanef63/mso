@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { constantTimeEq, MIN_SECRET_LEN, signSession, type SessionPayload } from "@/lib/auth/session";
+import { constantTimeEq, MAX_COMPARE_BYTES, MIN_SECRET_LEN, signSession, type SessionPayload } from "@/lib/auth/session";
 import { SESSION_COOKIE } from "@/lib/auth/require-session";
 import { sessionCookieAttrs } from "@/lib/auth/session-cookie";
 import { isApproved, isValidDeviceId, recordPending, touchApproved } from "@/lib/auth/device-store";
@@ -98,8 +98,13 @@ export async function POST(req: NextRequest) {
 
   const sessionSecret = process.env.OS_SESSION_SECRET ?? "";
   const password = process.env.OS_LOGIN_PASSWORD ?? "";
-  // Signing key must be strong. Fail-closed if either secret is unset/too weak.
-  if (sessionSecret.length < MIN_SECRET_LEN || password.length < 6) {
+  // Signing key must be strong and the configured login secret must fit the
+  // fixed-width comparator. Fail closed on an unusable server configuration.
+  if (
+    sessionSecret.length < MIN_SECRET_LEN ||
+    password.length < 6 ||
+    Buffer.byteLength(password, "utf8") > MAX_COMPARE_BYTES
+  ) {
     return NextResponse.json({ error: "not_configured" }, { status: 500 });
   }
 
@@ -117,7 +122,11 @@ export async function POST(req: NextRequest) {
   }
 
   const { password: provided, deviceId } = body;
-  if (typeof provided !== "string" || provided.length === 0) {
+  if (
+    typeof provided !== "string" ||
+    provided.length === 0 ||
+    Buffer.byteLength(provided, "utf8") > MAX_COMPARE_BYTES
+  ) {
     return NextResponse.json({ error: "bad_password" }, { status: 401 });
   }
   if (!isValidDeviceId(deviceId)) {
@@ -125,8 +134,7 @@ export async function POST(req: NextRequest) {
   }
   const label = typeof body.deviceLabel === "string" ? body.deviceLabel.slice(0, 80) : "unknown device";
 
-  // Length-safe: constantTimeEq hashes both sides to a fixed 32-byte digest
-  // before comparing, so the compare time does NOT reveal the secret's length.
+  // Length-safe fixed-width comparison; no reusable password hash is created.
   if (!constantTimeEq(password, provided)) {
     audit({ action: "auth.denied", actor: deviceId, ip, ok: false, detail: "bad password" });
     // Charge the process-wide budget HERE, not in rateLimited(), so only a genuinely

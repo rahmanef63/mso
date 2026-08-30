@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
+import { promises as fs, constants as fsConstants } from "node:fs";
 import path from "node:path";
 
 // Cross-process lock for the tiny JSON files that carry security decisions.
@@ -30,15 +30,23 @@ function pidIsGone(pid: number): boolean {
 }
 
 async function abandoned(lockPath: string, staleMs: number): Promise<boolean> {
-  const stat = await fs.stat(lockPath).catch(() => null);
-  if (!stat) return true;
-  const age = Date.now() - stat.mtimeMs;
-  const owner = await fs.readFile(lockPath, "utf8").catch(() => "");
-  const pid = Number(owner.split(":", 1)[0]);
-  // A valid, live PID wins over age: never break mutual exclusion merely because
-  // the process was paused. Age is only the recovery path for malformed owner data.
-  if (Number.isInteger(pid) && pid > 1) return pidIsGone(pid);
-  return age > staleMs;
+  let handle;
+  try {
+    handle = await fs.open(lockPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const stat = await handle.stat();
+    if (!stat.isFile()) return false; // fail closed: never auto-break an unexpected object
+    const owner = await handle.readFile("utf8");
+    const pid = Number(owner.split(":", 1)[0]);
+    // A valid, live PID wins over age: never break mutual exclusion merely because
+    // the process was paused. Age is only the recovery path for malformed owner data.
+    if (Number.isInteger(pid) && pid > 1) return pidIsGone(pid);
+    return Date.now() - stat.mtimeMs > staleMs;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return true;
+    return false; // symlink, permission error, I/O failure: availability over unsafe recovery
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
 }
 
 async function openExclusive(lockPath: string, token: string): Promise<HeldLock> {

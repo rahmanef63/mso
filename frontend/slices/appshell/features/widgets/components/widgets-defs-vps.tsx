@@ -6,6 +6,7 @@ import { setShell, shellsForSurface, useActiveShell, useShellAppearance, useShel
 import { cn } from "@/lib/utils";
 import { Card } from "./widget-cards";
 import { mdToHtml } from "./md";
+import { safeEmbedUrl } from "./embed-url";
 
 // VPS-native + content widgets ported from shell.rahmanef.com's set: a stopwatch,
 // a URL embed, a sandboxed-HTML snippet, a markdown note, an active-shell picker,
@@ -51,11 +52,26 @@ function TimerWidget() {
 // Embeds a URL in an iframe (frameable content only — CSP + the target's
 // X-Frame-Options still apply). URL persists to localStorage.
 function EmbedWidget() {
-  const [url, setUrl] = useState(() => ls(EMBED_KEY));
+  const initial = typeof window === "undefined" ? "" : safeEmbedUrl(ls(EMBED_KEY), window.location.origin) ?? "";
+  const [url, setUrl] = useState(initial);
   const [draft, setDraft] = useState(url);
+  const [error, setError] = useState("");
   const save = (v: string) => {
-    setUrl(v);
-    try { v ? localStorage.setItem(EMBED_KEY, v) : localStorage.removeItem(EMBED_KEY); } catch { /* quota */ }
+    if (!v) {
+      setUrl("");
+      setError("");
+      try { localStorage.removeItem(EMBED_KEY); } catch { /* quota */ }
+      return;
+    }
+    const safe = safeEmbedUrl(v, window.location.origin);
+    if (!safe) {
+      setError("Use an external HTTPS URL without credentials.");
+      return;
+    }
+    setUrl(safe);
+    setDraft(safe);
+    setError("");
+    try { localStorage.setItem(EMBED_KEY, safe); } catch { /* quota */ }
   };
   return (
     <Card className="pointer-events-auto">
@@ -69,7 +85,7 @@ function EmbedWidget() {
         )}
       </div>
       {url ? (
-        <iframe src={url} sandbox="allow-scripts allow-same-origin" title="Embed" className="h-40 w-full rounded-lg border border-white/10 bg-white" />
+        <iframe src={url} sandbox="allow-scripts allow-forms allow-popups" referrerPolicy="no-referrer" title="External embed" className="h-40 w-full rounded-lg border border-white/10 bg-white" />
       ) : (
         <div className="flex gap-1">
           <input
@@ -82,6 +98,7 @@ function EmbedWidget() {
           <button type="button" onClick={() => draft.trim() && save(draft.trim())} className={btn}>Go</button>
         </div>
       )}
+      {error && <p className="mt-1 text-[10px] text-destructive">{error}</p>}
     </Card>
   );
 }

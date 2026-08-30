@@ -1,20 +1,36 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+import { createHash } from "crypto";
 import { promises as fs } from "fs";
+import os from "os";
 import path from "path";
 
 // THE COLLISION, END TO END.
 //
-// `/tmp/mso-root-50323` and `/tmp/mso-root-125549` both hash to `51e156ef` at 8 hex —
-// a real pair found by a probe, not a hypothetical. Each holds a project called `widget`
-// shipping a skill called `deploy`. Under the old 32-bit id these two collapsed into one
-// row and half the box became invisible.
-//
-// It is not enough that the ids differ: every surface a client actually uses must return
-// the SECOND project when handed the second id. That is what this file pins —
-// projects_list, skills_list, skills_read, skills_search and workflow_start.
-const ROOT_A = "/tmp/mso-root-50323";
-const ROOT_B = "/tmp/mso-root-125549";
+// A private temporary parent is created at runtime, then two child path strings are
+// found that collide at the historical 8-hex/32-bit id. Each holds a project called
+// `widget` shipping a skill called `deploy`. Under the old id those rows collapsed.
+// Every client surface must still resolve the SECOND project by its full 32-hex id.
+let PRIVATE_ROOT = "";
+let ROOT_A = "";
+let ROOT_B = "";
+
+function legacyId(value: string): string {
+  return createHash("sha256").update(value).digest("hex").slice(0, 8);
+}
+
+function collisionPair(parent: string): [string, string] {
+  const seen = new Map<string, string>();
+  for (let index = 0; index < 300_000; index += 1) {
+    const candidate = path.join(parent, `root-${index}`);
+    const id = legacyId(candidate);
+    const first = seen.get(id);
+    if (first) return [first, candidate];
+    seen.set(id, candidate);
+  }
+  throw new Error("could not find an 8-hex collision within the bounded fixture search");
+}
+
 const previous = {
   read: process.env.OS_FS_READ_ROOTS,
   write: process.env.OS_FS_WRITE_ROOTS,
@@ -32,6 +48,9 @@ async function seed(root: string, marker: string) {
 }
 
 beforeAll(async () => {
+  PRIVATE_ROOT = await fs.mkdtemp(path.join(os.tmpdir(), "mso-collision-"));
+  await fs.chmod(PRIVATE_ROOT, 0o700);
+  [ROOT_A, ROOT_B] = collisionPair(PRIVATE_ROOT);
   await seed(ROOT_A, "alpha");
   await seed(ROOT_B, "bravo");
   process.env.OS_FS_READ_ROOTS = `${ROOT_A}:${ROOT_B}`;
@@ -45,7 +64,7 @@ afterAll(async () => {
     if (value === undefined) delete process.env[name];
     else process.env[name] = value;
   }
-  await Promise.all([ROOT_A, ROOT_B].map((r) => fs.rm(r, { recursive: true, force: true })));
+  if (PRIVATE_ROOT) await fs.rm(PRIVATE_ROOT, { recursive: true, force: true });
 });
 
 const { DISCOVERY_TOOLS } = await import("./tools-discovery");

@@ -53,9 +53,23 @@ node scripts/gen-comparison.mjs --check
 ```
 
 The checker validates MSO evidence paths, restricts competitor links to reviewed official hosts,
-and expires the comparison after 90 days. A rating may improve only after its repository evidence
-exists. Specialist boundaries and the prioritized execution sequence live in
+requires the SEO-readable status words `Strong`, `Partial`, and `Not offered`, and expires the
+comparison after 90 days. A rating may improve only after its repository evidence exists.
+Specialist boundaries and the prioritized execution sequence live in
 `docs/COMPETITIVE-ROADMAP.md`.
+
+## Dependency update policy
+
+Dependabot keeps production, development, and GitHub Actions updates visible, but a green security
+scan is not enough to merge a dependency change: the repository `Verify` job must pass too. Minor
+and patch updates are grouped to reduce PR noise. Major toolchain updates are evaluated separately
+because they can require source or configuration migrations.
+
+`eslint` 10 and TypeScript 7 are temporarily ignored in `.github/dependabot.yml`: the current
+Next.js ESLint plugin stack fails under ESLint 10, and the current `typescript-eslint` stack rejects
+TypeScript 7. Remove an ignore only after the isolated candidate passes typecheck, lint, repository
+checks, and the out-of-tree production build. This is a compatibility hold, not a permanent version
+pin and not an exemption from Dependabot security updates.
 
 ## Deploy — and the build hazard ⚠️
 
