@@ -108,9 +108,15 @@ Run one command on the Linux server as your normal user, **not root**:
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 ```
 
+That URL is now a **small bootstrap, not the 30 KB installer body**. It downloads
+`scripts/install-core.sh` to a private temporary file, retries transient transfers, requires
+the complete EOF marker, verifies the committed SHA-256 and `bash -n`, and only then executes
+the core. This prevents a truncated `curl | bash` response from stopping after a few preflight
+lines while incorrectly returning success. The command stays the same; the execution boundary is safer.
+
 A fresh install now finishes with a **guided terminal onboarding** when a controlling
-terminal is available. `curl | bash` uses stdin for the downloaded script, so the
-installer deliberately opens `/dev/tty` for the prompts instead of silently skipping them.
+terminal is available. The public bootstrap itself arrives on stdin, so the verified core
+still opens `/dev/tty` for prompts instead of depending on pipeline stdin.
 The flow lets you choose:
 
 - **Alfa AI provider** — OpenAI ChatGPT/Codex device OAuth, or an API-key provider such
@@ -330,7 +336,7 @@ bun run verify              # typecheck + lint + test + checks + audit
 node scripts/check-docs.mjs   # docs links/toolset/slice drift
 node scripts/gen-comparison.mjs --check  # comparison evidence + 90-day freshness
 bash scripts/verify-build.sh   # build HEAD out-of-tree — safe on the prod checkout
-bash -n scripts/install.sh
+bash -n scripts/install.sh && bash -n scripts/install-core.sh
 ```
 
 The package manager is **bun** (`bun.lock` is committed); the **runtime stays Node 22** — `next`, `tsc`, `eslint` and `vitest` all carry a `#!/usr/bin/env node` shebang and bun honours it, and production runs `npm run start`. Use bun so the lockfile and the native `node-pty` build path stay predictable: `node-pty` has no Linux prebuild and is listed under `trustedDependencies`, without which its postinstall is skipped and the whole `/api/v1` surface fails to load.

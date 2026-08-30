@@ -40,7 +40,7 @@ jobs:
         run: node -e "require('node-pty')"
 
       - name: Validate installer syntax
-        run: bash -n scripts/install.sh
+        run: bash -n scripts/install.sh && bash -n scripts/install-core.sh
 
       - name: Typecheck
         run: bun run typecheck

@@ -56,7 +56,7 @@ run_capture() {
 }
 
 run_capture "repository verify" bun run verify
-run_capture "installer syntax" bash -n scripts/install.sh
+run_capture "installer syntax" bash -c 'bash -n scripts/install.sh && bash -n scripts/install-core.sh'
 run_capture "Trivy high/critical" docker run --rm -v "$SRC:/src:ro" "$TRIVY_IMAGE" \
   fs --scanners vuln,misconfig,secret --severity HIGH,CRITICAL --exit-code 1 /src
 run_capture "OSV dependencies" docker run --rm -v "$SRC:/src:ro" "$OSV_IMAGE" \

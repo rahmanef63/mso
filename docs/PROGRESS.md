@@ -49,6 +49,30 @@ CodeQL/dependency/Gitleaks/Trivy/OSV/Semgrep checks.
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
 > entries intact as historical evidence even when their commands/counts have been superseded.
 
+## 2026-08-30 — atomic installer bootstrap for WSL / partial-transfer safety (SHIPPED)
+
+A real WSL run of the documented one-liner exposed a gap the earlier isolated tests missed: the
+large `scripts/install.sh` was executed directly from the network stream. Replaying only the first
+11,981 bytes of that file reproduced the report exactly — Node and Bun printed as healthy, Bash
+reached a syntactically complete EOF and returned **0**, but checkout/CLI installation never ran.
+A partial HTTP response could therefore look like a successful install even though `mso -h` did
+not exist.
+
+The public `scripts/install.sh` is now an intentionally small bootstrap. It downloads the complete
+`scripts/install-core.sh` to an owner-private temporary file first, retries the transfer, requires
+a minimum payload size and exact EOF marker, verifies the committed SHA-256, runs `bash -n`, and
+only then executes the core with the original arguments. The core carries phase-only error
+reporting (no raw command/secret echo). A second clean-image reproduction found that `bin/mso` also
+requires `jq`: Node and Bun alone were not enough, and the old installer never installed that CLI
+runtime dependency. The core now verifies/installs `curl`, `jq` and the required coreutils before
+creating the launcher, then separately proves the target is executable and that `mso -h` succeeds.
+
+The existing WSL contracts remain intact: CLI setup precedes service setup, PID 1—not the presence
+of `systemctl`—decides service availability, caller PATH/cwd semantics are preserved, custom bin
+paths are reported honestly, and installer-driven service readiness is tied to a fresh runtime
+instance ID. Contract tests execute the local bootstrap/core pair and prove that a syntactically
+complete truncated payload is rejected.
+
 ## 2026-08-29 — evidence-backed comparison, delegated roles and Service Center (SHIPPED)
 
 The old README comparison mixed unrelated tools into one hand-written scorecard. It is now generated

@@ -26,7 +26,12 @@ Run as the normal server user, not root:
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 ```
 
-The installer:
+`scripts/install.sh` is intentionally a tiny bootstrap. It downloads `scripts/install-core.sh`
+completely into a private temporary file, retries transient transfers, checks a committed SHA-256,
+requires the exact EOF marker, runs `bash -n`, and only then executes the payload. The large
+installer is therefore never executed while bytes are still arriving over the network.
+
+The installer core:
 
 1. resolves/creates the checkout and records whether this is a fresh install;
 2. installs Bun/dependencies as needed;
@@ -56,8 +61,8 @@ Useful flags:
 --uninstall      remove the system unit; keep code + ~/.mso
 ```
 
-`curl | bash` cannot use stdin for questions because stdin carries the script itself. The
-installer therefore prompts through `/dev/tty`. If there is no controlling terminal it
+The public bootstrap is delivered through pipeline stdin, and the core deliberately does not
+make interactive setup depend on that stream. It prompts through `/dev/tty`. If there is no controlling terminal it
 never waits for input and tells the operator to run `mso onboard` later. Re-running the
 installer updates an existing installation with the same build-before-replace safety rule
 and does not repeat onboarding unless `--onboard` is requested.
