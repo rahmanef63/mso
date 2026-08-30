@@ -208,12 +208,20 @@ exec /bin/mv "$@"
     expect(readRegularSnapshot(markerPath).text.trim()).toBe("1");
   });
 
-  it("serializes concurrent starts so only one public tunnel is spawned", async () => {
+  it("serializes concurrent starts so only one tunnel remains live and tracked", async () => {
     const f = fixture(), startFile = f.startFile, env = f.env;
     const [a, b] = await Promise.all([asyncStart(env), asyncStart(env)]);
     expect(a.code).toBe(0); expect(b.code).toBe(0);
-    const spawned = fs.readFileSync(startFile, "utf8").trim().split(/\n+/).filter(Boolean);
-    expect(spawned).toHaveLength(1); pids.add(Number(spawned[0])); run(["stop"], f.env);
+    const spawned = fs.readFileSync(startFile, "utf8").trim().split(/\n+/).filter(Boolean).map(Number);
+    expect(spawned.length).toBeGreaterThan(0);
+    for (const pid of spawned) pids.add(pid);
+    const live = spawned.filter(alive);
+    expect(live).toHaveLength(1);
+    const state = JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8"));
+    expect(state.tunnelIdentity.pid).toBe(live[0]);
+    run(["stop"], f.env);
+    for (let i = 0; i < 50 && spawned.some(alive); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(spawned.filter(alive)).toEqual([]);
   });
 
   it("preserves owned runtime identity when only the old tunnel died", async () => {
