@@ -32,6 +32,26 @@ describe("one-line installer contract", () => {
     expect(core.toString("utf8").trimEnd().endsWith("# MSO_INSTALLER_CORE_EOF")).toBe(true);
   });
 
+  it("installs the fail-closed trap as the first executable bootstrap statement", () => {
+    const bootstrap = fs.readFileSync(BOOTSTRAP, "utf8");
+    const lines = bootstrap.split(/\r?\n/);
+    expect(lines[0]).toBe("#!/usr/bin/env bash");
+    expect(lines[1]).toMatch(/^trap .* EXIT$/);
+
+    // Regression for the real review reproducer: once the shebang has been read,
+    // every later syntactically complete prefix is already guarded.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mso-bootstrap-early-prefix-"));
+    try {
+      const prefix = path.join(dir, "install.sh");
+      fs.writeFileSync(prefix, `${lines.slice(0, 16).join("\n")}\n`);
+      const result = spawnSync("bash", [prefix], { encoding: "utf8" });
+      expect(result.status).toBe(97);
+      expect(result.stderr).toContain("before verified-core handoff");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects a syntactically complete bootstrap prefix before the final exec handoff", () => {
     const bootstrap = fs.readFileSync(BOOTSTRAP, "utf8");
     const cutoff = bootstrap.indexOf('exec bash /proc/self/fd/3 "$@"');

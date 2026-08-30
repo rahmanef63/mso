@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+trap 'rc=$?; trap - EXIT; [ -z "${TMP_INSTALLER:-}" ] || rm -f "$TMP_INSTALLER"; if [ "$rc" -eq 0 ]; then printf "mso installer bootstrap ended before verified-core handoff; retry the download.\n" >&2; rc=97; fi; exit "$rc"' EXIT
 # MSO one-line installer bootstrap.
 #
 #   curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
@@ -14,22 +15,6 @@ CORE_URL="${MSO_INSTALL_CORE_URL:-https://raw.githubusercontent.com/rahmanef63/m
 CORE_SHA256="913350997e568a279c6582e752d38151f20798cb1f1e471b557aba06b71821ad"
 CORE_EOF='# MSO_INSTALLER_CORE_EOF'
 TMP_INSTALLER=''
-
-bootstrap_exit() {
-  rc=$?
-  trap - EXIT
-  [ -z "$TMP_INSTALLER" ] || rm -f "$TMP_INSTALLER"
-  # The bootstrap has exactly one success path: the final `exec` replaces this
-  # process with the verified core. Therefore ANY normal return from this streamed
-  # bootstrap means the response ended before handoff, even if the last complete
-  # prefix happened to have status 0.
-  if [ "$rc" -eq 0 ]; then
-    printf 'mso installer bootstrap ended before verified-core handoff; retry the download.\n' >&2
-    rc=97
-  fi
-  exit "$rc"
-}
-trap bootstrap_exit EXIT
 
 fail() { printf 'mso installer bootstrap: %s\n' "$*" >&2; exit 1; }
 command -v curl >/dev/null 2>&1 || fail 'curl is required.'
