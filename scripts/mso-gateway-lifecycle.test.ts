@@ -43,6 +43,14 @@ function identity(pid: number) {
     cmdHash: createHash("sha256").update(fs.readFileSync(`/proc/${pid}/cmdline`)).digest("hex") };
 }
 function writeState(dir: string, value: unknown) { fs.writeFileSync(path.join(dir, "state.json"), JSON.stringify(value), { mode: 0o600 }); }
+function readRegularSnapshot(file: string) {
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile()) throw new Error(`expected regular file: ${file}`);
+    return { mode: stat.mode & 0o777, text: fs.readFileSync(fd, "utf8") };
+  } finally { fs.closeSync(fd); }
+}
 function alive(pid: number) { try { process.kill(pid, 0); return true; } catch { return false; } }
 function asyncStart(env: NodeJS.ProcessEnv) {
   return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
@@ -152,7 +160,8 @@ esac
 
   it("persists recovery intent before stopping and reconciles stale ownership after a state-write failure", async () => {
     const f = fixture();
-    const pid = Number(execFileSync("bash", ["-c", `nohup ${JSON.stringify(process.execPath)} -e \"process.title='next-server (fixture)';process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)\" >/dev/null 2>&1 & echo $!`], { encoding: "utf8" }).trim());
+    const runtime = spawn(process.execPath, ["-e", "process.title='next-server (fixture)';process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)"], { stdio: "ignore" });
+    const pid = runtime.pid!;
     pids.add(pid);
     await new Promise((r) => setTimeout(r, 120));
     const rid = { ...identity(pid), cmdHash: null, instanceId: "fixture" };
@@ -172,8 +181,9 @@ exec /bin/mv "$@"
     expect(first.stderr).toContain("recovery marker preserved");
     for (let i = 0; i < 80 && alive(pid); i++) await new Promise((r) => setTimeout(r, 20));
     expect(alive(pid)).toBe(false);
-    expect(fs.statSync(markerPath).mode & 0o777).toBe(0o600);
-    expect(fs.readFileSync(markerPath, "utf8").trim()).toBe("1");
+    const recoveryMarker = readRegularSnapshot(markerPath);
+    expect(recoveryMarker.mode).toBe(0o600);
+    expect(recoveryMarker.text.trim()).toBe("1");
     expect(JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8")).runtimeOwned).toBe(true);
 
     fs.unlinkSync(mv);
@@ -183,7 +193,7 @@ exec /bin/mv "$@"
     const reconciled = JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8"));
     expect(reconciled.runtimeOwned).toBe(false);
     expect(reconciled.runtimeIdentity).toBeNull();
-    expect(fs.readFileSync(markerPath, "utf8").trim()).toBe("1");
+    expect(readRegularSnapshot(markerPath).text.trim()).toBe("1");
   });
 
   it("serializes concurrent starts so only one public tunnel is spawned", async () => {

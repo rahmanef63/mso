@@ -131,7 +131,7 @@ describe("mso update without a running web API", () => {
     const f = fixture();
     execFileSync(SCRIPT, [], { env: f.env, encoding: "utf8" });
     const repoB = path.join(f.root, "repo-b");
-    execFileSync("git", ["clone", "-q", f.remote, repoB]);
+    execFileSync("git", ["clone", "-q", "--branch", "main", f.remote, repoB]);
     const envB = { ...f.env, MSO_UPDATE_ROOT: repoB };
     const before = fs.readFileSync(f.capture, "utf8");
     const out = execFileSync(SCRIPT, [], { env: envB, encoding: "utf8" });
