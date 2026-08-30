@@ -30,6 +30,12 @@ cleanup_locks() {
 trap cleanup_locks EXIT
 trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
 
+# Settings decides success from this log after the transient unit exits. Start each
+# outer lifecycle with a fresh attempt log so a failure before self-update.sh takes
+# over cannot inherit an old UPDATE OK marker.
+printf 'UPDATE STARTING\n' | mso_private_state_atomic_write "$LOG" >/dev/null \
+  || fail "could not initialize private update attempt log"
+
 update_lock_acquire
 runtime_exclusion_acquire_exclusive \
   || fail "could not acquire checkout runtime exclusion before service update"

@@ -90,6 +90,23 @@ describe("service-active update lifecycle", () => {
     expect(fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "").not.toContain("UPDATE OK");
   });
 
+  it("clears a stale success marker before any pre-build lifecycle failure", () => {
+    const f = fixture();
+    const log = path.join(f.env.HOME as string, ".mso/self-update.log");
+    fs.mkdirSync(path.dirname(log), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(log, "UPDATE OK\n", { mode: 0o600 });
+    const key = createHash("sha256").update(fs.realpathSync(f.repo)).digest("hex");
+    const dir = path.join(f.base, "update-state", key); fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    fs.chmodSync(path.join(f.base, "update-state"), 0o700);
+    fs.writeFileSync(path.join(dir, "gateway-runtimes.json"), "{bad\n", { mode: 0o600 });
+
+    const out = spawnSync(WRAPPER, [], { env: f.env, encoding: "utf8" });
+    expect(out.status).not.toBe(0);
+    expect(fs.readFileSync(log, "utf8")).toBe("UPDATE STARTING\n");
+    expect(fs.readFileSync(log, "utf8")).not.toContain("UPDATE OK");
+    expect(fs.existsSync(f.capture) ? fs.readFileSync(f.capture, "utf8") : "").not.toContain("self-start");
+  });
+
   it("fails closed on a corrupt persisted gateway restore inventory", () => {
     const f = fixture();
     const key = createHash("sha256").update(fs.realpathSync(f.repo)).digest("hex");

@@ -113,8 +113,11 @@ gateway_cmd_web() {
         state="$(gateway_active_state)" || gateway_fail "public gateway stopped during reconciliation"
         url="$(jq -r .url <<<"$state")"
       else rc=$?; [ "$rc" = 1 ] || return "$rc"
-        if [ -n "${OS_PUBLIC_ORIGIN:-}" ]; then url="$(gateway_validate_public_origin "$OS_PUBLIC_ORIGIN" 2>/dev/null || true)"
-        else gateway_health_ok || gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked >/dev/null; url="$LOCAL_URL"; fi
+        # A configured public origin is metadata, not proof that its tunnel/proxy is
+        # reachable. Auto mode uses public only when gateway state is actually active;
+        # otherwise guarantee the supported local UI and open loopback.
+        gateway_health_ok || gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked >/dev/null
+        url="$LOCAL_URL"
       fi ;;
   esac
   case "$url" in http:*) url="$(gateway_validate_loopback_origin "$url" 2>/dev/null || true)" ;;
