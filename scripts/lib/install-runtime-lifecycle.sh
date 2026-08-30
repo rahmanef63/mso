@@ -5,6 +5,7 @@
 
 INSTALL_RUNTIME_LIFECYCLE=0
 INSTALL_RUNTIME_SERVICE_STOPPED=0
+INSTALL_RUNTIME_MUTATION_STARTED=0
 
 install_runtime_lifecycle_init() {
   ROOT="$DIR"
@@ -25,8 +26,30 @@ install_runtime_lifecycle_init() {
 
 install_runtime_lifecycle_cleanup() {
   [ "$INSTALL_RUNTIME_LIFECYCLE" = 1 ] || return 0
+
+  # Before the first dependency/build mutation, the old checkout is still safe to
+  # serve. If begin() stopped an active service and then a validation/signal aborts,
+  # restore that known-good service instead of leaving the machine offline. Once
+  # mutation starts we deliberately do NOT restart anything from the changed tree.
   runtime_exclusion_release >/dev/null 2>&1 || true
+  if [ "$INSTALL_RUNTIME_MUTATION_STARTED" = 0 ]; then
+    if [ "$INSTALL_RUNTIME_SERVICE_STOPPED" = 1 ]; then
+      sudo_do systemctl start "$SERVICE" >/dev/null 2>&1 \
+        || printf 'mso installer: warning: could not restore %s after pre-mutation abort\n' "$SERVICE" >&2
+    fi
+    if ! (update_gateway_restore_all) >/dev/null 2>&1; then
+      printf 'mso installer: warning: could not restore fallback runtimes after pre-mutation abort\n' >&2
+    fi
+  fi
   update_lock_release >/dev/null 2>&1 || true
+  INSTALL_RUNTIME_LIFECYCLE=0
+  INSTALL_RUNTIME_SERVICE_STOPPED=0
+  INSTALL_RUNTIME_MUTATION_STARTED=0
+}
+
+install_runtime_lifecycle_mark_mutation_started() {
+  [ "$INSTALL_RUNTIME_LIFECYCLE" = 1 ] || die "runtime lifecycle must be active before installer mutation"
+  INSTALL_RUNTIME_MUTATION_STARTED=1
 }
 
 install_runtime_active_service_preflight() {

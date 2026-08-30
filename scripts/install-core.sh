@@ -413,8 +413,9 @@ fi
 
 INSTALL_PHASE=runtime-safety
 # ---- freeze every runtime that can read this checkout before dependency/build mutation ----
-# The lifecycle remains open through service refresh. On failure, EXIT releases locks
-# but intentionally keeps gateway restore intent so a broken build is never served.
+# The lifecycle remains open through service refresh. A pre-mutation abort restores the
+# known-good service/fallbacks; after mutation starts EXIT preserves recovery intent and
+# never serves the possibly changed tree.
 # shellcheck source=scripts/lib/install-runtime-lifecycle.sh
 . "$DIR/scripts/lib/install-runtime-lifecycle.sh"
 trap install_runtime_lifecycle_cleanup EXIT
@@ -424,6 +425,7 @@ install_runtime_lifecycle_begin
 INSTALL_PHASE=dependencies
 # ---- deps (compiles node-pty) ----
 info "installing dependencies…"
+install_runtime_lifecycle_mark_mutation_started
 bun install --frozen-lockfile || bun install
 
 INSTALL_PHASE=configuration
