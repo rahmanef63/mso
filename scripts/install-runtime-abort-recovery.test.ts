@@ -17,7 +17,10 @@ function runCleanup(mode: "pre" | "post") {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe", fd],
     });
-    return { out, calls: fs.readFileSync(capture, "utf8") };
+    const size = fs.fstatSync(fd).size;
+    const bytes = Buffer.alloc(size);
+    if (size > 0) fs.readSync(fd, bytes, 0, size, 0);
+    return { out, calls: bytes.toString("utf8") };
   } finally {
     fs.closeSync(fd);
   }

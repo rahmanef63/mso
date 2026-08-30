@@ -46,6 +46,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `install` read abort capture by descriptor
 - `install` align bootstrap and abort harness
 - `install` make abort recovery harness static
 - `gateway` treat zombie children as stopped
