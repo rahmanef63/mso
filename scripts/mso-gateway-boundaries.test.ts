@@ -1,10 +1,9 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { GATEWAY, ROOT, VERSION, cleanupGatewayFixtures, fixture, runGateway as run } from "./mso-gateway-test-fixture";
+import { describe, expect, it } from "vitest";
+import { GATEWAY, ROOT, VERSION, fixture, runGateway as run } from "./mso-gateway-test-fixture";
 
-afterEach(() => cleanupGatewayFixtures());
 
 describe("mso gateway scope and public identity boundaries", () => {
   it("isolates default gateway state by checkout and selected loopback origin", () => {

@@ -1,12 +1,11 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  CLI, GATEWAY, ROOT, VERSION, cleanupGatewayFixtures, fixture, readFileSnapshot, readState, runGateway as run,
+  CLI, GATEWAY, ROOT, VERSION, fixture, readFileSnapshot, readState, runGateway as run,
 } from "./mso-gateway-test-fixture";
 
-afterEach(cleanupGatewayFixtures);
 
 describe("mso public gateway", () => {
   it("runs a temporary HTTPS gateway without publishing the MSO app port", () => {

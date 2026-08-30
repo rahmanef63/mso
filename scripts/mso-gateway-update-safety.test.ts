@@ -1,8 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { afterEach, describe, expect, it } from "vitest";
-import { GATEWAY, cleanupGatewayFixtures, fixture } from "./mso-gateway-test-fixture";
+import { describe, expect, it } from "vitest";
+import { GATEWAY, fixture } from "./mso-gateway-test-fixture";
 
-afterEach(cleanupGatewayFixtures);
 
 describe("gateway offline-update safety assertion", () => {
   it("rejects a healthy selected MSO responder that has no gateway ownership state", () => {

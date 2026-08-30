@@ -2,18 +2,46 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { onTestFinished } from "vitest";
 
 export const ROOT = path.resolve(__dirname, "..");
 export const GATEWAY = path.join(__dirname, "mso-gateway");
 export const CLI = path.join(ROOT, "bin/mso");
 export const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version as string;
 
-const tempRoots: string[] = [];
-const tunnelPids = new Set<number>();
+function collectRecordedPids(root: string): number[] {
+  const pids = new Set<number>();
+  const visit = (dir: string) => {
+    let entries: fs.Dirent[] = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) { visit(file); continue; }
+      if (entry.name !== "state.json") continue;
+      try {
+        const state = JSON.parse(fs.readFileSync(file, "utf8")) as {
+          tunnelIdentity?: { pid?: number }; runtimeIdentity?: { pid?: number };
+        };
+        for (const pid of [state.tunnelIdentity?.pid, state.runtimeIdentity?.pid]) {
+          if (typeof pid === "number" && pid > 1) pids.add(pid);
+        }
+      } catch { /* corrupt/partial fixture state is still safe to delete */ }
+    }
+  };
+  visit(root);
+  return [...pids];
+}
+
+function cleanupGatewayFixture(dir: string) {
+  for (const pid of collectRecordedPids(dir)) {
+    try { process.kill(pid, "SIGTERM"); } catch { /* already stopped */ }
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+}
 
 export function fixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mso-gateway-"));
-  tempRoots.push(dir);
+  onTestFinished(() => cleanupGatewayFixture(dir));
   const bin = path.join(dir, "bin"), state = path.join(dir, "state"), envFile = path.join(dir, ".env.local");
   fs.mkdirSync(bin, { mode: 0o700 });
   fs.writeFileSync(envFile, "OS_SESSION_SECRET=fixture-only-not-a-real-secret\n", { mode: 0o600 });
@@ -80,14 +108,5 @@ export function readState(stateDir: string) {
     tunnelIdentity: { pid: number };
     runtimeOwned: boolean;
   };
-  tunnelPids.add(value.tunnelIdentity.pid);
   return { path: statePath, snapshot, value };
-}
-
-export function cleanupGatewayFixtures() {
-  for (const pid of tunnelPids) {
-    try { process.kill(pid, "SIGTERM"); } catch { /* already stopped */ }
-  }
-  tunnelPids.clear();
-  for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 }

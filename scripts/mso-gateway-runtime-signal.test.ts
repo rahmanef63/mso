@@ -2,13 +2,13 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { GATEWAY, ROOT, VERSION, cleanupGatewayFixtures, fixture } from "./mso-gateway-test-fixture";
+import { GATEWAY, ROOT, VERSION, fixture } from "./mso-gateway-test-fixture";
 
 const pids = new Set<number>();
 function alive(pid: number) { try { process.kill(pid, 0); return true; } catch { return false; } }
 afterEach(() => {
   for (const pid of pids) if (alive(pid)) try { process.kill(pid, "SIGTERM"); } catch {}
-  pids.clear(); cleanupGatewayFixtures();
+  pids.clear();
 });
 
 describe("mso fallback runtime signal safety", () => {
