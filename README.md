@@ -120,13 +120,18 @@ The flow lets you choose:
   from Alfa's credentials);
 - reviewed **installable skills** such as Ponytail, Caveman and the MSO-safe RTK wrapper.
 
-The installer also generates the owner login credentials, builds production, installs and
-starts `mso.service`, and installs the CLI in both `~/.local/bin/mso` and—when the normal
-service install has sudo available—`/usr/local/bin/mso`. That system launcher is important:
-a child `curl | bash` process cannot modify the PATH of the shell that launched it, so
-`mso -h` must work immediately **after the installer returns**, without asking you to
-restart the shell. The installer also adds an idempotent `~/.local/bin` fallback to the
-normal shell profile for future sessions.
+The installer generates the owner login credentials, builds production, and installs the CLI
+**before** it touches systemd. It always creates `~/.local/bin/mso`; when the invoking shell
+already has `/usr/local/bin` on `PATH`, it also installs a guarded `/usr/local/bin/mso`
+launcher (using sudo when needed). That order matters on WSL: a distro may ship a `systemctl`
+binary even when systemd is not PID 1, and a service setup problem must never prevent the CLI
+from being installed.
+
+A child `curl | bash` process cannot modify its parent shell's `PATH`. The installer therefore
+checks the **original invoking PATH** after creating the launchers and explicitly reports whether
+`mso -h` will work immediately. If neither launcher is already reachable from that PATH, the
+install still succeeds, persists `~/.local/bin` in the normal shell profile, and prints the exact
+`export PATH=...` command for the current shell instead of falsely claiming success.
 
 If the environment has no controlling TTY (CI/cloud-init), the installer never blocks. It
 prints the resume command instead:
@@ -143,7 +148,8 @@ skills:
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- -y
 ```
 
-After installation these should work immediately:
+After installation, the installer prints whether the current shell can already resolve `mso`.
+On the normal Ubuntu/WSL PATH (which includes `/usr/local/bin`) these work immediately:
 
 ```bash
 mso -h
@@ -152,6 +158,14 @@ mso onboard                 # run/re-run guided setup
 mso skills available        # reviewed installable skill list
 mso skills install ponytail caveman rtk -y
 ```
+
+If it explicitly says the current shell cannot see the user launcher yet, run the one-line
+`export PATH="$HOME/.local/bin:$PATH"` it prints; new shells use the persisted profile entry.
+
+**WSL2:** the CLI is supported even when systemd is not active. In that case the installer now
+finishes the CLI instead of failing in `systemctl`, but it skips `mso.service`. For the full
+background service, enable systemd in `/etc/wsl.conf`, exit all WSL sessions from Windows, reopen
+the distro, then re-run the installer with `--onboard`.
 
 `Caveman`/`Ponytail` appear in two intentionally different places. **Response presets**
 (`mso config style caveman|ponytail`) are lightweight Alfa output policies. The market
@@ -332,10 +346,10 @@ Tested:
 - Ubuntu 22.04
 - Ubuntu 24.04
 
-Expected to work:
+Supported deployment shapes:
 
-- Debian 12
-- Other systemd-based Linux distributions with Node.js 20.9+ and build tools
+- WSL2 Ubuntu: CLI/install path works without systemd; the background service requires systemd enabled in WSL
+- Debian 12 and other systemd-based Linux distributions with Node.js 20.9+ and build tools
 
 Not currently supported:
 

@@ -37,6 +37,11 @@ ONBOARD_MODE=auto
 FRESH_INSTALL=0
 # bun is the package manager; the RUNTIME stays node (see ensure_bun below).
 export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+# Capture the INVOKING shell PATH before Bun or the installer changes it. A child
+# curl|bash process cannot export back into its parent, so this is the only PATH
+# that matters when proving `mso -h` will resolve immediately after we return.
+PARENT_PATH="${PATH:-}"
+SERVICE_READY=0
 # Reproducible bootstrap: this is Bun v1.3.14's installer source, pinned by
 # immutable Git commit and verified before execution. Update both values together.
 BUN_BOOTSTRAP_COMMIT="0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
@@ -92,9 +97,50 @@ done
 
 sudo_do() { if command -v sudo >/dev/null 2>&1; then sudo "$@"; else die "need root for: $* (install sudo or run the step by hand)"; fi; }
 
+is_wsl() {
+  grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null || grep -qi microsoft /proc/version 2>/dev/null
+}
+
+systemd_ready() {
+  command -v systemctl >/dev/null 2>&1 || return 1
+  [ -r /proc/1/comm ] || return 1
+  [ "$(tr -d '\n' </proc/1/comm 2>/dev/null)" = "systemd" ]
+}
+
+path_has_dir() {
+  case ":$1:" in *":$2:"*) return 0 ;; *) return 1 ;; esac
+}
+
+# Create/update one CLI symlink without ever replacing an unrelated command.
+# Returns nonzero when the destination is unavailable; callers decide whether that
+# is fatal (the user-local launcher is) or only affects current-shell discovery.
+link_cli_guarded() {
+  local link="$1" target="$2" current dir
+  dir="$(dirname "$link")"
+  [ -d "$dir" ] || return 1
+  if [ -e "$link" ] && [ ! -L "$link" ]; then
+    warn "$link already exists and is not a symlink — left untouched"
+    return 1
+  fi
+  if [ -L "$link" ]; then
+    current="$(readlink "$link")"
+    case "$current" in
+      "$DIR/"*) ;;
+      *) warn "$link already points elsewhere ($current) — left untouched"; return 1 ;;
+    esac
+  fi
+  if [ -w "$dir" ]; then
+    ln -sfn "$target" "$link"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo ln -sfn "$target" "$link" || return 1
+  else
+    return 1
+  fi
+}
+
 # If a service already exists, update IT in place (unless --dir was given) — so a
 # re-run never spins up a divergent second copy next to a working install.
-if [ "$DIR_EXPLICIT" -eq 0 ] && command -v systemctl >/dev/null 2>&1; then
+if [ "$DIR_EXPLICIT" -eq 0 ] && systemd_ready; then
   existing="$(systemctl show -p WorkingDirectory --value "$SERVICE" 2>/dev/null || true)"
   [ -n "$existing" ] && [ -d "$existing/.git" ] && DIR="$existing" && info "found existing service → updating $DIR"
 fi
@@ -120,8 +166,11 @@ if [ "$DO_UNINSTALL" -eq 1 ]; then
   if [ -L "$UNINST_BIN" ] && case "$(readlink "$UNINST_BIN")" in "$DIR/"*) true ;; *) false ;; esac; then
     rm -f "$UNINST_BIN"; ok "removed cli symlink $UNINST_BIN"
   fi
-  if [ -L /usr/local/bin/mso ] && case "$(readlink /usr/local/bin/mso)" in "$DIR/"*) true ;; *) false ;; esac; then
-    sudo_do rm -f /usr/local/bin/mso; ok "removed cli symlink /usr/local/bin/mso"
+  UNINST_SYSTEM_CLI="${MSO_SYSTEM_BIN_DIR:-/usr/local/bin}/mso"
+  if [ -L "$UNINST_SYSTEM_CLI" ] && case "$(readlink "$UNINST_SYSTEM_CLI")" in "$DIR/"*) true ;; *) false ;; esac; then
+    if [ -w "$(dirname "$UNINST_SYSTEM_CLI")" ]; then rm -f "$UNINST_SYSTEM_CLI"
+    else sudo_do rm -f "$UNINST_SYSTEM_CLI"; fi
+    ok "removed cli symlink $UNINST_SYSTEM_CLI"
   fi
   UNINST_SKILLS="${MSO_SKILL_DIR:-$HOME/.claude/skills}"
   if [ -d "$UNINST_SKILLS" ]; then
@@ -259,8 +308,81 @@ fi
 info "building (next build)…"
 bun run build
 
+# ---- CLI on PATH (before service setup so WSL/no-systemd still gets a CLI) ----
+# The web UI is one frontend; bin/mso reaches the same /api surface from a shell.
+BIN_DIR="${MSO_BIN_DIR:-$HOME/.local/bin}"
+mkdir -p "$BIN_DIR"
+ln -sfn "$DIR/bin/mso" "$BIN_DIR/mso"
+ok "cli → $BIN_DIR/mso"
+
+# A fresh distro/WSL home often omits ~/.local/bin from the current PATH. Persist
+# one small idempotent block for future shells. Default to bash when SHELL is not
+# exported (common in curl|bash/cloud-init); zsh gets its own rc instead.
+path_block() {
+  local rc="$1"
+  [ -e "$rc" ] || : > "$rc"
+  grep -q '^# >>> mso cli >>>$' "$rc" 2>/dev/null && return
+  cat >> "$rc" <<'EOF'
+
+# >>> mso cli >>>
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+# <<< mso cli <<<
+EOF
+  info "added ~/.local/bin to PATH in $rc"
+}
+if [ "$BIN_DIR" = "$HOME/.local/bin" ]; then
+  path_block "$HOME/.profile"
+  case "${SHELL:-/bin/bash}" in
+    */zsh) path_block "$HOME/.zshrc" ;;
+    *)     path_block "$HOME/.bashrc" ;;
+  esac
+else
+  warn "custom MSO_BIN_DIR=$BIN_DIR is not written into shell profiles; add it to PATH yourself"
+fi
+
+# Prove discoverability from the PARENT shell's original PATH. If the user-local
+# directory was already there, nothing else is needed. Otherwise use a guarded
+# launcher in /usr/local/bin (or MSO_SYSTEM_BIN_DIR) only when that directory is
+# already on the invoking PATH. This also makes `--no-service` useful on WSL.
+SYSTEM_BIN_DIR="${MSO_SYSTEM_BIN_DIR:-/usr/local/bin}"
+SYSTEM_CLI="$SYSTEM_BIN_DIR/mso"
+TARGET_CLI_REAL="$(readlink -f "$DIR/bin/mso")"
+CLI_IMMEDIATE=0
+parent_cli="$(PATH="$PARENT_PATH" command -v mso 2>/dev/null || true)"
+if [ -n "$parent_cli" ] && [ "$(readlink -f "$parent_cli" 2>/dev/null || true)" = "$TARGET_CLI_REAL" ]; then
+  CLI_IMMEDIATE=1
+elif path_has_dir "$PARENT_PATH" "$SYSTEM_BIN_DIR"; then
+  if link_cli_guarded "$SYSTEM_CLI" "$DIR/bin/mso"; then
+    ok "current-PATH cli → $SYSTEM_CLI"
+    parent_cli="$(PATH="$PARENT_PATH" command -v mso 2>/dev/null || true)"
+    if [ -n "$parent_cli" ] && [ "$(readlink -f "$parent_cli" 2>/dev/null || true)" = "$TARGET_CLI_REAL" ]; then
+      CLI_IMMEDIATE=1
+    fi
+  else
+    warn "could not install $SYSTEM_CLI; the user CLI is still installed at $BIN_DIR/mso"
+  fi
+else
+  info "$SYSTEM_BIN_DIR is not on the invoking PATH — skipped the extra launcher"
+fi
+
+# Validate the actual launcher independently of PATH. The child installer may use
+# its own exported PATH for onboarding, but that is NOT treated as proof that the
+# parent shell can see the command.
+"$BIN_DIR/mso" -h >/dev/null 2>&1 || die "CLI launcher is not executable: $BIN_DIR/mso"
+export PATH="$BIN_DIR:$PATH"
+if [ "$CLI_IMMEDIATE" -eq 1 ]; then
+  ok "mso -h will resolve immediately after the installer returns ($parent_cli)"
+else
+  warn "mso is installed, but this shell's existing PATH cannot see it yet"
+  warn "for this shell run: export PATH=\"$BIN_DIR:\$PATH\""
+  info "future shells will load the persisted ~/.local/bin PATH block"
+fi
+
 # ---- systemd unit ----
-if [ "$DO_SERVICE" -eq 1 ] && command -v systemctl >/dev/null 2>&1; then
+if [ "$DO_SERVICE" -eq 1 ] && systemd_ready; then
   # Start via npm (always on PATH, ships with node) to match the proven prod unit;
   # PORT/HOSTNAME are set as env too so `next start` binds correctly regardless.
   NPM_BIN="$(command -v npm)"
@@ -356,7 +478,7 @@ EOF
       # /api/health perfectly while serving stale chunks, which is exactly how
       # a failed update used to report "health OK".
       if [ -z "$prev_build" ] || [ "$now_build" != "$prev_build" ]; then
-        up=1; ok "health OK (build ${now_build:-unknown})"; break
+        up=1; SERVICE_READY=1; ok "health OK (build ${now_build:-unknown})"; break
       fi
     fi
     sleep 2
@@ -369,68 +491,14 @@ EOF
       warn "$SERVICE is not running — check: journalctl -u mso -e"
     fi
   fi
-else
-  [ "$DO_SERVICE" -eq 1 ] && warn "no systemctl here — skipping service. Run manually: PORT=$PORT bun run start"
-fi
-
-# ---- CLI on PATH ----
-# The web UI is one frontend; bin/mso reaches the same /api surface from a shell.
-BIN_DIR="${MSO_BIN_DIR:-$HOME/.local/bin}"
-mkdir -p "$BIN_DIR"
-ln -sfn "$DIR/bin/mso" "$BIN_DIR/mso"
-ok "cli → $BIN_DIR/mso"
-
-# Make the command available to the PARENT shell immediately after curl|bash returns.
-# A child installer cannot export PATH back into its parent. /usr/local/bin is already
-# on the normal system PATH, so install a second launcher there when the name is free
-# (or already ours). Never overwrite an unrelated system command.
-if [ "$DO_SERVICE" -eq 1 ]; then
-  SYSTEM_CLI=/usr/local/bin/mso
-  if [ ! -e "$SYSTEM_CLI" ] && [ ! -L "$SYSTEM_CLI" ]; then
-    sudo_do ln -s "$DIR/bin/mso" "$SYSTEM_CLI"
-    ok "system cli → $SYSTEM_CLI"
-  elif [ -L "$SYSTEM_CLI" ]; then
-    current_cli="$(readlink "$SYSTEM_CLI")"
-    case "$current_cli" in
-      "$DIR/"*) sudo_do ln -sfn "$DIR/bin/mso" "$SYSTEM_CLI"; ok "system cli → $SYSTEM_CLI" ;;
-      *) warn "$SYSTEM_CLI already points elsewhere ($current_cli) — left untouched" ;;
-    esac
+elif [ "$DO_SERVICE" -eq 1 ]; then
+  if is_wsl; then
+    warn "WSL detected without systemd as PID 1 — service install skipped; the mso CLI is still installed"
+    info "for the full service: enable systemd in /etc/wsl.conf, run 'wsl --shutdown' from Windows, reopen WSL, then re-run this installer --onboard"
   else
-    warn "$SYSTEM_CLI already exists and is not a symlink — left untouched"
+    warn "systemd is not available as PID 1 — service install skipped; run manually: PORT=$PORT bun run start"
   fi
-else
-  info "--no-service: skipped /usr/local/bin launcher (user CLI still at $BIN_DIR/mso)"
 fi
-
-# A fresh distro often omits ~/.local/bin from PATH. Persist one small idempotent
-# block for future shells, and export it now so onboarding can invoke `mso`.
-path_block() {
-  local rc="$1"
-  [ -e "$rc" ] || : > "$rc"
-  grep -q '^# >>> mso cli >>>$' "$rc" 2>/dev/null && return
-  cat >> "$rc" <<'EOF'
-
-# >>> mso cli >>>
-case ":$PATH:" in
-  *":$HOME/.local/bin:"*) ;;
-  *) export PATH="$HOME/.local/bin:$PATH" ;;
-esac
-# <<< mso cli <<<
-EOF
-  info "added ~/.local/bin to PATH in $rc"
-}
-if [ "$BIN_DIR" = "$HOME/.local/bin" ]; then
-  path_block "$HOME/.profile"
-  case "${SHELL:-}" in
-    */bash) path_block "$HOME/.bashrc" ;;
-    */zsh)  path_block "$HOME/.zshrc" ;;
-  esac
-else
-  warn "custom MSO_BIN_DIR=$BIN_DIR is not written into shell profiles; add it to PATH yourself"
-fi
-export PATH="$BIN_DIR:$PATH"
-command -v mso >/dev/null 2>&1 || die "CLI symlink exists but is not executable: $BIN_DIR/mso"
-ok "mso command ready ($(command -v mso))"
 
 # ---- optional Claude Code integration ----
 # MSO catalogs $DIR/claude-skills directly, so these symlinks are NOT required by MSO.
@@ -480,13 +548,43 @@ case "$BIND" in
              session cookie is Secure. Put TLS in front, or tunnel to loopback.)" ;;
 esac
 
+if [ "$SERVICE_READY" -eq 1 ]; then
+  OPEN_STATUS="$REACH"
+  LOG_STATUS="journalctl -u mso -f"
+elif [ "$DO_SERVICE" -eq 0 ]; then
+  OPEN_STATUS="not running (--no-service). Start manually: cd $DIR && PORT=$PORT bun run start"
+  LOG_STATUS="no system service installed"
+elif is_wsl; then
+  OPEN_STATUS="not running (WSL systemd is unavailable). Enable systemd or start manually from $DIR"
+  LOG_STATUS="no system service installed"
+else
+  OPEN_STATUS="service did not pass health verification; inspect the service journal before opening the UI"
+  LOG_STATUS="journalctl -u mso -e"
+fi
+
 ok "mso installed at $DIR"
 cat <<EOF
 
-  Open:     $REACH
+  Runtime:  $OPEN_STATUS
   Env:      $DIR/.env.local
 EOF
-[ -n "$GEN_PW" ] && printf '  Password: %s   (shown once — save it now; edit OS_LOGIN_PASSWORD in .env.local + restart to change)\n' "$GEN_PW"
+[ -n "$GEN_PW" ] && printf '  Password: %s   (shown once — save it now; edit OS_LOGIN_PASSWORD in .env.local + service refresh to change)\n' "$GEN_PW"
+cat <<EOF
+
+  Pair your first device after the API is running (device approval is a browser allowlist, not standards-based 2FA):
+    1. Open the URL, enter the password — the browser lands PENDING and shows a device id.
+    2. On this server:
+         node $DIR/scripts/approve-device.js --list                 # see the pending id
+         node $DIR/scripts/approve-device.js <deviceId> "my phone"  # approve it
+    3. Reload + log in. Approve later devices from Settings → Devices.
+
+  Logs:     $LOG_STATUS
+  Update:   re-run this installer (pull + verify + build + service refresh), or --uninstall to remove
+  Listen:   $BIND:$PORT   (change with --bind / MSO_BIND)
+  Security: verify from OUTSIDE the box — `curl -m5 http://<public-ip>:$PORT/api/health`
+            run on your laptop is the only test that proves what is reachable.
+            Review ~/.mso/audit.log.
+EOF
 
 # A successful fresh install should lead directly into a usable product. curl|bash
 # owns stdin, so interactive setup uses the controlling terminal explicitly.
@@ -496,7 +594,7 @@ case "$ONBOARD_MODE" in
   never) RUN_ONBOARD=0 ;;
   auto) [ "$FRESH_INSTALL" -eq 1 ] && RUN_ONBOARD=1 ;;
 esac
-if [ "$RUN_ONBOARD" -eq 1 ] && [ "$DO_SERVICE" -eq 1 ]; then
+if [ "$RUN_ONBOARD" -eq 1 ] && [ "$SERVICE_READY" -eq 1 ]; then
   if [ "$YES" -eq 1 ]; then
     echo
     info "running minimal non-interactive onboarding (-y)…"
@@ -512,21 +610,5 @@ if [ "$RUN_ONBOARD" -eq 1 ] && [ "$DO_SERVICE" -eq 1 ]; then
     warn "no interactive terminal detected — onboarding skipped. Run: mso onboard"
   fi
 elif [ "$RUN_ONBOARD" -eq 1 ]; then
-  warn "--no-service leaves no running API to configure — run 'mso onboard' after starting MSO"
+  warn "no verified running MSO API is available for onboarding — start/enable the service, then run 'mso onboard'"
 fi
-cat <<EOF
-
-  Pair your first device (device approval is a browser allowlist, not standards-based 2FA):
-    1. Open the URL, enter the password — the browser lands PENDING and shows a device id.
-    2. On this server:
-         node $DIR/scripts/approve-device.js --list                 # see the pending id
-         node $DIR/scripts/approve-device.js <deviceId> "my phone"  # approve it
-    3. Reload + log in. Approve later devices from Settings → Devices.
-
-  Logs:     journalctl -u mso -f
-  Update:   re-run this installer (pull + rebuild + restart), or --uninstall to remove
-  Listen:   $BIND:$PORT   (change with --bind / MSO_BIND)
-  Security: verify from OUTSIDE the box — \`curl -m5 http://<public-ip>:$PORT/api/health\`
-            run on your laptop is the only test that proves what is reachable.
-            Review ~/.mso/audit.log.
-EOF

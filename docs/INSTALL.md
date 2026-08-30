@@ -7,7 +7,8 @@
 
 ## 0. Requirements
 
-- Linux with systemd;
+- Linux; systemd is required for the installed background service, but not for the CLI;
+- WSL2 is supported for the CLI. Full service mode requires systemd enabled as PID 1;
 - Node.js 20.9+ (Node 22 recommended/current production runtime);
 - Bun for dependency installation/scripts;
 - a non-root user that owns MSO;
@@ -31,13 +32,15 @@ The installer:
 2. installs Bun/dependencies as needed;
 3. creates private owner auth configuration when missing;
 4. runs the production build;
-5. installs the `mso.service` system unit when systemd is available;
-6. enables the owner's lingering user manager needed by self-update/managed-app user units;
-7. installs `~/.local/bin/mso` plus a guarded `/usr/local/bin/mso` launcher so the parent
-   shell can resolve `mso` immediately after `curl | bash` returns;
-8. persists an idempotent `~/.local/bin` PATH fallback for future shells;
-9. starts/replaces the service only after a successful build;
-10. on a fresh interactive install, opens `/dev/tty` and launches `mso onboard`.
+5. installs `~/.local/bin/mso` **before service setup**, then attempts a guarded launcher in
+   `/usr/local/bin` when that directory is already on the invoking shell's PATH;
+6. verifies whether the invoking shell will actually resolve `mso` after the child installer
+   returns, and persists an idempotent `~/.local/bin` PATH fallback for future shells;
+7. installs the `mso.service` system unit only when systemd is really PID 1 (not merely when a
+   `systemctl` executable exists);
+8. enables the owner's lingering user manager needed by self-update/managed-app user units;
+9. activates the service only after a successful build;
+10. on a fresh interactive install with a verified running service, opens `/dev/tty` and launches `mso onboard`.
 
 Useful flags:
 
@@ -82,6 +85,26 @@ Hermes/OpenClaw installation is optional and uses each app's existing managed-jo
 Their model/provider configuration belongs to those applications and is not implicitly
 filled from Alfa's credential. Selected app installs stream their job transcript until a
 terminal status.
+
+### WSL2
+
+WSL can contain `systemctl` while still running a non-systemd PID 1. MSO treats those as two
+different capabilities: the CLI is installed normally, while the background service is skipped
+with an explicit message. This prevents service setup from aborting before `mso` exists.
+
+For the full service on WSL2, enable systemd in `/etc/wsl.conf`:
+
+```ini
+[boot]
+systemd=true
+```
+
+Then exit all WSL sessions from Windows, reopen the distro, confirm `ps -p 1 -o comm=` reports
+`systemd`, and re-run the installer. The installer never edits WSL host configuration itself.
+
+If the installer reports that the current shell did not already contain a reachable launcher
+directory, use the exact PATH command it prints for that shell; the profile change is already
+persisted for future shells.
 
 ## 2. Network exposure
 

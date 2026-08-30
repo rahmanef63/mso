@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `install` make WSL CLI setup reliable
 - `security` harden GitHub quality controls
 - `security` canonicalize writable path containment
 
