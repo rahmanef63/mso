@@ -77,7 +77,7 @@ Commands:
   health               Is this CLI's session valid?
   doctor               Check deps, env, service, session, device — and say what broke
   onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
-  gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | domain
+  gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain
   web                   Open the MSO browser UI (active gateway first, else loopback)
 
  Browser
@@ -115,7 +115,7 @@ Commands:
   service *            status | start | stop | restart | logs
   build                Compile HEAD out-of-tree (safe against the live checkout)
   deploy               next build, then restart the service
-  update [run]         What is on origin/main; `run` pulls, verifies, builds, restarts
+  update [--rebuild]   Update from origin/main safely; works even when the web runtime is down
 
  Escape hatches
   crud *               Generic resource CRUD, incl. editor documents

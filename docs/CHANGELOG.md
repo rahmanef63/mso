@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `gateway` secure laptop public access lifecycle
 - `gateway` add loopback-only public web gateway
 
 **Fixed**

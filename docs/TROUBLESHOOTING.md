@@ -20,12 +20,36 @@ forward the real client IP consistently so every user does not share the proxy a
 Expected for a new browser. Approve the shown device id from an already-approved browser
 (Settings → Devices) or from the server using the approval script.
 
-### `mso gateway start` says cloudflared is missing
+### `mso onboard` approved the CLI device, then says port 4005 is unreachable
 
-MSO does not download a mutable/unpinned tunnel binary automatically. Install the official
-Cloudflare Tunnel client for this machine, then run `mso gateway doctor`. The MSO application must
-remain on loopback; do not work around a missing tunnel client by changing the service to
-`0.0.0.0:4005`.
+Device approval and runtime liveness are separate. Current MSO does not tell you to approve the same
+device again for a connection failure: on loopback, onboarding asks the gateway runtime helper to
+verify the MSO health contract and, on WSL/no-service installs, start the already-built production
+runtime on loopback. If the build is missing or stale, run `mso update`, then `mso web`, then resume
+`mso onboard`. Running `mso device approve <id>` again with the same role is idempotent; changing an
+existing device role still requires the explicit `mso device role` command.
+
+### How do I update when the web UI / port 4005 is down?
+
+Run `mso update`. The CLI updater reads/fetches `origin/main` directly and does not need the MSO API.
+On WSL without an active service it verifies and builds the clean updated checkout, then tells you to
+run `mso web`. Use `mso update status` to see the incoming CLI version/commits and `mso update log`
+for the service-updater transcript.
+
+### `mso gateway start` cannot install or verify cloudflared
+
+Current MSO installs a reviewed `cloudflared` release automatically into `~/.mso/tools` on first
+`mso gateway start`. The release URL and SHA-256 for supported Linux architectures are pinned in
+`security/gateway-artifacts.env`; the cached binary is re-hashed before reuse and auto-update is
+disabled. Run `mso gateway install` to retry the dependency step by itself. If outbound GitHub
+release downloads are blocked, fix that network policy or set `MSO_GATEWAY_CLOUDFLARED` to an
+explicit locally reviewed executable. Set `MSO_GATEWAY_NO_AUTO_INSTALL=1` when policy requires
+manual provisioning.
+A brand-new Quick Tunnel hostname may also take several seconds to become reachable. `mso gateway
+start` waits up to 60 seconds by default and still requires the exact MSO health/runtime-instance
+contract; this is readiness tolerance, not a weaker health check. A local resolver can cache the
+initial NXDOMAIN longer than the record creation itself; temporary mode therefore has a Cloudflare
+DoH fallback that still verifies HTTPS for the generated hostname and the exact runtime nonce.
 
 ### Temporary gateway opens, but Terminal does not stream
 
@@ -58,7 +82,7 @@ mutating the live `.next` tree manually. After any active updater/finalizer has 
 run the supported recovery rebuild:
 
 ```bash
-mso update run --rebuild
+mso update --rebuild
 ```
 
 Then verify `/api/health` and run the post-deploy smoke check. Developer changes should be
@@ -81,7 +105,7 @@ lock remains, remove the stale lock, then use the normal update/release command.
 
 Confirm Git `HEAD`, `origin/main`, `/api/health` build id and the deployment log all refer to
 the expected release. If the deployment is correct but the build tree is inconsistent, use
-`mso update run --rebuild` rather than hand-restarting around a partial build.
+`mso update --rebuild` rather than hand-restarting around a partial build.
 
 ### Update button says a newer version exists forever
 

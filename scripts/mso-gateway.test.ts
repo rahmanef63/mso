@@ -1,88 +1,12 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  CLI, GATEWAY, VERSION, cleanupGatewayFixtures, fixture, readFileSnapshot, readState, runGateway as run,
+} from "./mso-gateway-test-fixture";
 
-const ROOT = path.resolve(__dirname, "..");
-const GATEWAY = path.join(__dirname, "mso-gateway");
-const CLI = path.join(ROOT, "bin/mso");
-const tempRoots: string[] = [];
-const tunnelPids = new Set<number>();
-
-function fixture() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mso-gateway-"));
-  tempRoots.push(dir);
-  const bin = path.join(dir, "bin");
-  const state = path.join(dir, "state");
-  const envFile = path.join(dir, ".env.local");
-  fs.mkdirSync(bin, { mode: 0o700 });
-  fs.writeFileSync(envFile, "OS_SESSION_SECRET=fixture-only-not-a-real-secret\n", { mode: 0o600 });
-
-  const curl = path.join(bin, "curl");
-  fs.writeFileSync(curl, "#!/bin/sh\nexit 0\n", { mode: 0o700 });
-
-  const cloudflared = path.join(bin, "cloudflared");
-  fs.writeFileSync(
-    cloudflared,
-    `#!/usr/bin/env node
-if (process.argv.includes('--version')) { console.log('cloudflared version fixture'); process.exit(0); }
-if (process.argv.includes('--url')) console.error('INF https://mso-gateway-fixture.trycloudflare.com');
-process.on('SIGTERM', () => process.exit(0));
-setInterval(() => {}, 1000);
-`,
-    { mode: 0o700 },
-  );
-
-  const baseEnv = {
-    ...process.env,
-    HOME: dir,
-    MSO_GATEWAY_ROOT: ROOT,
-    MSO_GATEWAY_ENV: envFile,
-    MSO_GATEWAY_STATE_DIR: state,
-    MSO_GATEWAY_CURL: curl,
-    MSO_GATEWAY_CLOUDFLARED: cloudflared,
-    MSO_GATEWAY_LOCAL_URL: "http://127.0.0.1:4005",
-    MSO_GATEWAY_SKIP_PUBLIC_PROBE: "1",
-  };
-  return { dir, bin, state, envFile, curl, cloudflared, baseEnv };
-}
-
-function run(args: string[], env: NodeJS.ProcessEnv) {
-  return execFileSync(GATEWAY, args, { encoding: "utf8", env });
-}
-
-function readFileSnapshot(file: string) {
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-  try {
-    const stat = fs.fstatSync(fd);
-    if (!stat.isFile()) throw new Error(`expected regular file: ${file}`);
-    return { mode: stat.mode & 0o777, text: fs.readFileSync(fd, "utf8") };
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
-function readState(stateDir: string) {
-  const p = path.join(stateDir, "state.json");
-  const snapshot = readFileSnapshot(p);
-  const value = JSON.parse(snapshot.text) as {
-    mode: string;
-    url: string;
-    tunnelPid: number;
-    runtimeOwned: boolean;
-  };
-  tunnelPids.add(value.tunnelPid);
-  return { path: p, snapshot, value };
-}
-
-afterEach(() => {
-  for (const pid of tunnelPids) {
-    try { process.kill(pid, "SIGTERM"); } catch { /* already stopped */ }
-  }
-  tunnelPids.clear();
-  for (const dir of tempRoots.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
-});
+afterEach(cleanupGatewayFixtures);
 
 describe("mso public gateway", () => {
   it("runs a temporary HTTPS gateway without publishing the MSO app port", () => {
@@ -99,14 +23,58 @@ describe("mso public gateway", () => {
     expect(fs.statSync(f.state).mode & 0o777).toBe(0o700);
     expect(state.snapshot.mode).toBe(0o600);
     expect(state.snapshot.text).not.toContain("OS_SESSION_SECRET");
+    expect(fs.existsSync(path.join(f.dir, "cloudflared-secret-env"))).toBe(false);
 
     expect(run(["url"], f.baseEnv).trim()).toBe("https://mso-gateway-fixture.trycloudflare.com");
-    expect(run(["status"], f.baseEnv)).toContain("Quick Tunnel is temporary preview mode");
+    expect(run(["status"], f.baseEnv)).toContain("Quick Tunnel is preview-only");
     expect(run(["web", "--print"], f.baseEnv).trim()).toBe("https://mso-gateway-fixture.trycloudflare.com");
 
     expect(run(["stop"], f.baseEnv)).toContain("MSO remains loopback-only");
     expect(fs.existsSync(state.path)).toBe(false);
-    expect(() => process.kill(state.value.tunnelPid, 0)).toThrow();
+    expect(() => process.kill(state.value.tunnelIdentity.pid, 0)).toThrow();
+  });
+
+
+
+  it("verifies a Quick Tunnel through Cloudflare DoH when the local resolver still has NXDOMAIN", () => {
+    const f = fixture();
+    fs.writeFileSync(f.curl, `#!/bin/sh
+args="$*"
+case "$args" in
+  *cloudflare-dns.com/dns-query*) printf '%s\\n' '{"Status":0,"Answer":[{"type":1,"data":"127.0.0.1"},{"type":1,"data":"104.16.230.132"}]}' ;;
+  *--resolve*) printf '%s\\n' '{"status":"ok","buildId":"fixture","runtimeInstanceId":"fixture","version":"${VERSION}"}' ;;
+  *127.0.0.1:4005/api/health*) printf '%s\\n' '{"status":"ok","buildId":"fixture","runtimeInstanceId":"fixture","version":"${VERSION}"}' ;;
+  *trycloudflare.com/api/health*) exit 6 ;;
+  *) printf '%s\\n' '{"status":"ok","buildId":"fixture","runtimeInstanceId":"fixture","version":"${VERSION}"}' ;;
+esac
+`, { mode: 0o700 });
+    const env = { ...f.baseEnv, MSO_GATEWAY_SKIP_PUBLIC_PROBE: "0", MSO_GATEWAY_PUBLIC_READY_SECONDS: "10" };
+    const started = run(["start"], env);
+    expect(started).toContain("gateway started");
+    const state = readState(f.state);
+    expect(state.value.url).toBe("https://mso-gateway-fixture.trycloudflare.com");
+    run(["stop"], env);
+  });
+
+  it("refuses tunneling when the same MSO port already has a wildcard listener", () => {
+    const f = fixture();
+    const procTcp = f.baseEnv.MSO_GATEWAY_PROC_NET_TCP!;
+    fs.writeFileSync(procTcp, "  sl  local_address rem_address   st\n   0: 00000000:0FA5 00000000:0000 0A\n");
+    const out = spawnSync(GATEWAY, ["start"], { encoding: "utf8", env: f.baseEnv });
+    expect(out.status).not.toBe(0);
+    expect(out.stderr).toContain("already has a non-loopback listener");
+    expect(fs.existsSync(path.join(f.state, "state.json"))).toBe(false);
+  });
+
+
+  it("also refuses a listener bound to a LAN address instead of wildcard", () => {
+    const f = fixture();
+    const procTcp = f.baseEnv.MSO_GATEWAY_PROC_NET_TCP!;
+    // 192.168.1.1 in /proc/net/tcp little-endian form.
+    fs.writeFileSync(procTcp, "  sl  local_address rem_address   st\n   0: 0101A8C0:0FA5 00000000:0000 0A\n");
+    const out = spawnSync(GATEWAY, ["start"], { encoding: "utf8", env: f.baseEnv });
+    expect(out.status).not.toBe(0);
+    expect(out.stderr).toContain("non-loopback listener");
   });
 
   it("fails closed on a non-loopback upstream", () => {
@@ -128,6 +96,26 @@ describe("mso public gateway", () => {
     });
     expect(out.status).not.toBe(0);
     expect(out.stderr).toContain("refusing non-loopback/invalid upstream");
+  });
+
+
+  it("accepts only a dedicated named tunnel config for the configured MSO origin", () => {
+    const f = fixture();
+    const credentials = path.join(f.dir, "tunnel.json");
+    fs.writeFileSync(credentials, "{}\n", { mode: 0o600 });
+    const config = path.join(f.dir, "cloudflared.yml");
+    fs.writeFileSync(config, `tunnel: fixture\ncredentials-file: ${credentials}\ningress:\n  - hostname: mso.example.test\n    service: http://localhost:4005\n  - service: http_status:404\n`, { mode: 0o600 });
+    const env = { ...f.baseEnv, OS_PUBLIC_ORIGIN: "https://mso.example.test" };
+    const started = run(["start", "--config", config, "--tunnel", "fixture"], env);
+    expect(started).toContain("https://mso.example.test");
+    const state = readState(f.state);
+    expect(state.value.mode).toBe("named");
+    run(["stop"], env);
+
+    fs.writeFileSync(config, `tunnel: fixture\ncredentials-file: ${credentials}\ningress:\n  - hostname: mso.example.test\n    service: http://127.0.0.1:4005\n  - hostname: other.example.test\n    service: http://127.0.0.1:9000\n  - service: http_status:404\n`, { mode: 0o600 });
+    const rejected = spawnSync(GATEWAY, ["start", "--config", config, "--tunnel", "fixture"], { encoding: "utf8", env });
+    expect(rejected.status).not.toBe(0);
+    expect(rejected.stderr).toContain("named config must be dedicated");
   });
 
   it("rejects a group/world-writable named-tunnel config", () => {
@@ -164,6 +152,15 @@ describe("mso public gateway", () => {
     text = snapshot.text;
     expect(text).toContain("OS_SESSION_SECRET=fixture-only-not-a-real-secret");
     expect(text).not.toContain("OS_PUBLIC_ORIGIN=");
+  });
+
+  it("preserves a literal IPv6 loopback --base and port", () => {
+    const f = fixture();
+    const out = execFileSync(CLI, ["--base", "http://[::1]:4556", "web", "--local", "--print"], {
+      encoding: "utf8", env: { ...process.env, HOME: f.dir, MSO_ENV: "/dev/null",
+        MSO_GATEWAY_STATE_DIR: f.state, MSO_GATEWAY_CURL: f.curl, MSO_GATEWAY_CLOUDFLARED: f.cloudflared },
+    });
+    expect(out.trim()).toBe("http://[::1]:4556");
   });
 
   it("mso web follows an explicit loopback --base including a non-default port", () => {

@@ -2,22 +2,41 @@
 
 Running log of what shipped each phase. Newest at top.
 
-## 2026-08-30 — Loopback-only public gateway + `mso web` (SHIPPED)
+## 2026-08-30 — Loopback-only public gateway + resilient WSL CLI lifecycle (SHIPPED)
 
-MSO now has an explicit public-access lifecycle for laptop/WSL installs without weakening the
-application bind. `mso gateway start` keeps the Next server on `127.0.0.1`, launches an outbound
-HTTPS Cloudflare tunnel, stores process state/logs under owner-only private state, verifies process
-identity before stop, and can bootstrap the existing production build on WSL when systemd is
-unavailable. `mso web` opens the active gateway URL first and otherwise falls back to the stable
-public origin or loopback. Non-default loopback `--base` ports are preserved.
+MSO now has an explicit laptop/WSL public-access lifecycle without widening the application bind.
+`mso web` verifies the MSO health contract and can start the already-built production runtime on
+`127.0.0.1` when no service is active. `mso gateway start` adds an outbound HTTPS Cloudflare tunnel
+on top; temporary Quick Tunnel mode is disclosed as preview-only because the provider does not
+support SSE, while named/custom-domain mode remains driven by `OS_PUBLIC_ORIGIN`. `mso gateway
+domain set https://…` updates that stable origin atomically and prints loopback-only ingress config.
 
-Temporary Quick Tunnel mode is intentionally disclosed as preview-only because the provider does
-not support SSE, which MSO Terminal uses. Stable mode is configuration-driven:
-`mso gateway domain set https://…` atomically manages `OS_PUBLIC_ORIGIN`, and named-tunnel mode
-accepts only an owner-controlled, non-writable cloudflared config while keeping credentials out of
-argv. The global response policy also adds `X-Robots-Tag: noindex, nofollow, noarchive`. Regression
-tests exercise start/status/url/web/stop, private-state permissions, non-loopback refusal, custom
-ports, domain mutation, and unsafe config rejection.
+The independent PR review found lifecycle failure modes before merge, so the gateway was hardened
+rather than those comments being dismissed. Gateway state now records a process fingerprint (PID,
+`/proc` start ticks, executable and command-line hash), startup first verifies the exact expected argv,
+`stop` refuses identity mismatches, start/stop share an owner-only lifecycle lock, concurrent starts
+produce one tunnel, state-write failure rolls newly launched processes back, stale tunnel state
+preserves a still-owned runtime, and both local/public probes require MSO's structured health
+contract rather than accepting any HTTP 2xx. The original 428-line script was split into bounded
+≤200-line single-responsibility modules. Regression tests cover rollback, PID reuse, concurrency,
+runtime ownership, non-loopback/hostname confusion, config permissions, domain mutation and browser
+selection.
+
+The WSL onboarding failure path is also repaired. `mso onboard` no longer turns a connection failure
+into the false advice to approve an already-approved device; loopback onboarding starts/verifies the
+fallback runtime first. Re-approving the same device+role is idempotent, while role changes still need
+`mso device role`. CLI version is now 1.4.0. `mso update` is API-independent and is the preferred
+operator command: it can fetch/fast-forward/verify/build even when port 4005 is down, and normal
+interactive CLI use emits a throttled Git-backed update notice when `origin/main` is ahead.
+`mso update run` remains accepted for compatibility.
+
+The global response policy additionally sends `X-Robots-Tag: noindex, nofollow, noarchive` because an
+MSO control plane should not be indexed merely because a temporary HTTPS endpoint exists. The
+Cloudflare client is now a core supply-chain lock too: release `2026.8.2` is pinned by exact official
+asset URL + SHA-256 for Linux amd64/arm64, installed user-locally on first gateway use, re-hashed
+before reuse, and launched with self-update disabled. Named configs are parsed before launch and are
+accepted only when dedicated to the configured MSO hostname/loopback port with a private credentials
+file and a terminal `http_status:404` fallback.
 
 ## 2026-08-30 — WSL Bun bin-metadata build resilience (SHIPPED)
 

@@ -59,7 +59,7 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 - **Inspect system health** — view live CPU, memory, disk, network, process, and uptime signals.
 - **Operate services safely** — inventory system and user `systemd` units, read bounded journal output, and expose start/stop/restart only for exact owner-configured allowlist entries.
 - **See pending package updates** — read the package manager’s existing local cache without refreshing repositories or applying an upgrade.
-- **Update itself** — Settings → About shows what is on `origin/main`, lists the incoming commits, and runs the whole deploy (pull → verify the build out-of-tree → build → restart) from a button. The verification runs first on purpose: a commit that does not compile becomes a refusal, not an outage. The updater runs in the owner's systemd user manager and does not require passwordless sudo. Same thing from a shell: `mso update run`.
+- **Update itself** — Settings → About shows what is on `origin/main`, lists the incoming commits, and runs the whole deploy (pull → verify the build out-of-tree → build → restart) from a button. The verification runs first on purpose: a commit that does not compile becomes a refusal, not an outage. The updater runs in the owner's systemd user manager and does not require passwordless sudo. Same thing from a shell: `mso update` (`mso update run` remains a compatibility alias). The CLI update path is Git-based and still works when the web runtime is down.
 - **Manage other apps on the box** — detect, start/stop/restart, health, version, logs, and state backups for separate applications you already run (Hermes, OpenClaw, 9Router), driven through their own systemd/Docker/CLI contracts. 9Router uses its configured application domain or split-origin host as the in-shell dashboard; its Docker port is loopback-only unless public exposure is explicitly enabled. See [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md).
 
 **Work** — code/text editor, browser, and media tools in the same workspace.
@@ -162,7 +162,9 @@ On the normal Ubuntu/WSL PATH (which includes `/usr/local/bin`) these work immed
 ```bash
 mso -h
 mso doctor
-mso onboard                 # run/re-run guided setup
+mso onboard                 # run/re-run guided setup; starts the built loopback runtime on WSL when needed
+mso web                     # open local UI; starts the built loopback runtime if no service is active
+mso update                  # fetch/verify/build safely; does not require :4005 to be alive
 mso skills available        # reviewed installable skill list
 mso skills install ponytail caveman rtk -y
 ```
@@ -171,7 +173,9 @@ If it explicitly says the current shell cannot see the user launcher yet, run th
 `export PATH="$HOME/.local/bin:$PATH"` it prints; new shells use the persisted profile entry.
 
 **WSL2:** the CLI is supported even when systemd is not active. In that case the installer now
-finishes the CLI instead of failing in `systemctl`, but it skips `mso.service`. For the full
+finishes the CLI instead of failing in `systemctl`, but it skips `mso.service`. `mso onboard` and
+`mso web` can start the already-built production runtime detached on `127.0.0.1` and track ownership
+under private state; `mso update` can update/verify/build without a running API. For the full
 background service, enable systemd in `/etc/wsl.conf`, exit all WSL sessions from Windows, reopen
 the distro, then re-run the installer with `--onboard`.
 
@@ -192,7 +196,7 @@ On a laptop/WSL install, the supported public-preview path keeps that invariant 
 
 ```bash
 mso gateway doctor
-mso gateway start          # temporary HTTPS URL; requires the official cloudflared client
+mso gateway start          # temporary HTTPS URL; installs MSO's pinned cloudflared on first use
 mso web                    # opens the active public URL, or loopback when no gateway is running
 mso gateway status
 mso gateway stop
@@ -202,9 +206,10 @@ Temporary mode uses a Cloudflare Quick Tunnel and does **not** change `OS_PUBLIC
 MSO bind address, router/NAT rules, or the Windows firewall. The normal password + approved-device
 gate, live device roles, Secure/HttpOnly/SameSite cookie, same-origin mutation gate, CSP and login
 rate limits remain in front of the host APIs. Gateway state/logs live under owner-only
-`~/.mso/private/gateway`; `stop` validates process identity before terminating anything. MSO does
-not silently download an unpinned tunnel binary: install `cloudflared` from Cloudflare's official
-package/release channel first.
+`~/.mso/private/gateway`; `stop` validates process identity before terminating anything. On first use, MSO downloads the reviewed `cloudflared` release pinned in
+`security/gateway-artifacts.env` into user-local `~/.mso/tools`, verifies its SHA-256 before first
+execution and again before every reuse, and passes `--no-autoupdate`. No root package install,
+mutable `latest`, or `curl | sh` is involved. Use `mso gateway install` to prefetch it explicitly.
 
 Quick Tunnels are a **preview/testing** surface, not the permanent deployment path. Cloudflare
 documents a 200-concurrent-request limit and no Server-Sent Events support; MSO's live Terminal
@@ -222,8 +227,10 @@ mso web
 ```
 
 `mso gateway domain set` updates `OS_PUBLIC_ORIGIN` atomically and prints a loopback-only ingress
-example. It does not create DNS credentials or put tunnel tokens on a command line. A permanent
-Cloudflare deployment can then add Cloudflare Access/WAF policy in front of MSO. If you prefer an
+example. Named mode accepts only a dedicated two-rule config (`your hostname → MSO loopback`, then
+`http_status:404`) and a private owner-owned credentials file. It does not put tunnel tokens on a
+command line. A permanent Cloudflare deployment can then add Cloudflare Access/WAF policy in front
+of MSO. If you prefer an
 SSH-only connection instead, use:
 
 ```bash

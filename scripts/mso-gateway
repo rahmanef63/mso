@@ -1,428 +1,63 @@
 #!/usr/bin/env bash
-# Local/public gateway lifecycle for MSO.
-# The invariant is deliberate: MSO itself always stays on loopback. Public access
-# is an outbound HTTPS tunnel, never a 0.0.0.0 listener created by this script.
+# MSO local/public gateway dispatcher. Public access is always an outbound HTTPS
+# tunnel; the Next application itself remains on a validated loopback origin.
 set -euo pipefail
 umask 077
 
 ROOT="${MSO_GATEWAY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ENVF="${MSO_GATEWAY_ENV:-$ROOT/.env.local}"
-LOCAL_URL="${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:4005}"
+LOCAL_URL_OVERRIDE="${MSO_GATEWAY_LOCAL_URL:-}"
+LOCAL_URL=""
 STATE_ROOT="${MSO_GATEWAY_STATE_DIR:-$HOME/.mso/private/gateway}"
-CLOUDFLARED="${MSO_GATEWAY_CLOUDFLARED:-$(command -v cloudflared 2>/dev/null || true)}"
+CLOUDFLARED=""
 CURL="${MSO_GATEWAY_CURL:-$(command -v curl 2>/dev/null || true)}"
+
+for dep in node jq sha256sum realpath stat mktemp; do command -v "$dep" >/dev/null || { echo "mso gateway: missing dependency: $dep" >&2; exit 1; }; done
+[ -n "$CURL" ] || { echo "mso gateway: curl is required" >&2; exit 1; }
 
 # shellcheck source=scripts/lib/private-state.sh
 . "$ROOT/scripts/lib/private-state.sh"
+# shellcheck source=scripts/lib/gateway-common.sh
+. "$ROOT/scripts/lib/gateway-common.sh"
+# Source config early because it owns the single env-file safety validator.
+# shellcheck source=scripts/lib/gateway-config.sh
+. "$ROOT/scripts/lib/gateway-config.sh"
 
-fail() { printf 'mso gateway: %s\n' "$*" >&2; exit 1; }
-info() { printf '%s\n' "$*"; }
-
-[ -n "$CURL" ] || fail "curl is required"
-
-validate_loopback_origin() {
-  node - "$1" <<'NODE'
-const raw = process.argv[2];
-try {
-  const u = new URL(raw);
-  const host = u.hostname.toLowerCase();
-  const parts = host.split('.');
-  const ipv4Loopback = parts.length === 4 && parts[0] === '127' && parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255);
-  const loopback = host === 'localhost' || host === '[::1]' || host === '::1' || ipv4Loopback;
-  const clean = u.protocol === 'http:' && loopback && !u.username && !u.password && u.pathname === '/' && !u.search && !u.hash;
-  if (!clean || !u.port) process.exit(1);
-  process.stdout.write(u.origin);
-} catch { process.exit(1); }
-NODE
-}
-
-LOCAL_URL="$(validate_loopback_origin "$LOCAL_URL" 2>/dev/null || true)"
-[ -n "$LOCAL_URL" ] || fail "refusing non-loopback/invalid upstream (MSO gateway only accepts a clean http://127/8, localhost, or ::1 origin with an explicit port)"
-
-STATE_ROOT="$(mso_private_state_dir "$STATE_ROOT")" || fail "unsafe gateway state directory"
+# Direct `scripts/mso-gateway` calls and `mso gateway` must have the same runtime
+# environment. The file is owner/private checked before sourcing. cloudflared is
+# spawned later with a scrubbed environment so these secrets never reach it.
+if [ "$ENVF" != /dev/null ] && { [ -e "$ENVF" ] || [ -L "$ENVF" ]; }; then
+  gateway_safe_env_file
+  # shellcheck disable=SC1090
+  set -a; . "$ENVF"; set +a
+fi
+LOCAL_URL="${LOCAL_URL_OVERRIDE:-${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}}"
+LOCAL_URL="$(gateway_validate_loopback_origin "$LOCAL_URL" 2>/dev/null || true)"
+[ -n "$LOCAL_URL" ] || gateway_fail "refusing non-loopback/invalid upstream; use a clean http://127/8, localhost, or ::1 origin with an explicit port"
+STATE_ROOT="$(mso_private_state_dir "$STATE_ROOT")" || gateway_fail "unsafe gateway state directory"
 STATE_FILE="$STATE_ROOT/state.json"
 CF_LOG="$STATE_ROOT/cloudflared.log"
 RUNTIME_LOG="$STATE_ROOT/runtime.log"
+LOCK_DIR="$STATE_ROOT/lifecycle.lock"
+LOCK_HELD=0
 
-private_file() {
-  mso_private_state_ensure_file "$1" >/dev/null || fail "unsafe private state file: $1"
-}
-
-state_read() {
-  if [ -s "$STATE_FILE" ]; then
-    mso_private_state_validate_file "$STATE_FILE" >/dev/null || fail "unsafe gateway state file"
-    jq -e . "$STATE_FILE" 2>/dev/null || fail "gateway state is corrupt; inspect $STATE_FILE before removing it"
-  else
-    printf '{}\n'
-  fi
-}
-
-pid_alive() { [ "${1:-0}" -gt 1 ] 2>/dev/null && kill -0 "$1" 2>/dev/null; }
-cmdline() { tr '\0' ' ' <"/proc/$1/cmdline" 2>/dev/null || true; }
-
-is_our_tunnel_pid() {
-  local pid="${1:-0}" line
-  pid_alive "$pid" || return 1
-  line="$(cmdline "$pid")"
-  [[ "$line" == *cloudflared* && "$line" == *tunnel* ]]
-}
-
-is_our_runtime_pid() {
-  local pid="${1:-0}" line
-  pid_alive "$pid" || return 1
-  line="$(cmdline "$pid")"
-  [[ "$line" == *"$ROOT/node_modules/next/dist/bin/next"* && "$line" == *" start "* && "$line" == *"127.0.0.1"* ]]
-}
-
-# A forked child can exist for a few scheduler ticks before exec() replaces its
-# cmdline. Never weaken the identity check; wait briefly for the expected identity
-# instead. This also avoids treating a slow laptop as a failed gateway start.
-wait_identity() {
-  local pid="$1" kind="$2" i
-  for i in $(seq 1 40); do
-    case "$kind" in
-      tunnel) is_our_tunnel_pid "$pid" && return 0 ;;
-      runtime) is_our_runtime_pid "$pid" && return 0 ;;
-      *) return 1 ;;
-    esac
-    pid_alive "$pid" || return 1
-    sleep 0.05
-  done
-  return 1
-}
-
-health_ok() { "$CURL" -fsS --max-time 4 "$LOCAL_URL/api/health" >/dev/null 2>&1; }
-
-wait_health() {
-  local i
-  for i in $(seq 1 40); do
-    health_ok && return 0
-    sleep 0.25
-  done
-  return 1
-}
-
-start_runtime_if_needed() {
-  RUNTIME_PID=0
-  RUNTIME_OWNED=false
-  health_ok && return 0
-
-  local next="$ROOT/node_modules/next/dist/bin/next" port host
-  [ -f "$next" ] || fail "MSO runtime is down and Next is missing; run the installer/update first"
-  [ -f "$ROOT/.next/BUILD_ID" ] || fail "MSO runtime is down and no production build exists; run: cd $ROOT && node node_modules/next/dist/bin/next build"
-  host="${LOCAL_URL#http://}"; host="${host%%:*}"; port="${LOCAL_URL##*:}"
-  [ "$host" = "127.0.0.1" ] || [ "$host" = "localhost" ] || fail "detached fallback supports IPv4 loopback only"
-  [[ "$port" =~ ^[0-9]{1,5}$ ]] || fail "invalid local port: $port"
-
-  private_file "$RUNTIME_LOG"
-  : >"$RUNTIME_LOG"
-  (
-    cd "$ROOT"
-    nohup node "$next" start --hostname 127.0.0.1 --port "$port" >>"$RUNTIME_LOG" 2>&1 &
-    printf '%s' "$!"
-  ) >"$STATE_ROOT/.runtime-pid"
-  RUNTIME_PID="$(cat "$STATE_ROOT/.runtime-pid")"
-  rm -f "$STATE_ROOT/.runtime-pid"
-  wait_identity "$RUNTIME_PID" runtime || fail "runtime process did not start with the expected loopback command"
-  if ! wait_health; then
-    kill "$RUNTIME_PID" 2>/dev/null || true
-    fail "runtime did not become healthy; see $RUNTIME_LOG"
-  fi
-  RUNTIME_OWNED=true
-}
-
-validate_public_origin() {
-  node - "$1" <<'NODE'
-const raw = process.argv[2];
-try {
-  const u = new URL(raw);
-  const ok = u.protocol === "https:" && !u.username && !u.password && u.pathname === "/" && !u.search && !u.hash;
-  if (!ok) process.exit(1);
-  process.stdout.write(u.origin);
-} catch { process.exit(1); }
-NODE
-}
-
-write_state() {
-  local provider="$1" url="$2" tunnel_pid="$3" runtime_pid="$4" runtime_owned="$5" mode="$6"
-  jq -nc \
-    --arg provider "$provider" --arg url "$url" --arg local "$LOCAL_URL" --arg mode "$mode" \
-    --argjson tunnelPid "$tunnel_pid" --argjson runtimePid "$runtime_pid" --argjson runtimeOwned "$runtime_owned" \
-    --arg startedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{provider:$provider,mode:$mode,url:$url,localUrl:$local,tunnelPid:$tunnelPid,runtimePid:$runtimePid,runtimeOwned:$runtimeOwned,startedAt:$startedAt}' \
-    | mso_private_state_atomic_write "$STATE_FILE" >/dev/null || fail "could not persist gateway state"
-}
-
-stop_pid() {
-  local pid="$1" kind="$2"
-  [ "$pid" -gt 1 ] 2>/dev/null || return 0
-  case "$kind" in
-    tunnel) is_our_tunnel_pid "$pid" || return 0 ;;
-    runtime) is_our_runtime_pid "$pid" || return 0 ;;
-  esac
-  kill "$pid" 2>/dev/null || true
-  local i
-  for i in $(seq 1 20); do pid_alive "$pid" || return 0; sleep 0.1; done
-  kill -KILL "$pid" 2>/dev/null || true
-}
-
-cmd_stop() {
-  local state tp rp owned
-  state="$(state_read)"
-  tp="$(jq -r '.tunnelPid // 0' <<<"$state")"
-  rp="$(jq -r '.runtimePid // 0' <<<"$state")"
-  owned="$(jq -r '.runtimeOwned // false' <<<"$state")"
-  stop_pid "$tp" tunnel
-  [ "$owned" = true ] && stop_pid "$rp" runtime
-  mso_private_state_remove_file "$STATE_FILE" >/dev/null 2>&1 || true
-  info "gateway stopped; MSO remains loopback-only"
-}
-
-active_state() {
-  local state pid
-  state="$(state_read)"
-  pid="$(jq -r '.tunnelPid // 0' <<<"$state")"
-  is_our_tunnel_pid "$pid" || return 1
-  printf '%s' "$state"
-}
-
-cmd_status() {
-  local state
-  if ! state="$(active_state)"; then
-    info "gateway: stopped"
-    info "local:   $LOCAL_URL"
-    health_ok && info "runtime: healthy (loopback)" || info "runtime: not reachable"
-    return 1
-  fi
-  info "gateway: running"
-  info "mode:    $(jq -r .mode <<<"$state")"
-  info "provider:$(jq -r .provider <<<"$state" | sed 's/^/ /')"
-  info "public:  $(jq -r .url <<<"$state")"
-  info "local:   $(jq -r .localUrl <<<"$state")"
-  if [ "$(jq -r .mode <<<"$state")" = temporary ]; then
-    info "note:    Cloudflare Quick Tunnel is temporary preview mode; live Terminal SSE is not supported by that provider"
-  fi
-}
-
-cmd_url() {
-  local state
-  state="$(active_state)" || fail "gateway is not running; run: mso gateway start"
-  jq -r .url <<<"$state"
-}
-
-cmd_start() {
-  local config="" tunnel="" mode=temporary provider=cloudflare-quick public_url="" tunnel_pid i
-  shift || true
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --config) [ -n "${2-}" ] || fail "--config needs a path"; config="$2"; shift 2 ;;
-      --tunnel) [ -n "${2-}" ] || fail "--tunnel needs a name or UUID"; tunnel="$2"; shift 2 ;;
-      *) fail "usage: mso gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]" ;;
-    esac
-  done
-  if active_state >/dev/null 2>&1; then
-    cmd_status
-    return 0
-  fi
-  [ -n "$CLOUDFLARED" ] || fail "cloudflared is not installed. Install the official Cloudflare Tunnel client, then rerun. MSO will not download an unpinned tunnel binary automatically."
-  [ -x "$CLOUDFLARED" ] || fail "cloudflared is not executable: $CLOUDFLARED"
-  if [ -n "$config$tunnel" ]; then
-    [ -n "$config" ] && [ -n "$tunnel" ] || fail "named mode requires BOTH --config and --tunnel"
-    [[ "$tunnel" =~ ^[A-Za-z0-9_-]{1,80}$ ]] || fail "invalid tunnel name/UUID"
-    [ -f "$config" ] && [ ! -L "$config" ] || fail "config must be a regular non-symlink file: $config"
-    [ "$(stat -c '%u' "$config")" = "$(id -u)" ] || fail "cloudflared config must be owned by the current user"
-    config_mode="$(stat -c '%a' "$config")"
-    (( (8#$config_mode & 022) == 0 )) || fail "cloudflared config must not be group/world-writable (got mode $config_mode)"
-    public_url="$(validate_public_origin "${OS_PUBLIC_ORIGIN:-}" 2>/dev/null || true)"
-    [ -n "$public_url" ] || fail "named mode requires OS_PUBLIC_ORIGIN=https://your-domain in $ENVF (use: mso gateway domain set https://...)"
-    mode=named; provider=cloudflare-named
-  fi
-
-  start_runtime_if_needed
-  private_file "$CF_LOG"; : >"$CF_LOG"
-  if [ "$mode" = temporary ]; then
-    if [ -n "${OS_PUBLIC_ORIGIN:-}" ]; then
-      info "warning: OS_PUBLIC_ORIGIN is already set; temporary gateway does not override it. Generated MCP/share URLs may continue to name that stable origin."
-    fi
-    nohup "$CLOUDFLARED" tunnel --no-autoupdate --url "$LOCAL_URL" >>"$CF_LOG" 2>&1 &
-  else
-    nohup "$CLOUDFLARED" tunnel --config "$config" --no-autoupdate run "$tunnel" >>"$CF_LOG" 2>&1 &
-  fi
-  tunnel_pid=$!
-  wait_identity "$tunnel_pid" tunnel || { [ "$RUNTIME_OWNED" = true ] && stop_pid "$RUNTIME_PID" runtime; fail "cloudflared failed to start"; }
-
-  if [ "$mode" = temporary ]; then
-    for i in $(seq 1 80); do
-      public_url="$(grep -Eo 'https://[A-Za-z0-9-]+\.trycloudflare\.com' "$CF_LOG" | tail -1 || true)"
-      [ -n "$public_url" ] && break
-      pid_alive "$tunnel_pid" || break
-      sleep 0.25
-    done
-    [ -n "$public_url" ] || { stop_pid "$tunnel_pid" tunnel; [ "$RUNTIME_OWNED" = true ] && stop_pid "$RUNTIME_PID" runtime; fail "quick tunnel did not return a public URL; see $CF_LOG"; }
-  fi
-  public_url="$(validate_public_origin "$public_url")" || fail "tunnel produced an invalid public origin"
-
-  if [ "${MSO_GATEWAY_SKIP_PUBLIC_PROBE:-0}" != 1 ]; then
-    for i in $(seq 1 24); do
-      "$CURL" -fsS --max-time 5 "$public_url/api/health" >/dev/null 2>&1 && break
-      [ "$i" -eq 24 ] && { stop_pid "$tunnel_pid" tunnel; [ "$RUNTIME_OWNED" = true ] && stop_pid "$RUNTIME_PID" runtime; fail "public HTTPS endpoint did not become healthy; see $CF_LOG"; }
-      sleep 0.5
-    done
-  fi
-
-  write_state "$provider" "$public_url" "$tunnel_pid" "$RUNTIME_PID" "$RUNTIME_OWNED" "$mode"
-  info "gateway started"
-  info "public: $public_url"
-  info "local:  $LOCAL_URL (still loopback-only)"
-  if [ "$mode" = temporary ]; then
-    info "warning: temporary Quick Tunnel is for preview/testing; Cloudflare documents no SSE support, so the live Terminal stream may not work until named/domain mode"
-  fi
-  info "open:   mso web"
-  info "stop:   mso gateway stop"
-}
-
-safe_env_file() {
-  [ -e "$ENVF" ] || fail "env file not found: $ENVF"
-  [ -f "$ENVF" ] && [ ! -L "$ENVF" ] || fail "env file must be a regular non-symlink file"
-  [ "$(stat -c '%u' "$ENVF")" = "$(id -u)" ] || fail "env file must be owned by current user"
-  env_mode="$(stat -c '%a' "$ENVF")"
-  (( (8#$env_mode & 077) == 0 )) || fail "env file contains secrets and must not be group/world-accessible (got mode $env_mode)"
-}
-
-env_origin() {
-  safe_env_file
-  sed -n 's/^OS_PUBLIC_ORIGIN=//p' "$ENVF" | tail -1
-}
-
-set_env_origin() {
-  local value="$1"
-  safe_env_file
-  node - "$ENVF" "$value" <<'NODE'
-const fs = require('fs');
-const path = process.argv[2];
-const value = process.argv[3];
-const st = fs.lstatSync(path);
-if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.getuid()) process.exit(2);
-let text = fs.readFileSync(path, 'utf8');
-const line = `OS_PUBLIC_ORIGIN=${value}`;
-if (/^OS_PUBLIC_ORIGIN=.*$/m.test(text)) text = text.replace(/^OS_PUBLIC_ORIGIN=.*$/m, line);
-else text += `${text.endsWith('\n') || text.length === 0 ? '' : '\n'}${line}\n`;
-const tmp = `${path}.mso-gateway-${process.pid}`;
-fs.writeFileSync(tmp, text, { mode: st.mode & 0o777 });
-fs.renameSync(tmp, path);
-NODE
-}
-
-clear_env_origin() {
-  safe_env_file
-  node - "$ENVF" <<'NODE'
-const fs = require('fs');
-const path = process.argv[2];
-const st = fs.lstatSync(path);
-if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.getuid()) process.exit(2);
-let text = fs.readFileSync(path, 'utf8').replace(/^OS_PUBLIC_ORIGIN=.*\n?/gm, '');
-const tmp = `${path}.mso-gateway-${process.pid}`;
-fs.writeFileSync(tmp, text, { mode: st.mode & 0o777 });
-fs.renameSync(tmp, path);
-NODE
-}
-
-cmd_domain() {
-  local sub="${1:-show}" origin host
-  case "$sub" in
-    show)
-      origin="$(env_origin)"
-      [ -n "$origin" ] && info "$origin" || info "OS_PUBLIC_ORIGIN is not set (temporary/loopback mode)" ;;
-    set)
-      [ -n "${2-}" ] || fail "usage: mso gateway domain set https://mso.example.com"
-      origin="$(validate_public_origin "$2" 2>/dev/null || true)"
-      [ -n "$origin" ] || fail "public origin must be a clean HTTPS origin (no path/query/credentials)"
-      host="${origin#https://}"
-      set_env_origin "$origin"
-      info "saved OS_PUBLIC_ORIGIN=$origin in $ENVF"
-      info "MSO still binds only to $LOCAL_URL"
-      info "named Cloudflare config example:"
-      cat <<CFG
-  tunnel: <TUNNEL-UUID>
-  credentials-file: $HOME/.cloudflared/<TUNNEL-UUID>.json
-  ingress:
-    - hostname: $host
-      service: $LOCAL_URL
-    - service: http_status:404
-CFG
-      info "then: cloudflared tunnel route dns <TUNNEL-UUID-or-name> $host"
-      info "and:  mso gateway start --config ~/.cloudflared/config.yml --tunnel <TUNNEL-UUID-or-name>"
-      info "restart/rebuild MSO after origin/split-host env changes before treating this as permanent production config" ;;
-    clear)
-      clear_env_origin
-      info "removed OS_PUBLIC_ORIGIN; MSO returns to request-derived/loopback origin behavior" ;;
-    *) fail "usage: mso gateway domain show|set <https://host>|clear" ;;
-  esac
-}
-
-cmd_doctor() {
-  local fails=0
-  printf 'mso gateway doctor\n'
-  health_ok && printf '  ok    local runtime %s\n' "$LOCAL_URL" || { printf '  --    local runtime is not running (gateway start can launch the WSL fallback)\n'; }
-  if [ -n "$CLOUDFLARED" ] && [ -x "$CLOUDFLARED" ]; then
-    printf '  ok    cloudflared %s\n' "$("$CLOUDFLARED" --version 2>/dev/null | head -1)"
-  else
-    printf '  FAIL  cloudflared missing — install the official Cloudflare Tunnel client\n'; fails=$((fails+1))
-  fi
-  printf '  ok    upstream is loopback-only\n'
-  [ -n "$(env_origin 2>/dev/null || true)" ] && printf '  ok    stable public origin configured\n' || printf '  --    no stable public origin (temporary mode)\n'
-  if active_state >/dev/null 2>&1; then printf '  ok    gateway process is running\n'; else printf '  --    gateway is stopped\n'; fi
-  return "$fails"
-}
-
-cmd_web() {
-  local mode=auto print_only=0 url state opener
-  shift || true
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --local) mode=local ;;
-      --public) mode=public ;;
-      --print) print_only=1 ;;
-      *) fail "usage: mso web [--local|--public] [--print]" ;;
-    esac
-    shift
-  done
-  case "$mode" in
-    local) url="$LOCAL_URL" ;;
-    public)
-      state="$(active_state)" || fail "public gateway is not running; run: mso gateway start"
-      url="$(jq -r .url <<<"$state")" ;;
-    auto)
-      if state="$(active_state 2>/dev/null)"; then url="$(jq -r .url <<<"$state")"
-      elif [ -n "${OS_PUBLIC_ORIGIN:-}" ]; then url="$(validate_public_origin "$OS_PUBLIC_ORIGIN" 2>/dev/null || true)"; [ -n "$url" ] || url="$LOCAL_URL"
-      else url="$LOCAL_URL"; fi ;;
-  esac
-  case "$url" in
-    http:*) url="$(validate_loopback_origin "$url" 2>/dev/null || true)" ;;
-    https:*) url="$(validate_public_origin "$url" 2>/dev/null || true)" ;;
-    *) url="" ;;
-  esac
-  [ -n "$url" ] || fail "refusing to pass unsafe URL to browser opener"
-  [ "$print_only" -eq 1 ] && { printf '%s\n' "$url"; return; }
-  if command -v wslview >/dev/null 2>&1; then opener=wslview
-  elif command -v powershell.exe >/dev/null 2>&1; then
-    powershell.exe -NoProfile -NonInteractive -Command 'Start-Process $args[0]' "$url" >/dev/null 2>&1 &
-    info "opened $url"
-    return
-  elif command -v xdg-open >/dev/null 2>&1; then opener=xdg-open
-  elif command -v open >/dev/null 2>&1; then opener=open
-  else printf '%s\n' "$url"; info "no browser opener found; open the URL above"; return; fi
-  "$opener" "$url" >/dev/null 2>&1 &
-  info "opened $url"
-}
-
+# shellcheck source=scripts/lib/gateway-network.sh
+. "$ROOT/scripts/lib/gateway-network.sh"
+# shellcheck source=scripts/lib/gateway-tool.sh
+. "$ROOT/scripts/lib/gateway-tool.sh"
+# shellcheck source=scripts/lib/gateway-runtime.sh
+. "$ROOT/scripts/lib/gateway-runtime.sh"
+# shellcheck source=scripts/lib/gateway-tunnel.sh
+. "$ROOT/scripts/lib/gateway-tunnel.sh"
 case "${1:-status}" in
-  start) cmd_start "$@" ;;
-  stop) cmd_stop ;;
-  status) cmd_status ;;
-  url) cmd_url ;;
-  doctor) cmd_doctor ;;
-  domain) shift; cmd_domain "$@" ;;
-  web) cmd_web "$@" ;;
-  *) fail "usage: mso gateway start|stop|status|url|doctor|domain ..." ;;
+  start) gateway_parse_start_args "$@"; gateway_with_lock gateway_cmd_start_locked ;;
+  stop) gateway_with_lock gateway_cmd_stop_locked ;;
+  status) gateway_cmd_status ;;
+  url) gateway_cmd_url ;;
+  doctor) gateway_cmd_doctor ;;
+  install) gateway_cmd_install_tool ;;
+  domain) shift; gateway_cmd_domain "$@" ;;
+  web) gateway_cmd_web "$@" ;;
+  local-start) gateway_with_lock gateway_cmd_local_start_locked ;; # internal: onboard/web WSL fallback
+  *) gateway_fail "usage: mso gateway start|stop|status|url|doctor|install|domain ..." ;;
 esac

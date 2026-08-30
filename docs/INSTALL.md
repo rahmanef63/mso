@@ -3,7 +3,7 @@
 > **Current reference.** The one-command installer is the supported path for a normal
 > deployment. Manual commands below explain the model and recovery boundaries; release
 > developers should use `bun run ship`, while operators update through Settings → About or
-> `mso update run`.
+> `mso update` (`mso update run` remains accepted).
 
 ## 0. Requirements
 
@@ -79,8 +79,10 @@ mso onboard
 ```
 
 It first approves the **local CLI device** as Owner in the device allowlist (a process already running
-as the owning Unix account has equivalent host authority), then verifies the local service
-and session before asking for provider credentials. API keys are read with terminal echo
+as the owning Unix account has equivalent host authority). On a loopback install it then verifies the
+MSO `/api/health` contract; when WSL has no active system service it can start the already-built Next
+production runtime itself, still bound to loopback, before proving the authenticated session. A dead
+runtime is reported as a runtime problem — it is not misreported as a device-approval failure. API keys are read with terminal echo
 disabled and posted from stdin; they are not placed in the CLI/curl argv.
 
 The current provider choices are OpenAI ChatGPT/Codex device OAuth, plus API-key providers
@@ -99,6 +101,12 @@ terminal status.
 WSL can contain `systemctl` while still running a non-systemd PID 1. MSO treats those as two
 different capabilities: the CLI is installed normally, while the background service is skipped
 with an explicit message. This prevents service setup from aborting before `mso` exists.
+
+Without systemd, `mso web` is the supported local UI path: it starts the existing production build on
+loopback when necessary. `mso gateway start` adds an outbound temporary HTTPS tunnel on top of that
+without publishing the app port. `mso update` also works without the web API: it fast-forwards a clean
+`main`, installs dependencies, verifies an out-of-tree build, and builds in place while no service is
+active.
 
 For the full service on WSL2, enable systemd in `/etc/wsl.conf`:
 
@@ -138,10 +146,11 @@ plain-HTTP IP/hostnames will drop it.
 
 ### Public preview from a laptop / WSL (no custom domain)
 
-Keep MSO bound to loopback. With the official `cloudflared` client installed:
+Keep MSO bound to loopback. No system-wide tunnel package is required:
 
 ```bash
 mso gateway doctor
+mso gateway install       # optional prefetch; `start` does this automatically
 mso gateway start
 mso gateway url
 mso web
@@ -149,8 +158,11 @@ mso web
 mso gateway stop
 ```
 
-`gateway start` creates an outbound Cloudflare Quick Tunnel to `127.0.0.1:4005`; it never changes
-the application bind to `0.0.0.0`. If systemd is unavailable (common on WSL), it may start the
+`gateway start` installs only the reviewed Cloudflare binary pinned by exact release URL + SHA-256
+in `security/gateway-artifacts.env`, then creates an outbound Quick Tunnel to `127.0.0.1:4005`; it
+never changes the application bind to `0.0.0.0`. The tool cache is user-local and the tunnel is run
+with Cloudflare auto-update disabled. The tunnel process also receives a scrubbed environment rather
+than inheriting MSO login/session/BYOK secrets from the application shell. If systemd is unavailable (common on WSL), it may start the
 already-built Next production runtime itself, still on `127.0.0.1`, and records whether that process
 is gateway-owned. `gateway stop` only terminates a recorded process after its live command line
 matches the expected MSO/cloudflared identity. Private state and logs are owner-only.
@@ -180,8 +192,12 @@ mso web
 ```
 
 The config must be a regular file owned by the current user and must not be group/world-writable.
-For a permanent Internet-facing control plane, add Cloudflare Access/WAF policy (or equivalent) in
-front of MSO in addition to MSO's password + approved-device gate. Rebuild/restart MSO after
+MSO parses it before launch and requires exactly one ingress hostname matching `OS_PUBLIC_ORIGIN`
+that points to the configured MSO loopback port, followed by `http_status:404`; its
+`credentials-file` must be a private owner-owned regular file. This prevents a config intended for
+MSO from silently publishing other laptop services. For a permanent Internet-facing control plane,
+add Cloudflare Access/WAF policy (or equivalent) in front of MSO in addition to MSO's password +
+approved-device gate. Rebuild/restart MSO after
 changing stable origin or split-host environment configuration.
 
 ### Tailscale (recommended)
@@ -408,18 +424,22 @@ no API-key storage. Do not toggle demo mode in the production owner checkout.
 Use Settings → About or:
 
 ```bash
-mso update status
-mso update run
+mso update status     # fetch + show incoming CLI version/commits
+mso update            # preferred: update safely even if :4005 is down
 mso update log
 ```
 
-The updater verifies the incoming checkout/build before replacing the service. A successful
-finalizer log ends with `UPDATE OK`.
+The updater verifies the incoming checkout/build before replacing the service. With an active
+`mso.service` it runs outside that service cgroup so the updater survives the restart. With no active
+service (including WSL without systemd), it performs the clean fast-forward/dependency/verify/build
+path locally and finishes by telling you to run `mso web`. Interactive CLI commands also show a
+throttled update notice when cached `origin/main` is ahead; the notice never depends on port 4005.
+A successful service finalizer log ends with `UPDATE OK`.
 
 If the installed source is correct but the production build tree is inconsistent, use:
 
 ```bash
-mso update run --rebuild
+mso update --rebuild
 ```
 
 ### Developer release
@@ -443,7 +463,7 @@ Prefer an explicit known-good Git commit and the same verified rebuild/update ma
 not ad-hoc partial `.next` changes. Keep the old running process alive if the candidate
 build itself fails.
 
-For a live chunk mismatch after the source ref is already correct, `mso update run --rebuild`
+For a live chunk mismatch after the source ref is already correct, `mso update --rebuild`
 is the supported recovery path. Verify `/api/health` and `scripts/post-deploy-smoke.sh`
 afterward.
 

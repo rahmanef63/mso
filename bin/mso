@@ -43,7 +43,7 @@
 #   health               Is this CLI's session valid?
 #   doctor               Check deps, env, service, session, device — and say what broke
 #   onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
-#   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | domain
+#   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain
 #   web                   Open the MSO browser UI (active gateway first, else loopback)
 #
 #  Browser
@@ -81,7 +81,7 @@
 #   service *            status | start | stop | restart | logs
 #   build                Compile HEAD out-of-tree (safe against the live checkout)
 #   deploy               next build, then restart the service
-#   update [run]         What is on origin/main; `run` pulls, verifies, builds, restarts
+#   update [--rebuild]   Update from origin/main safely; works even when the web runtime is down
 #
 #  Escape hatches
 #   crud *               Generic resource CRUD, incl. editor documents
@@ -119,7 +119,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.3.0"
+VERSION="1.4.0"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
@@ -156,7 +156,7 @@ gateway_local_url() {
     return
   fi
   case "$B" in
-    http://127.*:*|http://localhost:*|http://[::1]:*) printf '%s' "$B"; return ;;
+    http://127.*:*|http://localhost:*|http://\[::1\]:*) printf '%s' "$B"; return ;;
   esac
   if command -v systemctl >/dev/null 2>&1; then
     port=$(systemctl show -p Environment --value mso.service 2>/dev/null \
@@ -165,6 +165,14 @@ gateway_local_url() {
   port="${port:-${MSO_PORT:-4005}}"
   [[ "$port" =~ ^[0-9]{1,5}$ ]] || die "invalid MSO gateway port: $port"
   printf 'http://127.0.0.1:%s' "$port"
+}
+
+maybe_update_notice() {
+  local verb="$1"
+  [ -t 2 ] || return 0
+  case "$verb" in update|version|--version|-V|-v|help|-h|--help|completion) return 0 ;; esac
+  [ -x "$ROOT/scripts/mso-update" ] || return 0
+  MSO_UPDATE_ROOT="$ROOT" "$ROOT/scripts/mso-update" notice || true
 }
 # shellcheck source=scripts/lib/private-state.sh
 . "$ROOT/scripts/lib/private-state.sh"
@@ -210,18 +218,22 @@ JAR=$(mso_private_state_ensure_file "$JAR_REQUESTED") || die "refusing unsafe co
 ORIGIN=(-H "origin: $B")
 
 login() {
-  local d code; d=$(cli_device)
+  local d out code body; d=$(cli_device)
   [ -n "$PASS" ] || die "no OS_LOGIN_PASSWORD in $ENVF (or export MSO_PASSWORD)"
-  # Revalidate immediately before curl writes a live bearer. The private-state helper
-  # rejects symlinks, non-regular files, another owner, and any mode other than 0600.
   JAR=$(mso_private_state_ensure_file "$JAR") || die "refusing unsafe cookie jar: $JAR"
-  # Body over stdin, never argv: a `-d "$(jq …)"` expansion puts the cleartext
-  # password in curl's /proc/<pid>/cmdline for the life of the request.
-  code=$(jq -n --arg p "$PASS" --arg d "$d" '{password:$p,deviceId:$d,deviceLabel:"mso cli"}' \
-    | curl -sS -o /dev/null -w '%{http_code}' -c "$JAR" -X POST "$B/api/auth/login" \
-    "${ORIGIN[@]}" -H 'content-type: application/json' -d @- || true)
-  [ "$code" = "200" ] || die "login failed ($code) — run \`mso doctor\`, or approve this device:
-  mso device approve $d \"mso cli\""
+  out=$(jq -n --arg p "$PASS" --arg d "$d" '{password:$p,deviceId:$d,deviceLabel:"mso cli"}' \
+    | curl -sS -w $'\n%{http_code}' -c "$JAR" -X POST "$B/api/auth/login" \
+      "${ORIGIN[@]}" -H 'content-type: application/json' -d @- 2>/dev/null || true)
+  code="${out##*$'\n'}"; body="${out%$'\n'*}"
+  [ "$code" = "200" ] && return 0
+  case "$code" in
+    000|"") die "MSO runtime is not reachable at $B. Run: mso web   (local UI) or mso gateway start   (temporary public HTTPS)" ;;
+    403) die "device is not approved by the running MSO instance. Check: mso device pending ; then approve the exact id with: mso device approve $d \"mso cli\"" ;;
+    401) die "login password was rejected by the running MSO instance" ;;
+    429) die "login is rate-limited; retry after the server window resets" ;;
+    500) die "running MSO auth is not configured correctly; run: mso doctor" ;;
+    *) die "login failed ($code): ${body:-no response body}; run: mso doctor" ;;
+  esac
 }
 
 # Request with the cached cookie; on 401/403 (expired) log in once and retry.
@@ -304,6 +316,17 @@ ensure_local_cli_device() {
     dev_script "$d" "mso cli" >/dev/null
     echo "  ✓ approved this local CLI device"
   fi
+}
+
+ensure_onboard_runtime() {
+  case "$B" in
+    http://127.*:*|http://localhost:*|http://\[::1\]:*)
+      MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$B" \
+        "$ROOT/scripts/mso-gateway" local-start >/dev/null \
+        || die "local MSO runtime is not ready. Run: mso update ; then: mso web"
+      echo "  ✓ verified local MSO runtime at $B" ;;
+    *) return 0 ;;
+  esac
 }
 
 onboard_ai() {
@@ -453,11 +476,11 @@ run_onboard() {
   echo "MSO onboarding"
   echo "=============="
   ensure_local_cli_device
+  ensure_onboard_runtime
   if [ "$yes" = 0 ] && ! tty_ok; then
     die "interactive onboarding needs a terminal; use 'mso onboard -y' for safe minimal defaults"
   fi
-  # Prove the local service/auth path before asking for account credentials.
-  jget "/api/health" >/dev/null
+  # Runtime liveness was verified without auth above; now prove the approved-device session.
   jget "/api/auth/me" >/dev/null
   onboard_ai "$yes"
   onboard_style "$yes"
@@ -489,13 +512,13 @@ verbs() {
 # so the help you get when you ask cannot disagree with the help you get when
 # you're wrong.
 U_camoufox="camoufox status|start|stop|session"
-U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|domain show|set <https://host>|clear"
+U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
 U_service="service status|start|stop|restart|logs [n]"
 U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> <unit>"
-U_update="update status|run [true]|log"
+U_update="update [--rebuild] | status | log"
 U_threads="threads list|show <id>|save <json>|rm <id>"
 U_memory="memory list|add <text>|rm <id>"
 U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
@@ -521,7 +544,7 @@ if [ $# -ge 2 ]; then
   esac
 fi
 
-cmd="${1:-help}"; shift || true
+cmd="${1:-help}"; maybe_update_notice "$cmd"; shift || true
 case "$cmd" in
   version|--version|-V|-v) echo "mso $VERSION  (base $B, root $ROOT)"; exit 0 ;;
 
@@ -808,13 +831,7 @@ case "$cmd" in
   # The same self-update Settings → About drives, so both surfaces get the same
   # preflight and the same transient-unit handoff (a build spawned from the service
   # would be killed by the restart it performs).
-  update)
-    case "${1:-status}" in
-      status) jget "/api/v1/sys/update" ;;
-      run)    jpost "/api/v1/sys/update" "$(jq -n --argjson r "${2:-false}" '{rebuildOnly:$r}')" ;;
-      log)    jget "/api/v1/sys/update?check=0" | jq -r .log ;;
-      *) die "usage: mso $U_update" ;;
-    esac ;;
+  update) MSO_UPDATE_ROOT="$ROOT" "$ROOT/scripts/mso-update" "$@" ;;
 
   # ── editor-document CRUD (one pattern, all editor features) ──────────────
   crud)
