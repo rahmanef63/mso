@@ -51,6 +51,8 @@ LOCK_HELD=0
 . "$ROOT/scripts/lib/gateway-recovery.sh"
 # shellcheck source=scripts/lib/gateway-runtime.sh
 . "$ROOT/scripts/lib/gateway-runtime.sh"
+# shellcheck source=scripts/lib/gateway-pending.sh
+. "$ROOT/scripts/lib/gateway-pending.sh"
 # shellcheck source=scripts/lib/gateway-tunnel.sh
 . "$ROOT/scripts/lib/gateway-tunnel.sh"
 case "${1:-status}" in

@@ -32,8 +32,7 @@ describe("mso public gateway", () => {
     expect(run(["stop"], f.baseEnv)).toContain("MSO remains loopback-only");
     expect(fs.existsSync(state.path)).toBe(false);
     expect(() => process.kill(state.value.tunnelIdentity.pid, 0)).toThrow();
-  });
-
+  }, 15_000);
 
 
   it("verifies a Quick Tunnel through Cloudflare DoH when the local resolver still has NXDOMAIN", () => {

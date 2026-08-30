@@ -32,7 +32,11 @@ interactive CLI use emits a throttled Git-backed update notice when `origin/main
 recovery: offline deployment state is keyed by canonical checkout, the whole offline transaction is
 serialized with a PID/start-ticks lock, recovery intent is durable before an owned runtime is quiesced,
 and an interrupted post-quiesce state write is reconciled on retry. The shared private-state atomic
-writer now propagates write/rename failures explicitly even when called from a shell conditional.
+writer now propagates write/rename failures explicitly even when called from a shell conditional. A
+full pre-push run then exposed a fork/signal race before the tunnel fingerprint existed. Tunnel launch
+now uses a held-child handshake: the scrubbed child cannot `exec cloudflared` until its parent records
+PID + kernel start-ticks and releases an owner-only gate; if the parent disappears first, the child
+self-terminates. This closes the last pre-persistence orphan window without weakening process identity.
 
 The global response policy additionally sends `X-Robots-Tag: noindex, nofollow, noarchive` because an
 MSO control plane should not be indexed merely because a temporary HTTPS endpoint exists. The

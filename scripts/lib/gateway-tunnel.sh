@@ -60,24 +60,25 @@ gateway_validate_named_tunnel() {
 }
 
 gateway_spawn_tunnel() {
-  local pid identity safe_path safe_lang
-  local -a clean_env
+  local pid identity
   gateway_private_file "$CF_LOG"; : >"$CF_LOG"
-  safe_path="${PATH:-/usr/local/bin:/usr/bin:/bin}"; safe_lang="${LANG:-C.UTF-8}"
   # The parent intentionally has OS_LOGIN_PASSWORD, session secrets and BYOK keys
-  # for the Next runtime. cloudflared needs none of them. Start it from an empty
-  # environment so a tunnel/client compromise cannot read unrelated MSO secrets.
-  clean_env=(env -i "HOME=$HOME" "PATH=$safe_path" "LANG=$safe_lang")
+  # for the Next runtime. The held-child helper scrubs that environment and cannot
+  # exec cloudflared until this parent has persisted the child lifetime identity.
   if [ "$GATEWAY_MODE" = temporary ]; then
     [ -z "${OS_PUBLIC_ORIGIN:-}" ] || gateway_info "warning: temporary gateway leaves existing OS_PUBLIC_ORIGIN unchanged"
-    nohup "${clean_env[@]}" "$CLOUDFLARED" tunnel --no-autoupdate --url "$LOCAL_URL" >>"$CF_LOG" 2>&1 & pid=$!
+    gateway_spawn_held_tunnel "$CLOUDFLARED" tunnel --no-autoupdate --url "$LOCAL_URL" || return 1
+    pid="$TUNNEL_SPAWN_PID"
     identity="$(gateway_wait_spawn_identity "$pid" "$CLOUDFLARED" tunnel --no-autoupdate --url "$LOCAL_URL" 2>/dev/null || true)"
   else
-    nohup "${clean_env[@]}" "$CLOUDFLARED" tunnel --config "$GATEWAY_CONFIG" --no-autoupdate run "$GATEWAY_TUNNEL" >>"$CF_LOG" 2>&1 & pid=$!
+    gateway_spawn_held_tunnel "$CLOUDFLARED" tunnel --config "$GATEWAY_CONFIG" --no-autoupdate run "$GATEWAY_TUNNEL" || return 1
+    pid="$TUNNEL_SPAWN_PID"
     identity="$(gateway_wait_spawn_identity "$pid" "$CLOUDFLARED" tunnel --config "$GATEWAY_CONFIG" --no-autoupdate run "$GATEWAY_TUNNEL" 2>/dev/null || true)"
   fi
-  [ -n "$identity" ] || { kill "$pid" 2>/dev/null || true; return 1; }
+  [ -n "$identity" ] || { gateway_stop_pending_tunnel; return 1; }
+  gateway_pending_gate_cleanup
   TUNNEL_IDENTITY="$identity"
+  TUNNEL_PENDING_PID=0; TUNNEL_PENDING_TICKS=''
   GATEWAY_PENDING_CLEANUP=1
 }
 
@@ -148,7 +149,8 @@ gateway_probe_public() {
 }
 
 gateway_cleanup_failed_start() {
-  [ "${TUNNEL_IDENTITY:-null}" = null ] || gateway_stop_identity "$TUNNEL_IDENTITY"
+  if [ "${TUNNEL_IDENTITY:-null}" != null ]; then gateway_stop_identity "$TUNNEL_IDENTITY"
+  else gateway_stop_pending_tunnel; fi
   [ "${RUNTIME_STARTED_NOW:-false}" != true ] || gateway_stop_identity "$RUNTIME_IDENTITY"
 }
 
