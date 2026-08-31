@@ -5,6 +5,7 @@
 
 INSTALL_RUNTIME_LIFECYCLE=0
 INSTALL_RUNTIME_SERVICE_STOPPED=0
+INSTALL_RUNTIME_MUTATION_STARTED=0
 
 install_runtime_lifecycle_init() {
   ROOT="$DIR"
@@ -21,12 +22,46 @@ install_runtime_lifecycle_init() {
   . "$ROOT/scripts/lib/runtime-exclusion.sh"
   # shellcheck source=scripts/lib/update-gateway-runtimes.sh
   . "$ROOT/scripts/lib/update-gateway-runtimes.sh"
+
+  if [ "${INSTALL_EARLY_UPDATE_LOCK_HELD:-0}" = 1 ]; then
+    init_update_state
+    [ "$UPDATE_CANONICAL_ROOT" = "${INSTALL_EARLY_UPDATE_CANONICAL_ROOT:-}" ] \
+      || die "early installer update lock belongs to another checkout"
+    [ "$UPDATE_LOCK_DIR" = "${INSTALL_EARLY_UPDATE_LOCK_FILE:-}" ] \
+      || die "early installer update lock path does not match current lifecycle state"
+    UPDATE_LOCK_FD="$INSTALL_EARLY_UPDATE_LOCK_FD"
+    UPDATE_LOCK_HELD=1
+    INSTALL_EARLY_UPDATE_LOCK_FD=''
+    INSTALL_EARLY_UPDATE_LOCK_HELD=0
+  fi
 }
 
 install_runtime_lifecycle_cleanup() {
   [ "$INSTALL_RUNTIME_LIFECYCLE" = 1 ] || return 0
+
+  # Before the first dependency/build mutation, the old checkout is still safe to
+  # serve. If begin() stopped an active service and then a validation/signal aborts,
+  # restore that known-good service instead of leaving the machine offline. Once
+  # mutation starts we deliberately do NOT restart anything from the changed tree.
   runtime_exclusion_release >/dev/null 2>&1 || true
+  if [ "$INSTALL_RUNTIME_MUTATION_STARTED" = 0 ]; then
+    if [ "$INSTALL_RUNTIME_SERVICE_STOPPED" = 1 ]; then
+      sudo_do systemctl start "$SERVICE" >/dev/null 2>&1 \
+        || printf 'mso installer: warning: could not restore %s after pre-mutation abort\n' "$SERVICE" >&2
+    fi
+    if ! (update_gateway_restore_all) >/dev/null 2>&1; then
+      printf 'mso installer: warning: could not restore fallback runtimes after pre-mutation abort\n' >&2
+    fi
+  fi
   update_lock_release >/dev/null 2>&1 || true
+  INSTALL_RUNTIME_LIFECYCLE=0
+  INSTALL_RUNTIME_SERVICE_STOPPED=0
+  INSTALL_RUNTIME_MUTATION_STARTED=0
+}
+
+install_runtime_lifecycle_mark_mutation_started() {
+  [ "$INSTALL_RUNTIME_LIFECYCLE" = 1 ] || die "runtime lifecycle must be active before installer mutation"
+  INSTALL_RUNTIME_MUTATION_STARTED=1
 }
 
 install_runtime_active_service_preflight() {
@@ -46,7 +81,7 @@ install_runtime_active_service_preflight() {
 
 install_runtime_lifecycle_begin() {
   install_runtime_lifecycle_init
-  update_lock_acquire
+  [ "$UPDATE_LOCK_HELD" = 1 ] || update_lock_acquire
   INSTALL_RUNTIME_LIFECYCLE=1
   runtime_exclusion_acquire_exclusive \
     || die "could not acquire checkout runtime exclusion before installer build"
