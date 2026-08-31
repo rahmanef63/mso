@@ -4,10 +4,10 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.08.28.1 tools=31 read=16 write=10 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.08.31.1 tools=38 read=20 write=13 exec=5 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.08.28.1**: **31 tools**
-(16 read, 10 write, 5 exec). `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.08.31.1**: **38 tools**
+(20 read, 13 write, 5 exec). `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
 ## Why this contract matters
@@ -33,20 +33,22 @@ Before changing an MCP tool name:
 
 ## Current MSO catalog
 
-### Read (15)
+### Read (20)
 
 `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `sys_stats`, `sys_processes`,
 `apps_list`, `apps_logs`, `browser_status`, `projects_list`, `project_capabilities`,
-`skills_list`, `skills_read`, `skills_search`, `screen_capture`.
+`skills_list`, `skills_read`, `skills_search`, `screen_capture`, `exec_job_status`,
+`infra_providers_list`, `infra_provider_doctor`, `dokploy_projects_list`, `cloudflare_zones_list`.
 
-### Write (10 beyond read)
+### Write (13 beyond read)
 
 `fs_write`, `fs_upload_file`, `fs_mkdir`, `fs_move`, `fs_copy`, `fs_delete`,
-`apps_power`, `workflow_start`, `workflow_cancel`, `workflow_finish`.
+`apps_power`, `workflow_start`, `workflow_cancel`, `workflow_finish`,
+`dokploy_project_ensure`, `cloudflare_dns_upsert`, `hostinger_dns_upsert`.
 
-### Exec (3 beyond write)
+### Exec (5 beyond write)
 
-`exec_run`, `browser_power`, `project_function_call`.
+`exec_run`, `browser_power`, `project_function_call`, `exec_job_start`, `exec_job_cancel`.
 
 ## Scope and workflow compatibility
 
@@ -84,7 +86,8 @@ Treat these as particularly important in any external approval layer:
 - `apps_power` — bounded daemon control and state backup;
 - `exec_run` — host shell as the MSO user;
 - `browser_power` — starts a browser profile with live logged-in sessions;
-- `project_function_call` — executes project-owned fixed argv and is always exec-scope.
+- `project_function_call` — executes project-owned fixed argv and is always exec-scope;
+- `dokploy_project_ensure` / `cloudflare_dns_upsert` / `hostinger_dns_upsert` — mutate external infrastructure with provider credentials kept server-side; Hostinger receives only the requested name/type RR-set (`overwrite:true`), never an MSO-generated full-zone snapshot.
 
 External policy supplements MSO's own scope/path/audit/rate-limit checks; it does not replace
 them.

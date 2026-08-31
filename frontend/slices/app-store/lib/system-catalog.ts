@@ -16,6 +16,8 @@ import {
   Bell,
   SlidersHorizontal,
   LayoutGrid,
+  Cloud,
+  ServerCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,6 +52,8 @@ export const SYSTEM_CATALOG: SystemEntry[] = [
   { id: "create-app", title: "Create App", kind: "app", icon: PlusSquare, gradient: "linear-gradient(160deg,#16c2c2,#0a8a8a)", desc: "Author a custom runtime app." },
   { id: "system-monitor", title: "System Monitor", kind: "app", icon: Gauge, gradient: "linear-gradient(160deg,#f25f5c,#c0392b)", desc: "Live CPU, memory, and disk telemetry." },
   { id: "assistant", title: "Alfa", kind: "app", icon: Sparkles, gradient: "linear-gradient(160deg,#7a5cff,#3aa0ff)", desc: "AI copilot for your VPS." },
+  { id: "dokploy", title: "Dokploy", kind: "app", icon: ServerCog, gradient: "linear-gradient(160deg,#111827,#2563eb)", desc: "Deploy and manage projects through the Dokploy API." },
+  { id: "cloudflare", title: "Cloudflare", kind: "app", icon: Cloud, gradient: "linear-gradient(160deg,#f59e0b,#ea580c)", desc: "Verify Cloudflare access and inspect DNS zones." },
   { id: "os-settings", title: "Settings", kind: "app", icon: Settings, gradient: "linear-gradient(160deg,#5b6070,#2b2f3a)", desc: "Appearance, server mode, devices." },
   { id: "app-store", title: "App Store", kind: "app", icon: Store, gradient: "linear-gradient(160deg,#9b5cff,#5b2fe0)", desc: "Install apps and toggle features.", required: true },
   // ── Shell features ────────────────────────────────────────────────────────

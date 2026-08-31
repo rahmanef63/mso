@@ -19,6 +19,7 @@ import { hermesApp, nineRouterApp, openclawApp } from "@/features/managed-apps";
 import { osSettingsApp } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
+import { cloudflareApp, dokployApp } from "@/features/infrastructure";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
 import { APP_MARKS } from "./brand-marks";
 
@@ -62,6 +63,8 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(hermesApp), "hermes"),
   withSlug(withArtwork(openclawApp), "openclaw"),
   withSlug(withArtwork(nineRouterApp), "9router"),
+  withSlug(withArtwork(dokployApp), "dokploy"),
+  withSlug(withArtwork(cloudflareApp), "cloudflare"),
   withSlug(withArtwork(quicklinksApp), "links"),
   // Docs is deliberately dockable, not noDock: for a signed-out visitor it is the
   // only app that explains what they are looking at and how to get their own.

@@ -19,6 +19,7 @@ const toolFiles = [
   "lib/mcp/tools-read.ts",
   "lib/mcp/tools-discovery.ts",
   "lib/mcp/tools-learning.ts",
+  "lib/mcp/tools-infra.ts",
   "lib/mcp/tools-power.ts",
 ];
 const tools = new Map();

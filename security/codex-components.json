@@ -26,7 +26,8 @@
         "lib/config",
         "lib/security-store-lock.ts",
         "lib/path.ts",
-        "lib/path.test.ts"
+        "lib/path.test.ts",
+        "lib/infra"
       ]
     },
     {
@@ -92,7 +93,8 @@
         "frontend/slices/os-settings",
         "frontend/slices/shell-settings",
         "frontend/slices/system-monitor",
-        "frontend/slices/quicklinks"
+        "frontend/slices/quicklinks",
+        "frontend/slices/infrastructure"
       ]
     },
     {

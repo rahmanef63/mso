@@ -41,15 +41,26 @@ afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursiv
 describe("mso service/deploy runtime exclusion", () => {
   it.each(["start", "restart"])("refuses service %s while an offline build owns the checkout", async (verb) => {
     const f = fixture(), lock = lockPath(f.exclusion), held = path.join(f.root, "lock-held");
-    const holder = spawn("flock", ["-x", lock, "-c", `touch ${JSON.stringify(held)}; sleep 0.8`], { stdio: "ignore" });
-    for (let i = 0; i < 50 && !fs.existsSync(held); i++) await new Promise((r) => setTimeout(r, 20));
-    expect(fs.existsSync(held)).toBe(true);
-    const out = spawnSync(CLI, ["service", verb], {
-      env: { ...f.env, MSO_RUNTIME_EXCLUSION_TIMEOUT_SECONDS: "0.1" }, encoding: "utf8",
+    // Keep the lock holder alive on stdin rather than sleeping for a fixed interval.
+    // Under a busy parallel test run, the old 800 ms sleep could expire after the
+    // ready marker was observed but before spawnSync reached the CLI, creating a
+    // false success. Closing stdin below releases the lock deterministically.
+    const holder = spawn("flock", ["-x", lock, "-c", 'touch "$MSO_TEST_LOCK_HELD"; cat >/dev/null'], {
+      env: { ...process.env, MSO_TEST_LOCK_HELD: held },
+      stdio: ["pipe", "ignore", "ignore"],
     });
-    expect(out.status).not.toBe(0);
-    expect(out.stderr).toContain("offline update/deploy is mutating this checkout");
-    await new Promise<void>((resolve) => holder.once("close", () => resolve()));
+    try {
+      for (let i = 0; i < 100 && !fs.existsSync(held); i++) await new Promise((r) => setTimeout(r, 20));
+      expect(fs.existsSync(held)).toBe(true);
+      const out = spawnSync(CLI, ["service", verb], {
+        env: { ...f.env, MSO_RUNTIME_EXCLUSION_TIMEOUT_SECONDS: "0.1" }, encoding: "utf8",
+      });
+      expect(out.status).not.toBe(0);
+      expect(out.stderr).toContain("offline update/deploy is mutating this checkout");
+    } finally {
+      holder.stdin?.end();
+      if (holder.exitCode === null) await new Promise<void>((resolve) => holder.once("close", () => resolve()));
+    }
   });
 
   it("routes deploy through the outer service-update lifecycle", () => {

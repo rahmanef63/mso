@@ -82,7 +82,13 @@ Commands:
   status               Public service status (no session needed)
   health               Is this CLI's session valid?
   doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
-  onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
+  agent                Interactive MSO setup/ops agent (bare `mso` opens this)
+  chat                 Alias for agent
+  model                Connect or change the AI provider used by MSO Agent / Alfa
+  onboard [-y]         Guided setup: AI, apps, infrastructure, skills
+  setup                Alias for onboard
+  provider *           Infrastructure credentials: list | set | rm | doctor
+  providers *          Alias for provider
   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain
   web                   Open the MSO browser UI (active gateway first, else loopback)
 

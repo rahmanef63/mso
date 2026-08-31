@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `cli` add MSO agent and infrastructure providers
 - `mcp` add guided client setup
 
 **Fixed**

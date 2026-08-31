@@ -30,6 +30,7 @@ function fixture() {
   for (const rel of [
     "bin/mso",
     "scripts/mso-update",
+    "scripts/mso-cli-agent.sh",
     "scripts/lib/private-state.sh",
     "scripts/lib/update-state.sh",
     "scripts/lib/runtime-exclusion.sh",

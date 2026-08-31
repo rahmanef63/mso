@@ -12,11 +12,17 @@ bounded host layer rather than each implementing filesystem or process access.
 flowchart LR
   B[Browser / phone] -->|HTTPS + live device role| N[MSO Next.js :4005]
   C[CLI `mso`] -->|local HTTP + approved device role| N
+  T[Terminal MSO Agent] -->|SSE chat| N
+  T -->|owner-only agent-tools bridge| M[/mcp dispatcher]
   A[Alfa] -->|HostTool catalog + per-call approvals| H[lib/host]
   X[ChatGPT / Claude / Cursor] -->|OAuth bearer + MCP| M[/mcp dispatcher]
   N --> API[/api/v1/*]
   API --> H
   M --> H
+  M --> I[lib/infra]
+  I --> DP[Dokploy]
+  I --> CFAPI[Cloudflare]
+  I --> HA[Hostinger]
   M --> D[project + skill discovery]
   H --> F[filesystem jail]
   H --> P[PTY / exec / metrics / services / packages]
@@ -33,7 +39,9 @@ flowchart LR
 | Browser device session | `lib/auth/*`, `/api/auth/*` | Password + approved device + HMAC-signed cookie; live Viewer/Operator/Owner role. |
 | Host operations | `lib/host/*` | Filesystem roots, credential denylist, process/system operations, audit. |
 | Web host API | `/api/v1/*` | Live-role-gated routes; unknown mutations fail up to Owner and routes delegate into `lib/host`. |
-| CLI | `bin/mso` | Another frontend over the same web API; `docs/CLI.md` is generated from it. |
+| CLI | `bin/mso` | Another frontend over the same web API; bare `mso` starts the interactive agent and `docs/CLI.md` is generated from the help contract. |
+| Terminal MSO Agent | `scripts/mso-agent.mjs`, `/api/v1/agent-tools` | Streams through `/api/assistant`, discovers the canonical MCP catalog, and requires terminal approval before write/exec calls. |
+| Infrastructure providers | `lib/infra/*`, `/api/v1/infra/*` | Owner-private Dokploy/Cloudflare/Hostinger state and bounded provider clients; secrets never enter model tool arguments. |
 | Alfa | `frontend/slices/assistant/host-tools/*` | Stable tool catalog; reads run immediately, mutations require human approval. |
 | MCP | `lib/mcp/*`, `/mcp`, `/oauth/*` | OAuth 2.1 + PKCE; `read < write < exec` token scope. |
 | Managed apps | `lib/managed-apps/*` | Hermes/OpenClaw remain separate runtimes and state trees. |
@@ -52,12 +60,14 @@ frontend/slices/             vertical application slices
   appshell/                  generic shell framework
     features/                shell features
   os-shell/                  MSO manifest + capability adapters
+  infrastructure/            Dokploy and Cloudflare default feature apps
 lib/auth/                    login/session/device approval + live roles
 lib/host/                    bounded host capability implementation
 lib/mcp/                     OAuth/MCP tool catalog and dispatcher
 lib/managed-apps/            Hermes/OpenClaw/9Router lifecycle/update/backup/proxy
+lib/infra/                   Dokploy/Cloudflare/Hostinger provider registry, private store and bounded clients
 lib/skills/                  trusted skill discovery and semantic search
-scripts/                     install, release, checks and service helpers
+scripts/                     install, release, checks, terminal agent and service helpers
 claude-skills/               official trusted operational playbooks
 docs/                        current references + clearly marked historical docs
 ```

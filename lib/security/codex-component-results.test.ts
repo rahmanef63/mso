@@ -19,6 +19,15 @@ function findings(...levels: string[]) {
 }
 
 describe("Codex Security component result gate", () => {
+  test("covers the infrastructure control plane in the committed component plan", () => {
+    const fs = require("node:fs") as typeof import("node:fs");
+    const path = require("node:path") as typeof import("node:path");
+    const plan = JSON.parse(fs.readFileSync(path.join(process.cwd(), "security/codex-components.json"), "utf8")) as { components: Array<{ name: string; paths: string[] }> };
+    const assigned = new Set(plan.components.flatMap((component) => component.paths));
+    expect(assigned).toContain("lib/infra");
+    expect(assigned).toContain("frontend/slices/infrastructure");
+  });
+
   test("passes complete coverage with no high-or-critical findings", () => {
     expect(evaluateComponentResults(completeSummary, findings("medium", "low"))).toMatchObject({ exitCode: 0 });
   });

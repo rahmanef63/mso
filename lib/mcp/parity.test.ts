@@ -44,6 +44,13 @@ const MCP_ONLY: Record<string, string> = {
   "exec.job.start": "external MCP requests have a hard request-time budget and need a bounded resumable shell job; in-shell Alfa can keep using its interactive Terminal/approved exec.run surfaces",
   "exec.job.status": "status exists only to resume an MCP async exec job; Alfa has no corresponding external request timeout to recover from",
   "exec.job.cancel": "cancellation is paired with the MCP-only async exec lifecycle and remains actor/workflow-bound",
+  "infra.providers.list": "MSO Agent and external connectors need a credential-free infrastructure capability inventory; in-shell Alfa has dedicated Dokploy/Cloudflare feature apps instead",
+  "infra.provider.doctor": "provider credentials stay server-side and the terminal/external agent needs a bounded live verification tool; Alfa has no reason to receive infrastructure secrets or duplicate these clients",
+  "dokploy.projects.list": "MSO Agent deploy workflows need a bounded Dokploy discovery seam; in-shell Alfa can delegate deployment through the dedicated infrastructure feature instead of duplicating this provider catalog",
+  "dokploy.project.ensure": "terminal/external deployment workflows need one idempotent Dokploy mutation with scope/approval; in-shell Alfa does not own infrastructure deployment credentials",
+  "cloudflare.zones.list": "terminal/external deployment workflows need bounded zone discovery while credentials stay server-side; in-shell Alfa has the Cloudflare feature app",
+  "cloudflare.dns.upsert": "DNS automation is intentionally MCP/terminal-agent-only so it inherits scope, approval, audit and workflow semantics without teaching generic in-shell Alfa to mutate public DNS",
+  "hostinger.dns.upsert": "external DNS mutation remains an explicitly approved deployment-agent capability; MSO sends one exact Hostinger name/type RR-set and keeps credentials server-side rather than adding a generic Alfa provider primitive",
 };
 
 describe("Alfa ↔ MCP capability parity", () => {
@@ -114,6 +121,9 @@ describe("MCP rate limits mirror the routes", () => {
       "projects.function": 60,
       "skills.list": 30,
       "skills.read": 60,
+      "infra.dokploy": 20,
+      "infra.cloudflare": 20,
+      "infra.hostinger": 10,
     };
     for (const t of TOOLS) {
       if (!t.limit) continue;

@@ -2,6 +2,26 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-08-31 — MSO terminal agent + provider-backed deployment setup — DONE IN SOURCE
+
+**Source milestone — ship only after the exact commit passes the repository/security gates and the live health SHA matches.** The standalone deployment-assistance pattern from `rahmanef63/si-coder-agent` is now absorbed into MSO's own architecture instead of spawning a second agent runtime. Installed Hermes and its public CLI were used as interaction references only; MSO has original terminal artwork, its own tool catalog, and its existing auth/audit model.
+
+What changed:
+
+- bare `mso` now launches **MSO Agent**; `mso agent`/`mso chat` are explicit aliases and `mso model` connects or changes the AI provider before the agent starts;
+- the terminal presents original MSO ASCII, selected model, Available Tools, Available Skills and infrastructure readiness, then streams through the existing `/api/assistant` backend;
+- the terminal discovers the canonical MCP catalog through an Owner-only `/api/v1/agent-tools` bridge. Read tools may execute directly; every individual write/exec call pauses for an exact-call terminal approval (never a cached session-wide mutation grant) while server role/scope/rate-limit/audit checks remain authoritative;
+- MCP toolset is **2026.08.31.1: 38 tools = 20 read + 13 write + 5 exec**. New provider tools cover redacted provider discovery/doctor, Dokploy project list/ensure, exact per-record Cloudflare DNS upsert, and exact Hostinger name/type RR-set replacement;
+- provider credentials are stored separately in `~/.mso/private/infra-providers.json`: 0700 parent, 0600 file, `O_NOFOLLOW`, regular-file/owner/size checks, atomic locked writes, API summaries expose only the word `configured` for secret fields, and no raw secret enters model/MCP arguments;
+- `mso provider set dokploy|cloudflare|hostinger` uses hidden terminal input. AI API-key setup was hardened at the same time so provider keys are built from stdin rather than being exposed through helper-process argv;
+- **Dokploy** and **Cloudflare** are built-in default shell/App Store features with secure configuration, Verify, and live project/zone inventory. Hostinger remains a provider rather than a default app;
+- configurable remote Dokploy endpoints use the existing DNS-pinned safe-provider transport; remote HTTP is refused, redirects are refused, and private/link-local/metadata resolution is blocked. Literal loopback remains the explicit same-host exception;
+- Cloudflare automation never performs a bulk zone PUT, refuses duplicate/conflicting rows, PATCHes one existing record or POSTs one new record, and defaults proxying off. Hostinger DNS now uses the provider's scoped RR-set replacement semantics (`overwrite:true` with one `name + type` row), so unrelated zone rows never enter the PUT payload; ambiguity/conflicts remain refused and the mutation stays approval-gated;
+- official `mso-project-deploy` skill documents workflow start → inspect → provider doctor → bounded deployment/DNS operations → runtime/HTTPS verification → finish/cancel;
+- CLI version for this interaction milestone is **1.5.0**. `docs/INFRASTRUCTURE-PROVIDERS.md`, architecture/install/MCP/ChatGPT connector docs, generated CLI reference and slice catalog are synchronized.
+
+Verification added specifically for this slice covers provider-store symlink/permission/secret behavior, Cloudflare one-record semantics, Hostinger exact RR-set payloads, Owner-only agent/provider routes, exact-payload terminal approval, CLI onboarding/update fixtures, MCP parity/rate limits, and documentation/toolset markers. The final full repository gate passes with **249 test files / 1,901 passing tests** (1 expected fail, 4 skipped), typecheck and dependency audit green, zero value cycles, and zero lint errors (three pre-existing max-lines warnings remain). A targeted Codex Security pass first found two Medium issues in the new infrastructure surface — whole-response buffering before its nominal 1 MiB cap and a stale full-zone Hostinger PUT. Both were fixed; the final infrastructure re-scan completed **1/1 component with 0 findings**. A separate terminal-agent scan found one Medium issue where a truncated approval preview could conceal mutation fields. The terminal now renders the complete canonical tool name + nested input, refuses approval payloads above 32 KiB, removes session-wide mutation grants, and binds the approval SHA-256 to the exact payload that the server independently re-hashes before dispatch; the final terminal-agent re-scan completed **1/1 component with 0 findings**. A parallel-suite-only lifecycle harness race was also removed by holding the fixture lock until the assertion explicitly releases it; the lifecycle file then passed 5 consecutive runs (40/40 checks). Live Dokploy/Cloudflare/Hostinger API success is intentionally not claimed until an owner supplies credentials and `mso provider doctor` checks that provider.
+
 ## 2026-08-31 — Login-origin diagnosis + `mso doctor --fix` + runtime hardening (SHIPPED)
 
 A real install report confirmed the confusing post-approval login case was transport, not a broken

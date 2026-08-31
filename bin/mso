@@ -42,7 +42,13 @@
 #   status               Public service status (no session needed)
 #   health               Is this CLI's session valid?
 #   doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
-#   onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
+#   agent                Interactive MSO setup/ops agent (bare `mso` opens this)
+#   chat                 Alias for agent
+#   model                Connect or change the AI provider used by MSO Agent / Alfa
+#   onboard [-y]         Guided setup: AI, apps, infrastructure, skills
+#   setup                Alias for onboard
+#   provider *           Infrastructure credentials: list | set | rm | doctor
+#   providers *          Alias for provider
 #   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain
 #   web                   Open the MSO browser UI (active gateway first, else loopback)
 #
@@ -119,7 +125,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.4.0"
+VERSION="1.5.0"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
@@ -523,7 +529,7 @@ onboard_ai() {
   echo "  $provider uses an API key here (not OAuth). The key is never placed in argv."
   tty_secret "Paste $provider API key: "; key="$REPLY"
   [ -n "$key" ] || { echo "  -- empty key; skipped"; return; }
-  body=$(jq -nc --arg p "$provider" --arg k "$key" '{provider:$p,apiKey:$k}')
+  body=$(printf '%s\0%s' "$provider" "$key" | provider_key_body)
   secret_post "/api/config" "$body" >/dev/null
   unset key body REPLY
   echo "  ✓ $provider configured for Alfa"
@@ -625,6 +631,7 @@ run_onboard() {
   onboard_ai "$yes"
   onboard_style "$yes"
   onboard_apps "$yes"
+  onboard_infra "$yes"
   onboard_skills "$yes"
   echo
   echo "Onboarding complete."
@@ -632,8 +639,15 @@ run_onboard() {
   echo "  mso doctor             verify this install"
   echo "  mso skills available   installable skills"
   echo "  mso config show        Alfa provider/style"
+  echo "  mso provider list      Dokploy/Cloudflare/Hostinger state"
+  echo "  mso                    launch the interactive MSO Agent"
   echo "  mso mapp list          Hermes/OpenClaw state"
 }
+
+# Terminal agent + infrastructure-provider CLI slice. Sourced only after the
+# generic HTTP/auth/onboarding helpers above exist, so it reuses those SSOT seams.
+# shellcheck source=../scripts/mso-cli-agent.sh
+source "$ROOT/scripts/mso-cli-agent.sh"
 
 # Print the header block verbatim — stops at the first non-comment line, so the
 # help can never drift out of sync with the comment above.
@@ -654,6 +668,7 @@ verbs() {
 U_camoufox="camoufox status|start|stop|session"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
 U_doctor="doctor [--fix]"
+U_provider="provider list|show <id>|set <dokploy|cloudflare|hostinger>|rm <id>|doctor [id]|projects|zones"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
@@ -685,7 +700,7 @@ if [ $# -ge 2 ]; then
   esac
 fi
 
-cmd="${1:-help}"; maybe_update_notice "$cmd"; shift || true
+cmd="${1:-agent}"; maybe_update_notice "$cmd"; shift || true
 case "$cmd" in
   version|--version|-V|-v) echo "mso $VERSION  (base $B, root $ROOT)"; exit 0 ;;
 
@@ -843,7 +858,11 @@ case "$cmd" in
     [ "$fails" -eq 0 ] && echo "all good." || echo "$fails check(s) failed."
     exit $(( fails > 0 ? 1 : 0 )) ;;
 
+  agent|chat) run_agent ;;
+  model) run_model_setup ;;
+  setup) run_onboard "${1-}" ;;
   onboard) run_onboard "${1-}" ;;
+  provider|providers) run_provider "$@" ;;
 
   # ── local/public gateway + browser launcher ───────────────────────────────
   gateway) local_url="$(gateway_local_url)"; MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$local_url" "$ROOT/scripts/mso-gateway" "$@" ;;
@@ -925,7 +944,7 @@ case "$cmd" in
               *) die "API-key provider must be one of: anthropic openai openrouter google groq xai deepseek mistral" ;; esac
             tty_secret "Paste $provider API key: "; key="$REPLY"
             [ -n "$key" ] || die "empty API key"
-            body=$(jq -nc --arg p "$provider" --arg k "$key" '{provider:$p,apiKey:$k}')
+            body=$(printf '%s\0%s' "$provider" "$key" | provider_key_body)
             secret_post "/api/config" "$body"; unset key body REPLY ;;
       style) style="${2:?off|caveman|ponytail}"
              case "$style" in off|caveman|ponytail) ;; *) die "style must be off, caveman or ponytail" ;; esac

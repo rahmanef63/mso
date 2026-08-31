@@ -103,6 +103,18 @@ Their model/provider configuration belongs to those applications and is not impl
 filled from Alfa's credential. Selected app installs stream their job transcript until a
 terminal status.
 
+The same onboarding can optionally connect **Dokploy** and one DNS provider (**Cloudflare**
+or **Hostinger**). These credentials are a separate infrastructure store, not AI-provider
+configuration. Secret prompts have terminal echo disabled and are posted from stdin; the
+model sees only masked configuration state and credential-free tool schemas. `-y` skips all
+external infrastructure credentials. Reconfigure later with `mso provider set <id>` and
+verify with `mso provider doctor`.
+
+After an AI provider is connected, bare `mso` launches the interactive MSO Agent. The agent
+uses the canonical MCP tool catalog internally: reads run directly, while write/exec calls
+pause for terminal approval. See [`INFRASTRUCTURE-PROVIDERS.md`](./INFRASTRUCTURE-PROVIDERS.md)
+for the deployment/provider boundary.
+
 ### WSL2
 
 WSL can contain `systemctl` while still running a non-systemd PID 1. MSO treats those as two

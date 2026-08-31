@@ -22,6 +22,15 @@ const NOT_A_KNOB: Record<string, string> = {
   NEXT_RUNTIME: "set by Next itself",
   NEXT_PUBLIC_BUILD_ID: "injected by next.config.mjs at build time",
   MSO_RUNTIME_INSTANCE_ID: "injected by the installer-managed service to prove restart readiness",
+  // Private launcher-to-agent handoff. scripts/mso-cli-agent.sh owns these; users
+  // should configure the public CLI knobs instead of persisting these in .env.local.
+  MSO_AGENT_BASE: "internal mso-cli-agent launcher handoff for the selected loopback API base",
+  MSO_AGENT_CLI: "internal mso-cli-agent launcher handoff for the canonical CLI path",
+  MSO_AGENT_JAR: "internal mso-cli-agent launcher handoff for the authenticated cookie jar",
+  MSO_AGENT_ORIGIN: "internal mso-cli-agent launcher handoff for the request Origin header",
+  MSO_AGENT_VERSION: "internal mso-cli-agent launcher handoff for banner metadata",
+  // Standard terminal convention inherited from the invoking shell, not MSO config.
+  NO_COLOR: "standard terminal color convention inherited from the caller",
   VITEST: "set by the test runner",
   // The OS gives these to every process.
   SHELL: "the OS's",

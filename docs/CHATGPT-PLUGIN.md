@@ -12,10 +12,10 @@
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 > and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.08.28.1 tools=31 read=16 write=10 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.08.31.1 tools=38 read=20 write=13 exec=5 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.08.28.1**: **31 tools**
-(16 read, 10 write, 5 exec). Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.08.31.1**: **38 tools**
+(20 read, 13 write, 5 exec). Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
 
 ## 1. What this connection does
@@ -34,6 +34,7 @@ flowchart LR
   D --> H[lib/host]
   D --> PR[project discovery/functions]
   D --> SK[skills + workflow memory]
+  D --> INF[Dokploy / Cloudflare / Hostinger]
   H --> FS[filesystem roots]
   H --> SYS[system / PTY / exec]
   H --> AP[Hermes / OpenClaw]
@@ -140,7 +141,7 @@ A token sees a scope prefix; there is no per-project or per-agent hidden tool fi
 `tools/list` filters the catalog and `tools/call` independently re-checks the required
 scope.
 
-### `read` — 16 tools
+### `read` — 20 tools
 
 - `fs_list`
 - `fs_read`
@@ -158,8 +159,12 @@ scope.
 - `skills_search`
 - `screen_capture`
 - `exec_job_status`
+- `infra_providers_list`
+- `infra_provider_doctor`
+- `dokploy_projects_list`
+- `cloudflare_zones_list`
 
-### `write` — read + 10 tools
+### `write` — read + 13 tools
 
 - `fs_write`
 - `fs_upload_file`
@@ -171,6 +176,9 @@ scope.
 - `workflow_start`
 - `workflow_cancel`
 - `workflow_finish`
+- `dokploy_project_ensure`
+- `cloudflare_dns_upsert`
+- `hostinger_dns_upsert`
 
 ### `exec` — write + 5 tools
 
@@ -184,6 +192,17 @@ scope.
 accident tripwire, not a sandbox. Grant `exec` only to a ChatGPT app/workspace you trust
 with the same care as a remote shell.
 
+
+### Infrastructure-provider actions
+
+The infrastructure tools never accept API tokens as arguments. ChatGPT sees masked provider
+status, then MSO loads Dokploy/Cloudflare/Hostinger credentials server-side for the approved
+call. `cloudflare_dns_upsert` changes one exact record and defaults proxying off.
+`hostinger_dns_upsert` uses Hostinger's scoped overwrite semantics: MSO sends one exact name/type RR-set rather than a full-zone
+snapshot; unrelated rows are never included in the mutation payload and ambiguous/conflicting records are refused, but the action
+still deserves the same scrutiny as any external infrastructure mutation. Configure providers
+locally with `mso provider set <id>` rather than pasting credentials into a ChatGPT message.
+
 ## 6. Tool-snapshot refresh: the part most often missed
 
 ChatGPT scans and caches the MCP action definitions. If MSO adds/removes/changes tools, a
@@ -195,7 +214,7 @@ Settings → MCP:
 
 ```text
 server:  1.6.0
-toolset: 2026.08.28.1
+toolset: 2026.08.31.1
 hash:    <live schema hash>
 count:   31
 ```

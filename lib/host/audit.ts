@@ -28,6 +28,7 @@ export type AuditAction =
   /** The cockpit replacing its own code (Settings → About, or `mso update run`). */
   | "sys.update"
   | "managed-app.action"
+  | "infra.write"
   | "camoufox.power"
   | "workflow.start"
   | "workflow.cancel"

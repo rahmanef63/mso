@@ -71,7 +71,8 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 
 **Extend** — Alfa AI, modular slices, and custom apps.
 
-- **Use BYOK AI** — Alfa uses credentials stored on your server, not committed to the repo.
+- **Use BYOK AI** — Alfa and the terminal MSO Agent use credentials stored on your server, not committed to the repo. Bare `mso` now opens the interactive setup/operations agent; `mso model` connects or changes its provider first.
+- **Automate deployment providers without handing tokens to the model** — Dokploy and Cloudflare are built-in feature apps; `mso provider` also supports Hostinger DNS. Secrets stay in owner-only MSO state while bounded provider tools perform live checks and approved deployment/DNS operations. See [docs/INFRASTRUCTURE-PROVIDERS.md](./docs/INFRASTRUCTURE-PROVIDERS.md).
 - **Drive the box from ChatGPT, Codex, Claude Code, Cursor, Gemini CLI or VS Code** — Settings → MCP now provides client-specific numbered setup, copy-ready remote configs, live MCP/OAuth discovery checks, tunnel/domain guidance, and the same OAuth 2.1 + PKCE `read → write → exec` permission ladder enforced server-side. See the [ChatGPT Plugin / custom MCP app guide](./docs/CHATGPT-PLUGIN.md) and [MCP reference](./docs/MCP.md).
 - **Add app slices** — features are modular under `frontend/slices/<slug>/`.
 - **Personalize the interface** — macOS, Windows, iOS, and Android shell layouts are UI preferences, not the core product.
@@ -124,6 +125,8 @@ The flow lets you choose:
 - **Alfa response preset** — normal, Caveman or Ponytail;
 - optional **Hermes / OpenClaw / 9Router** installation (their provider settings remain separate
   from Alfa's credentials);
+- optional **Dokploy** plus **Cloudflare or Hostinger** infrastructure connection. Provider secrets
+  are entered with hidden prompts and stay server-side;
 - reviewed **installable skills** such as Ponytail, Caveman and the MSO-safe RTK wrapper.
 
 Immediately after checkout, the installer installs and validates the CLI **before dependency
@@ -160,9 +163,12 @@ After installation, the installer prints whether the current shell can already r
 On the normal Ubuntu/WSL PATH (which includes `/usr/local/bin`) these work immediately:
 
 ```bash
+mso                         # interactive MSO setup/operations agent
 mso -h
+mso model                   # connect/change the AI provider used by MSO Agent / Alfa
 mso doctor
 mso onboard                 # run/re-run guided setup; starts the built loopback runtime on WSL when needed
+mso provider list           # Dokploy/Cloudflare/Hostinger status (secrets masked)
 mso web                     # open local UI; starts the built loopback runtime if no service is active
 mso update                  # fetch/verify/build safely; does not require :4005 to be alive
 mso skills available        # reviewed installable skill list
@@ -273,10 +279,14 @@ The browser UI is one frontend, not the product. The installer puts `mso` on you
 covers anything without one.
 
 ```bash
+mso                          # interactive setup/operations agent with MSO ASCII terminal UI
 mso -h                       # grouped command list; `mso <command> --help` per command
+mso model                    # connect/change AI provider before/while using the agent
 mso doctor                   # includes HTTPS/login-origin diagnosis
 mso doctor --fix             # safe local repairs; never changes DNS/TLS/firewall/credentials
-mso onboard                  # guided AI/app/skill setup
+mso onboard                  # guided AI/app/infrastructure/skill setup
+mso provider list            # masked Dokploy/Cloudflare/Hostinger state
+mso provider set cloudflare  # hidden credential prompts + live verification
 mso skills available         # curated installable skills
 mso skills install ponytail caveman rtk -y
 mso device pending           # who typed the password and is waiting
@@ -312,7 +322,8 @@ An authenticated **Owner** session can read allowed files and run commands as th
 - Approve only trusted devices; use Viewer by default, Operator only for bounded operational work, and Owner only where full host authority is intended. Device approval is an allowlist, not standards-based MFA or a named-user directory.
 - Keep write roots narrow with `OS_FS_WRITE_ROOTS`.
 - Service inventory is read-only by default. Lifecycle buttons require Operator/Owner **and** an exact `OS_SERVICE_CONTROL_UNITS` entry; wildcards are rejected. Package visibility reads only the existing local cache and never upgrades the host.
-- Never commit `.env.local`, API keys, or data from `~/.mso`.
+- Never commit `.env.local`, API keys, or data from `~/.mso`. Infrastructure provider tokens live in `~/.mso/private/infra-providers.json` with owner-only permissions; the agent receives only credential-free tool schemas and masked provider state.
+- Dokploy/Cloudflare/Hostinger automation is intentionally bounded. Cloudflare changes one exact record and never bulk-writes a zone; proxying defaults off. Hostinger updates one exact name/type RR-set with `overwrite:true`; unrelated zone rows are never sent in the mutation payload, while ambiguity/conflicts are still refused and writes require approval.
 - Managed-app dashboards are not embedded by default. 9Router is loopback-only by default; a direct public-IP bind requires `NINE_ROUTER_EXPOSE_PUBLIC=1`, while a configured application hostname remains its preferred in-shell UI. Give each vendor UI a separate explicit hostname such as `hermes.mso.example.com`; there is no supported same-origin iframe mode.
 - Camoufox/noVNC is also never served on the cockpit origin. It uses the reserved split-origin host such as `camoufox.mso.example.com`; the legacy `/camoufox-vnc/*` path is permanently closed.
 - That boundary is browser-only: a plugin installed into Hermes or OpenClaw runs inside that daemon and can run host commands according to the daemon's own trust model.
@@ -428,6 +439,7 @@ Not currently supported:
 | [docs/COMPARISON.md](./docs/COMPARISON.md) | Generated comparison methodology, evidence and per-cell notes |
 | [docs/COMPETITIVE-ROADMAP.md](./docs/COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate boundaries and next measurable investments |
 | [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, update, backup/restore and origins |
+| [docs/INFRASTRUCTURE-PROVIDERS.md](./docs/INFRASTRUCTURE-PROVIDERS.md) | MSO terminal agent and Dokploy/Cloudflare/Hostinger deployment-provider contract |
 | [docs/HERMES-INTEGRATION.md](./docs/HERMES-INTEGRATION.md) | Hermes-specific managed-app behaviour |
 | [docs/OPENCLAW-INTEGRATION.md](./docs/OPENCLAW-INTEGRATION.md) | OpenClaw-specific managed-app behaviour |
 | [docs/9ROUTER-INTEGRATION.md](./docs/9ROUTER-INTEGRATION.md) | 9Router immutable-image ownership, loopback default and explicit dashboard exposure |

@@ -75,15 +75,19 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 
 | Scope | Tools |
 |---|---|
-| `read` | `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` `exec_job_status` |
-| `write` | + `workflow_start` `workflow_cancel` `workflow_finish` `fs_write` `fs_upload_file` `fs_mkdir` `fs_move` `fs_copy` `fs_delete` `apps_power` |
+| `read` | `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` `exec_job_status` `infra_providers_list` `infra_provider_doctor` `dokploy_projects_list` `cloudflare_zones_list` |
+| `write` | + `workflow_start` `workflow_cancel` `workflow_finish` `fs_write` `fs_upload_file` `fs_mkdir` `fs_move` `fs_copy` `fs_delete` `apps_power` `dokploy_project_ensure` `cloudflare_dns_upsert` `hostinger_dns_upsert` |
 | `exec` | + `project_function_call` `exec_run` `exec_job_start` `exec_job_cancel` `browser_power` |
 
-Alfa — the in-app assistant — has the same host capabilities under dot.case names,
+Alfa — the in-app assistant — overlaps the same host capabilities under dot.case names,
 and `lib/mcp/parity.test.ts` fails if one surface gains a tool the other lacks
-without a written reason. `skills_search` maps to Alfa's `skills.search`.
-`screen_capture`, `projects_list`, `project_capabilities`, `project_function_call`, `fs_upload_file`, `workflow_start`, `workflow_cancel` and
-`workflow_finish` are explicitly MCP-only: the external connector needs visual proof,
+without a written reason. `skills_search` maps to Alfa's `skills.search`. The infrastructure
+provider tools are intentionally MCP-only: the terminal MSO Agent consumes this canonical
+catalog through the owner-only agent-tools bridge, while in-shell Alfa has dedicated
+Dokploy/Cloudflare feature surfaces instead of receiving public-DNS credentials/capabilities.
+`screen_capture`, `projects_list`, `project_capabilities`, `project_function_call`, `fs_upload_file`, `workflow_start`, `workflow_cancel`,
+`workflow_finish`, the async `exec_job_*` lifecycle and the `infra_*` / Dokploy / Cloudflare /
+Hostinger provider tools are explicitly MCP-only: the external connector needs visual proof,
 an explicit project enumeration and an actor-scoped task boundary, while Alfa already
 runs inside the rendered shell, has the Files window and owns an in-app run boundary.
 `skills_list` and `skills_read` now exist on BOTH surfaces — capability discovery is
@@ -120,7 +124,7 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.08.28.1 tools=31 read=16 write=10 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.08.31.1 tools=38 read=20 write=13 exec=5 -->
 
 Current catalog: **31 tools** (16 read, 10 write, 5 exec), server `1.6.0` / toolset
 `2026.08.28.1`. `project_capabilities` and `project_function_call` add one stable
@@ -547,7 +551,8 @@ failure mode for an endpoint whose top scope is a shell.
 Those are per TOKEN and say nothing about which tool ran, so each mutating tool
 also carries the **per-operation** limit its route already applies, on the SAME
 bucket key — MCP and the browser share one allowance rather than getting one each.
-`exec_run` 60/min, fs writes 120/min, fs copy/delete 60/min, `apps_power` and
+`exec_run` 60/min, fs writes 120/min, fs copy/delete 60/min, Dokploy/Cloudflare
+infrastructure writes 20/min, Hostinger DNS writes 10/min, `apps_power` and
 `browser_power` 12/min per app. MCP-native expensive/stateful operations are
 stricter: `screen_capture` 10/min, `projects_list` and `skills_list` 30/min,
 `skills_read` 60/min, and workflow-memory writes 30/min.
@@ -563,6 +568,7 @@ lib/mcp/tools-read.ts      bounded reads + skills_search + screen_capture
 lib/mcp/tools-discovery.ts projects_list / skills_list / skills_read — global discovery
 lib/mcp/tools-learning.ts  one-call bootstrap + start / cancel / finish
 lib/mcp/tools-power.ts     apps_power + browser_power
+lib/mcp/tools-infra.ts     provider status/doctor + bounded Dokploy/Cloudflare/Hostinger operations
 lib/mcp/toolset.ts         server/toolset version, schema hash and scoped manifest
 lib/mcp/tools.ts           fs write tier and the assembled catalog
 lib/mcp/activity.ts       workflow-correlated live activity

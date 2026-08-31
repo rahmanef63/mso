@@ -22,7 +22,7 @@ describe("bin/mso", () => {
 
   it("documents every verb the dispatch table implements", () => {
     const src = require("node:fs").readFileSync(CLI, "utf8") as string;
-    const body = src.slice(src.indexOf('cmd="${1:-help}"'));
+    const body = src.slice(src.indexOf('cmd="${1:-agent}"'));
     // Case arms look like `  ls)` / `  camoufox)` / `  devices|device)`. Aliases
     // are split out too — an alias absent from the help is just as unfindable.
     const verbs = [...body.matchAll(/^ {2}([a-z][a-z|-]*)\)/gm)].flatMap((m) => m[1].split("|"));
@@ -74,7 +74,10 @@ describe("bin/mso", () => {
         (m) => `${m[1]} ${route}`,
       );
     });
-    const cli = fs.readFileSync(CLI, "utf8");
+    const cli = [
+      fs.readFileSync(CLI, "utf8"),
+      fs.readFileSync(path.join(repo, "scripts/mso-cli-agent.sh"), "utf8"),
+    ].join("\n");
 
     // Not reachable from a shell, each for its own reason:
     //  • /api/sw is fetched by the browser to install the service worker.
@@ -87,6 +90,9 @@ describe("bin/mso", () => {
       "GET /api/sw",
       "/api/v1/managed-apps/[id]/proxy/[[...path]]",
       "/api/auth/devices",
+      // Internal transport between scripts/mso-agent.mjs and the authenticated
+      // server-side MCP catalog. It is not a user-facing CLI verb by design.
+      "/api/v1/agent-tools",
     ];
 
     // The CLI writes each call as `jget "/path"` / `jpost "/path"` / `jdel "/path"`,
