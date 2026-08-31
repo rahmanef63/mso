@@ -8,9 +8,28 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `runtime` keep service starts on shared exclusion
 - `settings` hide premature update warning
 - `update` enforce main and raise MCP daily limit
 - `mcp` raise daily token call limit
+- `gateway` canonicalize public origin assignment
+- `git` restore executable script modes
+- `runtime` close service installer and notice races
+- `install` hold update lock across checkout refresh
+- `install` restore service after pre-mutation abort
+
+**Tests**
+
+- `gateway` assert one live tunnel after concurrent start
+- `install` read abort capture by descriptor
+- `install` align bootstrap and abort harness
+- `install` make abort recovery harness static
+
+**Chores**
+
+- `deps` bump aquasecurity/trivy-action (#32)
+- `deps` bump actions/checkout from 6.1.0 to 7.0.1 (#31)
+- `deps-dev` bump @types/react-dom (#29)
 
 ## 2026-08-30
 
@@ -21,11 +40,6 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
-- `gateway` canonicalize public origin assignment
-- `git` restore executable script modes
-- `runtime` close service installer and notice races
-- `install` hold update lock across checkout refresh
-- `install` restore service after pre-mutation abort
 - `runtime` close update authority and stop races
 - `runtime` preserve installer and env lifecycles
 - `runtime` serialize deploy and service starts
@@ -58,10 +72,6 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
-- `gateway` assert one live tunnel after concurrent start
-- `install` read abort capture by descriptor
-- `install` align bootstrap and abort harness
-- `install` make abort recovery harness static
 - `gateway` treat zombie children as stopped
 - `gateway` isolate lifecycle fixtures
 - `cli` lock offline update dispatch

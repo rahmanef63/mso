@@ -256,7 +256,7 @@ service_restore_fallback_after_failure() {
 service_lifecycle_safe() {
   local verb="$1" rc=0 active=0
   require_service_checkout_cli
-  runtime_exclusion_acquire_exclusive \
+  runtime_exclusion_acquire_shared \
     || die "offline update/deploy is mutating this checkout or another service handoff is active; retry after it finishes"
   service_manager_read is-active --quiet mso.service && active=1 || true
   SERVICE_FALLBACK_QUIESCED=0; SERVICE_HANDOFF_URL=''; SERVICE_HANDOFF_MARKER=''
