@@ -44,6 +44,9 @@ it("persists recovery intent when an owned fallback exited naturally before upda
   const state = JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8"));
   expect(state.runtimeOwned).toBe(false);
   expect(state.runtimeIdentity).toBeNull();
-  expect(fs.statSync(marker).mode & 0o777).toBe(0o600);
-  expect(fs.readFileSync(marker, "utf8").trim()).toBe("1");
+  const markerFd = fs.openSync(marker, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    expect(fs.fstatSync(markerFd).mode & 0o777).toBe(0o600);
+    expect(fs.readFileSync(markerFd, "utf8").trim()).toBe("1");
+  } finally { fs.closeSync(markerFd); }
 });

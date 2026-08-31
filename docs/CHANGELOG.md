@@ -21,6 +21,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `security` remove recovery marker TOCTOU
 - `gateway` assert one live tunnel after concurrent start
 - `install` read abort capture by descriptor
 - `install` align bootstrap and abort harness
