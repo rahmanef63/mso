@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CALLS_PER_MIN = 120;
-const CALLS_PER_DAY = 5_000;
+const CALLS_PER_DAY = 50_000;
 const PREAUTH_PER_MIN = 240;
 export const MAX_MCP_BODY_BYTES = 2 * 1024 * 1024;
 

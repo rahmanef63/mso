@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { parseCommits, blockingReason, updateUnitArgs } = await import("./self-update");
+const { parseCommits, blockingReason, updateBranchReason, updateUnitArgs } = await import("./self-update");
 
 const status = (over: Partial<Parameters<typeof blockingReason>[0]> = {}) => ({
   supported: true,
@@ -63,6 +63,14 @@ describe("updateUnitArgs", () => {
   it("exposes only the rebuild boolean as the optional operation", () => {
     const args = updateUnitArgs("/srv/mso", "/tmp/update.log", true);
     expect(args.at(-1)).toBe("--rebuild-only");
+  });
+});
+
+describe("updateBranchReason", () => {
+  it("keeps Settings updates on main", () => {
+    expect(updateBranchReason("main\n")).toBeNull();
+    expect(updateBranchReason("feat/runtime")).toContain("current: feat/runtime");
+    expect(updateBranchReason("")).toContain("detached HEAD");
   });
 });
 
