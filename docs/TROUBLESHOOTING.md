@@ -312,6 +312,28 @@ See `docs/MODELS-INTEGRATION.md` and `docs/CHATGPT-PLUGIN.md`.
 
 ## MCP / ChatGPT custom app
 
+### Where do I start?
+
+Use **Settings → MCP → Connect an AI client**. It now derives the MCP URL from MSO's
+deployment-owned public origin, probes the MCP endpoint plus OAuth challenge/resource/server
+metadata, and shows numbered setup steps for ChatGPT, Codex, Claude Code, Cursor, Gemini CLI,
+VS Code, and a generic Streamable HTTP client. Advanced OAuth fields stay collapsed unless a
+client actually asks for them.
+
+If Settings says the origin is local-only (`127.0.0.1`, `localhost`, or `::1`), do not paste
+that URL into a cloud client. Keep MSO loopback-only and use `mso gateway start` for a temporary
+HTTPS endpoint, or configure a stable HTTPS tunnel/reverse proxy and set the same origin with
+`mso gateway domain set https://…`. Reopen Settings through that public origin before copying
+the client URL.
+
+### Settings → MCP Test connection is red
+
+The test is not a generic ping. All four public contracts must agree on the same deployment:
+`GET /mcp`, the unauthenticated Bearer/OAuth challenge from `POST /mcp`, RFC 9728 protected
+resource metadata, and RFC 8414 authorization-server metadata. Expand **Advanced OAuth settings**
+and compare the URLs if one badge is red. A proxy/domain mismatch is more likely than a token
+problem because this probe intentionally runs before OAuth authorization.
+
 ### `/mcp` or OAuth discovery returns 404
 
 `OS_MCP_ENABLED=1` is not active in the running service (or demo mode forced MCP off).

@@ -1,14 +1,16 @@
 # ChatGPT plugin / custom MCP app for MSO
 
-> **Current reference.** In this project, people often say "the ChatGPT plugin". The
-> current ChatGPT product calls this a **custom MCP app/connector** in Developer Mode. It
-> is not a legacy ChatGPT Plugin manifest, browser extension, or a plugin installed inside
-> Hermes/OpenClaw.
+> **Current reference.** OpenAI moved its app directory to the **Plugin directory** on
+> 2026-07-09; plugins are now the discovery surface across ChatGPT/Codex, while the underlying
+> MSO connection remains a custom MCP app created in Developer Mode. Depending on workspace
+> controls, the UI can say **Plugins → New Plugin** or **Apps → Create**. This is not a legacy
+> ChatGPT Plugin manifest, browser extension, or a plugin installed inside Hermes/OpenClaw.
 >
-> ChatGPT's Developer Mode UI and plan availability are controlled by OpenAI and may change
-> while full MCP is in beta. The stable contract on the MSO side is the remote MCP endpoint
-> plus OAuth metadata documented here. OpenAI's current overview is:
+> ChatGPT's Developer Mode UI and permissions are controlled by OpenAI and can change during
+> the MCP beta. Settings → MCP in MSO therefore shows the live endpoint, OAuth metadata and a
+> guided setup instead of freezing one menu layout. Current OpenAI references:
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
+> and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
 <!-- mcp-toolset: server=1.6.0 version=2026.08.28.1 tools=31 read=16 write=10 exec=5 -->
 
@@ -51,22 +53,20 @@ You need:
 5. a ChatGPT plan/workspace that currently permits the MCP capability you need.
 
 ChatGPT connects to a **remote** MCP server. A private-only MSO endpoint therefore needs a
-supported remote path rather than an unreachable `localhost` URL. OpenAI's current docs
-name **Secure MCP Tunnel** as the supported option for private/on-prem/developer-machine
-servers; use the current OpenAI instructions rather than exposing the MSO shell port merely
-to satisfy discovery.
+reachable HTTPS path rather than an unreachable `localhost` URL. MSO's supported laptop path
+is `mso gateway start` (temporary preview URL) or a named/custom-domain tunnel; the Next app
+itself remains loopback-only instead of publishing port 4005 directly.
 
 After changing MSO environment configuration, use the normal MSO update/rebuild path; do
 not treat a Git push as deployment.
 
-### Current ChatGPT availability (external, as of 2026-08-24)
+### Current ChatGPT availability (external, checked 2026-08-31)
 
-OpenAI's current Developer Mode documentation says custom MCP apps are a **web** capability
-in beta. Full MCP including write/modify actions is available to Business, Enterprise and
-Edu workspaces under their workspace controls; Pro can connect custom MCP servers for
-read/fetch access. Workspace admins can further restrict or disable the capability. This
-availability is an OpenAI product decision and can change independently of MSO—check the
-current OpenAI article before treating the table as entitlement:
+OpenAI's current Developer Mode documentation says full MCP, including write/modify actions,
+is rolling out in beta for Business, Enterprise and Edu workspaces and remains subject to
+workspace/admin controls. The Plugin/App UI and entitlements are OpenAI product decisions and
+can change independently of MSO, so Settings → MCP intentionally does not hard-code a plan
+matrix. Check the current OpenAI article before treating any plan as entitled:
 <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>.
 
 MSO itself does not special-case ChatGPT plans. It publishes the same scoped MCP server; the
@@ -89,10 +89,21 @@ MSO supports public OAuth clients with PKCE S256 and token-endpoint authenticati
 `none`. ChatGPT can use the predefined public client id `chatgpt-mso`; a client secret is
 not required. Other MCP clients can use Dynamic Client Registration where supported.
 
-The exact ChatGPT form labels can change during the beta. In Developer Mode, create a
-custom MCP app, provide the remote MCP endpoint, select OAuth, then let ChatGPT scan tools.
-When the authorization browser opens, sign into MSO on an approved device, review the
-requested scope, and Allow only the tier you intend.
+The exact ChatGPT form labels can change during the beta. The current MSO Settings → MCP
+guide mirrors the common flow shown by OpenAI's Plugin/App UI:
+
+1. enable Developer Mode for the account/workspace if required;
+2. open Plugins or Apps and choose **New Plugin / Create**;
+3. choose **Server URL** and paste the live MCP Server URL shown by MSO;
+4. choose **OAuth**. MSO publishes the two `.well-known` documents automatically, uses PKCE
+   S256, requires no client secret, and advertises token endpoint authentication `none`;
+5. complete authorization in the browser, choose the lowest useful MSO scope, then return to
+   ChatGPT and **Scan Tools / Create**;
+6. enable the resulting MSO app/plugin from the tools or `+` menu in the chat before using it.
+
+If ChatGPT shows the custom-server risk acknowledgement, review it rather than treating it as
+an error. When the authorization browser opens, sign into MSO on an approved device and Allow
+only the tier you intend.
 
 ## 4. OAuth lifecycle
 
@@ -129,7 +140,7 @@ A token sees a scope prefix; there is no per-project or per-agent hidden tool fi
 `tools/list` filters the catalog and `tools/call` independently re-checks the required
 scope.
 
-### `read` — 15 tools
+### `read` — 16 tools
 
 - `fs_list`
 - `fs_read`
@@ -146,6 +157,7 @@ scope.
 - `skills_read`
 - `skills_search`
 - `screen_capture`
+- `exec_job_status`
 
 ### `write` — read + 10 tools
 
@@ -160,9 +172,11 @@ scope.
 - `workflow_cancel`
 - `workflow_finish`
 
-### `exec` — write + 3 tools
+### `exec` — write + 5 tools
 
 - `exec_run`
+- `exec_job_start`
+- `exec_job_cancel`
 - `browser_power`
 - `project_function_call`
 
@@ -181,9 +195,9 @@ Settings → MCP:
 
 ```text
 server:  1.6.0
-toolset: 2026.08.21.1
-hash:    8c3c9092013069de
-count:   28
+toolset: 2026.08.28.1
+hash:    <live schema hash>
+count:   31
 ```
 
 Use this sequence after an MSO MCP change:

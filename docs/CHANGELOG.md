@@ -6,11 +6,21 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-08-31
 
+**Added**
+
+- `mcp` add guided client setup
+
 **Fixed**
 
 - `settings` hide premature update warning
 - `update` enforce main and raise MCP daily limit
 - `mcp` raise daily token call limit
+
+**Chores**
+
+- `deps` bump aquasecurity/trivy-action (#32)
+- `deps` bump actions/checkout from 6.1.0 to 7.0.1 (#31)
+- `deps-dev` bump @types/react-dom (#29)
 
 ## 2026-08-30
 

@@ -2,6 +2,26 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-08-31 — Guided multi-client MCP setup in Settings (IN REVIEW)
+
+Settings → MCP now treats connection as an onboarding workflow instead of a developer-only list of
+OAuth endpoints. The authenticated Settings API returns MSO's deployment-owned public origin, so a
+loopback browser no longer teaches ChatGPT a `localhost` URL when `OS_PUBLIC_ORIGIN` is configured.
+The connection card probes `GET /mcp`, the Bearer OAuth challenge, protected-resource metadata and
+authorization-server metadata and reports readiness only when all four agree on the same deployment.
+
+The UI now mirrors modern MCP client setup flows: choose ChatGPT, Codex, Claude Code, Cursor, Gemini
+CLI, VS Code, or a generic Streamable HTTP client; follow numbered steps; copy the exact server URL,
+CLI/config snippet, and only expand advanced OAuth fields when a client asks for them. ChatGPT gets
+copy-ready Name/Description/Connection/Authentication values matching the New Plugin form. Local-only
+origins are called out before users paste them into a cloud client, with MSO Gateway and stable
+custom-domain/reverse-proxy instructions that keep the raw Next listener loopback-only. Scope guidance
+starts at `read` and explicitly describes `write` and `exec` blast radius.
+
+The existing token revocation, audit trail and toolset-signature cards remain the operational truth
+after connection. Current MCP/ChatGPT docs were refreshed at the same time, including the live
+31-tool split (16 read / 10 write / 5 exec) and current Plugin/App terminology.
+
 ## 2026-08-31 — 10× MCP daily allowance + truthful Settings updater preflight (SHIPPED)
 
 The authenticated MCP endpoint now permits 50,000 calls per token per fixed 24-hour process-local
@@ -408,8 +428,9 @@ MCP/ChatGPT documentation is now split by responsibility. `docs/MCP.md` remains 
 protocol/security/discovery/workflow reference, and new `docs/CHATGPT-PLUGIN.md` is the
 operator-facing custom MCP app guide with architecture, OAuth sequence, scope/tool,
 tool-snapshot refresh, workflow-id, ChatGPT-file-upload and credential-boundary Mermaid
-diagrams. It pins the live MSO MCP contract at server `1.6.0`, toolset `2026.08.21.1`, 28
-tools (15 read / 10 write / 3 exec), documents the authorization-code-only PKCE flow and
+diagrams. At that 2026-08-24 snapshot it recorded server `1.6.0`, toolset `2026.08.21.1`,
+28 tools (15 read / 10 write / 3 exec); those counts are historical, while Settings → MCP and
+`GET /mcp` are the current authority. The guide also documents the authorization-code-only PKCE flow and
 90-day bearer reauthorization boundary, and clearly separates MSO MCP OAuth from Alfa's
 OpenAI Codex/ChatGPT-subscription OAuth. Current OpenAI Developer Mode availability and
 frozen-action behaviour are labeled as an external dated dependency rather than an MSO

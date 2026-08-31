@@ -9,25 +9,25 @@ import { McpAuditSection, type McpAuditRow } from "./mcp-audit-section";
 import { McpConnectionSection } from "./mcp-connection-section";
 import { McpTokenSection, type McpTokenRow } from "./mcp-token-section";
 import type { McpToolsetInfo } from "./mcp-toolset-card";
+import { McpCopyField } from "./mcp-copy-field";
 
 type McpState = {
   enabled: boolean;
   maxScope: string;
   toolset: McpToolsetInfo;
   tokens: McpTokenRow[];
+  origin: string;
 };
 
 export function McpSection() {
   const [state, setState] = useState<McpState | null>(null);
   const [trail, setTrail] = useState<McpAuditRow[]>([]);
-  const [origin, setOrigin] = useState("");
 
   const load = useCallback(() => {
     if (IS_DEMO) return;
     fetch("/api/mcp/tokens", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
       .then((next: McpState) => {
-        setOrigin(window.location.origin);
         setState(next);
       })
       .catch(() => toast("Couldn't load MCP tokens", { tone: "error" }));
@@ -81,10 +81,16 @@ export function McpSection() {
         title="MCP connection"
         footnote="When disabled, the MCP endpoint and OAuth discovery documents return 404, so no unauthenticated MCP surface remains exposed."
       >
-        <SettingsBlock className="space-y-2 py-4">
-          <p className="text-sm font-medium">MCP is disabled</p>
+        <SettingsBlock className="space-y-3 py-4">
+          <div>
+            <p className="text-sm font-medium">Turn on MCP first</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Add these values to <code className="font-mono">.env.local</code>. Start with read access; raise the ceiling only when you actually need writes or host execution.
+            </p>
+          </div>
+          <McpCopyField label="Recommended starting config" value={"OS_MCP_ENABLED=1\nOS_MCP_MAX_SCOPE=read"} multiline />
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Set <code className="font-mono">OS_MCP_ENABLED=1</code> in <code className="font-mono">.env.local</code> and restart <code className="font-mono">mso.service</code>.
+            Apply it with <code className="font-mono">mso update --rebuild</code>. On WSL without systemd, MSO still rebuilds locally; reopen with <code className="font-mono">mso web</code> afterward.
           </p>
         </SettingsBlock>
       </SettingsSection>
@@ -93,7 +99,7 @@ export function McpSection() {
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <McpConnectionSection origin={origin} maxScope={state.maxScope} toolset={state.toolset} />
+      <McpConnectionSection origin={state.origin} maxScope={state.maxScope} toolset={state.toolset} />
       <McpTokenSection tokens={state.tokens} onRevoke={revoke} />
       <McpAuditSection trail={trail} />
     </div>

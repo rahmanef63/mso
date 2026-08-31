@@ -50,11 +50,12 @@ signed-in MSO page: an approved human browser session converts into a scoped MCP
 consent page is not a second login mechanism. Expired/revoked bearers therefore require a
 new authorization flow.
 
-For ChatGPT, the current product surface is a **custom MCP app/connector in Developer
-Mode**. Its UI and plan availability are owned by OpenAI and can change during the beta, so
-this deep reference does not freeze ChatGPT menu labels. Use
-[`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for the current field mapping, OAuth sequence,
-tool-snapshot refresh and troubleshooting.
+For ChatGPT, the connection is a **custom MCP app** created in Developer Mode and surfaced
+through OpenAI's current Plugin/App experience. OpenAI moved the directory to Plugins in July
+2026, while some workspace configuration pages still say Apps → Create; MSO therefore does not
+freeze one menu label. Settings → MCP renders the live server URL, probes MCP/OAuth discovery,
+and provides client-specific numbered steps. Use [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for
+the current field mapping, OAuth sequence, tool-snapshot refresh and troubleshooting.
 
 Clients that support RFC 7591 Dynamic Client Registration can register through
 `/oauth/register`. ChatGPT can also use the predefined public `chatgpt-mso` client without a

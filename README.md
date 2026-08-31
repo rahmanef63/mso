@@ -72,7 +72,7 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 **Extend** — Alfa AI, modular slices, and custom apps.
 
 - **Use BYOK AI** — Alfa uses credentials stored on your server, not committed to the repo.
-- **Drive the box from ChatGPT, Claude.ai or Cursor** — an optional MCP server (OAuth 2.1 + PKCE) exposes files, system health, global project/skill discovery, ChatGPT file import and, at `exec`, a shell. The read/write/exec ladder is the server-side permission boundary. See the [ChatGPT custom MCP app guide](./docs/CHATGPT-PLUGIN.md) for setup/diagrams and [MCP reference](./docs/MCP.md) for internals.
+- **Drive the box from ChatGPT, Codex, Claude Code, Cursor, Gemini CLI or VS Code** — Settings → MCP now provides client-specific numbered setup, copy-ready remote configs, live MCP/OAuth discovery checks, tunnel/domain guidance, and the same OAuth 2.1 + PKCE `read → write → exec` permission ladder enforced server-side. See the [ChatGPT Plugin / custom MCP app guide](./docs/CHATGPT-PLUGIN.md) and [MCP reference](./docs/MCP.md).
 - **Add app slices** — features are modular under `frontend/slices/<slug>/`.
 - **Personalize the interface** — macOS, Windows, iOS, and Android shell layouts are UI preferences, not the core product.
 
@@ -429,7 +429,7 @@ Not currently supported:
 | [docs/9ROUTER-INTEGRATION.md](./docs/9ROUTER-INTEGRATION.md) | 9Router immutable-image ownership, loopback default and explicit dashboard exposure |
 | [docs/MODELS-INTEGRATION.md](./docs/MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex model credentials |
 | [docs/MCP.md](./docs/MCP.md) | MCP/OAuth tools, discovery, workflow memory and security internals |
-| [docs/CHATGPT-PLUGIN.md](./docs/CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup + architecture/OAuth/tool/file diagrams |
+| [docs/CHATGPT-PLUGIN.md](./docs/CHATGPT-PLUGIN.md) | ChatGPT Plugin/custom MCP app setup + architecture/OAuth/tool/file diagrams |
 | [docs/FAQ.md](./docs/FAQ.md) | Security, product and operator boundaries |
 | [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | Current symptom → cause → supported recovery |
 | [SECURITY.md](./SECURITY.md) | Security posture and vulnerability reporting |
