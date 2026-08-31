@@ -45,8 +45,11 @@ response with source `HEAD`; source equality alone is not treated as proof that 
 
 MSO takes the checkout runtime exclusion exclusively before service handoff. If the unit is inactive and
 its loopback port is occupied by a **gateway-owned** fallback, MSO quiesces only that recorded process,
-preserves any public tunnel, then starts the system service on the freed port. If the service action fails,
-the fallback is restored. An unowned/manual responder is never killed automatically.
+preserves any public tunnel, then starts the system service on the freed port. Exit status alone is not
+readiness: MSO waits for the loopback `/api/health` identity before clearing recovery state; if readiness
+fails, the unhealthy service is stopped and the fallback is restored. A gateway-owned fallback that exited
+naturally is also reconciled into durable restore intent on the next update/deploy. An unowned/manual
+responder is never killed automatically.
 
 ### `mso update` says local main is ahead/diverged from `origin/main`
 

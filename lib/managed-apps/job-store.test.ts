@@ -12,6 +12,7 @@ vi.mock("server-only", () => ({}));
 
 const { isManagedAppJobId, listJobRecords, pruneJobRecords, readJobRecord, writeJobRecord } = await import("./job-store");
 const { startManagedAppJob } = await import("./jobs");
+const { liveRecord } = await import("./job-runner");
 import type { ManagedAppId, ManagedAppJob, ManagedAppJobStatus } from "./types";
 
 let home: string;
@@ -102,9 +103,12 @@ describe("a job whose owner is gone is interrupted, not running forever", () => 
     for (let i = 0; i < 200 && (await readJobRecord(next.id))?.status === "running"; i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
-    // Drain the job's own retention pass: it resolves $HOME when it runs, and
-    // this suite swaps $HOME per test.
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    // Drain the job's whole finalization, including retention. A fixed sleep was
+    // racy under load and let a late prune observe the next test's mocked HOME.
+    for (let i = 0; i < 200 && liveRecord(next.id); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(liveRecord(next.id)).toBeUndefined();
   });
 });
 

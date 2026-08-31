@@ -69,6 +69,22 @@ async function openExclusive(lockPath: string, token: string): Promise<HeldLock>
   return { token };
 }
 
+async function openRecoveryGuard(lockPath: string, token: string): Promise<HeldLock> {
+  // Recovery guards are never auto-broken: if their owner crashes at any point,
+  // leaving even an empty guard behind is intentionally fail-closed. Unlike the
+  // primary lock, there is therefore no need to fsync a candidate before trying
+  // to publish it. O_EXCL rejects losing contenders before they write/fsync,
+  // avoiding an fsync convoy when many callers wait on one security store.
+  const handle = await fs.open(lockPath, "wx", 0o600);
+  try {
+    await handle.writeFile(token, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close().catch(() => undefined);
+  }
+  return { token };
+}
+
 async function release(lockPath: string, held: HeldLock): Promise<void> {
   const owner = await fs.readFile(lockPath, "utf8").catch(() => "");
   // Never remove a lock that a recovery path may have handed to another process.
@@ -88,7 +104,7 @@ async function acquire(lockPath: string, timings: Required<SecurityStoreLockTimi
     // published live lock at the same pathname (a classic check/unlink ABA race).
     let gate: HeldLock | null = null;
     try {
-      gate = await openExclusive(recoveryPath, `${process.pid}:${randomUUID()}`);
+      gate = await openRecoveryGuard(recoveryPath, `${process.pid}:${randomUUID()}`);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
     }

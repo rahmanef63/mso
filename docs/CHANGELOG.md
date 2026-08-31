@@ -8,7 +8,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` avoid recovery guard fsync convoy
 - `runtime` verify service readiness before handoff
+- `jobs` finish retention before releasing runtime
+- `runtime` preserve fallback recovery readiness
 - `runtime` keep service starts on shared exclusion
 - `settings` hide premature update warning
 - `update` enforce main and raise MCP daily limit
@@ -21,6 +24,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `security` remove recovery marker TOCTOU
 - `gateway` assert one live tunnel after concurrent start
 - `install` read abort capture by descriptor
 - `install` align bootstrap and abort harness
