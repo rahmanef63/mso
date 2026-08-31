@@ -2,7 +2,7 @@
 
 Running log of what shipped each phase. Newest at top.
 
-## 2026-08-31 — Guided multi-client MCP setup in Settings (IN REVIEW)
+## 2026-08-31 — Guided multi-client MCP setup in Settings (SHIPPED)
 
 Settings → MCP now treats connection as an onboarding workflow instead of a developer-only list of
 OAuth endpoints. The authenticated Settings API returns MSO's deployment-owned public origin, so a
