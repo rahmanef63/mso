@@ -39,7 +39,7 @@ const STEPS = [
   {
     n: 3,
     title: "Reach it",
-    body: "The installer binds 127.0.0.1, so :4005 is closed to other machines by default. Tunnel in from whatever you browse on. The session cookie is Secure, so ordinary plain-http IP addresses are not a valid permanent login origin.",
+    body: "The installer binds 127.0.0.1, so :4005 is closed to other machines by default. Tunnel in from whatever you browse on. Pair the device only after you are on HTTPS or http://localhost: a plain-http server IP cannot store MSO's Secure session cookie, and changing hostnames creates a different browser device ID.",
     code: "ssh -N -L 4005:127.0.0.1:4005 you@your-server",
     note: "Then open http://localhost:4005. For something permanent use `tailscale serve 4005`, or a TLS reverse proxy pointed at 127.0.0.1:4005.",
   },
@@ -47,7 +47,7 @@ const STEPS = [
     n: 4,
     title: "Pair your browser",
     body: "Open the app and enter the password. Your browser lands PENDING and shows a device id. Terminal onboarding approves only the local CLI device; browser devices remain explicit owner approvals.",
-    code: "mso device pending\nmso device approve <deviceId> \"my laptop\"",
+    code: "mso device pending\nmso device approve <deviceId> \"my laptop\"\n# back in the SAME HTTPS/localhost browser: click Check again",
     note: "Device approval is a browser allowlist, not standards-based 2FA. Approve only devices you own.",
   },
   {

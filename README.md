@@ -259,9 +259,12 @@ curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --uninstall
 ```
 
-There is also a no-login install guide at **<https://mso.rahmanef.com/install>**. Full
-production setup, TLS/VPN notes, filesystem roots, update/rollback and onboarding details
-live in [docs/INSTALL.md](./docs/INSTALL.md).
+There is also a no-login install guide at **<https://mso.rahmanef.com/install>**. **Browser
+sign-in requires HTTPS**, except when you access MSO through a loopback URL such as
+`http://localhost:4005`. Do not pair/approve a browser on plain `http://<server-ip>:4005`:
+the session cookie is `Secure`, so the browser cannot keep the login there. Full production setup,
+TLS/VPN notes, filesystem roots, update/rollback and onboarding details live in
+[docs/INSTALL.md](./docs/INSTALL.md).
 
 ## CLI
 
@@ -271,7 +274,8 @@ covers anything without one.
 
 ```bash
 mso -h                       # grouped command list; `mso <command> --help` per command
-mso doctor                   # deps, env, service, session, device — names what broke
+mso doctor                   # includes HTTPS/login-origin diagnosis
+mso doctor --fix             # safe local repairs; never changes DNS/TLS/firewall/credentials
 mso onboard                  # guided AI/app/skill setup
 mso skills available         # curated installable skills
 mso skills install ponytail caveman rtk -y

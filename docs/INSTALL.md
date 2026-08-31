@@ -247,6 +247,11 @@ OS_LOGIN_PASSWORD=choose-a-strong-owner-password
 OS_SESSION_SECRET=<stable random 32+ byte secret>
 ```
 
+Open the browser on its final login origin **before** pairing: HTTPS in production, or
+`http://localhost:<port>` through an SSH tunnel. Do not approve a device ID obtained on a plain-HTTP
+server IP and then switch to an HTTPS hostname; the Secure session cookie cannot persist on the first
+origin, and the hostname change has a different browser-scoped device identity.
+
 The first correct login from a browser creates a **pending device**. Bootstrap an Owner from the
 server, then approve additional devices from Settings → Devices or the CLI:
 

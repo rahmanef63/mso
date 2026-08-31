@@ -742,13 +742,16 @@ EOF
 cat <<EOF
 
   Pair your first device after the API is running (device approval is a browser allowlist, not standards-based 2FA):
-    1. Open the URL, enter the password — the browser lands PENDING and shows a device id.
-    2. On this server:
+    1. FIRST use HTTPS, or an SSH tunnel and http://localhost:$PORT. Do not pair on plain http://<server-ip>:$PORT:
+       the Secure session cookie cannot persist there, and changing to an HTTPS hostname creates a different browser device id.
+    2. Enter the password — the browser lands PENDING and shows a device id.
+    3. On this server:
          node $DIR/scripts/approve-device.js --list                 # see the pending id
          node $DIR/scripts/approve-device.js <deviceId> "my phone"  # approve it
-    3. Reload + log in. Approve later devices from Settings → Devices.
+    4. In that SAME browser origin, click "Check again". Approve later devices from Settings → Devices.
 
   Logs:     $LOG_STATUS
+  Doctor:   mso doctor   (or: mso doctor --fix for safe local repairs)
   Update:   re-run this installer (pull + verify + build + service refresh), or --uninstall to remove
   Listen:   $BIND:$PORT   (change with --bind / MSO_BIND)
   Security: verify from OUTSIDE the box — \`curl -m5 http://<public-ip>:$PORT/api/health\`
@@ -769,12 +772,12 @@ if [ "$RUN_ONBOARD" -eq 1 ] && [ "$SERVICE_READY" -eq 1 ]; then
   if [ "$YES" -eq 1 ]; then
     echo
     info "running minimal non-interactive onboarding (-y)…"
-    "$BIN_DIR/mso" onboard -y || warn "onboarding did not finish — rerun: mso onboard"
+    "$BIN_DIR/mso" onboard -y || warn "onboarding did not finish — run: mso doctor --fix ; then: mso onboard"
   elif [ -r /dev/tty ] && [ -w /dev/tty ]; then
     echo
     info "starting guided onboarding…"
     if ! "$BIN_DIR/mso" onboard </dev/tty >/dev/tty 2>/dev/tty; then
-      warn "onboarding stopped early — resume anytime with: mso onboard"
+      warn "onboarding stopped early — run: mso doctor --fix ; then resume: mso onboard"
     fi
   else
     echo

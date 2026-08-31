@@ -16,7 +16,8 @@ eval "$(mso completion bash)"   # optional: tab completion
 ## First run
 
 ```bash
-mso doctor          # deps, env, service, session, device — names what broke
+mso doctor          # deps, HTTPS/login origin, service, session, device — names what broke
+mso doctor --fix    # safe local repairs; never changes DNS/TLS/firewall/credentials
 mso device pending  # after a browser tries to log in, approve it from here
 ```
 
@@ -26,6 +27,11 @@ device id (`~/.mso/cli.device.id`), which you approve once:
 ```bash
 mso device approve "$(cat ~/.mso/cli.device.id)" "mso cli"
 ```
+
+Browser sign-in must use **HTTPS**, except for loopback development/access such as
+`http://localhost:4005`. Plain `http://<server-ip>:4005` may answer health/API requests,
+but the browser cannot retain MSO's `Secure` session cookie there. Pair the device on its final
+HTTPS/localhost origin; `mso doctor` reports this explicitly.
 
 Device and service commands work even while the service is down — that is on
 purpose, because those are exactly the commands you need when it is.
@@ -75,7 +81,7 @@ Commands:
   cleanup [--run]      Reclaimable junk; --run actually deletes it
   status               Public service status (no session needed)
   health               Is this CLI's session valid?
-  doctor               Check deps, env, service, session, device — and say what broke
+  doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
   onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain
   web                   Open the MSO browser UI (active gateway first, else loopback)

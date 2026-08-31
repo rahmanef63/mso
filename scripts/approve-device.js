@@ -1,20 +1,15 @@
 #!/usr/bin/env node
-// Seed / list / revoke trusted login devices for mso (no Convex — flat JSON,
-// same model as the VPS Control Room).
-//
-//   node scripts/approve-device.js <deviceId> [label] [--role viewer|operator|owner]
-//   node scripts/approve-device.js --list               # show approved + pending
-//   node scripts/approve-device.js --revoke <deviceId>  # un-trust a device
-//
-// Store path = ~/.mso/auth-devices.json unless OS_DEVICE_STORE is set (must
-// match what the mso service sees).
+// Seed/list/revoke trusted login devices (flat JSON, no Convex).
+// Usage: approve-device.js <deviceId> [label] [--role ...] | --list | --revoke <id>
+// Store = ~/.mso/auth-devices.json unless OS_DEVICE_STORE overrides it; this must
+// match the path used by the running MSO service.
 
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { randomUUID } = require("crypto");
 const { spawnSync } = require("child_process");
-const { DEVICE_ROLES, normalizeApproved, parseApprovalArgs, roleOf, setRoleResult } = require("./lib/device-role-cli");
+const { approvedExitCode, DEVICE_ROLES, normalizeApproved, parseApprovalArgs, roleOf, setRoleResult } = require("./lib/device-role-cli");
 
 const STORE =
   process.env.OS_DEVICE_STORE || path.join(os.homedir(), ".mso", "auth-devices.json");
@@ -37,10 +32,8 @@ function write(store) {
   fs.renameSync(tmp, STORE);
 }
 
-// The web process edits the same allowlist. Lock the full read-modify-write so a
-// local revoke cannot be overwritten by a concurrent login `lastSeen` touch. The
-// lock owner is recorded so a crashed helper/server is recoverable without turning
-// a stale file into a permanent authentication outage.
+// Serialize the full read-modify-write shared with the web process; lock-owner
+// metadata lets a crashed writer be recovered without losing a revocation.
 const LOCK = `${STORE}.lock`;
 const RECOVERY = `${LOCK}.recovery`;
 const LOCK_WAIT_MS = 25;
@@ -190,6 +183,8 @@ if (args[0] === "--pending") {
   process.exit(0);
 }
 
+// Exact approval probe for onboard/doctor; --list also contains PENDING ids.
+if (args[0] === "--is-approved") process.exit(approvedExitCode({ args, deviceIdRe: DEVICE_ID_RE, read }));
 
 if (args[0] === "--set-role") {
   const result = setRoleResult({ args, deviceIdRe: DEVICE_ID_RE, withMutation, read, write });

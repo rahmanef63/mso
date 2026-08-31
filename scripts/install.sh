@@ -12,7 +12,7 @@ set -Eeuo pipefail
 umask 077
 
 CORE_URL="${MSO_INSTALL_CORE_URL:-https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-core.sh}"
-CORE_SHA256="9967738ca845c6ee462d2b98b5bde8bbb1ec79cce99316659d646d70e4fbc319"
+CORE_SHA256="6cb075743c17406dfde8d57a04ad2e48b6a792aab72284aeb93570f9103417a8"
 CORE_EOF='# MSO_INSTALLER_CORE_EOF'
 TMP_INSTALLER=''
 

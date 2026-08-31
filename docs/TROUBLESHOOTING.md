@@ -18,7 +18,20 @@ forward the real client IP consistently so every user does not share the proxy a
 ### Correct password but "pending approval"
 
 Expected for a new browser. Approve the shown device id from an already-approved browser
-(Settings → Devices) or from the server using the approval script.
+(Settings → Devices) or from the server using the approval script. Pair and re-check from the
+**same browser origin**. Device identity is browser-origin scoped, so approving an ID from
+`http://server-ip:4005` and then switching to `https://mso.example.com` creates a different ID.
+
+### Device was approved but login still does not stick
+
+Do not use plain HTTP on a non-loopback hostname/IP. MSO's session cookie is always `Secure`;
+a browser can reach `http://server-ip:4005` and submit the password, but it cannot retain the session
+cookie there, so the next authenticated probe stays signed out. Use HTTPS, or tunnel the service and
+open `http://localhost:4005`, then approve the device ID shown on that final origin and click
+**Check again**. `mso doctor` now calls out this transport mismatch; `mso doctor --fix` repairs safe
+local issues such as a pending CLI device/session, but deliberately does **not** change DNS, TLS,
+firewall rules or public exposure. If you approved the wrong-origin browser ID, revoke it only after
+the final-origin device is working.
 
 ### `mso onboard` approved the CLI device, then says port 4005 is unreachable
 

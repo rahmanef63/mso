@@ -59,6 +59,39 @@ esac
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 
+  it("promotes a CLI id that is present in pending instead of mistaking it for approved", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "mso-onboard-pending-cli-"));
+    const bin = path.join(root, "bin");
+    const envFile = path.join(root, ".env.local");
+    const store = path.join(root, "devices.json");
+    const devFile = path.join(root, "cli.device.id");
+    const fakeCurl = path.join(bin, "curl");
+    const device = "c".repeat(32);
+    fs.mkdirSync(bin, { mode: 0o700 });
+    fs.writeFileSync(devFile, device, { mode: 0o600 });
+    fs.writeFileSync(envFile, "OS_LOGIN_PASSWORD=fixture-password\nOS_SESSION_SECRET=fixture-session-secret-long-enough\n", { mode: 0o600 });
+    fs.writeFileSync(store, JSON.stringify({ approved: {}, pending: { [device]: { label: "mso cli", firstSeen: 1, lastSeen: 1, ip: "127.0.0.1", attempts: 1 } } }));
+    fs.writeFileSync(fakeCurl, `#!/bin/sh
+case "$*" in
+  *api/auth/login*) body='{"success":true}' ;;
+  *api/auth/me*) body='{"authenticated":true,"role":"owner"}' ;;
+  *) body='{"status":"ok","service":"mso","buildId":"fixture","buildSha":"abcdef1","runtimeInstanceId":"fixture","version":"0.2.1"}' ;;
+esac
+case "$*" in *'-w '*) printf '%s\n200' "$body" ;; *) printf '%s' "$body" ;; esac
+`, { mode: 0o700 });
+    try {
+      const out = execFileSync(path.join(__dirname, "../bin/mso"), ["--base", "http://127.0.0.1:4555", "onboard", "-y"], {
+        encoding: "utf8",
+        env: { ...process.env, HOME: root, PATH: `${bin}:${process.env.PATH}`, MSO_ENV: envFile, OS_DEVICE_STORE: store,
+          MSO_DEVICE_FILE: devFile, MSO_GATEWAY_CURL: fakeCurl, MSO_GATEWAY_STATE_DIR: path.join(root, "gateway-state") },
+      });
+      expect(out).toContain("approved this local CLI device");
+      const parsed = JSON.parse(fs.readFileSync(store, "utf8"));
+      expect(parsed.approved[device]).toMatchObject({ label: "mso cli", role: "owner" });
+      expect(parsed.pending[device]).toBeUndefined();
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
   it("reports a down runtime instead of falsely asking an already-approved device to approve again", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "mso-login-down-"));
     const bin = path.join(root, "bin");

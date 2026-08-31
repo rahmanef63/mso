@@ -2,6 +2,33 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-08-31 — Login-origin diagnosis + `mso doctor --fix` + runtime hardening (SHIPPED)
+
+A real install report confirmed the confusing post-approval login case was transport, not a broken
+device store: the browser was opening MSO on plain `http://<server-ip>:4005`. MSO's session cookie is
+always `Secure`, so that address can answer health/API requests and accept the password while the
+browser still cannot retain the authenticated session. Pairing on that IP and later moving to an HTTPS
+hostname is also a different browser origin, so the device ID shown there is not the final-origin ID.
+
+The supported guidance is now explicit in the installer summary, `/install`, README, CLI reference,
+Install and Troubleshooting docs: browser sign-in uses HTTPS, or loopback via `http://localhost` (for
+example through SSH port forwarding). `mso doctor` prints the same login-transport rule even when its
+own loopback CLI base is healthy, and fails clearly when `--base` / `OS_PUBLIC_ORIGIN` points at a
+plain-HTTP non-loopback address. `mso doctor --fix` was added for bounded local recovery: it may start
+an existing MSO service, approve this host's own CLI device, and refresh its session jar; it never
+changes DNS, certificates, firewall rules, public exposure, or login credentials.
+
+The screenshot also exposed a separate onboarding bug: `ensure_local_cli_device` previously searched
+`device --list`, which contains both APPROVED and PENDING rows. A CLI ID already in PENDING was
+therefore mistaken for approved, onboarding skipped promotion, then its first authenticated request
+failed. The device helper now has an exact approval-status probe; onboarding and doctor promote that
+local CLI ID correctly and regression tests cover the pending-to-approved case.
+
+The remaining changes from PR #28 were not discarded as stale. Its installer/update-lock recovery,
+service/fallback readiness handoff, gateway public-origin canonicalization, job-retention ordering and
+security-store contention fixes were integrated on top of the current MCP work and independently
+exercised before release.
+
 ## 2026-08-31 — Guided multi-client MCP setup in Settings (SHIPPED)
 
 Settings → MCP now treats connection as an onboarding workflow instead of a developer-only list of

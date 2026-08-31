@@ -41,7 +41,7 @@
 #   cleanup [--run]      Reclaimable junk; --run actually deletes it
 #   status               Public service status (no session needed)
 #   health               Is this CLI's session valid?
-#   doctor               Check deps, env, service, session, device — and say what broke
+#   doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
 #   onboard [-y]         Guided first-run setup: AI, response style, managed apps, skills
 #   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain
 #   web                   Open the MSO browser UI (active gateway first, else loopback)
@@ -452,7 +452,7 @@ ensure_local_cli_device() {
     http://127.0.0.1:*|http://localhost:*|http://[::1]:*) ;;
     *) return 0 ;;
   esac
-  if ! dev_script --list 2>/dev/null | grep -q "$d"; then
+  if ! dev_script --is-approved "$d" >/dev/null 2>&1; then
     dev_script "$d" "mso cli" >/dev/null
     echo "  ✓ approved this local CLI device"
   fi
@@ -653,6 +653,7 @@ verbs() {
 # you're wrong.
 U_camoufox="camoufox status|start|stop|session"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
+U_doctor="doctor [--fix]"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
@@ -738,20 +739,49 @@ case "$cmd" in
   # Layer-by-layer, cheapest first, so the FIRST failure names the real cause
   # instead of the symptom three layers up ("login failed" when node is missing).
   doctor)
+    fix=0
+    case "${1-}" in
+      "") ;;
+      --fix) fix=1 ;;
+      *) die "usage: mso $U_doctor" ;;
+    esac
     fails=0
     chk() { if eval "$2" >/dev/null 2>&1; then printf '  ok    %s\n' "$1"; else printf '  FAIL  %s — %s\n' "$1" "$3"; fails=$((fails+1)); fi; }
-    echo "mso doctor  (base $B)"
+    fixed() { printf '  FIXED %s\n' "$1"; }
+    browser_origin_ok() {
+      case "$1" in
+        https://*) return 0 ;;
+        http://127.*:*|http://localhost:*|http://\[::1\]:*) return 0 ;;
+        *) return 1 ;;
+      esac
+    }
+    doctor_label="mso doctor"; [ "$fix" = 1 ] && doctor_label="$doctor_label --fix"
+    echo "$doctor_label  (base $B)"
     chk "curl"           "command -v curl"  "install curl"
     chk "jq"             "command -v jq"    "install jq"
     chk "node"           "command -v node"  "install Node >=20.9"
     chk "env file"       "[ -f '$ENVF' ]"   "no $ENVF — copy .env.example and fill it"
     chk "login password" "[ -n '$PASS' ]"   "OS_LOGIN_PASSWORD unset in $ENVF"
     chk "session secret" "[ -n \"\${OS_SESSION_SECRET-}\" ]" "OS_SESSION_SECRET unset in $ENVF"
-    # Not a chk with a pass/fail: serving NO managed-app dashboards is a supported
-    # deployment, not a fault — but it is the reason a Hermes/OpenClaw window opens on a
-    # terminal, and nothing else anywhere says so out loud. Half-configured IS a fault,
-    # and a security one: a cookie domain without the host template hands the session to
-    # every host under that name while each still serves a whole cockpit.
+
+    # Browser login is stricter than CLI reachability: the session cookie is
+    # always Secure. Plain HTTP on a server/LAN IP can answer /api/health and even
+    # accept the password, but the browser cannot retain the session. Loopback is
+    # the development exception. Never auto-create a public tunnel in --fix.
+    if browser_origin_ok "$B"; then
+      echo "  ok    login transport — browser must use HTTPS or http://localhost (never plain http://server-ip)"
+    else
+      printf '  FAIL  login transport — browser login requires HTTPS or a loopback URL; use a TLS proxy/gateway, or SSH -L and open http://localhost\n'
+      fails=$((fails+1))
+    fi
+    if [ -n "${OS_PUBLIC_ORIGIN-}" ] && ! browser_origin_ok "$OS_PUBLIC_ORIGIN"; then
+      printf '  FAIL  public origin — OS_PUBLIC_ORIGIN=%s is not a valid browser login origin; use https://...\n' "$OS_PUBLIC_ORIGIN"
+      fails=$((fails+1))
+    elif [ -n "${OS_PUBLIC_ORIGIN-}" ]; then
+      printf '  ok    public origin (%s)\n' "$OS_PUBLIC_ORIGIN"
+    fi
+
+    # Not a chk with a pass/fail: serving NO managed-app dashboards is supported.
     tpl="${NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE-}"; dom="${OS_SESSION_COOKIE_DOMAIN-}"
     if [ -n "$tpl" ] && [ -n "$dom" ]; then
       echo "  ok    app dashboards ($tpl) — after changing this, REBUILD and sign in again"
@@ -761,23 +791,55 @@ case "$cmd" in
       printf '  FAIL  app dashboards — set BOTH NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE and OS_SESSION_COOKIE_DOMAIN, or neither\n'
       fails=$((fails+1))
     fi
-    chk "service unit"   "systemctl is-active --quiet mso.service" "mso.service not active — mso service start"
+
+    if ! service_manager_read is-active --quiet mso.service 2>/dev/null; then
+      if [ "$fix" = 1 ] && service_manager_read show -p WorkingDirectory --value mso.service 2>/dev/null | grep -q .; then
+        if ( service_start_safe >/dev/null 2>&1 ); then fixed "service unit started"; else printf '  FAIL  service unit — automatic start failed; run: mso service logs\n'; fails=$((fails+1)); fi
+      else
+        printf '  FAIL  service unit — mso.service not active%s\n' "$([ "$fix" = 1 ] && printf '; no existing unit could be safely started' || printf ' — run: mso doctor --fix or mso service start')"
+        fails=$((fails+1))
+      fi
+    else
+      echo "  ok    service unit"
+    fi
     chk "reachable"      "curl -fsS --max-time 5 '$B/api/health'"  "nothing answering at $B"
-    d=$(cli_device)
-    # Only meaningful against a local base — the allowlist lives on the host, and
-    # dev_script now refuses a remote one rather than reading the wrong file.
+
+    d=$(cli_device); device_ready=0
     case "$B" in
       http://127.0.0.1:*|http://localhost:*|http://[::1]:*)
-        chk "device known" "dev_script --list | grep -q '$d'" "this CLI device is not approved — mso device approve $d 'mso cli'" ;;
-      *) echo "  --  device known    (skipped: --base is remote; check it on that host)" ;;
+        if dev_script --is-approved "$d" >/dev/null 2>&1; then
+          echo "  ok    device known"; device_ready=1
+        elif [ "$fix" = 1 ]; then
+          if dev_script "$d" "mso cli" >/dev/null 2>&1; then fixed "local CLI device approved"; device_ready=1
+          else printf '  FAIL  device known — could not approve the local CLI device; inspect: mso device list\n'; fails=$((fails+1)); fi
+        else
+          printf '  FAIL  device known — this CLI device is not approved; run: mso doctor --fix  (or mso device approve %s "mso cli")\n' "$d"
+          fails=$((fails+1))
+        fi ;;
+      *) echo "  --    device known    (skipped: --base is remote; check it on that host)"; device_ready=1 ;;
     esac
+
     fresh_session_check() {
       mso_private_state_remove_file "$JAR" || return 1
       JAR=$(mso_private_state_ensure_file "$JAR") || return 1
       [ "$(jget /api/auth/me | jq -r .authenticated)" = true ]
     }
-    chk "session"        "fresh_session_check" "cannot sign in — see the checks above"
+    if [ "$device_ready" = 1 ]; then
+      if ( fresh_session_check >/dev/null 2>&1 ); then
+        [ "$fix" = 1 ] && fixed "session refreshed" || echo "  ok    session"
+      else
+        printf '  FAIL  session — cannot sign in; verify password, approved device, and browser/CLI origin above\n'
+        fails=$((fails+1))
+      fi
+    else
+      printf '  FAIL  session — skipped until the local CLI device is approved\n'
+      fails=$((fails+1))
+    fi
     echo
+    if [ "$fix" = 1 ]; then
+      echo "--fix only changes safe local state: existing service start, this host's CLI approval, and its cookie jar."
+      echo "It never changes DNS, TLS certificates, firewall rules, public exposure, or credentials."
+    fi
     [ "$fails" -eq 0 ] && echo "all good." || echo "$fails check(s) failed."
     exit $(( fails > 0 ? 1 : 0 )) ;;
 

@@ -29,6 +29,12 @@ function parseApprovalArgs(args) {
   return { id, role, label: labelParts.join(" ") || "seeded device" };
 }
 
+function approvedExitCode({ args, deviceIdRe, read }) {
+  const id = args[1];
+  if (!id || !deviceIdRe.test(id)) return 2;
+  return read().approved[id] ? 0 : 1;
+}
+
 function setRoleResult({ args, deviceIdRe, withMutation, read, write }) {
   const id = args[1];
   const role = args[2];
@@ -52,4 +58,4 @@ function setRoleResult({ args, deviceIdRe, withMutation, read, write }) {
     : { code: 1, error: true, lines: [`not approved: ${id}`] };
 }
 
-module.exports = { DEVICE_ROLES, normalizeApproved, parseApprovalArgs, roleOf, setRoleResult };
+module.exports = { approvedExitCode, DEVICE_ROLES, normalizeApproved, parseApprovalArgs, roleOf, setRoleResult };

@@ -12,10 +12,29 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `cli` diagnose HTTPS login and add doctor --fix
 - `mcp` validate browser origins
+- `security` avoid recovery guard fsync convoy
+- `runtime` verify service readiness before handoff
+- `jobs` finish retention before releasing runtime
+- `runtime` preserve fallback recovery readiness
+- `runtime` keep service starts on shared exclusion
 - `settings` hide premature update warning
 - `update` enforce main and raise MCP daily limit
 - `mcp` raise daily token call limit
+- `gateway` canonicalize public origin assignment
+- `git` restore executable script modes
+- `runtime` close service installer and notice races
+- `install` hold update lock across checkout refresh
+- `install` restore service after pre-mutation abort
+
+**Tests**
+
+- `security` remove recovery marker TOCTOU
+- `gateway` assert one live tunnel after concurrent start
+- `install` read abort capture by descriptor
+- `install` align bootstrap and abort harness
+- `install` make abort recovery harness static
 
 **Docs**
 
