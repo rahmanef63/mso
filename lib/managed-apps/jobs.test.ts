@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { startManagedAppJob, readManagedAppJob, listManagedAppJobs } = await import("./jobs");
-const { MANAGED_APP_JOB_LOG_CAP } = await import("./job-runner");
+const { MANAGED_APP_JOB_LOG_CAP, liveRecord } = await import("./job-runner");
 const { performManagedAppAction } = await import("./manager");
 import type { ManagedAppJob } from "./types";
 
@@ -36,7 +36,17 @@ async function stub(name: string, body: string): Promise<string> {
 async function settle(jobId: string): Promise<ManagedAppJob> {
   for (let i = 0; i < 400; i += 1) {
     const job = await readManagedAppJob(jobId);
-    if (job && job.status !== "queued" && job.status !== "running") return job;
+    if (job && job.status !== "queued" && job.status !== "running") {
+      // `finish()` intentionally publishes the terminal status and releases the
+      // per-app lock before the final durable flush completes. Tests must wait
+      // for that background finalizer before deleting their temporary $HOME, or
+      // fs.rm can race writeJobRecord() and intermittently fail with ENOTEMPTY.
+      for (let finalize = 0; finalize < 200 && liveRecord(jobId); finalize += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      if (liveRecord(jobId)) throw new Error("job reached terminal status but finalization did not complete");
+      return (await readManagedAppJob(jobId)) ?? job;
+    }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   throw new Error("job never reached a terminal status");

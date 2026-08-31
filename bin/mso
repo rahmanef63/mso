@@ -209,6 +209,24 @@ service_unit_local_url() {
   printf 'http://127.0.0.1:%s' "$port"
 }
 
+service_wait_ready() {
+  local base="$1" attempts="${MSO_SERVICE_HEALTH_ATTEMPTS:-40}" expected_version body i curl_bin="${MSO_CURL_BIN:-curl}"
+  [[ "$attempts" =~ ^[0-9]+$ ]] && [ "$attempts" -ge 1 ] && [ "$attempts" -le 120 ] || attempts=40
+  expected_version="$(jq -r '.version // empty' "$ROOT/package.json" 2>/dev/null || true)"
+  [ -n "$expected_version" ] || return 1
+  for ((i = 1; i <= attempts; i++)); do
+    body="$("$curl_bin" --noproxy '*' -fsS --max-time 1 "$base/api/health" 2>/dev/null || true)"
+    if jq -e --arg version "$expected_version" '
+      type == "object" and .status == "ok" and .version == $version and
+      (.buildId | type == "string") and (.buildId | length > 0) and has("runtimeInstanceId")
+    ' <<<"$body" >/dev/null 2>&1; then
+      return 0
+    fi
+    [ "$i" -ge "$attempts" ] || sleep 0.25
+  done
+  return 1
+}
+
 service_handoff_marker() {
   local canonical base key dir
   canonical="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
@@ -254,7 +272,7 @@ service_restore_fallback_after_failure() {
 }
 
 service_lifecycle_safe() {
-  local verb="$1" rc=0 active=0
+  local verb="$1" rc=0 active=0 service_url
   require_service_checkout_cli
   runtime_exclusion_acquire_shared \
     || die "offline update/deploy is mutating this checkout or another service handoff is active; retry after it finishes"
@@ -262,6 +280,13 @@ service_lifecycle_safe() {
   SERVICE_FALLBACK_QUIESCED=0; SERVICE_HANDOFF_URL=''; SERVICE_HANDOFF_MARKER=''
   [ "$active" = 1 ] || service_handoff_fallback_locked
   service_manager_write "$verb" mso.service || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    service_url="$(service_unit_local_url)"
+    if ! service_wait_ready "$service_url"; then
+      printf 'mso: %s mso.service returned success but MSO did not become healthy at %s\n' "$verb" "$service_url" >&2
+      rc=24
+    fi
+  fi
   runtime_exclusion_release
   if [ "$rc" -ne 0 ]; then service_restore_fallback_after_failure; return "$rc"; fi
   [ -z "${SERVICE_HANDOFF_MARKER:-}" ] || mso_private_state_remove_file "$SERVICE_HANDOFF_MARKER" >/dev/null 2>&1 || true

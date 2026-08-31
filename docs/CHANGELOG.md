@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `runtime` verify service readiness before handoff
 - `runtime` keep service starts on shared exclusion
 - `settings` hide premature update warning
 - `update` enforce main and raise MCP daily limit

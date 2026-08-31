@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 
 const CLI = path.join(process.cwd(), "bin/mso");
+const VERSION = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")).version as string;
 const roots: string[] = [];
 
 function fixture() {
@@ -14,13 +15,15 @@ function fixture() {
   fs.mkdirSync(bin); fs.mkdirSync(home);
   const manager = path.join(bin, "manager");
   fs.writeFileSync(manager, `#!/bin/sh\nprintf 'manager %s\\n' "$*" >> "${capture}"\ncase "$*" in\n  'show -p WorkingDirectory --value mso.service') printf '%s\\n' "${process.cwd()}" ;;\n  'show -p Environment --value mso.service') printf 'PORT=4005\\n' ;;\n  'is-active --quiet mso.service') [ "\${MSO_TEST_SERVICE_ACTIVE:-1}" = 1 ] && exit 0; exit 3 ;;\n  'start mso.service'|'restart mso.service') [ "\${MSO_TEST_MANAGER_FAIL:-0}" = 1 ] && exit 23; exit 0 ;;\nesac\n`, { mode: 0o755 });
+  const curl = path.join(bin, "curl");
+  fs.writeFileSync(curl, `#!/bin/sh\nprintf 'curl %s\\n' "$*" >> "${capture}"\n[ "\${MSO_TEST_SERVICE_HEALTHY:-1}" = 1 ] || exit 22\nprintf '%s\\n' '{"status":"ok","version":"${VERSION}","buildId":"fixture","runtimeInstanceId":"service-fixture"}'\n`, { mode: 0o755 });
   const helper = path.join(root, "service-update");
   fs.writeFileSync(helper, `#!/bin/sh\nprintf 'helper %s\\n' "$*" >> "${capture}"\n`, { mode: 0o755 });
   const gateway = path.join(root, "gateway");
   fs.writeFileSync(gateway, `#!/bin/sh\nprintf 'gateway %s marker=%s local=%s\\n' "$*" "\${MSO_GATEWAY_RECOVERY_MARKER:-}" "\${MSO_GATEWAY_LOCAL_URL:-}" >> "${capture}"\ncase "$1" in\n  runtime-assert-update-safe) [ "\${MSO_TEST_FALLBACK:-0}" = 1 ] && echo 'runtime: update-owned' || echo 'runtime: update-safe' ;;\n  runtime-stop) [ -n "\${MSO_GATEWAY_RECOVERY_MARKER:-}" ] || exit 9; printf '1\\n' > "\$MSO_GATEWAY_RECOVERY_MARKER"; chmod 600 "\$MSO_GATEWAY_RECOVERY_MARKER"; echo 'runtime: stopped-owned' ;;\n  local-start) echo 'runtime: healthy MSO at fixture' ;;\n  *) exit 2 ;;\nesac\n`, { mode: 0o755 });
   const exclusion = path.join(root, "runtime-exclusion");
   const env = { ...process.env, HOME: home, MSO_ENV: "/dev/null", MSO_GATEWAY_LOCAL_URL: "http://127.0.0.1:4005",
-    MSO_SYSTEMCTL_BIN: manager, MSO_SERVICE_UPDATE_BIN: helper, MSO_GATEWAY_BIN: gateway, MSO_RUNTIME_EXCLUSION_DIR: exclusion, MSO_SERVICE_HANDOFF_DIR: path.join(root, "handoff") };
+    MSO_SYSTEMCTL_BIN: manager, MSO_CURL_BIN: curl, MSO_SERVICE_UPDATE_BIN: helper, MSO_GATEWAY_BIN: gateway, MSO_RUNTIME_EXCLUSION_DIR: exclusion, MSO_SERVICE_HANDOFF_DIR: path.join(root, "handoff") };
   return { root, capture, env, exclusion };
 }
 
@@ -73,6 +76,21 @@ describe("mso service/deploy runtime exclusion", () => {
     const calls = fs.readFileSync(f.capture, "utf8");
     expect(calls).toContain("gateway runtime-stop");
     expect(calls).toContain("manager start mso.service");
+    expect(calls).toContain("gateway local-start");
+  });
+
+
+  it("restores the gateway fallback if systemd starts but MSO never becomes healthy", () => {
+    const f = fixture();
+    const out = spawnSync(CLI, ["service", "start"], {
+      env: { ...f.env, MSO_TEST_SERVICE_ACTIVE: "0", MSO_TEST_FALLBACK: "1", MSO_TEST_SERVICE_HEALTHY: "0", MSO_SERVICE_HEALTH_ATTEMPTS: "1" }, encoding: "utf8",
+    });
+    expect(out.status).not.toBe(0);
+    expect(out.stderr).toContain("did not become healthy");
+    const calls = fs.readFileSync(f.capture, "utf8");
+    expect(calls).toContain("gateway runtime-stop");
+    expect(calls).toContain("manager start mso.service");
+    expect(calls).toContain("curl --noproxy * -fsS --max-time 1 http://127.0.0.1:4005/api/health");
     expect(calls).toContain("gateway local-start");
   });
 
