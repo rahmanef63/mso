@@ -17,6 +17,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `update` enforce main and raise MCP daily limit
 - `mcp` raise daily token call limit
 
+**Docs**
+
+- `mcp` mark guided setup shipped
+
 **Chores**
 
 - `deps` bump aquasecurity/trivy-action (#32)
