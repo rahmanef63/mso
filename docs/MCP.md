@@ -27,7 +27,7 @@ OS_MCP_MAX_SCOPE=read    # read | write | exec; default ceiling is exec
 ```
 
 After changing deployment environment, use the normal MSO update/rebuild path (Settings →
-About or `mso update run --rebuild`). A Git push or editing `.env.local` does not change the
+About or `mso update --rebuild`). A Git push or editing `.env.local` does not change the
 running service by itself.
 
 ## Connect an MCP client

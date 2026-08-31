@@ -6,8 +6,30 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-08-30
 
+**Added**
+
+- `gateway` secure laptop public access lifecycle
+- `gateway` add loopback-only public web gateway
+
 **Fixed**
 
+- `runtime` close update authority and stop races
+- `runtime` preserve installer and env lifecycles
+- `runtime` serialize deploy and service starts
+- `gateway` recheck web state under lock
+- `update` reject unowned live runtimes
+- `runtime` verify live update identities
+- `runtime` close final update web edges
+- `update` emit success after runtime restore
+- `update` serialize all checkout runtimes
+- `gateway` reject active named tunnel switches
+- `gateway` serialize runtime recovery and updates
+- `gateway` close final lifecycle boundaries
+- `gateway` close tunnel fork signal race
+- `gateway` serialize offline recovery state
+- `gateway` harden update and proxy edges
+- `gateway` close lifecycle review gaps
+- `security` harden gateway scanner fixtures
 - `install` survive Bun bin metadata corruption
 - `install` keep bootstrap guard shellcheck-clean
 - `install` guard earliest bootstrap prefix
@@ -20,6 +42,13 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `install` make WSL CLI setup reliable
 - `security` harden GitHub quality controls
 - `security` canonicalize writable path containment
+
+**Tests**
+
+- `gateway` treat zombie children as stopped
+- `gateway` isolate lifecycle fixtures
+- `cli` lock offline update dispatch
+- `gateway` harden hosted security fixtures
 
 **Docs**
 

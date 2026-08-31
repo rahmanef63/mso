@@ -3,7 +3,7 @@
 > **Current reference.** The one-command installer is the supported path for a normal
 > deployment. Manual commands below explain the model and recovery boundaries; release
 > developers should use `bun run ship`, while operators update through Settings → About or
-> `mso update run`.
+> `mso update` (`mso update run` remains accepted).
 
 ## 0. Requirements
 
@@ -14,6 +14,7 @@
 - a non-root user that owns MSO;
 - enough memory/swap for a Next production build (build needs more than idle runtime);
 - HTTPS through Tailscale Serve or a reverse proxy for normal non-localhost browser use.
+- CLI runtime tools `curl`, `jq`, GNU coreutils and util-linux `flock` (the installer adds missing packages on supported package managers).
 
 Optional Browser support additionally needs Camoufox, Xvfb, a lightweight X window manager,
 x11vnc, noVNC/websockify and a user systemd runtime.
@@ -39,16 +40,19 @@ The installer core:
    shell's PATH;
 3. verifies whether the invoking shell will actually resolve `mso` after the child installer
    returns, and persists an idempotent `~/.local/bin` PATH fallback for future shells;
-4. installs Bun/dependencies as needed;
-5. creates private owner auth configuration when missing;
-6. runs the production build through `node node_modules/next/dist/bin/next build`, bypassing Bun's
+4. before dependency or `.next` mutation, acquires the same checkout transaction/runtime exclusion used by
+   self-update, validates every owned gateway fallback, quiesces an active service only when it belongs to
+   this checkout, then quiesces gateway-owned fallback runtimes while preserving their public tunnels;
+5. installs Bun/dependencies as needed;
+6. creates private owner auth configuration when missing;
+7. runs the production build through `node node_modules/next/dist/bin/next build`, bypassing Bun's
    package-bin remapper; if the Next package payload itself is absent, it performs one bounded
    `bun install --force` repair before failing;
-7. installs the `mso.service` system unit only when systemd is really PID 1 (not merely when a
+8. installs the `mso.service` system unit only when systemd is really PID 1 (not merely when a
    `systemctl` executable exists);
-8. enables the owner's lingering user manager needed by self-update/managed-app user units;
-9. activates the service only after a successful build;
-10. on a fresh interactive install with a verified running service, opens `/dev/tty` and launches `mso onboard`.
+9. enables the owner's lingering user manager needed by self-update/managed-app user units;
+10. activates the service only after a successful build;
+11. on a fresh interactive install with a verified running service, opens `/dev/tty` and launches `mso onboard`.
 
 Useful flags:
 
@@ -67,8 +71,11 @@ Useful flags:
 The public bootstrap is delivered through pipeline stdin, and the core deliberately does not
 make interactive setup depend on that stream. It prompts through `/dev/tty`. If there is no controlling terminal it
 never waits for input and tells the operator to run `mso onboard` later. Re-running the
-installer updates an existing installation with the same build-before-replace safety rule
-and does not repeat onboarding unless `--onboard` is requested.
+installer updates an existing installation under the same checkout-wide runtime lifecycle: a WSL/no-systemd
+fallback is stopped before dependency/build mutation and restored afterward, and an existing system service
+must belong to the same checkout before the installer may quiesce it. `--no-service` refuses to rebuild a
+checkout that is already serving through its system service. Onboarding is not repeated unless `--onboard`
+is requested.
 
 ### Guided onboarding
 
@@ -79,8 +86,10 @@ mso onboard
 ```
 
 It first approves the **local CLI device** as Owner in the device allowlist (a process already running
-as the owning Unix account has equivalent host authority), then verifies the local service
-and session before asking for provider credentials. API keys are read with terminal echo
+as the owning Unix account has equivalent host authority). On a loopback install it then verifies the
+MSO `/api/health` contract; when WSL has no active system service it can start the already-built Next
+production runtime itself, still bound to loopback, before proving the authenticated session. A dead
+runtime is reported as a runtime problem — it is not misreported as a device-approval failure. API keys are read with terminal echo
 disabled and posted from stdin; they are not placed in the CLI/curl argv.
 
 The current provider choices are OpenAI ChatGPT/Codex device OAuth, plus API-key providers
@@ -99,6 +108,12 @@ terminal status.
 WSL can contain `systemctl` while still running a non-systemd PID 1. MSO treats those as two
 different capabilities: the CLI is installed normally, while the background service is skipped
 with an explicit message. This prevents service setup from aborting before `mso` exists.
+
+Without systemd, `mso web` is the supported local UI path: it starts the existing production build on
+loopback when necessary. `mso gateway start` adds an outbound temporary HTTPS tunnel on top of that
+without publishing the app port. `mso update` also works without the web API: it fast-forwards a clean
+`main`, installs dependencies, verifies an out-of-tree build, and builds in place while no service is
+active.
 
 For the full service on WSL2, enable systemd in `/etc/wsl.conf`:
 
@@ -135,6 +150,78 @@ ssh -N -L 4005:127.0.0.1:4005 you@your-server
 
 Then open `http://localhost:4005`. A `Secure` cookie is accepted on localhost, but ordinary
 plain-HTTP IP/hostnames will drop it.
+
+### Public preview from a laptop / WSL (no custom domain)
+
+Keep MSO bound to loopback. No system-wide tunnel package is required:
+
+```bash
+mso gateway doctor
+mso gateway install       # optional prefetch; `start` does this automatically
+mso gateway start
+mso gateway url
+mso web
+# when finished
+mso gateway stop
+```
+
+`gateway start` installs only the reviewed Cloudflare binary pinned by exact release URL + SHA-256
+in `security/gateway-artifacts.env`, then creates an outbound Quick Tunnel to `127.0.0.1:4005`; it
+never changes the application bind to `0.0.0.0`. The tool cache is user-local and the tunnel is run
+with Cloudflare auto-update disabled. The tunnel process also receives a scrubbed environment rather
+than inheriting MSO login/session/BYOK secrets from the application shell. If systemd is unavailable (common on WSL), it may start the
+already-built Next production runtime itself, still on `127.0.0.1`, and records whether that process
+is gateway-owned. `gateway stop` terminates only recorded identities: Cloudflared is matched by PID/start-time/executable/exact argv, while the Next fallback uses PID/start-time/Node executable plus a random runtime-instance nonce echoed by `/api/health` so Next's mutable process title cannot confuse ownership. After TERM/SIGKILL, MSO re-verifies that the exact recorded process identity disappeared before deleting lifecycle state; an unverified survivor leaves state intact and the stop fails closed. User-facing `gateway stop` also takes the checkout update transaction lock before the gateway lifecycle lock, so an in-flight update/installer must finish its runtime restore first; the operator's later stop is therefore final instead of being undone by stale restore inventory. Internal updater `runtime-stop` deliberately does not reacquire that transaction lock. Private state and logs are owner-only and scoped by the canonical checkout plus selected loopback
+origin. When a fallback is launched through a custom `mso --env /path/file web`, state stores only the
+validated env-file identity (canonical path, device and inode), never its secret contents. Update/installer
+restore revalidates that same owner/private non-symlink file and identity before sourcing it; a replacement
+or moved file fails closed while restore intent remains persisted instead of silently switching to
+`.env.local`. The fallback Next process uses the same held-child release handshake as Cloudflared, so neither
+child may execute before the parent records PID + kernel start-ticks. Gateway/update lifecycle
+transactions use kernel `flock`, which is released automatically when a process exits instead of
+trying to reclaim stale lock directories. A second checkout-wide shared/exclusive runtime lock blocks
+`mso web`/`gateway start` while an offline update is mutating `.next`; the updater releases that
+exclusive lock only after the build tree and deployment receipt are stable, then restores the runtime.
+If a tunnel is still alive but its local runtime died, `mso gateway start` reconciles/restarts the
+runtime, preserves the existing tunnel identity, and re-verifies the public endpoint before reporting
+success. Before a public tunnel is accepted, MSO snapshots the
+selected local `{version, buildId, runtimeInstanceId}` and requires the HTTPS endpoint to return the
+exact same identity; a same-version deployment routed from the wrong hostname is rejected.
+
+This is intentionally labeled **temporary preview**. The random `trycloudflare.com` URL changes on
+restart, and Cloudflare Quick Tunnels do not support Server-Sent Events; MSO Terminal's live output
+uses SSE. Use a named tunnel/stable HTTPS origin for full functionality.
+
+Do not add the random Quick Tunnel URL to `OS_PUBLIC_ORIGIN`: that variable is deployment authority
+for stable MCP/share/CSP URLs. If a stable value is already configured, temporary mode leaves it
+untouched and warns that generated links may continue to name the stable origin.
+
+### Stable custom domain / named Cloudflare Tunnel
+
+```bash
+mso gateway domain set https://mso.example.com
+```
+
+The command validates a clean HTTPS origin, atomically updates only `OS_PUBLIC_ORIGIN` in
+`.env.local`, and prints a named-tunnel ingress example whose upstream remains loopback. Create the
+Cloudflare tunnel/DNS credentials using Cloudflare's official CLI, then start it without putting a
+token on the command line:
+
+```bash
+mso gateway start --config ~/.cloudflared/config.yml --tunnel mso
+
+If another gateway is already active, stop it first with `mso gateway stop`. MSO refuses to silently ignore explicit named-tunnel arguments or switch tunnel modes underneath an active endpoint.
+mso web
+```
+
+The config must be a regular file owned by the current user and must not be group/world-writable.
+MSO parses it before launch and requires exactly one ingress hostname matching `OS_PUBLIC_ORIGIN`
+that points to the configured MSO loopback port, followed by `http_status:404`; its
+`credentials-file` must be a private owner-owned regular file. This prevents a config intended for
+MSO from silently publishing other laptop services. For a permanent Internet-facing control plane,
+add Cloudflare Access/WAF policy (or equivalent) in front of MSO in addition to MSO's password +
+approved-device gate. Rebuild/restart MSO after
+changing stable origin or split-host environment configuration.
 
 ### Tailscale (recommended)
 
@@ -207,7 +294,7 @@ when the application exists.
 Production health is:
 
 ```text
-GET /api/health -> {status, buildId, uptime, version}
+GET /api/health -> {status, service, buildId, buildSha, runtimeInstanceId, uptime, version}
 ```
 
 ### Service Center policy
@@ -360,19 +447,43 @@ no API-key storage. Do not toggle demo mode in the production owner checkout.
 Use Settings → About or:
 
 ```bash
-mso update status
-mso update run
+mso update status     # fetch + show incoming CLI version/commits
+mso update            # preferred: update safely even if :4005 is down
 mso update log
 ```
 
-The updater verifies the incoming checkout/build before replacing the service. A successful
-finalizer log ends with `UPDATE OK`.
+The updater verifies the incoming checkout/build before replacing the service. A normal `mso update` treats fetched `origin/main` as the release authority: after any fast-forward, local `main` must equal that remote commit exactly. A clean branch that is locally ahead or diverged is refused before dependency/build mutation instead of deploying unpushed code. `mso update status` reports that state explicitly. `mso update --rebuild` is different by design: it rebuilds the already-selected clean checkout without changing Git history. With an active
+`mso.service` it first canonicalizes the unit's `WorkingDirectory` and requires it to equal the checkout
+that invoked `mso update`; a secondary clone is never allowed to restart an unrelated live service.
+The updater then runs outside that service cgroup so it survives the restart. With no active
+service (including WSL without systemd), it performs the clean fast-forward/dependency/verify/build
+path locally. Before an offline build mutates dependencies or `.next`, MSO also verifies the selected
+loopback origin is either down or represented by gateway-owned lifecycle state; a manually started or
+otherwise unowned healthy MSO runtime is refused and must be stopped first. Before either the
+service-active or offline in-place build, update inventories every gateway state for the canonical checkout, quiesces each verified owned fallback runtime, leaves active tunnel identities intact, rebuilds, then restores every previously-owned origin with the exact env-file identity recorded for that fallback. Older owned state that predates env identity is refused before the runtime is stopped; run the same `mso --env ... web`/gateway path once to migrate it safely. A
+checkout-scoped private deployment receipt and restart marker mean a dependency/build failure after
+Git already reached `origin/main` is retried by the next ordinary `mso update` instead of being
+mislabeled "already up to date". The state is keyed by canonical checkout path, so two clones at the
+same SHA cannot borrow each other's receipt. One owner-only transaction lock covers every service-active or offline in-place update, from source/receipt reconciliation through gateway runtime restore and receipt write. Recovery intent is written to private state
+before a gateway-owned runtime is quiesced, so an interrupted post-quiesce state update stays retryable.
+Interactive CLI commands also show a throttled Git-backed source-update notice. When the system
+service is active and source is already current, the notice/status path performs a bounded loopback
+`/api/health` identity check and offers `mso update --rebuild` if the running build SHA differs or
+cannot be proven. The offline updater itself remains API-independent. A successful service finalizer
+log ends with `UPDATE OK`.
 
 If the installed source is correct but the production build tree is inconsistent, use:
 
 ```bash
-mso update run --rebuild
+mso update --rebuild
 ```
+
+`mso deploy` is the developer-facing rebuild for an already-active `mso.service`. It now uses the same
+outer checkout runtime lifecycle as self-update: verify the service belongs to this checkout, hold the
+exclusive mutation boundary, quiesce every owned fallback runtime, rebuild/restart the service, then
+restore those fallbacks. `mso service start` and `mso service restart` take the shared side of that same
+checkout lock and refuse while an offline update/deploy is mutating `.next`; they also refuse when the
+installed service belongs to another checkout.
 
 ### Developer release
 
@@ -395,7 +506,7 @@ Prefer an explicit known-good Git commit and the same verified rebuild/update ma
 not ad-hoc partial `.next` changes. Keep the old running process alive if the candidate
 build itself fails.
 
-For a live chunk mismatch after the source ref is already correct, `mso update run --rebuild`
+For a live chunk mismatch after the source ref is already correct, `mso update --rebuild`
 is the supported recovery path. Verify `/api/health` and `scripts/post-deploy-smoke.sh`
 afterward.
 

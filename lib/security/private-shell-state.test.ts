@@ -82,6 +82,20 @@ describe("private shell state", () => {
     expect(fs.statSync(file).mode & 0o777).toBe(0o600);
   });
 
+  it("propagates atomic rename failure even when the caller invokes it from a conditional", () => {
+    const root = tempRoot();
+    const dir = path.join(root, "private"), bin = path.join(root, "bin");
+    fs.mkdirSync(dir, { mode: 0o700 }); fs.mkdirSync(bin, { mode: 0o700 });
+    const file = path.join(dir, "session.json");
+    fs.writeFileSync(file, "old", { mode: 0o600 });
+    fs.writeFileSync(path.join(bin, "mv"), "#!/bin/sh\nexit 33\n", { mode: 0o700 });
+    const run = bash(`PATH=${JSON.stringify(bin)}:$PATH; if printf new | mso_private_state_atomic_write ${JSON.stringify(file)} >/dev/null; then echo unexpected; exit 91; else echo failed; fi`);
+    expect(run.status).toBe(0);
+    expect(run.stdout.trim()).toBe("failed");
+    expect(fs.readFileSync(file, "utf8")).toBe("old");
+    expect(fs.readdirSync(dir).filter((name) => name.startsWith(".mso-private-write."))).toEqual([]);
+  });
+
   it("wires both clients away from shared /tmp defaults and validates every bearer file", () => {
     const cli = fs.readFileSync(CLI, "utf8");
     const editor = fs.readFileSync(EDITOR, "utf8");

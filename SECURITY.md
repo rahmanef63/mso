@@ -26,10 +26,31 @@ application roles, but they still share the same deployment and underlying Unix 
 - Run MSO as a dedicated non-root user.
 - Prefer Tailscale/VPN for a real deployment.
 - Otherwise use HTTPS plus firewall/allowlist controls in front of the app.
-- Do not expose the raw app port directly to the public internet.
+- Do not expose the raw app port directly to the public internet. On laptop/WSL installs,
+  `mso gateway start` keeps MSO on loopback and creates an outbound HTTPS tunnel instead. The
+  temporary no-domain mode is preview-only; use a named tunnel/TLS reverse proxy plus an upstream
+  access policy for a permanent Internet-facing control plane.
 - Keep `OS_FS_WRITE_ROOTS` narrow and review read roots deliberately.
 - Do not commit `.env.local`, model credentials or data under `~/.mso`.
+- Gateway/update lifecycle state is owner-only and fail-closed: public tunneling requires verified
+  loopback-only exposure; offline recovery uses checkout-scoped receipts, an exclusive process-identity
+  lock, and durable pre-quiesce recovery intent rather than treating Git HEAD as deployment proof.
+  Tunnel and fallback-runtime startup additionally use a parent/child release handshake, so neither
+  Cloudflared nor Next can execute before its process lifetime is tracked; interruption before release
+  makes the held child self-exit. Gateway state is namespaced by canonical checkout + loopback origin,
+  lifecycle/update serialization uses crash-released kernel `flock`; a checkout-wide runtime
+  exclusion prevents `mso web`/gateway runtime starts during any in-place `.next` mutation; service-active and offline updates inventory/quiesce every checkout-owned fallback runtime, and a live
+  tunnel with a dead local runtime is reconciled before reuse. Public readiness must match the exact
+  local build/runtime identity rather than only the MSO version.
 - Use `NEXT_PUBLIC_OS_DEMO=1` only in a separate mock-only public demo checkout.
+
+The core gateway client follows the same immutable-artifact rule as managed apps: MSO pins the
+official `cloudflared` release URL and SHA-256 per supported Linux architecture in
+`security/gateway-artifacts.env`, stores it user-locally, re-hashes before execution, and disables
+Cloudflare self-update. `MSO_GATEWAY_CLOUDFLARED` is an explicit operator override, not an automatic
+PATH fallback. The tunnel child starts from a scrubbed environment (HOME/PATH/LANG only); MSO login,
+session, provider and API-key environment variables stay with the application runtime and are not
+inherited by `cloudflared`.
 
 ## Authentication and sessions
 

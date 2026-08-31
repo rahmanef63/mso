@@ -15,7 +15,7 @@ let sha = "";
 
 beforeAll(async () => {
   await fs.mkdir(path.join(repo, "scripts"), { recursive: true });
-  await fs.writeFile(path.join(repo, "scripts", "self-update.sh"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  await fs.writeFile(path.join(repo, "scripts", "mso-service-update"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   await run("git", ["init", "-q", "-b", "main"], { cwd: repo });
   await run("git", ["config", "user.name", "MSO Test"], { cwd: repo });
   await run("git", ["config", "user.email", "mso-test@example.invalid"], { cwd: repo });
@@ -60,7 +60,7 @@ describe("MCP ship handoff", () => {
       `--setenv=MSO_UPDATE_LOG=${log}`,
       `--setenv=MSO_EXPECTED_SHA=${sha}`,
       "/bin/bash",
-      path.join(repo, "scripts", "self-update.sh"),
+      path.join(repo, "scripts", "mso-service-update"),
       "--ship-finalize",
     ]);
     expect(stdout).toContain(`release_sha=${sha}`);

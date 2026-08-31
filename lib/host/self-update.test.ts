@@ -54,7 +54,7 @@ describe("updateUnitArgs", () => {
     expect(args.slice(0, 2)).toEqual(["--user", "--collect"]);
     expect(args).toContain("--unit=mso-self-update");
     expect(args).toContain("--property=WorkingDirectory=/srv/mso");
-    expect(args).toContain("/srv/mso/scripts/self-update.sh");
+    expect(args).toContain("/srv/mso/scripts/mso-service-update");
     expect(args).not.toContain("--rebuild-only");
     expect(args.some((arg) => arg.startsWith("--property=User="))).toBe(false);
     expect(args.join(" ")).not.toContain("sudo");

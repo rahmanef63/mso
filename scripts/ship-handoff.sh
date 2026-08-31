@@ -18,8 +18,8 @@ case "$EXPECTED_SHA" in
   *[!0-9a-f]*) echo "expected SHA must be exactly 40 lowercase hex characters" >&2; exit 2 ;;
 esac
 ROOT="$(cd "$ROOT" && pwd -P)"
-SELF_UPDATE="$ROOT/scripts/self-update.sh"
-[ -f "$SELF_UPDATE" ] || { echo "missing $SELF_UPDATE" >&2; exit 2; }
+SERVICE_UPDATE="$ROOT/scripts/mso-service-update"
+[ -f "$SERVICE_UPDATE" ] || { echo "missing $SERVICE_UPDATE" >&2; exit 2; }
 [ "$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)" = "$ROOT" ] \
   || { echo "$ROOT is not the repository root" >&2; exit 2; }
 [ "$(git -C "$ROOT" rev-parse HEAD)" = "$EXPECTED_SHA" ] \
@@ -48,7 +48,7 @@ systemd-run \
   "--property=TimeoutStartSec=3600" \
   "--setenv=MSO_UPDATE_LOG=$LOG" \
   "--setenv=MSO_EXPECTED_SHA=$EXPECTED_SHA" \
-  /bin/bash "$SELF_UPDATE" --ship-finalize
+  /bin/bash "$SERVICE_UPDATE" --ship-finalize
 
 printf 'release_sha=%s\n' "$EXPECTED_SHA"
 printf 'release_unit=%s.service\n' "$UNIT"

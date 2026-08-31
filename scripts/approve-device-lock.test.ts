@@ -27,6 +27,9 @@ describe("approve-device cross-process lock protocol", () => {
     });
     try {
       expect(run([device, "owner laptop", "--role", "owner"]).status).toBe(0);
+      const same = run([device, "same laptop", "--role", "owner"]);
+      expect(same.status).toBe(0);
+      expect(same.stdout).toContain("already approved");
       const second = run([device, "same laptop", "--role", "viewer"]);
       expect(second.status).not.toBe(0);
       expect(second.stderr).toContain("already approved");

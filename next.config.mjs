@@ -109,6 +109,8 @@ const nextConfig = {
           // every rahmanef.com subdomain is HTTPS-only.
           { key: "Strict-Transport-Security", value: "max-age=31536000" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // MSO is a private control plane even when reached through a temporary HTTPS tunnel.
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
           // Public remote shell — never allow it to be framed (clickjacking on
           // exec/fs buttons). The full Content-Security-Policy (incl. a nonce'd
           // script-src) is set PER-REQUEST in proxy.ts so a fresh nonce can gate

@@ -259,18 +259,16 @@ if (!id || !DEVICE_ID_RE.test(id) || !DEVICE_ROLES.has(role)) {
   console.error("deviceId must be 16-128 hex/uuid chars; role must be viewer, operator, or owner");
   process.exit(1);
 }
-const approved = withMutation(() => {
-  const store = read();
-  if (store.approved[id]) throw new Error("device is already approved; use --set-role");
+const result = withMutation(() => {
+  const store = read(), existing = store.approved[id];
+  if (existing && roleOf(existing) !== role) throw new Error(`device is already approved as role=${roleOf(existing)}; use --set-role to change privileges`);
+  if (existing) return { entry: existing, already: true };
   const pending = store.pending[id];
   store.approved[id] = {
-    label: label !== "seeded device" ? label : (pending && pending.label) || label,
-    approvedAt: Date.now(),
-    role,
+    label: label !== "seeded device" ? label : (pending && pending.label) || label, approvedAt: Date.now(), role,
   };
-  delete store.pending[id];
-  write(store);
-  return store.approved[id];
+  delete store.pending[id]; write(store);
+  return { entry: store.approved[id], already: false };
 });
-console.log(`approved ${id}  "${approved.label}"  role=${approved.role}`);
-console.log("-> that device can now sign in with the password.");
+console.log(`${result.already ? "already approved" : "approved"} ${id}  "${result.entry.label}"  role=${result.entry.role}`);
+if (!result.already) console.log("-> that device can now sign in with the password.");

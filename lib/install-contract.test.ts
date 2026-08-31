@@ -118,9 +118,26 @@ describe("one-line installer contract", () => {
     expect(src).toContain('export PATH="$BIN_DIR:$PATH"');
     expect(src).toContain('custom MSO_BIN_DIR is not persisted automatically');
     expect(src).toContain("ensure_cli_tools()");
-    expect(src).toContain("curl jq coreutils");
+    expect(src).toContain("curl jq coreutils util-linux");
+    expect(src).toContain("sha256sum flock");
     expect(src).toContain('[ -x "$BIN_DIR/mso" ]');
     expect(src).toContain('CLI launcher self-check failed');
+  });
+
+  it("holds the checkout runtime lifecycle across dependency/build and service refresh", () => {
+    const src = fs.readFileSync(CORE, "utf8");
+    const begin = src.indexOf("install_runtime_lifecycle_begin");
+    const deps = src.indexOf("INSTALL_PHASE=dependencies");
+    const build = src.indexOf('node "$NEXT_BIN" build');
+    const service = src.indexOf("# ---- systemd unit ----");
+    const finish = src.indexOf("install_runtime_lifecycle_finish");
+    expect(begin).toBeGreaterThan(0);
+    expect(begin).toBeLessThan(deps);
+    expect(deps).toBeLessThan(build);
+    expect(build).toBeLessThan(service);
+    expect(service).toBeLessThan(finish);
+    expect(src).toContain('trap install_runtime_lifecycle_cleanup EXIT');
+    expect(src).toContain('scripts/lib/install-runtime-lifecycle.sh');
   });
 
   it("bypasses Bun bin remapping for production build and repairs only a missing package payload", () => {

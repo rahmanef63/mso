@@ -278,20 +278,21 @@ ensure_buildtools() {
 }
 
 ensure_cli_tools() {
-  # bin/mso uses jq for JSON shaping and coreutils for guarded file identity.
+  # bin/mso uses jq for JSON shaping, coreutils for guarded file identity, and
+  # util-linux flock for crash-safe gateway/update transaction locks.
   # A pristine WSL/Ubuntu image may have Node+Bun but no jq. Install these before
   # creating the launcher so `mso -h` is a real installer postcondition.
   local missing=0 tool
-  for tool in curl jq realpath stat mktemp sha256sum; do
+  for tool in curl jq realpath stat mktemp sha256sum flock; do
     command -v "$tool" >/dev/null 2>&1 || { missing=1; break; }
   done
   [ "$missing" -eq 0 ] && return
-  info "installing CLI runtime tools (curl, jq, coreutils)…"
-  if   command -v apt-get >/dev/null 2>&1; then sudo_do apt-get update -qq && sudo_do apt-get install -y -qq curl jq coreutils
-  elif command -v dnf     >/dev/null 2>&1; then sudo_do dnf install -y -q curl jq coreutils
-  elif command -v pacman  >/dev/null 2>&1; then sudo_do pacman -Sy --noconfirm curl jq coreutils
-  else die "mso CLI needs curl, jq, realpath, stat, mktemp and sha256sum; install the missing tools, then rerun."; fi
-  for tool in curl jq realpath stat mktemp sha256sum; do
+  info "installing CLI runtime tools (curl, jq, coreutils, util-linux)…"
+  if   command -v apt-get >/dev/null 2>&1; then sudo_do apt-get update -qq && sudo_do apt-get install -y -qq curl jq coreutils util-linux
+  elif command -v dnf     >/dev/null 2>&1; then sudo_do dnf install -y -q curl jq coreutils util-linux
+  elif command -v pacman  >/dev/null 2>&1; then sudo_do pacman -Sy --noconfirm curl jq coreutils util-linux
+  else die "mso CLI needs curl, jq, realpath, stat, mktemp, sha256sum and flock; install the missing tools, then rerun."; fi
+  for tool in curl jq realpath stat mktemp sha256sum flock; do
     command -v "$tool" >/dev/null 2>&1 || die "CLI runtime dependency still missing after package install: $tool"
   done
 }
@@ -409,6 +410,16 @@ else
   fi
 fi
 
+
+INSTALL_PHASE=runtime-safety
+# ---- freeze every runtime that can read this checkout before dependency/build mutation ----
+# The lifecycle remains open through service refresh. On failure, EXIT releases locks
+# but intentionally keeps gateway restore intent so a broken build is never served.
+# shellcheck source=scripts/lib/install-runtime-lifecycle.sh
+. "$DIR/scripts/lib/install-runtime-lifecycle.sh"
+trap install_runtime_lifecycle_cleanup EXIT
+trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
+install_runtime_lifecycle_begin
 
 INSTALL_PHASE=dependencies
 # ---- deps (compiles node-pty) ----
@@ -579,6 +590,13 @@ elif [ "$DO_SERVICE" -eq 1 ]; then
     warn "systemd is not available as PID 1 — service install skipped; run manually: PORT=$PORT bun run start"
   fi
 fi
+
+INSTALL_PHASE=runtime-restore
+# `.next` and service state are stable. Release the exclusive mutation lock before
+# local-start takes its shared side, then restore every previously-owned fallback
+# using the exact env-file identity persisted with that runtime.
+install_runtime_lifecycle_finish
+trap - EXIT HUP INT TERM
 
 INSTALL_PHASE=integrations
 # ---- optional Claude Code integration ----

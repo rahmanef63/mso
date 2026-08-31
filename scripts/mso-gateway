@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# MSO local/public gateway dispatcher. Public access is always an outbound HTTPS
+# tunnel; the Next application itself remains on a validated loopback origin.
+set -euo pipefail
+umask 077
+
+ROOT="${MSO_GATEWAY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+ENVF="${MSO_GATEWAY_ENV:-$ROOT/.env.local}"
+LOCAL_URL_OVERRIDE="${MSO_GATEWAY_LOCAL_URL:-}"
+LOCAL_URL=""
+STATE_ROOT_OVERRIDE="${MSO_GATEWAY_STATE_DIR:-}"
+UPDATE_STATE_DIR_REQUESTED="${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}"
+STATE_ROOT=''
+GATEWAY_CANONICAL_ROOT=''
+GATEWAY_SCOPE_ID=''
+GATEWAY_ENV_IDENTITY=''
+CLOUDFLARED=""
+CURL="${MSO_GATEWAY_CURL:-$(command -v curl 2>/dev/null || true)}"
+
+for dep in node jq sha256sum realpath stat mktemp flock; do command -v "$dep" >/dev/null || { echo "mso gateway: missing dependency: $dep" >&2; exit 1; }; done
+[ -n "$CURL" ] || { echo "mso gateway: curl is required" >&2; exit 1; }
+
+# shellcheck source=scripts/lib/private-state.sh
+. "$ROOT/scripts/lib/private-state.sh"
+# shellcheck source=scripts/lib/gateway-common.sh
+. "$ROOT/scripts/lib/gateway-common.sh"
+# Source config early because it owns the single env-file safety validator.
+# shellcheck source=scripts/lib/gateway-config.sh
+. "$ROOT/scripts/lib/gateway-config.sh"
+# update-state uses the caller's fail() boundary; bridge it to the gateway error prefix.
+fail() { gateway_fail "$@"; }
+# shellcheck source=scripts/lib/update-state.sh
+. "$ROOT/scripts/lib/update-state.sh"
+
+# Direct `scripts/mso-gateway` calls and `mso gateway` must have the same runtime
+# environment. Persist only the validated file identity — never env contents.
+GATEWAY_ENV_IDENTITY="$(gateway_env_identity)"
+gateway_assert_expected_env_identity "$GATEWAY_ENV_IDENTITY"
+if [ "$ENVF" != /dev/null ] && { [ -e "$ENVF" ] || [ -L "$ENVF" ]; }; then
+  # shellcheck disable=SC1090
+  set -a; . "$ENVF"; set +a
+fi
+LOCAL_URL="${LOCAL_URL_OVERRIDE:-${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}}"
+LOCAL_URL="$(gateway_validate_loopback_origin "$LOCAL_URL" 2>/dev/null || true)"
+[ -n "$LOCAL_URL" ] || gateway_fail "refusing non-loopback/invalid upstream; use a clean http://127/8, localhost, or ::1 origin with an explicit port"
+GATEWAY_CANONICAL_ROOT="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
+[ -n "$GATEWAY_CANONICAL_ROOT" ] || gateway_fail "cannot canonicalize MSO checkout: $ROOT"
+GATEWAY_SCOPE_ID="$(printf '%s\n%s' "$GATEWAY_CANONICAL_ROOT" "$LOCAL_URL" | sha256sum | awk '{print $1}')"
+[[ "$GATEWAY_SCOPE_ID" =~ ^[0-9a-f]{64}$ ]] || gateway_fail "cannot derive gateway state scope"
+if [ -n "$STATE_ROOT_OVERRIDE" ]; then
+  STATE_ROOT="$(mso_private_state_dir "$STATE_ROOT_OVERRIDE")" || gateway_fail "unsafe gateway state directory"
+else
+  STATE_BASE="$(mso_private_state_dir "$HOME/.mso/private/gateway")" || gateway_fail "unsafe gateway state base"
+  STATE_ROOT="$(mso_private_state_dir "$STATE_BASE/$GATEWAY_SCOPE_ID")" || gateway_fail "unsafe scoped gateway state directory"
+fi
+STATE_FILE="$STATE_ROOT/state.json"
+CF_LOG="$STATE_ROOT/cloudflared.log"
+RUNTIME_LOG="$STATE_ROOT/runtime.log"
+LOCK_FILE="$STATE_ROOT/lifecycle.lock"
+LOCK_HELD=0
+GATEWAY_LOCK_FD=''
+
+# shellcheck source=scripts/lib/gateway-network.sh
+. "$ROOT/scripts/lib/gateway-network.sh"
+# shellcheck source=scripts/lib/gateway-tool.sh
+. "$ROOT/scripts/lib/gateway-tool.sh"
+# shellcheck source=scripts/lib/gateway-lock.sh
+. "$ROOT/scripts/lib/gateway-lock.sh"
+# shellcheck source=scripts/lib/runtime-exclusion.sh
+. "$ROOT/scripts/lib/runtime-exclusion.sh"
+# shellcheck source=scripts/lib/gateway-health.sh
+. "$ROOT/scripts/lib/gateway-health.sh"
+# shellcheck source=scripts/lib/gateway-recovery.sh
+. "$ROOT/scripts/lib/gateway-recovery.sh"
+# shellcheck source=scripts/lib/gateway-runtime.sh
+. "$ROOT/scripts/lib/gateway-runtime.sh"
+# shellcheck source=scripts/lib/gateway-pending.sh
+. "$ROOT/scripts/lib/gateway-pending.sh"
+# shellcheck source=scripts/lib/gateway-tunnel.sh
+. "$ROOT/scripts/lib/gateway-tunnel.sh"
+# shellcheck source=scripts/lib/gateway-reconcile.sh
+. "$ROOT/scripts/lib/gateway-reconcile.sh"
+gateway_with_runtime_shared() {
+  runtime_exclusion_acquire_shared || gateway_fail "offline update is mutating this checkout; retry after mso update finishes"
+  "$@"
+  runtime_exclusion_release
+}
+
+gateway_stop_serialized() {
+  local rc=0
+  # User stop is an operator intent that must be ordered AFTER any in-flight
+  # update/install transaction restores its fallback inventory. Internal
+  # runtime-stop intentionally does not take this lock (the updater already owns it).
+  update_lock_acquire
+  gateway_with_lock gateway_cmd_stop_locked || rc=$?
+  update_lock_release
+  return "$rc"
+}
+
+case "${1:-status}" in
+  start) gateway_parse_start_args "$@"; gateway_with_lock gateway_with_runtime_shared gateway_cmd_start_locked ;;
+  stop) gateway_stop_serialized ;;
+  status) gateway_cmd_status ;;
+  url) gateway_cmd_url ;;
+  doctor) gateway_cmd_doctor ;;
+  install) gateway_cmd_install_tool ;;
+  domain) shift; gateway_cmd_domain "$@" ;;
+  web) gateway_cmd_web "$@" ;;
+  local-start) gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked ;; # internal: onboard/web/update fallback
+  runtime-assert-update-safe) gateway_with_lock gateway_cmd_runtime_assert_update_safe_locked ;; # internal: read-only offline-build preflight
+  runtime-stop) gateway_with_lock gateway_cmd_runtime_stop_locked ;; # internal: quiesce owned runtime before offline build
+  *) gateway_fail "usage: mso gateway start|stop|status|url|doctor|install|domain ..." ;;
+esac

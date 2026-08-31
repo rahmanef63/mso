@@ -120,9 +120,9 @@ mso_private_state_atomic_write() {
   tmp=$(mktemp "$parent/.mso-private-write.XXXXXX")
   umask "$old_umask"
   trap 'rm -f -- "${tmp:-}"' RETURN
-  cat >"$tmp"
-  chmod 600 -- "$tmp"
-  mv -fT -- "$tmp" "$resolved"
+  if ! cat >"$tmp"; then rm -f -- "$tmp"; tmp=''; trap - RETURN; return 1; fi
+  if ! chmod 600 -- "$tmp"; then rm -f -- "$tmp"; tmp=''; trap - RETURN; return 1; fi
+  if ! mv -fT -- "$tmp" "$resolved"; then rm -f -- "$tmp"; tmp=''; trap - RETURN; return 1; fi
   tmp=''
   trap - RETURN
   mso_private_state_validate_file "$resolved"

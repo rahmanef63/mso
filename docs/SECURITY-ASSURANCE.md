@@ -19,10 +19,11 @@ The standing baseline is informed by **OWASP ASVS 5.0.0**. MSO does not claim an
 | AI-assisted code audit | OpenAI Codex Security `scan-components` | Twenty explicit component scans covering the tracked repository, followed by cross-component root-cause matching | Every component and matching must complete; High/Critical groups fail |
 | Supply chain | OpenSSF Scorecard | Public repository security posture: pinned dependencies, branch protection, review process and related heuristics | Score is published as external evidence, not self-awarded |
 | Managed-app artifact integrity | SHA-256/SHA-512 verification + OCI RepoDigest checks | Hermes release installer/checkout, exact OpenClaw tarball and 9Router multi-arch image are immutable execution identities | Any mismatch fails before installer/package/image execution |
+| Public-gateway artifact integrity | Release URL + SHA-256 verification | `cloudflared` Linux binaries are pinned per architecture, cached user-locally, re-hashed before reuse and run with auto-update disabled | Any mismatch fails before tunnel execution |
 | Dependency changes | GitHub Dependency Review | Vulnerabilities newly introduced by pull requests | High/Critical introduced dependency fails |
 | SBOM | Trivy CycloneDX | Machine-readable component inventory | Generated on Security Core workflow |
 
-All GitHub Actions referenced by the repository are pinned to immutable commit SHAs. Scanner containers used by the reproducible local gate are pinned to image digests. Managed-app release identities are separately recorded in `security/managed-app-artifacts.env`; moving tags are never accepted as installation identities.
+All GitHub Actions referenced by the repository are pinned to immutable commit SHAs. Scanner containers used by the reproducible local gate are pinned to image digests. Managed-app release identities are separately recorded in `security/managed-app-artifacts.env`, while the core public-gateway client is recorded in `security/gateway-artifacts.env`; moving tags are never accepted as execution identities.
 
 ## GitHub security controls
 

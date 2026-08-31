@@ -20,6 +20,108 @@ forward the real client IP consistently so every user does not share the proxy a
 Expected for a new browser. Approve the shown device id from an already-approved browser
 (Settings → Devices) or from the server using the approval script.
 
+### `mso onboard` approved the CLI device, then says port 4005 is unreachable
+
+Device approval and runtime liveness are separate. Current MSO does not tell you to approve the same
+device again for a connection failure: on loopback, onboarding asks the gateway runtime helper to
+verify the MSO health contract and, on WSL/no-service installs, start the already-built production
+runtime on loopback. If the build is missing or stale, run `mso update`, then `mso web`, then resume
+`mso onboard`. Running `mso device approve <id>` again with the same role is idempotent; changing an
+existing device role still requires the explicit `mso device role` command.
+
+### How do I update when the web UI / port 4005 is down?
+
+Run `mso update`. The CLI updater reads/fetches `origin/main` directly and does not need the MSO API.
+On WSL without an active service it verifies and builds the clean updated checkout. Every gateway-owned fallback runtime for that canonical checkout is inventoried and quiesced before `.next` changes, then restored afterward while active tunnel identities are preserved. Checkout-scoped private deployment receipts/restart markers
+survive partial failures, so rerunning the same `mso update` retries dependency/build/restart work even
+when Git HEAD already equals `origin/main`. Offline transactions are serialized; do not remove the
+owner-only update-state directory just to bypass a pending recovery. Recovery intent is written before
+a gateway-owned runtime is quiesced, so an interrupted state update remains safely retryable. Use
+`mso update status` for source/deployment state and `mso update log` for the service-updater transcript.
+When `mso.service` is active, status also compares the commit baked into the live loopback `/api/health`
+response with source `HEAD`; source equality alone is not treated as proof that deployment finished.
+
+### `mso update` says local main is ahead/diverged from `origin/main`
+
+This is an authority refusal, not an updater failure. Normal update may deploy only the fetched `origin/main`
+release. Push the intended commit to `origin/main`, or reconcile/reset the checkout, then rerun `mso update`.
+MSO will not silently build a clean but unpushed local commit. If Git source is intentionally already correct
+and only the production build needs repair, `mso update --rebuild` rebuilds that selected clean checkout
+without fetching or rewriting Git history.
+
+### Re-running the installer while MSO is already running
+
+Supported reruns now use the same checkout-wide mutation boundary as self-update before dependency install
+or `.next` build. A same-checkout service is quiesced and refreshed as part of the installer lifecycle;
+gateway-owned WSL/no-systemd fallbacks are inventoried, stopped and restored afterward with their original
+env-file identities. A service from another checkout, an unowned loopback runtime, or `--no-service` against
+an active same-checkout service is refused before mutation.
+
+### `mso update` says the active service belongs to another checkout
+
+This is a safety refusal. A machine may contain multiple MSO clones, but an active `mso.service` has
+one canonical `WorkingDirectory`. Run the update from that checkout (normally the directory targeted
+by the installer) instead of letting a secondary clone rebuild itself and restart someone else's unit.
+
+### `mso update` says the selected loopback runtime is not safely update-owned
+
+MSO found a healthy loopback responder while `mso.service` is inactive, but that process is not
+recorded as a gateway-owned fallback runtime. This is commonly a manual `bun run start`/`next start`.
+Stop that manual runtime first, then rerun `mso update`. MSO refuses here before dependency or `.next`
+mutation rather than rebuilding underneath a process that is actively serving the old build.
+
+### `mso update` says a gateway-owned runtime predates env identity
+
+The fallback was created by an older MSO version that did not record which env file launched it. MSO
+refuses before stopping that runtime because guessing `.env.local` could restart it with different auth,
+provider or public-origin configuration. Re-run the same local launcher once with the env file that runtime
+uses (for example `mso --env /same/private.env web`), then retry the update. This rewrites only the owner-only
+gateway lifecycle state with the env file's canonical path/device/inode; env contents are never copied into
+state. Do not delete the private restore/update state to bypass this check.
+
+### `mso gateway start` says an offline update is mutating this checkout
+
+This is an intentional safety exclusion. Every in-place `mso update` (service-active or offline) holds the checkout-wide runtime lock while `.next` can change, so `mso web`, onboarding fallback, gateway runtime recovery, and `mso service start/restart` cannot start
+Next from a partially-mutated build. Let the update finish, then rerun the same gateway/web/service command.
+`mso deploy` uses the same runtime-quiesce lifecycle and requires the active service to belong to the
+checkout invoking the command.
+
+### `mso gateway start` cannot install or verify cloudflared
+
+Current MSO installs a reviewed `cloudflared` release automatically into `~/.mso/tools` on first
+`mso gateway start`. The release URL and SHA-256 for supported Linux architectures are pinned in
+`security/gateway-artifacts.env`; the cached binary is re-hashed before reuse and auto-update is
+disabled. Run `mso gateway install` to retry the dependency step by itself. If outbound GitHub
+release downloads are blocked, fix that network policy or set `MSO_GATEWAY_CLOUDFLARED` to an
+explicit locally reviewed executable. Set `MSO_GATEWAY_NO_AUTO_INSTALL=1` when policy requires
+manual provisioning.
+A brand-new Quick Tunnel hostname may also take several seconds to become reachable. `mso gateway
+start` waits up to 60 seconds by default and still requires the exact MSO health/runtime-instance
+contract; this is readiness tolerance, not a weaker health check. A local resolver can cache the
+initial NXDOMAIN longer than the record creation itself; temporary mode therefore has a Cloudflare
+DoH fallback that still verifies HTTPS for the generated hostname and the exact runtime nonce.
+
+### `mso gateway` misdetects local health when my shell uses an HTTP proxy
+
+Current MSO explicitly bypasses configured HTTP/HTTPS proxies for the already-validated loopback
+`/api/health` probe. Public HTTPS readiness still follows normal proxy policy. If `mso gateway doctor`
+still cannot verify the local runtime, inspect the local bind/build rather than adding the public
+Quick Tunnel hostname to `NO_PROXY`.
+
+### Temporary gateway opens, but Terminal does not stream
+
+Cloudflare Quick Tunnels are the no-custom-domain preview mode and do not support Server-Sent
+Events. MSO Terminal output is an SSE stream, so use a named Cloudflare Tunnel/stable HTTPS origin
+for full Terminal behavior. `mso gateway status` labels a Quick Tunnel as temporary.
+
+### `mso gateway stop` leaves my manually-started MSO runtime running
+
+Expected. The gateway only stops a Next runtime when it launched that exact loopback process and
+recorded it as gateway-owned. An existing systemd/manual runtime is outside the gateway lifecycle.
+This prevents `stop` from terminating an unrelated or pre-existing process. If an update/installer is in
+flight, user-facing `mso gateway stop` waits for that checkout transaction to finish restoring its recorded
+fallbacks, then applies the stop under the gateway lifecycle lock; the updater cannot restart it afterward.
+
 ### Login returns success but the browser is logged out immediately
 
 The session cookie is `Secure`. Plain HTTP on a normal IP/hostname causes browsers to drop
@@ -39,7 +141,7 @@ mutating the live `.next` tree manually. After any active updater/finalizer has 
 run the supported recovery rebuild:
 
 ```bash
-mso update run --rebuild
+mso update --rebuild
 ```
 
 Then verify `/api/health` and run the post-deploy smoke check. Developer changes should be
@@ -62,7 +164,7 @@ lock remains, remove the stale lock, then use the normal update/release command.
 
 Confirm Git `HEAD`, `origin/main`, `/api/health` build id and the deployment log all refer to
 the expected release. If the deployment is correct but the build tree is inconsistent, use
-`mso update run --rebuild` rather than hand-restarting around a partial build.
+`mso update --rebuild` rather than hand-restarting around a partial build.
 
 ### Update button says a newer version exists forever
 

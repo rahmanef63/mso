@@ -105,7 +105,7 @@ no host access, forced mock data), served on `:4006` via its own systemd unit. F
 non-destructive static check, `bun run typecheck && bun run lint` is the cheap gate.
 
 Recovery if a chunk mismatch is live: wait for any active self-update finalizer to
-finish, then run `mso update run --rebuild` and re-run the post-deploy smoke check.
+finish, then run `mso update --rebuild` and re-run the post-deploy smoke check.
 
 ## Package manager: bun installs, Node runs
 

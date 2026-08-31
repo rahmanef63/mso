@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+# API-independent CLI updater. It keeps `mso update` useful even when :4005 is down.
+set -euo pipefail
+umask 077
+ROOT="${MSO_UPDATE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+LOG="${MSO_UPDATE_LOG:-$HOME/.mso/self-update.log}"
+NOTICE_DIR="${MSO_UPDATE_NOTICE_DIR:-$HOME/.mso/private/update-notice}"
+UPDATE_STATE_DIR_REQUESTED="${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}"
+LOCAL_URL="${MSO_UPDATE_LOCAL_URL:-${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}}"
+GATEWAY="$ROOT/scripts/mso-gateway"
+# shellcheck source=scripts/lib/private-state.sh
+. "$ROOT/scripts/lib/private-state.sh"
+# shellcheck source=scripts/lib/update-state.sh
+. "$ROOT/scripts/lib/update-state.sh"
+# shellcheck source=scripts/lib/runtime-exclusion.sh
+. "$ROOT/scripts/lib/runtime-exclusion.sh"
+# shellcheck source=scripts/lib/update-gateway-runtimes.sh
+. "$ROOT/scripts/lib/update-gateway-runtimes.sh"
+# shellcheck source=scripts/lib/update-git-authority.sh
+. "$ROOT/scripts/lib/update-git-authority.sh"
+fail() { printf 'mso update: %s\n' "$*" >&2; exit 1; }
+git_root() { [ "$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)" = "$ROOT" ]; }
+current_version() { sed -n 's/^VERSION="\([^"]*\)".*/\1/p' "$ROOT/bin/mso" | head -1; }
+remote_version() { git -C "$ROOT" show origin/main:bin/mso 2>/dev/null | sed -n 's/^VERSION="\([^"]*\)".*/\1/p' | head -1; }
+require_checkout() {
+  git_root || fail "$ROOT is not a Git checkout; reinstall from the official repository"
+  [ "$(git -C "$ROOT" branch --show-current)" = main ] || fail "updates require the installed checkout to be on main"
+  [ -z "$(git -C "$ROOT" status --porcelain)" ] || fail "checkout has local changes; refusing to overwrite them"
+}
+fetch_main() { git -C "$ROOT" fetch --quiet origin main || fail "could not reach origin/main"; }
+service_is_active() { command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet mso.service; }
+service_port() {
+  local raw port
+  raw="$(systemctl show -p Environment --value mso.service 2>/dev/null || true)"
+  port="$(printf '%s\n' "$raw" | tr ' ' '\n' | sed -n 's/^PORT=//p' | head -1)"
+  if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then port=4005; fi
+  printf '%s' "$port"
+}
+service_build_sha() {
+  local timeout="${1:-3}" port body sha
+  port="$(service_port)"
+  body="$(curl --noproxy '*' -fsS --connect-timeout "$timeout" --max-time "$timeout" "http://127.0.0.1:$port/api/health" 2>/dev/null)" || return 1
+  sha="$(printf '%s' "$body" | jq -er '
+    select(.status == "ok" and .service == "mso")
+    | .buildSha
+    | select(type == "string" and test("^[0-9a-f]{7,40}$"))
+  ' 2>/dev/null)" || return 1
+  printf '%s' "$sha"
+}
+require_service_checkout() {
+  local configured canonical_root canonical_service
+  configured="$(systemctl show -p WorkingDirectory --value mso.service 2>/dev/null || true)"
+  [ -n "$configured" ] || fail "active mso.service has no readable WorkingDirectory; refusing update handoff"
+  canonical_root="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
+  canonical_service="$(realpath -e -- "$configured" 2>/dev/null || true)"
+  [ -n "$canonical_root" ] && [ -n "$canonical_service" ] \
+    || fail "cannot canonicalize active mso.service WorkingDirectory; refusing update handoff"
+  [ "$canonical_service" = "$canonical_root" ] \
+    || fail "active mso.service belongs to $canonical_service, not this checkout $canonical_root; run update from the service checkout"
+}
+print_status() {
+  local relation ahead n local_v remote_v head receipt=''
+  require_checkout; fetch_main
+  read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
+  local_v="$(current_version)"; remote_v="$(remote_version)"; head="$(git -C "$ROOT" rev-parse HEAD)"
+  if [ "$relation" = ahead ]; then
+    printf 'local main is ahead of origin/main by %s commit%s; refusing to deploy unpushed code. push/reset the checkout first.\n' "$ahead" "$([ "$ahead" = 1 ] || printf s)"
+    return
+  fi
+  if [ "$relation" = diverged ]; then
+    printf 'local main has diverged from origin/main (ahead %s, behind %s); refusing update. reconcile the checkout first.\n' "$ahead" "$n"
+    return
+  fi
+  if [ "$n" -gt 0 ]; then
+    printf 'update available: mso %s -> %s (%s commit%s)\n' "${local_v:-unknown}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)"
+    git -C "$ROOT" log --format='  %h  %s' -5 HEAD..origin/main
+    printf 'run: mso update\n'
+    return
+  fi
+  if service_is_active; then
+    local running_sha head_short
+    require_service_checkout
+    head_short="$(git -C "$ROOT" rev-parse --short HEAD)"
+    running_sha="$(service_build_sha 2>/dev/null || true)"
+    if [ -z "$running_sha" ]; then
+      printf 'source is current at %s, but the active service build identity is unavailable. deployment verification/rebuild is pending. run: mso update --rebuild\n' "$head_short"
+    elif [[ "$head" != "$running_sha"* ]]; then
+      printf 'source is current at %s, but mso.service is still running %s. deployment verification/rebuild is pending. run: mso update --rebuild\n' "$head_short" "$running_sha"
+    else
+      printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "$head_short"
+    fi
+    return
+  fi
+  init_update_state
+  if [ -e "$DEPLOY_RECEIPT" ] || [ -L "$DEPLOY_RECEIPT" ]; then receipt="$(read_receipt)"; fi
+  if [ "$receipt" != "$head" ] || update_gateway_restore_pending; then
+    printf 'source is current at %s, but offline deployment verification/restart is pending. run: mso update\n' "${head:0:7}"
+  else
+    printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "${head:0:7}"
+  fi
+}
+notice() {
+  local dir stamp now last=0 relation ahead n local_v remote_v
+  git_root || return 0
+  [ "$(git -C "$ROOT" branch --show-current 2>/dev/null || true)" = main ] || return 0
+  dir="$(mso_private_state_dir "$NOTICE_DIR")" || return 0; stamp="$dir/last-fetch"; now="$(date +%s)"
+  if [ -s "$stamp" ] && mso_private_state_validate_file "$stamp" >/dev/null 2>&1; then last="$(cat "$stamp" 2>/dev/null || printf 0)"; fi
+  if ! [[ "$last" =~ ^[0-9]+$ ]] || [ $((now-last)) -ge 21600 ]; then
+    printf '%s\n' "$now" | mso_private_state_atomic_write "$stamp" >/dev/null 2>&1 || true
+    (cd "$ROOT" && nohup git fetch --quiet origin main >/dev/null 2>&1 </dev/null &) || true
+  fi
+  read -r relation ahead n < <(update_git_relation "$ROOT") || return 0
+  if [ "$relation" = ahead ] || [ "$relation" = diverged ]; then
+    printf 'MSO update refused: local main is %s origin/main (ahead %s, behind %s). Reconcile/push the checkout first.\n' \
+      "$relation" "$ahead" "$n" >&2
+    return 0
+  fi
+  if [ "$n" -gt 0 ]; then
+    local_v="$(current_version)"; remote_v="$(remote_version)"
+    printf 'MSO update available: %s -> %s (%s commit%s). Run: mso update\n' \
+      "${local_v:-current}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)" >&2
+    return 0
+  fi
+  if service_is_active; then
+    local running_sha head_short head_full configured canonical_root canonical_service
+    configured="$(systemctl show -p WorkingDirectory --value mso.service 2>/dev/null || true)"
+    canonical_root="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
+    canonical_service="$(realpath -e -- "$configured" 2>/dev/null || true)"
+    if [ -n "$canonical_root" ] && [ "$canonical_service" = "$canonical_root" ]; then
+      head_short="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)"
+      head_full="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
+      running_sha="$(service_build_sha 0.5 2>/dev/null || true)"
+      if [ -n "$head_short" ] && { [ -z "$running_sha" ] || [[ "$head_full" != "$running_sha"* ]]; }; then
+        printf 'MSO deployment rebuild pending: source %s, running %s. Run: mso update --rebuild\n' \
+          "$head_short" "${running_sha:-unknown}" >&2
+      fi
+    fi
+  fi
+}
+
+offline_build_locked() {
+  local rebuild_only="$1" n head receipt=''
+  require_checkout
+  service_is_active && fail "mso.service became active while waiting for the offline update lock; rerun mso update"
+  init_update_state
+  if [ "$rebuild_only" != 1 ]; then
+    local relation ahead
+    fetch_main
+    read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
+    case "$relation" in
+      exact) ;;
+      behind) git -C "$ROOT" merge --ff-only origin/main || fail "cannot fast-forward to origin/main" ;;
+      ahead) fail "local main is ahead of origin/main by $ahead commit(s); refusing to deploy unpushed code" ;;
+      diverged) fail "local main has diverged from origin/main (ahead $ahead, behind $n); reconcile it before update" ;;
+      *) fail "unknown Git authority state" ;;
+    esac
+    read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not re-check origin/main after fast-forward"
+    [ "$relation" = exact ] || fail "checkout does not exactly match origin/main after update; refusing deployment"
+  fi
+  head="$(git -C "$ROOT" rev-parse HEAD)"
+  if [ -e "$DEPLOY_RECEIPT" ] || [ -L "$DEPLOY_RECEIPT" ]; then receipt="$(read_receipt)"; fi
+  if [ "$rebuild_only" != 1 ] && [ "$receipt" = "$head" ] && ! update_gateway_restore_pending; then
+    printf 'MSO is already up to date and the offline deployment receipt matches.\n'
+    return 0
+  fi
+
+  # Exclude every local-start/gateway-start from this checkout while .next can
+  # change. Runtime-starting gateway paths take a shared lock; this updater holds
+  # the exclusive side through quiesce/install/verify/build/receipt. The lock is
+  # released only after the build tree is stable, then restoration may safely race
+  # another post-build local-start without serving a partially-mutated .next.
+  runtime_exclusion_acquire_exclusive \
+    || fail "could not acquire checkout runtime exclusion; another runtime start/update is active"
+  # A service start may have raced the earlier pre-lock check. Service-starting CLI
+  # paths take the shared side of this lock, so this second check closes the TOCTOU
+  # window before any dependency/.next mutation.
+  service_is_active && fail "mso.service became active before the offline build; rerun mso update"
+  update_gateway_assert_offline_selected_origin_safe
+  update_gateway_quiesce_all
+  (cd "$ROOT" && bun install) || fail "dependency install failed"
+  (cd "$ROOT" && bash scripts/verify-build.sh) || fail "candidate build verification failed"
+  (cd "$ROOT" && node node_modules/next/dist/bin/next build) || fail "production build failed"
+  write_receipt
+  runtime_exclusion_release
+  update_gateway_restore_all
+  if update_gateway_restore_pending; then fail "gateway runtime restore inventory remained after restore"; fi
+  printf 'updated to %s. No system service was active; run: mso web\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
+}
+
+offline_build() {
+  init_update_state
+  update_with_lock offline_build_locked "$1"
+}
+
+run_update() {
+  local rebuild_only="$1" arg=""
+  require_checkout
+  [ "$rebuild_only" != 1 ] || arg="--rebuild-only"
+  if service_is_active; then
+    require_service_checkout
+    if command -v systemd-run >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
+      mkdir -p "$(dirname "$LOG")"; chmod 700 "$(dirname "$LOG")" 2>/dev/null || true
+      systemd-run --user --collect --unit=mso-self-update --property=TimeoutStartSec=3600 \
+        "--property=WorkingDirectory=$ROOT" "--setenv=MSO_UPDATE_LOG=$LOG" /bin/bash "$ROOT/scripts/mso-service-update" $arg >/dev/null
+      printf 'update started safely outside mso.service. Follow: mso update log\n'
+    else
+      /bin/bash "$ROOT/scripts/mso-service-update" $arg
+      tail -n 30 "$LOG" 2>/dev/null || true
+    fi
+  else offline_build "$rebuild_only"; fi
+}
+
+case "${1:-run}" in
+  notice) notice ;;
+  status|check) print_status ;;
+  log) [ -f "$LOG" ] && tail -n "${2:-80}" "$LOG" || printf 'no update log yet: %s\n' "$LOG" ;;
+  run) case "${2-}" in "" ) run_update 0 ;; --rebuild|--rebuild-only) run_update 1 ;; *) fail "usage: mso update [--rebuild] | status | log" ;; esac ;;
+  --rebuild|--rebuild-only) run_update 1 ;;
+  *) fail "usage: mso update [--rebuild] | status | log" ;;
+esac

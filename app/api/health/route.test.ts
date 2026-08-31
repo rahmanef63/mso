@@ -15,11 +15,22 @@ describe("/api/health", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.status).toBe("ok");
+    expect(body.service).toBe("mso");
     expect(typeof body.buildId).toBe("string");
+    expect(body.buildSha === null || typeof body.buildSha === "string").toBe(true);
     expect(typeof body.uptime).toBe("number");
     expect((body.uptime as number) >= 0).toBe(true);
     expect(typeof body.version).toBe("string");
     expect((body.version as string).length).toBeGreaterThan(0);
+  });
+
+  it("returns the commit identity baked into the running build", async () => {
+    vi.stubEnv("NEXT_PUBLIC_COMMIT_SHA", "abc1234");
+    const { GET } = await import("./route");
+    const res = await GET();
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.service).toBe("mso");
+    expect(body.buildSha).toBe("abc1234");
   });
 
   it("returns the runtime instance id supplied by the service manager", async () => {
