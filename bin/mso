@@ -209,6 +209,24 @@ service_unit_local_url() {
   printf 'http://127.0.0.1:%s' "$port"
 }
 
+service_wait_ready() {
+  local local_url="$1" attempts="${MSO_SERVICE_READY_ATTEMPTS:-40}" body i
+  [[ "$attempts" =~ ^[0-9]+$ ]] && [ "$attempts" -gt 0 ] || attempts=40
+  for i in $(seq 1 "$attempts"); do
+    body="$(curl --noproxy '*' -fsS --connect-timeout 1 --max-time 2 "$local_url/api/health" 2>/dev/null || true)"
+    if printf '%s' "$body" | jq -e '
+      type == "object" and .status == "ok" and .service == "mso" and
+      (.buildId | type == "string" and length > 0) and
+      (.buildSha | type == "string" and test("^[0-9a-f]{7,40}$")) and
+      (.version | type == "string" and length > 0) and has("runtimeInstanceId")
+    ' >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
 service_handoff_marker() {
   local canonical base key dir
   canonical="$(realpath -e -- "$ROOT" 2>/dev/null || true)"
@@ -247,10 +265,13 @@ service_handoff_fallback_locked() {
 service_restore_fallback_after_failure() {
   local gateway="${MSO_GATEWAY_BIN:-$ROOT/scripts/mso-gateway}"
   [ "${SERVICE_FALLBACK_QUIESCED:-0}" = 1 ] || return 0
-  MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$SERVICE_HANDOFF_URL" \
-    "$gateway" local-start >/dev/null 2>&1 \
-    || printf 'mso: service action failed and fallback restore also failed at %s\n' "$SERVICE_HANDOFF_URL" >&2
-  mso_private_state_remove_file "$SERVICE_HANDOFF_MARKER" >/dev/null 2>&1 || true
+  if ! MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$SERVICE_HANDOFF_URL" \
+    "$gateway" local-start >/dev/null 2>&1; then
+    printf 'mso: service action failed and fallback restore also failed at %s; recovery marker preserved\n' "$SERVICE_HANDOFF_URL" >&2
+    return 1
+  fi
+  mso_private_state_remove_file "$SERVICE_HANDOFF_MARKER" >/dev/null 2>&1 \
+    || { printf 'mso: fallback restored but recovery marker could not be cleared\n' >&2; return 1; }
 }
 
 service_lifecycle_safe() {
@@ -262,8 +283,18 @@ service_lifecycle_safe() {
   SERVICE_FALLBACK_QUIESCED=0; SERVICE_HANDOFF_URL=''; SERVICE_HANDOFF_MARKER=''
   [ "$active" = 1 ] || service_handoff_fallback_locked
   service_manager_write "$verb" mso.service || rc=$?
+  if [ "$rc" -eq 0 ] && ! service_wait_ready "$(service_unit_local_url)"; then
+    printf 'mso: service %s returned success but /api/health did not become ready; restoring fallback if available\n' "$verb" >&2
+    rc=24
+    # A Type=simple unit can report a successful start before Next later fails.
+    # Stop any unhealthy survivor so the quiesced fallback can reclaim its port.
+    service_manager_write stop mso.service >/dev/null 2>&1 || true
+  fi
   runtime_exclusion_release
-  if [ "$rc" -ne 0 ]; then service_restore_fallback_after_failure; return "$rc"; fi
+  if [ "$rc" -ne 0 ]; then
+    service_restore_fallback_after_failure || return 1
+    return "$rc"
+  fi
   [ -z "${SERVICE_HANDOFF_MARKER:-}" ] || mso_private_state_remove_file "$SERVICE_HANDOFF_MARKER" >/dev/null 2>&1 || true
 }
 

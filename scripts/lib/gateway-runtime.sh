@@ -161,11 +161,11 @@ gateway_cmd_runtime_stop_locked() {
       gateway_info "runtime: stopped-owned"
       return 0
     fi
-    if gateway_recovery_pending && ! gateway_runtime_process_matches "$runtime" && ! gateway_health_ok; then
-      gateway_persist_quiesced_state "$state" \
+    if ! gateway_runtime_process_matches "$runtime" && ! gateway_health_ok; then
+      # Natural exit: persist restore intent before dropping ownership.
+      gateway_mark_recovery_pending; gateway_persist_quiesced_state "$state" \
         || gateway_fail "could not reconcile stale owned runtime; recovery marker preserved"
-      gateway_info "runtime: recovered-stale-owned"
-      return 0
+      gateway_info "runtime: recovered-stale-owned"; return 0
     fi
     gateway_fail "recorded runtime ownership no longer matches a safely recoverable MSO instance; refusing offline rebuild"
   fi
