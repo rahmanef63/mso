@@ -42,6 +42,13 @@ runtime_exclusion_acquire_exclusive() {
   runtime_exclusion_acquire exclusive "${MSO_RUNTIME_EXCLUSION_UPDATE_TIMEOUT_SECONDS:-900}"
 }
 
+runtime_exclusion_acquire_service() {
+  # Service start/restart must serialize exclusively with builds and fallback
+  # runtimes, but it is an interactive lifecycle action: use the bounded
+  # service timeout rather than waiting for the updater's long transaction window.
+  runtime_exclusion_acquire exclusive "${MSO_RUNTIME_EXCLUSION_TIMEOUT_SECONDS:-12}"
+}
+
 runtime_exclusion_release() {
   [ "$RUNTIME_EXCLUSION_HELD" = 1 ] || return 0
   if [ -n "${RUNTIME_EXCLUSION_FD:-}" ]; then
