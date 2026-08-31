@@ -64,6 +64,13 @@ export const updateLogPath = (): string => {
 
 const repoRoot = (): string => process.cwd();
 
+export function updateBranchReason(branch: string): string | null {
+  const current = branch.trim();
+  return current === "main"
+    ? null
+    : `software updates require the checkout to be on main (current: ${current || "detached HEAD"})`;
+}
+
 /** Arguments are pure/testable because this boundary is security-sensitive: the
  * request may choose only update vs rebuild. No path, command, ref, or root-capable
  * argument comes from the client. */
@@ -183,6 +190,12 @@ export async function getUpdateStatus(fetchRemote = true): Promise<UpdateStatus>
   const inside = await git(["rev-parse", "--is-inside-work-tree"]);
   if (inside.code !== 0 || inside.stdout.trim() !== "true") {
     return { ...base, reason: "this deployment is not a git checkout, so there is nothing to pull" };
+  }
+
+  const branch = await git(["branch", "--show-current"]);
+  const branchReason = updateBranchReason(branch.stdout);
+  if (branch.code !== 0 || branchReason) {
+    return { ...base, reason: branch.code === 0 ? branchReason : "could not determine the checkout branch" };
   }
 
   // The installer enables linger and gives mso.service XDG_RUNTIME_DIR precisely

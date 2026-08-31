@@ -533,7 +533,7 @@ arguments. The v2 store keeps up to 20 isolated active workflows per MCP actor, 
 
 ## Rate limits
 
-Per token: 120 calls/min, 5,000/day. Per IP before auth: 240/min. DCR: 10
+Per token: 120 calls/min, 50,000/day. Per IP before auth: 240/min. DCR: 10
 registrations/hour/IP. Token exchange: 30/min/IP. All in-memory (process-local,
 resets on restart) — enough to blunt a runaway agent, which is the realistic
 failure mode for an endpoint whose top scope is a shell.

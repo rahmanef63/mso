@@ -2,6 +2,17 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-08-31 — 10× MCP daily allowance + truthful Settings updater preflight (SHIPPED)
+
+The authenticated MCP endpoint now permits 50,000 calls per token per fixed 24-hour process-local
+window, up from 5,000, while retaining the 120-per-minute runaway-client guard. The public MCP
+tool names, schemas, scopes and toolset signature are unchanged; this is an endpoint limit only.
+
+Settings software update now refuses non-`main` checkouts before starting its transient updater,
+matching the CLI contract and preventing a feature branch from being misreported as merely one
+commit behind `origin/main`. The executor independently enforces the same branch boundary, and the
+panel no longer labels an unsupported checkout as a remote-connectivity failure.
+
 ## 2026-08-30 — Loopback-only public gateway + resilient WSL CLI lifecycle (SHIPPED)
 
 MSO now has an explicit laptop/WSL public-access lifecycle without widening the application bind.

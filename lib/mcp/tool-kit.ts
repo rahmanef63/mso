@@ -62,7 +62,7 @@ export interface McpTool {
   };
   /** Per-OPERATION rate limit, mirroring the one its /api/v1 route already applies.
    *
-   *  The token bucket in app/mcp/route.ts is per TOKEN (120/min, 5000/day) and says
+   *  The token bucket in app/mcp/route.ts is per TOKEN (120/min, 50,000/day) and says
    *  nothing about which tool was called, so an MCP client got the same allowance
    *  for `apps_power` as for `fs_list` — while the browser and the CLI hit
    *  `managed-app:<id>` at 12/min going through the route. That is a 10x gap on a

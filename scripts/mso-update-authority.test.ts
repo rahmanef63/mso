@@ -56,4 +56,13 @@ describe("origin/main deployment authority", () => {
     expect(fs.readFileSync(log, "utf8")).toContain("ahead of origin/main");
     expect(fs.existsSync(f.capture) ? fs.readFileSync(f.capture, "utf8") : "").not.toContain("bun");
   });
+
+  it("active-service updates refuse a feature branch before building", () => {
+    const f = fixture(), log = path.join(f.base, "self-update.log");
+    git(f.repo, "switch", "-c", "feat/runtime");
+    const out = spawnSync(path.join(f.repo, "scripts/self-update.sh"), ["--rebuild-only"], { env: { ...f.env, MSO_UPDATE_LOG: log }, encoding: "utf8" });
+    expect(out.status).not.toBe(0);
+    expect(fs.readFileSync(log, "utf8")).toContain("current: feat/runtime");
+    expect(fs.existsSync(f.capture) ? fs.readFileSync(f.capture, "utf8") : "").not.toContain("bun");
+  });
 });

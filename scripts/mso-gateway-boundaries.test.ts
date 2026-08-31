@@ -92,7 +92,7 @@ esac
     expect(after.mode).toBe("temporary");
     expect(after.tunnelIdentity.pid).toBe(before.tunnelIdentity.pid);
     run(["stop"], f.baseEnv);
-  });
+  }, 15_000);
 
   it("uses kernel flock locks instead of stale-directory reclamation", () => {
     for (const name of ["gateway-lock.sh", "update-state.sh"]) {

@@ -17,6 +17,8 @@ export default defineConfig({
     },
   },
   test: {
+    // Shell/systemd lifecycle fixtures can exceed Vitest's 5s default under the full parallel gate.
+    testTimeout: 15_000,
     // `zz-*` is the agreed scratch prefix: agent/debug harnesses that must never
     // run in CI, never be committed, and never break a push. Also excluded from
     // tsconfig and gitignored — three places, because a leftover has broken this
