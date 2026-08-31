@@ -138,7 +138,7 @@ export function UpdateSection() {
           </p>
         )}
         {info?.currentSubject && <p className="line-clamp-2 text-[11px] text-muted-foreground">{info.currentSubject}</p>}
-        {info?.supported !== false && !info?.remoteChecked && !running && (
+        {info && info.supported !== false && !info.remoteChecked && !running && (
           <p className="text-[11px] text-amber-500">
             Could not reach the remote — this is what was last fetched, not necessarily what is on main now.
           </p>
