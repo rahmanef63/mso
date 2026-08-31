@@ -47,18 +47,20 @@ HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 [ -n "$HEAD_SHA" ] || die "could not read checkout HEAD"
 CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
 [ "$CURRENT_BRANCH" = main ] || die "updates require checkout to be on main (current: ${CURRENT_BRANCH:-detached HEAD})"
-printf 'at %s
-' "${HEAD_SHA:0:7}"
+printf 'at %s\n' "${HEAD_SHA:0:7}"
 
 if [ "$SHIP_FINALIZE" -eq 1 ]; then
   EXPECTED_SHA="${MSO_EXPECTED_SHA:-}"
-  [ "${#EXPECTED_SHA}" -eq 40 ]     || die "ship finalizer requires an exact 40-character MSO_EXPECTED_SHA"
+  [ "${#EXPECTED_SHA}" -eq 40 ] \
+    || die "ship finalizer requires an exact 40-character MSO_EXPECTED_SHA"
   case "$EXPECTED_SHA" in
     *[!0-9a-f]*) die "ship finalizer requires an exact 40-character MSO_EXPECTED_SHA" ;;
   esac
   [ "$HEAD_SHA" = "$EXPECTED_SHA" ] || die "checkout HEAD changed after the release gates"
-  [ "$(git rev-parse origin/main 2>/dev/null || true)" = "$EXPECTED_SHA" ]     || die "origin/main no longer matches the release SHA"
-  [ -z "$(git status --porcelain)" ]     || die "checkout changed after verification; refusing to build uncommitted bytes"
+  [ "$(git rev-parse origin/main 2>/dev/null || true)" = "$EXPECTED_SHA" ] \
+    || die "origin/main no longer matches the release SHA"
+  [ -z "$(git status --porcelain)" ] \
+    || die "checkout changed after verification; refusing to build uncommitted bytes"
 fi
 
 if [ "$REBUILD_ONLY" -eq 0 ]; then
@@ -88,7 +90,8 @@ fi
 
 if [ "$SHIP_FINALIZE" -eq 1 ]; then
   step "using the exact commit already proven by the pre-push out-of-tree build"
-  [ "$(git rev-parse HEAD)" = "$EXPECTED_SHA" ] && [ -z "$(git status --porcelain)" ]     || die "checkout moved before the in-place build"
+  [ "$(git rev-parse HEAD)" = "$EXPECTED_SHA" ] && [ -z "$(git status --porcelain)" ] \
+    || die "checkout moved before the in-place build"
 else
   step "verifying the build out-of-tree (this does not touch the live .next)"
   bash scripts/verify-build.sh >/dev/null || die "HEAD does not compile — nothing was deployed"
@@ -116,8 +119,22 @@ PID_UID="$(stat -c %u "/proc/$OLD_PID" 2>/dev/null || true)"
 [ "$PID_UID" = "$SELF_UID" ] || die "mso.service MainPID $OLD_PID belongs to uid ${PID_UID:-unknown}, not $SELF_UID"
 kill -TERM "$OLD_PID" || die "could not signal mso.service MainPID $OLD_PID"
 
+# A system service can legitimately spend close to TimeoutStopSec draining the old
+# control group before Restart=always creates the replacement. The installed MSO
+# unit currently inherits systemd's 90 s TimeoutStopSec; the old fixed 40 s loop
+# could therefore declare failure while systemd was still correctly stopping the
+# old Next/npm process, then the new service would appear seconds later. Keep a
+# bounded but realistic verification budget. The override is intentionally narrow
+# (30..300 s) so a typo cannot make the release finalizer hang forever.
+RESTART_WAIT_SECONDS="${MSO_SERVICE_RESTART_WAIT_SECONDS:-120}"
+case "$RESTART_WAIT_SECONDS" in
+  ""|*[!0-9]*) die "MSO_SERVICE_RESTART_WAIT_SECONDS must be an integer from 30 to 300" ;;
+esac
+[ "$RESTART_WAIT_SECONDS" -ge 30 ] && [ "$RESTART_WAIT_SECONDS" -le 300 ] \
+  || die "MSO_SERVICE_RESTART_WAIT_SECONDS must be an integer from 30 to 300"
+RESTART_DEADLINE=$((SECONDS + RESTART_WAIT_SECONDS))
 NEW_PID=""
-for _ in $(seq 1 40); do
+while [ "$SECONDS" -lt "$RESTART_DEADLINE" ]; do
   CANDIDATE="$(systemctl show -p MainPID --value mso.service 2>/dev/null || true)"
   case "$CANDIDATE" in
     ""|*[!0-9]*) ;;
@@ -130,8 +147,9 @@ for _ in $(seq 1 40); do
   esac
   sleep 1
 done
-[ -n "$NEW_PID" ] || die "mso.service did not come back with a new MainPID"
-printf 'restarted %s -> %s\n' "$OLD_PID" "$NEW_PID"
+[ -n "$NEW_PID" ] \
+  || die "mso.service did not return with a new MainPID within ${RESTART_WAIT_SECONDS}s; release state is unverified — inspect the system unit before retrying"
+printf 'restarted %s -> %s after %ss\n' "$OLD_PID" "$NEW_PID" "$((RESTART_WAIT_SECONDS - (RESTART_DEADLINE - SECONDS)))"
 
 # The chunk-mismatch check CLAUDE.md warns about, verified rather than remembered —
 # the same check scripts/ship.sh ends with. `active` only means npm has started, not

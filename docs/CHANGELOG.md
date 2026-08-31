@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `update` wait through systemd restart drain
 - `cli` diagnose HTTPS login and add doctor --fix
 - `mcp` validate browser origins
 - `security` avoid recovery guard fsync convoy
