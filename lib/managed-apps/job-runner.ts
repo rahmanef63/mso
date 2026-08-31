@@ -170,9 +170,12 @@ async function run(rt: Runtime, options: StartManagedAppJobOptions): Promise<voi
     // finish() already freed the lock (see there). This is the idempotent
     // backstop for any path that could reach here without one.
     releaseOperation(rt.record.applicationId);
-    await flush(rt); // persist the terminal record BEFORE it leaves the live map
-    live.delete(rt.record.id);
+    await flush(rt); // persist the terminal record before retention reads history
     await pruneJobRecords().catch(() => undefined);
+    // Keep the terminal record in the live map until retention is also complete.
+    // This makes finalization observable and prevents a late prune from resolving
+    // storage roots after a caller/test has already moved to another lifecycle.
+    live.delete(rt.record.id);
   }
 }
 
