@@ -54,8 +54,8 @@ describe("/mcp request boundary", () => {
     mocks.touchToken.mockClear();
     mocks.dispatch.mockClear();
     mocks.clampScope.mockClear();
-    mocks.rateLimited.mockReturnValue(false);
-    mocks.rateLimitedUntrusted.mockReturnValue(false);
+    mocks.rateLimited.mockClear().mockReturnValue(false);
+    mocks.rateLimitedUntrusted.mockClear().mockReturnValue(false);
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -115,6 +115,14 @@ describe("/mcp request boundary", () => {
     expect(res.status).toBe(200);
     expect(mocks.clampScope).toHaveBeenCalledWith("exec");
     expect(mocks.dispatch).toHaveBeenCalledWith(body, "read", `mcp:${token.hash.slice(0, 16)}`);
+  });
+
+  it("applies the 50,000-call daily token limit", async () => {
+    const token = { hash: "d".repeat(64), scope: "read" as const };
+    mocks.validateToken.mockResolvedValueOnce(token);
+    const { POST } = await import("./route");
+    await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })));
+    expect(mocks.rateLimited).toHaveBeenNthCalledWith(2, `mcp:day:${token.hash}`, 50_000, 86_400_000);
   });
 
   it("does not acknowledge an unauthenticated notification", async () => {

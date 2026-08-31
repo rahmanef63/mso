@@ -45,6 +45,8 @@ esac
 step "self-update starting (rebuild-only=$REBUILD_ONLY, ship-finalize=$SHIP_FINALIZE)"
 HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 [ -n "$HEAD_SHA" ] || die "could not read checkout HEAD"
+CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
+[ "$CURRENT_BRANCH" = main ] || die "updates require checkout to be on main (current: ${CURRENT_BRANCH:-detached HEAD})"
 printf 'at %s
 ' "${HEAD_SHA:0:7}"
 
