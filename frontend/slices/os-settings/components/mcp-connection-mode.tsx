@@ -52,6 +52,7 @@ export function McpConnectionMode({ endpoints, remote }: { endpoints: McpEndpoin
             <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">For a stable URL, route an HTTPS hostname to the loopback MSO runtime through your trusted tunnel or reverse proxy, then set that same origin in MSO.</p>
             <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">Keep the raw Next listener loopback-only. OAuth discovery, redirect validation, cookies, and MCP resource metadata must agree on one public origin.</p>
           </div>
+
         </div>
       )}
     </div>

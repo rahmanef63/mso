@@ -20,7 +20,9 @@ starts at `read` and explicitly describes `write` and `exec` blast radius.
 
 The existing token revocation, audit trail and toolset-signature cards remain the operational truth
 after connection. Current MCP/ChatGPT docs were refreshed at the same time, including the live
-31-tool split (16 read / 10 write / 5 exec) and current Plugin/App terminology.
+31-tool split (16 read / 10 write / 5 exec) and current Plugin/App terminology. The Streamable HTTP
+route now also validates browser `Origin` before authentication, closing the DNS-rebinding gap called
+out as a MUST in the MCP transport specification, while server-to-server clients remain unaffected.
 
 ## 2026-08-31 — 10× MCP daily allowance + truthful Settings updater preflight (SHIPPED)
 

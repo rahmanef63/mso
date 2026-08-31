@@ -43,6 +43,11 @@ The stable server contract is the remote HTTPS endpoint plus OAuth discovery:
 | authorization metadata | `/.well-known/oauth-authorization-server` |
 | protected-resource metadata | `/.well-known/oauth-protected-resource` |
 
+The Streamable HTTP route validates any browser `Origin` header before bearer authentication, as
+required by the MCP transport security guidance to prevent DNS rebinding. Server-to-server clients
+normally omit `Origin`; browser-origin traffic is accepted only from the configured public origin or
+from a loopback browser talking to the loopback cockpit.
+
 MSO supports OAuth 2.1-style authorization-code flow with PKCE S256 and public clients
 (token endpoint auth `none`). The current authorization metadata advertises only
 `authorization_code`; there is no refresh-token grant. The authorization page is a normal
@@ -50,11 +55,11 @@ signed-in MSO page: an approved human browser session converts into a scoped MCP
 consent page is not a second login mechanism. Expired/revoked bearers therefore require a
 new authorization flow.
 
-For ChatGPT, the connection is a **custom MCP app** created in Developer Mode and surfaced
-through OpenAI's current Plugin/App experience. OpenAI moved the directory to Plugins in July
-2026, while some workspace configuration pages still say Apps → Create; MSO therefore does not
-freeze one menu label. Settings → MCP renders the live server URL, probes MCP/OAuth discovery,
-and provides client-specific numbered steps. Use [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for
+For ChatGPT, the connection is a **custom MCP app** created in Developer Mode. OpenAI currently
+shows more than one setup surface: its Developer Mode guide uses Apps → Create, while ChatGPT Work
+and some plugin surfaces expose Plugins → MCP / New Plugin. MSO therefore does not freeze one menu
+label. Settings → MCP renders the live server URL, probes MCP/OAuth discovery, and provides
+client-specific numbered steps. Use [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for
 the current field mapping, OAuth sequence, tool-snapshot refresh and troubleshooting.
 
 Clients that support RFC 7591 Dynamic Client Registration can register through

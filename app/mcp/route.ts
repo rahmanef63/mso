@@ -1,7 +1,7 @@
 import { dispatch, isNotification, rpcError, UNAUTHORIZED, RATE_LIMITED } from "@/lib/mcp/dispatch";
 import { validateToken, touchToken } from "@/lib/mcp/store";
 import { clampScope, mcpEnabled } from "@/lib/mcp/scope";
-import { publicOrigin, clientIp } from "@/lib/mcp/origin";
+import { publicOrigin, clientIp, mcpRequestOriginAllowed } from "@/lib/mcp/origin";
 import { rateLimited, rateLimitedUntrusted } from "@/lib/host";
 import { TOOLS } from "@/lib/mcp/tools";
 import { toolsetInfo } from "@/lib/mcp/toolset";
@@ -57,6 +57,9 @@ export async function POST(req: Request) {
     Response.json(rpcError(null, UNAUTHORIZED, msg), { status: 401, headers: { "WWW-Authenticate": challenge } });
 
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
+  if (!mcpRequestOriginAllowed(req)) {
+    return Response.json({ error: "forbidden_origin" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
 
   // Pre-auth flood guard: an invalid token still costs a sha256 + a file read.
   if (rateLimitedUntrusted(`mcp:ip:${clientIp(req)}`, PREAUTH_PER_MIN, 60_000)) {
@@ -109,6 +112,9 @@ export async function POST(req: Request) {
 // with anything that needs the token.
 export async function GET(req: Request) {
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
+  if (!mcpRequestOriginAllowed(req)) {
+    return Response.json({ error: "forbidden_origin" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
   return Response.json({
     name: "mso MCP",
     transport: "streamable-http (JSON-RPC over POST)",

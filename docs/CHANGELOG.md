@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` validate browser origins
 - `settings` hide premature update warning
 - `update` enforce main and raise MCP daily limit
 - `mcp` raise daily token call limit

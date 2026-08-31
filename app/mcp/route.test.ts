@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   clampScope: vi.fn((scope: "read" | "write" | "exec") => scope),
   rateLimited: vi.fn(() => false),
   rateLimitedUntrusted: vi.fn(() => false),
+  mcpRequestOriginAllowed: vi.fn(() => true),
 }));
 
 vi.mock("@/lib/mcp/store", () => ({
@@ -30,6 +31,7 @@ vi.mock("@/lib/mcp/scope", () => ({
 vi.mock("@/lib/mcp/origin", () => ({
   publicOrigin: () => "https://mso.example.test",
   clientIp: () => "127.0.0.1",
+  mcpRequestOriginAllowed: mocks.mcpRequestOriginAllowed,
 }));
 vi.mock("@/lib/host", () => ({
   rateLimited: mocks.rateLimited,
@@ -56,8 +58,24 @@ describe("/mcp request boundary", () => {
     mocks.clampScope.mockClear();
     mocks.rateLimited.mockClear().mockReturnValue(false);
     mocks.rateLimitedUntrusted.mockClear().mockReturnValue(false);
+    mocks.mcpRequestOriginAllowed.mockClear().mockReturnValue(true);
   });
   afterEach(() => vi.unstubAllEnvs());
+
+  it("rejects a browser Origin that fails the Streamable HTTP boundary before auth", async () => {
+    mocks.mcpRequestOriginAllowed.mockReturnValueOnce(false);
+    const getReader = vi.fn(() => { throw new Error("body must not be read"); });
+    const req = {
+      headers: new Headers({ authorization: "Bearer live-token", origin: "https://evil.example" }),
+      body: { getReader },
+    } as unknown as Request;
+    const { POST } = await import("./route");
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+    expect(getReader).not.toHaveBeenCalled();
+    expect(mocks.validateToken).not.toHaveBeenCalled();
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
 
   it("rejects an invalid bearer before opening the request body", async () => {
     mocks.validateToken.mockResolvedValueOnce(null);

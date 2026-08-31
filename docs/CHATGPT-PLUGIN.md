@@ -1,10 +1,10 @@
 # ChatGPT plugin / custom MCP app for MSO
 
-> **Current reference.** OpenAI moved its app directory to the **Plugin directory** on
-> 2026-07-09; plugins are now the discovery surface across ChatGPT/Codex, while the underlying
-> MSO connection remains a custom MCP app created in Developer Mode. Depending on workspace
-> controls, the UI can say **Plugins → New Plugin** or **Apps → Create**. This is not a legacy
-> ChatGPT Plugin manifest, browser extension, or a plugin installed inside Hermes/OpenClaw.
+> **Current reference.** OpenAI currently exposes custom MCP setup through more than one product
+> surface: the official Developer Mode guide uses **Apps → Create**, while ChatGPT Work and some
+> plugin surfaces expose **Plugins → MCP / New Plugin**. The underlying MSO connection is the same
+> remote MCP app/server. This is not a legacy ChatGPT Plugin manifest, browser extension, or a
+> plugin installed inside Hermes/OpenClaw.
 >
 > ChatGPT's Developer Mode UI and permissions are controlled by OpenAI and can change during
 > the MCP beta. Settings → MCP in MSO therefore shows the live endpoint, OAuth metadata and a

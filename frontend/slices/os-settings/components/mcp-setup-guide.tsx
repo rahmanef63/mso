@@ -81,7 +81,7 @@ export function McpSetupGuide({ origin, maxScope }: { origin: string; maxScope: 
             <McpCopyField label="Public Client ID (manual fallback)" value="chatgpt-mso" />
             <McpCopyField label="Authentication" value="OAuth · authorization_code · PKCE S256" />
           </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">Client secret: none · token endpoint auth: none · refresh token: not issued · access tokens require authorization again after expiry/revocation.</p>
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">Client secret: none · token endpoint auth: none · access-token TTL: 90 days · refresh token: not issued · reconnect after expiry/revocation.</p>
         </details>
         <div className="flex gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5">
           <ShieldCheck className="mt-0.5 size-4 shrink-0" />

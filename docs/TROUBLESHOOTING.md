@@ -330,7 +330,9 @@ the client URL.
 
 The test is not a generic ping. All four public contracts must agree on the same deployment:
 `GET /mcp`, the unauthenticated Bearer/OAuth challenge from `POST /mcp`, RFC 9728 protected
-resource metadata, and RFC 8414 authorization-server metadata. Expand **Advanced OAuth settings**
+resource metadata, and RFC 8414 authorization-server metadata. Streamable HTTP browser requests
+also have their `Origin` validated before authentication to block DNS-rebinding access to a local
+listener. Expand **Advanced OAuth settings**
 and compare the URLs if one badge is red. A proxy/domain mismatch is more likely than a token
 problem because this probe intentionally runs before OAuth authorization.
 
