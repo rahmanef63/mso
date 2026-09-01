@@ -120,7 +120,14 @@ async function main() {
   };
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C });
   const interrupts = new AgentInterruptManager({ output: process.stdout, colors: C });
-  const onSigint = () => interrupts.handleSigint();
+  const onSigint = () => {
+    const action = interrupts.handleSigint();
+    // External child TUIs can restore the shared terminal to cooked mode. In that
+    // state Ctrl+C arrives as SIGINT instead of a raw keypress, so wake whichever
+    // composer prompt is currently waiting instead of leaving it hung.
+    if (action === "exit") rl.cancelCurrent({ echo: true });
+    else if (action === "interrupt") rl.cancelCurrent({ echo: false });
+  };
   process.on("SIGINT", onSigint);
   const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd(), session);
   try {

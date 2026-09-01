@@ -2,6 +2,12 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-01 — External TTY Ctrl+C handoff hardening — SHIPPED
+
+MSO Agent 1.5.8 closes one live-only SIGINT edge case found after the 1.5.7 deployment: cancelling the `/model` child TUI could leave the shared terminal in cooked mode, so the next Ctrl+C arrived as an OS `SIGINT` while the parent composer was awaiting a keypress. The interrupt manager correctly requested exit, but the waiting prompt was not resolved. `AgentComposer` now exposes one idempotent `cancelCurrent()` primitive shared by raw-key Ctrl+C and OS-level SIGINT. The parent SIGINT bridge wakes the current prompt on exit/interrupt, so child TTY handoffs cannot strand the Agent.
+
+Regression coverage now includes programmatic cancellation of a waiting composer prompt in addition to the 1.5.7 raw-key and AbortController tests. Live PTY verification specifically covers `/model` cancel → returned Agent prompt → Ctrl+C clean exit.
+
 ## 2026-09-01 — Agent terminal control semantics + interrupt-safe history — SHIPPED
 
 MSO Agent 1.5.7 aligns terminal control behavior with mature agent harnesses. Ctrl+C now clears a non-empty draft, exits cleanly from an empty idle prompt, and aborts an active assistant/tool HTTP turn through a real `AbortController`; a quick second Ctrl+C while a turn is still stopping requests exit. Ctrl+D follows readline semantics (delete-right with text, EOF exit when empty), Ctrl+L clears/repaints, Ctrl+W deletes the previous word, Ctrl+P/N mirror history ↑/↓, and Ctrl+A/E plus Ctrl+B/F provide standard line navigation. `/quit` is now an explicit `/exit` alias.

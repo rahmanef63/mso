@@ -20,6 +20,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `agent` wake prompt after child tty sigint
 - `cli` clarify version and update labels
 - `agent` stabilize terminal banner navigation
 - `cli` make updates visible and idempotent

@@ -1,4 +1,5 @@
 import readline from "node:readline";
+import { fit, pad, wordLeftIndex, wordRightIndex } from "./mso-agent-editing.mjs";
 import process from "node:process";
 
 const CLEAR_LINE = "\x1b[2K";
@@ -10,33 +11,6 @@ const plain = (value) => String(value ?? "").replace(/\x1b\[[0-9;]*m/g, "");
 const chars = (value) => Array.from(String(value ?? ""));
 const width = (value) => chars(plain(value)).length;
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
-export function wordLeftIndex(value, cursor) {
-  const row = chars(value);
-  let index = clamp(cursor, 0, row.length);
-  while (index > 0 && /\s/u.test(row[index - 1])) index--;
-  while (index > 0 && !/\s/u.test(row[index - 1])) index--;
-  return index;
-}
-
-export function wordRightIndex(value, cursor) {
-  const row = chars(value);
-  let index = clamp(cursor, 0, row.length);
-  while (index < row.length && /\s/u.test(row[index])) index++;
-  while (index < row.length && !/\s/u.test(row[index])) index++;
-  return index;
-}
-
-function fit(value, max) {
-  const row = chars(plain(value).replace(/[\r\n\t]+/g, " "));
-  if (row.length <= max) return row.join("");
-  return max <= 1 ? "…".slice(0, max) : row.slice(0, max - 1).join("") + "…";
-}
-
-function pad(value, max) {
-  const clean = fit(value, max);
-  return clean + " ".repeat(Math.max(0, max - width(clean)));
-}
 
 export function inputViewport(value, cursor, maxWidth) {
   const row = chars(value);
@@ -95,6 +69,7 @@ export class AgentComposer {
     this.C = colors;
     this.history = [];
     this.closed = false;
+    this._cancelCurrent = null;
     readline.emitKeypressEvents(this.input);
   }
 
@@ -103,7 +78,7 @@ export class AgentComposer {
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
       let value = "", cursor = 0, selected = 0, reservedMenuRows = 0;
-      let dismissed = false, historyIndex = null, draft = "";
+      let dismissed = false, historyIndex = null, draft = "", settled = false;
       const wasRaw = Boolean(input.isRaw);
 
       const matches = () => dismissed || !complete ? [] : complete(value) || [];
@@ -136,10 +111,13 @@ export class AgentComposer {
       };
       const cleanup = () => {
         input.off("keypress", onKey);
+        if (this._cancelCurrent === cancel) this._cancelCurrent = null;
         if (typeof input.setRawMode === "function") input.setRawMode(wasRaw);
         input.pause();
       };
       const finish = (result, echo = true) => {
+        if (settled) return;
+        settled = true;
         erase();
         if (echo) output.write(`${prompt}${value}\r\n`);
         cleanup();
@@ -149,6 +127,17 @@ export class AgentComposer {
         }
         resolve(result);
       };
+      const cancel = (echo = true) => {
+        if (settled) return false;
+        if (typeof onCancel === "function") onCancel();
+        settled = true;
+        erase();
+        if (echo) output.write("^C\r\n");
+        cleanup();
+        resolve(null);
+        return true;
+      };
+      this._cancelCurrent = cancel;
       const edit = (next, nextCursor) => {
         value = next; cursor = clamp(nextCursor, 0, chars(value).length);
         selected = 0; dismissed = false; historyIndex = null;
@@ -171,8 +160,7 @@ export class AgentComposer {
         const items = matches();
         if (key.ctrl && key.name === "c") {
           if (value) return edit("", 0);
-          if (typeof onCancel === "function") onCancel();
-          erase(); output.write("^C\r\n"); cleanup(); return resolve(null);
+          return cancel(true);
         }
         if (key.ctrl && key.name === "l") {
           output.write(CLEAR_SCREEN); reservedMenuRows = 0; return render();
@@ -224,6 +212,10 @@ export class AgentComposer {
       if (typeof input.setRawMode === "function") input.setRawMode(true);
       render();
     });
+  }
+
+  cancelCurrent({ echo = true } = {}) {
+    return typeof this._cancelCurrent === "function" ? this._cancelCurrent(echo) : false;
   }
 
   close() {

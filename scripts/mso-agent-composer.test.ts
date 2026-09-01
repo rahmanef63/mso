@@ -174,4 +174,18 @@ describe("MSO Agent interactive composer primitives", () => {
     composer.close();
   });
 
+
+  it("can cancel a waiting prompt when Ctrl+C arrives as an OS SIGINT after an external TTY child", async () => {
+    class FakeInput extends EventEmitter { isRaw = false; resume() {} pause() {} setRawMode(value: boolean) { this.isRaw = value; } }
+    class FakeOutput { columns = 88; chunks: string[] = []; write(value: string) { this.chunks.push(String(value)); return true; } }
+    const input = new FakeInput(); const output = new FakeOutput();
+    const composer = new AgentComposer({ input: input as never, output: output as never, colors: { blue: "", bold: "", reset: "", dim: "" } });
+    const waiting = composer.question("› ");
+    expect(composer.cancelCurrent()).toBe(true);
+    await expect(waiting).resolves.toBeNull();
+    expect(output.chunks.join("")).toContain("^C\r\n");
+    expect(composer.cancelCurrent()).toBe(false);
+    composer.close();
+  });
+
 });
