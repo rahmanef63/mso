@@ -20,7 +20,7 @@ describe("MSO Agent slash completion catalog", () => {
   });
 
   it("filters live as the command token is typed", () => {
-    expect(slashCompletionItems(skills, "/sess", "/home/rahman").map((row) => row.text)).toEqual(["/session", "/sessions"]);
+    expect(slashCompletionItems(skills, "/sess", "/home/rahman").map((row) => row.text)).toEqual(["/session"]);
     expect(slashCompletionItems(skills, "/skills anything", "/home/rahman")).toEqual([]);
   });
 

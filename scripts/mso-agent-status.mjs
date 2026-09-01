@@ -47,6 +47,13 @@ export function addUsage(total, next) {
   };
 }
 
+
+function compactLabel(value, max = 28) {
+  const clean = String(value || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim();
+  const row = Array.from(clean);
+  return row.length <= max ? clean : `${row.slice(0, Math.max(1, max - 1)).join("")}…`;
+}
+
 function homeShort(cwd) {
   const home = os.homedir();
   if (cwd === home) return "~";
@@ -66,7 +73,7 @@ export function statusParts(session, cwd = process.cwd()) {
   const model = String(session?.state?.config?.model || "—");
   const ctx = contextStatus(session?.history, session?.state?.modelMeta);
   const turns = (session?.history || []).filter((row) => row?.role === "user").length;
-  const shortSession = String(session?.agentSession?.id || "—").replace(/^\d{8}_\d{6}_/, "");
+  const sessionTitle = compactLabel(session?.agentSession?.title || "MSO Agent session");
   const usage = session?.usage || { totalTokens: 0 };
   const elapsed = Number(session?.lastElapsedMs || 0);
   const skill = skillStatus(session);
@@ -76,9 +83,10 @@ export function statusParts(session, cwd = process.cwd()) {
     ctx.limit ? `ctx ~${compactNumber(ctx.used)}/${compactNumber(ctx.limit)} ${ctx.percent}%` : `ctx ~${compactNumber(ctx.used)}/?`,
     session?.agentSession?.compactThresholdTokens ? `session ~${compactNumber(session.agentSession.estimatedTokens)}/${compactNumber(session.agentSession.compactThresholdTokens)}` : null,
     usage.totalTokens > 0 ? `tokens ${compactNumber(usage.totalTokens)}` : null,
+    `permission ${session?.permission || "ask"}`,
     `turns ${turns}`,
     elapsed > 0 ? `${(elapsed / 1000).toFixed(elapsed >= 10_000 ? 0 : 1)}s` : null,
-    `session ${shortSession}`,
+    `session ${sessionTitle}`,
     homeShort(cwd),
   ].filter(Boolean);
 }
@@ -110,6 +118,7 @@ export function detailedStatus(session, cwd = process.cwd()) {
     turns: (session?.history || []).filter((row) => row?.role === "user").length,
     session: session?.agentSession?.id || null,
     title: session?.agentSession?.title || null,
+    permission: session?.permission || "ask",
     cwd: homeShort(cwd),
   };
 }
@@ -125,6 +134,7 @@ export function printDetailedStatus(session, C, cwd = process.cwd()) {
     console.log(`  tokens     ${row.providerReportedUsage.totalTokens} total · ${row.providerReportedUsage.inputTokens} in · ${row.providerReportedUsage.outputTokens} out`);
   } else console.log("  tokens     provider has not reported usage in this process; context remains estimated");
   if (row.skill) console.log(`  skill      ${row.skill.state} /${row.skill.name}`);
+  console.log(`  permission ${row.permission}`);
   console.log(`  turns      ${row.turns}`);
   console.log(`  session    ${row.session}`);
   console.log(`  title      ${row.title || "MSO Agent session"}`);

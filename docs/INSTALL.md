@@ -135,8 +135,20 @@ already connected. `mso models test` validates the currently selected connection
 ChatGPT/Codex subscription path), while `mso model list [provider]` shows selectable model IDs.
 Interactive `mso model` / `mso models` menus are arrow-key pickers: **↑/↓** moves, typing filters,
 **Enter** selects, and **Esc** cancels; numeric provider/model prompts are not part of the UX.
-Agent sessions are durable: `mso --continue` resumes the latest CLI session and
-`mso --resume <index|id|title>` resolves a prior session without weakening principal isolation.
+Agent sessions are durable: `mso --continue` resumes the latest session and
+`mso --resume <index|id|title>` resolves a prior session without weakening principal isolation. Inside
+the Agent, `/session` and bare `/resume` open a single newest-first picker directly—there is no second
+printed recent list. Rows show the human session title plus `modified …`; IDs are hidden in the normal UI
+and retained only as an exact automation/debug escape hatch. Explicit `/title` renames use the durable
+rename lifecycle, while new CLI sessions remain auto-titleable from their first real user prompt.
+
+Agent permission mode defaults to `ask`. `mso --yolo` and `mso -yolo` are global Agent startup flags, so
+they work without spelling `agent` (`mso --continue --yolo` is valid too). YOLO auto-approves write and
+exec calls for that process only; MSO still canonicalizes the exact payload and sends its approval digest
+to the server, but the interactive `allow this exact call? [y/N]` step is skipped. `/permission` opens a
+native picker for `ask`, `auto-write`, or `yolo`; Tab on an empty Agent prompt cycles the same modes.
+`auto-write` approves writes only and retains exec confirmation. The mode is deliberately not persisted
+across Agent restarts/resumes.
 
 Hermes/OpenClaw installation is optional and uses each app's existing managed-job installer.
 Their model/provider configuration belongs to those applications and is not implicitly
@@ -157,7 +169,9 @@ pause for terminal approval. Skill lifecycle is explicit in the slash palette an
 and `✓ invoked` means the skill instructions were actually attached to a model turn. The terminal
 composer also follows conventional controls: Ctrl+C clears a draft, exits an empty prompt, or interrupts
 an active turn; Ctrl+D deletes right/exits on empty; Ctrl+L clears the screen; Ctrl+W deletes the previous
-word; ↑/↓ or Ctrl+P/N browse history; Ctrl+A/E and Ctrl+B/F navigate the line. `/quit` aliases `/exit`.
+word; ↑/↓ or Ctrl+P/N browse prompt history and are seeded from durable user prompts after resume;
+Ctrl+A/E and Ctrl+B/F navigate the line, Ctrl+U/K delete to the start/end, and Alt+B/F or Ctrl+←/→ move
+by word. `/quit` aliases `/exit`.
 Interrupted model/tool turns are rolled back from durable CLI history before the session is saved. See
 [`INFRASTRUCTURE-PROVIDERS.md`](./INFRASTRUCTURE-PROVIDERS.md) for the deployment/provider boundary.
 

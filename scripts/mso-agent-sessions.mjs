@@ -1,7 +1,31 @@
 function clean(value) { return String(value ?? "").replace(/[\r\n\t]+/g, " ").trim(); }
 
+function modifiedMs(row) {
+  const value = Date.parse(String(row?.updatedAt || row?.createdAt || ""));
+  return Number.isFinite(value) ? value : 0;
+}
+
+export function formatSessionModified(value, now = Date.now()) {
+  const at = Date.parse(String(value || ""));
+  if (!Number.isFinite(at)) return "recently";
+  const diff = Math.max(0, Number(now) - at);
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))}m ago`;
+  if (diff < 86_400_000) return `${Math.max(1, Math.floor(diff / 3_600_000))}h ago`;
+  if (diff < 604_800_000) return `${Math.max(1, Math.floor(diff / 86_400_000))}d ago`;
+  return new Date(at).toISOString().slice(0, 10);
+}
+
+export function sessionPromptHistory(history) {
+  return (Array.isArray(history) ? history : [])
+    .filter((row) => row?.role === "user" && typeof row.text === "string" && row.text.trim())
+    .map((row) => clean(row.text))
+    .reverse()
+    .slice(0, 100);
+}
+
 export function resolveSessionQuery(rows, query) {
-  const sessions = Array.isArray(rows) ? rows : [];
+  const sessions = (Array.isArray(rows) ? rows : []).slice().sort((a, b) => modifiedMs(b) - modifiedMs(a));
   if (!sessions.length) return { session: null, ambiguous: [], reason: "empty" };
   const raw = clean(query);
   if (!raw || raw.toLowerCase() === "latest" || raw.toLowerCase() === "continue") return { session: sessions[0], ambiguous: [] };
@@ -24,10 +48,26 @@ export function resolveSessionQuery(rows, query) {
   return { session: null, ambiguous: [], reason: "not_found" };
 }
 
-export function sessionCompletionItems(rows, input) {
+export function visibleSessionRows(rows) {
+  return (Array.isArray(rows) ? rows : []).filter((row) => {
+    const emptyDefaultCli = row?.source === "cli" && Number(row?.historyTurns || 0) === 0
+      && clean(row?.title) === "MSO Agent session" && ["default", "manual"].includes(String(row?.titleSource || "default"));
+    return !emptyDefaultCli;
+  });
+}
+
+export function sessionCompletionItems(rows, input, now = Date.now(), currentId = "") {
   const q = clean(input).toLowerCase();
-  return (Array.isArray(rows) ? rows : []).map((row, index) => ({
-    text: row.id,
-    meta: `${index + 1} · ${row.source || "cli"} · ${row.historyTurns || 0} turns · ${clean(row.title || "MSO Agent session")}`,
-  })).filter((item) => !q || item.text.toLowerCase().includes(q) || item.meta.toLowerCase().includes(q)).slice(0, 20);
+  return visibleSessionRows(rows)
+    .slice()
+    .sort((a, b) => modifiedMs(b) - modifiedMs(a))
+    .map((row) => {
+      const text = clean(row.title) || "MSO Agent session";
+      const modified = `modified ${formatSessionModified(row.updatedAt || row.createdAt, now)}`;
+      const meta = String(row.id) === String(currentId) ? `current · ${modified}` : modified;
+      return { text, value: String(row.id), meta, search: `${text} ${row.id} ${meta}`.toLowerCase() };
+    })
+    .filter((item) => !q || item.search.includes(q))
+    .slice(0, 20)
+    .map(({ search: _search, ...item }) => item);
 }

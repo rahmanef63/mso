@@ -82,7 +82,7 @@ Commands:
   status               Public service status (no session needed)
   health               Is this CLI's session valid?
   doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
-  agent [--continue|--resume <query>]  Interactive MSO Agent; resume durable sessions
+  agent [--continue|--resume <query>|--yolo|-yolo]  Interactive MSO Agent; resume durable sessions
   chat                 Alias for agent
   model [ref]          Select active model from a connected provider
   onboard [-y]         Guided setup: AI, apps, infrastructure, skills

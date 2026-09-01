@@ -54,8 +54,9 @@ export async function state() {
   return { config, toolsData, tools, skills, infra, models, modelMeta };
 }
 
-export async function createCliSession(title = "MSO Agent session") {
-  const out = await api("/api/v1/agent-sessions", { method: "POST", body: JSON.stringify({ action: "create", title }) });
+export async function createCliSession(title = undefined) {
+  const body = { action: "create", ...(title ? { title } : {}) };
+  const out = await api("/api/v1/agent-sessions", { method: "POST", body: JSON.stringify(body) });
   return out.session;
 }
 export async function loadCliSession(id) {
@@ -74,6 +75,13 @@ export async function saveCliSession(session, history, title) {
   const out = await api("/api/v1/agent-sessions", {
     method: "POST",
     body: JSON.stringify({ action: "update", id: session.id, history, ...(title ? { title } : {}) }),
+  });
+  return out.session;
+}
+export async function renameCliSession(session, title) {
+  const out = await api("/api/v1/agent-sessions", {
+    method: "POST",
+    body: JSON.stringify({ action: "rename", id: session.id, title }),
   });
   return out.session;
 }

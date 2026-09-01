@@ -124,7 +124,8 @@ export async function updateAgentSessionHistory(principal: string, id: string, h
     const oldTokens = estimateTokens(record.history), newHistory = Array.isArray(history) ? history.slice(-MAX_HISTORY) : [];
     record.history = newHistory;
     record.lifetimeEstimatedTokens += Math.max(0, estimateTokens(newHistory) - oldTokens);
-    if (title && (titleSource === "manual" || record.titleSource !== "manual")) {
+    const legacyCliDefault = record.source === "cli" && record.titleSource === "manual" && record.title === "MSO Agent session";
+    if (title && (titleSource === "manual" || record.titleSource !== "manual" || legacyCliDefault)) {
       record.title = safeTitle(title); record.titleSource = titleSource;
     }
     record.updatedAt = new Date().toISOString(); record = await compactIfNeeded(record, "context-threshold");

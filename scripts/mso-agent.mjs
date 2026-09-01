@@ -6,26 +6,30 @@ import { AgentComposer } from "./mso-agent-composer.mjs";
 import { AgentInterruptManager, isAbortError } from "./mso-agent-interrupt.mjs";
 import { slashCompletionItems } from "./mso-agent-slash.mjs";
 import { addUsage, renderStatusBar } from "./mso-agent-status.mjs";
-import { persistSession, resumeArg, startupSession } from "./mso-agent-session-ui.mjs";
+import { persistSession, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
 import { C, api, printBanner, state, streamTurn } from "./mso-agent-runtime.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
+import { approvesTool, nextPermissionMode } from "./mso-agent-permissions.mjs";
 
-async function executeTool(rl, tool, call, agentSession, signal = undefined, onInterrupt = null) {
+async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null) {
   if (!tool) return { ok: false, result: `unknown tool requested by model: ${call.name}` };
-  let approved = tool.scope === "read";
+  const needsApprovalDigest = tool.scope !== "read";
   let approval = null;
+  if (needsApprovalDigest) {
+    try { approval = canonicalAgentApproval(tool.name, call.input || {}); }
+    catch (error) { return { ok: false, result: `cannot safely approve tool call: ${error instanceof Error ? error.message : String(error)}` }; }
+  }
+  let approved = approvesTool(permission, tool.scope);
   if (!approved) {
-    try {
-      approval = canonicalAgentApproval(tool.name, call.input || {});
-    } catch (error) {
-      return { ok: false, result: `cannot safely approve tool call: ${error instanceof Error ? error.message : String(error)}` };
-    }
     console.log(`${C.warn}${C.bold}[${tool.scope.toUpperCase()}] exact tool call${C.reset}`);
     console.log(approval.display);
     console.log(`${C.dim}sha256 ${approval.digest} · ${approval.bytes} bytes${C.reset}`);
     const answer = String(await rl.question("  allow this exact call? [y/N]: ", { history: false, onCancel: onInterrupt }) ?? "").trim().toLowerCase();
     if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("turn interrupted");
     if (answer === "y" || answer === "yes") approved = true;
+  } else if (needsApprovalDigest) {
+    const mode = permission === "yolo" ? "YOLO" : "AUTO-WRITE";
+    console.log(`${C.c}${C.bold}[${tool.scope.toUpperCase()} · ${mode}]${C.reset} ${tool.name}`);
   }
   if (!approved) return { ok: false, result: "denied by user" };
   process.stdout.write(`${C.dim}  ↳ ${tool.name}…${C.reset}`);
@@ -65,7 +69,7 @@ async function agentRound(rl, session, skillContext = null, signal = undefined, 
       const results = [];
       for (const call of result.toolUses) {
         const tool = session.state.tools.find((row) => row.name === call.name);
-        const outcome = await executeTool(rl, tool, call, session.agentSession, signal, onInterrupt);
+        const outcome = await executeTool(rl, tool, call, session.agentSession, session.permission, signal, onInterrupt);
         results.push({ id: call.id, content: outcome.result, isError: !outcome.ok });
       }
       session.history.push({ role: "tool", results });
@@ -99,7 +103,9 @@ async function main() {
     console.error("mso agent needs an interactive terminal. For one-shot automation use: mso ai <prompt>");
     process.exit(2);
   }
-  const requested = resumeArg(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  const requested = resumeArg(argv);
+  const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg)) ? "yolo" : "ask";
   const [s, agentSession] = await Promise.all([
     state(),
     startupSession(requested),
@@ -117,8 +123,10 @@ async function main() {
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     lastElapsedMs: 0,
     statusBar: true,
+    permission: forcedPermission,
   };
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C });
+  syncPromptHistory(rl, session);
   const interrupts = new AgentInterruptManager({ output: process.stdout, colors: C });
   const onSigint = () => {
     const action = interrupts.handleSigint();
@@ -137,7 +145,13 @@ async function main() {
       try {
         console.log();
         if (session.statusBar) console.log(renderStatusBar(session, C));
-        const answer = await rl.question(`${C.blue}${C.bold}›${C.reset} `, { complete: completeSlash });
+        const answer = await rl.question(`${C.blue}${C.bold}›${C.reset} `, {
+          complete: completeSlash,
+          onTab: () => {
+            session.permission = nextPermissionMode(session.permission).id;
+            return `${C.dim}permission → ${session.permission}${C.reset}`;
+          },
+        });
         if (answer === null) break;
         line = answer.trim();
       } catch { break; }
@@ -162,7 +176,8 @@ async function main() {
   } finally {
     process.off("SIGINT", onSigint);
     await persistSession(session).catch(() => undefined);
-    console.log(`${C.dim}session ${session.agentSession.id} · resume: mso --continue  |  mso --resume ${session.agentSession.id}${C.reset}`);
+    const sessionTitle = String(session.agentSession.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim().slice(0, 80);
+    console.log(`${C.dim}session ${sessionTitle} · resume: mso --continue · switch: /sessions${C.reset}`);
     rl.close();
   }
 }

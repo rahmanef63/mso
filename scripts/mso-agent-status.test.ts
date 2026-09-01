@@ -33,4 +33,17 @@ describe("MSO Agent dynamic status", () => {
     expect(invoked).toContain("skill ✓ /design");
   });
 
+
+  it("uses the human session title in compact status while keeping the id for detailed diagnostics", () => {
+    const session = {
+      state: { config: { provider: "openai-codex", model: "gpt-5.6-sol" }, modelMeta: null },
+      history: [], usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      agentSession: { id: "20260901_120000_deadbeef", title: "test tui mso" },
+    };
+    const compact = statusParts(session, "/tmp").join(" · ");
+    expect(compact).toContain("session test tui mso");
+    expect(compact).toContain("permission ask");
+    expect(compact).not.toContain("deadbeef");
+  });
+
 });

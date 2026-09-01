@@ -14,7 +14,7 @@ const all = [cli, agentCli, configRoute, oauthRoute, slash, picker].join("\n");
 
 describe("MSO model/provider/session CLI contract", () => {
   it("keeps provider auth (`models`) separate from active selection (`model`)", () => {
-    expect(cli).toContain('VERSION="1.6.0"');
+    expect(cli).toContain('VERSION="1.6.1"');
     expect(cli).toContain("models *             Configure AI providers/auth");
     expect(cli).toContain("model [ref]          Select active model");
     expect(agentCli).toContain("run_models()");
@@ -56,4 +56,10 @@ describe("MSO model/provider/session CLI contract", () => {
     expect(slash).toContain('text: "/resume"');
     expect(slash).toContain('text: "/status"');
   });
+
+  it("accepts yolo as a global Agent startup flag instead of treating it as a command", () => {
+    expect(cli).toContain('--yolo|-yolo) AGENT_START_ARGS+=("--yolo")');
+    expect(cli).toContain('agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo]');
+  });
+
 });

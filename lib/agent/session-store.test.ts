@@ -60,6 +60,23 @@ describe("durable agent session context policy", () => {
     await expect(fs.stat(file)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("allows an explicit rename to replace a manual title and refresh modified time", async () => {
+    const session = await store.createAgentSession("principal:rename", "cli", { title: "Old name", titleSource: "manual" });
+    const before = session.updatedAt;
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    const renamed = await store.renameAgentSession("principal:rename", session.id, "New name");
+    expect(renamed.title).toBe("New name");
+    expect(renamed.titleSource).toBe("manual");
+    expect(renamed.updatedAt.localeCompare(before)).toBeGreaterThan(0);
+  });
+
+  it("repairs the legacy CLI default that was incorrectly stored as a manual title", async () => {
+    const session = await store.createAgentSession("principal:legacy-title", "cli", { title: "MSO Agent session", titleSource: "manual" });
+    const updated = await store.updateAgentSessionHistory("principal:legacy-title", session.id, [{ role: "user", text: "Deploy Control Room" }], "Deploy Control Room", "auto");
+    expect(updated.title).toBe("Deploy Control Room");
+    expect(updated.titleSource).toBe("auto");
+  });
+
   it("keeps manual titles locked against later auto-title hints", async () => {
     const session = await store.createAgentSession("principal:title", "cli", { title: "Manual name", titleSource: "manual" });
     await store.maybeAutoTitleAgentSession("principal:title", session.id, "Deploy a very different project");

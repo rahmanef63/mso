@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
-import { C, BASE, CLI, api, listCliSessions, state } from "./mso-agent-runtime.mjs";
+import { C, BASE, CLI, api, state } from "./mso-agent-runtime.mjs";
 import { loadSlashSkill, printSkillChoices, printSkills, resolveSlashSkill } from "./mso-agent-skills.mjs";
-import { persistSession, printSessions, resumeInto, resumePicker } from "./mso-agent-session-ui.mjs";
+import { persistSession, renameCurrentSession, resumeInto, resumePicker } from "./mso-agent-session-ui.mjs";
 import { printDetailedStatus } from "./mso-agent-status.mjs";
+import { permissionCompletionItems, permissionMode } from "./mso-agent-permissions.mjs";
 
 function runCli(args) {
   const result = spawnSync(CLI, args, { stdio: "inherit", env: { ...process.env, MSO_BASE: BASE } });
@@ -32,11 +33,11 @@ async function selectSlashSkill(rl, session, requested, prompt, runTurn) {
 
 function printHelp() {
   console.log([
-    "  /session                show current durable MSO session id",
-    "  /sessions               list recent resumable sessions",
-    "  /resume [query]         resume latest/index/id/title; no arg opens picker",
+    "  /session [query]        open picker or resume latest/index/id/title",
+    "  /resume [query]         alias-style resume command; bare opens same picker",
     "  /title <name>           rename the durable session",
     "  /status                 model/auth/context/token/session details",
+    "  /permission [mode]      choose ask | auto-write | yolo",
     "  /context                alias for /status",
     "  /statusbar [on|off]     toggle compact dynamic status line",
     "  /models [args]          configure AI providers/auth",
@@ -56,9 +57,10 @@ function printHelp() {
     "  Ctrl+C                  clear input; empty prompt exits; active turn interrupts",
     "  Ctrl+D                  delete right; empty prompt exits",
     "  Ctrl+L                  clear/repaint terminal",
-    "  Ctrl+W                  delete previous word",
-    "  ↑/↓ or Ctrl+P/N         command history",
+    "  Ctrl+W · Ctrl+U/K       delete word · delete to line start/end",
+    "  ↑/↓ or Ctrl+P/N         prompt history (durable after resume)",
     "  Ctrl+A/E · Ctrl+B/F     line start/end · left/right",
+    "  Alt+B/F · Ctrl+←/→      move by word",
   ].join("\n"));
 }
 
@@ -66,20 +68,28 @@ export async function handleSlash(rl, line, session, { runTurn }) {
   const [cmd, ...args] = line.trim().split(/\s+/);
   switch (cmd) {
     case "/help": printHelp(); return "handled";
-    case "/session":
-      console.log(`${C.blue}${session.agentSession.id}${C.reset} · ${session.agentSession.title || "MSO Agent session"}`); return "handled";
-    case "/sessions":
-      printSessions(await listCliSessions(50)); return "handled";
-    case "/resume":
-      if (!args.length) await resumePicker(rl, session); else await resumeInto(session, args.join(" "));
+    case "/session": case "/sessions": case "/resume":
+      if (!args.length) await resumePicker(rl, session); else await resumeInto(rl, session, args.join(" "));
       return "refresh";
     case "/title": {
       const title = args.join(" ").trim();
       if (!title) console.log("usage: /title <session name>");
-      else { session.titleOverride = title.slice(0, 120); await persistSession(session); console.log(`${C.c}✓ session title: ${session.titleOverride}${C.reset}`); }
+      else { const renamed = await renameCurrentSession(session, title); console.log(`${C.c}✓ session title: ${renamed}${C.reset}`); }
       return "handled";
     }
     case "/status": case "/context": printDetailedStatus(session, C); return "handled";
+    case "/permission": {
+      const direct = args.length ? permissionMode(args.join(" ")) : null;
+      if (args.length && !direct) { console.log("usage: /permission [ask|auto-write|yolo]"); return "handled"; }
+      if (direct) session.permission = direct.id;
+      else {
+        const selected = await rl.question(`${C.blue}${C.bold}permission ›${C.reset} `, {
+          history: false, complete: (value) => permissionCompletionItems(value), panelLabel: "permission mode", selectOnEnter: true, escapeCancels: true,
+        });
+        if (selected) session.permission = permissionMode(selected)?.id || session.permission;
+      }
+      console.log(`permission ${session.permission}`); return "handled";
+    }
     case "/statusbar": {
       const value = String(args[0] || "").toLowerCase();
       if (value === "off") session.statusBar = false; else if (value === "on") session.statusBar = true; else session.statusBar = !session.statusBar;
@@ -100,7 +110,8 @@ export async function handleSlash(rl, line, session, { runTurn }) {
       return selectSlashSkill(rl, session, args[0], args.slice(1).join(" "), runTurn);
     case "/clear":
       Object.assign(session, { history: [], pendingSkill: null, activeSkill: null, lastInvokedSkill: null });
-      await persistSession(session); console.log("conversation cleared."); return "handled";
+      rl.replaceHistory([]);
+      await persistSession(session); console.log("conversation and prompt history cleared."); return "handled";
     case "/exit": case "/quit": return "exit";
     default: return selectSlashSkill(rl, session, cmd.slice(1), args.join(" "), runTurn);
   }

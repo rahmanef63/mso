@@ -42,7 +42,7 @@
 #   status               Public service status (no session needed)
 #   health               Is this CLI's session valid?
 #   doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
-#   agent [--continue|--resume <query>]  Interactive MSO Agent; resume durable sessions
+#   agent [--continue|--resume <query>|--yolo|-yolo]  Interactive MSO Agent; resume durable sessions
 #   chat                 Alias for agent
 #   model [ref]          Select active model from a connected provider
 #   onboard [-y]         Guided setup: AI, apps, infrastructure, skills
@@ -126,7 +126,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.6.0"
+VERSION="1.6.1"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
@@ -140,6 +140,7 @@ while [ $# -gt 0 ]; do
     --env)  [ -n "${2-}" ] || die "--env needs a file";  ENV_OVERRIDE="$2";  shift 2 ;;
     --continue|-c) AGENT_START_ARGS+=("--continue"); shift ;;
     --resume|-r) [ -n "${2-}" ] || die "$1 needs a session query"; AGENT_START_ARGS+=("--resume" "$2"); shift 2 ;;
+    --yolo|-yolo) AGENT_START_ARGS+=("--yolo"); shift ;;
     --) shift; break ;;
     *) break ;;
   esac
@@ -673,7 +674,7 @@ U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|
 U_doctor="doctor [--fix]"
 U_provider="provider list|show <id>|set <dokploy|cloudflare|hostinger>|rm <id>|doctor [id]|projects|zones"
 U_model="model [current|list [provider]|set <provider> <model>|set <provider/model>|<model-or-ref>]"
-U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>]"
+U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo]"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"

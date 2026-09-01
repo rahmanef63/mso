@@ -1,9 +1,13 @@
-import { C, createCliSession, listCliSessions, resumeCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
-import { resolveSessionQuery, sessionCompletionItems } from "./mso-agent-sessions.mjs";
+import { C, createCliSession, listCliSessions, renameCliSession, resumeCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
+import { formatSessionModified, resolveSessionQuery, sessionCompletionItems, sessionPromptHistory, visibleSessionRows } from "./mso-agent-sessions.mjs";
 
 function autoTitle(history) {
   const first = history.find((row) => row?.role === "user" && typeof row.text === "string" && row.text.trim());
   return first ? String(first.text).replace(/[\r\n\t]+/g, " ").trim().slice(0, 100) : undefined;
+}
+
+export function syncPromptHistory(rl, session) {
+  rl.replaceHistory(sessionPromptHistory(session?.history));
 }
 
 export async function persistSession(session) {
@@ -13,15 +17,24 @@ export async function persistSession(session) {
   if (Array.isArray(saved?.history)) session.history = saved.history;
 }
 
+export async function renameCurrentSession(session, title) {
+  const nextTitle = String(title || "").replace(/[\r\n\t]+/g, " ").trim().slice(0, 120);
+  if (!nextTitle) throw new Error("session title is required");
+  const saved = await renameCliSession(session.agentSession, nextTitle);
+  session.agentSession = { ...session.agentSession, ...saved };
+  session.titleOverride = saved?.title || nextTitle;
+  return session.titleOverride;
+}
+
 export function printSessions(rows) {
   if (!rows.length) { console.log("No MSO Agent sessions yet."); return; }
-  console.log(`${C.bold}Recent MSO Agent sessions${C.reset}`);
+  console.log(`${C.bold}Matching MSO Agent sessions${C.reset}`);
   rows.forEach((row, index) => {
-    const when = String(row.updatedAt || row.createdAt || "").replace("T", " ").slice(0, 19);
-    const title = String(row.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").slice(0, 48);
-    console.log(`  ${String(index + 1).padStart(2)}  ${C.blue}${row.id}${C.reset}  ${C.dim}${when}${C.reset}  ${String(row.historyTurns || 0).padStart(2)}t  ${title}`);
+    const title = String(row.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim().slice(0, 72);
+    const modified = formatSessionModified(row.updatedAt || row.createdAt);
+    console.log(`  ${String(index + 1).padStart(2)}  ${C.blue}${title}${C.reset}  ${C.dim}· modified ${modified}${C.reset}`);
   });
-  console.log(`${C.dim}Resume: /resume latest | /resume 2 | /resume <id/title> · CLI: mso --continue / mso --resume <query>${C.reset}`);
+  console.log(`${C.dim}Resume by title or list index; exact ids remain accepted as a scriptable escape hatch.${C.reset}`);
 }
 
 async function resolveResume(query, rows = null) {
@@ -36,7 +49,7 @@ async function resolveResume(query, rows = null) {
   throw new Error(`no resumable MSO Agent session matches: ${query || "latest"}`);
 }
 
-export async function resumeInto(session, query, rows = null) {
+export async function resumeInto(rl, session, query, rows = null) {
   const target = await resolveResume(query, rows);
   if (!target) return false;
   const loaded = await resumeCliSession(target.id);
@@ -51,19 +64,22 @@ export async function resumeInto(session, query, rows = null) {
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     lastElapsedMs: 0,
   });
-  console.log(`${C.c}resumed ${loaded.id}${C.reset} · ${loaded.title || "MSO Agent session"} · ${session.history.length} history rows`);
+  syncPromptHistory(rl, session);
+  console.log(`${C.c}resumed ${loaded.title || "MSO Agent session"}${C.reset} · ${session.history.length} history rows`);
   return true;
 }
 
 export async function resumePicker(rl, session) {
-  const rows = await listCliSessions(100);
-  if (!rows.length) { console.log("No MSO Agent sessions yet."); return; }
-  printSessions(rows.slice(0, 20));
-  const answer = await rl.question(`${C.blue}${C.bold}resume ›${C.reset} `, {
+  const rows = visibleSessionRows(await listCliSessions(100));
+  if (!rows.length) { console.log("No resumable MSO Agent sessions yet."); return false; }
+  const answer = await rl.question(`${C.blue}${C.bold}session ›${C.reset} `, {
     history: false,
-    complete: (value) => sessionCompletionItems(rows, value),
+    complete: (value) => sessionCompletionItems(rows, value, Date.now(), session.agentSession?.id),
+    panelLabel: "recent sessions",
+    selectOnEnter: true,
+    escapeCancels: true,
   });
-  if (answer?.trim()) await resumeInto(session, answer.trim(), rows);
+  return answer?.trim() ? resumeInto(rl, session, answer.trim(), rows) : false;
 }
 
 export function resumeArg(argv) {

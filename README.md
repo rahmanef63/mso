@@ -209,15 +209,25 @@ mso skills install ponytail caveman rtk -y
 ```
 
 Interactive model/provider menus use a native picker: **↑/↓** moves, typing filters, **Enter**
-selects, and **Esc** cancels. No provider/model number has to be memorized. In the Agent slash
+selects, and **Esc** cancels. No provider/model number has to be memorized. `/session` and bare
+`/resume` open one recent-session picker directly: newest modified session first, human session title
+as the primary label, and compact `modified …` metadata. Durable session IDs stay hidden in the normal
+picker UI but remain accepted by scriptable `--resume`/`/resume` queries. In the Agent slash
 palette, executable skills carry lifecycle markers so their state is visible before and after use:
 `◇ ready` → `◆ queued` (selected for the next message) → `✓ invoked` (actually sent with a model turn).
-The compact status line mirrors queued/invoked skill state. Terminal controls follow familiar
-agent/shell conventions: **Ctrl+C** clears a non-empty draft, exits from an empty idle prompt, and
+The compact status line mirrors queued/invoked skill state and the current permission mode. MSO defaults
+to `ask`; use `mso --yolo` or `mso -yolo` when you explicitly want write+exec calls auto-approved for
+that Agent process. YOLO still computes and sends the canonical exact-payload approval digest; it only
+skips the interactive `y/N` prompt. `/permission` opens the same arrow-key style selector for
+`ask` / `auto-write` / `yolo`, and Tab on an empty prompt cycles those modes. `auto-write` approves
+writes but still asks before exec. Permission mode is intentionally process-local and is not persisted
+into a resumed session. Terminal controls follow familiar agent/shell conventions: **Ctrl+C** clears a non-empty draft, exits from an empty idle prompt, and
 interrupts an active model/tool turn; **Ctrl+D** deletes the character to the right or exits on an
 empty prompt; **Ctrl+L** clears/repaints; **Ctrl+W** deletes the previous word; **↑/↓** or
-**Ctrl+P/N** browse input history; **Ctrl+A/E** and **Ctrl+B/F** move to line boundaries or one
-character. `/quit` is an alias for `/exit`. An interrupted turn is removed from durable conversation
+**Ctrl+P/N** browse prompt history, including durable user prompts restored by `--continue`/`/resume`;
+**Ctrl+A/E** and **Ctrl+B/F** move to line boundaries or one character, **Ctrl+U/K** delete to the
+start/end of the line, and **Alt+B/F** or **Ctrl+←/→** move by word. `/quit` is an alias for `/exit`.
+An interrupted turn is removed from durable conversation
 history so `--continue` never resumes a half-turn. Server-side jobs that were already created retain
 their own bounded job/cancel lifecycle.
 
