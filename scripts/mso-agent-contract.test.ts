@@ -7,13 +7,16 @@ const src = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 
 describe("MSO terminal agent contract", () => {
   it("renders the final blue MSO Agent title art and setup/session shortcuts", () => {
-    expect(src).toContain("████████████");
-    expect(src).toContain("  ██   ██ ██ ██   ██████████████████████");
-    expect(src).toContain("███╗   ███╗███████╗ ██████╗");
-    expect(src).toContain("── MSO Agent ──");
+    expect(src).toContain("████████╗                   ███╗   ███╗███████╗ ██████╗ ");
+    expect(src).toContain("██╔═╦═╦═╝████████████████╗  ████╗ ████║██╔════╝██╔═══██╗");
+    expect(src).toContain("██║    >     _     >   ██║  ██║╚██╔╝██║╚════██║██║   ██║");
+    expect(src).toContain("╚████████████████████████╝  ╚═╝     ╚═╝╚══════╝ ╚═════╝ ");
+    expect(src).toContain("                    ── MSO Agent ──");
     expect(src).toContain("MSO_TITLE_ART");
-    expect(src).toContain("MSO_TITLE_GUTTER");
-    expect(src).toContain("  ████████████");
+    expect(src).toContain("MSO_TITLE_COLORS");
+    expect(src).toContain("38;2;69;142;255");
+    expect(src).toContain("38;2;46;229;157");
+    expect(src).not.toContain("MSO_TITLE_GUTTER");
     expect(src).not.toContain("╭──┘      ╰────────╮");
     for (const command of ["/model", "/setup", "/providers", "/provider", "/doctor", "/tools", "/skills", "/skill", "/<skill>", "/session", "/sessions", "/resume", "/clear", "/exit"]) expect(src).toContain(command);
     expect(src).toContain("selected for the next message");

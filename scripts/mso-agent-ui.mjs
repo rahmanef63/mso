@@ -10,22 +10,26 @@ C.a = C.blue;
 C.b = C.blue;
 C.c = C.cyan;
 
-export const MSO_TITLE_GUTTER = "  ";
-
 export const MSO_TITLE_ART = [
-  "  ████████████",
-  "  ██          ██",
-  "  ██   ██ ██ ██   ██████████████████████",
-  "  ██                                  ██      ███╗   ███╗███████╗ ██████╗ ",
-  "  ██                                  ██      ████╗ ████║██╔════╝██╔═══██╗",
-  "  ██       ██                ██       ██      ██╔████╔██║███████╗██║   ██║",
-  "  ██         ██                ██     ██      ██║╚██╔╝██║╚════██║██║   ██║",
-  "  ██       ██    ████████    ██       ██      ██║ ╚═╝ ██║███████║╚██████╔╝",
-  "  ██                                  ██      ╚═╝     ╚═╝╚══════╝ ╚═════╝ ",
-  "  ██                                  ██",
-  "   ████████████████████████████████████",
-  "                                                       ── MSO Agent ──",
+  "████████╗                   ███╗   ███╗███████╗ ██████╗ ",
+  "██╔═╦═╦═╝████████████████╗  ████╗ ████║██╔════╝██╔═══██╗",
+  "██║ ╚═╩═╝              ██║  ██╔████╔██║███████╗██║   ██║",
+  "██║    >     _     >   ██║  ██║╚██╔╝██║╚════██║██║   ██║",
+  "██║                    ██║  ██║ ╚═╝ ██║███████║╚██████╔╝",
+  "╚████████████████████████╝  ╚═╝     ╚═╝╚══════╝ ╚═════╝ ",
+  "                    ── MSO Agent ──                     ",
 ];
+
+// Blue → cyan → teal/emerald. No purple: the title should read as one cool MSO gradient.
+export const MSO_TITLE_COLORS = color ? [
+  "\x1b[38;2;69;142;255m",
+  "\x1b[38;2;58;160;255m",
+  "\x1b[38;2;45;184;255m",
+  "\x1b[38;2;34;211;238m",
+  "\x1b[38;2;32;201;176m",
+  "\x1b[38;2;46;229;157m",
+  "\x1b[38;2;46;229;157m",
+] : MSO_TITLE_ART.map(() => "");
 
 function plain(value) { return String(value ?? "").replace(/\x1b\[[0-9;]*m/g, ""); }
 function width(value) { return [...plain(value)].length; }
@@ -96,9 +100,9 @@ function panelTitle(title, inner) {
 export function printAgentBanner(s, agentSession, { base, version }) {
   const totalWidth = terminalWidth();
   const inner = totalWidth - 2;
-  const titleArtWidth = width(MSO_TITLE_GUTTER) + Math.max(...MSO_TITLE_ART.map(width));
+  const titleArtWidth = Math.max(...MSO_TITLE_ART.map(width));
   if (totalWidth >= titleArtWidth) {
-    for (const line of MSO_TITLE_ART) console.log(`${C.blue}${C.bold}${MSO_TITLE_GUTTER}${line}${C.reset}`);
+    MSO_TITLE_ART.forEach((line, index) => console.log(`${MSO_TITLE_COLORS[index]}${C.bold}${line}${C.reset}`));
   } else console.log(`${C.blue}${C.bold}── MSO Agent ──${C.reset}`);
   console.log();
 

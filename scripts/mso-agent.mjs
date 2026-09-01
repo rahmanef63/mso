@@ -194,7 +194,8 @@ async function main() {
     while (true) {
       let line = "";
       try {
-        const answer = await rl.question(`\n${C.blue}${C.bold}›${C.reset} `, { complete: completeSlash });
+        console.log();
+        const answer = await rl.question(`${C.blue}${C.bold}›${C.reset} `, { complete: completeSlash });
         if (answer === null) break;
         line = answer.trim();
       } catch { break; }

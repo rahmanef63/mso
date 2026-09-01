@@ -80,28 +80,36 @@ export class AgentComposer {
     if (this.closed) return null;
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
-      let value = "", cursor = 0, selected = 0, previousMenuRows = 0;
+      let value = "", cursor = 0, selected = 0, reservedMenuRows = 0;
       let dismissed = false, historyIndex = null, draft = "";
       const wasRaw = Boolean(input.isRaw);
 
       const matches = () => dismissed || !complete ? [] : complete(value) || [];
+      // Reserve physical rows only when the dropdown first grows. Selection changes then
+      // redraw with cursor movement only — no LF/CRLF — so ↑/↓ never create scrollback rows.
+      const reserve = (rows) => {
+        if (rows <= reservedMenuRows) return;
+        if (reservedMenuRows) output.write(CURSOR_DOWN(reservedMenuRows));
+        for (let i = reservedMenuRows; i < rows; i++) output.write("\r\n");
+        output.write(`${CURSOR_UP(rows)}\r`);
+        reservedMenuRows = rows;
+      };
       const erase = () => {
         output.write(`\r${CLEAR_LINE}`);
-        for (let i = 0; i < previousMenuRows; i++) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}`);
-        if (previousMenuRows) output.write(`${CURSOR_UP(previousMenuRows)}\r`);
-        previousMenuRows = 0;
+        for (let i = 0; i < reservedMenuRows; i++) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}`);
+        if (reservedMenuRows) output.write(`${CURSOR_UP(reservedMenuRows)}\r`);
       };
       const render = () => {
-        erase();
         const maxInput = Math.max(8, Number(output.columns || 100) - width(prompt) - 2);
         const viewport = inputViewport(value, cursor, maxInput);
         const items = matches();
         selected = items.length ? clamp(selected, 0, items.length - 1) : 0;
         const menu = menuLines(items, selected, output.columns, C);
+        reserve(menu.length);
+        erase();
         output.write(`${prompt}${viewport.display}`);
-        for (const row of menu) output.write(`\r\n${row}`);
-        previousMenuRows = menu.length;
-        if (previousMenuRows) output.write(CURSOR_UP(previousMenuRows));
+        for (const row of menu) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${row}`);
+        if (menu.length) output.write(CURSOR_UP(menu.length));
         output.write(`\r${CURSOR_RIGHT(width(prompt) + viewport.cursor)}`);
       };
       const cleanup = () => {
