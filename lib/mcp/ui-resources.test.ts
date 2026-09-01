@@ -18,7 +18,12 @@ describe("MCP Apps workflow progress UI", () => {
 
     const listed = await dispatch({ id: 2, method: "tools/list" }, "write", "mcp:ui-list");
     const tools = (listed.result as {
-      tools: Array<{ name: string; outputSchema?: unknown; _meta?: Record<string, unknown> }>;
+      tools: Array<{
+        name: string;
+        inputSchema?: { required?: string[] };
+        outputSchema?: unknown;
+        _meta?: Record<string, unknown>;
+      }>;
     }).tools;
     const start = tools.find((tool) => tool.name === "workflow_start");
     expect(start?.outputSchema).toBeDefined();
@@ -29,6 +34,7 @@ describe("MCP Apps workflow progress UI", () => {
 
     const status = tools.find((tool) => tool.name === "workflow_status");
     expect(status?.outputSchema).toBeDefined();
+    expect(status?.inputSchema?.required).toEqual(["workflow_id"]);
     expect(status?._meta).toMatchObject({
       ui: { visibility: ["app"] },
       "openai/widgetAccessible": true,
