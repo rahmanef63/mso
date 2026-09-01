@@ -23,6 +23,7 @@ type OaOutMsg = {
 };
 
 type OaChunk = {
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
   choices?: Array<{
     delta?: {
       content?: string | null;
@@ -109,6 +110,7 @@ export async function streamOpenAI(opts: {
   // tool_call fragments arrive split across chunks; accumulate by index.
   const calls = new Map<number, { id: string; name: string; args: string }>();
   let finish: string | null = null;
+  let usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null = null;
 
   reading: while (true) {
     if (signal.aborted) { await reader.cancel().catch(() => {}); return; }
@@ -125,6 +127,13 @@ export async function streamOpenAI(opts: {
       if (data === "[DONE]") break reading;
       let chunk: OaChunk;
       try { chunk = JSON.parse(data) as OaChunk; } catch { continue; }
+      if (chunk.usage) {
+        usage = {
+          inputTokens: chunk.usage.prompt_tokens,
+          outputTokens: chunk.usage.completion_tokens,
+          totalTokens: chunk.usage.total_tokens,
+        };
+      }
       const choice = chunk.choices?.[0];
       if (!choice) continue;
       if (choice.delta?.content) emit("delta", choice.delta.content);
@@ -145,5 +154,5 @@ export async function streamOpenAI(opts: {
     if (c.args) { try { input = JSON.parse(c.args); } catch { input = {}; } }
     emit("tool_use", { id: c.id || `call_${c.name}`, name: c.name, input });
   }
-  emit("done", { stopReason: toStopReason(finish) });
+  emit("done", { stopReason: toStopReason(finish), ...(usage ? { usage } : {}) });
 }

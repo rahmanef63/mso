@@ -73,7 +73,7 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 
 **Extend** — Alfa AI, modular slices, and custom apps.
 
-- **Use BYOK AI** — Alfa and the terminal MSO Agent use credentials stored on your server, not committed to the repo. Bare `mso` now opens the interactive setup/operations agent; `mso model` connects or changes its provider first.
+- **Use BYOK AI** — Alfa and the terminal MSO Agent use credentials stored on your server, not committed to the repo. Bare `mso` opens the interactive setup/operations agent. `mso models` manages AI provider/API/OAuth connections; `mso model` only selects the active model from providers that are already connected.
 - **Automate deployment providers without handing tokens to the model** — Dokploy and Cloudflare are built-in feature apps; `mso provider` also supports Hostinger DNS. Secrets stay in owner-only MSO state while bounded provider tools perform live checks and approved deployment/DNS operations. See [docs/INFRASTRUCTURE-PROVIDERS.md](./docs/INFRASTRUCTURE-PROVIDERS.md).
 - **Drive the box from ChatGPT, Codex, Claude Code, Cursor, Gemini CLI or VS Code** — Settings → MCP now provides client-specific numbered setup, copy-ready remote configs, live MCP/OAuth discovery checks, tunnel/domain guidance, and the same OAuth 2.1 + PKCE `read → write → exec` permission ladder enforced server-side. See the [ChatGPT Plugin / custom MCP app guide](./docs/CHATGPT-PLUGIN.md) and [MCP reference](./docs/MCP.md).
 - **Add app slices** — features are modular under `frontend/slices/<slug>/`.
@@ -195,7 +195,9 @@ On the normal Ubuntu/WSL PATH (which includes `/usr/local/bin`) these work immed
 ```bash
 mso                         # interactive MSO setup/operations agent
 mso -h
-mso model                   # connect/change the AI provider used by MSO Agent / Alfa
+mso models                  # configure AI provider/API/OAuth connections (does not switch model)
+mso model                   # select the active model from connected providers
+mso --continue              # resume the latest durable MSO Agent session
 mso doctor
 mso onboard                 # run/re-run guided setup; starts the built loopback runtime on WSL when needed
 mso provider list           # Dokploy/Cloudflare/Hostinger status (secrets masked)
@@ -324,7 +326,10 @@ covers anything without one.
 ```bash
 mso                          # interactive setup/operations agent with MSO ASCII terminal UI
 mso -h                       # grouped command list; `mso <command> --help` per command
-mso model                    # connect/change AI provider before/while using the agent
+mso models                   # configure AI provider/API/OAuth connections
+mso model                    # select/switch the active model
+mso --continue               # resume the latest MSO Agent session
+mso --resume "session title" # resume by index/id/short id/title query
 mso doctor                   # includes HTTPS/login-origin diagnosis
 mso doctor --fix             # safe local repairs; never changes DNS/TLS/firewall/credentials
 mso onboard                  # guided AI/app/infrastructure/skill setup

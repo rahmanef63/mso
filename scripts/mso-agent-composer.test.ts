@@ -65,4 +65,20 @@ describe("MSO Agent interactive composer primitives", () => {
     composer.close();
   });
 
+  it("submits an exact slash command instead of a longer highlighted prefix", async () => {
+    class FakeInput extends EventEmitter {
+      isRaw = false; resume() {} pause() {} setRawMode(value: boolean) { this.isRaw = value; }
+    }
+    class FakeOutput { columns = 88; chunks: string[] = []; write(value: string) { this.chunks.push(String(value)); return true; } }
+    const input = new FakeInput(); const output = new FakeOutput();
+    const composer = new AgentComposer({ input: input as never, output: output as never, colors: { blue: "", bold: "", reset: "", dim: "" } });
+    const answer = composer.question("› ", { complete: (value: string) => value.startsWith("/model") ? [
+      { text: "/models", meta: "provider auth" }, { text: "/model", meta: "select model" },
+    ] : [] } as never);
+    for (const ch of "/model") input.emit("keypress", ch, { name: ch, sequence: ch });
+    input.emit("keypress", "\r", { name: "return", sequence: "\r" });
+    await expect(answer).resolves.toBe("/model");
+    composer.close();
+  });
+
 });

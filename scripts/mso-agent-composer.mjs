@@ -159,7 +159,11 @@ export class AgentComposer {
         }
         if (key.name === "tab" && items.length) return apply(items[selected]);
         if (key.name === "return" || key.name === "enter") {
-          if (items.length && items[selected]?.text && value !== items[selected].text) return apply(items[selected]);
+          // Exact input wins even when another prefix match is highlighted first
+          // (`/model` vs `/models`). Enter submits what the user actually typed;
+          // Tab is the explicit "apply highlighted completion" key.
+          if (items.some((item) => item?.text === value)) return finish(value);
+          if (items.length && items[selected]?.text) return apply(items[selected]);
           return finish(value);
         }
         if (key.name === "up" && !items.length) return historyMove(-1);

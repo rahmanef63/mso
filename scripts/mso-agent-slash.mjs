@@ -3,10 +3,15 @@ import { currentSkillProject, resolveSlashSkill, slashSkillNames } from "./mso-a
 
 export const BUILTIN_SLASH_ITEMS = [
   { text: "/help", meta: "Show commands and shortcuts", kind: "command" },
-  { text: "/model", meta: "Connect or change the AI provider", kind: "command" },
+  { text: "/models", meta: "Configure AI providers and authentication", kind: "command" },
+  { text: "/model", meta: "Select the active model from connected providers", kind: "command" },
   { text: "/session", meta: "Show the current durable session id", kind: "command" },
   { text: "/sessions", meta: "List resumable MSO Agent sessions", kind: "command" },
-  { text: "/resume", meta: "Resume an earlier session by id", kind: "command" },
+  { text: "/resume", meta: "Resume latest/index/id/title; no arg opens picker", kind: "command" },
+  { text: "/title", meta: "Rename the durable session", kind: "command" },
+  { text: "/status", meta: "Show model, auth, context, tokens, session", kind: "command" },
+  { text: "/context", meta: "Show context/token/session status", kind: "command" },
+  { text: "/statusbar", meta: "Toggle the compact dynamic status line", kind: "command" },
   { text: "/setup", meta: "Run full MSO onboarding", kind: "command" },
   { text: "/providers", meta: "Show infrastructure provider status", kind: "command" },
   { text: "/provider", meta: "Configure Dokploy, Cloudflare, or Hostinger", kind: "command" },

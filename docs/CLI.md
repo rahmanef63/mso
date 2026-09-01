@@ -82,9 +82,9 @@ Commands:
   status               Public service status (no session needed)
   health               Is this CLI's session valid?
   doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
-  agent                Interactive MSO setup/ops agent (bare `mso` opens this)
+  agent [--continue|--resume <query>]  Interactive MSO Agent; resume durable sessions
   chat                 Alias for agent
-  model                Connect or change the AI provider used by MSO Agent / Alfa
+  model [ref]          Select active model from a connected provider
   onboard [-y]         Guided setup: AI, apps, infrastructure, skills
   setup                Alias for onboard
   provider *           Infrastructure credentials: list | set | rm | doctor
@@ -105,9 +105,9 @@ Commands:
   threads *            Conversation history: list | show | rm
   agent-sessions *     Durable MSO Agent sessions: list | show | create
   memory *             Assistant memories: list | add | rm
-  config *             BYOK provider + model/style: show | set | key | style | rm
+  config *             Advanced raw AI config compatibility surface
   prefs *              UI preferences: show | set
-  models *             Model catalog: list | test
+  models *             Configure AI providers/auth; inspect model catalog
   skills *             Discover host skills + curated market: available/install/remove
   changelog            What shipped, newest first (same text Settings → About shows)
   mcp *                MCP tokens + live activity: list | activity [n] | revoke <id> | revoke all

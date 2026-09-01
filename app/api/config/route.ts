@@ -74,6 +74,9 @@ export async function POST(req: NextRequest) {
     provider?: string;
     customProvider?: CustomBody;
     tokenSaver?: string;
+    // Provider credential management can be separated from active model selection.
+    // Existing callers default to select=true; CLI `mso models add` sends false.
+    select?: boolean;
   };
   try {
     body = await req.json();
@@ -111,16 +114,22 @@ export async function POST(req: NextRequest) {
       ...(models.length ? { models } : {}),
     });
     await hostCredentialStore().setKey(undefined, slug, c.apiKey.trim());
-    // Select the new provider (+ its first model) so the assistant uses it now.
-    await writeConfig({ provider: slug, ...(models[0] ? { model: models[0] } : {}) });
-    return NextResponse.json({ ok: true, slug });
+    // Preserve legacy Settings behavior unless the caller explicitly asks to only
+    // configure credentials. This is what lets `mso models` manage auth while
+    // `mso model` remains the only model-selection UX.
+    if (body.select !== false) {
+      await writeConfig({ provider: slug, ...(models[0] ? { model: models[0] } : {}) });
+    }
+    return NextResponse.json({ ok: true, slug, selected: body.select !== false });
   }
 
   // ── Set a built-in provider / model / key ──────────────────────────────────
   const provider = (body.provider || DEFAULT_PROVIDER).trim();
-  const patch: { model?: string; provider?: string } = { provider };
-  if (typeof body.model === "string" && body.model.trim()) patch.model = body.model.trim();
-  await writeConfig(patch);
+  if (body.select !== false) {
+    const patch: { model?: string; provider?: string } = { provider };
+    if (typeof body.model === "string" && body.model.trim()) patch.model = body.model.trim();
+    await writeConfig(patch);
+  }
 
   // Key routes through the per-provider store. Empty string clears it (incl. the
   // legacy anthropicApiKey alias) so a cleared key doesn't linger.

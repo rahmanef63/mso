@@ -159,6 +159,7 @@ export async function streamCodex(opts: {
   const dec = new TextDecoder();
   let buf = "";
   let sawToolCall = false;
+  let usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null = null;
   const seen = new Set<string>();
 
   while (true) {
@@ -176,7 +177,10 @@ export async function streamCodex(opts: {
       if (!line.startsWith("data:")) continue;
       const data = line.slice(5).trim();
       if (!data || data === "[DONE]") continue;
-      let ev: { type?: string; delta?: string; item?: ResponsesItem; response?: { output?: ResponsesItem[] } };
+      let ev: {
+        type?: string; delta?: string; item?: ResponsesItem;
+        response?: { output?: ResponsesItem[]; usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number } };
+      };
       try {
         ev = JSON.parse(data);
       } catch {
@@ -192,6 +196,13 @@ export async function streamCodex(opts: {
       if (ev.type === "response.output_item.done" && ev.item) {
         if (emitCall(ev.item, seen, realName, emit)) sawToolCall = true;
       } else if (ev.type === "response.completed") {
+        if (ev.response?.usage) {
+          usage = {
+            inputTokens: ev.response.usage.input_tokens,
+            outputTokens: ev.response.usage.output_tokens,
+            totalTokens: ev.response.usage.total_tokens,
+          };
+        }
         for (const item of ev.response?.output ?? []) {
           if (emitCall(item, seen, realName, emit)) sawToolCall = true;
         }
@@ -200,7 +211,7 @@ export async function streamCodex(opts: {
   }
   // The agent loop keys entirely off stopReason: reporting end_turn after a call
   // would strand the tool result and end the run mid-task.
-  emit("done", { stopReason: sawToolCall ? "tool_use" : "end_turn" });
+  emit("done", { stopReason: sawToolCall ? "tool_use" : "end_turn", ...(usage ? { usage } : {}) });
 }
 
 type ResponsesItem = {

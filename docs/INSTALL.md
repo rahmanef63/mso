@@ -129,6 +129,13 @@ is an API-key integration here, not OAuth. The OpenAI OAuth path is the ChatGPT 
 Codex backend; it is separate from OpenAI Platform API keys and separate again from MSO's
 ChatGPT MCP OAuth.
 
+After onboarding, use the two AI commands deliberately: `mso models` manages provider/API/OAuth
+connections without changing the active model; `mso model` selects a model from providers that are
+already connected. `mso models test` validates the currently selected connection (including the
+ChatGPT/Codex subscription path), while `mso model list [provider]` shows selectable model IDs.
+Agent sessions are durable: `mso --continue` resumes the latest CLI session and
+`mso --resume <index|id|title>` resolves a prior session without weakening principal isolation.
+
 Hermes/OpenClaw installation is optional and uses each app's existing managed-job installer.
 Their model/provider configuration belongs to those applications and is not implicitly
 filled from Alfa's credential. Selected app installs stream their job transcript until a

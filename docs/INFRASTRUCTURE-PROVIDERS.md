@@ -17,7 +17,12 @@ Bare `mso` is the interactive setup/operations agent:
 ```bash
 mso                         # launch MSO Agent
 mso agent                   # explicit alias
-mso model                   # connect/change the AI provider
+mso --continue              # resume latest durable Agent session
+mso --resume <query>        # resume by index/id/short-id/title
+mso models                  # configure AI provider/API/OAuth connections
+mso models add openai-codex # connect ChatGPT subscription OAuth without switching model
+mso model                   # choose active model from connected providers
+mso model list              # list models selectable from the active provider
 mso setup                   # guided setup (alias of `mso onboard`)
 mso provider list           # masked infrastructure status
 mso provider set dokploy    # hidden terminal prompts
@@ -28,9 +33,11 @@ mso provider projects       # Dokploy projects
 mso provider zones          # Cloudflare zones
 ```
 
-When no AI provider is connected, `mso` runs the same interactive provider flow as
-`mso model` before the agent starts. The current model connection choices are OpenAI
-ChatGPT/Codex device OAuth plus the built-in API-key providers documented in
+AI provider authentication and model selection are intentionally separate. `mso models` owns
+credentials/authentication and does **not** switch the active model; `mso model` owns selection.
+When no AI provider is connected, bare `mso` opens the provider manager first and then the model
+picker. If credentials already exist but the selection is unusable, only the model picker runs.
+The connection choices are OpenAI ChatGPT/Codex device OAuth plus the built-in API-key providers documented in
 [`INSTALL.md`](./INSTALL.md).
 
 The terminal UI intentionally follows the useful *shape* of mature agent CLIs such as
@@ -40,9 +47,19 @@ interactive prompt — but uses original MSO ASCII artwork and MSO's own tool/ru
 Agent slash commands are:
 
 ```text
-/model  /setup  /providers  /provider <id>  /doctor
-/tools  /skills  /clear     /exit
+/models  /model  /status  /context  /statusbar  /title
+/session /sessions /resume  /setup   /providers  /provider <id>
+/doctor  /tools    /skills   /clear   /exit
 ```
+
+The prompt status line is dynamic: active `provider/model`, approximate current context (`ctx ~…`)
+with a catalog context-window denominator when available, provider-reported token usage when the
+upstream exposes it, turn count, last-turn duration, durable session id and working directory.
+`/status` expands the same information. Context without tokenizer/provider metadata is deliberately
+labeled approximate rather than presented as an exact token count. `/sessions` lists durable sessions;
+`/resume` opens a picker or accepts `latest`, a list index, exact/short id, exact title or unique title
+substring. The CLI equivalents are `mso --continue` and `mso --resume <query>`. Session discovery
+remains scoped to the authenticated principal; resume never bypasses principal/session isolation.
 
 ## 2. One tool catalog, two transports
 

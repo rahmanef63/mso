@@ -14,6 +14,7 @@ import { streamOpenAI } from "@/lib/ai/openai-stream";
 import { safeProviderFetch } from "@/lib/host/ssrf";
 import { ensureFreshCodex } from "@/lib/ai/oauth/codex";
 import { streamCodex } from "@/lib/ai/codex-stream";
+import { anthropicDonePayload } from "@/lib/ai/usage";
 import { recall } from "@/lib/ai/memory";
 import { rateLimited } from "@/lib/host/rate-limit";
 import { IS_DEMO } from "@/lib/demo";
@@ -202,8 +203,7 @@ export async function POST(req: Request) {
   if (cfg.tokenSaver === "caveman") sys += "\n\n" + CAVEMAN;
   else if (cfg.tokenSaver === "ponytail") sys += "\n\n" + PONYTAIL;
   const encoder = new TextEncoder();
-  const sse = (event: string, data: unknown) =>
-    encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  const sse = (event: string, data: unknown) => encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   const tools = Array.isArray(body.tools) && body.tools.length ? body.tools : undefined;
 
   // One upstream Anthropic stream per request. Hoisted so the stream's cancel()
@@ -248,7 +248,7 @@ export async function POST(req: Request) {
               (b: Anthropic.ContentBlock): b is Anthropic.ToolUseBlock => b.type === "tool_use",
             );
             for (const u of uses) emit("tool_use", { id: u.id, name: u.name, input: u.input });
-            emit("done", { stopReason: final.stop_reason });
+            emit("done", anthropicDonePayload(final));
           }
         } else if (resolved) {
           // openai-protocol: the adapter POSTs {baseUrl}/chat/completions

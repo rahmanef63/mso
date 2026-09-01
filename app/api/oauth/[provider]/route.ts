@@ -10,11 +10,12 @@ export const dynamic = "force-dynamic";
 // OAuth "sign in with…" for subscription providers. POST { action:"start"|"poll" }.
 // Only OpenAI (Codex device-code) is wired today; others return not-supported.
 // Session-gated; the token bundle lands in the 0600 host config file, and on
-// success the provider is selected so the assistant uses it immediately.
+// success the provider is selected by default so existing Settings behavior stays compatible;
+// callers may send select:false when they are only adding provider credentials.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ provider: string }> }) {
   if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { provider } = await ctx.params;
-  let body: { action?: string };
+  let body: { action?: string; select?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -45,8 +46,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ provider: 
         // by the backend, so writing it here just made the first request after a
         // successful sign-in fail.
         const model = models[0] ?? "";
-        await writeConfig({ provider: SLUG, model });
-        return NextResponse.json({ ok: true, slug: SLUG, model });
+        if (body.select !== false) await writeConfig({ provider: SLUG, model });
+        return NextResponse.json({ ok: true, slug: SLUG, model, selected: body.select !== false });
       }
       default:
         return NextResponse.json({ error: "bad_action" }, { status: 400 });

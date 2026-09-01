@@ -2,6 +2,16 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-01 — Agent model/session UX parity + dynamic status — SHIPPED
+
+MSO Agent 1.5.5 aligns the useful interaction contract of mature agent harnesses without copying their branding/runtime. The startup banner now uses the owner-specified 12-line Hybrid MSO geometry and exact six-stop True Color gradient (purple/indigo → blue → cyan → teal/emerald). AI configuration is split into two explicit surfaces: `mso models` manages provider API keys/OAuth/custom-provider connections **without switching the active model**, while `mso model` validates and selects only models available through connected providers. Exact `/model` now wins over the `/models` prefix in the slash palette; OpenRouter-style model IDs containing `/` are resolved against the current provider before being interpreted as a provider/model ref.
+
+The terminal now carries a compact dynamic status line with active provider/model, approximate context consumption (explicit `~`, plus catalog context window when known), provider-reported token usage when available, turn count, last-turn latency, durable session id and working directory. `/status`/`/context` expand the same state and `/statusbar` toggles it. Session UX supports `/title`, numbered `/sessions`, `/resume` picker, `latest`, index, exact/short id, exact title or unique fuzzy title; startup equivalents are `mso --continue` and `mso --resume <query>`. Resume stays bounded to sessions visible to the authenticated principal. Anthropic and ChatGPT/Codex streaming now propagate provider usage into the terminal status when upstream data exists; OpenAI-compatible streams consume usage opportunistically and otherwise keep the clearly-labeled estimate.
+
+The same audit caught two real regressions before release: `/api/models/test` could not validate the `openai-codex` subscription provider because it incorrectly entered the generic API-key resolver, and Enter on exact `/model` could apply the highlighted longer `/models` completion. Both paths now have dedicated regression tests. Provider-auth APIs accept `select:false` for CLI connection management while keeping legacy Settings callers selecting by default, so existing browser behavior remains compatible.
+
+Verification for this milestone passed **262 test files / 1,939 tests** (1 expected fail, 7 skipped), typecheck, documentation consistency, cycle checks and high/critical dependency audit. PTY smoke covers exact 12-row banner/color output, wide/narrow terminal behavior, zero-newline arrow navigation, `/model` vs `/models`, `/status`, durable title, resume by title and `--continue`.
+
 ## 2026-09-01 — Version identity and update messaging DX — SHIPPED
 
 MSO's two legitimate version domains are now explicit instead of looking like drift. The app/package

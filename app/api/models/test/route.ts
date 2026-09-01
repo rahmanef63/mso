@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { requireSession } from "@/lib/auth/require-session";
-import { resolveModelRef, hostCredentialStore, selectedCustomConn } from "@/lib/config/store";
+import { resolveModelRef, hostCredentialStore, selectedCustomConn, readOAuthBundle, writeOAuthBundle } from "@/lib/config/store";
 import { resolveModel } from "@/lib/models";
 import { safeProviderFetch } from "@/lib/host/ssrf";
+import { codexModels, ensureFreshCodex } from "@/lib/ai/oauth/codex";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,12 +15,30 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const selectedRef = await resolveModelRef();
+  if (selectedRef.startsWith("openai-codex/")) {
+    const selectedModel = selectedRef.slice("openai-codex/".length);
+    try {
+      const stored = await readOAuthBundle("openai-codex");
+      if (!stored) return NextResponse.json({ ok: false, error: "OpenAI ChatGPT OAuth is not connected" });
+      const fresh = await ensureFreshCodex(stored);
+      if (fresh !== stored) await writeOAuthBundle("openai-codex", fresh);
+      const models = await codexModels(fresh);
+      if (!models.includes(selectedModel)) {
+        return NextResponse.json({ ok: false, error: `model ${selectedModel} is not available for this ChatGPT account` });
+      }
+      return NextResponse.json({ ok: true, provider: "openai-codex", model: selectedModel });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: (e as Error).message });
+    }
+  }
+
   let resolved;
   let customProvider = false;
   try {
     const custom = await selectedCustomConn();
     customProvider = Boolean(custom);
-    resolved = await resolveModel(await resolveModelRef(), {
+    resolved = await resolveModel(selectedRef, {
       store: hostCredentialStore(),
       baseUrl: custom?.baseUrl,
       protocol: custom?.protocol,

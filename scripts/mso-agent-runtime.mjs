@@ -38,11 +38,18 @@ export async function api(path, init = {}) {
 }
 
 export async function state() {
-  const [config, toolsData, skills, infra] = await Promise.all([
-    api("/api/config"), api("/api/v1/agent-tools"), api("/api/skills").catch(() => ({ skills: [] })), api("/api/v1/infra/providers").catch(() => ({ providers: [] })),
+  const config = await api("/api/config");
+  const provider = encodeURIComponent(String(config?.provider || ""));
+  const [toolsData, skills, infra, modelData] = await Promise.all([
+    api("/api/v1/agent-tools"),
+    api("/api/skills").catch(() => ({ skills: [] })),
+    api("/api/v1/infra/providers").catch(() => ({ providers: [] })),
+    provider ? api(`/api/models?provider=${provider}`).catch(() => ({ models: [] })) : Promise.resolve({ models: [] }),
   ]);
   const tools = Array.isArray(toolsData?.tools) ? toolsData.tools : [];
-  return { config, toolsData, tools, skills, infra };
+  const models = Array.isArray(modelData?.models) ? modelData.models : [];
+  const modelMeta = models.find((row) => String(row.id) === String(config?.model)) || null;
+  return { config, toolsData, tools, skills, infra, models, modelMeta };
 }
 
 export async function createCliSession(title = "MSO Agent session") {
@@ -110,7 +117,7 @@ export async function streamTurn(messages, tools, agentSession, skillContext = n
   }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
-  let buf = "", text = "", stopReason = null;
+  let buf = "", text = "", stopReason = null, usage = null;
   const toolUses = [];
   while (true) {
     const { done, value } = await reader.read();
@@ -127,10 +134,14 @@ export async function streamTurn(messages, tools, agentSession, skillContext = n
       if (event === "delta") {
         const chunk = JSON.parse(data); text += chunk; process.stdout.write(chunk);
       } else if (event === "tool_use") toolUses.push(JSON.parse(data));
-      else if (event === "done") stopReason = JSON.parse(data)?.stopReason ?? null;
+      else if (event === "done") {
+        const done = JSON.parse(data);
+        stopReason = done?.stopReason ?? null;
+        usage = done?.usage ?? null;
+      }
       else if (event === "error") throw new Error(JSON.parse(data));
     }
   }
   if (text && !text.endsWith("\n")) process.stdout.write("\n");
-  return { text, toolUses, stopReason };
+  return { text, toolUses, stopReason, usage };
 }

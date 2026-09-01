@@ -42,9 +42,9 @@
 #   status               Public service status (no session needed)
 #   health               Is this CLI's session valid?
 #   doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
-#   agent                Interactive MSO setup/ops agent (bare `mso` opens this)
+#   agent [--continue|--resume <query>]  Interactive MSO Agent; resume durable sessions
 #   chat                 Alias for agent
-#   model                Connect or change the AI provider used by MSO Agent / Alfa
+#   model [ref]          Select active model from a connected provider
 #   onboard [-y]         Guided setup: AI, apps, infrastructure, skills
 #   setup                Alias for onboard
 #   provider *           Infrastructure credentials: list | set | rm | doctor
@@ -65,9 +65,9 @@
 #   threads *            Conversation history: list | show | rm
 #   agent-sessions *     Durable MSO Agent sessions: list | show | create
 #   memory *             Assistant memories: list | add | rm
-#   config *             BYOK provider + model/style: show | set | key | style | rm
+#   config *             Advanced raw AI config compatibility surface
 #   prefs *              UI preferences: show | set
-#   models *             Model catalog: list | test
+#   models *             Configure AI providers/auth; inspect model catalog
 #   skills *             Discover host skills + curated market: available/install/remove
 #   changelog            What shipped, newest first (same text Settings → About shows)
 #   mcp *                MCP tokens + live activity: list | activity [n] | revoke <id> | revoke all
@@ -126,18 +126,20 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.5.4"
+VERSION="1.5.5"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
 
 # Global options are parsed BEFORE the env file is sourced, because --env chooses
 # which file that is.
-BASE_OVERRIDE=""; ENV_OVERRIDE=""
+BASE_OVERRIDE=""; ENV_OVERRIDE=""; AGENT_START_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) [ -n "${2-}" ] || die "--base needs a url"; BASE_OVERRIDE="$2"; shift 2 ;;
     --env)  [ -n "${2-}" ] || die "--env needs a file";  ENV_OVERRIDE="$2";  shift 2 ;;
+    --continue|-c) AGENT_START_ARGS+=("--continue"); shift ;;
+    --resume|-r) [ -n "${2-}" ] || die "$1 needs a session query"; AGENT_START_ARGS+=("--resume" "$2"); shift 2 ;;
     --) shift; break ;;
     *) break ;;
   esac
@@ -670,6 +672,8 @@ U_camoufox="camoufox status|start|stop|session"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
 U_doctor="doctor [--fix]"
 U_provider="provider list|show <id>|set <dokploy|cloudflare|hostinger>|rm <id>|doctor [id]|projects|zones"
+U_model="model [current|list [provider]|set <provider> <model>|set <provider/model>|<model-or-ref>]"
+U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>]"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
@@ -681,7 +685,7 @@ U_agent_sessions="agent-sessions list [limit]|show <id>|create [title]"
 U_memory="memory list|add <text>|rm <id>"
 U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
 U_prefs="prefs show|set <json>"
-U_models="models list|test"
+U_models="models [status|list|add|auth <provider>|rm <provider>|catalog [provider]|test]"
 U_skills="skills list|read <id>|search <query…>|available|info <id>|install <id…> [-y] [--force]|remove <id…> [-y]"
 U_mcp="mcp list|activity [n]|revoke <id>|revoke all"
 U_oauth="oauth <provider> start|poll   OAuth currently: openai (ChatGPT Codex)"
@@ -703,6 +707,7 @@ if [ $# -ge 2 ]; then
 fi
 
 cmd="${1:-agent}"; maybe_update_notice "$cmd"; shift || true
+if [ "$cmd" = agent ] || [ "$cmd" = chat ]; then set -- "${AGENT_START_ARGS[@]}" "$@"; fi
 case "$cmd" in
   version|--version|-V|-v)
     app_version="$(jq -r '.version // "unknown"' "$ROOT/package.json" 2>/dev/null || printf unknown)"
@@ -865,7 +870,7 @@ case "$cmd" in
     exit $(( fails > 0 ? 1 : 0 )) ;;
 
   agent|chat) run_agent "$@" ;;
-  model) run_model_setup ;;
+  model) run_model_setup "$@" ;;
   setup) run_onboard "${1-}" ;;
   onboard) run_onboard "${1-}" ;;
   provider|providers) run_provider "$@" ;;
@@ -971,12 +976,7 @@ case "$cmd" in
       set)  jpost "/api/prefs" "$(json_arg "${2:?json, e.g. '{\"tweaks\":{\"theme\":\"dark\"}}'}")" ;;
       *) die "usage: mso $U_prefs" ;;
     esac ;;
-  models)
-    case "${1:-list}" in
-      list) jget "/api/models" ;;
-      test) jpost "/api/models/test" ;;
-      *) die "usage: mso $U_models" ;;
-    esac ;;
+  models) run_models "$@" ;;
   skills)
     case "${1:-list}" in
       list)   jget "/api/skills" ;;
