@@ -59,7 +59,7 @@ export function AboutSection() {
 
   const rows: [string, string][] = [
     ["Status", "Public Alpha"],
-    ["Version", pkg.version ?? "0.0.0"],
+    ["App version", pkg.version ?? "0.0.0"],
     ["Build ID", process.env.NEXT_PUBLIC_BUILD_ID || "dev"],
     ["Commit", process.env.NEXT_PUBLIC_COMMIT_SHA || "not set"],
     ["Runtime mode", IS_DEMO ? "Demo — mock data only" : "Live-capable"],

@@ -38,6 +38,8 @@
 
 MSO is **Public Alpha / Developer Preview** software. It runs on top of Linux as a normal non-root Node process. It is not an operating system, Linux distribution, desktop environment, VPS provider, or production-grade security platform.
 
+**Version labels:** the badge and Settings → About show the MSO **app/package version**. The shell has a separately versioned **CLI contract** because older installs may receive CLI/update compatibility changes without an app-semver bump. `mso --version` labels both plus the Git build; `mso update status` uses the Git build as release authority, so commit-only updates never appear as a misleading same-version arrow.
+
 For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy with tight access control**. Do not expose the raw app port to the public internet.
 
 **Security assurance:** MSO publishes its [security policy](./SECURITY.md) and [repeatable assurance process](./docs/SECURITY-ASSURANCE.md), with CodeQL, independent SAST/dependency/secret scanners, OpenSSF Scorecard, SBOM generation, passive OWASP ZAP checks, and MSO-specific security regression tests. The evidence is intentionally presented as testing—not as a security certification.

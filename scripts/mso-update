@@ -72,7 +72,11 @@ print_status() {
     return
   fi
   if [ "$n" -gt 0 ]; then
-    printf 'update available: mso %s -> %s (%s commit%s)\n' "${local_v:-unknown}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)"
+    if [ -n "$local_v" ] && [ "$local_v" = "$remote_v" ]; then
+      printf 'update available: %s new commit%s on mso CLI %s\n' "$n" "$([ "$n" = 1 ] || printf s)" "$local_v"
+    else
+      printf 'update available: mso CLI %s -> %s (%s commit%s)\n' "${local_v:-unknown}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)"
+    fi
     git -C "$ROOT" log --format='  %h  %s' -5 HEAD..origin/main
     printf 'run: mso update\n'
     return
@@ -87,7 +91,7 @@ print_status() {
     elif [[ "$head" != "$running_sha"* ]]; then
       printf 'source is current at %s, but mso.service is still running %s. deployment verification/rebuild is pending. run: mso update --rebuild\n' "$head_short" "$running_sha"
     else
-      printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "$head_short"
+      printf 'mso is up to date (CLI %s, build %s)\n' "${local_v:-unknown}" "$head_short"
     fi
     return
   fi
@@ -96,7 +100,7 @@ print_status() {
   if [ "$receipt" != "$head" ] || update_gateway_restore_pending; then
     printf 'source is current at %s, but offline deployment verification/restart is pending. run: mso update\n' "${head:0:7}"
   else
-    printf 'mso %s is up to date (%s)\n' "${local_v:-unknown}" "${head:0:7}"
+    printf 'mso is up to date (CLI %s, build %s)\n' "${local_v:-unknown}" "${head:0:7}"
   fi
 }
 notice() {
@@ -117,8 +121,13 @@ notice() {
   fi
   if [ "$n" -gt 0 ]; then
     local_v="$(current_version)"; remote_v="$(remote_version)"
-    printf 'MSO update available: %s -> %s (%s commit%s). Run: mso update\n' \
-      "${local_v:-current}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)" >&2
+    if [ -n "$local_v" ] && [ "$local_v" = "$remote_v" ]; then
+      printf 'MSO update available: %s new commit%s on CLI %s. Run: mso update\n' \
+        "$n" "$([ "$n" = 1 ] || printf s)" "$local_v" >&2
+    else
+      printf 'MSO update available: CLI %s -> %s (%s commit%s). Run: mso update\n' \
+        "${local_v:-current}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)" >&2
+    fi
     return 0
   fi
   if service_is_active; then

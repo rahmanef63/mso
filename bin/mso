@@ -704,7 +704,11 @@ fi
 
 cmd="${1:-agent}"; maybe_update_notice "$cmd"; shift || true
 case "$cmd" in
-  version|--version|-V|-v) echo "mso $VERSION  (base $B, root $ROOT)"; exit 0 ;;
+  version|--version|-V|-v)
+    app_version="$(jq -r '.version // "unknown"' "$ROOT/package.json" 2>/dev/null || printf unknown)"
+    build_sha="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf unknown)"
+    echo "mso CLI $VERSION · app $app_version · build $build_sha  (base $B, root $ROOT)"
+    exit 0 ;;
 
   # ── files ────────────────────────────────────────────────────────────────
   ls)     jget "/api/v1/fs/list?path=$(enc "${1:-~}")" ;;

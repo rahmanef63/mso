@@ -17,6 +17,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `cli` clarify version and update labels
 - `agent` stabilize terminal banner navigation
 - `cli` make updates visible and idempotent
 - `mcp` preserve app-only workflow status schema

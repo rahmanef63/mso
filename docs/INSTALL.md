@@ -495,10 +495,12 @@ no API-key storage. Do not toggle demo mode in the production owner checkout.
 Use Settings → About or:
 
 ```bash
-mso update status     # fetch + show incoming CLI version/commits
+mso update status     # fetch + show incoming commits and labeled CLI/build identity
 mso update            # preferred: update safely even if :4005 is down
 mso update log
 ```
+
+MSO has two explicitly labeled version domains: the app/package version shown in Settings → About and the independently versioned CLI contract shown by `mso --version`. The Git commit/build remains update authority. If commits changed without a CLI bump, status says `N new commits on mso CLI X` rather than rendering `X -> X`.
 
 The updater verifies the incoming checkout/build before replacing the service. Re-running the installer on an existing checkout acquires the same checkout-scoped transaction lock **before** Git fetch/checkout mutation and hands that open lock FD to the post-checkout runtime lifecycle, so installer, `mso update`, and `mso deploy` cannot mutate one checkout concurrently. The lock primitive is carried by the verified installer payload itself, so older MSO checkouts that predate the current private-state helper remain upgradeable in place. A normal `mso update` treats fetched `origin/main` as the release authority: after any fast-forward, local `main` must equal that remote commit exactly. A clean branch that is locally ahead or diverged is refused before dependency/build mutation instead of deploying unpushed code. `mso update status` reports that state explicitly. `mso update --rebuild` is different by design: it rebuilds the already-selected clean checkout without changing Git history. With an active
 `mso.service` it first canonicalizes the unit's `WorkingDirectory` and requires it to equal the checkout
