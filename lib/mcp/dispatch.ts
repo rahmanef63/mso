@@ -65,8 +65,13 @@ function workflowFromResult(result: unknown): ActiveWorkflow | null {
 function structuredResult(toolName: string, result: unknown) {
   const tool = TOOLS_BY_NAME.get(toolName);
   const content = [{ type: "text" as const, text: typeof result === "string" ? result : JSON.stringify(result) }];
-  return tool?.outputSchema && result !== null && typeof result === "object" && !Array.isArray(result)
-    ? { structuredContent: result as Record<string, unknown>, content }
+  const structured = tool?.toStructuredContent
+    ? tool.toStructuredContent(result)
+    : result !== null && typeof result === "object" && !Array.isArray(result)
+      ? result as Record<string, unknown>
+      : undefined;
+  return tool?.outputSchema && structured
+    ? { structuredContent: structured, content }
     : { content };
 }
 
