@@ -30,6 +30,36 @@ For debugging, integrations, refactors, deployments, and MCP work, use this loop
    `CLAUDE.md`, or a trusted `SKILL.md`; implementation contracts belong in current docs;
    volatile host facts stay in project/runbook notes.
 
+## Repository and worktree policy
+
+- `/home/rahman/projects/mso` on `main` is the **only canonical MSO checkout and release SSOT**.
+  Do not create task-specific `mso-*` sibling directories under `~/projects`.
+- Parallel coding/review tasks may use isolated Git worktrees only under
+  `~/.cache/mso-worktrees/mso-<task>`. Never let two sessions share one worktree, HEAD, or index.
+- Keep development worktrees out of `~/.mso`: that tree is private runtime/credential state and is
+  deliberately denied by MSO host-file guards. `~/.cache/mso-worktrees` is disposable developer isolation.
+- A worktree is disposable development isolation, **never an install or release source**.
+  Every user-deliverable change must be committed, reconciled into `main`, verified, and present
+  on `origin/main` before the task can be called shipped. The installer/updater consumes `main`.
+- Never delete or prune a dirty worktree. First preserve its tracked and untracked work in a
+  commit/branch or explicit archive, then verify that the deliverable commits are reachable from
+  `main` (or intentionally retained as non-release work).
+- Demo/review runtimes may have hidden internal checkouts, but they do not become a second source
+  of truth and must not be presented as another MSO project.
+
+## Install and update requests
+
+When a user asks an agent to "install MSO from this repo" or "update MSO", do not invent a parallel
+setup flow. Read `README.md` + `docs/INSTALL.md` and use the repository-owned entry points:
+
+- fresh install or legacy install without `mso update`: run the official `scripts/install.sh` bootstrap;
+- current install: prefer `mso update` or the equivalent Settings → About action;
+- never create a second checkout when `mso.service` already owns one; preserve `.env.local`, `~/.mso`,
+  and any dirty/diverged source rather than resetting it;
+- finish with `mso doctor` plus runtime health, and report only the remaining action the user must take;
+- when a provider credential is required, name the official place/endpoint to create it and where MSO
+  stores it, then use hidden/STDIN input. Never place a secret in argv, Git, documentation, or agent logs.
+
 ## MCP feature work
 
 Use [`docs/MCP-FEATURE-IMPLEMENTATION.md`](./docs/MCP-FEATURE-IMPLEMENTATION.md) and the

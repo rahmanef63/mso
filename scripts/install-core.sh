@@ -732,13 +732,19 @@ else
   LOG_STATUS="no system service installed"
 fi
 
-ok "mso installed at $DIR"
+if [ "$FRESH_INSTALL" -eq 1 ]; then
+  ok "mso installed at $DIR"
+else
+  ok "mso updated at $DIR"
+  info "existing .env.local and ~/.mso state preserved"
+fi
 cat <<EOF
 
-  Runtime:  $OPEN_STATUS
-  Env:      $DIR/.env.local
+  Runtime:   $OPEN_STATUS
+  Env:       $DIR/.env.local
 EOF
 [ -n "$GEN_PW" ] && printf '  Password: %s   (shown once — save it now; edit OS_LOGIN_PASSWORD in .env.local + service refresh to change)\n' "$GEN_PW"
+if [ "$FRESH_INSTALL" -eq 1 ]; then
 cat <<EOF
 
   Pair your first device after the API is running (device approval is a browser allowlist, not standards-based 2FA):
@@ -749,11 +755,17 @@ cat <<EOF
          node $DIR/scripts/approve-device.js --list                 # see the pending id
          node $DIR/scripts/approve-device.js <deviceId> "my phone"  # approve it
     4. In that SAME browser origin, click "Check again". Approve later devices from Settings → Devices.
+EOF
+fi
+cat <<EOF
 
-  Logs:     $LOG_STATUS
-  Doctor:   mso doctor   (or: mso doctor --fix for safe local repairs)
-  Update:   re-run this installer (pull + verify + build + service refresh), or --uninstall to remove
-  Listen:   $BIND:$PORT   (change with --bind / MSO_BIND)
+  Logs:      $LOG_STATUS
+  Doctor:    mso doctor   (or: mso doctor --fix for safe local repairs)
+  Onboard:   mso onboard
+  Update:    mso update   (or Settings → About in the web UI)
+  Legacy:    re-run the official one-line installer to upgrade/recover an older install
+  Uninstall: re-run the installer with --uninstall
+  Listen:    $BIND:$PORT   (change with --bind / MSO_BIND)
   Security: verify from OUTSIDE the box — \`curl -m5 http://<public-ip>:$PORT/api/health\`
             run on your laptop is the only test that proves what is reachable.
             Review ~/.mso/audit.log.

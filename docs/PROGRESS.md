@@ -2,6 +2,26 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-01 — Install/update DX and legacy upgrade bridge — SHIPPED
+
+The public installation contract is now explicitly agent-friendly and backward-compatible. A user may
+hand a capable AI agent only the MSO repository URL and ask it to install or update; `AGENTS.md`,
+`CLAUDE.md`, README and the public `/install` page all route that request to the repository-owned
+installer/updater instead of a hand-built parallel setup. Current installs use `mso update` or Settings →
+About, while older installs that predate both surfaces bridge forward by re-running the same verified
+one-line installer. The installer discovers an existing `mso.service` WorkingDirectory before selecting a
+default checkout, preserves `.env.local` and `~/.mso`, refuses dirty/diverged source, and upgrades in
+place rather than creating a second clone.
+
+README's **Useful installer controls** now covers every public flag and environment override advertised by
+`install-core.sh`, with safe guidance for bind/ref overrides. A new contract test derives those controls
+from `--help` and fails when README or `docs/INSTALL.md` drifts. Upgrade completion is also state-aware:
+fresh installs receive first-device pairing guidance, while existing installs say `updated`, confirm
+preserved state, and point to `mso update`, Settings → About, `mso doctor`, onboarding and the legacy
+installer fallback without replaying first-run instructions. Repository worktree policy was consolidated
+at the same time: `~/projects/mso`/`origin/main` remains the release SSOT and parallel worktrees stay under
+`~/.cache/mso-worktrees` until verified and reconciled.
+
 ## 2026-08-31 — MSO terminal agent + provider-backed deployment setup — SHIPPED
 
 **Shipped milestone.** The release passed the repository/security gates and the live health endpoint returned the release build SHA before this status was promoted. The standalone deployment-assistance pattern from `rahmanef63/si-coder-agent` is now absorbed into MSO's own architecture instead of spawning a second agent runtime. Installed Hermes and its public CLI were used as interaction references only; MSO has original terminal artwork, its own tool catalog, and its existing auth/audit model.

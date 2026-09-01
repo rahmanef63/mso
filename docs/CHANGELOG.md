@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `install` make upgrades agent-friendly
 - `agent` add interactive slash palette
 - `agent` add project-aware slash skills
 - `agent` persist terminal and MCP sessions

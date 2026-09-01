@@ -27,6 +27,13 @@ Run as the normal server user, not root:
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 ```
 
+An AI agent with repository + shell access should treat that command as the public install/legacy-upgrade
+SSOT. A user only needs to say `Install or update MSO from https://github.com/rahmanef63/mso`.
+The agent must detect and preserve an existing install rather than creating another clone, use `mso update`
+for a current install when available, fall back to this installer for older builds that predate the updater,
+and finish with `mso doctor`. It should ask the user only for non-inferable choices/credentials; secrets
+belong in MSO's hidden/STDIN onboarding prompts, never CLI argv or chat transcripts.
+
 `scripts/install.sh` is intentionally a tiny bootstrap. It downloads `scripts/install-core.sh`
 completely into a private temporary file, retries transient transfers, checks a committed SHA-256,
 requires the exact EOF marker, runs `bash -n`, and only then executes the payload. The large
@@ -66,6 +73,30 @@ Useful flags:
 --no-onboard     suppress automatic onboarding
 -y, --yes        non-interactive safe defaults; no external accounts/apps/skills
 --uninstall      remove the system unit; keep code + ~/.mso
+-h, --help      print this contract without changing the host
+```
+
+Public environment equivalents are `MSO_DIR`, `MSO_REF`, `MSO_PORT`, `MSO_BIND`, and `MSO_REPO`.
+`MSO_BIN_DIR`, `MSO_SYSTEM_BIN_DIR`, `MSO_SKILL_DIR`, `MSO_UPDATE_STATE_DIR`, and
+`MSO_UPDATE_LOCK_TIMEOUT_SECONDS` are advanced operator/test overrides rather than normal install UX;
+avoid them unless you are deliberately changing those boundaries.
+
+### Upgrading an older MSO install
+
+Modern installations update through **Settings → About** or `mso update`. Releases from before those
+surfaces existed cannot invoke an updater they do not have. For those installations, re-run the current
+one-line installer exactly as if installing fresh. Before choosing `$HOME/mso`, it reads the active
+`mso.service` WorkingDirectory and upgrades that checkout in place. Existing `.env.local` credentials and
+`~/.mso` state are preserved; onboarding does not repeat unless `--onboard` is supplied.
+
+If the old install has no systemd service, pass its known checkout explicitly with `--dir PATH` (or
+`MSO_DIR`). The installer refuses an uncommitted checkout or unsafe concurrent update rather than
+resetting local work. After the bridge upgrade, normal future maintenance is simply:
+
+```bash
+mso update status
+mso update
+mso doctor
 ```
 
 The public bootstrap is delivered through pipeline stdin, and the core deliberately does not

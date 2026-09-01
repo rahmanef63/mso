@@ -18,4 +18,13 @@ describe("public install guide", () => {
     expect(source).toContain("mso skills available");
     expect(source).toContain("mso skills install ponytail caveman rtk -y");
   });
+
+  it("gives AI agents one canonical install/update path including legacy upgrades", () => {
+    expect(source).toContain("Install or update MSO from this repo");
+    expect(source).toContain("mso update");
+    expect(source).toContain("Settings → About");
+    expect(source).toContain("older build");
+    expect(source).toContain("preserves existing configuration/state");
+  });
+
 });

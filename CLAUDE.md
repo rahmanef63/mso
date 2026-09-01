@@ -194,7 +194,7 @@ to `resources/` (rr) and drive any project from one manifest:
 ## Deploy / ops (prod :4005 + demo :4006 are systemd, not Dokploy)
 - `mso.service` (:4005, WorkingDir `/home/rahman/projects/mso`) serves
   mso.rahmanef.com via `next start`.
-- `mso-demo.service` (:4006, WorkingDir `/home/rahman/projects/mso-demo`,
+- `mso-demo.service` (:4006, WorkingDir `/home/rahman/.mso/worktrees/mso-demo-runtime`,
   `NEXT_PUBLIC_OS_DEMO=1` → no auth, mock data). It had been deleted at some point and
   was **re-created 2026-08-03** to make UI/UX verification possible without logging in.
   It binds **127.0.0.1 only, deliberately**: demo mode disables login, so a `0.0.0.0`
@@ -222,7 +222,7 @@ to `resources/` (rr) and drive any project from one manifest:
   `git rm`, don't re-list the removed file in `git add`; prefer `git add -A` and
   check `git status --short` before committing (a broken commit shipped once this way).
 - **Deploy demo** (it IS running — `active`+`enabled`, 200 on 127.0.0.1:4006): from
-  `/home/rahman/projects/mso-demo`: `git fetch origin -q && git reset --hard
+  `/home/rahman/.mso/worktrees/mso-demo-runtime`: `git fetch origin -q && git reset --hard
   origin/main -q && bun run build && sudo systemctl restart mso-demo.service`.
   Mind the cwd — running the sync from the prod dir is a classic slip.
 - **Never `bun run build` in this checkout just to CHECK a change** — it is
@@ -284,13 +284,19 @@ to `resources/` (rr) and drive any project from one manifest:
   static Content-Types correct.
 
 ## Rules in force
-- **Only ONE session edits mso at a time.** One checkout, one `HEAD`, one index.
-  Two concurrent fix-loops collided three times on 2026-06-15: a `git reset --hard`
-  wiped uncommitted work twice, and a shared-index sweep bundled one session's files
-  into the other's commit. Before a long loop, `git log --oneline -10` — unexpected
-  recent commits mean another session is live, so stop and run solo. (It happened
-  again on 2026-07-28: `779f2ba` landed mid-session from elsewhere. Staging explicit
-  paths instead of `git add -A` is what kept the commits clean.)
+- **One canonical checkout; parallel work only through isolated hidden worktrees.**
+  `/home/rahman/projects/mso` on `main` is the only canonical checkout and release SSOT.
+  Never create task-specific `mso-*` siblings under `~/projects` and never let two
+  sessions share one worktree, `HEAD`, or index. If parallel work is necessary, use one
+  Git worktree per task under `~/.cache/mso-worktrees/mso-<task>`. Never put a development
+  checkout under `~/.mso`: host-file security deliberately treats that entire tree as private state. The older one-checkout rule
+  existed because shared-index sessions repeatedly wiped/bundled each other's work;
+  isolated worktrees solve that collision without creating another source of truth.
+  A worktree is development-only: preserve its tracked/untracked WIP, reconcile every
+  user-deliverable commit into `main`, verify there, and ship through `bun run ship`.
+  Do not call a feature shipped while it exists only in a worktree/feature branch; the
+  installer and updater intentionally deliver only `origin/main`. Never prune a dirty
+  worktree until its intended work is committed/archived and accounted for.
 - Max 200 lines/file, single responsibility, shadcn primitives only, theme tokens
   not hex, mobile-first. Barrel-only cross-slice imports.
 - `/api/v1` host ops go through `lib/host` (bounds + realpath checks) — never call
@@ -361,6 +367,15 @@ the real runtime and working analogue before changing a tool or skill contract.
   signal. Reads stay unlogged, same rule the routes follow. `GET /api/v1/sys/audit`
   reads it (session-gated); there is deliberately **no MCP tool** for it, or a
   compromised token could check whether it had been noticed.
+
+## Install/update requests from an AI agent
+When a user points an agent at this repository and asks to install or update MSO, the agent must use
+`scripts/install.sh` / `mso update`, not hand-roll a competing setup. The installer is also the backward-
+compatible bridge for old installations that predate `mso update` and Settings → About: it detects the
+active service checkout, preserves `.env.local` + `~/.mso`, and updates in place. Never create a second
+install beside an owned service or reset dirty/diverged source. End with `mso doctor` and health proof.
+Credential prompts remain hidden/STDIN; tell the user where to create/store a required key, never put it
+on argv or in an agent transcript.
 
 ## CLI (`bin/mso`) — the web UI is only one frontend
 `bin/mso` reaches the same `/api` surface from a shell — every route has a named verb

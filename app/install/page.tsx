@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 };
 
 const INSTALL = "curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash";
+const AGENT_PROMPT = "Install or update MSO from this repo: https://github.com/rahmanef63/mso";
 
 const REQUIREMENTS = [
   ["A Linux server you own", "A $5 VPS is enough. Debian/Ubuntu, Fedora and Arch are covered by the installer."],
@@ -89,6 +90,19 @@ export default function InstallPage() {
             </div>
           ))}
         </dl>
+      </section>
+
+      <section className="mb-12 rounded-lg border border-border p-4">
+        <h2 className="text-lg font-semibold">Using an AI agent?</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Give it the repository and one sentence. The repo tells capable agents to use the official
+          installer/update path, preserve an existing install, and verify with <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">mso doctor</code>.
+        </p>
+        <Copy text={AGENT_PROMPT} />
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Already installed? Current MSO uses <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">mso update</code> or Settings → About.
+          For an older build where those do not exist, re-run the installer above; it upgrades the service checkout in place and preserves existing configuration/state.
+        </p>
       </section>
 
       <section className="mb-12">

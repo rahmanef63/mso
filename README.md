@@ -103,6 +103,24 @@ Demo mode skips real login, forces mock data, blocks live host API access, and s
 
 ## Install
 
+### Install or update with an AI agent
+
+If your AI agent can open this repository and run commands on your server, your request can be as
+short as:
+
+```text
+Install or update MSO from this repo: https://github.com/rahmanef63/mso
+```
+
+The repository carries the rest of the contract. The agent should use MSO's official installer/update
+paths rather than reconstructing setup commands by hand, preserve an existing `.env.local` and
+`~/.mso`, update the checkout already owned by `mso.service` instead of creating a second clone, and
+finish with `mso doctor`. For a current install it may use `mso update` (the same lifecycle exposed by
+Settings → About). If the installed build is old enough that `mso update` or the About updater does not
+exist yet, the universal upgrade/recovery path is simply to re-run the current one-line installer below.
+Only credentials or choices that cannot be inferred should come back to the user; provider secrets must
+stay in hidden/STDIN onboarding prompts rather than command arguments or chat logs.
+
 Run one command on the Linux server as your normal user, **not root**:
 
 ```bash
@@ -158,6 +176,16 @@ skills:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- -y
 ```
+
+Already installed? Use the least surprising path:
+
+- **Current MSO:** `mso update`, or Settings → About → Update.
+- **Older/legacy MSO where that updater is missing or broken:** re-run the same one-line installer.
+  It discovers an existing `mso.service` WorkingDirectory before choosing a default directory, updates
+  that checkout in place, preserves `.env.local` + `~/.mso`, and does not repeat onboarding unless
+  `--onboard` is requested.
+- **Recovery:** re-running the installer is also the supported way to repair installer/runtime wiring;
+  it refuses dirty/diverged source instead of resetting user work.
 
 After installation, the installer prints whether the current shell can already resolve `mso`.
 On the normal Ubuntu/WSL PATH (which includes `/usr/local/bin`) these work immediately:
@@ -251,6 +279,22 @@ addresses drop it. Bind wider only when the network/firewall design explicitly r
 
 Useful installer controls:
 
+| Control | What it is for |
+|---|---|
+| `--dir PATH` | Explicit install directory. Normally omit it so an existing service checkout is detected automatically. |
+| `--ref REF` | Development/testing ref. Normal installs and self-update use `main`. |
+| `--port N` | Local MSO port; default `4005`. |
+| `--bind ADDR` | Listen address; default `127.0.0.1`. Do not use `0.0.0.0` unless your firewall/TLS design explicitly requires it. |
+| `--no-service` | Build only; do not install the systemd service. |
+| `--onboard` | Run guided onboarding even while upgrading an existing install. |
+| `--no-onboard` | Install/update without starting onboarding. |
+| `-y`, `--yes` | Safe non-interactive defaults; does not connect accounts or install optional apps/skills. |
+| `--uninstall` | Remove the systemd unit and MSO CLI links while keeping code and `~/.mso`. |
+| `-h`, `--help` | Print the installer contract without changing the host. |
+
+Equivalent public environment overrides are `MSO_DIR`, `MSO_REF`, `MSO_PORT`, `MSO_BIND`, and
+`MSO_REPO`. Command-line flags are clearer for people; environment overrides are useful to automation.
+
 ```bash
 # force onboarding even while updating an existing install
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --onboard
@@ -258,11 +302,8 @@ curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install
 # update/build without onboarding
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --no-onboard
 
-# other existing controls
-curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --port 4005
-curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --bind 0.0.0.0
-curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --no-service
-curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --uninstall
+# explicit non-default location/port (only when you intentionally need them)
+curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --dir "$HOME/mso" --port 4005
 ```
 
 There is also a no-login install guide at **<https://mso.rahmanef.com/install>**. **Browser
