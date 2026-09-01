@@ -26,7 +26,10 @@
     "skill:new": "node scripts/create-skill-flow.mjs",
     "skill:check": "node scripts/check-skill-flows.mjs",
     "comparison": "node scripts/gen-comparison.mjs",
-    "bench:cognitive": "bun scripts/bench-cognitive-runtime.mjs"
+    "bench:cognitive": "bun scripts/bench-cognitive-runtime.mjs",
+    "bench:memory": "bun scripts/bench-memory-retrieval.mjs",
+    "bench:quality": "bun scripts/bench-task-quality.mjs",
+    "bench:agents": "bun scripts/bench-agent-comparison.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

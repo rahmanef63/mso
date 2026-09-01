@@ -6,7 +6,7 @@ import path from "path";
 import { embedSkillText, hybridSemanticScore, normalizeSemanticText, SKILL_EMBEDDING_VERSION } from "./semantic";
 import { allows, type Scope } from "@/lib/mcp/scope";
 
-export type WorkflowStepState = "completed" | "failed" | "denied" | "rate_limited";
+export type WorkflowStepState = "completed" | "failed" | "denied" | "rate_limited" | "invalid_args";
 
 export type WorkflowStep = {
   id: string;
@@ -32,6 +32,12 @@ export type ActiveWorkflow = {
   steps: WorkflowStep[];
 };
 
+export type WorkflowQuality = {
+  stepAttempts: number; completedSteps: number; failedSteps: number; deniedSteps: number;
+  rateLimitedSteps: number; invalidArgSteps: number; retries: number; rollbackSignals: number;
+  timedSteps: number; totalStepDurationMs: number; averageStepDurationMs: number;
+};
+
 export type LearnedRecipe = {
   id: string;
   actor: string;
@@ -52,6 +58,9 @@ export type LearnedRecipe = {
   lastDurationMs: number;
   averageWallDurationMs: number;
   lastWallDurationMs: number;
+  quality: WorkflowQuality;
+  lastQuality: WorkflowQuality;
+  qualityVersion?: 1;
   createdAt: string;
   updatedAt: string;
   lastUsedAt?: string;
@@ -155,6 +164,9 @@ function normalizeRecipes(value: unknown): Record<string, LearnedRecipe> {
       lastSteps: Array.isArray(row.lastSteps)
         ? row.lastSteps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step))
         : [],
+      quality: normalizeQuality(row.quality),
+      lastQuality: normalizeQuality(row.lastQuality),
+      ...(row.qualityVersion === 1 ? { qualityVersion: 1 as const } : {}),
     };
   }
   return out;
@@ -297,7 +309,7 @@ function sanitizeStoredStep(value: unknown): WorkflowStep | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Partial<WorkflowStepInput>;
   if (typeof row.id !== "string" || typeof row.tool !== "string" ||
-      !["completed", "failed", "denied", "rate_limited"].includes(String(row.state)) ||
+      !["completed", "failed", "denied", "rate_limited", "invalid_args"].includes(String(row.state)) ||
       typeof row.ts !== "string") return null;
   const durationMs = typeof row.durationMs === "number" && Number.isFinite(row.durationMs)
     ? Math.max(0, Math.min(86_400_000, Math.round(row.durationMs)))
@@ -313,6 +325,37 @@ function sanitizeStoredStep(value: unknown): WorkflowStep | null {
   };
 }
 
+
+function emptyQuality(): WorkflowQuality {
+  return { stepAttempts: 0, completedSteps: 0, failedSteps: 0, deniedSteps: 0, rateLimitedSteps: 0, invalidArgSteps: 0, retries: 0, rollbackSignals: 0, timedSteps: 0, totalStepDurationMs: 0, averageStepDurationMs: 0 };
+}
+function normalizeQuality(value: unknown): WorkflowQuality {
+  const base = emptyQuality(); if (!value || typeof value !== "object") return base;
+  const row = value as Partial<WorkflowQuality>;
+  for (const key of Object.keys(base) as Array<keyof WorkflowQuality>) {
+    const n = Number(row[key]); if (Number.isFinite(n) && n >= 0) base[key] = Math.round(n) as never;
+  }
+  base.averageStepDurationMs = base.timedSteps ? Math.round(base.totalStepDurationMs / base.timedSteps) : 0;
+  return base;
+}
+export function summarizeWorkflowQuality(steps: WorkflowStep[]): WorkflowQuality {
+  const out = emptyQuality(), pending = new Set<string>();
+  for (const step of steps) {
+    out.stepAttempts += 1;
+    if (pending.has(step.tool)) { out.retries += 1; pending.delete(step.tool); }
+    if (step.state === "completed") out.completedSteps += 1;
+    else { pending.add(step.tool); if (step.state === "failed") out.failedSteps += 1; else if (step.state === "denied") out.deniedSteps += 1; else if (step.state === "rate_limited") out.rateLimitedSteps += 1; else out.invalidArgSteps += 1; }
+    if (typeof step.durationMs === "number") { out.timedSteps += 1; out.totalStepDurationMs += step.durationMs; }
+    if (step.state === "completed" && /\b(rollback|restore|revert)\b/i.test(JSON.stringify([step.tool, step.target, step.args]))) out.rollbackSignals += 1;
+  }
+  out.averageStepDurationMs = out.timedSteps ? Math.round(out.totalStepDurationMs / out.timedSteps) : 0;
+  return out;
+}
+function mergeQuality(a: WorkflowQuality, b: WorkflowQuality): WorkflowQuality {
+  const out = emptyQuality();
+  for (const key of ["stepAttempts", "completedSteps", "failedSteps", "deniedSteps", "rateLimitedSteps", "invalidArgSteps", "retries", "rollbackSignals", "timedSteps", "totalStepDurationMs"] as const) out[key] = a[key] + b[key];
+  out.averageStepDurationMs = out.timedSteps ? Math.round(out.totalStepDurationMs / out.timedSteps) : 0; return out;
+}
 function enrichBestSteps(best: WorkflowStep[], current: WorkflowStep[]): WorkflowStep[] {
   if (best.length !== current.length || best.some((step, i) => step.tool !== current[i]?.tool)) return best;
   return best.map((step, i) => ({
@@ -509,6 +552,7 @@ export async function finishWorkflow(input: {
   const vector = embedSkillText(recipeText(workflow.intent, workflow.project, summary));
   const timestamp = now.toISOString();
   const compactSteps = compactRecipeSteps(workflow.steps);
+  const currentQuality = summarizeWorkflowQuality(workflow.steps);
 
   let recipe: LearnedRecipe;
   if (existing) {
@@ -536,6 +580,9 @@ export async function finishWorkflow(input: {
       lastDurationMs: durationMs,
       averageWallDurationMs: Math.round((existing.averageWallDurationMs * existing.attempts + wallMs) / attempts),
       lastWallDurationMs: wallMs,
+      quality: mergeQuality(existing.quality, currentQuality),
+      lastQuality: currentQuality,
+      qualityVersion: 1,
       updatedAt: timestamp,
     };
   } else {
@@ -559,6 +606,9 @@ export async function finishWorkflow(input: {
       lastDurationMs: durationMs,
       averageWallDurationMs: wallMs,
       lastWallDurationMs: wallMs,
+      quality: currentQuality,
+      lastQuality: currentQuality,
+      qualityVersion: 1,
       createdAt: timestamp,
       updatedAt: timestamp,
     };

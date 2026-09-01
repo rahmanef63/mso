@@ -15,7 +15,8 @@ const DEPENDENCIES = new Map([
 
 const ALIASES = new Map([
   ["logs", ["log", "journal", "error", "crash", "down"]],
-  ["processes", ["process", "cpu", "memory", "ram", "load"]],
+  ["processes", ["process", "cpu", "ram", "load"]],
+  ["memory", ["memory", "remember", "recall", "forget", "fact", "preference", "provenance", "conflict", "temporal"]],
   ["stats", ["health", "cpu", "memory", "ram", "disk", "uptime", "server", "vps"]],
   ["projects", ["project", "repo", "repository", "checkout", "workspace"]],
   ["skills", ["skill", "capability", "recipe", "workflow", "how"]],

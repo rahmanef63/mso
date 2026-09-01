@@ -33,7 +33,14 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
   }
 
   for (const key of tool.inputSchema.required ?? []) {
-    if (args[key] == null) return rpcFail(id, -32602, `${name} needs { ${(tool.inputSchema.required ?? []).join(", ")} }`);
+    if (args[key] != null) continue;
+    const activityId = newActivityId(), detail = `${name} needs { ${(tool.inputSchema.required ?? []).join(", ")} }`;
+    if (!workflowProbe) {
+      void recordMcpActivity({ id: activityId, actor, tool: name, state: "invalid_args", scope, ...initialFlow, target, detail });
+      await recordWorkflowStep(flowActor, activeWorkflow?.id, { id: activityId, tool: name, state: "invalid_args", target, args, ts: new Date().toISOString() });
+      await recordAgentEvent(context, name, "invalid_args", args, activeWorkflow?.id, target);
+    }
+    return rpcFail(id, -32602, detail);
   }
   if (requestedWorkflowId && !lifecycle && !workflowProbe && name !== "workflow_start" && name !== "skills_search" && !activeWorkflow) {
     const activityId = newActivityId(), message = "workflow_id was not found for this MSO session";

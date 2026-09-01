@@ -4,10 +4,10 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.1 tools=46 read=24 write=17 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.2 tools=47 read=25 write=17 exec=5 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.1**: **47 tools**
-(25 read, 17 write, 5 exec). `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.2**: **48 transport tools** total; **47 model/operator tools**
+(25 read, 17 write, 5 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
 ## Why this contract matters
@@ -33,9 +33,9 @@ Before changing an MCP tool name:
 
 ## Current MSO catalog
 
-### Read (24 model/operator)
+### Read (25 model/operator)
 
-`agent_memory_read`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`,
+`agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`,
 `apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`,
 `exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`,
 `infra_providers_list`, `project_capabilities`, `projects_list`, `screen_capture`, `skills_list`,

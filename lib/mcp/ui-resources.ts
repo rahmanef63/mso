@@ -30,7 +30,7 @@ const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="po
     li:first-child { border-top: 0; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, CanvasText 35%, transparent); }
     .dot.completed { background: #22c55e; }
-    .dot.failed, .dot.denied, .dot.rate_limited { background: #ef4444; }
+    .dot.failed, .dot.denied, .dot.rate_limited, .dot.invalid_args { background: #ef4444; }
     .tool { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .duration { color: color-mix(in srgb, CanvasText 50%, transparent); font-variant-numeric: tabular-nums; }
     .empty { padding: 8px 0 10px; color: color-mix(in srgb, CanvasText 52%, transparent); font-size: 11px; }

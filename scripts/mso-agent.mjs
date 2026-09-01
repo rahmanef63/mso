@@ -10,8 +10,9 @@ import { persistSession, resumeArg, startupSession, syncPromptHistory } from "./
 import { C, api, printBanner, state, streamTurn } from "./mso-agent-runtime.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
 import { approvesTool, nextPermissionMode } from "./mso-agent-permissions.mjs";
+import { oneShotApproves, oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
 
-async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null) {
+async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null, options = {}) {
   if (!tool) return { ok: false, result: `unknown tool requested by model: ${call.name}` };
   const needsApprovalDigest = tool.scope !== "read";
   let approval = null;
@@ -19,20 +20,26 @@ async function executeTool(rl, tool, call, agentSession, permission = "ask", sig
     try { approval = canonicalAgentApproval(tool.name, call.input || {}); }
     catch (error) { return { ok: false, result: `cannot safely approve tool call: ${error instanceof Error ? error.message : String(error)}` }; }
   }
-  let approved = approvesTool(permission, tool.scope);
+  let approved = options.approvalScope
+    ? oneShotApproves(options.approvalScope, tool.scope)
+    : approvesTool(permission, tool.scope);
   if (!approved) {
+    // Autonomous one-shot mode must never fall back to an interactive prompt.
+    // Its default approval scope is read, so write/exec fail closed unless the
+    // caller explicitly chose --approve-scope write|exec.
+    if (options.approvalScope) return { ok: false, result: "denied by user" };
     console.log(`${C.warn}${C.bold}[${tool.scope.toUpperCase()}] exact tool call${C.reset}`);
     console.log(approval.display);
     console.log(`${C.dim}sha256 ${approval.digest} · ${approval.bytes} bytes${C.reset}`);
     const answer = String(await rl.question("  allow this exact call? [y/N]: ", { history: false, onCancel: onInterrupt }) ?? "").trim().toLowerCase();
     if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("turn interrupted");
     if (answer === "y" || answer === "yes") approved = true;
-  } else if (needsApprovalDigest) {
+  } else if (needsApprovalDigest && !options.quiet && !options.approvalScope) {
     const mode = permission === "yolo" ? "YOLO" : "AUTO-WRITE";
     console.log(`${C.c}${C.bold}[${tool.scope.toUpperCase()} · ${mode}]${C.reset} ${tool.name}`);
   }
   if (!approved) return { ok: false, result: "denied by user" };
-  process.stdout.write(`${C.dim}  ↳ ${tool.name}…${C.reset}`);
+  if (!options.quiet) process.stdout.write(`${C.dim}  ↳ ${tool.name}…${C.reset}`);
   try {
     const input = approval ? approval.payload.input : (call.input || {});
     const out = await api("/api/v1/agent-tools", {
@@ -45,36 +52,42 @@ async function executeTool(rl, tool, call, agentSession, permission = "ask", sig
       }),
       signal,
     });
-    process.stdout.write(`\r${C.c}  ✓ ${tool.name}${C.reset}\n`);
+    if (!options.quiet) process.stdout.write(`\r${C.c}  ✓ ${tool.name}${C.reset}\n`);
     if (!out.ok) return { ok: false, result: out.result || "tool failed" };
     return { ok: true, result: String(out.result ?? "ok") };
   } catch (error) {
     if (signal?.aborted || isAbortError(error)) throw error;
-    process.stdout.write(`\r${C.err}  ✗ ${tool.name}${C.reset}\n`);
+    if (!options.quiet) process.stdout.write(`\r${C.err}  ✗ ${tool.name}${C.reset}\n`);
     return { ok: false, result: (error instanceof Error ? error.message : String(error)).slice(0, 2000) };
   }
 }
 
-async function agentRound(rl, session, skillContext = null, signal = undefined, onInterrupt = null) {
+async function agentRound(rl, session, skillContext = null, signal = undefined, onInterrupt = null, options = {}) {
   const startedAt = Date.now();
   const historyCheckpoint = Math.max(0, session.history.length - 1);
+  const calls = [];
+  let finalText = "", rounds = 0;
   beginSkillInvocation(session, skillContext, C);
   try {
     for (let turn = 0; turn < 10; turn++) {
-      const result = await streamTurn(session.history, session.state.tools, session.agentSession, skillContext, signal, session.state.modelMeta?.context); if (skillContext) session.lastInvokedSkill = skillContext;
+      rounds = turn + 1;
+      const result = await streamTurn(session.history, session.state.tools, session.agentSession, skillContext, signal, session.state.modelMeta?.context, options.quiet ? null : process.stdout); if (skillContext) session.lastInvokedSkill = skillContext;
+      finalText = result.text;
       session.usage = addUsage(session.usage, result.usage);
       session.lastElapsedMs = Date.now() - startedAt;
       session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
-      if (!result.toolUses.length) return;
+      if (!result.toolUses.length) return { text: finalText, calls, rounds, usage: session.usage, elapsedMs: session.lastElapsedMs };
       const results = [];
       for (const call of result.toolUses) {
         const tool = session.state.tools.find((row) => row.name === call.name);
-        const outcome = await executeTool(rl, tool, call, session.agentSession, session.permission, signal, onInterrupt);
+        const outcome = await executeTool(rl, tool, call, session.agentSession, session.permission, signal, onInterrupt, options);
+        calls.push({ name: call.name, ok: outcome.ok });
         results.push({ id: call.id, content: outcome.result, isError: !outcome.ok });
       }
       session.history.push({ role: "tool", results });
     }
-    console.log(`${C.warn}turn limit reached; ask to continue if needed.${C.reset}`);
+    if (!options.quiet) console.log(`${C.warn}turn limit reached; ask to continue if needed.${C.reset}`);
+    return { text: finalText, calls, rounds, usage: session.usage, elapsedMs: session.lastElapsedMs, turnLimitReached: true };
   } catch (error) {
     if (signal?.aborted || isAbortError(error)) session.history.splice(historyCheckpoint);
     throw error;
@@ -98,12 +111,41 @@ async function runInteractiveRound(rl, session, skillContext, interrupts) {
 }
 
 
+async function runOneShot(opts) {
+  const requested = resumeArg(process.argv.slice(2));
+  const [s, agentSession] = await Promise.all([state(), startupSession(requested)]);
+  if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
+  const session = {
+    state: s, agentSession, history: Array.isArray(agentSession.history) ? agentSession.history : [],
+    pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
+    titleOverride: requested ? (agentSession.title || null) : null,
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastElapsedMs: 0, statusBar: false,
+    permission: "ask",
+  };
+  session.history.push({ role: "user", text: opts.prompt });
+  const result = await agentRound(null, session, null, undefined, null, { quiet: true, approvalScope: opts.approvalScope });
+  await persistSession(session);
+  const payload = {
+    ok: true, sessionId: session.agentSession.id,
+    model: `${s.config?.provider || ""}/${s.config?.model || ""}`.replace(/^\//, ""),
+    approvalScope: opts.approvalScope, text: result?.text || "", rounds: result?.rounds || 0,
+    toolCalls: result?.calls || [], usage: result?.usage || session.usage, elapsedMs: result?.elapsedMs || session.lastElapsedMs,
+    ...(result?.turnLimitReached ? { turnLimitReached: true } : {}),
+  };
+  if (opts.json) process.stdout.write(`${JSON.stringify(payload)}\n`);
+  else process.stdout.write(`${payload.text}${payload.text.endsWith("\n") || !payload.text ? "" : "\n"}`);
+}
+
+
 async function main() {
+  const argv = process.argv.slice(2);
+  if (argv.includes("--help") || argv.includes("-h")) { process.stdout.write(`${oneShotHelp()}\n`); return; }
+  const oneShot = parseOneShot(argv);
+  if (oneShot) return runOneShot(oneShot);
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.error("mso agent needs an interactive terminal. For one-shot automation use: mso ai <prompt>");
+    console.error("mso agent needs an interactive terminal. For autonomous one-shot use: mso agent --oneshot \"<prompt>\" [--json]");
     process.exit(2);
   }
-  const argv = process.argv.slice(2);
   const requested = resumeArg(argv);
   const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg)) ? "yolo" : "ask";
   const [s, agentSession] = await Promise.all([

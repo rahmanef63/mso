@@ -132,6 +132,17 @@ describe("tools/call enforces scope even when the tool was never listed", () => 
     expect((await dispatch(call("fs_read", {}), "read")).error).toMatchObject({ code: -32602 });
   });
 
+
+  it("records missing required arguments as invalid_args inside the exact workflow", async () => {
+    const actor = "mcp:invalid-args";
+    const started = await dispatch(call("workflow_start", { intent: "test invalid argument telemetry" }), "write", actor);
+    const workflowId = (JSON.parse((started.result as { content: { text: string }[] }).content[0].text) as { workflow: { id: string } }).workflow.id;
+    const bad = await dispatch(call("fs_write", { path: "/tmp/test", workflow_id: workflowId }), "write", actor);
+    expect(bad.error).toMatchObject({ code: -32602 });
+    expect((await activeWorkflowForActor(actor, workflowId))?.steps.at(-1)).toMatchObject({ tool: "fs_write", state: "invalid_args" });
+    await dispatch(call("workflow_cancel", { workflow_id: workflowId, reason: "test cleanup" }), "write", actor);
+  });
+
   it("returns a handler failure as isError text, never as a protocol error", async () => {
     // Outside every read root → lib/host refuses. The point is the SHAPE.
     const r = await dispatch(call("fs_read", { path: "/proc/1/environ" }), "read");

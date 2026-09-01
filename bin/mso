@@ -42,7 +42,7 @@
 #   status               Public service status (no session needed)
 #   health               Is this CLI's session valid?
 #   doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
-#   agent [--continue|--resume <query>|--yolo|-yolo]  Interactive MSO Agent; resume durable sessions
+#   agent [--continue|--resume <query>|--yolo|-yolo]  Interactive MSO Agent; --oneshot <prompt> for autonomous non-TTY runs
 #   chat                 Alias for agent
 #   model [ref]          Select active model from a connected provider
 #   onboard [-y]         Guided setup: AI, apps, infrastructure, skills
@@ -464,7 +464,7 @@ ensure_local_cli_device() {
   esac
   if ! dev_script --is-approved "$d" >/dev/null 2>&1; then
     dev_script "$d" "mso cli" >/dev/null
-    echo "  ✓ approved this local CLI device"
+    [ "${MSO_CLI_QUIET:-0}" = "1" ] || echo "  ✓ approved this local CLI device"
   fi
 }
 
@@ -474,7 +474,7 @@ ensure_onboard_runtime() {
       MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$B" \
         "$ROOT/scripts/mso-gateway" local-start >/dev/null \
         || die "local MSO runtime is not ready. Run: mso update ; then: mso web"
-      echo "  ✓ verified local MSO runtime at $B" ;;
+      [ "${MSO_CLI_QUIET:-0}" = "1" ] || echo "  ✓ verified local MSO runtime at $B" ;;
     *) return 0 ;;
   esac
 }
@@ -674,7 +674,7 @@ U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|
 U_doctor="doctor [--fix]"
 U_provider="provider list|show <id>|set <dokploy|cloudflare|hostinger>|rm <id>|doctor [id]|projects|zones"
 U_model="model [current|list [provider]|set <provider> <model>|set <provider/model>|<model-or-ref>]"
-U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo]"
+U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo] | agent --oneshot <prompt> [--json] [--approve-scope read|write|exec]"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"

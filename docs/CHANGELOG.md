@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `agent` ship cognitive runtime p1
 - `agent` humanize sessions and add yolo mode
 - `mcp` ship cognitive runtime p0
 - `agent` add interrupt-safe terminal controls

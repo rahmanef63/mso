@@ -408,8 +408,12 @@ process.stdout.write(JSON.stringify({ id, values }));
 }
 
 run_agent() {
-  local cfg
-  tty_ok || die "interactive agent needs a terminal; use: mso ai <prompt> for a one-shot request"
+  local cfg oneshot=0 arg MSO_CLI_QUIET=0
+  for arg in "$@"; do
+    [ "$arg" = "--json" ] && MSO_CLI_QUIET=1
+    [ "$arg" = "--oneshot" ] || [ "$arg" = "-z" ] || continue; oneshot=1
+  done
+  [ "$oneshot" = "1" ] || tty_ok || die "interactive agent needs a terminal; use: mso agent --oneshot \"<prompt>\" [--json]"
   ensure_local_cli_device
   ensure_onboard_runtime
   jget "/api/auth/me" >/dev/null

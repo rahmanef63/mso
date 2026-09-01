@@ -129,7 +129,7 @@ function toolForModel(tool) {
  * @param {any} [skillContext]
  * @param {AbortSignal | undefined} [signal]
  */
-export async function streamTurn(messages, tools, agentSession, skillContext = null, signal = undefined, contextWindow = undefined) {
+export async function streamTurn(messages, tools, agentSession, skillContext = null, signal = undefined, contextWindow = undefined, output = process.stdout) {
   const projected = projectHistoryForModel(messages, contextWindow);
   const activeTools = selectToolsForTurn(tools, projected.messages, skillContext);
   const res = await fetch(`${BASE}/api/assistant`, {
@@ -159,7 +159,7 @@ export async function streamTurn(messages, tools, agentSession, skillContext = n
       }
       if (!data) continue;
       if (event === "delta") {
-        const chunk = JSON.parse(data); text += chunk; process.stdout.write(chunk);
+        const chunk = JSON.parse(data); text += chunk; output?.write?.(chunk);
       } else if (event === "tool_use") toolUses.push(JSON.parse(data));
       else if (event === "done") {
         const done = JSON.parse(data);
@@ -169,6 +169,6 @@ export async function streamTurn(messages, tools, agentSession, skillContext = n
       else if (event === "error") throw new Error(JSON.parse(data));
     }
   }
-  if (text && !text.endsWith("\n")) process.stdout.write("\n");
+  if (text && !text.endsWith("\n")) output?.write?.("\n");
   return { text, toolUses, stopReason, usage };
 }

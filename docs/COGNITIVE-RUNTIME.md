@@ -4,7 +4,7 @@ MSO treats the LLM as a replaceable reasoning engine. The durable product advant
 **provider-neutral harness** around it: conversation identity, context budgeting, memory, tool discovery,
 permissions, verification, learned workflows, and reproducible evaluation.
 
-This document is the current contract for the MCP-first P0 runtime. Provider-specific features may be
+This document is the current contract for the MCP-first Cognitive Runtime through P1. Provider-specific features may be
 used when available, but correctness must not depend on OpenAI-, Anthropic-, Google-, Qwen-, GLM-,
 DeepSeek-, or other vendor-specific hidden state.
 
@@ -93,34 +93,38 @@ Oversized results return a parseable `msoTruncated` envelope containing original
 preview, and a narrowing hint. Explicit MCP Apps structured projections remain separate. The correct
 recovery is a narrower read/search/grep/tail, not silently increasing the context flood.
 
-## Memory planes in P0
+## Memory planes in P1
 
-P0 intentionally keeps two proven memory layers rather than inventing one universal store:
+P1 keeps the two proven planes but upgrades stable agent memory from untyped Markdown into a structured, backward-compatible ledger:
 
-- **Agent memory** (`USER.md` / `MEMORY.md`) — stable client-principal facts, frozen into each new session.
-- **Experience memory** — successful/failed workflow trajectories, redacted replayable step shape,
-  semantic embedding, success rate, fastest/average duration, and last-use evidence.
+- **Agent memory ledger** — private `records-v1.json` claims keyed by client principal, with semantic/episodic/procedural kind, confidence, sensitivity, temporal validity, provenance authority/channel, supersession/retraction and conflict evidence.
+- **Markdown compatibility projection** — `USER.md` / `MEMORY.md` remain the resolved materialized view consumed by older CLI/session code. Existing installations are read unchanged; the first structured mutation seeds the ledger from legacy `## key` sections instead of deleting or rewriting history.
+- **Experience memory** — verified workflow trajectories remain client-scoped and now accumulate P1 quality telemetry: completed/failed/denied/rate-limited/invalid-argument steps, retries, rollback/restore evidence and timed-step latency.
 
-The next memory revision may introduce typed semantic/episodic/procedural records with provenance,
-confidence, temporal validity, supersession, and conflict resolution. That is P1/P2 work and must beat the
-P0 retrieval/evaluation baseline before becoming the default.
+Resolution is deterministic at a requested timestamp: only effective claims participate, then authority (`explicit > observed > inferred > migration`), confidence, observation recency, creation recency and stable id break ties. `mode=replace` supersedes the currently resolved claim from its `valid_from`; `mode=claim` keeps parallel evidence so disagreement remains inspectable. A future replacement therefore does **not** erase the fact that is still valid today.
+
+`agent_memory_search` is the model-facing typed retrieval surface. Normal reads return resolved claims plus conflict evidence; `include_history=true` is explicit because superseded/retracted material should not silently bloat context. MCP provenance stores only a short SHA-256 digest of the internal durable session id—not the raw OpenAI conversation id or bearer identity. New sessions still freeze the resolved Markdown snapshot, so memory cannot mutate underneath an active session.
 
 ## Benchmark contract
 
 Run:
 
 ```bash
-bun run bench:cognitive
-bun scripts/bench-cognitive-runtime.mjs --json
+bun run bench:cognitive          # routing/schema + typed-memory gates
+bun run bench:memory             # deterministic retrieval/temporal/conflict suite
+bun run bench:quality -- --live  # learned workflow success + P1 telemetry coverage
+bun run bench:agents -- --model gpt-5.6-terra        # dry-run cross-agent plan
+bun run bench:agents -- --model gpt-5.6-terra --run # scratch-only external smoke
 ```
 
-The P0 benchmark is deterministic and provider-neutral. Its checked scenarios cover application logs,
+The core benchmark is deterministic and provider-neutral. Its checked scenarios cover application logs,
 server health, safe file editing, long/short execution, project functions, Cloudflare/Hostinger/Dokploy,
 browser/screenshots, memory, session resume, and Skills.
 
 Release gates require:
 
 - **100% required-tool recall** on the checked scenarios;
+- **100% typed-memory retrieval, temporal-resolution and conflict-resolution accuracy** on the deterministic fixture suite;
 - deterministic selection for identical input;
 - lower active schema bytes than the full MSO catalog;
 - when Hermes' installed CLI exposes `hermes prompt-size`, lower active tool-schema bytes than that exact
@@ -132,36 +136,38 @@ probe. Overall product superiority also cannot be inferred from a prompt-size re
 must add equivalent task-success, tool-error, token-per-success, latency-per-success, and policy-compliance
 scenarios before making that claim.
 
-## Current P0 baseline
+## Current P1 baseline
 
-On the development host at implementation time:
+On the development host after P1 implementation:
 
-| Metric | MSO P0 | Hermes local baseline |
+| Metric | MSO P1 | Hermes local baseline |
 |---|---:|---:|
-| Full MSO transport catalog | 47 tools | — |
-| Full MSO schema bytes | 31,212 | — |
-| Average MSO active tools / turn | 14.6 | — |
-| Average active schema bytes / turn | 11,074 | 44,758 tool-schema bytes |
-| MSO schema reduction vs full catalog | 64.5% | — |
+| Full MSO transport catalog | 48 tools | — |
+| Full MSO schema bytes | 32,969 | — |
+| Average MSO active tools / turn | 14.5 | — |
+| Average active schema bytes / turn | 11,125 | 44,758 tool-schema bytes |
+| MSO schema reduction vs full catalog | 66.3% | — |
 | Required-tool routing recall | 100% | not the same benchmark |
-| Deterministic routing | yes | not the same benchmark |
+| Typed-memory fixture accuracy | 100% (8/8) | not implemented in this harness |
+| Deterministic routing / memory resolution | yes / yes | not the same benchmark |
 
-These numbers are a reproducible **harness-footprint baseline**, not an overall quality leaderboard. Re-run
-the benchmark after catalog/router changes; do not copy the numbers into marketing claims without a fresh
-measurement and comparable evaluation.
+The existing learned-recipe store currently reports **179 successful / 186 total workflows (96.2%)**, but those recipes predate the P1 quality schema, so step-level telemetry coverage correctly starts at **0%** rather than fabricating historical tool-error/retry data. New or re-learned recipes carry `qualityVersion: 1`; coverage grows naturally from real post-P1 executions.
 
-## P1 direction
+A non-interactive full MSO tool loop is now available as `mso agent --oneshot <prompt> --json`. It defaults to read-only autonomous approval; write/exec require explicit `--approve-scope write|exec`. The cross-agent harness uses a private scratch read task whose nonce and values exist only in a file. A first smoke proved MSO on `openai-codex/gpt-5.6-terra`; Hermes failed because its local configuration does not expose an `openai` provider and OpenClaw rejected that model override for agent `main`, so the harness correctly returned **`comparable=false`**. That is connectivity/configuration evidence, not a ranking.
 
-P1 should build on these invariants rather than replace them:
+These numbers are reproducible harness baselines, not an overall quality leaderboard. Cross-agent ranking is permitted only when at least two runners complete the same task with matching model-family evidence; one-task latency order is explicitly not an overall-agent claim.
 
-1. typed memory records with provenance, confidence, sensitivity, temporal validity, and supersession;
-2. retrieval evaluation before adding graph complexity;
-3. Tool/Skill quality telemetry (success, latency, cost, invalid arguments, retries, rollback);
-4. an eval-gated **Tool Forge** that may propose project functions/Skills from repeated verified workflows,
-   but cannot promote generated code directly to trusted execution;
-5. optional programmatic read-only orchestration for bulk filtering/aggregation, still constrained by the
-   caller's scope and normal host guards;
-6. task-success benchmarks shared with Hermes/OpenClaw where equivalent non-interactive contracts exist.
+## P1 status and next direction
+
+P1 now implements the first three planned runtime layers: typed/provenance-aware temporal memory, deterministic retrieval evaluation, and workflow/tool quality telemetry. It also adds the non-interactive MSO Agent runner and a fail-closed cross-agent scratch harness.
+
+The next phase should build on those measured primitives rather than add opaque autonomy:
+
+1. **Eval-gated Tool Forge** — repeated verified workflows may propose project functions/Skills, but generated code stays untrusted until static checks, sandboxed fixture tests, scope review and explicit promotion pass.
+2. **Programmatic read-only orchestration** — bulk filtering/aggregation may reduce model round-trips while remaining constrained by caller scope and normal host guards.
+3. **Benchmark corpus expansion** — add multiple read/write/recovery/security task classes and configure Hermes/OpenClaw with an actually equivalent model/provider path before any overall comparison.
+4. **Memory calibration** — grow post-P1 quality telemetry and test confidence/authority policy against real corrections before introducing graph-memory complexity.
+5. **Cost-per-success accounting** — normalize provider usage reports only where token/cost semantics are comparable; missing usage must remain unknown, never zero.
 
 ## Security notes
 

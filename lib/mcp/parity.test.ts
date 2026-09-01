@@ -48,6 +48,7 @@ const MCP_ONLY: Record<string, string> = {
   "agent.session.rename": "durable MCP/terminal session titles are metadata in the isolated agent-session store; Alfa keeps its separate in-app thread/title lifecycle",
   "agent.session.note": "durable operational notes belong to the MCP client's isolated MSO session store; Alfa has a separate owner-scoped conversation/memory store",
   "agent.memory.read": "MCP clients use isolated USER.md/MEMORY.md-style agent memory snapshots; Alfa intentionally keeps its existing owner recall instead of sharing external-client memory",
+  "agent.memory.search": "typed provenance/temporal retrieval belongs to that same isolated MCP/terminal memory ledger; exposing it as Alfa owner recall would collapse the deliberate principal boundary",
   "agent.memory.remember": "same isolated MCP memory store; sharing it with Alfa would collapse two trust/ownership boundaries",
   "agent.memory.forget": "same isolated MCP memory store; deletion remains scoped to the external MCP client principal",
   "exec.job.start": "external MCP requests have a hard request-time budget and need a bounded resumable shell job; in-shell Alfa can keep using its interactive Terminal/approved exec.run surfaces",

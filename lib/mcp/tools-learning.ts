@@ -27,7 +27,7 @@ const WORKFLOW_PROGRESS_OUTPUT = {
         type: "object",
         properties: {
           tool: { type: "string" },
-          state: { type: "string", enum: ["completed", "failed", "denied", "rate_limited"] },
+          state: { type: "string", enum: ["completed", "failed", "denied", "rate_limited", "invalid_args"] },
           durationMs: { type: "number" },
           ts: { type: "string" },
         },
@@ -42,7 +42,7 @@ const WORKFLOW_PROGRESS_OUTPUT = {
 
 type WorkflowProgressStep = {
   tool: string;
-  state: "completed" | "failed" | "denied" | "rate_limited";
+  state: "completed" | "failed" | "denied" | "rate_limited" | "invalid_args";
   durationMs?: number;
   ts: string;
 };
@@ -62,7 +62,7 @@ function workflowSteps(value: unknown): WorkflowProgressStep[] {
     const step = candidate as Record<string, unknown>;
     const state = step.state;
     if (typeof step.tool !== "string" || typeof step.ts !== "string") continue;
-    if (state !== "completed" && state !== "failed" && state !== "denied" && state !== "rate_limited") continue;
+    if (state !== "completed" && state !== "failed" && state !== "denied" && state !== "rate_limited" && state !== "invalid_args") continue;
     out.push({
       tool: step.tool.slice(0, 100),
       state,

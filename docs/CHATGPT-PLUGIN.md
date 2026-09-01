@@ -12,10 +12,10 @@
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 > and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.1 tools=46 read=24 write=17 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.2 tools=47 read=25 write=17 exec=5 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.1**: **47 transport tools** total; **46 model/operator tools**
-(24 read, 17 write, 5 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.2**: **48 transport tools** total; **47 model/operator tools**
+(25 read, 17 write, 5 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
 
 ## 1. What this connection does
@@ -141,9 +141,10 @@ A token sees a scope prefix; there is no per-project or per-agent hidden tool fi
 `tools/list` filters the catalog and `tools/call` independently re-checks the required
 scope.
 
-### `read` — 24 model/operator tools
+### `read` — 25 model/operator tools
 
 - `agent_memory_read`
+- `agent_memory_search`
 - `agent_session_current`
 - `agent_session_resume`
 - `agent_sessions_list`
@@ -221,7 +222,7 @@ Settings → MCP:
 
 ```text
 server:  1.6.0
-toolset: 2026.09.02.1
+toolset: 2026.09.02.2
 hash:    <live schema hash>
 count:   46 model/operator tools (+ 1 app-only bridge)
 ```

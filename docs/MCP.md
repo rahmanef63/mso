@@ -75,7 +75,7 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 
 | Scope | Tools |
 |---|---|
-| `read` | `agent_memory_read` `agent_session_current` `agent_session_resume` `agent_sessions_list` `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` `exec_job_status` `infra_providers_list` `infra_provider_doctor` `dokploy_projects_list` `cloudflare_zones_list` |
+| `read` | `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` `exec_job_status` `infra_providers_list` `infra_provider_doctor` `dokploy_projects_list` `cloudflare_zones_list` |
 | `write` | + `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `workflow_start` `workflow_cancel` `workflow_finish` `fs_write` `fs_upload_file` `fs_mkdir` `fs_move` `fs_copy` `fs_delete` `apps_power` `dokploy_project_ensure` `cloudflare_dns_upsert` `hostinger_dns_upsert` |
 | `exec` | + `project_function_call` `exec_run` `exec_job_start` `exec_job_cancel` `browser_power` |
 
@@ -124,11 +124,14 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.1 tools=46 read=24 write=17 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.2 tools=47 read=25 write=17 exec=5 -->
 
-Current transport catalog: **47 tools**, server `1.6.0` / toolset `2026.09.02.1`.
-The model/operator catalog is **46 tools** (24 read, 17 write, 5 exec); `workflow_status` is the
-one app-only MCP Apps bridge used by the progress widget and is documented separately. Session/memory tools add durable conversation context without creating
+Current transport catalog: **48 tools**, server `1.6.0` / toolset `2026.09.02.2`.
+The model/operator catalog is **47 tools** (25 read, 17 write, 5 exec); `workflow_status` is the
+one app-only MCP Apps bridge used by the progress widget and is documented separately.
+`agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
+
+Session/memory tools add durable conversation context without creating
 dynamic per-project tool names; `project_capabilities` and `project_function_call` remain the
 stable project-automation seam.
 

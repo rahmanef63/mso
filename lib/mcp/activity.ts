@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
 
-export type McpActivityState = "started" | "completed" | "failed" | "denied" | "rate_limited";
+export type McpActivityState = "started" | "completed" | "failed" | "denied" | "rate_limited" | "invalid_args";
 
 export interface McpActivityEntry {
   id: string;

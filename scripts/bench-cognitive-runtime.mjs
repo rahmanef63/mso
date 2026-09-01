@@ -2,6 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { mock } from "bun:test";
 import { selectToolsForTurn } from "./mso-agent-tool-router.mjs";
+import { runMemoryRetrievalBenchmark } from "./bench-memory-retrieval.mjs";
 
 mock.module("server-only", () => ({}));
 const { TOOLS } = await import("../lib/mcp/tools.ts");
@@ -19,6 +20,7 @@ const scenarios = [
   { id: "browser", prompt: "Check the Camoufox browser state and start it if it is stopped.", required: ["browser_status", "browser_power"] },
   { id: "screenshot", prompt: "Take a screenshot of the MSO desktop so I can inspect the UI.", required: ["screen_capture"] },
   { id: "memory", prompt: "Read my agent memory and remember this project convention for later sessions.", required: ["agent_memory_read", "agent_memory_remember"] },
+  { id: "memory-retrieval", prompt: "Search my persistent memory for a prior deployment rule and inspect conflicting or temporal claims.", required: ["agent_memory_search"] },
   { id: "resume", prompt: "List previous agent sessions and resume the deployment session.", required: ["agent_sessions_list", "agent_session_resume"] },
   { id: "skills", prompt: "Find the best trusted skill for a repository security review and read its instructions.", required: ["skills_search", "skills_read"] },
 ];
@@ -52,6 +54,7 @@ const hermes = hermesBaseline();
 const avgSelectedBytes = Math.round(selectedBytes / scenarios.length);
 const avgActiveTools = Math.round((selectedCount / scenarios.length) * 10) / 10;
 const routingRecall = requiredTotal ? requiredHit / requiredTotal : 0;
+const memoryBenchmark = runMemoryRetrievalBenchmark();
 const result = {
   generatedAt: new Date().toISOString(),
   providerNeutral: true,
@@ -64,6 +67,7 @@ const result = {
     routingRecallPct: Math.round(routingRecall * 1000) / 10,
     deterministic,
     scenarios: rows,
+    memory: memoryBenchmark,
   },
   hermes: hermes ? {
     version: version("hermes"), toolCount: hermes.tools?.count ?? null,
@@ -82,15 +86,20 @@ result.gates = {
   deterministicRouting: deterministic,
   activeSchemaSmallerThanFull: avgSelectedBytes < fullBytes,
   beatsHermesToolSchemaBytes: Boolean(hermes?.tools?.json_bytes && avgSelectedBytes < hermes.tools.json_bytes),
+  memoryRetrieval100: memoryBenchmark.retrieval.accuracyPct === 100,
+  memoryTemporal100: memoryBenchmark.temporal.accuracyPct === 100,
+  memoryConflict100: memoryBenchmark.conflict.accuracyPct === 100,
+  memoryDeterministic: memoryBenchmark.deterministic,
 };
 result.passed = Object.values(result.gates).every(Boolean);
 
 if (process.argv.includes("--json")) console.log(JSON.stringify(result, null, 2));
 else {
-  console.log("MSO Cognitive Runtime P0 benchmark");
+  console.log("MSO Cognitive Runtime benchmark");
   console.log(`  full catalog        ${TOOLS.length} tools · ${fullBytes.toLocaleString()} schema bytes`);
   console.log(`  active per turn     ${avgActiveTools} tools avg · ${avgSelectedBytes.toLocaleString()} bytes avg · ${result.mso.schemaReductionPct}% reduction`);
   console.log(`  routing             ${result.mso.routingRecallPct}% required-tool recall · deterministic=${deterministic}`);
+  console.log(`  typed memory        ${memoryBenchmark.overallAccuracyPct}% retrieval/temporal/conflict · deterministic=${memoryBenchmark.deterministic}`);
   if (hermes?.tools) console.log(`  Hermes baseline     ${hermes.tools.count} tools · ${Number(hermes.tools.json_bytes).toLocaleString()} schema bytes`);
   else console.log("  Hermes baseline     unavailable");
   console.log(`  OpenClaw            ${result.openclaw.version || "unavailable"} · no comparable offline prompt-size probe`);

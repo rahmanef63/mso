@@ -61,12 +61,15 @@ export const READ_TOOLS: McpTool[] = [
   {
     name: "sys_stats",
     description:
-      "Live VPS health: CPU load, memory, disk, uptime. USE THIS for 'how is the server doing' — " +
-      "it is one cheap call and needs no shell scope.",
+      "Live VPS health: CPU load, memory, disk and uptime. Uptime is returned with explicit units as uptimeMs and uptimeSeconds — never interpret either as days. " +
+      "USE THIS for 'how is the server doing'; it is one cheap call and needs no shell scope.",
     scope: "read",
     annotations: READ_ONLY,
     inputSchema: S({}),
-    run: () => stats(),
+    run: async () => {
+      const { uptime, ...health } = await stats();
+      return { ...health, uptimeMs: Math.round(uptime), uptimeSeconds: Math.round(uptime / 1000) };
+    },
   },
   {
     name: "sys_processes",
