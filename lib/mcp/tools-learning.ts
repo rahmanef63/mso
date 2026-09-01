@@ -11,19 +11,7 @@ const visibleTools = async (scope: "read" | "write" | "exec"): Promise<McpTool[]
   return TOOLS.filter((tool) => allows(scope, tool.scope));
 };
 
-const WORKFLOW_START_OUTPUT = {
-  type: "object",
-  properties: {
-    workflow: { type: "object", additionalProperties: true },
-    bootstrap: { type: "object", additionalProperties: true },
-    search: { type: "object", additionalProperties: true },
-    instruction: { type: "string" },
-  },
-  required: ["workflow", "bootstrap", "search", "instruction"],
-  additionalProperties: true,
-} as const;
-
-const WORKFLOW_STATUS_OUTPUT = {
+const WORKFLOW_PROGRESS_OUTPUT = {
   type: "object",
   properties: {
     active: { type: "boolean" },
@@ -39,7 +27,7 @@ const WORKFLOW_STATUS_OUTPUT = {
         type: "object",
         properties: {
           tool: { type: "string" },
-          state: { type: "string" },
+          state: { type: "string", enum: ["completed", "failed", "denied", "rate_limited"] },
           durationMs: { type: "number" },
           ts: { type: "string" },
         },
@@ -52,6 +40,61 @@ const WORKFLOW_STATUS_OUTPUT = {
   additionalProperties: false,
 } as const;
 
+type WorkflowProgressStep = {
+  tool: string;
+  state: "completed" | "failed" | "denied" | "rate_limited";
+  durationMs?: number;
+  ts: string;
+};
+
+function projectLabel(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const normalized = value.trim().replace(/\\/g, "/").replace(/\/+$/, "");
+  const label = normalized.split("/").filter(Boolean).at(-1) ?? normalized;
+  return label.slice(0, 120) || undefined;
+}
+
+function workflowSteps(value: unknown): WorkflowProgressStep[] {
+  if (!Array.isArray(value)) return [];
+  const out: WorkflowProgressStep[] = [];
+  for (const candidate of value.slice(-8)) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const step = candidate as Record<string, unknown>;
+    const state = step.state;
+    if (typeof step.tool !== "string" || typeof step.ts !== "string") continue;
+    if (state !== "completed" && state !== "failed" && state !== "denied" && state !== "rate_limited") continue;
+    out.push({
+      tool: step.tool.slice(0, 100),
+      state,
+      ...(typeof step.durationMs === "number" && Number.isFinite(step.durationMs)
+        ? { durationMs: Math.max(0, step.durationMs) }
+        : {}),
+      ts: step.ts,
+    });
+  }
+  return out;
+}
+
+function workflowProgress(value: unknown, active: boolean): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const workflow = value as Record<string, unknown>;
+  if (typeof workflow.id !== "string" || !workflow.id) return undefined;
+  const allSteps = Array.isArray(workflow.steps) ? workflow.steps : [];
+  const startedAt = typeof workflow.startedAt === "string" ? workflow.startedAt : undefined;
+  const started = startedAt ? Date.parse(startedAt) : Number.NaN;
+  const label = projectLabel(workflow.project);
+  return {
+    active,
+    workflowId: workflow.id,
+    ...(typeof workflow.intent === "string" && workflow.intent ? { intent: workflow.intent.slice(0, 1000) } : {}),
+    ...(label ? { project: label } : {}),
+    ...(startedAt ? { startedAt } : {}),
+    ...(Number.isFinite(started) ? { elapsedMs: Math.max(0, Date.now() - started) } : {}),
+    stepCount: allSteps.length,
+    steps: workflowSteps(allSteps),
+  };
+}
+
 export const LEARNING_TOOLS: McpTool[] = [
   {
     name: "workflow_start",
@@ -61,7 +104,11 @@ export const LEARNING_TOOLS: McpTool[] = [
       "Do not call skills_search first for the same task; this already includes it. Multiple conversations may start isolated workflows on one token; correlate every later step with the returned workflow_id.",
     scope: "write",
     annotations: { idempotentHint: false },
-    outputSchema: WORKFLOW_START_OUTPUT,
+    outputSchema: WORKFLOW_PROGRESS_OUTPUT,
+    toStructuredContent: (result) => {
+      if (!result || typeof result !== "object") return undefined;
+      return workflowProgress((result as { workflow?: unknown }).workflow, true);
+    },
     meta: {
       ui: { resourceUri: WORKFLOW_PROGRESS_URI, visibility: ["model", "app"] },
       "openai/outputTemplate": WORKFLOW_PROGRESS_URI,
@@ -83,8 +130,8 @@ export const LEARNING_TOOLS: McpTool[] = [
       const project = projectHint ? await resolveProjectHint(projectHint).catch(() => null) : null;
       const tools = await visibleTools(context.scope);
       // Complete every fallible read-only preflight before allocating the run id.
-      // A failed skill scan or repo inspection must not
-      // leave a run the client never received an id for and therefore cannot close.
+      // A failed skill scan or repo inspection must not leave a run the client never
+      // received an id for and therefore cannot close.
       const search = await searchSkillMemory(intent, {
         topK: 8,
         recipeAccess: { actor, scope: context.scope },
@@ -147,7 +194,7 @@ export const LEARNING_TOOLS: McpTool[] = [
       "Return a redacted live status snapshot for one workflow. This tool exists for the MSO ChatGPT progress widget: it exposes only workflow identity, timing and high-level tool outcomes, never tool arguments, command strings, file contents or credentials.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
-    outputSchema: WORKFLOW_STATUS_OUTPUT,
+    outputSchema: WORKFLOW_PROGRESS_OUTPUT,
     meta: {
       ui: { visibility: ["app"] },
       "openai/widgetAccessible": true,
@@ -162,22 +209,7 @@ export const LEARNING_TOOLS: McpTool[] = [
       if (!workflow) {
         return { active: false, workflowId, stepCount: 0, steps: [] };
       }
-      const started = Date.parse(workflow.startedAt);
-      return {
-        active: true,
-        workflowId,
-        intent: workflow.intent,
-        ...(workflow.project ? { project: workflow.project } : {}),
-        startedAt: workflow.startedAt,
-        elapsedMs: Number.isFinite(started) ? Math.max(0, Date.now() - started) : 0,
-        stepCount: workflow.steps.length,
-        steps: workflow.steps.slice(-8).map((step) => ({
-          tool: step.tool,
-          state: step.state,
-          ...(typeof step.durationMs === "number" ? { durationMs: step.durationMs } : {}),
-          ts: step.ts,
-        })),
-      };
+      return workflowProgress(workflow, true)!;
     },
   },
   {
