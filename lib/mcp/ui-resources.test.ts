@@ -56,15 +56,35 @@ describe("MCP Apps workflow progress UI", () => {
     });
   });
 
-  it("returns structured workflow state without recording polling as workflow progress", async () => {
+  it("returns only redacted structured workflow state and keeps polling out of workflow memory", async () => {
     const actor = `mcp:ui-status-${Date.now()}`;
-    const started = await dispatch(call("workflow_start", { intent: "verify the ChatGPT progress widget" }), "write", actor);
+    const projectHint = "/private/operator/projects/mso";
+    const started = await dispatch(call("workflow_start", {
+      intent: "verify the ChatGPT progress widget",
+      project: projectHint,
+      constraints: "never expose secret-token=example in the widget",
+    }), "write", actor);
     const startResult = started.result as {
-      structuredContent?: { workflow?: { id?: string } };
+      structuredContent?: {
+        active: boolean;
+        workflowId?: string;
+        project?: string;
+        stepCount: number;
+        steps: Array<{ tool: string }>;
+        [key: string]: unknown;
+      };
       content: Array<{ text: string }>;
     };
-    const workflowId = startResult.structuredContent?.workflow?.id;
+    const workflowId = startResult.structuredContent?.workflowId;
     expect(workflowId).toBeTruthy();
+    expect(startResult.structuredContent).toMatchObject({ active: true, workflowId, project: "mso" });
+    expect(startResult.structuredContent).not.toHaveProperty("bootstrap");
+    expect(startResult.structuredContent).not.toHaveProperty("search");
+    expect(JSON.stringify(startResult.structuredContent)).not.toContain(projectHint);
+    expect(JSON.stringify(startResult.structuredContent)).not.toContain("secret-token");
+
+    // The portable text fallback intentionally keeps the pre-existing result shape
+    // for MCP clients that do not render Apps UI.
     expect(JSON.parse(startResult.content[0].text).workflow.id).toBe(workflowId);
 
     const before = await activeWorkflowForActor(actor, workflowId!);
@@ -72,10 +92,11 @@ describe("MCP Apps workflow progress UI", () => {
 
     const statusCall = await dispatch(call("workflow_status", { workflow_id: workflowId }), "write", actor);
     const status = statusCall.result as {
-      structuredContent?: { active: boolean; workflowId: string; stepCount: number; steps: Array<{ tool: string }> };
+      structuredContent?: { active: boolean; workflowId: string; project?: string; stepCount: number; steps: Array<{ tool: string }> };
     };
-    expect(status.structuredContent).toMatchObject({ active: true, workflowId });
+    expect(status.structuredContent).toMatchObject({ active: true, workflowId, project: "mso" });
     expect(status.structuredContent?.steps.some((step) => step.tool === "workflow_status")).toBe(false);
+    expect(JSON.stringify(status.structuredContent)).not.toContain(projectHint);
 
     const after = await activeWorkflowForActor(actor, workflowId!);
     expect(after?.steps).toHaveLength(before!.steps.length);
