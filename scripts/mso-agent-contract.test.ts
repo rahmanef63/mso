@@ -12,8 +12,11 @@ describe("MSO terminal agent contract", () => {
     expect(src).toContain("███╗   ███╗███████╗ ██████╗");
     expect(src).toContain("── MSO Agent ──");
     expect(src).toContain("MSO_TITLE_ART");
+    expect(src).toContain("MSO_TITLE_GUTTER");
     expect(src).not.toContain("╭──┘      ╰────────╮");
-    for (const command of ["/model", "/setup", "/providers", "/provider", "/doctor", "/tools", "/skills", "/session", "/sessions", "/resume", "/clear", "/exit"]) expect(src).toContain(command);
+    for (const command of ["/model", "/setup", "/providers", "/provider", "/doctor", "/tools", "/skills", "/skill", "/<skill>", "/session", "/sessions", "/resume", "/clear", "/exit"]) expect(src).toContain(command);
+    expect(src).toContain("selected for the next message");
+    expect(src).toContain("completer:");
   });
 
   it("keeps infrastructure secrets out of model messages and binds write/exec approval to the exact full payload", () => {

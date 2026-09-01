@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `agent` add project-aware slash skills
 - `agent` persist terminal and MCP sessions
 - `mcp` render live workflow progress in ChatGPT
 - `cli` add MSO folder ASCII icon

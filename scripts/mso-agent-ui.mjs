@@ -10,6 +10,8 @@ C.a = C.blue;
 C.b = C.blue;
 C.c = C.cyan;
 
+export const MSO_TITLE_GUTTER = "  ";
+
 export const MSO_TITLE_ART = [
   "████████████",
   "  ██          ██",
@@ -94,9 +96,9 @@ function panelTitle(title, inner) {
 export function printAgentBanner(s, agentSession, { base, version }) {
   const totalWidth = terminalWidth();
   const inner = totalWidth - 2;
-  const titleArtWidth = Math.max(...MSO_TITLE_ART.map(width));
+  const titleArtWidth = width(MSO_TITLE_GUTTER) + Math.max(...MSO_TITLE_ART.map(width));
   if (totalWidth >= titleArtWidth) {
-    for (const line of MSO_TITLE_ART) console.log(`${C.blue}${C.bold}${line}${C.reset}`);
+    for (const line of MSO_TITLE_ART) console.log(`${C.blue}${C.bold}${MSO_TITLE_GUTTER}${line}${C.reset}`);
   } else console.log(`${C.blue}${C.bold}── MSO Agent ──${C.reset}`);
   console.log();
 
@@ -139,7 +141,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
     for (const line of lines) console.log(panelSingle(line, inner));
   }
   console.log(`└${rule("─", inner)}┘`);
-  console.log(`${C.dim}${s.tools.length} tools · ${countSkills(s.skills)} skills · /sessions · /help for commands${C.reset}`);
+  console.log(`${C.dim}${s.tools.length} tools · ${countSkills(s.skills)} skills · /skills · /<skill> · /help${C.reset}`);
   console.log();
   console.log(`${C.bold}Welcome to MSO Agent!${C.reset} Type your message or /help for commands.`);
 }

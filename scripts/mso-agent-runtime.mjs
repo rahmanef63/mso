@@ -69,13 +69,18 @@ export function printBanner(s, agentSession) {
   return printAgentBanner(s, agentSession, { base: BASE, version: VERSION });
 }
 
-function sessionSystem(agentSession) {
+function sessionSystem(agentSession, skillContext = null) {
   const snapshot = agentSession?.memorySnapshot || {};
   const user = fit(snapshot.user || "", 12000);
   const memory = fit(snapshot.memory || "", 12000);
+  const cwd = process.cwd();
+  const skillInstructions = skillContext?.content ? String(skillContext.content).slice(0, 24000) : "";
+  const skillProject = skillContext?.project?.path ? ` Project context: ${skillContext.project.name || skillContext.project.id} at ${skillContext.project.path}.` : "";
   return [
     "You are MSO Agent, the interactive terminal setup and operations agent for Manef Shell OS on the user's own server.",
     agentSession?.id ? `Current durable MSO session id: ${agentSession.id}.` : "",
+    `Terminal working directory: ${cwd}. Treat a project containing this directory as the current project context unless the user explicitly selects another project.`,
+    skillInstructions ? `The user explicitly selected skill ${skillContext.id || skillContext.name} for this turn.${skillProject} Follow these instructions for this turn:\n<SKILL.md>\n${skillInstructions}\n</SKILL.md>` : "",
     "Use the provided tools to do real work instead of only describing commands. Prefer bounded tools over exec_run.",
     "For setup, first inspect infrastructure with infra_providers_list and live-check configured providers with infra_provider_doctor.",
     "Dokploy, Cloudflare, and Hostinger credentials are entered interactively with `mso provider set <id>` and are never exposed to you; never ask the user to paste API tokens into chat or shell commands.",
@@ -93,11 +98,11 @@ function toolForModel(tool) {
   return { name: tool.name, description: tool.description, input_schema: tool.inputSchema || { type: "object", properties: {} } };
 }
 
-export async function streamTurn(messages, tools, agentSession) {
+export async function streamTurn(messages, tools, agentSession, skillContext = null) {
   const res = await fetch(`${BASE}/api/assistant`, {
     method: "POST",
     headers: { origin: ORIGIN, cookie: cookieHeader(), "content-type": "application/json" },
-    body: JSON.stringify({ messages, tools: tools.map(toolForModel), system: sessionSystem(agentSession) }),
+    body: JSON.stringify({ messages, tools: tools.map(toolForModel), system: sessionSystem(agentSession, skillContext) }),
   });
   if (!res.ok || !res.body) {
     let body = {}; try { body = await res.json(); } catch {}

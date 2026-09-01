@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import readline from "node:readline/promises";
 import process from "node:process";
 import { canonicalAgentApproval } from "../lib/agent/approval.mjs";
+import { loadSlashSkill, printSkillChoices, printSkills, resolveSlashSkill, slashCompleter } from "./mso-agent-skills.mjs";
 import {
   BASE, CLI, C, api, createCliSession, listCliSessions, loadCliSession,
   printBanner, saveCliSession, state, streamTurn,
@@ -46,9 +47,9 @@ async function executeTool(rl, tool, call, agentSession) {
   }
 }
 
-async function agentRound(rl, session) {
+async function agentRound(rl, session, skillContext = null) {
   for (let turn = 0; turn < 10; turn++) {
-    const result = await streamTurn(session.history, session.state.tools, session.agentSession);
+    const result = await streamTurn(session.history, session.state.tools, session.agentSession, skillContext);
     session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
     if (!result.toolUses.length) return;
     const results = [];
@@ -94,10 +95,31 @@ async function resumeInto(session, id) {
   if (!loaded || loaded.source !== "cli") throw new Error("session is not a CLI MSO Agent session");
   session.agentSession = loaded;
   session.history = Array.isArray(loaded.history) ? loaded.history.slice(-48) : [];
+  session.pendingSkill = null;
   console.log(`${C.c}resumed ${loaded.id}${C.reset} · ${loaded.title || "MSO Agent session"}`);
 }
 
-async function slash(line, session) {
+async function selectSlashSkill(rl, session, requested, prompt = "") {
+  const resolved = resolveSlashSkill(session.state.skills, requested, process.cwd());
+  if (!resolved.skill) {
+    printSkillChoices(resolved.ambiguous, C);
+    return resolved.ambiguous?.length ? "handled" : "unknown";
+  }
+  const loaded = await loadSlashSkill(api, session.agentSession.id, resolved.skill);
+  const scope = loaded.project?.name ? `project ${loaded.project.name}` : "global";
+  if (!prompt.trim()) {
+    session.pendingSkill = loaded;
+    console.log(`${C.c}✓ /${loaded.name}${C.reset} selected for the next message · ${scope}`);
+    return "handled";
+  }
+  session.history.push({ role: "user", text: prompt.trim() });
+  if (session.history.length > 48) session.history.splice(0, session.history.length - 48);
+  await agentRound(rl, session, loaded);
+  await persist(session);
+  return "handled";
+}
+
+async function slash(rl, line, session) {
   const [cmd, ...args] = line.trim().split(/\s+/);
   switch (cmd) {
     case "/help":
@@ -111,7 +133,9 @@ async function slash(line, session) {
         "  /provider <id>          configure dokploy|cloudflare|hostinger",
         "  /doctor                 run mso doctor",
         "  /tools                  list agent tools",
-        "  /skills                 list available skills",
+        "  /skills [query]         browse available slash skills",
+        "  /skill <id> [prompt]    select exact skill id (ambiguity escape hatch)",
+        "  /<skill> [prompt]       select for next message, or run prompt now",
         "  /clear                  clear this session conversation",
         "  /exit                   quit",
       ].join("\n")); return "handled";
@@ -129,10 +153,11 @@ async function slash(line, session) {
     case "/provider": if (!args[0]) console.log("usage: /provider dokploy|cloudflare|hostinger"); else runCli(["provider", "set", args[0]]); session.state = await state(); return "refresh";
     case "/doctor": runCli(["doctor"]); return "handled";
     case "/tools": for (const tool of session.state.tools) console.log(`  ${String(tool.scope).padEnd(5)} ${tool.name}`); return "handled";
-    case "/skills": for (const skill of session.state.skills?.skills ?? []) console.log(`  ${skill.id}${skill.description ? ` — ${skill.description}` : ""}`); return "handled";
-    case "/clear": session.history = []; await persist(session); console.log("conversation cleared."); return "handled";
+    case "/skills": printSkills(session, C, args.join(" ")); return "handled";
+    case "/skill": if (!args[0]) { console.log("usage: /skill <name-or-exact-id> [prompt]"); return "handled"; } return selectSlashSkill(rl, session, args[0], args.slice(1).join(" "));
+    case "/clear": session.history = []; session.pendingSkill = null; await persist(session); console.log("conversation cleared."); return "handled";
     case "/exit": return "exit";
-    default: return "unknown";
+    default: return selectSlashSkill(rl, session, cmd.slice(1), args.join(" "));
   }
 }
 
@@ -156,12 +181,16 @@ async function main() {
   ]);
   if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
   printBanner(s, agentSession);
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true, historySize: 100 });
   const session = {
     state: s,
     agentSession,
     history: Array.isArray(agentSession.history) ? agentSession.history.slice(-48) : [],
+    pendingSkill: null,
   };
+  const rl = readline.createInterface({
+    input: process.stdin, output: process.stdout, terminal: true, historySize: 100,
+    completer: (line) => slashCompleter(line, session),
+  });
   process.on("SIGINT", () => { console.log("\nUse /exit to quit."); });
   try {
     while (true) {
@@ -171,7 +200,7 @@ async function main() {
       if (!line) continue;
       if (line.startsWith("/")) {
         try {
-          const result = await slash(line, session);
+          const result = await slash(rl, line, session);
           if (result === "exit") break;
           if (result === "unknown") console.log("unknown command; /help lists commands.");
         } catch (error) {
@@ -182,7 +211,9 @@ async function main() {
       session.history.push({ role: "user", text: line });
       if (session.history.length > 48) session.history.splice(0, session.history.length - 48);
       try {
-        await agentRound(rl, session);
+        const skillContext = session.pendingSkill;
+        session.pendingSkill = null;
+        await agentRound(rl, session, skillContext);
         await persist(session);
       } catch (error) {
         console.error(`${C.err}agent error: ${error instanceof Error ? error.message : String(error)}${C.reset}`);
