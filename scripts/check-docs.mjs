@@ -28,15 +28,27 @@ for (const file of toolFiles) {
   const matches = text.matchAll(/name:\s*"([^"]+)"[\s\S]*?scope:\s*"(read|write|exec)"/g);
   for (const [, name, scope] of matches) tools.set(name, scope);
 }
+
+// App-only MCP bridge tools are intentionally absent from the model/operator action
+// catalogs. They must be documented in the MCP App UI guide instead. Keep this list
+// tiny and explicit: adding a hidden bridge should be a conscious review decision.
+const appOnlyTools = new Set(["workflow_status"]);
+const documentedTools = new Map([...tools].filter(([name]) => !appOnlyTools.has(name)));
+const appUiDoc = read("docs/integrations/CHATGPT-UI.md");
+for (const name of appOnlyTools) {
+  if (!tools.has(name)) fail.push(`app-only MCP tool ${name} is no longer in the source catalog`);
+  if (!appUiDoc.includes(`\`${name}\``)) fail.push(`docs/integrations/CHATGPT-UI.md: app-only MCP tool ${name} is not documented`);
+}
+
 const counts = { read: 0, write: 0, exec: 0 };
-for (const scope of tools.values()) counts[scope] += 1;
-const marker = `server=${server} version=${version} tools=${tools.size} read=${counts.read} write=${counts.write} exec=${counts.exec}`;
+for (const scope of documentedTools.values()) counts[scope] += 1;
+const marker = `server=${server} version=${version} tools=${documentedTools.size} read=${counts.read} write=${counts.write} exec=${counts.exec}`;
 for (const file of ["docs/MCP.md", "docs/CHATGPT-PLUGIN.md", "docs/CONNECTORS-GATEWAY-INTEGRATION.md"]) {
   const text = read(file);
   if (!text.includes(`<!-- mcp-toolset: ${marker} -->`)) {
     fail.push(`${file}: MCP marker stale; expected ${marker}`);
   }
-  for (const name of tools.keys()) {
+  for (const name of documentedTools.keys()) {
     if (!text.includes(`\`${name}\``)) fail.push(`${file}: MCP tool ${name} is not documented`);
   }
 }
@@ -110,4 +122,4 @@ if (fail.length) {
   for (const item of fail) console.error(`- ${item}`);
   process.exit(1);
 }
-console.log(`docs: current — ${markdown.length} markdown files, ${tools.size} MCP tools, ${sliceCount} slices, ${featureCount} AppShell feature dirs`);
+console.log(`docs: current — ${markdown.length} markdown files, ${documentedTools.size} model MCP tools + ${appOnlyTools.size} app-only bridge, ${sliceCount} slices, ${featureCount} AppShell feature dirs`);

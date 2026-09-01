@@ -49,6 +49,8 @@ run_provider() {
     list)
       provider_metadata | jq -r '.providers[] | "\(if .configured then "✓" else "·" end) \(.id)\t\(if .configured then "configured" else "missing: " + (.missing|join(", ")) end)\t\(.description)"' ;;
     show)
+      # U_provider is the shared usage string defined by bin/mso before this slice is sourced.
+      # shellcheck disable=SC2154
       [ -n "$id" ] || die "usage: mso $U_provider"
       provider_metadata | jq --arg id "$id" '.providers[] | select(.id==$id)' ;;
     projects|dokploy-projects)
@@ -60,10 +62,12 @@ run_provider() {
       if [ -n "$id" ]; then body=$(jq -nc --arg id "$id" '{id:$id}'); else body='{}'; fi
       jpost "/api/v1/infra/providers/doctor" "$body" | jq -r '.results[] | "\(if .ok == true then "✓" elif .ok == false then "✗" else "·" end) \(.id) — \(.detail)"' ;;
     rm|remove)
+      # shellcheck disable=SC2154
       [ -n "$id" ] || die "usage: mso $U_provider"
       jdel "/api/v1/infra/providers?id=$(enc "$id")" >/dev/null
       echo "removed infrastructure provider: $id" ;;
     set)
+      # shellcheck disable=SC2154
       [ -n "$id" ] || die "usage: mso $U_provider"
       tty_ok || die "provider setup needs a terminal because API tokens are entered with hidden input"
       data=$(provider_metadata)
@@ -100,7 +104,9 @@ process.stdout.write(JSON.stringify({ id, values }));
       unset body
       echo "  ✓ $id configured"
       jpost "/api/v1/infra/providers/doctor" "$(jq -nc --arg id "$id" '{id:$id}')" | jq -r '.results[] | "  \(if .ok == true then "✓" elif .ok == false then "✗" else "·" end) \(.detail)"' ;;
-    *) die "usage: mso $U_provider" ;;
+    *)
+      # shellcheck disable=SC2154
+      die "usage: mso $U_provider" ;;
   esac
 }
 
