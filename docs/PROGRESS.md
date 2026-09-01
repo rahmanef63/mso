@@ -2,6 +2,19 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-01 — Version identity and update messaging DX — SHIPPED
+
+MSO's two legitimate version domains are now explicit instead of looking like drift. The app/package
+version remains the runtime/service compatibility identity used by health/readiness and Settings → About;
+the CLI keeps its independently versioned interaction contract. `mso --version` labels **CLI**, **app**
+and the exact Git **build**, About says **App version**, and README/install docs explain why those values
+can differ. Git commit identity remains the release/update authority.
+
+`mso update status` and its interactive background notice also distinguish a CLI-version change from a
+commit-only release. A commit-only update now says `N new commits on mso CLI X` instead of the confusing
+`X -> X`; a true CLI bump still shows an explicit `mso CLI X -> Y`. Up-to-date status labels both CLI and
+build identity. Regression tests cover version-change, commit-only, active-service build matching and CLI
+version output so the ambiguity cannot silently return.
 ## 2026-09-01 — Terminal banner geometry + stable slash navigation — SHIPPED
 
 MSO Agent now uses the compact canonical folder + `MSO` ASCII geometry from the terminal logger instead of the oversized 12-row title. The seven title rows render as a cool blue → cyan → teal/emerald gradient with no purple. The slash palette also reserves its physical terminal rows only when it opens or grows; subsequent `↑/↓` selection redraws use ANSI cursor movement only, and the input prompt no longer embeds a leading newline that would be replayed on every redraw. A real PTY regression verifies both arrow directions emit zero LF/CRLF while still moving selection, so terminal scrollback stays stable. CLI patch version: **1.5.4**.

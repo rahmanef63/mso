@@ -60,7 +60,7 @@ describe("mso update active-service build identity", () => {
   it("reports up to date only when the active service build matches source HEAD", () => {
     const f = fixture(); const currentShort = git(f.repo, "rev-parse", "--short", f.current);
     const out = execFileSync(SCRIPT, ["status"], { env: { ...f.env, MSO_TEST_BUILD_SHA: currentShort }, encoding: "utf8" });
-    expect(out).toContain(`is up to date (${currentShort})`);
+    expect(out).toContain(`is up to date (CLI 1.4.0, build ${currentShort})`);
     expect(out).not.toContain("deployment verification/rebuild is pending");
   });
 

@@ -11,6 +11,11 @@ const run = (...args: string[]) =>
   execFileSync(CLI, args, { encoding: "utf8", env: { ...process.env, MSO_ENV: "/dev/null" } });
 
 describe("bin/mso", () => {
+  it("labels CLI, app, and build versions instead of presenting one ambiguous number", () => {
+    const out = run("--version");
+    expect(out).toMatch(/^mso CLI \d+\.\d+\.\d+ · app \d+\.\d+\.\d+ · build [0-9a-f]+/);
+  });
+
   it("prints help without logging in", () => {
     const out = run("-h");
     expect(out).toContain("Manef Shell OS");

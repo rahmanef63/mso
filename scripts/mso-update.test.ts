@@ -50,7 +50,8 @@ esac
   git(repo, "add", "."); git(repo, "commit", "-q", "-m", "initial"); const old = git(repo, "rev-parse", "HEAD");
   git(root, "init", "--bare", "-q", remote); git(repo, "remote", "add", "origin", remote); git(repo, "push", "-q", "-u", "origin", "main");
   fs.writeFileSync(path.join(repo, "bin/mso"), '#!/bin/sh\nVERSION="1.4.0"\n', { mode: 0o755 });
-  git(repo, "add", "bin/mso"); git(repo, "commit", "-q", "-m", "new cli"); const newer = git(repo, "rev-parse", "HEAD"); git(repo, "push", "-q", "origin", "main");
+  git(repo, "add", "bin/mso");
+  git(repo, "commit", "-q", "-m", "new cli"); const newer = git(repo, "rev-parse", "HEAD"); git(repo, "push", "-q", "origin", "main");
   git(repo, "reset", "--hard", "-q", old);
   const serviceRoot = options.activeService === "same" ? repo : options.activeService === "other" ? path.join(root, "other-service") : "";
   if (serviceRoot && serviceRoot !== repo) fs.mkdirSync(serviceRoot, { recursive: true });
@@ -104,7 +105,7 @@ afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursiv
 describe("mso update without a running web API", () => {
   it("reports the incoming CLI version directly from origin/main", () => {
     const f = fixture(); const out = execFileSync(SCRIPT, ["status"], { env: f.env, encoding: "utf8" });
-    expect(out).toContain("update available: mso 1.3.0 -> 1.4.0 (1 commit)");
+    expect(out).toContain("update available: mso CLI 1.3.0 -> 1.4.0 (1 commit)");
     expect(out).toContain("run: mso update"); expect(git(f.repo, "rev-parse", "HEAD")).toBe(f.old);
   });
 
