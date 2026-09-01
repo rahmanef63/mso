@@ -2,6 +2,14 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-01 — Arrow-key model/provider picker + visible skill lifecycle — SHIPPED
+
+MSO Agent 1.5.6 removes the last numeric prompt from the AI provider/model interaction path. `mso model`, the no-argument `mso models` manager, provider connect/remove selection, and catalog-provider selection now share one dependency-free native TTY picker. The current provider/model is preselected, ↑/↓ redraw in place with zero added newline scrollback, typing filters candidates, Enter selects, and Esc cancels. Direct scriptable forms such as `mso model openai-codex/gpt-5.6-terra` and `mso models add openrouter` remain unchanged.
+
+Skill invocation state is now explicit and consistent across the slash palette, `/skills`, the invocation badge and the compact status line: `◇ ready` means trusted/executable, `◆ queued` means selected for the next message, and `✓ invoked` means the skill instructions were actually attached to a model turn. Queued state is amber; invoking/invoked state is green. Resuming or clearing a session clears ephemeral skill UI state so one session cannot visually leak the previous session's skill marker.
+
+Regression coverage locks the picker/filter/wrap primitives, absence of numeric model/provider prompts, exact `/model` vs `/models` behavior, skill ready/queued/invoked state, and status propagation. Real PTY smoke verifies model current-item highlighting, ↓/↑ with zero LF output, Esc cancellation, and preservation of the active model.
+
 ## 2026-09-01 — Agent model/session UX parity + dynamic status — SHIPPED
 
 MSO Agent 1.5.5 aligns the useful interaction contract of mature agent harnesses without copying their branding/runtime. The startup banner now uses the owner-specified 12-line Hybrid MSO geometry and exact six-stop True Color gradient (purple/indigo → blue → cyan → teal/emerald). AI configuration is split into two explicit surfaces: `mso models` manages provider API keys/OAuth/custom-provider connections **without switching the active model**, while `mso model` validates and selects only models available through connected providers. Exact `/model` now wins over the `/models` prefix in the slash palette; OpenRouter-style model IDs containing `/` are resolved against the current provider before being interpreted as a provider/model ref.

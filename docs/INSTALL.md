@@ -133,6 +133,8 @@ After onboarding, use the two AI commands deliberately: `mso models` manages pro
 connections without changing the active model; `mso model` selects a model from providers that are
 already connected. `mso models test` validates the currently selected connection (including the
 ChatGPT/Codex subscription path), while `mso model list [provider]` shows selectable model IDs.
+Interactive `mso model` / `mso models` menus are arrow-key pickers: **↑/↓** moves, typing filters,
+**Enter** selects, and **Esc** cancels; numeric provider/model prompts are not part of the UX.
 Agent sessions are durable: `mso --continue` resumes the latest CLI session and
 `mso --resume <index|id|title>` resolves a prior session without weakening principal isolation.
 
@@ -150,8 +152,10 @@ verify with `mso provider doctor`.
 
 After an AI provider is connected, bare `mso` launches the interactive MSO Agent. The agent
 uses the canonical MCP tool catalog internally: reads run directly, while write/exec calls
-pause for terminal approval. See [`INFRASTRUCTURE-PROVIDERS.md`](./INFRASTRUCTURE-PROVIDERS.md)
-for the deployment/provider boundary.
+pause for terminal approval. Skill lifecycle is explicit in the slash palette and status line:
+`◇ ready` means discoverable/executable, `◆ queued` means selected for the next user message,
+and `✓ invoked` means the skill instructions were actually attached to a model turn. See
+[`INFRASTRUCTURE-PROVIDERS.md`](./INFRASTRUCTURE-PROVIDERS.md) for the deployment/provider boundary.
 
 ### WSL2
 

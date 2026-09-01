@@ -53,13 +53,18 @@ function menuLines(items, selected, columns, C) {
   const label = " commands & skills ";
   const top = `╭─${label}${"─".repeat(Math.max(0, panelWidth - width(label) - 3))}╮`;
   const nameWidth = Math.min(32, Math.max(12, ...visible.map((item) => width(item.text) + 1)));
-  const metaWidth = Math.max(0, panelWidth - nameWidth - 7);
+  const metaWidth = Math.max(0, panelWidth - nameWidth - 9);
   const body = visible.map((item, offset) => {
     const active = start + offset === selected;
     const marker = active ? `${C.blue}${C.bold}›${C.reset}` : " ";
-    const name = active ? `${C.blue}${C.bold}${pad(item.text, nameWidth)}${C.reset}` : pad(item.text, nameWidth);
+    const stateColor = item.state === "queued" ? C.warn : ["invoking", "invoked"].includes(item.state) ? C.c : C.blue;
+    const stateMark = item.kind === "skill"
+      ? `${stateColor}${item.state === "invoked" ? "✓" : item.state === "ready" ? "◇" : "◆"}${C.reset}`
+      : " ";
+    const nameColor = item.kind === "skill" ? stateColor : active ? C.blue : "";
+    const name = nameColor ? `${nameColor}${active ? C.bold : ""}${pad(item.text, nameWidth)}${C.reset}` : pad(item.text, nameWidth);
     const meta = metaWidth ? `${C.dim}${fit(item.meta || "", metaWidth)}${C.reset}` : "";
-    return `│ ${marker} ${name}${meta ? ` ${meta}` : ""}${" ".repeat(Math.max(0, metaWidth - width(fit(item.meta || "", metaWidth))))} │`;
+    return `│ ${marker} ${stateMark} ${name}${meta ? ` ${meta}` : ""}${" ".repeat(Math.max(0, metaWidth - width(fit(item.meta || "", metaWidth))))} │`;
   });
   const hint = " ↑↓ navigate · Enter/Tab select · Esc close ";
   const bottom = `╰─${fit(hint, panelWidth - 3)}${"─".repeat(Math.max(0, panelWidth - width(fit(hint, panelWidth - 3)) - 3))}╯`;

@@ -37,6 +37,8 @@ AI provider authentication and model selection are intentionally separate. `mso 
 credentials/authentication and does **not** switch the active model; `mso model` owns selection.
 When no AI provider is connected, bare `mso` opens the provider manager first and then the model
 picker. If credentials already exist but the selection is unusable, only the model picker runs.
+Both interactive surfaces use the same native picker: **↑/↓** navigate, typing filters, **Enter**
+selects, and **Esc** cancels. Provider/model selection never falls back to a numbered prompt.
 The connection choices are OpenAI ChatGPT/Codex device OAuth plus the built-in API-key providers documented in
 [`INSTALL.md`](./INSTALL.md).
 
@@ -51,6 +53,11 @@ Agent slash commands are:
 /session /sessions /resume  /setup   /providers  /provider <id>
 /doctor  /tools    /skills   /clear   /exit
 ```
+
+Slash skills expose runtime state instead of looking identical to ordinary commands: `◇ ready`
+uses the normal skill color, `◆ queued` is amber after selection for the next message, and `✓ invoked`
+is green after the skill was actually attached to a model request. `/skills` and the compact status line
+show the same state, so the signal is consistent rather than decorative.
 
 The prompt status line is dynamic: active `provider/model`, approximate current context (`ctx ~…`)
 with a catalog context-window denominator when available, provider-reported token usage when the

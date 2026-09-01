@@ -44,6 +44,8 @@ export async function resumeInto(session, query, rows = null) {
     agentSession: loaded,
     history: Array.isArray(loaded.history) ? loaded.history.slice(-48) : [],
     pendingSkill: null,
+    activeSkill: null,
+    lastInvokedSkill: null,
     titleOverride: loaded.title || null,
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     lastElapsedMs: 0,

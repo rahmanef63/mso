@@ -81,4 +81,30 @@ describe("MSO Agent interactive composer primitives", () => {
     composer.close();
   });
 
+
+  it("renders skill lifecycle markers distinctly from commands", async () => {
+    class FakeInput extends EventEmitter {
+      isRaw = false; resume() {} pause() {} setRawMode(value: boolean) { this.isRaw = value; }
+    }
+    class FakeOutput { columns = 96; chunks: string[] = []; write(value: string) { this.chunks.push(String(value)); return true; } }
+    const input = new FakeInput(); const output = new FakeOutput();
+    const colors = { blue: "<b>", warn: "<w>", c: "<g>", bold: "<B>", reset: "</>", dim: "<d>" };
+    const composer = new AgentComposer({ input: input as never, output: output as never, colors });
+    const answer = composer.question("› ", { complete: (value: string) => value.startsWith("/") ? [
+      { text: "/ready", meta: "ready", kind: "skill", state: "ready" },
+      { text: "/queued", meta: "queued", kind: "skill", state: "queued" },
+      { text: "/invoked", meta: "invoked", kind: "skill", state: "invoked" },
+    ] : [] } as never);
+    input.emit("keypress", "/", { name: "/", sequence: "/" });
+    const rendered = output.chunks.join("");
+    expect(rendered).toContain("◇");
+    expect(rendered).toContain("◆");
+    expect(rendered).toContain("✓");
+    expect(rendered).toContain("<w>");
+    expect(rendered).toContain("<g>");
+    input.emit("keypress", undefined, { ctrl: true, name: "c" });
+    input.emit("keypress", undefined, { ctrl: true, name: "c" });
+    await answer; composer.close();
+  });
+
 });

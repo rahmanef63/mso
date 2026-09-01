@@ -35,7 +35,9 @@ describe("MSO terminal agent contract", () => {
     ]) expect(src).toContain(command);
     expect(src).toContain("Configure AI providers and authentication");
     expect(src).toContain("Select the active model from connected providers");
-    expect(src).toContain("selected for the next message");
+    expect(src).toContain("queued");
+    expect(src).toContain("invoking");
+    expect(src).toContain("lastInvokedSkill");
     expect(src).toContain("AgentComposer");
     expect(src).toContain("slashCompletionItems");
     expect(src).toContain("renderStatusBar");

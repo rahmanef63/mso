@@ -1,5 +1,5 @@
 import process from "node:process";
-import { currentSkillProject, resolveSlashSkill, slashSkillNames } from "./mso-agent-skills.mjs";
+import { currentSkillProject, resolveSlashSkill, skillRuntimeState, slashSkillNames } from "./mso-agent-skills.mjs";
 
 export const BUILTIN_SLASH_ITEMS = [
   { text: "/help", meta: "Show commands and shortcuts", kind: "command" },
@@ -23,20 +23,23 @@ export const BUILTIN_SLASH_ITEMS = [
   { text: "/exit", meta: "Exit MSO Agent", kind: "command" },
 ];
 
-function skillItem(skillsData, name, cwd) {
+function skillItem(skillsData, name, cwd, session) {
   const { skill } = resolveSlashSkill(skillsData, name, cwd);
   if (!skill || skill.trust === "untrusted") return null;
   const scope = skill.project?.name ? `skill · ${skill.project.name}` : "skill · global";
   const description = String(skill.description || "").replace(/[\r\n\t]+/g, " ").trim();
+  const state = skillRuntimeState(session, skill);
   return {
     text: `/${name}`,
-    meta: `${scope}${description ? ` — ${description}` : ""}`,
+    meta: `${state} · ${scope}${description ? ` — ${description}` : ""}`,
     kind: "skill",
+    state,
+    skillId: String(skill.id),
     project: skill.project || null,
   };
 }
 
-export function slashCompletionItems(skillsData, input, cwd = process.cwd()) {
+export function slashCompletionItems(skillsData, input, cwd = process.cwd(), session = /** @type {any} */ (null)) {
   const text = String(input || "").trimStart();
   if (!text.startsWith("/") || /\s/.test(text)) return [];
   const query = text.toLowerCase();
@@ -45,7 +48,7 @@ export function slashCompletionItems(skillsData, input, cwd = process.cwd()) {
   const projectSkills = [];
   const globalSkills = [];
   for (const name of names) {
-    const item = skillItem(skillsData, name, cwd);
+    const item = skillItem(skillsData, name, cwd, session);
     if (!item) continue;
     if (current && item.project?.id === current.id) projectSkills.push(item);
     else globalSkills.push(item);

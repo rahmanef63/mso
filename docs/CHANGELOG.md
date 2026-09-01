@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `agent` add arrow picker and skill states
 - `agent` align model and session terminal UX
 - `install` make upgrades agent-friendly
 - `agent` add interactive slash palette

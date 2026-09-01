@@ -196,7 +196,7 @@ On the normal Ubuntu/WSL PATH (which includes `/usr/local/bin`) these work immed
 mso                         # interactive MSO setup/operations agent
 mso -h
 mso models                  # configure AI provider/API/OAuth connections (does not switch model)
-mso model                   # select the active model from connected providers
+mso model                   # arrow-key model picker from connected providers
 mso --continue              # resume the latest durable MSO Agent session
 mso doctor
 mso onboard                 # run/re-run guided setup; starts the built loopback runtime on WSL when needed
@@ -206,6 +206,12 @@ mso update                  # fetch/verify/build safely; does not require :4005 
 mso skills available        # reviewed installable skill list
 mso skills install ponytail caveman rtk -y
 ```
+
+Interactive model/provider menus use a native picker: **↑/↓** moves, typing filters, **Enter**
+selects, and **Esc** cancels. No provider/model number has to be memorized. In the Agent slash
+palette, executable skills carry lifecycle markers so their state is visible before and after use:
+`◇ ready` → `◆ queued` (selected for the next message) → `✓ invoked` (actually sent with a model turn).
+The compact status line mirrors queued/invoked skill state.
 
 If it explicitly says the current shell cannot see the user launcher yet, run the one-line
 `export PATH="$HOME/.local/bin:$PATH"` it prints; new shells use the persisted profile entry.
@@ -327,7 +333,7 @@ covers anything without one.
 mso                          # interactive setup/operations agent with MSO ASCII terminal UI
 mso -h                       # grouped command list; `mso <command> --help` per command
 mso models                   # configure AI provider/API/OAuth connections
-mso model                    # select/switch the active model
+mso model                    # arrow-key model picker / switch active model
 mso --continue               # resume the latest MSO Agent session
 mso --resume "session title" # resume by index/id/short id/title query
 mso doctor                   # includes HTTPS/login-origin diagnosis

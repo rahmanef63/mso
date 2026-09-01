@@ -37,4 +37,22 @@ describe("MSO Agent slash completion catalog", () => {
     expect(project?.id).toBe("root/a");
     expect(row.meta).toContain("project design helper");
   });
+
+  it("exposes ready, queued, and invoked skill state to the slash palette", () => {
+    const ready = slashCompletionItems(skills, "/design", "/home/rahman")[0];
+    expect(ready).toMatchObject({ kind: "skill", state: "ready", skillId: "global-design" });
+
+    const queued = slashCompletionItems(skills, "/design", "/home/rahman", {
+      pendingSkill: { id: "global-design", name: "design" },
+    })[0];
+    expect(queued).toMatchObject({ state: "queued" });
+    expect(queued.meta).toContain("queued");
+
+    const invoked = slashCompletionItems(skills, "/design", "/home/rahman", {
+      lastInvokedSkill: { id: "global-design", name: "design" },
+    })[0];
+    expect(invoked).toMatchObject({ state: "invoked" });
+    expect(invoked.meta).toContain("invoked");
+  });
+
 });

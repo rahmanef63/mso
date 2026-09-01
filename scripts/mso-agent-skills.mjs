@@ -11,6 +11,37 @@ function inside(root, cwd) {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
+function sameSkill(a, b) {
+  return Boolean(a?.id && b?.id && String(a.id) === String(b.id));
+}
+
+export function skillRuntimeState(session, skill) {
+  if (skill?.trust === "untrusted") return "blocked";
+  if (sameSkill(session?.activeSkill, skill)) return "invoking";
+  if (sameSkill(session?.pendingSkill, skill)) return "queued";
+  if (sameSkill(session?.lastInvokedSkill, skill)) return "invoked";
+  return "ready";
+}
+
+export function skillStateVisual(state, C) {
+  if (state === "blocked") return { marker: "!", label: "blocked", color: C.warn };
+  if (state === "queued") return { marker: "◆", label: "queued", color: C.warn };
+  if (state === "invoking") return { marker: "◆", label: "invoking", color: C.c };
+  if (state === "invoked") return { marker: "✓", label: "invoked", color: C.c };
+  return { marker: "◇", label: "ready", color: C.blue };
+}
+
+export function beginSkillInvocation(session, skill, C) {
+  if (!skill) return;
+  session.activeSkill = skill;
+  const scope = skill.project?.name ? `project ${skill.project.name}` : "global";
+  console.log(`${C.c}${C.bold}◆ skill /${skill.name} invoking${C.reset}${C.dim} · ${scope} · ${skill.trust || "trusted"}${C.reset}`);
+}
+
+export function endSkillInvocation(session, skill) {
+  if (skill) session.activeSkill = null;
+}
+
 export function currentSkillProject(skillsData, cwd = process.cwd()) {
   const projects = new Map();
   for (const skill of skillRows(skillsData)) {
@@ -109,11 +140,13 @@ export function printSkills(session, C, query = "", cwd = process.cwd()) {
   const visible = rows.slice(0, 80);
   for (const skill of visible) {
     const scope = skill.project?.name ? `project:${skill.project.name}` : "global";
-    const trust = skill.trust === "untrusted" ? `${C.warn}untrusted${C.reset}` : skill.trust || "";
+    const trust = skill.trust === "untrusted" ? "untrusted" : skill.trust || "";
+    const state = skillRuntimeState(session, skill);
+    const visual = skillStateVisual(state, C);
     const description = skill.description
       ? ` — ${String(skill.description).replace(/[\r\n\t]+/g, " ").slice(0, 120)}`
       : "";
-    console.log(`  ${C.blue}/${skill.name}${C.reset}  ${C.dim}${scope}${trust ? ` · ${trust}` : ""}${C.reset}${description}`);
+    console.log(`  ${visual.color}${visual.marker} /${skill.name}${C.reset}  ${C.dim}${visual.label} · ${scope}${trust ? ` · ${trust}` : ""}${C.reset}${description}`);
   }
   if (rows.length > visible.length) console.log(`${C.dim}… ${rows.length - visible.length} more; refine with /skills <query>${C.reset}`);
   console.log(`${C.dim}Use /<skill> [prompt], or /skill <exact-id> [prompt] for an ambiguous project skill.${C.reset}`);

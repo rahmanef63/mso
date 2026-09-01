@@ -56,6 +56,62 @@ ai_provider_connected() {
   ' <<<"$cfg" >/dev/null 2>&1
 }
 
+# Reusable native arrow-key selector. Candidate rows arrive as TSV on stdin:
+# value<TAB>label<TAB>metadata<TAB>state. UI is rendered directly on /dev/tty;
+# stdout contains only the selected value so callers can safely use command substitution.
+tui_select() {
+  local title="$1" active="${2-}"
+  tty_ok || return 2
+  node "$ROOT/scripts/mso-tui-select.mjs" "$title" "$active"
+}
+
+connected_ai_provider_ids() {
+  local cfg="$1"
+  { jq -r '.providers[]?.id' <<<"$cfg"; if [ "$(jq -r '.hasApiKey // false' <<<"$cfg")" = true ]; then jq -r '.provider // empty' <<<"$cfg"; fi; } |
+    awk 'NF && !seen[$0]++'
+}
+
+connected_ai_provider_picker_rows() {
+  local cfg="$1" active="${2-}" id kind auth state
+  while IFS= read -r id; do
+    kind=$(jq -r --arg p "$id" 'first(.providers[]? | select(.id==$p) | .kind) // (if .provider==$p and .hasApiKey then "key/env" else "configured" end)' <<<"$cfg")
+    auth=$(jq -r --arg p "$id" 'first(.providers[]? | select(.id==$p) | .masked) // (if .provider==$p and .hasApiKey then "configured" else "" end)' <<<"$cfg")
+    [ "$id" = "$active" ] && state=current || state=""
+    printf '%s	%s	%s%s%s	%s
+' "$id" "$id" "$kind" "$([ -n "$auth" ] && printf ' · ' || true)" "$auth" "$state"
+  done < <(connected_ai_provider_ids "$cfg")
+}
+
+known_ai_provider_picker_rows() {
+  cat <<'ROWS'
+openai-codex	openai-codex	ChatGPT subscription · device OAuth
+anthropic	anthropic	API key
+openai	openai	OpenAI Platform API key
+openrouter	openrouter	API key · multi-model router
+google	google	Gemini API key
+groq	groq	API key
+xai	xai	API key
+deepseek	deepseek	API key
+mistral	mistral	API key
+custom	custom	OpenAI/Anthropic-compatible endpoint
+ROWS
+}
+
+model_picker_rows() {
+  local data="$1" current="${2-}"
+  jq -r --arg current "$current" '.models[] |
+    [
+      .id,
+      .id,
+      ((if (.context // 0) > 0 then "ctx " + ((.context // 0)|tostring) else "ctx —" end)
+        + " · tools " + (if .tools then "yes" else "—" end)
+        + " · reasoning " + (if .reasoning then "yes" else "—" end)),
+      (if .id==$current then "current" else "" end)
+    ] | @tsv' <<<"$data"
+}
+
+picker_cancelled() { echo "  — selection cancelled"; }
+
 print_ai_providers() {
   local cfg="$1"
   echo "AI providers/auth"
@@ -179,12 +235,13 @@ select_model_ref() {
 }
 
 run_model_setup() {
-  local sub="${1:-}" cfg provider data choice count selected
+  local sub="${1:-}" cfg provider data model active_provider active_model rc
   ensure_local_cli_device; ensure_onboard_runtime; jget "/api/auth/me" >/dev/null
   cfg=$(ai_model_config)
   case "$sub" in
     current|show)
-      printf '%s/%s\n' "$(jq -r '.provider // "—"' <<<"$cfg")" "$(jq -r '.model // "—"' <<<"$cfg")"; return ;;
+      printf '%s/%s
+' "$(jq -r '.provider // "—"' <<<"$cfg")" "$(jq -r '.model // "—"' <<<"$cfg")"; return ;;
     list)
       provider="${2:-$(jq -r '.provider // ""' <<<"$cfg")}"; [ -n "$provider" ] || die "no active provider"
       ai_provider_connected "$provider" "$cfg" || die "$provider is not connected; run: mso models add $provider"
@@ -197,36 +254,45 @@ run_model_setup() {
     *) select_model_ref "$sub"; return ;;
   esac
   tty_ok || die "mso model without a ref needs an interactive terminal; use: mso model list"
-  echo "Active model: $(jq -r '.provider+"/"+.model' <<<"$cfg")"
-  echo "Connected providers:"
-  mapfile -t providers < <({ jq -r '.providers[]?.id' <<<"$cfg"; if [ "$(jq -r '.hasApiKey // false' <<<"$cfg")" = true ]; then jq -r '.provider' <<<"$cfg"; fi; } | awk 'NF && !seen[$0]++')
-  [ "${#providers[@]}" -gt 0 ] || die "no AI provider connected; run: mso models"
-  for i in "${!providers[@]}"; do printf '  %d) %s%s\n' "$((i+1))" "${providers[$i]}" "$([ "${providers[$i]}" = "$(jq -r '.provider' <<<"$cfg")" ] && printf '  [active]' || true)"; done
-  tty_line "Provider [1]: " 1; choice="$REPLY"; [[ "$choice" =~ ^[0-9]+$ ]] || die "choose a provider number"
-  selected=$((choice-1)); [ "$selected" -ge 0 ] && [ "$selected" -lt "${#providers[@]}" ] || die "provider choice out of range"
-  provider="${providers[$selected]}"
-  data=$(ai_model_catalog "$provider" "$cfg"); count=$(jq '.models|length' <<<"$data")
-  [ "$count" -gt 0 ] || die "no discoverable models for $provider"
-  echo; print_model_catalog "$provider" "$cfg"
-  echo
-  mapfile -t model_ids < <(jq -r '.models[].id' <<<"$data")
-  for i in "${!model_ids[@]}"; do printf '  %d) %s\n' "$((i+1))" "${model_ids[$i]}"; done
-  tty_line "Model [1]: " 1; choice="$REPLY"; [[ "$choice" =~ ^[0-9]+$ ]] || die "choose a model number"
-  selected=$((choice-1)); [ "$selected" -ge 0 ] && [ "$selected" -lt "${#model_ids[@]}" ] || die "model choice out of range"
-  select_model_ref "$provider/${model_ids[$selected]}"
+  active_provider=$(jq -r '.provider // ""' <<<"$cfg"); active_model=$(jq -r '.model // ""' <<<"$cfg")
+  echo "Active model: ${active_provider:-—}/${active_model:-—}"
+  if ! connected_ai_provider_ids "$cfg" | grep -q .; then die "no AI provider connected; run: mso models"; fi
+  provider=$(connected_ai_provider_picker_rows "$cfg" "$active_provider" | tui_select "Select AI provider" "$active_provider") || {
+    rc=$?; [ "$rc" -eq 130 ] && { picker_cancelled; return 0; }; return "$rc";
+  }
+  data=$(ai_model_catalog "$provider" "$cfg")
+  jq -e '.models | length > 0' <<<"$data" >/dev/null 2>&1 || die "no discoverable models for $provider"
+  [ "$provider" = "$active_provider" ] && model="$active_model" || model=""
+  model=$(model_picker_rows "$data" "$model" | tui_select "Select model · $provider" "$model") || {
+    rc=$?; [ "$rc" -eq 130 ] && { picker_cancelled; return 0; }; return "$rc";
+  }
+  select_model_ref "$provider/$model"
 }
 
 run_models() {
-  local sub="${1:-}" cfg provider choice
+  local sub="${1:-}" cfg provider action rc
   ensure_local_cli_device; ensure_onboard_runtime; jget "/api/auth/me" >/dev/null
   cfg=$(ai_model_config)
   case "$sub" in
     status|list) print_ai_providers "$cfg" ;;
     add|auth)
-      provider="${2-}"; [ -n "$provider" ] || die "usage: mso models $sub <provider>"
+      provider="${2-}"
+      if [ -z "$provider" ] && tty_ok; then
+        provider=$(known_ai_provider_picker_rows | tui_select "Connect AI provider" "openai-codex") || {
+          rc=$?; [ "$rc" -eq 130 ] && { picker_cancelled; return 0; }; return "$rc";
+        }
+      fi
+      [ -n "$provider" ] || die "usage: mso models $sub <provider>"
       configure_ai_provider "$provider" ;;
     rm|remove)
-      provider="${2-}"; [ -n "$provider" ] || die "usage: mso models rm <provider>"
+      provider="${2-}"
+      if [ -z "$provider" ] && tty_ok; then
+        if ! connected_ai_provider_ids "$cfg" | grep -q .; then echo "  · no connected providers to remove"; return; fi
+        provider=$(connected_ai_provider_picker_rows "$cfg" "" | tui_select "Remove AI provider" "") || {
+          rc=$?; [ "$rc" -eq 130 ] && { picker_cancelled; return 0; }; return "$rc";
+        }
+      fi
+      [ -n "$provider" ] || die "usage: mso models rm <provider>"
       jdel "/api/config?provider=$(enc "$provider")" >/dev/null; echo "  ✓ removed AI provider: $provider" ;;
     catalog)
       provider="${2:-$(jq -r '.provider // ""' <<<"$cfg")}"; [ -n "$provider" ] || die "provider required"
@@ -234,18 +300,39 @@ run_models() {
     test) jpost "/api/models/test" ;;
     '')
       tty_ok || { print_ai_providers "$cfg"; return; }
-      print_ai_providers "$cfg"; echo
-      echo "  0) Done"
-      echo "  1) Add/auth provider"
-      echo "  2) Remove provider"
-      echo "  3) Browse model catalog"
-      tty_line "Choose [0]: " 0; choice="$REPLY"
-      case "$choice" in
-        1) tty_line "Provider [openai-codex|anthropic|openai|openrouter|google|groq|xai|deepseek|mistral|custom]: " "openai-codex"; configure_ai_provider "$REPLY" ;;
-        2) tty_line "Provider id: " ""; [ -n "$REPLY" ] && run_models rm "$REPLY" ;;
-        3) tty_line "Provider [$(jq -r '.provider // ""' <<<"$cfg")]: " "$(jq -r '.provider // ""' <<<"$cfg")"; print_model_catalog "$REPLY" "$cfg" ;;
-        *) : ;;
-      esac ;;
+      while true; do
+        cfg=$(ai_model_config)
+        echo; print_ai_providers "$cfg"; echo
+        action=$(cat <<'ROWS' | tui_select "AI provider/auth manager" "done"
+done	Done	Return to MSO Agent
+add	Add / authenticate provider	API key, OAuth, or custom endpoint
+remove	Remove provider	Forget one stored provider credential
+catalog	Browse model catalog	Inspect models for a connected provider
+test	Test active connection	Validate the selected provider/model
+ROWS
+) || { rc=$?; [ "$rc" -eq 130 ] && return 0; return "$rc"; }
+        case "$action" in
+          done) return ;;
+          add)
+            provider=$(known_ai_provider_picker_rows | tui_select "Connect AI provider" "openai-codex") || {
+              rc=$?; [ "$rc" -eq 130 ] && continue; return "$rc";
+            }
+            configure_ai_provider "$provider" ;;
+          remove)
+            if ! connected_ai_provider_ids "$cfg" | grep -q .; then echo "  · no connected providers to remove"; continue; fi
+            provider=$(connected_ai_provider_picker_rows "$cfg" "" | tui_select "Remove AI provider" "") || {
+              rc=$?; [ "$rc" -eq 130 ] && continue; return "$rc";
+            }
+            run_models rm "$provider" ;;
+          catalog)
+            if ! connected_ai_provider_ids "$cfg" | grep -q .; then echo "  · connect a provider first"; continue; fi
+            provider=$(connected_ai_provider_picker_rows "$cfg" "$(jq -r '.provider // ""' <<<"$cfg")" | tui_select "Browse provider models" "$(jq -r '.provider // ""' <<<"$cfg")") || {
+              rc=$?; [ "$rc" -eq 130 ] && continue; return "$rc";
+            }
+            echo; print_model_catalog "$provider" "$cfg" || true ;;
+          test) echo; jpost "/api/models/test" | jq . ;;
+        esac
+      done ;;
     *) die "usage: mso models [status|list|add|auth <provider>|rm <provider>|catalog [provider]|test]" ;;
   esac
 }

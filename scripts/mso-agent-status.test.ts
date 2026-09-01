@@ -20,4 +20,17 @@ describe("MSO Agent dynamic status", () => {
     expect(parts.join(" ")).toContain("openai-codex/gpt-5.6-sol");
     expect(parts.join(" ")).toContain("tokens 22");
   });
+
+  it("shows whether a skill is queued or really invoked", () => {
+    const base = {
+      state: { config: { provider: "openai-codex", model: "gpt-5.6-sol" }, modelMeta: null },
+      history: [], usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      agentSession: { id: "20260901_120000_deadbeef" },
+    };
+    const queued = statusParts({ ...base, pendingSkill: { id: "design", name: "design" } }, "/tmp").join(" ");
+    expect(queued).toContain("skill ◆ /design queued");
+    const invoked = statusParts({ ...base, lastInvokedSkill: { id: "design", name: "design" } }, "/tmp").join(" ");
+    expect(invoked).toContain("skill ✓ /design");
+  });
+
 });

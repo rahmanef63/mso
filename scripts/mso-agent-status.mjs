@@ -50,6 +50,13 @@ function homeShort(cwd) {
   return cwd;
 }
 
+function skillStatus(session) {
+  if (session?.activeSkill?.name) return { state: "invoking", name: session.activeSkill.name };
+  if (session?.pendingSkill?.name) return { state: "queued", name: session.pendingSkill.name };
+  if (session?.lastInvokedSkill?.name) return { state: "invoked", name: session.lastInvokedSkill.name };
+  return null;
+}
+
 export function statusParts(session, cwd = process.cwd()) {
   const provider = String(session?.state?.config?.provider || "—");
   const model = String(session?.state?.config?.model || "—");
@@ -58,8 +65,10 @@ export function statusParts(session, cwd = process.cwd()) {
   const shortSession = String(session?.agentSession?.id || "—").replace(/^\d{8}_\d{6}_/, "");
   const usage = session?.usage || { totalTokens: 0 };
   const elapsed = Number(session?.lastElapsedMs || 0);
+  const skill = skillStatus(session);
   return [
     `${provider}/${model}`,
+    skill ? `skill ${skill.state === "invoked" ? "✓" : "◆"} /${skill.name}${skill.state === "queued" ? " queued" : skill.state === "invoking" ? " invoking" : ""}` : null,
     ctx.limit ? `ctx ~${compactNumber(ctx.used)}/${compactNumber(ctx.limit)} ${ctx.percent}%` : `ctx ~${compactNumber(ctx.used)}/?`,
     usage.totalTokens > 0 ? `tokens ${compactNumber(usage.totalTokens)}` : null,
     `turns ${turns}`,
@@ -86,6 +95,7 @@ export function detailedStatus(session, cwd = process.cwd()) {
     contextWindow: ctx.limit,
     contextPercent: ctx.percent,
     providerReportedUsage: usage,
+    skill: skillStatus(session),
     turns: (session?.history || []).filter((row) => row?.role === "user").length,
     session: session?.agentSession?.id || null,
     title: session?.agentSession?.title || null,
@@ -102,6 +112,7 @@ export function printDetailedStatus(session, C, cwd = process.cwd()) {
   if (row.providerReportedUsage.totalTokens > 0) {
     console.log(`  tokens     ${row.providerReportedUsage.totalTokens} total · ${row.providerReportedUsage.inputTokens} in · ${row.providerReportedUsage.outputTokens} out`);
   } else console.log("  tokens     provider has not reported usage in this process; context remains estimated");
+  if (row.skill) console.log(`  skill      ${row.skill.state} /${row.skill.name}`);
   console.log(`  turns      ${row.turns}`);
   console.log(`  session    ${row.session}`);
   console.log(`  title      ${row.title || "MSO Agent session"}`);

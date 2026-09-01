@@ -2,7 +2,7 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { canonicalAgentApproval } from "../lib/agent/approval.mjs";
-import { loadSlashSkill, printSkillChoices, printSkills, resolveSlashSkill } from "./mso-agent-skills.mjs";
+import { beginSkillInvocation, endSkillInvocation, loadSlashSkill, printSkillChoices, printSkills, resolveSlashSkill } from "./mso-agent-skills.mjs";
 import { AgentComposer } from "./mso-agent-composer.mjs";
 import { slashCompletionItems } from "./mso-agent-slash.mjs";
 import { addUsage, printDetailedStatus, renderStatusBar } from "./mso-agent-status.mjs";
@@ -50,22 +50,26 @@ async function executeTool(rl, tool, call, agentSession) {
 }
 
 async function agentRound(rl, session, skillContext = null) {
-  const startedAt = Date.now();
-  for (let turn = 0; turn < 10; turn++) {
-    const result = await streamTurn(session.history, session.state.tools, session.agentSession, skillContext);
-    session.usage = addUsage(session.usage, result.usage);
-    session.lastElapsedMs = Date.now() - startedAt;
-    session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
-    if (!result.toolUses.length) return;
-    const results = [];
-    for (const call of result.toolUses) {
-      const tool = session.state.tools.find((row) => row.name === call.name);
-      const outcome = await executeTool(rl, tool, call, session.agentSession);
-      results.push({ id: call.id, content: outcome.result, isError: !outcome.ok });
+  const startedAt = Date.now(); beginSkillInvocation(session, skillContext, C);
+  try {
+    for (let turn = 0; turn < 10; turn++) {
+      const result = await streamTurn(session.history, session.state.tools, session.agentSession, skillContext); if (skillContext) session.lastInvokedSkill = skillContext;
+      session.usage = addUsage(session.usage, result.usage);
+      session.lastElapsedMs = Date.now() - startedAt;
+      session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
+      if (!result.toolUses.length) return;
+      const results = [];
+      for (const call of result.toolUses) {
+        const tool = session.state.tools.find((row) => row.name === call.name);
+        const outcome = await executeTool(rl, tool, call, session.agentSession);
+        results.push({ id: call.id, content: outcome.result, isError: !outcome.ok });
+      }
+      session.history.push({ role: "tool", results });
     }
-    session.history.push({ role: "tool", results });
+    console.log(`${C.warn}turn limit reached; ask to continue if needed.${C.reset}`);
+  } finally {
+    endSkillInvocation(session, skillContext);
   }
-  console.log(`${C.warn}turn limit reached; ask to continue if needed.${C.reset}`);
 }
 
 function runCli(args) {
@@ -84,7 +88,7 @@ async function selectSlashSkill(rl, session, requested, prompt = "") {
   const scope = loaded.project?.name ? `project ${loaded.project.name}` : "global";
   if (!prompt.trim()) {
     session.pendingSkill = loaded;
-    console.log(`${C.c}✓ /${loaded.name}${C.reset} selected for the next message · ${scope}`);
+    console.log(`${C.warn}${C.bold}◆ /${loaded.name} queued${C.reset}${C.dim} · next message · ${scope}${C.reset}`);
     return "handled";
   }
   session.history.push({ role: "user", text: prompt.trim() });
@@ -149,7 +153,7 @@ async function slash(rl, line, session) {
     case "/tools": for (const tool of session.state.tools) console.log(`  ${String(tool.scope).padEnd(5)} ${tool.name}`); return "handled";
     case "/skills": printSkills(session, C, args.join(" ")); return "handled";
     case "/skill": if (!args[0]) { console.log("usage: /skill <name-or-exact-id> [prompt]"); return "handled"; } return selectSlashSkill(rl, session, args[0], args.slice(1).join(" "));
-    case "/clear": session.history = []; session.pendingSkill = null; await persistSession(session); console.log("conversation cleared."); return "handled";
+    case "/clear": Object.assign(session, { history: [], pendingSkill: null, activeSkill: null, lastInvokedSkill: null }); await persistSession(session); console.log("conversation cleared."); return "handled";
     case "/exit": return "exit";
     default: return selectSlashSkill(rl, session, cmd.slice(1), args.join(" "));
   }
@@ -172,13 +176,15 @@ async function main() {
     agentSession,
     history: Array.isArray(agentSession.history) ? agentSession.history.slice(-48) : [],
     pendingSkill: null,
+    activeSkill: null,
+    lastInvokedSkill: null,
     titleOverride: requested ? (agentSession.title || null) : null,
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     lastElapsedMs: 0,
     statusBar: true,
   };
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C });
-  const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd());
+  const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd(), session);
   try {
     while (true) {
       let line = "";
