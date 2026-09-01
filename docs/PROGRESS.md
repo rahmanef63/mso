@@ -2,6 +2,10 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — Full-store session resume resolution — SHIPPED
+
+MSO CLI **1.6.2** moves direct resume resolution to the server-side durable session store instead of first truncating the candidate set to 100 recent summaries in the terminal client. `--continue`, `--resume`, `/session <query>`, and `/resume <query>` now resolve `latest`, modified-order index, full/short id, exact/prefix/fuzzy title against every owner-visible durable session; the interactive picker intentionally remains a bounded newest-first view for fast navigation. Empty default CLI shells are excluded from index/latest selection, matching the human picker. Ambiguity errors use human titles rather than exposing internal ids. Regression coverage includes a target beyond 275 synthetic recent rows so the 100-row regression cannot return.
+
 ## 2026-09-02 — Cognitive Runtime P1: typed memory + measurable agent quality — SHIPPED
 
 P1 upgrades durable agent memory without breaking the existing `USER.md` / `MEMORY.md` contract. Each client principal can now persist a private `records-v1.json` ledger of semantic/episodic/procedural claims carrying confidence, sensitivity, validity windows, provenance authority/channel, supersession/retraction and competing-claim evidence. Legacy Markdown remains readable until the first structured mutation, then seeds the ledger and becomes a resolved compatibility projection. Resolution is deterministic by temporal effectiveness → authority → confidence → recency; future facts do not erase still-current facts early. MCP adds read-only `agent_memory_search`; raw ChatGPT conversation ids are never persisted in provenance.

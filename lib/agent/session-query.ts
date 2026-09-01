@@ -7,24 +7,49 @@ function cleanRef(value: string): string {
   return value.trim().replace(/^-(?=\d{8}_\d{6}_[a-f0-9]{8}$)/, "");
 }
 
-function choose(records: AgentSession[], refValue: string): AgentSession {
+export function chooseAgentSessionRecord(records: AgentSession[], refValue: string): AgentSession {
+  const resumable = records.filter((row) => {
+    const emptyDefaultCli = row.source === "cli" && row.history.length === 0 && row.title === "MSO Agent session"
+      && (row.titleSource === "default" || row.titleSource === "manual");
+    return !emptyDefaultCli;
+  }).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  if (!resumable.length) throw new Error("session_not_found");
+
   const ref = cleanRef(refValue), q = ref.toLowerCase();
-  const exactId = records.find((row) => row.id === ref); if (exactId) return exactId;
-  const idPrefix = records.filter((row) => row.id.startsWith(ref)); if (idPrefix.length === 1) return idPrefix[0]!;
-  const exactTitle = records.filter((row) => row.title.toLowerCase() === q); if (exactTitle.length === 1) return exactTitle[0]!;
-  const titlePrefix = records.filter((row) => row.title.toLowerCase().startsWith(q)); if (titlePrefix.length === 1) return titlePrefix[0]!;
-  const matches = [...idPrefix, ...exactTitle, ...titlePrefix];
-  if (matches.length > 1) throw new Error(`session reference is ambiguous: ${[...new Set(matches.map((row) => row.id))].slice(0, 6).join(", ")}`);
+  if (!ref || q === "latest" || q === "continue") return resumable[0]!;
+  const exactId = resumable.find((row) => row.id === ref); if (exactId) return exactId;
+  if (/^[1-9]\d{0,3}$/.test(ref)) {
+    const indexed = resumable[Number(ref) - 1];
+    if (indexed) return indexed;
+    throw new Error("session_not_found");
+  }
+
+  const idMatches = resumable.filter((row) => row.id.toLowerCase().startsWith(q) || row.id.toLowerCase().endsWith(q));
+  if (idMatches.length === 1) return idMatches[0]!;
+
+  const exactTitle = resumable.filter((row) => row.title.toLowerCase() === q);
+  if (exactTitle.length === 1) return exactTitle[0]!;
+  const titlePrefix = resumable.filter((row) => row.title.toLowerCase().startsWith(q));
+  if (titlePrefix.length === 1) return titlePrefix[0]!;
+  const fuzzyTitle = resumable.filter((row) => row.title.toLowerCase().includes(q));
+  if (fuzzyTitle.length === 1) return fuzzyTitle[0]!;
+
+  const matches = [...idMatches, ...exactTitle, ...titlePrefix, ...fuzzyTitle];
+  const unique = [...new Map(matches.map((row) => [row.id, row])).values()];
+  if (unique.length > 1) {
+    const labels = unique.slice(0, 6).map((row) => row.title.replace(/[\r\n\t]+/g, " ").slice(0, 72));
+    throw new Error(`session reference is ambiguous: ${labels.join(" | ")}`);
+  }
   throw new Error("session_not_found");
 }
 
 export async function resolveAgentSessionRef(principal: string, ref: string): Promise<AgentSession> {
   const owner = principalHash(principal);
-  return choose((await listSessionRecords()).filter((row) => row.principalHash === owner), ref);
+  return chooseAgentSessionRecord((await listSessionRecords()).filter((row) => row.principalHash === owner), ref);
 }
 
 export async function resolveAgentSessionOwnerRef(ref: string): Promise<AgentSession> {
-  return choose(await listSessionRecords(), ref);
+  return chooseAgentSessionRecord(await listSessionRecords(), ref);
 }
 
 function resumedSummary(target: AgentSession): string {

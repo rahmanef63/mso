@@ -1,5 +1,5 @@
 import { C, createCliSession, listCliSessions, renameCliSession, resumeCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
-import { formatSessionModified, resolveSessionQuery, sessionCompletionItems, sessionPromptHistory, visibleSessionRows } from "./mso-agent-sessions.mjs";
+import { sessionCompletionItems, sessionPromptHistory, visibleSessionRows } from "./mso-agent-sessions.mjs";
 
 function autoTitle(history) {
   const first = history.find((row) => row?.role === "user" && typeof row.text === "string" && row.text.trim());
@@ -26,33 +26,8 @@ export async function renameCurrentSession(session, title) {
   return session.titleOverride;
 }
 
-export function printSessions(rows) {
-  if (!rows.length) { console.log("No MSO Agent sessions yet."); return; }
-  console.log(`${C.bold}Matching MSO Agent sessions${C.reset}`);
-  rows.forEach((row, index) => {
-    const title = String(row.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim().slice(0, 72);
-    const modified = formatSessionModified(row.updatedAt || row.createdAt);
-    console.log(`  ${String(index + 1).padStart(2)}  ${C.blue}${title}${C.reset}  ${C.dim}· modified ${modified}${C.reset}`);
-  });
-  console.log(`${C.dim}Resume by title or list index; exact ids remain accepted as a scriptable escape hatch.${C.reset}`);
-}
-
-async function resolveResume(query, rows = null) {
-  const sessions = rows || await listCliSessions(100);
-  const result = resolveSessionQuery(sessions, query);
-  if (result.session) return result.session;
-  if (result.ambiguous?.length) {
-    console.log(`${C.warn}resume query is ambiguous:${C.reset}`);
-    printSessions(result.ambiguous);
-    return null;
-  }
-  throw new Error(`no resumable MSO Agent session matches: ${query || "latest"}`);
-}
-
-export async function resumeInto(rl, session, query, rows = null) {
-  const target = await resolveResume(query, rows);
-  if (!target) return false;
-  const loaded = await resumeCliSession(target.id);
+export async function resumeInto(rl, session, query) {
+  const loaded = await resumeCliSession(query);
   if (!loaded || loaded.source !== "cli") throw new Error("could not create a CLI continuation session");
   Object.assign(session, {
     agentSession: loaded,
@@ -79,7 +54,7 @@ export async function resumePicker(rl, session) {
     selectOnEnter: true,
     escapeCancels: true,
   });
-  return answer?.trim() ? resumeInto(rl, session, answer.trim(), rows) : false;
+  return answer?.trim() ? resumeInto(rl, session, answer.trim()) : false;
 }
 
 export function resumeArg(argv) {
@@ -93,8 +68,5 @@ export function resumeArg(argv) {
 }
 
 export async function startupSession(requested) {
-  if (!requested) return createCliSession();
-  const target = await resolveResume(requested, await listCliSessions(100));
-  if (!target) throw new Error(`cannot resume ambiguous session query: ${requested}`);
-  return resumeCliSession(target.id);
+  return requested ? resumeCliSession(requested) : createCliSession();
 }

@@ -23,6 +23,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `agent` resolve resumes across full session store
 - `mcp` remove session lookup contention
 - `agent` wake prompt after child tty sigint
 - `cli` clarify version and update labels
