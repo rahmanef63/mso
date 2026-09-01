@@ -2,6 +2,18 @@ export const WORKFLOW_PROGRESS_URI = "ui://mso/workflow-progress-v1.html";
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 const MSO_ORIGIN = "https://mso.rahmanef.com";
 
+function configuredUiDomain(): string | undefined {
+  const raw = process.env.OS_MCP_UI_DOMAIN?.trim();
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:") return undefined;
+    return url.origin;
+  } catch {
+    return undefined;
+  }
+}
+
 const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="polite">
   <style>
     :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -213,6 +225,25 @@ export type McpUiResource = {
   _meta: Record<string, unknown>;
 };
 
+function workflowResourceMeta(): Record<string, unknown> {
+  const uiDomain = configuredUiDomain();
+  return {
+    ui: {
+      prefersBorder: true,
+      csp: { connectDomains: [], resourceDomains: [] },
+      ...(uiDomain ? { domain: uiDomain } : {}),
+    },
+    "openai/widgetDescription": "Authoritative MSO workflow progress card. It shows only high-level workflow state and recent tool outcomes; do not repeat the card contents verbatim.",
+    "openai/widgetPrefersBorder": true,
+    ...(uiDomain ? { "openai/widgetDomain": uiDomain } : {}),
+    "openai/widgetCSP": {
+      connect_domains: [],
+      resource_domains: [],
+      redirect_domains: [MSO_ORIGIN],
+    },
+  };
+}
+
 const RESOURCES: readonly McpUiResource[] = [
   {
     uri: WORKFLOW_PROGRESS_URI,
@@ -220,21 +251,7 @@ const RESOURCES: readonly McpUiResource[] = [
     description: "Compact live progress for an authenticated MSO workflow.",
     mimeType: MCP_APP_MIME_TYPE,
     text: workflowProgressHtml,
-    _meta: {
-      ui: {
-        prefersBorder: true,
-        domain: MSO_ORIGIN,
-        csp: { connectDomains: [], resourceDomains: [] },
-      },
-      "openai/widgetDescription": "Authoritative MSO workflow progress card. It shows only high-level workflow state and recent tool outcomes; do not repeat the card contents verbatim.",
-      "openai/widgetPrefersBorder": true,
-      "openai/widgetDomain": MSO_ORIGIN,
-      "openai/widgetCSP": {
-        connect_domains: [],
-        resource_domains: [],
-        redirect_domains: [MSO_ORIGIN],
-      },
-    },
+    _meta: workflowResourceMeta(),
   },
 ];
 
