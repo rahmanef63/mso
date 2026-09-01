@@ -212,7 +212,13 @@ const MUTATE_TOOLS: McpTool[] = [
   },
 ];
 
-const WORKFLOW_CONTEXT_EXEMPT = new Set(["skills_search", "workflow_start", "workflow_cancel", "workflow_finish"]);
+const WORKFLOW_CONTEXT_EXEMPT = new Set([
+  "skills_search",
+  "workflow_start",
+  "workflow_status",
+  "workflow_cancel",
+  "workflow_finish",
+]);
 const withWorkflowContext = (tool: McpTool): McpTool => WORKFLOW_CONTEXT_EXEMPT.has(tool.name) ? tool : ({
   ...tool,
   inputSchema: {
