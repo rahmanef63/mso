@@ -129,6 +129,9 @@ export const LEARNING_TOOLS: McpTool[] = [
       const projectHint = opt(a, "project");
       const project = projectHint ? await resolveProjectHint(projectHint).catch(() => null) : null;
       const tools = await visibleTools(context.scope);
+      // Complete every fallible read-only preflight before allocating the run id.
+      // A failed skill scan or repo inspection must not leave a run the client never
+      // received an id for and therefore cannot close.
       const search = await searchSkillMemory(intent, {
         topK: 8,
         recipeAccess: { actor, scope: context.scope },
@@ -140,6 +143,9 @@ export const LEARNING_TOOLS: McpTool[] = [
         ? await inspectProject(project, { includeGitStatus: context.scope === "exec" }).catch(() => undefined)
         : undefined;
       const toolset = toolsetInfo(tools, context.scope);
+      // Discovery incompleteness travels WITH the bootstrap. A model told "here is the
+      // project and the trusted skills" will not re-check whether the scan covered the
+      // whole box; if it did not, it has to be told in the same breath.
       const discovery = {
         catalog: search.catalog,
         complete: !search.catalog.truncated,
@@ -151,6 +157,8 @@ export const LEARNING_TOOLS: McpTool[] = [
         project: project?.path ?? projectHint,
         constraints: opt(a, "constraints"),
       });
+      // Recommendation telemetry is useful, but failure to persist lastUsedAt must
+      // never turn a successfully-created workflow into an opaque tool failure.
       if (search.recommendedRecipe) {
         await markRecipeUsed(search.recommendedRecipe.id, { actor, scope: context.scope }).catch(() => undefined);
       }
