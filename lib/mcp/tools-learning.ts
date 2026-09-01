@@ -202,7 +202,7 @@ export const LEARNING_TOOLS: McpTool[] = [
     limit: { key: "workflow.status", max: 30, windowMs: 60_000 },
     inputSchema: S({
       workflow_id: { type: "string", description: "Exact id returned by workflow_start." },
-    }),
+    }, ["workflow_id"]),
     run: async (a, context) => {
       const workflowId = str(a, "workflow_id");
       const workflow = await activeWorkflowForActor(context.actor, workflowId);
