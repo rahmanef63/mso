@@ -6,6 +6,12 @@ import type { Instrumentation } from "next";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  // Enforce private session-archive retention at boot even when no new session
+  // reaches the compaction threshold for weeks. Best-effort: retention cleanup
+  // must never make the application fail to start.
+  void import("./lib/agent/session-archive")
+    .then(({ pruneAgentSessionArchives }) => pruneAgentSessionArchives())
+    .catch(() => undefined);
   // systemd liveness: when the unit sets WatchdogSec, systemd exposes
   // NOTIFY_SOCKET + WATCHDOG_USEC. Node has no native AF_UNIX SOCK_DGRAM
   // (dgram is UDP-only), so we ping via the `systemd-notify` binary — which

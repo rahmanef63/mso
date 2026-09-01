@@ -1,4 +1,4 @@
-import { C, createCliSession, listCliSessions, loadCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
+import { C, createCliSession, listCliSessions, resumeCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
 import { resolveSessionQuery, sessionCompletionItems } from "./mso-agent-sessions.mjs";
 
 function autoTitle(history) {
@@ -10,6 +10,7 @@ export async function persistSession(session) {
   const title = session.titleOverride || autoTitle(session.history);
   const saved = await saveCliSession(session.agentSession, session.history, title);
   session.agentSession = { ...session.agentSession, ...saved };
+  if (Array.isArray(saved?.history)) session.history = saved.history;
 }
 
 export function printSessions(rows) {
@@ -38,11 +39,11 @@ async function resolveResume(query, rows = null) {
 export async function resumeInto(session, query, rows = null) {
   const target = await resolveResume(query, rows);
   if (!target) return false;
-  const loaded = await loadCliSession(target.id);
-  if (!loaded || loaded.source !== "cli") throw new Error("session is not a CLI MSO Agent session");
+  const loaded = await resumeCliSession(target.id);
+  if (!loaded || loaded.source !== "cli") throw new Error("could not create a CLI continuation session");
   Object.assign(session, {
     agentSession: loaded,
-    history: Array.isArray(loaded.history) ? loaded.history.slice(-48) : [],
+    history: Array.isArray(loaded.history) ? loaded.history : [],
     pendingSkill: null,
     activeSkill: null,
     lastInvokedSkill: null,
@@ -79,5 +80,5 @@ export async function startupSession(requested) {
   if (!requested) return createCliSession();
   const target = await resolveResume(requested, await listCliSessions(100));
   if (!target) throw new Error(`cannot resume ambiguous session query: ${requested}`);
-  return loadCliSession(target.id);
+  return resumeCliSession(target.id);
 }

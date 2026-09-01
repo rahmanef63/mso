@@ -12,10 +12,10 @@
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 > and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.08.31.1 tools=38 read=20 write=13 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.1 tools=46 read=24 write=17 exec=5 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.08.31.1**: **38 tools**
-(20 read, 13 write, 5 exec). Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.1**: **47 transport tools** total; **46 model/operator tools**
+(24 read, 17 write, 5 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
 
 ## 1. What this connection does
@@ -141,51 +141,58 @@ A token sees a scope prefix; there is no per-project or per-agent hidden tool fi
 `tools/list` filters the catalog and `tools/call` independently re-checks the required
 scope.
 
-### `read` — 20 tools
+### `read` — 24 model/operator tools
 
+- `agent_memory_read`
+- `agent_session_current`
+- `agent_session_resume`
+- `agent_sessions_list`
+- `apps_list`
+- `apps_logs`
+- `browser_status`
+- `cloudflare_zones_list`
+- `dokploy_projects_list`
+- `exec_job_status`
 - `fs_list`
 - `fs_read`
 - `fs_search`
 - `fs_usage`
-- `sys_stats`
-- `sys_processes`
-- `apps_list`
-- `apps_logs`
-- `browser_status`
-- `projects_list`
+- `infra_provider_doctor`
+- `infra_providers_list`
 - `project_capabilities`
+- `projects_list`
+- `screen_capture`
 - `skills_list`
 - `skills_read`
 - `skills_search`
-- `screen_capture`
-- `exec_job_status`
-- `infra_providers_list`
-- `infra_provider_doctor`
-- `dokploy_projects_list`
-- `cloudflare_zones_list`
+- `sys_processes`
+- `sys_stats`
+### `write` — read + 17 tools
 
-### `write` — read + 13 tools
-
-- `fs_write`
-- `fs_upload_file`
-- `fs_mkdir`
-- `fs_move`
+- `agent_memory_forget`
+- `agent_memory_remember`
+- `agent_session_note`
+- `agent_session_rename`
+- `apps_power`
+- `cloudflare_dns_upsert`
+- `dokploy_project_ensure`
 - `fs_copy`
 - `fs_delete`
-- `apps_power`
-- `workflow_start`
+- `fs_mkdir`
+- `fs_move`
+- `fs_upload_file`
+- `fs_write`
+- `hostinger_dns_upsert`
 - `workflow_cancel`
 - `workflow_finish`
-- `dokploy_project_ensure`
-- `cloudflare_dns_upsert`
-- `hostinger_dns_upsert`
+- `workflow_start`
 
 ### `exec` — write + 5 tools
 
-- `exec_run`
-- `exec_job_start`
-- `exec_job_cancel`
 - `browser_power`
+- `exec_job_cancel`
+- `exec_job_start`
+- `exec_run`
 - `project_function_call`
 
 `exec_run` is full host shell power as the MSO service user. The command filter is an
@@ -214,9 +221,9 @@ Settings → MCP:
 
 ```text
 server:  1.6.0
-toolset: 2026.08.31.1
+toolset: 2026.09.02.1
 hash:    <live schema hash>
-count:   31
+count:   46 model/operator tools (+ 1 app-only bridge)
 ```
 
 Use this sequence after an MSO MCP change:
@@ -238,7 +245,31 @@ workspace **Refresh** / action-control flow to pull new or changed definitions. 
 are not automatically enabled. Always follow the current workspace UI if OpenAI changes
 this behaviour.
 
-## 7. Multi-step work and `workflow_id`
+## 7. Conversation identity, durable context, and `workflow_id`
+
+ChatGPT conversation state is not the OAuth token and is not the HTTP transport session.
+For `tools/call`, MSO reads the host-provided `_meta["openai/session"]` when present, derives
+a privacy-safe SHA-256 correlation value with the stable MCP client principal, and stores only
+that digest. The raw opaque ChatGPT conversation id is never persisted or written to audit.
+`Mcp-Session-Id` remains a compatibility fallback for older/generic clients; transport-id
+rotation does not split a ChatGPT conversation when `openai/session` is available.
+
+Each conversation receives its own durable MSO Agent session and therefore its own active
+workflow/job ownership boundary. Learned successful recipes remain client-principal scoped, so
+conversation B may benefit from a verified recipe learned in conversation A without being able
+to finish/cancel A's live workflow. `agent_session_current`, `agent_sessions_list`,
+`agent_session_resume`, `agent_session_note`, and `agent_session_rename` expose only safe MSO
+operational context; they cannot recover ChatGPT's hidden transcript. Persistent `USER.md` /
+`MEMORY.md` are frozen into each new session.
+
+Durable session context has a provider-neutral estimated-token counter. The default compaction
+threshold is **700,000 tokens**; compaction preserves a structured summary plus about **140,000
+recent tokens**, and first writes a recursively redacted gzip backup. Archives default to
+**30-day retention** and are pruned both after archival and at MSO boot. The CLI can continue a
+ChatGPT/MCP session via `mso --resume <id-or-title>`; continuation is copy-on-resume rather than
+two surfaces mutating one session file.
+
+### Multi-step work and `workflow_id`
 
 For a task needing several operational calls, ChatGPT should call `workflow_start` once.
 The returned exact `workflow_id` is then included on later operational calls. Missing id =

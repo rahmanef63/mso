@@ -4,10 +4,10 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.08.31.1 tools=38 read=20 write=13 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.1 tools=46 read=24 write=17 exec=5 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.08.31.1**: **38 tools**
-(20 read, 13 write, 5 exec). `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.1**: **47 tools**
+(25 read, 17 write, 5 exec). `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
 ## Why this contract matters
@@ -33,22 +33,28 @@ Before changing an MCP tool name:
 
 ## Current MSO catalog
 
-### Read (20)
+### Read (24 model/operator)
 
-`fs_list`, `fs_read`, `fs_search`, `fs_usage`, `sys_stats`, `sys_processes`,
-`apps_list`, `apps_logs`, `browser_status`, `projects_list`, `project_capabilities`,
-`skills_list`, `skills_read`, `skills_search`, `screen_capture`, `exec_job_status`,
-`infra_providers_list`, `infra_provider_doctor`, `dokploy_projects_list`, `cloudflare_zones_list`.
+`agent_memory_read`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`,
+`apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`,
+`exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`,
+`infra_providers_list`, `project_capabilities`, `projects_list`, `screen_capture`, `skills_list`,
+`skills_read`, `skills_search`, `sys_processes`, `sys_stats`.
 
-### Write (13 beyond read)
+### Write (17 beyond read)
 
-`fs_write`, `fs_upload_file`, `fs_mkdir`, `fs_move`, `fs_copy`, `fs_delete`,
-`apps_power`, `workflow_start`, `workflow_cancel`, `workflow_finish`,
-`dokploy_project_ensure`, `cloudflare_dns_upsert`, `hostinger_dns_upsert`.
+`agent_memory_forget`, `agent_memory_remember`, `agent_session_note`, `agent_session_rename`,
+`apps_power`, `cloudflare_dns_upsert`, `dokploy_project_ensure`, `fs_copy`, `fs_delete`,
+`fs_mkdir`, `fs_move`, `fs_upload_file`, `fs_write`, `hostinger_dns_upsert`,
+`workflow_cancel`, `workflow_finish`, `workflow_start`.
 
 ### Exec (5 beyond write)
 
-`exec_run`, `browser_power`, `project_function_call`, `exec_job_start`, `exec_job_cancel`.
+`browser_power`, `exec_job_cancel`, `exec_job_start`, `exec_run`, `project_function_call`.
+
+### App-only bridge (1)
+
+`workflow_status` is exposed for the MCP Apps progress widget and is not part of the model/operator action catalog.
 
 ## Scope and workflow compatibility
 

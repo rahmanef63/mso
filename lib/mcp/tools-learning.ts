@@ -123,8 +123,9 @@ export const LEARNING_TOOLS: McpTool[] = [
       constraints: { type: "string", description: "Optional important constraints, such as no downtime or WebP only." },
     }, ["intent"]),
     run: async (a, context) => {
-      const actor = context.actor;
-      if (!actor) throw new Error("workflow memory needs an authenticated MCP actor");
+      const actor = context.workflowActor ?? context.actor;
+      const recipeOwner = context.recipeActor ?? context.actor;
+      if (!actor || !recipeOwner) throw new Error("workflow memory needs an authenticated session and client");
       const intent = str(a, "intent");
       const projectHint = opt(a, "project");
       const project = projectHint ? await resolveProjectHint(projectHint).catch(() => null) : null;
@@ -134,7 +135,7 @@ export const LEARNING_TOOLS: McpTool[] = [
       // received an id for and therefore cannot close.
       const search = await searchSkillMemory(intent, {
         topK: 8,
-        recipeAccess: { actor, scope: context.scope },
+        recipeAccess: { actor: recipeOwner, scope: context.scope },
         toolDocs: tools.map((tool) => ({
           name: tool.name, description: tool.description, scope: tool.scope, inputSchema: tool.inputSchema,
         })),
@@ -160,7 +161,7 @@ export const LEARNING_TOOLS: McpTool[] = [
       // Recommendation telemetry is useful, but failure to persist lastUsedAt must
       // never turn a successfully-created workflow into an opaque tool failure.
       if (search.recommendedRecipe) {
-        await markRecipeUsed(search.recommendedRecipe.id, { actor, scope: context.scope }).catch(() => undefined);
+        await markRecipeUsed(search.recommendedRecipe.id, { actor: recipeOwner, scope: context.scope }).catch(() => undefined);
       }
       return {
         ...started,
@@ -205,7 +206,7 @@ export const LEARNING_TOOLS: McpTool[] = [
     }),
     run: async (a, context) => {
       const workflowId = str(a, "workflow_id");
-      const workflow = await activeWorkflowForActor(context.actor, workflowId);
+      const workflow = await activeWorkflowForActor(context.workflowActor ?? context.actor, workflowId);
       if (!workflow) {
         return { active: false, workflowId, stepCount: 0, steps: [] };
       }
@@ -226,7 +227,7 @@ export const LEARNING_TOOLS: McpTool[] = [
       reason: { type: "string", description: "Optional concise reason; no secrets or file contents." },
     }, ["workflow_id"]),
     run: (a, context) => cancelWorkflow({
-      actor: context.actor,
+      actor: context.workflowActor ?? context.actor,
       workflowId: str(a, "workflow_id"),
       reason: opt(a, "reason"),
     }),
@@ -246,7 +247,8 @@ export const LEARNING_TOOLS: McpTool[] = [
       success: { type: "boolean", description: "True only after the requested result is verified." },
     }, ["workflow_id", "summary", "success"]),
     run: (a, context) => finishWorkflow({
-      actor: context.actor,
+      actor: context.workflowActor ?? context.actor,
+      recipeActor: context.recipeActor ?? context.actor,
       workflowId: str(a, "workflow_id"),
       summary: str(a, "summary"),
       success: a.success === true,

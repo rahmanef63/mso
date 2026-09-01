@@ -159,7 +159,7 @@ const MUTATE_TOOLS: McpTool[] = [
       cwd: { type: "string", description: "Working directory. Defaults to the owner's home." },
     }, ["command"]),
     run: (a, context) => startExecJob({
-      command: str(a, "command"), cwd: opt(a, "cwd"), actor: context.actor, workflowId: context.workflowId,
+      command: str(a, "command"), cwd: opt(a, "cwd"), actor: context.workflowActor ?? context.actor, workflowId: context.workflowId,
     }),
   },
   {
@@ -169,8 +169,9 @@ const MUTATE_TOOLS: McpTool[] = [
       "Read one asynchronous exec job owned by this MCP client. Returns state, bounded stdout/stderr, exit code when finished, and whether output was truncated.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
+    result: { maxTextBytes: 64 * 1024, overflowHint: "The job output is larger than the model context budget; rerun a focused grep/tail after completion if more detail is needed." },
     inputSchema: S({ job_id: { type: "string", description: "Exact id returned by exec_job_start." } }, ["job_id"]),
-    run: (a, context) => Promise.resolve(getExecJob(str(a, "job_id"), context.actor, context.workflowId)),
+    run: (a, context) => Promise.resolve(getExecJob(str(a, "job_id"), context.workflowActor ?? context.actor, context.workflowId)),
   },
   {
     name: "exec_job_cancel",
@@ -181,7 +182,7 @@ const MUTATE_TOOLS: McpTool[] = [
     scope: "exec",
     annotations: { destructiveHint: true, idempotentHint: true },
     inputSchema: S({ job_id: { type: "string", description: "Exact id returned by exec_job_start." } }, ["job_id"]),
-    run: (a, context) => Promise.resolve(cancelExecJob(str(a, "job_id"), context.actor, context.workflowId)),
+    run: (a, context) => Promise.resolve(cancelExecJob(str(a, "job_id"), context.workflowActor ?? context.actor, context.workflowId)),
   },
   {
     name: "exec_run",
@@ -206,6 +207,7 @@ const MUTATE_TOOLS: McpTool[] = [
       "Long-running or interactive commands will time out: this is not a terminal session.",
     scope: "exec",
     annotations: { destructiveHint: true, openWorldHint: true },
+    result: { maxTextBytes: 48 * 1024, overflowHint: "Command output was compacted; rerun a narrower command (grep/head/tail) for the omitted evidence." },
     inputSchema: S({
       command: { type: "string", description: "The shell command line to run." },
       cwd: { type: "string", description: "Working directory. Defaults to the owner's home." },

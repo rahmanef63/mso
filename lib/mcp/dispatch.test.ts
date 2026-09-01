@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 // The catalog reaches lib/camoufox + lib/managed-apps, which are `server-only`.
 // Next aliases that specifier internally; vitest does not, so stub it — same
 // pattern as lib/managed-apps/manager.test.ts.

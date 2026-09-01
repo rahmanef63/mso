@@ -75,8 +75,8 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 
 | Scope | Tools |
 |---|---|
-| `read` | `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` `exec_job_status` `infra_providers_list` `infra_provider_doctor` `dokploy_projects_list` `cloudflare_zones_list` |
-| `write` | + `workflow_start` `workflow_cancel` `workflow_finish` `fs_write` `fs_upload_file` `fs_mkdir` `fs_move` `fs_copy` `fs_delete` `apps_power` `dokploy_project_ensure` `cloudflare_dns_upsert` `hostinger_dns_upsert` |
+| `read` | `agent_memory_read` `agent_session_current` `agent_session_resume` `agent_sessions_list` `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` `exec_job_status` `infra_providers_list` `infra_provider_doctor` `dokploy_projects_list` `cloudflare_zones_list` |
+| `write` | + `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `workflow_start` `workflow_cancel` `workflow_finish` `fs_write` `fs_upload_file` `fs_mkdir` `fs_move` `fs_copy` `fs_delete` `apps_power` `dokploy_project_ensure` `cloudflare_dns_upsert` `hostinger_dns_upsert` |
 | `exec` | + `project_function_call` `exec_run` `exec_job_start` `exec_job_cancel` `browser_power` |
 
 Alfa — the in-app assistant — overlaps the same host capabilities under dot.case names,
@@ -124,12 +124,13 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.08.31.1 tools=38 read=20 write=13 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.1 tools=46 read=24 write=17 exec=5 -->
 
-Current catalog: **31 tools** (16 read, 10 write, 5 exec), server `1.6.0` / toolset
-`2026.08.28.1`. `project_capabilities` and `project_function_call` add one stable
-project-automation seam without creating a dynamic MCP tool catalog; existing tool names
-remain unchanged.
+Current transport catalog: **47 tools**, server `1.6.0` / toolset `2026.09.02.1`.
+The model/operator catalog is **46 tools** (24 read, 17 write, 5 exec); `workflow_status` is the
+one app-only MCP Apps bridge used by the progress widget and is documented separately. Session/memory tools add durable conversation context without creating
+dynamic per-project tool names; `project_capabilities` and `project_function_call` remain the
+stable project-automation seam.
 
 ## Opt-in project MCP/function capabilities
 
@@ -325,6 +326,34 @@ through `realpath` again.
 its `project`, and the bootstrap carries a `discovery.complete` flag plus a
 `[Discovery] partial scan` trace line when the catalog was truncated.
 
+## MCP-first cognitive runtime
+
+MSO keeps the public MCP catalog capability-complete and scope-stable, but its own terminal
+agent does not stuff every schema into every model turn. A provider-neutral router keeps a
+small core (`workflow_*`, `skills_search`, project/session discovery), scores the current user
+intent plus recent tool evidence, and normally loads at most 14 relevant schemas plus required
+companions. `skills_search` already searches tools as well as skills/recipes, so a tool named by
+discovery becomes available on the next model round without changing permissions. Public MCP
+`tools/list` remains the full scope-filtered catalog for interoperability.
+
+Generic MCP text results are also context-budgeted: 32 KiB by default, with explicit bounded
+exceptions for file reads and long-job output. Oversize results return a parseable
+`msoTruncated` envelope with byte counts, a preview, and a narrowing hint instead of flooding
+the model context. Explicit MCP Apps structured projections remain separate. The same rule
+applies regardless of whether the selected provider is OpenAI, Anthropic, Google, Qwen, GLM,
+DeepSeek, or another compatible backend.
+
+The CLI persists much more session history than it shows the model. Before a model call, recent
+history is projected to roughly 55% of the model's context window (capped at 120k history
+tokens) so system instructions, memory, skill/tool schemas, reasoning and output retain
+headroom. At the durable 700k session threshold, structured compaction + sanitized archival
+reduces storage context and feeds the compact summary back into later turns.
+
+Run `bun run bench:cognitive` for the reproducible provider-neutral routing/footprint gate. It
+requires 100% required-tool recall and deterministic routing across the checked scenarios.
+Hermes is compared only where an equivalent offline `prompt-size` metric exists; OpenClaw is
+reported but is not declared beaten on a non-comparable metric.
+
 ## Semantic skill search and learned workflows
 
 MSO does not need to rediscover the same safe procedure on every conversation.
@@ -337,8 +366,10 @@ For a multi-step task, `workflow_start` is the **single bootstrap call**. It:
 5. recommends the closest successful recipe and execution policy.
 
 Every operational tool advertises an optional `workflow_id`. Carry the exact id returned
-by `workflow_start` on each step in that run. Multiple conversations may hold isolated
-workflows in parallel on the same token. A call that omits the id is deliberately
+by `workflow_start` on each step in that run. Active workflow/job ownership is derived from the
+durable conversation session (ChatGPT uses a hash of `_meta["openai/session"]` when present),
+while learned recipes are keyed to the stable client principal. Multiple conversations may
+hold isolated workflows in parallel on the same token. A call that omits the id is deliberately
 standalone, and an unknown id is refused before the operation runs.
 
 On approval, MSO returns the validated PKCE callback to the consent client, which uses

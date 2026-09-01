@@ -69,6 +69,20 @@ external mappings, skill trust/routing, and client action refresh are one releas
 Do not declare an MCP change complete until that full contract is verified.
 
 
+## Cognitive-runtime work
+
+- The LLM provider is replaceable. Do not solve MSO agent quality by hard-coding one vendor's hidden
+  reasoning/session behavior when the same invariant can live in the provider-neutral harness.
+- Preserve the three identity boundaries: authenticated client principal → durable conversation session →
+  exact workflow/job. Active work is session-scoped; verified recipes may be client-scoped.
+- Public MCP remains capability-complete. MSO-owned model harnesses may defer/select schemas, compact
+  history, or bound tool output only when capability recall and permissions remain unchanged.
+- Any context/tool optimization must run `bun run bench:cognitive`; smaller prompts are not a win if
+  required-tool recall, deterministic behavior, verification, or security regresses.
+- Competitor claims require comparable measurements. A Hermes prompt-size win is not an overall Hermes
+  win; do not claim OpenClaw superiority until an equivalent task/quality benchmark exists.
+- The current contract and P1 boundaries live in `docs/COGNITIVE-RUNTIME.md`.
+
 ## Comparison and privileged operations
 
 - `docs/comparison-data.json` is the comparison SSOT. Generate README/`docs/COMPARISON.md` with

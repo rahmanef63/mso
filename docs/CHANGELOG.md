@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `mcp` ship cognitive runtime p0
 - `agent` add interrupt-safe terminal controls
 - `agent` add arrow picker and skill states
 - `agent` align model and session terminal UX

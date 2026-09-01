@@ -45,6 +45,7 @@ const MCP_ONLY: Record<string, string> = {
   "agent.session.current": "external MCP clients need a stable durable MSO session id they can quote from a later ChatGPT conversation; in-shell Alfa already owns its conversation identity",
   "agent.sessions.list": "external MCP clients need explicit cross-conversation session discovery; Alfa's in-app thread UI already provides its own conversation list",
   "agent.session.resume": "external MCP clients must reconstruct only the safe MSO resume packet across ChatGPT conversations; Alfa can reopen its own persisted in-app thread directly",
+  "agent.session.rename": "durable MCP/terminal session titles are metadata in the isolated agent-session store; Alfa keeps its separate in-app thread/title lifecycle",
   "agent.session.note": "durable operational notes belong to the MCP client's isolated MSO session store; Alfa has a separate owner-scoped conversation/memory store",
   "agent.memory.read": "MCP clients use isolated USER.md/MEMORY.md-style agent memory snapshots; Alfa intentionally keeps its existing owner recall instead of sharing external-client memory",
   "agent.memory.remember": "same isolated MCP memory store; sharing it with Alfa would collapse two trust/ownership boundaries",
@@ -122,6 +123,8 @@ describe("MCP rate limits mirror the routes", () => {
       // workflow_status is app-only polling. Keep its own bucket so UI refreshes
       // neither consume lifecycle capacity nor bypass the server-wide token limit.
       "workflow.status": 30,
+      "agent.session": 30,
+      "agent.memory": 30,
       "exec.job.start": 12,
       "exec.job.status": 120,
       "exec.job.cancel": 30,

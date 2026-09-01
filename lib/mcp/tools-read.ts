@@ -29,6 +29,7 @@ export const READ_TOOLS: McpTool[] = [
       "check the extension from fs_list first. NOT for finding a file: use fs_search.",
     scope: "read",
     annotations: READ_ONLY,
+    result: { maxTextBytes: 64 * 1024, overflowHint: "Read a narrower file/range through a project-specific function or inspect only the relevant section." },
     inputSchema: S(PATH_P, ["path"]),
     run: async (a) => {
       const content = await readFile(str(a, "path"));

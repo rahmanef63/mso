@@ -21,6 +21,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 |---|---|
 | [`../README.md`](../README.md) | Product overview and quickstart |
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Current runtime, shell, role, host, MCP and deployment architecture |
+| [`COGNITIVE-RUNTIME.md`](./COGNITIVE-RUNTIME.md) | Provider-neutral MCP/session/context/tool-routing runtime and benchmark contract |
 | [`COMPARISON.md`](./COMPARISON.md) | Generated product comparison methodology, evidence and notes |
 | [`COMPETITIVE-ROADMAP.md`](./COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate specialist boundaries and next investments |
 | [`INSTALL.md`](./INSTALL.md) | Owner installation, TLS, updates, backup and uninstall |

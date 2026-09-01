@@ -25,7 +25,8 @@
     "icons:app": "node scripts/gen-app-icons.mjs && python3 scripts/gen-remaining-platform-icons.py",
     "skill:new": "node scripts/create-skill-flow.mjs",
     "skill:check": "node scripts/check-skill-flows.mjs",
-    "comparison": "node scripts/gen-comparison.mjs"
+    "comparison": "node scripts/gen-comparison.mjs",
+    "bench:cognitive": "bun scripts/bench-cognitive-runtime.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

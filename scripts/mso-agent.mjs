@@ -57,7 +57,7 @@ async function agentRound(rl, session, skillContext = null, signal = undefined, 
   beginSkillInvocation(session, skillContext, C);
   try {
     for (let turn = 0; turn < 10; turn++) {
-      const result = await streamTurn(session.history, session.state.tools, session.agentSession, skillContext, signal); if (skillContext) session.lastInvokedSkill = skillContext;
+      const result = await streamTurn(session.history, session.state.tools, session.agentSession, skillContext, signal, session.state.modelMeta?.context); if (skillContext) session.lastInvokedSkill = skillContext;
       session.usage = addUsage(session.usage, result.usage);
       session.lastElapsedMs = Date.now() - startedAt;
       session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
@@ -109,7 +109,7 @@ async function main() {
   const session = {
     state: s,
     agentSession,
-    history: Array.isArray(agentSession.history) ? agentSession.history.slice(-48) : [],
+    history: Array.isArray(agentSession.history) ? agentSession.history : [],
     pendingSkill: null,
     activeSkill: null,
     lastInvokedSkill: null,
@@ -154,7 +154,6 @@ async function main() {
         continue;
       }
       session.history.push({ role: "user", text: line });
-      if (session.history.length > 48) session.history.splice(0, session.history.length - 48);
       const skillContext = session.pendingSkill;
       session.pendingSkill = null;
       await runInteractiveRound(rl, session, skillContext, interrupts);

@@ -1,5 +1,6 @@
 import os from "node:os";
 import path from "node:path";
+import { projectHistoryForModel } from "./mso-agent-context.mjs";
 
 function compactNumber(value) {
   const n = Number(value || 0);
@@ -21,12 +22,15 @@ export function historyContextEstimate(history) {
 }
 
 export function contextStatus(history, modelMeta) {
-  const used = historyContextEstimate(history);
   const limit = Number(modelMeta?.context || 0);
+  const projected = projectHistoryForModel(history, limit);
   return {
-    used,
+    used: projected.estimatedTokens,
+    stored: historyContextEstimate(history),
+    omittedRows: projected.omittedRows,
+    budget: projected.budgetTokens,
     limit: Number.isFinite(limit) && limit > 0 ? limit : null,
-    percent: limit > 0 ? Math.min(999, Math.round((used / limit) * 100)) : null,
+    percent: limit > 0 ? Math.min(999, Math.round((projected.estimatedTokens / limit) * 100)) : null,
   };
 }
 
@@ -70,6 +74,7 @@ export function statusParts(session, cwd = process.cwd()) {
     `${provider}/${model}`,
     skill ? `skill ${skill.state === "invoked" ? "✓" : "◆"} /${skill.name}${skill.state === "queued" ? " queued" : skill.state === "invoking" ? " invoking" : ""}` : null,
     ctx.limit ? `ctx ~${compactNumber(ctx.used)}/${compactNumber(ctx.limit)} ${ctx.percent}%` : `ctx ~${compactNumber(ctx.used)}/?`,
+    session?.agentSession?.compactThresholdTokens ? `session ~${compactNumber(session.agentSession.estimatedTokens)}/${compactNumber(session.agentSession.compactThresholdTokens)}` : null,
     usage.totalTokens > 0 ? `tokens ${compactNumber(usage.totalTokens)}` : null,
     `turns ${turns}`,
     elapsed > 0 ? `${(elapsed / 1000).toFixed(elapsed >= 10_000 ? 0 : 1)}s` : null,
@@ -94,6 +99,12 @@ export function detailedStatus(session, cwd = process.cwd()) {
     contextEstimatedTokens: ctx.used,
     contextWindow: ctx.limit,
     contextPercent: ctx.percent,
+    contextOmittedRows: ctx.omittedRows,
+    sessionEstimatedTokens: Number(session?.agentSession?.estimatedTokens || ctx.stored || 0),
+    sessionLifetimeEstimatedTokens: Number(session?.agentSession?.lifetimeEstimatedTokens || 0),
+    sessionCompactThresholdTokens: Number(session?.agentSession?.compactThresholdTokens || 0),
+    sessionCompactionCount: Number(session?.agentSession?.compactionCount || 0),
+    sessionArchiveCount: Number(session?.agentSession?.archiveCount || 0),
     providerReportedUsage: usage,
     skill: skillStatus(session),
     turns: (session?.history || []).filter((row) => row?.role === "user").length,
@@ -108,7 +119,8 @@ export function printDetailedStatus(session, C, cwd = process.cwd()) {
   console.log(`${C.bold}MSO Agent status${C.reset}`);
   console.log(`  model      ${row.provider}/${row.model}`);
   console.log(`  auth       ${row.providerAuth}`);
-  console.log(`  context    ~${row.contextEstimatedTokens}${row.contextWindow ? ` / ${row.contextWindow} (${row.contextPercent}%)` : " / ?"}`);
+  console.log(`  context    ~${row.contextEstimatedTokens}${row.contextWindow ? ` / ${row.contextWindow} (${row.contextPercent}%)` : " / ?"}${row.contextOmittedRows ? ` · ${row.contextOmittedRows} older rows projected out` : ""}`);
+  if (row.sessionCompactThresholdTokens) console.log(`  session    ~${row.sessionEstimatedTokens} / ${row.sessionCompactThresholdTokens} stored · lifetime ~${row.sessionLifetimeEstimatedTokens} · ${row.sessionCompactionCount} compactions · ${row.sessionArchiveCount} archives`);
   if (row.providerReportedUsage.totalTokens > 0) {
     console.log(`  tokens     ${row.providerReportedUsage.totalTokens} total · ${row.providerReportedUsage.inputTokens} in · ${row.providerReportedUsage.outputTokens} out`);
   } else console.log("  tokens     provider has not reported usage in this process; context remains estimated");

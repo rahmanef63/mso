@@ -35,6 +35,10 @@ export interface McpRunContext {
   sessionId?: string;
   scope: Scope;
   workflowId?: string;
+  /** Session-scoped workflow owner; prevents cross-conversation workflow access. */
+  workflowActor?: string;
+  /** Client-scoped learned-recipe owner; survives individual session rotation. */
+  recipeActor?: string;
 }
 
 export interface McpTool {
@@ -67,6 +71,8 @@ export interface McpTool {
      *  "did not throw", which is a lie for anything that has an exit code. */
     outcome?: (result: unknown) => { ok: boolean; action?: AuditAction; detail?: string };
   };
+  /** Bound the generic model-visible text fallback without changing an explicit structured UI projection. */
+  result?: { maxTextBytes?: number; overflowHint?: string };
   /** Per-operation rate limit, mirroring the one its /api/v1 route already applies. */
   limit?: { max: number; windowMs: number; keyArg?: string; key: string };
 }

@@ -1,227 +1,148 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { constants as fsConstants, promises as fs } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
-import { snapshotAgentMemory } from "./memory-store";
-
-import type {
-  AgentSession, AgentSessionEvent, AgentSessionResumePacket, AgentSessionSource, AgentSessionSummary,
-} from "./session-types";
+import { redactText } from "@/lib/security/redact-text";
+import { snapshotAgentMemory, type AgentMemorySnapshot } from "./memory-store";
+import { archiveAgentSession, pruneAgentSessionArchives } from "./session-archive";
+import { listSessionRecords, newAgentSessionId, principalHash, readSessionFile, SESSION_LOCK_TARGET, writeSessionFile } from "./session-files";
+import { autoSessionTitle, compactSessionContext, compactThresholdTokens, estimateTokens, MAX_EVENTS, MAX_HISTORY, safeTitle, sessionContextTokens } from "./session-policy";
+import type { AgentSession, AgentSessionEvent, AgentSessionResumePacket, AgentSessionSource, AgentSessionSummary, AgentSessionTitleSource } from "./session-types";
 export type { AgentSession, AgentSessionEvent, AgentSessionResumePacket, AgentSessionSource, AgentSessionSummary } from "./session-types";
 
-const ROOT = path.resolve(process.env.OS_AGENT_SESSIONS_DIR || path.join(os.homedir(), ".mso", "agent-sessions"));
-const LOCK_TARGET = path.join(ROOT, ".sessions");
-const SESSION_ID = /^\d{8}_\d{6}_[a-f0-9]{8}$/;
-const MAX_SESSION_BYTES = 512 * 1024;
-const MAX_EVENTS = 200;
-const MAX_HISTORY = 48;
-const MAX_LIST = 200;
-
-function principalHash(principal: string): string {
-  if (!principal || principal.length > 512) throw new Error("invalid agent session principal");
-  return createHash("sha256").update(principal).digest("hex");
-}
-
-function fileFor(id: string): string {
-  if (!SESSION_ID.test(id)) throw new Error("invalid agent session id");
-  const candidate = path.resolve(ROOT, `${id}.json`);
-  const relative = path.relative(ROOT, candidate);
-  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error("invalid agent session id");
-  return candidate;
-}
-
-function sessionId(now = new Date()): string {
-  const iso = now.toISOString();
-  const date = iso.slice(0, 10).replaceAll("-", "");
-  const time = iso.slice(11, 19).replaceAll(":", "");
-  return `${date}_${time}_${randomBytes(4).toString("hex")}`;
-}
-
-function safeTitle(value: string | undefined): string {
-  const text = String(value ?? "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim();
-  return (text || "MSO Agent session").slice(0, 120);
-}
-
-function safeDetail(value: string | undefined): string | undefined {
-  const text = String(value ?? "").replace(/[\r\n\t]+/g, " ").trim();
-  return text ? text.slice(0, 500) : undefined;
-}
-
-function normalizeRecord(raw: AgentSession): AgentSession {
-  return {
-    ...raw,
-    title: safeTitle(raw.title),
-    history: Array.isArray(raw.history) ? raw.history.slice(-MAX_HISTORY) : [],
-    events: Array.isArray(raw.events) ? raw.events.slice(-MAX_EVENTS) : [],
-  };
-}
-
-async function readFile(id: string): Promise<AgentSession | null> {
-  const file = fileFor(id);
-  let handle: Awaited<ReturnType<typeof fs.open>> | null = null;
-  try {
-    handle = await fs.open(file, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
-    const stat = await handle.stat();
-    if (!stat.isFile()) throw new Error("agent session must be a regular file");
-    if (stat.size <= 0 || stat.size > MAX_SESSION_BYTES) throw new Error("agent session has an invalid size");
-    if ((stat.mode & 0o077) !== 0) throw new Error("agent session permissions are too broad; expected 0600");
-    if (typeof process.getuid === "function" && stat.uid !== process.getuid()) throw new Error("agent session is not owned by the MSO user");
-    const raw = JSON.parse(await handle.readFile("utf8")) as AgentSession;
-    if (!raw || raw.id !== id || !raw.principalHash || !raw.source) throw new Error("agent session has an invalid shape");
-    return normalizeRecord(raw);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw error;
-  } finally {
-    await handle?.close().catch(() => undefined);
-  }
-}
-
-async function writeFile(record: AgentSession): Promise<void> {
-  await fs.mkdir(ROOT, { recursive: true, mode: 0o700 });
-  await fs.chmod(ROOT, 0o700).catch(() => undefined);
-  const file = fileFor(record.id);
-  const normalized = normalizeRecord(record);
-  const body = JSON.stringify(normalized, null, 2);
-  if (Buffer.byteLength(body, "utf8") > MAX_SESSION_BYTES) throw new Error("agent session exceeds 512 KiB");
-  const tmp = `${file}.${randomUUID()}.tmp`;
-  await fs.writeFile(tmp, body, { encoding: "utf8", mode: 0o600, flag: "wx" });
-  await fs.chmod(tmp, 0o600);
-  await fs.rename(tmp, file);
-  await fs.chmod(file, 0o600);
+interface CreateOptions {
+  id?: string; title?: string; titleSource?: AgentSessionTitleSource; resumedFrom?: string;
+  conversationHash?: string; memorySnapshot?: AgentMemorySnapshot; contextSummary?: string; history?: unknown[];
 }
 
 function summary(record: AgentSession): AgentSessionSummary {
   return {
-    id: record.id,
-    source: record.source,
-    title: record.title,
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
+    id: record.id, source: record.source, title: record.title, titleSource: record.titleSource,
+    createdAt: record.createdAt, updatedAt: record.updatedAt,
     ...(record.resumedFrom ? { resumedFrom: record.resumedFrom } : {}),
-    eventCount: record.events.length,
-    historyTurns: record.history.length,
+    estimatedTokens: record.estimatedTokens, lifetimeEstimatedTokens: record.lifetimeEstimatedTokens,
+    compactThresholdTokens: record.compactThresholdTokens, compactionCount: record.compactionCount,
+    archiveCount: record.archiveCount,
+    ...(record.lastCompactedAt ? { lastCompactedAt: record.lastCompactedAt } : {}),
+    ...(record.lastArchivedAt ? { lastArchivedAt: record.lastArchivedAt } : {}),
+    eventCount: record.events.length, historyTurns: record.history.length,
   };
 }
 
+async function buildRecord(principal: string, source: AgentSessionSource, options: CreateOptions): Promise<AgentSession> {
+  const now = new Date().toISOString();
+  const memorySnapshot = options.memorySnapshot ?? await snapshotAgentMemory(principal);
+  const created: AgentSessionEvent = { at: now, kind: "created", ...(options.resumedFrom ? { detail: `resumed from ${options.resumedFrom}` } : {}) };
+  const record: AgentSession = {
+    id: options.id ?? newAgentSessionId(), principalHash: principalHash(principal), source,
+    title: safeTitle(options.title), titleSource: options.titleSource ?? "default",
+    ...(options.conversationHash ? { conversationHash: options.conversationHash } : {}),
+    createdAt: now, updatedAt: now, ...(options.resumedFrom ? { resumedFrom: options.resumedFrom } : {}),
+    memorySnapshot, ...(options.contextSummary ? { contextSummary: options.contextSummary } : {}),
+    history: (options.history ?? []).slice(-MAX_HISTORY),
+    events: [created],
+    estimatedTokens: 0, lifetimeEstimatedTokens: 0, compactThresholdTokens: compactThresholdTokens(),
+    compactionCount: 0, archiveCount: 0,
+  };
+  const estimatedTokens = sessionContextTokens(record);
+  return { ...record, estimatedTokens, lifetimeEstimatedTokens: estimatedTokens };
+}
+
+async function compactIfNeeded(record: AgentSession, reason: string): Promise<AgentSession> {
+  record.estimatedTokens = sessionContextTokens(record);
+  if (record.estimatedTokens < record.compactThresholdTokens) return record;
+  const now = new Date();
+  await archiveAgentSession(record, reason, now);
+  let next = compactSessionContext(record, now.toISOString());
+  const archived: AgentSessionEvent = { at: now.toISOString(), kind: "archived", detail: `${reason}; 30-day retention` };
+  next = { ...next, events: [...next.events.slice(-(MAX_EVENTS - 1)), archived], archiveCount: record.archiveCount + 1, lastArchivedAt: now.toISOString() };
+  next.estimatedTokens = sessionContextTokens(next);
+  void pruneAgentSessionArchives().catch(() => undefined);
+  return next;
+}
+
 async function requireOwned(principal: string, id: string): Promise<AgentSession> {
-  const record = await readFile(id);
+  const record = await readSessionFile(id);
   if (!record || record.principalHash !== principalHash(principal)) throw new Error("agent session not found for this client");
   return record;
 }
 
-export async function createAgentSession(
-  principal: string,
-  source: AgentSessionSource,
-  options: { title?: string; resumedFrom?: string } = {},
-): Promise<AgentSession> {
-  const id = sessionId();
-  const now = new Date().toISOString();
-  const memorySnapshot = await snapshotAgentMemory(principal);
-  const record: AgentSession = {
-    id,
-    principalHash: principalHash(principal),
-    source,
-    title: safeTitle(options.title),
-    createdAt: now,
-    updatedAt: now,
-    ...(options.resumedFrom ? { resumedFrom: options.resumedFrom } : {}),
-    memorySnapshot,
-    history: [],
-    events: [{ at: now, kind: "created", detail: options.resumedFrom ? `resumed from ${options.resumedFrom}` : undefined }],
-  };
-  await withSecurityStoreLock(LOCK_TARGET, async () => writeFile(record));
-  return record;
+export async function createAgentSession(principal: string, source: AgentSessionSource, options: CreateOptions = {}): Promise<AgentSession> {
+  return withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
+    const record = await buildRecord(principal, source, options);
+    if (await readSessionFile(record.id)) throw new Error("agent session id already exists");
+    await writeSessionFile(record); return record;
+  });
+}
+
+export async function findOrCreateAgentSessionForConversation(principal: string, hash: string, title = "ChatGPT session"): Promise<AgentSession> {
+  if (!/^[a-f0-9]{64}$/.test(hash)) throw new Error("invalid conversation hash");
+  return withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
+    const owner = principalHash(principal);
+    const existing = (await listSessionRecords()).find((row) => row.principalHash === owner && row.source === "mcp" && row.conversationHash === hash);
+    if (existing) return existing;
+    const record = await buildRecord(principal, "mcp", { title, titleSource: "default", conversationHash: hash });
+    await writeSessionFile(record); return record;
+  });
 }
 
 export async function getAgentSession(principal: string, id: string): Promise<AgentSession | null> {
-  const record = await readFile(id);
-  if (!record || record.principalHash !== principalHash(principal)) return null;
-  return record;
+  const record = await readSessionFile(id);
+  return record?.principalHash === principalHash(principal) ? record : null;
 }
 
 export async function listAgentSessions(principal: string, limit = 30): Promise<AgentSessionSummary[]> {
-  const wanted = Math.max(1, Math.min(MAX_LIST, Math.trunc(limit) || 30));
-  let names: string[];
-  try { names = await fs.readdir(ROOT); } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
-  const owner = principalHash(principal);
-  const out: AgentSessionSummary[] = [];
-  for (const name of names) {
-    if (!name.endsWith(".json")) continue;
-    const id = name.slice(0, -5);
-    if (!SESSION_ID.test(id)) continue;
-    try {
-      const record = await readFile(id);
-      if (record?.principalHash === owner) out.push(summary(record));
-    } catch {
-      // A corrupt/unowned row must never make another session visible or take the list endpoint down.
+  const owner = principalHash(principal), wanted = Math.max(1, Math.min(200, Math.trunc(limit) || 30));
+  return (await listSessionRecords()).filter((row) => row.principalHash === owner)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, wanted).map(summary);
+}
+
+export async function listAgentSessionsOwner(limit = 100): Promise<AgentSessionSummary[]> {
+  const wanted = Math.max(1, Math.min(500, Math.trunc(limit) || 100));
+  return (await listSessionRecords()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, wanted).map(summary);
+}
+
+export async function updateAgentSessionHistory(principal: string, id: string, history: unknown[], title?: string, titleSource: AgentSessionTitleSource = "auto"): Promise<AgentSession> {
+  return withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
+    let record = await requireOwned(principal, id);
+    const oldTokens = estimateTokens(record.history), newHistory = Array.isArray(history) ? history.slice(-MAX_HISTORY) : [];
+    record.history = newHistory;
+    record.lifetimeEstimatedTokens += Math.max(0, estimateTokens(newHistory) - oldTokens);
+    if (title && (titleSource === "manual" || record.titleSource !== "manual")) {
+      record.title = safeTitle(title); record.titleSource = titleSource;
     }
-  }
-  return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, wanted);
-}
-
-export async function updateAgentSessionHistory(
-  principal: string,
-  id: string,
-  history: unknown[],
-  title?: string,
-): Promise<AgentSession> {
-  return withSecurityStoreLock(LOCK_TARGET, async () => {
-    const record = await requireOwned(principal, id);
-    record.history = Array.isArray(history) ? history.slice(-MAX_HISTORY) : [];
-    if (title) record.title = safeTitle(title);
-    record.updatedAt = new Date().toISOString();
-    await writeFile(record);
-    return record;
+    record.updatedAt = new Date().toISOString(); record = await compactIfNeeded(record, "context-threshold");
+    await writeSessionFile(record); return record;
   });
 }
 
-export async function appendAgentSessionEvent(
-  principal: string,
-  id: string,
-  event: Omit<AgentSessionEvent, "at"> & { at?: string },
-): Promise<void> {
-  await withSecurityStoreLock(LOCK_TARGET, async () => {
+export async function maybeAutoTitleAgentSession(principal: string, id: string, hint: string): Promise<AgentSession | null> {
+  return withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
     const record = await requireOwned(principal, id);
-    const row: AgentSessionEvent = {
-      at: event.at ?? new Date().toISOString(),
-      kind: event.kind,
-      ...(event.tool ? { tool: event.tool.slice(0, 120) } : {}),
-      ...(event.state ? { state: event.state.slice(0, 40) } : {}),
+    if (record.titleSource === "manual" || record.titleSource === "auto") return record;
+    record.title = autoSessionTitle(hint); record.titleSource = "auto"; record.updatedAt = new Date().toISOString();
+    await writeSessionFile(record); return record;
+  });
+}
+
+export async function renameAgentSession(principal: string, id: string, title: string): Promise<AgentSession> {
+  return updateAgentSessionHistory(principal, id, (await requireOwned(principal, id)).history, title, "manual");
+}
+
+export async function appendAgentSessionEvent(principal: string, id: string, event: Omit<AgentSessionEvent, "at"> & { at?: string }): Promise<void> {
+  await withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
+    let record = await requireOwned(principal, id); const at = event.at ?? new Date().toISOString();
+    const row: AgentSessionEvent = { at, kind: event.kind,
+      ...(event.tool ? { tool: event.tool.slice(0, 120) } : {}), ...(event.state ? { state: event.state.slice(0, 40) } : {}),
       ...(event.workflowId ? { workflowId: event.workflowId.slice(0, 80) } : {}),
-      ...(safeDetail(event.detail) ? { detail: safeDetail(event.detail) } : {}),
-    };
-    record.events = [...record.events, row].slice(-MAX_EVENTS);
-    record.updatedAt = row.at;
-    await writeFile(record);
+      ...(event.detail ? { detail: redactText(event.detail.replace(/[\r\n\t]+/g, " ").trim(), 500) } : {}), };
+    record.events = [...record.events, row].slice(-MAX_EVENTS); record.updatedAt = at;
+    record.lifetimeEstimatedTokens += estimateTokens(row); record = await compactIfNeeded(record, "event-threshold");
+    await writeSessionFile(record);
   });
 }
 
-export async function resumeAgentSession(
-  principal: string,
-  targetId: string,
-  currentId?: string,
-): Promise<AgentSessionResumePacket> {
+export async function resumeAgentSession(principal: string, targetId: string, currentId?: string): Promise<AgentSessionResumePacket> {
   const target = await requireOwned(principal, targetId);
-  if (currentId && currentId !== targetId) {
-    await withSecurityStoreLock(LOCK_TARGET, async () => {
-      const current = await requireOwned(principal, currentId);
-      current.resumedFrom = targetId;
-      current.memorySnapshot = target.memorySnapshot;
-      const now = new Date().toISOString();
-      const resumedEvent: AgentSessionEvent = { at: now, kind: "resumed", detail: `resumed ${targetId}` };
-      current.events = [...current.events, resumedEvent].slice(-MAX_EVENTS);
-      current.updatedAt = now;
-      await writeFile(current);
-    });
-  }
-  return { session: summary(target), memorySnapshot: target.memorySnapshot, recentEvents: target.events.slice(-40) };
+  if (currentId && currentId !== targetId) await appendAgentSessionEvent(principal, currentId, { kind: "resumed", detail: `resumed ${targetId}` });
+  return { session: summary(target), memorySnapshot: target.memorySnapshot, ...(target.contextSummary ? { contextSummary: target.contextSummary } : {}), recentHistory: target.history.slice(-24), recentEvents: target.events.slice(-40) };
 }
 
-export function agentSessionSummary(record: AgentSession): AgentSessionSummary {
-  return summary(record);
-}
+export function agentSessionSummary(record: AgentSession): AgentSessionSummary { return summary(record); }

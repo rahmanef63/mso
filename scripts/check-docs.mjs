@@ -21,6 +21,7 @@ const toolFiles = [
   "lib/mcp/tools-learning.ts",
   "lib/mcp/tools-infra.ts",
   "lib/mcp/tools-power.ts",
+  "lib/mcp/tools-agent.ts",
 ];
 const tools = new Map();
 for (const file of toolFiles) {

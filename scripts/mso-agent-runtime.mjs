@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import process from "node:process";
+import { selectToolsForTurn } from "./mso-agent-tool-router.mjs";
+import { projectHistoryForModel } from "./mso-agent-context.mjs";
 import { C, fit, MSO_TITLE_ART, printAgentBanner } from "./mso-agent-ui.mjs";
 export { C, MSO_TITLE_ART } from "./mso-agent-ui.mjs";
 
@@ -60,6 +62,10 @@ export async function loadCliSession(id) {
   const out = await api(`/api/v1/agent-sessions?id=${encodeURIComponent(id)}`);
   return out.session;
 }
+export async function resumeCliSession(ref) {
+  const out = await api("/api/v1/agent-sessions", { method: "POST", body: JSON.stringify({ action: "resume", ref }) });
+  return out.session;
+}
 export async function listCliSessions(limit = 20) {
   const out = await api(`/api/v1/agent-sessions?limit=${Math.max(1, Math.min(100, Number(limit) || 20))}`);
   return Array.isArray(out.sessions) ? out.sessions : [];
@@ -80,6 +86,7 @@ function sessionSystem(agentSession, skillContext = null) {
   const snapshot = agentSession?.memorySnapshot || {};
   const user = fit(snapshot.user || "", 12000);
   const memory = fit(snapshot.memory || "", 12000);
+  const contextSummary = fit(agentSession?.contextSummary || "", 24000);
   const cwd = process.cwd();
   const skillInstructions = skillContext?.content ? String(skillContext.content).slice(0, 24000) : "";
   const skillProject = skillContext?.project?.path ? ` Project context: ${skillContext.project.name || skillContext.project.id} at ${skillContext.project.path}.` : "";
@@ -89,6 +96,7 @@ function sessionSystem(agentSession, skillContext = null) {
     `Terminal working directory: ${cwd}. Treat a project containing this directory as the current project context unless the user explicitly selects another project.`,
     skillInstructions ? `The user explicitly selected skill ${skillContext.id || skillContext.name} for this turn.${skillProject} Follow these instructions for this turn:\n<SKILL.md>\n${skillInstructions}\n</SKILL.md>` : "",
     "Use the provided tools to do real work instead of only describing commands. Prefer bounded tools over exec_run.",
+    "MSO loads a compact capability subset per turn. If a needed tool is not currently visible, call skills_search; matching tool schemas are loaded on the next tool round without changing permissions.",
     "For setup, first inspect infrastructure with infra_providers_list and live-check configured providers with infra_provider_doctor.",
     "Dokploy, Cloudflare, and Hostinger credentials are entered interactively with `mso provider set <id>` and are never exposed to you; never ask the user to paste API tokens into chat or shell commands.",
     "Use dokploy_* and cloudflare_*/hostinger_* tools after the user has configured those providers. Cloudflare DNS must remain per-record and DNS-only unless the user explicitly asks for proxying.",
@@ -97,6 +105,7 @@ function sessionSystem(agentSession, skillContext = null) {
     "USER.md and MEMORY.md below are a frozen snapshot captured when this MSO session started. Do not silently live-refresh them during this session. Never store secrets in agent memory.",
     user ? `\n<USER.md>\n${user}\n</USER.md>` : "",
     memory ? `\n<MEMORY.md>\n${memory}\n</MEMORY.md>` : "",
+    contextSummary ? `\n<COMPACTED_SESSION_CONTEXT>\n${contextSummary}\n</COMPACTED_SESSION_CONTEXT>` : "",
     "Be concise. Explain only decisions the user needs to make or concrete results/errors.",
   ].filter(Boolean).join(" ");
 }
@@ -112,11 +121,13 @@ function toolForModel(tool) {
  * @param {any} [skillContext]
  * @param {AbortSignal | undefined} [signal]
  */
-export async function streamTurn(messages, tools, agentSession, skillContext = null, signal = undefined) {
+export async function streamTurn(messages, tools, agentSession, skillContext = null, signal = undefined, contextWindow = undefined) {
+  const projected = projectHistoryForModel(messages, contextWindow);
+  const activeTools = selectToolsForTurn(tools, projected.messages, skillContext);
   const res = await fetch(`${BASE}/api/assistant`, {
     method: "POST",
     headers: { origin: ORIGIN, cookie: cookieHeader(), "content-type": "application/json" },
-    body: JSON.stringify({ messages, tools: tools.map(toolForModel), system: sessionSystem(agentSession, skillContext) }),
+    body: JSON.stringify({ messages: projected.messages, tools: activeTools.tools.map(toolForModel), system: sessionSystem(agentSession, skillContext) }),
     signal,
   });
   if (!res.ok || !res.body) {

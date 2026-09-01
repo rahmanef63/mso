@@ -8,8 +8,7 @@ const mocks = vi.hoisted(() => ({
   rateLimited: vi.fn(() => false),
   rateLimitedUntrusted: vi.fn(() => false),
   mcpRequestOriginAllowed: vi.fn(() => true),
-  createAgentSession: vi.fn(),
-  getAgentSession: vi.fn(),
+  findOrCreateAgentSessionForConversation: vi.fn(),
 }));
 
 vi.mock("@/lib/mcp/store", () => ({
@@ -42,8 +41,7 @@ vi.mock("@/lib/host", () => ({
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
 vi.mock("@/lib/agent/session-store", () => ({
-  createAgentSession: mocks.createAgentSession,
-  getAgentSession: mocks.getAgentSession,
+  findOrCreateAgentSessionForConversation: mocks.findOrCreateAgentSessionForConversation,
 }));
 
 function request(body: BodyInit, headers: Record<string, string> = {}) {
@@ -65,8 +63,7 @@ describe("/mcp request boundary", () => {
     mocks.rateLimited.mockClear().mockReturnValue(false);
     mocks.rateLimitedUntrusted.mockClear().mockReturnValue(false);
     mocks.mcpRequestOriginAllowed.mockClear().mockReturnValue(true);
-    mocks.createAgentSession.mockReset().mockResolvedValue({ id: "mso_initialized", source: "mcp" });
-    mocks.getAgentSession.mockReset().mockImplementation(async (_principal: string, id: string) => ({ id, source: "mcp" }));
+    mocks.findOrCreateAgentSessionForConversation.mockReset().mockResolvedValue({ id: "20260901_100000_aabbccdd", source: "mcp" });
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -144,8 +141,28 @@ describe("/mcp request boundary", () => {
       body,
       "read",
       `mcp:${token.hash.slice(0, 16)}`,
-      { principal: `mcp-client:${token.clientId}`, sessionId: "mso_test_session" },
+      undefined,
     );
+  });
+
+  it("binds tools/call to a hashed ChatGPT conversation session without forwarding the raw conversation id", async () => {
+    const token = { hash: "e".repeat(64), scope: "read" as const, clientId: "client-session", label: "Session test" };
+    mocks.validateToken.mockResolvedValue(token);
+    const { POST } = await import("./route");
+    const rawConversation = "chatgpt-conversation-raw-secret-id";
+    const body = { jsonrpc: "2.0", id: 7, method: "tools/call", params: {
+      name: "sys_stats", arguments: {}, _meta: { "openai/session": rawConversation },
+    } };
+    const res = await POST(request(JSON.stringify(body), { "Mcp-Session-Id": "transport-rotated" }));
+    expect(res.status).toBe(200);
+    expect(mocks.findOrCreateAgentSessionForConversation).toHaveBeenCalledTimes(1);
+    const [principal, hash] = mocks.findOrCreateAgentSessionForConversation.mock.calls[0];
+    expect(principal).toBe(`mcp-client:${token.clientId}`);
+    expect(hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(hash).not.toContain(rawConversation);
+    expect(mocks.dispatch).toHaveBeenCalledWith(body, "read", `mcp:${token.hash.slice(0, 16)}`, {
+      principal: `mcp-client:${token.clientId}`, sessionId: "20260901_100000_aabbccdd",
+    });
   });
 
   it("applies the 50,000-call daily token limit", async () => {

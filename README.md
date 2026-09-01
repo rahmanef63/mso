@@ -76,6 +76,7 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 - **Use BYOK AI** — Alfa and the terminal MSO Agent use credentials stored on your server, not committed to the repo. Bare `mso` opens the interactive setup/operations agent. `mso models` manages AI provider/API/OAuth connections; `mso model` only selects the active model from providers that are already connected.
 - **Automate deployment providers without handing tokens to the model** — Dokploy and Cloudflare are built-in feature apps; `mso provider` also supports Hostinger DNS. Secrets stay in owner-only MSO state while bounded provider tools perform live checks and approved deployment/DNS operations. See [docs/INFRASTRUCTURE-PROVIDERS.md](./docs/INFRASTRUCTURE-PROVIDERS.md).
 - **Drive the box from ChatGPT, Codex, Claude Code, Cursor, Gemini CLI or VS Code** — Settings → MCP now provides client-specific numbered setup, copy-ready remote configs, live MCP/OAuth discovery checks, tunnel/domain guidance, and the same OAuth 2.1 + PKCE `read → write → exec` permission ladder enforced server-side. See the [ChatGPT Plugin / custom MCP app guide](./docs/CHATGPT-PLUGIN.md) and [MCP reference](./docs/MCP.md).
+- **Keep agents efficient independently of the model provider** — the MCP-first [Cognitive Runtime](./docs/COGNITIVE-RUNTIME.md) isolates conversations from OAuth identity, budgets model context/tool output, selects a compact per-turn capability set without weakening scopes, compacts durable sessions with sanitized 30-day backup archives, and learns only verified workflow recipes. `bun run bench:cognitive` guards routing recall and context footprint.
 - **Add app slices** — features are modular under `frontend/slices/<slug>/`.
 - **Personalize the interface** — macOS, Windows, iOS, and Android shell layouts are UI preferences, not the core product.
 
@@ -497,6 +498,7 @@ Not currently supported:
 | [docs/CLI.md](./docs/CLI.md) | Generated `mso` command-line reference |
 | [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | Local dev, gates and exact release flow |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Current AppShell/host/MCP/managed-app architecture |
+| [docs/COGNITIVE-RUNTIME.md](./docs/COGNITIVE-RUNTIME.md) | Provider-neutral agent session/context/tool-routing architecture and benchmark contract |
 | [docs/COMPARISON.md](./docs/COMPARISON.md) | Generated comparison methodology, evidence and per-cell notes |
 | [docs/COMPETITIVE-ROADMAP.md](./docs/COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate boundaries and next measurable investments |
 | [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, update, backup/restore and origins |

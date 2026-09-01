@@ -480,7 +480,7 @@ export async function cancelWorkflow(input: {
   const actor = actorKey(input.actor);
   const store = await loadStore();
   const workflow = workflowFor(store, actor, input.workflowId);
-  if (!workflow) throw new Error("workflow_id was not found for this MCP client");
+  if (!workflow) throw new Error("workflow_id was not found for this MSO session");
   removeActiveWorkflow(store, actor, input.workflowId);
   await persist(store);
   const reason = input.reason ? safeMemoryText(input.reason, 500) || undefined : undefined;
@@ -489,19 +489,21 @@ export async function cancelWorkflow(input: {
 
 export async function finishWorkflow(input: {
   actor?: string;
+  recipeActor?: string;
   workflowId: string;
   summary: string;
   success: boolean;
 }): Promise<FinishWorkflowResult> {
   const actor = actorKey(input.actor);
+  const recipeOwner = actorKey(input.recipeActor ?? input.actor);
   const store = await loadStore();
   const workflow = workflowFor(store, actor, input.workflowId);
-  if (!workflow) throw new Error("workflow_id was not found for this MCP client");
+  if (!workflow) throw new Error("workflow_id was not found for this MSO session");
 
   const now = new Date();
   const wallMs = Math.max(0, now.getTime() - new Date(workflow.startedAt).getTime());
   const durationMs = elapsedMs(workflow.steps, wallMs);
-  const existing = closestRecipe(store, actor, workflow.scope, workflow.intent, workflow.project);
+  const existing = closestRecipe(store, recipeOwner, workflow.scope, workflow.intent, workflow.project);
   const previousFastestMs = existing?.fastestDurationMs;
   const summary = safeMemoryText(input.summary, 1200) || (input.success ? "completed" : "failed");
   const vector = embedSkillText(recipeText(workflow.intent, workflow.project, summary));
@@ -516,7 +518,7 @@ export async function finishWorkflow(input: {
     const faster = input.success && (existing.fastestDurationMs == null || durationMs < existing.fastestDurationMs);
     recipe = {
       ...existing,
-      actor,
+      actor: recipeOwner,
       scope: workflow.scope,
       intent: workflow.intent,
       normalizedIntent: normalizeSemanticText(workflow.intent),
@@ -539,7 +541,7 @@ export async function finishWorkflow(input: {
   } else {
     recipe = {
       id: randomUUID(),
-      actor,
+      actor: recipeOwner,
       scope: workflow.scope,
       intent: workflow.intent,
       normalizedIntent: normalizeSemanticText(workflow.intent),
@@ -593,16 +595,20 @@ export async function finishWorkflow(input: {
 
 export async function listLearnedRecipes(access: RecipeAccess): Promise<LearnedRecipe[]> {
   const store = await loadStore();
-  return Object.values(store.recipes)
-    .filter((recipe) => access.ownerView || (recipe.actor === access.actor && allows(access.scope, recipe.scope)))
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const recipes = Object.values(store.recipes);
+  const visible = access.ownerView
+    ? recipes
+    : recipes.filter((recipe) => recipe.actor === access.actor && allows(access.scope, recipe.scope));
+  return visible.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
 export async function markRecipeUsed(id: string, access: RecipeAccess): Promise<void> {
   const store = await loadStore();
   const recipe = store.recipes[id];
   if (!recipe) return;
-  if (!access.ownerView && (recipe.actor !== access.actor || !allows(access.scope, recipe.scope))) return;
+  if (!access.ownerView) {
+    if (recipe.actor !== access.actor || !allows(access.scope, recipe.scope)) return;
+  }
   recipe.lastUsedAt = new Date().toISOString();
   await persist(store);
 }
