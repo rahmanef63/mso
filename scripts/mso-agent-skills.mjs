@@ -118,18 +118,3 @@ export function printSkills(session, C, query = "", cwd = process.cwd()) {
   if (rows.length > visible.length) console.log(`${C.dim}… ${rows.length - visible.length} more; refine with /skills <query>${C.reset}`);
   console.log(`${C.dim}Use /<skill> [prompt], or /skill <exact-id> [prompt] for an ambiguous project skill.${C.reset}`);
 }
-
-export const BUILTIN_SLASH = [
-  "/help", "/session", "/sessions", "/resume", "/model", "/setup", "/providers", "/provider",
-  "/doctor", "/tools", "/skills", "/skill", "/clear", "/exit",
-];
-
-export function slashCompleter(line, session) {
-  const text = String(line || "");
-  const trimmed = text.trimStart();
-  if (!trimmed.startsWith("/") || /\s/.test(trimmed)) return [[], text];
-  const dynamic = slashSkillNames(session.state.skills).map((name) => `/${name}`);
-  const all = [...new Set([...BUILTIN_SLASH, ...dynamic])];
-  const hits = all.filter((item) => item.startsWith(trimmed)).sort();
-  return [hits.length ? hits : all, trimmed];
-}

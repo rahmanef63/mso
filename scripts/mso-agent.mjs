@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import readline from "node:readline/promises";
 import process from "node:process";
 import { canonicalAgentApproval } from "../lib/agent/approval.mjs";
-import { loadSlashSkill, printSkillChoices, printSkills, resolveSlashSkill, slashCompleter } from "./mso-agent-skills.mjs";
+import { loadSlashSkill, printSkillChoices, printSkills, resolveSlashSkill } from "./mso-agent-skills.mjs";
+import { AgentComposer } from "./mso-agent-composer.mjs";
+import { slashCompletionItems } from "./mso-agent-slash.mjs";
 import {
   BASE, CLI, C, api, createCliSession, listCliSessions, loadCliSession,
   printBanner, saveCliSession, state, streamTurn,
@@ -22,7 +23,7 @@ async function executeTool(rl, tool, call, agentSession) {
     console.log(`${C.warn}${C.bold}[${tool.scope.toUpperCase()}] exact tool call${C.reset}`);
     console.log(approval.display);
     console.log(`${C.dim}sha256 ${approval.digest} · ${approval.bytes} bytes${C.reset}`);
-    const answer = (await rl.question("  allow this exact call? [y/N]: ")).trim().toLowerCase();
+    const answer = String(await rl.question("  allow this exact call? [y/N]: ", { history: false }) ?? "").trim().toLowerCase();
     if (answer === "y" || answer === "yes") approved = true;
   }
   if (!approved) return { ok: false, result: "denied by user" };
@@ -187,16 +188,16 @@ async function main() {
     history: Array.isArray(agentSession.history) ? agentSession.history.slice(-48) : [],
     pendingSkill: null,
   };
-  const rl = readline.createInterface({
-    input: process.stdin, output: process.stdout, terminal: true, historySize: 100,
-    completer: (line) => slashCompleter(line, session),
-  });
-  process.on("SIGINT", () => { console.log("\nUse /exit to quit."); });
+  const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C });
+  const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd());
   try {
     while (true) {
       let line = "";
-      try { line = (await rl.question(`\n${C.blue}${C.bold}›${C.reset} `)).trim(); }
-      catch { break; }
+      try {
+        const answer = await rl.question(`\n${C.blue}${C.bold}›${C.reset} `, { complete: completeSlash });
+        if (answer === null) break;
+        line = answer.trim();
+      } catch { break; }
       if (!line) continue;
       if (line.startsWith("/")) {
         try {
