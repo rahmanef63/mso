@@ -39,6 +39,7 @@ const MCP_ONLY: Record<string, string> = {
   "project.function.call": "external MCP clients need one no-shell bridge into project-declared functions; Alfa already has per-call-approved exec.run and must not receive a dynamic per-project tool catalog",
   "fs.upload.file": "external ChatGPT connectors need openai/fileParams to move conversation-generated files onto the VPS; in-shell Alfa already has direct host filesystem access",
   "workflow.start": "the external connector needs an actor-scoped task boundary; Alfa already owns an in-app conversation/run boundary",
+  "workflow.status": "app-only MCP Apps bridge used by the ChatGPT progress component; Alfa already owns its in-shell run state and must not poll the external workflow store",
   "workflow.cancel": "same actor-scoped boundary; external runs need explicit recovery from an interrupted task",
   "workflow.finish": "same actor-scoped learning loop; Alfa recipes can use the session route later without weakening MCP scope semantics",
   "exec.job.start": "external MCP requests have a hard request-time budget and need a bounded resumable shell job; in-shell Alfa can keep using its interactive Terminal/approved exec.run surfaces",
@@ -111,6 +112,9 @@ describe("MCP rate limits mirror the routes", () => {
       // MCP clients and is expensive enough to deserve a much smaller bucket.
       "screen.capture": 10,
       "workflow.memory": 30,
+      // workflow_status is app-only polling. Keep its own bucket so UI refreshes
+      // neither consume lifecycle capacity nor bypass the server-wide token limit.
+      "workflow.status": 30,
       "exec.job.start": 12,
       "exec.job.status": 120,
       "exec.job.cancel": 30,
