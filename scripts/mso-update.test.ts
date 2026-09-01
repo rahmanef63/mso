@@ -12,7 +12,7 @@ const UPDATE_GATEWAYS = path.join(process.cwd(), "scripts/lib/update-gateway-run
 const SERVICE_UPDATE = path.join(process.cwd(), "scripts/mso-service-update");
 const roots: string[] = [];
 function git(cwd: string, ...args: string[]) { return execFileSync("git", args, { cwd, encoding: "utf8" }).trim(); }
-function fixture(options: { failInstallOnce?: boolean; activeService?: "same" | "other"; installDelayMs?: number } = {}) {
+function fixture(options: { failInstallOnce?: boolean; activeService?: "same" | "other"; installDelayMs?: number; serviceBuild?: "old" | "newer" } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mso-update-")); roots.push(root);
   const repo = path.join(root, "repo"), remote = path.join(root, "remote.git"), bin = path.join(root, "bin"), capture = path.join(root, "capture");
   fs.mkdirSync(path.join(repo, "scripts/lib"), { recursive: true }); fs.mkdirSync(path.join(repo, "bin")); fs.mkdirSync(bin);
@@ -60,6 +60,10 @@ if [ "$1" = show ]; then printf '%s\n' "${serviceRoot}"; exit 0; fi
 if [ "$1" = --user ]; then exit 1; fi
 exit 3
 `, { mode: 0o755 });
+  if (options.serviceBuild) {
+    const build = options.serviceBuild === "newer" ? newer.slice(0, 7) : old.slice(0, 7);
+    fs.writeFileSync(path.join(bin, "curl"), `#!/bin/sh\nprintf '%s\n' '{"status":"ok","service":"mso","buildSha":"${build}"}'\n`, { mode: 0o755 });
+  }
   const failOnce = path.join(root, "fail-install-once");
   fs.writeFileSync(path.join(bin, "bun"), `#!/bin/sh
 printf 'bun %s\\n' "$*" >> "${capture}"
@@ -127,6 +131,16 @@ describe("mso update without a running web API", () => {
     expect(calls).toContain("runtime-assert-update-safe");
     expect(calls).not.toContain("bun install");
     expect(calls).not.toContain("node node_modules/next/dist/bin/next build");
+  });
+
+
+  it("does not launch a redundant service rebuild when source and runtime already match", () => {
+    const f = fixture({ activeService: "same", serviceBuild: "newer" });
+    git(f.repo, "reset", "--hard", "-q", f.newer);
+    const out = execFileSync(SCRIPT, [], { env: f.env, encoding: "utf8" });
+    expect(out).toContain("is already up to date");
+    expect(out).toContain("no rebuild needed");
+    expect(fs.existsSync(f.capture)).toBe(false);
   });
 
   it("refuses update handoff when the active mso.service belongs to another checkout", () => {

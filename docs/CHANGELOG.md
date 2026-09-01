@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `cli` make updates visible and idempotent
 - `mcp` preserve app-only workflow status schema
 
 ## 2026-08-31

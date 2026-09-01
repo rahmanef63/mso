@@ -192,17 +192,78 @@ offline_build() {
   update_with_lock offline_build_locked "$1"
 }
 
+service_source_matches_runtime() {
+  local relation ahead behind head running_sha
+  fetch_main
+  read -r relation ahead behind < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
+  [ "$relation" = exact ] || return 1
+  head="$(git -C "$ROOT" rev-parse HEAD)"
+  running_sha="$(service_build_sha 2>/dev/null || true)"
+  [ -n "$running_sha" ] && [[ "$head" = "$running_sha"* ]]
+}
+
+update_unit_active() {
+  local state
+  state="$(systemctl --user show -p ActiveState --value mso-self-update.service 2>/dev/null || true)"
+  case "$state" in activating|active|reloading|deactivating) return 0 ;; *) return 1 ;; esac
+}
+
+update_stage() {
+  [ -f "$LOG" ] || return 0
+  sed -n 's/^\[[^]]*\] == /  • /p' "$LOG" | tail -1
+}
+
+wait_for_service_update() {
+  local last='' stage='' loops=0 max_loops=1800
+  printf 'Updating MSO…\n'
+  while update_unit_active; do
+    stage="$(update_stage)"
+    if [ -n "$stage" ] && [ "$stage" != "$last" ]; then
+      printf '%s\n' "$stage"
+      last="$stage"
+    fi
+    sleep 1
+    loops=$((loops + 1))
+    [ "$loops" -lt "$max_loops" ] || fail "update is still running after 30 minutes; inspect: mso update log"
+  done
+  if ! grep -qx 'UPDATE OK' "$LOG" 2>/dev/null; then
+    tail -n 40 "$LOG" 2>/dev/null || true
+    fail "update did not finish successfully; inspect: mso update log"
+  fi
+  local head running version
+  head="$(git -C "$ROOT" rev-parse HEAD)"
+  running="$(service_build_sha 5 2>/dev/null || true)"
+  version="$(current_version)"
+  if [ -n "$running" ] && [[ "$head" = "$running"* ]]; then
+    printf '✓ MSO %s is ready (%s)\n' "${version:-unknown}" "${head:0:7}"
+  else
+    printf '✓ update finished; verifying runtime may take a moment. Check: mso update status\n'
+  fi
+}
+
 run_update() {
   local rebuild_only="$1" arg=""
   require_checkout
   [ "$rebuild_only" != 1 ] || arg="--rebuild-only"
   if service_is_active; then
     require_service_checkout
+    if [ "$rebuild_only" != 1 ] && service_source_matches_runtime; then
+      printf 'mso %s is already up to date (%s); no rebuild needed.\n' "$(current_version)" "$(git -C "$ROOT" rev-parse --short HEAD)"
+      return 0
+    fi
     if command -v systemd-run >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
       mkdir -p "$(dirname "$LOG")"; chmod 700 "$(dirname "$LOG")" 2>/dev/null || true
-      systemd-run --user --collect --unit=mso-self-update --property=TimeoutStartSec=3600 \
-        "--property=WorkingDirectory=$ROOT" "--setenv=MSO_UPDATE_LOG=$LOG" /bin/bash "$ROOT/scripts/mso-service-update" $arg >/dev/null
-      printf 'update started safely outside mso.service. Follow: mso update log\n'
+      if update_unit_active; then
+        printf 'an MSO update is already running.\n'
+      else
+        systemd-run --user --collect --unit=mso-self-update --property=TimeoutStartSec=3600 \
+          "--property=WorkingDirectory=$ROOT" "--setenv=MSO_UPDATE_LOG=$LOG" /bin/bash "$ROOT/scripts/mso-service-update" $arg >/dev/null
+      fi
+      if [ -t 1 ]; then
+        wait_for_service_update
+      else
+        printf 'update started safely outside mso.service. Follow: mso update log\n'
+      fi
     else
       /bin/bash "$ROOT/scripts/mso-service-update" $arg
       tail -n 30 "$LOG" 2>/dev/null || true
