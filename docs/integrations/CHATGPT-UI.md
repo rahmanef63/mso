@@ -47,9 +47,9 @@ The component is self-contained: no external JavaScript, CSS, images, or direct 
 
 ## Dedicated UI origin
 
-OpenAI permits the default sandbox origin during development. For plugin submission with UI, `_meta.ui.domain` must be a dedicated HTTPS origin unique to the plugin. MSO therefore does **not** claim the main dashboard origin as its widget origin by default.
+For the current custom connector, MSO intentionally leaves `_meta.ui.domain` unset so ChatGPT uses its default sandbox origin. The main dashboard origin is not reused as the widget origin.
 
-Set `OS_MCP_UI_DOMAIN` only after a dedicated origin has been provisioned and approved, for example a UI-specific subdomain. MSO normalizes it to an HTTPS origin and emits both `_meta.ui.domain` and the ChatGPT compatibility alias `openai/widgetDomain`. If the variable is absent or invalid, the domain fields are omitted and ChatGPT uses its default sandbox origin.
+Before submitting a UI-enabled MSO integration to the ChatGPT app directory, provision a dedicated HTTPS origin unique to the MSO widget and add that reviewed origin to `_meta.ui.domain` (plus the `openai/widgetDomain` compatibility alias if still required by the target client). Treat that as a release/submission configuration change rather than an arbitrary runtime environment knob.
 
 The dashboard navigation target is separate: `openai/widgetCSP.redirect_domains` allowlists `https://mso.rahmanef.com` solely for the **Open in MSO** action.
 
