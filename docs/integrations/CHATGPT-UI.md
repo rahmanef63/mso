@@ -29,7 +29,7 @@ Official references:
 
 `workflow_start` is the model-visible entry point. Its result renders `ui://mso/workflow-progress-v1.html` when the host supports MCP Apps.
 
-The component then uses `workflow_status` to refresh the visible card. `workflow_status` is marked `ui.visibility: ["app"]` so it is a component bridge, not another tool the model needs to reason about. Polling is deliberately excluded from MSO activity/workflow-step persistence; otherwise a four-second UI refresh would teach workflow memory a fake sequence made mostly of `workflow_status` calls.
+The component then uses `workflow_status` to refresh the visible card. `workflow_status` is marked `ui.visibility: ["app"]` so it is a component bridge, not another model/operator action. Polling is deliberately excluded from MSO activity/workflow-step persistence; otherwise a four-second UI refresh would teach workflow memory a fake sequence made mostly of `workflow_status` calls.
 
 ## Data boundary
 
@@ -44,6 +44,14 @@ The progress component receives only:
 It does **not** receive tool arguments, shell commands, file contents, bearer tokens, API keys, credentials, or raw audit details. The existing workflow-memory redaction remains the authority for persisted workflow evidence.
 
 The component is self-contained: no external JavaScript, CSS, images, or direct API fetches are required. `Open in MSO` uses the host navigation bridge to `https://mso.rahmanef.com` instead of sharing an authenticated browser session with the iframe.
+
+## Dedicated UI origin
+
+OpenAI permits the default sandbox origin during development. For plugin submission with UI, `_meta.ui.domain` must be a dedicated HTTPS origin unique to the plugin. MSO therefore does **not** claim the main dashboard origin as its widget origin by default.
+
+Set `OS_MCP_UI_DOMAIN` only after a dedicated origin has been provisioned and approved, for example a UI-specific subdomain. MSO normalizes it to an HTTPS origin and emits both `_meta.ui.domain` and the ChatGPT compatibility alias `openai/widgetDomain`. If the variable is absent or invalid, the domain fields are omitted and ChatGPT uses its default sandbox origin.
+
+The dashboard navigation target is separate: `openai/widgetCSP.redirect_domains` allowlists `https://mso.rahmanef.com` solely for the **Open in MSO** action.
 
 ## Expected ChatGPT flow
 
