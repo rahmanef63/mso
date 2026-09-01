@@ -28,6 +28,7 @@ restart: unless-stopped
 host bind: 127.0.0.1:20128 -> container 20128 (0.0.0.0 only with NINE_ROUTER_EXPOSE_PUBLIC=1)
 state: ~/.9router -> /app/data
 DATA_DIR: /app/data
+proxy network: joins `NINE_ROUTER_PROXY_NETWORK` (default `dokploy-network`) when that network exists, while keeping the host port loopback-only
 health: GET http://127.0.0.1:20128/api/health
 health/version display: GET http://127.0.0.1:20128/api/health and /api/version
 update identity: running RepoDigest == security/managed-app-artifacts.env
@@ -78,8 +79,7 @@ widened session cookie is actually issued. When this route exists, MSO prefers i
 public-IP fallback and renders the dashboard in-shell. A failing domain must still not make the
 running 9Router runtime appear unavailable.
 
-An older standalone hostname such as `9-router.example.com` may continue proxying directly
-to port 20128. MSO does not need to delete or replace it when enabling managed-app support.
+An older standalone hostname such as `9-router.example.com` should proxy over the shared internal Docker network to `http://9router:20128` when Traefik runs in Docker. Do not target the host bridge IP while the host publish remains loopback-only. MSO does not need to delete or replace it when enabling managed-app support.
 
 ## CLI view
 
