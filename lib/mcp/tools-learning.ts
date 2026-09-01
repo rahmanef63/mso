@@ -1,14 +1,56 @@
 import { inspectProject, resolveProjectHint } from "@/lib/host";
-import { cancelWorkflow, finishWorkflow, markRecipeUsed, startWorkflow } from "@/lib/skills/memory";
+import { activeWorkflowForActor, cancelWorkflow, finishWorkflow, markRecipeUsed, startWorkflow } from "@/lib/skills/memory";
 import { searchSkillMemory } from "@/lib/skills/search";
 import { allows } from "./scope";
 import { type McpTool, str, opt, S } from "./tool-kit";
 import { toolsetInfo } from "./toolset";
+import { WORKFLOW_PROGRESS_URI } from "./ui-resources";
 
 const visibleTools = async (scope: "read" | "write" | "exec"): Promise<McpTool[]> => {
   const { TOOLS } = await import("./tools");
   return TOOLS.filter((tool) => allows(scope, tool.scope));
 };
+
+const WORKFLOW_START_OUTPUT = {
+  type: "object",
+  properties: {
+    workflow: { type: "object", additionalProperties: true },
+    bootstrap: { type: "object", additionalProperties: true },
+    search: { type: "object", additionalProperties: true },
+    instruction: { type: "string" },
+  },
+  required: ["workflow", "bootstrap", "search", "instruction"],
+  additionalProperties: true,
+} as const;
+
+const WORKFLOW_STATUS_OUTPUT = {
+  type: "object",
+  properties: {
+    active: { type: "boolean" },
+    workflowId: { type: "string" },
+    intent: { type: "string" },
+    project: { type: "string" },
+    startedAt: { type: "string" },
+    elapsedMs: { type: "number" },
+    stepCount: { type: "number" },
+    steps: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          tool: { type: "string" },
+          state: { type: "string" },
+          durationMs: { type: "number" },
+          ts: { type: "string" },
+        },
+        required: ["tool", "state", "ts"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["active", "workflowId", "stepCount", "steps"],
+  additionalProperties: false,
+} as const;
 
 export const LEARNING_TOOLS: McpTool[] = [
   {
@@ -16,9 +58,16 @@ export const LEARNING_TOOLS: McpTool[] = [
     description:
       "The ONE startup call for a multi-step task. It starts the workflow, searches trusted skills and prior recipes, " +
       "resolves project aliases, reports the current toolset/version, and inspects repository context when available. " +
-      "Do not call skills_search first for the same task; this already includes it. Multiple conversations may start isolated workflows on the same token; correlate every later step with the returned workflow_id.",
+      "Do not call skills_search first for the same task; this already includes it. Multiple conversations may start isolated workflows on one token; correlate every later step with the returned workflow_id.",
     scope: "write",
     annotations: { idempotentHint: false },
+    outputSchema: WORKFLOW_START_OUTPUT,
+    meta: {
+      ui: { resourceUri: WORKFLOW_PROGRESS_URI, visibility: ["model", "app"] },
+      "openai/outputTemplate": WORKFLOW_PROGRESS_URI,
+      "openai/toolInvocation/invoking": "Starting MSO workflow…",
+      "openai/toolInvocation/invoked": "MSO workflow ready",
+    },
     limit: { key: "workflow.memory", max: 30, windowMs: 60_000 },
     audit: { action: "workflow.start" as const, targetArg: "project" },
     inputSchema: S({
@@ -89,6 +138,45 @@ export const LEARNING_TOOLS: McpTool[] = [
         },
         search,
         instruction: "Use the returned project, trusted skill, and safe recipe directly. Verify the result, then call workflow_finish.",
+      };
+    },
+  },
+  {
+    name: "workflow_status",
+    description:
+      "Return a redacted live status snapshot for one workflow. This tool exists for the MSO ChatGPT progress widget: it exposes only workflow identity, timing and high-level tool outcomes, never tool arguments, command strings, file contents or credentials.",
+    scope: "read",
+    annotations: { readOnlyHint: true, idempotentHint: true },
+    outputSchema: WORKFLOW_STATUS_OUTPUT,
+    meta: {
+      ui: { visibility: ["app"] },
+      "openai/widgetAccessible": true,
+    },
+    limit: { key: "workflow.status", max: 30, windowMs: 60_000 },
+    inputSchema: S({
+      workflow_id: { type: "string", description: "Exact id returned by workflow_start." },
+    }),
+    run: async (a, context) => {
+      const workflowId = str(a, "workflow_id");
+      const workflow = await activeWorkflowForActor(context.actor, workflowId);
+      if (!workflow) {
+        return { active: false, workflowId, stepCount: 0, steps: [] };
+      }
+      const started = Date.parse(workflow.startedAt);
+      return {
+        active: true,
+        workflowId,
+        intent: workflow.intent,
+        ...(workflow.project ? { project: workflow.project } : {}),
+        startedAt: workflow.startedAt,
+        elapsedMs: Number.isFinite(started) ? Math.max(0, Date.now() - started) : 0,
+        stepCount: workflow.steps.length,
+        steps: workflow.steps.slice(-8).map((step) => ({
+          tool: step.tool,
+          state: step.state,
+          ...(typeof step.durationMs === "number" ? { durationMs: step.durationMs } : {}),
+          ts: step.ts,
+        })),
       };
     },
   },
