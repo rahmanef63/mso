@@ -67,4 +67,42 @@ describe("durable agent session context policy", () => {
     expect(current?.title).toBe("Manual name");
     expect(current?.titleSource).toBe("manual");
   });
+
+  it("deduplicates parallel calls for one conversation without a global session lock", async () => {
+    const principal = "principal:parallel-same";
+    const hash = "a".repeat(64);
+    const rows = await Promise.all(Array.from({ length: 32 }, () =>
+      store.findOrCreateAgentSessionForConversation(principal, hash, "Parallel conversation"),
+    ));
+    expect(new Set(rows.map((row) => row.id)).size).toBe(1);
+    const listed = await store.listAgentSessions(principal, 100);
+    expect(listed).toHaveLength(1);
+    expect(listed[0].source).toBe("mcp");
+  });
+
+  it("lets unrelated conversations create sessions concurrently", async () => {
+    const principal = "principal:parallel-many";
+    const hashes = Array.from({ length: 24 }, (_, i) => i.toString(16).padStart(64, "0"));
+    const rows = await Promise.all(hashes.map((hash) =>
+      store.findOrCreateAgentSessionForConversation(principal, hash, `Conversation ${hash.slice(-2)}`),
+    ));
+    expect(new Set(rows.map((row) => row.id)).size).toBe(hashes.length);
+    expect(await store.listAgentSessions(principal, 100)).toHaveLength(hashes.length);
+  });
+
+  it("backfills legacy conversation refs once and marks the hot-path index ready", async () => {
+    const principal = "principal:legacy-index";
+    const hash = "f".repeat(64);
+    const legacy = await store.createAgentSession(principal, "mcp", {
+      title: "Legacy indexed conversation", conversationHash: hash,
+    });
+    const files = await import("./session-files");
+    expect(await files.conversationIndexReady()).toBe(false);
+    const backfill = await files.backfillConversationIndex();
+    expect(backfill.conversations).toBeGreaterThan(0);
+    expect(await files.conversationIndexReady()).toBe(true);
+    const resolved = await store.findOrCreateAgentSessionForConversation(principal, hash, "Should not duplicate");
+    expect(resolved.id).toBe(legacy.id);
+  });
+
 });

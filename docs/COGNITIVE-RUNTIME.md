@@ -39,6 +39,12 @@ session owner derived from `principal + durable session id`; recipes use the sta
 second conversation can learn from a successful route without being able to status/finish/cancel the first
 conversation's live run.
 
+Conversation correlation is indexed durably under the private agent-session root. MSO backfills legacy P0
+conversation hashes once at Node startup, then resolves normal MCP calls through an O(1) owner+conversation
+reference. Creation is locked per conversation and record mutation is locked per durable session; unrelated
+chats no longer queue behind one global session-store lock. The index stores only the already-hashed
+conversation key and internal MSO session id, never the raw ChatGPT conversation id.
+
 ## Context lifecycle
 
 MSO keeps **durable session context** separate from the **model-active context** sent on one turn.

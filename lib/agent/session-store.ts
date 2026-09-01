@@ -2,7 +2,10 @@ import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { redactText } from "@/lib/security/redact-text";
 import { snapshotAgentMemory, type AgentMemorySnapshot } from "./memory-store";
 import { archiveAgentSession, pruneAgentSessionArchives } from "./session-archive";
-import { listSessionRecords, newAgentSessionId, principalHash, readSessionFile, SESSION_LOCK_TARGET, writeSessionFile } from "./session-files";
+import {
+  conversationIndexReady, conversationLockTarget, listSessionRecords, newAgentSessionId, principalHash,
+  readConversationSession, readSessionFile, sessionLockTarget, writeConversationRef, writeSessionFile,
+} from "./session-files";
 import { autoSessionTitle, compactSessionContext, compactThresholdTokens, estimateTokens, MAX_EVENTS, MAX_HISTORY, safeTitle, sessionContextTokens } from "./session-policy";
 import type { AgentSession, AgentSessionEvent, AgentSessionResumePacket, AgentSessionSource, AgentSessionSummary, AgentSessionTitleSource } from "./session-types";
 export type { AgentSession, AgentSessionEvent, AgentSessionResumePacket, AgentSessionSource, AgentSessionSummary } from "./session-types";
@@ -65,8 +68,8 @@ async function requireOwned(principal: string, id: string): Promise<AgentSession
 }
 
 export async function createAgentSession(principal: string, source: AgentSessionSource, options: CreateOptions = {}): Promise<AgentSession> {
-  return withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
-    const record = await buildRecord(principal, source, options);
+  const record = await buildRecord(principal, source, options);
+  return withSecurityStoreLock(sessionLockTarget(record.id), async () => {
     if (await readSessionFile(record.id)) throw new Error("agent session id already exists");
     await writeSessionFile(record); return record;
   });
@@ -74,12 +77,28 @@ export async function createAgentSession(principal: string, source: AgentSession
 
 export async function findOrCreateAgentSessionForConversation(principal: string, hash: string, title = "ChatGPT session"): Promise<AgentSession> {
   if (!/^[a-f0-9]{64}$/.test(hash)) throw new Error("invalid conversation hash");
-  return withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
-    const owner = principalHash(principal);
-    const existing = (await listSessionRecords()).find((row) => row.principalHash === owner && row.source === "mcp" && row.conversationHash === hash);
-    if (existing) return existing;
+  const owner = principalHash(principal);
+  const indexed = await readConversationSession(owner, hash);
+  if (indexed) return indexed;
+  return withSecurityStoreLock(conversationLockTarget(owner, hash), async () => {
+    const current = await readConversationSession(owner, hash);
+    if (current) return current;
+    // Normal Next startup backfills the durable index before accepting requests,
+    // keeping later conversation lookups O(1). The scan is only a compatibility
+    // fallback for direct library use that bypassed instrumentation startup.
+    if (!(await conversationIndexReady())) {
+      const legacy = (await listSessionRecords()).find((row) =>
+        row.principalHash === owner && row.source === "mcp" && row.conversationHash === hash,
+      );
+      if (legacy) {
+        await writeConversationRef(owner, hash, legacy.id);
+        return legacy;
+      }
+    }
     const record = await buildRecord(principal, "mcp", { title, titleSource: "default", conversationHash: hash });
-    await writeSessionFile(record); return record;
+    await writeSessionFile(record);
+    await writeConversationRef(owner, hash, record.id);
+    return record;
   });
 }
 
@@ -100,7 +119,7 @@ export async function listAgentSessionsOwner(limit = 100): Promise<AgentSessionS
 }
 
 export async function updateAgentSessionHistory(principal: string, id: string, history: unknown[], title?: string, titleSource: AgentSessionTitleSource = "auto"): Promise<AgentSession> {
-  return withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
+  return withSecurityStoreLock(sessionLockTarget(id), async () => {
     let record = await requireOwned(principal, id);
     const oldTokens = estimateTokens(record.history), newHistory = Array.isArray(history) ? history.slice(-MAX_HISTORY) : [];
     record.history = newHistory;
@@ -114,7 +133,7 @@ export async function updateAgentSessionHistory(principal: string, id: string, h
 }
 
 export async function maybeAutoTitleAgentSession(principal: string, id: string, hint: string): Promise<AgentSession | null> {
-  return withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
+  return withSecurityStoreLock(sessionLockTarget(id), async () => {
     const record = await requireOwned(principal, id);
     if (record.titleSource === "manual" || record.titleSource === "auto") return record;
     record.title = autoSessionTitle(hint); record.titleSource = "auto"; record.updatedAt = new Date().toISOString();
@@ -123,11 +142,15 @@ export async function maybeAutoTitleAgentSession(principal: string, id: string, 
 }
 
 export async function renameAgentSession(principal: string, id: string, title: string): Promise<AgentSession> {
-  return updateAgentSessionHistory(principal, id, (await requireOwned(principal, id)).history, title, "manual");
+  return withSecurityStoreLock(sessionLockTarget(id), async () => {
+    const record = await requireOwned(principal, id);
+    record.title = safeTitle(title); record.titleSource = "manual"; record.updatedAt = new Date().toISOString();
+    await writeSessionFile(record); return record;
+  });
 }
 
 export async function appendAgentSessionEvent(principal: string, id: string, event: Omit<AgentSessionEvent, "at"> & { at?: string }): Promise<void> {
-  await withSecurityStoreLock(SESSION_LOCK_TARGET, async () => {
+  await withSecurityStoreLock(sessionLockTarget(id), async () => {
     let record = await requireOwned(principal, id); const at = event.at ?? new Date().toISOString();
     const row: AgentSessionEvent = { at, kind: event.kind,
       ...(event.tool ? { tool: event.tool.slice(0, 120) } : {}), ...(event.state ? { state: event.state.slice(0, 40) } : {}),

@@ -6,12 +6,17 @@ import type { Instrumentation } from "next";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  // Enforce private session-archive retention at boot even when no new session
-  // reaches the compaction threshold for weeks. Best-effort: retention cleanup
-  // must never make the application fail to start.
-  void import("./lib/agent/session-archive")
-    .then(({ pruneAgentSessionArchives }) => pruneAgentSessionArchives())
-    .catch(() => undefined);
+  // Warm durable agent-session maintenance before accepting requests. Backfilling
+  // the conversation index once at boot keeps MCP lookup O(1) even on hosts with
+  // thousands of old CLI sessions; archive retention remains best-effort.
+  await Promise.all([
+    import("./lib/agent/session-files")
+      .then(({ backfillConversationIndex }) => backfillConversationIndex())
+      .catch(() => undefined),
+    import("./lib/agent/session-archive")
+      .then(({ pruneAgentSessionArchives }) => pruneAgentSessionArchives())
+      .catch(() => undefined),
+  ]);
   // systemd liveness: when the unit sets WatchdogSec, systemd exposes
   // NOTIFY_SOCKET + WATCHDOG_USEC. Node has no native AF_UNIX SOCK_DGRAM
   // (dgram is UDP-only), so we ping via the `systemd-notify` binary — which
