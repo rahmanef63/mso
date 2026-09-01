@@ -15,6 +15,7 @@ describe("MSO Agent slash completion catalog", () => {
     const rows = slashCompletionItems(skills, "/", "/home/rahman");
     expect(rows[0]).toMatchObject({ text: "/help", kind: "command" });
     expect(rows.map((row) => row.text)).toContain("/design");
+    expect(rows.map((row) => row.text)).toContain("/quit");
     expect(rows.map((row) => row.text)).not.toContain("/unsafe");
   });
 

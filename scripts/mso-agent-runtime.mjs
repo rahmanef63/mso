@@ -105,11 +105,19 @@ function toolForModel(tool) {
   return { name: tool.name, description: tool.description, input_schema: tool.inputSchema || { type: "object", properties: {} } };
 }
 
-export async function streamTurn(messages, tools, agentSession, skillContext = null) {
+/**
+ * @param {Array<any>} messages
+ * @param {Array<any>} tools
+ * @param {any} agentSession
+ * @param {any} [skillContext]
+ * @param {AbortSignal | undefined} [signal]
+ */
+export async function streamTurn(messages, tools, agentSession, skillContext = null, signal = undefined) {
   const res = await fetch(`${BASE}/api/assistant`, {
     method: "POST",
     headers: { origin: ORIGIN, cookie: cookieHeader(), "content-type": "application/json" },
     body: JSON.stringify({ messages, tools: tools.map(toolForModel), system: sessionSystem(agentSession, skillContext) }),
+    signal,
   });
   if (!res.ok || !res.body) {
     let body = {}; try { body = await res.json(); } catch {}

@@ -211,7 +211,14 @@ Interactive model/provider menus use a native picker: **↑/↓** moves, typing 
 selects, and **Esc** cancels. No provider/model number has to be memorized. In the Agent slash
 palette, executable skills carry lifecycle markers so their state is visible before and after use:
 `◇ ready` → `◆ queued` (selected for the next message) → `✓ invoked` (actually sent with a model turn).
-The compact status line mirrors queued/invoked skill state.
+The compact status line mirrors queued/invoked skill state. Terminal controls follow familiar
+agent/shell conventions: **Ctrl+C** clears a non-empty draft, exits from an empty idle prompt, and
+interrupts an active model/tool turn; **Ctrl+D** deletes the character to the right or exits on an
+empty prompt; **Ctrl+L** clears/repaints; **Ctrl+W** deletes the previous word; **↑/↓** or
+**Ctrl+P/N** browse input history; **Ctrl+A/E** and **Ctrl+B/F** move to line boundaries or one
+character. `/quit` is an alias for `/exit`. An interrupted turn is removed from durable conversation
+history so `--continue` never resumes a half-turn. Server-side jobs that were already created retain
+their own bounded job/cancel lifecycle.
 
 If it explicitly says the current shell cannot see the user launcher yet, run the one-line
 `export PATH="$HOME/.local/bin:$PATH"` it prints; new shells use the persisted profile entry.

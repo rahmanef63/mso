@@ -5,10 +5,27 @@ const CLEAR_LINE = "\x1b[2K";
 const CURSOR_UP = (n) => n > 0 ? `\x1b[${n}A` : "";
 const CURSOR_DOWN = (n) => n > 0 ? `\x1b[${n}B` : "";
 const CURSOR_RIGHT = (n) => n > 0 ? `\x1b[${n}C` : "";
+const CLEAR_SCREEN = "\x1b[2J\x1b[H";
 const plain = (value) => String(value ?? "").replace(/\x1b\[[0-9;]*m/g, "");
 const chars = (value) => Array.from(String(value ?? ""));
 const width = (value) => chars(plain(value)).length;
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+export function wordLeftIndex(value, cursor) {
+  const row = chars(value);
+  let index = clamp(cursor, 0, row.length);
+  while (index > 0 && /\s/u.test(row[index - 1])) index--;
+  while (index > 0 && !/\s/u.test(row[index - 1])) index--;
+  return index;
+}
+
+export function wordRightIndex(value, cursor) {
+  const row = chars(value);
+  let index = clamp(cursor, 0, row.length);
+  while (index < row.length && /\s/u.test(row[index])) index++;
+  while (index < row.length && !/\s/u.test(row[index])) index++;
+  return index;
+}
 
 function fit(value, max) {
   const row = chars(plain(value).replace(/[\r\n\t]+/g, " "));
@@ -81,7 +98,7 @@ export class AgentComposer {
     readline.emitKeypressEvents(this.input);
   }
 
-  async question(prompt, { complete = null, history = true } = {}) {
+  async question(prompt, { complete = null, history = true, onCancel = null } = {}) {
     if (this.closed) return null;
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
@@ -152,10 +169,13 @@ export class AgentComposer {
       };
       const onKey = (str, key = {}) => {
         const items = matches();
-        if (key.ctrl && key.name === "d" && !value) return finish(null, false);
         if (key.ctrl && key.name === "c") {
           if (value) return edit("", 0);
-          erase(); output.write("^C\r\n"); cleanup(); return resolve("");
+          if (typeof onCancel === "function") onCancel();
+          erase(); output.write("^C\r\n"); cleanup(); return resolve(null);
+        }
+        if (key.ctrl && key.name === "l") {
+          output.write(CLEAR_SCREEN); reservedMenuRows = 0; return render();
         }
         if (key.name === "escape") { dismissed = true; selected = 0; return render(); }
         if (items.length && (key.name === "up" || key.name === "down")) {
@@ -171,15 +191,26 @@ export class AgentComposer {
           if (items.length && items[selected]?.text) return apply(items[selected]);
           return finish(value);
         }
-        if (key.name === "up" && !items.length) return historyMove(-1);
-        if (key.name === "down" && !items.length) return historyMove(1);
+        if ((key.name === "up" && !items.length) || (key.ctrl && key.name === "p")) return historyMove(-1);
+        if ((key.name === "down" && !items.length) || (key.ctrl && key.name === "n")) return historyMove(1);
         const row = chars(value);
-        if (key.name === "left") { cursor = Math.max(0, cursor - 1); return render(); }
-        if (key.name === "right") { cursor = Math.min(row.length, cursor + 1); return render(); }
+        if (key.ctrl && key.name === "d") {
+          if (!value) return finish(null, false);
+          if (cursor < row.length) return edit([...row.slice(0, cursor), ...row.slice(cursor + 1)].join(""), cursor);
+          return render();
+        }
+        if (((key.ctrl || key.meta) && key.name === "left") || (key.meta && key.name === "b")) { cursor = wordLeftIndex(value, cursor); return render(); }
+        if (((key.ctrl || key.meta) && key.name === "right") || (key.meta && key.name === "f")) { cursor = wordRightIndex(value, cursor); return render(); }
+        if (key.name === "left" || (key.ctrl && key.name === "b")) { cursor = Math.max(0, cursor - 1); return render(); }
+        if (key.name === "right" || (key.ctrl && key.name === "f")) { cursor = Math.min(row.length, cursor + 1); return render(); }
         if (key.name === "home" || (key.ctrl && key.name === "a")) { cursor = 0; return render(); }
         if (key.name === "end" || (key.ctrl && key.name === "e")) { cursor = row.length; return render(); }
         if (key.name === "backspace" && cursor > 0) return edit([...row.slice(0, cursor - 1), ...row.slice(cursor)].join(""), cursor - 1);
         if (key.name === "delete" && cursor < row.length) return edit([...row.slice(0, cursor), ...row.slice(cursor + 1)].join(""), cursor);
+        if (key.ctrl && key.name === "w") {
+          const start = wordLeftIndex(value, cursor);
+          return edit([...row.slice(0, start), ...row.slice(cursor)].join(""), start);
+        }
         if (key.ctrl && key.name === "u") return edit(row.slice(cursor).join(""), 0);
         if (key.ctrl && key.name === "k") return edit(row.slice(0, cursor).join(""), cursor);
         if (str && !key.ctrl && !key.meta && !/[\u0000-\u001f\u007f]/u.test(str)) {

@@ -154,7 +154,11 @@ After an AI provider is connected, bare `mso` launches the interactive MSO Agent
 uses the canonical MCP tool catalog internally: reads run directly, while write/exec calls
 pause for terminal approval. Skill lifecycle is explicit in the slash palette and status line:
 `◇ ready` means discoverable/executable, `◆ queued` means selected for the next user message,
-and `✓ invoked` means the skill instructions were actually attached to a model turn. See
+and `✓ invoked` means the skill instructions were actually attached to a model turn. The terminal
+composer also follows conventional controls: Ctrl+C clears a draft, exits an empty prompt, or interrupts
+an active turn; Ctrl+D deletes right/exits on empty; Ctrl+L clears the screen; Ctrl+W deletes the previous
+word; ↑/↓ or Ctrl+P/N browse history; Ctrl+A/E and Ctrl+B/F navigate the line. `/quit` aliases `/exit`.
+Interrupted model/tool turns are rolled back from durable CLI history before the session is saved. See
 [`INFRASTRUCTURE-PROVIDERS.md`](./INFRASTRUCTURE-PROVIDERS.md) for the deployment/provider boundary.
 
 ### WSL2

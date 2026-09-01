@@ -107,4 +107,71 @@ describe("MSO Agent interactive composer primitives", () => {
     await answer; composer.close();
   });
 
+
+  it("exits on Ctrl+C at an empty prompt but only clears when text exists", async () => {
+    class FakeInput extends EventEmitter { isRaw = false; resume() {} pause() {} setRawMode(value: boolean) { this.isRaw = value; } }
+    class FakeOutput { columns = 88; chunks: string[] = []; write(value: string) { this.chunks.push(String(value)); return true; } }
+    const colors = { blue: "", bold: "", reset: "", dim: "" };
+
+    const input1 = new FakeInput(); const output1 = new FakeOutput();
+    const composer1 = new AgentComposer({ input: input1 as never, output: output1 as never, colors });
+    const empty = composer1.question("› ");
+    input1.emit("keypress", undefined, { ctrl: true, name: "c", sequence: "\u0003" });
+    await expect(empty).resolves.toBeNull();
+    expect(input1.isRaw).toBe(false);
+    composer1.close();
+
+    const input2 = new FakeInput(); const output2 = new FakeOutput();
+    const composer2 = new AgentComposer({ input: input2 as never, output: output2 as never, colors });
+    const edited = composer2.question("› ");
+    for (const ch of "draft") input2.emit("keypress", ch, { name: ch, sequence: ch });
+    input2.emit("keypress", undefined, { ctrl: true, name: "c", sequence: "\u0003" });
+    for (const ch of "kept") input2.emit("keypress", ch, { name: ch, sequence: ch });
+    input2.emit("keypress", "\r", { name: "return", sequence: "\r" });
+    await expect(edited).resolves.toBe("kept");
+    composer2.close();
+  });
+
+  it("matches readline Ctrl+D, Ctrl+W, Ctrl+L and Ctrl+B/F editing behavior", async () => {
+    class FakeInput extends EventEmitter { isRaw = false; resume() {} pause() {} setRawMode(value: boolean) { this.isRaw = value; } }
+    class FakeOutput { columns = 88; chunks: string[] = []; write(value: string) { this.chunks.push(String(value)); return true; } }
+    const input = new FakeInput(); const output = new FakeOutput();
+    const composer = new AgentComposer({ input: input as never, output: output as never, colors: { blue: "", bold: "", reset: "", dim: "" } });
+    const answer = composer.question("› ");
+    for (const ch of "hello world") input.emit("keypress", ch, { name: ch, sequence: ch });
+    input.emit("keypress", undefined, { ctrl: true, name: "w", sequence: "\u0017" });
+    input.emit("keypress", undefined, { ctrl: true, name: "b", sequence: "\u0002" });
+    input.emit("keypress", undefined, { ctrl: true, name: "d", sequence: "\u0004" });
+    input.emit("keypress", undefined, { ctrl: true, name: "f", sequence: "\u0006" });
+    const beforeClear = output.chunks.length;
+    input.emit("keypress", undefined, { ctrl: true, name: "l", sequence: "\u000c" });
+    expect(output.chunks.slice(beforeClear).join("")).toContain("\x1b[2J\x1b[H");
+    input.emit("keypress", "\r", { name: "return", sequence: "\r" });
+    await expect(answer).resolves.toBe("hello");
+    composer.close();
+  });
+
+  it("uses Ctrl+P/N as history aliases and Ctrl+D exits an empty prompt", async () => {
+    class FakeInput extends EventEmitter { isRaw = false; resume() {} pause() {} setRawMode(value: boolean) { this.isRaw = value; } }
+    class FakeOutput { columns = 88; chunks: string[] = []; write(value: string) { this.chunks.push(String(value)); return true; } }
+    const input = new FakeInput(); const output = new FakeOutput();
+    const composer = new AgentComposer({ input: input as never, output: output as never, colors: { blue: "", bold: "", reset: "", dim: "" } });
+    const first = composer.question("› ");
+    for (const ch of "first") input.emit("keypress", ch, { name: ch, sequence: ch });
+    input.emit("keypress", "\r", { name: "return", sequence: "\r" });
+    await expect(first).resolves.toBe("first");
+
+    const second = composer.question("› ");
+    input.emit("keypress", undefined, { ctrl: true, name: "p", sequence: "\u0010" });
+    input.emit("keypress", undefined, { ctrl: true, name: "n", sequence: "\u000e" });
+    input.emit("keypress", undefined, { ctrl: true, name: "p", sequence: "\u0010" });
+    input.emit("keypress", "\r", { name: "return", sequence: "\r" });
+    await expect(second).resolves.toBe("first");
+
+    const eof = composer.question("› ");
+    input.emit("keypress", undefined, { ctrl: true, name: "d", sequence: "\u0004" });
+    await expect(eof).resolves.toBeNull();
+    composer.close();
+  });
+
 });

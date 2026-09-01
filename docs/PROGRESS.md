@@ -2,6 +2,14 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-01 — Agent terminal control semantics + interrupt-safe history — SHIPPED
+
+MSO Agent 1.5.7 aligns terminal control behavior with mature agent harnesses. Ctrl+C now clears a non-empty draft, exits cleanly from an empty idle prompt, and aborts an active assistant/tool HTTP turn through a real `AbortController`; a quick second Ctrl+C while a turn is still stopping requests exit. Ctrl+D follows readline semantics (delete-right with text, EOF exit when empty), Ctrl+L clears/repaints, Ctrl+W deletes the previous word, Ctrl+P/N mirror history ↑/↓, and Ctrl+A/E plus Ctrl+B/F provide standard line navigation. `/quit` is now an explicit `/exit` alias.
+
+Interrupt state is split from the composer so raw-mode key handling and cooked-mode OS SIGINT cannot fight each other. Ctrl+C inside approval cancels and aborts the active turn, while Ctrl+C/Esc inside `/model`, `/models`, and `/resume` pickers cancels only that foreground picker. Assistant and agent-tool fetches receive the same turn AbortSignal. If a turn is interrupted, all user/assistant/tool history rows created by that unfinished round are rolled back before persistence; provider token usage already consumed may still be counted, but `mso --continue` never resumes a half-turn. Server-side bounded jobs already created keep their explicit job/cancel lifecycle.
+
+Regression coverage includes empty/draft Ctrl+C, active-turn double interrupt state, AbortSignal propagation to the assistant fetch, Ctrl+D/W/L/B/F/P/N editing, `/quit`, slash catalog parity, and zero-warning modularity for the new control files. Real PTY smoke covers clean idle Ctrl+C/D exits, Ctrl+L repaint, draft-clear→exit, history recall, `/resume` cancel, both stages of `/model` cancel, `/models` cancel, and a real Codex turn interrupted back to a live prompt with `historyTurns: 0`. Final repository verification passes **265 test files / 1,953 tests**, with 1 expected-fail and 7 skipped; typecheck, docs, dependency cycles and high/critical audit are clean, and the only lint findings are the six pre-existing `max-lines` warnings outside this change.
+
 ## 2026-09-01 — Arrow-key model/provider picker + visible skill lifecycle — SHIPPED
 
 MSO Agent 1.5.6 removes the last numeric prompt from the AI provider/model interaction path. `mso model`, the no-argument `mso models` manager, provider connect/remove selection, and catalog-provider selection now share one dependency-free native TTY picker. The current provider/model is preselected, ↑/↓ redraw in place with zero added newline scrollback, typing filters candidates, Enter selects, and Esc cancels. Direct scriptable forms such as `mso model openai-codex/gpt-5.6-terra` and `mso models add openrouter` remain unchanged.

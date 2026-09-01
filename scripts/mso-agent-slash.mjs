@@ -21,6 +21,7 @@ export const BUILTIN_SLASH_ITEMS = [
   { text: "/skill", meta: "Select a skill by exact catalog id", kind: "command" },
   { text: "/clear", meta: "Clear this session conversation", kind: "command" },
   { text: "/exit", meta: "Exit MSO Agent", kind: "command" },
+  { text: "/quit", meta: "Alias for /exit", kind: "command" },
 ];
 
 function skillItem(skillsData, name, cwd, session) {
