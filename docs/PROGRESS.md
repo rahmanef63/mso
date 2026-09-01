@@ -2,6 +2,12 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — MCP session lookup contention hardening — SHIPPED
+
+The first live Cognitive Runtime P0 deployment exposed a scalability problem that unit-size fixtures did not: the host already had **2,927 durable agent session files**, while every conversation-bound `/mcp` tool call still took one global session-store lock and scanned the entire directory to find its `openai/session` hash. Parallel ChatGPT conversations could therefore exhaust the 3-second security-store lock budget and return `security store is busy; retry the operation` even though each conversation was correctly isolated.
+
+Conversation correlation now has a private durable index keyed only by the stable principal hash + hashed conversation id. Startup backfills pre-index P0 sessions once before requests are accepted; normal conversation lookup is then O(1). New-session creation uses a per-conversation lock so duplicate parallel calls collapse to one record, while history/title/event mutations use a per-session lock so unrelated chats never serialize behind a global lock. The raw OpenAI conversation id is still never persisted. Regression coverage runs 32 simultaneous lookups for one conversation, 24 unrelated conversations in parallel, legacy-index backfill, cross-session workflow isolation, compaction/archive policy, and MCP route correlation.
+
 ## 2026-09-02 — MCP-first Cognitive Runtime P0 — SHIPPED
 
 MSO CLI **1.6.0** moves agent quality into the provider-neutral harness instead of relying on one model vendor. ChatGPT/MCP identity is now layered as **authenticated client → durable conversation session → workflow/job**: `_meta["openai/session"]` is hashed with the stable client principal and the raw opaque conversation id is never persisted, transport-session rotation does not split a ChatGPT conversation, active workflows/jobs are session-scoped, and verified learned recipes remain reusable at the stable client-principal boundary. This lets parallel chats benefit from prior successful procedures without being able to status, finish, cancel, or attach to each other's live work.

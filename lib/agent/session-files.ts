@@ -6,8 +6,11 @@ import { compactThresholdTokens, inferredTitleSource, MAX_EVENTS, MAX_HISTORY, s
 import type { AgentSession } from "./session-types";
 
 const ROOT = path.resolve((process.env.OS_AGENT_SESSIONS_DIR || path.join(os.homedir(), ".mso", "agent-sessions")).replace(/^~(?=$|\/)/, os.homedir()));
-export const SESSION_LOCK_TARGET = path.join(ROOT, ".sessions");
+const LOCK_ROOT = path.join(ROOT, ".locks");
+const CONVERSATION_ROOT = path.join(ROOT, ".conversation-index");
+const CONVERSATION_READY = path.join(CONVERSATION_ROOT, ".ready-v1");
 export const SESSION_ID = /^\d{8}_\d{6}_[a-f0-9]{8}$/;
+const HASH64 = /^[a-f0-9]{64}$/;
 const MAX_SESSION_BYTES = 16 * 1024 * 1024;
 
 export function principalHash(principal: string): string {
@@ -18,6 +21,76 @@ export function principalHash(principal: string): string {
 export function newAgentSessionId(now = new Date()): string {
   const iso = now.toISOString();
   return `${iso.slice(0, 10).replaceAll("-", "")}_${iso.slice(11, 19).replaceAll(":", "")}_${randomBytes(4).toString("hex")}`;
+}
+
+export function sessionLockTarget(id: string): string {
+  if (!SESSION_ID.test(id)) throw new Error("invalid agent session id");
+  return path.join(LOCK_ROOT, "sessions", id);
+}
+
+function conversationRefFile(ownerHash: string, conversationHash: string): string {
+  if (!HASH64.test(ownerHash) || !HASH64.test(conversationHash)) throw new Error("invalid agent conversation index key");
+  return path.join(CONVERSATION_ROOT, ownerHash.slice(0, 2), ownerHash, `${conversationHash}.ref`);
+}
+
+export function conversationLockTarget(ownerHash: string, conversationHash: string): string {
+  return conversationRefFile(ownerHash, conversationHash);
+}
+
+export async function readConversationSession(ownerHash: string, conversationHash: string): Promise<AgentSession | null> {
+  const file = conversationRefFile(ownerHash, conversationHash);
+  let handle: Awaited<ReturnType<typeof fs.open>> | null = null;
+  try {
+    handle = await fs.open(file, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size <= 0 || stat.size > 128) throw new Error("agent conversation index has an invalid shape");
+    if ((stat.mode & 0o077) !== 0) throw new Error("agent conversation index permissions are too broad; expected 0600");
+    if (typeof process.getuid === "function" && stat.uid !== process.getuid()) throw new Error("agent conversation index is not owned by the MSO user");
+    const id = (await handle.readFile("utf8")).trim();
+    if (!SESSION_ID.test(id)) throw new Error("agent conversation index contains an invalid session id");
+    const session = await readSessionFile(id);
+    if (!session || session.principalHash !== ownerHash || session.source !== "mcp" || session.conversationHash !== conversationHash) return null;
+    return session;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  } finally { await handle?.close().catch(() => undefined); }
+}
+
+export async function writeConversationRef(ownerHash: string, conversationHash: string, id: string): Promise<void> {
+  if (!SESSION_ID.test(id)) throw new Error("invalid agent session id");
+  const file = conversationRefFile(ownerHash, conversationHash);
+  await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+  await fs.chmod(CONVERSATION_ROOT, 0o700).catch(() => undefined);
+  await fs.chmod(path.dirname(file), 0o700).catch(() => undefined);
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  await fs.writeFile(tmp, `${id}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+  await fs.chmod(tmp, 0o600);
+  await fs.rename(tmp, file);
+  await fs.chmod(file, 0o600);
+}
+
+
+export async function conversationIndexReady(): Promise<boolean> {
+  let handle: Awaited<ReturnType<typeof fs.open>> | null = null;
+  try {
+    handle = await fs.open(CONVERSATION_READY, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const stat = await handle.stat();
+    return stat.isFile() && (stat.mode & 0o077) === 0 &&
+      (typeof process.getuid !== "function" || stat.uid === process.getuid());
+  } catch {
+    return false;
+  } finally { await handle?.close().catch(() => undefined); }
+}
+
+async function markConversationIndexReady(): Promise<void> {
+  await fs.mkdir(CONVERSATION_ROOT, { recursive: true, mode: 0o700 });
+  await fs.chmod(CONVERSATION_ROOT, 0o700).catch(() => undefined);
+  const tmp = `${CONVERSATION_READY}.${randomUUID()}.tmp`;
+  await fs.writeFile(tmp, `${new Date().toISOString()}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+  await fs.chmod(tmp, 0o600);
+  await fs.rename(tmp, CONVERSATION_READY);
+  await fs.chmod(CONVERSATION_READY, 0o600);
 }
 
 function fileFor(id: string): string {
@@ -89,4 +162,26 @@ export async function listSessionRecords(): Promise<AgentSession[]> {
     try { const row = await readSessionFile(id); if (row) out.push(row); } catch { /* isolate corrupt rows */ }
   }
   return out;
+}
+
+
+export async function backfillConversationIndex(): Promise<{ indexed: number; conversations: number }> {
+  const rows = (await listSessionRecords())
+    .filter((row) => row.source === "mcp" && HASH64.test(row.conversationHash ?? ""))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const latest = new Map<string, AgentSession>();
+  for (const row of rows) {
+    const key = `${row.principalHash}:${row.conversationHash}`;
+    if (!latest.has(key)) latest.set(key, row);
+  }
+  let indexed = 0;
+  for (const row of latest.values()) {
+    const hash = row.conversationHash!;
+    const current = await readConversationSession(row.principalHash, hash).catch(() => null);
+    if (current?.id === row.id) continue;
+    await writeConversationRef(row.principalHash, hash, row.id);
+    indexed += 1;
+  }
+  await markConversationIndexReady();
+  return { indexed, conversations: latest.size };
 }
