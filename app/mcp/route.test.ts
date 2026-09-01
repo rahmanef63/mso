@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   rateLimited: vi.fn(() => false),
   rateLimitedUntrusted: vi.fn(() => false),
   mcpRequestOriginAllowed: vi.fn(() => true),
+  createAgentSession: vi.fn(),
+  getAgentSession: vi.fn(),
 }));
 
 vi.mock("@/lib/mcp/store", () => ({
@@ -39,11 +41,15 @@ vi.mock("@/lib/host", () => ({
 }));
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
+vi.mock("@/lib/agent/session-store", () => ({
+  createAgentSession: mocks.createAgentSession,
+  getAgentSession: mocks.getAgentSession,
+}));
 
 function request(body: BodyInit, headers: Record<string, string> = {}) {
   return new Request("https://mso.example.test/mcp", {
     method: "POST",
-    headers: { authorization: "Bearer live-token", "content-type": "application/json", ...headers },
+    headers: { authorization: "Bearer live-token", "content-type": "application/json", "Mcp-Session-Id": "mso_test_session", ...headers },
     body,
     // Required by Node when a ReadableStream is supplied; harmless for string bodies.
     duplex: "half",
@@ -59,6 +65,8 @@ describe("/mcp request boundary", () => {
     mocks.rateLimited.mockClear().mockReturnValue(false);
     mocks.rateLimitedUntrusted.mockClear().mockReturnValue(false);
     mocks.mcpRequestOriginAllowed.mockClear().mockReturnValue(true);
+    mocks.createAgentSession.mockReset().mockResolvedValue({ id: "mso_initialized", source: "mcp" });
+    mocks.getAgentSession.mockReset().mockImplementation(async (_principal: string, id: string) => ({ id, source: "mcp" }));
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -124,7 +132,7 @@ describe("/mcp request boundary", () => {
   });
 
   it("clamps a previously issued token to the deployment ceiling on every call", async () => {
-    const token = { hash: "c".repeat(64), scope: "exec" as const };
+    const token = { hash: "c".repeat(64), scope: "exec" as const, clientId: "client-clamp", label: "Clamp test" };
     mocks.validateToken.mockResolvedValueOnce(token);
     mocks.clampScope.mockReturnValueOnce("read");
     const { POST } = await import("./route");
@@ -132,11 +140,16 @@ describe("/mcp request boundary", () => {
     const res = await POST(request(JSON.stringify(body)));
     expect(res.status).toBe(200);
     expect(mocks.clampScope).toHaveBeenCalledWith("exec");
-    expect(mocks.dispatch).toHaveBeenCalledWith(body, "read", `mcp:${token.hash.slice(0, 16)}`);
+    expect(mocks.dispatch).toHaveBeenCalledWith(
+      body,
+      "read",
+      `mcp:${token.hash.slice(0, 16)}`,
+      { principal: `mcp-client:${token.clientId}`, sessionId: "mso_test_session" },
+    );
   });
 
   it("applies the 50,000-call daily token limit", async () => {
-    const token = { hash: "d".repeat(64), scope: "read" as const };
+    const token = { hash: "d".repeat(64), scope: "read" as const, clientId: "client-daily", label: "Daily test" };
     mocks.validateToken.mockResolvedValueOnce(token);
     const { POST } = await import("./route");
     await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })));

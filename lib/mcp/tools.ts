@@ -6,6 +6,8 @@ import { DISCOVERY_TOOLS } from "./tools-discovery";
 import { LEARNING_TOOLS } from "./tools-learning";
 import { POWER_TOOLS } from "./tools-power";
 import { INFRA_TOOLS } from "./tools-infra";
+import { AGENT_TOOLS } from "./tools-agent";
+import { withWorkflowContext } from "./tool-context";
 
 // The write and exec tiers. Each carries an `audit` descriptor — the dispatcher,
 // not the tool, writes the trail, because these call lib/host directly and so
@@ -212,26 +214,4 @@ const MUTATE_TOOLS: McpTool[] = [
   },
 ];
 
-const WORKFLOW_CONTEXT_EXEMPT = new Set([
-  "skills_search",
-  "workflow_start",
-  "workflow_status",
-  "workflow_cancel",
-  "workflow_finish",
-]);
-const withWorkflowContext = (tool: McpTool): McpTool => WORKFLOW_CONTEXT_EXEMPT.has(tool.name) ? tool : ({
-  ...tool,
-  inputSchema: {
-    ...tool.inputSchema,
-    properties: {
-      ...tool.inputSchema.properties,
-      workflow_id: {
-        type: "string",
-        description:
-          "Exact id returned by workflow_start. Include it on every operational step in that run; omit it for a standalone call.",
-      },
-    },
-  },
-});
-
-export const TOOLS: McpTool[] = [...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...INFRA_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
+export const TOOLS: McpTool[] = [...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...AGENT_TOOLS, ...INFRA_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));

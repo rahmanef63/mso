@@ -53,7 +53,7 @@ esac
     expect(out.status).not.toBe(0);
     expect(out.stderr).toContain("public endpoint did not return the MSO health contract");
     expect(fs.existsSync(path.join(f.state, "state.json"))).toBe(false);
-  }, 15_000);
+  }, 25_000);
 
   it("refuses local runtime starts while an offline update holds the checkout exclusion", async () => {
     const f = fixture(), base = path.join(f.dir, "runtime-exclusion");

@@ -103,6 +103,7 @@ Commands:
  AI + state
   ai <prompt…>         One turn with the assistant
   threads *            Conversation history: list | show | rm
+  agent-sessions *     Durable MSO Agent sessions: list | show | create
   memory *             Assistant memories: list | add | rm
   config *             BYOK provider + model/style: show | set | key | style | rm
   prefs *              UI preferences: show | set

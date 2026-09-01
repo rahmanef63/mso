@@ -28,6 +28,11 @@ export function isMcpDirectResult(value: unknown): value is McpDirectResult {
 
 export interface McpRunContext {
   actor?: string;
+  /** Stable principal for persistent agent session/memory ownership. Unlike the
+   * token-scoped audit actor, this may survive an OAuth token refresh. */
+  principal?: string;
+  /** Durable Streamable HTTP / terminal-agent session id, when available. */
+  sessionId?: string;
   scope: Scope;
   workflowId?: string;
 }
@@ -59,23 +64,10 @@ export interface McpTool {
     targetArg?: string;
     /** Derive the outcome from the RESULT, for a handler that reports failure by
      *  returning rather than throwing. Without it the dispatcher can only record
-     *  "did not throw", which is a lie for anything that has an exit code.
-     *  Only exec_run needs this — `setCamoufoxEnabled` throws, and the fs helpers
-     *  throw, so the catch branch already records those correctly. Deliberately
-     *  NOT a generic result→outcome mapper: one call site is not a pattern. */
+     *  "did not throw", which is a lie for anything that has an exit code. */
     outcome?: (result: unknown) => { ok: boolean; action?: AuditAction; detail?: string };
   };
-  /** Per-OPERATION rate limit, mirroring the one its /api/v1 route already applies.
-   *
-   *  The token bucket in app/mcp/route.ts is per TOKEN (120/min, 50,000/day) and says
-   *  nothing about which tool was called, so an MCP client got the same allowance
-   *  for `apps_power` as for `fs_list` — while the browser and the CLI hit
-   *  `managed-app:<id>` at 12/min going through the route. That is a 10x gap on a
-   *  daemon restart, available to a WRITE-scope token that holds no shell.
-   *
-   *  `keyArg` puts the bucket on the same key the route uses, so MCP and the UI
-   *  share it rather than getting one each. Numbers here must MATCH the route's,
-   *  never undercut them — the route is the authority. */
+  /** Per-operation rate limit, mirroring the one its /api/v1 route already applies. */
   limit?: { max: number; windowMs: number; keyArg?: string; key: string };
 }
 

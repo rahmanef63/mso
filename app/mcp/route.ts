@@ -1,10 +1,11 @@
-import { dispatch, isNotification, rpcError, UNAUTHORIZED, RATE_LIMITED } from "@/lib/mcp/dispatch";
+import { dispatch, isNotification, rpcError, UNAUTHORIZED, RATE_LIMITED, type RpcRequest } from "@/lib/mcp/dispatch";
 import { validateToken, touchToken } from "@/lib/mcp/store";
 import { clampScope, mcpEnabled } from "@/lib/mcp/scope";
 import { publicOrigin, clientIp, mcpRequestOriginAllowed } from "@/lib/mcp/origin";
 import { rateLimited, rateLimitedUntrusted } from "@/lib/host";
 import { TOOLS } from "@/lib/mcp/tools";
 import { toolsetInfo } from "@/lib/mcp/toolset";
+import { createAgentSession, getAgentSession } from "@/lib/agent/session-store";
 
 // The MCP endpoint. Deliberately at /mcp and NOT under /api: proxy.ts blocks
 // mutating /api that cannot prove same-origin, and an MCP client is by definition
@@ -16,6 +17,7 @@ export const dynamic = "force-dynamic";
 const CALLS_PER_MIN = 120;
 const CALLS_PER_DAY = 50_000;
 const PREAUTH_PER_MIN = 240;
+const MCP_SESSION_HEADER = "Mcp-Session-Id";
 export const MAX_MCP_BODY_BYTES = 2 * 1024 * 1024;
 
 class BodyTooLarge extends Error {}
@@ -50,6 +52,46 @@ async function parseBoundedJson(req: Request): Promise<unknown> {
   }
 }
 
+async function resolveAgentSession(
+  req: Request,
+  body: RpcRequest,
+  principal: string,
+  label: string,
+): Promise<{ sessionId: string } | { response: Response }> {
+  try {
+    if (body.method === "initialize") {
+      const session = await createAgentSession(principal, "mcp", { title: `ChatGPT/MCP · ${label || "MSO"}` });
+      return { sessionId: session.id };
+    }
+    const sessionId = (req.headers.get(MCP_SESSION_HEADER) ?? "").trim();
+    if (!sessionId) {
+      return {
+        response: Response.json(
+          { jsonrpc: "2.0", id: body.id ?? null, error: { code: -32600, message: "missing MCP session id; initialize the connection again" } },
+          { status: 400, headers: { "Cache-Control": "no-store" } },
+        ),
+      };
+    }
+    const session = await getAgentSession(principal, sessionId);
+    if (!session || session.source !== "mcp") {
+      return {
+        response: Response.json(
+          { jsonrpc: "2.0", id: body.id ?? null, error: { code: -32600, message: "unknown MCP session id for this client" } },
+          { status: 404, headers: { "Cache-Control": "no-store" } },
+        ),
+      };
+    }
+    return { sessionId };
+  } catch {
+    return {
+      response: Response.json(
+        { jsonrpc: "2.0", id: body.id ?? null, error: { code: -32603, message: "could not establish MSO agent session" } },
+        { status: 500, headers: { "Cache-Control": "no-store" } },
+      ),
+    };
+  }
+}
+
 export async function POST(req: Request) {
   const origin = publicOrigin(req);
   const challenge = `Bearer realm="mso", resource_metadata="${origin}/.well-known/oauth-protected-resource"`;
@@ -78,8 +120,6 @@ export async function POST(req: Request) {
   if (rateLimited(`mcp:tok:${token.hash}`, CALLS_PER_MIN, 60_000)) {
     return Response.json(rpcError(null, RATE_LIMITED, "rate limited — retry in 60s"), { status: 429, headers: { "Retry-After": "60" } });
   }
-  // Per-minute alone still allows ~172k calls/day from one runaway agent, on an
-  // endpoint whose top scope is a shell. The daily cap is the backstop.
   if (rateLimited(`mcp:day:${token.hash}`, CALLS_PER_DAY, 86_400_000)) {
     return Response.json(rpcError(null, RATE_LIMITED, "daily call limit reached for this token"), { status: 429, headers: { "Retry-After": "3600" } });
   }
@@ -97,15 +137,22 @@ export async function POST(req: Request) {
     return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }, { status: 400 });
   }
 
+  const rpc = body as RpcRequest;
+  const principal = `mcp-client:${token.clientId}`;
+  const resolved = await resolveAgentSession(req, rpc, principal, token.label);
+  if ("response" in resolved) return resolved.response;
+  const sessionHeaders = { "Cache-Control": "no-store", [MCP_SESSION_HEADER]: resolved.sessionId };
+
   // Ack EVERY authenticated notification, not just notifications/initialized — a
   // client that sends notifications/cancelled hangs waiting for a response otherwise.
-  if (isNotification(body)) return new Response(null, { status: 202 });
+  if (isNotification(body)) return new Response(null, { status: 202, headers: sessionHeaders });
 
   void touchToken(token.hash).catch(() => {});
-  // Same 16-char id the Settings table and `mso mcp list` show, so an audit line
-  // maps straight back to the token you would revoke.
-  const result = await dispatch(body as Parameters<typeof dispatch>[0], effectiveScope, `mcp:${token.hash.slice(0, 16)}`);
-  return Response.json(result, { status: 200, headers: { "Cache-Control": "no-store" } });
+  // Audit actor remains token-specific, while agent principal is client-specific so
+  // a refreshed bearer can resume the same client's sessions without weakening audit identity.
+  const actor = `mcp:${token.hash.slice(0, 16)}`;
+  const result = await dispatch(rpc, effectiveScope, actor, { principal, sessionId: resolved.sessionId });
+  return Response.json(result, { status: 200, headers: sessionHeaders });
 }
 
 // Some clients probe with GET before POSTing. Answer with what this is, never
@@ -119,6 +166,7 @@ export async function GET(req: Request) {
     name: "mso MCP",
     transport: "streamable-http (JSON-RPC over POST)",
     auth: "Bearer <mcp token> — obtain via OAuth 2.1 + PKCE",
+    sessions: "durable Mcp-Session-Id; use agent_sessions_list / agent_session_resume across ChatGPT conversations",
     authorization_servers: [publicOrigin(req)],
     toolset: toolsetInfo(TOOLS),
   });

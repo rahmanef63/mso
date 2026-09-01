@@ -125,5 +125,5 @@ run_agent() {
   fi
   MSO_AGENT_BASE="$B" MSO_AGENT_ORIGIN="$B" MSO_AGENT_JAR="$JAR" \
     MSO_AGENT_CLI="$ROOT/bin/mso" MSO_AGENT_VERSION="$VERSION" \
-    node "$ROOT/scripts/mso-agent.mjs"
+    node "$ROOT/scripts/mso-agent.mjs" "$@"
 }

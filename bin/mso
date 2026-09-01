@@ -63,6 +63,7 @@
 #  AI + state
 #   ai <prompt…>         One turn with the assistant
 #   threads *            Conversation history: list | show | rm
+#   agent-sessions *     Durable MSO Agent sessions: list | show | create
 #   memory *             Assistant memories: list | add | rm
 #   config *             BYOK provider + model/style: show | set | key | style | rm
 #   prefs *              UI preferences: show | set
@@ -676,6 +677,7 @@ U_service="service status|start|stop|restart|logs [n]"
 U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> <unit>"
 U_update="update [--rebuild] | status | log"
 U_threads="threads list|show <id>|save <json>|rm <id>"
+U_agent_sessions="agent-sessions list [limit]|show <id>|create [title]"
 U_memory="memory list|add <text>|rm <id>"
 U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
 U_prefs="prefs show|set <json>"
@@ -858,7 +860,7 @@ case "$cmd" in
     [ "$fails" -eq 0 ] && echo "all good." || echo "$fails check(s) failed."
     exit $(( fails > 0 ? 1 : 0 )) ;;
 
-  agent|chat) run_agent ;;
+  agent|chat) run_agent "$@" ;;
   model) run_model_setup ;;
   setup) run_onboard "${1-}" ;;
   onboard) run_onboard "${1-}" ;;
@@ -927,6 +929,13 @@ case "$cmd" in
       save) jpost "/api/threads" "${2:?json — {id,messages:[…]}}" ;;
       rm)   jdel "/api/threads?id=$(enc "${2:?id}")" ;;
       *) die "usage: mso $U_threads" ;;
+    esac ;;
+  agent-sessions)
+    case "${1:-list}" in
+      list)   jget "/api/v1/agent-sessions${2:+?limit=$(enc "$2")}" ;;
+      show)   jget "/api/v1/agent-sessions?id=$(enc "${2:?id}")" ;;
+      create) jpost "/api/v1/agent-sessions" "$(jq -n --arg title "${2:-MSO Agent session}" '{action:"create",title:$title}')" ;;
+      *) die "usage: mso $U_agent_sessions" ;;
     esac ;;
   memory)
     case "${1:-list}" in

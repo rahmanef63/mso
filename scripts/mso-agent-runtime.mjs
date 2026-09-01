@@ -1,17 +1,13 @@
 import fs from "node:fs";
 import process from "node:process";
+import { C, fit, MSO_TITLE_ART, printAgentBanner } from "./mso-agent-ui.mjs";
+export { C, MSO_TITLE_ART } from "./mso-agent-ui.mjs";
 
 export const BASE = String(process.env.MSO_AGENT_BASE || "http://127.0.0.1:4005").replace(/\/$/, "");
 const ORIGIN = String(process.env.MSO_AGENT_ORIGIN || BASE);
 const JAR = String(process.env.MSO_AGENT_JAR || "");
 export const CLI = String(process.env.MSO_AGENT_CLI || "mso");
 const VERSION = String(process.env.MSO_AGENT_VERSION || "");
-const color = process.stdout.isTTY && !process.env.NO_COLOR;
-export const C = {
-  reset: color ? "\x1b[0m" : "", bold: color ? "\x1b[1m" : "", dim: color ? "\x1b[2m" : "",
-  a: color ? "\x1b[38;2;124;92;255m" : "", b: color ? "\x1b[38;2;58;160;255m" : "", c: color ? "\x1b[38;2;52;211;153m" : "",
-  warn: color ? "\x1b[38;2;245;158;11m" : "", err: color ? "\x1b[38;2;239;68;68m" : "",
-};
 
 function cookieHeader() {
   if (!JAR) return "";
@@ -41,39 +37,6 @@ export async function api(path, init = {}) {
   return body;
 }
 
-function logo() {
-  const icon = [
-    "   ╭──────╮          ",
-    "╭──┘      ╰────────╮ ",
-    "│                  │ ",
-    "│      >_          │ ",
-    "│                  │ ",
-    "╰──────────────────╯ ",
-  ];
-  const wordmark = [
-    "███╗   ███╗ ███████╗  ██████╗ ",
-    "████╗ ████║ ██╔════╝ ██╔═══██╗",
-    "██╔████╔██║ ███████╗ ██║   ██║",
-    "██║╚██╔╝██║ ╚════██║ ██║   ██║",
-    "██║ ╚═╝ ██║ ███████║ ╚██████╔╝",
-    "╚═╝     ╚═╝ ╚══════╝  ╚═════╝ ",
-  ];
-  const narrow = Number(process.stdout.columns || 0) > 0 && process.stdout.columns < 72;
-  const lines = narrow ? [...icon, "", ...wordmark] : wordmark.map((line, i) => `${icon[i]}  ${line}`);
-  return lines.map((line, i) => {
-    if (!line) return line;
-    const phase = narrow ? i % 6 : i;
-    return `${phase < 2 ? C.a : phase < 4 ? C.b : C.c}${C.bold}${line}${C.reset}`;
-  }).join("\n");
-}
-
-function countSkills(data) { return Array.isArray(data?.skills) ? data.skills.length : 0; }
-function summarizeInfra(data) {
-  const rows = Array.isArray(data?.providers) ? data.providers : [];
-  const ready = rows.filter((row) => row.configured).map((row) => row.id);
-  return { ready, total: rows.length };
-}
-
 export async function state() {
   const [config, toolsData, skills, infra] = await Promise.all([
     api("/api/config"), api("/api/v1/agent-tools"), api("/api/skills").catch(() => ({ skills: [] })), api("/api/v1/infra/providers").catch(() => ({ providers: [] })),
@@ -82,53 +45,59 @@ export async function state() {
   return { config, toolsData, tools, skills, infra };
 }
 
-function compactNames(rows, max = 7) {
-  const names = rows.map((row) => String(row.id ?? row.name ?? "")).filter(Boolean);
-  return `${names.slice(0, max).join(", ")}${names.length > max ? `, +${names.length - max} more` : ""}` || "none";
+export async function createCliSession(title = "MSO Agent session") {
+  const out = await api("/api/v1/agent-sessions", { method: "POST", body: JSON.stringify({ action: "create", title }) });
+  return out.session;
+}
+export async function loadCliSession(id) {
+  const out = await api(`/api/v1/agent-sessions?id=${encodeURIComponent(id)}`);
+  return out.session;
+}
+export async function listCliSessions(limit = 20) {
+  const out = await api(`/api/v1/agent-sessions?limit=${Math.max(1, Math.min(100, Number(limit) || 20))}`);
+  return Array.isArray(out.sessions) ? out.sessions : [];
+}
+export async function saveCliSession(session, history, title) {
+  const out = await api("/api/v1/agent-sessions", {
+    method: "POST",
+    body: JSON.stringify({ action: "update", id: session.id, history, ...(title ? { title } : {}) }),
+  });
+  return out.session;
 }
 
-export function printBanner(s) {
-  const byScope = { read: 0, write: 0, exec: 0 };
-  for (const tool of s.tools) byScope[tool.scope] = (byScope[tool.scope] || 0) + 1;
-  const infra = summarizeInfra(s.infra);
-  const readTools = s.tools.filter((tool) => tool.scope === "read");
-  const gatedTools = s.tools.filter((tool) => tool.scope !== "read");
-  const skills = Array.isArray(s.skills?.skills) ? s.skills.skills : [];
-  console.log(logo());
-  console.log();
-  console.log(`${C.bold}╭─ MSO Agent${C.reset} ${C.dim}${VERSION ? `v${VERSION} · ` : ""}${BASE}${C.reset}`);
-  console.log(`│ model          ${C.a}${s.config?.provider ?? "—"}/${s.config?.model ?? "—"}${C.reset}`);
-  console.log(`│ capabilities   ${byScope.read} read · ${byScope.write} write · ${byScope.exec} exec ${C.dim}(write/exec approval-gated)${C.reset}`);
-  console.log(`├─ ${C.bold}Available Tools${C.reset}`);
-  console.log(`│ read           ${compactNames(readTools)}`);
-  console.log(`│ approval       ${compactNames(gatedTools, 6)}`);
-  console.log(`├─ ${C.bold}Available Skills${C.reset}`);
-  console.log(`│ ${countSkills(s.skills)} loaded       ${compactNames(skills, 8)}`);
-  console.log(`├─ ${C.bold}Infrastructure${C.reset}`);
-  console.log(`│ ${infra.ready.length}/${infra.total} ready        ${infra.ready.length ? infra.ready.join(", ") : "run /providers to connect Dokploy/Cloudflare/Hostinger"}`);
-  console.log(`╰─ ${C.dim}Ask MSO to inspect, configure, deploy, or debug this server. /help shows commands.${C.reset}`);
+export function printBanner(s, agentSession) {
+  return printAgentBanner(s, agentSession, { base: BASE, version: VERSION });
 }
 
-const SYSTEM = [
-  "You are MSO Agent, the interactive terminal setup and operations agent for Manef Shell OS on the user's own server.",
-  "Use the provided tools to do real work instead of only describing commands. Prefer bounded tools over exec_run.",
-  "For setup, first inspect infrastructure with infra_providers_list and live-check configured providers with infra_provider_doctor.",
-  "Dokploy, Cloudflare, and Hostinger credentials are entered interactively with `mso provider set <id>` and are never exposed to you; never ask the user to paste API tokens into chat or shell commands.",
-  "Use dokploy_* and cloudflare_*/hostinger_* tools after the user has configured those providers. Cloudflare DNS must remain per-record and DNS-only unless the user explicitly asks for proxying.",
-  "If multiple operational calls are needed, use workflow_start, pass its workflow_id to later calls, verify, then workflow_finish. If the task is abandoned, workflow_cancel.",
-  "Write and exec tools may be denied by the user's approval prompt. Never retry a denied call unchanged.",
-  "Be concise. Explain only decisions the user needs to make or concrete results/errors.",
-].join(" ");
+function sessionSystem(agentSession) {
+  const snapshot = agentSession?.memorySnapshot || {};
+  const user = fit(snapshot.user || "", 12000);
+  const memory = fit(snapshot.memory || "", 12000);
+  return [
+    "You are MSO Agent, the interactive terminal setup and operations agent for Manef Shell OS on the user's own server.",
+    agentSession?.id ? `Current durable MSO session id: ${agentSession.id}.` : "",
+    "Use the provided tools to do real work instead of only describing commands. Prefer bounded tools over exec_run.",
+    "For setup, first inspect infrastructure with infra_providers_list and live-check configured providers with infra_provider_doctor.",
+    "Dokploy, Cloudflare, and Hostinger credentials are entered interactively with `mso provider set <id>` and are never exposed to you; never ask the user to paste API tokens into chat or shell commands.",
+    "Use dokploy_* and cloudflare_*/hostinger_* tools after the user has configured those providers. Cloudflare DNS must remain per-record and DNS-only unless the user explicitly asks for proxying.",
+    "If multiple operational calls are needed, use workflow_start, pass its workflow_id to later calls, verify, then workflow_finish. If the task is abandoned, workflow_cancel.",
+    "Write and exec tools may be denied by the user's approval prompt. Never retry a denied call unchanged.",
+    "USER.md and MEMORY.md below are a frozen snapshot captured when this MSO session started. Do not silently live-refresh them during this session. Never store secrets in agent memory.",
+    user ? `\n<USER.md>\n${user}\n</USER.md>` : "",
+    memory ? `\n<MEMORY.md>\n${memory}\n</MEMORY.md>` : "",
+    "Be concise. Explain only decisions the user needs to make or concrete results/errors.",
+  ].filter(Boolean).join(" ");
+}
 
 function toolForModel(tool) {
   return { name: tool.name, description: tool.description, input_schema: tool.inputSchema || { type: "object", properties: {} } };
 }
 
-export async function streamTurn(messages, tools) {
+export async function streamTurn(messages, tools, agentSession) {
   const res = await fetch(`${BASE}/api/assistant`, {
     method: "POST",
     headers: { origin: ORIGIN, cookie: cookieHeader(), "content-type": "application/json" },
-    body: JSON.stringify({ messages, tools: tools.map(toolForModel), system: SYSTEM }),
+    body: JSON.stringify({ messages, tools: tools.map(toolForModel), system: sessionSystem(agentSession) }),
   });
   if (!res.ok || !res.body) {
     let body = {}; try { body = await res.json(); } catch {}

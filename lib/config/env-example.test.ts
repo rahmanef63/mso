@@ -50,7 +50,7 @@ const NOT_A_KNOB: Record<string, string> = {
 };
 
 function usedEnvNames(): string[] {
-  const files = execSync("git ls-files '*.ts' '*.tsx' '*.mjs'", { cwd: ROOT, encoding: "utf8" })
+  const files = execSync("git ls-files --cached --others --exclude-standard '*.ts' '*.tsx' '*.mjs'", { cwd: ROOT, encoding: "utf8" })
     .split("\n")
     .filter(Boolean)
     // A test may stub anything, so .test files do not count as "the app reads it".

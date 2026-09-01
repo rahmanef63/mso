@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { canonicalAgentApproval } from "@/lib/agent/approval.js";
+import { canonicalAgentApproval } from "@/lib/agent/approval.mjs";
 
 const contextRef: { current: null | { role: string; session: { device_id: string } } } = {
   current: { role: "owner", session: { device_id: "dev-owner" } },
@@ -8,6 +8,9 @@ const dispatchMock = vi.fn();
 
 vi.mock("@/lib/auth/require-session", () => ({
   getSessionContext: vi.fn(async () => contextRef.current),
+}));
+vi.mock("@/lib/agent/session-store", () => ({
+  getAgentSession: vi.fn(async (_principal: string, id: string) => ({ id, source: "cli" })),
 }));
 vi.mock("@/lib/mcp/dispatch", () => ({
   dispatch: (...args: unknown[]) => dispatchMock(...args),
@@ -74,7 +77,7 @@ describe("/api/v1/agent-tools", () => {
 
   it("refuses a mutation unless the terminal explicitly approved it", async () => {
     const { POST } = await import("./route");
-    const res = await POST(postReq({ name: "write_tool", input: { name: "x" } }));
+    const res = await POST(postReq({ name: "write_tool", input: { name: "x" }, sessionId: "mso_test_session" }));
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toMatchObject({ error: "explicit_agent_approval_required", scope: "write" });
     expect(dispatchMock).not.toHaveBeenCalled();
@@ -88,6 +91,7 @@ describe("/api/v1/agent-tools", () => {
       input: { name: "x", nested: { safe: false } },
       approved: true,
       approvalDigest: approved.digest,
+      sessionId: "mso_test_session",
     }));
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toMatchObject({ error: "agent_approval_payload_mismatch", scope: "write" });
@@ -99,13 +103,14 @@ describe("/api/v1/agent-tools", () => {
     const input = { name: "x" };
     const approvalDigest = canonicalAgentApproval("write_tool", input).digest;
     const { POST } = await import("./route");
-    const res = await POST(postReq({ name: "write_tool", input, approved: true, approvalDigest }));
+    const res = await POST(postReq({ name: "write_tool", input, approved: true, approvalDigest, sessionId: "mso_test_session" }));
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ ok: true, result: "done" });
     expect(dispatchMock).toHaveBeenCalledWith(
       expect.objectContaining({ method: "tools/call", params: { name: "write_tool", arguments: { name: "x" } } }),
       "exec",
       "cli:dev-owner",
+      { principal: "cli:dev-owner", sessionId: "mso_test_session" },
     );
   });
 });

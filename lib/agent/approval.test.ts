@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalAgentApproval, matchesAgentApproval, MAX_AGENT_APPROVAL_BYTES } from "./approval.js";
+import { canonicalAgentApproval, matchesAgentApproval, MAX_AGENT_APPROVAL_BYTES } from "./approval.mjs";
 
 describe("agent approval binding", () => {
   it("renders every nested field losslessly in a stable canonical order", () => {

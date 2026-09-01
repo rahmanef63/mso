@@ -8,7 +8,13 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `agent` persist terminal and MCP sessions
+- `mcp` render live workflow progress in ChatGPT
 - `cli` add MSO folder ASCII icon
+
+**Fixed**
+
+- `mcp` preserve app-only workflow status schema
 
 ## 2026-08-31
 

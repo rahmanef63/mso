@@ -2,16 +2,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const files = ["mso-agent.mjs", "mso-agent-runtime.mjs"].map((name) => path.join(__dirname, name));
+const files = ["mso-agent.mjs", "mso-agent-runtime.mjs", "mso-agent-ui.mjs"].map((name) => path.join(__dirname, name));
 const src = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 
 describe("MSO terminal agent contract", () => {
-  it("renders the MSO folder-terminal icon, wordmark, and setup shortcuts", () => {
-    expect(src).toContain("╭──┘      ╰────────╮");
-    expect(src).toContain("│      >_          │");
-    expect(src).toContain("███╗   ███╗ ███████╗  ██████╗");
-    expect(src).toContain("process.stdout.columns < 72");
-    for (const command of ["/model", "/setup", "/providers", "/provider", "/doctor", "/tools", "/skills", "/clear", "/exit"]) expect(src).toContain(command);
+  it("renders the final blue MSO Agent title art and setup/session shortcuts", () => {
+    expect(src).toContain("████████████");
+    expect(src).toContain("  ██   ██ ██ ██   ██████████████████████");
+    expect(src).toContain("███╗   ███╗███████╗ ██████╗");
+    expect(src).toContain("── MSO Agent ──");
+    expect(src).toContain("MSO_TITLE_ART");
+    expect(src).not.toContain("╭──┘      ╰────────╮");
+    for (const command of ["/model", "/setup", "/providers", "/provider", "/doctor", "/tools", "/skills", "/session", "/sessions", "/resume", "/clear", "/exit"]) expect(src).toContain(command);
   });
 
   it("keeps infrastructure secrets out of model messages and binds write/exec approval to the exact full payload", () => {
