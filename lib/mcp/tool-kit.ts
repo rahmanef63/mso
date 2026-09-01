@@ -8,7 +8,6 @@ import type { Scope } from "./scope";
 // catastrophic-command filter in exec.ts. That is the whole reason this file is
 // thin: a tool that reimplemented an operation would reimplement its guard too.
 
-
 export type McpContent =
   | { type: "text"; text: string }
   | { type: "image"; data: string; mimeType: string };
@@ -38,8 +37,11 @@ export interface McpTool {
   description: string;
   scope: Scope;
   inputSchema: { type: "object"; properties: Record<string, unknown>; required?: string[] };
+  /** MCP Apps structured output contract. When present the dispatcher returns the
+   * plain-object handler result as structuredContent as well as the text fallback. */
+  outputSchema?: Record<string, unknown>;
   annotations?: Record<string, boolean>;
-  /** OpenAI Apps SDK metadata, including top-level file parameter binding. */
+  /** MCP Apps / OpenAI metadata: UI resource binding, visibility and file params. */
   meta?: Record<string, unknown>;
   run: (a: Record<string, unknown>, context: McpRunContext) => Promise<unknown>;
   /** Which audit action this writes, and which argument names the target. Reads
