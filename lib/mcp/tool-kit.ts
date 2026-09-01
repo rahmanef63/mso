@@ -37,9 +37,12 @@ export interface McpTool {
   description: string;
   scope: Scope;
   inputSchema: { type: "object"; properties: Record<string, unknown>; required?: string[] };
-  /** MCP Apps structured output contract. When present the dispatcher returns the
-   * plain-object handler result as structuredContent as well as the text fallback. */
+  /** MCP Apps structured output contract. */
   outputSchema?: Record<string, unknown>;
+  /** Optional projection for the structured result. Use this to keep the portable
+   * text fallback backward compatible while exposing a smaller, explicitly safe
+   * object to a widget. */
+  toStructuredContent?: (result: unknown) => Record<string, unknown> | undefined;
   annotations?: Record<string, boolean>;
   /** MCP Apps / OpenAI metadata: UI resource binding, visibility and file params. */
   meta?: Record<string, unknown>;
