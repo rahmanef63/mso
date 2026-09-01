@@ -5,12 +5,13 @@ import { allows, type Scope } from "./scope";
 import { isMcpDirectResult } from "./tool-kit";
 import { MCP_SERVER_VERSION, toolsetInfo } from "./toolset";
 import { TOOLS, TOOLS_BY_NAME } from "./tools";
+import { listUiResources, readUiResource } from "./ui-resources";
 
 export interface RpcRequest {
   jsonrpc?: string;
   id?: string | number | null;
   method?: string;
-  params?: { name?: string; arguments?: Record<string, unknown>; protocolVersion?: string };
+  params?: { name?: string; arguments?: Record<string, unknown>; protocolVersion?: string; uri?: string };
 }
 
 const PROTOCOL = "2024-11-05";
@@ -31,6 +32,7 @@ const toolList = (scope: Scope) => visibleTools(scope).map((tool) => ({
   name: tool.name,
   description: tool.description,
   inputSchema: tool.inputSchema,
+  ...(tool.outputSchema ? { outputSchema: tool.outputSchema } : {}),
   ...(tool.annotations ? { annotations: tool.annotations } : {}),
   ...(tool.meta ? { _meta: tool.meta } : {}),
 }));
@@ -60,6 +62,14 @@ function workflowFromResult(result: unknown): ActiveWorkflow | null {
     : null;
 }
 
+function structuredResult(toolName: string, result: unknown) {
+  const tool = TOOLS_BY_NAME.get(toolName);
+  const content = [{ type: "text" as const, text: typeof result === "string" ? result : JSON.stringify(result) }];
+  return tool?.outputSchema && result !== null && typeof result === "object" && !Array.isArray(result)
+    ? { structuredContent: result as Record<string, unknown>, content }
+    : { content };
+}
+
 export async function dispatch(req: RpcRequest, scope: Scope, actor?: string): Promise<Record<string, unknown>> {
   const id = req.id ?? null;
   switch (req.method) {
@@ -67,7 +77,7 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string): P
       const toolset = toolsetInfo(visibleTools(scope), scope);
       return ok(id, {
         protocolVersion: req.params?.protocolVersion ?? PROTOCOL,
-        capabilities: { tools: { listChanged: false } },
+        capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: { name: "mso", version: MCP_SERVER_VERSION },
         instructions: instructions(scope),
         _meta: { toolset },
@@ -80,11 +90,23 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string): P
       const tools = visibleTools(scope);
       return ok(id, { tools: toolList(scope), _meta: { toolset: toolsetInfo(tools, scope) } });
     }
+    case "resources/list":
+      return ok(id, { resources: listUiResources() });
+    case "resources/read": {
+      const uri = String(req.params?.uri ?? "");
+      if (!uri) return fail(id, -32602, "resources/read needs { uri }");
+      const resource = readUiResource(uri);
+      if (!resource) return fail(id, -32602, `unknown resource: ${uri}`);
+      return ok(id, {
+        contents: [{ uri: resource.uri, mimeType: resource.mimeType, text: resource.text, _meta: resource._meta }],
+      });
+    }
     case "tools/call": {
       const name = String(req.params?.name ?? "");
       const args = req.params?.arguments ?? {};
       const tool = TOOLS_BY_NAME.get(name);
       if (!tool) return fail(id, -32602, `unknown tool: ${name}`);
+      const workflowProbe = name === "workflow_status";
       const requestedWorkflowId = typeof args.workflow_id === "string" && args.workflow_id ? args.workflow_id : undefined;
       const lifecycle = name === "workflow_finish" || name === "workflow_cancel";
       const activeWorkflow = requestedWorkflowId
@@ -95,8 +117,10 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string): P
         void audit({ action: "mcp.denied", actor, target: name, ok: false, detail: `scope ${scope} < ${tool.scope}` });
         const deniedId = newActivityId();
         const target = activityTarget(args);
-        void recordMcpActivity({ id: deniedId, actor, tool: name, state: "denied", scope, ...initialFlow, target, detail: `scope ${scope} < ${tool.scope}` });
-        await recordWorkflowStep(actor, activeWorkflow?.id, { id: deniedId, tool: name, state: "denied", target, args, ts: new Date().toISOString() });
+        if (!workflowProbe) {
+          void recordMcpActivity({ id: deniedId, actor, tool: name, state: "denied", scope, ...initialFlow, target, detail: `scope ${scope} < ${tool.scope}` });
+          await recordWorkflowStep(actor, activeWorkflow?.id, { id: deniedId, tool: name, state: "denied", target, args, ts: new Date().toISOString() });
+        }
         return ok(id, {
           content: [{ type: "text", text: `error: this token holds scope "${scope}"; ${name} needs "${tool.scope}". Mint a new token in mso Settings → MCP.` }],
           isError: true,
@@ -105,7 +129,7 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string): P
       for (const key of tool.inputSchema.required ?? []) {
         if (args[key] == null) return fail(id, -32602, `${name} needs { ${(tool.inputSchema.required ?? []).join(", ")} }`);
       }
-      if (requestedWorkflowId && !lifecycle && name !== "workflow_start" && name !== "skills_search" && !activeWorkflow) {
+      if (requestedWorkflowId && !lifecycle && !workflowProbe && name !== "workflow_start" && name !== "skills_search" && !activeWorkflow) {
         const mismatchId = newActivityId();
         const target = activityTarget(args);
         const message = "workflow_id was not found for this MCP client";
@@ -121,8 +145,10 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string): P
           void audit({ action: "mcp.denied", actor, target: name, ok: false, detail: "rate limited" });
           const limitedId = newActivityId();
           const target = activityTarget(args);
-          void recordMcpActivity({ id: limitedId, actor, tool: name, state: "rate_limited", scope, ...initialFlow, target, detail: "rate limited" });
-          await recordWorkflowStep(actor, activeWorkflow?.id, { id: limitedId, tool: name, state: "rate_limited", target, args, ts: new Date().toISOString() });
+          if (!workflowProbe) {
+            void recordMcpActivity({ id: limitedId, actor, tool: name, state: "rate_limited", scope, ...initialFlow, target, detail: "rate limited" });
+            await recordWorkflowStep(actor, activeWorkflow?.id, { id: limitedId, tool: name, state: "rate_limited", target, args, ts: new Date().toISOString() });
+          }
           return ok(id, {
             content: [{ type: "text", text: `error: ${name} is rate limited (${tool.limit.max} per ${Math.round(tool.limit.windowMs / 1000)}s). Wait and retry.` }],
             isError: true,
@@ -135,7 +161,7 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string): P
       const activityId = newActivityId();
       const startedAt = Date.now();
       const target = activityTarget(args);
-      void recordMcpActivity({ id: activityId, actor, tool: name, state: "started", scope, ...initialFlow, target });
+      if (!workflowProbe) void recordMcpActivity({ id: activityId, actor, tool: name, state: "started", scope, ...initialFlow, target });
       try {
         const result = await tool.run(args, { actor, scope, workflowId: activeWorkflow?.id });
         if (trail) {
@@ -144,16 +170,20 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string): P
         }
         const durationMs = Date.now() - startedAt;
         const completedWorkflow = workflowFromResult(result) ?? activeWorkflow;
-        void recordMcpActivity({ id: activityId, actor, tool: name, state: "completed", scope, ...flowFields(completedWorkflow), target, durationMs });
-        await recordWorkflowStep(actor, completedWorkflow?.id, { id: activityId, tool: name, state: "completed", target, args, durationMs, ts: new Date().toISOString() });
+        if (!workflowProbe) {
+          void recordMcpActivity({ id: activityId, actor, tool: name, state: "completed", scope, ...flowFields(completedWorkflow), target, durationMs });
+          await recordWorkflowStep(actor, completedWorkflow?.id, { id: activityId, tool: name, state: "completed", target, args, durationMs, ts: new Date().toISOString() });
+        }
         if (isMcpDirectResult(result)) return ok(id, { content: result.content, ...(result.isError ? { isError: true } : {}) });
-        return ok(id, { content: [{ type: "text", text: typeof result === "string" ? result : JSON.stringify(result) }] });
+        return ok(id, structuredResult(name, result));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (trail) void audit({ action: trail.action, actor, target: auditTarget, ok: false, detail: message.slice(0, 200), meta: { via: "mcp", scope } });
         const durationMs = Date.now() - startedAt;
-        void recordMcpActivity({ id: activityId, actor, tool: name, state: "failed", scope, ...initialFlow, target, durationMs, detail: message.slice(0, 220) });
-        await recordWorkflowStep(actor, activeWorkflow?.id, { id: activityId, tool: name, state: "failed", target, args, durationMs, ts: new Date().toISOString() });
+        if (!workflowProbe) {
+          void recordMcpActivity({ id: activityId, actor, tool: name, state: "failed", scope, ...initialFlow, target, durationMs, detail: message.slice(0, 220) });
+          await recordWorkflowStep(actor, activeWorkflow?.id, { id: activityId, tool: name, state: "failed", target, args, durationMs, ts: new Date().toISOString() });
+        }
         return ok(id, { content: [{ type: "text", text: "error: " + message.slice(0, 500) }], isError: true });
       }
     }
