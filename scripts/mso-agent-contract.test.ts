@@ -6,8 +6,11 @@ const files = ["mso-agent.mjs", "mso-agent-runtime.mjs"].map((name) => path.join
 const src = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 
 describe("MSO terminal agent contract", () => {
-  it("renders original MSO terminal branding and exposes setup shortcuts", () => {
+  it("renders the MSO folder-terminal icon, wordmark, and setup shortcuts", () => {
+    expect(src).toContain("╭──┘      ╰────────╮");
+    expect(src).toContain("│      >_          │");
     expect(src).toContain("███╗   ███╗ ███████╗  ██████╗");
+    expect(src).toContain("process.stdout.columns < 72");
     for (const command of ["/model", "/setup", "/providers", "/provider", "/doctor", "/tools", "/skills", "/clear", "/exit"]) expect(src).toContain(command);
   });
 

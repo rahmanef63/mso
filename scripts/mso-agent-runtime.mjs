@@ -42,7 +42,15 @@ export async function api(path, init = {}) {
 }
 
 function logo() {
-  const lines = [
+  const icon = [
+    "   ╭──────╮          ",
+    "╭──┘      ╰────────╮ ",
+    "│                  │ ",
+    "│      >_          │ ",
+    "│                  │ ",
+    "╰──────────────────╯ ",
+  ];
+  const wordmark = [
     "███╗   ███╗ ███████╗  ██████╗ ",
     "████╗ ████║ ██╔════╝ ██╔═══██╗",
     "██╔████╔██║ ███████╗ ██║   ██║",
@@ -50,7 +58,13 @@ function logo() {
     "██║ ╚═╝ ██║ ███████║ ╚██████╔╝",
     "╚═╝     ╚═╝ ╚══════╝  ╚═════╝ ",
   ];
-  return lines.map((line, i) => `${i < 2 ? C.a : i < 4 ? C.b : C.c}${C.bold}${line}${C.reset}`).join("\n");
+  const narrow = Number(process.stdout.columns || 0) > 0 && process.stdout.columns < 72;
+  const lines = narrow ? [...icon, "", ...wordmark] : wordmark.map((line, i) => `${icon[i]}  ${line}`);
+  return lines.map((line, i) => {
+    if (!line) return line;
+    const phase = narrow ? i % 6 : i;
+    return `${phase < 2 ? C.a : phase < 4 ? C.b : C.c}${C.bold}${line}${C.reset}`;
+  }).join("\n");
 }
 
 function countSkills(data) { return Array.isArray(data?.skills) ? data.skills.length : 0; }

@@ -9,7 +9,7 @@ Running log of what shipped each phase. Newest at top.
 What changed:
 
 - bare `mso` now launches **MSO Agent**; `mso agent`/`mso chat` are explicit aliases and `mso model` connects or changes the AI provider before the agent starts;
-- the terminal presents original MSO ASCII, selected model, Available Tools, Available Skills and infrastructure readiness, then streams through the existing `/api/assistant` backend;
+- the terminal presents an original MSO folder + `>_` ASCII icon beside the large MSO wordmark (stacking on narrow terminals), selected model, Available Tools, Available Skills and infrastructure readiness, then streams through the existing `/api/assistant` backend;
 - the terminal discovers the canonical MCP catalog through an Owner-only `/api/v1/agent-tools` bridge. Read tools may execute directly; every individual write/exec call pauses for an exact-call terminal approval (never a cached session-wide mutation grant) while server role/scope/rate-limit/audit checks remain authoritative;
 - MCP toolset is **2026.08.31.1: 38 tools = 20 read + 13 write + 5 exec**. New provider tools cover redacted provider discovery/doctor, Dokploy project list/ensure, exact per-record Cloudflare DNS upsert, and exact Hostinger name/type RR-set replacement;
 - provider credentials are stored separately in `~/.mso/private/infra-providers.json`: 0700 parent, 0600 file, `O_NOFOLLOW`, regular-file/owner/size checks, atomic locked writes, API summaries expose only the word `configured` for secret fields, and no raw secret enters model/MCP arguments;
