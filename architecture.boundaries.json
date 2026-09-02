@@ -4,7 +4,7 @@
     "structuralCycles": 0,
     "crossDomainCycles": 0,
     "filesOver220": 54,
-    "filesOver500": 1,
+    "filesOver500": 0,
     "serverFrontendImports": 0,
     "appshellSelfBarrelImports": 0,
     "nonMcpMcpImports": 0,

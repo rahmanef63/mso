@@ -4,10 +4,13 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const CORE = path.join(__dirname, "../scripts/install-core.sh");
+const PHASES = ["cli.sh", "runtime-build.sh", "service.sh", "finalize.sh"].map((name) =>
+  path.join(__dirname, "../scripts/install", name),
+);
 const README = fs.readFileSync(path.join(__dirname, "../README.md"), "utf8");
 const INSTALL = fs.readFileSync(path.join(__dirname, "../docs/INSTALL.md"), "utf8");
 const AGENTS = fs.readFileSync(path.join(__dirname, "../AGENTS.md"), "utf8");
-const core = fs.readFileSync(CORE, "utf8");
+const core = [CORE, ...PHASES].map((file) => fs.readFileSync(file, "utf8")).join("\n");
 const help = execFileSync("bash", [CORE, "--help"], { encoding: "utf8" });
 
 function publicFlags() {

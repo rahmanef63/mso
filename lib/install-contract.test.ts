@@ -7,11 +7,16 @@ import { describe, expect, it } from "vitest";
 
 const BOOTSTRAP = path.join(__dirname, "../scripts/install.sh");
 const CORE = path.join(__dirname, "../scripts/install-core.sh");
+const PHASES = ["cli.sh", "runtime-build.sh", "service.sh", "finalize.sh"].map((name) =>
+  path.join(__dirname, "../scripts/install", name),
+);
+const installerSource = () => [CORE, ...PHASES].map((file) => fs.readFileSync(file, "utf8")).join("\n");
 
 describe("one-line installer contract", () => {
   it("is valid bash and documents onboarding controls", () => {
     expect(() => execFileSync("bash", ["-n", BOOTSTRAP])).not.toThrow();
     expect(() => execFileSync("bash", ["-n", CORE])).not.toThrow();
+    for (const phase of PHASES) expect(() => execFileSync("bash", ["-n", phase])).not.toThrow();
     const help = execFileSync("bash", [CORE, "--help"], { encoding: "utf8" });
     expect(help).toContain("--onboard");
     expect(help).toContain("--no-onboard");
@@ -95,7 +100,7 @@ describe("one-line installer contract", () => {
   });
 
   it("uses the controlling tty after curl|bash and never stdin for onboarding", () => {
-    const src = fs.readFileSync(CORE, "utf8");
+    const src = installerSource();
     expect(src).toContain("[ -r /dev/tty ] && [ -w /dev/tty ]");
     expect(src).toContain('onboard </dev/tty >/dev/tty 2>/dev/tty');
     expect(src).toContain('ONBOARD_MODE=auto');
@@ -103,7 +108,7 @@ describe("one-line installer contract", () => {
   });
 
   it("installs the CLI before dependencies, build, and service setup and proves it against the invoking PATH", () => {
-    const src = fs.readFileSync(CORE, "utf8");
+    const src = installerSource();
     expect(src.indexOf("# ---- CLI on PATH")).toBeLessThan(src.indexOf("INSTALL_PHASE=dependencies"));
     expect(src.indexOf("# ---- CLI on PATH")).toBeLessThan(src.indexOf("INSTALL_PHASE=build"));
     expect(src.indexOf("# ---- CLI on PATH")).toBeLessThan(src.indexOf("# ---- systemd unit ----"));
@@ -125,7 +130,7 @@ describe("one-line installer contract", () => {
   });
 
   it("holds the checkout runtime lifecycle across dependency/build and service refresh", () => {
-    const src = fs.readFileSync(CORE, "utf8");
+    const src = installerSource();
     const begin = src.indexOf("install_runtime_lifecycle_begin");
     const deps = src.indexOf("INSTALL_PHASE=dependencies");
     const build = src.indexOf('node "$NEXT_BIN" build');
@@ -141,7 +146,7 @@ describe("one-line installer contract", () => {
   });
 
   it("bypasses Bun bin remapping for production build and repairs only a missing package payload", () => {
-    const src = fs.readFileSync(CORE, "utf8");
+    const src = installerSource();
     expect(src).toContain('NEXT_BIN="$DIR/node_modules/next/dist/bin/next"');
     expect(src).toContain('node "$NEXT_BIN" build');
     expect(src).not.toMatch(/^\s*bun run build\s*$/m);
@@ -151,7 +156,7 @@ describe("one-line installer contract", () => {
   });
 
   it("requires systemd as PID 1 before service setup and gates onboarding on verified health", () => {
-    const src = fs.readFileSync(CORE, "utf8");
+    const src = installerSource();
     expect(src).toContain("systemd_ready()");
     expect(src).toContain("/proc/1/comm");
     expect(src).toContain('= "systemd"');
@@ -167,7 +172,7 @@ describe("one-line installer contract", () => {
   });
 
   it("verifies a commit-pinned Bun bootstrap before execution", () => {
-    const src = fs.readFileSync(CORE, "utf8");
+    const src = installerSource();
     expect(src).toMatch(/BUN_BOOTSTRAP_COMMIT="[0-9a-f]{40}"/);
     expect(src).toMatch(/BUN_BOOTSTRAP_SHA256="[0-9a-f]{64}"/);
     expect(src).toContain('raw.githubusercontent.com/oven-sh/bun/$BUN_BOOTSTRAP_COMMIT/src/cli/install.sh');
