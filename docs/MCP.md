@@ -75,9 +75,9 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 
 | Scope | Tools |
 |---|---|
-| `read` | `a2a_agent_discover` `a2a_agents_list` `a2a_task_get` `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `fs_list` `fs_read` `fs_search` `fs_usage` `sys_stats` `sys_processes` `apps_list` `apps_logs` `projects_list` `project_capabilities` `skills_list` `skills_read` `skills_search` `screen_capture` `browser_status` `exec_job_status` `infra_providers_list` `infra_provider_doctor` `dokploy_projects_list` `cloudflare_zones_list` `local_agents_list` `local_agent_inbox` |
-| `write` | + `a2a_agent_register` `a2a_agent_remove` `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `workflow_start` `workflow_cancel` `workflow_finish` `fs_write` `fs_upload_file` `fs_mkdir` `fs_move` `fs_copy` `fs_delete` `apps_power` `dokploy_project_ensure` `cloudflare_dns_upsert` `hostinger_dns_upsert` `local_agent_message_send` `local_agent_reply` |
-| `exec` | + `a2a_message_send` `a2a_task_cancel` `a2a_handoff` `project_function_call` `exec_run` `exec_job_start` `exec_job_cancel` `browser_power` `agent_subagent_run` |
+| `read` | `a2a_agent_discover` `a2a_agents_list` `a2a_task_get` `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `apps_list` `apps_logs` `browser_status` `cloudflare_zones_list` `dokploy_projects_list` `exec_job_status` `fs_list` `fs_read` `fs_search` `fs_usage` `infra_provider_doctor` `infra_providers_list` `local_agent_inbox` `local_agent_request_wait` `local_agents_list` `project_capabilities` `projects_list` `screen_capture` `skills_list` `skills_read` `skills_search` `sys_processes` `sys_stats` `tool_forge_candidates` |
+| `write` | + `a2a_agent_register` `a2a_agent_remove` `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `apps_power` `cloudflare_dns_upsert` `dokploy_project_ensure` `fs_copy` `fs_delete` `fs_mkdir` `fs_move` `fs_upload_file` `fs_write` `hostinger_dns_upsert` `local_agent_message_send` `local_agent_reply` `tool_forge_propose` `workflow_cancel` `workflow_finish` `workflow_start` |
+| `exec` | + `a2a_handoff` `a2a_message_send` `a2a_task_cancel` `agent_subagent_run` `browser_power` `exec_job_cancel` `exec_job_start` `exec_run` `local_agent_request` `project_function_call` `tool_forge_evaluate` `tool_forge_promote` |
 
 Alfa — the in-app assistant — overlaps the same host capabilities under dot.case names,
 and `lib/mcp/parity.test.ts` fails if one surface gains a tool the other lacks
@@ -98,9 +98,9 @@ two catalogs stay separate on purpose (different transport and guard) but may no
 drift by accident.
 
 **These tool names are also a cross-repo contract.** `rahmanef63/connectors-gateway`
-registered mso as a connector on 2026-08-17 and pins 15 of these names as strings; a
-rename here breaks it with no error in either repo, and `parity.test.ts` does not cover
-that axis. See [`CONNECTORS-GATEWAY-INTEGRATION.md`](./CONNECTORS-GATEWAY-INTEGRATION.md)
+registered mso as a connector on 2026-08-17 and historically pinned a subset of these names as literal strings; a
+rename here can break that mapping with no error in either repo, and `parity.test.ts` does not cover
+that axis. Verify the gateway repository before changing a tool name. See [`CONNECTORS-GATEWAY-INTEGRATION.md`](./CONNECTORS-GATEWAY-INTEGRATION.md)
 before renaming or removing a tool.
 
 The tiering is about blast radius, not about which layer the call lands in.

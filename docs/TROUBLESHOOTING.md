@@ -234,6 +234,23 @@ Integrated Code Terminal uses the editor/project working directory passed as `cw
 the opened file/project path is inside an allowed writable root; otherwise host cwd
 resolution falls back/refuses according to the host policy.
 
+
+## MSO Agent terminal
+
+### MSO Agent shows an `Error` section after HTTP/API failure
+
+MSO 1.12 treats recoverable terminal API/transport failures as an interaction state instead of silently ending the conversation. The `Error` section shows only a bounded/redacted summary and reports the mutation outcome as `not_started`, `completed`, or `uncertain`. The durable session, correlation rows, permission mode and an active composer draft are preserved.
+
+- `not_started` — no mutation in that turn was dispatched; fix the underlying API/runtime issue and continue.
+- `completed` — the mutation finished before the later failure; **do not repeat it** merely because the follow-up model/API step failed.
+- `uncertain` — a write/exec request may have reached the server before the transport failed; inspect the target state first, then retry only if verification proves the mutation did not happen. MSO never auto-retries this state.
+
+If the service itself is unhealthy, use `mso doctor`, `mso service status`, or the relevant read/status tool before attempting another mutation. Never paste raw request bodies, cookies, tokens, or hidden transcript data into a retry.
+
+### Permission/details interaction was interrupted
+
+In `ask` mode the default approval view is one compact `Approval needed: <tool> — <action>` line. Enter opens redacted-safe exact-call details and the canonical digest; a separate explicit `allow` or `deny` decision is still required. If the approval interaction fails before that decision, MSO keeps pending approval metadata but does **not** infer approval. Continue/re-open the action and make an explicit decision.
+
 ## Camoufox Browser
 
 ### Browser says Camoufox is not installed

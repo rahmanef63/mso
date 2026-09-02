@@ -17,7 +17,7 @@ export function estimateTokens(value) {
   return Math.max(0, Math.ceil(Buffer.byteLength(text, "utf8") / 4));
 }
 
-export function historyContextEstimate(history) {
+function historyContextEstimate(history) {
   return (Array.isArray(history) ? history : []).reduce((sum, row) => sum + estimateTokens(row), 0);
 }
 
@@ -93,7 +93,7 @@ export function statusParts(session, cwd = process.cwd()) {
 }
 
 
-export function detailedStatus(session, cwd = process.cwd()) {
+function detailedStatus(session, cwd = process.cwd()) {
   const cfg = session?.state?.config || {};
   const ctx = contextStatus(session?.history, session?.state?.modelMeta);
   const usage = session?.usage || { inputTokens: 0, outputTokens: 0, totalTokens: 0 };

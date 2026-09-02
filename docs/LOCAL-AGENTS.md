@@ -1,6 +1,6 @@
 # Local Agents — native same-host session messaging
 
-MSO 1.11 keeps **local session messaging** separate from **remote A2A v1** and adds explicit request/reply correlation plus mention routing.
+Since MSO 1.11, **local session messaging** is separate from **remote A2A v1**, with explicit request/reply correlation and mention routing; MSO 1.12 keeps that transport contract and gives Local Agent traffic its own terminal section.
 
 Local Agents is the host-local transport for live MSO sessions. It does not use Agent Cards, peer registration, public URLs, A2A credentials, or the A2A JSON-RPC protocol. Remote agents still use the standard A2A v1 surface documented in [A2A.md](./A2A.md).
 
@@ -38,6 +38,8 @@ Useful TUI commands:
 /delegate rahman review this change and report risks
 /inbox
 ```
+
+In MSO 1.12 terminal output, inbound/outbound peer traffic is rendered under a full-width `Local agent` divider. The bottom composer remains a separate `Input · @name` area, so an async peer event can redraw above an in-progress draft without becoming a user turn or obscuring the current session identity.
 
 A leading `@rahman …` resolves **active agents only**, where active means both a current presence lease and `consumerConnected=true`. If `rahman` is offline/ended or its receiver has disconnected while the lease is still in its grace window, the mention fails clearly and does not silently queue a new request. This prevents a typo/stale handle from becoming a delayed surprise response. The lower-level `local_agent_message_send`/`mso agents send` compatibility surface may still explicitly address a known offline session and retain durable queued delivery.
 
@@ -192,6 +194,6 @@ No external broker, database, daemon, or framework is required.
 
 ## Relationship to legacy same-host A2A helpers
 
-Older `mso a2a local ...` one-shot delegation/virtual-loopback-card helpers remain for backward compatibility and protocol testing. They are **not** the transport used by `/agents`, `/message`, local `/delegate`, the Local Agents MCP tools, or live inbox delivery in MSO 1.11.
+Older `mso a2a local ...` one-shot delegation/virtual-loopback-card helpers remain for backward compatibility and protocol testing. They are **not** the transport used by `/agents`, `/message`, local `/delegate`, the Local Agents MCP tools, or live inbox delivery in MSO 1.11+ / current MSO.
 
 New same-host communication should use Local Agents. Public/remote interoperability should use A2A v1.

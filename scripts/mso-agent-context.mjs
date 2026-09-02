@@ -1,7 +1,7 @@
-export const DEFAULT_MODEL_HISTORY_BUDGET = 48_000;
-export const MAX_MODEL_HISTORY_BUDGET = 120_000;
+const DEFAULT_MODEL_HISTORY_BUDGET = 48_000;
+const MAX_MODEL_HISTORY_BUDGET = 120_000;
 
-export function estimateContextTokens(value) {
+function estimateContextTokens(value) {
   let raw = "";
   try { raw = typeof value === "string" ? value : JSON.stringify(value ?? ""); }
   catch { raw = String(value ?? ""); }

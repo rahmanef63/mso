@@ -6,7 +6,7 @@ import {
   slashSkillNames,
 } from "./mso-agent-skills.mjs";
 
-export const BUILTIN_SLASH_ITEMS = [
+const BUILTIN_SLASH_ITEMS = [
   { text: "/help", meta: "Show commands and shortcuts", kind: "command" },
   {
     text: "/models",

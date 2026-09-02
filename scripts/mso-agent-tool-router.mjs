@@ -56,7 +56,7 @@ function messageText(row) {
   return "";
 }
 
-export function turnSearchText(history = [], skillContext = null) {
+function turnSearchText(history = [], skillContext = null) {
   const recent = history.slice(-8).map(messageText).filter(Boolean).join("\n");
   const skill = skillContext?.content ? String(skillContext.content).slice(0, 16000) : "";
   return `${recent}\n${skill}`.slice(-48000);
@@ -132,5 +132,3 @@ export function selectToolsForTurn(allTools = [], history = [], skillContext = n
     softLimit: maxActive,
   };
 }
-
-export function coreToolNames() { return [...CORE_TOOL_NAMES]; }

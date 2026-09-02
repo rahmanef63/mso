@@ -138,7 +138,7 @@ scenarios before making that claim.
 
 ## Current P2 + A2A baseline
 
-On the development host after P2 + outbound A2A integration:
+Benchmark snapshot captured on the development host after P2 + outbound A2A integration (before later Local Agent/subagent catalog growth):
 
 | Metric | MSO P2 + A2A | Hermes local baseline |
 |---|---:|---:|
@@ -151,7 +151,7 @@ On the development host after P2 + outbound A2A integration:
 | Typed-memory fixture accuracy | 100% (8/8) | not implemented in this harness |
 | Deterministic routing / memory resolution | yes / yes | not the same benchmark |
 
-The existing learned-recipe store currently reports **179 successful / 186 total workflows (96.2%)**, but those recipes predate the P1 quality schema, so step-level telemetry coverage correctly starts at **0%** rather than fabricating historical tool-error/retry data. New or re-learned recipes carry `qualityVersion: 1`; coverage grows naturally from real post-P1 executions.
+At that P1/P2 rollout snapshot, the learned-recipe store reported **179 successful / 186 total workflows (96.2%)**. Those recipes predated the P1 quality schema, so step-level telemetry coverage correctly started at **0%** rather than fabricating historical tool-error/retry data. New or re-learned recipes carry `qualityVersion: 1`; coverage grows naturally from real post-P1 executions.
 
 A non-interactive full MSO tool loop is now available as `mso agent --oneshot <prompt> --json`. It defaults to read-only autonomous approval; write/exec require explicit `--approve-scope write|exec`. The cross-agent harness uses a private scratch read task whose nonce and values exist only in a file. A first smoke proved MSO on `openai-codex/gpt-5.6-terra`; Hermes failed because its local configuration does not expose an `openai` provider and OpenClaw rejected that model override for agent `main`, so the harness correctly returned **`comparable=false`**. That is connectivity/configuration evidence, not a ranking.
 
@@ -163,7 +163,7 @@ P1 supplies typed/provenance-aware temporal memory, deterministic retrieval eval
 
 Forge only creates inert candidates from repeated high-quality recipes. Skill candidates are deterministic redacted guidance; executable project-function candidates require an exec-scope verified recipe and may reference only existing project-owned Node code. Fixtures run in the dedicated cached Docker sandbox with no network and a read-only project mount. Evaluation records current toolset, candidate/target state, source SHA-256 and exact sandbox image evidence; promotion requires literal confirmation and immediately repeats the checks. A candidate cannot silently raise scope, overwrite an existing capability, or turn generated text into host-executable code.
 
-Outbound A2A v1 remains orthogonal: it adds remote-agent delegation, while Forge turns repeated **local verified procedures** into reviewed project capabilities. The combined routing benchmark covers both surfaces with 100% required-tool recall while selecting only 15.4 of 60 tools on average.
+Outbound A2A v1 remains orthogonal: it adds remote-agent delegation, while Forge turns repeated **local verified procedures** into reviewed project capabilities. That recorded combined routing benchmark covered both surfaces with 100% required-tool recall while selecting 15.4 of the then-current 60 tools on average; current catalog size is intentionally read from the live MCP descriptor instead of rewriting this historical benchmark.
 
 The next phase should continue from measured primitives:
 

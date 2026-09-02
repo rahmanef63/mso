@@ -29,13 +29,13 @@ export function formatLocalAgentEvent(message, colors = C) {
   return `${colors.c}${colors.bold}${prefix}${kind}${colors.reset} ${indented}`;
 }
 
-export function formatLocalAgentRelay(message, colors = C) {
+function formatLocalAgentRelay(message, colors = C) {
   const prefix = agentPrefix(message?.senderLabel);
   const text = String(message?.text || "").replace(/\r/g, "").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
   return `${colors.c}${colors.bold}${prefix} → user${colors.reset} ${text.replace(/\n/g, "\n  ")}`;
 }
 
-export function correlatedRelayRequest(history, message) {
+function correlatedRelayRequest(history, message) {
   if (message?.intent !== "reply" || message?.requiresUserRelay !== true || !message?.replyToMessageId || !message?.correlationId) return null;
   return (Array.isArray(history) ? history : []).find((row) =>
     row?.role === "local_request" && String(row.messageId || "") === String(message.replyToMessageId) &&

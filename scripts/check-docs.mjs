@@ -48,14 +48,69 @@ for (const name of appOnlyTools) {
 const counts = { read: 0, write: 0, exec: 0 };
 for (const scope of documentedTools.values()) counts[scope] += 1;
 const marker = `server=${server} version=${version} tools=${documentedTools.size} read=${counts.read} write=${counts.write} exec=${counts.exec}`;
-for (const file of ["docs/MCP.md", "docs/CHATGPT-PLUGIN.md", "docs/CONNECTORS-GATEWAY-INTEGRATION.md"]) {
+const markerDocs = ["docs/MCP.md", "docs/CHATGPT-PLUGIN.md", "docs/CONNECTORS-GATEWAY-INTEGRATION.md", "docs/ARCHITECTURE.md", "CLAUDE.md"];
+for (const file of markerDocs) {
   const text = read(file);
   if (!text.includes(`<!-- mcp-toolset: ${marker} -->`)) {
     fail.push(`${file}: MCP marker stale; expected ${marker}`);
   }
+}
+for (const file of ["docs/MCP.md", "docs/CHATGPT-PLUGIN.md", "docs/CONNECTORS-GATEWAY-INTEGRATION.md"]) {
+  const text = read(file);
   for (const name of documentedTools.keys()) {
     if (!text.includes(`\`${name}\``)) fail.push(`${file}: MCP tool ${name} is not documented`);
   }
+}
+
+// ChatGPT's human scope catalog must match source scope membership, not merely contain every name somewhere.
+const chatgpt = read("docs/CHATGPT-PLUGIN.md");
+const scopeOrder = ["read", "write", "exec"];
+for (let i = 0; i < scopeOrder.length; i += 1) {
+  const scope = scopeOrder[i];
+  const next = scopeOrder[i + 1];
+  const expected = [...documentedTools].filter(([, value]) => value === scope).map(([name]) => name).sort();
+  const heading = scope === "read"
+    ? `### \`read\` — ${expected.length} model/operator tools`
+    : `### \`${scope}\` — ${scope === "write" ? "read" : "write"} + ${expected.length} tools`;
+  if (!chatgpt.includes(heading)) fail.push(`docs/CHATGPT-PLUGIN.md: stale ${scope} scope heading; expected ${heading}`);
+  const start = chatgpt.indexOf(`### \`${scope}\` —`);
+  const end = next ? chatgpt.indexOf(`### \`${next}\` —`, start + 1) : chatgpt.indexOf("\n`exec_run` is full host shell power", start + 1);
+  if (start < 0 || end < 0) {
+    fail.push(`docs/CHATGPT-PLUGIN.md: could not parse ${scope} scope block`);
+    continue;
+  }
+  const actual = [...chatgpt.slice(start, end).matchAll(/^- \`([^\`]+)\`/gm)].map((match) => match[1]).sort();
+  if (actual.join("\n") !== expected.join("\n")) {
+    fail.push(`docs/CHATGPT-PLUGIN.md: ${scope} scope tool list differs from source catalog`);
+  }
+}
+
+// MCP.md's scope table must match source membership exactly.
+const mcpDoc = read("docs/MCP.md");
+for (const scope of scopeOrder) {
+  const expected = [...documentedTools].filter(([, value]) => value === scope).map(([name]) => name).sort();
+  const row = mcpDoc.split("\n").find((line) => line.startsWith(`| \`${scope}\` |`));
+  if (!row) { fail.push(`docs/MCP.md: missing ${scope} scope row`); continue; }
+  const actual = [...row.matchAll(/`([^`]+)`/g)].map((match) => match[1]).filter((name) => name !== scope).sort();
+  if (actual.join("\n") !== expected.join("\n")) fail.push(`docs/MCP.md: ${scope} scope row differs from source catalog`);
+}
+
+// The connectors contract repeats the scope partition for cross-repo mapping review.
+const connectorDoc = read("docs/CONNECTORS-GATEWAY-INTEGRATION.md");
+const connectorLabels = { read: "Read", write: "Write", exec: "Exec" };
+for (let i = 0; i < scopeOrder.length; i += 1) {
+  const scope = scopeOrder[i];
+  const next = scopeOrder[i + 1];
+  const expected = [...documentedTools].filter(([, value]) => value === scope).map(([name]) => name).sort();
+  const expectedHeading = scope === "read"
+    ? `### Read (${expected.length} model/operator)`
+    : `### ${connectorLabels[scope]} (${expected.length} beyond ${scope === "write" ? "read" : "write"})`;
+  if (!connectorDoc.includes(expectedHeading)) fail.push(`docs/CONNECTORS-GATEWAY-INTEGRATION.md: stale ${scope} heading; expected ${expectedHeading}`);
+  const start = connectorDoc.indexOf(`### ${connectorLabels[scope]} (`);
+  const end = next ? connectorDoc.indexOf(`### ${connectorLabels[next]} (`, start + 1) : connectorDoc.indexOf("### App-only bridge", start + 1);
+  if (start < 0 || end < 0) { fail.push(`docs/CONNECTORS-GATEWAY-INTEGRATION.md: could not parse ${scope} block`); continue; }
+  const actual = [...connectorDoc.slice(start, end).matchAll(/`([^`]+)`/g)].map((match) => match[1]).sort();
+  if (actual.join("\n") !== expected.join("\n")) fail.push(`docs/CONNECTORS-GATEWAY-INTEGRATION.md: ${scope} scope list differs from source catalog`);
 }
 
 // --- Slice catalog counts.

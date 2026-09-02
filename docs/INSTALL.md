@@ -162,12 +162,12 @@ verify with `mso provider doctor`.
 
 After an AI provider is connected, bare `mso` launches the interactive MSO Agent. The agent
 uses the canonical MCP tool catalog internally: reads run directly, while write/exec calls
-pause for terminal approval. Skill lifecycle is explicit in the slash palette and status line:
+pause for terminal approval. Skill lifecycle is explicit in the slash palette and bottom telemetry footer:
 `◇ ready` means discoverable/executable, `◆ queued` means selected for the next user message,
 and `✓ invoked` means the skill instructions were actually attached to a model turn. The terminal
 transcript uses full-width dividers for Assistant, Agent work, Local agent, and recoverable Error sections.
 The bottom composer is separated by an `Input · @name` divider, uses `@name ›` as its identity prompt, and
-keeps `mode ask|auto|yolo` in the footer; Tab cycles that mode in place. Recoverable HTTP/API errors keep
+keeps `mode ask|auto|yolo` in the footer; Tab cycles that mode in place. `/statusbar off` collapses the footer to mode-only telemetry, while `/statusbar on` restores model/context/session details. Recoverable HTTP/API errors keep
 the interaction/session intact and never auto-repeat an uncertain write/exec call. The composer also
 follows conventional controls: Ctrl+C clears a draft, exits an empty prompt, or interrupts
 an active turn; Ctrl+D deletes right/exits on empty; Ctrl+L clears the screen; Ctrl+W deletes the previous

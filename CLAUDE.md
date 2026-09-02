@@ -348,8 +348,11 @@ the real runtime and working analogue before changing a tool or skill contract.
   it AND `tools/call` re-checks it — a client can call a name it was never shown.
 - **Tool names are a cross-repo contract.** `rahmanef63/connectors-gateway` registered
   mso as a connector on 2026-08-17 and historically pinned a subset of the MCP names as
-  literal `x-upstream` strings. MSO itself currently exposes 31 tools (16 read, 10 write,
-  3 exec); `GET /mcp` plus `_meta.toolset` expose the current version/hash/name manifest.
+  literal `x-upstream` strings.
+  <!-- mcp-toolset: server=1.6.0 version=2026.09.02.7 tools=66 read=32 write=22 exec=12 -->
+  MSO currently exposes **67 transport tools**: **66 model/operator tools** (32 read, 22 write,
+  12 exec) plus the app-only `workflow_status` bridge; `GET /mcp` plus `_meta.toolset` expose
+  the current version/hash/name manifest.
   Treat the gateway mapping as a separate cross-repo contract and verify it before renaming. Renaming or removing
   a tool here breaks it with **no error in either repo** — `parity.test.ts` guards the
   Alfa axis, not this one. Read `docs/CONNECTORS-GATEWAY-INTEGRATION.md` before touching

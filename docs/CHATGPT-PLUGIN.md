@@ -145,7 +145,7 @@ A token sees a scope prefix; there is no per-project or per-agent hidden tool fi
 `tools/list` filters the catalog and `tools/call` independently re-checks the required
 scope.
 
-### `read` — 29 model/operator tools
+### `read` — 32 model/operator tools
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -167,6 +167,9 @@ scope.
 - `fs_usage`
 - `infra_provider_doctor`
 - `infra_providers_list`
+- `local_agent_inbox`
+- `local_agent_request_wait`
+- `local_agents_list`
 - `project_capabilities`
 - `projects_list`
 - `screen_capture`
@@ -176,7 +179,8 @@ scope.
 - `sys_processes`
 - `sys_stats`
 - `tool_forge_candidates`
-### `write` — read + 20 tools
+
+### `write` — read + 22 tools (54 visible at write scope)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -194,20 +198,24 @@ scope.
 - `fs_upload_file`
 - `fs_write`
 - `hostinger_dns_upsert`
+- `local_agent_message_send`
+- `local_agent_reply`
 - `tool_forge_propose`
 - `workflow_cancel`
 - `workflow_finish`
 - `workflow_start`
 
-### `exec` — write + 10 tools
+### `exec` — write + 12 tools (66 visible at exec scope)
 
+- `a2a_handoff`
 - `a2a_message_send`
 - `a2a_task_cancel`
-- `a2a_handoff`
+- `agent_subagent_run`
 - `browser_power`
 - `exec_job_cancel`
 - `exec_job_start`
 - `exec_run`
+- `local_agent_request`
 - `project_function_call`
 - `tool_forge_evaluate`
 - `tool_forge_promote`
@@ -238,11 +246,13 @@ locally with `mso provider set <id>` rather than pasting credentials into a Chat
 ### A2A peer delegation
 
 ChatGPT can use `a2a_agent_discover`/`a2a_agents_list` to find peers, then the exec-scope
-`a2a_message_send` or `a2a_handoff` to delegate explicit work. `a2a_task_get` polls the remote
-task and `a2a_task_cancel` requests cancellation; register/remove only mutate MSO's local public
-Agent Card registry. MSO never auto-forwards this ChatGPT conversation, private agent memory, or
-raw MSO session/workflow ids to a peer. Current A2A is outbound/public-HTTPS/anonymous only and
-fails closed for Agent Cards that require credentials. See [`A2A.md`](./A2A.md).
+`a2a_message_send` or `a2a_handoff` to delegate explicit work. `a2a_task_get` reads a remote
+task and `a2a_task_cancel` requests cancellation; register/remove mutate only MSO's sanitized peer
+registry. Outbound peers may be anonymous or use a private API-key/Bearer/OAuth2 credential profile
+configured by the owner outside the message payload. MSO can also expose an authenticated inbound A2A
+server when an explicit public HTTPS origin exists, but that inbound bearer/task lifecycle is separate from
+this ChatGPT MCP token. MSO never auto-forwards this ChatGPT conversation, private agent memory, or raw
+MSO session/workflow ids to a peer. See [`A2A.md`](./A2A.md).
 
 ## 6. Tool-snapshot refresh: the part most often missed
 
@@ -255,9 +265,9 @@ Settings → MCP:
 
 ```text
 server:  1.6.0
-toolset: 2026.09.02.3
+toolset: 2026.09.02.7
 hash:    <live schema hash>
-count:   59 model/operator tools (+ 1 app-only bridge)
+count:   66 model/operator tools (+ 1 app-only bridge)
 ```
 
 Use this sequence after an MSO MCP change:

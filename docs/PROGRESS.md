@@ -2,6 +2,14 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-03 — MSO 1.12 documentation and Agent contract cleanup
+
+- **Full Markdown audit:** reviewed all 71 authored Markdown files in the repository, preserving dated release/audit/design evidence while correcting current-reference drift. Structural validation reports zero malformed fence/heading issues and all 125 relative Markdown links resolve.
+- **Current Agent docs:** synchronized `TESTING-HANDOFF`, Local Agents, install/provider guidance, troubleshooting, architecture and the documentation map with the shipped 1.12 identity-first composer, sectioned transcript, compact exact approval and recoverable `not_started | completed | uncertain` mutation semantics. Historical 1.8–1.11 release notes remain intact rather than being rewritten as if they were current instructions.
+- **MCP/A2A drift fixed:** current references now agree on server `1.6.0`, toolset `2026.09.02.7`, 67 transport tools = 66 model/operator tools (32 read / 22 write / 12 exec) + app-only `workflow_status`. Stale 31/29/59/56-tool claims and obsolete anonymous-only A2A wording were removed from current docs; historical benchmark snapshots were relabeled as snapshots instead of live metrics.
+- **Docs gate strengthened:** `check-docs.mjs` now verifies the MCP marker in architecture/operator docs and exact scope membership in `docs/MCP.md`, `docs/CHATGPT-PLUGIN.md`, and `docs/CONNECTORS-GATEWAY-INTEGRATION.md`, so a future tool addition cannot leave one human catalog silently stale.
+- **Unused surface cleanup:** removed the dead `coreToolNames()` helper and stopped exporting Agent constants/helpers that are private implementation details while retaining every internally used behavior. No compatibility placeholder or public CLI/MCP capability was removed.
+
 ## 2026-09-02 — MSO 1.12.0 sectioned Agent TUI + recoverable API failures
 
 - **Identity-first bottom composer:** the old `[ask] ›` prompt is replaced by the short durable handle (`@milo ›`). A full-width `Input · @milo` divider separates transcript from editing state; permission moves to the dynamic footer as `mode ask|auto|yolo`, and empty-prompt Tab repaints only that footer. Wrapped input, resize redraw, prompt history, and keyboard editing remain intact.

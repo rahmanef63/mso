@@ -13,7 +13,7 @@ const LABELS = {
 function plain(value) { return String(value ?? "").replace(/\x1b\[[0-9;]*m/g, ""); }
 function width(value) { return Array.from(plain(value)).length; }
 
-export function tuiColumns(output = process.stdout) {
+function tuiColumns(output = process.stdout) {
   return Math.max(24, Number(output?.columns || 100));
 }
 

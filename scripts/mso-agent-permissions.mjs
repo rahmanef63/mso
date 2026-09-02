@@ -1,4 +1,4 @@
-export const PERMISSION_MODES = [
+const PERMISSION_MODES = [
   { id: "ask", label: "Ask", detail: "Confirm every write and exec call", tone: "safe" },
   { id: "auto", label: "Auto-write", detail: "Approve writes; still ask before exec", tone: "auto" },
   { id: "yolo", label: "YOLO", detail: "Approve write and exec automatically", tone: "danger" },

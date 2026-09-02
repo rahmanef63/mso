@@ -40,7 +40,9 @@ flowchart LR
 | Host operations | `lib/host/*` | Filesystem roots, credential denylist, process/system operations, audit. |
 | Web host API | `/api/v1/*` | Live-role-gated routes; unknown mutations fail up to Owner and routes delegate into `lib/host`. |
 | CLI | `bin/mso` | Another frontend over the same web API; bare `mso` starts the interactive agent and `docs/CLI.md` is generated from the help contract. |
-| Terminal MSO Agent | `scripts/mso-agent.mjs`, `/api/v1/agent-tools` | Streams through `/api/assistant`, discovers the canonical MCP catalog, and requires terminal approval before write/exec calls. |
+| Terminal MSO Agent | `scripts/mso-agent.mjs`, `mso-agent-turn.mjs`, `mso-agent-layout.mjs`, `mso-agent-errors.mjs`, `/api/v1/agent-tools` | Streams through `/api/assistant`, discovers the canonical MCP catalog, renders sectioned Assistant/work/local/error output, and preserves exact approval + recoverable mutation-outcome semantics. |
+| Local Agent messaging | `lib/agent/local-agent-*`, `/api/v1/local-agents`, `scripts/mso-agent-local.mjs` | Same-principal presence + durable mailbox + SSE delivery; active human mentions require a live receiver and never require an Agent Card. |
+| Same-session subagents | `lib/agent/subagent-runner.ts`, `lib/mcp/tools-subagents.ts` | Bounded foreground isolated child runs behind an exec-scope delegation boundary; no recursive/background worker is created. |
 | Infrastructure providers | `lib/infra/*`, `/api/v1/infra/*` | Owner-private Dokploy/Cloudflare/Hostinger state and bounded provider clients; secrets never enter model tool arguments. |
 | Alfa | `frontend/slices/assistant/host-tools/*` | Stable tool catalog; reads run immediately, mutations require human approval. |
 | MCP | `lib/mcp/*`, `/mcp`, `/oauth/*` | OAuth 2.1 + PKCE; `read < write < exec` token scope. |
@@ -158,9 +160,10 @@ park a visible Approve/Deny card. The complete semantic contract is
 
 **MCP** is for external clients such as ChatGPT, Claude.ai and Cursor. Its catalog lives in
 `lib/mcp/`; access is controlled by the OAuth token scope rather than Alfa approval cards.
-At the current toolset it exposes 56 transport tools: 55 model/operator tools (28 read, 22 write, 5 exec) plus the app-only `workflow_status` progress bridge. Project-specific
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.7 tools=66 read=32 write=22 exec=12 -->
+At the current toolset it exposes **67 transport tools**: **66 model/operator tools** (32 read, 22 write, 12 exec) plus the app-only `workflow_status` progress bridge. Project-specific
 function names remain data behind `project_capabilities` / `project_function_call`, so one
-project cannot dynamically rewrite the global MCP tool prefix.
+project cannot dynamically rewrite the global MCP tool prefix. `GET /mcp` remains the live count/hash authority.
 
 See `docs/MCP.md` for protocol/security internals, `docs/A2A.md` for peer-agent delegation, and `docs/CHATGPT-PLUGIN.md` for the
 ChatGPT-facing setup and diagrams.

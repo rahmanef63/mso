@@ -18,7 +18,7 @@ Bare `mso` is the interactive setup/operations agent:
 mso                         # launch MSO Agent
 mso agent                   # explicit alias
 mso --continue              # resume latest durable Agent session
-mso --resume <query>        # resume by index/id/short-id/title
+mso --resume <query>        # resume by @name/index/id/short-id/title
 mso models                  # configure AI provider/API/OAuth connections
 mso models add openai-codex # connect ChatGPT subscription OAuth without switching model
 mso model                   # choose active model from connected providers
@@ -49,24 +49,31 @@ interactive prompt — but uses original MSO ASCII artwork and MSO's own tool/ru
 Agent slash commands are:
 
 ```text
-/models  /model  /status  /context  /statusbar  /title
+/models  /model  /status  /context  /statusbar  /rename  /title
 /session /sessions /resume  /setup   /providers  /provider <id>
-/doctor  /tools    /skills   /clear   /exit
+/doctor  /tools    /agents   /message /delegate   /spawn    /inbox
+/skills  /skill    /clear    /exit
 ```
 
 Slash skills expose runtime state instead of looking identical to ordinary commands: `◇ ready`
 uses the normal skill color, `◆ queued` is amber after selection for the next message, and `✓ invoked`
-is green after the skill was actually attached to a model request. `/skills` and the compact status line
+is green after the skill was actually attached to a model request. `/skills` and the bottom telemetry footer
 show the same state, so the signal is consistent rather than decorative.
 
-The prompt status line is dynamic: active `provider/model`, approximate current context (`ctx ~…`)
-with a catalog context-window denominator when available, provider-reported token usage when the
-upstream exposes it, turn count, last-turn duration, durable session id and working directory.
-`/status` expands the same information. Context without tokenizer/provider metadata is deliberately
-labeled approximate rather than presented as an exact token count. `/sessions` lists durable sessions;
-`/resume` opens a picker or accepts `latest`, a list index, exact/short id, exact title or unique title
-substring. The CLI equivalents are `mso --continue` and `mso --resume <query>`. Session discovery
-remains scoped to the authenticated principal; resume never bypasses principal/session isolation.
+MSO 1.12 uses an identity-first bottom composer: `Input · @name` separates editing state from the transcript,
+`@name ›` is the prompt, and permission is shown independently as `mode ask|auto|yolo`. With `/statusbar on`
+(the default), that footer also shows active `provider/model`, approximate current context (`ctx ~…`),
+provider-reported token usage when available, turn count, last-turn duration, session/title state and working
+directory; `/statusbar off` keeps only mode + Tab-cycle guidance. `/status` expands the same diagnostics.
+Context without tokenizer/provider metadata is deliberately approximate. `/sessions` lists durable sessions;
+`/resume` opens a picker or accepts `latest`, `@name`, list index, exact/short id, exact title or unique title
+substring. The CLI equivalents are `mso --continue` and `mso --resume <query>`. Session discovery remains
+scoped to the authenticated principal; resume never bypasses principal/session isolation.
+
+Assistant output, tool/subagent progress, Local Agent traffic, and recoverable interaction errors are separated
+by full-width `Assistant`, `Agent work`, `Local agent`, and `Error` dividers. Recoverable API/transport failures
+never auto-repeat an uncertain write/exec mutation; verify target state before retrying a mutation whose outcome
+is reported as `uncertain`.
 
 ## 2. One tool catalog, two transports
 
@@ -86,11 +93,13 @@ flowchart LR
   I --> HS[Hostinger]
 ```
 
-Read tools may run immediately. Every `write` or `exec` request from the terminal pauses on
-an exact-call approval prompt; there is no session-wide mutation allowlist. MSO renders the
-complete canonical tool name + nested input before approval, shows its SHA-256, and the server
-recomputes that digest before dispatch so changing any field invalidates approval. Calls larger
-than 32 KiB are refused by the terminal agent rather than approved from a truncated preview.
+Read tools may run immediately. In normal `ask` mode, every `write` or `exec` request pauses on
+one compact `Approval needed: <tool> — <action>` line; there is no session-wide mutation allowlist.
+Enter opens the redacted-safe exact-call details (tool, scope, bounded args summary and canonical SHA-256),
+then a separate explicit `allow` or `deny` decision is required. The server recomputes the digest before
+dispatch so changing any field invalidates approval. Auto-write/YOLO may skip the human prompt only within
+their documented scope, but still compute/send exact payload binding. Calls larger than 32 KiB are refused
+rather than approved from a truncated preview.
 The server independently requires an Owner session, applies the deployment's MCP scope ceiling,
 re-checks the tool scope, rate-limits the operation and writes its normal audit trail. Terminal
 approval is therefore an additional interaction guard, not a replacement for server authorization.

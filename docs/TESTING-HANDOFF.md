@@ -4,9 +4,9 @@ Update this file at the end of every manual or automated test session. Keep it f
 
 ## Current status
 
-The v1.10 findings below are implemented and deployed in **MSO 1.11.1** (`3e06c70`). The historical session logs remain below as evidence of what was observed. Do not re-open resolved findings from prose alone: reproduce against the current build first. The current open work is the sectioned terminal conversation layout and recoverable HTTP/API error UX described below.
+The current deployed baseline is **MSO CLI 1.12.0** with toolset `2026.09.02.7`; use `mso --version` plus `/api/health` for the exact Git build because documentation-only release commits also advance that identity. The v1.10/v1.11 findings and the v1.12 sectioned-terminal/recoverable-error work below are resolved and retained as historical test evidence. Do not re-open a resolved finding from prose alone: reproduce it against the current build first. There is no known 1.12 release blocker in this handoff.
 
-Resolved in the candidate:
+Current verified behavior:
 - every durable session has a unique short public `name` (`milo`, `luna`, `nara`, …) independent from its longer `title`; `/rename` changes the handle and `/title` changes the description;
 - human `@name` mention routing resolves active agents only; internal `agent-a` aliases remain compatibility data for explicit APIs;
 - composer drafts wrap dynamically to terminal width/height, repaint on resize, and ↑/↓ navigate visual rows before history;
@@ -15,8 +15,22 @@ Resolved in the candidate:
 - `local_agent_request` has MCP-dispatch coverage and remains a fresh bounded worker, never a claim to wake/control another terminal/ChatGPT process;
 - standalone Local Agent MCP tests isolate the A2A worker import boundary instead of failing on Vitest's unresolved `server-only`;
 - exact write/exec approval defaults to one compact safe line; Enter opens redacted-safe details plus the unchanged canonical digest, and a separate explicit `allow` / `deny` decision is required.
+- the terminal separates `Assistant`, `Agent work`, `Local agent`, `Error`, and `Input · @name` with full-width dividers; the composer identity is `@name ›` and permission lives in the bottom footer as `mode ask|auto|yolo`;
+- recoverable HTTP/API failures preserve the interaction and correlation state, classify mutation outcome as `not_started`, `completed`, or `uncertain`, redact safe error summaries, and never auto-retry an uncertain write/exec mutation.
 
 ## Copy prompt for Agent Alpha
+
+```text
+You are taking over MSO testing work in /home/rahman/projects/mso.
+
+Read docs/TESTING-HANDOFF.md first. Current verified baseline: CLI 1.12.0, toolset 2026.09.02.7; resolve the exact live Git build from `mso --version`/`/api/health`. Preserve existing work and do not re-open resolved v1.10-v1.12 findings unless you can reproduce them against the current build.
+
+For a new issue: record the exact reproduction, distinguish durable state from live receiver/process state, avoid duplicate write/exec retries when outcome is uncertain, add the smallest focused regression, run typecheck plus the relevant contract tests, then update this handoff with factual results.
+```
+
+### Resolved historical takeover prompt
+
+The prompt below is retained because it records the acceptance criteria that produced 1.11/1.12. It is **not current open work**.
 
 ```text
 You are taking over MSO testing work in /home/rahman/projects/mso.
@@ -45,6 +59,37 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 ```
 
 ## Session log
+
+### 2026-09-03 — repository docs + unused Agent surface audit
+
+**Goal**
+- Make every current MSO document consistent with the shipped 1.12 Agent/runtime contract without deleting still-valid historical evidence.
+- Remove only demonstrably unused recent Agent code/surface and strengthen machine checks against future documentation drift.
+
+**Changed**
+- Audited all 71 repository Markdown files; current references were synchronized while `PROGRESS`, generated changelog, dated audits/plans and older release evidence were preserved as historical records.
+- Corrected current MCP scope/count catalogs to 66 model/operator tools (32 read / 22 write / 12 exec) plus app-only `workflow_status`, and corrected current A2A docs to include authenticated outbound credentials, streaming and optional authenticated inbound serving.
+- Updated 1.12 terminal/provider/install/Local Agent/architecture/troubleshooting guidance and replaced the stale takeover prompt with a current-baseline prompt while retaining the resolved old prompt as historical acceptance evidence.
+- Strengthened `check-docs.mjs` so architecture/operator markers plus MCP, ChatGPT and connectors scope partitions must match source exactly.
+- Removed dead `coreToolNames()` and made implementation-only Agent helpers private instead of exporting unused internal API.
+
+**Verified before release gate**
+- Markdown inventory: **71 files**; structural issues: **0**.
+- Relative Markdown links: **125 checked / 0 broken**.
+- Stale current-claim sweep for obsolete 31/29/59/56-tool counts, old toolset sample and anonymous-only A2A wording: **clean**.
+- `node scripts/check-docs.mjs`: PASS — **53 checked project docs, 66 model MCP tools + 1 app-only bridge, 22 slices, 10 AppShell feature dirs**.
+- `npm run typecheck`: PASS after the documentation/checker and unused-export cleanup.
+
+**Repository-wide verification**
+- Targeted Agent/docs regression: **10 test files / 45 tests passed**.
+- Full release verification PASS with exit 0: `bun run verify` (typecheck, lint, coverage/full test suite, docs/architecture checks, dependency audit) followed by `bash scripts/verify-build.sh` for the out-of-tree production build.
+- Lint remains **0 errors / 9 existing max-lines warnings**; this audit adds no warning-only file.
+- Dependency audit: `bun audit` reports **No vulnerabilities found**.
+- Final Agent dead-code scan: **0 dead top-level helpers**; the removed `coreToolNames()` was the only definition-only function found before cleanup.
+- Final Markdown validation remains **71 files / 125 relative links / 0 structural issues / 0 broken links**; strengthened `check-docs.mjs` passes.
+
+**Open work / handoff**
+- No known documentation, Agent-contract, dependency-audit, or build blocker. Future tool additions/renames should update source first and let the strengthened docs gate identify every stale MCP scope/count representation instead of manually copying counts.
 
 ### 2026-09-02 — sectioned terminal + recoverable API failures
 
@@ -164,6 +209,9 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 - Compact approval runtime and focused regression coverage are implemented; canonical exact full-payload digest binding is unchanged.
 
 ### 2026-09-02 — terminal HTTP/API error resilience
+
+**Resolution**
+- Shipped in MSO CLI 1.12.0 (`eeaaa27`) and live-verified before the final testing-doc sync (`be0e436`). The requirements below are retained as the original acceptance evidence.
 
 **Observed**
 - During a documentation-only update, the file write succeeded, but the next tool/UI step surfaced an HTTP 400 and interrupted the visible flow before the assistant could confirm completion.

@@ -23,7 +23,7 @@ export function skillRuntimeState(session, skill) {
   return "ready";
 }
 
-export function skillStateVisual(state, C) {
+function skillStateVisual(state, C) {
   if (state === "blocked") return { marker: "!", label: "blocked", color: C.warn };
   if (state === "queued") return { marker: "◆", label: "queued", color: C.warn };
   if (state === "invoking") return { marker: "◆", label: "invoking", color: C.c };

@@ -24,6 +24,14 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `agent` make restart process-safe
 - `a2a` harden remote v1 delegation
 
+**Docs**
+
+- `testing` record 1.12 live verification
+
+**Chores**
+
+- `agent` sync docs and trim internal exports
+
 ## 2026-09-01
 
 **Added**

@@ -37,34 +37,27 @@ Before changing an MCP tool name:
 
 ## Current MSO catalog
 
-### Read (29 model/operator)
+### Read (32 model/operator)
 
-`a2a_agent_discover`, `a2a_agents_list`, `a2a_task_get`, `agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`,
-`apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`,
-`exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`,
-`infra_providers_list`, `project_capabilities`, `projects_list`, `screen_capture`, `skills_list`,
-`skills_read`, `skills_search`, `sys_processes`, `sys_stats`, `tool_forge_candidates`.
+`a2a_agent_discover`, `a2a_agents_list`, `a2a_task_get`, `agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`, `apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`, `exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`, `infra_providers_list`, `local_agent_inbox`, `local_agent_request_wait`, `local_agents_list`, `project_capabilities`, `projects_list`, `screen_capture`, `skills_list`, `skills_read`, `skills_search`, `sys_processes`, `sys_stats`, `tool_forge_candidates`.
 
-### Write (20 beyond read)
+### Write (22 beyond read)
 
-`a2a_agent_register`, `a2a_agent_remove`,
-`agent_memory_forget`, `agent_memory_remember`, `agent_session_note`, `agent_session_rename`,
-`apps_power`, `cloudflare_dns_upsert`, `dokploy_project_ensure`, `fs_copy`, `fs_delete`,
-`fs_mkdir`, `fs_move`, `fs_upload_file`, `fs_write`, `hostinger_dns_upsert`,
-`tool_forge_propose`, `workflow_cancel`, `workflow_finish`, `workflow_start`.
+`a2a_agent_register`, `a2a_agent_remove`, `agent_memory_forget`, `agent_memory_remember`, `agent_session_note`, `agent_session_rename`, `apps_power`, `cloudflare_dns_upsert`, `dokploy_project_ensure`, `fs_copy`, `fs_delete`, `fs_mkdir`, `fs_move`, `fs_upload_file`, `fs_write`, `hostinger_dns_upsert`, `local_agent_message_send`, `local_agent_reply`, `tool_forge_propose`, `workflow_cancel`, `workflow_finish`, `workflow_start`.
 
-### Exec (10 beyond write)
+### Exec (12 beyond write)
 
-`a2a_message_send`, `a2a_task_cancel`, `a2a_handoff`, `browser_power`, `exec_job_cancel`, `exec_job_start`, `exec_run`, `project_function_call`, `tool_forge_evaluate`, `tool_forge_promote`.
+`a2a_handoff`, `a2a_message_send`, `a2a_task_cancel`, `agent_subagent_run`, `browser_power`, `exec_job_cancel`, `exec_job_start`, `exec_run`, `local_agent_request`, `project_function_call`, `tool_forge_evaluate`, `tool_forge_promote`.
 
 ### App-only bridge (1)
 
 `workflow_status` is exposed for the MCP Apps progress widget and is not part of the model/operator action catalog.
 
-A2A adds eight stable generic action names rather than one action per peer. A gateway should pass
+A2A adds eight stable generic MCP action names rather than one action per peer. A gateway should pass
 the registered alias/id or public Agent Card URL as the `target`; it must not synthesize hidden
-conversation context. Current MSO A2A is outbound, public-HTTPS, anonymous-only and rejects peers
-whose Agent Card requires credentials. Full semantics live in [`A2A.md`](./A2A.md).
+conversation context. Current MSO supports anonymous outbound peers plus private API-key/Bearer/OAuth2
+credential profiles, streaming task operations, and an optional authenticated inbound A2A server when an
+explicit public HTTPS origin exists. Full trust/credential semantics live in [`A2A.md`](./A2A.md).
 
 ## Scope and workflow compatibility
 
