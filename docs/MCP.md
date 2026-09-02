@@ -126,16 +126,20 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.6 tools=64 read=31 write=22 exec=11 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.7 tools=66 read=32 write=22 exec=12 -->
 
-Current transport catalog: **65 tools**, server `1.6.0` / toolset `2026.09.02.6`.
-The model/operator catalog is **59 tools** (31 read, 22 write, 11 exec); `workflow_status` is the
+Current transport catalog: **67 tools**, server `1.6.0` / toolset `2026.09.02.7`.
+The model/operator catalog is **66 tools** (32 read, 22 write, 12 exec); `workflow_status` is the
 one app-only MCP Apps bridge used by the progress widget and is documented separately.
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
 
 Session/memory tools add durable conversation context without creating
 dynamic per-project tool names; `project_capabilities` and `project_function_call` remain the
 stable project-automation seam.
+
+### Local Agent collaboration
+
+Local same-owner session collaboration is intentionally separate from public A2A. `local_agents_list` reports each durable session's short public `name`, lease status, and live receiver observability (`consumerConnected` / `consumerCount`). `local_agent_message_send` + `local_agent_reply` provide durable correlated mailbox semantics; `local_agent_request_wait` gives a bounded foreground request outcome without polling/resending; `local_agent_request` is an explicit exec-gated fresh worker from another durable session context and never claims to wake/control its original terminal/ChatGPT process. Human `@name` mentions resolve active public names only.
 
 ### Agent-to-Agent (A2A) peers
 

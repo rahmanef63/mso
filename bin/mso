@@ -128,7 +128,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.10.0"
+VERSION="1.11.0"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }

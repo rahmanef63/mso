@@ -1,4 +1,4 @@
-import { C, createCliSession, listCliSessions, loadCliSession, renameCliSession, resumeCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
+import { C, createCliSession, listCliSessions, loadCliSession, renameCliSession, renameCliSessionName, resumeCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
 import { sessionCompletionItems, sessionPromptHistory, visibleSessionRows } from "./mso-agent-sessions.mjs";
 
 function autoTitle(history) {
@@ -26,6 +26,14 @@ export async function renameCurrentSession(session, title) {
   return session.titleOverride;
 }
 
+export async function renameCurrentSessionName(session, value) {
+  const requested = String(value || "").trim();
+  if (!requested) throw new Error("session name is required");
+  const saved = await renameCliSessionName(session.agentSession, requested);
+  session.agentSession = { ...session.agentSession, ...saved };
+  return saved?.name || requested;
+}
+
 
 export function applyNewSessionState(session, loaded, requestedTitle = "") {
   Object.assign(session, {
@@ -48,7 +56,7 @@ export async function startNewSession(rl, session, title = "") {
   if (!loaded || loaded.source !== "cli") throw new Error("could not create a new CLI MSO Agent session");
   applyNewSessionState(session, loaded, requestedTitle);
   syncPromptHistory(rl, session);
-  console.log(`${C.c}new session ${loaded.title || "MSO Agent session"}${C.reset}`);
+  console.log(`${C.c}new session @${loaded.name} · ${loaded.title || "MSO Agent session"}${C.reset}`);
   return true;
 }
 
@@ -66,7 +74,7 @@ export async function resumeInto(rl, session, query) {
     lastElapsedMs: 0,
   });
   syncPromptHistory(rl, session);
-  console.log(`${C.c}resumed ${loaded.title || "MSO Agent session"}${C.reset} · ${session.history.length} history rows`);
+  console.log(`${C.c}resumed @${loaded.name} · ${loaded.title || "MSO Agent session"}${C.reset} · ${session.history.length} history rows`);
   return true;
 }
 
@@ -89,7 +97,7 @@ export function resumeArg(argv) {
   if (index < 0) index = argv.indexOf("-r");
   if (index < 0) return null;
   const value = argv[index + 1];
-  if (!value || value.startsWith("-")) throw new Error("--resume requires latest, an index, session id, or title query");
+  if (!value || value.startsWith("-")) throw new Error("--resume requires latest, an index, session id, @name, or title query");
   return value;
 }
 

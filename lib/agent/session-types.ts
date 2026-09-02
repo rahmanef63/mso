@@ -23,6 +23,7 @@ export interface AgentSession {
   id: string;
   principalHash: string;
   source: AgentSessionSource;
+  name: string;
   title: string;
   titleSource: AgentSessionTitleSource;
   conversationHash?: string;
@@ -47,6 +48,7 @@ export interface AgentSession {
 export interface AgentSessionSummary {
   id: string;
   source: AgentSessionSource;
+  name: string;
   title: string;
   titleSource: AgentSessionTitleSource;
   createdAt: string;

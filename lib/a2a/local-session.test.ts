@@ -17,6 +17,7 @@ vi.mock("./inbound-agent", () => ({ runInboundA2AAgent: runner }));
 const { createAgentSession } = await import("@/lib/agent/session-store");
 const {
   handoffA2ALocalSession,
+  handoffOwnerLocalSession,
   listA2ALocalSessions,
   resolveA2ALocalSession,
   spawnA2ALocalSubagent,
@@ -74,6 +75,19 @@ describe("same-host A2A durable-session agents", () => {
     );
     expect(result.task.status.state).toBe("TASK_STATE_COMPLETED");
     expect(result.task.artifacts[0].parts[0].text).toBe("bece result");
+  });
+
+  it("runs an offline same-owner session as a bounded fresh worker", async () => {
+    const session = await bece();
+    runner.mockImplementationOnce(async ({ session: target, principal }) => {
+      expect(target.id).toBe(session.id);
+      expect(principal).toBe(`a2a:local:${session.id}`);
+      return { text: "offline worker result", rounds: 1, toolCalls: [] };
+    });
+    const result = await handoffOwnerLocalSession("cli:owner", session.id, "answer this");
+    expect(result.session.id).toBe(session.id);
+    expect(result.task.artifacts[0].parts[0].text).toBe("offline worker result");
+    await expect(handoffOwnerLocalSession("cli:owner", session.id, "answer this", session.id)).rejects.toThrow(/same session/);
   });
 
   it("spawns a durable child agent that inherits context/cwd but has its own id", async () => {

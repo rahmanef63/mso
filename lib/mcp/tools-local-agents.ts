@@ -1,6 +1,7 @@
 import { listLocalAgents } from "@/lib/agent/local-agent-directory";
 import { listLocalAgentInbox, updateLocalAgentMessageState } from "@/lib/agent/local-agent-mailbox";
-import { replyLocalAgentMessage, sendLocalAgentMessage } from "@/lib/agent/local-agent-messaging";
+import { replyLocalAgentMessage, sendLocalAgentMessage, waitForLocalAgentReply } from "@/lib/agent/local-agent-messaging";
+import { handoffOwnerLocalSession } from "@/lib/a2a/local-session";
 import { type McpRunContext, type McpTool, S, str } from "./tool-kit";
 
 function sessionContext(context: McpRunContext): { principal: string; sessionId: string } {
@@ -12,7 +13,7 @@ function sessionContext(context: McpRunContext): { principal: string; sessionId:
 export const LOCAL_AGENT_TOOLS: McpTool[] = [
   {
     name: "local_agents_list",
-    description: "List currently active same-owner MSO session agents on this host. Local agents are discovered automatically from live session leases; no Agent Card, URL, registration, refresh, or restart is required. Unnamed sessions use stable labels such as [agent-a].",
+    description: "List same-owner MSO session agents on this host. Every session has a short public name such as milo or luna for @mention UX. status reflects the presence lease; consumerConnected/consumerCount separately report whether this MSO runtime currently has an inbound receiver subscribed. No Agent Card, URL, registration, refresh, or restart is required.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
     limit: { key: "local-agent.read", max: 60, windowMs: 60_000 },
@@ -29,7 +30,7 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
     limit: { key: "local-agent.send", max: 60, windowMs: 60_000 },
     audit: { action: "agent.message", targetArg: "target" },
     inputSchema: S({
-      target: { type: "string", description: "Local label/name such as rahman, [rahman], agent-b, or exact durable session id." },
+      target: { type: "string", description: "Local public name such as milo, [milo], legacy internal alias such as agent-b, or exact durable session id." },
       message: { type: "string", description: "Explicit payload, maximum 16 KiB." },
       kind: { type: "string", enum: ["message", "task"], description: "message (default) or task." },
       intent: { type: "string", enum: ["notify", "request"], description: "notify (default) or request. Replies must use local_agent_reply." },
@@ -45,6 +46,43 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
         kind: typeof a.kind === "string" ? a.kind : undefined,
         intent: typeof a.intent === "string" ? a.intent : undefined,
         requiresUserRelay: a.requires_user_relay === true,
+      });
+    },
+  },
+  {
+    name: "local_agent_request",
+    description: "Run an explicit objective against another same-owner durable MSO session and return its result. Unlike mailbox delivery, it works when that session's terminal receiver is offline: MSO starts a fresh bounded worker using the target session's saved context. It never wakes or controls a ChatGPT/terminal process, and it copies no hidden live transcript.",
+    scope: "exec",
+    limit: { key: "local-agent.request", max: 12, windowMs: 60_000 },
+    audit: { action: "agent.message", targetArg: "target" },
+    result: { maxTextBytes: 64 * 1024, overflowHint: "Local-agent result was compacted; rerun with a narrower objective." },
+    inputSchema: S({
+      target: { type: "string", description: "Same-owner durable session id, @name/name, title, or working-directory reference." },
+      objective: { type: "string", description: "Explicit task for the target session worker, maximum 24 KiB." },
+    }, ["target", "objective"]),
+    run: async (a, context) => {
+      const current = sessionContext(context);
+      const result = await handoffOwnerLocalSession(current.principal, str(a, "target"), str(a, "objective"), current.sessionId);
+      return { mode: "durable_session_worker", ...result };
+    },
+  },
+  {
+    name: "local_agent_request_wait",
+    description: "Wait a bounded foreground interval for the correlated reply to one exact request previously sent by this session. Returns replied, target_offline, consumer_absent, or timeout with current receiver observability. This never starts a background loop and never resends the request.",
+    scope: "read",
+    annotations: { readOnlyHint: true, idempotentHint: true },
+    limit: { key: "local-agent.wait", max: 30, windowMs: 60_000 },
+    inputSchema: S({
+      request_message_id: { type: "string", description: "Exact localmsg_... id returned for the original request." },
+      timeout_ms: { type: "number", minimum: 0, maximum: 30000, description: "Foreground wait budget in milliseconds. Default 5000; max 30000. Zero performs a status-only check." },
+    }, ["request_message_id"]),
+    run: async (a, context) => {
+      const current = sessionContext(context);
+      return waitForLocalAgentReply({
+        principal: current.principal,
+        senderSessionId: current.sessionId,
+        requestMessageId: str(a, "request_message_id"),
+        timeoutMs: a.timeout_ms === undefined ? undefined : Number(a.timeout_ms),
       });
     },
   },

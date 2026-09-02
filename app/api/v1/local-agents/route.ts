@@ -191,6 +191,7 @@ export async function POST(req: NextRequest) {
         intent: typeof body.intent === "string" ? body.intent : undefined,
         correlationId: typeof body.correlationId === "string" ? body.correlationId : undefined,
         requiresUserRelay: body.requiresUserRelay === true,
+        requireActiveTarget: body.activeOnly === true,
       });
       void audit({
         action: "agent.message",

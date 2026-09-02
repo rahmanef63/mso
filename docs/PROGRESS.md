@@ -2,6 +2,15 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — MSO 1.11.0 named sessions + wrapped composer + collaboration observability
+
+- **Short session handles:** every durable session now has a public `name` separate from its longer title. Fresh sessions allocate familiar easy-to-type names such as `milo`, `luna`, or `nara`; allocation is unique under same-principal concurrency, old sessions receive deterministic backward-compatible fallback names, `/rename <name>` changes only the handle, and `/title <text>` remains the topic/description lifecycle. Internal `agent-a` presence aliases remain a compatibility detail.
+- **Active-name mentions:** leading `@milo …` resolves only currently active public names. Offline/ended targets are not mentionable; lower-level explicit mailbox sends retain backward-compatible offline queueing. The local directory reports lease status separately from `consumerConnected` / `consumerCount`, so `idle` no longer implies an SSE consumer exists.
+- **Bounded request observability:** added read-scope `local_agent_request_wait`, returning `replied`, `target_offline`, `consumer_absent`, or `timeout` in a bounded 0–30s foreground call without resend/background polling. The testing-handoff `local_agent_request` is now dispatch-covered as an exec-gated fresh bounded worker from another same-owner durable session context; it never claims to wake/control that original terminal/ChatGPT process.
+- **Responsive composer:** the interactive draft wraps to terminal width and a height-aware 2–12-row viewport. Terminal resize repaints without losing text; ↑/↓ navigate visual wrapped rows while preserving cursor column before falling through to prompt history.
+- **Compact exact approval:** default ask-mode approval is one safe status line. Tab focuses it, Enter opens redacted-safe tool/scope/args plus the unchanged canonical SHA-256 digest, and a separate explicit `allow` / `deny` decision is mandatory. Auto-write/YOLO still compute exact payload binding while skipping only the human prompt.
+- **Subagent testing capacity:** `OS_SUBAGENT_MAX_TURNS` defaults to 12 and can raise the server policy up to absolute 48; each child still defaults to 6 turns and remains foreground/context-isolated/non-recursive.
+
 ## 2026-09-02 — MSO 1.10.0 correlated Local Agents + same-session subagents
 
 - **Mention UX:** leading `@agent-b …` resolves the live/known local directory, validates aliases/manual labels, dispatches a durable correlated request, and returns an immediate honest acknowledgement instead of blocking on an idle target. Unknown/ambiguous mentions fail with stable alias choices; known offline targets remain queueable.

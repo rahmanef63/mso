@@ -12,7 +12,7 @@ export const SUBAGENT_TOOLS: McpTool[] = [{
     objective: { type: "string", description: "Exact focused task for the worker, maximum 24 KiB." },
     name: { type: "string", description: "Optional short display name, e.g. reviewer or researcher." },
     max_scope: { type: "string", enum: ["read", "write", "exec"], description: "Maximum host-tool authority delegated to the child. Default read. The parent call itself is exec-gated as the delegation approval boundary." },
-    max_turns: { type: "number", description: "1-12 model/tool rounds; default 6." },
+    max_turns: { type: "number", description: "1 to the server-configured OS_SUBAGENT_MAX_TURNS limit (default 12, absolute max 48); default 6." },
     timeout_ms: { type: "number", description: "1000-120000 ms; default 60000." },
     context: { type: "string", description: "Optional explicit parent context. Hidden parent transcript is never copied automatically." },
   }, ["objective"]),

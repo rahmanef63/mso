@@ -15,6 +15,7 @@ import {
   readConversationSession,
   readSessionFile,
   sessionLockTarget,
+  sessionNameLockTarget,
   writeConversationRef,
   writeSessionFile,
 } from "./session-files";
@@ -28,6 +29,7 @@ import {
   safeTitle,
   sessionContextTokens,
 } from "./session-policy";
+import { allocateAgentSessionName, requireAgentSessionName } from "./session-name";
 import type {
   AgentSession,
   AgentSessionEvent,
@@ -46,6 +48,7 @@ export type {
 
 interface CreateOptions {
   id?: string;
+  name?: string;
   title?: string;
   titleSource?: AgentSessionTitleSource;
   resumedFrom?: string;
@@ -61,6 +64,7 @@ function summary(record: AgentSession): AgentSessionSummary {
   return {
     id: record.id,
     source: record.source,
+    name: record.name,
     title: record.title,
     titleSource: record.titleSource,
     createdAt: record.createdAt,
@@ -90,6 +94,12 @@ async function buildRecord(
   options: CreateOptions,
 ): Promise<AgentSession> {
   const now = new Date().toISOString();
+  const owner = principalHash(principal);
+  const usedNames = (await listSessionRecords())
+    .filter((row) => row.principalHash === owner)
+    .map((row) => row.name);
+  const name = options.name ? requireAgentSessionName(options.name) : allocateAgentSessionName(usedNames);
+  if (usedNames.includes(name)) throw new Error(`session name @${name} is already in use`);
   const memorySnapshot =
     options.memorySnapshot ?? (await snapshotAgentMemory(principal));
   const created: AgentSessionEvent = {
@@ -103,6 +113,7 @@ async function buildRecord(
     id: options.id ?? newAgentSessionId(),
     principalHash: principalHash(principal),
     source,
+    name,
     title: safeTitle(options.title),
     titleSource: options.titleSource ?? "default",
     ...(options.conversationHash
@@ -135,6 +146,33 @@ async function buildRecord(
     estimatedTokens,
     lifetimeEstimatedTokens: estimatedTokens,
   };
+}
+
+async function withUniqueSessionName<T>(
+  principal: string,
+  source: AgentSessionSource,
+  options: CreateOptions,
+  commit: (record: AgentSession) => Promise<T>,
+): Promise<T> {
+  const owner = principalHash(principal);
+  const requested = options.name ? requireAgentSessionName(options.name) : undefined;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const used = (await listSessionRecords())
+      .filter((row) => row.principalHash === owner)
+      .map((row) => row.name);
+    const name = requested ?? allocateAgentSessionName(used);
+    try {
+      return await withSecurityStoreLock(sessionNameLockTarget(owner, name), async () => {
+        const record = await buildRecord(principal, source, { ...options, name });
+        return commit(record);
+      });
+    } catch (error) {
+      const duplicate = error instanceof Error && /session name @.+ is already in use/.test(error.message);
+      if (!requested && duplicate) continue;
+      throw error;
+    }
+  }
+  throw new Error("could not allocate a unique session name");
 }
 
 async function compactIfNeeded(
@@ -177,13 +215,14 @@ export async function createAgentSession(
   source: AgentSessionSource,
   options: CreateOptions = {},
 ): Promise<AgentSession> {
-  const record = await buildRecord(principal, source, options);
-  return withSecurityStoreLock(sessionLockTarget(record.id), async () => {
-    if (await readSessionFile(record.id))
-      throw new Error("agent session id already exists");
-    await writeSessionFile(record);
-    return record;
-  });
+  return withUniqueSessionName(principal, source, options, async (record) =>
+    withSecurityStoreLock(sessionLockTarget(record.id), async () => {
+      if (await readSessionFile(record.id))
+        throw new Error("agent session id already exists");
+      await writeSessionFile(record);
+      return record;
+    }),
+  );
 }
 
 export async function findOrCreateAgentSessionForConversation(
@@ -216,14 +255,15 @@ export async function findOrCreateAgentSessionForConversation(
           return legacy;
         }
       }
-      const record = await buildRecord(principal, "mcp", {
+      return withUniqueSessionName(principal, "mcp", {
         title,
         titleSource: "default",
         conversationHash: hash,
+      }, async (record) => {
+        await writeSessionFile(record);
+        await writeConversationRef(owner, hash, record.id);
+        return record;
       });
-      await writeSessionFile(record);
-      await writeConversationRef(owner, hash, record.id);
-      return record;
     },
   );
 }
@@ -309,6 +349,28 @@ export async function maybeAutoTitleAgentSession(
     record.updatedAt = new Date().toISOString();
     await writeSessionFile(record);
     return record;
+  });
+}
+
+export async function renameAgentSessionName(
+  principal: string,
+  id: string,
+  value: string,
+): Promise<AgentSession> {
+  const name = requireAgentSessionName(value);
+  const owner = principalHash(principal);
+  return withSecurityStoreLock(sessionNameLockTarget(owner, name), async () => {
+    const duplicate = (await listSessionRecords()).find((row) =>
+      row.principalHash === owner && row.id !== id && row.name === name,
+    );
+    if (duplicate) throw new Error(`session name @${name} is already in use`);
+    return withSecurityStoreLock(sessionLockTarget(id), async () => {
+      const record = await requireOwned(principal, id);
+      record.name = name;
+      record.updatedAt = new Date().toISOString();
+      await writeSessionFile(record);
+      return record;
+    });
   });
 }
 

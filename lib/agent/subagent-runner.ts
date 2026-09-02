@@ -6,7 +6,13 @@ import { allows, parseScope, type Scope } from "@/lib/mcp/scope";
 
 const MAX_RESULT_BYTES = 64 * 1024;
 const DEFAULT_TURNS = 6;
-const MAX_TURNS = 12;
+const ABSOLUTE_MAX_TURNS = 48;
+function maxTurnsLimit(): number {
+  const configured = Number(process.env.OS_SUBAGENT_MAX_TURNS);
+  return Number.isFinite(configured)
+    ? Math.max(1, Math.min(ABSOLUTE_MAX_TURNS, Math.trunc(configured)))
+    : 12;
+}
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_TIMEOUT_MS = 120_000;
 const DENY_PREFIXES = ["agent_session_", "agent_memory_", "local_agent_", "a2a_"];
@@ -60,7 +66,7 @@ export async function runSessionSubagent(input: {
   if (Buffer.byteLength(objective, "utf8") > 24 * 1024) throw new Error("subagent objective must be 24 KiB or smaller");
   const name = String(input.name || "worker").trim().replace(/[\r\n\t]+/g, " ").slice(0, 60) || "worker";
   const maxScope = parseScope(input.maxScope || "read");
-  const maxTurns = Math.max(1, Math.min(MAX_TURNS, Math.trunc(input.maxTurns || DEFAULT_TURNS)));
+  const maxTurns = Math.max(1, Math.min(maxTurnsLimit(), Math.trunc(input.maxTurns || DEFAULT_TURNS)));
   const timeoutMs = Math.max(1_000, Math.min(MAX_TIMEOUT_MS, Math.trunc(input.timeoutMs || DEFAULT_TIMEOUT_MS)));
   const subagentId = `subagent_${randomUUID()}`;
   const [{ TOOLS }, { dispatch }] = await Promise.all([import("@/lib/mcp/tools"), import("@/lib/mcp/dispatch")]);

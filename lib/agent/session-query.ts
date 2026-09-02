@@ -36,6 +36,10 @@ export function chooseAgentSessionRecord(
   if (!ref || q === "latest" || q === "continue") return resumable[0]!;
   const exactId = resumable.find((row) => row.id === ref);
   if (exactId) return exactId;
+  const wantedName = q.replace(/^@/, "");
+  const exactName = resumable.filter((row) => row.name.toLowerCase() === wantedName);
+  if (exactName.length === 1) return exactName[0]!;
+  if (exactName.length > 1) throw new Error(`session name is ambiguous: ${exactName.map((row) => `@${row.name}`).join(" | ")}`);
   if (/^[1-9]\d{0,3}$/.test(ref)) {
     const indexed = resumable[Number(ref) - 1];
     if (indexed) return indexed;

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { listAgentSessions } from "./session-store";
 import { listLocalAgentPresence, localAgentStatus } from "./local-agent-presence";
+import { localAgentSubscriberCount } from "./local-agent-events";
 import type { AgentSessionSummary } from "./session-types";
 import type { LocalAgentPresenceRecord, LocalAgentTarget } from "./local-agent-types";
 
@@ -18,43 +19,32 @@ function cleanDisplayName(value: string): string {
     .slice(0, 80);
 }
 
-function manualName(session: AgentSessionSummary): string | null {
-  const name = session.titleSource === "manual" ? cleanDisplayName(session.title) : "";
-  return name || null;
-}
-
 function buildRows(
   sessions: AgentSessionSummary[],
   presence: LocalAgentPresenceRecord[],
   now: number,
 ): LocalAgentTarget[] {
   const byId = new Map(sessions.map((row) => [row.id, row]));
-  const raw = presence.flatMap((entry) => {
+  return presence.flatMap((entry) => {
     const session = byId.get(entry.sessionId);
     if (!session) return [];
-    return [{ session, entry, status: localAgentStatus(entry, now), manual: manualName(session) }];
-  });
-  const duplicateNames = new Map<string, number>();
-  for (const row of raw) {
-    if (!row.manual || row.status === "offline" || row.status === "ended") continue;
-    const key = row.manual.toLocaleLowerCase();
-    duplicateNames.set(key, (duplicateNames.get(key) || 0) + 1);
-  }
-  return raw.map(({ session, entry, status, manual }) => {
-    const duplicate = manual && (duplicateNames.get(manual.toLocaleLowerCase()) || 0) > 1;
-    const suffix = entry.alias.replace(/^agent-/, "");
-    const label = manual ? `[${manual}${duplicate ? ` · ${suffix}` : ""}]` : `[${entry.alias}]`;
-    return {
+    const name = cleanDisplayName(session.name).toLocaleLowerCase();
+    if (!name) return [];
+    const consumerCount = localAgentSubscriberCount(session.id);
+    return [{
       id: session.id,
+      name,
       alias: entry.alias,
-      label,
+      label: `[${name}]`,
       source: session.source,
       title: session.title,
       titleSource: session.titleSource,
-      status,
+      status: localAgentStatus(entry, now),
+      consumerConnected: consumerCount > 0,
+      consumerCount,
       ...(session.cwd ? { cwd: session.cwd } : {}),
       lastSeenAt: entry.lastSeenAt,
-    };
+    }];
   });
 }
 
@@ -70,7 +60,7 @@ export async function listLocalAgents(
   return buildRows(sessions, presence, now)
     .filter((row) => options.includeOffline || !["offline", "ended"].includes(row.status))
     .filter((row) => !options.currentSessionId || row.id !== options.currentSessionId)
-    .sort((a, b) => a.alias.localeCompare(b.alias, undefined, { numeric: true }));
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function matches(row: LocalAgentTarget, ref: string): boolean {
@@ -79,7 +69,7 @@ function matches(row: LocalAgentTarget, ref: string): boolean {
   const title = row.titleSource === "manual" ? cleanDisplayName(row.title).toLocaleLowerCase() : "";
   const cwd = row.cwd ? path.resolve(row.cwd).toLocaleLowerCase() : "";
   const base = row.cwd ? path.basename(row.cwd).toLocaleLowerCase() : "";
-  return [row.id.toLocaleLowerCase(), row.alias.toLocaleLowerCase(), label, title, cwd, base].includes(wanted);
+  return [row.id.toLocaleLowerCase(), row.name.toLocaleLowerCase(), row.alias.toLocaleLowerCase(), label, title, cwd, base].includes(wanted);
 }
 
 export async function resolveLocalAgent(

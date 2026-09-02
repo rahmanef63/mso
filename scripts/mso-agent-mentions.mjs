@@ -15,18 +15,15 @@ export function parseLocalAgentMention(line) {
 
 export function resolveLocalAgentMention(rows, token) {
   const wanted = clean(token);
-  const matches = (Array.isArray(rows) ? rows : []).filter((row) => {
-    const names = [row?.alias, row?.label, row?.titleSource === "manual" ? row?.title : ""]
-      .map(clean).filter(Boolean);
-    return names.includes(wanted);
-  });
+  const activeRows = (Array.isArray(rows) ? rows : []).filter((row) => !["offline", "ended"].includes(String(row?.status || "")));
+  const matches = activeRows.filter((row) => [row?.name, row?.label].map(clean).filter(Boolean).includes(wanted));
   if (!matches.length) {
-    const available = (Array.isArray(rows) ? rows : []).map((row) => `@${row.alias}`).slice(0, 12).join(", ");
+    const available = activeRows.map((row) => `@${row.name}`).slice(0, 12).join(", ");
     throw new Error(`local agent mention @${wanted} not found${available ? `; available: ${available}` : ""}`);
   }
   if (matches.length > 1) {
-    const aliases = matches.map((row) => `@${row.alias}`).join(" or ");
-    throw new Error(`local agent mention @${wanted} is ambiguous; use ${aliases}`);
+    const names = matches.map((row) => `@${row.name}`).join(" or ");
+    throw new Error(`local agent mention @${wanted} is ambiguous; use ${names}`);
   }
   return matches[0];
 }
@@ -37,6 +34,7 @@ export function mentionAck(result) {
   if (status === "target_offline") return `${label} queued · target offline · correlated reply will relay here after it returns`;
   if (status === "queued") return `${label} queued · target busy · correlated reply will relay here`;
   if (status === "delivered") return `${label} delivered · correlated reply will relay here`;
+  if (status === "accepted" && result?.target?.consumerConnected === false) return `${label} queued · active lease, but no receiver is subscribed · durable inbox will wait`;
   if (status === "accepted") return `${label} accepted · waiting for an explicit target turn; correlated reply will relay here`;
   return `${label} ${status}`;
 }
@@ -48,7 +46,7 @@ export async function dispatchLocalAgentMention(session, line, deps = {}) {
   const save = deps.persist || persistSession;
   let directory;
   try {
-    directory = await request(`/api/v1/local-agents?session=${encodeURIComponent(session.agentSession.id)}&includeOffline=1`, {
+    directory = await request(`/api/v1/local-agents?session=${encodeURIComponent(session.agentSession.id)}`, {
       signal: AbortSignal.timeout(5_000),
     });
   } catch (error) {
@@ -69,6 +67,7 @@ export async function dispatchLocalAgentMention(session, line, deps = {}) {
         kind: "message",
         intent: "request",
         requiresUserRelay: true,
+        activeOnly: true,
       }),
     });
   } catch (error) {

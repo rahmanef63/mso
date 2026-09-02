@@ -3,6 +3,7 @@ import { getSessionContext } from "@/lib/auth/require-session";
 import {
   createAgentSession,
   renameAgentSession,
+  renameAgentSessionName,
   updateAgentSessionHistory,
   updateAgentSessionLocation,
 } from "@/lib/agent/session-store";
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
     action?: string;
     id?: string;
     ref?: string;
+    name?: string;
     title?: string;
     history?: unknown[];
     cwd?: string;
@@ -115,6 +117,16 @@ export async function POST(req: NextRequest) {
         );
       return NextResponse.json({
         session: await resumeAgentSessionForOwner(principal, ref, body.cwd),
+      });
+    }
+    if (body.action === "rename-name") {
+      if (!body.id || !body.name)
+        return NextResponse.json(
+          { error: "id_and_name_required" },
+          { status: 400 },
+        );
+      return NextResponse.json({
+        session: await renameAgentSessionName(principal, body.id, body.name),
       });
     }
     if (body.action === "rename") {

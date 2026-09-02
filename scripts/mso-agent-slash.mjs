@@ -26,7 +26,8 @@ export const BUILTIN_SLASH_ITEMS = [
     meta: "Resume a session; no arg opens the same picker",
     kind: "command",
   },
-  { text: "/title", meta: "Rename the durable session", kind: "command" },
+  { text: "/rename", meta: "Rename the short @agent handle", kind: "command" },
+  { text: "/title", meta: "Rename the session title/description", kind: "command" },
   {
     text: "/status",
     meta: "Show model, auth, context, tokens, session",

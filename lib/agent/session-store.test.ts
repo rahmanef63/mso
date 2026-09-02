@@ -70,6 +70,18 @@ describe("durable agent session context policy", () => {
     expect(renamed.updatedAt.localeCompare(before)).toBeGreaterThan(0);
   });
 
+  it("allocates unique short names and renames the handle without changing the title", async () => {
+    const principal = "principal:session-name";
+    const first = await store.createAgentSession(principal, "cli", { title: "Keep this title", titleSource: "manual" });
+    const second = await store.createAgentSession(principal, "cli");
+    expect(first.name).toMatch(/^[a-z][a-z0-9-]{1,23}$/);
+    expect(second.name).toMatch(/^[a-z][a-z0-9-]{1,23}$/);
+    expect(first.name).not.toBe(second.name);
+    const renamed = await store.renameAgentSessionName(principal, first.id, "milo-test");
+    expect(renamed).toMatchObject({ name: "milo-test", title: "Keep this title", titleSource: "manual" });
+    await expect(store.renameAgentSessionName(principal, second.id, "milo-test")).rejects.toThrow(/already in use/i);
+  });
+
   it("repairs the legacy CLI default that was incorrectly stored as a manual title", async () => {
     const session = await store.createAgentSession("principal:legacy-title", "cli", { title: "MSO Agent session", titleSource: "manual" });
     const updated = await store.updateAgentSessionHistory("principal:legacy-title", session.id, [{ role: "user", text: "Deploy Control Room" }], "Deploy Control Room", "auto");
@@ -104,6 +116,7 @@ describe("durable agent session context policy", () => {
       store.findOrCreateAgentSessionForConversation(principal, hash, `Conversation ${hash.slice(-2)}`),
     ));
     expect(new Set(rows.map((row) => row.id)).size).toBe(hashes.length);
+    expect(new Set(rows.map((row) => row.name)).size).toBe(hashes.length);
     expect(await store.listAgentSessions(principal, 100)).toHaveLength(hashes.length);
   });
 

@@ -12,15 +12,15 @@
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 > and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.6 tools=64 read=31 write=22 exec=11 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.7 tools=66 read=32 write=22 exec=12 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.6**: **65 transport tools** total; **64 model/operator tools**
-(31 read, 22 write, 11 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.7**: **67 transport tools** total; **66 model/operator tools**
+(32 read, 22 write, 12 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
 
 ### Local-agent and subagent tools
 
-The current catalog also exposes `local_agents_list`, `local_agent_message_send`, `local_agent_reply`, and `local_agent_inbox` for explicitly correlated same-principal session messaging, plus `agent_subagent_run` for one bounded foreground isolated worker. The local messaging tools do not turn an MCP connection into a remote A2A peer, and the subagent tool does not create another durable session or background process. A client should use `local_agent_reply` for an exact inbox request instead of reconstructing correlation from text.
+The current catalog exposes `local_agents_list`, `local_agent_message_send`, `local_agent_reply`, `local_agent_request_wait`, `local_agent_inbox`, and `local_agent_request` for same-principal session collaboration, plus `agent_subagent_run` for one bounded foreground isolated worker. `local_agents_list` separates lease status from receiver subscription; `local_agent_request_wait` gives a bounded no-resend mailbox outcome; `local_agent_request` is an exec-gated fresh worker from a durable session context and never claims to wake/control the original ChatGPT/terminal process. The local tools do not turn an MCP connection into a remote A2A peer, and the subagent tool does not create another durable session or background process. A client should use `local_agent_reply` for an exact inbox request instead of reconstructing correlation from text.
 
 ## 1. What this connection does
 

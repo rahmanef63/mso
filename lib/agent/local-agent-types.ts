@@ -25,12 +25,15 @@ export interface LocalAgentPresenceRecord {
 
 export interface LocalAgentTarget {
   id: string;
+  name: string;
   alias: string;
   label: string;
   source: AgentSessionSource;
   title: string;
   titleSource: AgentSessionTitleSource;
   status: LocalAgentStatus;
+  consumerConnected: boolean;
+  consumerCount: number;
   cwd?: string;
   lastSeenAt: string;
 }

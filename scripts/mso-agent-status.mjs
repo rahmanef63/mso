@@ -74,6 +74,7 @@ export function statusParts(session, cwd = process.cwd()) {
   const ctx = contextStatus(session?.history, session?.state?.modelMeta);
   const turns = (session?.history || []).filter((row) => row?.role === "user").length;
   const sessionTitle = compactLabel(session?.agentSession?.title || "MSO Agent session");
+  const sessionName = String(session?.agentSession?.name || "agent");
   const usage = session?.usage || { totalTokens: 0 };
   const elapsed = Number(session?.lastElapsedMs || 0);
   const skill = skillStatus(session);
@@ -85,6 +86,7 @@ export function statusParts(session, cwd = process.cwd()) {
     usage.totalTokens > 0 ? `tokens ${compactNumber(usage.totalTokens)}` : null,
     `turns ${turns}`,
     elapsed > 0 ? `${(elapsed / 1000).toFixed(elapsed >= 10_000 ? 0 : 1)}s` : null,
+    `@${sessionName}`,
     `session ${sessionTitle}`,
     homeShort(cwd),
   ].filter(Boolean);
@@ -116,6 +118,7 @@ export function detailedStatus(session, cwd = process.cwd()) {
     skill: skillStatus(session),
     turns: (session?.history || []).filter((row) => row?.role === "user").length,
     session: session?.agentSession?.id || null,
+    name: session?.agentSession?.name || null,
     title: session?.agentSession?.title || null,
     permission: session?.permission || "ask",
     cwd: homeShort(cwd),
@@ -136,6 +139,7 @@ export function printDetailedStatus(session, C, cwd = process.cwd()) {
   console.log(`  permission ${row.permission}`);
   console.log(`  turns      ${row.turns}`);
   console.log(`  session    ${row.session}`);
+  console.log(`  name       @${row.name || "agent"}`);
   console.log(`  title      ${row.title || "MSO Agent session"}`);
   console.log(`  cwd        ${row.cwd}`);
 }

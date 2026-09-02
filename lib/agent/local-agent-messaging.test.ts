@@ -31,31 +31,36 @@ beforeAll(async () => {
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe("native local session agents", () => {
-  it("assigns deterministic readable placeholders to two live unnamed sessions", async () => {
+  it("assigns short familiar unique public names to two live sessions", async () => {
     const rows = await directory.listLocalAgents(owner);
-    expect(rows.map((row) => row.label)).toEqual(["[agent-a]", "[agent-b]"]);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => /^[a-z][a-z0-9-]{1,23}$/.test(row.name))).toBe(true);
+    expect(new Set(rows.map((row) => row.name)).size).toBe(2);
+    expect(rows.every((row) => row.label === `[${row.name}]`)).toBe(true);
     expect(rows.map((row) => row.status)).toEqual(["idle", "idle"]);
+    expect(rows.every((row) => row.consumerConnected === false && row.consumerCount === 0)).toBe(true);
   });
 
-  it("manual rename changes the label without changing the durable identity", async () => {
-    const id = a.id;
-    await store.renameAgentSession(owner, a.id, "zahra");
+  it("session-name rename changes only the public handle and keeps durable identity/title", async () => {
+    const id = a.id, title = a.title;
+    a = await store.renameAgentSessionName(owner, a.id, "zahra");
     const rows = await directory.listLocalAgents(owner);
-    expect(rows.find((row) => row.id === id)?.label).toBe("[zahra]");
-    expect(rows.find((row) => row.id === id)?.id).toBe(id);
+    expect(rows.find((row) => row.id === id)).toMatchObject({ id, name: "zahra", label: "[zahra]", title });
   });
 
-  it("lightly disambiguates duplicate manual names while preserving aliases", async () => {
-    await store.renameAgentSession(owner, b.id, "zahra");
+  it("rejects duplicate public handles, then accepts a unique rename", async () => {
+    await expect(store.renameAgentSessionName(owner, b.id, "zahra")).rejects.toThrow(/already in use/i);
+    b = await store.renameAgentSessionName(owner, b.id, "rahman");
     const rows = await directory.listLocalAgents(owner);
-    expect(rows.map((row) => row.label)).toEqual(["[zahra · a]", "[zahra · b]"]);
-    expect(() => rows.map((row) => row.alias)).not.toThrow();
-    await store.renameAgentSession(owner, b.id, "rahman");
+    expect(rows.map((row) => row.name).sort()).toEqual(["rahman", "zahra"]);
+    expect(rows.find((row) => row.id === b.id)?.alias).toBe("agent-b");
   });
 
   it("delivers an idle-target message to the live feed and durable inbox", async () => {
     const received: unknown[] = [];
     const unsubscribe = events.subscribeLocalAgentMessages(b.id, (message) => received.push(message));
+    const subscribed = await directory.listLocalAgents(owner);
+    expect(subscribed.find((row) => row.id === b.id)).toMatchObject({ consumerConnected: true, consumerCount: 1 });
     const result = await messaging.sendLocalAgentMessage({
       principal: owner,
       senderSessionId: a.id,
@@ -66,7 +71,7 @@ describe("native local session agents", () => {
     unsubscribe();
     expect(result.status).toBe("delivered");
     expect(result.sender.label).toBe("[zahra]");
-    expect(result.target.label).toBe("[rahman]");
+    expect(result.target).toMatchObject({ label: "[rahman]", consumerConnected: true, consumerCount: 1 });
     expect(received).toHaveLength(1);
     const inbox = await mailbox.listLocalAgentInbox(owner, b.id);
     expect(inbox.some((row) => row.id === result.message.id && row.text === "please review this")).toBe(true);
@@ -90,6 +95,10 @@ describe("native local session agents", () => {
     expect(reply.target.id).toBe(a.id);
     const original = await mailbox.getLocalAgentInboxMessage(owner, b.id, request.message.id);
     expect(original?.state).toBe("read");
+    const waited = await messaging.waitForLocalAgentReply({
+      principal: owner, senderSessionId: a.id, requestMessageId: request.message.id, timeoutMs: 0,
+    });
+    expect(waited).toMatchObject({ state: "replied", reply: { id: reply.message.id } });
   });
 
   it("defaults ordinary sends to notify-only semantics", async () => {
@@ -117,6 +126,18 @@ describe("native local session agents", () => {
     expect(received).toContain(result.message.id);
   });
 
+  it("returns consumer_absent for a bounded request wait when lease is active but no receiver is subscribed", async () => {
+    await presence.touchLocalAgentPresence(owner, b.id, "idle", "test:b");
+    const request = await messaging.sendLocalAgentMessage({
+      principal: owner, senderSessionId: a.id, target: "rahman", text: "wait status", intent: "request",
+    });
+    const waited = await messaging.waitForLocalAgentReply({
+      principal: owner, senderSessionId: a.id, requestMessageId: request.message.id, timeoutMs: 0,
+    });
+    expect(waited.state).toBe("consumer_absent");
+    expect(waited.target).toMatchObject({ id: b.id, status: "idle", consumerConnected: false, consumerCount: 0 });
+  });
+
   it("returns target_offline for a known expired receiver while retaining the payload", async () => {
     const old = Date.now() - 30_000;
     await presence.touchLocalAgentPresence(owner, b.id, "idle", "test:b", old);
@@ -132,6 +153,13 @@ describe("native local session agents", () => {
     expect(result.status).toBe("target_offline");
     expect(result.targetStatus).toBe("offline");
     expect(result.message.state).toBe("queued");
+    const request = await messaging.sendLocalAgentMessage({
+      principal: owner, senderSessionId: a.id, target: "rahman", text: "offline request", intent: "request",
+    });
+    const waited = await messaging.waitForLocalAgentReply({
+      principal: owner, senderSessionId: a.id, requestMessageId: request.message.id, timeoutMs: 100,
+    });
+    expect(waited.state).toBe("target_offline");
     await presence.touchLocalAgentPresence(owner, b.id, "idle", "test:b");
   });
 
@@ -160,7 +188,7 @@ describe("native local session agents", () => {
     await presence.touchLocalAgentPresence(other, foreign.id, "idle", "other:1");
     expect((await directory.listLocalAgents(owner)).some((row) => row.id === foreign.id)).toBe(false);
     await expect(messaging.sendLocalAgentMessage({
-      principal: owner, senderSessionId: a.id, target: "foreign", text: "nope",
+      principal: owner, senderSessionId: a.id, target: foreign.name, text: "nope",
     })).rejects.toThrow(/target not found/);
     await expect(mailbox.listLocalAgentInbox(owner, foreign.id)).rejects.toThrow(/not found/);
   });

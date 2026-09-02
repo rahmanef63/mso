@@ -124,6 +124,13 @@ export async function renameCliSession(session, title) {
   });
   return out.session;
 }
+export async function renameCliSessionName(session, name) {
+  const out = await api("/api/v1/agent-sessions", {
+    method: "POST",
+    body: JSON.stringify({ action: "rename-name", id: session.id, name }),
+  });
+  return out.session;
+}
 
 export function printBanner(s, agentSession) {
   return printAgentBanner(s, agentSession, { base: BASE, version: VERSION });

@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `agent` name sessions and wrap composer
 - `agent` correlate local replies and add subagents
 - `agent` add native local session messaging
 - `agent` add restart and new session

@@ -56,7 +56,7 @@ describe("native local agent API", () => {
     expect(await response.json()).toMatchObject({ status: "delivered", target: { label: "[agent-b]" } });
     expect(mocks.send).toHaveBeenCalledWith({
       principal: "cli:cli-test", senderSessionId: "session-a", target: "agent-b", text: "hello", kind: "message",
-      intent: undefined, correlationId: undefined, requiresUserRelay: false,
+      intent: undefined, correlationId: undefined, requiresUserRelay: false, requireActiveTarget: false,
     });
     expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({ action: "agent.message", target: "session-b" }));
   });

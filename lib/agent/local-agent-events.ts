@@ -25,3 +25,11 @@ export function publishLocalAgentMessage(sessionId: string, message: LocalAgentM
   }
   return delivered;
 }
+
+export function localAgentSubscriberCount(sessionId: string): number {
+  return listeners.get(sessionId)?.size ?? 0;
+}
+
+export function localAgentConsumerConnected(sessionId: string): boolean {
+  return localAgentSubscriberCount(sessionId) > 0;
+}

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const files = ["mso-agent.mjs", "mso-agent-runtime.mjs", "mso-agent-ui.mjs", "mso-agent-slash.mjs", "mso-agent-status.mjs", "mso-agent-sessions.mjs", "mso-agent-session-ui.mjs", "mso-agent-lifecycle.mjs", "mso-agent-commands.mjs", "mso-agent-composer.mjs", "mso-agent-permissions.mjs"].map((name) => path.join(__dirname, name));
+const files = ["mso-agent.mjs", "mso-agent-runtime.mjs", "mso-agent-ui.mjs", "mso-agent-slash.mjs", "mso-agent-status.mjs", "mso-agent-sessions.mjs", "mso-agent-session-ui.mjs", "mso-agent-lifecycle.mjs", "mso-agent-commands.mjs", "mso-agent-composer.mjs", "mso-agent-permissions.mjs", "mso-agent-approval-ui.mjs"].map((name) => path.join(__dirname, name));
 const src = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 
 describe("MSO terminal agent contract", () => {
@@ -29,7 +29,7 @@ describe("MSO terminal agent contract", () => {
     expect(src).toContain("MSO_TITLE_ART");
     expect(src).toContain("MSO_TITLE_COLORS");
     for (const command of [
-      "/models", "/model", "/status", "/context", "/statusbar", "/title",
+      "/models", "/model", "/status", "/context", "/statusbar", "/rename", "/title",
       "/new", "/restart", "/session", "/resume", "/setup", "/providers", "/provider",
       "/doctor", "/tools", "/agents", "/message", "/delegate", "/inbox", "/skills", "/skill", "/<skill>", "/clear", "/exit", "/quit",
     ]) expect(src).toContain(command);
@@ -47,8 +47,9 @@ describe("MSO terminal agent contract", () => {
   it("keeps infrastructure secrets out of model messages and binds write/exec approval to the exact full payload", () => {
     expect(src).toContain("never ask the user to paste API tokens into chat");
     expect(src).toContain('tool.scope === "read"');
-    expect(src).toContain("exact tool call");
-    expect(src).toContain("allow this exact call? [y/N]");
+    expect(src).toContain("Approval needed:");
+    expect(src).toContain("decision [allow/deny]");
+    expect(src).toContain("requestExactToolApproval");
     expect(src).toContain("canonicalAgentApproval");
     expect(src).toContain("approvalDigest");
     expect(src).not.toContain("redactedPreview");
@@ -63,6 +64,8 @@ describe("MSO terminal agent contract", () => {
 
   it("keeps session picker titles human-first and rename explicit", () => {
     expect(src).toContain("recent sessions");
+    expect(src).toContain("renameCliSessionName");
+    expect(src).toContain('action: "rename-name"');
     expect(src).toContain("renameCliSession");
     expect(src).toContain('action: "rename"');
     expect(src).toContain("syncPromptHistory");

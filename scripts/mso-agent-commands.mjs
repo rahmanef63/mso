@@ -10,6 +10,7 @@ import {
 import {
   persistSession,
   renameCurrentSession,
+  renameCurrentSessionName,
   resumeInto,
   startNewSession,
   resumePicker,
@@ -98,11 +99,12 @@ async function selectSlashSkill(rl, session, requested, prompt, runTurn) {
 function printHelp() {
   console.log(
     [
-      "  /new [name]             create and switch to a fresh durable session",
+      "  /new [title]            create and switch to a fresh durable session",
       "  /restart                soft-reload Agent runtime; keep this session",
-      "  /session [query]        open picker or resume latest/index/id/title",
+      "  /session [query]        open picker or resume latest/index/id/@name/title",
       "  /resume [query]         alias-style resume command; bare opens same picker",
-      "  /title <name>           rename the durable session",
+      "  /rename <name>          rename the short @agent handle",
+      "  /title <text>           rename the session title/description",
       "  /status                 model/auth/context/token/session details",
       "  /permission [mode]      choose ask | auto-write | yolo",
       "  /context                alias for /status",
@@ -115,7 +117,7 @@ function printHelp() {
       "  /doctor                 run mso doctor",
       "  /tools                  list agent tools",
       "  /agents                 list live local session agents + remote A2A peers",
-      "  @agent-b <prompt>        correlated local request; relay its reply here",
+      "  @milo <prompt>           message an active local agent by its short @name",
       "  /message <target> <msg> send notify-only local agent data",
       "  /delegate <target> <job> correlated local task; else remote A2A peer",
       "  /spawn [--name N] [--scope S] <job> run foreground isolated subagent in this session",
@@ -157,6 +159,15 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
       if (!args.length) await resumePicker(rl, session);
       else await resumeInto(rl, session, args.join(" "));
       return "refresh";
+    case "/rename": {
+      const name = args.join(" ").trim();
+      if (!name) console.log("usage: /rename <short-name>");
+      else {
+        const renamed = await renameCurrentSessionName(session, name);
+        console.log(`${C.c}✓ session name: @${renamed}${C.reset}`);
+      }
+      return "handled";
+    }
     case "/title": {
       const title = args.join(" ").trim();
       if (!title) console.log("usage: /title <session name>");

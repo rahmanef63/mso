@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { compactThresholdTokens, inferredTitleSource, MAX_EVENTS, MAX_HISTORY, safeTitle, sessionContextTokens } from "./session-policy";
 import type { AgentSession } from "./session-types";
+import { legacyAgentSessionName, normalizeAgentSessionName } from "./session-name";
 
 const ROOT = path.resolve((process.env.OS_AGENT_SESSIONS_DIR || path.join(os.homedir(), ".mso", "agent-sessions")).replace(/^~(?=$|\/)/, os.homedir()));
 const LOCK_ROOT = path.join(ROOT, ".locks");
@@ -26,6 +27,12 @@ export function newAgentSessionId(now = new Date()): string {
 export function sessionLockTarget(id: string): string {
   if (!SESSION_ID.test(id)) throw new Error("invalid agent session id");
   return path.join(LOCK_ROOT, "sessions", id);
+}
+
+export function sessionNameLockTarget(ownerHash: string, name: string): string {
+  if (!HASH64.test(ownerHash)) throw new Error("invalid agent session owner hash");
+  if (!/^[a-z][a-z0-9-]{1,23}$/.test(name)) throw new Error("invalid agent session name lock");
+  return path.join(LOCK_ROOT, "names", ownerHash, name);
 }
 
 function conversationRefFile(ownerHash: string, conversationHash: string): string {
@@ -106,6 +113,7 @@ export function normalizeSession(raw: AgentSession): AgentSession {
   const threshold = Number(raw.compactThresholdTokens) || compactThresholdTokens();
   const base = {
     ...raw,
+    name: normalizeAgentSessionName((raw as AgentSession & { name?: string }).name) || legacyAgentSessionName(raw.id),
     title,
     titleSource: inferredTitleSource(title, raw.titleSource),
     history: Array.isArray(raw.history) ? raw.history.slice(-MAX_HISTORY) : [],

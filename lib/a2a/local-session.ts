@@ -6,6 +6,7 @@ import {
 import {
   ownerSessionSummaries,
   resolveAgentSessionOwnerRef,
+  resolveAgentSessionRef,
 } from "@/lib/agent/session-query";
 import type { AgentSession } from "@/lib/agent/session-types";
 import { a2aLoopbackOrigin } from "./network";
@@ -66,6 +67,17 @@ async function runLocalSessionTask(session: AgentSession, objective: string) {
 
 export async function handoffA2ALocalSession(ref: string, objective: string) {
   const session = await resolveA2ALocalSession(ref);
+  return {
+    session: agentSessionSummary(session),
+    task: await runLocalSessionTask(session, objective),
+  };
+}
+
+/** Execute against a same-owner durable session without requiring its terminal
+ * process to be present. This is a fresh bounded agent run, never a TTY wake. */
+export async function handoffOwnerLocalSession(principal: string, ref: string, objective: string, currentSessionId?: string) {
+  const session = await resolveAgentSessionRef(principal, ref);
+  if (session.id === currentSessionId) throw new Error("cannot run a local agent request against the same session");
   return {
     session: agentSessionSummary(session),
     task: await runLocalSessionTask(session, objective),

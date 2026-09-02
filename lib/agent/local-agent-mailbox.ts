@@ -110,6 +110,38 @@ export async function updateLocalAgentMessageState(
   });
 }
 
+
+export async function getLocalAgentSentMessage(
+  principal: string,
+  senderSessionId: string,
+  messageId: string,
+): Promise<LocalAgentMessageView | null> {
+  const session = await getAgentSession(principal, senderSessionId);
+  if (!session) throw new Error("local agent sender not found for this client");
+  if (!/^localmsg_[0-9a-f-]{36}$/.test(messageId)) throw new Error("invalid local agent message id");
+  const owner = principalHash(principal);
+  const row = (await readStore()).messages.find((message) =>
+    message.principalHash === owner && message.senderSessionId === senderSessionId && message.id === messageId,
+  );
+  return row ? view(row) : null;
+}
+
+export async function findLocalAgentReply(
+  principal: string,
+  targetSessionId: string,
+  replyToMessageId: string,
+): Promise<LocalAgentMessageView | null> {
+  const session = await getAgentSession(principal, targetSessionId);
+  if (!session) throw new Error("local agent target not found for this client");
+  if (!/^localmsg_[0-9a-f-]{36}$/.test(replyToMessageId)) throw new Error("invalid local agent message id");
+  const owner = principalHash(principal);
+  const row = (await readStore()).messages
+    .filter((message) => message.principalHash === owner && message.targetSessionId === targetSessionId &&
+      message.intent === "reply" && message.replyToMessageId === replyToMessageId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+  return row ? view(row) : null;
+}
+
 export async function listLocalAgentInbox(
   principal: string,
   targetSessionId: string,

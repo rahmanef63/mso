@@ -3,7 +3,7 @@ import { redactText } from "@/lib/security/redact-text";
 import { getAgentSession } from "./session-store";
 import { principalHash } from "./session-files";
 import { listLocalAgents, resolveLocalAgent } from "./local-agent-directory";
-import { enqueueLocalAgentMessage, getLocalAgentInboxMessage, listLocalAgentInbox, updateLocalAgentMessageState } from "./local-agent-mailbox";
+import { enqueueLocalAgentMessage, findLocalAgentReply, getLocalAgentInboxMessage, getLocalAgentSentMessage, listLocalAgentInbox, updateLocalAgentMessageState } from "./local-agent-mailbox";
 import { publishLocalAgentMessage } from "./local-agent-events";
 import type { LocalAgentDeliveryStatus, LocalAgentMessageIntent, LocalAgentMessageKind, LocalAgentMessageView, LocalAgentTarget } from "./local-agent-types";
 
@@ -55,6 +55,7 @@ export async function sendLocalAgentMessage(input: {
   correlationId?: string;
   replyToMessageId?: string;
   requiresUserRelay?: boolean;
+  requireActiveTarget?: boolean;
 }): Promise<{
   status: LocalAgentDeliveryStatus;
   targetStatus: LocalAgentTarget["status"];
@@ -73,6 +74,8 @@ export async function sendLocalAgentMessage(input: {
   const correlationId = correlation(input.correlationId) ?? (intent === "request" ? `localcorr_${randomUUID()}` : undefined);
   const owner = principalHash(input.principal);
   const targetOffline = target.status === "offline" || target.status === "ended";
+  if (input.requireActiveTarget && targetOffline)
+    throw new Error(`local agent @${target.name} is no longer active; no message was sent`);
   const busy = target.status === "busy";
   let message = await enqueueLocalAgentMessage({
     principalHash: owner,
@@ -134,4 +137,32 @@ export async function flushLocalAgentQueue(principal: string, targetSessionId: s
     delivered += 1;
   }
   return delivered;
+}
+
+
+export async function waitForLocalAgentReply(input: {
+  principal: string;
+  senderSessionId: string;
+  requestMessageId: string;
+  timeoutMs?: number;
+}) {
+  const request = await getLocalAgentSentMessage(input.principal, input.senderSessionId, input.requestMessageId);
+  if (!request || request.intent !== "request" || !request.correlationId)
+    throw new Error("correlated local agent request not found for this session");
+  const timeoutMs = Math.max(0, Math.min(30_000, Math.trunc(input.timeoutMs ?? 5_000)));
+  const startedAt = Date.now();
+  while (true) {
+    const reply = await findLocalAgentReply(input.principal, input.senderSessionId, request.id);
+    const target = (await listLocalAgents(input.principal, { includeOffline: true }))
+      .find((row) => row.id === request.targetSessionId) ?? null;
+    const elapsedMs = Date.now() - startedAt;
+    if (reply) return { state: "replied" as const, elapsedMs, request, reply, target };
+    if (target && ["offline", "ended"].includes(target.status))
+      return { state: "target_offline" as const, elapsedMs, request, reply: null, target };
+    if (elapsedMs >= timeoutMs) {
+      const state = target?.consumerConnected === false ? "consumer_absent" as const : "timeout" as const;
+      return { state, elapsedMs, request, reply: null, target };
+    }
+    await new Promise((resolve) => setTimeout(resolve, Math.min(100, Math.max(1, timeoutMs - elapsedMs))));
+  }
 }

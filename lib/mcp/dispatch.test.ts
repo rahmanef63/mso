@@ -3,6 +3,8 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 // Next aliases that specifier internally; vitest does not, so stub it — same
 // pattern as lib/managed-apps/manager.test.ts.
 vi.mock("server-only", () => ({}));
+const localSessionMock = vi.hoisted(() => ({ handoffOwnerLocalSession: vi.fn() }));
+vi.mock("@/lib/a2a/local-session", () => localSessionMock);
 
 // Spy on the trail without writing to ~/.mso/audit.log. Everything else in
 // @/lib/host stays REAL — the point of these cases is that the dispatcher, not
@@ -90,7 +92,9 @@ describe("tools/list is scope-filtered", () => {
     expect(n).toContain("skills_read");
     expect(n).toContain("local_agents_list");
     expect(n).toContain("local_agent_inbox");
+    expect(n).toContain("local_agent_request_wait");
     expect(n).not.toContain("local_agent_message_send");
+    expect(n).not.toContain("local_agent_request");
     expect(n).not.toContain("workflow_start");
     expect(n).not.toContain("fs_write");
     expect(n).not.toContain("exec_run");
@@ -104,12 +108,30 @@ describe("tools/list is scope-filtered", () => {
     expect(n).toContain("workflow_cancel");
     expect(n).toContain("workflow_finish");
     expect(n).toContain("local_agent_message_send");
+    expect(n).not.toContain("local_agent_request");
     expect(n).not.toContain("exec_run");
     expect(n).not.toContain("browser_power");
   });
 
   it("shows an exec token the whole catalog", async () => {
     expect(await names("exec")).toHaveLength(TOOLS.length);
+  });
+});
+
+
+describe("local agent request dispatch", () => {
+  it("dispatches local_agent_request through the MCP catalog with the conversation-bound session context", async () => {
+    localSessionMock.handoffOwnerLocalSession.mockResolvedValueOnce({
+      session: { id: "20260902_120000_11111111", name: "milo" },
+      task: { state: "completed", artifacts: [{ parts: [{ text: "worker result" }] }] },
+    });
+    const context = { principal: "cli:test-dispatch", sessionId: "20260902_120001_22222222" };
+    const r = await dispatch(call("local_agent_request", { target: "milo", objective: "inspect this" }), "exec", "tester", context);
+    expect(r.error).toBeUndefined();
+    expect(localSessionMock.handoffOwnerLocalSession).toHaveBeenCalledWith(
+      context.principal, "milo", "inspect this", context.sessionId,
+    );
+    expect(JSON.stringify(r.result)).toContain("worker result");
   });
 });
 

@@ -76,7 +76,7 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 - **Use BYOK AI** — Alfa and the terminal MSO Agent use credentials stored on your server, not committed to the repo. Bare `mso` opens the interactive setup/operations agent. `mso models` manages AI provider/API/OAuth connections; `mso model` only selects the active model from providers that are already connected.
 - **Automate deployment providers without handing tokens to the model** — Dokploy and Cloudflare are built-in feature apps; `mso provider` also supports Hostinger DNS. Secrets stay in owner-only MSO state while bounded provider tools perform live checks and approved deployment/DNS operations. See [docs/INFRASTRUCTURE-PROVIDERS.md](./docs/INFRASTRUCTURE-PROVIDERS.md).
 - **Drive the box from ChatGPT, Codex, Claude Code, Cursor, Gemini CLI or VS Code** — Settings → MCP now provides client-specific numbered setup, copy-ready remote configs, live MCP/OAuth discovery checks, tunnel/domain guidance, and the same OAuth 2.1 + PKCE `read → write → exec` permission ladder enforced server-side. See the [ChatGPT Plugin / custom MCP app guide](./docs/CHATGPT-PLUGIN.md) and [MCP reference](./docs/MCP.md).
-- **Message live local sessions natively** — every live same-principal MSO session is discovered automatically as `[agent-a]`, `[agent-b]`, or its manual session name. `@agent-b …` and local `/delegate` create explicitly correlated requests; replies can relay deterministically back into the originating conversation, while notify-only events remain passive. A private presence lease + durable mailbox + SSE feed gives honest `idle`/`busy`/`offline` delivery without Agent Cards, URLs, registration, refresh, or restart. See [Local Agents](./docs/LOCAL-AGENTS.md).
+- **Message live local sessions by a short name** — every durable same-principal MSO session gets a unique familiar handle such as `@milo`, `@luna`, or `@nara`, independent from its longer auto-generated session title. `/rename <name>` changes that handle, while `/title <text>` changes the session description. `@milo …` resolves active agents only and creates an explicitly correlated request; replies relay deterministically into the originating conversation while notify-only events remain passive. Presence lease (`idle`/`busy`/`offline`) and receiver subscription (`consumerConnected`) are reported separately so an idle-but-unsubscribed target is diagnosable. See [Local Agents](./docs/LOCAL-AGENTS.md).
 - **Spawn focused same-session subagents** — `/spawn` and `agent_subagent_run` create bounded foreground workers with isolated context, explicit delegated scope, turn/timeout caps, no recursive spawn, and final-result-only return. They are not Local Agent peers and do not run autonomously after the parent call returns. See [Subagents](./docs/SUBAGENTS.md).
 - **Delegate between remote agents with standard A2A v1** — register public HTTPS peers, attach private API-key/Bearer/OAuth access-token profiles, stream remote tasks over SSE, or expose MSO's authenticated inbound Agent Card when a public HTTPS origin is configured. Inbound credentials are owner-minted `read | write | exec` capabilities and run in a memory-isolated task context. See [A2A](./docs/A2A.md).
 - **Keep agents efficient independently of the model provider** — the MCP-first [Cognitive Runtime](./docs/COGNITIVE-RUNTIME.md) isolates conversations from OAuth identity, budgets model context/tool output, selects a compact per-turn capability set without weakening scopes, compacts durable sessions with sanitized 30-day backup archives, and learns only verified workflow recipes. `bun run bench:cognitive` guards routing recall and context footprint.
@@ -213,15 +213,15 @@ mso skills install ponytail caveman rtk -y
 
 Interactive model/provider menus use a native picker: **↑/↓** moves, typing filters, **Enter**
 selects, and **Esc** cancels. No provider/model number has to be memorized. `/session` and bare
-`/resume` open one recent-session picker directly: newest modified session first, human session title
-as the primary label, and compact `modified …` metadata. Durable session IDs stay hidden in the normal
-picker UI but remain accepted by scriptable `--resume`/`/resume` queries. `/new [name]` persists the
+`/resume` open one recent-session picker directly: newest modified session first, short `@name`
+as the primary label, with the longer human session title and compact `modified …` metadata. Durable session IDs stay hidden in the normal
+picker UI but remain accepted by scriptable `--resume`/`/resume` queries. `/new [title]` persists the
 current session and switches the same terminal to a fresh durable session. `/restart` is a soft Agent
 process replacement: it persists the current session, closes the composer, then reloads the latest CLI
 and Agent modules against that exact same durable session id. Repeated restarts keep a constant process
 depth. It does **not** restart the MSO service or VPS; updated code plus the latest dynamic
 skill/tool/plugin catalog are picked up without abandoning the conversation. Live same-host sessions require no
-manual refresh path: `/agents` discovers them automatically, `@agent-b <prompt>` dispatches a correlated request,
+manual refresh path: `/agents` discovers them automatically, `@milo <prompt>` dispatches a correlated request only when `milo` is active,
 `/message <agent> <text>` sends notify-only data, `/delegate <agent> <task>` sends a correlated local task before
 remote-A2A fallback, and `/inbox` shows the current session's native agent mailbox. Correlated replies relay as a
 durable synthetic assistant response; notify-only events remain passive peer events. `/spawn` is a separate foreground
@@ -231,13 +231,13 @@ In the Agent slash palette, executable skills carry lifecycle markers so their s
 The compact status line mirrors queued/invoked skill state and the current permission mode. MSO defaults
 to `ask`; use `mso --yolo` or `mso -yolo` when you explicitly want write+exec calls auto-approved for
 that Agent process. YOLO still computes and sends the canonical exact-payload approval digest; it only
-skips the interactive `y/N` prompt. `/permission` opens the same arrow-key style selector for
+skips the interactive compact approval prompt. `/permission` opens the same arrow-key style selector for
 `ask` / `auto-write` / `yolo`, and Tab on an empty prompt cycles those modes. `auto-write` approves
 writes but still asks before exec. Permission mode is intentionally process-local and is not persisted
 into a resumed session. Terminal controls follow familiar agent/shell conventions: **Ctrl+C** clears a non-empty draft, exits from an empty idle prompt, and
 interrupts an active model/tool turn; **Ctrl+D** deletes the character to the right or exits on an
 empty prompt; **Ctrl+L** clears/repaints; **Ctrl+W** deletes the previous word; **↑/↓** or
-**Ctrl+P/N** browse prompt history, including durable user prompts restored by `--continue`/`/resume`;
+**Ctrl+P/N** browse prompt history, including durable user prompts restored by `--continue`/`/resume`. Long drafts wrap dynamically to terminal width/height; **↑/↓** move between visual wrapped rows before falling through to history navigation;
 **Ctrl+A/E** and **Ctrl+B/F** move to line boundaries or one character, **Ctrl+U/K** delete to the
 start/end of the line, and **Alt+B/F** or **Ctrl+←/→** move by word. `/quit` is an alias for `/exit`.
 An interrupted turn is removed from durable conversation
@@ -366,7 +366,7 @@ mso -h                       # grouped command list; `mso <command> --help` per 
 mso models                   # configure AI provider/API/OAuth connections
 mso model                    # arrow-key model picker / switch active model
 mso --continue               # resume the latest MSO Agent session
-mso --resume "session title" # resume by index/id/short id/title query
+mso --resume "@milo"         # resume by @name; index/id/title queries remain supported
 mso doctor                   # includes HTTPS/login-origin diagnosis
 mso doctor --fix             # safe local repairs; never changes DNS/TLS/firewall/credentials
 mso onboard                  # guided AI/app/infrastructure/skill setup

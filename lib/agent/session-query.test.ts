@@ -4,7 +4,7 @@ import type { AgentSession } from "./session-types";
 
 function row(n: number, title: string, updatedAt: string, overrides: Partial<AgentSession> = {}): AgentSession {
   return {
-    id: `20260901_120000_${n.toString(16).padStart(8, "0")}`, principalHash: "p", source: "cli",
+    id: `20260901_120000_${n.toString(16).padStart(8, "0")}`, principalHash: "p", source: "cli", name: `test-${n}`,
     title, titleSource: "auto", createdAt: updatedAt, updatedAt, memorySnapshot: { user: "", memory: "", capturedAt: updatedAt },
     history: [{ role: "user", text: title }], events: [], estimatedTokens: 1, lifetimeEstimatedTokens: 1,
     compactThresholdTokens: 700000, compactionCount: 0, archiveCount: 0, ...overrides,

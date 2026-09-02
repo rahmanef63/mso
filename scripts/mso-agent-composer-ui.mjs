@@ -21,6 +21,50 @@ export function inputViewport(value, cursor, maxWidth) {
   return { display: `${prefix}${row.slice(start, end).join("")}${suffix}`, cursor: width(prefix) + clamp(cursor - start, 0, end - start) };
 }
 
+export function inputLayout(value, cursor, options = {}) {
+  const row = chars(value);
+  const columns = Math.max(20, Number(options.columns || 100));
+  const promptWidth = Math.max(0, Number(options.promptWidth || 0));
+  const terminalRows = Math.max(8, Number(options.rows || 24));
+  const lineWidth = Math.max(8, columns - promptWidth - 2);
+  const safeCursor = clamp(cursor, 0, row.length);
+  const totalLines = Math.max(1, Math.floor(row.length / lineWidth) + 1);
+  const absoluteCursorRow = Math.floor(safeCursor / lineWidth);
+  const cursorCol = safeCursor % lineWidth;
+  const requestedMaxRows = Number(options.maxRows || Math.floor(terminalRows * 0.32));
+  const maxRows = Math.max(2, Math.min(12, terminalRows - 4, requestedMaxRows || 2));
+  const visibleCount = Math.min(totalLines, maxRows);
+  const startLine = clamp(absoluteCursorRow - Math.floor(visibleCount / 2), 0, Math.max(0, totalLines - visibleCount));
+  const lines = Array.from({ length: visibleCount }, (_, offset) => {
+    const line = startLine + offset;
+    return row.slice(line * lineWidth, (line + 1) * lineWidth).join("");
+  });
+  return {
+    lines,
+    cursorRow: absoluteCursorRow - startLine,
+    cursorCol,
+    lineWidth,
+    totalLines,
+    startLine,
+    clippedTop: startLine > 0,
+    clippedBottom: startLine + visibleCount < totalLines,
+  };
+}
+
+export function verticalCursor(value, cursor, lineWidth, direction, preferredColumn = /** @type {number|null} */ (null)) {
+  const row = chars(value);
+  const width = Math.max(1, Number(lineWidth || 1));
+  const current = clamp(cursor, 0, row.length);
+  const currentRow = Math.floor(current / width);
+  const totalRows = Math.max(1, Math.floor(row.length / width) + 1);
+  const targetRow = currentRow + (direction < 0 ? -1 : 1);
+  const column = preferredColumn === null ? current % width : Math.max(0, Number(preferredColumn) || 0);
+  if (targetRow < 0 || targetRow >= totalRows) return { moved: false, cursor: current, column };
+  const start = targetRow * width;
+  const end = Math.min(row.length, start + width);
+  return { moved: true, cursor: Math.min(start + column, end), column };
+}
+
 export function completionWindow(items, selected, size = 8) {
   const rows = Array.isArray(items) ? items : [];
   if (!rows.length) return { start: 0, items: [] };

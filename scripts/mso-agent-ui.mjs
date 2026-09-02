@@ -117,7 +117,8 @@ export function printAgentBanner(s, agentSession, { base, version }) {
   const skills = groupedSkillLines(s.skills?.skills, 5);
   const model = `${s.config?.provider ?? "—"}/${s.config?.model ?? "—"}`;
   const sessionTitle = fit(agentSession?.title || "MSO Agent session", 52);
-  const title = fit(`MSO Agent${version ? ` v${version}` : ""} · ${sessionTitle}`, inner - 2);
+  const sessionName = `@${agentSession?.name || "agent"}`;
+  const title = fit(`MSO Agent${version ? ` v${version}` : ""} · ${sessionName} · ${sessionTitle}`, inner - 2);
 
   console.log(panelTitle(title, inner));
   if (totalWidth >= 94) {
@@ -125,7 +126,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
     const leftWidth = Math.max(30, Math.floor((inner - gap) * 0.37));
     const rightWidth = inner - gap - leftWidth;
     const left = [
-      `${C.bold}Runtime${C.reset}`, kv("model", model, leftWidth), kv("session", sessionTitle, leftWidth),
+      `${C.bold}Runtime${C.reset}`, kv("model", model, leftWidth), kv("name", sessionName, leftWidth), kv("session", sessionTitle, leftWidth),
       kv("endpoint", base, leftWidth), "", `${C.bold}Capabilities${C.reset}`,
       fit(`${byScope.read} read · ${byScope.write} write · ${byScope.exec} exec`, leftWidth),
       fit("write/exec approval-gated", leftWidth), "", `${C.bold}Infrastructure${C.reset}`,
@@ -140,7 +141,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
     for (let i = 0; i < rows; i++) console.log(panelLine(left[i] || "", right[i] || "", leftWidth, rightWidth, gap));
   } else {
     const lines = [
-      `${C.bold}Runtime${C.reset}`, kv("model", model, inner), kv("session", sessionTitle, inner), kv("endpoint", base, inner), "",
+      `${C.bold}Runtime${C.reset}`, kv("model", model, inner), kv("name", sessionName, inner), kv("session", sessionTitle, inner), kv("endpoint", base, inner), "",
       `${C.bold}Available Tools${C.reset}`, ...tools.map((row) => kv(row.label, row.value, inner)), "",
       `${C.bold}Available Skills${C.reset}`, ...skills.map((row) => kv(row.label, row.value, inner)), "",
       `${C.bold}Capabilities${C.reset}`, `${byScope.read} read · ${byScope.write} write · ${byScope.exec} exec · write/exec approval-gated`,

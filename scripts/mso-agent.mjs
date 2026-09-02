@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import process from "node:process";
 import { canonicalAgentApproval } from "../lib/agent/approval.mjs";
+import { requestExactToolApproval } from "./mso-agent-approval-ui.mjs";
 import { beginSkillInvocation, endSkillInvocation } from "./mso-agent-skills.mjs";
 import { AgentComposer } from "./mso-agent-composer.mjs";
 import { AgentInterruptManager, isAbortError } from "./mso-agent-interrupt.mjs";
@@ -30,15 +31,12 @@ async function executeTool(rl, tool, call, agentSession, permission = "ask", sig
     // Its default approval scope is read, so write/exec fail closed unless the
     // caller explicitly chose --approve-scope write|exec.
     if (options.approvalScope) return { ok: false, result: "denied by user" };
-    console.log(`${C.warn}${C.bold}[${tool.scope.toUpperCase()}] exact tool call${C.reset}`);
-    console.log(approval.display);
-    console.log(`${C.dim}sha256 ${approval.digest} · ${approval.bytes} bytes${C.reset}`);
-    const answer = String(await rl.question("  allow this exact call? [y/N]: ", { history: false, onCancel: onInterrupt }) ?? "").trim().toLowerCase();
-    if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("turn interrupted");
-    if (answer === "y" || answer === "yes") approved = true;
+    approved = await requestExactToolApproval(rl, {
+      tool, input: call.input || {}, approval, onCancel: onInterrupt, signal, colors: C,
+    });
   } else if (needsApprovalDigest && !options.quiet && !options.approvalScope) {
-    const mode = permission === "yolo" ? "YOLO" : "AUTO-WRITE";
-    console.log(`${C.c}${C.bold}[${tool.scope.toUpperCase()} · ${mode}]${C.reset} ${tool.name}`);
+    // Keep autonomous approval mode out of the transcript: scope + tool is enough.
+    console.log(`${C.c}${C.bold}[${tool.scope}]${C.reset} ${tool.name}`);
   }
   if (!approved) return { ok: false, result: "denied by user" };
   if (!options.quiet) process.stdout.write(`${C.dim}  ↳ ${tool.name}…${C.reset}`);

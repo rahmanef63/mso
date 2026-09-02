@@ -22,6 +22,7 @@ describe("MSO Agent interactive composer primitives", () => {
     expect(Array.from(atStart.display).length).toBeLessThanOrEqual(10);
     expect(atStart.cursor).toBe(0);
   });
+
   it("redraws arrow-key selection in place without emitting new lines", async () => {
     class FakeInput extends EventEmitter {
       isRaw = false;

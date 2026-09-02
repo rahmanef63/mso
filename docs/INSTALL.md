@@ -136,16 +136,14 @@ ChatGPT/Codex subscription path), while `mso model list [provider]` shows select
 Interactive `mso model` / `mso models` menus are arrow-key pickers: **↑/↓** moves, typing filters,
 **Enter** selects, and **Esc** cancels; numeric provider/model prompts are not part of the UX.
 Agent sessions are durable: `mso --continue` resumes the latest session and
-`mso --resume <index|id|title>` resolves a prior session without weakening principal isolation. Inside
+`mso --resume <@name|index|id|title>` resolves a prior session without weakening principal isolation. Inside
 the Agent, `/session` and bare `/resume` open a single newest-first picker directly—there is no second
-printed recent list. Rows show the human session title plus `modified …`; IDs are hidden in the normal UI
-and retained only as an exact automation/debug escape hatch. Explicit `/title` renames use the durable
-rename lifecycle, while new CLI sessions remain auto-titleable from their first real user prompt.
+printed recent list. Rows show the short durable `@name` first, with the longer human session title plus `modified …`; IDs are hidden in the normal UI and retained only as an exact automation/debug escape hatch. Every fresh session receives a familiar unique name automatically. `/rename <name>` changes only this mention handle; `/title <text>` changes the longer durable description/topic, while new CLI titles remain auto-titleable from their first real user prompt.
 
 Agent permission mode defaults to `ask`. `mso --yolo` and `mso -yolo` are global Agent startup flags, so
 they work without spelling `agent` (`mso --continue --yolo` is valid too). YOLO auto-approves write and
 exec calls for that process only; MSO still canonicalizes the exact payload and sends its approval digest
-to the server, but the interactive `allow this exact call? [y/N]` step is skipped. `/permission` opens a
+to the server, but the interactive compact approval flow is skipped. In normal `ask` mode MSO shows one safe `Approval needed: <tool> — <action>` line; Enter opens redacted-safe exact-call details and the canonical digest, then a separate explicit `allow` or `deny` decision is required. `/permission` opens a
 native picker for `ask`, `auto-write`, or `yolo`; Tab on an empty Agent prompt cycles the same modes.
 `auto-write` approves writes only and retains exec confirmation. The mode is deliberately not persisted
 across Agent restarts/resumes.

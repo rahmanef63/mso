@@ -3,9 +3,9 @@ import { wordLeftIndex, wordRightIndex } from "./mso-agent-editing.mjs";
 import process from "node:process";
 
 import {
-  chars, clamp, CLEAR_LINE, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, CURSOR_UP, inputViewport, menuLines, width,
+  chars, clamp, CLEAR_LINE, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, CURSOR_UP, inputLayout, inputViewport, menuLines, verticalCursor, width,
 } from "./mso-agent-composer-ui.mjs";
-export { completionWindow, inputViewport } from "./mso-agent-composer-ui.mjs";
+export { completionWindow, inputLayout, inputViewport, verticalCursor } from "./mso-agent-composer-ui.mjs";
 
 export class AgentComposer {
   constructor({ input = process.stdin, output = process.stdout, colors }) {
@@ -23,8 +23,8 @@ export class AgentComposer {
     if (this.closed) return null;
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
-      let value = "", cursor = 0, selected = 0, reservedMenuRows = 0;
-      let dismissed = false, historyIndex = null, draft = "", settled = false;
+      let value = "", cursor = 0, selected = 0, reservedRows = 0;
+      let dismissed = false, historyIndex = null, draft = "", settled = false, verticalColumn = null;
       const promptText = () => String(typeof prompt === "function" ? prompt() : prompt);
       const wasRaw = Boolean(input.isRaw);
 
@@ -32,35 +32,43 @@ export class AgentComposer {
       // Reserve physical rows only when the dropdown first grows. Selection changes then
       // redraw with cursor movement only — no LF/CRLF — so ↑/↓ never create scrollback rows.
       const reserve = (rows) => {
-        if (rows <= reservedMenuRows) return;
-        if (reservedMenuRows) output.write(CURSOR_DOWN(reservedMenuRows));
-        for (let i = reservedMenuRows; i < rows; i++) output.write("\r\n");
+        if (rows <= reservedRows) return;
+        if (reservedRows) output.write(CURSOR_DOWN(reservedRows));
+        for (let i = reservedRows; i < rows; i++) output.write("\r\n");
         output.write(`${CURSOR_UP(rows)}\r`);
-        reservedMenuRows = rows;
+        reservedRows = rows;
       };
       const erase = () => {
         output.write(`\r${CLEAR_LINE}`);
-        for (let i = 0; i < reservedMenuRows; i++) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}`);
-        if (reservedMenuRows) output.write(`${CURSOR_UP(reservedMenuRows)}\r`);
+        for (let i = 0; i < reservedRows; i++) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}`);
+        if (reservedRows) output.write(`${CURSOR_UP(reservedRows)}\r`);
       };
       const render = () => {
         const currentPrompt = promptText();
-        const maxInput = Math.max(8, Number(output.columns || 100) - width(currentPrompt) - 2);
-        const viewport = inputViewport(value, cursor, maxInput);
+        const promptWidth = width(currentPrompt);
         const items = matches();
         selected = items.length ? clamp(selected, 0, items.length - 1) : 0;
         const menu = menuLines(items, selected, output.columns, C, panelLabel);
-        reserve(menu.length);
+        const terminalRows = Math.max(8, Number(output.rows || 24));
+        const maxInputRows = Math.max(2, Math.min(12, terminalRows - menu.length - 4, Math.floor(terminalRows * 0.32)));
+        const layout = inputLayout(value, cursor, { columns: output.columns, rows: terminalRows, promptWidth, maxRows: maxInputRows });
+        const inputExtraRows = Math.max(0, layout.lines.length - 1);
+        const below = inputExtraRows + menu.length;
+        reserve(below);
         erase();
-        output.write(`${currentPrompt}${viewport.display}`);
+        const continuation = " ".repeat(promptWidth);
+        output.write(`${currentPrompt}${layout.lines[0] || ""}`);
+        for (const row of layout.lines.slice(1)) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${continuation}${row}`);
         for (const row of menu) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${row}`);
-        if (menu.length) output.write(CURSOR_UP(menu.length));
-        output.write(`\r${CURSOR_RIGHT(width(currentPrompt) + viewport.cursor)}`);
+        const backUp = menu.length + (layout.lines.length - 1 - layout.cursorRow);
+        if (backUp) output.write(CURSOR_UP(backUp));
+        output.write(`\r${CURSOR_RIGHT(promptWidth + layout.cursorCol)}`);
       };
       const cleanup = () => {
         input.off("keypress", onKey);
         if (this._cancelCurrent === cancel) this._cancelCurrent = null;
         if (this._notifyCurrent === notify) this._notifyCurrent = null;
+        if (typeof output.off === "function") output.off("resize", onResize);
         if (typeof input.setRawMode === "function") input.setRawMode(wasRaw);
         input.pause();
       };
@@ -90,7 +98,7 @@ export class AgentComposer {
         if (settled) return false;
         erase();
         output.write(`${String(text ?? "").replace(/\r/g, "")}\r\n`);
-        reservedMenuRows = 0;
+        reservedRows = 0;
         render();
         return true;
       };
@@ -98,7 +106,7 @@ export class AgentComposer {
       this._notifyCurrent = notify;
       const edit = (next, nextCursor) => {
         value = next; cursor = clamp(nextCursor, 0, chars(value).length);
-        selected = 0; dismissed = false; historyIndex = null;
+        selected = 0; dismissed = false; historyIndex = null; verticalColumn = null;
         render();
       };
       const apply = (item) => {
@@ -112,8 +120,9 @@ export class AgentComposer {
         else historyIndex = dir < 0 ? Math.min(this.history.length - 1, historyIndex + 1) : historyIndex - 1;
         if (historyIndex === null || historyIndex < 0) { historyIndex = null; value = draft; }
         else value = this.history[historyIndex] || "";
-        cursor = chars(value).length; dismissed = true; render();
+        cursor = chars(value).length; dismissed = true; verticalColumn = null; render();
       };
+      const onResize = () => { if (!settled) render(); };
       const onKey = (str, key = {}) => {
         const items = matches();
         if (key.ctrl && key.name === "c") {
@@ -121,7 +130,7 @@ export class AgentComposer {
           return cancel(true);
         }
         if (key.ctrl && key.name === "l") {
-          output.write(CLEAR_SCREEN); reservedMenuRows = 0; return render();
+          output.write(CLEAR_SCREEN); reservedRows = 0; return render();
         }
         if (key.name === "escape") {
           if (escapeCancels) return cancel(false);
@@ -155,6 +164,12 @@ export class AgentComposer {
           if (items.length && items[selected]?.text) return apply(items[selected]);
           return finish(value);
         }
+        if (!items.length && (key.name === "up" || key.name === "down") && value) {
+          const currentPrompt = promptText();
+          const layout = inputLayout(value, cursor, { columns: output.columns, rows: output.rows, promptWidth: width(currentPrompt) });
+          const moved = verticalCursor(value, cursor, layout.lineWidth, key.name === "up" ? -1 : 1, verticalColumn);
+          if (moved.moved) { cursor = moved.cursor; verticalColumn = moved.column; return render(); }
+        }
         if ((key.name === "up" && !items.length) || (key.ctrl && key.name === "p")) return historyMove(-1);
         if ((key.name === "down" && !items.length) || (key.ctrl && key.name === "n")) return historyMove(1);
         const row = chars(value);
@@ -163,12 +178,12 @@ export class AgentComposer {
           if (cursor < row.length) return edit([...row.slice(0, cursor), ...row.slice(cursor + 1)].join(""), cursor);
           return render();
         }
-        if (((key.ctrl || key.meta) && key.name === "left") || (key.meta && key.name === "b")) { cursor = wordLeftIndex(value, cursor); return render(); }
-        if (((key.ctrl || key.meta) && key.name === "right") || (key.meta && key.name === "f")) { cursor = wordRightIndex(value, cursor); return render(); }
-        if (key.name === "left" || (key.ctrl && key.name === "b")) { cursor = Math.max(0, cursor - 1); return render(); }
-        if (key.name === "right" || (key.ctrl && key.name === "f")) { cursor = Math.min(row.length, cursor + 1); return render(); }
-        if (key.name === "home" || (key.ctrl && key.name === "a")) { cursor = 0; return render(); }
-        if (key.name === "end" || (key.ctrl && key.name === "e")) { cursor = row.length; return render(); }
+        if (((key.ctrl || key.meta) && key.name === "left") || (key.meta && key.name === "b")) { cursor = wordLeftIndex(value, cursor); verticalColumn = null; return render(); }
+        if (((key.ctrl || key.meta) && key.name === "right") || (key.meta && key.name === "f")) { cursor = wordRightIndex(value, cursor); verticalColumn = null; return render(); }
+        if (key.name === "left" || (key.ctrl && key.name === "b")) { cursor = Math.max(0, cursor - 1); verticalColumn = null; return render(); }
+        if (key.name === "right" || (key.ctrl && key.name === "f")) { cursor = Math.min(row.length, cursor + 1); verticalColumn = null; return render(); }
+        if (key.name === "home" || (key.ctrl && key.name === "a")) { cursor = 0; verticalColumn = null; return render(); }
+        if (key.name === "end" || (key.ctrl && key.name === "e")) { cursor = row.length; verticalColumn = null; return render(); }
         if (key.name === "backspace" && cursor > 0) return edit([...row.slice(0, cursor - 1), ...row.slice(cursor)].join(""), cursor - 1);
         if (key.name === "delete" && cursor < row.length) return edit([...row.slice(0, cursor), ...row.slice(cursor + 1)].join(""), cursor);
         if (key.ctrl && key.name === "w") {
@@ -184,6 +199,7 @@ export class AgentComposer {
       };
 
       input.on("keypress", onKey);
+      if (typeof output.on === "function") output.on("resize", onResize);
       input.resume();
       if (typeof input.setRawMode === "function") input.setRawMode(true);
       render();
