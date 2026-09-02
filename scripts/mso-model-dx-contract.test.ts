@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const root = path.resolve(__dirname, "..");
 const cli = fs.readFileSync(path.join(root, "bin/mso"), "utf8");
+const commandOwner = fs.readFileSync(path.join(root, "scripts/cli/commands.sh"), "utf8");
 const agentCli = fs.readFileSync(
   path.join(__dirname, "mso-cli-agent.sh"),
   "utf8",
@@ -25,7 +26,7 @@ const picker = fs.readFileSync(
   "utf8",
 );
 
-const all = [cli, agentCli, configRoute, oauthRoute, slash, picker].join("\n");
+const all = [cli, commandOwner, agentCli, configRoute, oauthRoute, slash, picker].join("\n");
 
 describe("MSO model/provider/session CLI contract", () => {
   it("keeps provider auth (`models`) separate from active selection (`model`)", () => {
@@ -75,7 +76,7 @@ describe("MSO model/provider/session CLI contract", () => {
 
   it("accepts yolo as a global Agent startup flag instead of treating it as a command", () => {
     expect(cli).toContain('--yolo|-yolo) AGENT_START_ARGS+=("--yolo")');
-    expect(cli).toContain(
+    expect(commandOwner).toContain(
       "agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo]",
     );
   });

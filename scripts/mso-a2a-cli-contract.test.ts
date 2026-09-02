@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const cli = readFileSync(path.join(process.cwd(), "bin", "mso"), "utf8");
+const root = process.cwd();
+const cli = [
+  "scripts/cli/commands.sh",
+  "scripts/cli/commands-state.sh",
+  "scripts/cli/transport.sh",
+].map((rel) => readFileSync(path.join(root, rel), "utf8")).join("\n");
 
 describe("MSO A2A CLI contract", () => {
   it("exposes authenticated inbound, peer auth, and streaming commands", () => {

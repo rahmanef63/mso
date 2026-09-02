@@ -7,6 +7,11 @@ import { afterEach, describe, expect, it } from "vitest";
 const ROOT = path.join(__dirname, "../..");
 const HELPER = path.join(ROOT, "scripts/lib/private-state.sh");
 const CLI = path.join(ROOT, "bin/mso");
+const CLI_MODULES = [
+  "scripts/cli/runtime.sh", "scripts/cli/service.sh", "scripts/cli/transport.sh", "scripts/cli/onboarding.sh",
+  "scripts/cli/commands.sh", "scripts/cli/commands-host.sh", "scripts/cli/commands-runtime.sh",
+  "scripts/cli/commands-state.sh", "scripts/cli/commands-admin.sh",
+].map((rel) => path.join(ROOT, rel));
 const EDITOR = path.join(ROOT, "claude-skills/mso-image-editor/image-editor.sh");
 const ULTIMATE = path.join(ROOT, "scripts/security-ultimate.sh");
 const roots: string[] = [];
@@ -97,7 +102,10 @@ describe("private shell state", () => {
   });
 
   it("wires both clients away from shared /tmp defaults and validates every bearer file", () => {
-    const cli = fs.readFileSync(CLI, "utf8");
+    const cli = [
+      fs.readFileSync(CLI, "utf8"),
+      fs.readFileSync(path.join(ROOT, "scripts/cli/transport.sh"), "utf8"),
+    ].join("\n");
     const editor = fs.readFileSync(EDITOR, "utf8");
     expect(cli).toContain("$HOME/.mso/private");
     expect(cli).not.toContain('${TMPDIR:-/tmp}/mso-$(id -u)');
@@ -109,7 +117,7 @@ describe("private shell state", () => {
   });
 
   it("keeps shell scripts syntactically valid and the ultimate runner self-sufficient", () => {
-    for (const script of [HELPER, CLI, EDITOR, ULTIMATE]) {
+    for (const script of [HELPER, CLI, ...CLI_MODULES, EDITOR, ULTIMATE]) {
       expect(() => execFileSync("bash", ["-n", script])).not.toThrow();
     }
     const ultimate = fs.readFileSync(ULTIMATE, "utf8");

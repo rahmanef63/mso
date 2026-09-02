@@ -31,6 +31,15 @@ function fixture() {
     "bin/mso",
     "scripts/mso-update",
     "scripts/mso-cli-agent.sh",
+    "scripts/cli/runtime.sh",
+    "scripts/cli/service.sh",
+    "scripts/cli/transport.sh",
+    "scripts/cli/onboarding.sh",
+    "scripts/cli/commands.sh",
+    "scripts/cli/commands-host.sh",
+    "scripts/cli/commands-runtime.sh",
+    "scripts/cli/commands-state.sh",
+    "scripts/cli/commands-admin.sh",
     "scripts/lib/private-state.sh",
     "scripts/lib/update-state.sh",
     "scripts/lib/runtime-exclusion.sh",
@@ -86,7 +95,7 @@ describe("mso offline update dispatch", () => {
   });
 
   it("keeps `mso update run` as a local compatibility alias", () => {
-    const cli = fs.readFileSync(path.join(ROOT, "bin/mso"), "utf8");
+    const cli = fs.readFileSync(path.join(ROOT, "scripts/cli/commands-admin.sh"), "utf8");
     const updater = fs.readFileSync(path.join(ROOT, "scripts/mso-update"), "utf8");
     expect(cli).toMatch(/update\).*scripts\/mso-update/);
     expect(updater).toMatch(/case "\$\{1:-run\}" in/);

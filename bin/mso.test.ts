@@ -9,6 +9,17 @@ import { describe, expect, it } from "vitest";
 const CLI = path.join(__dirname, "mso");
 const run = (...args: string[]) =>
   execFileSync(CLI, args, { encoding: "utf8", env: { ...process.env, MSO_ENV: "/dev/null" } });
+const commandOwnerFiles = [
+  "scripts/cli/commands-host.sh",
+  "scripts/cli/commands-runtime.sh",
+  "scripts/cli/commands-state.sh",
+  "scripts/cli/commands-admin.sh",
+];
+const commandOwners = () => {
+  const fs = require("node:fs") as typeof import("node:fs");
+  const repo = path.join(__dirname, "..");
+  return commandOwnerFiles.map((rel) => fs.readFileSync(path.join(repo, rel), "utf8")).join("\n");
+};
 
 describe("bin/mso", () => {
   it("labels CLI, app, and build versions instead of presenting one ambiguous number", () => {
@@ -26,8 +37,7 @@ describe("bin/mso", () => {
   });
 
   it("documents every verb the dispatch table implements", () => {
-    const src = require("node:fs").readFileSync(CLI, "utf8") as string;
-    const body = src.slice(src.indexOf('cmd="${1:-agent}"'));
+    const body = commandOwners();
     // Case arms look like `  ls)` / `  camoufox)` / `  devices|device)`. Aliases
     // are split out too — an alias absent from the help is just as unfindable.
     const verbs = [...body.matchAll(/^ {2}([a-z][a-z|-]*)\)/gm)].flatMap((m) => m[1].split("|"));
@@ -81,6 +91,9 @@ describe("bin/mso", () => {
     });
     const cli = [
       fs.readFileSync(CLI, "utf8"),
+      fs.readFileSync(path.join(repo, "scripts/cli/transport.sh"), "utf8"),
+      fs.readFileSync(path.join(repo, "scripts/cli/commands.sh"), "utf8"),
+      ...commandOwnerFiles.map((rel) => fs.readFileSync(path.join(repo, rel), "utf8")),
       fs.readFileSync(path.join(repo, "scripts/mso-cli-agent.sh"), "utf8"),
     ].join("\n");
 
