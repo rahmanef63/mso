@@ -8,6 +8,11 @@ const productionFiles = [
   "redaction.ts",
   "evidence.ts",
   "repo-memory.ts",
+  "repo-memory-storage.ts",
+  "repo-memory-artifacts.ts",
+  "repo-memory-insights.ts",
+  "memory-sync.ts",
+  "capability-catalog.mjs",
   "automation.ts",
 ];
 
@@ -21,8 +26,8 @@ describe("RASMIC standalone invariant", () => {
   });
 
   it("keeps repo-local portability rooted in .agent rather than an MSO-private runtime path", async () => {
-    const source = await fs.readFile(path.resolve(__dirname, "repo-memory.ts"), "utf8");
-    expect(source).toContain('path.join(root, ".agent")');
-    expect(source).not.toContain('path.join(root, ".mso")');
+    const storage = await fs.readFile(path.resolve(__dirname, "repo-memory-storage.ts"), "utf8");
+    expect(storage).toContain('path.join(root, ".agent")');
+    expect(storage).not.toContain('path.join(root, ".mso")');
   });
 });
