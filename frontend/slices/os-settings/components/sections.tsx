@@ -14,6 +14,7 @@ import { AiSection } from "./ai-section";
 import { MemorySection } from "./memory-section";
 import { QuicklinksSection } from "./quicklinks-section";
 import { McpSection } from "./mcp-section";
+import { A2ASection } from "./a2a-section";
 import { ServerSection } from "./server-section";
 import { CleanupSection } from "./cleanup-section";
 import { BackupSection } from "./backup-section";
@@ -22,7 +23,17 @@ import { AboutSection } from "./about-section";
 // The section content — one functional panel per SectionId, shared verbatim by
 // every shell's Settings layout (the per-shell seam only swaps the navigation
 // chrome around these, never the bodies).
-const OWNER_ONLY = new Set<SectionId>(["appearance", "theme", "ai", "quicklinks", "mcp", "devices", "cleanup", "backup"]);
+const OWNER_ONLY = new Set<SectionId>([
+  "appearance",
+  "theme",
+  "ai",
+  "quicklinks",
+  "mcp",
+  "a2a",
+  "devices",
+  "cleanup",
+  "backup",
+]);
 
 export function SettingsSectionBody({ id }: { id: SectionId }) {
   const { status, role } = useSession();
@@ -30,8 +41,11 @@ export function SettingsSectionBody({ id }: { id: SectionId }) {
     return (
       <SettingsSection icon={<Lock />} title="Owner access required">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          This section changes shared workspace preferences, credentials, host state, access policy, or owner backups.
-          The current <strong className="text-foreground">{role ?? "viewer"}</strong> device can use read-only workspace features but cannot open this control surface.
+          This section changes shared workspace preferences, credentials, host
+          state, access policy, or owner backups. The current{" "}
+          <strong className="text-foreground">{role ?? "viewer"}</strong> device
+          can use read-only workspace features but cannot open this control
+          surface.
         </p>
       </SettingsSection>
     );
@@ -52,6 +66,8 @@ export function SettingsSectionBody({ id }: { id: SectionId }) {
       return <QuicklinksSection />;
     case "mcp":
       return <McpSection />;
+    case "a2a":
+      return <A2ASection />;
     case "devices":
       return (
         <div className="space-y-4 sm:space-y-5">
@@ -83,15 +99,33 @@ export function SettingsSectionBody({ id }: { id: SectionId }) {
 // One shared section body. Desktop renderers show a compact heading; mobile
 // renderers normally suppress it because the shell-owned top bar carries the
 // detail title. `showHeading` remains available for embedded/desktop contexts.
-export function SectionDetail({ id, showHeading = true }: { id: SectionId; showHeading?: boolean }) {
+export function SectionDetail({
+  id,
+  showHeading = true,
+}: {
+  id: SectionId;
+  showHeading?: boolean;
+}) {
   const { id: shellId } = useActiveShell();
   const meta = SECTIONS.find((s) => s.id === id);
   return (
     <ScrollArea className="h-full">
-      <div data-slot="settings-pane" className="mx-auto min-w-0 max-w-3xl space-y-4 overflow-x-hidden p-3 pb-[max(1rem,var(--sai-bottom,0px))] sm:space-y-5 sm:p-5">
+      <div
+        data-slot="settings-pane"
+        className="mx-auto min-w-0 max-w-3xl space-y-4 overflow-x-hidden p-3 pb-[max(1rem,var(--sai-bottom,0px))] sm:space-y-5 sm:p-5"
+      >
         {showHeading && meta && (
           <header className="space-y-0.5">
-            <h2 className={cn("leading-tight", shellId === "macos" ? "text-[22px] font-bold tracking-tight" : "text-sm font-semibold")}>{meta.label}</h2>
+            <h2
+              className={cn(
+                "leading-tight",
+                shellId === "macos"
+                  ? "text-[22px] font-bold tracking-tight"
+                  : "text-sm font-semibold",
+              )}
+            >
+              {meta.label}
+            </h2>
             <p className="text-xs text-muted-foreground">{meta.blurb}</p>
           </header>
         )}

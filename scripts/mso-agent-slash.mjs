@@ -1,26 +1,93 @@
 import process from "node:process";
-import { currentSkillProject, resolveSlashSkill, skillRuntimeState, slashSkillNames } from "./mso-agent-skills.mjs";
+import {
+  currentSkillProject,
+  resolveSlashSkill,
+  skillRuntimeState,
+  slashSkillNames,
+} from "./mso-agent-skills.mjs";
 
 export const BUILTIN_SLASH_ITEMS = [
   { text: "/help", meta: "Show commands and shortcuts", kind: "command" },
-  { text: "/models", meta: "Configure AI providers and authentication", kind: "command" },
-  { text: "/model", meta: "Select the active model from connected providers", kind: "command" },
+  {
+    text: "/models",
+    meta: "Configure AI providers and authentication",
+    kind: "command",
+  },
+  {
+    text: "/model",
+    meta: "Select the active model from connected providers",
+    kind: "command",
+  },
   { text: "/session", meta: "Open the recent-session picker", kind: "command" },
-  { text: "/resume", meta: "Resume a session; no arg opens the same picker", kind: "command" },
+  {
+    text: "/resume",
+    meta: "Resume a session; no arg opens the same picker",
+    kind: "command",
+  },
   { text: "/title", meta: "Rename the durable session", kind: "command" },
-  { text: "/status", meta: "Show model, auth, context, tokens, session", kind: "command" },
-  { text: "/permission", meta: "Choose ask, auto-write, or yolo approval mode", kind: "command" },
-  { text: "/context", meta: "Show context/token/session status", kind: "command" },
-  { text: "/statusbar", meta: "Toggle the compact dynamic status line", kind: "command" },
+  {
+    text: "/status",
+    meta: "Show model, auth, context, tokens, session",
+    kind: "command",
+  },
+  {
+    text: "/permission",
+    meta: "Choose ask, auto-write, or yolo approval mode",
+    kind: "command",
+  },
+  {
+    text: "/context",
+    meta: "Show context/token/session status",
+    kind: "command",
+  },
+  {
+    text: "/statusbar",
+    meta: "Toggle the compact dynamic status line",
+    kind: "command",
+  },
   { text: "/setup", meta: "Run full MSO onboarding", kind: "command" },
-  { text: "/providers", meta: "Show infrastructure provider status", kind: "command" },
-  { text: "/provider", meta: "Configure Dokploy, Cloudflare, or Hostinger", kind: "command" },
+  {
+    text: "/providers",
+    meta: "Show infrastructure provider status",
+    kind: "command",
+  },
+  {
+    text: "/provider",
+    meta: "Configure Dokploy, Cloudflare, or Hostinger",
+    kind: "command",
+  },
   { text: "/doctor", meta: "Run MSO diagnostics", kind: "command" },
   { text: "/tools", meta: "List available agent tools", kind: "command" },
-  { text: "/agents", meta: "List registered A2A v1 peer agents", kind: "command" },
-  { text: "/delegate", meta: "Handoff an explicit objective to an A2A peer", kind: "command" },
-  { text: "/skills", meta: "Browse and filter available skills", kind: "command" },
-  { text: "/skill", meta: "Select a skill by exact catalog id", kind: "command" },
+  {
+    text: "/agents",
+    meta: "List registered A2A peers + same-host session agents",
+    kind: "command",
+  },
+  {
+    text: "/delegate",
+    meta: "Handoff to a local session by name/id/cwd, else a registered peer",
+    kind: "command",
+  },
+  {
+    text: "/spawn",
+    meta: "Spawn a same-host A2A sub-agent from this session",
+    kind: "command",
+  },
+  {
+    text: "/inbox",
+    meta: "Show A2A tasks addressed to this durable session",
+    kind: "command",
+  },
+  {
+    text: "/skills",
+    meta: "Browse and filter available skills",
+    kind: "command",
+  },
+  {
+    text: "/skill",
+    meta: "Select a skill by exact catalog id",
+    kind: "command",
+  },
   { text: "/clear", meta: "Clear this session conversation", kind: "command" },
   { text: "/exit", meta: "Exit MSO Agent", kind: "command" },
   { text: "/quit", meta: "Alias for /exit", kind: "command" },
@@ -29,8 +96,12 @@ export const BUILTIN_SLASH_ITEMS = [
 function skillItem(skillsData, name, cwd, session) {
   const { skill } = resolveSlashSkill(skillsData, name, cwd);
   if (!skill || skill.trust === "untrusted") return null;
-  const scope = skill.project?.name ? `skill · ${skill.project.name}` : "skill · global";
-  const description = String(skill.description || "").replace(/[\r\n\t]+/g, " ").trim();
+  const scope = skill.project?.name
+    ? `skill · ${skill.project.name}`
+    : "skill · global";
+  const description = String(skill.description || "")
+    .replace(/[\r\n\t]+/g, " ")
+    .trim();
   const state = skillRuntimeState(session, skill);
   return {
     text: `/${name}`,
@@ -42,7 +113,12 @@ function skillItem(skillsData, name, cwd, session) {
   };
 }
 
-export function slashCompletionItems(skillsData, input, cwd = process.cwd(), session = /** @type {any} */ (null)) {
+export function slashCompletionItems(
+  skillsData,
+  input,
+  cwd = process.cwd(),
+  session = /** @type {any} */ (null),
+) {
   const text = String(input || "").trimStart();
   if (!text.startsWith("/") || /\s/.test(text)) return [];
   const query = text.toLowerCase();

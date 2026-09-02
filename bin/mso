@@ -127,7 +127,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.7.0"
+VERSION="1.8.0"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
@@ -437,6 +437,36 @@ secret_post() {
   case "$code" in 2*) printf '%s' "$payload" ;; *) die "request failed ($code): $payload" ;; esac
 }
 
+# Build an outbound A2A credential JSON body while keeping the secret off process argv.
+# Non-secret metadata travels in env vars; the secret is read only from stdin.
+a2a_credential_body() {
+  local agent_id="$1" label="$2" kind="$3" header_name="${4-}" scheme_name="${5-}"
+  A2A_AGENT_ID="$agent_id" A2A_LABEL="$label" A2A_KIND="$kind" A2A_HEADER_NAME="$header_name" A2A_SCHEME_NAME="$scheme_name" node -e '
+    let secret=""; process.stdin.setEncoding("utf8"); process.stdin.on("data",d=>secret+=d); process.stdin.on("end",()=>{
+      const body={action:"credential-create",agentId:process.env.A2A_AGENT_ID,label:process.env.A2A_LABEL,kind:process.env.A2A_KIND,secret,activate:true};
+      if(process.env.A2A_HEADER_NAME) body.headerName=process.env.A2A_HEADER_NAME;
+      if(process.env.A2A_SCHEME_NAME) body.schemeName=process.env.A2A_SCHEME_NAME;
+      process.stdout.write(JSON.stringify(body));
+    });'
+}
+
+a2a_agent_id() {
+  local ref="$1" found
+  found="$(jget "/api/v1/a2a" | jq -r --arg q "${ref,,}" '[.agents[] | select((.id|ascii_downcase)==$q or (.alias|ascii_downcase)==$q or (.card.name|ascii_downcase)==$q)] | if length==1 then .[0].id else empty end')"
+  [ -n "$found" ] || die "A2A peer not found or ambiguous: $ref"
+  printf '%s' "$found"
+}
+
+a2a_agent_schemes() {
+  local agent_id="$1"
+  jget "/api/v1/a2a" | jq -r --arg id "$agent_id" '.agents[] | select(.id==$id) | .card.securitySchemeNames[]?'
+}
+
+a2a_agent_scheme_json() {
+  local agent_id="$1" scheme_name="$2"
+  jget "/api/v1/a2a" | jq -c --arg id "$agent_id" --arg scheme "$scheme_name" '.agents[] | select(.id==$id) | (.card.securitySchemes[$scheme] // {})'
+}
+
 tty_ok() { [ -r /dev/tty ] && [ -w /dev/tty ]; }
 tty_print() { if tty_ok; then printf '%s' "$*" > /dev/tty; else printf '%s' "$*"; fi; }
 tty_line() {
@@ -684,7 +714,7 @@ U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> 
 U_update="update [--rebuild] | status | log"
 U_threads="threads list|show <id>|save <json>|rm <id>"
 U_agent_sessions="agent-sessions list [limit]|show <id>|create [title]"
-U_a2a="a2a list|discover <url>|add <url> [alias]|rm <target>|send <target> <message> [--wait]|task <target> <taskId> [history]|cancel <target> <taskId>|handoff <target> <objective> [context] [--wait]"
+U_a2a="a2a list|state|sessions|spawn <source-session> <objective> [title]|inbox <session>|discover <url>|add <url> [alias]|rm <target>|send <target> <message> [--wait]|stream <target> <message>|task <target> <taskId> [history]|cancel <target> <taskId>|handoff <target> <objective> [context] [--wait]|local sessions|local handoff <session> <objective>|local spawn <sourceSession> <objective> [title]|local inbox <session>|auth list [target]|auth add <target> [label] [bearer|api-key|oauth2]|auth use <target> <credentialId|none>|auth rm <credentialId>|inbound list|inbound create [label] [read|write|exec]|inbound rm <tokenId>"
 U_memory="memory list|add <text>|rm <id>"
 U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
 U_prefs="prefs show|set <json>"
@@ -953,6 +983,8 @@ case "$cmd" in
     sub="${1:-list}"; shift || true
     case "$sub" in
       list) jget "/api/v1/a2a" ;;
+      state) jget "/api/v1/a2a?action=state" ;;
+      sessions) jget "/api/v1/a2a?action=local-sessions" ;;
       discover) jget "/api/v1/a2a?action=discover&url=$(enc "${1:?url}")" ;;
       add|register)
         url="${1:?url}"; alias="${2:-}"
@@ -962,6 +994,11 @@ case "$cmd" in
         target="${1:?target}"; message="${2:?message}"; wait="${3:-}"
         [ "$wait" = "" ] || [ "$wait" = "--wait" ] || die "usage: mso $U_a2a"
         jpost "/api/v1/a2a" "$(jq -n --arg target "$target" --arg message "$message" --arg wait "$wait" '{action:"send",target:$target,message:$message,returnImmediately:($wait != "--wait")}')" ;;
+      stream)
+        target="${1:?target}"; message="${2:?message}"
+        body="$(jq -n --arg target "$target" --arg message "$message" '{action:"stream",target:$target,message:$message}')"
+        JAR=$(mso_private_state_ensure_file "$JAR") || die "refusing unsafe cookie jar: $JAR"; [ -s "$JAR" ] || login
+        reqraw -N -H 'content-type: application/json' -d "$body" "$B/api/v1/a2a" ;;
       task|status)
         target="${1:?target}"; task_id="${2:?taskId}"; history="${3:-10}"
         [[ "$history" =~ ^[0-9]+$ ]] || die "history must be 0-100"; [ "$history" -le 100 ] || die "history must be 0-100"
@@ -972,6 +1009,86 @@ case "$cmd" in
         if [ "$context" = "--wait" ]; then wait="--wait"; context=""; fi
         [ "$wait" = "" ] || [ "$wait" = "--wait" ] || die "usage: mso $U_a2a"
         jpost "/api/v1/a2a" "$(jq -n --arg target "$target" --arg objective "$objective" --arg context "$context" --arg wait "$wait" '{action:"handoff",target:$target,objective:$objective,returnImmediately:($wait != "--wait")} + (if $context == "" then {} else {context:$context} end)')" ;;
+      sessions) jget "/api/v1/a2a?action=local-sessions" ;;
+      spawn)
+        source_ref="${1:?sourceSession}"; objective="${2:?objective}"; title="${3:-}"
+        jpost "/api/v1/a2a" "$(jq -n --arg sourceSessionRef "$source_ref" --arg objective "$objective" --arg title "$title" '{action:"local-spawn",sourceSessionRef:$sourceSessionRef,objective:$objective} + (if $title == "" then {} else {title:$title} end)')" ;;
+      inbox)
+        session_ref="${1:?session}"
+        jget "/api/v1/a2a?action=local-inbox&session=$(enc "$session_ref")" ;;
+      local)
+        local_sub="${1:-sessions}"; shift || true
+        case "$local_sub" in
+          sessions|list) jget "/api/v1/a2a?action=local-sessions" ;;
+          handoff|delegate)
+            session_ref="${1:?session}"; objective="${2:?objective}"
+            jpost "/api/v1/a2a" "$(jq -n --arg sessionRef "$session_ref" --arg objective "$objective" '{action:"local-handoff",sessionRef:$sessionRef,objective:$objective}')" ;;
+          spawn)
+            source_ref="${1:?sourceSession}"; objective="${2:?objective}"; title="${3:-}"
+            jpost "/api/v1/a2a" "$(jq -n --arg sourceSessionRef "$source_ref" --arg objective "$objective" --arg title "$title" '{action:"local-spawn",sourceSessionRef:$sourceSessionRef,objective:$objective} + (if $title == "" then {} else {title:$title} end)')" ;;
+          inbox)
+            session_ref="${1:?session}"
+            jget "/api/v1/a2a?action=local-inbox&session=$(enc "$session_ref")" ;;
+          *) die "usage: mso $U_a2a" ;;
+        esac ;;
+      auth)
+        auth_sub="${1:-list}"; shift || true
+        case "$auth_sub" in
+          list)
+            if [ -n "${1-}" ]; then agent_id="$(a2a_agent_id "$1")"; jget "/api/v1/a2a?action=credentials&agentId=$(enc "$agent_id")";
+            else jget "/api/v1/a2a?action=credentials"; fi ;;
+          add)
+            target="${1:?target}"; label="${2:-default}"; kind="${3:-bearer}"
+            case "$kind" in bearer|api-key|oauth2) ;; *) die "credential kind must be bearer, api-key, or oauth2" ;; esac
+            agent_id="$(a2a_agent_id "$target")"; header_name=""; scheme_name=""
+            schemes="$(a2a_agent_schemes "$agent_id")"; scheme_count="$(printf '%s\n' "$schemes" | sed '/^$/d' | wc -l | tr -d ' ')"
+            if [ "$scheme_count" -eq 1 ]; then scheme_name="$(printf '%s\n' "$schemes" | sed '/^$/d' | head -1)";
+            elif [ "$scheme_count" -gt 1 ]; then
+              default_scheme="$(printf '%s\n' "$schemes" | sed '/^$/d' | head -1)"
+              tty_line "Agent Card scheme [$default_scheme]: " "$default_scheme"; scheme_name="$REPLY"
+              printf '%s\n' "$schemes" | grep -Fxq -- "$scheme_name" || die "unknown Agent Card security scheme: $scheme_name"
+            fi
+            scheme_json="{}"; [ -z "$scheme_name" ] || scheme_json="$(a2a_agent_scheme_json "$agent_id" "$scheme_name")"
+            scheme_kind="$(printf '%s' "$scheme_json" | jq -r '.kind // empty')"
+            case "$scheme_kind" in
+              api-key)
+                [ "$kind" = "api-key" ] || die "Agent Card scheme $scheme_name requires credential kind api-key"
+                scheme_location="$(printf '%s' "$scheme_json" | jq -r '.location // empty')"
+                [ "$scheme_location" = "header" ] || die "MSO 1.8 supports header API keys only; scheme $scheme_name uses ${scheme_location:-unknown}"
+                default_header="$(printf '%s' "$scheme_json" | jq -r '.name // "X-API-Key"')"
+                tty_line "API-key header [$default_header]: " "$default_header"; header_name="$REPLY"
+                [ "${header_name,,}" = "${default_header,,}" ] || die "API-key header must match Agent Card header: $default_header" ;;
+              http)
+                http_scheme="$(printf '%s' "$scheme_json" | jq -r '.scheme // empty')"
+                [ "${http_scheme,,}" = "bearer" ] || die "unsupported A2A HTTP auth scheme: ${http_scheme:-unknown}"
+                [ "$kind" = "bearer" ] || die "Agent Card scheme $scheme_name requires credential kind bearer" ;;
+              oauth2|openid)
+                [ "$kind" = "oauth2" ] || die "Agent Card scheme $scheme_name requires credential kind oauth2" ;;
+              mtls) die "A2A mTLS credential profiles are not supported in MSO 1.8" ;;
+              unknown) die "unsupported or invalid A2A security scheme: $scheme_name" ;;
+              '')
+                if [ "$kind" = "api-key" ]; then tty_line "API-key header [X-API-Key]: " "X-API-Key"; header_name="$REPLY"; fi ;;
+              *) die "unsupported A2A security scheme kind: $scheme_kind" ;;
+            esac
+            tty_secret "Credential secret: "; secret="$REPLY"; [ -n "$secret" ] || die "credential secret is required"
+            body="$(printf '%s' "$secret" | a2a_credential_body "$agent_id" "$label" "$kind" "$header_name" "$scheme_name")"; unset secret REPLY
+            secret_post "/api/v1/a2a" "$body"; unset body ;;
+          use)
+            target="${1:?target}"; credential_id="${2:?credentialId or none}"; [ "$credential_id" = "none" ] && credential_id=""
+            jpost "/api/v1/a2a" "$(jq -n --arg target "$target" --arg credentialId "$credential_id" '{action:"credential-use",target:$target,credentialId:$credentialId}')" ;;
+          rm|remove) jpost "/api/v1/a2a" "$(jq -n --arg credentialId "${1:?credentialId}" '{action:"credential-remove",credentialId:$credentialId}')" ;;
+          *) die "usage: mso $U_a2a" ;;
+        esac ;;
+      inbound)
+        in_sub="${1:-list}"; shift || true
+        case "$in_sub" in
+          list) jget "/api/v1/a2a?action=credentials" ;;
+          create|add)
+            label="${1:-peer}"; scope="${2:-read}"; case "$scope" in read|write|exec) ;; *) die "scope must be read, write, or exec" ;; esac
+            jpost "/api/v1/a2a" "$(jq -n --arg label "$label" --arg scope "$scope" '{action:"inbound-token-create",label:$label,scope:$scope}')" ;;
+          rm|remove) jpost "/api/v1/a2a" "$(jq -n --arg tokenId "${1:?tokenId}" '{action:"inbound-token-remove",tokenId:$tokenId}')" ;;
+          *) die "usage: mso $U_a2a" ;;
+        esac ;;
       *) die "usage: mso $U_a2a" ;;
     esac ;;
   memory)

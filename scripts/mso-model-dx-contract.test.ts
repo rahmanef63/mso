@@ -4,17 +4,32 @@ import { describe, expect, it } from "vitest";
 
 const root = path.resolve(__dirname, "..");
 const cli = fs.readFileSync(path.join(root, "bin/mso"), "utf8");
-const agentCli = fs.readFileSync(path.join(__dirname, "mso-cli-agent.sh"), "utf8");
-const configRoute = fs.readFileSync(path.join(root, "app/api/config/route.ts"), "utf8");
-const oauthRoute = fs.readFileSync(path.join(root, "app/api/oauth/[provider]/route.ts"), "utf8");
-const slash = fs.readFileSync(path.join(__dirname, "mso-agent-slash.mjs"), "utf8");
-const picker = fs.readFileSync(path.join(__dirname, "mso-tui-select.mjs"), "utf8");
+const agentCli = fs.readFileSync(
+  path.join(__dirname, "mso-cli-agent.sh"),
+  "utf8",
+);
+const configRoute = fs.readFileSync(
+  path.join(root, "app/api/config/route.ts"),
+  "utf8",
+);
+const oauthRoute = fs.readFileSync(
+  path.join(root, "app/api/oauth/[provider]/route.ts"),
+  "utf8",
+);
+const slash = fs.readFileSync(
+  path.join(__dirname, "mso-agent-slash.mjs"),
+  "utf8",
+);
+const picker = fs.readFileSync(
+  path.join(__dirname, "mso-tui-select.mjs"),
+  "utf8",
+);
 
 const all = [cli, agentCli, configRoute, oauthRoute, slash, picker].join("\n");
 
 describe("MSO model/provider/session CLI contract", () => {
   it("keeps provider auth (`models`) separate from active selection (`model`)", () => {
-    expect(cli).toContain('VERSION="1.7.0"');
+    expect(cli).toContain('VERSION="1.8.0"');
     expect(cli).toContain("models *             Configure AI providers/auth");
     expect(cli).toContain("model [ref]          Select active model");
     expect(agentCli).toContain("run_models()");
@@ -24,20 +39,21 @@ describe("MSO model/provider/session CLI contract", () => {
     expect(all).toContain("select:false");
     expect(configRoute).toContain("body.select !== false");
     expect(oauthRoute).toContain("body.select !== false");
-    expect(slash).toContain('text: "/models", meta: "Configure AI providers and authentication"');
-    expect(slash).toContain('text: "/model", meta: "Select the active model from connected providers"');
+    expect(slash).toMatch(/text:\s*"\/models"[\s\S]{0,120}meta:\s*"Configure AI providers and authentication"/);
+    expect(slash).toMatch(/text:\s*"\/model"[\s\S]{0,120}meta:\s*"Select the active model from connected providers"/);
   });
-
 
   it("uses one native arrow-key picker instead of numeric provider/model prompts", () => {
     expect(agentCli).toContain('tui_select "Select AI provider"');
     expect(agentCli).toContain('tui_select "Select model · $provider"');
     expect(agentCli).toContain('tui_select "AI provider/auth manager"');
-    expect(agentCli).not.toContain('Provider [1]:');
-    expect(agentCli).not.toContain('Model [1]:');
-    expect(agentCli).not.toContain('choose a provider number');
-    expect(agentCli).not.toContain('choose a model number');
-    expect(picker).toContain("↑↓ navigate · type filter · Enter select · Esc cancel");
+    expect(agentCli).not.toContain("Provider [1]:");
+    expect(agentCli).not.toContain("Model [1]:");
+    expect(agentCli).not.toContain("choose a provider number");
+    expect(agentCli).not.toContain("choose a model number");
+    expect(picker).toContain(
+      "↑↓ navigate · type filter · Enter select · Esc cancel",
+    );
     expect(picker).toContain("nextPickerIndex");
   });
 
@@ -59,7 +75,8 @@ describe("MSO model/provider/session CLI contract", () => {
 
   it("accepts yolo as a global Agent startup flag instead of treating it as a command", () => {
     expect(cli).toContain('--yolo|-yolo) AGENT_START_ARGS+=("--yolo")');
-    expect(cli).toContain('agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo]');
+    expect(cli).toContain(
+      "agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo]",
+    );
   });
-
 });

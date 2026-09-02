@@ -22,17 +22,17 @@ import {
   isUnclaimedAppNamespaceHost,
   managedAppIdForHost,
 } from "@/lib/managed-apps/origin";
-import { proxyPrefix, upstreamSocketHeaders } from "@/lib/managed-apps/proxy-headers";
+import {
+  proxyPrefix,
+  upstreamSocketHeaders,
+} from "@/lib/managed-apps/proxy-headers";
 import { getManagedAppDefinition } from "@/lib/managed-apps/catalog";
 import { projectIngressDecision } from "@/lib/managed-apps/project-ingress";
 import { verifySession } from "@/lib/auth/session";
 import { getApprovedDevice } from "@/lib/auth/device-store";
 import { roleAtLeast, type DeviceRole } from "@/lib/auth/roles";
 import { IS_DEMO } from "@/lib/demo";
-import {
-  camoufoxViewerCsp,
-  isCamoufoxViewerHost,
-} from "@/lib/camoufox/origin";
+import { camoufoxViewerCsp, isCamoufoxViewerHost } from "@/lib/camoufox/origin";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -47,11 +47,13 @@ const SESSION_COOKIE = "session";
 // Only loopback. dashboardUrl comes from HERMES_DASHBOARD_URL / OPENCLAW_DASHBOARD_URL,
 // and the upgrade hop below is the one place a rewrite leaves this server — an env
 // typo pointing it off-box would turn the cockpit into an open socket relay.
-const LOOPBACK_HOST = /^(?:127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\]|::1|localhost)$/i;
+const LOOPBACK_HOST =
+  /^(?:127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\]|::1|localhost)$/i;
 
 // noVNC + websockify for the Camoufox browser session (scripts/camoufox-vnc-service
 // serves it). Loopback-checked at the rewrite, same as the managed-app dashboards.
-const CAMOUFOX_NOVNC_URL = process.env.CAMOUFOX_NOVNC_URL ?? "http://127.0.0.1:6080";
+const CAMOUFOX_NOVNC_URL =
+  process.env.CAMOUFOX_NOVNC_URL ?? "http://127.0.0.1:6080";
 
 // The same read require-session.ts does, minus next/headers: verify EVERY `session=`
 // cookie and accept the first that both holds up and is still an approved device.
@@ -59,7 +61,10 @@ const CAMOUFOX_NOVNC_URL = process.env.CAMOUFOX_NOVNC_URL ?? "http://127.0.0.1:6
 // same host can add a second one that sorts ahead of the real one; checking only the
 // first would let a forged value decide. Revocation is re-checked here too — a valid
 // HMAC alone must not outlive the device being removed.
-async function hasApprovedSession(request: NextRequest, minimumRole: DeviceRole = "viewer"): Promise<boolean> {
+async function hasApprovedSession(
+  request: NextRequest,
+  minimumRole: DeviceRole = "viewer",
+): Promise<boolean> {
   if (IS_DEMO) return false;
   const secret = process.env.OS_SESSION_SECRET ?? "";
   for (const { value } of request.cookies.getAll(SESSION_COOKIE)) {
@@ -162,14 +167,18 @@ export async function proxy(request: NextRequest) {
   // used solely at this edge gate and is stripped before noVNC receives the request.
   if (isCamoufoxViewerHost(host)) {
     if (!(await hasApprovedSession(request, "operator"))) return notFound();
-    if (request.method !== "GET" && request.method !== "HEAD") return notFound();
+    if (request.method !== "GET" && request.method !== "HEAD")
+      return notFound();
     let base: URL;
     try {
       base = new URL(CAMOUFOX_NOVNC_URL);
     } catch {
       return notFound();
     }
-    if ((base.protocol !== "http:" && base.protocol !== "https:") || !LOOPBACK_HOST.test(base.hostname)) {
+    if (
+      (base.protocol !== "http:" && base.protocol !== "https:") ||
+      !LOOPBACK_HOST.test(base.hostname)
+    ) {
       return notFound();
     }
     const target = new URL(base);
@@ -181,7 +190,10 @@ export async function proxy(request: NextRequest) {
       request: { headers: upstreamSocketHeaders(request.headers) },
     });
     response.headers.set("Content-Security-Policy", camoufoxViewerCsp());
-    response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()");
+    response.headers.set(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()",
+    );
     response.headers.set("Referrer-Policy", "no-referrer");
     response.headers.set("X-Content-Type-Options", "nosniff");
     response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
@@ -212,8 +224,10 @@ export async function proxy(request: NextRequest) {
     // frame's own fetch/XHR and its form posts are same-origin with the app host.
     // Cockpit JS reaching an app host is only SAME-SITE, so it is blocked — and
     // that reach is exactly what the origin split exists to remove.
-    if (MUTATING.has(request.method) && crossOriginMutation(request)) return blocked();
-    if (pathname === "/_next" || pathname.startsWith("/_next/")) return notFound();
+    if (MUTATING.has(request.method) && crossOriginMutation(request))
+      return blocked();
+    if (pathname === "/_next" || pathname.startsWith("/_next/"))
+      return notFound();
 
     // A WebSocket upgrade. A route handler cannot service one — which is why every
     // OpenClaw panel sat dead and its windows opened on a terminal instead — but a
@@ -237,9 +251,14 @@ export async function proxy(request: NextRequest) {
       if (!(await hasApprovedSession(request, "operator"))) return notFound();
       const base = new URL(getManagedAppDefinition(managedApp).dashboardUrl);
       if (!LOOPBACK_HOST.test(base.hostname)) return notFound();
-      return NextResponse.rewrite(new URL(`${pathname}${request.nextUrl.search}`, base), {
-        request: { headers: upstreamSocketHeaders(request.headers, managedApp, base) },
-      });
+      return NextResponse.rewrite(
+        new URL(`${pathname}${request.nextUrl.search}`, base),
+        {
+          request: {
+            headers: upstreamSocketHeaders(request.headers, managedApp, base),
+          },
+        },
+      );
     }
 
     const headers = new Headers(request.headers);
@@ -259,35 +278,48 @@ export async function proxy(request: NextRequest) {
     //  • a plain URL, not nextUrl.clone(): NextURL remembers the incoming trailing
     //    slash and puts it back when the pathname is reassigned.
     const path = `${proxyPrefix(managedApp)}${pathname.replace(/\/+$/, "")}`;
-    return NextResponse.rewrite(new URL(`${path}${request.nextUrl.search}`, request.nextUrl.origin), {
-      request: { headers },
-    });
+    return NextResponse.rewrite(
+      new URL(`${path}${request.nextUrl.search}`, request.nextUrl.origin),
+      {
+        request: { headers },
+      },
+    );
   }
 
   if (MATCHER_EXCLUDED.test(pathname)) return NextResponse.next();
 
-  // The MCP endpoint and its OAuth discovery documents are JSON, not HTML, and are
-  // reached CROSS-ORIGIN by design (ChatGPT, Claude.ai, Cursor). They live outside
-  // /api deliberately: the depth-2 CSRF gate below would block every one of them,
-  // and it is the wrong control here — their credential is a bearer token, which a
-  // browser never attaches on its own, so there is no cross-site request to forge.
-  // Treated like /api for header purposes: no nonce, no document CSP.
+  // Machine-to-machine protocol surfaces are JSON/SSE, not HTML, and are reached
+  // cross-origin by design. They live outside /api deliberately: browser-cookie
+  // CSRF is the wrong control because MCP and inbound A2A authenticate with explicit
+  // bearer credentials that a browser never attaches on its own. The A2A Agent Card
+  // is public discovery metadata, while /a2a/v1 verifies its bearer before dispatch.
+  // Treat all of them like /api for response policy: no nonce, no document CSP.
   // NOTE /oauth/authorize is NOT here on purpose — it is a real HTML consent page
-  // and must keep the nonce + document CSP. Only the JSON endpoints are listed.
+  // and must keep the nonce + document CSP. Only machine protocol endpoints are listed.
   const isMcp =
     pathname === "/mcp" ||
     pathname.startsWith("/.well-known/oauth-") ||
     pathname === "/oauth/token" ||
     pathname === "/oauth/register";
-  const isApi = pathname.startsWith("/api/") || isMcp;
+  const isA2A =
+    pathname === "/a2a/v1" || pathname === "/.well-known/agent-card.json";
+  const isMachineProtocol = isMcp || isA2A;
+  const isApi = pathname.startsWith("/api/") || isMachineProtocol;
   // The historical same-origin bridge is permanently closed. noVNC is executable
   // third-party code and is served only from its reserved split-origin host above.
   if (pathname.startsWith("/camoufox-vnc/")) return notFound();
 
-  // CSRF depth-2 for mutating /api (unchanged semantics). `isMcp` is excluded —
-  // see the note above: bearer-authenticated, so same-origin proof is meaningless
-  // and enforcing it would break every remote MCP client.
-  if (MUTATING.has(request.method) && isApi && !isMcp && crossOriginMutation(request)) return blocked();
+  // CSRF depth-2 for mutating owner/browser APIs. Machine protocols are excluded:
+  // their explicit bearer authentication is authoritative, while same-origin proof
+  // would break legitimate remote MCP/A2A clients. /api/v1/a2a stays protected
+  // because it is the owner management API, not the A2A protocol endpoint.
+  if (
+    MUTATING.has(request.method) &&
+    isApi &&
+    !isMachineProtocol &&
+    crossOriginMutation(request)
+  )
+    return blocked();
 
   // /api owns its own response headers (fs/raw sets `content-security-policy:
   // sandbox`, Cache-Control no-store) and serves no inline scripts — never stamp

@@ -5,7 +5,14 @@ export type AgentSessionTitleSource = "default" | "auto" | "manual";
 
 export interface AgentSessionEvent {
   at: string;
-  kind: "created" | "resumed" | "tool" | "workflow" | "note" | "compacted" | "archived";
+  kind:
+    | "created"
+    | "resumed"
+    | "tool"
+    | "workflow"
+    | "note"
+    | "compacted"
+    | "archived";
   tool?: string;
   state?: string;
   workflowId?: string;
@@ -22,6 +29,8 @@ export interface AgentSession {
   createdAt: string;
   updatedAt: string;
   resumedFrom?: string;
+  cwd?: string;
+  parentSessionId?: string;
   memorySnapshot: AgentMemorySnapshot;
   contextSummary?: string;
   history: unknown[];
@@ -43,6 +52,8 @@ export interface AgentSessionSummary {
   createdAt: string;
   updatedAt: string;
   resumedFrom?: string;
+  cwd?: string;
+  parentSessionId?: string;
   estimatedTokens: number;
   lifetimeEstimatedTokens: number;
   compactThresholdTokens: number;

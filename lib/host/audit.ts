@@ -39,6 +39,9 @@ export type AuditAction =
   | "tool.forge.evaluate"
   | "tool.forge.promote"
   | "a2a.registry"
+  | "a2a.credential"
+  | "a2a.inbound"
+  | "a2a.task"
   | "a2a.send"
   | "a2a.cancel"
   /** An MCP token asked for a tool above its scope. Not an error — it is the
@@ -92,7 +95,8 @@ function clampMeta(
   if (!meta) return undefined;
   const out: Record<string, string | number | boolean> = {};
   for (const [k, v] of Object.entries(meta)) {
-    if (typeof v === "string") out[k] = v.length > 256 ? v.slice(0, 256) + "…" : v;
+    if (typeof v === "string")
+      out[k] = v.length > 256 ? v.slice(0, 256) + "…" : v;
     else if (typeof v === "number" || typeof v === "boolean") out[k] = v;
     // any other type: silently drop
   }
@@ -113,7 +117,10 @@ export interface AuditRecord {
 // Read the tail of the audit log, newest-first, optionally filtered to actions
 // with a given prefix (e.g. "browser."). Returns [] if the log doesn't exist.
 // The single reader of the trail — routes must not re-derive the log path.
-export async function readAuditTail(opts?: { prefix?: string; limit?: number }): Promise<AuditRecord[]> {
+export async function readAuditTail(opts?: {
+  prefix?: string;
+  limit?: number;
+}): Promise<AuditRecord[]> {
   const { prefix, limit = 100 } = opts ?? {};
   const raw = await fs.readFile(auditPath(), "utf8").catch(() => "");
   return raw
@@ -127,7 +134,13 @@ export async function readAuditTail(opts?: { prefix?: string; limit?: number }):
         return null;
       }
     })
-    .filter((e): e is AuditRecord => Boolean(e && typeof e.action === "string" && (!prefix || e.action.startsWith(prefix))))
+    .filter((e): e is AuditRecord =>
+      Boolean(
+        e &&
+        typeof e.action === "string" &&
+        (!prefix || e.action.startsWith(prefix)),
+      ),
+    )
     .slice(-limit)
     .reverse();
 }

@@ -2,6 +2,17 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — MSO 1.8.0 authenticated inbound A2A
+
+- **Shipped surface:** A2A v1 outbound credentials/streaming plus an opt-in authenticated inbound Agent Card and JSON-RPC/SSE server, with owner Settings → A2A management for peers, credentials, tasks, and audit activity.
+- **Authority model:** inbound bearer profiles are owner-minted `read | write | exec` delegated capabilities. Model-visible tools and MCP dispatch both enforce the scope; owner memory/session tool families remain unavailable to inbound callers.
+- **Isolation:** inbound tasks persist only explicit A2A messages/results, are isolated by credential principal, and use `taskId` as the MSO workflow session boundary so concurrent tasks cannot cross-control one another.
+- **Credentials:** outbound API-key/Bearer/OAuth access-token profiles live in private `0600` storage and bind to sanitized Agent Card security schemes. Inbound raw bearer tokens are shown once and only their hashes persist. Unsupported query/cookie API keys, non-Bearer HTTP auth, mTLS, and multi-scheme AND requirements fail closed.
+- **Streaming:** `SendStreamingMessage` and `SubscribeToTask` use SSE; observer disconnect does not cancel execution. `CancelTask` remains the explicit cancellation boundary.
+- **Ingress:** `/.well-known/agent-card.json` and `/a2a/v1` are machine-protocol surfaces with no document CSP/nonce or browser-cookie CSRF gate; `/api/v1/a2a` remains owner-cookie + CSRF protected. Inbound serving stays disabled unless `OS_A2A_INBOUND_ENABLED=1` and an explicit HTTPS `OS_PUBLIC_ORIGIN` are both configured.
+- **CLI:** `mso a2a state`, `stream`, `auth ...`, and `inbound ...` added; credential secrets are read interactively and sent through stdin rather than process argv.
+- **Verification:** targeted A2A/assistant/provider and ingress suites, typecheck, targeted ESLint, generated docs, and architecture/docs checks pass. Full release verification/build follows this entry before deployment.
+
 ## 2026-09-02 — Eval-gated Tool Forge P2 — SHIPPED
 
 Cognitive Runtime P2 adds a self-improvement path without turning learned workflows into self-authorizing code. Four MCP primitives expose a private candidate lifecycle: `tool_forge_candidates` (read), `tool_forge_propose` (write), `tool_forge_evaluate` (exec), and `tool_forge_promote` (exec). Proposal requires P1 quality telemetry, at least two verified successes, at least 90% success, and a fully-completed best trace. Skill candidates contain only deterministic redacted tool guidance. Project-function candidates cannot generate shell/code or escalate a lower-scope recipe: they require an exec-scope verified recipe and may reference only an existing regular project-owned Node script; credential-like schema fields, fixture inputs, and fixed argv are rejected.
