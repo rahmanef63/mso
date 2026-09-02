@@ -3,6 +3,7 @@ import type { AgentSessionSource, AgentSessionTitleSource } from "./session-type
 export type LocalAgentPresenceState = "ready" | "idle" | "busy" | "ended";
 export type LocalAgentStatus = LocalAgentPresenceState | "offline";
 export type LocalAgentMessageKind = "message" | "task";
+export type LocalAgentMessageIntent = "request" | "reply" | "notify";
 export type LocalAgentDeliveryStatus =
   | "accepted"
   | "delivered"
@@ -42,6 +43,10 @@ export interface LocalAgentStoredMessage {
   targetSessionId: string;
   targetLabel: string;
   kind: LocalAgentMessageKind;
+  intent?: LocalAgentMessageIntent;
+  correlationId?: string;
+  replyToMessageId?: string;
+  requiresUserRelay?: boolean;
   text: string;
   state: LocalAgentStoredMessageState;
   createdAt: string;
@@ -56,6 +61,10 @@ export interface LocalAgentMessageView {
   targetSessionId: string;
   targetLabel: string;
   kind: LocalAgentMessageKind;
+  intent: LocalAgentMessageIntent;
+  correlationId?: string;
+  replyToMessageId?: string;
+  requiresUserRelay: boolean;
   text: string;
   state: LocalAgentStoredMessageState;
   createdAt: string;

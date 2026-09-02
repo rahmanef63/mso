@@ -4,11 +4,15 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.5 tools=59 read=29 write=20 exec=10 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.6 tools=64 read=31 write=22 exec=11 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.5**: **60 transport tools** total; **59 model/operator tools**
-(29 read, 20 write, 10 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.6**: **65 transport tools** total; **64 model/operator tools**
+(31 read, 22 write, 11 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
+
+## Local collaboration additions
+
+Toolset `2026.09.02.6` adds/now tracks `local_agents_list`, `local_agent_message_send`, `local_agent_reply`, `local_agent_inbox`, and `agent_subagent_run`. A gateway should preserve these literal names if it chooses to expose them. The first four address durable same-principal MSO sessions; `agent_subagent_run` is a foreground same-session worker and must not be modeled as a remote A2A registration or long-lived peer.
 
 ## Why this contract matters
 

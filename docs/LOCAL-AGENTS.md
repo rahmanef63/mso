@@ -1,6 +1,6 @@
 # Local Agents — native same-host session messaging
 
-MSO 1.9 separates **local session messaging** from **remote A2A v1**.
+MSO 1.10 keeps **local session messaging** separate from **remote A2A v1** and adds explicit request/reply correlation plus mention routing.
 
 Local Agents is the host-local transport for live MSO sessions. It does not use Agent Cards, peer registration, public URLs, A2A credentials, or the A2A JSON-RPC protocol. Remote agents still use the standard A2A v1 surface documented in [A2A.md](./A2A.md).
 
@@ -26,7 +26,8 @@ Useful TUI commands:
 
 ```text
 /agents
-/message rahman please check the latest result
+@rahman please check the latest result and tell me your answer
+/message rahman FYI: deploy finished
 /delegate rahman review this change and report risks
 /inbox
 ```
@@ -39,16 +40,33 @@ mso agents send <source-session-id> rahman "please check the latest result"
 mso agents inbox <session-id>
 ```
 
-`/message` sends kind `message`. `/delegate` first sends a native local kind `task`; only when there is no matching local target does it fall back to a registered **remote** A2A v1 peer. `/agents` shows local live sessions and remote peers as separate groups.
+`@agent-b …` is an explicit correlated `request` with `requiresUserRelay=true`. The client acknowledges dispatch immediately; it does **not** start an idle target in the background. When that target later performs an explicit turn and answers with `local_agent_reply`, the exact correlated reply is relayed to the originating user-facing conversation without another user prompt or model call. `/message` remains backward-compatible notify-only messaging. `/delegate` creates a correlated local task; only when there is no matching local target does it fall back to a registered **remote** A2A v1 peer. `/agents` shows local live sessions and remote peers separately.
 
-Incoming terminal events are not stored as user turns. They are rendered distinctly, for example:
+Incoming peer data is never stored as a human user turn. Notify-only and request events remain visually distinct:
 
 ```text
-[agent-zahra] please check the latest result
+[agent-zahra] FYI: deploy finished
 [agent-zahra] task review this change and report risks
 ```
 
-The durable history row keeps role `agent`. When the next model turn needs conversation context, MSO projects that row to a provider-compatible user-role envelope such as `[LOCAL AGENT [zahra] · task] ...`; this preserves provider compatibility without pretending that the human sent the message.
+A correlated reply that matches an outstanding source request renders user-facing immediately:
+
+```text
+[agent-zahra] → user Review looks safe; one migration needs a backup.
+```
+
+MSO persists both the raw role `agent` row and, only for a valid user-relay correlation, a synthetic `assistant` relay row. No model call rewrites the peer answer. For later model context, raw peer rows are projected as `[LOCAL_AGENT_DATA …]` so their text is explicitly treated as peer data rather than higher-authority user instructions.
+
+## Request/reply correlation
+
+Mailbox messages carry schema-validated metadata instead of relying on text parsing:
+
+- `intent`: `notify | request | reply`; legacy rows normalize to `notify`;
+- `correlationId`: generated for requests (`localcorr_<uuid>`);
+- `replyToMessageId`: required for replies and points to one exact `localmsg_<uuid>` request;
+- `requiresUserRelay`: opt-in source policy. Mentions and local `/delegate` set it; ordinary `/message` does not.
+
+The source session persists a `local_request` ledger row containing the request message ID and correlation ID. An async reply is auto-relayed only when both IDs exactly match that outstanding request and `requiresUserRelay` is true. Stale/mismatched replies remain ordinary peer events; duplicate message IDs are deduped before render.
 
 ## Presence lifecycle
 
@@ -97,7 +115,7 @@ Sender-visible statuses:
 | `target_offline` | Target is known but its receiver is offline/ended. The message remains queued for the next receiver. |
 | `failed` | Reserved for a delivery/store failure; schema/target errors are returned as request errors instead of fake delivery. |
 
-The receiver acknowledges a message only after it has appended the distinct `agent` history row and persisted the durable session. Reconnecting SSE clients replay unread mailbox entries, so an event marked delivered is not equivalent to "irreversibly consumed".
+Transport delivery and processing are separate. A `request` may be marked `delivered` after SSE handoff but remains unread until the target explicitly acknowledges it or sends `local_agent_reply`; successfully replying marks the original request read. `notify` and `reply` events may auto-ack after durable render. Reconnecting SSE clients dedupe by message ID, so at-least-once transport cannot create duplicate user relays.
 
 ## Security and isolation
 
@@ -121,9 +139,10 @@ Local messaging has explicit tools so it cannot be confused with public A2A peer
 
 | Tool | Scope | Purpose |
 |---|---|---|
-| `local_agents_list` | read | List automatically discovered same-principal live sessions. |
-| `local_agent_message_send` | write | Send an explicit `message` or `task`; no hidden context is attached. |
-| `local_agent_inbox` | read | Read this exact durable session's mailbox and optionally acknowledge returned items. |
+| `local_agents_list` | read | List automatically discovered same-principal sessions; optionally include known offline/ended targets. |
+| `local_agent_message_send` | write | Backward-compatible send. Default `intent=notify`; set `intent=request` for an expected reply. |
+| `local_agent_reply` | write | Reply to one exact request message ID; target, correlation ID, and relay policy are inherited. |
+| `local_agent_inbox` | read | Read this exact durable session's mailbox with explicit intent/correlation metadata. |
 
 Remote A2A tools retain their existing names (`a2a_agent_*`, `a2a_message_send`, `a2a_handoff`, etc.) and behavior.
 
@@ -135,7 +154,8 @@ Interactive MSO uses the owner-authenticated API below. It is not a public A2A e
 GET  /api/v1/local-agents?session=<current-session-id>
 GET  /api/v1/local-agents?inbox=1&session=<session-id>
 GET  /api/v1/local-agents?stream=1&session=<session-id>     # SSE
-POST /api/v1/local-agents { action: "send", ... }
+POST /api/v1/local-agents { action: "send", intent: "notify"|"request", ... }
+POST /api/v1/local-agents { action: "reply", replyToMessageId: "localmsg_...", ... }
 POST /api/v1/local-agents { action: "ack", ... }
 POST /api/v1/local-agents { action: "presence", ... }      # client lifecycle
 POST /api/v1/local-agents { action: "end", ... }           # client lifecycle
@@ -157,6 +177,6 @@ No external broker, database, daemon, or framework is required.
 
 ## Relationship to legacy same-host A2A helpers
 
-Older `mso a2a local ...` one-shot delegation/virtual-loopback-card helpers remain for backward compatibility and protocol testing. They are **not** the transport used by `/agents`, `/message`, local `/delegate`, the Local Agents MCP tools, or live inbox delivery in MSO 1.9.
+Older `mso a2a local ...` one-shot delegation/virtual-loopback-card helpers remain for backward compatibility and protocol testing. They are **not** the transport used by `/agents`, `/message`, local `/delegate`, the Local Agents MCP tools, or live inbox delivery in MSO 1.10.
 
 New same-host communication should use Local Agents. Public/remote interoperability should use A2A v1.

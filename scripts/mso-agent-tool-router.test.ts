@@ -15,7 +15,8 @@ const catalog = [
   tool("screen_capture", "Capture screenshot"), tool("browser_status", "Camoufox browser state"),
   tool("cloudflare_zones_list", "List Cloudflare DNS zones"), tool("hostinger_dns_upsert", "Update Hostinger DNS record"),
   tool("local_agents_list", "List active same-host local session agents"), tool("local_agent_inbox", "Read local session agent inbox"),
-  tool("local_agent_message_send", "Send message or task to a local session agent"),
+  tool("local_agent_message_send", "Send message or task to a local session agent"), tool("local_agent_reply", "Reply to a correlated local agent request"),
+  tool("agent_subagent_run", "Run a foreground isolated subagent worker for an independent task"),
   tool("a2a_agents_list", "List registered A2A peer agents"), tool("a2a_agent_discover", "Discover public A2A Agent Card"),
   tool("a2a_message_send", "Send a message to an A2A peer"), tool("a2a_handoff", "Delegate explicit objective to A2A peer"), tool("a2a_task_get", "Read A2A task status"),
   tool("tool_forge_candidates", "List Tool Forge candidates"), tool("tool_forge_propose", "Propose a Tool Forge candidate from a repeated recipe"),
@@ -47,6 +48,13 @@ describe("MSO per-turn tool router", () => {
     expect(out.selectedNames).toContain("local_agent_message_send");
     expect(out.selectedNames).toContain("local_agents_list");
     expect(out.selectedNames).toContain("local_agent_inbox");
+  });
+
+  it("loads the foreground same-session subagent primitive for isolated worker intent", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "spawn a reviewer subagent to inspect auth independently" }]);
+    expect(out.selectedNames).toContain("agent_subagent_run");
+    expect(out.selectedNames).toContain("skills_search");
+    expect(out.selectedNames).toContain("projects_list");
   });
 
   it("selects A2A companions for delegation and handoff prompts", () => {

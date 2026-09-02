@@ -20,7 +20,9 @@ function validMessage(value: unknown): value is LocalAgentStoredMessage {
   return /^localmsg_[0-9a-f-]{36}$/.test(String(row.id || "")) && /^[a-f0-9]{64}$/.test(String(row.principalHash || "")) &&
     SESSION_ID.test(String(row.senderSessionId || "")) && SESSION_ID.test(String(row.targetSessionId || "")) &&
     typeof row.senderLabel === "string" && row.senderLabel.length <= 200 && typeof row.targetLabel === "string" && row.targetLabel.length <= 200 &&
-    ["message", "task"].includes(String(row.kind)) && typeof row.text === "string" && Buffer.byteLength(row.text, "utf8") <= 16 * 1024 &&
+    ["message", "task"].includes(String(row.kind)) && (!row.intent || ["request", "reply", "notify"].includes(String(row.intent))) &&
+    (!row.correlationId || /^localcorr_[0-9a-f-]{36}$/.test(row.correlationId)) && (!row.replyToMessageId || /^localmsg_[0-9a-f-]{36}$/.test(row.replyToMessageId)) &&
+    (row.requiresUserRelay === undefined || typeof row.requiresUserRelay === "boolean") && typeof row.text === "string" && Buffer.byteLength(row.text, "utf8") <= 16 * 1024 &&
     ["accepted", "queued", "delivered", "read"].includes(String(row.state)) && Number.isFinite(Date.parse(String(row.createdAt || ""))) &&
     (!row.deliveredAt || Number.isFinite(Date.parse(row.deliveredAt))) && (!row.readAt || Number.isFinite(Date.parse(row.readAt)));
 }
@@ -37,7 +39,7 @@ async function readStore(): Promise<MailboxStore> {
 
 function view(row: LocalAgentStoredMessage): LocalAgentMessageView {
   const { principalHash: _principalHash, ...safe } = row;
-  return safe;
+  return { ...safe, intent: row.intent ?? "notify", requiresUserRelay: row.requiresUserRelay === true };
 }
 
 function prune(messages: LocalAgentStoredMessage[], now = Date.now()): LocalAgentStoredMessage[] {
@@ -63,6 +65,22 @@ export async function enqueueLocalAgentMessage(input: Omit<LocalAgentStoredMessa
     await writeLocalAgentStore(STORE_PATH, store, MAX_STORE_BYTES);
     return view(row);
   });
+}
+
+
+export async function getLocalAgentInboxMessage(
+  principal: string,
+  targetSessionId: string,
+  messageId: string,
+): Promise<LocalAgentMessageView | null> {
+  const session = await getAgentSession(principal, targetSessionId);
+  if (!session) throw new Error("local agent target not found for this client");
+  if (!/^localmsg_[0-9a-f-]{36}$/.test(messageId)) throw new Error("invalid local agent message id");
+  const owner = principalHash(principal);
+  const row = (await readStore()).messages.find((message) =>
+    message.principalHash === owner && message.targetSessionId === targetSessionId && message.id === messageId,
+  );
+  return row ? view(row) : null;
 }
 
 export async function updateLocalAgentMessageState(

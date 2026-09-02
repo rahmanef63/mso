@@ -19,6 +19,7 @@ import {
   permissionCompletionItems,
   permissionMode,
 } from "./mso-agent-permissions.mjs";
+import { parseSubagentArgs, SUBAGENT_USAGE } from "./mso-agent-subagent.mjs";
 
 function runCli(args) {
   const result = spawnSync(CLI, args, {
@@ -45,11 +46,21 @@ async function listLocalAgents(session, includeOffline = false) {
   return rows;
 }
 
-async function sendLocalAgent(session, target, message, kind = "message") {
+async function sendLocalAgent(session, target, message, kind = "message", options = {}) {
   return api("/api/v1/local-agents", {
     method: "POST",
-    body: JSON.stringify({ action: "send", sessionId: session.agentSession.id, target, message, kind }),
+    body: JSON.stringify({ action: "send", sessionId: session.agentSession.id, target, message, kind, ...options }),
   });
+}
+
+async function trackLocalRequest(session, out, text) {
+  if (!out?.message?.id || !out?.message?.correlationId) return;
+  session.history.push({
+    role: "local_request", messageId: out.message.id, correlationId: out.message.correlationId,
+    targetSessionId: out.target.id, targetLabel: out.target.label, text, status: out.status,
+    createdAt: out.message.createdAt, requiresUserRelay: true,
+  });
+  await persistSession(session);
 }
 
 async function selectSlashSkill(rl, session, requested, prompt, runTurn) {
@@ -104,9 +115,10 @@ function printHelp() {
       "  /doctor                 run mso doctor",
       "  /tools                  list agent tools",
       "  /agents                 list live local session agents + remote A2A peers",
-      "  /message <target> <msg> send a native local agent message",
-      "  /delegate <target> <job> queue native local task; else remote A2A peer",
-      "  /spawn [--name N] <job> spawn same-host sub-agent from this session",
+      "  @agent-b <prompt>        correlated local request; relay its reply here",
+      "  /message <target> <msg> send notify-only local agent data",
+      "  /delegate <target> <job> correlated local task; else remote A2A peer",
+      "  /spawn [--name N] [--scope S] <job> run foreground isolated subagent in this session",
       "  /inbox                  show native local agent messages for this session",
       "  /skills [query]         browse available slash skills",
       "  /skill <id> [prompt]    select exact skill id (ambiguity escape hatch)",
@@ -127,7 +139,7 @@ function printHelp() {
   );
 }
 
-export async function handleSlash(rl, line, session, { runTurn }) {
+export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
   const [cmd, ...args] = line.trim().split(/\s+/);
   switch (cmd) {
     case "/help":
@@ -247,8 +259,9 @@ export async function handleSlash(rl, line, session, { runTurn }) {
       const target = args[0];
       const objective = args.slice(1).join(" ");
       try {
-        const out = await sendLocalAgent(session, target, objective, "task");
-        console.log(`${C.c}↳ ${out?.target?.label || target}${C.reset} ${out?.status || "accepted"}`);
+        const out = await sendLocalAgent(session, target, objective, "task", { intent: "request", requiresUserRelay: true });
+        await trackLocalRequest(session, out, objective);
+        console.log(`${C.c}↳ ${out?.target?.label || target}${C.reset} ${out?.status || "accepted"} · correlated reply will relay here`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (/local agent target not found/i.test(message))
@@ -258,30 +271,12 @@ export async function handleSlash(rl, line, session, { runTurn }) {
       return "handled";
     }
     case "/spawn": {
-      let title = "";
-      const rest = [...args];
-      if (rest[0] === "--name") {
-        title = String(rest[1] || "");
-        rest.splice(0, 2);
+      if (typeof runSubagent !== "function") throw new Error("subagent runtime unavailable");
+      try { await runSubagent(parseSubagentArgs(args)); }
+      catch (error) {
+        if (String(error?.message || error).startsWith("usage:")) console.log(`usage: ${SUBAGENT_USAGE}`);
+        else throw error;
       }
-      const objective = rest.join(" ").trim();
-      if (!objective) {
-        console.log("usage: /spawn [--name <name>] <objective>");
-        return "handled";
-      }
-      const out = await api("/api/v1/a2a", {
-        method: "POST",
-        body: JSON.stringify({
-          action: "local-spawn",
-          sourceSessionRef: session.agentSession.id,
-          objective,
-          ...(title ? { title } : {}),
-        }),
-      });
-      const text = out?.task?.artifacts?.[0]?.parts?.[0]?.text || "completed";
-      console.log(
-        `${C.c}↳ spawned ${out?.session?.title || "subagent"}${C.reset} ${text}`,
-      );
       return "handled";
     }
     case "/inbox": {

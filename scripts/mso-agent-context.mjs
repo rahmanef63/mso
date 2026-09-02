@@ -18,10 +18,19 @@ export function modelHistoryBudget(contextWindow) {
 }
 
 export function modelHistoryRow(row) {
+  if (row?.role === "subagent") {
+    const name = String(row.name || "worker").replace(/[\r\n\t]+/g, " ").slice(0, 60);
+    return { role: "assistant", text: `[SUBAGENT RESULT ${name}] ${String(row.text || "").slice(0, 64_000)}` };
+  }
+  if (row?.role === "local_request") {
+    const target = String(row.targetLabel || "[local-agent]").replace(/[\r\n\t]+/g, " ").slice(0, 120);
+    return { role: "assistant", text: `[LOCAL DISPATCH ${target}] ${String(row.text || "").slice(0, 24_000)}` };
+  }
   if (row?.role !== "agent") return row;
   const sender = String(row.senderLabel || "[local-agent]").replace(/[\r\n\t]+/g, " ").slice(0, 120);
   const kind = row.kind === "task" ? "task" : "message";
-  return { role: "user", text: `[LOCAL AGENT ${sender} · ${kind}] ${String(row.text || "").slice(0, 24_000)}` };
+  const intent = ["request", "reply", "notify"].includes(row.intent) ? row.intent : "notify";
+  return { role: "user", text: `[LOCAL_AGENT_DATA ${sender} · ${kind} · ${intent}] ${String(row.text || "").slice(0, 24_000)}` };
 }
 
 function messageGroups(history) {

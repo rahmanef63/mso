@@ -1,0 +1,108 @@
+import { api } from "./mso-agent-runtime.mjs";
+import { persistSession } from "./mso-agent-session-ui.mjs";
+
+function clean(value) {
+  return String(value || "").trim().replace(/^\[|\]$/g, "").toLocaleLowerCase();
+}
+
+export function parseLocalAgentMention(line) {
+  const match = String(line || "").match(/^@([^\s]+)\s+([\s\S]+)$/);
+  if (!match) return null;
+  const target = clean(match[1]);
+  const prompt = String(match[2] || "").trim();
+  return target && prompt ? { target, prompt } : null;
+}
+
+export function resolveLocalAgentMention(rows, token) {
+  const wanted = clean(token);
+  const matches = (Array.isArray(rows) ? rows : []).filter((row) => {
+    const names = [row?.alias, row?.label, row?.titleSource === "manual" ? row?.title : ""]
+      .map(clean).filter(Boolean);
+    return names.includes(wanted);
+  });
+  if (!matches.length) {
+    const available = (Array.isArray(rows) ? rows : []).map((row) => `@${row.alias}`).slice(0, 12).join(", ");
+    throw new Error(`local agent mention @${wanted} not found${available ? `; available: ${available}` : ""}`);
+  }
+  if (matches.length > 1) {
+    const aliases = matches.map((row) => `@${row.alias}`).join(" or ");
+    throw new Error(`local agent mention @${wanted} is ambiguous; use ${aliases}`);
+  }
+  return matches[0];
+}
+
+export function mentionAck(result) {
+  const label = result?.target?.label || "[local-agent]";
+  const status = String(result?.status || "accepted");
+  if (status === "target_offline") return `${label} queued · target offline · correlated reply will relay here after it returns`;
+  if (status === "queued") return `${label} queued · target busy · correlated reply will relay here`;
+  if (status === "delivered") return `${label} delivered · correlated reply will relay here`;
+  if (status === "accepted") return `${label} accepted · waiting for an explicit target turn; correlated reply will relay here`;
+  return `${label} ${status}`;
+}
+
+export async function dispatchLocalAgentMention(session, line, deps = {}) {
+  const parsed = parseLocalAgentMention(line);
+  if (!parsed) return null;
+  const request = deps.api || api;
+  const save = deps.persist || persistSession;
+  let directory;
+  try {
+    directory = await request(`/api/v1/local-agents?session=${encodeURIComponent(session.agentSession.id)}&includeOffline=1`, {
+      signal: AbortSignal.timeout(5_000),
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError") throw new Error("local agent mention lookup timed out; no message was sent");
+    throw error;
+  }
+  const target = resolveLocalAgentMention(directory?.agents, parsed.target);
+  let result;
+  try {
+    result = await request("/api/v1/local-agents", {
+      method: "POST",
+      signal: AbortSignal.timeout(10_000),
+      body: JSON.stringify({
+        action: "send",
+        sessionId: session.agentSession.id,
+        target: target.id,
+        message: parsed.prompt,
+        kind: "message",
+        intent: "request",
+        requiresUserRelay: true,
+      }),
+    });
+  } catch (error) {
+    if (error?.name === "TimeoutError")
+      throw new Error("local agent dispatch timed out; delivery is unconfirmed and MSO will not resend automatically");
+    throw error;
+  }
+  const requestRow = {
+    role: "local_request",
+    messageId: result.message.id,
+    correlationId: result.message.correlationId,
+    targetSessionId: result.target.id,
+    targetLabel: result.target.label,
+    text: parsed.prompt,
+    status: result.status,
+    createdAt: result.message.createdAt,
+    requiresUserRelay: true,
+  };
+  session.history.push({ role: "user", text: line, localMention: true, correlationId: result.message.correlationId });
+  session.history.push({ role: "assistant", text: `Delegated to ${result.target.label}. I will relay its correlated reply when it arrives.` });
+  session.history.push(requestRow);
+  await save(session);
+  return { result, request: requestRow, acknowledgement: mentionAck(result) };
+}
+
+export async function handleLocalAgentMentionInput(session, line, colors) {
+  if (!String(line || "").startsWith("@")) return false;
+  try {
+    const mention = await dispatchLocalAgentMention(session, line);
+    if (!mention) return false;
+    console.log(`${colors.c}↳ ${mention.acknowledgement}${colors.reset}`);
+    return true;
+  } catch (error) {
+    console.error(`${colors.err}${error instanceof Error ? error.message : String(error)}${colors.reset}`);
+    return true;
+  }
+}

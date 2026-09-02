@@ -73,7 +73,7 @@ export const BUILTIN_SLASH_ITEMS = [
   },
   {
     text: "/spawn",
-    meta: "Spawn a same-host A2A sub-agent from this session",
+    meta: "Run a foreground isolated subagent inside this session",
     kind: "command",
   },
   {

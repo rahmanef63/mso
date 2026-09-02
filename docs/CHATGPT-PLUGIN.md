@@ -12,11 +12,15 @@
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 > and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.5 tools=59 read=29 write=20 exec=10 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.6 tools=64 read=31 write=22 exec=11 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.5**: **60 transport tools** total; **59 model/operator tools**
-(29 read, 20 write, 10 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.6**: **65 transport tools** total; **64 model/operator tools**
+(31 read, 22 write, 11 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
+
+### Local-agent and subagent tools
+
+The current catalog also exposes `local_agents_list`, `local_agent_message_send`, `local_agent_reply`, and `local_agent_inbox` for explicitly correlated same-principal session messaging, plus `agent_subagent_run` for one bounded foreground isolated worker. The local messaging tools do not turn an MCP connection into a remote A2A peer, and the subagent tool does not create another durable session or background process. A client should use `local_agent_reply` for an exact inbox request instead of reconstructing correlation from text.
 
 ## 1. What this connection does
 

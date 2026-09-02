@@ -11,7 +11,9 @@ const DEPENDENCIES = new Map([
   ["exec_job_start", ["exec_job_status", "exec_job_cancel"]],
   ["fs_write", ["fs_read"]],
   ["agent_session_resume", ["agent_sessions_list"]],
-  ["local_agent_message_send", ["local_agents_list", "local_agent_inbox"]],
+  ["local_agent_message_send", ["local_agents_list", "local_agent_inbox", "local_agent_reply"]],
+  ["local_agent_reply", ["local_agent_inbox", "local_agents_list"]],
+  ["agent_subagent_run", ["skills_search", "projects_list"]],
   ["a2a_message_send", ["a2a_agents_list", "a2a_agent_discover"]],
   ["a2a_handoff", ["a2a_agents_list", "a2a_agent_discover", "a2a_task_get"]],
   ["tool_forge_evaluate", ["tool_forge_candidates"]],
@@ -35,6 +37,7 @@ const ALIASES = new Map([
   ["hostinger", ["hostinger", "dns", "domain", "record"]],
   ["apps", ["app", "service", "hermes", "openclaw", "install", "restart", "status"]],
   ["localagent", ["local", "session", "agent", "message", "task", "delegate", "delegation", "collaborate", "inbox"]],
+  ["subagent", ["subagent", "spawn", "worker", "reviewer", "researcher", "parallel", "independent", "delegate"]],
   ["a2a", ["a2a", "remote", "agent card", "peer", "handoff"]],
   ["forge", ["forge", "candidate", "promotion", "promote", "self-improve", "self-improving", "generate tool", "tool creator"]],
 ]);

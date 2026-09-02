@@ -72,6 +72,32 @@ describe("native local session agents", () => {
     expect(inbox.some((row) => row.id === result.message.id && row.text === "please review this")).toBe(true);
   });
 
+  it("correlates an explicit request and inherits correlation/user relay on reply", async () => {
+    await presence.touchLocalAgentPresence(owner, a.id, "idle", "test:a");
+    await presence.touchLocalAgentPresence(owner, b.id, "idle", "test:b");
+    const request = await messaging.sendLocalAgentMessage({
+      principal: owner, senderSessionId: a.id, target: "rahman", text: "tebak ini",
+      intent: "request", requiresUserRelay: true,
+    });
+    expect(request.message.intent).toBe("request");
+    expect(request.message.correlationId).toMatch(/^localcorr_/);
+    const reply = await messaging.replyLocalAgentMessage({
+      principal: owner, senderSessionId: b.id, replyToMessageId: request.message.id, text: "piano",
+    });
+    expect(reply.message).toMatchObject({
+      intent: "reply", replyToMessageId: request.message.id, correlationId: request.message.correlationId, requiresUserRelay: true,
+    });
+    expect(reply.target.id).toBe(a.id);
+    const original = await mailbox.getLocalAgentInboxMessage(owner, b.id, request.message.id);
+    expect(original?.state).toBe("read");
+  });
+
+  it("defaults ordinary sends to notify-only semantics", async () => {
+    const sent = await messaging.sendLocalAgentMessage({ principal: owner, senderSessionId: a.id, target: "rahman", text: "FYI" });
+    expect(sent.message.intent).toBe("notify");
+    expect(sent.message.requiresUserRelay).toBe(false);
+  });
+
   it("queues while busy and delivers when the target becomes idle", async () => {
     await presence.touchLocalAgentPresence(owner, b.id, "busy", "test:b");
     const result = await messaging.sendLocalAgentMessage({

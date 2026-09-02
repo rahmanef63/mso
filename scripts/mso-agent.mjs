@@ -12,7 +12,7 @@ import { handleSlash } from "./mso-agent-commands.mjs";
 import { approvesTool, nextPermissionMode, permissionMode, permissionPrompt } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
 import { oneShotApproves, oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
-import { LocalAgentBridge } from "./mso-agent-local.mjs";
+import { LocalAgentBridge, handleLocalAgentMentionInput, runForegroundSubagent } from "./mso-agent-collaboration.mjs";
 
 async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null, options = {}) {
   if (!tool) return { ok: false, result: `unknown tool requested by model: ${call.name}` };
@@ -200,7 +200,7 @@ async function main() {
       if (!line) continue;
       if (line.startsWith("/")) {
         try {
-          const result = await handleSlash(rl, line, session, { runTurn: (skill) => runInteractiveRound(rl, session, skill, interrupts, localBridge) });
+          const result = await handleSlash(rl, line, session, { runTurn: (skill) => runInteractiveRound(rl, session, skill, interrupts, localBridge), runSubagent: (input) => runForegroundSubagent({ rl, session, input, executeTool, colors: C }) });
           if (result === "exit") break;
           if (result === "restart") { restartRequested = true; break; }
           if (result === "refresh") await localBridge.syncSession();
@@ -211,6 +211,7 @@ async function main() {
         if (interrupts.exitRequested) break;
         continue;
       }
+      if (await handleLocalAgentMentionInput(session, line, C)) continue;
       session.history.push({ role: "user", text: line });
       const skillContext = session.pendingSkill;
       session.pendingSkill = null;

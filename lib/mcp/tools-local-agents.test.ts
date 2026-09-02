@@ -8,6 +8,7 @@ describe("native local session agent MCP tools", () => {
     expect(local.get("local_agents_list")?.scope).toBe("read");
     expect(local.get("local_agent_inbox")?.scope).toBe("read");
     expect(local.get("local_agent_message_send")?.scope).toBe("write");
+    expect(local.get("local_agent_reply")?.scope).toBe("write");
   });
 
   it("describes local messaging without Agent Card registration", () => {
@@ -15,5 +16,6 @@ describe("native local session agent MCP tools", () => {
     expect(description).toMatch(/same-owner MSO session agent/i);
     expect(description).toMatch(/no hidden transcript/i);
     expect(description).not.toMatch(/Agent Card URL/i);
+    expect(local.get("local_agent_reply")?.description).toMatch(/correlation/i);
   });
 });

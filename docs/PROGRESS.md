@@ -2,6 +2,15 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — MSO 1.10.0 correlated Local Agents + same-session subagents
+
+- **Mention UX:** leading `@agent-b …` resolves the live/known local directory, validates aliases/manual labels, dispatches a durable correlated request, and returns an immediate honest acknowledgement instead of blocking on an idle target. Unknown/ambiguous mentions fail with stable alias choices; known offline targets remain queueable.
+- **Explicit message contract:** mailbox rows add backward-compatible `intent=notify|request|reply`, `correlationId`, `replyToMessageId`, and `requiresUserRelay`. Legacy sends remain notify-only; `local_agent_reply` inherits routing/correlation/relay policy from one exact inbox request.
+- **Deterministic async relay:** correlated replies are matched against a durable source `local_request` ledger and become a synthetic assistant relay without another model turn. Notify-only/stale/mismatched/duplicate events never create extra assistant answers.
+- **Processing semantics:** SSE `delivered` no longer means processed. Requests remain unread until explicit ack/reply; replying marks the exact original request read. At-least-once SSE replay dedupes by message ID.
+- **Subagent split:** `/spawn` and `agent_subagent_run` now run transient foreground workers inside the parent session, not A2A child sessions. Workers start with isolated context, explicit objective/context only, read scope by default, 6/12 turn defaults/cap, 60/120s timeout defaults/cap, and final-result-only parent return.
+- **Subagent guardrails:** top-level exec approval is the explicit delegation boundary; child scope cannot exceed it. Recursive spawn plus `agent_session_*`, `agent_memory_*`, `local_agent_*`, and `a2a_*` are unavailable inside workers. Legacy `mso a2a spawn` remains the durable cross-session compatibility path.
+
 ## 2026-09-02 — MSO 1.9.0 native Local Agents
 
 - **Transport split:** live same-host session communication is now a native Local Agents layer, separate from remote A2A v1. No Agent Card, URL, registration, bearer, refresh, or restart is part of local discovery/delivery.

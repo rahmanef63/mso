@@ -28,13 +28,52 @@ export function formatLocalAgentEvent(message, colors = C) {
   return `${colors.c}${colors.bold}${prefix}${kind}${colors.reset} ${indented}`;
 }
 
-function historyRow(message) {
+export function formatLocalAgentRelay(message, colors = C) {
+  const prefix = agentPrefix(message?.senderLabel);
+  const text = String(message?.text || "").replace(/\r/g, "").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
+  return `${colors.c}${colors.bold}${prefix} → user${colors.reset} ${text.replace(/\n/g, "\n  ")}`;
+}
+
+export function correlatedRelayRequest(history, message) {
+  if (message?.intent !== "reply" || message?.requiresUserRelay !== true || !message?.replyToMessageId || !message?.correlationId) return null;
+  return (Array.isArray(history) ? history : []).find((row) =>
+    row?.role === "local_request" && String(row.messageId || "") === String(message.replyToMessageId) &&
+    String(row.correlationId || "") === String(message.correlationId) && row.requiresUserRelay === true,
+  ) || null;
+}
+
+export function localAgentPresentation(history, message, colors = C) {
+  const request = correlatedRelayRequest(history, message);
+  return request
+    ? { mode: "relay", text: formatLocalAgentRelay(message, colors), request }
+    : { mode: "event", text: formatLocalAgentEvent(message, colors), request: null };
+}
+
+function relayAssistantRow(message) {
+  const sender = agentPrefix(message?.senderLabel);
+  return {
+    role: "assistant",
+    text: `${sender} replied: ${String(message?.text || "")}`,
+    synthetic: "local_agent_relay",
+    relayOfMessageId: String(message?.id || ""),
+    correlationId: message?.correlationId,
+    replyToMessageId: message?.replyToMessageId,
+    createdAt: message?.createdAt || new Date().toISOString(),
+  };
+}
+
+function historyRow(message, relayedToUser = false) {
   return {
     role: "agent",
     text: String(message.text || ""),
     senderSessionId: message.senderSessionId,
     senderLabel: message.senderLabel,
     kind: message.kind === "task" ? "task" : "message",
+    intent: message.intent || "notify",
+    correlationId: message.correlationId,
+    replyToMessageId: message.replyToMessageId,
+    requiresUserRelay: message.requiresUserRelay === true,
+    relayedToUser,
     messageId: message.id,
     createdAt: message.createdAt,
   };
@@ -161,17 +200,21 @@ export class LocalAgentBridge {
 
   async accept(message) {
     if (!message?.id || this.seen.has(String(message.id))) {
-      if (message?.id) await this.ack([String(message.id)]).catch(() => undefined);
+      if (message?.id && message?.intent !== "request") await this.ack([String(message.id)]).catch(() => undefined);
       return;
     }
     if (String(message.targetSessionId || "") !== this.sessionId) return;
     const id = String(message.id);
     const alreadyStored = this.session.history.some((row) => row?.role === "agent" && String(row?.messageId || "") === id);
-    if (!alreadyStored) this.session.history.push(historyRow(message));
+    const presentation = localAgentPresentation(this.session.history, message);
+    if (!alreadyStored) {
+      this.session.history.push(historyRow(message, presentation.mode === "relay"));
+      if (presentation.mode === "relay") this.session.history.push(relayAssistantRow(message));
+    }
     await persistSession(this.session);
     this.seen.add(id);
-    if (!alreadyStored) this.composer.notify(formatLocalAgentEvent(message));
-    await this.ack([id]).catch(() => undefined);
+    if (!alreadyStored) this.composer.notify(presentation.text);
+    if (message?.intent !== "request") await this.ack([id]).catch(() => undefined);
   }
 
   async ack(messageIds) {

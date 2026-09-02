@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
-  list: vi.fn(), touch: vi.fn(), end: vi.fn(), inbox: vi.fn(), update: vi.fn(), send: vi.fn(),
+  list: vi.fn(), touch: vi.fn(), end: vi.fn(), inbox: vi.fn(), update: vi.fn(), send: vi.fn(), reply: vi.fn(),
   subscribe: vi.fn(), flush: vi.fn(), audit: vi.fn(), rate: vi.fn(), getSession: vi.fn(),
 }));
 vi.mock("@/lib/auth/require-session", () => ({
@@ -13,7 +13,7 @@ vi.mock("@/lib/agent/session-store", () => ({ getAgentSession: mocks.getSession 
 vi.mock("@/lib/agent/local-agent-directory", () => ({ listLocalAgents: mocks.list }));
 vi.mock("@/lib/agent/local-agent-presence", () => ({ touchLocalAgentPresence: mocks.touch, endLocalAgentPresence: mocks.end }));
 vi.mock("@/lib/agent/local-agent-mailbox", () => ({ listLocalAgentInbox: mocks.inbox, updateLocalAgentMessageState: mocks.update }));
-vi.mock("@/lib/agent/local-agent-messaging", () => ({ sendLocalAgentMessage: mocks.send, flushLocalAgentQueue: mocks.flush }));
+vi.mock("@/lib/agent/local-agent-messaging", () => ({ sendLocalAgentMessage: mocks.send, replyLocalAgentMessage: mocks.reply, flushLocalAgentQueue: mocks.flush }));
 vi.mock("@/lib/agent/local-agent-events", () => ({ subscribeLocalAgentMessages: mocks.subscribe }));
 
 const { GET, POST } = await import("./route");
@@ -33,7 +33,12 @@ beforeEach(() => {
   mocks.send.mockResolvedValue({
     status: "delivered", targetStatus: "idle",
     sender: { id: "session-a", label: "[agent-a]" }, target: { id: "session-b", label: "[agent-b]" },
-    message: { id: "localmsg_1", kind: "message", text: "hello" },
+    message: { id: "localmsg_1", kind: "message", intent: "notify", requiresUserRelay: false, text: "hello" },
+  });
+  mocks.reply.mockResolvedValue({
+    status: "delivered", targetStatus: "idle",
+    sender: { id: "session-a", label: "[agent-a]" }, target: { id: "session-b", label: "[agent-b]" },
+    message: { id: "localmsg_reply", kind: "message", intent: "reply", correlationId: "localcorr_1", replyToMessageId: "localmsg_req", requiresUserRelay: true, text: "answer" },
   });
 });
 
@@ -51,8 +56,18 @@ describe("native local agent API", () => {
     expect(await response.json()).toMatchObject({ status: "delivered", target: { label: "[agent-b]" } });
     expect(mocks.send).toHaveBeenCalledWith({
       principal: "cli:cli-test", senderSessionId: "session-a", target: "agent-b", text: "hello", kind: "message",
+      intent: undefined, correlationId: undefined, requiresUserRelay: false,
     });
     expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({ action: "agent.message", target: "session-b" }));
+  });
+
+  it("sends a deterministic reply to one exact correlated request", async () => {
+    const response = await POST(post({ action: "reply", sessionId: "session-a", replyToMessageId: "localmsg_req", message: "answer" }));
+    expect(response.status).toBe(200);
+    expect(mocks.reply).toHaveBeenCalledWith({
+      principal: "cli:cli-test", senderSessionId: "session-a", replyToMessageId: "localmsg_req", text: "answer", kind: undefined,
+    });
+    await expect(response.json()).resolves.toMatchObject({ message: { intent: "reply", replyToMessageId: "localmsg_req" } });
   });
 
   it("updates receive presence and flushes queued mail only when receivable", async () => {

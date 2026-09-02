@@ -5,7 +5,7 @@ import { getAgentSession } from "@/lib/agent/session-store";
 import { listLocalAgents } from "@/lib/agent/local-agent-directory";
 import { endLocalAgentPresence, touchLocalAgentPresence } from "@/lib/agent/local-agent-presence";
 import { listLocalAgentInbox, updateLocalAgentMessageState } from "@/lib/agent/local-agent-mailbox";
-import { flushLocalAgentQueue, sendLocalAgentMessage } from "@/lib/agent/local-agent-messaging";
+import { flushLocalAgentQueue, replyLocalAgentMessage, sendLocalAgentMessage } from "@/lib/agent/local-agent-messaging";
 import { subscribeLocalAgentMessages } from "@/lib/agent/local-agent-events";
 import type { LocalAgentPresenceState } from "@/lib/agent/local-agent-types";
 
@@ -188,6 +188,9 @@ export async function POST(req: NextRequest) {
         target: String(body.target || ""),
         text: String(body.message || ""),
         kind: typeof body.kind === "string" ? body.kind : undefined,
+        intent: typeof body.intent === "string" ? body.intent : undefined,
+        correlationId: typeof body.correlationId === "string" ? body.correlationId : undefined,
+        requiresUserRelay: body.requiresUserRelay === true,
       });
       void audit({
         action: "agent.message",
@@ -196,6 +199,20 @@ export async function POST(req: NextRequest) {
         detail: `${result.message.kind} ${result.status}`,
         meta: { bytes: Buffer.byteLength(result.message.text, "utf8") },
       });
+      return NextResponse.json(result);
+    }
+    if (action === "reply") {
+      if (!sessionId) throw new Error("session_required");
+      if (rateLimited(`local-agent.send:${sessionId}`, 60, 60_000))
+        return NextResponse.json({ error: "too_many_requests" }, { status: 429 });
+      const result = await replyLocalAgentMessage({
+        principal: owner.principal,
+        senderSessionId: sessionId,
+        replyToMessageId: String(body.replyToMessageId || ""),
+        text: String(body.message || ""),
+        kind: typeof body.kind === "string" ? body.kind : undefined,
+      });
+      void audit({ action: "agent.message", actor: owner.actor, target: result.target.id, detail: `reply ${result.status}` });
       return NextResponse.json(result);
     }
     return NextResponse.json({ error: "unknown_action" }, { status: 400 });

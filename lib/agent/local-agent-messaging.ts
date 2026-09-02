@@ -1,10 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { redactText } from "@/lib/security/redact-text";
 import { getAgentSession } from "./session-store";
 import { principalHash } from "./session-files";
 import { listLocalAgents, resolveLocalAgent } from "./local-agent-directory";
-import { enqueueLocalAgentMessage, listLocalAgentInbox, updateLocalAgentMessageState } from "./local-agent-mailbox";
+import { enqueueLocalAgentMessage, getLocalAgentInboxMessage, listLocalAgentInbox, updateLocalAgentMessageState } from "./local-agent-mailbox";
 import { publishLocalAgentMessage } from "./local-agent-events";
-import type { LocalAgentDeliveryStatus, LocalAgentMessageKind, LocalAgentMessageView, LocalAgentTarget } from "./local-agent-types";
+import type { LocalAgentDeliveryStatus, LocalAgentMessageIntent, LocalAgentMessageKind, LocalAgentMessageView, LocalAgentTarget } from "./local-agent-types";
 
 export const MAX_LOCAL_AGENT_MESSAGE_BYTES = 16 * 1024;
 
@@ -13,10 +14,7 @@ function safePayload(value: string): string {
   if (!raw) throw new Error("local agent message is required");
   if (Buffer.byteLength(raw, "utf8") > MAX_LOCAL_AGENT_MESSAGE_BYTES)
     throw new Error("local agent message must be 16 KiB or smaller");
-  const text = raw
-    .replace(/\r/g, "")
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
-    .replace(/\t/g, "  ");
+  const text = raw.replace(/\r/g, "").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").replace(/\t/g, "  ");
   return redactText(text, MAX_LOCAL_AGENT_MESSAGE_BYTES);
 }
 
@@ -24,6 +22,18 @@ function messageKind(value?: string): LocalAgentMessageKind {
   if (!value || value === "message") return "message";
   if (value === "task") return "task";
   throw new Error("local agent message kind must be message or task");
+}
+
+function messageIntent(value?: string): LocalAgentMessageIntent {
+  if (!value || value === "notify") return "notify";
+  if (value === "request" || value === "reply") return value;
+  throw new Error("local agent message intent must be request, reply, or notify");
+}
+
+function correlation(value?: string): string | undefined {
+  if (!value) return undefined;
+  if (!/^localcorr_[0-9a-f-]{36}$/.test(value)) throw new Error("invalid local agent correlation id");
+  return value;
 }
 
 async function senderTarget(principal: string, sessionId: string): Promise<LocalAgentTarget> {
@@ -41,6 +51,10 @@ export async function sendLocalAgentMessage(input: {
   target: string;
   text: string;
   kind?: string;
+  intent?: string;
+  correlationId?: string;
+  replyToMessageId?: string;
+  requiresUserRelay?: boolean;
 }): Promise<{
   status: LocalAgentDeliveryStatus;
   targetStatus: LocalAgentTarget["status"];
@@ -54,6 +68,9 @@ export async function sendLocalAgentMessage(input: {
   ]);
   const text = safePayload(input.text);
   const kind = messageKind(input.kind);
+  const intent = messageIntent(input.intent);
+  if (intent === "reply" && !input.replyToMessageId) throw new Error("local agent reply requires replyToMessageId");
+  const correlationId = correlation(input.correlationId) ?? (intent === "request" ? `localcorr_${randomUUID()}` : undefined);
   const owner = principalHash(input.principal);
   const targetOffline = target.status === "offline" || target.status === "ended";
   const busy = target.status === "busy";
@@ -64,22 +81,48 @@ export async function sendLocalAgentMessage(input: {
     targetSessionId: target.id,
     targetLabel: target.label,
     kind,
+    intent,
+    ...(correlationId ? { correlationId } : {}),
+    ...(input.replyToMessageId ? { replyToMessageId: input.replyToMessageId } : {}),
+    requiresUserRelay: input.requiresUserRelay === true,
     text,
     state: busy || targetOffline ? "queued" : "accepted",
   });
 
   let status: LocalAgentDeliveryStatus = targetOffline ? "target_offline" : busy ? "queued" : "accepted";
-  if (!targetOffline && !busy) {
-    const listeners = publishLocalAgentMessage(target.id, message);
-    if (listeners > 0) {
-      const [updated] = await updateLocalAgentMessageState(input.principal, target.id, [message.id], "delivered");
-      if (updated) message = updated;
-      status = "delivered";
-    }
+  if (!targetOffline && !busy && publishLocalAgentMessage(target.id, message) > 0) {
+    const [updated] = await updateLocalAgentMessageState(input.principal, target.id, [message.id], "delivered");
+    if (updated) message = updated;
+    status = "delivered";
   }
   return { status, targetStatus: target.status, sender, target, message };
 }
 
+export async function replyLocalAgentMessage(input: {
+  principal: string;
+  senderSessionId: string;
+  replyToMessageId: string;
+  text: string;
+  kind?: string;
+}) {
+  const original = await getLocalAgentInboxMessage(input.principal, input.senderSessionId, input.replyToMessageId);
+  if (!original) throw new Error("local agent request message not found");
+  if (original.intent !== "request" || !original.correlationId)
+    throw new Error("local agent message is not a correlated request");
+  const reply = await sendLocalAgentMessage({
+    principal: input.principal,
+    senderSessionId: input.senderSessionId,
+    target: original.senderSessionId,
+    text: input.text,
+    kind: input.kind,
+    intent: "reply",
+    correlationId: original.correlationId,
+    replyToMessageId: original.id,
+    requiresUserRelay: original.requiresUserRelay,
+  });
+  await updateLocalAgentMessageState(input.principal, input.senderSessionId, [original.id], "read");
+  return reply;
+}
 
 export async function flushLocalAgentQueue(principal: string, targetSessionId: string): Promise<number> {
   const pending = (await listLocalAgentInbox(principal, targetSessionId, { limit: 200 }))
