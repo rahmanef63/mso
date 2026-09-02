@@ -24,9 +24,16 @@ describe("Codex Security component result gate", () => {
     const path = require("node:path") as typeof import("node:path");
     const plan = JSON.parse(fs.readFileSync(path.join(process.cwd(), "security/codex-components.json"), "utf8")) as { components: Array<{ name: string; paths: string[] }> };
     const assigned = new Set(plan.components.flatMap((component) => component.paths));
-    expect(assigned).toContain("lib/infra");
-    expect(assigned).toContain("lib/orchestration");
-    expect(assigned).toContain("frontend/slices/infrastructure");
+    for (const required of [
+      "lib/infra",
+      "lib/orchestration",
+      "frontend/slices/infrastructure",
+      "lib/capabilities",
+      "lib/contracts",
+      "lib/workflow",
+      "docs/generated",
+      "AGENTS.md",
+    ]) expect(assigned).toContain(required);
   });
 
   test("passes complete coverage with no high-or-critical findings", () => {
