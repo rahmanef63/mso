@@ -81,9 +81,11 @@ function historyRow(message, relayedToUser = false) {
 }
 
 export class LocalAgentBridge {
-  constructor({ session, composer }) {
+  constructor({ session, composer, onRequest = (_message) => {}, persist = persistSession }) {
     this.session = session;
+    this.persist = persist;
     this.composer = composer;
+    this.onRequest = typeof onRequest === "function" ? onRequest : null;
     this.instanceId = `cli:${process.pid}:${randomUUID()}`;
     this.sessionId = null;
     this.state = "idle";
@@ -212,11 +214,14 @@ export class LocalAgentBridge {
       this.session.history.push(historyRow(message, presentation.mode === "relay"));
       if (presentation.mode === "relay") this.session.history.push(relayAssistantRow(message));
     }
-    await persistSession(this.session);
+    await this.persist(this.session);
     this.seen.add(id);
     if (!alreadyStored) this.composer.notify(sectionBlock("local", presentation.text, {
       columns: this.composer?.output?.columns, detail: String(message?.senderLabel || "peer"), colors: C,
     }));
+    // Requests are actionable work, unlike notify/reply events. Wake the owning
+    // interactive loop after durable persistence so it can make a correlated reply.
+    if (!alreadyStored && message?.intent === "request") this.onRequest?.(message);
     if (message?.intent !== "request") await this.ack([id]).catch(() => undefined);
   }
 

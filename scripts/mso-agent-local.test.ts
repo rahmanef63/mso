@@ -51,6 +51,20 @@ describe("local agent TUI projection", () => {
     expect(localAgentPresentation(history, { senderLabel: "[agent-b]", intent: "reply", text: "piano", replyToMessageId: "localmsg_req", correlationId: "localcorr_x", requiresUserRelay: true }, plain).text).toContain("[agent-b] → user piano");
   });
 
+  it("wakes the interactive loop only for a newly received correlated request", async () => {
+    const requests: any[] = [];
+    const bridge = new LocalAgentBridge({
+      session: { history: [], agentSession: { id: "session-a" } },
+      composer: { notify: () => {} },
+      onRequest: (message: any) => requests.push(message),
+      persist: async () => {},
+    });
+    bridge.sessionId = "session-a"; bridge.ack = async () => {};
+    await bridge.accept({ id: "localmsg_request", targetSessionId: "session-a", intent: "request", text: "please answer" });
+    await bridge.accept({ id: "localmsg_notify", targetSessionId: "session-a", intent: "notify", text: "FYI" });
+    expect(requests.map((message) => message.id)).toEqual(["localmsg_request"]);
+  });
+
   it("deduplicates a replayed SSE message id before rendering it again", async () => {
     const notices: string[] = [];
     const bridge = new LocalAgentBridge({ session: { history: [], agentSession: { id: "session-a" } }, composer: { notify: (text: string) => notices.push(text) } });
