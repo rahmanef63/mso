@@ -66,7 +66,7 @@ Memory is compact structured JSON, not raw chat history. It distills what happen
 
 Lifecycle: `active → confirmed → superseded → archived`.
 
-Retrieval combines lexical relevance, confidence, importance, freshness, lifecycle, and manual-user authority. Superseded/archived records are excluded by default, stale records lose rank, and a current failed manual user test outranks a conflicting automated healthy assumption. `project_memory_search` is read-only and does not create `.agent/` merely because an agent searched. `project_memory_upsert` writes one task/debug/test/decision/failure record. LOW trivial successful tasks remain memory-light unless explicit evidence or relevant memory warrants persistence.
+Retrieval combines lexical relevance, confidence, importance, freshness, lifecycle, and manual-user authority. Superseded/archived records are excluded by default, stale records lose rank, and a current failed manual user test outranks a conflicting automated healthy assumption. `project_memory_search` is one token-efficient read surface with `search`, `related`, and `timeline` views; relation edges are derived deterministically from supersession, scope/tags, result conflicts, and lexical overlap rather than an LLM call. It does not create `.agent/` merely because an agent searched. `project_memory_upsert` writes one task/debug/test/decision/failure record. LOW trivial successful tasks remain memory-light unless explicit evidence or relevant memory warrants persistence.
 
 ## Manual user tests
 
@@ -103,9 +103,15 @@ A one-off trace may remain searchable history but is not returned as a reusable 
 
 Stop on `maxIterations`, repeated no-progress, new regressions, destructive uncertainty, or required human decision. Static analysis, tests, security scans, architecture rules, LLM reviewers, and external reviewers are optional backends; none is mandatory.
 
+## Catalog-first token budget
+
+The terminal runtime routes the latest intent through a shared deterministic capability catalog **before** projecting model history. Known intents do not pay for `skills_search` or an always-on tool core. Capability packs are phase-aware, dependency-complete, and bilingual for the common Indonesian/English operations used by MSO. The model sees only the small selected schema pack and a route-requested history slice; broader semantic discovery is the fallback for genuinely unknown intent.
+
+The benchmark currently gates 100% required-tool recall and deterministic selection while averaging 2.7 active tools / 2,252 schema bytes per turn, a 95.8% reduction from the 70-tool catalog. Routing text averages 76 bytes and the route-requested history budget 10,571 tokens in the checked corpus. These are reproducible harness metrics, not a claim about total provider billing. Runtime status/one-shot JSON expose routing metadata outside the prompt so real token-per-success can be measured without spending model context on telemetry.
+
 ## Metrics
 
-`workflow_finish` reports tool calls, execution duration, retries, memory hits, approximate context tokens, recipe reuse/stage, and whether a script candidate was created. The objective is repeated reasoning ↓, tool calls ↓, context usage ↓, consistency ↑.
+`workflow_finish` reports tool calls, execution duration, retries, memory hits, approximate context tokens, recipe reuse/stage, and whether a script candidate was created. It also reports reservation/worktree cleanup guidance. The objective is repeated reasoning ↓, tool calls ↓, context usage ↓, consistency ↑.
 
 ## Security
 
@@ -115,15 +121,15 @@ RASMIC redacts common token/password/API-key/Authorization/private-key/credentia
 
 RASMIC is additive. Existing workflow ids and learned recipe storage remain valid; old in-flight workflows without RASMIC metadata can close under the old finish contract; new start fields and finish evidence are optional additions; `.agent` is portable/optional; no new package dependency is required.
 
-## Future optional API
+## Optional external memory transport
 
-Repo-local memory stays canonical. A future service can map to `memory.search`, `memory.get`, `memory.related`, `memory.timeline`, `memory.upsert`, `memory.supersede`, `recipe.find`, and `script.find` without becoming a core dependency.
+Repo-local memory stays canonical. MSO now has internal bounded export/import adapters for a portable redacted memory bundle, so a future external service can synchronize records without becoming a core dependency. `related` and `timeline` already exist locally through `project_memory_search`; no extra model tool names were added for them.
 
 ## MCP surfaces
 
 - `workflow_start`: classify, collision check, minimal memory/recipe/script retrieval.
 - `workflow_finish`: Evidence Receipt, memory, recipe quality, metrics, script-candidate promotion.
-- `project_memory_search`: ranked repo-local retrieval.
+- `project_memory_search`: ranked `search`, deterministic `related`, or compact `timeline` projection through one read tool.
 - `project_memory_upsert`: structured memory and manual-test ingestion.
 - `project_script_run`: bounded read-only replay and candidate→tested promotion.
 
