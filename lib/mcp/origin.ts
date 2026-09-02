@@ -115,13 +115,4 @@ export function publicOrigin(req: Request): string {
   return `${proto}://${host}`;
 }
 
-/** Best-effort client IP for the pre-auth rate limiter. Spoofable behind a proxy
- *  that does not overwrite the header — which is why it only ever gates rate
- *  limits, never authorization. */
-export function clientIp(req: Request): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-    req.headers.get("x-real-ip")?.trim() ||
-    "unknown"
-  );
-}
+export { clientIp } from "@/lib/host/request-ip";

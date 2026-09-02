@@ -131,11 +131,12 @@ describe("local agent request dispatch", () => {
       session: { id: "20260902_120000_11111111", name: "milo" },
       task: { state: "completed", artifacts: [{ parts: [{ text: "worker result" }] }] },
     });
-    const context = { principal: "cli:test-dispatch", sessionId: "20260902_120001_22222222" };
+    const capabilities = { list: () => [], invoke: vi.fn(async () => ({ content: [] })) };
+    const context = { principal: "cli:test-dispatch", sessionId: "20260902_120001_22222222", capabilities };
     const r = await dispatch(call("local_agent_request", { target: "milo", objective: "inspect this" }), "exec", "tester", context);
     expect(r.error).toBeUndefined();
     expect(localSessionMock.handoffOwnerLocalSession).toHaveBeenCalledWith(
-      context.principal, "milo", "inspect this", context.sessionId,
+      context.principal, "milo", "inspect this", capabilities, context.sessionId,
     );
     expect(JSON.stringify(r.result)).toContain("worker result");
   });

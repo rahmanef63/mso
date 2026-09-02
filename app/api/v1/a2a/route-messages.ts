@@ -9,6 +9,7 @@ import {
   sendA2AStreamingMessage,
 } from "@/lib/a2a";
 import { audit } from "@/lib/host";
+import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
 import { a2aHash, a2aLimited } from "./route-shared";
 
 export async function handleA2AMessageAction(
@@ -30,7 +31,7 @@ export async function handleA2AMessageAction(
         { error: "session_and_objective_required" },
         { status: 400 },
       );
-    const result = await handoffA2ALocalSession(sessionRef, objective);
+    const result = await handoffA2ALocalSession(sessionRef, objective, msoCapabilityRuntime);
     void audit({
       action: "a2a.send",
       actor,
@@ -57,6 +58,7 @@ export async function handleA2AMessageAction(
       sourceSessionRef,
       objective,
       title: typeof body.title === "string" ? body.title : undefined,
+      capabilities: msoCapabilityRuntime,
     });
     void audit({
       action: "a2a.send",

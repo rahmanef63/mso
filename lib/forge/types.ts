@@ -1,4 +1,4 @@
-import type { Scope } from "@/lib/mcp/scope";
+import type { Scope } from "@/lib/capabilities/scope";
 import type { WorkflowQuality, WorkflowStep } from "@/lib/skills/memory";
 
 export const FORGE_VERSION = 1 as const;

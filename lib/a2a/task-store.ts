@@ -3,7 +3,7 @@ import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
-import type { Scope } from "@/lib/mcp/scope";
+import type { Scope } from "@/lib/capabilities/scope";
 import { isA2ATaskActive } from "./task-active";
 import type { A2AMessage, A2ATaskRecord, A2ATaskState } from "./task-types";
 

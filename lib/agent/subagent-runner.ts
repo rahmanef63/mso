@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { getAgentSession } from "./session-store";
 import { prepareSelectedModel, streamPreparedSelectedModel } from "@/lib/ai/selected-model-stream";
 import type { OaMsg, OaTool, OaToolUse } from "@/lib/ai/openai-stream";
-import { allows, parseScope, type Scope } from "@/lib/mcp/scope";
+import { allows, parseScope, type Scope } from "@/lib/capabilities/scope";
+import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 
 const MAX_RESULT_BYTES = 64 * 1024;
 const DEFAULT_TURNS = 6;
@@ -58,6 +59,7 @@ export async function runSessionSubagent(input: {
   maxTurns?: number;
   timeoutMs?: number;
   explicitContext?: string;
+  capabilities: CapabilityRuntime;
 }) {
   const parent = await getAgentSession(input.principal, input.parentSessionId);
   if (!parent) throw new Error("parent MSO Agent session not found");
@@ -69,8 +71,7 @@ export async function runSessionSubagent(input: {
   const maxTurns = Math.max(1, Math.min(maxTurnsLimit(), Math.trunc(input.maxTurns || DEFAULT_TURNS)));
   const timeoutMs = Math.max(1_000, Math.min(MAX_TIMEOUT_MS, Math.trunc(input.timeoutMs || DEFAULT_TIMEOUT_MS)));
   const subagentId = `subagent_${randomUUID()}`;
-  const [{ TOOLS }, { dispatch }] = await Promise.all([import("@/lib/mcp/tools"), import("@/lib/mcp/dispatch")]);
-  const toolDefs = TOOLS.filter((tool) => allows(maxScope, tool.scope) && allowedTool(tool.name));
+  const toolDefs = input.capabilities.list(maxScope).filter((tool) => allows(maxScope, tool.scope) && allowedTool(tool.name));
   const tools: OaTool[] = toolDefs.map((tool) => ({ name: tool.name, description: tool.description, input_schema: tool.inputSchema }));
   const prepared = await prepareSelectedModel();
   const messages: OaMsg[] = [{ role: "user", text: objective }];
@@ -102,13 +103,11 @@ export async function runSessionSubagent(input: {
           toolCalls.push({ name: call.name, ok: false });
           continue;
         }
-        const rpc = await dispatch(
-          { id: call.id, method: "tools/call", params: { name: call.name, arguments: call.input ?? {} } },
-          maxScope,
-          `${input.principal}#${subagentId}`,
-          { principal: input.principal },
-        );
-        const outcome = resultText(rpc);
+        const invoked = await input.capabilities.invoke({
+          name: call.name, args: call.input ?? {}, scope: maxScope,
+          actor: `${input.principal}#${subagentId}`, principal: input.principal,
+        });
+        const outcome = resultText({ result: invoked });
         results.push({ id: call.id, content: outcome.content, ...(outcome.isError ? { isError: true } : {}) });
         toolCalls.push({ name: call.name, ok: !outcome.isError });
       }

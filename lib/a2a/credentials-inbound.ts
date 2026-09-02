@@ -7,7 +7,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
-import { parseScope, type Scope } from "@/lib/mcp/scope";
+import { parseScope, type Scope } from "@/lib/capabilities/scope";
 import type { A2AInboundTokenSummary } from "./types";
 import {
   cleanA2ACredentialId,

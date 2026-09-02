@@ -1,5 +1,6 @@
 import { audit } from "@/lib/host";
 import type { AgentSession } from "@/lib/agent/session-types";
+import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import type { A2AAuthenticatedProfile } from "./server-protocol";
 import { runInboundA2AAgent } from "./inbound-agent";
 import {
@@ -22,7 +23,8 @@ export async function executeInboundA2ATask(
   task: A2ATaskRecord,
   profile: A2AAuthenticatedProfile,
   prompt: string,
-  session?: AgentSession,
+  session: AgentSession | undefined,
+  capabilities: CapabilityRuntime,
 ): Promise<A2ATaskRecord> {
   const principal = task.principal;
   const controller = new AbortController();
@@ -48,6 +50,7 @@ export async function executeInboundA2ATask(
       taskId: task.id,
       session,
       signal: controller.signal,
+      capabilities,
       onDelta(chunk) {
         if (pendingDelta) {
           publishA2AEvent(
@@ -108,6 +111,7 @@ export function a2aSseResponse(
   id: A2ARpcId,
   task: A2ATaskRecord,
   profile: A2AAuthenticatedProfile,
+  capabilities: CapabilityRuntime,
   prompt?: string,
   session?: AgentSession,
 ): Response {
@@ -129,7 +133,7 @@ export function a2aSseResponse(
       emit({ task: taskPublicView(task) });
       unsubscribe = subscribeA2AEvent(task.id, emit);
       if (prompt !== undefined) {
-        void executeInboundA2ATask(task, profile, prompt, session).finally(
+        void executeInboundA2ATask(task, profile, prompt, session, capabilities).finally(
           () => {
             unsubscribe();
             if (!closed) {

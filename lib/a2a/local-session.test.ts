@@ -24,6 +24,7 @@ const {
 } = await import("./local-session");
 
 afterAll(() => rmSync(root, { recursive: true, force: true }));
+const capabilities = { list: () => [], invoke: vi.fn(async () => ({ content: [] })) };
 
 async function bece() {
   return createAgentSession("cli:owner", "cli", {
@@ -72,6 +73,7 @@ describe("same-host A2A durable-session agents", () => {
     const result = await handoffA2ALocalSession(
       session.id,
       "review local change",
+      capabilities,
     );
     expect(result.task.status.state).toBe("TASK_STATE_COMPLETED");
     expect(result.task.artifacts[0].parts[0].text).toBe("bece result");
@@ -84,10 +86,10 @@ describe("same-host A2A durable-session agents", () => {
       expect(principal).toBe(`a2a:local:${session.id}`);
       return { text: "offline worker result", rounds: 1, toolCalls: [] };
     });
-    const result = await handoffOwnerLocalSession("cli:owner", session.id, "answer this");
+    const result = await handoffOwnerLocalSession("cli:owner", session.id, "answer this", capabilities);
     expect(result.session.id).toBe(session.id);
     expect(result.task.artifacts[0].parts[0].text).toBe("offline worker result");
-    await expect(handoffOwnerLocalSession("cli:owner", session.id, "answer this", session.id)).rejects.toThrow(/same session/);
+    await expect(handoffOwnerLocalSession("cli:owner", session.id, "answer this", capabilities, session.id)).rejects.toThrow(/same session/);
   });
 
   it("spawns a durable child agent that inherits context/cwd but has its own id", async () => {
@@ -105,6 +107,7 @@ describe("same-host A2A durable-session agents", () => {
       sourceSessionRef: source.id,
       objective: "independent review",
       title: "reviewer",
+      capabilities,
     });
     expect(result.session.title).toBe("reviewer");
     expect(result.session.parentSessionId).toBe(source.id);

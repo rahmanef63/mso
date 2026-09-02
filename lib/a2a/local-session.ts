@@ -9,6 +9,7 @@ import {
   resolveAgentSessionRef,
 } from "@/lib/agent/session-query";
 import type { AgentSession } from "@/lib/agent/session-types";
+import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import { a2aLoopbackOrigin } from "./network";
 import { executeInboundA2ATask } from "./server-execution";
 import { createA2ATask, taskPublicView } from "./tasks";
@@ -42,7 +43,7 @@ export async function resolveA2ALocalSession(
   return resolveAgentSessionOwnerRef(ref);
 }
 
-async function runLocalSessionTask(session: AgentSession, objective: string) {
+async function runLocalSessionTask(session: AgentSession, objective: string, capabilities: CapabilityRuntime) {
   const prompt = String(objective || "").trim();
   if (!prompt) throw new Error("A2A local objective is required");
   const principal = `a2a:local:${session.id}`;
@@ -61,26 +62,27 @@ async function runLocalSessionTask(session: AgentSession, objective: string) {
     LOCAL_PROFILE,
     prompt,
     session,
+    capabilities,
   );
   return taskPublicView(completed);
 }
 
-export async function handoffA2ALocalSession(ref: string, objective: string) {
+export async function handoffA2ALocalSession(ref: string, objective: string, capabilities: CapabilityRuntime) {
   const session = await resolveA2ALocalSession(ref);
   return {
     session: agentSessionSummary(session),
-    task: await runLocalSessionTask(session, objective),
+    task: await runLocalSessionTask(session, objective, capabilities),
   };
 }
 
 /** Execute against a same-owner durable session without requiring its terminal
  * process to be present. This is a fresh bounded agent run, never a TTY wake. */
-export async function handoffOwnerLocalSession(principal: string, ref: string, objective: string, currentSessionId?: string) {
+export async function handoffOwnerLocalSession(principal: string, ref: string, objective: string, capabilities: CapabilityRuntime, currentSessionId?: string) {
   const session = await resolveAgentSessionRef(principal, ref);
   if (session.id === currentSessionId) throw new Error("cannot run a local agent request against the same session");
   return {
     session: agentSessionSummary(session),
-    task: await runLocalSessionTask(session, objective),
+    task: await runLocalSessionTask(session, objective, capabilities),
   };
 }
 
@@ -89,6 +91,7 @@ export async function spawnA2ALocalSubagent(input: {
   sourceSessionRef: string;
   objective: string;
   title?: string;
+  capabilities: CapabilityRuntime;
 }) {
   const source = await resolveA2ALocalSession(input.sourceSessionRef);
   const title =
@@ -106,6 +109,6 @@ export async function spawnA2ALocalSubagent(input: {
   });
   return {
     session: agentSessionSummary(child),
-    task: await runLocalSessionTask(child, input.objective),
+    task: await runLocalSessionTask(child, input.objective, input.capabilities),
   };
 }

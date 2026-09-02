@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { Scope } from "@/lib/mcp/scope";
+import type { Scope } from "@/lib/capabilities/scope";
 import { runForgeFixture, validateForgeCommand } from "./sandbox";
 import type { ForgeCandidate, ForgeCheck, ForgeEvaluation, ForgeFixture, ForgeFunctionSpec } from "./types";
 

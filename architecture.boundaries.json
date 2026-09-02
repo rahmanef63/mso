@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "ratchets": {
+    "structuralCycles": 46,
+    "crossDomainCycles": 21,
+    "filesOver220": 55,
+    "filesOver500": 2,
+    "serverFrontendImports": 6,
+    "appshellSelfBarrelImports": 23,
+    "nonMcpMcpImports": 0,
+    "crossProtocolCycles": 0
+  },
+  "notes": {
+    "policy": "Ratchets may only stay equal or decrease. Raise a baseline only with an explicit architecture decision.",
+    "goal": "Zero value cycles, zero cross-domain protocol cycles, one-way server/frontend contracts, and no internal AppShell self-barrel imports."
+  }
+}

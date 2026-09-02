@@ -1,3 +1,4 @@
+import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import type { McpToolProfile } from "./tool-contract";
 
 export interface RpcRequest {
@@ -19,11 +20,9 @@ export interface McpAgentContext {
   principal?: string;
   sessionId?: string;
   toolProfile?: McpToolProfile;
+  capabilities?: CapabilityRuntime;
 }
 
 export type RpcId = string | number | null | undefined;
-
-export const rpcOk = (id: RpcId, result: unknown) =>
-  ({ jsonrpc: "2.0", id: id ?? null, result });
-export const rpcFail = (id: RpcId, code: number, message: string) =>
-  ({ jsonrpc: "2.0", id: id ?? null, error: { code, message } });
+export const rpcOk = (id: RpcId, result: unknown) => ({ jsonrpc: "2.0", id: id ?? null, result });
+export const rpcFail = (id: RpcId, code: number, message: string) => ({ jsonrpc: "2.0", id: id ?? null, error: { code, message } });

@@ -78,6 +78,8 @@ export const PROJECT_RUNTIME_TOOLS: McpTool[] = [
     }, ["project", "message"]),
     run: async (a, context) => {
       if (!context.principal || !context.sessionId) throw new Error("project agent requires a conversation-bound MSO session");
+      if (!context.capabilities) throw new Error("project agent capability runtime is unavailable");
+      const capabilities = context.capabilities;
       const project = await selectedProject(str(a, "project"));
       const requested = parseScope(a.plan_mode === true ? "read" : (opt(a, "max_scope") ?? "write"));
       if (!allows(context.scope, requested)) throw new Error(`project agent max_scope ${requested} exceeds caller scope ${context.scope}`);
@@ -91,6 +93,7 @@ export const PROJECT_RUNTIME_TOOLS: McpTool[] = [
             objective: `${mode}\nSelected project: ${project.path}\nUser task: ${message}`, maxScope: requested,
             maxTurns: typeof a.max_turns === "number" ? a.max_turns : undefined, timeoutMs: typeof a.timeout_ms === "number" ? a.timeout_ms : undefined,
             explicitContext: `Project id=${project.id}; path=${project.path}. Stay focused on this project.`,
+            capabilities,
           });
           return updateProjectAgentTask(context.principal!, task.id, {
             status: result.status,

@@ -17,6 +17,8 @@ const { createA2AInboundToken } = await import("./credentials");
 const { createA2ATask } = await import("./tasks");
 const { handleA2ARequest } = await import("./server");
 const { inboundAgentCard } = await import("./inbound-config");
+const capabilities = { list: () => [], invoke: vi.fn(async () => ({ content: [] })) };
+const handle = (req: Request) => handleA2ARequest(req, capabilities);
 
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
@@ -45,7 +47,7 @@ describe("authenticated inbound A2A server", () => {
   });
 
   it("requires HTTP Bearer auth before A2A method dispatch", async () => {
-    const response = await handleA2ARequest(
+    const response = await handle(
       rpc(null, { jsonrpc: "2.0", id: 1, method: "ListTasks", params: {} }),
     );
     expect(response.status).toBe(401);
@@ -60,7 +62,7 @@ describe("authenticated inbound A2A server", () => {
       expect(principal).toBe(`a2a:${profile.id}`);
       return { text: "done", rounds: 1, toolCalls: [] };
     });
-    const response = await handleA2ARequest(
+    const response = await handle(
       rpc(token, {
         jsonrpc: "2.0",
         id: "send-1",
@@ -89,7 +91,7 @@ describe("authenticated inbound A2A server", () => {
       toolCalls: [],
     });
     const sent = await (
-      await handleA2ARequest(
+      await handle(
         rpc(first.token, {
           jsonrpc: "2.0",
           id: 2,
@@ -106,7 +108,7 @@ describe("authenticated inbound A2A server", () => {
     ).json();
     const taskId = sent.result.task.id;
     const hidden = await (
-      await handleA2ARequest(
+      await handle(
         rpc(second.token, {
           jsonrpc: "2.0",
           id: 3,
@@ -125,7 +127,7 @@ describe("authenticated inbound A2A server", () => {
       onDelta?.("lo");
       return { text: "hello", rounds: 1, toolCalls: [] };
     });
-    const response = await handleA2ARequest(
+    const response = await handle(
       rpc(token, {
         jsonrpc: "2.0",
         id: "stream-1",
@@ -173,7 +175,7 @@ describe("authenticated inbound A2A server", () => {
       });
     }
     const first = await (
-      await handleA2ARequest(
+      await handle(
         rpc(token, {
           jsonrpc: "2.0",
           id: "page-1",
@@ -187,7 +189,7 @@ describe("authenticated inbound A2A server", () => {
     expect(first.result.nextPageToken).toBeTruthy();
 
     const second = await (
-      await handleA2ARequest(
+      await handle(
         rpc(token, {
           jsonrpc: "2.0",
           id: "page-2",
@@ -200,7 +202,7 @@ describe("authenticated inbound A2A server", () => {
     expect(second.result.nextPageToken).toBe("");
 
     const invalid = await (
-      await handleA2ARequest(
+      await handle(
         rpc(token, {
           jsonrpc: "2.0",
           id: "page-bad",

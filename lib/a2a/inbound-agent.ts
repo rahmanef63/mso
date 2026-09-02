@@ -1,6 +1,5 @@
-import { allows, type Scope } from "@/lib/mcp/scope";
-import { dispatch } from "@/lib/mcp/dispatch";
-import { TOOLS } from "@/lib/mcp/tools";
+import { allows, type Scope } from "@/lib/capabilities/scope";
+import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import {
   prepareSelectedModel,
   streamPreparedSelectedModel,
@@ -90,8 +89,8 @@ function sessionHistory(session?: AgentSession): OaMsg[] {
   return out;
 }
 
-function modelTools(scope: Scope): OaTool[] {
-  return TOOLS.filter(
+function modelTools(runtime: CapabilityRuntime, scope: Scope): OaTool[] {
+  return runtime.list(scope).filter(
     (tool) => allows(scope, tool.scope) && !EXTERNAL_TOOL_DENY.has(tool.name),
   ).map((tool) => ({
     name: tool.name,
@@ -108,25 +107,16 @@ function bounded(value: string, max = MAX_RESULT_BYTES): string {
   return `${out}\n…[truncated by MSO A2A result budget]`;
 }
 
-function toolResultText(rpc: Record<string, unknown>): {
+function toolResultText(result: Awaited<ReturnType<CapabilityRuntime["invoke"]>>): {
   content: string;
   isError: boolean;
 } {
-  if (rpc.error)
-    return {
-      content: bounded(`error: ${JSON.stringify(rpc.error)}`),
-      isError: true,
-    };
-  const result = (rpc.result ?? {}) as {
-    content?: Array<{ type?: string; text?: string }>;
-    isError?: boolean;
-  };
-  const text = (result.content ?? [])
-    .filter((row) => row.type === "text")
-    .map((row) => row.text ?? "")
+  const text = result.content
+    .filter((row): row is Extract<(typeof result.content)[number], { type: "text" }> => row.type === "text")
+    .map((row) => row.text)
     .join("\n");
   return {
-    content: bounded(text || JSON.stringify(result.content ?? [])),
+    content: bounded(text || JSON.stringify(result.content)),
     isError: Boolean(result.isError),
   };
 }
@@ -139,13 +129,14 @@ export async function runInboundA2AAgent(input: {
   session?: AgentSession;
   signal: AbortSignal;
   onDelta?: (text: string) => void | Promise<void>;
+  capabilities: CapabilityRuntime;
 }): Promise<{
   text: string;
   rounds: number;
   toolCalls: Array<{ name: string; ok: boolean }>;
 }> {
   const prepared = await prepareSelectedModel();
-  const tools = modelTools(input.scope);
+  const tools = modelTools(input.capabilities, input.scope);
   const messages: OaMsg[] = [
     ...sessionHistory(input.session),
     { role: "user", text: input.prompt },
@@ -181,12 +172,8 @@ export async function runInboundA2AAgent(input: {
 
     const results: { id: string; content: string; isError?: boolean }[] = [];
     for (const call of uses) {
-      const tool = TOOLS.find((entry) => entry.name === call.name);
-      if (
-        !tool ||
-        EXTERNAL_TOOL_DENY.has(call.name) ||
-        !allows(input.scope, tool.scope)
-      ) {
+      const tool = input.capabilities.list(input.scope).find((entry) => entry.name === call.name);
+      if (!tool || EXTERNAL_TOOL_DENY.has(call.name) || !allows(input.scope, tool.scope)) {
         results.push({
           id: call.id,
           content: "error: tool is unavailable to this A2A credential",
@@ -195,17 +182,15 @@ export async function runInboundA2AAgent(input: {
         toolCalls.push({ name: call.name, ok: false });
         continue;
       }
-      const rpc = await dispatch(
-        {
-          id: call.id,
-          method: "tools/call",
-          params: { name: call.name, arguments: call.input ?? {} },
-        },
-        input.scope,
-        input.principal,
-        { principal: input.principal, sessionId: input.taskId },
-      );
-      const result = toolResultText(rpc);
+      const invoked = await input.capabilities.invoke({
+        name: call.name,
+        args: call.input ?? {},
+        scope: input.scope,
+        actor: input.principal,
+        principal: input.principal,
+        sessionId: input.taskId,
+      });
+      const result = toolResultText(invoked);
       results.push({
         id: call.id,
         content: result.content,

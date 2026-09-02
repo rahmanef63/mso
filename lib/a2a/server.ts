@@ -1,7 +1,8 @@
 import { audit, rateLimited } from "@/lib/host";
-import { clientIp } from "@/lib/mcp/origin";
+import { clientIp } from "@/lib/host/request-ip";
 import { resolveAgentSessionOwnerRef } from "@/lib/agent/session-query";
 import type { AgentSession } from "@/lib/agent/session-types";
+import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import { a2aInboundOriginForRequest } from "./inbound-config";
 import {
   cancelA2AActiveTask,
@@ -26,7 +27,7 @@ import {
   type A2ARpcBody,
 } from "./server-protocol";
 
-export async function handleA2ARequest(req: Request): Promise<Response> {
+export async function handleA2ARequest(req: Request, capabilities: CapabilityRuntime): Promise<Response> {
   if (!a2aInboundOriginForRequest(req.url))
     return a2aJson({ error: "not_found" }, 404);
   if (req.method !== "POST")
@@ -82,9 +83,9 @@ export async function handleA2ARequest(req: Request): Promise<Response> {
         targetSession?.id,
       );
       if (method === "SendStreamingMessage")
-        return a2aSseResponse(id, task, profile, parsed.prompt, targetSession);
+        return a2aSseResponse(id, task, profile, capabilities, parsed.prompt, targetSession);
       if (parsed.returnImmediately) {
-        void executeInboundA2ATask(task, profile, parsed.prompt, targetSession);
+        void executeInboundA2ATask(task, profile, parsed.prompt, targetSession, capabilities);
         return a2aJson(a2aRpcOk(id, { task: taskPublicView(task) }));
       }
       const completed = await executeInboundA2ATask(
@@ -92,6 +93,7 @@ export async function handleA2ARequest(req: Request): Promise<Response> {
         profile,
         parsed.prompt,
         targetSession,
+        capabilities,
       );
       return a2aJson(a2aRpcOk(id, { task: taskPublicView(completed) }));
     }
@@ -142,7 +144,7 @@ export async function handleA2ARequest(req: Request): Promise<Response> {
         (row) => row.id === taskId,
       );
       return full
-        ? a2aSseResponse(id, full, profile, undefined, targetSession)
+        ? a2aSseResponse(id, full, profile, capabilities, undefined, targetSession)
         : a2aJson(a2aRpcError(id, -32001, "Task not found"));
     }
     return a2aJson(a2aRpcError(id, -32601, "Method not found"));

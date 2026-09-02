@@ -9,6 +9,7 @@ import { detectMcpToolProfile } from "@/lib/mcp/client-profile";
 import { supportedMcpProtocol } from "@/lib/mcp/protocol";
 import { visibleToolsForProfile } from "@/lib/mcp/tool-contract";
 import { mcpSessionHeaders, resolveMcpSession } from "@/lib/mcp/session-context";
+import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
 
   void touchToken(token.hash).catch(() => {});
   const actor = `mcp:${token.hash.slice(0, 16)}`;
-  const agentContext = { principal, ...(resolved.agentSessionId ? { sessionId: resolved.agentSessionId } : {}), toolProfile };
+  const agentContext = { principal, ...(resolved.agentSessionId ? { sessionId: resolved.agentSessionId } : {}), toolProfile, capabilities: msoCapabilityRuntime };
   const result = await dispatch(rpc, effectiveScope, actor, agentContext);
   return Response.json(result, { status: 200, headers });
 }

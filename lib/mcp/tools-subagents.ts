@@ -20,6 +20,7 @@ export const SUBAGENT_TOOLS: McpTool[] = [{
     if (!context.principal || !context.sessionId) throw new Error("subagent requires a conversation-bound MSO session");
     const requested = parseScope(typeof a.max_scope === "string" ? a.max_scope : "read");
     if (!allows(context.scope, requested)) throw new Error(`subagent max_scope ${requested} exceeds caller scope ${context.scope}`);
+    if (!context.capabilities) throw new Error("capability runtime unavailable for subagent delegation");
     return runSessionSubagent({
       principal: context.principal,
       parentSessionId: context.sessionId,
@@ -29,6 +30,7 @@ export const SUBAGENT_TOOLS: McpTool[] = [{
       maxTurns: Number(a.max_turns) || undefined,
       timeoutMs: Number(a.timeout_ms) || undefined,
       explicitContext: typeof a.context === "string" ? a.context : undefined,
+      capabilities: context.capabilities,
     });
   },
 }];

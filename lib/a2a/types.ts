@@ -1,4 +1,4 @@
-import type { Scope } from "@/lib/mcp/scope";
+import type { Scope } from "@/lib/capabilities/scope";
 
 export type A2AStandardBinding = "JSONRPC" | "HTTP+JSON";
 

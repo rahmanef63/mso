@@ -4,7 +4,7 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import { embedSkillText, hybridSemanticScore, normalizeSemanticText, SKILL_EMBEDDING_VERSION } from "./semantic";
-import { allows, type Scope } from "@/lib/mcp/scope";
+import { allows, type Scope } from "@/lib/capabilities/scope";
 import type { WorkflowOrchestrationSnapshot } from "@/lib/orchestration/types";
 
 export type WorkflowStepState = "completed" | "failed" | "denied" | "rate_limited" | "invalid_args";

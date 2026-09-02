@@ -9,54 +9,8 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 
-export type AuditAction =
-  | "exec.run"
-  | "exec.blocked"
-  | "exec.job.start"
-  | "exec.job.cancel"
-  | "term.open"
-  | "term.close"
-  | "fs.write"
-  | "fs.delete"
-  | "fs.move"
-  | "fs.copy"
-  | "fs.mkdir"
-  | "fs.upload"
-  | "fs.zip"
-  | "sys.cleanup"
-  | "sys.service"
-  /** The cockpit replacing its own code (Settings → About, or `mso update run`). */
-  | "sys.update"
-  | "managed-app.action"
-  | "infra.write"
-  | "camoufox.power"
-  | "workflow.start"
-  | "workflow.cancel"
-  | "workflow.finish"
-  | "agent.session"
-  | "agent.message"
-  | "agent.subagent"
-  | "agent.memory"
-  | "tool.forge.propose"
-  | "tool.forge.evaluate"
-  | "tool.forge.promote"
-  | "a2a.registry"
-  | "a2a.credential"
-  | "a2a.inbound"
-  | "a2a.task"
-  | "a2a.send"
-  | "a2a.cancel"
-  /** An MCP token asked for a tool above its scope. Not an error — it is the
-   *  signal that matters: a `read` connector repeatedly reaching for `exec_run`
-   *  is what a prompt-injected model looks like from the outside. */
-  | "mcp.denied"
-  | "auth.login"
-  | "auth.pending"
-  | "auth.denied"
-  | "auth.ratelimited"
-  | "auth.logout"
-  | "auth.device"
-  | "framework.error";
+import type { AuditAction } from "@/lib/contracts/audit";
+export type { AuditAction } from "@/lib/contracts/audit";
 
 export interface AuditEntry {
   action: AuditAction;

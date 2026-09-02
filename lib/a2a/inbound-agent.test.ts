@@ -7,36 +7,21 @@ const mocks = vi.hoisted(() => ({
     model: "test",
   })),
   stream: vi.fn(),
-  dispatch: vi.fn(),
+  invoke: vi.fn(),
 }));
 
 vi.mock("@/lib/ai/selected-model-stream", () => ({
   prepareSelectedModel: mocks.prepare,
   streamPreparedSelectedModel: mocks.stream,
 }));
-vi.mock("@/lib/mcp/dispatch", () => ({ dispatch: mocks.dispatch }));
-vi.mock("@/lib/mcp/tools", () => ({
-  TOOLS: [
-    {
-      name: "sys_stats",
-      description: "bounded read",
-      scope: "read",
-      inputSchema: { type: "object", properties: {} },
-    },
-    {
-      name: "agent_memory_read",
-      description: "owner memory",
-      scope: "read",
-      inputSchema: { type: "object", properties: {} },
-    },
-    {
-      name: "exec_run",
-      description: "host exec",
-      scope: "exec",
-      inputSchema: { type: "object", properties: {} },
-    },
-  ],
-}));
+const capabilities = {
+  list: vi.fn(() => [
+    { name: "sys_stats", description: "bounded read", scope: "read" as const, inputSchema: { type: "object" as const, properties: {} } },
+    { name: "agent_memory_read", description: "owner memory", scope: "read" as const, inputSchema: { type: "object" as const, properties: {} } },
+    { name: "exec_run", description: "host exec", scope: "exec" as const, inputSchema: { type: "object" as const, properties: {} } },
+  ]),
+  invoke: mocks.invoke,
+};
 
 const { runInboundA2AAgent } = await import("./inbound-agent");
 
@@ -54,9 +39,7 @@ describe("inbound A2A model boundary", () => {
         emit("delta", "done");
       }
     });
-    mocks.dispatch.mockResolvedValue({
-      result: { content: [{ type: "text", text: "ok" }] },
-    });
+    mocks.invoke.mockResolvedValue({ content: [{ type: "text", text: "ok" }] });
 
     const result = await runInboundA2AAgent({
       prompt: "inspect",
@@ -64,17 +47,17 @@ describe("inbound A2A model boundary", () => {
       principal: "a2a:in-peer",
       taskId: "task-123",
       signal: new AbortController().signal,
+      capabilities,
     });
 
     expect(result.text).toBe("done");
-    expect(mocks.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        method: "tools/call",
-        params: { name: "sys_stats", arguments: {} },
-      }),
-      "read",
-      "a2a:in-peer",
-      { principal: "a2a:in-peer", sessionId: "task-123" },
-    );
+    expect(mocks.invoke).toHaveBeenCalledWith({
+      name: "sys_stats",
+      args: {},
+      scope: "read",
+      actor: "a2a:in-peer",
+      principal: "a2a:in-peer",
+      sessionId: "task-123",
+    });
   });
 });

@@ -3,7 +3,7 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { isUnderRoot } from "@/lib/host/paths";
 import { assertSafeUrl, isForbiddenProviderAddress } from "@/lib/host/ssrf";
-import { safeEqualHex, sha256b64url, verifyPkce } from "@/lib/mcp/pkce";
+import { safeEqualHex, sha256b64url, verifyPkce } from "@/lib/security/pkce";
 
 const segmentChar = fc.constantFrom(..."abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-");
 const segment = fc.array(segmentChar, { minLength: 1, maxLength: 18 }).map((chars) => chars.join(""));
