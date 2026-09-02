@@ -22,6 +22,7 @@
       "paths": [
         "lib/auth",
         "lib/mcp",
+        "lib/orchestration",
         "lib/os-api",
         "lib/config",
         "lib/security-store-lock.ts",

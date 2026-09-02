@@ -25,6 +25,7 @@ describe("Codex Security component result gate", () => {
     const plan = JSON.parse(fs.readFileSync(path.join(process.cwd(), "security/codex-components.json"), "utf8")) as { components: Array<{ name: string; paths: string[] }> };
     const assigned = new Set(plan.components.flatMap((component) => component.paths));
     expect(assigned).toContain("lib/infra");
+    expect(assigned).toContain("lib/orchestration");
     expect(assigned).toContain("frontend/slices/infrastructure");
   });
 
