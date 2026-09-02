@@ -69,7 +69,9 @@ export function summarizeCorpus(rows, requested) {
   const expectedScenarios = new Set(rows.map((row) => row.scenarioId)).size;
   const tokenModes = new Set(aggregates.map((row) => row.tokenAccountingMode));
   const tokenSemanticsComparable = aggregates.length >= 2
-    && aggregates.every((row) => row.tokenCoveragePct === 100 && !["unknown", "mixed"].includes(row.tokenAccountingMode))
+    && aggregates.every((row) => row.tokenCoveragePct === 100
+      && row.tokenAccountingMode === "inclusive-input-output-total"
+      && !["unknown", "mixed"].includes(row.tokenAccountingProof))
     && tokenModes.size === 1;
   const costPairs = new Set(aggregates.map((row) => `${row.costStatus}:${row.costSource}`));
   const costSemanticsComparable = aggregates.length >= 2
@@ -77,7 +79,10 @@ export function summarizeCorpus(rows, requested) {
     && costPairs.size === 1;
   return {
     aggregates, comparability,
-    efficiencyComparability: { tokenSemanticsComparable, costSemanticsComparable, tokenAccountingModes: [...tokenModes] },
+    efficiencyComparability: {
+      tokenSemanticsComparable, costSemanticsComparable, tokenAccountingModes: [...tokenModes],
+      tokenAccountingProofs: Object.fromEntries(aggregates.map((row) => [row.agent, row.tokenAccountingProof])),
+    },
     ranking: eligibleRanking(aggregates, comparability, expectedScenarios),
   };
 }

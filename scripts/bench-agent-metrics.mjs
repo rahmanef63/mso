@@ -46,10 +46,11 @@ export function extractUsage(value) {
     const input = finite(row.inputTokens ?? row.input_tokens ?? row.prompt_tokens ?? row.promptTokens);
     const output = finite(row.outputTokens ?? row.output_tokens ?? row.completion_tokens ?? row.completionTokens);
     const reasoning = finite(row.reasoningTokens ?? row.reasoning_tokens);
-    const cacheRead = finite(row.cacheReadTokens ?? row.cache_read_tokens);
-    const cacheWrite = finite(row.cacheWriteTokens ?? row.cache_write_tokens);
+    const cacheRead = finite(row.cacheReadTokens ?? row.cache_read_tokens ?? row.cacheReadInputTokens ?? row.cache_read_input_tokens);
+    const cacheWrite = finite(row.cacheWriteTokens ?? row.cache_write_tokens ?? row.cacheCreationInputTokens ?? row.cache_creation_input_tokens);
     const apiCalls = finite(row.apiCalls ?? row.api_calls);
-    const total = finite(row.totalTokens ?? row.total_tokens) ?? (input !== undefined && output !== undefined ? input + output : undefined);
+    const total = finite(row.totalTokens ?? row.total_tokens);
+    const explicitMode = typeof (row.accountingMode ?? row.accounting_mode) === "string" ? String(row.accountingMode ?? row.accounting_mode) : null;
     const explicitUsd = finite(row.estimatedCostUsd ?? row.estimated_cost_usd ?? row.costUsd ?? row.cost_usd);
     const currency = typeof (row.currency ?? row.costCurrency ?? row.cost_currency) === "string"
       ? String(row.currency ?? row.costCurrency ?? row.cost_currency).toLowerCase() : undefined;
@@ -58,15 +59,48 @@ export function extractUsage(value) {
     const costStatus = typeof (row.costStatus ?? row.cost_status) === "string" ? String(row.costStatus ?? row.cost_status) : undefined;
     const costSource = typeof (row.costSource ?? row.cost_source) === "string" ? String(row.costSource ?? row.cost_source) : undefined;
     if (input === undefined && output === undefined && reasoning === undefined && total === undefined && cost === undefined) return null;
-    const unattributed = total !== undefined && input !== undefined && output !== undefined ? Math.max(0, total - input - output) : undefined;
-    const accountingMode = reasoning !== undefined || cacheRead !== undefined || cacheWrite !== undefined ? "expanded-components"
-      : total !== undefined && input !== undefined && output !== undefined && total === input + output ? "input-output-total" : "opaque-total";
+
+    let normalizedInput, normalizedOutput, normalizedTotal, accountingMode = "opaque-total", reportedAccountingMode = explicitMode || "unspecified", accountingProof = "none";
+    if (input !== undefined && output !== undefined && (total !== undefined || explicitMode === "separate-cache-input-output")) {
+      const detailSum = (cacheRead ?? 0) + (cacheWrite ?? 0) + (reasoning ?? 0);
+      const exclusiveSum = input + output + detailSum;
+      if (explicitMode === "inclusive-input-output-total") {
+        normalizedInput = input; normalizedOutput = output; normalizedTotal = total; accountingMode = "inclusive-input-output-total"; accountingProof = "explicit-inclusive-contract";
+      } else if (explicitMode === "separate-cache-input-output") {
+        normalizedInput = input + (cacheRead ?? 0) + (cacheWrite ?? 0);
+        normalizedOutput = output + (reasoning ?? 0); normalizedTotal = total ?? (normalizedInput + normalizedOutput);
+        if (normalizedTotal === normalizedInput + normalizedOutput) { accountingMode = "inclusive-input-output-total"; accountingProof = "explicit-separate-components"; }
+      } else if (((cacheRead ?? 0) + (cacheWrite ?? 0)) > 0 && total === input + output + (cacheRead ?? 0) + (cacheWrite ?? 0)) {
+        // Hermes openai-codex shape observed in the live corpus: cache is outside base input,
+        // while reasoning remains a detail already included in output. Exact arithmetic is required.
+        normalizedInput = input + (cacheRead ?? 0) + (cacheWrite ?? 0);
+        normalizedOutput = output; normalizedTotal = total;
+        accountingMode = "inclusive-input-output-total"; reportedAccountingMode = "exclusive-cache-inclusive-output"; accountingProof = "exact-exclusive-cache-sum";
+      } else if (detailSum > 0 && total === exclusiveSum) {
+        // Alternate expanded representation where both cache and reasoning live outside base categories.
+        normalizedInput = input + (cacheRead ?? 0) + (cacheWrite ?? 0);
+        normalizedOutput = output + (reasoning ?? 0); normalizedTotal = total;
+        accountingMode = "inclusive-input-output-total"; reportedAccountingMode = "exclusive-cache-reasoning"; accountingProof = "exact-exclusive-cache-reasoning-sum";
+      } else if (total === input + output) {
+        // No extra tokens live outside the provider's input/output categories.
+        normalizedInput = input; normalizedOutput = output; normalizedTotal = total;
+        accountingMode = "inclusive-input-output-total"; accountingProof = detailSum > 0 ? "exact-inclusive-total-identity" : "exact-input-output-identity";
+        if (!explicitMode) reportedAccountingMode = detailSum > 0 ? "inclusive-expanded-components" : "input-output-total";
+      }
+    }
+    const unattributed = normalizedTotal !== undefined && normalizedInput !== undefined && normalizedOutput !== undefined
+      ? Math.max(0, normalizedTotal - normalizedInput - normalizedOutput) : undefined;
     return {
       ...(input !== undefined ? { inputTokens: input } : {}), ...(output !== undefined ? { outputTokens: output } : {}),
       ...(reasoning !== undefined ? { reasoningTokens: reasoning } : {}), ...(cacheRead !== undefined ? { cacheReadTokens: cacheRead } : {}),
       ...(cacheWrite !== undefined ? { cacheWriteTokens: cacheWrite } : {}), ...(apiCalls !== undefined ? { apiCalls } : {}),
-      ...(total !== undefined ? { totalTokens: total } : {}), ...(unattributed !== undefined ? { unattributedTokens: unattributed } : {}),
-      ...(cost !== undefined ? { estimatedCostUsd: cost } : {}), ...(costStatus ? { costStatus } : {}), ...(costSource ? { costSource } : {}), accountingMode,
+      ...(total !== undefined ? { totalTokens: total } : {}),
+      ...(normalizedInput !== undefined ? { normalizedInputTokens: normalizedInput } : {}),
+      ...(normalizedOutput !== undefined ? { normalizedOutputTokens: normalizedOutput } : {}),
+      ...(normalizedTotal !== undefined ? { normalizedTotalTokens: normalizedTotal } : {}),
+      ...(unattributed !== undefined ? { unattributedTokens: unattributed } : {}),
+      ...(cost !== undefined ? { estimatedCostUsd: cost } : {}), ...(costStatus ? { costStatus } : {}), ...(costSource ? { costSource } : {}),
+      reportedAccountingMode, accountingMode, accountingProof,
     };
   });
 }
@@ -98,10 +132,11 @@ function median(values) { if (!values.length) return null; const s = [...values]
 
 export function aggregateAgent(agent, scenarios) {
   const full = scenarios.filter((row) => row.fullSuccess), task = scenarios.filter((row) => row.taskSuccess), policy = scenarios.filter((row) => row.policyCompliant);
-  const usageRows = scenarios.filter((row) => row.usage?.totalTokens !== undefined);
+  const usageRows = scenarios.filter((row) => row.usage?.normalizedTotalTokens !== undefined);
   const costRows = scenarios.filter((row) => row.usage?.estimatedCostUsd !== undefined);
   const toolRows = scenarios.filter((row) => row.toolTelemetry?.count !== undefined);
   const accountingModes = new Set(scenarios.map((row) => row.usage?.accountingMode).filter(Boolean));
+  const accountingProofs = new Set(scenarios.map((row) => row.usage?.accountingProof).filter((value) => value && value !== "none"));
   const costStatuses = new Set(scenarios.map((row) => row.usage?.costStatus).filter(Boolean));
   const costSources = new Set(scenarios.map((row) => row.usage?.costSource).filter(Boolean));
   const evidenced = scenarios.filter((row) => row.modelEvidence?.modelFamily);
@@ -114,7 +149,7 @@ export function aggregateAgent(agent, scenarios) {
     consistent: families.size === 1 && providers.size <= 1,
   } : null;
   const tokenCoveragePct = pct(usageRows.length, scenarios.length), costCoveragePct = pct(costRows.length, scenarios.length);
-  const totalReportedTokens = usageRows.reduce((sum, row) => sum + row.usage.totalTokens, 0);
+  const totalReportedTokens = usageRows.reduce((sum, row) => sum + row.usage.normalizedTotalTokens, 0);
   const totalReportedCostUsd = costRows.reduce((sum, row) => sum + row.usage.estimatedCostUsd, 0);
   return {
     agent, attempted: scenarios.length, taskSuccesses: task.length, policyCompliant: policy.length, fullSuccesses: full.length,
@@ -123,12 +158,13 @@ export function aggregateAgent(agent, scenarios) {
     tokenCoveragePct, costCoveragePct,
     totalReportedTokens: usageRows.length ? totalReportedTokens : null,
     totalReportedCostUsd: costRows.length ? Math.round(totalReportedCostUsd * 1e9) / 1e9 : null,
-    reportedTokensPerAttempt: usageRows.length ? average(usageRows.map((row) => row.usage.totalTokens)) : null,
+    reportedTokensPerAttempt: usageRows.length ? average(usageRows.map((row) => row.usage.normalizedTotalTokens)) : null,
     reportedCostPerAttemptUsd: costRows.length ? average(costRows.map((row) => row.usage.estimatedCostUsd), 6) : null,
     toolTelemetryCoveragePct: pct(toolRows.length, scenarios.length),
     averageToolCallsPerTask: toolRows.length ? average(toolRows.map((row) => row.toolTelemetry.count)) : null,
     failedToolCalls: toolRows.reduce((sum, row) => sum + (row.toolTelemetry.failed || 0), 0),
     tokenAccountingMode: accountingModes.size === 1 ? [...accountingModes][0] : accountingModes.size ? "mixed" : "unknown",
+    tokenAccountingProof: accountingProofs.size === 1 ? [...accountingProofs][0] : accountingProofs.size ? "mixed" : "unknown",
     costStatus: costStatuses.size === 1 ? [...costStatuses][0] : costStatuses.size ? "mixed" : "unknown",
     costSource: costSources.size === 1 ? [...costSources][0] : costSources.size ? "mixed" : "unknown",
     modelEvidenceCoveragePct: pct(evidenced.length, scenarios.length),
@@ -144,5 +180,5 @@ export function eligibleRanking(aggregates, comparability, expectedScenarios = n
   if (aggregates.length < 2 || aggregates.some((row) => row.attempted < 1)) return { eligible: false, reason: "every compared agent must produce corpus results" };
   if (expectedScenarios != null && aggregates.some((row) => row.attempted !== expectedScenarios)) return { eligible: false, reason: "every compared agent must cover the same complete corpus" };
   const ordered = [...aggregates].sort((a, b) => b.fullSuccessPct - a.fullSuccessPct || b.policyCompliancePct - a.policyCompliancePct || (a.p50LatencyMs ?? Infinity) - (b.p50LatencyMs ?? Infinity) || (a.averageLatencyMs ?? Infinity) - (b.averageLatencyMs ?? Infinity));
-  return { eligible: true, order: ordered.map((row) => row.agent), note: "Order prioritizes task success, then policy compliance, then p50/average latency as a descriptive tie-breaker. Token/cost efficiency is reported separately until usage semantics are explicitly proven comparable." };
+  return { eligible: true, order: ordered.map((row) => row.agent), note: "Order prioritizes task success, then policy compliance, then p50/average latency as a descriptive tie-breaker. Efficiency stays a separate metric; token/cost values are comparable only when their independent accounting gates pass." };
 }

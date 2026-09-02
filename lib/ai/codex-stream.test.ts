@@ -188,6 +188,19 @@ describe("reading calls back", () => {
     expect(ev).toContainEqual(["tool_use", { id: "c1", name: "fs.list", input: {} }]);
   });
 
+  it("preserves Responses cache/reasoning usage details with explicit inclusive semantics", async () => {
+    capture(sse({ type: "response.completed", response: { output: [], usage: {
+      input_tokens: 100, input_tokens_details: { cached_tokens: 60, cache_write_tokens: 5 },
+      output_tokens: 20, output_tokens_details: { reasoning_tokens: 7 }, total_tokens: 120,
+    } } }));
+    const ev = await run();
+    expect(ev.at(-1)).toEqual(["done", { stopReason: "end_turn", usage: {
+      accountingMode: "inclusive-input-output-total", apiCalls: 1, inputTokens: 100, outputTokens: 20, totalTokens: 120,
+      cacheReadTokens: 60, cacheWriteTokens: 5, reasoningTokens: 7,
+      detailCoverage: { cacheReadTokens: 1, cacheWriteTokens: 1, reasoningTokens: 1 },
+    } }]);
+  });
+
   it("still streams plain text with no tools declared", async () => {
     capture(sse({ type: "response.output_text.delta", delta: "hello" }));
     const ev = await run();

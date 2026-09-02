@@ -23,7 +23,7 @@ async function runOneShot(opts) {
     state: s, agentSession, history: Array.isArray(agentSession.history) ? agentSession.history : [],
     pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
     titleOverride: requested ? (agentSession.title || null) : null,
-    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastRouting: null, lastElapsedMs: 0, statusBar: false,
+    usage: { apiCalls: 0 }, lastRouting: null, lastElapsedMs: 0, statusBar: false,
     permission: "ask", pendingApproval: null,
   };
   session.history.push({ role: "user", text: opts.prompt });
@@ -65,7 +65,7 @@ async function main() {
     history: Array.isArray(agentSession.history) ? agentSession.history : [],
     pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
     titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
-    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastRouting: null, lastElapsedMs: 0,
+    usage: { apiCalls: 0 }, lastRouting: null, lastElapsedMs: 0,
     statusBar: restartUi.statusBar ?? true, permission: forcedPermission, pendingApproval: null,
   };
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C }); syncPromptHistory(rl, session);

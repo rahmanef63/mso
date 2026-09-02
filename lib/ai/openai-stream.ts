@@ -1,3 +1,4 @@
+import { chatCompletionsProviderUsage } from "./provider-usage.mjs";
 // OpenAI-protocol streaming adapter for /api/assistant. Every provider in the
 // @rahmanef/models registry except Anthropic speaks the OpenAI Chat Completions
 // wire (POST {baseUrl}/chat/completions, `data: {choices:[{delta}]}` SSE lines
@@ -23,7 +24,10 @@ type OaOutMsg = {
 };
 
 type OaChunk = {
-  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  usage?: {
+    prompt_tokens?: number; prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+    completion_tokens?: number; completion_tokens_details?: { reasoning_tokens?: number }; total_tokens?: number;
+  };
   choices?: Array<{
     delta?: {
       content?: string | null;
@@ -110,7 +114,7 @@ export async function streamOpenAI(opts: {
   // tool_call fragments arrive split across chunks; accumulate by index.
   const calls = new Map<number, { id: string; name: string; args: string }>();
   let finish: string | null = null;
-  let usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null = null;
+  let usage: ReturnType<typeof chatCompletionsProviderUsage> = null;
 
   reading: while (true) {
     if (signal.aborted) { await reader.cancel().catch(() => {}); return; }
@@ -127,13 +131,7 @@ export async function streamOpenAI(opts: {
       if (data === "[DONE]") break reading;
       let chunk: OaChunk;
       try { chunk = JSON.parse(data) as OaChunk; } catch { continue; }
-      if (chunk.usage) {
-        usage = {
-          inputTokens: chunk.usage.prompt_tokens,
-          outputTokens: chunk.usage.completion_tokens,
-          totalTokens: chunk.usage.total_tokens,
-        };
-      }
+      if (chunk.usage) usage = chatCompletionsProviderUsage(chunk.usage);
       const choice = chunk.choices?.[0];
       if (!choice) continue;
       if (choice.delta?.content) emit("delta", choice.delta.content);

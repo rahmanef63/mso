@@ -1,6 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 import { projectHistoryForModel } from "./mso-agent-context.mjs";
+import { addProviderUsage } from "../lib/ai/provider-usage.mjs";
 
 function compactNumber(value) {
   const n = Number(value || 0);
@@ -34,18 +35,7 @@ export function contextStatus(history, modelMeta) {
   };
 }
 
-export function addUsage(total, next) {
-  const base = total || { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-  if (!next || typeof next !== "object") return base;
-  const input = Number(next.inputTokens ?? next.input_tokens ?? 0) || 0;
-  const output = Number(next.outputTokens ?? next.output_tokens ?? 0) || 0;
-  const explicit = Number(next.totalTokens ?? next.total_tokens ?? 0) || 0;
-  return {
-    inputTokens: base.inputTokens + input,
-    outputTokens: base.outputTokens + output,
-    totalTokens: base.totalTokens + (explicit || input + output),
-  };
-}
+export function addUsage(total, next) { return addProviderUsage(total, next); }
 
 
 function compactLabel(value, max = 28) {
@@ -84,7 +74,8 @@ export function statusParts(session, cwd = process.cwd()) {
     skill ? `skill ${skill.state === "invoked" ? "✓" : "◆"} /${skill.name}${skill.state === "queued" ? " queued" : skill.state === "invoking" ? " invoking" : ""}` : null,
     ctx.limit ? `ctx ~${compactNumber(ctx.used)}/${compactNumber(ctx.limit)} ${ctx.percent}%` : `ctx ~${compactNumber(ctx.used)}/?`,
     session?.agentSession?.compactThresholdTokens ? `session ~${compactNumber(session.agentSession.estimatedTokens)}/${compactNumber(session.agentSession.compactThresholdTokens)}` : null,
-    usage.totalTokens > 0 ? `tokens ${compactNumber(usage.totalTokens)}` : null,
+    (usage.totalTokens ?? 0) > 0 ? `tokens ${compactNumber(usage.totalTokens)}`
+      : ((usage.inputTokens ?? 0) > 0 || (usage.outputTokens ?? 0) > 0) ? `tokens ${compactNumber(usage.inputTokens)}in/${compactNumber(usage.outputTokens)}out` : null,
     routing?.activeTools != null ? `route ${routing.routeIds?.join("+") || (routing.fallbackUsed ? "fallback" : "direct")} · tools ${routing.activeTools}/${routing.fullTools}` : null,
     `turns ${turns}`,
     elapsed > 0 ? `${(elapsed / 1000).toFixed(elapsed >= 10_000 ? 0 : 1)}s` : null,
@@ -98,7 +89,7 @@ export function statusParts(session, cwd = process.cwd()) {
 function detailedStatus(session, cwd = process.cwd()) {
   const cfg = session?.state?.config || {};
   const ctx = contextStatus(session?.history, session?.state?.modelMeta);
-  const usage = session?.usage || { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+  const usage = session?.usage || { apiCalls: 0 };
   const providerMeta = (cfg.providers || []).find((row) => row.id === cfg.provider);
   return {
     provider: cfg.provider || null,
@@ -132,8 +123,18 @@ export function printDetailedStatus(session, C, cwd = process.cwd()) {
   console.log(`  auth       ${row.providerAuth}`);
   console.log(`  context    ~${row.contextEstimatedTokens}${row.contextWindow ? ` / ${row.contextWindow} (${row.contextPercent}%)` : " / ?"}${row.contextOmittedRows ? ` · ${row.contextOmittedRows} older rows projected out` : ""}`);
   if (row.sessionCompactThresholdTokens) console.log(`  session    ~${row.sessionEstimatedTokens} / ${row.sessionCompactThresholdTokens} stored · lifetime ~${row.sessionLifetimeEstimatedTokens} · ${row.sessionCompactionCount} compactions · ${row.sessionArchiveCount} archives`);
-  if (row.providerReportedUsage.totalTokens > 0) {
-    console.log(`  tokens     ${row.providerReportedUsage.totalTokens} total · ${row.providerReportedUsage.inputTokens} in · ${row.providerReportedUsage.outputTokens} out`);
+  if ((row.providerReportedUsage.totalTokens ?? 0) > 0 || (row.providerReportedUsage.inputTokens ?? 0) > 0 || (row.providerReportedUsage.outputTokens ?? 0) > 0) {
+    const u = row.providerReportedUsage;
+    const parts = [
+      u.totalTokens != null ? `${u.totalTokens} total` : null,
+      u.inputTokens != null ? `${u.inputTokens} in` : null,
+      u.outputTokens != null ? `${u.outputTokens} out` : null,
+      u.cacheReadTokens != null ? `${u.cacheReadTokens} cache-read` : null,
+      u.cacheWriteTokens != null ? `${u.cacheWriteTokens} cache-write` : null,
+      u.reasoningTokens != null ? `${u.reasoningTokens} reasoning` : null,
+      u.accountingMode ? `mode ${u.accountingMode}` : null,
+    ].filter(Boolean);
+    console.log(`  tokens     ${parts.join(" · ")}`);
   } else console.log("  tokens     provider has not reported usage in this process; context remains estimated");
   if (row.skill) console.log(`  skill      ${row.skill.state} /${row.skill.name}`);
   console.log(`  permission ${row.permission}`);

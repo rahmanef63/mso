@@ -12,13 +12,13 @@ describe("MSO Agent dynamic status", () => {
 
   it("accumulates provider-reported usage without losing fallback status", () => {
     const usage = addUsage(addUsage(null, { inputTokens: 10, outputTokens: 4 }), { input_tokens: 6, output_tokens: 2 });
-    expect(usage).toEqual({ inputTokens: 16, outputTokens: 6, totalTokens: 22 });
+    expect(usage).toEqual({ apiCalls: 2, inputTokens: 16, outputTokens: 6 });
     const parts = statusParts({
       state: { config: { provider: "openai-codex", model: "gpt-5.6-sol" }, modelMeta: { context: 128000 } },
       history: [{ role: "user", text: "hello" }], usage, agentSession: { id: "20260901_120000_deadbeef" },
     }, "/tmp");
     expect(parts.join(" ")).toContain("openai-codex/gpt-5.6-sol");
-    expect(parts.join(" ")).toContain("tokens 22");
+    expect(parts.join(" ")).toContain("tokens 16in/6out");
   });
 
   it("shows whether a skill is queued or really invoked", () => {

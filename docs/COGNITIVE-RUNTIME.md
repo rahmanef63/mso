@@ -201,7 +201,7 @@ Comparability is fail-closed: every attempted scenario must report matching mode
 
 ### Token/cost accounting is deliberately separate
 
-The reported token totals are **not used to rank the agents**. MSO currently reports provider `input/output/total` usage (`input-output-total` accounting), while Hermes' one-shot report exposes expanded input/output/cache/reasoning components (`expanded-components`). P4 therefore records `tokenSemanticsComparable=false` even though both have 100% token coverage. Failed attempts, when present, are charged into tokens/cost-per-success instead of disappearing from the denominator; partial coverage leaves per-success efficiency unknown. Cost comparison is also withheld: MSO reports no comparable cost field, while the local Hermes report marks cost as included with source `none`; an ambiguous generic `cost` is not assumed to be USD unless currency is explicit. Missing or semantically incompatible accounting remains **unknown/non-comparable**, never zero-efficiency evidence.
+P4 deliberately withheld token ranking because MSO exposed only aggregate `input/output/total` while Hermes exposed cache/reasoning components with a different representation. P5 resolves that observability gap below without rewriting historical P4 results. Failed attempts, when present, are still charged into token/cost-per-success instead of disappearing from the denominator; partial/opaque accounting remains unknown. Cost comparison remains withheld unless both runners expose the same attributable USD semantics.
 
 ### P4 found and fixed a real RASMIC inefficiency
 
@@ -211,15 +211,47 @@ The final `multi-read` scenario uses exactly one `read_pipeline` call. Recovery 
 
 ### OpenClaw status
 
-OpenClaw remains installed and testable, but the current host does not expose an equivalent usable `openai-codex/gpt-5.6-terra` path for its main agent. P4 **does not change competitor credentials/configuration just to manufacture comparability**, and it therefore emits no OpenClaw quality ranking yet.
+OpenClaw remains installed and testable, but the current host does not expose an equivalent usable `openai-codex/gpt-5.6-terra` path for its main agent. P4/P5 **do not change competitor credentials/configuration just to manufacture comparability**, and they therefore emit no OpenClaw quality ranking yet.
 
-## P4 next direction
+## P5 normalized provider-usage semantics
+
+P5 makes token accounting auditable without adding prompt context or inventing missing values. A provider-neutral usage envelope now preserves the provider's raw categories plus an explicit accounting mode:
+
+- OpenAI Responses / Codex and compatible Chat Completions: `inputTokens`, `outputTokens`, authoritative `totalTokens`, optional `cacheReadTokens`, `cacheWriteTokens`, and `reasoningTokens`, with `accountingMode=inclusive-input-output-total`. Cache/reasoning are details already included in the input/output categories; they are **not added again**.
+- Anthropic: input/output plus optional cache-read/cache-creation categories with `accountingMode=separate-cache-input-output`; absent fields remain absent. A benchmark-only canonical total may be derived from this explicit component contract, while the raw provider total remains unknown if Anthropic did not report one.
+- Agent session aggregation tracks `apiCalls`, accounting mode, and detail coverage. A new session starts at `{apiCalls:0}` instead of fake zero token totals, so an unknown provider field cannot silently become `0`.
+
+The benchmark converts representations to canonical `inclusive-input-output-total` only with proof. `accountingProof` records why the conversion is allowed. In the isolated candidate corpus:
+
+- MSO: `explicit-inclusive-contract` from the actual Codex `response.completed.usage` payload, including provider-reported cache/reasoning details.
+- Hermes: `exact-exclusive-cache-sum`; on every corpus scenario, arithmetic proves `total = base input + cache-read/cache-write + output`, while `reasoning` is already a subset of output. If that identity does not hold, the row stays `opaque-total`.
+- Two equally opaque totals are **not** considered comparable merely because their labels match. Token comparability additionally requires 100% coverage, canonical recognized mode, and non-unknown proof for every agent.
+
+A full six-scenario candidate run on the same `openai-codex/gpt-5.6-terra` provider/model preserved the quality result while making token totals comparable:
+
+| P5 metric | MSO | Hermes |
+|---|---:|---:|
+| Task success | **6/6 (100%)** | **6/6 (100%)** |
+| Scenario-observable policy compliance | **6/6 (100%)** | **6/6 (100%)** |
+| Average latency | **11,497.7 ms** | 16,199.3 ms |
+| p50 latency | **11,782 ms** | 16,184.5 ms |
+| Normalized token coverage | **100%** | **100%** |
+| Normalized tokens / successful task | **3,510.8** | 59,743.2 |
+| Accounting proof | explicit inclusive contract | exact exclusive-cache sum |
+| Cost semantics comparable | no | no |
+
+On this bounded corpus, MSO uses about **94.1% fewer normalized tokens per successful task (~17× smaller)**, with **29.0% lower average latency** and **27.2% lower p50 latency** in this run. This is a corpus result, not a universal product/model claim; quality ranking still prioritizes task success and scenario-policy, with latency only as its descriptive tie-breaker. Token efficiency is reported as a separate now-comparable metric and still does not override correctness/policy. Cost remains withheld because MSO has no comparable cost field and Hermes reports included cost with source `none`.
+
+The candidate run also preserves the structural P3/P4 behaviors: `multi-read` uses one `read_pipeline`, security uses one `fs_read`, and recovery's one failed primary read remains expected task evidence.
+
+## P5 next direction
 
 1. **Broaden the corpus before broad claims** — add repository debugging, longer multi-step work, approval/retry/rollback, and realistic MCP project tasks while keeping objective state-based scoring.
-2. **Normalize provider usage semantics** — expose cache/reasoning usage consistently from MSO (where the provider supplies it) before allowing token/cost efficiency to influence ranking.
-3. **Add OpenClaw only when comparable** — run the same corpus when an equivalent provider/model is legitimately configured, without mutating credentials as part of the benchmark.
-4. **Use benchmark failures as engineering inputs** — keep the P4 pattern: locate an unnecessary route/tool/retry, fix the harness/runtime rather than prompting harder, then rerun the exact seeded scenario.
-5. **Memory calibration** — grow post-P1 telemetry and test authority/confidence/temporal policies against real corrections before introducing graph-memory complexity.
+2. **Calibrate cache behavior** — add repeated-prefix fixtures that can observe real provider cache hits without forcing them; keep zero/absent cache fields distinct and never assume a hit.
+3. **Normalize cost only with attribution** — compare cost only when every runner exposes the same usable USD source/contract; `0` with source `none` is not evidence of free execution.
+4. **Add OpenClaw only when comparable** — run the same corpus when an equivalent provider/model is legitimately configured, without mutating credentials as part of the benchmark.
+5. **Use benchmark failures as engineering inputs** — keep the P4/P5 pattern: locate an unnecessary route/tool/retry/accounting ambiguity, fix the harness/runtime rather than prompting harder, then rerun the exact seeded scenario.
+6. **Memory calibration** — grow post-P1 telemetry and test authority/confidence/temporal policies against real corrections before introducing graph-memory complexity.
 
 ## Security notes
 

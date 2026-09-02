@@ -2,6 +2,14 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-03 — Cognitive Runtime P5 normalized provider usage
+
+- **Provider usage SSOT:** Codex/OpenAI now preserve authoritative input/output/total plus provider-reported cache-read/cache-write/reasoning details and explicit `inclusive-input-output-total` semantics; Anthropic keeps its separate cache categories and leaves absent fields absent. Agent sessions start with `apiCalls:0`, so unknown totals are never seeded as fake zero.
+- **No double counting:** cache/reasoning details remain breakdowns when the provider contract says they are included. Session aggregation records API-call/detail coverage and mixed semantics rather than summing a component into total twice. Compact status can show in/out even when a provider does not report total.
+- **Proof-gated benchmark normalization:** P5 adds `accountingProof`. MSO Codex uses `explicit-inclusive-contract`; Hermes openai-codex is normalized only when exact arithmetic proves cache is outside base input while reasoning is inside output (`exact-exclusive-cache-sum`). Ambiguous rows stay `opaque-total`, and even two opaque rows cannot enable token comparison.
+- **Comparable full-corpus result:** candidate P5 reran all six P4 scenarios on `openai-codex/gpt-5.6-terra`; both agents remained **6/6 task + 6/6 scenario-policy**. MSO measured **11,497.7 ms average / 11,782 ms p50 / 3,510.8 normalized tokens per success** versus Hermes **16,199.3 ms / 16,184.5 ms / 59,743.2 tokens**. On this bounded corpus that is ~**94.1% fewer normalized tokens (~17× smaller)**, ~**29.0% lower average latency**, and ~**27.2% lower p50**. Token semantics are now comparable; cost semantics remain withheld.
+- **Honest limits:** no cache hit was manufactured for MSO; zero cache values in the observed Codex calls came from the provider payload. Cost remains non-comparable because MSO exposes no matching cost field and Hermes reports source `none`. OpenClaw remains unranked without an equivalent configured provider/model.
+
 ## 2026-09-03 — Cognitive Runtime P4 comparable quality corpus
 
 - **Six objective scratch scenarios:** added seeded per-agent read, multi-read transform, exact write-create, write-preserve, recovery, and prompt-injection/security tasks. Each agent gets the same seeded semantic values/expected outcomes in a separate 0700 scratch tree; scoring compares the exact scenario filesystem tree/result state and rejects unexpected extra files/symlinks. Fixtures are isolated, but runners retain normal authority (`runnerAuthoritySandboxed=false`) and `policyObservationScope=scenario-tree` prevents whole-host policy claims; all scratch state is deleted after the run.

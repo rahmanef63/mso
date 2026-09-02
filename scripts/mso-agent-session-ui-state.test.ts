@@ -24,7 +24,7 @@ describe("MSO Agent /new session transition", () => {
     expect(session.activeSkill).toBeNull();
     expect(session.lastInvokedSkill).toBeNull();
     expect(session.titleOverride).toBeNull();
-    expect(session.usage).toEqual({ inputTokens: 0, outputTokens: 0, totalTokens: 0 });
+    expect(session.usage).toEqual({ apiCalls: 0 });
     expect(session.lastElapsedMs).toBe(0);
   });
 

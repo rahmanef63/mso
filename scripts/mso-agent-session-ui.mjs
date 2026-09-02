@@ -44,7 +44,7 @@ export function applyNewSessionState(session, loaded, requestedTitle = "") {
     activeSkill: null,
     lastInvokedSkill: null,
     titleOverride: requestedTitle ? (loaded.title || requestedTitle) : null,
-    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    usage: { apiCalls: 0 },
     lastElapsedMs: 0,
     pendingApproval: null,
   });
@@ -72,7 +72,7 @@ export async function resumeInto(rl, session, query) {
     activeSkill: null,
     lastInvokedSkill: null,
     titleOverride: loaded.title || null,
-    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    usage: { apiCalls: 0 },
     lastElapsedMs: 0,
     pendingApproval: null,
   });

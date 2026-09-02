@@ -50,6 +50,17 @@ describe("streamOpenAI", () => {
     expect(done.stopReason).toBe("tool_use"); // tool_calls → tool_use so the agent loop continues
   });
 
+  it("preserves Chat Completions cache/reasoning usage details without adding them to total", async () => {
+    const pieces = [`data: ${JSON.stringify({ usage: { prompt_tokens: 30, prompt_tokens_details: { cached_tokens: 20 }, completion_tokens: 6, completion_tokens_details: { reasoning_tokens: 4 }, total_tokens: 36 }, choices: [{ delta: {}, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(sseStream(pieces), { status: 200 })));
+    const events: { e: string; d: unknown }[] = [];
+    await streamOpenAI({ resolved, messages: [{ role: "user", text: "hi" }], system: "sys", signal: new AbortController().signal, emit: (e, d) => events.push({ e, d }) });
+    expect(events.find((x) => x.e === "done")?.d).toEqual({ stopReason: "end_turn", usage: {
+      accountingMode: "inclusive-input-output-total", apiCalls: 1, inputTokens: 30, outputTokens: 6, totalTokens: 36, cacheReadTokens: 20, reasoningTokens: 4,
+      detailCoverage: { cacheReadTokens: 1, reasoningTokens: 1 },
+    } });
+  });
+
   it("throws provider+status on a non-ok response", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 401 })));
     await expect(

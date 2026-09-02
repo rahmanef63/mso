@@ -1,6 +1,7 @@
 import type { OAuthBundle } from "@/lib/config/store";
 import { CODEX } from "./oauth/codex";
 import type { OaMsg, OaTool } from "./openai-stream";
+import { responsesProviderUsage } from "./provider-usage.mjs";
 
 // Stream a chat via the ChatGPT "Codex" backend Responses API. Unlike the OpenAI
 // platform (/chat/completions), this is the consumer backend: the OAuth bearer +
@@ -159,7 +160,7 @@ export async function streamCodex(opts: {
   const dec = new TextDecoder();
   let buf = "";
   let sawToolCall = false;
-  let usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | null = null;
+  let usage: ReturnType<typeof responsesProviderUsage> = null;
   const seen = new Set<string>();
 
   while (true) {
@@ -179,7 +180,10 @@ export async function streamCodex(opts: {
       if (!data || data === "[DONE]") continue;
       let ev: {
         type?: string; delta?: string; item?: ResponsesItem;
-        response?: { output?: ResponsesItem[]; usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number } };
+        response?: { output?: ResponsesItem[]; usage?: {
+          input_tokens?: number; input_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+          output_tokens?: number; output_tokens_details?: { reasoning_tokens?: number }; total_tokens?: number;
+        } };
       };
       try {
         ev = JSON.parse(data);
@@ -196,13 +200,7 @@ export async function streamCodex(opts: {
       if (ev.type === "response.output_item.done" && ev.item) {
         if (emitCall(ev.item, seen, realName, emit)) sawToolCall = true;
       } else if (ev.type === "response.completed") {
-        if (ev.response?.usage) {
-          usage = {
-            inputTokens: ev.response.usage.input_tokens,
-            outputTokens: ev.response.usage.output_tokens,
-            totalTokens: ev.response.usage.total_tokens,
-          };
-        }
+        if (ev.response?.usage) usage = responsesProviderUsage(ev.response.usage);
         for (const item of ev.response?.output ?? []) {
           if (emitCall(item, seen, realName, emit)) sawToolCall = true;
         }

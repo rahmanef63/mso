@@ -31,8 +31,9 @@ describe("P4 agent-quality corpus", () => {
 
   it("keeps missing usage and cost unknown rather than converting null to zero", () => {
     expect(extractUsage({ usage: { input_tokens: null, output_tokens: null, cost_usd: null } })).toBeNull();
-    expect(extractUsage({ usage: { input_tokens: 10, output_tokens: 5 } })).toEqual({ inputTokens: 10, outputTokens: 5, totalTokens: 15, unattributedTokens: 0, accountingMode: "input-output-total" });
-    expect(extractUsage({ input_tokens: 10, output_tokens: 5, reasoning_tokens: 7, total_tokens: 22, cache_read_tokens: 3, cost_status: "estimated", cost_source: "catalog" })).toMatchObject({ reasoningTokens: 7, cacheReadTokens: 3, unattributedTokens: 7, accountingMode: "expanded-components", costStatus: "estimated", costSource: "catalog" });
+    expect(extractUsage({ usage: { input_tokens: 10, output_tokens: 5 } })).toMatchObject({ inputTokens: 10, outputTokens: 5, reportedAccountingMode: "unspecified", accountingMode: "opaque-total", accountingProof: "none" });
+    expect(extractUsage({ usage: { input_tokens: 10, output_tokens: 5 } })?.totalTokens).toBeUndefined();
+    expect(extractUsage({ input_tokens: 10, output_tokens: 5, reasoning_tokens: 7, total_tokens: 22, cache_read_tokens: 3, cost_status: "estimated", cost_source: "catalog" })).toMatchObject({ reasoningTokens: 7, cacheReadTokens: 3, accountingMode: "opaque-total", costStatus: "estimated", costSource: "catalog" });
   });
 
   it("extracts model/provider evidence but withholds full comparability when provider differs", () => {
@@ -57,7 +58,7 @@ describe("P4 agent-quality corpus", () => {
 
   it("aggregates token/cost only from rows that actually report them", () => {
     const rows = [
-      { fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 10, usage: { totalTokens: 100, estimatedCostUsd: 0.01 }, modelEvidence: { model: "p/x", modelFamily: "x", provider: "p" } },
+      { fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 10, usage: { totalTokens: 100, normalizedTotalTokens: 100, accountingMode: "inclusive-input-output-total", estimatedCostUsd: 0.01 }, modelEvidence: { model: "p/x", modelFamily: "x", provider: "p" } },
       { fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 20, usage: null, modelEvidence: { model: "p/x", modelFamily: "x", provider: "p" } },
     ];
     const out = aggregateAgent("mso", rows);
@@ -97,8 +98,8 @@ describe("P4 agent-quality corpus", () => {
 
   it("charges failed-attempt tokens into tokens-per-success when coverage is complete", () => {
     const rows = [
-      { fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 10, usage: { totalTokens: 100, accountingMode: "input-output-total" }, modelEvidence: { model: "p/x", modelFamily: "x", provider: "p" } },
-      { fullSuccess: false, taskSuccess: false, policyCompliant: true, latencyMs: 20, usage: { totalTokens: 300, accountingMode: "input-output-total" }, modelEvidence: { model: "p/x", modelFamily: "x", provider: "p" } },
+      { fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 10, usage: { totalTokens: 100, normalizedTotalTokens: 100, accountingMode: "inclusive-input-output-total" }, modelEvidence: { model: "p/x", modelFamily: "x", provider: "p" } },
+      { fullSuccess: false, taskSuccess: false, policyCompliant: true, latencyMs: 20, usage: { totalTokens: 300, normalizedTotalTokens: 300, accountingMode: "inclusive-input-output-total" }, modelEvidence: { model: "p/x", modelFamily: "x", provider: "p" } },
     ];
     const out = aggregateAgent("mso", rows);
     expect(out.tokenCoveragePct).toBe(100); expect(out.totalReportedTokens).toBe(400); expect(out.tokensPerSuccessfulTask).toBe(400);
@@ -147,14 +148,41 @@ describe("P4 agent-quality corpus", () => {
     expect(out.status).toBe(0); expect(out.stdout).toContain("1 scenarios × 1 agents");
   });
 
-  it("keeps model/provider comparability separate from incompatible token accounting semantics", () => {
+  it("derives a canonical total for explicit separate-component semantics without inventing a raw provider total", () => {
+    const usage = extractUsage({ inputTokens: 10, outputTokens: 2, cacheReadTokens: 3, accountingMode: "separate-cache-input-output" })!;
+    expect(usage.totalTokens).toBeUndefined();
+    expect(usage).toMatchObject({ normalizedInputTokens: 13, normalizedOutputTokens: 2, normalizedTotalTokens: 15, accountingMode: "inclusive-input-output-total", accountingProof: "explicit-separate-components" });
+  });
+
+  it("normalizes exact Hermes-style exclusive components to the same canonical token semantics as MSO", () => {
+    const mso = extractUsage({ inputTokens: 100, outputTokens: 20, totalTokens: 120, cacheReadTokens: 60, reasoningTokens: 7, accountingMode: "inclusive-input-output-total" })!;
+    const hermes = extractUsage({ input_tokens: 40, cache_read_tokens: 60, cache_write_tokens: 0, output_tokens: 20, reasoning_tokens: 7, total_tokens: 120 })!;
+    expect(mso).toMatchObject({ accountingMode: "inclusive-input-output-total", accountingProof: "explicit-inclusive-contract", normalizedInputTokens: 100, normalizedOutputTokens: 20, normalizedTotalTokens: 120 });
+    expect(hermes).toMatchObject({ reportedAccountingMode: "exclusive-cache-inclusive-output", accountingMode: "inclusive-input-output-total", accountingProof: "exact-exclusive-cache-sum", normalizedInputTokens: 100, normalizedOutputTokens: 20, normalizedTotalTokens: 120 });
     const rows = [
-      { agent: "a", scenarioId: "x", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 10, usage: { totalTokens: 10, accountingMode: "input-output-total" }, modelEvidence: { modelFamily: "x", provider: "p" } },
-      { agent: "b", scenarioId: "x", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 12, usage: { totalTokens: 12, accountingMode: "expanded-components" }, modelEvidence: { modelFamily: "x", provider: "p" } },
+      { agent: "a", scenarioId: "x", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 10, usage: mso, modelEvidence: { modelFamily: "x", provider: "p" } },
+      { agent: "b", scenarioId: "x", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 12, usage: hermes, modelEvidence: { modelFamily: "x", provider: "p" } },
     ];
-    const out = summarizeCorpus(rows as any, { model: "x", provider: "p" });
-    expect(out.comparability.level).toBe("full");
-    expect(out.efficiencyComparability.tokenSemanticsComparable).toBe(false);
+    expect(summarizeCorpus(rows as any, { model: "x", provider: "p" }).efficiencyComparability.tokenSemanticsComparable).toBe(true);
+  });
+
+  it("can also normalize an exact representation where reasoning is outside output", () => {
+    const usage = extractUsage({ input_tokens: 40, cache_read_tokens: 60, output_tokens: 13, reasoning_tokens: 7, total_tokens: 120 })!;
+    expect(usage).toMatchObject({ reportedAccountingMode: "exclusive-cache-reasoning", accountingProof: "exact-exclusive-cache-reasoning-sum", normalizedInputTokens: 100, normalizedOutputTokens: 20, normalizedTotalTokens: 120 });
+  });
+
+  it("does not treat two equally opaque totals as comparable semantics", () => {
+    const opaque = extractUsage({ input_tokens: 10, output_tokens: 5, cache_read_tokens: 3, reasoning_tokens: 7, total_tokens: 22 })!;
+    const rows = [
+      { agent: "a", scenarioId: "x", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 10, usage: opaque, modelEvidence: { modelFamily: "x", provider: "p" } },
+      { agent: "b", scenarioId: "x", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 12, usage: opaque, modelEvidence: { modelFamily: "x", provider: "p" } },
+    ];
+    expect(summarizeCorpus(rows as any, { model: "x", provider: "p" }).efficiencyComparability.tokenSemanticsComparable).toBe(false);
+  });
+
+  it("withholds token comparability when expanded-component arithmetic does not prove the representation", () => {
+    const ambiguous = extractUsage({ input_tokens: 10, output_tokens: 5, cache_read_tokens: 3, reasoning_tokens: 7, total_tokens: 22 })!;
+    expect(ambiguous.accountingMode).toBe("opaque-total");
   });
 
 });
