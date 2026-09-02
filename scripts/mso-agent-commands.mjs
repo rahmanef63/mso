@@ -11,6 +11,7 @@ import {
   persistSession,
   renameCurrentSession,
   resumeInto,
+  startNewSession,
   resumePicker,
 } from "./mso-agent-session-ui.mjs";
 import { printDetailedStatus } from "./mso-agent-status.mjs";
@@ -63,6 +64,8 @@ async function selectSlashSkill(rl, session, requested, prompt, runTurn) {
 function printHelp() {
   console.log(
     [
+      "  /new [name]             create and switch to a fresh durable session",
+      "  /restart                soft-reload Agent runtime; keep this session",
       "  /session [query]        open picker or resume latest/index/id/title",
       "  /resume [query]         alias-style resume command; bare opens same picker",
       "  /title <name>           rename the durable session",
@@ -106,6 +109,12 @@ export async function handleSlash(rl, line, session, { runTurn }) {
     case "/help":
       printHelp();
       return "handled";
+    case "/new":
+      await startNewSession(rl, session, args.join(" "));
+      session.state = await state();
+      return "refresh";
+    case "/restart":
+      return "restart";
     case "/session":
     case "/sessions":
     case "/resume":

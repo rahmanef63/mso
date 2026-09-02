@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `agent` add restart and new session
 - `a2a` enable local and inbound defaults
 - ship authenticated and local A2A
 - `agent` add eval-gated tool forge

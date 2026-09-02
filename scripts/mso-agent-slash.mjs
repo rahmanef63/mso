@@ -18,6 +18,8 @@ export const BUILTIN_SLASH_ITEMS = [
     meta: "Select the active model from connected providers",
     kind: "command",
   },
+  { text: "/new", meta: "Create and switch to a fresh durable session", kind: "command" },
+  { text: "/restart", meta: "Soft-reload runtime, skills, tools, and updated CLI code", kind: "command" },
   { text: "/session", meta: "Open the recent-session picker", kind: "command" },
   {
     text: "/resume",

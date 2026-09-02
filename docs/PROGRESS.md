@@ -2,6 +2,13 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — MSO 1.8.1 Agent soft restart + new session
+
+- **`/restart`:** soft-reloads the interactive Agent process, not the MSO service/VPS. The current durable session is persisted, the composer closes cleanly, then the current CLI is relaunched with `--resume <same-session-id>`, so updated CLI modules plus the latest dynamic tool/skill/plugin catalog are loaded without abandoning conversation history.
+- **Process-local UX:** current permission mode and status-bar preference are forwarded only across this explicit soft restart and immediately consumed by the child; they are not persisted into durable session state or leaked to later child processes.
+- **`/new [name]`:** persists the current session, creates a fresh durable CLI session in the same terminal, clears conversation/queued-skill/usage state, and refreshes the capability catalog. An omitted name preserves normal first-prompt auto-title behavior.
+- **Verification:** lifecycle/session transition tests, slash/terminal contracts, permission/session regressions, TypeScript, targeted ESLint, and a real PTY soft-reload smoke test pass.
+
 ## 2026-09-02 — MSO 1.8.0 authenticated inbound A2A
 
 - **Shipped surface:** A2A v1 outbound credentials/streaming plus authenticated inbound Agent Card and JSON-RPC/SSE server, with owner Settings → A2A management for peers, credentials, tasks, and audit activity.

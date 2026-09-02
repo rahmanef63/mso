@@ -26,6 +26,32 @@ export async function renameCurrentSession(session, title) {
   return session.titleOverride;
 }
 
+
+export function applyNewSessionState(session, loaded, requestedTitle = "") {
+  Object.assign(session, {
+    agentSession: loaded,
+    history: Array.isArray(loaded.history) ? loaded.history : [],
+    pendingSkill: null,
+    activeSkill: null,
+    lastInvokedSkill: null,
+    titleOverride: requestedTitle ? (loaded.title || requestedTitle) : null,
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    lastElapsedMs: 0,
+  });
+  return session;
+}
+
+export async function startNewSession(rl, session, title = "") {
+  await persistSession(session);
+  const requestedTitle = String(title || "").replace(/[\r\n\t]+/g, " ").trim().slice(0, 120);
+  const loaded = await createCliSession(requestedTitle || undefined);
+  if (!loaded || loaded.source !== "cli") throw new Error("could not create a new CLI MSO Agent session");
+  applyNewSessionState(session, loaded, requestedTitle);
+  syncPromptHistory(rl, session);
+  console.log(`${C.c}new session ${loaded.title || "MSO Agent session"}${C.reset}`);
+  return true;
+}
+
 export async function resumeInto(rl, session, query) {
   const loaded = await resumeCliSession(query);
   if (!loaded || loaded.source !== "cli") throw new Error("could not create a CLI continuation session");

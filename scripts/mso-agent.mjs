@@ -9,7 +9,8 @@ import { addUsage, renderStatusBar } from "./mso-agent-status.mjs";
 import { persistSession, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
 import { C, api, printBanner, state, streamTurn } from "./mso-agent-runtime.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
-import { approvesTool, nextPermissionMode, permissionPrompt } from "./mso-agent-permissions.mjs";
+import { approvesTool, nextPermissionMode, permissionMode, permissionPrompt } from "./mso-agent-permissions.mjs";
+import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
 import { oneShotApproves, oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
 
 async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null, options = {}) {
@@ -147,7 +148,10 @@ async function main() {
     process.exit(2);
   }
   const requested = resumeArg(argv);
-  const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg)) ? "yolo" : "ask";
+  const restartUi = consumeRestartUiState();
+  const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg))
+    ? "yolo"
+    : (permissionMode(restartUi.permission)?.id || "ask");
   const [s, agentSession] = await Promise.all([
     state(),
     startupSession(requested),
@@ -164,7 +168,7 @@ async function main() {
     titleOverride: requested ? (agentSession.title || null) : null,
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     lastElapsedMs: 0,
-    statusBar: true,
+    statusBar: restartUi.statusBar ?? true,
     permission: forcedPermission,
   };
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C });
@@ -180,6 +184,7 @@ async function main() {
   };
   process.on("SIGINT", onSigint);
   const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd(), session);
+  let restartRequested = false;
   try {
     while (true) {
       if (interrupts.exitRequested) break;
@@ -199,6 +204,7 @@ async function main() {
         try {
           const result = await handleSlash(rl, line, session, { runTurn: (skill) => runInteractiveRound(rl, session, skill, interrupts) });
           if (result === "exit") break;
+          if (result === "restart") { restartRequested = true; break; }
           if (result === "unknown") console.log("unknown command; /help lists commands.");
         } catch (error) {
           console.error(`${C.err}${error instanceof Error ? error.message : String(error)}${C.reset}`);
@@ -216,8 +222,13 @@ async function main() {
     process.off("SIGINT", onSigint);
     await persistSession(session).catch(() => undefined);
     const sessionTitle = String(session.agentSession.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim().slice(0, 80);
-    console.log(`${C.dim}session ${sessionTitle} · resume: mso --continue · switch: /sessions${C.reset}`);
+    if (!restartRequested) console.log(`${C.dim}session ${sessionTitle} · resume: mso --continue · switch: /sessions${C.reset}`);
     rl.close();
+  }
+  if (restartRequested) {
+    console.log(`${C.dim}↻ refreshing Agent runtime · keeping ${session.agentSession.title || "current session"}${C.reset}`);
+    const code = relaunchCurrentAgentSession(session);
+    if (code !== 0) process.exitCode = code;
   }
 }
 

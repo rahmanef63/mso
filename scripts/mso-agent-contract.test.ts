@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const files = ["mso-agent.mjs", "mso-agent-runtime.mjs", "mso-agent-ui.mjs", "mso-agent-slash.mjs", "mso-agent-status.mjs", "mso-agent-sessions.mjs", "mso-agent-session-ui.mjs", "mso-agent-commands.mjs", "mso-agent-composer.mjs", "mso-agent-permissions.mjs"].map((name) => path.join(__dirname, name));
+const files = ["mso-agent.mjs", "mso-agent-runtime.mjs", "mso-agent-ui.mjs", "mso-agent-slash.mjs", "mso-agent-status.mjs", "mso-agent-sessions.mjs", "mso-agent-session-ui.mjs", "mso-agent-lifecycle.mjs", "mso-agent-commands.mjs", "mso-agent-composer.mjs", "mso-agent-permissions.mjs"].map((name) => path.join(__dirname, name));
 const src = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 
 describe("MSO terminal agent contract", () => {
@@ -30,7 +30,7 @@ describe("MSO terminal agent contract", () => {
     expect(src).toContain("MSO_TITLE_COLORS");
     for (const command of [
       "/models", "/model", "/status", "/context", "/statusbar", "/title",
-      "/session", "/resume", "/setup", "/providers", "/provider",
+      "/new", "/restart", "/session", "/resume", "/setup", "/providers", "/provider",
       "/doctor", "/tools", "/skills", "/skill", "/<skill>", "/clear", "/exit", "/quit",
     ]) expect(src).toContain(command);
     expect(src).toContain("Configure AI providers and authentication");
@@ -66,6 +66,9 @@ describe("MSO terminal agent contract", () => {
     expect(src).toContain("renameCliSession");
     expect(src).toContain('action: "rename"');
     expect(src).toContain("syncPromptHistory");
+    expect(src).toContain("startNewSession");
+    expect(src).toContain("relaunchAgentSession");
+    expect(src).toContain('["agent", "--resume", id]');
     expect(src).toContain("permissionCompletionItems");
     expect(src).toContain("approvesTool");
     expect(src).toContain("--yolo");
