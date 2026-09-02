@@ -1,4 +1,4 @@
-import { api } from "./mso-agent-runtime.mjs";
+import { api } from "./mso-agent-api.mjs";
 import { persistSession } from "./mso-agent-session-ui.mjs";
 import { sectionBlock } from "./mso-agent-layout.mjs";
 import { safeErrorSummary } from "./mso-agent-errors.mjs";

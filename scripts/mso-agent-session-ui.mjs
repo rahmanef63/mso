@@ -1,4 +1,5 @@
-import { C, createCliSession, listCliSessions, loadCliSession, renameCliSession, renameCliSessionName, resumeCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
+import { C } from "./mso-agent-runtime.mjs";
+import { createCliSession, listCliSessions, loadCliSession, renameCliSession, renameCliSessionName, resumeCliSession, saveCliSession } from "./mso-agent-api.mjs";
 import { sessionCompletionItems, sessionPromptHistory, visibleSessionRows } from "./mso-agent-sessions.mjs";
 
 function autoTitle(history) {

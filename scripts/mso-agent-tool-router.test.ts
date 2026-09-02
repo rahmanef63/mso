@@ -26,13 +26,48 @@ const catalog = [
 ];
 
 describe("MSO per-turn tool router", () => {
-  it("keeps core discovery while selecting the relevant bounded tools", () => {
+  it("uses the deterministic catalog without paying discovery-schema cost for a known intent", () => {
     const out = selectToolsForTurn(catalog, [{ role: "user", text: "why is hermes down? inspect its logs" }]);
-    expect(out.selectedNames).toContain("skills_search");
-    expect(out.selectedNames).toContain("apps_logs");
-    expect(out.selectedNames).toContain("apps_list");
-    expect(out.activeCount).toBeLessThan(catalog.length);
+    expect(out.selectedNames).toEqual(expect.arrayContaining(["apps_logs", "apps_list"]));
+    expect(out.selectedNames).not.toContain("skills_search");
+    expect(out.routeIds).toContain("managed-app-diagnostics");
+    expect(out.catalogMatched).toBe(true);
+    expect(out.fallbackUsed).toBe(false);
+    expect(out.activeCount).toBe(2);
     expect(out.softLimit).toBe(MAX_ACTIVE_TOOLS);
+  });
+
+  it("falls back to discovery only when the catalog cannot classify the request", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "do the unusual thing we discussed" }]);
+    expect(out.catalogMatched).toBe(false);
+    expect(out.fallbackUsed).toBe(true);
+    expect(out.selectedNames).toContain("skills_search");
+  });
+
+  it("uses only bounded continuation context instead of replaying long history into routing", () => {
+    const history = [
+      { role: "user", text: "why is hermes down? inspect its logs" },
+      { role: "assistant", text: "x".repeat(50_000) },
+      { role: "user", text: "continue" },
+    ];
+    const out = selectToolsForTurn(catalog, history);
+    expect(out.routeIds).toContain("managed-app-diagnostics");
+    expect(out.routingTextBytes).toBeLessThan(9_000);
+    expect(out.historyBudgetTokens).toBeLessThanOrEqual(20_000);
+  });
+
+  it("uses a phase-aware repo-change pack: bootstrap first, execution tools only after workflow_start", () => {
+    const initial = selectToolsForTurn(catalog, [{ role: "user", text: "implement this architecture change in the repository" }]);
+    expect(initial.routeIds).toContain("repo-change");
+    expect(initial.selectedNames).toContain("workflow_start");
+    expect(initial.selectedNames).not.toContain("fs_write");
+    const followup = selectToolsForTurn(catalog, [
+      { role: "user", text: "implement this architecture change in the repository" },
+      { role: "assistant", toolUses: [{ name: "workflow_start", input: {} }] },
+      { role: "tool", results: [{ content: "workflow ready" }] },
+    ]);
+    expect(followup.selectedNames).not.toContain("workflow_start");
+    expect(followup.selectedNames).toEqual(expect.arrayContaining(["workflow_finish", "workflow_cancel", "fs_read", "fs_write", "exec_run", "exec_job_start", "exec_job_status", "exec_job_cancel"]));
   });
 
   it("loads a tool explicitly named by a discovery result on the next turn", () => {

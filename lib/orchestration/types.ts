@@ -111,6 +111,35 @@ export type RepoMemorySearchHit = {
   ageDays: number;
 };
 
+export type RepoMemoryRelationType = "supersedes" | "superseded-by" | "conflicts-with" | "related";
+export type RepoMemoryRelation = {
+  type: RepoMemoryRelationType;
+  targetId: string;
+  targetKind: RepoMemoryKind;
+  title: string;
+  score: number;
+  reasons: string[];
+};
+
+export type RepoMemoryTimelineEvent = {
+  id: string;
+  kind: RepoMemoryKind;
+  status: RepoMemoryLifecycle;
+  source: RepoMemorySource;
+  result?: RepoMemoryResult;
+  title: string;
+  summary: string;
+  at: string;
+  commit?: string;
+  environment?: string;
+};
+
+export type RepoMemoryBundle = {
+  schemaVersion: 1;
+  exportedAt: string;
+  records: RepoMemoryRecord[];
+};
+
 export type AutomationStage = "observed" | "candidate" | "verified";
 export type AutomationAssessment = {
   stage: AutomationStage;

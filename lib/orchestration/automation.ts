@@ -110,3 +110,22 @@ export function progressiveVerification(risk: "low" | "medium" | "high"): string
   if (risk === "medium") return ["targeted check", "affected tests", "build if affected"];
   return ["targeted check", "affected tests", "build", "broader regression", "E2E/release verification when applicable"];
 }
+
+export function workflowCleanupGuidance(orchestration?: {
+  isolation?: "direct" | "optional-worktree" | "isolated-worktree";
+  workspacePath?: string;
+  affectedPaths?: string[];
+  reservedResources?: string[];
+}) {
+  const worktreeCleanupRequired = Boolean(orchestration && orchestration.isolation !== "direct");
+  return {
+    reservationsReleased: true,
+    releasedPathReservations: orchestration?.affectedPaths?.length ?? 0,
+    releasedResourceReservations: orchestration?.reservedResources?.length ?? 0,
+    worktreeCleanupRequired,
+    ...(worktreeCleanupRequired && orchestration?.workspacePath ? { workspacePath: orchestration.workspacePath } : {}),
+    instruction: worktreeCleanupRequired
+      ? "Remove only a transient worktree/branch that this workflow actually created and only after integration/rollback evidence is preserved."
+      : "No orchestration worktree cleanup is required.",
+  };
+}

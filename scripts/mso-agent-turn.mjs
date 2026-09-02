@@ -98,6 +98,7 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
       if (skillContext) session.lastInvokedSkill = skillContext;
       finalText = result.text;
       session.usage = addUsage(session.usage, result.usage);
+      session.lastRouting = result.routing || null;
       session.lastElapsedMs = Date.now() - startedAt;
       session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
       if (!result.toolUses.length) return { text: finalText, calls, rounds, usage: session.usage, elapsedMs: session.lastElapsedMs };

@@ -1,12 +1,11 @@
-const CORE_TOOL_NAMES = new Set([
-  "workflow_start", "workflow_status", "workflow_finish", "workflow_cancel",
-  "skills_search", "projects_list", "project_capabilities", "agent_session_current",
-]);
+import { routeIntent } from "../lib/orchestration/capability-catalog.mjs";
 
-export const MAX_ACTIVE_TOOLS = 14;
+export const MAX_ACTIVE_TOOLS = 10;
+const FALLBACK_TOOL_LIMIT = 3;
 
 const DEPENDENCIES = new Map([
   ["apps_logs", ["apps_list"]],
+  ["apps_power", ["apps_list"]],
   ["project_function_call", ["project_capabilities"]],
   ["exec_job_start", ["exec_job_status", "exec_job_cancel"]],
   ["fs_write", ["fs_read"]],
@@ -14,6 +13,7 @@ const DEPENDENCIES = new Map([
   ["agent_session_resume", ["agent_sessions_list"]],
   ["local_agent_message_send", ["local_agents_list", "local_agent_inbox", "local_agent_reply"]],
   ["local_agent_reply", ["local_agent_inbox", "local_agents_list"]],
+  ["local_agent_request", ["local_agents_list", "local_agent_request_wait"]],
   ["agent_subagent_run", ["skills_search", "projects_list"]],
   ["a2a_message_send", ["a2a_agents_list", "a2a_agent_discover"]],
   ["a2a_handoff", ["a2a_agents_list", "a2a_agent_discover", "a2a_task_get"]],
@@ -21,119 +21,136 @@ const DEPENDENCIES = new Map([
   ["tool_forge_promote", ["tool_forge_candidates", "tool_forge_evaluate"]],
 ]);
 
-const ALIASES = new Map([
-  ["logs", ["log", "journal", "error", "crash", "down"]],
-  ["processes", ["process", "cpu", "ram", "load"]],
-  ["memory", ["memory", "remember", "recall", "forget", "fact", "preference", "provenance", "conflict", "temporal"]],
-  ["stats", ["health", "cpu", "memory", "ram", "disk", "uptime", "server", "vps"]],
-  ["projects", ["project", "repo", "repository", "checkout", "workspace"]],
-  ["skills", ["skill", "capability", "recipe", "workflow", "how"]],
-  ["read", ["read", "inspect", "show", "cat", "file"]],
-  ["write", ["write", "edit", "update", "modify", "patch", "file"]],
-  ["exec", ["run", "shell", "command", "terminal", "test", "build", "lint", "deploy"]],
-  ["browser", ["browser", "camoufox", "firefox", "vnc"]],
-  ["screen", ["screen", "screenshot", "visual", "image"]],
-  ["cloudflare", ["cloudflare", "dns", "zone", "record"]],
-  ["dokploy", ["dokploy", "deploy", "deployment", "project"]],
-  ["hostinger", ["hostinger", "dns", "domain", "record"]],
-  ["apps", ["app", "service", "hermes", "openclaw", "install", "restart", "status"]],
-  ["localagent", ["local", "session", "agent", "message", "task", "delegate", "delegation", "collaborate", "inbox"]],
-  ["subagent", ["subagent", "spawn", "worker", "reviewer", "researcher", "parallel", "independent", "delegate"]],
-  ["a2a", ["a2a", "remote", "agent card", "peer", "handoff"]],
-  ["forge", ["forge", "candidate", "promotion", "promote", "self-improve", "self-improving", "generate tool", "tool creator"]],
+const LIFECYCLE = new Map([
+  ["workflow_start", ["workflow_finish", "workflow_cancel", "skills_read", "project_script_run"]],
+  ["exec_job_start", ["exec_job_status", "exec_job_cancel"]],
+  ["skills_search", ["skills_read"]],
+  ["local_agent_message_send", ["local_agent_inbox", "local_agent_reply"]],
+  ["local_agent_request", ["local_agent_request_wait"]],
+  ["a2a_message_send", ["a2a_task_get"]],
+  ["a2a_handoff", ["a2a_task_get"]],
+  ["tool_forge_propose", ["tool_forge_candidates", "tool_forge_evaluate"]],
+  ["tool_forge_evaluate", ["tool_forge_candidates", "tool_forge_promote"]],
 ]);
-
-function words(value) {
-  const raw = String(value || "").toLowerCase().replace(/[^a-z0-9_./-]+/g, " ");
-  const out = new Set(raw.split(/\s+/).filter((v) => v.length >= 2));
-  for (const [key, terms] of ALIASES) if (terms.some((term) => out.has(term))) out.add(key);
-  return out;
-}
 
 function messageText(row) {
   if (!row || typeof row !== "object") return "";
   if (typeof row.text === "string") return row.text;
-  if (row.role === "tool" && Array.isArray(row.results)) return row.results.map((r) => String(r?.content || "")).join("\n");
+  if (row.role === "tool" && Array.isArray(row.results)) {
+    return row.results.map((result) => String(result?.content || "")).join("\n");
+  }
   return "";
 }
 
-function turnSearchText(history = [], skillContext = null) {
-  const recent = history.slice(-8).map(messageText).filter(Boolean).join("\n");
-  const skill = skillContext?.content ? String(skillContext.content).slice(0, 16000) : "";
-  return `${recent}\n${skill}`.slice(-48000);
-}
-
-function toolHaystack(tool) {
-  const props = Object.keys(tool?.inputSchema?.properties || {}).join(" ");
-  return `${tool?.name || ""} ${tool?.description || ""} ${props}`.toLowerCase();
-}
-
-function score(tool, queryWords, rawQuery) {
-  const hay = toolHaystack(tool);
-  const name = String(tool?.name || "").toLowerCase();
-  let value = 0;
-  for (const token of queryWords) {
-    if (name === token) value += 12;
-    else if (name.includes(token)) value += 5;
-    if (hay.includes(token)) value += 1;
-  }
-  if (rawQuery.includes(name) && name) value += 18;
-  const prefix = name.split("_")[0];
-  if (prefix && queryWords.has(prefix)) value += 3;
-  return value;
+function recentDiscoveryText(history = []) {
+  return history
+    .slice(-4)
+    .filter((row) => row?.role === "tool")
+    .map(messageText)
+    .filter(Boolean)
+    .join("\n")
+    .slice(-4_000);
 }
 
 function referencedTools(allTools, text) {
-  const lower = text.toLowerCase();
-  return allTools.filter((tool) => lower.includes(String(tool.name).toLowerCase())).map((tool) => tool.name);
+  const lower = String(text || "").toLowerCase();
+  return allTools
+    .filter((tool) => lower.includes(String(tool.name).toLowerCase()))
+    .map((tool) => String(tool.name));
 }
 
 function previousToolNames(history = []) {
   const names = [];
-  for (const row of history.slice(-12)) {
+  for (const row of history.slice(-8)) {
     if (row?.role !== "assistant" || !Array.isArray(row.toolUses)) continue;
     for (const call of row.toolUses) if (call?.name) names.push(String(call.name));
   }
-  return names;
+  return [...new Set(names)];
 }
+
+function lexicalScore(tool, text) {
+  const query = new Set(String(text || "").toLowerCase().split(/[^a-z0-9_./-]+/).filter((token) => token.length >= 3));
+  const name = String(tool?.name || "").toLowerCase();
+  const props = Object.keys(tool?.inputSchema?.properties || {}).join(" ").toLowerCase();
+  const haystack = `${name} ${String(tool?.description || "").toLowerCase()} ${props}`;
+  let score = 0;
+  for (const token of query) {
+    if (name === token) score += 12;
+    else if (name.includes(token)) score += 5;
+    if (haystack.includes(token)) score += 1;
+  }
+  if (name && String(text || "").toLowerCase().includes(name)) score += 20;
+  return score;
+}
+
+function addDependencies(selected, byName) {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const name of [...selected]) {
+      for (const dependency of DEPENDENCIES.get(name) || []) {
+        if (byName.has(dependency) && !selected.has(dependency)) {
+          selected.add(dependency);
+          changed = true;
+        }
+      }
+    }
+  }
+}
+
 
 export function selectToolsForTurn(allTools = [], history = [], skillContext = null, maxActive = MAX_ACTIVE_TOOLS) {
   const byName = new Map(allTools.map((tool) => [String(tool.name), tool]));
-  const text = turnSearchText(history, skillContext);
-  const queryWords = words(text);
+  const route = routeIntent(history, skillContext);
+  const discoveryText = recentDiscoveryText(history);
   const selected = new Set();
   const add = (name) => { if (byName.has(name)) selected.add(name); };
 
-  for (const name of CORE_TOOL_NAMES) add(name);
-  for (const name of previousToolNames(history)) add(name);
-  for (const name of referencedTools(allTools, text)) add(name);
-  if (["test", "tested", "testing", "debug", "freeze", "freezes", "frozen", "crash", "crashed", "regression", "failed", "failure"].some((term) => queryWords.has(term))) {
-    add("project_memory_upsert");
-    add("project_memory_search");
+  for (const name of route.tools) add(name);
+  for (const name of referencedTools(allTools, `${route.text}\n${discoveryText}`)) add(name);
+
+  const previous = previousToolNames(history);
+  for (const name of previous) {
+    for (const companion of LIFECYCLE.get(name) || []) add(companion);
+    if (route.continuation && byName.has(name)) add(name);
+  }
+  if (previous.includes("workflow_start")) {
+    selected.delete("workflow_start");
+    if (route.routeIds.includes("repo-change")) {
+      for (const name of ["fs_read", "fs_write", "exec_run", "exec_job_start"]) add(name);
+    }
   }
 
-  const ranked = allTools
-    .map((tool) => ({ tool, score: score(tool, queryWords, text.toLowerCase()) }))
-    .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score || String(a.tool.name).localeCompare(String(b.tool.name)));
-
-  for (const { tool } of ranked) {
-    if (selected.size >= maxActive) break;
-    add(String(tool.name));
+  let fallbackUsed = false;
+  if (!route.catalogMatched && selected.size === 0) {
+    fallbackUsed = true;
+    add("skills_search");
+    const ranked = allTools
+      .map((tool) => ({ tool, score: lexicalScore(tool, route.text) }))
+      .filter((row) => row.score > 0)
+      .sort((a, b) => b.score - a.score || String(a.tool.name).localeCompare(String(b.tool.name)))
+      .slice(0, FALLBACK_TOOL_LIMIT);
+    for (const { tool } of ranked) add(String(tool.name));
   }
 
-  for (const name of [...selected]) {
-    for (const dependency of DEPENDENCIES.get(name) || []) add(dependency);
-  }
+  addDependencies(selected, byName);
 
-  // Core + dependency safety may exceed the soft cap by a few entries. Prefer
-  // capability correctness over silently dropping the status/cancel companion.
+  // Catalog packs are deliberately small. Dependencies may exceed the soft cap
+  // rather than dropping a required companion and forcing another model round.
   const tools = allTools.filter((tool) => selected.has(String(tool.name)));
+
   return {
     tools,
     selectedNames: tools.map((tool) => String(tool.name)),
     fullCount: allTools.length,
     activeCount: tools.length,
     softLimit: maxActive,
+    routeIds: route.routeIds,
+    catalogMatched: route.catalogMatched,
+    fallbackUsed,
+    continuation: route.continuation,
+    historyBudgetTokens: route.historyBudgetTokens,
+    routingTextBytes: Buffer.byteLength(`${route.text}\n${discoveryText}`, "utf8"),
   };
 }
+

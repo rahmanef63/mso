@@ -33,6 +33,17 @@ describe("MSO Agent dynamic status", () => {
     expect(invoked).toContain("skill ✓ /design");
   });
 
+  it("shows compact routing/token-efficiency telemetry without putting it in model history", () => {
+    const session = {
+      state: { config: { provider: "openai-codex", model: "gpt-5.6-sol" }, modelMeta: { context: 128000 } },
+      history: [{ role: "user", text: "check server health" }],
+      usage: { inputTokens: 20, outputTokens: 5, totalTokens: 25 },
+      lastRouting: { routeIds: ["server-health"], activeTools: 2, fullTools: 70, routingTextBytes: 19, historyBudgetTokens: 8000, historyEstimatedTokens: 1200, omittedRows: 4 },
+      agentSession: { id: "20260901_120000_deadbeef", title: "health" },
+    };
+    const parts = statusParts(session, "/tmp").join(" · ");
+    expect(parts).toContain("route server-health · tools 2/70");
+  });
 
   it("uses the human session title in compact status while keeping the id for detailed diagnostics", () => {
     const session = {

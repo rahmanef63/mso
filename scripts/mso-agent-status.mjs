@@ -78,12 +78,14 @@ export function statusParts(session, cwd = process.cwd()) {
   const usage = session?.usage || { totalTokens: 0 };
   const elapsed = Number(session?.lastElapsedMs || 0);
   const skill = skillStatus(session);
+  const routing = session?.lastRouting || null;
   return [
     `${provider}/${model}`,
     skill ? `skill ${skill.state === "invoked" ? "✓" : "◆"} /${skill.name}${skill.state === "queued" ? " queued" : skill.state === "invoking" ? " invoking" : ""}` : null,
     ctx.limit ? `ctx ~${compactNumber(ctx.used)}/${compactNumber(ctx.limit)} ${ctx.percent}%` : `ctx ~${compactNumber(ctx.used)}/?`,
     session?.agentSession?.compactThresholdTokens ? `session ~${compactNumber(session.agentSession.estimatedTokens)}/${compactNumber(session.agentSession.compactThresholdTokens)}` : null,
     usage.totalTokens > 0 ? `tokens ${compactNumber(usage.totalTokens)}` : null,
+    routing?.activeTools != null ? `route ${routing.routeIds?.join("+") || (routing.fallbackUsed ? "fallback" : "direct")} · tools ${routing.activeTools}/${routing.fullTools}` : null,
     `turns ${turns}`,
     elapsed > 0 ? `${(elapsed / 1000).toFixed(elapsed >= 10_000 ? 0 : 1)}s` : null,
     `@${sessionName}`,
@@ -112,6 +114,7 @@ function detailedStatus(session, cwd = process.cwd()) {
     sessionCompactionCount: Number(session?.agentSession?.compactionCount || 0),
     sessionArchiveCount: Number(session?.agentSession?.archiveCount || 0),
     providerReportedUsage: usage,
+    routing: session?.lastRouting || null,
     skill: skillStatus(session),
     turns: (session?.history || []).filter((row) => row?.role === "user").length,
     session: session?.agentSession?.id || null,

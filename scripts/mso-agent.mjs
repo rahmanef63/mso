@@ -4,7 +4,8 @@ import { AgentComposer } from "./mso-agent-composer.mjs";
 import { AgentInterruptManager } from "./mso-agent-interrupt.mjs";
 import { slashCompletionItems } from "./mso-agent-slash.mjs";
 import { persistSession, restartSessionArg, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
-import { C, printBanner, state } from "./mso-agent-runtime.mjs";
+import { C, printBanner } from "./mso-agent-runtime.mjs";
+import { state } from "./mso-agent-api.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
 import { nextPermissionMode, permissionMode } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
@@ -22,7 +23,7 @@ async function runOneShot(opts) {
     state: s, agentSession, history: Array.isArray(agentSession.history) ? agentSession.history : [],
     pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
     titleOverride: requested ? (agentSession.title || null) : null,
-    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastElapsedMs: 0, statusBar: false,
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastRouting: null, lastElapsedMs: 0, statusBar: false,
     permission: "ask", pendingApproval: null,
   };
   session.history.push({ role: "user", text: opts.prompt });
@@ -32,7 +33,7 @@ async function runOneShot(opts) {
     ok: true, sessionId: session.agentSession.id,
     model: `${s.config?.provider || ""}/${s.config?.model || ""}`.replace(/^\//, ""),
     approvalScope: opts.approvalScope, text: result?.text || "", rounds: result?.rounds || 0,
-    toolCalls: result?.calls || [], usage: result?.usage || session.usage, elapsedMs: result?.elapsedMs || session.lastElapsedMs,
+    toolCalls: result?.calls || [], usage: result?.usage || session.usage, routing: session.lastRouting, elapsedMs: result?.elapsedMs || session.lastElapsedMs,
     ...(result?.turnLimitReached ? { turnLimitReached: true } : {}),
   };
   if (opts.json) process.stdout.write(`${JSON.stringify(payload)}\n`);
@@ -64,7 +65,7 @@ async function main() {
     history: Array.isArray(agentSession.history) ? agentSession.history : [],
     pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
     titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
-    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastElapsedMs: 0,
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastRouting: null, lastElapsedMs: 0,
     statusBar: restartUi.statusBar ?? true, permission: forcedPermission, pendingApproval: null,
   };
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C }); syncPromptHistory(rl, session);

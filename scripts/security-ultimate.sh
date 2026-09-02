@@ -10,7 +10,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 cd "$ROOT"
 
 TRIVY_IMAGE='aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969' # 0.74.0
-OSV_IMAGE='ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734' # 2.5.1
+OSV_VERSION='2.5.1'
+OSV_LINUX_AMD64_SHA256='f9f25499a2c8cc367b3af45df2ea7eeca7fbccceab9c35079968f4b3652194be'
+OSV_LINUX_ARM64_SHA256='3d0f5aa5a6baa8eb32bcef247388e149ef6030a6634ccae6fa0d62681fb27a6d'
 GITLEAKS_IMAGE='zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f' # 8.30.1
 SEMGREP_IMAGE='semgrep/semgrep@sha256:f1f7b71861c7b28b6e0f661225a2c4f58a484f5d0f182465c6d6b3b22f972ade' # 1.174.0
 SHELLCHECK_IMAGE='koalaman/shellcheck-alpine@sha256:9955be09ea7f0dbf7ae942ac1f2094355bb30d96fffba0ec09f5432207544002' # 0.11.0
@@ -31,7 +33,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "security: missing dependency: $1" >&2; exit 2; }; }
-need git; need docker; need bun; need tar
+need git; need docker; need bun; need tar; need curl; need sha256sum
 
 echo "MSO ultimate security gate"
 echo "revision=$(git rev-parse --short=12 HEAD)"
@@ -55,12 +57,45 @@ run_capture() {
   fi
 }
 
+OSV_TOOLS="$STATE_BASE/tools/osv-scanner/$OSV_VERSION"
+OSV_BIN="$OSV_TOOLS/osv-scanner"
+prepare_osv() {
+  local arch asset expected url tmp
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64|amd64) asset='osv-scanner_linux_amd64'; expected="$OSV_LINUX_AMD64_SHA256" ;;
+    aarch64|arm64) asset='osv-scanner_linux_arm64'; expected="$OSV_LINUX_ARM64_SHA256" ;;
+    *) echo "unsupported OSV architecture: $arch" >&2; return 2 ;;
+  esac
+  url="https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}/${asset}"
+  mkdir -p "$OSV_TOOLS"
+  chmod 700 "$STATE_BASE" "$STATE_BASE/tools" "$STATE_BASE/tools/osv-scanner" "$OSV_TOOLS" 2>/dev/null || true
+  if [[ -L "$OSV_BIN" ]]; then echo "refusing symlinked OSV binary" >&2; return 2; fi
+  if [[ -f "$OSV_BIN" ]] && printf '%s  %s\n' "$expected" "$OSV_BIN" | sha256sum -c - >/dev/null 2>&1; then
+    chmod 700 "$OSV_BIN"
+    return 0
+  fi
+  tmp="$OSV_TOOLS/.osv-scanner.$$.tmp"
+  rm -f "$tmp"
+  if ! curl --fail --location --silent --show-error --retry 2 --connect-timeout 10 --output "$tmp" "$url"; then
+    rm -f "$tmp"; return 1
+  fi
+  if ! printf '%s  %s\n' "$expected" "$tmp" | sha256sum -c -; then
+    rm -f "$tmp"; return 1
+  fi
+  chmod 700 "$tmp"
+  mv -f "$tmp" "$OSV_BIN"
+  printf '%s  %s\n' "$expected" "$OSV_BIN" | sha256sum -c -
+}
+
 run_capture "repository verify" bun run verify
 run_capture "installer syntax" bash -c 'bash -n scripts/install.sh && bash -n scripts/install-core.sh'
 run_capture "Trivy high/critical" docker run --rm -v "$SRC:/src:ro" "$TRIVY_IMAGE" \
   fs --scanners vuln,misconfig,secret --severity HIGH,CRITICAL --exit-code 1 /src
-run_capture "OSV dependencies" docker run --rm -v "$SRC:/src:ro" "$OSV_IMAGE" \
-  scan source --recursive /src
+run_capture "OSV binary integrity" prepare_osv
+OSV_HOME="$RUN_DIR/osv-home"
+mkdir -p "$OSV_HOME"; chmod 700 "$OSV_HOME"
+run_capture "OSV dependencies" env HOME="$OSV_HOME" "$OSV_BIN" scan source --recursive "$SRC"
 run_capture "Gitleaks history" docker run --rm -v "$ROOT:/repo:ro" "$GITLEAKS_IMAGE" \
   git --no-banner --redact --gitleaks-ignore-path /repo/.gitleaksignore /repo
 run_capture "Semgrep OWASP/SAST" docker run --rm -v "$SRC:/src:ro" "$SEMGREP_IMAGE" \

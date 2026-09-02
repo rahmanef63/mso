@@ -211,7 +211,7 @@ describe("workflow_start bootstrap", () => {
 
   it("replays a bounded read-only candidate script and promotes it to tested", async () => {
     const runner = LEARNING_TOOLS.find((tool) => tool.name === "project_script_run")!;
-    const { writeAutomationScript, readAutomationScript } = await import("@/lib/orchestration/repo-memory");
+    const { writeAutomationScript, readAutomationScript } = await import("@/lib/orchestration/repo-memory-artifacts");
     const now = new Date().toISOString();
     const script = {
       schemaVersion: 1 as const, id: "script-test-health", recipeId: "recipe-test-health",
@@ -236,7 +236,7 @@ describe("workflow_start bootstrap", () => {
 
   it("refuses a tampered automation manifest that attempts a write or exec tool", async () => {
     const runner = LEARNING_TOOLS.find((tool) => tool.name === "project_script_run")!;
-    const { writeAutomationScript } = await import("@/lib/orchestration/repo-memory");
+    const { writeAutomationScript } = await import("@/lib/orchestration/repo-memory-artifacts");
     const now = new Date().toISOString();
     const script = {
       schemaVersion: 1 as const, id: "script-tampered", recipeId: "recipe-tampered",

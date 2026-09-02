@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const files = ["mso-agent.mjs", "mso-agent-runtime.mjs", "mso-agent-ui.mjs", "mso-agent-slash.mjs", "mso-agent-status.mjs", "mso-agent-sessions.mjs", "mso-agent-session-ui.mjs", "mso-agent-lifecycle.mjs", "mso-agent-commands.mjs", "mso-agent-composer.mjs", "mso-agent-permissions.mjs", "mso-agent-approval-ui.mjs", "mso-agent-turn.mjs", "mso-agent-layout.mjs", "mso-agent-errors.mjs", "mso-agent-local.mjs"].map((name) => path.join(__dirname, name));
+const files = ["mso-agent.mjs", "mso-agent-api.mjs", "mso-agent-runtime.mjs", "mso-agent-ui.mjs", "mso-agent-slash.mjs", "mso-agent-status.mjs", "mso-agent-sessions.mjs", "mso-agent-session-ui.mjs", "mso-agent-lifecycle.mjs", "mso-agent-commands.mjs", "mso-agent-composer.mjs", "mso-agent-permissions.mjs", "mso-agent-approval-ui.mjs", "mso-agent-turn.mjs", "mso-agent-layout.mjs", "mso-agent-errors.mjs", "mso-agent-local.mjs"].map((name) => path.join(__dirname, name));
 const src = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 
 describe("MSO terminal agent contract", () => {

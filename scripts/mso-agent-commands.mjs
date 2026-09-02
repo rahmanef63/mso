@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
-import { C, BASE, CLI, api, state } from "./mso-agent-runtime.mjs";
+import { C } from "./mso-agent-runtime.mjs";
+import { BASE, CLI, api, state } from "./mso-agent-api.mjs";
 import {
   loadSlashSkill,
   printSkillChoices,

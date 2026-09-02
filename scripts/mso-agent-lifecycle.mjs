@@ -1,5 +1,5 @@
 import process from "node:process";
-import { CLI } from "./mso-agent-runtime.mjs";
+import { CLI } from "./mso-agent-api.mjs";
 
 const RESTART_PERMISSION_ENV = "MSO_AGENT_RESTART_PERMISSION";
 const RESTART_STATUSBAR_ENV = "MSO_AGENT_RESTART_STATUSBAR";

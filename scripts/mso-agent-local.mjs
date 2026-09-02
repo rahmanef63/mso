@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import process from "node:process";
-import { api, apiResponse, C } from "./mso-agent-runtime.mjs";
+import { C } from "./mso-agent-runtime.mjs";
+import { api, apiResponse } from "./mso-agent-api.mjs";
 import { persistSession } from "./mso-agent-session-ui.mjs";
 import { sectionBlock } from "./mso-agent-layout.mjs";
 

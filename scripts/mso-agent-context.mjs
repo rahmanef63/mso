@@ -8,13 +8,16 @@ function estimateContextTokens(value) {
   return Math.ceil(Buffer.byteLength(raw, "utf8") / 4);
 }
 
-export function modelHistoryBudget(contextWindow) {
+export function modelHistoryBudget(contextWindow, requestedBudget = 0) {
   const limit = Number(contextWindow || 0);
-  if (!Number.isFinite(limit) || limit <= 0) return DEFAULT_MODEL_HISTORY_BUDGET;
-  // Reserve almost half the window for system/memory, active skill/tool schemas,
-  // reasoning/output and provider framing. Very large windows still stop at 120k:
-  // more historical text is usually worse than targeted retrieval/compaction.
-  return Math.min(MAX_MODEL_HISTORY_BUDGET, Math.max(16_000, Math.floor(limit * 0.55)));
+  const base = !Number.isFinite(limit) || limit <= 0
+    ? DEFAULT_MODEL_HISTORY_BUDGET
+    : Math.min(MAX_MODEL_HISTORY_BUDGET, Math.max(16_000, Math.floor(limit * 0.55)));
+  const requested = Number(requestedBudget || 0);
+  if (!Number.isFinite(requested) || requested <= 0) return base;
+  // The deterministic intent catalog can request a smaller per-turn slice. It can
+  // never expand beyond the provider-derived budget.
+  return Math.min(base, Math.max(4_000, Math.floor(requested)));
 }
 
 export function modelHistoryRow(row) {
@@ -49,8 +52,8 @@ function messageGroups(history) {
   return groups;
 }
 
-export function projectHistoryForModel(history, contextWindow) {
-  const budget = modelHistoryBudget(contextWindow);
+export function projectHistoryForModel(history, contextWindow, requestedBudget = 0) {
+  const budget = modelHistoryBudget(contextWindow, requestedBudget);
   const groups = messageGroups(history);
   const kept = [];
   let used = 0;
