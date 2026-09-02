@@ -74,8 +74,8 @@ export async function sendLocalAgentMessage(input: {
   const correlationId = correlation(input.correlationId) ?? (intent === "request" ? `localcorr_${randomUUID()}` : undefined);
   const owner = principalHash(input.principal);
   const targetOffline = target.status === "offline" || target.status === "ended";
-  if (input.requireActiveTarget && targetOffline)
-    throw new Error(`local agent @${target.name} is no longer active; no message was sent`);
+  if (input.requireActiveTarget && (targetOffline || !target.consumerConnected))
+    throw new Error(`local agent @${target.name} is not currently active with a receiver; no message was sent`);
   const busy = target.status === "busy";
   let message = await enqueueLocalAgentMessage({
     principalHash: owner,

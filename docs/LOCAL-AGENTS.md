@@ -39,7 +39,7 @@ Useful TUI commands:
 /inbox
 ```
 
-A leading `@rahman …` resolves **active agents only**. If `rahman` is offline/ended, the mention fails clearly and does not silently queue a new request. This prevents a typo/stale handle from becoming a delayed surprise response. The lower-level `local_agent_message_send`/`mso agents send` compatibility surface may still explicitly address a known offline session and retain durable queued delivery.
+A leading `@rahman …` resolves **active agents only**, where active means both a current presence lease and `consumerConnected=true`. If `rahman` is offline/ended or its receiver has disconnected while the lease is still in its grace window, the mention fails clearly and does not silently queue a new request. This prevents a typo/stale handle from becoming a delayed surprise response. The lower-level `local_agent_message_send`/`mso agents send` compatibility surface may still explicitly address a known offline session and retain durable queued delivery.
 
 From the ordinary shell, the same native route has an explicit CLI group for scripting/inspection:
 
@@ -102,7 +102,7 @@ Interactive CLI sessions maintain a lightweight lease heartbeat and one SSE rece
 
 MCP conversation sessions have no persistent terminal socket, so MSO refreshes their lease around bound MCP tool calls. Messages remain durable when that client is not currently connected and can be read with `local_agent_inbox` on a later call.
 
-Only `ready`, `idle`, and `busy` sessions appear in the normal active target list. `@mention` is stricter and only resolves this active list. An explicit lower-level send to a known `offline`/`ended` target can still retain a durable queued message; the sender receives `target_offline` instead of a false delivered status.
+Only `ready`, `idle`, and `busy` sessions appear in the normal lease-active target list. `@mention` is stricter: it resolves only those rows that also have `consumerConnected=true`. An explicit lower-level send to a known `offline`/`ended` target can still retain a durable queued message; the sender receives `target_offline` instead of a false delivered status.
 
 ## Session names, titles and legacy aliases
 

@@ -126,6 +126,16 @@ describe("native local session agents", () => {
     expect(received).toContain(result.message.id);
   });
 
+  it("rejects active-only sends when the lease is alive but no receiver is subscribed", async () => {
+    await presence.touchLocalAgentPresence(owner, b.id, "idle", "test:b");
+    await expect(messaging.sendLocalAgentMessage({
+      principal: owner, senderSessionId: a.id, target: "rahman", text: "must not queue",
+      intent: "request", requiresUserRelay: true, requireActiveTarget: true,
+    })).rejects.toThrow(/not currently active with a receiver/i);
+    const inbox = await mailbox.listLocalAgentInbox(owner, b.id, { includeRead: true });
+    expect(inbox.some((row) => row.text === "must not queue")).toBe(false);
+  });
+
   it("returns consumer_absent for a bounded request wait when lease is active but no receiver is subscribed", async () => {
     await presence.touchLocalAgentPresence(owner, b.id, "idle", "test:b");
     const request = await messaging.sendLocalAgentMessage({

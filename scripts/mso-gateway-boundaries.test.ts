@@ -74,7 +74,7 @@ esac
     // `flock ... command` acquires the lock before executing the command. The ready
     // file therefore proves ownership; a fixed sleep is not a synchronization primitive
     // when the full suite is deliberately running under nice/ionice.
-    const holder = spawn("flock", ["-x", lock, "sh", "-c", 'printf ready > "$1"; sleep 2', "mso-lock-holder", ready], { stdio: "ignore" });
+    const holder = spawn("flock", ["-x", lock, "sh", "-c", 'printf ready > "$1"; while :; do sleep 60; done', "mso-lock-holder", ready], { stdio: "ignore" });
     await waitForFile(ready);
     try {
       const out = spawnSync(GATEWAY, ["local-start"], { encoding: "utf8", env: { ...f.baseEnv,

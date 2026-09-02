@@ -71,8 +71,19 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 - Lint: **0 errors / 9 existing max-lines warnings**; the responsive composer tests were split into a dedicated file so this change adds no new warning-only file.
 - The first full-load run exposed an overly broad per-principal session-name lock; it was replaced with per-candidate-name locking, after which unrelated conversation/session creation remained concurrent and the full suite passed.
 
+**Live 1.11.0 smoke finding**
+- Fresh PTYs received familiar names `@omar` and `@cali`; `/rename qa-omar` changed only the handle while the title stayed `MSO Agent session`; `consumerConnected=true/1` was correct while the receiver was attached.
+- A 40×16 PTY rendered one long logical draft across four visual rows; resizing to 72×20 repainted the same draft across two visual rows without submission/data loss.
+- One real race remained: immediately after closing the target PTY, the presence lease was still `idle` for its grace window while `consumerConnected=false`, so `@qa-omar` could still enqueue. The 1.11.1 patch tightens human mention eligibility to **lease current + receiver subscribed** and race-proofs the server send boundary with the same rule. Lower-level explicit mailbox sends keep offline/no-consumer queue compatibility.
+
+**1.11.1 verification**
+- Targeted receiver-required mention patch: **24/24 tests passed**.
+- First full-load gate exposed two test-timing races unrelated to the mention behavior. Session-store concurrency passed immediately when isolated; the gateway exclusion fixture still used a two-second lock-holder despite claiming explicit synchronization. The fixture now holds the lock until the test terminates it.
+- Final full release gate PASS with exit 0: `npm run typecheck`, `npm run lint`, full `npm run test`, `npm run check`, production `npm run build`, and `git diff --check`.
+- Lint remains **0 errors / 9 existing max-lines warnings**. Full-load session-store concurrency and gateway exclusion both pass in the final run.
+
 **Open work / handoff**
-- Only live post-deploy PTY smoke remains before treating 1.11 as shipped: generated `@name`, `/rename`, active-only mention, consumer subscription fields, and narrow/resized wrapped composer.
+- Commit/push/deploy 1.11.1, then repeat the close-target mention smoke: immediately after receiver disconnect, the target may still have an `idle` lease but `consumerConnected=false`; human `@name` must be rejected and the mailbox marker count must remain unchanged.
 
 
 ### 2026-09-02 — local agent wake + subagent capacity

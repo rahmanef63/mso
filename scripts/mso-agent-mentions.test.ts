@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { dispatchLocalAgentMention, mentionAck, parseLocalAgentMention, resolveLocalAgentMention } from "./mso-agent-mentions.mjs";
 
 const rows = [
-  { id: "session-b", name: "milo", alias: "agent-b", label: "[milo]", title: "Session B", titleSource: "auto", status: "idle" },
-  { id: "session-z", name: "zahra", alias: "agent-c", label: "[zahra]", title: "Design review", titleSource: "manual", status: "idle" },
-  { id: "session-o", name: "luna", alias: "agent-d", label: "[luna]", title: "Offline", titleSource: "auto", status: "offline" },
+  { id: "session-b", name: "milo", alias: "agent-b", label: "[milo]", title: "Session B", titleSource: "auto", status: "idle", consumerConnected: true },
+  { id: "session-z", name: "zahra", alias: "agent-c", label: "[zahra]", title: "Design review", titleSource: "manual", status: "idle", consumerConnected: true },
+  { id: "session-o", name: "luna", alias: "agent-d", label: "[luna]", title: "Offline", titleSource: "auto", status: "offline", consumerConnected: false },
+  { id: "session-g", name: "ghost", alias: "agent-e", label: "[ghost]", title: "Lease only", titleSource: "auto", status: "idle", consumerConnected: false },
 ];
 
 describe("local agent @mention routing", () => {
@@ -14,6 +15,7 @@ describe("local agent @mention routing", () => {
     expect(resolveLocalAgentMention(rows, "zahra").id).toBe("session-z");
     expect(() => resolveLocalAgentMention(rows, "agent-b")).toThrow(/not found/i);
     expect(() => resolveLocalAgentMention(rows, "luna")).toThrow(/not found/i);
+    expect(() => resolveLocalAgentMention(rows, "ghost")).toThrow(/not found/i);
   });
 
   it("fails unknown mentions with active public names only", () => {
@@ -44,8 +46,8 @@ describe("local agent @mention routing", () => {
     expect(mentionAck({ target: { label: "[milo]" }, status: "queued" })).toMatch(/target busy/i);
   });
 
-  it("explains an active lease with no subscribed receiver instead of pretending it ran", () => {
-    expect(mentionAck({ target: { label: "[milo]", consumerConnected: false }, status: "accepted" })).toMatch(/no receiver is subscribed/i);
+  it("does not expose a lease-only target as mentionable", () => {
+    expect(() => resolveLocalAgentMention(rows, "ghost")).toThrow(/not found/i);
   });
 
   it("reports bounded lookup timeout without sending anything", async () => {

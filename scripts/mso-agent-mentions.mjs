@@ -15,7 +15,9 @@ export function parseLocalAgentMention(line) {
 
 export function resolveLocalAgentMention(rows, token) {
   const wanted = clean(token);
-  const activeRows = (Array.isArray(rows) ? rows : []).filter((row) => !["offline", "ended"].includes(String(row?.status || "")));
+  const activeRows = (Array.isArray(rows) ? rows : []).filter((row) =>
+    !["offline", "ended"].includes(String(row?.status || "")) && row?.consumerConnected === true,
+  );
   const matches = activeRows.filter((row) => [row?.name, row?.label].map(clean).filter(Boolean).includes(wanted));
   if (!matches.length) {
     const available = activeRows.map((row) => `@${row.name}`).slice(0, 12).join(", ");
