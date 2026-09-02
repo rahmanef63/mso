@@ -1028,7 +1028,6 @@ case "$cmd" in
         if [ "$context" = "--wait" ]; then wait="--wait"; context=""; fi
         [ "$wait" = "" ] || [ "$wait" = "--wait" ] || die "usage: mso $U_a2a"
         jpost "/api/v1/a2a" "$(jq -n --arg target "$target" --arg objective "$objective" --arg context "$context" --arg wait "$wait" '{action:"handoff",target:$target,objective:$objective,returnImmediately:($wait != "--wait")} + (if $context == "" then {} else {context:$context} end)')" ;;
-      sessions) jget "/api/v1/a2a?action=local-sessions" ;;
       spawn)
         source_ref="${1:?sourceSession}"; objective="${2:?objective}"; title="${3:-}"
         jpost "/api/v1/a2a" "$(jq -n --arg sourceSessionRef "$source_ref" --arg objective "$objective" --arg title "$title" '{action:"local-spawn",sourceSessionRef:$sourceSessionRef,objective:$objective} + (if $title == "" then {} else {title:$title} end)')" ;;

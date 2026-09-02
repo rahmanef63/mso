@@ -234,6 +234,9 @@ select_model_ref() {
   echo "  ✓ active model: $provider/$model"
 }
 
+# This file is sourced by bin/mso; the public `mso model ...` dispatch passes
+# arguments even though internal onboarding callers intentionally pass none.
+# shellcheck disable=SC2120
 run_model_setup() {
   local sub="${1:-}" cfg provider data model active_provider active_model rc
   ensure_local_cli_device; ensure_onboard_runtime; jget "/api/auth/me" >/dev/null

@@ -20,6 +20,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `cli` clear ShellCheck warnings
 - `agent` require live receiver for mentions
 - `agent` make restart process-safe
 - `a2a` harden remote v1 delegation
