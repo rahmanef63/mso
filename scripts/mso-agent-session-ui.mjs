@@ -45,6 +45,7 @@ export function applyNewSessionState(session, loaded, requestedTitle = "") {
     titleOverride: requestedTitle ? (loaded.title || requestedTitle) : null,
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     lastElapsedMs: 0,
+    pendingApproval: null,
   });
   return session;
 }
@@ -72,6 +73,7 @@ export async function resumeInto(rl, session, query) {
     titleOverride: loaded.title || null,
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     lastElapsedMs: 0,
+    pendingApproval: null,
   });
   syncPromptHistory(rl, session);
   console.log(`${C.c}resumed @${loaded.name} · ${loaded.title || "MSO Agent session"}${C.reset} · ${session.history.length} history rows`);

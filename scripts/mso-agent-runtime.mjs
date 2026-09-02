@@ -3,6 +3,7 @@ import process from "node:process";
 import { selectToolsForTurn } from "./mso-agent-tool-router.mjs";
 import { projectHistoryForModel } from "./mso-agent-context.mjs";
 import { C, fit, MSO_TITLE_ART, printAgentBanner } from "./mso-agent-ui.mjs";
+import { AgentApiError } from "./mso-agent-errors.mjs";
 export { C, MSO_TITLE_ART } from "./mso-agent-ui.mjs";
 
 export const BASE = String(
@@ -39,13 +40,23 @@ export async function apiResponse(path, init = {}) {
   if (cookie) headers.set("cookie", cookie);
   if (init.body && !headers.has("content-type"))
     headers.set("content-type", "application/json");
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  const method = String(init.method || "GET").toUpperCase();
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, { ...init, headers });
+  } catch (error) {
+    if (["AbortError", "TimeoutError"].includes(String(error?.name || ""))) throw error;
+    throw new AgentApiError(error instanceof Error ? error.message : "transport failure", {
+      path, method, requestDispatched: false, cause: error,
+    });
+  }
   if (!res.ok) {
     const text = await res.text();
     let body = null;
     try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-    throw new Error(
+    throw new AgentApiError(
       typeof body === "object" && body?.error ? String(body.error) : `HTTP ${res.status}`,
+      { status: res.status, path, method, requestDispatched: true },
     );
   }
   return res;
@@ -207,26 +218,34 @@ export async function streamTurn(
     projected.messages,
     skillContext,
   );
-  const res = await fetch(`${BASE}/api/assistant`, {
-    method: "POST",
-    headers: {
-      origin: ORIGIN,
-      cookie: cookieHeader(),
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      messages: projected.messages,
-      tools: activeTools.tools.map(toolForModel),
-      system: sessionSystem(agentSession, skillContext),
-    }),
-    signal,
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE}/api/assistant`, {
+      method: "POST",
+      headers: {
+        origin: ORIGIN,
+        cookie: cookieHeader(),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        messages: projected.messages,
+        tools: activeTools.tools.map(toolForModel),
+        system: sessionSystem(agentSession, skillContext),
+      }),
+      signal,
+    });
+  } catch (error) {
+    if (["AbortError", "TimeoutError"].includes(String(error?.name || ""))) throw error;
+    throw new AgentApiError(error instanceof Error ? error.message : "assistant transport failure", {
+      path: "/api/assistant", method: "POST", requestDispatched: false, cause: error,
+    });
+  }
   if (!res.ok || !res.body) {
     let body = {};
-    try {
-      body = await res.json();
-    } catch {}
-    throw new Error(body?.error || `assistant HTTP ${res.status}`);
+    try { body = await res.json(); } catch {}
+    throw new AgentApiError(body?.error || `assistant HTTP ${res.status}`, {
+      status: res.status, path: "/api/assistant", method: "POST", requestDispatched: true,
+    });
   }
   const reader = res.body.getReader();
   const dec = new TextDecoder();
@@ -258,7 +277,13 @@ export async function streamTurn(
         const done = JSON.parse(data);
         stopReason = done?.stopReason ?? null;
         usage = done?.usage ?? null;
-      } else if (event === "error") throw new Error(JSON.parse(data));
+      } else if (event === "error") {
+        let message = "assistant stream error";
+        try { message = String(JSON.parse(data) || message); } catch { message = String(data || message); }
+        throw new AgentApiError(message, {
+          path: "/api/assistant", method: "POST", requestDispatched: true,
+        });
+      }
     }
   }
   if (text && !text.endsWith("\n")) output?.write?.("\n");

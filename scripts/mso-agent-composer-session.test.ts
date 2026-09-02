@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it } from "vitest";
 import { AgentComposer } from "./mso-agent-composer.mjs";
+import { composerFooter, composerPrompt } from "./mso-agent-layout.mjs";
 
 class FakeInput extends EventEmitter {
   isRaw = false;
@@ -52,17 +53,26 @@ describe("MSO Agent session/history composer UX", () => {
     composer.close();
   });
 
-  it("repaints a dynamic permission prompt on empty Tab without adding a scrollback line", async () => {
+  it("keeps @name in the prompt while Tab repaints permission only in the bottom footer", async () => {
     const { input, output, composer } = composerFixture();
-    let mode = "ask", cycles = 0;
-    const answer = composer.question(() => `[${mode}] › `, { onTab: () => { cycles++; mode = "yolo"; } } as never);
+    const session: any = {
+      permission: "ask", statusBar: false, history: [], agentSession: { name: "milo" },
+      state: { config: {}, modelMeta: null }, usage: { totalTokens: 0 },
+    };
+    let cycles = 0;
+    const answer = composer.question(() => composerPrompt(session, colors), {
+      footer: () => composerFooter(session, colors, output.columns),
+      onTab: () => { cycles++; session.permission = "yolo"; },
+    } as never);
     const before = output.chunks.join("");
+    expect(before).toContain("@milo › ");
+    expect(before).toContain("mode ask");
     input.emit("keypress", "\t", { name: "tab", sequence: "\t" });
     const after = output.chunks.join("");
     expect(cycles).toBe(1);
-    expect(after).toContain("[yolo] › ");
+    expect(after).toContain("@milo › ");
+    expect(after).toContain("mode yolo");
     expect(after.slice(before.length)).not.toMatch(/[\r]?\n/);
-    expect(after).not.toContain("permission →");
     for (const ch of "go") input.emit("keypress", ch, { name: ch, sequence: ch });
     input.emit("keypress", "\r", { name: "return", sequence: "\r" });
     await expect(answer).resolves.toBe("go");

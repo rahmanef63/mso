@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import process from "node:process";
 import { api, apiResponse, C } from "./mso-agent-runtime.mjs";
 import { persistSession } from "./mso-agent-session-ui.mjs";
+import { sectionBlock } from "./mso-agent-layout.mjs";
 
 const HEARTBEAT_MS = 20_000;
 const RECONNECT_MIN_MS = 800;
@@ -213,7 +214,9 @@ export class LocalAgentBridge {
     }
     await persistSession(this.session);
     this.seen.add(id);
-    if (!alreadyStored) this.composer.notify(presentation.text);
+    if (!alreadyStored) this.composer.notify(sectionBlock("local", presentation.text, {
+      columns: this.composer?.output?.columns, detail: String(message?.senderLabel || "peer"), colors: C,
+    }));
     if (message?.intent !== "request") await this.ack([id]).catch(() => undefined);
   }
 

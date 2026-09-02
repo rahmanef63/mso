@@ -4,7 +4,7 @@ Update this file at the end of every manual or automated test session. Keep it f
 
 ## Current status
 
-The v1.10 findings below have been implemented in the **MSO 1.11 candidate** in this working tree. The historical session logs remain below as evidence of what was observed. Do not re-open those findings from the prose alone: reproduce against the current build first.
+The v1.10 findings below are implemented and deployed in **MSO 1.11.1** (`3e06c70`). The historical session logs remain below as evidence of what was observed. Do not re-open resolved findings from prose alone: reproduce against the current build first. The current open work is the sectioned terminal conversation layout and recoverable HTTP/API error UX described below.
 
 Resolved in the candidate:
 - every durable session has a unique short public `name` (`milo`, `luna`, `nara`, …) independent from its longer `title`; `/rename` changes the handle and `/title` changes the description;
@@ -27,6 +27,12 @@ Implement and verify the open items below:
 1. Expose and exercise local_agent_request end-to-end through the MCP tool catalog. It must run a fresh bounded worker from a same-owner durable session even when its live terminal lease is offline. It must never claim to wake/control the original ChatGPT conversation or terminal process.
 2. Diagnose local-agent request/reply delivery. A target shown `idle` only means its lease is current; it does not prove a consumer is subscribed or will reply. Add explicit delivery/consumer observability and a bounded timeout/result state so requests cannot silently wait forever. Preserve durable mailbox and correlation semantics.
 3. Replace the verbose exact-approval prompt with the compact interaction below. Keep canonical full-payload approval binding unchanged.
+4. Improve the terminal conversation layout, drawing from Claude Code/Codex CLI ergonomics:
+   - Render a full-width horizontal divider before each distinct section: agent work/progress, normal assistant response, and local-agent discussion/inbound or outbound messages. Dividers must make the three streams visually unambiguous without duplicating content.
+   - Keep the input composer in a dedicated bottom area separated from transcript output by a full-width horizontal divider.
+   - Move the current permission mode (`yolo`, auto-write, ask, etc.) into the bottom composer/status area below that input divider, not among transcript headers.
+   - Put the current agent's short public name/handle in the header slot currently used for permission mode, matching the identity-forward layout familiar from Claude Code/Codex CLI. Preserve clear indication of the active permission mode in the new bottom location.
+   - Preserve keyboard accessibility, resize redraw behavior, compact output, exact approval semantics, and existing local-agent correlation/inbox behavior.
 
 Exact-approval UX requirement:
 - Show only one changing status line while a write/exec approval is pending, e.g. `Approval needed: exec_run — run typecheck`.
@@ -35,10 +41,37 @@ Exact-approval UX requirement:
 - From details, the user can explicitly allow or deny; no approval is implied by Tab or Enter alone.
 - Preserve accessible keyboard behavior, cancellation/interrupt behavior, and the existing exact full-payload server-side digest check.
 
-Validation minimum: focused unit tests for success, offline target, absent subscriber/no reply, self-target rejection, principal isolation, compact default approval line, Tab-to-details, Enter-to-details, explicit allow/deny, and canonical approval binding; then npm run typecheck. Report changed files and exact test results.
+Validation minimum: focused unit tests for success, offline target, absent subscriber/no reply, self-target rejection, principal isolation, transcript section dividers, input divider, agent-name header placement, permission-mode bottom placement, compact default approval line, Tab-to-details, Enter-to-details, explicit allow/deny, and canonical approval binding; then npm run typecheck. Report changed files and exact test results.
 ```
 
 ## Session log
+
+### 2026-09-02 — sectioned terminal + recoverable API failures
+
+**Goal**
+- Separate Assistant, Agent work, Local Agent, Error, and Input streams without buffering model output or duplicating content.
+- Move permission mode to the bottom composer area while keeping the short public `@name` as the terminal identity.
+- Make HTTP/API transport failures recoverable and explicit without automatically repeating an uncertain mutation.
+
+**Changed**
+- Added full-width `Assistant`, `Agent work`, `Local agent`, `Error`, and `Input · @name` section dividers.
+- Replaced the old `[ask] ›` identity prompt with `@name ›`; the bottom footer now shows `mode ask|auto|yolo` and Tab cycles that mode in place.
+- Preserved wrapped composer editing, vertical cursor navigation, resize repaint, and incoming-event draft redraw.
+- Added structured Agent API errors plus a per-turn mutation journal with `not_started`, `completed`, and `uncertain` outcomes.
+- A write/exec transport failure with uncertain delivery now stops the turn before the model can retry the mutation. A later assistant/API error after a completed mutation reports the mutation as completed and tells the client not to repeat it.
+- Recoverable errors are redacted, rendered as a bounded `Error` section, persisted as safe durable context, and keep session/correlation state. Pending exact-approval metadata is retained if the approval interaction itself fails before a decision.
+- Moved turn/tool orchestration out of `mso-agent.mjs`; removed obsolete internal `permissionPrompt` and `renderStatusBar` helpers rather than keeping compatibility shims.
+
+**Verified**
+- Focused Local Agent/layout/error/approval/dispatcher regression bundle: **13 test files / 91 tests passed**.
+- Additional composer/layout/error focused suites passed after extracting composer row-reservation helpers to keep lint line budgets unchanged.
+- Pre-release PTY smoke PASS: `@smoke-a` showed `mode yolo`, one `Assistant` section for model output, one `Agent work` section for `/spawn`, one `Local agent` section for outbound collaboration, and a bounded `Error` section for an unknown mention. `@smoke-b` received `LOCAL_LAYOUT_SMOKE` under a `Local agent · [smoke-a]` divider and its Input area/draft was redrawn correctly. Temporary PTYs were closed.
+- Full release gate PASS with exit 0: `npm run typecheck`, `npm run lint`, full `npm run test`, `npm run check`, production `npm run build`, and `git diff --check`.
+- Lint: **0 errors / 9 existing max-lines warnings**; no new warning-only file remains after the composer extraction.
+- MCP toolset remains `2026.09.02.7` because this release changes Agent/TUI runtime semantics but adds no MCP tool.
+
+**Open work / handoff**
+- Commit/push/deploy CLI 1.12.0, then repeat a small PTY smoke against the deployed build and record the final live build SHA.
 
 ### 2026-09-02 — named sessions, responsive composer, consumer observability, compact approval
 
@@ -82,8 +115,10 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 - Final full release gate PASS with exit 0: `npm run typecheck`, `npm run lint`, full `npm run test`, `npm run check`, production `npm run build`, and `git diff --check`.
 - Lint remains **0 errors / 9 existing max-lines warnings**. Full-load session-store concurrency and gateway exclusion both pass in the final run.
 
-**Open work / handoff**
-- Commit/push/deploy 1.11.1, then repeat the close-target mention smoke: immediately after receiver disconnect, the target may still have an `idle` lease but `consumerConnected=false`; human `@name` must be rejected and the mailbox marker count must remain unchanged.
+**1.11.1 release/live verification**
+- Released as commit `3e06c70` with `HEAD == origin/main`; live `mso.service` reported `buildSha=3e06c70` and CLI `1.11.1`.
+- Close-target race smoke PASS: after target PTY disconnect the lease could still report `idle`, but `consumerConnected=false`; human `@name` was rejected immediately and the target mailbox marker count stayed unchanged.
+- Temporary PTYs were closed. Durable smoke session records were not manually deleted because MSO does not yet expose a supported AgentSession delete API and direct store-file deletion could leave indexes/mailbox references inconsistent.
 
 
 ### 2026-09-02 — local agent wake + subagent capacity
@@ -122,6 +157,18 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 
 **Handoff (resolved by the 1.11 candidate)**
 - Compact approval runtime and focused regression coverage are implemented; canonical exact full-payload digest binding is unchanged.
+
+### 2026-09-02 — terminal HTTP/API error resilience
+
+**Observed**
+- During a documentation-only update, the file write succeeded, but the next tool/UI step surfaced an HTTP 400 and interrupted the visible flow before the assistant could confirm completion.
+
+**Required follow-up**
+- Treat recoverable transport/API failures (including HTTP 400) as a visible, bounded UI state rather than silently terminating the active interaction.
+- Preserve the user draft, session identity, transcript, pending permission state, and correlation IDs across a recoverable failure; do not duplicate a mutation automatically.
+- Render a concise error section/divider with a safe error summary, whether the preceding operation completed, and a clear retry/continue action. Never expose secrets, raw request bodies, or hidden transcripts.
+- The assistant/client must still emit a user-facing completion, partial-result, or failure message after a tool/API error. If status is uncertain, say so and verify before retrying any write/exec mutation.
+- Add focused tests for: HTTP 400 after a successful mutation, HTTP 400 before dispatch, draft preservation, no duplicate write on retry, pending approval preservation, and a visible user-facing error/result message.
 
 ### Template — append for every later session
 

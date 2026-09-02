@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approvesTool, nextPermissionMode, permissionCompletionItems, permissionMode, permissionPrompt } from "./mso-agent-permissions.mjs";
+import { approvesTool, nextPermissionMode, permissionCompletionItems, permissionMode } from "./mso-agent-permissions.mjs";
 
 describe("MSO Agent permission modes", () => {
   it("parses stable human aliases without numeric-only UX", () => {

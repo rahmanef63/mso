@@ -26,6 +26,10 @@ export function modelHistoryRow(row) {
     const target = String(row.targetLabel || "[local-agent]").replace(/[\r\n\t]+/g, " ").slice(0, 120);
     return { role: "assistant", text: `[LOCAL DISPATCH ${target}] ${String(row.text || "").slice(0, 24_000)}` };
   }
+  if (row?.role === "recoverable_error") {
+    const mutation = ["completed", "uncertain", "not_started"].includes(row.mutationState) ? row.mutationState : "not_started";
+    return { role: "assistant", text: `[RECOVERABLE ERROR · mutation ${mutation}] ${String(row.text || "").slice(0, 2_000)}` };
+  }
   if (row?.role !== "agent") return row;
   const sender = String(row.senderLabel || "[local-agent]").replace(/[\r\n\t]+/g, " ").slice(0, 120);
   const kind = row.kind === "task" ? "task" : "message";

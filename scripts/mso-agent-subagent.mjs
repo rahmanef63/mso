@@ -1,4 +1,5 @@
 import { persistSession } from "./mso-agent-session-ui.mjs";
+import { printSection } from "./mso-agent-layout.mjs";
 
 export const SUBAGENT_USAGE = "/spawn [--name <name>] [--scope read|write|exec] [--turns 1-12] <objective>";
 
@@ -22,7 +23,8 @@ export async function runForegroundSubagent({ rl, session, input, executeTool, c
   const tool = session.state.tools.find((row) => row.name === "agent_subagent_run");
   if (!tool) throw new Error("agent_subagent_run is unavailable; refresh the MSO runtime/tool catalog");
   const call = { id: `slash_subagent_${Date.now()}`, name: "agent_subagent_run", input };
-  const outcome = await executeTool(rl, tool, call, session.agentSession, session.permission);
+  printSection("work", { detail: `subagent ${input.name || "worker"}`, colors });
+  const outcome = await executeTool(rl, tool, call, session.agentSession, session.permission, undefined, null, { approvalState: session });
   if (!outcome.ok) throw new Error(outcome.result || "subagent failed");
   let parsed = null;
   try { parsed = JSON.parse(outcome.result); } catch {}

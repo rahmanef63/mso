@@ -21,6 +21,7 @@ import {
   permissionMode,
 } from "./mso-agent-permissions.mjs";
 import { parseSubagentArgs, SUBAGENT_USAGE } from "./mso-agent-subagent.mjs";
+import { sectionBlock, printSection } from "./mso-agent-layout.mjs";
 
 function runCli(args) {
   const result = spawnSync(CLI, args, {
@@ -257,7 +258,9 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
       const target = args[0];
       const message = args.slice(1).join(" ");
       const out = await sendLocalAgent(session, target, message, "message");
-      console.log(`${C.c}↳ ${out?.target?.label || target}${C.reset} ${out?.status || "accepted"}`);
+      console.log(sectionBlock("local", `${C.c}↳ ${out?.target?.label || target}${C.reset} ${out?.status || "accepted"}`, {
+        columns: process.stdout.columns, detail: out?.target?.label || target, colors: C,
+      }));
       return "handled";
     }
     case "/delegate": {
@@ -272,7 +275,9 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
       try {
         const out = await sendLocalAgent(session, target, objective, "task", { intent: "request", requiresUserRelay: true });
         await trackLocalRequest(session, out, objective);
-        console.log(`${C.c}↳ ${out?.target?.label || target}${C.reset} ${out?.status || "accepted"} · correlated reply will relay here`);
+        console.log(sectionBlock("local", `${C.c}↳ ${out?.target?.label || target}${C.reset} ${out?.status || "accepted"} · correlated reply will relay here`, {
+          columns: process.stdout.columns, detail: out?.target?.label || target, colors: C,
+        }));
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (/local agent target not found/i.test(message))
@@ -294,10 +299,13 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
       const out = await api(`/api/v1/local-agents?inbox=1&session=${encodeURIComponent(session.agentSession.id)}&limit=100`);
       const rows = Array.isArray(out?.messages) ? out.messages : [];
       if (!rows.length) console.log("local agent inbox is empty");
-      else for (const row of rows) {
-        const label = String(row.senderLabel || "[agent]");
-        const prefix = label.startsWith("[agent-") ? label : `[agent-${label.replace(/^\[|\]$/g, "")}]`;
-        console.log(`${C.c}${prefix}${row.kind === "task" ? " task" : ""}${C.reset} ${row.text}`);
+      else {
+        printSection("local", { detail: "inbox", colors: C });
+        for (const row of rows) {
+          const label = String(row.senderLabel || "[agent]");
+          const prefix = label.startsWith("[agent-") ? label : `[agent-${label.replace(/^\[|\]$/g, "")}]`;
+          console.log(`${C.c}${prefix}${row.kind === "task" ? " task" : ""}${C.reset} ${row.text}`);
+        }
       }
       return "handled";
     }

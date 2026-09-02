@@ -1,9 +1,13 @@
 import { api } from "./mso-agent-runtime.mjs";
 import { persistSession } from "./mso-agent-session-ui.mjs";
+import { sectionBlock } from "./mso-agent-layout.mjs";
+import { safeErrorSummary } from "./mso-agent-errors.mjs";
 
 function clean(value) {
   return String(value || "").trim().replace(/^\[|\]$/g, "").toLocaleLowerCase();
 }
+
+function parsedTarget(line) { return parseLocalAgentMention(line)?.target || "peer"; }
 
 export function parseLocalAgentMention(line) {
   const match = String(line || "").match(/^@([^\s]+)\s+([\s\S]+)$/);
@@ -100,10 +104,14 @@ export async function handleLocalAgentMentionInput(session, line, colors) {
   try {
     const mention = await dispatchLocalAgentMention(session, line);
     if (!mention) return false;
-    console.log(`${colors.c}↳ ${mention.acknowledgement}${colors.reset}`);
+    console.log(sectionBlock("local", `${colors.c}↳ ${mention.acknowledgement}${colors.reset}`, {
+      columns: process.stdout.columns, detail: mention.result?.target?.label || parsedTarget(line), colors,
+    }));
     return true;
   } catch (error) {
-    console.error(`${colors.err}${error instanceof Error ? error.message : String(error)}${colors.reset}`);
+    console.error(sectionBlock("error", `${colors.err}${safeErrorSummary(error)}${colors.reset}`, {
+      columns: process.stdout.columns, detail: "local agent", colors,
+    }));
     return true;
   }
 }

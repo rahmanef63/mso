@@ -165,7 +165,11 @@ uses the canonical MCP tool catalog internally: reads run directly, while write/
 pause for terminal approval. Skill lifecycle is explicit in the slash palette and status line:
 `◇ ready` means discoverable/executable, `◆ queued` means selected for the next user message,
 and `✓ invoked` means the skill instructions were actually attached to a model turn. The terminal
-composer also follows conventional controls: Ctrl+C clears a draft, exits an empty prompt, or interrupts
+transcript uses full-width dividers for Assistant, Agent work, Local agent, and recoverable Error sections.
+The bottom composer is separated by an `Input · @name` divider, uses `@name ›` as its identity prompt, and
+keeps `mode ask|auto|yolo` in the footer; Tab cycles that mode in place. Recoverable HTTP/API errors keep
+the interaction/session intact and never auto-repeat an uncertain write/exec call. The composer also
+follows conventional controls: Ctrl+C clears a draft, exits an empty prompt, or interrupts
 an active turn; Ctrl+D deletes right/exits on empty; Ctrl+L clears the screen; Ctrl+W deletes the previous
 word; ↑/↓ or Ctrl+P/N browse prompt history and are seeded from durable user prompts after resume;
 Ctrl+A/E and Ctrl+B/F navigate the line, Ctrl+U/K delete to the start/end, and Alt+B/F or Ctrl+←/→ move

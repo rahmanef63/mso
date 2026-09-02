@@ -92,9 +92,6 @@ export function statusParts(session, cwd = process.cwd()) {
   ].filter(Boolean);
 }
 
-export function renderStatusBar(session, C, cwd = process.cwd()) {
-  return `${C.blue}${C.bold}◆${C.reset} ${statusParts(session, cwd).join(`${C.dim} · ${C.reset}`)}`;
-}
 
 export function detailedStatus(session, cwd = process.cwd()) {
   const cfg = session?.state?.config || {};

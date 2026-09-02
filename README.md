@@ -228,13 +228,18 @@ durable synthetic assistant response; notify-only events remain passive peer eve
 same-session subagent primitive with isolated context and final-result-only return.
 In the Agent slash palette, executable skills carry lifecycle markers so their state is visible before and after use:
 `◇ ready` → `◆ queued` (selected for the next message) → `✓ invoked` (actually sent with a model turn).
-The compact status line mirrors queued/invoked skill state and the current permission mode. MSO defaults
-to `ask`; use `mso --yolo` or `mso -yolo` when you explicitly want write+exec calls auto-approved for
-that Agent process. YOLO still computes and sends the canonical exact-payload approval digest; it only
-skips the interactive compact approval prompt. `/permission` opens the same arrow-key style selector for
-`ask` / `auto-write` / `yolo`, and Tab on an empty prompt cycles those modes. `auto-write` approves
-writes but still asks before exec. Permission mode is intentionally process-local and is not persisted
-into a resumed session. Terminal controls follow familiar agent/shell conventions: **Ctrl+C** clears a non-empty draft, exits from an empty idle prompt, and
+The interactive transcript is sectioned by full-width `Assistant`, `Agent work`, `Local agent`, and `Error`
+dividers. The composer stays in its own bottom `Input · @name` area: the short session handle is the input
+identity (`@milo ›`), while permission is shown separately in the bottom footer as `mode ask|auto|yolo`.
+Tab on an empty prompt cycles that footer in place without adding scrollback. MSO defaults to `ask`; use
+`mso --yolo` or `mso -yolo` when you explicitly want write+exec calls auto-approved for that Agent
+process. YOLO still computes and sends the canonical exact-payload approval digest; it only skips the
+interactive compact approval prompt. `/permission` opens the same arrow-key style selector; `auto-write`
+approves writes but still asks before exec. Permission mode is process-local and is not persisted into a
+resumed session. Recoverable HTTP/API failures render a bounded `Error` section instead of silently
+ending the interaction. If a write/exec delivery is uncertain, MSO stops that turn and never retries the
+mutation automatically; if an earlier mutation completed, the error section says so and instructs the
+user/client to continue from that result rather than repeat it. Terminal controls follow familiar agent/shell conventions: **Ctrl+C** clears a non-empty draft, exits from an empty idle prompt, and
 interrupts an active model/tool turn; **Ctrl+D** deletes the character to the right or exits on an
 empty prompt; **Ctrl+L** clears/repaints; **Ctrl+W** deletes the previous word; **↑/↓** or
 **Ctrl+P/N** browse prompt history, including durable user prompts restored by `--continue`/`/resume`. Long drafts wrap dynamically to terminal width/height; **↑/↓** move between visual wrapped rows before falling through to history navigation;

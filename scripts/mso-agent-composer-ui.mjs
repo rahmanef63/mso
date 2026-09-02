@@ -10,6 +10,20 @@ export const chars = (value) => Array.from(String(value ?? ""));
 export const width = (value) => chars(plain(value)).length;
 export const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+export function reserveComposerRows(output, reservedRows, rows) {
+  if (rows <= reservedRows) return reservedRows;
+  if (reservedRows) output.write(CURSOR_DOWN(reservedRows));
+  for (let i = reservedRows; i < rows; i++) output.write("\r\n");
+  output.write(`${CURSOR_UP(rows)}\r`);
+  return rows;
+}
+
+export function eraseComposerRows(output, reservedRows) {
+  output.write(`\r${CLEAR_LINE}`);
+  for (let i = 0; i < reservedRows; i++) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}`);
+  if (reservedRows) output.write(`${CURSOR_UP(reservedRows)}\r`);
+}
+
 export function inputViewport(value, cursor, maxWidth) {
   const row = chars(value), max = Math.max(1, maxWidth);
   if (row.length <= max) return { display: row.join(""), cursor: clamp(cursor, 0, row.length) };

@@ -2,6 +2,14 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — MSO 1.12.0 sectioned Agent TUI + recoverable API failures
+
+- **Identity-first bottom composer:** the old `[ask] ›` prompt is replaced by the short durable handle (`@milo ›`). A full-width `Input · @milo` divider separates transcript from editing state; permission moves to the dynamic footer as `mode ask|auto|yolo`, and empty-prompt Tab repaints only that footer. Wrapped input, resize redraw, prompt history, and keyboard editing remain intact.
+- **Unambiguous transcript streams:** streamed model text opens an `Assistant` section lazily on the first text delta, tool/subagent execution opens `Agent work`, and Local Agent send/receive/inbox output uses `Local agent`. Sections are full-width and content is not duplicated merely to label a stream.
+- **Recoverable error state:** terminal API/transport failures carry bounded status/path/method/dispatch metadata and render a redacted `Error` section. The turn journal distinguishes `not_started`, `completed`, and `uncertain` mutation outcomes. A successful mutation is never repeated just because a later assistant request failed; an uncertain write/exec transport failure stops the turn before the model can retry it.
+- **State preservation:** recoverable failures keep the durable session/transcript/correlation rows, active draft redraw, and pending exact-approval metadata. Exact approval still binds the canonical full payload/digest; transport error rendering never prints request bodies, hidden transcript, credentials, or secret-shaped error values.
+- **Cleanup:** turn/tool orchestration moved out of the CLI entrypoint into a focused module; the obsolete internal `permissionPrompt` and `renderStatusBar` helpers were removed instead of retained as compatibility shims.
+
 ## 2026-09-02 — MSO 1.11.0 named sessions + wrapped composer + collaboration observability
 
 - **Short session handles:** every durable session now has a public `name` separate from its longer title. Fresh sessions allocate familiar easy-to-type names such as `milo`, `luna`, or `nara`; allocation is unique under same-principal concurrency, old sessions receive deterministic backward-compatible fallback names, `/rename <name>` changes only the handle, and `/title <text>` remains the topic/description lifecycle. Internal `agent-a` presence aliases remain a compatibility detail.

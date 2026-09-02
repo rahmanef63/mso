@@ -1,117 +1,18 @@
 #!/usr/bin/env node
 import process from "node:process";
-import { canonicalAgentApproval } from "../lib/agent/approval.mjs";
-import { requestExactToolApproval } from "./mso-agent-approval-ui.mjs";
-import { beginSkillInvocation, endSkillInvocation } from "./mso-agent-skills.mjs";
 import { AgentComposer } from "./mso-agent-composer.mjs";
-import { AgentInterruptManager, isAbortError } from "./mso-agent-interrupt.mjs";
+import { AgentInterruptManager } from "./mso-agent-interrupt.mjs";
 import { slashCompletionItems } from "./mso-agent-slash.mjs";
-import { addUsage, renderStatusBar } from "./mso-agent-status.mjs";
 import { persistSession, restartSessionArg, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
-import { C, api, printBanner, state, streamTurn } from "./mso-agent-runtime.mjs";
+import { C, printBanner, state } from "./mso-agent-runtime.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
-import { approvesTool, nextPermissionMode, permissionMode, permissionPrompt } from "./mso-agent-permissions.mjs";
+import { nextPermissionMode, permissionMode } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
-import { oneShotApproves, oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
+import { oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
 import { LocalAgentBridge, handleLocalAgentMentionInput, runForegroundSubagent } from "./mso-agent-collaboration.mjs";
-
-async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null, options = {}) {
-  if (!tool) return { ok: false, result: `unknown tool requested by model: ${call.name}` };
-  const needsApprovalDigest = tool.scope !== "read";
-  let approval = null;
-  if (needsApprovalDigest) {
-    try { approval = canonicalAgentApproval(tool.name, call.input || {}); }
-    catch (error) { return { ok: false, result: `cannot safely approve tool call: ${error instanceof Error ? error.message : String(error)}` }; }
-  }
-  let approved = options.approvalScope
-    ? oneShotApproves(options.approvalScope, tool.scope)
-    : approvesTool(permission, tool.scope);
-  if (!approved) {
-    // Autonomous one-shot mode must never fall back to an interactive prompt.
-    // Its default approval scope is read, so write/exec fail closed unless the
-    // caller explicitly chose --approve-scope write|exec.
-    if (options.approvalScope) return { ok: false, result: "denied by user" };
-    approved = await requestExactToolApproval(rl, {
-      tool, input: call.input || {}, approval, onCancel: onInterrupt, signal, colors: C,
-    });
-  } else if (needsApprovalDigest && !options.quiet && !options.approvalScope) {
-    // Keep autonomous approval mode out of the transcript: scope + tool is enough.
-    console.log(`${C.c}${C.bold}[${tool.scope}]${C.reset} ${tool.name}`);
-  }
-  if (!approved) return { ok: false, result: "denied by user" };
-  if (!options.quiet) process.stdout.write(`${C.dim}  ↳ ${tool.name}…${C.reset}`);
-  try {
-    const input = approval ? approval.payload.input : (call.input || {});
-    const out = await api("/api/v1/agent-tools", {
-      method: "POST",
-      body: JSON.stringify({
-        name: tool.name,
-        input,
-        sessionId: agentSession.id,
-        ...(tool.scope === "read" ? {} : { approved: true, approvalDigest: approval.digest }),
-      }),
-      signal,
-    });
-    if (!options.quiet) process.stdout.write(`\r${C.c}  ✓ ${tool.name}${C.reset}\n`);
-    if (!out.ok) return { ok: false, result: out.result || "tool failed" };
-    return { ok: true, result: String(out.result ?? "ok") };
-  } catch (error) {
-    if (signal?.aborted || isAbortError(error)) throw error;
-    if (!options.quiet) process.stdout.write(`\r${C.err}  ✗ ${tool.name}${C.reset}\n`);
-    return { ok: false, result: (error instanceof Error ? error.message : String(error)).slice(0, 2000) };
-  }
-}
-
-async function agentRound(rl, session, skillContext = null, signal = undefined, onInterrupt = null, options = {}) {
-  const startedAt = Date.now();
-  const historyCheckpoint = Math.max(0, session.history.length - 1);
-  const calls = [];
-  let finalText = "", rounds = 0;
-  beginSkillInvocation(session, skillContext, C);
-  try {
-    for (let turn = 0; turn < 10; turn++) {
-      rounds = turn + 1;
-      const result = await streamTurn(session.history, session.state.tools, session.agentSession, skillContext, signal, session.state.modelMeta?.context, options.quiet ? null : process.stdout); if (skillContext) session.lastInvokedSkill = skillContext;
-      finalText = result.text;
-      session.usage = addUsage(session.usage, result.usage);
-      session.lastElapsedMs = Date.now() - startedAt;
-      session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
-      if (!result.toolUses.length) return { text: finalText, calls, rounds, usage: session.usage, elapsedMs: session.lastElapsedMs };
-      const results = [];
-      for (const call of result.toolUses) {
-        const tool = session.state.tools.find((row) => row.name === call.name);
-        const outcome = await executeTool(rl, tool, call, session.agentSession, session.permission, signal, onInterrupt, options);
-        calls.push({ name: call.name, ok: outcome.ok });
-        results.push({ id: call.id, content: outcome.result, isError: !outcome.ok });
-      }
-      session.history.push({ role: "tool", results });
-    }
-    if (!options.quiet) console.log(`${C.warn}turn limit reached; ask to continue if needed.${C.reset}`);
-    return { text: finalText, calls, rounds, usage: session.usage, elapsedMs: session.lastElapsedMs, turnLimitReached: true };
-  } catch (error) {
-    if (signal?.aborted || isAbortError(error)) session.history.splice(historyCheckpoint);
-    throw error;
-  } finally {
-    endSkillInvocation(session, skillContext);
-  }
-}
-
-async function runInteractiveRound(rl, session, skillContext, interrupts, localBridge = null) {
-  const signal = interrupts.beginTurn();
-  await localBridge?.setState("busy");
-  try {
-    await agentRound(rl, session, skillContext, signal, () => interrupts.interruptCurrent());
-    await persistSession(session);
-  } catch (error) {
-    if (signal.aborted || isAbortError(error)) console.log(`${C.dim}turn interrupted.${C.reset}`);
-    else console.error(`${C.err}agent error: ${error instanceof Error ? error.message : String(error)}${C.reset}`);
-    await persistSession(session).catch(() => undefined);
-  } finally {
-    interrupts.endTurn(signal);
-    await localBridge?.setState("idle");
-  }
-}
-
+import { composerFooter, composerPrompt, composerSeparator } from "./mso-agent-layout.mjs";
+import { agentRound, executeTool, renderInteractionFailure, runInteractiveRound } from "./mso-agent-turn.mjs";
+import { pathToFileURL } from "node:url";
 
 async function runOneShot(opts) {
   const requested = resumeArg(process.argv.slice(2));
@@ -122,7 +23,7 @@ async function runOneShot(opts) {
     pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
     titleOverride: requested ? (agentSession.title || null) : null,
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastElapsedMs: 0, statusBar: false,
-    permission: "ask",
+    permission: "ask", pendingApproval: null,
   };
   session.history.push({ role: "user", text: opts.prompt });
   const result = await agentRound(null, session, null, undefined, null, { quiet: true, approvalScope: opts.approvalScope });
@@ -164,7 +65,7 @@ async function main() {
     pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
     titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastElapsedMs: 0,
-    statusBar: restartUi.statusBar ?? true, permission: forcedPermission,
+    statusBar: restartUi.statusBar ?? true, permission: forcedPermission, pendingApproval: null,
   };
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C }); syncPromptHistory(rl, session);
   const localBridge = new LocalAgentBridge({ session, composer: rl });
@@ -186,11 +87,11 @@ async function main() {
       if (interrupts.exitRequested) break;
       let line = "";
       try {
-        console.log();
-        if (session.statusBar) console.log(renderStatusBar(session, C));
-        const answer = await rl.question(() => permissionPrompt(session.permission, C), {
+        const answer = await rl.question(() => composerPrompt(session, C), {
           complete: completeSlash,
           onTab: () => { session.permission = nextPermissionMode(session.permission).id; },
+          separator: () => composerSeparator(session, C, process.stdout.columns),
+          footer: () => composerFooter(session, C, process.stdout.columns),
         });
         if (answer === null) break;
         line = answer.trim();
@@ -204,7 +105,8 @@ async function main() {
           if (result === "refresh") await localBridge.syncSession();
           if (result === "unknown") console.log("unknown command; /help lists commands.");
         } catch (error) {
-          console.error(`${C.err}${error instanceof Error ? error.message : String(error)}${C.reset}`);
+          renderInteractionFailure(error, session, {}, C);
+          await persistSession(session).catch(() => undefined);
         }
         if (interrupts.exitRequested) break;
         continue;
@@ -230,4 +132,5 @@ async function main() {
   }
 }
 
-main().catch((error) => { console.error(`${C.err}mso agent: ${error instanceof Error ? error.message : String(error)}${C.reset}`); process.exit(1); });
+const direct = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (direct) main().catch((error) => { console.error(`${C.err}mso agent: ${error instanceof Error ? error.message : String(error)}${C.reset}`); process.exit(1); });

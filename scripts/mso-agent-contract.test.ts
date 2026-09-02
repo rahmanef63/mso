@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const files = ["mso-agent.mjs", "mso-agent-runtime.mjs", "mso-agent-ui.mjs", "mso-agent-slash.mjs", "mso-agent-status.mjs", "mso-agent-sessions.mjs", "mso-agent-session-ui.mjs", "mso-agent-lifecycle.mjs", "mso-agent-commands.mjs", "mso-agent-composer.mjs", "mso-agent-permissions.mjs", "mso-agent-approval-ui.mjs"].map((name) => path.join(__dirname, name));
+const files = ["mso-agent.mjs", "mso-agent-runtime.mjs", "mso-agent-ui.mjs", "mso-agent-slash.mjs", "mso-agent-status.mjs", "mso-agent-sessions.mjs", "mso-agent-session-ui.mjs", "mso-agent-lifecycle.mjs", "mso-agent-commands.mjs", "mso-agent-composer.mjs", "mso-agent-permissions.mjs", "mso-agent-approval-ui.mjs", "mso-agent-turn.mjs", "mso-agent-layout.mjs", "mso-agent-errors.mjs", "mso-agent-local.mjs"].map((name) => path.join(__dirname, name));
 const src = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 
 describe("MSO terminal agent contract", () => {
@@ -40,8 +40,13 @@ describe("MSO terminal agent contract", () => {
     expect(src).toContain("lastInvokedSkill");
     expect(src).toContain("AgentComposer");
     expect(src).toContain("slashCompletionItems");
-    expect(src).toContain("renderStatusBar");
     expect(src).toContain("resolveSessionQuery");
+    expect(src).toContain("composerPrompt");
+    expect(src).toContain("composerFooter");
+    expect(src).toContain("composerSeparator");
+    expect(src).toContain("sectionDivider");
+    expect(src).toContain("Agent work");
+    expect(src).toContain("Local agent");
   });
 
   it("keeps infrastructure secrets out of model messages and binds write/exec approval to the exact full payload", () => {
@@ -55,6 +60,10 @@ describe("MSO terminal agent contract", () => {
     expect(src).not.toContain("redactedPreview");
     expect(src).not.toContain("allowedForSession");
     expect(src).toContain("approved: true");
+    expect(src).toContain("AgentMutationUncertainError");
+    expect(src).toContain("recoverableTurnState");
+    expect(src).toContain("pendingApproval");
+    expect(src).toContain("will not retry it automatically");
   });
 
   it("reads the authenticated cookie jar instead of accepting a bearer/token argument", () => {
