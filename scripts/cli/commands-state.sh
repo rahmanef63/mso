@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Assistant, sessions, A2A, memory/config/skills state commands.
+# Usage variables are defined by scripts/cli/commands.sh before this sourced handler runs.
+# shellcheck disable=SC2154
 mso_cmd_state() {
   local cmd="$1"; shift || true
 case "$cmd" in

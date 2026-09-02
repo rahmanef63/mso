@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Agent/provider/gateway/browser/managed-app/terminal commands.
+# Usage variables are defined by scripts/cli/commands.sh before this sourced handler runs.
+# shellcheck disable=SC2154
 mso_cmd_runtime() {
   local cmd="$1"; shift || true
 case "$cmd" in

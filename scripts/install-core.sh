@@ -65,7 +65,11 @@ die()  { printf '%s✗%s %s\n' "$C_ERR"  "$C_RST" "$*" >&2; exit 1; }
 # this complete file first. This phase-only ERR trap handles genuine runtime
 # failures without echoing commands that may contain credentials.
 INSTALL_PHASE=arguments
-trap 'rc=$?; printf "%s✗%s mso installer failed during %s (line %s, exit %s)\n" "$C_ERR" "$C_RST" "$INSTALL_PHASE" "$LINENO" "$rc" >&2' ERR
+install_error_trap() {
+  local rc=$?
+  printf "%s✗%s mso installer failed during %s (line %s, exit %s)\n" "$C_ERR" "$C_RST" "$INSTALL_PHASE" "$LINENO" "$rc" >&2
+}
+trap install_error_trap ERR
 
 usage() {
   cat <<EOF

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Devices, OAuth/MCP/audit, service/update, CRUD and escape-hatch commands.
+# Usage variables are defined by scripts/cli/commands.sh before this sourced handler runs.
+# shellcheck disable=SC2154
 mso_cmd_admin() {
   local cmd="$1"; shift || true
 case "$cmd" in
