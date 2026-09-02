@@ -338,30 +338,19 @@ the real runtime and working analogue before changing a tool or skill contract.
   is the control, not the CSRF gate. `proxy.ts` exempts `/mcp`, `/oauth/token`,
   `/oauth/register` and `/.well-known/oauth-*` from BOTH that gate and the document
   CSP. `/oauth/authorize` is NOT exempt — it is a real HTML page and needs its nonce.
-- **Every tool is a thin call into `lib/host`**, never node `fs`/`child_process`. That
-  is what makes the MCP surface inherit `OS_FS_*_ROOTS`, the credential denylist
-  (including `~/.mso` itself) and `exec.ts`'s destructive filter for free. A tool that
-  reimplements an operation reimplements its guard too — don't.
+- **Tool execution is transport-neutral.** `lib/capabilities/*` owns scope, required-argument validation, workflow correlation, rate limits, audit/activity and execution semantics. MCP/A2A/agent surfaces are adapters over that kernel. Host operations flow through narrow `lib/host/*-api.ts` facades, which preserve `OS_FS_*_ROOTS`, the credential denylist (including `~/.mso`) and destructive-command guards. Do not reimplement a guarded host operation inside an adapter.
 - Scope ladder `read < write < exec`, picked per token on the consent page, capped by
   `OS_MCP_MAX_SCOPE`. The default ceiling is `exec`, and consent preselects the highest
   permitted tier; set the env to `read` or `write` to opt down. `tools/list` filters by
   it AND `tools/call` re-checks it — a client can call a name it was never shown.
 - **Tool names are an MSO public API contract.** Keep global names MSO-owned and generic.
   Project-owned MCP names are data behind `project_mcp_tools` / `project_mcp_call`; never copy them into the global catalog.
-  <!-- mcp-toolset: server=1.8.2 version=2026.09.03.7 tools=85 read=41 write=25 exec=19 -->
-  The full MSO transport exposes **73 tools**: **72 model/operator tools** (34 read, 24 write, 14 exec) plus app-only `workflow_status`.
-  ChatGPT receives a deliberately smaller static profile; hidden full-catalog names are rejected at call time, not merely omitted from `tools/list`.
+  The exact full MSO catalog **and** compact ChatGPT profile are source-generated in [`docs/generated/MCP-CATALOG.md`](./docs/generated/MCP-CATALOG.md); `GET /mcp` remains the live version/hash authority. Hidden ChatGPT-profile names are rejected at call time, not merely omitted from `tools/list`.
 - Store is `~/.mso/mcp.json`, **sha256 only**, same atomic-write + fail-loud-on-corrupt
   rule as `lib/auth/device-store.ts`. Codes are single-use, 60 s, deleted BEFORE the
   token is minted. `browser_status` must never return the VNC password — that profile
   holds a live Google session.
-- **The dispatcher writes the audit trail, because the tools bypass the one that
-  exists.** `audit()` is called at the ROUTE layer for `/api/v1`; MCP tools call
-  `lib/host` directly, so every write/delete/exec over MCP would otherwise be absent
-  from `~/.mso/audit.log`. `McpTool.audit` declares the action + which arg is the
-  target; `dispatch()` records it with `actor: mcp:<id>` (the id Settings shows) and
-  `meta.via = "mcp"`. Scope refusals log `mcp.denied` — that is the prompt-injection
-  signal. Reads stay unlogged, same rule the routes follow. `GET /api/v1/sys/audit`
+- **The capability kernel writes the audit trail, because model-facing tools bypass route-layer audit.** `/api/v1` routes audit at the route layer; capability tools may call guarded host APIs directly, so `lib/capabilities/execute.ts` enforces scope/rate/workflow telemetry and records declared `CapabilityTool.audit` actions once for MCP/A2A/agent adapters. MCP uses `actor: mcp:<id>` and `meta.via = "mcp"`; scope refusals log `mcp.denied`. Reads stay unlogged, same rule the routes follow. `GET /api/v1/sys/audit`
   reads it (session-gated); there is deliberately **no MCP tool** for it, or a
   compromised token could check whether it had been noticed.
 

@@ -3,120 +3,37 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { collectMcpCatalog } from "./lib/mcp-catalog.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fail = [];
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
 
-// --- MCP toolset: source is authoritative; docs carry a machine-readable marker.
-const toolset = read("lib/mcp/toolset.ts");
-const server = /MCP_SERVER_VERSION\s*=\s*"([^"]+)"/.exec(toolset)?.[1];
-const version = /MCP_TOOLSET_VERSION\s*=\s*"([^"]+)"/.exec(toolset)?.[1];
-if (!server || !version) fail.push("could not parse MCP version constants");
+// --- MCP catalog: one generated SSOT for the full server + compact ChatGPT profile.
+const catalog = collectMcpCatalog(ROOT);
+for (const name of catalog.orphanModules) fail.push(`lib/mcp/${name}: tool module exists but is not reachable from lib/mcp/tools.ts`);
+for (const name of catalog.missingModules) fail.push(`lib/mcp/${name}: imported tool module is missing`);
+for (const name of catalog.profileMissing) fail.push(`lib/mcp/tool-contract.ts: ChatGPT profile references missing MCP tool ${name}`);
 
-// Tool catalog modules may be split recursively (for example RASMIC workflow
-// modules). Start at tools.ts and follow every local tools-* import transitively.
-// Any top-level tools-*.ts module that is not reachable is dead/unregistered code
-// and fails CI instead of silently escaping the documentation contract.
-const toolModuleName = /^tools-[A-Za-z0-9-]+\.ts$/;
-const discoveredToolModules = readdirSync(join(ROOT, "lib/mcp"))
-  .filter((name) => toolModuleName.test(name))
-  .sort();
-const reachable = new Set();
-const pending = ["tools.ts"];
-while (pending.length) {
-  const name = pending.pop();
-  if (!name || reachable.has(name)) continue;
-  reachable.add(name);
-  const text = read(`lib/mcp/${name}`);
-  for (const match of text.matchAll(/from\s+["']\.\/(tools-[A-Za-z0-9-]+)["']/g)) {
-    const child = `${match[1]}.ts`;
-    if (!reachable.has(child)) pending.push(child);
-  }
-}
-for (const name of discoveredToolModules) {
-  if (!reachable.has(name)) fail.push(`lib/mcp/${name}: tool module exists but is not reachable from lib/mcp/tools.ts`);
-}
-for (const name of reachable) {
-  if (name !== "tools.ts" && !discoveredToolModules.includes(name)) fail.push(`lib/mcp/${name}: imported tool module is missing`);
-}
-const toolFiles = [...reachable].sort().map((name) => `lib/mcp/${name}`);
-const tools = new Map();
-for (const file of toolFiles) {
-  const text = read(file);
-  const matches = text.matchAll(/name:\s*"([^"]+)"[\s\S]*?scope:\s*"(read|write|exec)"/g);
-  for (const [, name, scope] of matches) tools.set(name, scope);
-}
-
-// App-only MCP bridge tools are intentionally absent from the model/operator action
-// catalogs. They must be documented in the MCP App UI guide instead. Keep this list
-// tiny and explicit: adding a hidden bridge should be a conscious review decision.
-const appOnlyTools = new Set(["workflow_status"]);
-const documentedTools = new Map([...tools].filter(([name]) => !appOnlyTools.has(name)));
 const appUiDoc = read("docs/integrations/CHATGPT-UI.md");
-for (const name of appOnlyTools) {
-  if (!tools.has(name)) fail.push(`app-only MCP tool ${name} is no longer in the source catalog`);
+for (const name of catalog.appOnly) {
   if (!appUiDoc.includes(`\`${name}\``)) fail.push(`docs/integrations/CHATGPT-UI.md: app-only MCP tool ${name} is not documented`);
 }
 
-const counts = { read: 0, write: 0, exec: 0 };
-for (const scope of documentedTools.values()) counts[scope] += 1;
-const marker = `server=${server} version=${version} tools=${documentedTools.size} read=${counts.read} write=${counts.write} exec=${counts.exec}`;
-const markerDocs = ["docs/MCP.md", "docs/ARCHITECTURE.md", "CLAUDE.md"];
-for (const file of markerDocs) {
-  const text = read(file);
-  if (!text.includes(`<!-- mcp-toolset: ${marker} -->`)) {
-    fail.push(`${file}: MCP marker stale; expected ${marker}`);
-  }
-}
-for (const file of ["docs/MCP.md"]) {
-  const text = read(file);
-  for (const name of documentedTools.keys()) {
-    if (!text.includes(`\`${name}\``)) fail.push(`${file}: MCP tool ${name} is not documented`);
-  }
-}
+const generated = spawnSync(process.execPath, [join(ROOT, "scripts/gen-mcp-catalog.mjs"), "--check"], { cwd: ROOT, encoding: "utf8" });
+if (generated.status !== 0) fail.push((generated.stderr || generated.stdout || "docs/generated/MCP-CATALOG.md is stale").trim());
 
-// ChatGPT uses a deliberately compact static profile. Parse its SSOT name set
-// from tool-contract.ts, then require the ChatGPT guide to match THAT profile
-// rather than the full MSO catalog. Project-owned dynamic MCP names never belong
-// in this set.
-const toolContract = read("lib/mcp/tool-contract.ts");
-const profileBlock = /CHATGPT_TOOL_NAMES\s*=\s*new Set\(\[([\s\S]*?)\]\s*as const\)/.exec(toolContract)?.[1] ?? "";
-const chatgptNames = [...profileBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
-if (!chatgptNames.length) fail.push("could not parse CHATGPT_TOOL_NAMES from lib/mcp/tool-contract.ts");
-for (const name of chatgptNames) if (!tools.has(name)) fail.push(`ChatGPT profile references missing MCP tool ${name}`);
-const chatgptModelTools = new Map(chatgptNames.filter((name) => !appOnlyTools.has(name)).map((name) => [name, tools.get(name)]));
-const chatgptCounts = { read: 0, write: 0, exec: 0 };
-for (const scope of chatgptModelTools.values()) if (scope) chatgptCounts[scope] += 1;
-const chatgptAppOnly = chatgptNames.filter((name) => appOnlyTools.has(name)).length;
-const profileMarker = `server=${server} version=${version} tools=${chatgptModelTools.size} read=${chatgptCounts.read} write=${chatgptCounts.write} exec=${chatgptCounts.exec} app-only=${chatgptAppOnly} total=${chatgptNames.length}`;
-const chatgpt = read("docs/CHATGPT-PLUGIN.md");
-if (!chatgpt.includes(`<!-- mcp-chatgpt-profile: ${profileMarker} -->`)) fail.push(`docs/CHATGPT-PLUGIN.md: ChatGPT profile marker stale; expected ${profileMarker}`);
-for (const name of chatgptModelTools.keys()) if (!chatgpt.includes(`\`${name}\``)) fail.push(`docs/CHATGPT-PLUGIN.md: ChatGPT profile tool ${name} is not documented`);
-const scopeOrder = ["read", "write", "exec"];
-for (let i = 0; i < scopeOrder.length; i += 1) {
-  const scope = scopeOrder[i];
-  const next = scopeOrder[i + 1];
-  const expected = [...chatgptModelTools].filter(([, value]) => value === scope).map(([name]) => name).sort();
-  const heading = scope === "read"
-    ? `### \`read\` — ${expected.length} ChatGPT model tools`
-    : `### \`${scope}\` — + ${expected.length} ChatGPT model tools`;
-  if (!chatgpt.includes(heading)) fail.push(`docs/CHATGPT-PLUGIN.md: stale ${scope} profile heading; expected ${heading}`);
-  const start = chatgpt.indexOf(`### \`${scope}\` —`);
-  const end = next ? chatgpt.indexOf(`### \`${next}\` —`, start + 1) : chatgpt.indexOf("\n### App-only ChatGPT bridge", start + 1);
-  if (start < 0 || end < 0) { fail.push(`docs/CHATGPT-PLUGIN.md: could not parse ${scope} profile block`); continue; }
-  const actual = [...chatgpt.slice(start, end).matchAll(/^- \`([^\`]+)\`/gm)].map((match) => match[1]).sort();
-  if (actual.join("\n") !== expected.join("\n")) fail.push(`docs/CHATGPT-PLUGIN.md: ${scope} ChatGPT profile list differs from source contract`);
-}
-
-// MCP.md's scope table must match source membership exactly.
-const mcpDoc = read("docs/MCP.md");
-for (const scope of scopeOrder) {
-  const expected = [...documentedTools].filter(([, value]) => value === scope).map(([name]) => name).sort();
-  const row = mcpDoc.split("\n").find((line) => line.startsWith(`| \`${scope}\` |`));
-  if (!row) { fail.push(`docs/MCP.md: missing ${scope} scope row`); continue; }
-  const actual = [...row.matchAll(/`([^`]+)`/g)].map((match) => match[1]).filter((name) => name !== scope).sort();
-  if (actual.join("\n") !== expected.join("\n")) fail.push(`docs/MCP.md: ${scope} scope row differs from source catalog`);
+const catalogRefs = new Map([
+  ["docs/MCP.md", "./generated/MCP-CATALOG.md"],
+  ["docs/CHATGPT-PLUGIN.md", "./generated/MCP-CATALOG.md"],
+  ["docs/ARCHITECTURE.md", "./generated/MCP-CATALOG.md"],
+  ["CLAUDE.md", "./docs/generated/MCP-CATALOG.md"],
+]);
+for (const [file, ref] of catalogRefs) {
+  const text = read(file);
+  if (!text.includes(ref)) fail.push(`${file}: must reference the generated MCP catalog (${ref})`);
+  if (text.includes("<!-- mcp-toolset:") || text.includes("<!-- mcp-chatgpt-profile:"))
+    fail.push(`${file}: duplicated MCP catalog marker; keep volatile markers only in docs/generated/MCP-CATALOG.md`);
 }
 
 // --- Slice catalog counts.
@@ -188,4 +105,4 @@ if (fail.length) {
   for (const item of fail) console.error(`- ${item}`);
   process.exit(1);
 }
-console.log(`docs: current — ${markdown.length} markdown files, ${documentedTools.size} model MCP tools + ${appOnlyTools.size} app-only bridge, ${sliceCount} slices, ${featureCount} AppShell feature dirs`);
+console.log(`docs: current — ${markdown.length} markdown files, full ${catalog.modelCount}+${catalog.appOnly.length} app-only MCP tools, ChatGPT ${catalog.chatgpt.modelCount}+${catalog.chatgpt.appOnly.length} app-only, ${sliceCount} slices, ${featureCount} AppShell feature dirs`);

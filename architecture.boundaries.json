@@ -10,7 +10,11 @@
     "nonMcpMcpImports": 0,
     "crossProtocolCycles": 0,
     "legacyWorkflowFacadeImports": 0,
-    "hostFacadeImports": 0
+    "hostFacadeImports": 0,
+    "legacyHostMockSeams": 0,
+    "osShellAppShellProxyExports": 0,
+    "cliEntrypointLines": 220,
+    "installerCoreLines": 450
   },
   "notes": {
     "policy": "Ratchets may only stay equal or decrease. Raise a baseline only with an explicit architecture decision.",

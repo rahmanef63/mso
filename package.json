@@ -35,7 +35,8 @@
     "bench:pipeline": "bun scripts/bench-read-pipeline.mjs",
     "bench:corpus": "bun scripts/bench-agent-corpus.mjs",
     "bench:corpus:repeat": "bun scripts/bench-agent-repeat.mjs",
-    "bench:cache-calibration": "bun scripts/bench-agent-cache.mjs"
+    "bench:cache-calibration": "bun scripts/bench-agent-cache.mjs",
+    "mcp:catalog": "node scripts/gen-mcp-catalog.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

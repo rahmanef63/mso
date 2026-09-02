@@ -4,13 +4,11 @@
 >
 > ChatGPT's Developer Mode/App UI can change independently of MSO. Use the current OpenAI MCP/App documentation for exact menu labels, and use MSO Settings → MCP / `GET /mcp` for the live server/profile signatures.
 
-<!-- mcp-chatgpt-profile: server=1.8.2 version=2026.09.03.7 tools=61 read=32 write=17 exec=12 app-only=1 total=62 -->
-
-MSO server **1.8.2**, toolset **2026.09.03.7** exposes the full generic catalog for MCP clients, while a registered ChatGPT client receives **62 transport tools**: **61 model/operator tools** (32 read, 17 write, 12 exec) plus app-only `workflow_status`.
+The exact current server/toolset identity plus the full MSO and compact ChatGPT name/scope catalogs are generated from source in [`generated/MCP-CATALOG.md`](./generated/MCP-CATALOG.md). `GET /mcp` and Settings → MCP remain the live deployed signature authority.
 
 Browser-hosted MCP probes from ChatGPT are allowed only when they target the configured public `OS_PUBLIC_ORIGIN`; arbitrary origins and ChatGPT-origin requests aimed at loopback remain denied. Additional trusted browser hosts can be added explicitly with comma-separated `OS_MCP_BROWSER_ORIGINS`. Public OAuth discovery and DCR responses carry CORS metadata; authenticated `/mcp` echoes only an approved exact origin.
 
-The compact descriptor regression currently measures **64,180 JSON bytes** for all 62 ChatGPT transport tool definitions (roughly 16.0k tokens at a 4-byte/token estimate), with the largest individual descriptor **2,615 bytes**. CI keeps the profile below 72 KiB and each descriptor below 8 KiB. Bytes are the deterministic contract; token estimates vary by tokenizer.
+The compact descriptor regression currently measures **64,180 JSON bytes** for the current generated ChatGPT profile (roughly 16.0k tokens at a 4-byte/token estimate), with the largest individual descriptor **2,615 bytes**. CI keeps the profile below 72 KiB and each descriptor below 8 KiB. Bytes are the deterministic contract; token estimates vary by tokenizer.
 
 ## Why ChatGPT gets a compact profile
 
@@ -51,87 +49,15 @@ The ChatGPT projection compacts verbose descriptions/schema descriptions without
 
 ## Exact ChatGPT model tool profile
 
-### `read` — 32 ChatGPT model tools
-
-- `agent_session_current`
-- `apps_list`
-- `apps_logs`
-- `browser_status`
-- `cloudflare_zones_list`
-- `connections_list`
-- `dokploy_projects_list`
-- `exec_job_status`
-- `fs_list`
-- `fs_read`
-- `fs_search`
-- `fs_usage`
-- `infra_provider_doctor`
-- `infra_providers_list`
-- `local_agent_inbox`
-- `local_agent_request_wait`
-- `local_agents_list`
-- `project_agent_status`
-- `project_capabilities`
-- `project_changes_list`
-- `project_diff`
-- `project_get`
-- `project_knowledge_get`
-- `projects_list`
-- `read_pipeline`
-- `screen_capture`
-- `skills_list`
-- `skills_read`
-- `skills_search`
-- `sys_processes`
-- `sys_stats`
-- `vps_status`
-
-### `write` — + 17 ChatGPT model tools
-
-- `agent_session_rename`
-- `apps_power`
-- `cloudflare_dns_upsert`
-- `dokploy_project_ensure`
-- `fs_copy`
-- `fs_delete`
-- `fs_mkdir`
-- `fs_move`
-- `fs_upload_file`
-- `fs_write`
-- `hostinger_dns_upsert`
-- `local_agent_message_send`
-- `local_agent_reply`
-- `project_knowledge_set`
-- `workflow_cancel`
-- `workflow_finish`
-- `workflow_start`
-
-### `exec` — + 12 ChatGPT model tools
-
-- `browser_power`
-- `exec_job_cancel`
-- `exec_job_start`
-- `exec_run`
-- `project_agent_run`
-- `project_database_call`
-- `project_database_query`
-- `project_database_status`
-- `project_database_tools`
-- `project_function_call`
-- `project_mcp_call`
-- `project_mcp_tools`
-
-### App-only ChatGPT bridge
-
-`workflow_status` is available to the MCP Apps progress UI but is not counted as a model/operator action.
+The exact current ChatGPT profile is generated under **ChatGPT static profile** in [`generated/MCP-CATALOG.md`](./generated/MCP-CATALOG.md). Its source is `CHATGPT_TOOL_NAMES` in `lib/mcp/tool-contract.ts`; CI fails if that profile references a missing global tool. The profile remains fail-closed at both `tools/list` and `tools/call`, while OAuth `read < write < exec` is enforced independently.
 
 The restored Original MSO operator primitives (`sys_*`, `fs_usage` + full bounded filesystem CRUD, `apps_*`, browser power/status, and Dokploy/Cloudflare/Hostinger operations) are again first-class ChatGPT actions. Fresh 3 adds `vps_status`, project snapshot/diff/history/knowledge, private project-agent message/status, connection inventory, and Convex database seams without removing the lower-level primitives. This is intentional: aggregate tools optimize common turns; bounded primitives preserve direct operator control.
 
-Project-owned MCP names and Convex's own dynamic schemas still load on demand through `project_mcp_tools` / `project_mcp_call` and `project_database_tools` / `project_database_call`. That is how MSO keeps a 61-action static model profile instead of copying every downstream provider/project action into ChatGPT.
+Project-owned MCP names and Convex's own dynamic schemas still load on demand through `project_mcp_tools` / `project_mcp_call` and `project_database_tools` / `project_database_call`. That is how MSO keeps a bounded static model profile instead of copying every downstream provider/project action into ChatGPT.
 
 ### Structured-result contract
 
-After the Fresh 3 rescan exposed `Output schema recommended` on non-UI actions, the ChatGPT profile now advertises an output schema on **all 62 transport actions** without duplicating dozens of provider/project result definitions. Tools with stable UI-critical shapes keep their explicit typed schemas. Every other ChatGPT action uses one exact outer `{ result: ... }` contract and returns the already-bounded JSON value inside `structuredContent.result`; its text `content` is a short acknowledgement so the same payload is not duplicated in the conversation transcript. Full/generic MCP clients keep the historical text-only contract unless a tool explicitly declares structured output. `screen_capture` keeps the image in MCP content and exposes only safe dimensions/URLs/expiry metadata in the structured envelope—never base64 image bytes.
+After the Fresh 3 rescan exposed `Output schema recommended` on non-UI actions, the ChatGPT profile now advertises an output schema on **all current ChatGPT transport actions** without duplicating dozens of provider/project result definitions. Tools with stable UI-critical shapes keep their explicit typed schemas. Every other ChatGPT action uses one exact outer `{ result: ... }` contract and returns the already-bounded JSON value inside `structuredContent.result`; its text `content` is a short acknowledgement so the same payload is not duplicated in the conversation transcript. Full/generic MCP clients keep the historical text-only contract unless a tool explicitly declares structured output. `screen_capture` keeps the image in MCP content and exposes only safe dimensions/URLs/expiry metadata in the structured envelope—never base64 image bytes.
 
 ### Native MCP skill snapshot
 

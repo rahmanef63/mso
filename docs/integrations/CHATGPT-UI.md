@@ -35,7 +35,9 @@ Source boundaries:
 | Workflow structured schema | `lib/mcp/tools-workflow-start.ts`, `lib/mcp/tools-workflow-lifecycle.ts` |
 | Project/diff structured schemas | `lib/mcp/tools-project-experience.ts` |
 | VPS structured schema | `lib/mcp/tools-operator-dashboard.ts` |
-| Shared descriptor contract | `lib/mcp/tool-kit.ts`, `lib/mcp/tool-contract.ts` |
+| Shared executable capability schema | `lib/capabilities/tool.ts` (`lib/mcp/tool-kit.ts` is the compatibility adapter) |
+| MCP descriptor/profile contract | `lib/mcp/tool-contract.ts` |
+| Toolset signature | `lib/mcp/toolset.ts` |
 | Tests | `lib/mcp/ui-resources.test.ts` |
 
 ## Data boundaries

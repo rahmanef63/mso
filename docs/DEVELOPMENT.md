@@ -122,12 +122,7 @@ Three things that will bite:
   and the named root includes for `proxy.test.ts` / `proxy-websocket.test.ts`), cannot
   run suites that use `vi.mock`, and **exits 0 having run nothing** — so `verify` goes
   green while testing zero files. Same trap in CI.
-- **`node-pty` must stay in `trustedDependencies`.** It has no Linux prebuild, so it
-  compiles at install time (hence the C++ toolchain + python3 requirement), and bun
-  skips lifecycle scripts unless the package is trusted. Its binding loads eagerly via
-  `lib/host/pty.ts` → `lib/host/index.ts`, which every `/api/v1` route imports — so a
-  skipped build is not a Terminal outage, it is the entire host API failing at import.
-  Gate any dependency change on `node -e "require('node-pty')"`.
+- **`node-pty` must stay in `trustedDependencies`.** It has no Linux prebuild, so it compiles at install time (hence the C++ toolchain + python3 requirement), and bun skips lifecycle scripts unless the package is trusted. Terminal code reaches it through the narrow `lib/host/terminal-api.ts` facade; unrelated routes no longer import a giant host barrel. Gate any dependency change on `node -e "require('node-pty')"` because PTY functionality is still release-critical.
 - **Never `bunx`/`bun x` in a deploy script.** Unlike `pnpm exec`, bunx *downloads* a
   missing package and runs it. On the box that serves an authenticated remote shell,
   that turns a capability check into a fetch-and-execute. Call `node_modules/.bin/<tool>`

@@ -62,7 +62,7 @@ A public tool is not only a function. Its release contract spans all of these su
 | Public name | Stable snake_case name; renames/removals require external mapping review |
 | Description/schema | Exact input contract, bounded values, required fields, and file annotations |
 | Scope | `read`, `write`, or `exec`; list filtering and call-time enforcement must agree |
-| Handler | Thin adapter into `lib/host` or another existing guarded capability |
+| Handler | Thin tool descriptor/adapter; shared execution policy lives in `lib/capabilities`, host effects in the narrow guarded `lib/host/*-api.ts` facade |
 | Audit | Mutating/exec operations declare action and target; dispatcher records MCP actor |
 | Limits | Timeouts, rate/size caps, allowed roots, pagination, and continuation semantics |
 | Parity | Alfa/MCP coverage or an explicit documented reason for MCP-only behavior |
@@ -72,11 +72,9 @@ A public tool is not only a function. Its release contract spans all of these su
 
 Implementation sequence:
 
-1. Inspect the closest existing tool and the shared host capability it delegates to.
-2. Add or adjust the schema and scope in the authoritative MCP catalog; do not bypass the
-   dispatcher or call raw `fs`/`child_process` from the tool.
-3. Add audit metadata for mutations/exec and keep reads unlogged unless the established policy
-   changes deliberately.
+1. Inspect the closest existing tool, the transport-neutral capability policy it inherits, and the narrow host/domain facade it delegates to.
+2. Add or adjust the schema and scope in the authoritative MCP catalog; do not bypass `executeCapabilityCall()` or call raw `fs`/`child_process` from the tool.
+3. Add audit metadata for mutations/exec; the capability kernel records the transport actor consistently and keeps reads unlogged unless policy deliberately changes.
 4. Test schema validation, scope visibility, call-time refusal, limits, handler response, audit,
    and failure shape.
 5. Run Alfa/MCP parity tests and treat every public MSO tool name/schema as a compatibility contract before changing it.

@@ -34,11 +34,23 @@ const hostFacadeImports = sourceFiles.reduce((count, file) => {
   const source = readFileSync(file, "utf8");
   return count + (source.match(/from\s+["']@\/lib\/host["']/g)?.length ?? 0);
 }, 0);
+const legacyHostMockSeams = sourceFiles.reduce((count, file) => {
+  const source = readFileSync(file, "utf8");
+  return count + (source.match(/vi\.(?:doMock|mock)\(["']@\/lib\/host["']/g)?.length ?? 0);
+}, 0);
+const osShellAppShellProxyExports = sourceFiles.reduce((count, file) => {
+  const relPath = rel(ROOT, file);
+  if (!relPath.startsWith("frontend/slices/os-shell/")) return count;
+  const source = readFileSync(file, "utf8");
+  return count + (source.match(/export\s+\*\s+from\s+["']@\/features\/appshell["']/g)?.length ?? 0);
+}, 0);
+const cliEntrypointLines = readFileSync(pathResolve(ROOT, "bin/mso"), "utf8").split("\n").length;
+const installerCoreLines = readFileSync(pathResolve(ROOT, "scripts/install-core.sh"), "utf8").split("\n").length;
 const crossProtocol = structural.filter(({ ring }) => {
   const domains = new Set(ring.slice(0, -1).map(domain));
   return domains.has("lib/mcp") && (domains.has("lib/a2a") || domains.has("lib/agent"));
 });
-const metrics = { structuralCycles: structural.length, crossDomainCycles: crossDomain.length, crossProtocolCycles: crossProtocol.length, filesOver220, filesOver500, serverFrontendImports, appshellSelfBarrelImports, nonMcpMcpImports, legacyWorkflowFacadeImports, hostFacadeImports };
+const metrics = { structuralCycles: structural.length, crossDomainCycles: crossDomain.length, crossProtocolCycles: crossProtocol.length, filesOver220, filesOver500, serverFrontendImports, appshellSelfBarrelImports, nonMcpMcpImports, legacyWorkflowFacadeImports, hostFacadeImports, legacyHostMockSeams, osShellAppShellProxyExports, cliEntrypointLines, installerCoreLines };
 let failed = false;
 console.log("Architecture health");
 for (const [key, current] of Object.entries(metrics)) {
