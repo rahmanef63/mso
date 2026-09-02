@@ -29,6 +29,29 @@ function runCli(args) {
   return result.status ?? 1;
 }
 
+function localAgentLine(row) {
+  const status = String(row?.status || "unknown");
+  const cwd = row?.cwd ? ` · ${row.cwd}` : "";
+  return `  ${String(row?.label || row?.alias || row?.id || "agent").padEnd(24)} ${status}${cwd}`;
+}
+
+async function listLocalAgents(session, includeOffline = false) {
+  const query = new URLSearchParams({ session: session.agentSession.id });
+  if (includeOffline) query.set("includeOffline", "1");
+  const out = await api(`/api/v1/local-agents?${query}`);
+  const rows = Array.isArray(out?.agents) ? out.agents : [];
+  if (!rows.length) console.log("  no other live local session agents");
+  else for (const row of rows) console.log(localAgentLine(row));
+  return rows;
+}
+
+async function sendLocalAgent(session, target, message, kind = "message") {
+  return api("/api/v1/local-agents", {
+    method: "POST",
+    body: JSON.stringify({ action: "send", sessionId: session.agentSession.id, target, message, kind }),
+  });
+}
+
 async function selectSlashSkill(rl, session, requested, prompt, runTurn) {
   const resolved = resolveSlashSkill(
     session.state.skills,
@@ -80,10 +103,11 @@ function printHelp() {
       "  /provider <id>          configure dokploy|cloudflare|hostinger",
       "  /doctor                 run mso doctor",
       "  /tools                  list agent tools",
-      "  /agents                 list remote peers + same-host session agents",
-      "  /delegate <target> <job> local session name/id/cwd first, then remote peer",
+      "  /agents                 list live local session agents + remote A2A peers",
+      "  /message <target> <msg> send a native local agent message",
+      "  /delegate <target> <job> queue native local task; else remote A2A peer",
       "  /spawn [--name N] <job> spawn same-host sub-agent from this session",
-      "  /inbox                  show A2A tasks addressed to this session",
+      "  /inbox                  show native local agent messages for this session",
       "  /skills [query]         browse available slash skills",
       "  /skill <id> [prompt]    select exact skill id (ambiguity escape hatch)",
       "  /<skill> [prompt]       select for next message, or run prompt now",
@@ -197,9 +221,22 @@ export async function handleSlash(rl, line, session, { runTurn }) {
         console.log(`  ${String(tool.scope).padEnd(5)} ${tool.name}`);
       return "handled";
     case "/agents":
+      console.log(`${C.bold}Local session agents${C.reset}`);
+      await listLocalAgents(session);
+      console.log(`${C.bold}Remote A2A v1 peers${C.reset}`);
       runCli(["a2a", "list"]);
-      runCli(["a2a", "sessions"]);
       return "handled";
+    case "/message": {
+      if (!args[0] || args.length < 2) {
+        console.log("usage: /message <local-agent> <message>");
+        return "handled";
+      }
+      const target = args[0];
+      const message = args.slice(1).join(" ");
+      const out = await sendLocalAgent(session, target, message, "message");
+      console.log(`${C.c}↳ ${out?.target?.label || target}${C.reset} ${out?.status || "accepted"}`);
+      return "handled";
+    }
     case "/delegate": {
       if (!args[0] || args.length < 2) {
         console.log(
@@ -210,23 +247,11 @@ export async function handleSlash(rl, line, session, { runTurn }) {
       const target = args[0];
       const objective = args.slice(1).join(" ");
       try {
-        const out = await api("/api/v1/a2a", {
-          method: "POST",
-          body: JSON.stringify({
-            action: "local-handoff",
-            sessionRef: target,
-            objective,
-          }),
-        });
-        const text = out?.task?.artifacts?.[0]?.parts?.[0]?.text || "delegated";
-        console.log(
-          `${C.c}↳ ${out?.session?.title || target}${C.reset} ${text}`,
-        );
+        const out = await sendLocalAgent(session, target, objective, "task");
+        console.log(`${C.c}↳ ${out?.target?.label || target}${C.reset} ${out?.status || "accepted"}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (
-          /session_not_found|session_not_found|session not found/i.test(message)
-        )
+        if (/local agent target not found/i.test(message))
           runCli(["a2a", "handoff", target, objective]);
         else throw error;
       }
@@ -259,9 +284,17 @@ export async function handleSlash(rl, line, session, { runTurn }) {
       );
       return "handled";
     }
-    case "/inbox":
-      runCli(["a2a", "local", "inbox", session.agentSession.id]);
+    case "/inbox": {
+      const out = await api(`/api/v1/local-agents?inbox=1&session=${encodeURIComponent(session.agentSession.id)}&limit=100`);
+      const rows = Array.isArray(out?.messages) ? out.messages : [];
+      if (!rows.length) console.log("local agent inbox is empty");
+      else for (const row of rows) {
+        const label = String(row.senderLabel || "[agent]");
+        const prefix = label.startsWith("[agent-") ? label : `[agent-${label.replace(/^\[|\]$/g, "")}]`;
+        console.log(`${C.c}${prefix}${row.kind === "task" ? " task" : ""}${C.reset} ${row.text}`);
+      }
       return "handled";
+    }
     case "/skills":
       printSkills(session, C, args.join(" "));
       return "handled";

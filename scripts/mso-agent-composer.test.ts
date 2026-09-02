@@ -188,5 +188,22 @@ describe("MSO Agent interactive composer primitives", () => {
     composer.close();
   });
 
+  it("prints an incoming agent event above the active prompt without losing draft input", async () => {
+    class FakeInput extends EventEmitter { isRaw = false; resume() {} pause() {} setRawMode(value: boolean) { this.isRaw = value; } }
+    class FakeOutput { columns = 88; chunks: string[] = []; write(value: string) { this.chunks.push(String(value)); return true; } }
+    const input = new FakeInput(); const output = new FakeOutput();
+    const composer = new AgentComposer({ input: input as never, output: output as never, colors: { blue: "", bold: "", reset: "", dim: "" } });
+    const answer = composer.question("› ");
+    for (const ch of "draft") input.emit("keypress", ch, { name: ch, sequence: ch });
+    expect(composer.notify("[agent-zahra] hello")).toBe(true);
+    for (const ch of " kept") input.emit("keypress", ch, { name: ch, sequence: ch });
+    input.emit("keypress", "\r", { name: "return", sequence: "\r" });
+    await expect(answer).resolves.toBe("draft kept");
+    const rendered = output.chunks.join("");
+    expect(rendered).toContain("[agent-zahra] hello\r\n");
+    expect(rendered).toContain("draft kept");
+    composer.close();
+  });
+
 
 });

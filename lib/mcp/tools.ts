@@ -8,6 +8,7 @@ import { POWER_TOOLS } from "./tools-power";
 import { INFRA_TOOLS } from "./tools-infra";
 import { AGENT_TOOLS } from "./tools-agent";
 import { A2A_TOOLS } from "./tools-a2a";
+import { LOCAL_AGENT_TOOLS } from "./tools-local-agents";
 import { FORGE_TOOLS } from "./tools-forge";
 import { withWorkflowContext } from "./tool-context";
 
@@ -218,4 +219,4 @@ const MUTATE_TOOLS: McpTool[] = [
   },
 ];
 
-export const TOOLS: McpTool[] = [...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...AGENT_TOOLS, ...A2A_TOOLS, ...FORGE_TOOLS, ...INFRA_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
+export const TOOLS: McpTool[] = [...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...AGENT_TOOLS, ...LOCAL_AGENT_TOOLS, ...A2A_TOOLS, ...FORGE_TOOLS, ...INFRA_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));

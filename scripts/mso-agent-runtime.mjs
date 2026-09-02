@@ -32,7 +32,7 @@ function cookieHeader() {
   return pairs.join("; ");
 }
 
-export async function api(path, init = {}) {
+export async function apiResponse(path, init = {}) {
   const headers = new Headers(init.headers || {});
   headers.set("origin", ORIGIN);
   const cookie = cookieHeader();
@@ -40,20 +40,21 @@ export async function api(path, init = {}) {
   if (init.body && !headers.has("content-type"))
     headers.set("content-type", "application/json");
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
-  const text = await res.text();
-  let body = null;
-  try {
-    body = text ? JSON.parse(text) : null;
-  } catch {
-    body = text;
-  }
-  if (!res.ok)
+  if (!res.ok) {
+    const text = await res.text();
+    let body = null;
+    try { body = text ? JSON.parse(text) : null; } catch { body = text; }
     throw new Error(
-      typeof body === "object" && body?.error
-        ? String(body.error)
-        : `HTTP ${res.status}`,
+      typeof body === "object" && body?.error ? String(body.error) : `HTTP ${res.status}`,
     );
-  return body;
+  }
+  return res;
+}
+
+export async function api(path, init = {}) {
+  const res = await apiResponse(path, init);
+  const text = await res.text();
+  try { return text ? JSON.parse(text) : null; } catch { return text; }
 }
 
 export async function state() {

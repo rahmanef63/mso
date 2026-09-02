@@ -19,6 +19,7 @@ describe("MSO Agent slash completion catalog", () => {
     expect(rows.map((row) => row.text)).toContain("/agents");
     expect(rows.map((row) => row.text)).toContain("/new");
     expect(rows.map((row) => row.text)).toContain("/restart");
+    expect(rows.map((row) => row.text)).toContain("/message");
     expect(rows.map((row) => row.text)).toContain("/delegate");
     expect(rows.map((row) => row.text)).not.toContain("/unsafe");
   });

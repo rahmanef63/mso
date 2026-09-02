@@ -15,6 +15,7 @@ export class AgentComposer {
     this.history = [];
     this.closed = false;
     this._cancelCurrent = null;
+    this._notifyCurrent = null;
     readline.emitKeypressEvents(this.input);
   }
 
@@ -59,6 +60,7 @@ export class AgentComposer {
       const cleanup = () => {
         input.off("keypress", onKey);
         if (this._cancelCurrent === cancel) this._cancelCurrent = null;
+        if (this._notifyCurrent === notify) this._notifyCurrent = null;
         if (typeof input.setRawMode === "function") input.setRawMode(wasRaw);
         input.pause();
       };
@@ -84,7 +86,16 @@ export class AgentComposer {
         resolve(null);
         return true;
       };
+      const notify = (text) => {
+        if (settled) return false;
+        erase();
+        output.write(`${String(text ?? "").replace(/\r/g, "")}\r\n`);
+        reservedMenuRows = 0;
+        render();
+        return true;
+      };
       this._cancelCurrent = cancel;
+      this._notifyCurrent = notify;
       const edit = (next, nextCursor) => {
         value = next; cursor = clamp(nextCursor, 0, chars(value).length);
         selected = 0; dismissed = false; historyIndex = null;
@@ -188,6 +199,12 @@ export class AgentComposer {
 
   cancelCurrent({ echo = true } = {}) {
     return typeof this._cancelCurrent === "function" ? this._cancelCurrent(echo) : false;
+  }
+
+  notify(text) {
+    if (typeof this._notifyCurrent === "function") return this._notifyCurrent(text);
+    this.output.write(`${String(text ?? "").replace(/\r/g, "")}\r\n`);
+    return false;
   }
 
   close() {

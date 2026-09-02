@@ -17,8 +17,15 @@ export function modelHistoryBudget(contextWindow) {
   return Math.min(MAX_MODEL_HISTORY_BUDGET, Math.max(16_000, Math.floor(limit * 0.55)));
 }
 
+export function modelHistoryRow(row) {
+  if (row?.role !== "agent") return row;
+  const sender = String(row.senderLabel || "[local-agent]").replace(/[\r\n\t]+/g, " ").slice(0, 120);
+  const kind = row.kind === "task" ? "task" : "message";
+  return { role: "user", text: `[LOCAL AGENT ${sender} · ${kind}] ${String(row.text || "").slice(0, 24_000)}` };
+}
+
 function messageGroups(history) {
-  const rows = Array.isArray(history) ? history : [];
+  const rows = (Array.isArray(history) ? history : []).map(modelHistoryRow);
   const groups = [];
   for (let i = 0; i < rows.length; i += 1) {
     const row = rows[i];

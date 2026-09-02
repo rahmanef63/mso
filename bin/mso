@@ -64,6 +64,7 @@
 #   ai <prompt…>         One turn with the assistant
 #   threads *            Conversation history: list | show | rm
 #   agent-sessions *     Durable MSO Agent sessions: list | show | create
+#   agents *             Native local session agents: list | send | inbox
 #   a2a *                Agent-to-Agent v1: list | discover | add | rm | send | task | cancel | handoff
 #   memory *             Assistant memories: list | add | rm
 #   config *             Advanced raw AI config compatibility surface
@@ -127,7 +128,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.8.2"
+VERSION="1.9.0"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
@@ -714,6 +715,7 @@ U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> 
 U_update="update [--rebuild] | status | log"
 U_threads="threads list|show <id>|save <json>|rm <id>"
 U_agent_sessions="agent-sessions list [limit]|show <id>|create [title]"
+U_agents="agents list [current-session-id]|send <source-session-id> <target> <message> [message|task]|inbox <session-id> [--all]"
 U_a2a="a2a list|state|sessions|spawn <source-session> <objective> [title]|inbox <session>|discover <url>|add <url> [alias]|rm <target>|send <target> <message> [--wait]|stream <target> <message>|task <target> <taskId> [history]|cancel <target> <taskId>|handoff <target> <objective> [context] [--wait]|local sessions|local handoff <session> <objective>|local spawn <sourceSession> <objective> [title]|local inbox <session>|auth list [target]|auth add <target> [label] [bearer|api-key|oauth2]|auth use <target> <credentialId|none>|auth rm <credentialId>|inbound list|inbound create [label] [read|write|exec]|inbound rm <tokenId>"
 U_memory="memory list|add <text>|rm <id>"
 U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
@@ -978,6 +980,23 @@ case "$cmd" in
       show)   jget "/api/v1/agent-sessions?id=$(enc "${2:?id}")" ;;
       create) jpost "/api/v1/agent-sessions" "$(jq -n --arg title "${2:-MSO Agent session}" '{action:"create",title:$title}')" ;;
       *) die "usage: mso $U_agent_sessions" ;;
+    esac ;;
+  agents)
+    sub="${1:-list}"; shift || true
+    case "$sub" in
+      list)
+        current="${1:-}"
+        if [ -n "$current" ]; then jget "/api/v1/local-agents?session=$(enc "$current")";
+        else jget "/api/v1/local-agents"; fi ;;
+      send)
+        source_id="${1:?source-session-id}"; target="${2:?target}"; message="${3:?message}"; kind="${4:-message}"
+        [ "$kind" = "message" ] || [ "$kind" = "task" ] || die "kind must be message or task"
+        jpost "/api/v1/local-agents" "$(jq -n --arg sid "$source_id" --arg target "$target" --arg message "$message" --arg kind "$kind" '{action:"send",sessionId:$sid,target:$target,message:$message,kind:$kind}')" ;;
+      inbox)
+        session_id="${1:?session-id}"; include="${2:-}"
+        [ "$include" = "" ] || [ "$include" = "--all" ] || die "usage: mso $U_agents"
+        jget "/api/v1/local-agents?inbox=1&session=$(enc "$session_id")$([ "$include" = "--all" ] && printf '&includeRead=1')" ;;
+      *) die "usage: mso $U_agents" ;;
     esac ;;
   a2a)
     sub="${1:-list}"; shift || true

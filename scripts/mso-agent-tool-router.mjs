@@ -11,6 +11,7 @@ const DEPENDENCIES = new Map([
   ["exec_job_start", ["exec_job_status", "exec_job_cancel"]],
   ["fs_write", ["fs_read"]],
   ["agent_session_resume", ["agent_sessions_list"]],
+  ["local_agent_message_send", ["local_agents_list", "local_agent_inbox"]],
   ["a2a_message_send", ["a2a_agents_list", "a2a_agent_discover"]],
   ["a2a_handoff", ["a2a_agents_list", "a2a_agent_discover", "a2a_task_get"]],
   ["tool_forge_evaluate", ["tool_forge_candidates"]],
@@ -33,7 +34,8 @@ const ALIASES = new Map([
   ["dokploy", ["dokploy", "deploy", "deployment", "project"]],
   ["hostinger", ["hostinger", "dns", "domain", "record"]],
   ["apps", ["app", "service", "hermes", "openclaw", "install", "restart", "status"]],
-  ["a2a", ["a2a", "delegate", "delegation", "handoff", "peer", "collaborate"]],
+  ["localagent", ["local", "session", "agent", "message", "task", "delegate", "delegation", "collaborate", "inbox"]],
+  ["a2a", ["a2a", "remote", "agent card", "peer", "handoff"]],
   ["forge", ["forge", "candidate", "promotion", "promote", "self-improve", "self-improving", "generate tool", "tool creator"]],
 ]);
 

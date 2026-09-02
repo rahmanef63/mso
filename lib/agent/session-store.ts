@@ -241,7 +241,7 @@ export async function listAgentSessions(
   limit = 30,
 ): Promise<AgentSessionSummary[]> {
   const owner = principalHash(principal),
-    wanted = Math.max(1, Math.min(200, Math.trunc(limit) || 30));
+    wanted = Math.max(1, Math.min(500, Math.trunc(limit) || 30));
   return (await listSessionRecords())
     .filter((row) => row.principalHash === owner)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))

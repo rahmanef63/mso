@@ -1,5 +1,6 @@
 import { audit, rateLimited } from "@/lib/host";
 import { maybeAutoTitleAgentSession } from "@/lib/agent/session-store";
+import { touchLocalAgentPresence } from "@/lib/agent/local-agent-presence";
 import { activeWorkflowForActor, recordWorkflowStep } from "@/lib/skills/memory";
 import { activityTarget, newActivityId, recordMcpActivity } from "./activity";
 import { allows, type Scope } from "./scope";
@@ -13,6 +14,11 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
   const name = String(req.params?.name ?? ""), args = req.params?.arguments ?? {};
   const tool = TOOLS_BY_NAME.get(name);
   if (!tool) return rpcFail(id, -32602, `unknown tool: ${name}`);
+  const mcpPresence = context?.principal?.startsWith("mcp-") && context.sessionId
+    ? { principal: context.principal, sessionId: context.sessionId, instanceId: `mcp:${context.sessionId}` }
+    : null;
+  if (mcpPresence)
+    await touchLocalAgentPresence(mcpPresence.principal, mcpPresence.sessionId, "ready", mcpPresence.instanceId).catch(() => undefined);
 
   const workflowProbe = name === "workflow_status";
   const requestedWorkflowId = typeof args.workflow_id === "string" && args.workflow_id ? args.workflow_id : undefined;
@@ -67,6 +73,8 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
   const activityId = newActivityId(), startedAt = Date.now();
   if (!workflowProbe) void recordMcpActivity({ id: activityId, actor, tool: name, state: "started", scope, ...initialFlow, target });
   try {
+    if (mcpPresence)
+      await touchLocalAgentPresence(mcpPresence.principal, mcpPresence.sessionId, "busy", mcpPresence.instanceId).catch(() => undefined);
     const titleHint = sessionDetail(name, args, target);
     if (titleHint && context?.principal && context.sessionId && !["agent_session_current", "workflow_status"].includes(name)) {
       await maybeAutoTitleAgentSession(context.principal, context.sessionId, titleHint).catch(() => undefined);
@@ -85,6 +93,8 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
       await recordWorkflowStep(flowActor, completedWorkflow?.id, { id: activityId, tool: name, state: "completed", target, args, durationMs, ts: new Date().toISOString() });
       await recordAgentEvent(context, name, "completed", args, completedWorkflow?.id, target);
     }
+    if (mcpPresence)
+      await touchLocalAgentPresence(mcpPresence.principal, mcpPresence.sessionId, "idle", mcpPresence.instanceId).catch(() => undefined);
     return rpcOk(id, structuredResult(name, result));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error), durationMs = Date.now() - startedAt;
@@ -94,6 +104,8 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
       await recordWorkflowStep(flowActor, activeWorkflow?.id, { id: activityId, tool: name, state: "failed", target, args, durationMs, ts: new Date().toISOString() });
       await recordAgentEvent(context, name, "failed", args, activeWorkflow?.id, target);
     }
+    if (mcpPresence)
+      await touchLocalAgentPresence(mcpPresence.principal, mcpPresence.sessionId, "idle", mcpPresence.instanceId).catch(() => undefined);
     return rpcOk(id, { content: [{ type: "text", text: "error: " + message.slice(0, 500) }], isError: true });
   }
 }

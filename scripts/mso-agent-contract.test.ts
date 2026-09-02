@@ -31,7 +31,7 @@ describe("MSO terminal agent contract", () => {
     for (const command of [
       "/models", "/model", "/status", "/context", "/statusbar", "/title",
       "/new", "/restart", "/session", "/resume", "/setup", "/providers", "/provider",
-      "/doctor", "/tools", "/skills", "/skill", "/<skill>", "/clear", "/exit", "/quit",
+      "/doctor", "/tools", "/agents", "/message", "/delegate", "/inbox", "/skills", "/skill", "/<skill>", "/clear", "/exit", "/quit",
     ]) expect(src).toContain(command);
     expect(src).toContain("Configure AI providers and authentication");
     expect(src).toContain("Select the active model from connected providers");

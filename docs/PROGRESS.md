@@ -2,6 +2,17 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — MSO 1.9.0 native Local Agents
+
+- **Transport split:** live same-host session communication is now a native Local Agents layer, separate from remote A2A v1. No Agent Card, URL, registration, bearer, refresh, or restart is part of local discovery/delivery.
+- **Automatic presence:** interactive CLI sessions maintain a small private lease plus one SSE feed. `ready`, `idle`, `busy`, `offline`, and `ended` have explicit semantics; MCP conversation sessions refresh the same lease around bound tool calls.
+- **Readable identity:** unnamed live sessions receive stable per-principal `[agent-a]`, `[agent-b]`, … aliases. Manual `agent_session_rename`/`/title` names become primary immediately; duplicate manual names use a light alias suffix and ambiguous bare names fail instead of guessing.
+- **Durable mailbox:** explicit 16 KiB `message`/`task` payloads persist privately before notification. Idle delivery can be `delivered`/`accepted`, busy targets are `queued`, and known expired/ended targets return `target_offline` while retaining the message for a later receiver.
+- **TUI:** `/agents`, `/message`, local `/delegate`, and `/inbox` use the native layer. Incoming events redraw above an active composer without losing draft input, persist as role `agent`, and project to a provider-compatible labeled envelope only when model context is built.
+- **Tools/API:** added `local_agents_list` (read), `local_agent_message_send` (write), `local_agent_inbox` (read), plus owner-authenticated `/api/v1/local-agents`. Receiving a local message never expands tool/file/shell/network authority.
+- **Isolation:** directory/mailbox operations require the exact same durable-session principal; only explicit text plus minimal routing metadata is copied. Private stores use bounded 0600 atomic persistence and security-store locking.
+- **Remote compatibility:** public A2A v1 registry, Agent Cards, credentials, send/task/handoff, inbound serving, and loopback compatibility helpers remain intact and are no longer the path used by native live-session UX.
+
 ## 2026-09-02 — MSO 1.8.2 constant-depth Agent restart
 
 - **Restart lifecycle fix:** `/restart` now uses process replacement (`execve`) instead of `spawnSync`. Repeated refreshes no longer leave prior Agent processes blocked behind their children.

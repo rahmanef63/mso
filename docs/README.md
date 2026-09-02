@@ -31,6 +31,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`CLI.md`](./CLI.md) | Generated `mso` CLI contract |
 | [`MCP.md`](./MCP.md) | MCP/OAuth internals and full external-tool security model |
 | [`A2A.md`](./A2A.md) | A2A v1 peer discovery, delegation/task lifecycle, CLI/MCP surface and trust boundary |
+| [`LOCAL-AGENTS.md`](./LOCAL-AGENTS.md) | Native same-host session presence, identity, mailbox delivery, TUI/tools/API and isolation |
 | [`MCP-FEATURE-IMPLEMENTATION.md`](./MCP-FEATURE-IMPLEMENTATION.md) | Stepwise reverse-engineering workflow for MCP tools, trusted skills and project capabilities |
 | [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup, diagrams, scopes and file bridge |
 | [`CONNECTORS-GATEWAY-INTEGRATION.md`](./CONNECTORS-GATEWAY-INTEGRATION.md) | MSO ↔ connectors-gateway action-name contract |

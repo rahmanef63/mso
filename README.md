@@ -76,7 +76,8 @@ For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy
 - **Use BYOK AI** — Alfa and the terminal MSO Agent use credentials stored on your server, not committed to the repo. Bare `mso` opens the interactive setup/operations agent. `mso models` manages AI provider/API/OAuth connections; `mso model` only selects the active model from providers that are already connected.
 - **Automate deployment providers without handing tokens to the model** — Dokploy and Cloudflare are built-in feature apps; `mso provider` also supports Hostinger DNS. Secrets stay in owner-only MSO state while bounded provider tools perform live checks and approved deployment/DNS operations. See [docs/INFRASTRUCTURE-PROVIDERS.md](./docs/INFRASTRUCTURE-PROVIDERS.md).
 - **Drive the box from ChatGPT, Codex, Claude Code, Cursor, Gemini CLI or VS Code** — Settings → MCP now provides client-specific numbered setup, copy-ready remote configs, live MCP/OAuth discovery checks, tunnel/domain guidance, and the same OAuth 2.1 + PKCE `read → write → exec` permission ladder enforced server-side. See the [ChatGPT Plugin / custom MCP app guide](./docs/CHATGPT-PLUGIN.md) and [MCP reference](./docs/MCP.md).
-- **Delegate between agents with standard A2A v1** — register public HTTPS peers, attach private API-key/Bearer/OAuth access-token profiles, stream remote tasks over SSE, or opt in to MSO's own authenticated inbound Agent Card. Inbound credentials are owner-minted `read | write | exec` capabilities and run in a memory-isolated task context. See [A2A](./docs/A2A.md).
+- **Message live local sessions natively** — every live same-principal MSO session is discovered automatically as `[agent-a]`, `[agent-b]`, or its manual session name. A private presence lease + durable mailbox + SSE feed gives honest `idle`/`busy`/`offline` delivery without Agent Cards, URLs, registration, refresh, or restart. See [Local Agents](./docs/LOCAL-AGENTS.md).
+- **Delegate between remote agents with standard A2A v1** — register public HTTPS peers, attach private API-key/Bearer/OAuth access-token profiles, stream remote tasks over SSE, or expose MSO's authenticated inbound Agent Card when a public HTTPS origin is configured. Inbound credentials are owner-minted `read | write | exec` capabilities and run in a memory-isolated task context. See [A2A](./docs/A2A.md).
 - **Keep agents efficient independently of the model provider** — the MCP-first [Cognitive Runtime](./docs/COGNITIVE-RUNTIME.md) isolates conversations from OAuth identity, budgets model context/tool output, selects a compact per-turn capability set without weakening scopes, compacts durable sessions with sanitized 30-day backup archives, and learns only verified workflow recipes. `bun run bench:cognitive` guards routing recall and context footprint.
 - **Add app slices** — features are modular under `frontend/slices/<slug>/`.
 - **Personalize the interface** — macOS, Windows, iOS, and Android shell layouts are UI preferences, not the core product.
@@ -218,7 +219,10 @@ current session and switches the same terminal to a fresh durable session. `/res
 process replacement: it persists the current session, closes the composer, then reloads the latest CLI
 and Agent modules against that exact same durable session id. Repeated restarts keep a constant process
 depth. It does **not** restart the MSO service or VPS; updated code plus the latest dynamic
-skill/tool/plugin catalog are picked up without abandoning the conversation.
+skill/tool/plugin catalog are picked up without abandoning the conversation. Live same-host sessions require no
+manual refresh path: `/agents` discovers them automatically, `/message <agent> <text>` sends an explicit local
+message, `/delegate <agent> <task>` queues a local task before remote-A2A fallback, and `/inbox` shows the current
+session's native agent mailbox. Incoming events render as `[agent-name]` and keep a distinct durable `agent` role.
 In the Agent slash palette, executable skills carry lifecycle markers so their state is visible before and after use:
 `◇ ready` → `◆ queued` (selected for the next message) → `✓ invoked` (actually sent with a model turn).
 The compact status line mirrors queued/invoked skill state and the current permission mode. MSO defaults

@@ -88,6 +88,9 @@ describe("tools/list is scope-filtered", () => {
     expect(n).toContain("projects_list");
     expect(n).toContain("skills_list");
     expect(n).toContain("skills_read");
+    expect(n).toContain("local_agents_list");
+    expect(n).toContain("local_agent_inbox");
+    expect(n).not.toContain("local_agent_message_send");
     expect(n).not.toContain("workflow_start");
     expect(n).not.toContain("fs_write");
     expect(n).not.toContain("exec_run");
@@ -100,6 +103,7 @@ describe("tools/list is scope-filtered", () => {
     expect(n).toContain("workflow_start");
     expect(n).toContain("workflow_cancel");
     expect(n).toContain("workflow_finish");
+    expect(n).toContain("local_agent_message_send");
     expect(n).not.toContain("exec_run");
     expect(n).not.toContain("browser_power");
   });

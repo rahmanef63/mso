@@ -62,12 +62,13 @@ export const BUILTIN_SLASH_ITEMS = [
   { text: "/tools", meta: "List available agent tools", kind: "command" },
   {
     text: "/agents",
-    meta: "List registered A2A peers + same-host session agents",
+    meta: "List live local session agents + registered remote A2A peers",
     kind: "command",
   },
+  { text: "/message", meta: "Send a native local-session agent message", kind: "command" },
   {
     text: "/delegate",
-    meta: "Handoff to a local session by name/id/cwd, else a registered peer",
+    meta: "Queue a native local task; fall back to registered remote A2A peer",
     kind: "command",
   },
   {
@@ -77,7 +78,7 @@ export const BUILTIN_SLASH_ITEMS = [
   },
   {
     text: "/inbox",
-    meta: "Show A2A tasks addressed to this durable session",
+    meta: "Show native local-session agent inbox",
     kind: "command",
   },
   {

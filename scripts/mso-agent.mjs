@@ -12,6 +12,7 @@ import { handleSlash } from "./mso-agent-commands.mjs";
 import { approvesTool, nextPermissionMode, permissionMode, permissionPrompt } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
 import { oneShotApproves, oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
+import { LocalAgentBridge } from "./mso-agent-local.mjs";
 
 async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null, options = {}) {
   if (!tool) return { ok: false, result: `unknown tool requested by model: ${call.name}` };
@@ -97,8 +98,9 @@ async function agentRound(rl, session, skillContext = null, signal = undefined, 
   }
 }
 
-async function runInteractiveRound(rl, session, skillContext, interrupts) {
+async function runInteractiveRound(rl, session, skillContext, interrupts, localBridge = null) {
   const signal = interrupts.beginTurn();
+  await localBridge?.setState("busy");
   try {
     await agentRound(rl, session, skillContext, signal, () => interrupts.interruptCurrent());
     await persistSession(session);
@@ -108,6 +110,7 @@ async function runInteractiveRound(rl, session, skillContext, interrupts) {
     await persistSession(session).catch(() => undefined);
   } finally {
     interrupts.endTurn(signal);
+    await localBridge?.setState("idle");
   }
 }
 
@@ -153,27 +156,21 @@ async function main() {
   const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg))
     ? "yolo"
     : (permissionMode(restartUi.permission)?.id || "ask");
-  const [s, agentSession] = await Promise.all([
-    state(),
-    startupSession(requested, restartSessionId),
-  ]);
+  const [s, agentSession] = await Promise.all([state(), startupSession(requested, restartSessionId)]);
   if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
   printBanner(s, agentSession);
   const session = {
     state: s,
     agentSession,
     history: Array.isArray(agentSession.history) ? agentSession.history : [],
-    pendingSkill: null,
-    activeSkill: null,
-    lastInvokedSkill: null,
+    pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
     titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
-    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-    lastElapsedMs: 0,
-    statusBar: restartUi.statusBar ?? true,
-    permission: forcedPermission,
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 }, lastElapsedMs: 0,
+    statusBar: restartUi.statusBar ?? true, permission: forcedPermission,
   };
-  const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C });
-  syncPromptHistory(rl, session);
+  const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C }); syncPromptHistory(rl, session);
+  const localBridge = new LocalAgentBridge({ session, composer: rl });
+  await localBridge.start();
   const interrupts = new AgentInterruptManager({ output: process.stdout, colors: C });
   const onSigint = () => {
     const action = interrupts.handleSigint();
@@ -203,9 +200,10 @@ async function main() {
       if (!line) continue;
       if (line.startsWith("/")) {
         try {
-          const result = await handleSlash(rl, line, session, { runTurn: (skill) => runInteractiveRound(rl, session, skill, interrupts) });
+          const result = await handleSlash(rl, line, session, { runTurn: (skill) => runInteractiveRound(rl, session, skill, interrupts, localBridge) });
           if (result === "exit") break;
           if (result === "restart") { restartRequested = true; break; }
+          if (result === "refresh") await localBridge.syncSession();
           if (result === "unknown") console.log("unknown command; /help lists commands.");
         } catch (error) {
           console.error(`${C.err}${error instanceof Error ? error.message : String(error)}${C.reset}`);
@@ -216,7 +214,7 @@ async function main() {
       session.history.push({ role: "user", text: line });
       const skillContext = session.pendingSkill;
       session.pendingSkill = null;
-      await runInteractiveRound(rl, session, skillContext, interrupts);
+      await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
       if (interrupts.exitRequested) break;
     }
   } finally {
@@ -224,6 +222,7 @@ async function main() {
     await persistSession(session).catch(() => undefined);
     const sessionTitle = String(session.agentSession.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim().slice(0, 80);
     if (!restartRequested) console.log(`${C.dim}session ${sessionTitle} · resume: mso --continue · switch: /sessions${C.reset}`);
+    await localBridge.close({ ended: !restartRequested }).catch(() => undefined);
     rl.close();
   }
   if (restartRequested) {

@@ -34,6 +34,7 @@ export type AuditAction =
   | "workflow.cancel"
   | "workflow.finish"
   | "agent.session"
+  | "agent.message"
   | "agent.memory"
   | "tool.forge.propose"
   | "tool.forge.evaluate"

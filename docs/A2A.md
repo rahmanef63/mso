@@ -9,7 +9,7 @@ The implementation has four independent pieces:
 3. **Streaming** — use A2A v1 `SendStreamingMessage` / SSE and keep task lifetime independent from an individual stream connection.
 4. **Authenticated inbound MSO** — optionally publish MSO's Agent Card and JSON-RPC endpoint, guarded by owner-minted `read`, `write`, or `exec` bearer capabilities.
 
-Inbound serving is **disabled by default** and is never enabled merely by installing or upgrading MSO.
+Public inbound serving is active only when a valid explicit HTTPS `OS_PUBLIC_ORIGIN` exists; `OS_A2A_INBOUND_ENABLED=0` is the kill switch. Without a public HTTPS origin, no public A2A endpoint is advertised.
 
 ## Trust model
 
@@ -86,69 +86,13 @@ mso a2a inbound rm <tokenId>
 
 The Settings → **A2A** panel exposes the same flow, shows the one-time token once, lists/revokes inbound profiles, and surfaces bounded task/audit activity.
 
-## Same-host local A2A between terminal sessions
+## Same-host sessions are native Local Agents, not remote A2A
 
-Local A2A is independent from public inbound A2A and is **enabled by default**. The environment value below documents the default; set it to `0` only when you want to disable same-host A2A:
+MSO 1.9 separates live same-host session communication from this remote interoperability protocol. `/agents`, `/message`, local `/delegate`, local inbox delivery, and the `local_agent_*` MCP tools use a private **presence lease + durable mailbox + SSE/event-bus** layer. They require no Agent Card, URL, registration, credential, refresh, or restart when another session appears or is renamed.
 
-```bash
-OS_A2A_ALLOW_LOOPBACK=1
-```
+See [Local Agents](./LOCAL-AGENTS.md) for lifecycle (`ready` / `idle` / `busy` / `offline` / `ended`), `[agent-a]` labels, duplicate-name behavior, delivery statuses, storage, TUI commands, tools, and API.
 
-Rebuild/restart the service after changing its environment. This flag changes only A2A discovery/register/message/handoff traffic. It does not relax the generic provider HTTP client or any other MSO HTTP surface.
-
-By default, A2A accepts HTTP only when the literal destination is exactly `127.0.0.1`, `[::1]`, or `localhost`. It still rejects RFC1918 ranges, carrier/private ranges, link-local, Docker/LAN addresses, wildcard addresses, `.local`/`.lan` style hosts, and any non-loopback hostname whose DNS resolves to a private/loopback/link-local address. Public destinations continue to use HTTPS plus DNS re-resolution, resolved-IP pinning, and redirect refusal.
-
-MSO treats each durable terminal AI session as a local A2A target. A session records its current working directory when created/resumed/updated, so another session can resolve it by:
-
-- explicit session title, e.g. `bece`;
-- full or unique session id;
-- absolute working directory, e.g. `/home/rahman/projects/mso`;
-- unique working-directory basename when unambiguous.
-
-If a title/location matches multiple sessions, resolution fails instead of guessing.
-
-Typical baco → bece flow on one VPS:
-
-```bash
-# Terminal A
-mso agent
-/title baco
-
-# Terminal B
-mso agent
-/title bece
-
-# From either shell, inspect local durable sessions
-mso a2a sessions
-
-# Ask the bece session-context agent to do one delegated task
-mso a2a local handoff bece "inspect the current project and report the next safe step"
-
-# Inspect tasks addressed to bece
-mso a2a inbox bece
-```
-
-Inside interactive `mso agent`, `/agents` shows remote peers plus local sessions. `/delegate bece <objective>` tries a local session name/id/cwd first and falls back to a registered remote A2A peer only when no local session matches. `/spawn [--name <name>] <objective>` creates and runs a child from the current terminal session context, while `/inbox` shows tasks addressed to the current durable session.
-
-A local handoff uses the target session's bounded durable history, memory snapshot, compacted context, and working-directory identity as context. It does **not** inject keystrokes into another TTY or impersonate that live terminal process. This avoids races with a human typing in that terminal.
-
-To spawn a same-host sub-agent from an existing session context without opening another public endpoint:
-
-```bash
-mso a2a spawn baco "audit the A2A tests and return only failures" "baco-test-subagent"
-# namespaced equivalent:
-mso a2a local spawn baco "audit the A2A tests and return only failures" "baco-test-subagent"
-```
-
-The child is a durable MSO session with `parentSessionId` and inherited cwd/context snapshot, runs the delegated objective, and returns its A2A task result to the caller. `inbox` is read-only task inspection; it does not inject a new prompt into the terminal. No credential/token needs to be copied between local sessions.
-
-For raw A2A protocol testing, each local session exposes a virtual Agent Card through the same loopback-only MSO service, for example:
-
-```text
-http://127.0.0.1:4005/.well-known/agent-card.json?session=<session-id>
-```
-
-MSO uses an owner-private internal loopback bearer automatically for this virtual-card path. It is not returned by CLI/state APIs and should not be requested or copied manually.
+The older `mso a2a local ...` and loopback virtual-card helpers remain as compatibility/protocol-testing surfaces for one-shot local delegation. They are not the native live-session transport. `OS_A2A_ALLOW_LOOPBACK=0` can disable those legacy A2A-over-loopback paths without disabling Local Agents.
 
 ## Outbound peers and credentials
 
@@ -211,13 +155,9 @@ Inbound task execution is rate-limited by both source IP and bearer profile, and
 
 ## Interactive Agent and MCP
 
-Inside interactive MSO Agent:
+Inside interactive MSO Agent, `/agents` renders **Local session agents** and **Remote A2A v1 peers** as separate groups. `/delegate <target> <objective>` sends a native local task when a local session matches, then falls back to the explicit remote A2A handoff boundary only when no local target exists. `/message` is local-only. See [Local Agents](./LOCAL-AGENTS.md).
 
-- `/agents` lists registered A2A peers.
-- `/delegate <peer> <objective>` uses the explicit-context handoff boundary.
-- A2A/delegate/handoff intent loads A2A tools on demand instead of keeping them in every model turn.
-
-The provider-neutral MCP catalog remains intentionally generic:
+Remote A2A/delegate/handoff intent still loads the A2A tools on demand instead of keeping them in every model turn. The provider-neutral remote A2A MCP catalog remains intentionally generic:
 
 | Tool | Scope | Purpose |
 |---|---|---|
