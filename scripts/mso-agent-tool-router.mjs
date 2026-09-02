@@ -10,6 +10,7 @@ const DEPENDENCIES = new Map([
   ["project_function_call", ["project_capabilities"]],
   ["exec_job_start", ["exec_job_status", "exec_job_cancel"]],
   ["fs_write", ["fs_read"]],
+  ["project_memory_upsert", ["project_memory_search"]],
   ["agent_session_resume", ["agent_sessions_list"]],
   ["local_agent_message_send", ["local_agents_list", "local_agent_inbox", "local_agent_reply"]],
   ["local_agent_reply", ["local_agent_inbox", "local_agents_list"]],
@@ -106,6 +107,10 @@ export function selectToolsForTurn(allTools = [], history = [], skillContext = n
   for (const name of CORE_TOOL_NAMES) add(name);
   for (const name of previousToolNames(history)) add(name);
   for (const name of referencedTools(allTools, text)) add(name);
+  if (["test", "tested", "testing", "debug", "freeze", "freezes", "frozen", "crash", "crashed", "regression", "failed", "failure"].some((term) => queryWords.has(term))) {
+    add("project_memory_upsert");
+    add("project_memory_search");
+  }
 
   const ranked = allTools
     .map((tool) => ({ tool, score: score(tool, queryWords, text.toLowerCase()) }))

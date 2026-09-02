@@ -5,6 +5,7 @@ import os from "os";
 import path from "path";
 import { embedSkillText, hybridSemanticScore, normalizeSemanticText, SKILL_EMBEDDING_VERSION } from "./semantic";
 import { allows, type Scope } from "@/lib/mcp/scope";
+import type { WorkflowOrchestrationSnapshot } from "@/lib/orchestration/types";
 
 export type WorkflowStepState = "completed" | "failed" | "denied" | "rate_limited" | "invalid_args";
 
@@ -28,6 +29,7 @@ export type ActiveWorkflow = {
   intent: string;
   project?: string;
   constraints?: string;
+  orchestration?: WorkflowOrchestrationSnapshot;
   startedAt: string;
   steps: WorkflowStep[];
 };
@@ -100,6 +102,40 @@ function storePath(): string {
   return (env || path.join(os.homedir(), ".mso", "skill-memory.json")).replace(/^~(?=$|\/)/, os.homedir());
 }
 
+function sanitizeOrchestration(value: unknown): WorkflowOrchestrationSnapshot | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const row = value as Partial<WorkflowOrchestrationSnapshot>;
+  const risks = ["low", "medium", "high"] as const;
+  const complexities = ["light", "medium", "heavy"] as const;
+  const contentions = ["none", "possible", "high"] as const;
+  const relevances = ["low", "medium", "high"] as const;
+  const isolations = ["direct", "optional-worktree", "isolated-worktree"] as const;
+  const verifications = ["targeted", "affected", "full"] as const;
+  if (!risks.includes(row.risk as never) || !complexities.includes(row.complexity as never) ||
+      !contentions.includes(row.contention as never) || !relevances.includes(row.memoryRelevance as never) ||
+      !isolations.includes(row.isolation as never) || !verifications.includes(row.verification as never)) return undefined;
+  const strings = (candidate: unknown, maxItems: number, maxLen: number) => Array.isArray(candidate)
+    ? candidate.filter((item): item is string => typeof item === "string").map((item) => safeMemoryText(item, maxLen)).filter(Boolean).slice(0, maxItems)
+    : [];
+  return {
+    risk: row.risk!, complexity: row.complexity!, contention: row.contention!, memoryRelevance: row.memoryRelevance!,
+    isolation: row.isolation!, verification: row.verification!, reasons: strings(row.reasons, 12, 240),
+    sharedResourceWarnings: strings(row.sharedResourceWarnings, 12, 240), changedPaths: strings(row.changedPaths, 80, 240),
+    affectedPaths: strings(row.affectedPaths, 80, 240), reservedResources: strings(row.reservedResources, 40, 160),
+    overlappingPaths: strings(row.overlappingPaths, 80, 240), overlappingResources: strings(row.overlappingResources, 40, 160),
+    activeProjectWorkflows: Math.max(0, Math.min(100, Math.round(Number(row.activeProjectWorkflows) || 0))),
+    conflictingWorkflowCount: Math.max(0, Math.min(100, Math.round(Number(row.conflictingWorkflowCount) || 0))),
+    memoryHits: Math.max(0, Math.min(100, Math.round(Number(row.memoryHits) || 0))),
+    contextEstimateTokens: Math.max(0, Math.min(1_000_000, Math.round(Number(row.contextEstimateTokens) || 0))),
+    cleanupState: row.cleanupState === "pending" || row.cleanupState === "complete" ? row.cleanupState : "not-required",
+    ...(typeof row.workspacePath === "string" ? { workspacePath: safeMemoryText(row.workspacePath, 240) } : {}),
+    ...(typeof row.baseCommit === "string" ? { baseCommit: safeMemoryText(row.baseCommit, 80) } : {}),
+    ...(typeof row.baseBranch === "string" ? { baseBranch: safeMemoryText(row.baseBranch, 160) } : {}),
+    ...(typeof row.recipeUsed === "string" ? { recipeUsed: safeMemoryText(row.recipeUsed, 120) } : {}),
+    createdAt: typeof row.createdAt === "string" && Number.isFinite(Date.parse(row.createdAt)) ? new Date(row.createdAt).toISOString() : new Date(0).toISOString(),
+  };
+}
+
 function isActiveWorkflow(value: unknown): value is ActiveWorkflow {
   if (!value || typeof value !== "object") return false;
   const row = value as Partial<ActiveWorkflow>;
@@ -121,6 +157,7 @@ function normalizeActive(value: unknown): ActiveWorkflowBuckets {
         intent: safeMemoryText(candidate.intent, 1000),
         project: candidate.project ? safeMemoryText(candidate.project, 240) || undefined : undefined,
         constraints: candidate.constraints ? safeMemoryText(candidate.constraints, 500) || undefined : undefined,
+        orchestration: sanitizeOrchestration(candidate.orchestration),
         steps: candidate.steps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)),
       };
       continue;
@@ -135,6 +172,7 @@ function normalizeActive(value: unknown): ActiveWorkflowBuckets {
         intent: safeMemoryText(workflow.intent, 1000),
         project: workflow.project ? safeMemoryText(workflow.project, 240) || undefined : undefined,
         constraints: workflow.constraints ? safeMemoryText(workflow.constraints, 500) || undefined : undefined,
+        orchestration: sanitizeOrchestration(workflow.orchestration),
         steps: workflow.steps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)),
       };
     }
@@ -276,6 +314,8 @@ const SAFE_TOOL_ARGS: Record<string, readonly string[]> = {
   projects_list: ["query", "limit", "offset"],
   project_capabilities: ["project"],
   project_function_call: ["project", "name"],
+  project_memory_search: ["project", "query", "kind", "limit", "include_history"],
+  project_memory_upsert: ["project", "kind", "source", "result", "status"],
   skills_list: ["project", "trust", "limit", "offset"],
   skills_read: ["name"],
   screen_capture: ["shell", "width", "height"],
@@ -464,6 +504,7 @@ export async function startWorkflow(input: {
   intent: string;
   project?: string;
   constraints?: string;
+  orchestration?: WorkflowOrchestrationSnapshot;
 }): Promise<{ workflow: ActiveWorkflow; activeWorkflowCount: number }> {
   const actor = actorKey(input.actor);
   const scope: Scope = input.scope ?? "read";
@@ -482,12 +523,66 @@ export async function startWorkflow(input: {
     intent,
     project: input.project ? safeMemoryText(input.project, 240) || undefined : undefined,
     constraints: input.constraints ? safeMemoryText(input.constraints, 500) || undefined : undefined,
+    orchestration: sanitizeOrchestration(input.orchestration),
     startedAt: new Date().toISOString(),
     steps: [],
   };
   (store.active[actor] ??= {})[workflow.id] = workflow;
   await persist(store);
   return { workflow, activeWorkflowCount: Object.keys(store.active[actor]).length };
+}
+
+export type ProjectContentionSummary = {
+  activeWorkflowCount: number;
+  conflictingWorkflowCount: number;
+  overlappingPaths: string[];
+  overlappingResources: string[];
+};
+
+const normalizedProject = (value?: string) => value?.trim().replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase() ?? "";
+const pathScopeOverlaps = (a: string, b: string): boolean => {
+  const left = a.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  const right = b.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  return Boolean(left && right && (left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`)));
+};
+
+export async function summarizeProjectContention(
+  project?: string, affectedPaths: string[] = [], reservedResources: string[] = [],
+): Promise<ProjectContentionSummary> {
+  const key = normalizedProject(project);
+  if (!key) return { activeWorkflowCount: 0, conflictingWorkflowCount: 0, overlappingPaths: [], overlappingResources: [] };
+  const store = await loadStore();
+  let changed = false, activeWorkflowCount = 0, conflictingWorkflowCount = 0;
+  const overlappingPaths = new Set<string>(), overlappingResources = new Set<string>();
+  const resources = reservedResources.map((value) => value.trim().toLowerCase()).filter(Boolean);
+  for (const actor of Object.keys(store.active)) {
+    changed = pruneStaleWorkflows(store, actor) || changed;
+    for (const workflow of Object.values(store.active[actor] ?? {})) {
+      if (normalizedProject(workflow.project) !== key) continue;
+      activeWorkflowCount += 1;
+      let conflict = false;
+      for (const requested of affectedPaths) {
+        if ((workflow.orchestration?.affectedPaths ?? []).some((active) => pathScopeOverlaps(requested, active))) {
+          overlappingPaths.add(requested); conflict = true;
+        }
+      }
+      const activeResources = (workflow.orchestration?.reservedResources ?? []).map((value) => value.trim().toLowerCase());
+      for (const requested of resources) {
+        if (activeResources.includes(requested)) { overlappingResources.add(requested); conflict = true; }
+      }
+      if (conflict) conflictingWorkflowCount += 1;
+    }
+  }
+  if (changed) await persist(store);
+  return {
+    activeWorkflowCount, conflictingWorkflowCount,
+    overlappingPaths: [...overlappingPaths].slice(0, 80),
+    overlappingResources: [...overlappingResources].slice(0, 40),
+  };
+}
+
+export async function countActiveWorkflowsForProject(project?: string): Promise<number> {
+  return (await summarizeProjectContention(project)).activeWorkflowCount;
 }
 
 export async function activeWorkflowForActor(actor?: string, workflowId?: string): Promise<ActiveWorkflow | null> {

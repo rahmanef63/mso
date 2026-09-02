@@ -42,6 +42,9 @@ const MCP_ONLY: Record<string, string> = {
   "workflow.status": "app-only MCP Apps bridge used by the ChatGPT progress component; Alfa already owns its in-shell run state and must not poll the external workflow store",
   "workflow.cancel": "same actor-scoped boundary; external runs need explicit recovery from an interrupted task",
   "workflow.finish": "same actor-scoped learning loop; Alfa recipes can use the session route later without weakening MCP scope semantics",
+  "project.memory.search": "repo-local RASMIC orchestration memory belongs to the terminal/external workflow harness; Alfa intentionally keeps its separate owner recall and must not collapse those memory principals",
+  "project.memory.upsert": "same repo-local RASMIC ledger; writes are workflow-scoped/audited for external agents rather than shared with Alfa owner recall",
+  "project.script.run": "RASMIC script replay is an external/terminal orchestration primitive that revalidates bounded read-only steps and may promote candidate metadata; Alfa has no matching workflow/script lifecycle",
   "agent.session.current": "external MCP clients need a stable durable MSO session id they can quote from a later ChatGPT conversation; in-shell Alfa already owns its conversation identity",
   "agent.sessions.list": "external MCP clients need explicit cross-conversation session discovery; Alfa's in-app thread UI already provides its own conversation list",
   "agent.session.resume": "external MCP clients must reconstruct only the safe MSO resume packet across ChatGPT conversations; Alfa can reopen its own persisted in-app thread directly",
@@ -140,6 +143,9 @@ describe("MCP rate limits mirror the routes", () => {
       // MCP clients and is expensive enough to deserve a much smaller bucket.
       "screen.capture": 10,
       "workflow.memory": 30,
+      "project.memory.search": 60,
+      "project.memory.write": 60,
+      "project.script.run": 30,
       // workflow_status is app-only polling. Keep its own bucket so UI refreshes
       // neither consume lifecycle capacity nor bypass the server-wide token limit.
       "workflow.status": 30,

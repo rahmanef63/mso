@@ -10,6 +10,8 @@ const catalog = [
   tool("sys_stats", "Live VPS CPU memory disk uptime health"), tool("sys_processes", "Top CPU processes"),
   tool("apps_list", "Managed apps hermes openclaw"), tool("apps_logs", "Recent application logs"),
   tool("fs_read", "Read a text file"), tool("fs_write", "Write or update a text file"),
+  tool("project_memory_search", "Search repo-local task debug test decision failure memory"),
+  tool("project_memory_upsert", "Persist repo-local memory including user manual tests"),
   tool("exec_run", "Run a short shell command"), tool("exec_job_start", "Run long tests and builds"),
   tool("exec_job_status", "Read long job status"), tool("exec_job_cancel", "Cancel long job"),
   tool("screen_capture", "Capture screenshot"), tool("browser_status", "Camoufox browser state"),
@@ -83,4 +85,10 @@ describe("MSO per-turn tool router", () => {
     expect(out.selectedNames).toContain("exec_job_status");
     expect(out.selectedNames).toContain("exec_job_cancel");
   });
+  it("loads repo memory tools when the user reports a manual regression", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "I tested it and it still freezes after reconnect" }]);
+    expect(out.selectedNames).toContain("project_memory_upsert");
+    expect(out.selectedNames).toContain("project_memory_search");
+  });
+
 });

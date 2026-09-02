@@ -137,6 +137,8 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
     query: q,
     hits: sorted,
     catalog: scan,
-    recommendedRecipe: sorted.find((h) => h.kind === "recipe" && h.score >= 0.22),
+    recommendedRecipe: sorted.find((h) =>
+      h.kind === "recipe" && h.score >= 0.22 && (h.attempts ?? 0) >= 2 && (h.successRate ?? 0) >= 50,
+    ),
   };
 }
