@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- add RASMIC orchestration memory automation
 - `agent` section terminal and recover API errors
 - `agent` name sessions and wrap composer
 - `agent` correlate local replies and add subagents
@@ -25,13 +26,29 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `agent` make restart process-safe
 - `a2a` harden remote v1 delegation
 
+**Faster**
+
+- `agent` route capabilities before model reasoning
+
+**Tests**
+
+- follow RASMIC storage split
+
 **Docs**
 
+- reconcile RASMIC with latest agent docs
+- publish catalog-first RASMIC runtime
+- publish RASMIC MCP contract
 - `testing` record 1.12 live verification
 
 **Chores**
 
 - `agent` sync docs and trim internal exports
+
+**Other**
+
+- pin ZAP Docker Hub mirror
+- cover RASMIC orchestration
 
 ## 2026-09-01
 

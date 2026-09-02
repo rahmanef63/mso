@@ -12,10 +12,10 @@
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 > and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.7 tools=66 read=32 write=22 exec=12 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.9 tools=69 read=33 write=24 exec=12 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.7**: **67 transport tools** total; **66 model/operator tools**
-(32 read, 22 write, 12 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.9**: **70 transport tools** total; **69 model/operator tools**
+(33 read, 24 write, 12 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
 
 ### Local-agent and subagent tools
@@ -145,7 +145,7 @@ A token sees a scope prefix; there is no per-project or per-agent hidden tool fi
 `tools/list` filters the catalog and `tools/call` independently re-checks the required
 scope.
 
-### `read` — 32 model/operator tools
+### `read` — 33 model/operator tools
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -171,6 +171,7 @@ scope.
 - `local_agent_request_wait`
 - `local_agents_list`
 - `project_capabilities`
+- `project_memory_search`
 - `projects_list`
 - `screen_capture`
 - `skills_list`
@@ -180,7 +181,7 @@ scope.
 - `sys_stats`
 - `tool_forge_candidates`
 
-### `write` — read + 22 tools (54 visible at write scope)
+### `write` — read + 24 tools
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -200,12 +201,14 @@ scope.
 - `hostinger_dns_upsert`
 - `local_agent_message_send`
 - `local_agent_reply`
+- `project_memory_upsert`
+- `project_script_run`
 - `tool_forge_propose`
 - `workflow_cancel`
 - `workflow_finish`
 - `workflow_start`
 
-### `exec` — write + 12 tools (66 visible at exec scope)
+### `exec` — write + 12 tools
 
 - `a2a_handoff`
 - `a2a_message_send`
@@ -219,6 +222,8 @@ scope.
 - `project_function_call`
 - `tool_forge_evaluate`
 - `tool_forge_promote`
+
+RASMIC's `project_memory_search`, `project_memory_upsert`, and `project_script_run` keep compact redacted orchestration memory/evidence and deterministic automation portable under a managed repo's `.agent/` directory. `project_memory_search` uses one schema for ranked `search`, deterministic `related`, and compact `timeline` views instead of adding more tool names. They do not grant access to another repo or external memory service.
 
 `exec_run` is full host shell power as the MSO service user. The command filter is an
 accident tripwire, not a sandbox. Grant `exec` only to a ChatGPT app/workspace you trust
@@ -267,7 +272,7 @@ Settings → MCP:
 server:  1.6.0
 toolset: 2026.09.02.7
 hash:    <live schema hash>
-count:   66 model/operator tools (+ 1 app-only bridge)
+count:   69 model/operator tools (+ 1 app-only bridge)
 ```
 
 Use this sequence after an MSO MCP change:

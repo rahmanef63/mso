@@ -75,8 +75,8 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 
 | Scope | Tools |
 |---|---|
-| `read` | `a2a_agent_discover` `a2a_agents_list` `a2a_task_get` `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `apps_list` `apps_logs` `browser_status` `cloudflare_zones_list` `dokploy_projects_list` `exec_job_status` `fs_list` `fs_read` `fs_search` `fs_usage` `infra_provider_doctor` `infra_providers_list` `local_agent_inbox` `local_agent_request_wait` `local_agents_list` `project_capabilities` `projects_list` `screen_capture` `skills_list` `skills_read` `skills_search` `sys_processes` `sys_stats` `tool_forge_candidates` |
-| `write` | + `a2a_agent_register` `a2a_agent_remove` `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `apps_power` `cloudflare_dns_upsert` `dokploy_project_ensure` `fs_copy` `fs_delete` `fs_mkdir` `fs_move` `fs_upload_file` `fs_write` `hostinger_dns_upsert` `local_agent_message_send` `local_agent_reply` `tool_forge_propose` `workflow_cancel` `workflow_finish` `workflow_start` |
+| `read` | `a2a_agent_discover` `a2a_agents_list` `a2a_task_get` `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `apps_list` `apps_logs` `browser_status` `cloudflare_zones_list` `dokploy_projects_list` `exec_job_status` `fs_list` `fs_read` `fs_search` `fs_usage` `infra_provider_doctor` `infra_providers_list` `local_agent_inbox` `local_agent_request_wait` `local_agents_list` `project_capabilities` `project_memory_search` `projects_list` `screen_capture` `skills_list` `skills_read` `skills_search` `sys_processes` `sys_stats` `tool_forge_candidates` |
+| `write` | + `a2a_agent_register` `a2a_agent_remove` `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `apps_power` `cloudflare_dns_upsert` `dokploy_project_ensure` `fs_copy` `fs_delete` `fs_mkdir` `fs_move` `fs_upload_file` `fs_write` `hostinger_dns_upsert` `local_agent_message_send` `local_agent_reply` `project_memory_upsert` `project_script_run` `tool_forge_propose` `workflow_cancel` `workflow_finish` `workflow_start` |
 | `exec` | + `a2a_handoff` `a2a_message_send` `a2a_task_cancel` `agent_subagent_run` `browser_power` `exec_job_cancel` `exec_job_start` `exec_run` `local_agent_request` `project_function_call` `tool_forge_evaluate` `tool_forge_promote` |
 
 Alfa — the in-app assistant — overlaps the same host capabilities under dot.case names,
@@ -85,7 +85,7 @@ without a written reason. `skills_search` maps to Alfa's `skills.search`. The in
 provider tools are intentionally MCP-only: the terminal MSO Agent consumes this canonical
 catalog through the owner-only agent-tools bridge, while in-shell Alfa has dedicated
 Dokploy/Cloudflare feature surfaces instead of receiving public-DNS credentials/capabilities.
-`screen_capture`, `projects_list`, `project_capabilities`, `project_function_call`, `fs_upload_file`, `workflow_start`, `workflow_cancel`,
+`screen_capture`, `projects_list`, `project_capabilities`, `project_function_call`, `project_memory_search`, `project_memory_upsert`, `project_script_run`, `fs_upload_file`, `workflow_start`, `workflow_cancel`,
 `workflow_finish`, the async `exec_job_*` lifecycle and the `infra_*` / Dokploy / Cloudflare /
 Hostinger provider tools are explicitly MCP-only: the external connector needs visual proof,
 an explicit project enumeration and an actor-scoped task boundary, while Alfa already
@@ -126,16 +126,20 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.7 tools=66 read=32 write=22 exec=12 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.9 tools=69 read=33 write=24 exec=12 -->
 
-Current transport catalog: **67 tools**, server `1.6.0` / toolset `2026.09.02.7`.
-The model/operator catalog is **66 tools** (32 read, 22 write, 12 exec); `workflow_status` is the
+Current transport catalog: **70 tools**, server `1.6.0` / toolset `2026.09.02.9`.
+The model/operator catalog is **69 tools** (33 read, 24 write, 12 exec); `workflow_status` is the
 one app-only MCP Apps bridge used by the progress widget and is documented separately.
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
 
 Session/memory tools add durable conversation context without creating
 dynamic per-project tool names; `project_capabilities` and `project_function_call` remain the
 stable project-automation seam.
+
+### RASMIC repo-local orchestration memory
+
+RASMIC adds three stable generic MCP tools without coupling MSO to another repository or service: `project_memory_search` reads compact `.agent` task/debug/test/decision/failure memory through `search`, deterministic `related`, or chronological `timeline` views; `project_memory_upsert` writes one redacted structured record, including `source=user-manual` test evidence; and `project_script_run` replays only bounded read-only script manifests and promotes a candidate to `tested` only after a real successful replay. The script runner is write scope because that candidate→tested manifest transition is a mutation; every nested tool is revalidated as read-only at runtime.
 
 ### Local Agent collaboration
 
@@ -360,13 +364,7 @@ its `project`, and the bootstrap carries a `discovery.complete` flag plus a
 
 ## MCP-first cognitive runtime
 
-MSO keeps the public MCP catalog capability-complete and scope-stable, but its own terminal
-agent does not stuff every schema into every model turn. A provider-neutral router keeps a
-small core (`workflow_*`, `skills_search`, project/session discovery), scores the current user
-intent plus recent tool evidence, and normally loads at most 14 relevant schemas plus required
-companions. `skills_search` already searches tools as well as skills/recipes, so a tool named by
-discovery becomes available on the next model round without changing permissions. Public MCP
-`tools/list` remains the full scope-filtered catalog for interoperability.
+MSO keeps the public MCP catalog capability-complete and scope-stable, but its own terminal agent does not stuff every schema into every model turn. A shared deterministic bilingual capability catalog routes the latest intent **before the model call** and loads only the matching capability pack plus mandatory dependencies. There is no always-on schema core. `skills_search`/lexical discovery is a fallback for genuinely unknown intent, and short continuation prompts use only bounded prior user intent. Repository work is phase-aware: the bootstrap round exposes `workflow_start`; after it runs, the execution round exposes the bounded edit/test/finish pack instead of paying for the bootstrap schema again. Public MCP `tools/list` remains the full scope-filtered catalog for interoperability.
 
 Generic MCP text results are also context-budgeted: 32 KiB by default, with explicit bounded
 exceptions for file reads and long-job output. Oversize results return a parseable
@@ -375,14 +373,10 @@ the model context. Explicit MCP Apps structured projections remain separate. The
 applies regardless of whether the selected provider is OpenAI, Anthropic, Google, Qwen, GLM,
 DeepSeek, or another compatible backend.
 
-The CLI persists much more session history than it shows the model. Before a model call, recent
-history is projected to roughly 55% of the model's context window (capped at 120k history
-tokens) so system instructions, memory, skill/tool schemas, reasoning and output retain
-headroom. At the durable 700k session threshold, structured compaction + sanitized archival
+The CLI persists much more session history than it shows the model. The route is chosen first; then history is projected using the smaller of the provider-derived budget and the capability pack's requested budget. Without an override the old roughly-55%-of-context / 120k-cap behavior remains the ceiling, so system instructions, memory, skill/tool schemas, reasoning and output retain headroom. At the durable 700k session threshold, structured compaction + sanitized archival
 reduces storage context and feeds the compact summary back into later turns.
 
-Run `bun run bench:cognitive` for the reproducible provider-neutral routing/footprint gate. It
-requires 100% required-tool recall and deterministic routing across the checked scenarios.
+Run `bun run bench:cognitive` for the reproducible provider-neutral routing/footprint gate. It requires 100% required-tool recall and deterministic routing, ≥95% schema reduction, ≥90% catalog hit, ≤4 average active tools, bounded routing text/history budget, and the phase-aware repository transition. The current checked corpus reports 2.7 active tools and 2,252 schema bytes on average (95.8% reduction), with 100% recall/catalog hit.
 Hermes is compared only where an equivalent offline `prompt-size` metric exists; OpenClaw is
 reported but is not declared beaten on a non-comparable metric.
 

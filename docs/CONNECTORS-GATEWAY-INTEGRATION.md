@@ -4,15 +4,17 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.7 tools=66 read=32 write=22 exec=12 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.9 tools=69 read=33 write=24 exec=12 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.7**: **67 transport tools** total; **66 model/operator tools**
-(32 read, 22 write, 12 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.9**: **70 transport tools** total; **69 model/operator tools**
+(33 read, 24 write, 12 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
 ## Local collaboration additions
 
 Toolset `2026.09.02.7` tracks `local_agents_list`, `local_agent_message_send`, `local_agent_reply`, `local_agent_request_wait`, `local_agent_inbox`, `local_agent_request`, and `agent_subagent_run`. A gateway should preserve these literal names if it chooses to expose them. The six `local_agent_*`/`local_agents_list` tools address durable same-principal MSO sessions; `agent_subagent_run` is a foreground same-session worker and must not be modeled as a remote A2A registration or long-lived peer.
+
+Toolset `2026.09.02.8` introduced RASMIC's `project_memory_search`, `project_memory_upsert`, and `project_script_run`; toolset `2026.09.02.9` keeps those three names stable while extending `project_memory_search` with `search | related | timeline` views and the catalog-first runtime. A gateway may expose these literal names, but must preserve their MSO scopes and must not reinterpret repo-local `.agent` records as gateway-owned/global memory.
 
 ## Why this contract matters
 
@@ -37,13 +39,13 @@ Before changing an MCP tool name:
 
 ## Current MSO catalog
 
-### Read (32 model/operator)
+### Read (33 model/operator)
 
-`a2a_agent_discover`, `a2a_agents_list`, `a2a_task_get`, `agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`, `apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`, `exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`, `infra_providers_list`, `local_agent_inbox`, `local_agent_request_wait`, `local_agents_list`, `project_capabilities`, `projects_list`, `screen_capture`, `skills_list`, `skills_read`, `skills_search`, `sys_processes`, `sys_stats`, `tool_forge_candidates`.
+`a2a_agent_discover`, `a2a_agents_list`, `a2a_task_get`, `agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`, `apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`, `exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`, `infra_providers_list`, `local_agent_inbox`, `local_agent_request_wait`, `local_agents_list`, `project_capabilities`, `project_memory_search`, `projects_list`, `screen_capture`, `skills_list`, `skills_read`, `skills_search`, `sys_processes`, `sys_stats`, `tool_forge_candidates`.
 
-### Write (22 beyond read)
+### Write (24 beyond read)
 
-`a2a_agent_register`, `a2a_agent_remove`, `agent_memory_forget`, `agent_memory_remember`, `agent_session_note`, `agent_session_rename`, `apps_power`, `cloudflare_dns_upsert`, `dokploy_project_ensure`, `fs_copy`, `fs_delete`, `fs_mkdir`, `fs_move`, `fs_upload_file`, `fs_write`, `hostinger_dns_upsert`, `local_agent_message_send`, `local_agent_reply`, `tool_forge_propose`, `workflow_cancel`, `workflow_finish`, `workflow_start`.
+`a2a_agent_register`, `a2a_agent_remove`, `agent_memory_forget`, `agent_memory_remember`, `agent_session_note`, `agent_session_rename`, `apps_power`, `cloudflare_dns_upsert`, `dokploy_project_ensure`, `fs_copy`, `fs_delete`, `fs_mkdir`, `fs_move`, `fs_upload_file`, `fs_write`, `hostinger_dns_upsert`, `local_agent_message_send`, `local_agent_reply`, `project_memory_upsert`, `project_script_run`, `tool_forge_propose`, `workflow_cancel`, `workflow_finish`, `workflow_start`.
 
 ### Exec (12 beyond write)
 
