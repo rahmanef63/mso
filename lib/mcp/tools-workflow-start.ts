@@ -1,4 +1,4 @@
-import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host";
+import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
 import { markRecipeUsed, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
 import { searchSkillMemory } from "@/lib/skills/search";
 import { progressiveVerification } from "@/lib/orchestration/automation";

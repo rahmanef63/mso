@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { apiError, processes } from "@/lib/host";
+import { apiError } from "@/lib/host/request-api";
+import { processes } from "@/lib/host/system-api";
 
 export const dynamic = "force-dynamic";
 

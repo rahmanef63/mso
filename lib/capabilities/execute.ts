@@ -1,4 +1,4 @@
-import { audit } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
 import { maybeAutoTitleAgentSession } from "@/lib/agent/session-store";
 import { touchLocalAgentPresence } from "@/lib/agent/local-agent-presence";
 import { activeWorkflowForActor, recordWorkflowStep } from "@/lib/workflow";

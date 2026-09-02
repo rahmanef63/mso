@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
 import { getSessionActor } from "@/lib/auth/require-session";
-import { apiError, audit, closePty, invalidRequest, readJson, requireString } from "@/lib/host";
+import { apiError, invalidRequest, readJson, requireString } from "@/lib/host/request-api";
+import { audit } from "@/lib/host/audit-api";
+import { closePty } from "@/lib/host/terminal-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

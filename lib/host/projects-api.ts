@@ -1,0 +1,11 @@
+export { resolveProjectHint, inspectProject } from "./projects";
+export type { ProjectResolution } from "./projects";
+export { projectCapabilities, runProjectFunction, readProjectMcpServers, publicProjectMcpServers, listProjectMcpTools, callProjectMcpTool } from "./project-capabilities";
+export type { ProjectCapabilities, PublicProjectFunction } from "./project-capabilities";
+export { projectGitSnapshot, projectGitEdits, projectGitDiff, readProjectKnowledge, detectProjectConvex, PROJECT_KNOWLEDGE_REL, PROJECT_KNOWLEDGE_MAX_BYTES } from "./project-experience";
+export { listProjectConvexTools, callProjectConvexTool, PROJECT_CONVEX_READ_TOOLS, PROJECT_CONVEX_WRITE_TOOLS } from "./project-convex";
+export { listProjectDirs, projectRoots, PROJECT_LIMITS } from "./project-roots";
+export type { ProjectRow } from "./project-roots";
+export { listProjects } from "./project-list";
+export type { ListProjectsResult } from "./project-list";
+export { normalizeProjectKey, projectAliasesFor, projectAliasTarget } from "./project-aliases";

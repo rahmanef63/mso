@@ -1,5 +1,5 @@
 import "server-only";
-import { audit } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
 import type { ManagedAppJob, ManagedAppJobSummary } from "./types";
 
 // The other half of the managed-app audit trail: how an operation ENDED.

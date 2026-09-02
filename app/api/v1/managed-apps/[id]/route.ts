@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
 import { getSessionActor } from "@/lib/auth/require-session";
-import { audit, rateLimited } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
+import { rateLimited } from "@/lib/host/limits-api";
 import { IS_DEMO } from "@/lib/demo";
 import { isManagedAppId } from "@/lib/managed-apps/catalog";
 import { getManagedApp, performManagedAppAction } from "@/lib/managed-apps/manager";

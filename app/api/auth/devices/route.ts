@@ -10,7 +10,7 @@ import {
 import { getSessionContext } from "@/lib/auth/require-session";
 import { DeviceRoleError, isDeviceRole } from "@/lib/auth/roles";
 import { terminateCamoufoxSessions } from "@/lib/camoufox/service";
-import { audit } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

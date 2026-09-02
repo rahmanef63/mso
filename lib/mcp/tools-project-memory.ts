@@ -1,4 +1,4 @@
-import { resolveProjectHint } from "@/lib/host";
+import { resolveProjectHint } from "@/lib/host/projects-api";
 import { isReplaySafeTool } from "@/lib/orchestration/automation";
 import { ingestManualUserTest, searchRepoMemory, upsertRepoMemory } from "@/lib/orchestration/repo-memory";
 import { readAutomationScript, writeAutomationScript } from "@/lib/orchestration/repo-memory-artifacts";

@@ -62,11 +62,13 @@ vi.mock("@/lib/a2a", () => ({
   handoffA2ALocalSession: mocks.localHandoff,
   spawnA2ALocalSubagent: mocks.localSpawn,
 }));
-vi.mock("@/lib/host", () => ({
-  audit: mocks.audit,
-  rateLimited: mocks.rate,
-  readAuditTail: mocks.auditTail,
+vi.mock("@/lib/host/audit-api", () => ({ audit: mocks.audit, readAuditTail: mocks.auditTail }));
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: mocks.rate }));
+vi.mock("@/lib/host/request-api", () => ({
   readJson: async (req: Request) => req.json().catch(() => null),
+}));
+vi.mock("@/lib/mcp/capability-runtime", () => ({
+  msoCapabilityRuntime: { list: () => [], invoke: vi.fn(async () => ({ content: [] })) },
 }));
 
 const { GET, POST } = await import("./route");
@@ -234,7 +236,11 @@ describe("A2A CLI API", () => {
       }),
     );
     expect(handoff.status).toBe(200);
-    expect(mocks.localHandoff).toHaveBeenCalledWith("bece", "review this");
+    expect(mocks.localHandoff).toHaveBeenCalledWith(
+      "bece",
+      "review this",
+      expect.objectContaining({ list: expect.any(Function), invoke: expect.any(Function) }),
+    );
 
     const spawn = await POST(
       post({

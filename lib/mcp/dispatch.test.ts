@@ -10,8 +10,8 @@ vi.mock("@/lib/a2a/local-session", () => localSessionMock);
 // @/lib/host stays REAL — the point of these cases is that the dispatcher, not
 // each tool, is what records.
 const audited: { action: string; actor?: string; target?: string; ok?: boolean }[] = [];
-vi.mock("@/lib/host", async (orig) => {
-  const real = await orig<typeof import("@/lib/host")>();
+vi.mock("@/lib/host/audit-api", async (orig) => {
+  const real = await orig<typeof import("@/lib/host/audit-api")>();
   return { ...real, audit: (e: { action: string }) => { audited.push(e); return Promise.resolve(); } };
 });
 

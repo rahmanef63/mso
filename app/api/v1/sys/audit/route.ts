@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { readAuditTail } from "@/lib/host";
+import { readAuditTail } from "@/lib/host/audit-api";
 
 // The audit trail, read-only. Session-gated like every other /api/v1 route.
 //

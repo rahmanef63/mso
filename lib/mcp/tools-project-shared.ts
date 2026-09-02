@@ -1,4 +1,4 @@
-import { resolveProjectHint } from "@/lib/host";
+import { resolveProjectHint } from "@/lib/host/projects-api";
 import { opt } from "./tool-kit";
 
 export async function selectedProject(value: string) {

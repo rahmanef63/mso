@@ -21,10 +21,8 @@ vi.mock("@/lib/demo", () => ({
     return demo.value;
   },
 }));
-vi.mock("@/lib/host", async () => {
-  const real = await vi.importActual<typeof import("@/lib/host")>("@/lib/host");
-  return { ...real, audit: vi.fn(async () => undefined), rateLimited: vi.fn(() => limited.value) };
-});
+vi.mock("@/lib/host/audit-api", () => ({ audit: vi.fn(async () => undefined) }));
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: vi.fn(() => limited.value) }));
 // Mocked wholesale: importing the real one would pull in the job runner, and
 // nothing in a route test may be able to spawn or signal a process.
 vi.mock("@/lib/managed-apps/jobs", () => ({
@@ -32,7 +30,8 @@ vi.mock("@/lib/managed-apps/jobs", () => ({
   readManagedAppJob: vi.fn(async () => null),
 }));
 
-const { audit, rateLimited } = await import("@/lib/host");
+const { audit } = await import("@/lib/host/audit-api");
+const { rateLimited } = await import("@/lib/host/limits-api");
 const { cancelManagedAppJob } = await import("@/lib/managed-apps/jobs");
 const { DELETE } = await import("./[id]/jobs/[jobId]/route");
 

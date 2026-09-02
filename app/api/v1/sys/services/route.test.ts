@@ -9,9 +9,9 @@ const mocks = vi.hoisted(() => ({
   rateLimited: vi.fn(() => false),
 }));
 vi.mock("@/lib/agent/server", () => ({ verifyAuth: mocks.verifyAuth }));
-vi.mock("@/lib/host", () => ({
-  audit: mocks.audit,
-  rateLimited: mocks.rateLimited,
+vi.mock("@/lib/host/audit-api", () => ({ audit: mocks.audit }));
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: mocks.rateLimited }));
+vi.mock("@/lib/host/request-api", () => ({
   apiError: (_label: string, error: unknown) => Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 }),
 }));
 vi.mock("@/lib/host/services", () => ({

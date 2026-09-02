@@ -10,7 +10,7 @@ const auditMock = vi.fn();
 vi.mock("@/lib/auth/require-session", () => ({
   getSessionContext: vi.fn(async () => contextRef.current),
 }));
-vi.mock("@/lib/host", () => ({ audit: (...args: unknown[]) => auditMock(...args) }));
+vi.mock("@/lib/host/audit-api", () => ({ audit: (...args: unknown[]) => auditMock(...args) }));
 vi.mock("@/lib/infra", () => ({
   INFRA_PROVIDER_IDS: ["dokploy", "cloudflare", "hostinger"],
   isInfraProviderId: (id: string) => ["dokploy", "cloudflare", "hostinger"].includes(id),

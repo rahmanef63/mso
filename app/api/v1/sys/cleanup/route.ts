@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { apiError, audit, readJson } from "@/lib/host";
+import { apiError, readJson } from "@/lib/host/request-api";
+import { audit } from "@/lib/host/audit-api";
 import { scanCleanup, runCleanup } from "@/lib/host/cleanup";
 
 export const dynamic = "force-dynamic";

@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MIN_SECRET_LEN } from "@/lib/auth/session";
 
-vi.mock("@/lib/host", () => ({ audit: vi.fn() }));
+vi.mock("@/lib/host/audit-api", () => ({ audit: vi.fn() }));
 vi.mock("@/lib/auth/device-store", () => ({
   isValidDeviceId: (id: unknown) => typeof id === "string" && /^[a-f0-9-]{16,128}$/i.test(id),
   isApproved: async () => true,

@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
-import { audit, rateLimited } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
+import { rateLimited } from "@/lib/host/limits-api";
 
 export async function a2aOwnerContext() {
   const context = await getSessionContext();

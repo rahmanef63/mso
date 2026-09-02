@@ -38,9 +38,12 @@ vi.mock("@/lib/mcp/origin", () => ({
   mcpRequestOriginAllowed: mocks.mcpRequestOriginAllowed,
   mcpCorsHeaders: mocks.mcpCorsHeaders,
 }));
-vi.mock("@/lib/host", () => ({
+vi.mock("@/lib/host/limits-api", () => ({
   rateLimited: mocks.rateLimited,
   rateLimitedUntrusted: mocks.rateLimitedUntrusted,
+}));
+vi.mock("@/lib/mcp/capability-runtime", () => ({
+  msoCapabilityRuntime: { list: () => [], invoke: vi.fn(async () => ({ content: [] })) },
 }));
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
@@ -159,7 +162,7 @@ describe("/mcp request boundary", () => {
       body,
       "read",
       `mcp:${token.hash.slice(0, 16)}`,
-      { principal: `mcp-client:${token.clientId}`, toolProfile: "full" },
+      expect.objectContaining({ principal: `mcp-client:${token.clientId}`, toolProfile: "full", capabilities: expect.objectContaining({ list: expect.any(Function), invoke: expect.any(Function) }) }),
     );
   });
 
@@ -180,7 +183,10 @@ describe("/mcp request boundary", () => {
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
     expect(hash).not.toContain(rawConversation);
     expect(mocks.dispatch).toHaveBeenCalledWith(body, "read", `mcp:${token.hash.slice(0, 16)}`, {
-      principal: `mcp-client:${token.clientId}`, sessionId: "20260901_100000_aabbccdd", toolProfile: "chatgpt",
+      principal: `mcp-client:${token.clientId}`,
+      sessionId: "20260901_100000_aabbccdd",
+      toolProfile: "chatgpt",
+      capabilities: expect.objectContaining({ list: expect.any(Function), invoke: expect.any(Function) }),
     });
   });
 

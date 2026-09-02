@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { Readable } from "stream";
 import { verifyAuth } from "@/lib/agent/server";
 import { getSessionActor } from "@/lib/auth/require-session";
-import { apiError, audit, rateLimited, zipStream } from "@/lib/host";
+import { apiError } from "@/lib/host/request-api";
+import { audit } from "@/lib/host/audit-api";
+import { rateLimited } from "@/lib/host/limits-api";
+import { zipStream } from "@/lib/host/fs-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

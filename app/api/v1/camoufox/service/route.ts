@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
 import { camoufoxStatus, setCamoufoxEnabled } from "@/lib/camoufox/service";
-import { apiError, audit, rateLimited, readJson } from "@/lib/host";
+import { apiError, readJson } from "@/lib/host/request-api";
+import { audit } from "@/lib/host/audit-api";
+import { rateLimited } from "@/lib/host/limits-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

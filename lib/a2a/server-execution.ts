@@ -1,4 +1,4 @@
-import { audit } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
 import type { AgentSession } from "@/lib/agent/session-types";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import type { A2AAuthenticatedProfile } from "./server-protocol";

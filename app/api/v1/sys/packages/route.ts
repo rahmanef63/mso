@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { rateLimited } from "@/lib/host";
+import { rateLimited } from "@/lib/host/limits-api";
 import { packageUpdates } from "@/lib/host/package-updates";
 import { getSessionActor } from "@/lib/auth/require-session";
 

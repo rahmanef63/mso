@@ -8,8 +8,8 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/agent/server", () => ({ verifyAuth: mocks.verifyAuth }));
 vi.mock("@/lib/auth/require-session", () => ({ getSessionActor: mocks.actor }));
-vi.mock("@/lib/host", () => ({
-  rateLimited: mocks.rateLimited,
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: mocks.rateLimited }));
+vi.mock("@/lib/host/request-api", () => ({
   apiError: (_label: string, error: unknown) => Response.json({ error: String(error) }, { status: 400 }),
 }));
 vi.mock("@/lib/host/services", () => ({ serviceLogs: mocks.logs }));

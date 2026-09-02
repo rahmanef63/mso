@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/agent/server", () => ({ verifyAuth: mocks.verifyAuth }));
 vi.mock("@/lib/auth/require-session", () => ({ getSessionActor: mocks.actor }));
-vi.mock("@/lib/host", () => ({ rateLimited: mocks.rateLimited }));
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: mocks.rateLimited }));
 vi.mock("@/lib/host/package-updates", () => ({ packageUpdates: mocks.updates }));
 
 beforeEach(() => {

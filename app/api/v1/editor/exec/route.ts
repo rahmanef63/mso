@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { apiError, fileStream, statReadable, readFile, writeFile } from "@/lib/host";
+import { apiError } from "@/lib/host/request-api";
+import { fileStream, statReadable, readFile, writeFile } from "@/lib/host/fs-api";
 import {
   blankDoc,
   buildDocFromImage,

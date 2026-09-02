@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { Readable } from "stream";
 import { verifyAuth } from "@/lib/agent/server";
-import { apiError, fileStream, statReadable } from "@/lib/host";
+import { apiError } from "@/lib/host/request-api";
+import { fileStream, statReadable } from "@/lib/host/fs-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

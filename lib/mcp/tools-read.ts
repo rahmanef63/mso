@@ -1,4 +1,7 @@
-import { listDir, readFile, searchFs, usage, stats, processes, captureMsoScreen, createTempShare, tempShareUrl, sha256Text, utf8Bytes } from "@/lib/host";
+import { listDir, readFile, searchFs, usage, sha256Text, utf8Bytes } from "@/lib/host/fs-api";
+import { stats, processes } from "@/lib/host/system-api";
+import { captureMsoScreen } from "@/lib/host/screenshot-api";
+import { createTempShare, tempShareUrl } from "@/lib/host/temp-share-api";
 import { camoufoxStatus } from "@/lib/camoufox/service";
 import { listManagedApps, getManagedAppLogs } from "@/lib/managed-apps/manager";
 import { searchSkillMemory } from "@/lib/skills/search";

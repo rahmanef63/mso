@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { consumeTempShare, inspectTempShare } from "@/lib/host";
+import { consumeTempShare, inspectTempShare } from "@/lib/host/temp-share-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

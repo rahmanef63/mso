@@ -1,4 +1,4 @@
-import { inspectProject, resolveProjectHint } from "@/lib/host";
+import { inspectProject, resolveProjectHint } from "@/lib/host/projects-api";
 import { activeWorkflowForActor, cancelWorkflow, finishWorkflow } from "@/lib/workflow";
 import { assessAutomationPromotion, buildAutomationScriptManifest, workflowCleanupGuidance } from "@/lib/orchestration/automation";
 import { classifyTask } from "@/lib/orchestration/classifier";

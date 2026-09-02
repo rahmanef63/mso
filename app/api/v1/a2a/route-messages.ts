@@ -8,7 +8,7 @@ import {
   sendA2AMessage,
   sendA2AStreamingMessage,
 } from "@/lib/a2a";
-import { audit } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
 import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
 import { a2aHash, a2aLimited } from "./route-shared";
 

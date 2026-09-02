@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { apiError, rateLimited } from "@/lib/host";
+import { apiError } from "@/lib/host/request-api";
+import { rateLimited } from "@/lib/host/limits-api";
 import { serviceLogs } from "@/lib/host/services";
 import { getSessionActor } from "@/lib/auth/require-session";
 import type { ServiceScope } from "@/lib/os-api/types";

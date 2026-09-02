@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readJson } from "@/lib/host";
+import { readJson } from "@/lib/host/request-api";
 import { handleA2ACredentialAction } from "./route-credentials";
 import { handleA2AGet } from "./route-get";
 import { handleA2AMessageAction } from "./route-messages";

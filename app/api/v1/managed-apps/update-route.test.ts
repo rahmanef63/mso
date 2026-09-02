@@ -27,10 +27,8 @@ vi.mock("@/lib/demo", () => ({
 // one test spends cannot leak into the next (it is process-global and has no
 // reset); rate-limit.test.ts covers the counting itself.
 const limited = vi.hoisted(() => ({ value: false }));
-vi.mock("@/lib/host", async () => {
-  const real = await vi.importActual<typeof import("@/lib/host")>("@/lib/host");
-  return { ...real, audit: vi.fn(async () => undefined), rateLimited: vi.fn(() => limited.value) };
-});
+vi.mock("@/lib/host/audit-api", () => ({ audit: vi.fn(async () => undefined) }));
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: vi.fn(() => limited.value) }));
 // The lifecycle route shares this trail (and audited no actor either), so it is
 // exercised here rather than left to be the one privileged route with no test.
 vi.mock("@/lib/managed-apps/manager", () => ({ getManagedApp: vi.fn(), performManagedAppAction: vi.fn() }));
@@ -43,7 +41,8 @@ vi.mock("@/lib/managed-apps/update", () => ({
   startUninstall: vi.fn(),
 }));
 
-const { audit, rateLimited } = await import("@/lib/host");
+const { audit } = await import("@/lib/host/audit-api");
+const { rateLimited } = await import("@/lib/host/limits-api");
 const service = await import("@/lib/managed-apps/update");
 const { GET, POST } = await import("./[id]/update/route");
 const jobRoute = await import("./[id]/jobs/[jobId]/route");

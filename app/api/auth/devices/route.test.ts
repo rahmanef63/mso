@@ -30,7 +30,7 @@ vi.mock("@/lib/auth/device-store", () => ({
   isValidDeviceId: (value: unknown) => typeof value === "string" && /^[a-f0-9-]{16,128}$/i.test(value),
 }));
 vi.mock("@/lib/camoufox/service", () => ({ terminateCamoufoxSessions: mocks.terminate }));
-vi.mock("@/lib/host", () => ({ audit: mocks.audit }));
+vi.mock("@/lib/host/audit-api", () => ({ audit: mocks.audit }));
 
 const post = (body: unknown) => new NextRequest("https://mso.example/api/auth/devices", {
   method: "POST",

@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import path from "path";
-import { HostError, uploadInto } from "@/lib/host";
+import { HostError } from "@/lib/host/request-api";
+import { uploadInto } from "@/lib/host/fs-api";
 
 export interface OpenAiProvidedFile {
   download_url: string;

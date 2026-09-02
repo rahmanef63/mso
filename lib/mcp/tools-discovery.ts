@@ -1,4 +1,4 @@
-import { listProjects, projectCapabilities, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint, PROJECT_LIMITS } from "@/lib/host";
+import { listProjects, projectCapabilities, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint, PROJECT_LIMITS } from "@/lib/host/projects-api";
 import { catalogSkillsDetailed, resolveSkill, readSkillFile, skillIsExecutableByDefault, SKILL_SCAN_LIMITS } from "@/lib/skills/catalog";
 import { type McpTool, str, opt, S, READ_ONLY } from "./tool-kit";
 

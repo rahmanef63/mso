@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { apiError, invalidRequest } from "@/lib/host";
+import { apiError, invalidRequest } from "@/lib/host/request-api";
 import { searchOpenverse, searchUnsplash } from "../providers";
 
 export const dynamic = "force-dynamic";

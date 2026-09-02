@@ -1,4 +1,4 @@
-import { stats, processes } from "@/lib/host";
+import { stats, processes } from "@/lib/host/system-api";
 import { camoufoxStatus } from "@/lib/camoufox/service";
 import { listManagedApps } from "@/lib/managed-apps/manager";
 import { INFRA_PROVIDER_IDS, readInfraProvider, summarizeInfraProvider } from "@/lib/infra";

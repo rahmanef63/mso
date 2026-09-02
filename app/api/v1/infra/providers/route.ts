@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
-import { audit } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
 import { INFRA_PROVIDER_IDS, isInfraProviderId, readInfraProvider, removeInfraProvider, setInfraProvider, summarizeInfraProvider } from "@/lib/infra";
 
 export const runtime = "nodejs";

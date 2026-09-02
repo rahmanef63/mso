@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
-import { audit, rateLimited } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
+import { rateLimited } from "@/lib/host/limits-api";
 import { getAgentSession } from "@/lib/agent/session-store";
 import { listLocalAgents } from "@/lib/agent/local-agent-directory";
 import { endLocalAgentPresence, touchLocalAgentPresence } from "@/lib/agent/local-agent-presence";

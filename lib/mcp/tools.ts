@@ -1,4 +1,6 @@
-import { writeFileGuarded, makeDir, remove, move, copy, runCommand, startExecJob, getExecJob, cancelExecJob, resolveProjectHint, runProjectFunction } from "@/lib/host";
+import { writeFileGuarded, makeDir, remove, move, copy } from "@/lib/host/fs-api";
+import { runCommand, startExecJob, getExecJob, cancelExecJob } from "@/lib/host/exec-api";
+import { resolveProjectHint, runProjectFunction } from "@/lib/host/projects-api";
 import { type McpTool, str, opt, S, PATH_P } from "./tool-kit";
 import { importOpenAiProvidedFile } from "./openai-file-upload";
 import { READ_TOOLS } from "./tools-read";

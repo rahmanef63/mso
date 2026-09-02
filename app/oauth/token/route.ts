@@ -2,7 +2,7 @@ import { consumeCode, OAUTH_ACCESS_TOKEN_TTL_MS, rotateOAuthGrant, storeOAuthGra
 import { verifyPkce, randomToken } from "@/lib/mcp/pkce";
 import { mcpEnabled, oauthScopeString } from "@/lib/mcp/scope";
 import { clientIp, publicOrigin } from "@/lib/mcp/origin";
-import { rateLimitedUntrusted } from "@/lib/host";
+import { rateLimitedUntrusted } from "@/lib/host/limits-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

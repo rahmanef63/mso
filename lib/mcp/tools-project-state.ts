@@ -1,9 +1,10 @@
 import path from "node:path";
 import {
-  detectProjectConvex, inspectProject, makeDir, projectGitDiff, projectGitEdits, projectGitSnapshot,
-  publicProjectMcpServers, readProjectKnowledge, readProjectMcpServers, writeFileGuarded,
+  detectProjectConvex, inspectProject, projectGitDiff, projectGitEdits, projectGitSnapshot,
+  publicProjectMcpServers, readProjectKnowledge, readProjectMcpServers,
   PROJECT_KNOWLEDGE_MAX_BYTES, PROJECT_KNOWLEDGE_REL,
-} from "@/lib/host";
+} from "@/lib/host/projects-api";
+import { makeDir, writeFileGuarded } from "@/lib/host/fs-api";
 import { INFRA_PROVIDER_IDS, readInfraProvider, summarizeInfraProvider } from "@/lib/infra";
 import { type McpTool, S, str, opt, READ_ONLY } from "./tool-kit";
 import { DIFF_VIEW_URI, PROJECT_STATUS_URI } from "./ui-resources";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { attachPty, hasPty } from "@/lib/host";
+import { attachPty, hasPty } from "@/lib/host/terminal-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -11,7 +11,7 @@ import {
   resolveA2AAgent,
 } from "@/lib/a2a";
 import { a2aInboundConfig } from "@/lib/a2a/inbound-config";
-import { readAuditTail } from "@/lib/host";
+import { readAuditTail } from "@/lib/host/audit-api";
 import { a2aLimited } from "./route-shared";
 
 export async function handleA2AGet(req: NextRequest, actor: string) {

@@ -2,7 +2,7 @@ import { registerClient } from "@/lib/mcp/store";
 import { isAllowedRedirect } from "@/lib/mcp/pkce";
 import { mcpEnabled } from "@/lib/mcp/scope";
 import { clientIp } from "@/lib/mcp/origin";
-import { rateLimitedUntrusted } from "@/lib/host";
+import { rateLimitedUntrusted } from "@/lib/host/limits-api";
 
 // RFC 7591 Dynamic Client Registration. Open by design and safe to be: a
 // registered client is INERT until the owner approves it on the consent page and

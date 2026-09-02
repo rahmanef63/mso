@@ -1,4 +1,4 @@
-import { resolveProjectHint } from "@/lib/host";
+import { resolveProjectHint } from "@/lib/host/projects-api";
 import { evaluateForgeCandidate } from "@/lib/forge/evaluate";
 import { promoteForgeCandidate } from "@/lib/forge/promote";
 import { proposeForgeCandidate } from "@/lib/forge/proposal";

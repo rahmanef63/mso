@@ -4,7 +4,7 @@ vi.mock("@/lib/mcp/store", () => ({ consumeCode: mocks.consumeCode, storeOAuthGr
 vi.mock("@/lib/mcp/pkce", () => ({ verifyPkce: mocks.verify, randomToken: mocks.random }));
 vi.mock("@/lib/mcp/scope", () => ({ mcpEnabled: () => true, oauthScopeString: (scope: string, offline = false) => `${scope}${offline ? " offline_access" : ""}` }));
 vi.mock("@/lib/mcp/origin", () => ({ clientIp: () => "127.0.0.1", publicOrigin: () => "https://mso.example.test" }));
-vi.mock("@/lib/host", () => ({ rateLimitedUntrusted: mocks.limited }));
+vi.mock("@/lib/host/limits-api", () => ({ rateLimitedUntrusted: mocks.limited }));
 const { POST } = await import("./route");
 const post = (body: Record<string, string>) => new Request("https://mso.example.test/oauth/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(body) });
 

@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/auth/require-session", () => ({
   getSessionContext: vi.fn(async () => ({ role: "owner", session: { device_id: "cli-test" } })),
 }));
-vi.mock("@/lib/host", () => ({ audit: mocks.audit, rateLimited: mocks.rate }));
+vi.mock("@/lib/host/audit-api", () => ({ audit: mocks.audit }));
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: mocks.rate }));
 vi.mock("@/lib/agent/session-store", () => ({ getAgentSession: mocks.getSession }));
 vi.mock("@/lib/agent/local-agent-directory", () => ({ listLocalAgents: mocks.list }));
 vi.mock("@/lib/agent/local-agent-presence", () => ({ touchLocalAgentPresence: mocks.touch, endLocalAgentPresence: mocks.end }));

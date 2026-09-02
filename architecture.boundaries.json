@@ -9,7 +9,8 @@
     "appshellSelfBarrelImports": 0,
     "nonMcpMcpImports": 0,
     "crossProtocolCycles": 0,
-    "legacyWorkflowFacadeImports": 0
+    "legacyWorkflowFacadeImports": 0,
+    "hostFacadeImports": 0
   },
   "notes": {
     "policy": "Ratchets may only stay equal or decrease. Raise a baseline only with an explicit architecture decision.",

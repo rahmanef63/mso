@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
 import { getSessionActor } from "@/lib/auth/require-session";
-import { apiError, audit, invalidRequest, makeDir, rateLimited, readJson, requireString } from "@/lib/host";
+import { apiError, invalidRequest, readJson, requireString } from "@/lib/host/request-api";
+import { audit } from "@/lib/host/audit-api";
+import { makeDir } from "@/lib/host/fs-api";
+import { rateLimited } from "@/lib/host/limits-api";
 
 export const dynamic = "force-dynamic";
 

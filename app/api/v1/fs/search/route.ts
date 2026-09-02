@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { apiError, searchFs } from "@/lib/host";
+import { apiError } from "@/lib/host/request-api";
+import { searchFs } from "@/lib/host/fs-api";
 
 export const dynamic = "force-dynamic";
 

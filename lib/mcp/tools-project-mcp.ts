@@ -1,4 +1,4 @@
-import { callProjectMcpTool, listProjectMcpTools, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint } from "@/lib/host";
+import { callProjectMcpTool, listProjectMcpTools, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint } from "@/lib/host/projects-api";
 import { type McpTool, S, str } from "./tool-kit";
 
 export const PROJECT_MCP_TOOLS: McpTool[] = [

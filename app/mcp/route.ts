@@ -2,7 +2,7 @@ import { dispatch, isNotification, rpcError, UNAUTHORIZED, RATE_LIMITED, type Rp
 import { getClient, validateToken, touchToken } from "@/lib/mcp/store";
 import { clampScope, mcpEnabled } from "@/lib/mcp/scope";
 import { publicOrigin, clientIp, mcpCorsHeaders, mcpRequestOriginAllowed } from "@/lib/mcp/origin";
-import { rateLimited, rateLimitedUntrusted } from "@/lib/host";
+import { rateLimited, rateLimitedUntrusted } from "@/lib/host/limits-api";
 import { TOOLS } from "@/lib/mcp/tools";
 import { toolsetInfo } from "@/lib/mcp/toolset";
 import { detectMcpToolProfile } from "@/lib/mcp/client-profile";

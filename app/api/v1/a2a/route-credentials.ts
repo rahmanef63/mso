@@ -11,7 +11,7 @@ import {
   removeA2AOutboundCredential,
   setA2AAgentCredential,
 } from "@/lib/a2a";
-import { audit } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
 import { a2aLimited } from "./route-shared";
 
 export async function handleA2ACredentialAction(

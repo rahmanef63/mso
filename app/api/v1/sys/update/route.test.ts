@@ -23,10 +23,9 @@ vi.mock("@/lib/host/self-update", () => ({
 }));
 
 const auditMock = vi.fn();
-vi.mock("@/lib/host", async () => {
-  const real = await vi.importActual<typeof import("@/lib/host")>("@/lib/host");
-  return { ...real, audit: (...args: unknown[]) => auditMock(...args) };
-});
+vi.mock("@/lib/host/audit-api", () => ({
+  audit: (...args: unknown[]) => auditMock(...args),
+}));
 
 const { GET, POST } = await import("./route");
 const { HostError } = await import("@/lib/host/host-error");

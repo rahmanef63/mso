@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, getSessionActor } from "@/lib/auth/require-session";
 import { hostOnlyClearHeader, sessionCookieAttrs } from "@/lib/auth/session-cookie";
-import { audit } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
 
 export const runtime = "nodejs";
 

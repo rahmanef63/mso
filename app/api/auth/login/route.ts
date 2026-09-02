@@ -3,7 +3,7 @@ import { constantTimeEq, MAX_COMPARE_BYTES, MIN_SECRET_LEN, signSession, type Se
 import { SESSION_COOKIE } from "@/lib/auth/require-session";
 import { sessionCookieAttrs } from "@/lib/auth/session-cookie";
 import { isApproved, isValidDeviceId, recordPending, touchApproved } from "@/lib/auth/device-store";
-import { audit } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
 import { IS_DEMO } from "@/lib/demo";
 
 export const runtime = "nodejs";

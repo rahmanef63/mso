@@ -1,4 +1,5 @@
-import { audit, rateLimited } from "@/lib/host";
+import { audit } from "@/lib/host/audit-api";
+import { rateLimited } from "@/lib/host/limits-api";
 import { clientIp } from "@/lib/host/request-ip";
 import { resolveAgentSessionOwnerRef } from "@/lib/agent/session-query";
 import type { AgentSession } from "@/lib/agent/session-types";

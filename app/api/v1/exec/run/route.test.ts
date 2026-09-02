@@ -19,14 +19,12 @@ vi.mock("@/lib/auth/require-session", () => ({
 // route delegates to it. We stub the host index to simulate each outcome.
 const runCommandMock = vi.fn();
 const auditMock = vi.fn();
-vi.mock("@/lib/host", async () => {
-  const real = await vi.importActual<typeof import("@/lib/host")>("@/lib/host");
-  return {
-    ...real,
-    runCommand: (...args: unknown[]) => runCommandMock(...args),
-    audit: (...args: unknown[]) => auditMock(...args),
-  };
-});
+vi.mock("@/lib/host/exec-api", () => ({
+  runCommand: (...args: unknown[]) => runCommandMock(...args),
+}));
+vi.mock("@/lib/host/audit-api", () => ({
+  audit: (...args: unknown[]) => auditMock(...args),
+}));
 
 function makeReq(body: unknown): Request {
   return new Request("http://localhost/api/v1/exec/run", {

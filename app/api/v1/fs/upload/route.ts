@@ -2,17 +2,10 @@ import { NextResponse } from "next/server";
 import { text } from "node:stream/consumers";
 import { verifyAuth } from "@/lib/agent/server";
 import { getSessionActor } from "@/lib/auth/require-session";
-import {
-  apiError,
-  audit,
-  boundaryFromContentType,
-  invalidRequest,
-  parseMultipart,
-  rateLimited,
-  resolveUploadDest,
-  streamFileInto,
-  UploadTooLargeError,
-} from "@/lib/host";
+import { apiError, invalidRequest } from "@/lib/host/request-api";
+import { audit } from "@/lib/host/audit-api";
+import { boundaryFromContentType, parseMultipart, resolveUploadDest, streamFileInto, UploadTooLargeError } from "@/lib/host/fs-api";
+import { rateLimited } from "@/lib/host/limits-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

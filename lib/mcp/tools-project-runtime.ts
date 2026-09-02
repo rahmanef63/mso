@@ -1,4 +1,4 @@
-import { detectProjectConvex, listProjectConvexTools, callProjectConvexTool } from "@/lib/host";
+import { detectProjectConvex, listProjectConvexTools, callProjectConvexTool } from "@/lib/host/projects-api";
 import { runSessionSubagent } from "@/lib/agent/subagent-runner";
 import { createProjectAgentTask, getProjectAgentTask, updateProjectAgentTask } from "@/lib/agent/project-agent-task-store";
 import { allows, parseScope } from "./scope";

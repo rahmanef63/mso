@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   promoteForgeCandidate: vi.fn(async () => ({ at: "x", path: "/tmp/project/.mso/skills/x/SKILL.md", verification: "local" })),
 }));
 
-vi.mock("@/lib/host", () => ({ resolveProjectHint: mocks.resolveProjectHint }));
+vi.mock("@/lib/host/projects-api", () => ({ resolveProjectHint: mocks.resolveProjectHint }));
 vi.mock("@/lib/workflow", () => ({ listLearnedRecipes: mocks.listLearnedRecipes }));
 vi.mock("@/lib/forge/proposal", () => ({ proposeForgeCandidate: mocks.proposeForgeCandidate }));
 vi.mock("@/lib/forge/evaluate", () => ({ evaluateForgeCandidate: mocks.evaluateForgeCandidate }));
