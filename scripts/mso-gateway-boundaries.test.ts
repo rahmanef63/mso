@@ -5,6 +5,15 @@ import { describe, expect, it } from "vitest";
 import { GATEWAY, ROOT, VERSION, fixture, runGateway as run } from "./mso-gateway-test-fixture";
 
 
+async function waitForFile(file: string, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (fs.existsSync(file)) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`timed out waiting for lock-holder readiness: ${file}`);
+}
+
 describe("mso gateway scope and public identity boundaries", () => {
   it("isolates default gateway state by checkout and selected loopback origin", () => {
     const f = fixture();
@@ -61,8 +70,12 @@ esac
     const dir = path.join(base, key); fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     fs.chmodSync(base, 0o700); fs.chmodSync(dir, 0o700);
     const lock = path.join(dir, "runtime.lock"); fs.writeFileSync(lock, "", { mode: 0o600 });
-    const holder = spawn("flock", ["-x", lock, "-c", "sleep 2"], { stdio: "ignore" });
-    await new Promise((r) => setTimeout(r, 100));
+    const ready = path.join(dir, "holder.ready");
+    // `flock ... command` acquires the lock before executing the command. The ready
+    // file therefore proves ownership; a fixed sleep is not a synchronization primitive
+    // when the full suite is deliberately running under nice/ionice.
+    const holder = spawn("flock", ["-x", lock, "sh", "-c", 'printf ready > "$1"; sleep 2', "mso-lock-holder", ready], { stdio: "ignore" });
+    await waitForFile(ready);
     try {
       const out = spawnSync(GATEWAY, ["local-start"], { encoding: "utf8", env: { ...f.baseEnv,
         MSO_RUNTIME_EXCLUSION_DIR: base, MSO_RUNTIME_EXCLUSION_TIMEOUT_SECONDS: "0.1" } });
@@ -70,7 +83,10 @@ esac
       expect(out.stderr).toContain("offline update is mutating this checkout");
     } finally {
       try { holder.kill("SIGTERM"); } catch {}
-      await new Promise<void>((resolve) => holder.once("close", () => resolve()));
+      await new Promise<void>((resolve) => {
+        if (holder.exitCode !== null || holder.signalCode !== null) resolve();
+        else holder.once("close", () => resolve());
+      });
     }
   });
 

@@ -47,6 +47,8 @@ function printHelp() {
     "  /provider <id>          configure dokploy|cloudflare|hostinger",
     "  /doctor                 run mso doctor",
     "  /tools                  list agent tools",
+    "  /agents                 list registered A2A v1 peer agents",
+    "  /delegate <peer> <job>  handoff explicit objective; no hidden context",
     "  /skills [query]         browse available slash skills",
     "  /skill <id> [prompt]    select exact skill id (ambiguity escape hatch)",
     "  /<skill> [prompt]       select for next message, or run prompt now",
@@ -61,6 +63,7 @@ function printHelp() {
     "  ↑/↓ or Ctrl+P/N         prompt history (durable after resume)",
     "  Ctrl+A/E · Ctrl+B/F     line start/end · left/right",
     "  Alt+B/F · Ctrl+←/→      move by word",
+    "  Tab (empty prompt)       cycle permission in place: ask → auto → yolo",
   ].join("\n"));
 }
 
@@ -104,6 +107,11 @@ export async function handleSlash(rl, line, session, { runTurn }) {
       session.state = await state(); return "refresh";
     case "/doctor": runCli(["doctor"]); return "handled";
     case "/tools": for (const tool of session.state.tools) console.log(`  ${String(tool.scope).padEnd(5)} ${tool.name}`); return "handled";
+    case "/agents": runCli(["a2a", "list"]); return "handled";
+    case "/delegate":
+      if (!args[0] || args.length < 2) console.log("usage: /delegate <agent> <objective>");
+      else runCli(["a2a", "handoff", args[0], args.slice(1).join(" ")]);
+      return "handled";
     case "/skills": printSkills(session, C, args.join(" ")); return "handled";
     case "/skill":
       if (!args[0]) { console.log("usage: /skill <name-or-exact-id> [prompt]"); return "handled"; }

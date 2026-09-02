@@ -42,7 +42,7 @@ describe("MSO Agent dynamic status", () => {
     };
     const compact = statusParts(session, "/tmp").join(" · ");
     expect(compact).toContain("session test tui mso");
-    expect(compact).toContain("permission ask");
+    expect(compact).not.toContain("permission ask");
     expect(compact).not.toContain("deadbeef");
   });
 

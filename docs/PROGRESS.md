@@ -2,6 +2,14 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — Interactive permission badge + outbound A2A v1 — SHIPPED
+
+MSO CLI **1.7.0** makes permission state part of the interactive prompt instead of terminal scrollback. The bottom-left prompt is now a persistent color-coded badge (`ask` cyan, `auto` amber, `yolo` red); Tab on an empty prompt cycles `ask → auto → yolo` by repainting the same row with zero added LF/newline. The compact status line no longer duplicates permission. `/permission` remains the explicit picker/command surface, and the existing exact-call digest/server authorization semantics are unchanged. A live PTY regression proves three Tab transitions emit no scrollback line.
+
+The same release adds a provider-neutral **A2A v1 outbound client** beside MCP. MSO discovers the standard well-known Agent Card, validates v1 `supportedInterfaces`, supports JSONRPC and HTTP+JSON `SendMessage` / `GetTask` / `CancelTask`, preserves optional tenant routing, bounds remote responses, and exposes a private host registry plus `mso a2a` / `/agents` / `/delegate`. MCP adds eight stable `a2a_*` tools for discovery/registry/message/task/handoff instead of dynamic per-peer tool names, and the per-turn router loads them only for A2A/delegation intent.
+
+A2A is deliberately fail-closed at the trust boundary: only public HTTPS peers are accepted; the existing SSRF/DNS-rebinding pinned transport is reused; Agent Card security requirements are reduced to scheme names; authenticated peers are detected but not contacted until a dedicated credential profile exists. Normal messages carry only explicit A2A message/context/task arguments, while `a2a_handoff` carries only objective/context supplied by the caller plus optional one-way hashes—never hidden MSO history, memory, Skills, tool state, or raw session/workflow ids. Inbound MSO A2A serving, auth profiles, streaming/push and gRPC remain a later explicit phase rather than opening a network listener implicitly.
+
 ## 2026-09-02 — Full-store session resume resolution — SHIPPED
 
 MSO CLI **1.6.2** moves direct resume resolution to the server-side durable session store instead of first truncating the candidate set to 100 recent summaries in the terminal client. `--continue`, `--resume`, `/session <query>`, and `/resume <query>` now resolve `latest`, modified-order index, full/short id, exact/prefix/fuzzy title against every owner-visible durable session; the interactive picker intentionally remains a bounded newest-first view for fast navigation. Empty default CLI shells are excluded from index/latest selection, matching the human picker. Ambiguity errors use human titles rather than exposing internal ids. Regression coverage includes a target beyond 275 synthetic recent rows so the 100-row regression cannot return.

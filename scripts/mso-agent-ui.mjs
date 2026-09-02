@@ -63,7 +63,7 @@ function toolCategory(name) {
   if (/^fs_/.test(name)) return "files";
   if (/^(sys_|apps_|browser_)/.test(name)) return "system";
   if (/^(project|projects)_/.test(name)) return "projects";
-  if (/^(workflow_|skills_|agent_)/.test(name)) return "agent";
+  if (/^(workflow_|skills_|agent_|a2a_)/.test(name)) return "agent";
   if (/^(dokploy_|cloudflare_|hostinger_|infra_)/.test(name)) return "infra";
   return "other";
 }

@@ -136,17 +136,17 @@ probe. Overall product superiority also cannot be inferred from a prompt-size re
 must add equivalent task-success, tool-error, token-per-success, latency-per-success, and policy-compliance
 scenarios before making that claim.
 
-## Current P1 baseline
+## Current P1 + A2A baseline
 
 On the development host after P1 implementation:
 
 | Metric | MSO P1 | Hermes local baseline |
 |---|---:|---:|
-| Full MSO transport catalog | 48 tools | — |
-| Full MSO schema bytes | 32,969 | — |
-| Average MSO active tools / turn | 14.5 | — |
-| Average active schema bytes / turn | 11,125 | 44,758 tool-schema bytes |
-| MSO schema reduction vs full catalog | 66.3% | — |
+| Full MSO transport catalog | 56 tools | — |
+| Full MSO schema bytes | 37,904 | — |
+| Average MSO active tools / turn | 15.5 | — |
+| Average active schema bytes / turn | 11,582 | 44,758 tool-schema bytes |
+| MSO schema reduction vs full catalog | 69.4% | — |
 | Required-tool routing recall | 100% | not the same benchmark |
 | Typed-memory fixture accuracy | 100% (8/8) | not implemented in this harness |
 | Deterministic routing / memory resolution | yes / yes | not the same benchmark |

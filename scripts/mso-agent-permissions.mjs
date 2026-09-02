@@ -16,6 +16,13 @@ export function nextPermissionMode(current) {
   return PERMISSION_MODES[(index + 1) % PERMISSION_MODES.length];
 }
 
+
+export function permissionPrompt(mode, C) {
+  const current = permissionMode(mode) || PERMISSION_MODES[0];
+  const tone = current.id === "yolo" ? C.err : current.id === "auto" ? C.warn : C.cyan;
+  return `${tone}${C.bold}[${current.id}]${C.reset} ${C.blue}${C.bold}›${C.reset} `;
+}
+
 export function approvesTool(mode, scope) {
   if (scope === "read") return true;
   if (mode === "yolo") return true;

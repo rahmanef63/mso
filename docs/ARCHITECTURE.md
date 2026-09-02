@@ -158,11 +158,11 @@ park a visible Approve/Deny card. The complete semantic contract is
 
 **MCP** is for external clients such as ChatGPT, Claude.ai and Cursor. Its catalog lives in
 `lib/mcp/`; access is controlled by the OAuth token scope rather than Alfa approval cards.
-At the current toolset it exposes 47 transport tools: 46 model/operator tools (24 read, 17 write, 5 exec) plus the app-only `workflow_status` progress bridge. Project-specific
+At the current toolset it exposes 56 transport tools: 55 model/operator tools (28 read, 22 write, 5 exec) plus the app-only `workflow_status` progress bridge. Project-specific
 function names remain data behind `project_capabilities` / `project_function_call`, so one
 project cannot dynamically rewrite the global MCP tool prefix.
 
-See `docs/MCP.md` for protocol/security internals and `docs/CHATGPT-PLUGIN.md` for the
+See `docs/MCP.md` for protocol/security internals, `docs/A2A.md` for peer-agent delegation, and `docs/CHATGPT-PLUGIN.md` for the
 ChatGPT-facing setup and diagrams.
 
 ## 7. Project and skill discovery

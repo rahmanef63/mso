@@ -83,7 +83,6 @@ export function statusParts(session, cwd = process.cwd()) {
     ctx.limit ? `ctx ~${compactNumber(ctx.used)}/${compactNumber(ctx.limit)} ${ctx.percent}%` : `ctx ~${compactNumber(ctx.used)}/?`,
     session?.agentSession?.compactThresholdTokens ? `session ~${compactNumber(session.agentSession.estimatedTokens)}/${compactNumber(session.agentSession.compactThresholdTokens)}` : null,
     usage.totalTokens > 0 ? `tokens ${compactNumber(usage.totalTokens)}` : null,
-    `permission ${session?.permission || "ask"}`,
     `turns ${turns}`,
     elapsed > 0 ? `${(elapsed / 1000).toFixed(elapsed >= 10_000 ? 0 : 1)}s` : null,
     `session ${sessionTitle}`,

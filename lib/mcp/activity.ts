@@ -48,7 +48,7 @@ export function newActivityId(): string {
 export function activityTarget(args: Record<string, unknown>): string | undefined {
   // Never serialize fs_write.content or arbitrary payloads. Prefer the one field
   // that explains what the tool is acting on without leaking the body.
-  for (const key of ["path", "id", "query", "intent", "project", "from", "command", "on", "workflow_id"] as const) {
+  for (const key of ["path", "id", "target", "query", "intent", "project", "from", "command", "on", "workflow_id"] as const) {
     const v = args[key];
     if (typeof v === "string" && v) return trunc(safeActivityText(v));
     if (typeof v === "boolean") return String(v);

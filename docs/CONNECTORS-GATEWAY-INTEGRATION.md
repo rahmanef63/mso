@@ -4,10 +4,10 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.2 tools=47 read=25 write=17 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.3 tools=55 read=28 write=22 exec=5 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.2**: **48 transport tools** total; **47 model/operator tools**
-(25 read, 17 write, 5 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.3**: **56 transport tools** total; **55 model/operator tools**
+(28 read, 22 write, 5 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
 ## Why this contract matters
@@ -33,16 +33,17 @@ Before changing an MCP tool name:
 
 ## Current MSO catalog
 
-### Read (25 model/operator)
+### Read (28 model/operator)
 
-`agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`,
+`a2a_agent_discover`, `a2a_agents_list`, `a2a_task_get`, `agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`,
 `apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`,
 `exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`,
 `infra_providers_list`, `project_capabilities`, `projects_list`, `screen_capture`, `skills_list`,
 `skills_read`, `skills_search`, `sys_processes`, `sys_stats`.
 
-### Write (17 beyond read)
+### Write (22 beyond read)
 
+`a2a_agent_register`, `a2a_agent_remove`, `a2a_message_send`, `a2a_task_cancel`, `a2a_handoff`,
 `agent_memory_forget`, `agent_memory_remember`, `agent_session_note`, `agent_session_rename`,
 `apps_power`, `cloudflare_dns_upsert`, `dokploy_project_ensure`, `fs_copy`, `fs_delete`,
 `fs_mkdir`, `fs_move`, `fs_upload_file`, `fs_write`, `hostinger_dns_upsert`,
@@ -55,6 +56,11 @@ Before changing an MCP tool name:
 ### App-only bridge (1)
 
 `workflow_status` is exposed for the MCP Apps progress widget and is not part of the model/operator action catalog.
+
+A2A adds eight stable generic action names rather than one action per peer. A gateway should pass
+the registered alias/id or public Agent Card URL as the `target`; it must not synthesize hidden
+conversation context. Current MSO A2A is outbound, public-HTTPS, anonymous-only and rejects peers
+whose Agent Card requires credentials. Full semantics live in [`A2A.md`](./A2A.md).
 
 ## Scope and workflow compatibility
 

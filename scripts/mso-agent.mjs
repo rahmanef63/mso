@@ -9,7 +9,7 @@ import { addUsage, renderStatusBar } from "./mso-agent-status.mjs";
 import { persistSession, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
 import { C, api, printBanner, state, streamTurn } from "./mso-agent-runtime.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
-import { approvesTool, nextPermissionMode } from "./mso-agent-permissions.mjs";
+import { approvesTool, nextPermissionMode, permissionPrompt } from "./mso-agent-permissions.mjs";
 import { oneShotApproves, oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
 
 async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null, options = {}) {
@@ -187,12 +187,9 @@ async function main() {
       try {
         console.log();
         if (session.statusBar) console.log(renderStatusBar(session, C));
-        const answer = await rl.question(`${C.blue}${C.bold}›${C.reset} `, {
+        const answer = await rl.question(() => permissionPrompt(session.permission, C), {
           complete: completeSlash,
-          onTab: () => {
-            session.permission = nextPermissionMode(session.permission).id;
-            return `${C.dim}permission → ${session.permission}${C.reset}`;
-          },
+          onTab: () => { session.permission = nextPermissionMode(session.permission).id; },
         });
         if (answer === null) break;
         line = answer.trim();

@@ -52,13 +52,17 @@ describe("MSO Agent session/history composer UX", () => {
     composer.close();
   });
 
-  it("uses Tab on an empty normal prompt as a mode-cycle hook without polluting history", async () => {
+  it("repaints a dynamic permission prompt on empty Tab without adding a scrollback line", async () => {
     const { input, output, composer } = composerFixture();
-    let cycles = 0;
-    const answer = composer.question("› ", { onTab: () => { cycles++; return "permission → yolo"; } } as never);
+    let mode = "ask", cycles = 0;
+    const answer = composer.question(() => `[${mode}] › `, { onTab: () => { cycles++; mode = "yolo"; } } as never);
+    const before = output.chunks.join("");
     input.emit("keypress", "\t", { name: "tab", sequence: "\t" });
+    const after = output.chunks.join("");
     expect(cycles).toBe(1);
-    expect(output.chunks.join("")).toContain("permission → yolo");
+    expect(after).toContain("[yolo] › ");
+    expect(after.slice(before.length)).not.toMatch(/[\r]?\n/);
+    expect(after).not.toContain("permission →");
     for (const ch of "go") input.emit("keypress", ch, { name: ch, sequence: ch });
     input.emit("keypress", "\r", { name: "return", sequence: "\r" });
     await expect(answer).resolves.toBe("go");

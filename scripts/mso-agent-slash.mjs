@@ -17,6 +17,8 @@ export const BUILTIN_SLASH_ITEMS = [
   { text: "/provider", meta: "Configure Dokploy, Cloudflare, or Hostinger", kind: "command" },
   { text: "/doctor", meta: "Run MSO diagnostics", kind: "command" },
   { text: "/tools", meta: "List available agent tools", kind: "command" },
+  { text: "/agents", meta: "List registered A2A v1 peer agents", kind: "command" },
+  { text: "/delegate", meta: "Handoff an explicit objective to an A2A peer", kind: "command" },
   { text: "/skills", meta: "Browse and filter available skills", kind: "command" },
   { text: "/skill", meta: "Select a skill by exact catalog id", kind: "command" },
   { text: "/clear", meta: "Clear this session conversation", kind: "command" },

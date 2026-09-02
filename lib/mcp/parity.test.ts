@@ -61,6 +61,14 @@ const MCP_ONLY: Record<string, string> = {
   "cloudflare.zones.list": "terminal/external deployment workflows need bounded zone discovery while credentials stay server-side; in-shell Alfa has the Cloudflare feature app",
   "cloudflare.dns.upsert": "DNS automation is intentionally MCP/terminal-agent-only so it inherits scope, approval, audit and workflow semantics without teaching generic in-shell Alfa to mutate public DNS",
   "hostinger.dns.upsert": "external DNS mutation remains an explicitly approved deployment-agent capability; MSO sends one exact Hostinger name/type RR-set and keeps credentials server-side rather than adding a generic Alfa provider primitive",
+  "a2a.agents.list": "A2A is an external-agent interoperability surface for MCP/terminal agents; in-shell Alfa has no remote-agent registry yet",
+  "a2a.agent.discover": "public Agent Card discovery is intentionally available to the MCP/terminal agent harness and does not expose owner UI state",
+  "a2a.agent.register": "remote A2A registry mutation inherits MCP write approval/audit semantics; Alfa has no matching registry surface",
+  "a2a.agent.remove": "paired with the MCP/terminal A2A registry and therefore intentionally absent from Alfa",
+  "a2a.message.send": "A2A peer messaging is a provider-neutral external-agent capability; Alfa remains an in-shell assistant rather than a network agent orchestrator",
+  "a2a.task.get": "A2A task polling exists only for remote tasks created through the MCP/terminal A2A client",
+  "a2a.task.cancel": "A2A remote task cancellation stays approval-gated in the external agent harness",
+  "a2a.handoff": "explicit agent-to-agent delegation is intentionally MCP/terminal-only until Alfa receives its own scoped orchestration model",
 };
 
 describe("Alfa ↔ MCP capability parity", () => {
@@ -139,6 +147,12 @@ describe("MCP rate limits mirror the routes", () => {
       "infra.dokploy": 20,
       "infra.cloudflare": 20,
       "infra.hostinger": 10,
+      "a2a.read": 30,
+      "a2a.discovery": 20,
+      "a2a.registry": 20,
+      "a2a.send": 30,
+      "a2a.task": 60,
+      "a2a.cancel": 30,
     };
     for (const t of TOOLS) {
       if (!t.limit) continue;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
@@ -108,11 +108,19 @@ describe("the overall project-skill cap is enforced inside the loop", () => {
       projects.push(projectRefFor(dir, workspace));
     }
 
-    const { skills, scan } = await catalogSkillsDetailed({ appDir: await temp(), homeDir: await temp(), projects });
-    const projectSkills = skills.filter((s) => s.project);
-    expect(projectSkills.length).toBeLessThanOrEqual(SKILL_SCAN_LIMITS.maxProjectSkills);
-    expect(scan.truncated).toBe(true);
-    expect(scan.truncationReasons).toContain("maxProjectSkills");
+    // This test targets the deterministic project-skill CAP, not the independent
+    // wall-clock deadline. Freeze the clock while cataloguing so low-priority CI
+    // cannot turn a maxProjectSkills assertion into a scheduler-speed assertion.
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now());
+    try {
+      const { skills, scan } = await catalogSkillsDetailed({ appDir: await temp(), homeDir: await temp(), projects });
+      const projectSkills = skills.filter((s) => s.project);
+      expect(projectSkills.length).toBeLessThanOrEqual(SKILL_SCAN_LIMITS.maxProjectSkills);
+      expect(scan.truncated).toBe(true);
+      expect(scan.truncationReasons).toContain("maxProjectSkills");
+    } finally {
+      clock.mockRestore();
+    }
   });
 });
 

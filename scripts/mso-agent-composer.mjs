@@ -24,6 +24,7 @@ export class AgentComposer {
     return new Promise((resolve) => {
       let value = "", cursor = 0, selected = 0, reservedMenuRows = 0;
       let dismissed = false, historyIndex = null, draft = "", settled = false;
+      const promptText = () => String(typeof prompt === "function" ? prompt() : prompt);
       const wasRaw = Boolean(input.isRaw);
 
       const matches = () => dismissed || !complete ? [] : complete(value) || [];
@@ -42,17 +43,18 @@ export class AgentComposer {
         if (reservedMenuRows) output.write(`${CURSOR_UP(reservedMenuRows)}\r`);
       };
       const render = () => {
-        const maxInput = Math.max(8, Number(output.columns || 100) - width(prompt) - 2);
+        const currentPrompt = promptText();
+        const maxInput = Math.max(8, Number(output.columns || 100) - width(currentPrompt) - 2);
         const viewport = inputViewport(value, cursor, maxInput);
         const items = matches();
         selected = items.length ? clamp(selected, 0, items.length - 1) : 0;
         const menu = menuLines(items, selected, output.columns, C, panelLabel);
         reserve(menu.length);
         erase();
-        output.write(`${prompt}${viewport.display}`);
+        output.write(`${currentPrompt}${viewport.display}`);
         for (const row of menu) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${row}`);
         if (menu.length) output.write(CURSOR_UP(menu.length));
-        output.write(`\r${CURSOR_RIGHT(width(prompt) + viewport.cursor)}`);
+        output.write(`\r${CURSOR_RIGHT(width(currentPrompt) + viewport.cursor)}`);
       };
       const cleanup = () => {
         input.off("keypress", onKey);
@@ -64,7 +66,7 @@ export class AgentComposer {
         if (settled) return;
         settled = true;
         erase();
-        if (echo) output.write(`${prompt}${displayValue}\r\n`);
+        if (echo) output.write(`${promptText()}${displayValue}\r\n`);
         cleanup();
         if (history && result?.trim()) {
           this.history.unshift(result);
@@ -126,11 +128,9 @@ export class AgentComposer {
           return apply(items[selected]);
         }
         if (key.name === "tab" && !value && typeof onTab === "function") {
-          const notice = onTab();
-          if (notice) {
-            erase(); reservedMenuRows = 0; output.write(`${notice}\r\n`); render();
-          }
-          return;
+          onTab();
+          dismissed = false; selected = 0;
+          return render();
         }
         if (key.name === "return" || key.name === "enter") {
           if (selectOnEnter && items[selected]) {

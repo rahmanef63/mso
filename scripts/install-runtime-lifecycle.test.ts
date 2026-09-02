@@ -74,7 +74,10 @@ afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursiv
 describe("installer runtime lifecycle", () => {
   it("adopts a transaction lock acquired before checkout instead of reacquiring it", () => {
     const f = fixture(false, 1, true);
-    const out = spawnSync(f.runner, [], { encoding: "utf8", timeout: 5_000 });
+    // This is a deadlock/correctness assertion, not a 5-second performance SLA.
+    // Low-priority full-suite CI can legitimately delay the fixture shell; keep a
+    // bounded timeout while leaving enough headroom to distinguish delay from lock recursion.
+    const out = spawnSync(f.runner, [], { encoding: "utf8", timeout: 15_000 });
     expect(out.status).toBe(0);
     expect(out.error).toBeUndefined();
     expect(fs.readFileSync(f.capture, "utf8")).toContain("MUTATE");

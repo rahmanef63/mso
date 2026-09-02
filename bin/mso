@@ -64,6 +64,7 @@
 #   ai <prompt…>         One turn with the assistant
 #   threads *            Conversation history: list | show | rm
 #   agent-sessions *     Durable MSO Agent sessions: list | show | create
+#   a2a *                Agent-to-Agent v1: list | discover | add | rm | send | task | cancel | handoff
 #   memory *             Assistant memories: list | add | rm
 #   config *             Advanced raw AI config compatibility surface
 #   prefs *              UI preferences: show | set
@@ -126,7 +127,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.6.2"
+VERSION="1.7.0"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
@@ -683,6 +684,7 @@ U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> 
 U_update="update [--rebuild] | status | log"
 U_threads="threads list|show <id>|save <json>|rm <id>"
 U_agent_sessions="agent-sessions list [limit]|show <id>|create [title]"
+U_a2a="a2a list|discover <url>|add <url> [alias]|rm <target>|send <target> <message> [--wait]|task <target> <taskId> [history]|cancel <target> <taskId>|handoff <target> <objective> [context] [--wait]"
 U_memory="memory list|add <text>|rm <id>"
 U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
 U_prefs="prefs show|set <json>"
@@ -946,6 +948,31 @@ case "$cmd" in
       show)   jget "/api/v1/agent-sessions?id=$(enc "${2:?id}")" ;;
       create) jpost "/api/v1/agent-sessions" "$(jq -n --arg title "${2:-MSO Agent session}" '{action:"create",title:$title}')" ;;
       *) die "usage: mso $U_agent_sessions" ;;
+    esac ;;
+  a2a)
+    sub="${1:-list}"; shift || true
+    case "$sub" in
+      list) jget "/api/v1/a2a" ;;
+      discover) jget "/api/v1/a2a?action=discover&url=$(enc "${1:?url}")" ;;
+      add|register)
+        url="${1:?url}"; alias="${2:-}"
+        jpost "/api/v1/a2a" "$(jq -n --arg url "$url" --arg alias "$alias" '{action:"register",url:$url} + (if $alias == "" then {} else {alias:$alias} end)')" ;;
+      rm|remove) jpost "/api/v1/a2a" "$(jq -n --arg target "${1:?target}" '{action:"remove",target:$target}')" ;;
+      send)
+        target="${1:?target}"; message="${2:?message}"; wait="${3:-}"
+        [ "$wait" = "" ] || [ "$wait" = "--wait" ] || die "usage: mso $U_a2a"
+        jpost "/api/v1/a2a" "$(jq -n --arg target "$target" --arg message "$message" --arg wait "$wait" '{action:"send",target:$target,message:$message,returnImmediately:($wait != "--wait")}')" ;;
+      task|status)
+        target="${1:?target}"; task_id="${2:?taskId}"; history="${3:-10}"
+        [[ "$history" =~ ^[0-9]+$ ]] || die "history must be 0-100"; [ "$history" -le 100 ] || die "history must be 0-100"
+        jget "/api/v1/a2a?action=task&target=$(enc "$target")&taskId=$(enc "$task_id")&historyLength=$history" ;;
+      cancel) jpost "/api/v1/a2a" "$(jq -n --arg target "${1:?target}" --arg taskId "${2:?taskId}" '{action:"cancel",target:$target,taskId:$taskId}')" ;;
+      handoff|delegate)
+        target="${1:?target}"; objective="${2:?objective}"; context="${3:-}"; wait="${4:-}"
+        if [ "$context" = "--wait" ]; then wait="--wait"; context=""; fi
+        [ "$wait" = "" ] || [ "$wait" = "--wait" ] || die "usage: mso $U_a2a"
+        jpost "/api/v1/a2a" "$(jq -n --arg target "$target" --arg objective "$objective" --arg context "$context" --arg wait "$wait" '{action:"handoff",target:$target,objective:$objective,returnImmediately:($wait != "--wait")} + (if $context == "" then {} else {context:$context} end)')" ;;
+      *) die "usage: mso $U_a2a" ;;
     esac ;;
   memory)
     case "${1:-list}" in

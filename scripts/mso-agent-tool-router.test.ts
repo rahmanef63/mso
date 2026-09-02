@@ -14,6 +14,8 @@ const catalog = [
   tool("exec_job_status", "Read long job status"), tool("exec_job_cancel", "Cancel long job"),
   tool("screen_capture", "Capture screenshot"), tool("browser_status", "Camoufox browser state"),
   tool("cloudflare_zones_list", "List Cloudflare DNS zones"), tool("hostinger_dns_upsert", "Update Hostinger DNS record"),
+  tool("a2a_agents_list", "List registered A2A peer agents"), tool("a2a_agent_discover", "Discover public A2A Agent Card"),
+  tool("a2a_message_send", "Send a message to an A2A peer"), tool("a2a_handoff", "Delegate explicit objective to A2A peer"), tool("a2a_task_get", "Read A2A task status"),
 ];
 
 describe("MSO per-turn tool router", () => {
@@ -33,6 +35,15 @@ describe("MSO per-turn tool router", () => {
       { role: "tool", results: [{ content: "best tool: hostinger_dns_upsert" }] },
     ];
     expect(selectToolsForTurn(catalog, history).selectedNames).toContain("hostinger_dns_upsert");
+  });
+
+
+  it("selects A2A companions for delegation and handoff prompts", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "delegate this research to the a2a peer agent and handoff the result" }]);
+    expect(out.selectedNames).toContain("a2a_handoff");
+    expect(out.selectedNames).toContain("a2a_agents_list");
+    expect(out.selectedNames).toContain("a2a_agent_discover");
+    expect(out.selectedNames).toContain("a2a_task_get");
   });
 
   it("keeps long-job companions when build work selects exec_job_start", () => {
