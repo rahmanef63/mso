@@ -13,8 +13,15 @@ const resolver =
   (answers: Array<{ address: string; family: number }>) => async () =>
     answers;
 
-describe("A2A loopback-only opt in", () => {
-  it("keeps the default strict and rejects HTTP loopback", () => {
+describe("A2A loopback-only default", () => {
+  it("allows exact HTTP loopback by default", () => {
+    expect(
+      assertA2AUrl("http://127.0.0.1:4555/.well-known/agent-card.json").hostname,
+    ).toBe("127.0.0.1");
+  });
+
+  it("supports an explicit kill switch", () => {
+    vi.stubEnv(A2A_ALLOW_LOOPBACK_ENV, "0");
     expect(() =>
       assertA2AUrl("http://127.0.0.1:4555/.well-known/agent-card.json"),
     ).toThrow(/loopback HTTP is disabled/);
@@ -24,7 +31,7 @@ describe("A2A loopback-only opt in", () => {
     "http://127.0.0.1:4555/.well-known/agent-card.json",
     "http://[::1]:4555/.well-known/agent-card.json",
     "http://localhost:4555/.well-known/agent-card.json",
-  ])("accepts exact loopback only when explicitly enabled: %s", async (url) => {
+  ])("accepts exact loopback: %s", async (url) => {
     vi.stubEnv(A2A_ALLOW_LOOPBACK_ENV, "1");
     expect(assertA2AUrl(url).toString()).toBe(new URL(url).toString());
     const endpoint = await resolveA2AEndpoint(

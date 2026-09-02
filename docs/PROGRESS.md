@@ -4,12 +4,12 @@ Running log of what shipped each phase. Newest at top.
 
 ## 2026-09-02 — MSO 1.8.0 authenticated inbound A2A
 
-- **Shipped surface:** A2A v1 outbound credentials/streaming plus an opt-in authenticated inbound Agent Card and JSON-RPC/SSE server, with owner Settings → A2A management for peers, credentials, tasks, and audit activity.
+- **Shipped surface:** A2A v1 outbound credentials/streaming plus authenticated inbound Agent Card and JSON-RPC/SSE server, with owner Settings → A2A management for peers, credentials, tasks, and audit activity.
 - **Authority model:** inbound bearer profiles are owner-minted `read | write | exec` delegated capabilities. Model-visible tools and MCP dispatch both enforce the scope; owner memory/session tool families remain unavailable to inbound callers.
 - **Isolation:** inbound tasks persist only explicit A2A messages/results, are isolated by credential principal, and use `taskId` as the MSO workflow session boundary so concurrent tasks cannot cross-control one another.
 - **Credentials:** outbound API-key/Bearer/OAuth access-token profiles live in private `0600` storage and bind to sanitized Agent Card security schemes. Inbound raw bearer tokens are shown once and only their hashes persist. Unsupported query/cookie API keys, non-Bearer HTTP auth, mTLS, and multi-scheme AND requirements fail closed.
 - **Streaming:** `SendStreamingMessage` and `SubscribeToTask` use SSE; observer disconnect does not cancel execution. `CancelTask` remains the explicit cancellation boundary.
-- **Ingress:** `/.well-known/agent-card.json` and `/a2a/v1` are machine-protocol surfaces with no document CSP/nonce or browser-cookie CSRF gate; `/api/v1/a2a` remains owner-cookie + CSRF protected. Inbound serving stays disabled unless `OS_A2A_INBOUND_ENABLED=1` and an explicit HTTPS `OS_PUBLIC_ORIGIN` are both configured.
+- **Ingress:** `/.well-known/agent-card.json` and `/a2a/v1` are machine-protocol surfaces with no document CSP/nonce or browser-cookie CSRF gate; `/api/v1/a2a` remains owner-cookie + CSRF protected. Public inbound serving is enabled when an explicit HTTPS `OS_PUBLIC_ORIGIN` is configured; `OS_A2A_INBOUND_ENABLED=0` disables it. Same-host exact-loopback A2A is enabled by default and can be disabled with `OS_A2A_ALLOW_LOOPBACK=0`.
 - **CLI:** `mso a2a state`, `stream`, `auth ...`, and `inbound ...` added; credential secrets are read interactively and sent through stdin rather than process argv.
 - **Verification:** targeted A2A/assistant/provider and ingress suites, typecheck, targeted ESLint, generated docs, and architecture/docs checks pass. Full release verification/build follows this entry before deployment.
 

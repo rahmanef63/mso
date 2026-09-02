@@ -41,7 +41,7 @@ export function a2aInboundConfig(): A2AInboundConfig {
       reason: "demo_mode",
     };
 
-  const publicEnabled = process.env.OS_A2A_INBOUND_ENABLED === "1";
+  const publicEnabled = process.env.OS_A2A_INBOUND_ENABLED !== "0";
   const localEnabled = a2aLoopbackEnabled();
   if (!publicEnabled && !localEnabled)
     return {

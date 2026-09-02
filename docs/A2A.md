@@ -55,7 +55,7 @@ Start peers at `read`. Promote to `write` or `exec` only when that remote agent 
 
 ## Enable the inbound server
 
-Inbound requires **both** an explicit flag and an explicit HTTPS public origin:
+Public inbound is enabled by default whenever an explicit HTTPS public origin exists. `OS_A2A_INBOUND_ENABLED=0` is the kill switch:
 
 ```bash
 OS_A2A_INBOUND_ENABLED=1
@@ -88,7 +88,7 @@ The Settings → **A2A** panel exposes the same flow, shows the one-time token o
 
 ## Same-host local A2A between terminal sessions
 
-Local A2A is independent from public inbound A2A. It is **off by default**. Enable it explicitly on the MSO service:
+Local A2A is independent from public inbound A2A and is **enabled by default**. The environment value below documents the default; set it to `0` only when you want to disable same-host A2A:
 
 ```bash
 OS_A2A_ALLOW_LOOPBACK=1
@@ -96,7 +96,7 @@ OS_A2A_ALLOW_LOOPBACK=1
 
 Rebuild/restart the service after changing its environment. This flag changes only A2A discovery/register/message/handoff traffic. It does not relax the generic provider HTTP client or any other MSO HTTP surface.
 
-With the flag enabled, A2A accepts HTTP only when the literal destination is exactly `127.0.0.1`, `[::1]`, or `localhost`. It still rejects RFC1918 ranges, carrier/private ranges, link-local, Docker/LAN addresses, wildcard addresses, `.local`/`.lan` style hosts, and any non-loopback hostname whose DNS resolves to a private/loopback/link-local address. Public destinations continue to use HTTPS plus DNS re-resolution, resolved-IP pinning, and redirect refusal.
+By default, A2A accepts HTTP only when the literal destination is exactly `127.0.0.1`, `[::1]`, or `localhost`. It still rejects RFC1918 ranges, carrier/private ranges, link-local, Docker/LAN addresses, wildcard addresses, `.local`/`.lan` style hosts, and any non-loopback hostname whose DNS resolves to a private/loopback/link-local address. Public destinations continue to use HTTPS plus DNS re-resolution, resolved-IP pinning, and redirect refusal.
 
 MSO treats each durable terminal AI session as a local A2A target. A session records its current working directory when created/resumed/updated, so another session can resolve it by:
 
