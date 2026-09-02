@@ -5,18 +5,18 @@ import path from "node:path";
 
 const file = path.join(os.tmpdir(), `mso-session-flow-${process.pid}.json`);
 process.env.OS_SKILL_MEMORY_STORE = file;
-const memory = await import("@/lib/skills/memory");
+const memory = await import("@/lib/workflow");
 const { searchSkillMemory } = await import("@/lib/skills/search");
 const { recipeActor, workflowActor } = await import("./dispatch-actors");
 
 beforeEach(async () => {
   await fs.rm(file, { force: true });
-  memory.resetSkillMemoryCache();
+  memory.resetWorkflowStoreCache();
 });
 afterAll(async () => {
   await fs.rm(file, { force: true });
   delete process.env.OS_SKILL_MEMORY_STORE;
-  memory.resetSkillMemoryCache();
+  memory.resetWorkflowStoreCache();
 });
 
 describe("conversation-scoped workflow ownership", () => {

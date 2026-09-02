@@ -29,7 +29,7 @@ const previous = {
 process.env.OS_FS_READ_ROOTS = dir;
 process.env.OS_FS_WRITE_ROOTS = dir;
 process.env.OS_SKILL_MEMORY_STORE = path.join(dir, "memory.json");
-const { resetSkillMemoryCache } = await import("@/lib/skills/memory");
+const { resetWorkflowStoreCache } = await import("@/lib/workflow");
 const { projectRefFor } = await import("@/lib/skills/project-skills");
 const { LEARNING_TOOLS } = await import("./tools-learning");
 
@@ -40,7 +40,7 @@ const siblingSkillId = async () =>
 describe("workflow_start bootstrap", () => {
   beforeEach(async () => {
     await fs.rm(process.env.OS_SKILL_MEMORY_STORE!, { force: true });
-    resetSkillMemoryCache();
+    resetWorkflowStoreCache();
   });
   afterAll(async () => {
     if (previous.read === undefined) delete process.env.OS_FS_READ_ROOTS;
@@ -49,7 +49,7 @@ describe("workflow_start bootstrap", () => {
     else process.env.OS_FS_WRITE_ROOTS = previous.write;
     if (previous.memory === undefined) delete process.env.OS_SKILL_MEMORY_STORE;
     else process.env.OS_SKILL_MEMORY_STORE = previous.memory;
-    resetSkillMemoryCache();
+    resetWorkflowStoreCache();
     await fs.rm(dir, { recursive: true, force: true });
   });
 
@@ -149,7 +149,7 @@ describe("workflow_start bootstrap", () => {
     const start = LEARNING_TOOLS.find((tool) => tool.name === "workflow_start")!;
     const context = { actor: "mcp:preflight", scope: "write" as const };
     await expect(start.run({ intent: "", project }, context)).rejects.toThrow("intent");
-    const { activeWorkflowForActor } = await import("@/lib/skills/memory");
+    const { activeWorkflowForActor } = await import("@/lib/workflow");
     await expect(activeWorkflowForActor(context.actor)).resolves.toBeNull();
   });
 
@@ -172,7 +172,7 @@ describe("workflow_start bootstrap", () => {
     await expect(finish.run({
       workflow_id: started.workflow.id, summary: "done", success: true,
     }, context)).rejects.toThrow(/requires explicit/i);
-    const { activeWorkflowForActor } = await import("@/lib/skills/memory");
+    const { activeWorkflowForActor } = await import("@/lib/workflow");
     await expect(activeWorkflowForActor(context.actor, started.workflow.id)).resolves.toMatchObject({ id: started.workflow.id });
 
     const done = await finish.run({

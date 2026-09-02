@@ -26,11 +26,15 @@ const nonMcpMcpImports = imports.filter((row) => {
   const from = rel(ROOT, row.from);
   return from.startsWith("lib/") && !from.startsWith("lib/mcp/") && row.spec.startsWith("@/lib/mcp/");
 }).length;
+const legacyWorkflowFacadeImports = imports.filter((row) => {
+  const from = rel(ROOT, row.from);
+  return row.spec === "@/lib/skills/memory" && from !== "lib/skills/memory-compat.test.ts";
+}).length;
 const crossProtocol = structural.filter(({ ring }) => {
   const domains = new Set(ring.slice(0, -1).map(domain));
   return domains.has("lib/mcp") && (domains.has("lib/a2a") || domains.has("lib/agent"));
 });
-const metrics = { structuralCycles: structural.length, crossDomainCycles: crossDomain.length, crossProtocolCycles: crossProtocol.length, filesOver220, filesOver500, serverFrontendImports, appshellSelfBarrelImports, nonMcpMcpImports };
+const metrics = { structuralCycles: structural.length, crossDomainCycles: crossDomain.length, crossProtocolCycles: crossProtocol.length, filesOver220, filesOver500, serverFrontendImports, appshellSelfBarrelImports, nonMcpMcpImports, legacyWorkflowFacadeImports };
 let failed = false;
 console.log("Architecture health");
 for (const [key, current] of Object.entries(metrics)) {

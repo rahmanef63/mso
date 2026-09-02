@@ -1,5 +1,5 @@
 import { appendAgentSessionEvent } from "@/lib/agent/session-store";
-import type { ActiveWorkflow } from "@/lib/skills/memory";
+import type { ActiveWorkflow } from "@/lib/workflow";
 import type { CapabilityAgentContext } from "./actors";
 
 export function sessionDetail(name: string, args: Record<string, unknown>, target?: string): string | undefined {

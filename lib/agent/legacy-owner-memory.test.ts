@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 process.env.OS_MEMORY_STORE = path.join(os.tmpdir(), `mso-memory-test-${process.pid}.json`);
-const { addMemory, recall, listMemories, removeMemory } = await import("./memory");
+const { addMemory, recall, listMemories, removeMemory } = await import("./legacy-owner-memory");
 
 describe("memory store + recall", () => {
   it("adds, recalls by word overlap, and removes", async () => {

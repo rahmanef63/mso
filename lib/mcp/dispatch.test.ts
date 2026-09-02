@@ -18,7 +18,7 @@ vi.mock("@/lib/host", async (orig) => {
 const { dispatch, isNotification } = await import("./dispatch");
 const { TOOLS } = await import("./tools");
 const { MCP_SERVER_VERSION } = await import("./toolset");
-const { activeWorkflowForActor } = await import("@/lib/skills/memory");
+const { activeWorkflowForActor } = await import("@/lib/workflow");
 
 const call = (name: string, args: Record<string, unknown> = {}) =>
   ({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } });

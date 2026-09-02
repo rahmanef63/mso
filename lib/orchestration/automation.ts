@@ -1,4 +1,4 @@
-import type { LearnedRecipe, WorkflowStep } from "@/lib/skills/memory";
+import type { LearnedRecipe, WorkflowStep } from "@/lib/workflow";
 import type { AutomationAssessment, AutomationScriptManifest } from "./types";
 
 export const REPLAY_SAFE_TOOLS = new Set([

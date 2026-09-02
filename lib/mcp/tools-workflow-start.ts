@@ -1,5 +1,5 @@
 import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host";
-import { markRecipeUsed, startWorkflow, summarizeProjectContention } from "@/lib/skills/memory";
+import { markRecipeUsed, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
 import { searchSkillMemory } from "@/lib/skills/search";
 import { progressiveVerification } from "@/lib/orchestration/automation";
 import { routeIntentText } from "@/lib/orchestration/capability-catalog.mjs";

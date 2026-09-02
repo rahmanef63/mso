@@ -1,5 +1,5 @@
 import { inspectProject, resolveProjectHint } from "@/lib/host";
-import { activeWorkflowForActor, cancelWorkflow, finishWorkflow } from "@/lib/skills/memory";
+import { activeWorkflowForActor, cancelWorkflow, finishWorkflow } from "@/lib/workflow";
 import { assessAutomationPromotion, buildAutomationScriptManifest, workflowCleanupGuidance } from "@/lib/orchestration/automation";
 import { classifyTask } from "@/lib/orchestration/classifier";
 import { buildEvidenceReceipt, validateEvidenceReceipt } from "@/lib/orchestration/evidence";

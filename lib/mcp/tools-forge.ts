@@ -3,7 +3,7 @@ import { evaluateForgeCandidate } from "@/lib/forge/evaluate";
 import { promoteForgeCandidate } from "@/lib/forge/promote";
 import { proposeForgeCandidate } from "@/lib/forge/proposal";
 import { getForgeCandidate, listForgeCandidates, publicForgeCandidate, updateForgeCandidate } from "@/lib/forge/store";
-import { listLearnedRecipes } from "@/lib/skills/memory";
+import { listLearnedRecipes } from "@/lib/workflow";
 import { type McpTool, S, str, opt } from "./tool-kit";
 import { toolsetInfo } from "./toolset";
 

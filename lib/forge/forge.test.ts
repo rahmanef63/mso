@@ -2,7 +2,7 @@ import { existsSync, promises as fs } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LearnedRecipe, WorkflowQuality } from "@/lib/skills/memory";
+import type { LearnedRecipe, WorkflowQuality } from "@/lib/workflow";
 import { projectSkillTrust } from "@/lib/skills/project-skills";
 import { readProjectFunctionsManifest } from "@/lib/host/project-function-manifest";
 import { runProjectFunction } from "@/lib/host/project-function-runner";

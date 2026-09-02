@@ -3,12 +3,13 @@
   "ratchets": {
     "structuralCycles": 0,
     "crossDomainCycles": 0,
-    "filesOver220": 55,
-    "filesOver500": 2,
+    "filesOver220": 54,
+    "filesOver500": 1,
     "serverFrontendImports": 6,
     "appshellSelfBarrelImports": 0,
     "nonMcpMcpImports": 0,
-    "crossProtocolCycles": 0
+    "crossProtocolCycles": 0,
+    "legacyWorkflowFacadeImports": 0
   },
   "notes": {
     "policy": "Ratchets may only stay equal or decrease. Raise a baseline only with an explicit architecture decision.",

@@ -6,7 +6,7 @@ import {
   streamPreparedSelectedModel,
 } from "@/lib/ai/selected-model-stream";
 import type { OaMsg as InMsg, OaTool as Tool } from "@/lib/ai/openai-stream";
-import { recall } from "@/lib/ai/memory";
+import { recall } from "@/lib/agent/legacy-owner-memory";
 import { rateLimited } from "@/lib/host/rate-limit";
 import { IS_DEMO } from "@/lib/demo";
 

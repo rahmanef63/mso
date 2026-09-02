@@ -5,10 +5,10 @@ import path from "node:path";
 
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mso-skill-quality-"));
 process.env.OS_SKILL_MEMORY_STORE = path.join(dir, "memory.json");
-const memory = await import("./memory");
+const memory = await import("./index");
 
 describe("learned workflow quality telemetry", () => {
-  beforeEach(async () => { await fs.rm(process.env.OS_SKILL_MEMORY_STORE!, { force: true }); memory.resetSkillMemoryCache(); });
+  beforeEach(async () => { await fs.rm(process.env.OS_SKILL_MEMORY_STORE!, { force: true }); memory.resetWorkflowStoreCache(); });
   afterAll(async () => { await fs.rm(dir, { recursive: true, force: true }); });
 
   it("tracks retries, invalid args, failures, denials, rollback signals and latency", async () => {

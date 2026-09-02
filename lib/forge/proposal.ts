@@ -1,4 +1,4 @@
-import type { LearnedRecipe } from "@/lib/skills/memory";
+import type { LearnedRecipe } from "@/lib/workflow";
 import { createForgeCandidate, forgeOwnerHash, newForgeCandidateId } from "./store";
 import type { ForgeCandidate, ForgeFixture, ForgeFunctionSpec, ForgeKind, ForgeRecipeSnapshot } from "./types";
 

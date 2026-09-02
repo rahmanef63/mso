@@ -2,16 +2,16 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import type { ActiveWorkflow } from "./memory";
+import type { ActiveWorkflow } from "./index";
 
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mso-skill-memory-"));
 process.env.OS_SKILL_MEMORY_STORE = path.join(dir, "memory.json");
-const memory = await import("./memory");
+const memory = await import("./index");
 
 describe("learned workflow recipes", () => {
   beforeEach(async () => {
     await fs.rm(process.env.OS_SKILL_MEMORY_STORE!, { force: true });
-    memory.resetSkillMemoryCache();
+    memory.resetWorkflowStoreCache();
   });
   afterAll(async () => { await fs.rm(dir, { recursive: true, force: true }); });
 
@@ -127,7 +127,7 @@ describe("learned workflow recipes", () => {
     await fs.writeFile(process.env.OS_SKILL_MEMORY_STORE!, JSON.stringify({
       version: 1, active: { "mcp:legacy": legacy }, recipes: {},
     }));
-    memory.resetSkillMemoryCache();
+    memory.resetWorkflowStoreCache();
     await expect(memory.activeWorkflowForActor("mcp:legacy", legacy.id)).resolves.toMatchObject({ id: legacy.id });
 
     const current = await memory.startWorkflow({ actor: "mcp:legacy", intent: "new parallel task" });
@@ -223,7 +223,7 @@ describe("learned workflow recipes", () => {
         },
       },
     }), { mode: 0o600 });
-    memory.resetSkillMemoryCache();
+    memory.resetWorkflowStoreCache();
     const [recipe] = await memory.listLearnedRecipes({ actor: "mcp:legacy", scope: "exec" });
     const serialized = JSON.stringify(recipe);
     expect(serialized).not.toContain("raw-secret");

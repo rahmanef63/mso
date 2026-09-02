@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { IS_DEMO } from "@/lib/demo";
 import { catalogSkillsDetailed, resolveSkill, readSkillFile, type SkillInfo } from "@/lib/skills/catalog";
-import { listLearnedRecipes } from "@/lib/skills/memory";
+import { listLearnedRecipes } from "@/lib/workflow";
 import { searchSkillMemory } from "@/lib/skills/search";
 
 export const runtime = "nodejs";

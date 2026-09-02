@@ -5,7 +5,7 @@ import path from "node:path";
 
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mso-contention-memory-"));
 process.env.OS_SKILL_MEMORY_STORE = path.join(dir, "memory.json");
-const memory = await import("./memory");
+const memory = await import("./index");
 
 const orchestration = (affectedPaths: string[], reservedResources: string[]) => ({
   risk: "medium" as const,
@@ -33,7 +33,7 @@ const orchestration = (affectedPaths: string[], reservedResources: string[]) => 
 describe("workflow scope collision metadata", () => {
   beforeEach(async () => {
     await fs.rm(process.env.OS_SKILL_MEMORY_STORE!, { force: true });
-    memory.resetSkillMemoryCache();
+    memory.resetWorkflowStoreCache();
   });
   afterAll(async () => { await fs.rm(dir, { recursive: true, force: true }); });
 

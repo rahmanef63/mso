@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/host", () => ({ resolveProjectHint: mocks.resolveProjectHint }));
-vi.mock("@/lib/skills/memory", () => ({ listLearnedRecipes: mocks.listLearnedRecipes }));
+vi.mock("@/lib/workflow", () => ({ listLearnedRecipes: mocks.listLearnedRecipes }));
 vi.mock("@/lib/forge/proposal", () => ({ proposeForgeCandidate: mocks.proposeForgeCandidate }));
 vi.mock("@/lib/forge/evaluate", () => ({ evaluateForgeCandidate: mocks.evaluateForgeCandidate }));
 vi.mock("@/lib/forge/promote", () => ({ promoteForgeCandidate: mocks.promoteForgeCandidate }));

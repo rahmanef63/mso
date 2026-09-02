@@ -1,7 +1,7 @@
 import { audit } from "@/lib/host";
 import { maybeAutoTitleAgentSession } from "@/lib/agent/session-store";
 import { touchLocalAgentPresence } from "@/lib/agent/local-agent-presence";
-import { activeWorkflowForActor, recordWorkflowStep } from "@/lib/skills/memory";
+import { activeWorkflowForActor, recordWorkflowStep } from "@/lib/workflow";
 import { allows, type Scope } from "./scope";
 import type { CapabilityRuntime } from "./runtime";
 import type { CapabilityTool } from "./tool";

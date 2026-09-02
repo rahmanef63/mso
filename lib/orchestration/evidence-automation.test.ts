@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActiveWorkflow, LearnedRecipe, WorkflowStep } from "@/lib/skills/memory";
+import type { ActiveWorkflow, LearnedRecipe, WorkflowStep } from "@/lib/workflow";
 import { assessAutomationPromotion, buildAutomationScriptManifest, progressiveVerification, reviewLoopDecision } from "./automation";
 import { buildEvidenceReceipt, validateEvidenceReceipt } from "./evidence";
 

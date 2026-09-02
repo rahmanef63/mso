@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 const { dispatch } = await import("./dispatch");
 const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI } = await import("./ui-resources");
 const { MCP_UI_DOMAIN } = await import("./ui-config");
-const { activeWorkflowForActor } = await import("@/lib/skills/memory");
+const { activeWorkflowForActor } = await import("@/lib/workflow");
 
 const call = (name: string, args: Record<string, unknown> = {}) =>
   ({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } });

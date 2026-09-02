@@ -1,4 +1,4 @@
-import type { ActiveWorkflow } from "@/lib/skills/memory";
+import type { ActiveWorkflow } from "@/lib/workflow";
 import { redactStrings, redactText } from "./redaction";
 import type { EvidenceInput, EvidenceItem, EvidenceReceipt, RiskLevel } from "./types";
 

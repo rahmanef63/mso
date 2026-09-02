@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
-import { listMemories, addMemory, removeMemory } from "@/lib/ai/memory";
+import { listMemories, addMemory, removeMemory } from "@/lib/agent/legacy-owner-memory";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

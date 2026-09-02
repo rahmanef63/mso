@@ -1,5 +1,5 @@
 import type { Scope } from "@/lib/capabilities/scope";
-import type { WorkflowQuality, WorkflowStep } from "@/lib/skills/memory";
+import type { WorkflowQuality, WorkflowStep } from "@/lib/workflow";
 
 export const FORGE_VERSION = 1 as const;
 export type ForgeKind = "skill" | "project_function";

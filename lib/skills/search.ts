@@ -1,5 +1,5 @@
 import { catalogSkillsDetailed, readSkillFile, type ProjectRef, type SkillInfo, type SkillScanReport } from "./catalog";
-import { listLearnedRecipes, type LearnedRecipe, type RecipeAccess } from "./memory";
+import { listLearnedRecipes, type LearnedRecipe, type RecipeAccess } from "@/lib/workflow";
 import { embedSkillText, hybridSemanticScore, prepareSemanticQuery, SKILL_EMBEDDING_VERSION } from "./semantic";
 
 export type SkillSearchToolDoc = {
