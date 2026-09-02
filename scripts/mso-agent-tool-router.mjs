@@ -13,6 +13,8 @@ const DEPENDENCIES = new Map([
   ["agent_session_resume", ["agent_sessions_list"]],
   ["a2a_message_send", ["a2a_agents_list", "a2a_agent_discover"]],
   ["a2a_handoff", ["a2a_agents_list", "a2a_agent_discover", "a2a_task_get"]],
+  ["tool_forge_evaluate", ["tool_forge_candidates"]],
+  ["tool_forge_promote", ["tool_forge_candidates", "tool_forge_evaluate"]],
 ]);
 
 const ALIASES = new Map([
@@ -32,6 +34,7 @@ const ALIASES = new Map([
   ["hostinger", ["hostinger", "dns", "domain", "record"]],
   ["apps", ["app", "service", "hermes", "openclaw", "install", "restart", "status"]],
   ["a2a", ["a2a", "delegate", "delegation", "handoff", "peer", "collaborate"]],
+  ["forge", ["forge", "candidate", "promotion", "promote", "self-improve", "self-improving", "generate tool", "tool creator"]],
 ]);
 
 function words(value) {

@@ -69,6 +69,10 @@ const MCP_ONLY: Record<string, string> = {
   "a2a.task.get": "A2A task polling exists only for remote tasks created through the MCP/terminal A2A client",
   "a2a.task.cancel": "A2A remote task cancellation stays approval-gated in the external agent harness",
   "a2a.handoff": "explicit agent-to-agent delegation is intentionally MCP/terminal-only until Alfa receives its own scoped orchestration model",
+  "tool.forge.candidates": "Tool Forge is the external/terminal cognitive-runtime promotion pipeline; Alfa has a separate in-app lifecycle and must not implicitly expose generated project capabilities",
+  "tool.forge.propose": "same Forge boundary; creating an inert candidate depends on learned external workflow recipes rather than Alfa owner recall",
+  "tool.forge.evaluate": "Forge evaluation may execute project-owned fixtures only inside the dedicated sandbox and therefore stays on the scoped external/terminal automation surface",
+  "tool.forge.promote": "explicit Forge promotion mutates project capability metadata and remains an exec-scoped audited external/terminal action",
 };
 
 describe("Alfa ↔ MCP capability parity", () => {
@@ -153,6 +157,9 @@ describe("MCP rate limits mirror the routes", () => {
       "a2a.send": 30,
       "a2a.task": 60,
       "a2a.cancel": 30,
+      "tool.forge.propose": 20,
+      "tool.forge.evaluate": 10,
+      "tool.forge.promote": 6,
     };
     for (const t of TOOLS) {
       if (!t.limit) continue;

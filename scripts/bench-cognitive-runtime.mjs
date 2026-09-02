@@ -23,6 +23,7 @@ const scenarios = [
   { id: "memory-retrieval", prompt: "Search my persistent memory for a prior deployment rule and inspect conflicting or temporal claims.", required: ["agent_memory_search"] },
   { id: "resume", prompt: "List previous agent sessions and resume the deployment session.", required: ["agent_sessions_list", "agent_session_resume"] },
   { id: "skills", prompt: "Find the best trusted skill for a repository security review and read its instructions.", required: ["skills_search", "skills_read"] },
+  { id: "tool-forge", prompt: "Turn this repeated verified workflow into a Tool Forge candidate, evaluate it in the sandbox, review the candidate, then explicitly promote it.", required: ["tool_forge_candidates", "tool_forge_propose", "tool_forge_evaluate", "tool_forge_promote"] },
 ];
 
 const toolShape = (tool) => ({ name: tool.name, description: tool.description, input_schema: tool.inputSchema });

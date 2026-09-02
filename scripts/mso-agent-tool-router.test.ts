@@ -16,6 +16,8 @@ const catalog = [
   tool("cloudflare_zones_list", "List Cloudflare DNS zones"), tool("hostinger_dns_upsert", "Update Hostinger DNS record"),
   tool("a2a_agents_list", "List registered A2A peer agents"), tool("a2a_agent_discover", "Discover public A2A Agent Card"),
   tool("a2a_message_send", "Send a message to an A2A peer"), tool("a2a_handoff", "Delegate explicit objective to A2A peer"), tool("a2a_task_get", "Read A2A task status"),
+  tool("tool_forge_candidates", "List Tool Forge candidates"), tool("tool_forge_propose", "Propose a Tool Forge candidate from a repeated recipe"),
+  tool("tool_forge_evaluate", "Evaluate a Tool Forge candidate in the sandbox"), tool("tool_forge_promote", "Promote an evaluated Tool Forge candidate"),
 ];
 
 describe("MSO per-turn tool router", () => {
@@ -44,6 +46,18 @@ describe("MSO per-turn tool router", () => {
     expect(out.selectedNames).toContain("a2a_agents_list");
     expect(out.selectedNames).toContain("a2a_agent_discover");
     expect(out.selectedNames).toContain("a2a_task_get");
+  });
+
+  it("does not load Forge schemas for an unrelated app-log task", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "why is hermes down? inspect its logs" }]);
+    expect(out.selectedNames.some((name) => name.startsWith("tool_forge_"))).toBe(false);
+  });
+
+  it("loads Forge evaluation/promotion companions only for a Forge turn", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "evaluate and promote this tool forge candidate" }]);
+    expect(out.selectedNames).toContain("tool_forge_candidates");
+    expect(out.selectedNames).toContain("tool_forge_evaluate");
+    expect(out.selectedNames).toContain("tool_forge_promote");
   });
 
   it("keeps long-job companions when build work selects exec_job_start", () => {

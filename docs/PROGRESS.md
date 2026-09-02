@@ -2,6 +2,14 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — Eval-gated Tool Forge P2 — SHIPPED
+
+Cognitive Runtime P2 adds a self-improvement path without turning learned workflows into self-authorizing code. Four MCP primitives expose a private candidate lifecycle: `tool_forge_candidates` (read), `tool_forge_propose` (write), `tool_forge_evaluate` (exec), and `tool_forge_promote` (exec). Proposal requires P1 quality telemetry, at least two verified successes, at least 90% success, and a fully-completed best trace. Skill candidates contain only deterministic redacted tool guidance. Project-function candidates cannot generate shell/code or escalate a lower-scope recipe: they require an exec-scope verified recipe and may reference only an existing regular project-owned Node script; credential-like schema fields, fixture inputs, and fixed argv are rejected.
+
+Executable fixtures run only in a dedicated **local-only Docker sandbox**: no registry pull, `--network none`, read-only root/project mounts, all capabilities dropped, `no-new-privileges`, non-root execution, and bounded CPU/memory/PIDs. `bun run forge:sandbox` constructs the minimal sandbox from the already-trusted host Node binary plus its shared libraries and labels it as MSO Forge v1. Evaluation rejects missing/unlabelled images and records the exact image ID plus project source SHA-256. Regression coverage proves fixture network access and project writes are blocked.
+
+Promotion is intentionally high-friction: the caller must send literal `PROMOTE <candidate_id>`, MSO immediately re-runs the complete evaluation, candidate/target/toolset/source/image drift fails closed, existing Skills/functions are never overwritten, writes are atomic, and the resulting project capability is independently parsed/trust-checked. Combined with outbound A2A v1, MCP toolset **2026.09.02.4** contains **60 transport / 59 model tools** (29 read, 23 write, 7 exec). `bench:cognitive` still reaches **100% required-tool routing recall** while averaging **15.4 active tools / 11,614 schema bytes**, a **72.0% reduction** from the full catalog.
+
 ## 2026-09-02 — Interactive permission badge + outbound A2A v1 — SHIPPED
 
 MSO CLI **1.7.0** makes permission state part of the interactive prompt instead of terminal scrollback. The bottom-left prompt is now a persistent color-coded badge (`ask` cyan, `auto` amber, `yolo` red); Tab on an empty prompt cycles `ask → auto → yolo` by repainting the same row with zero added LF/newline. The compact status line no longer duplicates permission. `/permission` remains the explicit picker/command surface, and the existing exact-call digest/server authorization semantics are unchanged. A live PTY regression proves three Tab transitions emit no scrollback line.

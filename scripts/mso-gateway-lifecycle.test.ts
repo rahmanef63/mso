@@ -72,6 +72,15 @@ function asyncStart(env: NodeJS.ProcessEnv) {
   });
 }
 
+async function waitUntil(predicate: () => boolean, timeoutMs = 8_000, intervalMs = 25): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return predicate();
+}
+
 afterEach(() => {
   for (const pid of pids) if (alive(pid)) try { process.kill(pid, "SIGTERM"); } catch {}
   pids.clear(); for (const dir of roots.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
@@ -139,13 +148,18 @@ esac
 `, { mode: 0o700 });
     const env = { ...f.env, MSO_GATEWAY_CURL: curl, MSO_GATEWAY_SKIP_PUBLIC_PROBE: "0", MSO_GATEWAY_PUBLIC_READY_SECONDS: "10" };
     const child = spawn(GATEWAY, ["start"], { env, stdio: ["ignore", "pipe", "pipe"] });
-    for (let i = 0; i < 100 && !fs.existsSync(f.startFile); i++) await new Promise((r) => setTimeout(r, 20));
-    expect(fs.existsSync(f.startFile)).toBe(true);
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (value) => stdout += value);
+    child.stderr.on("data", (value) => stderr += value);
+    const closed = new Promise<number | null>((resolve) => child.once("close", resolve));
+    const spawned = await waitUntil(() => fs.existsSync(f.startFile) || child.exitCode !== null);
+    expect(spawned && fs.existsSync(f.startFile), `gateway did not spawn fixture tunnel before exit=${child.exitCode}; stdout=${stdout.slice(-400)}; stderr=${stderr.slice(-800)}`).toBe(true);
     const tunnelPid = Number(fs.readFileSync(f.startFile, "utf8").trim().split(/\n+/).at(-1));
     pids.add(tunnelPid);
+    expect(alive(tunnelPid)).toBe(true);
     child.kill("SIGTERM");
-    await new Promise<void>((resolve) => child.once("close", () => resolve()));
-    for (let i = 0; i < 50 && alive(tunnelPid); i++) await new Promise((r) => setTimeout(r, 20));
+    await Promise.race([closed, new Promise((_, reject) => setTimeout(() => reject(new Error(`gateway launcher did not close after SIGTERM; stdout=${stdout.slice(-400)}; stderr=${stderr.slice(-800)}`)), 5_000))]);
+    await waitUntil(() => !alive(tunnelPid), 5_000);
     expect(alive(tunnelPid)).toBe(false);
     expect(fs.existsSync(path.join(f.state, "state.json"))).toBe(false);
   });

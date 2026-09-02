@@ -12,10 +12,10 @@
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 > and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.3 tools=55 read=28 write=22 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.4 tools=59 read=29 write=23 exec=7 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.3**: **56 transport tools** total; **55 model/operator tools**
-(28 read, 22 write, 5 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.4**: **60 transport tools** total; **59 model/operator tools**
+(29 read, 23 write, 7 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
 
 ## 1. What this connection does
@@ -141,7 +141,7 @@ A token sees a scope prefix; there is no per-project or per-agent hidden tool fi
 `tools/list` filters the catalog and `tools/call` independently re-checks the required
 scope.
 
-### `read` — 28 model/operator tools
+### `read` — 29 model/operator tools
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -171,7 +171,8 @@ scope.
 - `skills_search`
 - `sys_processes`
 - `sys_stats`
-### `write` — read + 22 tools
+- `tool_forge_candidates`
+### `write` — read + 23 tools
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -192,22 +193,32 @@ scope.
 - `fs_upload_file`
 - `fs_write`
 - `hostinger_dns_upsert`
+- `tool_forge_propose`
 - `workflow_cancel`
 - `workflow_finish`
 - `workflow_start`
 
-### `exec` — write + 5 tools
+### `exec` — write + 7 tools
 
 - `browser_power`
 - `exec_job_cancel`
 - `exec_job_start`
 - `exec_run`
 - `project_function_call`
+- `tool_forge_evaluate`
+- `tool_forge_promote`
 
 `exec_run` is full host shell power as the MSO service user. The command filter is an
 accident tripwire, not a sandbox. Grant `exec` only to a ChatGPT app/workspace you trust
 with the same care as a remote shell.
 
+
+
+### Tool Forge approval model
+
+`tool_forge_propose` creates only inert candidates from repeated verified workflow recipes. Skill candidates are guidance only; a project-function candidate must point to an existing project-owned Node script and must come from an exec-scope verified recipe. Generated shell/code, credential-like fixture data, and implicit scope escalation are rejected.
+
+`tool_forge_evaluate` runs executable fixtures only in the labelled local MSO Forge Docker sandbox. `tool_forge_promote` requires exact `PROMOTE <candidate_id>` confirmation and a fresh passing evaluation immediately before mutation. Candidate hash, target manifest, current toolset, project source SHA-256 and exact sandbox image evidence are checked again, and existing Skills/functions are never overwritten. Provision the local sandbox explicitly with `bun run forge:sandbox`; evaluation never auto-pulls an image.
 
 ### Infrastructure-provider actions
 
@@ -242,7 +253,7 @@ Settings → MCP:
 server:  1.6.0
 toolset: 2026.09.02.3
 hash:    <live schema hash>
-count:   55 model/operator tools (+ 1 app-only bridge)
+count:   59 model/operator tools (+ 1 app-only bridge)
 ```
 
 Use this sequence after an MSO MCP change:

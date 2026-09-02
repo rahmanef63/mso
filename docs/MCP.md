@@ -124,10 +124,10 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.3 tools=55 read=28 write=22 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.4 tools=59 read=29 write=23 exec=7 -->
 
-Current transport catalog: **56 tools**, server `1.6.0` / toolset `2026.09.02.3`.
-The model/operator catalog is **55 tools** (28 read, 22 write, 5 exec); `workflow_status` is the
+Current transport catalog: **60 tools**, server `1.6.0` / toolset `2026.09.02.4`.
+The model/operator catalog is **59 tools** (29 read, 23 write, 7 exec); `workflow_status` is the
 one app-only MCP Apps bridge used by the progress widget and is documented separately.
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
 
@@ -147,6 +147,17 @@ MSO's current A2A client accepts only public HTTPS v1 peers, blocks SSRF/DNS reb
 fails closed when an Agent Card requires credentials. A normal message transmits only explicit
 message/context/task arguments; a handoff never auto-attaches the caller's hidden transcript,
 memory or raw session/workflow ids. See [`A2A.md`](./A2A.md) for the transport and trust contract.
+
+
+### Eval-gated Tool Forge
+
+Tool Forge is a **candidate pipeline**, not a self-authorizing code generator. `tool_forge_propose` accepts only learned recipes with P1 quality telemetry, at least two verified successes, at least 90% workflow success, and a fully-completed best trace. `tool_forge_candidates` exposes reviewable metadata while redacting fixed argv, fixture payloads, and internal workflow targets. Candidates are inert until explicit evaluation and promotion.
+
+Skill candidates contain only deterministic redacted tool guidance. Project-function candidates do **not** generate executable code and cannot escalate a read/write recipe: they require an exec-scope verified recipe and may reference only an existing regular project-owned Node script. Credential-like schema fields, fixture payloads, and fixed argv are rejected.
+
+`tool_forge_evaluate` re-checks the current tool catalog/scope and runs 1–8 executable fixtures only in the dedicated cached Docker sandbox. The sandbox uses no network, a read-only root and project mount, all Linux capabilities dropped, `no-new-privileges`, non-root execution, and CPU/memory/PID limits. `bun run forge:sandbox` provisions the labelled local image from the host's already-trusted Node binary and shared libraries; evaluation never pulls from a registry and records the exact image ID plus project source SHA-256.
+
+`tool_forge_promote` is exec-scope and requires literal confirmation `PROMOTE <candidate_id>`. Promotion immediately re-runs evaluation, rejects candidate/target/toolset/source/image drift, never overwrites an existing Skill/function, writes atomically, and verifies the resulting project capability. A promoted project function still requires normal `project_function_call` exec scope and approval.
 
 ## Opt-in project MCP/function capabilities
 

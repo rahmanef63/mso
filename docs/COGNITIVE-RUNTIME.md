@@ -136,17 +136,17 @@ probe. Overall product superiority also cannot be inferred from a prompt-size re
 must add equivalent task-success, tool-error, token-per-success, latency-per-success, and policy-compliance
 scenarios before making that claim.
 
-## Current P1 + A2A baseline
+## Current P2 + A2A baseline
 
-On the development host after P1 implementation:
+On the development host after P2 + outbound A2A integration:
 
-| Metric | MSO P1 | Hermes local baseline |
+| Metric | MSO P2 + A2A | Hermes local baseline |
 |---|---:|---:|
-| Full MSO transport catalog | 56 tools | — |
-| Full MSO schema bytes | 37,904 | — |
-| Average MSO active tools / turn | 15.5 | — |
-| Average active schema bytes / turn | 11,582 | 44,758 tool-schema bytes |
-| MSO schema reduction vs full catalog | 69.4% | — |
+| Full MSO transport catalog | 60 tools | — |
+| Full MSO schema bytes | 41,519 | — |
+| Average MSO active tools / turn | 15.4 | — |
+| Average active schema bytes / turn | 11,614 | 44,758 tool-schema bytes |
+| MSO schema reduction vs full catalog | 72.0% | — |
 | Required-tool routing recall | 100% | not the same benchmark |
 | Typed-memory fixture accuracy | 100% (8/8) | not implemented in this harness |
 | Deterministic routing / memory resolution | yes / yes | not the same benchmark |
@@ -157,17 +157,20 @@ A non-interactive full MSO tool loop is now available as `mso agent --oneshot <p
 
 These numbers are reproducible harness baselines, not an overall quality leaderboard. Cross-agent ranking is permitted only when at least two runners complete the same task with matching model-family evidence; one-task latency order is explicitly not an overall-agent claim.
 
-## P1 status and next direction
+## P2 status and next direction
 
-P1 now implements the first three planned runtime layers: typed/provenance-aware temporal memory, deterministic retrieval evaluation, and workflow/tool quality telemetry. It also adds the non-interactive MSO Agent runner and a fail-closed cross-agent scratch harness.
+P1 supplies typed/provenance-aware temporal memory, deterministic retrieval evaluation, workflow/tool quality telemetry, the non-interactive MSO Agent runner, and a fail-closed cross-agent scratch harness. P2 adds the first self-improvement primitive without granting opaque autonomy: an **eval-gated Tool Forge**.
 
-The next phase should build on those measured primitives rather than add opaque autonomy:
+Forge only creates inert candidates from repeated high-quality recipes. Skill candidates are deterministic redacted guidance; executable project-function candidates require an exec-scope verified recipe and may reference only existing project-owned Node code. Fixtures run in the dedicated cached Docker sandbox with no network and a read-only project mount. Evaluation records current toolset, candidate/target state, source SHA-256 and exact sandbox image evidence; promotion requires literal confirmation and immediately repeats the checks. A candidate cannot silently raise scope, overwrite an existing capability, or turn generated text into host-executable code.
 
-1. **Eval-gated Tool Forge** — repeated verified workflows may propose project functions/Skills, but generated code stays untrusted until static checks, sandboxed fixture tests, scope review and explicit promotion pass.
-2. **Programmatic read-only orchestration** — bulk filtering/aggregation may reduce model round-trips while remaining constrained by caller scope and normal host guards.
-3. **Benchmark corpus expansion** — add multiple read/write/recovery/security task classes and configure Hermes/OpenClaw with an actually equivalent model/provider path before any overall comparison.
-4. **Memory calibration** — grow post-P1 quality telemetry and test confidence/authority policy against real corrections before introducing graph-memory complexity.
-5. **Cost-per-success accounting** — normalize provider usage reports only where token/cost semantics are comparable; missing usage must remain unknown, never zero.
+Outbound A2A v1 remains orthogonal: it adds remote-agent delegation, while Forge turns repeated **local verified procedures** into reviewed project capabilities. The combined routing benchmark covers both surfaces with 100% required-tool recall while selecting only 15.4 of 60 tools on average.
+
+The next phase should continue from measured primitives:
+
+1. **Programmatic read-only orchestration** — bulk filtering/aggregation may reduce model round-trips while remaining constrained by caller scope and normal host guards.
+2. **Benchmark corpus expansion** — add multiple read/write/recovery/security task classes and configure Hermes/OpenClaw with an actually equivalent model/provider path before any overall comparison.
+3. **Memory calibration** — grow post-P1 quality telemetry and test confidence/authority policy against real corrections before introducing graph-memory complexity.
+4. **Cost-per-success accounting** — normalize provider usage reports only where token/cost semantics are comparable; missing usage must remain unknown, never zero.
 
 ## Security notes
 
@@ -175,6 +178,7 @@ The next phase should build on those measured primitives rather than add opaque 
 - Persistent memory is data, never an instruction or permission source.
 - A discovered Skill or recipe cannot grant a tool the caller's token does not already permit.
 - Untrusted Skills keep their instructions withheld until promoted through the existing trust process.
+- Tool Forge candidates are inert. Executable fixtures require the labelled local Docker sandbox; evaluation never auto-pulls an image or executes generated shell/code.
 - `exec_run` remains full service-user shell power at `exec` scope; cognitive routing is not a sandbox.
 - Never expose raw ChatGPT conversation ids, tokens, credentials, hidden chain-of-thought, or unrestricted
   tool output in memory/recipes/archives.

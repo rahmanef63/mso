@@ -29,7 +29,8 @@
     "bench:cognitive": "bun scripts/bench-cognitive-runtime.mjs",
     "bench:memory": "bun scripts/bench-memory-retrieval.mjs",
     "bench:quality": "bun scripts/bench-task-quality.mjs",
-    "bench:agents": "bun scripts/bench-agent-comparison.mjs"
+    "bench:agents": "bun scripts/bench-agent-comparison.mjs",
+    "forge:sandbox": "bash scripts/provision-forge-sandbox.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

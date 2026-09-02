@@ -4,10 +4,10 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.3 tools=55 read=28 write=22 exec=5 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.4 tools=59 read=29 write=23 exec=7 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.3**: **56 transport tools** total; **55 model/operator tools**
-(28 read, 22 write, 5 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.4**: **60 transport tools** total; **59 model/operator tools**
+(29 read, 23 write, 7 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
 ## Why this contract matters
@@ -33,25 +33,25 @@ Before changing an MCP tool name:
 
 ## Current MSO catalog
 
-### Read (28 model/operator)
+### Read (29 model/operator)
 
 `a2a_agent_discover`, `a2a_agents_list`, `a2a_task_get`, `agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`,
 `apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`,
 `exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`,
 `infra_providers_list`, `project_capabilities`, `projects_list`, `screen_capture`, `skills_list`,
-`skills_read`, `skills_search`, `sys_processes`, `sys_stats`.
+`skills_read`, `skills_search`, `sys_processes`, `sys_stats`, `tool_forge_candidates`.
 
-### Write (22 beyond read)
+### Write (23 beyond read)
 
 `a2a_agent_register`, `a2a_agent_remove`, `a2a_message_send`, `a2a_task_cancel`, `a2a_handoff`,
 `agent_memory_forget`, `agent_memory_remember`, `agent_session_note`, `agent_session_rename`,
 `apps_power`, `cloudflare_dns_upsert`, `dokploy_project_ensure`, `fs_copy`, `fs_delete`,
 `fs_mkdir`, `fs_move`, `fs_upload_file`, `fs_write`, `hostinger_dns_upsert`,
-`workflow_cancel`, `workflow_finish`, `workflow_start`.
+`tool_forge_propose`, `workflow_cancel`, `workflow_finish`, `workflow_start`.
 
-### Exec (5 beyond write)
+### Exec (7 beyond write)
 
-`browser_power`, `exec_job_cancel`, `exec_job_start`, `exec_run`, `project_function_call`.
+`browser_power`, `exec_job_cancel`, `exec_job_start`, `exec_run`, `project_function_call`, `tool_forge_evaluate`, `tool_forge_promote`.
 
 ### App-only bridge (1)
 
@@ -72,6 +72,9 @@ Operational MCP tools also accept optional `workflow_id`. A gateway that does no
 that field can still call the tools, but those calls are standalone and will not join an
 MSO learned workflow. For multi-step orchestration, expose the workflow trio and propagate
 the exact id returned by `workflow_start`.
+
+
+Tool Forge remains a stable global action family as well: gateways should expose the four generic `tool_forge_*` names, never synthesize one action per generated candidate. Candidate ids are data. Executable evaluation is server-side in the dedicated local Docker sandbox, and promotion remains exec-scope with exact confirmation.
 
 ## Project functions are data, not dynamic MCP names
 
@@ -99,6 +102,7 @@ Treat these as particularly important in any external approval layer:
 - `exec_run` — host shell as the MSO user;
 - `browser_power` — starts a browser profile with live logged-in sessions;
 - `project_function_call` — executes project-owned fixed argv and is always exec-scope;
+- `tool_forge_evaluate` / `tool_forge_promote` — sandbox-evaluate and explicitly promote inert learned-workflow candidates; promotion requires a fresh passing evaluation and literal confirmation;
 - `dokploy_project_ensure` / `cloudflare_dns_upsert` / `hostinger_dns_upsert` — mutate external infrastructure with provider credentials kept server-side; Hostinger receives only the requested name/type RR-set (`overwrite:true`), never an MSO-generated full-zone snapshot.
 
 External policy supplements MSO's own scope/path/audit/rate-limit checks; it does not replace

@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `agent` add eval-gated tool forge
 - `agent` add interactive permissions and a2a v1
 
 ## 2026-09-01
