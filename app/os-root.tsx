@@ -9,11 +9,12 @@ import {
   TOPSIDE_PERSIST_KEY,
   BUILTIN_APPS,
   topsideCapabilities,
+  OsApiProvider,
 } from "@/features/os-shell";
 import { AppearanceProvider } from "@/lib/appearance";
 import { QuicklinksProvider } from "@/lib/quicklinks";
 import "@/features/os-shell/integrations";
-import { OsApiProvider } from "@/lib/os-api";
+
 import { AuthGate, SessionProvider, useSession, type DeviceRole, type SessionStatus } from "@/features/auth";
 import { appAllowedForRole } from "@/lib/auth/app-access";
 import { useInstalledApps, useDisabledIds } from "@/features/app-store";

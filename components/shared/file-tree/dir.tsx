@@ -10,7 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useOsApi, type FsEntry } from "@/lib/os-api";
+import { useOsApi, type FsEntry } from "@/features/appshell";
 import { cn } from "@/lib/utils";
 
 export type TreeCtx = {

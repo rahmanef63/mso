@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { parseImage, imageStyle, isCssImage, type ImageValue } from "@/features/image-picker";
+import { parseImage, imageStyle, isCssImage, type ImageValue } from "@/lib/contracts/image";
 import { usePrefsSync } from "@/lib/prefs/use-prefs-sync";
 import { TWEAK_DEFAULTS, type Tweaks, type ServerConfig } from "./types";
 import { normalizeLiveWallpaper, normalizeWallpaper } from "./wallpapers";

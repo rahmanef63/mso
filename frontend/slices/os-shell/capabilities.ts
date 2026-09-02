@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import { effectiveServerTarget, selectServerTarget, useAppearance } from "@/lib/appearance";
-import { useOsApi } from "@/lib/os-api";
+import { useOsApi } from "@/features/appshell";
 import { IS_DEMO } from "@/lib/demo";
 import { faviconUrl, openQuicklink, useQuicklinks } from "@/lib/quicklinks";
 import { openWindow, type ShellCapabilities, type SystemStats } from "@/features/appshell";

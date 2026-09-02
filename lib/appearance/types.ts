@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { ImageValue } from "@/features/image-picker";
+import type { ImageValue } from "@/lib/contracts/image";
 import type { LiveWallpaper, Wallpaper } from "./wallpapers";
 
 export type Theme = "light" | "dark";

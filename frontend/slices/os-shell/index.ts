@@ -9,6 +9,7 @@ export {
 } from "./shell.manifest";
 export { topsideCapabilities } from "./capabilities";
 export { A11yCommands } from "./a11y-commands";
+export { OsApiProvider } from "./os-api-provider";
 
 // Built-in live wallpapers are MSO registrations into the generic AppShell
 // registry. Importing the composition surface performs that registration once.

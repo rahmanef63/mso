@@ -6,20 +6,8 @@
  *  server holds OS_UNSPLASH_ACCESS_KEY). Drops into any app — page cover,
  *  profile header, card hero, wallpaper, … */
 
-export type ImageSource = "color" | "gradient" | "texture" | "upload" | "link" | "unsplash";
-
-export interface ImageValue {
-  type: ImageSource;
-  /** color/gradient → CSS value; texture/upload/link/unsplash → URL or FileRef. */
-  value: string;
-  /** Vertical focal point 0–100 (default 50) — used when rendered as a banner. */
-  positionY?: number;
-  /** Per-type metadata. unsplash: { photographer, source, thumb, … }. */
-  metadata?: Record<string, unknown>;
-}
-
-/** A stored image field — legacy raw string, an ImageValue object, or empty. */
-export type ImageField = string | ImageValue | null | undefined;
+export type { ImageSource, ImageValue, ImageField } from "@/lib/contracts/image";
+import type { ImageValue } from "@/lib/contracts/image";
 
 export interface UnsplashPhoto {
   id: string;
