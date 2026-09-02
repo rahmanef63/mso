@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `mcp` add two-way local agent receive
 - `mcp` add read-only result pipeline
 - add RASMIC orchestration memory automation
 - `agent` section terminal and recover API errors

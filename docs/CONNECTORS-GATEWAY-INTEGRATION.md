@@ -4,9 +4,9 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.03.1 tools=70 read=34 write=24 exec=12 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.03.2 tools=70 read=34 write=24 exec=12 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.03.1**: **71 transport tools** total; **70 model/operator tools**
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.03.2**: **71 transport tools** total; **70 model/operator tools**
 (34 read, 24 write, 12 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
@@ -15,6 +15,8 @@ manifest and is the machine-readable parity source.
 Toolset `2026.09.02.7` tracks `local_agents_list`, `local_agent_message_send`, `local_agent_reply`, `local_agent_request_wait`, `local_agent_inbox`, `local_agent_request`, and `agent_subagent_run`. A gateway should preserve these literal names if it chooses to expose them. The six `local_agent_*`/`local_agents_list` tools address durable same-principal MSO sessions; `agent_subagent_run` is a foreground same-session worker and must not be modeled as a remote A2A registration or long-lived peer.
 
 Toolset `2026.09.02.8` introduced RASMIC's `project_memory_search`, `project_memory_upsert`, and `project_script_run`; toolset `2026.09.02.9` keeps those three names stable while extending `project_memory_search` with `search | related | timeline` views and the catalog-first runtime. A gateway may expose these literal names, but must preserve their MSO scopes and must not reinterpret repo-local `.agent` records as gateway-owned/global memory.
+
+Toolset `2026.09.03.2` keeps Local Agent names/scopes stable and extends only `local_agent_inbox` with optional `wait_ms` (0-20000). A positive wait is a bounded foreground receive operation on the existing MCP request; it is not a webhook, background subscriber, remote agent spawn, or new transport.
 
 ## Why this contract matters
 

@@ -4,13 +4,14 @@ Update this file at the end of every manual or automated test session. Keep it f
 
 ## Current status
 
-The current deployed baseline is **MSO CLI 1.12.0** with toolset `2026.09.03.1`; use `mso --version` plus `/api/health` for the exact Git build because documentation-only release commits also advance that identity. The v1.10/v1.11 findings and the v1.12 sectioned-terminal/recoverable-error work below are resolved and retained as historical test evidence. Do not re-open a resolved finding from prose alone: reproduce it against the current build first. There is no known 1.12 release blocker in this handoff.
+The current deployed baseline is **MSO CLI 1.12.0** with toolset `2026.09.03.2`; use `mso --version` plus `/api/health` for the exact Git build because documentation-only release commits also advance that identity. The v1.10/v1.11 findings and the v1.12 sectioned-terminal/recoverable-error work below are resolved and retained as historical test evidence. Do not re-open a resolved finding from prose alone: reproduce it against the current build first. There is no known 1.12 release blocker in this handoff.
 
 Current verified behavior:
 - every durable session has a unique short public `name` (`milo`, `luna`, `nara`, …) independent from its longer `title`; `/rename` changes the handle and `/title` changes the description;
 - human `@name` mention routing resolves active agents only; internal `agent-a` aliases remain compatibility data for explicit APIs;
 - composer drafts wrap dynamically to terminal width/height, repaint on resize, and ↑/↓ navigate visual rows before history;
 - `local_agents_list` exposes lease status separately from `consumerConnected` / `consumerCount`;
+- `local_agent_inbox(wait_ms=0..20000)` can make one foreground MCP request a real Local Agent receiver; it returns early on peer delivery, closes the read→subscribe race against the durable mailbox, and never starts a background listener;
 - `local_agent_request_wait` provides bounded foreground outcomes without resend/background polling;
 - `local_agent_request` has MCP-dispatch coverage and remains a fresh bounded worker, never a claim to wake/control another terminal/ChatGPT process;
 - standalone Local Agent MCP tests isolate the A2A worker import boundary instead of failing on Vitest's unresolved `server-only`;
@@ -24,7 +25,7 @@ Current verified behavior:
 ```text
 You are taking over MSO testing work in /home/rahman/projects/mso.
 
-Read docs/TESTING-HANDOFF.md first. Current verified baseline: CLI 1.12.0, toolset 2026.09.03.1; resolve the exact live Git build from `mso --version`/`/api/health`. Preserve existing work and do not re-open resolved v1.10-v1.12 findings unless you can reproduce them against the current build.
+Read docs/TESTING-HANDOFF.md first. Current verified baseline: CLI 1.12.0, toolset 2026.09.03.2; resolve the exact live Git build from `mso --version`/`/api/health`. Preserve existing work and do not re-open resolved v1.10-v1.12 findings unless you can reproduce them against the current build.
 
 For a new issue: record the exact reproduction, distinguish durable state from live receiver/process state, avoid duplicate write/exec retries when outcome is uncertain, add the smallest focused regression, run typecheck plus the relevant contract tests, then update this handoff with factual results.
 ```
@@ -60,6 +61,28 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 ```
 
 ## Session log
+
+### 2026-09-03 — ChatGPT-session Local Agent foreground two-way MVP
+
+**Goal**
+- Make two separate ChatGPT conversations connected to the same MSO MCP communicate directly in both directions while each destination is actively holding a bounded MCP receive call.
+- Reuse the existing file mailbox + in-process Local Agent subscriber; no DB, webhook, broker, WebSocket, daemon, or worker spawn.
+
+**Changed**
+- Added optional `wait_ms=0..20000` to read-scope `local_agent_inbox`; default zero preserves immediate reads.
+- Added race-safe foreground receive: read mailbox → subscribe → read again → wait for event/timeout → final read, always unsubscribe.
+- MCP dispatcher keeps `local_agent_inbox` presence receivable/`idle` while the call is open instead of marking it `busy`; normal tool calls are unchanged.
+- Advanced toolset schema identity to `2026.09.03.2`; upstream P3's new `read_pipeline` remains intact, so the catalog stays at 70 model/operator tools + app-only `workflow_status`.
+
+**Verified before full release gate**
+- Targeted typecheck + ESLint: PASS.
+- Targeted Local Agent/MCP bundle: **5 test files / 50 tests passed**.
+- New end-to-end MCP-dispatch test proves A→B request delivery and B→A correlated reply delivery while each destination is in `local_agent_inbox(wait_ms)`, with sender status `delivered` and receiver subscriber cleanup after return.
+- `node scripts/check-docs.mjs`: PASS after merging the concurrent P3 read-pipeline toolset.
+- Full release gate PASS with exit 0: `bun run verify` followed by `bash scripts/verify-build.sh`; lint remains **0 errors / 8 existing max-lines warnings**, dependency audit is clean, and the out-of-tree production build completes successfully.
+
+**Client test requirement**
+- ChatGPT uses a frozen MCP action snapshot. Refresh/re-scan MSO actions after deployment so `local_agent_inbox.wait_ms` is visible to the model; then use two new ChatGPT conversations for the live A↔B test.
 
 ### 2026-09-03 — repository docs + unused Agent surface audit
 

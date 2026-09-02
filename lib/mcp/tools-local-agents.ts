@@ -1,6 +1,6 @@
 import { listLocalAgents } from "@/lib/agent/local-agent-directory";
 import { listLocalAgentInbox, updateLocalAgentMessageState } from "@/lib/agent/local-agent-mailbox";
-import { replyLocalAgentMessage, sendLocalAgentMessage, waitForLocalAgentReply } from "@/lib/agent/local-agent-messaging";
+import { replyLocalAgentMessage, sendLocalAgentMessage, waitForLocalAgentInbox, waitForLocalAgentReply } from "@/lib/agent/local-agent-messaging";
 import { handoffOwnerLocalSession } from "@/lib/a2a/local-session";
 import { type McpRunContext, type McpTool, S, str } from "./tool-kit";
 
@@ -110,7 +110,7 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
   },
   {
     name: "local_agent_inbox",
-    description: "Read durable local-agent messages for this exact session. Each item carries explicit intent/correlation metadata. If intent=request, answer it with local_agent_reply(reply_to_message_id=<item.id>, ...); do not invent correlation by parsing text. By default only unread items are returned.",
+    description: "Read durable local-agent messages for this exact session. With wait_ms > 0, keep this foreground MCP call open for a bounded interval and return as soon as a peer message arrives; this uses the existing in-process receiver plus the durable mailbox, never a background loop. Each item carries explicit intent/correlation metadata. If intent=request, answer it with local_agent_reply(reply_to_message_id=<item.id>, ...); do not invent correlation by parsing text. By default only unread items are returned.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
     limit: { key: "local-agent.read", max: 120, windowMs: 60_000 },
@@ -118,10 +118,17 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
       include_read: { type: "boolean" },
       limit: { type: "number", description: "1-200, default 100." },
       acknowledge: { type: "boolean", description: "When true, mark returned messages read after retrieval." },
+      wait_ms: { type: "number", minimum: 0, maximum: 20000, description: "Optional foreground receive wait in milliseconds. Default 0 preserves immediate inbox reads; max 20000. Returns early when a peer message arrives." },
     }),
     run: async (a, context) => {
       const current = sessionContext(context);
-      const messages = await listLocalAgentInbox(current.principal, current.sessionId, { includeRead: a.include_read === true, limit: Number(a.limit) || 100 });
+      const messages = await waitForLocalAgentInbox({
+        principal: current.principal,
+        sessionId: current.sessionId,
+        includeRead: a.include_read === true,
+        limit: Number(a.limit) || 100,
+        waitMs: a.wait_ms === undefined ? 0 : Number(a.wait_ms),
+      });
       if (a.acknowledge === true && messages.length)
         await updateLocalAgentMessageState(current.principal, current.sessionId, messages.map((row) => row.id), "read");
       return messages;

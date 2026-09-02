@@ -102,7 +102,7 @@ Local Agents uses a small private lease store rather than rewriting the potentia
 
 Interactive CLI sessions maintain a lightweight lease heartbeat and one SSE receive stream. There is no message polling loop. **Presence and consumption are separate signals:** `idle` means the lease is current; it does not by itself prove that an SSE receiver is subscribed. Directory rows therefore also expose `consumerConnected` and `consumerCount`. `/new` and `/resume` release the old receiver and bind the same terminal to the new durable session automatically. `/restart` keeps the exact durable session alive across process replacement and the replacement process renews its lease.
 
-MCP conversation sessions have no persistent terminal socket, so MSO refreshes their lease around bound MCP tool calls. Messages remain durable when that client is not currently connected and can be read with `local_agent_inbox` on a later call.
+MCP conversation sessions have no persistent terminal socket, so MSO refreshes their lease around bound MCP tool calls. Toolset `2026.09.02.10` adds a KISS foreground receive path: `local_agent_inbox(wait_ms=...)` may keep one MCP call open for 0–20 seconds. A positive wait registers the same in-process Local Agent subscriber used by terminal delivery, keeps that session receivable/idle for the duration of the call, and returns early when another same-principal session sends a message. The implementation performs a second durable-mailbox read after subscribing so a message cannot be lost in the read→subscribe race. The subscriber is always removed on message, timeout, or error. When no MCP call is active, messages remain durable and are read on a later call; MSO still does not claim it can wake an idle ChatGPT conversation.
 
 Only `ready`, `idle`, and `busy` sessions appear in the normal lease-active target list. `@mention` is stricter: it resolves only those rows that also have `consumerConnected=true`. An explicit lower-level send to a known `offline`/`ended` target can still retain a durable queued message; the sender receives `target_offline` instead of a false delivered status.
 
@@ -158,7 +158,7 @@ Local messaging has explicit tools so it cannot be confused with public A2A peer
 | `local_agent_message_send` | write | Backward-compatible explicit send. Default `intent=notify`; can create a durable request and may explicitly queue to known offline targets. |
 | `local_agent_reply` | write | Reply to one exact request message ID; target, correlation ID, and relay policy are inherited. |
 | `local_agent_request_wait` | read | Bounded 0–30s foreground wait/status for one exact sent request; returns replied/offline/no-consumer/timeout without resend. |
-| `local_agent_inbox` | read | Read this exact durable session's mailbox with explicit intent/correlation metadata. |
+| `local_agent_inbox` | read | Read this exact durable session's mailbox with explicit intent/correlation metadata; optional `wait_ms=0..20000` makes the current foreground MCP call a bounded live receiver and returns early on peer delivery. |
 | `local_agent_request` | exec | Run a fresh bounded worker from another same-owner durable session context and return the result even when its terminal receiver is offline; never claims to wake/control that original process. |
 
 Remote A2A tools retain their existing names (`a2a_agent_*`, `a2a_message_send`, `a2a_handoff`, etc.) and behavior.

@@ -126,9 +126,9 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.03.1 tools=70 read=34 write=24 exec=12 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.03.2 tools=70 read=34 write=24 exec=12 -->
 
-Current transport catalog: **71 tools**, server `1.6.0` / toolset `2026.09.03.1`.
+Current transport catalog: **71 tools**, server `1.6.0` / toolset `2026.09.03.2`.
 The model/operator catalog is **69 tools** (33 read, 24 write, 12 exec); `workflow_status` is the
 one app-only MCP Apps bridge used by the progress widget and is documented separately.
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
@@ -143,7 +143,7 @@ RASMIC adds three stable generic MCP tools without coupling MSO to another repos
 
 ### Local Agent collaboration
 
-Local same-owner session collaboration is intentionally separate from public A2A. `local_agents_list` reports each durable session's short public `name`, lease status, and live receiver observability (`consumerConnected` / `consumerCount`). `local_agent_message_send` + `local_agent_reply` provide durable correlated mailbox semantics; `local_agent_request_wait` gives a bounded foreground request outcome without polling/resending; `local_agent_request` is an explicit exec-gated fresh worker from another durable session context and never claims to wake/control its original terminal/ChatGPT process. Human `@name` mentions resolve active public names only.
+Local same-owner session collaboration is intentionally separate from public A2A. `local_agents_list` reports each durable session's short public `name`, lease status, and live receiver observability (`consumerConnected` / `consumerCount`). `local_agent_message_send` + `local_agent_reply` provide durable correlated mailbox semantics. `local_agent_inbox(wait_ms=...)` can hold one foreground MCP call for at most 20 seconds and returns early when a peer message arrives; the implementation registers the same in-process receiver used by terminal Local Agents, closes the read/subscribe race with a second durable-mailbox read, and unsubscribes on return/timeout. The default `wait_ms=0` preserves immediate reads. `local_agent_request_wait` remains the bounded wait for one exact correlated outbound request, while `local_agent_request` remains an explicit exec-gated fresh worker from another durable session context and never claims to wake/control its original terminal/ChatGPT process. Human `@name` mentions resolve active public names only.
 
 ### Agent-to-Agent (A2A) peers
 

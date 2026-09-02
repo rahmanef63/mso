@@ -72,7 +72,12 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
   if (!workflowProbe) void recordMcpActivity({ id: activityId, actor, tool: name, state: "started", scope, ...initialFlow, target });
   try {
     if (mcpPresence)
-      await touchLocalAgentPresence(mcpPresence.principal, mcpPresence.sessionId, "busy", mcpPresence.instanceId).catch(() => undefined);
+      await touchLocalAgentPresence(
+        mcpPresence.principal,
+        mcpPresence.sessionId,
+        name === "local_agent_inbox" ? "idle" : "busy",
+        mcpPresence.instanceId,
+      ).catch(() => undefined);
     const titleHint = sessionDetail(name, args, target);
     if (titleHint && context?.principal && context.sessionId && !["agent_session_current", "workflow_status", "agent_subagent_run"].includes(name)) {
       await maybeAutoTitleAgentSession(context.principal, context.sessionId, titleHint).catch(() => undefined);

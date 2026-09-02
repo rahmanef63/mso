@@ -4,10 +4,11 @@ import { getAgentSession } from "./session-store";
 import { principalHash } from "./session-files";
 import { listLocalAgents, resolveLocalAgent } from "./local-agent-directory";
 import { enqueueLocalAgentMessage, findLocalAgentReply, getLocalAgentInboxMessage, getLocalAgentSentMessage, listLocalAgentInbox, updateLocalAgentMessageState } from "./local-agent-mailbox";
-import { publishLocalAgentMessage } from "./local-agent-events";
+import { publishLocalAgentMessage, subscribeLocalAgentMessages } from "./local-agent-events";
 import type { LocalAgentDeliveryStatus, LocalAgentMessageIntent, LocalAgentMessageKind, LocalAgentMessageView, LocalAgentTarget } from "./local-agent-types";
 
 export const MAX_LOCAL_AGENT_MESSAGE_BYTES = 16 * 1024;
+export const MAX_LOCAL_AGENT_INBOX_WAIT_MS = 20_000;
 
 function safePayload(value: string): string {
   const raw = String(value || "").trim();
@@ -139,6 +140,39 @@ export async function flushLocalAgentQueue(principal: string, targetSessionId: s
   return delivered;
 }
 
+
+export async function waitForLocalAgentInbox(input: {
+  principal: string;
+  sessionId: string;
+  includeRead?: boolean;
+  limit?: number;
+  waitMs?: number;
+}): Promise<LocalAgentMessageView[]> {
+  const limit = Math.max(1, Math.min(200, Math.trunc(input.limit ?? 100)));
+  const waitMs = Number.isFinite(input.waitMs)
+    ? Math.max(0, Math.min(MAX_LOCAL_AGENT_INBOX_WAIT_MS, Math.trunc(input.waitMs ?? 0)))
+    : 0;
+  const read = () => listLocalAgentInbox(input.principal, input.sessionId, { includeRead: input.includeRead === true, limit });
+  const initial = await read();
+  if (initial.length || waitMs === 0) return initial;
+
+  let wake = () => {};
+  const signalled = new Promise<void>((resolve) => { wake = resolve; });
+  const unsubscribe = subscribeLocalAgentMessages(input.sessionId, () => wake());
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    // Close the read→subscribe race: a sender may persist mail after the first
+    // read but before this receiver registers. The mailbox remains authoritative.
+    const afterSubscribe = await read();
+    if (afterSubscribe.length) return afterSubscribe;
+    const timedOut = new Promise<void>((resolve) => { timer = setTimeout(resolve, waitMs); });
+    await Promise.race([signalled, timedOut]);
+    return read();
+  } finally {
+    if (timer) clearTimeout(timer);
+    unsubscribe();
+  }
+}
 
 export async function waitForLocalAgentReply(input: {
   principal: string;

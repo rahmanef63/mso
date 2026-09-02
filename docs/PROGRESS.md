@@ -2,6 +2,14 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-03 — MCP Local Agent foreground two-way receive
+
+- **KISS two-way MCP path:** `local_agent_inbox` now accepts optional `wait_ms=0..20000`. A positive wait keeps only the current foreground MCP request open, registers the existing in-process Local Agent subscriber, and returns early when another same-principal session delivers a message. No DB, webhook, broker, WebSocket, daemon, or background worker was added.
+- **Race-safe durability:** the durable file mailbox remains authoritative. The receiver reads once, subscribes, reads again to close the read→subscribe race, then waits for either an event or timeout; the listener is always removed on return/error/timeout. Omitted/zero `wait_ms` preserves the previous immediate inbox behavior.
+- **Receivable MCP presence:** the MCP dispatcher keeps `local_agent_inbox` sessions `idle` rather than marking the receive call `busy`, allowing `local_agent_message_send` / `local_agent_reply` to publish directly to that foreground receiver. Other tool calls retain normal `busy → idle` presence.
+- **Real A↔B integration coverage:** a new MCP-dispatch integration test opens Chat-B-style inbox wait, sends a correlated request from Chat A, then opens Chat-A-style inbox wait and replies from Chat B. Both deliveries return `delivered`, both waits wake before timeout, and neither path invokes `local_agent_request` or any spawned durable-session worker.
+- **Toolset:** upstream P3 already added `read_pipeline`; this schema-only Local Agent update therefore advances the catalog to `2026.09.03.2` while keeping **71 transport tools = 70 model/operator tools (34 read / 24 write / 12 exec) + app-only `workflow_status`**. ChatGPT must refresh/re-scan its frozen action snapshot before the model can see the new optional parameter.
+
 ## 2026-09-03 — Cognitive Runtime P3 read-only orchestration
 
 - **Self-update invariant fixed:** RASMIC `.agent/` evidence/memory is runtime-local state and is now ignored by the MSO repo. This prevents successful workflow memory writes from making the canonical checkout dirty and causing `mso update` to refuse its own upgrade.

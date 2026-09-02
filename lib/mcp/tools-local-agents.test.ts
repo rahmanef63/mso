@@ -25,5 +25,9 @@ describe("native local session agent MCP tools", () => {
     expect(local.get("local_agent_reply")?.description).toMatch(/correlation/i);
     expect(local.get("local_agent_request_wait")?.description).toMatch(/bounded foreground/i);
     expect(local.get("local_agent_request")?.description).toMatch(/fresh bounded worker/i);
+    expect(local.get("local_agent_inbox")?.description).toMatch(/bounded interval/i);
+    const inboxSchema = JSON.stringify(local.get("local_agent_inbox")?.inputSchema ?? {});
+    expect(inboxSchema).toContain('"wait_ms"');
+    expect(inboxSchema).toContain('"maximum":20000');
   });
 });
