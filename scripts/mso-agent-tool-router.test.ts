@@ -23,6 +23,7 @@ const catalog = [
   tool("a2a_message_send", "Send a message to an A2A peer"), tool("a2a_handoff", "Delegate explicit objective to A2A peer"), tool("a2a_task_get", "Read A2A task status"),
   tool("tool_forge_candidates", "List Tool Forge candidates"), tool("tool_forge_propose", "Propose a Tool Forge candidate from a repeated recipe"),
   tool("tool_forge_evaluate", "Evaluate a Tool Forge candidate in the sandbox"), tool("tool_forge_promote", "Promote an evaluated Tool Forge candidate"),
+  tool("read_pipeline", "Batch multiple read-only tools and aggregate or filter results"),
 ];
 
 describe("MSO per-turn tool router", () => {
@@ -124,6 +125,16 @@ describe("MSO per-turn tool router", () => {
     const out = selectToolsForTurn(catalog, [{ role: "user", text: "I tested it and it still freezes after reconnect" }]);
     expect(out.selectedNames).toContain("project_memory_upsert");
     expect(out.selectedNames).toContain("project_memory_search");
+  });
+
+  it("keeps read_pipeline out of ordinary reads and selects it through the RASMIC catalog for batch aggregation", () => {
+    const ordinary = selectToolsForTurn(catalog, [{ role: "user", text: "read the README file" }]);
+    expect(ordinary.selectedNames).not.toContain("read_pipeline");
+    const batched = selectToolsForTurn(catalog, [{ role: "user", text: "batch multiple reads and aggregate the results before returning them" }]);
+    expect(batched.routeIds).toContain("read-pipeline");
+    expect(batched.selectedNames).toContain("read_pipeline");
+    expect(batched.catalogMatched).toBe(true);
+    expect(batched.fallbackUsed).toBe(false);
   });
 
 });

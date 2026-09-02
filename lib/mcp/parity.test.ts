@@ -83,6 +83,7 @@ const MCP_ONLY: Record<string, string> = {
   "tool.forge.propose": "same Forge boundary; creating an inert candidate depends on learned external workflow recipes rather than Alfa owner recall",
   "tool.forge.evaluate": "Forge evaluation may execute project-owned fixtures only inside the dedicated sandbox and therefore stays on the scoped external/terminal automation surface",
   "tool.forge.promote": "explicit Forge promotion mutates project capability metadata and remains an exec-scoped audited external/terminal action",
+  "read.pipeline": "external/terminal agents can batch already-authorized read tools and compact their data server-side; Alfa already owns an in-process tool loop and does not need a second orchestration surface",
 };
 
 describe("Alfa ↔ MCP capability parity", () => {
@@ -178,6 +179,7 @@ describe("MCP rate limits mirror the routes", () => {
       "tool.forge.propose": 20,
       "tool.forge.evaluate": 10,
       "tool.forge.promote": 6,
+      "read.pipeline": 30,
     };
     for (const t of TOOLS) {
       if (!t.limit) continue;

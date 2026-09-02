@@ -62,6 +62,10 @@ A successful tool call is not proof that the user-facing result works. New HIGH-
 └── evidence/
 ```
 
+The `.agent/` tree is **runtime-local orchestration state**, not source code. MSO's own repo ignores it so evidence/memory can survive locally without making the canonical checkout dirty or blocking `mso update`. Projects that adopt RASMIC should likewise keep `.agent/` out of normal source commits; portability/sync is an explicit memory/export concern, not an implicit Git side effect.
+
+
+
 Memory is compact structured JSON, not raw chat history. It distills what happened, what was learned, what failed, what worked, and what should be reused.
 
 Lifecycle: `active → confirmed → superseded → archived`.

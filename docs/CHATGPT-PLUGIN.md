@@ -12,10 +12,10 @@
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 > and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.9 tools=69 read=33 write=24 exec=12 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.03.1 tools=70 read=34 write=24 exec=12 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.9**: **70 transport tools** total; **69 model/operator tools**
-(33 read, 24 write, 12 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.03.1**: **71 transport tools** total; **70 model/operator tools**
+(34 read, 24 write, 12 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
 
 ### Local-agent and subagent tools
@@ -145,7 +145,7 @@ A token sees a scope prefix; there is no per-project or per-agent hidden tool fi
 `tools/list` filters the catalog and `tools/call` independently re-checks the required
 scope.
 
-### `read` — 33 model/operator tools
+### `read` — 34 model/operator tools
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -173,6 +173,7 @@ scope.
 - `project_capabilities`
 - `project_memory_search`
 - `projects_list`
+- `read_pipeline`
 - `screen_capture`
 - `skills_list`
 - `skills_read`
@@ -231,6 +232,12 @@ with the same care as a remote shell.
 
 
 
+### Read pipeline for lower latency and context
+
+Use `read_pipeline` when several independent reads can be batched or when a large read result should be filtered/projected/aggregated before ChatGPT sees it. The pipeline is **read scope only**: child calls reuse the original tool's host guards and rate limits, inherit the current session/workflow, and are forced to read scope even if the OAuth bearer is `exec`.
+
+The transform language is deliberately data-only: simple dotted paths, scalar comparisons, field projection, sorting, de-duplication, limiting, and numeric/count aggregates. There is no shell, JavaScript, arbitrary expression, nested pipeline, child `workflow_id`, or write/exec capability. A total 15-second response deadline and bounded intermediate/final results keep the orchestration predictable. P3's deterministic fixture measured 4 → 1 model round-trip and 99.2% lower model-visible bytes with exact answers.
+
 ### Tool Forge approval model
 
 `tool_forge_propose` creates only inert candidates from repeated verified workflow recipes. Skill candidates are guidance only; a project-function candidate must point to an existing project-owned Node script and must come from an exec-scope verified recipe. Generated shell/code, credential-like fixture data, and implicit scope escalation are rejected.
@@ -272,7 +279,7 @@ Settings → MCP:
 server:  1.6.0
 toolset: 2026.09.02.7
 hash:    <live schema hash>
-count:   69 model/operator tools (+ 1 app-only bridge)
+count:   70 model/operator tools (+ 1 app-only bridge)
 ```
 
 Use this sequence after an MSO MCP change:

@@ -4,7 +4,7 @@ Update this file at the end of every manual or automated test session. Keep it f
 
 ## Current status
 
-The current deployed baseline is **MSO CLI 1.12.0** with toolset `2026.09.02.7`; use `mso --version` plus `/api/health` for the exact Git build because documentation-only release commits also advance that identity. The v1.10/v1.11 findings and the v1.12 sectioned-terminal/recoverable-error work below are resolved and retained as historical test evidence. Do not re-open a resolved finding from prose alone: reproduce it against the current build first. There is no known 1.12 release blocker in this handoff.
+The current deployed baseline is **MSO CLI 1.12.0** with toolset `2026.09.03.1`; use `mso --version` plus `/api/health` for the exact Git build because documentation-only release commits also advance that identity. The v1.10/v1.11 findings and the v1.12 sectioned-terminal/recoverable-error work below are resolved and retained as historical test evidence. Do not re-open a resolved finding from prose alone: reproduce it against the current build first. There is no known 1.12 release blocker in this handoff.
 
 Current verified behavior:
 - every durable session has a unique short public `name` (`milo`, `luna`, `nara`, …) independent from its longer `title`; `/rename` changes the handle and `/title` changes the description;
@@ -14,6 +14,7 @@ Current verified behavior:
 - `local_agent_request_wait` provides bounded foreground outcomes without resend/background polling;
 - `local_agent_request` has MCP-dispatch coverage and remains a fresh bounded worker, never a claim to wake/control another terminal/ChatGPT process;
 - standalone Local Agent MCP tests isolate the A2A worker import boundary instead of failing on Vitest's unresolved `server-only`;
+- `read_pipeline` batches up to six eligible read-only MCP calls and applies bounded declarative transforms server-side; child calls retain their normal guards/rate limits, are forced to read scope, and cannot carry a foreign `workflow_id`;
 - exact write/exec approval defaults to one compact safe line; Enter opens redacted-safe details plus the unchanged canonical digest, and a separate explicit `allow` / `deny` decision is required.
 - the terminal separates `Assistant`, `Agent work`, `Local agent`, `Error`, and `Input · @name` with full-width dividers; the composer identity is `@name ›` and permission lives in the bottom footer as `mode ask|auto|yolo`;
 - recoverable HTTP/API failures preserve the interaction and correlation state, classify mutation outcome as `not_started`, `completed`, or `uncertain`, redact safe error summaries, and never auto-retry an uncertain write/exec mutation.
@@ -23,7 +24,7 @@ Current verified behavior:
 ```text
 You are taking over MSO testing work in /home/rahman/projects/mso.
 
-Read docs/TESTING-HANDOFF.md first. Current verified baseline: CLI 1.12.0, toolset 2026.09.02.7; resolve the exact live Git build from `mso --version`/`/api/health`. Preserve existing work and do not re-open resolved v1.10-v1.12 findings unless you can reproduce them against the current build.
+Read docs/TESTING-HANDOFF.md first. Current verified baseline: CLI 1.12.0, toolset 2026.09.03.1; resolve the exact live Git build from `mso --version`/`/api/health`. Preserve existing work and do not re-open resolved v1.10-v1.12 findings unless you can reproduce them against the current build.
 
 For a new issue: record the exact reproduction, distinguish durable state from live receiver/process state, avoid duplicate write/exec retries when outcome is uncertain, add the smallest focused regression, run typecheck plus the relevant contract tests, then update this handoff with factual results.
 ```
@@ -68,7 +69,7 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 
 **Changed**
 - Audited all 71 repository Markdown files; current references were synchronized while `PROGRESS`, generated changelog, dated audits/plans and older release evidence were preserved as historical records.
-- Corrected current MCP scope/count catalogs to 66 model/operator tools (32 read / 22 write / 12 exec) plus app-only `workflow_status`, and corrected current A2A docs to include authenticated outbound credentials, streaming and optional authenticated inbound serving.
+- At the 1.12 documentation-cleanup checkpoint, corrected MCP scope/count catalogs to 66 model/operator tools (32 read / 22 write / 12 exec) plus app-only `workflow_status`, and corrected current A2A docs to include authenticated outbound credentials, streaming and optional authenticated inbound serving.
 - Updated 1.12 terminal/provider/install/Local Agent/architecture/troubleshooting guidance and replaced the stale takeover prompt with a current-baseline prompt while retaining the resolved old prompt as historical acceptance evidence.
 - Strengthened `check-docs.mjs` so architecture/operator markers plus MCP, ChatGPT and connectors scope partitions must match source exactly.
 - Removed dead `coreToolNames()` and made implementation-only Agent helpers private instead of exporting unused internal API.

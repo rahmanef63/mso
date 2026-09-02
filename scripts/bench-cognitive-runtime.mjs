@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mock } from "bun:test";
 import { selectToolsForTurn } from "./mso-agent-tool-router.mjs";
 import { runMemoryRetrievalBenchmark } from "./bench-memory-retrieval.mjs";
+import { runReadPipelineBenchmark } from "./bench-read-pipeline.mjs";
 
 mock.module("server-only", () => ({}));
 const { TOOLS } = await import("../lib/mcp/tools.ts");
@@ -23,6 +24,7 @@ const scenarios = [
   { id: "memory-retrieval", prompt: "Search my persistent memory for a prior deployment rule and inspect conflicting or temporal claims.", required: ["agent_memory_search"] },
   { id: "resume", prompt: "List previous agent sessions and resume the deployment session.", required: ["agent_sessions_list", "agent_session_resume"] },
   { id: "skills", prompt: "Find the best trusted skill for a repository security review and read its instructions.", required: ["skills_search", "skills_read"] },
+  { id: "read-pipeline", prompt: "Batch several independent read-only checks, filter the large lists, and aggregate the results before returning them.", required: ["read_pipeline"] },
   { id: "tool-forge", prompt: "Turn this repeated verified workflow into a Tool Forge candidate, evaluate it in the sandbox, review the candidate, then explicitly promote it.", required: ["tool_forge_candidates", "tool_forge_propose", "tool_forge_evaluate", "tool_forge_promote"] },
   { id: "manual-regression-id", prompt: "Saya sudah tes manual dan setelah reconnect masih freeze; simpan hasil test gagal ini untuk debugging berikutnya.", required: ["project_memory_search", "project_memory_upsert"] },
   { id: "repo-change-id", prompt: "Tolong terapkan perubahan arsitektur ini di codebase dengan aman dan verifikasi semuanya.", required: ["workflow_start"] },
@@ -76,6 +78,7 @@ const catalogHitPct = scenarios.length ? (catalogHits / scenarios.length) * 100 
 const avgRoutingTextBytes = Math.round(routingTextBytes / scenarios.length);
 const avgHistoryBudgetTokens = Math.round(historyBudgetTokens / scenarios.length);
 const memoryBenchmark = runMemoryRetrievalBenchmark();
+const pipelineBenchmark = await runReadPipelineBenchmark();
 const result = {
   generatedAt: new Date().toISOString(),
   providerNeutral: true,
@@ -94,6 +97,7 @@ const result = {
     scenarios: rows,
     phaseAwareRepoChange: { activeTools: repoPhase.activeCount, selectedNames: repoPhase.selectedNames, missing: repoPhaseMissing },
     memory: memoryBenchmark,
+    readPipeline: pipelineBenchmark,
   },
   hermes: hermes ? {
     version: version("hermes"), toolCount: hermes.tools?.count ?? null,
@@ -122,6 +126,9 @@ result.gates = {
   memoryTemporal100: memoryBenchmark.temporal.accuracyPct === 100,
   memoryConflict100: memoryBenchmark.conflict.accuracyPct === 100,
   memoryDeterministic: memoryBenchmark.deterministic,
+  readPipelineCorrect: pipelineBenchmark.correctness,
+  readPipelineByteReduction80: pipelineBenchmark.savings.modelVisibleByteReductionPct >= 80,
+  readPipelineDeterministic: pipelineBenchmark.deterministic,
 };
 result.passed = Object.values(result.gates).every(Boolean);
 
@@ -133,6 +140,7 @@ else {
   console.log(`  routing             ${result.mso.routingRecallPct}% required-tool recall · ${result.mso.catalogHitPct}% catalog hit · deterministic=${deterministic}`);
   console.log(`  routing context     ${avgRoutingTextBytes.toLocaleString()} bytes avg · history budget ${avgHistoryBudgetTokens.toLocaleString()} tokens avg`);
   console.log(`  typed memory        ${memoryBenchmark.overallAccuracyPct}% retrieval/temporal/conflict · deterministic=${memoryBenchmark.deterministic}`);
+  console.log(`  read_pipeline       ${pipelineBenchmark.savings.roundTripReductionPct}% round-trip reduction · ${pipelineBenchmark.savings.modelVisibleByteReductionPct}% byte reduction · exact=${pipelineBenchmark.correctness}`);
   if (hermes?.tools) console.log(`  Hermes baseline     ${hermes.tools.count} tools · ${Number(hermes.tools.json_bytes).toLocaleString()} schema bytes`);
   else console.log("  Hermes baseline     unavailable");
   console.log(`  OpenClaw            ${result.openclaw.version || "unavailable"} · no comparable offline prompt-size probe`);

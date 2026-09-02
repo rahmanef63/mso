@@ -75,7 +75,7 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 
 | Scope | Tools |
 |---|---|
-| `read` | `a2a_agent_discover` `a2a_agents_list` `a2a_task_get` `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `apps_list` `apps_logs` `browser_status` `cloudflare_zones_list` `dokploy_projects_list` `exec_job_status` `fs_list` `fs_read` `fs_search` `fs_usage` `infra_provider_doctor` `infra_providers_list` `local_agent_inbox` `local_agent_request_wait` `local_agents_list` `project_capabilities` `project_memory_search` `projects_list` `screen_capture` `skills_list` `skills_read` `skills_search` `sys_processes` `sys_stats` `tool_forge_candidates` |
+| `read` | `a2a_agent_discover` `a2a_agents_list` `a2a_task_get` `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `apps_list` `apps_logs` `browser_status` `cloudflare_zones_list` `dokploy_projects_list` `exec_job_status` `fs_list` `fs_read` `fs_search` `fs_usage` `infra_provider_doctor` `infra_providers_list` `local_agent_inbox` `local_agent_request_wait` `local_agents_list` `project_capabilities` `project_memory_search` `projects_list` `read_pipeline` `screen_capture` `skills_list` `skills_read` `skills_search` `sys_processes` `sys_stats` `tool_forge_candidates` |
 | `write` | + `a2a_agent_register` `a2a_agent_remove` `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `apps_power` `cloudflare_dns_upsert` `dokploy_project_ensure` `fs_copy` `fs_delete` `fs_mkdir` `fs_move` `fs_upload_file` `fs_write` `hostinger_dns_upsert` `local_agent_message_send` `local_agent_reply` `project_memory_upsert` `project_script_run` `tool_forge_propose` `workflow_cancel` `workflow_finish` `workflow_start` |
 | `exec` | + `a2a_handoff` `a2a_message_send` `a2a_task_cancel` `agent_subagent_run` `browser_power` `exec_job_cancel` `exec_job_start` `exec_run` `local_agent_request` `project_function_call` `tool_forge_evaluate` `tool_forge_promote` |
 
@@ -126,9 +126,9 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.9 tools=69 read=33 write=24 exec=12 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.03.1 tools=70 read=34 write=24 exec=12 -->
 
-Current transport catalog: **70 tools**, server `1.6.0` / toolset `2026.09.02.9`.
+Current transport catalog: **71 tools**, server `1.6.0` / toolset `2026.09.03.1`.
 The model/operator catalog is **69 tools** (33 read, 24 write, 12 exec); `workflow_status` is the
 one app-only MCP Apps bridge used by the progress widget and is documented separately.
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
@@ -157,6 +157,14 @@ fails closed when an Agent Card requires credentials. A normal message transmits
 message/context/task arguments; a handoff never auto-attaches the caller's hidden transcript,
 memory or raw session/workflow ids. See [`A2A.md`](./A2A.md) for the transport and trust contract.
 
+
+### Programmatic read-only orchestration
+
+`read_pipeline` is P3's provider-neutral batching seam. One read-scope call can execute **1–6 eligible read-only MSO tools** in parallel or sequentially, then apply bounded declarative transforms (`path`, scalar filters, `select`, `sort`, `uniqueBy`, `limit`, and `count`/`sum`/`avg`/`min`/`max`) before returning data to the model. It accepts no JavaScript, shell, arbitrary expressions, nested pipeline, child `workflow_id`, screenshot/direct-file result, wait/poll primitive, or write/exec tool.
+
+Each child call still runs the original MSO tool handler and host/path guards, keeps that child's own rate-limit bucket, inherits the parent durable session/workflow, and is internally forced to `read` scope even when the parent bearer holds `exec`. Raw child results cap at 1 MiB, transformed output at 12 KiB per child and 40 KiB total, with a 15-second total response deadline. Parallel completion is reassembled in declaration order for deterministic caching and evaluation.
+
+On the deterministic P3 fixture, four independent raw reads become **one model tool round-trip** (75% fewer), while model-visible bytes fall from **232,205 to 1,891 (99.2%)** with exact deterministic answers. This is a context/latency optimization, not a new permission or sandbox boundary.
 
 ### Eval-gated Tool Forge
 

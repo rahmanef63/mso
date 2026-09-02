@@ -30,7 +30,8 @@
     "bench:memory": "bun scripts/bench-memory-retrieval.mjs",
     "bench:quality": "bun scripts/bench-task-quality.mjs",
     "bench:agents": "bun scripts/bench-agent-comparison.mjs",
-    "forge:sandbox": "bash scripts/provision-forge-sandbox.sh"
+    "forge:sandbox": "bash scripts/provision-forge-sandbox.sh",
+    "bench:pipeline": "bun scripts/bench-read-pipeline.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

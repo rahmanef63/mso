@@ -4,10 +4,10 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.9 tools=69 read=33 write=24 exec=12 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.03.1 tools=70 read=34 write=24 exec=12 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.9**: **70 transport tools** total; **69 model/operator tools**
-(33 read, 24 write, 12 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.03.1**: **71 transport tools** total; **70 model/operator tools**
+(34 read, 24 write, 12 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
 ## Local collaboration additions
@@ -39,9 +39,9 @@ Before changing an MCP tool name:
 
 ## Current MSO catalog
 
-### Read (33 model/operator)
+### Read (34 model/operator)
 
-`a2a_agent_discover`, `a2a_agents_list`, `a2a_task_get`, `agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`, `apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`, `exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`, `infra_providers_list`, `local_agent_inbox`, `local_agent_request_wait`, `local_agents_list`, `project_capabilities`, `project_memory_search`, `projects_list`, `screen_capture`, `skills_list`, `skills_read`, `skills_search`, `sys_processes`, `sys_stats`, `tool_forge_candidates`.
+`a2a_agent_discover`, `a2a_agents_list`, `a2a_task_get`, `agent_memory_read`, `agent_memory_search`, `agent_session_current`, `agent_session_resume`, `agent_sessions_list`, `apps_list`, `apps_logs`, `browser_status`, `cloudflare_zones_list`, `dokploy_projects_list`, `exec_job_status`, `fs_list`, `fs_read`, `fs_search`, `fs_usage`, `infra_provider_doctor`, `infra_providers_list`, `local_agent_inbox`, `local_agent_request_wait`, `local_agents_list`, `project_capabilities`, `project_memory_search`, `projects_list`, `read_pipeline`, `screen_capture`, `skills_list`, `skills_read`, `skills_search`, `sys_processes`, `sys_stats`, `tool_forge_candidates`.
 
 ### Write (24 beyond read)
 
@@ -72,6 +72,8 @@ that field can still call the tools, but those calls are standalone and will not
 MSO learned workflow. For multi-step orchestration, expose the workflow trio and propagate
 the exact id returned by `workflow_start`.
 
+
+`read_pipeline` is one stable global read action rather than a gateway-generated action per child call. Gateways should forward its declarative JSON contract unchanged: the server permits only eligible read-only tools, inherits the caller session/workflow, keeps each child's normal rate limit and host guard, and returns bounded transformed evidence. It must never be translated into arbitrary script execution or used as a proxy for write/exec actions.
 
 Tool Forge remains a stable global action family as well: gateways should expose the four generic `tool_forge_*` names, never synthesize one action per generated candidate. Candidate ids are data. Executable evaluation is server-side in the dedicated local Docker sandbox, and promotion remains exec-scope with exact confirmation.
 

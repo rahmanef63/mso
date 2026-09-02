@@ -349,8 +349,8 @@ the real runtime and working analogue before changing a tool or skill contract.
 - **Tool names are a cross-repo contract.** `rahmanef63/connectors-gateway` registered
   mso as a connector on 2026-08-17 and historically pinned a subset of the MCP names as
   literal `x-upstream` strings.
-  <!-- mcp-toolset: server=1.6.0 version=2026.09.02.9 tools=69 read=33 write=24 exec=12 -->
-  MSO currently exposes **70 transport tools**: **69 model/operator tools** (33 read, 24 write,
+  <!-- mcp-toolset: server=1.6.0 version=2026.09.03.1 tools=70 read=34 write=24 exec=12 -->
+  MSO currently exposes **71 transport tools**: **70 model/operator tools** (34 read, 24 write,
   12 exec) plus the app-only `workflow_status` bridge; `GET /mcp` plus `_meta.toolset` expose
   the current version/hash/name manifest.
   Treat the gateway mapping as a separate cross-repo contract and verify it before renaming. Renaming or removing

@@ -131,7 +131,7 @@ probe. Overall product superiority also cannot be inferred from a prompt-size re
 must add equivalent task-success, tool-error, token-per-success, latency-per-success, and policy-compliance
 scenarios before making that claim.
 
-## Current P2 + A2A baseline
+## Historical P2 + A2A baseline
 
 On the development host after P2 + outbound A2A integration:
 
@@ -153,20 +153,40 @@ A non-interactive full MSO tool loop is now available as `mso agent --oneshot <p
 
 These numbers are reproducible harness baselines, not an overall quality leaderboard. Cross-agent ranking is permitted only when at least two runners complete the same task with matching model-family evidence; one-task latency order is explicitly not an overall-agent claim.
 
-## P2 status and next direction
+## Current P3 + RASMIC baseline
 
-P1 supplies typed/provenance-aware temporal memory, deterministic retrieval evaluation, workflow/tool quality telemetry, the non-interactive MSO Agent runner, and a fail-closed cross-agent scratch harness. P2 adds the first self-improvement primitive without granting opaque autonomy: an **eval-gated Tool Forge**.
+P3 runs on the catalog-first RASMIC router rather than the older lexical active-tool selector. The merged deterministic harness now reports:
 
-Forge only creates inert candidates from repeated high-quality recipes. Skill candidates are deterministic redacted guidance; executable project-function candidates require an exec-scope verified recipe and may reference only existing project-owned Node code. Fixtures run in the dedicated cached Docker sandbox with no network and a read-only project mount. Evaluation records current toolset, candidate/target state, source SHA-256 and exact sandbox image evidence; promotion requires literal confirmation and immediately repeats the checks. A candidate cannot silently raise scope, overwrite an existing capability, or turn generated text into host-executable code.
+| Metric | MSO P3 + RASMIC | Hermes local baseline |
+|---|---:|---:|
+| Full MSO transport catalog | 71 tools | — |
+| Full MSO schema bytes | 55,560 | — |
+| Average MSO active tools / turn | 2.6 | — |
+| Average active schema bytes / turn | 2,261 | 44,758 tool-schema bytes |
+| MSO schema reduction vs full catalog | 95.9% | — |
+| Required-tool routing recall / catalog hit | 100% / 100% | not the same benchmark |
+| Average routing text / requested history budget | 77 bytes / 10,545 tokens | — |
+| Typed-memory fixture accuracy | 100% | not implemented in this harness |
+| P3 read fixture model round-trips | 1 vs 4 raw calls (75% lower) | not implemented in this harness |
+| P3 read fixture model-visible bytes | 1,891 vs 232,205 raw bytes (99.2% lower) | not implemented in this harness |
+| P3 read fixture correctness / determinism | exact / yes | not the same benchmark |
 
-Outbound A2A v1 remains orthogonal: it adds remote-agent delegation, while Forge turns repeated **local verified procedures** into reviewed project capabilities. The combined routing benchmark covers these surfaces with 100% required-tool recall while selecting only 2.7 of 70 tools on average; it also requires the catalog-first routing and history-budget gates above.
+The Hermes comparison above is **tool-schema footprint only**. It does not establish overall product superiority, and OpenClaw still exposes no directly equivalent offline prompt-size probe in this harness. Overall ranking remains blocked until the same model/provider completes the same task-quality corpus on each agent.
 
-The next phase should continue from measured primitives:
+## P3 status and next direction
 
-1. **Benchmark corpus expansion** — keep adding read/write/recovery/security task classes and configure Hermes/OpenClaw with an actually equivalent model/provider path before any overall comparison.
-2. **Real token-per-success telemetry** — use provider-reported usage plus the non-prompt routing telemetry; missing provider usage remains unknown, never zero.
-3. **Memory calibration** — grow post-P1 quality telemetry and validate deterministic relation/conflict policy against real corrections.
-4. **Optional external memory transport** — keep repo-local `.agent/` canonical; any sync service consumes/produces the portable bundle and never becomes a runtime dependency.
+P1 supplies typed/provenance-aware temporal memory and workflow quality telemetry. P2 adds the eval-gated Tool Forge. RASMIC makes intent routing catalog-first and risk/evidence aware. P3 adds `read_pipeline`: one read-scope MCP primitive that executes up to six independent eligible read calls server-side and reduces raw results through an intentionally non-programmable transform language.
+
+Child reads retain their original MSO host/path guards and rate-limit buckets, inherit the parent session/workflow, are internally forced to read scope, and cannot inject a child workflow id. Nested pipelines, screenshots/direct-file results, wait/poll tools, prototype traversal, arbitrary code and every write/exec tool are rejected. Raw results, transformed results and total wall time are bounded. Parallel results are emitted in declaration order.
+
+The first P3 fixture proves the intended economics without weakening correctness: four independent model read calls become one model round-trip, while 232,205 raw model-visible bytes become 1,891 bytes after filtering/aggregation. Combined with RASMIC, the current router selects only 2.6 of 71 transport tools on average while keeping 100% required-tool recall in the deterministic corpus.
+
+The next phase should continue from measured primitives rather than add broad autonomy:
+
+1. **Comparable task-quality corpus** — add read/write/recovery/security scenarios and configure Hermes/OpenClaw with an equivalent model/provider path before any overall ranking.
+2. **Real token/cost-per-success telemetry** — use provider-reported usage plus non-prompt routing/pipeline telemetry; missing usage remains unknown, never zero.
+3. **Memory calibration** — grow post-P1 quality telemetry and validate confidence/authority/temporal policies against real user corrections.
+4. **Pipeline composition only if earned by evals** — references/fan-out between child reads should not be added until a real corpus proves material gain over the intentionally simple independent-call contract.
 
 ## Security notes
 
@@ -175,6 +195,7 @@ The next phase should continue from measured primitives:
 - A discovered Skill or recipe cannot grant a tool the caller's token does not already permit.
 - Untrusted Skills keep their instructions withheld until promoted through the existing trust process.
 - Tool Forge candidates are inert. Executable fixtures require the labelled local Docker sandbox; evaluation never auto-pulls an image or executes generated shell/code.
+- `read_pipeline` is an efficiency surface, not authority: only eligible read-only tools may run, child scope is forced to read, child rate limits/host guards stay active, and arbitrary program execution is impossible by contract.
 - `exec_run` remains full service-user shell power at `exec` scope; cognitive routing is not a sandbox.
 - Never expose raw ChatGPT conversation ids, tokens, credentials, hidden chain-of-thought, or unrestricted
   tool output in memory/recipes/archives.

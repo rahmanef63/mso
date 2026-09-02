@@ -1,4 +1,4 @@
-import { audit, rateLimited } from "@/lib/host";
+import { audit } from "@/lib/host";
 import { maybeAutoTitleAgentSession } from "@/lib/agent/session-store";
 import { touchLocalAgentPresence } from "@/lib/agent/local-agent-presence";
 import { activeWorkflowForActor, recordWorkflowStep } from "@/lib/skills/memory";
@@ -8,6 +8,7 @@ import { TOOLS_BY_NAME } from "./tools";
 import { rpcFail, rpcOk, type McpAgentContext, type RpcRequest } from "./dispatch-types";
 import { recipeActor, workflowActor } from "./dispatch-actors";
 import { flowFields, recordAgentEvent, sessionDetail, structuredResult, workflowFromResult } from "./dispatch-tool-support";
+import { toolRateLimited } from "./tool-rate-limit";
 
 export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: string, context?: McpAgentContext) {
   const id = req.id ?? null;
@@ -55,18 +56,15 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
     return rpcOk(id, { content: [{ type: "text", text: `error: ${message}. Use this conversation's exact workflow_id.` }], isError: true });
   }
 
-  if (tool.limit) {
-    const suffix = tool.limit.keyArg ? String(args[tool.limit.keyArg] ?? "") : (actor ?? "mcp");
-    if (rateLimited(`${tool.limit.key}:${suffix}`, tool.limit.max, tool.limit.windowMs)) {
-      void audit({ action: "mcp.denied", actor, target: name, ok: false, detail: "rate limited" });
-      const activityId = newActivityId();
-      if (!workflowProbe) {
-        void recordMcpActivity({ id: activityId, actor, tool: name, state: "rate_limited", scope, ...initialFlow, target, detail: "rate limited" });
-        await recordWorkflowStep(flowActor, activeWorkflow?.id, { id: activityId, tool: name, state: "rate_limited", target, args, ts: new Date().toISOString() });
-        await recordAgentEvent(context, name, "rate_limited", args, activeWorkflow?.id, target);
-      }
-      return rpcOk(id, { content: [{ type: "text", text: `error: ${name} is rate limited.` }], isError: true });
+  if (toolRateLimited(tool, args, actor)) {
+    void audit({ action: "mcp.denied", actor, target: name, ok: false, detail: "rate limited" });
+    const activityId = newActivityId();
+    if (!workflowProbe) {
+      void recordMcpActivity({ id: activityId, actor, tool: name, state: "rate_limited", scope, ...initialFlow, target, detail: "rate limited" });
+      await recordWorkflowStep(flowActor, activeWorkflow?.id, { id: activityId, tool: name, state: "rate_limited", target, args, ts: new Date().toISOString() });
+      await recordAgentEvent(context, name, "rate_limited", args, activeWorkflow?.id, target);
     }
+    return rpcOk(id, { content: [{ type: "text", text: `error: ${name} is rate limited.` }], isError: true });
   }
 
   const trail = tool.audit, auditTarget = trail?.targetArg != null ? String(args[trail.targetArg] ?? "") : undefined;

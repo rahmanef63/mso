@@ -14,22 +14,33 @@ const server = /MCP_SERVER_VERSION\s*=\s*"([^"]+)"/.exec(toolset)?.[1];
 const version = /MCP_TOOLSET_VERSION\s*=\s*"([^"]+)"/.exec(toolset)?.[1];
 if (!server || !version) fail.push("could not parse MCP version constants");
 
-const toolFiles = [
-  "lib/mcp/tools.ts",
-  "lib/mcp/tools-read.ts",
-  "lib/mcp/tools-discovery.ts",
-  "lib/mcp/tools-learning.ts",
-  "lib/mcp/tools-workflow-start.ts",
-  "lib/mcp/tools-workflow-lifecycle.ts",
-  "lib/mcp/tools-project-memory.ts",
-  "lib/mcp/tools-infra.ts",
-  "lib/mcp/tools-power.ts",
-  "lib/mcp/tools-agent.ts",
-  "lib/mcp/tools-a2a.ts",
-  "lib/mcp/tools-local-agents.ts",
-  "lib/mcp/tools-subagents.ts",
-  "lib/mcp/tools-forge.ts",
-];
+// Tool catalog modules may be split recursively (for example RASMIC workflow
+// modules). Start at tools.ts and follow every local tools-* import transitively.
+// Any top-level tools-*.ts module that is not reachable is dead/unregistered code
+// and fails CI instead of silently escaping the documentation contract.
+const toolModuleName = /^tools-[A-Za-z0-9-]+\.ts$/;
+const discoveredToolModules = readdirSync(join(ROOT, "lib/mcp"))
+  .filter((name) => toolModuleName.test(name))
+  .sort();
+const reachable = new Set();
+const pending = ["tools.ts"];
+while (pending.length) {
+  const name = pending.pop();
+  if (!name || reachable.has(name)) continue;
+  reachable.add(name);
+  const text = read(`lib/mcp/${name}`);
+  for (const match of text.matchAll(/from\s+["']\.\/(tools-[A-Za-z0-9-]+)["']/g)) {
+    const child = `${match[1]}.ts`;
+    if (!reachable.has(child)) pending.push(child);
+  }
+}
+for (const name of discoveredToolModules) {
+  if (!reachable.has(name)) fail.push(`lib/mcp/${name}: tool module exists but is not reachable from lib/mcp/tools.ts`);
+}
+for (const name of reachable) {
+  if (name !== "tools.ts" && !discoveredToolModules.includes(name)) fail.push(`lib/mcp/${name}: imported tool module is missing`);
+}
+const toolFiles = [...reachable].sort().map((name) => `lib/mcp/${name}`);
 const tools = new Map();
 for (const file of toolFiles) {
   const text = read(file);
