@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyNewSessionState } from "./mso-agent-session-ui.mjs";
+import { applyNewSessionState, restartSessionArg } from "./mso-agent-session-ui.mjs";
 
 describe("MSO Agent /new session transition", () => {
   it("switches to a new durable id and clears conversation-local state", () => {
@@ -37,4 +37,10 @@ describe("MSO Agent /new session transition", () => {
     );
     expect(session.titleOverride).toBe("baco-2");
   });
+  it("parses only the restart-only exact session argument", () => {
+    expect(restartSessionArg(["--restart-session", "sess_exact_1"])).toBe("sess_exact_1");
+    expect(restartSessionArg(["--resume", "sess_other"])).toBeNull();
+    expect(() => restartSessionArg(["--restart-session"])).toThrow(/exact durable session id/);
+  });
+
 });

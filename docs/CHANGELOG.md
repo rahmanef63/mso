@@ -16,6 +16,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `agent` make restart process-safe
 - `a2a` harden remote v1 delegation
 
 ## 2026-09-01

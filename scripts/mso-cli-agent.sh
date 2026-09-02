@@ -432,7 +432,7 @@ run_agent() {
     cfg=$(jget "/api/config")
     printf '%s' "$cfg" | ai_config_ready || die "active model is not usable; run: mso models list && mso model"
   fi
-  MSO_AGENT_BASE="$B" MSO_AGENT_ORIGIN="$B" MSO_AGENT_JAR="$JAR" \
+  exec env MSO_AGENT_BASE="$B" MSO_AGENT_ORIGIN="$B" MSO_AGENT_JAR="$JAR" \
     MSO_AGENT_CLI="$ROOT/bin/mso" MSO_AGENT_VERSION="$VERSION" \
     node "$ROOT/scripts/mso-agent.mjs" "$@"
 }

@@ -68,7 +68,9 @@ describe("MSO terminal agent contract", () => {
     expect(src).toContain("syncPromptHistory");
     expect(src).toContain("startNewSession");
     expect(src).toContain("relaunchAgentSession");
-    expect(src).toContain('["agent", "--resume", id]');
+    expect(src).toContain('[command, "agent", "--restart-session", id]');
+    expect(src).toContain("execve(command");
+    expect(src).toContain("restartSessionArg");
     expect(src).toContain("permissionCompletionItems");
     expect(src).toContain("approvesTool");
     expect(src).toContain("--yolo");

@@ -2,6 +2,12 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-02 — MSO 1.8.2 constant-depth Agent restart
+
+- **Restart lifecycle fix:** `/restart` now uses process replacement (`execve`) instead of `spawnSync`. Repeated refreshes no longer leave prior Agent processes blocked behind their children.
+- **Wrapper boundary:** interactive `mso agent` now `exec`s its Node runtime, so the CLI wrapper itself does not remain as an extra waiting parent. A restart replaces the same process chain with the latest `bin/mso` and Agent modules while loading the exact same durable session id through a restart-only path; normal `/resume` continuation semantics remain unchanged.
+- **Fail closed:** runtimes without process replacement support refuse `/restart` rather than silently falling back to a nesting child process. Node 22 on the supported MSO runtime provides `process.execve`.
+
 ## 2026-09-02 — MSO 1.8.1 Agent soft restart + new session
 
 - **`/restart`:** soft-reloads the interactive Agent process, not the MSO service/VPS. The current durable session is persisted, the composer closes cleanly, then the current CLI is relaunched with `--resume <same-session-id>`, so updated CLI modules plus the latest dynamic tool/skill/plugin catalog are loaded without abandoning conversation history.

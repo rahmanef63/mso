@@ -1,4 +1,4 @@
-import { C, createCliSession, listCliSessions, renameCliSession, resumeCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
+import { C, createCliSession, listCliSessions, loadCliSession, renameCliSession, resumeCliSession, saveCliSession } from "./mso-agent-runtime.mjs";
 import { sessionCompletionItems, sessionPromptHistory, visibleSessionRows } from "./mso-agent-sessions.mjs";
 
 function autoTitle(history) {
@@ -93,6 +93,15 @@ export function resumeArg(argv) {
   return value;
 }
 
-export async function startupSession(requested) {
+export function restartSessionArg(argv) {
+  const index = argv.indexOf("--restart-session");
+  if (index < 0) return null;
+  const value = argv[index + 1];
+  if (!value || value.startsWith("-")) throw new Error("--restart-session requires an exact durable session id");
+  return value;
+}
+
+export async function startupSession(requested, restartSessionId = null) {
+  if (restartSessionId) return loadCliSession(restartSessionId);
   return requested ? resumeCliSession(requested) : createCliSession();
 }

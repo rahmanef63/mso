@@ -10,27 +10,25 @@ afterEach(() => {
 describe("MSO Agent soft restart", () => {
   it("relaunches the same durable session in the same inherited terminal", () => {
     const calls: unknown[][] = [];
-    const runner = (...args: unknown[]) => {
+    const execve = (...args: unknown[]) => {
       calls.push(args);
-      return { status: 0 };
+      throw new Error("execve sentinel");
     };
-    const status = relaunchAgentSession(
+    expect(() => relaunchAgentSession(
       {
         cli: "/opt/mso/bin/mso",
         sessionId: "sess_same_123",
         permission: "auto",
         statusBar: false,
       },
-      runner as never,
-    );
-    expect(status).toBe(0);
+      execve as never,
+    )).toThrow(/execve sentinel/);
     expect(calls).toHaveLength(1);
-    const [command, args, options] = calls[0] as [string, string[], { stdio: string; env: NodeJS.ProcessEnv }];
+    const [command, args, env] = calls[0] as [string, string[], NodeJS.ProcessEnv];
     expect(command).toBe("/opt/mso/bin/mso");
-    expect(args).toEqual(["agent", "--resume", "sess_same_123"]);
-    expect(options.stdio).toBe("inherit");
-    expect(options.env.MSO_AGENT_RESTART_PERMISSION).toBe("auto");
-    expect(options.env.MSO_AGENT_RESTART_STATUSBAR).toBe("off");
+    expect(args).toEqual(["/opt/mso/bin/mso", "agent", "--restart-session", "sess_same_123"]);
+    expect(env.MSO_AGENT_RESTART_PERMISSION).toBe("auto");
+    expect(env.MSO_AGENT_RESTART_STATUSBAR).toBe("off");
   });
 
   it("consumes restart-only UI state so it does not leak into later child processes", () => {
@@ -43,7 +41,13 @@ describe("MSO Agent soft restart", () => {
 
   it("fails closed when no durable session id exists", () => {
     expect(() =>
-      relaunchAgentSession({ cli: "mso", sessionId: "" }, (() => ({ status: 0 })) as never),
+      relaunchAgentSession({ cli: "mso", sessionId: "" }, (() => undefined) as never),
     ).toThrow(/durable session id/);
+  });
+
+  it("fails closed rather than falling back to a nesting child process", () => {
+    expect(() =>
+      relaunchAgentSession({ cli: "mso", sessionId: "sess_1" }, null as never),
+    ).toThrow(/cannot replace the Agent process safely/);
   });
 });

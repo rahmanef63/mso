@@ -6,7 +6,7 @@ import { AgentComposer } from "./mso-agent-composer.mjs";
 import { AgentInterruptManager, isAbortError } from "./mso-agent-interrupt.mjs";
 import { slashCompletionItems } from "./mso-agent-slash.mjs";
 import { addUsage, renderStatusBar } from "./mso-agent-status.mjs";
-import { persistSession, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
+import { persistSession, restartSessionArg, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
 import { C, api, printBanner, state, streamTurn } from "./mso-agent-runtime.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
 import { approvesTool, nextPermissionMode, permissionMode, permissionPrompt } from "./mso-agent-permissions.mjs";
@@ -147,14 +147,15 @@ async function main() {
     console.error("mso agent needs an interactive terminal. For autonomous one-shot use: mso agent --oneshot \"<prompt>\" [--json]");
     process.exit(2);
   }
-  const requested = resumeArg(argv);
+  const restartSessionId = restartSessionArg(argv);
+  const requested = restartSessionId ? null : resumeArg(argv);
   const restartUi = consumeRestartUiState();
   const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg))
     ? "yolo"
     : (permissionMode(restartUi.permission)?.id || "ask");
   const [s, agentSession] = await Promise.all([
     state(),
-    startupSession(requested),
+    startupSession(requested, restartSessionId),
   ]);
   if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
   printBanner(s, agentSession);
@@ -165,7 +166,7 @@ async function main() {
     pendingSkill: null,
     activeSkill: null,
     lastInvokedSkill: null,
-    titleOverride: requested ? (agentSession.title || null) : null,
+    titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
     usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     lastElapsedMs: 0,
     statusBar: restartUi.statusBar ?? true,
@@ -227,8 +228,7 @@ async function main() {
   }
   if (restartRequested) {
     console.log(`${C.dim}↻ refreshing Agent runtime · keeping ${session.agentSession.title || "current session"}${C.reset}`);
-    const code = relaunchCurrentAgentSession(session);
-    if (code !== 0) process.exitCode = code;
+    relaunchCurrentAgentSession(session);
   }
 }
 

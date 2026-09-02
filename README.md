@@ -215,9 +215,10 @@ selects, and **Esc** cancels. No provider/model number has to be memorized. `/se
 as the primary label, and compact `modified …` metadata. Durable session IDs stay hidden in the normal
 picker UI but remain accepted by scriptable `--resume`/`/resume` queries. `/new [name]` persists the
 current session and switches the same terminal to a fresh durable session. `/restart` is a soft Agent
-runtime reload: it persists the current session, closes the composer, then relaunches the current CLI
-against that same session id. It does **not** restart the MSO service or VPS; it exists so updated CLI
-code plus the latest dynamic skill/tool/plugin catalog are picked up without abandoning the conversation.
+process replacement: it persists the current session, closes the composer, then reloads the latest CLI
+and Agent modules against that exact same durable session id. Repeated restarts keep a constant process
+depth. It does **not** restart the MSO service or VPS; updated code plus the latest dynamic
+skill/tool/plugin catalog are picked up without abandoning the conversation.
 In the Agent slash palette, executable skills carry lifecycle markers so their state is visible before and after use:
 `◇ ready` → `◆ queued` (selected for the next message) → `✓ invoked` (actually sent with a model turn).
 The compact status line mirrors queued/invoked skill state and the current permission mode. MSO defaults

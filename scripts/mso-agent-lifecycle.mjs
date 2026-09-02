@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { CLI } from "./mso-agent-runtime.mjs";
 
@@ -18,10 +17,12 @@ export function consumeRestartUiState() {
 
 export function relaunchAgentSession(
   { cli, sessionId, permission = "ask", statusBar = true },
-  runner = spawnSync,
+  execve = process.execve,
 ) {
   const id = String(sessionId || "").trim();
   if (!id) throw new Error("cannot restart MSO Agent without a durable session id");
+  if (typeof execve !== "function") throw new Error("this Node runtime cannot replace the Agent process safely");
+  const command = String(cli || "mso");
   const env = {
     ...process.env,
     [RESTART_PERMISSION_ENV]: ["ask", "auto", "yolo"].includes(permission)
@@ -29,12 +30,11 @@ export function relaunchAgentSession(
       : "ask",
     [RESTART_STATUSBAR_ENV]: statusBar === false ? "off" : "on",
   };
-  const result = runner(String(cli || "mso"), ["agent", "--resume", id], {
-    stdio: "inherit",
-    env,
-  });
-  if (result?.error) throw result.error;
-  return Number.isInteger(result?.status) ? result.status : 1;
+  // execve replaces the current process image instead of spawning a child. Combined
+  // with the CLI wrapper's `exec node`, repeated /restart keeps a constant process
+  // depth and reloads both the current wrapper and Agent modules from disk.
+  execve(command, [command, "agent", "--restart-session", id], env);
+  throw new Error("MSO Agent process replacement unexpectedly returned");
 }
 
 export function relaunchCurrentAgentSession(session) {
