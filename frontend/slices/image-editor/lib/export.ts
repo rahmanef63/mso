@@ -1,5 +1,5 @@
 import type Konva from "konva";
-import { saveAs } from "@/features/os-shell";
+import { saveAs } from "@/features/appshell";
 
 export type ExportFormat = "png" | "jpeg" | "webp";
 

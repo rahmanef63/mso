@@ -5,13 +5,10 @@ import { PanelRightClose, Sparkles, SlidersHorizontal } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  useFocusedApp,
-  useInspectorOpen,
-  setInspectorOpen,
-  useInspectorInfo,
-  useApp,
-} from "@/features/appshell";
+import { useFocusedApp, useInspectorOpen } from "../../../hooks/use-shell";
+import { setInspectorOpen } from "../../../lib/store";
+import { useInspectorInfo } from "../../../lib/inspector";
+import { useApp } from "../../../lib/registry";
 import { AlfaThread } from "../../../components/alfa-thread";
 
 type Tab = "props" | "ai";

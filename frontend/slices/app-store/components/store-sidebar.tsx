@@ -2,7 +2,7 @@
 
 import { Compass, LayoutGrid, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { TouchList } from "@/features/os-shell";
+import { TouchList } from "@/features/appshell";
 import { cn } from "@/lib/utils";
 import { glyphIcon } from "../lib/glyph";
 import { CATEGORIES, type StoreCategory } from "../lib/store-catalog";

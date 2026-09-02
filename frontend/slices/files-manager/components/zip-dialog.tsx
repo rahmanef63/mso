@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 
 // Dep / build / VCS dirs that bloat an archive but are regenerable — offered as
 // excludes and checked (skipped) by default. Excluding one the folder doesn't

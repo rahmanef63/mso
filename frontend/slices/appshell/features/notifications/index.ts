@@ -1,4 +1,4 @@
-import { defineFeature } from "@/features/appshell";
+import { defineFeature } from "../../registry/types";
 import { ToastHost } from "./components/toast-host";
 import { DynamicIsland } from "./components/dynamic-island";
 

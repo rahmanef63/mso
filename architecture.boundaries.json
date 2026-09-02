@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "ratchets": {
-    "structuralCycles": 46,
-    "crossDomainCycles": 21,
+    "structuralCycles": 0,
+    "crossDomainCycles": 0,
     "filesOver220": 55,
     "filesOver500": 2,
     "serverFrontendImports": 6,
-    "appshellSelfBarrelImports": 23,
+    "appshellSelfBarrelImports": 0,
     "nonMcpMcpImports": 0,
     "crossProtocolCycles": 0
   },

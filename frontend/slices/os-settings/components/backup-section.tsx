@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { AlertTriangle, Download, DatabaseBackup, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { collectLocalState, FormDrawer, localStateFilename, parseLocalState, restoreLocalState, saveAs, type LocalStateBlob } from "@/features/os-shell";
+import { collectLocalState, FormDrawer, localStateFilename, parseLocalState, restoreLocalState, saveAs, type LocalStateBlob } from "@/features/appshell";
 import { SettingsSection, SettingsActionRow, SettingsBlock } from "@/features/shell-settings";
 import pkg from "../../../../package.json";
 

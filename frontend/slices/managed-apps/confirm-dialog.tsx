@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 
 // One confirm for update / restore / uninstall, so the three destructive flows
 // read identically and none of them can ship a bare `window.confirm`. Dialog on

@@ -1,4 +1,4 @@
-import type { OsApi } from "../lib/host";
+import type { AppDescriptor, OsApi } from "../lib/host";
 import type { ToolGroup } from "../lib/types";
 
 // A JSON Schema object (Anthropic tool `input_schema` shape) — flat primitive/
@@ -18,6 +18,8 @@ export type HostEffect = "read" | "mutate";
 // One AI-callable host operation. `run` receives the live OsApi port + the
 // model's args and returns a short, serialisable result the model sees as the
 // tool_result. Throw on bad input; the binding catches it into a failed outcome.
+export type HostToolRuntime = { apps: AppDescriptor[] };
+
 export type HostTool = {
   /** Dotted name, e.g. "fs.write". Unique across the catalog. */
   name: string;
@@ -28,5 +30,5 @@ export type HostTool = {
   description: string;
   parameters: JsonSchema;
   effect: HostEffect;
-  run: (api: OsApi, args: Record<string, unknown>) => string | Promise<string>;
+  run: (api: OsApi, args: Record<string, unknown>, runtime: HostToolRuntime) => string | Promise<string>;
 };

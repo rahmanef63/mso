@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { LIVE_WALLPAPER_HTML_MAX, useAppearance, type LiveWallpaper } from "@/lib/appearance";
-import { FormDrawer, useWallpapers } from "@/features/os-shell";
+import { FormDrawer, useWallpapers } from "@/features/appshell";
 import { SettingsRow as Row } from "@/features/shell-settings";
 
 function Chip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {

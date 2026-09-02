@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { GLYPH_KEYS, createApp } from "@/features/app-store";
-import { AppFrame, usePublishInspector } from "@/features/os-shell";
+import { AppFrame, usePublishInspector } from "@/features/appshell";
 import { cn } from "@/lib/utils";
 import { IconPreview } from "./components/icon-preview";
 import { GlyphPicker } from "./components/glyph-picker";

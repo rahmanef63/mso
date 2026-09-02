@@ -9,4 +9,4 @@ export {
   fmtMBs,
   clampPct,
   fmtUptime,
-} from "@/features/os-shell";
+} from "@/lib/os-api/format";

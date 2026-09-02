@@ -2,7 +2,10 @@
 
 import { createElement, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, LayoutGrid, Trash2 } from "lucide-react";
-import { ContextMenu, registerCommands, registerContextMenu, toast, useContextMenu, type MenuItem } from "@/features/appshell";
+import { ContextMenu, useContextMenu } from "../../../components/shells/context-menu";
+import { registerCommands } from "../../../lib/commands";
+import { registerContextMenu, type MenuItem } from "../../../lib/context-menu";
+import { toast } from "../../../lib/toast";
 import { cn } from "@/lib/utils";
 import {
   getWidgetState,

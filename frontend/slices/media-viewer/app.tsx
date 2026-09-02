@@ -2,8 +2,8 @@
 
 import { useCallback, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import type { AppProps } from "@/features/os-shell";
-import { AppFrame, openWindow, saveAs, usePublishInspector } from "@/features/os-shell";
+import type { AppProps } from "@/features/appshell";
+import { AppFrame, openWindow, saveAs, usePublishInspector } from "@/features/appshell";
 import { SAMPLES } from "./lib/samples";
 import { editorFor } from "./lib/media";
 import { ViewerToolbar } from "./components/viewer-toolbar";

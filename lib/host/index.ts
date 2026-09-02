@@ -16,8 +16,10 @@ export { projectGitSnapshot, projectGitEdits, projectGitDiff, readProjectKnowled
 export { projectCapabilities, runProjectFunction, readProjectMcpServers, publicProjectMcpServers, listProjectMcpTools, callProjectMcpTool } from "./project-capabilities";
 export { listProjectConvexTools, callProjectConvexTool, PROJECT_CONVEX_READ_TOOLS, PROJECT_CONVEX_WRITE_TOOLS } from "./project-convex";
 export type { ProjectCapabilities, PublicProjectFunction } from "./project-capabilities";
-export { listProjects, listProjectDirs, projectRoots, PROJECT_LIMITS } from "./project-roots";
-export type { ProjectRow, ListProjectsResult } from "./project-roots";
+export { listProjectDirs, projectRoots, PROJECT_LIMITS } from "./project-roots";
+export type { ProjectRow } from "./project-roots";
+export { listProjects } from "./project-list";
+export type { ListProjectsResult } from "./project-list";
 export { normalizeProjectKey, projectAliasesFor, projectAliasTarget } from "./project-aliases";
 export type { ProjectResolution } from "./projects";
 export { openPty, attachPty, writePty, resizePty, closePty, hasPty } from "./pty";

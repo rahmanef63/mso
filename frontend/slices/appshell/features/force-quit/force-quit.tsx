@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { registerCommands } from "@/features/appshell";
+import { registerCommands } from "../../lib/commands";
 import { useWindow, useWindowOrder } from "../../hooks/use-shell";
 import { useApps } from "../../lib/registry";
 import { closeWindow } from "../../lib/store";

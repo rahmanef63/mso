@@ -182,6 +182,3 @@ export async function listProjectDirs(cursor?: ScanCursor): Promise<ProjectDirs>
   const startIndex = cursor?.rootIndex ?? 0;
   return listProjectDirsIn(await projectContainers(startIndex), { cursor, startIndex });
 }
-
-export { listProjects } from "./project-list";
-export type { ListProjectsResult } from "./project-list";

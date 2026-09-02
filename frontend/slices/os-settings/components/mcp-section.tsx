@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plug } from "lucide-react";
 import { SettingsBlock, SettingsSection } from "@/features/shell-settings";
-import { toast } from "@/features/os-shell";
+import { toast } from "@/features/appshell";
 import { IS_DEMO } from "@/lib/demo";
 import { McpAuditSection, type McpAuditRow } from "./mcp-audit-section";
 import { McpConnectionSection } from "./mcp-connection-section";

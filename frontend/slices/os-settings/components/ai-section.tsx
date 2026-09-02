@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Sparkles, Check } from "lucide-react";
-import { toast } from "@/features/os-shell";
+import { toast } from "@/features/appshell";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,

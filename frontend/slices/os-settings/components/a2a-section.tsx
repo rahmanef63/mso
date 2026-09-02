@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Network } from "lucide-react";
 import { SettingsBlock, SettingsSection } from "@/features/shell-settings";
-import { toast } from "@/features/os-shell";
+import { toast } from "@/features/appshell";
 import { IS_DEMO } from "@/lib/demo";
 import { A2AActivitySettings } from "./a2a-activity-settings";
 import { A2AInboundSettings } from "./a2a-inbound-settings";

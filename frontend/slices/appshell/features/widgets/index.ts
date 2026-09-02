@@ -1,4 +1,4 @@
-import { defineFeature } from "@/features/appshell";
+import { defineFeature } from "../../registry/types";
 import { MobileWidgets } from "./components/mobile-widgets";
 import { DesktopWidgets } from "./components/desktop-widgets";
 

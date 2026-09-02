@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Code2, FileText, Globe, Moon, Palette, Sun, Timer as TimerIcon } from "lucide-react";
-import { setShell, shellsForSurface, useActiveShell, useShellAppearance, useShellPrefs } from "@/features/appshell";
+import { setShell, shellsForSurface, useActiveShell, useShellPrefs } from "../../../registry/shells";
+import { useShellAppearance } from "../../../registry/capabilities";
 import { cn } from "@/lib/utils";
 import { Card } from "./widget-cards";
 import { mdToHtml } from "./md";

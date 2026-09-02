@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { HardDriveDownload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EditorSlider as Slider } from "@/features/image-editor";
-import { toast } from "@/features/os-shell";
+import { toast } from "@/features/appshell";
 import { loadSavePrefs, saveImageToHost, saveSavePrefs, type SaveFormat } from "../lib/save-image";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

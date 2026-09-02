@@ -1,6 +1,6 @@
 "use client";
 
-import { notifyAlfaSources, registerAlfaSources, type MentionItem } from "@/features/os-shell";
+import { notifyAlfaSources, registerAlfaSources, type MentionItem } from "@/features/appshell";
 import { HOST_TOOLS } from "../host-tools/catalog";
 import { activeAgent, agentList, setActiveAgentId } from "./store";
 

@@ -24,15 +24,15 @@ import {
   sendToAlfa,
   ChatComposer,
   type AlfaMessage,
-} from "@/features/os-shell";
+} from "@/features/appshell";
 import { runToolAgent, useOsApi, type AgentMsg } from "../lib/host";
 import { toolById } from "../lib/tools";
 import type { Agent, Automation } from "../lib/types";
 import { activeAgent } from "../lib/store";
 import { composeSystem } from "../lib/agent-request";
 import { useHostCommands, type HostToolUi } from "../host-tools/use-host-commands";
-import { MessageBubble, type ChatMessage, type ToolCard } from "@/features/os-shell";
-import { ApprovalCard } from "@/features/os-shell";
+import { MessageBubble, type ChatMessage, type ToolCard } from "@/features/appshell";
+import { ApprovalCard } from "@/features/appshell";
 
 import { EmptyState } from "./empty-state";
 import { useThreadPersistence } from "./use-thread-persistence";

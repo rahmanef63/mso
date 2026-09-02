@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 
 // Unsaved-changes prompt shown when a dirty window is closed: Save (writes then
 // closes) / Don't Save (discards + closes) / Cancel (keeps the window open).

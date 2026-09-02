@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DEEPER, INSTALL_GUIDE, REPO, START_HERE } from "./links";
 
-// Read the sources rather than importing the barrels: `@/features/os-shell` pulls
+// Read the sources rather than importing the barrels: `@/features/appshell` pulls
 // the whole React shell, which a node-env unit test has no business booting.
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8");
 

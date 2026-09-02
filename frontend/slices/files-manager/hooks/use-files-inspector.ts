@@ -1,6 +1,6 @@
 "use client";
 
-import { usePublishInspector } from "@/features/os-shell";
+import { usePublishInspector } from "@/features/appshell";
 import { fmtGiB } from "../lib/format";
 import type { UseFiles } from "./use-files";
 

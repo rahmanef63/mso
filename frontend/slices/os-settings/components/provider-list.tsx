@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "@/features/os-shell";
+import { toast } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 

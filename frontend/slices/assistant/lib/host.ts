@@ -6,14 +6,14 @@
 // (configureAssistantStream + typing demo stream + no-op inspector) —
 // every other file is line-identical.
 
-export type { AppDescriptor } from "@/features/os-shell";
-export { usePublishInspector } from "@/features/os-shell";
+export type { AppDescriptor } from "@/features/appshell";
+export { usePublishInspector } from "@/features/appshell";
 
 // Host-tool execution seam: the OsApi port (fs/exec/sys/apps), the generic
 // tool-agent loop, and the isomorphic destructive-command matcher (for the
 // approval card's advisory badge). Confined here so the slice never reaches into
 // @/lib or @/features directly — matching the image-editor pattern.
-export { useOsApi, type OsApi } from "@/features/os-shell";
+export { useOsApi, type OsApi } from "@/features/appshell";
 export {
   runToolAgent,
   type AgentMsg,

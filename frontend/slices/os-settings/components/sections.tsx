@@ -4,7 +4,7 @@ import { Lock, ShieldCheck } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { DevicesPanel, useSession } from "@/features/auth";
-import { useActiveShell } from "@/features/os-shell";
+import { useActiveShell } from "@/features/appshell";
 import { SettingsSection } from "@/features/shell-settings";
 import { SECTIONS, type SectionId } from "../lib/sections";
 import { AutoLockRow } from "./auto-lock-row";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CopyButton, toast } from "@/features/os-shell";
+import { CopyButton, toast } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
 
 // "Sign in with OpenAI" (ChatGPT Codex, device-code). Starts the flow, shows the

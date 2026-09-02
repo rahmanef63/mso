@@ -1,4 +1,4 @@
-import { defineFeature } from "@/features/appshell";
+import { defineFeature } from "../../registry/types";
 import { ControlCenter } from "./components/control-center";
 import { ControlCenterDesktop } from "./components/control-center-desktop";
 

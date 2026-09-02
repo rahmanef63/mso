@@ -5,7 +5,7 @@ import { Loader2, Play, Trash2 } from "lucide-react";
 import { useOsApi } from "../lib/host";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { AppManifest } from "./runtime-app";
+import type { AppManifest } from "./runtime-app-types";
 
 type OutLine = { kind: "out" | "err" | "exit" | "sys"; text: string };
 

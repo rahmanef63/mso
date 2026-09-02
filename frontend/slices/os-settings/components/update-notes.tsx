@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { GitCommitHorizontal } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 import type { UpdateCommit } from "@/lib/host/self-update";
 import { parseChangelog } from "../lib/changelog";
 import { ChangelogView } from "./changelog-view";

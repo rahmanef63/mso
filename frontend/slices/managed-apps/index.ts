@@ -1,6 +1,6 @@
 import { Bot, Workflow, type LucideIcon } from "lucide-react";
 import { createElement } from "react";
-import type { AppDescriptor, AppIconComponent } from "@/features/os-shell";
+import type { AppDescriptor, AppIconComponent } from "@/features/appshell";
 
 const NineRouterIcon: AppIconComponent = ({ className }) =>
   // Exact upstream 9Router artwork, copied from the managed Docker image. This file is

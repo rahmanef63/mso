@@ -1,6 +1,6 @@
 "use client";
 
-import { AppFrame, usePublishMobileNavigation, useShellDesign } from "@/features/os-shell";
+import { AppFrame, usePublishMobileNavigation, useShellDesign } from "@/features/appshell";
 import type { SectionId } from "../lib/sections";
 import { settingsSection } from "../lib/sections";
 import { SettingsSidebar, SettingsTabs } from "./nav";

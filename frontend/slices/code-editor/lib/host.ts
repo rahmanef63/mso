@@ -5,6 +5,6 @@
 // copy replaces this file with a self-contained version (injectable
 // CodeFsAdapter + no-op inspector) — every other file is line-identical.
 
-export type { AppProps, AppDescriptor } from "@/features/os-shell";
-export { usePublishInspector, setCloseGuard, closeWindow } from "@/features/os-shell";
-export { useOsApi, type FsEntry } from "@/features/os-shell";
+export type { AppProps, AppDescriptor } from "@/features/appshell";
+export { usePublishInspector, setCloseGuard, closeWindow } from "@/features/appshell";
+export { useOsApi, type FsEntry } from "@/features/appshell";

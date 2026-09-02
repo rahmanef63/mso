@@ -14,7 +14,7 @@ import {
   type Wallpaper,
 } from "@/lib/appearance";
 import { ImagePickerButton, imageStyle, type ImageValue } from "@/features/image-picker";
-import { setShell, shellsForSurface, useShellPrefs, useActiveShell, useDockPrefs, setDockPrefs, type ShellId, type DockSize } from "@/features/os-shell";
+import { setShell, shellsForSurface, useShellPrefs, useActiveShell, useDockPrefs, setDockPrefs, type ShellId, type DockSize } from "@/features/appshell";
 import { SettingsRow as Row, SettingsSection as Section, SettingsBlock } from "@/features/shell-settings";
 import { LiveWallpaperRows } from "./live-wallpaper-rows";
 import { PerShellWallpaper } from "./per-shell-wallpaper";

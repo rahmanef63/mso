@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight, BookOpen, GitFork, LogIn, Rocket } from "lucide-react";
-import { AppFrame, openWindow } from "@/features/os-shell";
+import { AppFrame, openWindow } from "@/features/appshell";
 import { useSession } from "@/features/auth";
 import { Button } from "@/components/ui/button";
 import { DEEPER, INSTALL_GUIDE, REPO, START_HERE, type DocLink } from "./links";

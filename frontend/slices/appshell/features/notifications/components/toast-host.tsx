@@ -3,7 +3,7 @@
 import { CheckCircle2, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useToasts, dismissToast, type ToastTone } from "@/features/appshell";
+import { useToasts, dismissToast, type ToastTone } from "../../../lib/toast";
 
 // Top-right glass toast stack. Mounted by DesktopChrome + MobileShell.
 // Mirrors the mock-os toast cluster: glass cards, fade/slide in, stacking.

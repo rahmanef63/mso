@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 import { useEditor } from "../lib/store";
 import type { Layer } from "../lib/types";
 

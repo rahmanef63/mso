@@ -12,7 +12,7 @@ import {
   setShellWallpaper,
   useWallpapers,
   type ShellId,
-} from "@/features/os-shell";
+} from "@/features/appshell";
 import { SettingsRow as Row } from "@/features/shell-settings";
 
 // The static `.wp-*` preset keys with nicer labels than the raw key. Every

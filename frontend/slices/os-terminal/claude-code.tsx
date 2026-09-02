@@ -1,7 +1,7 @@
 "use client";
 
 import { Terminal } from "./app";
-import type { AppProps } from "@/features/os-shell";
+import type { AppProps } from "@/features/appshell";
 
 const BASE = "claude --dangerously-skip-permissions";
 

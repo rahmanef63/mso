@@ -2,7 +2,7 @@
 
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useShellDesign } from "@/features/os-shell";
+import { useShellDesign } from "@/features/appshell";
 import type { Theme } from "@/lib/appearance";
 
 function PhonePreview({ mode, family }: { mode: Theme; family: "apple" | "material" }) {

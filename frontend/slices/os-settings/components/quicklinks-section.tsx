@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowDown, ArrowUp, Globe, Link2, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 import { useQuicklinks, faviconUrl, normalizeUrl } from "@/lib/quicklinks";
 import { SettingsSection, SettingsBlock } from "@/features/shell-settings";
 

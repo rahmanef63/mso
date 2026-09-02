@@ -8,7 +8,8 @@ import path from "path";
 // on the second call while insisting there was more.
 const base = await fs.mkdtemp(path.join(os.tmpdir(), "mso-cont-"));
 const previous = process.env.OS_FS_READ_ROOTS;
-const { listProjects, PROJECT_LIMITS } = await import("./project-roots");
+const { listProjects } = await import("./project-list");
+const { PROJECT_LIMITS } = await import("./project-roots");
 const setRoots = (...roots: string[]) => { process.env.OS_FS_READ_ROOTS = roots.join(":"); };
 
 afterAll(async () => {

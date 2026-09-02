@@ -22,7 +22,7 @@ import {
   SettingsBlock,
 } from "@/features/shell-settings";
 import { cn } from "@/lib/utils";
-import { useShellDesign } from "@/features/os-shell";
+import { useShellDesign } from "@/features/appshell";
 import { ThemeModePicker } from "./theme-mode-picker";
 
 function PresetChip({ preset, active, onSelect }: { preset: PresetItem; active: boolean; onSelect: () => void }) {

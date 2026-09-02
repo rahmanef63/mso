@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Clock as ClockIcon, Cpu, HardDrive, Link2, MemoryStick, Network, StickyNote, Timer } from "lucide-react";
-import { QuicklinkIcon, useQuickLinks, useSystemStats } from "@/features/appshell";
+import { QuicklinkIcon } from "../../../components/quicklink-icon";
+import { useQuickLinks, useSystemStats } from "../../../registry/capabilities";
 import { Bar, Card, Row, Sparkline, gb } from "./widget-cards";
 import { CalendarWidget, TasksWidget } from "./widgets-defs-apps";
 import { VPS_WIDGETS } from "./widgets-defs-vps";

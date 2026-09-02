@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Code2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mdToHtml } from "@/features/os-shell";
+import { mdToHtml } from "@/features/appshell";
 import { rawUrl } from "../lib/host";
 import type { ViewKind } from "../lib/kinds";
 

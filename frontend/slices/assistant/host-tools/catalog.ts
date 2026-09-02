@@ -155,11 +155,11 @@ const READ_TOOLS: HostTool[] = [
       "app!": str("App id or slug, e.g. files, browser, terminal, monitor"),
       path: str("Optional payload for apps that accept one, e.g. a directory for files"),
     }),
-    run: async (_api, args) => {
+    run: async (_api, args, runtime) => {
       const app = String(args.app ?? "").trim().toLowerCase();
       if (!app) throw new Error("app is required");
       const path = typeof args.path === "string" && args.path ? args.path : undefined;
-      const { openWindow, BUILTIN_APPS } = await import("@/features/os-shell");
+      const { openWindow } = await import("@/features/appshell");
 
       // Resolve by slug OR id. The description advertises slugs (files, browser,
       // code…) but openWindow keys the registry by ID, and shell.manifest.ts gives
@@ -168,7 +168,7 @@ const READ_TOOLS: HostTool[] = [
       // returned "opened files", telling the model and the user it had worked.
       // Same predicate as runtime/use-url-sync.tsx, so a URL and a tool call
       // resolve identically.
-      const target = BUILTIN_APPS.find((a) => (a.slug ?? a.id) === app || a.id === app);
+      const target = runtime.apps.find((a) => (a.slug ?? a.id) === app || a.id === app);
       if (!target) throw new Error(`unknown app "${app}"`);
       if (SHELL_APPS.has(target.id)) throw new Error(`"${app}" starts a shell on the host — open it yourself`);
 

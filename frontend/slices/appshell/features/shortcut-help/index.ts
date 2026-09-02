@@ -1,4 +1,4 @@
-import { defineFeature } from "@/features/appshell";
+import { defineFeature } from "../../registry/types";
 import { ShortcutHelpOverlay } from "./components/shortcut-help-overlay";
 
 // Keyboard-shortcut cheat sheet — ⌘/ overlay over lib/shortcuts.

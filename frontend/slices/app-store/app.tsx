@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { Search, Sparkles, Store } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { AppFrame, useContainer, useActiveShell, useContextZone, openWindow } from "@/features/os-shell";
-import type { MenuItem } from "@/features/os-shell";
+import { AppFrame, useContainer, useActiveShell, useContextZone, openWindow } from "@/features/appshell";
+import type { MenuItem } from "@/features/appshell";
 import { UninstallConfirm } from "./components/uninstall-confirm";
 import { usePublishInspector } from "./lib/host";
 import {

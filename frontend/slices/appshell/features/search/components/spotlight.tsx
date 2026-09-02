@@ -3,21 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  useApps,
-  useActiveShell,
-  useCommands,
-  useSpotlightOpen,
-  useShellAppearance,
-  useShellSearch,
-  openWindow,
-  setSpotlightOpen,
-  setLauncherOpen,
-  minimizeAll,
-  closeAll,
-  toast,
-  type SearchHit,
-} from "@/features/appshell";
+import { useSpotlightOpen } from "../../../hooks/use-shell";
+import { useApps } from "../../../lib/registry";
+import { useCommands } from "../../../lib/commands";
+import { openWindow, setSpotlightOpen, setLauncherOpen, minimizeAll, closeAll } from "../../../lib/store";
+import { toast } from "../../../lib/toast";
+import { useActiveShell } from "../../../registry/shells";
+import { useShellAppearance, useShellSearch, type SearchHit } from "../../../registry/capabilities";
 
 import { matches, type Command } from "../lib";
 import { loadRecents, pushRecent } from "../history";

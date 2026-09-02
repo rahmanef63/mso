@@ -10,8 +10,9 @@ const base = await fs.mkdtemp(path.join(os.tmpdir(), "mso-contain-"));
 const previous = process.env.OS_FS_READ_ROOTS;
 
 const {
-  authorizedRoots, listProjectDirs, listProjects, projectContainers, projectRoots, PROJECT_LIMITS,
+  authorizedRoots, listProjectDirs, projectContainers, projectRoots, PROJECT_LIMITS,
 } = await import("./project-roots");
+const { listProjects } = await import("./project-list");
 
 const setRoots = (...roots: string[]) => { process.env.OS_FS_READ_ROOTS = roots.join(":"); };
 

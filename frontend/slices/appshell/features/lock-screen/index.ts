@@ -1,4 +1,4 @@
-import { defineFeature } from "@/features/appshell";
+import { defineFeature } from "../../registry/types";
 import { LockScreen } from "./components/lock-screen";
 
 // Lock screen — privacy curtain overlay + idle auto-lock (lib/lock).

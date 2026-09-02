@@ -6,7 +6,7 @@ import { FileItem } from "./file-item";
 import { joinPath } from "../lib/format";
 import type { ViewMode } from "../lib/types";
 import type { UseDnd } from "../hooks/use-dnd";
-import { useViewportWindow } from "@/features/os-shell";
+import { useViewportWindow } from "@/features/appshell";
 
 // Past this length the list view DOM-virtualizes (only the visible window +
 // overscan mount). Audit AUDIT-2026-06-11 §5: list is the one view that needs

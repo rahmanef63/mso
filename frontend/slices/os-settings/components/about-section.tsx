@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { Info, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/os-shell";
-import { useOsApi, fmtGiB, fmtUptime, type SysStats, type FsUsage } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
+import { useOsApi, type SysStats, type FsUsage } from "@/features/appshell";
+import { fmtGiB, fmtUptime } from "@/lib/os-api/format";
 import { useAppearance, effectiveServerTarget } from "@/lib/appearance";
 import { IS_DEMO } from "@/lib/demo";
 import { SettingsSection, SettingsValueRow, SettingsActionRow } from "@/features/shell-settings";

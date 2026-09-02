@@ -5,6 +5,6 @@
 // copy replaces this file with a self-contained version (demo exec +
 // no-op inspector) and bundles the Create-App flow in-slice.
 
-export type { AppProps, AppDescriptor } from "@/features/os-shell";
-export { usePublishInspector } from "@/features/os-shell";
-export { useOsApi } from "@/features/os-shell";
+export type { AppProps, AppDescriptor } from "@/features/appshell";
+export { usePublishInspector } from "@/features/appshell";
+export { useOsApi } from "@/features/appshell";

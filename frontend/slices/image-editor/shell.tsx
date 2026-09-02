@@ -13,7 +13,7 @@ import { MobileShell } from "./components/mobile-shell";
 import { useKeyboard } from "./hooks/use-keyboard";
 import { useIsMobile } from "@/features/appshell";
 import type { Doc } from "./lib/types";
-import type { EditorApi } from "./image-editor";
+import type { EditorApi } from "./lib/editor-api";
 
 // Desktop layout: left tool rail · canvas · right dock (adjust top, layers bottom).
 function DesktopShell({ stage, onSave, onSaveAs, onClose }: { stage: React.ReactNode; onSave?: (d: string) => void; onSaveAs?: (d: string) => void; onClose?: () => void }) {

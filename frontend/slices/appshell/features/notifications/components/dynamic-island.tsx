@@ -2,7 +2,8 @@
 
 import { Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useActivities, useShellUI } from "@/features/appshell";
+import { useActivities } from "../../../lib/activity";
+import { useShellUI } from "../../../registry/shell-ui";
 
 // iPhone Dynamic Island: a top-center pill that appears ONLY while something is
 // happening (render, copy, …). Reads the live-activity store; tapping it focuses

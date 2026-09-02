@@ -1,4 +1,4 @@
-import { defineFeature } from "@/features/appshell";
+import { defineFeature } from "../../registry/types";
 import { Inspector } from "./components/inspector";
 import { AlfaSheet } from "./components/alfa-sheet";
 

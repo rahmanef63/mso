@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { History } from "lucide-react";
-import { AppFrame } from "@/features/os-shell";
+import { AppFrame } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "./components/tabs";
 import { usePublishInspector } from "./lib/host";

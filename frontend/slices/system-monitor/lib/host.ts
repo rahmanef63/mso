@@ -5,8 +5,8 @@
 // copy replaces this file with a self-contained version (injectable
 // SysMonAdapter + no-op inspector) — every other file is line-identical.
 
-export type { AppDescriptor } from "@/features/os-shell";
-export { usePublishInspector } from "@/features/os-shell";
+export type { AppDescriptor } from "@/features/appshell";
+export { usePublishInspector } from "@/features/appshell";
 export {
   useOsApi,
   type SysStats,
@@ -18,7 +18,7 @@ export {
   type ServiceInventory,
   type ServiceLogs,
   type PackageUpdateSummary,
-} from "@/features/os-shell";
-export { useResponsive, ResponsiveToolbar } from "@/features/os-shell";
-export type { ToolbarItem } from "@/features/os-shell";
-export { useActiveShell } from "@/features/os-shell";
+} from "@/features/appshell";
+export { useResponsive, ResponsiveToolbar } from "@/features/appshell";
+export type { ToolbarItem } from "@/features/appshell";
+export { useActiveShell } from "@/features/appshell";

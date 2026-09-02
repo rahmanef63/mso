@@ -12,9 +12,10 @@ export {
   clearActivity,
   useContainer,
   type AppDescriptor,
-} from "@/features/os-shell";
+} from "@/features/appshell";
 
-export { useOsApi, rawUrl, type FsEntry, type FsList } from "@/features/os-shell";
+export { useOsApi, type FsEntry, type FsList } from "@/features/appshell";
+export { rawUrl } from "@/lib/os-api";
 
 export { useIsMobile } from "@/hooks/use-mobile";
 

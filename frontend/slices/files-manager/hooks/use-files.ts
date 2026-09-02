@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "@/features/os-shell";
+import { toast } from "@/features/appshell";
 import { useOsApi, type FsEntry, type FsRoot, type FsUsage } from "../lib/host";
 import type { Clipboard } from "../lib/types";
 import { useFileOps } from "./use-file-ops";

@@ -50,7 +50,7 @@ async function recover() {
 // caches and activates the waiting SW (SKIP_WAITING → controllerchange).
 //
 // `toast` is imported HERE, not at module scope. RegisterSW sits in the ROOT
-// layout, and `@/features/os-shell` re-exports the whole appshell barrel — so a
+// layout, and `@/features/appshell` re-exports the whole appshell barrel — so a
 // top-level import put the entire OS shell (window manager, 5 shells, 10 shell
 // features) into the static graph of every route, including public pages that
 // render nothing but text. Deferring it to the moment an update actually exists
@@ -60,7 +60,7 @@ async function promptUpdate(reg: ServiceWorkerRegistration) {
   const waiting = reg.waiting;
   if (!waiting || !navigator.serviceWorker.controller) return;
   let reloading = false;
-  const { toast } = await import("@/features/os-shell");
+  const { toast } = await import("@/features/appshell");
   toast("Versi baru tersedia.", {
     action: {
       label: "Reload",

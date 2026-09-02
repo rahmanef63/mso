@@ -10,6 +10,7 @@ import { ProjectLoader, ProjectLoadError } from "./components/project-loader";
 import { ConfirmRemoveLayerProvider } from "./components/confirm-remove-layer";
 import { Shell } from "./shell";
 import type { Doc } from "./lib/types";
+import type { EditorApi } from "./lib/editor-api";
 
 // The Konva stage touches `window`/`canvas` at import time, so it is loaded
 // client-only (no SSR) — the rest of the chrome renders normally.
@@ -63,9 +64,7 @@ export type ImageEditorProps = {
   className?: string;
 }
 
-/** Imperative handle exposed via `onReady` — lets a consumer render the canvas
- * (e.g. to save on close) and clear the dirty flag after saving. */
-export type EditorApi = { exportPng: () => string | null; markSaved: () => void };
+export type { EditorApi } from "./lib/editor-api";
 
 // Standalone, self-contained image editor. Drops into any height-bearing box.
 export function ImageEditor({ initialImage, projectSrc, onSaveDoc, width, height, onSave, onSaveAs, onClose, onDirty, onReady, compact, className, winId }: ImageEditorProps) {

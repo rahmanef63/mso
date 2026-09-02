@@ -7,7 +7,7 @@ import {
   useActiveShell,
   usePublishInspector,
   toast,
-} from "@/features/os-shell";
+} from "@/features/appshell";
 import type { SectionId } from "./lib/sections";
 import { SettingsShell } from "./components/settings-shell";
 

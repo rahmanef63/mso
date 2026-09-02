@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { registerAlfaRunner, registerAlfaStop, unregisterAlfaRunner } from "@/features/os-shell";
+import { registerAlfaRunner, registerAlfaStop, unregisterAlfaRunner } from "@/features/appshell";
 
 /**
  * Publish this panel as THE Alfa engine while it is mounted, so the per-app Alfa

@@ -5,7 +5,7 @@ import { Copy, Eye, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CopyButton } from "@/features/os-shell";
+import { CopyButton } from "@/features/appshell";
 import type { ManagedAppId } from "@/lib/managed-apps/types";
 import { supportFor } from "./app-support";
 import { uninstallApp } from "./update-api";

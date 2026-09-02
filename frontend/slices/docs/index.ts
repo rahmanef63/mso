@@ -1,5 +1,5 @@
 import { BookOpen } from "lucide-react";
-import type { AppDescriptor } from "@/features/os-shell";
+import type { AppDescriptor } from "@/features/appshell";
 
 // Barrel: the app layer imports only this. The window is lazy-loaded via `load`
 // so the docs bundle is deferred until the window opens.

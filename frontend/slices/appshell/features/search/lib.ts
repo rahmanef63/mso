@@ -1,4 +1,4 @@
-import type { AppDescriptor } from "@/features/appshell";
+import type { AppDescriptor } from "../../lib/types";
 
 export type Command = {
   id: string;

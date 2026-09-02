@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Music, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AppFrame, openWindow, saveAs, usePublishInspector } from "@/features/os-shell";
+import { AppFrame, openWindow, saveAs, usePublishInspector } from "@/features/appshell";
 import { rawUrl } from "../lib/host";
 import { cn } from "@/lib/utils";
 import { editorFor } from "../lib/media";

@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // The root layout is inherited by EVERY route, including public pages that render
-// nothing but text. `@/features/os-shell` re-exports the whole appshell barrel —
+// nothing but text. `@/features/appshell` is the full generic shell barrel —
 // window manager, 5 shells, 10 shell features — so a single static import of it
 // anywhere in the root layout's graph puts the entire OS into the initial load of
 // every page. That is exactly what `register-sw.tsx` did: /install shipped 330 KB

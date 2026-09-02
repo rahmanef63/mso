@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Brain, Trash2 } from "lucide-react";
-import { toast } from "@/features/os-shell";
+import { toast } from "@/features/appshell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

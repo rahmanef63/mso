@@ -1,6 +1,6 @@
 import { lazy } from "react";
 import { SquareTerminal, Bot } from "lucide-react";
-import type { AppDescriptor } from "@/features/os-shell";
+import type { AppDescriptor } from "@/features/appshell";
 
 // LAZY, not a plain re-export. shell.manifest.ts imports this barrel eagerly to read
 // the two AppDescriptors below, so `export { Terminal } from "./app"` pulled ./app —

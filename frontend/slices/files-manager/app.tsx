@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { AppFrame, AppSidebar, useActiveShell, useResponsive, type AppProps } from "@/features/os-shell";
+import { AppFrame, AppSidebar, useActiveShell, useResponsive, type AppProps } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropOverlay } from "./components/drop-overlay";

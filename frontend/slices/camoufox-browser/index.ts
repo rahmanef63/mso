@@ -1,5 +1,5 @@
 import { ScanEye } from "lucide-react";
-import type { AppDescriptor } from "@/features/os-shell";
+import type { AppDescriptor } from "@/features/appshell";
 
 export const camoufoxBrowserApp: AppDescriptor = {
   id: "camoufox-browser",

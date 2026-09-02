@@ -1,5 +1,5 @@
 import { Eye } from "lucide-react";
-import type { AppDescriptor } from "@/features/os-shell";
+import type { AppDescriptor } from "@/features/appshell";
 
 // Barrel: app layer imports only this descriptor. The component is lazy-loaded
 // via `load`. noDock — opened from the launcher, not pinned to the dock.

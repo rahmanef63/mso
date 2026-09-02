@@ -2,7 +2,8 @@
 
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { useShellDesign, useShellUI } from "@/features/appshell";
+import { useShellDesign } from "../../../design";
+import { useShellUI } from "../../../registry/shell-ui";
 import { ControlCenterTiles } from "./control-center-tiles";
 
 // One quick-settings behavior model, shell-native presentation. iOS uses a glass

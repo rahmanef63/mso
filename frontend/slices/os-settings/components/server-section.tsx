@@ -13,7 +13,7 @@ import {
   type ServerTarget,
   type SshServerTarget,
 } from "@/lib/appearance";
-import { useOsApi, ResponsiveDialog } from "@/features/os-shell";
+import { useOsApi, ResponsiveDialog } from "@/features/appshell";
 import { useSession, LoginCard } from "@/features/auth";
 import { IS_DEMO } from "@/lib/demo";
 import {

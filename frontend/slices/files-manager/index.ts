@@ -1,5 +1,5 @@
 import { FolderOpen } from "lucide-react";
-import type { AppDescriptor } from "@/features/os-shell";
+import type { AppDescriptor } from "@/features/appshell";
 
 // Barrel: the only thing the app layer imports. The component is lazy-loaded
 // via `load` so its bundle is deferred until the window opens.

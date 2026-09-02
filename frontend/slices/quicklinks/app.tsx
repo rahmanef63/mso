@@ -1,7 +1,7 @@
 "use client";
 
 import { Globe, Link2 } from "lucide-react";
-import { AppFrame } from "@/features/os-shell";
+import { AppFrame } from "@/features/appshell";
 import { useQuicklinks, faviconUrl, openQuicklink } from "@/lib/quicklinks";
 
 // Dedicated Quicklinks window: a grid of favicon tiles, click opens a new tab.

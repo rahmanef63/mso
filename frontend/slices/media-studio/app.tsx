@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ImageEditor, type EditorApi } from "@/features/image-editor";
 import { rawUrl } from "./lib/host";
-import { closeWindow, setCloseGuard, toast, useContainer, useIsMobile, FormDrawer } from "@/features/os-shell";
-import type { AppProps } from "@/features/os-shell";
+import { closeWindow, setCloseGuard, toast, useContainer, useIsMobile, FormDrawer } from "@/features/appshell";
+import type { AppProps } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
 import { SaveImageDialog } from "./components/save-image-dialog";
 import { autoName, loadSavePrefs, saveImageToHost } from "./lib/save-image";

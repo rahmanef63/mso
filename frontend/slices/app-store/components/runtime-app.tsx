@@ -3,15 +3,9 @@
 import { Boxes, ExternalLink } from "lucide-react";
 import type { AppProps } from "../lib/host";
 import { AppConsole } from "./app-console";
+import type { AppManifest } from "./runtime-app-types";
 
-// Manifest of a dynamic (created/installed) app — baked into the descriptor by
-// useInstalledApps, or passed via window payload.
-export type AppManifest = {
-  title: string;
-  runtime: string;
-  entry: string;
-  source: string;
-};
+export type { AppManifest } from "./runtime-app-types";
 
 const isUrl = (s: string) => /^https?:\/\//i.test(s);
 

@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { glyphIcon } from "../lib/glyph";
 import type { CatalogApp } from "../lib/store-catalog";
-import { useContextZone, openWindow } from "@/features/os-shell";
-import type { MenuItem } from "@/features/os-shell";
+import { useContextZone, openWindow } from "@/features/appshell";
+import type { MenuItem } from "@/features/appshell";
 
 // One app row in the store grid. Icon comes from the shared glyph map so it
 // matches the dock/launchpad icon once installed. The Get button flips the

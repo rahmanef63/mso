@@ -1,4 +1,4 @@
-import { defineFeature } from "@/features/appshell";
+import { defineFeature } from "../../registry/types";
 import { Spotlight } from "./components/spotlight";
 
 // Search — the ⌘K command palette, mounted into the shell's full-screen overlay.

@@ -8,7 +8,7 @@
  *  open state. */
 
 import * as React from "react";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 import { cn } from "@/lib/utils";
 import type { ImageValue, ImageSourceProps } from "../types";
 import { GalleryTab } from "./image-picker/gallery-tab";

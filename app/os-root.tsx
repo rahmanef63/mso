@@ -1,16 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
+import { AppShell, type AppDescriptor, type ShellManifest } from "@/features/appshell";
 import {
-  AppShell,
   A11yCommands,
   TOPSIDE_BRAND,
   TOPSIDE_FEATURES,
   TOPSIDE_PERSIST_KEY,
   BUILTIN_APPS,
   topsideCapabilities,
-  type AppDescriptor,
-  type ShellManifest,
 } from "@/features/os-shell";
 import { AppearanceProvider } from "@/lib/appearance";
 import { QuicklinksProvider } from "@/lib/quicklinks";

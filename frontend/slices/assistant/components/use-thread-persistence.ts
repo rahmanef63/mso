@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AgentMsg } from "../lib/host";
-import type { ChatMessage } from "@/features/os-shell";
+import type { ChatMessage } from "@/features/appshell";
 
 type LoadArg = { id: string; createdAt: number; messages: unknown[]; history: unknown[] };
 

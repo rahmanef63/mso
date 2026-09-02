@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowDownToLine, BookOpen, CheckCircle2, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 import { SettingsSection, SettingsActionRow, SettingsBlock } from "@/features/shell-settings";
 import { IS_DEMO } from "@/lib/demo";
 import type { UpdateStatus } from "@/lib/host/self-update";

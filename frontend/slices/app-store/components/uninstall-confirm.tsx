@@ -2,7 +2,7 @@
 
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 
 // Shared destructive confirm for both the curated app catalog and the built-in
 // "Apps"/"Features" sections. Touch users get no hover affordance, so tapping

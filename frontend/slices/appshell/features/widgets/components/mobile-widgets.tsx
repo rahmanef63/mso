@@ -3,7 +3,11 @@
 import { createElement } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useApps, useShellUI, useActiveShell, AppIcon, type AppDescriptor } from "@/features/appshell";
+import { AppIcon } from "../../../components/app-icon";
+import { useApps } from "../../../lib/registry";
+import type { AppDescriptor } from "../../../lib/types";
+import { useActiveShell } from "../../../registry/shells";
+import { useShellUI } from "../../../registry/shell-ui";
 import { Card } from "./widget-cards";
 import { useWidgetState, setPickerOpen } from "../widget-registry";
 import { WIDGET_RENDER } from "./widgets-defs";

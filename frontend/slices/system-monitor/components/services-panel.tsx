@@ -5,7 +5,7 @@ import { AlertCircle, FileText, Loader2, Play, RotateCw, Search, Square } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FormDrawer, toast } from "@/features/os-shell";
+import { FormDrawer, toast } from "@/features/appshell";
 import { GlassPanel } from "./glass-panel";
 import { useOsApi, type ServiceAction, type ServiceInventory, type ServiceLogs, type SystemService } from "../lib/host";
 

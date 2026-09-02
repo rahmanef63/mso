@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Folder, FileVideo, FileAudio, FileImage, CornerLeftUp, Loader2 } from "lucide-react";
-import { FormDrawer } from "@/features/os-shell";
+import { FormDrawer } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useOsApi, type FsEntry, type FsList } from "../lib/host";

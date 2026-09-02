@@ -3,7 +3,7 @@
 import { useMemo, useRef } from "react";
 import { matchDestructive, useOsApi } from "../lib/host";
 import type { AiTool, ToolInvocation, ToolOutcome } from "../lib/host";
-import type { ToolCard } from "@/features/os-shell";
+import { useApps, type ToolCard } from "@/features/appshell";
 import { findHostTool, HOST_AI_TOOLS } from "./registry";
 
 // The chat panel supplies these so the binding can render each call as a card and
@@ -36,6 +36,7 @@ export function useHostCommands(ui: HostToolUi): {
   invoke: (call: ToolInvocation) => Promise<ToolOutcome>;
 } {
   const api = useOsApi();
+  const apps = useApps();
   const denied = useRef<Set<string>>(new Set());
   const allowed = useRef<Set<string>>(new Set());
   const seq = useRef(0);
@@ -54,7 +55,7 @@ export function useHostCommands(ui: HostToolUi): {
         const execute = async (): Promise<ToolOutcome> => {
           ui.updateCard(id, { status: "running" });
           try {
-            const result = await tool.run(api, args);
+            const result = await tool.run(api, args, { apps });
             ui.updateCard(id, { status: "ok", result });
             return { ok: true, result };
           } catch (e) {
@@ -88,6 +89,6 @@ export function useHostCommands(ui: HostToolUi): {
         return execute();
       },
     }),
-    [api, ui],
+    [api, apps, ui],
   );
 }

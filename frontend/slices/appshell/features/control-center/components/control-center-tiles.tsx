@@ -3,16 +3,10 @@
 import { type LucideIcon, Bell, Moon, MoonStar, Sun, Server, Cloud, Sparkles, Layers, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  useWindowOrder,
-  closeAll,
-  toggleInspector,
-  toggleSpotlight,
-  toggleFocusMode,
-  useFocusMode,
-  useShellAppearance,
-  useServerToggle,
-} from "@/features/appshell";
+import { useWindowOrder } from "../../../hooks/use-shell";
+import { closeAll, toggleInspector, toggleSpotlight } from "../../../lib/store";
+import { toggleFocusMode, useFocusMode } from "../../../lib/focus-mode";
+import { useShellAppearance, useServerToggle } from "../../../registry/capabilities";
 
 // The six REAL toggles shared by the mobile pull-down Sheet CC and the desktop
 // menu-bar popover CC — one source of truth. Only real state: appearance, the

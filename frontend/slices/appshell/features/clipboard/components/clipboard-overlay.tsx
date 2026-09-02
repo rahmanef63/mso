@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   clearClips,
   copyClip,
-  inEditable,
   removeClip,
   setClipboardOpen,
   startClipboardCapture,
@@ -15,7 +14,8 @@ import {
   togglePinClip,
   useClipboardOpen,
   useClips,
-} from "@/features/appshell";
+} from "../../../lib/clipboard";
+import { inEditable } from "../../../lib/use-focused-hotkey";
 
 // ⌘⇧V clipboard history — pinned entries stick, click copies back to the
 // system clipboard. Capture (document copy/cut) starts with this feature.

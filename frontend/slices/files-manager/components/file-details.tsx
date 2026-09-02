@@ -3,7 +3,7 @@
 import { createElement } from "react";
 import { Copy } from "lucide-react";
 import type { FsEntry } from "../lib/host";
-import { toast } from "@/features/os-shell";
+import { toast } from "@/features/appshell";
 import { iconFor, colorFor } from "../lib/icons";
 import { fmtSize, joinPath } from "../lib/format";
 import { cn } from "@/lib/utils";

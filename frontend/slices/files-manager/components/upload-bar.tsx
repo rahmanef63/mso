@@ -1,6 +1,6 @@
 "use client";
 
-import { useActivities } from "@/features/os-shell";
+import { useActivities } from "@/features/appshell";
 import { UPLOAD_ACTIVITY_ID } from "../hooks/use-file-ops";
 
 // Thin determinate upload bar under the toolbar. Desktop shells don't mount the

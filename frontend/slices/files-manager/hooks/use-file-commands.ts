@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { openWindow, saveAs, toast } from "@/features/os-shell";
+import { openWindow, saveAs, toast } from "@/features/appshell";
 import { rawUrl, zipUrl, type FsEntry } from "../lib/host";
 import { appForFile, mediaKind } from "../lib/icons";
 import { joinPath, parentPath } from "../lib/format";

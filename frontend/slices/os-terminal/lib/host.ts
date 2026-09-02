@@ -5,8 +5,8 @@
 // copy replaces this file with a self-contained version (injectable
 // TerminalOsApi + no-op inspector) — every other file is line-identical.
 
-export type { AppDescriptor } from "@/features/os-shell";
-export { usePublishInspector } from "@/features/os-shell";
-export { useOsApi, type FsEntry } from "@/features/os-shell";
-export type { OsApi as TerminalOsApi } from "@/features/os-shell";
-export { fmtGiBPair, fmtUptime } from "@/features/os-shell";
+export type { AppDescriptor } from "@/features/appshell";
+export { usePublishInspector } from "@/features/appshell";
+export { useOsApi, type FsEntry } from "@/features/appshell";
+export type { OsApi as TerminalOsApi } from "@/features/appshell";
+export { fmtGiBPair, fmtUptime } from "@/lib/os-api/format";

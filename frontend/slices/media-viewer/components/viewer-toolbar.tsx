@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { openWindow } from "@/features/os-shell";
+import { openWindow } from "@/features/appshell";
 import { cn } from "@/lib/utils";
 import type { Sample } from "../lib/samples";
 import { editorFor } from "../lib/media";
