@@ -28,7 +28,10 @@
         "lib/security-store-lock.ts",
         "lib/path.ts",
         "lib/path.test.ts",
-        "lib/infra"
+        "lib/infra",
+        "lib/capabilities",
+        "lib/contracts",
+        "lib/workflow"
       ]
     },
     {
@@ -190,7 +193,8 @@
         "docs/OPENCLAW-INTEGRATION.md",
         "docs/SECURITY-ASSURANCE.md",
         "docs/TROUBLESHOOTING.md",
-        "SECURITY.md"
+        "SECURITY.md",
+        "docs/generated"
       ]
     },
     {
@@ -209,7 +213,8 @@
         "CLAUDE.md",
         "CONTRIBUTING.md",
         "LICENSE",
-        "README.md"
+        "README.md",
+        "AGENTS.md"
       ]
     },
     {
