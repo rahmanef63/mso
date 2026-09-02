@@ -4,7 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const cli = fs.readFileSync(path.join(__dirname, "../bin/mso"), "utf8");
+const cli = [
+  fs.readFileSync(path.join(__dirname, "../bin/mso"), "utf8"),
+  fs.readFileSync(path.join(__dirname, "../scripts/cli/onboarding.sh"), "utf8"),
+  fs.readFileSync(path.join(__dirname, "../scripts/cli/transport.sh"), "utf8"),
+].join("\n");
 
 describe("terminal onboarding contract", () => {
   it("keeps API keys out of curl argv", () => {
