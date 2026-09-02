@@ -4,10 +4,10 @@
 > can evolve independently, so do not claim its mapping count is current without checking
 > that repository at the time of the change.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.4 tools=59 read=29 write=23 exec=7 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.5 tools=59 read=29 write=20 exec=10 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.4**: **60 transport tools** total; **59 model/operator tools**
-(29 read, 23 write, 7 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.5**: **60 transport tools** total; **59 model/operator tools**
+(29 read, 20 write, 10 exec) plus app-only `workflow_status`. `GET /mcp` exposes the live names, version/hash and scoped
 manifest and is the machine-readable parity source.
 
 ## Why this contract matters
@@ -41,17 +41,17 @@ Before changing an MCP tool name:
 `infra_providers_list`, `project_capabilities`, `projects_list`, `screen_capture`, `skills_list`,
 `skills_read`, `skills_search`, `sys_processes`, `sys_stats`, `tool_forge_candidates`.
 
-### Write (23 beyond read)
+### Write (20 beyond read)
 
-`a2a_agent_register`, `a2a_agent_remove`, `a2a_message_send`, `a2a_task_cancel`, `a2a_handoff`,
+`a2a_agent_register`, `a2a_agent_remove`,
 `agent_memory_forget`, `agent_memory_remember`, `agent_session_note`, `agent_session_rename`,
 `apps_power`, `cloudflare_dns_upsert`, `dokploy_project_ensure`, `fs_copy`, `fs_delete`,
 `fs_mkdir`, `fs_move`, `fs_upload_file`, `fs_write`, `hostinger_dns_upsert`,
 `tool_forge_propose`, `workflow_cancel`, `workflow_finish`, `workflow_start`.
 
-### Exec (7 beyond write)
+### Exec (10 beyond write)
 
-`browser_power`, `exec_job_cancel`, `exec_job_start`, `exec_run`, `project_function_call`, `tool_forge_evaluate`, `tool_forge_promote`.
+`a2a_message_send`, `a2a_task_cancel`, `a2a_handoff`, `browser_power`, `exec_job_cancel`, `exec_job_start`, `exec_run`, `project_function_call`, `tool_forge_evaluate`, `tool_forge_promote`.
 
 ### App-only bridge (1)
 

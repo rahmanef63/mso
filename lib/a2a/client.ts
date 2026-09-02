@@ -144,8 +144,7 @@ function assertMessage(value: string): string {
 }
 function restOperationUrl(iface: A2AAgentInterface, operation: string): string {
   const url = assertA2AUrl(iface.url); const base = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
-  const tenant = iface.tenant ? `${encodeURIComponent(iface.tenant)}/` : "";
-  url.pathname = `${base}${tenant}${operation}`.replace(/\/{2,}/g, "/"); url.search = "";
+  url.pathname = `${base}${operation}`.replace(/\/{2,}/g, "/"); url.search = "";
   return url.toString();
 }
 function requestParams(iface: A2AAgentInterface, params: Record<string, unknown>): Record<string, unknown> {
@@ -167,11 +166,14 @@ async function invoke(target: A2ADiscoveredAgent, method: "SendMessage" | "GetTa
   }
   if (method === "GetTask") {
     const taskId = encodeURIComponent(String(params.id)); const url = new URL(restOperationUrl(iface, `tasks/${taskId}`));
+    if (iface.tenant) url.searchParams.set("tenant", iface.tenant);
     if (params.historyLength !== undefined) url.searchParams.set("historyLength", String(params.historyLength));
     return fetchJson(url.toString(), { headers: headers(iface, "application/a2a+json") }, fetchImpl);
   }
   const path = method === "SendMessage" ? "message:send" : `tasks/${encodeURIComponent(String(params.id))}:cancel`;
-  const body = { ...params }; if (iface.tenant) delete body.tenant;
+  const body = method === "SendMessage"
+    ? requestParams(iface, params)
+    : { ...(iface.tenant ? { tenant: iface.tenant } : {}) };
   return fetchJson(restOperationUrl(iface, path), { method: "POST", headers: headers(iface, "application/a2a+json"), body: JSON.stringify(body) }, fetchImpl);
 }
 

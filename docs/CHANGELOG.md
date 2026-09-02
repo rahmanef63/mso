@@ -11,6 +11,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `agent` add eval-gated tool forge
 - `agent` add interactive permissions and a2a v1
 
+**Fixed**
+
+- `a2a` harden remote v1 delegation
+
 ## 2026-09-01
 
 **Added**

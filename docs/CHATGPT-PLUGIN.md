@@ -12,10 +12,10 @@
 > <https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt-beta>
 > and <https://help.openai.com/en/articles/20001256-plugins-in-chatgpt-and-codex>.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.02.4 tools=59 read=29 write=23 exec=7 -->
+<!-- mcp-toolset: server=1.6.0 version=2026.09.02.5 tools=59 read=29 write=20 exec=10 -->
 
-MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.4**: **60 transport tools** total; **59 model/operator tools**
-(29 read, 23 write, 7 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
+MSO currently exposes MCP server **1.6.0**, toolset **2026.09.02.5**: **60 transport tools** total; **59 model/operator tools**
+(29 read, 20 write, 10 exec) plus app-only `workflow_status` for the progress widget. Use `GET /mcp` or Settings → MCP as the live authority if
 this document and a deployed instance ever disagree.
 
 ## 1. What this connection does
@@ -172,13 +172,10 @@ scope.
 - `sys_processes`
 - `sys_stats`
 - `tool_forge_candidates`
-### `write` — read + 23 tools
+### `write` — read + 20 tools
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
-- `a2a_message_send`
-- `a2a_task_cancel`
-- `a2a_handoff`
 - `agent_memory_forget`
 - `agent_memory_remember`
 - `agent_session_note`
@@ -198,8 +195,11 @@ scope.
 - `workflow_finish`
 - `workflow_start`
 
-### `exec` — write + 7 tools
+### `exec` — write + 10 tools
 
+- `a2a_message_send`
+- `a2a_task_cancel`
+- `a2a_handoff`
 - `browser_power`
 - `exec_job_cancel`
 - `exec_job_start`
@@ -233,7 +233,7 @@ locally with `mso provider set <id>` rather than pasting credentials into a Chat
 
 ### A2A peer delegation
 
-ChatGPT can use `a2a_agent_discover`/`a2a_agents_list` to find peers, then the write-scope
+ChatGPT can use `a2a_agent_discover`/`a2a_agents_list` to find peers, then the exec-scope
 `a2a_message_send` or `a2a_handoff` to delegate explicit work. `a2a_task_get` polls the remote
 task and `a2a_task_cancel` requests cancellation; register/remove only mutate MSO's local public
 Agent Card registry. MSO never auto-forwards this ChatGPT conversation, private agent memory, or

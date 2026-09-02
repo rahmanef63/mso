@@ -52,7 +52,7 @@ export const A2A_TOOLS: McpTool[] = [
   {
     name: "a2a_message_send",
     description: "Send one text message to a public A2A v1 agent via its advertised JSONRPC or HTTP+JSON interface. Does not expose this MSO session history; only the explicit message and optional A2A context/task ids are transmitted.",
-    scope: "write", annotations: { openWorldHint: true }, limit: { key: "a2a.send", max: 30, windowMs: 60_000 }, audit: { action: "a2a.send", targetArg: "target" },
+    scope: "exec", annotations: { openWorldHint: true }, limit: { key: "a2a.send", max: 30, windowMs: 60_000 }, audit: { action: "a2a.send", targetArg: "target" },
     result: { maxTextBytes: 64 * 1024, overflowHint: "A2A response was compacted; use a2a_task_get with the returned task id for focused status." },
     inputSchema: S({
       target: { type: "string", description: "Registered alias/id or public Agent Card URL." }, message: { type: "string", description: "Explicit message to the remote agent, max 24 KiB." },
@@ -76,14 +76,14 @@ export const A2A_TOOLS: McpTool[] = [
   {
     name: "a2a_task_cancel",
     description: "Request cancellation of one in-progress A2A v1 task. The remote agent remains authoritative about whether cancellation is allowed.",
-    scope: "write", annotations: { destructiveHint: true, openWorldHint: true }, limit: { key: "a2a.cancel", max: 30, windowMs: 60_000 }, audit: { action: "a2a.cancel", targetArg: "task_id" },
+    scope: "exec", annotations: { destructiveHint: true, openWorldHint: true }, limit: { key: "a2a.cancel", max: 30, windowMs: 60_000 }, audit: { action: "a2a.cancel", targetArg: "task_id" },
     inputSchema: S({ target: { type: "string" }, task_id: { type: "string" } }, ["target", "task_id"]),
     run: async (a) => cancelA2ATask(await target(str(a, "target")), str(a, "task_id")),
   },
   {
     name: "a2a_handoff",
     description: "Delegate an explicit objective plus optional caller-supplied context to another A2A v1 agent. Hidden MSO history, memory and tool state are NEVER copied; the handoff includes only these arguments and anonymous source hashes.",
-    scope: "write", annotations: { openWorldHint: true }, limit: { key: "a2a.send", max: 30, windowMs: 60_000 }, audit: { action: "a2a.send", targetArg: "target" },
+    scope: "exec", annotations: { openWorldHint: true }, limit: { key: "a2a.send", max: 30, windowMs: 60_000 }, audit: { action: "a2a.send", targetArg: "target" },
     result: { maxTextBytes: 64 * 1024, overflowHint: "A2A handoff response was compacted; poll the returned task with a2a_task_get." },
     inputSchema: S({
       target: { type: "string", description: "Registered alias/id or public Agent Card URL." }, objective: { type: "string", description: "Delegated objective, max 8 KiB." },

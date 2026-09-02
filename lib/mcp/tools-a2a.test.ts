@@ -23,13 +23,17 @@ beforeEach(() => {
 });
 
 describe("MCP A2A tools", () => {
-  it("exports the complete read/write A2A v1 surface with write approval semantics", () => {
+  it("uses read/write/exec scopes so remote A2A actions stay approval-gated", () => {
     expect([...byName]).toHaveLength(8);
     expect(byName.get("a2a_agents_list")?.scope).toBe("read");
     expect(byName.get("a2a_agent_discover")?.scope).toBe("read");
     expect(byName.get("a2a_task_get")?.scope).toBe("read");
-    for (const name of ["a2a_agent_register", "a2a_agent_remove", "a2a_message_send", "a2a_task_cancel", "a2a_handoff"]) {
+    for (const name of ["a2a_agent_register", "a2a_agent_remove"]) {
       expect(byName.get(name)?.scope, name).toBe("write");
+      expect(byName.get(name)?.limit?.max, `${name} rate limit`).toBeGreaterThan(0);
+    }
+    for (const name of ["a2a_message_send", "a2a_task_cancel", "a2a_handoff"]) {
+      expect(byName.get(name)?.scope, name).toBe("exec");
       expect(byName.get(name)?.limit?.max, `${name} rate limit`).toBeGreaterThan(0);
     }
   });
@@ -39,7 +43,7 @@ describe("MCP A2A tools", () => {
     const sessionId = "session-raw-super-secret-id";
     const workflowId = "workflow-raw-super-secret-id";
     const out = await tool!.run({ target: "peer", objective: "research", context: "facts only" }, {
-      principal: "mcp-client:test", sessionId, workflowId, scope: "write", actor: "test",
+      principal: "mcp-client:test", sessionId, workflowId, scope: "exec", actor: "test",
     });
     expect(mocks.resolve).toHaveBeenCalledWith("peer");
     expect(mocks.handoff).toHaveBeenCalledWith(peer, "research", "facts only", expect.objectContaining({
@@ -55,7 +59,7 @@ describe("MCP A2A tools", () => {
   it("does not synthesize hidden context when sending a normal A2A message", async () => {
     mocks.send.mockResolvedValue({ task: { id: "t-2" } });
     await byName.get("a2a_message_send")!.run({ target: "peer", message: "explicit only" }, {
-      principal: "mcp-client:test", sessionId: "hidden-session", scope: "write", actor: "test",
+      principal: "mcp-client:test", sessionId: "hidden-session", scope: "exec", actor: "test",
     });
     expect(mocks.send).toHaveBeenCalledWith(peer, "explicit only", {
       contextId: undefined, taskId: undefined, returnImmediately: true,

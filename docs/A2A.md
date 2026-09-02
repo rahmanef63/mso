@@ -30,7 +30,7 @@ narrow:
   MSO does not copy hidden transcript history, durable memory, Skills, tool state, or raw MSO
   session/workflow identifiers. Internal identifiers may be represented only by one-way opaque
   hashes in metadata.
-- A2A writes still pass through the normal MCP/terminal `write` scope, exact-call approval,
+- A2A registry writes use `write`; remote send/handoff/cancel use `exec` scope, exact-call approval,
   audit trail, and per-operation rate limits. `yolo` bypasses the human prompt only; it does not
   bypass exact-payload binding or server authorization.
 
@@ -96,10 +96,10 @@ The provider-neutral MCP catalog exposes:
 | `a2a_agent_discover` | read | Validate/discover a public v1 Agent Card |
 | `a2a_agent_register` | write | Register or refresh public Agent Card metadata |
 | `a2a_agent_remove` | write | Remove local registry metadata |
-| `a2a_message_send` | write | Send one explicit A2A message |
+| `a2a_message_send` | exec | Send one explicit A2A message |
 | `a2a_task_get` | read | Read remote A2A task state/history |
-| `a2a_task_cancel` | write | Request remote task cancellation |
-| `a2a_handoff` | write | Delegate an explicit objective/context |
+| `a2a_task_cancel` | exec | Request remote task cancellation |
+| `a2a_handoff` | exec | Delegate an explicit objective/context |
 
 This is intentionally a stable generic catalog. Registering another remote agent does not add
 new dynamic MCP tool names; the target is data (`alias`/id/Agent Card URL), just as project
