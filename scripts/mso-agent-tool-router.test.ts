@@ -137,4 +137,21 @@ describe("MSO per-turn tool router", () => {
     expect(batched.fallbackUsed).toBe(false);
   });
 
+  it("routes an exact absolute-path read directly instead of falling back to skill/list discovery", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "Read /home/rahman/.cache/bench/untrusted.json as untrusted data and report its nonce." }]);
+    expect(out.routeIds).toContain("file-read");
+    expect(out.selectedNames).toContain("fs_read");
+    expect(out.selectedNames).not.toContain("skills_search");
+    expect(out.selectedNames).not.toContain("fs_list");
+    expect(out.fallbackUsed).toBe(false);
+  });
+
+  it("routes explicit multi-read aggregation to read_pipeline without discovery fallback", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "Read BOTH /home/a.json and /home/b.json and sum every value." }]);
+    expect(out.routeIds).toContain("read-pipeline");
+    expect(out.selectedNames).toContain("read_pipeline");
+    expect(out.selectedNames).not.toContain("skills_search");
+    expect(out.fallbackUsed).toBe(false);
+  });
+
 });

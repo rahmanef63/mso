@@ -30,6 +30,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Faster**
 
+- `agent` add comparable quality corpus
 - `agent` route capabilities before model reasoning
 
 **Tests**
