@@ -70,8 +70,13 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 - Lint: **0 errors / 9 existing max-lines warnings**; no new warning-only file remains after the composer extraction.
 - MCP toolset remains `2026.09.02.7` because this release changes Agent/TUI runtime semantics but adds no MCP tool.
 
+**Release/live verification**
+- Feature release commit `eeaaa27` was pushed to `main`; deployed service reported `buildSha=eeaaa27` and CLI `1.12.0`.
+- Post-deploy PTY smoke PASS: source `@live-a` showed the `Input` divider, `mode yolo`, one `Assistant` section with `LIVE_ASSISTANT_112`, one outbound `Local agent` section, and a bounded `Error · local agent` section for an unknown mention. Target `@live-b` received `LIVE_LOCAL_112` under `Local agent · [live-a]` while its bottom composer remained `mode ask`.
+- Both temporary PTYs were closed after the smoke. No runtime regression was found.
+
 **Open work / handoff**
-- Commit/push/deploy CLI 1.12.0, then repeat a small PTY smoke against the deployed build and record the final live build SHA.
+- No release blocker remains for 1.12.0. Future work should start from new reproducible observations rather than re-opening the resolved section-layout or recoverable-error findings above.
 
 ### 2026-09-02 — named sessions, responsive composer, consumer observability, compact approval
 
