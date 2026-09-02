@@ -16,7 +16,7 @@ OSV_LINUX_ARM64_SHA256='3d0f5aa5a6baa8eb32bcef247388e149ef6030a6634ccae6fa0d6268
 GITLEAKS_IMAGE='zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f' # 8.30.1
 SEMGREP_IMAGE='semgrep/semgrep@sha256:f1f7b71861c7b28b6e0f661225a2c4f58a484f5d0f182465c6d6b3b22f972ade' # 1.174.0
 SHELLCHECK_IMAGE='koalaman/shellcheck-alpine@sha256:9955be09ea7f0dbf7ae942ac1f2094355bb30d96fffba0ec09f5432207544002' # 0.11.0
-ZAP_IMAGE="${MSO_SECURITY_ZAP_IMAGE:-ghcr.io/zaproxy/zaproxy@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef}" # 2.17.0
+ZAP_IMAGE="${MSO_SECURITY_ZAP_IMAGE:-zaproxy/zap-stable@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef}" # 2.17.0 official Docker Hub mirror
 DAST_URL="${MSO_SECURITY_DAST_URL:-https://mso.rahmanef.com}"
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"

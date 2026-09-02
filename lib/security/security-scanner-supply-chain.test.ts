@@ -24,4 +24,10 @@ describe("security scanner supply chain", () => {
     expect(script).toContain('run_capture "OSV binary integrity" prepare_osv');
     expect(script).toContain('run_capture "OSV dependencies" env HOME="$OSV_HOME" "$OSV_BIN" scan source --recursive "$SRC"');
   });
+
+  it("pins ZAP to the official Docker Hub mirror by immutable digest", () => {
+    const script = fs.readFileSync(ULTIMATE, "utf8");
+    expect(script).toContain("zaproxy/zap-stable@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef");
+    expect(script).not.toContain("ghcr.io/zaproxy/zaproxy@sha256:");
+  });
 });
