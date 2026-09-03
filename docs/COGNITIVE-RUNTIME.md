@@ -110,6 +110,8 @@ bun run bench:quality -- --live  # learned workflow success + P1 telemetry cover
 bun run bench:agents -- --provider openai-codex --model gpt-5.6-terra        # one-task smoke plan
 bun run bench:corpus -- --provider openai-codex --model gpt-5.6-terra        # nine-task dry plan
 bun run bench:corpus -- --provider openai-codex --model gpt-5.6-terra --run  # isolated scratch-fixture quality corpus
+bun run bench:corpus:repeat -- --runs 2 --seed baseline-1 --provider openai-codex --model gpt-5.6-terra       # deterministic repeated plan
+bun run bench:corpus:repeat -- --runs 2 --seed baseline-1 --provider openai-codex --model gpt-5.6-terra --run # repeated full corpus
 ```
 
 The core benchmark is deterministic and provider-neutral. Its checked scenarios cover application logs, server health, safe file editing, long/short execution, project functions, Cloudflare/Hostinger/Dokploy, browser/screenshots, memory, session resume, Skills, manual regression evidence, Indonesian repository changes, local-agent requests, subagents, A2A and Tool Forge. It also verifies the second phase after `workflow_start`.
@@ -276,9 +278,31 @@ Efficiency is less sensitive to that one miss. On all nine attempts, MSO average
 
 The full-run MSO repo traces also confirm the structural lifecycle fix: `repo-debug` and `repo-migration` each contain one `workflow_start`, bounded reads/writes, one `exec_run` validator, and `workflow_finish`; rollback preserves rejected-transaction evidence while restoring the config exactly. The older P4/P5 six-scenario results above remain historical evidence and are not rewritten as if they were P6 results.
 
-## P6 next direction
+## P7 repeated full-corpus baseline
 
-1. **Repeat full corpora across seeds/runs before reliability claims** — aggregate repeated complete v2 runs rather than promoting a one-run miss into a product claim.
+P7 closes the first P6 follow-up by making repeatability a first-class benchmark contract instead of an ad-hoc rerun. `bench:corpus` now accepts an explicit bounded `--seed` and records both the seed and requested agent order. New `bench:corpus:repeat` derives a deterministic seed per run, rotates the starting agent between runs, executes the complete child corpus unchanged, and aggregates only after strict identity checks. Ranking is withheld if any requested child run is missing, seed/order identity drifts, one agent duplicates or omits a scenario while preserving row count, or provider/model identity changes across runs. The repeat layer reports observed counts/rates and does **not** manufacture confidence intervals or statistical-significance claims.
+
+The first full P7 baseline was executed from source commit `5bd5788` with two complete nine-scenario runs on `openai-codex/gpt-5.6-terra`, using different derived fixture seeds and opposite starting-agent order. Independent post-run validation checked all **36 rows**, exact per-run/per-agent scenario identity, provider/model evidence, scenario-policy, exit status, and every token-accounting arithmetic proof.
+
+| P7 repeated metric | MSO | Hermes |
+|---|---:|---:|
+| Task success | **18/18 (100%)** | **18/18 (100%)** |
+| Scenario-observable policy compliance | **18/18 (100%)** | **18/18 (100%)** |
+| Perfect full runs | **2/2** | **2/2** |
+| Average latency | **18,922.6 ms** | 21,077.4 ms |
+| p50 latency | **13,761 ms** | 20,513.5 ms |
+| Normalized token coverage | **100%** | **100%** |
+| Normalized tokens / attempt | **17,271.3** | 65,073.3 |
+| Accounting proof | explicit inclusive contract | exact exclusive-cache sum |
+| Cost semantics comparable | no | no |
+
+Across these two runs, MSO used about **73.5% fewer normalized tokens per attempt** (Hermes used ~3.77× as many), with **10.2% lower average latency** and **32.9% lower p50 latency**. The earlier P6 Hermes `multi-read` miss did not recur: both agents passed `multi-read` **2/2** here, in addition to the prior P6 3/3 alternating-order stability follow-up. That strengthens the interpretation that the single P6 miss was run variance, but two complete repeats are still a small sample and P7 does not turn this into a universal reliability claim.
+
+P7 also observed real provider-reported cache-read activity without forcing a cache hit: MSO had positive `cacheReadTokens` on **4/18** rows while preserving `explicit-inclusive-contract` arithmetic; Hermes reported positive cache reads on all 18 rows under its separately proven `exact-exclusive-cache-sum` shape. Cache-hit frequency is not ranked because the runners expose different request/context behavior. The observation is useful only as evidence for a dedicated repeated-prefix cache-calibration phase. Cost remains withheld because the attribution contract is still asymmetric.
+
+## P7 next direction
+
+1. **Increase repeat depth before reliability statistics** — run at least several additional complete, independently seeded corpora before estimating variance/confidence; two runs establish the mechanism and first repeated baseline, not statistical certainty.
 2. **Calibrate cache behavior** — add repeated-prefix fixtures that can observe real provider cache hits without forcing them; keep zero/absent cache fields distinct and never assume a hit.
 3. **Normalize cost only with attribution** — compare cost only when every runner exposes the same usable USD source/contract; `0` with source `none` is not evidence of free execution.
 4. **Add OpenClaw only when comparable** — run the same corpus when an equivalent provider/model is legitimately configured, without mutating credentials as part of the benchmark.

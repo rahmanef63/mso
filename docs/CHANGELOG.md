@@ -19,7 +19,12 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Faster**
 
+- `agent` add repeatable corpus runner
 - `agent` expand objective repo corpus
+
+**Docs**
+
+- `agent` record P7 repeated corpus baseline
 
 ## 2026-09-02
 
