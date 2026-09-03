@@ -18,6 +18,14 @@ export function recordEffectiveAt(record: AgentMemoryRecord, at: string): boolea
   return validFrom <= target && target < validUntil && target < retractedAt && target < supersededAt;
 }
 
+export function recordCanBeEffectiveAtOrAfter(record: AgentMemoryRecord, at: string): boolean {
+  const target = Date.parse(at);
+  if (!Number.isFinite(target)) throw new Error("memory query time must be ISO-8601");
+  const start = Math.max(target, ms(record.validFrom));
+  const end = Math.min(ms(record.validUntil), ms(record.retractedAt), ms(record.supersededAt));
+  return start < end;
+}
+
 function compare(a: AgentMemoryRecord, b: AgentMemoryRecord): number {
   const authority = AUTHORITY_RANK[b.provenance.authority] - AUTHORITY_RANK[a.provenance.authority];
   if (authority) return authority;

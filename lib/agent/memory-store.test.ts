@@ -73,6 +73,35 @@ describe("typed provenance-aware agent memory", () => {
     expect(after.records[0].record.value).toBe("Singapore");
   });
 
+  it("forgets scheduled future claims so a deleted key cannot resurrect later", async () => {
+    const principal = "memory:forget-future";
+    const now = Date.now(), tomorrow = new Date(now + 86_400_000), later = new Date(now + 2 * 86_400_000);
+    await store.rememberAgentMemory(principal, "USER.md", "Office", "Jakarta", {
+      validFrom: new Date(now - 60_000).toISOString(),
+    });
+    await store.rememberAgentMemory(principal, "USER.md", "Office", "Singapore", { validFrom: tomorrow.toISOString() });
+    await store.forgetAgentMemory(principal, "USER.md", "Office");
+    expect((await store.queryAgentMemory(principal, { query: "office" })).records).toHaveLength(0);
+    expect((await store.queryAgentMemory(principal, { query: "office", at: later.toISOString() })).records).toHaveLength(0);
+    const history = await store.queryAgentMemory(principal, { query: "office", includeHistory: true, limit: 10 });
+    expect(history.records).toHaveLength(2);
+    expect(history.records.every((row) => row.record.retractedAt)).toBe(true);
+  });
+
+  it("forgets current claims without rewriting already-finished historical evidence", async () => {
+    const principal = "memory:forget-history";
+    const now = Date.now(), old = new Date(now - 3 * 86_400_000), recent = new Date(now - 86_400_000);
+    await store.rememberAgentMemory(principal, "MEMORY.md", "Region", "Jakarta", { validFrom: old.toISOString() });
+    await store.rememberAgentMemory(principal, "MEMORY.md", "Region", "Singapore", { validFrom: recent.toISOString() });
+    await store.forgetAgentMemory(principal, "MEMORY.md", "Region");
+    const history = await store.queryAgentMemory(principal, { query: "region", includeHistory: true, limit: 10 });
+    const jakarta = history.records.find((row) => row.record.value === "Jakarta")?.record;
+    const singapore = history.records.find((row) => row.record.value === "Singapore")?.record;
+    expect(jakarta?.supersededAt).toBe(recent.toISOString());
+    expect(jakarta?.retractedAt).toBeUndefined();
+    expect(singapore?.retractedAt).toBeTruthy();
+  });
+
   it("retracts active claims on forget and keeps ledger/doc permissions private", async () => {
     const principal = "memory:forget";
     await store.rememberAgentMemory(principal, "MEMORY.md", "Temporary note", "Delete me");

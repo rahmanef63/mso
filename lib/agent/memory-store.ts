@@ -5,7 +5,7 @@ import path from "node:path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { ledgerFile, materializeDocuments, readMemoryLedger, seedLedger, writeMemoryLedger } from "./memory-ledger";
 import { queryMemoryLedger } from "./memory-query";
-import { recordEffectiveAt } from "./memory-resolution";
+import { recordCanBeEffectiveAtOrAfter, recordEffectiveAt } from "./memory-resolution";
 import type { AgentMemoryDocument, AgentMemoryLedger, AgentMemoryQuery, AgentMemoryRecord, AgentMemoryWriteOptions } from "./memory-types";
 
 export type { AgentMemoryDocument, AgentMemoryKind, AgentMemoryQuery, AgentMemoryRecord, AgentMemorySensitivity, AgentMemoryWriteOptions } from "./memory-types";
@@ -117,7 +117,9 @@ export async function forgetAgentMemory(principal: string, document: AgentMemory
   const safeKey = cleanKey(key), now = new Date().toISOString(); let result!: AgentMemoryLedger;
   await withSecurityStoreLock(ledgerFile(dirFor(principal)), async () => {
     const current = await readMemoryLedger(dirFor(principal)) ?? await (async () => { const docs = await legacyDocs(principal); return seedLedger(docs.user, docs.memory, now); })();
-    for (const row of current.records) if (row.document === document && row.key === safeKey && recordEffectiveAt(row, now)) row.retractedAt = now;
+    for (const row of current.records) {
+      if (row.document === document && row.key === safeKey && recordCanBeEffectiveAtOrAfter(row, now)) row.retractedAt = now;
+    }
     current.updatedAt = now; await writeMemoryLedger(dirFor(principal), current); await persistProjection(principal, current, now); result = current;
   });
   return snapshotFromLedger(result, now);
