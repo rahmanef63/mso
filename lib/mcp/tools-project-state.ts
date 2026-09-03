@@ -7,7 +7,6 @@ import {
 import { makeDir, writeFileGuarded } from "@/lib/host/fs-api";
 import { INFRA_PROVIDER_IDS, readInfraProvider, summarizeInfraProvider } from "@/lib/infra";
 import { type McpTool, S, str, opt, READ_ONLY } from "./tool-kit";
-import { DIFF_VIEW_URI, PROJECT_STATUS_URI } from "./ui-resources";
 import { selectedProject } from "./tools-project-shared";
 
 const PROJECT_STATUS_OUTPUT = {
@@ -36,13 +35,6 @@ export const PROJECT_STATE_TOOLS: McpTool[] = [
     chatgptDescription: "Get a canonical project snapshot with Git, package, Convex, integration and knowledge status. No secrets are returned.",
     scope: "read", annotations: READ_ONLY,
     outputSchema: PROJECT_STATUS_OUTPUT,
-    meta: {
-      ui: { resourceUri: PROJECT_STATUS_URI, visibility: ["model", "app"] },
-      "openai/outputTemplate": PROJECT_STATUS_URI,
-      "openai/toolInvocation/invoking": "Opening MSO project…",
-      "openai/toolInvocation/invoked": "MSO project opened",
-      "openai/widgetAccessible": true,
-    },
     toStructuredContent: (value) => {
       if (!value || typeof value !== "object") return undefined;
       const row = value as Record<string, unknown>;
@@ -86,12 +78,6 @@ export const PROJECT_STATE_TOOLS: McpTool[] = [
     scope: "read", annotations: READ_ONLY,
     result: { maxTextBytes: 96 * 1024, overflowHint: "The unified diff was compacted; request a narrower commit or inspect one file." },
     outputSchema: DIFF_OUTPUT,
-    meta: {
-      ui: { resourceUri: DIFF_VIEW_URI, visibility: ["model", "app"] },
-      "openai/outputTemplate": DIFF_VIEW_URI,
-      "openai/toolInvocation/invoking": "Opening project diff…",
-      "openai/toolInvocation/invoked": "Project diff opened",
-    },
     toStructuredContent: (value) => {
       if (!value || typeof value !== "object") return undefined;
       const row = value as Record<string, unknown>;

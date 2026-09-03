@@ -53,7 +53,6 @@ function persistRoute(){
   try{if(window.openai&&typeof window.openai.setWidgetState==="function")window.openai.setWidgetState({modelContent:"MSO Surface: "+current.route,privateContent:{route:current.route},imageIds:[]})}catch(_){}
 }
 function rpcCall(name,args){
-  if(window.openai&&typeof window.openai.callTool==="function")return window.openai.callTool(name,args);
   const id=nextRpcId++;window.parent.postMessage({jsonrpc:"2.0",id,method:"tools/call",params:{name,arguments:args}},"*");
   return new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});setTimeout(()=>{if(pending.has(id)){pending.delete(id);reject(new Error("tool timeout"))}},10000)})
 }

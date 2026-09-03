@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { dispatch } = await import("./dispatch");
-const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI, MSO_SURFACE_URI, readUiResource } = await import("./ui-resources");
+const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, MSO_SURFACE_URI, readUiResource } = await import("./ui-resources");
 const { MCP_UI_DOMAIN } = await import("./ui-config");
 const { activeWorkflowForActor } = await import("@/lib/workflow");
 
@@ -35,10 +35,11 @@ describe("MCP Apps workflow progress UI", () => {
       "openai/widgetAccessible": true,
     });
 
-    for (const [name, uri] of [["project_get", PROJECT_STATUS_URI], ["project_diff", DIFF_VIEW_URI], ["vps_status", VPS_STATUS_URI]] as const) {
+    for (const name of ["project_get", "project_diff", "vps_status"] as const) {
       const tool = tools.find((row) => row.name === name);
       expect(tool?.outputSchema, name).toBeDefined();
-      expect(tool?._meta, name).toMatchObject({ ui: { resourceUri: uri, visibility: ["model", "app"] }, "openai/outputTemplate": uri });
+      expect((tool?._meta?.ui as { resourceUri?: string } | undefined)?.resourceUri, name).toBeUndefined();
+      expect(tool?._meta?.["openai/outputTemplate"], name).toBeUndefined();
     }
 
     const surface = tools.find((row) => row.name === "render_mso_surface");
@@ -53,12 +54,9 @@ describe("MCP Apps workflow progress UI", () => {
   it("serves one self-contained mcp-app resource", async () => {
     const listed = await dispatch({ id: 1, method: "resources/list" }, "read", "mcp:ui-resource");
     const resources = (listed.result as { resources: Array<{ uri: string; mimeType: string }> }).resources;
-    expect(resources).toHaveLength(5);
+    expect(resources).toHaveLength(2);
     expect(resources).toEqual(expect.arrayContaining([
       expect.objectContaining({ uri: WORKFLOW_PROGRESS_URI, mimeType: MCP_APP_MIME_TYPE }),
-      expect.objectContaining({ uri: PROJECT_STATUS_URI, mimeType: MCP_APP_MIME_TYPE }),
-      expect.objectContaining({ uri: DIFF_VIEW_URI, mimeType: MCP_APP_MIME_TYPE }),
-      expect.objectContaining({ uri: VPS_STATUS_URI, mimeType: MCP_APP_MIME_TYPE }),
       expect.objectContaining({ uri: MSO_SURFACE_URI, mimeType: MCP_APP_MIME_TYPE }),
     ]));
 
@@ -135,20 +133,18 @@ describe("MCP Apps workflow progress UI", () => {
   });
 
 
-  it("serves project, diff and VPS MCP Apps without external fetches", async () => {
-    for (const [uri, marker] of [[PROJECT_STATUS_URI, "project_get"], [DIFF_VIEW_URI, "MSO diff"], [VPS_STATUS_URI, "vps_status"]] as const) {
-      const read = await dispatch({ id: 20, method: "resources/read", params: { uri } }, "read", "mcp:ui-operator");
-      const content = (read.result as { contents: Array<{ mimeType: string; text: string; _meta: Record<string, unknown> }> }).contents[0];
-      expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
-      expect(content.text).toContain(marker);
-      expect(content.text).not.toContain("fetch(");
-      expect(content.text).toContain("openExternal");
-      expect(content.text).toContain("setOpenInAppUrl");
-      expect(content.text).toContain("Open directly");
-      expect(uri).toContain("-v2.html");
-      expect(content._meta).toMatchObject({ ui: { domain: MCP_UI_DOMAIN, prefersBorder: true }, "openai/widgetDomain": MCP_UI_DOMAIN, "openai/widgetPrefersBorder": true });
+  it("retires specialized operator resources in favor of the universal Surface", async () => {
+    for (const uri of [
+      "ui://mso/project-status-v2.html",
+      "ui://mso/project-diff-v2.html",
+      "ui://mso/vps-status-v2.html",
+    ]) {
+      expect(readUiResource(uri)).toBeUndefined();
+      const read = await dispatch({ id: 20, method: "resources/read", params: { uri } }, "read", "mcp:ui-retired");
+      expect(read.error).toMatchObject({ code: -32602 });
     }
   });
+
   it("serves the universal MSO Surface with a minimal nested-frame allowlist", async () => {
     const read = await dispatch({ id: 30, method: "resources/read", params: { uri: MSO_SURFACE_URI } }, "read", "mcp:ui-surface");
     const content = (read.result as { contents: Array<{ mimeType: string; text: string; _meta: Record<string, any> }> }).contents[0];
@@ -171,14 +167,17 @@ describe("MCP Apps workflow progress UI", () => {
       resource_domains: [],
       frame_domains: ["https://game.rahmanef.com"],
     });
-    expect(MSO_SURFACE_URI).toContain("surface-v3.html");
+    expect(MSO_SURFACE_URI).toContain("surface-v4.html");
   });
 
-  it("gives every MCP App a visible contextual MSO destination", () => {
+  it("keeps one dedicated progress card and one universal general-purpose Surface", () => {
     expect(readUiResource(WORKFLOW_PROGRESS_URI)?.text).toContain('data-mso-path="/assistant/mcp"');
-    expect(readUiResource(PROJECT_STATUS_URI)?.text).toContain('data-mso-path="/files"');
-    expect(readUiResource(DIFF_VIEW_URI)?.text).toContain('data-mso-path="/code"');
-    expect(readUiResource(VPS_STATUS_URI)?.text).toContain('data-mso-path="/monitor"');
+    const surface = readUiResource(MSO_SURFACE_URI)?.text ?? "";
+    expect(surface).toContain('route:"/monitor"');
+    expect(surface).toContain('route:"/project"');
+    expect(surface).toContain('route:"/diff"');
+    expect(surface).toContain('route:"/browser"');
+    expect(surface).toContain('method:"tools/call"');
   });
 
   it("rejects unknown UI resource URIs", async () => {

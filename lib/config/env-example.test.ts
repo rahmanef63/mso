@@ -9,7 +9,7 @@
 // The allowlist below is the other half of the contract: vars that are deliberately
 // NOT in .env.example because you never set them by hand. Each one carries the
 // reason, so adding to this list is a decision rather than a way to silence a test.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -57,7 +57,10 @@ function usedEnvNames(): string[] {
     // A test may stub anything, so .test files do not count as "the app reads it".
     // The e2e HARNESSES do count — they are committed code, and the vars they read
     // are exactly the ones that belong in NOT_A_KNOB rather than in .env.example.
-    .filter((f) => !f.includes(".test."));
+    .filter((f) => !f.includes(".test."))
+    // `git ls-files --cached` still reports tracked paths deleted in the working tree.
+    // Ignore those so pre-commit verification can validate intentional file retirement.
+    .filter((f) => existsSync(path.join(ROOT, f)));
   const names = new Set<string>();
   for (const file of files) {
     const src = readFileSync(path.join(ROOT, file), "utf8");

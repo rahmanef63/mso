@@ -34,6 +34,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `agent` add repeatable corpus runner
 - `agent` expand objective repo corpus
 
+**Changed**
+
+- `mcp` unify ChatGPT Surface UI
+
 **Tests**
 
 - `agent` calibrate local semantic memory retrieval

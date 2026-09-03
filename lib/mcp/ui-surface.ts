@@ -4,7 +4,7 @@ import { surfaceFrameDomains } from "./surface-catalog";
 import { MSO_SURFACE_SCRIPT } from "./ui-surface-script";
 import { MSO_SURFACE_STYLE } from "./ui-surface-style";
 
-export const MSO_SURFACE_URI = "ui://mso/surface-v3.html";
+export const MSO_SURFACE_URI = "ui://mso/surface-v4.html";
 const MIME = "text/html;profile=mcp-app";
 
 const html = String.raw`<main class="surface" aria-label="MSO Surface">

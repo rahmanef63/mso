@@ -1,8 +1,6 @@
 import { MSO_SURFACE_RESOURCE } from "./ui-surface";
-import { OPERATOR_UI_RESOURCES } from "./ui-operator-resources";
 import { widgetResourceMeta } from "./ui-config";
 import { OPEN_IN_MSO_SCRIPT, openInMsoControls } from "./ui-navigation";
-export { PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI } from "./ui-operator-resources";
 export { MSO_SURFACE_URI } from "./ui-surface";
 export const WORKFLOW_PROGRESS_URI = "ui://mso/workflow-progress-v2.html";
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
@@ -225,7 +223,6 @@ const RESOURCES: readonly McpUiResource[] = [
     text: workflowProgressHtml,
     _meta: workflowResourceMeta(),
   },
-  ...OPERATOR_UI_RESOURCES,
   MSO_SURFACE_RESOURCE,
 ];
 
