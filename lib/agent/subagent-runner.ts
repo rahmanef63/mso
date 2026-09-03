@@ -16,7 +16,7 @@ function maxTurnsLimit(): number {
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_TIMEOUT_MS = 120_000;
 const DENY_PREFIXES = ["agent_session_", "agent_memory_", "local_agent_", "a2a_"];
-const DENY_EXACT = new Set(["agent_subagent_run"]);
+const DENY_EXACT = new Set(["agent_subagent_run", "project_agent_run"]);
 
 function bounded(value: string, max = MAX_RESULT_BYTES): string {
   if (Buffer.byteLength(value, "utf8") <= max) return value;

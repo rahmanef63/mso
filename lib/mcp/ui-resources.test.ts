@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { dispatch } = await import("./dispatch");
-const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI } = await import("./ui-resources");
+const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI } = await import("./ui-resources");
 const { activeWorkflowForActor } = await import("@/lib/skills/memory");
 
 const call = (name: string, args: Record<string, unknown> = {}) =>
@@ -33,13 +33,24 @@ describe("MCP Apps workflow progress UI", () => {
       ui: { visibility: ["app"] },
       "openai/widgetAccessible": true,
     });
+
+    for (const [name, uri] of [["project_get", PROJECT_STATUS_URI], ["project_diff", DIFF_VIEW_URI], ["vps_status", VPS_STATUS_URI]] as const) {
+      const tool = tools.find((row) => row.name === name);
+      expect(tool?.outputSchema, name).toBeDefined();
+      expect(tool?._meta, name).toMatchObject({ ui: { resourceUri: uri, visibility: ["model", "app"] }, "openai/outputTemplate": uri });
+    }
   });
 
   it("serves one self-contained mcp-app resource", async () => {
     const listed = await dispatch({ id: 1, method: "resources/list" }, "read", "mcp:ui-resource");
-    expect(listed.result).toMatchObject({
-      resources: [expect.objectContaining({ uri: WORKFLOW_PROGRESS_URI, mimeType: MCP_APP_MIME_TYPE })],
-    });
+    const resources = (listed.result as { resources: Array<{ uri: string; mimeType: string }> }).resources;
+    expect(resources).toHaveLength(4);
+    expect(resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ uri: WORKFLOW_PROGRESS_URI, mimeType: MCP_APP_MIME_TYPE }),
+      expect.objectContaining({ uri: PROJECT_STATUS_URI, mimeType: MCP_APP_MIME_TYPE }),
+      expect.objectContaining({ uri: DIFF_VIEW_URI, mimeType: MCP_APP_MIME_TYPE }),
+      expect.objectContaining({ uri: VPS_STATUS_URI, mimeType: MCP_APP_MIME_TYPE }),
+    ]));
 
     const read = await dispatch({ id: 2, method: "resources/read", params: { uri: WORKFLOW_PROGRESS_URI } }, "read", "mcp:ui-resource");
     const content = (read.result as {
@@ -106,6 +117,17 @@ describe("MCP Apps workflow progress UI", () => {
     expect((closed.result as { structuredContent?: { active: boolean } }).structuredContent?.active).toBe(false);
   });
 
+
+  it("serves project, diff and VPS MCP Apps without external fetches", async () => {
+    for (const [uri, marker] of [[PROJECT_STATUS_URI, "project_get"], [DIFF_VIEW_URI, "MSO diff"], [VPS_STATUS_URI, "vps_status"]] as const) {
+      const read = await dispatch({ id: 20, method: "resources/read", params: { uri } }, "read", "mcp:ui-operator");
+      const content = (read.result as { contents: Array<{ mimeType: string; text: string; _meta: Record<string, unknown> }> }).contents[0];
+      expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
+      expect(content.text).toContain(marker);
+      expect(content.text).not.toContain("fetch(");
+      expect(content._meta).toMatchObject({ ui: { prefersBorder: true }, "openai/widgetPrefersBorder": true });
+    }
+  });
   it("rejects unknown UI resource URIs", async () => {
     const result = await dispatch({ id: 1, method: "resources/read", params: { uri: "ui://mso/not-real.html" } }, "read");
     expect(result.error).toMatchObject({ code: -32602 });

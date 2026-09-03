@@ -1,4 +1,4 @@
-import { inspectProject, resolveProjectHint } from "@/lib/host";
+import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host";
 import { markRecipeUsed, startWorkflow, summarizeProjectContention } from "@/lib/skills/memory";
 import { searchSkillMemory } from "@/lib/skills/search";
 import { progressiveVerification } from "@/lib/orchestration/automation";
@@ -65,9 +65,12 @@ export const WORKFLOW_START_TOOL: McpTool =
           name: tool.name, description: tool.description, scope: tool.scope, inputSchema: tool.inputSchema,
         })),
       });
-      const repository = project
-        ? await inspectProject(project, { includeGitStatus: context.scope === "exec" }).catch(() => undefined)
-        : undefined;
+      const [repository, projectKnowledge] = project
+        ? await Promise.all([
+          inspectProject(project, { includeGitStatus: context.scope === "exec" }).catch(() => undefined),
+          readProjectKnowledge(project.path).catch(() => undefined),
+        ])
+        : [undefined, undefined] as const;
       const changedPaths = gitChangedPaths(repository?.git.changes ?? []);
       const affectedPaths = optionalStringList(a.affected_paths, 80);
       const reservedResources = optionalStringList(a.reserved_resources, 40);
@@ -114,6 +117,7 @@ export const WORKFLOW_START_TOOL: McpTool =
       };
       const contextEstimateTokens = Math.ceil([
         intent,
+        ...(projectKnowledge?.content ? [projectKnowledge.content] : []),
         ...repoMemory.map((hit) => `${hit.record.title} ${hit.record.summary}`),
         compactSearch.recommendedRecipe?.description ?? "",
       ].join("\n").length / 4);
@@ -159,6 +163,9 @@ export const WORKFLOW_START_TOOL: McpTool =
           toolset,
           project: project ?? (projectHint ? { hint: projectHint, matchedBy: "unresolved" } : undefined),
           repository,
+          projectKnowledge: projectKnowledge?.exists ? {
+            content: projectKnowledge.content, path: projectKnowledge.path, bytes: projectKnowledge.bytes, sha256: projectKnowledge.sha256,
+          } : undefined,
           discovery,
           orchestration: {
             classification,
@@ -180,6 +187,7 @@ export const WORKFLOW_START_TOOL: McpTool =
             project ? `[Project] ${project.hint} → ${project.path} (${project.matchedBy})` : `[Project] ${projectHint ?? "not specified"}`,
             `[Risk] ${classification.risk} · ${classification.complexity} complexity · ${classification.contention} contention · ${classification.isolation}`,
             `[Catalog] ${intentRoute.catalogMatched ? intentRoute.routeIds.join(", ") : "semantic fallback"} · ${routedTools.length}/${tools.length} tool docs scored`,
+            `[Knowledge] ${projectKnowledge?.exists ? `${projectKnowledge.bytes} bytes always-on` : "not configured"}`,
             `[Memory] ${repoMemory.length} repo-local hit(s) · ${search.recommendedRecipe ? "recipe available" : "no verified recipe selected"} · ~${contextEstimateTokens} context tokens`,
             ...(recipePlan ? [`[Recipe] ${recipePlan.attempts} attempts · ${recipePlan.successRate}% success · ${recipePlan.steps.length} reusable step(s)`] : []),
             ...(reusableScript ? [`[Automation] ${reusableScript.status} script ${reusableScript.id} available`] : []),

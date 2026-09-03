@@ -86,6 +86,19 @@ const MCP_ONLY: Record<string, string> = {
   "tool.forge.evaluate": "Forge evaluation may execute project-owned fixtures only inside the dedicated sandbox and therefore stays on the scoped external/terminal automation surface",
   "tool.forge.promote": "explicit Forge promotion mutates project capability metadata and remains an exec-scoped audited external/terminal action",
   "read.pipeline": "external/terminal agents can batch already-authorized read tools and compact their data server-side; Alfa already owns an in-process tool loop and does not need a second orchestration surface",
+  "project.get": "external MCP/ChatGPT clients need one canonical bounded project snapshot and MCP App bootstrap; in-shell Alfa already has project/Files UI plus existing host inspection primitives",
+  "project.changes.list": "external project operators need bounded Git edit history without arbitrary shell; Alfa already works inside the project shell/Files surfaces and does not need a duplicate cached history action",
+  "project.diff": "external clients need portable bounded Git evidence and an inline diff summary; Alfa can inspect changes through its existing terminal/project surfaces without another global catalog entry",
+  "project.knowledge.get": "always-on .mso project knowledge belongs to the external/terminal workflow context layer; Alfa keeps separate in-app conversation/memory context so the stores are not silently conflated",
+  "project.knowledge.set": "same project-knowledge boundary; external writes use SHA compare-and-swap plus MCP write audit while Alfa keeps its separate context lifecycle",
+  "connections.list": "external operators need one secret-free inventory spanning infrastructure, project MCP aliases and Convex readiness; Alfa already has dedicated integration/provider feature surfaces",
+  "project.database.status": "the Convex project database adapter starts project code through the official project-installed MCP CLI and therefore belongs to the exec-gated external/terminal project runtime",
+  "project.database.tools": "Convex schemas are discovered dynamically for the selected project and must not inflate either global catalog; Alfa can stay on its existing approved execution/project surfaces",
+  "project.database.call": "dynamic Convex execution is an exec-scoped project runtime seam; Alfa must not import provider-specific dynamic tool names into its static host catalog",
+  "project.database.query": "read-only Convex one-off query still launches project code, so it remains on the exec-gated external/terminal adapter rather than pretending to be an Alfa read primitive",
+  "project.agent.run": "project-agent execution wraps the durable MCP/terminal AgentSession subagent runtime; Alfa browser threads have a separate lifecycle and approval identity",
+  "project.agent.status": "status belongs to project-agent message ids owned by the external MCP principal/session; Alfa has no compatible project-agent task ledger",
+  "vps.status": "this is an aggregate MCP Apps operator card over existing bounded host/app/browser/infra primitives; Alfa already renders equivalent in-shell operational surfaces",
 };
 
 describe("Alfa ↔ MCP capability parity", () => {
@@ -184,6 +197,7 @@ describe("MCP rate limits mirror the routes", () => {
       "tool.forge.evaluate": 10,
       "tool.forge.promote": 6,
       "read.pipeline": 30,
+      "project.knowledge": 30,
     };
     for (const t of TOOLS) {
       if (!t.limit) continue;

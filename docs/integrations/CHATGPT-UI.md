@@ -1,81 +1,81 @@
 # ChatGPT MCP App UI
 
-MSO can render a first-party progress card inside ChatGPT instead of returning only tool-call text. The implementation follows the MCP Apps / OpenAI Apps SDK contract while keeping the existing JSON/text result as a backward-compatible fallback for MCP clients that do not render UI resources.
+MSO renders first-party interactive operator cards inside ChatGPT while keeping JSON/text results as the portable fallback for MCP clients that do not implement MCP Apps.
 
-## What ChatGPT needs
+## Contract
 
-A connector cannot create an inline card merely by returning HTML in a normal tool result. The MCP server must expose and connect four contracts:
+A normal tool result cannot create an inline application by returning arbitrary HTML. MSO exposes the MCP Apps contracts explicitly:
 
-1. **UI resource** — `resources/list` and `resources/read` expose a `ui://…` resource with MIME type `text/html;profile=mcp-app`.
-2. **Tool → UI binding** — the tool descriptor points at that resource through `_meta.ui.resourceUri`. MSO also emits the compatibility alias `_meta["openai/outputTemplate"]`.
-3. **Structured result** — the tool declares `outputSchema` and returns matching `structuredContent`; `content` remains as the portable text fallback.
-4. **Widget bridge** — the sandboxed component reads `window.openai.toolOutput`, may call explicitly app-visible tools through `window.openai.callTool`, and can open the full MSO dashboard through `window.openai.openExternal`.
+1. `resources/list` / `resources/read` expose `ui://…` resources with `text/html;profile=mcp-app`.
+2. Model-visible tools bind a resource with `_meta.ui.resourceUri` plus the OpenAI compatibility alias `_meta["openai/outputTemplate"]`.
+3. UI-capable tools declare `outputSchema` and return bounded `structuredContent`; ordinary `content` remains the model/client text fallback.
+4. Sandboxed widgets read `window.openai.toolOutput`, may call only explicitly app-visible MSO tools through `window.openai.callTool`, and use `window.openai.openExternal` for the full dashboard.
 
 Official references:
 
 - <https://developers.openai.com/plugins/build/chatgpt-ui>
 - <https://developers.openai.com/plugins/reference>
 
-## MSO implementation
+## MSO resources
+
+| Experience | Entry tool | Resource | Refresh behavior |
+| --- | --- | --- | --- |
+| Workflow progress | `workflow_start` | `ui://mso/workflow-progress-v1.html` | app-only `workflow_status` |
+| Project status | `project_get` | `ui://mso/project-status-v1.html` | widget calls `project_get` again |
+| Git diff summary | `project_diff` | `ui://mso/project-diff-v1.html` | static result; request a new diff for changed state |
+| VPS/operator status | `vps_status` | `ui://mso/vps-status-v1.html` | widget calls `vps_status` again |
+
+Source boundaries:
 
 | Contract | MSO source |
 | --- | --- |
-| Progress UI resource | `lib/mcp/ui-resources.ts` |
+| Resource registry / workflow UI | `lib/mcp/ui-resources.ts` |
+| Project/diff/VPS resources | `lib/mcp/ui-operator-resources.ts` |
 | Resource capability / RPC | `lib/mcp/dispatch.ts` |
-| Tool descriptor + structured schemas | `lib/mcp/tools-learning.ts` |
-| Shared tool schema type | `lib/mcp/tool-kit.ts` |
-| Toolset signature | `lib/mcp/toolset.ts` |
+| Workflow structured schema | `lib/mcp/tools-workflow-start.ts`, `lib/mcp/tools-workflow-lifecycle.ts` |
+| Project/diff structured schemas | `lib/mcp/tools-project-experience.ts` |
+| VPS structured schema | `lib/mcp/tools-operator-dashboard.ts` |
+| Shared descriptor contract | `lib/mcp/tool-kit.ts`, `lib/mcp/tool-contract.ts` |
 | Tests | `lib/mcp/ui-resources.test.ts` |
 
-`workflow_start` is the model-visible entry point. Its result renders `ui://mso/workflow-progress-v1.html` when the host supports MCP Apps.
+## Data boundaries
 
-The component then uses `workflow_status` to refresh the visible card. `workflow_status` is marked `ui.visibility: ["app"]` so it is a component bridge, not another model/operator action. Polling is deliberately excluded from MSO activity/workflow-step persistence; otherwise a four-second UI refresh would teach workflow memory a fake sequence made mostly of `workflow_status` calls.
+The workflow component receives only workflow id, intent, resolved project label, timing, step count, and recent tool name/outcome/timestamp/duration. `workflow_status` is `ui.visibility:["app"]`, so polling is not another model action and is deliberately excluded from workflow-memory persistence.
 
-## Data boundary
+The project component receives the safe `project_get` projection: project identity/path, bounded Git state, package metadata, Convex detection mode, project-MCP alias count, and knowledge existence/size. It does not receive `.mcp.json`, `.env.local`, provider tokens, project-MCP headers, or knowledge content.
 
-The progress component receives only:
+The diff component receives only project/mode/SHA metadata, changed file names and aggregate additions/deletions. The unified diff remains in the tool's portable text result and is never interpolated into widget HTML.
 
-- workflow id;
-- intent and resolved project label;
-- started time / elapsed time;
-- step count;
-- recent tool name, outcome, timestamp, and duration.
+The VPS component receives bounded health/process/app/browser state and **masked** infrastructure readiness. Provider values are those already sanitized by the infrastructure summary layer; raw credentials are never added for UI rendering.
 
-It does **not** receive tool arguments, shell commands, file contents, bearer tokens, API keys, credentials, or raw audit details. The existing workflow-memory redaction remains the authority for persisted workflow evidence.
+All four resources are self-contained: no external JavaScript, CSS, images, or direct `fetch()` calls. `Open in MSO` uses the host navigation bridge to `https://mso.rahmanef.com`. The widget CSP has no connect/resource domains and allowlists only that dashboard redirect.
 
-The component is self-contained: no external JavaScript, CSS, images, or direct API fetches are required. `Open in MSO` uses the host navigation bridge to `https://mso.rahmanef.com` instead of sharing an authenticated browser session with the iframe.
+## Flow
+
+```text
+ChatGPT model
+   │
+   ├─ workflow_start ──→ workflow card ──→ workflow_status (app-only)
+   ├─ project_get    ──→ project card  ──→ project_get refresh
+   ├─ project_diff   ──→ diff card
+   └─ vps_status     ──→ VPS card      ──→ vps_status refresh
+
+Every entry tool also returns portable text/JSON for non-MCP-Apps clients.
+```
 
 ## Dedicated UI origin
 
-For the current custom connector, MSO intentionally leaves `_meta.ui.domain` unset so ChatGPT uses its default sandbox origin. The main dashboard origin is not reused as the widget origin.
-
-Before submitting a UI-enabled MSO integration to the ChatGPT app directory, provision a dedicated HTTPS origin unique to the MSO widget and add that reviewed origin to `_meta.ui.domain` (plus the `openai/widgetDomain` compatibility alias if still required by the target client). Treat that as a release/submission configuration change rather than an arbitrary runtime environment knob.
-
-The dashboard navigation target is separate: `openai/widgetCSP.redirect_domains` allowlists `https://mso.rahmanef.com` solely for the **Open in MSO** action.
-
-## Expected ChatGPT flow
-
-```text
-ChatGPT
-  └─ tools/call workflow_start
-       ├─ content              -> text fallback
-       ├─ structuredContent    -> initial workflow state
-       └─ _meta.ui.resourceUri -> ui://mso/workflow-progress-v1.html
-                                   └─ ChatGPT renders sandboxed card
-                                        └─ callTool(workflow_status)
-                                             └─ structuredContent -> card refresh
-```
-
-For a client without MCP App support, nothing breaks: it keeps reading `content[0].text` exactly as before.
+For the current custom connector, MSO intentionally leaves `_meta.ui.domain` unset so ChatGPT uses its default sandbox origin. The main dashboard is not reused as widget origin. Before an app-directory submission, provision a dedicated reviewed HTTPS widget origin and add it to `_meta.ui.domain` (plus the compatibility alias required by the target client at that time).
 
 ## Deployment / refresh
 
-After merging this change:
+After a UI/schema release:
 
-1. run the normal MSO verification pipeline (`bun run verify`);
+1. run `bun run verify` and a production build;
 2. deploy through the normal MSO release path;
-3. reconnect or refresh the ChatGPT MSO connector so ChatGPT re-reads `initialize`, `tools/list`, and the resource capability;
-4. start a multi-step request that routes through `workflow_start`;
-5. verify that the card renders, recent steps advance without `workflow_status` appearing in the learned workflow, and **Open in MSO** opens the production dashboard.
+3. refresh/re-scan the ChatGPT development app so `initialize`, `tools/list`, and `resources/list` are read again;
+4. verify each entry tool exposes `outputSchema` and `_meta.ui.resourceUri`;
+5. verify each `resources/read` returns `text/html;profile=mcp-app`;
+6. verify refresh buttons work and `workflow_status` polling does not enter learned workflow steps.
 
-If ChatGPT still shows only JSON/text after deployment, inspect `tools/list` first. `workflow_start` must expose both `outputSchema` and `_meta.ui.resourceUri`, and `resources/read` for that URI must return `text/html;profile=mcp-app`. A stale connector schema is the next likely cause; refresh/reconnect it before changing the server implementation.
+If ChatGPT still renders text only after a verified deployment, treat a stale app/action snapshot as the first suspect before changing the server again.

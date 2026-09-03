@@ -17,6 +17,7 @@ vi.mock("@/lib/host", async (orig) => {
 
 const { dispatch, isNotification } = await import("./dispatch");
 const { TOOLS } = await import("./tools");
+const { MCP_SERVER_VERSION } = await import("./toolset");
 const { activeWorkflowForActor } = await import("@/lib/skills/memory");
 
 const call = (name: string, args: Record<string, unknown> = {}) =>
@@ -51,7 +52,7 @@ describe("protocol", () => {
   it("publishes server and toolset metadata so action drift is visible", async () => {
     const r = await dispatch({ id: 1, method: "initialize" }, "exec");
     const result = r.result as { serverInfo: { version: string }; _meta: { toolset: { toolCount: number; hash: string } } };
-    expect(result.serverInfo.version).toBe("1.7.3");
+    expect(result.serverInfo.version).toBe(MCP_SERVER_VERSION);
     expect(result._meta.toolset.toolCount).toBe(TOOLS.length);
     expect(result._meta.toolset.hash).toMatch(/^[a-f0-9]{16}$/);
   });

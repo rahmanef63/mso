@@ -11,7 +11,7 @@ describe("ChatGPT compact MCP profile", () => {
     const response = await dispatch({ id: 1, method: "tools/list" }, "exec", "test", context);
     const tools = (response.result as { tools: Array<Record<string, unknown>> }).tools;
     expect(tools.map((tool) => tool.name).sort()).toEqual([...CHATGPT_TOOL_NAMES].sort());
-    expect(tools).toHaveLength(29);
+    expect(tools).toHaveLength(CHATGPT_TOOL_NAMES.size);
 
     for (const tool of tools) {
       expect(typeof tool.title, String(tool.name)).toBe("string");
@@ -29,7 +29,7 @@ describe("ChatGPT compact MCP profile", () => {
 
     const bytes = Buffer.byteLength(JSON.stringify(tools));
     if (process.env.MSO_PROFILE_METRICS === "1") console.info(`CHATGPT_PROFILE_METRICS tools=${tools.length} bytes=${bytes} roughTokens4=${Math.ceil(bytes/4)} maxToolBytes=${Math.max(...tools.map((tool)=>Buffer.byteLength(JSON.stringify(tool))))}`);
-    expect(bytes).toBeLessThan(40 * 1024);
+    expect(bytes).toBeLessThan(72 * 1024);
     expect(tools.some((tool) => tool.name === "local_agent_inbox")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_mcp_tools")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_mcp_call")).toBe(true);
@@ -41,7 +41,7 @@ describe("ChatGPT compact MCP profile", () => {
   });
 
   it("fails closed when a compact-profile client guesses a full-catalog tool", async () => {
-    const result = await dispatch({ id: 2, method: "tools/call", params: { name: "apps_power", arguments: { id: "hermes", action: "restart" } } }, "exec", "test", context);
+    const result = await dispatch({ id: 2, method: "tools/call", params: { name: "tool_forge_promote", arguments: { id: "candidate-hidden" } } }, "exec", "test", context);
     expect(result.error).toMatchObject({ code: -32602 });
   });
 });
