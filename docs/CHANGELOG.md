@@ -14,6 +14,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` harden Open in MSO navigation
 - `agent` calibrate correction memory semantics
 - `agent` compare normalized token proofs per row
 - `mcp` advertise implemented protocol era

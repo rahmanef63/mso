@@ -4,9 +4,9 @@
 >
 > ChatGPT's Developer Mode/App UI can change independently of MSO. Use the current OpenAI MCP/App documentation for exact menu labels, and use MSO Settings → MCP / `GET /mcp` for the live server/profile signatures.
 
-<!-- mcp-chatgpt-profile: server=1.8.1 version=2026.09.03.6 tools=61 read=32 write=17 exec=12 app-only=1 total=62 -->
+<!-- mcp-chatgpt-profile: server=1.8.2 version=2026.09.03.7 tools=61 read=32 write=17 exec=12 app-only=1 total=62 -->
 
-MSO server **1.8.1**, toolset **2026.09.03.6** exposes the full generic catalog for MCP clients, while a registered ChatGPT client receives **62 transport tools**: **61 model/operator tools** (32 read, 17 write, 12 exec) plus app-only `workflow_status`.
+MSO server **1.8.2**, toolset **2026.09.03.7** exposes the full generic catalog for MCP clients, while a registered ChatGPT client receives **62 transport tools**: **61 model/operator tools** (32 read, 17 write, 12 exec) plus app-only `workflow_status`.
 
 Browser-hosted MCP probes from ChatGPT are allowed only when they target the configured public `OS_PUBLIC_ORIGIN`; arbitrary origins and ChatGPT-origin requests aimed at loopback remain denied. Additional trusted browser hosts can be added explicitly with comma-separated `OS_MCP_BROWSER_ORIGINS`. Public OAuth discovery and DCR responses carry CORS metadata; authenticated `/mcp` echoes only an approved exact origin.
 

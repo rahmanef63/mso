@@ -1,7 +1,8 @@
 import { OPERATOR_UI_RESOURCES } from "./ui-operator-resources";
-import { MSO_ORIGIN, widgetResourceMeta } from "./ui-config";
+import { widgetResourceMeta } from "./ui-config";
+import { OPEN_IN_MSO_SCRIPT, openInMsoControls } from "./ui-navigation";
 export { PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI } from "./ui-operator-resources";
-export const WORKFLOW_PROGRESS_URI = "ui://mso/workflow-progress-v1.html";
+export const WORKFLOW_PROGRESS_URI = "ui://mso/workflow-progress-v2.html";
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 
 const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="polite">
@@ -38,7 +39,9 @@ const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="po
     .empty { padding: 8px 0 10px; color: color-mix(in srgb, CanvasText 52%, transparent); font-size: 11px; }
     .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px 10px 14px; }
     .connection { color: color-mix(in srgb, CanvasText 52%, transparent); font-size: 10px; }
-    .actions { display: flex; gap: 6px; }
+    .actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+    .open-direct { color: CanvasText; font-size: 10px; text-decoration: none; border-bottom: 1px solid currentColor; }
+    .open-feedback { width: 100%; text-align: right; color: color-mix(in srgb, CanvasText 52%, transparent); font-size: 9px; }
     button { appearance: none; border: 1px solid color-mix(in srgb, CanvasText 16%, transparent); background: color-mix(in srgb, CanvasText 6%, Canvas); color: CanvasText; border-radius: 10px; padding: 7px 10px; min-height: 32px; font: inherit; font-size: 11px; font-weight: 650; cursor: pointer; }
     button.primary { background: color-mix(in srgb, #7c3aed 17%, Canvas); }
     button:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
@@ -61,12 +64,11 @@ const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="po
     </div>
     <div class="foot">
       <span class="connection" id="connection">Live status</span>
-      <div class="actions"><button type="button" id="refresh">Refresh</button><button class="primary" type="button" id="open">Open in MSO ↗</button></div>
+      <div class="actions"><button type="button" id="refresh">Refresh</button>${openInMsoControls()}</div>
     </div>
   </section>
   <script>
     (() => {
-      const MSO_URL = "https://mso.rahmanef.com";
       const stateEl = document.getElementById("state");
       const intentEl = document.getElementById("intent");
       const projectEl = document.getElementById("project");
@@ -77,7 +79,6 @@ const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="po
       const updatedEl = document.getElementById("updated");
       const connectionEl = document.getElementById("connection");
       const refreshButton = document.getElementById("refresh");
-      const openButton = document.getElementById("open");
       let workflowId = "";
       let startedAt = "";
       let active = true;
@@ -191,13 +192,7 @@ const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="po
       }, { passive: true });
       window.addEventListener("openai:set_globals", readHostOutput, { passive: true });
       refreshButton.addEventListener("click", callStatus);
-      openButton.addEventListener("click", async () => {
-        if (window.openai && typeof window.openai.openExternal === "function") {
-          await window.openai.openExternal({ href: MSO_URL, redirectUrl: false });
-        } else {
-          window.open(MSO_URL, "_blank", "noopener,noreferrer");
-        }
-      });
+      ${OPEN_IN_MSO_SCRIPT}
       const clock = window.setInterval(() => { elapsedEl.textContent = formatDuration(elapsedMs()); }, 1000);
       window.addEventListener("pagehide", () => { stopPolling(); window.clearInterval(clock); }, { once: true });
       readHostOutput();

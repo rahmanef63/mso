@@ -20,10 +20,10 @@ Official references:
 
 | Experience | Entry tool | Resource | Refresh behavior |
 | --- | --- | --- | --- |
-| Workflow progress | `workflow_start` | `ui://mso/workflow-progress-v1.html` | app-only `workflow_status` |
-| Project status | `project_get` | `ui://mso/project-status-v1.html` | widget calls `project_get` again |
-| Git diff summary | `project_diff` | `ui://mso/project-diff-v1.html` | static result; request a new diff for changed state |
-| VPS/operator status | `vps_status` | `ui://mso/vps-status-v1.html` | widget calls `vps_status` again |
+| Workflow progress | `workflow_start` | `ui://mso/workflow-progress-v2.html` | app-only `workflow_status` |
+| Project status | `project_get` | `ui://mso/project-status-v2.html` | widget calls `project_get` again |
+| Git diff summary | `project_diff` | `ui://mso/project-diff-v2.html` | static result; request a new diff for changed state |
+| VPS/operator status | `vps_status` | `ui://mso/vps-status-v2.html` | widget calls `vps_status` again |
 
 Source boundaries:
 
@@ -48,7 +48,7 @@ The diff component receives only project/mode/SHA metadata, changed file names a
 
 The VPS component receives bounded health/process/app/browser state and **masked** infrastructure readiness. Provider values are those already sanitized by the infrastructure summary layer; raw credentials are never added for UI rendering.
 
-All four resources are self-contained: no external JavaScript, CSS, images, or direct `fetch()` calls. `Open in MSO` uses the host navigation bridge to `https://mso.rahmanef.com`. The widget CSP has no connect/resource domains and allowlists only that dashboard redirect.
+All four resources are self-contained: no external JavaScript, CSS, images, or direct `fetch()` calls. `Open in MSO` feature-detects the official ChatGPT `window.openai.openExternal` bridge, registers the same target with `window.openai.setOpenInAppUrl`, and shows a user-clickable `Open directly` fallback plus visible status when automatic navigation is unavailable. The widget CSP has no connect/resource domains and allowlists only `https://mso.rahmanef.com` as the dashboard redirect.
 
 ## Flow
 
@@ -68,6 +68,22 @@ Every entry tool also returns portable text/JSON for non-MCP-Apps clients.
 All four templates declare `_meta.ui.domain = https://mso-ui.rahmanef.com` and the ChatGPT compatibility alias `_meta["openai/widgetDomain"]` with the same origin. The sibling hostname is intentional: the cockpit may scope its session cookie to `mso.rahmanef.com`, while `mso-ui.rahmanef.com` is outside that cookie domain. The dedicated origin therefore satisfies the plugin UI identity requirement without reusing the authenticated dashboard origin.
 
 The reproducible Traefik route is stored in `ops/traefik/mso-ui.yml` and forwards only to the same local MSO service through the existing HTTPS/Let's Encrypt ingress. Widget CSP still allows no network/static-resource domains and only permits `Open in MSO` to redirect to `https://mso.rahmanef.com`.
+
+## Manual ChatGPT smoke journeys
+
+Do not manually click through every model action. Cover the public contract with a small set of journeys that compose multiple primitives:
+
+| Journey | Suggested prompt/action | Pass condition |
+| --- | --- | --- |
+| Workflow/UI bridge | Start a read-only workflow for `mso`, press `Refresh`, then `Open in MSO` | progress updates; automatic link opens or the explicit `Open directly` fallback is shown |
+| VPS card | Ask for the current VPS status | `vps_status` renders CPU/memory/disk/apps/browser/infra and its refresh works |
+| Project/Git | Ask to inspect project `mso`, then show its current diff/history | `project_get` and `project_diff` render the correct project/branch/changes without secrets |
+| Safe filesystem CRUD | Create/read/copy/move/delete a disposable file under `~/.mso/smoke-tests/` | content/hash round-trip succeeds and cleanup leaves no test file |
+| Convex | Check database status/tools for a known Convex project such as CareerPack | provider is Convex, project boundary is preserved, no env credential tools appear |
+| Project agent | Run `project_agent_run` in `plan_mode=true` for a harmless project inspection | returns a bounded plan/message id without modifying the repo |
+| Operator integrations | Check `browser_status` + `infra_providers_list` | read-only state is returned without starting browser/app or exposing provider secrets |
+
+This seven-journey suite is the preferred human acceptance test after a Scan Tools refresh. Full automated contract/coverage/build gates remain mandatory before release.
 
 ## Deployment / refresh
 

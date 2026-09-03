@@ -1,4 +1,5 @@
 # mso — Progress Log
+- **MCP Apps navigation hardening (2026-09-03):** server `1.8.2` / toolset `2026.09.03.7` bumps all four UI resources to v2 and makes `Open in MSO` self-diagnosing: official `openExternal` + `setOpenInAppUrl`, visible success/failure feedback, and a user-clickable direct-link fallback. No tool count or security-scope changes.
 ## 2026-09-03 — Cognitive Runtime P9 memory calibration
 
 - **Repeated-correction calibration instead of graph expansion:** added `bench:memory:calibration`, which runs only against an isolated temporary agent-memory root and exercises explicit authority, confidence/recency, future replacement, forget semantics, finished-history integrity and deep repeated corrections.

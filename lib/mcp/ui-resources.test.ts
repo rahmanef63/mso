@@ -61,6 +61,11 @@ describe("MCP Apps workflow progress UI", () => {
     expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
     expect(content.text).toContain("workflow_status");
     expect(content.text).toContain("Open in MSO");
+    expect(content.text).toContain("openExternal");
+    expect(content.text).toContain("setOpenInAppUrl");
+    expect(content.text).toContain("Open directly");
+    expect(content.text).toContain("Automatic open unavailable");
+    expect(WORKFLOW_PROGRESS_URI).toContain("-v2.html");
     expect(content.text).not.toContain("fetch(");
     expect(content._meta).toMatchObject({
       ui: { domain: MCP_UI_DOMAIN, prefersBorder: true },
@@ -127,6 +132,10 @@ describe("MCP Apps workflow progress UI", () => {
       expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
       expect(content.text).toContain(marker);
       expect(content.text).not.toContain("fetch(");
+      expect(content.text).toContain("openExternal");
+      expect(content.text).toContain("setOpenInAppUrl");
+      expect(content.text).toContain("Open directly");
+      expect(uri).toContain("-v2.html");
       expect(content._meta).toMatchObject({ ui: { domain: MCP_UI_DOMAIN, prefersBorder: true }, "openai/widgetDomain": MCP_UI_DOMAIN, "openai/widgetPrefersBorder": true });
     }
   });
