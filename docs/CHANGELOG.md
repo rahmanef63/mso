@@ -16,6 +16,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` correct Fresh 3 Surface scope
 - `mcp` open contextual MSO views
 - `runtime` prevent live Next build corruption
 - `mcp` harden Open in MSO navigation

@@ -19,34 +19,14 @@ export type SurfaceApp = {
 // having their X-Frame-Options/frame-ancestors stripped by MSO.
 export const SURFACE_APPS: readonly SurfaceApp[] = [
   {
-    id: "antinrml-builder",
-    title: "AntiNRML Builder",
-    description: "Live AntiNRML builder demo rendered directly inside the ChatGPT MSO Surface.",
-    origin: "https://builder-game.antinrml.com",
-    startPath: "/",
-    renderer: "iframe",
-    presentation: "fullscreen",
-    sandbox: "allow-scripts allow-same-origin allow-forms allow-pointer-lock",
-  },
-  {
-    id: "baton",
-    title: "Baton",
-    description: "Baton app demo. Its production origin currently denies framing, so MSO keeps it on the remote-browser path.",
-    origin: "https://baton.rahmanef.com",
-    startPath: "/os?view=home",
-    renderer: "remote",
-    presentation: "fullscreen",
-    reason: "The app sends X-Frame-Options: DENY; MSO does not strip application frame protections.",
-  },
-  {
-    id: "antinrml-game",
-    title: "AntiNRML Game",
-    description: "AntiNRML game surface. The current deployment permits only same-origin framing, so it uses the remote-browser seam.",
+    id: "play-together",
+    title: "Play Together",
+    description: "Play Together at game.rahmanef.com. Its current CSP permits only same-origin framing, so MSO keeps it on the remote-browser seam.",
     origin: "https://game.rahmanef.com",
     startPath: "/",
     renderer: "remote",
-    presentation: "pip",
-    reason: "The app CSP currently declares frame-ancestors 'self'.",
+    presentation: "fullscreen",
+    reason: "The app CSP currently declares frame-ancestors 'self'; MSO does not strip project frame protections.",
   },
 ] as const;
 

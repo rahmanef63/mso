@@ -4,12 +4,11 @@ import { MSO_SURFACE_SCRIPT } from "./ui-surface-script";
 import { OPEN_IN_MSO_SCRIPT } from "./ui-navigation";
 
 describe("MSO Surface trusted app catalog", () => {
-  it("allowlists only reviewed direct-frame origins", () => {
-    expect(surfaceFrameDomains()).toEqual(["https://builder-game.antinrml.com"]);
+  it("starts with no third-party nested-frame origins", () => {
+    expect(surfaceFrameDomains()).toEqual([]);
     const apps = publicSurfaceApps();
-    expect(apps.find((app) => app.id === "antinrml-builder")?.renderer).toBe("iframe");
-    expect(apps.find((app) => app.id === "baton")?.renderer).toBe("remote");
-    expect(apps.find((app) => app.id === "antinrml-game")?.renderer).toBe("remote");
+    expect(apps).toHaveLength(1);
+    expect(apps[0]).toMatchObject({ id: "play-together", title: "Play Together", origin: "https://game.rahmanef.com", renderer: "remote" });
     expect(JSON.stringify(apps)).not.toContain("sandbox");
   });
 
@@ -18,22 +17,19 @@ describe("MSO Surface trusted app catalog", () => {
       "https://evil.example/app",
       "//evil.example/app",
       "/apps/unknown",
-      "/apps/antinrml-builder/../admin",
-      "/apps/antinrml-builder/%2e%2e/admin",
-      "/apps/antinrml-builder\\evil",
+      "/apps/play-together/../admin",
+      "/apps/play-together/%2e%2e/admin",
+      "/apps/play-together\\evil",
     ]) {
       expect(() => resolveSurfaceRoute(route), route).toThrow();
     }
   });
 
-  it("keeps direct demo paths on the exact reviewed origin", () => {
-    const surface = resolveSurfaceRoute("/apps/antinrml-builder/rooms/demo?mode=guest");
-    expect(surface).toMatchObject({ kind: "app", title: "AntiNRML Builder" });
-    expect(surface.app?.renderer).toBe("iframe");
-    const url = new URL(surface.app!.url);
-    expect(url.origin).toBe("https://builder-game.antinrml.com");
-    expect(url.pathname).toBe("/rooms/demo");
-    expect(url.searchParams.get("mode")).toBe("guest");
+  it("keeps Play Together on the remote seam while its CSP is self-only", () => {
+    const surface = resolveSurfaceRoute("/apps/play-together");
+    expect(surface).toMatchObject({ kind: "app", title: "Play Together", openPath: "/browser" });
+    expect(surface.app).toMatchObject({ id: "play-together", renderer: "remote", origin: "https://game.rahmanef.com" });
+    expect(new URL(surface.app!.url).origin).toBe("https://game.rahmanef.com");
   });
 
   it("ships syntactically valid browser code with no dynamic HTML sink", () => {
@@ -42,11 +38,5 @@ describe("MSO Surface trusted app catalog", () => {
     expect(MSO_SURFACE_SCRIPT).not.toContain("insertAdjacentHTML");
     expect(MSO_SURFACE_SCRIPT).not.toContain("document.write");
     expect(MSO_SURFACE_SCRIPT).toContain("url.origin!==safe.origin");
-  });
-
-  it("preserves anti-framing apps as remote surfaces", () => {
-    const baton = resolveSurfaceRoute("/apps/baton");
-    expect(baton.app).toMatchObject({ id: "baton", renderer: "remote", origin: "https://baton.rahmanef.com" });
-    expect(baton.openPath).toBe("/browser");
   });
 });

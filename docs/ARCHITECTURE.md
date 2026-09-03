@@ -269,3 +269,7 @@ When sources disagree, use this order:
 `node scripts/check-docs.mjs` plus `node scripts/gen-comparison.mjs --check` check current-reference links,
 selected machine-verifiable facts, comparison evidence and source-review freshness so common drift becomes a gate failure instead of a
 future archaeology task.
+
+### ChatGPT MSO Surface trust boundary
+
+Each MSO connector/server scope owns its own Surface catalog. Core MSO Surface code must not import project identities or trusted frame origins from another server scope. The current Fresh 3/VPSKU app target is Play Together (`game.rahmanef.com`), kept remote while its own CSP remains self-only. Any future iframe origin requires an explicit review and resource-URI/toolset bump.

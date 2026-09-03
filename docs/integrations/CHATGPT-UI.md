@@ -24,7 +24,7 @@ Official references:
 | Project status | `project_get` | `ui://mso/project-status-v2.html` | widget calls `project_get` again |
 | Git diff summary | `project_diff` | `ui://mso/project-diff-v2.html` | static result; request a new diff for changed state |
 | VPS/operator status | `vps_status` | `ui://mso/vps-status-v2.html` | widget calls `vps_status` again |
-| Universal MSO Surface | `render_mso_surface` | `ui://mso/surface-v1.html` | native views call bounded read tools; reviewed apps may use exact-origin nested frames |
+| Universal MSO Surface | `render_mso_surface` | `ui://mso/surface-v2.html` | native views call bounded read tools; nested frames require an explicit exact-origin trust review |
 
 Source boundaries:
 
@@ -55,7 +55,9 @@ The VPS component receives bounded health/process/app/browser state and **masked
 
 All five resources are self-contained: no external JavaScript, CSS, images, or direct `fetch()` calls. `Open in MSO` feature-detects the official ChatGPT `window.openai.openExternal` bridge, registers a contextual MSO deep-link with `window.openai.setOpenInAppUrl`, and shows a user-clickable `Open directly` fallback plus visible status when automatic navigation is unavailable. Workflow cards target `/assistant/mcp`, VPS cards `/monitor`, project cards `/files`, and diff cards `/code`. As a cache-safe fallback, a root MSO landing carrying ChatGPT's `redirectUrl=https://chatgpt.com/c/...` is server-redirected to `/assistant/mcp` while preserving the callback query; MSO never follows that callback itself.
 
-The universal **MSO Surface** is intentionally stricter than the ordinary runtime-app/HTML widgets. `render_mso_surface` accepts only an MSO-style route plus optional project/SHA context — never raw HTML and never an arbitrary URL. Nested frames come from the code-owned `SURFACE_APPS` registry and are permitted only when the exact origin is also present in the resource's `ui.csp.frameDomains`. The browser-side renderer validates the returned app id and URL origin against the catalog bundled into the signed resource before setting `iframe.src`; dynamic labels use DOM `textContent`, not HTML interpolation. The iframe sandbox omits popup/top-navigation privileges. Apps that send `X-Frame-Options` or restrictive `frame-ancestors` remain `remote` and MSO does not strip those protections.
+The universal **MSO Surface** is intentionally stricter than the ordinary runtime-app/HTML widgets. `render_mso_surface` accepts only an MSO-style route plus optional project/SHA context — never raw HTML and never an arbitrary URL. Nested frames can come only from the code-owned `SURFACE_APPS` registry and are permitted only when the exact origin is also present in the resource's `ui.csp.frameDomains`. The current Fresh 3 catalog has no iframe renderer, so `frameDomains` is omitted entirely. The browser-side renderer validates the returned app id and URL origin against the catalog bundled into the signed resource before setting `iframe.src`; dynamic labels use DOM `textContent`, not HTML interpolation. The iframe sandbox omits popup/top-navigation privileges. Apps that send `X-Frame-Options` or restrictive `frame-ancestors` remain `remote` and MSO does not strip those protections.
+
+Fresh 3 is the VPSKU MSO connector. Its current app target is **Play Together** at `https://game.rahmanef.com`. App identities and trusted origins from other MSO server scopes must not be copied into this catalog or CSP.
 
 Installed `runtime:"html"` apps and user-authored HTML widgets are **not** trusted inputs to the ChatGPT frame allowlist. They remain useful inside the authenticated MSO shell, but promoting one into `SURFACE_APPS` requires an explicit code review/release. This separation prevents a user-installed manifest or HTML snippet from escalating into a ChatGPT nested-frame CSP capability. Raw HTML snippets continue to run only in opaque-origin `srcDoc` sandboxes. The authenticated cockpit itself remains non-frameable; no change is made to its `frame-ancestors` or `X-Frame-Options` policy.
 
@@ -70,8 +72,8 @@ ChatGPT model
    ├─ vps_status     ──→ VPS card      ──→ vps_status refresh
    └─ render_mso_surface ─→ MSO Surface
                              ├─ native monitor/project/diff views
-                             ├─ reviewed exact-origin live iframe app
-                             └─ remote-browser fallback for anti-frame apps
+                             ├─ exact-origin iframe only after explicit trust review
+                             └─ remote-browser seam for anti-frame apps
 
 Every entry tool also returns portable text/JSON for non-MCP-Apps clients.
 ```
@@ -89,7 +91,7 @@ Do not manually click through every model action. Cover the public contract with
 | Journey | Suggested prompt/action | Pass condition |
 | --- | --- | --- |
 | Workflow/UI bridge | Start a read-only workflow for `mso`, press `Refresh`, then `Open in MSO` | progress updates; MSO opens visibly at Alfa → MCP Activity (`/assistant/mcp`), including when ChatGPT still uses a cached root-targeting widget; the explicit `Open directly` fallback targets the same view |
-| MSO Surface | Ask to render `/`, `/monitor`, then `/apps/antinrml-builder` | home/native view renders inline; reviewed builder appears as a nested live frame; fullscreen control is available; Baton/game remain remote and never enter `frameDomains` |
+| MSO Surface | Ask to render `/`, `/monitor`, then `/apps/play-together` | home/native view renders inline; Play Together resolves to `https://game.rahmanef.com` but stays on the remote-browser seam while its CSP is `frame-ancestors 'self'`; `frameDomains` remains absent |
 | VPS card | Ask for the current VPS status | `vps_status` renders CPU/memory/disk/apps/browser/infra and its refresh works |
 | Project/Git | Ask to inspect project `mso`, then show its current diff/history | `project_get` and `project_diff` render the correct project/branch/changes without secrets |
 | Safe filesystem CRUD | Create/read/copy/move/delete a disposable file under `~/mso-smoke-tests/` | content/hash round-trip succeeds and cleanup leaves no test file |
