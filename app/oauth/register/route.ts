@@ -10,13 +10,24 @@ import { rateLimitedUntrusted } from "@/lib/host";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const DCR_CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+
 const bad = (error: string, description: string, status = 400) =>
-  Response.json({ error, error_description: description }, { status, headers: { "Cache-Control": "no-store" } });
+  Response.json({ error, error_description: description }, { status, headers: { ...DCR_CORS, "Cache-Control": "no-store" } });
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: DCR_CORS });
+}
 
 export async function POST(req: Request) {
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
   if (rateLimitedUntrusted(`mcp:dcr:${clientIp(req)}`, 10, 3_600_000)) {
-    return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": "3600" } });
+    return Response.json({ error: "rate_limited" }, { status: 429, headers: { ...DCR_CORS, "Retry-After": "3600" } });
   }
 
   let body: { redirect_uris?: unknown; client_name?: unknown };
@@ -47,6 +58,6 @@ export async function POST(req: Request) {
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
     },
-    { status: 201, headers: { "Cache-Control": "no-store" } },
+    { status: 201, headers: { ...DCR_CORS, "Cache-Control": "no-store" } },
   );
 }

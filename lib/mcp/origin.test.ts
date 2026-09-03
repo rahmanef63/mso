@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mcpRequestOriginAllowed, publicOrigin } from "./origin";
+import { mcpCorsHeaders, mcpRequestOriginAllowed, publicOrigin } from "./origin";
 
 function req(url: string, headers: Record<string, string> = {}) {
   return new Request(url, { headers });
@@ -21,6 +21,26 @@ describe("MCP public origin boundary", () => {
   it("allows the configured public browser origin", () => {
     vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.example.test");
     expect(mcpRequestOriginAllowed(req("https://mso.example.test/mcp", { origin: "https://mso.example.test", host: "mso.example.test" }))).toBe(true);
+  });
+
+  it("allows ChatGPT browser requests only against the configured public MCP origin", () => {
+    vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.example.test");
+    const publicReq = req("https://mso.example.test/mcp", { origin: "https://chatgpt.com", host: "mso.example.test" });
+    expect(mcpRequestOriginAllowed(publicReq)).toBe(true);
+    expect(mcpCorsHeaders(publicReq)).toMatchObject({
+      "Access-Control-Allow-Origin": "https://chatgpt.com",
+      "Access-Control-Allow-Headers": expect.stringContaining("Authorization"),
+      Vary: "Origin",
+    });
+    const loopbackReq = req("http://127.0.0.1:4005/mcp", { origin: "https://chatgpt.com", host: "127.0.0.1:4005" });
+    expect(mcpRequestOriginAllowed(loopbackReq)).toBe(false);
+  });
+
+  it("supports exact operator-added browser origins without accepting suffix spoofing", () => {
+    vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.example.test");
+    vi.stubEnv("OS_MCP_BROWSER_ORIGINS", "https://claude.example, https://cursor.example/path");
+    expect(mcpRequestOriginAllowed(req("https://mso.example.test/mcp", { origin: "https://claude.example", host: "mso.example.test" }))).toBe(true);
+    expect(mcpRequestOriginAllowed(req("https://mso.example.test/mcp", { origin: "https://evil.claude.example", host: "mso.example.test" }))).toBe(false);
   });
 
   it("keeps the Settings self-probe working on a loopback cockpit", () => {

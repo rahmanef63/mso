@@ -4,9 +4,11 @@
 >
 > ChatGPT's Developer Mode/App UI can change independently of MSO. Use the current OpenAI MCP/App documentation for exact menu labels, and use MSO Settings → MCP / `GET /mcp` for the live server/profile signatures.
 
-<!-- mcp-chatgpt-profile: server=1.7.1 version=2026.09.03.4 tools=28 read=14 write=8 exec=6 app-only=1 total=29 -->
+<!-- mcp-chatgpt-profile: server=1.7.2 version=2026.09.03.4 tools=28 read=14 write=8 exec=6 app-only=1 total=29 -->
 
-MSO server **1.7.1**, toolset **2026.09.03.4** exposes a full generic catalog for MCP clients, but a registered ChatGPT client receives only **29 transport tools**: **28 model/operator tools** (14 read, 8 write, 6 exec) plus app-only `workflow_status`.
+MSO server **1.7.2**, toolset **2026.09.03.4** exposes a full generic catalog for MCP clients, but a registered ChatGPT client receives only **29 transport tools**: **28 model/operator tools** (14 read, 8 write, 6 exec) plus app-only `workflow_status`.
+
+Browser-hosted MCP probes from ChatGPT are allowed only when they target the configured public `OS_PUBLIC_ORIGIN`; arbitrary origins and ChatGPT-origin requests aimed at loopback remain denied. Additional trusted browser hosts can be added explicitly with comma-separated `OS_MCP_BROWSER_ORIGINS`. Public OAuth discovery and DCR responses carry CORS metadata; authenticated `/mcp` echoes only an approved exact origin.
 
 The compact descriptor regression currently measures **31,908 JSON bytes** for all 29 ChatGPT tool definitions (roughly 8k tokens at a 4-byte/token estimate), with the largest individual descriptor **2,507 bytes**. CI keeps the profile below 40 KiB and each descriptor below 8 KiB. Bytes are the deterministic contract; token estimates vary by tokenizer.
 

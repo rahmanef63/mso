@@ -21,6 +21,21 @@ function isLoopbackHostname(hostname: string): boolean {
   return host === "localhost" || host === "::1" || host.startsWith("127.");
 }
 
+const DEFAULT_MCP_BROWSER_ORIGINS = new Set([
+  "https://chatgpt.com",
+  "https://chat.openai.com",
+]);
+
+function configuredBrowserOrigins(): Set<string> {
+  const out = new Set(DEFAULT_MCP_BROWSER_ORIGINS);
+  for (const raw of (process.env.OS_MCP_BROWSER_ORIGINS ?? "").split(",")) {
+    const value = raw.trim();
+    if (!value) continue;
+    try { out.add(new URL(value).origin); } catch { /* ignore malformed operator entries */ }
+  }
+  return out;
+}
+
 function requestHeaderOrigin(req: Request): string | null {
   const url = new URL(req.url);
   const proto = req.headers.get("x-forwarded-proto")?.split(",")[0].trim() || url.protocol.replace(":", "");
@@ -54,6 +69,10 @@ export function mcpRequestOriginAllowed(req: Request): boolean {
   if (explicit && supplied.origin === explicit) return true;
 
   const requestOrigin = requestHeaderOrigin(req);
+  if (explicit && requestOrigin === explicit && configuredBrowserOrigins().has(supplied.origin)) {
+    const target = new URL(explicit);
+    if (!isLoopbackHostname(target.hostname)) return true;
+  }
   if (requestOrigin) {
     const target = new URL(requestOrigin);
     if (isLoopbackHostname(target.hostname) && supplied.origin === requestOrigin) return true;
@@ -62,6 +81,22 @@ export function mcpRequestOriginAllowed(req: Request): boolean {
   // Without an explicit public origin, never trust an arbitrary Host header merely
   // because a browser echoed it in Origin: that is the DNS-rebinding failure mode.
   return false;
+}
+
+
+export function mcpCorsHeaders(req: Request): Record<string, string> {
+  const raw = req.headers.get("origin");
+  if (!raw || !mcpRequestOriginAllowed(req)) return {};
+  let origin: string;
+  try { origin = new URL(raw).origin; } catch { return {}; }
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, Mcp-Session-Id, MCP-Protocol-Version",
+    "Access-Control-Expose-Headers": "Mcp-Session-Id, WWW-Authenticate",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
 }
 
 export function publicOrigin(req: Request): string {

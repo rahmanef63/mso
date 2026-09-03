@@ -7,6 +7,17 @@ import { mcpEnabled } from "@/lib/mcp/scope";
 // what produces "MCP server does not implement OAuth" with no further detail.
 export const runtime = "nodejs";
 
+const PUBLIC_CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400",
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: PUBLIC_CORS });
+}
+
 export async function GET(req: Request) {
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
   const origin = publicOrigin(req);
@@ -17,6 +28,6 @@ export async function GET(req: Request) {
       scopes_supported: ["read", "write", "exec", "offline_access"],
       bearer_methods_supported: ["header"],
     },
-    { headers: { "cache-control": "public, max-age=3600" } },
+    { headers: { ...PUBLIC_CORS, "cache-control": "public, max-age=3600" } },
   );
 }

@@ -1,7 +1,7 @@
 import { dispatch, isNotification, rpcError, UNAUTHORIZED, RATE_LIMITED, type RpcRequest } from "@/lib/mcp/dispatch";
 import { getClient, validateToken, touchToken } from "@/lib/mcp/store";
 import { clampScope, mcpEnabled } from "@/lib/mcp/scope";
-import { publicOrigin, clientIp, mcpRequestOriginAllowed } from "@/lib/mcp/origin";
+import { publicOrigin, clientIp, mcpCorsHeaders, mcpRequestOriginAllowed } from "@/lib/mcp/origin";
 import { rateLimited, rateLimitedUntrusted } from "@/lib/host";
 import { TOOLS } from "@/lib/mcp/tools";
 import { toolsetInfo } from "@/lib/mcp/toolset";
@@ -18,6 +18,8 @@ const CALLS_PER_DAY = 50_000;
 const PREAUTH_PER_MIN = 240;
 export const MAX_MCP_BODY_BYTES = 2 * 1024 * 1024;
 class BodyTooLarge extends Error {}
+
+const responseHeaders = (req: Request, headers: Record<string, string> = {}) => ({ ...mcpCorsHeaders(req), ...headers });
 
 async function parseBoundedJson(req: Request): Promise<unknown> {
   const rawLength = req.headers.get("content-length");
@@ -44,11 +46,11 @@ async function parseBoundedJson(req: Request): Promise<unknown> {
 export async function POST(req: Request) {
   const origin = publicOrigin(req);
   const challenge = `Bearer realm="mso", resource_metadata="${origin}/.well-known/oauth-protected-resource"`;
-  const unauthorized = (msg: string) => Response.json(rpcError(null, UNAUTHORIZED, msg), { status: 401, headers: { "WWW-Authenticate": challenge } });
+  const unauthorized = (msg: string) => Response.json(rpcError(null, UNAUTHORIZED, msg), { status: 401, headers: responseHeaders(req, { "WWW-Authenticate": challenge }) });
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
   if (!mcpRequestOriginAllowed(req)) return Response.json({ error: "forbidden_origin" }, { status: 403, headers: { "Cache-Control": "no-store" } });
   if (rateLimitedUntrusted(`mcp:ip:${clientIp(req)}`, PREAUTH_PER_MIN, 60_000)) {
-    return Response.json(rpcError(null, RATE_LIMITED, "rate limited"), { status: 429, headers: { "Retry-After": "60" } });
+    return Response.json(rpcError(null, RATE_LIMITED, "rate limited"), { status: 429, headers: responseHeaders(req, { "Retry-After": "60" }) });
   }
 
   const bearer = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
@@ -57,23 +59,23 @@ export async function POST(req: Request) {
   if (!token) return unauthorized("invalid, revoked or expired MCP token");
   const effectiveScope = clampScope(token.scope);
   if (rateLimited(`mcp:tok:${token.hash}`, CALLS_PER_MIN, 60_000)) {
-    return Response.json(rpcError(null, RATE_LIMITED, "rate limited — retry in 60s"), { status: 429, headers: { "Retry-After": "60" } });
+    return Response.json(rpcError(null, RATE_LIMITED, "rate limited — retry in 60s"), { status: 429, headers: responseHeaders(req, { "Retry-After": "60" }) });
   }
   if (rateLimited(`mcp:day:${token.hash}`, CALLS_PER_DAY, 86_400_000)) {
-    return Response.json(rpcError(null, RATE_LIMITED, "daily call limit reached for this token"), { status: 429, headers: { "Retry-After": "3600" } });
+    return Response.json(rpcError(null, RATE_LIMITED, "daily call limit reached for this token"), { status: 429, headers: responseHeaders(req, { "Retry-After": "3600" }) });
   }
 
   let body: unknown;
   try { body = await parseBoundedJson(req); }
   catch (error) {
-    if (error instanceof BodyTooLarge) return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "request body too large" } }, { status: 413, headers: { "Cache-Control": "no-store" } });
-    return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }, { status: 400 });
+    if (error instanceof BodyTooLarge) return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "request body too large" } }, { status: 413, headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
+    return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }, { status: 400, headers: responseHeaders(req) });
   }
 
   const rpc = body as RpcRequest;
   const protocolHeader = (req.headers.get("mcp-protocol-version") ?? "").trim();
   if (rpc.method !== "initialize" && protocolHeader && !supportedMcpProtocol(protocolHeader)) {
-    return Response.json({ jsonrpc: "2.0", id: rpc.id ?? null, error: { code: -32600, message: "unsupported MCP-Protocol-Version" } }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ jsonrpc: "2.0", id: rpc.id ?? null, error: { code: -32600, message: "unsupported MCP-Protocol-Version" } }, { status: 400, headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
   }
   const principal = token.clientId ? `mcp-client:${token.clientId}` : `mcp-token:${token.hash}`;
   const expectedResource = `${origin}/mcp`;
@@ -82,7 +84,7 @@ export async function POST(req: Request) {
   const toolProfile = token.profile ?? client?.profile ?? detectMcpToolProfile({ clientId: token.clientId, name: client?.name, redirectUris: client?.redirectUris });
   const resolved = await resolveMcpSession(req, rpc, principal, token.label);
   if ("response" in resolved) return resolved.response;
-  const headers = mcpSessionHeaders(resolved.responseSessionId);
+  const headers = responseHeaders(req, mcpSessionHeaders(resolved.responseSessionId));
   if (isNotification(body)) return new Response(null, { status: 202, headers });
 
   void touchToken(token.hash).catch(() => {});
@@ -99,7 +101,7 @@ export async function GET(req: Request) {
   // one for its bounded request/response model, so the standards-compliant answer
   // is 405 rather than a JSON diagnostics document masquerading as SSE.
   if ((req.headers.get("accept") ?? "").toLowerCase().includes("text/event-stream")) {
-    return new Response(null, { status: 405, headers: { Allow: "POST", "Cache-Control": "no-store" } });
+    return new Response(null, { status: 405, headers: responseHeaders(req, { Allow: "POST", "Cache-Control": "no-store" }) });
   }
   const full = toolsetInfo(TOOLS, undefined, "full");
   const chatgptTools = visibleToolsForProfile(TOOLS, "exec", "chatgpt");
@@ -107,7 +109,13 @@ export async function GET(req: Request) {
     name: "mso MCP", transport: "streamable-http", auth: "OAuth 2.1 + PKCE + resource binding",
     sessions: "ChatGPT conversations bind through hashed _meta[openai/session]; Mcp-Session-Id is legacy transport compatibility only",
     authorization_servers: [publicOrigin(req)], toolset: full, chatgptToolset: toolsetInfo(chatgptTools, "exec", "chatgpt"),
-  }, { headers: { "Cache-Control": "no-store" } });
+  }, { headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
+}
+
+export async function OPTIONS(req: Request) {
+  if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
+  if (!mcpRequestOriginAllowed(req)) return Response.json({ error: "forbidden_origin" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  return new Response(null, { status: 204, headers: responseHeaders(req, { Allow: "POST, GET, OPTIONS" }) });
 }
 
 export async function DELETE() {

@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` support trusted browser probes
 - `oauth` issue distinct dynamic client ids
 - `mcp` make read pipeline schema portable
 

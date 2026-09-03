@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   rateLimited: vi.fn(() => false),
   rateLimitedUntrusted: vi.fn(() => false),
   mcpRequestOriginAllowed: vi.fn(() => true),
+  mcpCorsHeaders: vi.fn(() => ({ "Access-Control-Allow-Origin": "https://chatgpt.com", Vary: "Origin" })),
   findOrCreateAgentSessionForConversation: vi.fn(),
 }));
 
@@ -35,6 +36,7 @@ vi.mock("@/lib/mcp/origin", () => ({
   publicOrigin: () => "https://mso.example.test",
   clientIp: () => "127.0.0.1",
   mcpRequestOriginAllowed: mocks.mcpRequestOriginAllowed,
+  mcpCorsHeaders: mocks.mcpCorsHeaders,
 }));
 vi.mock("@/lib/host", () => ({
   rateLimited: mocks.rateLimited,
@@ -70,9 +72,18 @@ describe("/mcp request boundary", () => {
     mocks.rateLimited.mockClear().mockReturnValue(false);
     mocks.rateLimitedUntrusted.mockClear().mockReturnValue(false);
     mocks.mcpRequestOriginAllowed.mockClear().mockReturnValue(true);
+    mocks.mcpCorsHeaders.mockClear().mockReturnValue({ "Access-Control-Allow-Origin": "https://chatgpt.com", Vary: "Origin" });
     mocks.findOrCreateAgentSessionForConversation.mockReset().mockResolvedValue({ id: "20260901_100000_aabbccdd", source: "mcp" });
   });
   afterEach(() => vi.unstubAllEnvs());
+
+  it("answers trusted browser preflight with the MCP authorization headers", async () => {
+    const { OPTIONS } = await import("./route");
+    const res = await OPTIONS(new Request("https://mso.example.test/mcp", { method: "OPTIONS", headers: { origin: "https://chatgpt.com" } }));
+    expect(res.status).toBe(204);
+    expect(res.headers.get("access-control-allow-origin")).toBe("https://chatgpt.com");
+    expect(mocks.mcpRequestOriginAllowed).toHaveBeenCalledOnce();
+  });
 
   it("rejects a browser Origin that fails the Streamable HTTP boundary before auth", async () => {
     mocks.mcpRequestOriginAllowed.mockReturnValueOnce(false);
