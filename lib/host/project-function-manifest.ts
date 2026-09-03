@@ -24,7 +24,7 @@ export type ProjectFunction = {
 
 export type PublicProjectFunction = Omit<ProjectFunction, "command">;
 export type ProjectCapabilities = {
-  mcp?: { config: typeof PROJECT_MCP_REL };
+  mcp?: { config: typeof PROJECT_MCP_REL; servers?: Array<{ name: string; transport: "stdio" | "http"; auth: "none" | "configured" | "oauth" }> };
   functions?:
     | { manifest: typeof PROJECT_FUNCTIONS_REL; valid: true; version: 1; count: number; tools: PublicProjectFunction[] }
     | { manifest: typeof PROJECT_FUNCTIONS_REL; valid: false; error: string };

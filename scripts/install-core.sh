@@ -567,7 +567,7 @@ Environment=MSO_RUNTIME_INSTANCE_ID=$RUNTIME_INSTANCE_ID
 # at logout.
 #
 # The UID IS WRITTEN OUT, NOT the %U specifier. Do not "tidy" this back to %U — it
-# was tried and it FAILS: with User=antinrml and UID=1000, systemd 255 expanded %U
+# was tried and it FAILS: with User=example and UID=1000, systemd 255 expanded %U
 # to 0, so the unit got XDG_RUNTIME_DIR=/run/user/0 and every systemctl --user
 # answered "No such file or directory" — the original bug wearing a new message.
 # Specifiers are expanded while the unit is parsed, before the NAME in User= has

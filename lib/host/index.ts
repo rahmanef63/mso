@@ -12,7 +12,7 @@ export { startExecJob, getExecJob, cancelExecJob } from "./exec-jobs";
 export { sha256Text, utf8Bytes } from "./hash";
 export { writeFileGuarded } from "./guarded-write";
 export { resolveProjectHint, inspectProject } from "./projects";
-export { projectCapabilities, runProjectFunction } from "./project-capabilities";
+export { projectCapabilities, runProjectFunction, readProjectMcpServers, publicProjectMcpServers, listProjectMcpTools, callProjectMcpTool } from "./project-capabilities";
 export type { ProjectCapabilities, PublicProjectFunction } from "./project-capabilities";
 export { listProjects, listProjectDirs, projectRoots, PROJECT_LIMITS } from "./project-roots";
 export type { ProjectRow, ListProjectsResult } from "./project-roots";

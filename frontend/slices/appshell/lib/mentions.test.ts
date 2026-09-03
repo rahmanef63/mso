@@ -43,7 +43,7 @@ describe("@ opens for agents but not inside a word", () => {
 
   it("stays closed inside a word — an email types cleanly", () => {
     expect(at("mail rahman@gmail")).toBeNull();
-    expect(at("antinrml33@gmail.com")).toBeNull();
+    expect(at("example33@gmail.com")).toBeNull();
   });
 
   it("lowercases the query so matching is case-insensitive", () => {

@@ -31,8 +31,8 @@ describe("full-store agent session resolver", () => {
   });
 
   it("supports unique fuzzy titles but refuses ambiguous matches using human labels", () => {
-    const rows = [row(1, "Deploy Baton", "2026-09-01T12:00:00Z"), row(2, "Audit Baton", "2026-09-01T11:00:00Z")];
-    expect(chooseAgentSessionRecord(rows, "Deploy Bat").title).toBe("Deploy Baton");
-    expect(() => chooseAgentSessionRecord(rows, "Baton")).toThrow(/Deploy Baton.*Audit Baton|Audit Baton.*Deploy Baton/);
+    const rows = [row(1, "Deploy Example Project", "2026-09-01T12:00:00Z"), row(2, "Audit Example Project", "2026-09-01T11:00:00Z")];
+    expect(chooseAgentSessionRecord(rows, "Deploy Example").title).toBe("Deploy Example Project");
+    expect(() => chooseAgentSessionRecord(rows, "Example Project")).toThrow(/Deploy Example Project.*Audit Example Project|Audit Example Project.*Deploy Example Project/);
   });
 });

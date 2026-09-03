@@ -18,11 +18,11 @@ export const d = (name: string): FsEntry => ({ name, kind: "dir", size: 0 });
 export const MOCK_FS: Record<string, FsEntry[]> = {
   "/": [d("Projects"), d("Downloads"), d("Documents"), d("apps"),
     f("readme.md", 1840, "md"), f("notes.txt", 612, "txt")],
-  "/Projects": [d("example-next-app"), d("control-room"), f("TODO.md", 980, "md")],
+  "/Projects": [d("example-next-app"), d("example-service"), f("TODO.md", 980, "md")],
   "/Projects/example-next-app": [d("src"), d("logs"), f("package.json", 2_040, "json"), f("README.md", 4_120, "md")],
   "/Projects/example-next-app/src": [f("index.ts", 3_200, "ts"), f("app.tsx", 5_600, "tsx"), f("worker.ts", 2_900, "ts"), f("styles.css", 1_400, "css")],
   "/Projects/example-next-app/logs": [f("worker.log", 2_480, "log"), f("deploy.log", 1_900, "log")],
-  "/Projects/control-room": [f("deploy.sh", 1_120, "sh"), f("config.json", 860, "json")],
+  "/Projects/example-service": [f("deploy.sh", 1_120, "sh"), f("config.json", 860, "json")],
   "/Downloads": [f("invoice.pdf", 240_000, "pdf"), f("backup.zip", 156_000_000, "zip"),
     f("dataset.csv", 4_200_000, "csv"), f("archive.tar.gz", 64_000_000, "gz")],
   "/Documents": [d("Invoices"), f("resume.pdf", 320_000, "pdf"), f("plan.md", 2_300, "md")],

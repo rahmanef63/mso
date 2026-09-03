@@ -2,6 +2,15 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-03 — MCP 1.7 ChatGPT compact profile + dynamic project MCP
+
+- **ChatGPT scanner contract:** full MSO remains 73 transport tools / 72 model tools (34 read / 24 write / 14 exec + app-only `workflow_status`), while ChatGPT is client-profiled to **29 transport tools = 28 model tools (14 read / 8 write / 6 exec) + app-only bridge**. The profile is fail-closed at list and direct-call time, keeps only MSO-owned generic names, and regression-measures **31,811 descriptor bytes (~8k rough tokens)** with a 40 KiB total / 8 KiB per-tool guard.
+- **Metadata SSOT:** every advertised tool is normalized through one descriptor layer with a human title, explicit `readOnlyHint` / `destructiveHint` / `openWorldHint`, optional idempotency, and matching top-level + `_meta.securitySchemes`. ChatGPT gets compact descriptions/schema descriptions without changing behavior or constraints.
+- **Project MCP stays dynamic:** added generic exec-scope `project_mcp_tools` and `project_mcp_call`. `.mcp.json` stays private; `project_capabilities` exposes only server alias/transport/auth class, stdio runs without shell inside project cwd from a credential-scrubbed environment, remote HTTP uses SSRF/DNS-rebinding guards, and another project's OAuth is never copied/minted implicitly. Project-specific tool names never enter MSO `tools/list`.
+- **OAuth/transport refresh hardening:** new OAuth grants bind `resource=<origin>/mcp`, return `iss`, issue one-hour access tokens plus rotating hashed refresh credentials, and revoke by grant family. Legacy bearers remain a migration path. Streamable HTTP validates `MCP-Protocol-Version`; the unsupported optional SSE GET listener now returns 405.
+- **Open-source independence:** removed the cross-repository MCP contract document, sibling-repo CI fallback and current private-project examples. MSO's push gate always uses its own `bun run verify`; downstream integrations consume MSO's public contract, not vice versa.
+- **Release verification:** targeted MCP/auth/project regression, TypeScript, docs and the full repository verify gate pass; lint remains 0 errors / 8 baseline max-lines warnings. Trivy high/critical, OSV dependencies, Gitleaks history, Semgrep OWASP/SAST and ShellCheck all pass on the staged candidate. The optional Codex Security AI component scan is recorded as **incomplete**, not PASS: the full-repo run hit the 20-minute executor cap and two high-effort targeted attempts hit their $3/$5 cost guards; both targeted partial reports contained 0 findings. Live ZAP remains a post-deploy check because scanning the previous production build would not validate this candidate.
+
 ## 2026-09-03 — Cognitive Runtime P6 expanded repo/recovery corpus
 
 - **Nine-scenario v2 corpus:** `bench:corpus` now adds objective `repo-debug`, `repo-migration`, and transactional `rollback` fixtures to the six P4/P5 scenarios. Each agent still receives semantically identical seeded state in a separate private 0700 tree; immutable issue/spec/test/validator files plus exact final-tree verification remain authority, and `policyObservationScope=scenario-tree` explicitly avoids whole-host sandbox claims.
@@ -47,7 +56,7 @@ Running log of what shipped each phase. Newest at top.
 - **Full Markdown audit:** reviewed all 71 authored Markdown files in the repository, preserving dated release/audit/design evidence while correcting current-reference drift. Structural validation reports zero malformed fence/heading issues and all 125 relative Markdown links resolve.
 - **Current Agent docs:** synchronized `TESTING-HANDOFF`, Local Agents, install/provider guidance, troubleshooting, architecture and the documentation map with the shipped 1.12 identity-first composer, sectioned transcript, compact exact approval and recoverable `not_started | completed | uncertain` mutation semantics. Historical 1.8–1.11 release notes remain intact rather than being rewritten as if they were current instructions.
 - **MCP/A2A drift fixed:** at that 1.12 documentation checkpoint, references agreed on server `1.6.0`, toolset `2026.09.02.7`, 67 transport tools = 66 model/operator tools (32 read / 22 write / 12 exec) + app-only `workflow_status`. Stale 31/29/59/56-tool claims and obsolete anonymous-only A2A wording were removed from current docs; historical benchmark snapshots were relabeled as snapshots instead of live metrics.
-- **Docs gate strengthened:** `check-docs.mjs` now verifies the MCP marker in architecture/operator docs and exact scope membership in `docs/MCP.md`, `docs/CHATGPT-PLUGIN.md`, and `docs/CONNECTORS-GATEWAY-INTEGRATION.md`, so a future tool addition cannot leave one human catalog silently stale.
+- **Docs gate strengthened:** `check-docs.mjs` now verifies the MCP marker in architecture/operator docs and exact scope membership in `docs/MCP.md` and `docs/CHATGPT-PLUGIN.md`, so a future tool addition cannot leave one human catalog silently stale.
 - **Unused surface cleanup:** removed the dead `coreToolNames()` helper and stopped exporting Agent constants/helpers that are private implementation details while retaining every internally used behavior. No compatibility placeholder or public CLI/MCP capability was removed.
 
 ## 2026-09-02 — MSO 1.12.0 sectioned Agent TUI + recoverable API failures
@@ -240,7 +249,7 @@ at the same time: `~/projects/mso`/`origin/main` remains the release SSOT and pa
 
 ## 2026-08-31 — MSO terminal agent + provider-backed deployment setup — SHIPPED
 
-**Shipped milestone.** The release passed the repository/security gates and the live health endpoint returned the release build SHA before this status was promoted. The standalone deployment-assistance pattern from `rahmanef63/si-coder-agent` is now absorbed into MSO's own architecture instead of spawning a second agent runtime. Installed Hermes and its public CLI were used as interaction references only; MSO has original terminal artwork, its own tool catalog, and its existing auth/audit model.
+**Shipped milestone.** The release passed the repository/security gates and the live health endpoint returned the release build SHA before this status was promoted. A previously standalone deployment-assistance pattern is now absorbed into MSO's own architecture instead of spawning a second agent runtime. Installed Hermes and its public CLI were used as interaction references only; MSO has original terminal artwork, its own tool catalog, and its existing auth/audit model.
 
 What changed:
 
@@ -435,7 +444,7 @@ audit, isolated production build, an isolated clean-HOME/PATH install, and prote
 CodeQL/dependency/Gitleaks/Trivy/OSV/Semgrep checks.
 
 > **How to read this log:** it is the source of truth for **why/when work shipped**, not
-> today's API/runbook. Phases 0–14 were built on **Convex self-hosted + a Control-Room
+> today's API/runbook. Phases 0–14 were built on **Convex self-hosted + a legacy control-service
 > host-agent bridge**; that stack was removed in Phase 15 and later entries describe the
 > self-contained Next.js/`lib/host` architecture. For the current implementation start at
 > [`docs/README.md`](./README.md) and [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); keep old
@@ -582,7 +591,7 @@ inside the same managed-feature iframe shell as Hermes/OpenClaw.
 9Router also no longer uses the generic Lucide Route placeholder. MSO copies the official
 `/app/public/icons/icon-512.svg` from the current 9Router Docker distribution into its local
 official-brand asset set and uses it in the shell, launcher, window and Details cards. The
-`sc-all`, `sc-dokploy`, and legacy `si-coder` deployment guidance now records the same
+legacy standalone deployment guidance now records the same
 existing-domain-first/public-IP-fallback contract so future automation does not recreate this
 regression.
 
@@ -1114,7 +1123,7 @@ marks a workflow Verified; standalone calls are merely Completed. Workflow inten
 project are redacted/truncated before persistence.
 
 Three official operational skills were added: `mso-repo-work`, `mso-deploy`, and
-`mso-service-debug`. The MCP and connectors-gateway documentation now treats the 21-tool
+`mso-service-debug`. The MCP and external-integration documentation at that checkpoint treated the 21-tool
 runtime signature as the cross-client contract and records that the gateway still maps
 15 actions. New public `repo_*` or `job_*` names were deliberately not added in this
 release: keeping the action catalog stable lets the refreshed connection benefit

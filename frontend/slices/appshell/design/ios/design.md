@@ -1,6 +1,6 @@
 # iOS design.md
 
-Source of truth: `rahmanef63/apple-os-shell/uploads/design.md` (Apple HIG/Liquid Glass reference, 2026).
+Source of truth: the project Apple-platform design reference (Apple HIG/Liquid Glass reference, 2026).
 
 ## Contract
 - Clarity, deference, depth. Content is solid; glass belongs to navigation/overlays, never content cards.

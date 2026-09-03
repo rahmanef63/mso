@@ -1,12 +1,13 @@
-import { allows, type Scope } from "./scope";
+import type { Scope } from "./scope";
 import { MCP_SERVER_VERSION, toolsetInfo } from "./toolset";
 import { TOOLS } from "./tools";
 import { listUiResources, readUiResource } from "./ui-resources";
 import { dispatchToolCall } from "./dispatch-tools";
+import { toolDescriptor, visibleToolsForProfile, type McpToolProfile } from "./tool-contract";
+import { negotiateMcpProtocol } from "./protocol";
 import { rpcFail, rpcOk, type McpAgentContext, type RpcRequest } from "./dispatch-types";
 export type { McpAgentContext, RpcRequest } from "./dispatch-types";
 
-const PROTOCOL = "2024-11-05";
 export const UNAUTHORIZED = -32001;
 export const RATE_LIMITED = -32029;
 
@@ -15,19 +16,15 @@ export function isNotification(body: unknown): boolean {
   return b?.id == null && String(b?.method ?? "").startsWith("notifications/");
 }
 
-const visibleTools = (scope: Scope) => TOOLS.filter((tool) => allows(scope, tool.scope));
-const toolList = (scope: Scope) => visibleTools(scope).map((tool) => ({
-  name: tool.name, description: tool.description, inputSchema: tool.inputSchema,
-  ...(tool.outputSchema ? { outputSchema: tool.outputSchema } : {}),
-  ...(tool.annotations ? { annotations: tool.annotations } : {}),
-  ...(tool.meta ? { _meta: tool.meta } : {}),
-}));
+const visibleTools = (scope: Scope, profile: McpToolProfile = "full") => visibleToolsForProfile(TOOLS, scope, profile);
+const toolList = (scope: Scope, profile: McpToolProfile = "full") => visibleTools(scope, profile).map((tool) => toolDescriptor(tool, profile));
 
-function instructions(scope: Scope): string {
+function instructions(scope: Scope, profile: McpToolProfile = "full"): string {
   const startup = scope === "read"
     ? "This token is read-only: use skills_search for capability discovery, then bounded read tools."
     : "For multi-step work call workflow_start once, pass its exact workflow_id on every operation in this conversation, verify, then workflow_finish or workflow_cancel.";
-  return `${startup} ChatGPT conversation identity is isolated from OAuth/audit identity; workflows are session-scoped while learned successful recipes remain client-scoped. agent_session_current exposes only the current durable MSO session. Use agent_sessions_list and agent_session_resume for explicit recovery. Session context has an estimated-token budget, private archive/compaction, and timestamps; MSO never claims access to hidden ChatGPT transcript. Prefer bounded tools; use exec_job_start for long tests/builds. Never expose private chain-of-thought.`;
+  const projectBoundary = profile === "chatgpt" ? " Project-owned MCP tools never join this catalog: use project_mcp_tools then project_mcp_call." : "";
+  return `${startup}${projectBoundary} Session/workflow state is isolated per conversation. Prefer bounded tools and exec_job_start for long builds. Never expose hidden transcripts, credentials, or private chain-of-thought.`;
 }
 
 export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, agentContext?: McpAgentContext): Promise<Record<string, unknown>> {
@@ -35,19 +32,21 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, ag
   switch (req.method) {
     case "initialize":
     case "server/discover": {
-      const tools = visibleTools(scope), toolset = toolsetInfo(tools, scope);
+      const profile = agentContext?.toolProfile ?? "full";
+      const tools = visibleTools(scope, profile), toolset = toolsetInfo(tools, scope, profile);
       return rpcOk(id, {
-        protocolVersion: req.params?.protocolVersion ?? PROTOCOL,
+        protocolVersion: negotiateMcpProtocol(req.params?.protocolVersion),
         capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
-        serverInfo: { name: "mso", version: MCP_SERVER_VERSION }, instructions: instructions(scope),
+        serverInfo: { name: "mso", version: MCP_SERVER_VERSION }, instructions: instructions(scope, profile),
         _meta: { toolset, ...(agentContext?.sessionId ? { agentSessionId: agentContext.sessionId } : {}) },
       });
     }
     case "notifications/initialized":
     case "ping": return rpcOk(id, {});
     case "tools/list": {
-      const tools = visibleTools(scope);
-      return rpcOk(id, { tools: toolList(scope), _meta: { toolset: toolsetInfo(tools, scope) } });
+      const profile = agentContext?.toolProfile ?? "full";
+      const tools = visibleTools(scope, profile);
+      return rpcOk(id, { tools: toolList(scope, profile), _meta: { toolset: toolsetInfo(tools, scope, profile) } });
     }
     case "resources/list": return rpcOk(id, { resources: listUiResources() });
     case "resources/read": {

@@ -9,7 +9,7 @@ import {
   type DeviceRole,
 } from "./roles";
 
-// Server-side device allowlist, ported from the VPS Control Room. The login
+// Server-side device allowlist, implemented for the VPS control plane. The login
 // password is a weak/memorable factor; the strong factor is a 128-bit device
 // id that must be pre-approved here. A new device with the right password is
 // NOT let in — it lands in `pending` until an approved device (or the CLI)

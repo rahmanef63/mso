@@ -2,7 +2,7 @@ import { publicOrigin } from "@/lib/mcp/origin";
 import { mcpEnabled } from "@/lib/mcp/scope";
 
 // RFC 8414 — authorization-server metadata. Public clients only (no secret),
-// PKCE S256 only, authorization_code only. Dynamic Client Registration is
+// PKCE S256 only; authorization_code + rotating refresh_token grants. Dynamic Client Registration is
 // advertised because Claude.ai, Cursor and mcp-remote all expect it; ChatGPT
 // uses a user-defined client and never touches /oauth/register.
 export const runtime = "nodejs";
@@ -17,10 +17,11 @@ export async function GET(req: Request) {
       token_endpoint: `${origin}/oauth/token`,
       registration_endpoint: `${origin}/oauth/register`,
       response_types_supported: ["code"],
-      grant_types_supported: ["authorization_code"],
+      grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
-      scopes_supported: ["read", "write", "exec"],
+      scopes_supported: ["read", "write", "exec", "offline_access"],
+      authorization_response_iss_parameter_supported: true,
     },
     { headers: { "cache-control": "public, max-age=3600" } },
   );

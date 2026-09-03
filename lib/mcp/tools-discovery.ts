@@ -1,4 +1,4 @@
-import { listProjects, projectCapabilities, resolveProjectHint, PROJECT_LIMITS } from "@/lib/host";
+import { listProjects, projectCapabilities, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint, PROJECT_LIMITS } from "@/lib/host";
 import { catalogSkillsDetailed, resolveSkill, readSkillFile, skillIsExecutableByDefault, SKILL_SCAN_LIMITS } from "@/lib/skills/catalog";
 import { type McpTool, str, opt, S, READ_ONLY } from "./tool-kit";
 
@@ -28,6 +28,7 @@ export const DISCOVERY_TOOLS: McpTool[] = [
       "Reports whether a regular .mcp.json exists and, when present, the public name/description/schema metadata from .mso/functions.json. " +
       "Project function commands are deliberately withheld; execution is only through project_function_call at exec scope. " +
       "Nothing is enabled globally: projects without these files return an empty capability object.",
+    chatgptDescription: "Inspect one selected project for opt-in MSO functions and project MCP server aliases. Secrets and project MCP tool names stay hidden until project_mcp_tools is called.",
     scope: "read",
     annotations: READ_ONLY,
     limit: { key: "projects.capabilities", max: 60, windowMs: 60_000 },
@@ -37,7 +38,9 @@ export const DISCOVERY_TOOLS: McpTool[] = [
     run: async (a) => {
       const project = await resolveProjectHint(str(a, "project"));
       if (!project) throw new Error(`project not found: ${String(a.project)}`);
-      return { project: { id: project.id, name: project.name, path: project.path }, capabilities: (await projectCapabilities(project.path)) ?? {} };
+      const capabilities = (await projectCapabilities(project.path)) ?? {};
+      if (capabilities.mcp) capabilities.mcp.servers = publicProjectMcpServers(await readProjectMcpServers(project.path));
+      return { project: { id: project.id, name: project.name, path: project.path }, capabilities };
     },
   },
   {

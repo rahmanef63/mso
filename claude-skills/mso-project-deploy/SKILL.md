@@ -9,7 +9,7 @@ metadata:
 
 # /mso-project-deploy — provider-aware project deployment
 
-Use this flow when the owner asks MSO Agent to publish, redeploy, attach a domain, or finish infrastructure setup for an application. It is adapted from the proven provider separation in `rahmanef63/si-coder-agent`, but the MSO implementation uses its own private provider store and MCP approval boundary.
+Use this flow when the owner asks MSO Agent to publish, redeploy, attach a domain, or finish infrastructure setup for an application. MSO uses its own private provider store and MCP approval boundary; it has no runtime dependency on another repository.
 
 ## Credential boundary
 

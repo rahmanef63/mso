@@ -111,11 +111,13 @@ describe("projects_list", () => {
 describe("project_capabilities", () => {
   it("returns only public capability metadata for one exact project", async () => {
     const result = await run("project_capabilities", { project: await projectId(widgetA) }) as {
-      capabilities: { mcp?: { config: string }; functions?: { valid: boolean; tools?: Array<{ name: string }> } };
+      capabilities: { mcp?: { config: string; servers?: Array<{ name: string; transport: string; auth: string }> }; functions?: { valid: boolean; tools?: Array<{ name: string }> } };
     };
-    expect(result.capabilities.mcp).toEqual({ config: ".mcp.json" });
+    expect(result.capabilities.mcp).toEqual({ config: ".mcp.json", servers: [{ name: "local", transport: "stdio", auth: "none" }] });
     expect(result.capabilities.functions).toMatchObject({ valid: true, tools: [{ name: "widget_status" }] });
-    expect(JSON.stringify(result)).not.toContain(process.execPath);
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain(process.execPath);
+    expect(serialized).not.toContain("ignored-secret-free-fixture");
   });
 });
 

@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       redirect_uris: uris,
       client_name: name.slice(0, 80),
       token_endpoint_auth_method: "none",
-      grant_types: ["authorization_code"],
+      grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
     },
     { status: 201, headers: { "Cache-Control": "no-store" } },

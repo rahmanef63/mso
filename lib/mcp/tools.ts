@@ -12,6 +12,7 @@ import { LOCAL_AGENT_TOOLS } from "./tools-local-agents";
 import { SUBAGENT_TOOLS } from "./tools-subagents";
 import { FORGE_TOOLS } from "./tools-forge";
 import { READ_PIPELINE_TOOLS } from "./tools-read-pipeline";
+import { PROJECT_MCP_TOOLS } from "./tools-project-mcp";
 import { withWorkflowContext } from "./tool-context";
 
 // The write and exec tiers. Each carries an `audit` descriptor — the dispatcher,
@@ -221,4 +222,4 @@ const MUTATE_TOOLS: McpTool[] = [
   },
 ];
 
-export const TOOLS: McpTool[] = [...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...AGENT_TOOLS, ...LOCAL_AGENT_TOOLS, ...SUBAGENT_TOOLS, ...A2A_TOOLS, ...FORGE_TOOLS, ...READ_PIPELINE_TOOLS, ...INFRA_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
+export const TOOLS: McpTool[] = [...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...AGENT_TOOLS, ...LOCAL_AGENT_TOOLS, ...SUBAGENT_TOOLS, ...A2A_TOOLS, ...FORGE_TOOLS, ...READ_PIPELINE_TOOLS, ...PROJECT_MCP_TOOLS, ...INFRA_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));

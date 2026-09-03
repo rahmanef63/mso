@@ -62,41 +62,51 @@ for (const name of appOnlyTools) {
 const counts = { read: 0, write: 0, exec: 0 };
 for (const scope of documentedTools.values()) counts[scope] += 1;
 const marker = `server=${server} version=${version} tools=${documentedTools.size} read=${counts.read} write=${counts.write} exec=${counts.exec}`;
-const markerDocs = ["docs/MCP.md", "docs/CHATGPT-PLUGIN.md", "docs/CONNECTORS-GATEWAY-INTEGRATION.md", "docs/ARCHITECTURE.md", "CLAUDE.md"];
+const markerDocs = ["docs/MCP.md", "docs/ARCHITECTURE.md", "CLAUDE.md"];
 for (const file of markerDocs) {
   const text = read(file);
   if (!text.includes(`<!-- mcp-toolset: ${marker} -->`)) {
     fail.push(`${file}: MCP marker stale; expected ${marker}`);
   }
 }
-for (const file of ["docs/MCP.md", "docs/CHATGPT-PLUGIN.md", "docs/CONNECTORS-GATEWAY-INTEGRATION.md"]) {
+for (const file of ["docs/MCP.md"]) {
   const text = read(file);
   for (const name of documentedTools.keys()) {
     if (!text.includes(`\`${name}\``)) fail.push(`${file}: MCP tool ${name} is not documented`);
   }
 }
 
-// ChatGPT's human scope catalog must match source scope membership, not merely contain every name somewhere.
+// ChatGPT uses a deliberately compact static profile. Parse its SSOT name set
+// from tool-contract.ts, then require the ChatGPT guide to match THAT profile
+// rather than the full MSO catalog. Project-owned dynamic MCP names never belong
+// in this set.
+const toolContract = read("lib/mcp/tool-contract.ts");
+const profileBlock = /CHATGPT_TOOL_NAMES\s*=\s*new Set\(\[([\s\S]*?)\]\s*as const\)/.exec(toolContract)?.[1] ?? "";
+const chatgptNames = [...profileBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+if (!chatgptNames.length) fail.push("could not parse CHATGPT_TOOL_NAMES from lib/mcp/tool-contract.ts");
+for (const name of chatgptNames) if (!tools.has(name)) fail.push(`ChatGPT profile references missing MCP tool ${name}`);
+const chatgptModelTools = new Map(chatgptNames.filter((name) => !appOnlyTools.has(name)).map((name) => [name, tools.get(name)]));
+const chatgptCounts = { read: 0, write: 0, exec: 0 };
+for (const scope of chatgptModelTools.values()) if (scope) chatgptCounts[scope] += 1;
+const chatgptAppOnly = chatgptNames.filter((name) => appOnlyTools.has(name)).length;
+const profileMarker = `server=${server} version=${version} tools=${chatgptModelTools.size} read=${chatgptCounts.read} write=${chatgptCounts.write} exec=${chatgptCounts.exec} app-only=${chatgptAppOnly} total=${chatgptNames.length}`;
 const chatgpt = read("docs/CHATGPT-PLUGIN.md");
+if (!chatgpt.includes(`<!-- mcp-chatgpt-profile: ${profileMarker} -->`)) fail.push(`docs/CHATGPT-PLUGIN.md: ChatGPT profile marker stale; expected ${profileMarker}`);
+for (const name of chatgptModelTools.keys()) if (!chatgpt.includes(`\`${name}\``)) fail.push(`docs/CHATGPT-PLUGIN.md: ChatGPT profile tool ${name} is not documented`);
 const scopeOrder = ["read", "write", "exec"];
 for (let i = 0; i < scopeOrder.length; i += 1) {
   const scope = scopeOrder[i];
   const next = scopeOrder[i + 1];
-  const expected = [...documentedTools].filter(([, value]) => value === scope).map(([name]) => name).sort();
+  const expected = [...chatgptModelTools].filter(([, value]) => value === scope).map(([name]) => name).sort();
   const heading = scope === "read"
-    ? `### \`read\` — ${expected.length} model/operator tools`
-    : `### \`${scope}\` — ${scope === "write" ? "read" : "write"} + ${expected.length} tools`;
-  if (!chatgpt.includes(heading)) fail.push(`docs/CHATGPT-PLUGIN.md: stale ${scope} scope heading; expected ${heading}`);
+    ? `### \`read\` — ${expected.length} ChatGPT model tools`
+    : `### \`${scope}\` — + ${expected.length} ChatGPT model tools`;
+  if (!chatgpt.includes(heading)) fail.push(`docs/CHATGPT-PLUGIN.md: stale ${scope} profile heading; expected ${heading}`);
   const start = chatgpt.indexOf(`### \`${scope}\` —`);
-  const end = next ? chatgpt.indexOf(`### \`${next}\` —`, start + 1) : chatgpt.indexOf("\n`exec_run` is full host shell power", start + 1);
-  if (start < 0 || end < 0) {
-    fail.push(`docs/CHATGPT-PLUGIN.md: could not parse ${scope} scope block`);
-    continue;
-  }
+  const end = next ? chatgpt.indexOf(`### \`${next}\` —`, start + 1) : chatgpt.indexOf("\n### App-only ChatGPT bridge", start + 1);
+  if (start < 0 || end < 0) { fail.push(`docs/CHATGPT-PLUGIN.md: could not parse ${scope} profile block`); continue; }
   const actual = [...chatgpt.slice(start, end).matchAll(/^- \`([^\`]+)\`/gm)].map((match) => match[1]).sort();
-  if (actual.join("\n") !== expected.join("\n")) {
-    fail.push(`docs/CHATGPT-PLUGIN.md: ${scope} scope tool list differs from source catalog`);
-  }
+  if (actual.join("\n") !== expected.join("\n")) fail.push(`docs/CHATGPT-PLUGIN.md: ${scope} ChatGPT profile list differs from source contract`);
 }
 
 // MCP.md's scope table must match source membership exactly.
@@ -107,24 +117,6 @@ for (const scope of scopeOrder) {
   if (!row) { fail.push(`docs/MCP.md: missing ${scope} scope row`); continue; }
   const actual = [...row.matchAll(/`([^`]+)`/g)].map((match) => match[1]).filter((name) => name !== scope).sort();
   if (actual.join("\n") !== expected.join("\n")) fail.push(`docs/MCP.md: ${scope} scope row differs from source catalog`);
-}
-
-// The connectors contract repeats the scope partition for cross-repo mapping review.
-const connectorDoc = read("docs/CONNECTORS-GATEWAY-INTEGRATION.md");
-const connectorLabels = { read: "Read", write: "Write", exec: "Exec" };
-for (let i = 0; i < scopeOrder.length; i += 1) {
-  const scope = scopeOrder[i];
-  const next = scopeOrder[i + 1];
-  const expected = [...documentedTools].filter(([, value]) => value === scope).map(([name]) => name).sort();
-  const expectedHeading = scope === "read"
-    ? `### Read (${expected.length} model/operator)`
-    : `### ${connectorLabels[scope]} (${expected.length} beyond ${scope === "write" ? "read" : "write"})`;
-  if (!connectorDoc.includes(expectedHeading)) fail.push(`docs/CONNECTORS-GATEWAY-INTEGRATION.md: stale ${scope} heading; expected ${expectedHeading}`);
-  const start = connectorDoc.indexOf(`### ${connectorLabels[scope]} (`);
-  const end = next ? connectorDoc.indexOf(`### ${connectorLabels[next]} (`, start + 1) : connectorDoc.indexOf("### App-only bridge", start + 1);
-  if (start < 0 || end < 0) { fail.push(`docs/CONNECTORS-GATEWAY-INTEGRATION.md: could not parse ${scope} block`); continue; }
-  const actual = [...connectorDoc.slice(start, end).matchAll(/`([^`]+)`/g)].map((match) => match[1]).sort();
-  if (actual.join("\n") !== expected.join("\n")) fail.push(`docs/CONNECTORS-GATEWAY-INTEGRATION.md: ${scope} scope list differs from source catalog`);
 }
 
 // --- Slice catalog counts.

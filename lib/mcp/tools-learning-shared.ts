@@ -1,6 +1,6 @@
 import type { EvidenceInput } from "@/lib/orchestration/types";
-import { allows } from "./scope";
 import type { McpTool } from "./tool-kit";
+import { visibleToolsForProfile, type McpToolProfile } from "./tool-contract";
 
 export function optionalStringList(value: unknown, max = 40): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, max) : [];
@@ -29,9 +29,9 @@ export function evidenceSchema() {
   };
 }
 
-export async function visibleTools(scope: "read" | "write" | "exec"): Promise<McpTool[]> {
+export async function visibleTools(scope: "read" | "write" | "exec", profile: McpToolProfile = "full"): Promise<McpTool[]> {
   const { TOOLS } = await import("./tools");
-  return TOOLS.filter((tool) => allows(scope, tool.scope));
+  return visibleToolsForProfile(TOOLS, scope, profile);
 }
 
 export const WORKFLOW_PROGRESS_OUTPUT = {

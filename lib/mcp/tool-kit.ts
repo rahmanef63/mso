@@ -1,5 +1,6 @@
 import type { AuditAction } from "@/lib/host";
 import type { Scope } from "./scope";
+import type { McpToolProfile } from "./tool-contract";
 
 // Shared shapes for the MCP tool catalog. EVERY handler goes through lib/host — never node fs or
 // child_process directly — so all of it inherits the bounds that already guard
@@ -39,11 +40,17 @@ export interface McpRunContext {
   workflowActor?: string;
   /** Client-scoped learned-recipe owner; survives individual session rotation. */
   recipeActor?: string;
+  /** Client-specific static tool projection; project capabilities stay dynamic. */
+  toolProfile?: McpToolProfile;
 }
 
 export interface McpTool {
   name: string;
+  /** Human-readable label advertised to MCP hosts. Generated from name when omitted. */
+  title?: string;
   description: string;
+  /** Optional shorter description for the compact ChatGPT scan profile. */
+  chatgptDescription?: string;
   scope: Scope;
   inputSchema: { type: "object"; properties: Record<string, unknown>; required?: string[] };
   /** MCP Apps structured output contract. */
@@ -52,7 +59,9 @@ export interface McpTool {
    * text fallback backward compatible while exposing a smaller, explicitly safe
    * object to a widget. */
   toStructuredContent?: (result: unknown) => Record<string, unknown> | undefined;
-  annotations?: Record<string, boolean>;
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean; idempotentHint?: boolean };
+  /** Per-tool auth policy advertised to MCP hosts. Defaults to OAuth with this tool's minimum MSO scope. */
+  securitySchemes?: Array<{ type: "oauth2"; scopes: string[] } | { type: "noauth" }>;
   /** MCP Apps / OpenAI metadata: UI resource binding, visibility and file params. */
   meta?: Record<string, unknown>;
   run: (a: Record<string, unknown>, context: McpRunContext) => Promise<unknown>;
@@ -89,4 +98,4 @@ export const S = (properties: Record<string, unknown>, required?: string[]) =>
   ({ type: "object" as const, properties, ...(required ? { required } : {}) });
 
 export const PATH_P = { path: { type: "string", description: "Absolute path on the VPS, or ~/… for the owner's home." } };
-export const READ_ONLY = { readOnlyHint: true, idempotentHint: true };
+export const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true };

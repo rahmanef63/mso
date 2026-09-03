@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { formatSessionModified, resolveSessionQuery, sessionCompletionItems, sessionPromptHistory, visibleSessionRows } from "./mso-agent-sessions.mjs";
 
 const rows = [
-  { id: "20260901_120000_aaaaaaaa", name: "milo", title: "Deploy Baton", source: "cli", historyTurns: 10, createdAt: "2026-09-01T11:50:00.000Z", updatedAt: "2026-09-01T12:00:00.000Z" },
+  { id: "20260901_120000_aaaaaaaa", name: "milo", title: "Deploy Example Project", source: "cli", historyTurns: 10, createdAt: "2026-09-01T11:50:00.000Z", updatedAt: "2026-09-01T12:00:00.000Z" },
   { id: "20260901_110000_bbbbbbbb", name: "luna", title: "Audit MSO", source: "cli", historyTurns: 4, createdAt: "2026-09-01T10:50:00.000Z", updatedAt: "2026-09-01T11:00:00.000Z" },
-  { id: "20260901_100000_cccccccc", name: "nara", title: "Older Baton notes", source: "cli", historyTurns: 2, createdAt: "2026-09-01T09:50:00.000Z", updatedAt: "2026-09-01T10:00:00.000Z" },
+  { id: "20260901_100000_cccccccc", name: "nara", title: "Older Example notes", source: "cli", historyTurns: 2, createdAt: "2026-09-01T09:50:00.000Z", updatedAt: "2026-09-01T10:00:00.000Z" },
 ];
 
 describe("MSO Agent session resolver", () => {
@@ -19,7 +19,7 @@ describe("MSO Agent session resolver", () => {
   });
 
   it("refuses ambiguous fuzzy titles instead of guessing", () => {
-    const result = resolveSessionQuery(rows, "Baton");
+    const result = resolveSessionQuery(rows, "Example");
     expect(result.session).toBeNull();
     expect(result.ambiguous).toHaveLength(2);
   });
@@ -28,7 +28,7 @@ describe("MSO Agent session resolver", () => {
     const now = Date.parse("2026-09-01T12:05:00.000Z");
     const items = sessionCompletionItems([rows[1], rows[0], rows[2]], "", now);
     expect(items.map((item) => item.text)).toEqual(["@milo", "@luna", "@nara"]);
-    expect(items[0]).toMatchObject({ text: "@milo", value: rows[0].id, meta: "Deploy Baton · modified 5m ago" });
+    expect(items[0]).toMatchObject({ text: "@milo", value: rows[0].id, meta: "Deploy Example Project · modified 5m ago" });
     expect(`${items[0].text} ${items[0].meta}`).not.toContain(rows[0].id);
     expect(sessionCompletionItems(rows, "audit", now)).toHaveLength(1);
     expect(sessionCompletionItems(rows, "bbbbbbbb", now)[0]?.text).toBe("@luna");

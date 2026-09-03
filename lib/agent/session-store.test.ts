@@ -84,8 +84,8 @@ describe("durable agent session context policy", () => {
 
   it("repairs the legacy CLI default that was incorrectly stored as a manual title", async () => {
     const session = await store.createAgentSession("principal:legacy-title", "cli", { title: "MSO Agent session", titleSource: "manual" });
-    const updated = await store.updateAgentSessionHistory("principal:legacy-title", session.id, [{ role: "user", text: "Deploy Control Room" }], "Deploy Control Room", "auto");
-    expect(updated.title).toBe("Deploy Control Room");
+    const updated = await store.updateAgentSessionHistory("principal:legacy-title", session.id, [{ role: "user", text: "Deploy Example Service" }], "Deploy Example Service", "auto");
+    expect(updated.title).toBe("Deploy Example Service");
     expect(updated.titleSource).toBe("auto");
   });
 

@@ -48,12 +48,10 @@ required by the MCP transport security guidance to prevent DNS rebinding. Server
 normally omit `Origin`; browser-origin traffic is accepted only from the configured public origin or
 from a loopback browser talking to the loopback cockpit.
 
-MSO supports OAuth 2.1-style authorization-code flow with PKCE S256 and public clients
-(token endpoint auth `none`). The current authorization metadata advertises only
-`authorization_code`; there is no refresh-token grant. The authorization page is a normal
-signed-in MSO page: an approved human browser session converts into a scoped MCP bearer; the
-consent page is not a second login mechanism. Expired/revoked bearers therefore require a
-new authorization flow.
+
+MSO uses Streamable HTTP JSON-RPC on `POST /mcp`. `initialize` negotiates supported protocol versions and subsequent `MCP-Protocol-Version` headers are validated. MSO does not expose an SSE listener; therefore `GET /mcp` with `Accept: text/event-stream` returns **405** instead of a JSON response pretending to be an event stream. A non-SSE GET remains a bounded operator diagnostic containing full/profile toolset signatures.
+
+MSO supports OAuth 2.1-style authorization-code flow with PKCE S256 and public clients (token endpoint auth `none`) plus rotating `refresh_token` grants. New OAuth codes/access/refresh grants are bound to the exact MCP `resource=https://<origin>/mcp`; the authorization response also returns `iss`. Access tokens default to one hour, refresh credentials rotate and expire after 90 days, and raw codes/tokens are never stored. Legacy pre-resource bearers remain accepted only as a migration path until expiry/revocation.
 
 For ChatGPT, the connection is a **custom MCP app** created in Developer Mode. OpenAI currently
 shows more than one setup surface: its Developer Mode guide uses Apps → Create, while ChatGPT Work
@@ -77,7 +75,7 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 |---|---|
 | `read` | `a2a_agent_discover` `a2a_agents_list` `a2a_task_get` `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `apps_list` `apps_logs` `browser_status` `cloudflare_zones_list` `dokploy_projects_list` `exec_job_status` `fs_list` `fs_read` `fs_search` `fs_usage` `infra_provider_doctor` `infra_providers_list` `local_agent_inbox` `local_agent_request_wait` `local_agents_list` `project_capabilities` `project_memory_search` `projects_list` `read_pipeline` `screen_capture` `skills_list` `skills_read` `skills_search` `sys_processes` `sys_stats` `tool_forge_candidates` |
 | `write` | + `a2a_agent_register` `a2a_agent_remove` `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `apps_power` `cloudflare_dns_upsert` `dokploy_project_ensure` `fs_copy` `fs_delete` `fs_mkdir` `fs_move` `fs_upload_file` `fs_write` `hostinger_dns_upsert` `local_agent_message_send` `local_agent_reply` `project_memory_upsert` `project_script_run` `tool_forge_propose` `workflow_cancel` `workflow_finish` `workflow_start` |
-| `exec` | + `a2a_handoff` `a2a_message_send` `a2a_task_cancel` `agent_subagent_run` `browser_power` `exec_job_cancel` `exec_job_start` `exec_run` `local_agent_request` `project_function_call` `tool_forge_evaluate` `tool_forge_promote` |
+| `exec` | + `a2a_handoff` `a2a_message_send` `a2a_task_cancel` `agent_subagent_run` `browser_power` `exec_job_cancel` `exec_job_start` `exec_run` `local_agent_request` `project_function_call` `project_mcp_call` `project_mcp_tools` `tool_forge_evaluate` `tool_forge_promote` |
 
 Alfa — the in-app assistant — overlaps the same host capabilities under dot.case names,
 and `lib/mcp/parity.test.ts` fails if one surface gains a tool the other lacks
@@ -97,11 +95,7 @@ global by design, and withholding it from the connector was scoping nobody chose
 two catalogs stay separate on purpose (different transport and guard) but may not
 drift by accident.
 
-**These tool names are also a cross-repo contract.** `rahmanef63/connectors-gateway`
-registered mso as a connector on 2026-08-17 and historically pinned a subset of these names as literal strings; a
-rename here can break that mapping with no error in either repo, and `parity.test.ts` does not cover
-that axis. Verify the gateway repository before changing a tool name. See [`CONNECTORS-GATEWAY-INTEGRATION.md`](./CONNECTORS-GATEWAY-INTEGRATION.md)
-before renaming or removing a tool.
+**Global MCP names belong to MSO only.** Project-specific functions and project MCP tools are discovered as data through the generic `project_capabilities`, `project_mcp_tools`, `project_mcp_call`, and `project_function_call` seams. A project may add or remove its own MCP tools without changing MSO's global tool list or ChatGPT scan snapshot.
 
 The tiering is about blast radius, not about which layer the call lands in.
 `apps_logs` reads a daemon's journal, so "why is hermes down?" is answerable from
@@ -112,11 +106,7 @@ restarting a daemon does not require handing one over either.
 `tools/list` is filtered by the token's scope, and `tools/call` re-checks it — a
 client that calls a tool it was never shown still gets refused.
 
-**The scope ladder is the ONLY thing that narrows the catalog.** An `exec` token sees
-and can call every public tool; `read` and `write` are strict prefixes of it. There is
-no per-project, per-agent, per-workflow or per-client tool filter, and there must not
-be one — which tools EXIST is not a security control here, the ladder plus `lib/host`'s
-path jail and command filter are. Every operational tool carries an OPTIONAL
+**Scope remains the permission boundary, while a client profile may advertise a smaller static catalog for compatibility/context budget.** The ChatGPT profile is fail-closed at both list and call time; it never grants anything the token scope does not already allow. Project-specific capabilities remain dynamic data rather than global names. `lib/host` path/command guards remain authoritative for every operation. Every operational tool carries an OPTIONAL
 `workflow_id`: it correlates steps, it never gates a capability. `lib/mcp/global-tools.test.ts`
 pins all of this, including that a token's visible list matches its callable set exactly.
 
@@ -126,16 +116,19 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.6.0 version=2026.09.03.2 tools=70 read=34 write=24 exec=12 -->
+<!-- mcp-toolset: server=1.7.0 version=2026.09.03.3 tools=72 read=34 write=24 exec=14 -->
 
-Current transport catalog: **71 tools**, server `1.6.0` / toolset `2026.09.03.2`.
-The model/operator catalog is **69 tools** (33 read, 24 write, 12 exec); `workflow_status` is the
-one app-only MCP Apps bridge used by the progress widget and is documented separately.
+Current full transport catalog: **73 tools**, server `1.7.0` / toolset `2026.09.03.3`.
+The model/operator catalog is **72 tools** (34 read, 24 write, 14 exec); `workflow_status` is the one app-only MCP Apps bridge. ChatGPT receives a smaller client profile rather than this full set; see [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md).
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
 
-Session/memory tools add durable conversation context without creating
-dynamic per-project tool names; `project_capabilities` and `project_function_call` remain the
-stable project-automation seam.
+Session/memory tools add durable conversation context without creating dynamic per-project global names. Project functions use `project_capabilities` / `project_function_call`; project MCP servers use `project_capabilities` / `project_mcp_tools` / `project_mcp_call`. In both cases project-specific names remain data, not entries in MSO `tools/list`.
+
+### Advertised metadata and client profiles
+
+`toolDescriptor()` is the SSOT normalization layer for every MCP host. It guarantees a human-readable `title`, complete `readOnlyHint` / `destructiveHint` / `openWorldHint` booleans, optional `idempotentHint`, and matching top-level plus `_meta.securitySchemes`. Individual tool declarations may override safety semantics; otherwise conservative MSO defaults are applied from scope/operation class.
+
+The OAuth scope remains the permission boundary. A client profile may expose fewer MSO-owned generic names for compatibility/context budget, and the dispatcher rejects hidden names when called directly. ChatGPT is the first compact profile: it is derived from `CHATGPT_TOOL_NAMES`, independently hashed, and regression-tested for total/per-tool descriptor size. Full MCP clients keep the complete generic catalog.
 
 ### RASMIC repo-local orchestration memory
 
@@ -178,13 +171,12 @@ Skill candidates contain only deterministic redacted tool guidance. Project-func
 
 ## Opt-in project MCP/function capabilities
 
-MSO itself stays generic. A project opts into extra automation by placing files inside
-its own validated project directory:
+MSO itself stays generic. A project may opt into capabilities inside its own validated directory:
 
-- `.mcp.json` — MSO reports only that the MCP config exists. It never returns the file
-  contents because MCP configs commonly contain env/credential wiring. MSO does not
-  automatically connect to arbitrary project MCP servers.
-- `.mso/functions.json` — a bounded manifest of project-owned functions.
+- `.mcp.json` — parsed privately and exposed only as sanitized server alias / transport / auth-class metadata. `project_mcp_tools` initializes one explicitly selected server and returns its dynamic tool schemas; `project_mcp_call` invokes one exact dynamic tool. Config contents, env values, headers, OAuth details and credentials are never returned, and project tool names never join the global MSO catalog.
+- `.mso/functions.json` — a bounded manifest of project-owned fixed-argv functions executed only through `project_function_call`.
+
+`project_mcp_tools` is exec scope even though it returns schemas because starting a stdio project MCP executes project code. Stdio uses no shell, enforces cwd containment, starts from MSO's credential-scrubbed child environment, and adds only project-declared env. Remote HTTP uses the existing HTTPS/SSRF/DNS-rebinding guard and bounded responses. A project MCP that declares OAuth but lacks explicit server-side authorization fails closed; MSO never imports or mints another project's credential implicitly.
 
 The manifest is versioned and intentionally uses **fixed argv**, not a shell template:
 
@@ -213,10 +205,7 @@ into command arguments. The child receives the existing scrubbed environment, so
 credentials and provider tokens are not inherited. Projects without either file gain no
 new behavior.
 
-This shape preserves the global-tool invariant: MCP clients always see the same two MSO
-tool names, while the project-specific function names are data returned after project
-resolution. It also means adding a function to a project does not change MSO's toolset
-hash or force a cold prompt-cache prefix.
+This shape preserves the global-tool invariant: project-specific function and MCP tool names stay data behind stable generic MSO primitives. Adding/removing a project capability therefore does not rewrite the global MSO tool prefix or ChatGPT scan snapshot.
 
 For project callbacks that must enter a managed app (for example a signed webhook into a
 loopback-only agent), deployments may opt into `OS_PROJECT_INGRESS_ROUTES`. It defaults

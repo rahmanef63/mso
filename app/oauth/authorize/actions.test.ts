@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireSession: vi.fn(),
@@ -36,28 +36,37 @@ const form = (redirectUri = "https://chatgpt.com/connector/oauth/test") => {
   data.set("code_challenge_method", "S256");
   data.set("state", "state-1");
   data.set("scope", "exec");
+  data.set("resource", "https://mso.example.test/mcp");
+  data.set("issuer", "https://mso.example.test");
+  data.set("offline_access", "1");
   return data;
 };
 
 describe("OAuth consent approval", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.example.test");
     mocks.requireSession.mockResolvedValue(true);
     mocks.randomToken.mockReturnValue("mso_code_test");
-    mocks.getClient.mockResolvedValue({ redirectUris: ["https://chatgpt.com/connector/oauth/test"] });
+    mocks.getClient.mockResolvedValue({ name: "ChatGPT", profile: "chatgpt", redirectUris: ["https://chatgpt.com/connector/oauth/test"] });
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it("returns the validated callback for explicit top-level navigation", async () => {
     const before = Date.now();
     await expect(approve(form())).resolves.toEqual({
       ok: true,
-      redirectTo: "https://chatgpt.com/connector/oauth/test?code=mso_code_test&state=state-1",
+      redirectTo: "https://chatgpt.com/connector/oauth/test?code=mso_code_test&state=state-1&iss=https%3A%2F%2Fmso.example.test",
     });
     expect(mocks.storeCode).toHaveBeenCalledWith("mso_code_test", expect.objectContaining({
       clientId: "chatgpt-client",
       redirectUri: "https://chatgpt.com/connector/oauth/test",
       codeChallenge: "challenge",
       scope: "exec",
+      resource: "https://mso.example.test/mcp",
+      profile: "chatgpt",
+      offlineAccess: true,
       expiresAt: expect.any(Number),
     }));
     expect(mocks.storeCode.mock.calls[0][1].expiresAt).toBeGreaterThanOrEqual(before + 59_000);

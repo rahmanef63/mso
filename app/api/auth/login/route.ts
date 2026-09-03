@@ -9,7 +9,7 @@ import { IS_DEMO } from "@/lib/demo";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Password + device-approval login, ported from the VPS Control Room.
+// Password + device-approval login, implemented for the VPS control plane.
 //   gate 1 = shared password (OS_LOGIN_PASSWORD)
 //   gate 2 = device id pre-approved in the device store
 // Correct password on an un-approved device → recorded pending, 403, NO cookie.

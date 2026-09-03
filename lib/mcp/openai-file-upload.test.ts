@@ -26,7 +26,7 @@ describe("ChatGPT file host allowlist", () => {
       file_name: "file.png",
       size: 8,
     },
-    dest: "/home/antinrml/generated-images",
+    dest: "/home/example/generated-images",
     filename: "file.png",
   });
 
@@ -117,7 +117,7 @@ describe("ChatGPT file host allowlist", () => {
         mime_type: "application/octet-stream",
         file_name: "file.bin",
       },
-      dest: "/home/antinrml/generated-images",
+      dest: "/home/example/generated-images",
     })).rejects.toThrow("exceeds the 20 MiB MCP import limit");
     expect(uploadInto).not.toHaveBeenCalled();
   });

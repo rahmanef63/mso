@@ -160,10 +160,8 @@ park a visible Approve/Deny card. The complete semantic contract is
 
 **MCP** is for external clients such as ChatGPT, Claude.ai and Cursor. Its catalog lives in
 `lib/mcp/`; access is controlled by the OAuth token scope rather than Alfa approval cards.
-<!-- mcp-toolset: server=1.6.0 version=2026.09.03.2 tools=70 read=34 write=24 exec=12 -->
-At the current toolset it exposes **71 transport tools**: **70 model/operator tools** (34 read, 24 write, 12 exec) plus the app-only `workflow_status` progress bridge. Project-specific
-function names remain data behind `project_capabilities` / `project_function_call`, so one
-project cannot dynamically rewrite the global MCP tool prefix. `GET /mcp` remains the live count/hash authority.
+<!-- mcp-toolset: server=1.7.0 version=2026.09.03.3 tools=72 read=34 write=24 exec=14 -->
+The full transport exposes **73 tools**: **72 model/operator tools** (34 read, 24 write, 14 exec) plus app-only `workflow_status`. ChatGPT gets a compact client profile rather than the full set. Project function/MCP names remain data behind `project_capabilities`, `project_function_call`, `project_mcp_tools`, and `project_mcp_call`; they never rewrite the global tool prefix. `GET /mcp` reports both full and ChatGPT signatures.
 
 See `docs/MCP.md` for protocol/security internals, `docs/A2A.md` for peer-agent delegation, and `docs/CHATGPT-PLUGIN.md` for the
 ChatGPT-facing setup and diagrams.
@@ -175,7 +173,7 @@ MSO can discover projects across configured containers instead of assuming a sin
 are bounded, and return truthful truncation + continuation metadata when a scan cannot
 finish in one pass.
 
-A project can opt into two additional declarations:
+A project can opt into two additional declarations without changing MSO global tool names:
 
 - `.mcp.json` — presence only is reported; MSO never exposes its contents or automatically
   connects to arbitrary project MCP servers.

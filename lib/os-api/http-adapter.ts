@@ -40,7 +40,7 @@ const toSummary = (a: ManagedAppWire): ManagedApp => ({
   running: a.state === "running" || a.state === "unhealthy" || a.state === "starting",
 });
 
-// Live adapter → REST + SSE against the VPS daemon / Control Room agent at
+// Live adapter → REST + SSE against the VPS daemon / legacy control agent at
 // {baseUrl}/api/v1. Auth = the signed session cookie, sent automatically on
 // same-origin requests (no Bearer token). Host actions stay allowlisted
 // server-side; this is just the client.

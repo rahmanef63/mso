@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   validateToken: vi.fn(),
   touchToken: vi.fn(async () => {}),
+  getClient: vi.fn(),
   dispatch: vi.fn(async () => ({ jsonrpc: "2.0", id: 1, result: {} })),
   clampScope: vi.fn((scope: "read" | "write" | "exec") => scope),
   rateLimited: vi.fn(() => false),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/mcp/store", () => ({
   validateToken: mocks.validateToken,
   touchToken: mocks.touchToken,
+  getClient: mocks.getClient,
 }));
 vi.mock("@/lib/mcp/dispatch", () => ({
   dispatch: mocks.dispatch,
@@ -40,6 +42,10 @@ vi.mock("@/lib/host", () => ({
 }));
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
+vi.mock("@/lib/mcp/client-profile", () => ({ detectMcpToolProfile: ({ name }: { name?: string }) => name === "ChatGPT" ? "chatgpt" : "full" }));
+vi.mock("@/lib/mcp/protocol", () => ({ supportedMcpProtocol: (v: string) => ["2026-07-28", "2025-11-25", "2024-11-05"].includes(v) }));
+vi.mock("@/lib/mcp/tool-contract", () => ({ visibleToolsForProfile: () => [] }));
+
 vi.mock("@/lib/agent/session-store", () => ({
   findOrCreateAgentSessionForConversation: mocks.findOrCreateAgentSessionForConversation,
 }));
@@ -58,6 +64,7 @@ describe("/mcp request boundary", () => {
   beforeEach(() => {
     mocks.validateToken.mockReset();
     mocks.touchToken.mockClear();
+    mocks.getClient.mockReset().mockResolvedValue(null);
     mocks.dispatch.mockClear();
     mocks.clampScope.mockClear();
     mocks.rateLimited.mockClear().mockReturnValue(false);
@@ -141,13 +148,14 @@ describe("/mcp request boundary", () => {
       body,
       "read",
       `mcp:${token.hash.slice(0, 16)}`,
-      undefined,
+      { principal: `mcp-client:${token.clientId}`, toolProfile: "full" },
     );
   });
 
   it("binds tools/call to a hashed ChatGPT conversation session without forwarding the raw conversation id", async () => {
     const token = { hash: "e".repeat(64), scope: "read" as const, clientId: "client-session", label: "Session test" };
     mocks.validateToken.mockResolvedValue(token);
+    mocks.getClient.mockResolvedValue({ name: "ChatGPT", redirectUris: ["https://chatgpt.com/connector/oauth/test"] });
     const { POST } = await import("./route");
     const rawConversation = "chatgpt-conversation-raw-secret-id";
     const body = { jsonrpc: "2.0", id: 7, method: "tools/call", params: {
@@ -161,8 +169,31 @@ describe("/mcp request boundary", () => {
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
     expect(hash).not.toContain(rawConversation);
     expect(mocks.dispatch).toHaveBeenCalledWith(body, "read", `mcp:${token.hash.slice(0, 16)}`, {
-      principal: `mcp-client:${token.clientId}`, sessionId: "20260901_100000_aabbccdd",
+      principal: `mcp-client:${token.clientId}`, sessionId: "20260901_100000_aabbccdd", toolProfile: "chatgpt",
     });
+  });
+
+  it("rejects a resource-bound token minted for another MCP server", async () => {
+    mocks.validateToken.mockResolvedValueOnce({ hash: "f".repeat(64), scope: "read", clientId: "client-resource", label: "Resource", resource: "https://other.example/mcp" });
+    const { POST } = await import("./route");
+    const res = await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })));
+    expect(res.status).toBe(401);
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unsupported MCP-Protocol-Version before dispatch", async () => {
+    mocks.validateToken.mockResolvedValueOnce({ hash: "1".repeat(64), scope: "read", clientId: "client-protocol", label: "Protocol" });
+    const { POST } = await import("./route");
+    const res = await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }), { "MCP-Protocol-Version": "2099-01-01" }));
+    expect(res.status).toBe(400);
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("returns 405 for the optional Streamable HTTP SSE listener when MSO does not expose one", async () => {
+    const { GET } = await import("./route");
+    const res = await GET(new Request("https://mso.example.test/mcp", { headers: { accept: "text/event-stream" } }));
+    expect(res.status).toBe(405);
+    expect(res.headers.get("allow")).toBe("POST");
   });
 
   it("applies the 50,000-call daily token limit", async () => {

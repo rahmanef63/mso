@@ -142,3 +142,30 @@ describe("read()", () => {
     expect(await store.listTokens()).toEqual([]);
   });
 });
+
+describe("OAuth refresh grants", () => {
+  it("stores access/refresh only as hashes, rotates refresh once, and keeps resource/profile binding", async () => {
+    await store.storeOAuthGrant({
+      accessToken: "access-one", refreshToken: "refresh-one", label: "oauth", clientId: "chatgpt-client", scope: "exec",
+      resource: "https://mso.example/mcp", profile: "chatgpt", offlineAccess: true, grantId: "grant-one",
+    });
+    expect(await store.validateToken("access-one")).toMatchObject({ clientId: "chatgpt-client", resource: "https://mso.example/mcp", profile: "chatgpt", grantId: "grant-one" });
+    const raw = await fs.readFile(process.env.OS_MCP_STORE!, "utf8");
+    expect(raw).not.toContain("access-one");
+    expect(raw).not.toContain("refresh-one");
+    expect(raw).toContain(sha256hex("refresh-one"));
+
+    const rotated = await store.rotateOAuthGrant({ oldRefreshToken: "refresh-one", accessToken: "access-two", refreshToken: "refresh-two", label: "oauth", clientId: "chatgpt-client", resource: "https://mso.example/mcp" });
+    expect(rotated).toMatchObject({ grantId: "grant-one", scope: "exec", offlineAccess: true });
+    expect(await store.rotateOAuthGrant({ oldRefreshToken: "refresh-one", accessToken: "replay", refreshToken: "replay-r", label: "oauth", clientId: "chatgpt-client", resource: "https://mso.example/mcp" })).toBeNull();
+    expect(await store.validateToken("access-two")).toMatchObject({ grantId: "grant-one", profile: "chatgpt" });
+  });
+
+  it("binds refresh to client/resource and revoking one access token kills the grant family", async () => {
+    await store.storeOAuthGrant({ accessToken: "family-access", refreshToken: "family-refresh", label: "oauth", clientId: "client-a", scope: "write", resource: "https://mso.example/mcp", grantId: "grant-family" });
+    await expect(store.rotateOAuthGrant({ oldRefreshToken: "family-refresh", accessToken: "wrong", refreshToken: "wrong-r", label: "oauth", clientId: "client-b", resource: "https://mso.example/mcp" })).resolves.toBeNull();
+    const id = (await store.listTokens()).find((row) => row.grantId === "grant-family")!.id;
+    expect(await store.revokeToken(id)).toBe(true);
+    await expect(store.rotateOAuthGrant({ oldRefreshToken: "family-refresh", accessToken: "after-revoke", refreshToken: "after-revoke-r", label: "oauth", clientId: "client-a", resource: "https://mso.example/mcp" })).resolves.toBeNull();
+  });
+});

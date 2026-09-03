@@ -1,3 +1,5 @@
+import type { McpToolProfile } from "./tool-contract";
+
 export interface RpcRequest {
   jsonrpc?: string;
   id?: string | number | null;
@@ -15,6 +17,7 @@ export interface RpcRequest {
 export interface McpAgentContext {
   principal?: string;
   sessionId?: string;
+  toolProfile?: McpToolProfile;
 }
 
 export type RpcId = string | number | null | undefined;

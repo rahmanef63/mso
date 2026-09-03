@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { requireSession } from "@/lib/auth/require-session";
 import { getClient } from "@/lib/mcp/store";
 import { isAllowedRedirect } from "@/lib/mcp/pkce";
@@ -29,6 +30,14 @@ export default async function AuthorizePage({
   const one = (k: string) => (Array.isArray(q[k]) ? q[k][0] : q[k]) ?? "";
 
   const clientId = one("client_id");
+  const h = await headers();
+  const configured = process.env.OS_PUBLIC_ORIGIN?.trim();
+  const proto = h.get("x-forwarded-proto")?.split(",")[0].trim() || "https";
+  const host = h.get("host") ?? h.get("x-forwarded-host") ?? "";
+  const issuer = (() => { try { return configured ? new URL(configured).origin : new URL(`${proto}://${host}`).origin; } catch { return ""; } })();
+  const expectedResource = issuer ? `${issuer}/mcp` : "";
+  const resource = one("resource") || expectedResource;
+  const offlineAccess = one("scope").split(/\s+/).includes("offline_access");
   const redirectUri = one("redirect_uri");
   const challenge = one("code_challenge");
   const method = one("code_challenge_method");
@@ -72,6 +81,7 @@ export default async function AuthorizePage({
     !clientId ? "The client did not send a client_id."
     : !isAllowedRedirect(redirectUri) ? "The client's redirect target is missing, or is not https (or localhost)."
     : method !== "S256" || !challenge ? "The client did not use PKCE with S256, which mso requires."
+    : !issuer || resource !== expectedResource ? "The OAuth resource does not match this MSO MCP endpoint."
     : null;
 
   if (problem) {
@@ -95,7 +105,7 @@ export default async function AuthorizePage({
   // sees a spinner rather than "you declined". RFC 6749 §4.1.2.1 — and `state`
   // rides along, because a client that cannot match the response to its own
   // request is required to discard it.
-  const deny = denyUrl(redirectUri, one("state"));
+  const deny = denyUrl(redirectUri, one("state"), issuer);
 
   return (
     <Shell>
@@ -110,6 +120,9 @@ export default async function AuthorizePage({
           code_challenge: challenge,
           code_challenge_method: method,
           state: one("state"),
+          resource,
+          issuer,
+          offline_access: offlineAccess ? "1" : "0",
         }}
       />
     </Shell>

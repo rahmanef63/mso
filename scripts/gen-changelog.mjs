@@ -65,10 +65,11 @@ const SELF = /^docs\(changelog\)/i;
 for (const line of RAW.split("\n").filter(Boolean)) {
   const [hash, date, subject] = line.split("\0");
   if (SELF.test(subject ?? "")) continue;
-  const m = /^(\w+)(?:\(([^)]*)\))?!?:\s*(.+)$/.exec(subject ?? "");
+  const publicSubject = (subject ?? "").replace(/record that [A-Za-z0-9._-]+ now consumes this MCP surface/gi, "record external MCP consumer compatibility");
+  const m = /^(\w+)(?:\(([^)]*)\))?!?:\s*(.+)$/.exec(publicSubject);
   const type = m && LABEL.has(m[1]) ? m[1] : "other";
   if (!byDay.has(date)) byDay.set(date, []);
-  byDay.get(date).push({ hash, type, scope: m?.[2] ?? "", subject: m?.[3] ?? subject ?? "" });
+  byDay.get(date).push({ hash, type, scope: m?.[2] ?? "", subject: m?.[3] ?? publicSubject });
 }
 
 // Collapse identical (type, scope, subject) within a day. A retried ship, a

@@ -5,9 +5,9 @@
 > never part of the model prompt or MCP tool arguments.
 
 MSO now owns the deployment-assistance pattern that previously lived separately in
-`rahmanef63/si-coder-agent`: provider discovery, live API verification, bounded Dokploy
+a prior standalone provider tool: provider discovery, live API verification, bounded Dokploy
 operations, and DNS automation. The implementation is native MSO code rather than a nested
-`si-coder-agent` runtime, so the browser features, CLI, terminal agent and MCP surface share
+another runtime, so the browser features, CLI, terminal agent and MCP surface share
 one catalog and one security/audit model.
 
 ## 1. Terminal entry points
@@ -160,7 +160,7 @@ DNS automation is deliberately per-record:
 - Cloudflare proxying defaults **off** and is enabled only when `proxied=true` was explicitly
   requested.
 
-This preserves the safest part of the `si-coder-agent` Cloudflare pattern while putting it
+This preserves the safest part of the standalone Cloudflare automation pattern while putting it
 behind MSO scope, approval, audit and workflow controls.
 
 ## 6. Hostinger

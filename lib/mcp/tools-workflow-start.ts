@@ -49,7 +49,7 @@ export const WORKFLOW_START_TOOL: McpTool =
       const intent = str(a, "intent");
       const projectHint = opt(a, "project");
       const project = projectHint ? await resolveProjectHint(projectHint).catch(() => null) : null;
-      const tools = await visibleTools(context.scope);
+      const tools = await visibleTools(context.scope, context.toolProfile);
       const intentRoute = routeIntentText(intent);
       const routedTools = intentRoute.catalogMatched
         ? tools.filter((tool) => intentRoute.tools.includes(tool.name) || tool.name === "workflow_start")
@@ -131,7 +131,7 @@ export const WORKFLOW_START_TOOL: McpTool =
         ...(search.recommendedRecipe ? { recipeUsed: search.recommendedRecipe.id } : {}),
         createdAt: new Date().toISOString(),
       };
-      const toolset = toolsetInfo(tools, context.scope);
+      const toolset = toolsetInfo(tools, context.scope, context.toolProfile);
       // Discovery incompleteness travels WITH the bootstrap. A model told "here is the
       // project and the trusted skills" will not re-check whether the scan covered the
       // whole box; if it did not, it has to be told in the same breath.

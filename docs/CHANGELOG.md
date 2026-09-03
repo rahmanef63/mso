@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-09-03
 
+**Added**
+
+- `mcp` harden ChatGPT profile and project bridge
+
 **Faster**
 
 - `agent` expand objective repo corpus
@@ -377,7 +381,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Docs**
 
 - `progress` record the codebase audit — what was duplicated, drifted, undefended
-- record that connectors-gateway now consumes this MCP surface
+- record external MCP consumer compatibility
 - `readme` the update button, and what Preview actually opens
 - plain http to an IP cannot complete a login — say so where it matters
 

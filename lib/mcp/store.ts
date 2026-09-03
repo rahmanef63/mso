@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { sha256hex } from "./pkce";
 import type { Scope } from "./scope";
+import type { McpToolProfile } from "./tool-contract";
+import { detectMcpToolProfile } from "./client-profile";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 
 // OAuth clients, authorization codes and bearer tokens for the MCP server.
@@ -16,6 +18,7 @@ import { withSecurityStoreLock } from "@/lib/security-store-lock";
 export interface McpClient {
   name: string;
   redirectUris: string[];
+  profile?: McpToolProfile;
   createdAt: number;
 }
 
@@ -24,6 +27,9 @@ export interface McpCode {
   redirectUri: string;
   codeChallenge: string;
   scope: Scope;
+  resource?: string;
+  profile?: McpToolProfile;
+  offlineAccess?: boolean;
   expiresAt: number;
 }
 
@@ -31,25 +37,35 @@ export interface McpToken {
   label: string;
   clientId: string;
   scope: Scope;
+  resource?: string;
+  profile?: McpToolProfile;
+  grantId?: string;
   createdAt: number;
   expiresAt: number;
   lastUsedAt?: number;
   revokedAt?: number;
 }
 
+export interface McpRefreshToken {
+  grantId: string; clientId: string; scope: Scope; resource: string; profile?: McpToolProfile; offlineAccess?: boolean; createdAt: number; expiresAt: number; revokedAt?: number;
+}
+
 interface Store {
   clients: Record<string, McpClient>;
   codes: Record<string, McpCode>;
   tokens: Record<string, McpToken>;
+  refreshTokens: Record<string, McpRefreshToken>;
 }
 
 const STORE_PATH = process.env.OS_MCP_STORE ?? path.join(os.homedir(), ".mso", "mcp.json");
 
 export const CODE_TTL_MS = 60_000; // RFC 6749 wants ≤10 min; the exchange is immediate
-export const TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90d — a forgotten bearer expires
+export const TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // legacy/manual bearer lifetime
+export const OAUTH_ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000; // short-lived; refresh token rotates it
+export const REFRESH_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const MAX_CLIENTS = 32;
 
-const empty = (): Store => ({ clients: {}, codes: {}, tokens: {} });
+const empty = (): Store => ({ clients: {}, codes: {}, tokens: {}, refreshTokens: {} });
 
 // Same rule as device-store: "no file yet" is the ONLY failure that may read as an
 // empty store. A corrupt file or EACCES must throw, because read() feeds a
@@ -64,7 +80,7 @@ async function read(): Promise<Store> {
     throw e;
   }
   const p = JSON.parse(raw) as Partial<Store>;
-  return { clients: p.clients ?? {}, codes: p.codes ?? {}, tokens: p.tokens ?? {} };
+  return { clients: p.clients ?? {}, codes: p.codes ?? {}, tokens: p.tokens ?? {}, refreshTokens: (p as Partial<Store>).refreshTokens ?? {} };
 }
 
 async function write(store: Store): Promise<void> {
@@ -94,6 +110,7 @@ function mutate<T>(fn: () => Promise<T>): Promise<T> {
 function sweep(store: Store): Store {
   const now = Date.now();
   for (const [k, v] of Object.entries(store.codes)) if (v.expiresAt < now) delete store.codes[k];
+  for (const [k, v] of Object.entries(store.refreshTokens)) if (v.expiresAt < now || v.revokedAt) delete store.refreshTokens[k];
   return store;
 }
 
@@ -113,7 +130,8 @@ export function registerClient(name: string, redirectUris: string[]): Promise<st
         .forEach((id) => delete store.clients[id]);
     }
     const clientId = "mcpc_" + sha256hex(key + Date.now()).slice(0, 24);
-    store.clients[clientId] = { name: name.slice(0, 80) || "MCP Client", redirectUris, createdAt: Date.now() };
+    const cleanName = name.slice(0, 80) || "MCP Client";
+    store.clients[clientId] = { name: cleanName, redirectUris, profile: detectMcpToolProfile({ clientId, name: cleanName, redirectUris }), createdAt: Date.now() };
     await write(store);
     return clientId;
   });
@@ -154,6 +172,30 @@ export function storeToken(token: string, rec: Omit<McpToken, "createdAt" | "exp
     const now = Date.now();
     store.tokens[sha256hex(token)] = { ...rec, createdAt: now, expiresAt: now + TOKEN_TTL_MS };
     await write(store);
+  });
+}
+
+
+export function storeOAuthGrant(input: {
+  accessToken: string; refreshToken: string; label: string; clientId: string; scope: Scope; resource: string; profile?: McpToolProfile; offlineAccess?: boolean; grantId: string;
+}): Promise<void> {
+  return mutate(async () => {
+    const store = sweep(await read()); const now = Date.now();
+    store.tokens[sha256hex(input.accessToken)] = { label: input.label, clientId: input.clientId, scope: input.scope, resource: input.resource, profile: input.profile, grantId: input.grantId, createdAt: now, expiresAt: now + OAUTH_ACCESS_TOKEN_TTL_MS };
+    store.refreshTokens[sha256hex(input.refreshToken)] = { grantId: input.grantId, clientId: input.clientId, scope: input.scope, resource: input.resource, profile: input.profile, offlineAccess: input.offlineAccess, createdAt: now, expiresAt: now + REFRESH_TOKEN_TTL_MS };
+    await write(store);
+  });
+}
+
+export function rotateOAuthGrant(input: { oldRefreshToken: string; accessToken: string; refreshToken: string; label: string; clientId: string; resource: string }): Promise<McpRefreshToken | null> {
+  return mutate(async () => {
+    const store = sweep(await read()), oldHash = sha256hex(input.oldRefreshToken), rec = store.refreshTokens[oldHash];
+    if (!rec || rec.revokedAt || rec.expiresAt < Date.now() || rec.clientId !== input.clientId || rec.resource !== input.resource) return null;
+    delete store.refreshTokens[oldHash];
+    const now = Date.now();
+    store.tokens[sha256hex(input.accessToken)] = { label: input.label, clientId: rec.clientId, scope: rec.scope, resource: rec.resource, profile: rec.profile, grantId: rec.grantId, createdAt: now, expiresAt: now + OAUTH_ACCESS_TOKEN_TTL_MS };
+    store.refreshTokens[sha256hex(input.refreshToken)] = { ...rec, createdAt: now, expiresAt: now + REFRESH_TOKEN_TTL_MS };
+    await write(store); return rec;
   });
 }
 
@@ -205,9 +247,10 @@ export function revokeToken(id: string): Promise<boolean> {
     const store = await read();
     const hit = Object.keys(store.tokens).find((h) => h.startsWith(id));
     if (!hit || store.tokens[hit].revokedAt) return false;
-    store.tokens[hit].revokedAt = Date.now();
-    await write(store);
-    return true;
+    const now = Date.now(), grantId = store.tokens[hit].grantId;
+    for (const token of Object.values(store.tokens)) if (token === store.tokens[hit] || (grantId && token.grantId === grantId)) token.revokedAt = now;
+    if (grantId) for (const refresh of Object.values(store.refreshTokens)) if (refresh.grantId === grantId) refresh.revokedAt = now;
+    await write(store); return true;
   });
 }
 
@@ -216,8 +259,10 @@ export function revokeAllTokens(): Promise<number> {
   return mutate(async () => {
     const store = await read();
     let n = 0;
-    for (const t of Object.values(store.tokens)) if (!t.revokedAt) { t.revokedAt = Date.now(); n++; }
-    if (n) await write(store);
+    const now = Date.now();
+    for (const t of Object.values(store.tokens)) if (!t.revokedAt) { t.revokedAt = now; n++; }
+    for (const t of Object.values(store.refreshTokens)) if (!t.revokedAt) t.revokedAt = now;
+    if (n || Object.keys(store.refreshTokens).length) await write(store);
     return n;
   });
 }

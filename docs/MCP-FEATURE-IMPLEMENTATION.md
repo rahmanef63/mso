@@ -67,7 +67,7 @@ A public tool is not only a function. Its release contract spans all of these su
 | Limits | Timeouts, rate/size caps, allowed roots, pagination, and continuation semantics |
 | Parity | Alfa/MCP coverage or an explicit documented reason for MCP-only behavior |
 | Toolset | Schema-derived version/hash/count visible in descriptor, initialize, list, and Settings |
-| External clients | connectors-gateway literals and cached ChatGPT/Claude/Cursor actions |
+| External clients | cached ChatGPT/Claude/Cursor/downstream client actions |
 | Documentation | `MCP.md`, relevant runbook, progress rationale, and refresh instructions |
 
 Implementation sequence:
@@ -79,7 +79,7 @@ Implementation sequence:
    changes deliberately.
 4. Test schema validation, scope visibility, call-time refusal, limits, handler response, audit,
    and failure shape.
-5. Run Alfa/MCP parity tests and inspect connectors-gateway before changing a public name.
+5. Run Alfa/MCP parity tests and treat every public MSO tool name/schema as a compatibility contract before changing it.
 6. Advance toolset metadata when the public schema/description/scope/annotation changes. Verify
    the live `GET /mcp` signature rather than relying on a source constant alone.
 7. Refresh or recreate the external MCP client action snapshot. Marking MSO's local
@@ -107,15 +107,17 @@ A `SKILL.md` is routing and reusable workflow policy, not executable code and no
 
 ## 5. Project-specific function capabilities
 
-Project function names remain **data**, not dynamic additions to the MCP catalog. Preserve the
-stable pair:
+Project function and project MCP tool names remain **data**, not dynamic additions to the MSO global catalog. Preserve the stable generic seams:
 
-- `project_capabilities` discovers the project's declared functions and constraints;
-- `project_function_call` executes one declared function at `exec` scope.
+- `project_capabilities` discovers safe function schemas and project MCP server aliases;
+- `project_function_call` executes one declared fixed-argv function at `exec` scope;
+- `project_mcp_tools` initializes one explicitly selected project MCP and discovers its dynamic tools at `exec` scope;
+- `project_mcp_call` executes one exact dynamic project MCP tool at `exec` scope.
+
+Never expose `.mcp.json` contents/env/headers/credentials or synthesize one MSO global tool per project MCP tool.
 
 When adding a project capability, validate the project's `.mso/functions.json`, keep execution
-inside its declared working directory/argument contract, and test discovery plus refusal. Do not
-create one global MCP tool per project function; that destabilizes the cached catalog and tool
+inside its declared working directory/argument contract, and test discovery plus refusal. Do not create one global MCP tool per project function or project MCP tool; that destabilizes cached client catalogs and tool
 prefix for every client.
 
 ## 6. Limits that commonly masquerade as code bugs

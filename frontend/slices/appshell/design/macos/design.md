@@ -1,6 +1,6 @@
 # macOS design.md
 
-Source family: `rahmanef63/apple-os-shell/uploads/design.md`, macOS sections.
+Source family: the project Apple-platform design reference, macOS sections.
 
 ## Contract
 - Desktop-first, compact density, SF typography, translucent navigation/sidebar layers with solid content.

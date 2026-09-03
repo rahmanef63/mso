@@ -46,7 +46,7 @@ describe("protocol", () => {
   it("publishes server and toolset metadata so action drift is visible", async () => {
     const r = await dispatch({ id: 1, method: "initialize" }, "exec");
     const result = r.result as { serverInfo: { version: string }; _meta: { toolset: { toolCount: number; hash: string } } };
-    expect(result.serverInfo.version).toBe("1.6.0");
+    expect(result.serverInfo.version).toBe("1.7.0");
     expect(result._meta.toolset.toolCount).toBe(TOOLS.length);
     expect(result._meta.toolset.hash).toMatch(/^[a-f0-9]{16}$/);
   });
@@ -56,7 +56,7 @@ describe("protocol", () => {
     const r = await dispatch({ id: 1, method: "tools/list" }, "write");
     const tools = (r.result as { tools: Array<{ name: string; _meta?: Record<string, unknown> }> }).tools;
     const upload = tools.find((tool) => tool.name === "fs_upload_file");
-    expect(upload?._meta).toEqual({ "openai/fileParams": ["file"] });
+    expect(upload?._meta).toEqual({ "openai/fileParams": ["file"], securitySchemes: [{ type: "oauth2", scopes: ["write"] }] });
   });
 
   it("answers ping and initialized", async () => {

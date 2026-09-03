@@ -3,7 +3,7 @@
 # that execs it.
 #
 # Why it lives here and not in .git/hooks/pre-push: a hook is untracked, so a fresh
-# clone had NO gates at all, and re-running an sc-git hook installer silently
+# clone had NO gates at all, and a third-party hook installer silently
 # overwrote the file — dropping the audit and build guards and re-adding a
 # `check-slices.mjs` line for a script deleted on 2026-08-03, which blocks every
 # push. Both failure modes were documented in CLAUDE.md, and a doc is not a control.
@@ -42,17 +42,10 @@ fi
 fail() { echo ""; echo "❌ $1 push blocked."; [ -n "${2-}" ] && echo "   $2"; exit 1; }
 
 # ── Guard 1 — typecheck + lint + test.
-# sc-git's ci.js is used when present (it is the shared runner across this owner's
-# repos) but must not be REQUIRED: a fresh clone on another machine has no such
-# path, and silently skipping the whole guard there is exactly the hole this file
-# exists to close. `bun run verify` is the in-repo equivalent.
-SC_CI="/home/rahman/projects/opensource/si-coder-agent/skills/sc-git/scripts/ci.js"
-if [ -f "$SC_CI" ]; then
-  node "$SC_CI" --skip build || fail "sc-git ci failed." "override (NOT recommended): git push --no-verify"
-else
-  echo "▶ sc-git ci.js not present — running \`bun run verify\` instead"
-  bun run verify || fail "verify failed." "reproduce: bun run verify"
-fi
+# MSO is self-contained: a fresh clone must never depend on a sibling/private repo
+# to decide whether it is safe to push. `bun run verify` is the canonical in-repo gate.
+echo "▶ running MSO verify"
+bun run verify || fail "verify failed." "reproduce: bun run verify"
 
 # ── Guard 1b — architecture. check-contrast is informational (a WCAG palette audit
 # is a design task, not a push blocker), so it is allowed to exit non-zero.
@@ -67,17 +60,14 @@ node scripts/gen-changelog.mjs --check || fail "changelog stale — run: node sc
 node scripts/check-contrast.mjs || true
 
 # ── Guard 1c — dependency audit, high/critical only.
-# Must live HERE rather than lean on ci.js: that runner has a hardcoded
-# STEPS=['typecheck','lint','test','build'] and never invokes `verify`. The wrapper
+# Must live HERE rather than rely on an external CI wrapper. The audit wrapper
 # skips (exit 0) when the registry is unreachable, so a network blip cannot fake a
 # CVE and block a push.
 node scripts/audit.mjs || fail "audit: unignored high/critical advisory."
 
-# ── Guard 1d — build. ci.js above keeps `--skip build` ON PURPOSE: it would build in
-# THIS directory, and `next build` wipes .next before compiling — which is what the
-# live :4005 process is serving from. verify-build.sh compiles a throwaway copy of
-# HEAD instead. Adds ~35 s to a push; if that ever becomes intolerable, DELETE this
-# guard rather than "fixing" it by letting ci.js build in place.
+# ── Guard 1d — build. Never build in THIS directory: `next build` wipes .next
+# before compiling, while the live :4005 process may be serving from it.
+# verify-build.sh compiles a throwaway copy of HEAD instead.
 bash scripts/verify-build.sh >/dev/null 2>&1 \
   && echo "build: HEAD compiles (out-of-tree)." \
   || fail "build failed." "reproduce: bash scripts/verify-build.sh"

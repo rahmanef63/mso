@@ -4,9 +4,10 @@ Update this file at the end of every manual or automated test session. Keep it f
 
 ## Current status
 
-The current deployed baseline is **MSO CLI 1.12.0** with toolset `2026.09.03.2`; use `mso --version` plus `/api/health` for the exact Git build because documentation-only release commits also advance that identity. The v1.10/v1.11 findings and the v1.12 sectioned-terminal/recoverable-error work below are resolved and retained as historical test evidence. Do not re-open a resolved finding from prose alone: reproduce it against the current build first. There is no known 1.12 release blocker in this handoff.
+The current release target is **MSO CLI 1.12.0**, MCP server `1.7.0`, toolset `2026.09.03.3`; use `mso --version` plus `/api/health` for the exact Git build because documentation-only release commits also advance that identity. The v1.10/v1.11 findings and the v1.12 sectioned-terminal/recoverable-error work below are resolved and retained as historical test evidence. Do not re-open a resolved finding from prose alone: reproduce it against the current build first. There is no known 1.12 release blocker in this handoff.
 
 Current verified behavior:
+- MCP 1.7 release candidate: ChatGPT is fail-closed to a 29-tool compact MSO-only profile (~31.8 KiB descriptor JSON / ~8k rough tokens), full MSO remains 73 transport tools, and project-specific MCP names stay dynamic behind `project_mcp_tools` / `project_mcp_call`. OAuth resource binding + rotating refresh credentials, Streamable HTTP protocol handling, and legacy registered ChatGPT-client profile detection have focused regression coverage. Deterministic security gates (Trivy/OSV/Gitleaks/Semgrep/ShellCheck) pass; Codex Security AI scanning is explicitly incomplete because executor/cost guards stopped it, with 0 findings in the targeted partial reports.
 - P6 `mso-agent-quality-v2` expands the matched corpus to nine scenarios with repo-debug, schema migration, and transactional rollback. Final `openai-codex/gpt-5.6-terra` full run: MSO 9/9 task + 9/9 scenario-policy, Hermes 8/9 + 9/9; normalized tokens/attempt 16,683.4 vs 67,433.1 (~75.3% lower for MSO), p50 15,285 vs 23,294 ms, while MSO average latency was ~2.6% higher. The Hermes `multi-read` miss did not reproduce in a 3/3-vs-3/3 alternating-order follow-up, so it is not treated as a universal reliability claim. P6 also fixes over-broad manual-test routing, restores explicit exec validation for repo tasks, and prevents duplicate `workflow_start` inside long single-user turns. Cost remains non-comparable.
 - P5 provider-usage normalization preserves Codex/OpenAI cache/reasoning details without double counting, keeps unknown fields unknown, and proof-gates canonical token semantics. A full candidate MSO↔Hermes run on `openai-codex/gpt-5.6-terra` remained 6/6 task + 6/6 scenario-policy for both; token semantics are now comparable at 3,510.8 vs 59,743.2 normalized tokens/success, while cost semantics remain non-comparable. MSO's proof is `explicit-inclusive-contract`; Hermes is `exact-exclusive-cache-sum`.
 - P4 `bench:corpus` uses six seeded, per-agent isolated 0700 scratch scenarios, exact scenario-tree scoring (`policyObservationScope=scenario-tree`, not whole-host sandbox proof), and rotating scenario-major runner order. The reproduced full provider+model-matched MSO↔Hermes run on `openai-codex/gpt-5.6-terra` is 6/6 task + 6/6 scenario-observable policy for both; MSO measured 10,759.5 ms average / 10,646.5 ms p50 versus Hermes 14,624 ms / 14,304.5 ms. This is a bounded corpus tie-break, not an overall-product claim. Token/cost accounting remains explicitly non-comparable and is not a ranking input; OpenClaw is unranked until an equivalent model/provider path exists.
@@ -28,7 +29,7 @@ Current verified behavior:
 ```text
 You are taking over MSO testing work in /home/rahman/projects/mso.
 
-Read docs/TESTING-HANDOFF.md first. Current verified baseline: CLI 1.12.0, toolset 2026.09.03.2; resolve the exact live Git build from `mso --version`/`/api/health`. Preserve existing work and do not re-open resolved v1.10-v1.12 findings unless you can reproduce them against the current build.
+Read docs/TESTING-HANDOFF.md first. Current verified source baseline: CLI 1.12.0, MCP server 1.7.0, toolset 2026.09.03.3; resolve the exact live Git build from `mso --version`/`/api/health`. Preserve existing work and do not re-open resolved v1.10-v1.12 findings unless you can reproduce them against the current build.
 
 For a new issue: record the exact reproduction, distinguish durable state from live receiver/process state, avoid duplicate write/exec retries when outcome is uncertain, add the smallest focused regression, run typecheck plus the relevant contract tests, then update this handoff with factual results.
 ```
@@ -64,6 +65,26 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 ```
 
 ## Session log
+
+### 2026-09-03 — ChatGPT MCP scanner/auth/project boundary hardening
+
+**Goal**
+- Make ChatGPT action refresh reliably scan a compact, standards-aligned MSO-only catalog while keeping full MCP capability for other clients.
+- Keep every project-owned MCP tool/config/credential dynamic/private behind generic MSO primitives.
+
+**Changed**
+- ChatGPT client profile: 29 transport tools / 28 model actions + app-only `workflow_status`; direct calls to hidden full-catalog names fail closed.
+- Descriptor normalization adds title, all required safety annotations and mirrored OAuth security schemes to every full/profile tool.
+- Added `project_mcp_tools` + `project_mcp_call`; project `.mcp.json` never becomes global tool definitions.
+- Added OAuth resource binding, `iss`, rotating refresh tokens, grant-family revocation, protocol-header validation and Streamable HTTP 405 behavior for the unimplemented SSE listener.
+- Removed current cross-repository MCP contract/coupling and sibling-repo push-gate dependency.
+
+**Verified so far**
+- TypeScript: PASS after OAuth/project/profile changes.
+- Focused OAuth/route/store/profile/project-MCP contract tests: PASS.
+- ChatGPT descriptor metric: **29 tools / 31,811 bytes / ~7,953 rough tokens / 2,507 max tool bytes**.
+- `node scripts/check-docs.mjs`: PASS at 72 model MCP tools + one app-only bridge.
+- Full repository verify/build and live deployment verification are the remaining release gates for this session.
 
 ### 2026-09-03 — ChatGPT-session Local Agent foreground two-way MVP
 

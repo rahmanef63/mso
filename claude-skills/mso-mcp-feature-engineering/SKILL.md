@@ -51,11 +51,10 @@ For a public MCP tool, inspect and update all affected surfaces:
 - rate, size, timeout, path, pagination and continuation limits;
 - Alfa/MCP parity or an explicit documented MCP-only reason;
 - toolset version/hash/count and public descriptor;
-- connectors-gateway literals and other external action mappings;
+- downstream cached action mappings and other external client snapshots;
 - current docs, progress rationale and client-rescan instructions.
 
-Never create a parallel raw `fs`/`child_process` path inside a tool. Never rename a public tool
-without checking the external mapping contract.
+Never create a parallel raw `fs`/`child_process` path inside a tool. Never rename a public tool without treating its MSO name/schema as a public compatibility contract.
 
 ## Skill contract
 

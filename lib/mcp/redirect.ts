@@ -53,7 +53,7 @@ export function selfUrl(query: Record<string, string | string[] | undefined>): s
  * The caller renders no Cancel link in that case rather than a broken one: a
  * refusal is not a reason to relax the check that guards the success path.
  */
-export function denyUrl(redirectUri: string, state: string): string | null {
+export function denyUrl(redirectUri: string, state: string, issuer?: string): string | null {
   if (!isAllowedRedirect(redirectUri)) return null;
   let url: URL;
   try {
@@ -63,5 +63,6 @@ export function denyUrl(redirectUri: string, state: string): string | null {
   }
   url.searchParams.set("error", "access_denied");
   if (state) url.searchParams.set("state", state);
+  if (issuer) url.searchParams.set("iss", issuer);
   return url.toString();
 }

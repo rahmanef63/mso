@@ -21,6 +21,14 @@ export function parseScope(raw: string | undefined | null): Scope {
   return asked.reduce((a, b) => (RANK[b] > RANK[a] ? b : a));
 }
 
+
+/** OAuth scope strings are cumulative so a standards-compliant host can see that an exec token also satisfies read/write tool schemes. */
+export function oauthScopeString(scope: Scope, offline = false): string {
+  const values = scope === "read" ? ["read"] : scope === "write" ? ["read", "write"] : ["read", "write", "exec"];
+  if (offline) values.push("offline_access");
+  return values.join(" ");
+}
+
 export function allows(held: Scope, needed: Scope): boolean {
   return RANK[held] >= RANK[needed];
 }

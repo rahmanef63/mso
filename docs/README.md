@@ -36,7 +36,6 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`SUBAGENTS.md`](./SUBAGENTS.md) | Same-session foreground isolated worker lifecycle, context, tool authority and limits |
 | [`MCP-FEATURE-IMPLEMENTATION.md`](./MCP-FEATURE-IMPLEMENTATION.md) | Stepwise reverse-engineering workflow for MCP tools, trusted skills and project capabilities |
 | [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) | ChatGPT custom MCP app setup, diagrams, scopes and file bridge |
-| [`CONNECTORS-GATEWAY-INTEGRATION.md`](./CONNECTORS-GATEWAY-INTEGRATION.md) | MSO ↔ connectors-gateway action-name contract |
 | [`MANAGED-APPS.md`](./MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, backup/restore and dashboard access boundary |
 | [`HERMES-INTEGRATION.md`](./HERMES-INTEGRATION.md) | Hermes-specific integration behaviour |
 | [`OPENCLAW-INTEGRATION.md`](./OPENCLAW-INTEGRATION.md) | OpenClaw-specific integration behaviour |

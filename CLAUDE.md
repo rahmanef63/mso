@@ -89,7 +89,7 @@ Deleted 2026-07-28 as dead: `SHELL-INTEGRATION-PLAN.md` and `SYNC-PLAN.md` (both
 sibling repos that do not exist on this machine), `browser-agent-plan.md` (the retired
 Playwright sidecar), `SIXFIX-PLAN.md` (a finished dated fix list). Nothing linked to any
 of them. Deleted 2026-07-30 in the same spirit: `PLAN.md` (the "master plan" — every
-section contradicted by shipped code, and its one unique asset, a Control-Room-vs-MSO
+section contradicted by shipped code, and its one unique asset, a legacy-dashboard-vs-MSO
 table, is descriptive rather than decision-carrying) and `MULTISHELL-PLAN.md` (its sibling
 repo is gone, all six phases are checked off, and PROGRESS.md:574 reverses its one unique
 decision). Both recoverable with `git show bccd0b1:docs/<name>`. Deleted 2026-08-10
@@ -346,17 +346,11 @@ the real runtime and working analogue before changing a tool or skill contract.
   `OS_MCP_MAX_SCOPE`. The default ceiling is `exec`, and consent preselects the highest
   permitted tier; set the env to `read` or `write` to opt down. `tools/list` filters by
   it AND `tools/call` re-checks it — a client can call a name it was never shown.
-- **Tool names are a cross-repo contract.** `rahmanef63/connectors-gateway` registered
-  mso as a connector on 2026-08-17 and historically pinned a subset of the MCP names as
-  literal `x-upstream` strings.
-  <!-- mcp-toolset: server=1.6.0 version=2026.09.03.2 tools=70 read=34 write=24 exec=12 -->
-  MSO currently exposes **71 transport tools**: **70 model/operator tools** (34 read, 24 write,
-  12 exec) plus the app-only `workflow_status` bridge; `GET /mcp` plus `_meta.toolset` expose
-  the current version/hash/name manifest.
-  Treat the gateway mapping as a separate cross-repo contract and verify it before renaming. Renaming or removing
-  a tool here breaks it with **no error in either repo** — `parity.test.ts` guards the
-  Alfa axis, not this one. Read `docs/CONNECTORS-GATEWAY-INTEGRATION.md` before touching
-  a tool name.
+- **Tool names are an MSO public API contract.** Keep global names MSO-owned and generic.
+  Project-owned MCP names are data behind `project_mcp_tools` / `project_mcp_call`; never copy them into the global catalog.
+  <!-- mcp-toolset: server=1.7.0 version=2026.09.03.3 tools=72 read=34 write=24 exec=14 -->
+  The full MSO transport exposes **73 tools**: **72 model/operator tools** (34 read, 24 write, 14 exec) plus app-only `workflow_status`.
+  ChatGPT receives a deliberately smaller static profile; hidden full-catalog names are rejected at call time, not merely omitted from `tools/list`.
 - Store is `~/.mso/mcp.json`, **sha256 only**, same atomic-write + fail-loud-on-corrupt
   rule as `lib/auth/device-store.ts`. Codes are single-use, 60 s, deleted BEFORE the
   token is minted. `browser_status` must never return the VNC password — that profile

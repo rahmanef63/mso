@@ -5,6 +5,7 @@ import { activeWorkflowForActor, recordWorkflowStep } from "@/lib/skills/memory"
 import { activityTarget, newActivityId, recordMcpActivity } from "./activity";
 import { allows, type Scope } from "./scope";
 import { TOOLS_BY_NAME } from "./tools";
+import { toolAllowedForProfile } from "./tool-contract";
 import { rpcFail, rpcOk, type McpAgentContext, type RpcRequest } from "./dispatch-types";
 import { recipeActor, workflowActor } from "./dispatch-actors";
 import { flowFields, recordAgentEvent, sessionDetail, structuredResult, workflowFromResult } from "./dispatch-tool-support";
@@ -14,7 +15,7 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
   const id = req.id ?? null;
   const name = String(req.params?.name ?? ""), args = req.params?.arguments ?? {};
   const tool = TOOLS_BY_NAME.get(name);
-  if (!tool) return rpcFail(id, -32602, `unknown tool: ${name}`);
+  if (!tool || !toolAllowedForProfile(name, context?.toolProfile ?? "full")) return rpcFail(id, -32602, `unknown tool: ${name}`);
   const mcpPresence = context?.principal?.startsWith("mcp-") && context.sessionId
     ? { principal: context.principal, sessionId: context.sessionId, instanceId: `mcp:${context.sessionId}` }
     : null;
@@ -84,7 +85,7 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
     }
     const result = await tool.run(args, {
       actor, principal: context?.principal, sessionId: context?.sessionId, scope,
-      workflowId: activeWorkflow?.id, workflowActor: flowActor, recipeActor: learnedActor,
+      workflowId: activeWorkflow?.id, workflowActor: flowActor, recipeActor: learnedActor, toolProfile: context?.toolProfile,
     });
     if (trail) {
       const outcome = trail.outcome?.(result);
