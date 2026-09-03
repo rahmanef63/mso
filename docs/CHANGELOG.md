@@ -25,6 +25,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `agent` add repeatable corpus runner
 - `agent` expand objective repo corpus
 
+**Tests**
+
+- `gateway` await complete browser argv capture
+
 **Docs**
 
 - `agent` record P8 calibration baseline

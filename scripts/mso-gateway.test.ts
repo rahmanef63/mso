@@ -192,11 +192,17 @@ printf '%s\n' "$@" > "${capture}"
         MSO_GATEWAY_STATE_DIR: f.state, MSO_GATEWAY_CURL: f.curl, MSO_GATEWAY_CLOUDFLARED: f.cloudflared },
     });
     expect(out).toContain("opened http://127.0.0.1:4555");
-    // The browser launcher is deliberately detached. Under full coverage the child
-    // can be scheduled later than the old 500 ms fixture window, so wait boundedly
-    // for its one small argv file instead of turning host load into a flaky failure.
-    for (let i = 0; i < 200 && !fs.existsSync(capture); i++) await new Promise((r) => setTimeout(r, 10));
-    const argv = fs.readFileSync(capture, "utf8").trim().split(/\n/);
+    // The browser launcher is deliberately detached. A redirection can create the
+    // capture file before printf has finished writing argv, so waiting only for
+    // existence is racy under full-suite load. Wait boundedly for the expected
+    // complete payload instead of reading a newly-created partial file.
+    let captured = "";
+    for (let i = 0; i < 500; i++) {
+      try { captured = fs.readFileSync(capture, "utf8"); } catch {}
+      if (captured.includes("Start-Process $args[0]") && captured.includes("http://127.0.0.1:4555")) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    const argv = captured.trim().split(/\n/);
     expect(argv).toContain("Start-Process $args[0]");
     expect(argv.at(-1)).toBe("http://127.0.0.1:4555");
     expect(argv.filter((v) => v.includes("http://127.0.0.1:4555"))).toHaveLength(1);
