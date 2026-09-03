@@ -11,7 +11,7 @@ describe("MSO Surface MCP tools", () => {
   it("returns only the server-reviewed public app catalog", async () => {
     const result = await tool("mso_surface_apps_list").run({}, { scope: "read" }) as { apps: Array<Record<string, unknown>> };
     expect(result.apps.map((app) => app.id)).toEqual(["play-together"]);
-    expect(result.apps[0]).toMatchObject({ title: "Play Together", origin: "https://game.rahmanef.com", renderer: "remote" });
+    expect(result.apps[0]).toMatchObject({ title: "Play Together", origin: "https://game.rahmanef.com", renderer: "iframe", startPath: "/embed" });
     expect(JSON.stringify(result)).not.toContain("sandbox");
     expect(JSON.stringify(result)).not.toContain("<script");
   });
@@ -21,7 +21,7 @@ describe("MSO Surface MCP tools", () => {
     expect(render.inputSchema.properties).not.toHaveProperty("url");
     expect(render.inputSchema.properties).not.toHaveProperty("html");
     const result = await render.run({ route: "/apps/play-together" }, { scope: "read" }) as { app?: Record<string, unknown> };
-    expect(result.app).toMatchObject({ id: "play-together", renderer: "remote", origin: "https://game.rahmanef.com" });
+    expect(result.app).toMatchObject({ id: "play-together", renderer: "iframe", origin: "https://game.rahmanef.com", startPath: "/embed", url: "https://game.rahmanef.com/embed" });
     expect(result.app).not.toHaveProperty("sandbox");
   });
 
