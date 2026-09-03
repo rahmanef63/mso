@@ -30,10 +30,13 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- separate corpus accounting ownership
+- keep Fresh 3 within architecture ratchets
 - `gateway` await complete browser argv capture
 
 **Docs**
 
+- refresh maintainability changelog
 - `agent` record P9 memory calibration
 - `agent` record P8 calibration baseline
 - `agent` record P7 repeated corpus baseline
@@ -57,6 +60,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- make modular shell ownership explicit
 - `cli` clear ShellCheck warnings
 - `agent` require live receiver for mentions
 - `agent` make restart process-safe
@@ -68,12 +72,25 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `agent` add comparable quality corpus
 - `agent` route capabilities before model reasoning
 
+**Changed**
+
+- split installer phases and lock release lifecycle
+- split CLI into bounded command modules
+- separate shared client server contracts
+- segment host capability facades
+- separate workflow and memory ownership
+- enforce one-way shell dependencies
+- extract capability kernel and architecture ratchets
+
 **Tests**
 
+- lock security coverage for new boundaries
+- follow modular onboarding owner
 - follow RASMIC storage split
 
 **Docs**
 
+- generate MCP catalog and lock architecture ownership
 - reconcile RASMIC with latest agent docs
 - publish catalog-first RASMIC runtime
 - publish RASMIC MCP contract
@@ -85,6 +102,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Other**
 
+- cover maintainability architecture boundaries
 - pin ZAP Docker Hub mirror
 - cover RASMIC orchestration
 
