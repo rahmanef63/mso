@@ -31,6 +31,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `agent` calibrate local semantic memory retrieval
 - separate corpus accounting ownership
 - keep Fresh 3 within architecture ratchets
 - `gateway` await complete browser argv capture
