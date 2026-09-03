@@ -73,9 +73,9 @@ Picked per token, on the consent screen, capped by `OS_MCP_MAX_SCOPE`. The highe
 
 | Scope | Tools |
 |---|---|
-| `read` | `a2a_agent_discover` `a2a_agents_list` `a2a_task_get` `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `apps_list` `apps_logs` `browser_status` `cloudflare_zones_list` `dokploy_projects_list` `exec_job_status` `fs_list` `fs_read` `fs_search` `fs_usage` `infra_provider_doctor` `infra_providers_list` `local_agent_inbox` `local_agent_request_wait` `local_agents_list` `project_capabilities` `project_memory_search` `projects_list` `read_pipeline` `screen_capture` `skills_list` `skills_read` `skills_search` `sys_processes` `sys_stats` `tool_forge_candidates` |
-| `write` | + `a2a_agent_register` `a2a_agent_remove` `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `apps_power` `cloudflare_dns_upsert` `dokploy_project_ensure` `fs_copy` `fs_delete` `fs_mkdir` `fs_move` `fs_upload_file` `fs_write` `hostinger_dns_upsert` `local_agent_message_send` `local_agent_reply` `project_memory_upsert` `project_script_run` `tool_forge_propose` `workflow_cancel` `workflow_finish` `workflow_start` |
-| `exec` | + `a2a_handoff` `a2a_message_send` `a2a_task_cancel` `agent_subagent_run` `browser_power` `exec_job_cancel` `exec_job_start` `exec_run` `local_agent_request` `project_function_call` `project_mcp_call` `project_mcp_tools` `tool_forge_evaluate` `tool_forge_promote` |
+| `read` | `a2a_agent_discover` `a2a_agents_list` `a2a_task_get` `agent_memory_read` `agent_memory_search` `agent_session_current` `agent_session_resume` `agent_sessions_list` `apps_list` `apps_logs` `browser_status` `cloudflare_zones_list` `connections_list` `dokploy_projects_list` `exec_job_status` `fs_list` `fs_read` `fs_search` `fs_usage` `infra_provider_doctor` `infra_providers_list` `local_agent_inbox` `local_agent_request_wait` `local_agents_list` `project_agent_status` `project_capabilities` `project_changes_list` `project_diff` `project_get` `project_knowledge_get` `project_memory_search` `projects_list` `read_pipeline` `screen_capture` `skills_list` `skills_read` `skills_search` `sys_processes` `sys_stats` `tool_forge_candidates` `vps_status` |
+| `write` | + `a2a_agent_register` `a2a_agent_remove` `agent_memory_forget` `agent_memory_remember` `agent_session_note` `agent_session_rename` `apps_power` `cloudflare_dns_upsert` `dokploy_project_ensure` `fs_copy` `fs_delete` `fs_mkdir` `fs_move` `fs_upload_file` `fs_write` `hostinger_dns_upsert` `local_agent_message_send` `local_agent_reply` `project_knowledge_set` `project_memory_upsert` `project_script_run` `tool_forge_propose` `workflow_cancel` `workflow_finish` `workflow_start` |
+| `exec` | + `a2a_handoff` `a2a_message_send` `a2a_task_cancel` `agent_subagent_run` `browser_power` `exec_job_cancel` `exec_job_start` `exec_run` `local_agent_request` `project_agent_run` `project_database_call` `project_database_query` `project_database_status` `project_database_tools` `project_function_call` `project_mcp_call` `project_mcp_tools` `tool_forge_evaluate` `tool_forge_promote` |
 
 Alfa — the in-app assistant — overlaps the same host capabilities under dot.case names,
 and `lib/mcp/parity.test.ts` fails if one surface gains a tool the other lacks
@@ -116,10 +116,10 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.7.3 version=2026.09.03.4 tools=72 read=34 write=24 exec=14 -->
+<!-- mcp-toolset: server=1.8.0 version=2026.09.03.5 tools=85 read=41 write=25 exec=19 -->
 
-Current full transport catalog: **73 tools**, server `1.7.3` / toolset `2026.09.03.4`.
-The model/operator catalog is **72 tools** (34 read, 24 write, 14 exec); `workflow_status` is the one app-only MCP Apps bridge. ChatGPT receives a smaller client profile rather than this full set; see [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md).
+Current full transport catalog: **86 tools**, server `1.8.0` / toolset `2026.09.03.5`.
+The model/operator catalog is **85 tools** (41 read, 25 write, 19 exec); `workflow_status` is the one app-only MCP Apps bridge. ChatGPT receives a smaller client profile rather than this full set; see [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md).
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
 
 Session/memory tools add durable conversation context without creating dynamic per-project global names. Project functions use `project_capabilities` / `project_function_call`; project MCP servers use `project_capabilities` / `project_mcp_tools` / `project_mcp_call`. In both cases project-specific names remain data, not entries in MSO `tools/list`.
@@ -177,6 +177,16 @@ MSO itself stays generic. A project may opt into capabilities inside its own val
 - `.mso/functions.json` — a bounded manifest of project-owned fixed-argv functions executed only through `project_function_call`.
 
 `project_mcp_tools` is exec scope even though it returns schemas because starting a stdio project MCP executes project code. Stdio uses no shell, enforces cwd containment, starts from MSO's credential-scrubbed child environment, and adds only project-declared env. Remote HTTP uses the existing HTTPS/SSRF/DNS-rebinding guard and bounded responses. A project MCP that declares OAuth but lacks explicit server-side authorization fails closed; MSO never imports or mints another project's credential implicitly.
+
+### Project experience, knowledge, Convex and project-agent surfaces
+
+The Lovable-inspired layer is additive over MSO's host primitives; it does not replace them. `project_get` returns one canonical project snapshot, `project_changes_list` exposes bounded Git history, and `project_diff` returns a bounded unified diff while its MCP App structured projection contains only the safe file/line summary. `project_knowledge_get` / `project_knowledge_set` store always-on project context in `.mso/KNOWLEDGE.md` (10,000 UTF-8 bytes max, symlink refused, optional SHA-256 compare-and-swap). Skills remain the on-demand instruction layer and workflow/repo memory remains learned evidence.
+
+`connections_list` is the safe integration inventory: masked infrastructure readiness, project MCP aliases/auth class, and Convex detection. It deliberately returns no provider token, header, `.mcp.json` body, or `.env.local` value. Existing explicit bounded provider tools remain available; the inventory is a discovery surface, not a replacement.
+
+Convex is the first-class project database provider. `project_database_status`, `project_database_tools`, `project_database_call`, and read-only `project_database_query` launch the **project-installed** official Convex MCP CLI through fixed argv/no shell. MSO pins `--project-dir` to the selected validated project, strips nested `projectDir` overrides, refuses cross-project deployment selectors such as `prod:other-project`, and never enables Convex's dangerous production flags automatically. Cloud, local and self-hosted Convex therefore share one dynamic schema seam without copying the Convex tool catalog into global MSO actions.
+
+`project_agent_run` wraps the existing MSO subagent runtime rather than creating a second agent engine. `wait=true` is bounded foreground execution; `wait=false` persists a private `message_id` task record and returns immediately, while `project_agent_status` retrieves only that authenticated client's task. Plan mode forces read scope. The task record is durable, but an in-progress worker is intentionally tied to the current MSO service process; normal workflow/local-agent primitives remain the durable cross-session orchestration layer.
 
 The manifest is versioned and intentionally uses **fixed argv**, not a shell template:
 

@@ -15,6 +15,7 @@ vi.mock("@/lib/mcp/tools", () => ({
     { name: "fs_write", description: "write", scope: "write", inputSchema: { type: "object", properties: {} } },
     { name: "local_agent_message_send", description: "local", scope: "write", inputSchema: { type: "object", properties: {} } },
     { name: "agent_subagent_run", description: "nested", scope: "exec", inputSchema: { type: "object", properties: {} } },
+    { name: "project_agent_run", description: "nested project wrapper", scope: "exec", inputSchema: { type: "object", properties: {} } },
   ],
 }));
 vi.mock("@/lib/mcp/dispatch", () => ({ dispatch }));
@@ -50,6 +51,7 @@ describe("same-session subagent runner", () => {
     expect(names).toContain("fs_write");
     expect(names).not.toContain("local_agent_message_send");
     expect(names).not.toContain("agent_subagent_run");
+    expect(names).not.toContain("project_agent_run");
     expect(result.status).toBe("completed");
   });
 });

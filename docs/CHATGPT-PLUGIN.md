@@ -4,13 +4,13 @@
 >
 > ChatGPT's Developer Mode/App UI can change independently of MSO. Use the current OpenAI MCP/App documentation for exact menu labels, and use MSO Settings → MCP / `GET /mcp` for the live server/profile signatures.
 
-<!-- mcp-chatgpt-profile: server=1.7.3 version=2026.09.03.4 tools=28 read=14 write=8 exec=6 app-only=1 total=29 -->
+<!-- mcp-chatgpt-profile: server=1.8.0 version=2026.09.03.5 tools=61 read=32 write=17 exec=12 app-only=1 total=62 -->
 
-MSO server **1.7.3**, toolset **2026.09.03.4** exposes a full generic catalog for MCP clients, but a registered ChatGPT client receives only **29 transport tools**: **28 model/operator tools** (14 read, 8 write, 6 exec) plus app-only `workflow_status`.
+MSO server **1.8.0**, toolset **2026.09.03.5** exposes the full generic catalog for MCP clients, while a registered ChatGPT client receives **62 transport tools**: **61 model/operator tools** (32 read, 17 write, 12 exec) plus app-only `workflow_status`.
 
 Browser-hosted MCP probes from ChatGPT are allowed only when they target the configured public `OS_PUBLIC_ORIGIN`; arbitrary origins and ChatGPT-origin requests aimed at loopback remain denied. Additional trusted browser hosts can be added explicitly with comma-separated `OS_MCP_BROWSER_ORIGINS`. Public OAuth discovery and DCR responses carry CORS metadata; authenticated `/mcp` echoes only an approved exact origin.
 
-The compact descriptor regression currently measures **31,908 JSON bytes** for all 29 ChatGPT tool definitions (roughly 8k tokens at a 4-byte/token estimate), with the largest individual descriptor **2,507 bytes**. CI keeps the profile below 40 KiB and each descriptor below 8 KiB. Bytes are the deterministic contract; token estimates vary by tokenizer.
+The compact descriptor regression currently measures **57,853 JSON bytes** for all 62 ChatGPT transport tool definitions (roughly 14.5k tokens at a 4-byte/token estimate), with the largest individual descriptor **2,504 bytes**. CI keeps the profile below 72 KiB and each descriptor below 8 KiB. Bytes are the deterministic contract; token estimates vary by tokenizer.
 
 ## Why ChatGPT gets a compact profile
 
@@ -23,12 +23,14 @@ full MCP client
   └─ full MSO catalog
 
 ChatGPT
-  └─ compact MSO catalog
-       ├─ workflow / skill discovery
-       ├─ files / visual proof
-       ├─ bounded shell lifecycle
-       ├─ durable session + Local Agents
-       └─ generic dynamic project seams
+  └─ compact capability-complete MSO operator catalog
+       ├─ workflow / skills / durable sessions / Local Agents
+       ├─ bounded VPS + filesystem CRUD + managed apps + browser
+       ├─ explicit bounded infrastructure operations
+       ├─ project snapshot / diff / knowledge / project-agent tasks
+       ├─ Convex status + dynamic Convex MCP schemas/calls
+       ├─ MCP Apps UI for workflow, project, diff and VPS
+       └─ dynamic project MCP/function seams for project-owned tools
 ```
 
 The profile is fail-closed at both `tools/list` and `tools/call`: guessing a hidden full-catalog name returns `unknown tool`. This profile is a compatibility/context boundary, not a privilege escalation mechanism; the OAuth `read < write < exec` scope is still enforced independently.
@@ -49,39 +51,72 @@ The ChatGPT projection compacts verbose descriptions/schema descriptions without
 
 ## Exact ChatGPT model tool profile
 
-### `read` — 14 ChatGPT model tools
+### `read` — 32 ChatGPT model tools
 
 - `agent_session_current`
+- `apps_list`
+- `apps_logs`
+- `browser_status`
+- `cloudflare_zones_list`
+- `connections_list`
+- `dokploy_projects_list`
 - `exec_job_status`
 - `fs_list`
 - `fs_read`
 - `fs_search`
+- `fs_usage`
+- `infra_provider_doctor`
+- `infra_providers_list`
 - `local_agent_inbox`
 - `local_agent_request_wait`
 - `local_agents_list`
+- `project_agent_status`
 - `project_capabilities`
+- `project_changes_list`
+- `project_diff`
+- `project_get`
+- `project_knowledge_get`
 - `projects_list`
 - `read_pipeline`
 - `screen_capture`
+- `skills_list`
 - `skills_read`
 - `skills_search`
+- `sys_processes`
+- `sys_stats`
+- `vps_status`
 
-### `write` — + 8 ChatGPT model tools
+### `write` — + 17 ChatGPT model tools
 
 - `agent_session_rename`
+- `apps_power`
+- `cloudflare_dns_upsert`
+- `dokploy_project_ensure`
+- `fs_copy`
+- `fs_delete`
+- `fs_mkdir`
+- `fs_move`
 - `fs_upload_file`
 - `fs_write`
+- `hostinger_dns_upsert`
 - `local_agent_message_send`
 - `local_agent_reply`
+- `project_knowledge_set`
 - `workflow_cancel`
 - `workflow_finish`
 - `workflow_start`
 
-### `exec` — + 6 ChatGPT model tools
+### `exec` — + 12 ChatGPT model tools
 
+- `browser_power`
 - `exec_job_cancel`
 - `exec_job_start`
 - `exec_run`
+- `project_agent_run`
+- `project_database_call`
+- `project_database_query`
+- `project_database_status`
+- `project_database_tools`
 - `project_function_call`
 - `project_mcp_call`
 - `project_mcp_tools`
@@ -89,6 +124,10 @@ The ChatGPT projection compacts verbose descriptions/schema descriptions without
 ### App-only ChatGPT bridge
 
 `workflow_status` is available to the MCP Apps progress UI but is not counted as a model/operator action.
+
+The restored Original MSO operator primitives (`sys_*`, `fs_usage` + full bounded filesystem CRUD, `apps_*`, browser power/status, and Dokploy/Cloudflare/Hostinger operations) are again first-class ChatGPT actions. Fresh 3 adds `vps_status`, project snapshot/diff/history/knowledge, private project-agent message/status, connection inventory, and Convex database seams without removing the lower-level primitives. This is intentional: aggregate tools optimize common turns; bounded primitives preserve direct operator control.
+
+Project-owned MCP names and Convex's own dynamic schemas still load on demand through `project_mcp_tools` / `project_mcp_call` and `project_database_tools` / `project_database_call`. That is how MSO keeps a 61-action static model profile instead of copying every downstream provider/project action into ChatGPT.
 
 For the complete non-ChatGPT MSO catalog, scopes, limits, A2A, providers, Tool Forge and other generic capabilities, see [`MCP.md`](./MCP.md).
 
@@ -173,7 +212,7 @@ MSO uses Streamable HTTP JSON-RPC over `POST /mcp`.
 4. Choose OAuth and complete the MSO consent flow on an approved owner device.
 5. Select the lowest useful MSO tier.
 6. Run **Scan Tools / Refresh** in ChatGPT.
-7. Verify that the action snapshot corresponds to the 29-tool compact profile above.
+7. Verify that the action snapshot corresponds to the 62-tool transport profile (61 model actions + app-only `workflow_status`) above.
 8. Start a new chat when testing a newly scanned draft/action snapshot.
 
 After a schema/profile change, changing production code alone does not replace ChatGPT's frozen action snapshot. Refresh/re-scan (or recreate/republish where the workspace UI requires it) after deployment.

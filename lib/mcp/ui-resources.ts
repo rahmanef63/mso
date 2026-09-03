@@ -1,3 +1,5 @@
+import { OPERATOR_UI_RESOURCES } from "./ui-operator-resources";
+export { PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI } from "./ui-operator-resources";
 export const WORKFLOW_PROGRESS_URI = "ui://mso/workflow-progress-v1.html";
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 const MSO_ORIGIN = "https://mso.rahmanef.com";
@@ -238,6 +240,7 @@ const RESOURCES: readonly McpUiResource[] = [
     text: workflowProgressHtml,
     _meta: workflowResourceMeta(),
   },
+  ...OPERATOR_UI_RESOURCES,
 ];
 
 export function listUiResources() {

@@ -122,7 +122,7 @@ async function selectedServer(projectPath: string, name: string): Promise<Projec
   const servers = await readProjectMcpServers(projectPath); const server = servers.find((row) => row.name === name);
   if (!server) throw new Error(`unknown project MCP server "${name}"`); return server;
 }
-async function withServer<T>(server: ProjectMcpServer, work: (rpc: (method: string, params?: unknown) => Promise<Rpc>) => Promise<T>): Promise<T> {
+export async function withProjectMcpServer<T>(server: ProjectMcpServer, work: (rpc: (method: string, params?: unknown) => Promise<Rpc>) => Promise<T>): Promise<T> {
   return server.transport === "stdio" ? withStdio(server, (rpc) => work(rpc)) : withHttp(server, work);
 }
 function publicTools(result: unknown): ProjectMcpTool[] {
@@ -139,10 +139,20 @@ function publicTools(result: unknown): ProjectMcpTool[] {
 
 export async function listProjectMcpTools(projectPath: string, serverName: string): Promise<ProjectMcpTool[]> {
   const server = await selectedServer(projectPath, serverName);
-  return withServer(server, async (rpc) => publicTools((await rpc("tools/list")).result));
+  return withProjectMcpServer(server, async (rpc) => publicTools((await rpc("tools/list")).result));
 }
 export async function callProjectMcpTool(projectPath: string, serverName: string, toolName: string, args: unknown): Promise<unknown> {
   const payload = JSON.stringify(args ?? {}); if (Buffer.byteLength(payload) > MAX_TOOL_ARGS_BYTES) throw new Error("project MCP tool arguments exceed 128 KiB");
   const server = await selectedServer(projectPath, serverName);
-  return withServer(server, async (rpc) => (await rpc("tools/call", { name: toolName, arguments: args ?? {} })).result);
+  return withProjectMcpServer(server, async (rpc) => (await rpc("tools/call", { name: toolName, arguments: args ?? {} })).result);
+}
+
+export async function listMcpServerTools(server: ProjectMcpServer): Promise<ProjectMcpTool[]> {
+  return withProjectMcpServer(server, async (rpc) => publicTools((await rpc("tools/list")).result));
+}
+
+export async function callMcpServerTool(server: ProjectMcpServer, toolName: string, args: unknown): Promise<unknown> {
+  const payload = JSON.stringify(args ?? {});
+  if (Buffer.byteLength(payload) > MAX_TOOL_ARGS_BYTES) throw new Error("MCP tool arguments exceed 128 KiB");
+  return withProjectMcpServer(server, async (rpc) => (await rpc("tools/call", { name: toolName, arguments: args ?? {} })).result);
 }

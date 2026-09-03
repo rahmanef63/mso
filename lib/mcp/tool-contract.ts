@@ -15,12 +15,29 @@ export type McpSecurityScheme = { type: "oauth2"; scopes: string[] } | { type: "
 // names are discovered/called dynamically through project_mcp_* and NEVER appended
 // to this list or TOOLS.
 export const CHATGPT_TOOL_NAMES = new Set([
+  // Workflow/session intelligence. workflow_status stays app-only at presentation time.
   "workflow_start", "workflow_status", "workflow_finish", "workflow_cancel",
-  "skills_search", "skills_read", "projects_list", "project_capabilities", "project_mcp_tools", "project_mcp_call", "project_function_call",
-  "read_pipeline", "screen_capture", "fs_list", "fs_read", "fs_search", "fs_write", "fs_upload_file",
-  "exec_run", "exec_job_start", "exec_job_status", "exec_job_cancel",
+  "skills_search", "skills_list", "skills_read", "read_pipeline",
   "agent_session_current", "agent_session_rename",
   "local_agents_list", "local_agent_inbox", "local_agent_message_send", "local_agent_reply", "local_agent_request_wait",
+
+  // Project-first operator surface. Project-owned names remain dynamic.
+  "projects_list", "project_get", "project_changes_list", "project_diff", "project_capabilities",
+  "project_knowledge_get", "project_knowledge_set", "connections_list", "project_agent_run", "project_agent_status",
+  "project_mcp_tools", "project_mcp_call", "project_function_call",
+  "project_database_status", "project_database_tools", "project_database_call", "project_database_query",
+
+  // Original MSO bounded VPS/file/application/browser power restored to ChatGPT.
+  "vps_status", "screen_capture", "fs_list", "fs_read", "fs_search", "fs_usage",
+  "fs_write", "fs_upload_file", "fs_mkdir", "fs_move", "fs_copy", "fs_delete",
+  "sys_stats", "sys_processes", "apps_list", "apps_logs", "apps_power", "browser_status", "browser_power",
+
+  // Infrastructure operations remain explicit and bounded; secrets stay server-side.
+  "infra_providers_list", "infra_provider_doctor", "dokploy_projects_list", "dokploy_project_ensure",
+  "cloudflare_zones_list", "cloudflare_dns_upsert", "hostinger_dns_upsert",
+
+  // Arbitrary shell is still a last-resort escape hatch and long builds remain job-bound.
+  "exec_run", "exec_job_start", "exec_job_status", "exec_job_cancel",
 ] as const);
 
 const TITLES: Record<string, string> = {
@@ -77,7 +94,7 @@ export function toolAllowedForProfile(name: string, profile: McpToolProfile = "f
   return profile === "full" || CHATGPT_TOOL_NAMES.has(name as never);
 }
 
-function compactText(value: string, max = 280): string {
+function compactText(value: string, max = 190): string {
   const clean = value.replace(/\s+/g, " ").trim();
   if (clean.length <= max) return clean;
   const cut = clean.slice(0, max - 1);
@@ -90,7 +107,7 @@ function compactSchema(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    if (key === "description" && typeof item === "string") out[key] = compactText(item, 180);
+    if (key === "description" && typeof item === "string") out[key] = compactText(item, 105);
     else out[key] = compactSchema(item);
   }
   return out;
