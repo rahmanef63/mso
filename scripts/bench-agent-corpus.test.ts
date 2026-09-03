@@ -120,7 +120,6 @@ describe("agent-quality corpus", () => {
     expect(pa.find((r) => r.scenario.id === "write-preserve")!.scenario.prompt).not.toBe(pb.find((r) => r.scenario.id === "write-preserve")!.scenario.prompt);
   });
 
-
   it("requires complete evidence and the requested provider before full comparability", () => {
     const base = { attempted: 2, modelEvidenceCoveragePct: 100, modelEvidence: { modelFamily: "x", provider: "p" } };
     expect(comparabilityLevel([{ agent: "a", ...base }, { agent: "b", ...base }], "x", "p").level).toBe("full");

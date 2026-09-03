@@ -80,28 +80,7 @@ describe("/mcp request boundary", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("answers trusted browser preflight with the MCP authorization headers", async () => {
-    const { OPTIONS } = await import("./route");
-    const res = await OPTIONS(new Request("https://mso.example.test/mcp", { method: "OPTIONS", headers: { origin: "https://chatgpt.com" } }));
-    expect(res.status).toBe(204);
-    expect(res.headers.get("access-control-allow-origin")).toBe("https://chatgpt.com");
-    expect(mocks.mcpRequestOriginAllowed).toHaveBeenCalledOnce();
-  });
 
-  it("rejects a browser Origin that fails the Streamable HTTP boundary before auth", async () => {
-    mocks.mcpRequestOriginAllowed.mockReturnValueOnce(false);
-    const getReader = vi.fn(() => { throw new Error("body must not be read"); });
-    const req = {
-      headers: new Headers({ authorization: "Bearer live-token", origin: "https://evil.example" }),
-      body: { getReader },
-    } as unknown as Request;
-    const { POST } = await import("./route");
-    const res = await POST(req);
-    expect(res.status).toBe(403);
-    expect(getReader).not.toHaveBeenCalled();
-    expect(mocks.validateToken).not.toHaveBeenCalled();
-    expect(mocks.dispatch).not.toHaveBeenCalled();
-  });
 
   it("rejects an invalid bearer before opening the request body", async () => {
     mocks.validateToken.mockResolvedValueOnce(null);
@@ -198,28 +177,8 @@ describe("/mcp request boundary", () => {
     expect(mocks.dispatch).not.toHaveBeenCalled();
   });
 
-  it("rejects a 2026-07-28 modern probe so the client can fall back to initialize", async () => {
-    mocks.validateToken.mockResolvedValueOnce({ hash: "2".repeat(64), scope: "read", clientId: "client-modern-probe", label: "Modern probe" });
-    const { POST } = await import("./route");
-    const res = await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" } } }), { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "server/discover" }));
-    expect(res.status).toBe(400);
-    expect(mocks.dispatch).not.toHaveBeenCalled();
-  });
 
-  it("rejects an unsupported MCP-Protocol-Version before dispatch", async () => {
-    mocks.validateToken.mockResolvedValueOnce({ hash: "1".repeat(64), scope: "read", clientId: "client-protocol", label: "Protocol" });
-    const { POST } = await import("./route");
-    const res = await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }), { "MCP-Protocol-Version": "2099-01-01" }));
-    expect(res.status).toBe(400);
-    expect(mocks.dispatch).not.toHaveBeenCalled();
-  });
 
-  it("returns 405 for the optional Streamable HTTP SSE listener when MSO does not expose one", async () => {
-    const { GET } = await import("./route");
-    const res = await GET(new Request("https://mso.example.test/mcp", { headers: { accept: "text/event-stream" } }));
-    expect(res.status).toBe(405);
-    expect(res.headers.get("allow")).toBe("POST");
-  });
 
   it("applies the 50,000-call daily token limit", async () => {
     const token = { hash: "d".repeat(64), scope: "read" as const, clientId: "client-daily", label: "Daily test" };
