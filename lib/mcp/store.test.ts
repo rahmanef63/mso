@@ -114,12 +114,12 @@ describe("tokens", () => {
 });
 
 describe("clients", () => {
-  it("returns the SAME id for an identical redirect set — clients re-register on every launch", async () => {
-    const a = await store.registerClient("Cursor", ["https://cursor.sh/cb"]);
-    const b = await store.registerClient("Cursor", ["https://cursor.sh/cb"]);
-    expect(b).toBe(a);
-    const c = await store.registerClient("Cursor", ["https://cursor.sh/other"]);
-    expect(c).not.toBe(a);
+  it("mints a distinct client id for every registration even when redirect URIs are identical", async () => {
+    const a = await store.registerClient("ChatGPT", ["https://chatgpt.com/connector/oauth/example"]);
+    const b = await store.registerClient("ChatGPT", ["https://chatgpt.com/connector/oauth/example"]);
+    expect(b).not.toBe(a);
+    expect(await store.getClient(a)).toMatchObject({ name: "ChatGPT" });
+    expect(await store.getClient(b)).toMatchObject({ name: "ChatGPT" });
   });
 
   it("reads back a registered client", async () => {

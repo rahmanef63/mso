@@ -40,6 +40,7 @@ export async function POST(req: Request) {
   return Response.json(
     {
       client_id: clientId,
+      client_id_issued_at: Math.floor(Date.now() / 1000),
       redirect_uris: uris,
       client_name: name.slice(0, 80),
       token_endpoint_auth_method: "none",

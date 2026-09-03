@@ -2,6 +2,12 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-03 — OAuth DCR registration identity fix
+
+- **Fresh app means fresh OAuth client:** `POST /oauth/register` now mints a distinct RFC 7591 client id for every registration. Redirect URIs are client metadata, not identity; two ChatGPT dev apps sharing the same `chatgpt.com` callback no longer collapse onto an August-era client record.
+- **Safe bounded store:** registration pruning removes only old client records that are not referenced by a live authorization code, access token, or refresh grant. Existing connectors/tokens remain valid. The DCR response now also reports `client_id_issued_at`.
+- **Why this matters:** real ChatGPT testing showed a supposedly new app at 10:55 UTC receiving the historical `probe-chatgpt` client id solely because its redirect set matched. That defeated the purpose of a clean Scan Tools registration and could retain stale app identity server-side. MCP server patch version is 1.7.1; toolset remains 2026.09.03.4 because the advertised tool catalog did not change.
+
 ## 2026-09-03 — MCP 1.7 ChatGPT compact profile + dynamic project MCP
 
 - **ChatGPT scanner contract:** full MSO remains 73 transport tools / 72 model tools (34 read / 24 write / 14 exec + app-only `workflow_status`), while ChatGPT is client-profiled to **29 transport tools = 28 model tools (14 read / 8 write / 6 exec) + app-only bridge**. The profile is fail-closed at list and direct-call time, keeps only MSO-owned generic names, and regression-measures **31,908 descriptor bytes (~8k rough tokens)** with a 40 KiB total / 8 KiB per-tool guard.

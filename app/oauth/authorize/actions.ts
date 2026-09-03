@@ -45,8 +45,8 @@ export async function approve(form: FormData): Promise<ApprovalResult> {
   if (!expectedIssuer || issuer !== expectedIssuer || resource !== `${expectedIssuer}/mcp`) return { ok: false, error: "OAuth resource/issuer mismatch." };
 
   const client = await getClient(clientId);
-  // A user-defined client (ChatGPT's flow) never registers, so it has no record
-  // here. That is allowed — the redirect_uri is still https-checked above and the
+  // A manually configured client may not have a DCR record. That compatibility path
+  // is allowed — the redirect_uri is still https-checked above and the
   // code is still bound to this exact client_id + redirect_uri at exchange. What
   // is NOT allowed is a REGISTERED client redirecting somewhere it never declared.
   if (client && !client.redirectUris.includes(redirectUri)) {

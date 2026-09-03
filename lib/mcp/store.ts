@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -63,7 +64,7 @@ export const CODE_TTL_MS = 60_000; // RFC 6749 wants ≤10 min; the exchange is 
 export const TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // legacy/manual bearer lifetime
 export const OAUTH_ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000; // short-lived; refresh token rotates it
 export const REFRESH_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-const MAX_CLIENTS = 32;
+const MAX_CLIENTS = 64;
 
 const empty = (): Store => ({ clients: {}, codes: {}, tokens: {}, refreshTokens: {} });
 
@@ -114,22 +115,34 @@ function sweep(store: Store): Store {
   return store;
 }
 
+function referencedClientIds(store: Store): Set<string> {
+  const now = Date.now();
+  return new Set([
+    ...Object.values(store.codes).filter((row) => row.expiresAt >= now).map((row) => row.clientId),
+    ...Object.values(store.tokens).filter((row) => !row.revokedAt && row.expiresAt >= now).map((row) => row.clientId),
+    ...Object.values(store.refreshTokens).filter((row) => !row.revokedAt && row.expiresAt >= now).map((row) => row.clientId),
+  ].filter(Boolean));
+}
+
+function pruneUnreferencedClients(store: Store): void {
+  const ids = Object.keys(store.clients);
+  if (ids.length < MAX_CLIENTS) return;
+  const referenced = referencedClientIds(store);
+  const removable = ids
+    .filter((id) => !referenced.has(id))
+    .sort((a, b) => store.clients[a].createdAt - store.clients[b].createdAt);
+  const removeCount = Math.min(removable.length, ids.length - MAX_CLIENTS + 1);
+  for (const id of removable.slice(0, removeCount)) delete store.clients[id];
+}
+
 export function registerClient(name: string, redirectUris: string[]): Promise<string> {
   return mutate(async () => {
     const store = sweep(await read());
-    // Re-registering the same redirect set returns the existing id instead of
-  // minting a new one — mcp-remote and Cursor re-register on every launch.
-    const key = [...redirectUris].sort().join(" ");
-    for (const [id, c] of Object.entries(store.clients)) {
-      if ([...c.redirectUris].sort().join(" ") === key) return id;
-    }
-    const ids = Object.keys(store.clients);
-    if (ids.length >= MAX_CLIENTS) {
-      ids.sort((a, b) => store.clients[a].createdAt - store.clients[b].createdAt)
-        .slice(0, ids.length - MAX_CLIENTS + 1)
-        .forEach((id) => delete store.clients[id]);
-    }
-    const clientId = "mcpc_" + sha256hex(key + Date.now()).slice(0, 24);
+    // RFC 7591 registration represents a client registration instance. Redirect
+    // URIs are metadata, not client identity: two ChatGPT apps legitimately share
+    // the same callback host and must not collapse onto one historical client_id.
+    pruneUnreferencedClients(store);
+    const clientId = "mcpc_" + randomUUID().replaceAll("-", "").slice(0, 24);
     const cleanName = name.slice(0, 80) || "MCP Client";
     store.clients[clientId] = { name: cleanName, redirectUris, profile: detectMcpToolProfile({ clientId, name: cleanName, redirectUris }), createdAt: Date.now() };
     await write(store);
