@@ -35,6 +35,8 @@ function safeAppResult(raw){
   const id=text(raw.id,"");const safe=SAFE_BY_ID.get(id);if(!safe)return null;
   let url;try{url=new URL(text(raw.url,""))}catch{return null}
   if(url.protocol!=="https:"||url.origin!==safe.origin||url.username||url.password)return null;
+  const start=safe.startPath==="/"?"/":safe.startPath.replace(/\/$/,"");
+  if(start!=="/"&&url.pathname!==start&&!url.pathname.startsWith(start+"/"))return null;
   return {...safe,url:url.href};
 }
 function openPath(path){setMsoTarget(validRoute(path)?path:"/assistant/mcp")}

@@ -21,12 +21,12 @@ export const SURFACE_APPS: readonly SurfaceApp[] = [
   {
     id: "play-together",
     title: "Play Together",
-    description: "Play Together at game.rahmanef.com. Its current CSP permits only same-origin framing, so MSO keeps it on the remote-browser seam.",
+    description: "Live Play Together demo through its dedicated /embed security boundary.",
     origin: "https://game.rahmanef.com",
-    startPath: "/",
-    renderer: "remote",
+    startPath: "/embed",
+    renderer: "iframe",
     presentation: "fullscreen",
-    reason: "The app CSP currently declares frame-ancestors 'self'; MSO does not strip project frame protections.",
+    sandbox: "allow-scripts allow-same-origin allow-forms allow-pointer-lock",
   },
 ] as const;
 
@@ -65,11 +65,12 @@ function cleanRoute(raw: string): URL {
 }
 
 function safeDemoUrl(app: SurfaceApp, suffix: string, search: string): string {
-  const path = suffix ? `/${suffix}` : app.startPath;
+  const base = app.startPath === "/" ? "" : app.startPath.replace(/\/$/, "");
+  const path = suffix ? `${base}/${suffix}` : app.startPath;
   if (path.length > 768 || /[\\\u0000-\u001f]/.test(path) || path.split("/").some((part) => part === "." || part === "..")) {
     throw new Error("invalid demo path");
   }
-  const url = new URL(suffix ? `${path}${search}` : app.startPath, app.origin);
+  const url = new URL(`${path}${suffix ? search : ""}`, app.origin);
   if (url.origin !== app.origin || url.username || url.password || url.protocol !== "https:") throw new Error("demo URL escaped its trusted origin");
   return url.href;
 }

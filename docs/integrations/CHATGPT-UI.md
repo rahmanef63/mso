@@ -24,7 +24,7 @@ Official references:
 | Project status | `project_get` | `ui://mso/project-status-v2.html` | widget calls `project_get` again |
 | Git diff summary | `project_diff` | `ui://mso/project-diff-v2.html` | static result; request a new diff for changed state |
 | VPS/operator status | `vps_status` | `ui://mso/vps-status-v2.html` | widget calls `vps_status` again |
-| Universal MSO Surface | `render_mso_surface` | `ui://mso/surface-v2.html` | native views call bounded read tools; nested frames require an explicit exact-origin trust review |
+| Universal MSO Surface | `render_mso_surface` | `ui://mso/surface-v3.html` | native views call bounded read tools; Play Together uses its reviewed exact-origin `/embed` frame boundary |
 
 Source boundaries:
 
@@ -59,6 +59,8 @@ The universal **MSO Surface** is intentionally stricter than the ordinary runtim
 
 Fresh 3 is the VPSKU MSO connector. Its current app target is **Play Together** at `https://game.rahmanef.com`. App identities and trusted origins from other MSO server scopes must not be copied into this catalog or CSP.
 
+Play Together framing is opt-in through a dedicated app boundary: the normal site remains protected, while `/embed` and `/embed/*` allow only `https://mso-ui.rahmanef.com` as the non-self frame ancestor. MSO reciprocally allows only `https://game.rahmanef.com` in the Surface resource CSP and revalidates both origin **and** the `/embed` path prefix before assigning `iframe.src`. The Surface sandbox still omits popups/top-navigation. Authentication is not bypassed; an unauthenticated iframe sees Play Together's normal Auth flow.
+
 Installed `runtime:"html"` apps and user-authored HTML widgets are **not** trusted inputs to the ChatGPT frame allowlist. They remain useful inside the authenticated MSO shell, but promoting one into `SURFACE_APPS` requires an explicit code review/release. This separation prevents a user-installed manifest or HTML snippet from escalating into a ChatGPT nested-frame CSP capability. Raw HTML snippets continue to run only in opaque-origin `srcDoc` sandboxes. The authenticated cockpit itself remains non-frameable; no change is made to its `frame-ancestors` or `X-Frame-Options` policy.
 
 ## Flow
@@ -91,7 +93,7 @@ Do not manually click through every model action. Cover the public contract with
 | Journey | Suggested prompt/action | Pass condition |
 | --- | --- | --- |
 | Workflow/UI bridge | Start a read-only workflow for `mso`, press `Refresh`, then `Open in MSO` | progress updates; MSO opens visibly at Alfa → MCP Activity (`/assistant/mcp`), including when ChatGPT still uses a cached root-targeting widget; the explicit `Open directly` fallback targets the same view |
-| MSO Surface | Ask to render `/`, `/monitor`, then `/apps/play-together` | home/native view renders inline; Play Together resolves to `https://game.rahmanef.com` but stays on the remote-browser seam while its CSP is `frame-ancestors 'self'`; `frameDomains` remains absent |
+| MSO Surface | Ask to render `/`, `/monitor`, then `/apps/play-together` | home/native view renders inline; Play Together loads only from `https://game.rahmanef.com/embed`; `frameDomains` contains exactly `https://game.rahmanef.com`; fullscreen remains user-initiated |
 | VPS card | Ask for the current VPS status | `vps_status` renders CPU/memory/disk/apps/browser/infra and its refresh works |
 | Project/Git | Ask to inspect project `mso`, then show its current diff/history | `project_get` and `project_diff` render the correct project/branch/changes without secrets |
 | Safe filesystem CRUD | Create/read/copy/move/delete a disposable file under `~/mso-smoke-tests/` | content/hash round-trip succeeds and cleanup leaves no test file |

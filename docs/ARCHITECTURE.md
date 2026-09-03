@@ -272,4 +272,4 @@ future archaeology task.
 
 ### ChatGPT MSO Surface trust boundary
 
-Each MSO connector/server scope owns its own Surface catalog. Core MSO Surface code must not import project identities or trusted frame origins from another server scope. The current Fresh 3/VPSKU app target is Play Together (`game.rahmanef.com`), kept remote while its own CSP remains self-only. Any future iframe origin requires an explicit review and resource-URI/toolset bump.
+Each MSO connector/server scope owns its own Surface catalog. Core MSO Surface code must not import project identities or trusted frame origins from another server scope. The current Fresh 3/VPSKU app target is Play Together (`game.rahmanef.com`). Only its dedicated `/embed` namespace opts into framing by `mso-ui.rahmanef.com`; the normal Play Together shell remains anti-frame. MSO allowlists the exact game origin and enforces the `/embed` prefix in the browser-side Surface renderer. Any future iframe origin requires an explicit review and resource-URI/toolset bump.

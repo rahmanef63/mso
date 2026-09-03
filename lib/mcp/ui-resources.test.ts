@@ -164,14 +164,14 @@ describe("MCP Apps workflow progress UI", () => {
     expect(content._meta.ui.csp).toMatchObject({
       connectDomains: [],
       resourceDomains: [],
+      frameDomains: ["https://game.rahmanef.com"],
     });
-    expect(content._meta.ui.csp).not.toHaveProperty("frameDomains");
     expect(content._meta["openai/widgetCSP"]).toMatchObject({
       connect_domains: [],
       resource_domains: [],
+      frame_domains: ["https://game.rahmanef.com"],
     });
-    expect(content._meta["openai/widgetCSP"]).not.toHaveProperty("frame_domains");
-    expect(MSO_SURFACE_URI).toContain("surface-v2.html");
+    expect(MSO_SURFACE_URI).toContain("surface-v3.html");
   });
 
   it("gives every MCP App a visible contextual MSO destination", () => {

@@ -4,7 +4,7 @@ import { surfaceFrameDomains } from "./surface-catalog";
 import { MSO_SURFACE_SCRIPT } from "./ui-surface-script";
 import { MSO_SURFACE_STYLE } from "./ui-surface-style";
 
-export const MSO_SURFACE_URI = "ui://mso/surface-v2.html";
+export const MSO_SURFACE_URI = "ui://mso/surface-v3.html";
 const MIME = "text/html;profile=mcp-app";
 
 const html = String.raw`<main class="surface" aria-label="MSO Surface">
@@ -27,11 +27,11 @@ const html = String.raw`<main class="surface" aria-label="MSO Surface">
 export const MSO_SURFACE_RESOURCE = {
   uri: MSO_SURFACE_URI,
   name: "MSO Surface",
-  description: "Universal secure MSO presentation target for native operator views and native operator views and explicitly reviewed app targets inside ChatGPT.",
+  description: "Universal secure MSO presentation target for native operator views and explicitly reviewed app targets inside ChatGPT.",
   mimeType: MIME,
   text: html,
   _meta: widgetResourceMeta(
-    "Interactive MSO Surface. It renders native MSO views and explicitly reviewed app targets. Nested frames remain disabled unless an exact origin is intentionally allowlisted; arbitrary HTML and URLs are never accepted from the model.",
+    "Interactive MSO Surface. It renders native MSO views and exact-origin reviewed app demos. Nested frames are limited to explicit CSP frame domains and dedicated embed routes; arbitrary HTML and URLs are never accepted from the model.",
     { frameDomains: surfaceFrameDomains() },
   ),
 } as const;
