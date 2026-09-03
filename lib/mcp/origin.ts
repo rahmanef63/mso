@@ -92,7 +92,7 @@ export function mcpCorsHeaders(req: Request): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, Mcp-Session-Id, MCP-Protocol-Version",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, Mcp-Session-Id, MCP-Protocol-Version, Mcp-Method, Mcp-Name",
     "Access-Control-Expose-Headers": "Mcp-Session-Id, WWW-Authenticate",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",

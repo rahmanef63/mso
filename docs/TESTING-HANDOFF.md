@@ -4,7 +4,7 @@ Update this file at the end of every manual or automated test session. Keep it f
 
 ## Current status
 
-The current release target is **MSO CLI 1.12.0**, MCP server `1.7.2`, toolset `2026.09.03.4`; use `mso --version` plus `/api/health` for the exact Git build because documentation-only release commits also advance that identity. The v1.10/v1.11 findings and the v1.12 sectioned-terminal/recoverable-error work below are resolved and retained as historical test evidence. Do not re-open a resolved finding from prose alone: reproduce it against the current build first. There is no known 1.12 release blocker in this handoff.
+The current release target is **MSO CLI 1.12.0**, MCP server `1.7.3`, toolset `2026.09.03.4`; use `mso --version` plus `/api/health` for the exact Git build because documentation-only release commits also advance that identity. The v1.10/v1.11 findings and the v1.12 sectioned-terminal/recoverable-error work below are resolved and retained as historical test evidence. Do not re-open a resolved finding from prose alone: reproduce it against the current build first. There is no known 1.12 release blocker in this handoff.
 
 Current verified behavior:
 - MCP 1.7 release candidate: ChatGPT is fail-closed to a 29-tool compact MSO-only profile (~31.8 KiB descriptor JSON / ~8k rough tokens), full MSO remains 73 transport tools, and project-specific MCP names stay dynamic behind `project_mcp_tools` / `project_mcp_call`. OAuth resource binding + rotating refresh credentials, Streamable HTTP protocol handling, and legacy registered ChatGPT-client profile detection have focused regression coverage. Deterministic security gates (Trivy/OSV/Gitleaks/Semgrep/ShellCheck) pass; Codex Security AI scanning is explicitly incomplete because executor/cost guards stopped it, with 0 findings in the targeted partial reports.
@@ -29,7 +29,7 @@ Current verified behavior:
 ```text
 You are taking over MSO testing work in /home/rahman/projects/mso.
 
-Read docs/TESTING-HANDOFF.md first. Current verified source baseline: CLI 1.12.0, MCP server 1.7.2, toolset 2026.09.03.4; resolve the exact live Git build from `mso --version`/`/api/health`. Preserve existing work and do not re-open resolved v1.10-v1.12 findings unless you can reproduce them against the current build.
+Read docs/TESTING-HANDOFF.md first. Current verified source baseline: CLI 1.12.0, MCP server 1.7.3, toolset 2026.09.03.4; resolve the exact live Git build from `mso --version`/`/api/health`. Preserve existing work and do not re-open resolved v1.10-v1.12 findings unless you can reproduce them against the current build.
 
 For a new issue: record the exact reproduction, distinguish durable state from live receiver/process state, avoid duplicate write/exec retries when outcome is uncertain, add the smallest focused regression, run typecheck plus the relevant contract tests, then update this handoff with factual results.
 ```

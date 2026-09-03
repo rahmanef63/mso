@@ -30,8 +30,7 @@ function instructions(scope: Scope, profile: McpToolProfile = "full"): string {
 export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, agentContext?: McpAgentContext): Promise<Record<string, unknown>> {
   const id = req.id ?? null;
   switch (req.method) {
-    case "initialize":
-    case "server/discover": {
+    case "initialize": {
       const profile = agentContext?.toolProfile ?? "full";
       const tools = visibleTools(scope, profile), toolset = toolsetInfo(tools, scope, profile);
       return rpcOk(id, {

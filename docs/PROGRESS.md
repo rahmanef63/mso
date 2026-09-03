@@ -1,5 +1,6 @@
 # mso — Progress Log
 
+- **MCP protocol-era correctness (2026-09-03):** server `1.7.3` stops claiming the stateless `2026-07-28` protocol while serving the legacy initialize/session wire shape. The supported ceiling is deliberately `2025-06-18` (matching the known-good CareerPack ChatGPT connector); a modern HTTP probe receives a 400 and can fall back to initialize. `server/discover` is no longer aliased to the legacy initialize payload. Browser CORS also permits `Mcp-Method`/`Mcp-Name` so a standards-aware probe can reach the server and receive the fallback signal. Toolset stays `2026.09.03.4`.
 Running log of what shipped each phase. Newest at top.
 
 ## 2026-09-03 — OAuth DCR registration identity fix

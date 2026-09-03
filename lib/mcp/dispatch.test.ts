@@ -43,10 +43,15 @@ describe("protocol", () => {
     expect(execInstructions).toContain("workflow_finish");
   });
 
+  it("does not impersonate modern server/discover with an initialize-shaped result", async () => {
+    const r = await dispatch({ id: 9, method: "server/discover" }, "read");
+    expect(r.error).toMatchObject({ code: -32601 });
+  });
+
   it("publishes server and toolset metadata so action drift is visible", async () => {
     const r = await dispatch({ id: 1, method: "initialize" }, "exec");
     const result = r.result as { serverInfo: { version: string }; _meta: { toolset: { toolCount: number; hash: string } } };
-    expect(result.serverInfo.version).toBe("1.7.2");
+    expect(result.serverInfo.version).toBe("1.7.3");
     expect(result._meta.toolset.toolCount).toBe(TOOLS.length);
     expect(result._meta.toolset.hash).toMatch(/^[a-f0-9]{16}$/);
   });
