@@ -108,7 +108,7 @@ bun run bench:cognitive          # routing/schema + typed-memory gates
 bun run bench:memory             # deterministic retrieval/temporal/conflict suite
 bun run bench:quality -- --live  # learned workflow success + P1 telemetry coverage
 bun run bench:agents -- --provider openai-codex --model gpt-5.6-terra        # one-task smoke plan
-bun run bench:corpus -- --provider openai-codex --model gpt-5.6-terra        # six-task dry plan
+bun run bench:corpus -- --provider openai-codex --model gpt-5.6-terra        # nine-task dry plan
 bun run bench:corpus -- --provider openai-codex --model gpt-5.6-terra --run  # isolated scratch-fixture quality corpus
 ```
 
@@ -244,13 +244,45 @@ On this bounded corpus, MSO uses about **94.1% fewer normalized tokens per succe
 
 The candidate run also preserves the structural P3/P4 behaviors: `multi-read` uses one `read_pipeline`, security uses one `fs_read`, and recovery's one failed primary read remains expected task evidence.
 
-## P5 next direction
+## P6 expanded repository/recovery corpus
 
-1. **Broaden the corpus before broad claims** — add repository debugging, longer multi-step work, approval/retry/rollback, and realistic MCP project tasks while keeping objective state-based scoring.
+P6 broadens the objective corpus from six micro-scenarios to **nine** by adding three repo-style tasks while retaining the same per-agent private scratch isolation, rotating scenario-major execution order, state-based scoring, requested provider/model evidence, and proof-gated token normalization:
+
+7. `repo-debug` — inspect an issue/source/test trio, patch only the implementation, then run the immutable test;
+8. `repo-migration` — migrate every record to a new schema while preserving order/identity, then run an immutable validator;
+9. `rollback` — apply a requested change, observe validator rejection and its failure evidence, then restore the stable config exactly without erasing that evidence.
+
+The new fixtures are intentionally tool-neutral: prompts require filesystem/execution capability but do not name MSO-specific tools. Repo tests/specs/validators are immutable authority, unexpected files/symlinks fail scenario-policy, and the verifier reruns the fixed repo validators only after the scenario tree exactly matches the expected final state. The runner is still **not** a whole-host sandbox; `policyObservationScope=scenario-tree` keeps that boundary explicit.
+
+P6 immediately found a real RASMIC defect. Generic words such as `debug`/`test` were over-classified as a *user manual-test result*, which loaded `project_memory_upsert` and could omit execution validation. The manual-result route is now limited to actual outcome language such as “I tested it”, “still broken”, or “sudah test”; explicit `run node|bun|npm|pnpm|python|pytest ...` validation gets `exec_run`, and repo-first debug/migration/rollback intent enters the normal repo-change lifecycle. A second trace finding showed long repo turns could lose the first `workflow_start` from an eight-row recent-tool window and re-offer it. Workflow-start state is now tracked for the complete current user turn, so long work keeps `workflow_finish/cancel` available without opening a duplicate workflow. Targeted post-fix `repo-debug` and `repo-migration` both passed with exactly **one** `workflow_start`.
+
+The final post-lifecycle full run used the same `openai-codex/gpt-5.6-terra` provider/model for MSO and Hermes across all nine scenarios:
+
+| P6 metric | MSO | Hermes |
+|---|---:|---:|
+| Task success | **9/9 (100%)** | 8/9 (88.9%) |
+| Scenario-observable policy compliance | **9/9 (100%)** | **9/9 (100%)** |
+| Average latency | 22,776 ms | **22,189.3 ms** |
+| p50 latency | **15,285 ms** | 23,294 ms |
+| Normalized token coverage | **100%** | **100%** |
+| Normalized tokens / attempt | **16,683.4** | 67,433.1 |
+| Normalized tokens / successful task | **16,683.4** | 75,862.3 |
+| Accounting proof | explicit inclusive contract | exact exclusive-cache sum |
+| Cost semantics comparable | no | no |
+
+On that exact full run, the formal quality ranking is eligible and orders **MSO > Hermes** because correctness precedes policy and latency. The only Hermes task miss was `multi-read`: its scenario tree stayed unchanged and the process exited normally, but the exact aggregate answer was wrong. That miss was **not reproduced** in a follow-up alternating-order stability check: MSO passed 3/3 and Hermes passed 3/3 `multi-read` repeats. Therefore P6 records the 8/9 full-run outcome as observed run variance, **not** as evidence that MSO is universally more reliable.
+
+Efficiency is less sensitive to that one miss. On all nine attempts, MSO averaged **16,683.4 normalized tokens/attempt vs 67,433.1** for Hermes — about **75.3% fewer (~4.04× smaller)**. Tokens/success are **78.0% lower (~4.55× smaller)** in the formal run, but that denominator also charges Hermes's failed attempt, so tokens/attempt is the cleaner cross-run efficiency comparison here. MSO's p50 was **34.4% lower**, while its average latency was **2.6% higher** because `repo-debug` and `repo-migration` were slower; P6 therefore does not claim a blanket latency win. Cost remains withheld.
+
+The full-run MSO repo traces also confirm the structural lifecycle fix: `repo-debug` and `repo-migration` each contain one `workflow_start`, bounded reads/writes, one `exec_run` validator, and `workflow_finish`; rollback preserves rejected-transaction evidence while restoring the config exactly. The older P4/P5 six-scenario results above remain historical evidence and are not rewritten as if they were P6 results.
+
+## P6 next direction
+
+1. **Repeat full corpora across seeds/runs before reliability claims** — aggregate repeated complete v2 runs rather than promoting a one-run miss into a product claim.
 2. **Calibrate cache behavior** — add repeated-prefix fixtures that can observe real provider cache hits without forcing them; keep zero/absent cache fields distinct and never assume a hit.
 3. **Normalize cost only with attribution** — compare cost only when every runner exposes the same usable USD source/contract; `0` with source `none` is not evidence of free execution.
 4. **Add OpenClaw only when comparable** — run the same corpus when an equivalent provider/model is legitimately configured, without mutating credentials as part of the benchmark.
-5. **Use benchmark failures as engineering inputs** — keep the P4/P5 pattern: locate an unnecessary route/tool/retry/accounting ambiguity, fix the harness/runtime rather than prompting harder, then rerun the exact seeded scenario.
+5. **Keep benchmark → engineering feedback closed-loop** — fix deterministic routing/lifecycle/tool waste exposed by the corpus, then rerun the same objective fixture rather than prompting harder.
 6. **Memory calibration** — grow post-P1 telemetry and test authority/confidence/temporal policies against real corrections before introducing graph-memory complexity.
 
 ## Security notes

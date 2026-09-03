@@ -2,6 +2,14 @@
 
 Running log of what shipped each phase. Newest at top.
 
+## 2026-09-03 — Cognitive Runtime P6 expanded repo/recovery corpus
+
+- **Nine-scenario v2 corpus:** `bench:corpus` now adds objective `repo-debug`, `repo-migration`, and transactional `rollback` fixtures to the six P4/P5 scenarios. Each agent still receives semantically identical seeded state in a separate private 0700 tree; immutable issue/spec/test/validator files plus exact final-tree verification remain authority, and `policyObservationScope=scenario-tree` explicitly avoids whole-host sandbox claims.
+- **Benchmark found and fixed RASMIC routing debt:** ordinary repo `debug`/`test` instructions were being mistaken for a user manual-test outcome, loading project-memory writes while execution validation could disappear. Manual-test routing now requires outcome language; explicit Node/Bun/npm/pnpm/Python/pytest validation selects `exec_run`, and repo-first debug/migrate/rollback requests enter `repo-change`. The P1-P5 Cognitive Runtime gate remains 100% required-tool recall / 100% catalog hit / 95.9% schema reduction.
+- **Long-turn workflow lifecycle fixed:** after enough tool rounds the original `workflow_start` could fall outside the eight-row recent-tool window and be offered again. The router now remembers workflow start across the complete current user turn, preserves finish/cancel companions, and resets correctly on a later user turn. Post-fix repo-debug/migration traces both pass with exactly one `workflow_start`.
+- **Final matched full run:** on `openai-codex/gpt-5.6-terra`, MSO achieved **9/9 task + 9/9 scenario-policy**; Hermes achieved **8/9 task + 9/9 scenario-policy**. MSO measured **22,776 ms average / 15,285 ms p50 / 16,683.4 normalized tokens per attempt**, Hermes **22,189.3 ms / 23,294 ms / 67,433.1 tokens per attempt**. Thus MSO used ~**75.3% fewer normalized tokens/attempt (~4.04× smaller)** and had ~**34.4% lower p50**, while average latency was ~**2.6% higher**. Cost semantics remain non-comparable.
+- **No cherry-picked reliability claim:** the sole Hermes full-run miss was `multi-read` with intact scenario state but an incorrect exact aggregate. An alternating-order follow-up repeated `multi-read` three times per agent and both MSO and Hermes passed **3/3**. The formal full-run ranking is MSO > Hermes because correctness is first, but the 8/9 observation is treated as run variance rather than universal reliability evidence.
+
 ## 2026-09-03 — Cognitive Runtime P5 normalized provider usage
 
 - **Provider usage SSOT:** Codex/OpenAI now preserve authoritative input/output/total plus provider-reported cache-read/cache-write/reasoning details and explicit `inclusive-input-output-total` semantics; Anthropic keeps its separate cache categories and leaves absent fields absent. Agent sessions start with `apiCalls:0`, so unknown totals are never seeded as fake zero.

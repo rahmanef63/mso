@@ -68,6 +68,16 @@ function previousToolNames(history = []) {
   return [...new Set(names)];
 }
 
+function toolUsedSinceLatestUser(history = [], name) {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const row = history[i];
+    if (row?.role === "user") return false;
+    if (row?.role !== "assistant" || !Array.isArray(row.toolUses)) continue;
+    if (row.toolUses.some((call) => String(call?.name || "") === name)) return true;
+  }
+  return false;
+}
+
 function lexicalScore(tool, text) {
   const query = new Set(String(text || "").toLowerCase().split(/[^a-z0-9_./-]+/).filter((token) => token.length >= 3));
   const name = String(tool?.name || "").toLowerCase();
@@ -114,8 +124,10 @@ export function selectToolsForTurn(allTools = [], history = [], skillContext = n
     for (const companion of LIFECYCLE.get(name) || []) add(companion);
     if (route.continuation && byName.has(name)) add(name);
   }
-  if (previous.includes("workflow_start")) {
+  const workflowStartedThisTurn = toolUsedSinceLatestUser(history, "workflow_start");
+  if (workflowStartedThisTurn) {
     selected.delete("workflow_start");
+    for (const companion of LIFECYCLE.get("workflow_start") || []) add(companion);
     if (route.routeIds.includes("repo-change")) {
       for (const name of ["fs_read", "fs_write", "exec_run", "exec_job_start"]) add(name);
     }

@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { aggregateAgent, comparabilityLevel, eligibleRanking, extractModelEvidence, extractToolTelemetry, extractUsage, modelFamily } from "./bench-agent-metrics.mjs";
 import { createCorpus, scratchIsPrivate } from "./bench-agent-corpus-fixtures.mjs";
 
-export const CORPUS_VERSION = "mso-agent-quality-v1";
+export const CORPUS_VERSION = "mso-agent-quality-v2";
 const AGENTS = ["mso", "hermes", "openclaw"];
 
 function parseArgs(argv) {
@@ -131,7 +131,7 @@ async function main() {
     }
     const rows = [];
     for (const item of plan) {
-      const raw = runCommand(item.config, cwd), parsed = jsonMaybe(raw.stdout.trim()), usageReport = existsSync(item.usageFile) ? readJson(item.usageFile) : null;
+      const raw = runCommand(item.config, cwd, item.scenario.timeoutMs ?? 60_000), parsed = jsonMaybe(raw.stdout.trim()), usageReport = existsSync(item.usageFile) ? readJson(item.usageFile) : null;
       rows.push(scoreScenario(item.agent, item.scenario, raw, parsed, usageReport, opts));
     }
     const summary = summarizeCorpus(rows, opts);

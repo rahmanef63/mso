@@ -71,6 +71,33 @@ describe("MSO per-turn tool router", () => {
     expect(followup.selectedNames).toEqual(expect.arrayContaining(["workflow_finish", "workflow_cancel", "fs_read", "fs_write", "exec_run", "exec_job_start", "exec_job_status", "exec_job_cancel"]));
   });
 
+  it("does not re-offer workflow_start after long repo work pushes the first call beyond the recent-tool window", () => {
+    const history: any[] = [
+      { role: "user", text: "Fix this repository bug, update the code, then run node test.js to verify it." },
+      { role: "assistant", toolUses: [{ name: "workflow_start", input: {} }] },
+      { role: "tool", results: [{ content: "workflow ready" }] },
+    ];
+    for (const name of ["fs_read", "fs_read", "fs_write", "exec_run", "fs_read"]) {
+      history.push({ role: "assistant", toolUses: [{ name, input: {} }] });
+      history.push({ role: "tool", results: [{ content: "ok" }] });
+    }
+    const out = selectToolsForTurn(catalog, history);
+    expect(out.routeIds).toContain("repo-change");
+    expect(out.selectedNames).not.toContain("workflow_start");
+    expect(out.selectedNames).toEqual(expect.arrayContaining(["workflow_finish", "workflow_cancel", "exec_run"]));
+  });
+
+  it("allows a fresh workflow_start on a later user turn instead of leaking prior-turn lifecycle state", () => {
+    const out = selectToolsForTurn(catalog, [
+      { role: "user", text: "Fix the first repository issue." },
+      { role: "assistant", toolUses: [{ name: "workflow_start", input: {} }] },
+      { role: "tool", results: [{ content: "workflow ready" }] },
+      { role: "user", text: "Fix this second repository issue too." },
+    ]);
+    expect(out.routeIds).toContain("repo-change");
+    expect(out.selectedNames).toContain("workflow_start");
+  });
+
   it("loads a tool explicitly named by a discovery result on the next turn", () => {
     const history = [
       { role: "user", text: "update DNS" },
@@ -121,6 +148,27 @@ describe("MSO per-turn tool router", () => {
     expect(out.selectedNames).toContain("exec_job_status");
     expect(out.selectedNames).toContain("exec_job_cancel");
   });
+  it("does not mistake ordinary repository debugging/test instructions for a user-manual outcome", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "Repository debugging benchmark. Inspect the source, fix the boundary bug, then run node /tmp/repo/test.mjs." }]);
+    expect(out.routeIds).toContain("repo-change");
+    expect(out.routeIds).toContain("command-verification");
+    expect(out.routeIds).not.toContain("project-manual-test");
+    expect(out.selectedNames).toContain("workflow_start");
+    expect(out.selectedNames).toContain("exec_run");
+    expect(out.selectedNames).not.toContain("project_memory_upsert");
+  });
+
+  it("keeps explicit node validation available after workflow bootstrap", () => {
+    const prompt = "Repository debugging benchmark. Fix the source then run node /tmp/repo/test.mjs and report only after it passes.";
+    const out = selectToolsForTurn(catalog, [
+      { role: "user", text: prompt },
+      { role: "assistant", toolUses: [{ name: "workflow_start", input: {} }] },
+      { role: "tool", results: [{ content: "workflow ready" }] },
+    ]);
+    expect(out.selectedNames).toEqual(expect.arrayContaining(["fs_read", "fs_write", "exec_run", "exec_job_start"]));
+    expect(out.selectedNames).not.toContain("project_memory_upsert");
+  });
+
   it("loads repo memory tools when the user reports a manual regression", () => {
     const out = selectToolsForTurn(catalog, [{ role: "user", text: "I tested it and it still freezes after reconnect" }]);
     expect(out.selectedNames).toContain("project_memory_upsert");
