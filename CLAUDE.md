@@ -217,7 +217,8 @@ to `resources/` (rr) and drive any project from one manifest:
   `public/sw.js` is byte-identical across deploys, so the toast never fired). It
   caches ONLY icons+manifest, never chunks/HTML.
 - **New routes need a clean build.** Adding a new `app/**/route.ts` or page folder
-  may not register under incremental Turbopack — `rm -rf .next && bun run build`.
+  may not register under incremental Turbopack. On the live production checkout use
+  `mso deploy`; for verification use `mso build`. Never remove/replace live `.next`.
 - **`git add` aborts on a bad pathspec** and stages NOTHING new — after a
   `git rm`, don't re-list the removed file in `git add`; prefer `git add -A` and
   check `git status --short` before committing (a broken commit shipped once this way).
@@ -225,14 +226,14 @@ to `resources/` (rr) and drive any project from one manifest:
   `/home/rahman/.mso/worktrees/mso-demo-runtime`: `git fetch origin -q && git reset --hard
   origin/main -q && bun run build && sudo systemctl restart mso-demo.service`.
   Mind the cwd — running the sync from the prod dir is a classic slip.
-- **Never `bun run build` in this checkout just to CHECK a change** — it is
-  `mso.service`'s WorkingDirectory, and `next build` deletes `distDir` before it
-  compiles, so the live site 404s every chunk until a restart. Worse, repeat builds
-  rename every chunk and mint a new `BUILD_ID`, so already-served HTML stays broken
-  afterwards. Use `bash scripts/verify-build.sh`, which builds a throwaway copy of
-  `HEAD` in a temp dir (node_modules is COPIED, not symlinked — Turbopack hard-fails
-  on a symlink pointing outside the filesystem root). A real deploy still builds in
-  place, which is fine because a restart immediately follows.
+- **`bun run build` is now fail-closed on a live checkout.** The package script
+  acquires the checkout runtime-exclusion lock and refuses before touching `.next`
+  when a Next/MSO runtime is serving that same checkout. Use `mso build` for the
+  out-of-tree compile proof and `mso deploy` for a production rebuild. The reason is
+  fundamental: Next loads manifests at process start while `next build` replaces
+  `.next`; mixing those generations makes already-served HTML point at missing chunks.
+  Raw `next build` is an internal deploy primitive only after the supported lifecycle
+  has quiesced the runtime.
 - **The Browser app powers a systemd USER unit**, `camoufox-vnc.service` in
   `~/.config/systemd/user/`, whose `ExecStart` points at **`scripts/camoufox-vnc-service`
   in THIS repo** (it used to live untracked under `~/.openclaw/workspace/`, so a fresh

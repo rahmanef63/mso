@@ -98,7 +98,7 @@ else
 fi
 
 step "building in place"
-bun run build >/dev/null || die "in-place build failed — check disk space"
+node node_modules/next/dist/bin/next build >/dev/null || die "in-place build failed — check disk space"
 
 step "restarting mso.service (same-user signal; no sudo)"
 # mso.service runs as the owner and has Restart=always. Signalling its MainPID is
@@ -151,31 +151,16 @@ done
   || die "mso.service did not return with a new MainPID within ${RESTART_WAIT_SECONDS}s; release state is unverified — inspect the system unit before retrying"
 printf 'restarted %s -> %s after %ss\n' "$OLD_PID" "$NEW_PID" "$((RESTART_WAIT_SECONDS - (RESTART_DEADLINE - SECONDS)))"
 
-# The chunk-mismatch check CLAUDE.md warns about, verified rather than remembered —
-# the same check scripts/ship.sh ends with. `active` only means npm has started, not
-# that Next is already accepting connections, so wait for real HTML before checking
-# its referenced CSS chunk.
-# The user transient unit intentionally does not inherit arbitrary service env.
-# Read the fixed numeric PORT from the installed unit instead; fall back to the
-# installer's default for older or hand-written units.
+# Verify the COMPLETE static asset graph referenced by root HTML. A healthy first
+# stylesheet is insufficient: an in-place build can leave one old JS chunk missing
+# while other assets still serve correctly. The helper is bounded and checks
+# status + MIME for every referenced root JS/CSS asset.
 SERVICE_PORT="$(systemctl show -p Environment --value mso.service 2>/dev/null \
   | tr ' ' '\n' | sed -n 's/^PORT=//p' | head -1)"
 PORT="${PORT:-${SERVICE_PORT:-4005}}"
-HTML=""
-for _ in $(seq 1 30); do
-  HTML="$(curl -fsS --max-time 3 "http://127.0.0.1:$PORT/" 2>/dev/null || true)"
-  [ -n "$HTML" ] && break
-  sleep 1
-done
-CSS=$(printf '%s' "$HTML" | grep -o '/_next/static/[^"]*\.css' | head -1)
-if [ -z "$CSS" ]; then
-  die "no CSS reference in the served HTML — recover with: rm -rf .next && bun run build && sudo systemctl restart mso.service"
-fi
-TYPE=$(curl -fsSI --max-time 10 "http://127.0.0.1:$PORT$CSS" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print $2}')
-case "$TYPE" in
-  text/css*) ;;
-  *) die "chunk mismatch: $CSS served as '${TYPE:-nothing}'. Recover with: rm -rf .next && bun run build && sudo systemctl restart mso.service" ;;
-esac
+ASSET_BASE="http://127.0.0.1:$PORT"
+node scripts/check-served-assets.mjs "$ASSET_BASE" \
+  || die "served static asset graph is inconsistent after replacement; use the supported MSO deploy/rebuild lifecycle and inspect ~/.mso/self-update.log"
 
 step "inner update stage complete — now at $(git rev-parse --short HEAD)"
 printf 'INNER STAGE COMPLETE\n'

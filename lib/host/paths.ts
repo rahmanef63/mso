@@ -349,6 +349,43 @@ export async function resolveReadable(requested: string): Promise<string> {
 
 // WRITE: "/" collapses to home (never the FS root). When !mustExist the parent
 // is checked (target doesn't exist yet). Asserts inside a write root.
+/** Resolve a mkdir -p target without requiring its immediate parent to exist.
+ * The deepest existing ancestor is realpath-checked against the write root, so an
+ * existing symlink component cannot redirect newly-created descendants outside the jail. */
+export async function safeMkdirPath(requested: string): Promise<string> {
+  const h = homeDir();
+  let absolute: string;
+  if (!requested || requested === "~" || requested === "/") absolute = h;
+  else if (requested.startsWith("~/")) absolute = path.join(h, requested.slice(2));
+  else absolute = path.resolve(requested);
+  const normalized = path.resolve(absolute);
+  const configured = lexicalRoots(writeRootList());
+
+  for (const root of configured) {
+    const lexicalPrefix = root === path.parse(root).root ? root : root + path.sep;
+    if (normalized !== root && !normalized.startsWith(lexicalPrefix)) continue;
+    const realRoot = await fs.realpath(root).catch(() => path.resolve(root));
+    let ancestor = normalized;
+    while (true) {
+      try {
+        const realAncestor = await fs.realpath(ancestor);
+        if (!isUnderRoot(realAncestor, realRoot)) throw new HostError("Path outside writable roots");
+        break;
+      } catch (error) {
+        if (error instanceof HostError) throw error;
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+        const parent = path.dirname(ancestor);
+        if (parent === ancestor) throw new HostError("Path outside writable roots");
+        ancestor = parent;
+      }
+    }
+    assertNotCredential(normalized);
+    return normalized;
+  }
+  throw new HostError("Path outside writable roots");
+}
+
 export async function safeWritePath(requested: string, mustExist: boolean): Promise<string> {
   const h = homeDir();
   let absolute: string;

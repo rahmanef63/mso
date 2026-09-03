@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Post-deploy smoke test. Run AFTER `bun run build && sudo systemctl restart mso.service`.
+# Post-deploy smoke test. Run AFTER the supported MSO deploy/release lifecycle.
 # Catches the chunk-MIME drift that has bitten this deploy twice (per CLAUDE.md).
 #
 # REQUIRES: devDependencies installed on host (vitest lives in devDeps). Run
@@ -10,6 +10,7 @@ set -euo pipefail
 
 BASE_URL="${OS_BASE_URL:-http://localhost:4005}"
 echo "Smoke testing ${BASE_URL}..."
+node scripts/check-served-assets.mjs "$BASE_URL"
 
 # Prefer the full vitest smoke suite (4 checks: health, root HTML, chunk MIME,
 # asset 200). Falls back to curl if vitest isn't on the deploy box.

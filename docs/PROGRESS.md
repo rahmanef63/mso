@@ -1,4 +1,5 @@
 # mso — Progress Log
+- **Live-build chunk corruption eliminated (2026-09-03):** a production browser repro proved the shell/Settings crash was not a Settings logic regression: an in-place `next build` in the active service checkout replaced `.next` while the old Next process still served its boot-time manifest, making all 19 root-referenced chunks disappear and one observed JS request return `500 text/plain`. Production was recovered through `mso deploy`; shell + Settings then passed real authenticated Playwright on desktop/mobile with zero failed requests/console errors. `bun run build` is now a fail-closed wrapper that holds the checkout exclusion and refuses a same-checkout live runtime; `mso build` remains the out-of-tree proof and guarded deploy/update lifecycles invoke raw Next only after quiescence. Post-replacement validation now checks every root-referenced JS/CSS asset status+MIME, not one CSS/chunk. The Fresh 3 smoke scratch path moved out of protected `~/.mso`, and recursive `fs_mkdir` now securely supports missing parents while rejecting symlink escapes.
 
 ## 2026-09-03 — Cognitive Runtime P10 memory retention & lifecycle
 

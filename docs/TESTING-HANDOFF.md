@@ -1,4 +1,5 @@
 # MSO testing handoff
+- Live-build regression gate: `bun run build` must refuse before `.next` mutation when the same checkout is being served; `mso build` is the safe out-of-tree verification path and `mso deploy` owns production rebuild/replacement. Post-deploy acceptance must verify every JS/CSS asset referenced by root HTML plus authenticated browser rendering of `/settings`; one sampled chunk is not sufficient.
 
 Update this file at the end of every manual or automated test session. Keep it factual; never include tokens, cookies, prompts containing secrets, or hidden transcripts.
 

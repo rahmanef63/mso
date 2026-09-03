@@ -80,7 +80,7 @@ Do not manually click through every model action. Cover the public contract with
 | Workflow/UI bridge | Start a read-only workflow for `mso`, press `Refresh`, then `Open in MSO` | progress updates; automatic link opens or the explicit `Open directly` fallback is shown |
 | VPS card | Ask for the current VPS status | `vps_status` renders CPU/memory/disk/apps/browser/infra and its refresh works |
 | Project/Git | Ask to inspect project `mso`, then show its current diff/history | `project_get` and `project_diff` render the correct project/branch/changes without secrets |
-| Safe filesystem CRUD | Create/read/copy/move/delete a disposable file under `~/.mso/smoke-tests/` | content/hash round-trip succeeds and cleanup leaves no test file |
+| Safe filesystem CRUD | Create/read/copy/move/delete a disposable file under `~/mso-smoke-tests/` | content/hash round-trip succeeds and cleanup leaves no test file |
 | Convex | Check database status/tools for a known Convex project such as CareerPack | provider is Convex, project boundary is preserved, no env credential tools appear |
 | Project agent | Run `project_agent_run` in `plan_mode=true` for a harmless project inspection | returns a bounded plan/message id without modifying the repo |
 | Operator integrations | Check `browser_status` + `infra_providers_list` | read-only state is returned without starting browser/app or exposing provider secrets |

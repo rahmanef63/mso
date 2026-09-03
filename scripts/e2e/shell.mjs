@@ -176,17 +176,22 @@ async function session(browser, { width, height, label, touch = width < 768, exp
   ];
   for (const slug of nativeSlugs) {
     await page.goto(`${BASE}/${slug}`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1200);
+    // Wait for the shell-owned surface before judging its loading state. A fixed sleep
+    // can observe "no spinner" before React mounts, or a transient spinner on cold import.
+    const surfaceReady = width >= 768
+      ? await page.locator("[data-window]").first().waitFor({ state: "attached", timeout: 5_000 }).then(() => true).catch(() => false)
+      : await page.locator('[data-slot="mobile-feature-header"]').first().waitFor({ state: "attached", timeout: 5_000 }).then(() => true).catch(() => false);
+    const contentReady = surfaceReady
+      ? await page.waitForFunction(() => document.querySelectorAll(".animate-spin").length === 0, null, { timeout: 5_000 }).then(() => true).catch(() => false)
+      : false;
     // Desktop puts the app in a [data-window]; iOS/Android render it full-screen in
     // the shell, with no window chrome at all. Assert the surface-appropriate thing
     // rather than a window that is correctly absent on a phone.
     check(page.url().endsWith(`/${slug}`), `/${slug} deep-link kept the URL`);
-    if (width >= 768) {
-      check((await page.locator("[data-window]").count()) > 0, `/${slug} opened a window`);
-    }
+    if (width >= 768) check(surfaceReady, `/${slug} opened a window`);
     // A spinner that never resolves is the exact failure window-content.tsx used to
     // sit in forever when a chunk import rejected.
-    check((await page.locator(".animate-spin").count()) === 0, `/${slug} rendered without a stuck spinner`);
+    check(contentReady, `/${slug} rendered without a stuck spinner`);
 
     // Mobile navigation is shell-owned for EVERY feature. Root contract:
     // < Home | centered feature title | AI. Feature slices may publish a parent
@@ -230,10 +235,13 @@ async function session(browser, { width, height, label, touch = width < 768, exp
   // as an MSO host-network failure. Their own runtime has separate managed-app tests.
   for (const slug of ["hermes", "openclaw", "9router"]) {
     await page.goto(`${BASE}/${slug}`, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1200);
+    const windowReady = width < 768 ? true : await page.locator("[data-window]").first().waitFor({ state: "attached", timeout: 5_000 })
+      .then(() => true).catch(() => false);
+    const managedReady = await page.waitForFunction(() => document.querySelectorAll(".animate-spin").length === 0, null, { timeout: 5_000 })
+      .then(() => true).catch(() => false);
     check(page.url().endsWith(`/${slug}`), `/${slug} managed-app deep-link kept the URL`);
-    if (width >= 768) check((await page.locator("[data-window]").count()) > 0, `/${slug} managed-app opened a window`);
-    check((await page.locator(".animate-spin").count()) === 0, `/${slug} managed-app host rendered without a stuck spinner`);
+    if (width >= 768) check(windowReady, `/${slug} managed-app opened a window`);
+    check(managedReady, `/${slug} managed-app host rendered without a stuck spinner`);
   }
 
   await ctx.close();

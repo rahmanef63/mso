@@ -45,6 +45,7 @@ const NOT_A_KNOB: Record<string, string> = {
   E2E_DEVICE: "test harness",
   E2E_HEADED: "test harness",
   E2E_PREVIEW_DIR: "test harness",
+  MSO_RUNTIME_PROC_ROOT: "test-only fake /proc root for live-runtime ownership tests",
   OS_MEDIA_BASE: "scripts/gen-readme-media.mjs only",
   OS_MEDIA_DEVICE: "scripts/gen-readme-media.mjs only",
 };

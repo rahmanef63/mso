@@ -15,6 +15,7 @@ import {
   isSensitivePath,
   resolveReadable,
   resolveRoots,
+  safeMkdirPath,
   safeWritePath,
 } from "./paths";
 
@@ -79,7 +80,7 @@ export async function writeFile(requested: string, content: string): Promise<voi
 }
 
 export async function makeDir(requested: string): Promise<void> {
-  const p = await safeWritePath(requested, false);
+  const p = await safeMkdirPath(requested);
   await fs.mkdir(p, { recursive: true });
 }
 

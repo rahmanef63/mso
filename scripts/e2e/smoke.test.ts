@@ -61,23 +61,19 @@ describe.skipIf(skip)(
     expect([401, 403]).toContain(res.status);
   });
 
-  it.skipIf(skip)("a referenced _next/static chunk serves with correct MIME", async () => {
-    // Discover a real chunk URL from the rendered shell so we don't hardcode
-    // a hash. The home page is HTML and always references >=1 _next/static
-    // chunk. Catches the classic stale-CDN chunk 404 / wrong MIME bug.
+  it.skipIf(skip)("every root-referenced _next/static JS/CSS asset serves with correct MIME", async () => {
     const homeRes = await get("/");
     expect(homeRes.status).toBe(200);
     const html = await homeRes.text();
-    const m = html.match(/\/_next\/static\/[^"' )]+\.(?:js|css)/);
-    expect(m, "no _next/static chunk found in home HTML").not.toBeNull();
-    const chunkPath = m![0];
-    const res = await get(chunkPath);
-    expect(res.status).toBe(200);
-    const ct = res.headers.get("content-type") ?? "";
-    const expected = chunkPath.endsWith(".css")
-      ? "text/css"
-      : "javascript";
-    expect(ct.toLowerCase()).toContain(expected);
+    const assets = [...new Set(html.match(/\/_next\/static\/[^"'\s)<>]+\.(?:js|css)(?:\?[^"'\s)<>]*)?/g) ?? [])];
+    expect(assets.length, "no _next/static JS/CSS assets found in home HTML").toBeGreaterThan(0);
+    expect(assets.length).toBeLessThanOrEqual(120);
+    for (const asset of assets) {
+      const res = await get(asset, { method: "HEAD" });
+      expect(res.status, asset).toBe(200);
+      const ct = (res.headers.get("content-type") ?? "").toLowerCase();
+      expect(ct, asset).toContain(asset.split("?", 1)[0].endsWith(".css") ? "text/css" : "javascript");
+    }
   });
   },
 );

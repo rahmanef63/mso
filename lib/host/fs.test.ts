@@ -11,7 +11,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { copy, move, remove, writeFile } from "./fs";
+import { copy, makeDir, move, remove, writeFile } from "./fs";
 
 // Mirrors paths.test.ts setup. Layout:
 //   base/read/             ← read root
@@ -80,6 +80,24 @@ describe("writeFile (atomic write inside WRITE roots)", () => {
     await writeFile(path.join(writeRoot, "wlink"), "pwn");
     expect(readFileSync(path.join(outside, "secret.txt"), "utf8")).toBe("nope");
     expect(readFileSync(path.join(writeRoot, "wlink"), "utf8")).toBe("pwn");
+  });
+});
+
+describe("makeDir (recursive mkdir inside WRITE roots)", () => {
+  it("creates missing parent directories recursively", async () => {
+    useRoots(readRoot, writeRoot);
+    const target = path.join(writeRoot, "mkdir-parent", "child", "grandchild");
+    await makeDir(target);
+    expect(existsSync(target)).toBe(true);
+  });
+
+  it("rejects a missing descendant below an existing symlink that escapes the write root", async () => {
+    useRoots(readRoot, writeRoot);
+    const outsideDir = path.join(outside, "mkdir-outside"); mkdirSync(outsideDir, { recursive: true });
+    const link = path.join(writeRoot, "mkdir-link");
+    try { symlinkSync(outsideDir, link, "dir"); } catch { /* stable across retries */ }
+    await expect(makeDir(path.join(link, "new", "child"))).rejects.toThrow(/outside writable roots/i);
+    expect(existsSync(path.join(outsideDir, "new"))).toBe(false);
   });
 });
 

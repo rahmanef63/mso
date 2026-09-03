@@ -94,13 +94,14 @@ tail -f ~/.mso/self-update.log     # success ends with UPDATE OK
 A direct manual build-and-replace remains available for recovery, but it bypasses the
 release gates and should not be the normal path.
 
-**Never run `bun run build` inside the running prod checkout just to "verify" a change.**
+**`bun run build` now refuses when a live Next/MSO runtime serves the same checkout.**
 `next start` loads the build manifest at boot; overwriting `.next` under the live
 process makes the already-served HTML reference chunk hashes that no longer exist on
 disk → every JS/CSS chunk 404/500s → **the live site is broken until you restart**.
 
-To test runtime behaviour without risking prod, use a **separate checkout / a demo
-instance** on a different port — e.g. a build with `NEXT_PUBLIC_OS_DEMO=1` (no login,
+Use `mso build` for the normal out-of-tree compile proof and `mso deploy` for a
+production replacement. To test runtime behaviour without risking prod, use a
+**separate checkout / a demo instance** on a different port — e.g. a build with `NEXT_PUBLIC_OS_DEMO=1` (no login,
 no host access, forced mock data), served on `:4006` via its own systemd unit. For a
 non-destructive static check, `bun run typecheck && bun run lint` is the cheap gate.
 
