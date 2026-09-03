@@ -4,7 +4,7 @@ MSO treats the LLM as a replaceable reasoning engine. The durable product advant
 **provider-neutral harness** around it: conversation identity, context budgeting, memory, tool discovery,
 permissions, verification, learned workflows, and reproducible evaluation.
 
-This document is the current contract for the MCP-first Cognitive Runtime through P1. Provider-specific features may be
+This document is the current contract for the MCP-first Cognitive Runtime through P10. Provider-specific features may be
 used when available, but correctness must not depend on OpenAI-, Anthropic-, Google-, Qwen-, GLM-,
 DeepSeek-, or other vendor-specific hidden state.
 
@@ -23,6 +23,20 @@ DeepSeek-, or other vendor-specific hidden state.
    verification. The learned recipe is redacted, client-scoped, and does not grant access to another
    conversation's active workflow.
 6. **Optimization is benchmark-gated.** A smaller prompt is not a win if tool recall or task success drops.
+
+## Evidence status and claim boundaries
+
+A claim audit on **2026-09-04** revalidated source, `main`, `origin/main`, loopback health and public health at commit `1d65a6a175fd52a5db5b6a28fee6ea2450b90431` (`1d65a6a`). The audit distinguishes three evidence classes instead of treating every historical number as equally current:
+
+1. **Current reproducible gates** — rerun successfully at `1d65a6a`: `bench:cognitive`, `bench:memory`, `bench:memory:calibration -- --corrections 200`, `bench:memory:lifecycle`, and `bench:memory:retrieval-calibration`. Current results are 100% required-tool recall / deterministic routing, 96.6% average active-schema reduction, typed memory 8/8, P9 calibration 6/6, P10 lifecycle 8/8, lexical retrieval 4/6, existing local semantic candidate 3/6, and bounded two-hop relationship retrieval 3/3.
+2. **Raw-artifact-revalidated historical comparisons** — P6, the canonical P7 two-run artifact, P8 three-run artifact, and P8 cache artifact still exist and their SHA-256 plus aggregate arithmetic were rechecked. The exact canonical P7 artifact is `/tmp/mso-p7-repeat-full-2x9.json` with SHA-256 `a0c12961d142420f6ac334ff021bde7ab82faa89f9294107d3bd46823606a530`; a similarly named older `/tmp/mso-p7-repeat-full-2runs.json` is a different run and must not be used as evidence for the 18/18 P7 baseline. P8 three-run SHA-256 is `f70e2f5e8132f0808976ed69e2cb6769d2cec861d58612a8cca2ef5d80a7d838`; cache SHA-256 is `b4a2b1be5dc6edfb2ce8282eae64e3a4fc206cd043ecb825a1eae6a617c9f871`; P6 final post-lifecycle SHA-256 is `e0b5e1e30a9f1e5b34624e42d4bb5195792e50129b74de7d4006906a99716ba5`.
+3. **Historical release-reported metrics only** — the exact P4/P5 numeric tables below are retained for chronology, but this audit did not find a retained raw artifact that independently reproduces those exact table values. A retained P4 artifact has different observed timing values, and no exact P5 artifact was found. Therefore P4/P5 numbers are **not approved as the current public benchmark baseline** and should not be quoted externally without rerunning the exact fixture.
+
+The strongest currently revalidated cross-agent claim is deliberately narrow: combining the canonical P7 two-run artifact and P8 three-run artifact yields five matched `openai-codex/gpt-5.6-terra` nine-scenario runs where **both MSO and Hermes are 5/5 perfect**. Independently recomputed means are 16,907.6 vs 66,791.1 normalized tokens/attempt, 18,985.9 vs 21,779.8 ms average latency, and 14,130.8 vs 21,457.2 ms per-run p50: observed deltas of 74.7%, 12.8%, and 34.1% respectively in MSO's direction. These measurements do **not** establish universal product superiority, universal reliability, a provider-wide speed claim, a cost advantage, or causality from any one MSO component. Structural measurements such as schema reduction and read-pipeline byte reduction are separately reproducible; the cross-agent token/latency deltas are observed corpus outcomes.
+
+Tool Forge also has an operational precondition worth making explicit. The proposal/evaluation/promotion code and non-Docker regression suite pass, but executable project-function fixtures require the locally cached `mso-forge-sandbox:node22-v1` image. At this validation checkpoint that image was **not provisioned**, so the three Docker-only Forge tests were skipped and runtime evaluation correctly fails closed with a provisioning instruction. Do not describe executable Forge promotion as currently runnable on a host unless that image is present and its sandbox tests have been exercised there.
+
+Cost remains withheld unless both compared runners expose comparable attributable USD semantics. Cache-hit frequency remains observation-only until request envelopes are equivalent. OpenClaw remains unranked until an equivalent usable provider/model path exists. The compact machine-readable receipt for this audit is [`docs/evidence/cognitive-runtime-claim-audit-2026-09-04.json`](./evidence/cognitive-runtime-claim-audit-2026-09-04.json).
 
 ## Identity and workflow hierarchy
 
@@ -162,7 +176,7 @@ A non-interactive full MSO tool loop is available as `mso agent --oneshot <promp
 
 These numbers are reproducible harness baselines, not an overall quality leaderboard. P4 permits a bounded corpus ranking only when every compared runner covers the same full corpus with 100% model-family/provider evidence matching the requested provider; one-task smoke latency is never an overall-agent claim.
 
-## Current P3 + RASMIC baseline
+## Historical P3 + RASMIC baseline
 
 P3 runs on the catalog-first RASMIC router rather than the older lexical active-tool selector. The merged deterministic harness now reports:
 
@@ -182,7 +196,9 @@ P3 runs on the catalog-first RASMIC router rather than the older lexical active-
 
 The Hermes comparison above is **tool-schema footprint only** and does not establish product superiority. The P4 section below is the separate matched-provider task-quality corpus; its ranking is bounded to those six scenarios. OpenClaw still exposes no equivalent configured provider/model path on this host and remains outside that ranking.
 
-## P4 comparable task-quality baseline
+## P4 comparable task-quality baseline — historical release report
+
+**Claim status:** retained for historical chronology; the 2026-09-04 audit did not independently recover a raw artifact matching every exact numeric value in this P4 table, so do not use these numbers as the current public benchmark baseline.
 
 P4 turns the benchmark harness into an engineering gate rather than a one-task demo. `bench:corpus` creates **six seeded, semantically identical task fixtures per agent in separate private 0700 scratch directories** so write tasks cannot contaminate another runner. Every outcome is scored from the exact scenario filesystem tree/result state rather than trusting the model's prose. Fixture isolation is not an authority sandbox: each runner keeps its normal tool authority, the harness reports `runnerAuthoritySandboxed=false`, and `policyObservationScope=scenario-tree` means policy compliance is proven only for the exact observable fixture tree—not for the whole host. Agent execution is scenario-major with rotating runner order to reduce warm-up/order bias:
 
@@ -205,7 +221,7 @@ The final post-optimization head-to-head uses the **same `openai-codex/gpt-5.6-t
 | Reported tokens / successful task | 3,495.2 | 56,718.2 |
 | Tool telemetry coverage | 100% | unavailable from the Hermes one-shot report |
 
-Comparability is fail-closed: every attempted scenario must report matching model-family evidence and the same **requested** provider before a quality ranking is eligible. Both runners satisfied that contract for this run. Because task success and scenario-observable policy compliance tie, the P4 quality ranking uses p50/average latency only as a descriptive tie-breaker: **MSO ranks ahead of Hermes on this six-scenario corpus**, with about **26.4% lower average latency** and **25.6% lower p50 latency**. This is a bounded corpus result, not a claim that MSO is universally better on every workload.
+Comparability is fail-closed: every attempted scenario must report matching model-family evidence and the same **requested** provider before a quality ranking is eligible. The historical P4 release report said both runners satisfied that contract and used p50/average latency only as a descriptive tie-breaker after a task/policy tie. Because the 2026-09-04 claim audit did not recover a raw artifact matching every exact P4 number, **do not use the reported P4 ordering or percentages as the current public benchmark baseline**; rerun the exact fixture first.
 
 ### Token/cost accounting is deliberately separate
 
@@ -221,7 +237,9 @@ The final `multi-read` scenario uses exactly one `read_pipeline` call. Recovery 
 
 OpenClaw remains installed and testable, but the current host does not expose an equivalent usable `openai-codex/gpt-5.6-terra` path for its main agent. P4/P5 **do not change competitor credentials/configuration just to manufacture comparability**, and they therefore emit no OpenClaw quality ranking yet.
 
-## P5 normalized provider-usage semantics
+## P5 normalized provider-usage semantics — historical release report
+
+**Claim status:** the implementation semantics remain source/test covered, but the 2026-09-04 audit did not find the exact raw P5 corpus artifact behind the numeric table below. Keep the numbers as historical release notes only; do not quote them as the current public benchmark baseline without a fresh matched rerun.
 
 P5 makes token accounting auditable without adding prompt context or inventing missing values. A provider-neutral usage envelope now preserves the provider's raw categories plus an explicit accounting mode:
 
@@ -248,7 +266,7 @@ A full six-scenario candidate run on the same `openai-codex/gpt-5.6-terra` provi
 | Accounting proof | explicit inclusive contract | exact exclusive-cache sum |
 | Cost semantics comparable | no | no |
 
-On this bounded corpus, MSO uses about **94.1% fewer normalized tokens per successful task (~17× smaller)**, with **29.0% lower average latency** and **27.2% lower p50 latency** in this run. This is a corpus result, not a universal product/model claim; quality ranking still prioritizes task success and scenario-policy, with latency only as its descriptive tie-breaker. Token efficiency is reported as a separate now-comparable metric and still does not override correctness/policy. Cost remains withheld because MSO has no comparable cost field and Hermes reports included cost with source `none`.
+The historical P5 release report calculated **94.1% fewer normalized tokens per successful task (~17× smaller)** for MSO, with **29.0% lower average latency** and **27.2% lower p50 latency** on that run. Those values remain chronology only: the 2026-09-04 audit did not recover the exact raw P5 corpus artifact, so they are **not approved for current public quoting without a fresh matched rerun**. The implementation-level accounting contract remains source/test covered, and cost remains withheld because comparable attributable USD semantics are still absent.
 
 The candidate run also preserves the structural P3/P4 behaviors: `multi-read` uses one `read_pipeline`, security uses one `fs_read`, and recovery's one failed primary read remains expected task evidence.
 
@@ -278,7 +296,7 @@ The final post-lifecycle full run used the same `openai-codex/gpt-5.6-terra` pro
 | Accounting proof | explicit inclusive contract | exact exclusive-cache sum |
 | Cost semantics comparable | no | no |
 
-On that exact full run, the formal quality ranking is eligible and orders **MSO > Hermes** because correctness precedes policy and latency. The only Hermes task miss was `multi-read`: its scenario tree stayed unchanged and the process exited normally, but the exact aggregate answer was wrong. That miss was **not reproduced** in a follow-up alternating-order stability check: MSO passed 3/3 and Hermes passed 3/3 `multi-read` repeats. Therefore P6 records the 8/9 full-run outcome as observed run variance, **not** as evidence that MSO is universally more reliable.
+On that exact raw P6 artifact, the benchmark ranking field is eligible and orders **MSO > Hermes** because correctness precedes policy and latency. The only Hermes task miss was `multi-read`: its scenario tree stayed unchanged and the process exited normally, but the exact aggregate answer was wrong. That miss was **not reproduced** in a follow-up alternating-order stability check: MSO passed 3/3 and Hermes passed 3/3 `multi-read` repeats. Therefore the validated P6 artifact is evidence for that one run, **not** evidence that MSO is universally more reliable; the five-run P7+P8 set is the preferred public comparison baseline.
 
 Efficiency is less sensitive to that one miss. On all nine attempts, MSO averaged **16,683.4 normalized tokens/attempt vs 67,433.1** for Hermes — about **75.3% fewer (~4.04× smaller)**. Tokens/success are **78.0% lower (~4.55× smaller)** in the formal run, but that denominator also charges Hermes's failed attempt, so tokens/attempt is the cleaner cross-run efficiency comparison here. MSO's p50 was **34.4% lower**, while its average latency was **2.6% higher** because `repo-debug` and `repo-migration` were slower; P6 therefore does not claim a blanket latency win. Cost remains withheld.
 
@@ -342,7 +360,7 @@ P8 then added three more complete independently seeded nine-scenario runs, also 
 
 On these three P8 runs, correctness/reliability is a tie. MSO used about **75.5% fewer normalized tokens per attempt (~4.08× smaller)**, with about **14.5% lower average latency** and **30.3% lower aggregate p50**. Those are bounded observed-run measurements, not provider/model-wide claims.
 
-Combining the raw P7 two-run artifact and raw P8 three-run artifact gives a five-run descriptive history on the same corpus/provider/model. Both agents are **5/5 perfect**. Mean normalized tokens/attempt are **16,907.6 MSO vs 66,791.1 Hermes** (~**74.7% lower**, Hermes ~3.95× higher); mean per-run average latency is **18,985.9 vs 21,779.8 ms** (~**12.8% lower** for MSO); mean per-run p50 is **14,130.8 vs 21,457.2 ms** (~**34.1% lower**). Run-level token CV is 5.5% vs 2.7%. Five runs are enough to expose observed spread and remove the earlier one-run reliability anomaly, but still too small for an inferential reliability claim.
+Combining the raw P7 two-run artifact and raw P8 three-run artifact gives a five-run descriptive history on the same corpus/provider/model. Both agents are **5/5 perfect**. Mean normalized tokens/attempt are **16,907.6 MSO vs 66,791.1 Hermes** (~**74.7% lower**, Hermes ~3.95× higher); mean per-run average latency is **18,985.9 vs 21,779.8 ms** (~**12.8% lower** for MSO); mean per-run p50 is **14,130.8 vs 21,457.2 ms** (~**34.1% lower**). Run-level token CV is 5.5% vs 2.7%. The specific earlier one-run reliability anomaly is absent from this five-run set, but five runs are still too small for an inferential or universal reliability claim.
 
 ## P8 next direction
 

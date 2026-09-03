@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "kind": "mso-cognitive-runtime-public-claim-audit",
+  "validatedAt": "2026-09-04",
+  "sourceAndProductionAtAudit": {
+    "fullSha": "1d65a6a175fd52a5db5b6a28fee6ea2450b90431",
+    "shortSha": "1d65a6a",
+    "sourceMainOriginAligned": true,
+    "loopbackHealthMatched": true,
+    "publicHealthMatched": true
+  },
+  "currentReproducibleGates": {
+    "commands": [
+      "bun run bench:cognitive",
+      "bun run bench:memory",
+      "bun run bench:memory:calibration -- --corrections 200",
+      "bun run bench:memory:lifecycle",
+      "bun run bench:memory:retrieval-calibration"
+    ],
+    "results": {
+      "routingRequiredToolRecallPct": 100,
+      "routingCatalogHitPct": 100,
+      "deterministicRouting": true,
+      "averageActiveTools": 2.6,
+      "activeSchemaReductionPct": 96.6,
+      "typedMemory": {
+        "passed": 8,
+        "total": 8
+      },
+      "p9Calibration": {
+        "passed": 6,
+        "total": 6,
+        "corrections": 200,
+        "projectionReductionPct": 99.96
+      },
+      "p10Lifecycle": {
+        "passed": 8,
+        "total": 8,
+        "seedRecords": 1400,
+        "liveAfter": 1000,
+        "archivedAfter": 401,
+        "archiveSegments": 2
+      },
+      "retrievalEvidenceGate": {
+        "lexicalPassed": 4,
+        "lexicalTotal": 6,
+        "localSemanticPassed": 3,
+        "localSemanticTotal": 6,
+        "semanticDeltaPassedCases": -1,
+        "twoHopGraphPassed": 3,
+        "twoHopGraphTotal": 3
+      },
+      "readPipeline": {
+        "modelRoundTripReductionPct": 75,
+        "modelVisibleByteReductionPct": 99.2,
+        "exact": true
+      }
+    }
+  },
+  "rawArtifactRevalidation": {
+    "p6": {
+      "artifactBasename": "mso-p6-corpus-final-post-lifecycle.json",
+      "sha256": "e0b5e1e30a9f1e5b34624e42d4bb5195792e50129b74de7d4006906a99716ba5",
+      "provider": "openai-codex",
+      "model": "gpt-5.6-terra",
+      "scenarioCount": 9,
+      "comparability": {
+        "level": "full",
+        "provider": "openai-codex"
+      },
+      "aggregates": {
+        "mso": {
+          "attempted": 9,
+          "taskSuccesses": 9,
+          "policyCompliant": 9,
+          "perfectRuns": null,
+          "averageLatencyMs": 22776,
+          "p50LatencyMs": 15285,
+          "normalizedTokensPerAttempt": 16683.4,
+          "tokenAccountingProof": "explicit-inclusive-contract"
+        },
+        "hermes": {
+          "attempted": 9,
+          "taskSuccesses": 8,
+          "policyCompliant": 9,
+          "perfectRuns": null,
+          "averageLatencyMs": 22189.3,
+          "p50LatencyMs": 23294,
+          "normalizedTokensPerAttempt": 67433.1,
+          "tokenAccountingProof": "exact-exclusive-cache-sum"
+        }
+      },
+      "note": "One exact run only; Hermes multi-read miss did not reproduce in 3/3 follow-up for either agent."
+    },
+    "p7Canonical": {
+      "artifactBasename": "mso-p7-repeat-full-2x9.json",
+      "sha256": "a0c12961d142420f6ac334ff021bde7ab82faa89f9294107d3bd46823606a530",
+      "baseSeed": "p7-baseline-20260903",
+      "provider": "openai-codex",
+      "model": "gpt-5.6-terra",
+      "scenarioCount": 9,
+      "requestedRuns": 2,
+      "exactCoverage": true,
+      "aggregates": {
+        "mso": {
+          "attempted": 18,
+          "taskSuccesses": 18,
+          "policyCompliant": 18,
+          "perfectRuns": 2,
+          "averageLatencyMs": 18922.6,
+          "p50LatencyMs": 13761,
+          "normalizedTokensPerAttempt": 17271.3,
+          "tokenAccountingProof": "explicit-inclusive-contract"
+        },
+        "hermes": {
+          "attempted": 18,
+          "taskSuccesses": 18,
+          "policyCompliant": 18,
+          "perfectRuns": 2,
+          "averageLatencyMs": 21077.4,
+          "p50LatencyMs": 20513.5,
+          "normalizedTokensPerAttempt": 65073.3,
+          "tokenAccountingProof": "exact-exclusive-cache-sum"
+        }
+      },
+      "warning": "Do not substitute similarly named mso-p7-repeat-full-2runs.json; it is a different run."
+    },
+    "p8": {
+      "artifactBasename": "mso-p8-repeat-3x9.json",
+      "sha256": "f70e2f5e8132f0808976ed69e2cb6769d2cec861d58612a8cca2ef5d80a7d838",
+      "provider": "openai-codex",
+      "model": "gpt-5.6-terra",
+      "scenarioCount": 9,
+      "requestedRuns": 3,
+      "exactCoverage": true,
+      "aggregates": {
+        "mso": {
+          "attempted": 27,
+          "taskSuccesses": 27,
+          "policyCompliant": 27,
+          "perfectRuns": 3,
+          "averageLatencyMs": 19028.2,
+          "p50LatencyMs": 14259,
+          "normalizedTokensPerAttempt": 16665,
+          "tokenAccountingProof": "explicit-inclusive-contract"
+        },
+        "hermes": {
+          "attempted": 27,
+          "taskSuccesses": 27,
+          "policyCompliant": 27,
+          "perfectRuns": 3,
+          "averageLatencyMs": 22248,
+          "p50LatencyMs": 20472,
+          "normalizedTokensPerAttempt": 67936.2,
+          "tokenAccountingProof": "exact-exclusive-cache-sum"
+        }
+      }
+    },
+    "p8Cache": {
+      "artifactBasename": "mso-p8-cache-final.json",
+      "sha256": "b4a2b1be5dc6edfb2ce8282eae64e3a4fc206cd043ecb825a1eae6a617c9f871",
+      "provider": "openai-codex",
+      "model": "gpt-5.6-terra",
+      "rounds": 4,
+      "cacheComparability": {
+        "eligible": false,
+        "reason": "provider cache fields are observation-only because runner request envelopes/context behavior differ; cache-hit frequency is not ranked"
+      },
+      "aggregates": {
+        "mso": {
+          "attempted": 4,
+          "taskSuccesses": 4,
+          "policyCompliant": 4,
+          "perfectRuns": null,
+          "averageLatencyMs": 7000.3,
+          "p50LatencyMs": 6704,
+          "normalizedTokensPerAttempt": 5339,
+          "tokenAccountingProof": "explicit-inclusive-contract"
+        },
+        "hermes": {
+          "attempted": 4,
+          "taskSuccesses": 4,
+          "policyCompliant": 4,
+          "perfectRuns": null,
+          "averageLatencyMs": 6388.8,
+          "p50LatencyMs": 6391,
+          "normalizedTokensPerAttempt": 20599.5,
+          "tokenAccountingProof": "mixed"
+        }
+      }
+    },
+    "p9": {
+      "artifactBasename": "mso-p9-memory-calibration-200.json",
+      "sha256": "faea37f7041df9cdc719fd5266c736464dbffabf86d23a08f9c5a52cdfc5c71b",
+      "scenarioCount": 6,
+      "passed": 6,
+      "accuracyPct": 100,
+      "deterministic": true,
+      "projection": {
+        "correctionDepth": 200,
+        "ledgerRecords": 200,
+        "historyRowsReturned": 100,
+        "historyLimit": 100,
+        "resolvedRecords": 1,
+        "finalValue": "Runtime-200",
+        "ledgerBytes": 135180,
+        "resolvedProjectionBytes": 58,
+        "projectionReductionPct": 99.96
+      }
+    }
+  },
+  "preferredPublicCrossAgentBaseline": {
+    "corpus": "P7 canonical 2 runs + P8 3 runs; 9 scenarios/run; matched openai-codex/gpt-5.6-terra",
+    "runCount": 5,
+    "msoPerfectRuns": 5,
+    "hermesPerfectRuns": 5,
+    "msoMeanNormalizedTokensPerAttempt": 16907.6,
+    "hermesMeanNormalizedTokensPerAttempt": 66791.1,
+    "observedTokenReductionPct": 74.7,
+    "observedHermesToMsoTokenRatio": 3.95,
+    "msoMeanAverageLatencyMs": 18985.9,
+    "hermesMeanAverageLatencyMs": 21779.8,
+    "observedAverageLatencyReductionPct": 12.8,
+    "msoMeanPerRunP50Ms": 14130.8,
+    "hermesMeanPerRunP50Ms": 21457.2,
+    "observedPerRunP50ReductionPct": 34.1,
+    "claimBoundary": "Observed corpus-specific measurements only; not universal superiority, reliability, cost, provider-wide speed, or causal attribution to one component."
+  },
+  "historicalOnly": {
+    "p4ExactNumericTable": {
+      "approvedAsCurrentPublicBaseline": false,
+      "reason": "Retained raw P4 artifacts inspected during this audit did not match every exact published table value. Rerun exact fixture before public quoting."
+    },
+    "p5ExactNumericTable": {
+      "approvedAsCurrentPublicBaseline": false,
+      "reason": "Exact raw P5 corpus artifact was not recovered during this audit. Rerun exact fixture before public quoting."
+    }
+  },
+  "intentionallyUnranked": {
+    "cost": "No comparable attributable USD contract across runners.",
+    "cacheHitFrequency": "Request/system/tool envelopes differ.",
+    "openClaw": "No legitimate equivalent usable provider/model path in the validated benchmark setup.",
+    "vectorMemory": "Current local semantic candidate scores 3/6 vs lexical 4/6; production vector/index layer remains evidence-blocked.",
+    "graphMemory": "Bounded two-hop fixture is 3/3 with keyed retrieval; no universal graph-need claim."
+  },
+  "toolForgeAtAuditHost": {
+    "executableSandboxImagePresent": false,
+    "dockerOnlyRegressionTestsSkipped": 3,
+    "behavior": "Fails closed until mso-forge-sandbox:node22-v1 is explicitly provisioned; do not claim executable promotion is currently runnable on this host without that prerequisite."
+  }
+}

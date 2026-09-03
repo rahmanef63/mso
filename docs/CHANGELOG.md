@@ -43,6 +43,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Docs**
 
+- bound Cognitive Runtime claims to verified evidence
 - refresh maintainability changelog
 - `agent` record P9 memory calibration
 - `agent` record P8 calibration baseline

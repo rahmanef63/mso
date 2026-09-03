@@ -3,7 +3,7 @@
 
 Last reviewed: **2026-08-29** · freshness gate: **90 days**
 
-MSO is designed to be the most complete mobile-first, AI-native private Linux workspace for an owner or small trusted team. It does not claim to replace specialist products at their strongest specialty.
+MSO is designed as a mobile-first, AI-native private Linux workspace for an owner or small trusted team. It does not claim to replace specialist products at their strongest specialty.
 
 ## Method
 
