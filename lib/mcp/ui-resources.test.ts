@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { dispatch } = await import("./dispatch");
-const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI } = await import("./ui-resources");
+const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI, readUiResource } = await import("./ui-resources");
 const { MCP_UI_DOMAIN } = await import("./ui-config");
 const { activeWorkflowForActor } = await import("@/lib/workflow");
 
@@ -64,6 +64,7 @@ describe("MCP Apps workflow progress UI", () => {
     expect(content.text).toContain("openExternal");
     expect(content.text).toContain("setOpenInAppUrl");
     expect(content.text).toContain("Open directly");
+    expect(content.text).toContain("/assistant/mcp");
     expect(content.text).toContain("Automatic open unavailable");
     expect(WORKFLOW_PROGRESS_URI).toContain("-v2.html");
     expect(content.text).not.toContain("fetch(");
@@ -139,6 +140,13 @@ describe("MCP Apps workflow progress UI", () => {
       expect(content._meta).toMatchObject({ ui: { domain: MCP_UI_DOMAIN, prefersBorder: true }, "openai/widgetDomain": MCP_UI_DOMAIN, "openai/widgetPrefersBorder": true });
     }
   });
+  it("gives every MCP App a visible contextual MSO destination", () => {
+    expect(readUiResource(WORKFLOW_PROGRESS_URI)?.text).toContain('data-mso-path="/assistant/mcp"');
+    expect(readUiResource(PROJECT_STATUS_URI)?.text).toContain('data-mso-path="/files"');
+    expect(readUiResource(DIFF_VIEW_URI)?.text).toContain('data-mso-path="/code"');
+    expect(readUiResource(VPS_STATUS_URI)?.text).toContain('data-mso-path="/monitor"');
+  });
+
   it("rejects unknown UI resource URIs", async () => {
     const result = await dispatch({ id: 1, method: "resources/read", params: { uri: "ui://mso/not-real.html" } }, "read");
     expect(result.error).toMatchObject({ code: -32602 });

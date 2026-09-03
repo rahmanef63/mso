@@ -102,10 +102,11 @@ export function focusWindow(id: WinId) {
 // Reveal the front-most existing window of an app (restoring if minimized).
 // Returns false when none exist — callers then decide whether to open one.
 // Lets the URL sync focus an app without spawning a duplicate for `multi` apps.
-export function focusApp(app: string): boolean {
+export function focusApp(app: string, payload?: unknown): boolean {
   const ids = M.state.order.filter((id) => M.state.windows[id]?.app === app);
   if (!ids.length) return false;
   const top = ids.reduce((a, b) => (M.state.windows[a].z >= M.state.windows[b].z ? a : b));
+  if (payload !== undefined) patch(top, { payload });
   if (M.state.windows[top].minimized) restoreWindow(top);
   focusWindow(top);
   return true;

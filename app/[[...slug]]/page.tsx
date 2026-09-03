@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { OsRoot } from "../os-root";
 import { getSessionContext } from "@/lib/auth/require-session";
+import { chatGptMcpLanding } from "../external-open";
 
 // Optional catch-all: the OS is one client shell, but every app is deep-linkable
 // (`/files/home/user`, `/code`, `/terminal`). The shell reads the path on the
@@ -36,9 +37,21 @@ export async function generateMetadata({
   return { title: `${name} — MSO` };
 }
 
-export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
-  const { slug } = await params;
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug?: string[] }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
   if (isReserved(slug)) notFound();
+  // ChatGPT's external-open bridge appends the conversation as `redirectUrl`.
+  // A root landing with that marker is not a normal desktop launch: surface the
+  // in-shell MCP activity immediately so "Open in MSO" has a visible result.
+  // The callback is preserved for the host/browser; MSO never follows it.
+  const externalLanding = chatGptMcpLanding(slug, query.redirectUrl);
+  if (externalLanding) redirect(externalLanding);
   // Resolve the session on the server (reads the signed cookie) and inject it as
   // SessionProvider's initial state → the shell paints on the first render with
   // no client /api/auth/me probe and no Splash. cookies() makes this dynamic —

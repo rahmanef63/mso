@@ -105,12 +105,13 @@ export function UrlSync({ apps }: { apps: AppDescriptor[] }) {
     // Focus an existing window rather than spawn one — else a `multi` app (Files)
     // would open a duplicate on every back/forward (focusApp also restores a
     // minimized one, so back from "/" onto a dismissed app's slug reopens it).
-    if (focusApp(target.app.id)) return;
+    const deepLinkPayload = target.path ? { path: target.path } : undefined;
+    if (focusApp(target.app.id, deepLinkPayload)) return;
     openWindow(
       target.app.id,
       target.app.title,
       target.app.defaultSize,
-      target.path ? { path: target.path } : undefined,
+      deepLinkPayload,
     );
   }, [pathname, apps]);
 

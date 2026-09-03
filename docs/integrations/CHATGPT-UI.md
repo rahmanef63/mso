@@ -50,7 +50,7 @@ The diff component receives only project/mode/SHA metadata, changed file names a
 
 The VPS component receives bounded health/process/app/browser state and **masked** infrastructure readiness. Provider values are those already sanitized by the infrastructure summary layer; raw credentials are never added for UI rendering.
 
-All four resources are self-contained: no external JavaScript, CSS, images, or direct `fetch()` calls. `Open in MSO` feature-detects the official ChatGPT `window.openai.openExternal` bridge, registers the same target with `window.openai.setOpenInAppUrl`, and shows a user-clickable `Open directly` fallback plus visible status when automatic navigation is unavailable. The widget CSP has no connect/resource domains and allowlists only `https://mso.rahmanef.com` as the dashboard redirect.
+All four resources are self-contained: no external JavaScript, CSS, images, or direct `fetch()` calls. `Open in MSO` feature-detects the official ChatGPT `window.openai.openExternal` bridge, registers a contextual MSO deep-link with `window.openai.setOpenInAppUrl`, and shows a user-clickable `Open directly` fallback plus visible status when automatic navigation is unavailable. Workflow cards target `/assistant/mcp`, VPS cards `/monitor`, project cards `/files`, and diff cards `/code`. As a cache-safe fallback, a root MSO landing carrying ChatGPT's `redirectUrl=https://chatgpt.com/c/...` is server-redirected to `/assistant/mcp` while preserving the callback query; MSO never follows that callback itself. The widget CSP has no connect/resource domains and allowlists only `https://mso.rahmanef.com` as the dashboard redirect.
 
 ## Flow
 
@@ -77,7 +77,7 @@ Do not manually click through every model action. Cover the public contract with
 
 | Journey | Suggested prompt/action | Pass condition |
 | --- | --- | --- |
-| Workflow/UI bridge | Start a read-only workflow for `mso`, press `Refresh`, then `Open in MSO` | progress updates; automatic link opens or the explicit `Open directly` fallback is shown |
+| Workflow/UI bridge | Start a read-only workflow for `mso`, press `Refresh`, then `Open in MSO` | progress updates; MSO opens visibly at Alfa → MCP Activity (`/assistant/mcp`), including when ChatGPT still uses a cached root-targeting widget; the explicit `Open directly` fallback targets the same view |
 | VPS card | Ask for the current VPS status | `vps_status` renders CPU/memory/disk/apps/browser/infra and its refresh works |
 | Project/Git | Ask to inspect project `mso`, then show its current diff/history | `project_get` and `project_diff` render the correct project/branch/changes without secrets |
 | Safe filesystem CRUD | Create/read/copy/move/delete a disposable file under `~/mso-smoke-tests/` | content/hash round-trip succeeds and cleanup leaves no test file |

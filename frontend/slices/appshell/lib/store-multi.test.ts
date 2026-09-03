@@ -57,6 +57,14 @@ describe("focusApp", () => {
     expect(shellStore.getFocused()).toBeNull();
   });
 
+  it("updates the reused window payload when a deep-link focuses it", () => {
+    const assistant = openWindow("assistant", "Alfa", undefined, { path: "/chat" });
+    openWindow("monitor", "Monitor");
+    expect(focusApp("assistant", { path: "/mcp" })).toBe(true);
+    expect(shellStore.getFocused()).toBe(assistant);
+    expect(shellStore.getWindow(assistant)?.payload).toEqual({ path: "/mcp" });
+  });
+
   it("brings the front-most window of an existing app to focus (highest z wins)", () => {
     // Two `files` windows + one `monitor` between them, all spawned via openWindow.
     const f1 = openWindow("files", "Files", undefined, { path: "/a" }, { multi: true });

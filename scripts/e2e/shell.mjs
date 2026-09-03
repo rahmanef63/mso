@@ -161,6 +161,21 @@ async function session(browser, { width, height, label, touch = width < 768, exp
     check(viewportDelta <= 1, `root height follows the visual viewport (${viewportDelta.toFixed(1)}px delta)`);
   }
 
+  // ── ChatGPT MCP App external-open contract. The platform appends the
+  // conversation as redirectUrl even when an older cached widget still targets
+  // the MSO root. That landing must visibly open Alfa → MCP Activity rather than
+  // leave the user on an idle desktop. One desktop pass is enough; the generic
+  // /assistant/mcp deep-link is covered by the same responsive shell below.
+  if (width >= 1200) {
+    const chatUrl = "https://chatgpt.com/c/6a996289-c858-83ec-b706-fedf850aa375";
+    await page.goto(`${BASE}/?redirectUrl=${encodeURIComponent(chatUrl)}`, { waitUntil: "domcontentloaded" });
+    await page.waitForURL((url) => url.pathname === "/assistant/mcp", { timeout: 5_000 });
+    await page.locator("[data-window]").first().waitFor({ state: "visible", timeout: 5_000 });
+    const mcpVisible = await page.getByText("MCP Activity", { exact: true }).first().isVisible().catch(() => false);
+    check(page.url().includes("/assistant/mcp"), "ChatGPT Open in MSO lands on /assistant/mcp");
+    check(mcpVisible, "ChatGPT Open in MSO visibly opens Alfa MCP Activity");
+  }
+
   // ── open every app by DEEP LINK rather than by clicking the dock.
   //
   // Deliberate: the URL is the documented contract ("the OS is addressable" —

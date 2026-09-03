@@ -64,7 +64,7 @@ const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="po
     </div>
     <div class="foot">
       <span class="connection" id="connection">Live status</span>
-      <div class="actions"><button type="button" id="refresh">Refresh</button>${openInMsoControls()}</div>
+      <div class="actions"><button type="button" id="refresh">Refresh</button>${openInMsoControls("primary", "/assistant/mcp")}</div>
     </div>
   </section>
   <script>

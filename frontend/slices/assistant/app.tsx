@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { History } from "lucide-react";
-import { AppFrame } from "@/features/appshell";
+import { AppFrame, type AppProps } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "./components/tabs";
 import { usePublishInspector } from "./lib/host";
@@ -17,8 +17,9 @@ import { ThreadList } from "./components/thread-list";
 import { LibraryGrid } from "./components/library-grid";
 import { SkillForm } from "./components/skill-form";
 import { McpActivityView } from "./components/mcp-activity-view";
+import { assistantRouteFromPayload, type AssistantTab } from "./lib/navigation";
 
-type Tab = "chat" | "agents" | "skills" | "automations" | "mcp";
+type Tab = AssistantTab;
 type FormState =
   | { kind: "skill"; item?: Skill }
   | { kind: "agent"; item?: Agent }
@@ -35,9 +36,15 @@ const TABS: [Tab, string][] = [
 
 // Alfa: tabbed assistant. Chat keeps the real Claude stream; the other tabs
 // manage agents/skills/automations entirely in localStorage (no Convex).
-export default function Assistant() {
+export default function Assistant({ payload }: AppProps) {
   const store = useAIStore();
-  const [tab, setTab] = useState<Tab>("chat");
+  const route = assistantRouteFromPayload(payload);
+  const [selection, setSelection] = useState<{ key: string; tab: Tab }>(() => route);
+  // When the host payload changes, its deep-link tab wins without a synchronizing
+  // effect. Once rendered for that route, user tab clicks own the selection until
+  // another payload arrives.
+  const tab = selection.key === route.key ? selection.tab : route.tab;
+  const setTab = useCallback((next: Tab) => setSelection({ key: route.key, tab: next }), [route.key]);
   const [form, setForm] = useState<FormState>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const chatRef = useRef<ChatHandle>(null);
@@ -48,7 +55,7 @@ export default function Assistant() {
       const agent = store.agents.find((a) => a.id === auto.agentId);
       setTimeout(() => chatRef.current?.runSteps(auto, agent), 30);
     },
-    [store.agents],
+    [store.agents, setTab],
   );
 
   // Surface Alfa's own library state to the shell AI Inspector. Called above the
