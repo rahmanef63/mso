@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { randomBytes } from "node:crypto";
+import { normalizeCorpusSeed } from "./bench-agent-seed.mjs";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -13,7 +14,7 @@ const AGENTS = ["mso", "hermes", "openclaw"];
 function parseArgs(argv) {
   const get = (name, fallback) => { const i = argv.indexOf(name); return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith("-") ? argv[i + 1] : fallback; };
   const agents = [...new Set(get("--agents", AGENTS.join(",")).split(",").map((v) => v.trim()).filter((v) => AGENTS.includes(v)))];
-  return { run: argv.includes("--run"), json: argv.includes("--json"), model: get("--model", process.env.MSO_BENCH_MODEL || "gpt-5.6-terra"), provider: get("--provider", process.env.MSO_BENCH_PROVIDER || "openai-codex"), agents, scenario: get("--scenario", null) };
+  return { run: argv.includes("--run"), json: argv.includes("--json"), model: get("--model", process.env.MSO_BENCH_MODEL || "gpt-5.6-terra"), provider: get("--provider", process.env.MSO_BENCH_PROVIDER || "openai-codex"), agents, scenario: get("--scenario", null), seed: get("--seed", null) };
 }
 
 function jsonMaybe(text) {
@@ -115,7 +116,7 @@ async function main() {
   const scratch = path.join(os.homedir(), ".cache", "mso-benchmarks", `corpus-${Date.now()}-${randomBytes(3).toString("hex")}`);
   mkdirSync(scratch, { recursive: true, mode: 0o700 });
   try {
-    const corpusSeed = randomBytes(12).toString("hex");
+    const corpusSeed = normalizeCorpusSeed(opts.seed);
     const corpora = new Map(opts.agents.map((agent) => [agent, createCorpus(path.join(scratch, agent), corpusSeed).filter((row) => !opts.scenario || row.id === opts.scenario)]));
     const referenceCorpus = corpora.get(opts.agents[0]) ?? [];
     if (!referenceCorpus.length) throw new Error(`unknown --scenario ${opts.scenario}`);
@@ -123,7 +124,7 @@ async function main() {
     const plansByAgent = new Map(opts.agents.map((agent) => [agent, buildCorpusPlan({ corpus: corpora.get(agent) ?? [], agents: [agent], model: opts.model, provider: opts.provider, cwd, scratch: path.join(scratch, agent) })]));
     const plan = interleaveCorpusPlans(plansByAgent, opts.agents, referenceCorpus.map((row) => row.id));
     if (!opts.run) {
-      const result = { run: false, corpusVersion: CORPUS_VERSION, scratchFixtures: true, runnerAuthoritySandboxed: false, policyObservationScope: "scenario-tree", isolatedPerAgent: true, privateScratch: scratchIsPrivate(scratch), model: opts.model, provider: opts.provider,
+      const result = { run: false, corpusVersion: CORPUS_VERSION, seed: corpusSeed, agentOrder: opts.agents, scratchFixtures: true, runnerAuthoritySandboxed: false, policyObservationScope: "scenario-tree", isolatedPerAgent: true, privateScratch: scratchIsPrivate(scratch), model: opts.model, provider: opts.provider,
         scenarios: referenceCorpus.map(({ id, taskClass, approvalScope }) => ({ id, taskClass, approvalScope })),
         runners: plan.map(({ agent, scenario, config }) => ({ agent, scenarioId: scenario.id, command: path.basename(config.command), args: config.args.map((v) => v === scenario.prompt ? "<prompt>" : v) })) };
       console.log(opts.json ? JSON.stringify(result, null, 2) : `MSO agent-quality corpus plan · ${referenceCorpus.length} scenarios × ${opts.agents.length} agents\n  add --run to execute isolated scratch-fixture tasks`);
@@ -135,7 +136,7 @@ async function main() {
       rows.push(scoreScenario(item.agent, item.scenario, raw, parsed, usageReport, opts));
     }
     const summary = summarizeCorpus(rows, opts);
-    const result = { run: true, corpusVersion: CORPUS_VERSION, scratchFixtures: true, runnerAuthoritySandboxed: false, policyObservationScope: "scenario-tree", model: opts.model, provider: opts.provider, scenarioCount: referenceCorpus.length, isolatedPerAgent: true, executionOrder: "scenario-major rotating-agent order", rows, ...summary,
+    const result = { run: true, corpusVersion: CORPUS_VERSION, seed: corpusSeed, agentOrder: opts.agents, scratchFixtures: true, runnerAuthoritySandboxed: false, policyObservationScope: "scenario-tree", model: opts.model, provider: opts.provider, scenarioCount: referenceCorpus.length, isolatedPerAgent: true, executionOrder: "scenario-major rotating-agent order", rows, ...summary,
       note: "Fixture state is isolated per agent, but each runner keeps its normal tool authority; policy scoring is limited to the exact observable scenario tree and must not be read as whole-host or syscall-sandbox proof. Ranking requires complete matching model-family + requested-provider evidence. Token/cost efficiency remains diagnostic unless efficiencyComparability explicitly marks accounting semantics comparable; missing usage/cost stays unknown." };
     if (opts.json) console.log(JSON.stringify(result, null, 2));
     else {

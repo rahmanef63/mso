@@ -32,7 +32,8 @@
     "bench:agents": "bun scripts/bench-agent-comparison.mjs",
     "forge:sandbox": "bash scripts/provision-forge-sandbox.sh",
     "bench:pipeline": "bun scripts/bench-read-pipeline.mjs",
-    "bench:corpus": "bun scripts/bench-agent-corpus.mjs"
+    "bench:corpus": "bun scripts/bench-agent-corpus.mjs",
+    "bench:corpus:repeat": "bun scripts/bench-agent-repeat.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
