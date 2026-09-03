@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `mcp` harden ChatGPT profile and project bridge
 
+**Fixed**
+
+- `mcp` make read pipeline schema portable
+
 **Faster**
 
 - `agent` expand objective repo corpus

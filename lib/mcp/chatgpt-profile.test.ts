@@ -33,6 +33,10 @@ describe("ChatGPT compact MCP profile", () => {
     expect(tools.some((tool) => tool.name === "local_agent_inbox")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_mcp_tools")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_mcp_call")).toBe(true);
+    const pipeline = tools.find((tool) => tool.name === "read_pipeline") as { inputSchema?: { properties?: { calls?: { items?: { properties?: { transform?: { properties?: { where?: { items?: { properties?: { value?: unknown } } } } } } } } } } } | undefined;
+    expect(pipeline?.inputSchema?.properties?.calls?.items?.properties?.transform?.properties?.where?.items?.properties?.value).toEqual({
+      anyOf: [{ type: "string", maxLength: 2048 }, { type: "number" }, { type: "boolean" }, { type: "null" }],
+    });
     expect(tools.some((tool) => String(tool.name) === "private_echo" || String(tool.name).startsWith("project_fixture_"))).toBe(false);
   });
 

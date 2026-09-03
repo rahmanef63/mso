@@ -7,7 +7,8 @@ const TRANSFORM = {
   properties: {
     path: { type: "string", description: "Optional simple dotted path selected from the raw result before other operations." },
     where: { type: "array", maxItems: 4, items: { type: "object", properties: {
-      field: { type: "string" }, op: { type: "string", enum: ["eq", "ne", "contains", "gt", "gte", "lt", "lte", "exists"] }, value: {},
+      field: { type: "string" }, op: { type: "string", enum: ["eq", "ne", "contains", "gt", "gte", "lt", "lte", "exists"] },
+      value: { anyOf: [{ type: "string", maxLength: 2048 }, { type: "number" }, { type: "boolean" }, { type: "null" }] },
     }, required: ["field", "op"], additionalProperties: false } },
     select: { type: "array", maxItems: 12, items: { type: "string" } },
     sort: { type: "object", properties: { field: { type: "string" }, direction: { type: "string", enum: ["asc", "desc"] } }, required: ["field"], additionalProperties: false },

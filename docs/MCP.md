@@ -116,9 +116,9 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.7.0 version=2026.09.03.3 tools=72 read=34 write=24 exec=14 -->
+<!-- mcp-toolset: server=1.7.0 version=2026.09.03.4 tools=72 read=34 write=24 exec=14 -->
 
-Current full transport catalog: **73 tools**, server `1.7.0` / toolset `2026.09.03.3`.
+Current full transport catalog: **73 tools**, server `1.7.0` / toolset `2026.09.03.4`.
 The model/operator catalog is **72 tools** (34 read, 24 write, 14 exec); `workflow_status` is the one app-only MCP Apps bridge. ChatGPT receives a smaller client profile rather than this full set; see [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md).
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
 
