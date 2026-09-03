@@ -1,6 +1,6 @@
 ---
 name: mso-camoufox
-description: Operate MSO's Camoufox browser safely: inspect status and power the session, while keeping VNC credentials, cookies, and logged-in profile data human-only.
+description: "Operate MSO's Camoufox browser safely: inspect status and power the session, while keeping VNC credentials, cookies, and logged-in profile data human-only."
 metadata:
   mso:
     risk: high

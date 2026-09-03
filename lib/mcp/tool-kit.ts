@@ -17,10 +17,17 @@ export interface McpDirectResult {
   __mcpDirect: true;
   content: McpContent[];
   isError?: boolean;
+  /** Optional safe structured projection for clients that advertise outputSchema.
+   * Never put binary/base64 payloads or secrets here. */
+  structuredContent?: Record<string, unknown>;
 }
 
-export function mcpDirect(content: McpContent[], isError = false): McpDirectResult {
-  return { __mcpDirect: true, content, ...(isError ? { isError: true } : {}) };
+export function mcpDirect(
+  content: McpContent[],
+  isError = false,
+  structuredContent?: Record<string, unknown>,
+): McpDirectResult {
+  return { __mcpDirect: true, content, ...(isError ? { isError: true } : {}), ...(structuredContent ? { structuredContent } : {}) };
 }
 
 export function isMcpDirectResult(value: unknown): value is McpDirectResult {

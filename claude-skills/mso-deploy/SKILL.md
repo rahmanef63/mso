@@ -1,6 +1,6 @@
 ---
 name: mso-deploy
-description: Ship MSO safely using its verified release path: preflight, out-of-tree verification, commit and push gates, build then restart, health and chunk checks, and visual proof.
+description: "Ship MSO safely using its verified release path: preflight, out-of-tree verification, commit and push gates, build then restart, health and chunk checks, and visual proof."
 metadata:
   mso:
     risk: high

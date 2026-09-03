@@ -348,7 +348,7 @@ the real runtime and working analogue before changing a tool or skill contract.
   it AND `tools/call` re-checks it — a client can call a name it was never shown.
 - **Tool names are an MSO public API contract.** Keep global names MSO-owned and generic.
   Project-owned MCP names are data behind `project_mcp_tools` / `project_mcp_call`; never copy them into the global catalog.
-  <!-- mcp-toolset: server=1.8.0 version=2026.09.03.5 tools=85 read=41 write=25 exec=19 -->
+  <!-- mcp-toolset: server=1.8.1 version=2026.09.03.6 tools=85 read=41 write=25 exec=19 -->
   The full MSO transport exposes **73 tools**: **72 model/operator tools** (34 read, 24 write, 14 exec) plus app-only `workflow_status`.
   ChatGPT receives a deliberately smaller static profile; hidden full-catalog names are rejected at call time, not merely omitted from `tools/list`.
 - Store is `~/.mso/mcp.json`, **sha256 only**, same atomic-write + fail-loud-on-corrupt

@@ -1,6 +1,6 @@
 ---
 name: mso-repo-work
-description: Change an MSO-managed code repository efficiently: resolve aliases, inspect Git once, search broadly in one scoped batch, patch safely, and verify only what the change can break.
+description: "Change an MSO-managed code repository efficiently: resolve aliases, inspect Git once, search broadly in one scoped batch, patch safely, and verify only what the change can break."
 metadata:
   mso:
     risk: medium

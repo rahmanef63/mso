@@ -1,8 +1,9 @@
+import { MSO_ORIGIN, widgetResourceMeta } from "./ui-config";
+
 export const PROJECT_STATUS_URI = "ui://mso/project-status-v1.html";
 export const DIFF_VIEW_URI = "ui://mso/project-diff-v1.html";
 export const VPS_STATUS_URI = "ui://mso/vps-status-v1.html";
 
-const ORIGIN = "https://mso.rahmanef.com";
 const MIME = "text/html;profile=mcp-app";
 
 function shell(title: string, body: string, script: string) {
@@ -12,7 +13,7 @@ function shell(title: string, body: string, script: string) {
 }
 
 const sharedScript = String.raw`
-const MSO_URL="https://mso.rahmanef.com";const $=id=>document.getElementById(id);let last=null;
+const MSO_URL="${MSO_ORIGIN}";const $=id=>document.getElementById(id);let last=null;
 const txt=(v,f="—")=>v===undefined||v===null||v===""?f:String(v);const esc=v=>txt(v);
 function output(){return window.openai&&window.openai.toolOutput?window.openai.toolOutput:null}
 async function openMso(){if(window.openai&&typeof window.openai.openExternal==="function")await window.openai.openExternal({href:MSO_URL,redirectUrl:false});else window.open(MSO_URL,"_blank","noopener,noreferrer")}
@@ -37,12 +38,7 @@ $("refresh").addEventListener("click",async()=>{if(!window.openai||typeof window
 `;
 
 function meta(description: string) {
-  return {
-    ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } },
-    "openai/widgetDescription": description,
-    "openai/widgetPrefersBorder": true,
-    "openai/widgetCSP": { connect_domains: [], resource_domains: [], redirect_domains: [ORIGIN] },
-  };
+  return widgetResourceMeta(description);
 }
 
 export const OPERATOR_UI_RESOURCES = [

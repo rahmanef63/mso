@@ -36,8 +36,10 @@ export type McpResultBudget = {
  */
 export function boundedResultText(result: unknown, policy?: McpResultBudget): string {
   let raw: string;
-  try { raw = typeof result === "string" ? result : JSON.stringify(result); }
-  catch { raw = String(result); }
+  try {
+    const encoded = typeof result === "string" ? result : JSON.stringify(result);
+    raw = encoded === undefined ? "null" : encoded;
+  } catch { raw = String(result); }
   const max = clampBudget(policy?.maxTextBytes);
   const bytes = utf8Bytes(raw);
   if (bytes <= max) return raw;

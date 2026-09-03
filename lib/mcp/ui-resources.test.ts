@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 
 const { dispatch } = await import("./dispatch");
 const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI } = await import("./ui-resources");
+const { MCP_UI_DOMAIN } = await import("./ui-config");
 const { activeWorkflowForActor } = await import("@/lib/skills/memory");
 
 const call = (name: string, args: Record<string, unknown> = {}) =>
@@ -62,7 +63,8 @@ describe("MCP Apps workflow progress UI", () => {
     expect(content.text).toContain("Open in MSO");
     expect(content.text).not.toContain("fetch(");
     expect(content._meta).toMatchObject({
-      ui: { prefersBorder: true },
+      ui: { domain: MCP_UI_DOMAIN, prefersBorder: true },
+      "openai/widgetDomain": MCP_UI_DOMAIN,
       "openai/widgetPrefersBorder": true,
     });
   });
@@ -125,7 +127,7 @@ describe("MCP Apps workflow progress UI", () => {
       expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
       expect(content.text).toContain(marker);
       expect(content.text).not.toContain("fetch(");
-      expect(content._meta).toMatchObject({ ui: { prefersBorder: true }, "openai/widgetPrefersBorder": true });
+      expect(content._meta).toMatchObject({ ui: { domain: MCP_UI_DOMAIN, prefersBorder: true }, "openai/widgetDomain": MCP_UI_DOMAIN, "openai/widgetPrefersBorder": true });
     }
   });
   it("rejects unknown UI resource URIs", async () => {

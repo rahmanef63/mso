@@ -4,6 +4,7 @@ import { isMcpDirectResult } from "./tool-kit";
 import { boundedResultText } from "./result-budget";
 import { TOOLS_BY_NAME } from "./tools";
 import type { McpAgentContext } from "./dispatch-types";
+import type { McpToolProfile } from "./tool-contract";
 
 export function sessionDetail(name: string, args: Record<string, unknown>, target?: string): string | undefined {
   if (name === "workflow_start") {
@@ -43,14 +44,38 @@ export function workflowFromResult(result: unknown): ActiveWorkflow | null {
   return typeof row.id === "string" && typeof row.intent === "string" ? row as ActiveWorkflow : null;
 }
 
-export function structuredResult(toolName: string, result: unknown) {
+function boundedStructuredValue(result: unknown, policy?: { maxTextBytes?: number; overflowHint?: string }): unknown {
+  const text = boundedResultText(result, policy);
+  try { return JSON.parse(text); } catch { return text; }
+}
+
+export function structuredResult(toolName: string, result: unknown, profile: McpToolProfile = "full") {
   const tool = TOOLS_BY_NAME.get(toolName);
-  const content = [{ type: "text" as const, text: boundedResultText(result, tool?.result) }];
-  const structured = tool?.toStructuredContent
-    ? tool.toStructuredContent(result)
-    : result !== null && typeof result === "object" && !Array.isArray(result)
-      ? result as Record<string, unknown>
-      : undefined;
-  if (isMcpDirectResult(result)) return { content: result.content, ...(result.isError ? { isError: true } : {}) };
-  return tool?.outputSchema && structured ? { structuredContent: structured, content } : { content };
+  if (isMcpDirectResult(result)) {
+    return {
+      content: result.content,
+      ...(profile === "chatgpt" && result.structuredContent ? { structuredContent: result.structuredContent } : {}),
+      ...(result.isError ? { isError: true } : {}),
+    };
+  }
+
+  const text = boundedResultText(result, tool?.result);
+  if (tool?.outputSchema) {
+    const structured = tool.toStructuredContent
+      ? tool.toStructuredContent(result)
+      : result !== null && typeof result === "object" && !Array.isArray(result)
+        ? result as Record<string, unknown>
+        : undefined;
+    return structured ? { structuredContent: structured, content: [{ type: "text" as const, text }] } : { content: [{ type: "text" as const, text }] };
+  }
+
+  if (profile === "chatgpt") {
+    return {
+      structuredContent: { result: boundedStructuredValue(result, tool?.result) },
+      // Do not duplicate the full JSON in ChatGPT's transcript: the structured
+      // result already contains it. Generic MCP clients keep the old text-only form.
+      content: [{ type: "text" as const, text: `Structured result returned by ${toolName}.` }],
+    };
+  }
+  return { content: [{ type: "text" as const, text }] };
 }

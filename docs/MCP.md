@@ -116,15 +116,17 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-<!-- mcp-toolset: server=1.8.0 version=2026.09.03.5 tools=85 read=41 write=25 exec=19 -->
+<!-- mcp-toolset: server=1.8.1 version=2026.09.03.6 tools=85 read=41 write=25 exec=19 -->
 
-Current full transport catalog: **86 tools**, server `1.8.0` / toolset `2026.09.03.5`.
+Current full transport catalog: **86 tools**, server `1.8.1` / toolset `2026.09.03.6`.
 The model/operator catalog is **85 tools** (41 read, 25 write, 19 exec); `workflow_status` is the one app-only MCP Apps bridge. ChatGPT receives a smaller client profile rather than this full set; see [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md).
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
 
 Session/memory tools add durable conversation context without creating dynamic per-project global names. Project functions use `project_capabilities` / `project_function_call`; project MCP servers use `project_capabilities` / `project_mcp_tools` / `project_mcp_call`. In both cases project-specific names remain data, not entries in MSO `tools/list`.
 
 ### Advertised metadata and client profiles
+
+The ChatGPT client profile additionally supplies a DRY output contract for every scanned action. Stable UI/critical tools keep their explicit typed `outputSchema`; other ChatGPT actions use one exact `{ result }` envelope whose value is generated from the same bounded result text policy. This eliminates scanner `Output schema recommended` gaps without copying dozens of dynamic provider/project shapes or changing the generic MCP text contract. Direct binary output such as screenshots keeps binary bytes in MCP `content`, never in `structuredContent`.
 
 `toolDescriptor()` is the SSOT normalization layer for every MCP host. It guarantees a human-readable `title`, complete `readOnlyHint` / `destructiveHint` / `openWorldHint` booleans, optional `idempotentHint`, and matching top-level plus `_meta.securitySchemes`. Individual tool declarations may override safety semantics; otherwise conservative MSO defaults are applied from scope/operation class.
 
@@ -386,6 +388,12 @@ reduces storage context and feeds the compact summary back into later turns.
 Run `bun run bench:cognitive` for the reproducible provider-neutral routing/footprint gate. It requires 100% required-tool recall and deterministic routing, ≥95% schema reduction, ≥90% catalog hit, ≤4 average active tools, bounded routing text/history budget, and the phase-aware repository transition. The current checked corpus reports 2.7 active tools and 2,252 schema bytes on average (95.8% reduction), with 100% recall/catalog hit.
 Hermes is compared only where an equivalent offline `prompt-size` metric exists; OpenClaw is
 reported but is not declared beaten on a non-comparable metric.
+
+## OpenAI/MCP static skill extension
+
+In addition to the live `skills_*` actions, MSO advertises `capabilities.extensions["io.modelcontextprotocol/skills"]` for ChatGPT/OpenAI plugin scans. The extension is intentionally **static and bounded**: it publishes at most five general official skills from `claude-skills/`, then serves the same complete entry through `skills/list` and `skills/get` and every declared `skill://mso/...` resource through `resources/read`. Each resource is read with `O_NOFOLLOW`, capped before allocation, path-normalized, included in the per-skill 100-file / 5 MiB budget, and hashed as `sha256:<hex>`.
+
+The published set is `mso`, `mso-repo-work`, `mso-service-debug`, `mso-deploy`, and `mso-mcp-feature-engineering`. This is deliberately separate from MSO's much larger live catalog: operator `~/.mso/skills`, per-project skills, local skills, and third-party/verified/untrusted roots can still be searched/read at runtime but never silently become plugin-submission instructions.
 
 ## Semantic skill search and learned workflows
 

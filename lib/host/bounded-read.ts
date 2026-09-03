@@ -28,7 +28,7 @@ export const BOUNDED_READ = {
   projectMcpConfig: 256 * 1024,
 } as const;
 
-export async function readBoundedRegularFile(file: string, maxBytes: number): Promise<string | null> {
+export async function readBoundedRegularBuffer(file: string, maxBytes: number): Promise<Buffer | null> {
   let handle: Awaited<ReturnType<typeof fs.open>>;
   try {
     // O_NOFOLLOW: ELOOP if `file` itself is a symlink. Intermediate directories are
@@ -42,13 +42,18 @@ export async function readBoundedRegularFile(file: string, maxBytes: number): Pr
     if (!stat.isFile()) return null;
     if (stat.size > maxBytes) return null;
     const size = Number(stat.size);
-    if (size === 0) return "";
+    if (size === 0) return Buffer.alloc(0);
     const buffer = Buffer.allocUnsafe(size);
     const { bytesRead } = await handle.read(buffer, 0, size, 0);
-    return buffer.subarray(0, bytesRead).toString("utf8");
+    return buffer.subarray(0, bytesRead);
   } catch {
     return null;
   } finally {
     await handle.close().catch(() => undefined);
   }
+}
+
+export async function readBoundedRegularFile(file: string, maxBytes: number): Promise<string | null> {
+  const buffer = await readBoundedRegularBuffer(file, maxBytes);
+  return buffer === null ? null : buffer.toString("utf8");
 }

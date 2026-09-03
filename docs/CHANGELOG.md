@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `mcp` complete Fresh 3 plugin contracts
 - `mcp` maximize Fresh 3 operator capabilities
 - `mcp` harden ChatGPT profile and project bridge
 

@@ -22,4 +22,12 @@ describe("MCP advertised tool contract", () => {
     expect(names).toContain("project_mcp_call");
     expect(names.some((name) => name === "private_echo" || name.startsWith("project_fixture_"))).toBe(false);
   });
+
+  it("adds the generic output envelope only to the compact ChatGPT profile", () => {
+    const fileList = TOOLS.find((tool) => tool.name === "fs_list");
+    expect(fileList).toBeDefined();
+    expect(toolDescriptor(fileList!, "full")).not.toHaveProperty("outputSchema");
+    expect(toolDescriptor(fileList!, "chatgpt").outputSchema).toEqual({ type: "object", properties: { result: {} }, required: ["result"], additionalProperties: false });
+  });
+
 });

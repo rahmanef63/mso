@@ -1,0 +1,26 @@
+# Dedicated MCP Apps sandbox origin for ChatGPT/OpenAI plugin UI.
+# This hostname is deliberately a sibling of mso.rahmanef.com so the cockpit's
+# OS_SESSION_COOKIE_DOMAIN=mso.rahmanef.com cookie is not sent to the widget origin.
+http:
+  routers:
+    mso-ui-router:
+      rule: Host(`mso-ui.rahmanef.com`)
+      service: mso-ui-service
+      middlewares:
+        - redirect-to-https
+      entryPoints:
+        - web
+    mso-ui-router-websecure:
+      rule: Host(`mso-ui.rahmanef.com`)
+      service: mso-ui-service
+      middlewares: []
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+  services:
+    mso-ui-service:
+      loadBalancer:
+        servers:
+          - url: http://172.17.0.1:4005
+        passHostHeader: true

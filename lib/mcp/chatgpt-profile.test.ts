@@ -24,6 +24,7 @@ describe("ChatGPT compact MCP profile", () => {
       expect(schemes?.[0]?.type, String(tool.name)).toBe("oauth2");
       expect(Array.isArray(schemes?.[0]?.scopes), String(tool.name)).toBe(true);
       expect((tool._meta as { securitySchemes?: unknown })?.securitySchemes, String(tool.name)).toEqual(schemes);
+      expect(tool.outputSchema, `${String(tool.name)}.outputSchema`).toBeDefined();
       expect(Buffer.byteLength(JSON.stringify(tool)), String(tool.name)).toBeLessThan(8 * 1024);
     }
 

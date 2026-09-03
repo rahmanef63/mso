@@ -8,7 +8,7 @@ A normal tool result cannot create an inline application by returning arbitrary 
 
 1. `resources/list` / `resources/read` expose `ui://…` resources with `text/html;profile=mcp-app`.
 2. Model-visible tools bind a resource with `_meta.ui.resourceUri` plus the OpenAI compatibility alias `_meta["openai/outputTemplate"]`.
-3. UI-capable tools declare `outputSchema` and return bounded `structuredContent`; ordinary `content` remains the model/client text fallback.
+3. Every ChatGPT action declares `outputSchema`. UI/critical tools use typed projections; other actions use the shared bounded `{ result }` structured envelope. Generic MCP clients keep their historical text fallback unless an explicit output schema exists.
 4. Sandboxed widgets read `window.openai.toolOutput`, may call only explicitly app-visible MSO tools through `window.openai.callTool`, and use `window.openai.openExternal` for the full dashboard.
 
 Official references:
@@ -65,7 +65,9 @@ Every entry tool also returns portable text/JSON for non-MCP-Apps clients.
 
 ## Dedicated UI origin
 
-For the current custom connector, MSO intentionally leaves `_meta.ui.domain` unset so ChatGPT uses its default sandbox origin. The main dashboard is not reused as widget origin. Before an app-directory submission, provision a dedicated reviewed HTTPS widget origin and add it to `_meta.ui.domain` (plus the compatibility alias required by the target client at that time).
+All four templates declare `_meta.ui.domain = https://mso-ui.rahmanef.com` and the ChatGPT compatibility alias `_meta["openai/widgetDomain"]` with the same origin. The sibling hostname is intentional: the cockpit may scope its session cookie to `mso.rahmanef.com`, while `mso-ui.rahmanef.com` is outside that cookie domain. The dedicated origin therefore satisfies the plugin UI identity requirement without reusing the authenticated dashboard origin.
+
+The reproducible Traefik route is stored in `ops/traefik/mso-ui.yml` and forwards only to the same local MSO service through the existing HTTPS/Let's Encrypt ingress. Widget CSP still allows no network/static-resource domains and only permits `Open in MSO` to redirect to `https://mso.rahmanef.com`.
 
 ## Deployment / refresh
 
@@ -74,8 +76,9 @@ After a UI/schema release:
 1. run `bun run verify` and a production build;
 2. deploy through the normal MSO release path;
 3. refresh/re-scan the ChatGPT development app so `initialize`, `tools/list`, and `resources/list` are read again;
-4. verify each entry tool exposes `outputSchema` and `_meta.ui.resourceUri`;
+4. verify all 62 ChatGPT actions expose `outputSchema`; verify each UI entry tool also exposes `_meta.ui.resourceUri`;
 5. verify each `resources/read` returns `text/html;profile=mcp-app`;
-6. verify refresh buttons work and `workflow_status` polling does not enter learned workflow steps.
+6. verify every UI resource reports `ui.domain=https://mso-ui.rahmanef.com`, refresh buttons work, and `workflow_status` polling does not enter learned workflow steps;
+7. verify `skills/list`, `skills/get`, and each declared `skill://` resource/digest before the final Scan Tools refresh.
 
 If ChatGPT still renders text only after a verified deployment, treat a stale app/action snapshot as the first suspect before changing the server again.

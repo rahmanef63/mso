@@ -1,6 +1,6 @@
 ---
 name: mso-list
-description: Audit MSO capabilities honestly: inventory every /api/v1 route, live-probe the safe core, report exact probe coverage, and distinguish PASS, FAIL, and UNPROBED.
+description: "Audit MSO capabilities honestly: inventory every /api/v1 route, live-probe the safe core, report exact probe coverage, and distinguish PASS, FAIL, and UNPROBED."
 metadata:
   mso:
     risk: low

@@ -10,6 +10,26 @@ export type McpToolAnnotations = {
 };
 export type McpSecurityScheme = { type: "oauth2"; scopes: string[] } | { type: "noauth" };
 
+/**
+ * ChatGPT's scanner recommends output schemas for every tool that returns
+ * structured data. Most MSO tools intentionally keep provider/project-specific
+ * result shapes dynamic, so duplicating dozens of hand-maintained schemas would
+ * create drift. The compact profile therefore uses one exact outer envelope for
+ * tools without a richer explicit contract. `result` is the bounded JSON value
+ * already produced by the tool. Full/generic MCP clients keep the historical
+ * descriptor unless a tool declares its own outputSchema.
+ */
+export const CHATGPT_RESULT_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: { result: {} },
+  required: ["result"],
+  additionalProperties: false,
+} as const;
+
+export function outputSchemaForProfile(tool: McpTool, profile: McpToolProfile = "full"): Record<string, unknown> | undefined {
+  return tool.outputSchema ?? (profile === "chatgpt" ? CHATGPT_RESULT_OUTPUT_SCHEMA : undefined);
+}
+
 // ChatGPT scans a frozen descriptor snapshot. Keep that public snapshot deliberately
 // small; every name here is an MSO-owned generic primitive. Project-owned MCP tool
 // names are discovered/called dynamically through project_mcp_* and NEVER appended
@@ -117,12 +137,13 @@ export function toolDescriptor(tool: McpTool, profile: McpToolProfile = "full") 
   const securitySchemes = toolSecuritySchemes(tool);
   const meta = { ...(tool.meta ?? {}), securitySchemes };
   const compact = profile === "chatgpt";
+  const outputSchema = outputSchemaForProfile(tool, profile);
   return {
     name: tool.name,
     title: tool.title ?? toolTitle(tool.name),
     description: compact ? compactText(tool.chatgptDescription ?? tool.description) : tool.description,
     inputSchema: compact ? compactSchema(tool.inputSchema) : tool.inputSchema,
-    ...(tool.outputSchema ? { outputSchema: compact ? compactSchema(tool.outputSchema) : tool.outputSchema } : {}),
+    ...(outputSchema ? { outputSchema: compact ? compactSchema(outputSchema) : outputSchema } : {}),
     securitySchemes,
     annotations: completeToolAnnotations(tool),
     _meta: meta,

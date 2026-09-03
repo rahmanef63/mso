@@ -99,7 +99,7 @@ export async function dispatchToolCall(req: RpcRequest, scope: Scope, actor?: st
     }
     if (mcpPresence)
       await touchLocalAgentPresence(mcpPresence.principal, mcpPresence.sessionId, "idle", mcpPresence.instanceId).catch(() => undefined);
-    return rpcOk(id, structuredResult(name, result));
+    return rpcOk(id, structuredResult(name, result, context?.toolProfile ?? "full"));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error), durationMs = Date.now() - startedAt;
     if (trail) void audit({ action: trail.action, actor, target: auditTarget, ok: false, detail: message.slice(0, 200), meta: { via: "mcp", scope } });

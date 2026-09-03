@@ -2,6 +2,7 @@ import type { Scope } from "./scope";
 import { MCP_SERVER_VERSION, toolsetInfo } from "./toolset";
 import { TOOLS } from "./tools";
 import { listUiResources, readUiResource } from "./ui-resources";
+import { MCP_SKILLS_EXTENSION, getMcpSkill, listMcpSkills, readMcpSkillResource } from "./skills-extension";
 import { dispatchToolCall } from "./dispatch-tools";
 import { toolDescriptor, visibleToolsForProfile, type McpToolProfile } from "./tool-contract";
 import { negotiateMcpProtocol } from "./protocol";
@@ -35,7 +36,7 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, ag
       const tools = visibleTools(scope, profile), toolset = toolsetInfo(tools, scope, profile);
       return rpcOk(id, {
         protocolVersion: negotiateMcpProtocol(req.params?.protocolVersion),
-        capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
+        capabilities: { tools: { listChanged: false }, resources: { listChanged: false }, extensions: { [MCP_SKILLS_EXTENSION]: {} } },
         serverInfo: { name: "mso", version: MCP_SERVER_VERSION }, instructions: instructions(scope, profile),
         _meta: { toolset, ...(agentContext?.sessionId ? { agentSessionId: agentContext.sessionId } : {}) },
       });
@@ -52,8 +53,22 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, ag
       const uri = String(req.params?.uri ?? "");
       if (!uri) return rpcFail(id, -32602, "resources/read needs { uri }");
       const resource = readUiResource(uri);
-      if (!resource) return rpcFail(id, -32602, `unknown resource: ${uri}`);
-      return rpcOk(id, { contents: [{ uri: resource.uri, mimeType: resource.mimeType, text: resource.text, _meta: resource._meta }] });
+      if (resource) return rpcOk(id, { contents: [{ uri: resource.uri, mimeType: resource.mimeType, text: resource.text, _meta: resource._meta }] });
+      try {
+        const skillResource = await readMcpSkillResource(uri);
+        if (skillResource) return rpcOk(id, { contents: [skillResource] });
+      } catch (error) { return rpcFail(id, -32602, error instanceof Error ? error.message : String(error)); }
+      return rpcFail(id, -32602, `unknown resource: ${uri}`);
+    }
+    case "skills/list": {
+      try { return rpcOk(id, await listMcpSkills(typeof req.params?.cursor === "string" ? req.params.cursor : undefined)); }
+      catch (error) { return rpcFail(id, -32602, error instanceof Error ? error.message : String(error)); }
+    }
+    case "skills/get": {
+      const uri = String(req.params?.uri ?? "");
+      if (!uri) return rpcFail(id, -32602, "skills/get needs { uri }");
+      try { return rpcOk(id, await getMcpSkill(uri)); }
+      catch (error) { return rpcFail(id, -32602, error instanceof Error ? error.message : String(error)); }
     }
     case "tools/call": return dispatchToolCall(req, scope, actor, agentContext);
     default: return rpcFail(id, -32601, `unknown method: ${req.method}`);

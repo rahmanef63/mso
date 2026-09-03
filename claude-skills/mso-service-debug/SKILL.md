@@ -1,6 +1,6 @@
 ---
 name: mso-service-debug
-description: Diagnose an MSO or managed-app failure with the smallest safe path: telemetry, bounded status and logs, one scoped system batch only when needed, then restart and verify.
+description: "Diagnose an MSO or managed-app failure with the smallest safe path: telemetry, bounded status and logs, one scoped system batch only when needed, then restart and verify."
 metadata:
   mso:
     risk: medium

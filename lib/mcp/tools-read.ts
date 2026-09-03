@@ -175,7 +175,9 @@ export const READ_TOOLS: McpTool[] = [
             `Direct download: ${downloadUrl}\n` +
             `Expires ${new Date(share.expiresAt).toISOString()} · ${share.downloadsLeft} authenticated downloads`,
         },
-      ]);
+      ], false, {
+        result: { shell: shot.shell, width: shot.width, height: shot.height, mimeType: shot.mimeType, previewUrl, downloadUrl, expiresAt: share.expiresAt, downloadsLeft: share.downloadsLeft },
+      });
     },
   },
   {

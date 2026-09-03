@@ -1,8 +1,8 @@
 import { OPERATOR_UI_RESOURCES } from "./ui-operator-resources";
+import { MSO_ORIGIN, widgetResourceMeta } from "./ui-config";
 export { PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI } from "./ui-operator-resources";
 export const WORKFLOW_PROGRESS_URI = "ui://mso/workflow-progress-v1.html";
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
-const MSO_ORIGIN = "https://mso.rahmanef.com";
 
 const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="polite">
   <style>
@@ -216,19 +216,7 @@ export type McpUiResource = {
 };
 
 function workflowResourceMeta(): Record<string, unknown> {
-  return {
-    ui: {
-      prefersBorder: true,
-      csp: { connectDomains: [], resourceDomains: [] },
-    },
-    "openai/widgetDescription": "Authoritative MSO workflow progress card. It shows only high-level workflow state and recent tool outcomes; do not repeat the card contents verbatim.",
-    "openai/widgetPrefersBorder": true,
-    "openai/widgetCSP": {
-      connect_domains: [],
-      resource_domains: [],
-      redirect_domains: [MSO_ORIGIN],
-    },
-  };
+  return widgetResourceMeta("Authoritative MSO workflow progress card. It shows only high-level workflow state and recent tool outcomes; do not repeat the card contents verbatim.");
 }
 
 const RESOURCES: readonly McpUiResource[] = [
