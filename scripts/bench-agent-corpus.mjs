@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { aggregateAgent, comparabilityLevel, eligibleRanking, extractModelEvidence, extractToolTelemetry, extractUsage, modelFamily } from "./bench-agent-metrics.mjs";
+import { aggregateAgent, comparabilityLevel, eligibleRanking, extractModelEvidence, extractToolTelemetry, extractUsage, modelFamily, normalizedTokenUsageComparable } from "./bench-agent-metrics.mjs";
 import { createCorpus, scratchIsPrivate } from "./bench-agent-corpus-fixtures.mjs";
 
 export const CORPUS_VERSION = "mso-agent-quality-v2";
@@ -70,10 +70,10 @@ export function summarizeCorpus(rows, requested) {
   const expectedScenarios = new Set(rows.map((row) => row.scenarioId)).size;
   const tokenModes = new Set(aggregates.map((row) => row.tokenAccountingMode));
   const tokenSemanticsComparable = aggregates.length >= 2
-    && aggregates.every((row) => row.tokenCoveragePct === 100
-      && row.tokenAccountingMode === "inclusive-input-output-total"
-      && !["unknown", "mixed"].includes(row.tokenAccountingProof))
-    && tokenModes.size === 1;
+    && aggregates.every((aggregate) => {
+      const agentRows = rows.filter((row) => row.agent === aggregate.agent);
+      return aggregate.tokenCoveragePct === 100 && normalizedTokenUsageComparable(agentRows);
+    });
   const costPairs = new Set(aggregates.map((row) => `${row.costStatus}:${row.costSource}`));
   const costSemanticsComparable = aggregates.length >= 2
     && aggregates.every((row) => row.costCoveragePct === 100 && !["unknown", "mixed"].includes(row.costStatus) && !["unknown", "mixed"].includes(row.costSource))

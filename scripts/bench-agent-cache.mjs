@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { aggregateAgent, extractModelEvidence, extractUsage, modelFamily } from "./bench-agent-metrics.mjs";
+import { aggregateAgent, extractModelEvidence, extractUsage, modelFamily, normalizedTokenUsageComparable } from "./bench-agent-metrics.mjs";
 import { normalizeCorpusSeed, rotateAgentOrder } from "./bench-agent-seed.mjs";
 
 const AGENTS = ["mso", "hermes"];
@@ -91,7 +91,10 @@ export function summarizeCacheRows(rows, requested) {
     };
   });
   const evidenceComplete = rows.length > 0 && rows.every((row) => row.modelEvidence?.modelFamily === expectedFamily && row.modelEvidence?.provider === expectedProvider);
-  const tokenSemanticsComparable = aggregates.length >= 2 && evidenceComplete && aggregates.every((row) => row.tokenCoveragePct === 100 && row.tokenAccountingMode === "inclusive-input-output-total" && !["unknown", "mixed"].includes(row.tokenAccountingProof));
+  const tokenSemanticsComparable = aggregates.length >= 2 && evidenceComplete && aggregates.every((aggregate) => {
+    const agentRows = rows.filter((row) => row.agent === aggregate.agent);
+    return aggregate.tokenCoveragePct === 100 && normalizedTokenUsageComparable(agentRows);
+  });
   const costPairs = new Set(aggregates.map((row) => `${row.costStatus}:${row.costSource}`));
   const costSemanticsComparable = aggregates.length >= 2 && evidenceComplete && aggregates.every((row) => row.costCoveragePct === 100 && !["unknown", "mixed"].includes(row.costStatus) && !["unknown", "mixed"].includes(row.costSource)) && costPairs.size === 1;
   return {

@@ -198,6 +198,21 @@ describe("agent-quality corpus", () => {
     expect(summarizeCorpus(rows as any, { model: "x", provider: "p" }).efficiencyComparability.tokenSemanticsComparable).toBe(true);
   });
 
+  it("keeps token semantics comparable when valid normalized proof shapes vary across scenarios", () => {
+    const explicit = extractUsage({ inputTokens: 100, outputTokens: 20, totalTokens: 120, cacheReadTokens: 0, accountingMode: "inclusive-input-output-total" })!;
+    const identity = extractUsage({ input_tokens: 100, output_tokens: 20, total_tokens: 120, cache_read_tokens: 0 })!;
+    const cached = extractUsage({ input_tokens: 40, cache_read_tokens: 60, output_tokens: 20, total_tokens: 120 })!;
+    const rows = [
+      { agent: "a", scenarioId: "x", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 10, usage: explicit, modelEvidence: { modelFamily: "x", provider: "p" } },
+      { agent: "b", scenarioId: "x", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 12, usage: identity, modelEvidence: { modelFamily: "x", provider: "p" } },
+      { agent: "a", scenarioId: "y", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 11, usage: explicit, modelEvidence: { modelFamily: "x", provider: "p" } },
+      { agent: "b", scenarioId: "y", fullSuccess: true, taskSuccess: true, policyCompliant: true, latencyMs: 13, usage: cached, modelEvidence: { modelFamily: "x", provider: "p" } },
+    ];
+    const out = summarizeCorpus(rows as any, { model: "x", provider: "p" });
+    expect(out.aggregates.find((row: any) => row.agent === "b")?.tokenAccountingProof).toBe("mixed");
+    expect(out.efficiencyComparability.tokenSemanticsComparable).toBe(true);
+  });
+
   it("can also normalize an exact representation where reasoning is outside output", () => {
     const usage = extractUsage({ input_tokens: 40, cache_read_tokens: 60, output_tokens: 13, reasoning_tokens: 7, total_tokens: 120 })!;
     expect(usage).toMatchObject({ reportedAccountingMode: "exclusive-cache-reasoning", accountingProof: "exact-exclusive-cache-reasoning-sum", normalizedInputTokens: 100, normalizedOutputTokens: 20, normalizedTotalTokens: 120 });

@@ -105,6 +105,17 @@ export function extractUsage(value) {
   });
 }
 
+export function normalizedTokenUsageComparable(rows) {
+  return rows.length > 0 && rows.every((row) => {
+    const usage = row?.usage;
+    return usage?.normalizedTotalTokens !== undefined
+      && usage?.accountingMode === "inclusive-input-output-total"
+      && typeof usage?.accountingProof === "string"
+      && usage.accountingProof !== "none"
+      && usage.accountingProof !== "unknown";
+  });
+}
+
 /**
  * @param {Array<any>} rows
  * @param {string} requestedFamily

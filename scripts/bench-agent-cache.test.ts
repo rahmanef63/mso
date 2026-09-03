@@ -43,6 +43,13 @@ describe("P8 calibration", () => {
     expect(out.efficiencyComparability.costSemanticsComparable).toBe(false);
   });
 
+  it("keeps token semantics comparable when one agent uses multiple independently valid accounting proofs", () => {
+    const rows: any[] = [row("mso", 0, 0), row("hermes", 0, 0), row("mso", 1, 0), row("hermes", 1, 30)];
+    rows[1].usage.accountingProof = "exact-input-output-identity";
+    rows[3].usage.accountingProof = "exact-exclusive-cache-sum";
+    expect(summarizeCacheRows(rows, { model: "x", provider: "openai-codex" }).efficiencyComparability.tokenSemanticsComparable).toBe(true);
+  });
+
   it("allows cost comparability only when both agents expose the same attributed contract", () => {
     const rows = [row("mso", 0, 0, true), row("hermes", 0, 30, true), row("mso", 1, 20, true), row("hermes", 1, 40, true)];
     expect(summarizeCacheRows(rows as any, { model: "x", provider: "openai-codex" }).efficiencyComparability.costSemanticsComparable).toBe(true);
