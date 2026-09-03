@@ -29,6 +29,8 @@
     "bench:cognitive": "bun scripts/bench-cognitive-runtime.mjs",
     "bench:memory": "bun scripts/bench-memory-retrieval.mjs",
     "bench:memory:calibration": "bun scripts/bench-memory-calibration.mjs",
+    "bench:memory:lifecycle": "bun scripts/bench-memory-lifecycle.mjs",
+    "bench:memory:retrieval-calibration": "bun scripts/bench-memory-retrieval-calibration.mjs",
     "bench:quality": "bun scripts/bench-task-quality.mjs",
     "bench:agents": "bun scripts/bench-agent-comparison.mjs",
     "forge:sandbox": "bash scripts/provision-forge-sandbox.sh",

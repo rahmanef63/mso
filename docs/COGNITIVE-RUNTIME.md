@@ -91,8 +91,10 @@ recovery is a narrower read/search/grep/tail, not silently increasing the contex
 
 P1 keeps the two proven planes but upgrades stable agent memory from untyped Markdown into a structured, backward-compatible ledger:
 
-- **Agent memory ledger** — private `records-v1.json` claims keyed by client principal, with semantic/episodic/procedural kind, confidence, sensitivity, temporal validity, provenance authority/channel, supersession/retraction and conflict evidence.
+- **Agent memory live ledger** — private `records-v1.json` claims keyed by client principal, with semantic/episodic/procedural kind, confidence, sensitivity, temporal validity, provenance authority/channel, supersession/retraction and conflict evidence. Hard safety limits remain 2,000 live records / 2 MiB.
+- **Cold finished-history archive** — P10 moves only records that can no longer become effective now or in the future into owner-only content-addressed `archive-v1/segment-<sha>.json` files before the live-ledger swap. Normal resolved reads never load archive content. Explicit history or explicit temporal retrieval can read it, preserving provenance and historical resolution without inflating model-active context.
 - **Markdown compatibility projection** — `USER.md` / `MEMORY.md` remain the resolved materialized view consumed by older CLI/session code. Existing installations are read unchanged; the first structured mutation seeds the ledger from legacy `## key` sections instead of deleting or rewriting history.
+- **Privacy-safe memory telemetry** — aggregate-only lifecycle diagnostics count live/archived/resolved/superseded/retracted/future/conflict records, correction-depth buckets, bytes and archive segments. They never emit memory values, raw keys, raw conversation ids, bearer data or secrets.
 - **Experience memory** — verified workflow trajectories remain client-scoped and now accumulate P1 quality telemetry: completed/failed/denied/rate-limited/invalid-argument steps, retries, rollback/restore evidence and timed-step latency.
 
 Resolution is deterministic at a requested timestamp: only effective claims participate, then authority (`explicit > observed > inferred > migration`), confidence, observation recency, creation recency and stable id break ties. `mode=replace` supersedes the currently resolved claim from its `valid_from`; `mode=claim` keeps parallel evidence so disagreement remains inspectable. A future replacement therefore does **not** erase the fact that is still valid today. `agent_memory_forget` retracts every matching claim that can still become effective now or later, so a scheduled future value cannot resurrect after a forget request; already-finished historical evidence is left unchanged and remains visible only through explicit history retrieval.
@@ -107,6 +109,8 @@ Run:
 bun run bench:cognitive          # routing/schema + typed-memory gates
 bun run bench:memory             # deterministic retrieval/temporal/conflict suite
 bun run bench:memory:calibration -- --corrections 200 # repeated-correction/privacy/context calibration in isolated temp memory
+bun run bench:memory:lifecycle   # retention/archive/telemetry/frozen-session calibration in isolated temp memory
+bun run bench:memory:retrieval-calibration # paraphrase/synonym/bilingual + two-hop graph evidence gate
 bun run bench:quality -- --live  # learned workflow success + P1 telemetry coverage
 bun run bench:agents -- --provider openai-codex --model gpt-5.6-terra        # one-task smoke plan
 bun run bench:corpus -- --provider openai-codex --model gpt-5.6-terra        # nine-task dry plan
@@ -366,6 +370,22 @@ That result does **not** prove that graph memory is never useful. It does show t
 3. **Measure production correction patterns without recording content in telemetry** — track counts/depth/conflict/retraction rates so retention work is driven by real usage rather than synthetic scale.
 4. **Preserve frozen-session semantics** — new sessions capture the latest resolved snapshot; an active session must not silently change because persistent memory changed elsewhere.
 5. **Benchmark semantic recall only if lexical retrieval becomes the bottleneck** — do not add embedding/vector infrastructure merely because it is available.
+
+## P10 memory retention and lifecycle calibration
+
+P10 completes that handoff without introducing a graph database, vector database or external memory service. Retention is deterministic and threshold-driven: at **1,400 live records or ~1.4 MiB**, MSO attempts to archive the oldest finished records until the live ledger is at or below **1,000 records and ~1 MiB**. The existing **2,000-record / 2 MiB hard caps remain fail-closed**. If the ledger is large because records are still current or future-effective, retention refuses to archive them and the hard guard remains authoritative.
+
+Archive segments are bounded (up to 400 records / 768 KiB), owner-only (`0700` directory, `0600` files), content-addressed and written atomically through temp-file + rename. The archive write happens before the atomic live-ledger replacement so a crash cannot lose cold history. If a crash leaves the same record id in both places, explicit retrieval deduplicates with the persisted live ledger winning; the P10 crash fixture verifies that a stale archive copy cannot manufacture a retraction or replace live authority. Because archived rows are immutable, a later backdated replacement records the old id in its forward `supersedes` edge; temporal resolution treats that edge as the replacement boundary without rewriting cold history. This preserves `replace` semantics even when the archived claim had stronger authority.
+
+`bun run bench:memory:lifecycle` uses only temporary memory/session roots. Its threshold fixture starts with 1,400 sequential corrections and ends at **1,000 live + 401 archived records in two segments** while the resolved projection remains **56 bytes**. The current suite is **8/8 deterministic**: retention before the hard cap, archived-history retrieval, archived temporal resolution, aggregate-only telemetry, owner-only permissions, archive-before-ledger crash recovery semantics, backdated replacement over immutable archive, and frozen-session behavior. Session A keeps its old snapshot after persistent memory changes; a newly created session B gets the new snapshot; resuming A returns A's frozen snapshot rather than silently live-refreshing it.
+
+The lifecycle fixture also closed one deterministic lexical defect. A history search for `Runtime-1` could previously be crowded out by substring matches such as `Runtime-10` through `Runtime-19` before the result limit. Search scoring now prioritizes exact phrase/token matches and only uses bounded alphabetic-prefix matching for ordinary word stems. The existing 8-scenario `bench:memory` suite remains 100%.
+
+`bun run bench:memory:retrieval-calibration` deliberately probes cases that literal lexical retrieval may not solve. The bounded fixture currently passes **4/6 lexical cases**: paraphrase-with-overlap, long-value tail retrieval, similar-key disambiguation and exact domain phrase pass; `IDE`↔`editor` synonym and Indonesian `kantor`↔English `office` remain objective misses. That is evidence of a semantic gap, but **not yet evidence for vector infrastructure**: no local embedding approach has demonstrated a measured recall benefit with acceptable privacy, latency and context cost. Vector/embedding storage therefore remains blocked rather than being added speculatively.
+
+The same calibration passes **3/3 two-hop relationship fixtures** by retrieving the first edge and then the intermediate-node edge with the existing keyed records. This proves only that the tested relationship chains are reachable without graph storage; it is not a universal graph-reasoning claim. Graph memory remains blocked until a reproduced task cannot be solved with bounded keyed retrieval and a smaller relationship layer measurably fixes it.
+
+P9's future-forget privacy rule remains unchanged and revalidated at **6/6** with 200 repeated corrections. Cache remains observation-only until request envelopes are equivalent, cost remains withheld until both runners expose comparable attributable USD semantics, OpenClaw remains unranked without a legitimate matched provider/model path, and five-run reliability remains descriptive rather than inferential.
 
 ## Security notes
 

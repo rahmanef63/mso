@@ -3,12 +3,16 @@ import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
+import { archiveMemoryRecords, readMemoryArchive } from "./memory-archive";
 import { ledgerFile, materializeDocuments, readMemoryLedger, seedLedger, writeMemoryLedger } from "./memory-ledger";
 import { queryMemoryLedger } from "./memory-query";
+import { planMemoryRetention } from "./memory-retention";
 import { recordCanBeEffectiveAtOrAfter, recordEffectiveAt } from "./memory-resolution";
+import { collectMemoryTelemetry, type AgentMemoryTelemetry } from "./memory-telemetry";
 import type { AgentMemoryDocument, AgentMemoryLedger, AgentMemoryQuery, AgentMemoryRecord, AgentMemoryWriteOptions } from "./memory-types";
 
 export type { AgentMemoryDocument, AgentMemoryKind, AgentMemoryQuery, AgentMemoryRecord, AgentMemorySensitivity, AgentMemoryWriteOptions } from "./memory-types";
+export type { AgentMemoryTelemetry } from "./memory-telemetry";
 export interface AgentMemorySnapshot { capturedAt: string; user: string; memory: string; schemaVersion?: 1; recordCount?: number; }
 
 const ROOT = path.resolve(process.env.OS_AGENT_MEMORY_DIR || path.join(os.homedir(), ".mso", "agent-memory"));
@@ -67,12 +71,25 @@ function confidence(value: number | undefined): number {
   if (!Number.isFinite(n) || n < 0 || n > 1) throw new Error("memory confidence must be between 0 and 1");
   return Math.round(n * 1000) / 1000;
 }
+function dedupeRecords(archived: AgentMemoryRecord[], live: AgentMemoryRecord[]): AgentMemoryRecord[] {
+  const byId = new Map<string, AgentMemoryRecord>();
+  for (const record of archived) byId.set(record.id, record);
+  for (const record of live) byId.set(record.id, record); // live ledger wins after an interrupted archive-before-ledger commit.
+  return [...byId.values()];
+}
 
 async function legacyDocs(principal: string) { const [user, memory] = await Promise.all([readDocument(principal, "USER.md"), readDocument(principal, "MEMORY.md")]); return { user, memory }; }
 async function ledgerForRead(principal: string): Promise<AgentMemoryLedger> {
   const ledger = await readMemoryLedger(dirFor(principal));
   if (ledger) return ledger;
   const docs = await legacyDocs(principal); return seedLedger(docs.user, docs.memory);
+}
+async function ledgerForQuery(principal: string, query: AgentMemoryQuery): Promise<AgentMemoryLedger> {
+  const live = await ledgerForRead(principal);
+  if (!query.includeHistory && !query.at) return live;
+  const archived = await readMemoryArchive(dirFor(principal));
+  if (!archived.records.length) return live;
+  return { ...live, records: dedupeRecords(archived.records, live.records) };
 }
 function snapshotFromLedger(ledger: AgentMemoryLedger, capturedAt = new Date().toISOString()): AgentMemorySnapshot {
   const docs = materializeDocuments(ledger, capturedAt);
@@ -81,6 +98,13 @@ function snapshotFromLedger(ledger: AgentMemoryLedger, capturedAt = new Date().t
 async function persistProjection(principal: string, ledger: AgentMemoryLedger, at: string): Promise<void> {
   const docs = materializeDocuments(ledger, at);
   await writeDocument(principal, "USER.md", docs["USER.md"]); await writeDocument(principal, "MEMORY.md", docs["MEMORY.md"]);
+}
+async function persistLedgerMutation(principal: string, ledger: AgentMemoryLedger, at: string): Promise<AgentMemoryLedger> {
+  const retention = planMemoryRetention(ledger, at);
+  if (retention.archiveRecords.length) await archiveMemoryRecords(dirFor(principal), retention.archiveRecords);
+  await writeMemoryLedger(dirFor(principal), retention.ledger);
+  await persistProjection(principal, retention.ledger, at);
+  return retention.ledger;
 }
 
 export async function snapshotAgentMemory(principal: string): Promise<AgentMemorySnapshot> {
@@ -104,11 +128,19 @@ export async function rememberAgentMemory(principal: string, document: AgentMemo
   await withSecurityStoreLock(ledgerFile(dirFor(principal)), async () => {
     const current = await readMemoryLedger(dirFor(principal)) ?? await (async () => { const docs = await legacyDocs(principal); return seedLedger(docs.user, docs.memory, now); })();
     if ((options.mode ?? "replace") === "replace") {
-      const superseded = current.records.filter((row) => row.document === document && row.key === safeKey && recordEffectiveAt(row, validFrom));
+      let searchable = current.records;
+      if (Date.parse(validFrom) < Date.parse(now)) {
+        const archived = await readMemoryArchive(dirFor(principal));
+        searchable = dedupeRecords(archived.records, current.records);
+      }
+      const superseded = searchable.filter((row) => row.document === document && row.key === safeKey && recordEffectiveAt(row, validFrom));
       if (superseded.length) record.supersedes = superseded.map((row) => row.id);
-      for (const row of superseded) { row.supersededAt = validFrom; row.supersededBy = record.id; }
+      const supersededIds = new Set(superseded.map((row) => row.id));
+      for (const row of current.records) {
+        if (supersededIds.has(row.id)) { row.supersededAt = validFrom; row.supersededBy = record.id; }
+      }
     }
-    current.records.push(record); current.updatedAt = now; await writeMemoryLedger(dirFor(principal), current); await persistProjection(principal, current, now); result = current;
+    current.records.push(record); current.updatedAt = now; result = await persistLedgerMutation(principal, current, now);
   });
   return snapshotFromLedger(result, now);
 }
@@ -120,11 +152,17 @@ export async function forgetAgentMemory(principal: string, document: AgentMemory
     for (const row of current.records) {
       if (row.document === document && row.key === safeKey && recordCanBeEffectiveAtOrAfter(row, now)) row.retractedAt = now;
     }
-    current.updatedAt = now; await writeMemoryLedger(dirFor(principal), current); await persistProjection(principal, current, now); result = current;
+    current.updatedAt = now; result = await persistLedgerMutation(principal, current, now);
   });
   return snapshotFromLedger(result, now);
 }
 
 export async function queryAgentMemory(principal: string, query: AgentMemoryQuery = {}) {
-  return queryMemoryLedger(await ledgerForRead(principal), query);
+  return queryMemoryLedger(await ledgerForQuery(principal, query), query);
+}
+
+export async function agentMemoryTelemetry(principal: string): Promise<AgentMemoryTelemetry> {
+  const live = await ledgerForRead(principal);
+  const archived = await readMemoryArchive(dirFor(principal));
+  return collectMemoryTelemetry(live, archived.records, { segmentCount: archived.segmentCount, bytes: archived.bytes });
 }

@@ -37,14 +37,31 @@ function compare(a: AgentMemoryRecord, b: AgentMemoryRecord): number {
   return a.id.localeCompare(b.id);
 }
 
+function forwardSupersessionBoundaries(records: AgentMemoryRecord[]): Map<string, number> {
+  const boundaries = new Map<string, number>();
+  for (const replacement of records) {
+    const boundary = Date.parse(replacement.validFrom);
+    if (!Number.isFinite(boundary)) continue;
+    for (const supersededId of replacement.supersedes ?? []) {
+      const existing = boundaries.get(supersededId);
+      if (existing === undefined || boundary < existing) boundaries.set(supersededId, boundary);
+    }
+  }
+  return boundaries;
+}
+
 export function resolveMemoryKey(
   ledger: AgentMemoryLedger,
   document: AgentMemoryRecord["document"],
   key: string,
   at = new Date().toISOString(),
 ): AgentMemoryResolvedRecord | null {
-  const candidates = ledger.records
-    .filter((record) => record.document === document && record.key === key && recordEffectiveAt(record, at))
+  const target = Date.parse(at);
+  if (!Number.isFinite(target)) throw new Error("memory query time must be ISO-8601");
+  const records = ledger.records.filter((record) => record.document === document && record.key === key);
+  const forwardSupersededAt = forwardSupersessionBoundaries(records);
+  const candidates = records
+    .filter((record) => recordEffectiveAt(record, at) && target < (forwardSupersededAt.get(record.id) ?? Number.POSITIVE_INFINITY))
     .sort(compare);
   const winner = candidates[0];
   if (!winner) return null;

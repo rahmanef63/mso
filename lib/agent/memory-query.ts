@@ -7,11 +7,27 @@ export function memoryQueryTime(value = new Date().toISOString()): string {
   return new Date(parsed).toISOString();
 }
 
+function words(value: string): string[] {
+  return value.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+(?:[-_][\p{L}\p{N}]+)*/gu) ?? [];
+}
+
+function fieldScore(field: string, query: string, queryWords: string[], weight: number): number {
+  const normalized = field.normalize("NFKC").toLowerCase();
+  const fieldWords = words(normalized);
+  let score = normalized === query ? weight * 20 : normalized.includes(query) ? weight * 5 : 0;
+  for (const token of queryWords) {
+    if (fieldWords.includes(token)) { score += weight * 4; continue; }
+    if (/^\p{L}{4,}$/u.test(token) && fieldWords.some((word) => word.startsWith(token))) score += weight;
+  }
+  return score;
+}
+
 function searchScore(record: AgentMemoryRecord, query: string): number {
   if (!query) return 1;
-  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const key = record.key.toLowerCase(), value = record.value.toLowerCase();
-  return tokens.reduce((score, token) => score + (key.includes(token) ? 4 : 0) + (value.includes(token) ? 1 : 0), 0);
+  const normalized = query.normalize("NFKC").toLowerCase().trim();
+  const tokens = words(normalized);
+  if (!tokens.length) return 0;
+  return fieldScore(record.key, normalized, tokens, 4) + fieldScore(record.value, normalized, tokens, 1);
 }
 
 export function queryMemoryLedger(ledger: AgentMemoryLedger, query: AgentMemoryQuery = {}) {
