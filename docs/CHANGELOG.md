@@ -14,6 +14,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `agent` calibrate correction memory semantics
 - `agent` compare normalized token proofs per row
 - `mcp` advertise implemented protocol era
 - `mcp` support trusted browser probes
@@ -32,6 +33,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Docs**
 
+- `agent` record P9 memory calibration
 - `agent` record P8 calibration baseline
 - `agent` record P7 repeated corpus baseline
 

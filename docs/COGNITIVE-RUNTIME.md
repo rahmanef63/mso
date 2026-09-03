@@ -95,7 +95,7 @@ P1 keeps the two proven planes but upgrades stable agent memory from untyped Mar
 - **Markdown compatibility projection** — `USER.md` / `MEMORY.md` remain the resolved materialized view consumed by older CLI/session code. Existing installations are read unchanged; the first structured mutation seeds the ledger from legacy `## key` sections instead of deleting or rewriting history.
 - **Experience memory** — verified workflow trajectories remain client-scoped and now accumulate P1 quality telemetry: completed/failed/denied/rate-limited/invalid-argument steps, retries, rollback/restore evidence and timed-step latency.
 
-Resolution is deterministic at a requested timestamp: only effective claims participate, then authority (`explicit > observed > inferred > migration`), confidence, observation recency, creation recency and stable id break ties. `mode=replace` supersedes the currently resolved claim from its `valid_from`; `mode=claim` keeps parallel evidence so disagreement remains inspectable. A future replacement therefore does **not** erase the fact that is still valid today.
+Resolution is deterministic at a requested timestamp: only effective claims participate, then authority (`explicit > observed > inferred > migration`), confidence, observation recency, creation recency and stable id break ties. `mode=replace` supersedes the currently resolved claim from its `valid_from`; `mode=claim` keeps parallel evidence so disagreement remains inspectable. A future replacement therefore does **not** erase the fact that is still valid today. `agent_memory_forget` retracts every matching claim that can still become effective now or later, so a scheduled future value cannot resurrect after a forget request; already-finished historical evidence is left unchanged and remains visible only through explicit history retrieval.
 
 `agent_memory_search` is the model-facing typed retrieval surface. Normal reads return resolved claims plus conflict evidence; `include_history=true` is explicit because superseded/retracted material should not silently bloat context. MCP provenance stores only a short SHA-256 digest of the internal durable session id—not the raw OpenAI conversation id or bearer identity. New sessions still freeze the resolved Markdown snapshot, so memory cannot mutate underneath an active session.
 
@@ -106,6 +106,7 @@ Run:
 ```bash
 bun run bench:cognitive          # routing/schema + typed-memory gates
 bun run bench:memory             # deterministic retrieval/temporal/conflict suite
+bun run bench:memory:calibration -- --corrections 200 # repeated-correction/privacy/context calibration in isolated temp memory
 bun run bench:quality -- --live  # learned workflow success + P1 telemetry coverage
 bun run bench:agents -- --provider openai-codex --model gpt-5.6-terra        # one-task smoke plan
 bun run bench:corpus -- --provider openai-codex --model gpt-5.6-terra        # nine-task dry plan
@@ -347,6 +348,24 @@ Combining the raw P7 two-run artifact and raw P8 three-run artifact gives a five
 4. **Add OpenClaw only with a legitimate matched provider/model path** — do not mutate credentials merely to populate a benchmark table.
 5. **Move next to memory calibration** — test P1 authority/confidence/temporal/correction policies against real repeated corrections before considering graph-memory complexity.
 6. **Keep benchmark → engineering feedback closed-loop** — when a fixture exposes deterministic tool/routing/accounting waste, fix the system and rerun the same objective gate rather than prompting harder.
+
+## P9 memory calibration: repeated corrections, temporal forget, and bounded context
+
+P9 calibrates the existing P1 typed-memory ledger against correction sequences instead of adding a new memory architecture. The benchmark uses a temporary isolated `OS_AGENT_MEMORY_DIR`, never the operator's real memory. Six deterministic scenarios cover: explicit-user authority over newer observations, confidence before recency within equal authority, future replacement boundaries, forget across scheduled future claims, preservation of already-finished history, and repeated replacements with bounded resolved context.
+
+The calibration exposed one real privacy/temporal defect. `forgetAgentMemory` previously retracted only claims effective **at the instant of the forget**. A future-scheduled replacement was therefore left untouched and could become visible later. P9 adds an interval-intersection guard: forget now retracts any matching claim whose validity interval can still intersect `now..∞`, while records whose effective interval already ended remain immutable historical evidence. The regression reproduces the old `[] now → ["Singapore"] later` resurrection and requires `[] → []` after the fix.
+
+The final P9 stress run from implementation source `d249da4` uses **200 successive replacements** of one key plus the five authority/temporal/privacy scenarios. Result: **6/6 calibration scenarios pass**, deterministic resolution remains true, the existing `bench:memory` suite stays **8/8 / 100%**, and `bench:cognitive` retains **100% memory retrieval/temporal/conflict gates**. The 200-correction ledger contains **200 records / 135,180 bytes**, while the default compatibility projection contains **1 resolved record / 58 bytes** — **99.96% smaller**. Explicit history retrieval remains capped at **100 rows** even though the ledger contains 200 records.
+
+That result does **not** prove that graph memory is never useful. It does show that repeated corrections, authority, conflict and temporal validity do not currently require graph complexity: the keyed ledger keeps model-active context bounded while retaining audit history. `graphMemoryRequiredByCalibration=false` therefore means only “no calibrated fixture requires it,” not a universal architecture verdict.
+
+## P9 next direction
+
+1. **Keep graph memory evidence-gated** — add relationship/multi-hop storage only after a real retrieval task fails the keyed ledger and a benchmark shows the graph fixes that failure without unacceptable context/tool cost.
+2. **Calibrate retention before the hard ledger caps matter** — repeated corrections grow durable history even though model context stays flat. Design archival/compaction around the existing 2,000-record / 2 MiB limits without silently deleting provenance.
+3. **Measure production correction patterns without recording content in telemetry** — track counts/depth/conflict/retraction rates so retention work is driven by real usage rather than synthetic scale.
+4. **Preserve frozen-session semantics** — new sessions capture the latest resolved snapshot; an active session must not silently change because persistent memory changed elsewhere.
+5. **Benchmark semantic recall only if lexical retrieval becomes the bottleneck** — do not add embedding/vector infrastructure merely because it is available.
 
 ## Security notes
 
