@@ -8,7 +8,7 @@ The exact current server/toolset identity plus the full MSO and compact ChatGPT 
 
 Browser-hosted MCP probes from ChatGPT are allowed only when they target the configured public `OS_PUBLIC_ORIGIN`; arbitrary origins and ChatGPT-origin requests aimed at loopback remain denied. Additional trusted browser hosts can be added explicitly with comma-separated `OS_MCP_BROWSER_ORIGINS`. Public OAuth discovery and DCR responses carry CORS metadata; authenticated `/mcp` echoes only an approved exact origin.
 
-The compact descriptor regression currently measures **64,180 JSON bytes** for the current generated ChatGPT profile (roughly 16.0k tokens at a 4-byte/token estimate), with the largest individual descriptor **2,615 bytes**. CI keeps the profile below 72 KiB and each descriptor below 8 KiB. Bytes are the deterministic contract; token estimates vary by tokenizer.
+The compact descriptor regression currently measures **67,496 JSON bytes** for the current generated ChatGPT profile (roughly 16.9k tokens at a 4-byte/token estimate), with the largest individual descriptor **2,615 bytes**. CI keeps the profile below 72 KiB and each descriptor below 8 KiB. Bytes are the deterministic contract; token estimates vary by tokenizer.
 
 ## Why ChatGPT gets a compact profile
 
@@ -28,6 +28,7 @@ ChatGPT
        ├─ project snapshot / diff / knowledge / project-agent tasks
        ├─ Convex status + dynamic Convex MCP schemas/calls
        ├─ MCP Apps UI for workflow, project, diff and VPS
+       ├─ universal MSO Surface + reviewed live app demos
        └─ dynamic project MCP/function seams for project-owned tools
 ```
 
@@ -54,6 +55,8 @@ The exact current ChatGPT profile is generated under **ChatGPT static profile** 
 The restored Original MSO operator primitives (`sys_*`, `fs_usage` + full bounded filesystem CRUD, `apps_*`, browser power/status, and Dokploy/Cloudflare/Hostinger operations) are again first-class ChatGPT actions. Fresh 3 adds `vps_status`, project snapshot/diff/history/knowledge, private project-agent message/status, connection inventory, and Convex database seams without removing the lower-level primitives. This is intentional: aggregate tools optimize common turns; bounded primitives preserve direct operator control.
 
 Project-owned MCP names and Convex's own dynamic schemas still load on demand through `project_mcp_tools` / `project_mcp_call` and `project_database_tools` / `project_database_call`. That is how MSO keeps a bounded static model profile instead of copying every downstream provider/project action into ChatGPT.
+
+`render_mso_surface` is the presentation bridge for ChatGPT-as-an-MSO-shell. It accepts only MSO-style routes and a server-reviewed app id; arbitrary HTML and external URL inputs are not part of its schema. `mso_surface_apps_list` exposes only the public reviewed catalog. Direct nested frames are exact-origin allowlisted in the MCP App resource CSP, while anti-frame applications remain remote-browser candidates. User-installed runtime HTML apps do not inherit this trust automatically.
 
 ### Structured-result contract
 
@@ -146,7 +149,7 @@ MSO uses Streamable HTTP JSON-RPC over `POST /mcp`.
 4. Choose OAuth and complete the MSO consent flow on an approved owner device.
 5. Select the lowest useful MSO tier.
 6. Run **Scan Tools / Refresh** in ChatGPT.
-7. Verify that the action snapshot corresponds to the 62-tool transport profile (61 model actions + app-only `workflow_status`) above.
+7. Verify that the action snapshot corresponds to the 64-tool transport profile (63 model actions + app-only `workflow_status`) in the generated catalog.
 8. Start a new chat when testing a newly scanned draft/action snapshot.
 
 After a schema/profile change, changing production code alone does not replace ChatGPT's frozen action snapshot. Refresh/re-scan (or recreate/republish where the workspace UI requires it) after deployment.
@@ -177,3 +180,5 @@ The live diagnostic `GET /mcp` returns both `toolset` (full MSO) and `chatgptToo
 - Remote HTTP project MCP calls retain MSO's public-address / SSRF / DNS-rebinding guard.
 - Tool hiding is not a substitute for scope checks; list-time and call-time scope enforcement both remain mandatory.
 - Hidden ChatGPT transcript, private chain-of-thought and credentials are never copied into Local Agent/project MCP messages.
+- MSO Surface never accepts raw HTML/arbitrary URL input; nested iframe origins are code-reviewed, exact-origin CSP entries and revalidated in the widget.
+- The authenticated MSO cockpit stays non-frameable, and user-installed HTML/runtime manifests cannot promote themselves into the ChatGPT frame allowlist.

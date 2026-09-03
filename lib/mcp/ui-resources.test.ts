@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { dispatch } = await import("./dispatch");
-const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI, readUiResource } = await import("./ui-resources");
+const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, PROJECT_STATUS_URI, DIFF_VIEW_URI, VPS_STATUS_URI, MSO_SURFACE_URI, readUiResource } = await import("./ui-resources");
 const { MCP_UI_DOMAIN } = await import("./ui-config");
 const { activeWorkflowForActor } = await import("@/lib/workflow");
 
@@ -40,17 +40,26 @@ describe("MCP Apps workflow progress UI", () => {
       expect(tool?.outputSchema, name).toBeDefined();
       expect(tool?._meta, name).toMatchObject({ ui: { resourceUri: uri, visibility: ["model", "app"] }, "openai/outputTemplate": uri });
     }
+
+    const surface = tools.find((row) => row.name === "render_mso_surface");
+    expect(surface?.outputSchema).toBeDefined();
+    expect(surface?._meta).toMatchObject({
+      ui: { resourceUri: MSO_SURFACE_URI, visibility: ["model", "app"] },
+      "openai/outputTemplate": MSO_SURFACE_URI,
+      "openai/widgetAccessible": true,
+    });
   });
 
   it("serves one self-contained mcp-app resource", async () => {
     const listed = await dispatch({ id: 1, method: "resources/list" }, "read", "mcp:ui-resource");
     const resources = (listed.result as { resources: Array<{ uri: string; mimeType: string }> }).resources;
-    expect(resources).toHaveLength(4);
+    expect(resources).toHaveLength(5);
     expect(resources).toEqual(expect.arrayContaining([
       expect.objectContaining({ uri: WORKFLOW_PROGRESS_URI, mimeType: MCP_APP_MIME_TYPE }),
       expect.objectContaining({ uri: PROJECT_STATUS_URI, mimeType: MCP_APP_MIME_TYPE }),
       expect.objectContaining({ uri: DIFF_VIEW_URI, mimeType: MCP_APP_MIME_TYPE }),
       expect.objectContaining({ uri: VPS_STATUS_URI, mimeType: MCP_APP_MIME_TYPE }),
+      expect.objectContaining({ uri: MSO_SURFACE_URI, mimeType: MCP_APP_MIME_TYPE }),
     ]));
 
     const read = await dispatch({ id: 2, method: "resources/read", params: { uri: WORKFLOW_PROGRESS_URI } }, "read", "mcp:ui-resource");
@@ -140,6 +149,33 @@ describe("MCP Apps workflow progress UI", () => {
       expect(content._meta).toMatchObject({ ui: { domain: MCP_UI_DOMAIN, prefersBorder: true }, "openai/widgetDomain": MCP_UI_DOMAIN, "openai/widgetPrefersBorder": true });
     }
   });
+  it("serves the universal MSO Surface with a minimal nested-frame allowlist", async () => {
+    const read = await dispatch({ id: 30, method: "resources/read", params: { uri: MSO_SURFACE_URI } }, "read", "mcp:ui-surface");
+    const content = (read.result as { contents: Array<{ mimeType: string; text: string; _meta: Record<string, any> }> }).contents[0];
+    expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
+    expect(content.text).toContain("requestDisplayMode");
+    expect(content.text).toContain("setWidgetState");
+    expect(content.text).toContain("render_mso_surface");
+    expect(content.text).toContain("https://builder-game.antinrml.com");
+    expect(content.text).toContain("https://baton.rahmanef.com");
+    expect(content.text).not.toContain("fetch(");
+    expect(content.text).not.toContain("allow-popups");
+    expect(content.text).not.toContain("allow-top-navigation");
+    expect(content.text).not.toContain("dangerouslySetInnerHTML");
+    expect(content._meta.ui.csp).toMatchObject({
+      connectDomains: [],
+      resourceDomains: [],
+      frameDomains: ["https://builder-game.antinrml.com"],
+    });
+    expect(content._meta["openai/widgetCSP"]).toMatchObject({
+      connect_domains: [],
+      resource_domains: [],
+      frame_domains: ["https://builder-game.antinrml.com"],
+    });
+    expect(content._meta.ui.csp.frameDomains).not.toContain("https://baton.rahmanef.com");
+    expect(MSO_SURFACE_URI).toContain("surface-v1.html");
+  });
+
   it("gives every MCP App a visible contextual MSO destination", () => {
     expect(readUiResource(WORKFLOW_PROGRESS_URI)?.text).toContain('data-mso-path="/assistant/mcp"');
     expect(readUiResource(PROJECT_STATUS_URI)?.text).toContain('data-mso-path="/files"');

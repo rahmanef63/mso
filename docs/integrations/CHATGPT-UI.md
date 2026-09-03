@@ -24,6 +24,7 @@ Official references:
 | Project status | `project_get` | `ui://mso/project-status-v2.html` | widget calls `project_get` again |
 | Git diff summary | `project_diff` | `ui://mso/project-diff-v2.html` | static result; request a new diff for changed state |
 | VPS/operator status | `vps_status` | `ui://mso/vps-status-v2.html` | widget calls `vps_status` again |
+| Universal MSO Surface | `render_mso_surface` | `ui://mso/surface-v1.html` | native views call bounded read tools; reviewed apps may use exact-origin nested frames |
 
 Source boundaries:
 
@@ -31,6 +32,8 @@ Source boundaries:
 | --- | --- |
 | Resource registry / workflow UI | `lib/mcp/ui-resources.ts` |
 | Project/diff/VPS resources | `lib/mcp/ui-operator-resources.ts` |
+| Universal Surface resource/runtime | `lib/mcp/ui-surface.ts`, `lib/mcp/ui-surface-script.ts`, `lib/mcp/ui-surface-style.ts` |
+| Surface security catalog/router | `lib/mcp/surface-catalog.ts`, `lib/mcp/tools-surface.ts` |
 | Resource capability / RPC | `lib/mcp/dispatch.ts` |
 | Workflow structured schema | `lib/mcp/tools-workflow-start.ts`, `lib/mcp/tools-workflow-lifecycle.ts` |
 | Project/diff structured schemas | `lib/mcp/tools-project-experience.ts` |
@@ -50,7 +53,11 @@ The diff component receives only project/mode/SHA metadata, changed file names a
 
 The VPS component receives bounded health/process/app/browser state and **masked** infrastructure readiness. Provider values are those already sanitized by the infrastructure summary layer; raw credentials are never added for UI rendering.
 
-All four resources are self-contained: no external JavaScript, CSS, images, or direct `fetch()` calls. `Open in MSO` feature-detects the official ChatGPT `window.openai.openExternal` bridge, registers a contextual MSO deep-link with `window.openai.setOpenInAppUrl`, and shows a user-clickable `Open directly` fallback plus visible status when automatic navigation is unavailable. Workflow cards target `/assistant/mcp`, VPS cards `/monitor`, project cards `/files`, and diff cards `/code`. As a cache-safe fallback, a root MSO landing carrying ChatGPT's `redirectUrl=https://chatgpt.com/c/...` is server-redirected to `/assistant/mcp` while preserving the callback query; MSO never follows that callback itself. The widget CSP has no connect/resource domains and allowlists only `https://mso.rahmanef.com` as the dashboard redirect.
+All five resources are self-contained: no external JavaScript, CSS, images, or direct `fetch()` calls. `Open in MSO` feature-detects the official ChatGPT `window.openai.openExternal` bridge, registers a contextual MSO deep-link with `window.openai.setOpenInAppUrl`, and shows a user-clickable `Open directly` fallback plus visible status when automatic navigation is unavailable. Workflow cards target `/assistant/mcp`, VPS cards `/monitor`, project cards `/files`, and diff cards `/code`. As a cache-safe fallback, a root MSO landing carrying ChatGPT's `redirectUrl=https://chatgpt.com/c/...` is server-redirected to `/assistant/mcp` while preserving the callback query; MSO never follows that callback itself.
+
+The universal **MSO Surface** is intentionally stricter than the ordinary runtime-app/HTML widgets. `render_mso_surface` accepts only an MSO-style route plus optional project/SHA context — never raw HTML and never an arbitrary URL. Nested frames come from the code-owned `SURFACE_APPS` registry and are permitted only when the exact origin is also present in the resource's `ui.csp.frameDomains`. The browser-side renderer validates the returned app id and URL origin against the catalog bundled into the signed resource before setting `iframe.src`; dynamic labels use DOM `textContent`, not HTML interpolation. The iframe sandbox omits popup/top-navigation privileges. Apps that send `X-Frame-Options` or restrictive `frame-ancestors` remain `remote` and MSO does not strip those protections.
+
+Installed `runtime:"html"` apps and user-authored HTML widgets are **not** trusted inputs to the ChatGPT frame allowlist. They remain useful inside the authenticated MSO shell, but promoting one into `SURFACE_APPS` requires an explicit code review/release. This separation prevents a user-installed manifest or HTML snippet from escalating into a ChatGPT nested-frame CSP capability. Raw HTML snippets continue to run only in opaque-origin `srcDoc` sandboxes. The authenticated cockpit itself remains non-frameable; no change is made to its `frame-ancestors` or `X-Frame-Options` policy.
 
 ## Flow
 
@@ -60,14 +67,18 @@ ChatGPT model
    ├─ workflow_start ──→ workflow card ──→ workflow_status (app-only)
    ├─ project_get    ──→ project card  ──→ project_get refresh
    ├─ project_diff   ──→ diff card
-   └─ vps_status     ──→ VPS card      ──→ vps_status refresh
+   ├─ vps_status     ──→ VPS card      ──→ vps_status refresh
+   └─ render_mso_surface ─→ MSO Surface
+                             ├─ native monitor/project/diff views
+                             ├─ reviewed exact-origin live iframe app
+                             └─ remote-browser fallback for anti-frame apps
 
 Every entry tool also returns portable text/JSON for non-MCP-Apps clients.
 ```
 
 ## Dedicated UI origin
 
-All four templates declare `_meta.ui.domain = https://mso-ui.rahmanef.com` and the ChatGPT compatibility alias `_meta["openai/widgetDomain"]` with the same origin. The sibling hostname is intentional: the cockpit may scope its session cookie to `mso.rahmanef.com`, while `mso-ui.rahmanef.com` is outside that cookie domain. The dedicated origin therefore satisfies the plugin UI identity requirement without reusing the authenticated dashboard origin.
+All five templates declare `_meta.ui.domain = https://mso-ui.rahmanef.com` and the ChatGPT compatibility alias `_meta["openai/widgetDomain"]` with the same origin. The sibling hostname is intentional: the cockpit may scope its session cookie to `mso.rahmanef.com`, while `mso-ui.rahmanef.com` is outside that cookie domain. The dedicated origin therefore satisfies the plugin UI identity requirement without reusing the authenticated dashboard origin.
 
 The reproducible Traefik route is stored in `ops/traefik/mso-ui.yml` and forwards only to the same local MSO service through the existing HTTPS/Let's Encrypt ingress. Widget CSP still allows no network/static-resource domains and only permits `Open in MSO` to redirect to `https://mso.rahmanef.com`.
 
@@ -78,6 +89,7 @@ Do not manually click through every model action. Cover the public contract with
 | Journey | Suggested prompt/action | Pass condition |
 | --- | --- | --- |
 | Workflow/UI bridge | Start a read-only workflow for `mso`, press `Refresh`, then `Open in MSO` | progress updates; MSO opens visibly at Alfa → MCP Activity (`/assistant/mcp`), including when ChatGPT still uses a cached root-targeting widget; the explicit `Open directly` fallback targets the same view |
+| MSO Surface | Ask to render `/`, `/monitor`, then `/apps/antinrml-builder` | home/native view renders inline; reviewed builder appears as a nested live frame; fullscreen control is available; Baton/game remain remote and never enter `frameDomains` |
 | VPS card | Ask for the current VPS status | `vps_status` renders CPU/memory/disk/apps/browser/infra and its refresh works |
 | Project/Git | Ask to inspect project `mso`, then show its current diff/history | `project_get` and `project_diff` render the correct project/branch/changes without secrets |
 | Safe filesystem CRUD | Create/read/copy/move/delete a disposable file under `~/mso-smoke-tests/` | content/hash round-trip succeeds and cleanup leaves no test file |
@@ -94,9 +106,9 @@ After a UI/schema release:
 1. run `bun run verify` and a production build;
 2. deploy through the normal MSO release path;
 3. refresh/re-scan the ChatGPT development app so `initialize`, `tools/list`, and `resources/list` are read again;
-4. verify all 62 ChatGPT actions expose `outputSchema`; verify each UI entry tool also exposes `_meta.ui.resourceUri`;
+4. verify all 64 ChatGPT transport tools expose `outputSchema` (63 model actions + app-only `workflow_status`); verify each UI entry tool also exposes `_meta.ui.resourceUri`;
 5. verify each `resources/read` returns `text/html;profile=mcp-app`;
-6. verify every UI resource reports `ui.domain=https://mso-ui.rahmanef.com`, refresh buttons work, and `workflow_status` polling does not enter learned workflow steps;
+6. verify every UI resource reports `ui.domain=https://mso-ui.rahmanef.com`; for the universal Surface verify `ui.csp.frameDomains` contains only reviewed iframe origins, refresh buttons work, and `workflow_status` polling does not enter learned workflow steps;
 7. verify `skills/list`, `skills/get`, and each declared `skill://` resource/digest before the final Scan Tools refresh.
 
 If ChatGPT still renders text only after a verified deployment, treat a stale app/action snapshot as the first suspect before changing the server again.

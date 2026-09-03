@@ -115,6 +115,22 @@ The shell uses the History API for focus/open URL synchronization instead of tre
 window operation as a server navigation. Reserved framework paths are never allowed to fall
 through the app catch-all.
 
+### 4.1 ChatGPT as an MSO presentation target
+
+The web catch-all remains the authenticated cockpit route. ChatGPT does **not** frame that cockpit.
+Instead `render_mso_surface` binds the versioned MCP App resource `ui://mso/surface-v1.html`, which
+implements a smaller presentation router for `/`, `/monitor`, `/project`, `/diff`, `/browser` and
+`/apps/<reviewed-id>`. Native Surface views call the same bounded MSO tools; reviewed app demos may
+use a nested iframe only when their exact HTTPS origin exists in the code-owned Surface catalog and
+the MCP resource CSP `frameDomains`. Anti-frame apps stay on the remote-browser seam.
+
+This trust catalog is deliberately separate from Store/runtime `AppManifest` data. A locally installed
+`runtime:"html"` app or HTML widget is user-controlled presentation data and cannot grant itself a
+ChatGPT nested-frame origin. `srcDoc` HTML remains opaque-origin sandboxed, the MCP widget stays on
+`mso-ui.rahmanef.com`, and the authenticated `mso.rahmanef.com` cockpit retains its deny-framing
+headers. The split prevents convenient HTML/runtime extensibility from becoming a CSP privilege
+escalation path.
+
 ## 5. Host API and filesystem model
 
 `/api/v1/*` is the authenticated host API. Important families include:

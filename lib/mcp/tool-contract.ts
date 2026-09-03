@@ -48,7 +48,7 @@ export const CHATGPT_TOOL_NAMES = new Set([
   "project_database_status", "project_database_tools", "project_database_call", "project_database_query",
 
   // Original MSO bounded VPS/file/application/browser power restored to ChatGPT.
-  "vps_status", "screen_capture", "fs_list", "fs_read", "fs_search", "fs_usage",
+  "vps_status", "mso_surface_apps_list", "render_mso_surface", "screen_capture", "fs_list", "fs_read", "fs_search", "fs_usage",
   "fs_write", "fs_upload_file", "fs_mkdir", "fs_move", "fs_copy", "fs_delete",
   "sys_stats", "sys_processes", "apps_list", "apps_logs", "apps_power", "browser_status", "browser_power",
 

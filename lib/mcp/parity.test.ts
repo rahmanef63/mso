@@ -99,6 +99,8 @@ const MCP_ONLY: Record<string, string> = {
   "project.agent.run": "project-agent execution wraps the durable MCP/terminal AgentSession subagent runtime; Alfa browser threads have a separate lifecycle and approval identity",
   "project.agent.status": "status belongs to project-agent message ids owned by the external MCP principal/session; Alfa has no compatible project-agent task ledger",
   "vps.status": "this is an aggregate MCP Apps operator card over existing bounded host/app/browser/infra primitives; Alfa already renders equivalent in-shell operational surfaces",
+  "mso.surface.apps.list": "the reviewed ChatGPT Surface demo catalog is MCP-App presentation metadata; Alfa already owns its in-shell app registry and must not inherit ChatGPT frame allowlists",
+  "render.mso.surface": "the universal MSO Surface is a ChatGPT MCP Apps presentation target; Alfa already is an MSO presentation target and does not render another copy of itself",
 };
 
 describe("Alfa ↔ MCP capability parity", () => {
