@@ -46,7 +46,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     name: "render_mso_surface",
     title: "Render MSO Surface",
     description: "Render the universal MSO Surface MCP App. Use an MSO-style route such as /, /monitor, /project, /diff, /browser, or /apps/<reviewed-app-id>. For project/diff views pass project separately. This tool never accepts raw HTML or arbitrary external URLs; demo origins are resolved only from the server-owned allowlist.",
-    chatgptDescription: "Render a secure interactive MSO Surface in ChatGPT. Route examples: /, /monitor, /project, /diff, /browser, /apps/antinrml-builder. No arbitrary HTML/URL input is accepted.",
+    chatgptDescription: "Render a secure interactive MSO Surface in ChatGPT. Route examples: /, /monitor, /project, /diff, /browser, /apps/play-together. No arbitrary HTML/URL input is accepted.",
     scope: "read", annotations: READ_ONLY,
     inputSchema: S({
       route: { type: "string", minLength: 1, maxLength: 1024, description: "MSO Surface route. External URLs are rejected." },

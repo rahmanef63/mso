@@ -156,8 +156,7 @@ describe("MCP Apps workflow progress UI", () => {
     expect(content.text).toContain("requestDisplayMode");
     expect(content.text).toContain("setWidgetState");
     expect(content.text).toContain("render_mso_surface");
-    expect(content.text).toContain("https://builder-game.antinrml.com");
-    expect(content.text).toContain("https://baton.rahmanef.com");
+    expect(content.text).toContain("https://game.rahmanef.com");
     expect(content.text).not.toContain("fetch(");
     expect(content.text).not.toContain("allow-popups");
     expect(content.text).not.toContain("allow-top-navigation");
@@ -165,15 +164,14 @@ describe("MCP Apps workflow progress UI", () => {
     expect(content._meta.ui.csp).toMatchObject({
       connectDomains: [],
       resourceDomains: [],
-      frameDomains: ["https://builder-game.antinrml.com"],
     });
+    expect(content._meta.ui.csp).not.toHaveProperty("frameDomains");
     expect(content._meta["openai/widgetCSP"]).toMatchObject({
       connect_domains: [],
       resource_domains: [],
-      frame_domains: ["https://builder-game.antinrml.com"],
     });
-    expect(content._meta.ui.csp.frameDomains).not.toContain("https://baton.rahmanef.com");
-    expect(MSO_SURFACE_URI).toContain("surface-v1.html");
+    expect(content._meta["openai/widgetCSP"]).not.toHaveProperty("frame_domains");
+    expect(MSO_SURFACE_URI).toContain("surface-v2.html");
   });
 
   it("gives every MCP App a visible contextual MSO destination", () => {
