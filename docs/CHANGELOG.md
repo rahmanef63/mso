@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `agent` compare normalized token proofs per row
 - `mcp` advertise implemented protocol era
 - `mcp` support trusted browser probes
 - `oauth` issue distinct dynamic client ids
@@ -20,11 +21,13 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Faster**
 
+- `agent` add P8 calibration harness
 - `agent` add repeatable corpus runner
 - `agent` expand objective repo corpus
 
 **Docs**
 
+- `agent` record P8 calibration baseline
 - `agent` record P7 repeated corpus baseline
 
 ## 2026-09-02

@@ -112,6 +112,7 @@ bun run bench:corpus -- --provider openai-codex --model gpt-5.6-terra        # n
 bun run bench:corpus -- --provider openai-codex --model gpt-5.6-terra --run  # isolated scratch-fixture quality corpus
 bun run bench:corpus:repeat -- --runs 2 --seed baseline-1 --provider openai-codex --model gpt-5.6-terra       # deterministic repeated plan
 bun run bench:corpus:repeat -- --runs 2 --seed baseline-1 --provider openai-codex --model gpt-5.6-terra --run # repeated full corpus
+bun run bench:cache-calibration -- --rounds 4 --prefix-chars 12000 --seed cache-1 --provider openai-codex --model gpt-5.6-terra --run # observation-only repeated-prefix cache calibration
 ```
 
 The core benchmark is deterministic and provider-neutral. Its checked scenarios cover application logs, server health, safe file editing, long/short execution, project functions, Cloudflare/Hostinger/Dokploy, browser/screenshots, memory, session resume, Skills, manual regression evidence, Indonesian repository changes, local-agent requests, subagents, A2A and Tool Forge. It also verifies the second phase after `workflow_start`.
@@ -308,6 +309,44 @@ P7 also observed real provider-reported cache-read activity without forcing a ca
 4. **Add OpenClaw only when comparable** — run the same corpus when an equivalent provider/model is legitimately configured, without mutating credentials as part of the benchmark.
 5. **Keep benchmark → engineering feedback closed-loop** — fix deterministic routing/lifecycle/tool waste exposed by the corpus, then rerun the same objective fixture rather than prompting harder.
 6. **Memory calibration** — grow post-P1 telemetry and test authority/confidence/temporal policies against real corrections before introducing graph-memory complexity.
+
+## P8 calibration: repeat spread, cache observation, and cost gate
+
+P8 turns the P7 follow-up list into explicit calibration gates without changing the nine-scenario corpus. Repeated aggregation now reports **descriptive per-run distributions** for task success, average latency, p50 latency, and normalized tokens/attempt: count, min/max, median/mean, range, sample standard deviation, and coefficient of variation. These are observed sample descriptors only; the harness still does not manufacture confidence intervals, p-values, or universal reliability claims.
+
+P8 also adds `bench:cache-calibration`. It creates one deterministic inert shared prefix, changes only a small exact reply marker per round, alternates the starting agent, and records provider-reported cache fields separately as positive, zero, or absent. Cache-hit frequency is intentionally **not ranked** because MSO and Hermes still have different request envelopes/system/tool context. The benchmark never forces a cache hit and never infers one from latency.
+
+The dedicated cache fixture exposed a benchmark-accounting defect: one runner can legitimately move between multiple independently proven normalized shapes across calls (for example, `exact-inclusive-total-identity` when cache is zero and `exact-exclusive-cache-sum` when cache is positive). The old aggregate gate treated the mixed proof *names* as non-comparable even though every row normalized exactly to the same inclusive total semantics. P8 fixes this by proof-gating **each row**, while opaque/unknown rows still fail closed.
+
+The final P8 cache calibration was run from source `51ae31f` on `openai-codex/gpt-5.6-terra` with four rounds and a 12,000-character shared prefix. All **8/8 calls succeeded** and provider/model evidence covered every row. MSO reported `cacheReadTokens=0` on **4/4** rows. Hermes reported zero on 2/4 and positive cache reads on **2/4** rows (**9,728** and **19,968** tokens). Token semantics remain comparable after per-row proof normalization; cache frequency remains observation-only. Cost remains non-comparable: MSO has no attributed cost field, while Hermes reports zero with source `none`, which is not evidence of a shared USD billing contract.
+
+P8 then added three more complete independently seeded nine-scenario runs, also from `51ae31f`. Independent validation checked all **54 rows**, exact per-run/per-agent scenario identity, provider/model evidence, exit status, task/policy outcome, and normalized token arithmetic. Both agents achieved **27/27 task success + 27/27 scenario-policy and 3/3 perfect runs**.
+
+| P8 3-run metric | MSO | Hermes |
+|---|---:|---:|
+| Task success | **27/27 (100%)** | **27/27 (100%)** |
+| Scenario-observable policy compliance | **27/27 (100%)** | **27/27 (100%)** |
+| Perfect full runs | **3/3** | **3/3** |
+| Average latency | **19,028.2 ms** | 22,248.0 ms |
+| Aggregate p50 latency | **14,259 ms** | 20,472 ms |
+| Normalized tokens / attempt | **16,665.0** | 67,936.2 |
+| Run-level avg-latency CV | 6.8% | 4.0% |
+| Run-level p50 CV | 10.6% | 12.6% |
+| Run-level token/attempt CV | 2.3% | 1.9% |
+| Cost semantics comparable | no | no |
+
+On these three P8 runs, correctness/reliability is a tie. MSO used about **75.5% fewer normalized tokens per attempt (~4.08× smaller)**, with about **14.5% lower average latency** and **30.3% lower aggregate p50**. Those are bounded observed-run measurements, not provider/model-wide claims.
+
+Combining the raw P7 two-run artifact and raw P8 three-run artifact gives a five-run descriptive history on the same corpus/provider/model. Both agents are **5/5 perfect**. Mean normalized tokens/attempt are **16,907.6 MSO vs 66,791.1 Hermes** (~**74.7% lower**, Hermes ~3.95× higher); mean per-run average latency is **18,985.9 vs 21,779.8 ms** (~**12.8% lower** for MSO); mean per-run p50 is **14,130.8 vs 21,457.2 ms** (~**34.1% lower**). Run-level token CV is 5.5% vs 2.7%. Five runs are enough to expose observed spread and remove the earlier one-run reliability anomaly, but still too small for an inferential reliability claim.
+
+## P8 next direction
+
+1. **Reliability stays descriptive until the sample is materially deeper** — add more full independent seeds only when a decision actually needs confidence bounds; do not turn `n=5` into pseudo-statistics.
+2. **Equalize cache request envelopes before cache comparison** — the dedicated fixture now proves telemetry handling, but cache-hit frequency should remain unranked until the runners expose equivalent system/tool/request prefix behavior.
+3. **Cost remains blocked on attribution, not arithmetic** — enable cost comparison only when both runners expose the same attributable USD source/contract; zero with source `none` remains unknown for comparative billing.
+4. **Add OpenClaw only with a legitimate matched provider/model path** — do not mutate credentials merely to populate a benchmark table.
+5. **Move next to memory calibration** — test P1 authority/confidence/temporal/correction policies against real repeated corrections before considering graph-memory complexity.
+6. **Keep benchmark → engineering feedback closed-loop** — when a fixture exposes deterministic tool/routing/accounting waste, fix the system and rerun the same objective gate rather than prompting harder.
 
 ## Security notes
 
