@@ -4,6 +4,27 @@ function pct(n, d) { return d ? Math.round((n / d) * 1000) / 10 : 0; }
 function sortedUnique(values) { return [...new Set(values)].sort(); }
 function signature(values) { return sortedUnique(values).join("|"); }
 function sameArray(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+function finiteValues(values) { return values.filter((value) => Number.isFinite(value)); }
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b), mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : Math.round(((sorted[mid - 1] + sorted[mid]) / 2) * 10) / 10;
+}
+function rounded(value, decimals = 1) { const scale = 10 ** decimals; return Math.round(value * scale) / scale; }
+
+export function describeObservedRuns(values) {
+  const rows = finiteValues(values);
+  if (!rows.length) return { count: 0, min: null, max: null, mean: null, median: null, range: null, sampleStdDev: null, coefficientOfVariationPct: null };
+  const mean = rows.reduce((sum, value) => sum + value, 0) / rows.length;
+  const variance = rows.length > 1 ? rows.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / (rows.length - 1) : null;
+  const sampleStdDev = variance == null ? null : Math.sqrt(variance);
+  return {
+    count: rows.length, min: Math.min(...rows), max: Math.max(...rows), mean: rounded(mean), median: median(rows),
+    range: rounded(Math.max(...rows) - Math.min(...rows)),
+    sampleStdDev: sampleStdDev == null ? null : rounded(sampleStdDev),
+    coefficientOfVariationPct: sampleStdDev == null || mean === 0 ? null : rounded((sampleStdDev / Math.abs(mean)) * 100),
+  };
+}
 
 /**
  * @param {Array<any>} runs
@@ -46,8 +67,17 @@ export function summarizeRepeatedCorpus(runs, { agents, expectedRuns, plan = [],
   const allRows = completed.flatMap((run) => run.rows || []);
   const aggregates = agents.map((agent) => {
     const aggregate = aggregateAgent(agent, allRows.filter((row) => row.agent === agent));
-    const perfectRuns = completed.filter((run) => run.aggregates?.find((row) => row.agent === agent)?.fullSuccess === true).length;
-    return { ...aggregate, perfectRuns, perfectRunPct: pct(perfectRuns, expectedRuns) };
+    const perRun = completed.map((run) => run.aggregates?.find((row) => row.agent === agent)).filter(Boolean);
+    const perfectRuns = perRun.filter((row) => row.fullSuccess === true).length;
+    return {
+      ...aggregate, perfectRuns, perfectRunPct: pct(perfectRuns, expectedRuns),
+      observedRunDistribution: {
+        taskSuccessPct: describeObservedRuns(perRun.map((row) => row.taskSuccessPct)),
+        averageLatencyMs: describeObservedRuns(perRun.map((row) => row.averageLatencyMs)),
+        p50LatencyMs: describeObservedRuns(perRun.map((row) => row.p50LatencyMs)),
+        normalizedTokensPerAttempt: describeObservedRuns(perRun.map((row) => row.reportedTokensPerAttempt)),
+      },
+    };
   });
   const repeatComparable = providerModelComparable && versions.size === 1 && scenarioCounts.size === 1 && scenarioSignatures.size === 1;
   const ranking = exactCoverage && expectedAttempts != null

@@ -69,6 +69,7 @@ describe("P7 repeatable corpus", () => {
     expect(out).toMatchObject({ completedRuns: 2, exactCoverage: true, plannedIdentity: true, comparability: { level: "full" } });
     expect(out.aggregates.find((x: any) => x.agent === "mso")).toMatchObject({ attempted: 4, fullSuccesses: 4, perfectRuns: 2, perfectRunPct: 100 });
     expect(out.aggregates.find((x: any) => x.agent === "hermes")).toMatchObject({ attempted: 4, fullSuccesses: 3, perfectRuns: 1, perfectRunPct: 50 });
+    expect(out.aggregates.find((x: any) => x.agent === "mso")?.observedRunDistribution.averageLatencyMs).toMatchObject({ count: 2, min: 10, max: 10, sampleStdDev: 0 });
     expect(out.ranking).toMatchObject({ eligible: true, order: ["mso", "hermes"] });
   });
 
