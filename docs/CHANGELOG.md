@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `assistant` turn Alfa into MSO cockpit
 
+**Fixed**
+
+- `release` bound local dependency audit
+
 **Changed**
 
 - `mcp` dedupe ChatGPT CSP metadata

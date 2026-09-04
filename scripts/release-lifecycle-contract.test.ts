@@ -29,4 +29,13 @@ describe("single MSO release lifecycle authority", () => {
     expect(restore).toBeGreaterThan(0);
     expect(success).toBeGreaterThan(restore);
   });
+  it("bounds the tolerant local dependency audit so pre-push cannot hold the remote connection indefinitely", () => {
+    const audit = read("scripts/audit.mjs");
+    expect(audit).toContain('const AUDIT_TIMEOUT_MS = 15_000;');
+    expect(audit).toContain('timeout: AUDIT_TIMEOUT_MS');
+    expect(audit).toContain('res.error?.code === "ETIMEDOUT"');
+    expect(audit).toContain('registry timed out after');
+    expect(audit).toContain('process.exit(0)');
+  });
+
 });

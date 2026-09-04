@@ -24,6 +24,7 @@
 import { spawnSync } from "node:child_process";
 
 const FLOOR = new Set(["high", "critical"]);
+const AUDIT_TIMEOUT_MS = 15_000;
 
 // GHSA/CVE id -> why it is accepted + the date it was accepted.
 // Only for advisories with NO upstream fix. If a fix exists, take the fix (an
@@ -32,8 +33,13 @@ const IGNORE = {
   // e.g. "GHSA-xxxx-xxxx-xxxx": "no fixed release upstream; not reachable because <…>. Accepted 2026-08-03, recheck monthly.",
 };
 
-const res = spawnSync("bun", ["audit", "--json"], { encoding: "utf8" });
+const res = spawnSync("bun", ["audit", "--json"], { encoding: "utf8", timeout: AUDIT_TIMEOUT_MS, killSignal: "SIGTERM" });
 const raw = (res.stdout ?? "").trim();
+
+if (res.error?.code === "ETIMEDOUT") {
+  console.warn(`audit: registry timed out after ${AUDIT_TIMEOUT_MS / 1000}s, skipped`);
+  process.exit(0);
+}
 
 // Empty stdout = the request never completed (offline, dead registry, proxy refused).
 // Warn and pass: a broken network is not evidence of a vulnerability, and this is the
