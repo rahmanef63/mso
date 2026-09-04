@@ -7,6 +7,8 @@ const {
   MCP_APP_MIME_TYPE,
   MSO_BLOCK_URI,
   MSO_PAGE_URI,
+  LEGACY_BLOCK_V1_URI,
+  LEGACY_PAGE_V1_URI,
   LEGACY_WORKFLOW_PROGRESS_URI,
   LEGACY_SURFACE_URI,
   readUiResource,
@@ -122,7 +124,7 @@ describe("MCP Apps Block and Page contract", () => {
     });
     expect(content._meta.ui.csp.frameDomains).toBeUndefined();
     expect(content._meta["openai/widgetCSP"]).toEqual({ redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_BLOCK_URI).toContain("block-v1.html");
+    expect(MSO_BLOCK_URI).toContain("block-v2.html");
   });
 
   it("serves the full Page with a minimal reviewed nested-frame allowlist", async () => {
@@ -145,7 +147,7 @@ describe("MCP Apps Block and Page contract", () => {
       frameDomains: ["https://game.rahmanef.com"],
     });
     expect(content._meta["openai/widgetCSP"]).toEqual({ redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_PAGE_URI).toContain("page-v1.html");
+    expect(MSO_PAGE_URI).toContain("page-v2.html");
   });
 
   it("returns only redacted structured workflow state and keeps status polling out of workflow memory", async () => {
@@ -198,13 +200,19 @@ describe("MCP Apps Block and Page contract", () => {
   it("keeps latest cached workflow/surface URIs as non-advertised Block/Page aliases", async () => {
     const canonicalBlock = readUiResource(MSO_BLOCK_URI);
     const canonicalPage = readUiResource(MSO_PAGE_URI);
+    const blockV1 = readUiResource(LEGACY_BLOCK_V1_URI);
+    const pageV1 = readUiResource(LEGACY_PAGE_V1_URI);
     const legacyBlock = readUiResource(LEGACY_WORKFLOW_PROGRESS_URI);
     const legacyPage = readUiResource(LEGACY_SURFACE_URI);
+    expect(blockV1).toMatchObject({ uri: LEGACY_BLOCK_V1_URI, text: canonicalBlock?.text });
+    expect(pageV1).toMatchObject({ uri: LEGACY_PAGE_V1_URI, text: canonicalPage?.text });
     expect(legacyBlock).toMatchObject({ uri: LEGACY_WORKFLOW_PROGRESS_URI, text: canonicalBlock?.text });
     expect(legacyPage).toMatchObject({ uri: LEGACY_SURFACE_URI, text: canonicalPage?.text });
 
     const listed = await dispatch({ id: 31, method: "resources/list" }, "read", "mcp:ui-alias");
     const serialized = JSON.stringify(listed.result);
+    expect(serialized).not.toContain(LEGACY_BLOCK_V1_URI);
+    expect(serialized).not.toContain(LEGACY_PAGE_V1_URI);
     expect(serialized).not.toContain(LEGACY_WORKFLOW_PROGRESS_URI);
     expect(serialized).not.toContain(LEGACY_SURFACE_URI);
   });

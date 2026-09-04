@@ -120,17 +120,17 @@ through the app catch-all.
 The web catch-all remains the authenticated cockpit route. ChatGPT does **not** frame that cockpit.
 MSO exposes exactly two user-visible MCP App classes instead:
 
-- `render_mso_block` binds `ui://mso/block-v1.html` for compact validation, action buttons, and
+- `render_mso_block` binds `ui://mso/block-v2.html` for compact validation, action buttons, and
   CRUD input-output. A button returns a user-approved follow-up message; it does not execute a
   mutation inside the widget, so ordinary scope, approval, audit, and workflow rules still apply.
-- `render_mso_page` binds `ui://mso/page-v1.html` for native `/`, `/monitor`, `/project`, `/diff`,
+- `render_mso_page` binds `ui://mso/page-v2.html` for native `/`, `/monitor`, `/project`, `/diff`,
   `/browser`, and `/apps/<reviewed-id>` views. Native Page views call the same bounded MSO tools.
 
 `workflow_start` is orchestration-only and headless: it still owns workflow isolation, skill/recipe
 lookup, collision detection, tracing, evidence, and learning, but no longer binds a UI resource.
 `project_get`, `project_diff`, and `vps_status` likewise remain pure data tools. The previous
 `render_mso_surface` and `workflow_status` actions are app-only compatibility shims for cached
-widgets; the previous resource URIs remain readable aliases but are not advertised.
+widgets; Block/Page v1 plus the previous workflow/surface resource URIs remain readable aliases but are not advertised.
 
 Reviewed Page apps may use a nested iframe only when their exact HTTPS origin exists in the
 code-owned Page catalog and the MCP resource CSP `frameDomains`; anti-frame apps stay on the

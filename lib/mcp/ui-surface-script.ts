@@ -1,4 +1,5 @@
 import { SURFACE_APPS } from "./surface-catalog";
+import { MSO_WIDGET_THEME_SCRIPT } from "./ui-widget-tokens";
 
 function safeJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
@@ -18,6 +19,7 @@ const BROWSER_CATALOG = SURFACE_APPS.map((app) => ({
 }));
 
 export const MSO_SURFACE_SCRIPT = String.raw`
+${MSO_WIDGET_THEME_SCRIPT}
 const SAFE_APPS=${safeJson(BROWSER_CATALOG)};
 const SAFE_BY_ID=new Map(SAFE_APPS.map(app=>[app.id,app]));
 const $=id=>document.getElementById(id);
@@ -43,6 +45,7 @@ function safeAppResult(raw){
 function openPath(path){setMsoTarget(validRoute(path)?path:"/assistant/mcp")}
 function applyHostGlobals(){
   const api=window.openai||{};
+  applyHostTheme();
   const max=Number(api.maxHeight);document.documentElement.style.setProperty("--host-max-h",Number.isFinite(max)&&max>180?Math.floor(max)+"px":"680px");
   const safe=api.safeArea||{};for(const [key,value] of [["top",safe.top],["right",safe.right],["bottom",safe.bottom],["left",safe.left]]){const n=Number(value);document.documentElement.style.setProperty("--safe-"+key,Number.isFinite(n)?Math.max(0,n)+"px":"0px")}
   modeEl.textContent=text(api.displayMode,"inline");

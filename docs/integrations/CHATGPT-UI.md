@@ -8,12 +8,18 @@ The user-visible contract has exactly two canonical MCP App resources:
 
 | Surface | Entry tool | Resource | Intended use |
 | --- | --- | --- | --- |
-| **Block** | `render_mso_block` | `ui://mso/block-v1.html` | Compact validation, action buttons, and CRUD input-output |
-| **Page** | `render_mso_page` | `ui://mso/page-v1.html` | Full native operator views and reviewed development, preview, or production app embeds |
+| **Block** | `render_mso_block` | `ui://mso/block-v2.html` | Compact validation, action buttons, and CRUD input-output |
+| **Page** | `render_mso_page` | `ui://mso/page-v2.html` | Full native operator views and reviewed development, preview, or production app embeds |
 
 `workflow_start` is now headless. It remains the required orchestration bootstrap for multi-step work, including skill/recipe lookup, collision checks, workflow isolation, tracing, evidence, and learning, but it has no `_meta.ui.resourceUri` and no `openai/outputTemplate`. Starting background work therefore does not consume the answer with an unrelated workflow card.
 
 A normal data/action tool also remains headless unless its result genuinely needs one of the two explicit presentation tools. `project_get`, `project_diff`, and `vps_status`, for example, keep structured outputs with no UI binding; the Page may call them through the standard MCP Apps `tools/call` bridge when it needs a native view.
+
+## Visual identity
+
+Block and Page share one presentation-token source in `lib/mcp/ui-widget-tokens.ts`, aligned with the public `rahmanef.com` design system: light surface `#f4f4f7` with text `#1c1c1f`, dark surface `#1b1b20` with text `#f2f2f5`, and the restrained blue accent `#1f6df0`. Display copy uses the Plus Jakarta Sans stack, body copy uses Inter/system fallbacks, and routes or section labels use the mono stack. Primary actions use the editorial foreground/background inversion rather than a colored fill; blue is reserved for focus, state, and small accents.
+
+The widget first follows ChatGPT's `window.openai.theme` signal and updates on `openai:set_globals`; `prefers-color-scheme` remains the fallback for other MCP Apps hosts. The v2 resource URIs are intentional cache keys for this CSS/HTML refresh.
 
 Official references:
 
@@ -54,8 +60,10 @@ Apps that keep restrictive `X-Frame-Options` or `frame-ancestors` remain `remote
 
 ## Compatibility during migration
 
-The canonical `resources/list` response advertises only Block and Page. Two previous URIs remain readable, but are not listed, so already-cached ChatGPT descriptors do not fail immediately:
+The canonical `resources/list` response advertises only Block and Page. Four previous URIs remain readable, but are not listed, so already-cached ChatGPT descriptors do not fail immediately:
 
+- `ui://mso/block-v1.html` resolves to the current Block resource.
+- `ui://mso/page-v1.html` resolves to the current Page resource.
 - `ui://mso/workflow-progress-v3.html` resolves to the Block resource. The Block recognizes the old workflow structured result and presents a small compatibility summary rather than the historical live progress dashboard.
 - `ui://mso/surface-v5.html` resolves to the Page resource.
 
@@ -75,6 +83,7 @@ Current ChatGPT transport profile: **66 tools** — 64 model-visible actions (35
 
 | Contract | MSO source |
 | --- | --- |
+| Shared Block/Page visual tokens and host-theme bridge | `lib/mcp/ui-widget-tokens.ts` |
 | Block resource/runtime | `lib/mcp/ui-block.ts` |
 | Block tool/schema | `lib/mcp/tools-block.ts` |
 | Page resource/runtime | `lib/mcp/ui-surface.ts`, `lib/mcp/ui-surface-script.ts`, `lib/mcp/ui-surface-style.ts` |
@@ -84,7 +93,7 @@ Current ChatGPT transport profile: **66 tools** — 64 model-visible actions (35
 | Resource capability / RPC | `lib/mcp/dispatch.ts` |
 | MCP descriptor/profile contract | `lib/mcp/tool-contract.ts` |
 | Toolset signature | `lib/mcp/toolset.ts` |
-| Contract tests | `lib/mcp/ui-resources.test.ts`, `lib/mcp/tools-block.test.ts`, `lib/mcp/tools-surface.test.ts`, `lib/mcp/surface-catalog.test.ts` |
+| Contract tests | `lib/mcp/ui-resources.test.ts`, `lib/mcp/ui-widget-theme.test.ts`, `lib/mcp/tools-block.test.ts`, `lib/mcp/tools-surface.test.ts`, `lib/mcp/surface-catalog.test.ts` |
 
 ## Flow
 
@@ -124,9 +133,9 @@ ChatGPT model
 After changing UI resources or tool metadata:
 
 1. run targeted tests, `bun run verify`, and the official production release path;
-2. verify `initialize` reports MCP server `1.10.0` and toolset `2026.09.04.6`;
+2. verify `initialize` reports MCP server `1.10.0` and toolset `2026.09.04.7`;
 3. verify `tools/list` exposes 66 ChatGPT transport tools, keeps `workflow_start` headless, marks the two compatibility actions app-only, and binds only `render_mso_block` / `render_mso_page`;
-4. verify `resources/list` contains exactly `ui://mso/block-v1.html` and `ui://mso/page-v1.html`, both with `text/html;profile=mcp-app`;
+4. verify `resources/list` contains exactly `ui://mso/block-v2.html` and `ui://mso/page-v2.html`, both with `text/html;profile=mcp-app`;
 5. verify Block has no frame domain and Page has only reviewed exact origins;
 6. refresh/re-scan the ChatGPT development app so its cached action/resource snapshot is replaced.
 

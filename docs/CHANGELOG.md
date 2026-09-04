@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` align widgets with rahmanef palette
 - `release` bound local dependency audit
 
 **Changed**
