@@ -2,7 +2,7 @@ import { MSO_SURFACE_RESOURCE } from "./ui-surface";
 import { widgetResourceMeta } from "./ui-config";
 import { OPEN_IN_MSO_SCRIPT, openInMsoControls } from "./ui-navigation";
 export { MSO_SURFACE_URI } from "./ui-surface";
-export const WORKFLOW_PROGRESS_URI = "ui://mso/workflow-progress-v2.html";
+export const WORKFLOW_PROGRESS_URI = "ui://mso/workflow-progress-v3.html";
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 
 const workflowProgressHtml = String.raw`<main class="mso-workflow" aria-live="polite">

@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 
 const { dispatch } = await import("./dispatch");
 const { MCP_APP_MIME_TYPE, WORKFLOW_PROGRESS_URI, MSO_SURFACE_URI, readUiResource } = await import("./ui-resources");
-const { MCP_UI_DOMAIN } = await import("./ui-config");
+const { MCP_UI_DOMAIN, MSO_ORIGIN } = await import("./ui-config");
 const { activeWorkflowForActor } = await import("@/lib/workflow");
 
 const call = (name: string, args: Record<string, unknown> = {}) =>
@@ -73,13 +73,14 @@ describe("MCP Apps workflow progress UI", () => {
     expect(content.text).toContain("Open directly");
     expect(content.text).toContain("/assistant/mcp");
     expect(content.text).toContain("Automatic open unavailable");
-    expect(WORKFLOW_PROGRESS_URI).toContain("-v2.html");
+    expect(WORKFLOW_PROGRESS_URI).toContain("-v3.html");
     expect(content.text).not.toContain("fetch(");
     expect(content._meta).toMatchObject({
       ui: { domain: MCP_UI_DOMAIN, prefersBorder: true },
       "openai/widgetDomain": MCP_UI_DOMAIN,
       "openai/widgetPrefersBorder": true,
     });
+    expect(content._meta["openai/widgetCSP"]).toEqual({ redirect_domains: [MSO_ORIGIN] });
   });
 
   it("returns only redacted structured workflow state and keeps polling out of workflow memory", async () => {
@@ -162,12 +163,10 @@ describe("MCP Apps workflow progress UI", () => {
       resourceDomains: [],
       frameDomains: ["https://game.rahmanef.com"],
     });
-    expect(content._meta["openai/widgetCSP"]).toMatchObject({
-      connect_domains: [],
-      resource_domains: [],
-      frame_domains: ["https://game.rahmanef.com"],
+    expect(content._meta["openai/widgetCSP"]).toEqual({
+      redirect_domains: [MSO_ORIGIN],
     });
-    expect(MSO_SURFACE_URI).toContain("surface-v4.html");
+    expect(MSO_SURFACE_URI).toContain("surface-v5.html");
   });
 
   it("keeps one dedicated progress card and one universal general-purpose Surface", () => {

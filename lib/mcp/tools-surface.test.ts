@@ -25,6 +25,13 @@ describe("MSO Surface MCP tools", () => {
     expect(result.app).not.toHaveProperty("sandbox");
   });
 
+  it("keeps scanner-facing Surface metadata scoped to Play Together", () => {
+    const render = tool("render_mso_surface");
+    const metadata = JSON.stringify({ description: render.description, chatgptDescription: render.chatgptDescription });
+    expect(metadata).toContain("play-together");
+    expect(metadata.toLowerCase()).not.toContain("antinrml");
+  });
+
   it("keeps project identity separate from the route string", async () => {
     const result = await tool("render_mso_surface").run({ route: "/project", project: "mso" }, { scope: "read" });
     expect(result).toMatchObject({ route: "/project", kind: "project", project: "mso", openPath: "/files" });

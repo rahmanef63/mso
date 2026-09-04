@@ -118,7 +118,7 @@ through the app catch-all.
 ### 4.1 ChatGPT as an MSO presentation target
 
 The web catch-all remains the authenticated cockpit route. ChatGPT does **not** frame that cockpit.
-Instead `render_mso_surface` binds the versioned MCP App resource `ui://mso/surface-v4.html`, which
+Instead `render_mso_surface` binds the versioned MCP App resource `ui://mso/surface-v5.html`, which
 implements a smaller presentation router for `/`, `/monitor`, `/project`, `/diff`, `/browser` and
 `/apps/<reviewed-id>`. Native Surface views call the same bounded MSO tools; reviewed app demos may
 use a nested iframe only when their exact HTTPS origin exists in the code-owned Surface catalog and

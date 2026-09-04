@@ -20,8 +20,8 @@ Official references:
 
 | Experience | Entry tool | Resource | Refresh behavior |
 | --- | --- | --- | --- |
-| Workflow progress | `workflow_start` | `ui://mso/workflow-progress-v2.html` | app-only `workflow_status` |
-| Universal MSO Surface | `render_mso_surface` | `ui://mso/surface-v4.html` | `/monitor`, `/project`, and `/diff` call pure data tools via `tools/call`; Play Together uses its reviewed exact-origin `/embed` frame boundary |
+| Workflow progress | `workflow_start` | `ui://mso/workflow-progress-v3.html` | app-only `workflow_status` |
+| Universal MSO Surface | `render_mso_surface` | `ui://mso/surface-v5.html` | `/monitor`, `/project`, and `/diff` call pure data tools via `tools/call`; Play Together uses its reviewed exact-origin `/embed` frame boundary |
 
 Source boundaries:
 
@@ -73,6 +73,8 @@ All data tools keep portable structured/text results for non-MCP-Apps clients.
 ```
 
 ## Dedicated UI origin
+
+Both templates keep standard CSP exclusively in `_meta.ui.csp`. The legacy `_meta["openai/widgetCSP"]` compatibility object contains only `redirect_domains` for `Open in MSO`; it deliberately does not duplicate `connect_domains`, `resource_domains`, or `frame_domains`. This keeps the scanner-facing policy single-source while preserving ChatGPT's trusted `openExternal` redirect allowlist.
 
 Both templates declare `_meta.ui.domain = https://mso-ui.rahmanef.com` and the ChatGPT compatibility alias `_meta["openai/widgetDomain"]` with the same origin. The sibling hostname is intentional: the cockpit may scope its session cookie to `mso.rahmanef.com`, while `mso-ui.rahmanef.com` is outside that cookie domain. The dedicated origin therefore satisfies the plugin UI identity requirement without reusing the authenticated dashboard origin.
 
