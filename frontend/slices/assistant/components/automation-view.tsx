@@ -9,7 +9,7 @@ import { toolById } from "../lib/tools";
 import type { Automation } from "../lib/types";
 import { GlyphTile } from "./agent-avatar";
 
-// Saved multi-step flows. "Run" only toasts/logs the steps — no real execution.
+// Saved multi-step flows. Run uses Alfa's normal tool loop, so mutations keep the same approval gate.
 export function AutomationView({
   store,
   onRun,

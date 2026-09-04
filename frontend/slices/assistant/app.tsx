@@ -17,6 +17,7 @@ import { ThreadList } from "./components/thread-list";
 import { LibraryGrid } from "./components/library-grid";
 import { SkillForm } from "./components/skill-form";
 import { McpActivityView } from "./components/mcp-activity-view";
+import { AlfaCockpitBar } from "./components/alfa-cockpit-bar";
 import { assistantRouteFromPayload, type AssistantTab } from "./lib/navigation";
 
 type Tab = AssistantTab;
@@ -29,9 +30,9 @@ type FormState =
 const TABS: [Tab, string][] = [
   ["chat", "Chat"],
   ["agents", "Agents"],
-  ["skills", "Skills"],
+  ["skills", "Playbooks"],
   ["automations", "Automations"],
-  ["mcp", "MCP"],
+  ["mcp", "Activity"],
 ];
 
 // Alfa: tabbed assistant. Chat keeps the real Claude stream; the other tabs
@@ -53,9 +54,10 @@ export default function Assistant({ payload }: AppProps) {
     (auto: Automation) => {
       setTab("chat");
       const agent = store.agents.find((a) => a.id === auto.agentId);
+      if (agent) store.setActiveAgentId(agent.id);
       setTimeout(() => chatRef.current?.runSteps(auto, agent), 30);
     },
-    [store.agents, setTab],
+    [store, setTab],
   );
 
   // Surface Alfa's own library state to the shell AI Inspector. Called above the
@@ -68,7 +70,7 @@ export default function Assistant({ payload }: AppProps) {
       props: [
         { label: "Active agent", value: agentName },
         { label: "Agents", value: String(store.agents.length) },
-        { label: "Skills", value: String(store.skills.length) },
+        { label: "Playbooks", value: String(store.skills.length) },
         { label: "Automations", value: String(store.automations.length) },
       ],
       context: `Alfa assistant, agent ${agentName}`,
@@ -116,6 +118,8 @@ export default function Assistant({ payload }: AppProps) {
         <ChatPanel
           ref={chatRef}
           agent={store.activeAgent}
+          cockpit={<AlfaCockpitBar onActivity={() => setTab("mcp")} />}
+          prompts={[...new Set(store.skills.flatMap((playbook) => playbook.starters ?? []))].slice(0, 6)}
           switcher={
             <>
               <Button size="sm" variant="ghost" aria-label="Chat history" className="shrink-0 [@media(pointer:coarse)]:min-h-[44px]" onClick={() => setHistoryOpen(true)}>

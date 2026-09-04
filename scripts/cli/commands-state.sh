@@ -7,6 +7,18 @@ mso_cmd_state() {
 case "$cmd" in
   # ── assistant / state ────────────────────────────────────────────────────
   ai) jpost "/api/assistant" "$(jq -n --arg m "$*" '{messages:[{role:"user",content:$m}]}')" ;;
+  cockpit)
+    case "${1:-show}" in
+      show)
+        if [ -n "${2-}" ]; then jget "/api/v1/alfa/cockpit?project=$(enc "$2")";
+        else jget "/api/v1/alfa/cockpit"; fi ;;
+      search)
+        shift; [ $# -gt 0 ] || die "usage: mso $U_cockpit"
+        jget "/api/v1/alfa/cockpit?q=$(enc "$*")" ;;
+      *)
+        # Bare argument is the ergonomic project form: `mso cockpit mso`.
+        jget "/api/v1/alfa/cockpit?project=$(enc "$1")" ;;
+    esac ;;
   threads)
     case "${1:-list}" in
       list) jget "/api/threads" ;;

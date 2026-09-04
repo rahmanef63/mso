@@ -21,7 +21,7 @@ export function SkillForm({
   onClose: () => void;
 }) {
   const editing = !!skill;
-  const [name, setName] = useState(skill?.name ?? "New Skill");
+  const [name, setName] = useState(skill?.name ?? "New Playbook");
   const [glyph, setGlyph] = useState(skill?.glyph ?? "sparkles");
   const [color, setColor] = useState(skill?.color ?? SKILL_COLORS[0]);
   const [instructions, setInstructions] = useState(skill?.instructions ?? "");
@@ -47,7 +47,7 @@ export function SkillForm({
 
   return (
     <FormShell
-      title={editing ? "Edit Skill" : "Create Skill"}
+      title={editing ? "Edit Playbook" : "Create Playbook"}
       editing={editing}
       onClose={onClose}
       onSave={save}
@@ -68,7 +68,7 @@ export function SkillForm({
       <Field label="Color">
         <ColorPick value={color} onChange={setColor} options={SKILL_COLORS} />
       </Field>
-      <Field label="Instructions" hint="Your own note on how to use this skill. NOT sent to the model — only the agent's persona reaches the system prompt.">
+      <Field label="Instructions" hint="Your own note on how to use this playbook. NOT sent to the model — only the agent's persona reaches the system prompt.">
         <Textarea
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
@@ -76,7 +76,7 @@ export function SkillForm({
           className="min-h-16"
         />
       </Field>
-      <Field label="Tools" hint="Your own note of what this skill leans on. Not a grant — Alfa gets every tool on every turn.">
+      <Field label="Tools" hint="Your own note of what this playbook leans on. Not a grant — Alfa gets every tool on every turn.">
         <ToolPicker value={tools} onChange={setTools} />
       </Field>
       <Field label="Starter prompts" hint="One per line — shown as quick chips.">

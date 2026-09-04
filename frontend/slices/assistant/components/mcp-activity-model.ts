@@ -1,4 +1,4 @@
-export type McpActivityState = "started" | "completed" | "failed" | "denied" | "rate_limited";
+export type McpActivityState = "started" | "completed" | "failed" | "denied" | "rate_limited" | "cancelled";
 
 export type McpActivityRow = {
   id: string;
@@ -61,8 +61,9 @@ export function groupActivity(entries: McpActivityRow[]): McpActivityGroup[] {
     group.rows.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
     if (group.rows.some((row) => row.state === "started")) group.state = "running";
     else if (group.rows.some((row) => ["failed", "denied", "rate_limited"].includes(row.state))) group.state = "attention";
-    else if (group.rows.some((row) => row.tool === "workflow_cancel" && row.state === "completed")) group.state = "cancelled";
+    else if (group.rows.some((row) => row.state === "cancelled" || (row.tool === "workflow_cancel" && row.state === "completed"))) group.state = "cancelled";
     else if (group.rows.some((row) => row.tool === "workflow_finish" && row.state === "completed")) group.state = "done";
+    else if (group.rows.some((row) => row.tool === "alfa.chat" && row.state === "completed")) group.state = "completed";
     else if (!group.workflowId && group.rows.every((row) => row.state === "completed")) group.state = "completed";
     else group.state = "active";
   }

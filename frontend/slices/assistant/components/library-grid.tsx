@@ -10,7 +10,7 @@ import { OS_TOOLS } from "../lib/tools";
 import type { Agent, Skill } from "../lib/types";
 import { GlyphTile } from "./agent-avatar";
 
-// Agents/Skills card grid. Presets are non-deletable; agents can be set active.
+// Agents/Playbooks card grid. Presets are non-deletable; agents can be set active.
 export function LibraryGrid({
   kind,
   store,
@@ -32,15 +32,15 @@ export function LibraryGrid({
       <div className="p-5 [padding-bottom:calc(1.25rem+var(--sai-bottom))]">
         <div className="mb-3.5 flex items-center">
           <div>
-            <div className="text-base font-bold tracking-tight">{isAgent ? "Agents" : "Skills"}</div>
+            <div className="text-base font-bold tracking-tight">{isAgent ? "Agents" : "Playbooks"}</div>
             <div className="text-xs text-muted-foreground">
               {isAgent
-                ? "Personas share one global tool catalog; skills organize instructions, not grants."
-                : "Bundles of tools + instructions you give to agents."}
+                ? "Personas share one global tool catalog; Playbooks organize instructions, not grants."
+                : "Personal instruction bundles for Alfa. They organize intent; they do not grant or remove tools."}
             </div>
           </div>
           <Button size="sm" className="ml-auto [@media(pointer:coarse)]:min-h-[44px]" onClick={onNew}>
-            <Plus className="size-3.5" /> New {isAgent ? "agent" : "skill"}
+            <Plus className="size-3.5" /> New {isAgent ? "agent" : "playbook"}
           </Button>
         </div>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">

@@ -5,6 +5,7 @@ import { matchDestructive, useOsApi } from "../lib/host";
 import type { AiTool, ToolInvocation, ToolOutcome } from "../lib/host";
 import { useApps, type ToolCard } from "@/features/appshell";
 import { findHostTool, HOST_AI_TOOLS } from "./registry";
+import { recordAlfaTool } from "../lib/alfa-activity";
 
 // The chat panel supplies these so the binding can render each call as a card and
 // park on an approval decision for mutate tools.
@@ -47,20 +48,25 @@ export function useHostCommands(ui: HostToolUi): {
         const tool = findHostTool(name);
         const id = `hc${seq.current++}`;
         const args = input ?? {};
+        const startedAt = Date.now();
         if (!tool) {
           const msg = `unknown tool "${name}"`;
           ui.pushCard(id, { name, effect: "mutate", input: args, status: "error", result: msg });
+          recordAlfaTool(id, name, "failed", msg, Date.now() - startedAt);
           return { ok: false, result: msg };
         }
         const execute = async (): Promise<ToolOutcome> => {
           ui.updateCard(id, { status: "running" });
+          recordAlfaTool(id, name, "started");
           try {
             const result = await tool.run(api, args, { apps });
             ui.updateCard(id, { status: "ok", result });
+            recordAlfaTool(id, name, "completed", undefined, Date.now() - startedAt);
             return { ok: true, result };
           } catch (e) {
             const msg = e instanceof Error ? e.message : "tool failed";
             ui.updateCard(id, { status: "error", result: msg });
+            recordAlfaTool(id, name, "failed", msg, Date.now() - startedAt);
             return { ok: false, result: msg };
           }
         };
@@ -74,8 +80,10 @@ export function useHostCommands(ui: HostToolUi): {
         const danger = name === "exec.run" ? matchDestructive(String(args.cmd ?? "")) ?? undefined : undefined;
         const sig = signature(name, args);
         ui.pushCard(id, { name, effect: "mutate", input: args, status: "pending", danger });
+        recordAlfaTool(id, name, "started", "waiting for approval");
         if (denied.current.has(sig)) {
           ui.updateCard(id, { status: "denied", result: "Auto-denied (already declined this exact call)." });
+          recordAlfaTool(id, name, "denied", "auto-denied", Date.now() - startedAt);
           return { ok: false, result: "Auto-denied: the user already declined this exact call. Stop retrying it — propose an alternative or ask." };
         }
         if (allowed.current.has(sig)) return execute();
@@ -83,6 +91,7 @@ export function useHostCommands(ui: HostToolUi): {
         if (!approve) {
           denied.current.add(sig);
           ui.updateCard(id, { status: "denied", result: "Denied by the user." });
+          recordAlfaTool(id, name, "denied", "denied by user", Date.now() - startedAt);
           return { ok: false, result: "Denied by the user. Do not retry this exact call; propose an alternative or ask what they'd prefer." };
         }
         if (remember && REMEMBERABLE.has(name)) allowed.current.add(sig);

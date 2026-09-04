@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { groupActivity, type McpActivityGroup, type McpActivityRow } from "./mcp-activity-model";
+import { useAlfaActivity } from "../lib/alfa-activity";
 
 const stateMeta = {
   started: { label: "running", Icon: CircleDashed, cls: "text-info" },
@@ -15,6 +16,7 @@ const stateMeta = {
   failed: { label: "failed", Icon: XCircle, cls: "text-destructive" },
   denied: { label: "denied", Icon: ShieldAlert, cls: "text-warning" },
   rate_limited: { label: "limited", Icon: ShieldAlert, cls: "text-warning" },
+  cancelled: { label: "cancelled", Icon: XCircle, cls: "text-muted-foreground" },
 } as const;
 
 const groupMeta = {
@@ -28,7 +30,8 @@ const groupMeta = {
 
 function toolMeta(row: McpActivityRow): { Icon: LucideIcon; label: string } {
   const target = (row.target ?? "").toLowerCase();
-  if (row.tool.startsWith("skills_")) return { Icon: BookOpen, label: "Skills" };
+  if (row.tool === "alfa.chat") return { Icon: Activity, label: "Alfa" };
+  if (row.tool.startsWith("skills_") || row.tool.startsWith("skills.")) return { Icon: BookOpen, label: "Skills" };
   if (row.tool.startsWith("workflow_")) return { Icon: Route, label: "Workflow" };
   if (row.tool === "screen_capture") return { Icon: Camera, label: "Screenshot" };
   if (row.tool === "fs_search") return { Icon: Search, label: "Search" };
@@ -97,6 +100,7 @@ function WorkflowDetails({ group, initiallyOpen }: { group: McpActivityGroup; in
 
 export function McpActivityView() {
   const [entries, setEntries] = useState<McpActivityRow[]>([]);
+  const alfaEntries = useAlfaActivity();
   const [paused, setPaused] = useState(false);
   const load = useCallback(() => {
     fetch("/api/mcp/activity?limit=200", { cache: "no-store" })
@@ -112,7 +116,7 @@ export function McpActivityView() {
     return () => window.clearInterval(timer);
   }, [load, paused]);
 
-  const groups = useMemo(() => groupActivity(entries), [entries]);
+  const groups = useMemo(() => groupActivity([...alfaEntries, ...entries].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())), [alfaEntries, entries]);
   const running = groups.filter((group) => group.state === "running").length;
 
   return (
@@ -120,9 +124,9 @@ export function McpActivityView() {
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Activity className="size-4" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold">MCP Activity</p>
+          <p className="text-xs font-semibold">Activity & Runs</p>
           <p className="text-[10px] text-muted-foreground">
-            {running ? `${running} workflow${running === 1 ? "" : "s"} running now` : "Live workflows grouped by task and feature"}
+            {running ? `${running} run${running === 1 ? "" : "s"} active now` : "Alfa tool calls plus MSO workflows, grouped by task"}
           </p>
         </div>
         <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-1 text-[10px] text-muted-foreground">
@@ -136,7 +140,7 @@ export function McpActivityView() {
       <div className="min-h-0 flex-1 overflow-auto p-3">
         {groups.length === 0 ? (
           <div className="grid h-full place-items-center text-center text-xs text-muted-foreground">
-            <div><Camera className="mx-auto mb-2 size-7 opacity-60" />No MCP activity yet.</div>
+            <div><Camera className="mx-auto mb-2 size-7 opacity-60" />No activity yet.</div>
           </div>
         ) : (
           <div className="space-y-2">

@@ -84,7 +84,7 @@ export function AutomationForm({
       <Field label="Color">
         <ColorPick value={color} onChange={setColor} options={SKILL_COLORS} />
       </Field>
-      <Field label="Run as agent" hint="Steps run with this agent's tools.">
+      <Field label="Run as agent" hint="Sets the persona for this run. Alfa still uses the same global host-tool catalog and approval policy.">
         <select
           value={agentId}
           onChange={(e) => setAgentId(e.target.value)}
@@ -99,7 +99,7 @@ export function AutomationForm({
       </Field>
       <Field
         label="Steps"
-        hint="Each step runs a tool in order. Args: plain text → first parameter."
+        hint="Each step names the intended host tool in order. Args/context stay plain text; Alfa validates and maps them to the tool schema at run time."
       >
         <div className="flex flex-col gap-2">
           {steps.length === 0 ? (

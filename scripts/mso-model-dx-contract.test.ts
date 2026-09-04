@@ -30,7 +30,7 @@ const all = [cli, commandOwner, agentCli, configRoute, oauthRoute, slash, picker
 
 describe("MSO model/provider/session CLI contract", () => {
   it("keeps provider auth (`models`) separate from active selection (`model`)", () => {
-    expect(cli).toContain('VERSION="1.12.0"');
+    expect(cli).toContain('VERSION="1.12.1"');
     expect(cli).toContain("models *             Configure AI providers/auth");
     expect(cli).toContain("model [ref]          Select active model");
     expect(agentCli).toContain("run_models()");

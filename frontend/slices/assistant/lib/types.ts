@@ -1,6 +1,7 @@
-// Shared types for the Alfa assistant slice. Agents own skills; an agent's
-// effective tools are the union of its skills' tools (or every tool when it is
-// a generalist). Automations are ordered tool steps run as one click.
+// Shared persisted types for the Alfa assistant slice. `Skill` is the legacy
+// storage name for the UI Playbook type. Agent `skills`/`allTools` and Playbook
+// `tools` are migration-compatible metadata, NOT capability grants; Alfa uses one
+// global host-tool catalog. Automations are ordered intents executed through Alfa.
 // Only groups that have EXECUTABLE tools behind them. rendering/media/editor/
 // browser/settings/video were removed with the 44 descriptors that described
 // capabilities the model could never call.

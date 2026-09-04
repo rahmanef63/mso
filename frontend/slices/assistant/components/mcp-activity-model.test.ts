@@ -24,6 +24,7 @@ describe("MCP activity workflow grouping", () => {
     ]);
     expect(group.state).toBe("done");
   });
+
   it("marks a completed standalone call without calling it verified", () => {
     const [group] = groupActivity([row({ id: "one", tool: "sys_stats", state: "completed" })]);
     expect(group.state).toBe("completed");
@@ -37,4 +38,16 @@ describe("MCP activity workflow grouping", () => {
     expect(group.state).toBe("cancelled");
   });
 
+  it("marks a completed Alfa run completed without pretending it is verified", () => {
+    const [group] = groupActivity([
+      row({ id: "alfa:run", tool: "alfa.chat", state: "completed", workflowId: "alfa-1", workflowIntent: "inspect repo" }),
+      row({ id: "alfa:tool", tool: "fs.read", state: "completed", workflowId: "alfa-1" }),
+    ]);
+    expect(group).toMatchObject({ state: "completed", intent: "inspect repo" });
+  });
+
+  it("marks an aborted local Alfa run as cancelled", () => {
+    const [group] = groupActivity([row({ id: "alfa:run", tool: "alfa.chat", state: "cancelled", workflowId: "alfa-2" })]);
+    expect(group.state).toBe("cancelled");
+  });
 });

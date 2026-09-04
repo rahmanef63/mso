@@ -33,6 +33,7 @@ U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner
 U_service="service status|start|stop|restart|logs [n]"
 U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> <unit>"
 U_update="update [--rebuild] | status | log"
+U_cockpit="cockpit [project] | cockpit show [project] | cockpit search <query…>"
 U_threads="threads list|show <id>|save <json>|rm <id>"
 U_agent_sessions="agent-sessions list [limit]|show <id>|create [title]"
 U_agents="agents list [current-session-id]|send <source-session-id> <target> <message> [message|task]|inbox <session-id> [--all]"
@@ -86,7 +87,7 @@ mso_cli_main() {
       mso_cmd_host "$cmd" "$@" ;;
     agent|chat|model|setup|onboard|provider|providers|gateway|web|camoufox|apps|mapp|term)
       mso_cmd_runtime "$cmd" "$@" ;;
-    ai|threads|agent-sessions|agents|a2a|memory|config|prefs|models|skills|changelog|stock)
+    ai|cockpit|threads|agent-sessions|agents|a2a|memory|config|prefs|models|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;
     devices|device|approve|revoke|oauth|mcp|audit|whoami|login|logout|service|build|deploy|update|crud|api|completion)
       mso_cmd_admin "$cmd" "$@" ;;

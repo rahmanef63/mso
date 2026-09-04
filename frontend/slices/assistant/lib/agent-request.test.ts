@@ -36,8 +36,20 @@ describe("composeSystem", () => {
     expect(composeSystem(agent({ persona: "   " }), " MODE")).toBe(base);
   });
 
+
+  it("adds bounded selected-project context without turning it into permission", () => {
+    const out = composeSystem(agent(), " MODE", {
+      id: "root/mso", name: "mso", path: "/home/rahman/projects/mso", branch: "main",
+      clean: false, head: "abcdef123456", knowledge: true, recentMemoryTitles: ["Fix updater race", "Verify memory retention"],
+    });
+    expect(out).toContain("Selected MSO project: mso");
+    expect(out).toContain("Working tree has changes");
+    expect(out).toContain("Project knowledge is available");
+    expect(out).toContain("not permission to mutate");
+  });
+
   it("stays well inside the route's 4000-char system cap", () => {
-    const out = composeSystem(agent({ persona: "x".repeat(5000) }), " MODE");
+    const out = composeSystem(agent({ persona: "x".repeat(5000) }), " MODE", { id: "x", name: "x".repeat(500), path: "/" + "y".repeat(1000), recentMemoryTitles: Array(20).fill("z".repeat(200)) });
     expect(out.length).toBeLessThan(4000);
   });
 });

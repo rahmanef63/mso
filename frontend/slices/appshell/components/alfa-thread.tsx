@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Sparkles } from "lucide-react";
+import { FolderGit2, ShieldCheck, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAlfaBusy, useAlfaMessages, sendToAlfa, alfaReady, stopAlfa, type AlfaContext } from "../lib/alfa";
@@ -10,7 +10,8 @@ import { openWindow } from "../lib/store";
 import { ChatComposer } from "./chat-composer";
 import { ApprovalCard } from "./approval-card";
 import type { ToolCard } from "./message-bubble";
-import { resolveAlfaApproval } from "../lib/alfa-approvals";
+import { resolveAlfaApproval, useAlfaApprovalCount } from "../lib/alfa-approvals";
+import { useAlfaProjectContext } from "../lib/alfa-work-context";
 
 // The Alfa conversation, rendered wherever it is needed — the desktop right dock,
 // the mobile sheet, anywhere else later. It owns NO conversation state: everything
@@ -26,6 +27,8 @@ export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder
   const busy = useAlfaBusy();
   const apps = useApps();
   const bottom = useRef<HTMLDivElement>(null);
+  const project = useAlfaProjectContext();
+  const approvals = useAlfaApprovalCount();
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -50,6 +53,17 @@ export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {project || approvals ? (
+        <button
+          type="button"
+          className="flex min-h-9 shrink-0 items-center gap-2 border-b border-border/70 px-3 text-left text-[10px] text-muted-foreground hover:bg-secondary/40"
+          onClick={() => openWindow("assistant", "Alfa")}
+        >
+          {project ? <><FolderGit2 className="size-3.5" /><span className="max-w-[55%] truncate font-medium text-foreground">{project.name}</span>{project.branch ? <span className="truncate">· {project.branch}</span> : null}</> : null}
+          <span className="flex-1" />
+          {approvals ? <span className="flex items-center gap-1 text-warning"><ShieldCheck className="size-3.5" />{approvals} pending</span> : null}
+        </button>
+      ) : null}
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-2.5 p-3">
           {messages.length === 0 ? (

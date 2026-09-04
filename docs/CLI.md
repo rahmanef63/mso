@@ -102,6 +102,7 @@ Commands:
 
  AI + state
   ai <prompt…>         One turn with the assistant
+  cockpit [project]    Alfa/MSO runtime context; search with `cockpit search <query>`
   threads *            Conversation history: list | show | rm
   agent-sessions *     Durable MSO Agent sessions: list | show | create
   agents *             Native local session agents: list | send | inbox

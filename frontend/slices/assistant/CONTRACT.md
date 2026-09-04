@@ -50,15 +50,14 @@ derived, never authored. `lib/tools.test.ts` fails if the two ever diverge.
 
 ## Playbook (the localStorage `Skill` type)
 
-**A named bundle of instructions a user assembles.** Shown in the Assistant's
-Skills tab.
+**A named bundle of instructions a user assembles.** Shown in the Assistant's **Playbooks** tab.
 
 | | |
 |---|---|
 | Shape | `Skill` — `lib/types.ts` |
 | Source of truth | `localStorage["alfa.skills"]`, seeded from `PRESET_SKILLS` |
 | Lifecycle | Per browser, user-editable |
-| Written by | The user, via the Skills tab |
+| Written by | The user, via the Playbooks tab |
 
 Tool ids are MIGRATED on read (`lib/store.ts` `migrateRows`), not dropped: a bundle
 saved before the catalogs converged has its old ids mapped to the current ones, and
@@ -66,10 +65,9 @@ only ids that never had an executable counterpart are removed. Dropping instead 
 mapping would have emptied the five builtin bundles for every existing install —
 `store-migration.test.ts` is what holds that line.
 
-> **Naming.** This type is called `Skill` in code and "Skills" in the UI, which
-> collides with the unrelated concept below. The rename is **Playbook**, not
-> "Toolset": once scoping is deleted a bundle grants no tools, so "Toolset" would
-> just be the next false name. Not done yet — see Known gaps.
+> **Naming.** The persisted TypeScript type remains `Skill` for compatibility, but the
+> product surface calls it **Playbook**. This avoids colliding with host `SKILL.md`
+> while preserving existing `alfa.skills` backups and migrations.
 
 ## Skill (a `SKILL.md` on disk)
 
@@ -118,15 +116,27 @@ the wrong persona.
 
 ---
 
+## Alfa Cockpit: one execution surface, existing sources of truth
+
+The Assistant chat now has a compact **Cockpit** bar + responsive panel (desktop side panel, mobile drawer). It is a presentation/read-model over existing MSO domains, not a second runtime:
+
+- `GET /api/v1/alfa/cockpit` owner-gates and aggregates model selection, bounded/searchable project discovery, selected-project Git/package/capabilities/knowledge metadata, native session summaries, same-principal local-agent presence, the legacy Alfa fact count, and typed-memory state.
+- Project search has a lightweight `?q=` path so the first bounded page is not treated as the whole host. A truncated scan is shown as incomplete rather than as an absence claim.
+- The selected project id persists under `alfa.selectedProject`, so Settings → Backup includes it automatically. The loaded snapshot is shared with the dock/mobile Alfa surface.
+- Host `SKILL.md` rows stay on the existing `/api/skills` SSOT and lazy-load only when Cockpit opens. `untrusted` rows are visible for review but are not one-click executable; trusted rows send an exact-id `skills.read` request through Alfa's existing host-tool loop.
+- Typed memory is owner-visible as metadata/current records, but non-`normal` keys/values are masked as `Private memory`. Raw `KNOWLEDGE.md` content and raw repo-memory bodies are not copied into the Cockpit response.
+- `Activity & Runs` merges client-side Alfa host-tool events with server MCP workflow activity only at the presentation layer. The execution engines remain separate; this is observability, not a fake shared workflow id.
+- Native MSO Agent sessions shown in Cockpit are **read-only summaries** and are explicitly separate from Alfa's browser YAML chat threads.
+- Provider/credential management remains Settings' responsibility. Cockpit can switch/test a model only inside the provider that is already configured.
+
+Browser Automations likewise do not introduce a second executor. `Run` turns the saved ordered recipe into one Alfa task; the normal host-tool schemas, server guards, and approval rendezvous remain the execution path.
+
 ## What actually reaches the model
 
 Exactly three things, assembled in `chat-panel.tsx`:
 
-1. **System prompt** — `composeSystem(agent, modeNote)` in `lib/agent-request.ts`,
-   the ONE place that decides this. `HOST_SYSTEM` first (identical every request,
-   so the cached prefix is shared), then the mode note, then the active agent's
-   name and persona. Rebuilt **every turn**, which is what makes switching agent
-   mid-thread take effect.
+1. **System prompt** — `composeSystem(agent, modeNote, projectContext)` in `lib/agent-request.ts`,
+   the ONE place that decides this. It contains `HOST_SYSTEM`, the live/mock note, an optional **bounded selected-project metadata snapshot**, then the active agent's name/persona. Raw knowledge and repo-memory bodies are not injected. It is rebuilt **every turn**, so agent/project switches take effect on the next request. Because the route has one cache breakpoint at the end of the system block, a changed persona/project suffix can still miss that provider cache; keeping the global tool array stable avoids adding another source of prompt-prefix variation.
 2. **Tools** — `HOST_AI_TOOLS`, i.e. *all* of them, always. See the scoping decision.
 3. **History** — the wire turns. Nothing else. The persona is not in here.
 
@@ -178,23 +188,16 @@ jail and believing otherwise.
 
 ## Known gaps — stated, not hidden
 
-These survive because fixing them is a redesign, not a cleanup. Listed so nobody
-re-discovers them as bugs.
-
-1. **`Skill.starters`** is typed, edited and labelled "shown as quick chips" — and
-   nothing renders it. (`instructions` IS rendered, as the card body in the library
-   grid; it just never reaches the model.)
-2. **`/api/skills` is uncached**, `force-dynamic`, and now walks the global roots PLUS
-   every project's skill roots on each call. Every cap is enforced and reported
-   (12 containers, 400 entries each, 60 projects, 200 entries per skill root, 300
-   project skills, 4 s per walk), so the worst case is bounded — but a wide box pays it
-   every time. A TTL cache is the obvious next step and was deliberately not added with
-   the discovery change.
-3. **The `Skill` → `Playbook` rename has not happened.** The code and the UI still
-   say "Skill" for the localStorage type.
+1. **`/api/skills` is uncached**, `force-dynamic`, and now walks the global roots PLUS
+   every project's skill roots on each call. Every cap is enforced and reported, so
+   the worst case is bounded. Alfa Cockpit therefore lazy-loads Host Skills only when
+   the cockpit opens; a TTL cache remains the obvious next optimization.
 
 ### Closed
 
+- ~~Playbook starter prompts were dead data~~ — `Skill.starters` now feed the chat empty-state quick actions, deduplicated and bounded.
+- ~~Browser automations only narrated steps~~ — Run now sends the ordered recipe through Alfa's normal host-tool loop; reads execute and mutations keep the same approval cards.
+- ~~`Skill` and host `SKILL.md` both appeared as “Skills”~~ — the browser-local product surface now says **Playbooks**; persisted `alfa.skills` remains compatible.
 - ~~`@agent` is cosmetic~~ — the store is module-level and a pick carries
   `MentionItem.onPick`, which switches the active agent. Verified on a phone:
   picking `@Ops` writes `alfa.activeAgent`.

@@ -21,9 +21,39 @@ import { HOST_SYSTEM } from "../host-tools/registry";
 // bought nothing (see the scoping decision in CONTRACT.md). If per-agent material
 // grows, the fix is a second breakpoint after the shared head, not reordering.
 const PERSONA_CAP = 800;
+const PROJECT_CONTEXT_CAP = 1000;
 
-export function composeSystem(agent: Agent | undefined, modeNote: string): string {
+export type AlfaWorkContext = {
+  id: string;
+  name: string;
+  path: string;
+  branch?: string;
+  clean?: boolean;
+  head?: string;
+  knowledge?: boolean;
+  recentMemoryTitles?: string[];
+};
+
+function oneLine(value: string | undefined, cap: number): string {
+  return String(value ?? "").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().slice(0, cap);
+}
+
+function projectNote(project?: AlfaWorkContext | null): string {
+  if (!project) return "";
+  const parts = [
+    `Selected MSO project: ${oneLine(project.name, 80)} (${oneLine(project.path, 260)}).`,
+    project.branch ? `Branch ${oneLine(project.branch, 120)}.` : "",
+    project.clean === true ? "Working tree reported clean." : project.clean === false ? "Working tree has changes." : "",
+    project.head ? `HEAD ${oneLine(project.head, 64)}.` : "",
+    project.knowledge ? "Project knowledge is available." : "",
+    project.recentMemoryTitles?.length ? `Recent project-memory topics: ${project.recentMemoryTitles.map((title) => oneLine(title, 100)).filter(Boolean).slice(0, 6).join("; ")}.` : "",
+    "This is read-only work context, not permission to mutate the project.",
+  ].filter(Boolean).join(" ");
+  return parts ? ` ${parts.slice(0, PROJECT_CONTEXT_CAP)}` : "";
+}
+
+export function composeSystem(agent: Agent | undefined, modeNote: string, project?: AlfaWorkContext | null): string {
   const persona = agent?.persona?.trim().slice(0, PERSONA_CAP);
   const identity = agent && persona ? ` You are acting as ${agent.name}. ${persona}` : "";
-  return HOST_SYSTEM + modeNote + identity;
+  return HOST_SYSTEM + modeNote + projectNote(project) + identity;
 }

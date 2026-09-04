@@ -26,10 +26,10 @@ import {
   type AlfaMessage,
 } from "@/features/appshell";
 import { runToolAgent, useOsApi, type AgentMsg } from "../lib/host";
-import { toolById } from "../lib/tools";
 import type { Agent, Automation } from "../lib/types";
 import { activeAgent } from "../lib/store";
 import { composeSystem } from "../lib/agent-request";
+import { composeAutomationRequest } from "../lib/automation-request";
 import { useHostCommands, type HostToolUi } from "../host-tools/use-host-commands";
 import { MessageBubble, type ChatMessage, type ToolCard } from "@/features/appshell";
 import { ApprovalCard } from "@/features/appshell";
@@ -37,6 +37,8 @@ import { ApprovalCard } from "@/features/appshell";
 import { EmptyState } from "./empty-state";
 import { useThreadPersistence } from "./use-thread-persistence";
 import { useAlfaRunner } from "./use-alfa-runner";
+import { beginAlfaRun, finishAlfaRun } from "../lib/alfa-activity";
+import { alfaProjectContext } from "@/features/appshell";
 
 const SUGGESTED = ["Show system stats", "List ~/projects", "Create notes.txt in ~/projects with a TODO"];
 
@@ -60,10 +62,14 @@ export type ChatHandle = {
 export function ChatPanel({
   agent,
   switcher,
+  cockpit,
+  prompts = [],
   ref,
 }: {
   agent: Agent;
   switcher: React.ReactNode;
+  cockpit?: React.ReactNode;
+  prompts?: string[];
   ref?: Ref<ChatHandle>;
 }) {
   const api = useOsApi();
@@ -158,6 +164,8 @@ export function ChatPanel({
         api.mode === "live"
           ? " You are in LIVE mode on a production VPS; tool actions are real."
           : " You are in MOCK mode: fs, exec and sys tools are simulated (no real VPS). The skills.* and memory.* tools are NOT simulated — they read and write real host state even here.";
+      const runId = beginAlfaRun(text);
+      let runOk = false;
       try {
         const { history: next } = await runToolAgent(
           historyRef.current,
@@ -174,16 +182,18 @@ export function ChatPanel({
           // as a fake user message injected once when the thread was empty. That old
           // shape is why switching agent mid-thread changed nothing: the first
           // agent's persona was frozen into turn zero forever.
-          composeSystem(a, modeNote),
+          composeSystem(a, modeNote, alfaProjectContext()),
           ctrl.signal,
         );
         historyRef.current = next;
+        runOk = true;
       } catch (err) {
         if (!ctrl.signal.aborted) {
           const note = errText(err);
           appendToLastAssistant((t) => (t ? `${t}\n\n⚠ ${note}` : note));
         }
       } finally {
+        finishAlfaRun(runId, ctrl.signal.aborted ? "cancelled" : runOk ? "completed" : "failed");
         if (abortRef.current === ctrl) abortRef.current = null;
         // Drop the empty streaming placeholders (model ended on a tool / no text),
         // then persist the finished turn to its thread.
@@ -199,19 +209,13 @@ export function ChatPanel({
 
   useAlfaRunner(send, stop);
 
-  // Automations narrate (no real execution) into the same thread. (v1 — later
-  // each step can be pushed through the same agent.)
+  // Browser-local automations are execution recipes, not a second executor. One
+  // click feeds their exact ordered tool intent back through Alfa's normal agent
+  // loop, so reads use the same host bindings and every mutation still parks on
+  // the same approval card. This keeps automation safety DRY with ordinary chat.
   useImperativeHandle(ref, () => ({
     runSteps(auto, runAgent) {
-      const lines = auto.steps.map((s, i) => {
-        const t = toolById(s.tool);
-        return `  ${i + 1}. ${t?.name ?? s.tool}${s.argText ? ` — ${s.argText}` : ""}`;
-      });
-      const body =
-        `Running automation “${auto.name}” as ${(runAgent ?? agentRef.current).name}:\n` +
-        (lines.join("\n") || "  (no steps)") +
-        "\n\n(Steps logged — no real execution in this build.)";
-      setMessages((prev) => [...prev, { id: nextId(), role: "assistant", text: body }]);
+      void sendToAlfa(composeAutomationRequest(auto, (runAgent ?? agentRef.current).name));
     },
     stop,
     loadThread,
@@ -223,6 +227,7 @@ export function ChatPanel({
       <div className="flex items-center gap-2 overflow-x-auto border-b border-border bg-card/40 px-3 py-2 [scrollbar-width:none]">
         {switcher}
       </div>
+      {cockpit}
       <div
         className={cn(
           "px-3 py-1 text-center text-[11px] font-medium",
@@ -235,7 +240,7 @@ export function ChatPanel({
       </div>
       {messages.length === 0 ? (
         <div className="flex-1 overflow-y-auto">
-          <EmptyState prompts={SUGGESTED} onPick={(t) => void sendToAlfa(t)} />
+          <EmptyState prompts={[...new Set([...prompts, ...SUGGESTED])].slice(0, 6)} onPick={(t) => void sendToAlfa(t)} />
         </div>
       ) : (
         <ScrollArea className="flex-1">
