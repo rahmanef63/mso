@@ -27,8 +27,8 @@ ChatGPT
        ├─ explicit bounded infrastructure operations
        ├─ project snapshot / diff / knowledge / project-agent tasks
        ├─ Convex status + dynamic Convex MCP schemas/calls
-       ├─ MCP Apps UI for workflow, project, diff and VPS
-       ├─ universal MSO Surface + reviewed live app demos
+       ├─ explicit MCP Block for validation/action/CRUD input-output
+       ├─ full MSO Page + reviewed dev/preview/production app embeds
        └─ dynamic project MCP/function seams for project-owned tools
 ```
 
@@ -56,7 +56,7 @@ The restored Original MSO operator primitives (`sys_*`, `fs_usage` + full bounde
 
 Project-owned MCP names and Convex's own dynamic schemas still load on demand through `project_mcp_tools` / `project_mcp_call` and `project_database_tools` / `project_database_call`. That is how MSO keeps a bounded static model profile instead of copying every downstream provider/project action into ChatGPT.
 
-`render_mso_surface` is the presentation bridge for ChatGPT-as-an-MSO-shell. It accepts only MSO-style routes and a server-reviewed app id; arbitrary HTML and external URL inputs are not part of its schema. `mso_surface_apps_list` exposes only the public reviewed catalog. Direct nested frames are exact-origin allowlisted in the MCP App resource CSP, while anti-frame applications remain remote-browser candidates. User-installed runtime HTML apps do not inherit this trust automatically.
+ChatGPT presentation is explicit rather than attached to every operation. `workflow_start` is headless. `render_mso_block` opens the compact validation/action/CRUD component and accepts only bounded fields, checks, outputs, and follow-up actions; a button cannot execute a mutation inside the widget. `render_mso_page` opens native MSO views or a code-reviewed development/preview/production app. It accepts only MSO-style routes and server-owned app ids, never arbitrary HTML or an external URL. `mso_surface_apps_list` exposes the reviewed Page catalog. Direct nested frames are exact-origin allowlisted in the Page CSP, while anti-frame applications remain remote-browser candidates. User-installed runtime HTML apps do not inherit this trust automatically. `render_mso_surface` and `workflow_status` remain app-only compatibility shims for cached clients.
 
 ### Structured-result contract
 
@@ -149,7 +149,7 @@ MSO uses Streamable HTTP JSON-RPC over `POST /mcp`.
 4. Choose OAuth and complete the MSO consent flow on an approved owner device.
 5. Select the lowest useful MSO tier.
 6. Run **Scan Tools / Refresh** in ChatGPT.
-7. Verify that the action snapshot corresponds to the 64-tool transport profile (63 model actions + app-only `workflow_status`) in the generated catalog.
+7. Verify that the action snapshot corresponds to the 66-tool transport profile (64 model-visible actions + app-only `workflow_status` and `render_mso_surface`) in the generated catalog.
 8. Start a new chat when testing a newly scanned draft/action snapshot.
 
 After a schema/profile change, changing production code alone does not replace ChatGPT's frozen action snapshot. Refresh/re-scan (or recreate/republish where the workspace UI requires it) after deployment.
@@ -180,5 +180,5 @@ The live diagnostic `GET /mcp` returns both `toolset` (full MSO) and `chatgptToo
 - Remote HTTP project MCP calls retain MSO's public-address / SSRF / DNS-rebinding guard.
 - Tool hiding is not a substitute for scope checks; list-time and call-time scope enforcement both remain mandatory.
 - Hidden ChatGPT transcript, private chain-of-thought and credentials are never copied into Local Agent/project MCP messages.
-- MSO Surface never accepts raw HTML/arbitrary URL input; nested iframe origins are code-reviewed, exact-origin CSP entries and revalidated in the widget.
+- MSO Block accepts only bounded fields/checks/outputs/actions and never executes a mutation directly; MSO Page never accepts raw HTML/arbitrary URL input, and nested iframe origins are code-reviewed, exact-origin CSP entries revalidated in the widget.
 - The authenticated MSO cockpit stays non-frameable, and user-installed HTML/runtime manifests cannot promote themselves into the ChatGPT frame allowlist.

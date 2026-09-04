@@ -12,6 +12,7 @@ const BROWSER_CATALOG = SURFACE_APPS.map((app) => ({
   startPath: app.startPath,
   renderer: app.renderer,
   presentation: app.presentation,
+  environment: app.environment,
   sandbox: app.sandbox ?? "",
   reason: app.reason ?? "",
 }));
@@ -50,7 +51,7 @@ async function displayMode(mode){
   try{if(!window.openai||typeof window.openai.requestDisplayMode!=="function")throw new Error("unsupported");await window.openai.requestDisplayMode({mode})}catch(_){modeEl.textContent=mode+" unavailable"}
 }
 function persistRoute(){
-  try{if(window.openai&&typeof window.openai.setWidgetState==="function")window.openai.setWidgetState({modelContent:"MSO Surface: "+current.route,privateContent:{route:current.route},imageIds:[]})}catch(_){}
+  try{if(window.openai&&typeof window.openai.setWidgetState==="function")window.openai.setWidgetState({modelContent:"MSO Page: "+current.route,privateContent:{route:current.route},imageIds:[]})}catch(_){}
 }
 function rpcCall(name,args){
   const id=nextRpcId++;window.parent.postMessage({jsonrpc:"2.0",id,method:"tools/call",params:{name,arguments:args}},"*");
@@ -61,15 +62,15 @@ function nav(route,extra={}){
   if(!validRoute(route))return;
   current={route,kind:route==="/"?"home":"loading",title:"MSO",openPath:"/assistant/mcp",catalog:current.catalog,...extra};render();
   if(route==="/")return;
-  rpcCall("render_mso_surface",{route,...(extra.project?{project:extra.project}:{}),...(extra.sha?{sha:extra.sha}:{})}).then(result=>{const value=unbox(result);if(value&&typeof value==="object"){current=value;render()}}).catch(showError)
+  rpcCall("render_mso_page",{route,...(extra.project?{project:extra.project}:{}),...(extra.sha?{sha:extra.sha}:{})}).then(result=>{const value=unbox(result);if(value&&typeof value==="object"){current=value;render()}}).catch(showError)
 }
-function showError(error){clear(body);const box=el("div","notice");const inner=el("div");inner.append(el("h3","","Surface unavailable"),el("p","error",error&&error.message?error.message:"The requested surface could not be loaded."));box.append(inner);body.append(box)}
+function showError(error){clear(body);const box=el("div","notice");const inner=el("div");inner.append(el("h3","","Page unavailable"),el("p","error",error&&error.message?error.message:"The requested page could not be loaded."));box.append(inner);body.append(box)}
 function renderHome(){
-  const root=el("div","home");const hero=el("section","hero");hero.append(el("h2","","MSO Surface"),el("p","","ChatGPT is another MSO presentation target. Open a native operator view or a reviewed live demo without leaving the conversation."));root.append(hero);
-  root.append(el("div","section-title","Native surfaces"));const native=el("div","grid");
+  const root=el("div","home");const hero=el("section","hero");hero.append(el("h2","","MSO Page"),el("p","","ChatGPT is another MSO presentation target. Open a native operator view or a reviewed live demo without leaving the conversation."));root.append(hero);
+  root.append(el("div","section-title","Native pages"));const native=el("div","grid");
   for(const item of [{route:"/monitor",title:"System Monitor",desc:"Live bounded host status."},{route:"/project",title:"Project",desc:"Project snapshot and Git state."},{route:"/diff",title:"Diff",desc:"Review project changes."},{route:"/browser",title:"Remote Browser",desc:"Fallback seam for sites that deny framing."}]){const card=button("",()=>nav(item.route),"card");card.append(el("strong","",item.title),el("span","",item.desc));native.append(card)}root.append(native);
-  root.append(el("div","section-title","Reviewed app demos"));const apps=el("div","grid");
-  for(const app of SAFE_APPS){const card=button("",()=>nav("/apps/"+encodeURIComponent(app.id)),"card");card.append(el("strong","",app.title),el("span","",app.description),el("span","tag",app.renderer));apps.append(card)}root.append(apps);body.append(root)
+  root.append(el("div","section-title","Reviewed development and production pages"));const apps=el("div","grid");
+  for(const app of SAFE_APPS){const card=button("",()=>nav("/apps/"+encodeURIComponent(app.id)),"card");card.append(el("strong","",app.title),el("span","",app.description),el("span","tag",app.environment+" · "+app.renderer));apps.append(card)}root.append(apps);body.append(root)
 }
 function renderMonitor(){
   const stage=stageBase("Live bounded VPS status");const metrics=el("div","metrics");for(const name of ["CPU","Memory","Disk"]){const m=el("div","metric");m.append(el("span","",name),el("strong","","…"));metrics.append(m)}stage.content.append(metrics);const list=el("div","list");stage.content.append(list);body.append(stage.root);
@@ -83,12 +84,12 @@ function renderProjectPrompt(kind){const box=el("div","notice");const inner=el("
 function appendLine(list,label,value){const row=el("div","line");row.append(el("span","",label),el("strong","mono",value==null?"—":value));list.append(row)}
 function stageBase(subtitle){const root=el("div","stage"),head=el("div","stage-head"),content=el("div");head.append(button("←",()=>nav("/"),"back"));const t=el("div","stage-title");t.append(el("strong","",current.title),el("span","",subtitle));head.append(t);root.append(head,content);return{root,content}}
 function renderApp(){
-  const raw=current.app,safe=safeAppResult(raw);if(!safe){showError(new Error("The app result is not in the reviewed MSO Surface registry."));return}const stage=stageBase(safe.renderer==="iframe"?"Live app demo":"Remote-browser fallback");body.append(stage.root);openPath(safe.renderer==="remote"?"/browser":"/assistant/mcp");
+  const raw=current.app,safe=safeAppResult(raw);if(!safe){showError(new Error("The app result is not in the reviewed MSO Page registry."));return}const stage=stageBase(safe.renderer==="iframe"?"Live app demo":"Remote-browser fallback");body.append(stage.root);openPath(safe.renderer==="remote"?"/browser":"/assistant/mcp");
   if(safe.renderer==="iframe"){const wrap=el("div","frame-wrap"),frame=document.createElement("iframe");frame.title=safe.title+" live demo";frame.src=safe.url;frame.setAttribute("sandbox",safe.sandbox);frame.referrerPolicy="no-referrer";frame.allow="fullscreen";wrap.append(frame);stage.content.append(wrap);return}
   const box=el("div","notice"),inner=el("div");inner.append(el("h3","",safe.title+" protects itself from framing"),el("p","",safe.reason||"This app is not allowlisted for nested framing. MSO preserves the app's own frame policy instead of stripping it."));const row=el("div","row");row.append(button("Open Remote Browser",()=>openMso(),"primary"));if(window.openai&&typeof window.openai.sendFollowUpMessage==="function")row.append(button("Ask ChatGPT to continue",()=>window.openai.sendFollowUpMessage({prompt:"Continue this demo using the MSO remote-browser fallback for "+safe.title+"."})));inner.append(row);box.append(inner);stage.content.append(box);if(safe.presentation==="pip")pipBtn.hidden=false
 }
 function renderBrowser(){const box=el("div","notice"),inner=el("div");inner.append(el("h3","","Remote Browser seam"),el("p","","Sites that deny iframe embedding stay isolated. MSO can continue them through Camoufox without exposing its VNC password or authenticated viewer URL to this widget."));const row=el("div","row");row.append(button("Open MSO Browser",()=>openMso(),"primary"));inner.append(row);box.append(inner);body.append(box);openPath("/browser")}
-function render(){clear(body);titleEl.textContent=text(current.title,"MSO Surface");routeEl.textContent=text(current.route,"/");openPath(text(current.openPath,"/assistant/mcp"));persistRoute();if(current.kind==="home")renderHome();else if(current.kind==="monitor")renderMonitor();else if(current.kind==="project")renderProject("project");else if(current.kind==="diff")renderProject("diff");else if(current.kind==="app")renderApp();else if(current.kind==="browser")renderBrowser();else body.append(el("div","loading","Loading MSO Surface…"))}
+function render(){clear(body);titleEl.textContent=text(current.title,"MSO Page");routeEl.textContent=text(current.route,"/");openPath(text(current.openPath,"/assistant/mcp"));persistRoute();if(current.kind==="home")renderHome();else if(current.kind==="monitor")renderMonitor();else if(current.kind==="project")renderProject("project");else if(current.kind==="diff")renderProject("diff");else if(current.kind==="app")renderApp();else if(current.kind==="browser")renderBrowser();else body.append(el("div","loading","Loading MSO Page…"))}
 function readOutput(){const value=window.openai&&window.openai.toolOutput;if(value&&typeof value==="object"){current=value;render()}}
 window.addEventListener("message",event=>{if(event.source!==window.parent)return;const msg=event.data;if(!msg||msg.jsonrpc!=="2.0")return;if(msg.id!==undefined&&pending.has(msg.id)){const req=pending.get(msg.id);pending.delete(msg.id);msg.error?req.reject(msg.error):req.resolve(msg.result);return}if(msg.method==="ui/notifications/tool-result"&&msg.params&&msg.params.structuredContent){current=msg.params.structuredContent;render()}},{passive:true});
 window.addEventListener("openai:set_globals",()=>{applyHostGlobals();readOutput()},{passive:true});

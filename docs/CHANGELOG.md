@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `mcp` simplify ChatGPT UI to Block and Page
 - `assistant` turn Alfa into MSO cockpit
 
 **Fixed**

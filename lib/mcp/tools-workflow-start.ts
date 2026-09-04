@@ -10,7 +10,6 @@ import type { WorkflowOrchestrationSnapshot } from "@/lib/orchestration/types";
 import type { McpTool } from "./tool-kit";
 import { opt, S, str } from "./tool-kit";
 import { toolsetInfo } from "./toolset";
-import { WORKFLOW_PROGRESS_URI } from "./ui-resources";
 import { optionalStringList, visibleTools, WORKFLOW_PROGRESS_OUTPUT, workflowProgress } from "./tools-learning-shared";
 
 export const WORKFLOW_START_TOOL: McpTool =
@@ -19,19 +18,13 @@ export const WORKFLOW_START_TOOL: McpTool =
     description:
       "The ONE startup call for a multi-step task. It starts the workflow, searches trusted skills and prior recipes, " +
       "resolves project aliases, reports the current toolset/version, and inspects repository context when available. " +
-      "Do not call skills_search first for the same task; this already includes it. Multiple conversations may start isolated workflows on one token; correlate every later step with the returned workflow_id.",
+      "Do not call skills_search first for the same task; this already includes it. Multiple conversations may start isolated workflows on one token; correlate every later step with the returned workflow_id. This tool is orchestration-only and never opens a UI by itself.",
     scope: "write",
     annotations: { idempotentHint: false },
     outputSchema: WORKFLOW_PROGRESS_OUTPUT,
     toStructuredContent: (result) => {
       if (!result || typeof result !== "object") return undefined;
       return workflowProgress((result as { workflow?: unknown }).workflow, true);
-    },
-    meta: {
-      ui: { resourceUri: WORKFLOW_PROGRESS_URI, visibility: ["model", "app"] },
-      "openai/outputTemplate": WORKFLOW_PROGRESS_URI,
-      "openai/toolInvocation/invoking": "Starting MSO workflow…",
-      "openai/toolInvocation/invoked": "MSO workflow ready",
     },
     limit: { key: "workflow.memory", max: 30, windowMs: 60_000 },
     audit: { action: "workflow.start" as const, targetArg: "project" },

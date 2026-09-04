@@ -7,33 +7,54 @@ const tool = (name: string) => {
   return value;
 };
 
-describe("MSO Surface MCP tools", () => {
+describe("MSO Page MCP tools", () => {
   it("returns only the server-reviewed public app catalog", async () => {
     const result = await tool("mso_surface_apps_list").run({}, { scope: "read" }) as { apps: Array<Record<string, unknown>> };
     expect(result.apps.map((app) => app.id)).toEqual(["play-together"]);
-    expect(result.apps[0]).toMatchObject({ title: "Play Together", origin: "https://game.rahmanef.com", renderer: "iframe", startPath: "/embed" });
+    expect(result.apps[0]).toMatchObject({
+      title: "Play Together",
+      origin: "https://game.rahmanef.com",
+      renderer: "iframe",
+      startPath: "/embed",
+      environment: "production",
+    });
     expect(JSON.stringify(result)).not.toContain("sandbox");
     expect(JSON.stringify(result)).not.toContain("<script");
   });
 
   it("renders the VPSKU Play Together target without accepting a URL argument", async () => {
-    const render = tool("render_mso_surface");
+    const render = tool("render_mso_page");
     expect(render.inputSchema.properties).not.toHaveProperty("url");
     expect(render.inputSchema.properties).not.toHaveProperty("html");
     const result = await render.run({ route: "/apps/play-together" }, { scope: "read" }) as { app?: Record<string, unknown> };
-    expect(result.app).toMatchObject({ id: "play-together", renderer: "iframe", origin: "https://game.rahmanef.com", startPath: "/embed", url: "https://game.rahmanef.com/embed" });
+    expect(result.app).toMatchObject({
+      id: "play-together",
+      renderer: "iframe",
+      origin: "https://game.rahmanef.com",
+      startPath: "/embed",
+      environment: "production",
+      url: "https://game.rahmanef.com/embed",
+    });
     expect(result.app).not.toHaveProperty("sandbox");
   });
 
-  it("keeps scanner-facing Surface metadata scoped to Play Together", () => {
-    const render = tool("render_mso_surface");
+  it("keeps scanner-facing Page metadata scoped to Play Together", () => {
+    const render = tool("render_mso_page");
     const metadata = JSON.stringify({ description: render.description, chatgptDescription: render.chatgptDescription });
     expect(metadata).toContain("play-together");
     expect(metadata.toLowerCase()).not.toContain("antinrml");
   });
 
   it("keeps project identity separate from the route string", async () => {
-    const result = await tool("render_mso_surface").run({ route: "/project", project: "mso" }, { scope: "read" });
+    const result = await tool("render_mso_page").run({ route: "/project", project: "mso" }, { scope: "read" });
     expect(result).toMatchObject({ route: "/project", kind: "project", project: "mso", openPath: "/files" });
+  });
+
+  it("retains an app-only compatibility alias without another UI resource binding", async () => {
+    const legacy = tool("render_mso_surface");
+    expect(legacy.meta).toMatchObject({ ui: { visibility: ["app"] }, "openai/widgetAccessible": true });
+    expect((legacy.meta?.ui as { resourceUri?: string }).resourceUri).toBeUndefined();
+    const result = await legacy.run({ route: "/monitor" }, { scope: "read" });
+    expect(result).toMatchObject({ route: "/monitor", kind: "monitor", title: "System Monitor" });
   });
 });

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-export const APP_ONLY_MCP_TOOLS = new Set(["workflow_status"]);
+export const APP_ONLY_MCP_TOOLS = new Set(["workflow_status", "render_mso_surface"]);
 const TOOL_MODULE_NAME = /^tools-[A-Za-z0-9-]+\.ts$/;
 const SCOPES = ["read", "write", "exec"];
 

@@ -35,7 +35,7 @@ export function outputSchemaForProfile(tool: McpTool, profile: McpToolProfile = 
 // names are discovered/called dynamically through project_mcp_* and NEVER appended
 // to this list or TOOLS.
 export const CHATGPT_TOOL_NAMES = new Set([
-  // Workflow/session intelligence. workflow_status stays app-only at presentation time.
+  // Workflow/session intelligence. workflow_status and render_mso_surface stay app-only at presentation time.
   "workflow_start", "workflow_status", "workflow_finish", "workflow_cancel",
   "skills_search", "skills_list", "skills_read", "read_pipeline",
   "agent_session_current", "agent_session_rename",
@@ -48,7 +48,7 @@ export const CHATGPT_TOOL_NAMES = new Set([
   "project_database_status", "project_database_tools", "project_database_call", "project_database_query",
 
   // Original MSO bounded VPS/file/application/browser power restored to ChatGPT.
-  "vps_status", "mso_surface_apps_list", "render_mso_surface", "screen_capture", "fs_list", "fs_read", "fs_search", "fs_usage",
+  "vps_status", "mso_surface_apps_list", "render_mso_block", "render_mso_page", "render_mso_surface", "screen_capture", "fs_list", "fs_read", "fs_search", "fs_usage",
   "fs_write", "fs_upload_file", "fs_mkdir", "fs_move", "fs_copy", "fs_delete",
   "sys_stats", "sys_processes", "apps_list", "apps_logs", "apps_power", "browser_status", "browser_power",
 
@@ -62,6 +62,7 @@ export const CHATGPT_TOOL_NAMES = new Set([
 
 const TITLES: Record<string, string> = {
   workflow_start: "Start Workflow", workflow_status: "Workflow Status", workflow_finish: "Finish Workflow", workflow_cancel: "Cancel Workflow",
+  render_mso_block: "Render MSO Block", render_mso_page: "Render MSO Page", render_mso_surface: "Render MSO Surface (Compatibility)",
   skills_search: "Search Skills", projects_list: "List Projects", project_capabilities: "Project Capabilities",
   project_mcp_tools: "List Project MCP Tools", project_mcp_call: "Call Project MCP Tool", project_function_call: "Call Project Function",
   read_pipeline: "Run Read Pipeline", fs_list: "List Files", fs_read: "Read File", fs_search: "Search Directories", fs_write: "Write File",

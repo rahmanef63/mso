@@ -13,7 +13,7 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
   {
     name: "workflow_status",
     description:
-      "Return a redacted live status snapshot for one workflow. This tool exists for the MSO ChatGPT progress widget: it exposes only workflow identity, timing and high-level tool outcomes, never tool arguments, command strings, file contents or credentials.",
+      "Return a redacted live status snapshot for one workflow. This remains app-only for compatibility with cached progress widgets and MSO operator views; workflow_start itself is headless. It exposes only workflow identity, timing and high-level tool outcomes, never tool arguments, command strings, file contents or credentials.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
     outputSchema: WORKFLOW_PROGRESS_OUTPUT,

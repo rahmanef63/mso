@@ -1,5 +1,6 @@
 export type SurfaceRenderer = "iframe" | "remote";
 export type SurfacePresentation = "inline" | "fullscreen" | "pip";
+export type SurfaceEnvironment = "development" | "preview" | "production" | "other";
 
 export type SurfaceApp = {
   id: string;
@@ -9,6 +10,7 @@ export type SurfaceApp = {
   startPath: string;
   renderer: SurfaceRenderer;
   presentation: SurfacePresentation;
+  environment: SurfaceEnvironment;
   sandbox?: string;
   reason?: string;
 };
@@ -26,6 +28,7 @@ export const SURFACE_APPS: readonly SurfaceApp[] = [
     startPath: "/embed",
     renderer: "iframe",
     presentation: "fullscreen",
+    environment: "production",
     sandbox: "allow-scripts allow-same-origin allow-forms allow-pointer-lock",
   },
 ] as const;
@@ -89,7 +92,7 @@ export function resolveSurfaceRoute(rawRoute: string, context?: { project?: stri
 
   if (parts[0] === "apps" && parts[1]) {
     const app = surfaceAppById(parts[1]);
-    if (!app) throw new Error(`unknown MSO Surface app: ${parts[1]}`);
+    if (!app) throw new Error(`unknown MSO Page app: ${parts[1]}`);
     const suffix = parts.slice(2).join("/");
     return {
       route,
@@ -99,5 +102,5 @@ export function resolveSurfaceRoute(rawRoute: string, context?: { project?: stri
       app: { ...app, url: safeDemoUrl(app, suffix, url.search) },
     };
   }
-  throw new Error(`unsupported MSO Surface route: ${url.pathname}`);
+  throw new Error(`unsupported MSO Page route: ${url.pathname}`);
 }

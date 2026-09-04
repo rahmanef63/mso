@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.9.4 version=2026.09.04.5 tools=87 read=43 write=25 exec=19 -->
+<!-- mcp-toolset: server=1.10.0 version=2026.09.04.6 tools=88 read=44 write=25 exec=19 -->
 
 | Fact | Current source value |
 |---|---:|
-| MCP server | `1.9.4` |
-| Toolset | `2026.09.04.5` |
-| Toolset changed at | `2026-09-04T01:36:00Z` |
-| Transport tools | **88** |
-| Model/operator tools | **87** |
-| Read | **43** |
+| MCP server | `1.10.0` |
+| Toolset | `2026.09.04.6` |
+| Toolset changed at | `2026-09-04T09:36:00Z` |
+| Transport tools | **90** |
+| Model/operator tools | **88** |
+| Read | **44** |
 | Write | **25** |
 | Exec | **19** |
-| App-only bridges | **1** |
+| App-only bridges | **2** |
 
-### Read (43)
+### Read (44)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -54,7 +54,8 @@
 - `project_memory_search`
 - `projects_list`
 - `read_pipeline`
-- `render_mso_surface`
+- `render_mso_block`
+- `render_mso_page`
 - `screen_capture`
 - `skills_list`
 - `skills_read`
@@ -114,26 +115,27 @@
 - `tool_forge_evaluate`
 - `tool_forge_promote`
 
-### App-only bridges (1)
+### App-only bridges (2)
 
+- `render_mso_surface`
 - `workflow_status`
 
 ## ChatGPT static profile
 
-<!-- mcp-chatgpt-profile: server=1.9.4 version=2026.09.04.5 tools=63 read=34 write=17 exec=12 app-only=1 total=64 -->
+<!-- mcp-chatgpt-profile: server=1.10.0 version=2026.09.04.6 tools=64 read=35 write=17 exec=12 app-only=2 total=66 -->
 
 The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_NAMES`. OAuth scope is still enforced independently; project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **64** |
-| ChatGPT model/operator tools | **63** |
-| Read | **34** |
+| ChatGPT transport tools | **66** |
+| ChatGPT model/operator tools | **64** |
+| Read | **35** |
 | Write | **17** |
 | Exec | **12** |
-| App-only bridges | **1** |
+| App-only bridges | **2** |
 
-### ChatGPT read (34)
+### ChatGPT read (35)
 
 - `agent_session_current`
 - `apps_list`
@@ -161,7 +163,8 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `project_knowledge_get`
 - `projects_list`
 - `read_pipeline`
-- `render_mso_surface`
+- `render_mso_block`
+- `render_mso_page`
 - `screen_capture`
 - `skills_list`
 - `skills_read`
@@ -205,6 +208,7 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `project_mcp_call`
 - `project_mcp_tools`
 
-### ChatGPT app-only bridges (1)
+### ChatGPT app-only bridges (2)
 
+- `render_mso_surface`
 - `workflow_status`

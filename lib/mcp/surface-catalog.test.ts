@@ -3,8 +3,8 @@ import { publicSurfaceApps, resolveSurfaceRoute, surfaceFrameDomains } from "./s
 import { MSO_SURFACE_SCRIPT } from "./ui-surface-script";
 import { OPEN_IN_MSO_SCRIPT } from "./ui-navigation";
 
-describe("MSO Surface trusted app catalog", () => {
-  it("allowlists only the reviewed Play Together origin", () => {
+describe("MSO Page trusted app catalog", () => {
+  it("allowlists only the reviewed Play Together production origin", () => {
     expect(surfaceFrameDomains()).toEqual(["https://game.rahmanef.com"]);
     const apps = publicSurfaceApps();
     expect(apps).toHaveLength(1);
@@ -14,6 +14,7 @@ describe("MSO Surface trusted app catalog", () => {
       origin: "https://game.rahmanef.com",
       startPath: "/embed",
       renderer: "iframe",
+      environment: "production",
     });
     expect(JSON.stringify(apps)).not.toContain("sandbox");
   });
@@ -34,7 +35,7 @@ describe("MSO Surface trusted app catalog", () => {
   it("keeps every Play Together demo route inside /embed", () => {
     const root = resolveSurfaceRoute("/apps/play-together");
     expect(root).toMatchObject({ kind: "app", title: "Play Together", openPath: "/assistant/mcp" });
-    expect(root.app).toMatchObject({ id: "play-together", renderer: "iframe" });
+    expect(root.app).toMatchObject({ id: "play-together", renderer: "iframe", environment: "production" });
     expect(new URL(root.app!.url).pathname).toBe("/embed");
 
     const room = resolveSurfaceRoute("/apps/play-together/room/ABCD?join=remote");
@@ -50,6 +51,7 @@ describe("MSO Surface trusted app catalog", () => {
     expect(MSO_SURFACE_SCRIPT).not.toContain("insertAdjacentHTML");
     expect(MSO_SURFACE_SCRIPT).not.toContain("document.write");
     expect(MSO_SURFACE_SCRIPT).toContain('method:"tools/call"');
+    expect(MSO_SURFACE_SCRIPT).toContain('rpcCall("render_mso_page"');
     expect(MSO_SURFACE_SCRIPT).not.toContain("window.openai.callTool");
     expect(MSO_SURFACE_SCRIPT).toContain("url.origin!==safe.origin");
     expect(MSO_SURFACE_SCRIPT).toContain("!url.pathname.startsWith(start+\"/\")");
