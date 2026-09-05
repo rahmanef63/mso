@@ -149,7 +149,7 @@ describe("MCP Apps Block and Page contract", () => {
       frameDomains: ["https://game.rahmanef.com"],
     });
     expect(content._meta["openai/widgetCSP"]).toEqual({ redirect_domains: [MSO_ORIGIN, "https://game.rahmanef.com"] });
-    expect(MSO_PAGE_URI).toContain("page-v3.html");
+    expect(MSO_PAGE_URI).toContain("page-v4.html");
   });
 
   it("returns only redacted structured workflow state and keeps status polling out of workflow memory", async () => {

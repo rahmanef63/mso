@@ -68,7 +68,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     },
     run: async (input, context) => {
       const grant = await openIntegrationSetup(str(input, "provider"), context.principal ?? context.actor ?? "", opt(input, "method"));
-      const output = { route: "/integrations", kind: "integrations", title: "Integrations", openPath: "/api/integrations/setup", catalog: publicSurfaceApps(), setup: grant.setup };
+      const output = { route: "/integrations", kind: "integrations", title: "Integrations", openPath: "/integrations", catalog: publicSurfaceApps(), setup: grant.setup };
       return mcpDirect([{ type: "text", text: `Secure ${grant.setup.title} setup opened. Enter the credential in the form, never in chat.` }], false, output,
         { integrationSetup: { token: grant.token, endpoint: `${MSO_ORIGIN}/api/integrations/setup` } });
     },

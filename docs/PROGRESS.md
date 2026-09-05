@@ -1,5 +1,24 @@
 ## 2026-09-05 — MCP Page preview lifecycle
 
+## 2026-09-05 — Integration setup recovery and complete browser navigation
+
+The previous setup document exposed a clickable setup button before Owner sign-in,
+then collapsed authentication and transport failures into the same 403 message.
+The Page also depended on a new setup action that cached chat catalogs may not know.
+The native `/integrations` hub now probes live auth before enabling changes, keeps
+provider/method guides available beforehand, refreshes on return from sign-in, and
+provides expiry recovery and a route back from completed forms. Old URLs are retained.
+Page v4 preserves usable browser links on unknown-tool/missing-private-metadata
+responses, while older Page URIs map to the same current resource. Framing policy,
+Owner gates, direct secret submission, and scoped capability checks remain intact.
+
+Validation: isolated desktop/mobile browser runs exercise the signed-out to Owner
+transition, method selection, rejected-save retry, cleared successful inputs, and
+cached/current MCP bridge modes. No real credential was written by those tests.
+The connected chat can display the Page, but a browser fixture is not proof that
+its cached tool catalog has refreshed; the visible fallback is part of the contract.
+
+
 Fixed a missing MCP Apps host initialization handshake, wrapped tool-result handling and
 repeated iframe remounts on unchanged globals. Page v3 now waits for an origin/source-checked
 app readiness message, displays bounded retry/direct-production actions, and preserves the

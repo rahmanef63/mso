@@ -26,7 +26,7 @@ function mountIntegrationForm(root,setup,access){
   guide.append(link(setup.guidance.url,"Open official provider dashboard"));for(const text of setup.guidance.steps)steps.append(integrationNode("li",text));guide.append(steps,link(setup.guidance.reference,"Official documentation"));
   const storage=integrationNode("details");storage.append(integrationNode("summary","Storage and privacy"),integrationNode("p",setup.store),integrationNode("p","The form expires after 10 minutes and closes after a successful save. Existing keys are never displayed. Blank fields keep existing values. If a key was shared publicly, revoke it at its provider."));
   aside.append(guide,storage);grid.append(form,aside);root.append(grid);
-  let used=false;
+  let used=false;const abort=new AbortController();
   const expire=()=>{used=true;save.disabled=true;inputs.forEach(f=>{f.input.value="";f.input.disabled=true});status.textContent="Setup expired. Open a new secure form."};
   const timer=setTimeout(expire,Math.max(0,setup.expiresAt-Date.now()));
   form.addEventListener("submit",e=>e.preventDefault());
@@ -35,12 +35,12 @@ function mountIntegrationForm(root,setup,access){
     e.preventDefault();if(used||save.disabled||!form.reportValidity())return;save.disabled=true;status.textContent="Checking provider access…";
     const values={};for(const f of inputs)if(f.input.value.trim())values[f.key]=f.input.value.trim();
     try{
-      const response=await fetch(endpoint,{method:"POST",credentials:"omit",cache:"no-store",referrerPolicy:"no-referrer",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({action:"save",values}),signal:AbortSignal.timeout(25000)});
+      const response=await fetch(endpoint,{method:"POST",credentials:"omit",cache:"no-store",referrerPolicy:"no-referrer",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({action:"save",values}),signal:AbortSignal.any([abort.signal,AbortSignal.timeout(45000)])});
       const data=await response.json();
       if(!response.ok){const messages={credential_validation_failed:"The provider rejected this key or could not be reached. Check key type, permissions, and expiry; nothing was saved.",invalid_credential_format:"Check the credential format and remove pasted line breaks.",required_fields_missing:"Complete all required fields.",enter_at_least_one_value:"Enter a value to update.",setup_expired_or_invalid:"Setup expired or already used. Open a new form."};throw new Error(messages[data.error]||"Unable to save. Reopen setup or check the provider; nothing was displayed.")}
       used=true;clearTimeout(timer);inputs.forEach(f=>{f.input.value="";f.input.disabled=true});save.textContent="Saved";status.textContent="Verified and saved in MSO. This setup session is now closed.";
     }catch(error){status.textContent=error.message||"Connection failed. Check MSO connectivity."}finally{if(!used)save.disabled=false;for(const key of Object.keys(values))delete values[key]}
   });
-  return()=>{clearTimeout(timer);inputs.forEach(f=>{f.input.value=""});root.replaceChildren()};
+  return()=>{abort.abort();clearTimeout(timer);inputs.forEach(f=>{f.input.value=""});root.replaceChildren()};
 }
 `;
