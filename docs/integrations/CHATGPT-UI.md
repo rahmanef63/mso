@@ -9,7 +9,7 @@ The user-visible contract has exactly two canonical MCP App resources:
 | Surface | Entry tool | Resource | Intended use |
 | --- | --- | --- | --- |
 | **Block** | `render_mso_block` | `ui://mso/block-v2.html` | Compact validation, action buttons, and CRUD input-output |
-| **Page** | `render_mso_page` | `ui://mso/page-v2.html` | Full native operator views and reviewed development, preview, or production app embeds |
+| **Page** | `render_mso_page` | `ui://mso/page-v3.html` | Full native operator views and reviewed development, preview, or production app embeds |
 
 `workflow_start` is now headless. It remains the required orchestration bootstrap for multi-step work, including skill/recipe lookup, collision checks, workflow isolation, tracing, evidence, and learning, but it has no `_meta.ui.resourceUri` and no `openai/outputTemplate`. Starting background work therefore does not consume the answer with an unrelated workflow card.
 
@@ -133,10 +133,31 @@ ChatGPT model
 After changing UI resources or tool metadata:
 
 1. run targeted tests, `bun run verify`, and the official production release path;
-2. verify `initialize` reports MCP server `1.10.0` and toolset `2026.09.04.7`;
+2. verify `initialize` reports MCP server `1.10.0` and toolset `2026.09.05.1`;
 3. verify `tools/list` exposes 66 ChatGPT transport tools, keeps `workflow_start` headless, marks the two compatibility actions app-only, and binds only `render_mso_block` / `render_mso_page`;
-4. verify `resources/list` contains exactly `ui://mso/block-v2.html` and `ui://mso/page-v2.html`, both with `text/html;profile=mcp-app`;
+4. verify `resources/list` contains exactly `ui://mso/block-v2.html` and `ui://mso/page-v3.html`, both with `text/html;profile=mcp-app`;
 5. verify Block has no frame domain and Page has only reviewed exact origins;
 6. refresh/re-scan the ChatGPT development app so its cached action/resource snapshot is replaced.
 
 A widget already rendered in an old conversation cannot be removed retroactively. After the server deployment, a stale workflow card indicates a cached ChatGPT connector snapshot, not a new `workflow_start` binding.
+
+## Page initialization and readiness (v3)
+
+Page sends the MCP Apps `ui/initialize` request with `appInfo`, `appCapabilities` and
+protocol version `2026-01-26`, then acknowledges with `ui/notifications/initialized`.
+Host result notifications and wrapped legacy `window.openai.toolOutput` use the same validated
+route interpreter. Unchanged results or host globals do not remount a running embedded app.
+The cached `ui://mso/page-v2.html` URI is a read-only alias for current Page bytes.
+
+A reviewed game sends a versioned readiness acknowledgement; Page validates its exact origin
+and iframe source. An iframe load event does not prove readiness. The bounded timeout shows
+Retry preview and Open production controls instead of a permanent skeleton. The production
+link is user-initiated through the host, and the Page redirect allowlist contains only MSO and
+the reviewed game origin. Normal host tools and headless workflows are unchanged.
+
+Verification: `node scripts/e2e/mcp-page.mjs` exercises a pure MCP host without `window.openai`,
+legacy wrapped output, readiness/source checks, timeout/retry and no duplicate iframe reloads.
+For Play Together, the independent game server must allow every reviewed ancestor on `/embed`
+and keep the inner cartridge at `/embed/game-frame.html`; root app framing stays restricted.
+
+Page reports measured dimensions through `ui/notifications/size-changed`; its layout avoids viewport-relative height feedback when the host resizes the component.

@@ -1,3 +1,12 @@
+## 2026-09-05 — MCP Page preview lifecycle
+
+Fixed a missing MCP Apps host initialization handshake, wrapped tool-result handling and
+repeated iframe remounts on unchanged globals. Page v3 now waits for an origin/source-checked
+app readiness message, displays bounded retry/direct-production actions, and preserves the
+cached v2 URI as a read-only alias. The exact reviewed iframe registry and Block-only approval
+contract remain unchanged. Targeted contracts and a desktop/mobile browser harness validate
+both standard MCP and legacy ChatGPT host paths. Toolset: `2026.09.05.1`.
+
 # mso — Progress Log
 - **Rahmanef-aligned MCP widget palette / Block + Page v2 (2026-09-04):** MCP server `1.10.0` / toolset `2026.09.04.7` moves the two canonical ChatGPT resources to `ui://mso/block-v2.html` and `ui://mso/page-v2.html` so hosts do not reuse the old purple CSS cache key. Block and Page now share one visual-token source aligned with `rahmanef.com`: light `#f4f4f7` / `#1c1c1f`, dark `#1b1b20` / `#f2f2f5`, accent `#1f6df0`, Plus Jakarta Sans display copy, Inter body copy, fine separators, and editorial foreground/background primary-action inversion. ChatGPT theme changes propagate through `window.openai.theme` with a color-scheme fallback. Block/Page v1 and the earlier workflow/surface URIs remain readable but unlisted compatibility aliases; the headless workflow and two-surface/security contracts are unchanged.
 - **Headless workflows + two-surface MCP UI contract (2026-09-04):** MCP server `1.10.0` / toolset `2026.09.04.6` removes the automatic UI binding from `workflow_start`: orchestration, collision checks, tracing, evidence, and learning continue in the background without consuming the answer with a progress card. ChatGPT now has exactly two canonical MCP App resources: `ui://mso/block-v1.html` through `render_mso_block` for compact validation/action/CRUD input-output, and `ui://mso/page-v1.html` through `render_mso_page` for native operator views plus reviewed development/preview/production embeds. Block buttons send a user-approved follow-up and never execute mutations inside the widget, preserving normal scope, approval, audit, and workflow boundaries. The prior workflow/surface URIs remain non-advertised read aliases, while `workflow_status` and `render_mso_surface` remain app-only compatibility shims for cached clients. The ChatGPT transport profile is 66 tools: 64 model-visible actions (35 read / 17 write / 12 exec) plus two app-only shims; the full catalog is 90. Only Block and Page advertise a resource URI.

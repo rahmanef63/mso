@@ -115,7 +115,7 @@ describe("MCP Apps Block and Page contract", () => {
     expect(script).toBeTruthy();
     expect(() => new Function(script!)).not.toThrow();
     expect(content.text).not.toContain("fetch(");
-    expect(content.text).not.toContain('method:"tools/call"');
+    expect(content.text).not.toContain('rpcRequest("tools/call"');
     expect(content.text).not.toContain("dangerouslySetInnerHTML");
     expect(content._meta).toMatchObject({
       ui: { domain: MCP_UI_DOMAIN, prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } },
@@ -146,8 +146,8 @@ describe("MCP Apps Block and Page contract", () => {
       resourceDomains: [],
       frameDomains: ["https://game.rahmanef.com"],
     });
-    expect(content._meta["openai/widgetCSP"]).toEqual({ redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_PAGE_URI).toContain("page-v2.html");
+    expect(content._meta["openai/widgetCSP"]).toEqual({ redirect_domains: [MSO_ORIGIN, "https://game.rahmanef.com"] });
+    expect(MSO_PAGE_URI).toContain("page-v3.html");
   });
 
   it("returns only redacted structured workflow state and keeps status polling out of workflow memory", async () => {
@@ -235,7 +235,7 @@ describe("MCP Apps Block and Page contract", () => {
     expect(page).toContain('route:"/project"');
     expect(page).toContain('route:"/diff"');
     expect(page).toContain('route:"/browser"');
-    expect(page).toContain('method:"tools/call"');
+    expect(page).toContain('rpcRequest("tools/call"');
   });
 
   it("rejects unknown UI resource URIs", async () => {
