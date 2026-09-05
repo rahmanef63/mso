@@ -28,7 +28,7 @@ try {
       window.addEventListener("message",event=>{
         const msg=event.data;if(!msg||msg.jsonrpc!=="2.0")return;calls.push(msg);
         const frame=document.querySelector("iframe").contentWindow;
-        if(msg.method==="ui/initialize"&&!${legacy})frame.postMessage({jsonrpc:"2.0",id:msg.id,result:{protocolVersion:"2026-01-26",hostCapabilities:{serverTools:{},openLinks:{}},hostContext:{displayMode:"inline"}}},"https://mso-ui.rahmanef.com");
+        if(msg.method==="ui/initialize"&&!${legacy})frame.postMessage({jsonrpc:"2.0",id:msg.id,result:{protocolVersion:"2026-01-26",hostCapabilities:{serverTools:{},openLinks:{}},hostContext:{displayMode:"inline",maxHeight:800}}},"https://mso-ui.rahmanef.com");
         if(msg.method==="ui/notifications/initialized"){
           frame.postMessage({jsonrpc:"2.0",method:"ui/notifications/tool-input",params:{arguments:{route:result.route}}},"https://mso-ui.rahmanef.com");
           frame.postMessage({jsonrpc:"2.0",method:"ui/notifications/tool-result",params:{structuredContent:result}},"https://mso-ui.rahmanef.com");
@@ -40,6 +40,13 @@ try {
     const component = page.frameLocator('iframe[src="https://mso-ui.rahmanef.com/qa"]');
     await component.locator('.frame-wrap[data-state="loading"]').waitFor();
     assert.equal(childLoads, 1); assertions++;
+    assert.equal(await component.locator("iframe").count(), 1, "one Page document must mount exactly one reviewed app frame"); assertions++;
+    if (!legacy) {
+      await page.waitForTimeout(50);
+      const hostHeight = await page.locator('iframe[src="https://mso-ui.rahmanef.com/qa"]').evaluate((node) => node.getBoundingClientRect().height);
+      assert(hostHeight < 400, `inline Page must stay below 50% of the 800px host viewport, got ${hostHeight}`); assertions++;
+      assert.equal(await component.locator("#surface-mode").textContent(), "inline"); assertions++;
+    }
     const widget = page.frames().find((frame) => frame.url() === "https://mso-ui.rahmanef.com/qa");
     const game = page.frames().find((frame) => frame.url() === "https://game.rahmanef.com/embed");
     assert(widget && game);

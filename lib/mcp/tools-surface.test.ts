@@ -30,12 +30,15 @@ describe("MSO Page MCP tools", () => {
     expect(result.app).toMatchObject({
       id: "play-together",
       renderer: "iframe",
+      presentation: "inline",
       origin: "https://game.rahmanef.com",
       startPath: "/embed",
       environment: "production",
       url: "https://game.rahmanef.com/embed",
     });
     expect(result.app).not.toHaveProperty("sandbox");
+    expect((render.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v10\.html$/);
+    expect(render.meta?.["openai/outputTemplate"]).toBeUndefined();
   });
 
   it("keeps scanner-facing Page metadata scoped to Play Together", () => {
@@ -48,6 +51,14 @@ describe("MSO Page MCP tools", () => {
   it("keeps project identity separate from the route string", async () => {
     const result = await tool("render_mso_page").run({ route: "/project", project: "mso" }, { scope: "read" });
     expect(result).toMatchObject({ route: "/project", kind: "project", project: "mso", openPath: "/files" });
+  });
+
+  it("uses only the standard resource binding for Page tools", () => {
+    for (const name of ["render_mso_page", "integration_setup_open"] as const) {
+      const value = tool(name);
+      expect((value.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v10\.html$/);
+      expect(value.meta?.["openai/outputTemplate"]).toBeUndefined();
+    }
   });
 
   it("retains an app-only compatibility alias without another UI resource binding", async () => {

@@ -18,6 +18,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` render one bounded inline Page preview
 - preserve home-relative stores and prove tunnel rollback completion
 - `security` verify exact branch dispositions and narrow message origins
 - `security` retain artifact-lock compatibility and require fresh scan evidence

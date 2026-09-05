@@ -14,6 +14,7 @@ describe("MSO Page trusted app catalog", () => {
       origin: "https://game.rahmanef.com",
       startPath: "/embed",
       renderer: "iframe",
+      presentation: "inline",
       environment: "production",
     });
     expect(JSON.stringify(apps)).not.toContain("sandbox");

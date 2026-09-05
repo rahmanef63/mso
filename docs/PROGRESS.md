@@ -1,3 +1,9 @@
+## 2026-09-06 — One bounded MCP Page preview per tool result
+
+A real ChatGPT screenshot showed Play Together twice inside one MSO Page result and an inline preview consuming more than the requested share of the conversation. The Page descriptor was publishing both the standard MCP Apps `ui.resourceUri` and the legacy ChatGPT `openai/outputTemplate` for the same Page resource while the reviewed app catalog still defaulted Play Together to `fullscreen`. Page v10 removes the legacy Page binding from `render_mso_page` and `integration_setup_open`, defaults reviewed apps to `inline`, and keeps older Page URIs as read-only cache aliases.
+
+Inline height now derives from the host-provided `maxHeight` and is capped at 48%, with the Page body owning overflow instead of forcing 360–480 px iframe minimums. Fullscreen and PiP remain explicit controls and keep their prior full-host sizing. Browser coverage proves one reviewed child frame per Page document, one load for unchanged results, inline mode under half of an 800 px host fixture, explicit fullscreen/PiP capability advertisement, source/origin readiness checks, timeout/retry, and Google-auth external-link safeguards. MCP server 1.12.1 / toolset 2026.09.06.1 records the metadata contract change.
+
 ## 2026-09-05 — Reconcile new connection-model findings before final publication
 
 ## 2026-09-05 — Hostinger Mail API as a first-class connection capability
