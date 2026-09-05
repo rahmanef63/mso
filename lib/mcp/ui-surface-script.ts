@@ -1,6 +1,7 @@
 import { MSO_PAGE_INTEGRATIONS_SCRIPT } from "./ui-page-integrations";
 import { MSO_PAGE_BRIDGE_SCRIPT } from "./ui-page-bridge";
 import { MSO_PAGE_FRAME_SCRIPT } from "./ui-page-frame";
+import { MSO_PAGE_AUTH_SCRIPT } from "./ui-page-auth";
 import { SURFACE_APPS } from "./surface-catalog";
 import { MSO_WIDGET_THEME_SCRIPT } from "./ui-widget-tokens";
 
@@ -18,6 +19,7 @@ const BROWSER_CATALOG = SURFACE_APPS.map((app) => ({
   presentation: app.presentation,
   environment: app.environment,
   sandbox: app.sandbox ?? "",
+  externalAuthPath: app.externalAuthPath ?? "",
   reason: app.reason ?? "",
 }));
 
@@ -32,6 +34,7 @@ let current={route:"/",kind:"home",title:"MSO",openPath:"/assistant/mcp",catalog
 const pending=new Map();let nextRpcId=5000;
 ${MSO_PAGE_BRIDGE_SCRIPT}
 ${MSO_PAGE_FRAME_SCRIPT}
+${MSO_PAGE_AUTH_SCRIPT}
 ${MSO_PAGE_INTEGRATIONS_SCRIPT}
 
 function text(value,fallback="—"){return typeof value==="string"&&value.trim()?value.trim():fallback}

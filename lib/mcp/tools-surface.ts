@@ -38,7 +38,7 @@ const PAGE_INPUT = S({
 function publicResolved(resolved: ResolvedSurface): Record<string, unknown> {
   const { app, ...rest } = resolved;
   if (!app) return rest;
-  const { sandbox: _sandbox, ...safeApp } = app;
+  const { sandbox: _sandbox, externalAuthPath: _externalAuthPath, ...safeApp } = app;
   return { ...rest, app: safeApp };
 }
 

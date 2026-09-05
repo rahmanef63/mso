@@ -161,3 +161,14 @@ For Play Together, the independent game server must allow every reviewed ancesto
 and keep the inner cartridge at `/embed/game-frame.html`; root app framing stays restricted.
 
 Page reports measured dimensions through `ui/notifications/size-changed`; its layout avoids viewport-relative height feedback when the host resizes the component.
+
+### Reviewed app authentication
+
+Page v6 adds a code-owned optional external-auth path for reviewed apps. The nested application
+can highlight the **Google login in browser** control using a public versioned message, but cannot
+navigate the host or supply the target URL. Only an explicit click on the host control invokes
+`ui/open-link` or the supported `openExternal` fallback. The path must remain on the reviewed app
+origin. Existing iframe sandbox restrictions are unchanged. OAuth finishes in the browser tab;
+no automatic session sharing, cookie copying, callback code forwarding or chat token transfer is
+implied. Cached Page v5 resources remain readable aliases. Play Together's entry is
+`/?auth=google`; Google itself is never framed by MSO.

@@ -72,6 +72,16 @@ try {
       await component.getByRole("button", { name: "Open production" }).click();
       assert((await page.evaluate(() => window.calls)).some((call) => call.method === "ui/open-link" && call.params.url === "https://game.rahmanef.com")); assertions++;
     }
+    const authAction = component.getByRole("button", { name: "Google login in browser", exact: true });
+    await authAction.waitFor();
+    const opensBeforeAuth = (await page.evaluate(() => window.calls)).filter(call => call.method === "ui/open-link").length;
+    await reloaded.evaluate(() => parent.postMessage({ type: "mso:app-auth-request", schemaVersion: 1, provider: "google" }, "*"));
+    await page.waitForTimeout(50);
+    assert.equal((await page.evaluate(() => window.calls)).filter(call => call.method === "ui/open-link").length, opensBeforeAuth, "Nested messages must not trigger external navigation"); assertions++;
+    if (!legacy) {
+      await authAction.click();
+      assert((await page.evaluate(() => window.calls)).some(call => call.method === "ui/open-link" && call.params.url === "https://game.rahmanef.com/?auth=google")); assertions++;
+    }
     console.log(`PASS ${legacy ? "legacy wrapped toolOutput / mobile" : "pure MCP Apps host / desktop"}: init, source validation, timeout, retry, ready, no repeated reload`);
     await page.close();
   }

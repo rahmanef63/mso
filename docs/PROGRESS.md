@@ -1,5 +1,7 @@
 ## 2026-09-05 — MCP Page preview lifecycle
 
+- **Reviewed-app Google sign-in leaves the iframe (2026-09-05):** Page v6 adds an explicit host-side Google-login action using a code-owned same-origin path. A nested app may only highlight this action, never trigger navigation, supply a URL or transfer session data. The host opens through `ui/open-link`/`openExternal` after a real button click; sandbox popup restrictions remain unchanged. Play Together finishes sign-in in the browser tab; this does not promise shared login with storage-partitioned embeds. v5 resource requests remain compatible.
+
 
 ## 2026-09-05 — Repair native Integrations delivery and full credential catalog
 

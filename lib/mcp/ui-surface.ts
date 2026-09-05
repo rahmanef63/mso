@@ -6,7 +6,7 @@ import { surfaceFrameDomains } from "./surface-catalog";
 import { MSO_SURFACE_SCRIPT } from "./ui-surface-script";
 import { MSO_SURFACE_STYLE } from "./ui-surface-style";
 
-export const MSO_PAGE_URI = "ui://mso/page-v5.html";
+export const MSO_PAGE_URI = "ui://mso/page-v6.html";
 const MIME = "text/html;profile=mcp-app";
 
 const html = String.raw`<main class="surface" aria-label="MSO Page">
