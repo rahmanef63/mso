@@ -12,7 +12,7 @@
 
 | Your server, visually | Your tools, in the terminal |
 |---|---|
-| ![MSO desktop and mobile workspace](./docs/media/mso-hero.webp) | ![Actual MSO CLI capture](./docs/media/mso-cli.webp) |
+| ![MSO desktop and mobile workspace](./docs/media/mso-hero.webp) | ![Interactive `mso` Agent terminal](./docs/media/mso-cli.webp) |
 
 ## More than an AI chat window
 

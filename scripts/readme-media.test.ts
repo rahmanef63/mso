@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const root = process.cwd();
 const readme = readFileSync(path.join(root, "README.md"), "utf8");
+const capture = readFileSync(path.join(root, "scripts/capture-cli.mjs"), "utf8");
 describe("README demonstration contract", () => {
   it("embeds the animation, not only a text link to it", () => {
     expect(readme).toMatch(/!\[[^\]]*\]\(\.\/docs\/media\/demo\.gif\)/);
@@ -14,7 +15,15 @@ describe("README demonstration contract", () => {
     const gif = await sharp(path.join(root, "docs/media/demo.gif"), { animated: true }).metadata();
     expect(gif.format).toBe("gif"); expect(gif.pages).toBeGreaterThan(1);
     const cli = await sharp(path.join(root, "docs/media/mso-cli.webp")).metadata();
-    expect(cli.format).toBe("webp"); expect(cli.width).toBeGreaterThan(600);
+    expect(cli.format).toBe("webp"); expect(cli.width).toBeGreaterThan(600); expect(cli.height).toBeGreaterThan(600);
+  });
+  it("captures the interactive mso Agent rather than a help screen", () => {
+    expect(capture).toContain("scripts/mso-agent.mjs");
+    expect(capture).toContain("INTERACTIVE MSO AGENT");
+    expect(capture).toContain("$ mso");
+    expect(capture).not.toContain('reset", "--help');
+    expect(capture).not.toContain("$ mso reset --help");
+    expect(readme).toContain("Interactive `mso` Agent terminal");
   });
   it("keeps the landing README bounded and links rather than hides safety evidence", () => {
     expect(readme.split("\n").length).toBeLessThanOrEqual(150);
