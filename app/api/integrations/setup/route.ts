@@ -1,3 +1,4 @@
+import { IntegrationError } from "@/lib/infra/identity";
 import { readSetupJson } from "@/lib/infra/setup-http";
 import { NextRequest, NextResponse } from "next/server";
 import { MSO_ORIGIN, MCP_UI_DOMAIN } from "@/lib/mcp/ui-config";
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     void audit({ action: "infra.write", actor: result.principal, target: result.provider, ok: true, detail: "integration.secure-setup" });
     return NextResponse.json({ ok: true, verified: true, provider: result.provider }, { headers });
   } catch (error) {
-    const safe = error instanceof SetupError ? error : new SetupError("setup_unavailable", 503);
+    const safe = error instanceof SetupError || error instanceof IntegrationError ? error : new SetupError("setup_unavailable", 503);
     return NextResponse.json({ error: safe.code }, { status: safe.status, headers });
   }
 }

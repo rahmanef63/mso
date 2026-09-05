@@ -95,6 +95,7 @@ describe("bin/mso", () => {
       fs.readFileSync(path.join(repo, "scripts/cli/commands.sh"), "utf8"),
       ...commandOwnerFiles.map((rel) => fs.readFileSync(path.join(repo, rel), "utf8")),
       fs.readFileSync(path.join(repo, "scripts/mso-cli-agent.sh"), "utf8"),
+      fs.readFileSync(path.join(repo, "scripts/mso-cli-integrations.sh"), "utf8"),
     ].join("\n");
 
     // Not reachable from a shell, each for its own reason:
@@ -105,6 +106,9 @@ describe("bin/mso", () => {
     // OAuth is NOT here any more: it is a device-code POST, not a redirect, so
     // `mso oauth <provider> start|poll` covers it.
     const browserOnly = [
+      // Credential input is delegated to a write-only browser capability; the
+      // named CLI setup verb opens that form without placing keys in shell/tool JSON.
+      "POST /api/integrations/setup",
       "GET /api/sw",
       "/api/v1/managed-apps/[id]/proxy/[[...path]]",
       "/api/auth/devices",

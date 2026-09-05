@@ -1,3 +1,6 @@
+import {metadataOnly} from "@/lib/infra/identity";
+import { selectionFrom, safeActionInput } from "@/lib/infra/connection-dispatch";
+import { integrationSnapshot } from "@/lib/infra/connection-service";
 import { openIntegrationSetup } from "@/lib/infra/setup-capability";
 import { INFRA_PROVIDER_IDS } from "@/lib/infra/types";
 import { MSO_ORIGIN } from "./ui-config";
@@ -22,7 +25,7 @@ const PAGE_OUTPUT = {
   properties: {
     route: { type: "string" }, kind: { type: "string", enum: ["home", "monitor", "project", "diff", "browser", "app", "integrations"] },
     title: { type: "string" }, openPath: { type: "string" }, project: { type: "string" }, sha: { type: "string" },
-    setup: { type: "object" },
+    setup: { type: "object" }, integrations: {type:"object"},
     app: { type: "object" }, catalog: { type: "array", items: APP_SCHEMA },
   },
   required: ["route", "kind", "title", "openPath", "catalog"],
@@ -42,10 +45,10 @@ function publicResolved(resolved: ResolvedSurface): Record<string, unknown> {
   return { ...rest, app: safeApp };
 }
 
-const renderPage = async (input: Record<string, unknown>) => ({
-  ...publicResolved(resolveSurfaceRoute(str(input, "route"), { project: opt(input, "project"), sha: opt(input, "sha") })),
-  catalog: publicSurfaceApps(),
-});
+const renderPage = async (input:Record<string,unknown>) => {
+  const resolved=publicResolved(resolveSurfaceRoute(str(input,"route"),{project:opt(input,"project"),sha:opt(input,"sha")}));
+  return {...resolved,catalog:publicSurfaceApps(),...(resolved.kind==="integrations"?{integrations:await integrationSnapshot()}: {})};
+};
 
 export const SURFACE_TOOLS: McpTool[] = [
   {
@@ -57,7 +60,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false, idempotentHint: false },
     audit: { action: "infra.write", targetArg: "provider" },
     limit: { key: "integration.setup", max: 10, windowMs: 60_000 },
-    inputSchema: S({ provider: { type: "string", enum: [...INFRA_PROVIDER_IDS] }, method: { type: "string", enum: ["direct", "project", "organization", "personal", "deployment"], description: "Composio defaults to project; other providers use direct." } }, ["provider"]),
+    inputSchema: S({ user:{type:"string",maxLength:64},connection:{type:"string",maxLength:64}, provider: { type: "string", enum: [...INFRA_PROVIDER_IDS] }, method: { type: "string", enum: ["direct", "project", "organization", "personal", "deployment"], description: "Must match this connection; omitted uses its stored auth method." } }, ["user","provider","connection"]),
     outputSchema: PAGE_OUTPUT,
     meta: {
       ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },
@@ -67,7 +70,8 @@ export const SURFACE_TOOLS: McpTool[] = [
       "openai/toolInvocation/invoked": "Secure setup form opened",
     },
     run: async (input, context) => {
-      const grant = await openIntegrationSetup(str(input, "provider"), context.principal ?? context.actor ?? "", opt(input, "method"));
+      metadataOnly(safeActionInput(input));
+      const grant = await openIntegrationSetup(str(input, "provider"), context.principal ?? context.actor ?? "", opt(input, "method"), selectionFrom(input));
       const output = { route: "/integrations", kind: "integrations", title: "Integrations", openPath: "/integrations", catalog: publicSurfaceApps(), setup: grant.setup };
       return mcpDirect([{ type: "text", text: `Secure ${grant.setup.title} setup opened. Enter the credential in the form, never in chat.` }], false, output,
         { integrationSetup: { token: grant.token, endpoint: `${MSO_ORIGIN}/api/integrations/setup` } });

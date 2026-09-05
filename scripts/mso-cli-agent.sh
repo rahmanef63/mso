@@ -347,11 +347,8 @@ run_provider() {
   local -a pairs=()
   case "$sub" in
     setup|web)
-      [ -n "$id" ] || die "usage: mso provider setup <id> [direct|project|organization|personal|deployment]"
-      tty_ok || die "secure setup links are terminal-only; MCP callers must use integration_setup_open (never exec)"
-      data=$(jpost "/api/v1/infra/setup" "$(jq -nc --arg provider "$id" --arg method "${3:-$(case "$id" in composio) echo project ;; convex-cloud) echo personal ;; *) echo direct ;; esac)}" '{provider:$provider,method:$method}')")
-      printf 'Open this private link in your browser (expires after 10 minutes):\n%s#%s\n' "$(jq -r '.setupUrl' <<<"$data")" "$(jq -r '.token' <<<"$data")"
-      unset data
+      [ $# -eq 4 ] || die "usage: mso provider setup <provider> <user> <connection>; or mso integrations setup <user> <provider> <connection>"
+      run_integrations setup "$3" "$2" "$4"
       ;;
     list)
       provider_metadata | jq -r '.providers[] | "\(if .configured then "✓" else "·" end) \(.id)\t\(if .configured then "configured" else "missing: " + (.missing|join(", ")) end)\t\(.description)"' ;;
@@ -445,4 +442,11 @@ run_agent() {
   exec env MSO_AGENT_BASE="$B" MSO_AGENT_ORIGIN="$B" MSO_AGENT_JAR="$JAR" \
     MSO_AGENT_CLI="$ROOT/bin/mso" MSO_AGENT_VERSION="$VERSION" \
     node "$ROOT/scripts/mso-agent.mjs" "$@"
+}
+
+# Lazy loading keeps offline update/recovery independent of optional command slices.
+run_integrations() {
+  # shellcheck source=mso-cli-integrations.sh
+  source "$ROOT/scripts/mso-cli-integrations.sh"
+  run_integrations "$@"
 }

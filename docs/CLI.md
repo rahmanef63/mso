@@ -87,6 +87,7 @@ Commands:
   model [ref]          Select active model from a connected provider
   onboard [-y]         Guided setup: AI, apps, infrastructure, skills
   setup                Alias for onboard
+  integrations  Named credential users, connections, sources, setup and execution
   provider *           Infrastructure credentials: list | set | rm | doctor
   providers *          Alias for provider
   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain

@@ -19,7 +19,7 @@ describe("MCP integration setup privacy", () => {
   });
   it("requires write scope, accepts no credential parameters, and uses the existing Page", () => {
     const tool = SURFACE_TOOLS.find(t => t.name === "integration_setup_open")!;
-    expect(tool.scope).toBe("write"); expect(Object.keys(tool.inputSchema.properties)).toEqual(["provider", "method"]);
+    expect(tool.scope).toBe("write"); expect(Object.keys(tool.inputSchema.properties)).toEqual(["user", "connection", "provider", "method"]);
     expect(tool.meta?.["openai/outputTemplate"]).toMatch(/^ui:\/\/mso\/page/);
     expect(resolveSurfaceRoute("/integrations").kind).toBe("integrations");
     expect(() => new Function(MSO_SURFACE_SCRIPT)).not.toThrow();

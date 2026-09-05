@@ -1,3 +1,5 @@
+import { withIntegrationSelection } from "@/lib/infra/connection-service";
+import { selectionFrom } from "@/lib/infra/connection-dispatch";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
 import { audit } from "@/lib/host/audit-api";
@@ -11,21 +13,21 @@ async function ownerContext() {
   return context?.role === "owner" ? context : null;
 }
 
-export async function GET() {
+export async function GET(req:NextRequest) {
   if (!(await ownerContext())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const providers = await Promise.all(INFRA_PROVIDER_IDS.map(async (id) => summarizeInfraProvider(id, await readInfraProvider(id))));
+  const providers = await withIntegrationSelection(selectionFrom(Object.fromEntries(req.nextUrl.searchParams)),()=>Promise.all(INFRA_PROVIDER_IDS.map(async (id) => summarizeInfraProvider(id, await readInfraProvider(id)))));
   return NextResponse.json({ providers });
 }
 
 export async function POST(req: NextRequest) {
   const context = await ownerContext();
   if (!context) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  let body: { id?: string; values?: Record<string, unknown> };
+  let body: { id?: string; user?:string; connection?:string; cwd?:string; values?: Record<string, unknown> };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid request body" }, { status: 400 }); }
   const id = String(body.id ?? "");
   if (!isInfraProviderId(id)) return NextResponse.json({ error: "unknown infrastructure provider" }, { status: 404 });
   try {
-    const values = await setInfraProvider(id, body.values ?? {});
+    const values = await withIntegrationSelection(selectionFrom(body),()=>setInfraProvider(id, body.values ?? {}));
     void audit({ action: "infra.write", actor: context.session.device_id, target: id, detail: "provider.configure" });
     return NextResponse.json({ ok: true, provider: summarizeInfraProvider(id, values) });
   } catch (error) {
@@ -39,7 +41,7 @@ export async function DELETE(req: NextRequest) {
   if (!context) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = new URL(req.url).searchParams.get("id") ?? "";
   if (!isInfraProviderId(id)) return NextResponse.json({ error: "unknown infrastructure provider" }, { status: 404 });
-  await removeInfraProvider(id);
+  await withIntegrationSelection(selectionFrom(Object.fromEntries(req.nextUrl.searchParams)),()=>removeInfraProvider(id));
   void audit({ action: "infra.write", actor: context.session.device_id, target: id, detail: "provider.remove" });
   return NextResponse.json({ ok: true });
 }

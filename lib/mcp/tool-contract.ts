@@ -53,7 +53,7 @@ export const CHATGPT_TOOL_NAMES = new Set([
   "sys_stats", "sys_processes", "apps_list", "apps_logs", "apps_power", "browser_status", "browser_power",
 
   // Infrastructure operations remain explicit and bounded; secrets stay server-side.
-  "integration_setup_open", "infra_providers_list", "infra_provider_doctor", "dokploy_projects_list", "dokploy_project_ensure",
+  "integration_query", "integration_manage", "integration_execute", "integration_setup_open", "infra_providers_list", "infra_provider_doctor", "dokploy_projects_list", "dokploy_project_ensure",
   "cloudflare_zones_list", "cloudflare_dns_upsert", "hostinger_dns_upsert",
 
   // Arbitrary shell is still a last-resort escape hatch and long builds remain job-bound.
@@ -115,7 +115,7 @@ export function toolAllowedForProfile(name: string, profile: McpToolProfile = "f
   return profile === "full" || CHATGPT_TOOL_NAMES.has(name as never);
 }
 
-function compactText(value: string, max = 190): string {
+function compactText(value: string, max = 125): string {
   const clean = value.replace(/\s+/g, " ").trim();
   if (clean.length <= max) return clean;
   const cut = clean.slice(0, max - 1);
@@ -128,8 +128,8 @@ function compactSchema(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    if (key === "workflow_id" && item && typeof item === "object") out[key] = { ...compactSchema(item) as Record<string, unknown>, description: "workflow_start id." };
-    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 105);
+    if (key === "workflow_id" && item && typeof item === "object") out[key] = { type:"string" };
+    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 72);
     else out[key] = compactSchema(item);
   }
   return out;

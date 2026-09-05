@@ -1,5 +1,30 @@
 ## 2026-09-05 — MCP Page preview lifecycle
 
+
+## 2026-09-05 — Native named-connection identity, not parallel credential forms
+
+The provider-only Integrations store could not represent multiple deployments or
+source-aware execution even though its HTML form worked. Replace the foundation
+with credential users, named connections, direct/Composio/provider-MCP sources,
+auth methods, folder/default resolution and explicit account selection. Browser,
+CLI and MCP now call the same domain actions; old infrastructure helpers adapt to
+that core and pin values for compound provider operations.
+
+Preserve v1 data through a read-only projection and exact protected backup before
+the first atomic v2 write. Bind temporary setup capabilities to user/connection
+UID/revision so stale forms cannot rotate another account. Namespace upstream
+Composio users by installation/profile UUID; lease both the target and broker for
+hosted authorization/execution. Duplication is metadata-only unless copying direct
+credentials is separately approved. Device roles remain distinct from credential
+profiles, not a new user-login/ACL system.
+
+Tests exercise two users, five Convex connections, folder resolution, actual
+Dokploy client routing, source refusal, hosted-account identity, lease protection,
+MCP/CLI contracts and real shared-core browser saves with synthetic credentials.
+Page layout follows the host's returned display mode; full-height behavior is
+measured against the fixture iframe viewport rather than assumed from a button.
+No real upstream OAuth success is inferred from these tests.
+
 - **Reviewed-app Google sign-in leaves the iframe (2026-09-05):** Page v6 adds an explicit host-side Google-login action using a code-owned same-origin path. A nested app may only highlight this action, never trigger navigation, supply a URL or transfer session data. The host opens through `ui/open-link`/`openExternal` after a real button click; sandbox popup restrictions remain unchanged. Play Together finishes sign-in in the browser tab; this does not promise shared login with storage-partitioned embeds. v5 resource requests remain compatible.
 
 

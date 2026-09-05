@@ -24,7 +24,8 @@ verbs() {
 U_camoufox="camoufox status|start|stop|session"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
 U_doctor="doctor [--fix]"
-U_provider="provider list|show <id>|setup <id> [method]|set <id>|rm <id>|doctor [id]|projects|zones"
+U_integrations="integrations status|users|catalog|connections [user] [provider]|which [folder]|request|resolve <user> <provider> [connection]|create-user <id> [label]|create-connection <user> <provider> <id> <source> <auth>|manage <JSON>|setup|verify <user> <provider> <connection>|execute <JSON>"
+U_provider="provider list|show <id>|setup <provider> <user> <connection>|set <id>|rm <id>|doctor [id]|projects|zones"
 U_model="model [current|list [provider]|set <provider> <model>|set <provider/model>|<model-or-ref>]"
 U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo] | agent --oneshot <prompt> [--json] [--approve-scope read|write|exec]"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
@@ -87,7 +88,7 @@ mso_cli_main() {
   case "$cmd" in
     version|--version|-V|-v|ls|cat|raw|share|usage|search|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|cleanup|status|health|doctor)
       mso_cmd_host "$cmd" "$@" ;;
-    agent|chat|model|setup|onboard|provider|providers|gateway|web|camoufox|apps|mapp|term)
+    agent|chat|model|setup|onboard|provider|providers|integrations|gateway|web|camoufox|apps|mapp|term)
       mso_cmd_runtime "$cmd" "$@" ;;
     ai|cockpit|threads|agent-sessions|agents|a2a|memory|config|prefs|models|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;

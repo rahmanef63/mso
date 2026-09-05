@@ -1,79 +1,33 @@
-import { randomUUID } from "node:crypto";
-import { constants as fsConstants, promises as fs } from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { withSecurityStoreLock } from "@/lib/security-store-lock";
+import {randomUUID} from "node:crypto";
 import { getInfraProviderDefinition, normalizeInfraValues } from "./catalog";
-import type { InfraProviderId, InfraProviderSummary, InfraProviderValues, InfraStore } from "./types";
-
-export const INFRA_STORE_PATH = process.env.OS_INFRA_STORE ?? path.join(os.homedir(), ".mso", "private", "infra-providers.json");
-const MAX_STORE_BYTES = 256 * 1024;
-
-function mask(value: string): string {
-  return value ? "configured" : "";
-}
-
-async function readUnlocked(): Promise<InfraStore> {
-  let handle: Awaited<ReturnType<typeof fs.open>> | null = null;
-  try {
-    handle = await fs.open(INFRA_STORE_PATH, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
-    const stat = await handle.stat();
-    if (!stat.isFile()) throw new Error("infrastructure provider store must be a regular file");
-    if (stat.size <= 0 || stat.size > MAX_STORE_BYTES) throw new Error("infrastructure provider store has an invalid size");
-    if ((stat.mode & 0o077) !== 0) throw new Error("infrastructure provider store permissions are too broad; expected 0600");
-    if (typeof process.getuid === "function" && stat.uid !== process.getuid()) throw new Error("infrastructure provider store is not owned by the MSO user");
-    const raw = JSON.parse(await handle.readFile("utf8")) as InfraStore;
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("infrastructure provider store has an invalid shape");
-    return raw;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
-    throw error;
-  } finally {
-    await handle?.close().catch(() => undefined);
-  }
-}
-
-async function writeUnlocked(store: InfraStore): Promise<void> {
-  const dir = path.dirname(INFRA_STORE_PATH);
-  await fs.mkdir(dir, { recursive: true, mode: 0o700 });
-  await fs.chmod(dir, 0o700).catch(() => undefined);
-  const tmp = `${INFRA_STORE_PATH}.${randomUUID()}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(store, null, 2), { encoding: "utf8", mode: 0o600 });
-  await fs.chmod(tmp, 0o600);
-  await fs.rename(tmp, INFRA_STORE_PATH);
-  await fs.chmod(INFRA_STORE_PATH, 0o600);
-}
-
-export async function readInfraProvider(id: InfraProviderId): Promise<InfraProviderValues> {
-  const store = await readUnlocked();
-  return { ...(store.providers?.[id] ?? {}) };
-}
-
-export async function setInfraProvider(id: InfraProviderId, raw: Record<string, unknown>): Promise<InfraProviderValues> {
-  return withSecurityStoreLock(INFRA_STORE_PATH, async () => {
-    const store = await readUnlocked();
-    const current = store.providers?.[id] ?? {};
-    const normalized = normalizeInfraValues(id, raw);
-    const values = { ...current, ...normalized };
-    const def = getInfraProviderDefinition(id);
-    const missing = def.fields.filter((field) => field.required && !values[field.key]).map((field) => field.key);
-    if (id === "composio" && !values.apiKey && !values.orgApiKey) missing.push("project or organization API key");
-    if (id === "convex-cloud" && !values.personalToken && !(values.deployKey && values.deploymentName)) missing.push("personal token or deployment key and name");
-    if (missing.length) throw new Error(`${id} is missing required value(s): ${missing.join(", ")}`);
-    await writeUnlocked({ ...store, providers: { ...(store.providers ?? {}), [id]: values } });
-    return values;
+import { mutateIntegrationState } from "./connection-storage";
+import { currentIntegrationSelection, directConnectionValues, createConnectionIn } from "./connection-service";
+import { legacyMethod, connectionMethod } from "./connection-registry";
+import { selectConnection, IntegrationError, assertNotBusy } from "./identity";
+import type { InfraProviderId, InfraProviderSummary, InfraProviderValues } from "./types";
+export { INFRA_STORE_PATH } from "./connection-storage";
+const mask=(value:string)=>value?"configured":"";
+export const readInfraProvider=(id:InfraProviderId)=>directConnectionValues(id);
+export async function setInfraProvider(id:InfraProviderId,raw:Record<string,unknown>):Promise<InfraProviderValues>{
+  return mutateIntegrationState(state=>{
+    const selector=currentIntegrationSelection();
+    if(!Object.keys(state.users).length&&!selector.user){state.users.legacy={id:"legacy",uid:randomUUID(),label:"Existing MSO credentials",defaults:{},connections:{}};state.defaultUser="legacy";}
+    let selected;
+    try{selected=selectConnection(state,id,selector);}catch(e){
+      if(!(e instanceof IntegrationError)||e.code!=="connection_not_found"||selector.connection)throw e;
+      const user=selector.user??state.defaultUser;if(!user)throw new IntegrationError("user_required");
+      const c=createConnectionIn(state,{user,provider:id,connection:"default",authMethod:legacyMethod(id,raw as Record<string,string>),makeDefault:true});selected={user,connection:c};
+    }
+    const c=selected.connection;assertNotBusy(c);if(c.source!=="direct")throw new IntegrationError("external_secrets_forbidden");
+    const method=connectionMethod(id,c.source,c.authMethod),normalized=normalizeInfraValues(id,raw);
+    if(Object.keys(normalized).some(k=>!method.fields.some(f=>f.key===k)))throw new IntegrationError("connection_auth_mismatch",409);
+    const values={...c.values,...normalized};if(method.fields.some(f=>f.required&&!values[f.key]))throw new IntegrationError("required_fields_missing");
+    c.values=values;c.revision++;c.updatedAt=Date.now();delete c.verifiedAt;return{...values};
   });
 }
-
-export async function removeInfraProvider(id: InfraProviderId): Promise<void> {
-  await withSecurityStoreLock(INFRA_STORE_PATH, async () => {
-    const store = await readUnlocked();
-    const providers = { ...(store.providers ?? {}) };
-    delete providers[id];
-    await writeUnlocked({ ...store, providers });
-  });
+export async function removeInfraProvider(id:InfraProviderId){
+  await mutateIntegrationState(state=>{const selection=currentIntegrationSelection();const r=selectConnection(state,id,selection);assertNotBusy(r.connection);if(state.bindings.some(b=>b.user===r.user&&b.connections[id]===r.connection.id))throw new IntegrationError("connection_has_folder_binding");if(id==="composio"&&Object.values(state.users[r.user].connections).some(rows=>Object.values(rows).some(c=>c.source==="composio"&&c.external?.brokerConnection===r.connection.id)))throw new IntegrationError("broker_has_linked_connections",409);delete state.users[r.user].connections[id][r.connection.id];if(state.users[r.user].defaults[id]===r.connection.id)delete state.users[r.user].defaults[id];});
 }
-
 export function summarizeInfraProvider(id: InfraProviderId, values: InfraProviderValues): InfraProviderSummary {
   const def = getInfraProviderDefinition(id);
   const missing = def.fields.filter((field) => field.required && !values[field.key]).map((field) => field.key);
