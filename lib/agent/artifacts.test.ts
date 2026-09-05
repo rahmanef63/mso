@@ -52,7 +52,7 @@ describe("session artifact storage",()=>{
   await prepareSessionArtifacts(one);const p=artifactPaths(one),staged=path.join(p.incoming,"home.png");await fs.writeFile(staged,png,{mode:0o600});
   expect((await registerIncomingArtifact(one,"home.png",meta)).kind).toBe("screenshot");
   for(const source of ["../home.png","/tmp/home.png","other/home.png","bad.html"])await expect(registerIncomingArtifact(one,source,meta)).rejects.toThrow();
-  await fs.writeFile(path.join(p.incoming,"public.png"),png,{mode:0o644});await expect(registerIncomingArtifact(one,"public.png",meta)).rejects.toThrow();
+  await fs.writeFile(path.join(p.incoming,"public.png"),png,{mode:0o644});await fs.chmod(path.join(p.incoming,"public.png"),0o644);await expect(registerIncomingArtifact(one,"public.png",meta)).rejects.toThrow();
   await fs.symlink(staged,path.join(p.incoming,"link.png"));await expect(registerIncomingArtifact(one,"link.png",meta)).rejects.toThrow();
   await fs.link(staged,path.join(p.incoming,"hard.png"));await expect(registerIncomingArtifact(one,"hard.png",meta)).rejects.toThrow();
  });

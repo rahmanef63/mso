@@ -34,6 +34,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- make insecure-permission fixture explicit under private umask
 - validate PR integration and maintenance safety boundaries
 
 **Docs**
