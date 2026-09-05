@@ -1,3 +1,7 @@
+## 2026-09-05 — Reconcile new connection-model findings before final publication
+
+Published main advanced during the security review and introduced five additional CodeQL alerts. The integration model is preserved while migration backups use a no-follow descriptor for permissions and bounded reads; provider deletion reconstructs maps instead of indexed deletion. New HTML tests use the existing parser helper and CLI tests invoke a committed fixed-argv shell fixture rather than constructing source. The home-relative CLI contract now stubs its service manager and proves the expected teardown request without stopping host services. Source fixes and exact HEAD evidence are required again; no concurrent feature or alert is discarded.
+
 ## 2026-09-05 — Close final release review regressions
 
 The documented `~/` store override now expands consistently in the shared server/CLI helper before locking, reading or writing; an end-to-end device test proves both interfaces mutate the same private store. A hosted rollback failure was reproduced deterministically by changing a newly spawned tunnel process title before durable state write. Gateway startup now keeps the original PID/start-ticks handshake until commit, uses it for failed-start rollback, treats zombie processes as stopped, and confirms termination instead of assuming SIGKILL delivery. No assertions were weakened or scanners disabled.
@@ -15,6 +19,31 @@ The deliberately public artifact fixture now sets its final 0644 permissions exp
 The actual GitHub alert inventory exposed 22 default-branch findings, unlike the previously green scanner-completion jobs. Security-store locks now use an owner-root-validated pinned directory while preserving adjacent CLI lock names; bounded no-follow reads replace file check/reopen pairs. HTML fixture extraction uses parse5; the terminal picker opens its device once. Owner facts and activity logs now have explicit field/byte limits, private no-follow storage, concurrency and rejection tests. Diagnostic logging failures remain isolated from authorized tool execution. Security branches receive real CodeQL, CI and independent scanners; unfiltered SARIF summaries and a separate actual-alert inventory make pending evidence visible. README restores the existing real GIF inline and has a regression test for animation and screenshot presence. No alert is automatically dismissed by these changes.
 
 ## 2026-09-05 — MCP Page preview lifecycle
+
+
+## 2026-09-05 — Native named-connection identity, not parallel credential forms
+
+The provider-only Integrations store could not represent multiple deployments or
+source-aware execution even though its HTML form worked. Replace the foundation
+with credential users, named connections, direct/Composio/provider-MCP sources,
+auth methods, folder/default resolution and explicit account selection. Browser,
+CLI and MCP now call the same domain actions; old infrastructure helpers adapt to
+that core and pin values for compound provider operations.
+
+Preserve v1 data through a read-only projection and exact protected backup before
+the first atomic v2 write. Bind temporary setup capabilities to user/connection
+UID/revision so stale forms cannot rotate another account. Namespace upstream
+Composio users by installation/profile UUID; lease both the target and broker for
+hosted authorization/execution. Duplication is metadata-only unless copying direct
+credentials is separately approved. Device roles remain distinct from credential
+profiles, not a new user-login/ACL system.
+
+Tests exercise two users, five Convex connections, folder resolution, actual
+Dokploy client routing, source refusal, hosted-account identity, lease protection,
+MCP/CLI contracts and real shared-core browser saves with synthetic credentials.
+Page layout follows the host's returned display mode; full-height behavior is
+measured against the fixture iframe viewport rather than assumed from a button.
+No real upstream OAuth success is inferred from these tests.
 
 - **Reviewed-app Google sign-in leaves the iframe (2026-09-05):** Page v6 adds an explicit host-side Google-login action using a code-owned same-origin path. A nested app may only highlight this action, never trigger navigation, supply a URL or transfer session data. The host opens through `ui/open-link`/`openExternal` after a real button click; sandbox popup restrictions remain unchanged. Play Together finishes sign-in in the browser tab; this does not promise shared login with storage-partitioned embeds. v5 resource requests remain compatible.
 

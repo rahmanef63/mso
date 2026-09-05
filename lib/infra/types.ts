@@ -2,7 +2,7 @@ export const INFRA_PROVIDER_IDS = ["dokploy", "cloudflare", "hostinger", "compos
 export type InfraProviderId = (typeof INFRA_PROVIDER_IDS)[number];
 
 export type InfraProviderValues = Record<string, string>;
-export type InfraStore = {
+export type LegacyInfraStore = {
   providers?: Partial<Record<InfraProviderId, InfraProviderValues>>;
 };
 
@@ -39,3 +39,5 @@ export type InfraDoctorResult = {
   ok: boolean | null;
   detail: string;
 };
+
+export type { IntegrationState as InfraStore, ConnectionSelector, IntegrationConnection, IntegrationUser } from "./identity";

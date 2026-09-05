@@ -11,8 +11,8 @@ function mountIntegrationForm(root,setup,access){
   const token=access&&access.token,endpoint=access&&access.endpoint;
   const back=()=>{if(typeof access?.onBack==="function"){const b=integrationNode("button","← All integrations");b.type="button";b.className="back-link";b.addEventListener("click",access.onBack);root.append(b)}};back();
   if(!token||!endpoint){root.append(integrationNode("h2","Secure form unavailable"),integrationNode("p","The chat host did not deliver private setup authorization. Reopen the form or use the browser entrypoint; never paste a credential into chat."));if(access?.openBrowser){const b=integrationNode("button","Open Integrations in browser");b.type="button";b.addEventListener("click",()=>access.openBrowser());root.append(b)}return()=>{root.replaceChildren();root.classList.remove("integration")}}
-  const heading=integrationNode("h2",setup.title+" connection"),tag=integrationNode("span",setup.method+" · single-use session");tag.className="setup-tag";
-  root.append(tag,heading,integrationNode("p","API keys go directly to your MSO server. They are not sent to ChatGPT or saved in browser storage."));
+  const heading=integrationNode("h2",setup.title+" · "+(setup.label||setup.connection||"connection")),tag=integrationNode("span",setup.method+" · single-use session");tag.className="setup-tag";
+  root.append(tag,heading,integrationNode("p",[setup.user,setup.connection,setup.source,setup.scope].filter(Boolean).join(" → ")),integrationNode("p","API keys go directly to your MSO server. They are not sent to ChatGPT or saved in browser storage."));
   const grid=integrationNode("div"),form=integrationNode("form"),aside=integrationNode("aside");grid.className="setup-grid";form.autocomplete="off";form.setAttribute("action","#");
   const inputs=[];
   for(const f of setup.fields){
@@ -39,7 +39,7 @@ function mountIntegrationForm(root,setup,access){
     try{
       const response=await fetch(endpoint,{method:"POST",credentials:"omit",cache:"no-store",referrerPolicy:"no-referrer",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({action:"save",values}),signal:AbortSignal.any([abort.signal,AbortSignal.timeout(45000)])});
       const data=await response.json();
-      if(!response.ok){const messages={credential_validation_failed:"The provider rejected this key or could not be reached. Check key type, permissions, and expiry; nothing was saved.",invalid_credential_format:"Check the credential format and remove pasted line breaks.",required_fields_missing:"Complete all required fields.",enter_at_least_one_value:"Enter a value to update.",setup_expired_or_invalid:"Setup expired or already used. Open a new form."};throw new Error(messages[data.error]||"Unable to save. Reopen setup or check the provider; nothing was displayed.")}
+      if(!response.ok){const messages={credential_validation_failed:"The provider rejected this key or could not be reached. Check key type, permissions, and expiry; nothing was saved.",invalid_credential_format:"Check the credential format and remove pasted line breaks.",connection_changed_reopen_setup:"This connection changed after the form opened. Reopen it before updating credentials.",required_fields_missing:"Complete all required fields.",enter_at_least_one_value:"Enter a value to update.",setup_expired_or_invalid:"Setup expired or already used. Open a new form."};throw new Error(messages[data.error]||"Unable to save. Reopen setup or check the provider; nothing was displayed.")}
       used=true;clearTimeout(timer);inputs.forEach(f=>{f.input.value="";f.input.disabled=true});save.textContent="Saved";status.textContent="Verified and saved in MSO. This setup session is now closed.";
     }catch(error){status.textContent=error.message||"Connection failed. Check MSO connectivity."}finally{if(!used)save.disabled=false;for(const key of Object.keys(values))delete values[key]}
   });

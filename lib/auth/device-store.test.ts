@@ -34,11 +34,16 @@ describe("device-store — an unreadable file must never look like an empty one"
     store = "~/.mso/auth-devices.json";
     const api = await load();
     await api.approveDevice(DEV, "home-relative fixture");
+    // Exercise the device file contract without stopping real browser services.
+    const manager = path.join(dir, "systemctl-fixture");
+    await fs.writeFile(manager, "#!/bin/sh\nprintf '%s\n' \"$*\" > \"$HOME/teardown-call\"\n", { mode: 0o700 });
+    vi.stubEnv("MSO_SYSTEMCTL_BIN", manager);
     const command = path.resolve(__dirname, "../../scripts/approve-device.js");
     const listing = execFileSync(process.execPath, [command, "--list"], { env: process.env, encoding: "utf8" });
     expect(listing).toContain(DEV);
     execFileSync(process.execPath, [command, "--revoke", DEV], { env: process.env, encoding: "utf8" });
     expect((await api.listDevices()).approved[DEV]).toBeUndefined();
+    expect(await fs.readFile(path.join(dir, "teardown-call"), "utf8")).toContain("--user stop camoufox-vnc.service");
     expect((await fs.stat(path.join(dir, ".mso/auth-devices.json"))).isFile()).toBe(true);
   });
 

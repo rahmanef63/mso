@@ -220,3 +220,11 @@ The native Integrations catalog now also includes GitHub, Vercel, Convex Cloud,
 self-hosted Convex, Resend, Stripe, Clerk, and Supabase. This expands secure setup
 and bounded read-only credential checking; it does not automatically add every
 provider operation to the MCP catalog. Browser entrypoint: `/integrations`.
+
+## Named identity selection
+
+Infrastructure providers now read through the native named-connection resolver.
+MCP operations accept `user`, `connection` and `cwd`; explicit identities override
+folder/default resolution, and external backends never fall back to local keys.
+Provider-only v1 configuration is projected into `legacy` and backed up before
+the first v2 write. See [Integrations](INTEGRATIONS.md) for exact CLI/API contracts.

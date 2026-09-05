@@ -1,3 +1,6 @@
+import { withIntegrationSelection } from "@/lib/infra/connection-service";
+import { selectionFrom } from "@/lib/infra/connection-dispatch";
+import { INTEGRATION_SELECTOR_SCHEMA } from "./tools-integrations";
 import { doctorInfraProvider, ensureDokployProject, INFRA_PROVIDER_IDS, isInfraProviderId, listCloudflareZones, listDokployProjects, readInfraProvider, summarizeInfraProvider, upsertCloudflareDns, upsertHostingerDns } from "@/lib/infra";
 import { type McpTool, S, str } from "./tool-kit";
 
@@ -8,7 +11,7 @@ const dnsSchema = {
   ttl: { type: "number", description: "Optional TTL seconds. Cloudflare defaults to automatic." },
 };
 
-export const INFRA_TOOLS: McpTool[] = [
+const BASE_INFRA_TOOLS: McpTool[] = [
   {
     name: "infra_providers_list",
     description: "List native MSO integrations and infrastructure providers, showing masked configuration state and missing required fields. Raw credentials are never returned.",
@@ -76,3 +79,8 @@ export const INFRA_TOOLS: McpTool[] = [
     run: async (a) => upsertHostingerDns({ name: str(a, "name"), type: str(a, "type"), content: str(a, "content"), ttl: typeof a.ttl === "number" ? a.ttl : undefined }),
   },
 ];
+
+export const INFRA_TOOLS:McpTool[]=BASE_INFRA_TOOLS.map(tool=>({...tool,
+  inputSchema:{...tool.inputSchema,properties:{...tool.inputSchema.properties,...INTEGRATION_SELECTOR_SCHEMA}},
+  run:async(a,context)=>withIntegrationSelection(selectionFrom(a),()=>tool.run(a,context)),
+}));

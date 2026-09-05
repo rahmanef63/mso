@@ -22,7 +22,10 @@ it("allows only exact trusted Origins and never grants credentialed CORS", async
 });
 it("safe schema is capability protected and secret fields have no prefill", async () => {
   const { openIntegrationSetup } = await import("@/lib/infra/setup-capability"), { POST } = await import("./route");
-  const grant = await openIntegrationSetup("composio", "test-owner");
+  const {integrationManage}=await import("@/lib/infra/connection-manage");
+  await integrationManage({action:"user.create",confirm:true,user:"test-owner"});
+  await integrationManage({action:"connection.create",confirm:true,user:"test-owner",provider:"composio",connection:"project",authMethod:"project"});
+  const grant = await openIntegrationSetup("composio", "test-owner", "project",{user:"test-owner",connection:"project"});
   const response = await POST(req(grant.token)); expect(response.status).toBe(200);
   const text = await response.text(); expect(text).not.toContain(grant.token); expect(text).not.toContain('"value":');
   expect((await POST(req(grant.token, undefined, { action: "schema", provider: "hostinger" }))).status).toBe(400);
