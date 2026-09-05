@@ -44,7 +44,7 @@ checkout's `.next`. A healthy push ends with `audit: clean at high/critical.` an
 
 The local dependency audit may explicitly skip an unavailable registry; that is not a security pass.
 `bun run audit:strict`, the pre-push gate, and the assurance runner reject incomplete evidence. `test:features` distinguishes
-PASS, PARTIAL, SKIPPED and FAIL; slices without colocated unit tests are listed as coverage gaps,
+PASS, PARTIAL, SKIPPED and FAIL. Per-area exact-include configurations and result-set validation prevent substring-filter double counting; a root inventory contract prevents unregistered root tests. Slices without colocated unit tests are listed as coverage gaps,
 not invented successes. Browser rendering and live third-party operations need separate acceptance.
 The gate has no sibling-repository runner or dormant Convex deployment step. Worktree hook installation
 uses Git's shared hook path rather than assuming `.git` is a directory.

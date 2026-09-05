@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` close exec expansion gap and exact test discovery
 - `security` harden share audit and release verification
 
 **Changed**

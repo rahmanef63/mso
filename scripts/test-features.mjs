@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Run each test area in a separate Vitest process; never call an untested slice PASS.
-import { classifyFeatureResult } from "./lib/feature-test-result.mjs";
+import { classifyFeatureResult, featureSelectionMatches } from "./lib/feature-test-result.mjs";
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -51,9 +51,16 @@ let failed = false;
 for (const [name, files] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
   const basename = name.replaceAll("/", "-");
   const resultFile = join(outputDir, `${basename}.json`);
+  const configFile = join(outputDir, `${basename}.config.mts`);
+  // CLI filters match substrings, even with absolute paths. Override include
+  // instead, then independently verify the exact result-file inventory below.
+  const exactIncludes = files.map((file) => file.replace(/[?*{}\[\]]/g, "\\$&"));
+  writeFileSync(configFile,
+    `import base from ${JSON.stringify(join(root, "vitest.config.mts"))};\nexport default {...base, test: {...base.test, include: ${JSON.stringify(exactIncludes)}}};\n`,
+    { mode: 0o600 });
   const started = Date.now();
   const result = spawnSync(join(root, "node_modules/.bin/vitest"), [
-    "run", ...files.sort(), "--maxWorkers=2", "--reporter=json", `--outputFile=${resultFile}`,
+    "run", "--config", configFile, "--maxWorkers=2", "--reporter=json", `--outputFile=${resultFile}`,
   ], { cwd: root, encoding: "utf8", timeout: 240_000, maxBuffer: 10 * 1024 * 1024,
     env: { ...process.env, CI: "1", NO_COLOR: "1" } });
   let parsed = {};
@@ -62,7 +69,8 @@ for (const [name, files] of [...groups].sort(([a], [b]) => a.localeCompare(b))) 
     name, files: files.length, total: parsed.numTotalTests ?? 0,
     passed: parsed.numPassedTests ?? 0, failed: parsed.numFailedTests ?? 0,
     skipped: (parsed.numPendingTests ?? 0) + (parsed.numTodoTests ?? 0),
-    status: classifyFeatureResult(result.status, parsed),
+    status: featureSelectionMatches(files.map((file) => resolve(root, file)), parsed.testResults)
+      ? classifyFeatureResult(result.status, parsed) : "FAIL",
     durationMs: Date.now() - started,
   };
   if (row.status === "FAIL") {

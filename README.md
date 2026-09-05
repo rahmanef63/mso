@@ -439,6 +439,8 @@ links every committed official skill in `claude-skills/` into `~/.claude/skills/
 but every role shares one deployment and the same underlying Unix service account.
 MCP is disabled unless explicitly enabled. Approve only trusted devices and tokens; keep
 filesystem write roots narrow and read the exact command on every approval card.
+The one-shot exec guard refuses unresolved shell expansion in recursive-delete targets;
+this is a conservative accident guard, not proof that arbitrary shell scripts are safe.
 
 Security checks are evidence at a particular revision, not a guarantee. The project has
 **not had an independent third-party security audit**. Read the [security policy](./SECURITY.md)

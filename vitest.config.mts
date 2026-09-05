@@ -38,6 +38,7 @@ export default defineConfig({
       // which is worse than having no test at all, because the suite still says green.
       "proxy.test.ts",
       "proxy-websocket.test.ts",
+      "proxy-machine-protocol.test.ts",
     ],
     environment: "node",
     // `bun run coverage`, and it IS in `verify`, so these are gates.

@@ -65,6 +65,12 @@ The production baseline keeps five known passive signals visible as `INFO`: cach
 
 These are rule-specific classifications in `security/zap-baseline.conf`, not a global warning bypass. Any other ZAP baseline alert remains a warning/failure and makes the gate non-zero.
 
+## Command-guard evidence boundary
+
+The one-shot command guard conservatively refuses recursive deletion with unresolved shell-variable or command-substitution targets. It does not evaluate those expressions or execute a command to inspect its meaning. A literal reviewed target still requires normal authorization and approval. Quoted prose and escaped/literal expansion syntax may be refused too; this is an intentional safety-biased false positive.
+
+This remains a best-effort accident guard, **not a shell sandbox**. Script bodies, aliases, interpreters and dynamically assembled commands are not generally proven safe by a regular expression. The service user's Unix permissions, authentication, device/token scope and approvals remain the trust boundary. The old expected-failure fixture is now a normal passing predicate test; no destructive fixture command is executed.
+
 ## ASVS-oriented coverage
 
 The automated suite materially exercises ASVS areas including authentication, session management, authorization, OAuth/MCP access control, validation/sanitization, stored-file/path handling, SSRF/network destinations, security headers/browser policy, logging/redaction, dependency integrity and secure configuration. The historical audit in [`AUDIT-2026-08-24.md`](./AUDIT-2026-08-24.md) documents concrete adversarial reproductions and remediations.

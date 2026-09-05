@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -42,5 +42,14 @@ describe("isolated worktree release guards", () => {
     expect(run.status, run.stderr).toBe(0); expect(run.stdout).toContain("isolated build fixture passed");
     expect(readFileSync(path.join(repo, ".next/keep"), "utf8")).toBe("live marker");
     expect(existsSync(path.join(repo, ".env.local"))).toBe(true);
+  });
+});
+
+describe("root test inventory", () => {
+  it("registers every root-level test in the normal verification gate", () => {
+    const config = readFileSync(path.join(process.cwd(), "vitest.config.mts"), "utf8");
+    for (const file of readdirSync(process.cwd()).filter((name) => /\.test\.tsx?$/.test(name))) {
+      expect(config, `unregistered root test: ${file}`).toContain(JSON.stringify(file));
+    }
   });
 });

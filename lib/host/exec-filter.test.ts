@@ -132,13 +132,11 @@ describe("destructiveReason — adversarial encodings", () => {
     expect(destructiveReason('git commit -m "never run rm -rf / on prod"')).toMatch(/rm -rf on \//);
   });
 
-  // REMAINING GAP, and not fixable by a static filter: the destructive argument
-  // only exists after the shell expands the variable. `it.fails` PASSES while the
-  // assertion fails, so this turns the suite RED if it ever starts being caught —
-  // a built-in alarm that the note below has gone stale.
-  it.fails("GAP: variable-expansion form `HOME=/ rm -rf \"$HOME\"` — no literal `/` after -rf", () => {
-    expect(destructiveReason('HOME=/ rm -rf "$HOME"')).toMatch(/rm -rf on \//);
+  // Former expected failure: unresolved recursive-delete operands now fail closed.
+  it("refuses variable-expansion form `HOME=/ rm -rf \"$HOME\"` — no literal `/` after -rf", () => {
+    expect(destructiveReason('HOME=/ rm -rf "$HOME"')).toMatch(/unresolved shell expansion/);
   });
+
 });
 
 describe("runCommand", () => {
