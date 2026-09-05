@@ -1,53 +1,22 @@
 #!/usr/bin/env bash
-# External/Hostinger submenus for the interactive Integrations navigator.
-integration_tui_composio_authorize() {
-  local user="$1" provider="$2" connection="$3" broker config answer managed body out
-  tty_line "Composio project connection ID (blank = auto): " ""; broker="$REPLY"
-  tty_line "Auth config ID (blank = auto): " ""; config="$REPLY"
-  tty_line "Allow a managed OAuth config if none exists? [y/N]: " "n"; answer="${REPLY,,}"; managed=false; case "$answer" in y|yes) managed=true;; esac
-  body=$(jq -nc --arg user "$user" --arg provider "$provider" --arg connection "$connection" --arg broker "$broker" --arg config "$config" --argjson managed "$managed" '{mode:"manage",action:"connection.authorize",confirm:true,user:$user,provider:$provider,connection:$connection,createManaged:$managed} + (if $broker!="" then {brokerConnection:$broker} else {} end) + (if $config!="" then {authConfigId:$config} else {} end)')
-  out=$(integration_tui_manage "$body")
-  jq 'del(.privateUrl)' <<<"$out"
-  if jq -e '.privateUrl' >/dev/null 2>&1 <<<"$out"; then printf '\nOpen this private authorization URL:\n%s\n' "$(jq -r .privateUrl <<<"$out")"; fi
-  integration_tui_pause
-}
-integration_tui_hostinger_mail() {
-  local user="$1" connection="$2" choice order resource kind out args
-  while true; do
-    integration_tui_header "$user › Hostinger › $connection › Mail"
-    choice=$(cat <<'ROWS' | integration_tui_pick "Hostinger Mail" ""
-orders	Mail orders	list account mail orders
-mailboxes	Mailboxes	list mailboxes for an order
-aliases	Aliases	list aliases
-forwarders	Forwarders	list forwarders
-autoreplies	Autoreplies	list automatic replies
-catchalls	Catch-alls	list catch-all routes
-webhooks	Webhooks	list webhook metadata
-logs	Mail logs	access/action/inbound/mailbox/outbound
-__back	← Back	connection
-ROWS
-) || return 0
-    [ "$choice" = __back ] && return 0
-    if [ "$choice" = orders ]; then
-      out=$(integration_tui_execute "$user" hostinger "$connection" hostinger.mail.orders.list '{}' true)
-      jq '.result' <<<"$out"; integration_tui_pause; continue
-    fi
-    tty_line "Mail order ID (blank uses scoped connection order): " ""; order="$REPLY"
-    if [ "$choice" = logs ]; then
-      kind=$(cat <<'ROWS' | integration_tui_pick "Mail log" ""
-access	Access	access events
-action	Action	action events
-inbound	Inbound	inbound mail
-mailbox-actions	Mailbox actions	mailbox mutations
-outbound	Outbound	outbound mail
-ROWS
-) || continue
-      args=$(jq -nc --arg order "$order" --arg kind "$kind" '{kind:$kind,page:1}+(if $order!="" then {orderId:$order} else {} end)')
-      out=$(integration_tui_execute "$user" hostinger "$connection" hostinger.mail.logs.list "$args" true)
-    else
-      resource="$choice"; args=$(jq -nc --arg order "$order" --arg resource "$resource" '{resource:$resource,page:1}+(if $order!="" then {orderId:$order} else {} end)')
-      out=$(integration_tui_execute "$user" hostinger "$connection" hostinger.mail.list "$args" true)
-    fi
-    jq '.result' <<<"$out"; integration_tui_pause
-  done
-}
+# Prompted/action side of the Finder-style Integrations TUI. All mutations still
+# travel through the native owner API; this file owns no credential state.
+integration_prompt_mode(){ printf '\033[?25h\033[H\033[2J' > /dev/tty; }
+integration_activity(){ F_ACTIVITY=$(printf '%s\n' "$@" | jq -Rsc 'split("\n")|map(select(length>0))'); }
+integration_context(){ local p="$1"; jq -r --arg p "$p" '[.[]|select(startswith($p))][-1]//""|ltrimstr($p)' <<<"$F_STACK"; }
+integration_wait(){ tty_line "Press Enter to return to Finder… " ""; }
+integration_action_user_add(){ local root id label body; root=$(jq -r '.[0]//"users"'<<<"$F_STACK");integration_prompt_mode;tty_line "New credential user ID: " "";id="$REPLY";[ -n "$id" ]||return;tty_line "Display label [$id]: " "$id";label="$REPLY";body=$(jq -nc --arg u "$id" --arg l "$label" '{mode:"manage",action:"user.create",confirm:true,user:$u,label:$l}');integration_tui_manage "$body" >/dev/null;F_STACK=$(jq -nc --arg r "$root" --arg u "user:$id" '[$r,$u]');integration_activity "Created credential user $label"; }
+integration_action_user_default(){ local u body;u=$(integration_context user:);body=$(jq -nc --arg u "$u" '{mode:"manage",action:"user.default",confirm:true,user:$u}');integration_tui_manage "$body" >/dev/null;integration_activity "$u is now the default credential user"; }
+integration_action_user_bind(){ local u body;u=$(integration_context user:);body=$(jq -nc --arg u "$u" --arg p "$PWD" '{mode:"manage",action:"folder.map",confirm:true,user:$u,path:$p}');integration_tui_manage "$body" >/dev/null;integration_activity "Mapped current folder to $u" "$PWD"; }
+integration_action_user_rename(){ local u target label body;u=$(integration_context user:);integration_prompt_mode;tty_line "New user ID: " "$u";target="$REPLY";[ "$target" != "$u" ]||return;tty_line "Display label [$target]: " "$target";label="$REPLY";body=$(jq -nc --arg u "$u" --arg t "$target" --arg l "$label" '{mode:"manage",action:"user.rename",confirm:true,user:$u,target:$t,label:$l}');integration_tui_manage "$body" >/dev/null;F_STACK=$(jq --arg old "user:$u" --arg new "user:$target" 'map(if .==$old then $new else . end)'<<<"$F_STACK");integration_activity "Renamed credential user $u → $target"; }
+integration_action_user_duplicate(){ local u target label ans copy body;u=$(integration_context user:);integration_prompt_mode;tty_line "Duplicate as user ID: " "${u}-copy";target="$REPLY";[ -n "$target" ]||return;tty_line "Display label [$target]: " "$target";label="$REPLY";tty_line "Copy direct credentials too? [y/N]: " n;ans="${REPLY,,}";copy=false;case "$ans" in y|yes)copy=true;;esac;body=$(jq -nc --arg u "$u" --arg t "$target" --arg l "$label" --argjson c "$copy" '{mode:"manage",action:"user.duplicate",confirm:true,user:$u,target:$t,label:$l,copyCredentials:$c}');integration_tui_manage "$body" >/dev/null;integration_activity "Duplicated $u → $target" "$([ "$copy" = true ]&&printf 'direct credentials copied' || printf 'metadata only')"; }
+integration_action_user_delete(){ local u body root;u=$(integration_context user:);root=$(jq -r '.[0]'<<<"$F_STACK");integration_prompt_mode;tty_line "Type $u to delete: " "";[ "$REPLY" = "$u" ]||{ integration_activity 'Delete cancelled';return;};body=$(jq -nc --arg u "$u" '{mode:"manage",action:"user.delete",confirm:true,user:$u}');integration_tui_manage "$body" >/dev/null;F_STACK=$(jq -nc --arg r "$root" '[$r]');integration_activity "Deleted credential user $u"; }
+integration_action_create_connection(){ local u p s a label id body ans idx;u=$(integration_context user:);p=$(integration_context provider:);s=$(integration_context source:);a=$(integration_context auth:);integration_prompt_mode;tty_line "Connection label: " "$p";label="$REPLY";[ -n "$label" ]||return;id=$(integration_tui_slug "$label");[ -n "$id" ]||id=connection;tty_line "Connection ID [$id]: " "$id";id="$REPLY";body=$(jq -nc --arg u "$u" --arg p "$p" --arg c "$id" --arg l "$label" --arg s "$s" --arg a "$a" '{mode:"manage",action:"connection.create",confirm:true,user:$u,provider:$p,connection:$c,label:$l,source:$s,authMethod:$a}');integration_tui_manage "$body" >/dev/null;idx=$(jq '[to_entries[]|select(.value|startswith("provider:"))]|last.key'<<<"$F_STACK");F_STACK=$(jq --argjson i "$idx" --arg c "connection:$id" '.[0:$i+1]+[$c]'<<<"$F_STACK");integration_activity "Created $label" "$u › $p › $id" "$s · $a";if [ "$s" = direct ];then tty_line "Open secure credential form now? [Y/n]: " y;ans="${REPLY,,}";case "$ans" in n|no);;*)integration_prompt_mode;run_integrations setup "$u" "$p" "$id";integration_wait;;esac;fi; }
+integration_action_setup(){ local u p c;u=$(integration_context user:);p=$(integration_context provider:);c=$(integration_context connection:);integration_prompt_mode;run_integrations setup "$u" "$p" "$c";integration_wait;integration_activity "Secure setup opened for $u › $p › $c"; }
+integration_action_authorize(){ local u p c broker cfg ans managed body out;u=$(integration_context user:);p=$(integration_context provider:);c=$(integration_context connection:);integration_prompt_mode;tty_line "Composio project connection ID (blank = auto): " "";broker="$REPLY";tty_line "Auth config ID (blank = auto): " "";cfg="$REPLY";tty_line "Allow managed OAuth config if none exists? [y/N]: " n;ans="${REPLY,,}";managed=false;case "$ans" in y|yes)managed=true;;esac;body=$(jq -nc --arg u "$u" --arg p "$p" --arg c "$c" --arg b "$broker" --arg g "$cfg" --argjson m "$managed" '{mode:"manage",action:"connection.authorize",confirm:true,user:$u,provider:$p,connection:$c,createManaged:$m}+(if $b!="" then {brokerConnection:$b}else{}end)+(if $g!="" then {authConfigId:$g}else{}end)');out=$(integration_tui_manage "$body");if jq -e '.privateUrl' >/dev/null 2>&1<<<"$out";then printf '\nOpen private authorization URL:\n%s\n' "$(jq -r .privateUrl<<<"$out")";integration_wait;fi;integration_activity "Authorization flow prepared" "$u › $p › $c"; }
+integration_action_verify(){ local u p c out;u=$(integration_context user:);p=$(integration_context provider:);c=$(integration_context connection:);out=$(integration_tui_execute "$u" "$p" "$c" verify '{}' false);integration_activity "verify: $(jq -r '.ok//.result.ok//"unknown"'<<<"$out")" "$(jq -r '.detail//.result.detail//""'<<<"$out")"; }
+integration_action_route(){ local u p c out;u=$(integration_context user:);p=$(integration_context provider:);c=$(integration_context connection:);out=$(integration_tui_execute "$u" "$p" "$c" route '{}' false);integration_activity "route: $u › $p › $c" "source: $(jq -r '.source//.result.source//"unknown"'<<<"$out")" "scope: $(jq -r '.scope//.result.scope//"unknown"'<<<"$out")"; }
+integration_action_connection_default(){ local u p c body;u=$(integration_context user:);p=$(integration_context provider:);c=$(integration_context connection:);body=$(jq -nc --arg u "$u" --arg p "$p" --arg c "$c" '{mode:"manage",action:"connection.default",confirm:true,user:$u,provider:$p,connection:$c}');integration_tui_manage "$body" >/dev/null;integration_activity "$c is now default for $p"; }
+integration_action_connection_rename(){ local u p c label body;u=$(integration_context user:);p=$(integration_context provider:);c=$(integration_context connection:);integration_prompt_mode;tty_line "New label: " "$c";label="$REPLY";body=$(jq -nc --arg u "$u" --arg p "$p" --arg c "$c" --arg l "$label" '{mode:"manage",action:"connection.rename",confirm:true,user:$u,provider:$p,connection:$c,label:$l}');integration_tui_manage "$body" >/dev/null;integration_activity "Renamed connection label to $label"; }
+integration_action_connection_delete(){ local u p c body idx;u=$(integration_context user:);p=$(integration_context provider:);c=$(integration_context connection:);integration_prompt_mode;tty_line "Type $c to delete: " "";[ "$REPLY" = "$c" ]||{ integration_activity 'Delete cancelled';return;};body=$(jq -nc --arg u "$u" --arg p "$p" --arg c "$c" '{mode:"manage",action:"connection.delete",confirm:true,user:$u,provider:$p,connection:$c}');integration_tui_manage "$body" >/dev/null;idx=$(jq '[to_entries[]|select(.value|startswith("connection:"))]|last.key'<<<"$F_STACK");F_STACK=$(jq --argjson i "$idx" '.[0:$i]'<<<"$F_STACK");integration_activity "Deleted $u › $p › $c"; }
+integration_action_mail(){ local kind="$1" value="$2" u c order args out count;u=$(integration_context user:);c=$(integration_context connection:);if [ "$kind" = orders ];then out=$(integration_tui_execute "$u" hostinger "$c" hostinger.mail.orders.list '{}' true);else integration_prompt_mode;tty_line "Mail order ID (blank uses scoped connection order): " "";order="$REPLY";if [ "$kind" = resource ];then args=$(jq -nc --arg o "$order" --arg r "$value" '{resource:$r,page:1}+(if $o!=""then{orderId:$o}else{}end)');out=$(integration_tui_execute "$u" hostinger "$c" hostinger.mail.list "$args" true);else args=$(jq -nc --arg o "$order" --arg k "$value" '{kind:$k,page:1}+(if $o!=""then{orderId:$o}else{}end)');out=$(integration_tui_execute "$u" hostinger "$c" hostinger.mail.logs.list "$args" true);fi;fi;count=$(jq -r '(.result.data//.result//[])|if type=="array" then length else (.data//[]|length) end'<<<"$out" 2>/dev/null||echo '?');integration_activity "Hostinger Mail ${value:-orders}" "rows: $count"; }

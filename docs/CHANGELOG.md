@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `integrations` use Finder-style column browser
 - `integrations` add interactive terminal navigator
 - `hostinger` add Mail API connection operations
 - `integrations` add portable JSON transfer and standalone import adapter
