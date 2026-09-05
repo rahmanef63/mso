@@ -33,6 +33,9 @@ const ALFA_ONLY: Record<string, string> = {
 };
 
 const MCP_ONLY: Record<string, string> = {
+  "session.artifacts": "CLI/MCP durable-session artifact records use the authenticated client principal; Alfa browser threads have a separate identity and must not inherit another session's files",
+  "session.artifact.register": "same durable-session boundary; external browser producers stage files under session context rather than accepting arbitrary paths",
+  "session.artifacts.cleanup": "same session store; bounded retention is controlled by the authenticated external/CLI principal, not unrelated Alfa thread state",
   "integration.setup.open": "ChatGPT needs a write-scoped UI-only capability; native owner browser and CLI use the same secure setup service without exposing secrets to Alfa tools",
   "screen.capture": "external MCP clients need visual proof of the rendered OS; in-shell Alfa already runs inside that browser UI",
   "projects.list": "an MCP client has no sidebar and no Files window, so it needs an explicit bounded enumeration of every project container; in-shell Alfa reads the same roots through fs.list and the Files app",
@@ -160,9 +163,11 @@ describe("MCP rate limits mirror the routes", () => {
       "fs.delete": 60, "fs.upload": 20, "exec": 60, "managed-app": 12, "camoufox": 12,
     };
     const MCP_NATIVE_LIMITS: Record<string, number> = {
-      // screen_capture has no HTTP route by design; it exists only for connected
-      // MCP clients and is expensive enough to deserve a much smaller bucket.
+      // Native capabilities have independent bounded buckets (no matching HTTP route).
       "screen.capture": 10,
+      "session.artifacts": 60,
+      "session.artifact.register": 30,
+      "session.artifact.cleanup": 6,
       "workflow.memory": 30,
       "project.memory.search": 60,
       "project.memory.write": 60,
@@ -176,8 +181,7 @@ describe("MCP rate limits mirror the routes", () => {
       "exec.job.start": 12,
       "exec.job.status": 120,
       "exec.job.cancel": 30,
-      // Global discovery reads: no HTTP route mirrors them, and each one walks
-      // every configured container, so they get their own small buckets.
+      // Global discovery reads use independent bounded buckets.
       "projects.list": 30,
       "projects.capabilities": 60,
       "projects.function": 60,

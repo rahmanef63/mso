@@ -97,3 +97,5 @@ Use Node 22 and Bun >=1.2.15 with native audit support. [Contributing](./CONTRIB
 [Development](./docs/DEVELOPMENT.md) · [Changelog](./docs/CHANGELOG.md) · [MIT license](./LICENSE)
 
 [Native Integrations](./docs/INTEGRATIONS.md): temporary credential forms for browser, CLI and MCP Page.
+
+[Session screenshots](docs/SESSION-ARTIFACTS.md): private temp folders, descriptive artifact names, session discovery and automatic dormant-file cleanup.

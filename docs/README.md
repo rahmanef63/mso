@@ -85,3 +85,5 @@ the current-reference doc.
 ## Reset and removal
 
 [Maintenance, factory reset and clean uninstall](./MAINTENANCE.md) · [Extended workspace reference](./reference/WORKSPACE-GUIDE.md)
+
+- [Session screenshots and temporary artifacts](./SESSION-ARTIFACTS.md) — private per-session paths, MCP/CLI reads, quotas and safe retention.

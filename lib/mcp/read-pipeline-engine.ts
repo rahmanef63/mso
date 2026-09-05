@@ -13,7 +13,7 @@ import {
   type ReadPipelineInput,
 } from "./read-pipeline-types";
 
-const EXCLUDED = new Set(["read_pipeline", "workflow_status", "screen_capture", "local_agent_request_wait"]);
+const EXCLUDED = new Set(["read_pipeline", "workflow_status", "screen_capture", "session_artifacts", "local_agent_request_wait"]);
 
 function jsonBytes(value: unknown): number {
   try { return Buffer.byteLength(JSON.stringify(value), "utf8"); }

@@ -27,7 +27,7 @@ function sessionHash(sessionId?: string): string | undefined {
 export const AGENT_TOOLS: McpTool[] = [
   {
     name: "agent_session_current",
-    description: "Return this ChatGPT conversation's isolated durable MSO session, timestamps and estimated context-token budget.",
+    description: "Return this conversation's durable session, context budget and dynamic temp/screenshot/manifest locations. Use session_artifacts to list/read saved files.",
     scope: "read", annotations: { readOnlyHint: true, idempotentHint: true }, inputSchema: S({}),
     run: async (_a, context) => {
       if (!context.sessionId) throw new Error("this tool call has no conversation-bound MSO session");

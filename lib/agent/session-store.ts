@@ -1,3 +1,4 @@
+import { artifactLocation } from "./artifact-paths";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { redactText } from "@/lib/security/redact-text";
 import { normalizeAgentSessionCwd } from "./session-location";
@@ -85,6 +86,7 @@ function summary(record: AgentSession): AgentSessionSummary {
     ...(record.lastArchivedAt ? { lastArchivedAt: record.lastArchivedAt } : {}),
     eventCount: record.events.length,
     historyTurns: record.history.length,
+    artifacts: artifactLocation(record),
   };
 }
 

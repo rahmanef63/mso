@@ -1,3 +1,5 @@
+import type { AgentSession } from "@/lib/agent/session-types";
+import { artifactLocation } from "@/lib/agent/artifact-paths";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
 import {
@@ -16,6 +18,10 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function sessionResponse({session}: {session: AgentSession}) {
+  return NextResponse.json({session:{...session,artifacts:artifactLocation(session)}});
+}
 
 async function ownerPrincipal(): Promise<string | null> {
   const context = await getSessionContext();
@@ -45,7 +51,7 @@ export async function GET(req: NextRequest) {
   ).trim();
   if (ref) {
     try {
-      return NextResponse.json({
+      return sessionResponse({
         session: await resolveAgentSessionOwnerRef(ref),
       });
     } catch (e) {
@@ -80,7 +86,7 @@ export async function POST(req: NextRequest) {
   }
   try {
     if (body.action === "create") {
-      return NextResponse.json({
+      return sessionResponse({
         session: await createAgentSession(principal, "cli", {
           title: body.title,
           titleSource: body.title ? "manual" : "default",
@@ -102,7 +108,7 @@ export async function POST(req: NextRequest) {
         body.title,
         "auto",
       );
-      return NextResponse.json({
+      return sessionResponse({
         session: body.cwd
           ? await updateAgentSessionLocation(principal, session.id, body.cwd)
           : session,
@@ -115,7 +121,7 @@ export async function POST(req: NextRequest) {
           { error: "session_reference_required" },
           { status: 400 },
         );
-      return NextResponse.json({
+      return sessionResponse({
         session: await resumeAgentSessionForOwner(principal, ref, body.cwd),
       });
     }
@@ -125,7 +131,7 @@ export async function POST(req: NextRequest) {
           { error: "id_and_name_required" },
           { status: 400 },
         );
-      return NextResponse.json({
+      return sessionResponse({
         session: await renameAgentSessionName(principal, body.id, body.name),
       });
     }
@@ -135,7 +141,7 @@ export async function POST(req: NextRequest) {
           { error: "id_and_title_required" },
           { status: 400 },
         );
-      return NextResponse.json({
+      return sessionResponse({
         session: await renameAgentSession(principal, body.id, body.title),
       });
     }

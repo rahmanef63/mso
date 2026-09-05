@@ -2618,3 +2618,7 @@ by line, and they are one command away: `git show 421ab7f:docs/PROGRESS.md`.*
 ## 2026-08-20 — ChatGPT generated-file → VPS bridge (DONE)
 
 MCP now exposes `fs_upload_file` with `_meta["openai/fileParams"]`, so ChatGPT can generate or receive an image first and then transfer the exact file bytes into an existing bounded VPS directory. The server accepts only temporary HTTPS OpenAI file references, caps imports at 20 MiB, validates image MIME types, inherits the existing write-root and credential denylist through `uploadInto`, audits as `fs.upload`, and returns byte count plus SHA-256 without persisting the temporary download URL.
+
+## 2026-09-05 — Session-scoped screenshot evidence
+
+Screenshot evidence previously lived in unrelated scratch directories or only in MCP image responses. Added one derived session path policy, a private manifest, explicit image/report reads, and bounded registration/retention. Exec receives non-secret session directories; original bytes remain private and session responses compute paths instead of persisting absolute homes. Cleanup is lazy, lease-aware and fail-closed for unknown files; it does not run during builds or remove durable history. User/client isolation, retry de-duplication and existing integration changes are preserved. See SESSION-ARTIFACTS.md for limits and verification scope.

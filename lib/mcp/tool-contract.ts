@@ -38,7 +38,7 @@ export const CHATGPT_TOOL_NAMES = new Set([
   // Workflow/session intelligence. workflow_status and render_mso_surface stay app-only at presentation time.
   "workflow_start", "workflow_status", "workflow_finish", "workflow_cancel",
   "skills_search", "skills_list", "skills_read", "read_pipeline",
-  "agent_session_current", "agent_session_rename",
+  "agent_session_current", "agent_session_rename", "session_artifacts", "session_artifact_register", "session_artifacts_cleanup",
   "local_agents_list", "local_agent_inbox", "local_agent_message_send", "local_agent_reply", "local_agent_request_wait",
 
   // Project-first operator surface. Project-owned names remain dynamic.
@@ -128,7 +128,8 @@ function compactSchema(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    if (key === "description" && typeof item === "string") out[key] = compactText(item, 105);
+    if (key === "workflow_id" && item && typeof item === "object") out[key] = { ...compactSchema(item) as Record<string, unknown>, description: "workflow_start id." };
+    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 105);
     else out[key] = compactSchema(item);
   }
   return out;

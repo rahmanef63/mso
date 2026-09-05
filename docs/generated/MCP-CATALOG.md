@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.12.0 version=2026.09.05.4 tools=89 read=44 write=26 exec=19 -->
+<!-- mcp-toolset: server=1.12.0 version=2026.09.05.6 tools=92 read=45 write=28 exec=19 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.12.0` |
-| Toolset | `2026.09.05.4` |
-| Toolset changed at | `2026-09-05T11:59:00Z` |
-| Transport tools | **91** |
-| Model/operator tools | **89** |
-| Read | **44** |
-| Write | **26** |
+| Toolset | `2026.09.05.6` |
+| Toolset changed at | `2026-09-05T12:45:00Z` |
+| Transport tools | **94** |
+| Model/operator tools | **92** |
+| Read | **45** |
+| Write | **28** |
 | Exec | **19** |
 | App-only bridges | **2** |
 
-### Read (44)
+### Read (45)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -57,6 +57,7 @@
 - `render_mso_block`
 - `render_mso_page`
 - `screen_capture`
+- `session_artifacts`
 - `skills_list`
 - `skills_read`
 - `skills_search`
@@ -65,7 +66,7 @@
 - `tool_forge_candidates`
 - `vps_status`
 
-### Write (26)
+### Write (28)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -89,6 +90,8 @@
 - `project_knowledge_set`
 - `project_memory_upsert`
 - `project_script_run`
+- `session_artifact_register`
+- `session_artifacts_cleanup`
 - `tool_forge_propose`
 - `workflow_cancel`
 - `workflow_finish`
@@ -123,20 +126,20 @@
 
 ## ChatGPT static profile
 
-<!-- mcp-chatgpt-profile: server=1.12.0 version=2026.09.05.4 tools=65 read=35 write=18 exec=12 app-only=2 total=67 -->
+<!-- mcp-chatgpt-profile: server=1.12.0 version=2026.09.05.6 tools=68 read=36 write=20 exec=12 app-only=2 total=70 -->
 
 The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_NAMES`. OAuth scope is still enforced independently; project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **67** |
-| ChatGPT model/operator tools | **65** |
-| Read | **35** |
-| Write | **18** |
+| ChatGPT transport tools | **70** |
+| ChatGPT model/operator tools | **68** |
+| Read | **36** |
+| Write | **20** |
 | Exec | **12** |
 | App-only bridges | **2** |
 
-### ChatGPT read (35)
+### ChatGPT read (36)
 
 - `agent_session_current`
 - `apps_list`
@@ -167,6 +170,7 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `render_mso_block`
 - `render_mso_page`
 - `screen_capture`
+- `session_artifacts`
 - `skills_list`
 - `skills_read`
 - `skills_search`
@@ -174,7 +178,7 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `sys_stats`
 - `vps_status`
 
-### ChatGPT write (18)
+### ChatGPT write (20)
 
 - `agent_session_rename`
 - `apps_power`
@@ -191,6 +195,8 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `local_agent_message_send`
 - `local_agent_reply`
 - `project_knowledge_set`
+- `session_artifact_register`
+- `session_artifacts_cleanup`
 - `workflow_cancel`
 - `workflow_finish`
 - `workflow_start`
