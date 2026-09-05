@@ -1,3 +1,7 @@
+## 2026-09-06 — Local SI-Coder migration discovery
+
+Integrations now detects an installed `~/.local/bin/sc` through its public metadata-only Integration Bundle v1 and surfaces a create-only **Import from SI-Coder** action. This is optional migration plumbing, not an MSO runtime dependency: no SC store internals are read, no secret values are auto-copied, existing MSO identities are preserved, and encrypted direct-credential transfer remains an explicit private flow.
+
 ## 2026-09-06 — `/integrations` becomes the canonical MSO Chat credential command
 
 MSO Agent slash discovery now exposes `/integrations` and opens the same native Finder-style Integrations surface used by the CLI. A matching official `integrations` skill is cataloged for `/skills` and `/skill integrations`, keeping model-driven work on `integration_query`, `integration_manage`, `integration_execute`, and private `integration_setup_open`. The older `/provider` and `/providers` handlers remain executable for compatibility but are hidden from the slash palette/help so the product has one user-facing credential concept: Integrations. Agent onboarding/runtime hints now point to Integrations rather than the legacy three-provider commands. No credential values enter chat or slash payloads.

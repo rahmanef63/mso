@@ -89,6 +89,10 @@ setup. Opening an outer widget is not proof that its form or provider authorizat
 
 Credential values still enter only through the private setup flow; the Agent conversation and slash-command payload never carry provider secrets.
 
+### Local SI-Coder migration
+
+When `~/.local/bin/sc` is present, `mso integrations` automatically detects its **metadata-only** Integration Bundle and shows **Import from SI-Coder** in Transfer. Detection is read-only; applying the preview is an explicit create-only action. Existing MSO identities are preserved. Direct credential values are never copied silently; move them with the encrypted bundle/private transfer flow. MSO remains fully standalone when SC is absent. The equivalent explicit command is `mso integrations import-sc`.
+
 ## CLI
 
 Bare `mso integrations` is an MSO-native Finder-style alternate-screen application. It repaints one complete terminal frame by absolute cursor position, uses terminal-cell-aware width calculation, and reserves the rightmost physical cell to avoid Windows Terminal/SSH wrap drift. Borders are one continuous `─/│` grid; there are no placeholder columns.

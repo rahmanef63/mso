@@ -3,8 +3,10 @@
 # all reads and confirmed mutations still use the same owner API as CLI/MCP/browser.
 # shellcheck source=mso-cli-integrations-tui-remote.sh
 source "$ROOT/scripts/mso-cli-integrations-tui-remote.sh"
+# shellcheck source=mso-cli-integrations-sc.sh
+source "$ROOT/scripts/mso-cli-integrations-sc.sh"
 integration_tui_slug(){ printf '%s' "$1"|tr '[:upper:]' '[:lower:]'|sed -E 's/[^a-z0-9._-]+/-/g;s/^-+//;s/-+$//'|cut -c1-64; }
-integration_tui_snapshot(){ local u="${1-}" q=view=snapshot;[ -n "$u" ]&&q="$q&user=$(enc "$u")";jget "/api/v1/integrations?$q"; }
+integration_tui_snapshot(){ local u="${1-}" q=view=snapshot base;[ -n "$u" ]&&q="$q&user=$(enc "$u")";base=$(jget "/api/v1/integrations?$q");if [ -n "${F_SC_PROBE-}" ];then jq --argjson sc "$F_SC_PROBE" ".+{scMigration:\$sc}"<<<"$base";else printf "%s" "$base";fi; }
 integration_tui_manage(){ jpost "/api/v1/integrations" "$1"; }
 integration_tui_execute(){ local u="$1" p="$2" c="$3" op="$4" args="${5-}" confirm="${6:-false}" body;[ -n "$args" ]||args='{}';body=$(jq -nc --arg u "$u" --arg p "$p" --arg c "$c" --arg op "$op" --argjson a "$args" --argjson x "$confirm" '{mode:"execute",user:$u,provider:$p,connection:$c,operation:$op,arguments:$a}+(if $x then {confirm:true}else{}end)');jpost "/api/v1/integrations" "$body"; }
 integration_alt_on(){ printf '\033[?1049h\033[?25l\033[H\033[2J' > /dev/tty; }
@@ -16,6 +18,7 @@ integration_finder_event(){ local snap="$1" stack="$2" activity="$3" initial="$4
 integration_tui_dispatch(){ local id="$1" snap="$2" value;case "$id" in
  action:quit) return 90;; action:inspect-auth:*) integration_activity "✓ Authentication metadata selected" "No credential value is loaded into the Finder frame.";;
  action:current) local out;out=$(jget "/api/v1/integrations?view=which&cwd=$(enc "$PWD")");integration_activity "✓ Current folder resolved" "user: $(jq -r '.user//"none"'<<<"$out")" "resolution: $(jq -r '.resolution//"none"'<<<"$out")";;
+ action:transfer:sc) integration_prompt_mode;integration_sc_import_interactive;integration_wait;F_SC_PROBE=$(integration_sc_probe);integration_activity "✓ SI-Coder metadata migration finished" "Refresh Users/Connections to review imported identities.";;
  action:transfer:metadata|action:transfer:encrypted|action:transfer:import) integration_prompt_mode;run_integrations transfer;integration_wait;integration_activity "✓ Opened private Import / export JSON manager" "Passphrases and direct credentials stay outside Finder state.";;
  action:transfer:schema) integration_activity "✓ Integration Bundle v1" "schema: schemas/integration-bundle-v1.schema.json" "metadata JSON excludes credential values by default";;
  action:user-add) integration_action_user_add;;action:user-default) integration_action_user_default;;action:user-bind) integration_action_user_bind;;action:user-rename) integration_action_user_rename;;action:user-duplicate) integration_action_user_duplicate;;action:user-delete) integration_action_user_delete;;
@@ -32,7 +35,7 @@ integration_shortcut(){ local id="$1" snap="$2" u p c source idx;u=$(integration
  esac; }
 integrations_tui(){
   tty_ok||{ jget "/api/v1/integrations?view=snapshot";return; }
-  F_STACK='[]';F_ACTIVITY='[]';F_SELECTED='{}';F_QUERIES='{}';local snap event type id rc key initial query
+  F_STACK='[]';F_ACTIVITY='[]';F_SELECTED='{}';F_QUERIES='{}';F_SC_PROBE=$(integration_sc_probe);local snap event type id rc key initial query
   integration_alt_on;trap 'integration_alt_off' EXIT INT TERM
   while true;do
     snap=$(integration_tui_snapshot "$(integration_context user:)");key=$(integration_stack_key);initial=$(integration_cached "$F_SELECTED" "$key");query=$(integration_cached "$F_QUERIES" "$key")

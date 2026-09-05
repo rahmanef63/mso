@@ -10,6 +10,7 @@ run_integrations() {
   local sub="$1" data user provider connection query body
   shift || true
   case "$sub" in
+    import-sc) integration_sc_import_cli ;;
     transfer) data=$(jget "/api/v1/integrations/transfer"); printf "Open the owner-only JSON transfer page in your browser:\n%s\n" "$(jq -r .url <<<"$data")" ;;
     status|users|catalog)
       query="snapshot"; [ "$sub" = users ] && query=users; [ "$sub" = catalog ] && query=catalog
@@ -64,6 +65,6 @@ run_integrations() {
       [ $# -eq 1 ] || die 'usage: mso integrations execute <metadata-JSON with user, provider, connection, operation and confirm:true>'
       body=$(jq -ce 'if type=="object" then .+{mode:"execute"} else error("object required") end' <<<"$1")
       jpost "/api/v1/integrations" "$body" ;;
-    *) die 'usage: mso integrations transfer|status|users|catalog|connections|which|request|resolve|create-user|create-connection|manage|setup|verify|route|hostinger-mail-orders|hostinger-mail-list|hostinger-mail-logs|execute' ;;
+    *) die 'usage: mso integrations import-sc|transfer|status|users|catalog|connections|which|request|resolve|create-user|create-connection|manage|setup|verify|route|hostinger-mail-orders|hostinger-mail-list|hostinger-mail-logs|execute' ;;
   esac
 }

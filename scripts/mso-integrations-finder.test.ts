@@ -93,3 +93,6 @@ it("sanitizes secret-shaped snapshot fields before the private temp config and r
   expect(text).not.toContain("SYNTHETIC_SECRET_NEVER_TEMP");
   expect(JSON.parse(text).snapshot.connections[0]).toMatchObject({ id: "x", stored: true });
 });
+
+it("Transfer surfaces auto-detected SI-Coder metadata without implying secret sync",()=>{const detected={...snap,scMigration:{available:true,producer:"si-coder",userCount:6,connectionCount:20,mode:"metadata"}};const rows=layer(detected,["transfer"]);expect(rows[0]).toMatchObject({id:"action:transfer:sc",label:"Import from SI-Coder"});expect(rows[0].hint).toContain("6 users");expect(rows[0].preview.join(" ")).toContain("no credential values");});
+it("root Transfer announces local SI-Coder discovery without applying anything",()=>{const detected={...snap,scMigration:{available:true,producer:"si-coder",userCount:6,connectionCount:20,mode:"metadata"}};const transfer=layer(detected,[]).find((x:any)=>x.id==="transfer");expect(transfer).toMatchObject({badge:"SC"});expect(transfer.hint).toContain("SI-Coder detected");expect(transfer.preview.join(" ")).toContain("never auto-copied");});
