@@ -1,3 +1,4 @@
+import type { artifactLocation } from "./artifact-paths";
 import type { AgentMemorySnapshot } from "./memory-store";
 
 export type AgentSessionSource = "cli" | "mcp" | "alfa";
@@ -46,6 +47,7 @@ export interface AgentSession {
 }
 
 export interface AgentSessionSummary {
+  artifacts?: ReturnType<typeof artifactLocation>;
   id: string;
   source: AgentSessionSource;
   name: string;

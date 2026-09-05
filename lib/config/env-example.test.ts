@@ -20,6 +20,7 @@ const ROOT = path.join(__dirname, "..", "..");
 const NOT_A_KNOB: Record<string, string> = {
   // Injected by the framework or the runtime.
   NEXT_RUNTIME: "set by Next itself",
+  NODE_ENV: "standard Node/Next process mode; artifact maintenance starts only in production",
   NEXT_PUBLIC_BUILD_ID: "injected by next.config.mjs at build time",
   MSO_RUNTIME_INSTANCE_ID: "injected by the installer-managed service to prove restart readiness",
   // Private launcher-to-agent handoff. scripts/mso-cli-agent.sh owns these; users

@@ -10,6 +10,7 @@ function mountReviewedFrame(safe,stage){
   frame.title=safe.title+" live demo";frame.setAttribute("sandbox",safe.sandbox);
   frame.referrerPolicy="no-referrer";frame.allow="fullscreen; autoplay; gamepad; accelerometer; gyroscope";
   wrap.append(frame);let timer=0,disposed=false;
+  const clearAuth=mountReviewedAuth(safe,frame,status,message);
   function unavailable(){if(disposed)return;wrap.dataset.state="unavailable";message.textContent="Preview did not confirm readiness. Retry or open production directly.";retry.hidden=false}
   function loadFrame(){clearTimeout(timer);wrap.dataset.state="loading";message.textContent="Connecting to live production…";retry.hidden=true;frame.src=safe.url;timer=setTimeout(unavailable,12000)}
   function ready(event){
@@ -25,7 +26,7 @@ function mountReviewedFrame(safe,stage){
     }catch(_){message.textContent="Open production in your browser: "+safe.origin}
   }
   window.addEventListener("message",ready);frame.addEventListener("error",unavailable);
-  viewCleanup=()=>{disposed=true;clearTimeout(timer);window.removeEventListener("message",ready);frame.removeEventListener("error",unavailable)};
+  viewCleanup=()=>{clearAuth();disposed=true;clearTimeout(timer);window.removeEventListener("message",ready);frame.removeEventListener("error",unavailable)};
   loadFrame();
 }
 `;

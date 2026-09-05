@@ -1,3 +1,4 @@
+import { ownedArtifactSession, prepareSessionArtifacts } from "@/lib/agent/artifact-session";
 import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
 import { markRecipeUsed, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
 import { searchSkillMemory } from "@/lib/skills/search";
@@ -39,6 +40,7 @@ export const WORKFLOW_START_TOOL: McpTool =
       const actor = context.workflowActor ?? context.actor;
       const recipeOwner = context.recipeActor ?? context.actor;
       if (!actor || !recipeOwner) throw new Error("workflow memory needs an authenticated session and client");
+      const artifactStorage = context.principal && context.sessionId ? await prepareSessionArtifacts(await ownedArtifactSession(context.principal,context.sessionId)) : undefined;
       const intent = str(a, "intent");
       const projectHint = opt(a, "project");
       const project = projectHint ? await resolveProjectHint(projectHint).catch(() => null) : null;
@@ -153,6 +155,7 @@ export const WORKFLOW_START_TOOL: McpTool =
         ...started,
         bootstrap: {
           ready: true,
+          artifacts: artifactStorage,
           toolset,
           project: project ?? (projectHint ? { hint: projectHint, matchedBy: "unresolved" } : undefined),
           repository,

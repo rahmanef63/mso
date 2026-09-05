@@ -111,6 +111,7 @@ function detailedStatus(session, cwd = process.cwd()) {
     session: session?.agentSession?.id || null,
     name: session?.agentSession?.name || null,
     title: session?.agentSession?.title || null,
+    artifacts: session?.agentSession?.artifacts || null,
     permission: session?.permission || "ask",
     cwd: homeShort(cwd),
   };
@@ -143,4 +144,6 @@ export function printDetailedStatus(session, C, cwd = process.cwd()) {
   console.log(`  name       @${row.name || "agent"}`);
   console.log(`  title      ${row.title || "MSO Agent session"}`);
   console.log(`  cwd        ${row.cwd}`);
+  if (row.artifacts?.directory) console.log(`  temp       ${row.artifacts.directory}`);
+  if (row.artifacts?.manifestPath) console.log(`  artifacts  ${row.artifacts.manifestPath}`);
 }

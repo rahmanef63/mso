@@ -47,7 +47,7 @@ export async function resolveCwd(requested?: string): Promise<string> {
   return roots.some((r) => isUnderRoot(real, r)) ? real : home;
 }
 
-export async function runCommand(cmd: string, cwd?: string): Promise<ExecResult> {
+export async function runCommand(cmd: string, cwd?: string, artifactEnv: Record<string, string> = {}): Promise<ExecResult> {
   if (typeof cmd !== "string" || !cmd.trim()) throw new HostError("Empty command");
   const blocked = destructiveReason(cmd);
   if (blocked) {
@@ -63,7 +63,7 @@ export async function runCommand(cmd: string, cwd?: string): Promise<ExecResult>
       cmd,
       // childEnv preserves NODE_ENV (only the app's secrets are stripped), so the
       // ProcessEnv cast is sound — the typed shape just demands NODE_ENV present.
-      { cwd: dir, timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT, env: childEnv() as NodeJS.ProcessEnv, shell: SHELL },
+      { cwd: dir, timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT, env: { ...childEnv(), ...artifactEnv } as NodeJS.ProcessEnv, shell: SHELL },
       (err: Error | null, stdout: string, stderr: string) => {
         const e = err as (Error & { code?: number; killed?: boolean }) | null;
         const code = e && typeof e.code === "number" ? e.code : e ? 1 : 0;

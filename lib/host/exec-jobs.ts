@@ -100,6 +100,7 @@ function terminate(job: ExecJob) {
 
 export async function startExecJob(input: {
   command: string;
+  artifactEnv?: Record<string, string>;
   cwd?: string;
   actor?: string;
   workflowId?: string;
@@ -135,7 +136,7 @@ export async function startExecJob(input: {
 
   const child = spawn(input.command, {
     cwd,
-    env: childEnv() as NodeJS.ProcessEnv,
+    env: { ...childEnv(), ...input.artifactEnv } as NodeJS.ProcessEnv,
     shell: SHELL,
     stdio: "pipe",
     detached: process.platform !== "win32",

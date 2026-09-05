@@ -4,6 +4,8 @@ The actual GitHub alert inventory exposed 22 default-branch findings, unlike the
 
 ## 2026-09-05 — MCP Page preview lifecycle
 
+- **Reviewed-app Google sign-in leaves the iframe (2026-09-05):** Page v6 adds an explicit host-side Google-login action using a code-owned same-origin path. A nested app may only highlight this action, never trigger navigation, supply a URL or transfer session data. The host opens through `ui/open-link`/`openExternal` after a real button click; sandbox popup restrictions remain unchanged. Play Together finishes sign-in in the browser tab; this does not promise shared login with storage-partitioned embeds. v5 resource requests remain compatible.
+
 
 ## 2026-09-05 — Repair native Integrations delivery and full credential catalog
 
@@ -2678,3 +2680,7 @@ by line, and they are one command away: `git show 421ab7f:docs/PROGRESS.md`.*
 ## 2026-08-20 — ChatGPT generated-file → VPS bridge (DONE)
 
 MCP now exposes `fs_upload_file` with `_meta["openai/fileParams"]`, so ChatGPT can generate or receive an image first and then transfer the exact file bytes into an existing bounded VPS directory. The server accepts only temporary HTTPS OpenAI file references, caps imports at 20 MiB, validates image MIME types, inherits the existing write-root and credential denylist through `uploadInto`, audits as `fs.upload`, and returns byte count plus SHA-256 without persisting the temporary download URL.
+
+## 2026-09-05 — Session-scoped screenshot evidence
+
+Screenshot evidence previously lived in unrelated scratch directories or only in MCP image responses. Added one derived session path policy, a private manifest, explicit image/report reads, and bounded registration/retention. Exec receives non-secret session directories; original bytes remain private and session responses compute paths instead of persisting absolute homes. Cleanup is lazy, lease-aware and fail-closed for unknown files; it does not run during builds or remove durable history. User/client isolation, retry de-duplication and existing integration changes are preserved. See SESSION-ARTIFACTS.md for limits and verification scope.

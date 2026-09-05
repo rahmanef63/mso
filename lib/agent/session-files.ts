@@ -1,16 +1,16 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { constants as fsConstants, promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { compactThresholdTokens, inferredTitleSource, MAX_EVENTS, MAX_HISTORY, safeTitle, sessionContextTokens } from "./session-policy";
 import type { AgentSession } from "./session-types";
 import { legacyAgentSessionName, normalizeAgentSessionName } from "./session-name";
 
-const ROOT = path.resolve((process.env.OS_AGENT_SESSIONS_DIR || path.join(os.homedir(), ".mso", "agent-sessions")).replace(/^~(?=$|\/)/, os.homedir()));
+import { agentSessionsDir, SESSION_ID } from "./session-paths";
+export { SESSION_ID } from "./session-paths";
+const ROOT = agentSessionsDir();
 const LOCK_ROOT = path.join(ROOT, ".locks");
 const CONVERSATION_ROOT = path.join(ROOT, ".conversation-index");
 const CONVERSATION_READY = path.join(CONVERSATION_ROOT, ".ready-v1");
-export const SESSION_ID = /^\d{8}_\d{6}_[a-f0-9]{8}$/;
 const HASH64 = /^[a-f0-9]{64}$/;
 const MAX_SESSION_BYTES = 16 * 1024 * 1024;
 

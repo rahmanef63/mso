@@ -1,3 +1,7 @@
+import { ownedArtifactSession } from "@/lib/agent/artifact-session";
+import { saveSessionArtifact } from "@/lib/agent/artifacts";
+import { artifactPaths } from "@/lib/agent/artifact-paths";
+import path from "node:path";
 import { listDir, readFile, searchFs, usage, sha256Text, utf8Bytes } from "@/lib/host/fs-api";
 import { stats, processes } from "@/lib/host/system-api";
 import { captureMsoScreen } from "@/lib/host/screenshot-api";
@@ -139,7 +143,7 @@ export const READ_TOOLS: McpTool[] = [
     description:
       "Capture the authenticated MSO desktop and return it as an image. This is intentionally limited to " +
       "MSO itself (no arbitrary URL capture), so it can be used to show visual progress without turning a read token " +
-      "into a browser exfiltration primitive. It also returns a 15-minute, session-gated temporary preview/download link. " +
+      "into a browser exfiltration primitive. It saves a session-scoped artifact when a durable session exists, plus a 15-minute authenticated preview/download link. " +
       "Choose macos, windows or dashboard; default macos.",
     scope: "read",
     annotations: READ_ONLY,
@@ -149,7 +153,7 @@ export const READ_TOOLS: McpTool[] = [
       width: { type: "number", minimum: 900, maximum: 1920, description: "Viewport width. Default 1440." },
       height: { type: "number", minimum: 600, maximum: 1200, description: "Viewport height. Default 900." },
     }),
-    run: async (a) => {
+    run: async (a, context) => {
       const shell = typeof a.shell === "string" && ["macos", "windows", "dashboard"].includes(a.shell)
         ? (a.shell as "macos" | "windows" | "dashboard")
         : "macos";
@@ -158,6 +162,9 @@ export const READ_TOOLS: McpTool[] = [
         width: typeof a.width === "number" ? a.width : undefined,
         height: typeof a.height === "number" ? a.height : undefined,
       });
+      const owner = context.principal && context.sessionId ? await ownedArtifactSession(context.principal,context.sessionId) : null;
+      const artifact = owner ? await saveSessionArtifact(owner,Buffer.from(shot.data,"base64"),{project:"mso",feature:`shell-${shell}`,environment:"local",width:shot.width,height:shot.height,producer:"mso",workflowId:context.workflowId}) : null;
+      const artifactPath = owner && artifact ? path.join(artifactPaths(owner).directory,artifact.relativePath) : undefined;
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const share = await createTempShare({
         data: Buffer.from(shot.data, "base64"),
@@ -174,12 +181,13 @@ export const READ_TOOLS: McpTool[] = [
           type: "text",
           text:
             `MSO ${shot.shell} screenshot — ${shot.width}×${shot.height}\n` +
+            (artifactPath ? `Session artifact: ${artifactPath}\n` : "") +
             `Temporary preview: ${previewUrl}\n` +
             `Direct download: ${downloadUrl}\n` +
             `Expires ${new Date(share.expiresAt).toISOString()} · ${share.downloadsLeft} authenticated downloads`,
         },
       ], false, {
-        result: { shell: shot.shell, width: shot.width, height: shot.height, mimeType: shot.mimeType, previewUrl, downloadUrl, expiresAt: share.expiresAt, downloadsLeft: share.downloadsLeft },
+        result: { artifact, artifactPath, shell: shot.shell, width: shot.width, height: shot.height, mimeType: shot.mimeType, previewUrl, downloadUrl, expiresAt: share.expiresAt, downloadsLeft: share.downloadsLeft },
       });
     },
   },

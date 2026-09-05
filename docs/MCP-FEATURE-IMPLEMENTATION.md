@@ -193,3 +193,7 @@ An MCP feature is complete only when:
 - the exact live behavior is verified;
 - affected external clients have refreshed their cached actions;
 - the reusable pattern is captured without storing secrets or volatile host facts.
+
+## Session artifact boundary
+
+Session artifact tools share `lib/agent/artifact-*` and the existing private store/cross-process lock. Read stays read-scoped; registration and cleanup require write. CLI uses the existing approved agent-tools bridge; Alfa browser threads deliberately do not borrow durable MCP/CLI principals. No new unauthenticated HTTP file route or filesystem-denylist exception is introduced. [Storage and verification contract](./SESSION-ARTIFACTS.md).
