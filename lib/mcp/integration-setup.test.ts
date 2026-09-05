@@ -13,7 +13,9 @@ describe("MCP integration setup privacy", () => {
     const wire = structuredResult("integration_setup_open", raw, "chatgpt");
     expect(wire).toHaveProperty("_meta.integrationSetup.token", secret);
     expect(JSON.stringify(wire.content)).not.toContain(secret); expect(JSON.stringify(wire.structuredContent)).not.toContain(secret);
-    expect(JSON.stringify(structuredResult("integration_setup_open", raw, "full"))).not.toContain(secret);
+    expect(structuredResult("integration_setup_open", raw, "full")).toHaveProperty("_meta.integrationSetup.token", secret);
+    // Generic model transports still serialize the weak-map-free raw result.
+    expect(JSON.stringify(raw)).not.toContain(secret);
   });
   it("requires write scope, accepts no credential parameters, and uses the existing Page", () => {
     const tool = SURFACE_TOOLS.find(t => t.name === "integration_setup_open")!;
@@ -25,6 +27,6 @@ describe("MCP integration setup privacy", () => {
     expect(MSO_SURFACE_SCRIPT).toContain('credentials:"omit"');
     expect(MSO_SURFACE_SCRIPT).toContain('save.type="button"');
     expect(MSO_SURFACE_SCRIPT).toContain('rpcRequest("ui/open-link"');
-    expect(MSO_SURFACE_SCRIPT).toContain("raw.mcp_tool_result");
+    expect(MSO_SURFACE_SCRIPT).toContain('"mcp_tool_result"');
   });
 });

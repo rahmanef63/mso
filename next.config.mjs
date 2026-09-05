@@ -130,6 +130,8 @@ const nextConfig = {
       // Private API responses must never be cached by any intermediary — they
       // carry host bytes (fs/read), auth state, and per-session data.
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
+      { source: "/integrations", headers: [{ key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] },
+      { source: "/api/integrations/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       // Named brand/wallpaper assets are effectively immutable but, unlike
       // /_next chunks, are NOT content-hashed — rename or add ?v= if ever redrawn.
       { source: "/wallpapers/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
