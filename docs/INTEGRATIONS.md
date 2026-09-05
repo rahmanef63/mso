@@ -80,19 +80,21 @@ setup. Opening an outer widget is not proof that its form or provider authorizat
 
 ## CLI
 
-Run `mso integrations` with no arguments in a terminal for the interactive navigator. It uses the same searchable arrow-key picker as the rest of the MSO CLI, with breadcrumb-style context and Esc/back navigation:
+Run `mso integrations` with no arguments in a terminal for the **Finder-style column browser** used by SI-Coder. Parent context stays visible instead of being replaced by another full-screen menu. On a wide terminal the common account path is four stable columns:
 
 ```text
-Integrations
-├─ Connections
-│  └─ Credential user → Provider → Named connection → Actions
-├─ Credential users
-├─ Provider catalog
-├─ Current folder
-└─ Import / export JSON
+┌ Connections ┬ Credential user ┬ Provider ┬ Named connection / Actions ┐
+│ rahmanfakhr │ production      │ GitHub   │ Verify                     │
+│ ...         │ ...             │ Convex   │ Route                      │
+│             │                 │ ...      │ Set / rotate credentials   │
+└─────────────┴─────────────────┴──────────┴────────────────────────────┘
+  PATH  MSO › Connections › rahmanfakhr › GitHub › Work
+  INFO / PREVIEW / RESULT remains below the columns
 ```
 
-Creating a connection interactively walks through **source/backend → authentication method → label/ID**, then can open the private credential form. Existing connections expose Verify, Route, Make default, Rename, Delete, provider authorization, and a Hostinger Mail submenu when applicable. Secrets never enter the picker or CLI arguments.
+`↑/↓` moves inside the active column, `→`, Tab or Enter opens the next column, and `←`/Esc returns one column. Typing filters only the active column. Narrow terminals keep the deepest two or three columns while PATH preserves the omitted ancestry. The same frame also exposes Credential users, Provider catalog, Current folder and Import/export JSON.
+
+Creating a connection extends the columns through **source/backend → authentication method → create**, then can open the private credential form. Existing connections expose Verify, Route, Make default, Rename, Delete, provider authorization, and Hostinger Mail as the right-hand action/detail column. Secrets never enter the Finder frame or CLI arguments.
 
 All explicit commands remain stable for scripts and agents. A non-TTY bare invocation returns the snapshot instead of waiting for keyboard input. Inspect methods or automate directly with:
 

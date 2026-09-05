@@ -1,3 +1,9 @@
+## 2026-09-06 — Integrations adopts the SI-Coder Finder column browser
+
+Bare `mso integrations` now uses a persistent macOS Finder-inspired column browser instead of replacing the whole terminal with one nested picker at a time. User → provider → named connection remains visible across adjacent columns; opening a connection adds its action/detail column, and new-connection setup extends through source/backend and authentication. Wide terminals show four stable columns, narrower terminals keep the deepest two or three while PATH preserves ancestry. `↑/↓`, `→`/Tab/Enter, `←`/Esc and type-to-filter match the SI-Coder navigation model. The lower INFO/PREVIEW/RESULT area keeps metadata and operation feedback in-frame.
+
+This is presentation-only state: the TUI still calls the same native owner API for every read and confirmed mutation, secure credential entry still leaves the terminal for the private form, explicit subcommands are unchanged, and non-TTY `mso integrations` still emits a machine-readable snapshot.
+
 ## 2026-09-06 — One bounded MCP Page preview per tool result
 
 A real ChatGPT screenshot showed Play Together twice inside one MSO Page result and an inline preview consuming more than the requested share of the conversation. The Page descriptor was publishing both the standard MCP Apps `ui.resourceUri` and the legacy ChatGPT `openai/outputTemplate` for the same Page resource while the reviewed app catalog still defaulted Play Together to `fullscreen`. Page v10 removes the legacy Page binding from `render_mso_page` and `integration_setup_open`, defaults reviewed apps to `inline`, and keeps older Page URIs as read-only cache aliases.
