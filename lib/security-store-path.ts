@@ -1,6 +1,7 @@
 import { constants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { expandOwnerStorePath } from "./owner-store-path.js";
 
 // A kernel-pinned parent keeps lock/file operations on one directory even if its
 // pathname is replaced. Linux /proc/self/fd is the supported VPS/WSL runtime.
@@ -12,10 +13,11 @@ const STORE_ENV = [
   "OS_CONFIG_STORE", "OS_PREFS_PATH", "OS_SKILL_MEMORY_STORE",
 ] as const;
 const DIRECTORY_ENV = ["OS_TOOL_FORGE_DIR", "OS_AGENT_MEMORY_DIR", "OS_AGENT_SESSIONS_DIR", "OS_PROJECT_AGENT_TASKS_DIR"] as const;
-const expand = (value: string) => path.resolve(value.replace(/^~(?=$|\/)/, os.homedir()));
+const expand = (value: string) => path.resolve(expandOwnerStorePath(value));
 
 export async function pinSecurityStorePath(storePath: string) {
   if (process.platform !== "linux") throw new Error("Pinned security-store operations require Linux or WSL");
+  storePath = expandOwnerStorePath(storePath);
   if (typeof storePath !== "string" || storePath.includes("\0") || !path.isAbsolute(storePath)) throw new Error("Security store needs an absolute path");
   const absolute = path.resolve(storePath);
   const name = path.basename(absolute);

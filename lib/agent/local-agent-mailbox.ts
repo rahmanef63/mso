@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -11,7 +12,7 @@ type MailboxStore = { version: 1; messages: LocalAgentStoredMessage[] };
 const MAX_STORE_BYTES = 4 * 1024 * 1024;
 const MAX_MESSAGES = 2000;
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-const STORE_PATH = process.env.OS_LOCAL_AGENT_MESSAGE_STORE ?? path.join(os.homedir(), ".mso", "private", "local-agent-messages.json");
+const STORE_PATH = expandOwnerStorePath(process.env.OS_LOCAL_AGENT_MESSAGE_STORE ?? path.join(os.homedir(), ".mso", "private", "local-agent-messages.json"));
 const EMPTY: MailboxStore = { version: 1, messages: [] };
 
 function validMessage(value: unknown): value is LocalAgentStoredMessage {

@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -31,7 +32,7 @@ export interface OsConfig {
   anthropicApiKey?: string;
 }
 
-const CONFIG_PATH = process.env.OS_CONFIG_STORE ?? path.join(os.homedir(), ".mso", "config.json");
+const CONFIG_PATH = expandOwnerStorePath(process.env.OS_CONFIG_STORE ?? path.join(os.homedir(), ".mso", "config.json"));
 const PROVIDER_ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const RESERVED_RECORD_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 

@@ -4,6 +4,7 @@
 // Store = ~/.mso/auth-devices.json unless OS_DEVICE_STORE overrides it; this must
 // match the path used by the running MSO service.
 
+const { expandOwnerStorePath } = require("../lib/owner-store-path.js");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -12,7 +13,7 @@ const { spawnSync } = require("child_process");
 const { approvedExitCode, DEVICE_ROLES, normalizeApproved, parseApprovalArgs, roleOf, setRoleResult } = require("./lib/device-role-cli");
 
 const STORE =
-  process.env.OS_DEVICE_STORE || path.join(os.homedir(), ".mso", "auth-devices.json");
+  expandOwnerStorePath(process.env.OS_DEVICE_STORE || path.join(os.homedir(), ".mso", "auth-devices.json"));
 const DEVICE_ID_RE = /^[a-f0-9-]{16,128}$/i;
 
 function read() {

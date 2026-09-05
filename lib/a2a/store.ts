@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { createHash, randomUUID } from "node:crypto";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
@@ -8,8 +9,8 @@ import { getA2AOutboundCredential } from "./credentials";
 import type { A2ADiscoveredAgent, A2ARegisteredAgent } from "./types";
 
 export const A2A_STORE_PATH =
-  process.env.OS_A2A_STORE ??
-  path.join(os.homedir(), ".mso", "private", "a2a-agents.json");
+  expandOwnerStorePath(process.env.OS_A2A_STORE ??
+  path.join(os.homedir(), ".mso", "private", "a2a-agents.json"));
 const MAX_STORE_BYTES = 1024 * 1024;
 type A2AStore = { version: 1; agents: A2ARegisteredAgent[] };
 

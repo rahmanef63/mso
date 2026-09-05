@@ -1,3 +1,7 @@
+## 2026-09-05 — Close final release review regressions
+
+The documented `~/` store override now expands consistently in the shared server/CLI helper before locking, reading or writing; an end-to-end device test proves both interfaces mutate the same private store. A hosted rollback failure was reproduced deterministically by changing a newly spawned tunnel process title before durable state write. Gateway startup now keeps the original PID/start-ticks handshake until commit, uses it for failed-start rollback, treats zombie processes as stopped, and confirms termination instead of assuming SIGKILL delivery. No assertions were weakened or scanners disabled.
+
 ## 2026-09-05 — Scope the final security evidence to the scanned revision
 
 The inventory can now inspect the exact scanned branch after SARIF processing, distinguishes open findings from pre-existing reviewed/closed findings, and rejects a concurrent HEAD change. Reports stream to Actions logs rather than writing remote API content back to files. A newly merged MCP browser fixture now targets the exact widget origin instead of a wildcard; the 17 browser assertions retain their negative-navigation checks. No scanner rule, authentication boundary, or existing disposition is removed by this change.

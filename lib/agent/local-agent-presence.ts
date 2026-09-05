@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import os from "node:os";
 import path from "node:path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
@@ -10,7 +11,7 @@ type PresenceStore = { version: 1; entries: LocalAgentPresenceRecord[] };
 const MAX_STORE_BYTES = 512 * 1024;
 const MAX_ENTRIES = 1000;
 const OFFLINE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-const STORE_PATH = process.env.OS_LOCAL_AGENT_PRESENCE_STORE ?? path.join(os.homedir(), ".mso", "private", "local-agent-presence.json");
+const STORE_PATH = expandOwnerStorePath(process.env.OS_LOCAL_AGENT_PRESENCE_STORE ?? path.join(os.homedir(), ".mso", "private", "local-agent-presence.json"));
 const EMPTY: PresenceStore = { version: 1, entries: [] };
 
 function validPresence(value: unknown): value is LocalAgentPresenceRecord {

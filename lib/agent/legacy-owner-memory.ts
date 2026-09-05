@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { randomUUID } from "node:crypto";
 import { constants, promises as fs } from "node:fs";
 import os from "node:os";
@@ -7,7 +8,7 @@ import { withSecurityStoreLock } from "@/lib/security-store-lock";
 
 // Owner-authenticated facts, persisted as bounded JSON data, never executable source.
 export interface Memory { id: string; text: string; createdAt: number; }
-const FILE = process.env.OS_MEMORY_STORE || path.join(os.homedir(), ".mso", "memory.json");
+const FILE = expandOwnerStorePath(process.env.OS_MEMORY_STORE || path.join(os.homedir(), ".mso", "memory.json"));
 const MAX_BYTES = 2 * 1024 * 1024;
 const MAX_RECORDS = 1000;
 

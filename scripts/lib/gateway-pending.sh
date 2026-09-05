@@ -41,6 +41,13 @@ gateway_stop_pending_tunnel() {
   done
   live="$(gateway_proc_start_ticks "$pid" 2>/dev/null || true)"
   [ "$live" != "$ticks" ] || kill -KILL "$pid" 2>/dev/null || true
+  for i in $(seq 1 20); do
+    live="$(gateway_proc_start_ticks "$pid" 2>/dev/null || true)"
+    [ "$live" != "$ticks" ] && break
+    sleep 0.05
+  done
+  [ "$live" != "$ticks" ] || { printf 'mso gateway: pending tunnel survived rollback\n' >&2; return 1; }
+  wait "$pid" 2>/dev/null || true
   TUNNEL_PENDING_PID=0; TUNNEL_PENDING_TICKS=''
 }
 

@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import {
   createHash,
   randomBytes,
@@ -17,8 +18,8 @@ import {
 } from "./credential-private-store";
 
 export const A2A_INBOUND_TOKEN_STORE_PATH =
-  process.env.OS_A2A_INBOUND_TOKEN_STORE ??
-  path.join(os.homedir(), ".mso", "private", "a2a-inbound-tokens.json");
+  expandOwnerStorePath(process.env.OS_A2A_INBOUND_TOKEN_STORE ??
+  path.join(os.homedir(), ".mso", "private", "a2a-inbound-tokens.json"));
 type InboundRecord = A2AInboundTokenSummary & { secretHash: string };
 type InboundStore = { version: 1; tokens: InboundRecord[] };
 const isStore = (value: unknown): value is InboundStore =>

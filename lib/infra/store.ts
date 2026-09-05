@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { randomUUID } from "node:crypto";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
@@ -6,7 +7,7 @@ import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { getInfraProviderDefinition, normalizeInfraValues } from "./catalog";
 import type { InfraProviderId, InfraProviderSummary, InfraProviderValues, InfraStore } from "./types";
 
-export const INFRA_STORE_PATH = process.env.OS_INFRA_STORE ?? path.join(os.homedir(), ".mso", "private", "infra-providers.json");
+export const INFRA_STORE_PATH = expandOwnerStorePath(process.env.OS_INFRA_STORE ?? path.join(os.homedir(), ".mso", "private", "infra-providers.json"));
 const MAX_STORE_BYTES = 256 * 1024;
 
 function mask(value: string): string {

@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
@@ -62,7 +63,7 @@ interface Store {
   refreshTokens: Record<string, McpRefreshToken>;
 }
 
-const STORE_PATH = process.env.OS_MCP_STORE ?? path.join(os.homedir(), ".mso", "mcp.json");
+const STORE_PATH = expandOwnerStorePath(process.env.OS_MCP_STORE ?? path.join(os.homedir(), ".mso", "mcp.json"));
 
 export const CODE_TTL_MS = 60_000; // RFC 6749 wants ≤10 min; the exchange is immediate
 export const TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // legacy/manual bearer lifetime

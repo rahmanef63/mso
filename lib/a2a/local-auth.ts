@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -13,8 +14,8 @@ import {
 } from "./network";
 
 const STORE =
-  process.env.OS_A2A_LOCAL_AUTH_STORE ??
-  path.join(os.homedir(), ".mso", "private", "a2a-local-auth.json");
+  expandOwnerStorePath(process.env.OS_A2A_LOCAL_AUTH_STORE ??
+  path.join(os.homedir(), ".mso", "private", "a2a-local-auth.json"));
 
 type LocalAuthStore = { version: 1; bearer: string; createdAt: string };
 const isStore = (value: unknown): value is LocalAuthStore =>

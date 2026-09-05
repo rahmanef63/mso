@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -28,6 +29,19 @@ const DEV = "a".repeat(32);
 const OTHER = "b".repeat(32);
 
 describe("device-store — an unreadable file must never look like an empty one", () => {
+  it("keeps documented home-relative overrides identical between server and CLI", async () => {
+    vi.stubEnv("HOME", dir);
+    store = "~/.mso/auth-devices.json";
+    const api = await load();
+    await api.approveDevice(DEV, "home-relative fixture");
+    const command = path.resolve(__dirname, "../../scripts/approve-device.js");
+    const listing = execFileSync(process.execPath, [command, "--list"], { env: process.env, encoding: "utf8" });
+    expect(listing).toContain(DEV);
+    execFileSync(process.execPath, [command, "--revoke", DEV], { env: process.env, encoding: "utf8" });
+    expect((await api.listDevices()).approved[DEV]).toBeUndefined();
+    expect((await fs.stat(path.join(dir, ".mso/auth-devices.json"))).isFile()).toBe(true);
+  });
+
   it("treats a MISSING file as an empty store (legit first run)", async () => {
     const { listDevices } = await load();
     await expect(listDevices()).resolves.toEqual({ approved: {}, pending: {} });

@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -20,7 +21,7 @@ export interface OsPrefs {
 
 // Resolved lazily (not module-level) so tests can point OS_PREFS_PATH at a tmp dir.
 function prefsPath(): string {
-  return process.env.OS_PREFS_PATH ?? path.join(os.homedir(), ".mso", "prefs.json");
+  return expandOwnerStorePath(process.env.OS_PREFS_PATH ?? path.join(os.homedir(), ".mso", "prefs.json"));
 }
 
 export async function readPrefs(): Promise<OsPrefs> {

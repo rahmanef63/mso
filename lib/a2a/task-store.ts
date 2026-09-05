@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { randomUUID } from "node:crypto";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
@@ -11,8 +12,8 @@ type Store = { version: 1; tasks: A2ATaskRecord[] };
 const MAX_STORE_BYTES = 4 * 1024 * 1024;
 const MAX_TASKS = 200;
 export const A2A_TASK_STORE_PATH =
-  process.env.OS_A2A_TASK_STORE ??
-  path.join(os.homedir(), ".mso", "private", "a2a-tasks.json");
+  expandOwnerStorePath(process.env.OS_A2A_TASK_STORE ??
+  path.join(os.homedir(), ".mso", "private", "a2a-tasks.json"));
 
 async function readUnlocked(): Promise<Store> {
   let handle: Awaited<ReturnType<typeof fs.open>> | null = null;

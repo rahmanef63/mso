@@ -1,3 +1,4 @@
+import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -13,8 +14,8 @@ import {
 const MAX_SECRET_BYTES = 16 * 1024;
 const HEADER_RE = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,80}$/;
 export const A2A_CREDENTIAL_STORE_PATH =
-  process.env.OS_A2A_CREDENTIAL_STORE ??
-  path.join(os.homedir(), ".mso", "private", "a2a-credentials.json");
+  expandOwnerStorePath(process.env.OS_A2A_CREDENTIAL_STORE ??
+  path.join(os.homedir(), ".mso", "private", "a2a-credentials.json"));
 
 type OutboundRecord = A2AOutboundCredentialSummary & { secret: string };
 type OutboundStore = { version: 1; profiles: OutboundRecord[] };

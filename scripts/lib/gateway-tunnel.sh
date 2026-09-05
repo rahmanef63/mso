@@ -78,7 +78,7 @@ gateway_spawn_tunnel() {
   [ -n "$identity" ] || { gateway_stop_pending_tunnel; return 1; }
   gateway_pending_gate_cleanup
   TUNNEL_IDENTITY="$identity"
-  TUNNEL_PENDING_PID=0; TUNNEL_PENDING_TICKS=''
+  # Keep our spawned child's lifetime until state commits: argv/exe can still change.
   GATEWAY_PENDING_CLEANUP=1
 }
 
@@ -149,8 +149,10 @@ gateway_probe_public() {
 }
 
 gateway_cleanup_failed_start() {
-  if [ "${TUNNEL_IDENTITY:-null}" != null ]; then gateway_stop_identity "$TUNNEL_IDENTITY"
-  else gateway_stop_pending_tunnel; fi
+  # Until durable commit, the PID/start-ticks handshake proves this is OUR child
+  # even if an interpreter exec or process-title update changed its argv identity.
+  if [ "${TUNNEL_PENDING_PID:-0}" -gt 1 ] 2>/dev/null; then gateway_stop_pending_tunnel
+  elif [ "${TUNNEL_IDENTITY:-null}" != null ]; then gateway_stop_identity "$TUNNEL_IDENTITY"; fi
   if [ "${RUNTIME_STARTED_NOW:-false}" = true ]; then gateway_stop_identity "$RUNTIME_IDENTITY"
   else gateway_stop_pending_runtime; fi
 }
@@ -190,6 +192,7 @@ gateway_cmd_start_locked() {
     gateway_fail "could not persist gateway state; newly launched processes were rolled back"
   fi
   GATEWAY_PENDING_CLEANUP=0
+  TUNNEL_PENDING_PID=0; TUNNEL_PENDING_TICKS=''
 
   gateway_info "gateway started"
   gateway_info "public: $GATEWAY_PUBLIC_URL"

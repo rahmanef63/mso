@@ -89,14 +89,20 @@ afterEach(() => {
 describe("mso gateway lifecycle hardening", () => {
   it("rolls back a tunnel when durable state persistence fails", () => {
     const f = fixture(), pidFile = f.startFile;
+    // Force the startup identity race deterministically before persistence fails.
+    fs.appendFileSync(f.cloudflared, "\nprocess.on('SIGUSR1',()=>{process.title='renamed-tunnel-fixture';fs.writeFileSync(process.env.HOME+'/title-changed','1')});\n");
     const mv = path.join(f.dir, "bin", "mv");
     fs.writeFileSync(mv, `#!/bin/sh
-case "$*" in *mso-private-write*state.json*) exit 1;; esac
+case "$*" in *mso-private-write*state.json*)
+  kill -USR1 "$(tail -n 1 "$HOME/gateway-fake-starts")"
+  for i in $(seq 1 100); do [ ! -f "$HOME/title-changed" ] || break; sleep 0.01; done
+  exit 1;; esac
 exec /bin/mv "$@"
 `, { mode: 0o700 });
     const out = spawnSync(GATEWAY, ["start"], { encoding: "utf8",
       env: f.env });
     expect(out.status).not.toBe(0); expect(out.stderr).toContain("rolled back");
+    expect(fs.existsSync(path.join(f.dir, "title-changed"))).toBe(true);
     const pid = Number(fs.readFileSync(pidFile, "utf8").trim()); pids.add(pid); expect(alive(pid)).toBe(false);
     expect(fs.existsSync(path.join(f.state, "state.json"))).toBe(false);
   });
