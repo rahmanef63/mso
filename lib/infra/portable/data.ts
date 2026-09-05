@@ -1,4 +1,4 @@
-import {createHmac,randomBytes,randomUUID} from 'node:crypto';
+import {randomBytes,randomUUID} from 'node:crypto';
 import * as codec from './codec.js';
 import {FIELD_MAP,wireMethod,nativeMethod} from './mapping';
 import {readIntegrationState,mutateIntegrationState} from '../connection-storage';
@@ -6,10 +6,14 @@ import {connectionMethod} from '../connection-registry';
 import {IntegrationError,identity,type IntegrationState} from '../identity';
 import {isInfraProviderId,normalizeInfraValues} from '../catalog';
 export type TransferOptions={users?:string[];includeSecrets?:boolean;passphrase?:string;prefix?:string;policy?:'skip'|'error';apply?:boolean;confirm?:string;acceptWarnings?:boolean};
-// Preview confirmation must bind the exact decrypted bundle without exposing an
-// unkeyed digest of credential values as an offline guessing oracle. A process-local
-// random key intentionally invalidates pending previews after a server restart.
-const PLAN_KEY=randomBytes(32);
+// Import previews use opaque, process-local one-time tokens. The snapshot contains
+// the original document (encrypted when credentials are present), options and
+// destination metadata — never a password/credential digest exposed to the caller.
+const PLAN_TTL_MS=10*60*1000,MAX_PLANS=128;
+const plans=new Map<string,{snapshot:string;expires:number}>();
+function snapshot(document:unknown,options:TransferOptions,state:IntegrationState){return JSON.stringify([document,options.prefix??'',options.policy??'skip',state.users,state.defaultUser,state.bindings]);}
+function issuePlan(value:string){const now=Date.now();for(const [id,p]of plans)if(p.expires<=now)plans.delete(id);while(plans.size>=MAX_PLANS)plans.delete(plans.keys().next().value!);const id=randomBytes(32).toString('hex');plans.set(id,{snapshot:value,expires:now+PLAN_TTL_MS});return id;}
+function requirePlan(id:string|undefined,value:string){if(!id)throw new IntegrationError('preview_required_or_destination_changed',409);const p=plans.get(id);if(!p||p.expires<=Date.now()||p.snapshot!==value){plans.delete(id);throw new IntegrationError('preview_required_or_destination_changed',409)}return id;}
 export async function exportIntegrationData(options:TransferOptions={}){
   const state=await readIntegrationState(),ids=options.users??Object.keys(state.users);
   if(!Array.isArray(ids)||ids.some(id=>!Object.hasOwn(state.users,identity(id))))throw new IntegrationError('unknown_export_user');
@@ -22,7 +26,7 @@ export async function exportIntegrationData(options:TransferOptions={}){
   const payload=codec.payload({name:'mso',version:'1'},users,options.includeSecrets?'secrets':'metadata');
   return options.includeSecrets?codec.seal(payload,options.passphrase??''):payload;
 }
-function previewIn(bundle:codec.Bundle,options:TransferOptions,state:IntegrationState){
+function previewIn(bundle:codec.Bundle,options:TransferOptions,state:IntegrationState,planId:string){
   const prefix=options.prefix??'',policy=options.policy??'skip';
   if(!['skip','error'].includes(policy)||typeof prefix!=='string'||(prefix&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/.test(prefix)))throw new IntegrationError('invalid_import_options');
   const users:Array<{id:string;label:string}>=[],rows:Array<Record<string,unknown>>=[],warnings:Array<Record<string,unknown>>=[],pending:Array<{user:string;c:codec.PortableConnection;method:ReturnType<typeof connectionMethod>;values:Record<string,string>}>=[];
@@ -40,18 +44,17 @@ function previewIn(bundle:codec.Bundle,options:TransferOptions,state:Integration
       rows.push({...ref,status:'create',source:c.source,authMethod:method.id,credentialFields:Object.keys(values).length});pending.push({user,c,method,values});
     }
   }
-  // Exclude random empty-store instance IDs; bind the preview to all persisted destination data.
-  const planId=createHmac('sha256',PLAN_KEY).update(JSON.stringify([bundle,prefix,policy,state.users,state.defaultUser,state.bindings])).digest('hex');
   return{preview:{planId,mode:bundle.mode,producer:bundle.producer.name,createUsers:users,connections:rows,warnings,canApply:policy!=='error'||!rows.some(r=>r.status==='skip'),requiresWarningAcceptance:warnings.length>0,defaultsChanged:false,folderBindingsImported:false,verified:false},pending};
 }
 export async function importIntegrationData(document:unknown,options:TransferOptions={}){
   const bundle=await codec.open(document,options.passphrase);
-  if(!options.apply)return previewIn(bundle,options,await readIntegrationState()).preview;
+  if(!options.apply){const state=await readIntegrationState(),planId=issuePlan(snapshot(document,options,state));return previewIn(bundle,options,state,planId).preview;}
   return mutateIntegrationState(state=>{
-    const {preview,pending}=previewIn(bundle,options,state);
-    if(options.confirm!==preview.planId)throw new IntegrationError('preview_required_or_destination_changed',409);
+    const value=snapshot(document,options,state),planId=requirePlan(options.confirm,value);
+    const {preview,pending}=previewIn(bundle,options,state,planId);
     if(!preview.canApply)throw new IntegrationError('import_conflicts',409);
     if(preview.requiresWarningAcceptance&&options.acceptWarnings!==true)throw new IntegrationError('review_and_accept_import_warnings',409);
+    plans.delete(planId);
     for(const u of preview.createUsers)state.users[u.id]={...u,uid:randomUUID(),connections:{},defaults:{}};
     for(const{user,c,method,values}of pending){const profile=state.users[user];profile.connections[c.provider]??={};
       profile.connections[c.provider][c.id]={id:c.id,uid:randomUUID(),label:c.label,provider:c.provider,source:c.source,authMethod:method.id,scope:method.scope,revision:1,values,createdAt:Date.now(),updatedAt:Date.now()};

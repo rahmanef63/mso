@@ -1,5 +1,4 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
-import {createHash} from 'node:crypto';
 import {promises as fs} from 'node:fs';import os from 'node:os';import path from 'node:path';
 import sample from '@/schemas/integration-bundle-example.json';
 vi.mock('server-only',()=>({}));
@@ -15,13 +14,13 @@ it('previews SC format without writing and imports mapped identities, not role/d
   expect(state.defaultUser).toBeNull();expect(state.bindings).toEqual([]);expect(state.users['sample-user'].defaults).toEqual({});
   expect(state.users['sample-user'].connections.github.work.authMethod).toBe('direct');expect(state.users['sample-user'].connections.github.work.values).toEqual({});
 });
-it('uses a keyed preview confirmation instead of exposing a plain digest of imported values',async()=>{
-  const codec=await import('./codec.js'),api=await import('./data'),{readIntegrationState}=await import('../connection-storage');
+it('uses opaque one-time preview confirmations instead of credential/password digests',async()=>{
+  const codec=await import('./codec.js'),api=await import('./data');
   const payload=codec.validate({...structuredClone(sample),mode:'secrets'},true);payload.users[0].connections[0].values={GITHUB_TOKEN:KEY,GH_OWNER:'sample-org'};
-  const envelope=await codec.seal(payload,PASS),preview=await api.importIntegrationData(envelope,{passphrase:PASS}),state=await readIntegrationState();
-  const plain=createHash('sha256').update(JSON.stringify([payload,'','skip',state.users,state.defaultUser,state.bindings])).digest('hex');
-  expect(preview.planId).toMatch(/^[a-f0-9]{64}$/);expect(preview.planId).not.toBe(plain);
-  expect((await api.importIntegrationData(envelope,{passphrase:PASS})).planId).toBe(preview.planId);
+  const envelope=await codec.seal(payload,PASS),first=await api.importIntegrationData(envelope,{passphrase:PASS}),second=await api.importIntegrationData(envelope,{passphrase:PASS});
+  expect(first.planId).toMatch(/^[a-f0-9]{64}$/);expect(second.planId).toMatch(/^[a-f0-9]{64}$/);expect(second.planId).not.toBe(first.planId);
+  await api.importIntegrationData(envelope,{passphrase:PASS,apply:true,confirm:first.planId});
+  await expect(api.importIntegrationData(envelope,{passphrase:PASS,apply:true,confirm:first.planId})).rejects.toThrow('destination_changed');
 });
 it('roundtrips encrypted direct fields and rejects incorrect passphrase without mutation',async()=>{
   const codec=await import('./codec.js'),api=await import('./data'),{readIntegrationState}=await import('../connection-storage');

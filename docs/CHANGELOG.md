@@ -19,6 +19,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` make import preview confirmations opaque
 - `security` key portable import preview confirmations
 - `mcp` render one bounded inline Page preview
 - preserve home-relative stores and prove tunnel rollback completion
