@@ -1,90 +1,74 @@
 <h1 align="center">Manef Shell OS</h1>
-<p align="center"><strong>Your server. A workspace, not another dashboard.</strong></p>
-<p align="center">Terminal · files · AI · system health — from a browser or CLI.</p>
-<p align="center"><a href="./docs/INSTALL.md">Install</a> · <a href="./docs/CLI.md">CLI</a> · <a href="./docs/README.md">Docs</a> · <a href="./SECURITY.md">Security</a></p>
+<p align="center"><strong>A workspace for your server. A runtime for your agents.</strong></p>
+<p align="center">Real terminals, project-aware AI, files and services — in one self-hosted workspace.</p>
+<p align="center"><a href="#see-it-work">Demo</a> · <a href="#install-or-update-mso-from-this-repo">Install</a> · <a href="./docs/COGNITIVE-RUNTIME.md">Agent runtime</a> · <a href="./docs/README.md">Docs</a></p>
+<p align="center"><a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="Tests and build" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a> <a href="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml"><img alt="Actual open security findings" src="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml/badge.svg" /></a></p>
 
-![MSO desktop and mobile workspace](./docs/media/mso-hero.webp)
+## See it work
 
-## One workspace
+[![MSO recorded walkthrough: open Spotlight and inspect the server](./docs/media/demo.gif)](./docs/media/demo.gif)
 
-| Operate | Create | Automate |
-|---|---|---|
-| PTY terminal · files · system health | Code · image/video tools · browser | Alfa assistant · trusted skills · optional MCP |
-| Exact-allowlist service controls | Desktop windows · mobile layouts | Approvals · durable sessions · local memory |
+*A recorded browser walkthrough, not a mockup. The GIF plays here; click to open it at full size.*
 
-## In your terminal
+| Your server, visually | Your tools, in the terminal |
+|---|---|
+| ![MSO desktop and mobile workspace](./docs/media/mso-hero.webp) | ![Actual MSO CLI capture](./docs/media/mso-cli.webp) |
 
-![Actual MSO CLI terminal capture](./docs/media/mso-cli.webp)
+## More than an AI chat window
 
-```bash
-mso                 # terminal agent
-mso doctor          # installation checks
-mso web             # browser workspace
-mso update          # guarded update from main
-```
+| Ask it to… | What MSO brings |
+|---|---|
+| **Understand a project** | Project context, trusted skills and task-specific tool discovery. |
+| **Do the work** | Real PTY, bounded file tools, service controls and explicit approvals. |
+| **Pick up where you left off** | Durable sessions, local memory, workflow evidence and agent handoffs. |
 
-[Command reference](./docs/CLI.md) · [Recorded browser demo](./docs/media/demo.gif)
-
-## How it fits together
+**One runtime, three ways in:** use desktop/mobile windows, stay in your terminal, or connect an MCP client.
+Code, image/video tools, a browser and native credential setup live beside your operational tools.
 
 ```mermaid
 flowchart LR
-    Browser --> Guard["Authentication + scope + approval"]
-    CLI --> Guard
-    MCP["Optional MCP"] --> Guard
-    Guard --> MSO["MSO · Node / Next.js"]
-    MSO --> Host["Files · PTY · services"]
-    MSO --> State["Local state"]
-    MSO -. optional .-> Model["Your model provider"]
+    You["You"] --> Web["Browser · desktop / mobile"]
+    You --> CLI["MSO CLI"]
+    You --> MCP["MCP client"]
+    Web & CLI & MCP --> Core["MSO · auth / scopes / approvals"]
+    Core --> Work["Projects · files · PTY · services"]
+    Core --> Agents["Agents · skills · durable sessions"]
+    Agents --> Evidence["Verify · record · resume"]
+    Agents -. BYOK .-> Model["Your model provider"]
 ```
 
-One self-hosted application. No required database or separate agent service.
-[Architecture](./docs/ARCHITECTURE.md) · [Detailed workspace guide](./docs/reference/WORKSPACE-GUIDE.md)
+[How the agent runtime works](./docs/COGNITIVE-RUNTIME.md) · [Architecture](./docs/ARCHITECTURE.md) · [Native Integrations](./docs/INTEGRATIONS.md)
 
 ## Install or update MSO from this repo
 
-Run as your **normal Linux user, not root**. Review [scripts/install.sh](./scripts/install.sh) before executing:
+**Linux · normal non-root user · Node 22.** One application; no required database or separate agent service.
+Review [scripts/install.sh](./scripts/install.sh), then:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 ```
 
-Default application bind: **127.0.0.1**. Use a VPN or protected HTTPS proxy for remote access.
-[Full installation, WSL and recovery guide](./docs/INSTALL.md)
-
-## Reset or remove
-
-```mermaid
-flowchart LR
-    Preview["Preview owned paths"] --> Review["Review + stop runtime"]
-    Review --> Confirm["Confirm exact plan token"]
-    Confirm --> Reset["Reset → private recovery archive"]
-    Confirm --> Remove["Uninstall → optional data/code purge"]
+```bash
+mso doctor       # check the installation
+mso              # work with the terminal agent
+mso web          # open the browser workspace
+mso --continue   # resume your last session
 ```
 
-| Preview command — no changes yet | Scope |
-|---|---|
-| `mso reset` | Server preferences and provider configuration |
-| `mso reset --scope all` | Factory reset of known MSO state and local configuration |
-| `mso uninstall` | Remove owned service/CLI links; keep data and source |
-| `mso uninstall --purge --remove-code` | Also remove known data and a clean standalone clone |
+The application binds to **127.0.0.1** by default. Use a VPN or protected HTTPS proxy for remote access.
+[Full installation and WSL guide](./docs/INSTALL.md) · [CLI reference](./docs/CLI.md)
 
-Apply requires `--apply --confirm <preview-token>` from an independent local/SSH terminal.
-Browser reset is separate in **Settings → About**. Unknown files and other projects are retained.
-[Scopes, backups, safeguards and recovery](./docs/MAINTENANCE.md)
+<details>
+<summary><strong>Update, reset or uninstall — preview before changing anything</strong></summary>
 
-## Safety first
+`mso update` updates from main. `mso reset` and `mso reset --scope all` preview configuration/factory resets;
+`mso uninstall --purge --remove-code` previews removal of owned data and a clean standalone clone.
+Applying reset/uninstall requires an offline runtime and an exact confirmation token from an independent terminal.
+Browser reset is separate in **Settings → About**. [Backups, scope and safeguards](./docs/MAINTENANCE.md).
 
-**Public Alpha / Developer Preview.** An Owner or exec-scoped agent can execute commands as the
-service user. MSO is **not a shell sandbox or multi-tenant security boundary**. Provider calls may
-send selected context off-host. Keep credentials private and review approvals.
-[Security policy](./SECURITY.md) · [Verification and known limits](./docs/SECURITY-ASSURANCE.md)
+</details>
 
-<!-- comparison:start -->
-[Product comparison, evidence and limitations](docs/COMPARISON.md) · reviewed 2026-08-29.
-<!-- comparison:end -->
-
-## Develop
+## Build with it
 
 ```bash
 bun install --frozen-lockfile
@@ -93,7 +77,17 @@ bun run test:features
 bun run audit:strict
 ```
 
-Use Node 22 and Bun >=1.2.15 with native audit support. [Contributing](./CONTRIBUTING.md) ·
-[Development](./docs/DEVELOPMENT.md) · [Changelog](./docs/CHANGELOG.md) · [MIT license](./LICENSE)
+Use Bun >=1.2.15 with native audit support. [Contributing](./CONTRIBUTING.md) · [Development](./docs/DEVELOPMENT.md) · [Changelog](./docs/CHANGELOG.md)
 
-[Native Integrations](./docs/INTEGRATIONS.md): temporary credential forms for browser, CLI and MCP Page.
+## Powerful by design. Not a sandbox.
+
+**Public Alpha / Developer Preview.** Owner/exec authority can run commands as the service user.
+Provider calls may send selected context off-host. Review approvals and keep credentials private.
+Successful analysis jobs are not proof of zero open alerts; the security badge above checks the actual inventory.
+[Security policy](./SECURITY.md) · [Verification and known limits](./docs/SECURITY-ASSURANCE.md)
+
+<!-- comparison:start -->
+[Product comparison, evidence and limitations](docs/COMPARISON.md) · reviewed 2026-08-29.
+<!-- comparison:end -->
+
+[MIT license](./LICENSE) · [Detailed workspace guide](./docs/reference/WORKSPACE-GUIDE.md)
