@@ -80,41 +80,52 @@ setup. Opening an outer widget is not proof that its form or provider authorizat
 
 ## CLI
 
-Run `mso integrations` with no arguments in a terminal for the **Finder-style column browser** used by SI-Coder. Parent context stays visible instead of being replaced by another full-screen menu. On a wide terminal the common account path is four stable columns:
+Bare `mso integrations` is an MSO-native Finder-style alternate-screen application. It repaints one complete terminal frame by absolute cursor position, uses terminal-cell-aware width calculation, and reserves the rightmost physical cell to avoid Windows Terminal/SSH wrap drift. Borders are one continuous `─/│` grid; there are no placeholder columns.
 
 ```text
-┌ Connections ┬ Credential user ┬ Provider ┬ Named connection / Actions ┐
-│ rahmanfakhr │ production      │ GitHub   │ Verify                     │
-│ ...         │ ...             │ Convex   │ Route                      │
-│             │                 │ ...      │ Set / rotate credentials   │
-└─────────────┴─────────────────┴──────────┴────────────────────────────┘
-  PATH  MSO › Connections › rahmanfakhr › GitHub › Work
-  INFO / PREVIEW / RESULT remains below the columns
+ MSO  Integrations                                      rahmanfakhr / hostinger / default
+ SECTIONS   1:Connections   2:Users   3:Providers   4:Transfer
+ PATH       MSO › Connections › rahmanfakhr › Hostinger › Hostinger account
+ FILTER     / to filter current column
+
+┌──────────────────────┬──────────────────────┬──────────────────────┬──────────────────────┐
+│ Connections          │ rahmanfakhr         │ Hostinger            │ Hostinger account    │
+├──────────────────────┼──────────────────────┼──────────────────────┼──────────────────────┤
+│ › rahmanfakhr        │ › Hostinger         │ › Hostinger account  │ · Set credentials    │
+│                      │   GitHub             │   Mail production    │ · Verify             │
+│                      │   Convex Cloud       │                      │ · Route              │
+└──────────────────────┴──────────────────────┴──────────────────────┴──────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ INSPECTOR  Verify — live API/auth status                                                   │
+│ Connection: Hostinger account · Source: direct · Scope: account · State: verified          │
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+ ↑↓ move  ←→ columns  Enter open/run  / filter  V verify  R route  S setup  D default  ? help
 ```
 
-`↑/↓` moves inside the active column, `→`, Tab or Enter opens the next column, and `←`/Esc returns one column. Typing filters only the active column. Narrow terminals keep the deepest two or three columns while PATH preserves the omitted ancestry. The same frame also exposes Credential users, Provider catalog, Current folder and Import/export JSON.
+Responsive rules are terminal-column based: `>=132` shows up to four Finder panes, `92–131` three, `68–91` two, and `<68` the deepest pane only. Fewer actual ancestry panes render fewer columns instead of blank placeholders; PATH keeps omitted ancestry visible. The lower Inspector becomes Result after an operation and then returns to metadata preview on the next navigation input.
 
-Creating a connection extends the columns through **source/backend → authentication method → create**, then can open the private credential form. Existing connections expose Verify, Route, Make default, Rename, Delete, provider authorization, and Hostinger Mail as the right-hand action/detail column. Secrets never enter the Finder frame or CLI arguments.
+Keyboard navigation: `↑/↓` moves in the active pane; `→`, Tab or Enter opens a branch; `←`/Esc returns exactly one level; `/` enters filter mode and only filters the active pane; `1–4` switch sections; `V/R/S/D/N` verify, route, secure setup, make default, and create a connection when the context supports them; `E/I` open transfer export/import; `?` shows help; Ctrl-D exits. Selection and filter text are remembered per Finder layer while the process remains open.
 
-All explicit commands remain stable for scripts and agents. A non-TTY bare invocation returns the snapshot instead of waiting for keyboard input. Inspect methods or automate directly with:
+The Inspector contains only labels, IDs, source/backend, auth method, scope, state, configured-field counts, guidance/reference metadata and redacted operation results. Credential values never enter the Finder model, frame buffer, temp config, argv, logs or MCP arguments. Direct secret entry remains in the private setup form. Composio authorization remains provider-hosted.
+
+Connections extend through **user → provider → named connection → actions**. New connection creation extends through **source/backend → authentication method → create**. User lifecycle, provider catalog, folder resolution, JSON transfer and Hostinger Mail are part of the same Finder navigation model. Hostinger Mail actions show bounded/redacted results in the Result inspector instead of dumping raw JSON into terminal scrollback.
+
+Explicit commands remain stable for scripts and agents, and a bare non-TTY invocation still returns the machine-readable snapshot:
 
 ```sh
 mso integrations create-user rahman "Rahman"
 mso integrations request rahman convex-cloud
 mso integrations create-connection rahman convex-cloud mimin-production direct deployment
-mso integrations create-connection rahman convex-cloud mimin-staging direct deployment
 mso integrations connections rahman convex-cloud
 mso integrations setup rahman convex-cloud mimin-production
 mso integrations verify rahman convex-cloud mimin-production
-mso integrations resolve rahman convex-cloud mimin-staging
+mso integrations resolve rahman convex-cloud mimin-production
+mso integrations | jq
 ```
 
-`setup` prints a private ten-minute fragment URL **only in an interactive terminal**.
-Do not paste it into chat or logs. `mso provider setup <provider> <user> <connection>`
-is a compatibility entrypoint to the same flow. Offline CLI help/update does not load
-the connection manager until requested.
+`setup` prints a private ten-minute fragment URL only in an interactive terminal. Do not paste it into chat or logs. `mso provider setup <provider> <user> <connection>` remains a compatibility entrypoint to the same flow.
 
-Metadata changes require confirmation and contain no secrets:
+Metadata changes still use the native confirmed management API:
 
 ```sh
 mso integrations manage '{"action":"folder.map","user":"rahman","path":"/absolute/project","provider":"convex-cloud","connection":"mimin-staging","confirm":true}'
