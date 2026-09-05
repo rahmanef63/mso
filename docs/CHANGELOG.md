@@ -45,11 +45,13 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Docs**
 
+- show the interactive mso terminal in README
 - restore inline demo and lead with agent capabilities
 - `mcp` document service tokens and update reconciliation
 
 **Chores**
 
+- `security` expose sanitized alert annotations
 - release security and visual documentation fixes as app 0.2.4
 
 ## 2026-09-04

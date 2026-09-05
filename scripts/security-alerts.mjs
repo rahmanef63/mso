@@ -45,6 +45,20 @@ function descriptor(alert) {
     dismissed_reason: alert.dismissed_reason, dismissed_comment: alert.dismissed_comment,
     location: alert.most_recent_instance?.location };
 }
+function commandValue(value) {
+  return String(value ?? "").replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A").replace(/:/g, "%3A").replace(/,/g, "%2C");
+}
+function emitAnnotation(alert) {
+  // Make the actual open finding visible through the public check-run annotation API.
+  // Only rule/path/line/number are emitted; no snippets, secret values, or dismissal text.
+  const location = alert.instances?.[0]?.location ?? alert.location ?? {};
+  const rawPath = typeof location.path === "string" ? location.path : ".github";
+  const safePath = /^[A-Za-z0-9_./-]{1,500}$/.test(rawPath) && !rawPath.includes("..") ? rawPath : ".github";
+  const line = Number.isSafeInteger(location.start_line) && location.start_line > 0 ? location.start_line : 1;
+  const rule = typeof alert.rule?.id === "string" ? alert.rule.id.slice(0, 160) : "unknown-rule";
+  const severity = alert.rule?.security_severity_level ?? alert.rule?.severity ?? "unknown";
+  console.log(`::warning file=${commandValue(safePath)},line=${line},title=${commandValue(`Code scanning #${alert.number} · ${rule}`)}::${commandValue(`${severity} finding remains open`)}`);
+}
 try {
   const repository = (await get("")).value;
   const ref = selectedRef ?? `refs/heads/${repository.default_branch}`;
@@ -74,7 +88,7 @@ try {
   console.log(`CODE_SCANNING_REF ${ref}`);
   console.log(`CODE_SCANNING_HEAD ${report.head}`);
   console.log(`CODE_SCANNING_OPEN ${rows.length}`);
-  for (const alert of rows) console.log(`ALERT ${JSON.stringify(alert)}`);
+  for (const alert of rows) { console.log(`ALERT ${JSON.stringify(alert)}`); emitAnnotation(alert); }
   for (const alert of closed) console.log(`CLOSED_ALERT ${JSON.stringify(alert)}`);
   console.log(`CODE_SCANNING_REPORT ${JSON.stringify(report)}`);
   console.log("No alert was dismissed or deleted by this read-only verification.");
