@@ -1,4 +1,5 @@
 # mso — Progress Log
+- **PR integration validation (2026-09-05):** preserve the reviewed PR36/PR37 ancestry while repairing PR38 glob escaping/native Bun audit checks and PR37 code-generating visual-test fixtures. Direct-image boundary tests now cover malformed content and size/type limits. MCP server 1.11.0 / toolset 2026.09.05.1 records the compatible restricted-service-token/direct-image contract; widget resources and ordinary OAuth token behavior are unchanged. Publication still requires complete current-head local and remote gates, including late CodeQL findings—not only the workflow completion status.
 - **Reviewed 9Router network boundary (PR36, 2026-09-05):** reuse the configured internal proxy network only when it already exists; Docker host publishing remains loopback-only unless explicitly enabled. This supports a containerized reverse proxy without opening the application port to the public interface. The update adds no automatic network creation or DNS mutation. The old PR lifecycle-test failure must be rechecked against the combined current baseline before publication.
 
 ## 2026-09-05 — Restricted MCP service tokens + truthful diverged self-update

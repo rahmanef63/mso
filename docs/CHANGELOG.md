@@ -6,14 +6,28 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-09-05
 
+**Added**
+
+- add safe local maintenance and visual README
+- `mcp` preserve restricted project service bridge
+
 **Fixed**
 
 - `security` close exec expansion gap and exact test discovery
 - `security` harden share audit and release verification
+- `update` handle diverged checkout explicitly
 
 **Changed**
 
 - remove unused symbols and enforce compiler checks
+
+**Tests**
+
+- validate PR integration and maintenance safety boundaries
+
+**Docs**
+
+- `mcp` document service tokens and update reconciliation
 
 ## 2026-09-04
 
@@ -170,6 +184,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `cli` clarify version and update labels
 - `agent` stabilize terminal banner navigation
 - `cli` make updates visible and idempotent
+- `9router` proxy over internal Docker network
 - `mcp` preserve app-only workflow status schema
 
 ## 2026-08-31

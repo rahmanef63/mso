@@ -78,7 +78,8 @@ export function maintenancePlan(context, options) {
   }
   if (options.removeCode) {
     if (!statOrNull(path.join(repo, ".git"))?.isDirectory()) blockers.push("Code removal requires a standalone Git clone, not a linked worktree");
-    const git = (args) => spawnSync("git", ["-C", repo, ...args], { encoding: "utf8", timeout: 10000, maxBuffer: 1024 * 1024 });
+    const git = (args) => spawnSync("git", ["-C", repo, ...args], { encoding: "utf8", timeout: 10000, maxBuffer: 1024 * 1024,
+      env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_"))) });
     const dirty = git(["status", "--porcelain", "--untracked-files=all"]), trees = git(["worktree", "list", "--porcelain"]);
     if (dirty.status !== 0 || dirty.stdout.trim()) blockers.push("Code removal refuses a dirty/unverified checkout");
     if (trees.status !== 0 || (trees.stdout.match(/^worktree /gm) ?? []).length !== 1) blockers.push("Code removal refuses shared linked worktrees");
