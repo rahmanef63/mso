@@ -12,6 +12,7 @@ export type SurfaceApp = {
   presentation: SurfacePresentation;
   environment: SurfaceEnvironment;
   sandbox?: string;
+  externalAuthPath?: string;
   reason?: string;
 };
 
@@ -26,6 +27,7 @@ export const SURFACE_APPS: readonly SurfaceApp[] = [
     description: "Live Play Together demo through its dedicated /embed security boundary.",
     origin: "https://game.rahmanef.com",
     startPath: "/embed",
+    externalAuthPath: "/?auth=google",
     renderer: "iframe",
     presentation: "fullscreen",
     environment: "production",
@@ -46,8 +48,8 @@ export type ResolvedSurface = {
   app?: SurfaceApp & { url: string };
 };
 
-export function publicSurfaceApps(): Array<Omit<SurfaceApp, "sandbox">> {
-  return SURFACE_APPS.map(({ sandbox: _sandbox, ...app }) => ({ ...app }));
+export function publicSurfaceApps(): Array<Omit<SurfaceApp, "sandbox" | "externalAuthPath">> {
+  return SURFACE_APPS.map(({ sandbox: _sandbox, externalAuthPath: _externalAuthPath, ...app }) => ({ ...app }));
 }
 
 export function surfaceFrameDomains(): string[] {
