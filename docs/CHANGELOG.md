@@ -8,13 +8,17 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `artifacts` add private per-session screenshot storage and retention
 - `integrations` add native secure credential setup in browser and MCP Page
 - add safe local maintenance and visual README
 - `mcp` preserve restricted project service bridge
 
 **Fixed**
 
+- `security` pin store paths and eliminate unsafe file-read patterns
+- `mcp` add explicit browser sign-in for reviewed embedded apps
 - `security` gate on actual GitHub open findings
+- `integrations` repair embedded setup and complete native provider catalog
 - `integrations` recover setup UI and cached chat links
 - `release` wait for HTTP readiness before validating served assets
 - `mcp` initialize page previews and verify embedded app readiness
@@ -33,7 +37,12 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Docs**
 
+- restore inline demo and lead with agent capabilities
 - `mcp` document service tokens and update reconciliation
+
+**Chores**
+
+- release security and visual documentation fixes as app 0.2.4
 
 ## 2026-09-04
 
