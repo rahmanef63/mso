@@ -1,11 +1,12 @@
+import type { InfraProviderValues } from "./types";
 import { readInfraProvider } from "./store";
 import { HOST_RE, IPV4_RE, obj, request } from "./http";
 
 const API = "https://developers.hostinger.com/api";
 const headers = (token: string) => ({ authorization: `Bearer ${token}`, accept: "application/json", "content-type": "application/json" });
 
-export async function doctorHostinger(): Promise<string | null> {
-  const values = await readInfraProvider("hostinger");
+export async function doctorHostinger(candidate?: InfraProviderValues): Promise<string | null> {
+  const values = candidate ?? await readInfraProvider("hostinger");
   if (!values.apiToken) return null;
   const res = await request(`${API}/vps/v1/virtual-machines`, { headers: headers(values.apiToken) });
   if (!res.ok) throw new Error(`Hostinger HTTP ${res.status}`);

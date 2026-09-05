@@ -33,6 +33,7 @@ const ALFA_ONLY: Record<string, string> = {
 };
 
 const MCP_ONLY: Record<string, string> = {
+  "integration.setup.open": "ChatGPT needs a write-scoped UI-only capability; native owner browser and CLI use the same secure setup service without exposing secrets to Alfa tools",
   "screen.capture": "external MCP clients need visual proof of the rendered OS; in-shell Alfa already runs inside that browser UI",
   "projects.list": "an MCP client has no sidebar and no Files window, so it needs an explicit bounded enumeration of every project container; in-shell Alfa reads the same roots through fs.list and the Files app",
   "project.capabilities": "external harnesses need a stable generic discovery seam for project-owned MCP/functions; Alfa can inspect the same project files through its existing fs/skills tools without changing its cached tool array",
@@ -184,6 +185,7 @@ describe("MCP rate limits mirror the routes", () => {
       "projects.mcp.call": 30,
       "skills.list": 30,
       "skills.read": 60,
+      "integration.setup": 10,
       "infra.dokploy": 20,
       "infra.cloudflare": 20,
       "infra.hostinger": 10,

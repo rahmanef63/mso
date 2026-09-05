@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-09-05
 
+**Added**
+
+- `integrations` add native secure credential setup in browser and MCP Page
+
 **Fixed**
 
 - `mcp` initialize page previews and verify embedded app readiness

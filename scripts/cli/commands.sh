@@ -24,7 +24,7 @@ verbs() {
 U_camoufox="camoufox status|start|stop|session"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
 U_doctor="doctor [--fix]"
-U_provider="provider list|show <id>|set <dokploy|cloudflare|hostinger>|rm <id>|doctor [id]|projects|zones"
+U_provider="provider list|show <id>|setup <id> [method]|set <dokploy|cloudflare|hostinger|composio>|rm <id>|doctor [id]|projects|zones"
 U_model="model [current|list [provider]|set <provider> <model>|set <provider/model>|<model-or-ref>]"
 U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo] | agent --oneshot <prompt> [--json] [--approve-scope read|write|exec]"
 U_mapp="mapp list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"

@@ -1,0 +1,45 @@
+import { getInfraProviderDefinition } from "./catalog";
+import type { InfraProviderId } from "./types";
+
+export type SetupMethod = "direct" | "project" | "organization";
+export function setupFields(provider: InfraProviderId, method: SetupMethod) {
+  if (provider === "composio") {
+    if (!["project", "organization"].includes(method)) throw new Error("Choose a Composio project or organization key");
+    return getInfraProviderDefinition(provider).fields.filter(f => f.key === (method === "project" ? "apiKey" : "orgApiKey")).map(f => ({ ...f, required: true }));
+  }
+  if (method !== "direct") throw new Error("Unsupported authentication method");
+  return getInfraProviderDefinition(provider).fields;
+}
+export function setupMethod(provider: InfraProviderId, method?: string): SetupMethod {
+  const value = method ?? (provider === "composio" ? "project" : "direct");
+  if (!["direct", "project", "organization"].includes(value)) throw new Error("Unsupported authentication method");
+  setupFields(provider, value as SetupMethod);
+  return value as SetupMethod;
+}
+export function setupGuidance(provider: InfraProviderId, method: SetupMethod) {
+  const guides = {
+    composio: {
+      url: "https://platform.composio.dev",
+      reference: "https://docs.composio.dev/reference/authenticating-to-composio",
+      steps: method === "organization"
+        ? ["Open Composio Settings.", "Choose General Settings → Organization Access Tokens.", "Create a token only when cross-project administration is required.", "Copy the organization token into this form. It uses x-org-api-key, not x-api-key."]
+        : ["Select the intended Composio project.", "Open Settings → Project Settings → API Keys.", "Create a project API key with the least privileges needed.", "Copy the project key into this form. Connected-account OAuth tokens remain in Composio."],
+    },
+    cloudflare: {
+      url: "https://dash.cloudflare.com/profile/api-tokens",
+      reference: "https://developers.cloudflare.com/fundamentals/api/get-started/create-token/",
+      steps: ["Open My Profile → API Tokens.", "Choose Create Token, then scope it to the intended zones only.", "Use Zone Read for inventory and DNS Edit only when DNS writes are needed.", "Copy the token. Zone ID and Account ID are optional pins, not secrets."],
+    },
+    hostinger: {
+      url: "https://hpanel.hostinger.com/",
+      reference: "https://developers.hostinger.com/",
+      steps: ["Sign in to the intended Hostinger account.", "Open Dev Tools → API in the hPanel sidebar.", "Create a named token with a limited expiry. It inherits the owning account permissions.", "Copy it into this form. MSO validates access before saving."],
+    },
+    dokploy: {
+      url: "https://docs.dokploy.com/docs/core/api",
+      reference: "https://docs.dokploy.com/docs/core/api",
+      steps: ["Open your own Dokploy panel, not a third-party panel.", "Open the account settings and create an API key.", "Enter the panel API URL. Use HTTPS, or loopback for a panel on this VPS.", "Copy the key into this form. MSO checks the project-list endpoint before saving."],
+    },
+  };
+  return guides[provider];
+}

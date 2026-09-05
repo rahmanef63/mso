@@ -558,3 +558,5 @@ MSO is **Public Alpha / Developer Preview**. The core role-aware auth, filesyste
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+**Secure connections:** [Native Integrations](docs/INTEGRATIONS.md) provides temporary credential forms in the browser, terminal, and ChatGPT Page.

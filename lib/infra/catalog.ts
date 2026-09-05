@@ -23,6 +23,16 @@ const definitions: Record<InfraProviderId, InfraProviderDefinition> = {
       { key: "accountId", label: "Account ID", secret: false, required: false, description: "Optional account identifier for future account-scoped operations." },
     ],
   },
+  composio: {
+    id: "composio",
+    title: "Composio",
+    description: "Connect a Composio project key or organization key for native MSO automation.",
+    feature: false,
+    fields: [
+      { key: "apiKey", label: "Project API key", secret: true, required: false, description: "Project key sent only as x-api-key to /api/v3.1/tools?limit=1." },
+      { key: "orgApiKey", label: "Organization API key", secret: true, required: false, description: "Organization key sent only as x-org-api-key to /api/v3.1/org/project/list." },
+    ],
+  },
   hostinger: {
     id: "hostinger",
     title: "Hostinger",
@@ -72,6 +82,9 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
     if (out.apiToken && out.apiToken.length < 24) throw new Error("Cloudflare API token is too short");
     if (out.zoneId && !HEX32_RE.test(out.zoneId)) throw new Error("Cloudflare zoneId must be 32 hexadecimal characters");
     if (out.accountId && out.accountId.length < 16) throw new Error("Cloudflare accountId is too short");
+  }
+  if (id === "composio") {
+    for (const value of Object.values(out)) if (value.length < 16 || value.length > 4096 || /[\s\x00-\x1f\x7f]/.test(value)) throw new Error("Composio keys must be opaque single-line values (16–4096 characters)");
   }
   if (id === "hostinger" && out.apiToken && out.apiToken.length < 24) throw new Error("Hostinger API token is too short");
   return out;

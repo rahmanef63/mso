@@ -1,3 +1,4 @@
+import { MSO_PAGE_INTEGRATIONS_SCRIPT } from "./ui-page-integrations";
 import { MSO_PAGE_BRIDGE_SCRIPT } from "./ui-page-bridge";
 import { MSO_PAGE_FRAME_SCRIPT } from "./ui-page-frame";
 import { SURFACE_APPS } from "./surface-catalog";
@@ -31,6 +32,7 @@ let current={route:"/",kind:"home",title:"MSO",openPath:"/assistant/mcp",catalog
 const pending=new Map();let nextRpcId=5000;
 ${MSO_PAGE_BRIDGE_SCRIPT}
 ${MSO_PAGE_FRAME_SCRIPT}
+${MSO_PAGE_INTEGRATIONS_SCRIPT}
 
 function text(value,fallback="—"){return typeof value==="string"&&value.trim()?value.trim():fallback}
 function clear(node){while(node.firstChild)node.removeChild(node.firstChild)}
@@ -64,6 +66,7 @@ function rpcCall(name,args){return rpcRequest("tools/call",{name,arguments:args}
 function unbox(result){if(!result||typeof result!=="object")return result;if(result.structuredContent)return result.structuredContent;if(result.result)return unbox(result.result);return result}
 function nav(route,extra={}){
   if(!validRoute(route))return;
+  if(route!=="/integrations")integrationAccess=null;
   lastOutputKey="";current={route,kind:route==="/"?"home":"loading",title:"MSO",openPath:"/assistant/mcp",catalog:current.catalog,...extra};render();
   if(route==="/")return;
   rpcCall("render_mso_page",{route,...(extra.project?{project:extra.project}:{}),...(extra.sha?{sha:extra.sha}:{})}).then(result=>{if(!acceptPageResult(result))throw new Error("Invalid page result")}).catch(showError)
@@ -72,7 +75,7 @@ function showError(error){viewCleanup();viewCleanup=()=>{};clear(body);const box
 function renderHome(){
   const root=el("div","home");const hero=el("section","hero");hero.append(el("h2","","MSO Page"),el("p","","ChatGPT is another MSO presentation target. Open a native operator view or a reviewed live demo without leaving the conversation."));root.append(hero);
   root.append(el("div","section-title","Native pages"));const native=el("div","grid");
-  for(const item of [{route:"/monitor",title:"System Monitor",desc:"Live bounded host status."},{route:"/project",title:"Project",desc:"Project snapshot and Git state."},{route:"/diff",title:"Diff",desc:"Review project changes."},{route:"/browser",title:"Remote Browser",desc:"Fallback seam for sites that deny framing."}]){const card=button("",()=>nav(item.route),"card");card.append(el("strong","",item.title),el("span","",item.desc));native.append(card)}root.append(native);
+  for(const item of [{route:"/integrations",title:"Integrations",desc:"Secure, native credential setup."},{route:"/monitor",title:"System Monitor",desc:"Live bounded host status."},{route:"/project",title:"Project",desc:"Project snapshot and Git state."},{route:"/diff",title:"Diff",desc:"Review project changes."},{route:"/browser",title:"Remote Browser",desc:"Fallback seam for sites that deny framing."}]){const card=button("",()=>nav(item.route),"card");card.append(el("strong","",item.title),el("span","",item.desc));native.append(card)}root.append(native);
   root.append(el("div","section-title","Reviewed development and production pages"));const apps=el("div","grid");
   for(const app of SAFE_APPS){const card=button("",()=>nav("/apps/"+encodeURIComponent(app.id)),"card");card.append(el("strong","",app.title),el("span","",app.description),el("span","tag",app.environment+" · "+app.renderer));apps.append(card)}root.append(apps);body.append(root)
 }
@@ -93,7 +96,7 @@ function renderApp(){
   const box=el("div","notice"),inner=el("div");inner.append(el("h3","",safe.title+" protects itself from framing"),el("p","",safe.reason||"This app is not allowlisted for nested framing. MSO preserves the app's own frame policy instead of stripping it."));const row=el("div","row");row.append(button("Open Remote Browser",()=>openMso(),"primary"));if(window.openai&&typeof window.openai.sendFollowUpMessage==="function")row.append(button("Ask ChatGPT to continue",()=>window.openai.sendFollowUpMessage({prompt:"Continue this demo using the MSO remote-browser fallback for "+safe.title+"."})));inner.append(row);box.append(inner);stage.content.append(box);if(safe.presentation==="pip")pipBtn.hidden=false
 }
 function renderBrowser(){const box=el("div","notice"),inner=el("div");inner.append(el("h3","","Remote Browser seam"),el("p","","Sites that deny iframe embedding stay isolated. MSO can continue them through Camoufox without exposing its VNC password or authenticated viewer URL to this widget."));const row=el("div","row");row.append(button("Open MSO Browser",()=>openMso(),"primary"));inner.append(row);box.append(inner);body.append(box);openPath("/browser")}
-function render(){viewCleanup();viewCleanup=()=>{};clear(body);titleEl.textContent=text(current.title,"MSO Page");routeEl.textContent=text(current.route,"/");openPath(text(current.openPath,"/assistant/mcp"));persistRoute();if(current.kind==="home")renderHome();else if(current.kind==="monitor")renderMonitor();else if(current.kind==="project")renderProject("project");else if(current.kind==="diff")renderProject("diff");else if(current.kind==="app")renderApp();else if(current.kind==="browser")renderBrowser();else body.append(el("div","loading","Loading MSO Page…"))}
+function render(){viewCleanup();viewCleanup=()=>{};clear(body);titleEl.textContent=text(current.title,"MSO Page");routeEl.textContent=text(current.route,"/");openPath(text(current.openPath,"/assistant/mcp"));persistRoute();if(current.kind==="home")renderHome();else if(current.kind==="integrations")renderIntegrations();else if(current.kind==="monitor")renderMonitor();else if(current.kind==="project")renderProject("project");else if(current.kind==="diff")renderProject("diff");else if(current.kind==="app")renderApp();else if(current.kind==="browser")renderBrowser();else body.append(el("div","loading","Loading MSO Page…"))}
 function readOutput(){return acceptPageResult(window.openai&&window.openai.toolOutput)}
 window.addEventListener("message",onHostMessage,{passive:true});
 window.addEventListener("openai:set_globals",()=>{applyHostGlobals();readOutput()},{passive:true});

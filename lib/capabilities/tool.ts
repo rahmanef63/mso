@@ -17,13 +17,21 @@ export interface CapabilityDirectResult {
   structuredContent?: Record<string, unknown>;
 }
 
+// UI-only capability data is deliberately not a property of the result. Generic
+// JSON serialization, logs, Alfa, pipelines and model runtimes cannot copy it.
+const PRIVATE_RESULT_META = new WeakMap<object, Record<string, unknown>>();
+export const capabilityPrivateMeta = (result: object) => PRIVATE_RESULT_META.get(result);
+
 /** Compatibility marker stays __mcpDirect until the public MCP result contract is versioned. */
 export function capabilityDirect(
   content: CapabilityContent[],
   isError = false,
   structuredContent?: Record<string, unknown>,
+  privateMeta?: Record<string, unknown>,
 ): CapabilityDirectResult {
-  return { __mcpDirect: true, content, ...(isError ? { isError: true } : {}), ...(structuredContent ? { structuredContent } : {}) };
+  const result: CapabilityDirectResult = { __mcpDirect: true, content, ...(isError ? { isError: true } : {}), ...(structuredContent ? { structuredContent } : {}) };
+  if (privateMeta) PRIVATE_RESULT_META.set(result, privateMeta);
+  return result;
 }
 
 export function isCapabilityDirectResult(value: unknown): value is CapabilityDirectResult {

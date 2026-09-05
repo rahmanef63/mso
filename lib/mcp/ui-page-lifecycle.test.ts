@@ -20,7 +20,7 @@ describe("MCP Page lifecycle and cached resource migration", () => {
       'event.source!==window.parent',
       'event.source!==frame.contentWindow||event.origin!==safe.origin',
       'data.type!=="play-together:embed-ready"||data.schemaVersion!==1',
-      'if(key===lastOutputKey)return true',
+      'if(key===lastOutputKey){',
       'setTimeout(unavailable,12000)',
     ]) expect(script).toContain(marker);
   });

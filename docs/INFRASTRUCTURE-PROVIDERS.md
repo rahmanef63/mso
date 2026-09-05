@@ -206,3 +206,12 @@ A provider is not complete merely because MSO can store its token. A new integra
 
 Prefer provider-native exact operations over generic `curl`/shell automation. Generic shell
 remains the escape hatch, not the product API.
+
+## Native Composio setup
+
+Composio project and organization keys are now supported by the native provider
+store and doctor, alongside the existing infrastructure providers. Use
+`mso provider setup composio project` or `mso provider setup composio organization`
+for a temporary form. This verifies platform credentials; it does not authorize
+every connected application or copy its OAuth tokens. See [Native Integrations](INTEGRATIONS.md)
+for the owner-browser and ChatGPT Page workflows.

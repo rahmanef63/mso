@@ -12,7 +12,7 @@ export const withWorkflowContext = (tool: McpTool): McpTool => WORKFLOW_CONTEXT_
       ...tool.inputSchema.properties,
       workflow_id: {
         type: "string",
-        description: "Exact id returned by workflow_start. Include it on every operational step in that run; omit it for a standalone call.",
+        description: "Exact workflow_start id. Omit only for standalone calls.",
       },
     },
   },
