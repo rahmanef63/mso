@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { MSO_ORIGIN, MCP_UI_DOMAIN } from "@/lib/mcp/ui-config";
 import { audit } from "@/lib/host/audit-api";
 import { consumeIntegrationSetup, describeIntegrationSetup, SetupError } from "@/lib/infra/setup-capability";
-import { integrationSetupPage } from "@/lib/infra/setup-page";
+import { integrationPageResponse } from "@/lib/infra/setup-page";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const BASE_HEADERS = { "Cache-Control": "no-store, private", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff", Vary: "Origin" };
@@ -14,10 +14,7 @@ function cors(req: NextRequest): Record<string, string> | null {
   if (!origin || (![MSO_ORIGIN, MCP_UI_DOMAIN].includes(origin) && !local)) return null;
   return { ...BASE_HEADERS, "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Authorization, Content-Type" };
 }
-export function GET() {
-  const page = integrationSetupPage();
-  return new NextResponse(page.html, { headers: { ...BASE_HEADERS, "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": page.csp, "X-Frame-Options": "DENY" } });
-}
+export const GET = integrationPageResponse;
 export function OPTIONS(req: NextRequest) {
   const headers = cors(req);
   return new NextResponse(null, { status: headers ? 204 : 403, headers: headers ?? BASE_HEADERS });

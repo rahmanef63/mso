@@ -705,4 +705,5 @@ one on its own the way it does a cookie.
 MSO Integrations uses the existing Page at `/integrations`. The write-scoped
 `integration_setup_open` tool opens a secure form without accepting secret values.
 See [Native Integrations](INTEGRATIONS.md) for browser/CLI entrypoints, scope,
-expiry, direct HTTPS submission, and verification limits.
+expiry, direct HTTPS submission, and verification limits. The friendly browser
+entrypoint is `/integrations`; Page v5 retains previous resource aliases.
