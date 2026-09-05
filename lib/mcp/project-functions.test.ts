@@ -41,4 +41,26 @@ describe("project function MCP bridge", () => {
     }, { scope: "exec" });
     expect(result).toEqual({ code: 0, stdout: JSON.stringify({ value: "hello; $(not-a-shell)" }), stderr: "" });
   });
+
+  it("renders a validated project image envelope as direct MCP image content", async () => {
+    const png = Buffer.from([137,80,78,71,13,10,26,10,0]);
+    const visual = path.join(base, "visual");
+    await fs.mkdir(path.join(visual, ".mso"), { recursive: true });
+    const envelope = JSON.stringify({ protocol: "mso.project-function-content.v1", content: [
+      { type: "image", data: png.toString("base64"), mimeType: "image/png" },
+      { type: "text", text: "scene hub · r33" },
+    ] });
+    const source = `process.stdin.resume();process.stdin.on('end',()=>process.stdout.write(${JSON.stringify(envelope)}))`;
+    await fs.writeFile(path.join(visual, ".mso/functions.json"), JSON.stringify({
+      version: 1, functions: [{ name: "capture_scene", description: "Capture scene.",
+        inputSchema: { type: "object", properties: {}, additionalProperties: false }, command: [process.execPath, "-e", source] }],
+    }));
+    const result = await TOOLS_BY_NAME.get("project_function_call")!.run({ project: visual, name: "capture_scene", input: {} }, { scope: "exec" }) as {
+      __mcpDirect?: boolean; __capabilityDirect?: boolean; code?: number; content?: Array<{ type: string; mimeType?: string; text?: string }>;
+    };
+    expect(result.__mcpDirect || result.__capabilityDirect).toBe(true);
+    expect(result.code).toBe(0);
+    expect(result.content?.map((row) => row.type)).toEqual(["image", "text"]);
+    expect(result.content?.[0]?.mimeType).toBe("image/png");
+  });
 });

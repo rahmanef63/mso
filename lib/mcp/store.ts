@@ -40,6 +40,10 @@ export interface McpToken {
   scope: Scope;
   resource?: string;
   profile?: McpToolProfile;
+  /** Optional exact tool allowlist for operator-issued machine tokens. OAuth tokens omit it. */
+  allowedTools?: string[];
+  /** Optional exact string argument constraints keyed by MCP tool then argument. */
+  toolArgumentConstraints?: Record<string, Record<string, string[]>>;
   grantId?: string;
   createdAt: number;
   expiresAt: number;

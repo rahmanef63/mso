@@ -134,7 +134,7 @@ const MUTATE_TOOLS: McpTool[] = [
     description:
       "Execute ONE function explicitly declared by a validated project's .mso/functions.json. " +
       "This is project code execution and therefore requires exec scope. The manifest supplies fixed argv; model/user input is passed only as JSON on stdin and is NEVER interpolated into a shell command. " +
-      "Call project_capabilities first for function names and schemas. Projects without an opt-in manifest expose nothing.",
+      "Call project_capabilities first for function names and schemas. Projects without an opt-in manifest expose nothing. A function may return a validated bounded direct-image envelope for visual debugging; invalid envelopes remain ordinary text output.",
     scope: "exec",
     annotations: { destructiveHint: true, openWorldHint: true },
     inputSchema: S({
@@ -145,7 +145,7 @@ const MUTATE_TOOLS: McpTool[] = [
     run: async (a) => {
       const project = await resolveProjectHint(str(a, "project"));
       if (!project) throw new Error(`project not found: ${String(a.project)}`);
-      return runProjectFunction(project.path, str(a, "name"), a.input);
+      return (await import("./project-function-content")).projectFunctionContent(await runProjectFunction(project.path, str(a, "name"), a.input));
     },
   },
   {

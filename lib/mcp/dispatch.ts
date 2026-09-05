@@ -17,13 +17,18 @@ export function isNotification(body: unknown): boolean {
   return b?.id == null && String(b?.method ?? "").startsWith("notifications/");
 }
 
-const visibleTools = (scope: Scope, profile: McpToolProfile = "full") => visibleToolsForProfile(TOOLS, scope, profile);
-const toolList = (scope: Scope, profile: McpToolProfile = "full") => visibleTools(scope, profile).map((tool) => toolDescriptor(tool, profile));
+const toolAllowed = (name: string, allowedTools?: readonly string[]) => !allowedTools || allowedTools.includes(name);
+const visibleTools = (scope: Scope, profile: McpToolProfile = "full", allowedTools?: readonly string[]) =>
+  visibleToolsForProfile(TOOLS, scope, profile).filter((tool) => toolAllowed(tool.name, allowedTools));
+const toolList = (scope: Scope, profile: McpToolProfile = "full", allowedTools?: readonly string[]) =>
+  visibleTools(scope, profile, allowedTools).map((tool) => toolDescriptor(tool, profile));
 
-function instructions(scope: Scope, profile: McpToolProfile = "full"): string {
-  const startup = scope === "read"
-    ? "This token is read-only: use skills_search for capability discovery, then bounded read tools."
-    : "For multi-step work call workflow_start once, pass its exact workflow_id on every operation in this conversation, verify, then workflow_finish or workflow_cancel.";
+function instructions(scope: Scope, profile: McpToolProfile = "full", allowedTools?: readonly string[]): string {
+  const startup = allowedTools
+    ? `This machine token is restricted to: ${allowedTools.join(", ")}.`
+    : scope === "read"
+      ? "This token is read-only: use skills_search for capability discovery, then bounded read tools."
+      : "For multi-step work call workflow_start once, pass its exact workflow_id on every operation in this conversation, verify, then workflow_finish or workflow_cancel.";
   const projectBoundary = profile === "chatgpt" ? " Project-owned MCP tools never join this catalog: use project_mcp_tools then project_mcp_call." : "";
   return `${startup}${projectBoundary} Session/workflow state is isolated per conversation. Prefer bounded tools and exec_job_start for long builds. Never expose hidden transcripts, credentials, or private chain-of-thought.`;
 }
@@ -33,11 +38,12 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, ag
   switch (req.method) {
     case "initialize": {
       const profile = agentContext?.toolProfile ?? "full";
-      const tools = visibleTools(scope, profile), toolset = toolsetInfo(tools, scope, profile);
+      const allowedTools = agentContext?.allowedTools;
+      const tools = visibleTools(scope, profile, allowedTools), toolset = toolsetInfo(tools, scope, profile);
       return rpcOk(id, {
         protocolVersion: negotiateMcpProtocol(req.params?.protocolVersion),
         capabilities: { tools: { listChanged: false }, resources: { listChanged: false }, extensions: { [MCP_SKILLS_EXTENSION]: {} } },
-        serverInfo: { name: "mso", version: MCP_SERVER_VERSION }, instructions: instructions(scope, profile),
+        serverInfo: { name: "mso", version: MCP_SERVER_VERSION }, instructions: instructions(scope, profile, allowedTools),
         _meta: { toolset, ...(agentContext?.sessionId ? { agentSessionId: agentContext.sessionId } : {}) },
       });
     }
@@ -45,8 +51,9 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, ag
     case "ping": return rpcOk(id, {});
     case "tools/list": {
       const profile = agentContext?.toolProfile ?? "full";
-      const tools = visibleTools(scope, profile);
-      return rpcOk(id, { tools: toolList(scope, profile), _meta: { toolset: toolsetInfo(tools, scope, profile) } });
+      const allowedTools = agentContext?.allowedTools;
+      const tools = visibleTools(scope, profile, allowedTools);
+      return rpcOk(id, { tools: toolList(scope, profile, allowedTools), _meta: { toolset: toolsetInfo(tools, scope, profile) } });
     }
     case "resources/list": return rpcOk(id, { resources: listUiResources() });
     case "resources/read": {
