@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$ROOT/scripts/mso-cli-integrations.sh"
+: "${MSO_TUI_CHOICES:?choices file required}" "${MSO_TUI_PROMPTS:?prompts file required}" "${MSO_TUI_LOG:?log file required}"
+tty_ok(){ return 0; }
+integration_tui_header(){ :; }
+integration_tui_pause(){ :; }
+pop_line(){ local file="$1" line tmp; line=$(head -n1 "$file" || true); tmp="$file.tmp"; tail -n +2 "$file" > "$tmp"; mv "$tmp" "$file"; printf '%s' "$line"; }
+tui_select(){ local _title="$1" _active="${2-}" value; cat >/dev/null; value=$(pop_line "$MSO_TUI_CHOICES"); [ "$value" != __ESC__ ] || return 130; [ -n "$value" ] || return 130; printf '%s' "$value"; }
+tty_line(){ local _prompt="$1" default="${2-}" value; value=$(pop_line "$MSO_TUI_PROMPTS"); REPLY="${value:-$default}"; }
+enc(){ printf '%s' "$1"; }
+die(){ printf '%s' "$*" >&2; exit 2; }
+SNAP='{"user":"alice","users":[{"id":"alice","label":"Alice","isDefault":true,"connectionCount":1}],"bindings":[],"catalog":[{"id":"github","title":"GitHub","description":"GitHub account","sources":[{"id":"direct","label":"MSO direct","methods":[{"id":"direct","label":"Direct credential","scope":"account","fields":[{"key":"apiKey"}]}]},{"id":"composio","label":"Composio","methods":[{"id":"oauth2","label":"OAuth2","scope":"account","fields":[]}]}]},{"id":"hostinger","title":"Hostinger","description":"Hostinger account","sources":[{"id":"direct","label":"MSO direct","methods":[{"id":"direct","label":"Account API token","scope":"account","fields":[{"key":"apiToken"}]},{"id":"mail","label":"Scoped Mail API token","scope":"mail-order","fields":[{"key":"mailApiToken"},{"key":"mailOrderId"}]}]}]}],"connections":[{"user":"alice","id":"work","label":"Work GitHub","provider":"github","source":"direct","authMethod":"direct","scope":"account","state":"verified","isDefault":false},{"user":"alice","id":"mail","label":"Mail","provider":"hostinger","source":"direct","authMethod":"mail","scope":"mail-order","state":"configured","isDefault":true}]}';
+jget(){ case "$1" in *view=which*) printf '%s' '{"user":"alice","resolution":"default","bindings":[]}' ;; *transfer*) printf '%s' '{"url":"https://mso.example/integrations?transfer=1"}' ;; *) printf '%s' "$SNAP" ;; esac; }
+jpost(){ local route="$1" body="${2-}"; [ -n "$body" ] || body="{}"; printf '%s\t%s\n' "$route" "$body" >> "$MSO_TUI_LOG"; if [[ "$route" == */infra/setup ]]; then printf '%s' '{"setupUrl":"https://mso.example/integrations","token":"TEST_ONLY_PRIVATE_TOKEN"}'; return; fi; case "$(jq -r '.action//.operation//empty' <<<"$body")" in connection.create) printf '%s' '{"ok":true,"action":"connection.create","connection":{"id":"work","label":"Work GitHub","provider":"github","source":"direct","authMethod":"direct","scope":"account","state":"configured","isDefault":false}}' ;; connection.rename|connection.default|connection.delete|user.default|folder.map|user.create|user.rename|user.duplicate|user.delete) printf '%s' '{"ok":true,"action":"ok","user":"alice","provider":"github","connection":{"id":"work","label":"Renamed","isDefault":true}}' ;; verify) printf '%s' '{"id":"github","ok":true,"detail":"verified"}' ;; route) printf '%s' '{"user":"alice","id":"work","source":"direct","execution":{"route":"native-direct"}}' ;; hostinger.mail.orders.list) printf '%s' '{"result":{"data":[]}}' ;; *) printf '%s' '{}' ;; esac; }
+if [ "$#" -eq 0 ]; then integrations_tui; else run_integrations "$@"; fi

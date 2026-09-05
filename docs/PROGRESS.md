@@ -4,6 +4,12 @@ A real ChatGPT screenshot showed Play Together twice inside one MSO Page result 
 
 Inline height now derives from the host-provided `maxHeight` and is capped at 48%, with the Page body owning overflow instead of forcing 360–480 px iframe minimums. Fullscreen and PiP remain explicit controls and keep their prior full-host sizing. Browser coverage proves one reviewed child frame per Page document, one load for unchanged results, inline mode under half of an 800 px host fixture, explicit fullscreen/PiP capability advertisement, source/origin readiness checks, timeout/retry, and Google-auth external-link safeguards. MCP server 1.12.1 / toolset 2026.09.06.1 records the metadata contract change.
 
+## 2026-09-05 — Interactive Integrations CLI parity with the native connection model
+
+The native connection model was correct but its CLI still exposed mostly raw subcommands and JSON. Bare `mso integrations` now opens a searchable TTY navigator over the same owner API: credential user → provider → named connection → source/auth → action. Esc returns to the parent instead of terminating the workflow. User lifecycle, connection creation/default/rename/delete, private setup, Composio authorization, route/verify, folder resolution, portable transfer, and Hostinger Mail browsing are reachable without memorizing JSON payloads. Explicit subcommands remain unchanged for automation, and non-TTY callers get a snapshot rather than an interactive hang.
+
+The TUI stores no parallel state and never accepts credential values. All mutations still flow through the existing confirmed native management endpoint; credential entry remains the private browser form.
+
 ## 2026-09-05 — Reconcile new connection-model findings before final publication
 
 ## 2026-09-05 — Hostinger Mail API as a first-class connection capability
