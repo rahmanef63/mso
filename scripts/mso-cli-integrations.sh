@@ -35,7 +35,6 @@ run_integrations() {
       [ $# -eq 1 ] || die 'usage: mso integrations manage <metadata-JSON with action and confirm:true>'
       body=$(jq -ce 'if type=="object" and .confirm==true then .+{mode:"manage"} else error("explicit confirmation required") end' <<<"$1")
       data=$(jpost "/api/v1/integrations" "$body")
-      # Hosted authorization links must not be emitted by non-interactive agent calls.
       if jq -e '.privateUrl' >/dev/null <<<"$data"; then
         if tty_ok; then jq . <<<"$data"; else jq 'del(.privateUrl)+{notice:"Authorization link available only in the private UI or interactive terminal"}' <<<"$data"; fi
       else printf '%s\n' "$data"; fi ;;
@@ -43,10 +42,22 @@ run_integrations() {
       [ $# -eq 3 ] || die "usage: mso integrations $sub <user> <provider> <connection>"
       body=$(jq -nc --arg op "$sub" --arg user "$1" --arg provider "$2" --arg connection "$3" '{mode:"execute",operation:$op,user:$user,provider:$provider,connection:$connection}')
       jpost "/api/v1/integrations" "$body" ;;
+    hostinger-mail-orders)
+      [ $# -eq 2 ] || die "usage: mso integrations hostinger-mail-orders <user> <connection>"
+      body=$(jq -nc --arg user "$1" --arg connection "$2" '{mode:"execute",operation:"hostinger.mail.orders.list",user:$user,provider:"hostinger",connection:$connection,confirm:true,arguments:{}}')
+      jpost "/api/v1/integrations" "$body" ;;
+    hostinger-mail-list)
+      [ $# -ge 3 ] || die "usage: mso integrations hostinger-mail-list <user> <connection> <mailboxes|aliases|forwarders|autoreplies|catchalls|webhooks> [orderId] [page]"
+      body=$(jq -nc --arg user "$1" --arg connection "$2" --arg resource "$3" --arg orderId "${4-}" --argjson page "${5:-1}" '{mode:"execute",operation:"hostinger.mail.list",user:$user,provider:"hostinger",connection:$connection,confirm:true,arguments:({resource:$resource,page:$page}+if $orderId!="" then {orderId:$orderId} else {} end)}')
+      jpost "/api/v1/integrations" "$body" ;;
+    hostinger-mail-logs)
+      [ $# -ge 3 ] || die "usage: mso integrations hostinger-mail-logs <user> <connection> <access|action|inbound|mailbox-actions|outbound> [orderId] [page]"
+      body=$(jq -nc --arg user "$1" --arg connection "$2" --arg kind "$3" --arg orderId "${4-}" --argjson page "${5:-1}" '{mode:"execute",operation:"hostinger.mail.logs.list",user:$user,provider:"hostinger",connection:$connection,confirm:true,arguments:({kind:$kind,page:$page}+if $orderId!="" then {orderId:$orderId} else {} end)}')
+      jpost "/api/v1/integrations" "$body" ;;
     execute)
       [ $# -eq 1 ] || die 'usage: mso integrations execute <metadata-JSON with user, provider, connection, operation and confirm:true>'
       body=$(jq -ce 'if type=="object" then .+{mode:"execute"} else error("object required") end' <<<"$1")
       jpost "/api/v1/integrations" "$body" ;;
-    *) die 'usage: mso integrations status|users|catalog|connections|which|request|resolve|create-user|create-connection|manage|setup|verify|route|execute' ;;
+    *) die 'usage: mso integrations transfer|status|users|catalog|connections|which|request|resolve|create-user|create-connection|manage|setup|verify|route|hostinger-mail-orders|hostinger-mail-list|hostinger-mail-logs|execute' ;;
   esac
 }

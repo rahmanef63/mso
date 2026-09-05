@@ -174,3 +174,14 @@ metadata only; optional encrypted JSON can carry direct credential values. Impor
 are previewed, create-only, unverified, and never change defaults or folder bindings.
 See [Integration Bundle v1](INTEGRATION-PORTABILITY.md) for CLI syntax, mappings and
 receiver support. There is no mandatory SC dependency or automatic data sharing.
+
+## Hostinger Mail API
+
+Hostinger is one provider with two direct connection methods:
+
+- **Account API token** — existing Hostinger account credential. It can keep serving VPS/DNS and can enumerate Mail API orders when that account has Hostinger Email.
+- **Scoped Mail API token** — a dedicated named connection bound to one Hostinger mail order. Store the Mail API token together with that order ID; MSO refuses a different order at execution time.
+
+The native connection executor supports read-only mail-order/plan/resource/log operations plus reviewed non-secret mailbox management for aliases, forwarders, autoreplies, catch-alls and mailbox deletion. Mailbox creation/password rotation, webhook creation/regeneration, and Mail API-token creation are deliberately not accepted through model/tool JSON because those operations create or consume secret values. Use a private Hostinger/browser flow for those secrets.
+
+Official reference: <https://developers.hostinger.com/> → **Mail**. The API documents Mail Orders, Mailboxes, Aliases, Autoreplies, Forwarders, Catchalls, Webhooks, API Tokens and Logs under `/api/mail/v1`.

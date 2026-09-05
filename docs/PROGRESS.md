@@ -1,5 +1,12 @@
 ## 2026-09-05 — Reconcile new connection-model findings before final publication
 
+## 2026-09-05 — Hostinger Mail API as a first-class connection capability
+
+Hostinger direct connections now distinguish the existing account API token from a scoped Hostinger Mail API token bound to one mail order. The same User → Provider → Named Connection → Source → Auth resolver drives DNS/VPS and mail operations; scoped Mail tokens cannot be silently redirected to another order.
+
+The reviewed Mail surface covers order/plan discovery, mailboxes, aliases, forwarders, autoreplies, catch-alls, webhooks and logs plus non-secret mutations for aliases/forwarders/autoreplies/catch-alls and mailbox deletion. Secret-bearing flows (mailbox create/password, generated Mail API tokens, generated webhook secrets) stay out of model/tool JSON. Existing SC Hostinger account credentials were verified read-only against the official `/api/mail/v1/orders` endpoint and saw five mail orders; no credential value was copied into native MSO automatically.
+
+
 Published main advanced during the security review and introduced five additional CodeQL alerts. The integration model is preserved while migration backups use a no-follow descriptor for permissions and bounded reads; provider deletion reconstructs maps instead of indexed deletion. New HTML tests use the existing parser helper and CLI tests invoke a committed fixed-argv shell fixture rather than constructing source. The home-relative CLI contract now stubs its service manager and proves the expected teardown request without stopping host services. Source fixes and exact HEAD evidence are required again; no concurrent feature or alert is discarded.
 
 ## 2026-09-05 — Close final release review regressions

@@ -8,6 +8,7 @@ export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 // across the UI-contract migration. They are intentionally not advertised by
 // resources/list: the public product contract has exactly Block and Page.
 export const LEGACY_BLOCK_V1_URI = "ui://mso/block-v1.html";
+export const LEGACY_PAGE_V8_URI = "ui://mso/page-v8.html";
 export const LEGACY_PAGE_V7_URI = "ui://mso/page-v7.html";
 export const LEGACY_PAGE_V6_URI = "ui://mso/page-v6.html";
 export const LEGACY_PAGE_V5_URI = "ui://mso/page-v5.html";
@@ -29,6 +30,7 @@ export type McpUiResource = {
 
 const RESOURCES: readonly McpUiResource[] = [MSO_BLOCK_RESOURCE, MSO_PAGE_RESOURCE];
 const LEGACY_ALIASES = new Map<string, McpUiResource>([
+  [LEGACY_PAGE_V8_URI, MSO_PAGE_RESOURCE],
   [LEGACY_PAGE_V7_URI, MSO_PAGE_RESOURCE],
   [LEGACY_PAGE_V6_URI, MSO_PAGE_RESOURCE],
   [LEGACY_PAGE_V5_URI, MSO_PAGE_RESOURCE],

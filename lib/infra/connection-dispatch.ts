@@ -2,7 +2,7 @@ import { integrationManage } from "./connection-manage";
 import { integrationQuery, withIntegrationSelection, resolveIntegration } from "./connection-service";
 import { authorizeIntegration, composioConnectionCall } from "./connection-external";
 import { IntegrationError, identity, metadataOnly, type ConnectionSelector } from "./identity";
-import { doctorInfraProvider, ensureDokployProject, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertHostingerDns } from "./clients";
+import { doctorInfraProvider, ensureDokployProject, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
 import { isInfraProviderId } from "./catalog";
 export const safeActionInput=(input:Record<string,unknown>)=>Object.fromEntries(Object.entries(input).filter(([key])=>key!=="workflow_id"));
 export const selectionFrom=(a:Record<string,unknown>):ConnectionSelector=>({user:typeof a.user==="string"?a.user:undefined,connection:typeof a.connection==="string"?a.connection:undefined,cwd:typeof a.cwd==="string"?a.cwd:undefined});
@@ -29,6 +29,12 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     "cloudflare.zones.list":{provider:"cloudflare",fields:[],run:()=>listCloudflareZones()},
     "cloudflare.dns.upsert":{provider:"cloudflare",fields:["name","type","content","ttl","proxied"],run:()=>upsertCloudflareDns(args as Parameters<typeof upsertCloudflareDns>[0])},
     "hostinger.dns.upsert":{provider:"hostinger",fields:["name","type","content","ttl"],run:()=>upsertHostingerDns(args as Parameters<typeof upsertHostingerDns>[0])},
+    "hostinger.mail.orders.list":{provider:"hostinger",fields:[],run:()=>listHostingerMailOrders()},
+    "hostinger.mail.plan.get":{provider:"hostinger",fields:["orderId"],run:()=>getHostingerMailPlan((args as Record<string,unknown>).orderId)},
+    "hostinger.mail.list":{provider:"hostinger",fields:["orderId","resource","page"],run:()=>listHostingerMail((args as Record<string,unknown>).orderId,(args as Record<string,unknown>).resource,(args as Record<string,unknown>).page as number)},
+    "hostinger.mail.logs.list":{provider:"hostinger",fields:["orderId","kind","page"],run:()=>listHostingerMailLogs((args as Record<string,unknown>).orderId,(args as Record<string,unknown>).kind,(args as Record<string,unknown>).page as number)},
+    "hostinger.mail.mutate":{provider:"hostinger",fields:["orderId","mailboxId","aliasId","forwarderId","autoreplyId","catchallId","localPart","destination","keepCopy","subject","body","displayName","startsAt","endsAt","action"],run:()=>mutateHostingerMail(String((args as Record<string,unknown>).action),args as Record<string,unknown>)},
+
   };
   const verb=verbs[operation];if(!verb||verb.provider!==provider)throw new IntegrationError("provider_operation_mismatch");
   if(route.source!=="direct")throw new IntegrationError("external_source_requires_own_executor",409);

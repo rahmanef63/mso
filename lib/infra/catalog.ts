@@ -39,10 +39,12 @@ const definitions: Record<InfraProviderId, InfraProviderDefinition> = {
   hostinger: {
     id: "hostinger",
     title: "Hostinger",
-    description: "Hostinger portfolio/VPS verification and DNS record automation for domains hosted in hPanel.",
+    description: "Hostinger VPS/DNS plus Hostinger Mail orders, mailboxes, aliases, forwarders, autoreplies and catch-alls.",
     feature: false,
     fields: [
-      { key: "apiToken", label: "API token", secret: true, required: true, description: "Hostinger API token. DNS writes replace only the requested name/type RR-set." },
+      { key: "apiToken", label: "Account API token", secret: true, required: false, description: "Hostinger account API token for VPS, DNS and account-level Mail API access." },
+      { key: "mailApiToken", label: "Mail API token", secret: true, required: false, description: "Optional mailbox-scoped Hostinger Email API token." },
+      { key: "mailOrderId", label: "Mail order ID", secret: false, required: false, description: "Mail order resource ID bound to a scoped Email API token." },
     ],
   },
 };
@@ -95,6 +97,10 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
     let url: URL; try { url = new URL(out.apiUrl); } catch { throw new Error("Invalid deployment URL"); }
     if (url.username || url.password || url.search || url.hash || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))) throw new Error("Invalid deployment URL");
   }
-  if (id === "hostinger" && out.apiToken && out.apiToken.length < 24) throw new Error("Hostinger API token is too short");
+  if (id === "hostinger") {
+    if (out.apiToken && out.apiToken.length < 24) throw new Error("Hostinger API token is too short");
+    if (out.mailApiToken && out.mailApiToken.length < 24) throw new Error("Hostinger Mail API token is too short");
+    if (out.mailOrderId && !/^[A-Za-z0-9._-]{3,128}$/.test(out.mailOrderId)) throw new Error("Invalid Hostinger Mail order ID");
+  }
   return out;
 }

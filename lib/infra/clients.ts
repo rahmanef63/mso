@@ -11,6 +11,7 @@ import { doctorComposio } from "./composio";
 export { listCloudflareZones, upsertCloudflareDns } from "./cloudflare";
 export { ensureDokployProject, listDokployProjects } from "./dokploy";
 export { upsertHostingerDns } from "./hostinger";
+export { listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./hostinger-mail";
 
 export async function doctorInfraProvider(id: InfraProviderId, candidate?: InfraProviderValues): Promise<InfraDoctorResult> {
   try {

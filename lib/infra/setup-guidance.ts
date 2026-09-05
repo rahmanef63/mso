@@ -2,8 +2,13 @@ import { ADDITIONAL_GUIDANCE, type AdditionalProviderId } from "./additional-pro
 import { getInfraProviderDefinition } from "./catalog";
 import type { InfraProviderId } from "./types";
 
-export type SetupMethod = "direct" | "project" | "organization" | "personal" | "deployment";
+export type SetupMethod = "direct" | "project" | "organization" | "personal" | "deployment" | "mail";
 export function setupFields(provider: InfraProviderId, method: SetupMethod) {
+  if (provider === "hostinger") {
+    if (!["direct", "mail"].includes(method)) throw new Error("Choose Hostinger account or scoped Mail API token");
+    const keys = method === "mail" ? ["mailApiToken", "mailOrderId"] : ["apiToken"];
+    return getInfraProviderDefinition(provider).fields.filter(f => keys.includes(f.key)).map(f => ({ ...f, required: true }));
+  }
   if (provider === "convex-cloud") {
     if (!["personal", "deployment"].includes(method)) throw new Error("Choose a Convex personal token or deployment key");
     const keys = method === "personal" ? ["personalToken"] : ["deployKey", "deploymentName"];
@@ -18,11 +23,12 @@ export function setupFields(provider: InfraProviderId, method: SetupMethod) {
 }
 export function setupMethod(provider: InfraProviderId, method?: string): SetupMethod {
   const value = method ?? (provider === "composio" ? "project" : provider === "convex-cloud" ? "personal" : "direct");
-  if (!["direct", "project", "organization", "personal", "deployment"].includes(value)) throw new Error("Unsupported authentication method");
+  if (!["direct", "project", "organization", "personal", "deployment", "mail"].includes(value)) throw new Error("Unsupported authentication method");
   setupFields(provider, value as SetupMethod);
   return value as SetupMethod;
 }
 export function setupMethods(provider: InfraProviderId): Array<{id: SetupMethod; label: string}> {
+  if (provider === "hostinger") return [{ id: "direct", label: "Account API token" }, { id: "mail", label: "Scoped Mail API token" }];
   if (provider === "composio") return [{ id: "project", label: "Project API key" }, { id: "organization", label: "Organization API key" }];
   if (provider === "convex-cloud") return [{ id: "personal", label: "Personal access token" }, { id: "deployment", label: "Deployment key" }];
   return [{ id: "direct", label: "Direct credential" }];
@@ -45,7 +51,7 @@ export function setupGuidance(provider: InfraProviderId, method: SetupMethod) {
     hostinger: {
       url: "https://hpanel.hostinger.com/",
       reference: "https://developers.hostinger.com/",
-      steps: ["Sign in to the intended Hostinger account.", "Open Dev Tools → API in the hPanel sidebar.", "Create a named token with a limited expiry. It inherits the owning account permissions.", "Copy it into this form. MSO validates access before saving."],
+      steps: method === "mail" ? ["Use the Hostinger Mail API token created for the intended mail order.", "Keep its scope limited to only the mailboxes this connection should manage.", "Copy the token and its mail order ID into this named connection.", "MSO validates it by listing one mailbox from that exact order."] : ["Sign in to the intended Hostinger account.", "Open Dev Tools → API in the hPanel sidebar.", "Create a named account token with a limited expiry.", "This token can manage VPS/DNS and, when the account has mail service, Hostinger Mail API orders."],
     },
     dokploy: {
       url: "https://docs.dokploy.com/docs/core/api",

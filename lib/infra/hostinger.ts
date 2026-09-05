@@ -1,16 +1,20 @@
 import type { InfraProviderValues } from "./types";
 import { readInfraProvider } from "./store";
 import { HOST_RE, IPV4_RE, obj, request } from "./http";
+import { doctorHostingerMail } from "./hostinger-mail";
 
 const API = "https://developers.hostinger.com/api";
 const headers = (token: string) => ({ authorization: `Bearer ${token}`, accept: "application/json", "content-type": "application/json" });
 
 export async function doctorHostinger(candidate?: InfraProviderValues): Promise<string | null> {
   const values = candidate ?? await readInfraProvider("hostinger");
+  if (values.mailApiToken) return doctorHostingerMail(values);
+  const mail = await doctorHostingerMail(values).catch(() => null);
+  if (mail) return mail;
   if (!values.apiToken) return null;
   const res = await request(`${API}/vps/v1/virtual-machines`, { headers: headers(values.apiToken) });
   if (!res.ok) throw new Error(`Hostinger HTTP ${res.status}`);
-  return `token valid; ${Array.isArray(res.body) ? res.body.length : 0} VPS visible`;
+  return `account token valid; ${Array.isArray(res.body) ? res.body.length : 0} VPS visible; Mail API unavailable for this token/account`;
 }
 
 async function rootFor(fullDomain: string, token: string): Promise<{ root: string; name: string }> {
