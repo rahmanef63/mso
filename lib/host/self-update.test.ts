@@ -16,6 +16,7 @@ const status = (over: Partial<Parameters<typeof blockingReason>[0]> = {}) => ({
   currentSubject: "feat: something",
   buildSha: "abc1234",
   pendingBuild: false,
+  ahead: 0,
   behind: 3,
   commits: [],
   dirty: false,
@@ -77,6 +78,12 @@ describe("updateBranchReason", () => {
 describe("blockingReason", () => {
   it("lets a normal update through", () => {
     expect(blockingReason(status(), false)).toBeNull();
+  });
+
+  it("refuses normal updates when local main is ahead or diverged, but still permits an explicit rebuild", () => {
+    expect(blockingReason(status({ ahead: 2, behind: 0 }), false)).toContain("ahead of origin/main");
+    expect(blockingReason(status({ ahead: 2, behind: 114 }), false)).toContain("diverged");
+    expect(blockingReason(status({ ahead: 2, behind: 114 }), true)).toBeNull();
   });
 
   it("refuses when there is nothing to pull, unless a rebuild was asked for", () => {

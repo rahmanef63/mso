@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, BookOpen, CheckCircle2, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,6 +34,7 @@ export function UpdateSection() {
   // "An update ran in THIS tab (or was running when we looked)" — the outcome below
   // is derived from it rather than stored, so nothing has to be reset on the next run.
   const [sawRunning, setSawRunning] = useState(false);
+  const postRunRemoteCheck = useRef(false);
 
   const refresh = useCallback(async (check: boolean) => {
     // A poll that lands while the service is restarting simply fails; keeping the
@@ -76,9 +77,16 @@ export function UpdateSection() {
     return () => clearInterval(id);
   }, [info?.running, refresh]);
 
+  useEffect(() => {
+    if (!sawRunning || info?.running !== false || postRunRemoteCheck.current) return;
+    postRunRemoteCheck.current = true;
+    void refresh(true);
+  }, [sawRunning, info?.running, refresh]);
+
   const start = async (rebuildOnly: boolean) => {
     setBusy(true);
     setError(null);
+    postRunRemoteCheck.current = false;
     setSawRunning(true);
     try {
       const res = await fetch("/api/v1/sys/update", {
@@ -97,7 +105,10 @@ export function UpdateSection() {
   };
 
   if (IS_DEMO || (!info && !checking)) return null;
+  const ahead = info?.ahead ?? 0;
   const behind = info?.behind ?? 0;
+  const diverged = ahead > 0 && behind > 0;
+  const localAhead = ahead > 0 && behind === 0;
   const running = info?.running ?? false;
   const pending = (info?.pendingBuild ?? false) && behind === 0;
   // Derived, never stored: an update we watched, that is no longer running, either
@@ -119,9 +130,13 @@ export function UpdateSection() {
           <span className="font-medium text-foreground">
             {checking
               ? "Checking for updates…"
-              : behind > 0
-                ? `${behind} update${behind > 1 ? "s" : ""} available`
-                : pending
+              : diverged
+                ? "Update blocked — local and remote diverged"
+                : localAhead
+                  ? `${ahead} local commit${ahead > 1 ? "s" : ""} not on origin/main`
+                  : behind > 0
+                    ? `${behind} update${behind > 1 ? "s" : ""} available`
+                    : pending
                   ? "A build is pending"
                   : "Up to date"}
           </span>
@@ -138,6 +153,14 @@ export function UpdateSection() {
           </p>
         )}
         {info?.currentSubject && <p className="line-clamp-2 text-[11px] text-muted-foreground">{info.currentSubject}</p>}
+        {diverged && (
+          <p className="text-[11px] text-destructive-text">
+            Local main is ahead {ahead} and behind {behind}. MSO will not overwrite either side automatically; reconcile or preserve the local commits first.
+          </p>
+        )}
+        {localAhead && (
+          <p className="text-[11px] text-amber-500">Local main has {ahead} unpushed commit{ahead > 1 ? "s" : ""}; normal update is blocked until it is pushed or reconciled.</p>
+        )}
         {info && info.supported !== false && !info.remoteChecked && !running && (
           <p className="text-[11px] text-amber-500">
             Could not reach the remote — this is what was last fetched, not necessarily what is on main now.
@@ -169,7 +192,7 @@ export function UpdateSection() {
         )}
       </SettingsBlock>
 
-      {behind > 0 && info?.supported !== false && (
+      {behind > 0 && ahead === 0 && info?.supported !== false && (
         <SettingsActionRow
           label={running ? "Updating…" : `Update to ${info?.commits[0]?.sha ?? "latest"} and restart`}
           icon={<ArrowDownToLine />}

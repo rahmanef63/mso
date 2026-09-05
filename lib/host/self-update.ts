@@ -47,6 +47,7 @@ export interface UpdateStatus {
    *  pulled without rebuilding — the state the panel calls "a build is pending". */
   buildSha: string;
   pendingBuild: boolean;
+  ahead: number;
   behind: number;
   commits: UpdateCommit[];
   /** Uncommitted work in the checkout: a `--ff-only` merge would fail, so refuse early. */
@@ -139,6 +140,11 @@ export function blockingReason(status: UpdateStatus, rebuildOnly: boolean): stri
   if (status.dirty) {
     return "the checkout has uncommitted changes — commit or stash them on the host first, a fast-forward would refuse anyway";
   }
+  if (!rebuildOnly && status.ahead > 0) {
+    return status.behind > 0
+      ? `local main has diverged from origin/main (ahead ${status.ahead}, behind ${status.behind}); reconcile it before updating`
+      : `local main is ahead of origin/main by ${status.ahead} commit(s); push or reconcile it before updating`;
+  }
   // `pendingBuild` is a reason to run even with nothing to pull: the checkout
   // already holds code the running process was not built from, and refusing with
   // "already up to date" would be describing the wrong thing as up to date.
@@ -179,6 +185,7 @@ export async function getUpdateStatus(fetchRemote = true): Promise<UpdateStatus>
     currentSubject: "",
     buildSha,
     pendingBuild: false,
+    ahead: 0,
     behind: 0,
     commits: [],
     dirty: false,
@@ -247,10 +254,13 @@ export async function getUpdateStatus(fetchRemote = true): Promise<UpdateStatus>
     remoteChecked = fetched.code === 0;
   }
 
-  const [count, commitLog] = await Promise.all([
-    git(["rev-list", "--count", "HEAD..origin/main"]),
+  const [relationCount, commitLog] = await Promise.all([
+    git(["rev-list", "--left-right", "--count", "HEAD...origin/main"]),
     git(["log", "--format=%h%x1f%s%x1f%cs", `-${MAX_COMMITS}`, "HEAD..origin/main"]),
   ]);
+  const [aheadRaw = "0", behindRaw = "0"] = relationCount.stdout.trim().split(/\s+/);
+  const ahead = relationCount.code === 0 ? Number(aheadRaw) || 0 : 0;
+  const behind = relationCount.code === 0 ? Number(behindRaw) || 0 : 0;
 
   const current = head.stdout.trim() || "unknown";
   return {
@@ -261,7 +271,8 @@ export async function getUpdateStatus(fetchRemote = true): Promise<UpdateStatus>
     // Only when we know both: a build with no sha baked in (an archive export, a
     // dev server) must not be reported as permanently stale.
     pendingBuild: Boolean(buildSha) && current !== "unknown" && buildSha !== current,
-    behind: count.code === 0 ? Number(count.stdout.trim()) || 0 : 0,
+    ahead,
+    behind,
     commits: commitLog.code === 0 ? parseCommits(commitLog.stdout) : [],
     dirty: status.stdout.trim().length > 0,
     running,

@@ -82,6 +82,28 @@ describe("protocol", () => {
   });
 });
 
+describe("restricted service-token dispatch", () => {
+  const context = {
+    allowedTools: ["project_capabilities", "project_function_call"],
+    toolArgumentConstraints: { project_function_call: { project: ["antinrml-game"], name: ["capture_scene"] } },
+  } as const;
+
+  it("filters list-time and call-time capability exposure", async () => {
+    const listed = await dispatch({ id: 80, method: "tools/list" }, "exec", "mcp:service", context);
+    const names = ((listed.result as { tools: Array<{ name: string }> }).tools ?? []).map((row) => row.name);
+    expect(names).toEqual(["project_capabilities", "project_function_call"]);
+    const denied = await dispatch(call("exec_run", { command: "id" }), "exec", "mcp:service", context);
+    expect(denied.error).toMatchObject({ code: -32602 });
+  });
+
+  it("pins exact string arguments for the allowed project function", async () => {
+    const wrongProject = await dispatch(call("project_function_call", { project: "mso", name: "capture_scene", input: {} }), "exec", "mcp:service", context);
+    expect(wrongProject.error).toMatchObject({ code: -32602 });
+    const wrongFunction = await dispatch(call("project_function_call", { project: "antinrml-game", name: "dangerous_write", input: {} }), "exec", "mcp:service", context);
+    expect(wrongFunction.error).toMatchObject({ code: -32602 });
+  });
+});
+
 describe("tools/list is scope-filtered", () => {
   const names = async (scope: "read" | "write" | "exec") => {
     const r = await dispatch({ id: 1, method: "tools/list" }, scope);

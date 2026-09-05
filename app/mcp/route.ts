@@ -90,7 +90,14 @@ export async function POST(req: Request) {
 
   void touchToken(token.hash).catch(() => {});
   const actor = `mcp:${token.hash.slice(0, 16)}`;
-  const agentContext = { principal, ...(resolved.agentSessionId ? { sessionId: resolved.agentSessionId } : {}), toolProfile, capabilities: msoCapabilityRuntime };
+  const agentContext = {
+    principal,
+    ...(resolved.agentSessionId ? { sessionId: resolved.agentSessionId } : {}),
+    toolProfile,
+    ...(token.allowedTools ? { allowedTools: token.allowedTools } : {}),
+    ...(token.toolArgumentConstraints ? { toolArgumentConstraints: token.toolArgumentConstraints } : {}),
+    capabilities: msoCapabilityRuntime,
+  };
   const result = await dispatch(rpc, effectiveScope, actor, agentContext);
   return Response.json(result, { status: 200, headers });
 }
