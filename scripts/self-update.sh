@@ -159,7 +159,9 @@ SERVICE_PORT="$(systemctl show -p Environment --value mso.service 2>/dev/null \
   | tr ' ' '\n' | sed -n 's/^PORT=//p' | head -1)"
 PORT="${PORT:-${SERVICE_PORT:-4005}}"
 ASSET_BASE="http://127.0.0.1:$PORT"
-node scripts/check-served-assets.mjs "$ASSET_BASE" \
+# MainPID becomes active before Next binds its socket. Wait for HTTP first, then
+# still verify every asset; a broken asset graph must never be treated as ready.
+node scripts/check-served-assets.mjs "$ASSET_BASE" --wait-ms 30000 \
   || die "served static asset graph is inconsistent after replacement; use the supported MSO deploy/rebuild lifecycle and inspect ~/.mso/self-update.log"
 
 step "inner update stage complete — now at $(git rev-parse --short HEAD)"

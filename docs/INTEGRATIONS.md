@@ -98,3 +98,10 @@ owner-only store permissions, and MCP output separation. Browser fixtures cover
 desktop/mobile Page rendering, standards-bridge initialization, failed validation
 and retry, input clearing, no owner cookies, and no credential in host messages.
 Real provider authentication still requires the user's own valid credential.
+
+### Deployment verification
+
+The service release lifecycle waits for the root HTTP endpoint after observing a
+replacement systemd process, then verifies every referenced JS/CSS asset. A new
+process alone is not HTTP readiness. The bounded wait does not waive missing
+chunks, incorrect MIME types, or fallback-runtime restoration requirements.

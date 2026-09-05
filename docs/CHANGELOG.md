@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `release` wait for HTTP readiness before validating served assets
 - `mcp` initialize page previews and verify embedded app readiness
 
 ## 2026-09-04
