@@ -21,6 +21,10 @@ Use the server configuration reset too when clearing those synchronized preferen
 Export a browser backup in Settings → Backup before clearing local drafts: the server reset
 archive does not contain browser-only data.
 
+The default server state is per Unix user and can be shared by multiple MSO checkouts.
+Server reset or `--purge` affects that user's selected MSO state, not just one browser or Git branch.
+All MSO instances sharing the state must be stopped first.
+
 ## Preview first
 
 ```bash

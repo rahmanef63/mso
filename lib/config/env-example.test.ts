@@ -28,6 +28,7 @@ const NOT_A_KNOB: Record<string, string> = {
   MSO_AGENT_CLI: "internal mso-cli-agent launcher handoff for the canonical CLI path",
   MSO_AGENT_JAR: "internal mso-cli-agent launcher handoff for the authenticated cookie jar",
   MSO_AGENT_ORIGIN: "internal mso-cli-agent launcher handoff for the request Origin header",
+  MSO_MAINTENANCE_LOCKED: "internal maintenance-lock.sh child handoff; never persist or set this as user configuration",
   MSO_AGENT_VERSION: "internal mso-cli-agent launcher handoff for banner metadata",
   // Standard terminal convention inherited from the invoking shell, not MSO config.
   NO_COLOR: "standard terminal color convention inherited from the caller",
