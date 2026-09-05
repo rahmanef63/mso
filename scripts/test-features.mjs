@@ -54,7 +54,7 @@ for (const [name, files] of [...groups].sort(([a], [b]) => a.localeCompare(b))) 
   const configFile = join(outputDir, `${basename}.config.mts`);
   // CLI filters match substrings, even with absolute paths. Override include
   // instead, then independently verify the exact result-file inventory below.
-  const exactIncludes = files.map((file) => file.replace(/[?*{}\[\]]/g, "\\$&"));
+  const exactIncludes = files.map((file) => file.replace(/[\\?*{}\[\]]/g, "\\$&"));
   writeFileSync(configFile,
     `import base from ${JSON.stringify(join(root, "vitest.config.mts"))};\nexport default {...base, test: {...base.test, include: ${JSON.stringify(exactIncludes)}}};\n`,
     { mode: 0o600 });

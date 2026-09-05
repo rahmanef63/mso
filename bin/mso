@@ -93,6 +93,9 @@
 #   deploy               Rebuild active service with runtime quiesce/restore
 #   update [--rebuild]   Update from origin/main safely; works even when the web runtime is down
 #
+#   reset [--scope config|all]  Preview local factory reset; explicit token required to apply
+#   uninstall [--purge] [--remove-code]  Preview owned installation removal
+#
 #  Escape hatches
 #   crud *               Generic resource CRUD, incl. editor documents
 #   api *                Call ANY endpoint directly
@@ -129,7 +132,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.12.1"
+VERSION="1.13.0"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }
@@ -148,6 +151,14 @@ while [ $# -gt 0 ]; do
     *) break ;;
   esac
 done
+
+# Dispatch local maintenance before sourcing credentials or creating a cookie jar.
+case "${1-}" in
+  reset|uninstall)
+    [ -z "$BASE_OVERRIDE$ENV_OVERRIDE${MSO_BASE:-}${OS_BASE:-}${MSO_ENV:-}${OS_ENV:-}" ] \
+      || die "maintenance is local-only; omit --base/--env and run over SSH on the intended host"
+    exec node "$ROOT/scripts/mso-maintenance.mjs" "$@" ;;
+esac
 
 B="${BASE_OVERRIDE:-${MSO_BASE:-${OS_BASE:-http://127.0.0.1:4005}}}"
 ENVF="${ENV_OVERRIDE:-${MSO_ENV:-${OS_ENV:-$ROOT/.env.local}}}"

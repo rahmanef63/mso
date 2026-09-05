@@ -24,14 +24,14 @@ function publicEnv() {
 }
 
 describe("installer documentation contract", () => {
-  it("keeps every public installer flag and env override in README + INSTALL.md", () => {
+  it("keeps full installer options in INSTALL.md and the overview linked", () => {
     expect(publicFlags().length).toBeGreaterThan(5);
     expect(publicEnv().length).toBeGreaterThan(3);
     for (const token of [...publicFlags(), ...publicEnv()]) {
-      expect(README, `README missing ${token}`).toContain(token);
       expect(INSTALL, `INSTALL.md missing ${token}`).toContain(token);
     }
-    expect(README).toContain("Useful installer controls");
+    expect(README).toContain("./docs/INSTALL.md");
+    expect(README.split("\n").length).toBeLessThanOrEqual(120);
   });
 
   it("documents one AI-agent path and the legacy-upgrade bridge", () => {

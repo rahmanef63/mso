@@ -133,6 +133,9 @@ Commands:
   deploy               Rebuild active service with runtime quiesce/restore
   update [--rebuild]   Update from origin/main safely; works even when the web runtime is down
 
+  reset [--scope config|all]  Preview local factory reset; explicit token required to apply
+  uninstall [--purge] [--remove-code]  Preview owned installation removal
+
  Escape hatches
   crud *               Generic resource CRUD, incl. editor documents
   api *                Call ANY endpoint directly

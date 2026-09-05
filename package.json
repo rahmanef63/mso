@@ -1,6 +1,6 @@
 {
   "name": "mso",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "engines": {
     "node": ">=20.9"
@@ -40,7 +40,8 @@
     "bench:cache-calibration": "bun scripts/bench-agent-cache.mjs",
     "mcp:catalog": "node scripts/gen-mcp-catalog.mjs",
     "audit:strict": "node scripts/audit.mjs --strict",
-    "test:features": "node scripts/test-features.mjs"
+    "test:features": "node scripts/test-features.mjs",
+    "screenshot:cli": "node scripts/capture-cli.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

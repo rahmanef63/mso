@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Info, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/appshell";
+import { Info } from "lucide-react";
 import { useOsApi, type SysStats, type FsUsage } from "@/features/appshell";
 import { fmtGiB, fmtUptime } from "@/lib/os-api/format";
 import { useAppearance, effectiveServerTarget } from "@/lib/appearance";
@@ -12,31 +10,18 @@ import { SettingsSection, SettingsValueRow, SettingsActionRow } from "@/features
 import { MsoMark } from "@/components/shared/mso-mark";
 import { WhatsNew } from "./whats-new";
 import { UpdateSection } from "./update-section";
+import { MaintenanceSection } from "./maintenance-section";
 import pkg from "../../../../package.json";
 import { openOnboarding } from "@/features/auth";
 
 const APP_NAME = "Manef Shell OS";
 const APP_TAGLINE = "Browser-based visual shell";
 
-// Wipes appearance + device identity, then reloads fresh. Storage keys keep the
-// historical "mso" prefix (changing them would orphan existing device ids).
-function performReset() {
-  try {
-    localStorage.removeItem("mso:tweaks");
-    localStorage.removeItem("mso.device.id");
-    localStorage.removeItem("mso:demo-fs");
-  } catch {
-    /* private mode / quota */
-  }
-  window.location.reload();
-}
-
 export function AboutSection() {
   const api = useOsApi();
   const { tweaks } = useAppearance();
   const [stats, setStats] = useState<SysStats | null>(null);
   const [usage, setUsage] = useState<FsUsage | null>(null);
-  const [confirmReset, setConfirmReset] = useState(false);
 
   // Stats are MOCK when the active target is mock/demo — flag it so About never
   // presents invented machine specs as the real host (VPS-essence honesty).
@@ -98,44 +83,10 @@ export function AboutSection() {
 
       <WhatsNew />
 
-      <SettingsSection icon={<RotateCcw />} title="Reset">
-        <SettingsActionRow
-          label="Open onboarding"
-          icon={<Info />}
-          onClick={openOnboarding}
-        />
-        <SettingsActionRow
-          label="Reset MSO"
-          tone="destructive"
-          icon={<RotateCcw />}
-          onClick={() => setConfirmReset(true)}
-        />
+      <SettingsSection icon={<Info />} title="Setup">
+        <SettingsActionRow label="Open onboarding" icon={<Info />} onClick={openOnboarding} />
       </SettingsSection>
-
-      <FormDrawer open={confirmReset} onOpenChange={setConfirmReset} size="sm">
-        <FormDrawer.Header>
-          <FormDrawer.Title>Reset MSO?</FormDrawer.Title>
-          <FormDrawer.Description>
-            Clears appearance + device identity, then reloads. Your files on disk are untouched.
-          </FormDrawer.Description>
-        </FormDrawer.Header>
-        <FormDrawer.Footer>
-          <Button type="button" variant="ghost" onClick={() => setConfirmReset(false)}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={() => {
-              setConfirmReset(false);
-              performReset();
-            }}
-          >
-            <RotateCcw className="size-4" />
-            Reset
-          </Button>
-        </FormDrawer.Footer>
-      </FormDrawer>
+      <MaintenanceSection />
     </div>
   );
 }

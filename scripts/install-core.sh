@@ -251,7 +251,11 @@ ensure_node() {
 # (see the unit's ExecStart below) because node-pty's binding is built against
 # node's ABI and the whole /api/v1 surface imports it.
 ensure_bun() {
-  command -v bun >/dev/null 2>&1 && { info "bun $(bun -v) ok"; return; }
+  if command -v bun >/dev/null 2>&1; then
+    bun -v | awk -F. '{exit !(($1+0)>1 || (($1+0)==1 && (($2+0)>2 || (($2+0)==2 && ($3+0)>=15))))}' \
+      || die "Bun >=1.2.15 is required for native dependency auditing; upgrade Bun and rerun the installer."
+    info "bun $(bun -v) ok"; return
+  fi
   command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required to verify the Bun bootstrap."
   info "installing Bun from a pinned, verified bootstrap…"
   local bootstrap actual url

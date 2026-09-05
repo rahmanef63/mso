@@ -18,6 +18,13 @@ function unavailable(reason) {
   process.exit(STRICT ? 2 : 0);
 }
 
+// Old Bun resolves unknown commands as package scripts; avoid recursively invoking this audit.
+const versionProbe = spawnSync("bun", ["--version"], { encoding: "utf8", timeout: 5000 });
+const version = /^(\d+)\.(\d+)\.(\d+)/.exec((versionProbe.stdout ?? "").trim());
+const nativeAudit = version && (Number(version[1]) > 1 || Number(version[1]) === 1
+  && (Number(version[2]) > 2 || Number(version[2]) === 2 && Number(version[3]) >= 15));
+if (versionProbe.status !== 0 || !nativeAudit) unavailable("Bun >=1.2.15 with the native audit command is required; update Bun first");
+
 const res = spawnSync("bun", ["audit", "--json"], {
   encoding: "utf8", timeout: AUDIT_TIMEOUT_MS, killSignal: "SIGTERM",
 });

@@ -80,3 +80,7 @@ These files are copy/script drafts, not technical authority:
 
 When a current-reference doc and one of these drafts disagree, update the draft or follow
 the current-reference doc.
+
+## Reset and removal
+
+[Maintenance, factory reset and clean uninstall](./MAINTENANCE.md) · [Extended workspace reference](./reference/WORKSPACE-GUIDE.md)

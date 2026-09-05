@@ -32,6 +32,8 @@ U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
 U_service="service status|start|stop|restart|logs [n]"
 U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> <unit>"
+U_reset="reset [--scope config|all] [--json] [--apply --confirm <preview-token>]"
+U_uninstall="uninstall [--purge] [--remove-code] [--service name.service] [--json] [--apply --confirm <preview-token>]"
 U_update="update [--rebuild] | status | log"
 U_cockpit="cockpit [project] | cockpit show [project] | cockpit search <query…>"
 U_threads="threads list|show <id>|save <json>|rm <id>"
@@ -89,7 +91,7 @@ mso_cli_main() {
       mso_cmd_runtime "$cmd" "$@" ;;
     ai|cockpit|threads|agent-sessions|agents|a2a|memory|config|prefs|models|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;
-    devices|device|approve|revoke|oauth|mcp|audit|whoami|login|logout|service|build|deploy|update|crud|api|completion)
+    devices|device|approve|revoke|oauth|mcp|audit|whoami|login|logout|service|build|deploy|update|reset|uninstall|crud|api|completion)
       mso_cmd_admin "$cmd" "$@" ;;
     help|-h|--help) usage; exit 0 ;;
     *) mso_cli_unknown "$cmd" ;;

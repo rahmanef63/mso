@@ -638,3 +638,7 @@ After install/update:
 7. if managed-app origins changed, sign in again and test each explicit app hostname;
 8. test Viewer/Operator/Owner route behaviour on separate devices when authorization changed;
 9. if Service Center changed, prove inventory, bounded logs, allowlist refusal/action and cache-only package visibility.
+
+## Reset and clean uninstall
+
+Use `mso reset` or `mso uninstall` for local, preview-first maintenance. Optional `--scope all`, `--purge` and `--remove-code` have distinct scopes and need an exact-plan confirmation. Read [maintenance and recovery](./MAINTENANCE.md) before applying. The legacy installer `--uninstall` keeps code and state; it is not a full purge. Bun >=1.2.15 is required for native dependency auditing.

@@ -69,17 +69,7 @@ const tableRule = `|---|---|${data.criteria.map(() => ":---:").join("|")}|`;
 const tableRows = data.products.map((product) =>
   `| **${escape(product.name)}** | ${escape(product.bestFor)} | ${data.criteria.map((criterion) => ratingLabel(product.ratings[criterion.id].value)).join(" | ")} |`
 );
-const compact = [
-  `**Positioning:** ${data.positioning}`,
-  "",
-  `Strong = a first-class product strength · Partial = available with scope limitations · Not offered = not a core product surface`,
-  "",
-  tableHeader,
-  tableRule,
-  ...tableRows,
-  "",
-  `Reviewed against official product documentation on **${data.reviewedAt}**. Ratings describe product scope, not benchmark scores. See [methodology, evidence, and per-cell notes](docs/COMPARISON.md) and the [execution roadmap](docs/COMPETITIVE-ROADMAP.md).`,
-].join("\n");
+const compact = `[Product comparison, evidence and limitations](docs/COMPARISON.md) · reviewed ${data.reviewedAt}.`;
 
 const start = "<!-- comparison:start -->";
 const end = "<!-- comparison:end -->";

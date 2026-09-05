@@ -6,18 +6,22 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
-function audit(report: string, code = 0, strict = true) {
+function audit(report: string, code = 0, strict = true, version = "1.3.14") {
   const root = mkdtempSync(path.join(tmpdir(), "mso-audit-contract-"));
   chmodSync(root, 0o700); roots.push(root);
   const bin = path.join(root, "bin"); mkdirSync(bin);
-  writeFileSync(path.join(bin, "bun"), `#!${process.execPath}\nprocess.stdout.write(process.env.FIXTURE_REPORT ?? '');\nprocess.stderr.write('private-registry-diagnostic');\nprocess.exit(Number(process.env.FIXTURE_EXIT));\n`, { mode: 0o700 });
+  writeFileSync(path.join(bin, "bun"), `#!${process.execPath}\nif(process.argv[2]==='--version'){console.log(process.env.FIXTURE_BUN_VERSION);process.exit(0)}\nprocess.stdout.write(process.env.FIXTURE_REPORT ?? '');\nprocess.stderr.write('private-registry-diagnostic');\nprocess.exit(Number(process.env.FIXTURE_EXIT));\n`, { mode: 0o700 });
   return spawnSync(process.execPath, [path.join(process.cwd(), "scripts/audit.mjs"), ...(strict ? ["--strict"] : [])], {
     encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env.PATH}`,
-      FIXTURE_REPORT: report, FIXTURE_EXIT: String(code) }, timeout: 10_000,
+      FIXTURE_BUN_VERSION: version, FIXTURE_REPORT: report, FIXTURE_EXIT: String(code) }, timeout: 10_000,
   });
 }
 
 describe("dependency audit evidence boundary", () => {
+  it("refuses Bun without native audit before any recursive script resolution", () => {
+    const result = audit("{}", 0, true, "1.2.14");
+    expect(result.status).toBe(2); expect(result.stderr).toContain("Bun >=1.2.15");
+  });
   it("accepts a successful empty advisory report", () => {
     const result = audit("{}"); expect(result.status).toBe(0); expect(result.stdout).toContain("(strict)");
   });

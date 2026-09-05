@@ -54,7 +54,7 @@ uses Git's shared hook path rather than assuming `.git` is a directory.
 
 `docs/comparison-data.json` is the only hand-edited comparison source. It records criterion
 definitions, per-product notes, official source URLs, and repository evidence for every MSO rating.
-Do not hand-edit the generated README table or `docs/COMPARISON.md`. After an implementation or
+Do not hand-edit the generated README comparison reference or `docs/COMPARISON.md`. After an implementation or
 source review:
 
 ```bash
