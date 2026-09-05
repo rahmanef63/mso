@@ -28,11 +28,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Scan Git history
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_VERSION: 8.30.1
+      - name: Scan all Git history including merge diffs
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" --network=none \
+            --cap-drop=ALL --security-opt=no-new-privileges --read-only \
+            -v "$PWD:/repo:ro" \
+            zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git --no-banner --redact --log-opts="--all --full-history --diff-merges=first-parent" \
+            --gitleaks-ignore-path /repo/.gitleaksignore /repo
 
   trivy:
     name: Trivy filesystem

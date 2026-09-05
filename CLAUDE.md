@@ -309,21 +309,22 @@ to `resources/` (rr) and drive any project from one manifest:
   They used to live in the untracked hook itself, which meant a fresh clone had NO
   gates and an sc-git hook reinstall silently dropped the audit + build guards while
   re-adding a `check-slices.mjs` line for a script deleted on 2026-08-03. Four guards
-  run, ~70 s per push: sc-git `ci.js --skip build` (Guard 1, falling back to `bun run
-  verify` when that shared runner is not on the machine — a fresh clone must not skip
-  it silently), `check-cycles.mjs` (1b), `scripts/audit.mjs` (1c),
-  `scripts/verify-build.sh` (1d). Guard 2 is a self-hosted-Convex auto-deploy that is
-  a silent no-op here. A healthy push prints `audit: clean at high/critical.` and
-  `build: HEAD compiles (out-of-tree).` — **if those two lines are missing, the wiring
-  is gone.** The `--skip build` is deliberate safety, not laziness (see Deploy/ops).
+  run the repository-owned `bun run verify`, cycle/docs/changelog checks, the local
+  strict high/critical audit, and `scripts/verify-build.sh`. There is no external sc-git runner
+  and no Convex auto-deploy tail. Hook installation resolves Git's hook path, including
+  linked worktrees. Build verification stays out-of-tree; never bypass gates.
 - **`bun run audit` ≠ `bun audit`.** The script is `scripts/audit.mjs`, which wraps
   `bun audit --json` because raw `bun audit` fails CLOSED — offline it exits 1, the
   same code as a real advisory, which would turn every network blip into a fake
   security failure. It skips when the registry is unreachable, applies a high/critical
   floor, and keeps an `IGNORE` map (keyed by GHSA, with a reason and a date) for
   advisories with no upstream fix. `--json` ignores `--audit-level`/`--ignore`, so the
-  filtering is done in the script. `ci.yml` runs the raw fail-closed command on
-  purpose: a release gate must not pass an audit it could not perform.
+  filtering is done in the script. `bun run audit:strict` fails closed on unavailable,
+  malformed or incomplete evidence and is mandatory inside `security:ultimate`. CI also
+  runs the raw fail-closed command: an incomplete audit is never a security pass.
+- **`bun run test:features` runs test areas separately.** PASS requires executed tests;
+  PARTIAL/SKIPPED evidence exits 2 and is listed explicitly. This is unit/integration
+  coverage, not proof that every UI workflow or third-party integration works.
 
 ## MCP server (`/mcp`) — optional, OFF by default
 An MCP endpoint so ChatGPT / Claude.ai / Cursor can drive the host. `lib/mcp/*`

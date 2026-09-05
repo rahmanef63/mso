@@ -89,6 +89,7 @@ prepare_osv() {
 }
 
 run_capture "repository verify" bun run verify
+run_capture "strict dependency audit" bun run audit:strict
 run_capture "installer syntax" bash -c 'bash -n scripts/install.sh && bash -n scripts/install-core.sh'
 run_capture "Trivy high/critical" docker run --rm -v "$SRC:/src:ro" "$TRIVY_IMAGE" \
   fs --scanners vuln,misconfig,secret --severity HIGH,CRITICAL --exit-code 1 /src
@@ -96,8 +97,11 @@ run_capture "OSV binary integrity" prepare_osv
 OSV_HOME="$RUN_DIR/osv-home"
 mkdir -p "$OSV_HOME"; chmod 700 "$OSV_HOME"
 run_capture "OSV dependencies" env HOME="$OSV_HOME" "$OSV_BIN" scan source --recursive "$SRC"
-run_capture "Gitleaks history" docker run --rm -v "$ROOT:/repo:ro" "$GITLEAKS_IMAGE" \
-  git --no-banner --redact --gitleaks-ignore-path /repo/.gitleaksignore /repo
+GIT_COMMON="$(git rev-parse --path-format=absolute --git-common-dir)"
+run_capture "Gitleaks history" docker run --rm --user "$(id -u):$(id -g)" \
+  -e GIT_DIR=/git -e GIT_WORK_TREE=/repo \
+  -v "$GIT_COMMON:/git:ro" -v "$ROOT:/repo:ro" "$GITLEAKS_IMAGE" \
+  git --no-banner --redact --log-opts="--all --full-history --diff-merges=first-parent" --gitleaks-ignore-path /repo/.gitleaksignore /repo
 run_capture "Semgrep OWASP/SAST" docker run --rm -v "$SRC:/src:ro" "$SEMGREP_IMAGE" \
   semgrep scan --metrics=off --config=p/javascript --config=p/typescript --config=p/owasp-top-ten --error /src
 
@@ -141,4 +145,4 @@ else
   printf '%-28s %s\n' "OWASP ZAP baseline" SKIPPED
 fi
 
-echo "security: ULTIMATE PASS"
+echo "security: selected lanes completed; review every PASS/SKIPPED status above"

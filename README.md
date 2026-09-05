@@ -1,58 +1,43 @@
 <h1 align="center">Manef Shell OS</h1>
-
-<p align="center"><strong>Your Linux server, finally usable from your phone.</strong></p>
+<p align="center"><strong>Your Linux server. One private workspace.</strong></p>
+<p align="center">A real terminal, files, system health, and an AI assistant — from your phone or desktop.</p>
 
 <p align="center">
-  Open a real terminal, manage files, inspect system health, and use AI from one private browser workspace.
+  <a href="#install">Install</a> ·
+  <a href="./docs/media/demo.gif">Watch the demo</a> ·
+  <a href="./docs/README.md">Documentation</a> ·
+  <a href="./SECURITY.md">Security</a>
 </p>
 
 <p align="center">
-  <a href="https://mso.rahmanef.com"><strong>Live instance</strong></a>
-  ·
-  <a href="./docs/media/demo.gif"><strong>Watch Demo</strong></a>
-  ·
-  <a href="#install"><strong>Install</strong></a>
+  <a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a>
+  <a href="https://github.com/rahmanef63/mso/actions/workflows/security-core.yml"><img alt="Security checks" src="https://github.com/rahmanef63/mso/actions/workflows/security-core.yml/badge.svg" /></a>
+  <img alt="App version" src="https://img.shields.io/github/package-json/v/rahmanef63/mso?label=app" />
+  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue" />
+  <img alt="Public Alpha — Developer Preview" src="https://img.shields.io/badge/status-Public_Alpha-orange" />
 </p>
 
-<p align="center">
-  <a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a>
-  <a href="https://github.com/rahmanef63/mso/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/rahmanef63/mso/actions/workflows/codeql.yml/badge.svg" /></a>
-  <a href="https://github.com/rahmanef63/mso/actions/workflows/security-core.yml"><img alt="Security Core" src="https://github.com/rahmanef63/mso/actions/workflows/security-core.yml/badge.svg" /></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/rahmanef63/mso"><img alt="OpenSSF Scorecard" src="https://api.scorecard.dev/projects/github.com/rahmanef63/mso/badge" /></a>
-  <img alt="Open Source" src="https://img.shields.io/badge/Open%20Source-MIT-green" />
-  <img alt="Self-hosted" src="https://img.shields.io/badge/Self--hosted-yes-2f7bf6" />
-  <img alt="Public Alpha" src="https://img.shields.io/badge/Public%20Alpha-Developer%20Preview-f59e0b" />
-  <img alt="Device roles" src="https://img.shields.io/badge/Device%20roles-Viewer%20%C2%B7%20Operator%20%C2%B7%20Owner-111827" />
-  <img alt="Tailscale recommended" src="https://img.shields.io/badge/Tailscale%20recommended-VPN%20first-7c3aed" />
-</p>
+![MSO browser workspace on desktop and mobile](./docs/media/mso-hero.webp)
 
-<p align="center">
-  <img alt="version" src="https://img.shields.io/github/package-json/v/rahmanef63/mso?label=version&color=2f7bf6" />
-  <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A520.9-3c873a?logo=nodedotjs&logoColor=white" />
-  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white" />
-  <img alt="React" src="https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white" />
-  <img alt="bun" src="https://img.shields.io/badge/bun-1.3-fbf0df?logo=bun&logoColor=black" />
-</p>
+**MSO is a self-hosted visual shell for a Linux server you own.** It runs as a normal,
+non-root Node process, without a required database or separate agent service. The browser,
+CLI, and optional MCP interface use the same guarded host capabilities.
 
-**Manef Shell OS** (**MSO** in the UI) is an open-source, mobile-friendly visual shell for a Linux server you own. It brings a real terminal, file manager, live system metrics, service/package visibility, device-scoped roles, and a BYOK AI assistant into one private browser workspace without running a full remote desktop.
-
-MSO is **Public Alpha / Developer Preview** software. It runs on top of Linux as a normal non-root Node process. It is not an operating system, Linux distribution, desktop environment, VPS provider, or production-grade security platform.
-
-**Version labels:** the badge and Settings → About show the MSO **app/package version**. The shell has a separately versioned **CLI contract** because older installs may receive CLI/update compatibility changes without an app-semver bump. `mso --version` labels both plus the Git build; `mso update status` uses the Git build as release authority, so commit-only updates never appear as a misleading same-version arrow.
-
-For a real deployment, put MSO behind **Tailscale, a VPN, or a TLS reverse proxy with tight access control**. Do not expose the raw app port to the public internet.
-
-**Security assurance:** MSO publishes its [security policy](./SECURITY.md) and [repeatable assurance process](./docs/SECURITY-ASSURANCE.md), with CodeQL, independent SAST/dependency/secret scanners, OpenSSF Scorecard, SBOM generation, passive OWASP ZAP checks, and MSO-specific security regression tests. The evidence is intentionally presented as testing—not as a security certification.
-
-## Product screenshot/video
-
-![Manef Shell OS running as a browser workspace on desktop and mobile](./docs/media/mso-hero.webp)
-
-<p align="center">
-  <img src="./docs/media/demo.gif" alt="MSO demo: Spotlight opening the System Monitor" width="720" />
-</p>
+> **Public Alpha / Developer Preview.** An Owner session or exec-scoped agent can execute
+> commands as the service user. Use a dedicated non-root account and a VPN or tightly protected
+> HTTPS proxy. MSO is not an operating system, a multi-tenant security boundary, or a certified security product.
 
 ## What you can do
+
+| Workspace | What it provides |
+|---|---|
+| **Operate your server** | Interactive PTY terminal, CPU/memory/disk metrics, service inventory and exact-allowlist lifecycle actions. |
+| **Work with files** | Browse, edit, upload, search, preview and organize files inside configured filesystem roots. |
+| **Work with AI** | Alfa browser cockpit, terminal agent, durable sessions, trusted skills, explicit mutation approvals and optional MCP access. |
+| **Use one responsive shell** | Desktop windows and mobile-first surfaces, media tools, a separate-origin browser and optional managed-app integrations. |
+
+<details>
+<summary><strong>Feature details and scoped benchmark evidence</strong></summary>
 
 **Control** — terminal, files, services, package visibility, and system health for the server you own.
 
@@ -92,31 +77,34 @@ The public Cognitive Runtime claim baseline was revalidated on **2026-09-04** ag
 
 The strongest currently revalidated MSO↔Hermes comparison is the exact P7+P8 **five-run, nine-scenario, matched `openai-codex/gpt-5.6-terra` corpus**: both agents are **5/5 perfect full runs**. On those exact runs, MSO observed **74.7% fewer normalized tokens/attempt**, **12.8% lower mean average latency**, and **34.1% lower mean per-run p50**. These are corpus-specific observations, **not** a claim that MSO is universally faster, smarter, cheaper, or more reliable. Cost is not ranked; cache-hit frequency is not ranked; OpenClaw is not ranked without an equivalent provider/model path. Older P4/P5 numeric tables remain historical release notes and are not the current public benchmark baseline because this audit could not independently revalidate the exact raw artifacts behind those specific numbers. See [Cognitive Runtime → Evidence status and claim boundaries](./docs/COGNITIVE-RUNTIME.md#evidence-status-and-claim-boundaries) and the versioned [claim-audit evidence manifest](./docs/evidence/cognitive-runtime-claim-audit-2026-09-04.json).
 
-## What can you do with MSO?
-
-**Fix a server issue from your phone**  
-Check system health, inspect a failed unit and its logs, restart an exact allowlisted service, or open the owner terminal without opening a laptop.
-
-**Manage project files visually**  
-Browse, upload, rename, preview, and edit files without remembering every shell command.
-
-**Work with your server in one workspace**  
-Move between terminal, files, metrics, services, package updates, browser, and AI without switching between several admin tools.
-
-## Live demo
-
-The public demo should be deployed from a separate checkout with:
-
-```bash
-NEXT_PUBLIC_OS_DEMO=1 bun run build && bun run start
-```
-
-Demo mode skips real login, forces mock data, blocks live host API access, and shows a permanent demo banner. Use it for Product Hunt traffic. A real owner deployment should stay behind Tailscale/VPN or a protected HTTPS proxy.
-
-- Live instance (the maintainer's own cockpit, auth-gated — not a demo): <https://mso.rahmanef.com>
-- Watch demo: [docs/media/demo.gif](./docs/media/demo.gif)
+</details>
 
 ## Install
+
+Run on your Linux server as your **normal user, not root**. Review the
+[bootstrap](./scripts/install.sh) and [installation guide](./docs/INSTALL.md) before executing:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
+```
+
+The bootstrap verifies the downloaded installer core before running it. The guided setup
+handles credentials through hidden prompts; never paste secrets into chat or command arguments.
+The default bind is **127.0.0.1**. Keep the raw application port private.
+
+```bash
+mso doctor             # verify the installation
+mso web                # open the browser workspace
+mso                    # open the terminal agent
+mso update             # update an existing installation safely
+```
+
+Already installed but missing `mso update`? Re-run the official installer. It preserves
+`.env.local` and `~/.mso`, detects the existing service checkout, and refuses dirty/diverged source.
+An agent can follow the same repository-owned installation contract; no parallel setup is needed.
+
+<details>
+<summary><strong>Full setup: onboarding, WSL, providers, tunnels and installer options</strong></summary>
 
 ### Install or update with an AI agent
 
@@ -314,9 +302,11 @@ mso gateway domain set https://mso.example.com
 # create/configure the named Cloudflare Tunnel using the example printed above, then:
 mso gateway start --config ~/.cloudflared/config.yml --tunnel mso
 
-If another gateway is already active, stop it first with `mso gateway stop`. MSO refuses to silently ignore explicit named-tunnel arguments or switch tunnel modes underneath an active endpoint.
 mso web
 ```
+
+If another gateway is already active, stop it first with `mso gateway stop`. MSO refuses to silently ignore explicit named-tunnel arguments or switch tunnel modes underneath an active endpoint.
+
 
 `mso gateway domain set` updates `OS_PUBLIC_ORIGIN` atomically and prints a loopback-only ingress
 example. Named mode accepts only a dedicated two-rule config (`your hostname → MSO loopback`, then
@@ -368,7 +358,37 @@ the session cookie is `Secure`, so the browser cannot keep the login there. Full
 TLS/VPN notes, filesystem roots, update/rollback and onboarding details live in
 [docs/INSTALL.md](./docs/INSTALL.md).
 
+</details>
+
+## How it works
+
+```mermaid
+flowchart LR
+  USER["Browser / CLI / MCP client"] --> AUTH["Authentication + role / scope"]
+  AUTH --> MSO["MSO · Next.js / Node"]
+  MSO --> HOST["Guarded host capabilities"]
+  HOST --> FILES["Files · PTY · metrics · services"]
+  MSO --> AI["Optional model provider"]
+  MSO --> APPS["Optional managed apps · separate runtimes"]
+```
+
+Core persistence is local. Optional model-provider calls send the selected context off-host;
+**BYOK does not mean the data stays on your server**. Files and model output are untrusted input,
+not permission to execute a command. See [architecture](./docs/ARCHITECTURE.md) and
+[the AI/tool contract](./frontend/slices/assistant/CONTRACT.md).
+
 ## CLI
+
+```bash
+mso -h                 # discover commands
+mso stats              # inspect system health
+mso ls ~/projects      # browse a configured filesystem root
+mso model              # select a connected model
+mso --continue         # resume the latest durable agent session
+```
+
+<details>
+<summary><strong>More CLI examples and integration notes</strong></summary>
 
 The browser UI is one frontend, not the product. The installer puts `mso` on your
 `PATH`, and it reaches the same API — every endpoint has a named verb, and `mso api`
@@ -411,7 +431,21 @@ different secrets file. Device and service commands work even while the service 
 down. If you use [Claude Code](https://claude.com/claude-code), the installer also
 links every committed official skill in `claude-skills/` into `~/.claude/skills/`. Create a consistent workflow skill with `bun run skill:new -- --help` and validate the catalog with `bun run skill:check`.
 
+</details>
+
 ## Security warning
+
+**The terminal and exec-scoped tools are not sandboxes.** Device roles narrow API access,
+but every role shares one deployment and the same underlying Unix service account.
+MCP is disabled unless explicitly enabled. Approve only trusted devices and tokens; keep
+filesystem write roots narrow and read the exact command on every approval card.
+
+Security checks are evidence at a particular revision, not a guarantee. The project has
+**not had an independent third-party security audit**. Read the [security policy](./SECURITY.md)
+and [repeatable assurance process](./docs/SECURITY-ASSURANCE.md) before exposing an instance.
+
+<details>
+<summary><strong>Full trust boundaries, provider data handling and operational controls</strong></summary>
 
 An authenticated **Owner** session can read allowed files and run commands as the Unix user that owns the process. Viewer and Operator devices are server-gated to narrower surfaces, but all roles still share one MSO deployment and one underlying Unix account.
 
@@ -437,31 +471,39 @@ An authenticated **Owner** session can read allowed files and run commands as th
 
 More detail: [SECURITY.md](./SECURITY.md), [docs/FAQ.md](./docs/FAQ.md) and [docs/INSTALL.md](./docs/INSTALL.md).
 
-## How it works
+</details>
 
-MSO is a single Next.js app that runs on your server as one non-root Node process. The app talks to host capabilities through local server routes and keeps features as vertical slices under `frontend/slices/<slug>/`.
+## Development
 
-```mermaid
-flowchart LR
-  U["Phone / Browser"]
-  subgraph VPS["Your Linux server"]
-    APP["MSO / mso<br/>Next.js 16 · React 19"]
-    HOST["Host layer<br/>fs · PTY · metrics · services · packages"]
-    SLICES["Feature slices<br/>Files · Terminal · Monitor · Assistant"]
-    AI["Alfa AI<br/>BYOK"]
-    MANAGED["Managed apps<br/>Hermes · OpenClaw · 9Router<br/>own runtime + data"]
-  end
-  U -->|"HTTPS or Tailscale/VPN"| APP
-  U -->|"framed dashboard, per-app origin<br/>same process, different origin"| APP
-  APP --> HOST
-  APP --> SLICES
-  APP --> AI
-  APP -->|"their CLI · loopback HTTP · systemd"| MANAGED
+The reference runtime is **Node 22** (`.nvmrc`); use **Bun** for dependency installation and
+`bun.lock` for reproducibility. Run local development only on a trusted machine.
+
+```bash
+bun install --frozen-lockfile
+cp .env.example .env.local  # configure local credentials; never commit this file
+bun run dev
 ```
 
-Deep dive: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
+```bash
+bun run verify             # typecheck, lint, coverage, architecture/docs, local audit
+bun run test:features       # separate test process for each area; reports coverage gaps
+bun run audit:strict        # unavailable/malformed dependency evidence fails closed
+bash scripts/verify-build.sh  # compile committed HEAD out-of-tree, not over a live build
+```
+
+`bun run test` uses Vitest. **Do not substitute `bun test`**, which uses a different runner.
+The ordinary local audit can explicitly skip an unavailable registry; it is not security proof.
+Use the strict audit and the [security lanes](./docs/SECURITY-ASSURANCE.md) for release assurance.
+
+**Version contracts are independent:** `package.json` owns the app version, `bin/mso`
+owns CLI compatibility, and `lib/mcp/toolset.ts` owns MCP server/toolset compatibility.
+`mso --version` labels app, CLI and Git build; the updater uses the exact Git build as release authority.
+A documentation/security-maintenance change does not invent a new MCP tool contract.
 
 ## Comparison
+
+<details>
+<summary><strong>Product scope comparison — methodology and limitations included</strong></summary>
 
 <!-- comparison:start -->
 **Positioning:** MSO is designed as a mobile-first, AI-native private Linux workspace for an owner or small trusted team. It does not claim to replace specialist products at their strongest specialty.
@@ -484,29 +526,12 @@ Strong = a first-class product strength · Partial = available with scope limita
 Reviewed against official product documentation on **2026-08-29**. Ratings describe product scope, not benchmark scores. See [methodology, evidence, and per-cell notes](docs/COMPARISON.md) and the [execution roadmap](docs/COMPETITIVE-ROADMAP.md).
 <!-- comparison:end -->
 
-## Development
-
-```bash
-bun install
-cp .env.example .env.local
-bun run dev
-```
-
-Quality gates:
-
-```bash
-bun run verify              # typecheck + lint + test + checks + audit
-node scripts/check-docs.mjs   # docs links/toolset/slice drift
-node scripts/gen-comparison.mjs --check  # comparison evidence + 90-day freshness
-bash scripts/verify-build.sh   # build HEAD out-of-tree — safe on the prod checkout
-bash -n scripts/install.sh && bash -n scripts/install-core.sh
-```
-
-The package manager is **bun** (`bun.lock` is committed); the **runtime stays Node 22** — `next`, `tsc`, `eslint` and `vitest` all carry a `#!/usr/bin/env node` shebang and bun honours it, and production runs `npm run start`. Use bun so the lockfile and the native `node-pty` build path stay predictable: `node-pty` has no Linux prebuild and is listed under `trustedDependencies`, without which its postinstall is skipped and the whole `/api/v1` surface fails to load.
-
-Full guide: [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md).
+</details>
 
 ## Tested platforms
+
+<details>
+<summary><strong>Linux / WSL deployment support and untested platforms</strong></summary>
 
 Not yet formally tested across a full distro matrix.
 
@@ -527,34 +552,24 @@ Not currently supported:
 - Automatic service install on non-systemd hosts
 - Root deployment
 
+</details>
+
 ## Documentation
 
-| Doc | What's in it |
+| Start here | Reference |
 |---|---|
-| [docs/README.md](./docs/README.md) | Documentation map: current reference vs generated vs historical |
-| [docs/INSTALL.md](./docs/INSTALL.md) | Server install, credentials, TLS/VPN, update/rebuild, persistence |
-| [docs/CLI.md](./docs/CLI.md) | Generated `mso` command-line reference |
-| [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | Local dev, gates and exact release flow |
-| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Current AppShell/host/MCP/managed-app architecture |
-| [docs/COGNITIVE-RUNTIME.md](./docs/COGNITIVE-RUNTIME.md) | Provider-neutral agent session/context/tool-routing architecture and benchmark contract |
-| [docs/COMPARISON.md](./docs/COMPARISON.md) | Generated comparison methodology, evidence and per-cell notes |
-| [docs/COMPETITIVE-ROADMAP.md](./docs/COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate boundaries and next measurable investments |
-| [docs/MANAGED-APPS.md](./docs/MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, update, backup/restore and origins |
-| [docs/INFRASTRUCTURE-PROVIDERS.md](./docs/INFRASTRUCTURE-PROVIDERS.md) | MSO terminal agent and Dokploy/Cloudflare/Hostinger deployment-provider contract |
-| [docs/HERMES-INTEGRATION.md](./docs/HERMES-INTEGRATION.md) | Hermes-specific managed-app behaviour |
-| [docs/OPENCLAW-INTEGRATION.md](./docs/OPENCLAW-INTEGRATION.md) | OpenClaw-specific managed-app behaviour |
-| [docs/9ROUTER-INTEGRATION.md](./docs/9ROUTER-INTEGRATION.md) | 9Router immutable-image ownership, loopback default and explicit dashboard exposure |
-| [docs/MODELS-INTEGRATION.md](./docs/MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex model credentials |
-| [docs/MCP.md](./docs/MCP.md) | MCP/OAuth tools, discovery, workflow memory and security internals |
-| [docs/CHATGPT-PLUGIN.md](./docs/CHATGPT-PLUGIN.md) | ChatGPT Plugin/custom MCP app setup + architecture/OAuth/tool/file diagrams |
-| [docs/FAQ.md](./docs/FAQ.md) | Security, product and operator boundaries |
-| [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | Current symptom → cause → supported recovery |
-| [SECURITY.md](./SECURITY.md) | Security posture and vulnerability reporting |
+| Install, update, recover | [Installation](./docs/INSTALL.md) · [Troubleshooting](./docs/TROUBLESHOOTING.md) |
+| Use the CLI or connect MCP | [Generated CLI reference](./docs/CLI.md) · [MCP](./docs/MCP.md) · [ChatGPT integration](./docs/CHATGPT-PLUGIN.md) |
+| Understand the runtime | [Architecture](./docs/ARCHITECTURE.md) · [Cognitive Runtime](./docs/COGNITIVE-RUNTIME.md) |
+| Contribute or review security | [Contributing](./CONTRIBUTING.md) · [Development](./docs/DEVELOPMENT.md) · [Security](./SECURITY.md) |
+| Browse everything | [Documentation map](./docs/README.md) · [Changelog](./docs/CHANGELOG.md) |
 
-## Status
+The [maintainer's instance](https://mso.rahmanef.com) requires authentication; it is **not a public demo**.
+The [recorded demo](./docs/media/demo.gif) is available without access to a real server.
+A separate mock-only demo must keep `NEXT_PUBLIC_OS_DEMO=1` at build time and bind to loopback
+unless its owner explicitly publishes it; never enable demo mode on an owner deployment.
 
-MSO is **Public Alpha / Developer Preview**. The core role-aware auth, filesystem bounds, terminal, metrics, Service Center, and slice architecture are implemented, but the project is still early and unaudited. Expect rough edges, breaking changes, and missing production hardening.
+## Status and license
 
-## License
-
-MIT — see [LICENSE](./LICENSE).
+**Public Alpha / Developer Preview** — expect rough edges and breaking changes.
+MIT licensed; see [LICENSE](./LICENSE).

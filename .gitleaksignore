@@ -1,3 +1,5 @@
+# Exact historical redaction-test fixtures only; no production credentials.
+# Do not add broad rules/path exclusions. Verify this allowlist against an unignored scan.
 71a430389e0c5c2d7ba93f760e4ff7c786a412cf:lib/managed-apps/redact.test.ts:generic-api-key:39
 71a430389e0c5c2d7ba93f760e4ff7c786a412cf:lib/managed-apps/redact.test.ts:generic-api-key:41
 71a430389e0c5c2d7ba93f760e4ff7c786a412cf:lib/managed-apps/redact.test.ts:generic-api-key:42

@@ -4,6 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+const appVersion: string = JSON.parse(fs.readFileSync(path.join(__dirname, "../package.json"), "utf8")).version;
+
 const cli = [
   fs.readFileSync(path.join(__dirname, "../bin/mso"), "utf8"),
   fs.readFileSync(path.join(__dirname, "../scripts/cli/onboarding.sh"), "utf8"),
@@ -47,7 +49,7 @@ describe("terminal onboarding contract", () => {
 case "$*" in
   *api/auth/login*) printf '{"success":true}\n200' ;;
   *api/auth/me*) printf '{"role":"owner"}\n200' ;;
-  *) printf '{"status":"ok","buildId":"fixture","runtimeInstanceId":"fixture","version":"0.2.1"}\n' ;;
+  *) printf '{"status":"ok","buildId":"fixture","runtimeInstanceId":"fixture","version":"${appVersion}"}\n' ;;
 esac
 `, { mode: 0o700 });
     try {
@@ -79,7 +81,7 @@ esac
 case "$*" in
   *api/auth/login*) body='{"success":true}' ;;
   *api/auth/me*) body='{"authenticated":true,"role":"owner"}' ;;
-  *) body='{"status":"ok","service":"mso","buildId":"fixture","buildSha":"abcdef1","runtimeInstanceId":"fixture","version":"0.2.1"}' ;;
+  *) body='{"status":"ok","service":"mso","buildId":"fixture","buildSha":"abcdef1","runtimeInstanceId":"fixture","version":"${appVersion}"}' ;;
 esac
 case "$*" in *'-w '*) printf '%s\n200' "$body" ;; *) printf '%s' "$body" ;; esac
 `, { mode: 0o700 });

@@ -28,7 +28,9 @@ TMP="$(mktemp -d)"   # 0700
 trap 'rm -rf "$TMP"' EXIT
 
 git -C "$REPO" archive HEAD | tar -x -C "$TMP"
-cp -a "$REPO/node_modules" "$TMP/node_modules"
+# Copy the contents, resolving a worktree's top-level dependency symlink only.
+mkdir "$TMP/node_modules"
+cp -a "$REPO/node_modules/." "$TMP/node_modules/"
 
 cd "$TMP"
 # nice/ionice: this box also serves prod. A build gate must not starve :4005.

@@ -52,7 +52,7 @@ async function mintSession() {
   if (!r.ok) throw new Error(`login failed (${r.status}) — is the device approved? ${DEVICE}`);
   const raw = r.headers.get("set-cookie") ?? "";
   const value = /(?:^|,\s*)session=([^;]+)/.exec(raw)?.[1];
-  if (!value) throw new Error(`login 200 but no session cookie in: ${raw.slice(0, 120)}`);
+  if (!value) throw new Error("login 200 but no session cookie was returned");
   sessionValue = value;
   return value;
 }
@@ -68,7 +68,7 @@ const TITLES = {
   files: "Files", browser: "Camoufox", code: "Code", terminal: "Terminal", claude: "Claude Code",
   studio: "Image Editor", reel: "Video Editor", viewer: "Preview", store: "App Store", create: "Create App",
   monitor: "System Monitor", assistant: "Alfa", links: "Quicklinks", docs: "Docs", settings: "Settings",
-  hermes: "Hermes", openclaw: "OpenClaw", "9router": "9Router",
+  hermes: "Hermes", openclaw: "OpenClaw", "9router": "9Router", dokploy: "Dokploy", cloudflare: "Cloudflare",
 };
 
 const IGNORE = [
@@ -171,9 +171,10 @@ async function session(browser, { width, height, label, touch = width < 768, exp
     await page.goto(`${BASE}/?redirectUrl=${encodeURIComponent(chatUrl)}`, { waitUntil: "domcontentloaded" });
     await page.waitForURL((url) => url.pathname === "/assistant/mcp", { timeout: 5_000 });
     await page.locator("[data-window]").first().waitFor({ state: "visible", timeout: 5_000 });
-    const mcpVisible = await page.getByText("MCP Activity", { exact: true }).first().isVisible().catch(() => false);
+    const activity = page.getByText("Activity & Runs", { exact: true }).first();
+    const mcpVisible = await activity.waitFor({ state: "visible", timeout: 10_000 }).then(() => true).catch(() => false);
     check(page.url().includes("/assistant/mcp"), "ChatGPT Open in MSO lands on /assistant/mcp");
-    check(mcpVisible, "ChatGPT Open in MSO visibly opens Alfa MCP Activity");
+    check(mcpVisible, "ChatGPT Open in MSO visibly opens Alfa Activity & Runs");
   }
 
   // ── open every app by DEEP LINK rather than by clicking the dock.
@@ -187,7 +188,7 @@ async function session(browser, { width, height, label, touch = width < 768, exp
   // this app render", and conflating them made both unreliable.
   const nativeSlugs = [
     "files", "browser", "code", "terminal", "claude", "studio", "reel", "viewer",
-    "store", "create", "monitor", "assistant", "links", "docs", "settings",
+    "store", "create", "monitor", "assistant", "links", "docs", "settings", "dokploy", "cloudflare",
   ];
   for (const slug of nativeSlugs) {
     await page.goto(`${BASE}/${slug}`, { waitUntil: "domcontentloaded" });

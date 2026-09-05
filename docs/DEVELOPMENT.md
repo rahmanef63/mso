@@ -23,7 +23,9 @@ Every feature is a self-contained **vertical slice** under `frontend/slices/<slu
 ## Quality gates
 
 ```bash
-bun run verify              # fast/full repository quality gate
+bun run verify              # full repository quality gate
+bun run test:features        # one process per area; exit 2 means skipped/incomplete evidence
+bun run audit:strict         # fail closed on missing/malformed dependency evidence
 bun run security:ultimate   # release assurance: independent scanners + component security review + DAST
 ```
 
@@ -31,13 +33,19 @@ The **committed source of truth** for pre-push policy is `scripts/gates.sh`. The
 actual `.git/hooks/pre-push` file is an intentionally tiny untracked shim; reinstall it
 idempotently with `bash scripts/gates.sh --install`.
 
-The gate runs typecheck/lint/test (shared sc-git runner when present, otherwise the
-in-repo verify path), cycle checks, generated-changelog freshness, documentation/skill checks,
-comparison evidence/freshness, the high/critical dependency audit, and an out-of-tree production
+The gate runs the repository-owned `bun run verify`, cycle checks, generated-changelog freshness, documentation/skill checks,
+comparison evidence/freshness, the strict high/critical dependency audit, and an out-of-tree production
 build.
 `check-contrast.mjs` is informational. None of the build verification touches the live
 checkout's `.next`. A healthy push ends with `audit: clean at high/critical.` and
 `build: HEAD compiles (out-of-tree).`
+
+The local dependency audit may explicitly skip an unavailable registry; that is not a security pass.
+`bun run audit:strict`, the pre-push gate, and the assurance runner reject incomplete evidence. `test:features` distinguishes
+PASS, PARTIAL, SKIPPED and FAIL; slices without colocated unit tests are listed as coverage gaps,
+not invented successes. Browser rendering and live third-party operations need separate acceptance.
+The gate has no sibling-repository runner or dormant Convex deployment step. Worktree hook installation
+uses Git's shared hook path rather than assuming `.git` is a directory.
 
 
 ## Comparison governance
