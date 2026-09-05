@@ -6,8 +6,12 @@ API key or an organization API key; these are separate setup methods.
 
 ## Browser and terminal
 
-Open `/api/integrations/setup` on your MSO origin, sign in as an owner in another
-tab when needed, select the provider, then choose **Start secure setup**. The form
+Open `/integrations` on your MSO origin. The page checks your live session and
+disables **Open secure form** until the device has Owner permission. Provider
+guides remain readable before sign-in. Open MSO sign-in in another tab, then return;
+focus/visibility refreshes the session, with **Check sign-in again** as a fallback.
+Choose the provider and authentication method, then open its secure form. The old
+`/api/integrations/setup` URL remains compatible. The form
 includes official links, expandable instructions, masked inputs with show/hide,
 and **Validate & save**. Existing stored values are never displayed; blank fields
 keep them unchanged. A rejected or unreachable provider does not replace them.
@@ -44,9 +48,16 @@ ChatGPT → integration_setup_open(provider, method)
           provider validation → private MSO store
 ```
 
+Page v4 keeps explicit public browser links and provider guides visible even when
+a cached chat cannot call the new setup tool. A missing tool or missing private
+metadata no longer replaces the whole page with an error. A server update does
+not itself refresh the client catalog; reconnect MSO to load new actions.
+Older Page resource URIs resolve to the current resource without adding a third
+UI type.
+
 The grant reaches the UI through hidden MCP `_meta`. A WeakMap keeps it out of
 ordinary result serialization and non-ChatGPT model transports. The UI supports
-both standards-based MCP Apps initialization and ChatGPT's canonical metadata
+standards-based MCP Apps initialization and ChatGPT's canonical metadata
 envelope. Credential values never enter `tools/call`, `ui/message`, widget state,
 local storage, or session storage. Buttons do not require iframe `allow-forms`;
 reference links use the host's approved external-link bridge.
