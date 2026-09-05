@@ -25,6 +25,10 @@ The standing baseline is informed by **OWASP ASVS 5.0.0**. MSO does not claim an
 
 All GitHub Actions referenced by the repository are pinned to immutable commit SHAs. Scanner containers used by the reproducible local gate are pinned to image digests. Managed-app release identities are separately recorded in `security/managed-app-artifacts.env`, while the core public-gateway client is recorded in `security/gateway-artifacts.env`; moving tags are never accepted as execution identities.
 
+## Actual open-alert inventory
+
+`Security alert inventory` uses the repository-scoped GitHub Actions token with read-only security permissions to enumerate and paginate default-branch alerts and their affected instances. It fails for any remaining open finding, or when the inventory/scan evidence cannot be read. It never dismisses alerts or changes scan configuration. Its status is deliberately separate from a successful CodeQL analysis job. The job logs and summary expose rule/path/severity evidence, never bearer credentials or secret-scanning values. `node scripts/security-alerts.mjs --inventory` is an explicit collection-only mode, not release clearance.
+
 ## GitHub security controls
 
 The public repository enables:

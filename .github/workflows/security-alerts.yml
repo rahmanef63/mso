@@ -1,0 +1,39 @@
+name: Security alert inventory
+
+on:
+  push:
+    branches: [main, "security/**"]
+  workflow_run:
+    workflows: [CodeQL, Scorecard]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-alert-inventory-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: Open default-branch security findings
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: read
+    steps:
+      - name: Checkout trusted repository revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Report real open alerts and fail when findings remain
+        run: node scripts/security-alerts.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
