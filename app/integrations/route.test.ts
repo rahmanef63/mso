@@ -9,7 +9,7 @@ describe("friendly native Integrations page", () => {
     expect(response.status).toBe(200); expect(response.headers.get("referrer-policy")).toBe("no-referrer");
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(html).toContain("INTEGRATIONS_CATALOG"); expect(html).toContain('"id":"supabase"');
-    expect(html).toContain("Step by step: get this credential"); expect(html).not.toContain("si-coder");
+    expect(html).toContain("How to get this credential / authorization"); expect(html).not.toContain("si-coder");
     expect(() => new Function(html.match(/<script nonce="[^"]+">([\s\S]*)<\/script>/)![1])).not.toThrow();
   });
   it("lets the trusted HTML endpoint own its nonce while retaining owner mutation CSRF checks", async () => {

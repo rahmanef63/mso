@@ -53,14 +53,20 @@ function safeAppResult(raw){
 }
 function openPath(path){setMsoTarget(validRoute(path)?path:"/assistant/mcp")}
 function applyHostGlobals(){
-  const api={...hostContext,...(window.openai||{})};
+  const api=hostConnected?{...(window.openai||{}),...hostContext}:{...hostContext,...(window.openai||{})};
   applyHostTheme();
   const max=Number(api.maxHeight);document.documentElement.style.setProperty("--host-max-h",Number.isFinite(max)&&max>180?Math.floor(max)+"px":"680px");
   const safe=api.safeArea||{};for(const [key,value] of [["top",safe.top],["right",safe.right],["bottom",safe.bottom],["left",safe.left]]){const n=Number(value);document.documentElement.style.setProperty("--safe-"+key,Number.isFinite(n)?Math.max(0,n)+"px":"0px")}
-  modeEl.textContent=text(api.displayMode,"inline");
+  const mode=["inline","fullscreen","pip"].includes(api.displayMode)?api.displayMode:"inline";
+  document.documentElement.dataset.displayMode=mode;
+  modeEl.textContent=mode;fsBtn.textContent=mode==="fullscreen"?"Exit fullscreen":"Fullscreen";
+  fsBtn.setAttribute("aria-label",mode==="fullscreen"?"Exit fullscreen":"Fullscreen");
 }
 async function displayMode(mode){
-  try{if(hostConnected){await rpcRequest("ui/request-display-mode",{mode})}else{if(!window.openai||typeof window.openai.requestDisplayMode!=="function")throw new Error("unsupported");await window.openai.requestDisplayMode({mode})}}catch(_){modeEl.textContent=mode+" unavailable"}
+  try{const target=mode==="fullscreen"&&document.documentElement.dataset.displayMode==="fullscreen"?"inline":mode;let result;
+  if(hostConnected){result=await rpcRequest("ui/request-display-mode",{mode:target});if(result&&["inline","fullscreen","pip"].includes(result.mode||result.displayMode))hostContext={...hostContext,displayMode:result.mode||result.displayMode};}
+  else{if(!window.openai||typeof window.openai.requestDisplayMode!=="function")throw new Error("unsupported");result=await window.openai.requestDisplayMode({mode:target});}
+  applyHostGlobals();}catch(_){modeEl.textContent=mode+" unavailable"}
 }
 function persistRoute(){
   try{if(window.openai&&typeof window.openai.setWidgetState==="function")window.openai.setWidgetState({modelContent:"MSO Page: "+current.route,privateContent:{route:current.route},imageIds:[]})}catch(_){}

@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.12.0 version=2026.09.05.7 tools=92 read=45 write=28 exec=19 -->
+<!-- mcp-toolset: server=1.12.0 version=2026.09.05.8 tools=95 read=46 write=29 exec=20 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.12.0` |
-| Toolset | `2026.09.05.7` |
-| Toolset changed at | `2026-09-05T13:00:00Z` |
-| Transport tools | **94** |
-| Model/operator tools | **92** |
-| Read | **45** |
-| Write | **28** |
-| Exec | **19** |
+| Toolset | `2026.09.05.8` |
+| Toolset changed at | `2026-09-05T14:05:00Z` |
+| Transport tools | **97** |
+| Model/operator tools | **95** |
+| Read | **46** |
+| Write | **29** |
+| Exec | **20** |
 | App-only bridges | **2** |
 
-### Read (45)
+### Read (46)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -41,6 +41,7 @@
 - `fs_usage`
 - `infra_provider_doctor`
 - `infra_providers_list`
+- `integration_query`
 - `local_agent_inbox`
 - `local_agent_request_wait`
 - `local_agents_list`
@@ -66,7 +67,7 @@
 - `tool_forge_candidates`
 - `vps_status`
 
-### Write (28)
+### Write (29)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -84,6 +85,7 @@
 - `fs_upload_file`
 - `fs_write`
 - `hostinger_dns_upsert`
+- `integration_manage`
 - `integration_setup_open`
 - `local_agent_message_send`
 - `local_agent_reply`
@@ -97,7 +99,7 @@
 - `workflow_finish`
 - `workflow_start`
 
-### Exec (19)
+### Exec (20)
 
 - `a2a_handoff`
 - `a2a_message_send`
@@ -107,6 +109,7 @@
 - `exec_job_cancel`
 - `exec_job_start`
 - `exec_run`
+- `integration_execute`
 - `local_agent_request`
 - `project_agent_run`
 - `project_database_call`
@@ -126,20 +129,20 @@
 
 ## ChatGPT static profile
 
-<!-- mcp-chatgpt-profile: server=1.12.0 version=2026.09.05.7 tools=68 read=36 write=20 exec=12 app-only=2 total=70 -->
+<!-- mcp-chatgpt-profile: server=1.12.0 version=2026.09.05.8 tools=71 read=37 write=21 exec=13 app-only=2 total=73 -->
 
 The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_NAMES`. OAuth scope is still enforced independently; project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **70** |
-| ChatGPT model/operator tools | **68** |
-| Read | **36** |
-| Write | **20** |
-| Exec | **12** |
+| ChatGPT transport tools | **73** |
+| ChatGPT model/operator tools | **71** |
+| Read | **37** |
+| Write | **21** |
+| Exec | **13** |
 | App-only bridges | **2** |
 
-### ChatGPT read (36)
+### ChatGPT read (37)
 
 - `agent_session_current`
 - `apps_list`
@@ -155,6 +158,7 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `fs_usage`
 - `infra_provider_doctor`
 - `infra_providers_list`
+- `integration_query`
 - `local_agent_inbox`
 - `local_agent_request_wait`
 - `local_agents_list`
@@ -178,7 +182,7 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `sys_stats`
 - `vps_status`
 
-### ChatGPT write (20)
+### ChatGPT write (21)
 
 - `agent_session_rename`
 - `apps_power`
@@ -191,6 +195,7 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `fs_upload_file`
 - `fs_write`
 - `hostinger_dns_upsert`
+- `integration_manage`
 - `integration_setup_open`
 - `local_agent_message_send`
 - `local_agent_reply`
@@ -201,12 +206,13 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `workflow_finish`
 - `workflow_start`
 
-### ChatGPT exec (12)
+### ChatGPT exec (13)
 
 - `browser_power`
 - `exec_job_cancel`
 - `exec_job_start`
 - `exec_run`
+- `integration_execute`
 - `project_agent_run`
 - `project_database_call`
 - `project_database_query`

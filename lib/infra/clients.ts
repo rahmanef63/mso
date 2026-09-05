@@ -1,3 +1,5 @@
+import { currentIntegrationSelection, resolveIntegration } from "./connection-service";
+import { verifyExternalIntegration } from "./connection-external";
 import { doctorAdditionalProvider } from "./additional-doctor";
 import { readInfraProvider } from "./store";
 import type { InfraDoctorResult, InfraProviderId, InfraProviderValues } from "./types";
@@ -12,6 +14,9 @@ export { upsertHostingerDns } from "./hostinger";
 
 export async function doctorInfraProvider(id: InfraProviderId, candidate?: InfraProviderValues): Promise<InfraDoctorResult> {
   try {
+    if(!candidate){
+      try{const route=await resolveIntegration(id,currentIntegrationSelection());if(route.source!=="direct")return { ...await verifyExternalIntegration(id,{user:route.user,connection:route.id}), id };}catch(error){if(!["connection_not_found","user_required"].includes((error as Error).message))throw error;}
+    }
     const detail = id === "dokploy"
       ? await doctorDokploy(candidate)
       : id === "cloudflare"

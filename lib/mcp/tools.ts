@@ -1,3 +1,4 @@
+import { INTEGRATION_TOOLS } from "./tools-integrations";
 import { SESSION_ARTIFACT_TOOLS } from "./tools-session-artifacts";
 import { sessionArtifactEnvironment } from "@/lib/agent/artifact-session";
 import { writeFileGuarded, makeDir, remove, move, copy } from "@/lib/host/fs-api";
@@ -230,4 +231,4 @@ const MUTATE_TOOLS: McpTool[] = [
   },
 ];
 
-export const TOOLS: McpTool[] = [...SESSION_ARTIFACT_TOOLS, ...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...AGENT_TOOLS, ...LOCAL_AGENT_TOOLS, ...SUBAGENT_TOOLS, ...A2A_TOOLS, ...FORGE_TOOLS, ...READ_PIPELINE_TOOLS, ...PROJECT_MCP_TOOLS, ...PROJECT_EXPERIENCE_TOOLS, ...OPERATOR_DASHBOARD_TOOLS, ...BLOCK_TOOLS, ...SURFACE_TOOLS, ...INFRA_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
+export const TOOLS: McpTool[] = [...SESSION_ARTIFACT_TOOLS, ...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...AGENT_TOOLS, ...LOCAL_AGENT_TOOLS, ...SUBAGENT_TOOLS, ...A2A_TOOLS, ...FORGE_TOOLS, ...READ_PIPELINE_TOOLS, ...PROJECT_MCP_TOOLS, ...PROJECT_EXPERIENCE_TOOLS, ...OPERATOR_DASHBOARD_TOOLS, ...BLOCK_TOOLS, ...SURFACE_TOOLS, ...INFRA_TOOLS, ...INTEGRATION_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));

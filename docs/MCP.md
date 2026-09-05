@@ -712,3 +712,7 @@ entrypoint is `/integrations`; Page v5 retains previous resource aliases.
 
 `session_artifacts` lists or reads this client’s session screenshots/JSON reports. `session_artifact_register` registers bounded browser outputs from the injected `MSO_SCREENSHOT_DIR`; `session_artifacts_cleanup` previews or applies dormant-session retention. `agent_session_current` returns computed temp/manifest locations. See [Session artifacts](./SESSION-ARTIFACTS.md) for the single shared storage policy and trust boundary.
 
+
+Native named integrations use `integration_query`, `integration_manage`, and
+`integration_execute`. `integration_setup_open` now requires user/provider/connection.
+See [Integrations](INTEGRATIONS.md) for the shared identity, migration and secret boundaries.

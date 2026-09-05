@@ -3,7 +3,7 @@ export const MSO_PAGE_BRIDGE_SCRIPT = String.raw`
 let hostConnected=false, hostContext={}, lastOutputKey="", viewCleanup=()=>{};
 let lastPageSize="";
 function reportPageSize(){
-  if(!hostConnected)return;const root=document.querySelector(".surface");if(!root)return;
+  if(!hostConnected||document.documentElement.dataset.displayMode==="fullscreen")return;const root=document.querySelector(".surface");if(!root)return;
   const rect=root.getBoundingClientRect(),style=getComputedStyle(document.body);
   const height=Math.ceil(rect.height+(parseFloat(style.paddingTop)||0)+(parseFloat(style.paddingBottom)||0));
   const width=Math.ceil(document.documentElement.clientWidth),key=width+","+height;

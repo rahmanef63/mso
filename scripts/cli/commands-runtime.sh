@@ -9,6 +9,7 @@ case "$cmd" in
   model) run_model_setup "$@" ;;
   setup) run_onboard "${1-}" ;;
   onboard) run_onboard "${1-}" ;;
+  integrations) run_integrations "$@" ;;
   provider|providers) run_provider "$@" ;;
 
   # ── local/public gateway + browser launcher ───────────────────────────────

@@ -4,21 +4,9 @@ vi.mock("server-only", () => ({}));
 const { TOOLS } = await import("./tools");
 const { HOST_TOOLS } = await import("@/frontend/slices/assistant/host-tools/catalog");
 
-// THE GATE. Alfa and MCP are two catalogs on purpose — different transport,
-// different guard (an approval card vs a scope tier), different handlers — and
-// unifying them was considered and rejected: they share zero names, zero
-// descriptions and zero handlers, so a shared registry would be an abstraction
-// with two divergent consumers.
-//
-// What they must NOT do is drift by ACCIDENT, which is exactly what happened:
-// MCP shipped apps_logs / apps_power / browser_status / browser_power and Alfa
-// silently had less reach over the box than a remote ChatGPT connector, while
-// Alfa's apps.list had been answering "no apps installed" for months. Nobody
-// decided either one.
-//
-// So: every capability must appear in BOTH catalogs, or be listed below with a
-// reason. Adding a tool to one surface alone fails this test until someone writes
-// down why.
+// Every capability must be available through both MCP and Alfa, or explicitly
+// justify the deliberate identity/transport boundary below. Different adapters
+// are not permission to let their executable capabilities drift accidentally.
 
 /** MCP is snake_case, Alfa is dot.case. Same capability, different convention. */
 const capability = (name: string) => name.replace(/[._]/g, ".");
@@ -33,6 +21,10 @@ const ALFA_ONLY: Record<string, string> = {
 };
 
 const MCP_ONLY: Record<string, string> = {
+  "integration.query":"Native credential profiles are managed by owner browser/CLI and external agents; Alfa has no independent credential-owner identity and must not invent one",
+  "integration.manage":"Same credential-owner boundary; browser and CLI use the shared native action service with confirmation rather than duplicating it in Alfa",
+  "integration.execute":"External deployment agents require explicit account selection; the native owner UI/CLI share the executor without exposing keys to Alfa",
+
   "session.artifacts": "CLI/MCP durable-session artifact records use the authenticated client principal; Alfa browser threads have a separate identity and must not inherit another session's files",
   "session.artifact.register": "same durable-session boundary; external browser producers stage files under session context rather than accepting arbitrary paths",
   "session.artifacts.cleanup": "same session store; bounded retention is controlled by the authenticated external/CLI principal, not unrelated Alfa thread state",
@@ -189,7 +181,7 @@ describe("MCP rate limits mirror the routes", () => {
       "projects.mcp.call": 30,
       "skills.list": 30,
       "skills.read": 60,
-      "integration.setup": 10,
+      "integration.setup": 10, "integration.manage":30, "integration.execute":30,
       "infra.dokploy": 20,
       "infra.cloudflare": 20,
       "infra.hostinger": 10,

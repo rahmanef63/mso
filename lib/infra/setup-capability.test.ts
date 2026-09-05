@@ -14,10 +14,18 @@ beforeEach(async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
 });
 afterEach(async () => { vi.unstubAllGlobals(); delete process.env.OS_INFRA_STORE; await fs.rm(root, { recursive: true, force: true }); vi.resetModules(); });
+async function openBound(api:typeof import("./setup-capability"), method="project", principal="test-owner") {
+  const {integrationManage}=await import("./connection-manage");const {readIntegrationState}=await import("./connection-storage");
+  let state=await readIntegrationState();const user=state.defaultUser??"test-user";
+  if(!state.users[user])await integrationManage({action:"user.create",confirm:true,user});
+  state=await readIntegrationState();const id=Object.values(state.users[user].connections.composio??{}).find(c=>c.authMethod===method)?.id??method;
+  if(!state.users[user].connections.composio?.[id])await integrationManage({action:"connection.create",confirm:true,user,provider:"composio",connection:id,authMethod:method});
+  return api.openIntegrationSetup("composio",principal,method,{user,connection:id});
+}
 describe("native integration setup capabilities", () => {
   it("binds a hashed, owner-only, expiring grant to a provider/method", async () => {
     const api = await import("./setup-capability");
-    const grant = await api.openIntegrationSetup("composio", "test-owner", "project");
+    const grant = await openBound(api);
     expect(grant.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     const file = path.join(root, "integration-setup", createHash("sha256").update(grant.token).digest("hex") + ".json");
     expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
@@ -29,7 +37,7 @@ describe("native integration setup capabilities", () => {
   });
   it("verifies candidates before saving and returns no secrets", async () => {
     const api = await import("./setup-capability"), store = await import("./store");
-    const grant = await api.openIntegrationSetup("composio", "test-owner");
+    const grant = await openBound(api);
     const output = await api.consumeIntegrationSetup(grant.token, { apiKey: ` ${KEY} ` });
     expect(output.verified).toBe(true); expect(JSON.stringify(output)).not.toContain(KEY);
     expect((await store.readInfraProvider("composio")).apiKey).toBe(KEY);
@@ -40,7 +48,7 @@ describe("native integration setup capabilities", () => {
     const api = await import("./setup-capability"), store = await import("./store");
     await store.setInfraProvider("composio", { apiKey: "original_synthetic_key_keep_me" });
     vi.stubGlobal("fetch", vi.fn(async () => new Response(KEY, { status: 403 })));
-    const grant = await api.openIntegrationSetup("composio", "test-owner");
+    const grant = await openBound(api);
     for (let i = 0; i < 5; i++) await expect(api.consumeIntegrationSetup(grant.token, { apiKey: KEY })).rejects.toMatchObject({ code: "credential_validation_failed" });
     await expect(api.consumeIntegrationSetup(grant.token, { apiKey: KEY })).rejects.toMatchObject({ status: 401 });
     expect((await store.readInfraProvider("composio")).apiKey).toBe("original_synthetic_key_keep_me");
@@ -48,17 +56,17 @@ describe("native integration setup capabilities", () => {
   });
   it("expired grants and concurrent replays fail closed", async () => {
     const api = await import("./setup-capability");
-    const expired = await api.openIntegrationSetup("composio", "test-owner");
+    const expired = await openBound(api);
     const file = path.join(root, "integration-setup", createHash("sha256").update(expired.token).digest("hex") + ".json");
     const row = JSON.parse(await fs.readFile(file, "utf8")); row.expiresAt = Date.now() - 1; await fs.writeFile(file, JSON.stringify(row));
     await expect(api.describeIntegrationSetup(expired.token)).rejects.toMatchObject({ status: 401 });
-    const grant = await api.openIntegrationSetup("composio", "test-owner");
+    const grant = await openBound(api);
     const results = await Promise.allSettled([api.consumeIntegrationSetup(grant.token, { apiKey: KEY }), api.consumeIntegrationSetup(grant.token, { apiKey: KEY })]);
     expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
   });
   it("organization keys use the correct header and are masked in summaries", async () => {
     const api = await import("./setup-capability"), store = await import("./store");
-    const grant = await api.openIntegrationSetup("composio", "test-owner", "organization");
+    const grant = await openBound(api,"organization");
     await api.consumeIntegrationSetup(grant.token, { orgApiKey: KEY });
     const [url, options] = vi.mocked(fetch).mock.calls[0];
     expect(String(url)).toContain("/api/v3.1/org/owner/project/list"); expect(options?.headers).toEqual({ "x-org-api-key": KEY });

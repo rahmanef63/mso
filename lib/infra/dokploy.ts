@@ -24,10 +24,10 @@ async function call(endpoint: string, method = "GET", body?: unknown): Promise<u
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       }, TIMEOUT_MS, dokployFetch);
       if (res.ok) return res.body;
-      if (res.status !== 429 && res.status < 500) throw new Error(`Dokploy HTTP ${res.status}: ${res.text.slice(0, 300)}`);
+      if (res.status !== 429 && res.status < 500) throw new Error(`Dokploy HTTP ${res.status}`);
       last = new Error(`Dokploy HTTP ${res.status}`);
     } catch (error) {
-      last = error as Error;
+      last = new Error(/^Dokploy HTTP \d{3}$/.test((error as Error).message)?(error as Error).message:"Dokploy request failed");
     }
     if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
   }
