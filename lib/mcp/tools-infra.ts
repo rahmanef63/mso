@@ -1,5 +1,5 @@
 import { doctorInfraProvider, ensureDokployProject, INFRA_PROVIDER_IDS, isInfraProviderId, listCloudflareZones, listDokployProjects, readInfraProvider, summarizeInfraProvider, upsertCloudflareDns, upsertHostingerDns } from "@/lib/infra";
-import { type McpTool, opt, S, str } from "./tool-kit";
+import { type McpTool, S, str } from "./tool-kit";
 
 const dnsSchema = {
   name: { type: "string", description: "Fully-qualified DNS hostname, e.g. app.example.com" },

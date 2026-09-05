@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const TEMPLATE = "{id}.mso.rahmanef.com";
-const APP_HOST_HEADER = "x-os-managed-app-host";
 
 async function loadProxy(template: string) {
   vi.resetModules();

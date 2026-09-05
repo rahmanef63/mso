@@ -22,6 +22,8 @@ Every feature is a self-contained **vertical slice** under `frontend/slices/<slu
 
 ## Quality gates
 
+TypeScript enforces `noUnusedLocals` and `noUnusedParameters`. Remove genuinely unused imports/declarations; keep required side effects and use an explicit `_` prefix only for positional interface/callback arguments.
+
 ```bash
 bun run verify              # full repository quality gate
 bun run test:features        # one process per area; exit 2 means skipped/incomplete evidence

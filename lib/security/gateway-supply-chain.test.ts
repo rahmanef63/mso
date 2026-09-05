@@ -17,10 +17,6 @@ const snapshot = (file: string) => {
     return { mode: stat.mode & 0o777, text: fs.readFileSync(fd, "utf8") };
   } finally { fs.closeSync(fd); }
 };
-const appendNoFollow = (file: string, value: string) => {
-  const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW);
-  try { fs.writeSync(fd, value); } finally { fs.closeSync(fd); }
-};
 
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 

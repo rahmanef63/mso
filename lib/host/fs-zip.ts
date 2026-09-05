@@ -16,7 +16,7 @@
 // only NARROW the archive (never widen access), so they're low-risk, but each is
 // still a safe basename.
 import { spawn } from "child_process";
-import { createReadStream, promises as fsp } from "fs";
+import { promises as fsp } from "fs";
 import os from "os";
 import path from "path";
 import type { Readable } from "stream";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { AppShell, type AppDescriptor, type ShellManifest } from "@/features/appshell";
+import { AppShell, type ShellManifest } from "@/features/appshell";
 import {
   A11yCommands,
   TOPSIDE_BRAND,

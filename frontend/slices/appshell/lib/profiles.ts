@@ -1,6 +1,5 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import type { PersistedWindow } from "./types";
 import { hydrate, serialize } from "./store";
 import { getShellPrefs, setShell, type ShellPrefs } from "../registry/shells";

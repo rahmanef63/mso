@@ -5,8 +5,6 @@
 
 import type { Clip, Composition, MediaType } from "./mock-timeline";
 
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-
 /** Per-clip audio envelope at clip-local frame `l`: gain × fade-in × fade-out. */
 export function clipEnvelope(c: Clip, l: number): number {
   const vol = c.mute ? 0 : c.vol ?? 1;

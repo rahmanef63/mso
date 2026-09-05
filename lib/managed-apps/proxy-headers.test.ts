@@ -10,7 +10,6 @@ import {
 } from "./proxy-headers";
 
 const PREFIX = proxyPrefix("hermes");
-const PREFIX_URL = `https://mso.rahmanef.com${PREFIX}/`;
 
 describe("buildUpstreamHeaders", () => {
   const base = new URL("http://127.0.0.1:9119");

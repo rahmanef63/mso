@@ -8,6 +8,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ManagedAppJob } from "./types";
 
 vi.mock("server-only", () => ({}));
 
@@ -17,10 +18,9 @@ vi.mock("server-only", () => ({}));
 delete process.env.HERMES_HOME;
 delete process.env.OPENCLAW_HOME;
 
-const { cachedUpdateStatus, checkUpdate, setChannel, startRollback, startUninstall, startUpdate } = await import("./update");
+const { checkUpdate, setChannel, startRollback, startUninstall, startUpdate } = await import("./update");
 const { readManagedAppJob, listManagedAppJobs } = await import("./jobs");
 const { listBackups } = await import("./backups");
-import type { ManagedAppJob } from "./types";
 
 let home: string;
 let bin: string;

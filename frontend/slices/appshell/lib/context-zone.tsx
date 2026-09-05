@@ -10,7 +10,7 @@
 
    The <ContextMenuHost> (mounted once at #main-content) does the walking + owns
    the shared <ContextMenu> renderer. See context-menu-host.tsx. */
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { MenuItem, ContextMenuCtx } from "./context-menu";
 
 // A provider gets the shell ctx (id/surface/x/y) PLUS the node the click hit

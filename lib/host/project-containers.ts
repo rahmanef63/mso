@@ -23,7 +23,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { isCredentialPath, isUnderRoot } from "./paths";
-import { PROJECT_LIMITS, shortId, type AuthorizedRoot } from "./project-identity";
+import { shortId, type AuthorizedRoot } from "./project-identity";
 import { allConfiguredRoots, authorizedRoots } from "./project-authorized-roots";
 
 export { allConfiguredRoots, authorizedRoots };

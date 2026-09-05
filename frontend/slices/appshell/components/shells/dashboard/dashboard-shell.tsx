@@ -10,7 +10,6 @@
 import { useMemo, useState } from "react";
 import { useUrlHome } from "../../../hooks/use-url-home";
 import { LayoutDashboard, Home, Search } from "lucide-react";
-import { useShellConfig } from "../../../registry/shell-config";
 import { useBrand } from "../../../registry/brand";
 import { useApps } from "../../../lib/registry";
 import { useWindowOrder, useFocused, useWindow, useWindowsMap } from "../../../hooks/use-shell";

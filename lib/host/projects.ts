@@ -1,4 +1,3 @@
-import { promises as fs } from "fs";
 import path from "path";
 import { normalizeProjectKey, projectAliasesFor, projectAliasTarget } from "./project-aliases";
 import { boundedGitMeta, fullGitMeta, packageMeta } from "./project-meta";

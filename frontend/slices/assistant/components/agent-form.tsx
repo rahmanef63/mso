@@ -3,9 +3,6 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { AGENT_COLORS, SKILL_ICONS } from "../lib/presets";
 import type { AIStore } from "../lib/store";
 import { OS_TOOLS } from "../lib/tools";

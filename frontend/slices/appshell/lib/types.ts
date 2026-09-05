@@ -1,5 +1,4 @@
 import type { ComponentType, CSSProperties } from "react";
-import type { LucideIcon } from "lucide-react";
 
 /** The glyph contract <AppIcon> renders against — the subset of LucideProps it
  *  actually passes, so a plain component can stand in for a lucide icon. */

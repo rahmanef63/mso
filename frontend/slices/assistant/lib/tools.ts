@@ -1,5 +1,5 @@
 import { HOST_TOOLS } from "../host-tools/catalog";
-import type { Agent, Skill, Tool, ToolGroup } from "./types";
+import type { Tool, ToolGroup } from "./types";
 
 // Presentation for the Agents / Skills / Automations editors. Groups only — the
 // tools themselves come from the executable catalog below.

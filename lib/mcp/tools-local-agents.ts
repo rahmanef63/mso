@@ -1,5 +1,5 @@
 import { listLocalAgents } from "@/lib/agent/local-agent-directory";
-import { listLocalAgentInbox, updateLocalAgentMessageState } from "@/lib/agent/local-agent-mailbox";
+import { updateLocalAgentMessageState } from "@/lib/agent/local-agent-mailbox";
 import { replyLocalAgentMessage, sendLocalAgentMessage, waitForLocalAgentInbox, waitForLocalAgentReply } from "@/lib/agent/local-agent-messaging";
 import { handoffOwnerLocalSession } from "@/lib/a2a/local-session";
 import { type McpRunContext, type McpTool, S, str } from "./tool-kit";

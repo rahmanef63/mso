@@ -20,7 +20,6 @@ import { useWindowOrder, useFocused, useWindow } from "../../../hooks/use-shell"
 import { shellStore, openWindow, focusApp, minimizeWindow, restoreWindow, toggleSpotlight, toggleInspector } from "../../../lib/store";
 import { WindowContent } from "../../window-content";
 import { Slot } from "../../../registry/feature-registry";
-import { useShellConfig } from "../../../registry/shell-config";
 import { ShellUIProvider, type ShellUI } from "../../../registry/shell-ui";
 import { Clock } from "../../clock";
 import { AppCell, AppDrawer, NavBar, Recents } from "./android-parts";

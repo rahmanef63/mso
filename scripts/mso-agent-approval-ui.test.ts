@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { canonicalAgentApproval, matchesAgentApproval } from "../lib/agent/approval.mjs";
-import { approvalActionSummary, approvalArgsSummary, approvalDetailLines, approvalStatusLine, requestExactToolApproval } from "./mso-agent-approval-ui.mjs";
+import { approvalArgsSummary, approvalDetailLines, approvalStatusLine, requestExactToolApproval } from "./mso-agent-approval-ui.mjs";
 
 describe("compact exact-call approval UX", () => {
   const tool = { name: "exec_run", scope: "exec" };

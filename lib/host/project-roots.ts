@@ -19,7 +19,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { validateProjectChild } from "./project-candidate";
-import { decodeCursor, encodeCursor } from "./project-cursor";
+import { encodeCursor } from "./project-cursor";
 import {
   allConfiguredRoots, overflowRoots, projectContainers,
   PROJECT_LIMITS, type ProjectContainer, type ScanCursor, type ScanReport,

@@ -67,7 +67,7 @@ export function forgeSandboxImageEvidence(): { image: string; imageId: string } 
 export async function runForgeFixture(projectPath: string, spec: ForgeFunctionSpec, fixture: ForgeFixture): Promise<{ code: number; stdout: string; stderr: string; sandboxImageId: string }> {
   const resolved = await validateForgeCommand(projectPath, spec);
   const projectReal = await fs.realpath(projectPath);
-  const { image, imageId } = forgeSandboxImageEvidence();
+  const { imageId } = forgeSandboxImageEvidence();
   const relScript = path.relative(projectReal, resolved.script);
   if (!relScript || relScript.startsWith("..") || path.isAbsolute(relScript)) throw new Error("forge script escaped project snapshot");
   const sandboxScript = `/workspace/${relScript.split(path.sep).join("/")}`;

@@ -4,7 +4,6 @@
 // under the 200-line rule, and because this half has the load-bearing history: the
 // migration below is what stops a returning user's saved data from being silently
 // emptied when the tool catalogs changed shape.
-import type { Agent, Automation, Skill } from "./types";
 import { PRESET_AGENTS } from "./presets";
 import { OS_TOOLS } from "./tools";
 

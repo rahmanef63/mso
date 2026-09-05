@@ -138,7 +138,6 @@ describe("splitAt", () => {
   it("splitting within produces two clips with correct start/len", () => {
     const r = splitAt(comp, 30, "c1");
     expect(r.clips).toHaveLength(3);
-    const [a, b] = r.clips.filter((c) => c.track === "t1" && c.id === "c1" || r.clips.indexOf(c) < 2);
     // left part: start=0, len=30
     const left = r.clips.find((c) => c.id === "c1")!;
     expect(left.start).toBe(0);

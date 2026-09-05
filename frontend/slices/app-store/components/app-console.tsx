@@ -32,7 +32,7 @@ export function AppConsole({ m }: { m: AppManifest }) {
     text
       .replace(/\n$/, "")
       .split("\n")
-      .filter((_, i, a) => !(a.length === 1 && a[0] === ""))
+      .filter((_, _index, a) => !(a.length === 1 && a[0] === ""))
       .map((text) => ({ kind, text }));
 
   const onRun = async () => {

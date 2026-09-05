@@ -12,7 +12,6 @@ import { MobileSwitcher } from "./mobile-switcher";
 import { MobileHome } from "./mobile-home";
 import { MobileNotifications } from "./mobile-notifications";
 import { Slot } from "../registry/feature-registry";
-import { useShellConfig } from "../registry/shell-config";
 import { ShellUIProvider, type ShellUI } from "../registry/shell-ui";
 import { useMobileNavigationInfo } from "../lib/mobile-navigation";
 import { IosFeatureHeader } from "./shells/ios/ios-feature-header";

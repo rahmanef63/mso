@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, PlugZap, RefreshCw, ShieldCheck, TerminalSquare } from "lucide-react";
+import { Bot, PlugZap, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SettingsBlock, SettingsSection } from "@/features/shell-settings";
 import { cn } from "@/lib/utils";

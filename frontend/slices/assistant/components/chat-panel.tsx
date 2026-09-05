@@ -5,15 +5,12 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
-  useRef,
-  useState,
-  type Ref,
+  useRef, type Ref
 } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { errText } from "./error-text";
 import {
-  registerAlfaRunner,
   updateAlfa,
   useActiveShell,
   useAlfaMessages,
@@ -23,7 +20,7 @@ import {
   useAlfaBusy,
   sendToAlfa,
   ChatComposer,
-  type AlfaMessage,
+  type AlfaMessage
 } from "@/features/appshell";
 import { runToolAgent, useOsApi, type AgentMsg } from "../lib/host";
 import type { Agent, Automation } from "../lib/types";

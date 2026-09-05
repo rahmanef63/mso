@@ -4,8 +4,7 @@ import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { createCorpus, scratchIsPrivate } from "./bench-agent-corpus-fixtures.mjs";
-import { aggregateAgent, comparabilityLevel, eligibleRanking, extractModelEvidence, extractToolTelemetry, extractUsage } from "./bench-agent-metrics.mjs";
-import { buildCorpusPlan, interleaveCorpusPlans, scoreScenario, summarizeCorpus } from "./bench-agent-corpus.mjs";
+import { buildCorpusPlan, interleaveCorpusPlans, scoreScenario } from "./bench-agent-corpus.mjs";
 
 const dirs: string[] = [];
 afterEach(() => { while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true }); });

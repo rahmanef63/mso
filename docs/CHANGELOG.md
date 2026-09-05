@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `security` harden share audit and release verification
 
+**Changed**
+
+- remove unused symbols and enforce compiler checks
+
 ## 2026-09-04
 
 **Added**

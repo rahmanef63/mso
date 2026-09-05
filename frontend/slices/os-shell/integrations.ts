@@ -7,17 +7,13 @@
 import { Activity, Expand, FilePlus, FolderPlus, Link2, Lock, RotateCcw, Shrink, Wallpaper as WallpaperIcon } from "lucide-react";
 import {
   lock,
-  openWindow,
-  registerCommands,
-  registerAlfaLoader,
+  openWindow, registerAlfaLoader,
   registerContextMenu,
   resetDesktopIcons,
   setAddDialog,
   setShell,
   setUnlockGuard,
-  shellsForSurface,
-  toast,
-  type MenuItem,
+  shellsForSurface, type MenuItem
 } from "@/features/appshell";
 
 // @ agents and / skills+tools for every AI composer. Registered here rather than

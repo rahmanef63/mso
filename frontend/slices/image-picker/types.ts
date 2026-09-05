@@ -7,7 +7,6 @@
  *  profile header, card hero, wallpaper, … */
 
 export type { ImageSource, ImageValue, ImageField } from "@/lib/contracts/image";
-import type { ImageValue } from "@/lib/contracts/image";
 
 export interface UnsplashPhoto {
   id: string;

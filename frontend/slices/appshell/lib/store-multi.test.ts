@@ -94,7 +94,7 @@ describe("closeWindow focus transfer", () => {
     // then close it — focus must fall to the next-highest-z (middle one),
     // not to the youngest (which was created last but never re-focused).
     const a = openWindow("settings", "Settings"); // created first
-    const b = openWindow("monitor", "Monitor");
+    openWindow("monitor", "Monitor"); // keep the middle window and its z-order side effect
     const c = openWindow("files", "Files", undefined, { path: "/x" }, { multi: true });
     focusWindow(a); // a now has the top z
     expect(shellStore.getFocused()).toBe(a);

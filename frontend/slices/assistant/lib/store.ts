@@ -3,7 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import type { Agent, Automation, Skill } from "./types";
 import { PRESET_AGENTS, PRESET_AUTOMATIONS, PRESET_SKILLS } from "./presets";
-import { KEYS, load, loadActive, migrateRows, persist } from "./store-persist";
+import { KEYS, load, loadActive, persist } from "./store-persist";
 
 const uid = () => crypto.randomUUID().slice(0, 8);
 

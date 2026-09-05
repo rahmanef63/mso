@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
-vi.mock("server-only", () => ({}));
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
+vi.mock("server-only", () => ({}));
 
 // Same fixture as tools-discovery.test.ts (see its header). This half covers
 // skills_read: exact ids, ambiguity refusal, and fail-closed symlink roots.
@@ -61,8 +61,6 @@ const tool = (name: string) => {
 };
 const run = (name: string, args: Record<string, unknown> = {}) => tool(name).run(args, { scope: "read" as const });
 
-type SkillRow = { id: string; trust: string; instructionsReadable: boolean; project?: { id: string; name: string } };
-type Scan = { truncated: boolean; truncationReasons: string[] };
 
 afterAll(async () => {
   if (previous === undefined) delete process.env.OS_FS_READ_ROOTS;

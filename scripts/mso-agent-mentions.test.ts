@@ -25,7 +25,7 @@ describe("local agent @mention routing", () => {
   it("dispatches a mention as a correlated request and persists the parent request", async () => {
     const history: unknown[] = [];
     const session = { agentSession: { id: "session-a" }, history };
-    const api = vi.fn(async (path: string, init?: RequestInit) => {
+    const api = vi.fn(async (_path: string, init?: RequestInit) => {
       if (!init?.method) return { agents: rows };
       const body = JSON.parse(String(init.body));
       expect(body).toMatchObject({ target: "session-b", intent: "request", requiresUserRelay: true, activeOnly: true });
