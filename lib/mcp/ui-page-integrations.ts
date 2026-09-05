@@ -19,7 +19,7 @@ async function integrationTool(name,args){
 function renderIntegrations(){
   const back=()=>{integrationAccess=null;lastOutputKey="";current={route:"/integrations",kind:"integrations",title:"Integrations",openPath:"/integrations",catalog:[]};render()};
   if(current.setup){captureIntegrationAccess(window.openai?.toolResponseMetadata);viewCleanup=mountIntegrationForm(body,current.setup,{...(integrationAccess||{}),onBack:back,openLink:openIntegrationReference,openBrowser:()=>openIntegrationReference(INTEGRATION_BROWSER)})||(()=>{});return}
-  const bridge={remember:s=>integrationSelection=s,openLink:openIntegrationReference,
+  const bridge={openTransferBrowser:()=>openIntegrationReference(INTEGRATION_BROWSER+"?transfer=1"),remember:s=>integrationSelection=s,openLink:openIntegrationReference,
     query:async args=>(await integrationTool("integration_query",args)).data,
     manage:async args=>{const{response,data}=await integrationTool("integration_manage",args);const meta=privateIntegrationMeta(response,"integrationAuthorization")||privateIntegrationMeta(window.openai?.toolResponseMetadata,"integrationAuthorization");return{...data,...(meta?.url?{privateUrl:meta.url}:{})}},
     execute:async args=>(await integrationTool("integration_execute",args)).data,

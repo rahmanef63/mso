@@ -21,6 +21,23 @@ The actual GitHub alert inventory exposed 22 default-branch findings, unlike the
 ## 2026-09-05 — MCP Page preview lifecycle
 
 
+## 2026-09-05 — Deliberate JSON portability between independent credential stores
+
+Users appearing in SC but not MSO were a data-transfer gap, not a Git clone issue.
+Add a versioned integration-bundle contract and standalone native adapters instead
+of reading SC's private storage from MSO. Default metadata export carries no field
+values. Optional authenticated encrypted JSON is handled only by hidden local
+input or a dedicated Owner browser endpoint, never MCP secret arguments.
+
+Preview binds the input/options and destination state. Imports create profiles and
+named connections without overwriting existing identities, activating defaults or
+copying OAuth sessions. Mappings preserve provider/auth semantics and supported
+fields; unsupported data is visible and requires explicit acceptance. Browser UI
+and each project's CLI use their own core. Other project receivers still need an
+adapter and tenant/role checks. Tests cover both encryption failures and actual
+SC→MSO→SC roundtrip plus browser upload/download using isolated synthetic stores.
+
+
 ## 2026-09-05 — Native named-connection identity, not parallel credential forms
 
 The provider-only Integrations store could not represent multiple deployments or

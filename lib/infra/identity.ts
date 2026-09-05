@@ -57,7 +57,7 @@ export function metadataOnly(value: unknown, depth = 0): void {
   if (depth > 12) throw new IntegrationError("metadata_too_deep");
   if (!value || typeof value !== "object") return;
   for (const [k,v] of Object.entries(value)) {
-    if (/^(values?|secrets?|secretValue|password|token|apiKey|apiToken|accessToken|refreshToken|authorization|headers|__proto__|constructor|prototype)$/i.test(k)) throw new IntegrationError("secret_input_forbidden");
+    if (/^(values?|secrets?|secretValue|password|passphrase|token|apiKey|apiToken|accessToken|refreshToken|authorization|headers|__proto__|constructor|prototype)$/i.test(k)) throw new IntegrationError("secret_input_forbidden");
     metadataOnly(v,depth+1);
   }
 }

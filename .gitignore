@@ -45,3 +45,7 @@ camoufox-profile*/
 # Python icon-generator bytecode.
 __pycache__/
 *.py[cod]
+
+# Local integration-transfer artifacts (never commit personal exports)
+*.integration-bundle.json
+*.integration-bundle.enc.json

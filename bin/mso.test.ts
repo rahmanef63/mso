@@ -106,6 +106,7 @@ describe("bin/mso", () => {
     // OAuth is NOT here any more: it is a device-code POST, not a redirect, so
     // `mso oauth <provider> start|poll` covers it.
     const browserOnly = [
+      "POST /api/v1/integrations/transfer", // File/passphrase input belongs to the authenticated browser, opened by mso integrations transfer.
       // Credential input is delegated to a write-only browser capability; the
       // named CLI setup verb opens that form without placing keys in shell/tool JSON.
       "POST /api/integrations/setup",
