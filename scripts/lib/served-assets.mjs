@@ -41,3 +41,25 @@ export async function verifyServedStaticAssets(baseUrl) {
   }
   return { assetCount: assets.length, assets };
 }
+
+/** A new systemd MainPID does not imply that Next has started listening yet. */
+export async function waitForServedRoot(baseUrl, timeoutMs = 30_000, retryDelayMs = 250) {
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60_000 ||
+      !Number.isInteger(retryDelayMs) || retryDelayMs < 1 || retryDelayMs > 1_000) {
+    throw new Error("HTTP readiness requires a bounded timeout (1..60000ms) and retry delay (1..1000ms)");
+  }
+  const base = new URL(baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
+  if (!["http:", "https:"].includes(base.protocol)) throw new Error("HTTP readiness requires http or https");
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(base, { cache: "no-store", signal: AbortSignal.timeout(Math.max(1, Math.min(8_000, deadline - Date.now()))) });
+      const ready = response.ok;
+      await response.body?.cancel();
+      if (ready) return;
+    } catch { /* Cold start / connection refusal: retry only within the deadline. */ }
+    const remaining = deadline - Date.now();
+    if (remaining > 0) await new Promise(resolve => setTimeout(resolve, Math.min(retryDelayMs, remaining)));
+  }
+  throw new Error(`root HTTP did not become ready within ${timeoutMs}ms`);
+}
