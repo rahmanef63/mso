@@ -34,6 +34,13 @@ jobs:
         with:
           node-version: 22
       - name: Report real open alerts and fail when findings remain
-        run: node scripts/security-alerts.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            node scripts/security-alerts.mjs --ref "$GITHUB_REF"
+          else
+            node scripts/security-alerts.mjs
+          fi
         env:
           GITHUB_TOKEN: ${{ github.token }}
