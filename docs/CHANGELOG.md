@@ -19,6 +19,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` key portable import preview confirmations
 - `mcp` render one bounded inline Page preview
 - preserve home-relative stores and prove tunnel rollback completion
 - `security` verify exact branch dispositions and narrow message origins

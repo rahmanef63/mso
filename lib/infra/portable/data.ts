@@ -1,4 +1,4 @@
-import {createHash,randomUUID} from 'node:crypto';
+import {createHmac,randomBytes,randomUUID} from 'node:crypto';
 import * as codec from './codec.js';
 import {FIELD_MAP,wireMethod,nativeMethod} from './mapping';
 import {readIntegrationState,mutateIntegrationState} from '../connection-storage';
@@ -6,6 +6,10 @@ import {connectionMethod} from '../connection-registry';
 import {IntegrationError,identity,type IntegrationState} from '../identity';
 import {isInfraProviderId,normalizeInfraValues} from '../catalog';
 export type TransferOptions={users?:string[];includeSecrets?:boolean;passphrase?:string;prefix?:string;policy?:'skip'|'error';apply?:boolean;confirm?:string;acceptWarnings?:boolean};
+// Preview confirmation must bind the exact decrypted bundle without exposing an
+// unkeyed digest of credential values as an offline guessing oracle. A process-local
+// random key intentionally invalidates pending previews after a server restart.
+const PLAN_KEY=randomBytes(32);
 export async function exportIntegrationData(options:TransferOptions={}){
   const state=await readIntegrationState(),ids=options.users??Object.keys(state.users);
   if(!Array.isArray(ids)||ids.some(id=>!Object.hasOwn(state.users,identity(id))))throw new IntegrationError('unknown_export_user');
@@ -37,7 +41,7 @@ function previewIn(bundle:codec.Bundle,options:TransferOptions,state:Integration
     }
   }
   // Exclude random empty-store instance IDs; bind the preview to all persisted destination data.
-  const planId=createHash('sha256').update(JSON.stringify([bundle,prefix,policy,state.users,state.defaultUser,state.bindings])).digest('hex');
+  const planId=createHmac('sha256',PLAN_KEY).update(JSON.stringify([bundle,prefix,policy,state.users,state.defaultUser,state.bindings])).digest('hex');
   return{preview:{planId,mode:bundle.mode,producer:bundle.producer.name,createUsers:users,connections:rows,warnings,canApply:policy!=='error'||!rows.some(r=>r.status==='skip'),requiresWarningAcceptance:warnings.length>0,defaultsChanged:false,folderBindingsImported:false,verified:false},pending};
 }
 export async function importIntegrationData(document:unknown,options:TransferOptions={}){
