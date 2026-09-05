@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:integration-bundle:v1",
+  "title": "Integration Bundle v1 \u2014 metadata or authenticated encrypted envelope",
+  "description": "Project portability contract, not an automatically supported vendor format. Runtime validation additionally enforces total size, unique identities, fixed key-derivation costs and authenticated decryption.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "version",
+        "producer",
+        "exportedAt",
+        "mode",
+        "users"
+      ],
+      "properties": {
+        "format": {
+          "const": "integration-bundle"
+        },
+        "version": {
+          "const": 1
+        },
+        "producer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "version": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        },
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "mode": {
+          "const": "metadata"
+        },
+        "users": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "label",
+              "connections"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "connections": {
+                "type": "array",
+                "maxItems": 1000,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "label",
+                    "provider",
+                    "source",
+                    "authMethod",
+                    "scope",
+                    "fields"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "provider": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                    },
+                    "source": {
+                      "enum": [
+                        "direct",
+                        "composio",
+                        "native-mcp"
+                      ]
+                    },
+                    "authMethod": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "fields": {
+                      "type": "array",
+                      "maxItems": 64,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "key",
+                          "secret",
+                          "configured"
+                        ],
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "pattern": "^[A-Z][A-Z0-9_]{1,127}$"
+                          },
+                          "secret": {
+                            "type": "boolean"
+                          },
+                          "configured": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "version",
+        "kdf",
+        "cipher",
+        "data"
+      ],
+      "properties": {
+        "format": {
+          "const": "integration-bundle.encrypted"
+        },
+        "version": {
+          "const": 1
+        },
+        "kdf": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "N",
+            "r",
+            "p",
+            "salt"
+          ],
+          "properties": {
+            "name": {
+              "const": "scrypt"
+            },
+            "N": {
+              "const": 32768
+            },
+            "r": {
+              "const": 8
+            },
+            "p": {
+              "const": 1
+            },
+            "salt": {
+              "type": "string",
+              "contentEncoding": "base64"
+            }
+          }
+        },
+        "cipher": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "iv",
+            "tag"
+          ],
+          "properties": {
+            "name": {
+              "const": "aes-256-gcm"
+            },
+            "iv": {
+              "type": "string",
+              "contentEncoding": "base64"
+            },
+            "tag": {
+              "type": "string",
+              "contentEncoding": "base64"
+            }
+          }
+        },
+        "data": {
+          "type": "string",
+          "contentEncoding": "base64"
+        }
+      }
+    }
+  ]
+}

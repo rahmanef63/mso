@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `integrations` add portable JSON transfer and standalone import adapter
 - `integrations` unify native users connections and source-aware execution
 - `artifacts` add private per-session screenshot storage and retention
 - `integrations` add native secure credential setup in browser and MCP Page

@@ -30,6 +30,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`DEVELOPMENT.md`](./DEVELOPMENT.md) | Development and release workflow |
 | [`SECURITY-ASSURANCE.md`](./SECURITY-ASSURANCE.md) | Repeatable security verification lanes, public evidence, and claim boundaries |
 | [`CLI.md`](./CLI.md) | Generated `mso` CLI contract |
+| [`INTEGRATION-PORTABILITY.md`](./INTEGRATION-PORTABILITY.md) | Reviewed JSON identity transfers, encrypted credentials, SC interoperability and receiver limits |
 | [`INTEGRATIONS.md`](./INTEGRATIONS.md) | Native temporary credential forms, direct HTTPS secret submission, CLI and ChatGPT Page |
 | [`MCP.md`](./MCP.md) | MCP/OAuth internals and full external-tool security model |
 | [`A2A.md`](./A2A.md) | A2A v1 peer discovery, delegation/task lifecycle, CLI/MCP surface and trust boundary |

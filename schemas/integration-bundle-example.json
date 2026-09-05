@@ -1,0 +1,38 @@
+{
+  "format": "integration-bundle",
+  "version": 1,
+  "producer": {
+    "name": "si-coder",
+    "version": "0.9.3"
+  },
+  "exportedAt": "2026-09-05T00:00:00.000Z",
+  "mode": "metadata",
+  "users": [
+    {
+      "id": "sample-user",
+      "label": "Sample owner",
+      "connections": [
+        {
+          "id": "work",
+          "label": "Work GitHub",
+          "provider": "github",
+          "source": "direct",
+          "authMethod": "classic-pat",
+          "scope": "account",
+          "fields": [
+            {
+              "key": "GITHUB_TOKEN",
+              "secret": true,
+              "configured": false
+            },
+            {
+              "key": "GH_OWNER",
+              "secret": false,
+              "configured": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

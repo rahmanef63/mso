@@ -4,6 +4,7 @@ run_integrations() {
   local sub="${1:-status}" data user provider connection query body
   shift || true
   case "$sub" in
+    transfer) data=$(jget "/api/v1/integrations/transfer"); printf "Open the owner-only JSON transfer page in your browser:\n%s\n" "$(jq -r .url <<<"$data")" ;;
     status|users|catalog)
       query="snapshot"; [ "$sub" = users ] && query=users; [ "$sub" = catalog ] && query=catalog
       jget "/api/v1/integrations?view=$query" ;;

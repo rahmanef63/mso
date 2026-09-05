@@ -166,3 +166,11 @@ is a separate user-authorized verification step, not implied by unit tests.
 Official contracts: [MCP Apps](https://github.com/modelcontextprotocol/ext-apps),
 [OpenAI plugin UI](https://developers.openai.com/plugins/reference), and
 [Composio connected accounts](https://docs.composio.dev/docs/auth-configuration/connected-accounts).
+
+## Move identities between standalone projects
+
+Use **Import / export JSON** or `/integrations?transfer=1`. Plain JSON carries
+metadata only; optional encrypted JSON can carry direct credential values. Imports
+are previewed, create-only, unverified, and never change defaults or folder bindings.
+See [Integration Bundle v1](INTEGRATION-PORTABILITY.md) for CLI syntax, mappings and
+receiver support. There is no mandatory SC dependency or automatic data sharing.
