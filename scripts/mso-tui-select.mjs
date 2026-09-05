@@ -83,10 +83,10 @@ async function run() {
   const items = parsePickerItems(fs.readFileSync(0, "utf8"));
   if (!items.length) process.exit(2);
 
-  const inFd = fs.openSync("/dev/tty", "r");
-  const outFd = fs.openSync("/dev/tty", "w");
-  const input = new tty.ReadStream(inFd);
-  const output = new tty.WriteStream(outFd);
+  // One read/write descriptor: no separate pathname check/open or truncating open.
+  const terminalFd = fs.openSync("/dev/tty", fs.constants.O_RDWR);
+  const input = new tty.ReadStream(terminalFd);
+  const output = new tty.WriteStream(terminalFd);
   readline.emitKeypressEvents(input);
   const wasRaw = Boolean(input.isRaw);
   let query = "";

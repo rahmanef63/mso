@@ -1,3 +1,4 @@
+import { readBoundedRegularBufferOrThrow } from "@/lib/host/bounded-read";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
@@ -34,10 +35,14 @@ async function ensureRoot(): Promise<void> {
 }
 
 async function readCandidateFile(file: string): Promise<ForgeCandidate | null> {
-  const stat = await fs.lstat(file).catch(() => null);
-  if (!stat) return null;
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size <= 0 || stat.size > 256 * 1024) throw new Error("invalid forge candidate file");
-  return JSON.parse(await fs.readFile(file, "utf8")) as ForgeCandidate;
+  try {
+    const data = await readBoundedRegularBufferOrThrow(file, 256 * 1024);
+    if (!data.length) throw new Error("invalid forge candidate file");
+    return JSON.parse(data.toString("utf8")) as ForgeCandidate;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw new Error("invalid forge candidate file", { cause: error });
+  }
 }
 
 async function writeCandidateFile(file: string, candidate: ForgeCandidate): Promise<void> {

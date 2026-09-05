@@ -1,3 +1,4 @@
+import { inlineScripts } from "../../scripts/test-support/inline-scripts";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -111,7 +112,7 @@ describe("MCP Apps Block and Page contract", () => {
     expect(content.text).toContain("slice(0,12000)");
     expect(content.text).toContain("MSO block submission");
     expect(content.text).toContain("workflowFallback");
-    const script = content.text.match(/<script>([\s\S]*)<\/script>/)?.[1];
+    const script = inlineScripts(content.text)[0];
     expect(script).toBeTruthy();
     expect(() => new Function(script!)).not.toThrow();
     expect(content.text).not.toContain("fetch(");

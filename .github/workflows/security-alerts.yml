@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, "security/**"]
   workflow_run:
-    workflows: [CodeQL, Scorecard]
+    workflows: [CodeQL, OpenSSF Scorecard]
     types: [completed]
     branches: [main]
   workflow_dispatch:

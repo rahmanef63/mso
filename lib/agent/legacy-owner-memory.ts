@@ -1,61 +1,91 @@
-import { promises as fs } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { constants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pinSecurityStorePath } from "@/lib/security-store-path";
+import { withSecurityStoreLock } from "@/lib/security-store-lock";
 
-// Durable cross-session facts recalled into Alfa's system prompt. One JSON file in
-// ~/.mso (small structured records, chmod 600). Recall is substring scoring for
-// now. ponytail: substring recall — swap for embeddings if it gets noisy at scale.
-export interface Memory {
-  id: string;
-  text: string;
-  createdAt: number;
+// Owner-authenticated facts, persisted as bounded JSON data, never executable source.
+export interface Memory { id: string; text: string; createdAt: number; }
+const FILE = process.env.OS_MEMORY_STORE || path.join(os.homedir(), ".mso", "memory.json");
+const MAX_BYTES = 2 * 1024 * 1024;
+const MAX_RECORDS = 1000;
+
+function records(value: unknown): Memory[] {
+  if (!Array.isArray(value) || value.length > MAX_RECORDS) throw new Error("Invalid or oversized memory store");
+  return value.map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)
+      || typeof row.id !== "string" || !/^mem_[a-zA-Z0-9_-]{1,80}$/.test(row.id)
+      || typeof row.text !== "string" || row.text.length > 500
+      || !Number.isSafeInteger(row.createdAt) || row.createdAt < 0) throw new Error("Invalid memory record");
+    // Deliberate projection: persisted objects cannot inject additional fields.
+    return { id: row.id, text: row.text, createdAt: row.createdAt };
+  });
 }
 
-const FILE = process.env.OS_MEMORY_STORE || path.join(os.homedir(), ".mso", "memory.json");
-
 async function read(): Promise<Memory[]> {
+  const pinned = await pinSecurityStorePath(FILE);
+  let handle;
   try {
-    const j = JSON.parse(await fs.readFile(FILE, "utf8"));
-    return Array.isArray(j) ? j : [];
-  } catch {
-    return [];
-  }
+    handle = await fs.open(pinned.file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.uid !== process.getuid?.() || stat.nlink !== 1 || (stat.mode & 0o077) || stat.size > MAX_BYTES) throw new Error("Unsafe memory store");
+    const bytes = Buffer.alloc(Number(stat.size));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const read = await handle.read(bytes, offset, bytes.length - offset, offset);
+      if (!read.bytesRead) throw new Error("Memory store changed during read");
+      offset += read.bytesRead;
+    }
+    const after = await handle.stat();
+    if (after.size !== stat.size || after.mtimeMs !== stat.mtimeMs) throw new Error("Memory store changed during read");
+    return records(JSON.parse(bytes.toString("utf8")));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error; // Never overwrite corrupt/unreadable existing state with an empty list.
+  } finally { await handle?.close(); await pinned.directory.close(); }
 }
 
 async function write(list: Memory[]): Promise<void> {
-  await fs.mkdir(path.dirname(FILE), { recursive: true, mode: 0o700 });
-  const tmp = `${FILE}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(list, null, 2), { encoding: "utf8", mode: 0o600 });
-  await fs.rename(tmp, FILE);
+  const body = JSON.stringify(records(list), null, 2) + "\n";
+  if (Buffer.byteLength(body) > MAX_BYTES) throw new Error("Memory store exceeds its byte limit");
+  const pinned = await pinSecurityStorePath(FILE);
+  const temporary = `${pinned.file}.${randomUUID()}.tmp`;
+  try {
+    const handle = await fs.open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    try { await handle.writeFile(body, "utf8"); await handle.sync(); }
+    finally { await handle.close(); }
+    await fs.rename(temporary, pinned.file);
+  } finally {
+    await fs.unlink(temporary).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; });
+    await pinned.directory.close();
+  }
 }
 
-export async function listMemories(): Promise<Memory[]> {
-  return (await read()).sort((a, b) => b.createdAt - a.createdAt);
-}
+export async function listMemories(): Promise<Memory[]> { return (await read()).sort((a, b) => b.createdAt - a.createdAt); }
 
 export async function addMemory(text: string): Promise<Memory> {
-  const m: Memory = { id: `mem_${Date.now().toString(36)}`, text: text.trim().slice(0, 500), createdAt: Date.now() };
-  const list = await read();
-  list.push(m);
-  await write(list);
-  return m;
+  if (typeof text !== "string") throw new Error("Memory text must be a string");
+  const clean = text.trim().slice(0, 500);
+  if (!clean || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(clean)) throw new Error("Memory text is empty or contains control characters");
+  const memory: Memory = { id: `mem_${randomUUID()}`, text: clean, createdAt: Date.now() };
+  return withSecurityStoreLock(FILE, async () => {
+    const list = await read();
+    if (list.length >= MAX_RECORDS) throw new Error("Memory store is full; remove an old record first");
+    await write([...list, memory]);
+    return memory;
+  });
 }
 
 export async function removeMemory(id: string): Promise<void> {
-  await write((await read()).filter((m) => m.id !== id));
+  await withSecurityStoreLock(FILE, async () => { await write((await read()).filter((memory) => memory.id !== id)); });
 }
 
-// Recall facts relevant to `query` (scored by how many of its ≥3-char words appear),
-// capped. No query signal → the most recent facts.
+// Bounded substring recall, not a claim of semantic retrieval or trusted instructions.
 export async function recall(query: string, limit = 8): Promise<Memory[]> {
-  const all = await read();
-  if (all.length === 0) return [];
+  const all = await read(), count = Math.max(1, Math.min(100, Math.floor(limit) || 8));
   const words = query.toLowerCase().match(/[a-z0-9]{3,}/g) ?? [];
-  if (words.length === 0) return all.slice(-limit);
-  return all
-    .map((m) => ({ m, hits: words.filter((w) => m.text.toLowerCase().includes(w)).length }))
-    .filter((s) => s.hits > 0)
-    .sort((a, b) => b.hits - a.hits)
-    .slice(0, limit)
-    .map((s) => s.m);
+  if (!words.length) return all.slice(-count);
+  return all.map((memory) => ({ memory, hits: words.filter((word) => memory.text.toLowerCase().includes(word)).length }))
+    .filter((row) => row.hits > 0).sort((a, b) => b.hits - a.hits).slice(0, count).map((row) => row.memory);
 }

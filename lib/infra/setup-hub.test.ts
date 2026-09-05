@@ -1,3 +1,4 @@
+import { inlineScripts } from "../../scripts/test-support/inline-scripts";
 import { expect, it } from "vitest";
 import { integrationCatalog } from "./setup-catalog";
 import { INTEGRATION_PICKER_SCRIPT } from "./setup-picker";
@@ -10,7 +11,7 @@ it("derives the complete native setup catalog from the same provider registry", 
 });
 it("keeps guidance before login and preserves explicit role/expiry recovery", () => {
   const page = integrationSetupPage();
-  expect(() => new Function(page.html.match(/<script[^>]*>([\s\S]*?)<\/script>/)![1])).not.toThrow();
+  expect(() => new Function(inlineScripts(page.html)[0])).not.toThrow();
   for (const marker of ['"/api/auth/me"', 'session.role!=="owner"', '"visibilitychange"', '"How to get this credential"', 'Open a new setup session']) expect(page.html).toContain(marker);
   expect(INTEGRATION_PICKER_SCRIPT).not.toContain('localStorage'); expect(page.csp).toContain("form-action 'none'");
 });

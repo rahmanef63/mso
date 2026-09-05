@@ -20,8 +20,11 @@ describe("native integration setup capabilities", () => {
     const grant = await api.openIntegrationSetup("composio", "test-owner", "project");
     expect(grant.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     const file = path.join(root, "integration-setup", createHash("sha256").update(grant.token).digest("hex") + ".json");
-    expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
-    const stored = await fs.readFile(file, "utf8"); expect(stored).not.toContain(grant.token); expect(stored).toContain("test-owner");
+    const handle = await fs.open(file, "r");
+    try {
+      expect((await handle.stat()).mode & 0o777).toBe(0o600);
+      const stored = await handle.readFile("utf8"); expect(stored).not.toContain(grant.token); expect(stored).toContain("test-owner");
+    } finally { await handle.close(); }
     expect(grant.setup.fields.map(f => f.key)).toEqual(["apiKey"]);
     expect(grant.setup.expiresAt - Date.now()).toBeLessThanOrEqual(600000);
     await expect(api.consumeIntegrationSetup(grant.token, { orgApiKey: KEY })).rejects.toMatchObject({ code: "invalid_fields" });

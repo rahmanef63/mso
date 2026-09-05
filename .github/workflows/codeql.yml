@@ -2,7 +2,7 @@ name: CodeQL
 
 on:
   push:
-    branches: [main]
+    branches: [main, "security/**"]
   pull_request:
     branches: [main]
   schedule:
@@ -38,3 +38,7 @@ jobs:
         uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
         with:
           category: /language:javascript-typescript
+          output: ${{ runner.temp }}/mso-codeql-results
+
+      - name: Report every result from this exact CodeQL analysis
+        run: node scripts/codeql-report.mjs "$RUNNER_TEMP/mso-codeql-results"

@@ -1,3 +1,4 @@
+import { readBoundedRegularFile } from "@/lib/host/bounded-read";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
@@ -40,10 +41,10 @@ export async function readAutomationScript(projectPath: string, id: string): Pro
   const safeId = safeArtifactId(id);
   for (const name of [`${safeId}.json`, `${safeId}.candidate.json`]) {
     const file = path.join(agent, "scripts", name);
-    const stat = await fs.lstat(file).catch(() => null);
-    if (!stat?.isFile() || stat.isSymbolicLink() || stat.size <= 0 || stat.size > MAX_RECORD_BYTES) continue;
+    const raw = await readBoundedRegularFile(file, MAX_RECORD_BYTES);
+    if (!raw) continue;
     try {
-      const parsed = JSON.parse(await fs.readFile(file, "utf8")) as AutomationScriptManifest;
+      const parsed = JSON.parse(raw) as AutomationScriptManifest;
       if (parsed?.schemaVersion !== 1 || parsed.id !== id || !Array.isArray(parsed.steps) || !parsed.steps.length) continue;
       if (parsed.status !== "candidate" && parsed.status !== "tested") continue;
       return parsed;

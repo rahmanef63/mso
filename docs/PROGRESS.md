@@ -1,3 +1,7 @@
+## 2026-09-05 — Resolve actual CodeQL findings and restore the demo
+
+The actual GitHub alert inventory exposed 22 default-branch findings, unlike the previously green scanner-completion jobs. Security-store locks now use an owner-root-validated pinned directory while preserving adjacent CLI lock names; bounded no-follow reads replace file check/reopen pairs. HTML fixture extraction uses parse5; the terminal picker opens its device once. Owner facts and activity logs now have explicit field/byte limits, private no-follow storage, concurrency and rejection tests. Diagnostic logging failures remain isolated from authorized tool execution. Security branches receive real CodeQL, CI and independent scanners; unfiltered SARIF summaries and a separate actual-alert inventory make pending evidence visible. README restores the existing real GIF inline and has a regression test for animation and screenshot presence. No alert is automatically dismissed by these changes.
+
 ## 2026-09-05 — MCP Page preview lifecycle
 
 

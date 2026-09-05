@@ -1,3 +1,4 @@
+import { forgeTargetHash } from "./target-hash";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -22,12 +23,6 @@ async function safeMsoDir(projectPath: string): Promise<string> {
   return real;
 }
 
-async function targetHash(file: string): Promise<string> {
-  const stat = await fs.lstat(file).catch(() => null);
-  if (!stat) return "absent";
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 512 * 1024) return "invalid";
-  return hash(await fs.readFile(file));
-}
 
 function assertEvaluated(candidate: ForgeCandidate): void {
   const evaluation = candidate.evaluation;
@@ -57,7 +52,7 @@ async function promoteFunction(candidate: ForgeCandidate): Promise<ForgePromotio
   if (!candidate.evaluation?.sourceHash || candidate.evaluation.sourceHash !== sourceHash) throw new Error("project function source changed after evaluation; evaluate again");
   const mso = await safeMsoDir(candidate.projectPath), file = path.join(mso, "functions.json");
   const expected = candidate.evaluation?.targetHash ?? "";
-  if (await targetHash(file) !== expected) throw new Error("project functions manifest changed after evaluation; evaluate again");
+  if (await forgeTargetHash(file) !== expected) throw new Error("project functions manifest changed after evaluation; evaluate again");
   const current = await readProjectFunctionsManifest(candidate.projectPath);
   if (current.found && !current.functions) throw new Error(current.error ?? "existing functions manifest is invalid");
   const functions = current.found ? (current.functions ?? []) : [];

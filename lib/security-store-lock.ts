@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs, constants as fsConstants } from "node:fs";
-import path from "node:path";
+import { pinSecurityStorePath } from "./security-store-path";
 
 // Cross-process lock for the tiny JSON files that carry security decisions.
 // Atomic rename protects one write, but not a whole read-modify-write transaction.
@@ -32,9 +32,9 @@ function pidIsGone(pid: number): boolean {
 async function abandoned(lockPath: string, staleMs: number): Promise<boolean> {
   let handle;
   try {
-    handle = await fs.open(lockPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await fs.open(lockPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK);
     const stat = await handle.stat();
-    if (!stat.isFile()) return false; // fail closed: never auto-break an unexpected object
+    if (!stat.isFile() || stat.size > 256 || stat.uid !== process.getuid?.() || (stat.mode & 0o077)) return false; // fail closed: never auto-break an unexpected object
     const owner = await handle.readFile("utf8");
     const pid = Number(owner.split(":", 1)[0]);
     // A valid, live PID wins over age: never break mutual exclusion merely because
@@ -86,13 +86,19 @@ async function openRecoveryGuard(lockPath: string, token: string): Promise<HeldL
 }
 
 async function release(lockPath: string, held: HeldLock): Promise<void> {
-  const owner = await fs.readFile(lockPath, "utf8").catch(() => "");
-  // Never remove a lock that a recovery path may have handed to another process.
-  if (owner === held.token) await fs.unlink(lockPath).catch(() => undefined);
+  let handle;
+  try {
+    handle = await fs.open(lockPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK);
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size > 256 || stat.uid !== process.getuid?.() || (stat.mode & 0o077)) return;
+    const owner = await handle.readFile("utf8");
+    // All supported lock publishers serialize under the recovery gate.
+    if (owner === held.token) await fs.unlink(lockPath).catch(() => undefined);
+  } catch { /* never remove an unreadable or replaced lock */ }
+  finally { await handle?.close().catch(() => undefined); }
 }
 
 async function acquire(lockPath: string, timings: Required<SecurityStoreLockTimings>): Promise<HeldLock> {
-  await fs.mkdir(path.dirname(lockPath), { recursive: true, mode: 0o700 });
   const token = `${process.pid}:${randomUUID()}`;
   const recoveryPath = `${lockPath}.recovery`;
   const deadline = Date.now() + timings.busyTimeoutMs;
@@ -158,11 +164,11 @@ export async function withSecurityStoreLock<T>(
     busyTimeoutMs: options.busyTimeoutMs ?? DEFAULTS.busyTimeoutMs,
     staleMs: options.staleMs ?? DEFAULTS.staleMs,
   };
-  const lockPath = `${storePath}.lock`;
-  const held = await acquire(lockPath, timings);
+  const pinned = await pinSecurityStorePath(storePath);
+  const lockPath = `${pinned.file}.lock`;
   try {
-    return await fn();
-  } finally {
-    await release(lockPath, held);
-  }
+    const held = await acquire(lockPath, timings);
+    try { return await fn(); }
+    finally { await release(lockPath, held); }
+  } finally { await pinned.directory.close(); }
 }

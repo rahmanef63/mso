@@ -28,29 +28,28 @@ export const BOUNDED_READ = {
   projectMcpConfig: 256 * 1024,
 } as const;
 
+export async function readBoundedRegularBufferOrThrow(file: string, maxBytes: number): Promise<Buffer> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0 || maxBytes > 64 * 1024 * 1024) throw new Error("invalid bounded-read limit");
+  const handle = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    const before = await handle.stat();
+    if (!before.isFile() || before.size > maxBytes) throw new Error("not a bounded regular file");
+    const buffer = Buffer.alloc(Number(before.size));
+    let offset = 0;
+    while (offset < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, offset);
+      if (!bytesRead) throw new Error("file changed during bounded read");
+      offset += bytesRead;
+    }
+    const after = await handle.stat();
+    if (after.size !== before.size || after.mtimeMs !== before.mtimeMs) throw new Error("file changed during bounded read");
+    return buffer;
+  } finally { await handle.close(); }
+}
+
 export async function readBoundedRegularBuffer(file: string, maxBytes: number): Promise<Buffer | null> {
-  let handle: Awaited<ReturnType<typeof fs.open>>;
-  try {
-    // O_NOFOLLOW: ELOOP if `file` itself is a symlink. Intermediate directories are
-    // the caller's problem — they are realpath-contained before we get here.
-    handle = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-  } catch {
-    return null;
-  }
-  try {
-    const stat = await handle.stat();
-    if (!stat.isFile()) return null;
-    if (stat.size > maxBytes) return null;
-    const size = Number(stat.size);
-    if (size === 0) return Buffer.alloc(0);
-    const buffer = Buffer.allocUnsafe(size);
-    const { bytesRead } = await handle.read(buffer, 0, size, 0);
-    return buffer.subarray(0, bytesRead);
-  } catch {
-    return null;
-  } finally {
-    await handle.close().catch(() => undefined);
-  }
+  try { return await readBoundedRegularBufferOrThrow(file, maxBytes); }
+  catch { return null; }
 }
 
 export async function readBoundedRegularFile(file: string, maxBytes: number): Promise<string | null> {

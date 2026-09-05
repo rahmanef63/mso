@@ -1,3 +1,4 @@
+import { inlineScripts } from "../../scripts/test-support/inline-scripts";
 import { describe, expect, it } from "vitest";
 import { LEGACY_PAGE_V2_URI, LEGACY_PAGE_V3_URI, MSO_PAGE_URI, listUiResources, readUiResource } from "./ui-resources";
 
@@ -11,7 +12,7 @@ describe("MCP Page lifecycle and cached resource migration", () => {
   });
   it("includes the Apps handshake and readiness contract in valid self-contained JavaScript", () => {
     const html = readUiResource(MSO_PAGE_URI)?.text ?? "";
-    const script = html.match(/<script>([\s\S]*)<\/script>/)?.[1];
+    const script = inlineScripts(html)[0];
     expect(script).toBeTruthy();
     expect(() => new Function(script ?? "")).not.toThrow();
     for (const marker of [

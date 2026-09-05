@@ -1,3 +1,4 @@
+import { readBoundedRegularFile } from "@/lib/host/bounded-read";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -72,10 +73,10 @@ export async function atomicWriteJson(file: string, value: unknown): Promise<voi
 }
 
 export async function readRecordFile(file: string): Promise<RepoMemoryRecord | null> {
-  const stat = await fs.lstat(file).catch(() => null);
-  if (!stat?.isFile() || stat.isSymbolicLink() || stat.size <= 0 || stat.size > MAX_RECORD_BYTES) return null;
+  const raw = await readBoundedRegularFile(file, MAX_RECORD_BYTES);
+  if (!raw) return null;
   try {
-    const parsed = JSON.parse(await fs.readFile(file, "utf8")) as RepoMemoryRecord;
+    const parsed = JSON.parse(raw) as RepoMemoryRecord;
     if (parsed?.schemaVersion !== 1 || typeof parsed.id !== "string" || !KIND_DIR[parsed.kind]) return null;
     return parsed;
   } catch {

@@ -92,6 +92,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.3.2",
     "fast-check": "^4.9.0",
+    "parse5": "8.0.1",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",

@@ -1,3 +1,4 @@
+import { forgeTargetHash } from "./target-hash";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -34,10 +35,7 @@ async function currentTargetHash(candidate: ForgeCandidate): Promise<string> {
   const target = candidate.kind === "skill"
     ? path.join(candidate.projectPath, ".mso", "skills", candidate.skill!.name, "SKILL.md")
     : path.join(candidate.projectPath, ".mso", "functions.json");
-  const stat = await fs.lstat(target).catch(() => null);
-  if (!stat) return "absent";
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 512 * 1024) return "invalid";
-  return createHash("sha256").update(await fs.readFile(target)).digest("hex");
+  return forgeTargetHash(target);
 }
 
 function recipeChecks(candidate: ForgeCandidate, checks: ForgeCheck[]): void {
