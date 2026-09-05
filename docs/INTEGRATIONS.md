@@ -80,7 +80,21 @@ setup. Opening an outer widget is not proof that its form or provider authorizat
 
 ## CLI
 
-Inspect methods before creating a connection:
+Run `mso integrations` with no arguments in a terminal for the interactive navigator. It uses the same searchable arrow-key picker as the rest of the MSO CLI, with breadcrumb-style context and Esc/back navigation:
+
+```text
+Integrations
+├─ Connections
+│  └─ Credential user → Provider → Named connection → Actions
+├─ Credential users
+├─ Provider catalog
+├─ Current folder
+└─ Import / export JSON
+```
+
+Creating a connection interactively walks through **source/backend → authentication method → label/ID**, then can open the private credential form. Existing connections expose Verify, Route, Make default, Rename, Delete, provider authorization, and a Hostinger Mail submenu when applicable. Secrets never enter the picker or CLI arguments.
+
+All explicit commands remain stable for scripts and agents. A non-TTY bare invocation returns the snapshot instead of waiting for keyboard input. Inspect methods or automate directly with:
 
 ```sh
 mso integrations create-user rahman "Rahman"
