@@ -1,3 +1,7 @@
+## 2026-09-05 — Scope the final security evidence to the scanned revision
+
+The inventory can now inspect the exact scanned branch after SARIF processing, distinguishes open findings from pre-existing reviewed/closed findings, and rejects a concurrent HEAD change. Reports stream to Actions logs rather than writing remote API content back to files. A newly merged MCP browser fixture now targets the exact widget origin instead of a wildcard; the 17 browser assertions retain their negative-navigation checks. No scanner rule, authentication boundary, or existing disposition is removed by this change.
+
 ## 2026-09-05 — Permission-fixture portability under private umask
 
 The deliberately public artifact fixture now sets its final 0644 permissions explicitly: a secure caller umask of 077 otherwise silently creates it as 0600, so the test was asking valid private data to be rejected. The runtime permission check and assertion remain unchanged.

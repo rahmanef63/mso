@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -21,9 +21,8 @@ function run(options: { count?: number; denied?: boolean; noAnalysis?: boolean; 
     };await import(${JSON.stringify(path.join(process.cwd(), "scripts/security-alerts.mjs"))});`;
   const result = spawnSync(process.execPath, ["--input-type=module", "-e", stub], { encoding: "utf8", timeout: 10_000,
     env: { NODE_ENV: "test", PATH: process.env.PATH, GITHUB_TOKEN: "synthetic-test-value", GITHUB_REPOSITORY: "example/repository", RUNNER_TEMP: root } });
-  const reportDir = readdirSync(root).find((name) => name.startsWith("mso-code-scanning-"));
-  let report: { openCount: number; alerts: unknown[] } | undefined;
-  try { report = JSON.parse(readFileSync(path.join(root, reportDir ?? "", "code-scanning.json"), "utf8")); } catch { /* failed evidence is expected in negative cases */ }
+  let report: { openCount: number; alerts: unknown[]; ref: string } | undefined;
+  try { report = JSON.parse(result.stdout.split("\n").find((line) => line.startsWith("CODE_SCANNING_REPORT "))!.slice("CODE_SCANNING_REPORT ".length)); } catch { /* failed evidence is expected in negative cases */ }
   return { ...result, report };
 }
 describe("GitHub open-alert evidence", () => {

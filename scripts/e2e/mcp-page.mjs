@@ -75,7 +75,7 @@ try {
     const authAction = component.getByRole("button", { name: "Google login in browser", exact: true });
     await authAction.waitFor();
     const opensBeforeAuth = (await page.evaluate(() => window.calls)).filter(call => call.method === "ui/open-link").length;
-    await reloaded.evaluate(() => parent.postMessage({ type: "mso:app-auth-request", schemaVersion: 1, provider: "google" }, "*"));
+    await reloaded.evaluate(() => parent.postMessage({ type: "mso:app-auth-request", schemaVersion: 1, provider: "google" }, "https://mso-ui.rahmanef.com"));
     await page.waitForTimeout(50);
     assert.equal((await page.evaluate(() => window.calls)).filter(call => call.method === "ui/open-link").length, opensBeforeAuth, "Nested messages must not trigger external navigation"); assertions++;
     if (!legacy) {

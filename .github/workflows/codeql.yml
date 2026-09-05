@@ -42,3 +42,9 @@ jobs:
 
       - name: Report every result from this exact CodeQL analysis
         run: node scripts/codeql-report.mjs "$RUNNER_TEMP/mso-codeql-results"
+
+      - name: Inspect actual branch findings after SARIF processing
+        if: github.event_name == 'push'
+        run: node scripts/security-alerts.mjs --inventory --include-closed --ref "$GITHUB_REF"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
