@@ -112,6 +112,36 @@ client that calls a tool it was never shown still gets refused.
 `workflow_id`: it correlates steps, it never gates a capability. `lib/mcp/global-tools.test.ts`
 pins all of this, including that a token's visible list matches its callable set exactly.
 
+## Restricted service tokens for trusted automation
+
+Interactive/browser MCP clients should use the OAuth flow above. For a **trusted local operator** that needs a narrowly scoped server-to-server bearer, MSO also has an owner-CLI-only mint path. There is deliberately no HTTP endpoint that mints these tokens.
+
+The current policy is intentionally small: service tokens may expose only `project_capabilities` and `project_function_call`. Every allowlisted tool must have all of its policy-defined top-level string arguments constrained to exact allowed values; including `project_function_call` therefore requires `exec` scope and pins both `project` and `name`. The function's declared `inputSchema` remains the authority for its JSON `input`; the service-token layer does not invent a second nested schema.
+
+Example for one declared project function:
+
+```bash
+mso mcp service-token \
+  --label visual-worker \
+  --client-id visual-worker \
+  --scope exec \
+  --tools project_capabilities,project_function_call \
+  --constraints-json '{"project_capabilities":{"project":["example-project"]},"project_function_call":{"project":["example-project"],"name":["capture_snapshot"]}}'
+```
+
+The command prints the raw bearer **once**. Treat that output as a secret: do not commit it, paste it into logs/chat, or put it in a world-readable file. The MCP store keeps only the bearer hash under the existing owner-only `~/.mso` permissions. Service tokens use the normal 90-day bearer lifetime as a backstop; rotate/revoke them when the consumer no longer needs access.
+
+```bash
+mso mcp list                 # metadata/id only; never returns raw bearers
+mso mcp revoke <id>
+```
+
+At runtime the restriction is fail-closed in both discovery and execution: `initialize` / `tools/list` expose only the token's allowlist, and `tools/call` independently rejects a hidden tool, wrong project, or wrong function name and records the denial in the MCP audit trail. The token's scope is still a ceiling, not a substitute for the allowlist, project-function manifest, filesystem/host guards, or normal tool checks.
+
+### Bounded visual output from project functions
+
+Declared project functions normally return their `{ code, stdout, stderr }` process envelope. A successful function may opt into direct MCP visual output by writing one JSON document with protocol `mso.project-function-content.v1`. Promotion is deliberately strict: exit code must be zero, stderr must be empty, there may be at most four content rows and exactly one image, the image must be PNG/JPEG/WebP with a matching file signature, decoded image size is capped at 620 KiB, and text is bounded. Anything malformed or unsupported is not promoted into trusted image content. This keeps visual debugging behind the same fixed-argv project-function boundary rather than creating arbitrary binary/file transport.
+
 ## Toolset version, hash and action refresh
 
 The catalog has a stable server version plus a schema-derived toolset signature. It is returned by public `GET /mcp`, MCP `initialize`, scoped `tools/list`, and the authenticated Settings → MCP endpoint. The signature changes when a name, description, input schema, scope, annotation or per-operation limit changes—not only when the tool count changes.
