@@ -16,3 +16,5 @@ it("requires explicit metadata mutation confirmation and carries folder context"
   expect(JSON.parse(run(["manage",JSON.stringify({action:"user.default",user:"alice",confirm:true})]))).toMatchObject({mode:"manage",confirm:true});
   expect(run(["which","/home/test/project"])).toContain("view=which&cwd=/home/test/project");
 });
+
+it("bare non-interactive integrations remains machine-safe and does not wait for a TTY",()=>{expect(run([])).toContain("view=snapshot")});

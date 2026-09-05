@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # Native connection management. All actions use the same owner API as the browser.
+# shellcheck source=mso-cli-integrations-tui.sh
+source "$ROOT/scripts/mso-cli-integrations-tui.sh"
 run_integrations() {
-  local sub="${1:-status}" data user provider connection query body
+  if [ $# -eq 0 ]; then
+    if tty_ok && [ -t 0 ] && [ -t 1 ]; then integrations_tui; else jget "/api/v1/integrations?view=snapshot"; fi
+    return
+  fi
+  local sub="$1" data user provider connection query body
   shift || true
   case "$sub" in
     transfer) data=$(jget "/api/v1/integrations/transfer"); printf "Open the owner-only JSON transfer page in your browser:\n%s\n" "$(jq -r .url <<<"$data")" ;;

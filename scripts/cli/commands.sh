@@ -24,7 +24,7 @@ verbs() {
 U_camoufox="camoufox status|start|stop|session"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
 U_doctor="doctor [--fix]"
-U_integrations="integrations transfer|status|users|catalog|connections [user] [provider]|which [folder]|request|resolve <user> <provider> [connection]|create-user <id> [label]|create-connection <user> <provider> <id> <source> <auth>|manage <JSON>|setup|verify <user> <provider> <connection>|hostinger-mail-orders|hostinger-mail-list|hostinger-mail-logs|execute <JSON>"
+U_integrations="integrations [interactive]|transfer|status|users|catalog|connections [user] [provider]|which [folder]|request|resolve <user> <provider> [connection]|create-user <id> [label]|create-connection <user> <provider> <id> <source> <auth>|manage <JSON>|setup|verify <user> <provider> <connection>|hostinger-mail-orders|hostinger-mail-list|hostinger-mail-logs|execute <JSON>"
 U_provider="provider list|show <id>|setup <provider> <user> <connection>|set <id>|rm <id>|doctor [id]|projects|zones"
 U_model="model [current|list [provider]|set <provider> <model>|set <provider/model>|<model-or-ref>]"
 U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo] | agent --oneshot <prompt> [--json] [--approve-scope read|write|exec]"
