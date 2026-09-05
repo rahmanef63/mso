@@ -8,7 +8,7 @@ export async function doctorComposio(candidate?: InfraProviderValues): Promise<s
   const key = values.apiKey;
   const orgKey = values.orgApiKey;
   if (!key && !orgKey) return null;
-  const target = orgKey ? "/org/project/list" : "/tools?limit=1";
+  const target = orgKey ? "/org/owner/project/list" : "/tools?limit=1";
   const header: Record<string, string> = orgKey ? { "x-org-api-key": orgKey } : { "x-api-key": key! };
   const response = await request(`${API}${target}`, { headers: header });
   if (!response.ok) throw new Error(`Composio validation failed (${response.status})`);

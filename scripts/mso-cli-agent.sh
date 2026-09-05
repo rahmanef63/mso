@@ -347,9 +347,9 @@ run_provider() {
   local -a pairs=()
   case "$sub" in
     setup|web)
-      [ -n "$id" ] || die "usage: mso provider setup <id> [direct|project|organization]"
+      [ -n "$id" ] || die "usage: mso provider setup <id> [direct|project|organization|personal|deployment]"
       tty_ok || die "secure setup links are terminal-only; MCP callers must use integration_setup_open (never exec)"
-      data=$(jpost "/api/v1/infra/setup" "$(jq -nc --arg provider "$id" --arg method "${3:-$([ "$id" = composio ] && echo project || echo direct)}" '{provider:$provider,method:$method}')")
+      data=$(jpost "/api/v1/infra/setup" "$(jq -nc --arg provider "$id" --arg method "${3:-$(case "$id" in composio) echo project ;; convex-cloud) echo personal ;; *) echo direct ;; esac)}" '{provider:$provider,method:$method}')")
       printf 'Open this private link in your browser (expires after 10 minutes):\n%s#%s\n' "$(jq -r '.setupUrl' <<<"$data")" "$(jq -r '.token' <<<"$data")"
       unset data
       ;;
@@ -379,7 +379,7 @@ run_provider() {
       tty_ok || die "provider setup needs a terminal because API tokens are entered with hidden input"
       data=$(provider_metadata)
       row=$(jq -c --arg id "$id" '.providers[] | select(.id==$id)' <<<"$data")
-      [ -n "$row" ] || die "unknown provider '$id' (expected dokploy, cloudflare, hostinger, composio)"
+      [ -n "$row" ] || die "unknown provider '$id'; see mso provider list"
       echo "$(jq -r '.title + " — " + .description' <<<"$row")"
       pairs=()
       while IFS=$'\t' read -r key label secret required description existing; do

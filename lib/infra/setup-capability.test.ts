@@ -61,7 +61,7 @@ describe("native integration setup capabilities", () => {
     const grant = await api.openIntegrationSetup("composio", "test-owner", "organization");
     await api.consumeIntegrationSetup(grant.token, { orgApiKey: KEY });
     const [url, options] = vi.mocked(fetch).mock.calls[0];
-    expect(String(url)).toContain("/api/v3.1/org/project/list"); expect(options?.headers).toEqual({ "x-org-api-key": KEY });
+    expect(String(url)).toContain("/api/v3.1/org/owner/project/list"); expect(options?.headers).toEqual({ "x-org-api-key": KEY });
     expect(store.summarizeInfraProvider("composio", await store.readInfraProvider("composio")).values.orgApiKey).toBe("configured");
   });
   it("standalone page contains no grant and its inline script parses", async () => {

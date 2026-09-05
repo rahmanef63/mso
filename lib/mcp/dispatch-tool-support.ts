@@ -16,7 +16,7 @@ export function structuredResult(toolName: string, result: unknown, profile: Mcp
   if (isMcpDirectResult(result)) {
     return {
       content: result.content,
-      ...(profile === "chatgpt" && capabilityPrivateMeta(result) ? { _meta: capabilityPrivateMeta(result) } : {}),
+      ...(capabilityPrivateMeta(result) ? { _meta: capabilityPrivateMeta(result) } : {}),
       ...((profile === "chatgpt" || tool?.outputSchema) && result.structuredContent ? { structuredContent: result.structuredContent } : {}),
       ...(result.isError ? { isError: true } : {}),
     };

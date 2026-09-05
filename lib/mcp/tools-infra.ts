@@ -11,7 +11,7 @@ const dnsSchema = {
 export const INFRA_TOOLS: McpTool[] = [
   {
     name: "infra_providers_list",
-    description: "List MSO infrastructure providers (Dokploy, Cloudflare, Hostinger, Composio), showing masked configuration state and missing required fields. Raw credentials are never returned.",
+    description: "List native MSO integrations and infrastructure providers, showing masked configuration state and missing required fields. Raw credentials are never returned.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
     inputSchema: S({}),

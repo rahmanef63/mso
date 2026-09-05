@@ -1,3 +1,5 @@
+import { doctorAdditionalProvider } from "./additional-doctor";
+import { readInfraProvider } from "./store";
 import type { InfraDoctorResult, InfraProviderId, InfraProviderValues } from "./types";
 import { doctorCloudflare } from "./cloudflare";
 import { doctorDokploy } from "./dokploy";
@@ -16,7 +18,7 @@ export async function doctorInfraProvider(id: InfraProviderId, candidate?: Infra
         ? await doctorCloudflare(candidate)
         : id === "composio"
           ? await doctorComposio(candidate)
-          : await doctorHostinger(candidate);
+          : id === "hostinger" ? await doctorHostinger(candidate) : await doctorAdditionalProvider(id, candidate ?? await readInfraProvider(id));
     return detail === null ? { id, ok: null, detail: "not configured" } : { id, ok: true, detail };
   } catch (error) {
     return { id, ok: false, detail: (error as Error).message.slice(0, 300) };

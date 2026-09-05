@@ -57,7 +57,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false, idempotentHint: false },
     audit: { action: "infra.write", targetArg: "provider" },
     limit: { key: "integration.setup", max: 10, windowMs: 60_000 },
-    inputSchema: S({ provider: { type: "string", enum: [...INFRA_PROVIDER_IDS] }, method: { type: "string", enum: ["direct", "project", "organization"], description: "Composio defaults to project; other providers use direct." } }, ["provider"]),
+    inputSchema: S({ provider: { type: "string", enum: [...INFRA_PROVIDER_IDS] }, method: { type: "string", enum: ["direct", "project", "organization", "personal", "deployment"], description: "Composio defaults to project; other providers use direct." } }, ["provider"]),
     outputSchema: PAGE_OUTPUT,
     meta: {
       ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },

@@ -18,6 +18,6 @@ export function widgetResourceMeta(description: string, options?: { frameDomains
     "openai/widgetDomain": MCP_UI_DOMAIN,
     // Standard CSP fields live only in `ui.csp`. OpenAI documents this legacy
     // key as still required for trusted `openExternal` redirect destinations.
-    "openai/widgetCSP": { redirect_domains: [MSO_ORIGIN, ...(options?.redirectDomains ?? [])] },
+    "openai/widgetCSP": { ...(connectDomains.length ? { connect_domains: connectDomains } : {}), ...(frameDomains.length ? { frame_domains: frameDomains } : {}), redirect_domains: [MSO_ORIGIN, ...(options?.redirectDomains ?? [])] },
   };
 }

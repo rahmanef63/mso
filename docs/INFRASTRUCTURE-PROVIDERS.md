@@ -215,3 +215,8 @@ store and doctor, alongside the existing infrastructure providers. Use
 for a temporary form. This verifies platform credentials; it does not authorize
 every connected application or copy its OAuth tokens. See [Native Integrations](INTEGRATIONS.md)
 for the owner-browser and ChatGPT Page workflows.
+
+The native Integrations catalog now also includes GitHub, Vercel, Convex Cloud,
+self-hosted Convex, Resend, Stripe, Clerk, and Supabase. This expands secure setup
+and bounded read-only credential checking; it does not automatically add every
+provider operation to the MCP catalog. Browser entrypoint: `/integrations`.

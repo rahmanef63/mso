@@ -1,8 +1,14 @@
+import { ADDITIONAL_GUIDANCE, type AdditionalProviderId } from "./additional-providers";
 import { getInfraProviderDefinition } from "./catalog";
 import type { InfraProviderId } from "./types";
 
-export type SetupMethod = "direct" | "project" | "organization";
+export type SetupMethod = "direct" | "project" | "organization" | "personal" | "deployment";
 export function setupFields(provider: InfraProviderId, method: SetupMethod) {
+  if (provider === "convex-cloud") {
+    if (!["personal", "deployment"].includes(method)) throw new Error("Choose a Convex personal token or deployment key");
+    const keys = method === "personal" ? ["personalToken"] : ["deployKey", "deploymentName"];
+    return getInfraProviderDefinition(provider).fields.filter(f => keys.includes(f.key)).map(f => ({ ...f, required: true }));
+  }
   if (provider === "composio") {
     if (!["project", "organization"].includes(method)) throw new Error("Choose a Composio project or organization key");
     return getInfraProviderDefinition(provider).fields.filter(f => f.key === (method === "project" ? "apiKey" : "orgApiKey")).map(f => ({ ...f, required: true }));
@@ -11,12 +17,18 @@ export function setupFields(provider: InfraProviderId, method: SetupMethod) {
   return getInfraProviderDefinition(provider).fields;
 }
 export function setupMethod(provider: InfraProviderId, method?: string): SetupMethod {
-  const value = method ?? (provider === "composio" ? "project" : "direct");
-  if (!["direct", "project", "organization"].includes(value)) throw new Error("Unsupported authentication method");
+  const value = method ?? (provider === "composio" ? "project" : provider === "convex-cloud" ? "personal" : "direct");
+  if (!["direct", "project", "organization", "personal", "deployment"].includes(value)) throw new Error("Unsupported authentication method");
   setupFields(provider, value as SetupMethod);
   return value as SetupMethod;
 }
+export function setupMethods(provider: InfraProviderId): Array<{id: SetupMethod; label: string}> {
+  if (provider === "composio") return [{ id: "project", label: "Project API key" }, { id: "organization", label: "Organization API key" }];
+  if (provider === "convex-cloud") return [{ id: "personal", label: "Personal access token" }, { id: "deployment", label: "Deployment key" }];
+  return [{ id: "direct", label: "Direct credential" }];
+}
 export function setupGuidance(provider: InfraProviderId, method: SetupMethod) {
+  if (provider in ADDITIONAL_GUIDANCE) return ADDITIONAL_GUIDANCE[provider as AdditionalProviderId];
   const guides = {
     composio: {
       url: "https://platform.composio.dev",
@@ -41,5 +53,5 @@ export function setupGuidance(provider: InfraProviderId, method: SetupMethod) {
       steps: ["Open your own Dokploy panel, not a third-party panel.", "Open the account settings and create an API key.", "Enter the panel API URL. Use HTTPS, or loopback for a panel on this VPS.", "Copy the key into this form. MSO checks the project-list endpoint before saving."],
     },
   };
-  return guides[provider];
+  return guides[provider as keyof typeof guides];
 }

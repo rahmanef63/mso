@@ -5,7 +5,7 @@ import { toolDescriptor, type McpToolProfile } from "./tool-contract";
 
 export const MCP_SERVER_VERSION = "1.12.0";
 export const MCP_TOOLSET_VERSION = "2026.09.05.5";
-export const MCP_TOOLSET_CHANGED_AT = "2026-09-05T12:36:17Z";
+export const MCP_TOOLSET_CHANGED_AT = "2026-09-05T12:32:00Z";
 
 export type McpToolsetInfo = {
   serverVersion: string;
