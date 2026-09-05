@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `integrations` add native secure credential setup in browser and MCP Page
 - add safe local maintenance and visual README
 - `mcp` preserve restricted project service bridge
 

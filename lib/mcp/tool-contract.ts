@@ -53,7 +53,7 @@ export const CHATGPT_TOOL_NAMES = new Set([
   "sys_stats", "sys_processes", "apps_list", "apps_logs", "apps_power", "browser_status", "browser_power",
 
   // Infrastructure operations remain explicit and bounded; secrets stay server-side.
-  "infra_providers_list", "infra_provider_doctor", "dokploy_projects_list", "dokploy_project_ensure",
+  "integration_setup_open", "infra_providers_list", "infra_provider_doctor", "dokploy_projects_list", "dokploy_project_ensure",
   "cloudflare_zones_list", "cloudflare_dns_upsert", "hostinger_dns_upsert",
 
   // Arbitrary shell is still a last-resort escape hatch and long builds remain job-bound.

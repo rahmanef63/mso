@@ -7,7 +7,7 @@ import { getInfraProviderDefinition, normalizeInfraValues } from "./catalog";
 import type { InfraProviderId, InfraProviderSummary, InfraProviderValues, InfraStore } from "./types";
 
 export const INFRA_STORE_PATH = process.env.OS_INFRA_STORE ?? path.join(os.homedir(), ".mso", "private", "infra-providers.json");
-const SECRET_KEYS = new Set(["apiKey", "apiToken"]);
+const SECRET_KEYS = new Set(["apiKey", "apiToken", "orgApiKey"]);
 const MAX_STORE_BYTES = 256 * 1024;
 
 function mask(value: string): string {
@@ -58,6 +58,7 @@ export async function setInfraProvider(id: InfraProviderId, raw: Record<string, 
     const values = { ...current, ...normalized };
     const def = getInfraProviderDefinition(id);
     const missing = def.fields.filter((field) => field.required && !values[field.key]).map((field) => field.key);
+    if (id === "composio" && !values.apiKey && !values.orgApiKey) missing.push("project or organization API key");
     if (missing.length) throw new Error(`${id} is missing required value(s): ${missing.join(", ")}`);
     await writeUnlocked({ ...store, providers: { ...(store.providers ?? {}), [id]: values } });
     return values;
@@ -76,6 +77,7 @@ export async function removeInfraProvider(id: InfraProviderId): Promise<void> {
 export function summarizeInfraProvider(id: InfraProviderId, values: InfraProviderValues): InfraProviderSummary {
   const def = getInfraProviderDefinition(id);
   const missing = def.fields.filter((field) => field.required && !values[field.key]).map((field) => field.key);
+  if (id === "composio" && !values.apiKey && !values.orgApiKey) missing.push("project or organization API key");
   const safeValues = Object.fromEntries(def.fields
     .filter((field) => values[field.key])
     .map((field) => [field.key, SECRET_KEYS.has(field.key) ? mask(values[field.key]) : values[field.key]]));

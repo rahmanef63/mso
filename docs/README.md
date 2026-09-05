@@ -26,10 +26,11 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`COMPARISON.md`](./COMPARISON.md) | Generated product comparison methodology, evidence and notes |
 | [`COMPETITIVE-ROADMAP.md`](./COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate specialist boundaries and next investments |
 | [`INSTALL.md`](./INSTALL.md) | Owner installation, TLS, updates, backup and uninstall |
-| [`INFRASTRUCTURE-PROVIDERS.md`](./INFRASTRUCTURE-PROVIDERS.md) | Interactive MSO Agent TUI/approval/error contract plus Dokploy/Cloudflare/Hostinger credentials, tools and deployment boundary |
+| [`INFRASTRUCTURE-PROVIDERS.md`](./INFRASTRUCTURE-PROVIDERS.md) | Interactive MSO Agent TUI/approval/error contract plus Dokploy/Cloudflare/Hostinger/Composio credentials, tools and deployment boundary |
 | [`DEVELOPMENT.md`](./DEVELOPMENT.md) | Development and release workflow |
 | [`SECURITY-ASSURANCE.md`](./SECURITY-ASSURANCE.md) | Repeatable security verification lanes, public evidence, and claim boundaries |
 | [`CLI.md`](./CLI.md) | Generated `mso` CLI contract |
+| [`INTEGRATIONS.md`](./INTEGRATIONS.md) | Native temporary credential forms, direct HTTPS secret submission, CLI and ChatGPT Page |
 | [`MCP.md`](./MCP.md) | MCP/OAuth internals and full external-tool security model |
 | [`A2A.md`](./A2A.md) | A2A v1 peer discovery, delegation/task lifecycle, CLI/MCP surface and trust boundary |
 | [`LOCAL-AGENTS.md`](./LOCAL-AGENTS.md) | Native same-host session presence, identity, mailbox delivery, TUI/tools/API and isolation |

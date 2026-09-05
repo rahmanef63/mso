@@ -1,3 +1,4 @@
+import type { InfraProviderValues } from "./types";
 import { safeProviderFetch } from "@/lib/host/ssrf";
 import { readInfraProvider } from "./store";
 import { obj, request, TIMEOUT_MS } from "./http";
@@ -33,8 +34,8 @@ async function call(endpoint: string, method = "GET", body?: unknown): Promise<u
   throw last ?? new Error("Dokploy request failed");
 }
 
-export async function doctorDokploy(): Promise<string | null> {
-  const values = await readInfraProvider("dokploy");
+export async function doctorDokploy(candidate?: InfraProviderValues): Promise<string | null> {
+  const values = candidate ?? await readInfraProvider("dokploy");
   if (!values.apiUrl || !values.apiKey) return null;
   const res = await request(`${values.apiUrl}/project.all`, {
     headers: { "x-api-key": values.apiKey, accept: "application/json" },

@@ -1,3 +1,4 @@
+import { capabilityPrivateMeta } from "@/lib/capabilities/tool";
 export { sessionDetail, recordAgentEvent, flowFields, workflowFromResult } from "@/lib/capabilities/execution-support";
 import { isMcpDirectResult } from "./tool-kit";
 import { boundedResultText } from "./result-budget";
@@ -15,7 +16,8 @@ export function structuredResult(toolName: string, result: unknown, profile: Mcp
   if (isMcpDirectResult(result)) {
     return {
       content: result.content,
-      ...(profile === "chatgpt" && result.structuredContent ? { structuredContent: result.structuredContent } : {}),
+      ...(profile === "chatgpt" && capabilityPrivateMeta(result) ? { _meta: capabilityPrivateMeta(result) } : {}),
+      ...((profile === "chatgpt" || tool?.outputSchema) && result.structuredContent ? { structuredContent: result.structuredContent } : {}),
       ...(result.isError ? { isError: true } : {}),
     };
   }

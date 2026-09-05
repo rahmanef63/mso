@@ -317,6 +317,7 @@ export async function proxy(request: NextRequest) {
     MUTATING.has(request.method) &&
     isApi &&
     !isMachineProtocol &&
+    pathname !== "/api/integrations/setup" &&
     crossOriginMutation(request)
   )
     return blocked();

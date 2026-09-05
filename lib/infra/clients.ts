@@ -1,19 +1,22 @@
-import type { InfraDoctorResult, InfraProviderId } from "./types";
+import type { InfraDoctorResult, InfraProviderId, InfraProviderValues } from "./types";
 import { doctorCloudflare } from "./cloudflare";
 import { doctorDokploy } from "./dokploy";
 import { doctorHostinger } from "./hostinger";
+import { doctorComposio } from "./composio";
 
 export { listCloudflareZones, upsertCloudflareDns } from "./cloudflare";
 export { ensureDokployProject, listDokployProjects } from "./dokploy";
 export { upsertHostingerDns } from "./hostinger";
 
-export async function doctorInfraProvider(id: InfraProviderId): Promise<InfraDoctorResult> {
+export async function doctorInfraProvider(id: InfraProviderId, candidate?: InfraProviderValues): Promise<InfraDoctorResult> {
   try {
     const detail = id === "dokploy"
-      ? await doctorDokploy()
+      ? await doctorDokploy(candidate)
       : id === "cloudflare"
-        ? await doctorCloudflare()
-        : await doctorHostinger();
+        ? await doctorCloudflare(candidate)
+        : id === "composio"
+          ? await doctorComposio(candidate)
+          : await doctorHostinger(candidate);
     return detail === null ? { id, ok: null, detail: "not configured" } : { id, ok: true, detail };
   } catch (error) {
     return { id, ok: false, detail: (error as Error).message.slice(0, 300) };

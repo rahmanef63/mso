@@ -68,7 +68,7 @@ describe("MCP Apps Block and Page contract", () => {
       .filter((tool) => Boolean((tool._meta?.ui as { resourceUri?: string } | undefined)?.resourceUri))
       .map((tool) => tool.name)
       .sort();
-    expect(resourceBound).toEqual(["render_mso_block", "render_mso_page"]);
+    expect(resourceBound).toEqual(["integration_setup_open", "render_mso_block", "render_mso_page"]);
     const appOnly = tools
       .filter((tool) => {
         const visibility = (tool._meta?.ui as { visibility?: string[] } | undefined)?.visibility;
@@ -137,12 +137,14 @@ describe("MCP Apps Block and Page contract", () => {
     expect(content.text).toContain("https://game.rahmanef.com");
     expect(content.text).toContain('"environment":"production"');
     expect(content.text).toContain('app.environment+" · "+app.renderer');
-    expect(content.text).not.toContain("fetch(");
+    expect(content.text).toContain("fetch(endpoint,");
+    expect(content.text).toContain('credentials:"omit"');
+    expect(content.text).toContain('access.endpoint===INTEGRATION_ENDPOINT');
     expect(content.text).not.toContain("allow-popups");
     expect(content.text).not.toContain("allow-top-navigation");
     expect(content.text).not.toContain("dangerouslySetInnerHTML");
     expect(content._meta.ui.csp).toMatchObject({
-      connectDomains: [],
+      connectDomains: [MSO_ORIGIN],
       resourceDomains: [],
       frameDomains: ["https://game.rahmanef.com"],
     });

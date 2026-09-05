@@ -699,3 +699,10 @@ one on its own the way it does a cookie.
 ### Bounded asynchronous execution
 
 `exec_job_start` starts a client/workflow-bound command that may run up to 20 minutes; `exec_job_status` reads its bounded output and final exit state; `exec_job_cancel` stops a still-running job. Use this trio for test/build pipelines instead of wrapping `exec_run` in host-specific background-process plumbing.
+
+## Native credential setup
+
+MSO Integrations uses the existing Page at `/integrations`. The write-scoped
+`integration_setup_open` tool opens a secure form without accepting secret values.
+See [Native Integrations](INTEGRATIONS.md) for browser/CLI entrypoints, scope,
+expiry, direct HTTPS submission, and verification limits.

@@ -38,7 +38,7 @@ const BASE = "https://mso-surface.invalid";
 
 export type ResolvedSurface = {
   route: string;
-  kind: "home" | "monitor" | "project" | "diff" | "browser" | "app";
+  kind: "home" | "monitor" | "project" | "diff" | "browser" | "app" | "integrations";
   title: string;
   openPath: string;
   project?: string;
@@ -85,6 +85,7 @@ export function resolveSurfaceRoute(rawRoute: string, context?: { project?: stri
   const route = `${url.pathname}${url.search}`;
 
   if (parts.length === 0) return { route, kind: "home", title: "MSO", openPath: "/assistant/mcp" };
+  if (parts[0] === "integrations" && parts.length === 1) return { route, kind: "integrations", title: "Integrations", openPath: "/api/integrations/setup" };
   if (parts[0] === "monitor" && parts.length === 1) return { route, kind: "monitor", title: "System Monitor", openPath: "/monitor" };
   if (parts[0] === "browser" && parts.length === 1) return { route, kind: "browser", title: "Remote Browser", openPath: "/browser" };
   if (parts[0] === "project" && parts.length === 1) return { route, kind: "project", title: "Project", openPath: "/files", ...(context?.project ? { project: context.project } : {}) };

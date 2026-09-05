@@ -1,4 +1,5 @@
-import { widgetResourceMeta } from "./ui-config";
+import { INTEGRATION_FORM_STYLE } from "@/lib/infra/setup-ui";
+import { widgetResourceMeta, MSO_ORIGIN } from "./ui-config";
 import { OPEN_IN_MSO_SCRIPT, openInMsoControls } from "./ui-navigation";
 import { surfaceFrameDomains } from "./surface-catalog";
 import { MSO_SURFACE_SCRIPT } from "./ui-surface-script";
@@ -8,7 +9,7 @@ export const MSO_PAGE_URI = "ui://mso/page-v3.html";
 const MIME = "text/html;profile=mcp-app";
 
 const html = String.raw`<main class="surface" aria-label="MSO Page">
-<style>${MSO_SURFACE_STYLE}</style>
+<style>${MSO_SURFACE_STYLE}${INTEGRATION_FORM_STYLE}</style>
 <header class="bar">
   <div class="brand" aria-hidden="true">M</div>
   <div class="heading"><strong id="surface-title">MSO Page</strong><span id="surface-route">/</span></div>
@@ -32,6 +33,6 @@ export const MSO_PAGE_RESOURCE = {
   text: html,
   _meta: widgetResourceMeta(
     "Interactive MSO Page. It renders native operator views and exact-origin reviewed development or production targets. Nested frames are limited to explicit CSP frame domains and dedicated embed routes; arbitrary HTML and URLs are never accepted from the model.",
-    { frameDomains: surfaceFrameDomains(), redirectDomains: surfaceFrameDomains() },
+    { frameDomains: surfaceFrameDomains(), redirectDomains: surfaceFrameDomains(), connectDomains: [MSO_ORIGIN] },
   ),
 } as const;

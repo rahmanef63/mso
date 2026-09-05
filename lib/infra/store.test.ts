@@ -20,6 +20,13 @@ afterEach(async () => {
 });
 
 describe("infra provider store", () => {
+  it("never reports an empty Composio configuration as ready", async () => {
+    const store = await import("./store");
+    expect(store.summarizeInfraProvider("composio", {}).configured).toBe(false);
+    await expect(store.setInfraProvider("composio", {})).rejects.toThrow("required");
+    expect(store.summarizeInfraProvider("composio", { orgApiKey: "synthetic-organization-key" }).configured).toBe(true);
+  });
+
   it("normalizes Dokploy, persists owner-only state, and never returns a raw secret in summaries", async () => {
     const store = await import("./store");
     const values = await store.setInfraProvider("dokploy", {

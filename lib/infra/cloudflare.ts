@@ -1,3 +1,4 @@
+import type { InfraProviderValues } from "./types";
 import { readInfraProvider } from "./store";
 import { HOST_RE, IPV4_RE, obj, request } from "./http";
 
@@ -9,8 +10,8 @@ const parsed = (body: unknown): { success: boolean; result: unknown } => {
   return { success: value.success === true, result: value.result };
 };
 
-export async function listCloudflareZones(): Promise<Array<{ id: string; name: string }>> {
-  const values = await readInfraProvider("cloudflare");
+export async function listCloudflareZones(candidate?: InfraProviderValues): Promise<Array<{ id: string; name: string }>> {
+  const values = candidate ?? await readInfraProvider("cloudflare");
   if (!values.apiToken) throw new Error("Cloudflare is not configured; run `mso provider set cloudflare`");
   const out: Array<{ id: string; name: string }> = [];
   for (let page = 1; page <= MAX_PAGE; page++) {
@@ -28,12 +29,12 @@ export async function listCloudflareZones(): Promise<Array<{ id: string; name: s
   return out;
 }
 
-export async function doctorCloudflare(): Promise<string | null> {
-  const values = await readInfraProvider("cloudflare");
+export async function doctorCloudflare(candidate?: InfraProviderValues): Promise<string | null> {
+  const values = candidate ?? await readInfraProvider("cloudflare");
   if (!values.apiToken) return null;
   const verify = await request(`${API}/user/tokens/verify`, { headers: headers(values.apiToken) });
   if (!verify.ok || obj(verify.body).success !== true) throw new Error(`token verification HTTP ${verify.status}`);
-  const zones = await listCloudflareZones();
+  const zones = await listCloudflareZones(values);
   return `active token; ${zones.length} accessible zone(s)${zones.length ? `: ${zones.slice(0, 5).map((z) => z.name).join(", ")}` : ""}`;
 }
 

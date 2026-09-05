@@ -4,17 +4,17 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.11.1 version=2026.09.05.2 tools=88 read=44 write=25 exec=19 -->
+<!-- mcp-toolset: server=1.12.0 version=2026.09.05.4 tools=89 read=44 write=26 exec=19 -->
 
 | Fact | Current source value |
 |---|---:|
-| MCP server | `1.11.1` |
-| Toolset | `2026.09.05.2` |
-| Toolset changed at | `2026-09-05T11:53:00.000Z` |
-| Transport tools | **90** |
-| Model/operator tools | **88** |
+| MCP server | `1.12.0` |
+| Toolset | `2026.09.05.4` |
+| Toolset changed at | `2026-09-05T11:59:00Z` |
+| Transport tools | **91** |
+| Model/operator tools | **89** |
 | Read | **44** |
-| Write | **25** |
+| Write | **26** |
 | Exec | **19** |
 | App-only bridges | **2** |
 
@@ -65,7 +65,7 @@
 - `tool_forge_candidates`
 - `vps_status`
 
-### Write (25)
+### Write (26)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -83,6 +83,7 @@
 - `fs_upload_file`
 - `fs_write`
 - `hostinger_dns_upsert`
+- `integration_setup_open`
 - `local_agent_message_send`
 - `local_agent_reply`
 - `project_knowledge_set`
@@ -122,16 +123,16 @@
 
 ## ChatGPT static profile
 
-<!-- mcp-chatgpt-profile: server=1.11.1 version=2026.09.05.2 tools=64 read=35 write=17 exec=12 app-only=2 total=66 -->
+<!-- mcp-chatgpt-profile: server=1.12.0 version=2026.09.05.4 tools=65 read=35 write=18 exec=12 app-only=2 total=67 -->
 
 The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_NAMES`. OAuth scope is still enforced independently; project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **66** |
-| ChatGPT model/operator tools | **64** |
+| ChatGPT transport tools | **67** |
+| ChatGPT model/operator tools | **65** |
 | Read | **35** |
-| Write | **17** |
+| Write | **18** |
 | Exec | **12** |
 | App-only bridges | **2** |
 
@@ -173,7 +174,7 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `sys_stats`
 - `vps_status`
 
-### ChatGPT write (17)
+### ChatGPT write (18)
 
 - `agent_session_rename`
 - `apps_power`
@@ -186,6 +187,7 @@ The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_
 - `fs_upload_file`
 - `fs_write`
 - `hostinger_dns_upsert`
+- `integration_setup_open`
 - `local_agent_message_send`
 - `local_agent_reply`
 - `project_knowledge_set`
