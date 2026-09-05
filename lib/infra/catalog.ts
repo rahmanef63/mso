@@ -1,6 +1,9 @@
+import { ADDITIONAL_PROVIDERS, type AdditionalProviderId } from "./additional-providers";
 import { INFRA_PROVIDER_IDS, type InfraProviderDefinition, type InfraProviderId, type InfraProviderValues } from "./types";
 
+const additional = Object.fromEntries(Object.entries(ADDITIONAL_PROVIDERS).map(([id, value]) => [id, { ...value, fields: value.fields.map(f => ({ ...f })) }])) as Record<AdditionalProviderId, InfraProviderDefinition>;
 const definitions: Record<InfraProviderId, InfraProviderDefinition> = {
+  ...additional,
   dokploy: {
     id: "dokploy",
     title: "Dokploy",
@@ -30,7 +33,7 @@ const definitions: Record<InfraProviderId, InfraProviderDefinition> = {
     feature: false,
     fields: [
       { key: "apiKey", label: "Project API key", secret: true, required: false, description: "Project key sent only as x-api-key to /api/v3.1/tools?limit=1." },
-      { key: "orgApiKey", label: "Organization API key", secret: true, required: false, description: "Organization key sent only as x-org-api-key to /api/v3.1/org/project/list." },
+      { key: "orgApiKey", label: "Organization API key", secret: true, required: false, description: "Organization key sent only as x-org-api-key to /api/v3.1/org/owner/project/list." },
     ],
   },
   hostinger: {
@@ -60,6 +63,7 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
   for (const [key, value] of Object.entries(raw)) {
     if (!allowed.has(key) || typeof value !== "string") continue;
     const clean = value.trim();
+    if (clean.length > 4096 || /[\x00-\x1f\x7f]/.test(clean)) throw new Error("Invalid integration field format");
     if (clean) out[key] = clean;
   }
   if (id === "dokploy" && out.apiUrl) {
@@ -85,6 +89,11 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
   }
   if (id === "composio") {
     for (const value of Object.values(out)) if (value.length < 16 || value.length > 4096 || /[\s\x00-\x1f\x7f]/.test(value)) throw new Error("Composio keys must be opaque single-line values (16–4096 characters)");
+  }
+  if (id === "convex-cloud" && out.deploymentName && !/^[a-z0-9][a-z0-9-]{1,62}$/.test(out.deploymentName)) throw new Error("Invalid deployment name");
+  if (id === "convex" && out.apiUrl) {
+    let url: URL; try { url = new URL(out.apiUrl); } catch { throw new Error("Invalid deployment URL"); }
+    if (url.username || url.password || url.search || url.hash || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))) throw new Error("Invalid deployment URL");
   }
   if (id === "hostinger" && out.apiToken && out.apiToken.length < 24) throw new Error("Hostinger API token is too short");
   return out;

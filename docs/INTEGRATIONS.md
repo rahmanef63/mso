@@ -1,13 +1,17 @@
 # Native Integrations
 
-Connect Composio, Dokploy, Cloudflare, and Hostinger directly to MSO. No separate
+Connect Composio, Dokploy, Cloudflare, Hostinger, GitHub, Vercel, Convex Cloud,
+self-hosted Convex, Resend, Stripe, Clerk, and Supabase directly to MSO. No separate
 credential application or plugin is required. Composio accepts either a project
 API key or an organization API key; these are separate setup methods.
 
 ## Browser and terminal
 
-Open `/api/integrations/setup` on your MSO origin, sign in as an owner in another
-tab when needed, select the provider, then choose **Start secure setup**. The form
+Open `/integrations` on your MSO origin. The searchable catalog and official
+credential instructions are available before signing in. Select the provider and
+authentication method, then choose **Open secure form**. Sign in as an owner in
+another tab only when creating the private form. The old `/api/integrations/setup`
+address remains compatible. The form
 includes official links, expandable instructions, masked inputs with show/hide,
 and **Validate & save**. Existing stored values are never displayed; blank fields
 keep them unchanged. A rejected or unreachable provider does not replace them.
@@ -18,6 +22,8 @@ From an interactive terminal with an authenticated MSO session:
 mso provider setup composio project
 mso provider setup composio organization
 mso provider setup hostinger
+mso provider setup convex-cloud personal
+mso provider setup convex-cloud deployment
 ```
 
 The command prints a private ten-minute URL on the configured public MSO origin.
@@ -45,7 +51,9 @@ ChatGPT → integration_setup_open(provider, method)
 ```
 
 The grant reaches the UI through hidden MCP `_meta`. A WeakMap keeps it out of
-ordinary result serialization and non-ChatGPT model transports. The UI supports
+ordinary result serialization and model transports. Both generic MCP Apps and
+the compact ChatGPT transport retain the UI-only result metadata; it is not added
+to text or structured model content. The UI supports
 both standards-based MCP Apps initialization and ChatGPT's canonical metadata
 envelope. Credential values never enter `tools/call`, `ui/message`, widget state,
 local storage, or session storage. Buttons do not require iframe `allow-forms`;
@@ -98,6 +106,21 @@ owner-only store permissions, and MCP output separation. Browser fixtures cover
 desktop/mobile Page rendering, standards-bridge initialization, failed validation
 and retry, input clearing, no owner cookies, and no credential in host messages.
 Real provider authentication still requires the user's own valid credential.
+
+The organization-key probe uses Composio's organization-owner endpoint
+`/api/v3.1/org/owner/project/list` with `x-org-api-key`, not the similarly named
+user-key endpoint. Convex personal-token validation uses the explicitly PAT-scoped
+`/v1/list_personal_access_tokens?limit=1`; token inventory is discarded.
+
+The Page resource is v5. Earlier Page resource URIs resolve to the current safe
+renderer, and both standard and compatibility CSP forms advertise the exact MSO
+connection origin. Missing private metadata, an unavailable setup tool, or expired
+authorization shows a recovery message and browser entrypoint instead of a blank
+form. Browser failure/expiry never requests a secret through chat.
+
+Native MSO storage is independent of other applications. Provider registration
+and API-key checks do not imply full provider-operation parity or completion of
+an upstream OAuth flow. MSO does not silently import another tool's credentials.
 
 ### Deployment verification
 

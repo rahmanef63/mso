@@ -4,13 +4,13 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.12.0 version=2026.09.05.6 tools=92 read=45 write=28 exec=19 -->
+<!-- mcp-toolset: server=1.12.0 version=2026.09.05.7 tools=92 read=45 write=28 exec=19 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.12.0` |
-| Toolset | `2026.09.05.6` |
-| Toolset changed at | `2026-09-05T12:45:00Z` |
+| Toolset | `2026.09.05.7` |
+| Toolset changed at | `2026-09-05T13:00:00Z` |
 | Transport tools | **94** |
 | Model/operator tools | **92** |
 | Read | **45** |
@@ -126,7 +126,7 @@
 
 ## ChatGPT static profile
 
-<!-- mcp-chatgpt-profile: server=1.12.0 version=2026.09.05.6 tools=68 read=36 write=20 exec=12 app-only=2 total=70 -->
+<!-- mcp-chatgpt-profile: server=1.12.0 version=2026.09.05.7 tools=68 read=36 write=20 exec=12 app-only=2 total=70 -->
 
 The ChatGPT profile is a fail-closed static projection defined by `CHATGPT_TOOL_NAMES`. OAuth scope is still enforced independently; project-owned MCP tool names remain dynamic data behind the generic project bridge.
 

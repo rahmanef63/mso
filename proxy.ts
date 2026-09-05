@@ -304,7 +304,7 @@ export async function proxy(request: NextRequest) {
   const isA2A =
     pathname === "/a2a/v1" || pathname === "/.well-known/agent-card.json";
   const isMachineProtocol = isMcp || isA2A;
-  const isApi = pathname.startsWith("/api/") || isMachineProtocol;
+  const isApi = pathname.startsWith("/api/") || isMachineProtocol || (pathname === "/integrations" && ["GET", "HEAD"].includes(request.method));
   // The historical same-origin bridge is permanently closed. noVNC is executable
   // third-party code and is served only from its reserved split-origin host above.
   if (pathname.startsWith("/camoufox-vnc/")) return notFound();

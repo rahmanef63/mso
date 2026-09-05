@@ -1,39 +1,39 @@
 import { INTEGRATION_FORM_SCRIPT } from "@/lib/infra/setup-ui";
-import { INFRA_PROVIDER_IDS } from "@/lib/infra/types";
+import { INTEGRATION_PICKER_SCRIPT } from "@/lib/infra/setup-picker";
+import { integrationCatalog } from "@/lib/infra/setup-catalog";
 import { MSO_ORIGIN } from "./ui-config";
-
-/** Native secret form; shares the existing Page lifecycle without sending secrets to it. */
 export const MSO_PAGE_INTEGRATIONS_SCRIPT = String.raw`
 ${INTEGRATION_FORM_SCRIPT}
+${INTEGRATION_PICKER_SCRIPT}
 const INTEGRATION_ENDPOINT=${JSON.stringify(MSO_ORIGIN + "/api/integrations/setup")};
-const INTEGRATION_PROVIDERS=${JSON.stringify(INFRA_PROVIDER_IDS)};
+const INTEGRATION_BROWSER=${JSON.stringify(MSO_ORIGIN + "/integrations")};
+const INTEGRATION_CATALOG=${JSON.stringify(integrationCatalog()).replace(/</g,"\\u003c")};
 let integrationAccess=null;
-function captureIntegrationAccess(raw){
-  const envelopes=[raw,raw&&raw._meta,raw&&raw.mcp_tool_result&&raw.mcp_tool_result._meta,raw&&raw.call_tool_result&&raw.call_tool_result._meta];
-  for(const meta of envelopes){const access=meta&&meta.integrationSetup;if(access&&typeof access.token==="string"&&/^[A-Za-z0-9_-]{43}$/.test(access.token)&&access.endpoint===INTEGRATION_ENDPOINT){integrationAccess=access;return}}
+function captureIntegrationAccess(raw,depth=0){
+  if(!raw||typeof raw!=="object"||depth>4)return;
+  const access=raw.integrationSetup;
+  if(access&&typeof access.token==="string"&&/^[A-Za-z0-9_-]{43}$/.test(access.token)&&access.endpoint===INTEGRATION_ENDPOINT){integrationAccess=access;return}
+  for(const key of ["_meta","mcp_tool_result","call_tool_result","result"])if(raw[key])captureIntegrationAccess(raw[key],depth+1);
 }
 async function openIntegrationReference(url){
+  if(hostConnected)return rpcRequest("ui/open-link",{url});
   if(window.openai&&typeof window.openai.openExternal==="function")return window.openai.openExternal({href:url,redirectUrl:false});
   return rpcRequest("ui/open-link",{url});
 }
 function renderIntegrations(){
+  const onBack=()=>{integrationAccess=null;lastOutputKey="";current={route:"/integrations",kind:"integrations",title:"Integrations",openPath:"/integrations",catalog:[]};render()};
+  const openBrowser=()=>openIntegrationReference(INTEGRATION_BROWSER);
   if(current.setup){
-    viewCleanup=mountIntegrationForm(body,current.setup,integrationAccess?{...integrationAccess,openLink:openIntegrationReference}:null)||(()=>{});
-    return;
+    captureIntegrationAccess(window.openai&&window.openai.toolResponseMetadata);
+    viewCleanup=mountIntegrationForm(body,current.setup,{...(integrationAccess||{}),openLink:openIntegrationReference,onBack,openBrowser})||(()=>{});return;
   }
-  const root=el("div","integration");root.append(el("h2","","Integrations"),el("p","","Connect a service directly to MSO. Credentials stay outside the chat. Choose a service to open a ten-minute setup form."));
-  const list=el("div","grid");
-  for(const provider of INTEGRATION_PROVIDERS){
-    const card=el("div","card");card.append(el("strong","",provider));
-    for(const method of provider==="composio"?["project","organization"]:["direct"]){
-      const b=button(provider==="composio"?method+" API key":"Connect",async()=>{
-        b.disabled=true;
-        try{const result=await rpcCall("integration_setup_open",{provider,method});if(!acceptPageResult(result)||!current.setup)throw new Error("Setup requires write permission and refreshed MSO tools.")}
-        catch(error){showError(error)}
-      });card.append(b);
+  viewCleanup=mountIntegrationPicker(body,INTEGRATION_CATALOG,{
+    openBrowser,openLink:openIntegrationReference,
+    openSetup:async(provider,method)=>{
+      const result=await rpcCall("integration_setup_open",{provider,method});
+      captureIntegrationAccess(result);captureIntegrationAccess(window.openai&&window.openai.toolResponseMetadata);
+      if(!acceptPageResult(result)||!current.setup)throw new Error("The connector could not open the secure form. Use Open in browser, or refresh the MSO connector to load the new setup action.");
     }
-    list.append(card);
-  }
-  root.append(list);body.append(root);
+  });
 }
 `;

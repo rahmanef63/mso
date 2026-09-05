@@ -14,6 +14,9 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` add explicit browser sign-in for reviewed embedded apps
+- `integrations` repair embedded setup and complete native provider catalog
+- `integrations` recover setup UI and cached chat links
 - `release` wait for HTTP readiness before validating served assets
 - `mcp` initialize page previews and verify embedded app readiness
 - reconcile maintenance handoff and CLI version contracts

@@ -12,6 +12,7 @@ export type SurfaceApp = {
   presentation: SurfacePresentation;
   environment: SurfaceEnvironment;
   sandbox?: string;
+  externalAuthPath?: string;
   reason?: string;
 };
 
@@ -26,6 +27,7 @@ export const SURFACE_APPS: readonly SurfaceApp[] = [
     description: "Live Play Together demo through its dedicated /embed security boundary.",
     origin: "https://game.rahmanef.com",
     startPath: "/embed",
+    externalAuthPath: "/?auth=google",
     renderer: "iframe",
     presentation: "fullscreen",
     environment: "production",
@@ -46,8 +48,8 @@ export type ResolvedSurface = {
   app?: SurfaceApp & { url: string };
 };
 
-export function publicSurfaceApps(): Array<Omit<SurfaceApp, "sandbox">> {
-  return SURFACE_APPS.map(({ sandbox: _sandbox, ...app }) => ({ ...app }));
+export function publicSurfaceApps(): Array<Omit<SurfaceApp, "sandbox" | "externalAuthPath">> {
+  return SURFACE_APPS.map(({ sandbox: _sandbox, externalAuthPath: _externalAuthPath, ...app }) => ({ ...app }));
 }
 
 export function surfaceFrameDomains(): string[] {
@@ -85,7 +87,7 @@ export function resolveSurfaceRoute(rawRoute: string, context?: { project?: stri
   const route = `${url.pathname}${url.search}`;
 
   if (parts.length === 0) return { route, kind: "home", title: "MSO", openPath: "/assistant/mcp" };
-  if (parts[0] === "integrations" && parts.length === 1) return { route, kind: "integrations", title: "Integrations", openPath: "/api/integrations/setup" };
+  if (parts[0] === "integrations" && parts.length === 1) return { route, kind: "integrations", title: "Integrations", openPath: "/integrations" };
   if (parts[0] === "monitor" && parts.length === 1) return { route, kind: "monitor", title: "System Monitor", openPath: "/monitor" };
   if (parts[0] === "browser" && parts.length === 1) return { route, kind: "browser", title: "Remote Browser", openPath: "/browser" };
   if (parts[0] === "project" && parts.length === 1) return { route, kind: "project", title: "Project", openPath: "/files", ...(context?.project ? { project: context.project } : {}) };

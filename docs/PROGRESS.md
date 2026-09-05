@@ -1,5 +1,61 @@
 ## 2026-09-05 — MCP Page preview lifecycle
 
+- **Reviewed-app Google sign-in leaves the iframe (2026-09-05):** Page v6 adds an explicit host-side Google-login action using a code-owned same-origin path. A nested app may only highlight this action, never trigger navigation, supply a URL or transfer session data. The host opens through `ui/open-link`/`openExternal` after a real button click; sandbox popup restrictions remain unchanged. Play Together finishes sign-in in the browser tab; this does not promise shared login with storage-partitioned embeds. v5 resource requests remain compatible.
+
+
+## 2026-09-05 — Repair native Integrations delivery and full credential catalog
+
+The initial temporary form was too narrow and could arrive without its UI-only
+setup grant when the MCP transport selected the generic profile. Preserve that
+metadata in MCP `_meta` for both profiles without making it serializable in model
+results. Page v5 shares one guided picker with `/integrations`, advertises exact
+standard/compatibility CSP origins, and keeps older resource aliases working.
+Missing grants, authorization, and cached setup tools have explicit recovery paths.
+
+Expand native setup from four providers to twelve without importing another
+application's credential library or state. Method-specific fields distinguish
+Composio project/organization and Convex personal/deployment credentials. Fix the
+Composio organization endpoint and use the dedicated read-only PAT verification
+endpoint for Convex. Schema-derived masking covers every secret field.
+
+Targeted security/contract tests and desktop/mobile browser fixtures prove catalog
+navigation, guidance before sign-in, retry, safe save, input cleanup and no key in
+MCP messages. Provider key verification and full upstream OAuth remain distinct;
+synthetic browser tests are not evidence of a user's successful authorization.
+
+Fixed a missing MCP Apps host initialization handshake, wrapped tool-result handling and
+repeated iframe remounts on unchanged globals. Page v3 now waits for an origin/source-checked
+app readiness message, displays bounded retry/direct-production actions, and preserves the
+cached v2 URI as a read-only alias. The exact reviewed iframe registry and Block-only approval
+contract remain unchanged. Targeted contracts and a desktop/mobile browser harness validate
+both standard MCP and legacy ChatGPT host paths. Toolset: `2026.09.05.1`.
+
+# mso — Progress Log
+- **Native integration preservation (2026-09-05):** merged published c164dbe without dropping the concurrent native credential setup. The short README retains its documentation link (99 lines). MCP 1.12.0 / toolset 2026.09.05.4 labels the combined maintenance, service-token, Page-readiness and native-integration contracts. This merge does not execute maintenance or reset real credentials.
+- **Concurrent main reconciliation (2026-09-05):** preserved published MCP Page initialization/readiness changes e46c417 + changelog c4856d2 in the maintenance/PR integration branch without modifying the other session's unpublished work. MCP 1.11.1 / toolset 2026.09.05.2 records the combined compatible contract. The Settings maintenance files are unchanged from the isolated desktop/mobile acceptance at 2164d29; full repository and GitHub gates are rerun for the combined source.
+- **PR integration validation (2026-09-05):** preserve the reviewed PR36/PR37 ancestry while repairing PR38 glob escaping/native Bun audit checks and PR37 code-generating visual-test fixtures. Direct-image boundary tests now cover malformed content and size/type limits. MCP server 1.11.0 / toolset 2026.09.05.1 records the compatible restricted-service-token/direct-image contract; widget resources and ordinary OAuth token behavior are unchanged. Publication still requires complete current-head local and remote gates, including late CodeQL findings—not only the workflow completion status.
+- **Reviewed 9Router network boundary (PR36, 2026-09-05):** reuse the configured internal proxy network only when it already exists; Docker host publishing remains loopback-only unless explicitly enabled. This supports a containerized reverse proxy without opening the application port to the public interface. The update adds no automatic network creation or DNS mutation. The old PR lifecycle-test failure must be rechecked against the combined current baseline before publication.
+
+
+## 2026-09-05 — Integration setup recovery and complete browser navigation
+
+The previous setup document exposed a clickable setup button before Owner sign-in,
+then collapsed authentication and transport failures into the same 403 message.
+The Page also depended on a new setup action that cached chat catalogs may not know.
+The native `/integrations` hub now probes live auth before enabling changes, keeps
+provider/method guides available beforehand, refreshes on return from sign-in, and
+provides expiry recovery and a route back from completed forms. Old URLs are retained.
+Page v4 preserves usable browser links on unknown-tool/missing-private-metadata
+responses, while older Page URIs map to the same current resource. Framing policy,
+Owner gates, direct secret submission, and scoped capability checks remain intact.
+
+Validation: isolated desktop/mobile browser runs exercise the signed-out to Owner
+transition, method selection, rejected-save retry, cleared successful inputs, and
+cached/current MCP bridge modes. No real credential was written by those tests.
+The connected chat can display the Page, but a browser fixture is not proof that
+its cached tool catalog has refreshed; the visible fallback is part of the contract.
+
+
 Fixed a missing MCP Apps host initialization handshake, wrapped tool-result handling and
 repeated iframe remounts on unchanged globals. Page v3 now waits for an origin/source-checked
 app readiness message, displays bounded retry/direct-production actions, and preserves the

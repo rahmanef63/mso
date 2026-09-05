@@ -15,6 +15,6 @@ export async function POST(req: NextRequest) {
     if (Object.keys(body).some(k => !["provider", "method"].includes(k)) || typeof body.provider !== "string" || (body.method !== undefined && typeof body.method !== "string")) throw new Error("invalid");
     const grant = await openIntegrationSetup(body.provider, context.session.device_id, body.method as string | undefined);
     void audit({ action: "infra.write", actor: context.session.device_id, target: body.provider, ok: true, detail: "integration.setup-open" });
-    return NextResponse.json({ ...grant, setupUrl: `${MSO_ORIGIN}/api/integrations/setup` }, { headers });
+    return NextResponse.json({ ...grant, setupUrl: `${MSO_ORIGIN}/integrations` }, { headers });
   } catch { return NextResponse.json({ error: "setup_unavailable" }, { status: 400, headers }); }
 }

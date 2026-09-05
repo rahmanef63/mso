@@ -7,7 +7,6 @@ import { getInfraProviderDefinition, normalizeInfraValues } from "./catalog";
 import type { InfraProviderId, InfraProviderSummary, InfraProviderValues, InfraStore } from "./types";
 
 export const INFRA_STORE_PATH = process.env.OS_INFRA_STORE ?? path.join(os.homedir(), ".mso", "private", "infra-providers.json");
-const SECRET_KEYS = new Set(["apiKey", "apiToken", "orgApiKey"]);
 const MAX_STORE_BYTES = 256 * 1024;
 
 function mask(value: string): string {
@@ -59,6 +58,7 @@ export async function setInfraProvider(id: InfraProviderId, raw: Record<string, 
     const def = getInfraProviderDefinition(id);
     const missing = def.fields.filter((field) => field.required && !values[field.key]).map((field) => field.key);
     if (id === "composio" && !values.apiKey && !values.orgApiKey) missing.push("project or organization API key");
+    if (id === "convex-cloud" && !values.personalToken && !(values.deployKey && values.deploymentName)) missing.push("personal token or deployment key and name");
     if (missing.length) throw new Error(`${id} is missing required value(s): ${missing.join(", ")}`);
     await writeUnlocked({ ...store, providers: { ...(store.providers ?? {}), [id]: values } });
     return values;
@@ -78,8 +78,9 @@ export function summarizeInfraProvider(id: InfraProviderId, values: InfraProvide
   const def = getInfraProviderDefinition(id);
   const missing = def.fields.filter((field) => field.required && !values[field.key]).map((field) => field.key);
   if (id === "composio" && !values.apiKey && !values.orgApiKey) missing.push("project or organization API key");
+    if (id === "convex-cloud" && !values.personalToken && !(values.deployKey && values.deploymentName)) missing.push("personal token or deployment key and name");
   const safeValues = Object.fromEntries(def.fields
     .filter((field) => values[field.key])
-    .map((field) => [field.key, SECRET_KEYS.has(field.key) ? mask(values[field.key]) : values[field.key]]));
+    .map((field) => [field.key, field.secret ? mask(values[field.key]) : values[field.key]]));
   return { id, title: def.title, description: def.description, feature: def.feature, configured: missing.length === 0, missing, values: safeValues, fields: def.fields };
 }

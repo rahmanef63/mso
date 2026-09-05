@@ -38,7 +38,7 @@ const PAGE_INPUT = S({
 function publicResolved(resolved: ResolvedSurface): Record<string, unknown> {
   const { app, ...rest } = resolved;
   if (!app) return rest;
-  const { sandbox: _sandbox, ...safeApp } = app;
+  const { sandbox: _sandbox, externalAuthPath: _externalAuthPath, ...safeApp } = app;
   return { ...rest, app: safeApp };
 }
 
@@ -57,7 +57,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false, idempotentHint: false },
     audit: { action: "infra.write", targetArg: "provider" },
     limit: { key: "integration.setup", max: 10, windowMs: 60_000 },
-    inputSchema: S({ provider: { type: "string", enum: [...INFRA_PROVIDER_IDS] }, method: { type: "string", enum: ["direct", "project", "organization"], description: "Composio defaults to project; other providers use direct." } }, ["provider"]),
+    inputSchema: S({ provider: { type: "string", enum: [...INFRA_PROVIDER_IDS] }, method: { type: "string", enum: ["direct", "project", "organization", "personal", "deployment"], description: "Composio defaults to project; other providers use direct." } }, ["provider"]),
     outputSchema: PAGE_OUTPUT,
     meta: {
       ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },
@@ -68,7 +68,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     },
     run: async (input, context) => {
       const grant = await openIntegrationSetup(str(input, "provider"), context.principal ?? context.actor ?? "", opt(input, "method"));
-      const output = { route: "/integrations", kind: "integrations", title: "Integrations", openPath: "/api/integrations/setup", catalog: publicSurfaceApps(), setup: grant.setup };
+      const output = { route: "/integrations", kind: "integrations", title: "Integrations", openPath: "/integrations", catalog: publicSurfaceApps(), setup: grant.setup };
       return mcpDirect([{ type: "text", text: `Secure ${grant.setup.title} setup opened. Enter the credential in the form, never in chat.` }], false, output,
         { integrationSetup: { token: grant.token, endpoint: `${MSO_ORIGIN}/api/integrations/setup` } });
     },
