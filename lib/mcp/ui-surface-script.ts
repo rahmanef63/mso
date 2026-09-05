@@ -55,7 +55,7 @@ function openPath(path){setMsoTarget(validRoute(path)?path:"/assistant/mcp")}
 function applyHostGlobals(){
   const api=hostConnected?{...(window.openai||{}),...hostContext}:{...hostContext,...(window.openai||{})};
   applyHostTheme();
-  const max=Number(api.maxHeight);document.documentElement.style.setProperty("--host-max-h",Number.isFinite(max)&&max>180?Math.floor(max)+"px":"680px");
+  const max=Number(api.maxHeight),hostMax=Number.isFinite(max)&&max>180?Math.floor(max):680;document.documentElement.style.setProperty("--host-max-h",hostMax+"px");document.documentElement.style.setProperty("--inline-max-h",Math.max(1,Math.floor(hostMax*.48))+"px");
   const safe=api.safeArea||{};for(const [key,value] of [["top",safe.top],["right",safe.right],["bottom",safe.bottom],["left",safe.left]]){const n=Number(value);document.documentElement.style.setProperty("--safe-"+key,Number.isFinite(n)?Math.max(0,n)+"px":"0px")}
   const mode=["inline","fullscreen","pip"].includes(api.displayMode)?api.displayMode:"inline";
   document.documentElement.dataset.displayMode=mode;

@@ -56,9 +56,16 @@ describe("MCP Apps Block and Page contract", () => {
     expect(page?.outputSchema).toBeDefined();
     expect(page?._meta).toMatchObject({
       ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },
-      "openai/outputTemplate": MSO_PAGE_URI,
       "openai/widgetAccessible": true,
     });
+    expect(page?._meta?.["openai/outputTemplate"]).toBeUndefined();
+
+    const setup = tools.find((tool) => tool.name === "integration_setup_open");
+    expect(setup?._meta).toMatchObject({
+      ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },
+      "openai/widgetAccessible": true,
+    });
+    expect(setup?._meta?.["openai/outputTemplate"]).toBeUndefined();
 
     const legacy = tools.find((tool) => tool.name === "render_mso_surface");
     expect(legacy?._meta).toMatchObject({ ui: { visibility: ["app"] }, "openai/widgetAccessible": true });
@@ -150,7 +157,7 @@ describe("MCP Apps Block and Page contract", () => {
       frameDomains: ["https://game.rahmanef.com"],
     });
     expect(content._meta["openai/widgetCSP"]).toEqual({ connect_domains: [MSO_ORIGIN], frame_domains: ["https://game.rahmanef.com"], redirect_domains: [MSO_ORIGIN, "https://game.rahmanef.com"] });
-    expect(MSO_PAGE_URI).toContain("page-v9.html");
+    expect(MSO_PAGE_URI).toContain("page-v10.html");
   });
 
   it("returns only redacted structured workflow state and keeps status polling out of workflow memory", async () => {

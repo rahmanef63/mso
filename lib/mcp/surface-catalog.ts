@@ -29,7 +29,7 @@ export const SURFACE_APPS: readonly SurfaceApp[] = [
     startPath: "/embed",
     externalAuthPath: "/?auth=google",
     renderer: "iframe",
-    presentation: "fullscreen",
+    presentation: "inline",
     environment: "production",
     sandbox: "allow-scripts allow-same-origin allow-forms allow-pointer-lock",
   },

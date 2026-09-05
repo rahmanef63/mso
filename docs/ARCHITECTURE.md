@@ -123,14 +123,14 @@ MSO exposes exactly two user-visible MCP App classes instead:
 - `render_mso_block` binds `ui://mso/block-v2.html` for compact validation, action buttons, and
   CRUD input-output. A button returns a user-approved follow-up message; it does not execute a
   mutation inside the widget, so ordinary scope, approval, audit, and workflow rules still apply.
-- `render_mso_page` binds `ui://mso/page-v3.html` for native `/`, `/monitor`, `/project`, `/diff`,
+- `render_mso_page` binds the canonical `ui://mso/page-v10.html` resource for native `/`, `/monitor`, `/project`, `/diff`,
   `/browser`, and `/apps/<reviewed-id>` views. Native Page views call the same bounded MSO tools.
 
 `workflow_start` is orchestration-only and headless: it still owns workflow isolation, skill/recipe
 lookup, collision detection, tracing, evidence, and learning, but no longer binds a UI resource.
 `project_get`, `project_diff`, and `vps_status` likewise remain pure data tools. The previous
 `render_mso_surface` and `workflow_status` actions are app-only compatibility shims for cached
-widgets; Block/Page v1 plus the previous workflow/surface resource URIs remain readable aliases but are not advertised.
+widgets; prior Block/Page URIs plus the previous workflow/surface resource URIs remain readable aliases but are not advertised. Page tools use the standard MCP Apps `ui.resourceUri` binding only; the legacy ChatGPT `openai/outputTemplate` alias is intentionally absent so one tool result maps to one Page mount.
 
 Reviewed Page apps may use a nested iframe only when their exact HTTPS origin exists in the
 code-owned Page catalog and the MCP resource CSP `frameDomains`; anti-frame apps stay on the
