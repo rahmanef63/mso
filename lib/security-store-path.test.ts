@@ -10,6 +10,11 @@ async function fixture() { const root = await fs.mkdtemp(path.join(os.tmpdir(), 
 afterEach(async () => { for (const root of roots.splice(0)) await fs.rm(root, { recursive: true, force: true }); });
 
 describe("pinned owner security-store paths", () => {
+  it("supports the existing hidden artifact-lock basename", async () => {
+    const root = await fixture();
+    const pinned = await pinSecurityStorePath(path.join(root, ".artifacts"));
+    try { expect(pinned.file).toMatch(/\/\.artifacts$/); } finally { await pinned.directory.close(); }
+  });
   it("rejects traversal and non-canonical symlink ancestors before creating a target", async () => {
     const root = await fixture(), outside = await fixture();
     await fs.symlink(outside, path.join(root, "alias"));

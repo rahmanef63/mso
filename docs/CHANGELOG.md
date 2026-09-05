@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` retain artifact-lock compatibility and require fresh scan evidence
 - `security` pin store paths and eliminate unsafe file-read patterns
 - `mcp` add explicit browser sign-in for reviewed embedded apps
 - `security` gate on actual GitHub open findings

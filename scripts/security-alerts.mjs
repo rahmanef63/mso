@@ -39,6 +39,9 @@ try {
   const alerts = await pages(`/code-scanning/alerts?state=open&ref=${encodeURIComponent(ref)}`);
   const recent = await get(`/code-scanning/analyses?ref=${encodeURIComponent(ref)}&per_page=100`);
   if (!Array.isArray(recent.value) || !recent.value.length) throw new Error("No scan evidence for the default branch");
+  if (!recent.value.some((scan) => scan.tool?.name === "CodeQL" && scan.commit_sha === branch.commit.sha && !scan.error)) {
+    throw new Error("CodeQL has not completed successfully for the current default-branch commit");
+  }
   const rows = [];
   for (const alert of alerts) {
     if (!Number.isSafeInteger(alert.number)) throw new Error("Invalid GitHub alert number");

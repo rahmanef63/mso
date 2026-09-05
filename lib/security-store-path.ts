@@ -19,7 +19,7 @@ export async function pinSecurityStorePath(storePath: string) {
   if (typeof storePath !== "string" || storePath.includes("\0") || !path.isAbsolute(storePath)) throw new Error("Security store needs an absolute path");
   const absolute = path.resolve(storePath);
   const name = path.basename(absolute);
-  if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,220}$/.test(name)) throw new Error("Invalid security-store filename");
+  if (!/^[A-Za-z0-9_.-]{1,221}$/.test(name) || name === "." || name === "..") throw new Error("Invalid security-store filename");
   const allowed = [os.homedir(), ...(process.env.OS_FS_WRITE_ROOTS ?? "").split(":").filter(Boolean),
     ...STORE_ENV.flatMap((key) => process.env[key] ? [path.dirname(expand(process.env[key]!))] : []),
     ...DIRECTORY_ENV.flatMap((key) => process.env[key] ? [expand(process.env[key]!)] : []),

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
-function run(options: { count?: number; denied?: boolean; noAnalysis?: boolean; paginate?: boolean } = {}) {
+function run(options: { count?: number; denied?: boolean; noAnalysis?: boolean; paginate?: boolean; stale?: boolean } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), "mso-alert-report-test-")); roots.push(root);
   const stub = `const options=${JSON.stringify(options)};
     globalThis.fetch=async(url)=>{
@@ -16,7 +16,7 @@ function run(options: { count?: number; denied?: boolean; noAnalysis?: boolean; 
       if(url.includes('/alerts?')){value=Array.from({length:options.count??0},(_,i)=>({number:i+1,state:'open',tool:{name:'CodeQL'},rule:{id:'js/test',severity:'warning'}}));
         if(options.paginate){if(url.includes('page=2'))value=[];else headers={link:'<https://api.github.com/next>; rel="next"'};}}
       if(url.includes('/instances?'))value=[{ref:'refs/heads/main',state:'open',location:{path:'lib/test.ts',start_line:3},message:{text:'review me'}}];
-      if(url.includes('/analyses?'))value=options.noAnalysis?[]:[{id:1,commit_sha:'a'.repeat(40),tool:{name:'CodeQL'},ref:'refs/heads/main'}];
+      if(url.includes('/analyses?'))value=options.noAnalysis?[]:[{id:1,commit_sha:(options.stale?'b':'a').repeat(40),tool:{name:'CodeQL'},ref:'refs/heads/main'}];
       return new Response(JSON.stringify(value),{status:200,headers});
     };await import(${JSON.stringify(path.join(process.cwd(), "scripts/security-alerts.mjs"))});`;
   const result = spawnSync(process.execPath, ["--input-type=module", "-e", stub], { encoding: "utf8", timeout: 10_000,
@@ -33,6 +33,7 @@ describe("GitHub open-alert evidence", () => {
   });
   it("accepts zero findings only with scan evidence", () => { const result = run(); expect(result.status).toBe(0); expect(result.report?.openCount).toBe(0); });
   it("fails closed on a denied security inventory", () => { const result = run({ denied: true }); expect(result.status).toBe(2); expect(result.stderr).toContain("INCOMPLETE"); });
+  it("does not call an old clean scan current", () => { expect(run({ stale: true }).status).toBe(2); });
   it("does not call an unscanned repository clean", () => { expect(run({ noAnalysis: true }).status).toBe(2); });
   it("follows pagination instead of treating a first page as the complete inventory", () => { const result = run({ count: 2, paginate: true }); expect(result.status).toBe(1); expect(result.report?.alerts).toHaveLength(2); });
 });
