@@ -131,7 +131,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
       fit(`${byScope.read} read · ${byScope.write} write · ${byScope.exec} exec`, leftWidth),
       fit("write/exec approval-gated", leftWidth), "", `${C.bold}Infrastructure${C.reset}`,
       fit(`${infra.ready.length}/${infra.total} ready`, leftWidth),
-      fit(infra.ready.length ? infra.ready.join(" · ") : "run /providers to connect", leftWidth),
+      fit(infra.ready.length ? infra.ready.join(" · ") : "run /integrations to connect", leftWidth),
     ];
     const right = [`${C.bold}Available Tools${C.reset}`];
     for (const row of tools) right.push(kv(row.label, row.value, rightWidth));
@@ -145,7 +145,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
       `${C.bold}Available Tools${C.reset}`, ...tools.map((row) => kv(row.label, row.value, inner)), "",
       `${C.bold}Available Skills${C.reset}`, ...skills.map((row) => kv(row.label, row.value, inner)), "",
       `${C.bold}Capabilities${C.reset}`, `${byScope.read} read · ${byScope.write} write · ${byScope.exec} exec · write/exec approval-gated`,
-      `${C.bold}Infrastructure${C.reset}`, `${infra.ready.length}/${infra.total} ready · ${infra.ready.length ? infra.ready.join(" · ") : "run /providers to connect"}`,
+      `${C.bold}Infrastructure${C.reset}`, `${infra.ready.length}/${infra.total} ready · ${infra.ready.length ? infra.ready.join(" · ") : "run /integrations to connect"}`,
     ];
     for (const line of lines) console.log(panelSingle(line, inner));
   }

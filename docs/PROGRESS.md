@@ -1,3 +1,7 @@
+## 2026-09-06 — `/integrations` becomes the canonical MSO Chat credential command
+
+MSO Agent slash discovery now exposes `/integrations` and opens the same native Finder-style Integrations surface used by the CLI. A matching official `integrations` skill is cataloged for `/skills` and `/skill integrations`, keeping model-driven work on `integration_query`, `integration_manage`, `integration_execute`, and private `integration_setup_open`. The older `/provider` and `/providers` handlers remain executable for compatibility but are hidden from the slash palette/help so the product has one user-facing credential concept: Integrations. Agent onboarding/runtime hints now point to Integrations rather than the legacy three-provider commands. No credential values enter chat or slash payloads.
+
 ## 2026-09-06 — Final MSO Integrations Finder renderer and TUI interaction model
 
 The first Finder pass exposed a real Windows Terminal/SSH alignment defect: vertical separators were independent content fragments, empty placeholder columns consumed most of the screen, and the frame lacked the normal MSO visual language. Integrations now builds a complete cell-aware frame before painting it, draws connected box borders at fixed column boundaries, reserves the final terminal cell against implicit wrapping, and uses absolute cursor addressing for every row. The responsive pane count is 4/3/2/1 at 132/92/68-column breakpoints, but only real ancestry panes are drawn; no blank Finder columns are reserved.

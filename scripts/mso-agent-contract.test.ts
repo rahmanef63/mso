@@ -30,11 +30,13 @@ describe("MSO terminal agent contract", () => {
     expect(src).toContain("MSO_TITLE_COLORS");
     for (const command of [
       "/models", "/model", "/status", "/context", "/statusbar", "/rename", "/title",
-      "/new", "/restart", "/session", "/resume", "/setup", "/providers", "/provider",
+      "/new", "/restart", "/session", "/resume", "/setup", "/integrations",
       "/doctor", "/tools", "/agents", "/message", "/delegate", "/inbox", "/skills", "/skill", "/<skill>", "/clear", "/exit", "/quit",
     ]) expect(src).toContain(command);
     expect(src).toContain("Configure AI providers and authentication");
     expect(src).toContain("Select the active model from connected providers");
+    expect(src).toContain('runCli(["integrations", ...args])');
+    expect(src).toContain("legacy compatibility aliases");
     expect(src).toContain("queued");
     expect(src).toContain("invoking");
     expect(src).toContain("lastInvokedSkill");

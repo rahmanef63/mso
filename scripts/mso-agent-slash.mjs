@@ -50,13 +50,8 @@ const BUILTIN_SLASH_ITEMS = [
   },
   { text: "/setup", meta: "Run full MSO onboarding", kind: "command" },
   {
-    text: "/providers",
-    meta: "Show infrastructure provider status",
-    kind: "command",
-  },
-  {
-    text: "/provider",
-    meta: "Configure Dokploy, Cloudflare, or Hostinger",
+    text: "/integrations",
+    meta: "Manage credential users, providers, named connections, sources, and auth",
     kind: "command",
   },
   { text: "/doctor", meta: "Run MSO diagnostics", kind: "command" },

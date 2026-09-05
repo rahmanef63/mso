@@ -21,11 +21,16 @@ describe("MSO Agent slash completion catalog", () => {
     expect(rows.map((row) => row.text)).toContain("/restart");
     expect(rows.map((row) => row.text)).toContain("/message");
     expect(rows.map((row) => row.text)).toContain("/delegate");
+    expect(rows.map((row) => row.text)).toContain("/integrations");
+    expect(rows.map((row) => row.text)).not.toContain("/provider");
+    expect(rows.map((row) => row.text)).not.toContain("/providers");
     expect(rows.map((row) => row.text)).not.toContain("/unsafe");
   });
 
   it("filters live as the command token is typed", () => {
     expect(slashCompletionItems(skills, "/sess", "/home/rahman").map((row) => row.text)).toEqual(["/session"]);
+    expect(slashCompletionItems(skills, "/int", "/home/rahman").map((row) => row.text)).toEqual(["/integrations"]);
+    expect(slashCompletionItems(skills, "/prov", "/home/rahman")).toEqual([]);
     expect(slashCompletionItems(skills, "/skills anything", "/home/rahman")).toEqual([]);
   });
 
@@ -59,6 +64,13 @@ describe("MSO Agent slash completion catalog", () => {
     })[0];
     expect(invoked).toMatchObject({ state: "invoked" });
     expect(invoked.meta).toContain("invoked");
+  });
+
+  it("keeps the official integrations skill behind the canonical built-in slash command", () => {
+    const data = { skills: [{ id: "integrations", name: "integrations", trust: "official", description: "native integration operations" }] };
+    const rows = slashCompletionItems(data, "/integrations", "/home/rahman");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ text: "/integrations", kind: "command" });
   });
 
 });

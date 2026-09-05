@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `agent` add native integrations slash skill
 - `integrations` polish Finder TUI frame and UX
 - `integrations` use Finder-style column browser
 - `integrations` add interactive terminal navigator

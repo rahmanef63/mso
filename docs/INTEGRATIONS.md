@@ -78,6 +78,17 @@ A connector that cached old tools must refresh to discover the new actions. A mi
 action or private grant is an explicit recoverable error, not evidence of successful
 setup. Opening an outer widget is not proof that its form or provider authorization works.
 
+## MSO Chat / Agent
+
+`/integrations` is the primary product-facing slash command in MSO Chat/Agent. With no arguments it opens the same Finder-style native Integrations manager; explicit CLI-style arguments are passed through for advanced use. `/provider` and `/providers` remain executable compatibility aliases but are intentionally hidden from slash discovery so credential setup has one canonical name.
+
+```text
+/integrations
+  → Credential user → Provider → Named connection → Source/Auth → Actions
+```
+
+Credential values still enter only through the private setup flow; the Agent conversation and slash-command payload never carry provider secrets.
+
 ## CLI
 
 Bare `mso integrations` is an MSO-native Finder-style alternate-screen application. It repaints one complete terminal frame by absolute cursor position, uses terminal-cell-aware width calculation, and reserves the rightmost physical cell to avoid Windows Terminal/SSH wrap drift. Borders are one continuous `─/│` grid; there are no placeholder columns.

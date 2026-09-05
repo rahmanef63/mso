@@ -114,8 +114,7 @@ function printHelp() {
       "  /models [args]          configure AI providers/auth",
       "  /model [ref]            select active model from connected providers",
       "  /setup                  full MSO onboarding",
-      "  /providers              infrastructure provider status",
-      "  /provider <id>          configure dokploy|cloudflare|hostinger",
+      "  /integrations [args]    manage users, providers, connections, source/auth",
       "  /doctor                 run mso doctor",
       "  /tools                  list agent tools",
       "  /agents                 list live local session agents + remote A2A peers",
@@ -228,6 +227,12 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
       runCli(["onboard"]);
       session.state = await state();
       return "refresh";
+    case "/integrations":
+      runCli(["integrations", ...args]);
+      session.state = await state();
+      return "refresh";
+    // Compatibility aliases kept executable for older muscle memory/scripts, but
+    // intentionally hidden from the slash palette. Product-facing setup is Integrations.
     case "/providers":
       runCli(["provider", "list"]);
       session.state = await state();
