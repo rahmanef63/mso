@@ -37,6 +37,7 @@ const status = (over: Record<string, unknown> = {}) => ({
   currentSubject: "feat: x",
   buildSha: "abc1234",
   pendingBuild: false,
+  ahead: 0,
   behind: 2,
   commits: [],
   dirty: false,
