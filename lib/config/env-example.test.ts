@@ -42,6 +42,7 @@ const NOT_A_KNOB: Record<string, string> = {
   WATCHDOG_USEC: "systemd's",
   // Test + tooling only, never part of a deployment.
   E2E_BASE_URL: "test harness",
+  CHROME_PATH: "MCP Page browser contract harness executable override, not production configuration",
   E2E_PASSWORD: "test harness",
   E2E_DEVICE: "test harness",
   E2E_HEADED: "test harness",

@@ -50,7 +50,7 @@ describe("MSO Page trusted app catalog", () => {
     expect(MSO_SURFACE_SCRIPT).not.toContain("innerHTML");
     expect(MSO_SURFACE_SCRIPT).not.toContain("insertAdjacentHTML");
     expect(MSO_SURFACE_SCRIPT).not.toContain("document.write");
-    expect(MSO_SURFACE_SCRIPT).toContain('method:"tools/call"');
+    expect(MSO_SURFACE_SCRIPT).toContain('rpcRequest("tools/call"');
     expect(MSO_SURFACE_SCRIPT).toContain('rpcCall("render_mso_page"');
     expect(MSO_SURFACE_SCRIPT).not.toContain("window.openai.callTool");
     expect(MSO_SURFACE_SCRIPT).toContain("url.origin!==safe.origin");

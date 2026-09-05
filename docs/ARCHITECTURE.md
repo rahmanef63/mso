@@ -123,7 +123,7 @@ MSO exposes exactly two user-visible MCP App classes instead:
 - `render_mso_block` binds `ui://mso/block-v2.html` for compact validation, action buttons, and
   CRUD input-output. A button returns a user-approved follow-up message; it does not execute a
   mutation inside the widget, so ordinary scope, approval, audit, and workflow rules still apply.
-- `render_mso_page` binds `ui://mso/page-v2.html` for native `/`, `/monitor`, `/project`, `/diff`,
+- `render_mso_page` binds `ui://mso/page-v3.html` for native `/`, `/monitor`, `/project`, `/diff`,
   `/browser`, and `/apps/<reviewed-id>` views. Native Page views call the same bounded MSO tools.
 
 `workflow_start` is orchestration-only and headless: it still owns workflow isolation, skill/recipe

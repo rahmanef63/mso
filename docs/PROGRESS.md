@@ -1,4 +1,14 @@
+## 2026-09-05 — MCP Page preview lifecycle
+
+Fixed a missing MCP Apps host initialization handshake, wrapped tool-result handling and
+repeated iframe remounts on unchanged globals. Page v3 now waits for an origin/source-checked
+app readiness message, displays bounded retry/direct-production actions, and preserves the
+cached v2 URI as a read-only alias. The exact reviewed iframe registry and Block-only approval
+contract remain unchanged. Targeted contracts and a desktop/mobile browser harness validate
+both standard MCP and legacy ChatGPT host paths. Toolset: `2026.09.05.1`.
+
 # mso — Progress Log
+- **Concurrent main reconciliation (2026-09-05):** preserved published MCP Page initialization/readiness changes e46c417 + changelog c4856d2 in the maintenance/PR integration branch without modifying the other session's unpublished work. MCP 1.11.1 / toolset 2026.09.05.2 records the combined compatible contract. The Settings maintenance files are unchanged from the isolated desktop/mobile acceptance at 2164d29; full repository and GitHub gates are rerun for the combined source.
 - **PR integration validation (2026-09-05):** preserve the reviewed PR36/PR37 ancestry while repairing PR38 glob escaping/native Bun audit checks and PR37 code-generating visual-test fixtures. Direct-image boundary tests now cover malformed content and size/type limits. MCP server 1.11.0 / toolset 2026.09.05.1 records the compatible restricted-service-token/direct-image contract; widget resources and ordinary OAuth token behavior are unchanged. Publication still requires complete current-head local and remote gates, including late CodeQL findings—not only the workflow completion status.
 - **Reviewed 9Router network boundary (PR36, 2026-09-05):** reuse the configured internal proxy network only when it already exists; Docker host publishing remains loopback-only unless explicitly enabled. This supports a containerized reverse proxy without opening the application port to the public interface. The update adds no automatic network creation or DNS mutation. The old PR lifecycle-test failure must be rechecked against the combined current baseline before publication.
 
