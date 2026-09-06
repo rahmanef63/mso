@@ -81,17 +81,14 @@ export const ADDITIONAL_PROVIDERS = {
     feature: false,
     fields: [{ key: "organizationId", label: "Organization ID", secret: false, required: false, description: "Optional connection-specific configuration; retained during JSON transfer." }, { key: "managementToken", label: "Management access token", secret: true, required: true, description: "A Supabase personal access token for the Management API; it is distinct from project API keys." }],
   },
-  doku: {
-    id: "doku",
-    title: "DOKU MCP",
-    description: "Verify a DOKU MCP merchant connection without copying credentials into project MCP config.",
-    feature: false,
-    fields: [
-      { key: "mcpClientId", label: "MCP Client ID", secret: true, required: true, description: "DOKU-issued Client ID for MCP access in the selected environment. Stored only in the owner-only integration store." },
-      { key: "mcpApiKey", label: "MCP API Key", secret: true, required: true, description: "DOKU-issued MCP API Key. It is distinct from the REST payment HMAC Secret Key." },
-      { key: "environment", label: "Environment", secret: false, required: true, description: "Exactly sandbox or production. MSO derives the official DOKU MCP endpoint from this value." },
-    ],
-  },
+  doku: { id:"doku", title:"DOKU", description:"Verify DOKU Payment REST or DOKU MCP merchant credentials without copying secrets into project configuration.", feature:false, fields:[
+    {key:"paymentClientId",label:"Payment Client ID",secret:true,required:false,description:"DOKU Back Office Client ID used by the signed Non-SNAP payment API."},
+    {key:"paymentSecretKey",label:"Payment Secret Key",secret:true,required:false,description:"DOKU Back Office HMAC Secret Key for signed payment API requests. This is not the MCP API Key."},
+    {key:"paymentEnvironment",label:"Payment Environment",secret:false,required:false,description:"Exactly sandbox or production for the signed payment API."},
+    {key:"mcpClientId",label:"MCP Client ID",secret:true,required:false,description:"DOKU-issued Client ID for MCP access in the selected environment."},
+    {key:"mcpApiKey",label:"MCP API Key",secret:true,required:false,description:"DOKU-issued MCP API Key. It is distinct from the REST payment HMAC Secret Key."},
+    {key:"environment",label:"MCP Environment",secret:false,required:false,description:"Exactly sandbox or production. MSO derives the official DOKU MCP endpoint from this value."},
+  ] },
 } as const satisfies Record<string, AdditionalProvider>;
 
 export type AdditionalProviderId = keyof typeof ADDITIONAL_PROVIDERS;

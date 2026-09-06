@@ -32,7 +32,7 @@ function projected(raw:Record<string,unknown>|undefined):IntegrationState{
   for(const [provider,v] of Object.entries(providers)){
     if(!isInfraProviderId(provider)||!v||typeof v!=="object"||Array.isArray(v)||Object.values(v).some(x=>typeof x!=="string"))throw new IntegrationError("legacy_migration_requires_review");
     const values=v as Record<string,string>;const selected=legacyMethod(provider,values);
-    const methods=provider==="composio"?[...(values.apiKey?["project"]:[]),...(values.orgApiKey?["organization"]:[])]:provider==="convex-cloud"?[...(values.personalToken?["personal"]:[]),...(values.deployKey||values.deploymentName?["deployment"]:[])]:["direct"];
+    const methods=provider==="composio"?[...(values.apiKey?["project"]:[]),...(values.orgApiKey?["organization"]:[])]:provider==="convex-cloud"?[...(values.personalToken?["personal"]:[]),...(values.deployKey||values.deploymentName?["deployment"]:[])]:provider==="doku"?[...(values.paymentClientId||values.paymentSecretKey?["payment"]:[]),...(values.mcpClientId||values.mcpApiKey?["mcp"]:[])]:["direct"];
     if(!methods.length)methods.push(selected);
     profile.connections[provider]={};
     for(const method of methods){const def=connectionMethod(provider,"direct",method),id=methods.length===1?"default":method;

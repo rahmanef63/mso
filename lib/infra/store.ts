@@ -36,7 +36,8 @@ export function summarizeInfraProvider(id: InfraProviderId, values: InfraProvide
   const missing = def.fields.filter((field) => field.required && !values[field.key]).map((field) => field.key);
   if (id === "composio" && !values.apiKey && !values.orgApiKey) missing.push("project or organization API key");
   if (id === "hostinger" && !values.apiToken && !(values.mailApiToken && values.mailOrderId)) missing.push("account token or scoped Mail API token + order ID");
-    if (id === "convex-cloud" && !values.personalToken && !(values.deployKey && values.deploymentName)) missing.push("personal token or deployment key and name");
+  if(id==="doku"&&!(values.paymentClientId&&values.paymentSecretKey&&values.paymentEnvironment)&&!(values.mcpClientId&&values.mcpApiKey&&values.environment))missing.push("Payment Client ID + Secret Key or MCP Client ID + API Key, plus environment");
+  if (id === "convex-cloud" && !values.personalToken && !(values.deployKey && values.deploymentName)) missing.push("personal token or deployment key and name");
   const safeValues = Object.fromEntries(def.fields
     .filter((field) => values[field.key])
     .map((field) => [field.key, field.secret ? mask(values[field.key]) : values[field.key]]));

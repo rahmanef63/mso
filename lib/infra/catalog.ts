@@ -98,9 +98,9 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
     if (url.username || url.password || url.search || url.hash || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))) throw new Error("Invalid deployment URL");
   }
   if (id === "doku") {
-    if (out.environment && !["sandbox", "production"].includes(out.environment)) throw new Error("DOKU environment must be sandbox or production");
-    if (out.mcpClientId && (out.mcpClientId.length < 3 || out.mcpClientId.length > 256 || /[\s\x00-\x1f\x7f]/.test(out.mcpClientId))) throw new Error("DOKU MCP Client ID must be an opaque single-line value");
-    if (out.mcpApiKey && (out.mcpApiKey.length < 8 || /[\s\x00-\x1f\x7f]/.test(out.mcpApiKey))) throw new Error("DOKU MCP API Key must be an opaque single-line value");
+    for(const key of ["environment","paymentEnvironment"])if(out[key]&&!["sandbox","production"].includes(out[key]))throw new Error("DOKU environment must be sandbox or production");
+    for(const key of ["paymentClientId","mcpClientId"])if(out[key]&&(out[key].length<3||out[key].length>256||/[\s\x00-\x1f\x7f]/.test(out[key])))throw new Error("DOKU Client ID must be an opaque single-line value");
+    for(const key of ["paymentSecretKey","mcpApiKey"])if(out[key]&&(out[key].length<8||/[\s\x00-\x1f\x7f]/.test(out[key])))throw new Error("DOKU secret/API key must be an opaque single-line value");
   }
   if (id === "hostinger") {
     if (out.apiToken && out.apiToken.length < 24) throw new Error("Hostinger API token is too short");

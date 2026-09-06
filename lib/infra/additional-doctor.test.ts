@@ -16,6 +16,7 @@ describe("additional native credential providers", () => {
     expect(setupFields("convex-cloud", "personal").map(f => f.key)).toEqual(["personalToken"]);
     expect(setupFields("convex-cloud", "deployment").map(f => f.key)).toEqual(["deployKey", "deploymentName"]);
     expect(() => setupFields("convex-cloud", "organization")).toThrow();
+    expect(setupFields("doku","payment").map(f=>f.key)).toEqual(["paymentClientId","paymentSecretKey","paymentEnvironment"]);
     expect(setupFields("doku", "mcp").map(f => f.key)).toEqual(["mcpClientId", "mcpApiKey", "environment"]);
     expect(() => setupFields("doku", "direct")).toThrow();
   });
@@ -33,6 +34,11 @@ describe("additional native credential providers", () => {
     expect(result).toContain("authenticated"); expect(result).not.toContain(KEY);
     expect(mock.mock.calls[0]?.[0]).toBe(endpoint);
   });
+  it("verifies DOKU Payment with a signed read-only synthetic status lookup",async()=>{
+    const mock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{expect(String(input)).toContain("api-sandbox.doku.com/orders/v1/status/MSO-CRED-CHECK-");const h=new Headers(init?.headers);expect(h.get("Client-Id")).toBe("MCH-synthetic");expect(h.get("Signature")).toMatch(/^HMACSHA256=/);return new Response(JSON.stringify({responseCode:"4040001",responseMessage:"Transaction Not Found"}),{status:404});});vi.stubGlobal("fetch",mock);
+    const result=await doctorAdditionalProvider("doku",{paymentClientId:"MCH-synthetic",paymentSecretKey:KEY,paymentEnvironment:"sandbox"});expect(result).toBe("authenticated; sandbox signed status lookup verified");expect(result).not.toContain(KEY);expect(mock).toHaveBeenCalledTimes(1);
+  });
+  it("rejects an invalid-merchant 404 for DOKU Payment",async()=>{vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({responseCode:"4040008",responseMessage:"Invalid Merchant"}),{status:404})));await expect(doctorAdditionalProvider("doku",{paymentClientId:"MCH-synthetic",paymentSecretKey:KEY,paymentEnvironment:"sandbox"})).rejects.toThrow("DOKU Payment HTTP 404");});
   it("verifies DOKU MCP with a fixed official endpoint and never exposes credentials", async () => {
     const mock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toBe("https://api-sandbox.doku.com/doku-mcp-server/mcp");
@@ -70,6 +76,7 @@ describe("additional native credential providers", () => {
     expect(JSON.stringify(summarizeInfraProvider("convex-cloud", { personalToken: KEY }))).not.toContain(KEY);
     expect(JSON.stringify(summarizeInfraProvider("convex", { adminKey: KEY, apiUrl: "https://convex.example.com" }))).not.toContain(KEY);
     expect(JSON.stringify(summarizeInfraProvider("supabase", { managementToken: KEY }))).not.toContain(KEY);
+    expect(JSON.stringify(summarizeInfraProvider("doku",{paymentClientId:"MCH-synthetic",paymentSecretKey:KEY,paymentEnvironment:"sandbox"}))).not.toContain(KEY);
     expect(JSON.stringify(summarizeInfraProvider("doku", { mcpClientId: "BRN-synthetic", mcpApiKey: KEY, environment: "sandbox" }))).not.toContain(KEY);
   });
 });

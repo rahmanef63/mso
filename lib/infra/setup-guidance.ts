@@ -2,7 +2,7 @@ import { ADDITIONAL_GUIDANCE, type AdditionalProviderId } from "./additional-pro
 import { getInfraProviderDefinition } from "./catalog";
 import type { InfraProviderId } from "./types";
 
-export type SetupMethod = "direct" | "project" | "organization" | "personal" | "deployment" | "mail" | "mcp";
+export type SetupMethod = "direct" | "project" | "organization" | "personal" | "deployment" | "mail" | "payment" | "mcp";
 export function setupFields(provider: InfraProviderId, method: SetupMethod) {
   if (provider === "hostinger") {
     if (!["direct", "mail"].includes(method)) throw new Error("Choose Hostinger account or scoped Mail API token");
@@ -10,8 +10,8 @@ export function setupFields(provider: InfraProviderId, method: SetupMethod) {
     return getInfraProviderDefinition(provider).fields.filter(f => keys.includes(f.key)).map(f => ({ ...f, required: true }));
   }
   if (provider === "doku") {
-    if (method !== "mcp") throw new Error("DOKU currently supports only the verified MCP credential method");
-    const keys = ["mcpClientId", "mcpApiKey", "environment"];
+    if (!["payment", "mcp"].includes(method)) throw new Error("Choose DOKU Payment REST or DOKU MCP credentials");
+    const keys = method === "payment" ? ["paymentClientId", "paymentSecretKey", "paymentEnvironment"] : ["mcpClientId", "mcpApiKey", "environment"];
     return getInfraProviderDefinition(provider).fields.filter(f => keys.includes(f.key)).map(f => ({ ...f, required: true }));
   }
   if (provider === "convex-cloud") {
@@ -28,7 +28,7 @@ export function setupFields(provider: InfraProviderId, method: SetupMethod) {
 }
 export function setupMethod(provider: InfraProviderId, method?: string): SetupMethod {
   const value = method ?? (provider === "composio" ? "project" : provider === "convex-cloud" ? "personal" : provider === "doku" ? "mcp" : "direct");
-  if (!["direct", "project", "organization", "personal", "deployment", "mail", "mcp"].includes(value)) throw new Error("Unsupported authentication method");
+  if (!["direct", "project", "organization", "personal", "deployment", "mail", "payment", "mcp"].includes(value)) throw new Error("Unsupported authentication method");
   setupFields(provider, value as SetupMethod);
   return value as SetupMethod;
 }
@@ -36,10 +36,11 @@ export function setupMethods(provider: InfraProviderId): Array<{id: SetupMethod;
   if (provider === "hostinger") return [{ id: "direct", label: "Account API token" }, { id: "mail", label: "Scoped Mail API token" }];
   if (provider === "composio") return [{ id: "project", label: "Project API key" }, { id: "organization", label: "Organization API key" }];
   if (provider === "convex-cloud") return [{ id: "personal", label: "Personal access token" }, { id: "deployment", label: "Deployment key" }];
-  if (provider === "doku") return [{ id: "mcp", label: "DOKU MCP credential" }];
+  if (provider === "doku") return [{id:"payment",label:"Payment REST · Client ID + Secret Key"},{id:"mcp",label:"MCP · Client ID + API Key"}];
   return [{ id: "direct", label: "Direct credential" }];
 }
 export function setupGuidance(provider: InfraProviderId, method: SetupMethod) {
+  if(provider==="doku")return method==="payment"?{url:"https://dashboard.doku.com/bo/developer/api-keys",reference:"https://developers.doku.com/get-started-with-doku-api/signature-component/non-snap/signature-component-from-request-header",steps:["Open DOKU Back Office → Developer → API Keys.","Use Client ID + Secret Key for the signed Non-SNAP payment API; the API Key is not a substitute for the HMAC Secret Key.","Choose sandbox first unless this project is explicitly approved for live payments.","Enter credentials only in this private setup form. MSO verifies them with a signed read-only status lookup before saving."]}:{url:"https://developers.doku.com/accept-payments/doku-mcp-server",reference:"https://developers.doku.com/accept-payments/doku-mcp-server",steps:["Open DOKU's official MCP Server guide and choose Sandbox first unless this project is explicitly approved for production payments.","Use the DOKU MCP Client ID + MCP API Key; do not substitute the Payment REST Secret Key.","Enter them only in this private setup form; do not paste them into chat, Baton notes, RR, Git, or project MCP JSON.","MSO calls the fixed official DOKU MCP endpoint with a read-only MCP initialize request before saving the connection."]};
   if (provider in ADDITIONAL_GUIDANCE) return ADDITIONAL_GUIDANCE[provider as AdditionalProviderId];
   const guides = {
     composio: {

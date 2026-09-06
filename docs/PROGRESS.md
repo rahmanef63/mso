@@ -2809,3 +2809,8 @@ Screenshot evidence previously lived in unrelated scratch directories or only in
 - Added `doku` as a native named integration with one deliberately bounded auth method: DOKU MCP. Payment REST HMAC credentials are not accepted by this provider until MSO has a non-mutating official verification contract for them.
 - DOKU MCP setup stores Client ID/API Key only through the private setup flow, pins environment to `sandbox|production`, derives only DOKU's official MCP endpoints, and verifies credentials with a read-only JSON-RPC `initialize` request before saving.
 - Portable connection mapping supports `DOKU_MCP_CLIENT_ID`, `DOKU_MCP_API_KEY`, and `DOKU_MCP_ENV`; credential values remain redacted from summaries and tool output.
+
+### 2026-09-06 — DOKU Payment + MCP credential separation
+- Expanded the native `doku` integration from MCP-only to two explicit methods: Payment REST (`Payment Client ID` + HMAC `Payment Secret Key`) and MCP (`MCP Client ID` + `MCP API Key`). The methods cannot silently substitute for each other.
+- Payment credential verification uses a signed, read-only synthetic Check Status request against the fixed official sandbox/production endpoint. Only a verified `Transaction Not Found` response is accepted; `Invalid Merchant` 404 remains fail-closed.
+- MCP credential verification remains a fixed-endpoint MCP `initialize` request. DOKU credentials stay in MSO's owner-only integration store and are never copied into project MCP JSON, Baton notes, RR, or chat.

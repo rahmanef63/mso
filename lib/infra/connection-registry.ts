@@ -35,5 +35,5 @@ export function connectionSummary(user:string,c:IntegrationConnection,isDefault=
 export const composioDefinition=(provider:string)=>COMPOSIO[provider];
 export const nativeDefinition=(provider:string)=>NATIVE[provider];
 export function legacyMethod(provider:string,values:Record<string,string>):SetupMethod {
-  return provider==="composio"?(values.orgApiKey?"organization":"project"):provider==="convex-cloud"?(values.deployKey?"deployment":"personal"):provider==="doku"?"mcp":"direct";
+  return provider==="composio"?(values.orgApiKey?"organization":"project"):provider==="convex-cloud"?(values.deployKey?"deployment":"personal"):provider==="doku"?(values.paymentClientId||values.paymentSecretKey?"payment":"mcp"):"direct";
 }

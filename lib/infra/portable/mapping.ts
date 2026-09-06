@@ -12,19 +12,19 @@ export const FIELD_MAP:Record<string,Record<string,string>>={
   resend:{RESEND_API_KEY:'apiKey',RESEND_FROM_DOMAIN:'fromDomain'},
   clerk:{CLERK_SECRET_KEY:'apiKey',NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:'publishableKey',NEXT_PUBLIC_CLERK_FRONTEND_API_URL:'frontendUrl'},
   supabase:{SUPABASE_ACCESS_TOKEN:'managementToken',SUPABASE_ORG_ID:'organizationId'},
-  doku:{DOKU_MCP_CLIENT_ID:'mcpClientId',DOKU_MCP_API_KEY:'mcpApiKey',DOKU_MCP_ENV:'environment'},
+  doku:{DOKU_CLIENT_ID:'paymentClientId',DOKU_SECRET_KEY:'paymentSecretKey',DOKU_ENV:'paymentEnvironment',DOKU_MCP_CLIENT_ID:'mcpClientId',DOKU_MCP_API_KEY:'mcpApiKey',DOKU_MCP_ENV:'environment'},
 };
 const DIRECT:Record<string,string>={github:'classic-pat',dokploy:'admin-api-key',cloudflare:'api-token',hostinger:'api-token',convex:'self-hosted-admin',vercel:'account-token',stripe:'secret-key',resend:'api-key',clerk:'instance-keys',supabase:'personal-access-token',doku:'mcp-api-key'};
 export function wireMethod(provider:string,source:string,method:string){
   if(source!=='direct')return source==='native-mcp'?'provider-oauth':method;
-  return provider==='composio'?(method==='organization'?'organization-token':'project-api-key'):provider==='convex-cloud'?(method==='deployment'?'deployment-key':'personal-access-token'):provider==='hostinger'?(method==='mail'?'mail-api-token':'api-token'):DIRECT[provider]??method;
+  return provider==='composio'?(method==='organization'?'organization-token':'project-api-key'):provider==='convex-cloud'?(method==='deployment'?'deployment-key':'personal-access-token'):provider==='doku'?(method==='payment'?'payment-hmac':'mcp-api-key'):provider==='hostinger'?(method==='mail'?'mail-api-token':'api-token'):DIRECT[provider]??method;
 }
 export function nativeMethod(provider:string,source:string,method:string){
   if(source==='native-mcp')return ['provider-oauth','dcr-oauth','mcp-oauth'].includes(method)?'provider-oauth':method;
   if(source!=='direct')return method;
   if(provider==='composio')return({'project-api-key':'project','organization-token':'organization'} as Record<string,string>)[method]??method;
   if(provider==='convex-cloud')return({'deployment-key':'deployment','personal-access-token':'personal'} as Record<string,string>)[method]??method;
-  if(provider==='doku')return method==='mcp-api-key'?'mcp':method;
+  if(provider==='doku')return({'mcp-api-key':'mcp','payment-hmac':'payment'} as Record<string,string>)[method]??method;
   if(provider==='hostinger')return({'mail-api-token':'mail','api-token':'direct'} as Record<string,string>)[method]??method;
   return method===DIRECT[provider]?'direct':method;
 }
