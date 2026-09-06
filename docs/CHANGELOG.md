@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `infra` manage Convex Cloud custom domains safely
 - `infra` add bounded Dokploy public env rollout
 
 **Fixed**

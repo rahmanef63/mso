@@ -2,12 +2,20 @@ import { integrationManage } from "./connection-manage";
 import { integrationQuery, withIntegrationSelection, resolveIntegration } from "./connection-service";
 import { authorizeIntegration, composioConnectionCall } from "./connection-external";
 import { IntegrationError, identity, metadataOnly, type ConnectionSelector } from "./identity";
+import { importConvexCliPersonalConnection } from "./convex-cli-import";
+import { listConvexCustomDomains, ensureConvexCustomDomain, getConvexCanonicalUrls, setConvexCanonicalUrl } from "./convex-cloud";
 import { doctorInfraProvider, ensureDokployProject, listDokployApplications, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
 import { isInfraProviderId } from "./catalog";
 export const safeActionInput=(input:Record<string,unknown>)=>Object.fromEntries(Object.entries(input).filter(([key])=>key!=="workflow_id"));
 export const selectionFrom=(a:Record<string,unknown>):ConnectionSelector=>({user:typeof a.user==="string"?a.user:undefined,connection:typeof a.connection==="string"?a.connection:undefined,cwd:typeof a.cwd==="string"?a.cwd:undefined});
 export async function manageIntegrationAction(raw:Record<string,unknown>){
   const a=safeActionInput(raw);metadataOnly(a);
+  if(a.action==="connection.import-convex-cli"){
+    if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
+    if(Object.keys(a).some(k=>!["action","confirm","user","provider","connection"].includes(k)))throw new IntegrationError("invalid_management_fields");
+    if(a.provider!=="convex-cloud")throw new IntegrationError("provider_operation_mismatch");
+    return importConvexCliPersonalConnection(selectionFrom(a));
+  }
   if(a.action!=="connection.authorize")return integrationManage(a);
   if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
   if(Object.keys(a).some(k=>!["action","confirm","user","provider","connection","authConfigId","brokerConnection","createManaged"].includes(k)))throw new IntegrationError("invalid_management_fields");
@@ -28,6 +36,10 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     "dokploy.applications.list":{provider:"dokploy",fields:["projectId"],run:()=>listDokployApplications(String((args as Record<string,unknown>).projectId))},
     "dokploy.application.publicEnv.upsert":{provider:"dokploy",fields:["applicationId","key","value"],run:()=>upsertDokployPublicBuildEnv(args as {applicationId:string;key:string;value:string})},
     "dokploy.project.ensure":{provider:"dokploy",fields:["name"],run:()=>ensureDokployProject(String((args as Record<string,unknown>).name))},
+    "convex.customDomains.list":{provider:"convex-cloud",fields:["deploymentName"],run:()=>listConvexCustomDomains(String((args as Record<string,unknown>).deploymentName))},
+    "convex.customDomain.ensure":{provider:"convex-cloud",fields:["deploymentName","domain","requestDestination"],run:()=>ensureConvexCustomDomain(args as {deploymentName:string;domain:string;requestDestination:"convexCloud"|"convexSite"})},
+    "convex.canonical.get":{provider:"convex-cloud",fields:["deploymentName"],run:()=>getConvexCanonicalUrls(String((args as Record<string,unknown>).deploymentName))},
+    "convex.canonical.set":{provider:"convex-cloud",fields:["deploymentName","requestDestination","url"],run:()=>setConvexCanonicalUrl(args as {deploymentName:string;requestDestination:"convexCloud"|"convexSite";url?:string|null})},
     "cloudflare.zones.list":{provider:"cloudflare",fields:[],run:()=>listCloudflareZones()},
     "cloudflare.dns.upsert":{provider:"cloudflare",fields:["name","type","content","ttl","proxied"],run:()=>upsertCloudflareDns(args as Parameters<typeof upsertCloudflareDns>[0])},
     "hostinger.dns.upsert":{provider:"hostinger",fields:["name","type","content","ttl"],run:()=>upsertHostingerDns(args as Parameters<typeof upsertHostingerDns>[0])},

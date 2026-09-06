@@ -2789,3 +2789,8 @@ MCP now exposes `fs_upload_file` with `_meta["openai/fileParams"]`, so ChatGPT c
 ## 2026-09-05 — Session-scoped screenshot evidence
 
 Screenshot evidence previously lived in unrelated scratch directories or only in MCP image responses. Added one derived session path policy, a private manifest, explicit image/report reads, and bounded registration/retention. Exec receives non-secret session directories; original bytes remain private and session responses compute paths instead of persisting absolute homes. Cleanup is lazy, lease-aware and fail-closed for unknown files; it does not run during builds or remove durable history. User/client isolation, retry de-duplication and existing integration changes are preserved. See SESSION-ARTIFACTS.md for limits and verification scope.
+
+### 2026-09-06 — Convex Cloud custom-domain control
+- Added a native `convex-cloud` CLI credential import that reads only `~/.convex/config.json`, refuses symlink/non-owner inputs, hardens the local credential directory/file to `0700/0600`, validates the token before saving, and never returns the credential.
+- Added bounded exact-connection operations for listing/ensuring Convex custom domains and reading/updating canonical `convexCloud` / `convexSite` URLs. Canonical operations mint a scoped short-lived deploy key and revoke it in `finally`; custom canonical URLs must already be registered and verified.
+- The operations stay behind `integration_execute` / `integration_manage`; no generic Convex HTTP escape hatch and no new global MCP tool were added.
