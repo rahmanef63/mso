@@ -2,11 +2,16 @@ import { ADDITIONAL_GUIDANCE, type AdditionalProviderId } from "./additional-pro
 import { getInfraProviderDefinition } from "./catalog";
 import type { InfraProviderId } from "./types";
 
-export type SetupMethod = "direct" | "project" | "organization" | "personal" | "deployment" | "mail";
+export type SetupMethod = "direct" | "project" | "organization" | "personal" | "deployment" | "mail" | "mcp";
 export function setupFields(provider: InfraProviderId, method: SetupMethod) {
   if (provider === "hostinger") {
     if (!["direct", "mail"].includes(method)) throw new Error("Choose Hostinger account or scoped Mail API token");
     const keys = method === "mail" ? ["mailApiToken", "mailOrderId"] : ["apiToken"];
+    return getInfraProviderDefinition(provider).fields.filter(f => keys.includes(f.key)).map(f => ({ ...f, required: true }));
+  }
+  if (provider === "doku") {
+    if (method !== "mcp") throw new Error("DOKU currently supports only the verified MCP credential method");
+    const keys = ["mcpClientId", "mcpApiKey", "environment"];
     return getInfraProviderDefinition(provider).fields.filter(f => keys.includes(f.key)).map(f => ({ ...f, required: true }));
   }
   if (provider === "convex-cloud") {
@@ -22,8 +27,8 @@ export function setupFields(provider: InfraProviderId, method: SetupMethod) {
   return getInfraProviderDefinition(provider).fields;
 }
 export function setupMethod(provider: InfraProviderId, method?: string): SetupMethod {
-  const value = method ?? (provider === "composio" ? "project" : provider === "convex-cloud" ? "personal" : "direct");
-  if (!["direct", "project", "organization", "personal", "deployment", "mail"].includes(value)) throw new Error("Unsupported authentication method");
+  const value = method ?? (provider === "composio" ? "project" : provider === "convex-cloud" ? "personal" : provider === "doku" ? "mcp" : "direct");
+  if (!["direct", "project", "organization", "personal", "deployment", "mail", "mcp"].includes(value)) throw new Error("Unsupported authentication method");
   setupFields(provider, value as SetupMethod);
   return value as SetupMethod;
 }
@@ -31,6 +36,7 @@ export function setupMethods(provider: InfraProviderId): Array<{id: SetupMethod;
   if (provider === "hostinger") return [{ id: "direct", label: "Account API token" }, { id: "mail", label: "Scoped Mail API token" }];
   if (provider === "composio") return [{ id: "project", label: "Project API key" }, { id: "organization", label: "Organization API key" }];
   if (provider === "convex-cloud") return [{ id: "personal", label: "Personal access token" }, { id: "deployment", label: "Deployment key" }];
+  if (provider === "doku") return [{ id: "mcp", label: "DOKU MCP credential" }];
   return [{ id: "direct", label: "Direct credential" }];
 }
 export function setupGuidance(provider: InfraProviderId, method: SetupMethod) {

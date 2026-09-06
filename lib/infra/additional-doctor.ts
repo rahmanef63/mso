@@ -47,6 +47,58 @@ async function checked(provider: string, url: string, headers: HeadersInit, fetc
   return response;
 }
 
+
+function dokuMcpEndpoint(environment: string): string {
+  if (environment === "sandbox") return "https://api-sandbox.doku.com/doku-mcp-server/mcp";
+  if (environment === "production") return "https://mcp.doku.com/mcp";
+  throw new Error("DOKU MCP invalid environment");
+}
+
+function mcpInitializeResult(body: unknown, text: string): boolean {
+  const direct = obj(body);
+  if (direct.jsonrpc === "2.0" && direct.id === "mso-doku-doctor" && direct.result && typeof direct.result === "object") return true;
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.startsWith("data:")) continue;
+    try {
+      const event = obj(JSON.parse(line.slice(5).trim()));
+      if (event.jsonrpc === "2.0" && event.id === "mso-doku-doctor" && event.result && typeof event.result === "object") return true;
+    } catch {}
+  }
+  return false;
+}
+
+async function doctorDokuMcp(values: Record<string, string>): Promise<string | null> {
+  if (!present(values.mcpClientId) || !present(values.mcpApiKey) || !present(values.environment)) return null;
+  const url = dokuMcpEndpoint(values.environment);
+  let response;
+  try {
+    response = await request(url, {
+      method: "POST",
+      headers: {
+        "Client-Id": values.mcpClientId,
+        authorization: `Basic ${Buffer.from(`${values.mcpApiKey}:`).toString("base64")}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "mso-doku-doctor",
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "mso-integration-doctor", version: "1" },
+        },
+      }),
+    }, TIMEOUT_MS);
+  } catch {
+    throw new Error("DOKU MCP request failed");
+  }
+  if (!response.ok) throw new Error(`DOKU MCP HTTP ${response.status}`);
+  if (!mcpInitializeResult(response.body, response.text)) throw new Error("DOKU MCP invalid initialize response");
+  return `authenticated; ${values.environment} MCP initialize verified`;
+}
+
 function countRows(body: unknown): number {
   if (Array.isArray(body)) return body.length;
   const value = obj(body);
@@ -98,6 +150,8 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
       const response = await checked("Supabase", "https://api.supabase.com/v1/projects", { authorization: `Bearer ${values.managementToken}`, accept: "application/json" });
       return `authenticated; ${countRows(response.body)} accessible project(s)`;
     }
+    case "doku":
+      return doctorDokuMcp(values);
     case "convex-cloud": {
       const deployKey = values.deployKey;
       const deploymentName = values.deploymentName;

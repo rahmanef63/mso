@@ -97,6 +97,11 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
     let url: URL; try { url = new URL(out.apiUrl); } catch { throw new Error("Invalid deployment URL"); }
     if (url.username || url.password || url.search || url.hash || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))) throw new Error("Invalid deployment URL");
   }
+  if (id === "doku") {
+    if (out.environment && !["sandbox", "production"].includes(out.environment)) throw new Error("DOKU environment must be sandbox or production");
+    if (out.mcpClientId && (out.mcpClientId.length < 3 || out.mcpClientId.length > 256 || /[\s\x00-\x1f\x7f]/.test(out.mcpClientId))) throw new Error("DOKU MCP Client ID must be an opaque single-line value");
+    if (out.mcpApiKey && (out.mcpApiKey.length < 8 || /[\s\x00-\x1f\x7f]/.test(out.mcpApiKey))) throw new Error("DOKU MCP API Key must be an opaque single-line value");
+  }
   if (id === "hostinger") {
     if (out.apiToken && out.apiToken.length < 24) throw new Error("Hostinger API token is too short");
     if (out.mailApiToken && out.mailApiToken.length < 24) throw new Error("Hostinger Mail API token is too short");

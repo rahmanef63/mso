@@ -81,6 +81,17 @@ export const ADDITIONAL_PROVIDERS = {
     feature: false,
     fields: [{ key: "organizationId", label: "Organization ID", secret: false, required: false, description: "Optional connection-specific configuration; retained during JSON transfer." }, { key: "managementToken", label: "Management access token", secret: true, required: true, description: "A Supabase personal access token for the Management API; it is distinct from project API keys." }],
   },
+  doku: {
+    id: "doku",
+    title: "DOKU MCP",
+    description: "Verify a DOKU MCP merchant connection without copying credentials into project MCP config.",
+    feature: false,
+    fields: [
+      { key: "mcpClientId", label: "MCP Client ID", secret: true, required: true, description: "DOKU-issued Client ID for MCP access in the selected environment. Stored only in the owner-only integration store." },
+      { key: "mcpApiKey", label: "MCP API Key", secret: true, required: true, description: "DOKU-issued MCP API Key. It is distinct from the REST payment HMAC Secret Key." },
+      { key: "environment", label: "Environment", secret: false, required: true, description: "Exactly sandbox or production. MSO derives the official DOKU MCP endpoint from this value." },
+    ],
+  },
 } as const satisfies Record<string, AdditionalProvider>;
 
 export type AdditionalProviderId = keyof typeof ADDITIONAL_PROVIDERS;
@@ -94,4 +105,5 @@ export const ADDITIONAL_GUIDANCE = {
   stripe: { url: "https://dashboard.stripe.com/apikeys", reference: "https://docs.stripe.com/keys", steps: ["Open Developers → API keys in the intended Stripe account.", "Use a restricted key when its available permissions cover the integration.", "Confirm whether you are using test or live mode before copying the secret key.", "Copy the key once and rotate it promptly if it is exposed."] },
   clerk: { url: "https://dashboard.clerk.com", reference: "https://clerk.com/docs/guides/development/api-keys", steps: ["Open the intended Clerk instance in the Clerk dashboard.", "Find its secret key in the API Keys or Developers settings.", "Keep the key server-side and limit access to the intended instance.", "Copy it into this form; this check only confirms Backend API authentication."] },
   supabase: { url: "https://supabase.com/dashboard/account/tokens", reference: "https://supabase.com/docs/reference/api/introduction", steps: ["Open Account → Access Tokens in the Supabase dashboard.", "Generate a personal access token for the account that owns the intended projects.", "Give it a clear name and an appropriate expiry.", "Copy it once into this form; project API keys cannot be used as Management API tokens."] },
+  doku: { url: "https://developers.doku.com/accept-payments/doku-mcp-server", reference: "https://developers.doku.com/accept-payments/doku-mcp-server", steps: ["Open DOKU's official MCP Server guide and choose Sandbox first unless this project is explicitly approved for production payments.", "Obtain the DOKU Client ID and MCP API Key for that environment.", "Enter them only in this private setup form; do not paste them into chat, Baton notes, RR, Git, or project MCP JSON.", "MSO calls the fixed official DOKU MCP endpoint with a read-only MCP initialize request before saving the connection."] },
 } as const satisfies Record<AdditionalProviderId, { url: string; reference: string; steps: readonly string[] }>;

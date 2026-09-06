@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `infra` add private DOKU MCP connections
 - `infra` add private Convex env presence checks
 - `infra` add safe Dokploy deployment recovery
 - `infra` manage Convex Cloud custom domains safely

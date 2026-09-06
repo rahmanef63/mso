@@ -2804,3 +2804,8 @@ Screenshot evidence previously lived in unrelated scratch directories or only in
 - Added `convex.env.presence`, a bounded deployment-admin read that accepts 1–32 exact environment variable names and returns only boolean presence for those requested names.
 - The operation creates a short-lived deploy key scoped only to `deployment:env:view`, always revokes it, never returns environment values, and never exposes unrequested environment-variable names.
 - Used the presence-only check to confirm CareerPack production has both `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`; therefore its custom `convexSite` remains non-canonical until the Google OAuth redirect URI is migrated.
+
+### 2026-09-06 — Private DOKU MCP connections
+- Added `doku` as a native named integration with one deliberately bounded auth method: DOKU MCP. Payment REST HMAC credentials are not accepted by this provider until MSO has a non-mutating official verification contract for them.
+- DOKU MCP setup stores Client ID/API Key only through the private setup flow, pins environment to `sandbox|production`, derives only DOKU's official MCP endpoints, and verifies credentials with a read-only JSON-RPC `initialize` request before saving.
+- Portable connection mapping supports `DOKU_MCP_CLIENT_ID`, `DOKU_MCP_API_KEY`, and `DOKU_MCP_ENV`; credential values remain redacted from summaries and tool output.
