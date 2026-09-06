@@ -1,7 +1,7 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
 import { Readable } from "node:stream";
 
 const FORBIDDEN_HOST_SUFFIXES = [".localhost", ".local", ".internal", ".home", ".lan"];
@@ -10,6 +10,17 @@ const MAX_PROVIDER_URL_BYTES = 4 * 1024;
 type LookupAnswer = { address: string; family: number };
 type Resolver = (hostname: string, options: { all: true; verbatim: true }) => Promise<LookupAnswer[]>;
 export type PinnedEndpoint = { url: URL; address: string; family: 4 | 6 };
+
+/** Node 20+ may request `lookup(..., { all: true })` from http/https (for
+ * auto-family selection). A custom lookup must then return LookupAddress[], not
+ * the legacy `(address, family)` tuple. Keep the already-reviewed pinned address
+ * in either callback shape so the socket can never perform a second DNS lookup. */
+export function pinnedProviderLookup(address: string, family: 4 | 6): LookupFunction {
+  return (_hostname, options, callback) => {
+    if (options.all) callback(null, [{ address, family }]);
+    else callback(null, address, family);
+  };
+}
 
 function parseIpv4(address: string): number[] | null {
   const parts = address.split(".");
@@ -161,7 +172,7 @@ export async function safeProviderFetch(input: RequestInfo | URL, init?: Request
       path: `${pinned.url.pathname}${pinned.url.search}`,
       method: request.method,
       headers: Object.fromEntries(request.headers.entries()),
-      lookup: (_hostname, _options, callback) => callback(null, pinned.address, pinned.family),
+      lookup: pinnedProviderLookup(pinned.address, pinned.family),
     }, (response) => {
       const status = response.statusCode ?? 502;
       const stream = Readable.toWeb(response) as ReadableStream<Uint8Array>;

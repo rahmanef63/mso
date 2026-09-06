@@ -7,6 +7,7 @@ import {
   assertSafeUrl,
   resolveSafeProviderEndpoint,
   safeProviderFetch,
+  pinnedProviderLookup,
 } from "@/lib/host/ssrf";
 
 export const A2A_ALLOW_LOOPBACK_ENV = "OS_A2A_ALLOW_LOOPBACK";
@@ -148,8 +149,7 @@ async function pinnedLoopbackFetch(
         path: `${endpoint.url.pathname}${endpoint.url.search}`,
         method: request.method,
         headers: Object.fromEntries(request.headers.entries()),
-        lookup: (_hostname, _options, callback) =>
-          callback(null, endpoint.address, endpoint.family),
+        lookup: pinnedProviderLookup(endpoint.address, endpoint.family),
       },
       (response) => {
         resolve(

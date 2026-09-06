@@ -1,3 +1,7 @@
+## 2026-09-06 — Pinned provider DNS supports modern Node all-address lookup
+
+Dokploy credentials already used by Rahman Resources were valid, but MSO's SSRF-safe transport failed before opening the socket with `Invalid IP address: undefined`. Modern Node http/https may invoke a custom `lookup` with `options.all=true`; the pinned callback still returned the legacy `(address, family)` shape, so Node tried to consume a missing address from the wrong callback contract. The shared pinned lookup now returns a one-element `LookupAddress[]` in all-address mode and preserves the legacy shape otherwise. Dokploy's live `project.all` probe now succeeds through the DNS-pinned transport, and the same helper replaces the duplicate A2A loopback pinning callback. No SSRF policy, DNS-rebinding rejection, redirect rule, or credential boundary was weakened.
+
 ## 2026-09-06 — Local SI-Coder migration discovery
 
 Integrations now detects an installed `~/.local/bin/sc` through its public metadata-only Integration Bundle v1 and surfaces a create-only **Import from SI-Coder** action. This is optional migration plumbing, not an MSO runtime dependency: no SC store internals are read, no secret values are auto-copied, existing MSO identities are preserved, and encrypted direct-credential transfer remains an explicit private flow.

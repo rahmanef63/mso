@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { assertSafeUrl, isForbiddenProviderAddress, resolveSafeProviderEndpoint } from "./ssrf";
+import { assertSafeUrl, isForbiddenProviderAddress, pinnedProviderLookup, resolveSafeProviderEndpoint } from "./ssrf";
 
 const originalHttp = process.env.OS_CUSTOM_PROVIDER_ALLOW_INSECURE_HTTP;
 afterEach(() => {
@@ -37,6 +37,23 @@ describe("custom-provider network boundary", () => {
     ]) expect(isForbiddenProviderAddress(address), address).toBe(true);
     for (const address of ["1.1.1.1", "8.8.8.8", "2606:4700:4700::1111"])
       expect(isForbiddenProviderAddress(address), address).toBe(false);
+  });
+
+  it("returns the pinned address in both modern all-address and legacy lookup callback shapes", async () => {
+    const lookup = pinnedProviderLookup("1.1.1.1", 4);
+    await expect(new Promise((resolve, reject) => {
+      lookup("provider.example", { all: true }, (error, address, family) => {
+        if (error) reject(error);
+        else resolve({ address, family });
+      });
+    })).resolves.toEqual({ address: [{ address: "1.1.1.1", family: 4 }], family: undefined });
+
+    await expect(new Promise((resolve, reject) => {
+      lookup("provider.example", { all: false }, (error, address, family) => {
+        if (error) reject(error);
+        else resolve({ address, family });
+      });
+    })).resolves.toEqual({ address: "1.1.1.1", family: 4 });
   });
 
   it("rejects DNS rebinding answers before any socket is opened", async () => {
