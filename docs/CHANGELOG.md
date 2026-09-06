@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` preserve compact integration headroom
 - `infra` expose bounded Dokploy integration operations
 - `infra` support modern pinned DNS lookups
 
