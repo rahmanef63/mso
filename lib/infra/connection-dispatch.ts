@@ -22,10 +22,15 @@ export async function manageIntegrationAction(raw:Record<string,unknown>){
   return authorizeIntegration(identity(a.provider,"provider"),selectionFrom(a),{authConfigId:typeof a.authConfigId==="string"?identity(a.authConfigId):undefined,brokerConnection:typeof a.brokerConnection==="string"?identity(a.brokerConnection):undefined,createManaged:a.createManaged===true});
 }
 export async function executeIntegrationAction(raw:Record<string,unknown>){
-  const a=safeActionInput(raw);metadataOnly(a);
+  const a=safeActionInput(raw),operation=String(a.operation);
+  if(operation==="dokploy.application.publicEnv.upsert"){
+    const {arguments:operationArgs,...meta}=a;metadataOnly(meta);
+    const args=operationArgs;if(!args||typeof args!=="object"||Array.isArray(args))throw new IntegrationError("invalid_tool_arguments");
+    if(Object.keys(args).some(k=>!["applicationId","key","value"].includes(k)))throw new IntegrationError("invalid_tool_arguments");
+  }else metadataOnly(a);
   if(Object.keys(a).some(k=>!["user","provider","connection","operation","arguments","tool","confirm"].includes(k)))throw new IntegrationError("invalid_execution_fields");
   const user=identity(a.user,"user"),provider=identity(a.provider,"provider"),connection=identity(a.connection,"connection"),selection={user,connection};
-  const route=await resolveIntegration(provider,selection),operation=String(a.operation);
+  const route=await resolveIntegration(provider,selection);
   if(operation==="route")return route;
   if(operation==="verify")return withIntegrationSelection(selection,()=>{if(!isInfraProviderId(provider))throw new IntegrationError("unknown_provider");return doctorInfraProvider(provider);});
   if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
