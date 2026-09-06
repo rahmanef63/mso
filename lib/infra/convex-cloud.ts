@@ -6,3 +6,5 @@ export {
   getConvexCanonicalUrls,
   setConvexCanonicalUrl,
 } from "./convex-canonical";
+
+export { getConvexEnvPresence } from "./convex-env-presence";

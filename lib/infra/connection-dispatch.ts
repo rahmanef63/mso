@@ -3,7 +3,7 @@ import { integrationQuery, withIntegrationSelection, resolveIntegration } from "
 import { authorizeIntegration, composioConnectionCall } from "./connection-external";
 import { IntegrationError, identity, metadataOnly, type ConnectionSelector } from "./identity";
 import { importConvexCliPersonalConnection } from "./convex-cli-import";
-import { listConvexCustomDomains, ensureConvexCustomDomain, getConvexCanonicalUrls, setConvexCanonicalUrl } from "./convex-cloud";
+import { listConvexCustomDomains, ensureConvexCustomDomain, getConvexCanonicalUrls, setConvexCanonicalUrl, getConvexEnvPresence } from "./convex-cloud";
 import { doctorInfraProvider, ensureDokployProject, listDokployApplications, listDokployDeployments, readDokployDeploymentLogs, recoverDokployPublicGithubToHttpsGit, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
 import { isInfraProviderId } from "./catalog";
 export const safeActionInput=(input:Record<string,unknown>)=>Object.fromEntries(Object.entries(input).filter(([key])=>key!=="workflow_id"));
@@ -47,6 +47,7 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     "convex.customDomains.list":{provider:"convex-cloud",fields:["deploymentName"],run:()=>listConvexCustomDomains(String((args as Record<string,unknown>).deploymentName))},
     "convex.customDomain.ensure":{provider:"convex-cloud",fields:["deploymentName","domain","requestDestination"],run:()=>ensureConvexCustomDomain(args as {deploymentName:string;domain:string;requestDestination:"convexCloud"|"convexSite"})},
     "convex.canonical.get":{provider:"convex-cloud",fields:["deploymentName"],run:()=>getConvexCanonicalUrls(String((args as Record<string,unknown>).deploymentName))},
+    "convex.env.presence":{provider:"convex-cloud",fields:["deploymentName","names"],run:()=>getConvexEnvPresence(args as {deploymentName:string;names:string[]})},
     "convex.canonical.set":{provider:"convex-cloud",fields:["deploymentName","requestDestination","url"],run:()=>setConvexCanonicalUrl(args as {deploymentName:string;requestDestination:"convexCloud"|"convexSite";url?:string|null})},
     "cloudflare.zones.list":{provider:"cloudflare",fields:[],run:()=>listCloudflareZones()},
     "cloudflare.dns.upsert":{provider:"cloudflare",fields:["name","type","content","ttl","proxied"],run:()=>upsertCloudflareDns(args as Parameters<typeof upsertCloudflareDns>[0])},
