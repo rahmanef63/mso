@@ -2794,3 +2794,8 @@ Screenshot evidence previously lived in unrelated scratch directories or only in
 - Added a native `convex-cloud` CLI credential import that reads only `~/.convex/config.json`, refuses symlink/non-owner inputs, hardens the local credential directory/file to `0700/0600`, validates the token before saving, and never returns the credential.
 - Added bounded exact-connection operations for listing/ensuring Convex custom domains and reading/updating canonical `convexCloud` / `convexSite` URLs. Canonical operations mint a scoped short-lived deploy key and revoke it in `finally`; custom canonical URLs must already be registered and verified.
 - The operations stay behind `integration_execute` / `integration_manage`; no generic Convex HTTP escape hatch and no new global MCP tool were added.
+
+### 2026-09-06 — Dokploy deployment diagnostics + safe public Git recovery
+- Added bounded deployment-history and redacted deployment-log reads for Dokploy applications, using the official `deployment.all` / `deployment.readLogs` APIs.
+- Added `dokploy.git.recover`: for an application currently configured as a Dokploy GitHub source, derive a public HTTPS GitHub URL only from its existing validated owner/repository metadata, preserve branch/build path/watch paths/submodule settings, verify the source became generic `git`, then queue one redeploy. No arbitrary Git/SSH URL input is accepted.
+- Internal provider diagnostics remain out of the compact MCP schema; only the bounded deployment list/log and recovery operations are exposed.
