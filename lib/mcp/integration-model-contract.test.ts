@@ -17,6 +17,15 @@ it("uses the same native metadata services through actual MCP calls and rejects 
   const metadata=await call(4,"integration_query",{view:"resolve",user:"alice",provider:"convex-cloud",connection:"mimin-production"});expect((metadata.result as any)?.structuredContent?.result).toMatchObject({user:"alice",id:"mimin-production",source:"direct",authMethod:"deployment"});
   const inputRejected=await call(5,"integration_manage",{action:"user.create",user:"eve",confirm:true,token:"synthetic"});expect((await readIntegrationState()).users.eve).toBeUndefined();expect(inputRejected.error??(inputRejected.result as any)?.isError).toBeTruthy();
 });
+it("exposes the bounded Dokploy application operations through integration_execute without adding a generic request escape hatch",async()=>{
+  const {INTEGRATION_TOOLS}=await import("./tools-integrations");
+  const tool=INTEGRATION_TOOLS.find(entry=>entry.name==="integration_execute")!;
+  const schema=tool.inputSchema as {properties?:Record<string,{enum?:string[]}>};
+  const operations=schema.properties?.operation?.enum??[];
+  expect(operations).toContain("dokploy.applications.list");
+  expect(operations).toContain("dokploy.application.publicEnv.upsert");
+  expect(operations.some(operation=>/request|fetch|raw/i.test(operation))).toBe(false);
+});
 it("returns identity-bound setup only in UI-private metadata on both supported MCP profiles",async()=>{
   const {integrationManage}=await import("@/lib/infra/connection-manage");await integrationManage({action:"user.create",user:"alice",confirm:true});await integrationManage({action:"connection.create",user:"alice",provider:"github",connection:"work",source:"direct",authMethod:"direct",confirm:true});
   const {dispatch}=await import("./dispatch");

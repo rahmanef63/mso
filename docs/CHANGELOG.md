@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `infra` expose bounded Dokploy integration operations
 - `infra` support modern pinned DNS lookups
 
 ## 2026-09-05
