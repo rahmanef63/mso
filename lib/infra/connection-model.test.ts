@@ -56,6 +56,21 @@ describe("native credential identity core",()=>{
     await Promise.all([f.withIntegrationSelection({user:"alice",connection:"work"},()=>listDokployProjects()),f.withIntegrationSelection({user:"bob",connection:"work"},()=>listDokployProjects())]);
     expect(calls).toContainEqual({url:"http://127.0.0.1:4123/api/project.all",key:KEY_A});expect(calls).toContainEqual({url:"http://127.0.0.1:4124/api/project.all",key:KEY_B});
   });
+  it("updates one Dokploy public build env privately, preserves build settings, and redeploys once",async()=>{
+    const f=await fixture();await f.add("alice","dokploy","work","direct",{apiUrl:"http://127.0.0.1:4123",apiKey:KEY_A});
+    let env="PRIVATE_TOKEN=synthetic-private\nNEXT_PUBLIC_CONVEX_URL=https://old.example\n";let deploys=0;
+    vi.stubGlobal("fetch",vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
+      const req=new Request(input,init),url=new URL(req.url);
+      if(url.pathname.endsWith("/application.one"))return new Response(JSON.stringify({applicationId:"application_123",env,buildArgs:"BUILD=1",buildSecrets:"SYNTHETIC_BUILD_SECRET",createEnvFile:true}),{status:200});
+      if(url.pathname.endsWith("/application.saveEnvironment")){const body=JSON.parse(await req.text());expect(body).toMatchObject({applicationId:"application_123",buildArgs:"BUILD=1",buildSecrets:"SYNTHETIC_BUILD_SECRET",createEnvFile:true});env=body.env;return new Response("{}",{status:200});}
+      if(url.pathname.endsWith("/application.deploy")){deploys+=1;return new Response("{}",{status:200});}
+      return new Response("not found",{status:404});
+    }));
+    const {upsertDokployPublicBuildEnv}=await import("./dokploy");
+    const result=await f.withIntegrationSelection({user:"alice",connection:"work"},()=>upsertDokployPublicBuildEnv({applicationId:"application_123",key:"NEXT_PUBLIC_CONVEX_URL",value:"https://api.example.com"}));
+    expect(result).toEqual({applicationId:"application_123",key:"NEXT_PUBLIC_CONVEX_URL",changed:true,redeployQueued:true});expect(deploys).toBe(1);
+    expect(env).toContain("PRIVATE_TOKEN=synthetic-private");expect(env).toContain("NEXT_PUBLIC_CONVEX_URL=https://api.example.com");expect(JSON.stringify(result)).not.toContain("api.example.com");
+  });
   it("pins credentials for the duration of a compound operation and never changes defaults",async()=>{
     const f=await fixture();await f.add("alice","github","work","direct",{apiKey:KEY_A});
     await f.withIntegrationSelection({user:"alice",connection:"work"},async()=>{

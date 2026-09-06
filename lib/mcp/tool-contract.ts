@@ -86,14 +86,14 @@ const DESTRUCTIVE = new Set([
   "fs_write", "fs_upload_file", "fs_move", "fs_copy", "fs_delete",
   "exec_run", "exec_job_start", "exec_job_cancel", "project_function_call", "project_mcp_call",
   "local_agent_message_send", "local_agent_reply", "a2a_message_send", "a2a_task_cancel", "a2a_agent_remove",
-  "cloudflare_dns_upsert", "hostinger_dns_upsert", "apps_power", "browser_power", "tool_forge_promote",
+  "dokploy_application_public_env_upsert", "cloudflare_dns_upsert", "hostinger_dns_upsert", "apps_power", "browser_power", "tool_forge_promote",
   "agent_memory_forget", "project_memory_upsert", "workflow_cancel",
 ]);
 
 const OPEN_WORLD = new Set([
   "exec_run", "exec_job_start", "project_function_call", "project_mcp_call", "fs_upload_file",
   "a2a_agent_discover", "a2a_message_send", "a2a_task_get", "a2a_task_cancel", "a2a_handoff",
-  "infra_provider_doctor", "dokploy_projects_list", "dokploy_project_ensure", "cloudflare_zones_list",
+  "infra_provider_doctor", "dokploy_projects_list", "dokploy_applications_list", "dokploy_application_public_env_upsert", "dokploy_project_ensure", "cloudflare_zones_list",
   "cloudflare_dns_upsert", "hostinger_dns_upsert",
 ]);
 

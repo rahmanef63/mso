@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.12.1 version=2026.09.06.1 tools=95 read=46 write=29 exec=20 -->
+<!-- mcp-toolset: server=1.12.1 version=2026.09.06.1 tools=97 read=47 write=30 exec=20 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.12.1` |
 | Toolset | `2026.09.06.1` |
 | Toolset changed at | `2026-09-05T17:09:52Z` |
-| Transport tools | **97** |
-| Model/operator tools | **95** |
-| Read | **46** |
-| Write | **29** |
+| Transport tools | **99** |
+| Model/operator tools | **97** |
+| Read | **47** |
+| Write | **30** |
 | Exec | **20** |
 | App-only bridges | **2** |
 
-### Read (46)
+### Read (47)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -33,6 +33,7 @@
 - `browser_status`
 - `cloudflare_zones_list`
 - `connections_list`
+- `dokploy_applications_list`
 - `dokploy_projects_list`
 - `exec_job_status`
 - `fs_list`
@@ -67,7 +68,7 @@
 - `tool_forge_candidates`
 - `vps_status`
 
-### Write (29)
+### Write (30)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -77,6 +78,7 @@
 - `agent_session_rename`
 - `apps_power`
 - `cloudflare_dns_upsert`
+- `dokploy_application_public_env_upsert`
 - `dokploy_project_ensure`
 - `fs_copy`
 - `fs_delete`

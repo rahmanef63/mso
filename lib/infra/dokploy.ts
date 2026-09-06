@@ -63,3 +63,106 @@ export async function ensureDokployProject(name: string): Promise<{ projectId: s
   if (!created) throw new Error("Dokploy project create returned success but the project is still absent");
   return { ...created, created: true };
 }
+
+
+const DOKPLOY_ID = /^[A-Za-z0-9_-]{8,80}$/;
+const PUBLIC_BUILD_ENV = /^(?:NEXT_PUBLIC_|VITE_|PUBLIC_|REACT_APP_|EXPO_PUBLIC_)[A-Z0-9_]+$/;
+
+function dokployId(value: string, label: string): string {
+  const clean = value.trim();
+  if (!DOKPLOY_ID.test(clean)) throw new Error(`invalid Dokploy ${label}`);
+  return clean;
+}
+
+export type DokployApplicationSummary = {
+  projectId: string;
+  environmentId: string;
+  environment: string;
+  applicationId: string;
+  name: string;
+  appName: string;
+  status: string | null;
+};
+
+export async function listDokployApplications(projectId: string): Promise<DokployApplicationSummary[]> {
+  const id = dokployId(projectId, "project id");
+  const payload = await call(`/environment.byProjectId?projectId=${encodeURIComponent(id)}`);
+  const environments = Array.isArray(payload) ? payload : [];
+  const rows: DokployApplicationSummary[] = [];
+  for (const item of environments) {
+    const environment = obj(item);
+    const environmentId = String(environment.environmentId ?? environment.id ?? "");
+    const environmentName = String(environment.name ?? "");
+    const applications = Array.isArray(environment.applications) ? environment.applications : [];
+    for (const raw of applications) {
+      const app = obj(raw);
+      const applicationId = String(app.applicationId ?? app.id ?? "");
+      if (!applicationId) continue;
+      rows.push({
+        projectId: id,
+        environmentId,
+        environment: environmentName,
+        applicationId,
+        name: String(app.name ?? ""),
+        appName: String(app.appName ?? ""),
+        status: typeof app.applicationStatus === "string" ? app.applicationStatus : null,
+      });
+    }
+  }
+  return rows;
+}
+
+function quotePublicEnvValue(value: string): string {
+  if (value.includes("\n") || value.includes("\r") || value.length > 2048) throw new Error("invalid public environment value");
+  return /^[A-Za-z0-9_./:@?&=%+,~-]*$/.test(value) ? value : JSON.stringify(value);
+}
+
+export function upsertPublicEnvText(source: string, key: string, value: string): { env: string; changed: boolean } {
+  const cleanKey = key.trim();
+  if (!PUBLIC_BUILD_ENV.test(cleanKey)) throw new Error("only public browser build environment variables may be changed through this operation");
+  const encoded = quotePublicEnvValue(value);
+  const lines = source.replace(/\r\n/g, "\n").split("\n");
+  const escaped = cleanKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matcher = new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=`);
+  const matches = lines.flatMap((line, index) => matcher.test(line) ? [index] : []);
+  if (matches.length > 1) throw new Error(`Dokploy environment contains duplicate ${cleanKey} entries`);
+  const replacement = `${cleanKey}=${encoded}`;
+  if (matches.length === 1) {
+    const index = matches[0]!;
+    if (lines[index] === replacement) return { env: source, changed: false };
+    lines[index] = replacement;
+  } else {
+    while (lines.length && lines.at(-1) === "") lines.pop();
+    lines.push(replacement, "");
+  }
+  return { env: lines.join("\n"), changed: true };
+}
+
+async function readDokployApplication(applicationId: string): Promise<Record<string, unknown>> {
+  const id = dokployId(applicationId, "application id");
+  return obj(await call(`/application.one?applicationId=${encodeURIComponent(id)}`));
+}
+
+export async function upsertDokployPublicBuildEnv(args: {
+  applicationId: string;
+  key: string;
+  value: string;
+}): Promise<{ applicationId: string; key: string; changed: boolean; redeployQueued: boolean }> {
+  const applicationId = dokployId(args.applicationId, "application id");
+  const before = await readDokployApplication(applicationId);
+  const sourceEnv = typeof before.env === "string" ? before.env : "";
+  const next = upsertPublicEnvText(sourceEnv, args.key, args.value);
+  if (!next.changed) return { applicationId, key: args.key, changed: false, redeployQueued: false };
+  await call("/application.saveEnvironment", "POST", {
+    applicationId,
+    env: next.env,
+    buildArgs: typeof before.buildArgs === "string" ? before.buildArgs : null,
+    buildSecrets: typeof before.buildSecrets === "string" ? before.buildSecrets : null,
+    createEnvFile: before.createEnvFile === true,
+  });
+  const after = await readDokployApplication(applicationId);
+  const verified = upsertPublicEnvText(typeof after.env === "string" ? after.env : "", args.key, args.value);
+  if (verified.changed) throw new Error("Dokploy environment update could not be verified");
+  await call("/application.deploy", "POST", { applicationId });
+  return { applicationId, key: args.key, changed: true, redeployQueued: true };
+}

@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-09-06
 
+**Added**
+
+- `infra` add bounded Dokploy public env rollout
+
 **Fixed**
 
 - `infra` support modern pinned DNS lookups

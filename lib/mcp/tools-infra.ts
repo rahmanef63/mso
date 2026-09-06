@@ -1,7 +1,7 @@
 import { withIntegrationSelection } from "@/lib/infra/connection-service";
 import { selectionFrom } from "@/lib/infra/connection-dispatch";
 import { INTEGRATION_SELECTOR_SCHEMA } from "./tools-integrations";
-import { doctorInfraProvider, ensureDokployProject, INFRA_PROVIDER_IDS, isInfraProviderId, listCloudflareZones, listDokployProjects, readInfraProvider, summarizeInfraProvider, upsertCloudflareDns, upsertHostingerDns } from "@/lib/infra";
+import { doctorInfraProvider, ensureDokployProject, INFRA_PROVIDER_IDS, isInfraProviderId, listCloudflareZones, listDokployApplications, listDokployProjects, readInfraProvider, summarizeInfraProvider, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns } from "@/lib/infra";
 import { type McpTool, S, str } from "./tool-kit";
 
 const dnsSchema = {
@@ -39,6 +39,24 @@ const BASE_INFRA_TOOLS: McpTool[] = [
     annotations: { readOnlyHint: true, openWorldHint: true },
     inputSchema: S({}),
     run: async () => listDokployProjects(),
+  },
+  {
+    name: "dokploy_applications_list",
+    description: "List Dokploy applications inside one exact project without returning environment values or provider credentials.",
+    scope: "read",
+    annotations: { readOnlyHint: true, openWorldHint: true },
+    inputSchema: S({ projectId: { type: "string", description: "Exact Dokploy project id from dokploy_projects_list" } }, ["projectId"]),
+    run: async (a) => listDokployApplications(str(a, "projectId")),
+  },
+  {
+    name: "dokploy_application_public_env_upsert",
+    description: "Idempotently set one public browser build environment variable (NEXT_PUBLIC_/VITE_/PUBLIC_/REACT_APP_/EXPO_PUBLIC_) on one Dokploy application, verify it privately, and queue a redeploy only when the value changed. Secret/server-only variables are refused.",
+    scope: "write",
+    annotations: { idempotentHint: true, openWorldHint: true },
+    audit: { action: "infra.write", targetArg: "applicationId" },
+    limit: { key: "infra.dokploy", max: 20, windowMs: 60_000 },
+    inputSchema: S({ applicationId: { type: "string", description: "Exact Dokploy application id" }, key: { type: "string", description: "Public browser build environment variable name" }, value: { type: "string", description: "Non-secret public build value" } }, ["applicationId", "key", "value"]),
+    run: async (a) => upsertDokployPublicBuildEnv({ applicationId: str(a, "applicationId"), key: str(a, "key"), value: str(a, "value") }),
   },
   {
     name: "dokploy_project_ensure",

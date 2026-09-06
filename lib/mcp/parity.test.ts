@@ -58,6 +58,8 @@ const MCP_ONLY: Record<string, string> = {
   "infra.providers.list": "MSO Agent and external connectors need a credential-free infrastructure capability inventory; in-shell Alfa has dedicated Dokploy/Cloudflare feature apps instead",
   "infra.provider.doctor": "provider credentials stay server-side and the terminal/external agent needs a bounded live verification tool; Alfa has no reason to receive infrastructure secrets or duplicate these clients",
   "dokploy.projects.list": "MSO Agent deploy workflows need a bounded Dokploy discovery seam; in-shell Alfa can delegate deployment through the dedicated infrastructure feature instead of duplicating this provider catalog",
+  "dokploy.applications.list": "external deployment workflows need a secret-free project-to-application resolver; Alfa delegates infrastructure discovery to the native integrations surface instead of duplicating Dokploy application state",
+  "dokploy.application.public.env.upsert": "public build-env mutation is intentionally external/terminal-agent-only: it is prefix-restricted, audited, rate-limited, and keeps server/secret env values out of Alfa's static host catalog",
   "dokploy.project.ensure": "terminal/external deployment workflows need one idempotent Dokploy mutation with scope/approval; in-shell Alfa does not own infrastructure deployment credentials",
   "cloudflare.zones.list": "terminal/external deployment workflows need bounded zone discovery while credentials stay server-side; in-shell Alfa has the Cloudflare feature app",
   "cloudflare.dns.upsert": "DNS automation is intentionally MCP/terminal-agent-only so it inherits scope, approval, audit and workflow semantics without teaching generic in-shell Alfa to mutate public DNS",

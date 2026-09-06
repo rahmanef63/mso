@@ -2,7 +2,7 @@ import { integrationManage } from "./connection-manage";
 import { integrationQuery, withIntegrationSelection, resolveIntegration } from "./connection-service";
 import { authorizeIntegration, composioConnectionCall } from "./connection-external";
 import { IntegrationError, identity, metadataOnly, type ConnectionSelector } from "./identity";
-import { doctorInfraProvider, ensureDokployProject, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
+import { doctorInfraProvider, ensureDokployProject, listDokployApplications, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
 import { isInfraProviderId } from "./catalog";
 export const safeActionInput=(input:Record<string,unknown>)=>Object.fromEntries(Object.entries(input).filter(([key])=>key!=="workflow_id"));
 export const selectionFrom=(a:Record<string,unknown>):ConnectionSelector=>({user:typeof a.user==="string"?a.user:undefined,connection:typeof a.connection==="string"?a.connection:undefined,cwd:typeof a.cwd==="string"?a.cwd:undefined});
@@ -25,6 +25,8 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
   if(operation==="composio.tool")return composioConnectionCall(provider,selection,String(a.tool),args as Record<string,unknown>);
   const verbs:Record<string,{provider:string;fields:string[];run:()=>Promise<unknown>}>= {
     "dokploy.projects.list":{provider:"dokploy",fields:[],run:()=>listDokployProjects()},
+    "dokploy.applications.list":{provider:"dokploy",fields:["projectId"],run:()=>listDokployApplications(String((args as Record<string,unknown>).projectId))},
+    "dokploy.application.publicEnv.upsert":{provider:"dokploy",fields:["applicationId","key","value"],run:()=>upsertDokployPublicBuildEnv(args as {applicationId:string;key:string;value:string})},
     "dokploy.project.ensure":{provider:"dokploy",fields:["name"],run:()=>ensureDokployProject(String((args as Record<string,unknown>).name))},
     "cloudflare.zones.list":{provider:"cloudflare",fields:[],run:()=>listCloudflareZones()},
     "cloudflare.dns.upsert":{provider:"cloudflare",fields:["name","type","content","ttl","proxied"],run:()=>upsertCloudflareDns(args as Parameters<typeof upsertCloudflareDns>[0])},
