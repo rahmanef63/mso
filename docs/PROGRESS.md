@@ -2814,3 +2814,7 @@ Screenshot evidence previously lived in unrelated scratch directories or only in
 - Expanded the native `doku` integration from MCP-only to two explicit methods: Payment REST (`Payment Client ID` + HMAC `Payment Secret Key`) and MCP (`MCP Client ID` + `MCP API Key`). The methods cannot silently substitute for each other.
 - Payment credential verification uses a signed, read-only synthetic Check Status request against the fixed official sandbox/production endpoint. Only a verified `Transaction Not Found` response is accepted; `Invalid Merchant` 404 remains fail-closed.
 - MCP credential verification remains a fixed-endpoint MCP `initialize` request. DOKU credentials stay in MSO's owner-only integration store and are never copied into project MCP JSON, Baton notes, RR, or chat.
+
+### 2026-09-06 — Bounded Dokploy manual deploy
+- Added `dokploy.application.deploy`, an exact-application bounded operation through a selected named Dokploy connection. It queues only `/application.deploy` for a validated application ID and returns no provider credentials.
+- This replaces project-specific redeploy helpers that read a loose Dokploy API key from shell environment when an auto-deploy webhook is missed.

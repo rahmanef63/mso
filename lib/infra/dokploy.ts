@@ -199,6 +199,8 @@ export async function listDokployGithubRepositories(githubId:string){
 export async function inspectDokployGithubProvider(githubId:string){const id=dokployId(githubId,"github id"),row=obj(await call(`/github.one?githubId=${encodeURIComponent(id)}`));return {githubId:String(row.githubId??""),name:String(row.name??""),githubAppName:String(row.githubAppName??""),githubInstallationId:String(row.githubInstallationId??""),githubUrl:String(row.githubUrl??"")};}
 export async function testDokployGithubProvider(githubId:string){const id=dokployId(githubId,"github id"),payload=await call("/github.testConnection","POST",{githubId:id});const row=obj(payload);return {ok:row.success===true||row.ok===true,message:redactText(String(row.message??row.detail??""),500)};}
 
+export async function deployDokployApplication(applicationId:string){const id=dokployId(applicationId,"application id");await call("/application.deploy","POST",{applicationId:id});return {applicationId:id,redeployQueued:true};}
+
 export async function recoverDokployPublicGithubToHttpsGit(applicationId:string){
   const id=dokployId(applicationId,"application id"),before=await readDokployApplication(id);
   if(before.sourceType!=="github")throw new Error("Dokploy application is not using the GitHub source provider");

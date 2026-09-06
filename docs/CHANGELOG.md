@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `infra` add bounded Dokploy application deploy
 - `infra` separate DOKU payment and MCP credentials
 - `infra` add private DOKU MCP connections
 - `infra` add private Convex env presence checks

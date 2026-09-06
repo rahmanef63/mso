@@ -9,7 +9,7 @@ import { doctorHostinger } from "./hostinger";
 import { doctorComposio } from "./composio";
 
 export { listCloudflareZones, upsertCloudflareDns } from "./cloudflare";
-export { ensureDokployProject, listDokployProjects, listDokployApplications, listDokployDeployments, readDokployDeploymentLogs, inspectDokployApplication, listDokployGitProviders, inspectDokployGithubProvider, testDokployGithubProvider, recoverDokployPublicGithubToHttpsGit, upsertDokployPublicBuildEnv } from "./dokploy";
+export { ensureDokployProject, listDokployProjects, listDokployApplications, listDokployDeployments, readDokployDeploymentLogs, inspectDokployApplication, listDokployGitProviders, inspectDokployGithubProvider, testDokployGithubProvider, recoverDokployPublicGithubToHttpsGit, deployDokployApplication, upsertDokployPublicBuildEnv } from "./dokploy";
 export { upsertHostingerDns } from "./hostinger";
 export { listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./hostinger-mail";
 
