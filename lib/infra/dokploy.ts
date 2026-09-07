@@ -67,7 +67,7 @@ export async function ensureDokployProject(name: string): Promise<{ projectId: s
 
 
 const DOKPLOY_ID = /^[A-Za-z0-9_-]{8,80}$/;
-const PUBLIC_BUILD_ENV = /^(?:NEXT_PUBLIC_|VITE_|PUBLIC_|REACT_APP_|EXPO_PUBLIC_)[A-Z0-9_]+$/;
+const PUBLIC_BUILD_ENV = /^(?:BATON_BUILD_SHA|(?:NEXT_PUBLIC_|VITE_|PUBLIC_|REACT_APP_|EXPO_PUBLIC_)[A-Z0-9_]+)$/;
 
 function dokployId(value: string, label: string): string {
   const clean = value.trim();
@@ -120,7 +120,7 @@ function quotePublicEnvValue(value: string): string {
 
 export function upsertPublicEnvText(source: string, key: string, value: string): { env: string; changed: boolean } {
   const cleanKey = key.trim();
-  if (!PUBLIC_BUILD_ENV.test(cleanKey)) throw new Error("only public browser build environment variables may be changed through this operation");
+  if (!PUBLIC_BUILD_ENV.test(cleanKey)) throw new Error("only public browser build variables or approved public release metadata may be changed through this operation");
   const encoded = quotePublicEnvValue(value);
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   const escaped = cleanKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

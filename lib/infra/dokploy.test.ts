@@ -19,8 +19,15 @@ describe("Dokploy public build environment editing", () => {
     expect(upsertPublicEnvText("VITE_CONVEX_URL=https://api.example.com\n", "VITE_CONVEX_URL", "https://api.example.com").changed).toBe(false);
   });
 
+  it("allows approved public release metadata without opening arbitrary server keys", () => {
+    expect(upsertPublicEnvText("BATON_BUILD_SHA=old\nAPI_SECRET=keep-private\n", "BATON_BUILD_SHA", "abc123")).toEqual({
+      changed: true,
+      env: "BATON_BUILD_SHA=abc123\nAPI_SECRET=keep-private\n",
+    });
+  });
+
   it("refuses secret/server keys, multiline values, and ambiguous duplicate keys", () => {
-    expect(() => upsertPublicEnvText("", "DATABASE_URL", "postgres://example")).toThrow(/only public browser/i);
+    expect(() => upsertPublicEnvText("", "DATABASE_URL", "postgres://example")).toThrow(/only public browser build variables or approved public release metadata/i);
     expect(() => upsertPublicEnvText("", "NEXT_PUBLIC_VALUE", "one\ntwo")).toThrow(/invalid public environment value/i);
     expect(() => upsertPublicEnvText("VITE_X=1\nVITE_X=2\n", "VITE_X", "3")).toThrow(/duplicate VITE_X/i);
   });
