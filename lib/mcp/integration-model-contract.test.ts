@@ -23,6 +23,10 @@ it("exposes the bounded Dokploy application operations through integration_execu
   const schema=tool.inputSchema as {properties?:Record<string,{enum?:string[]}>};
   const operations=schema.properties?.operation?.enum??[];
   expect(operations).toContain("dokploy.applications.list");
+  expect(operations).toContain("dokploy.gitProviders.list");
+  expect(operations).toContain("dokploy.github.repositories.list");
+  expect(operations).toContain("dokploy.application.ensureGithub");
+  expect(operations).toContain("dokploy.domain.ensure");
   expect(operations).toContain("dokploy.application.publicEnv.upsert");
   expect(operations.some(operation=>/request|fetch|raw/i.test(operation))).toBe(false);
 });

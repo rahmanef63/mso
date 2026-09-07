@@ -4,7 +4,7 @@ import { authorizeIntegration, composioConnectionCall } from "./connection-exter
 import { IntegrationError, identity, metadataOnly, type ConnectionSelector } from "./identity";
 import { importConvexCliPersonalConnection } from "./convex-cli-import";
 import { listConvexCustomDomains, ensureConvexCustomDomain, getConvexCanonicalUrls, setConvexCanonicalUrl, getConvexEnvPresence } from "./convex-cloud";
-import { doctorInfraProvider, ensureDokployProject, listDokployApplications, listDokployDeployments, readDokployDeploymentLogs, recoverDokployPublicGithubToHttpsGit, deployDokployApplication, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
+import { doctorInfraProvider, ensureDokployProject, listDokployApplications, listDokployDeployments, readDokployDeploymentLogs, listDokployGitProviders, listDokployGithubRepositories, ensureDokployGithubApplication, ensureDokployApplicationDomain, recoverDokployPublicGithubToHttpsGit, deployDokployApplication, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
 import { isInfraProviderId } from "./catalog";
 export const safeActionInput=(input:Record<string,unknown>)=>Object.fromEntries(Object.entries(input).filter(([key])=>key!=="workflow_id"));
 export const selectionFrom=(a:Record<string,unknown>):ConnectionSelector=>({user:typeof a.user==="string"?a.user:undefined,connection:typeof a.connection==="string"?a.connection:undefined,cwd:typeof a.cwd==="string"?a.cwd:undefined});
@@ -39,6 +39,10 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
   const verbs:Record<string,{provider:string;fields:string[];run:()=>Promise<unknown>}>= {
     "dokploy.projects.list":{provider:"dokploy",fields:[],run:()=>listDokployProjects()},
     "dokploy.applications.list":{provider:"dokploy",fields:["projectId"],run:()=>listDokployApplications(String((args as Record<string,unknown>).projectId))},
+    "dokploy.gitProviders.list":{provider:"dokploy",fields:[],run:()=>listDokployGitProviders()},
+    "dokploy.github.repositories.list":{provider:"dokploy",fields:["githubId"],run:()=>listDokployGithubRepositories(String((args as Record<string,unknown>).githubId))},
+    "dokploy.application.ensureGithub":{provider:"dokploy",fields:["projectId","name","githubId","owner","repository","branch","buildPath"],run:()=>ensureDokployGithubApplication(args as {projectId:string;name:string;githubId:string;owner:string;repository:string;branch:string;buildPath?:string})},
+    "dokploy.domain.ensure":{provider:"dokploy",fields:["applicationId","host","port","https"],run:()=>ensureDokployApplicationDomain(args as {applicationId:string;host:string;port:number;https:boolean})},
     "dokploy.deployments.list":{provider:"dokploy",fields:["applicationId"],run:()=>listDokployDeployments(String((args as Record<string,unknown>).applicationId))},
     "dokploy.deployment.logs":{provider:"dokploy",fields:["deploymentId","tail"],run:()=>readDokployDeploymentLogs(String((args as Record<string,unknown>).deploymentId),Number((args as Record<string,unknown>).tail??160))},
     "dokploy.git.recover":{provider:"dokploy",fields:["applicationId"],run:()=>recoverDokployPublicGithubToHttpsGit(String((args as Record<string,unknown>).applicationId))},
