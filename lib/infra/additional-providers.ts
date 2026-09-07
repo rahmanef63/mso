@@ -18,6 +18,16 @@ type AdditionalProvider = {
  * Additional native service credentials. The main registry owns all definitions.
  */
 export const ADDITIONAL_PROVIDERS = {
+  mcp: {
+    id: "mcp", title: "Project MCP", feature: false,
+    description: "Connect a modular MCP server through MSO using a named, endpoint-bound bearer credential.",
+    fields: [
+      { key: "endpoint", label: "MCP endpoint", secret: false, required: true, description: "Exact public HTTPS MCP URL. Must match the project's declared endpoint." },
+      { key: "accessToken", label: "MCP access token", secret: true, required: true, description: "A token issued by this MCP server to the intended user or assistant. Never use the MSO connector token." },
+      { key: "principalLabel", label: "Account / assistant label", secret: false, required: false, description: "Operator reminder only; the downstream token determines real identity and permissions." },
+      { key: "allowedTools", label: "Allowed tools", secret: false, required: false, description: "Optional exact comma-separated MCP tool names. Blank permits all tools allowed by the downstream token." },
+    ],
+  },
   github: {
     id: "github",
     title: "GitHub",
@@ -94,6 +104,7 @@ export const ADDITIONAL_PROVIDERS = {
 export type AdditionalProviderId = keyof typeof ADDITIONAL_PROVIDERS;
 
 export const ADDITIONAL_GUIDANCE = {
+  mcp: { url: "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization", reference: "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization", steps: ["Sign in to the target application's account that the assistant should use.", "Create a dedicated expiring MCP token with the least required scope. For Baton: Settings → External access → MCP → Advanced token management.", "Enter the exact MCP URL and token only in this private MSO form. Set an optional exact tool allowlist.", "Bind the project MCP declaration to this named MSO user/connection; MSO verifies tool discovery, while the downstream server enforces its token identity and live project roles."] },
   github: { url: "https://github.com/settings/tokens/new", reference: "https://docs.github.com/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens", steps: ["Open GitHub token settings while signed in to the intended account.", "Choose Generate new token (classic).", "Set an expiry and select only the scopes required for the intended automation; repository access generally requires the repo scope.", "Copy the token once and store it here. Organization policies can still limit its access."] },
   vercel: { url: "https://vercel.com/account/tokens", reference: "https://vercel.com/docs/rest-api#creating-an-access-token", steps: ["Open Account Settings → Tokens in Vercel.", "Create a token with an expiry appropriate for this integration.", "Use the account or team that owns the intended Vercel resources.", "Copy the token into this form; its permissions are determined by that account or team membership."] },
   "convex-cloud": { url: "https://dashboard.convex.dev", reference: "https://docs.convex.dev/management-api", steps: ["Open the Convex dashboard for the intended account or deployment.", "Create the personal access token or deployment key appropriate to the operation you intend to perform.", "For a deployment key, also enter its exact deployment name.", "Copy the credential once and keep it scoped to the minimum needed access."] },

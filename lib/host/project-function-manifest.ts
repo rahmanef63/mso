@@ -1,3 +1,4 @@
+import type { PublicProjectMcpServer } from "@/lib/contracts/project-mcp";
 // SERVER-ONLY. Opt-in capability metadata declared BY a project, not features
 // baked into MSO. Every file read is bounded/O_NOFOLLOW; MCP config contents are
 // never returned because they commonly contain credential wiring.
@@ -24,7 +25,7 @@ export type ProjectFunction = {
 
 export type PublicProjectFunction = Omit<ProjectFunction, "command">;
 export type ProjectCapabilities = {
-  mcp?: { config: typeof PROJECT_MCP_REL; servers?: Array<{ name: string; transport: "stdio" | "http"; auth: "none" | "configured" | "oauth" }> };
+  mcp?: { config: typeof PROJECT_MCP_REL; servers?: PublicProjectMcpServer[] };
   functions?:
     | { manifest: typeof PROJECT_FUNCTIONS_REL; valid: true; version: 1; count: number; tools: PublicProjectFunction[] }
     | { manifest: typeof PROJECT_FUNCTIONS_REL; valid: false; error: string };

@@ -1,3 +1,4 @@
+import { projectMcpAuthorization } from "./project-mcp-auth";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { childEnv } from "./child-env";
 import { safeProviderFetch } from "./ssrf";
@@ -97,23 +98,25 @@ function remoteHeaders(server: Extract<ProjectMcpServer, { transport: "http" }>,
   if (sessionId) headers.set("Mcp-Session-Id", sessionId);
   return headers;
 }
-async function remotePost(server: Extract<ProjectMcpServer, { transport: "http" }>, payload: unknown, sessionId?: string, protocol = PROTOCOL) {
-  const response = await safeProviderFetch(server.url, { method: "POST", headers: remoteHeaders(server, sessionId, protocol), body: JSON.stringify(payload) });
+async function remotePost(server: Extract<ProjectMcpServer, { transport: "http" }>, payload: unknown, sessionId?: string, protocol = PROTOCOL, deadline = Date.now() + TIMEOUT_MS) {
+  if (Date.now() >= deadline) throw new Error("project MCP session timed out");
+  const response = await safeProviderFetch(server.url, { method: "POST", headers: remoteHeaders(server, sessionId, protocol), body: JSON.stringify(payload), signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())) });
   const text = await boundedText(response);
-  if (!response.ok && response.status !== 202) throw new Error(`project MCP HTTP ${response.status}${text ? `: ${text.slice(0, 400)}` : ""}`);
+  if (!response.ok && response.status !== 202) throw new Error(`project MCP HTTP ${response.status}; check endpoint, connection and token scope`);
   return { message: text ? parseHttpRpc(text, response.headers.get("content-type") ?? "") : ({} as Rpc), sessionId: response.headers.get("mcp-session-id") ?? sessionId };
 }
 async function withHttp<T>(server: Extract<ProjectMcpServer, { transport: "http" }>, work: (rpc: (method: string, params?: unknown) => Promise<Rpc>) => Promise<T>): Promise<T> {
   if (server.oauthConfigured && !Object.keys(server.headers).some((name) => name.toLowerCase() === "authorization")) {
     throw new Error(`project MCP "${server.name}" declares OAuth but no server-side authorization is configured; MSO will not copy or mint another project's OAuth credential implicitly`);
   }
+  const deadline = Date.now() + TIMEOUT_MS;
   const init = await remotePost(server, { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: "mso-project-mcp", version: "1" } } });
   const err = rpcError(init.message); if (err) throw err;
   const protocol = (init.message.result as { protocolVersion?: string } | undefined)?.protocolVersion ?? PROTOCOL;
-  await remotePost(server, { jsonrpc: "2.0", method: "notifications/initialized" }, init.sessionId, protocol);
+  await remotePost(server, { jsonrpc: "2.0", method: "notifications/initialized" }, init.sessionId, protocol, deadline);
   let id = 2;
   return work(async (method, params) => {
-    const row = await remotePost(server, { jsonrpc: "2.0", id: id++, method, ...(params === undefined ? {} : { params }) }, init.sessionId, protocol);
+    const row = await remotePost(server, { jsonrpc: "2.0", id: id++, method, ...(params === undefined ? {} : { params }) }, init.sessionId, protocol, deadline);
     const error = rpcError(row.message); if (error) throw error; return row.message;
   });
 }
@@ -123,12 +126,27 @@ async function selectedServer(projectPath: string, name: string): Promise<Projec
   if (!server) throw new Error(`unknown project MCP server "${name}"`); return server;
 }
 export async function withProjectMcpServer<T>(server: ProjectMcpServer, work: (rpc: (method: string, params?: unknown) => Promise<Rpc>) => Promise<T>): Promise<T> {
-  return server.transport === "stdio" ? withStdio(server, (rpc) => work(rpc)) : withHttp(server, work);
+  const auth = await projectMcpAuthorization(server);
+  const guarded = async (rpc: (method: string, params?: unknown) => Promise<Rpc>) => work(async (method, params) => {
+    if (method === "tools/call" && auth.allowed && !auth.allowed.includes(String((params as { name?: string })?.name))) throw new Error("project MCP tool is not allowed by this connection");
+    // Re-resolve at each RPC: removing or changing the named connection takes effect now.
+    const current = await projectMcpAuthorization(server);
+    if (JSON.stringify(current.server.headers) !== JSON.stringify(auth.server.headers) || JSON.stringify(current.allowed) !== JSON.stringify(auth.allowed)) throw new Error("project MCP connection changed; rediscover before continuing");
+    const row = auth.redact(await rpc(method, params)) as Rpc;
+    if (method === "tools/list" && auth.allowed && row.result && typeof row.result === "object") {
+      const result = row.result as { tools?: ProjectMcpTool[] };
+      if (Array.isArray(result.tools)) result.tools = result.tools.filter((tool) => auth.allowed!.includes(tool.name));
+    }
+    return row;
+  });
+  try { return await (auth.server.transport === "stdio" ? withStdio(auth.server, (rpc) => guarded(rpc)) : withHttp(auth.server, guarded)); }
+  catch (error) { throw new Error(String(auth.redact(error instanceof Error ? error.message : "project MCP request failed"))); }
 }
 function publicTools(result: unknown): ProjectMcpTool[] {
   const tools = (result as { tools?: unknown } | undefined)?.tools;
   if (!Array.isArray(tools)) throw new Error("project MCP tools/list returned no tools array");
-  return tools.slice(0, 128).flatMap((raw): ProjectMcpTool[] => {
+  if (tools.length > 128) throw new Error("project MCP tool page exceeds 128 tools");
+  return tools.flatMap((raw): ProjectMcpTool[] => {
     if (!raw || typeof raw !== "object") return [];
     const row = raw as Record<string, unknown>, name = typeof row.name === "string" ? row.name : "";
     if (!/^[A-Za-z0-9_.-]{1,128}$/.test(name)) return [];
@@ -137,21 +155,31 @@ function publicTools(result: unknown): ProjectMcpTool[] {
   });
 }
 
+async function allTools(rpc: (method: string, params?: unknown) => Promise<Rpc>): Promise<ProjectMcpTool[]> {
+  const tools: ProjectMcpTool[] = [], seen = new Set<string>();
+  let cursor: string | undefined;
+  for (let page = 0; page < 8; page++) {
+    const result = (await rpc("tools/list", cursor ? { cursor } : {})).result as { nextCursor?: unknown };
+    tools.push(...publicTools(result));
+    if (tools.length > 128) throw new Error("project MCP catalog exceeds 128 tools; narrow the connection allowlist");
+    if (result.nextCursor === undefined) return tools;
+    if (typeof result.nextCursor !== "string" || !result.nextCursor || result.nextCursor.length > 4096 || seen.has(result.nextCursor)) throw new Error("project MCP returned an invalid continuation cursor");
+    cursor = result.nextCursor; seen.add(cursor);
+  }
+  throw new Error("project MCP catalog exceeds 8 pages; discovery is incomplete");
+}
 export async function listProjectMcpTools(projectPath: string, serverName: string): Promise<ProjectMcpTool[]> {
-  const server = await selectedServer(projectPath, serverName);
-  return withProjectMcpServer(server, async (rpc) => publicTools((await rpc("tools/list")).result));
+  return listMcpServerTools(await selectedServer(projectPath, serverName));
 }
 export async function callProjectMcpTool(projectPath: string, serverName: string, toolName: string, args: unknown): Promise<unknown> {
-  const payload = JSON.stringify(args ?? {}); if (Buffer.byteLength(payload) > MAX_TOOL_ARGS_BYTES) throw new Error("project MCP tool arguments exceed 128 KiB");
-  const server = await selectedServer(projectPath, serverName);
-  return withProjectMcpServer(server, async (rpc) => (await rpc("tools/call", { name: toolName, arguments: args ?? {} })).result);
+  return callMcpServerTool(await selectedServer(projectPath, serverName), toolName, args);
 }
-
 export async function listMcpServerTools(server: ProjectMcpServer): Promise<ProjectMcpTool[]> {
-  return withProjectMcpServer(server, async (rpc) => publicTools((await rpc("tools/list")).result));
+  return withProjectMcpServer(server, allTools);
 }
-
 export async function callMcpServerTool(server: ProjectMcpServer, toolName: string, args: unknown): Promise<unknown> {
+  if (!/^[A-Za-z0-9_.-]{1,128}$/.test(toolName)) throw new Error("invalid project MCP tool name");
+  if (args != null && (typeof args !== "object" || Array.isArray(args))) throw new Error("MCP tool arguments must be an object");
   const payload = JSON.stringify(args ?? {});
   if (Buffer.byteLength(payload) > MAX_TOOL_ARGS_BYTES) throw new Error("MCP tool arguments exceed 128 KiB");
   return withProjectMcpServer(server, async (rpc) => (await rpc("tools/call", { name: toolName, arguments: args ?? {} })).result);

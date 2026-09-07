@@ -1,3 +1,4 @@
+import { normalizeMcpEndpoint, parseMcpToolAllowlist } from "./mcp-policy";
 import { ADDITIONAL_PROVIDERS, type AdditionalProviderId } from "./additional-providers";
 import { INFRA_PROVIDER_IDS, type InfraProviderDefinition, type InfraProviderId, type InfraProviderValues } from "./types";
 
@@ -96,6 +97,11 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
   if (id === "convex" && out.apiUrl) {
     let url: URL; try { url = new URL(out.apiUrl); } catch { throw new Error("Invalid deployment URL"); }
     if (url.username || url.password || url.search || url.hash || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))) throw new Error("Invalid deployment URL");
+  }
+  if (id === "mcp") {
+    if (out.endpoint) out.endpoint = normalizeMcpEndpoint(out.endpoint);
+    if (out.accessToken && (out.accessToken.length < 16 || /\s/.test(out.accessToken))) throw new Error("MCP token must be an opaque single-line value");
+    parseMcpToolAllowlist(out.allowedTools);
   }
   if (id === "doku") {
     for(const key of ["environment","paymentEnvironment"])if(out[key]&&!["sandbox","production"].includes(out[key]))throw new Error("DOKU environment must be sandbox or production");

@@ -6,7 +6,7 @@ export const PROJECT_MCP_TOOLS: McpTool[] = [
     name: "project_mcp_tools",
     title: "List Project MCP Tools",
     description: "Discover tools from one MCP server declared by an explicitly selected project's .mcp.json. Server aliases and tool schemas are returned on demand; config, env, headers, and credentials are never returned and project tools never join MSO's global catalog.",
-    chatgptDescription: "List tools from one MCP server declared by a selected project's .mcp.json. Project tool names stay dynamic and never enter MSO's global catalog.",
+    chatgptDescription: "Discover a declared project MCP through its private connection. Dynamic tools stay project-scoped.",
     scope: "exec",
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true, idempotentHint: false },
     audit: { action: "exec.run" as const, targetArg: "server" },

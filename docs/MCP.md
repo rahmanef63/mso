@@ -716,3 +716,10 @@ entrypoint is `/integrations`; Page v10 retains previous resource aliases. Page-
 Native named integrations use `integration_query`, `integration_manage`, and
 `integration_execute`. `integration_setup_open` now requires user/provider/connection.
 See [Integrations](INTEGRATIONS.md) for the shared identity, migration and secret boundaries.
+
+## Named downstream MCP connections
+
+Project-owned servers can use private endpoint-bound MSO Integrations while the
+external client retains one MSO connector. See [Project MCP connections](PROJECT-MCP-CONNECTIONS.md)
+for manifest, identity, tool-grant, limit and revocation contracts. App tools stay
+behind the generic project MCP dispatcher and never expand the global catalog.
