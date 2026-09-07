@@ -1,3 +1,4 @@
+import type { PublicProjectMcpServer } from "@/lib/contracts/project-mcp";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { BOUNDED_READ, readBoundedRegularFile } from "./bounded-read";
@@ -8,12 +9,12 @@ const MAX_SERVERS = 16;
 const MAX_ARGV = 32;
 const MAX_VALUE = 4096;
 
-type BaseServer = { name: string; headers: Record<string, string>; oauthConfigured: boolean };
+type BaseServer = { integration?: { user: string; connection: string }; name: string; headers: Record<string, string>; oauthConfigured: boolean };
 export type ProjectMcpServer = BaseServer & (
   | { transport: "stdio"; command: string; args: string[]; cwd: string; env: Record<string, string> }
   | { transport: "http"; url: string }
 );
-export type PublicProjectMcpServer = { name: string; transport: "stdio" | "http"; auth: "none" | "configured" | "oauth" };
+export type { PublicProjectMcpServer } from "@/lib/contracts/project-mcp";
 
 const object = (v: unknown): v is Record<string, unknown> => Boolean(v && typeof v === "object" && !Array.isArray(v));
 const strings = (v: unknown, max: number): string[] => Array.isArray(v) && v.length <= max && v.every((x) => typeof x === "string" && x.length <= MAX_VALUE && !x.includes("\0")) ? v : [];
@@ -50,6 +51,15 @@ export async function readProjectMcpServers(projectPath: string): Promise<Projec
     if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(name) || !object(value)) continue;
     const headers = stringMap(value.headers);
     const oauthConfigured = object(value.oauth);
+    let integration: BaseServer["integration"];
+    if (value.integration !== undefined) {
+      const ref = value.integration;
+      if (!object(ref) || Object.keys(ref).some((key) => !["user", "connection"].includes(key)) ||
+        typeof ref.user !== "string" || typeof ref.connection !== "string" ||
+        ![ref.user, ref.connection].every((id) => /^[a-z0-9][a-z0-9_-]{0,63}$/.test(id))) throw new Error(`${name}: invalid MCP integration reference`);
+      if (value.command || oauthConfigured || Object.keys(headers).some((key) => key.toLowerCase() === "authorization")) throw new Error(`${name}: conflicting MCP authentication configuration`);
+      integration = { user: ref.user, connection: ref.connection };
+    }
     if (typeof value.command === "string" && value.command.trim() && value.command.length <= MAX_VALUE) {
       const args = value.args === undefined ? [] : strings(value.args, MAX_ARGV);
       if (value.args !== undefined && !args.length && Array.isArray(value.args) && value.args.length) throw new Error(`${name}: invalid args`);
@@ -57,12 +67,12 @@ export async function readProjectMcpServers(projectPath: string): Promise<Projec
       continue;
     }
     if (typeof value.url === "string" && value.url.length <= MAX_VALUE) {
-      out.push({ name, transport: "http", url: value.url, headers, oauthConfigured });
+      out.push({ name, transport: "http", url: value.url, headers, oauthConfigured, ...(integration ? { integration } : {}) });
     }
   }
   return out;
 }
 
 export function publicProjectMcpServers(servers: ProjectMcpServer[]): PublicProjectMcpServer[] {
-  return servers.map((server) => ({ name: server.name, transport: server.transport, auth: server.oauthConfigured ? "oauth" : Object.keys(server.headers).length ? "configured" : "none" }));
+  return servers.map((server) => ({ name: server.name, transport: server.transport, auth: server.integration ? "integration" : server.oauthConfigured ? "oauth" : Object.keys(server.headers).length ? "configured" : "none" }));
 }

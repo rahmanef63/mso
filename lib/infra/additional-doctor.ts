@@ -1,3 +1,5 @@
+import { listMcpServerTools } from "@/lib/host/project-mcp-client";
+import { normalizeMcpEndpoint, parseMcpToolAllowlist } from "./mcp-policy";
 import { safeProviderFetch } from "@/lib/host/ssrf";
 import { obj, request, TIMEOUT_MS } from "./http";
 import { doctorDoku } from "./doku-doctor";
@@ -63,6 +65,16 @@ function countRows(body: unknown): number {
  */
 export async function doctorAdditionalProvider(id: string, values: Record<string, string>): Promise<string | null> {
   switch (id) {
+    case "mcp": {
+      if (!present(values.endpoint) || !present(values.accessToken)) return null;
+      const url = normalizeMcpEndpoint(values.endpoint);
+      let tools;
+      try { tools = await listMcpServerTools({ name: "connection-check", transport: "http", url, headers: { Authorization: "Bearer " + values.accessToken }, oauthConfigured: false }); }
+      catch { throw new Error("MCP discovery failed; check endpoint, token expiry and scope"); }
+      const allowed = parseMcpToolAllowlist(values.allowedTools);
+      if (allowed?.some((name) => !tools.some((tool) => tool.name === name))) throw new Error("MCP allowlist includes a tool unavailable to this token");
+      return `MCP discovery verified; ${tools.length} advertised tool(s). Identity and resource access remain downstream-token controlled.`;
+    }
     case "github": {
       if (!present(values.apiKey)) return null;
       await checked("GitHub", "https://api.github.com/user", {

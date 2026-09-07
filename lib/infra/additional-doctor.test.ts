@@ -1,3 +1,4 @@
+import { INFRA_PROVIDER_IDS } from "./types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { doctorAdditionalProvider } from "./additional-doctor";
@@ -7,8 +8,8 @@ import { summarizeInfraProvider } from "./store";
 const KEY = "synthetic_api_credential_for_unit_test";
 afterEach(() => vi.unstubAllGlobals());
 describe("additional native credential providers", () => {
-  it("exposes thirteen native providers with guided method-specific fields", () => {
-    const catalog = connectionCatalog(); expect(catalog).toHaveLength(13);
+  it("exposes registered native providers with guided method-specific fields", () => {
+    const catalog = connectionCatalog(); expect(catalog.map((provider) => provider.id)).toEqual([...INFRA_PROVIDER_IDS]);
     for (const p of catalog) for (const m of p.sources.find(s=>s.id==="direct")!.methods) {
       expect(m.fields.length).toBeGreaterThan(0); expect(m.guidance.steps.length).toBeGreaterThan(1);
       expect(m.guidance.url).toMatch(/^https:\/\//); expect(m.guidance.reference).toMatch(/^https:\/\//);

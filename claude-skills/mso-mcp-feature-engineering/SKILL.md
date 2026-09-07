@@ -75,6 +75,15 @@ Keep project function names as data behind the stable `project_capabilities` and
 `project_function_call` pair. Validate `.mso/functions.json`, declared arguments, working
 directory, scope and refusal behavior. Do not add one global MCP tool per project function.
 
+## Modular project MCPs
+
+For one-connector workflows spanning a project MCP, read
+[Project MCP connections](../../docs/PROJECT-MCP-CONNECTIONS.md). Use declared aliases
+and private named integrations; downstream tokens define identity, not owner IDs
+or assistant labels. Reuse generic discovery/call tools, preserve endpoint binding,
+allowlists, revocation and bounded pagination. A configured declaration or fixture
+pass is not proof of authenticated access to the user's live app.
+
 ## Fast route
 
 - One direct operation: use the exact bounded tool and verify it.
