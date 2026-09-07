@@ -23,7 +23,7 @@ export async function integrationSnapshot(selector:ConnectionSelector={}){
   const state=await readIntegrationState();let user:string|null=null;try{user=resolveUser(state,selector);}catch(e){if(selector.user)throw e;}
   const profiles=Object.values(state.users).map(u=>({id:u.id,label:u.label,isDefault:state.defaultUser===u.id,connectionCount:Object.values(u.connections).reduce((n,rows)=>n+Object.keys(rows).length,0)}));
   const connections=user?Object.values(state.users[user].connections).flatMap(rows=>Object.values(rows).map(c=>summaryIn(state,user!,c))):[];
-  return{version:2,catalog:connectionCatalog(),users:profiles,user,bindings:state.bindings,connections,resolution:user?(selector.user?"explicit":folderBinding(state,selector.cwd)?"folder":"default"):"choose-user"};
+  return{version:2,users:profiles,user,bindings:state.bindings,connections,resolution:user?(selector.user?"explicit":folderBinding(state,selector.cwd)?"folder":"default"):"choose-user"};
 }
 export function createConnectionIn(state:IntegrationState,input:{user:string;provider:string;connection:string;label?:string;source?:ConnectionSource;authMethod?:string;makeDefault?:boolean}){
   const user=identity(input.user,"user"),provider=identity(input.provider,"provider"),id=identity(input.connection,"connection"),profile=state.users[user];if(!profile)throw new IntegrationError("user_not_found",404);

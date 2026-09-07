@@ -2822,3 +2822,8 @@ Screenshot evidence previously lived in unrelated scratch directories or only in
 ### 2026-09-06 — Bounded Dokploy manual deploy
 - Added `dokploy.application.deploy`, an exact-application bounded operation through a selected named Dokploy connection. It queues only `/application.deploy` for a validated application ID and returns no provider credentials.
 - This replaces project-specific redeploy helpers that read a loose Dokploy API key from shell environment when an auto-deploy webhook is missed.
+
+### 2026-09-07 — Integrations workbench
+- The browser route and embedded MCP Page now share a responsive service rail, real connection-readiness summary, compact account cards, and contextual setup/actions. Setup guides and maintenance controls use progressive disclosure; account switching remains explicit.
+- Integration snapshots no longer repeat the complete provider catalog, which is already embedded in the shared manager. The explicit catalog query remains available; compact snapshots prevent bounded MCP responses from truncating the Page.
+- Validation: 26 browser assertions at 320/390/768/1440/1920 px in light/dark themes, account isolation, service search, setup focus, auto identifiers and Verify feedback; full verify passes.

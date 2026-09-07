@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `integrations` share a responsive connection workbench
 - `mcp` bind modular project tools to private integrations
 - `infra` ensure Dokploy GitHub applications
 
