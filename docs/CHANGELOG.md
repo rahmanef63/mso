@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `desktop` give Finder, Explorer and Settings native platform layouts
 
+**Fixed**
+
+- `integrations` verify self-hosted Convex admin keys
+
 ## 2026-09-07
 
 **Added**

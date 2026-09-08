@@ -66,6 +66,23 @@ describe("additional native credential providers", () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error(KEY); }));
     await expect(doctorAdditionalProvider("github", { apiKey: KEY })).rejects.toThrow("GitHub request failed");
   });
+  it("checks self-hosted Convex admin keys at the fixed admin endpoint", async () => {
+    const mock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init);
+      expect(request.url).toBe("http://localhost:3210/api/check_admin_key");
+      expect(request.headers.get("authorization")).toBe(`Convex ${KEY}`);
+      return new Response(null, { status: 200 });
+    });
+    vi.stubGlobal("fetch", mock);
+    await expect(doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210/base", adminKey: KEY })).resolves.toBe("authenticated; deployment access verified");
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
+  it("redacts self-hosted Convex admin-key rejection responses", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(KEY, { status: 403 })));
+    const result = doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210", adminKey: KEY });
+    await expect(result).rejects.toThrow("Convex HTTP 403");
+    await expect(result).rejects.not.toThrow(KEY);
+  });
   it("rejects arbitrary Convex targets before sending any key", async () => {
     const mock = vi.fn(); vi.stubGlobal("fetch", mock);
     for (const apiUrl of ["http://169.254.169.254/", "https://owner:password@evil.invalid", "https://example.com/?credential=x"])

@@ -18,7 +18,7 @@ function convexFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Resp
   return safeProviderFetch(requestInput);
 }
 
-function selfHostedDeploymentInfoUrl(rawUrl: string): string {
+function selfHostedAdminKeyCheckUrl(rawUrl: string): string {
   let url: URL;
   try {
     url = new URL(rawUrl.trim());
@@ -30,7 +30,7 @@ function selfHostedDeploymentInfoUrl(rawUrl: string): string {
   if (url.protocol !== "https:" && !(url.protocol === "http:" && LOOPBACK_HOSTS.has(host))) {
     throw new Error("Convex invalid deployment URL");
   }
-  url.pathname = "/api/v1/deployment_info";
+  url.pathname = "/api/check_admin_key";
   return url.toString();
 }
 
@@ -132,7 +132,7 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
     }
     case "convex": {
       if (!present(values.apiUrl) || !present(values.adminKey)) return null;
-      await checked("Convex", selfHostedDeploymentInfoUrl(values.apiUrl), { authorization: `Convex ${values.adminKey}`, accept: "application/json" }, convexFetch);
+      await checked("Convex", selfHostedAdminKeyCheckUrl(values.apiUrl), { authorization: `Convex ${values.adminKey}`, accept: "application/json" }, convexFetch);
       return "authenticated; deployment access verified";
     }
     default:
