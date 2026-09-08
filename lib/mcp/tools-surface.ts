@@ -90,7 +90,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     name: "render_mso_page",
     title: "Render MSO Page",
     description: "Render the full MSO Page MCP App for native operator views or reviewed development/production embeds. Use an MSO-style route such as /, /integrations, /monitor, /project, /diff, /browser, or /apps/<reviewed-app-id>. For project/diff views pass project separately. This tool never accepts raw HTML or arbitrary external URLs; iframe targets come only from the server-owned allowlist.",
-    chatgptDescription: "Render the full secure MSO Page in ChatGPT. Native routes: /, /integrations, /monitor, /project, /diff, /browser; reviewed live demo: /apps/play-together. Raw HTML and arbitrary URLs are rejected.",
+    chatgptDescription: "Render the full secure MSO Page in ChatGPT. Native routes: /, /integrations, /monitor, /project, /diff, /browser; configured app route: /apps/<configured-app-id>. Raw HTML and arbitrary URLs are rejected.",
     scope: "read", annotations: READ_ONLY,
     inputSchema: PAGE_INPUT,
     outputSchema: PAGE_OUTPUT,

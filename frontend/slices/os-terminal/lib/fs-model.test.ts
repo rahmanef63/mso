@@ -3,14 +3,14 @@ import { resolve, rekey, extTag } from "./fs-model";
 import type { FsModel } from "./fs-model";
 
 describe("resolve", () => {
-  const cwd = "/home/rahman";
+  const cwd = "/home/operator";
 
   it("no arg returns cwd", () => {
-    expect(resolve(cwd)).toBe("/home/rahman");
+    expect(resolve(cwd)).toBe("/home/operator");
   });
 
   it("'.' returns cwd", () => {
-    expect(resolve(cwd, ".")).toBe("/home/rahman");
+    expect(resolve(cwd, ".")).toBe("/home/operator");
   });
 
   it("'/' returns root", () => {
@@ -30,8 +30,8 @@ describe("resolve", () => {
   });
 
   it("'..' multi-level via chained calls", () => {
-    const first = resolve("/home/rahman/projects", "..");
-    expect(first).toBe("/home/rahman");
+    const first = resolve("/home/operator/projects", "..");
+    expect(first).toBe("/home/operator");
     expect(resolve(first, "..")).toBe("/home");
   });
 
@@ -40,11 +40,11 @@ describe("resolve", () => {
   });
 
   it("relative arg appended to cwd", () => {
-    expect(resolve(cwd, "projects")).toBe("/home/rahman/projects");
+    expect(resolve(cwd, "projects")).toBe("/home/operator/projects");
   });
 
   it("relative arg with nested path", () => {
-    expect(resolve(cwd, "projects/mso")).toBe("/home/rahman/projects/mso");
+    expect(resolve(cwd, "projects/mso")).toBe("/home/operator/projects/mso");
   });
 
   it("strips trailing slash from absolute arg", () => {
@@ -52,7 +52,7 @@ describe("resolve", () => {
   });
 
   it("strips trailing slash from relative arg", () => {
-    expect(resolve(cwd, "projects/")).toBe("/home/rahman/projects");
+    expect(resolve(cwd, "projects/")).toBe("/home/operator/projects");
   });
 
   it("strips trailing slash — root stays root", () => {
@@ -65,8 +65,8 @@ describe("rekey", () => {
   function makeFs(): FsModel {
     return {
       "/home": [{ name: "rahman", kind: "dir", size: 0 }],
-      "/home/rahman": [{ name: "file.txt", kind: "file", size: 10, ext: "txt" }],
-      "/home/rahman/projects": [],
+      "/home/operator": [{ name: "file.txt", kind: "file", size: 10, ext: "txt" }],
+      "/home/operator/projects": [],
       "/other": [],
     };
   }
@@ -74,7 +74,7 @@ describe("rekey", () => {
   it("oldP === newP is a noop", () => {
     const fs = makeFs();
     const before = JSON.stringify(fs);
-    rekey(fs, "/home/rahman", "/home/rahman");
+    rekey(fs, "/home/operator", "/home/operator");
     expect(JSON.stringify(fs)).toBe(before);
   });
 
@@ -87,24 +87,24 @@ describe("rekey", () => {
 
   it("moves subtree: all keys starting with oldP+'/' are rekeyed", () => {
     const fs = makeFs();
-    rekey(fs, "/home/rahman", "/home/bob");
+    rekey(fs, "/home/operator", "/home/bob");
     expect("/home/bob" in fs).toBe(true);
     expect("/home/bob/projects" in fs).toBe(true);
-    expect("/home/rahman" in fs).toBe(false);
-    expect("/home/rahman/projects" in fs).toBe(false);
+    expect("/home/operator" in fs).toBe(false);
+    expect("/home/operator/projects" in fs).toBe(false);
   });
 
   it("leaves unrelated keys intact", () => {
     const fs = makeFs();
-    rekey(fs, "/home/rahman", "/home/bob");
+    rekey(fs, "/home/operator", "/home/bob");
     expect("/home" in fs).toBe(true);
     expect("/other" in fs).toBe(true);
   });
 
   it("entries are preserved under new key", () => {
     const fs = makeFs();
-    const original = fs["/home/rahman"];
-    rekey(fs, "/home/rahman", "/home/bob");
+    const original = fs["/home/operator"];
+    rekey(fs, "/home/operator", "/home/bob");
     expect(fs["/home/bob"]).toBe(original);
   });
 });

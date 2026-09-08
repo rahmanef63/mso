@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 import { contentSecurityPolicy } from "./proxy-csp";
 
 // The app is always root-mounted on its own host now; the cockpit is the framer.
-const PREFIX_URL = "https://hermes.mso.rahmanef.com/";
-const COCKPIT = "https://mso.rahmanef.com";
+const PREFIX_URL = "https://hermes.mso.example.com/";
+const COCKPIT = "https://mso.example.com";
 const MOUNT = { cockpitOrigin: COCKPIT };
 
 const OPENCLAW =
@@ -17,7 +17,7 @@ const OPENCLAW =
   "media-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com; worker-src 'self'; " +
   "connect-src 'self' ws: wss: https://api.openai.com https://tweakcn.com";
 
-const SOCKET = "wss://hermes.mso.rahmanef.com/";
+const SOCKET = "wss://hermes.mso.example.com/";
 
 const directive = (csp: string, name: string) =>
   csp
@@ -34,9 +34,9 @@ describe("contentSecurityPolicy without an upstream policy (Hermes sends none)",
     for (const name of ["default-src", "connect-src", "form-action", "base-uri", "frame-src"]) {
       expect(directive(csp, name)).toContain(PREFIX_URL);
     }
-    expect(directive(csp, "connect-src")).toBe(`connect-src ${PREFIX_URL} wss://hermes.mso.rahmanef.com/ data: blob:`);
-    expect("https://mso.rahmanef.com/api/v1/exec".startsWith(PREFIX_URL)).toBe(false);
-    expect("https://mso.rahmanef.com/api/v1/term".startsWith(PREFIX_URL)).toBe(false);
+    expect(directive(csp, "connect-src")).toBe(`connect-src ${PREFIX_URL} wss://hermes.mso.example.com/ data: blob:`);
+    expect("https://mso.example.com/api/v1/exec".startsWith(PREFIX_URL)).toBe(false);
+    expect("https://mso.example.com/api/v1/term".startsWith(PREFIX_URL)).toBe(false);
   });
 
   it("never grants 'self' — that would re-open the origin via a nested iframe", () => {
@@ -93,7 +93,7 @@ describe("contentSecurityPolicy intersected with the live OpenClaw policy", () =
     expect(directive(csp, "style-src")).toBe(`style-src ${PREFIX_URL} 'unsafe-inline' https://fonts.googleapis.com`);
     expect(directive(csp, "font-src")).toBe(`font-src ${PREFIX_URL} https://fonts.gstatic.com`);
     expect(directive(csp, "connect-src")).toBe(
-      `connect-src ${PREFIX_URL} wss://hermes.mso.rahmanef.com/ https://api.openai.com https://tweakcn.com`,
+      `connect-src ${PREFIX_URL} wss://hermes.mso.example.com/ https://api.openai.com https://tweakcn.com`,
     );
     // The upstream's bare `wss:` is not copied — it would be every host on earth.
     // The only socket source is the app's OWN origin, added by us: CSP matches the
@@ -131,7 +131,7 @@ describe("contentSecurityPolicy refuses to be widened by the upstream", () => {
   it("never honours our own origin — that is the /api/v1/exec hole itself", () => {
     const csp = contentSecurityPolicy(
       PREFIX_URL,
-      "connect-src 'self' https://mso.rahmanef.com https://mso.rahmanef.com/api/v1/exec",
+      "connect-src 'self' https://mso.example.com https://mso.example.com/api/v1/exec",
       MOUNT,
     );
     expect(directive(csp, "connect-src")).toBe(`connect-src ${PREFIX_URL} ${SOCKET}`);
@@ -145,7 +145,7 @@ describe("contentSecurityPolicy refuses to be widened by the upstream", () => {
       MOUNT,
     );
     expect(directive(csp, "img-src")).toBe(`img-src ${PREFIX_URL} data:`);
-    expect(directive(csp, "connect-src")).toBe(`connect-src ${PREFIX_URL} wss://hermes.mso.rahmanef.com/ data: blob:`);
+    expect(directive(csp, "connect-src")).toBe(`connect-src ${PREFIX_URL} wss://hermes.mso.example.com/ data: blob:`);
     expect(csp).not.toContain("evil.example");
     expect(csp).not.toContain("tracker.example");
     expect(csp).not.toContain("unsafe-eval");
@@ -193,7 +193,7 @@ describe("contentSecurityPolicy refuses to be widened by the upstream", () => {
   it("treats our own origin on another port, or trailing-dot, as ours — not external", () => {
     const csp = contentSecurityPolicy(
       PREFIX_URL,
-      "connect-src 'self' https://mso.rahmanef.com:8443 https://mso.rahmanef.com./x",
+      "connect-src 'self' https://mso.example.com:8443 https://mso.example.com./x",
       MOUNT,
     );
     expect(directive(csp, "connect-src")).toBe(`connect-src ${PREFIX_URL} ${SOCKET}`);

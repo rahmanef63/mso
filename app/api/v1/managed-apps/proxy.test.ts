@@ -28,7 +28,7 @@ vi.stubGlobal("fetch", fetchMock);
 const PREFIX = "/api/v1/managed-apps/hermes/proxy";
 const HOST_HEADER = "x-os-managed-app-host";
 // Dashboards are only served from an app host, so every test runs in that shape.
-const APP_HOSTS = "{id}.mso.rahmanef.com";
+const APP_HOSTS = "{id}.mso.example.com";
 const ctx = (path: string[]) => ({ params: Promise.resolve({ id: "hermes", path }) });
 
 // Middleware stamps the app host it matched; the route 404s without it, because that
@@ -63,7 +63,7 @@ describe("managed-app proxy cookie isolation", () => {
         headers: {
           cookie: "session=mso-secret; mso-device=deadbeef; mapp_hermes_session=upstream-sid",
           origin: "http://localhost",
-          referer: "https://hermes.mso.rahmanef.com/login?next=%2Fchat",
+          referer: "https://hermes.mso.example.com/login?next=%2Fchat",
         },
       }),
       ctx(["chat"]),
@@ -190,15 +190,15 @@ describe("managed-app proxy cookie isolation", () => {
       }),
     );
     const { GET } = await import("./[id]/proxy/[[...path]]/route");
-    const res = await GET(req("chat", { headers: { host: "mso.rahmanef.com", "x-forwarded-proto": "https" } }), ctx(["chat"]));
+    const res = await GET(req("chat", { headers: { host: "mso.example.com", "x-forwarded-proto": "https" } }), ctx(["chat"]));
     const csp = res.headers.get("content-security-policy")!;
-    const appUrl = "https://hermes.mso.rahmanef.com/";
+    const appUrl = "https://hermes.mso.example.com/";
     expect(res.headers.get("x-frame-options")).toBeNull();
     // The upstream's hash pin survives; its frame-ancestors 'none' does not, or the
     // cockpit could not display the dashboard it is proxying.
     expect(csp).toContain(`script-src ${appUrl} 'sha256-abc='`);
-    expect(csp).toContain("frame-ancestors 'self' https://mso.rahmanef.com");
-    expect(csp).toContain(`connect-src ${appUrl} wss://hermes.mso.rahmanef.com/ https://api.openai.com`);
+    expect(csp).toContain("frame-ancestors 'self' https://mso.example.com");
+    expect(csp).toContain(`connect-src ${appUrl} wss://hermes.mso.example.com/ https://api.openai.com`);
     expect(csp).not.toContain("'unsafe-inline'");
   });
 });

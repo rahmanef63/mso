@@ -52,9 +52,7 @@ The Block resource is self-contained, has no network/frame allowlist, constructs
 - `/browser` — remote-browser handoff;
 - `/apps/<reviewed-app-id>` — reviewed app target.
 
-The model cannot pass raw HTML or an external URL. App identity, origin, start path, renderer, environment (`development`, `preview`, `production`, or `other`), sandbox, and presentation mode come from the code-owned `SURFACE_APPS` registry. An iframe target is valid only when its exact HTTPS origin is also present in the Page resource's `_meta.ui.csp.frameDomains`, and the browser runtime revalidates origin plus the approved path prefix before assigning `iframe.src`.
-
-Fresh 3 currently exposes one reviewed Page app: Play Together at `https://game.rahmanef.com/embed`, classified as `production`. The normal Play Together shell remains anti-frame; only `/embed` and `/embed/*` permit `https://mso-ui.rahmanef.com` as an ancestor. The Page sandbox omits popup and top-navigation privileges, authentication is not bypassed, and other MSO server scopes are not copied into this catalog.
+The model cannot pass raw HTML or an external URL. App identity, origin, start path, renderer, environment (`development`, `preview`, `production`, or `other`), sandbox, and presentation mode come from bounded per-installation `MSO_SURFACE_APPS_JSON`. Portable source defaults to an empty external-app catalog. An iframe target is valid only when its exact HTTPS origin is also present in the Page resource's `_meta.ui.csp.frameDomains`, and the browser runtime revalidates origin plus the approved path prefix before assigning `iframe.src`.
 
 Apps that keep restrictive `X-Frame-Options` or `frame-ancestors` remain `remote`. MSO preserves those protections and offers the Camoufox seam instead of stripping headers. User-installed runtime HTML apps and arbitrary HTML snippets cannot add themselves to the ChatGPT frame allowlist; they remain opaque-origin `srcDoc` content inside the authenticated MSO shell.
 
@@ -75,7 +73,7 @@ The canonical `resources/list` response advertises only Block and Page. Four pre
 2. Only `render_mso_block` and `render_mso_page` advertise `_meta.ui.resourceUri` plus the OpenAI `outputTemplate` compatibility alias.
 3. Every ChatGPT transport action declares an `outputSchema`. Stable UI-critical tools use typed schemas; other actions use the bounded `{ result }` envelope. Generic MCP clients retain their existing text fallback where applicable.
 4. Sandboxed Pages use the standard `tools/call` bridge for native data refreshes. ChatGPT-only helpers such as display mode, private widget state, follow-up messages, and `openExternal` are feature-detected.
-5. The dedicated UI origin is `https://mso-ui.rahmanef.com`. Standard CSP fields live only in `_meta.ui.csp`; the legacy `openai/widgetCSP` object retains only `redirect_domains` for `Open in MSO`.
+5. The dedicated UI origin is deployment-derived: explicit `OS_MCP_UI_ORIGIN` wins; otherwise an `mso.<domain>` public origin derives `mso-ui.<domain>`, and other safe public origins are reused. Standard CSP fields live only in `_meta.ui.csp`; the legacy `openai/widgetCSP` object retains only `redirect_domains` for `Open in MSO`.
 
 Current ChatGPT transport profile: **66 tools** — 64 model-visible actions (35 read / 17 write / 12 exec) plus app-only `workflow_status` and `render_mso_surface`. The full transport catalog has 90 tools. Exactly two tools bind UI resources: `render_mso_block` and `render_mso_page`.
 
@@ -124,7 +122,7 @@ ChatGPT model
 | Validation Block | Render deployment checks with Approve/Revise actions | compact Block renders; click creates a follow-up; no mutation happens inside the widget |
 | CRUD Block | Render editable sample fields and a Save action | values remain editable, required validation works, and submitted values return through the follow-up message |
 | Native Page | Render `/monitor`, then `/project` | Page opens and refreshes bounded data through `tools/call` |
-| Production Page | Render `/apps/play-together` | iframe starts only at `https://game.rahmanef.com/embed`; fullscreen stays user-initiated |
+| Configured Page app | Render `/apps/<configured-app-id>` after setting a reviewed local catalog | iframe stays on the configured exact HTTPS origin/start prefix; fullscreen stays user-initiated |
 | Anti-frame fallback | Open a Page target classified `remote` | no header stripping or unreviewed frame occurs; the remote-browser handoff is shown |
 | Filesystem CRUD | Create/read/copy/move/delete a disposable file through ordinary tools | Block/Page presentation never changes the filesystem permission boundary |
 

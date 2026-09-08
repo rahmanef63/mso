@@ -62,9 +62,9 @@ describe("selfUrl", () => {
 
   it("carries `resource`, which ChatGPT sends", () => {
     const params = new URL(
-      `https://mso.test${selfUrl({ ...REQ, resource: "https://mso.rahmanef.com/mcp" })}`,
+      `https://mso.test${selfUrl({ ...REQ, resource: "https://mso.example.com/mcp" })}`,
     ).searchParams;
-    expect(params.get("resource")).toBe("https://mso.rahmanef.com/mcp");
+    expect(params.get("resource")).toBe("https://mso.example.com/mcp");
   });
 
   it("drops anything the flow does not read", () => {

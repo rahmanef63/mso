@@ -39,8 +39,8 @@ function statusFor(reason: string): number {
 }
 
 // READ-ONLY, and that is load-bearing: the CSRF gate in proxy.ts only covers
-// POST/PUT/PATCH/DELETE, and the session cookie is Domain=mso.rahmanef.com with
-// SameSite=Strict, so every sibling origin under rahmanef.com (~100 on this
+// POST/PUT/PATCH/DELETE, and the session cookie is Domain=mso.example.com with
+// SameSite=Strict, so every sibling origin under the configured site (~100 on this
 // box) can make the browser send this GET. If it probed, that would be a blind
 // cross-origin trigger for `hermes update --check` — two git fetches inside the
 // operator's own checkout — from any of them. So it serves the cache and

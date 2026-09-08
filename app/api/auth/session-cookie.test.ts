@@ -27,14 +27,14 @@ const loginReq = (host: string) =>
     body: JSON.stringify({ password: PASSWORD, deviceId: DEVICE, deviceLabel: "test" }),
   });
 
-async function login(host = "mso.rahmanef.com"): Promise<string[]> {
+async function login(host = "mso.example.com"): Promise<string[]> {
   const { POST } = await import("./login/route");
   const res = await POST(loginReq(host) as never);
   expect(res.status).toBe(200);
   return res.headers.getSetCookie();
 }
 
-async function logout(host = "mso.rahmanef.com"): Promise<string[]> {
+async function logout(host = "mso.example.com"): Promise<string[]> {
   const { POST } = await import("./logout/route");
   const res = await POST(new Request("http://internal/api/auth/logout", { method: "POST", headers: { host } }));
   return res.headers.getSetCookie();
@@ -77,12 +77,12 @@ describe("session cookie on the wire — host-only (default)", () => {
 
 describe("session cookie on the wire — OS_SESSION_COOKIE_DOMAIN set", () => {
   beforeEach(() => {
-    process.env.OS_SESSION_COOKIE_DOMAIN = "mso.rahmanef.com";
+    process.env.OS_SESSION_COOKIE_DOMAIN = "mso.example.com";
   });
 
   it("login widens to the domain, keeping every other attribute", async () => {
     const [cookie] = await login();
-    expect(cookie).toContain("Domain=mso.rahmanef.com");
+    expect(cookie).toContain("Domain=mso.example.com");
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("Secure");
     expect(cookie.toLowerCase()).toContain("samesite=strict");
@@ -91,7 +91,7 @@ describe("session cookie on the wire — OS_SESSION_COOKIE_DOMAIN set", () => {
   it("logout clears BOTH the domain cookie and the pre-widening host-only one", async () => {
     const cookies = await logout();
     expect(cookies).toHaveLength(2);
-    const withDomain = cookies.find((c) => c.includes("Domain=mso.rahmanef.com"));
+    const withDomain = cookies.find((c) => c.includes("Domain=mso.example.com"));
     const hostOnly = cookies.find((c) => !c.toLowerCase().includes("domain="));
     expect(withDomain).toContain("Max-Age=0");
     expect(hostOnly).toContain("Max-Age=0");

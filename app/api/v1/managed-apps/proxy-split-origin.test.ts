@@ -1,5 +1,5 @@
 // The proxy route in SPLIT-ORIGIN mode: the dashboard is root-mounted on its own
-// host (hermes.mso.rahmanef.com), which is what finally closes the window.top reach
+// host (hermes.mso.example.com), which is what finally closes the window.top reach
 // — the frame is cross-origin now, so `allow-same-origin` no longer grants the
 // upstream a handle on the cockpit. Two claims are load-bearing here:
 //   1. the OLD same-origin URL must stop answering, or the hole survives at it;
@@ -28,11 +28,11 @@ vi.mock("@/lib/managed-apps/catalog", async () => {
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
-const TEMPLATE = "{id}.mso.rahmanef.com";
-const APP_HOST = "hermes.mso.rahmanef.com";
+const TEMPLATE = "{id}.mso.example.com";
+const APP_HOST = "hermes.mso.example.com";
 const APP_ORIGIN = `https://${APP_HOST}/`;
 const APP_SOCKET = APP_ORIGIN.replace("https:", "wss:");
-const COCKPIT = "https://mso.rahmanef.com";
+const COCKPIT = "https://mso.example.com";
 const PREFIX = "/api/v1/managed-apps/hermes/proxy";
 
 // Verbatim head of ~/.hermes/hermes-agent/hermes_cli/web_dist/index.html.
@@ -79,9 +79,9 @@ beforeEach(() => {
 describe("the cockpit-origin URL stops answering", () => {
   it("404s the proxy route without the middleware's app-host stamp", async () => {
     const { GET } = await route();
-    // Same URL as before the split, on mso.rahmanef.com: same-origin with the
+    // Same URL as before the split, on mso.example.com: same-origin with the
     // cockpit, allow-same-origin frame — the hole. It must not serve.
-    const res = await GET(new Request(`${COCKPIT}${PREFIX}/chat`, { headers: { host: "mso.rahmanef.com" } }), ctx(["chat"]));
+    const res = await GET(new Request(`${COCKPIT}${PREFIX}/chat`, { headers: { host: "mso.example.com" } }), ctx(["chat"]));
     expect(res.status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -241,7 +241,7 @@ describe("root-mounted policy", () => {
 
   it.each([
     ["unset", ""],
-    ["missing a scheme", "mso.rahmanef.com"],
+    ["missing a scheme", "mso.example.com"],
   ])("falls back to the host template's parent when OS_PUBLIC_ORIGIN is %s", async (_label, value) => {
     fetchMock.mockResolvedValueOnce(new Response("ok", { status: 200 }));
     const { GET } = await route(TEMPLATE, value);

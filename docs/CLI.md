@@ -43,7 +43,7 @@ Manef Shell OS — drive the whole cockpit from the shell.
 
 Usage: mso [options] <command> [args]
 
-mso.rahmanef.com is only ONE frontend. Everything it can do is a call to the
+The configured MSO public origin is only ONE frontend. Everything it can do is a call to the
 same /api surface, so this CLI reaches every feature without a browser.
 Auth = signed session cookie (password + approved device role), cached in a jar.
 

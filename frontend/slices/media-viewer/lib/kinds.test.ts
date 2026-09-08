@@ -45,7 +45,7 @@ describe("kindForName", () => {
   });
 
   it("takes the extension from the last dot, and the name from the last slash", () => {
-    expect(kindForName("/home/rahman/photos/my.trip.2026.jpg")).toBe("image");
+    expect(kindForName("/home/operator/photos/my.trip.2026.jpg")).toBe("image");
     expect(kindForName("/var/log/nginx/access.log")).toBe("text");
   });
 

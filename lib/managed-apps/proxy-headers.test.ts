@@ -14,7 +14,7 @@ const PREFIX = proxyPrefix("hermes");
 describe("buildUpstreamHeaders", () => {
   const base = new URL("http://127.0.0.1:9119");
   const withHeaders = (init: Record<string, string>) =>
-    new Request("https://hermes.mso.rahmanef.com/api/config", { headers: init });
+    new Request("https://hermes.mso.example.com/api/config", { headers: init });
 
   it("forwards Hermes' own session token, because dropping it 401s every fetch", () => {
     // Loopback Hermes injects an ephemeral token into the SPA HTML and requires it

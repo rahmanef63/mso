@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "check": "node scripts/check-cycles.mjs && node scripts/check-architecture.mjs && node scripts/check-docs.mjs && node scripts/gen-comparison.mjs --check && node scripts/check-contrast.mjs && node scripts/check-skill-flows.mjs",
+    "check": "node scripts/check-cycles.mjs && node scripts/check-architecture.mjs && node scripts/check-docs.mjs && node scripts/gen-comparison.mjs --check && node scripts/check-contrast.mjs && node scripts/check-skill-flows.mjs && bun run check:instance-literals",
     "audit": "node scripts/audit.mjs",
     "verify": "bun run typecheck && bun run lint && bun run coverage && bun run check && bun run audit",
     "security:ultimate": "bash scripts/security-ultimate.sh",
@@ -41,7 +41,8 @@
     "mcp:catalog": "node scripts/gen-mcp-catalog.mjs",
     "audit:strict": "node scripts/audit.mjs --strict",
     "test:features": "node scripts/test-features.mjs",
-    "screenshot:cli": "node scripts/capture-cli.mjs"
+    "screenshot:cli": "node scripts/capture-cli.mjs",
+    "check:instance-literals": "bun scripts/check-instance-literals.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

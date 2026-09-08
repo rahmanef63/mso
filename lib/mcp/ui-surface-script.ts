@@ -2,14 +2,17 @@ import { MSO_PAGE_INTEGRATIONS_SCRIPT } from "./ui-page-integrations";
 import { MSO_PAGE_BRIDGE_SCRIPT } from "./ui-page-bridge";
 import { MSO_PAGE_FRAME_SCRIPT } from "./ui-page-frame";
 import { MSO_PAGE_AUTH_SCRIPT } from "./ui-page-auth";
-import { SURFACE_APPS } from "./surface-catalog";
+import { surfaceApps } from "./surface-catalog";
 import { MSO_WIDGET_THEME_SCRIPT } from "./ui-widget-tokens";
 
 function safeJson(value: unknown): string {
-  return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
 }
 
-const BROWSER_CATALOG = SURFACE_APPS.map((app) => ({
+const BROWSER_CATALOG = surfaceApps().map((app) => ({
   id: app.id,
   title: app.title,
   description: app.description,

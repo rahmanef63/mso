@@ -9,7 +9,7 @@ import { redact } from "./redact";
 /** Assembled from the shapes actually seen in `hermes update` / `openclaw
  *  update` output, plus the two journald formats getManagedAppLogs asks for. */
 const TRANSCRIPT = [
-  "[mso] pre-update backup of /home/rahman/.hermes",
+  "[mso] pre-update backup of /home/operator/.hermes",
   "npm WARN deprecated inflight@1.0.6: This module is not supported",
   "npm notice New major version of npm available! 10.8.2 -> 11.0.0",
   "added 412 packages, and audited 413 packages in 9s",

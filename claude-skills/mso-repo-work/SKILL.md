@@ -13,7 +13,7 @@ For multi-step work, call `workflow_start` directly. It already searches skills 
 
 ## Canonical checkout and isolation
 
-- `/home/rahman/projects/mso` on `main` is the canonical MSO checkout and the only release SSOT.
+- `~/projects/mso` on `main` is the canonical MSO checkout and the only release SSOT.
 - Never create task-specific `mso-*` siblings in `~/projects`. When isolation is genuinely needed,
   create/use one Git worktree per task under `~/.cache/mso-worktrees/mso-<task>`.
   Do not use `~/.mso` for source worktrees; it is MSO private state and host-file guards deny it.

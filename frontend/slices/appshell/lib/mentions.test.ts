@@ -10,10 +10,10 @@ describe("/ never fires on a filesystem path", () => {
   // are typed constantly, and a menu opening mid-sentence would make the composer
   // unusable. Every one of these must stay closed.
   it.each([
-    "ls /home/rahman",
+    "ls /home/operator",
     "read /etc/hosts",
     "copy /var/log/syslog to /tmp",
-    "what is in /home/rahman/projects/mso",
+    "what is in /home/operator/projects/mso",
     "cd ~/projects && ls /usr/share",
     "the ratio is 3/4",
   ])("stays closed for %j", (text) => {

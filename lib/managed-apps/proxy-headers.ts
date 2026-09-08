@@ -56,8 +56,8 @@ const RESPONSE_HEADERS = [
 ];
 
 // Cookie NAMESPACE, not a path. Load-bearing on an app host too: the cockpit
-// session cookie now carries Domain=mso.rahmanef.com, so it IS sent to
-// hermes.mso.rahmanef.com — and Hermes' own cookies are `hermes_session_at` /
+// session cookie now carries Domain=mso.example.com, so it IS sent to
+// hermes.mso.example.com — and Hermes' own cookies are `hermes_session_at` /
 // `_rt` / `_provider` / `_pkce` / `hermes_sso_attempt`, any of which could just as
 // easily have been called `session` (OpenClaw sets none at all today).
 export const cookiePrefix = (id: string): string => `mapp_${id}_`;

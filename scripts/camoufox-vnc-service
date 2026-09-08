@@ -17,7 +17,14 @@ PROFILE="${CAMOUFOX_PROFILE:-$HOME/.local/share/camoufox/profiles/linkedin}"
 # browser.startup.page=3 restores the tabs and stops there — the restored tabs come back
 # unloaded, so the landing state costs nothing until something is clicked.
 URL="${CAMOUFOX_START_URL:-}"
-BROWSER="${CAMOUFOX_BROWSER:-/home/rahman/.cache/camoufox/browsers/official/152.0.4-beta.28-924f3109/camoufox}"
+BROWSER="${CAMOUFOX_BROWSER:-}"
+if [ -z "$BROWSER" ]; then
+  BROWSER="$(find "$HOME/.cache/camoufox/browsers" -type f -name camoufox -perm -u+x 2>/dev/null | sort | tail -1)"
+fi
+if [ -z "$BROWSER" ] || [ ! -x "$BROWSER" ]; then
+  echo "camoufox-vnc: no executable browser found; set CAMOUFOX_BROWSER or install Camoufox" >&2
+  exit 1
+fi
 
 mkdir -p "$PROFILE"
 # 0700, enforced every start. What is in here is a live Google session (SID,

@@ -46,7 +46,7 @@ BIND="${MSO_INSTALL_GATEWAY_BIND:-loopback}"
 PROVIDER="${MSO_INSTALL_PROVIDER:-}"
 KEY="${MSO_INSTALL_API_KEY:-}"
 # The origin MSO will frame this app's dashboard from (lib/managed-apps/origin.ts:
-# https://<id>.mso.rahmanef.com). Empty in single-origin deployments.
+# https://<id>.mso.example.com). Empty in single-origin deployments.
 APP_ORIGIN="${MSO_INSTALL_APP_ORIGIN:-}"
 
 log() { printf '\n=== %s\n' "$*"; }

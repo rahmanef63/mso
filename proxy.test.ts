@@ -10,7 +10,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const TEMPLATE = "{id}.mso.rahmanef.com";
+const TEMPLATE = "{id}.mso.example.com";
 const HERMES = "/api/v1/managed-apps/hermes/proxy";
 const APP_HOST_HEADER = "x-os-managed-app-host";
 
@@ -50,23 +50,23 @@ describe("app host → that app's proxy, and nothing else", () => {
     ["/sessions/", `${HERMES}/sessions`],
   ])("rewrites %s into the proxy", async (path, expected) => {
     const proxy = await loadProxy(TEMPLATE);
-    const res = await proxy(req("hermes.mso.rahmanef.com", path));
+    const res = await proxy(req("hermes.mso.example.com", path));
     expect(new URL(rewriteOf(res)!).pathname).toBe(expected);
   });
 
   it("preserves the query string", async () => {
     const proxy = await loadProxy(TEMPLATE);
     const res = await proxy(
-      req("hermes.mso.rahmanef.com", "/login?next=%2Fchat"),
+      req("hermes.mso.example.com", "/login?next=%2Fchat"),
     );
     expect(rewriteOf(res)).toBe(
-      `https://hermes.mso.rahmanef.com${HERMES}/login?next=%2Fchat`,
+      `https://hermes.mso.example.com${HERMES}/login?next=%2Fchat`,
     );
   });
 
   it("routes each host to its OWN app — one origin per app, never a shared one", async () => {
     const proxy = await loadProxy(TEMPLATE);
-    const res = await proxy(req("openclaw.mso.rahmanef.com", "/chat"));
+    const res = await proxy(req("openclaw.mso.example.com", "/chat"));
     expect(new URL(rewriteOf(res)!).pathname).toBe(
       "/api/v1/managed-apps/openclaw/proxy/chat",
     );
@@ -86,7 +86,7 @@ describe("app host → that app's proxy, and nothing else", () => {
     async (_label, path) => {
       const proxy = await loadProxy(TEMPLATE);
       const res = await proxy(
-        req("hermes.mso.rahmanef.com", path, {
+        req("hermes.mso.example.com", path, {
           headers: { "sec-fetch-site": "same-origin" },
         }),
       );
@@ -106,7 +106,7 @@ describe("app host → that app's proxy, and nothing else", () => {
     "/_next",
   ])("404s %s on an app host", async (path) => {
     const proxy = await loadProxy(TEMPLATE);
-    const res = await proxy(req("hermes.mso.rahmanef.com", path));
+    const res = await proxy(req("hermes.mso.example.com", path));
     expect(res.status).toBe(404);
     expect(rewriteOf(res)).toBeNull();
   });
@@ -116,14 +116,14 @@ describe("app host → that app's proxy, and nothing else", () => {
     const proxy = await loadProxy(TEMPLATE);
     expect(
       new URL(
-        rewriteOf(await proxy(req("hermes.mso.rahmanef.com", "/favicon.ico")))!,
+        rewriteOf(await proxy(req("hermes.mso.example.com", "/favicon.ico")))!,
       ).pathname,
     ).toBe(`${HERMES}/favicon.ico`);
   });
 
   it("never stamps the cockpit document policy on an app host", async () => {
     const proxy = await loadProxy(TEMPLATE);
-    const res = await proxy(req("hermes.mso.rahmanef.com", "/"));
+    const res = await proxy(req("hermes.mso.example.com", "/"));
     // The route sets its own, scoped to the app origin — see proxy-csp.ts.
     expect(res.headers.get("content-security-policy")).toBeNull();
     expect(res.headers.get("x-middleware-request-x-nonce")).toBeNull();
@@ -134,7 +134,7 @@ describe("app host → that app's proxy, and nothing else", () => {
     // Forged, it would buy root-mounted mode: upstream cookies at Path=/ and a
     // policy naming the cockpit as a legal framer.
     const res = await proxy(
-      req("hermes.mso.rahmanef.com", "/", {
+      req("hermes.mso.example.com", "/", {
         headers: { [APP_HOST_HEADER]: "openclaw" },
       }),
     );
@@ -143,7 +143,7 @@ describe("app host → that app's proxy, and nothing else", () => {
 
   it("leaves a host that is not an app host on the cockpit", async () => {
     const proxy = await loadProxy(TEMPLATE);
-    const res = await proxy(req("mso.rahmanef.com", "/apps"));
+    const res = await proxy(req("mso.example.com", "/apps"));
     expect(rewriteOf(res)).toBeNull();
     expect(res.headers.get("content-security-policy")).toContain(
       "default-src 'self'",
@@ -156,10 +156,10 @@ describe("app host → that app's proxy, and nothing else", () => {
     // host and claims the cockpit, which would reach /api/v1/exec with a session
     // cookie that IS sent here.
     const res = await proxy(
-      req("hermes.mso.rahmanef.com", "/api/v1/exec/run", {
+      req("hermes.mso.example.com", "/api/v1/exec/run", {
         method: "POST",
         headers: {
-          "x-forwarded-host": "mso.rahmanef.com",
+          "x-forwarded-host": "mso.example.com",
           "sec-fetch-site": "same-origin",
         },
       }),
@@ -174,7 +174,7 @@ describe("CSRF depth-2 on an app host", () => {
   it("passes the frame's own same-origin form POST", async () => {
     const proxy = await loadProxy(TEMPLATE);
     const res = await proxy(
-      req("hermes.mso.rahmanef.com", "/auth/password-login", {
+      req("hermes.mso.example.com", "/auth/password-login", {
         method: "POST",
         headers: { "sec-fetch-site": "same-origin" },
       }),
@@ -191,7 +191,7 @@ describe("CSRF depth-2 on an app host", () => {
   ])("blocks a mutating request from %s", async (_label, site) => {
     const proxy = await loadProxy(TEMPLATE);
     const res = await proxy(
-      req("hermes.mso.rahmanef.com", "/api/tasks", {
+      req("hermes.mso.example.com", "/api/tasks", {
         method: "POST",
         headers: { "sec-fetch-site": site },
       }),
@@ -203,14 +203,14 @@ describe("CSRF depth-2 on an app host", () => {
   it("falls back to an Origin host match for non-browser clients", async () => {
     const proxy = await loadProxy(TEMPLATE);
     const ok = await proxy(
-      req("hermes.mso.rahmanef.com", "/api/tasks", {
+      req("hermes.mso.example.com", "/api/tasks", {
         method: "POST",
-        headers: { origin: "https://hermes.mso.rahmanef.com" },
+        headers: { origin: "https://hermes.mso.example.com" },
       }),
     );
     expect(rewriteOf(ok)).not.toBeNull();
     const bad = await proxy(
-      req("hermes.mso.rahmanef.com", "/api/tasks", {
+      req("hermes.mso.example.com", "/api/tasks", {
         method: "POST",
         headers: { origin: "https://evil.example" },
       }),
@@ -221,7 +221,7 @@ describe("CSRF depth-2 on an app host", () => {
   it("still routes a GET, which mutates nothing", async () => {
     const proxy = await loadProxy(TEMPLATE);
     const res = await proxy(
-      req("hermes.mso.rahmanef.com", "/chat", {
+      req("hermes.mso.example.com", "/chat", {
         headers: { "sec-fetch-site": "cross-site" },
       }),
     );
@@ -238,7 +238,7 @@ describe("the app-host header is never accepted from a client", () => {
       // at the old same-origin URL — cookies at Path=/ and the cockpit named as a
       // permitted framer, i.e. exactly the hole the split closes.
       const res = await proxy(
-        req("mso.rahmanef.com", `${HERMES}/chat`, {
+        req("mso.example.com", `${HERMES}/chat`, {
           headers: { [APP_HOST_HEADER]: "hermes" },
         }),
       );
@@ -252,7 +252,7 @@ describe("the app-host header is never accepted from a client", () => {
   it("strips it from a cockpit document request too", async () => {
     const proxy = await loadProxy(TEMPLATE);
     const res = await proxy(
-      req("mso.rahmanef.com", "/apps", {
+      req("mso.example.com", "/apps", {
         headers: { [APP_HOST_HEADER]: "hermes" },
       }),
     );

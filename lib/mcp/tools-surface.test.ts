@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SURFACE_TOOLS } from "./tools-surface";
 
 const tool = (name: string) => {
@@ -8,12 +8,14 @@ const tool = (name: string) => {
 };
 
 describe("MSO Page MCP tools", () => {
+  beforeEach(() => { process.env.MSO_SURFACE_APPS_JSON = JSON.stringify([{ id: "demo", title: "Demo", description: "Configured demo", origin: "https://demo.example.test", startPath: "/embed", renderer: "iframe", presentation: "inline", environment: "production", sandbox: "allow-scripts allow-same-origin" }]); });
+  afterEach(() => { delete process.env.MSO_SURFACE_APPS_JSON; });
   it("returns only the server-reviewed public app catalog", async () => {
     const result = await tool("mso_surface_apps_list").run({}, { scope: "read" }) as { apps: Array<Record<string, unknown>> };
-    expect(result.apps.map((app) => app.id)).toEqual(["play-together"]);
+    expect(result.apps.map((app) => app.id)).toEqual(["demo"]);
     expect(result.apps[0]).toMatchObject({
-      title: "Play Together",
-      origin: "https://game.rahmanef.com",
+      title: "Demo",
+      origin: "https://demo.example.test",
       renderer: "iframe",
       startPath: "/embed",
       environment: "production",
@@ -22,30 +24,30 @@ describe("MSO Page MCP tools", () => {
     expect(JSON.stringify(result)).not.toContain("<script");
   });
 
-  it("renders the VPSKU Play Together target without accepting a URL argument", async () => {
+  it("renders an instance-configured target without accepting a URL argument", async () => {
     const render = tool("render_mso_page");
     expect(render.inputSchema.properties).not.toHaveProperty("url");
     expect(render.inputSchema.properties).not.toHaveProperty("html");
-    const result = await render.run({ route: "/apps/play-together" }, { scope: "read" }) as { app?: Record<string, unknown> };
+    const result = await render.run({ route: "/apps/demo" }, { scope: "read" }) as { app?: Record<string, unknown> };
     expect(result.app).toMatchObject({
-      id: "play-together",
+      id: "demo",
       renderer: "iframe",
       presentation: "inline",
-      origin: "https://game.rahmanef.com",
+      origin: "https://demo.example.test",
       startPath: "/embed",
       environment: "production",
-      url: "https://game.rahmanef.com/embed",
+      url: "https://demo.example.test/embed",
     });
     expect(result.app).not.toHaveProperty("sandbox");
     expect((render.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v10\.html$/);
     expect(render.meta?.["openai/outputTemplate"]).toBeUndefined();
   });
 
-  it("keeps scanner-facing Page metadata scoped to Play Together", () => {
+  it("keeps scanner-facing Page metadata generic", () => {
     const render = tool("render_mso_page");
     const metadata = JSON.stringify({ description: render.description, chatgptDescription: render.chatgptDescription });
-    expect(metadata).toContain("play-together");
-    expect(metadata.toLowerCase()).not.toContain("antinrml");
+    expect(metadata).toContain("<configured-app-id>");
+    expect(metadata.toLowerCase()).not.toMatch(/rahmanef|antinrml/);
   });
 
   it("keeps project identity separate from the route string", async () => {

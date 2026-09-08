@@ -174,7 +174,7 @@ to `resources/` (rr) and drive any project from one manifest:
 ## Routing — the OS is addressable (keep windowing!)
 - ONE catch-all route `app/[[...slug]]/page.tsx` (no per-app pages). Windowing is
   untouched; only the **focused** app + its launch path is mirrored to the URL
-  (`/files/home/rahman`, `/code`). `appshell` `UrlSync` does it.
+  (`/files/home/user`, `/code`). `appshell` `UrlSync` does it.
 - **URL writes use the History API, NOT `router.push`.** Opening a window is pure
   client state — `router.push` triggers a full RSC transition + remount (slow, flashy
   + breaks the sync). Use `window.history.push/replaceState`; Next 16 syncs
@@ -191,102 +191,36 @@ to `resources/` (rr) and drive any project from one manifest:
   host in `next.config` `images.remotePatterns`). Host-fs images + the live Playwright
   screenshot stream stay raw `<img>` on purpose (dynamic/auth'd bytes).
 
-## Deploy / ops (prod :4005 + demo :4006 are systemd, not Dokploy)
-- `mso.service` (:4005, WorkingDir `/home/rahman/projects/mso`) serves
-  mso.rahmanef.com via `next start`.
-- `mso-demo.service` (:4006, WorkingDir `/home/rahman/.mso/worktrees/mso-demo-runtime`,
-  `NEXT_PUBLIC_OS_DEMO=1` → no auth, mock data). It had been deleted at some point and
-  was **re-created 2026-08-03** to make UI/UX verification possible without logging in.
-  It binds **127.0.0.1 only, deliberately**: demo mode disables login, so a `0.0.0.0`
-  bind would publish an unauthenticated shell. It is mock-data-only so the blast radius
-  is small, but exposing it is the owner's decision — put it behind the reverse proxy
-  explicitly if you want it public. The checkout is a shallow clone of this repo with
-  `node_modules` copied in; rebuild it with the flag (`NEXT_PUBLIC_OS_DEMO=1` is inlined
-  at BUILD time) whenever you re-deploy it.
-- **Deploy prod:** use `bun run ship "<conventional commit>"`. It regenerates the
-  derived changelog, runs the committed pre-push gates/out-of-tree build, pushes the exact
-  SHA, then finalizes the in-place build/service replacement/chunk verification. Through
-  MSO/MCP, finalization runs in `mso-self-update.service`; completion is proven only when
-  the log ends `UPDATE OK`. Operator update/recovery is Settings → About or
-  `mso update run [--rebuild]`. Do not use a bare in-place build merely to verify code.
-- **Service worker** is served from `app/api/sw/route.ts` with a **`beforeFiles`
-  rewrite `/sw.js`→`/api/sw`** (in `next.config`): a literal `app/sw.js/route.ts`
-  gets shadowed by the optional catch-all, and routes under `/api` are never caught.
-  The SW bakes `BUILD_ID` into its cache name so its bytes change every deploy →
-  the browser detects a new SW → the "Versi baru" reload toast fires (a static
-  `public/sw.js` is byte-identical across deploys, so the toast never fired). It
-  caches ONLY icons+manifest, never chunks/HTML.
-- **New routes need a clean build.** Adding a new `app/**/route.ts` or page folder
-  may not register under incremental Turbopack. On the live production checkout use
-  `mso deploy`; for verification use `mso build`. Never remove/replace live `.next`.
-- **`git add` aborts on a bad pathspec** and stages NOTHING new — after a
-  `git rm`, don't re-list the removed file in `git add`; prefer `git add -A` and
-  check `git status --short` before committing (a broken commit shipped once this way).
-- **Deploy demo** (it IS running — `active`+`enabled`, 200 on 127.0.0.1:4006): from
-  `/home/rahman/.mso/worktrees/mso-demo-runtime`: `git fetch origin -q && git reset --hard
-  origin/main -q && bun run build && sudo systemctl restart mso-demo.service`.
-  Mind the cwd — running the sync from the prod dir is a classic slip.
-- **`bun run build` is now fail-closed on a live checkout.** The package script
-  acquires the checkout runtime-exclusion lock and refuses before touching `.next`
-  when a Next/MSO runtime is serving that same checkout. Use `mso build` for the
-  out-of-tree compile proof and `mso deploy` for a production rebuild. The reason is
-  fundamental: Next loads manifests at process start while `next build` replaces
-  `.next`; mixing those generations makes already-served HTML point at missing chunks.
-  Raw `next build` is an internal deploy primitive only after the supported lifecycle
-  has quiesced the runtime.
-- **The Browser app powers a systemd USER unit**, `camoufox-vnc.service` in
-  `~/.config/systemd/user/`, whose `ExecStart` points at **`scripts/camoufox-vnc-service`
-  in THIS repo** (it used to live untracked under `~/.openclaw/workspace/`, so a fresh
-  clone could not start the Browser at all and the `-nopw` → `-rfbauth` hardening had no
-  version control). The script refuses to start without a VNC password file. Two further
-  host-side facts that the installer flow (`scripts/install.sh` → verified `scripts/install-core.sh`) NOW CARRIES, and that the feature dies
-  quietly without: (1) `loginctl enable-linger <user>`, or the unit stops at
-  logout and never starts at boot; (2) `Environment=XDG_RUNTIME_DIR=/run/user/<uid>` in
-  mso.service — a system unit running as `User=` gets NO user-bus address, so without it
-  every `systemctl --user` call fails with "Failed to connect to bus: No medium found".
-  `lib/camoufox/service.ts` reports that as an error rather than as "not installed", so the
-  panel tells you which one it is.
-  Treating these as un-carryable host lore was itself the bug: a host set up by
-  the installer flow had neither, so the Browser app looked uninstalled and every
-  managed-app install died at the step that registers its user service. The installer sets
-  both now, and `lib/managed-apps/user-bus.ts` re-derives the bus address at call time so a
-  cockpit installed BEFORE this change is not left broken until someone re-runs the
-  installer. An existing host still needs the linger (`sudo loginctl enable-linger <user>`);
-  re-running `scripts/install.sh` applies the rest.
-  (3) The unit is deliberately left **`disabled`** with `Restart=no` + `RuntimeMaxSec=2h`:
-  the UI toggle is plain `start`/`stop` and must NEVER go back to `enable --now`, or every
-  click re-arms boot autostart — that is how it once ran 26 h with zero viewers. Ship
-  `Restart=no` and the lease together; a lease under `Restart=always` is a 2-hourly reboot
-  loop. (4) `CAMOUFOX_PROFILE` points at `~/.local/share/camoufox/profiles/linkedin`, NOT
-  `~/.cache` — it holds the live logins, and a wrong path makes `mkdir -p` create an empty
-  profile with no error. This unit has no copy or installer in the repo, so (1)–(4) exist
-  nowhere else. (5) That profile holds a **live Google session** (`SID`,
-  `__Secure-1PSID`, `SAPISID`) as well as LinkedIn's `li_at` — cookie theft there is
-  account takeover with no password and no 2FA prompt. So: the profile dir is `chmod 700`
-  on every start (Firefox writes `cookies.sqlite` 0644 by default), the VNC password goes
-  in the viewer URL's **fragment** and never its query string, and every start snapshots
-  `cookies.sqlite*` + `key4.db` + `cert9.db` into `~/.local/state/camoufox/session-backup/`
-  (3 generations, 0700). Restore after an accidental wipe: stop the unit,
-  `cp -p ~/.local/state/camoufox/session-backup/1/* <profile>/`, start. Roll back to `2`
-  or `3` if generation `1` already captured the logged-out state.
-- **Two committed browser checks**: `bun run e2e` (shell) and `bun run e2e:preview
-  [width]` (Preview app + Settings → About update panel). Both install the session
-  cookie rather than drive the login form, and both take a viewport — run them at
-  1280 AND 390. `e2e:preview` provisions its own fixtures under
-  `~/.cache/mso-e2e-preview` and asserts bytes ARRIVED (`naturalWidth`, `readyState`,
-  text inside the sandboxed frame), not that elements exist.
-- Verify shell behaviour with **Playwright directly** — `os-browser/node_modules/playwright`
-  (CommonJS) is the repo's only install — at 1280 for desktop and 390 for mobile. The
-  `os-browser` SERVICE is gone (its source was deleted 2026-08-10; only the vendored
-  Playwright install remains). Point Playwright at the **demo on 127.0.0.1:4006** — it
-  runs, and demo mode skips login entirely — or at :4005 and log in. Drive Spotlight with Meta+k; click the dock by
-  the BOTTOM-most `a[href="/<slug>"]` (the centre ones are the hidden Launchpad).
-  `X-Content-Type-Options: nosniff` is set on all routes, so wrong MIME is fatal — keep
-  static Content-Types correct.
+## Deploy / ops (instance-derived, not source-hardcoded)
+- `mso.service` normally serves the current installed checkout on :4005. Resolve its actual
+  `WorkingDirectory` from the service unit and its browser origin from `OS_PUBLIC_ORIGIN`; never
+  copy a maintainer home path, hostname, or sibling app domain into portable source.
+- Optional demo/review runtimes are installation-owned and must remain mock-only, loopback-bound
+  unless explicitly published, and outside the canonical checkout. Discover their actual service
+  unit/worktree instead of assuming a user or path.
+- **Deploy prod:** use `bun run ship "<conventional commit>"`. It regenerates the derived
+  changelog, runs committed pre-push gates/out-of-tree build, pushes the exact SHA, then finalizes
+  the supported service replacement/chunk verification. Through MSO/MCP, finalization runs in
+  `mso-self-update.service`; completion is proven only when the log ends `UPDATE OK`. Operator
+  update/recovery is Settings → About or `mso update [--rebuild]`. Do not use a bare in-place
+  build merely to verify code.
+- **Service worker** is served from `app/api/sw/route.ts` with a `beforeFiles` rewrite
+  `/sw.js`→`/api/sw`. It caches only icons+manifest, never chunks/HTML, and bakes `BUILD_ID` into
+  its cache name so browser clients detect a new deployment.
+- **New routes need a clean build.** On a live production checkout use `mso deploy`; for
+  verification use `mso build`. Never remove/replace a live `.next`.
+- **`bun run build` is fail-closed on a live checkout.** Use `mso build` for the out-of-tree
+  compile proof and `mso deploy` for a production rebuild. Raw `next build` is an internal deploy
+  primitive only after the supported lifecycle has quiesced the runtime.
+- **The Browser app powers a systemd USER unit** whose `ExecStart` points at
+  `scripts/camoufox-vnc-service` in this repo. The script discovers the current user-local
+  Camoufox executable unless `CAMOUFOX_BROWSER` explicitly overrides it.
+- For browser verification, discover an available authenticated/local or mock-only endpoint from
+  the current installation; do not encode an operator hostname or home path into tests.
 
 ## Rules in force
 - **One canonical checkout; parallel work only through isolated hidden worktrees.**
-  `/home/rahman/projects/mso` on `main` is the only canonical checkout and release SSOT.
+  the current `git rev-parse --show-toplevel` checkout on `main` is the canonical release SSOT.
   Never create task-specific `mso-*` siblings under `~/projects` and never let two
   sessions share one worktree, `HEAD`, or index. If parallel work is necessary, use one
   Git worktree per task under `~/.cache/mso-worktrees/mso-<task>`. Never put a development

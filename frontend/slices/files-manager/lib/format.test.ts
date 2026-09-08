@@ -63,7 +63,7 @@ describe("joinPath", () => {
   });
 
   it("normal base → 'base/name'", () => {
-    expect(joinPath("/home/rahman", "projects")).toBe("/home/rahman/projects");
+    expect(joinPath("/home/operator", "projects")).toBe("/home/operator/projects");
   });
 
   it("nested base works correctly", () => {
@@ -114,11 +114,11 @@ describe("crumbsFor", () => {
   });
 
   it("multi-level → all segments with correct paths", () => {
-    expect(crumbsFor("/home/rahman/projects")).toEqual([
+    expect(crumbsFor("/home/operator/projects")).toEqual([
       { name: "mso", path: "/" },
       { name: "home", path: "/home" },
-      { name: "rahman", path: "/home/rahman" },
-      { name: "projects", path: "/home/rahman/projects" },
+      { name: "operator", path: "/home/operator" },
+      { name: "projects", path: "/home/operator/projects" },
     ]);
   });
 

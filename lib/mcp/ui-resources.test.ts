@@ -135,15 +135,15 @@ describe("MCP Apps Block and Page contract", () => {
     expect(MSO_BLOCK_URI).toContain("block-v2.html");
   });
 
-  it("serves the full Page with a minimal reviewed nested-frame allowlist", async () => {
+  it("serves the full Page without external frame domains by default", async () => {
     const read = await dispatch({ id: 30, method: "resources/read", params: { uri: MSO_PAGE_URI } }, "read", "mcp:ui-page");
     const content = (read.result as { contents: Array<{ mimeType: string; text: string; _meta: Record<string, any> }> }).contents[0];
     expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
     expect(content.text).toContain("requestDisplayMode");
     expect(content.text).toContain("setWidgetState");
     expect(content.text).toContain("render_mso_page");
-    expect(content.text).toContain("https://game.rahmanef.com");
-    expect(content.text).toContain('"environment":"production"');
+    expect(content.text).not.toMatch(/rahmanef\.com|\/home\/rahman/);
+    expect(content.text).toContain("const SAFE_APPS=[]");
     expect(content.text).toContain('app.environment+" · "+app.renderer');
     expect(content.text).toContain("fetch(endpoint,");
     expect(content.text).toContain('credentials:"omit"');
@@ -154,9 +154,9 @@ describe("MCP Apps Block and Page contract", () => {
     expect(content._meta.ui.csp).toMatchObject({
       connectDomains: [MSO_ORIGIN],
       resourceDomains: [],
-      frameDomains: ["https://game.rahmanef.com"],
     });
-    expect(content._meta["openai/widgetCSP"]).toEqual({ connect_domains: [MSO_ORIGIN], frame_domains: ["https://game.rahmanef.com"], redirect_domains: [MSO_ORIGIN, "https://game.rahmanef.com"] });
+    expect(content._meta.ui.csp.frameDomains).toBeUndefined();
+    expect(content._meta["openai/widgetCSP"]).toEqual({ connect_domains: [MSO_ORIGIN], redirect_domains: [MSO_ORIGIN] });
     expect(MSO_PAGE_URI).toContain("page-v10.html");
   });
 

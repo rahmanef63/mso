@@ -12,7 +12,7 @@ const skills = {
 
 describe("MSO Agent slash completion catalog", () => {
   it("opens the command catalog from a single slash", () => {
-    const rows = slashCompletionItems(skills, "/", "/home/rahman");
+    const rows = slashCompletionItems(skills, "/", "/home/operator");
     expect(rows[0]).toMatchObject({ text: "/help", kind: "command" });
     expect(rows.map((row) => row.text)).toContain("/design");
     expect(rows.map((row) => row.text)).toContain("/quit");
@@ -28,10 +28,10 @@ describe("MSO Agent slash completion catalog", () => {
   });
 
   it("filters live as the command token is typed", () => {
-    expect(slashCompletionItems(skills, "/sess", "/home/rahman").map((row) => row.text)).toEqual(["/session"]);
-    expect(slashCompletionItems(skills, "/int", "/home/rahman").map((row) => row.text)).toEqual(["/integrations"]);
-    expect(slashCompletionItems(skills, "/prov", "/home/rahman")).toEqual([]);
-    expect(slashCompletionItems(skills, "/skills anything", "/home/rahman")).toEqual([]);
+    expect(slashCompletionItems(skills, "/sess", "/home/operator").map((row) => row.text)).toEqual(["/session"]);
+    expect(slashCompletionItems(skills, "/int", "/home/operator").map((row) => row.text)).toEqual(["/integrations"]);
+    expect(slashCompletionItems(skills, "/prov", "/home/operator")).toEqual([]);
+    expect(slashCompletionItems(skills, "/skills anything", "/home/operator")).toEqual([]);
   });
 
   it("recommends the current-project skill and labels its project", () => {
@@ -50,16 +50,16 @@ describe("MSO Agent slash completion catalog", () => {
   });
 
   it("exposes ready, queued, and invoked skill state to the slash palette", () => {
-    const ready = slashCompletionItems(skills, "/design", "/home/rahman")[0];
+    const ready = slashCompletionItems(skills, "/design", "/home/operator")[0];
     expect(ready).toMatchObject({ kind: "skill", state: "ready", skillId: "global-design" });
 
-    const queued = slashCompletionItems(skills, "/design", "/home/rahman", {
+    const queued = slashCompletionItems(skills, "/design", "/home/operator", {
       pendingSkill: { id: "global-design", name: "design" },
     })[0];
     expect(queued).toMatchObject({ state: "queued" });
     expect(queued.meta).toContain("queued");
 
-    const invoked = slashCompletionItems(skills, "/design", "/home/rahman", {
+    const invoked = slashCompletionItems(skills, "/design", "/home/operator", {
       lastInvokedSkill: { id: "global-design", name: "design" },
     })[0];
     expect(invoked).toMatchObject({ state: "invoked" });
@@ -68,7 +68,7 @@ describe("MSO Agent slash completion catalog", () => {
 
   it("keeps the official integrations skill behind the canonical built-in slash command", () => {
     const data = { skills: [{ id: "integrations", name: "integrations", trust: "official", description: "native integration operations" }] };
-    const rows = slashCompletionItems(data, "/integrations", "/home/rahman");
+    const rows = slashCompletionItems(data, "/integrations", "/home/operator");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ text: "/integrations", kind: "command" });
   });

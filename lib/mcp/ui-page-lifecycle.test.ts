@@ -21,8 +21,8 @@ describe("MCP Page lifecycle and cached resource migration", () => {
       'appInfo:{name:"MSO Page",version:"3.0.0"}',
       'method:"ui/notifications/initialized"',
       'event.source!==window.parent',
-      'event.source!==frame.contentWindow||event.origin!==safe.origin',
-      'data.type!=="play-together:embed-ready"||data.schemaVersion!==1',
+      'frame.addEventListener("load",loaded)',
+      'frame.referrerPolicy="no-referrer"',
       'if(key===lastOutputKey){',
       'setTimeout(unavailable,12000)',
       'hostMax*.48',
@@ -32,5 +32,6 @@ describe("MCP Page lifecycle and cached resource migration", () => {
     expect(html).toContain('max-height:var(--inline-max-h)');
     expect(html).toContain('html[data-display-mode="fullscreen"] .surface{height:100vh;height:100dvh');
     expect(html).not.toContain('presentation:"fullscreen"');
+    expect(script).not.toContain('play-together:embed-ready');
   });
 });

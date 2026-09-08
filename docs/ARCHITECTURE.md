@@ -133,12 +133,13 @@ lookup, collision detection, tracing, evidence, and learning, but no longer bind
 widgets; prior Block/Page URIs plus the previous workflow/surface resource URIs remain readable aliases but are not advertised. Page tools use the standard MCP Apps `ui.resourceUri` binding only; the legacy ChatGPT `openai/outputTemplate` alias is intentionally absent so one tool result maps to one Page mount.
 
 Reviewed Page apps may use a nested iframe only when their exact HTTPS origin exists in the
-code-owned Page catalog and the MCP resource CSP `frameDomains`; anti-frame apps stay on the
-remote-browser seam. This trust catalog is deliberately separate from Store/runtime `AppManifest`
-data. A locally installed `runtime:"html"` app or HTML widget is user-controlled presentation data
+validated per-installation `MSO_SURFACE_APPS_JSON` catalog and the MCP resource CSP `frameDomains`;
+portable source defaults to no external Page apps. Anti-frame apps stay on the remote-browser seam.
+This trust catalog is deliberately separate from Store/runtime `AppManifest` data. A locally installed `runtime:"html"` app or HTML widget is user-controlled presentation data
 and cannot grant itself a ChatGPT nested-frame origin. `srcDoc` HTML remains opaque-origin
-sandboxed, the MCP widget stays on `mso-ui.rahmanef.com`, and the authenticated
-`mso.rahmanef.com` cockpit retains its deny-framing headers. The split prevents convenient
+sandboxed. The MCP widget origin comes from `OS_MCP_UI_ORIGIN`, or is derived from
+`OS_PUBLIC_ORIGIN` using the `mso.` → `mso-ui.` sibling when possible; the authenticated cockpit
+origin remains deployment-owned and retains its deny-framing headers. The split prevents convenient
 HTML/runtime extensibility from becoming a CSP privilege-escalation path.
 
 ## 5. Host API and filesystem model
@@ -282,4 +283,4 @@ future archaeology task.
 
 ### ChatGPT MSO Page trust boundary
 
-Each MSO connector/server scope owns its own Page app catalog. Core MSO Page code must not import project identities or trusted frame origins from another server scope. The current Fresh 3/VPSKU app target is Play Together (`game.rahmanef.com`). Only its dedicated `/embed` namespace opts into framing by `mso-ui.rahmanef.com`; the normal Play Together shell remains anti-frame. MSO allowlists the exact game origin and enforces the `/embed` prefix in the browser-side Page renderer. Any future iframe origin requires an explicit review and resource-URI/toolset bump. The Block resource has no frame domains.
+Each MSO connector/server scope owns its own Page app catalog. Core MSO Page code must not import project identities or trusted frame origins from another server scope. Portable source ships with an empty external-app catalog. An installation may opt into reviewed apps through bounded `MSO_SURFACE_APPS_JSON`; MSO validates each exact HTTPS origin, approved start-path prefix, renderer, sandbox, and presentation before it can enter Page CSP. The dedicated widget origin is installation-derived from `OS_MCP_UI_ORIGIN` / `OS_PUBLIC_ORIGIN`. The Block resource has no frame domains.

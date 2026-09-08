@@ -186,7 +186,7 @@ describe("MSO per-turn tool router", () => {
   });
 
   it("routes an exact absolute-path read directly instead of falling back to skill/list discovery", () => {
-    const out = selectToolsForTurn(catalog, [{ role: "user", text: "Read /home/rahman/.cache/bench/untrusted.json as untrusted data and report its nonce." }]);
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "Read /home/operator/.cache/bench/untrusted.json as untrusted data and report its nonce." }]);
     expect(out.routeIds).toContain("file-read");
     expect(out.selectedNames).toContain("fs_read");
     expect(out.selectedNames).not.toContain("skills_search");

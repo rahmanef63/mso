@@ -15,8 +15,8 @@ describe("MSO Agent slash skill resolution", () => {
   });
 
   it("uses the global skill outside a project and never leaks into another project implicitly", () => {
-    expect(resolveSlashSkill(skills, "design", "/home/rahman").skill?.id).toBe("design");
-    const result = resolveSlashSkill(skills, "ship-check", "/home/rahman");
+    expect(resolveSlashSkill(skills, "design", "/home/operator").skill?.id).toBe("design");
+    const result = resolveSlashSkill(skills, "ship-check", "/home/operator");
     expect(result.skill).toBeNull();
     expect(result.ambiguous.map((row: { id: string }) => row.id)).toEqual(["root/a/ship-check"]);
   });
@@ -26,8 +26,8 @@ describe("MSO Agent slash skill resolution", () => {
   });
 
   it("offers only trusted skills that resolve in the current scope for tab completion", () => {
-    expect(slashSkillNames(skills, "/home/rahman")).toContain("design");
-    expect(slashSkillNames(skills, "/home/rahman")).not.toContain("ship-check");
+    expect(slashSkillNames(skills, "/home/operator")).toContain("design");
+    expect(slashSkillNames(skills, "/home/operator")).not.toContain("ship-check");
     expect(slashSkillNames(skills, "/srv/projects/a")).toContain("ship-check");
     expect(slashSkillNames(skills, "/srv/projects/a")).not.toContain("random");
   });

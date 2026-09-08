@@ -6,18 +6,18 @@ import path from "node:path";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/host/audit-api", () => ({ audit: vi.fn() }));
 let root: string;
-beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-setup-route-")); process.env.OS_INFRA_STORE = path.join(root, "infra.json"); vi.resetModules(); });
-afterEach(async () => { delete process.env.OS_INFRA_STORE; await fs.rm(root, { recursive: true, force: true }); vi.resetModules(); });
-const endpoint = "https://mso.rahmanef.com/api/integrations/setup";
-function req(token: string, origin = "https://mso-ui.rahmanef.com", body: unknown = { action: "schema" }) {
+beforeEach(async () => { root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-setup-route-")); process.env.OS_INFRA_STORE = path.join(root, "infra.json"); process.env.OS_PUBLIC_ORIGIN = "https://mso.example.test"; process.env.OS_MCP_UI_ORIGIN = "https://mso-ui.example.test"; vi.resetModules(); });
+afterEach(async () => { delete process.env.OS_INFRA_STORE; delete process.env.OS_PUBLIC_ORIGIN; delete process.env.OS_MCP_UI_ORIGIN; await fs.rm(root, { recursive: true, force: true }); vi.resetModules(); });
+const endpoint = "https://mso.example.test/api/integrations/setup";
+function req(token: string, origin = "https://mso-ui.example.test", body: unknown = { action: "schema" }) {
   return new NextRequest(endpoint, { method: "POST", headers: { origin, authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
 }
 it("allows only exact trusted Origins and never grants credentialed CORS", async () => {
   const { OPTIONS, POST } = await import("./route");
-  const good = OPTIONS(new NextRequest(endpoint, { method: "OPTIONS", headers: { origin: "https://mso-ui.rahmanef.com" } }));
-  expect(good.status).toBe(204); expect(good.headers.get("access-control-allow-origin")).toBe("https://mso-ui.rahmanef.com");
+  const good = OPTIONS(new NextRequest(endpoint, { method: "OPTIONS", headers: { origin: "https://mso-ui.example.test" } }));
+  expect(good.status).toBe(204); expect(good.headers.get("access-control-allow-origin")).toBe("https://mso-ui.example.test");
   expect(good.headers.has("access-control-allow-credentials")).toBe(false);
-  for (const origin of ["https://evil.invalid", "https://mso-ui.rahmanef.com.evil.invalid", "null"]) expect((await POST(req("x".repeat(43), origin))).status).toBe(403);
+  for (const origin of ["https://evil.invalid", "https://mso-ui.example.test.evil.invalid", "null"]) expect((await POST(req("x".repeat(43), origin))).status).toBe(403);
   expect((await POST(req("x".repeat(43)))).status).toBe(401);
 });
 it("safe schema is capability protected and secret fields have no prefill", async () => {

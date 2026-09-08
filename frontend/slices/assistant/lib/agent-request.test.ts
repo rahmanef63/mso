@@ -39,7 +39,7 @@ describe("composeSystem", () => {
 
   it("adds bounded selected-project context without turning it into permission", () => {
     const out = composeSystem(agent(), " MODE", {
-      id: "root/mso", name: "mso", path: "/home/rahman/projects/mso", branch: "main",
+      id: "root/mso", name: "mso", path: "/home/operator/projects/mso", branch: "main",
       clean: false, head: "abcdef123456", knowledge: true, recentMemoryTitles: ["Fix updater race", "Verify memory retention"],
     });
     expect(out).toContain("Selected MSO project: mso");

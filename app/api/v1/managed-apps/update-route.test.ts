@@ -113,7 +113,7 @@ describe("the gates, in order", () => {
 
 describe("what each action answers with", () => {
   // The GET sits OUTSIDE the CSRF gate (proxy.ts covers mutating verbs only)
-  // and the session cookie is Domain=mso.rahmanef.com, so any sibling origin can
+  // and the session cookie is Domain=mso.example.com, so any sibling origin can
   // make a browser send it. If it probed, that would be a blind cross-origin
   // trigger for `hermes update --check` — two git fetches in the operator's
   // checkout. It reads the cache; the probe is a POST, behind the gate.

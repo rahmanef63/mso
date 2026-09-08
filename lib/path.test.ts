@@ -7,18 +7,18 @@ import { joinPath, parentPath, baseName, extOf } from "./path";
 
 describe("joinPath", () => {
   it("joins without doubling or dropping a separator", () => {
-    expect(joinPath("/home/rahman", "a.txt")).toBe("/home/rahman/a.txt");
+    expect(joinPath("/home/operator", "a.txt")).toBe("/home/operator/a.txt");
     expect(joinPath("/", "a.txt")).toBe("/a.txt");
-    expect(joinPath("/home/rahman/", "a.txt")).toBe("/home/rahman/a.txt");
-    expect(joinPath("/home/rahman", "/a.txt")).toBe("/home/rahman/a.txt");
+    expect(joinPath("/home/operator/", "a.txt")).toBe("/home/operator/a.txt");
+    expect(joinPath("/home/operator", "/a.txt")).toBe("/home/operator/a.txt");
     expect(joinPath("/home//", "//a.txt")).toBe("/home/a.txt");
   });
 });
 
 describe("parentPath", () => {
   it("walks up, and stops at the root instead of returning empty", () => {
-    expect(parentPath("/home/rahman/a.txt")).toBe("/home/rahman");
-    expect(parentPath("/home/rahman/")).toBe("/home");
+    expect(parentPath("/home/operator/a.txt")).toBe("/home/operator");
+    expect(parentPath("/home/operator/")).toBe("/home");
     expect(parentPath("/home")).toBe("/");
     expect(parentPath("/")).toBe("/");
   });

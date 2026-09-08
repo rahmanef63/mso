@@ -10,7 +10,7 @@ const { assertBranch, assertChannel, assertTag, updateAdapter, UNINSTALL_PREVIEW
 const { parseHermesCheck } = await import("./update-probe");
 
 const HERMES = "/usr/local/bin/hermes";
-const OPENCLAW = "/home/rahman/.local/bin/openclaw";
+const OPENCLAW = "/home/operator/.local/bin/openclaw";
 const result = (stdout: string, code = 0) => ({ code, stdout, stderr: "" });
 
 describe("the argv each CLI actually gets", () => {
@@ -162,7 +162,7 @@ describe("reading what Hermes says back", () => {
 });
 
 describe("the 9Router wrapper argv", () => {
-  const NINE = "/home/rahman/projects/mso/scripts/managed-app-9router";
+  const NINE = "/home/operator/projects/mso/scripts/managed-app-9router";
 
   it("builds update and uninstall in the wrapper's own grammar", () => {
     expect(updateAdapter("9router").updateArgv(NINE, {})).toEqual([NINE, "update", "--yes"]);

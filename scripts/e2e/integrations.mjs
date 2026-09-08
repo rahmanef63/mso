@@ -15,7 +15,7 @@ let checks=0;
 try{
  const page=await browser.newPage();
  const errors=[];page.on("pageerror",error=>errors.push(error.message));
- await page.route("https://mso.rahmanef.com/**",route=>{
+ await page.route("https://mso.example.com/**",route=>{
   const url=new URL(route.request().url());
   if(url.pathname==="/integrations")return route.fulfill({contentType:"text/html",body:html});
   if(url.pathname==="/api/auth/me")return route.fulfill({json:{role:"owner"}});
@@ -23,7 +23,7 @@ try{
   if(url.pathname==="/api/v1/integrations")return route.fulfill({json:{ok:true,detail:"Connected to GitHub"}});
   return route.fulfill({status:404,json:{error:"unhandled_fixture"}});
  });
- await page.goto("https://mso.rahmanef.com/integrations");
+ await page.goto("https://mso.example.com/integrations");
  await page.getByRole("heading",{name:"Delivery GitHub"}).waitFor();
  for(const width of [320,390,768,1440,1920]){
   await page.setViewportSize({width,height:900});

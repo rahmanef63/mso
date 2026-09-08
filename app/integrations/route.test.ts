@@ -13,9 +13,9 @@ describe("friendly native Integrations page", () => {
     expect(() => new Function(html.match(/<script nonce="[^"]+">([\s\S]*)<\/script>/)![1])).not.toThrow();
   });
   it("lets the trusted HTML endpoint own its nonce while retaining owner mutation CSRF checks", async () => {
-    const read = await proxy(new NextRequest("https://mso.rahmanef.com/integrations", { headers: { host: "mso.rahmanef.com" } }));
+    const read = await proxy(new NextRequest("https://mso.example.com/integrations", { headers: { host: "mso.example.com" } }));
     expect(read.headers.get("content-security-policy")).toBeNull();
-    const write = await proxy(new NextRequest("https://mso.rahmanef.com/api/v1/infra/setup", { method: "POST", headers: { host: "mso.rahmanef.com", origin: "https://evil.invalid", "sec-fetch-site": "cross-site" }, body: "{}" }));
+    const write = await proxy(new NextRequest("https://mso.example.com/api/v1/infra/setup", { method: "POST", headers: { host: "mso.example.com", origin: "https://evil.invalid", "sec-fetch-site": "cross-site" }, body: "{}" }));
     expect(write.status).toBe(403);
   });
 });

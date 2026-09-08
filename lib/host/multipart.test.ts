@@ -66,12 +66,12 @@ describe("boundaryFromContentType", () => {
 describe("parseMultipart", () => {
   it("parses a dest field + a file part with its filename/relPath", async () => {
     const body = buildBody("B0", [
-      { name: "dest", body: "/home/rahman/up" },
+      { name: "dest", body: "/home/operator/up" },
       { name: "file", filename: "docs/a.txt", body: "hello world" },
     ]);
     const parts = await collect(body, "B0", 10 * MiB);
     expect(parts).toHaveLength(2);
-    expect(parts[0]).toMatchObject({ name: "dest", body: "/home/rahman/up" });
+    expect(parts[0]).toMatchObject({ name: "dest", body: "/home/operator/up" });
     expect(parts[1]).toMatchObject({ name: "file", filename: "docs/a.txt", body: "hello world" });
   });
 

@@ -37,14 +37,14 @@ describe("store persistence", () => {
   });
 
   it("hydrateBoot keeps a deep-link window: open + focused + payload, layout behind", () => {
-    // UrlSync opened /files/home/rahman BEFORE the layout hydrated (mount order).
-    const live = openWindow("files", "Files", undefined, { path: "/home/rahman" }, { multi: true });
+    // UrlSync opened /files/home/operator BEFORE the layout hydrated (mount order).
+    const live = openWindow("files", "Files", undefined, { path: "/home/operator" }, { multi: true });
     hydrateBoot([pw("w50", "settings"), pw("w51", "monitor")]);
 
     const order = shellStore.getOrder();
     expect(order).toEqual(["w50", "w51", live]);
     expect(shellStore.getFocused()).toBe(live);
-    expect(shellStore.getWindow(live)?.payload).toEqual({ path: "/home/rahman" });
+    expect(shellStore.getWindow(live)?.payload).toEqual({ path: "/home/operator" });
     // live window stacks on top of every restored one
     const zs = order.map((id) => shellStore.getWindow(id)!.z);
     expect(Math.max(...zs)).toBe(shellStore.getWindow(live)!.z);
@@ -87,17 +87,17 @@ describe("store persistence", () => {
   });
 
   it("hydrateBoot dedupes a MULTI-app window when persisted + live share the same payload", () => {
-    // Live window opened from the URL with payload {path:/home/rahman}.
-    const live = openWindow("files", "Files", undefined, { path: "/home/rahman" }, { multi: true });
+    // Live window opened from the URL with payload {path:/home/operator}.
+    const live = openWindow("files", "Files", undefined, { path: "/home/operator" }, { multi: true });
     // localStorage has a window for the SAME app + SAME payload — must collapse.
     hydrateBoot(
-      [pw("w99", "files", { payload: { path: "/home/rahman" } })],
+      [pw("w99", "files", { payload: { path: "/home/operator" } })],
       new Set(["files"]),
     );
     const ids = shellStore.getOrder();
     const files = ids.filter((id) => shellStore.getWindow(id)?.app === "files");
     expect(files).toEqual([live]); // dedupe — one Files window survives
-    expect(shellStore.getWindow(live)?.payload).toEqual({ path: "/home/rahman" });
+    expect(shellStore.getWindow(live)?.payload).toEqual({ path: "/home/operator" });
   });
 
   it("hydrateBoot keeps both MULTI-app windows when payloads differ", () => {

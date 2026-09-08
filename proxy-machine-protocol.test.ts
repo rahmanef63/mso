@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const TEMPLATE = "{id}.mso.rahmanef.com";
+const TEMPLATE = "{id}.mso.example.com";
 
 async function loadProxy(template: string) {
   vi.resetModules();
@@ -25,15 +25,15 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-// The session cookie is widened to Domain=mso.rahmanef.com, so ANY host under that
+// The session cookie is widened to Domain=mso.example.com, so ANY host under that
 // name receives it. A host in the namespace that is not one of the apps must
 // therefore 404 rather than serve the cockpit — otherwise adding a DNS record is
 // enough to hand a page a fully authenticated cockpit, with no code change at all.
 describe("an unclaimed host inside the app namespace serves nothing", () => {
   it.each([
-    "staging.mso.rahmanef.com",
-    "deep.sub.mso.rahmanef.com",
-    "xhermes.mso.rahmanef.com",
+    "staging.mso.example.com",
+    "deep.sub.mso.example.com",
+    "xhermes.mso.example.com",
   ])("404s %s", async (host) => {
     const proxy = await loadProxy(TEMPLATE);
     for (const path of [
@@ -51,15 +51,15 @@ describe("an unclaimed host inside the app namespace serves nothing", () => {
   it("refuses only the namespace: the cockpit, its siblings and single-origin mode all still serve", async () => {
     const split = await loadProxy(TEMPLATE);
     for (const host of [
-      "mso.rahmanef.com",
-      "api-mso.rahmanef.com",
+      "mso.example.com",
+      "api-mso.example.com",
       "rahmanef.com",
     ]) {
       expect((await split(req(host, "/files"))).status).toBe(200);
     }
     const single = await loadProxy("");
     expect(
-      (await single(req("staging.mso.rahmanef.com", "/files"))).status,
+      (await single(req("staging.mso.example.com", "/files"))).status,
     ).toBe(200);
   });
 });
@@ -67,7 +67,7 @@ describe("an unclaimed host inside the app namespace serves nothing", () => {
 describe("single-origin mode (template unset) is unchanged", () => {
   it("stamps a nonce + document policy on a page", async () => {
     const proxy = await loadProxy("");
-    const res = await proxy(req("mso.rahmanef.com", "/files"));
+    const res = await proxy(req("mso.example.com", "/files"));
     const csp = res.headers.get("content-security-policy")!;
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
@@ -81,7 +81,7 @@ describe("single-origin mode (template unset) is unchanged", () => {
       "/_next/image?url=%2Fx.png",
       "/favicon.ico",
     ]) {
-      const res = await proxy(req("mso.rahmanef.com", path));
+      const res = await proxy(req("mso.example.com", path));
       expect(res.status).toBe(200);
       expect(res.headers.get("content-security-policy")).toBeNull();
       expect(res.headers.get("x-middleware-request-x-nonce")).toBeNull();
@@ -90,20 +90,20 @@ describe("single-origin mode (template unset) is unchanged", () => {
 
   it("never treats an app-shaped host as an app host", async () => {
     const proxy = await loadProxy("");
-    const res = await proxy(req("hermes.mso.rahmanef.com", "/"));
+    const res = await proxy(req("hermes.mso.example.com", "/"));
     expect(rewriteOf(res)).toBeNull();
   });
 
   it("still blocks a cross-site mutating /api and leaves reads alone", async () => {
     const proxy = await loadProxy("");
     const blocked = await proxy(
-      req("mso.rahmanef.com", "/api/v1/exec/run", {
+      req("mso.example.com", "/api/v1/exec/run", {
         method: "POST",
         headers: { "sec-fetch-site": "cross-site" },
       }),
     );
     expect(blocked.status).toBe(403);
-    const read = await proxy(req("mso.rahmanef.com", "/api/v1/sys/status"));
+    const read = await proxy(req("mso.example.com", "/api/v1/sys/status"));
     expect(read.status).toBe(200);
     expect(read.headers.get("content-security-policy")).toBeNull();
   });
@@ -111,7 +111,7 @@ describe("single-origin mode (template unset) is unchanged", () => {
   it("treats A2A discovery and protocol routes as machine surfaces, not documents", async () => {
     const proxy = await loadProxy("");
     for (const path of ["/.well-known/agent-card.json", "/a2a/v1"]) {
-      const res = await proxy(req("mso.rahmanef.com", path));
+      const res = await proxy(req("mso.example.com", path));
       expect(res.status).toBe(200);
       expect(res.headers.get("content-security-policy")).toBeNull();
       expect(res.headers.get("x-middleware-request-x-nonce")).toBeNull();
@@ -121,7 +121,7 @@ describe("single-origin mode (template unset) is unchanged", () => {
   it("lets remote bearer-authenticated A2A POST reach the route while keeping owner A2A management CSRF-protected", async () => {
     const proxy = await loadProxy("");
     const protocol = await proxy(
-      req("mso.rahmanef.com", "/a2a/v1", {
+      req("mso.example.com", "/a2a/v1", {
         method: "POST",
         headers: { "sec-fetch-site": "cross-site" },
         body: JSON.stringify({
@@ -136,7 +136,7 @@ describe("single-origin mode (template unset) is unchanged", () => {
     expect(protocol.headers.get("content-security-policy")).toBeNull();
 
     const management = await proxy(
-      req("mso.rahmanef.com", "/api/v1/a2a", {
+      req("mso.example.com", "/api/v1/a2a", {
         method: "POST",
         headers: { "sec-fetch-site": "cross-site" },
         body: JSON.stringify({ action: "state" }),
@@ -151,7 +151,7 @@ describe("single-origin mode (template unset) is unchanged", () => {
   it("does not let an unverified cookie near the camoufox VNC bridge", async () => {
     const proxy = await loadProxy("");
     const res = await proxy(
-      req("mso.rahmanef.com", "/camoufox-vnc/", {
+      req("mso.example.com", "/camoufox-vnc/", {
         headers: { cookie: "session=anything" },
       }),
     );

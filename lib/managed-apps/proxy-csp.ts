@@ -22,7 +22,7 @@ export interface PolicyMount {
   /** The cockpit origin. Root-mounted, the frame is CROSS-origin, so
    *  frame-ancestors must name it or the browser refuses to display the dashboard.
    *  It is also the one external host never honoured out of an upstream policy: a
-   *  compromised upstream granting itself `connect-src https://mso.rahmanef.com`
+   *  compromised upstream granting itself `connect-src https://mso.example.com`
    *  would be calling the cockpit API from inside the frame. Missing ⇒ 'none',
    *  because a frame that will not display is a visible failure while a guessed
    *  framer is a silent invitation. */
@@ -132,7 +132,7 @@ const isHash = (src: string) => /^'sha(?:256|384|512)-/i.test(src);
 const isScheme = (src: string) => /^[a-z][a-z0-9+.\-]*:$/i.test(src);
 
 // hostname, not host: `URL.host` carries the port, and cookies are port-agnostic,
-// so `https://mso.rahmanef.com:8443` must still count as our own origin. Trailing
+// so `https://mso.example.com:8443` must still count as our own origin. Trailing
 // dot is the same name to DNS.
 const canonHost = (url: string): string | null => {
   try {
@@ -164,7 +164,7 @@ function survives(src: string, theirs: string[], prefixUrl: string): boolean {
 
 // An upstream can rewrite its own policy at will, so a honoured source is capped:
 // https only, no wildcards, and NEVER our own origin — `connect-src
-// https://mso.rahmanef.com` from a compromised upstream would hand its JS
+// https://mso.example.com` from a compromised upstream would hand its JS
 // /api/v1/exec, which is the one thing the scoping exists to prevent. The cockpit
 // is excluded separately because root-mounted it is no longer the same host as
 // prefixUrl, so `sameHost` alone would let the upstream name it.

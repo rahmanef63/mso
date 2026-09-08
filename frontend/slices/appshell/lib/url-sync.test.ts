@@ -35,22 +35,22 @@ describe("URL→state boot dedup (hydrateBoot multi-app contract)", () => {
   beforeEach(() => closeAll());
 
   it("URL + persisted layout point at the SAME multi-app path → 1 window", () => {
-    // UrlSync ran first: opened the deep-linked files window at /home/rahman.
+    // UrlSync ran first: opened the deep-linked files window at /home/operator.
     const live = openWindow(
       "files",
       "Files",
       undefined,
-      { path: "/home/rahman" },
+      { path: "/home/operator" },
       { multi: true },
     );
     // Then the persisted layout (also remembers a files window at the same path)
     // hydrates underneath.
-    hydrateBoot([pw("wA", "files", { payload: { path: "/home/rahman" } })], MULTI);
+    hydrateBoot([pw("wA", "files", { payload: { path: "/home/operator" } })], MULTI);
 
     const ids = shellStore.getOrder();
     expect(ids).toEqual([live]); // exactly one window, the live one
     expect(shellStore.getFocused()).toBe(live);
-    expect(shellStore.getWindow(live)?.payload).toEqual({ path: "/home/rahman" });
+    expect(shellStore.getWindow(live)?.payload).toEqual({ path: "/home/operator" });
   });
 
   it("URL + persisted layout point at DIFFERENT multi-app paths → 2 windows", () => {
@@ -58,7 +58,7 @@ describe("URL→state boot dedup (hydrateBoot multi-app contract)", () => {
       "files",
       "Files",
       undefined,
-      { path: "/home/rahman" },
+      { path: "/home/operator" },
       { multi: true },
     );
     hydrateBoot([pw("wA", "files", { payload: { path: "/tmp" } })], MULTI);
@@ -70,7 +70,7 @@ describe("URL→state boot dedup (hydrateBoot multi-app contract)", () => {
     const apps = ids.map((id) => shellStore.getWindow(id)!.app).sort();
     expect(apps).toEqual(["files", "files"]);
     const paths = ids.map((id) => (shellStore.getWindow(id)!.payload as { path: string }).path).sort();
-    expect(paths).toEqual(["/home/rahman", "/tmp"]);
+    expect(paths).toEqual(["/home/operator", "/tmp"]);
   });
 
   it("re-opening a multi-app's existing window UPDATES payload (no new window)", () => {

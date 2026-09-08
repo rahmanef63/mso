@@ -14,7 +14,7 @@ function fixture(path = "/?auth=google") {
     button: (_label: string, click: () => Promise<void>) => { const b = { click, focus: vi.fn(), disabled: false }; buttons.push(b); return b; },
   };
   const cleanup = runInNewContext(`${MSO_PAGE_AUTH_SCRIPT}; mountReviewedAuth`, context)(
-    { origin: "https://game.rahmanef.com", externalAuthPath: path }, frame, { append: vi.fn() }, message,
+    { origin: "https://game.example.com", externalAuthPath: path }, frame, { append: vi.fn() }, message,
   );
   return { events, buttons, rpcRequest, frame, message, cleanup };
 }
@@ -22,16 +22,16 @@ function fixture(path = "/?auth=google") {
 describe("reviewed external auth action", () => {
   it("opens only the code-owned same-origin path after a host button click", async () => {
     const f = fixture();
-    f.events.get("message")?.({ source: f.frame.contentWindow, origin: "https://game.rahmanef.com", data: { type: "mso:app-auth-request", schemaVersion: 1, provider: "google", url: "https://attacker.test" } });
+    f.events.get("message")?.({ source: f.frame.contentWindow, origin: "https://game.example.com", data: { type: "mso:app-auth-request", schemaVersion: 1, provider: "google", url: "https://attacker.test" } });
     expect(f.buttons[0].focus).toHaveBeenCalledOnce();
     expect(f.rpcRequest).not.toHaveBeenCalled();
     await f.buttons[0].click();
-    expect(f.rpcRequest).toHaveBeenCalledExactlyOnceWith("ui/open-link", { url: "https://game.rahmanef.com/?auth=google" });
+    expect(f.rpcRequest).toHaveBeenCalledExactlyOnceWith("ui/open-link", { url: "https://game.example.com/?auth=google" });
     expect(f.message.textContent).toContain("Preview sessions are separate");
   });
   it("ignores spoofed message sources, origins, providers and schema versions", () => {
     const f = fixture();
-    const base = { source: f.frame.contentWindow, origin: "https://game.rahmanef.com", data: { type: "mso:app-auth-request", schemaVersion: 1, provider: "google" } };
+    const base = { source: f.frame.contentWindow, origin: "https://game.example.com", data: { type: "mso:app-auth-request", schemaVersion: 1, provider: "google" } };
     for (const event of [{ ...base, source: {} }, { ...base, origin: "https://attacker.test" }, { ...base, data: { ...base.data, schemaVersion: 99 } }, { ...base, data: { ...base.data, provider: "unknown" } }]) f.events.get("message")?.(event);
     expect(f.buttons[0].focus).not.toHaveBeenCalled();
     expect(f.rpcRequest).not.toHaveBeenCalled();

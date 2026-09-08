@@ -36,8 +36,8 @@ Before adding another adapter/facade/barrel, read [`docs/ARCHITECTURE.md`](./doc
 
 ## Repository and worktree policy
 
-- `/home/rahman/projects/mso` on `main` is the **only canonical MSO checkout and release SSOT**.
-  Do not create task-specific `mso-*` sibling directories under `~/projects`.
+- The repository root resolved by `git rev-parse --show-toplevel` on `main` is the **canonical MSO checkout and release SSOT for this installation**.
+  Do not infer another operator's home/project path or create task-specific sibling checkouts under the projects root.
 - Parallel coding/review tasks may use isolated Git worktrees only under
   `~/.cache/mso-worktrees/mso-<task>`. Never let two sessions share one worktree, HEAD, or index.
 - Keep development worktrees out of `~/.mso`: that tree is private runtime/credential state and is

@@ -147,7 +147,7 @@ case "$cmd" in
     echo "saved doc → $out   (render: $0 view $out)" ;;
   view)
     p="${1:?path}"; shift || true
-    base="${OS_PUBLIC_BASE:-https://mso.rahmanef.com}"
+    base="${OS_PUBLIC_BASE:-${OS_PUBLIC_ORIGIN:-http://127.0.0.1:4005}}"
     case "$p" in /*) ;; *) p="/$p" ;; esac
     url="$base/studio$p"; echo "$url"
     if [ "${1:-}" = "--shot" ]; then

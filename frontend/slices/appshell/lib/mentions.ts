@@ -2,7 +2,7 @@
 // DOM — because the rules are the whole feature and they deserve a real test.
 //
 // THE / PROBLEM. This is a VPS cockpit: the user types absolute paths constantly
-// ("ls /home/rahman", "read /etc/hosts"). A slash trigger that fires after any
+// ("ls /home/user", "read /etc/hosts"). A slash trigger that fires after any
 // whitespace would open a menu on almost every message. So `/` opens ONLY when it
 // is the first character of the composer — the Slack/Discord convention — which
 // makes a command an explicit act and leaves every path alone. `@` is safe after
@@ -46,7 +46,7 @@ export function mentionAt(text: string, caret: number): MentionQuery | null {
 
   if (ch === "/") {
     // First character of the whole composer, nothing else. This is what keeps
-    // "/home/rahman" — and every other path — from opening the menu.
+    // "/home/user" — and every other path — from opening the menu.
     if (i !== 0) return null;
   } else if (before !== "" && !/\s/.test(before)) {
     // Mid-word @ is an email or a handle inside a token, not a mention.

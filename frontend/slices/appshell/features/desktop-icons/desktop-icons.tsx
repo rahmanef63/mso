@@ -165,7 +165,7 @@ function AddIconDialog() {
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder={kind === "link" ? "https://example.com" : "/home/rahman/projects"}
+          placeholder={kind === "link" ? "https://example.com" : "~/projects"}
         />
         <Input
           value={label}

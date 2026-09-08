@@ -12,7 +12,7 @@ describe("baseName", () => {
   });
 
   it("returns last segment for a normal path", () => {
-    expect(baseName("/home/rahman/projects/util.ts")).toBe("util.ts");
+    expect(baseName("/home/operator/projects/util.ts")).toBe("util.ts");
   });
 
   it("returns the name for a single-segment path (no leading slash)", () => {
@@ -22,7 +22,7 @@ describe("baseName", () => {
 
 describe("extOf", () => {
   it("returns '' for a path with no extension", () => {
-    expect(extOf("/home/rahman/Makefile")).toBe("");
+    expect(extOf("/home/operator/Makefile")).toBe("");
   });
 
   it("returns 'ts' for a .ts file", () => {
@@ -38,7 +38,7 @@ describe("extOf", () => {
     // split('.') → ['', 'bashrc'], pop() → 'bashrc'
     // NOTE: this is the actual behaviour of the implementation; a dotfile
     // is treated as having extension 'bashrc'. Tested here to document it.
-    expect(extOf("/home/rahman/.bashrc")).toBe("bashrc");
+    expect(extOf("/home/operator/.bashrc")).toBe("bashrc");
   });
 
   it("returns '' for root '/'", () => {
@@ -53,11 +53,11 @@ describe("joinPath", () => {
   });
 
   it("joins a normal dir and name", () => {
-    expect(joinPath("/home/rahman", "file.ts")).toBe("/home/rahman/file.ts");
+    expect(joinPath("/home/operator", "file.ts")).toBe("/home/operator/file.ts");
   });
 
   it("strips trailing slash from dir before joining", () => {
-    expect(joinPath("/home/rahman/", "notes.md")).toBe("/home/rahman/notes.md");
+    expect(joinPath("/home/operator/", "notes.md")).toBe("/home/operator/notes.md");
   });
 
   it("handles nested dir correctly", () => {
@@ -115,7 +115,7 @@ describe("langOf", () => {
   });
 
   it("falls back to 'txt' for no extension", () => {
-    expect(langOf("/home/rahman/Makefile")).toBe("txt");
+    expect(langOf("/home/operator/Makefile")).toBe("txt");
   });
 });
 

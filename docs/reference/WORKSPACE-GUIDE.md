@@ -355,7 +355,7 @@ curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash -s -- --dir "$HOME/mso" --port 4005
 ```
 
-There is also a no-login install guide at **<https://mso.rahmanef.com/install>**. **Browser
+After installation, the no-login install guide is available at **`${OS_PUBLIC_ORIGIN}/install`** (or the loopback origin when no public origin is configured). **Browser
 sign-in requires HTTPS**, except when you access MSO through a loopback URL such as
 `http://localhost:4005`. Do not pair/approve a browser on plain `http://<server-ip>:4005`:
 the session cookie is `Secure`, so the browser cannot keep the login there. Full production setup,
@@ -551,8 +551,7 @@ Not currently supported:
 | Contribute or review security | [Contributing](../../CONTRIBUTING.md) · [Development](../DEVELOPMENT.md) · [Security](../../SECURITY.md) |
 | Browse everything | [Documentation map](../README.md) · [Changelog](../CHANGELOG.md) |
 
-The [maintainer's instance](https://mso.rahmanef.com) requires authentication; it is **not a public demo**.
-The [recorded demo](../media/demo.gif) is available without access to a real server.
+Owner deployments require authentication and are **not public demos**. The [recorded demo](../media/demo.gif) is available without access to a real server.
 A separate mock-only demo must keep `NEXT_PUBLIC_OS_DEMO=1` at build time and bind to loopback
 unless its owner explicitly publishes it; never enable demo mode on an owner deployment.
 

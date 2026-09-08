@@ -13,7 +13,7 @@ vi.mock("@/lib/auth/device-store", () => ({
     : null,
 }));
 
-const TEMPLATE = "{id}.mso.rahmanef.com";
+const TEMPLATE = "{id}.mso.example.com";
 
 /** Env is read at module load, so each case needs a fresh module graph. */
 async function loadProxy(template: string) {
@@ -62,7 +62,7 @@ describe("WebSocket upgrade on an app host", () => {
 
   it("hands an authenticated upgrade to the app's own loopback gateway", async () => {
     const proxy = await load();
-    const res = await proxy(upgradeReq("openclaw.mso.rahmanef.com", "/chat?tab=1", session()));
+    const res = await proxy(upgradeReq("openclaw.mso.example.com", "/chat?tab=1", session()));
     // Cross-origin destination = Next proxies it; that fork IS the transport.
     expect(rewriteOf(res)).toBe(`${GATEWAY}/chat?tab=1`);
   });
@@ -70,24 +70,24 @@ describe("WebSocket upgrade on an app host", () => {
   it("requires operator or owner for a managed-app upgrade", async () => {
     const proxy = await load();
     approved.role = "viewer";
-    expect((await proxy(upgradeReq("openclaw.mso.rahmanef.com", "/chat", session()))).status).toBe(404);
+    expect((await proxy(upgradeReq("openclaw.mso.example.com", "/chat", session()))).status).toBe(404);
     approved.role = "operator";
-    expect(rewriteOf(await proxy(upgradeReq("openclaw.mso.rahmanef.com", "/chat", session())))).toBe(`${GATEWAY}/chat`);
+    expect(rewriteOf(await proxy(upgradeReq("openclaw.mso.example.com", "/chat", session())))).toBe(`${GATEWAY}/chat`);
   });
 
   it("refuses an upgrade carrying no session — nothing downstream would have", async () => {
     const proxy = await load();
-    const res = await proxy(upgradeReq("openclaw.mso.rahmanef.com"));
+    const res = await proxy(upgradeReq("openclaw.mso.example.com"));
     expect(res.status).toBe(404);
     expect(rewriteOf(res)).toBeNull();
   });
 
   it("refuses a forged cookie, and a real one whose device was revoked", async () => {
     const proxy = await load();
-    expect((await proxy(upgradeReq("openclaw.mso.rahmanef.com", "/", "not-a-real-cookie"))).status).toBe(404);
+    expect((await proxy(upgradeReq("openclaw.mso.example.com", "/", "not-a-real-cookie"))).status).toBe(404);
     // Valid HMAC is not enough: revoking a device must kill its live sockets too.
     approved.value = false;
-    expect((await proxy(upgradeReq("openclaw.mso.rahmanef.com", "/", session()))).status).toBe(404);
+    expect((await proxy(upgradeReq("openclaw.mso.example.com", "/", session()))).status).toBe(404);
   });
 
   it("refuses to relay off-box when the gateway env points somewhere public", async () => {
@@ -95,12 +95,12 @@ describe("WebSocket upgrade on an app host", () => {
     vi.stubEnv("OS_SESSION_SECRET", SECRET);
     approved.value = true;
     const proxy = await loadProxy(TEMPLATE);
-    expect((await proxy(upgradeReq("openclaw.mso.rahmanef.com", "/", session()))).status).toBe(404);
+    expect((await proxy(upgradeReq("openclaw.mso.example.com", "/", session()))).status).toBe(404);
   });
 
   it("leaves the cockpit host alone — the branch is app-hosts only", async () => {
     const proxy = await load();
-    const res = await proxy(upgradeReq("mso.rahmanef.com", "/apps", session()));
+    const res = await proxy(upgradeReq("mso.example.com", "/apps", session()));
     // Not merely "not the gateway" — the cockpit is not rewritten at all, so a
     // session-bearing upgrade there can never become a relay into an agent.
     expect(rewriteOf(res)).toBeNull();
@@ -109,7 +109,7 @@ describe("WebSocket upgrade on an app host", () => {
   it("does not fire for an ordinary request that merely mentions upgrade", async () => {
     const proxy = await load();
     const res = await proxy(
-      req("openclaw.mso.rahmanef.com", "/chat", { upgrade: "h2c", cookie: `session=${session()}` }),
+      req("openclaw.mso.example.com", "/chat", { upgrade: "h2c", cookie: `session=${session()}` }),
     );
     expect(rewriteOf(res)).toContain("/api/v1/managed-apps/openclaw/proxy");
   });
@@ -145,13 +145,13 @@ describe("per-app upgrade adapters", () => {
   it("never relays the cockpit session cookie into an agent process", async () => {
     // OS_SESSION_COOKIE_DOMAIN widens that cookie to the app hosts, so the browser
     // sends it here. The HTTP path has always stripped it; the upgrade did not.
-    for (const host of ["hermes.mso.rahmanef.com", "openclaw.mso.rahmanef.com"]) {
+    for (const host of ["hermes.mso.example.com", "openclaw.mso.example.com"]) {
       expect((await upstream(host, "/")).header("cookie")).toBeNull();
     }
   });
 
   it("presents Hermes the loopback Host/Origin its rebinding guard demands", async () => {
-    const { rewrite, header } = await upstream("hermes.mso.rahmanef.com", "/api/pty?ticket=t1&channel=c");
+    const { rewrite, header } = await upstream("hermes.mso.example.com", "/api/pty?ticket=t1&channel=c");
     expect(rewrite).toBe("http://127.0.0.1:9119/api/pty?ticket=t1&channel=c");
     // This assertion used to be the exact opposite, on the premise that Hermes binds
     // 0.0.0.0 and accepts any Origin. It binds 127.0.0.1, and FastAPI runs no HTTP
@@ -167,13 +167,13 @@ describe("per-app upgrade adapters", () => {
   });
 
   it("presents OpenClaw the REAL browser origin, so an allowlist entry can match it", async () => {
-    const { rewrite, header } = await upstream("openclaw.mso.rahmanef.com", "/chat");
+    const { rewrite, header } = await upstream("openclaw.mso.example.com", "/chat");
     expect(rewrite).toBe("http://127.0.0.1:18789/chat");
     // Rewriting this to the loopback origin looked like consistency with the HTTP
     // path and was the opposite of a fix: OpenClaw matches its allowedOrigins against
     // the origin AS PRESENTED, so a rewritten one is exactly what would stop the
     // operator adding this host to that list from working.
-    expect(header("origin")).toBe("https://openclaw.mso.rahmanef.com");
+    expect(header("origin")).toBe("https://openclaw.mso.example.com");
   });});
 
 // The Camoufox VNC bridge — noVNC over websockify in front of x11vnc, i.e. live
@@ -184,7 +184,7 @@ describe("per-app upgrade adapters", () => {
 describe("the Camoufox split-origin VNC bridge", () => {
   const SECRET = "y".repeat(48);
   const NOVNC = "http://127.0.0.1:6080";
-  const VIEWER_HOST = "camoufox.mso.rahmanef.com";
+  const VIEWER_HOST = "camoufox.mso.example.com";
 
   function session(secret = SECRET): string {
     const now = Date.now();
@@ -193,7 +193,7 @@ describe("the Camoufox split-origin VNC bridge", () => {
 
   async function load(novnc = NOVNC) {
     vi.stubEnv("OS_SESSION_SECRET", SECRET);
-    vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.rahmanef.com");
+    vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.example.com");
     vi.stubEnv("CAMOUFOX_NOVNC_URL", novnc);
     approved.value = true;
     approved.role = "owner";
@@ -228,7 +228,7 @@ describe("the Camoufox split-origin VNC bridge", () => {
     const target = new URL(rewriteOf(res)!);
     expect(target.origin).toBe(NOVNC);
     expect(target.pathname).toBe("/vnc_lite.html");
-    expect(res.headers.get("content-security-policy")).toContain("frame-ancestors https://mso.rahmanef.com");
+    expect(res.headers.get("content-security-policy")).toContain("frame-ancestors https://mso.example.com");
     expect(res.headers.get("referrer-policy")).toBe("no-referrer");
   });
 
@@ -270,7 +270,7 @@ describe("the Camoufox split-origin VNC bridge", () => {
 
   it("never exposes the old same-origin cockpit bridge", async () => {
     const proxy = await load();
-    const res = await proxy(req("mso.rahmanef.com", "/camoufox-vnc/vnc.html", { cookie: `session=${session()}` }));
+    const res = await proxy(req("mso.example.com", "/camoufox-vnc/vnc.html", { cookie: `session=${session()}` }));
     expect(res.status).toBe(404);
     expect(rewriteOf(res)).toBeNull();
   });

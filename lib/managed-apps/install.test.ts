@@ -72,10 +72,10 @@ describe("install job options", () => {
     // allowlist, which reads as a broken dashboard on a gateway that is fine.
     // origin.ts reads the template at module load, so this needs a fresh graph.
     vi.resetModules();
-    vi.stubEnv("NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE", "{id}.mso.rahmanef.com");
+    vi.stubEnv("NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE", "{id}.mso.example.com");
     const fresh = await import("./install");
     await fresh.startInstall("openclaw");
-    expect(started().env?.MSO_INSTALL_APP_ORIGIN).toBe("https://openclaw.mso.rahmanef.com");
+    expect(started().env?.MSO_INSTALL_APP_ORIGIN).toBe("https://openclaw.mso.example.com");
     vi.unstubAllEnvs();
   });
 

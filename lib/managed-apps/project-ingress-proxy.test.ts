@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const TEMPLATE = "{id}.mso.rahmanef.com";
+const TEMPLATE = "{id}.mso.example.com";
 const ROUTES = JSON.stringify([{
   app: "hermes", method: "POST", path: "/webhooks/project-example",
   target: "http://127.0.0.1:8644/webhooks/project-example", auth: "hmac-v2-json",
@@ -15,10 +15,10 @@ async function loadProxy(ingress = "") {
 }
 
 function req(path: string, signature = "a".repeat(64)) {
-  return new NextRequest(`https://hermes.mso.rahmanef.com${path}`, {
+  return new NextRequest(`https://hermes.mso.example.com${path}`, {
     method: "POST",
     headers: {
-      host: "hermes.mso.rahmanef.com",
+      host: "hermes.mso.example.com",
       "sec-fetch-site": "cross-site",
       "content-type": "application/json",
       "x-webhook-timestamp": String(Math.floor(Date.now() / 1000)),
