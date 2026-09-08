@@ -6,9 +6,10 @@ import type { AppDescriptor } from "@/features/appshell";
 export const filesManagerApp: AppDescriptor = {
   id: "files-manager",
   title: "Files",
+  shellTitles: { macos: "Finder", windows: "File Explorer" },
   icon: FolderOpen,
   gradient: "linear-gradient(160deg,#3b9bff,#2f6fe0)",
   load: () => import("./app"),
-  defaultSize: { w: 760, h: 520 },
+  defaultSize: { w: 960, h: 620 },
   multi: true,
 };

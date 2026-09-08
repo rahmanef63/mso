@@ -55,10 +55,12 @@ function ChoiceCard({
 }
 
 function WallpaperPreview({ wallpaper, custom }: { wallpaper: Wallpaper; custom: ImageValue | null }) {
+  const { id, surface } = useActiveShell();
+  const preset = wallpaper === "auto" ? shellsForSurface(surface).find((shell) => shell.id === id)?.wallpaper ?? "aurora" : wallpaper;
   if (custom) {
-    return <span className="block h-16 rounded-xl bg-cover bg-center ring-1 ring-border" style={imageStyle(custom)} />;
+    return <span className="block h-16 w-28 shrink-0 rounded-xl bg-cover bg-center ring-1 ring-border" style={imageStyle(custom)} />;
   }
-  return <span className={cn("block h-16 rounded-xl ring-1 ring-border", `wp-${wallpaper}`)} />;
+  return <span className={cn("block h-16 w-28 shrink-0 rounded-xl ring-1 ring-border", `wp-${preset}`)} />;
 }
 
 export function AppearanceSection() {

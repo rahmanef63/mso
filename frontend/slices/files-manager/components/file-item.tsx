@@ -3,6 +3,7 @@
 import { createElement, type DragEvent, type MouseEvent, useState } from "react";
 import { Folder } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useActiveShell } from "@/features/appshell";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { rawUrl, type FsEntry } from "../lib/host";
@@ -76,7 +77,8 @@ export function FileItem({
   onDragLeave: () => void;
   onDrop: (e: DragEvent) => void;
 }) {
-  const color = colorFor(entry);
+  const windows = useActiveShell().id === "windows";
+  const color = entry.kind === "dir" ? (windows ? "text-warning" : "text-info") : colorFor(entry);
   const isMobile = useIsMobile();
   const [thumbFail, setThumbFail] = useState(false);
   // Touch has no double-click — on phones a single tap selects AND opens
@@ -104,6 +106,7 @@ export function FileItem({
       <button
         draggable
         data-name={entry.name}
+        aria-pressed={selected}
         onDragStart={onDragStart}
         {...dropProps}
         onClick={onTap}
@@ -112,7 +115,7 @@ export function FileItem({
         {...touchProps}
         className={cn(
           "flex h-auto w-full flex-col items-center gap-1.5 rounded-lg p-3 text-center transition-colors",
-          selected ? "bg-primary text-primary-foreground" : "hover:bg-accent",
+          selected ? "bg-primary/10 text-foreground ring-1 ring-inset ring-primary/25" : "hover:bg-accent",
           cut && "opacity-50",
           dropActive && "ring-2 ring-primary ring-inset",
         )}
@@ -140,7 +143,7 @@ export function FileItem({
               "size-12 shrink-0 fill-current drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)] transition-transform",
               // Folders use the fixed system folder-blue (#57b3ff) on every shell
               // (Finder + Files) — a fixed category color, not the user accent.
-              selected ? "" : "text-[#57b3ff]",
+              windows ? "text-warning" : "text-info",
               dropActive && "scale-110",
             )}
           />
@@ -149,7 +152,7 @@ export function FileItem({
           createElement(iconFor(entry), {
             className: cn(
               "size-11 shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.15)] transition-transform",
-              selected ? "" : color,
+              color,
               dropActive && "scale-110",
             ),
           })
@@ -157,7 +160,7 @@ export function FileItem({
         {renaming ? (
           <RenameInput initial={entry.name} onCommit={commit} onCancel={onRenameCancel} centered />
         ) : (
-          <span className="line-clamp-2 w-full text-[11px] font-medium leading-tight break-words whitespace-normal">
+          <span className={cn("line-clamp-2 max-w-full rounded px-1 text-xs leading-snug break-words whitespace-normal", selected && !windows && "bg-primary text-primary-foreground")}>
             {entry.name}
           </span>
         )}
@@ -176,7 +179,7 @@ export function FileItem({
       onContextMenu={onContext}
       {...touchProps}
       className={cn(
-        "grid cursor-default grid-cols-[1fr_92px_96px] items-center gap-2 px-3 py-1.5 text-xs transition-colors @max-[430px]:grid-cols-[1fr_72px] [@media(pointer:coarse)]:min-h-[44px]",
+        "grid cursor-default rounded-sm odd:bg-muted/20 grid-cols-[1fr_92px_96px] items-center gap-2 px-3 py-1.5 text-xs transition-colors @max-[430px]:grid-cols-[1fr_72px] [@media(pointer:coarse)]:min-h-[44px]",
         selected ? "bg-primary text-primary-foreground" : "hover:bg-accent",
         cut && "opacity-50",
         dropActive && "ring-2 ring-primary ring-inset",

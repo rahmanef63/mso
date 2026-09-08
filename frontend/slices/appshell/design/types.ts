@@ -1,7 +1,7 @@
 import type { ShellId } from "../registry/shells";
 
 export type MobileNavigationStyle = "ios" | "android" | "none";
-export type SettingsNavigationStyle = "ios-stack" | "android-stack" | "macos-sidebar" | "windows-tabs" | "dashboard-tabs";
+export type SettingsNavigationStyle = "ios-stack" | "android-stack" | "macos-sidebar" | "windows-sidebar" | "dashboard-tabs";
 export type DialogPresentation = "drawer-bottom" | "drawer-right" | "dialog";
 
 /**

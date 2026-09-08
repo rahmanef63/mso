@@ -20,6 +20,10 @@ export { joinPath, parentPath, baseName } from "@/lib/path";
 
 // Breadcrumb segments for a path, including the synthetic root.
 export function crumbsFor(path: string, root = "mso"): { name: string; path: string }[] {
+  if (path === "~" || path.startsWith("~/")) {
+    const parts = path.slice(2).split("/").filter(Boolean);
+    return [{ name: "Home", path: "~" }, ...parts.map((name, i) => ({ name, path: "~/" + parts.slice(0, i + 1).join("/") }))];
+  }
   const head = { name: root, path: "/" };
   if (path === "/") return [head];
   const parts = path.split("/").filter(Boolean);

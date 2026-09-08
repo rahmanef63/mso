@@ -2,6 +2,7 @@
 
 import { memo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useApp } from "../lib/registry";
 import { useWindow, useFocused } from "../hooks/use-shell";
 import { useWindowDrag } from "../hooks/use-window-drag";
 import {
@@ -29,6 +30,7 @@ import type { WinId } from "../lib/types";
 // (drag, 8-way resize, content, snap preview) is shared.
 export const Window = memo(function Window({ id, variant = "macos" }: { id: WinId; variant?: "macos" | "windows" }) {
   const win = useWindow(id);
+  const app = useApp(win?.app ?? "");
   const focused = useFocused() === id;
   const activeSpace = useActiveSpace();
   const groupTopId = useGroupTop(win?.groupId);
@@ -51,14 +53,16 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
   if (win.groupId && groupTopId !== id) return null; // a tab behind the group's active frame
   const preview = zone ? snapRect(zone) : null;
   const isWin = variant === "windows";
+  const title = app && [app.title, ...Object.values(app.shellTitles ?? {})].includes(win.title)
+    ? app.shellTitles?.[variant] ?? app.title : win.title;
   // Title-bar right-click menu — the window controls, mirroring the traffic
   // lights / caption buttons plus pin.
   const menuItems: MenuItem[] = [
     { label: win.maximized ? "Restore" : "Maximize", icon: win.maximized ? Minimize2 : Maximize2, onClick: () => toggleMaximize(id) },
-    { label: "Minimize", icon: Minus, onClick: beginMinimize, shortcut: "⌘M" },
+    { label: "Minimize", icon: Minus, onClick: beginMinimize, shortcut: isWin ? "Win+↓" : "⌘M" },
     { label: win.pinned ? "Unpin from Top" : "Keep on Top", icon: win.pinned ? PinOff : Pin, onClick: () => togglePin(id) },
     { type: "sep" },
-    { label: "Close", icon: X, onClick: beginClose, shortcut: "⌘W" },
+    { label: "Close", icon: X, onClick: beginClose, shortcut: isWin ? "Ctrl+W" : "⌘W" },
   ];
   const anim =
     phase === "closing"
@@ -80,6 +84,7 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
       <div
         ref={ref}
         data-window
+        data-app={win.app}
         className={cn(
           "win-geo absolute flex flex-col overflow-hidden border border-border bg-card shadow-[var(--shadow-win)]",
           "rounded-[var(--shell-radius-win)]",
@@ -108,7 +113,7 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
             onContextMenu={ctx.open}
           >
             <div className="pointer-events-none flex-1 truncate pl-3 text-[12px] font-medium text-muted-foreground">
-              {win.title}
+              {title}
             </div>
             <WinCaption
               id={id}
@@ -132,7 +137,7 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
               onMaximize={() => toggleMaximize(id)}
             />
             <div className="pointer-events-none flex-1 truncate text-center text-[13px] font-semibold text-muted-foreground">
-              {win.title}
+              {title}
             </div>
             <div className="min-w-[54px]" />
           </div>

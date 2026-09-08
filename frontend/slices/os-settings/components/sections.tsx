@@ -112,7 +112,7 @@ export function SectionDetail({
     <ScrollArea className="h-full">
       <div
         data-slot="settings-pane"
-        className="mx-auto min-w-0 max-w-3xl space-y-4 overflow-x-hidden p-3 pb-[max(1rem,var(--sai-bottom,0px))] sm:space-y-5 sm:p-5"
+        className={cn("mx-auto min-w-0 max-w-3xl space-y-4 overflow-x-hidden p-3 pb-[max(1rem,var(--sai-bottom,0px))] sm:space-y-5 sm:p-5", shellId === "windows" && "sm:px-7 sm:pt-7")}
       >
         {showHeading && meta && (
           <header className="space-y-0.5">
@@ -120,8 +120,8 @@ export function SectionDetail({
               className={cn(
                 "leading-tight",
                 shellId === "macos"
-                  ? "text-[22px] font-bold tracking-tight"
-                  : "text-sm font-semibold",
+                  ? "text-xl font-semibold tracking-tight"
+                  : shellId === "windows" ? "text-[28px] font-semibold tracking-tight" : "text-sm font-semibold",
               )}
             >
               {meta.label}

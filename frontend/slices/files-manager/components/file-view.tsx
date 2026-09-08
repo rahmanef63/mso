@@ -18,6 +18,7 @@ const LIST_ROW_HEIGHT = 28;
 
 export function FileView({
   ios,
+  emptyMessage,
   entries,
   view,
   dir,
@@ -32,6 +33,7 @@ export function FileView({
   onRenameCancel,
 }: {
   ios: boolean;
+  emptyMessage?: string;
   entries: FsEntry[];
   view: ViewMode;
   dir: string;
@@ -59,7 +61,7 @@ export function FileView({
         {...bgDrop}
         className={`flex h-full items-center justify-center p-8 text-center text-muted-foreground ${ios ? "text-[15px]" : "text-xs"} ${bgRing}`}
       >
-        {ios ? "No Items" : "Drop files or folders here to upload"}
+        {emptyMessage ?? (ios ? "No Items" : "Drop files or folders here to upload")}
       </div>
     );
   }
@@ -141,7 +143,7 @@ function ListBody({
   });
 
   const header = (
-    <div className="grid grid-cols-[1fr_92px_96px] gap-2 border-b border-border px-3 pb-1.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase @max-[430px]:grid-cols-[1fr_72px]">
+    <div className="grid grid-cols-[1fr_92px_96px] gap-2 border-b border-border bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground @max-[430px]:grid-cols-[1fr_72px]">
       <span>Name</span>
       <span>Size</span>
       <span className="@max-[430px]:hidden">Kind</span>

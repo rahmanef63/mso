@@ -34,7 +34,7 @@ export const SHELL_DESIGN_PROFILES: Record<ShellId, ShellDesignProfile> = {
     family: "fluent",
     density: "compact",
     mobileNavigation: "none",
-    settingsNavigation: "windows-tabs",
+    settingsNavigation: "windows-sidebar",
     dialog: { mobile: "dialog", drawerHeightClass: "", drawerRadiusClass: "" },
     docsPath: "frontend/slices/appshell/design/windows/design.md",
   },

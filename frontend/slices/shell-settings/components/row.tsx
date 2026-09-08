@@ -20,13 +20,13 @@ export function SettingsRow({
     <div
       data-slot="settings-row"
       className={cn(
-        "relative flex min-h-[46px] flex-col gap-2 px-4 py-[11px] sm:flex-row sm:items-center sm:justify-between",
+        "relative flex min-h-[46px] flex-col gap-2 px-4 py-[11px] @min-[600px]:flex-row @min-[600px]:items-center @min-[600px]:justify-between",
         "after:absolute after:inset-x-0 after:bottom-0 after:left-4 after:h-px after:bg-border/60 last:after:hidden",
         className,
       )}
     >
       <span data-slot="settings-row-label" className="text-sm text-foreground">{label}</span>
-      <div className="min-w-0 w-full sm:w-auto sm:shrink-0">{children}</div>
+      <div className="min-w-0 w-full @min-[600px]:w-auto @min-[600px]:shrink-0">{children}</div>
     </div>
   );
 }

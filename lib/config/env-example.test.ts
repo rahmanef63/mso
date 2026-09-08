@@ -43,6 +43,9 @@ const NOT_A_KNOB: Record<string, string> = {
   WATCHDOG_USEC: "systemd's",
   // Test + tooling only, never part of a deployment.
   E2E_BASE_URL: "test harness",
+  MSO_SCREENSHOT_DIR: "injected per-session artifact staging path for browser tooling; never persistent app configuration",
+  E2E_DEMO: "desktop browser harness only: preview has no authentication; never production configuration",
+  E2E_CAPTURE_ONLY: "desktop browser harness only: capture baseline before native behavior assertions",
   CHROME_PATH: "MCP Page browser contract harness executable override, not production configuration",
   E2E_PASSWORD: "test harness",
   E2E_DEVICE: "test harness",

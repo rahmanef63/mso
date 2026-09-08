@@ -6,8 +6,9 @@ import type { AppDescriptor } from "@/features/appshell";
 export const osSettingsApp: AppDescriptor = {
   id: "os-settings",
   title: "Settings",
+  shellTitles: { macos: "System Settings", windows: "Settings" },
   icon: Settings,
   gradient: "linear-gradient(160deg,#8a8f99,#5b6068)",
   load: () => import("./app"),
-  defaultSize: { w: 840, h: 600 },
+  defaultSize: { w: 960, h: 660 },
 };

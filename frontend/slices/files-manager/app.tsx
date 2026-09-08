@@ -101,7 +101,8 @@ export default function FilesManager({ payload }: AppProps) {
       <AppSidebar
         open={sidebarOpen}
         onOpenChange={setSidebarOpen}
-        title="Files"
+        title={shellId === "macos" ? "Finder" : shellId === "windows" ? "File Explorer" : "Files"}
+        railClassName={shellId === "macos" ? "w-48 bg-sidebar/65" : "w-52 bg-background"}
         description="Browse favorites, the file tree, and storage."
       >
         <FilesSidebar
@@ -163,6 +164,7 @@ export default function FilesManager({ payload }: AppProps) {
           ) : (
             <FileView
               ios={shellId === "ios"}
+              emptyMessage={query.trim() ? "No matching files" : undefined}
               entries={visible}
               view={view}
               dir={fs.path}

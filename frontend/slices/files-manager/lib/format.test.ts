@@ -98,6 +98,10 @@ describe("parentPath", () => {
 });
 
 describe("crumbsFor", () => {
+  it("preserves home-relative navigation instead of inventing /~", () => {
+    expect(crumbsFor("~")).toEqual([{ name: "Home", path: "~" }]);
+    expect(crumbsFor("~/projects/app")).toEqual([{ name: "Home", path: "~" }, { name: "projects", path: "~/projects" }, { name: "app", path: "~/projects/app" }]);
+  });
   it("root path → single crumb [root]", () => {
     expect(crumbsFor("/")).toEqual([{ name: "mso", path: "/" }]);
   });

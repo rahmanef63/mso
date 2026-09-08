@@ -25,7 +25,7 @@ describe("shell design profiles", () => {
     expect(SHELL_DESIGN_PROFILES.ios.settingsNavigation).toBe("ios-stack");
     expect(SHELL_DESIGN_PROFILES.android.settingsNavigation).toBe("android-stack");
     expect(SHELL_DESIGN_PROFILES.macos.settingsNavigation).toBe("macos-sidebar");
-    expect(SHELL_DESIGN_PROFILES.windows.settingsNavigation).toBe("windows-tabs");
+    expect(SHELL_DESIGN_PROFILES.windows.settingsNavigation).toBe("windows-sidebar");
     expect(SHELL_DESIGN_PROFILES.dashboard.settingsNavigation).toBe("dashboard-tabs");
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { useActiveShell } from "../registry/shells";
 import type { AppDescriptor } from "./types";
 
 // Apps are injected by the app layer, not imported by os-shell (open/closed).
@@ -21,7 +22,8 @@ export function AppRegistryProvider({
 
 export function useApps(): AppDescriptor[] {
   const map = useContext(RegistryContext);
-  return useMemo(() => Array.from(map.values()), [map]);
+  const { id } = useActiveShell();
+  return useMemo(() => Array.from(map.values(), (app) => ({ ...app, title: (id === "macos" || id === "windows" ? app.shellTitles?.[id] : undefined) ?? app.title })), [map, id]);
 }
 
 export function useApp(id: string): AppDescriptor | undefined {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { openWindow, saveAs, toast } from "@/features/appshell";
+import { inEditable, useActiveShell, openWindow, saveAs, toast } from "@/features/appshell";
 import { rawUrl, zipUrl, type FsEntry } from "../lib/host";
 import { appForFile, mediaKind } from "../lib/icons";
 import { joinPath, parentPath } from "../lib/format";
@@ -13,6 +13,7 @@ import type { ContextState } from "../lib/types";
 // + selection. Keeps app.tsx focused on layout. `del` moves to Trash from a
 // normal dir but hard-deletes (with confirm) when already inside Trash.
 export function useFileCommands(fs: UseFiles, sel: UseFileSelection) {
+  const windows = useActiveShell().id === "windows";
   const [renaming, setRenaming] = useState<string | null>(null);
   const [ctx, setCtx] = useState<ContextState | null>(null);
   // Pending zip awaiting the exclude-heavy-dirs dialog (folder/multi-dir only).
@@ -96,13 +97,7 @@ export function useFileCommands(fs: UseFiles, sel: UseFileSelection) {
   const cut = useCallback((names: string[]) => fs.setClip({ mode: "cut", names, from: fs.path }), [fs]);
   const copy = useCallback((names: string[]) => fs.setClip({ mode: "copy", names, from: fs.path }), [fs]);
 
-  // Download via a hidden <a download> — the browser's native download manager
-  // owns the progress (streaming bytes through JS just to draw a bar would buffer
-  // it all in RAM). One plain file → its raw bytes; pure multi-file → a streamed
-  // zip straight away; anything containing a FOLDER → open the exclude dialog first
-  // (heavy dirs like node_modules can dwarf the archive). All routes are cookie-
-  // authed same-origin. A toast acknowledges the start (the click is fire-and-forget
-  // — no completion event from <a download>).
+  // Native downloads stream directly; folder selections first confirm zip exclusions.
   const download = useCallback(
     (names: string[]) => {
       const items = names.filter(Boolean);
@@ -181,7 +176,7 @@ export function useFileCommands(fs: UseFiles, sel: UseFileSelection) {
 
   const onKey = useCallback(
     (e: KeyboardEvent) => {
-      if (renaming) return;
+      if (renaming || inEditable(e.target) || (e.target as HTMLElement).closest("button:not([data-name])")) return;
       const mod = e.metaKey || e.ctrlKey;
       const names = [...sel.selected];
       if (mod && e.key === "a") {
@@ -190,7 +185,12 @@ export function useFileCommands(fs: UseFiles, sel: UseFileSelection) {
       } else if (mod && e.key === "c" && names.length) copy(names);
       else if (mod && e.key === "x" && names.length) cut(names);
       else if (mod && e.key === "v") fs.paste();
-      else if (e.key === "Enter" && names.length === 1) setRenaming(names[0]);
+      else if ((e.key === "F2" || (!windows && e.key === "Enter")) && names.length === 1) { e.preventDefault(); setRenaming(names[0]); }
+      else if (windows && e.key === "Enter" && names.length === 1) {
+        e.preventDefault();
+        const entry = fs.entries?.find((x) => x.name === names[0]);
+        if (entry) open(entry);
+      }
       else if (e.key === " " && names.length === 1) {
         // Quick Look, the macOS binding — and the one the context menu advertises.
         // preventDefault or the space scrolls the list under the window.
@@ -198,6 +198,7 @@ export function useFileCommands(fs: UseFiles, sel: UseFileSelection) {
         const entry = fs.entries?.find((x) => x.name === names[0]);
         if (entry) preview(entry);
       }
+      else if (windows && e.key === "Backspace") { e.preventDefault(); fs.goBack(); sel.clear(); }
       else if ((e.key === "Backspace" || e.key === "Delete") && names.length) {
         e.preventDefault();
         del(names);
@@ -206,7 +207,7 @@ export function useFileCommands(fs: UseFiles, sel: UseFileSelection) {
         fs.setClip(null);
       }
     },
-    [copy, cut, del, fs, preview, renaming, sel],
+    [copy, cut, del, fs, open, preview, renaming, sel, windows],
   );
 
   return {

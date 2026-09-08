@@ -1,5 +1,6 @@
 "use client";
 
+import { useActiveShell } from "@/features/appshell";
 import { Search, X } from "lucide-react";
 import { FilesToolbar } from "./files-toolbar";
 import { UploadBar } from "./upload-bar";
@@ -41,6 +42,9 @@ export function FilesHeader({
       <FilesToolbar
         ios={ios}
         path={fs.path}
+        query={query}
+        onQuery={setQuery}
+        onRefresh={fs.refresh}
         canBack={fs.canBack}
         canForward={fs.canForward}
         view={view}
@@ -65,7 +69,7 @@ export function FilesHeader({
         searchOpen={searchOpen}
         onToggleSearch={onToggleSearch}
       />
-      {searchOpen && (
+      {ios && searchOpen && (
         <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
           <Search className="size-3.5 shrink-0 text-muted-foreground" />
           <input
@@ -110,15 +114,16 @@ export function FilesFooter({
   orderedLen: number | null;
   selectedCount: number;
 }) {
+  const { id: shell } = useActiveShell();
   return (
     <>
-      {!isMobile && <FileDetails entry={selectedEntry} dir={fs.path} />}
+      {!isMobile && selectedEntry && <FileDetails entry={selectedEntry} dir={fs.path} />}
       <div className="flex items-center gap-3 px-3 pt-1.5 text-[11px] text-muted-foreground [padding-bottom:calc(0.375rem+var(--sai-bottom))]">
         <span>{orderedLen !== null ? `${orderedLen} items` : "—"}</span>
         {selectedCount > 0 && <span>{selectedCount} selected</span>}
         {fs.clip && (
           <span className="ml-auto">
-            {fs.clip.names.length} {fs.clip.mode === "cut" ? "cut" : "copied"} — ⌘V to paste
+            {fs.clip.names.length} {fs.clip.mode === "cut" ? "cut" : "copied"} — {shell === "windows" ? "Ctrl" : "⌘"}V to paste
           </span>
         )}
       </div>

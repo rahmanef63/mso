@@ -1,3 +1,4 @@
+import { useActiveShell } from "@/features/appshell";
 import { type DragEvent } from "react";
 import {
   Home, Star, Image as ImageIcon, FolderOpen, FileText, Download, HardDrive,
@@ -48,13 +49,15 @@ export function FilesSidebar({
 }) {
   // Favorites come from the host's real roots (Home/Projects/Filesystem live,
   // mock shortcuts in mock mode) — never hardcoded mock paths.
+  const { id } = useActiveShell();
+  const windows = id === "windows";
   const favorites = roots.length ? roots : [{ label: "Home", path: "~" }];
   const ratio = usage && usage.total > 0 ? usage.used / usage.total : 0;
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-3 pt-3 pb-1 text-[11px] font-semibold text-muted-foreground">
-        <Star className="size-3.5" />
-        <span>Favorites</span>
+        {windows && <Star className="size-3.5" />}
+        <span>{windows ? "Quick access" : "Favorites"}</span>
       </div>
       <nav className="flex flex-col gap-0.5 p-2">
         {favorites.map((fav) => {
@@ -71,13 +74,12 @@ export function FilesSidebar({
               onDragLeave={() => onDragLeave(fav.path)}
               onDrop={(e) => onDrop(e, fav.path)}
               className={cn(
-                "h-8 justify-start gap-2 px-2 text-xs font-medium [@media(pointer:coarse)]:min-h-[44px]",
-                isActive &&
-                  "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                "h-8 justify-start gap-2 rounded-md px-2 text-[13px] font-normal [@media(pointer:coarse)]:min-h-[44px]",
+                isActive && (windows ? "bg-accent text-accent-foreground hover:bg-accent" : "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"),
                 isDrop && "ring-2 ring-primary ring-inset",
               )}
             >
-              <Icon className="size-4 shrink-0" />
+              <Icon className={cn("size-4 shrink-0", !isActive && (windows ? "text-warning" : "text-info"))} />
               <span className="truncate">{fav.label}</span>
             </Button>
           );
@@ -99,7 +101,7 @@ export function FilesSidebar({
             )}
           >
             <Trash2 className="size-4 shrink-0" />
-            <span className="truncate">Trash</span>
+            <span className="truncate">{windows ? "Recycle Bin" : "Trash"}</span>
           </Button>
           <Button
             variant="ghost"
@@ -116,11 +118,11 @@ export function FilesSidebar({
       <div className="my-1 h-px bg-border" />
       <FileTree
         rootPath="~"
-        rootLabel="Tree"
+        rootLabel={windows ? "Folders" : "Locations"}
         activePath={path}
         onSelectDir={onNavigate}
         onOpenFile={onOpenFile}
-        className="min-h-0 flex-1"
+        className="min-h-0 flex-1 px-1"
       />
       <div className="space-y-1.5 border-t border-border p-3">
         <p className="text-[10px] font-semibold text-muted-foreground">Storage</p>

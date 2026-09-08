@@ -71,6 +71,8 @@ export type AppDescriptor = {
   /** URL slug for deep-linking (`/files`); falls back to `id` when unset. */
   slug?: string;
   title: string;
+  /** Optional native app names; ids, routes and window state remain shared. */
+  shellTitles?: Partial<Record<"macos" | "windows", string>>;
   /** Any glyph component taking the props <AppIcon> passes. A LucideIcon satisfies
    *  it; so does a hand-written mark, which is how apps that wrap a THIRD-PARTY
    *  product (Hermes, OpenClaw, Camoufox) show that product's own logo instead of

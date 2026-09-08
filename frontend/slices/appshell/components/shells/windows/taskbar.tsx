@@ -71,9 +71,10 @@ export function Taskbar({ onTaskView }: { onTaskView?: () => void }) {
             </Button>
           )}
           {pinnedApps.length > 0 && <span className="mx-1 h-6 w-px bg-border" />}
-          {pinnedApps.map((app) => (
-            <PinnedApp key={app.id} app={app} running={runningApps.has(app.id)} />
-          ))}
+          {pinnedApps.map((app) => {
+            const front = Object.values(wins).filter((w) => w.app === app.id).sort((a, b) => b.z - a.z)[0];
+            return front ? <TaskButton key={app.id} id={front.id} compact /> : <PinnedApp key={app.id} app={app} running={runningApps.has(app.id)} />;
+          })}
           {order.filter((id) => !pinnedIds.has(wins[id]?.app)).map((id) => (
             <TaskButton key={id} id={id} />
           ))}
@@ -144,7 +145,7 @@ function PinnedApp({ app, running }: { app: AppDescriptor; running: boolean }) {
   );
 }
 
-function TaskButton({ id }: { id: string }) {
+function TaskButton({ id, compact = false }: { id: string; compact?: boolean }) {
   const win = useWindow(id);
   const focused = useFocused() === id;
   const apps = useApps();
@@ -163,7 +164,8 @@ function TaskButton({ id }: { id: string }) {
         <Button type="button" variant="ghost"
           onClick={onClick}
           onContextMenu={menu.open}
-          title={win.title}
+          title={app?.title ?? win.title}
+          aria-label={app?.title ?? win.title}
           className={cn(`h-auto p-0 font-normal hover:bg-transparent relative flex h-10 items-center gap-2 rounded-md px-2 hover:bg-muted ${active ? "bg-muted" : ""}`)}
         >
           {app && (
@@ -171,7 +173,7 @@ function TaskButton({ id }: { id: string }) {
               <AppIcon app={app} />
             </span>
           )}
-          <span className="max-w-[120px] truncate text-xs">{win.title}</span>
+          {!compact && <span className="max-w-[120px] truncate text-xs">{win.title}</span>}
           <span
             className={cn(`absolute bottom-[1px] left-1/2 h-[2px] -translate-x-1/2 rounded-full bg-primary transition-all ${active ? "w-5" : "w-2 opacity-60"}`)}
           />
@@ -191,6 +193,7 @@ function TaskButton({ id }: { id: string }) {
         pos={menu.pos}
         onClose={menu.close}
         items={[
+          ...(app?.multi ? [{ label: "New window", onClick: () => openWindow(app.id, app.title, app.defaultSize, undefined, { multi: true }) }] : []),
           { label: win.minimized ? "Restore" : "Focus", icon: ArrowUpRight, onClick: () => (win.minimized ? restoreWindow(id) : focusWindow(id)) },
           { label: "Minimize", icon: Minimize2, disabled: win.minimized, onClick: () => minimizeWindow(id) },
           { type: "sep" },

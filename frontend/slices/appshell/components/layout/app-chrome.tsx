@@ -13,6 +13,7 @@
 
 import { type ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { useContainer } from "../../responsive/use-container";
 import { useIsMobile } from "../../responsive/use-is-mobile";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ function SideRegion({
   onOpenChange,
   side,
   railOpen,
+  compact,
   title,
   description,
   railBase,
@@ -48,6 +50,7 @@ function SideRegion({
   onOpenChange: (open: boolean) => void;
   side: "left" | "right";
   railOpen: boolean;
+  compact: boolean;
   title: string;
   description?: string;
   railBase: string;
@@ -57,7 +60,7 @@ function SideRegion({
   children: ReactNode;
 }) {
   const isMobile = useIsMobile();
-  if (isMobile) {
+  if (isMobile || compact) {
     return (
       <MobileSideRegion
         open={open}
@@ -97,12 +100,16 @@ export function AppSidebar({
   sheetClassName?: string;
   children: ReactNode;
 }) {
+  const [measureRef, pane] = useContainer<HTMLDivElement>();
   return (
+    <>
+    <div ref={measureRef} aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0" />
     <SideRegion
       open={open}
       onOpenChange={onOpenChange}
       side="left"
       railOpen={railOpen}
+      compact={pane === "xs" || pane === "sm"}
       title={title}
       description={description}
       railBase="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar"
@@ -112,5 +119,6 @@ export function AppSidebar({
     >
       {children}
     </SideRegion>
+    </>
   );
 }
