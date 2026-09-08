@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `portability` allow configured auth query
 - `portability` derive instance MCP context
 - `integrations` verify self-hosted Convex admin keys
 

@@ -44,6 +44,16 @@ function safePath(value: unknown): string | null {
   } catch { return null; }
 }
 
+
+function safeAuthPath(value: unknown): string | null {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.length > 768 || /[\\\u0000-\u001f]/.test(value)) return null;
+  try {
+    const url = new URL(value, "https://surface.invalid");
+    if (url.origin !== "https://surface.invalid" || url.username || url.password || url.hash || url.pathname.split("/").some((part) => part === "." || part === "..")) return null;
+    return `${url.pathname}${url.search}`;
+  } catch { return null; }
+}
+
 function boundedText(value: unknown, required = false): string | undefined {
   if (typeof value !== "string") return required ? undefined : "";
   const result = value.trim();
@@ -61,7 +71,7 @@ function parseApp(entry: unknown, seen: Set<string>): SurfaceApp | null {
   if (!PRESENTATIONS.has(presentation as SurfacePresentation) || !ENVIRONMENTS.has(environment as SurfaceEnvironment)) return null;
   const sandbox = typeof row.sandbox === "string" ? row.sandbox.trim() : undefined;
   if (sandbox && (sandbox.length > 240 || !sandbox.split(/\s+/).every((token) => SAFE_SANDBOX.has(token)))) return null;
-  const externalAuthPath = row.externalAuthPath === undefined ? undefined : safePath(row.externalAuthPath);
+  const externalAuthPath = row.externalAuthPath === undefined ? undefined : safeAuthPath(row.externalAuthPath);
   if (row.externalAuthPath !== undefined && !externalAuthPath) return null;
   seen.add(id);
   const reason = boundedText(row.reason);

@@ -6,7 +6,7 @@ import { OPEN_IN_MSO_SCRIPT } from "./ui-navigation";
 const configured = [{
   id: "demo", title: "Demo", description: "Configured demo", origin: "https://demo.example.test",
   startPath: "/embed", renderer: "iframe", presentation: "inline", environment: "production",
-  sandbox: "allow-scripts allow-same-origin",
+  sandbox: "allow-scripts allow-same-origin", externalAuthPath: "/?auth=google",
 }];
 
 describe("MSO Page trusted app catalog", () => {
@@ -19,6 +19,8 @@ describe("MSO Page trusted app catalog", () => {
     expect(apps).toHaveLength(1);
     expect(apps[0]).toMatchObject({ id: "demo", title: "Demo", origin: "https://demo.example.test", startPath: "/embed", renderer: "iframe", presentation: "inline", environment: "production" });
     expect(JSON.stringify(apps)).not.toContain("sandbox");
+    expect(JSON.stringify(apps)).not.toContain("externalAuthPath");
+    expect(resolveSurfaceRoute("/apps/demo").app?.externalAuthPath).toBe("/?auth=google");
   });
 
   it("rejects arbitrary URLs, protocol-relative routes and traversal", () => {
