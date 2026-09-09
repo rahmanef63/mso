@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# verify-build.sh — prove HEAD actually compiles, WITHOUT touching the .next that the
-# live :4005 service is serving from.
+# verify-build.sh — prove HEAD actually compiles and passes mandatory release E2E,
+# WITHOUT touching the .next that the live :4005 service is serving from.
 #
 # Why not simply run `next build` here, and why the pre-push hook keeps `--skip build`:
 # the build's FIRST act is to delete everything in distDir except /^(cache|dev|lock)/
@@ -33,19 +33,36 @@ mkdir "$TMP/node_modules"
 cp -a "$REPO/node_modules/." "$TMP/node_modules/"
 
 cd "$TMP"
-# nice/ionice: this box also serves prod. A build gate must not starve :4005.
 MSO_VERIFY_BUILD_LOG="$TMP/build-output.log"
-nice -n 15 ionice -c2 -n7 node node_modules/.bin/next build 2>&1 | tee "$MSO_VERIFY_BUILD_LOG"
+
+echo "== verify 1/3: isolated Next build"
+# nice/ionice: this box also serves prod. A build gate must not starve :4005.
+if ! nice -n 15 ionice -c2 -n7 node node_modules/.bin/next build 2>&1 | tee "$MSO_VERIFY_BUILD_LOG"; then
+  echo "verification failed during isolated compile/build" >&2
+  exit 40
+fi
 if grep -Ei "(^|[[:space:]])warnings?[: ]|⚠" "$MSO_VERIFY_BUILD_LOG"; then
-  echo "build: warnings are a release failure; resolve their source before shipping" >&2
-  exit 1
+  echo "verification failed: build warnings are a release failure; resolve their source before shipping" >&2
+  exit 41
 fi
 
+echo "== verify 2/3: Playwright Chromium runtime"
+if ! node scripts/ensure-playwright-browser.mjs; then
+  echo "verification failed while preparing the browser required by release E2E" >&2
+  exit 42
+fi
+
+echo "== verify 3/3: mandatory release E2E"
 # Reuse this exact built tree for mandatory browser journeys; synthetic stores only.
-node scripts/e2e/release.mjs
+if ! node scripts/e2e/release.mjs; then
+  echo "verification failed during mandatory release E2E" >&2
+  exit 43
+fi
 
 # Optional deeper media/native acceptance, using the same isolated built tree.
 if [ "${1:-}" = "--extended" ]; then
+  echo "== verify extended: desktop native acceptance"
   node scripts/e2e/desktop-native.mjs
+  echo "== verify extended: preview acceptance"
   node scripts/e2e/preview.mjs
 fi

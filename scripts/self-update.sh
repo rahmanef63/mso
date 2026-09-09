@@ -93,12 +93,14 @@ if [ "$SHIP_FINALIZE" -eq 1 ]; then
   [ "$(git rev-parse HEAD)" = "$EXPECTED_SHA" ] && [ -z "$(git status --porcelain)" ] \
     || die "checkout moved before the in-place build"
 else
-  step "verifying the build out-of-tree (this does not touch the live .next)"
-  bash scripts/verify-build.sh >/dev/null || die "HEAD does not compile — nothing was deployed"
+  step "verifying compile + browser release gates out-of-tree (this does not touch the live .next)"
+  if ! bash scripts/verify-build.sh; then
+    die "out-of-tree verification failed at the stage shown above — nothing was deployed"
+  fi
 fi
 
 step "building in place"
-node node_modules/next/dist/bin/next build >/dev/null || die "in-place build failed — check disk space"
+node node_modules/next/dist/bin/next build || die "in-place build failed — check the build output above and disk space"
 
 step "restarting mso.service (same-user signal; no sudo)"
 # mso.service runs as the owner and has Restart=always. Signalling its MainPID is
