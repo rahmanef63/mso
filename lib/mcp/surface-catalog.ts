@@ -1,7 +1,7 @@
 import { configuredSurfaceApps, type SurfaceApp } from "./surface-config";
 export type { SurfaceApp, SurfaceRenderer, SurfacePresentation, SurfaceEnvironment } from "./surface-config";
 
-export function surfaceApps(): readonly SurfaceApp[] {
+export async function surfaceApps(): Promise<readonly SurfaceApp[]> {
   return configuredSurfaceApps();
 }
 
@@ -25,28 +25,28 @@ export type ResolvedSurface = {
   app?: SurfaceApp & { url: string };
 };
 
-export function publicSurfaceApps(): Array<
+export async function publicSurfaceApps(): Promise<Array<
   Omit<SurfaceApp, "sandbox" | "externalAuthPath">
-> {
-  return surfaceApps().map(
+>> {
+  return (await surfaceApps()).map(
     ({ sandbox: _sandbox, externalAuthPath: _externalAuthPath, ...app }) => ({
       ...app,
     }),
   );
 }
 
-export function surfaceFrameDomains(): string[] {
+export async function surfaceFrameDomains(): Promise<string[]> {
   return [
     ...new Set(
-      surfaceApps()
+      (await surfaceApps())
         .filter((app) => app.renderer === "iframe")
         .map((app) => app.origin),
     ),
   ];
 }
 
-export function surfaceAppById(id: string): SurfaceApp | undefined {
-  return surfaceApps().find((app) => app.id === id);
+export async function surfaceAppById(id: string): Promise<SurfaceApp | undefined> {
+  return (await surfaceApps()).find((app) => app.id === id);
 }
 
 function cleanRoute(raw: string): URL {
@@ -86,10 +86,10 @@ function safeDemoUrl(app: SurfaceApp, suffix: string, search: string): string {
   return url.href;
 }
 
-export function resolveSurfaceRoute(
+export async function resolveSurfaceRoute(
   rawRoute: string,
   context?: { project?: string; sha?: string },
-): ResolvedSurface {
+): Promise<ResolvedSurface> {
   const url = cleanRoute(rawRoute);
   const decoded = decodeURIComponent(url.pathname);
   const parts = decoded.split("/").filter(Boolean);
@@ -137,7 +137,7 @@ export function resolveSurfaceRoute(
     };
 
   if (parts[0] === "apps" && parts[1]) {
-    const app = surfaceAppById(parts[1]);
+    const app = await surfaceAppById(parts[1]);
     if (!app) throw new Error(`unknown MSO Page app: ${parts[1]}`);
     const suffix = parts.slice(2).join("/");
     return {

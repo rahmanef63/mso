@@ -46,8 +46,8 @@ function publicResolved(resolved: ResolvedSurface): Record<string, unknown> {
 }
 
 const renderPage = async (input:Record<string,unknown>) => {
-  const resolved=publicResolved(resolveSurfaceRoute(str(input,"route"),{project:opt(input,"project"),sha:opt(input,"sha")}));
-  return {...resolved,catalog:publicSurfaceApps(),...(resolved.kind==="integrations"?{integrations:await integrationSnapshot()}: {})};
+  const resolved=publicResolved(await resolveSurfaceRoute(str(input,"route"),{project:opt(input,"project"),sha:opt(input,"sha")}));
+  return {...resolved,catalog:await publicSurfaceApps(),...(resolved.kind==="integrations"?{integrations:await integrationSnapshot()}: {})};
 };
 
 export const SURFACE_TOOLS: McpTool[] = [
@@ -71,7 +71,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     run: async (input, context) => {
       metadataOnly(safeActionInput(input));
       const grant = await openIntegrationSetup(str(input, "provider"), context.principal ?? context.actor ?? "", opt(input, "method"), selectionFrom(input));
-      const output = { route: "/integrations", kind: "integrations", title: "Integrations", openPath: "/integrations", catalog: publicSurfaceApps(), setup: grant.setup };
+      const output = { route: "/integrations", kind: "integrations", title: "Integrations", openPath: "/integrations", catalog: await publicSurfaceApps(), setup: grant.setup };
       return mcpDirect([{ type: "text", text: `Secure ${grant.setup.title} setup opened. Enter the credential in the form, never in chat.` }], false, output,
         { integrationSetup: { token: grant.token, endpoint: `${MSO_ORIGIN}/api/integrations/setup` } });
     },
@@ -84,7 +84,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     scope: "read", annotations: READ_ONLY,
     inputSchema: S({}),
     outputSchema: { type: "object", properties: { apps: { type: "array", items: APP_SCHEMA } }, required: ["apps"], additionalProperties: false },
-    run: async () => ({ apps: publicSurfaceApps() }),
+    run: async () => ({ apps: await publicSurfaceApps() }),
   },
   {
     name: "render_mso_page",

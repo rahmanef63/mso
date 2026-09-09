@@ -34,13 +34,13 @@ describe("portable public MCP configuration", () => {
   it("has no external app or frame CSP without explicit configuration", async () => {
     vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.example.test");
     const catalog = await import("./surface-catalog");
-    expect(catalog.publicSurfaceApps()).toEqual([]);
-    expect(catalog.surfaceFrameDomains()).toEqual([]);
+    expect(await catalog.publicSurfaceApps()).toEqual([]);
+    expect(await catalog.surfaceFrameDomains()).toEqual([]);
     const config = await import("./ui-config");
     expect(
       JSON.stringify({
         metadataBase: config.MSO_ORIGIN,
-        apps: catalog.publicSurfaceApps(),
+        apps: await catalog.publicSurfaceApps(),
         meta: config.widgetResourceMeta("test"),
       }),
     ).not.toMatch(/rahmanef\.com|\/home\/rahman/);
@@ -82,16 +82,16 @@ describe("portable public MCP configuration", () => {
       ]),
     );
     const catalog = await import("./surface-catalog");
-    expect(catalog.publicSurfaceApps()).toEqual([
+    expect(await catalog.publicSurfaceApps()).toEqual([
       expect.objectContaining({
         id: "demo",
         origin: "https://demo.example.test",
       }),
     ]);
-    expect(catalog.surfaceFrameDomains()).toEqual([
+    expect(await catalog.surfaceFrameDomains()).toEqual([
       "https://demo.example.test",
     ]);
-    expect(catalog.resolveSurfaceRoute("/apps/demo").app?.url).toBe(
+    expect((await catalog.resolveSurfaceRoute("/apps/demo")).app?.url).toBe(
       "https://demo.example.test/embed",
     );
   });
@@ -111,9 +111,9 @@ describe("two independent instance presentations", () => {
       }]));
       const { readUiResource, MSO_PAGE_URI } = await import("./ui-resources");
       const { publicSurfaceApps, surfaceFrameDomains } = await import("./surface-catalog");
-      expect(publicSurfaceApps().map(app => app.id)).toEqual([id]);
-      expect(surfaceFrameDomains()).toEqual([`https://app.${id}.example.test`]);
-      const serialized = JSON.stringify(readUiResource(MSO_PAGE_URI));
+      expect((await publicSurfaceApps()).map(app => app.id)).toEqual([id]);
+      expect(await surfaceFrameDomains()).toEqual([`https://app.${id}.example.test`]);
+      const serialized = JSON.stringify(await readUiResource(MSO_PAGE_URI));
       expect(serialized).toContain(`widgets.${id}.example.test`);
       expect(serialized).toContain(`mso.${id}.example.test`);
       outputs.push(serialized);

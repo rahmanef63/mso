@@ -123,7 +123,7 @@ MSO exposes exactly two user-visible MCP App classes instead:
 - `render_mso_block` binds `ui://mso/block-v2.html` for compact validation, action buttons, and
   CRUD input-output. A button returns a user-approved follow-up message; it does not execute a
   mutation inside the widget, so ordinary scope, approval, audit, and workflow rules still apply.
-- `render_mso_page` binds the canonical `ui://mso/page-v11.html` resource for native `/`, `/monitor`, `/project`, `/diff`,
+- `render_mso_page` binds the canonical `ui://mso/page-v12.html` resource for native `/`, `/monitor`, `/project`, `/diff`,
   `/browser`, and `/apps/<reviewed-id>` views. Native Page views call the same bounded MSO tools.
 
 `workflow_start` is orchestration-only and headless: it still owns workflow isolation, skill/recipe
@@ -133,7 +133,7 @@ lookup, collision detection, tracing, evidence, and learning, but no longer bind
 widgets; prior Block/Page URIs plus the previous workflow/surface resource URIs remain readable aliases but are not advertised. Page tools use the standard MCP Apps `ui.resourceUri` binding only; the legacy ChatGPT `openai/outputTemplate` alias is intentionally absent so one tool result maps to one Page mount.
 
 Reviewed Page apps may use a nested iframe only when their exact HTTPS origin exists in the
-validated per-installation `MSO_SURFACE_APPS_JSON` catalog and the MCP resource CSP `frameDomains`;
+validated owner-local Page registry (`~/.mso/surface-apps.json`, or explicit `MSO_SURFACE_APPS_JSON` override) and the MCP resource CSP `frameDomains`;
 portable source defaults to no external Page apps. Anti-frame apps stay on the remote-browser seam.
 This trust catalog is deliberately separate from Store/runtime `AppManifest` data. A locally installed `runtime:"html"` app or HTML widget is user-controlled presentation data
 and cannot grant itself a ChatGPT nested-frame origin. `srcDoc` HTML remains opaque-origin
@@ -286,4 +286,4 @@ future archaeology task.
 
 ### ChatGPT MSO Page trust boundary
 
-Each MSO connector/server scope owns its own Page app catalog. Core MSO Page code must not import project identities or trusted frame origins from another server scope. Portable source ships with an empty external-app catalog. An installation may opt into reviewed apps through bounded `MSO_SURFACE_APPS_JSON`; MSO validates each exact HTTPS origin, approved start-path prefix, renderer, sandbox, and presentation before it can enter Page CSP. The dedicated widget origin is installation-derived from `OS_MCP_UI_ORIGIN` / `OS_PUBLIC_ORIGIN`. The Block resource has no frame domains.
+Each MSO connector/server scope owns its own Page app catalog. Core MSO Page code must not import project identities or trusted frame origins from another server scope. Portable source ships with an empty external-app catalog. An installation may opt into reviewed apps through the bounded owner-local `~/.mso/surface-apps.json` registry (or an explicit `MSO_SURFACE_APPS_JSON` override); MSO re-reads the registry when the Page resource is read and validates each exact HTTPS origin, approved start-path prefix, renderer, sandbox, and presentation before it can enter Page CSP. The dedicated widget origin is installation-derived from `OS_MCP_UI_ORIGIN` / `OS_PUBLIC_ORIGIN`. The Block resource has no frame domains.

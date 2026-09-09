@@ -9,7 +9,7 @@ The user-visible contract has exactly two canonical MCP App resources:
 | Surface | Entry tool | Resource | Intended use |
 | --- | --- | --- | --- |
 | **Block** | `render_mso_block` | `ui://mso/block-v2.html` | Compact validation, action buttons, and CRUD input-output |
-| **Page** | `render_mso_page` | `ui://mso/page-v3.html` | Full native operator views and reviewed development, preview, or production app embeds |
+| **Page** | `render_mso_page` | `ui://mso/page-v12.html` | Full native operator views and reviewed development, preview, or production app embeds |
 
 `workflow_start` is now headless. It remains the required orchestration bootstrap for multi-step work, including skill/recipe lookup, collision checks, workflow isolation, tracing, evidence, and learning, but it has no `_meta.ui.resourceUri` and no `openai/outputTemplate`. Starting background work therefore does not consume the answer with an unrelated workflow card.
 
@@ -52,13 +52,13 @@ The Block resource is self-contained, has no network/frame allowlist, constructs
 - `/browser` — remote-browser handoff;
 - `/apps/<reviewed-app-id>` — reviewed app target.
 
-The model cannot pass raw HTML or an external URL. App identity, origin, start path, renderer, environment (`development`, `preview`, `production`, or `other`), sandbox, and presentation mode come from bounded per-installation `MSO_SURFACE_APPS_JSON`. Portable source defaults to an empty external-app catalog. An iframe target is valid only when its exact HTTPS origin is also present in the Page resource's `_meta.ui.csp.frameDomains`, and the browser runtime revalidates origin plus the approved path prefix before assigning `iframe.src`.
+The model cannot pass raw HTML or an external URL. App identity, origin, start path, renderer, environment (`development`, `preview`, `production`, or `other`), sandbox, and presentation mode come from the bounded per-instance reviewed registry at `~/.mso/surface-apps.json` (or the explicit `MSO_SURFACE_APPS_JSON` override). Portable source defaults to an empty external-app catalog, and the Page resource rebuilds its `SAFE_APPS` plus CSP frame domains whenever it is read. An iframe target is valid only when its exact HTTPS origin is also present in the Page resource's `_meta.ui.csp.frameDomains`, and the browser runtime revalidates origin plus the approved path prefix before assigning `iframe.src`.
 
 Apps that keep restrictive `X-Frame-Options` or `frame-ancestors` remain `remote`. MSO preserves those protections and offers the Camoufox seam instead of stripping headers. User-installed runtime HTML apps and arbitrary HTML snippets cannot add themselves to the ChatGPT frame allowlist; they remain opaque-origin `srcDoc` content inside the authenticated MSO shell.
 
 ## Compatibility during migration
 
-The canonical `resources/list` response advertises only Block and Page. Four previous URIs remain readable, but are not listed, so already-cached ChatGPT descriptors do not fail immediately:
+The canonical `resources/list` response advertises only Block and Page. Previous Page/Block URIs, including `ui://mso/page-v11.html`, remain readable, but are not listed, so already-cached ChatGPT descriptors do not fail immediately:
 
 - `ui://mso/block-v1.html` resolves to the current Block resource.
 - `ui://mso/page-v1.html` resolves to the current Page resource.
@@ -133,7 +133,7 @@ After changing UI resources or tool metadata:
 1. run targeted tests, `bun run verify`, and the official production release path;
 2. verify `initialize` reports MCP server `1.10.0` and toolset `2026.09.05.1`;
 3. verify `tools/list` exposes 66 ChatGPT transport tools, keeps `workflow_start` headless, marks the two compatibility actions app-only, and binds only `render_mso_block` / `render_mso_page`;
-4. verify `resources/list` contains exactly `ui://mso/block-v2.html` and `ui://mso/page-v3.html`, both with `text/html;profile=mcp-app`;
+4. verify `resources/list` contains exactly `ui://mso/block-v2.html` and `ui://mso/page-v12.html`, both with `text/html;profile=mcp-app`;
 5. verify Block has no frame domain and Page has only reviewed exact origins;
 6. refresh/re-scan the ChatGPT development app so its cached action/resource snapshot is replaced.
 

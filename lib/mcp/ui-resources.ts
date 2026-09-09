@@ -1,5 +1,5 @@
 import { MSO_BLOCK_RESOURCE, MSO_BLOCK_URI } from "./ui-block";
-import { MSO_PAGE_RESOURCE, MSO_PAGE_URI } from "./ui-surface";
+import { MSO_PAGE_URI, msoPageResource } from "./ui-surface";
 
 export { MSO_BLOCK_URI, MSO_PAGE_URI };
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
@@ -8,6 +8,7 @@ export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 // across the UI-contract migration. They are intentionally not advertised by
 // resources/list: the public product contract has exactly Block and Page.
 export const LEGACY_BLOCK_V1_URI = "ui://mso/block-v1.html";
+export const LEGACY_PAGE_V11_URI = "ui://mso/page-v11.html";
 export const LEGACY_PAGE_V10_URI = "ui://mso/page-v10.html";
 export const LEGACY_PAGE_V9_URI = "ui://mso/page-v9.html";
 export const LEGACY_PAGE_V8_URI = "ui://mso/page-v8.html";
@@ -30,30 +31,30 @@ export type McpUiResource = {
   _meta: Record<string, unknown>;
 };
 
-const RESOURCES: readonly McpUiResource[] = [MSO_BLOCK_RESOURCE, MSO_PAGE_RESOURCE];
-const LEGACY_ALIASES = new Map<string, McpUiResource>([
-  [LEGACY_PAGE_V10_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_PAGE_V9_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_PAGE_V8_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_PAGE_V7_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_PAGE_V6_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_PAGE_V5_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_PAGE_V4_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_PAGE_V3_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_BLOCK_V1_URI, MSO_BLOCK_RESOURCE],
-  [LEGACY_PAGE_V1_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_PAGE_V2_URI, MSO_PAGE_RESOURCE],
-  [LEGACY_WORKFLOW_PROGRESS_URI, MSO_BLOCK_RESOURCE],
-  [LEGACY_SURFACE_URI, MSO_PAGE_RESOURCE],
+const LEGACY_PAGE_URIS = new Set([
+  LEGACY_PAGE_V11_URI,
+  LEGACY_PAGE_V10_URI,
+  LEGACY_PAGE_V9_URI,
+  LEGACY_PAGE_V8_URI,
+  LEGACY_PAGE_V7_URI,
+  LEGACY_PAGE_V6_URI,
+  LEGACY_PAGE_V5_URI,
+  LEGACY_PAGE_V4_URI,
+  LEGACY_PAGE_V3_URI,
+  LEGACY_PAGE_V2_URI,
+  LEGACY_PAGE_V1_URI,
+  LEGACY_SURFACE_URI,
 ]);
 
-export function listUiResources() {
-  return RESOURCES.map(({ uri, name, description, mimeType }) => ({ uri, name, description, mimeType }));
+export async function listUiResources(): Promise<Array<{ uri: string; name: string; description: string; mimeType: string }>> {
+  const page = await msoPageResource();
+  return [MSO_BLOCK_RESOURCE, page].map(({ uri, name, description, mimeType }) => ({ uri, name, description, mimeType }));
 }
 
-export function readUiResource(uri: string): McpUiResource | undefined {
-  const canonical = RESOURCES.find((resource) => resource.uri === uri);
-  if (canonical) return canonical;
-  const legacy = LEGACY_ALIASES.get(uri);
-  return legacy ? { ...legacy, uri } : undefined;
+export async function readUiResource(uri: string): Promise<McpUiResource | undefined> {
+  if (uri === MSO_BLOCK_URI) return MSO_BLOCK_RESOURCE;
+  if (uri === MSO_PAGE_URI) return msoPageResource();
+  if (uri === LEGACY_BLOCK_V1_URI || uri === LEGACY_WORKFLOW_PROGRESS_URI) return { ...MSO_BLOCK_RESOURCE, uri };
+  if (LEGACY_PAGE_URIS.has(uri)) return { ...(await msoPageResource()), uri };
+  return undefined;
 }

@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 const require = createRequire(import.meta.url);
 const { chromium } = require(path.join(process.cwd(), "os-browser/node_modules/playwright"));
-const resource = JSON.parse(execFileSync("bun", ["-e", 'import { MSO_PAGE_RESOURCE } from "./lib/mcp/ui-surface"; console.log(JSON.stringify(MSO_PAGE_RESOURCE))'], { encoding: "utf8" }));
+const resource = JSON.parse(execFileSync("bun", ["-e", 'import { MSO_PAGE_RESOURCE } from "./lib/mcp/ui-surface"; console.log(JSON.stringify(await MSO_PAGE_RESOURCE))'], { encoding: "utf8" }));
 const output = {
   route: "/apps/play-together", kind: "app", title: "Play Together", openPath: "/assistant/mcp", catalog: [],
   app: { id: "play-together", url: "https://game.example.com/embed" },

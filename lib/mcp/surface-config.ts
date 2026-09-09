@@ -1,3 +1,7 @@
+import { promises as fs } from "node:fs";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
+
 export type SurfaceRenderer = "iframe" | "remote";
 export type SurfacePresentation = "inline" | "fullscreen" | "pip";
 export type SurfaceEnvironment = "development" | "preview" | "production" | "other";
@@ -18,6 +22,13 @@ export type SurfaceApp = {
 
 const MAX_APPS = 16;
 const MAX_TEXT = 240;
+const MAX_RAW_BYTES = 16_384;
+const DEFAULT_REGISTRY = resolve(homedir(), ".mso", "surface-apps.json");
+const REGISTRY_PATH = (() => {
+  const value = process.env.MSO_SURFACE_APPS_FILE?.trim();
+  if (!value) return DEFAULT_REGISTRY;
+  return resolve(value === "~" ? homedir() : value.startsWith("~/") ? `${homedir()}/${value.slice(2)}` : value);
+})();
 const SAFE_SANDBOX = new Set([
   "allow-downloads", "allow-forms", "allow-modals", "allow-orientation-lock",
   "allow-pointer-lock", "allow-popups", "allow-popups-to-escape-sandbox",
@@ -43,7 +54,6 @@ function safePath(value: unknown): string | null {
     return url.pathname;
   } catch { return null; }
 }
-
 
 function safeAuthPath(value: unknown): string | null {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.length > 768 || /[\\\u0000-\u001f]/.test(value)) return null;
@@ -82,11 +92,30 @@ function parseApp(entry: unknown, seen: Set<string>): SurfaceApp | null {
   };
 }
 
-export function configuredSurfaceApps(raw = process.env.MSO_SURFACE_APPS_JSON): SurfaceApp[] {
-  if (!raw || raw.length > 16_384) return [];
+async function readOwnerRegistry(): Promise<string | undefined> {
+  try {
+    const raw = await fs.readFile(REGISTRY_PATH, "utf8");
+    return Buffer.byteLength(raw, "utf8") <= MAX_RAW_BYTES ? raw : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseRegistry(raw: string | undefined): SurfaceApp[] {
+  if (!raw || Buffer.byteLength(raw, "utf8") > MAX_RAW_BYTES) return [];
   let entries: unknown;
   try { entries = JSON.parse(raw); } catch { return []; }
   if (!Array.isArray(entries)) return [];
   const seen = new Set<string>();
   return entries.slice(0, MAX_APPS).map((entry) => parseApp(entry, seen)).filter((app): app is SurfaceApp => app !== null);
+}
+
+/**
+ * Per-instance reviewed Page registry. An explicitly defined env value remains a
+ * backwards-compatible deployment override (including an intentionally empty value).
+ * Otherwise the owner-local registry is read on every call so adding/removing a
+ * reviewed surface does not require changing portable source or rebuilding MSO.
+ */
+export async function configuredSurfaceApps(raw = process.env.MSO_SURFACE_APPS_JSON): Promise<SurfaceApp[]> {
+  return parseRegistry(raw !== undefined ? raw : await readOwnerRegistry());
 }

@@ -152,7 +152,7 @@ describe("MCP Apps Block and Page contract", () => {
     });
     expect(content._meta.ui.csp.frameDomains).toBeUndefined();
     expect(content._meta["openai/widgetCSP"]).toEqual({ connect_domains: [MSO_ORIGIN], redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_PAGE_URI).toContain("page-v11.html");
+    expect(MSO_PAGE_URI).toContain("page-v12.html");
   });
 
 });

@@ -55,11 +55,11 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, ag
       const tools = visibleTools(scope, profile, allowedTools);
       return rpcOk(id, { tools: toolList(scope, profile, allowedTools), _meta: { toolset: toolsetInfo(tools, scope, profile) } });
     }
-    case "resources/list": return rpcOk(id, { resources: listUiResources() });
+    case "resources/list": return rpcOk(id, { resources: await listUiResources() });
     case "resources/read": {
       const uri = String(req.params?.uri ?? "");
       if (!uri) return rpcFail(id, -32602, "resources/read needs { uri }");
-      const resource = readUiResource(uri);
+      const resource = await readUiResource(uri);
       if (resource) return rpcOk(id, { contents: [{ uri: resource.uri, mimeType: resource.mimeType, text: resource.text, _meta: resource._meta }] });
       try {
         const skillResource = await readMcpSkillResource(uri);

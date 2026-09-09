@@ -12,23 +12,27 @@ function safeJson(value: unknown): string {
     .replace(/&/g, "\\u0026");
 }
 
-const BROWSER_CATALOG = surfaceApps().map((app) => ({
-  id: app.id,
-  title: app.title,
-  description: app.description,
-  origin: app.origin,
-  startPath: app.startPath,
-  renderer: app.renderer,
-  presentation: app.presentation,
-  environment: app.environment,
-  sandbox: app.sandbox ?? "",
-  externalAuthPath: app.externalAuthPath ?? "",
-  reason: app.reason ?? "",
-}));
+async function browserCatalog() {
+  return (await surfaceApps()).map((app) => ({
+    id: app.id,
+    title: app.title,
+    description: app.description,
+    origin: app.origin,
+    startPath: app.startPath,
+    renderer: app.renderer,
+    presentation: app.presentation,
+    environment: app.environment,
+    sandbox: app.sandbox ?? "",
+    externalAuthPath: app.externalAuthPath ?? "",
+    reason: app.reason ?? "",
+  }));
+}
 
-export const MSO_SURFACE_SCRIPT = String.raw`
+export async function msoSurfaceScript(): Promise<string> {
+  const catalog = await browserCatalog();
+  return String.raw`
 ${MSO_WIDGET_THEME_SCRIPT}
-const SAFE_APPS=${safeJson(BROWSER_CATALOG)};
+const SAFE_APPS=${safeJson(catalog)};
 const SAFE_BY_ID=new Map(SAFE_APPS.map(app=>[app.id,app]));
 const $=id=>document.getElementById(id);
 const body=$("surface-body"), titleEl=$("surface-title"), routeEl=$("surface-route"), modeEl=$("surface-mode");
@@ -115,3 +119,8 @@ window.addEventListener("openai:set_globals",()=>{applyHostGlobals();readOutput(
 fsBtn.addEventListener("click",()=>displayMode("fullscreen"));pipBtn.addEventListener("click",()=>displayMode("pip"));homeBtn.addEventListener("click",()=>nav("/"));
 applyHostGlobals();if(!readOutput())render();initializeMcpPage();
 `;
+}
+
+// Compatibility snapshot for tests/consumers that import the historical constant.
+// The canonical Page resource calls msoSurfaceScript() so registry changes are live.
+export const MSO_SURFACE_SCRIPT = msoSurfaceScript();

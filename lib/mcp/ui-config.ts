@@ -42,8 +42,8 @@ export function mcpUiOrigin(): string {
   return publicOrigin;
 }
 
-// Kept as exports for existing resource modules. Values are deployment config at
-// process startup; helpers above are used where request-time recomputation matters.
+// Kept as exports for existing resource modules/tests. These are startup snapshots;
+// widgetResourceMeta() recomputes the deployment origins whenever a resource is read.
 export const MSO_ORIGIN = publicMsoOrigin();
 export const MCP_UI_DOMAIN = mcpUiOrigin();
 
@@ -59,9 +59,11 @@ export function widgetResourceMeta(
   const frameDomains = [...(options?.frameDomains ?? [])];
   const connectDomains = [...(options?.connectDomains ?? [])];
   const resourceDomains = [...(options?.resourceDomains ?? [])];
+  const uiDomain = mcpUiOrigin();
+  const msoOrigin = publicMsoOrigin();
   return {
     ui: {
-      domain: MCP_UI_DOMAIN,
+      domain: uiDomain,
       prefersBorder: true,
       csp: {
         connectDomains,
@@ -71,11 +73,11 @@ export function widgetResourceMeta(
     },
     "openai/widgetDescription": description,
     "openai/widgetPrefersBorder": true,
-    "openai/widgetDomain": MCP_UI_DOMAIN,
+    "openai/widgetDomain": uiDomain,
     "openai/widgetCSP": {
       ...(connectDomains.length ? { connect_domains: connectDomains } : {}),
       ...(frameDomains.length ? { frame_domains: frameDomains } : {}),
-      redirect_domains: [MSO_ORIGIN, ...(options?.redirectDomains ?? [])],
+      redirect_domains: [msoOrigin, ...(options?.redirectDomains ?? [])],
     },
   };
 }

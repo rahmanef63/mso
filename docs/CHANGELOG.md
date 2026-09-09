@@ -15,6 +15,8 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` make Page surface registry instance-dynamic
+- `update` harden release verification and settings UX
 - `auth` harden browser session persistence
 - `integrations` synchronize owner-local SC credential snapshots
 - `security` eliminate parser gaps and enforce strict SAST coverage

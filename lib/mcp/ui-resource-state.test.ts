@@ -70,12 +70,12 @@ describe("MCP Apps Block and Page contract", () => {
   });
 
   it("keeps latest cached workflow/surface URIs as non-advertised Block/Page aliases", async () => {
-    const canonicalBlock = readUiResource(MSO_BLOCK_URI);
-    const canonicalPage = readUiResource(MSO_PAGE_URI);
-    const blockV1 = readUiResource(LEGACY_BLOCK_V1_URI);
-    const pageV1 = readUiResource(LEGACY_PAGE_V1_URI);
-    const legacyBlock = readUiResource(LEGACY_WORKFLOW_PROGRESS_URI);
-    const legacyPage = readUiResource(LEGACY_SURFACE_URI);
+    const canonicalBlock = await readUiResource(MSO_BLOCK_URI);
+    const canonicalPage = await readUiResource(MSO_PAGE_URI);
+    const blockV1 = await readUiResource(LEGACY_BLOCK_V1_URI);
+    const pageV1 = await readUiResource(LEGACY_PAGE_V1_URI);
+    const legacyBlock = await readUiResource(LEGACY_WORKFLOW_PROGRESS_URI);
+    const legacyPage = await readUiResource(LEGACY_SURFACE_URI);
     expect(blockV1).toMatchObject({ uri: LEGACY_BLOCK_V1_URI, text: canonicalBlock?.text });
     expect(pageV1).toMatchObject({ uri: LEGACY_PAGE_V1_URI, text: canonicalPage?.text });
     expect(legacyBlock).toMatchObject({ uri: LEGACY_WORKFLOW_PROGRESS_URI, text: canonicalBlock?.text });
@@ -95,14 +95,14 @@ describe("MCP Apps Block and Page contract", () => {
       "ui://mso/project-diff-v2.html",
       "ui://mso/vps-status-v2.html",
     ]) {
-      expect(readUiResource(uri)).toBeUndefined();
+      expect(await readUiResource(uri)).toBeUndefined();
       const read = await dispatch({ id: 20, method: "resources/read", params: { uri } }, "read", "mcp:ui-retired");
       expect(read.error).toMatchObject({ code: -32602 });
     }
   });
 
-  it("keeps native Page routes and portable tools/call refreshes", () => {
-    const page = readUiResource(MSO_PAGE_URI)?.text ?? "";
+  it("keeps native Page routes and portable tools/call refreshes", async () => {
+    const page = (await readUiResource(MSO_PAGE_URI))?.text ?? "";
     expect(page).toContain('route:"/monitor"');
     expect(page).toContain('route:"/project"');
     expect(page).toContain('route:"/diff"');

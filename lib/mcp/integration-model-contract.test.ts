@@ -45,8 +45,8 @@ it("returns identity-bound setup only in UI-private metadata on both supported M
 });
 it("keeps current and older Page resources readable and emits no extra UI type",async()=>{
   const {readUiResource,listUiResources,MSO_PAGE_URI}=await import("./ui-resources");
-  expect(listUiResources()).toHaveLength(2);const html=readUiResource(MSO_PAGE_URI)!.text;
-  for(const version of [1,2,3,4,5,6])expect(readUiResource(`ui://mso/page-v${version}.html`)?.text).toBe(html);
+  expect(await listUiResources()).toHaveLength(2);const html=(await readUiResource(MSO_PAGE_URI))!.text;
+  for(const version of [1,2,3,4,5,6])expect((await readUiResource(`ui://mso/page-v${version}.html`))?.text).toBe(html);
   expect(html).toContain("mountConnectionManager");expect(html).toContain("data-display-mode");
   const script=inlineScripts(html)[0];expect(()=>new Function(script!)).not.toThrow();
 });
