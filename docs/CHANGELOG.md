@@ -8,17 +8,20 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- isolate legacy browser credentials and close scanner findings
 - keep the session mode badge clear of mobile navigation
 - harden audited execution, integrations and release journeys
 
 **Tests**
 
+- validate the bundle fixture before checking tag rejection
 - stabilize authenticated release journeys and retain build failure logs
 - distinguish desktop dock launch from icon selection
 - target accessible launchers and clarify delegated sign-in
 
 **Docs**
 
+- record extended production browser verification
 - record audit remediation verification and limits
 
 ## 2026-09-08
