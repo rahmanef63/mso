@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { safeReturnPath } from "./return-path";
 
 describe("login return path", () => {
-  it.each(["https://evil.test", "//evil.test", "/\\\\evil.test", "/\n/evil.test", "/login?returnTo=/login", null])("rejects unsafe destination %j", value => {
+  it.each(["https://evil.test", "//evil.test", "/x/..//evil.test", "/x/%2e%2e//evil.test", "/\\\\evil.test", "/\n/evil.test", "/login?returnTo=/login", null])("rejects unsafe destination %j", value => {
     expect(safeReturnPath(value)).toBe("/");
   });
   it("preserves a local destination and query", () => {
