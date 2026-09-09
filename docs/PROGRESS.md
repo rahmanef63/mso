@@ -1,3 +1,24 @@
+## 2026-09-09 — Explicit SC credential synchronization
+
+User reports existing SC credentials absent from MSO Integrations. The prior transfer discovery
+was metadata-only. Added an owner-local, preview-first synchronization command using SC's
+installed connection API and MSO's existing locked store, field registry and validation.
+It imports direct named connections, fills compatible empty metadata, preserves existing
+credentials/defaults, isolates conflicts under `sc-` aliases and keeps shared connections as
+references. Old DOKU Checkout and MCP Client ID fields map to their distinct native methods.
+Unknown fields, external authorization, unresolved shares and conflicting aliases fail closed.
+Secret values remain in process memory and the private store; output is metadata only.
+An owner-only backup precedes application. Repeating the current snapshot changes no connection.
+This is an explicit local snapshot synchronization, not automatic bidirectional replication.
+MSO retains standalone operation; SC remains optional and unchanged.
+
+Live evidence: all 65 SC connections across nine users are represented; 48 added, 15 filled,
+two unchanged. MSO now lists nine users and 74 connections including its existing entries.
+Readback and repeated preview pass; imported Batonly GitHub authenticates through live MSO.
+SC has no legacy profile fields; its sole Composio connection is empty, so synchronization
+cannot supply Batonly's missing Composio Project API key. Five isolated regression tests and
+typecheck/lint pass. The release pipeline records the remaining repository-wide gates.
+
 ## 2026-09-09 — Complete Semgrep parser coverage
 
 ## 2026-09-09 — MCP Sessions dashboard and handover reference
