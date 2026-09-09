@@ -25,17 +25,18 @@ beforeEach(() => { vi.clearAllMocks(); mocks.connected.mockReturnValue(false); }
 describe("owner session monitor", () => {
   it("paginates mixed MCP/CLI active sessions six at a time without leaking private records", async () => {
     const rows = Array.from({ length: 9 }, (_, i) => record(i));
-    mocks.records.mockResolvedValue(rows); mocks.presence.mockResolvedValue(rows.map(row => presence(row)));
+    mocks.records.mockResolvedValue(rows); mocks.read.mockImplementation(async id => rows.find(row => row.id === id) || null); mocks.presence.mockResolvedValue(rows.map(row => presence(row)));
     const first = await ownerSessionPage(1), second = await ownerSessionPage(2);
     expect(first.sessions).toHaveLength(6); expect(second.sessions).toHaveLength(3);
     expect(first.total).toBe(9); expect(first.pages).toBe(2);
+    expect(mocks.records).not.toHaveBeenCalled();
     expect(new Set([...first.sessions, ...second.sessions].map(row => row.id)).size).toBe(9);
     expect(first.sessions.map(row => row.source)).toContain("cli"); expect(first.sessions.map(row => row.source)).toContain("mcp");
     expect(JSON.stringify(first)).not.toMatch(/principalHash|private transcript|private-memory|history/);
   });
   it("separates expired/ended leases and mismatched principals from active receivers", async () => {
     const rows = Array.from({ length: 5 }, (_, i) => record(i));
-    mocks.records.mockResolvedValue(rows); mocks.presence.mockResolvedValue([
+    mocks.records.mockResolvedValue(rows); mocks.read.mockImplementation(async id => rows.find(row => row.id === id) || null); mocks.presence.mockResolvedValue([
       presence(rows[0]), presence(rows[1], { leaseUntil: new Date(0).toISOString() }),
       presence(rows[2], { state: "ended" }), presence(rows[3], { principalHash: "b".repeat(64) }),
     ]);

@@ -29,8 +29,17 @@ function pagination(total: number, requested: number, pageSize: number) {
 }
 /** Owner dashboard only. Model-facing directory remains strictly principal-scoped. */
 export async function ownerSessionPage(requested = 1, includeOffline = false): Promise<SessionPage> {
-  const [records, presence] = await Promise.all([listSessionRecords(), listLocalAgentPresenceOwner()]);
+  const presence = await listLocalAgentPresenceOwner();
   const now = Date.now(), byId = new Map(presence.map(row => [row.sessionId, row]));
+  // Active refreshes must not load thousands of inactive transcripts from disk.
+  const records: AgentSession[] = includeOffline ? await listSessionRecords() : [];
+  if (!includeOffline) {
+    for (const entry of presence) {
+      if (["offline", "ended"].includes(localAgentStatus(entry, now))) continue;
+      const record = await readSessionFile(entry.sessionId).catch(() => null);
+      if (record) records.push(record);
+    }
+  }
   const all = records.map(row => card(row, byId.get(row.id), now));
   const active = all.filter(row => row.status !== "offline" && row.status !== "ended");
   const rows = (includeOffline ? all : active).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt) || a.id.localeCompare(b.id));

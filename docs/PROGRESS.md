@@ -4,6 +4,7 @@
 
 Added the third MCP tab for six-card session pagination, exact-session readable event logs,
 active versus stored filters, receiver observability, and a copyable structured handover guide.
+Active refreshes read only records with a valid presence lease, avoiding full transcript-store scans.
 The Owner dashboard reuses durable session/presence records; model-facing same-principal
 messaging remains unchanged. Only allowlisted redacted metadata/events leave the monitor.
 Keyboard tabs, mobile reflow, pagination, error recovery, scope refusal and redaction receive

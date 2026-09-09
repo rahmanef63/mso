@@ -24,6 +24,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - keep the session mode badge clear of mobile navigation
 - harden audited execution, integrations and release journeys
 
+**Faster**
+
+- `mcp` bound active session refresh to live leases
+
 **Changed**
 
 - `gateway` keep provisional readiness with pending lifecycle
