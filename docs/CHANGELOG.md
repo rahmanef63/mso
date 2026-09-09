@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-09-09
 
+**Added**
+
+- split MCP access and add plugin registry
+
 **Fixed**
 
 - `security` eliminate parser gaps and enforce strict SAST coverage
