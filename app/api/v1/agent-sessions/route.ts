@@ -1,3 +1,4 @@
+import { ownerSessionPage, ownerSessionDetail } from "@/lib/agent/session-monitor";
 import type { AgentSession } from "@/lib/agent/session-types";
 import { artifactLocation } from "@/lib/agent/artifact-paths";
 import { NextRequest, NextResponse } from "next/server";
@@ -44,6 +45,14 @@ export async function GET(req: NextRequest) {
   const principal = await ownerPrincipal();
   if (!principal)
     return NextResponse.json({ error: "owner_role_required" }, { status: 403 });
+  if (req.nextUrl.searchParams.get("view") === "monitor") {
+    try {
+      const id = req.nextUrl.searchParams.get("id");
+      const page = Number(req.nextUrl.searchParams.get("page") || 1);
+      const result = id ? await ownerSessionDetail(id, page) : await ownerSessionPage(page, req.nextUrl.searchParams.get("includeOffline") === "1");
+      return NextResponse.json(result || { error: "session_not_found" }, { status: result ? 200 : 404, headers: { "Cache-Control": "private, no-store" } });
+    } catch { return NextResponse.json({ error: "session_monitor_unavailable" }, { status: 400 }); }
+  }
   const ref = (
     req.nextUrl.searchParams.get("ref") ||
     req.nextUrl.searchParams.get("id") ||

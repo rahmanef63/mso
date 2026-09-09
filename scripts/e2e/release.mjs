@@ -89,6 +89,7 @@ try {
   expect((await call("/api/v1/fs/list?path=" + encodeURIComponent(fixture.dir))).status).toBe(200);
   await mcpOwnerJourneys(page, fixture);
   await fixture.setRole("viewer");
+  expect((await call("/api/v1/agent-sessions?view=monitor")).status).toBe(403);
   expect((await call("/api/v1/integrations")).status).toBe(403);
   // Legacy privileged shell routes return 401 for a non-owner session.
   expect((await call("/api/v1/exec/run", { cmd: "pwd", cwd: fixture.dir })).status).toBe(401);

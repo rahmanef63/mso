@@ -1,5 +1,18 @@
 ## 2026-09-09 — Complete Semgrep parser coverage
 
+## 2026-09-09 — MCP Sessions dashboard and handover reference
+
+Added the third MCP tab for six-card session pagination, exact-session readable event logs,
+active versus stored filters, receiver observability, and a copyable structured handover guide.
+The Owner dashboard reuses durable session/presence records; model-facing same-principal
+messaging remains unchanged. Only allowlisted redacted metadata/events leave the monitor.
+Keyboard tabs, mobile reflow, pagination, error recovery, scope refusal and redaction receive
+regression coverage. The handover format is documented message content with existing request/
+reply correlation and CLI resume, not an implicit transfer of hidden context or permissions.
+Validation: 2,701 tests and four production smoke tests passed without skips; required browser
+journeys cover desktop, portrait, and landscape, including the session dashboard and handover guide.
+
+
 The remaining forty parser diagnostics are resolved through explicit multiline Bash case arms, quoted parameter-error words, parser-compatible arithmetic and non-truncating append-open lock descriptors. Permission masks retain octal interpretation through validated conversion; process stat parsing retains its last-closing-parenthesis boundary. TypeScript import types are named aliases, JSX ampersands are entities and embedded-script regexes use equivalent escaped less-than literals. Two CLI responsibilities move into focused sourced modules with fixture inventories updated. No Semgrep rules or source files are excluded; both CI and the full security entrypoint now use `--strict --error` so parser diagnostics block completion. This supersedes the earlier documented scanner limitation.
 
 ## 2026-09-09 — Gateway release handshake under CI scheduling

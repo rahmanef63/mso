@@ -7,7 +7,8 @@ import { SettingsBlock, SettingsSection } from "@/features/shell-settings";
 import { IS_DEMO } from "@/lib/demo";
 import { Lock, Plug } from "lucide-react";
 import { useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { McpDirectionTabs, type McpTab } from "./mcp-direction-tabs";
+import { McpSessions } from "./mcp-sessions";
 import { McpActivity } from "./mcp-activity";
 import { McpConnectionSection } from "./mcp-connection-section";
 import { McpCopyField } from "./mcp-copy-field";
@@ -36,9 +37,9 @@ export function McpSection() {
 function OwnerMcpSection() {
   const { state, error, reload } = useMcpState();
   const [page, setPage] = useState<McpPage>("overview");
-  const [direction, setDirection] = useState<"inbound" | "outbound">("inbound");
+  const [direction, setDirection] = useState<McpTab>("inbound");
   const top = useRef<HTMLDivElement>(null);
-  function selectDirection(next: "inbound" | "outbound") { setDirection(next); setPage("overview"); }
+  function selectDirection(next: McpTab) { setDirection(next); setPage("overview"); }
   function navigate(next: McpPage) {
     setPage(next);
     requestAnimationFrame(() => { top.current?.focus(); top.current?.scrollIntoView({ block: "nearest" }); });
@@ -56,12 +57,10 @@ function OwnerMcpSection() {
   );
   return (
     <div ref={top} tabIndex={-1} data-slot="mcp-page" className="space-y-4 outline-none">
-      <div className="space-y-3">
-        <div role="tablist" aria-label="MCP direction" className="grid grid-cols-2 gap-2 rounded-lg bg-secondary p-1">
-          {[{ id: "inbound", title: "Access MSO", copy: "External clients and agents → MSO" }, { id: "outbound", title: "MSO Access", copy: "MSO → external MCPs, services, and projects" }].map(item => <button key={item.id} id={`mcp-${item.id}-tab`} type="button" role="tab" aria-selected={direction === item.id} aria-controls="mcp-direction-panel" tabIndex={direction === item.id ? 0 : -1} onClick={() => selectDirection(item.id as "inbound" | "outbound")} onKeyDown={event => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); selectDirection(direction === "inbound" ? "outbound" : "inbound"); } }} className={cn("min-h-11 rounded-md px-3 py-2 text-left text-sm", direction === item.id ? "bg-card shadow-sm" : "text-muted-foreground")}><span className="block font-medium">{item.title}</span><span className="block text-xs leading-relaxed">{item.copy}</span></button>)}
-        </div>
-        <p id="mcp-direction-panel" role="tabpanel" aria-labelledby={`mcp-${direction}-tab`} className="text-sm leading-relaxed text-muted-foreground">{direction === "inbound" ? "Inbound: approve how external clients and agents access this MSO host." : "Outbound: choose how this MSO host reaches external MCPs, services, and project capabilities."}</p>
-      </div>
+      <McpDirectionTabs value={direction} onChange={selectDirection} />
+      <div id="mcp-direction-panel" role="tabpanel" aria-labelledby={`mcp-${direction}-tab`} className="@container min-w-0 space-y-4">
+      {direction === "sessions" ? <McpSessions /> : <>
+      <p className="text-sm text-muted-foreground">{direction === "inbound" ? "Approve how external clients and agents access this MSO host." : "Choose how MSO reaches external services and projects."}</p>
       {page === "overview" && direction === "outbound" && <SettingsBlock className="space-y-2 py-4"><p className="text-sm font-medium">External connections</p><p className="text-sm text-muted-foreground">Manage external MCP and service credentials through Integrations. Registry entries remain descriptive until a separate approved connection or activation is completed.</p><Button asChild variant="secondary"><Link href="/integrations">Open Integrations</Link></Button></SettingsBlock>}
       <McpNavigation active={page} onSelect={navigate} activeCount={state.tokens.filter(token => token.status === "active").length} direction={direction} />
       {page === "connect" && <McpSetupGuide origin={state.origin} maxScope={state.maxScope} />}
@@ -70,6 +69,8 @@ function OwnerMcpSection() {
       {page === "activity" && <McpActivity />}
       {page === "tools" && <McpToolsetCard info={state.toolset} />}
       {page === "registry" && <McpPluginRegistry />}
+      </>}
+      </div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { seedSessionMonitor } from "./session-fixture.mjs";
 import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -73,6 +74,6 @@ export async function releaseFixture({ live = false } = {}) {
       await new Promise(resolve => setTimeout(resolve, 250));
     }
     if (!ready) throw new Error("Fixture server did not become ready: " + logs);
-    return { dir, base, device, password, setRole, seedMcp, revokeProvider: () => { providerStatus = 401; }, close };
+    return { dir, base, device, password, setRole, seedMcp, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
   } catch (error) { await close(); throw error; }
 }

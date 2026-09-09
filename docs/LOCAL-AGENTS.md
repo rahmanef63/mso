@@ -197,3 +197,39 @@ No external broker, database, daemon, or framework is required.
 Older `mso a2a local ...` one-shot delegation/virtual-loopback-card helpers remain for backward compatibility and protocol testing. They are **not** the transport used by `/agents`, `/message`, local `/delegate`, the Local Agents MCP tools, or live inbox delivery in MSO 1.11+ / current MSO.
 
 New same-host communication should use Local Agents. Public/remote interoperability should use A2A v1.
+
+## Sessions dashboard and explicit handover
+
+Settings → MCP → **Sessions** is an Owner-only observation surface for durable external MCP,
+MSO CLI and recorded Alfa sessions. The default filter shows valid presence leases, six cards
+per page. All stored includes offline/ended records from the existing bounded session store
+(up to 5,000 entries, with unreadable records isolated). A plain terminal without an MSO agent
+session is not a durable agent session. A lease does not prove a subscribed receiver.
+
+Click a card for metadata and newest-first tool/workflow events (20 per page). The monitor
+returns allowlisted, redacted fields; no raw transcript, memory snapshot, principal hash,
+arguments, or tool output. Existing event compaction/archival retention still applies. The
+owner browser polls every 15 seconds while visible and displays the observation time.
+`GET /api/v1/agent-sessions?view=monitor&page=1` is the same Owner-only API, with
+`includeOffline=1` for retained records; `id=<exact-session-id>&page=1` returns event pages.
+Responses are private/no-store. Observation does not broaden model-facing messaging rights.
+
+The in-app **Handover guide** includes copyable examples and the recommended JSON Schema
+from `lib/contracts/session-handover.ts`. It is explicit message content, not a new MCP/A2A
+transport: version, objective, sourceSessionId, project path/branch, completed, nextSteps,
+evidence, blockers and constraints. Keep the entire serialized message under 16 KiB even
+when individual fields meet the schema bounds. Replace example values before sending.
+
+1. Discover recipients with `local_agents_list` from the actual sending session. Dashboard
+   visibility across principals does not make those sessions eligible message recipients.
+2. Call `local_agent_message_send` with the exact target, `kind: task`, `intent: request`,
+   `requires_user_relay: true`, and the serialized brief as the string `message`.
+3. Keep the returned request message ID. The recipient answers with `local_agent_reply`
+   using `reply_to_message_id`; the sender checks with `local_agent_request_wait` using
+   `request_message_id`. Queued/delivered are transport states, not verified completion.
+4. For owner-authorized terminal continuation, use `mso agent --resume <exact-session-id>`.
+   External sessions become a CLI continuation referencing the source, not control over
+   the external client's process. Remote hosts use the separately authorized A2A peer flow.
+
+Never copy credentials or hidden context into a brief. Preserve scope, identify exact worktree
+and branch, include verification evidence and blockers, and do not resend blindly on timeout.

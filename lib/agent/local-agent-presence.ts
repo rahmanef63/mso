@@ -125,3 +125,8 @@ export async function listLocalAgentPresence(principal: string): Promise<LocalAg
   const owner = principalHash(principal);
   return (await readStore()).entries.filter((row) => row.principalHash === owner);
 }
+
+/** Cross-principal observation is restricted to the authenticated Owner dashboard. */
+export async function listLocalAgentPresenceOwner(): Promise<LocalAgentPresenceRecord[]> {
+  return (await readStore()).entries;
+}

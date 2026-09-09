@@ -1,3 +1,4 @@
+import { mcpSessionsJourney } from "./mcp-sessions.mjs";
 // Real production Settings routes, with synthetic owner state and bounded fault injection.
 import path from "node:path";
 import { chmod } from "node:fs/promises";
@@ -60,6 +61,7 @@ export async function mcpOwnerJourneys(page, fixture) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     const result = await new AxeBuilder({ page }).include('[data-slot="mcp-page"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
     expect(result.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target) }))).toEqual([]);
+    await mcpSessionsJourney(page, fixture);
     console.log(`PASS MCP owner hierarchy, app guides, cancel/revoke and accessibility ${viewport.width}x${viewport.height}`);
   }
   // Server faults show a recoverable error, never an endless skeleton or false empty audit.
