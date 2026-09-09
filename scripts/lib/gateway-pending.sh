@@ -77,3 +77,18 @@ gateway_spawn_held_tunnel() {
   printf '1\n' | mso_private_state_atomic_write "$gate" >/dev/null || { gateway_stop_pending_tunnel; return 1; }
   TUNNEL_SPAWN_PID="$pid"
 }
+
+# Readiness discovery belongs to the provisional child lifetime, before final identity.
+gateway_discover_quick_url() {
+  local pid i
+  pid="$(jq -r .pid <<<"$TUNNEL_IDENTITY")"
+  for i in $(seq 1 80); do
+    GATEWAY_PUBLIC_URL="$(grep -Eo 'https://[A-Za-z0-9-]+\.trycloudflare\.(com|app)' "$CF_LOG" | tail -1 || true)"
+    [ -n "$GATEWAY_PUBLIC_URL" ] && return 0
+    # Startup may legitimately exec an interpreter before publishing the URL.
+    # Pin the spawned lifetime here; require exact executable/argv after readiness.
+    [ "$(gateway_proc_start_ticks "$pid" 2>/dev/null || true)" = "$TUNNEL_PENDING_TICKS" ] || return 1
+    sleep 0.25
+  done
+  return 1
+}
