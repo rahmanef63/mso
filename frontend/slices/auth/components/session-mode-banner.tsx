@@ -13,7 +13,7 @@ export function SessionModeBanner() {
   return (
     <aside
       aria-label="Server connection mode"
-      className="fixed right-2 top-9 z-[60] flex max-w-[calc(100vw-1rem)] items-center gap-3 rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-sm"
+      className="fixed left-1/2 top-9 -translate-x-1/2 z-[60] flex max-w-[calc(100vw-1rem)] items-center gap-3 rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-sm"
       data-connection-mode={live ? "live" : "mock"}
     >
       <span>{live ? `Live server · ${role}` : "Demo · Mock data only"}</span>

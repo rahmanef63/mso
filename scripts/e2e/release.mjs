@@ -31,9 +31,11 @@ try {
     await expect(page.getByLabel("Server connection mode")).toContainText("Mock data only");
     // Real launcher click, not only deep-link route mounting.
     const settingsName = /^(System )?Settings(?: \(running\))?$/;
-    const links = page.getByRole("link", { name: settingsName });
-    const settings = await links.count() ? links.first() : page.getByRole("button", { name: settingsName }).first();
+    const settings = viewport.width >= 768
+      ? page.getByRole("link", { name: settingsName }).first()
+      : page.getByRole("button", { name: settingsName }).first();
     await expect(settings).toBeVisible();
+    await settings.hover(); // Let dock magnification move its hit target before pressing.
     await settings.click();
     await expect(page).toHaveURL(/\/settings/);
     await expect(page.getByLabel("Server connection mode")).toContainText("Mock data only");
@@ -53,7 +55,7 @@ try {
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
   await expect(page).toHaveURL(fixture.base + "/integrations");
   await expect(page.getByLabel("Credential owner")).toHaveValue("fixture");
-  await page.getByRole("button", { name: "Self-hosted Convex", exact: true }).click();
+  await page.getByRole("button", { name: /^Self-hosted Convex(?: 1)?$/ }).click();
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   await expect(page.locator(".connection-state")).toHaveText("Verified");
   await expect(page.getByRole("status")).toContainText("Verified: authenticated");
@@ -61,7 +63,7 @@ try {
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   await expect(page.locator(".connection-state")).toHaveText("Access rejected");
   await page.reload();
-  await page.getByRole("button", { name: "Self-hosted Convex", exact: true }).click();
+  await page.getByRole("button", { name: /^Self-hosted Convex(?: 1)?$/ }).click();
   await expect(page.locator(".connection-state")).toHaveText("Access rejected");
   const call = (route, body) => page.evaluate(async ([route, body]) => {
     const res = await fetch(route, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
@@ -73,7 +75,8 @@ try {
   expect((await call("/api/v1/fs/list?path=" + encodeURIComponent(fixture.dir))).status).toBe(200);
   await fixture.setRole("viewer");
   expect((await call("/api/v1/integrations")).status).toBe(403);
-  expect((await call("/api/v1/exec/run", { cmd: "pwd", cwd: fixture.dir })).status).toBe(403);
+  // Legacy privileged shell routes return 401 for a non-owner session.
+  expect((await call("/api/v1/exec/run", { cmd: "pwd", cwd: fixture.dir })).status).toBe(401);
   console.log("PASS browser login/return, live provider revocation, reload, file/exec boundaries and immediate role demotion");
   await context.close();
 } finally {

@@ -14,7 +14,7 @@ export async function releaseFixture() {
   });
   await new Promise(resolve => provider.listen(0, "127.0.0.1", resolve));
   const providerUrl = `http://127.0.0.1:${provider.address().port}`;
-  const device = randomUUID(), password = randomBytes(24).toString("hex");
+  const device = randomBytes(16).toString("hex"), password = randomBytes(24).toString("hex");
   const deviceFile = path.join(dir, "devices.json");
   const setRole = role => writeFile(deviceFile, JSON.stringify({
     approved: { [device]: { label: "Release fixture", role, approvedAt: Date.now() } }, pending: {},

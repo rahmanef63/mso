@@ -66,6 +66,13 @@ node scripts/audit.mjs --strict || fail "audit: high/critical advisory or incomp
 # ── Guard 1d — build. Never build in THIS directory: `next build` wipes .next
 # before compiling, while the live :4005 process may be serving from it.
 # verify-build.sh compiles a throwaway copy of HEAD instead.
-bash scripts/verify-build.sh >/dev/null 2>&1 \
-  && echo "build: HEAD compiles (out-of-tree)." \
-  || fail "build failed." "reproduce: bash scripts/verify-build.sh"
+MSO_GATE_BUILD_LOG="$(mktemp)"
+if bash scripts/verify-build.sh >"$MSO_GATE_BUILD_LOG" 2>&1; then
+  rm -f "$MSO_GATE_BUILD_LOG"
+  echo "build: HEAD compiles (out-of-tree)."
+  echo "browser: required release journeys passed (synthetic stores)."
+else
+  tail -n 60 "$MSO_GATE_BUILD_LOG" >&2
+  rm -f "$MSO_GATE_BUILD_LOG"
+  fail "build or browser journey failed." "reproduce: bash scripts/verify-build.sh"
+fi
