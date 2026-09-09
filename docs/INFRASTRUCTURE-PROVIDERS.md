@@ -228,3 +228,28 @@ MCP operations accept `user`, `connection` and `cwd`; explicit identities overri
 folder/default resolution, and external backends never fall back to local keys.
 Provider-only v1 configuration is projected into `legacy` and backed up before
 the first v2 write. See [Integrations](INTEGRATIONS.md) for exact CLI/API contracts.
+
+
+## Owner-local SC synchronization
+
+Integrations is the MSO-facing credential management surface. When an installed SC instance
+already owns named direct connections, the owner can synchronize its current snapshot locally:
+
+```bash
+bun scripts/sync-sc-local.ts --source /absolute/path/to/si-coder-agent
+bun scripts/sync-sc-local.ts --source /absolute/path/to/si-coder-agent --apply
+```
+
+The first command previews metadata only. The second backs up the private MSO store and applies
+under its existing lock, then checks readback parity. Values never appear in arguments/output.
+The source is an explicitly trusted, owner-owned local installation; the script executes its
+connection APIs. It is not an endpoint for arbitrary remote paths or untrusted plugin code.
+Existing values/defaults are preserved; differing accounts receive an `sc-` connection alias.
+Shared aliases retain their backing reference. Unsupported fields/methods and external OAuth
+fail closed; migrate legacy profile fields using SC first if the preview requests it.
+
+This copies the current direct-connection snapshot, not ongoing bidirectional CRUD. Run preview
+again after SC changes; a conflicting existing alias requires deliberate reconciliation, not
+silent credential rotation. Provider verification remains a separate operation. No scheduler,
+folder remapping or default-user switch is installed. The browser/MCP/CLI see applied values
+through the same native store immediately; SC is not a mandatory MSO runtime dependency.
