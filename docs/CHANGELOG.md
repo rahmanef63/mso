@@ -4,6 +4,22 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-09
+
+**Fixed**
+
+- harden audited execution, integrations and release journeys
+
+**Tests**
+
+- stabilize authenticated release journeys and retain build failure logs
+- distinguish desktop dock launch from icon selection
+- target accessible launchers and clarify delegated sign-in
+
+**Docs**
+
+- record audit remediation verification and limits
+
 ## 2026-09-08
 
 **Added**
@@ -15,6 +31,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `portability` allow configured auth query
 - `portability` derive instance MCP context
 - `integrations` verify self-hosted Convex admin keys
+
+**Chores**
+
+- standardize bun 1.4.2
 
 ## 2026-09-07
 
