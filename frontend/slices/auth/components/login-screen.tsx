@@ -133,7 +133,7 @@ export function LoginCard({ onAuthed }: { onAuthed: () => void }) {
 export function LoginScreen({ onAuthed }: { onAuthed: () => void }) {
   const { tweaks } = useAppearance();
   return (
-    <div className="relative grid h-dvh w-screen place-items-center overflow-hidden">
+    <div className="relative grid min-h-dvh w-full place-items-center overflow-y-auto py-8">
       <div
         className={cn(!tweaks.wallpaperStyle && `wp-${tweaks.wallpaper === "auto" ? "aurora" : tweaks.wallpaper}`, "absolute inset-0 -z-10 bg-cover bg-center")}
         style={tweaks.wallpaperStyle}

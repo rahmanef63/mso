@@ -1,7 +1,7 @@
 /**
  * Shared visual contract for ChatGPT Block and Page resources.
  *
- * Core values mirror rahmanef.com/app/globals.css. The widget keeps its own
+ * Core values follow the MSO presentation palette. The widget keeps its own
  * small presentation aliases, but the public brand palette stays single-source.
  */
 const DARK_TOKENS = String.raw`
@@ -23,6 +23,7 @@ const DARK_TOKENS = String.raw`
 --warning:#ff9f0a;
 --info:#409cff;
 --destructive-text:#ff5f57;
+--success-text:#65d486;
 `;
 
 export const MSO_WIDGET_TOKENS = String.raw`
@@ -46,6 +47,7 @@ color-scheme:light;
 --inset:rgba(0,0,0,.04);
 --shadow-pop:0 0 0 .5px rgba(0,0,0,.12),0 14px 38px -8px rgba(0,0,0,.32);
 --success:#34c759;
+--success-text:#176e32;
 --warning:#ff9500;
 --info:#0060df;
 --destructive-text:#d70015;

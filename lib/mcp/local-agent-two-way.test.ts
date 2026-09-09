@@ -83,9 +83,10 @@ describe("two-way Local Agent MCP receive", () => {
   });
 
   it("preserves immediate reads when wait_ms is omitted", async () => {
-    const startedAt = Date.now();
+    const subscribe = vi.spyOn(events, "subscribeLocalAgentMessages");
     const response = await dispatch(call("local_agent_inbox"), "read", "mcp:a", { principal, sessionId: a.id });
-    expect(Date.now() - startedAt).toBeLessThan(500);
+    expect(subscribe).not.toHaveBeenCalled();
+    subscribe.mockRestore();
     expect(Array.isArray(textResult<unknown[]>(response))).toBe(true);
   });
 });

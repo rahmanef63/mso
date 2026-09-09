@@ -1,10 +1,11 @@
 import { inlineScripts } from "../../scripts/test-support/inline-scripts";
 import { describe, expect, it } from "vitest";
-import { LEGACY_PAGE_V2_URI, LEGACY_PAGE_V3_URI, LEGACY_PAGE_V9_URI, MSO_PAGE_URI, listUiResources, readUiResource } from "./ui-resources";
+import { LEGACY_PAGE_V10_URI, LEGACY_PAGE_V2_URI, LEGACY_PAGE_V3_URI, LEGACY_PAGE_V9_URI, MSO_PAGE_URI, listUiResources, readUiResource } from "./ui-resources";
 
 describe("MCP Page lifecycle and cached resource migration", () => {
   it("serves current bytes to cached v2 clients without advertising a third UI", () => {
     const page = readUiResource(MSO_PAGE_URI);
+    expect(readUiResource(LEGACY_PAGE_V10_URI)).toMatchObject({ uri: LEGACY_PAGE_V10_URI, text: page?.text });
     expect(readUiResource(LEGACY_PAGE_V2_URI)).toMatchObject({ uri: LEGACY_PAGE_V2_URI, text: page?.text });
     expect(readUiResource(LEGACY_PAGE_V3_URI)).toMatchObject({ uri: LEGACY_PAGE_V3_URI, text: page?.text });
     expect(readUiResource(LEGACY_PAGE_V9_URI)).toMatchObject({ uri: LEGACY_PAGE_V9_URI, text: page?.text });

@@ -108,7 +108,7 @@ export async function openPty(opts: {
   if (live >= MAX_SESSIONS && !reclaimDetachedSlot())
     throw new HostError(`Too many terminal sessions (max ${MAX_SESSIONS}) — close one first`);
 
-  const cwd = await resolveCwd(opts.cwd); // write-root bounded, falls back home
+  const cwd = await resolveCwd(opts.cwd); // write-root bounded; explicit invalid paths fail
   const shell = process.env.SHELL || "/bin/bash";
   const env = childEnv(); // process.env minus the app's own secrets
   env.TERM = "xterm-256color";

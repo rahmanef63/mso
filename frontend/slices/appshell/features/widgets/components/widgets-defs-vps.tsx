@@ -9,7 +9,7 @@ import { Card } from "./widget-cards";
 import { mdToHtml } from "./md";
 import { safeEmbedUrl } from "./embed-url";
 
-// VPS-native + content widgets ported from shell.rahmanef.com's set: a stopwatch,
+// VPS-native + content widgets ported from the original shell widget set: a stopwatch,
 // a URL embed, a sandboxed-HTML snippet, a markdown note, an active-shell picker,
 // and a theme toggle. Split out to keep widgets-defs.tsx under the line ceiling.
 // All are interactive (opt back into pointer events).

@@ -1,0 +1,80 @@
+#!/usr/bin/env node
+// Required release journeys against a built app with synthetic stores and a local provider.
+import { chromium, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { releaseFixture } from "./release-fixture.mjs";
+
+const fixture = await releaseFixture();
+let browser;
+try {
+  browser = await chromium.launch({ headless: true });
+  for (const viewport of [{ width: 1363, height: 936 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    const context = await browser.newContext({ viewport });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    await page.goto(fixture.base + "/integrations");
+    await expect(page.getByRole("heading", { name: "Integrations", exact: true, level: 1 })).toBeVisible();
+    await page.getByLabel("Search services").fill("GitHub");
+    await expect(page.getByRole("button", { name: "GitHub", exact: true })).toBeVisible();
+    await page.getByText("Connection methods & setup guides", { exact: true }).click();
+    await expect(page.getByRole("link", { name: "Official setup page" }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    const accessibility = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+    expect(accessibility.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target) }))).toEqual([]);
+    const popupPromise = context.waitForEvent("page");
+    await page.getByRole("link", { name: "Sign in to MSO as Owner" }).click();
+    const login = await popupPromise;
+    await expect(login.getByRole("heading", { name: "Sign in to your server" })).toBeVisible();
+    await login.close();
+    await page.goto(fixture.base);
+    await expect(page.getByLabel("Server connection mode")).toContainText("Mock data only");
+    // Real launcher click, not only deep-link route mounting.
+    const settings = page.locator('a[href="/settings"]:visible').first();
+    await expect(settings).toBeVisible();
+    await settings.click();
+    await expect(page).toHaveURL(/\/settings/);
+    await expect(page.getByLabel("Server connection mode")).toContainText("Mock data only");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+    console.log(`PASS public guides, login entry, launcher and reflow ${viewport.width}x${viewport.height}`);
+  }
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await context.addInitScript(device => {
+    localStorage.setItem("mso.device.id", device);
+    localStorage.setItem("mso:onboarding:v1", "done");
+  }, fixture.device);
+  const page = await context.newPage();
+  await page.goto(fixture.base + "/login?returnTo=%2Fintegrations");
+  await page.locator('input[type="password"]').fill(fixture.password);
+  await page.getByRole("button", { name: "Unlock", exact: true }).click();
+  await expect(page).toHaveURL(fixture.base + "/integrations");
+  await expect(page.getByLabel("Credential owner")).toHaveValue("fixture");
+  await page.getByRole("button", { name: "Self-hosted Convex", exact: true }).click();
+  await page.getByRole("button", { name: "Verify", exact: true }).click();
+  await expect(page.locator(".connection-state")).toHaveText("Verified");
+  fixture.revokeProvider();
+  await page.getByRole("button", { name: "Verify", exact: true }).click();
+  await expect(page.locator(".connection-state")).toHaveText("Access rejected");
+  await page.reload();
+  await page.getByRole("button", { name: "Self-hosted Convex", exact: true }).click();
+  await expect(page.locator(".connection-state")).toHaveText("Access rejected");
+  const call = (route, body) => page.evaluate(async ([route, body]) => {
+    const res = await fetch(route, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
+    return { status: res.status, body: await res.json() };
+  }, [route, body]);
+  const exec = await call("/api/v1/exec/run", { cmd: "pwd", cwd: fixture.dir });
+  expect(exec.status).toBe(200); expect(exec.body.cwd).toBe(fixture.dir);
+  expect((await call("/api/v1/exec/run", { cmd: "exit 0", cwd: fixture.dir + "/missing" })).status).not.toBe(200);
+  expect((await call("/api/v1/fs/list?path=" + encodeURIComponent(fixture.dir))).status).toBe(200);
+  await fixture.setRole("viewer");
+  expect((await call("/api/v1/integrations")).status).toBe(403);
+  expect((await call("/api/v1/exec/run", { cmd: "pwd", cwd: fixture.dir })).status).toBe(403);
+  console.log("PASS browser login/return, live provider revocation, reload, file/exec boundaries and immediate role demotion");
+  await context.close();
+} finally {
+  await browser?.close();
+  await fixture.close();
+}
+console.log("release E2E: all required journeys passed");

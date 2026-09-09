@@ -176,7 +176,7 @@ export function ContextMenu({ pos, items, onClose }: { pos: Pos; items: MenuItem
   }, [sub]);
 
   if (!pos) return null;
-  // Match shell.rahmanef.com: LEFT-aligned rows, icon on the LEFT, accent-fill hover
+  // Shared shell layout: LEFT-aligned rows, icon on the LEFT, accent-fill hover
   // on the --primary token (never a hex). Metrics are per-persona + pointer-aware
   // (see menuMetrics) and BOTH panels share them.
   const m = menuMetrics(active.id);

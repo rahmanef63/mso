@@ -1,8 +1,13 @@
 // Shared by the browser route and the MCP Page; theme values come from widget-tokens.
 export const CONNECTION_MANAGER_STYLE = String.raw`
+.integration .provider-mark svg{width:65%;height:65%;fill:currentColor}
+.integration .integration-signin{display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;margin-bottom:18px;border-radius:9px;text-decoration:none}
+.integration .identity-guide[open]{padding-bottom:12px}
+.integration .connection-state[data-ready=true]{color:var(--success-text);background:color-mix(in srgb,var(--success-text) 10%,var(--surface))}
+
 .integration.manager{--integration-rail:224px;--integration-gap:24px;max-width:1180px;width:100%}
 .integration .identity-heading,.integration .provider-heading,.integration .connection-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
-.integration .identity-heading h2{margin:0}.integration .identity-heading p{margin:5px 0 0}
+.integration .identity-heading :is(h1,h2){margin:0}.integration .identity-heading p{margin:5px 0 0}
 .integration .identity-count{font:600 12px var(--font-body);color:var(--text-dim);white-space:nowrap}
 .integration .identity-bar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:22px 0}
 .integration .identity-bar>label{flex:1;max-width:340px;min-width:160px;margin:0}
@@ -27,7 +32,7 @@ export const CONNECTION_MANAGER_STYLE = String.raw`
 .integration .connection-card h3{margin:0;font-size:17px;overflow-wrap:anywhere}
 .integration .connection-heading{align-items:start}.integration .connection-heading small{margin:3px 0 0}
 .integration .connection-state{font-size:12px;line-height:1.5;border:1px solid var(--sep-strong);border-radius:99px;padding:3px 9px;white-space:nowrap}
-.integration .connection-state[data-ready=true]{color:var(--os-accent);background:color-mix(in srgb,var(--os-accent) 8%,var(--surface))}
+.integration .connection-state[data-ready=true]{color:var(--success-text);background:color-mix(in srgb,var(--success-text) 10%,var(--surface))}
 .integration .identity-tags{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0;color:var(--text-dim);font-size:12px}
 .integration .identity-tags span+span:before{content:"·";margin-right:6px}
 .integration .identity-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}

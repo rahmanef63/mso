@@ -46,7 +46,7 @@ export async function saveConnectionValues(provider:string,selector:ConnectionSe
     if(Object.keys(values).some(k=>!allowed.has(k)))throw new IntegrationError("invalid_credential_fields");
     const normalized=normalizeInfraValues(provider,values),candidate={...c.values,...normalized};
     if(method.fields.some(f=>f.required&&!candidate[f.key]))throw new IntegrationError("required_fields_missing");
-    c.values=candidate;c.revision++;c.updatedAt=Date.now();if(verified)c.verifiedAt=Date.now();else delete c.verifiedAt;
+    delete c.lastCheck; c.values=candidate;c.revision++;c.updatedAt=Date.now();if(verified)c.verifiedAt=Date.now();else delete c.verifiedAt;
     return summaryIn(state,r.user,c);
   });
 }

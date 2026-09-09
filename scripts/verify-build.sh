@@ -35,3 +35,6 @@ cp -a "$REPO/node_modules/." "$TMP/node_modules/"
 cd "$TMP"
 # nice/ionice: this box also serves prod. A build gate must not starve :4005.
 nice -n 15 ionice -c2 -n7 node node_modules/.bin/next build
+
+# Reuse this exact built tree for mandatory browser journeys; synthetic stores only.
+node scripts/e2e/release.mjs

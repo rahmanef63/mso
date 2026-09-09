@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAppearance, effectiveServerTarget } from "@/lib/appearance";
+import { useSession } from "@/features/auth";
 import { IS_DEMO } from "@/lib/demo";
 import {
   useActiveShell,
@@ -14,6 +15,7 @@ import { SettingsShell } from "./components/settings-shell";
 // Default export so os-shell can lazy-load it as a window app.
 export default function OsSettings() {
   const { tweaks } = useAppearance();
+  const { status, role } = useSession();
   // Shared Settings state stays here; SettingsShell selects the presentation profile.
   // No shell-specific layout/config lives in this headless app controller.
   const { surface } = useActiveShell();
@@ -28,12 +30,12 @@ export default function OsSettings() {
   useEffect(() => {
     // Demo never calls /api (no auth) — the fetch would 401 and greet every
     // visitor with an error toast. The default model label stands in.
-    if (IS_DEMO) return;
+    if (IS_DEMO || status !== "in" || role !== "owner") return;
     fetch("/api/config", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((c) => c?.model && setModel(`${c.provider ?? "provider"}/${c.model}`))
       .catch(() => toast("Failed to load AI config", { tone: "error" }));
-  }, []);
+  }, [status, role]);
 
   // Surface system preferences to the shell AI Inspector.
   usePublishInspector(

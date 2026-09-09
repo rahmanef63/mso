@@ -37,18 +37,34 @@ idempotently with `bash scripts/gates.sh --install`.
 
 The gate runs the repository-owned `bun run verify`, cycle checks, generated-changelog freshness, documentation/skill checks,
 comparison evidence/freshness, the strict high/critical dependency audit, and an out-of-tree production
-build.
-`check-contrast.mjs` is informational. None of the build verification touches the live
+build plus mandatory synthetic browser journeys.
+`check-contrast.mjs` blocks palette regressions. None of the build verification touches the live
 checkout's `.next`. A healthy push ends with `audit: clean at high/critical.` and
 `build: HEAD compiles (out-of-tree).`
 
 The local dependency audit may explicitly skip an unavailable registry; that is not a security pass.
 `bun run audit:strict`, the pre-push gate, and the assurance runner reject incomplete evidence. `test:features` distinguishes
 PASS, PARTIAL, SKIPPED and FAIL. Per-area exact-include configurations and result-set validation prevent substring-filter double counting; a root inventory contract prevents unregistered root tests. Slices without colocated unit tests are listed as coverage gaps,
-not invented successes. Browser rendering and live third-party operations need separate acceptance.
+not invented successes. The required browser fixture covers public guides, direct login/return, launcher clicks and desktop/phone reflow, plus real local-provider rejection and immediate role demotion. Live third-party OAuth still needs provider-specific acceptance.
 The gate has no sibling-repository runner or dormant Convex deployment step. Worktree hook installation
 uses Git's shared hook path rather than assuming `.git` is a directory.
 
+
+## Browser release fixtures
+
+Install the pinned browser once with `node_modules/.bin/playwright install chromium`
+(on CI use `--with-deps`). `scripts/verify-build.sh` runs `e2e:release` against the
+same out-of-tree build. A missing browser or failed journey blocks the push; no
+production password, approved device, or integration is borrowed. Fixture stores,
+filesystem roots and provider endpoints are temporary and loopback-only. Normal
+CI runs the same journeys after its production build. A daily dependency job
+runs the strict audit so advisory status cannot silently age out.
+
+Coverage floors are statements 42%, branches 40%, functions 32%, lines 43.5%,
+ratcheted from the measured audit baseline. These are regression floors, not a
+claim that every feature is covered. Two-instance tests independently load origin,
+widget CSP and external app catalogs. The literal guard is supporting evidence,
+not a substitute for runtime isolation tests.
 
 ## Comparison governance
 

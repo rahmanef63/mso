@@ -175,9 +175,8 @@ describe("runCommand", () => {
     expect(res.stdout.trim()).toBe(os.homedir());
   });
 
-  it("falls back to home when the requested cwd is outside the write roots", async () => {
+  it("rejects an explicit cwd outside the write roots", async () => {
     vi.stubEnv("OS_FS_WRITE_ROOTS", os.homedir());
-    const res = await runCommand("pwd", "/etc");
-    expect(res.stdout.trim()).toBe(os.homedir());
+    await expect(runCommand("pwd", "/etc")).rejects.toThrow("outside writable roots");
   });
 });

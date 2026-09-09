@@ -99,4 +99,4 @@ for (const mode of ["light", "dark"]) {
   console.log(`\n${mode.toUpperCase()}: ${fails[mode].length} fail(s) below WCAG AA 4.5:1`);
   for (const f of fails[mode]) console.log(`  - ${f.preset.padEnd(20)} ${f.pair.padEnd(14)} ${f.ratio} (need ${f.min})`);
 }
-console.log(`\nNOTE: passive audit, exit 0 regardless. Fix via preset tweak in lib/appearance/presets/.`);
+if (fails.light.length || fails.dark.length) process.exitCode = 1;

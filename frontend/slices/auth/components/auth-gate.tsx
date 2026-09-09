@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { useAppearance } from "@/lib/appearance";
 import { IS_DEMO } from "@/lib/demo";
+import { SessionModeBanner } from "./session-mode-banner";
 import { useSession } from "../lib/use-session";
 
 // The shell is PUBLIC: anyone can open it and browse on mock data — no sign-in
@@ -56,6 +57,7 @@ function GatedOS({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
+      <SessionModeBanner />
       {status === "in" && <FirstLoginOnboarding />}
     </>
   ); // signed-in AND signed-out → the shell (mock when out)

@@ -1,6 +1,6 @@
 // SERVER-ONLY. One-shot shell runner behind /api/v1/exec/run. Non-interactive:
 // captured stdout/stderr + exit code, bounded time + output. cwd is constrained
-// to the WRITE roots (falls back to home). The command itself is the
+// to the WRITE roots (explicit invalid paths fail closed). The command itself is the
 // session-authenticated owner's responsibility (this is a VPS-control OS — RCE
 // for the owner is the point; the gate is the signed-cookie + approved device).
 import { exec } from "child_process";
@@ -30,21 +30,24 @@ export function destructiveReason(cmd: string): string | null {
   return matchDestructive(cmd);
 }
 
-// Shared with the PTY manager (pty.ts): same write-root bound, same fall-home.
+// Shared by one-shot commands, async jobs and PTYs. Only omitted cwd defaults.
 export async function resolveCwd(requested?: string): Promise<string> {
   const home = homeDir();
-  if (!requested || requested === "~") return home;
-  const absolute = requested.startsWith("~/")
+  if (requested === undefined) return home;
+  if (typeof requested !== "string" || !requested.trim()) throw new HostError("Working directory must not be empty");
+  const absolute = requested === "~" ? home : requested.startsWith("~/")
     ? path.join(home, requested.slice(2))
     : path.resolve(requested);
   let real: string;
   try {
     real = await fs.realpath(absolute);
+    if (!(await fs.stat(real)).isDirectory()) throw new Error("not a directory");
   } catch {
-    return home; // cwd gone → fall back home rather than fail the command
+    throw new HostError("Working directory does not exist or is not a directory");
   }
   const roots = await resolveWriteRoots();
-  return roots.some((r) => isUnderRoot(real, r)) ? real : home;
+  if (!roots.some((r) => isUnderRoot(real, r))) throw new HostError("Working directory is outside writable roots");
+  return real;
 }
 
 export async function runCommand(cmd: string, cwd?: string, artifactEnv: Record<string, string> = {}): Promise<ExecResult> {
@@ -71,6 +74,7 @@ export async function runCommand(cmd: string, cwd?: string, artifactEnv: Record<
           stdout: String(stdout ?? ""),
           stderr: String(stderr ?? "") + (e && e.killed ? "\n[timed out after 30s]" : ""),
           code,
+          cwd: dir,
         });
       },
     );

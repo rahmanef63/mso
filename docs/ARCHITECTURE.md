@@ -123,7 +123,7 @@ MSO exposes exactly two user-visible MCP App classes instead:
 - `render_mso_block` binds `ui://mso/block-v2.html` for compact validation, action buttons, and
   CRUD input-output. A button returns a user-approved follow-up message; it does not execute a
   mutation inside the widget, so ordinary scope, approval, audit, and workflow rules still apply.
-- `render_mso_page` binds the canonical `ui://mso/page-v10.html` resource for native `/`, `/monitor`, `/project`, `/diff`,
+- `render_mso_page` binds the canonical `ui://mso/page-v11.html` resource for native `/`, `/monitor`, `/project`, `/diff`,
   `/browser`, and `/apps/<reviewed-id>` views. Native Page views call the same bounded MSO tools.
 
 `workflow_start` is orchestration-only and headless: it still owns workflow isolation, skill/recipe
@@ -157,6 +157,8 @@ HTML/runtime extensibility from becoming a CSP privilege-escalation path.
 uses canonical path/containment checks and additionally blocks credential material such as
 MSO's own state, `.env*`, SSH/GPG material and other sensitive-home paths unless a supervised
 operator explicitly enables the documented escape hatch.
+
+Explicit cwd must be an existing directory within writable roots after realpath resolution. Only omitted cwd defaults to home; invalid exec/job/PTY targets never silently retarget commands.
 
 Interactive PTYs are intentionally stronger than filtered one-shot exec. A PTY is a real
 login shell; raw keystrokes do not have reliable command boundaries. Authentication and
@@ -261,6 +263,7 @@ bun run ship "docs: describe the verified change"
 The release path regenerates derived changelog data, runs push gates (including an
 out-of-tree production build), pushes the exact commit, then hands the in-place
 build/restart/final verification to the owner user manager when launched through MSO/MCP.
+Before push, the out-of-tree build runs required browser journeys against synthetic device/credential stores and a local provider fixture.
 A successful finalizer ends `~/.mso/self-update.log` with `UPDATE OK`.
 
 For operator updates use Settings → About or `mso update`; use `--rebuild` for the

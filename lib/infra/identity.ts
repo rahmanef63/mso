@@ -8,7 +8,8 @@ export type ExternalIdentity = { toolkit?: string; connectedAccountId?: string; 
 export type IntegrationConnection = {
   id: string; uid: string; label: string; provider: string; source: ConnectionSource; authMethod: string;
   scope: string; revision: number; values: Record<string,string>; external?: ExternalIdentity;
-  createdAt: number; updatedAt: number; verifiedAt?: number; lease?: {id:string;until:number};
+  createdAt: number; updatedAt: number; verifiedAt?: number;
+  lastCheck?: { revision: number; checkedAt: number; result: "verified" | "invalid" | "unavailable" | "unconfigured" }; lease?: {id:string;until:number};
 };
 export type IntegrationUser = { id: string; uid:string; label: string; connections: Record<string, Record<string, IntegrationConnection>>; defaults: Record<string, string> };
 export type IntegrationBinding = { path: string; user: string; connections: Record<string, string> };

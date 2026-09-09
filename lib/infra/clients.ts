@@ -1,4 +1,5 @@
-import { currentIntegrationSelection, resolveIntegration } from "./connection-service";
+import { recordConnectionCheck } from "./connection-health";
+import { credentialSnapshot, currentIntegrationSelection, resolveIntegration } from "./connection-service";
 import { verifyExternalIntegration } from "./connection-external";
 import { doctorAdditionalProvider } from "./additional-doctor";
 import { readInfraProvider } from "./store";
@@ -13,7 +14,7 @@ export { ensureDokployProject, listDokployProjects, listDokployApplications, lis
 export { upsertHostingerDns } from "./hostinger";
 export { listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./hostinger-mail";
 
-export async function doctorInfraProvider(id: InfraProviderId, candidate?: InfraProviderValues): Promise<InfraDoctorResult> {
+async function probeInfraProvider(id: InfraProviderId, candidate?: InfraProviderValues): Promise<InfraDoctorResult> {
   try {
     if(!candidate){
       try{const route=await resolveIntegration(id,currentIntegrationSelection());if(route.source!=="direct")return { ...await verifyExternalIntegration(id,{user:route.user,connection:route.id}), id };}catch(error){if(!["connection_not_found","user_required"].includes((error as Error).message))throw error;}
@@ -29,4 +30,22 @@ export async function doctorInfraProvider(id: InfraProviderId, candidate?: Infra
   } catch (error) {
     return { id, ok: false, detail: (error as Error).message.slice(0, 300) };
   }
+}
+
+// Pin the credential revision before probing; never attribute an old request to new keys.
+export async function doctorInfraProvider(id: InfraProviderId, candidate?: InfraProviderValues): Promise<InfraDoctorResult> {
+  if (candidate) return probeInfraProvider(id, candidate);
+  const selector = currentIntegrationSelection();
+  let snapshot;
+  try {
+    const route = await resolveIntegration(id, selector);
+    if (route.source !== "direct") return probeInfraProvider(id);
+    snapshot = await credentialSnapshot(id, { user: route.user, connection: route.id });
+  } catch {
+    return probeInfraProvider(id);
+  }
+  const checkedAt = Date.now();
+  const result = await probeInfraProvider(id, snapshot.connection.values);
+  const recorded = await recordConnectionCheck(id, snapshot, result, checkedAt);
+  return recorded ? result : { id, ok: null, detail: "Connection changed during verification. Check it again." };
 }

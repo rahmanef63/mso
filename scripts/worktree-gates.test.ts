@@ -14,6 +14,8 @@ function fixture(script: string) {
     const result = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
     expect(result.status, result.stderr).toBe(0); return result.stdout.trim();
   };
+  mkdirSync(path.join(repo, "scripts/e2e"), { recursive: true });
+  writeFileSync(path.join(repo, "scripts/e2e/release.mjs"), "import fs from 'node:fs'; if (!fs.existsSync('.build-verified') || fs.existsSync('.env.local')) throw Error('unsafe E2E fixture'); console.log('isolated E2E fixture passed');");
   git("init", "-q"); git("add", "scripts");
   git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "fixture");
   return { root, repo, git };
@@ -34,12 +36,13 @@ describe("isolated worktree release guards", () => {
   it("builds a committed archive with copied dependency contents and no local secrets", () => {
     const { root, repo } = fixture("verify-build.sh");
     const modules = path.join(root, "modules"); mkdirSync(path.join(modules, ".bin"), { recursive: true });
-    writeFileSync(path.join(modules, ".bin/next"), `const fs=require('node:fs'); if(fs.lstatSync('node_modules').isSymbolicLink()) throw Error('outside-root symlink'); if(fs.existsSync('.env.local')) throw Error('secret copied'); console.log('isolated build fixture passed');`);
+    writeFileSync(path.join(modules, ".bin/next"), `const fs=require('node:fs'); if(fs.lstatSync('node_modules').isSymbolicLink()) throw Error('outside-root symlink'); if(fs.existsSync('.env.local')) throw Error('secret copied'); fs.writeFileSync('.build-verified','ok'); console.log('isolated build fixture passed');`);
     symlinkSync(modules, path.join(repo, "node_modules"), "dir");
     writeFileSync(path.join(repo, ".env.local"), "# synthetic local configuration\n");
     mkdirSync(path.join(repo, ".next")); writeFileSync(path.join(repo, ".next/keep"), "live marker");
     const run = spawnSync("bash", ["scripts/verify-build.sh"], { cwd: repo, encoding: "utf8", timeout: 10_000 });
     expect(run.status, run.stderr).toBe(0); expect(run.stdout).toContain("isolated build fixture passed");
+    expect(run.stdout).toContain("isolated E2E fixture passed");
     expect(readFileSync(path.join(repo, ".next/keep"), "utf8")).toBe("live marker");
     expect(existsSync(path.join(repo, ".env.local"))).toBe(true);
   });

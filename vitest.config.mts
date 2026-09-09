@@ -59,13 +59,11 @@ export default defineConfig({
         "**/.next/**",
       ],
       thresholds: {
-        // Ratcheted 2026-08-17 from 19/18/14/19 after the update-route, path,
-        // download and env-reconciliation tests landed. Measured 20.36 / 19.08 /
-        // 15.11 / 20.76 — these sit a hair under, as the comment above requires.
-        statements: 20,
-        branches: 18.5,
-        functions: 15,
-        lines: 20.5,
+        // Ratcheted from the September audit baseline: 42.29 / 40.04 / 32.76 / 44.00.
+        statements: 42,
+        branches: 40,
+        functions: 32,
+        lines: 43.5,
       },
     },
   },

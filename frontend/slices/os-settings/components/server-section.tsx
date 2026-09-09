@@ -126,7 +126,7 @@ export function ServerSection() {
           {authed ? (
             <SettingsActionRow label="Sign out" onClick={onSignOut} />
           ) : (
-            <SettingsActionRow label="Sign in (admin)" icon={<LogIn />} onClick={() => setLoginFor(liveTargetId)} />
+            <SettingsActionRow label="Sign in to MSO" icon={<LogIn />} onClick={() => setLoginFor(liveTargetId)} />
           )}
         </SettingsSection>
       )}

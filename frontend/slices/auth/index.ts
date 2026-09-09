@@ -5,3 +5,4 @@ export { LoginScreen, LoginCard } from "./components/login-screen";
 export { DevicesPanel } from "./components/devices-panel";
 export { SessionProvider, useSession, type SessionStatus } from "./lib/use-session";
 export type { DeviceRole } from "@/lib/auth/roles";
+export { ServerLoginPage } from "./components/login-page";

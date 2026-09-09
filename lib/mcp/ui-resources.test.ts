@@ -1,7 +1,11 @@
 import { inlineScripts } from "../../scripts/test-support/inline-scripts";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.example.test");
+vi.stubEnv("OS_MCP_UI_ORIGIN", "");
+vi.stubEnv("MSO_SURFACE_APPS_JSON", "");
+afterAll(() => vi.unstubAllEnvs());
 
 const { dispatch } = await import("./dispatch");
 const {
@@ -157,7 +161,7 @@ describe("MCP Apps Block and Page contract", () => {
     });
     expect(content._meta.ui.csp.frameDomains).toBeUndefined();
     expect(content._meta["openai/widgetCSP"]).toEqual({ connect_domains: [MSO_ORIGIN], redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_PAGE_URI).toContain("page-v10.html");
+    expect(MSO_PAGE_URI).toContain("page-v11.html");
   });
 
   it("returns only redacted structured workflow state and keeps status polling out of workflow memory", async () => {

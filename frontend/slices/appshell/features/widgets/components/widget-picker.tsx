@@ -26,7 +26,7 @@ class PreviewBoundary extends Component<{ children: ReactNode }, { failed: boole
   }
 }
 
-// Desktop-widget picker — a live-preview gallery (mirrors shell.rahmanef.com):
+// Desktop-widget picker — a live-preview gallery (uses the shared shell layout):
 // each card mounts the REAL widget clipped to a small box (pointer-events-none so
 // it's non-interactive), and clicking the card adds/removes it. Arrange by
 // dragging widgets on the desktop (no up/down reorder here anymore).
