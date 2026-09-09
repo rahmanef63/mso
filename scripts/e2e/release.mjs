@@ -40,6 +40,15 @@ try {
     await expect(page).toHaveURL(/\/settings/);
     await expect(page.getByLabel("Server connection mode")).toContainText("Mock data only");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    if (viewport.width < 768) {
+      const title = page.locator('[data-slot="mobile-feature-header"]').getByText("Settings", { exact: true });
+      await expect(title).toBeVisible();
+      await expect.poll(async () => {
+        const badge = await page.getByLabel("Server connection mode").boundingBox();
+        const heading = await title.boundingBox();
+        return badge && heading ? badge.y + badge.height <= heading.y : false;
+      }).toBe(true);
+    }
     expect(errors).toEqual([]);
     await context.close();
     console.log(`PASS public guides, login entry, launcher and reflow ${viewport.width}x${viewport.height}`);
