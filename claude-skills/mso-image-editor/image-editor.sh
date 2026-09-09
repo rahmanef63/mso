@@ -148,7 +148,10 @@ case "$cmd" in
   view)
     p="${1:?path}"; shift || true
     base="${OS_PUBLIC_BASE:-${OS_PUBLIC_ORIGIN:-http://127.0.0.1:4005}}"
-    case "$p" in /*) ;; *) p="/$p" ;; esac
+    case "$p" in
+      /*) ;;
+      *) p="/$p" ;;
+    esac
     url="$base/studio$p"; echo "$url"
     if [ "${1:-}" = "--shot" ]; then
       # The os-browser sidecar that backed this was deleted 2026-08-10 (its unit

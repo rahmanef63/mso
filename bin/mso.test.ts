@@ -13,6 +13,7 @@ const commandOwnerFiles = [
   "scripts/cli/commands-host.sh",
   "scripts/cli/commands-runtime.sh",
   "scripts/cli/commands-state.sh",
+  "scripts/cli/config-command.sh",
   "scripts/cli/commands-admin.sh",
 ];
 const commandOwners = () => {

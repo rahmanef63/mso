@@ -10,7 +10,10 @@ mso_private_state_error() {
 mso_private_state_dir() {
   local requested="${1:-}" created=0 canonical owner mode old_umask
   [ -n "$requested" ] || { mso_private_state_error "empty directory path"; return 1; }
-  case "$requested" in /*) ;; *) mso_private_state_error "directory must be absolute: $requested"; return 1 ;; esac
+  case "$requested" in
+    /*) ;;
+    *) mso_private_state_error "directory must be absolute: $requested"; return 1 ;;
+  esac
   [ ! -L "$requested" ] || { mso_private_state_error "refusing symlink directory: $requested"; return 1; }
 
   if [ ! -e "$requested" ]; then
@@ -49,7 +52,10 @@ mso_private_state_dir() {
 mso_private_state_path() {
   local requested="${1:-}" parent name canonical_parent
   [ -n "$requested" ] || { mso_private_state_error "empty file path"; return 1; }
-  case "$requested" in /*) ;; *) mso_private_state_error "file path must be absolute: $requested"; return 1 ;; esac
+  case "$requested" in
+    /*) ;;
+    *) mso_private_state_error "file path must be absolute: $requested"; return 1 ;;
+  esac
   parent=$(dirname -- "$requested")
   name=$(basename -- "$requested")
   [ -n "$name" ] && [ "$name" != . ] && [ "$name" != / ] || {

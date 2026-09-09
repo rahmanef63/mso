@@ -1,3 +1,4 @@
+type CatalogModule = typeof import("@/lib/managed-apps/catalog");
 // Integration tests for /api/v1/managed-apps/[id]/proxy/[[...path]] — the
 // reverse proxy in front of the loopback-only Hermes/OpenClaw dashboards.
 // Auth and the catalog are mocked, fetch is stubbed: we exercise ONLY the
@@ -10,7 +11,7 @@ vi.mock("@/lib/agent/server", () => ({ verifyAuth: vi.fn(async () => true) }));
 
 const dashboardUrl = { current: "http://127.0.0.1:9119" };
 vi.mock("@/lib/managed-apps/catalog", async () => {
-  const real = await vi.importActual<typeof import("@/lib/managed-apps/catalog")>(
+  const real = await vi.importActual<CatalogModule>(
     "@/lib/managed-apps/catalog",
   );
   return {

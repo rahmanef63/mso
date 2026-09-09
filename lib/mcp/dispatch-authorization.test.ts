@@ -1,3 +1,4 @@
+type AuditApiModule = typeof import("@/lib/host/audit-api");
 import { beforeEach, describe, expect, it, vi } from "vitest";
 // The catalog reaches lib/camoufox + lib/managed-apps, which are `server-only`.
 // Next aliases that specifier internally; vitest does not, so stub it — same
@@ -11,7 +12,7 @@ vi.mock("@/lib/a2a/local-session", () => localSessionMock);
 // each tool, is what records.
 const audited: { action: string; actor?: string; target?: string; ok?: boolean }[] = [];
 vi.mock("@/lib/host/audit-api", async (orig) => {
-  const real = await orig<typeof import("@/lib/host/audit-api")>();
+  const real = await orig<AuditApiModule>();
   return { ...real, audit: (e: { action: string }) => { audited.push(e); return Promise.resolve(); } };
 });
 

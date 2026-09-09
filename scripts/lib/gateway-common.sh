@@ -67,15 +67,18 @@ gateway_pid_alive() {
   local line rest
   [ "${1:-0}" -gt 1 ] 2>/dev/null && kill -0 "$1" 2>/dev/null || return 1
   IFS= read -r line <"/proc/$1/stat" 2>/dev/null || return 1
-  rest="${line##*) }"
-  case "$rest" in Z*|X*) return 1 ;; *) return 0 ;; esac
+  rest="${line##*\) }"
+  case "$rest" in
+    Z*|X*) return 1 ;;
+    *) return 0 ;;
+  esac
 }
 
 gateway_proc_start_ticks() {
   local pid="$1" line rest
   gateway_pid_alive "$pid" || return 1
   IFS= read -r line <"/proc/$pid/stat" || return 1
-  rest="${line##*) }"
+  rest="${line##*\) }"
   set -- $rest
   [ "$#" -ge 20 ] || return 1
   printf '%s' "${20}"

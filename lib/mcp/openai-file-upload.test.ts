@@ -1,9 +1,10 @@
+type FsApiModule = typeof import("@/lib/host/fs-api");
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const uploadInto = vi.fn(async () => ({ written: 1, failed: [] as string[] }));
 vi.mock("@/lib/host/fs-api", async (orig) => {
-  const real = await orig<typeof import("@/lib/host/fs-api")>();
+  const real = await orig<FsApiModule>();
   return { ...real, uploadInto };
 });
 

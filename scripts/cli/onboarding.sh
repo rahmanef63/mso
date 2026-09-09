@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # TTY and guided onboarding helpers. Sourced by scripts/cli/runtime.sh.
+# shellcheck source=onboarding-ai.sh
+source "$ROOT/scripts/cli/onboarding-ai.sh"
 tty_ok() { [ -r /dev/tty ] && [ -w /dev/tty ]; }
 tty_print() { if tty_ok; then printf '%s' "$*" > /dev/tty; else printf '%s' "$*"; fi; }
 tty_line() {
@@ -43,66 +45,6 @@ ensure_onboard_runtime() {
   esac
 }
 
-onboard_ai() {
-  local yes="$1" choice provider key body response interval code url poll
-  if [ "$yes" = 1 ]; then
-    echo "  -- AI provider skipped (-y keeps external accounts unconfigured)"
-    return
-  fi
-  echo
-  echo "AI for Alfa"
-  echo "  0) Skip for now"
-  echo "  1) OpenAI ChatGPT OAuth (Codex consumer backend; no API key)"
-  echo "  2) Anthropic API key"
-  echo "  3) OpenAI Platform API key"
-  echo "  4) OpenRouter API key"
-  echo "  5) Google Gemini API key"
-  echo "  6) Groq API key"
-  echo "  7) xAI API key"
-  echo "  8) DeepSeek API key"
-  echo "  9) Mistral API key"
-  tty_line "Choose [0]: " 0; choice="$REPLY"
-  case "$choice" in
-    0|'') echo "  -- skipped"; return ;;
-    1)
-      response=$(jpost "/api/oauth/openai" '{"action":"start"}')
-      code=$(jq -r '.userCode // empty' <<<"$response")
-      url=$(jq -r '.verificationUrl // empty' <<<"$response")
-      interval=$(jq -r '.intervalMs // 5000' <<<"$response")
-      [ -n "$code" ] && [ -n "$url" ] || die "OpenAI OAuth did not return a device code"
-      echo
-      echo "Open this URL in any browser: $url"
-      echo "Enter code: $code"
-      echo "Waiting for authorization (Ctrl-C cancels this local wait; it does not expose the code)..."
-      while true; do
-        sleep "$(( interval / 1000 > 2 ? interval / 1000 : 3 ))"
-        poll=$(jpost "/api/oauth/openai" '{"action":"poll"}')
-        if [ "$(jq -r '.ok // false' <<<"$poll")" = true ]; then
-          echo "  ✓ OpenAI connected as $(jq -r '.slug' <<<"$poll")"
-          return
-        fi
-        [ "$(jq -r '.pending // false' <<<"$poll")" = true ] || die "OpenAI OAuth failed: $poll"
-        tty_print "."
-      done ;;
-    2) provider=anthropic ;;
-    3) provider=openai ;;
-    4) provider=openrouter ;;
-    5) provider=google ;;
-    6) provider=groq ;;
-    7) provider=xai ;;
-    8) provider=deepseek ;;
-    9) provider=mistral ;;
-    *) echo "  ! unknown choice; skipped"; return ;;
-  esac
-  echo "  $provider uses an API key here (not OAuth). The key is never placed in argv."
-  tty_secret "Paste $provider API key: "; key="$REPLY"
-  [ -n "$key" ] || { echo "  -- empty key; skipped"; return; }
-  body=$(printf '%s\0%s' "$provider" "$key" | provider_key_body)
-  secret_post "/api/config" "$body" >/dev/null
-  unset key body REPLY
-  echo "  ✓ $provider configured for Alfa"
-}
-
 onboard_style() {
   local yes="$1" choice style
   if [ "$yes" = 1 ]; then
@@ -115,7 +57,11 @@ onboard_style() {
     echo "  1) Caveman — terse fragments, preserve technical substance"
     echo "  2) Ponytail — minimal senior-dev solution, avoid unnecessary code"
     tty_line "Choose [0]: " 0; choice="$REPLY"
-    case "$choice" in 1) style=caveman ;; 2) style=ponytail ;; *) style=off ;; esac
+    case "$choice" in
+      1) style=caveman ;;
+      2) style=ponytail ;;
+      *) style=off ;;
+    esac
   fi
   jpost "/api/config" "$(jq -nc --arg v "$style" '{tokenSaver:$v}')" >/dev/null
   echo "  ✓ Alfa response preset: $style"
@@ -152,7 +98,12 @@ onboard_apps() {
   echo "  2) OpenClaw"
   echo "  3) Both"
   tty_line "Choose [0]: " 0; choice="$REPLY"
-  case "$choice" in 1) apps="hermes" ;; 2) apps="openclaw" ;; 3) apps="hermes openclaw" ;; *) return ;; esac
+  case "$choice" in
+    1) apps="hermes" ;;
+    2) apps="openclaw" ;;
+    3) apps="hermes openclaw" ;;
+    *) return ;;
+  esac
   for app in $apps; do
     if jget "/api/v1/managed-apps" | jq -e --arg id "$app" '.apps[] | select(.id==$id and .installed==true)' >/dev/null; then
       echo "  ✓ $app already installed"
@@ -186,7 +137,11 @@ onboard_skills() {
 
 run_onboard() {
   local yes=0
-  case "${1-}" in -y|--yes) yes=1 ;; "") ;; *) die "usage: mso onboard [-y|--yes]" ;; esac
+  case "${1-}" in
+    -y|--yes) yes=1 ;;
+    "") ;;
+    *) die "usage: mso onboard [-y|--yes]" ;;
+  esac
   echo "MSO onboarding"
   echo "=============="
   ensure_local_cli_device

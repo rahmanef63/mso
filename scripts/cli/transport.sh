@@ -75,7 +75,10 @@ req() {
     out=$(curl -sS -b "$JAR" "${ORIGIN[@]}" -w $'\n%{http_code}' "$@" || true)
     code="${out##*$'\n'}"; body="${out%$'\n'*}"
   fi
-  case "$code" in 2*) printf '%s' "$body" ;; *) die "request failed ($code): $body" ;; esac
+  case "$code" in
+    2*) printf '%s' "$body" ;;
+    *) die "request failed ($code): $body" ;;
+  esac
 }
 # Binary-safe variant: streams straight to stdout, no capture, no code check.
 reqraw() {
@@ -106,7 +109,10 @@ secret_post() {
   out=$(printf '%s' "$body" | curl -sS -b "$JAR" "${ORIGIN[@]}" -w $'\n%{http_code}' \
     -H 'content-type: application/json' -d @- "$B$route" || true)
   code="${out##*$'\n'}"; payload="${out%$'\n'*}"
-  case "$code" in 2*) printf '%s' "$payload" ;; *) die "request failed ($code): $payload" ;; esac
+  case "$code" in
+    2*) printf '%s' "$payload" ;;
+    *) die "request failed ($code): $payload" ;;
+  esac
 }
 
 # Build an outbound A2A credential JSON body while keeping the secret off process argv.

@@ -9,6 +9,7 @@ const appVersion: string = JSON.parse(fs.readFileSync(path.join(__dirname, "../p
 const cli = [
   fs.readFileSync(path.join(__dirname, "../bin/mso"), "utf8"),
   fs.readFileSync(path.join(__dirname, "../scripts/cli/onboarding.sh"), "utf8"),
+  fs.readFileSync(path.join(__dirname, "../scripts/cli/onboarding-ai.sh"), "utf8"),
   fs.readFileSync(path.join(__dirname, "../scripts/cli/transport.sh"), "utf8"),
 ].join("\n");
 

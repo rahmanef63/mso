@@ -42,7 +42,10 @@ fi
 # already on the invoking PATH. This also makes `--no-service` useful on WSL.
 PARENT_PATH_RESOLVED="$(normalize_parent_path "$PARENT_PATH" "$PARENT_CWD")"
 SYSTEM_BIN_DIR="${MSO_SYSTEM_BIN_DIR:-/usr/local/bin}"
-case "$SYSTEM_BIN_DIR" in /*) ;; *) SYSTEM_BIN_DIR="$PARENT_CWD/$SYSTEM_BIN_DIR" ;; esac
+case "$SYSTEM_BIN_DIR" in
+  /*) ;;
+  *) SYSTEM_BIN_DIR="$PARENT_CWD/$SYSTEM_BIN_DIR" ;;
+esac
 SYSTEM_CLI="$SYSTEM_BIN_DIR/mso"
 TARGET_CLI_REAL="$(readlink -f "$DIR/bin/mso")"
 CLI_IMMEDIATE=0

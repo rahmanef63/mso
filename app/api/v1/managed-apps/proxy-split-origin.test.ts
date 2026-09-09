@@ -1,3 +1,4 @@
+type CatalogModule = typeof import("@/lib/managed-apps/catalog");
 // The proxy route in SPLIT-ORIGIN mode: the dashboard is root-mounted on its own
 // host (hermes.mso.example.com), which is what finally closes the window.top reach
 // — the frame is cross-origin now, so `allow-same-origin` no longer grants the
@@ -13,7 +14,7 @@ vi.mock("@/lib/agent/server", () => ({ verifyAuth: vi.fn(async () => true) }));
 
 const dashboardUrl = { current: "http://127.0.0.1:9119" };
 vi.mock("@/lib/managed-apps/catalog", async () => {
-  const real = await vi.importActual<typeof import("@/lib/managed-apps/catalog")>(
+  const real = await vi.importActual<CatalogModule>(
     "@/lib/managed-apps/catalog",
   );
   return {

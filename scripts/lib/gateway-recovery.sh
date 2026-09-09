@@ -4,7 +4,10 @@
 gateway_recovery_marker_path() {
   local requested="${MSO_GATEWAY_RECOVERY_MARKER:-}"
   [ -n "$requested" ] || gateway_fail "runtime-stop requires an update recovery marker"
-  case "$requested" in /*) ;; *) gateway_fail "update recovery marker must be an absolute path" ;; esac
+  case "$requested" in
+    /*) ;;
+    *) gateway_fail "update recovery marker must be an absolute path" ;;
+  esac
   mso_private_state_path "$requested" || gateway_fail "unsafe update recovery marker path"
 }
 

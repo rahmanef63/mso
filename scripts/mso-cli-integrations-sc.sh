@@ -58,7 +58,10 @@ integration_sc_import_interactive(){
   integration_sc_preview_text "$preview"
   if ! jq -e '.canApply==true' >/dev/null <<<"$preview"; then printf 'Import cannot be applied with the current conflicts.\n'; return 1; fi
   tty_line "Apply this create-only metadata import? [y/N]: " n; ans="${REPLY,,}"
-  case "$ans" in y|yes) ;; *) printf 'cancelled\n'; return 0;; esac
+  case "$ans" in
+    y|yes) ;;
+    *) printf 'cancelled\n'; return 0;;
+  esac
   applied=$(integration_sc_apply_document "$bundle" "$preview") || return
   printf 'Imported %s named connection(s) from SI-Coder metadata.\n' "$(jq -r '.created//0'<<<"$applied")"
   printf 'Direct credentials still require private setup or an encrypted Integration Bundle. External OAuth/provider-MCP connections require reauthorization.\n'
@@ -71,7 +74,10 @@ integration_sc_import_cli(){
   integration_sc_preview_text "$preview"
   if ! jq -e '.canApply==true' >/dev/null <<<"$preview"; then return 1; fi
   tty_line "Apply this create-only metadata import? [y/N]: " n; ans="${REPLY,,}"
-  case "$ans" in y|yes) ;; *) printf 'cancelled\n'; return 0;; esac
+  case "$ans" in
+    y|yes) ;;
+    *) printf 'cancelled\n'; return 0;;
+  esac
   applied=$(integration_sc_apply_document "$bundle" "$preview") || return
   printf 'Imported %s named connection(s).\n' "$(jq -r '.created//0'<<<"$applied")"
 }

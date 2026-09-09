@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck source=config-command.sh
+source "$ROOT/scripts/cli/config-command.sh"
 # Assistant, sessions, A2A, memory/config/skills state commands.
 # Usage variables are defined by scripts/cli/commands.sh before this sourced handler runs.
 # shellcheck disable=SC2154
@@ -110,7 +112,10 @@ case "$cmd" in
             else jget "/api/v1/a2a?action=credentials"; fi ;;
           add)
             target="${1:?target}"; label="${2:-default}"; kind="${3:-bearer}"
-            case "$kind" in bearer|api-key|oauth2) ;; *) die "credential kind must be bearer, api-key, or oauth2" ;; esac
+            case "$kind" in
+              bearer|api-key|oauth2) ;;
+              *) die "credential kind must be bearer, api-key, or oauth2" ;;
+            esac
             agent_id="$(a2a_agent_id "$target")"; header_name=""; scheme_name=""
             schemes="$(a2a_agent_schemes "$agent_id")"; scheme_count="$(printf '%s\n' "$schemes" | sed '/^$/d' | wc -l | tr -d ' ')"
             if [ "$scheme_count" -eq 1 ]; then scheme_name="$(printf '%s\n' "$schemes" | sed '/^$/d' | head -1)";
@@ -155,7 +160,10 @@ case "$cmd" in
         case "$in_sub" in
           list) jget "/api/v1/a2a?action=credentials" ;;
           create|add)
-            label="${1:-peer}"; scope="${2:-read}"; case "$scope" in read|write|exec) ;; *) die "scope must be read, write, or exec" ;; esac
+            label="${1:-peer}"; scope="${2:-read}"; case "$scope" in
+              read|write|exec) ;;
+              *) die "scope must be read, write, or exec" ;;
+            esac
             jpost "/api/v1/a2a" "$(jq -n --arg label "$label" --arg scope "$scope" '{action:"inbound-token-create",label:$label,scope:$scope}')" ;;
           rm|remove) jpost "/api/v1/a2a" "$(jq -n --arg tokenId "${1:?tokenId}" '{action:"inbound-token-remove",tokenId:$tokenId}')" ;;
           *) die "usage: mso $U_a2a" ;;
@@ -169,23 +177,7 @@ case "$cmd" in
       rm)   jdel "/api/memory?id=$(enc "${2:?id}")" ;;
       *) die "usage: mso $U_memory" ;;
     esac ;;
-  config)
-    case "${1:-show}" in
-      show) jget "/api/config" ;;
-      set)  jpost "/api/config" "$(json_arg "${2:?json, e.g. '{\"model\":\"gpt-5.6\"}'}")" ;;
-      key)  provider="${2:?provider}"
-            case "$provider" in anthropic|openai|openrouter|google|groq|xai|deepseek|mistral) ;;
-              *) die "API-key provider must be one of: anthropic openai openrouter google groq xai deepseek mistral" ;; esac
-            tty_secret "Paste $provider API key: "; key="$REPLY"
-            [ -n "$key" ] || die "empty API key"
-            body=$(printf '%s\0%s' "$provider" "$key" | provider_key_body)
-            secret_post "/api/config" "$body"; unset key body REPLY ;;
-      style) style="${2:?off|caveman|ponytail}"
-             case "$style" in off|caveman|ponytail) ;; *) die "style must be off, caveman or ponytail" ;; esac
-             jpost "/api/config" "$(jq -nc --arg v "$style" '{tokenSaver:$v}')" ;;
-      rm)   jdel "/api/config?provider=$(enc "${2:?provider}")" ;;
-      *) die "usage: mso $U_config" ;;
-    esac ;;
+  config) mso_config_command "$U_config" "$@" ;;
   prefs)
     case "${1:-show}" in
       show) jget "/api/prefs" ;;

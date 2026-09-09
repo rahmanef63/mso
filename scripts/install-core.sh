@@ -53,7 +53,7 @@ BUN_BOOTSTRAP_SHA256="bab8acfb046aac8c72407bdcce903957665d655d7acaa3e11c7c4616be
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
   C_OK=$'\033[32m'; C_WARN=$'\033[33m'; C_ERR=$'\033[31m'; C_DIM=$'\033[2m'; C_RST=$'\033[0m'
 else
-  C_OK=; C_WARN=; C_ERR=; C_DIM=; C_RST=
+  C_OK=''; C_WARN=''; C_ERR=''; C_DIM=''; C_RST=''
 fi
 info() { printf '%s·%s %s\n' "$C_DIM"  "$C_RST" "$*"; }
 ok()   { printf '%s✓%s %s\n' "$C_OK"   "$C_RST" "$*"; }
@@ -122,7 +122,10 @@ systemd_ready() {
 }
 
 path_has_dir() {
-  case ":$1:" in *":$2:"*) return 0 ;; *) return 1 ;; esac
+  case ":$1:" in
+    *":$2:"*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 # PATH entries are resolved by the caller relative to the caller's cwd. The
@@ -198,11 +201,17 @@ if [ "$DO_UNINSTALL" -eq 1 ]; then
   # against $DIR first, so a hand-made `mso` on PATH or a third-party skill of
   # the same name is never touched.
   UNINST_BIN="${MSO_BIN_DIR:-$HOME/.local/bin}/mso"
-  if [ -L "$UNINST_BIN" ] && case "$(readlink "$UNINST_BIN")" in "$DIR/"*) true ;; *) false ;; esac; then
+  if [ -L "$UNINST_BIN" ] && case "$(readlink "$UNINST_BIN")" in
+    "$DIR/"*) true ;;
+    *) false ;;
+  esac; then
     rm -f "$UNINST_BIN"; ok "removed cli symlink $UNINST_BIN"
   fi
   UNINST_SYSTEM_CLI="${MSO_SYSTEM_BIN_DIR:-/usr/local/bin}/mso"
-  if [ -L "$UNINST_SYSTEM_CLI" ] && case "$(readlink "$UNINST_SYSTEM_CLI")" in "$DIR/"*) true ;; *) false ;; esac; then
+  if [ -L "$UNINST_SYSTEM_CLI" ] && case "$(readlink "$UNINST_SYSTEM_CLI")" in
+    "$DIR/"*) true ;;
+    *) false ;;
+  esac; then
     if [ -w "$(dirname "$UNINST_SYSTEM_CLI")" ]; then rm -f "$UNINST_SYSTEM_CLI"
     else sudo_do rm -f "$UNINST_SYSTEM_CLI"; fi
     ok "removed cli symlink $UNINST_SYSTEM_CLI"
@@ -211,7 +220,9 @@ if [ "$DO_UNINSTALL" -eq 1 ]; then
   if [ -d "$UNINST_SKILLS" ]; then
     for l in "$UNINST_SKILLS"/*; do
       [ -L "$l" ] || continue
-      case "$(readlink "$l")" in "$DIR/claude-skills/"*) rm -f "$l"; info "removed skill $(basename "$l")" ;; esac
+      case "$(readlink "$l")" in
+        "$DIR/claude-skills/"*) rm -f "$l"; info "removed skill $(basename "$l")" ;;
+      esac
     done
   fi
 
@@ -319,7 +330,10 @@ INSTALL_EARLY_UPDATE_CANONICAL_ROOT=''
 install_private_state_dir() {
   local requested="${1:-}" created=0 canonical owner mode old_umask
   [ -n "$requested" ] || die "empty installer private-state directory"
-  case "$requested" in /*) ;; *) die "installer private-state directory must be absolute: $requested" ;; esac
+  case "$requested" in
+    /*) ;;
+    *) die "installer private-state directory must be absolute: $requested" ;;
+  esac
   [ ! -L "$requested" ] || die "refusing symlink installer private-state directory: $requested"
   if [ ! -e "$requested" ]; then old_umask=$(umask); umask 077; mkdir -p -- "$requested"; umask "$old_umask"; created=1; fi
   [ -d "$requested" ] && [ ! -L "$requested" ] || die "not a real installer private-state directory: $requested"
@@ -364,7 +378,7 @@ install_early_update_lock_acquire() {
   base="$(install_private_state_dir "${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}")"
   key="$(printf '%s' "$canonical" | sha256sum | awk '{print $1}')"; [[ "$key" =~ ^[0-9a-f]{64}$ ]] || die "cannot derive installer update-lock scope"
   state="$(install_private_state_dir "$base/$key")"; lock="$(install_private_state_ensure_file "$state/transaction.lock")"
-  exec {INSTALL_EARLY_UPDATE_LOCK_FD}<>"$lock" || die "cannot open installer update transaction lock"
+  exec {INSTALL_EARLY_UPDATE_LOCK_FD}>>"$lock" || die "cannot open installer update transaction lock"
   timeout="${MSO_UPDATE_LOCK_TIMEOUT_SECONDS:-900}"; [[ "$timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "invalid installer update-lock timeout"
   if ! flock -x -w "$timeout" "$INSTALL_EARLY_UPDATE_LOCK_FD"; then exec {INSTALL_EARLY_UPDATE_LOCK_FD}>&- || true; INSTALL_EARLY_UPDATE_LOCK_FD=''; die "another MSO installer/update/deploy transaction is still running for $canonical"; fi
   INSTALL_EARLY_UPDATE_LOCK_HELD=1; INSTALL_EARLY_UPDATE_LOCK_FILE="$lock"; INSTALL_EARLY_UPDATE_CANONICAL_ROOT="$canonical"; trap install_early_update_lock_release EXIT

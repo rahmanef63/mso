@@ -1,3 +1,7 @@
+## 2026-09-09 — Complete Semgrep parser coverage
+
+The remaining forty parser diagnostics are resolved through explicit multiline Bash case arms, quoted parameter-error words, parser-compatible arithmetic and non-truncating append-open lock descriptors. Permission masks retain octal interpretation through validated conversion; process stat parsing retains its last-closing-parenthesis boundary. TypeScript import types are named aliases, JSX ampersands are entities and embedded-script regexes use equivalent escaped less-than literals. Two CLI responsibilities move into focused sourced modules with fixture inventories updated. No Semgrep rules or source files are excluded; both CI and the full security entrypoint now use `--strict --error` so parser diagnostics block completion. This supersedes the earlier documented scanner limitation.
+
 ## 2026-09-09 — Gateway release handshake under CI scheduling
 
 The final GitHub run exposed a remaining startup race: the held child already carries target argv, so command matching could acknowledge it before it consumed its release gate. Matching now refuses that exact launcher. Quick URL discovery pins the spawned PID/start ticks while wrappers exec; final readiness still requires exact executable/argv before state commits. The concurrent-start regression delays URL publication after interpreter exec, while checking one tracked live tunnel and successful cleanup. No timeouts, skips or identity checks were weakened to obtain a pass.

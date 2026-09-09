@@ -18,11 +18,12 @@ _gateway_tool_expected() {
 }
 
 _gateway_tool_validate() {
-  local file="$1" expected="$2" owner mode actual
+  local file="$1" expected="$2" owner mode actual mode_decimal
   [ -f "$file" ] && [ ! -L "$file" ] || return 1
   owner="$(stat -c '%u' -- "$file" 2>/dev/null || true)"; [ "$owner" = "$(id -u)" ] || return 1
   mode="$(stat -c '%a' -- "$file" 2>/dev/null || true)"; [[ "$mode" =~ ^[0-7]{3,4}$ ]] || return 1
-  (( (8#$mode & 022) == 0 )) || return 1
+  # Convert validated octal stat output before applying the permission mask.
+  mode_decimal="$(printf '%d' "0$mode")" && [ "$((mode_decimal & 18))" -eq 0 ] || return 1
   actual="$(sha256sum "$file" 2>/dev/null | awk '{print $1}')"
   [ "$actual" = "$expected" ] || return 1
   [ -x "$file" ]
@@ -31,7 +32,10 @@ _gateway_tool_validate() {
 gateway_resolve_cloudflared() {
   local override="${MSO_GATEWAY_CLOUDFLARED:-}" url expected dir dest tmp actual
   if [ -n "$override" ]; then
-    case "$override" in /*) ;; *) gateway_fail "MSO_GATEWAY_CLOUDFLARED must be an absolute path" ;; esac
+    case "$override" in
+      /*) ;;
+      *) gateway_fail "MSO_GATEWAY_CLOUDFLARED must be an absolute path" ;;
+    esac
     [ -f "$override" ] && [ ! -L "$override" ] && [ -x "$override" ] \
       || gateway_fail "cloudflared override must be an executable regular non-symlink file: $override"
     CLOUDFLARED="$(realpath -e -- "$override")"

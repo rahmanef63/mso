@@ -17,7 +17,7 @@ case "$cmd" in
   raw)    reqraw "$B/api/v1/fs/raw?path=$(enc "${1:?path}")"; exit 0 ;;
   share)  reqraw "$B/api/v1/temp-share/$(enc "${1:?temporary link id}")?download=1"; exit 0 ;;
   usage)  jget "/api/v1/fs/usage?path=$(enc "${1:-~}")" ;;
-  search) jget "/api/v1/fs/search?q=$(enc "${1:?query}")${2:+&root=$(enc "$2")}" ;;
+  search) jget "/api/v1/fs/search?q=$(enc "${1:?query}")${2:+"&root=$(enc "$2")"}" ;;
   write)  jpost "/api/v1/fs/write" "$(jq -n --arg p "${1:?path}" --arg c "${2-}" '{path:$p,content:$c}')" ;;
   mkdir)  jpost "/api/v1/fs/mkdir" "$(jq -n --arg p "${1:?path}" '{path:$p}')" ;;
   rm)     jdel  "/api/v1/fs/delete" "$(jq -n --arg p "${1:?path}" '{path:$p}')" ;;
@@ -163,7 +163,7 @@ case "$cmd" in
       echo "It never changes DNS, TLS certificates, firewall rules, public exposure, or credentials."
     fi
     [ "$fails" -eq 0 ] && echo "all good." || echo "$fails check(s) failed."
-    exit $(( fails > 0 ? 1 : 0 )) ;;
+    if [ "$fails" -gt 0 ]; then exit 1; else exit 0; fi ;;
   *) die "internal CLI routing error: $cmd reached the wrong command family" ;;
 esac
 }

@@ -3,7 +3,10 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="${1:-}"
-case "$MODE" in pre|post) ;; *) exit 2 ;; esac
+case "$MODE" in
+  pre|post) ;;
+  *) exit 2 ;;
+esac
 
 DIR=/tmp
 PORT=4005

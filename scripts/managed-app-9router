@@ -33,7 +33,11 @@ EXPECTED_DIGEST="${IMAGE##*@}"
 }
 readonly NINE_ROUTER_IMAGE_REF IMAGE EXPECTED_DIGEST
 EXPOSE_PUBLIC="${NINE_ROUTER_EXPOSE_PUBLIC:-0}"
-case "$EXPOSE_PUBLIC" in 0) BIND=127.0.0.1 ;; 1) BIND=0.0.0.0 ;; *) echo "NINE_ROUTER_EXPOSE_PUBLIC must be 0 or 1" >&2; exit 2 ;; esac
+case "$EXPOSE_PUBLIC" in
+  0) BIND=127.0.0.1 ;;
+  1) BIND=0.0.0.0 ;;
+  *) echo "NINE_ROUTER_EXPOSE_PUBLIC must be 0 or 1" >&2; exit 2 ;;
+esac
 DATA="${NINE_ROUTER_DATA:-$HOME/.9router}"
 PROXY_NETWORK="${NINE_ROUTER_PROXY_NETWORK:-dokploy-network}"
 BASE="http://127.0.0.1:${PORT}"
@@ -135,7 +139,9 @@ cmd_update() {
 # ~/.9router data stay. A reinstall finds its providers and stats untouched.
 cmd_uninstall() {
   local dry=0
-  case "${1:-}" in --dry-run) dry=1 ;; esac
+  case "${1:-}" in
+    --dry-run) dry=1 ;;
+  esac
   if [ "$dry" = 1 ]; then
     echo "would remove container: $NAME"
     echo "kept: image $IMAGE, data $DATA"

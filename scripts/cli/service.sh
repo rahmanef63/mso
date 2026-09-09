@@ -21,7 +21,9 @@ gateway_local_url() {
 maybe_update_notice() {
   local verb="$1"
   [ -t 2 ] || return 0
-  case "$verb" in update|version|--version|-V|-v|help|-h|--help|completion) return 0 ;; esac
+  case "$verb" in
+    update|version|--version|-V|-v|help|-h|--help|completion) return 0 ;;
+  esac
   [ -x "$ROOT/scripts/mso-update" ] || return 0
   MSO_UPDATE_ROOT="$ROOT" "$ROOT/scripts/mso-update" notice || true
 }

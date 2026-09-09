@@ -193,7 +193,7 @@ export function A2APeerSettings({
             className="[@media(pointer:coarse)]:min-h-[44px]"
             onClick={() => void createCredential()}
           >
-            Save & activate
+            Save &amp; activate
           </Button>
         </SettingsBlock>
       )}

@@ -5,7 +5,10 @@ set -euo pipefail
 
 parent_pid="${1:-}"; parent_ticks="${2:-}"; gate="${3:-}"; shift 3 || exit 2
 [[ "$parent_pid" =~ ^[0-9]+$ && "$parent_ticks" =~ ^[0-9]+$ ]] || exit 2
-case "$gate" in /*) ;; *) exit 2 ;; esac
+case "$gate" in
+  /*) ;;
+  *) exit 2 ;;
+esac
 [ "$#" -gt 0 ] || exit 2
 cmd=("$@")
 
@@ -18,7 +21,7 @@ for ((i=0; i<500; i++)); do
 
   [ -r "/proc/$parent_pid/stat" ] || exit 125
   IFS= read -r line <"/proc/$parent_pid/stat" || exit 125
-  rest="${line##*) }"; set -- $rest
+  rest="${line##*\) }"; set -- $rest
   [ "${20:-}" = "$parent_ticks" ] || exit 125
   sleep 0.01
 done

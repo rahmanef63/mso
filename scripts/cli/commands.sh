@@ -63,7 +63,9 @@ mso_cli_unknown() {
   echo "mso: unknown command '$cmd'" >&2
   head3="${cmd:0:3}"
   near=$(verbs | while read -r v; do
-    case "$v" in "$cmd"*|*"$cmd"*|"$head3"*) echo "  $v" ;; esac
+    case "$v" in
+      "$cmd"*|*"$cmd"*|"$head3"*) echo "  $v" ;;
+    esac
   done)
   [ -n "$near" ] && { echo "did you mean:" >&2; echo "$near" >&2; }
   echo >&2; usage >&2; exit 1

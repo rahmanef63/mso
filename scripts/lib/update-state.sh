@@ -14,7 +14,7 @@ update_proc_start_ticks() {
   local pid="$1" line rest
   [ "$pid" -gt 1 ] 2>/dev/null && kill -0 "$pid" 2>/dev/null || return 1
   IFS= read -r line <"/proc/$pid/stat" || return 1
-  rest="${line##*) }"; set -- $rest
+  rest="${line##*\) }"; set -- $rest
   [ "$#" -ge 20 ] || return 1
   printf '%s' "${20}"
 }
@@ -71,7 +71,7 @@ update_lock_acquire() {
   [[ "$timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || fail "invalid update transaction lock timeout"
   init_update_state
   mso_private_state_ensure_file "$UPDATE_LOCK_DIR" >/dev/null || fail "unsafe offline update transaction lock"
-  exec {UPDATE_LOCK_FD}<>"$UPDATE_LOCK_DIR" || fail "cannot open offline update transaction lock"
+  exec {UPDATE_LOCK_FD}>>"$UPDATE_LOCK_DIR" || fail "cannot open offline update transaction lock"
   if ! flock -x -w "$timeout" "$UPDATE_LOCK_FD"; then
     exec {UPDATE_LOCK_FD}>&- || true
     UPDATE_LOCK_FD=''

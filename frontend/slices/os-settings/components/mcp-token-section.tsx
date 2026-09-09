@@ -50,7 +50,7 @@ export function McpTokenSection({ tokens, onChanged, onConnect }: { tokens: McpT
       <details><summary className="cursor-pointer py-2 text-sm text-muted-foreground">Client details</summary><p className="break-all font-mono text-xs">{token.clientId}</p></details>
     </SettingsBlock>)}
     <div className="flex flex-wrap gap-2">
-      {tokens.length > active.length && <Button variant="ghost" aria-pressed={showInactive} onClick={() => setShowInactive(value => !value)} className="min-h-11">{showInactive ? "Hide" : "Show"} expired & disconnected</Button>}
+      {tokens.length > active.length && <Button variant="ghost" aria-pressed={showInactive} onClick={() => setShowInactive(value => !value)} className="min-h-11">{showInactive ? "Hide" : "Show"} expired &amp; disconnected</Button>}
       {active.length > 1 && <Button variant="ghost" disabled={busy} onClick={() => setPending({ id: "all", label: `all ${active.length} active connections` })} className="min-h-11 text-destructive">Disconnect all</Button>}
     </div>
   </SettingsSection>;

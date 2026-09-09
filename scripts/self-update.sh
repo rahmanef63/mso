@@ -149,7 +149,7 @@ while [ "$SECONDS" -lt "$RESTART_DEADLINE" ]; do
 done
 [ -n "$NEW_PID" ] \
   || die "mso.service did not return with a new MainPID within ${RESTART_WAIT_SECONDS}s; release state is unverified — inspect the system unit before retrying"
-printf 'restarted %s -> %s after %ss\n' "$OLD_PID" "$NEW_PID" "$((RESTART_WAIT_SECONDS - (RESTART_DEADLINE - SECONDS)))"
+printf 'restarted %s -> %s after %ss\n' "$OLD_PID" "$NEW_PID" "$((RESTART_WAIT_SECONDS - RESTART_DEADLINE + SECONDS))"
 
 # Verify the COMPLETE static asset graph referenced by root HTML. A healthy first
 # stylesheet is insufficient: an in-place build can leave one old JS chunk missing

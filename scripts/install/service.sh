@@ -59,7 +59,9 @@ WantedBy=multi-user.target
 EOF
   # A wildcard bind is not an address you can dial; probe loopback instead.
   HEALTH_HOST="$BIND"
-  case "$BIND" in 0.0.0.0|::|"") HEALTH_HOST=127.0.0.1 ;; esac
+  case "$BIND" in
+    0.0.0.0|::|"") HEALTH_HOST=127.0.0.1 ;;
+  esac
 
   # Makes /run/user/<uid> — where the user bus lives — exist without a login
   # session and survive logout. The XDG_RUNTIME_DIR above names that directory, so

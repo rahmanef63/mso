@@ -124,7 +124,7 @@ export function McpActivityView() {
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Activity className="size-4" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold">Activity & Runs</p>
+          <p className="text-xs font-semibold">Activity &amp; Runs</p>
           <p className="text-[10px] text-muted-foreground">
             {running ? `${running} run${running === 1 ? "" : "s"} active now` : "Alfa tool calls plus MSO workflows, grouped by task"}
           </p>

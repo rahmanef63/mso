@@ -1,10 +1,12 @@
+type ConnectionServiceModule = typeof import("./connection-service");
+type ClientsModule = typeof import("./clients");
 import { expect, it, vi } from "vitest";
 vi.mock("./clients", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./clients")>();
+  const actual = await importOriginal<ClientsModule>();
   return { ...actual, upsertDokployPublicBuildEnv: vi.fn(async (args) => ({ ...args, changed: true, redeployQueued: true })) };
 });
 vi.mock("./connection-service", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./connection-service")>();
+  const actual = await importOriginal<ConnectionServiceModule>();
   return {
     ...actual,
     resolveIntegration: vi.fn(async () => ({ user:"alice",id:"default",source:"direct",authMethod:"direct",provider:"dokploy" })),

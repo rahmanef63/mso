@@ -3,7 +3,7 @@
 
 gateway_lock_acquire() {
   gateway_private_file "$LOCK_FILE"
-  exec {GATEWAY_LOCK_FD}<>"$LOCK_FILE" || gateway_fail "cannot open gateway lifecycle lock"
+  exec {GATEWAY_LOCK_FD}>>"$LOCK_FILE" || gateway_fail "cannot open gateway lifecycle lock"
   if ! flock -x -w 12 "$GATEWAY_LOCK_FD"; then
     exec {GATEWAY_LOCK_FD}>&- || true
     GATEWAY_LOCK_FD=''

@@ -22,7 +22,9 @@ if [ -d "$DIR/claude-skills" ] && [ -d "$(dirname "$SKILL_DIR")" ]; then
   for l in "$SKILL_DIR"/*; do
     [ -L "$l" ] || continue
     tgt="$(readlink "$l")"
-    case "$tgt" in "$DIR/claude-skills/"*) [ -d "$tgt" ] || { rm -f "$l"; info "pruned stale skill $(basename "$l")"; } ;; esac
+    case "$tgt" in
+      "$DIR/claude-skills/"*) [ -d "$tgt" ] || { rm -f "$l"; info "pruned stale skill $(basename "$l")"; } ;;
+    esac
   done
   ok "skills → $SKILL_DIR (/mso, /mso-camoufox, /mso-apps, /mso-list, …)"
 fi

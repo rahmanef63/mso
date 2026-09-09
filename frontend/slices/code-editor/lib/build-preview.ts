@@ -54,7 +54,7 @@ function importMap(code: string, jsx: boolean): string {
 // Safe-embed source as a JS string literal inside a <script>: JSON-encode, then
 // neutralise any "</script" / "<!--" the HTML parser would otherwise act on.
 function jsLiteral(code: string): string {
-  return JSON.stringify(code).replace(/<\/(script)/gi, "<\\/$1").replace(/<!--/g, "<\\!--");
+  return JSON.stringify(code).replace(/\x3c\/(script)/gi, "<\\/$1").replace(/\x3c!--/g, "<\\!--");
 }
 
 const SHELL_CSS =

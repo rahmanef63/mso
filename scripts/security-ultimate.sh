@@ -103,7 +103,7 @@ run_capture "Gitleaks history" docker run --rm --user "$(id -u):$(id -g)" \
   -v "$GIT_COMMON:/git:ro" -v "$ROOT:/repo:ro" "$GITLEAKS_IMAGE" \
   git --no-banner --redact --log-opts="--all --full-history --diff-merges=first-parent" --gitleaks-ignore-path /repo/.gitleaksignore /repo
 run_capture "Semgrep OWASP/SAST" docker run --rm -v "$SRC:/src:ro" "$SEMGREP_IMAGE" \
-  semgrep scan --metrics=off --config=p/javascript --config=p/typescript --config=p/owasp-top-ten --error /src
+  semgrep scan --metrics=off --config=p/javascript --config=p/typescript --config=p/owasp-top-ten --strict --error /src
 
 mapfile -t shell_files < <(git grep -Il '^#!.*sh' -- '*.sh' 'bin/*' 'scripts/*' 'claude-skills/*' || true)
 shell_args=()

@@ -46,12 +46,13 @@ NODE
 }
 
 gateway_validate_named_tunnel() {
-  local mode public
+  local mode public mode_decimal
   [ -n "$GATEWAY_CONFIG" ] && [ -n "$GATEWAY_TUNNEL" ] || gateway_fail "named mode requires BOTH --config and --tunnel"
   [[ "$GATEWAY_TUNNEL" =~ ^[A-Za-z0-9_-]{1,80}$ ]] || gateway_fail "invalid tunnel name/UUID"
   [ -f "$GATEWAY_CONFIG" ] && [ ! -L "$GATEWAY_CONFIG" ] || gateway_fail "config must be a regular non-symlink file"
   [ "$(stat -c '%u' "$GATEWAY_CONFIG")" = "$(id -u)" ] || gateway_fail "cloudflared config must be owned by current user"
-  mode="$(stat -c '%a' "$GATEWAY_CONFIG")"; (( (8#$mode & 022) == 0 )) \
+  # Convert validated octal stat output before applying the permission mask.
+  mode="$(stat -c '%a' "$GATEWAY_CONFIG")"; [[ "$mode" =~ ^[0-7]{1,4}$ ]] && mode_decimal="$(printf '%d' "0$mode")" && [ "$((mode_decimal & 18))" -eq 0 ] \
     || gateway_fail "cloudflared config must not be group/world-writable (got mode $mode)"
   public="$(gateway_validate_public_origin "${OS_PUBLIC_ORIGIN:-}" 2>/dev/null || true)"
   [ -n "$public" ] || gateway_fail "named mode requires OS_PUBLIC_ORIGIN=https://your-domain (use: mso gateway domain set https://...)"

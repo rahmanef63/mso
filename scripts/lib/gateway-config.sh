@@ -2,11 +2,12 @@
 # Stable-origin configuration, diagnostics, and browser launcher.
 
 gateway_safe_env_file() {
-  local mode
+  local mode mode_decimal
   [ -e "$ENVF" ] || gateway_fail "env file not found: $ENVF"
   [ -f "$ENVF" ] && [ ! -L "$ENVF" ] || gateway_fail "env file must be a regular non-symlink file"
   [ "$(stat -c '%u' "$ENVF")" = "$(id -u)" ] || gateway_fail "env file must be owned by current user"
-  mode="$(stat -c '%a' "$ENVF")"; (( (8#$mode & 077) == 0 )) \
+  # Convert validated octal stat output before applying the permission mask.
+  mode="$(stat -c '%a' "$ENVF")"; [[ "$mode" =~ ^[0-7]{1,4}$ ]] && mode_decimal="$(printf '%d' "0$mode")" && [ "$((mode_decimal & 63))" -eq 0 ] \
     || gateway_fail "env file contains secrets and must not be group/world-accessible (got mode $mode)"
 }
 
@@ -150,13 +151,20 @@ gateway_cmd_web() {
   local mode=auto print_only=0 url opener
   shift || true
   while [ $# -gt 0 ]; do
-    case "$1" in --local) mode=local ;; --public) mode=public ;; --print) print_only=1 ;;
-      *) gateway_fail "usage: mso web [--local|--public] [--print]" ;; esac
+    case "$1" in
+      --local) mode=local ;;
+      --public) mode=public ;;
+      --print) print_only=1 ;;
+      *) gateway_fail "usage: mso web [--local|--public] [--print]" ;;
+    esac
     shift
   done
   url="$(gateway_with_lock gateway_cmd_web_resolve_locked "$mode")"
-  case "$url" in http:*) url="$(gateway_validate_loopback_origin "$url" 2>/dev/null || true)" ;;
-    https:*) url="$(gateway_validate_public_origin "$url" 2>/dev/null || true)" ;; *) url="" ;; esac
+  case "$url" in
+    http:*) url="$(gateway_validate_loopback_origin "$url" 2>/dev/null || true)" ;;
+    https:*) url="$(gateway_validate_public_origin "$url" 2>/dev/null || true)" ;;
+    *) url="" ;;
+  esac
   [ -n "$url" ] || gateway_fail "refusing unsafe browser URL"
   [ "$print_only" = 1 ] && { printf '%s\n' "$url"; return; }
   if command -v wslview >/dev/null 2>&1; then opener=wslview

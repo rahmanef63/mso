@@ -23,9 +23,13 @@ runtime_exclusion_init() {
 runtime_exclusion_acquire() {
   local mode="$1" timeout="$2" flag
   runtime_exclusion_init || return 1
-  case "$mode" in shared) flag=-s ;; exclusive) flag=-x ;; *) return 2 ;; esac
+  case "$mode" in
+    shared) flag=-s ;;
+    exclusive) flag=-x ;;
+    *) return 2 ;;
+  esac
   [[ "$timeout" =~ ^[0-9]+([.][0-9]+)?$ ]] || return 2
-  exec {RUNTIME_EXCLUSION_FD}<>"$RUNTIME_EXCLUSION_FILE" || return 1
+  exec {RUNTIME_EXCLUSION_FD}>>"$RUNTIME_EXCLUSION_FILE" || return 1
   if ! flock "$flag" -w "$timeout" "$RUNTIME_EXCLUSION_FD"; then
     exec {RUNTIME_EXCLUSION_FD}>&- || true
     RUNTIME_EXCLUSION_FD=''

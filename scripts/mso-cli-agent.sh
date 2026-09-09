@@ -31,14 +31,20 @@ onboard_infra() {
   echo "Infrastructure providers"
   echo "  MSO Agent can use these after you connect them. Secrets stay server-side and never enter model tool arguments."
   tty_line "Configure Dokploy now? [y/N]: " "n"; choice="${REPLY,,}"
-  case "$choice" in y|yes) run_provider set dokploy ;; esac
+  case "$choice" in
+    y|yes) run_provider set dokploy ;;
+  esac
   echo
   echo "DNS provider"
   echo "  0) Skip"
   echo "  1) Cloudflare (per-record writes only)"
   echo "  2) Hostinger (exact name/type RR-set updates; agent approval required)"
   tty_line "Choose [0]: " 0; choice="$REPLY"
-  case "$choice" in 1) run_provider set cloudflare ;; 2) run_provider set hostinger ;; *) echo "  -- DNS provider skipped" ;; esac
+  case "$choice" in
+    1) run_provider set cloudflare ;;
+    2) run_provider set hostinger ;;
+    *) echo "  -- DNS provider skipped" ;;
+  esac
 }
 
 ai_config_ready() {
@@ -166,7 +172,9 @@ configure_oauth_provider() {
   echo "Enter code: $code"
   echo "Waiting for authorization (active model will NOT change)..."
   while true; do
-    sleep "$(( interval / 1000 > 2 ? interval / 1000 : 3 ))"
+    poll_seconds=$((interval / 1000))
+        [ "$poll_seconds" -gt 2 ] || poll_seconds=3
+        sleep "$poll_seconds"
     poll=$(jpost "/api/oauth/openai" '{"action":"poll","select":false}')
     if [ "$(jq -r '.ok // false' <<<"$poll")" = true ]; then
       echo "  ✓ connected $(jq -r '.slug' <<<"$poll"); model selection unchanged"
@@ -189,7 +197,10 @@ configure_ai_provider() {
       tty_line "Provider name: " ""; name="$REPLY"; [ -n "$name" ] || die "provider name required"
       tty_line "Base URL (https://.../v1): " ""; base="$REPLY"; [ -n "$base" ] || die "base URL required"
       tty_line "Protocol [openai|anthropic] [openai]: " "openai"; protocol="$REPLY"
-      case "$protocol" in openai|anthropic) ;; *) die "protocol must be openai or anthropic" ;; esac
+      case "$protocol" in
+        openai|anthropic) ;;
+        *) die "protocol must be openai or anthropic" ;;
+      esac
       tty_line "Models (comma/newline IDs; optional): " ""; models="$REPLY"
       tty_secret "API key: "; key="$REPLY"; [ -n "$key" ] || die "empty API key"
       body=$(printf '%s\0%s\0%s\0%s\0%s' "$name" "$base" "$protocol" "$key" "$models" | custom_provider_body_unselected)

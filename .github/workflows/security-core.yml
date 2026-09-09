@@ -106,7 +106,7 @@ jobs:
           semgrep/semgrep@sha256:f1f7b71861c7b28b6e0f661225a2c4f58a484f5d0f182465c6d6b3b22f972ade
           semgrep scan --metrics=off
           --config=p/javascript --config=p/typescript --config=p/owasp-top-ten
-          --error /src
+          --strict --error /src
 
   shellcheck:
     name: ShellCheck

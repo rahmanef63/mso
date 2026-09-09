@@ -28,7 +28,7 @@ case "$cmd" in
            dev_script --revoke "$1" ;;
   # ── provider OAuth (device-code, NOT a browser redirect) ─────────────────
   oauth)
-    p="${1:?provider (e.g. openai)}"; sub="${2:-start}"
+    p="${1:?"provider (e.g. openai)"}"; sub="${2:-start}"
     case "$sub" in
       start|poll) jpost "/api/oauth/$(enc "$p")" "$(jq -n --arg a "$sub" '{action:$a}')" ;;
       *) die "usage: mso $U_oauth" ;;

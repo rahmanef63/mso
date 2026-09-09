@@ -214,7 +214,10 @@ service_source_matches_runtime() {
 update_unit_active() {
   local state
   state="$(systemctl --user show -p ActiveState --value mso-self-update.service 2>/dev/null || true)"
-  case "$state" in activating|active|reloading|deactivating) return 0 ;; *) return 1 ;; esac
+  case "$state" in
+    activating|active|reloading|deactivating) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 update_stage() {
@@ -284,7 +287,11 @@ case "${1:-run}" in
   notice) notice ;;
   status|check) print_status ;;
   log) [ -f "$LOG" ] && tail -n "${2:-80}" "$LOG" || printf 'no update log yet: %s\n' "$LOG" ;;
-  run) case "${2-}" in "" ) run_update 0 ;; --rebuild|--rebuild-only) run_update 1 ;; *) fail "usage: mso update [--rebuild] | status | log" ;; esac ;;
+  run) case "${2-}" in
+    "" ) run_update 0 ;;
+    --rebuild|--rebuild-only) run_update 1 ;;
+    *) fail "usage: mso update [--rebuild] | status | log" ;;
+  esac ;;
   --rebuild|--rebuild-only) run_update 1 ;;
   *) fail "usage: mso update [--rebuild] | status | log" ;;
 esac
