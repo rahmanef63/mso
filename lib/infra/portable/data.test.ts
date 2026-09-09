@@ -47,9 +47,10 @@ it('resets external authorization instead of copying session identifiers',async(
 });
 it('rejects truncated GCM authentication tags before importing any credentials',async()=>{
   const codec=await import('./codec.js');
-  const envelope=await codec.seal(structuredClone(sample),PASS);
-  expect(Buffer.from(envelope.cipher.tag,'base64')).toHaveLength(16);
-  envelope.cipher.tag=Buffer.from(envelope.cipher.tag,'base64').subarray(0,12).toString('base64');
+  const envelope=await codec.seal(codec.validate(structuredClone(sample)),PASS);
+  const cipher=envelope.cipher as {tag:string};
+  expect(Buffer.from(cipher.tag,'base64')).toHaveLength(16);
+  cipher.tag=Buffer.from(cipher.tag,'base64').subarray(0,12).toString('base64');
   await expect(codec.open(envelope,PASS)).rejects.toThrow('invalid_envelope');
   await expect(fs.stat(process.env.OS_INFRA_STORE!)).rejects.toMatchObject({code:'ENOENT'});
 });
