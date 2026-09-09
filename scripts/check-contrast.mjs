@@ -2,7 +2,7 @@
 // Passive WCAG AA contrast audit. Scans app/globals.css :root + [data-theme="dark"]
 // AND every tweakcn preset under lib/appearance/presets/registry-data.json.
 // Computes contrast for the 4 key foreground/background pairs in each preset.
-// Exits 0 always — informational only. Parses hex / rgb[a] / oklch.
+// Fails on palette regressions. Parses hex / rgb[a] / oklch.
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve as pathResolve } from "node:path";
 import { fileURLToPath } from "node:url";

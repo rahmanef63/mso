@@ -9,11 +9,11 @@ import { SessionModeBanner } from "./session-mode-banner";
 import { useSession } from "../lib/use-session";
 
 // The shell is PUBLIC: anyone can open it and browse on mock data — no sign-in
-// wall. Sign-in is admin-only and unlocks live host access (files/terminal/
+// wall. Sign-in unlocks device-role-gated live host access (files/terminal/
 // monitor); every /api host route enforces the session server-side, so a
-// signed-out visitor is confined to mock (see lib/os-api). Sign-in lives inside
-// the shell (Settings → Server). This gate now only shows a brief splash while
-// the session resolves (avoids a mock→live flash for the owner) + the DEMO badge.
+// signed-out visitor is confined to mock (see lib/os-api). Sign-in is available directly at /login and
+// inside Settings → Server. This gate resolves the session before showing the
+// shell and keeps its actual mock/live mode visible.
 export function AuthGate({ children }: { children: ReactNode }) {
   if (IS_DEMO) {
     return (

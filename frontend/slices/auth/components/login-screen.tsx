@@ -13,7 +13,7 @@ import { MsoMark } from "@/components/shared/mso-mark";
 // "pending": show the device id to paste to an approver. No cookie until an
 // approved device promotes it. POSTs /api/auth/login (signed-cookie session).
 // `LoginCard` is the reusable content (used full-screen by LoginScreen and as a
-// modal by the Settings → Server sign-in). Admin-only: the public shell runs on
+// modal by the Settings → Server sign-in). Device-role-gated: the public shell runs on
 // mock data with no sign-in; this gates access to the real server (live mode).
 export function LoginCard({ onAuthed }: { onAuthed: () => void }) {
   const [password, setPassword] = useState("");

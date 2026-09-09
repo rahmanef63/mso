@@ -11,7 +11,7 @@ export const INTEGRATION_BROWSER_SCRIPT=String.raw`
   }
   async function loadManager(){
     cleanup();authController?.abort();authController=new AbortController();
-    let owner=false;try{const auth=await json("/api/auth/me",{signal:authController.signal});owner=auth.role==="owner"}catch{}
+    let owner=false,authenticated=false,role=null;try{const auth=await json("/api/auth/me",{signal:authController.signal});owner=auth.role==="owner";authenticated=auth.authenticated===true;role=auth.role}catch{}
     const bridge={headingLevel:1,remember:s=>state=s,openLink:url=>window.open(url,"_blank","noopener,noreferrer")};
     if(owner){
       bridge.openTransfer=openTransfer;
@@ -21,7 +21,8 @@ export const INTEGRATION_BROWSER_SCRIPT=String.raw`
     }
     if(owner&&wantsTransfer){openTransfer();return}
     cleanup=mountConnectionManager(root,INTEGRATIONS_CATALOG,bridge,state);
-    if(!owner){const link=integrationNode("a","Sign in to MSO as Owner");link.href="/login?returnTo=%2Fintegrations";link.className="primary integration-signin";link.target="_blank";link.rel="noopener noreferrer";root.prepend(link);const refresh=()=>{if(document.visibilityState!=="hidden")void loadManager()};document.addEventListener("visibilitychange",refresh,{signal:authController.signal});window.addEventListener("focus",refresh,{signal:authController.signal});}
+    if(!owner&&authenticated)root.prepend(integrationNode("p","This device has "+role+" access. An Owner must approve Owner access before it can manage integrations."));
+    if(!owner&&!authenticated){const link=integrationNode("a","Sign in to MSO as Owner");link.href="/login?returnTo=%2Fintegrations";link.className="primary integration-signin";link.target="_blank";link.rel="noopener noreferrer";root.prepend(link);const refresh=()=>{if(document.visibilityState!=="hidden")void loadManager()};document.addEventListener("visibilitychange",refresh,{signal:authController.signal});window.addEventListener("focus",refresh,{signal:authController.signal});}
   }
   window.addEventListener("pagehide",()=>{cleanup();authController?.abort()},{once:true});
   let token=location.hash.slice(1);history.replaceState(null,"",location.pathname);

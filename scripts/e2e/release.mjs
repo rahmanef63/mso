@@ -30,7 +30,8 @@ try {
     await page.goto(fixture.base);
     await expect(page.getByLabel("Server connection mode")).toContainText("Mock data only");
     // Real launcher click, not only deep-link route mounting.
-    const settings = page.locator('a[href="/settings"]:visible').first();
+    const settingsName = /^(System )?Settings(?: \(running\))?$/;
+    const settings = page.getByRole("link", { name: settingsName }).or(page.getByRole("button", { name: settingsName })).first();
     await expect(settings).toBeVisible();
     await settings.click();
     await expect(page).toHaveURL(/\/settings/);
