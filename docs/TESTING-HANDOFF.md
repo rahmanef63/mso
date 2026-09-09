@@ -35,7 +35,7 @@ Current verified behavior:
 - the terminal separates `Assistant`, `Agent work`, `Local agent`, `Error`, and `Input · @name` with full-width dividers; the composer identity is `@name ›` and permission lives in the bottom footer as `mode ask|auto|yolo`;
 - recoverable HTTP/API failures preserve the interaction and correlation state, classify mutation outcome as `not_started`, `completed`, or `uncertain`, redact safe error summaries, and never auto-retry an uncertain write/exec mutation.
 
-## Copy prompt for Agent Alpha
+## Historical copy prompt for Agent Alpha (do not use as current baseline)
 
 ```text
 You are taking over MSO testing work in the current repository root (`git rev-parse --show-toplevel`).
@@ -282,7 +282,7 @@ Validation minimum: focused unit tests for success, offline target, absent subsc
 - The assistant/client must still emit a user-facing completion, partial-result, or failure message after a tool/API error. If status is uncertain, say so and verify before retrying any write/exec mutation.
 - Add focused tests for: HTTP 400 after a successful mutation, HTTP 400 before dispatch, draft preservation, no duplicate write on retry, pending approval preservation, and a visible user-facing error/result message.
 
-### Template — append for every later session
+### Historical session-note template (reference only)
 
 ```md
 ### YYYY-MM-DD — short title

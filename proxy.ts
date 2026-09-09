@@ -33,6 +33,7 @@ import { getApprovedDevice } from "@/lib/auth/device-store";
 import { roleAtLeast, type DeviceRole } from "@/lib/auth/roles";
 import { IS_DEMO } from "@/lib/demo";
 import { camoufoxViewerCsp, isCamoufoxViewerHost } from "@/lib/camoufox/origin";
+import { applyPrivatePageCachePolicy } from "@/lib/auth/page-cache";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -349,6 +350,7 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set("content-security-policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  applyPrivatePageCachePolicy(response, request);
   return response;
 }
 

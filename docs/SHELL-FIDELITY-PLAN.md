@@ -1,6 +1,6 @@
 # Shell Fidelity Plan — five lightweight, convincing OS clones
 
-> **Historical design plan / backlog baseline.** The inventory below was written from the
+> **ARCHIVED — historical design plan / backlog baseline.** The inventory below was written from the
 > 2026-06-11 shell state and intentionally preserves its original gaps/budgets. Several
 > phases subsequently shipped and the AppShell structure changed. Current shell contracts
 > live in [`ARCHITECTURE.md`](./ARCHITECTURE.md), the per-shell design files under

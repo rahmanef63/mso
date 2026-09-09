@@ -4,10 +4,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { AUTHED_EVENT } from "@/lib/prefs/use-prefs-sync";
 import { IS_DEMO } from "@/lib/demo";
 import type { DeviceRole } from "@/lib/auth/roles";
+import { probeSession, type SessionSnapshot, type SessionStatus } from "./session-probe";
 
-export type SessionStatus = "loading" | "out" | "in";
+export type { SessionStatus } from "./session-probe";
 
-type SessionSnapshot = { status: SessionStatus; role: DeviceRole | null };
 type SessionValue = SessionSnapshot & {
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -34,55 +34,60 @@ export function SessionProvider({
     role: IS_DEMO || initialStatus !== "in" ? null : (initialRole ?? "viewer"),
   }));
 
-  const probe = useCallback(async (): Promise<SessionSnapshot> => {
-    if (IS_DEMO) return { status: "out", role: null };
-    try {
-      const response = await fetch("/api/auth/me", { cache: "no-store" });
-      const body = (await response.json()) as { authenticated?: boolean; role?: DeviceRole | null };
-      return body.authenticated
-        ? { status: "in", role: body.role ?? "viewer" }
-        : { status: "out", role: null };
-    } catch {
-      return { status: "out", role: null };
-    }
-  }, []);
+  const probe = useCallback(() => probeSession(), []);
 
   const refresh = useCallback(async () => {
     const next = await probe();
+    // `null` is deliberately NOT signed-out. A deploy/restart can race this
+    // request; preserving the last authoritative snapshot keeps a valid cookie
+    // from being presented as a logout while the service recovers.
+    if (!next) return;
     setSnapshot(next);
     if (next.status === "in") window.dispatchEvent(new Event(AUTHED_EVENT));
   }, [probe]);
 
   const signOut = useCallback(async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     } catch {
       /* best-effort — clear locally regardless */
     }
     setSnapshot({ status: "out", role: null });
   }, []);
 
+  // SSR gives the fast first paint, then the browser immediately reconciles it.
+  // This closes stale HTML/CDN/BFCache windows without reintroducing a loading wall.
   useEffect(() => {
-    if (IS_DEMO || initialStatus !== undefined) return;
+    if (IS_DEMO) return;
     let alive = true;
-    probe().then((next) => alive && setSnapshot(next));
-    return () => { alive = false; };
-  }, [probe, initialStatus]);
+    void probe().then((next) => {
+      if (alive && next) setSnapshot(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [probe]);
 
   useEffect(() => {
     if (IS_DEMO) return;
     let alive = true;
     const sync = () => {
       if (document.visibilityState !== "visible") return;
-      probe().then((next) => { if (alive) setSnapshot(next); });
+      void probe().then((next) => {
+        if (alive && next) setSnapshot(next);
+      });
     };
     const timer = window.setInterval(sync, 60_000);
     window.addEventListener("focus", sync);
+    window.addEventListener("pageshow", sync);
+    window.addEventListener("online", sync);
     document.addEventListener("visibilitychange", sync);
     return () => {
       alive = false;
       window.clearInterval(timer);
       window.removeEventListener("focus", sync);
+      window.removeEventListener("pageshow", sync);
+      window.removeEventListener("online", sync);
       document.removeEventListener("visibilitychange", sync);
     };
   }, [probe]);

@@ -259,3 +259,12 @@ describe("the app-host header is never accepted from a client", () => {
     expect(stampedHost(res)).toBeNull();
   });
 });
+
+describe("cockpit document cache boundary", () => {
+  it("applies the private page policy through proxy.ts", async () => {
+    const proxy = await loadProxy(TEMPLATE);
+    const res = await proxy(req("mso.example.com", "/settings", { headers: { accept: "text/html" } }));
+    expect(res.headers.get("cache-control")).toBe("private, no-store, max-age=0, must-revalidate");
+    expect((res.headers.get("vary") ?? "").toLowerCase()).toContain("cookie");
+  });
+});

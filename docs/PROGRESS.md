@@ -1,3 +1,25 @@
+## 2026-09-09 — Session persistence and auth-sensitive cache resilience
+
+A same-day repeated-login report was reproduced as a client-state resilience problem rather than
+a rotating signing secret. The production `.env.local` still holds the same 64-character
+`OS_SESSION_SECRET` across service rebuilds, while the service restarted repeatedly during active
+development. The browser session probe previously converted **any** `/api/auth/me` failure —
+including a restart-race 502, network error or malformed temporary response — into `status=out`.
+That made a still-valid signed cookie look logged out/mock until a later probe, encouraging an
+unnecessary password login. The client now changes to signed-out only after an authoritative
+successful `authenticated:false` response; indeterminate failures preserve the last verified
+snapshot. It reconciles immediately after SSR and again on focus, visibility, BFCache `pageshow`
+and reconnect, without reintroducing a loading wall. Explicit logout is unchanged.
+
+Cockpit HTML/RSC navigations now carry an explicit private `no-store`, zero-age, must-revalidate
+policy plus no-cache compatibility headers and `Vary: Cookie`. The policy is request-shaped so it
+does not overwrite immutable/cacheable static assets or API-specific response headers; the service
+worker continues to cache only its explicit icon/manifest allowlist. `SESSION_EXPIRY_HOURS` remains
+intentionally bounded at 24 hours by default because an MSO session grants live host control; this
+change fixes false logout/cache drift rather than creating an indefinitely renewable login. Focused
+probe/provider and proxy regression tests cover transient failure preservation, explicit logout
+resolution, immediate reconciliation wiring, document/RSC no-store and static-asset exclusion.
+
 ## 2026-09-09 — Explicit SC credential synchronization
 
 User reports existing SC credentials absent from MSO Integrations. The prior transfer discovery

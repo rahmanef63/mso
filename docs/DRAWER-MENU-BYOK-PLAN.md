@@ -91,7 +91,7 @@ Codex device-code, not the platform API) — say the word to pull it forward.
 - **C3** `ai-section.tsx` — add "Add provider" (custom form), a provider **list + delete**, and a health badge
   after save/test. Optionally expose the full ~36 registry providers. *(~60 lines)*
 
-### Phase D — OAuth `[OpenAI Codex shipped; others scaffolded]`
+### Phase D — OAuth `[historical/deferred: OpenAI Codex shipped; D2–D4 are not active backlog]`
 Framework: `OsConfig.oauthTokens` (0600 host file) + in-memory handshake (`lib/ai/oauth/flow-state.ts`) +
 `app/api/oauth/[provider]/route.ts` (start/poll). OAuth providers appear in the connected-list (kind
 `oauth`), selectable + deletable; the assistant route bypasses `resolveModel` for them and refreshes before each call.
@@ -102,9 +102,9 @@ Framework: `OsConfig.oauthTokens` (0600 host file) + in-memory handshake (`lib/a
   **Current correction:** the consumer endpoint remains more fragile than the public Platform API,
   but current `app/api/assistant/route.ts` can pass Alfa tools through the Codex adapter; the old
   "chat-only" caveat is no longer true. OAuth material remains private host state (0600).
-- **D2 Claude** (PKCE paste) — TODO. `/v1/messages` with Bearer (not x-api-key) + mandatory betas + a "You are Claude Code" system block.
-- **D3 Copilot** (device-code) — TODO. gh→copilot token exchange + 5 editor headers; ToS caveat.
-- **D4 OpenRouter** (PKCE redirect) — TODO, low value (yields a normal `sk-or-` key you can already paste); needs a public callback URL.
+- **D2 Claude** (PKCE paste) — **DEFERRED HISTORICAL IDEA (not an active TODO).** `/v1/messages` with Bearer (not x-api-key) + mandatory betas + a "You are Claude Code" system block.
+- **D3 Copilot** (device-code) — **DEFERRED HISTORICAL IDEA (not an active TODO).** gh→copilot token exchange + 5 editor headers; ToS caveat.
+- **D4 OpenRouter** (PKCE redirect) — **DEFERRED HISTORICAL IDEA (not an active TODO),** low value (yields a normal `sk-or-` key you can already paste); needs a public callback URL.
 
 ## 4. Verification
 - Playwright (mock shells): iOS in-app "•••" → drawer lists Files actions + runs one; desktop menu bar shows

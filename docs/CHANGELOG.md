@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `auth` harden browser session persistence
 - `integrations` synchronize owner-local SC credential snapshots
 - `security` eliminate parser gaps and enforce strict SAST coverage
 - `gateway` wait for launcher handoff before tracking tunnel identity
