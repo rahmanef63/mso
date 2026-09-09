@@ -1,8 +1,6 @@
 import { MSO_PAGE_INTEGRATIONS_SCRIPT } from "./ui-page-integrations";
 import { MSO_PAGE_BRIDGE_SCRIPT } from "./ui-page-bridge";
-import { MSO_PAGE_FRAME_SCRIPT } from "./ui-page-frame";
-import { MSO_PAGE_AUTH_SCRIPT } from "./ui-page-auth";
-import { surfaceApps } from "./surface-catalog";
+import { publicSurfaceApps } from "./surface-catalog";
 import { MSO_WIDGET_THEME_SCRIPT } from "./ui-widget-tokens";
 
 function safeJson(value: unknown): string {
@@ -13,7 +11,7 @@ function safeJson(value: unknown): string {
 }
 
 async function browserCatalog() {
-  return (await surfaceApps()).map((app) => ({
+  return (await publicSurfaceApps()).map((app) => ({
     id: app.id,
     title: app.title,
     description: app.description,
@@ -22,8 +20,6 @@ async function browserCatalog() {
     renderer: app.renderer,
     presentation: app.presentation,
     environment: app.environment,
-    sandbox: app.sandbox ?? "",
-    externalAuthPath: app.externalAuthPath ?? "",
     reason: app.reason ?? "",
   }));
 }
@@ -40,8 +36,6 @@ const fsBtn=$("surface-fullscreen"), pipBtn=$("surface-pip"), homeBtn=$("surface
 let current={route:"/",kind:"home",title:"MSO",openPath:"/assistant/mcp",catalog:[]};
 const pending=new Map();let nextRpcId=5000;
 ${MSO_PAGE_BRIDGE_SCRIPT}
-${MSO_PAGE_FRAME_SCRIPT}
-${MSO_PAGE_AUTH_SCRIPT}
 ${MSO_PAGE_INTEGRATIONS_SCRIPT}
 
 function text(value,fallback="—"){return typeof value==="string"&&value.trim()?value.trim():fallback}
@@ -89,10 +83,10 @@ function nav(route,extra={}){
 }
 function showError(error){viewCleanup();viewCleanup=()=>{};clear(body);const box=el("div","notice");const inner=el("div");inner.append(el("h3","","Page unavailable"),el("p","error",error&&error.message?error.message:"The requested page could not be loaded."));box.append(inner);body.append(box)}
 function renderHome(){
-  const root=el("div","home");const hero=el("section","hero");hero.append(el("h2","","MSO Page"),el("p","","ChatGPT is another MSO presentation target. Open a native operator view or a reviewed live demo without leaving the conversation."));root.append(hero);
+  const root=el("div","home");const hero=el("section","hero");hero.append(el("h2","","MSO Page"),el("p","","ChatGPT is another MSO presentation target. Open native operator views here; registry-backed external apps continue through the isolated MSO Browser seam."));root.append(hero);
   root.append(el("div","section-title","Native pages"));const native=el("div","grid");
-  for(const item of [{route:"/integrations",title:"Integrations",desc:"Secure, native credential setup."},{route:"/monitor",title:"System Monitor",desc:"Live bounded host status."},{route:"/project",title:"Project",desc:"Project snapshot and Git state."},{route:"/diff",title:"Diff",desc:"Review project changes."},{route:"/browser",title:"Remote Browser",desc:"Fallback seam for sites that deny framing."}]){const card=button("",()=>nav(item.route),"card");card.append(el("strong","",item.title),el("span","",item.desc));native.append(card)}root.append(native);
-  root.append(el("div","section-title","Reviewed development and production pages"));const apps=el("div","grid");
+  for(const item of [{route:"/integrations",title:"Integrations",desc:"Secure, native credential setup."},{route:"/monitor",title:"System Monitor",desc:"Live bounded host status."},{route:"/project",title:"Project",desc:"Project snapshot and Git state."},{route:"/diff",title:"Diff",desc:"Review project changes."},{route:"/browser",title:"Remote Browser",desc:"Isolated seam for external apps and authenticated sites."}]){const card=button("",()=>nav(item.route),"card");card.append(el("strong","",item.title),el("span","",item.desc));native.append(card)}root.append(native);
+  root.append(el("div","section-title","Registry-backed external apps"));const apps=el("div","grid");
   for(const app of SAFE_APPS){const card=button("",()=>nav("/apps/"+encodeURIComponent(app.id)),"card");card.append(el("strong","",app.title),el("span","",app.description),el("span","tag",app.environment+" · "+app.renderer));apps.append(card)}root.append(apps);body.append(root)
 }
 function renderMonitor(){
@@ -107,9 +101,8 @@ function renderProjectPrompt(kind){const box=el("div","notice");const inner=el("
 function appendLine(list,label,value){const row=el("div","line");row.append(el("span","",label),el("strong","mono",value==null?"—":value));list.append(row)}
 function stageBase(subtitle){const root=el("div","stage"),head=el("div","stage-head"),content=el("div");head.append(button("←",()=>nav("/"),"back"));const t=el("div","stage-title");t.append(el("strong","",current.title),el("span","",subtitle));head.append(t);root.append(head,content);return{root,content}}
 function renderApp(){
-  const raw=current.app,safe=safeAppResult(raw);if(!safe){showError(new Error("The app result is not in the reviewed MSO Page registry."));return}const stage=stageBase(safe.renderer==="iframe"?"Live app demo":"Remote-browser fallback");body.append(stage.root);openPath(safe.renderer==="remote"?"/browser":"/assistant/mcp");
-  if(safe.renderer==="iframe"){mountReviewedFrame(safe,stage);return}
-  const box=el("div","notice"),inner=el("div");inner.append(el("h3","",safe.title+" protects itself from framing"),el("p","",safe.reason||"This app is not allowlisted for nested framing. MSO preserves the app's own frame policy instead of stripping it."));const row=el("div","row");row.append(button("Open Remote Browser",()=>openMso(),"primary"));if(window.openai&&typeof window.openai.sendFollowUpMessage==="function")row.append(button("Ask ChatGPT to continue",()=>window.openai.sendFollowUpMessage({prompt:"Continue this demo using the MSO remote-browser fallback for "+safe.title+"."})));inner.append(row);box.append(inner);stage.content.append(box);if(safe.presentation==="pip")pipBtn.hidden=false
+  const raw=current.app,safe=safeAppResult(raw);if(!safe){showError(new Error("The app result is not in the reviewed MSO Page registry."));return}const stage=stageBase("Remote-browser handoff");body.append(stage.root);openPath("/browser");
+  const box=el("div","notice"),inner=el("div");inner.append(el("h3","",safe.title+" opens through MSO Browser"),el("p","",safe.reason||"External apps stay outside the ChatGPT Page iframe and continue through MSO's isolated remote-browser seam."));const row=el("div","row");row.append(button("Open Remote Browser",()=>openMso(),"primary"));if(window.openai&&typeof window.openai.sendFollowUpMessage==="function")row.append(button("Ask ChatGPT to continue",()=>window.openai.sendFollowUpMessage({prompt:"Continue this demo using the MSO remote-browser fallback for "+safe.title+"."})));inner.append(row);box.append(inner);stage.content.append(box);if(safe.presentation==="pip")pipBtn.hidden=false
 }
 function renderBrowser(){const box=el("div","notice"),inner=el("div");inner.append(el("h3","","Remote Browser seam"),el("p","","Sites that deny iframe embedding stay isolated. MSO can continue them through Camoufox without exposing its VNC password or authenticated viewer URL to this widget."));const row=el("div","row");row.append(button("Open MSO Browser",()=>openMso(),"primary"));inner.append(row);box.append(inner);body.append(box);openPath("/browser")}
 function render(){viewCleanup();viewCleanup=()=>{};clear(body);titleEl.textContent=text(current.title,"MSO Page");routeEl.textContent=text(current.route,"/");openPath(text(current.openPath,"/assistant/mcp"));persistRoute();if(current.kind==="home")renderHome();else if(current.kind==="integrations")renderIntegrations();else if(current.kind==="monitor")renderMonitor();else if(current.kind==="project")renderProject("project");else if(current.kind==="diff")renderProject("diff");else if(current.kind==="app")renderApp();else if(current.kind==="browser")renderBrowser();else body.append(el("div","loading","Loading MSO Page…"))}

@@ -8,7 +8,7 @@ const tool = (name: string) => {
 };
 
 describe("MSO Page MCP tools", () => {
-  beforeEach(() => { process.env.MSO_SURFACE_APPS_JSON = JSON.stringify([{ id: "demo", title: "Demo", description: "Configured demo", origin: "https://demo.example.test", startPath: "/embed", renderer: "iframe", presentation: "inline", environment: "production", sandbox: "allow-scripts allow-same-origin" }]); });
+  beforeEach(() => { process.env.MSO_SURFACE_APPS_JSON = JSON.stringify([{ id: "demo", title: "Demo", description: "Configured demo", origin: "https://demo.example.test", startPath: "/embed", renderer: "remote", presentation: "inline", environment: "production", sandbox: "allow-scripts allow-same-origin" }]); });
   afterEach(() => { delete process.env.MSO_SURFACE_APPS_JSON; });
   it("returns only the server-reviewed public app catalog", async () => {
     const result = await tool("mso_surface_apps_list").run({}, { scope: "read" }) as { apps: Array<Record<string, unknown>> };
@@ -16,7 +16,7 @@ describe("MSO Page MCP tools", () => {
     expect(result.apps[0]).toMatchObject({
       title: "Demo",
       origin: "https://demo.example.test",
-      renderer: "iframe",
+      renderer: "remote",
       startPath: "/embed",
       environment: "production",
     });
@@ -31,7 +31,7 @@ describe("MSO Page MCP tools", () => {
     const result = await render.run({ route: "/apps/demo" }, { scope: "read" }) as { app?: Record<string, unknown> };
     expect(result.app).toMatchObject({
       id: "demo",
-      renderer: "iframe",
+      renderer: "remote",
       presentation: "inline",
       origin: "https://demo.example.test",
       startPath: "/embed",
@@ -39,7 +39,7 @@ describe("MSO Page MCP tools", () => {
       url: "https://demo.example.test/embed",
     });
     expect(result.app).not.toHaveProperty("sandbox");
-    expect((render.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v12\.html$/);
+    expect((render.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v13\.html$/);
     expect(render.meta?.["openai/outputTemplate"]).toBeUndefined();
   });
 
@@ -58,7 +58,7 @@ describe("MSO Page MCP tools", () => {
   it("uses only the standard resource binding for Page tools", () => {
     for (const name of ["render_mso_page", "integration_setup_open"] as const) {
       const value = tool(name);
-      expect((value.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v12\.html$/);
+      expect((value.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v13\.html$/);
       expect(value.meta?.["openai/outputTemplate"]).toBeUndefined();
     }
   });

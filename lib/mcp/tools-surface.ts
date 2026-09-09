@@ -79,8 +79,8 @@ export const SURFACE_TOOLS: McpTool[] = [
   {
     name: "mso_surface_apps_list",
     title: "List MSO Page Apps",
-    description: "List the small server-owned catalog of development or production apps that MSO may present inside the ChatGPT Page. The model cannot add URLs or HTML to this catalog. Apps marked iframe have a reviewed exact frame origin; remote means the app keeps its own anti-framing policy and MSO will not strip it.",
-    chatgptDescription: "List reviewed apps available to the ChatGPT MSO Page, including whether each can be framed directly or must use the remote-browser seam.",
+    description: "List the server-owned catalog of development or production apps available from the ChatGPT MSO Page. The model cannot add URLs or HTML. External apps are presented through the isolated remote-browser seam, so the ChatGPT Page itself does not embed third-party frames.",
+    chatgptDescription: "List reviewed apps available from the ChatGPT MSO Page. External apps use the remote-browser seam; the Page itself stays free of nested external frames.",
     scope: "read", annotations: READ_ONLY,
     inputSchema: S({}),
     outputSchema: { type: "object", properties: { apps: { type: "array", items: APP_SCHEMA } }, required: ["apps"], additionalProperties: false },
@@ -89,7 +89,7 @@ export const SURFACE_TOOLS: McpTool[] = [
   {
     name: "render_mso_page",
     title: "Render MSO Page",
-    description: "Render the full MSO Page MCP App for native operator views or reviewed development/production embeds. Use an MSO-style route such as /, /integrations, /monitor, /project, /diff, /browser, or /apps/<reviewed-app-id>. For project/diff views pass project separately. This tool never accepts raw HTML or arbitrary external URLs; iframe targets come only from the server-owned allowlist.",
+    description: "Render the full MSO Page MCP App for native operator views or registry-backed external app handoff. Use an MSO-style route such as /, /integrations, /monitor, /project, /diff, /browser, or /apps/<reviewed-app-id>. For project/diff views pass project separately. This tool never accepts raw HTML or arbitrary external URLs; external apps are resolved only from the server-owned registry and handed to the remote-browser seam.",
     chatgptDescription: "Render the full secure MSO Page in ChatGPT. Native routes: /, /integrations, /monitor, /project, /diff, /browser; configured app route: /apps/<configured-app-id>. Raw HTML and arbitrary URLs are rejected.",
     scope: "read", annotations: READ_ONLY,
     inputSchema: PAGE_INPUT,

@@ -86,6 +86,7 @@ describe("portable public MCP configuration", () => {
       expect.objectContaining({
         id: "demo",
         origin: "https://demo.example.test",
+        renderer: "remote",
       }),
     ]);
     expect(await catalog.surfaceFrameDomains()).toEqual([
@@ -113,9 +114,12 @@ describe("two independent instance presentations", () => {
       const { publicSurfaceApps, surfaceFrameDomains } = await import("./surface-catalog");
       expect((await publicSurfaceApps()).map(app => app.id)).toEqual([id]);
       expect(await surfaceFrameDomains()).toEqual([`https://app.${id}.example.test`]);
-      const serialized = JSON.stringify(await readUiResource(MSO_PAGE_URI));
+      const resource = await readUiResource(MSO_PAGE_URI);
+      const serialized = JSON.stringify(resource);
       expect(serialized).toContain(`widgets.${id}.example.test`);
       expect(serialized).toContain(`mso.${id}.example.test`);
+      expect((resource?._meta.ui as { csp: { frameDomains?: string[] } }).csp.frameDomains).toBeUndefined();
+      expect((resource?._meta["openai/widgetCSP"] as { frame_domains?: string[] }).frame_domains).toBeUndefined();
       outputs.push(serialized);
     }
     expect(outputs[0]).not.toContain("beta.example.test");

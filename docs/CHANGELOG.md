@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` keep ChatGPT Page iframe-free
 - `mcp` make Page surface registry instance-dynamic
 - `update` harden release verification and settings UX
 - `auth` harden browser session persistence

@@ -2,11 +2,10 @@ import { CONNECTION_MANAGER_STYLE } from "@/lib/infra/connection-ui";
 import { INTEGRATION_FORM_STYLE } from "@/lib/infra/setup-ui";
 import { publicMsoOrigin, widgetResourceMeta } from "./ui-config";
 import { OPEN_IN_MSO_SCRIPT, openInMsoControls } from "./ui-navigation";
-import { surfaceFrameDomains } from "./surface-catalog";
 import { msoSurfaceScript } from "./ui-surface-script";
 import { MSO_SURFACE_STYLE } from "./ui-surface-style";
 
-export const MSO_PAGE_URI = "ui://mso/page-v12.html";
+export const MSO_PAGE_URI = "ui://mso/page-v13.html";
 const MIME = "text/html;profile=mcp-app";
 
 async function pageHtml(): Promise<string> {
@@ -28,19 +27,19 @@ async function pageHtml(): Promise<string> {
 </main>`;
 }
 
-/** Build the canonical Page at read time so reviewed registry edits update both
- * SAFE_APPS and exact CSP frame domains without rebuilding portable source. */
+/** Build the canonical Page at read time. External apps remain registry-driven,
+ * but ChatGPT presentation is iframe-free to avoid external-frame review and to
+ * preserve each app's own auth/frame boundary through the remote-browser seam. */
 export async function msoPageResource() {
-  const frameDomains = await surfaceFrameDomains();
   return {
     uri: MSO_PAGE_URI,
     name: "MSO Page",
-    description: "Full-page MSO presentation target for native operator views and explicitly reviewed development or production app embeds.",
+    description: "Full-page MSO presentation target for native operator views and registry-backed external app handoff through the remote-browser seam.",
     mimeType: MIME,
     text: await pageHtml(),
     _meta: widgetResourceMeta(
-      "Interactive MSO Page. It renders native operator views and exact-origin reviewed development or production targets. Nested frames are limited to explicit CSP frame domains and dedicated embed routes; arbitrary HTML and URLs are never accepted from the model.",
-      { frameDomains, redirectDomains: frameDomains, connectDomains: [publicMsoOrigin()] },
+      "Interactive MSO Page. It renders native operator views and registry-backed external app handoff without nested external iframes; arbitrary HTML and URLs are never accepted from the model.",
+      { connectDomains: [publicMsoOrigin()] },
     ),
   } as const;
 }

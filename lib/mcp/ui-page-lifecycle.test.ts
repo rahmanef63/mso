@@ -1,10 +1,11 @@
 import { inlineScripts } from "../../scripts/test-support/inline-scripts";
 import { describe, expect, it } from "vitest";
-import { LEGACY_PAGE_V11_URI, LEGACY_PAGE_V10_URI, LEGACY_PAGE_V2_URI, LEGACY_PAGE_V3_URI, LEGACY_PAGE_V9_URI, MSO_PAGE_URI, listUiResources, readUiResource } from "./ui-resources";
+import { LEGACY_PAGE_V12_URI, LEGACY_PAGE_V11_URI, LEGACY_PAGE_V10_URI, LEGACY_PAGE_V2_URI, LEGACY_PAGE_V3_URI, LEGACY_PAGE_V9_URI, MSO_PAGE_URI, listUiResources, readUiResource } from "./ui-resources";
 
 describe("MCP Page lifecycle and cached resource migration", () => {
   it("serves current bytes to cached v2 clients without advertising a third UI", async () => {
     const page = await readUiResource(MSO_PAGE_URI);
+    expect(await readUiResource(LEGACY_PAGE_V12_URI)).toMatchObject({ uri: LEGACY_PAGE_V12_URI, text: page?.text });
     expect(await readUiResource(LEGACY_PAGE_V11_URI)).toMatchObject({ uri: LEGACY_PAGE_V11_URI, text: page?.text });
     expect(await readUiResource(LEGACY_PAGE_V10_URI)).toMatchObject({ uri: LEGACY_PAGE_V10_URI, text: page?.text });
     expect(await readUiResource(LEGACY_PAGE_V2_URI)).toMatchObject({ uri: LEGACY_PAGE_V2_URI, text: page?.text });
@@ -13,7 +14,7 @@ describe("MCP Page lifecycle and cached resource migration", () => {
     expect(await listUiResources()).toHaveLength(2);
     expect((await listUiResources()).some((resource) => resource.uri === LEGACY_PAGE_V2_URI)).toBe(false);
   });
-  it("includes the Apps handshake and readiness contract in valid self-contained JavaScript", async () => {
+  it("includes the Apps handshake and iframe-free remote handoff contract in valid self-contained JavaScript", async () => {
     const html = (await readUiResource(MSO_PAGE_URI))?.text ?? "";
     const script = inlineScripts(html)[0];
     expect(script).toBeTruthy();
@@ -23,17 +24,18 @@ describe("MCP Page lifecycle and cached resource migration", () => {
       'appInfo:{name:"MSO Page",version:"3.0.0"}',
       'method:"ui/notifications/initialized"',
       'event.source!==window.parent',
-      'frame.addEventListener("load",loaded)',
-      'frame.referrerPolicy="no-referrer"',
       'if(key===lastOutputKey){',
-      'setTimeout(unavailable,12000)',
       'hostMax*.48',
       'availableDisplayModes:["inline","fullscreen","pip"]',
+      'stageBase("Remote-browser handoff")',
+      'openPath("/browser")',
     ]) expect(script).toContain(marker);
     expect(html).toContain('html[data-display-mode="inline"] .surface');
     expect(html).toContain('max-height:var(--inline-max-h)');
     expect(html).toContain('html[data-display-mode="fullscreen"] .surface{height:100vh;height:100dvh');
     expect(html).not.toContain('presentation:"fullscreen"');
     expect(script).not.toContain('play-together:embed-ready');
+    expect(script).not.toContain('createElement("iframe")');
+    expect(script).not.toContain("mountReviewedFrame");
   });
 });

@@ -17,7 +17,7 @@ describe("MSO Page trusted app catalog", () => {
     expect(await surfaceFrameDomains()).toEqual(["https://demo.example.test"]);
     const apps = await publicSurfaceApps();
     expect(apps).toHaveLength(1);
-    expect(apps[0]).toMatchObject({ id: "demo", title: "Demo", origin: "https://demo.example.test", startPath: "/embed", renderer: "iframe", presentation: "inline", environment: "production" });
+    expect(apps[0]).toMatchObject({ id: "demo", title: "Demo", origin: "https://demo.example.test", startPath: "/embed", renderer: "remote", presentation: "inline", environment: "production" });
     expect(JSON.stringify(apps)).not.toContain("sandbox");
     expect(JSON.stringify(apps)).not.toContain("externalAuthPath");
     expect((await resolveSurfaceRoute("/apps/demo")).app?.externalAuthPath).toBe("/?auth=google");
@@ -29,10 +29,10 @@ describe("MSO Page trusted app catalog", () => {
     }
   });
 
-  it("keeps every configured iframe route inside its start path", async () => {
+  it("keeps every registry route inside its start path while forcing ChatGPT handoff remote", async () => {
     const root = await resolveSurfaceRoute("/apps/demo");
-    expect(root).toMatchObject({ kind: "app", title: "Demo", openPath: "/assistant/mcp" });
-    expect(root.app).toMatchObject({ id: "demo", renderer: "iframe", environment: "production" });
+    expect(root).toMatchObject({ kind: "app", title: "Demo", openPath: "/browser" });
+    expect(root.app).toMatchObject({ id: "demo", renderer: "remote", environment: "production" });
     expect(new URL(root.app!.url).pathname).toBe("/embed");
     const room = await resolveSurfaceRoute("/apps/demo/room/ABCD?join=remote");
     const url = new URL(room.app!.url);
@@ -53,5 +53,7 @@ describe("MSO Page trusted app catalog", () => {
     expect(script).toContain("url.origin!==safe.origin");
     expect(script).toContain("!url.pathname.startsWith(start+\"/\")");
     expect(script).not.toContain("play-together:embed-ready");
+    expect(script).not.toContain("mountReviewedFrame");
+    expect(script).not.toContain("createElement(\"iframe\")");
   });
 });

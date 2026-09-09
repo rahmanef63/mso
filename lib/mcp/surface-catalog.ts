@@ -31,6 +31,8 @@ export async function publicSurfaceApps(): Promise<Array<
   return (await surfaceApps()).map(
     ({ sandbox: _sandbox, externalAuthPath: _externalAuthPath, ...app }) => ({
       ...app,
+      renderer: "remote" as const,
+      reason: app.reason ?? "External apps use the remote-browser seam so the ChatGPT Page stays free of nested external iframes.",
     }),
   );
 }
@@ -137,14 +139,19 @@ export async function resolveSurfaceRoute(
     };
 
   if (parts[0] === "apps" && parts[1]) {
-    const app = await surfaceAppById(parts[1]);
-    if (!app) throw new Error(`unknown MSO Page app: ${parts[1]}`);
+    const source = await surfaceAppById(parts[1]);
+    if (!source) throw new Error(`unknown MSO Page app: ${parts[1]}`);
     const suffix = parts.slice(2).join("/");
+    const app: SurfaceApp = {
+      ...source,
+      renderer: "remote",
+      reason: source.reason ?? "External apps use the remote-browser seam so the ChatGPT Page stays free of nested external iframes.",
+    };
     return {
       route,
       kind: "app",
       title: app.title,
-      openPath: app.renderer === "remote" ? "/browser" : "/assistant/mcp",
+      openPath: "/browser",
       app: { ...app, url: safeDemoUrl(app, suffix, url.search) },
     };
   }
