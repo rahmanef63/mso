@@ -3,7 +3,6 @@ import { safeProviderFetch } from "@/lib/host/ssrf";
 import { readInfraProvider } from "./store";
 import { obj, request, TIMEOUT_MS } from "./http";
 import { redactText } from "@/lib/security/redact-text";
-
 function dokployFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const requestInput = new Request(input, { ...init, redirect: "error" });
   const host = new URL(requestInput.url).hostname.replace(/^\[|\]$/g, "").toLowerCase();

@@ -90,6 +90,28 @@ describe("native credential identity core",()=>{
     await f.manage({action:"user.duplicate",confirm:true,user:"alice",target:"key-copy",copyCredentials:true});expect((await f.directConnectionValues("github",{user:"key-copy",connection:"work"})).apiKey).toBe(KEY_A);
     await f.manage({action:"folder.map",confirm:true,user:"alice",path:root});await f.manage({action:"user.rename",confirm:true,user:"alice",target:"renamed"});expect((await f.integrationQuery({view:"which",cwd:root}) as {user:string}).user).toBe("renamed");
   });
+  it("shares direct credentials as read-only aliases with live backing, safe ids, rename/default, duplication, and unshare invariants",async()=>{
+    const f=await fixture();await f.add("alice","github","work","direct",{apiKey:KEY_A});
+    const shared=await f.manage({action:"connection.share",confirm:true,user:"alice",provider:"github",connection:"work",target:"bob",label:"Shared Work GitHub"}) as {connection:{id:string}};
+    expect(shared.connection.id).toBe("shared-work-github");
+    let bob=await f.integrationSnapshot({user:"bob"});const alias=bob.connections.find(c=>c.id===shared.connection.id)!;expect(alias.sharedFrom).toEqual({user:"alice",provider:"github",connection:"work"});expect(alias.fields.find(f=>f.key==="apiKey")?.stored).toBe(true);expect(JSON.stringify(alias)).not.toContain(KEY_A);
+    expect((await f.directConnectionValues("github",{user:"bob",connection:alias.id})).apiKey).toBe(KEY_A);
+    await expect(f.credentialSnapshot("github",{user:"bob",connection:alias.id})).rejects.toMatchObject({code:"shared_alias_readonly"});
+    await expect(f.manage({action:"credential.delete",confirm:true,user:"bob",provider:"github",connection:alias.id,key:"apiKey"})).rejects.toMatchObject({code:"shared_alias_readonly"});
+    await expect(f.manage({action:"connection.share",confirm:true,user:"bob",provider:"github",connection:alias.id,target:"alice",label:"No reshare"})).rejects.toMatchObject({code:"shared_alias_cannot_share"});
+    await f.manage({action:"connection.rename",confirm:true,user:"bob",provider:"github",connection:alias.id,label:"Renamed shared account"});await f.manage({action:"connection.default",confirm:true,user:"bob",provider:"github",connection:alias.id});
+    const owner=await f.credentialSnapshot("github",{user:"alice",connection:"work"});await f.saveConnectionValues("github",{user:"alice",connection:"work"},{apiKey:KEY_B},owner.connection);expect((await f.directConnectionValues("github",{user:"bob",connection:alias.id})).apiKey).toBe(KEY_B);
+    await expect(f.manage({action:"connection.delete",confirm:true,user:"alice",provider:"github",connection:"work"})).rejects.toMatchObject({code:"connection_has_shared_dependents"});await expect(f.manage({action:"user.delete",confirm:true,user:"alice"})).rejects.toMatchObject({code:"user_has_shared_dependents"});
+    await f.manage({action:"user.rename",confirm:true,user:"alice",target:"owner-renamed"});bob=await f.integrationSnapshot({user:"bob"});expect(bob.connections.find(c=>c.id===alias.id)?.sharedFrom?.user).toBe("owner-renamed");
+    await f.manage({action:"user.duplicate",confirm:true,user:"bob",target:"bob-empty"});const empty=await f.integrationSnapshot({user:"bob-empty"});expect(empty.connections[0].sharedFrom).toBeNull();expect(await f.directConnectionValues("github",{user:"bob-empty",connection:alias.id})).toEqual({});
+    await f.manage({action:"user.duplicate",confirm:true,user:"bob",target:"bob-copy",copyCredentials:true});const copied=await f.integrationSnapshot({user:"bob-copy"});expect(copied.connections[0].sharedFrom).toBeNull();expect((await f.directConnectionValues("github",{user:"bob-copy",connection:alias.id})).apiKey).toBe(KEY_B);
+    await f.manage({action:"connection.unshare",confirm:true,user:"bob",provider:"github",connection:alias.id});expect((await f.integrationSnapshot({user:"bob"})).connections).toHaveLength(0);await expect(f.manage({action:"connection.unshare",confirm:true,user:"bob-copy",provider:"github",connection:alias.id})).rejects.toMatchObject({code:"connection_not_shared"});
+    await f.manage({action:"connection.delete",confirm:true,user:"owner-renamed",provider:"github",connection:"work"});
+  });
+  it("rejects sharing external sources and deletes one direct credential field without exposing values",async()=>{
+    const f=await fixture();await f.add("alice","github","hosted","oauth2",{},"composio");await expect(f.manage({action:"connection.share",confirm:true,user:"alice",provider:"github",connection:"hosted",target:"bob",label:"Hosted share"})).rejects.toMatchObject({code:"external_connections_cannot_share"});
+    await f.add("alice","convex-cloud","deploy","deployment",{deployKey:KEY_A,deploymentName:"test-deployment"});await f.manage({action:"credential.delete",confirm:true,user:"alice",provider:"convex-cloud",connection:"deploy",key:"deploymentName"});const values=await f.directConnectionValues("convex-cloud",{user:"alice",connection:"deploy"});expect(values).toEqual({deployKey:KEY_A});const row=(await f.integrationSnapshot({user:"alice"})).connections.find(c=>c.id==="deploy")!;expect(row.missing).toContain("deploymentName");expect(JSON.stringify(row)).not.toContain(KEY_A);
+  });
   it("rejects secret-shaped machine input, unconfirmed writes, and identity pollution",async()=>{
     const f=await fixture();await expect(f.manage({action:"user.create",user:"eve"})).rejects.toMatchObject({code:"confirmation_required"});
     await expect(f.integrationQuery({view:"snapshot",nested:{token:"synthetic"}})).rejects.toMatchObject({code:"secret_input_forbidden"});

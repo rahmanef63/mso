@@ -28,9 +28,9 @@ export function connectionMethod(provider:string,source:ConnectionSource,method?
 }
 export function connectionSources(provider:string){return ["direct",...(COMPOSIO[provider]?["composio"]:[]),...(NATIVE[provider]?["native-mcp"]:[])] as ConnectionSource[];}
 export function connectionCatalog(){return listInfraProviderDefinitions().map(p=>({id:p.id,title:p.title,description:p.description,sources:connectionSources(p.id).map(id=>({id,label:id==="direct"?"MSO direct":id==="composio"?"Composio":"Provider MCP",methods:connectionMethods(p.id,id)}))}));}
-export function connectionSummary(user:string,c:IntegrationConnection,isDefault=false){
-  const method=connectionMethod(c.provider,c.source,c.authMethod),missing=method.fields.filter(f=>f.required&&!c.values[f.key]).map(f=>f.key);
-  return {user,id:c.id,label:c.label,provider:c.provider,source:c.source,authMethod:c.authMethod,scope:c.scope,revision:c.revision,isDefault,missing,fields:method.fields.map(f=>({...f,stored:Boolean(c.values[f.key])})),state:c.source==="direct"?(missing.length?"incomplete":c.lastCheck?(c.lastCheck.revision===c.revision?c.lastCheck.result:"configured"):c.verifiedAt?"verified":"configured"):c.external?.status??"authorization-required",verifiedAt:c.verifiedAt??null,lastCheck:c.lastCheck?.revision===c.revision?c.lastCheck:null,external:c.external??null};
+export function connectionSummary(user:string,c:IntegrationConnection,isDefault=false,values:Record<string,string>=c.values){
+  const method=connectionMethod(c.provider,c.source,c.authMethod),missing=method.fields.filter(f=>f.required&&!values[f.key]).map(f=>f.key);
+  return {user,id:c.id,label:c.label,provider:c.provider,source:c.source,authMethod:c.authMethod,scope:c.scope,revision:c.revision,isDefault,missing,fields:method.fields.map(f=>({...f,stored:Boolean(values[f.key])})),state:c.source==="direct"?(missing.length?"incomplete":c.lastCheck?(c.lastCheck.revision===c.revision?c.lastCheck.result:"configured"):c.verifiedAt?"verified":"configured"):c.external?.status??"authorization-required",verifiedAt:c.verifiedAt??null,lastCheck:c.lastCheck?.revision===c.revision?c.lastCheck:null,sharedFrom:c.sharedFrom??null,external:c.external??null};
 }
 export const composioDefinition=(provider:string)=>COMPOSIO[provider];
 export const nativeDefinition=(provider:string)=>NATIVE[provider];

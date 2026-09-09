@@ -68,7 +68,7 @@ try {
   await page.locator('input[type="password"]').fill(fixture.password);
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
   await expect(page).toHaveURL(fixture.base + "/integrations");
-  await expect(page.getByLabel("Credential owner")).toHaveValue("fixture");
+  await expect(page.getByRole("group", { name: "Credential owner" }).getByRole("button")).toContainText("fixture");
   await page.getByRole("button", { name: /^Self-hosted Convex(?: 1)?$/ }).click();
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   await expect(page.locator(".connection-state")).toHaveText("Verified");

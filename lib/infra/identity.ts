@@ -7,7 +7,7 @@ export type ConnectionSelector = { user?: string; connection?: string; cwd?: str
 export type ExternalIdentity = { toolkit?: string; connectedAccountId?: string; authConfigId?: string; brokerConnection?: string; remoteUserId?: string; status?: string; checkedAt?: number };
 export type IntegrationConnection = {
   id: string; uid: string; label: string; provider: string; source: ConnectionSource; authMethod: string;
-  scope: string; revision: number; values: Record<string,string>; external?: ExternalIdentity;
+  scope: string; revision: number; values: Record<string,string>; /** Read-only alias of another direct connection. */ sharedFrom?: { user: string; connection: string; provider: string }; external?: ExternalIdentity;
   createdAt: number; updatedAt: number; verifiedAt?: number;
   lastCheck?: { revision: number; checkedAt: number; result: "verified" | "invalid" | "unavailable" | "unconfigured" }; lease?: {id:string;until:number};
 };
@@ -64,3 +64,16 @@ export function metadataOnly(value: unknown, depth = 0): void {
 }
 
 export function assertNotBusy(c:IntegrationConnection){if(c.lease&&c.lease.until>Date.now())throw new IntegrationError("connection_busy",409);}
+
+/** Resolve a direct shared backing without following unbounded or cyclic references. */
+export function resolveSharedConnection(state:IntegrationState,user:string,c:IntegrationConnection):{user:string;connection:IntegrationConnection}{
+  let owner=user,current=c; const seen=new Set<string>();
+  for(let depth=0;current.sharedFrom;depth++){
+    if(depth>=8)throw new IntegrationError("shared_reference_depth",409);
+    const ref=current.sharedFrom,key=`${owner}:${current.provider}:${current.id}`;
+    if(seen.has(key)||ref.provider!==current.provider)throw new IntegrationError("invalid_shared_reference",409); seen.add(key);
+    const next=state.users[ref.user]?.connections[ref.provider]?.[ref.connection];
+    if(!next)throw new IntegrationError("shared_backing_not_found",409);if(next.source!=="direct")throw new IntegrationError("invalid_shared_reference",409); owner=ref.user;current=next;
+  }
+  return {user:owner,connection:current};
+}

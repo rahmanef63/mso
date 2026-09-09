@@ -17,6 +17,9 @@ it("uses the same native metadata services through actual MCP calls and rejects 
   const metadata=await call(4,"integration_query",{view:"resolve",user:"alice",provider:"convex-cloud",connection:"mimin-production"});expect((metadata.result as any)?.structuredContent?.result).toMatchObject({user:"alice",id:"mimin-production",source:"direct",authMethod:"deployment"});
   const inputRejected=await call(5,"integration_manage",{action:"user.create",user:"eve",confirm:true,token:"synthetic"});expect((await readIntegrationState()).users.eve).toBeUndefined();expect(inputRejected.error??(inputRejected.result as any)?.isError).toBeTruthy();
 });
+it("keeps share/unshare in the same integration management contract without accepting secret values",async()=>{
+  const {INTEGRATION_TOOLS}=await import("./tools-integrations");const tool=INTEGRATION_TOOLS.find(entry=>entry.name==="integration_manage")!;const schema=tool.inputSchema as {properties?:Record<string,{enum?:string[]}>};const actions=schema.properties?.action?.enum??[];expect(actions).toContain("connection.share");expect(actions).toContain("connection.unshare");expect(schema.properties).toHaveProperty("target");expect(schema.properties).toHaveProperty("label");expect(schema.properties).toHaveProperty("key");expect(schema.properties).not.toHaveProperty("token");expect(schema.properties).not.toHaveProperty("apiKey");
+});
 it("exposes the bounded Dokploy application operations through integration_execute without adding a generic request escape hatch",async()=>{
   const {INTEGRATION_TOOLS}=await import("./tools-integrations");
   const tool=INTEGRATION_TOOLS.find(entry=>entry.name==="integration_execute")!;

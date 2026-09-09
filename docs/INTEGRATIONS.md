@@ -56,11 +56,22 @@ not prove the external session is authorized, and MSO never falls back to a loca
 Open `/integrations`. Public instructions are readable before sign-in; an Owner
 session is required to read/manage credential profiles or open their private forms.
 Choose the credential user, provider, named connection, source and authentication.
-User creation/rename/duplicate/default/deletion, folder mappings, connection CRUD,
-verification and credential clearing use the same metadata actions as the CLI/MCP.
-User duplication copies metadata by default. Copying direct credential values needs
-the separate explicit `copyCredentials` opt-in; external linked identities are never
-copied into a different profile.
+The browser workbench keeps **Users**, **Routing**, and **Transfer** visible instead of
+hiding identity management in a generic settings menu. The credential-owner picker is
+a semantic-token listbox rather than a native OS select, so dark/light rendering stays
+consistent across desktop and mobile. User creation/rename/duplicate/default/deletion,
+folder mappings, connection CRUD/defaults, verification, per-field credential removal,
+and full credential clearing use the same metadata actions as the CLI/MCP.
+
+A direct named connection can also be **shared** to another credential user as a
+read-only alias. The alias resolves the owner's current backing credential at use time,
+so rotations propagate without copying a second plaintext value. Alias metadata can be
+renamed or selected as that user's default, but credential edits and re-sharing are
+refused. Backing connection/user deletion is blocked while dependents exist; **Unshare**
+removes only the alias. User duplication materializes an incoming alias into an
+independent direct connection: metadata-only by default, or values only with the
+explicit `copyCredentials` opt-in. External linked identities are never copied into a
+different profile.
 
 The secure form is bound to an **existing direct connection**, not just a provider.
 It displays official guidance, masked fields, show/hide, and Validate & save. Blank
@@ -163,6 +174,14 @@ Existing Dokploy, Cloudflare and Hostinger MCP tools now accept `user`, `connect
 and `cwd` and use the same resolver. Their owner HTTP routes also accept this selection.
 The compatibility provider APIs operate on a resolved connection, not a parallel store.
 New native provider operations must reuse this resolver rather than read unscoped keys.
+
+SI-Coder's runtime **custom-provider definition CRUD** is intentionally not mirrored
+into MSO's reviewed execution catalog yet. MSO's provider IDs are also operation guards:
+turning arbitrary metadata into executable providers would weaken the bounded-tool
+contract. Custom provider schema editing therefore remains SC-owned until MSO has a
+separate metadata-only dynamic registry whose entries cannot acquire network/exec
+capabilities implicitly. This is a deliberate safety boundary, not a hidden or fake
+browser control.
 
 The twelve native service definitions provide credential setup and verification.
 This release does **not** add every service's entire API or replace provider-owned

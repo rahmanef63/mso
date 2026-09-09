@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { connectionCatalog, connectionMethod, connectionSummary, nativeDefinition } from "./connection-registry";
 import { readIntegrationState, mutateIntegrationState } from "./connection-storage";
-import { IntegrationError, identity, connectionLabel, selectConnection, resolveUser, folderBinding, metadataOnly, assertNotBusy, type ConnectionSelector, type IntegrationState, type IntegrationConnection, type ConnectionSource } from "./identity";
+import { IntegrationError, identity, connectionLabel, selectConnection, resolveUser, folderBinding, metadataOnly, assertNotBusy, resolveSharedConnection, type ConnectionSelector, type IntegrationState, type IntegrationConnection, type ConnectionSource } from "./identity";
 import { normalizeInfraValues, isInfraProviderId } from "./catalog";
 const CONTEXT=new AsyncLocalStorage<{selector:ConnectionSelector; pinned:Map<string,Record<string,string>>}>();
 export function withIntegrationSelection<T>(selector:ConnectionSelector,fn:()=>T){return CONTEXT.run({selector,pinned:new Map()},fn);}
@@ -12,9 +12,9 @@ export async function directConnectionValues(provider:string,selector:Connection
   const state=await readIntegrationState();if(!Object.keys(state.users).length&&!selector.user&&!selector.connection)return{};
   let result;try{result=selectConnection(state,provider,selector);}catch(e){if(e instanceof IntegrationError&&e.code==="connection_not_found"&&!selector.connection&&!folderBinding(state,selector.cwd)?.connections[provider]&&!state.users[resolveUser(state,selector)]?.defaults[provider])return{};throw e;}
   if(result.connection.source!=="direct")throw new IntegrationError("external_source_requires_own_executor",409);
-  const copy={...result.connection.values};if(context&&context.selector===selector)context.pinned.set(provider,copy);return copy;
+  const copy={...resolveSharedConnection(state,result.user,result.connection).connection.values};if(context&&context.selector===selector)context.pinned.set(provider,copy);return copy;
 }
-export function summaryIn(state:IntegrationState,user:string,c:IntegrationConnection){return connectionSummary(user,c,state.users[user].defaults[c.provider]===c.id);}
+export function summaryIn(state:IntegrationState,user:string,c:IntegrationConnection){return connectionSummary(user,c,state.users[user].defaults[c.provider]===c.id,resolveSharedConnection(state,user,c).connection.values);}
 export async function resolveIntegration(provider:string,selector:ConnectionSelector={}){
   const state=await readIntegrationState(),resolved=selectConnection(state,provider,selector),c=resolved.connection;
   return{...summaryIn(state,resolved.user,c),resolution:resolved.reason,execution:c.source==="direct"?{route:"native-direct"}:c.source==="composio"?{route:"composio",connectedAccountId:c.external?.connectedAccountId??null,toolkit:c.external?.toolkit??null}:{route:"provider-mcp",endpoint:nativeDefinition(provider)?.url??null,authorization:"provider-client-owned"}};
@@ -34,12 +34,12 @@ export function createConnectionIn(state:IntegrationState,input:{user:string;pro
 }
 export async function credentialSnapshot(provider:string,selector:ConnectionSelector){
   const state=await readIntegrationState(),r=selectConnection(state,provider,selector);
-  if(r.connection.source!=="direct")throw new IntegrationError("external_secrets_forbidden",409);
+  if(r.connection.source!=="direct")throw new IntegrationError("external_secrets_forbidden",409);if(r.connection.sharedFrom)throw new IntegrationError("shared_alias_readonly",409);
   return{user:r.user,connection:structuredClone(r.connection)};
 }
 export async function saveConnectionValues(provider:string,selector:ConnectionSelector,values:Record<string,unknown>,expected:{uid:string;revision:number},verified=true){
   return mutateIntegrationState(state=>{
-    const r=selectConnection(state,provider,selector),c=r.connection;assertNotBusy(c);if(c.source!=="direct")throw new IntegrationError("external_secrets_forbidden",409);
+    const r=selectConnection(state,provider,selector),c=r.connection;assertNotBusy(c);if(c.source!=="direct")throw new IntegrationError("external_secrets_forbidden",409);if(c.sharedFrom)throw new IntegrationError("shared_alias_readonly",409);
     if(c.uid!==expected.uid||c.revision!==expected.revision)throw new IntegrationError("connection_changed_reopen_setup",409);
     if(!isInfraProviderId(provider))throw new IntegrationError("unknown_provider",404);
     const method=connectionMethod(provider,c.source,c.authMethod),allowed=new Set(method.fields.map(f=>f.key));

@@ -8,6 +8,8 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `integrations` unify semantic credential management
+- add bounded Dokploy Dockerfile build operation
 - `mcp` add session cards, readable logs and handover guide
 - split MCP access and add plugin registry
 

@@ -19,7 +19,7 @@ async function readRaw():Promise<{raw:Record<string,unknown>;bytes:string}|null>
 function validate(d:IntegrationState):IntegrationState{
   if(d.version!==2||!d.instanceId||!d.users||typeof d.users!=="object"||Array.isArray(d.users)||!Array.isArray(d.bindings))throw new IntegrationError("invalid_integration_store");
   for(const [id,u] of Object.entries(d.users)){identity(id);if(u.id!==id||!u.connections||!u.defaults)throw new IntegrationError("invalid_integration_store");
-    for(const [p,rows]of Object.entries(u.connections)){identity(p);for(const [cid,c]of Object.entries(rows)){identity(cid);if(c.id!==cid||c.provider!==p||!c.uid||!Number.isInteger(c.revision)||!c.values||typeof c.values!=="object"||Array.isArray(c.values)||Object.values(c.values).some(v=>typeof v!=="string"))throw new IntegrationError("invalid_connection_store");connectionMethod(c.provider,c.source,c.authMethod);if(c.source!=="direct"&&Object.keys(c.values).length)throw new IntegrationError("external_secrets_forbidden");}}
+    for(const [p,rows]of Object.entries(u.connections)){identity(p);for(const [cid,c]of Object.entries(rows)){identity(cid);if(c.id!==cid||c.provider!==p||!c.uid||!Number.isInteger(c.revision)||!c.values||typeof c.values!=="object"||Array.isArray(c.values)||Object.values(c.values).some(v=>typeof v!=="string"))throw new IntegrationError("invalid_connection_store");connectionMethod(c.provider,c.source,c.authMethod);if(c.sharedFrom&&(!c.sharedFrom.user||!c.sharedFrom.connection||c.sharedFrom.provider!==p||c.source!=="direct"||Object.keys(c.values).length))throw new IntegrationError("invalid_shared_connection");if(c.source!=="direct"&&Object.keys(c.values).length)throw new IntegrationError("external_secrets_forbidden");}}
   }
   return d;
 }

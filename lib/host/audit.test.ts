@@ -173,9 +173,12 @@ describe("test-run guard", () => {
     // forgets to stub OS_AUDIT_LOG now writes nowhere instead of into their log.
     vi.stubEnv("OS_AUDIT_LOG", "");
     const home = path.join(os.homedir(), ".mso", "audit.log");
-    const before = await fs.readFile(home, "utf8").catch(() => "");
-    await audit({ action: "exec.run", target: "should-never-be-written" });
+    const marker = `vitest-audit-guard-${process.pid}-${Date.now()}`;
+    await audit({ action: "exec.run", target: marker });
     const after = await fs.readFile(home, "utf8").catch(() => "");
-    expect(after).toBe(before);
+    // The live MSO server may legitimately append unrelated audit entries while
+    // this suite runs. Assert on this test's unique marker rather than requiring
+    // the owner's whole forensic log to remain byte-identical.
+    expect(after).not.toContain(marker);
   });
 });
