@@ -46,6 +46,10 @@ exec /bin/mv "$@"
   it.each(["direct", "interpreter exec"])("serializes concurrent starts so only one tunnel remains live and tracked (%s)", async mode => {
     const f = fixture(), startFile = f.startFile, env = f.env;
     if (mode === "interpreter exec") {
+      // Emit readiness after exec so discovery must tolerate the identity transition.
+      fs.writeFileSync(f.cloudflared, fs.readFileSync(f.cloudflared, "utf8").replace(
+        "console.error('INF https://life-fixture.trycloudflare.com')",
+        "setTimeout(() => console.error('INF https://life-fixture.trycloudflare.com'), 700)"));
       fs.renameSync(f.cloudflared, f.cloudflared + ".cjs");
       // Preserve PID/start ticks while startup changes executable and argv.
       fs.writeFileSync(f.cloudflared, `#!/bin/bash
@@ -54,7 +58,7 @@ exec node -e 'require(process.argv[1] + ".cjs")' "$0" "$@"
 `, { mode: 0o700 });
     }
     const [a, b] = await Promise.all([asyncStart(env), asyncStart(env)]);
-    expect(a.code).toBe(0); expect(b.code).toBe(0);
+    expect(a.code, a.stderr).toBe(0); expect(b.code, b.stderr).toBe(0);
     const spawned = fs.readFileSync(startFile, "utf8").trim().split(/\n+/).filter(Boolean).map(Number);
     for (const pid of spawned) pids.add(pid);
     expect(spawned).toHaveLength(1);

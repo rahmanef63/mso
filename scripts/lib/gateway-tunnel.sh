@@ -102,7 +102,9 @@ gateway_discover_quick_url() {
   for i in $(seq 1 80); do
     GATEWAY_PUBLIC_URL="$(grep -Eo 'https://[A-Za-z0-9-]+\.trycloudflare\.(com|app)' "$CF_LOG" | tail -1 || true)"
     [ -n "$GATEWAY_PUBLIC_URL" ] && return 0
-    gateway_identity_matches_retry "$TUNNEL_IDENTITY" || return 1
+    # Startup may legitimately exec an interpreter before publishing the URL.
+    # Pin the spawned lifetime here; require exact executable/argv after readiness.
+    [ "$(gateway_proc_start_ticks "$pid" 2>/dev/null || true)" = "$TUNNEL_PENDING_TICKS" ] || return 1
     sleep 0.25
   done
   return 1

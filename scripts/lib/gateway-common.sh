@@ -128,6 +128,11 @@ gateway_command_matches() {
   local -a argv expected=("$@")
   gateway_pid_alive "$pid" || return 1
   mapfile -d '' -t argv <"/proc/$pid/cmdline" 2>/dev/null || return 1
+  # The held launcher carries the target argv before it consumes the release gate.
+  # Never acknowledge that wrapper or remove its gate before the actual exec.
+  for i in "${argv[@]}"; do
+    [ "$i" != "$ROOT/scripts/lib/gateway-held-child.sh" ] || return 1
+  done
   for ((i=0; i<${#argv[@]}; i++)); do
     [ "${argv[$i]}" = "$marker" ] || continue
     [ "$(( ${#argv[@]} - i - 1 ))" -eq "${#expected[@]}" ] || return 1

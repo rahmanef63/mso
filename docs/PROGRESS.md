@@ -1,3 +1,7 @@
+## 2026-09-09 — Gateway release handshake under CI scheduling
+
+The final GitHub run exposed a remaining startup race: the held child already carries target argv, so command matching could acknowledge it before it consumed its release gate. Matching now refuses that exact launcher. Quick URL discovery pins the spawned PID/start ticks while wrappers exec; final readiness still requires exact executable/argv before state commits. The concurrent-start regression delays URL publication after interpreter exec, while checking one tracked live tunnel and successful cleanup. No timeouts, skips or identity checks were weakened to obtain a pass.
+
 ## 2026-09-09 — Runtime build boundaries and mobile setup follow-up
 
 Deployment log inspection caught sixteen additional Turbopack warnings. Instrumentation now places Node-only imports inside explicit positive runtime branches, following the Next instrumentation contract (https://nextjs.org/docs/app/guides/instrumentation). Host state, credentials, external Git metadata and installed executables are explicitly runtime-only filesystem inputs rather than traced application assets; existing authorization, containment, size and symlink checks remain intact. The release build now rejects warning output instead of discarding it on successful compilation. MCP setup leads with numbered actions and puts optional display metadata below them; copy text wraps at word boundaries on narrow screens.
