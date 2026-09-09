@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- reject login redirects normalized into external destinations
 - isolate legacy browser credentials and close scanner findings
 - keep the session mode badge clear of mobile navigation
 - harden audited execution, integrations and release journeys
