@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ChevronRight, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 import { filterSettingsSections, groupSettingsSections, settingsSection, type SectionId } from "../lib/sections";
 import { SettingsSectionBody } from "./sections";
 
@@ -65,7 +65,7 @@ function IosSettingsIndex({ onSelect }: { onSelect: (id: SectionId) => void }) {
                       className="grid size-[31px] shrink-0 place-items-center rounded-[8px] shadow-[0_1px_2px_rgba(0,0,0,0.22)]"
                       style={{ background: section.color }}
                     >
-                      <Icon className="size-[18px] text-white" aria-hidden />
+                      <Icon className="size-[18px] text-primary-foreground" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[17px] font-normal leading-tight text-foreground">{section.label}</span>
                     <ChevronRight className="size-[17px] shrink-0 text-muted-foreground/55" aria-hidden />
@@ -88,7 +88,7 @@ function IosSettingsDetail({ id }: { id: SectionId }) {
   const meta = settingsSection(id);
   // Appearance/Theme are control-first. About already has the Manef Shell OS
   // identity block, so a second category hero would duplicate its header.
-  const showHero = id !== "appearance" && id !== "theme" && id !== "about";
+  const showHero = id !== "appearance" && id !== "theme" && id !== "about" && id !== "mcp";
   const Icon = meta.icon;
 
   return (
@@ -97,7 +97,7 @@ function IosSettingsDetail({ id }: { id: SectionId }) {
         {showHero && (
           <section data-slot="ios-settings-hero" className="rounded-[18px] bg-card px-5 py-6 text-center">
             <span className="mx-auto grid size-[64px] place-items-center rounded-[16px] shadow-[0_2px_5px_rgba(0,0,0,0.22)]" style={{ background: meta.color }}>
-              <Icon className="size-9 text-white" aria-hidden />
+              <Icon className="size-9 text-primary-foreground" aria-hidden />
             </span>
             <h1 className="mt-3 text-[24px] font-bold leading-tight tracking-[-0.02em] text-foreground">{meta.label}</h1>
             <p className="mx-auto mt-2 max-w-[32rem] text-[16px] leading-[1.35] text-foreground/90">{meta.blurb}</p>

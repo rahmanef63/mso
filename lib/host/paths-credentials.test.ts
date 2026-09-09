@@ -1,16 +1,14 @@
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  appSecretCopyFilter,
-  assertNoAppSecretDescendants,
-  assertNoCredentialDescendants,
-  assertNoSensitiveDescendants,
-  isCredentialPath,
-  isSensitivePath,
-  looseCredentialExcludes,
-  sensitiveExcludes,
+assertNoCredentialDescendants,
+assertNoSensitiveDescendants,
+isCredentialPath,
+isSensitivePath,
+looseCredentialExcludes,
+sensitiveExcludes
 } from "./paths";
 
 // The per-path credential gate is exact-or-under, so a PARENT of a denied entry
@@ -118,39 +116,5 @@ describe("recursive credential guard", () => {
     expect(isCredentialPath(path.join(fakeHome, "safe", "id_rsa"))).toBe(false);
     expect(isCredentialPath(path.join(fakeHome, "safe", "deploy.pem"))).toBe(true);
     expect(() => assertNoSensitiveDescendants(parent)).not.toThrow();
-  });
-});
-
-// The app's own `.env*` are NOT on the ~/ list, and APP_DIR is fixed at module load
-// from process.cwd() — so unlike the block above, these run against the real repo.
-// On the DEFAULT roots (~ and ~/projects) APP_DIR is a descendant of a copyable dir,
-// which is exactly how `copy(~/projects, ~/backup)` used to duplicate .env.local to
-// somewhere /api/v1/fs/read still serves it.
-describe("the cockpit's own .env* under a recursive write", () => {
-  const appDir = realpathSync(process.cwd());
-  const above = path.dirname(appDir);
-  const secret = path.join(appDir, ".env.local");
-  const live = existsSync(secret);
-
-  it.skipIf(!live)("copy skips them when a PARENT of APP_DIR is the source", () => {
-    const filter = appSecretCopyFilter(above);
-    expect(filter).toBeTypeOf("function");
-    expect(filter!(secret)).toBe(false);
-    expect(filter!(path.join(appDir, "package.json"))).toBe(true);
-    expect(filter!(path.join(appDir, ".env.example"))).toBe(true);
-  });
-
-  it.skipIf(!live)("move REFUSES instead — its EXDEV branch would delete a skipped file", () => {
-    expect(() => assertNoAppSecretDescendants(above)).toThrow(/secret/i);
-  });
-
-  it("leaves an unrelated source completely alone", () => {
-    expect(appSecretCopyFilter(path.join(base, "elsewhere"))).toBeUndefined();
-    expect(() => assertNoAppSecretDescendants(path.join(base, "elsewhere"))).not.toThrow();
-  });
-
-  it("does not fire when APP_DIR IS the source (the per-path gate owns that)", () => {
-    expect(appSecretCopyFilter(appDir)).toBeUndefined();
-    expect(() => assertNoAppSecretDescendants(appDir)).not.toThrow();
   });
 });

@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Code2, FileText, Globe, Moon, Palette, Sun, Timer as TimerIcon } from "lucide-react";
-import { setShell, shellsForSurface, useActiveShell, useShellPrefs } from "../../../registry/shells";
-import { useShellAppearance } from "../../../registry/capabilities";
 import { cn } from "@/lib/utils";
-import { Card } from "./widget-cards";
-import { mdToHtml } from "./md";
+import { Code2, FileText, Globe, Moon, Palette, Sun } from "lucide-react";
+import { useState } from "react";
+import { useShellAppearance } from "../../../registry/capabilities";
+import { setShell, shellsForSurface, useActiveShell, useShellPrefs } from "../../../registry/shells";
 import { safeEmbedUrl } from "./embed-url";
+import { mdToHtml } from "./md";
+import { TimerWidget } from "./timer-widget";
+import { Card } from "./widget-cards";
 
 // VPS-native + content widgets ported from the original shell widget set: a stopwatch,
 // a URL embed, a sandboxed-HTML snippet, a markdown note, an active-shell picker,
@@ -20,38 +21,6 @@ const MD_KEY = "mso:widget:markdown";
 const ls = (k: string) => (typeof localStorage !== "undefined" ? localStorage.getItem(k) ?? "" : "");
 const btn = "rounded-lg border border-white/10 bg-black/10 px-2 py-1 text-xs hover:bg-white/10";
 
-// Stopwatch — start/pause/reset. The interval only ticks while running.
-function TimerWidget() {
-  const [ms, setMs] = useState(0);
-  const [running, setRunning] = useState(false);
-  useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => setMs((m) => m + 100), 100);
-    return () => clearInterval(t);
-  }, [running]);
-  const s = Math.floor(ms / 1000);
-  const label = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-  return (
-    <Card className="pointer-events-auto">
-      <div className="mb-2 flex items-center gap-2">
-        <TimerIcon className="size-4 text-muted-foreground" />
-        <span className="text-[12.5px] font-semibold">Timer</span>
-        <span className="ml-auto font-mono text-lg font-bold tabular-nums">{label}</span>
-      </div>
-      <div className="flex gap-2">
-        <button type="button" onClick={() => setRunning((r) => !r)} className={cn(btn, "flex-1")}>
-          {running ? "Pause" : "Start"}
-        </button>
-        <button type="button" onClick={() => { setRunning(false); setMs(0); }} className={cn(btn, "flex-1")}>
-          Reset
-        </button>
-      </div>
-    </Card>
-  );
-}
-
-// Embeds a URL in an iframe (frameable content only — CSP + the target's
-// X-Frame-Options still apply). URL persists to localStorage.
 function EmbedWidget() {
   const initial = typeof window === "undefined" ? "" : safeEmbedUrl(ls(EMBED_KEY), window.location.origin) ?? "";
   const [url, setUrl] = useState(initial);

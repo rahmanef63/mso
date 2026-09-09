@@ -36,6 +36,7 @@ const NOT_A_KNOB: Record<string, string> = {
   VITEST: "set by the test runner",
   // The OS gives these to every process.
   SHELL: "the OS's",
+  PATH: "standard executable search path inherited by the lifecycle test harness",
   HOME: "the OS's",
   XDG_RUNTIME_DIR: "set by logind, or by the unit — see lib/managed-apps/user-bus.ts",
   // systemd's, read by instrumentation for the watchdog handshake.

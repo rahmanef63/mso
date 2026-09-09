@@ -4,7 +4,6 @@
 import { describe, expect, it } from "vitest";
 import { attachPty, closePty, hasPty, openPty, writePty } from "./pty";
 
-const isWin = process.platform === "win32";
 
 async function until(cond: () => boolean, ms: number): Promise<void> {
   const deadline = Date.now() + ms;
@@ -12,7 +11,7 @@ async function until(cond: () => boolean, ms: number): Promise<void> {
     await new Promise((r) => setTimeout(r, 25));
 }
 
-describe.skipIf(isWin)("pty session manager", () => {
+describe("pty session manager", () => {
   it("opens a shell, runs echo, replays buffer, and dies on close", async () => {
     const { id, cwd } = await openPty({ cols: 80, rows: 24 });
     expect(cwd.length).toBeGreaterThan(0);

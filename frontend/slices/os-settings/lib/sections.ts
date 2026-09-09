@@ -1,17 +1,17 @@
-import type { ComponentType } from "react";
 import {
-  DatabaseBackup,
-  Info,
-  Link2,
-  Paintbrush,
-  Palette,
-  Plug,
-  Network,
-  Server,
-  ShieldCheck,
-  Sparkles,
-  Trash2,
+DatabaseBackup,
+Info,
+Link2,
+Network,
+Paintbrush,
+Palette,
+Plug,
+Server,
+ShieldCheck,
+Sparkles,
+Trash2,
 } from "lucide-react";
+import type { ComponentType } from "react";
 
 export type SectionId =
   | "appearance"
@@ -43,7 +43,7 @@ export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = [
     label: "Appearance",
     blurb: "Style, accent, wallpaper, device",
     icon: Palette,
-    color: "#0a84ff",
+    color: "var(--primary)",
     group: "personalization",
   },
   {
@@ -51,7 +51,7 @@ export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = [
     label: "Theme",
     blurb: "Mode, presets, font, contrast",
     icon: Paintbrush,
-    color: "#ff375f",
+    color: "var(--primary)",
     group: "personalization",
   },
   {
@@ -59,7 +59,7 @@ export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = [
     label: "AI",
     blurb: "Model and API key",
     icon: Sparkles,
-    color: "#bf5af2",
+    color: "var(--primary)",
     group: "services",
   },
   {
@@ -67,23 +67,23 @@ export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = [
     label: "Quicklink",
     blurb: "Website shortcuts with favicons",
     icon: Link2,
-    color: "#5e5ce6",
+    color: "var(--primary)",
     group: "services",
   },
   {
     id: "mcp",
     label: "MCP",
-    blurb: "Connect ChatGPT, Cursor & MCP clients",
+    blurb: "Connect ChatGPT, Cursor & AI apps; manage access and activity",
     icon: Plug,
-    color: "#00c7be",
+    color: "var(--primary)",
     group: "services",
   },
   {
     id: "a2a",
     label: "A2A",
-    blurb: "Agent peers, credentials, tasks & streaming",
+    blurb: "Connect agents and review their tasks",
     icon: Network,
-    color: "#32ade6",
+    color: "var(--primary)",
     group: "services",
   },
   {
@@ -91,7 +91,7 @@ export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = [
     label: "Devices",
     blurb: "Approved browsers and sessions",
     icon: ShieldCheck,
-    color: "#30d158",
+    color: "var(--primary)",
     group: "system",
   },
   {
@@ -99,7 +99,7 @@ export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = [
     label: "Server",
     blurb: "Mock or live host data",
     icon: Server,
-    color: "#ff9f0a",
+    color: "var(--primary)",
     group: "system",
   },
   {
@@ -107,7 +107,7 @@ export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = [
     label: "Cleanup",
     blurb: "Free disk space safely",
     icon: Trash2,
-    color: "#64d2ff",
+    color: "var(--primary)",
     group: "system",
   },
   {
@@ -115,7 +115,7 @@ export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = [
     label: "Backup",
     blurb: "Export or restore browser data",
     icon: DatabaseBackup,
-    color: "#a2845e",
+    color: "var(--primary)",
     group: "system",
   },
   {
@@ -123,7 +123,7 @@ export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = [
     label: "About",
     blurb: "System info and reset",
     icon: Info,
-    color: "#8e8e93",
+    color: "var(--primary)",
     group: "system",
   },
 ];

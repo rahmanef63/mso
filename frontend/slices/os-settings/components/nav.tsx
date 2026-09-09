@@ -1,22 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Monitor } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { Monitor, Search } from "lucide-react";
+import { useState } from "react";
 import { filterSettingsSections, groupSettingsSections, SECTIONS, type SectionId } from "../lib/sections";
 
 export type { SectionId } from "../lib/sections";
 
 export function SettingsTabs({ active, onSelect }: { active: SectionId; onSelect: (id: SectionId) => void }) {
   return (
-    <nav role="tablist" aria-label="Settings" data-slot="settings-desktop-tabs" className="flex gap-1 overflow-x-auto p-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <nav  aria-label="Settings" data-slot="settings-desktop-tabs" className="flex gap-1 overflow-x-auto p-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       {SECTIONS.map(({ id, label, icon: Icon, blurb }) => {
         const on = id === active;
         return (
-          <button key={id} type="button" role="tab" aria-selected={on} title={blurb} onClick={() => onSelect(id)}
-            className={cn("flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium leading-none transition-colors", on ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+          <button key={id} type="button" aria-current={on ? "page" : undefined} title={blurb} onClick={() => onSelect(id)}
+            className={cn("flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium leading-none transition-colors", on ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
           >
             <Icon className="size-4 shrink-0" />
             <span>{label}</span>
@@ -48,10 +48,10 @@ export function SettingsSidebar({ active, onSelect, windows = false }: { active:
           {group.map(({ id, label, icon: Icon, color, blurb }) => {
             const on = id === active;
             return <Button key={id} variant="ghost" aria-current={on ? "page" : undefined} title={blurb} onClick={() => onSelect(id)}
-              className={cn("relative h-auto min-h-9 w-full justify-start gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] font-normal", on ? windows ? "bg-accent text-accent-foreground hover:bg-accent" : "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground" : "text-foreground hover:bg-accent")}>
+              className={cn("relative h-auto min-h-11 w-full justify-start gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] font-normal", on ? windows ? "bg-accent text-accent-foreground hover:bg-accent" : "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground" : "text-foreground hover:bg-accent")}>
               {windows && on && <span className="absolute left-0 h-4 w-[3px] rounded-full bg-primary" />}
               <span className={cn("grid shrink-0 place-items-center", windows ? "size-7" : "size-[25px] rounded-md shadow-sm")} style={windows ? undefined : { background: color }}>
-                <Icon className={cn("size-4", !windows && "text-white")} />
+                <Icon className={cn("size-4", !windows && "text-primary-foreground")} />
               </span>
               <span className="min-w-0 flex-1 truncate">{label}</span>
             </Button>;

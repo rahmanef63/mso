@@ -55,13 +55,7 @@ jobs:
         run: bash scripts/provision-forge-sandbox.sh
 
       - name: Tests and coverage
-        run: |
-          set -euo pipefail
-          test ! -e .env.local
-          umask 077
-          printf '# Synthetic denylist fixture; no credentials.\n' > .env.local
-          trap 'rm -f .env.local' EXIT
-          bun run coverage
+        run: bun run coverage
 
       - name: Repository checks
         run: bun run check

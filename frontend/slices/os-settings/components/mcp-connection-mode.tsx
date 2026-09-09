@@ -15,8 +15,8 @@ export function McpConnectionMode({ endpoints, remote }: { endpoints: McpEndpoin
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[13px] font-medium">Connection</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Use the direct HTTPS URL when this MSO host is reachable; use a tunnel for private or developer-machine deployments.</p>
+          <p className="text-sm font-medium">Connection</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">Use the direct HTTPS URL when this MSO host is reachable; use a tunnel for private or developer-machine deployments.</p>
         </div>
         <Globe2 className="size-4 shrink-0 text-muted-foreground" />
       </div>
@@ -38,10 +38,10 @@ export function McpConnectionMode({ endpoints, remote }: { endpoints: McpEndpoin
           </div>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 @min-[520px]:grid-cols-2">
           <div className="rounded-lg border border-border/70 bg-secondary/25 p-3">
             <div className="flex items-center gap-2"><CloudCog className="size-4" /><p className="text-xs font-medium">MSO Gateway</p></div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">Keep local/WSL MSO on loopback and create an outbound HTTPS gateway. A named tunnel/custom domain is the stable production choice.</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">Keep local/WSL MSO on loopback and create an outbound HTTPS gateway. A named tunnel/custom domain is the stable production choice.</p>
             <div className="mt-3 space-y-2">
               <McpCopyField label="Temporary gateway" value={'mso gateway start\nmso gateway url'} multiline />
               <McpCopyField label="Stable origin" value={`mso gateway domain set ${remote ? endpoints.origin : "https://mso.example.com"}`} />
@@ -49,8 +49,8 @@ export function McpConnectionMode({ endpoints, remote }: { endpoints: McpEndpoin
           </div>
           <div className="rounded-lg border border-border/70 bg-secondary/25 p-3">
             <div className="flex items-center gap-2"><Globe2 className="size-4" /><p className="text-xs font-medium">Custom domain / reverse proxy</p></div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">For a stable URL, route an HTTPS hostname to the loopback MSO runtime through your trusted tunnel or reverse proxy, then set that same origin in MSO.</p>
-            <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">Keep the raw Next listener loopback-only. OAuth discovery, redirect validation, cookies, and MCP resource metadata must agree on one public origin.</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">For a stable URL, route an HTTPS hostname to the loopback MSO runtime through your trusted tunnel or reverse proxy, then set that same origin in MSO.</p>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Keep the raw Next listener loopback-only. OAuth discovery, redirect validation, cookies, and MCP resource metadata must agree on one public origin.</p>
           </div>
 
         </div>

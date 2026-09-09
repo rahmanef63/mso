@@ -31,6 +31,10 @@ bun run audit:strict         # fail closed on missing/malformed dependency evide
 bun run security:ultimate   # release assurance: independent scanners + component security review + DAST
 ```
 
+The supported full-test host is Linux with Docker available. Provision the local-only fixture image once with `bun run forge:sandbox` before running `bun run verify`; missing sandbox prerequisites now fail the Forge tests instead of skipping them. Secret-path tests create disposable synthetic home/app directories and never read or create production `.env.local`.
+
+`bun run lint` accepts zero warnings. Unit/integration suites contain no conditional skips. The four HTTP smoke tests belong to the explicit production suite (`E2E_BASE_URL=http://host:port bun run smoke`); missing configuration fails, and every required release journey runs them against its built synthetic server before browser checks.
+
 The **committed source of truth** for pre-push policy is `scripts/gates.sh`. The
 actual `.git/hooks/pre-push` file is an intentionally tiny untracked shim; reinstall it
 idempotently with `bash scripts/gates.sh --install`.

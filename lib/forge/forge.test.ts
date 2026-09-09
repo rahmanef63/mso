@@ -1,11 +1,10 @@
-import { existsSync, promises as fs } from "node:fs";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LearnedRecipe, WorkflowQuality } from "@/lib/workflow";
-import { projectSkillTrust } from "@/lib/skills/project-skills";
 import { readProjectFunctionsManifest } from "@/lib/host/project-function-manifest";
 import { runProjectFunction } from "@/lib/host/project-function-runner";
+import { projectSkillTrust } from "@/lib/skills/project-skills";
+import type { LearnedRecipe, WorkflowQuality } from "@/lib/workflow";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { evaluateForgeCandidate } from "./evaluate";
 import { promoteForgeCandidate } from "./promote";
 import { proposeForgeCandidate } from "./proposal";
@@ -38,10 +37,6 @@ async function tempProject(): Promise<{ root: string; project: string; forge: st
   return { root, project, forge };
 }
 
-
-const dockerSandboxAvailable = existsSync("/usr/bin/docker") && spawnSync(
-  "/usr/bin/docker", ["image", "inspect", "mso-forge-sandbox:node22-v1"], { stdio: "ignore", timeout: 3000 },
-).status === 0;
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -102,7 +97,7 @@ describe("eval-gated Tool Forge", () => {
     expect(evaluation.fixtureCount).toBe(0);
   });
 
-  it.runIf(dockerSandboxAvailable)("runs fixtures in the Docker sandbox before promoting an existing project-owned Node function", async () => {
+  it("runs fixtures in the Docker sandbox before promoting an existing project-owned Node function", async () => {
     const { root, project } = await tempProject(); roots.push(root);
     const script = path.join(project, "echo-function.mjs");
     await fs.writeFile(script, `let s=""; for await (const c of process.stdin) s+=c; const v=JSON.parse(s); console.log("OK:"+v.value);\n`, { mode: 0o700 });
@@ -124,7 +119,7 @@ describe("eval-gated Tool Forge", () => {
     expect(result.stdout).toContain("OK:runtime");
   });
 
-  it.runIf(dockerSandboxAvailable)("refuses promotion when project-owned source changes after evaluation", async () => {
+  it("refuses promotion when project-owned source changes after evaluation", async () => {
     const { root, project } = await tempProject(); roots.push(root);
     const script = path.join(project, "drift.mjs");
     await fs.writeFile(script, `console.log("v1");\n`, { mode: 0o700 });
@@ -139,7 +134,7 @@ describe("eval-gated Tool Forge", () => {
     await expect(promoteForgeCandidate({ ...candidate, state: "evaluated", evaluation })).rejects.toThrow(/source changed after evaluation/i);
   });
 
-  it.runIf(dockerSandboxAvailable)("keeps the project mount read-only and network disabled inside Forge fixtures", async () => {
+  it("keeps the project mount read-only and network disabled inside Forge fixtures", async () => {
     const { root, project } = await tempProject(); roots.push(root);
     const script = path.join(project, "sandbox-proof.mjs");
     await fs.writeFile(script, `import fs from "node:fs"; let ro=false, net=false; try { fs.writeFileSync("forge-escape.txt", "x"); } catch { ro=true; } try { await fetch("http://127.0.0.1:4005", { signal: AbortSignal.timeout(500) }); } catch { net=true; } console.log("RO:"+ro+" NET:"+net);\n`, { mode: 0o700 });

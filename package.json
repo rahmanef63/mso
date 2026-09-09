@@ -1,6 +1,6 @@
 {
   "name": "mso",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "engines": {
     "node": ">=20.9",
@@ -10,7 +10,7 @@
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "bash scripts/build-safe.sh",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
@@ -22,7 +22,7 @@
     "e2e:preview": "node scripts/e2e/preview.mjs",
     "changelog": "node scripts/gen-changelog.mjs",
     "ship": "bash scripts/ship.sh",
-    "smoke": "E2E_BASE_URL=http://localhost:4005 vitest run scripts/e2e/smoke.test.ts",
+    "smoke": "vitest run --config scripts/e2e/vitest.config.mts",
     "icons:app": "node scripts/gen-app-icons.mjs && python3 scripts/gen-remaining-platform-icons.py",
     "skill:new": "node scripts/create-skill-flow.mjs",
     "skill:check": "node scripts/check-skill-flows.mjs",

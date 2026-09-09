@@ -1,11 +1,10 @@
 import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
+mkdirSync,
+mkdtempSync,
+realpathSync,
+rmSync,
+symlinkSync,
+writeFileSync
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -92,34 +91,6 @@ describe("resolveReadable bounds", () => {
     await expect(resolveReadable(path.join(readRoot, "sneaky"))).rejects.toThrow(
       /outside readable roots/i,
     );
-  });
-});
-
-describe("credential denylist (read root = / so only the denylist gates)", () => {
-  const home = os.homedir();
-  const sshDir = path.join(home, ".ssh");
-  const storeDir = path.join(home, ".mso");
-  const envLocal = path.join(process.cwd(), ".env.local");
-  const envExample = path.join(process.cwd(), ".env.example");
-
-  it.skipIf(!existsSync(sshDir))("blocks ~/.ssh even inside a legal root", async () => {
-    useRoots("/", writeRoot);
-    await expect(resolveReadable(sshDir)).rejects.toThrow(/credential|sensitive/i);
-  });
-
-  it.skipIf(!existsSync(storeDir))("blocks the ~/.mso config store", async () => {
-    useRoots("/", writeRoot);
-    await expect(resolveReadable(storeDir)).rejects.toThrow(/credential|sensitive/i);
-  });
-
-  it.skipIf(!existsSync(envLocal))("blocks the app's own .env.local", async () => {
-    useRoots("/", writeRoot);
-    await expect(resolveReadable(envLocal)).rejects.toThrow(/credential|sensitive/i);
-  });
-
-  it.skipIf(!existsSync(envExample))("still allows .env.example (no secrets)", async () => {
-    useRoots("/", writeRoot);
-    await expect(resolveReadable(envExample)).resolves.toBe(realpathSync(envExample));
   });
 });
 

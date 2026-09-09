@@ -1,5 +1,7 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+import { SECTIONS } from "./lib/sections";
 import { useEffect, useState } from "react";
 import { useAppearance, effectiveServerTarget } from "@/lib/appearance";
 import { useSession } from "@/features/auth";
@@ -14,6 +16,8 @@ import { SettingsShell } from "./components/settings-shell";
 
 // Default export so os-shell can lazy-load it as a window app.
 export default function OsSettings() {
+  const params = useSearchParams();
+  const initial = SECTIONS.find(section => section.id === params.get("section"))?.id;
   const { tweaks } = useAppearance();
   const { status, role } = useSession();
   // Shared Settings state stays here; SettingsShell selects the presentation profile.
@@ -23,7 +27,7 @@ export default function OsSettings() {
   // On mobile we start on the section list (no selection drilled in); desktop
   // always shows a selected pane. `null` = list view, an id = detail view.
   const [active, setActive] = useState<SectionId | null>(
-    surface === "mobile" ? null : "appearance",
+    initial ?? (surface === "mobile" ? null : "appearance"),
   );
   const serverTarget = effectiveServerTarget(tweaks.server);
 

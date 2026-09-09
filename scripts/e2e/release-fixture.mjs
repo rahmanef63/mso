@@ -39,8 +39,14 @@ export async function releaseFixture({ live = false } = {}) {
     OS_CONFIG_STORE: path.join(dir, "config.json"), OS_PREFS_PATH: path.join(dir, "prefs.json"),
     OS_AUDIT_LOG: path.join(dir, "audit.jsonl"), OS_LOGIN_PASSWORD: password,
     OS_SESSION_SECRET: randomBytes(32).toString("hex"), OS_FS_READ_ROOTS: dir, OS_FS_WRITE_ROOTS: dir,
-    OS_MCP_ENABLED: "0", NEXT_PUBLIC_OS_DEMO: "0", NEXT_TELEMETRY_DISABLED: "1",
+    OS_MCP_ENABLED: "1", NEXT_PUBLIC_OS_DEMO: "0", NEXT_TELEMETRY_DISABLED: "1",
   });
+  const seedMcp = async () => {
+    await writeFile(env.OS_MCP_STORE, JSON.stringify({ clients: {}, codes: {}, refreshTokens: {}, tokens: {
+      ["a".repeat(64)]: { label: "Fixture client", clientId: "fixture-client", scope: "read", createdAt: Date.now(), expiresAt: Date.now() + 3600_000 },
+    } }), { mode: 0o600 });
+  };
+  await seedMcp();
   const reservation = createServer();
   await new Promise(resolve => reservation.listen(0, "127.0.0.1", resolve));
   const port = reservation.address().port;
@@ -67,6 +73,6 @@ export async function releaseFixture({ live = false } = {}) {
       await new Promise(resolve => setTimeout(resolve, 250));
     }
     if (!ready) throw new Error("Fixture server did not become ready: " + logs);
-    return { dir, base, device, password, setRole, revokeProvider: () => { providerStatus = 401; }, close };
+    return { dir, base, device, password, setRole, seedMcp, revokeProvider: () => { providerStatus = 401; }, close };
   } catch (error) { await close(); throw error; }
 }

@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 // Required release journeys against a built app with synthetic stores and a local provider.
+import { execFileSync } from "node:child_process";
 import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { mcpOwnerJourneys, mcpPublicJourney } from "./mcp-settings.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
 
 const fixture = await releaseFixture();
 let browser;
 try {
+  execFileSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config", "scripts/e2e/vitest.config.mts"], { env: { ...process.env, E2E_BASE_URL: fixture.base }, stdio: "inherit" });
   browser = await chromium.launch({ headless: true });
   for (const viewport of [{ width: 1363, height: 936 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
     const context = await browser.newContext({ viewport });
@@ -49,6 +52,7 @@ try {
         return badge && heading ? badge.y + badge.height <= heading.y : false;
       }).toBe(true);
     }
+    await mcpPublicJourney(page);
     expect(errors).toEqual([]);
     await context.close();
     console.log(`PASS public guides, login entry, launcher and reflow ${viewport.width}x${viewport.height}`);
@@ -82,6 +86,7 @@ try {
   expect(exec.status).toBe(200); expect(exec.body.cwd).toBe(fixture.dir);
   expect((await call("/api/v1/exec/run", { cmd: "exit 0", cwd: fixture.dir + "/missing" })).status).not.toBe(200);
   expect((await call("/api/v1/fs/list?path=" + encodeURIComponent(fixture.dir))).status).toBe(200);
+  await mcpOwnerJourneys(page, fixture);
   await fixture.setRole("viewer");
   expect((await call("/api/v1/integrations")).status).toBe(403);
   // Legacy privileged shell routes return 401 for a non-owner session.

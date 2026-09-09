@@ -18,6 +18,12 @@ It is **off by default**. While `OS_MCP_ENABLED` is unset, `/mcp` and both OAuth
 discovery documents return 404. There is no MCP surface at all, not an
 unauthenticated one.
 
+## Settings navigation
+
+Settings → MCP opens a task index: **Connect an app**, **Connected apps**, **Recent activity**, **Tools & updates**, and **Connection details**. Setup first asks for the client and shows only that client's steps. Use **MCP overview** to return; technical OAuth/tunnel fields live under Connection details. Connected apps separates active access from expired/revoked history and confirms disconnection. Tools & updates stores only a browser-local refresh reminder, never a verified client-health claim.
+
+Anonymous visitors see an Owner sign-in entry, not private API requests or an endless loading state. Failed settings/activity loads expose a retry action; activity failures never become an empty-success state. The public `/settings?section=mcp` deep link returns sign-in users to MCP.
+
 ## Turn it on
 
 ```bash
@@ -672,7 +678,7 @@ lib/mcp/tools-learning.ts  one-call bootstrap + start / cancel / finish
 lib/mcp/tools-power.ts     apps_power + browser_power
 lib/mcp/tools-infra.ts     provider status/doctor + bounded Dokploy/Cloudflare/Hostinger operations
 lib/mcp/toolset.ts         server/toolset version, schema hash and scoped manifest
-lib/mcp/tools.ts           fs write tier and the assembled catalog
+lib/mcp/tools.ts           assembled catalog (write/exec declarations: tools-mutate.ts)
 lib/mcp/activity.ts       workflow-correlated live activity
 lib/mcp/dispatch.ts       JSON-RPC, scope checks, metadata, activity + recipe capture
 lib/host/projects.ts       project resolution across every container, plus aliases

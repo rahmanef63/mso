@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
-import { BadgeCheck, Copy, RefreshCw, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/features/appshell";
+import { BadgeCheck, Copy, RefreshCw, Wrench } from "lucide-react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
 export type McpToolsetInfo = {
   serverVersion: string;
@@ -23,7 +24,7 @@ const subscribeAck = (callback: () => void) => {
     window.removeEventListener(ACK_EVENT, callback);
   };
 };
-const ackSnapshot = () => window.localStorage.getItem(ACK_KEY);
+const ackSnapshot = () => { try { return window.localStorage.getItem(ACK_KEY); } catch { return null; } };
 const serverAckSnapshot = () => null;
 
 export function McpToolsetCard({ info }: { info: McpToolsetInfo }) {
@@ -39,35 +40,35 @@ export function McpToolsetCard({ info }: { info: McpToolsetInfo }) {
         <Wrench className="mt-0.5 size-4 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="text-sm font-medium">MCP toolset {info.version}</p>
+            <p className="text-sm font-medium">Available tools</p>
             <span className="rounded-md bg-secondary px-2 py-0.5 font-mono text-[11px]">{info.toolCount} tools</span>
             <span className="font-mono text-[11px] text-muted-foreground">{info.hash}</span>
           </div>
           <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
             Server {info.serverVersion} · read {info.byScope.read} · write {info.byScope.write} · exec {info.byScope.exec} · changed {info.changedAt.slice(0, 10)}
           </p>
-          <p className={`mt-2 text-xs leading-relaxed ${changed ? "text-warning" : "text-muted-foreground"}`}>
+          <p className={`mt-2 text-xs leading-relaxed ${changed ? "text-foreground" : "text-muted-foreground"}`}>
             {current
-              ? "ChatGPT action snapshot marked current for this browser."
+              ? "You marked this version as refreshed. This is a reminder saved in this browser; it does not verify the app connection."
               : changed
                 ? "Toolset signature changed. Refresh or reconnect the MSO app in ChatGPT, then mark it current."
-                : "After refreshing the MSO app in ChatGPT, mark this signature current so future drift is visible."}
+                : "If tools are missing in your AI app, refresh or reconnect MSO there. You can then save a reminder below."}
           </p>
         </div>
-        {current ? <BadgeCheck className="size-4 shrink-0 text-success" /> : <RefreshCw className="size-4 shrink-0 text-warning" />}
+        {current ? <BadgeCheck className="size-4 shrink-0 text-success" /> : <RefreshCw className="size-4 shrink-0 text-foreground" />}
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <Button
           type="button" variant="secondary" size="sm" className="min-h-9 flex-1 text-xs sm:flex-none [@media(pointer:coarse)]:min-h-[44px]"
-          onClick={() => { window.localStorage.setItem(ACK_KEY, signature); window.dispatchEvent(new Event(ACK_EVENT)); }}
+          onClick={() => { try { window.localStorage.setItem(ACK_KEY, signature); window.dispatchEvent(new Event(ACK_EVENT)); } catch { toast("This browser could not save the refresh reminder.", { tone: "error" }); } }}
         >
-          {current ? "Marked refreshed" : "Mark ChatGPT refreshed"}
+          {current ? "Refresh noted" : "I refreshed my AI app"}
         </Button>
         <Button
           type="button" variant="ghost" size="sm" className="min-h-9 flex-1 text-xs sm:flex-none [@media(pointer:coarse)]:min-h-[44px]"
           onClick={() => void navigator.clipboard.writeText(signature).then(() => {
             setCopied(true); window.setTimeout(() => setCopied(false), 1500);
-          })}
+          }).catch(() => toast("Copy unavailable. Select the signature above.", { tone: "error" }))}
         >
           <Copy className="mr-1 size-3.5" />{copied ? "Copied" : "Copy signature"}
         </Button>

@@ -3,7 +3,7 @@
   "ratchets": {
     "structuralCycles": 0,
     "crossDomainCycles": 0,
-    "filesOver220": 54,
+    "filesOver220": 43,
     "filesOver500": 0,
     "serverFrontendImports": 0,
     "appshellSelfBarrelImports": 0,
