@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 // One grouped-list row: label left, control right, with a hairline divider drawn
@@ -16,16 +16,19 @@ export function SettingsRow({
   children: ReactNode;
   className?: string;
 }) {
+  const labelId = useId();
   return (
     <div
       data-slot="settings-row"
+      role="group"
+      aria-labelledby={labelId}
       className={cn(
         "relative flex min-h-[46px] flex-col gap-2 px-4 py-[11px] @min-[600px]:flex-row @min-[600px]:items-center @min-[600px]:justify-between",
         "after:absolute after:inset-x-0 after:bottom-0 after:left-4 after:h-px after:bg-border/60 last:after:hidden",
         className,
       )}
     >
-      <span data-slot="settings-row-label" className="text-sm text-foreground">{label}</span>
+      <span id={labelId} data-slot="settings-row-label" className="text-sm text-foreground">{label}</span>
       <div className="min-w-0 w-full @min-[600px]:w-auto @min-[600px]:shrink-0">{children}</div>
     </div>
   );

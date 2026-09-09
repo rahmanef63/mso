@@ -79,3 +79,12 @@ export async function mcpOwnerJourneys(page, fixture) {
   expect(errors).toEqual([]);
   console.log("PASS MCP failed-load recovery and activity error states");
 }
+
+export async function settingsAccessibilityJourney(page, base) {
+  await page.goto(base + "/settings?section=appearance");
+  await expect(page.getByRole("switch", { name: "Reduce transparency", exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Device preview", exact: true }).getByRole("button", { pressed: true })).toHaveCount(1);
+  await page.goto(base + "/settings?section=theme");
+  await expect(page.getByRole("switch", { name: "High contrast", exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Text size", exact: true }).getByRole("button", { pressed: true })).toHaveCount(1);
+}

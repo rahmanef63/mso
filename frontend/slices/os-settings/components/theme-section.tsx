@@ -105,7 +105,7 @@ export function ThemeSection() {
           <Segmented options={FONT_SCALE_OPTIONS} value={String(tweaks.fontScale)} onChange={(v) => setTweaks({ fontScale: Number(v) })} />
         </Row>
         <Row label="High contrast">
-          <Switch checked={tweaks.highContrast} onCheckedChange={(highContrast) => setTweaks({ highContrast })} />
+          <Switch aria-label="High contrast" checked={tweaks.highContrast} onCheckedChange={(highContrast) => setTweaks({ highContrast })} />
         </Row>
       </Section>
 

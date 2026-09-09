@@ -3,7 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { mcpOwnerJourneys, mcpPublicJourney } from "./mcp-settings.mjs";
+import { mcpOwnerJourneys, mcpPublicJourney, settingsAccessibilityJourney } from "./mcp-settings.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
 
 const fixture = await releaseFixture();
@@ -53,6 +53,7 @@ try {
       }).toBe(true);
     }
     await mcpPublicJourney(page);
+    await settingsAccessibilityJourney(page, fixture.base);
     expect(errors).toEqual([]);
     await context.close();
     console.log(`PASS public guides, login entry, launcher and reflow ${viewport.width}x${viewport.height}`);

@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `a11y` label settings controls and expose selected options
 - `settings` clarify MCP navigation and enforce zero-warning tests
 - persist the ready tunnel process identity after launcher exec
 - reject login redirects normalized into external destinations

@@ -30,9 +30,10 @@ function Segmented<T extends string>({
           type="button"
           data-slot="segmented-option"
           data-selected={value === o.value}
+          aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "flex-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors min-h-9 sm:min-h-8",
+            "flex-1 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors min-h-11",
             value === o.value
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground",

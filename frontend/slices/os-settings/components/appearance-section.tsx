@@ -41,6 +41,7 @@ function ChoiceCard({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
         "min-h-20 rounded-2xl border bg-card/60 p-2.5 text-left transition hover:bg-accent/70",
@@ -154,7 +155,7 @@ export function AppearanceSection() {
           />
         </Row>
         <Row label="Reduce transparency">
-          <Switch checked={tweaks.reduceGlass} onCheckedChange={(reduceGlass) => setTweaks({ reduceGlass })} />
+          <Switch aria-label="Reduce transparency" checked={tweaks.reduceGlass} onCheckedChange={(reduceGlass) => setTweaks({ reduceGlass })} />
         </Row>
         {/* Dock controls apply to the macOS dock (desktop surface only). */}
         {activeSurface === "desktop" && (
@@ -163,7 +164,7 @@ export function AppearanceSection() {
               <Segmented options={DOCK_SIZE_OPTIONS} value={dock.size} onChange={(v) => setDockPrefs({ size: v as DockSize })} />
             </Row>
             <Row label="Dock magnification">
-              <Switch checked={dock.magnify} onCheckedChange={(magnify) => setDockPrefs({ magnify })} />
+              <Switch aria-label="Dock magnification" checked={dock.magnify} onCheckedChange={(magnify) => setDockPrefs({ magnify })} />
             </Row>
           </>
         )}
