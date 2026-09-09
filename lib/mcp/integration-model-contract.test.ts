@@ -27,6 +27,7 @@ it("exposes the bounded Dokploy application operations through integration_execu
   expect(operations).toContain("dokploy.github.repositories.list");
   expect(operations).toContain("dokploy.application.ensureGithub");
   expect(operations).toContain("dokploy.domain.ensure");
+  expect(operations).toContain("dokploy.dockerfile");
   expect(operations).toContain("dokploy.application.publicEnv.upsert");
   expect(operations.some(operation=>/request|fetch|raw/i.test(operation))).toBe(false);
 });
