@@ -31,7 +31,8 @@ try {
     await expect(page.getByLabel("Server connection mode")).toContainText("Mock data only");
     // Real launcher click, not only deep-link route mounting.
     const settingsName = /^(System )?Settings(?: \(running\))?$/;
-    const settings = page.getByRole("link", { name: settingsName }).or(page.getByRole("button", { name: settingsName })).first();
+    const links = page.getByRole("link", { name: settingsName });
+    const settings = await links.count() ? links.first() : page.getByRole("button", { name: settingsName }).first();
     await expect(settings).toBeVisible();
     await settings.click();
     await expect(page).toHaveURL(/\/settings/);
@@ -55,6 +56,7 @@ try {
   await page.getByRole("button", { name: "Self-hosted Convex", exact: true }).click();
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   await expect(page.locator(".connection-state")).toHaveText("Verified");
+  await expect(page.getByRole("status")).toContainText("Verified: authenticated");
   fixture.revokeProvider();
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   await expect(page.locator(".connection-state")).toHaveText("Access rejected");

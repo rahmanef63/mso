@@ -34,7 +34,9 @@ describe("revision-bound connection health", () => {
   });
   it("rejects stale results after credential rotation or connection recreation", async () => {
     const old = snapshot();
+    current().lastCheck = { revision: current().revision, checkedAt: 10, result: "invalid" };
     current().revision++;
+    expect(connectionSummary("owner", current()).state).toBe("configured");
     expect(await recordConnectionCheck("github", old, { id: "github", ok: true, detail: "ok" }, 20)).toBe(false);
     current().revision = old.connection.revision;
     current().uid = "replacement";
