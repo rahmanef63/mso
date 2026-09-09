@@ -5,32 +5,33 @@
 import type { Instrumentation } from "next";
 
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  // Warm durable agent-session maintenance before accepting requests. Backfilling
-  // the conversation index once at boot keeps MCP lookup O(1) even on hosts with
-  // thousands of old CLI sessions; archive retention remains best-effort.
-  await Promise.all([
-    import("./lib/agent/session-files")
-      .then(({ backfillConversationIndex }) => backfillConversationIndex())
-      .catch(() => undefined),
-    import("./lib/agent/session-archive")
-      .then(({ pruneAgentSessionArchives }) => pruneAgentSessionArchives())
-      .catch(() => undefined),
-  ]);
-  // systemd liveness: when the unit sets WatchdogSec, systemd exposes
-  // NOTIFY_SOCKET + WATCHDOG_USEC. Node has no native AF_UNIX SOCK_DGRAM
-  // (dgram is UDP-only), so we ping via the `systemd-notify` binary — which
-  // requires NotifyAccess=all in the unit, since the ping comes from a child
-  // PID, not main. A missed ping past WatchdogSec → systemd restarts us; this
-  // catches a wedged event loop that Restart=always (crash-only) can't.
-  // No-op in dev / demo / CI where NOTIFY_SOCKET is unset.
-  if (!process.env.NOTIFY_SOCKET) return;
-  const { execFile } = await import("node:child_process");
-  const usec = parseInt(process.env.WATCHDOG_USEC ?? "0", 10);
-  const intervalMs = usec > 0 ? Math.floor(usec / 2000) : 10_000; // half the deadline, in ms
-  const ping = () => execFile("systemd-notify", ["WATCHDOG=1"], () => {});
-  ping();
-  setInterval(ping, intervalMs).unref();
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Warm durable agent-session maintenance before accepting requests. Backfilling
+    // the conversation index once at boot keeps MCP lookup O(1) even on hosts with
+    // thousands of old CLI sessions; archive retention remains best-effort.
+    await Promise.all([
+      import("./lib/agent/session-files")
+        .then(({ backfillConversationIndex }) => backfillConversationIndex())
+        .catch(() => undefined),
+      import("./lib/agent/session-archive")
+        .then(({ pruneAgentSessionArchives }) => pruneAgentSessionArchives())
+        .catch(() => undefined),
+    ]);
+    // systemd liveness: when the unit sets WatchdogSec, systemd exposes
+    // NOTIFY_SOCKET + WATCHDOG_USEC. Node has no native AF_UNIX SOCK_DGRAM
+    // (dgram is UDP-only), so we ping via the `systemd-notify` binary — which
+    // requires NotifyAccess=all in the unit, since the ping comes from a child
+    // PID, not main. A missed ping past WatchdogSec → systemd restarts us; this
+    // catches a wedged event loop that Restart=always (crash-only) can't.
+    // No-op in dev / demo / CI where NOTIFY_SOCKET is unset.
+    if (!process.env.NOTIFY_SOCKET) return;
+    const { execFile } = await import("node:child_process");
+    const usec = parseInt(process.env.WATCHDOG_USEC ?? "0", 10);
+    const intervalMs = usec > 0 ? Math.floor(usec / 2000) : 10_000; // half the deadline, in ms
+    const ping = () => execFile("systemd-notify", ["WATCHDOG=1"], () => {});
+    ping();
+    setInterval(ping, intervalMs).unref();
+  }
 }
 
 export const onRequestError: Instrumentation.onRequestError = async (
@@ -38,25 +39,27 @@ export const onRequestError: Instrumentation.onRequestError = async (
   request,
   context,
 ) => {
-  try {
-    const { audit } = await import("./lib/host/audit");
-    const e = err instanceof Error ? err : new Error(String(err));
-    // Route shape goes into structured `meta` (since the audit field exists)
-    // instead of being packed into `target` — easier to filter with `jq`,
-    // greppable as `routerKind`/`routeType` keys, and leaves `target` clean
-    // for the actual path the request hit.
-    await audit({
-      action: "framework.error",
-      ok: false,
-      actor: null,
-      target: request.path,
-      detail: `${e.name}: ${e.message}`,
-      meta: {
-        routerKind: context.routerKind,
-        routeType: context.routeType,
-      },
-    });
-  } catch {
-    // never crash here — best-effort logging only
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    try {
+      const { audit } = await import("./lib/host/audit");
+      const e = err instanceof Error ? err : new Error(String(err));
+      // Route shape goes into structured `meta` (since the audit field exists)
+      // instead of being packed into `target` — easier to filter with `jq`,
+      // greppable as `routerKind`/`routeType` keys, and leaves `target` clean
+      // for the actual path the request hit.
+      await audit({
+        action: "framework.error",
+        ok: false,
+        actor: null,
+        target: request.path,
+        detail: `${e.name}: ${e.message}`,
+        meta: {
+          routerKind: context.routerKind,
+          routeType: context.routeType,
+        },
+      });
+    } catch {
+      // never crash here — best-effort logging only
+    }
   }
 };

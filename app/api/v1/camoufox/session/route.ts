@@ -1,3 +1,4 @@
+// Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -28,7 +29,7 @@ export async function GET() {
   if (IS_DEMO) return NextResponse.json({ error: "unavailable" }, { status: 404 });
   if (!(await requireSession("operator"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const password = (await fs.readFile(PASSWD_FILE, "utf8").catch(() => "")).trim();
+  const password = (await fs.readFile(/* turbopackIgnore: true */ PASSWD_FILE, "utf8").catch(() => "")).trim();
   // Absent file = the operator has not set one. Say so plainly rather than 500 — the
   // browser window falls back to letting noVNC prompt.
   if (!password) return NextResponse.json({ password: null, reason: "no_password_file" });

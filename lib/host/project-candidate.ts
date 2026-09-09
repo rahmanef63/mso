@@ -1,3 +1,4 @@
+// Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
 // THE shared project-candidate validator.
 //
 // There used to be two of these: a strict one inside the enumeration walk, and
@@ -46,7 +47,7 @@ async function validateComponent(parent: string, name: string): Promise<Candidat
 export async function validateProjectChild(container: ProjectContainer, name: string): Promise<CandidateResult> {
   const component = await validateComponent(container.path, name);
   if (!component.ok) return component;
-  const real = await fs.realpath(component.path).catch(() => null);
+  const real = await fs.realpath(/* turbopackIgnore: true */ component.path).catch(() => null);
   if (real !== component.path || !isUnderRoot(real, container.path)) return { ok: false, reason: "escape" };
   return component;
 }
@@ -68,7 +69,7 @@ export async function validateProjectDescendant(container: ProjectContainer, tar
     if (!component.ok) return component;
     parent = component.path;
   }
-  const real = await fs.realpath(parent).catch(() => null);
+  const real = await fs.realpath(/* turbopackIgnore: true */ parent).catch(() => null);
   if (real !== parent || !isUnderRoot(real, container.path)) return { ok: false, reason: "escape" };
   return { ok: true, path: parent };
 }

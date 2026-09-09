@@ -1,3 +1,4 @@
+// Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
 import { createHash, randomUUID } from "node:crypto";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
@@ -15,7 +16,7 @@ export type { AgentMemoryDocument, AgentMemoryKind, AgentMemoryQuery, AgentMemor
 export type { AgentMemoryTelemetry } from "./memory-telemetry";
 export interface AgentMemorySnapshot { capturedAt: string; user: string; memory: string; schemaVersion?: 1; recordCount?: number; }
 
-const ROOT = path.resolve(process.env.OS_AGENT_MEMORY_DIR || path.join(os.homedir(), ".mso", "agent-memory"));
+const ROOT = path.resolve(/* turbopackIgnore: true */ process.env.OS_AGENT_MEMORY_DIR || path.join(os.homedir(), ".mso", "agent-memory"));
 const MAX_DOC_BYTES = 64 * 1024;
 const KEY_RE = /^[^\r\n]{1,80}$/;
 
@@ -29,7 +30,7 @@ function fileFor(principal: string, document: AgentMemoryDocument): string { ret
 async function readDocument(principal: string, document: AgentMemoryDocument): Promise<string> {
   let handle: Awaited<ReturnType<typeof fs.open>> | null = null;
   try {
-    handle = await fs.open(fileFor(principal, document), fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await fs.open(/* turbopackIgnore: true */ fileFor(principal, document), fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     const stat = await handle.stat();
     if (!stat.isFile() || stat.size > MAX_DOC_BYTES) throw new Error("agent memory document has an invalid file shape");
     if ((stat.mode & 0o077) !== 0) throw new Error("agent memory permissions are too broad; expected 0600");

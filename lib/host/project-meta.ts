@@ -1,3 +1,4 @@
+// Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
 // Bounded, side-effect-free metadata about ONE project directory. Split out of
 // projects.ts so multi-root resolution and the projects_list enumeration can share
 // exactly the same readers — two copies would be two chances to forget the symlink
@@ -58,7 +59,7 @@ export async function boundedGitMeta(dir: string): Promise<GitMeta> {
     ? candidateRef
     : undefined;
   const branch = ref?.replace(/^refs\/heads\//, "");
-  let sha = ref ? (await readRegularText(path.join(gitDir, ref), BOUNDED_READ.gitRef)).trim() : head.trim();
+  let sha = ref ? (await readRegularText(path.join(/* turbopackIgnore: true */ gitDir, ref), BOUNDED_READ.gitRef)).trim() : head.trim();
   if (!sha && ref) {
     const packed = await readRegularText(path.join(gitDir, "packed-refs"), BOUNDED_READ.packedRefs);
     sha = packed.split("\n").find((line) => line.endsWith(` ${ref}`))?.split(" ")[0] ?? "";

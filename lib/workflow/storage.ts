@@ -1,3 +1,4 @@
+// Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -26,7 +27,7 @@ export async function loadWorkflowStore(): Promise<WorkflowStoreState> {
   const pending = (async () => {
     let raw: string;
     try {
-      raw = await fs.readFile(file, "utf8");
+      raw = await fs.readFile(/* turbopackIgnore: true */ file, "utf8");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         cache = EMPTY();

@@ -1,3 +1,4 @@
+// Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
 import "server-only";
 import { execFile } from "node:child_process";
 import { accessSync, constants } from "node:fs";
@@ -64,7 +65,7 @@ const userHome = (): string => process.env.HOME || homedir();
 
 const isExecutable = (candidate: string): boolean => {
   try {
-    accessSync(candidate, constants.X_OK);
+    accessSync(/* turbopackIgnore: true */ candidate, constants.X_OK);
     return true;
   } catch {
     return false;
@@ -90,7 +91,7 @@ export async function resolveCommand(command: string): Promise<string | null> {
   // PATH missed it — look where these CLIs actually install themselves before
   // concluding the app is absent.
   for (const dir of FALLBACK_BIN_DIRS) {
-    const candidate = join(userHome(), dir, command);
+    const candidate = join(/* turbopackIgnore: true */ userHome(), dir, command);
     if (isExecutable(candidate)) return candidate;
   }
   return null;

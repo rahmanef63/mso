@@ -34,7 +34,12 @@ cp -a "$REPO/node_modules/." "$TMP/node_modules/"
 
 cd "$TMP"
 # nice/ionice: this box also serves prod. A build gate must not starve :4005.
-nice -n 15 ionice -c2 -n7 node node_modules/.bin/next build
+MSO_VERIFY_BUILD_LOG="$TMP/build-output.log"
+nice -n 15 ionice -c2 -n7 node node_modules/.bin/next build 2>&1 | tee "$MSO_VERIFY_BUILD_LOG"
+if grep -Ei "(^|[[:space:]])warnings?[: ]|⚠" "$MSO_VERIFY_BUILD_LOG"; then
+  echo "build: warnings are a release failure; resolve their source before shipping" >&2
+  exit 1
+fi
 
 # Reuse this exact built tree for mandatory browser journeys; synthetic stores only.
 node scripts/e2e/release.mjs

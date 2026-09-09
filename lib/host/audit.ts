@@ -1,3 +1,4 @@
+// Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
 // SERVER-ONLY. Append-only audit trail for privileged actions (shell exec, file
 // mutations, cleanup runs, auth events). Single-owner tool that can run shell
 // commands MUST keep a tamper-evident record — if something goes wrong, this is
@@ -78,7 +79,7 @@ export async function readAuditTail(opts?: {
   limit?: number;
 }): Promise<AuditRecord[]> {
   const { prefix, limit = 100 } = opts ?? {};
-  const raw = await fs.readFile(auditPath(), "utf8").catch(() => "");
+  const raw = await fs.readFile(/* turbopackIgnore: true */ auditPath(), "utf8").catch(() => "");
   return raw
     .split("\n")
     .filter(Boolean)

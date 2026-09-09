@@ -1,3 +1,4 @@
+// Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
 import "server-only";
 import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
@@ -165,7 +166,7 @@ async function isRunning(): Promise<boolean> {
 }
 
 async function readLog(): Promise<string> {
-  const raw = await fs.readFile(updateLogPath(), "utf8").catch(() => "");
+  const raw = await fs.readFile(/* turbopackIgnore: true */ updateLogPath(), "utf8").catch(() => "");
   return raw.length > LOG_TAIL ? raw.slice(-LOG_TAIL) : raw;
 }
 

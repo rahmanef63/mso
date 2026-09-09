@@ -33,15 +33,16 @@ export function McpClientSetup({
         {selected.kind === "cli" ? <TerminalSquare className="size-3.5 shrink-0" /> : <Bot className="size-3.5 shrink-0" />}
         <p className="text-sm text-muted-foreground">{selected.label} · {selected.description}</p>
       </div>
-      {client === "chatgpt" && (
-        <div className="grid gap-3 rounded-lg border border-border/70 bg-secondary/20 p-3 sm:grid-cols-2">
-          <McpCopyField label="Name" value="MSO" />
-          <McpCopyField label="Description" value="Control this MSO host with scoped MCP tools" />
-          <McpCopyField label="Connection" value="Server URL · Streamable HTTP" />
-          <McpCopyField label="Authentication" value="OAuth" />
-        </div>
-      )}
       <div className="space-y-5">{steps.map((step, index) => <StepRow key={`${client}-${step.title}`} number={index + 1} {...step} />)}</div>
+      {client === "chatgpt" && (
+        <details className="rounded-lg border border-border/70 bg-secondary/20 p-3">
+          <summary className="min-h-11 cursor-pointer content-center text-sm font-medium">Optional app name and description</summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <McpCopyField label="Name" value="MSO" />
+            <McpCopyField label="Description" value="Control this MSO host with scoped MCP tools" />
+          </div>
+        </details>
+      )}
     </>
   );
 }

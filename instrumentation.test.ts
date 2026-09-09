@@ -8,11 +8,17 @@ vi.mock("./lib/host/audit", () => ({ audit: (e: unknown) => auditMock(e) }));
 import { onRequestError } from "./instrumentation";
 
 beforeEach(() => {
+  vi.stubEnv("NEXT_RUNTIME", "nodejs");
   auditMock.mockReset();
   auditMock.mockResolvedValue(undefined);
 });
 
 describe("onRequestError", () => {
+  it("does not load the filesystem audit channel in Edge", async () => {
+    vi.stubEnv("NEXT_RUNTIME", "edge");
+    await onRequestError!(new Error("edge"), { path: "/x" } as never, {} as never);
+    expect(auditMock).not.toHaveBeenCalled();
+  });
   it("routes a framework error into the audit channel", async () => {
     const err = new Error("boom");
     await onRequestError!(

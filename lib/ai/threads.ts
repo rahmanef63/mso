@@ -1,3 +1,4 @@
+// Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -18,7 +19,7 @@ export interface ChatThread {
 
 export type ThreadSummary = Pick<ChatThread, "id" | "title" | "createdAt" | "updatedAt">;
 
-const DIR = path.resolve(process.env.OS_THREADS_DIR || path.join(os.homedir(), ".mso", "threads"));
+const DIR = path.resolve(/* turbopackIgnore: true */ process.env.OS_THREADS_DIR || path.join(os.homedir(), ".mso", "threads"));
 const THREAD_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 // ids are app-generated but still arrive over HTTP. Keep the allowlist, then use
@@ -38,7 +39,7 @@ function fileFor(id: string): string {
 export async function listThreads(): Promise<ThreadSummary[]> {
   let names: string[];
   try {
-    names = await fs.readdir(DIR);
+    names = await fs.readdir(/* turbopackIgnore: true */ DIR);
   } catch {
     return [];
   }
@@ -46,7 +47,7 @@ export async function listThreads(): Promise<ThreadSummary[]> {
   for (const n of names) {
     if (!n.endsWith(".yml")) continue;
     try {
-      const t = parse(await fs.readFile(path.join(DIR, n), "utf8")) as ChatThread;
+      const t = parse(await fs.readFile(/* turbopackIgnore: true */ path.join(DIR, n), "utf8")) as ChatThread;
       if (t?.id) out.push({ id: t.id, title: t.title || "Untitled", createdAt: t.createdAt || 0, updatedAt: t.updatedAt || 0 });
     } catch {
       /* skip corrupt file */
@@ -58,7 +59,7 @@ export async function listThreads(): Promise<ThreadSummary[]> {
 export async function getThread(id: string): Promise<ChatThread | null> {
   const file = fileFor(id); // validate before the not-found/corrupt-file catch
   try {
-    return parse(await fs.readFile(file, "utf8")) as ChatThread;
+    return parse(await fs.readFile(/* turbopackIgnore: true */ file, "utf8")) as ChatThread;
   } catch {
     return null;
   }

@@ -12,7 +12,7 @@ export function McpCopyField({ label, value, multiline = false }: { label: strin
     <div className="space-y-1.5">
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
       <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-secondary/45 p-2.5">
-        <code className={cn("min-w-0 flex-1 break-all font-mono text-sm leading-relaxed text-secondary-foreground", multiline && "whitespace-pre-wrap break-words")}>{value}</code>
+        <code className={cn("min-w-0 flex-1 [overflow-wrap:anywhere] font-mono text-sm leading-relaxed text-secondary-foreground", multiline && "whitespace-pre-wrap break-words")}>{value}</code>
         <Button
           type="button"
           variant="ghost"
