@@ -228,17 +228,26 @@ exec /bin/mv "$@"
     expect(readRegularSnapshot(markerPath).text.trim()).toBe("1");
   });
 
-  it("serializes concurrent starts so only one tunnel remains live and tracked", async () => {
+  it.each(["direct", "interpreter exec"])("serializes concurrent starts so only one tunnel remains live and tracked (%s)", async mode => {
     const f = fixture(), startFile = f.startFile, env = f.env;
+    if (mode === "interpreter exec") {
+      fs.renameSync(f.cloudflared, f.cloudflared + ".cjs");
+      // Preserve PID/start ticks while startup changes executable and argv.
+      fs.writeFileSync(f.cloudflared, `#!/bin/bash
+sleep 0.3
+exec node -e 'require(process.argv[1] + ".cjs")' "$0" "$@"
+`, { mode: 0o700 });
+    }
     const [a, b] = await Promise.all([asyncStart(env), asyncStart(env)]);
     expect(a.code).toBe(0); expect(b.code).toBe(0);
     const spawned = fs.readFileSync(startFile, "utf8").trim().split(/\n+/).filter(Boolean).map(Number);
-    expect(spawned.length).toBeGreaterThan(0);
     for (const pid of spawned) pids.add(pid);
+    expect(spawned).toHaveLength(1);
     const live = spawned.filter(alive);
     expect(live).toHaveLength(1);
     const state = JSON.parse(fs.readFileSync(path.join(f.state, "state.json"), "utf8"));
     expect(state.tunnelIdentity.pid).toBe(live[0]);
+    expect(state.tunnelIdentity).toMatchObject(identity(live[0]));
     run(["stop"], f.env);
     for (let i = 0; i < 50 && spawned.some(alive); i++) await new Promise((r) => setTimeout(r, 20));
     expect(spawned.filter(alive)).toEqual([]);

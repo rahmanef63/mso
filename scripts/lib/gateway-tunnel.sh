@@ -82,6 +82,20 @@ gateway_spawn_tunnel() {
   GATEWAY_PENDING_CLEANUP=1
 }
 
+# A script launcher can exec its interpreter without changing PID/start ticks.
+# After readiness, persist the final executable/argv identity, not its startup wrapper.
+gateway_refresh_tunnel_identity() {
+  local pid="$TUNNEL_PENDING_PID" identity
+  if [ "$GATEWAY_MODE" = temporary ]; then
+    identity="$(gateway_wait_spawn_identity "$pid" "$CLOUDFLARED" tunnel --no-autoupdate --url "$LOCAL_URL" 2>/dev/null || true)"
+  else
+    identity="$(gateway_wait_spawn_identity "$pid" "$CLOUDFLARED" tunnel --config "$GATEWAY_CONFIG" --no-autoupdate run "$GATEWAY_TUNNEL" 2>/dev/null || true)"
+  fi
+  [ -n "$identity" ] && [ "$(jq -r .startTicks <<<"$identity")" = "$TUNNEL_PENDING_TICKS" ] \
+    && gateway_identity_matches "$identity" || return 1
+  TUNNEL_IDENTITY="$identity"
+}
+
 gateway_discover_quick_url() {
   local pid i
   pid="$(jq -r .pid <<<"$TUNNEL_IDENTITY")"
@@ -187,6 +201,7 @@ gateway_cmd_start_locked() {
   GATEWAY_PUBLIC_URL="$(gateway_validate_public_origin "$GATEWAY_PUBLIC_URL" 2>/dev/null || true)"
   [ -n "$GATEWAY_PUBLIC_URL" ] || { gateway_cleanup_failed_start; gateway_fail "tunnel produced an invalid public origin"; }
   gateway_probe_public || { gateway_cleanup_failed_start; gateway_fail "public endpoint did not return the MSO health contract; see $CF_LOG"; }
+  gateway_refresh_tunnel_identity || { gateway_cleanup_failed_start; gateway_fail "ready tunnel no longer matches its spawned process"; }
   if ! gateway_write_state "$GATEWAY_PROVIDER" "$GATEWAY_MODE" "$GATEWAY_PUBLIC_URL" "$TUNNEL_IDENTITY"; then
     gateway_cleanup_failed_start
     gateway_fail "could not persist gateway state; newly launched processes were rolled back"
