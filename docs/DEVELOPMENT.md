@@ -159,3 +159,5 @@ Three things that will bite:
 from their prebuilt binaries. Don't "fix" the `bun pm untrusted` warning by trusting
 them. `sharp` was a third entry until 0.35.0 removed its install script entirely; do
 NOT add it to `trustedDependencies` to "restore" anything.
+
+For deeper Files/Settings and Preview acceptance, run `bash scripts/verify-build.sh --extended`. It reuses the isolated production build and synthetic credentials; legacy browser scripts no longer read deployment secrets. Media samples skip only when ffmpeg or a system PDF is unavailable.

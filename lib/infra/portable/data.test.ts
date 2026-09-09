@@ -45,3 +45,11 @@ it('resets external authorization instead of copying session identifiers',async(
   const api=await import('./data'),{readIntegrationState}=await import('../connection-storage');const bundle=structuredClone(sample);Object.assign(bundle.users[0].connections[0],{source:'composio',authMethod:'oauth2',fields:[]});
   const p=await api.importIntegrationData(bundle);expect(p.requiresWarningAcceptance).toBe(true);await api.importIntegrationData(bundle,{apply:true,confirm:p.planId,acceptWarnings:true});const c=(await readIntegrationState()).users['sample-user'].connections.github.work;expect(c.source).toBe('composio');expect(c.external).toBeUndefined();expect(c.values).toEqual({});
 });
+it('rejects truncated GCM authentication tags before importing any credentials',async()=>{
+  const codec=await import('./codec.js');
+  const envelope=await codec.seal(structuredClone(sample),PASS);
+  expect(Buffer.from(envelope.cipher.tag,'base64')).toHaveLength(16);
+  envelope.cipher.tag=Buffer.from(envelope.cipher.tag,'base64').subarray(0,12).toString('base64');
+  await expect(codec.open(envelope,PASS)).rejects.toThrow('invalid_envelope');
+  await expect(fs.stat(process.env.OS_INFRA_STORE!)).rejects.toMatchObject({code:'ENOENT'});
+});

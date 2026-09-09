@@ -1,45 +1,46 @@
 #!/usr/bin/env node
 // Native desktop acceptance: real navigation/search, taskbar reuse, narrow windows.
-// E2E_BASE_URL=http://127.0.0.1:4173 E2E_DEMO=1 node scripts/e2e/desktop-native.mjs
+// Uses a built app with disposable credentials; E2E_BASE_URL is demo-only.
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-import { readFileSync, mkdirSync } from "node:fs";
+import { chromium } from "@playwright/test";
+import { releaseFixture } from "./release-fixture.mjs";
+import { mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const require = createRequire(import.meta.url);
-const { chromium } = require(path.join(process.cwd(), "os-browser/node_modules/playwright"));
-const base = process.env.E2E_BASE_URL ?? "http://127.0.0.1:4005";
+process.umask(0o077);
 const demo = process.env.E2E_DEMO === "1";
+const fixture = demo ? null : await releaseFixture({ live: true });
+const base = fixture?.base ?? process.env.E2E_BASE_URL ?? "http://127.0.0.1:4005";
 const captureOnly = process.env.E2E_CAPTURE_ONLY === "1";
 const out = process.env.MSO_SCREENSHOT_DIR ?? path.join(os.tmpdir(), "mso-desktop-native");
 mkdirSync(out, { recursive: true, mode: 0o700 });
-let device, cookie;
-if (!demo) {
-  const env = readFileSync(".env.local", "utf8");
-  const password = /^OS_LOGIN_PASSWORD=(.*)$/m.exec(env)?.[1]?.trim().replace(/^["']|["']$/g, "");
-  const devices = JSON.parse(readFileSync(process.env.OS_DEVICE_STORE ?? path.join(os.homedir(), ".mso/auth-devices.json"), "utf8")).approved;
-  device = Object.keys(devices).find((id) => devices[id].role === "owner") ?? Object.keys(devices)[0];
-  assert(device, "An approved device is required");
-  const r = await fetch(base + "/api/auth/login", { method: "POST", headers: { "content-type": "application/json", origin: base }, body: JSON.stringify({ password, deviceId: device, deviceLabel: "desktop-native-e2e" }) });
-  assert(r.ok, "Authentication failed: " + r.status);
-  cookie = /(?:^|,\s*)session=([^;]+)/.exec(r.headers.get("set-cookie") ?? "")?.[1];
-  assert(cookie, "Missing authenticated session");
-}
-const browser = await chromium.launch({ headless: true, executablePath: "/usr/bin/google-chrome", args: ["--no-sandbox"] });
+let browser;
 try {
+  let device, cookie;
+  if (fixture) {
+    device = fixture.device;
+    const r = await fetch(base + "/api/auth/login", { method: "POST", headers: { "content-type": "application/json", origin: base }, body: JSON.stringify({ password: fixture.password, deviceId: device, deviceLabel: "desktop-native-e2e" }), redirect: "error" });
+    assert(r.ok, "Authentication failed: " + r.status);
+    cookie = /(?:^|,\s*)session=([^;]+)/.exec(r.headers.get("set-cookie") ?? "")?.[1];
+    assert(cookie, "Missing authenticated session");
+  }
+  browser = await chromium.launch({ headless: true });
   for (const shell of ["windows", "macos"]) {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
     if (cookie) await ctx.addCookies([{ name: "session", value: cookie, url: base, sameSite: "Strict" }]);
     await ctx.addInitScript(({ shell, device }) => {
       localStorage.setItem("sv:shell", JSON.stringify({ desktop: shell, mobile: "ios" }));
       localStorage.setItem("mso:onboarding:v1", "done");
-      if (device) localStorage.setItem("mso.device.id", device);
+      if (device) {
+        localStorage.setItem("mso.device.id", device);
+        localStorage.setItem("mso:tweaks", JSON.stringify({server:{mode:"live",activeTargetId:"vps",url:""}}));
+      }
     }, { shell, device });
     const page = await ctx.newPage();
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(base + "/files", { waitUntil: "networkidle", timeout: 90000 });
+    await page.goto(base + "/files" + (fixture?.dir ?? ""), { waitUntil: "networkidle", timeout: 90000 });
     await page.waitForSelector('#main-content[data-shell="' + shell + '"]');
     if (!demo) assert.equal(await page.evaluate(async () => (await (await fetch("/api/auth/me")).json()).authenticated), true);
     const files = page.locator('[data-window]').last();
@@ -111,4 +112,4 @@ try {
     console.log("PASS " + shell + ": " + (captureOnly ? "baseline captured" : "Files search/view, taskbar, Settings search/navigation, narrow layouts"));
     await ctx.close();
   }
-} finally { await browser.close(); }
+} finally { await browser?.close(); await fixture?.close(); }

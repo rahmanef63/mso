@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { randomUUID, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 
-export async function releaseFixture() {
+export async function releaseFixture({ live = false } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), "mso-release-e2e-"));
   let providerStatus = 200;
   const provider = createServer((req, res) => {
@@ -20,6 +20,7 @@ export async function releaseFixture() {
     approved: { [device]: { label: "Release fixture", role, approvedAt: Date.now() } }, pending: {},
   }), { mode: 0o600 });
   await setRole("owner");
+  if (live) await writeFile(path.join(dir, "prefs.json"), JSON.stringify({ tweaks: { server: { mode: "live", activeTargetId: "vps", url: "" } } }), { mode: 0o600 });
   await writeFile(path.join(dir, "fixture.txt"), "MSO release fixture");
   await writeFile(path.join(dir, "infra.json"), JSON.stringify({
     version: 2, instanceId: randomUUID(), defaultUser: "fixture", bindings: [],

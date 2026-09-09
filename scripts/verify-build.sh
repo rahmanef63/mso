@@ -38,3 +38,9 @@ nice -n 15 ionice -c2 -n7 node node_modules/.bin/next build
 
 # Reuse this exact built tree for mandatory browser journeys; synthetic stores only.
 node scripts/e2e/release.mjs
+
+# Optional deeper media/native acceptance, using the same isolated built tree.
+if [ "${1:-}" = "--extended" ]; then
+  node scripts/e2e/desktop-native.mjs
+  node scripts/e2e/preview.mjs
+fi

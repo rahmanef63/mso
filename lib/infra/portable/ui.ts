@@ -8,7 +8,10 @@ function mountPortability(root,bridge){
   const back=button('← Connections',()=>{cleanup();bridge.back()});root.append(back,el('h2','Import / export JSON'),el('p','Move credential users and named connections between independent applications. This is a one-time copy, not live synchronization. No existing connection is overwritten.'));
   const exp=el('section'),imp=el('section');exp.className=imp.className='connection-card';exp.append(el('h3','Export'));
   const owner=field('User ID (blank exports all users)'),secrets=field('Include direct credentials — encrypted JSON','checkbox'),password=field('Export passphrase (12+ characters)','password'),repeat=field('Confirm export passphrase','password');
-  password.i.maxLength=repeat.i.maxLength=1024;password.l.hidden=repeat.l.hidden=true;
+  password.i.maxLength=1024;
+  repeat.i.maxLength=1024;
+  password.l.hidden=true;
+  repeat.l.hidden=true;
   secrets.i.addEventListener('change',()=>{password.l.hidden=repeat.l.hidden=!secrets.i.checked;if(!secrets.i.checked)password.i.value=repeat.i.value=''});
   const note=el('p','Metadata export includes names, source/auth methods and field status only. All field values, active OAuth sessions, defaults and folder mappings are excluded.');
   const exportStatus=el('p');exportStatus.setAttribute('role','status');

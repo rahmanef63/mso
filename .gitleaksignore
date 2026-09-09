@@ -6,3 +6,11 @@
 71a430389e0c5c2d7ba93f760e4ff7c786a412cf:lib/managed-apps/redact.test.ts:generic-api-key:43
 71a430389e0c5c2d7ba93f760e4ff7c786a412cf:lib/managed-apps/redact.test.ts:generic-api-key:65
 71a430389e0c5c2d7ba93f760e4ff7c786a412cf:lib/managed-apps/redact.test.ts:jwt:50
+
+# Reviewed synthetic Dokploy test keys; every network call is mocked in these tests.
+122cebcb276973cbc417c7c44dfc7e6b58b3fcfb:lib/infra/dokploy-application-ensure.test.ts:generic-api-key:7
+f68cd5567321efb9ac84bc940ebc2429cc088153:lib/infra/dokploy-deploy.test.ts:generic-api-key:12
+6b71cac06145a08028d35ee83db7e0eee88b6256:lib/infra/dokploy-deployment-read.test.ts:generic-api-key:7
+# Reviewed DOM property assignments: maxLength=1024 and hidden=true, no credential literals.
+67d4b3ec64a456cb6015c65f5e7d6aaa7de2a2af:lib/infra/portable/ui.ts:generic-api-key:11
+db292708a0ce5554a1a265091a65fb6a19636538:lib/infra/portable/ui.ts:generic-api-key:11

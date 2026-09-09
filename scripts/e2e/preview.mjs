@@ -3,14 +3,14 @@
 //
 //   node scripts/e2e/preview.mjs            # desktop, 1280
 //   node scripts/e2e/preview.mjs 390        # the mobile shell
-//   E2E_BASE_URL=… E2E_PASSWORD=… node scripts/e2e/preview.mjs
+// Uses a built app with disposable credentials and files; no deployment secrets.
 //
 // Preview is the app most likely to LOOK fine and be wrong: an <img> that never
 // decoded, a PDF frame that 404s, an HTML file rendered with its scripts live. Every
 // check here asserts the bytes actually arrived (naturalWidth, readyState, frame
 // text), not that an element exists.
 //
-// It provisions its own fixtures under ~/.cache/mso-e2e-preview and skips the ones
+// It provisions its own fixtures in a disposable temporary folder and skips the ones
 // it cannot make (no ffmpeg → no video/audio; no system PDF → no PDF), so a fresh
 // machine runs a smaller suite rather than a red one.
 //
@@ -18,31 +18,20 @@
 // because Chromium refuses to STORE a Secure cookie arriving over plain http, and
 // the shell renders for signed-out visitors too (backed by mocks) — a run that
 // quietly tested fakes would report green forever.
-import { createRequire } from "node:module";
+import { chromium } from "@playwright/test";
+import { releaseFixture } from "./release-fixture.mjs";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, copyFileSync } from "node:fs";
-import { readFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
-const require = createRequire(import.meta.url);
-const { chromium } = require(path.join(process.cwd(), "os-browser/node_modules/playwright"));
-
-const BASE = process.env.E2E_BASE_URL ?? "http://127.0.0.1:4005";
+process.umask(0o077);
+const fixture = await releaseFixture({ live: true });
+const BASE = fixture.base;
 const WIDTH = Number(process.argv[2] ?? 1280);
 const MOBILE = WIDTH < 768;
-const DIR = process.env.E2E_PREVIEW_DIR ?? path.join(os.homedir(), ".cache", "mso-e2e-preview");
-
-const env = (key) =>
-  new RegExp(`^${key}=(.*)$`, "m").exec(readFileSync(path.join(process.cwd(), ".env.local"), "utf8"))?.[1]?.trim().replace(/^["']|["']$/g, "");
-const approvedDevice = () => {
-  const file = process.env.OS_DEVICE_STORE ?? path.join(os.homedir(), ".mso", "auth-devices.json");
-  const ids = Object.keys(JSON.parse(readFileSync(file, "utf8")).approved ?? {});
-  if (!ids.length) throw new Error(`no approved device in ${file} — run: mso device approve <id> "e2e"`);
-  return ids[0];
-};
-const PASSWORD = process.env.E2E_PASSWORD ?? env("OS_LOGIN_PASSWORD");
-const DEVICE = process.env.E2E_DEVICE ?? approvedDevice();
+const DIR = path.join(fixture.dir, "preview");
+const PASSWORD = fixture.password, DEVICE = fixture.device;
+let browser;
 
 const failures = [];
 const pass = (m) => console.log(`  ✓ ${m}`);
@@ -86,6 +75,7 @@ function fixtures() {
 async function mintSession() {
   const r = await fetch(`${BASE}/api/auth/login`, {
     method: "POST",
+    redirect: "error",
     headers: { "content-type": "application/json", origin: BASE },
     body: JSON.stringify({ password: PASSWORD, deviceId: DEVICE, deviceLabel: "e2e-preview" }),
   });
@@ -102,7 +92,7 @@ const scope = (page, name) =>
 
 const run = async () => {
   const have = fixtures();
-  const browser = await chromium.launch({ headless: process.env.E2E_HEADED !== "1" });
+  browser = await chromium.launch({ headless: process.env.E2E_HEADED !== "1" });
   const ctx = await browser.newContext({
     viewport: { width: WIDTH, height: MOBILE ? 800 : 900 },
     hasTouch: MOBILE,
@@ -112,16 +102,25 @@ const run = async () => {
   ctx.on("console", (m) => {
     const t = m.text();
     // The sandbox refusing to run the fixture's script IS the passing behaviour.
-    if (m.type() === "error" && !/favicon|DevTools|Blocked script execution/i.test(t)) errors.push(t);
+    if (m.type() === "error" && !/favicon|DevTools|Blocked script execution|Failed to load resource: the server responded with a status of/i.test(t)) errors.push(t);
   });
   const http = [];
-  ctx.on("response", (r) => r.status() >= 400 && http.push(`${r.status()} ${new URL(r.url()).pathname}`));
+  ctx.on("response", (r) => {
+    if (r.status() < 400) return;
+    const url = new URL(r.url());
+    // Background shell windows may probe home; the fixture deliberately grants
+    // only its temporary directory. Keep these expected boundary refusals exact.
+    const homeProbe = r.status() === 400 && ["/api/v1/fs/list", "/api/v1/fs/usage"].includes(url.pathname)
+      && [null, "~"].includes(url.searchParams.get("path"));
+    if (!homeProbe) http.push(`${r.status()} ${url.pathname}${url.search}`);
+  });
 
   await ctx.addCookies([{ name: "session", value: await mintSession(), url: BASE, sameSite: "Strict" }]);
   const page = await ctx.newPage();
   await page.addInitScript(
     ([id]) => {
       localStorage.setItem("mso.device.id", id);
+      localStorage.setItem("mso:tweaks", JSON.stringify({server:{mode:"live",activeTargetId:"vps",url:""}}));
       localStorage.setItem("mso:onboarding:v1", "done");
     },
     [DEVICE],
@@ -211,17 +210,20 @@ const run = async () => {
   const settings = await (MOBILE ? page.locator("#main-content") : page.locator("[data-window]").last()).innerText();
   check(/Software update/i.test(settings), "Settings → About shows the update panel");
   check(/Up to date|available|build is pending/i.test(settings), "Update panel reported a state");
-  check(/Release notes and docs/i.test(settings), "Release notes + docs row present");
+  const update = await page.evaluate(async () => (await fetch("/api/v1/sys/update?check=0")).json());
+  if (update.supported === false) {
+    check(typeof update.reason === "string" && settings.includes(update.reason), "Isolated fixture explains why self-update is unavailable");
+    check(!/Update to .* and restart/.test(settings), "Isolated fixture offers no deployment action");
+  } else check(/Release notes and docs/i.test(settings), "Release notes + docs row present");
 
   console.log(`\n  console errors: ${errors.length ? [...new Set(errors)].slice(0, 5).join(" | ") : "none"}`);
   console.log(`  http >=400: ${http.length ? [...new Set(http)].join(" | ") : "none"}`);
   if (errors.length) fail(`${errors.length} console error(s)`);
+  if (http.length) fail(`${http.length} unexpected HTTP error(s)`);
   await browser.close();
   console.log(failures.length ? `\n${failures.length} FAILED` : "\nall good");
-  process.exit(failures.length ? 1 : 0);
+  process.exitCode = failures.length ? 1 : 0;
 };
 
-run().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+try { await run(); } catch (e) { console.error(e); process.exitCode = 1; }
+finally { await browser?.close(); await fixture.close(); }
