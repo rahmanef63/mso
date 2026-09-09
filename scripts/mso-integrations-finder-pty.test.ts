@@ -26,13 +26,22 @@ function run(cols: number, rows: number) {
     const child = pty.spawn(process.execPath, [path.join(__dirname, "mso-integrations-finder.mjs"), config], {
       cols, rows, cwd: __dirname, env: { ...process.env, NO_COLOR: "1" }, name: "xterm-256color",
     });
-    let output = "", sent = false;
+    let output = "", sent = false, exited = false;
+    const complete = () => {
+      if (exited && output.includes('"type":"quit"')) { clearTimeout(timer); resolve(output); }
+    };
     const timer = setTimeout(() => { try { child.kill(); } catch {} reject(new Error(`PTY ${cols}x${rows} timed out`)); }, 3000);
     child.onData((data) => {
       output += data;
       if (!sent && output.includes("INSPECTOR")) { sent = true; child.write("\x04"); }
+      complete();
     });
-    child.onExit(() => { clearTimeout(timer); resolve(output); });
+    // PTY exit can arrive before the final data callback; require both proofs.
+    child.onExit(({ exitCode }) => {
+      exited = true;
+      if (exitCode !== 0) { clearTimeout(timer); reject(new Error(`PTY exited with ${exitCode}`)); }
+      else complete();
+    });
   });
 }
 

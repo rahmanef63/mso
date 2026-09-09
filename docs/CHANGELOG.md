@@ -19,6 +19,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `pty` wait for terminal output to drain after exit
 - remove obsolete preview directory configuration
 - validate the bundle fixture before checking tag rejection
 - stabilize authenticated release journeys and retain build failure logs
