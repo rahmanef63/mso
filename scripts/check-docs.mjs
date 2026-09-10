@@ -9,11 +9,12 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fail = [];
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
 
-// --- MCP catalog: one generated SSOT for the full server + compact ChatGPT profile.
+// --- MCP catalog: one generated SSOT for the full server + ChatGPT model profile.
 const catalog = collectMcpCatalog(ROOT);
 for (const name of catalog.orphanModules) fail.push(`lib/mcp/${name}: tool module exists but is not reachable from lib/mcp/tools.ts`);
 for (const name of catalog.missingModules) fail.push(`lib/mcp/${name}: imported tool module is missing`);
 for (const name of catalog.profileMissing) fail.push(`lib/mcp/tool-contract.ts: ChatGPT profile references missing MCP tool ${name}`);
+for (const name of catalog.appOnlyMissing) fail.push(`lib/mcp/tool-contract.ts: ChatGPT app-only profile references missing MCP tool ${name}`);
 
 const appUiDoc = read("docs/integrations/CHATGPT-UI.md");
 for (const name of catalog.appOnly) {

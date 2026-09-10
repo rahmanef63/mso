@@ -8,9 +8,9 @@ The exact current server/toolset identity plus the full MSO and compact ChatGPT 
 
 Browser-hosted MCP probes from ChatGPT are allowed only when they target the configured public `OS_PUBLIC_ORIGIN`; arbitrary origins and ChatGPT-origin requests aimed at loopback remain denied. Additional trusted browser hosts can be added explicitly with comma-separated `OS_MCP_BROWSER_ORIGINS`. Public OAuth discovery and DCR responses carry CORS metadata; authenticated `/mcp` echoes only an approved exact origin.
 
-The compact descriptor regression currently measures **67,496 JSON bytes** for the current generated ChatGPT profile (roughly 16.9k tokens at a 4-byte/token estimate), with the largest individual descriptor **2,615 bytes**. CI keeps the profile below 72 KiB and each descriptor below 8 KiB. Bytes are the deterministic contract; token estimates vary by tokenizer.
+The full generic descriptor regression currently measures about **95 KiB JSON** for the generated ChatGPT model profile (roughly 23.5k tokens at a 4-byte/token estimate), while each individual descriptor remains below 8 KiB. CI keeps the complete profile below 96 KiB and each descriptor below 8 KiB. Bytes are the deterministic contract; token estimates vary by tokenizer.
 
-## Why ChatGPT gets a compact profile
+## Why ChatGPT gets the full generic profile
 
 The full MSO catalog remains available to generic MCP clients. ChatGPT action scanning is different: it freezes names, titles, descriptions, JSON Schemas, safety annotations and security metadata into a cached action snapshot. Sending every internal MSO capability wastes scan/model context and makes refreshes more fragile.
 
@@ -50,7 +50,7 @@ The ChatGPT projection compacts verbose descriptions/schema descriptions without
 
 ## Exact ChatGPT model tool profile
 
-The exact current ChatGPT profile is generated under **ChatGPT static profile** in [`generated/MCP-CATALOG.md`](./generated/MCP-CATALOG.md). Its source is `CHATGPT_TOOL_NAMES` in `lib/mcp/tool-contract.ts`; CI fails if that profile references a missing global tool. The profile remains fail-closed at both `tools/list` and `tools/call`, while OAuth `read < write < exec` is enforced independently.
+The exact current ChatGPT profile is generated under **ChatGPT model profile** in [`generated/MCP-CATALOG.md`](./generated/MCP-CATALOG.md). It automatically projects every MSO-owned generic model/operator tool registered in `lib/mcp/tools.ts`; only the two compatibility bridges marked app-only remain outside model tool calling. Project-owned MCP names still never enter the global catalog. OAuth `read < write < exec` remains enforced independently.
 
 The restored Original MSO operator primitives (`sys_*`, `fs_usage` + full bounded filesystem CRUD, `apps_*`, browser power/status, and Dokploy/Cloudflare/Hostinger operations) are again first-class ChatGPT actions. Fresh 3 adds `vps_status`, project snapshot/diff/history/knowledge, private project-agent message/status, connection inventory, and Convex database seams without removing the lower-level primitives. This is intentional: aggregate tools optimize common turns; bounded primitives preserve direct operator control.
 
@@ -104,7 +104,7 @@ Project `.mso/functions.json` remains a separate generic seam: `project_capabili
 
 Each ChatGPT conversation is bound to a separate durable MSO AgentSession using a privacy-safe hash of the host conversation id. Raw ChatGPT conversation ids are not persisted.
 
-The compact profile includes:
+The ChatGPT model profile includes:
 
 - `local_agents_list`
 - `local_agent_message_send`
@@ -114,7 +114,7 @@ The compact profile includes:
 
 `local_agent_inbox(wait_ms=1..20000)` keeps only the current foreground MCP request open, registers the existing in-process Local Agent receiver, and returns early when another same-principal session sends a message. Durable file-backed mailbox state remains authoritative and closes the read→subscribe race. There is no DB, webhook, broker, WebSocket or spawned worker in this path.
 
-A completely idle ChatGPT conversation still cannot be awakened by a remote MCP server. Its durable mail is delivered on its next MCP call. `local_agent_request` and `agent_subagent_run` remain full-catalog worker primitives and are intentionally not part of the compact ChatGPT profile.
+A completely idle ChatGPT conversation still cannot be awakened by a remote MCP server. Its durable mail is delivered on its next MCP call. `local_agent_request` and `agent_subagent_run` are part of the ChatGPT model profile; their existing scope, isolation, and server-side authorization rules remain authoritative.
 
 ## OAuth contract
 

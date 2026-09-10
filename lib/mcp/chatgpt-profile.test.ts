@@ -2,16 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { dispatch } = await import("./dispatch");
-const { CHATGPT_TOOL_NAMES } = await import("./tool-contract");
+const { CHATGPT_APP_ONLY_TOOL_NAMES } = await import("./tool-contract");
+const { TOOLS } = await import("./tools");
 
 const context = { principal: "mcp-client:chatgpt-test", sessionId: "session-profile", toolProfile: "chatgpt" as const };
 
-describe("ChatGPT compact MCP profile", () => {
-  it("advertises only MSO-owned generic tools with complete OpenAI metadata and scanner headroom", async () => {
+describe("ChatGPT full generic MCP profile", () => {
+  it("advertises every MSO-owned generic model tool with complete OpenAI metadata and bounded scanner size", async () => {
     const response = await dispatch({ id: 1, method: "tools/list" }, "exec", "test", context);
     const tools = (response.result as { tools: Array<Record<string, unknown>> }).tools;
-    expect(tools.map((tool) => tool.name).sort()).toEqual([...CHATGPT_TOOL_NAMES].sort());
-    expect(tools).toHaveLength(CHATGPT_TOOL_NAMES.size);
+    const expected = TOOLS.map((tool) => tool.name).sort();
+    expect(tools.map((tool) => tool.name).sort()).toEqual(expected);
+    expect(tools).toHaveLength(expected.length);
 
     for (const tool of tools) {
       expect(typeof tool.title, String(tool.name)).toBe("string");
@@ -30,10 +32,17 @@ describe("ChatGPT compact MCP profile", () => {
 
     const bytes = Buffer.byteLength(JSON.stringify(tools));
     if (process.env.MSO_PROFILE_METRICS === "1") console.info(`CHATGPT_PROFILE_METRICS tools=${tools.length} bytes=${bytes} roughTokens4=${Math.ceil(bytes/4)} maxToolBytes=${Math.max(...tools.map((tool)=>Buffer.byteLength(JSON.stringify(tool))))}`);
-    expect(bytes).toBeLessThan(72 * 1024);
+    expect(bytes).toBeLessThan(96 * 1024);
     expect(tools.some((tool) => tool.name === "local_agent_inbox")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_mcp_tools")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_mcp_call")).toBe(true);
+    expect(tools.some((tool) => tool.name === "tool_forge_promote")).toBe(true);
+    expect(tools.some((tool) => tool.name === "a2a_handoff")).toBe(true);
+    expect(tools.some((tool) => tool.name === "project_memory_upsert")).toBe(true);
+    for (const name of CHATGPT_APP_ONLY_TOOL_NAMES) {
+      const tool = tools.find((entry) => entry.name === name) as { _meta?: { ui?: { visibility?: string[] } } } | undefined;
+      expect(tool?._meta?.ui?.visibility, name).toEqual(["app"]);
+    }
     const pipeline = tools.find((tool) => tool.name === "read_pipeline") as { inputSchema?: { properties?: { calls?: { items?: { properties?: { transform?: { properties?: { where?: { items?: { properties?: { value?: unknown } } } } } } } } } } } | undefined;
     expect(pipeline?.inputSchema?.properties?.calls?.items?.properties?.transform?.properties?.where?.items?.properties?.value).toEqual({
       anyOf: [{ type: "string", maxLength: 2048 }, { type: "number" }, { type: "boolean" }, { type: "null" }],
@@ -41,8 +50,10 @@ describe("ChatGPT compact MCP profile", () => {
     expect(tools.some((tool) => String(tool.name) === "private_echo" || String(tool.name).startsWith("project_fixture_"))).toBe(false);
   });
 
-  it("fails closed when a compact-profile client guesses a full-catalog tool", async () => {
-    const result = await dispatch({ id: 2, method: "tools/call", params: { name: "tool_forge_promote", arguments: { id: "candidate-hidden" } } }, "exec", "test", context);
-    expect(result.error).toMatchObject({ code: -32602 });
+  it("keeps unknown/project-owned global names out while app-only bridges remain callable by the app", async () => {
+    for (const name of ["private_echo", "project_fixture_secret_tool"]) {
+      const result = await dispatch({ id: 2, method: "tools/call", params: { name, arguments: {} } }, "exec", "test", context);
+      expect(result.error, name).toMatchObject({ code: -32602 });
+    }
   });
 });

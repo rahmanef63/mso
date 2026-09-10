@@ -11,6 +11,7 @@ const errors = [
   ...catalog.orphanModules.map((name) => `orphan MCP tool module: lib/mcp/${name}`),
   ...catalog.missingModules.map((name) => `missing MCP tool module: lib/mcp/${name}`),
   ...catalog.profileMissing.map((name) => `ChatGPT profile references missing MCP tool: ${name}`),
+  ...catalog.appOnlyMissing.map((name) => `ChatGPT app-only profile references missing MCP tool: ${name}`),
 ];
 if (errors.length) { for (const error of errors) console.error(error); process.exit(1); }
 const expected = renderMcpCatalogMarkdown(catalog);

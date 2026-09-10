@@ -114,7 +114,7 @@ restarting a daemon does not require handing one over either.
 `tools/list` is filtered by the token's scope, and `tools/call` re-checks it — a
 client that calls a tool it was never shown still gets refused.
 
-**Scope remains the permission boundary, while a client profile may advertise a smaller static catalog for compatibility/context budget.** The ChatGPT profile is fail-closed at both list and call time; it never grants anything the token scope does not already allow. Project-specific capabilities remain dynamic data rather than global names. `lib/host` path/command guards remain authoritative for every operation. Every operational tool carries an OPTIONAL
+**Scope remains the permission boundary.** The ChatGPT profile advertises the complete MSO-owned generic model/operator catalog and never grants anything the token scope does not already allow. App-only compatibility bridges remain app-only, and project-specific capabilities remain dynamic data rather than global names. `lib/host` path/command guards remain authoritative for every operation. Every operational tool carries an OPTIONAL
 `workflow_id`: it correlates steps, it never gates a capability. `lib/mcp/global-tools.test.ts`
 pins all of this, including that a token's visible list matches its callable set exactly.
 
@@ -154,7 +154,7 @@ The catalog has a stable server version plus a schema-derived toolset signature.
 
 Settings → MCP shows the current version/hash/count and stores a browser-local acknowledgement when the operator marks ChatGPT refreshed. A later signature change becomes an explicit stale-snapshot warning. This does not mutate ChatGPT remotely; it makes the required refresh visible instead of relying on memory.
 
-The exact current server/toolset identity, full transport/model counts, compact ChatGPT profile, scope counts and tool names are generated in [`generated/MCP-CATALOG.md`](./generated/MCP-CATALOG.md). `GET /mcp` remains the live deployed authority and additionally exposes schema-derived full/profile hashes. See [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for ChatGPT-specific behavior.
+The exact current server/toolset identity, full transport/model counts, ChatGPT model profile, scope counts and tool names are generated in [`generated/MCP-CATALOG.md`](./generated/MCP-CATALOG.md). `GET /mcp` remains the live deployed authority and additionally exposes schema-derived full/profile hashes. See [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for ChatGPT-specific behavior.
 
 `agent_memory_search` is the typed-memory retrieval surface. It resolves semantic/episodic/procedural claims at an optional point in time, returns confidence/provenance and competing effective claims, and can expose superseded/retracted history when explicitly requested. `agent_memory_remember` remains the write surface and now accepts typed metadata; raw ChatGPT conversation ids are never stored as provenance.
 
@@ -166,7 +166,7 @@ The ChatGPT client profile additionally supplies a DRY output contract for every
 
 `toolDescriptor()` is the SSOT normalization layer for every MCP host. It guarantees a human-readable `title`, complete `readOnlyHint` / `destructiveHint` / `openWorldHint` booleans, optional `idempotentHint`, and matching top-level plus `_meta.securitySchemes`. Individual tool declarations may override safety semantics; otherwise conservative MSO defaults are applied from scope/operation class.
 
-The OAuth scope remains the permission boundary. A client profile may expose fewer MSO-owned generic names for compatibility/context budget, and the dispatcher rejects hidden names when called directly. ChatGPT is the first compact profile: it is derived from `CHATGPT_TOOL_NAMES`, independently hashed, and regression-tested for total/per-tool descriptor size. Full MCP clients keep the complete generic catalog.
+The OAuth scope remains the permission boundary. ChatGPT now receives the complete MSO-owned generic model/operator catalog; the dispatcher still rejects app-only compatibility bridges and unknown/project-owned global names. The ChatGPT descriptor projection is independently hashed and regression-tested for total/per-tool size. Project-owned MCP capabilities remain dynamic behind the generic project bridge.
 
 ### RASMIC repo-local orchestration memory
 

@@ -75,7 +75,7 @@ The canonical `resources/list` response advertises only Block and Page. Previous
 4. Sandboxed Pages use the standard `tools/call` bridge for native data refreshes. ChatGPT-only helpers such as display mode, private widget state, follow-up messages, and `openExternal` are feature-detected.
 5. The dedicated UI origin is deployment-derived: explicit `OS_MCP_UI_ORIGIN` wins; otherwise an `mso.<domain>` public origin derives `mso-ui.<domain>`, and other safe public origins are reused. Standard CSP fields live only in `_meta.ui.csp`; the legacy `openai/widgetCSP` object retains only `redirect_domains` for `Open in MSO`.
 
-Current ChatGPT transport profile: **66 tools** — 64 model-visible actions (35 read / 17 write / 12 exec) plus app-only `workflow_status` and `render_mso_surface`. The full transport catalog has 90 tools. Exactly two tools bind UI resources: `render_mso_block` and `render_mso_page`.
+Current ChatGPT model profile is source-generated from the complete MSO-owned generic model/operator catalog; exact counts live in [`../generated/MCP-CATALOG.md`](../generated/MCP-CATALOG.md). `workflow_status` and `render_mso_surface` remain app-only compatibility bridges. Exactly two model tools bind UI resources: `render_mso_block` and `render_mso_page`.
 
 ## Source boundaries
 

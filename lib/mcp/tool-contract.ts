@@ -30,34 +30,13 @@ export function outputSchemaForProfile(tool: McpTool, profile: McpToolProfile = 
   return tool.outputSchema ?? (profile === "chatgpt" ? CHATGPT_RESULT_OUTPUT_SCHEMA : undefined);
 }
 
-// ChatGPT scans a frozen descriptor snapshot. Keep that public snapshot deliberately
-// small; every name here is an MSO-owned generic primitive. Project-owned MCP tool
-// names are discovered/called dynamically through project_mcp_* and NEVER appended
-// to this list or TOOLS.
-export const CHATGPT_TOOL_NAMES = new Set([
-  // Workflow/session intelligence. workflow_status and render_mso_surface stay app-only at presentation time.
-  "workflow_start", "workflow_status", "workflow_finish", "workflow_cancel",
-  "skills_search", "skills_list", "skills_read", "read_pipeline",
-  "agent_session_current", "agent_session_rename", "session_artifacts", "session_artifact_register", "session_artifacts_cleanup",
-  "local_agents_list", "local_agent_inbox", "local_agent_message_send", "local_agent_reply", "local_agent_request_wait",
-
-  // Project-first operator surface. Project-owned names remain dynamic.
-  "projects_list", "project_get", "project_changes_list", "project_diff", "project_capabilities",
-  "project_knowledge_get", "project_knowledge_set", "connections_list", "project_agent_run", "project_agent_status",
-  "project_mcp_tools", "project_mcp_call", "project_function_call",
-  "project_database_status", "project_database_tools", "project_database_call", "project_database_query",
-
-  // Original MSO bounded VPS/file/application/browser power restored to ChatGPT.
-  "vps_status", "mso_surface_apps_list", "render_mso_block", "render_mso_page", "render_mso_surface", "screen_capture", "fs_list", "fs_read", "fs_search", "fs_usage",
-  "fs_write", "fs_upload_file", "fs_mkdir", "fs_move", "fs_copy", "fs_delete",
-  "sys_stats", "sys_processes", "apps_list", "apps_logs", "apps_power", "browser_status", "browser_power",
-
-  // Infrastructure operations remain explicit and bounded; secrets stay server-side.
-  "integration_query", "integration_manage", "integration_execute", "integration_setup_open", "infra_providers_list", "infra_provider_doctor", "dokploy_projects_list", "dokploy_project_ensure",
-  "cloudflare_zones_list", "cloudflare_dns_upsert", "hostinger_dns_upsert",
-
-  // Arbitrary shell is still a last-resort escape hatch and long builds remain job-bound.
-  "exec_run", "exec_job_start", "exec_job_status", "exec_job_cancel",
+// ChatGPT should expose the complete MSO-owned generic model/operator catalog.
+// Project-owned MCP tool names are never appended to TOOLS; they remain dynamic
+// behind project_mcp_tools/project_mcp_call. These two compatibility bridges are
+// UI-only and therefore intentionally excluded from model tool calling.
+export const CHATGPT_APP_ONLY_TOOL_NAMES = new Set([
+  "workflow_status",
+  "render_mso_surface",
 ] as const);
 
 const TITLES: Record<string, string> = {
@@ -111,8 +90,8 @@ export function toolSecuritySchemes(tool: McpTool): McpSecurityScheme[] {
   return tool.securitySchemes ?? [{ type: "oauth2", scopes: [tool.scope] }];
 }
 
-export function toolAllowedForProfile(name: string, profile: McpToolProfile = "full"): boolean {
-  return profile === "full" || CHATGPT_TOOL_NAMES.has(name as never);
+export function toolAllowedForProfile(_name: string, _profile: McpToolProfile = "full"): boolean {
+  return true;
 }
 
 function compactText(value: string, max = 125): string {

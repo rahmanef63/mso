@@ -1,7 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-export const APP_ONLY_MCP_TOOLS = new Set(["workflow_status", "render_mso_surface"]);
 const TOOL_MODULE_NAME = /^tools-[A-Za-z0-9-]+\.ts$/;
 const SCOPES = ["read", "write", "exec"];
 
@@ -43,16 +42,22 @@ export function collectMcpCatalog(root) {
     for (const match of text.matchAll(/name:\s*"([^"]+)"[\s\S]*?scope:\s*"(read|write|exec)"/g)) all.set(match[1], match[2]);
   }
 
-  const appOnly = [...APP_ONLY_MCP_TOOLS].filter((name) => all.has(name)).sort();
-  const model = [...all].filter(([name]) => !APP_ONLY_MCP_TOOLS.has(name));
+  const toolContract = read("lib/mcp/tool-contract.ts");
+  const appOnlyBlock = /CHATGPT_APP_ONLY_TOOL_NAMES\s*=\s*new Set\(\[([\s\S]*?)\]\s*as const\)/.exec(toolContract)?.[1] ?? "";
+  const appOnlyNames = [...appOnlyBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+  const appOnlySet = new Set(appOnlyNames);
+  const appOnlyMissing = appOnlyNames.filter((name) => !all.has(name));
+  const appOnly = appOnlyNames.filter((name) => all.has(name)).sort();
+  const model = [...all].filter(([name]) => !appOnlySet.has(name));
   const byScope = splitByScope(model);
 
-  const toolContract = read("lib/mcp/tool-contract.ts");
-  const profileBlock = /CHATGPT_TOOL_NAMES\s*=\s*new Set\(\[([\s\S]*?)\]\s*as const\)/.exec(toolContract)?.[1] ?? "";
-  const chatgptNames = [...profileBlock.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
-  const profileMissing = chatgptNames.filter((name) => !all.has(name));
-  const chatgptAppOnly = chatgptNames.filter((name) => APP_ONLY_MCP_TOOLS.has(name) && all.has(name)).sort();
-  const chatgptModel = chatgptNames.filter((name) => !APP_ONLY_MCP_TOOLS.has(name) && all.has(name)).map((name) => [name, all.get(name)]);
+  // ChatGPT receives the complete MSO-owned generic model/operator catalog.
+  // The two compatibility bridges remain app-only and project-owned MCP names
+  // remain dynamic behind project_mcp_tools/project_mcp_call.
+  const chatgptNames = [...all.keys()];
+  const profileMissing = [];
+  const chatgptAppOnly = [...appOnly];
+  const chatgptModel = [...model];
   const chatgptByScope = splitByScope(chatgptModel);
 
   return {
@@ -69,7 +74,7 @@ export function collectMcpCatalog(root) {
       modelCount: chatgptModel.length,
       counts: countsFor(chatgptByScope),
     },
-    orphanModules, missingModules, profileMissing,
+    orphanModules, missingModules, profileMissing, appOnlyMissing,
   };
 }
 
@@ -78,7 +83,7 @@ export function renderMcpCatalogMarkdown(catalog) {
   const c = catalog.chatgpt;
   return `# Generated MCP catalog
 
-> **Generated file — do not edit manually.** Source of truth: \`lib/mcp/tools.ts\`, its registered \`tools-*\` modules, \`lib/mcp/toolset.ts\`, and the compact ChatGPT name set in \`lib/mcp/tool-contract.ts\`. Regenerate with \`node scripts/gen-mcp-catalog.mjs\`. The live deployed authority remains \`GET /mcp\`.
+> **Generated file — do not edit manually.** Source of truth: \`lib/mcp/tools.ts\`, its registered \`tools-*\` modules, \`lib/mcp/toolset.ts\`, and the ChatGPT app-only exclusions in \`lib/mcp/tool-contract.ts\`. Regenerate with \`node scripts/gen-mcp-catalog.mjs\`. The live deployed authority remains \`GET /mcp\`.
 
 ## Full MSO catalog
 
@@ -112,11 +117,11 @@ ${list(catalog.byScope.exec)}
 
 ${list(catalog.appOnly)}
 
-## ChatGPT static profile
+## ChatGPT model profile
 
 <!-- mcp-chatgpt-profile: server=${catalog.serverVersion} version=${catalog.version} tools=${c.modelCount} read=${c.counts.read} write=${c.counts.write} exec=${c.counts.exec} app-only=${c.appOnly.length} total=${c.transportCount} -->
 
-The ChatGPT profile is a fail-closed static projection defined by \`CHATGPT_TOOL_NAMES\`. OAuth scope is still enforced independently; project-owned MCP tool names remain dynamic data behind the generic project bridge.
+The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
