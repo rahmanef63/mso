@@ -1,3 +1,19 @@
+## 2026-09-12 — Hosted history scan and security inventory readiness
+
+The hosted checks for PR #41 exposed two distinct failures not covered by the earlier local
+release report. The pinned, full-history Gitleaks command reproduced two findings in the
+SC-sync test introduced on September 9: synthetic in-memory values, not production tokens.
+Only those two historical commit/path/rule/line fingerprints are reviewed exceptions. Current
+fixtures now generate deterministic synthetic values, without broad exclusions or rewriting shared history.
+
+The push inventory and the Scorecard follow-up both ran before CodeQL SARIF was available;
+the later CodeQL-triggered inventory passed for the same commit. The inventory now supports
+an explicit bounded readiness wait and exact requested SHA. Trigger-specific concurrency keeps
+push, CodeQL and Scorecard follow-ups from evicting each other. It polls only missing/stale
+CodeQL evidence and still fails on timeout, access denial, malformed evidence, analysis
+failure, branch movement or any open finding. Negative regression tests preserve those
+boundaries. Hosted results, rather than local build success alone, determine CI completion.
+
 ## 2026-09-11 — Fresh-install MCP exec default and stable Cloudflare gateway baseline
 
 Fresh installs now write `OS_MCP_ENABLED=1` and `OS_MCP_MAX_SCOPE=exec` beside the generated owner

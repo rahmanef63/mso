@@ -14,3 +14,8 @@ f68cd5567321efb9ac84bc940ebc2429cc088153:lib/infra/dokploy-deploy.test.ts:generi
 # Reviewed DOM property assignments: maxLength=1024 and hidden=true, no credential literals.
 67d4b3ec64a456cb6015c65f5e7d6aaa7de2a2af:lib/infra/portable/ui.ts:generic-api-key:11
 db292708a0ce5554a1a265091a65fb6a19636538:lib/infra/portable/ui.ts:generic-api-key:11
+
+# Reviewed SC-sync unit-test fixtures: synthetic strings passed only to in-memory state.
+# No provider requests; scoped to the original commit, exact file, rule and line.
+9d3eb899b80a3d3ace1766a65e3b154fd029d7a3:lib/infra/sc-sync.test.ts:generic-api-key:4
+9d3eb899b80a3d3ace1766a65e3b154fd029d7a3:lib/infra/sc-sync.test.ts:generic-api-key:15

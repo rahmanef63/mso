@@ -45,6 +45,6 @@ jobs:
 
       - name: Inspect actual branch findings after SARIF processing
         if: github.event_name == 'push'
-        run: node scripts/security-alerts.mjs --include-closed --ref "$GITHUB_REF"
+        run: node scripts/security-alerts.mjs --include-closed --ref "$GITHUB_REF" --commit "$GITHUB_SHA" --wait-seconds 60
         env:
           GITHUB_TOKEN: ${{ github.token }}

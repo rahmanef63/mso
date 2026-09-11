@@ -13,7 +13,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: security-alert-inventory-${{ github.ref }}
+  # Keep push/CodeQL/Scorecard runs from evicting each other while readiness is pending.
+  group: security-alert-inventory-${{ github.ref }}-${{ github.event_name }}-${{ github.event.workflow_run.name || 'direct' }}
   cancel-in-progress: false
 
 jobs:
@@ -38,9 +39,9 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            node scripts/security-alerts.mjs --ref "$GITHUB_REF"
+            node scripts/security-alerts.mjs --ref "$GITHUB_REF" --commit "$GITHUB_SHA" --wait-seconds 360
           else
-            node scripts/security-alerts.mjs
+            node scripts/security-alerts.mjs --commit "$GITHUB_SHA" --wait-seconds 360
           fi
         env:
           GITHUB_TOKEN: ${{ github.token }}

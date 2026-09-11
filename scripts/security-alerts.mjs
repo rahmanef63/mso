@@ -6,12 +6,18 @@ const args = process.argv.slice(2);
 let selectedRef;
 let inventory = false;
 let includeClosed = false;
+let expectedCommit;
+let waitSeconds = 0;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--inventory") inventory = true;
   else if (args[i] === "--include-closed") includeClosed = true;
   else if (args[i] === "--ref" && args[i + 1]) selectedRef = args[++i];
-  else throw new Error("usage: node scripts/security-alerts.mjs [--inventory] [--ref refs/heads/branch] [--include-closed]");
+  else if (args[i] === "--commit" && args[i + 1]) expectedCommit = args[++i];
+  else if (args[i] === "--wait-seconds" && /^(0|[1-9][0-9]{0,2})$/.test(args[i + 1] ?? "")) waitSeconds = Number(args[++i]);
+  else throw new Error("usage: node scripts/security-alerts.mjs [--inventory] [--ref refs/heads/branch] [--include-closed] [--commit SHA] [--wait-seconds 0..480]");
 }
+if (waitSeconds > 480) throw new Error("Readiness wait must be bounded to 480 seconds");
+if (expectedCommit && !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(expectedCommit)) throw new Error("An exact commit SHA is required");
 if (selectedRef && (!/^refs\/heads\/[A-Za-z0-9_./-]+$/.test(selectedRef) || selectedRef.includes("..") || selectedRef.endsWith("/"))) {
   throw new Error("An exact branch ref is required");
 }
@@ -64,10 +70,22 @@ try {
   const ref = selectedRef ?? `refs/heads/${repository.default_branch}`;
   const branchName = ref.slice("refs/heads/".length);
   const branch = (await get(`/branches/${encodeURIComponent(branchName)}`)).value;
-  const recent = await get(`/code-scanning/analyses?ref=${encodeURIComponent(ref)}&per_page=100`);
-  if (!Array.isArray(recent.value) || !recent.value.length) throw new Error("No scan evidence for the selected branch");
-  if (!recent.value.some((scan) => scan.tool?.name === "CodeQL" && scan.commit_sha === branch.commit.sha && !scan.error)) {
-    throw new Error("CodeQL has not completed successfully for the current selected-branch commit");
+  if (expectedCommit && expectedCommit !== branch.commit.sha) throw new Error("Selected branch no longer matches the requested commit");
+  const deadline = Date.now() + waitSeconds * 1000;
+  let recent;
+  for (;;) {
+    recent = await get(`/code-scanning/analyses?ref=${encodeURIComponent(ref)}&per_page=100`);
+    if (!Array.isArray(recent.value)) throw new Error("Invalid GitHub analysis response");
+    const exact = recent.value.filter((scan) => scan.tool?.name === "CodeQL" && scan.commit_sha === branch.commit.sha && scan.ref === ref);
+    if (exact.some((scan) => !scan.error)) break;
+    if (exact.some((scan) => scan.error)) throw new Error("CodeQL analysis failed for the selected commit");
+    if (Date.now() >= deadline) throw new Error("CodeQL has not completed successfully for the current selected-branch commit");
+    const current = (await get(`/branches/${encodeURIComponent(branchName)}`)).value;
+    if (current.commit.sha !== branch.commit.sha) throw new Error("Branch changed while waiting for CodeQL; retry");
+    console.log(`WAITING_FOR_CODEQL ${ref} ${branch.commit.sha}`);
+    // A push and a fast Scorecard run can precede CodeQL SARIF processing.
+    // Only missing/stale analysis is retryable; API denial and real findings still fail.
+    await new Promise((resolve) => setTimeout(resolve, Math.min(10_000, deadline - Date.now())));
   }
   const alerts = await pages(`/code-scanning/alerts?state=open&ref=${encodeURIComponent(ref)}`);
   const rows = [];

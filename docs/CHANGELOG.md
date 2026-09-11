@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `install` enable MCP exec + document stable Cloudflare tunnel defaults
 
+**Fixed**
+
+- `ci` resolve synthetic history findings and await exact CodeQL evidence
+
 **Tests**
 
 - `forge` use node fixture commands under Bun runner

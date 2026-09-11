@@ -29,6 +29,13 @@ All GitHub Actions referenced by the repository are pinned to immutable commit S
 
 `Security alert inventory` uses the repository-scoped GitHub Actions token with read-only security permissions to enumerate and paginate default-branch alerts and their affected instances. It fails for any remaining open finding, or when the inventory/scan evidence cannot be read. It never dismisses alerts or changes scan configuration. Its status is deliberately separate from a successful CodeQL analysis job. The job logs and summary expose rule/path/severity evidence, never bearer credentials or secret-scanning values. `node scripts/security-alerts.mjs --inventory` is an explicit collection-only mode, not release clearance.
 
+The push inventory and the follow-up CodeQL/Scorecard inventories allow up to 360 seconds
+for CodeQL evidence on their exact checkout commit. The post-analysis CodeQL step allows
+60 seconds for SARIF visibility. A missing/older analysis is pending, not clean; timeout,
+API denial, malformed evidence, analysis failure, branch movement and open findings still
+fail closed. The CLI remains immediate unless `--wait-seconds` is explicitly supplied,
+and `--commit` prevents a newer branch tip from being reported as the requested revision.
+
 ## GitHub security controls
 
 The public repository enables:
@@ -59,7 +66,9 @@ The final runner message summarizes only the selected lanes; skipped Codex or ZA
 
 ## Reviewed Gitleaks fixtures
 
-MSO's redaction unit test intentionally contains six realistic-looking **synthetic** credential fixtures so the redactor can prove it removes secrets. Gitleaks correctly detects those patterns in the historical commit that introduced the test. The repository records six exact finding fingerprints in `.gitleaksignore` and marks the current fixture lines with `gitleaks:allow`.
+MSO's redaction unit test intentionally contains six realistic-looking **synthetic** credential fixtures so the redactor can prove it removes secrets. Gitleaks correctly detects those patterns in the historical commit that introduced the test. `.gitleaksignore` records their exact fingerprints; the current redaction fixture lines carry `gitleaks:allow`. The same finding-specific ledger also records reviewed mocked Dokploy keys and non-secret DOM property assignments.
+
+The SC-sync tests introduced in commit `9d3eb899b80a3d3ace1766a65e3b154fd029d7a3` used clearly synthetic strings exclusively with `syncScIn` and in-memory state, without provider requests. Two historical findings (lines 4 and 15) are recorded by exact commit/path/rule/line fingerprint. Current SC-sync fixtures generate deterministic synthetic values instead of key-shaped strings; no file-wide, rule-wide or commit-wide exception was added.
 
 The exception is intentionally finding-specific. The file and rules are **not** globally allowlisted, so a new secret-like value in that test file still fails the scan and requires review.
 
