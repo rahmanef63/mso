@@ -51,7 +51,9 @@ The installer core:
    self-update, validates every owned gateway fallback, quiesces an active service only when it belongs to
    this checkout, then quiesces gateway-owned fallback runtimes while preserving their public tunnels;
 5. installs Bun/dependencies as needed;
-6. creates private owner auth configuration when missing;
+6. creates private owner auth configuration when missing; a fresh `.env.local` also enables the
+   OAuth-protected MCP surface with `OS_MCP_ENABLED=1` and an `exec` consent ceiling, while an
+   existing `.env.local` is never rewritten during update;
 7. runs the production build through `node node_modules/next/dist/bin/next build`, bypassing Bun's
    package-bin remapper; if the Next package payload itself is absent, it performs one bounded
    `bun install --force` repair before failing;
@@ -270,7 +272,7 @@ Do not add the random Quick Tunnel URL to `OS_PUBLIC_ORIGIN`: that variable is d
 for stable MCP/share/CSP URLs. If a stable value is already configured, temporary mode leaves it
 untouched and warns that generated links may continue to name the stable origin.
 
-### Stable custom domain / named Cloudflare Tunnel
+### Stable custom domain / named Cloudflare Tunnel (recommended public path)
 
 ```bash
 mso gateway domain set https://mso.example.com
@@ -282,22 +284,43 @@ Cloudflare tunnel/DNS credentials using Cloudflare's official CLI, then start it
 token on the command line:
 
 ```bash
-mso gateway start --config ~/.cloudflared/config.yml --tunnel mso
-
-If another gateway is already active, stop it first with `mso gateway stop`. MSO refuses to silently ignore explicit named-tunnel arguments or switch tunnel modes underneath an active endpoint.
+mso gateway start --config ~/.cloudflared/config.yml --tunnel <tunnel-id-or-name>
 mso web
 ```
 
-The config must be a regular file owned by the current user and must not be group/world-writable.
-MSO parses it before launch and requires exactly one ingress hostname matching `OS_PUBLIC_ORIGIN`
-that points to the configured MSO loopback port, followed by `http_status:404`; its
-`credentials-file` must be a private owner-owned regular file. This prevents a config intended for
-MSO from silently publishing other laptop services. For a permanent Internet-facing control plane,
-add Cloudflare Access/WAF policy (or equivalent) in front of MSO in addition to MSO's password +
-approved-device gate. Rebuild/restart MSO after
-changing stable origin or split-host environment configuration.
+If another gateway is already active, stop it first with `mso gateway stop`. MSO refuses to silently ignore explicit named-tunnel arguments or switch tunnel modes underneath an active endpoint.
 
-### Tailscale (recommended)
+Use a dedicated named tunnel config with placeholders only:
+
+```yaml
+tunnel: <tunnel-uuid>
+credentials-file: /home/<user>/.cloudflared/<tunnel-uuid>.json
+ingress:
+  - hostname: mso.<your-domain>
+    service: http://127.0.0.1:4005
+  - service: http_status:404
+```
+
+Make `~/.cloudflared/config.yml` and the credentials JSON owner-only. The config must be a regular
+file owned by the current user and must not be group/world-writable. MSO parses it before launch and
+requires exactly one ingress hostname matching `OS_PUBLIC_ORIGIN` that points to the configured MSO
+loopback port, followed by `http_status:404`; its `credentials-file` must be a private owner-owned
+regular file. This prevents a config intended for MSO from silently publishing other laptop services.
+
+For Cloudflare DNS, route `<mso-subdomain>.<your-domain>` to
+`<tunnel-uuid>.cfargotunnel.com` as a **proxied** CNAME. During a nameserver cutover, it is valid to
+upsert the same CNAME temporarily at the old registrar/DNS provider so the stable hostname continues
+to resolve while NS propagation completes; move the domain nameservers to Cloudflare for reliable
+edge TLS/custom-hostname operation. Do not proxy mail records: MX/TXT records and mail-related CNAMEs
+such as `autoconfig`, `autodiscover`, and provider DKIM targets must remain **DNS-only** so importing a
+zone does not break the mail provider.
+
+For a permanent Internet-facing control plane, add Cloudflare Access/WAF policy (or equivalent) in
+front of MSO in addition to MSO's password + approved-device gate. Rebuild/restart MSO after changing
+stable origin or split-host environment configuration. Never set `OS_PUBLIC_ORIGIN` to a
+`*.trycloudflare.com` preview URL.
+
+### Tailscale (private-network alternative)
 
 Keep MSO on loopback and publish it with Tailscale Serve so the browser reaches an HTTPS
 origin.
@@ -326,14 +349,21 @@ Open the browser on its final login origin **before** pairing: HTTPS in producti
 server IP and then switch to an HTTPS hostname; the Secure session cookie cannot persist on the first
 origin, and the hostname change has a different browser-scoped device identity.
 
-The first correct login from a browser creates a **pending device**. Bootstrap an Owner from the
-server, then approve additional devices from Settings → Devices or the CLI:
+The local CLI device created by `mso onboard`/`mso doctor --fix` is approved as **Owner** on the
+host and remains the recovery path. The first correct login from a browser creates a **pending
+device**. Bootstrap the browser with the role you intend, then approve additional devices from
+Settings → Devices or the CLI:
 
 ```bash
 mso device approve <device-id> "owner laptop" --role owner
 mso device approve <device-id> "read-only tablet" --role viewer
 mso device role <device-id> operator
+mso device role <device-id> owner     # promote a browser first approved as Viewer
 ```
+
+Changing from localhost to the final custom HTTPS origin creates a different browser-scoped device
+identity, so that browser must be approved again on the new origin. Web approvals may start as
+Viewer; use `mso device role <id> owner` only after verifying the intended device.
 
 Viewer is read-oriented; Operator adds bounded managed-app/Camoufox/service operations; Owner has
 write, Terminal/exec, credential, device, MCP and update authority. Web approvals default to Viewer.
@@ -405,8 +435,10 @@ and binary overrides are documented in `.env.example`; normal installations shou
 
 ## 6. Optional Browser app — Camoufox
 
-The current Browser app is **Camoufox**, not the retired Playwright browser daemon.
-`scripts/camoufox-vnc-service` launches:
+The current Browser app is **Camoufox**, not the retired Playwright browser daemon. Host dependencies
+include `xvfb`, `x11vnc`, `novnc`, `matchbox-window-manager`, and `websockify`; install the Camoufox
+browser through its isolated Python venv/official fetch path rather than committing browser
+binaries into MSO. `scripts/camoufox-vnc-service` launches:
 
 ```text
 Xvfb -> matchbox window manager -> Camoufox -> x11vnc -> websockify/noVNC
@@ -474,25 +506,41 @@ about automatically executing an unpinned remote installer and editing shell pro
 MSO wrapper only teaches use of an already-installed RTK binary and requires a separate
 explicit request for system installation/hooks.
 
-## 9. Optional MCP / ChatGPT custom app
+## 9. MCP / ChatGPT custom app
 
-MCP is **off by default**. Enable it only for a deployment that needs external AI clients:
+Fresh installs enable the OAuth-protected MCP surface and permit consent up to `exec`:
 
 ```dotenv
 OS_MCP_ENABLED=1
-OS_MCP_MAX_SCOPE=read   # raise to write/exec only when required
+OS_MCP_MAX_SCOPE=exec   # lower to write/read when full host execution is not required
 ```
 
-Use `docs/CHATGPT-PLUGIN.md` for ChatGPT setup and diagrams, and `docs/MCP.md` for the
-complete protocol/security model. After changing the MCP toolset, refresh/re-scan the
-ChatGPT app; MSO's "Mark ChatGPT refreshed" button is only a local acknowledgement.
+This does not create an open endpoint: `/mcp` and OAuth discovery are live, but operational calls
+still require OAuth consent and a bearer. The advertised scopes are `read`, `write`, `exec`, and
+`offline_access`. **Security default change:** compromise of an `exec` bearer permits remote command
+execution as the MSO service user. Existing installs keep their current `.env.local` unchanged on
+update, so administrators who previously disabled or capped MCP remain opted down until they choose
+otherwise.
+
+Use `docs/CHATGPT-PLUGIN.md` for ChatGPT setup and diagrams, and `docs/MCP.md` for the complete
+protocol/security model. After changing `OS_MCP_MAX_SCOPE`, rebuild/restart the runtime and repeat the
+client consent/authorization flow so ChatGPT receives the new ceiling; changing a file does not alter
+an already-running process or previously minted token. After changing the MCP toolset, refresh/re-scan
+the ChatGPT app; MSO's "Mark ChatGPT refreshed" button is only a local acknowledgement.
 
 ## 10. Optional managed-app dashboards
 
-Hermes, OpenClaw and 9Router lifecycle management works without a domain. A configured 9Router
-application URL is preferred for its in-shell UI. Without one, 9Router stays loopback-only unless
-the owner explicitly sets `NINE_ROUTER_EXPOSE_PUBLIC=1` and accepts the firewall/authentication
-consequences. Hermes/OpenClaw remain loopback-only unless an operator adds an external route.
+Hermes, OpenClaw and 9Router lifecycle management works without a domain. Docker does not require
+systemd for 9Router; on hosts without systemd, start Docker by the host-supported/manual method first,
+then use `scripts/managed-app-9router install` or `mso mapp install 9router`. The managed container
+publishes only `127.0.0.1:20128` by default. Do **not** default `NINE_ROUTER_EXPOSE_PUBLIC=1`.
+
+Hermes/OpenClaw use user systemd units. Their prerequisite is a working user manager/bus: systemd,
+linger, and a valid `XDG_RUNTIME_DIR=/run/user/<uid>`. If that bus is unavailable, fix the prerequisite
+rather than accepting a half-installed app. A configured 9Router application URL is preferred for its
+in-shell UI. Without one, 9Router stays loopback-only unless the owner explicitly sets
+`NINE_ROUTER_EXPOSE_PUBLIC=1` and accepts the firewall/authentication consequences. Hermes/OpenClaw
+remain loopback-only unless an operator adds an external route.
 
 The safe default is no vendor dashboard on the **MSO cockpit origin**. To opt into
 split-origin embedding, configure:

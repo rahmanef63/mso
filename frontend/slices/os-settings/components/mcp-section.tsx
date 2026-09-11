@@ -50,8 +50,8 @@ function OwnerMcpSection() {
     <SettingsSection icon={<Plug />} title="MCP is off">
       <SettingsBlock className="space-y-3 py-4">
         <p className="text-sm">Enable MCP on this host before connecting an AI app.</p>
-        <McpCopyField label="Starting configuration in .env.local" value={"OS_MCP_ENABLED=1\nOS_MCP_MAX_SCOPE=read"} multiline />
-        <p className="text-sm text-muted-foreground">Apply with <code>mso update --rebuild</code>. Start with read access and expand permissions only when needed.</p>
+        <McpCopyField label="Fresh-install configuration in .env.local" value={"OS_MCP_ENABLED=1\nOS_MCP_MAX_SCOPE=exec"} multiline />
+        <p className="text-sm text-muted-foreground">Apply with <code>mso update --rebuild</code>. Fresh installs allow consent up to exec; lower the ceiling to read/write before connecting clients that do not need remote command execution.</p>
       </SettingsBlock>
     </SettingsSection>
   );

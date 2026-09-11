@@ -304,10 +304,16 @@ For a stable domain, keep MSO on loopback and make the public origin explicit:
 ```bash
 mso gateway domain set https://mso.example.com
 # create/configure the named Cloudflare Tunnel using the example printed above, then:
-mso gateway start --config ~/.cloudflared/config.yml --tunnel mso
-
+mso gateway start --config ~/.cloudflared/config.yml --tunnel <tunnel-id-or-name>
 mso web
 ```
+
+The named tunnel config uses an owner-only credentials file, one hostname ingress to
+`http://127.0.0.1:4005`, and a final `http_status:404`. Route the public hostname to
+`<tunnel-uuid>.cfargotunnel.com` with a proxied Cloudflare CNAME. During nameserver cutover the same
+CNAME may temporarily exist at the old DNS provider, but mail MX/TXT plus `autoconfig`,
+`autodiscover`, and DKIM CNAMEs remain DNS-only. A Quick Tunnel is never a valid
+`OS_PUBLIC_ORIGIN`.
 
 If another gateway is already active, stop it first with `mso gateway stop`. MSO refuses to silently ignore explicit named-tunnel arguments or switch tunnel modes underneath an active endpoint.
 
@@ -472,7 +478,7 @@ An authenticated **Owner** session can read allowed files and run commands as th
 - Treat any file Alfa reads as untrusted input. The approval card is the only thing between text hidden inside a file and an `exec.run`. Read the command on the card, not Alfa's summary of it.
 - Agents and Skills group tools for your own convenience. They are not a permission boundary: every agent can call every tool.
 - `exec.run` is not sandboxed. Its cwd is bounded to your write roots, but the command itself runs in your login shell as the service user. The destructive-command denylist is a short accident tripwire, not a guard.
-- The MCP server is off unless `OS_MCP_ENABLED=1`. When on, a bearer token is a standing credential with whatever scope you granted it: at `exec` it runs any command on the box as you, and every call and result goes to the client's provider. The consent screen preselects the server ceiling (`exec` by default), so lower it before Allow when a client needs less; cap all tokens with `OS_MCP_MAX_SCOPE`, and treat anything the model reads as untrusted — scope is what stops a prompt-injected file talking it into a write. See [docs/MCP.md](../MCP.md).
+- Fresh installs write `OS_MCP_ENABLED=1`; existing installs preserve their current setting during update, and disabling it still removes the MCP/OAuth surface. A bearer token is a standing credential with whatever scope you granted it: at `exec` it runs commands as the MSO service user, and every call/result goes to the client provider. Fresh installs set the consent ceiling to `exec`, so lower it before Allow when a client needs less; cap all tokens with `OS_MCP_MAX_SCOPE`, and treat anything the model reads as untrusted — scope is what stops a prompt-injected file talking it into a write. See [docs/MCP.md](../MCP.md).
 - MSO has not had a third-party security audit.
 
 More detail: [SECURITY.md](../../SECURITY.md), [docs/FAQ.md](../FAQ.md) and [docs/INSTALL.md](../INSTALL.md).

@@ -41,8 +41,15 @@ systemd bus, it reports that uncertainty instead of silently treating a running 
 
 9Router upstream publishes **both** an npm CLI and Docker images. MSO deliberately manages
 the Docker distribution on servers/VPSes; this matches upstream's server/VPS quick start and
-avoids starting a second 9Router process on the same port. The repo-owned
-`scripts/managed-app-9router` is an MSO lifecycle/update adapter, not the upstream CLI.
+avoids starting a second 9Router process on the same port. Docker may need to be started manually
+on hosts without systemd; MSO does not widen 9Router just to compensate. The repo-owned
+`scripts/managed-app-9router` is an MSO lifecycle/update adapter, not the upstream CLI. Install with
+`scripts/managed-app-9router install` or `mso mapp install 9router`; the safe bind remains
+`127.0.0.1:20128` unless the owner explicitly opts into `NINE_ROUTER_EXPOSE_PUBLIC=1`.
+
+Hermes and OpenClaw depend on a working user systemd bus. Ensure linger, `XDG_RUNTIME_DIR`, and the
+user manager are healthy before install; do not treat a partially available bus as a successful
+half-install.
 
 ## 2. User experience
 

@@ -147,11 +147,11 @@ MSO uses Streamable HTTP JSON-RPC over `POST /mcp`.
 
 ## Setup / refresh sequence
 
-1. Deploy MSO over reachable HTTPS and enable MCP (`OS_MCP_ENABLED=1`).
-2. Set the maximum bearer scope intentionally with `OS_MCP_MAX_SCOPE=read|write|exec`.
+1. Deploy MSO over a stable reachable HTTPS origin. Fresh installs already write `OS_MCP_ENABLED=1`; existing installs preserve their current MCP setting during update.
+2. Set the maximum bearer scope intentionally with `OS_MCP_MAX_SCOPE=read|write|exec`. Fresh installs default to `exec`; lower it when a connector needs less privilege.
 3. In ChatGPT Developer Mode / Apps, create or edit the MSO custom MCP app using the `/mcp` URL.
 4. Choose OAuth and complete the MSO consent flow on an approved owner device.
-5. Select the lowest useful MSO tier.
+5. Select the lowest useful MSO tier. After changing `OS_MCP_MAX_SCOPE`, rebuild/restart MSO and repeat consent so the connector receives the new ceiling.
 6. Run **Scan Tools / Refresh** in ChatGPT.
 7. Verify that the action snapshot corresponds to the 66-tool transport profile (64 model-visible actions + app-only `workflow_status` and `render_mso_surface`) in the generated catalog.
 8. Start a new chat when testing a newly scanned draft/action snapshot.
