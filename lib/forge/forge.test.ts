@@ -72,7 +72,7 @@ describe("eval-gated Tool Forge", () => {
     const { root, project } = await tempProject(); roots.push(root);
     await expect(proposeForgeCandidate({
       owner: "owner", recipe: recipe({ scope: "read" }), kind: "project_function", projectPath: project, name: "scope-escalation",
-      command: [process.execPath, "tool.mjs"], inputSchema: { type: "object", properties: {} }, fixtures: [{ name: "x", input: {} }],
+      command: ["node", "tool.mjs"], inputSchema: { type: "object", properties: {} }, fixtures: [{ name: "x", input: {} }],
     })).rejects.toThrow(/exec-scope verified recipe/i);
   });
 
@@ -80,7 +80,7 @@ describe("eval-gated Tool Forge", () => {
     const { root, project } = await tempProject(); roots.push(root);
     await expect(proposeForgeCandidate({
       owner: "owner", recipe: recipe({ scope: "exec" }), kind: "project_function", projectPath: project, name: "secret-input",
-      command: [process.execPath, "tool.mjs"], inputSchema: { type: "object", properties: { apiKey: { type: "string" } } },
+      command: ["node", "tool.mjs"], inputSchema: { type: "object", properties: { apiKey: { type: "string" } } },
       fixtures: [{ name: "secret", input: { token: "sk-example-secret-value" } }],
     })).rejects.toThrow(/credential-like/i);
   });
@@ -103,7 +103,7 @@ describe("eval-gated Tool Forge", () => {
     await fs.writeFile(script, `let s=""; for await (const c of process.stdin) s+=c; const v=JSON.parse(s); console.log("OK:"+v.value);\n`, { mode: 0o700 });
     const candidate = await proposeForgeCandidate({
       owner: "owner", recipe: recipe({ scope: "exec" }), kind: "project_function", projectPath: project, name: "echo-payload",
-      description: "Echo a validated fixture payload", command: [process.execPath, "echo-function.mjs"],
+      description: "Echo a validated fixture payload", command: ["node", "echo-function.mjs"],
       inputSchema: { type: "object", properties: { value: { type: "string" } }, required: ["value"], additionalProperties: false },
       fixtures: [{ name: "basic", input: { value: "fixture" }, expect: { code: 0, stdoutIncludes: "OK:fixture" } }],
     });
@@ -125,7 +125,7 @@ describe("eval-gated Tool Forge", () => {
     await fs.writeFile(script, `console.log("v1");\n`, { mode: 0o700 });
     const candidate = await proposeForgeCandidate({
       owner: "owner", recipe: recipe({ scope: "exec" }), kind: "project_function", projectPath: project, name: "drift-proof",
-      command: [process.execPath, "drift.mjs"], inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      command: ["node", "drift.mjs"], inputSchema: { type: "object", properties: {}, additionalProperties: false },
       fixtures: [{ name: "v1", input: {}, expect: { stdoutIncludes: "v1" } }],
     });
     const evaluation = await evaluateForgeCandidate({ candidate, knownTools: new Map([["projects_list", "read"], ["sys_stats", "read"]]) });
@@ -140,7 +140,7 @@ describe("eval-gated Tool Forge", () => {
     await fs.writeFile(script, `import fs from "node:fs"; let ro=false, net=false; try { fs.writeFileSync("forge-escape.txt", "x"); } catch { ro=true; } try { await fetch("http://127.0.0.1:4005", { signal: AbortSignal.timeout(500) }); } catch { net=true; } console.log("RO:"+ro+" NET:"+net);\n`, { mode: 0o700 });
     const candidate = await proposeForgeCandidate({
       owner: "owner", recipe: recipe({ scope: "exec" }), kind: "project_function", projectPath: project, name: "sandbox-proof",
-      command: [process.execPath, "sandbox-proof.mjs"], inputSchema: { type: "object", properties: {}, additionalProperties: false },
+      command: ["node", "sandbox-proof.mjs"], inputSchema: { type: "object", properties: {}, additionalProperties: false },
       fixtures: [{ name: "isolation", input: {}, expect: { code: 0, stdoutIncludes: "RO:true NET:true" } }],
     });
     const evaluation = await evaluateForgeCandidate({ candidate, knownTools: new Map([["projects_list", "read"], ["sys_stats", "read"]]) });

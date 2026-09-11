@@ -4,6 +4,20 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-11
+
+**Added**
+
+- `install` enable MCP exec + document stable Cloudflare tunnel defaults
+
+**Tests**
+
+- `forge` use node fixture commands under Bun runner
+
+**Docs**
+
+- `security` document fresh-install MCP exec exposure
+
 ## 2026-09-10
 
 **Added**
