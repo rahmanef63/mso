@@ -99,6 +99,20 @@ describe("one-line installer contract", () => {
     }
   });
 
+  it("writes secure MCP defaults only when creating a fresh private env file", () => {
+    const src = installerSource();
+    const create = src.indexOf('if [ ! -f .env.local ]; then');
+    const preserve = src.indexOf('.env.local exists — left untouched (existing secrets preserved)');
+    expect(create).toBeGreaterThan(0);
+    expect(preserve).toBeGreaterThan(create);
+    expect(src).toContain('OS_LOGIN_PASSWORD=$GEN_PW');
+    expect(src).toContain('OS_SESSION_SECRET=$SECRET');
+    expect(src).toContain('OS_MCP_ENABLED=1');
+    expect(src).toContain('OS_MCP_MAX_SCOPE=exec');
+    expect(src).toContain('( umask 077');
+    expect(src).toContain('chmod 600 .env.local');
+  });
+
   it("uses the controlling tty after curl|bash and never stdin for onboarding", () => {
     const src = installerSource();
     expect(src).toContain("[ -r /dev/tty ] && [ -w /dev/tty ]");

@@ -1,3 +1,22 @@
+## 2026-09-11 — Fresh-install MCP exec default and stable Cloudflare gateway baseline
+
+Fresh installs now write `OS_MCP_ENABLED=1` and `OS_MCP_MAX_SCOPE=exec` beside the generated owner
+password/session secret in the private `0600` `.env.local`. This is an intentional **security-default
+change**: MCP remains OAuth/bearer protected, but a bearer granted `exec` can run remote commands as
+the MSO service user. Existing installations are not migrated in place; an existing `.env.local`,
+including its secrets, MCP ceiling and `OS_PUBLIC_ORIGIN`, is left byte-for-byte under the installer's
+existing preservation guard. Administrators can opt down to `write`/`read` before reconnecting a
+client.
+
+The stable-public runbook now treats a named Cloudflare Tunnel plus custom HTTPS hostname as the
+default production path while preserving the loopback `127.0.0.1:4005` bind. Quick Tunnels remain
+preview-only and are explicitly forbidden as `OS_PUBLIC_ORIGIN`. The docs pin the dedicated ingress
+shape, proxied `cfargotunnel.com` CNAME, old-provider cutover fallback, Cloudflare nameserver path,
+and mail-safety rule that MX/TXT plus autoconfig/autodiscover/DKIM CNAMEs remain DNS-only. Device
+approval/origin-change notes, no-systemd `mso web` fallback, managed-app prerequisites and private
+provider-token handling are documented alongside the new default. Installer/docs contracts guard the
+fresh defaults and update-preservation boundary.
+
 ## 2026-09-09 — Session persistence and auth-sensitive cache resilience
 
 A same-day repeated-login report was reproduced as a client-state resilience problem rather than

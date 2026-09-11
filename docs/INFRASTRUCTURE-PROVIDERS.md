@@ -42,6 +42,17 @@ selects, and **Esc** cancels. Provider/model selection never falls back to a num
 The connection choices are OpenAI ChatGPT/Codex device OAuth plus the built-in API-key providers documented in
 [`INSTALL.md`](./INSTALL.md).
 
+Infrastructure secrets belong only in `mso provider set ...` hidden prompts/private provider state;
+do not commit them or paste real values into model prompts. Environment-shaped examples are placeholders
+for operator runbooks only:
+
+```dotenv
+HOSTINGER_API_TOKEN=<hostinger-api-token>
+CLOUDFLARE_API_TOKEN=<cloudflare-api-token>
+CLOUDFLARE_ACCOUNT_ID=<cloudflare-account-id>
+CLOUDFLARE_ZONE_ID=<cloudflare-zone-id>
+```
+
 The terminal UI intentionally follows the useful *shape* of mature agent CLIs such as
 Hermes — large identity banner, selected model, tool/skill/provider summary, then an
 interactive prompt — but uses original MSO ASCII artwork and MSO's own tool/runtime stack.

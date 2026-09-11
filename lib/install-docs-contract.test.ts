@@ -53,7 +53,22 @@ describe("installer documentation contract", () => {
     expect(detect).toBeLessThan(checkout);
     expect(core).toContain('info "found existing service → updating $DIR"');
     expect(core).toContain('if [ ! -f .env.local ]; then');
+    expect(core).toContain('OS_LOGIN_PASSWORD=$GEN_PW');
+    expect(core).toContain('OS_SESSION_SECRET=$SECRET');
+    expect(core).toContain('OS_MCP_ENABLED=1');
+    expect(core).toContain('OS_MCP_MAX_SCOPE=exec');
+    expect(core).toContain('chmod 600 .env.local');
     expect(core).toContain('.env.local exists — left untouched (existing secrets preserved)');
+  });
+
+  it("documents the safe fresh-install MCP and stable-origin defaults", () => {
+    expect(INSTALL).toContain("OS_MCP_ENABLED=1");
+    expect(INSTALL).toContain("OS_MCP_MAX_SCOPE=exec");
+    expect(INSTALL).toContain("mso gateway domain set https://mso.example.com");
+    expect(INSTALL).toContain("http://127.0.0.1:4005");
+    expect(INSTALL).toContain("cfargotunnel.com");
+    expect(INSTALL).toContain("DNS-only");
+    expect(INSTALL).not.toMatch(/OS_PUBLIC_ORIGIN=https:\/\/[A-Za-z0-9-]+\.trycloudflare\./);
   });
 
   it("prints modern update surfaces plus a legacy fallback after installation", () => {
