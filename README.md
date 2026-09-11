@@ -56,7 +56,7 @@ mso --continue   # resume your last session
 ```
 
 The application binds to **127.0.0.1** by default. Use a VPN or protected HTTPS proxy for remote access.
-[Full installation and WSL guide](./docs/INSTALL.md) · [CLI reference](./docs/CLI.md)
+[Full installation and WSL guide](./docs/INSTALL.md) · [Android / Termux one-paste install](./docs/TERMUX.md) · [CLI reference](./docs/CLI.md)
 
 <details>
 <summary><strong>Update, reset or uninstall — preview before changing anything</strong></summary>

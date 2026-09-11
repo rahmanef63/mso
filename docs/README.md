@@ -26,6 +26,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`COMPARISON.md`](./COMPARISON.md) | Generated product comparison methodology, evidence and notes |
 | [`COMPETITIVE-ROADMAP.md`](./COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate specialist boundaries and next investments |
 | [`INSTALL.md`](./INSTALL.md) | Owner installation, TLS, updates, backup and uninstall |
+| [`TERMUX.md`](./TERMUX.md) | Android/Termux bootstrap through Ubuntu PRoot, repair path and verification |
 | [`INFRASTRUCTURE-PROVIDERS.md`](./INFRASTRUCTURE-PROVIDERS.md) | Interactive MSO Agent TUI/approval/error contract plus Dokploy/Cloudflare/Hostinger/Composio credentials, tools and deployment boundary |
 | [`DEVELOPMENT.md`](./DEVELOPMENT.md) | Development and release workflow |
 | [`SECURITY-ASSURANCE.md`](./SECURITY-ASSURANCE.md) | Repeatable security verification lanes, public evidence, and claim boundaries |
