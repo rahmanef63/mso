@@ -1,6 +1,7 @@
+import { PROJECT_MCP_UI_SCRIPT } from "./project-mcp-ui";
 export { CONNECTION_MANAGER_STYLE } from "./connection-ui-style";
 import { PROVIDER_ICON_PATHS } from "./provider-icons";
-export const CONNECTION_MANAGER_SCRIPT=`const PROVIDER_ICON_PATHS=${JSON.stringify(PROVIDER_ICON_PATHS)};`+String.raw`
+export const CONNECTION_MANAGER_SCRIPT=PROJECT_MCP_UI_SCRIPT+`const PROVIDER_ICON_PATHS=${JSON.stringify(PROVIDER_ICON_PATHS)};`+String.raw`
 function mountConnectionManager(root,catalog,bridge,initial={}){
   let disposed=false,sequence=0,snapshot=initial.snapshot||{users:[],connections:[],bindings:[]},user=initial.user||snapshot.user||null,provider=catalog.find(p=>p.id===initial.provider)||catalog.find(p=>p.id==="github")||catalog[0];
   let detail,status,container;
@@ -30,7 +31,7 @@ function mountConnectionManager(root,catalog,bridge,initial={}){
   function draw(){
     root.replaceChildren();root.classList.add("integration","manager");
     const heading=n("header",undefined,"identity-heading"),title=n("div");title.append(n(bridge.headingLevel===1?"h1":"h2","Integrations"),n("p","Connect your services. Choose the account each project uses."));heading.append(title,n("span",catalog.length+" services","identity-count"));root.append(heading);
-    const toolbar=n("div",undefined,"identity-bar"),owner=choicePicker("Credential owner",snapshot.users.map(row=>({id:row.id,text:row.label+" · "+row.id+(row.isDefault?" · default":"")})),user,row=>{user=row.id;remember();void reload()});toolbar.append(owner.wrap,b("Refresh",reload));const workbench=n("div",undefined,"identity-actions identity-workbench");const usersAction=b("Users",profiles),routingAction=b("Routing",bindings);usersAction.disabled=routingAction.disabled=!bridge.manage;workbench.append(usersAction,routingAction);const transfer=b("Transfer",()=>bridge.openTransfer?bridge.openTransfer():bridge.openTransferBrowser?.());transfer.disabled=!bridge.openTransfer&&!bridge.openTransferBrowser;workbench.append(transfer);toolbar.append(workbench);root.append(toolbar);
+    const toolbar=n("div",undefined,"identity-bar"),owner=choicePicker("Credential owner",snapshot.users.map(row=>({id:row.id,text:row.label+" · "+row.id+(row.isDefault?" · default":"")})),user,row=>{user=row.id;remember();void reload()});toolbar.append(owner.wrap,b("Refresh",reload));const workbench=n("div",undefined,"identity-actions identity-workbench");const usersAction=b("Users",profiles),routingAction=b("Routing",bindings);usersAction.disabled=routingAction.disabled=!bridge.manage;workbench.append(usersAction,routingAction);const transfer=b("Transfer",()=>bridge.openTransfer?bridge.openTransfer():bridge.openTransferBrowser?.());transfer.disabled=!bridge.openTransfer&&!bridge.openTransferBrowser;workbench.append(transfer);const addMcp=b("Add MCP",()=>mountProjectMcpForm(detail,bridge,snapshot,user,status,drawProvider,{n,b,input}),"primary");addMcp.disabled=!bridge.projectMcp;workbench.append(addMcp);toolbar.append(workbench);root.append(toolbar);
     if(!bridge.manage)root.append(n("p","Sign in as an MSO Owner to manage credentials. Device roles and credential users are different; the public guides remain available.","identity-readonly"));
     if(snapshot.connections.length){
       const summary=n("section",undefined,"identity-summary"),count=snapshot.connections.filter(ready).length,ring=n("div",undefined,"identity-ring");

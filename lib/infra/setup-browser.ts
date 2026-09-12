@@ -15,6 +15,7 @@ export const INTEGRATION_BROWSER_SCRIPT=String.raw`
     const bridge={headingLevel:1,remember:s=>state=s,openLink:url=>window.open(url,"_blank","noopener,noreferrer")};
     if(owner){
       bridge.openTransfer=openTransfer;
+      bridge.projectMcp=args=>json("/api/v1/project-mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(args)});
       bridge.query=args=>json("/api/v1/integrations?"+new URLSearchParams(args));
       bridge.manage=args=>post("manage",args);bridge.execute=args=>post("execute",args);
       bridge.openSetup=async args=>{const data=await json("/api/v1/infra/setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(args)});showForm(data.setup,data.token)};

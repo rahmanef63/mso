@@ -74,12 +74,13 @@ describe("infrastructure clients", () => {
       throw new Error(`unexpected ${method} ${url}`);
     }));
     const client = await import("./clients");
-    const result = await client.upsertHostingerDns({ name: "app.example.com", type: "A", content: "203.0.113.7" });
+    const result = await client.upsertHostingerDns({ name: "app.example.com", type: "A", content: "203.0.113.1", ttl: 300 });
     expect(result.action).toBe("updated");
     const payload = putBody as { overwrite: boolean; zone: Array<{ name: string; type: string; records: Array<{ content: string }> }> };
     expect(payload.overwrite).toBe(true);
     expect(payload.zone).toHaveLength(1);
     expect(payload.zone[0]).toMatchObject({ name: "app", type: "A" });
-    expect(payload.zone[0].records[0].content).toBe("203.0.113.7");
+    expect(payload.zone[0].records[0].content).toBe("203.0.113.1");
+    expect((payload.zone[0] as unknown as { ttl: number }).ttl).toBe(300);
   });
 });

@@ -4,9 +4,8 @@ import type { Scope } from "./scope";
 
 export type CapabilityToolProfile = "full" | "chatgpt";
 
-export type CapabilityContent =
-  | { type: "text"; text: string }
-  | { type: "image"; data: string; mimeType: string };
+export type { McpContent as CapabilityContent } from "@/lib/contracts/mcp-content";
+import type { McpContent as CapabilityContent } from "@/lib/contracts/mcp-content";
 
 export interface CapabilityDirectResult {
   __mcpDirect: true;
@@ -46,6 +45,8 @@ export interface CapabilityRunContext {
   workflowId?: string;
   workflowActor?: string;
   recipeActor?: string;
+  allowedTools?: readonly string[];
+  toolArgumentConstraints?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
   capabilities?: CapabilityRuntime;
   toolProfile?: CapabilityToolProfile;
 }

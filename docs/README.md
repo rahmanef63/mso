@@ -34,6 +34,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`INTEGRATION-PORTABILITY.md`](./INTEGRATION-PORTABILITY.md) | Reviewed JSON identity transfers, encrypted credentials, SC interoperability and receiver limits |
 | [`INTEGRATIONS.md`](./INTEGRATIONS.md) | Native temporary credential forms, direct HTTPS secret submission, CLI and ChatGPT Page |
 | [`PROJECT-MCP-CONNECTIONS.md`](./PROJECT-MCP-CONNECTIONS.md) | Named private connections, endpoint binding and identity for modular project MCPs |
+| [`AUTOMATION-FLOWS.md`](./AUTOMATION-FLOWS.md) | Versioned project API/MCP flows, CLI, sessions, Add MCP, assets and limits |
 | [`MCP.md`](./MCP.md) | MCP/OAuth internals and full external-tool security model |
 | [`A2A.md`](./A2A.md) | A2A v1 peer discovery, delegation/task lifecycle, CLI/MCP surface and trust boundary |
 | [`LOCAL-AGENTS.md`](./LOCAL-AGENTS.md) | Native same-host session presence, identity, mailbox delivery, TUI/tools/API and isolation |

@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-12
+
+**Added**
+
+- `mcp` add project automation flows and dynamic MCP sessions
+
 ## 2026-09-11
 
 **Added**
@@ -20,6 +26,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Docs**
 
+- `termux` add one-pass Android installer
 - `security` document fresh-install MCP exec exposure
 
 ## 2026-09-10

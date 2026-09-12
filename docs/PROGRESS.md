@@ -1,3 +1,14 @@
+## 2026-09-12 — Dynamic project MCP and reusable provider flows
+
+Added versioned project automation, shared CLI/MCP execution, durable idempotency receipts,
+provider-neutral sessions, Add MCP in native/embedded integrations, and safe project asset promotion.
+HTTP/SSE discovery is incremental, auth-bound and paginated; rich downstream results retain
+image/audio/resource blocks. Modern 2026-07-28 requests coexist with legacy clients. Existing
+MSO capabilities are retained, with automated compact-catalog byte and official metadata checks.
+Session enumeration no longer drops records beyond 5,000; active workflow checkpoints avoid
+rewriting recipe history per event. Nonzero exec results now count as failed outcomes.
+See [automation contracts and limits](AUTOMATION-FLOWS.md).
+
 ## 2026-09-12 — Hosted history scan and security inventory readiness
 
 The hosted checks for PR #41 exposed two distinct failures not covered by the earlier local

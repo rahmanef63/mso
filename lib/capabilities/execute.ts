@@ -1,3 +1,4 @@
+import { capabilityReportedFailure } from "./result-outcome";
 import { audit } from "@/lib/host/audit-api";
 import { maybeAutoTitleAgentSession } from "@/lib/agent/session-store";
 import { touchLocalAgentPresence } from "@/lib/agent/local-agent-presence";
@@ -31,8 +32,12 @@ export async function executeCapabilityCall(input: {
   actor?: string;
   context?: CapabilityExecutionContext;
 }): Promise<CapabilityExecutionResult> {
+  const startedAt = Date.now();
   const { tool, args, scope, actor, context } = input;
   const name = tool.name;
+  if (context?.allowedTools && !context.allowedTools.includes(name)) return { kind: "error", message: "tool is not allowed for this token" };
+  const constraints = context?.toolArgumentConstraints?.[name];
+  if (constraints && Object.entries(constraints).some(([key, allowed]) => typeof args[key] !== "string" || !allowed.includes(args[key] as string))) return { kind: "error", message: "tool input is not allowed for this token" };
   const presence = context?.principal?.startsWith("mcp-") && context.sessionId
     ? { principal: context.principal, sessionId: context.sessionId, instanceId: `mcp:${context.sessionId}` }
     : null;
@@ -87,7 +92,7 @@ export async function executeCapabilityCall(input: {
   }
 
   const trail = tool.audit, auditTarget = trail?.targetArg != null ? String(args[trail.targetArg] ?? "") : undefined;
-  const activityId = newActivityId(), startedAt = Date.now();
+  const activityId = newActivityId();
   if (!workflowProbe) void recordCapabilityActivity({ id: activityId, actor, tool: name, state: "started", scope, ...initialFlow, target });
   try {
     if (presence)
@@ -109,18 +114,22 @@ export async function executeCapabilityCall(input: {
       workflowId: activeWorkflow?.id,
       workflowActor: flowActor,
       recipeActor: learnedActor,
+      allowedTools: context?.allowedTools,
+      toolArgumentConstraints: context?.toolArgumentConstraints,
       capabilities: context?.capabilities,
       toolProfile: context?.toolProfile,
     });
+    const reportedFailure = capabilityReportedFailure(result) || trail?.outcome?.(result)?.ok === false;
+    const completedState = reportedFailure ? "failed" : "completed";
     if (trail) {
       const outcome = trail.outcome?.(result);
-      void audit({ action: outcome?.action ?? trail.action, actor, target: auditTarget, ok: outcome?.ok ?? true, detail: outcome?.detail, meta: { via: "mcp", scope } });
+      void audit({ action: outcome?.action ?? trail.action, actor, target: auditTarget, ok: !reportedFailure, detail: outcome?.detail, meta: { via: "mcp", scope } });
     }
     const durationMs = Date.now() - startedAt, completedWorkflow = workflowFromResult(result) ?? activeWorkflow;
     if (!workflowProbe) {
-      void recordCapabilityActivity({ id: activityId, actor, tool: name, state: "completed", scope, ...flowFields(completedWorkflow), target, durationMs });
-      await recordWorkflowStep(flowActor, completedWorkflow?.id, { id: activityId, tool: name, state: "completed", target, args, durationMs, ts: new Date().toISOString() });
-      await recordAgentEvent(context, name, "completed", args, completedWorkflow?.id, target);
+      void recordCapabilityActivity({ id: activityId, actor, tool: name, state: completedState, scope, ...flowFields(completedWorkflow), target, durationMs });
+      await recordWorkflowStep(flowActor, completedWorkflow?.id, { id: activityId, tool: name, state: completedState, target, args, durationMs, ts: new Date().toISOString() });
+      await recordAgentEvent(context, name, completedState, args, completedWorkflow?.id, target);
     }
     if (presence)
       await touchLocalAgentPresence(presence.principal, presence.sessionId, "idle", presence.instanceId).catch(() => undefined);

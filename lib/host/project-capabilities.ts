@@ -6,4 +6,4 @@ export { runProjectFunction } from "./project-function-runner";
 
 export { readProjectMcpServers, publicProjectMcpServers } from "./project-mcp-config";
 export type { PublicProjectMcpServer } from "./project-mcp-config";
-export { listProjectMcpTools, callProjectMcpTool } from "./project-mcp-client";
+export { listProjectMcpTools, listProjectMcpToolPage, callProjectMcpTool } from "./project-mcp-client";

@@ -48,7 +48,6 @@ vi.mock("@/lib/mcp/capability-runtime", () => ({
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
 vi.mock("@/lib/mcp/client-profile", () => ({ detectMcpToolProfile: ({ name }: { name?: string }) => name === "ChatGPT" ? "chatgpt" : "full" }));
-vi.mock("@/lib/mcp/protocol", () => ({ supportedMcpProtocol: (v: string) => ["2025-06-18", "2025-03-26", "2024-11-05"].includes(v) }));
 vi.mock("@/lib/mcp/tool-contract", () => ({ visibleToolsForProfile: () => [] }));
 
 vi.mock("@/lib/agent/session-store", () => ({

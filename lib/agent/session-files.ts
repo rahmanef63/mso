@@ -29,8 +29,9 @@ export function sessionLockTarget(id: string): string {
   return path.join(LOCK_ROOT, "sessions", id);
 }
 
-export function sessionNameLockTarget(ownerHash: string, name: string): string {
+export function sessionNameLockTarget(ownerHash: string, name?: string): string {
   if (!HASH64.test(ownerHash)) throw new Error("invalid agent session owner hash");
+  if (name === undefined) return path.join(LOCK_ROOT, "name-allocation", ownerHash);
   if (!/^[a-z][a-z0-9-]{1,23}$/.test(name)) throw new Error("invalid agent session name lock");
   return path.join(LOCK_ROOT, "names", ownerHash, name);
 }
@@ -163,11 +164,11 @@ export async function listSessionRecords(): Promise<AgentSession[]> {
     throw error;
   }
   const out: AgentSession[] = [];
-  for (const name of names.slice(0, 5000)) {
-    if (!name.endsWith(".json")) continue;
-    const id = name.slice(0, -5);
-    if (!SESSION_ID.test(id)) continue;
-    try { const row = await readSessionFile(id); if (row) out.push(row); } catch { /* isolate corrupt rows */ }
+  const ids = names.filter(name => name.endsWith(".json") && SESSION_ID.test(name.slice(0, -5))).map(name => name.slice(0, -5));
+  // Bounded concurrency, complete enumeration: never silently drop later sessions.
+  for (let start = 0; start < ids.length; start += 32) {
+    const rows = await Promise.all(ids.slice(start, start + 32).map(id => readSessionFile(id).catch(() => null)));
+    out.push(...rows.filter((row): row is AgentSession => row !== null));
   }
   return out;
 }

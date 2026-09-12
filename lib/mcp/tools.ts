@@ -1,3 +1,7 @@
+import { AGENT_OPEN_TOOLS } from "./tools-agent-open";
+import { PROJECT_ASSET_TOOLS } from "./tools-project-assets";
+import { PROJECT_MCP_MANAGE_TOOLS } from "./tools-project-mcp-manage";
+import { FLOW_TOOLS } from "./tools-flows";
 import { withWorkflowContext } from "./tool-context";
 import { A2A_TOOLS } from "./tools-a2a";
 import { AGENT_TOOLS } from "./tools-agent";
@@ -20,4 +24,4 @@ import { BLOCK_TOOLS, SURFACE_TOOLS } from "./tools-ui";
 import type { McpTool } from "./tool-kit";
 import { MUTATE_TOOLS } from "./tools-mutate";
 
-export const TOOLS: McpTool[] = [...SESSION_ARTIFACT_TOOLS, ...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...AGENT_TOOLS, ...LOCAL_AGENT_TOOLS, ...SUBAGENT_TOOLS, ...A2A_TOOLS, ...FORGE_TOOLS, ...READ_PIPELINE_TOOLS, ...PROJECT_MCP_TOOLS, ...PROJECT_EXPERIENCE_TOOLS, ...OPERATOR_DASHBOARD_TOOLS, ...BLOCK_TOOLS, ...SURFACE_TOOLS, ...INFRA_TOOLS, ...INTEGRATION_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
+export const TOOLS: McpTool[] = [...FLOW_TOOLS, ...AGENT_OPEN_TOOLS, ...PROJECT_ASSET_TOOLS, ...PROJECT_MCP_MANAGE_TOOLS, ...SESSION_ARTIFACT_TOOLS, ...READ_TOOLS, ...DISCOVERY_TOOLS, ...LEARNING_TOOLS, ...AGENT_TOOLS, ...LOCAL_AGENT_TOOLS, ...SUBAGENT_TOOLS, ...A2A_TOOLS, ...FORGE_TOOLS, ...READ_PIPELINE_TOOLS, ...PROJECT_MCP_TOOLS, ...PROJECT_EXPERIENCE_TOOLS, ...OPERATOR_DASHBOARD_TOOLS, ...BLOCK_TOOLS, ...SURFACE_TOOLS, ...INFRA_TOOLS, ...INTEGRATION_TOOLS, ...MUTATE_TOOLS, ...POWER_TOOLS].map(withWorkflowContext); export const TOOLS_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));

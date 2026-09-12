@@ -38,6 +38,7 @@ case "$cmd" in
   mcp)
     case "${1:-list}" in
       list)     jget "/api/mcp/tokens" ;;
+      project) jpost "/api/v1/project-mcp" "${2:?project MCP JSON required}" ;;
       activity) jget "/api/mcp/activity?limit=${2:-80}" ;;
       service-token) bun "$ROOT/scripts/mcp-service-token.ts" "${@:2}" ;;
       revoke) [ -n "${2-}" ] || die "usage: mso mcp revoke <id|all>   (ids: mso mcp list)"

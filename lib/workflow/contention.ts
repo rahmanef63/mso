@@ -38,7 +38,7 @@ export async function summarizeProjectContention(
       if (conflict) conflictingWorkflowCount += 1;
     }
   }
-  if (changed) await persistWorkflowStore(store);
+  if (changed) await persistWorkflowStore(store, true);
   return {
     activeWorkflowCount, conflictingWorkflowCount,
     overlappingPaths: [...overlappingPaths].slice(0, 80),

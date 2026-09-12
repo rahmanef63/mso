@@ -12,6 +12,7 @@ const run = (...args: string[]) =>
 const commandOwnerFiles = [
   "scripts/cli/commands-host.sh",
   "scripts/cli/commands-runtime.sh",
+  "scripts/cli/flows.sh",
   "scripts/cli/commands-state.sh",
   "scripts/cli/config-command.sh",
   "scripts/cli/commands-admin.sh",

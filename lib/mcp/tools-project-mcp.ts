@@ -1,9 +1,11 @@
-import { callProjectMcpTool, listProjectMcpTools, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint } from "@/lib/host/projects-api";
-import { type McpTool, S, str } from "./tool-kit";
+import { projectMcpResult } from "@/lib/host/project-mcp-result";
+import { callProjectMcpTool, listProjectMcpToolPage, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint } from "@/lib/host/projects-api";
+import { type McpTool, S, str, mcpDirect } from "./tool-kit";
 
 export const PROJECT_MCP_TOOLS: McpTool[] = [
   {
     name: "project_mcp_tools",
+    result: { maxTextBytes: 64 * 1024, overflowHint: "Use limit=1 for a narrower descriptor page; preserve the exact nextCursor." },
     title: "List Project MCP Tools",
     description: "Discover tools from one MCP server declared by an explicitly selected project's .mcp.json. Server aliases and tool schemas are returned on demand; config, env, headers, and credentials are never returned and project tools never join MSO's global catalog.",
     chatgptDescription: "Discover a declared project MCP through its private connection. Dynamic tools stay project-scoped.",
@@ -14,12 +16,14 @@ export const PROJECT_MCP_TOOLS: McpTool[] = [
     inputSchema: S({
       project: { type: "string", description: "Exact project id/path/name from projects_list." },
       server: { type: "string", description: "MCP server alias returned by project_capabilities." },
+      cursor: { type: "string", maxLength: 8192, description: "Exact nextCursor from the previous page." },
+      limit: { type: "integer", minimum: 1, maximum: 100 }, refresh: { type: "boolean", description: "Bypass the 30-second HTTP descriptor cache." },
     }, ["project", "server"]),
     run: async (a) => {
       const project = await resolveProjectHint(str(a, "project")); if (!project) throw new Error(`project not found: ${String(a.project)}`);
       const servers = publicProjectMcpServers(await readProjectMcpServers(project.path));
       const selected = servers.find((server) => server.name === str(a, "server")); if (!selected) throw new Error("project MCP server not found");
-      return { project: { id: project.id, name: project.name }, server: selected, tools: await listProjectMcpTools(project.path, selected.name) };
+      return { project: { id: project.id, name: project.name }, server: selected, ...await listProjectMcpToolPage(project.path, selected.name, { cursor: typeof a.cursor === "string" ? a.cursor : undefined, limit: Number(a.limit) || 50, refresh: a.refresh === true }) };
     },
   },
   {
@@ -28,6 +32,7 @@ export const PROJECT_MCP_TOOLS: McpTool[] = [
     description: "Call one exact tool on one MCP server declared by a validated project's .mcp.json. The project MCP configuration stays server-side; MSO launches/calls it with credential-scrubbed process environment or a guarded remote transport and returns only the MCP tool result.",
     chatgptDescription: "Call one exact tool from a selected project's MCP server. The project's MCP config and credentials stay server-side.",
     scope: "exec",
+    outputSchema: { type: "object", properties: { result: { type: "object" } }, required: ["result"], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true, idempotentHint: false },
     limit: { key: "projects.mcp.call", max: 30, windowMs: 60_000 },
     audit: { action: "exec.run" as const, targetArg: "server" },
@@ -40,7 +45,8 @@ export const PROJECT_MCP_TOOLS: McpTool[] = [
     }, ["project", "server", "tool"]),
     run: async (a) => {
       const project = await resolveProjectHint(str(a, "project")); if (!project) throw new Error(`project not found: ${String(a.project)}`);
-      return { project: { id: project.id, name: project.name }, server: str(a, "server"), tool: str(a, "tool"), result: await callProjectMcpTool(project.path, str(a, "server"), str(a, "tool"), a.arguments ?? {}) };
+      const out = projectMcpResult(await callProjectMcpTool(project.path, str(a, "server"), str(a, "tool"), a.arguments ?? {}));
+      return mcpDirect(out.content, out.isError, { result: { project: project.id, server: str(a, "server"), tool: str(a, "tool"), ...(out.structuredContent ? { structuredContent: out.structuredContent } : {}) } }, out.meta);
     },
   },
 ];

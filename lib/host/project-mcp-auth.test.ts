@@ -4,6 +4,7 @@ vi.mock("@/lib/infra/connection-service", () => ({ directConnectionValues: vi.fn
 vi.mock("./ssrf", () => ({ safeProviderFetch: vi.fn(async (_url, init) => {
   const payload = JSON.parse(init.body);
   state.calls.push({ ...payload, auth: new Headers(init.headers).get("authorization") });
+  if (payload.method === "server/discover") return new Response(JSON.stringify({ jsonrpc: "2.0", id: payload.id, error: { code: -32601, message: "legacy" } }), { status: 400 });
   if (payload.method === "tools/list" && state.paging) {
     const second = Boolean(payload.params?.cursor);
     return new Response(JSON.stringify({ jsonrpc: "2.0", id: payload.id, result: {

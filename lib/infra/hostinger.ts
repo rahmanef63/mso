@@ -1,6 +1,7 @@
+import { isIP } from "node:net";
 import type { InfraProviderValues } from "./types";
 import { readInfraProvider } from "./store";
-import { HOST_RE, IPV4_RE, obj, request } from "./http";
+import { HOST_RE, obj, request } from "./http";
 import { doctorHostingerMail } from "./hostinger-mail";
 
 const API = "https://developers.hostinger.com/api";
@@ -35,8 +36,9 @@ export async function upsertHostingerDns(input: { name: string; type: string; co
   const type = input.type.trim().toUpperCase(); const content = input.content.trim();
   if (!HOST_RE.test(fullDomain)) throw new Error("invalid DNS hostname");
   if (!["A", "CNAME", "TXT"].includes(type)) throw new Error("Hostinger DNS type must be A, CNAME, or TXT");
-  if (type === "A" && !IPV4_RE.test(content)) throw new Error("A record content must be an IPv4 address");
+  if (type === "A" && isIP(content) !== 4) throw new Error("A record content must be an IPv4 address");
   if (type === "CNAME" && !HOST_RE.test(content.replace(/\.$/, ""))) throw new Error("CNAME content must be a hostname");
+  if (input.ttl !== undefined && (!Number.isInteger(input.ttl) || input.ttl < 60 || input.ttl > 2147483647)) throw new Error("Hostinger TTL must be an integer from 60 to 2147483647");
   const { root, name } = await rootFor(fullDomain, values.apiToken);
   const url = `${API}/dns/v1/zones/${encodeURIComponent(root)}`;
   const auth = headers(values.apiToken);
@@ -50,7 +52,7 @@ export async function upsertHostingerDns(input: { name: string; type: string; co
   const normalized = content.replace(/\.$/, "");
   if (exact.length === 1) {
     const targets = Array.isArray(exact[0].records) ? exact[0].records.map(obj).map((r) => String(r.content ?? "").replace(/\.$/, "")) : [];
-    if (targets.length === 1 && targets[0] === normalized) return { action: "unchanged", name: fullDomain, type };
+    if (targets.length === 1 && targets[0] === normalized && (input.ttl === undefined || Number(exact[0].ttl) === input.ttl)) return { action: "unchanged", name: fullDomain, type };
   }
   const record = { name, type, ttl: input.ttl && input.ttl >= 60 ? input.ttl : 14400, records: [{ content, is_disabled: false }] };
   // Hostinger's overwrite flag replaces only RRsets matching the supplied name+type.

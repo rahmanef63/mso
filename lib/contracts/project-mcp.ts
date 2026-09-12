@@ -4,3 +4,5 @@ export type PublicProjectMcpServer = {
   transport: "stdio" | "http";
   auth: "none" | "configured" | "oauth" | "integration";
 };
+
+export type ProjectMcpTool = { name: string; title?: string; description?: string; inputSchema: Record<string, unknown>; outputSchema?: unknown; annotations?: unknown; icons?: unknown; execution?: unknown; _meta?: unknown };

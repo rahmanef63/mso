@@ -5,7 +5,7 @@ import { listUiResources, readUiResource } from "./ui-resources";
 import { MCP_SKILLS_EXTENSION, getMcpSkill, listMcpSkills, readMcpSkillResource } from "./skills-extension";
 import { dispatchToolCall } from "./dispatch-tools";
 import { toolDescriptor, visibleToolsForProfile, type McpToolProfile } from "./tool-contract";
-import { negotiateMcpProtocol } from "./protocol";
+import { MCP_PROTOCOL_LATEST, MCP_PROTOCOLS, negotiateMcpProtocol } from "./protocol";
 import { rpcFail, rpcOk, type McpAgentContext, type RpcRequest } from "./dispatch-types";
 export type { McpAgentContext, RpcRequest } from "./dispatch-types";
 
@@ -30,12 +30,20 @@ function instructions(scope: Scope, profile: McpToolProfile = "full", allowedToo
       ? "This token is read-only: use skills_search for capability discovery, then bounded read tools."
       : "For multi-step work call workflow_start once, pass its exact workflow_id on every operation in this conversation, verify, then workflow_finish or workflow_cancel.";
   const projectBoundary = profile === "chatgpt" ? " Project-owned MCP tools never join this catalog: use project_mcp_tools then project_mcp_call." : "";
-  return `${startup}${projectBoundary} Session/workflow state is isolated per conversation. Prefer bounded tools and exec_job_start for long builds. Never expose hidden transcripts, credentials, or private chain-of-thought.`;
+  return `${startup}${projectBoundary} Call agent_session_open for provider-neutral sessions, then send params._meta[mso/sessionId]. Use flow_catalog to inspect required inputs before flow_run; flow_status waits for completion. Session/workflow state is isolated per conversation. Prefer bounded tools and exec_job_start for long builds. Never expose hidden transcripts, credentials, or private chain-of-thought.`;
 }
 
 export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, agentContext?: McpAgentContext): Promise<Record<string, unknown>> {
   const id = req.id ?? null;
+  const modern = req.params?._meta?.["io.modelcontextprotocol/protocolVersion"] === MCP_PROTOCOL_LATEST;
+  if (modern && (req.method === "initialize" || req.method === "notifications/initialized")) return rpcFail(id, -32601, "initialize is only supported in the legacy MCP era");
   switch (req.method) {
+    case "server/discover":
+      if (!modern) return rpcFail(id, -32601, "server/discover requires modern per-request metadata");
+      return rpcOk(id, { resultType: "complete", supportedVersions: [...MCP_PROTOCOLS], capabilities: { tools: {}, resources: {} },
+        _meta: { "io.modelcontextprotocol/serverInfo": { name: "mso", version: MCP_SERVER_VERSION } },
+        instructions: instructions(scope, agentContext?.toolProfile, agentContext?.allowedTools), ttlMs: 30_000, cacheScope: "private" });
+
     case "initialize": {
       const profile = agentContext?.toolProfile ?? "full";
       const allowedTools = agentContext?.allowedTools;

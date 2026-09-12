@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  findOrCreate: vi.fn(),
+  findOrCreate: vi.fn(), get: vi.fn(),
   newId: vi.fn(() => "20260901_120000_11223344"),
 }));
-vi.mock("@/lib/agent/session-store", () => ({ findOrCreateAgentSessionForConversation: mocks.findOrCreate }));
+vi.mock("@/lib/agent/session-store", () => ({ findOrCreateAgentSessionForConversation: mocks.findOrCreate, getAgentSession: mocks.get }));
 vi.mock("@/lib/agent/session-files", () => ({ newAgentSessionId: mocks.newId }));
 
 const { resolveMcpSession } = await import("./session-context");
@@ -57,4 +57,14 @@ describe("MCP conversation/session correlation", () => {
     expect(result.agentSessionId).toBeUndefined();
     expect(mocks.findOrCreate).not.toHaveBeenCalled();
   });
+});
+
+it("bootstraps without transport state and rejects a foreign explicit application session", async () => {
+  const bare = new Request("https://mso.test/mcp");
+  expect(await resolveMcpSession(bare, { method: "tools/call", params: { name: "agent_session_open" } }, "mcp-client:x", "")).toMatchObject({ conversationBound: false });
+  mocks.get.mockResolvedValueOnce(null);
+  const denied = await resolveMcpSession(bare, { method: "tools/call", params: { name: "sys_stats", _meta: { "mso/sessionId": "foreign" } } }, "mcp-client:x", "");
+  expect("response" in denied && denied.response.status).toBe(403);
+  mocks.get.mockResolvedValueOnce({ id: "owned" });
+  expect(await resolveMcpSession(bare, { method: "tools/call", params: { name: "sys_stats", _meta: { "mso/sessionId": "owned" } } }, "mcp-client:x", "")).toMatchObject({ agentSessionId: "owned" });
 });

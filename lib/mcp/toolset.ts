@@ -3,9 +3,9 @@ import type { Scope } from "./scope";
 import type { McpTool } from "./tool-kit";
 import { toolDescriptor, type McpToolProfile } from "./tool-contract";
 
-export const MCP_SERVER_VERSION = "1.12.3";
-export const MCP_TOOLSET_VERSION = "2026.09.10.1";
-export const MCP_TOOLSET_CHANGED_AT = "2026-09-10T02:40:00Z";
+export const MCP_SERVER_VERSION = "1.13.0";
+export const MCP_TOOLSET_VERSION = "2026.09.12.1";
+export const MCP_TOOLSET_CHANGED_AT = "2026-09-12T12:55:00Z";
 
 export type McpToolsetInfo = {
   serverVersion: string;

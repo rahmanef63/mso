@@ -9,6 +9,9 @@ mock.module("server-only", () => ({}));
 const { TOOLS } = await import("../lib/mcp/tools.ts");
 
 const scenarios = [
+  { id: "automation-flow", prompt: "Run a repeatable automation flow for my project through provider APIs and MCP.", required: ["flow_catalog", "flow_run", "flow_status"] },
+  { id: "project-add-mcp", prompt: "Add MCP to this project.", required: ["project_mcp_manage"] },
+  { id: "project-asset", prompt: "Attach a generated image asset to the project.", required: ["project_asset_attach", "session_artifacts"] },
   { id: "app-logs", prompt: "Hermes is down. Check managed app state and inspect its recent logs.", required: ["apps_list", "apps_logs"] },
   { id: "server-health", prompt: "How is the VPS doing? Check cpu, ram, disk and top processes.", required: ["sys_stats", "sys_processes"] },
   { id: "safe-edit", prompt: "Inspect README then safely update that file without overwriting concurrent changes.", required: ["fs_read", "fs_write"] },
