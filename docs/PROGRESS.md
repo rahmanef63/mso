@@ -1,3 +1,15 @@
+## 2026-09-13 — About version detection without systemd
+
+An installation on a non-systemd host was thirteen commits behind origin/main, but
+Settings returned an empty status before querying Git and then labeled it Up to date.
+Read-only version discovery now runs independently of automatic-restart eligibility:
+running, checkout and latest fetched SHAs remain visible, while unsafe restart actions
+stay blocked with the supported terminal update path. A failed fetch is not Current;
+HTTP/auth/network errors leave a visible retry panel instead of disappearing. Overview
+also has a direct software-update action. No version number is fabricated when new
+commits ship under the same application/CLI semver. Detached installs still refuse
+mutation, while reporting the actual available changes for recovery.
+
 ## 2026-09-13 — README MCP entry point and practical how-to
 
 Before: the product README linked general docs, while MCP onboarding was spread across

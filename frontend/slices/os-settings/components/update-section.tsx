@@ -8,19 +8,11 @@ import { SettingsActionRow, SettingsSection } from "@/features/shell-settings";
 import { IS_DEMO } from "@/lib/demo";
 import type { UpdateStatus } from "@/lib/host/self-update";
 import { UpdateNotes } from "./update-notes";
-import { UpdateStatusCard, UpdateStatusSkeleton } from "./update-status-card";
+import { UpdateStatusCard, UpdateStatusSkeleton, UpdateStatusUnavailable } from "./update-status-card";
+import { readStatus } from "./update-status-client";
 
-// Settings → About → Update. The public route only starts the user-scoped updater;
-// the updater itself proves the candidate build before the running service is replaced.
 const POLL_MS = 3_000;
 const OK_MARKER = "UPDATE OK";
-
-async function readStatus(check: boolean): Promise<UpdateStatus | null> {
-  const res = await fetch(`/api/v1/sys/update${check ? "" : "?check=0"}`, {
-    cache: "no-store",
-  });
-  return res.ok ? ((await res.json()) as UpdateStatus) : null;
-}
 
 export function UpdateSection() {
   const [info, setInfo] = useState<UpdateStatus | null>(null);
@@ -32,8 +24,12 @@ export function UpdateSection() {
   const postRunRemoteCheck = useRef(false);
 
   const refresh = useCallback(async (check: boolean) => {
-    const next = await readStatus(check).catch(() => null);
+    const next = await readStatus(check).catch((cause: unknown) => {
+      setError(cause instanceof Error ? cause.message : "Could not reach the host. Try again.");
+      return null;
+    });
     if (next) {
+      setError(null);
       setInfo(next);
       if (next.running) setSawRunning(true);
     }
@@ -44,7 +40,10 @@ export function UpdateSection() {
     if (IS_DEMO) return;
     let alive = true;
     readStatus(true)
-      .catch(() => null)
+      .catch((cause: unknown) => {
+        if (alive) setError(cause instanceof Error ? cause.message : "Could not reach the host. Try again.");
+        return null;
+      })
       .then((next) => {
         if (!alive) return;
         if (next) {
@@ -92,7 +91,17 @@ export function UpdateSection() {
     }
   };
 
-  if (IS_DEMO || (!info && !checking)) return null;
+  if (IS_DEMO) return null;
+  if (!info && !checking) {
+    return (
+      <SettingsSection icon={<ArrowDownToLine />} title="Software update">
+        <UpdateStatusUnavailable error={error} onRetry={() => {
+          setChecking(true);
+          void refresh(true).finally(() => setChecking(false));
+        }} />
+      </SettingsSection>
+    );
+  }
   if (!info && checking) {
     return (
       <SettingsSection
@@ -148,7 +157,7 @@ export function UpdateSection() {
           onClick={() => void start(false)}
         />
       )}
-      {info.supported !== false && (
+      {(
         <SettingsActionRow
           label="Release notes and docs"
           icon={<BookOpen />}
@@ -162,7 +171,7 @@ export function UpdateSection() {
           }
         />
       )}
-      {info.supported !== false && !running && (
+      {!running && (
         <SettingsActionRow
           label="Check again"
           icon={<Search />}

@@ -136,6 +136,7 @@ export function AboutSection() {
               {rows.map(([key, value]) => (
                 <SettingsValueRow key={key} label={key} value={value} />
               ))}
+              <SettingsActionRow label="Check software updates" icon={<Info />} onClick={() => setTab("update")} />
             </SettingsSection>
           )}
 

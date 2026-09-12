@@ -43,6 +43,8 @@ export interface UpdateStatus {
   /** HEAD of the CHECKOUT — what a rebuild would compile. */
   current: string;
   currentSubject: string;
+  /** Latest fetched origin/main commit, independent of restart support. */
+  latest?: string;
   /** The commit the RUNNING build was compiled from (baked in by next.config), or
    *  "" when the build carried no .git. Differs from `current` whenever someone
    *  pulled without rebuilding — the state the panel calls "a build is pending". */
@@ -170,6 +172,41 @@ async function readLog(): Promise<string> {
   return raw.length > LOG_TAIL ? raw.slice(-LOG_TAIL) : raw;
 }
 
+/** Restart authority must never suppress read-only version discovery. */
+async function automaticUpdateReason(): Promise<string | null> {
+  const branch = await git(["branch", "--show-current"]);
+  const branchReason = updateBranchReason(branch.stdout);
+  if (branch.code !== 0 || branchReason) {
+    return branch.code === 0 ? branchReason : "could not determine the checkout branch";
+  }
+
+  // The installer enables linger and gives mso.service XDG_RUNTIME_DIR precisely
+  // so the service can reach this per-user manager. Unlike the old sudo path, this
+  // is both non-interactive and non-root.
+  const userManager = await run("systemctl", ["--user", "show-environment"], 10_000);
+  if (userManager.code !== 0) {
+    return "Automatic restart is unavailable on this host. Run mso update from a terminal; version checks still work.";
+  }
+
+  const [loadState, serviceUser, restartPolicy] = await Promise.all([
+    run("systemctl", ["show", "-p", "LoadState", "--value", "mso.service"], 10_000),
+    run("systemctl", ["show", "-p", "User", "--value", "mso.service"], 10_000),
+    run("systemctl", ["show", "-p", "Restart", "--value", "mso.service"], 10_000),
+  ]);
+  if (loadState.code !== 0 || loadState.stdout.trim() !== "loaded") {
+    return "mso.service is not installed; run mso update from a terminal for this host.";
+  }
+  if (restartPolicy.code !== 0 || restartPolicy.stdout.trim() === "no") {
+    return "mso.service has no automatic restart policy; refusing to stop the running process during self-update";
+  }
+  const owner = os.userInfo().username;
+  if (serviceUser.code !== 0 || serviceUser.stdout.trim() !== owner) {
+    return `mso.service runs as ${serviceUser.stdout.trim() || "an unknown user"}, not ${owner}; refusing a cross-user update`;
+  }
+
+  return null;
+}
+
 /**
  * @param fetchRemote when true, ask the remote first. A check costs a network
  *   round trip, so the panel asks for one and the poller during an update does not.
@@ -200,46 +237,6 @@ export async function getUpdateStatus(fetchRemote = true): Promise<UpdateStatus>
     return { ...base, reason: "this deployment is not a git checkout, so there is nothing to pull" };
   }
 
-  const branch = await git(["branch", "--show-current"]);
-  const branchReason = updateBranchReason(branch.stdout);
-  if (branch.code !== 0 || branchReason) {
-    return { ...base, reason: branch.code === 0 ? branchReason : "could not determine the checkout branch" };
-  }
-
-  // The installer enables linger and gives mso.service XDG_RUNTIME_DIR precisely
-  // so the service can reach this per-user manager. Unlike the old sudo path, this
-  // is both non-interactive and non-root.
-  const userManager = await run("systemctl", ["--user", "show-environment"], 10_000);
-  if (userManager.code !== 0) {
-    return {
-      ...base,
-      reason:
-        "the per-user systemd manager is unavailable — re-run scripts/install.sh once to restore linger and the user bus",
-    };
-  }
-
-  const [loadState, serviceUser, restartPolicy] = await Promise.all([
-    run("systemctl", ["show", "-p", "LoadState", "--value", "mso.service"], 10_000),
-    run("systemctl", ["show", "-p", "User", "--value", "mso.service"], 10_000),
-    run("systemctl", ["show", "-p", "Restart", "--value", "mso.service"], 10_000),
-  ]);
-  if (loadState.code !== 0 || loadState.stdout.trim() !== "loaded") {
-    return { ...base, reason: "mso.service is not installed as a systemd service, so it cannot safely restart itself" };
-  }
-  if (restartPolicy.code !== 0 || restartPolicy.stdout.trim() === "no") {
-    return {
-      ...base,
-      reason: "mso.service has no automatic restart policy; refusing to stop the running process during self-update",
-    };
-  }
-  const owner = os.userInfo().username;
-  if (serviceUser.code !== 0 || serviceUser.stdout.trim() !== owner) {
-    return {
-      ...base,
-      reason: `mso.service runs as ${serviceUser.stdout.trim() || "an unknown user"}, not ${owner}; refusing a cross-user update`,
-    };
-  }
-
   const running = await isRunning();
   const [head, subject, status] = await Promise.all([
     git(["rev-parse", "--short", "HEAD"]),
@@ -255,29 +252,33 @@ export async function getUpdateStatus(fetchRemote = true): Promise<UpdateStatus>
     remoteChecked = fetched.code === 0;
   }
 
-  const [relationCount, commitLog] = await Promise.all([
+  const [relationCount, commitLog, latest] = await Promise.all([
     git(["rev-list", "--left-right", "--count", "HEAD...origin/main"]),
     git(["log", "--format=%h%x1f%s%x1f%cs", `-${MAX_COMMITS}`, "HEAD..origin/main"]),
+    git(["rev-parse", "--short", "origin/main"]),
   ]);
   const [aheadRaw = "0", behindRaw = "0"] = relationCount.stdout.trim().split(/\s+/);
   const ahead = relationCount.code === 0 ? Number(aheadRaw) || 0 : 0;
   const behind = relationCount.code === 0 ? Number(behindRaw) || 0 : 0;
 
   const current = head.stdout.trim() || "unknown";
+  const reason = await automaticUpdateReason();
   return {
     ...base,
-    supported: true,
+    supported: reason === null,
+    reason,
     current,
+    latest: latest.code === 0 ? latest.stdout.trim() : "",
     currentSubject: subject.stdout.trim(),
     // Only when we know both: a build with no sha baked in (an archive export, a
     // dev server) must not be reported as permanently stale.
-    pendingBuild: Boolean(buildSha) && current !== "unknown" && buildSha !== current,
+    pendingBuild: Boolean(buildSha) && current !== "unknown" && !buildSha.startsWith(current) && !current.startsWith(buildSha),
     ahead,
     behind,
     commits: commitLog.code === 0 ? parseCommits(commitLog.stdout) : [],
     dirty: status.stdout.trim().length > 0,
     running,
-    remoteChecked,
+    remoteChecked: remoteChecked && relationCount.code === 0 && latest.code === 0,
     log,
   };
 }
