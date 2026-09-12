@@ -7,6 +7,7 @@
 
 /* ── os-rr design tokens (light / aqua default) ─────────────────────── */
 :root {
+  color-scheme: light;
   /* Chrome typeface tokens. NOTE the mono token is --font-mono-ui, NOT
      --font-mono: the @theme inline block maps Tailwind's --font-mono to it —
      naming both the same created a self-referential var() cycle that nuked
@@ -124,6 +125,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --text: #f2f2f5;
   --text-dim: rgba(242, 242, 245, 0.64);
   --text-faint: rgba(242, 242, 245, 0.4);
@@ -206,12 +208,13 @@
    states, 10 `border-destructive/*` danger states and 6 `border-ring`. Same trap
    applies to `box-border`/`box-content`, hence box-sizing moves in here too. */
 @layer base {
-  * { box-sizing: border-box; border-color: var(--color-border); }
+  * { box-sizing: border-box; border-color: var(--color-border); scrollbar-width: thin; scrollbar-color: var(--text-dim) transparent; }
+  @media (forced-colors: active) { * { scrollbar-color: auto; } }
 }
 /* Global :focus-visible fallback — component primitives (Button etc.) own
    their own rings; this catches native <a>/<input>, custom tabIndex divs and
    anything else without a bespoke focus style. WCAG 2.4.7 (Focus Visible). */
-*:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+*:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--radius); }
 html, body { height: 100%; margin: 0; }
 /* Root font-size = browser default × the a11y scale, so every rem reacts live. */
 html { font-size: calc(100% * var(--font-scale, 1)); }
