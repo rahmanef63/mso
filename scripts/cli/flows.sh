@@ -3,7 +3,9 @@
 run_flow() {
   local sub="${1:-list}" id="" project="$PWD" input='{}' key="" wait=0 revision="" body result
   shift || true
-  case "$sub" in inspect|run|status|save|delete) id="${1:?flow/run id required}"; shift ;; esac
+  case "$sub" in
+    inspect|run|status|save|delete) id="${1:?flow/run id required}"; shift ;;
+  esac
   while [ $# -gt 0 ]; do
     case "$1" in
       --project) project="${2:?project required}"; shift 2 ;;
@@ -14,7 +16,9 @@ run_flow() {
       *) die "unknown flow option: $1" ;;
     esac
   done
-  case "$input" in @*) input=$(cat -- "${input#@}") ;; esac
+  case "$input" in
+    @*) input=$(cat -- "${input#@}") ;;
+  esac
   case "$sub" in
     list|inspect) jget "/api/v1/flows?project=$(enc "$project")&flow=$(enc "$id")"; return ;;
     status) result=$(jget "/api/v1/flows?run_id=$(enc "$id")&wait_ms=$((wait * 25000))") ;;
@@ -27,11 +31,13 @@ run_flow() {
       local action=upsert; [ "$sub" = delete ] && action=delete
       body=$(jq -n --arg action "$action" --arg project "$project" --arg flow "$id" --arg revision "$revision" --argjson definition "$input" '{action:$action,project:$project,flow:$flow,revision:$revision,definition:$definition}')
       jpost "/api/v1/flows" "$body"; return ;;
-    *) die "usage: mso $U_flow" ;;
+    *) die "usage: mso ${U_flow:-flow}" ;;
   esac
   while [ "$wait" -eq 1 ] && [ "$(jq -r .state <<<"$result")" = running ]; do
     result=$(jget "/api/v1/flows?run_id=$(enc "$id")&wait_ms=25000")
   done
   printf '%s\n' "$result"
-  case "$(jq -r .state <<<"$result")" in failed|interrupted) return 1 ;; esac
+  case "$(jq -r .state <<<"$result")" in
+    failed|interrupted) return 1 ;;
+  esac
 }

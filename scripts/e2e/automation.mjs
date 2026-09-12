@@ -4,6 +4,7 @@ import path from "node:path";
 import { expect } from "@playwright/test";
 
 export async function automationJourney(page, fixture) {
+  await page.setViewportSize({width:1280,height:900});
   await fixture.seedMcp("exec");
   const meta = {"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}};
   const rpc = async (method, params = {}) => {

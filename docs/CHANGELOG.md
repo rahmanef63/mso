@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `mcp` add project automation flows and dynamic MCP sessions
 
+**Fixed**
+
+- `flows` enforce canonical paths and bounded waits
+
 ## 2026-09-11
 
 **Added**

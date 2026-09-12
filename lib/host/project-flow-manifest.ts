@@ -8,15 +8,18 @@ import { parseFlow, object } from "@/lib/workflow/automation-schema";
 import type { AutomationFlow } from "@/lib/contracts/automation";
 
 export async function readProjectFlows(projectPath: string): Promise<{ flows: AutomationFlow[]; revision: string }> {
-  const directory = path.join(projectPath, ".mso"), file = path.join(directory, "flows.json");
+  const approvedProject = await resolveReadable(projectPath);
+  if (approvedProject !== projectPath) throw new Error("project path must be canonical");
+  const directory = path.join(approvedProject, ".mso"), file = path.join(directory, "flows.json");
   const stat = await fs.lstat(directory).catch((e: NodeJS.ErrnoException) => { if (e.code === "ENOENT") return null; throw e; });
   if (!stat) return { flows: [], revision: "new" };
   if (!stat.isDirectory() || stat.isSymbolicLink() || await fs.realpath(directory) !== directory) throw new Error("unsafe project flow directory");
   const exists = await fs.lstat(file).catch((e: NodeJS.ErrnoException) => { if (e.code === "ENOENT") return null; throw e; });
   if (!exists) return { flows: [], revision: "new" };
   if (exists.isSymbolicLink()) throw new Error("unsafe project flow manifest");
-  await resolveReadable(file);
-  const raw = await readBoundedRegularFile(file, 64 * 1024);
+  const approvedFile = await resolveReadable(file);
+  if (approvedFile !== file) throw new Error("flow manifest path changed during read");
+  const raw = await readBoundedRegularFile(approvedFile, 64 * 1024);
   if (raw === null) throw new Error("flow manifest unreadable or exceeds 64 KiB");
   const parsed: unknown = JSON.parse(raw);
   if (!object(parsed) || parsed.version !== 1 || Object.keys(parsed).some(k => !["version", "flows"].includes(k)) ||
@@ -26,7 +29,9 @@ export async function readProjectFlows(projectPath: string): Promise<{ flows: Au
   return { flows, revision: sha256Text(raw) };
 }
 export async function manageProjectFlow(projectPath: string, input: { action: "upsert" | "delete"; id: string; flow?: unknown; revision: string }) {
-  const directory = path.join(projectPath, ".mso"), file = path.join(directory, "flows.json");
+  const approvedProject = await resolveReadable(projectPath);
+  if (approvedProject !== projectPath) throw new Error("project path must be canonical");
+  const directory = path.join(approvedProject, ".mso"), file = path.join(directory, "flows.json");
   await makeDir(directory);
   return withSecurityStoreLock(file, async () => {
     const current = await readProjectFlows(projectPath);

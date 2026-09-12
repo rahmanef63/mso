@@ -43,6 +43,7 @@ describe("reusable project flows", () => {
     expect(calls).toBe(1);
   });
   it("rejects missing inputs, raw shell, secret fields, prototype paths and insufficient grants", async () => {
+    for (const wait of [-1, 25001, NaN, Infinity]) await expect(flowStatus("0".repeat(32), context, wait)).rejects.toThrow("wait_ms");
     expect(() => flowInputs(flow, {})).toThrow("missing input.name");
     expect(() => flowInputs(flow, { name: "a", token: "secret" })).toThrow("secret_input");
     expect(() => parseFlow({ ...flow, steps: [{ id: "bad", tool: "exec_run", arguments: { command: "echo x" } }] })).toThrow("invalid");

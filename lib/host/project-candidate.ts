@@ -30,14 +30,18 @@ async function validateComponent(parent: string, name: string): Promise<Candidat
   if (!name || name === "." || name === ".." || name.includes("/") || name.includes("\\")) return { ok: false, reason: "escape" };
   if (name.startsWith(".")) return { ok: false, reason: "hidden" };
   const full = path.join(parent, name);
-  const stat = await fs.lstat(full).catch(() => null);
-  if (!stat) return { ok: false, reason: "missing" };
-  if (stat.isSymbolicLink()) return { ok: false, reason: "symlink" };
-  if (!stat.isDirectory()) return { ok: false, reason: "not-directory" };
-  const uid = currentUid();
-  if (uid !== undefined && stat.uid !== uid) return { ok: false, reason: "uid" };
-  if (isCredentialPath(full)) return { ok: false, reason: "credential" };
-  return { ok: true, path: full };
+  const relative = path.relative(parent, full);
+  if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) return { ok: false, reason: "escape" };
+  else {
+    const stat = await fs.lstat(full).catch(() => null);
+    if (!stat) return { ok: false, reason: "missing" };
+    if (stat.isSymbolicLink()) return { ok: false, reason: "symlink" };
+    if (!stat.isDirectory()) return { ok: false, reason: "not-directory" };
+    const uid = currentUid();
+    if (uid !== undefined && stat.uid !== uid) return { ok: false, reason: "uid" };
+    if (isCredentialPath(full)) return { ok: false, reason: "credential" };
+    return { ok: true, path: full };
+  }
 }
 
 /**

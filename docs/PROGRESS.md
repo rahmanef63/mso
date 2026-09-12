@@ -1,3 +1,11 @@
+## 2026-09-12 — Hosted flow security checks
+
+The hosted pipeline identified a ShellCheck usage-variable warning and a strict Semgrep
+parser limitation on compact Bash case statements. Flow CLI cases now use ordinary
+multiline syntax and a bounded usage fallback. Shared project containment is expressed
+at the filesystem sink, flow manifests use approved canonical paths, and status waits
+reject noninteger/out-of-range durations before allocating a timer.
+
 ## 2026-09-12 — Dynamic project MCP and reusable provider flows
 
 Added versioned project automation, shared CLI/MCP execution, durable idempotency receipts,
