@@ -3,12 +3,13 @@ export const MSO_PAGE_BRIDGE_SCRIPT = String.raw`
 let hostConnected=false, hostContext={}, lastOutputKey="", viewCleanup=()=>{};
 let lastPageSize="";
 function reportPageSize(){
-  if(!hostConnected||document.documentElement.dataset.displayMode==="fullscreen")return;const root=document.querySelector(".surface");if(!root)return;
+  if(document.documentElement.dataset.displayMode==="fullscreen")return;const root=document.querySelector(".surface");if(!root)return;
   const rect=root.getBoundingClientRect(),style=getComputedStyle(document.body);
   const height=Math.ceil(rect.height+(parseFloat(style.paddingTop)||0)+(parseFloat(style.paddingBottom)||0));
   const width=Math.ceil(document.documentElement.clientWidth),key=width+","+height;
-  if(height<1||height>1600||key===lastPageSize)return;lastPageSize=key;
-  window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/size-changed",params:{width,height}},"*");
+  if(height<1||key===lastPageSize)return;lastPageSize=key;
+  if(hostConnected)window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/size-changed",params:{width,height}},"*");
+  else if(typeof window.openai?.notifyIntrinsicHeight==="function")window.openai.notifyIntrinsicHeight(height);
 }
 const pageResizeObserver=typeof ResizeObserver==="function"?new ResizeObserver(()=>requestAnimationFrame(reportPageSize)):null;
 
@@ -54,7 +55,7 @@ async function initializeMcpPage(){
       appCapabilities:{availableDisplayModes:["inline","fullscreen","pip"]}
     });
     if(!result||typeof result.protocolVersion!=="string")throw new Error("Invalid host initialization response");
-    hostConnected=true;hostContext=result.hostContext||{};applyHostGlobals();
+    hostConnected=true;lastPageSize="";hostContext=result.hostContext||{};applyHostGlobals();
     window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/initialized",params:{}},"*");
     const root=document.querySelector(".surface");if(root)pageResizeObserver?.observe(root);reportPageSize();
   }catch(error){if(!lastOutputKey)showError(new Error("The chat host did not initialize the page. Reopen the preview or refresh the connector."))}

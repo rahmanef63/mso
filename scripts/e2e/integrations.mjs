@@ -2,10 +2,7 @@
 // Exercises the shared browser/embed manager using synthetic accounts; never production credentials.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { createRequire } from "node:module";
-import path from "node:path";
-const require = createRequire(import.meta.url);
-const { chromium } = require(path.join(process.cwd(), "os-browser/node_modules/playwright"));
+import { chromium } from "@playwright/test";
 const html = execFileSync("bun", ["-e", 'import { integrationSetupPage } from "./lib/infra/setup-page"; console.log(integrationSetupPage().html)'], {encoding:"utf8"});
 const users=[{id:"studio",label:"Studio",isDefault:true},{id:"personal",label:"Personal",isDefault:false}];
 const fixture={id:"work",label:"Delivery GitHub",provider:"github",source:"direct",authMethod:"token",scope:"account",state:"verified",isDefault:true,fields:[{key:"apiKey",label:"API key",stored:true}],verifiedAt:Date.now(),sharedFrom:null};
@@ -18,7 +15,7 @@ function manage(body){
  if(body.action==="user.delete"){const index=users.findIndex(x=>x.id===body.user);if(index>=0)users.splice(index,1)}
  return {ok:true,action:body.action};
 }
-const browser=await chromium.launch({executablePath:"/usr/bin/google-chrome",args:["--no-sandbox","--disable-dev-shm-usage"]});
+const browser=await chromium.launch({...(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {}),args:["--no-sandbox","--disable-dev-shm-usage"]});
 let checks=0;
 try{
  const page=await browser.newPage();

@@ -79,7 +79,8 @@ The exact result path depends on the inspected tool. Project calls inherit the c
 |---|---|
 | Manifest | 64 KiB, 32 flows |
 | Flow | 32 input fields, 1–12 ordered steps, nesting at most 12 |
-| Run input | 32 KiB, typed fields; no inline credential/header fields |
+| Run input | 32 KiB through MCP, typed fields; no inline credential/header fields |
+| CLI/HTTP request | 16 KiB JSON body including envelope, bounded by the shared request reader |
 | Concurrent runs | Four per principal |
 | Step receipt result | Bounded to 12 KiB; full result available to following steps in memory |
 | Whole run | No new step begins after ten minutes; each child retains its own timeout |

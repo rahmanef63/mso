@@ -1,3 +1,19 @@
+## 2026-09-12 — Full-height MSO Page and shared brand
+
+The embedded Integrations report reproduced the old 48% legacy height cap. Page v14 now
+uses the standard MCP Apps fixed/maximum container height before legacy globals, with a
+680 px fallback and one content scrollport. Resize notifications cannot feed the current
+iframe viewport back into a smaller height. Standard host theme, safe areas and supported
+display modes are honored; fullscreen stays user initiated.
+
+Following the installed SI-Coder sc-fe workbench contract, Page uses readable controls,
+restrained separators and a compact header. Page, Block v3, native Integrations and shell
+use the existing public MSO logo instead of M. Shared manager styles keep both surfaces
+consistent. The browser regression covers small initial frames, fixed/flexible resizing,
+mobile widths, themes, Add MCP and fullscreen and runs inside the release gate.
+Current UI references now describe the iframe-free runtime and actual resource aliases.
+MCP 1.13.1 / toolset 2026.09.12.2 versions the resource refresh.
+
 ## 2026-09-12 — Hosted flow security checks
 
 The hosted pipeline identified a ShellCheck usage-variable warning and a strict Semgrep

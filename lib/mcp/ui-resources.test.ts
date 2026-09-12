@@ -127,7 +127,7 @@ describe("MCP Apps Block and Page contract", () => {
     });
     expect(content._meta.ui.csp.frameDomains).toBeUndefined();
     expect(content._meta["openai/widgetCSP"]).toEqual({ redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_BLOCK_URI).toContain("block-v2.html");
+    expect(MSO_BLOCK_URI).toContain("block-v3.html");
   });
 
   it("serves the full Page without external frame domains by default", async () => {
@@ -152,7 +152,7 @@ describe("MCP Apps Block and Page contract", () => {
     });
     expect(content._meta.ui.csp.frameDomains).toBeUndefined();
     expect(content._meta["openai/widgetCSP"]).toEqual({ connect_domains: [MSO_ORIGIN], redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_PAGE_URI).toContain("page-v13.html");
+    expect(MSO_PAGE_URI).toContain("page-v14.html");
     expect(content.text).not.toContain("createElement(\"iframe\")");
     expect(content.text).not.toContain("mountReviewedFrame");
   });

@@ -1,172 +1,101 @@
 # ChatGPT MCP App UI
 
-MSO treats ChatGPT as a presentation target without turning every tool call into a widget. JSON/text results remain the portable fallback for MCP clients that do not implement MCP Apps.
+MSO exposes two explicit presentation resources. Ordinary tools and workflow startup stay
+headless; clients without MCP Apps keep structured/text results.
 
-## Product contract: Block or Page
-
-The user-visible contract has exactly two canonical MCP App resources:
-
-| Surface | Entry tool | Resource | Intended use |
+| Surface | Entry tool | Resource | Purpose |
 | --- | --- | --- | --- |
-| **Block** | `render_mso_block` | `ui://mso/block-v2.html` | Compact validation, action buttons, and CRUD input-output |
-| **Page** | `render_mso_page` | `ui://mso/page-v12.html` | Full native operator views and reviewed development, preview, or production app embeds |
+| Block | `render_mso_block` | `ui://mso/block-v3.html` | Validation, actions, bounded CRUD input/output |
+| Page | `render_mso_page`, `integration_setup_open` | `ui://mso/page-v14.html` | Native operator views and external-app browser handoff |
 
-`workflow_start` is now headless. It remains the required orchestration bootstrap for multi-step work, including skill/recipe lookup, collision checks, workflow isolation, tracing, evidence, and learning, but it has no `_meta.ui.resourceUri` and no `openai/outputTemplate`. Starting background work therefore does not consume the answer with an unrelated workflow card.
+## Layout and identity
 
-A normal data/action tool also remains headless unless its result genuinely needs one of the two explicit presentation tools. `project_get`, `project_diff`, and `vps_status`, for example, keep structured outputs with no UI binding; the Page may call them through the standard MCP Apps `tools/call` bridge when it needs a native view.
+Page fills the host's declared `containerDimensions.height`, or the full
+`containerDimensions.maxHeight` allowance. Legacy `window.openai.maxHeight` is the
+fallback, followed by a 680 px working area when no constraint is supplied. The former
+48% cap is removed. Height never derives from the current iframe viewport, preventing
+resize feedback. One Page body owns scrolling; fullscreen uses the actual viewport.
 
-## Visual identity
+Page reports measured dimensions through `ui/notifications/size-changed` after the
+MCP Apps handshake. Legacy hosts can use `notifyIntrinsicHeight`. The host controls
+the enclosing frame and may impose a smaller fixed height. Fullscreen/PiP require an
+explicit click and are hidden when the host declares them unsupported.
 
-Block and Page share one presentation-token source in `lib/mcp/ui-widget-tokens.ts`, aligned with the public `rahmanef.com` design system: light surface `#f4f4f7` with text `#1c1c1f`, dark surface `#1b1b20` with text `#f2f2f5`, and the restrained blue accent `#1f6df0`. Display copy uses the Plus Jakarta Sans stack, body copy uses Inter/system fallbacks, and routes or section labels use the mono stack. Primary actions use the editorial foreground/background inversion rather than a colored fill; blue is reserved for focus, state, and small accents.
+Standard host context controls theme, display mode, dimensions and safe-area insets.
+Legacy OpenAI globals and the browser color-scheme remain compatible fallbacks.
+The compact header, readable controls, flat navigation and shared integration styles
+follow the existing MSO workbench. Block, Page and native Integrations embed the existing
+`public/icon.svg` mark without an image request; the shell uses that same public asset.
+Presentation colors and fonts remain in `lib/presentation/widget-tokens.ts`.
 
-The widget first follows ChatGPT's `window.openai.theme` signal and updates on `openai:set_globals`; `prefers-color-scheme` remains the fallback for other MCP Apps hosts. The v2 resource URIs are intentional cache keys for this CSS/HTML refresh.
+## Block behavior
+
+Block accepts bounded structured fields, checks, scalar outputs and up to eight actions;
+it never accepts raw HTML or an arbitrary tool name. A click sends a bounded follow-up
+message containing the selected action and field values. The agent then uses ordinary
+scoped tools. Server authorization, validation, rate limits and audit remain authoritative.
+Private widget state contains current form values. Block has no network or frame allowlist.
+
+## Page routes and trust
+
+| Route | Context / behavior |
+| --- | --- |
+| `/` | Workspace navigation |
+| `/integrations` | Shared connection manager, Add MCP and private credential forms |
+| `/monitor` | Bounded server status through `vps_status` |
+| `/project` | Explicit project context; `project_get` |
+| `/diff` | Explicit project and optional SHA; `project_diff` |
+| `/browser` | Open the MSO remote browser |
+| `/apps/<reviewed-id>` | Validate the deployment registry and hand off to the remote browser |
+
+Page does not mount third-party iframes. It accepts neither arbitrary HTML nor external
+URLs from the model. The bounded owner registry (`~/.mso/surface-apps.json`, or the explicit
+`MSO_SURFACE_APPS_JSON` override) supplies app identity, HTTPS origin and approved path.
+Public source defaults to an empty app catalog. Resource reads rebuild this safe catalog;
+the browser rechecks app identity, origin and path before exposing a handoff.
+
+Native integration forms and tools use the same capability/connection contracts as the
+browser. Credentials travel directly to MSO using private, expiring setup authorization,
+never through chat or ordinary tool arguments. Public guides remain readable without
+write access. Project MCP and automation contracts are in [automation flows](../AUTOMATION-FLOWS.md).
+
+User-installed HTML apps cannot grant themselves Page trust. The authenticated cockpit
+retains its framing protections; external sites keep their own authentication boundaries.
+
+## Bridge, metadata and compatibility
+
+Page initializes MCP Apps protocol `2026-01-26`, then sends
+`ui/notifications/initialized`. Only parent-source messages are accepted. Tool result
+notifications and legacy wrapped `window.openai.toolOutput` use the same route validator.
+Unchanged outputs do not remount views; teardown clears active forms and observers.
+
+Page-bound tools advertise standard `ui.resourceUri` only. Block also retains its
+`openai/outputTemplate` compatibility binding. Every ChatGPT tool has an output schema;
+exact tools, counts and scopes are generated in [the catalog](../generated/MCP-CATALOG.md).
+
+Resource CSP is explicit: neither surface allows nested frames; Page permits its MSO
+origin for private setup requests. `OS_MCP_UI_ORIGIN` controls the widget origin, otherwise
+the configured public origin derives it. Legacy redirect metadata supports Open in MSO.
+
+Only the two current resources are listed. Older Block/Page URIs remain read aliases for
+current bytes, including Block v2 and Page v13. `workflow_status` and `render_mso_surface`
+remain app-only compatibility tools. `workflow_start` has no UI binding.
+
+## Verification and deployment
+
+Run `node scripts/e2e/mcp-page.mjs` for a small initial host frame, standard-versus-legacy
+height precedence, fixed/flexible resize, light/dark theme, 320–1280 px layouts, logo,
+Add MCP and fullscreen. The release gate runs this browser contract automatically.
+`node scripts/e2e/integrations.mjs` adds shared manager user CRUD, keyboard selection,
+provider search and 320–1920 px reflow. Production release journeys verify authorization,
+real server handlers and provider revocation using synthetic stores.
+
+After shipping, compare live discovery/version/hash against `lib/mcp/toolset.ts` and the
+generated catalog, verify the two resource URIs, and reopen the Page. Hosts cache tool
+and resource descriptors: a development-app rescan/reconnect may still be needed.
+The server cannot replace an already mounted document in an old conversation.
 
 Official references:
-
-- <https://developers.openai.com/plugins/build/chatgpt-ui>
-- <https://developers.openai.com/plugins/reference>
-
-## Block
-
-`render_mso_block` accepts bounded structured data rather than HTML:
-
-- `kind`: `validation`, `crud`, or `action`;
-- title, description, and neutral/pending/success/warning/error status;
-- editable or read-only fields (`text`, `number`, `email`, `url`, `textarea`, `boolean`);
-- pass/warn/fail/info checks;
-- scalar output rows;
-- up to eight user-facing action buttons.
-
-A Block button does **not** call a write/exec tool from inside the widget. After a real user click it sends a bounded follow-up message containing the action id and current field values. ChatGPT must then continue through the ordinary MCP tool path, so OAuth scope, argument validation, approval, rate limit, audit, workflow correlation, and destructive-operation rules remain authoritative. An action can require a second click with explicit confirmation copy; this is a presentation safeguard, not a replacement for server-side approval.
-
-The Block resource is self-contained, has no network/frame allowlist, constructs dynamic content with DOM text APIs, and accepts neither raw HTML nor an arbitrary URL/tool name. It stores only current form values in private widget state.
-
-## Page
-
-`render_mso_page` accepts an MSO-style route plus optional project/SHA context:
-
-- `/` — Page landing;
-- `/monitor` — native bounded VPS status;
-- `/project` — native project snapshot;
-- `/diff` — native project diff summary;
-- `/browser` — remote-browser handoff;
-- `/apps/<reviewed-app-id>` — reviewed app target.
-
-The model cannot pass raw HTML or an external URL. App identity, origin, start path, renderer, environment (`development`, `preview`, `production`, or `other`), sandbox, and presentation mode come from the bounded per-instance reviewed registry at `~/.mso/surface-apps.json` (or the explicit `MSO_SURFACE_APPS_JSON` override). Portable source defaults to an empty external-app catalog, and the Page resource rebuilds its `SAFE_APPS` plus CSP frame domains whenever it is read. An iframe target is valid only when its exact HTTPS origin is also present in the Page resource's `_meta.ui.csp.frameDomains`, and the browser runtime revalidates origin plus the approved path prefix before assigning `iframe.src`.
-
-Apps that keep restrictive `X-Frame-Options` or `frame-ancestors` remain `remote`. MSO preserves those protections and offers the Camoufox seam instead of stripping headers. User-installed runtime HTML apps and arbitrary HTML snippets cannot add themselves to the ChatGPT frame allowlist; they remain opaque-origin `srcDoc` content inside the authenticated MSO shell.
-
-## Compatibility during migration
-
-The canonical `resources/list` response advertises only Block and Page. Previous Page/Block URIs, including `ui://mso/page-v11.html`, remain readable, but are not listed, so already-cached ChatGPT descriptors do not fail immediately:
-
-- `ui://mso/block-v1.html` resolves to the current Block resource.
-- `ui://mso/page-v1.html` resolves to the current Page resource.
-- `ui://mso/workflow-progress-v3.html` resolves to the Block resource. The Block recognizes the old workflow structured result and presents a small compatibility summary rather than the historical live progress dashboard.
-- `ui://mso/surface-v5.html` resolves to the Page resource.
-
-`render_mso_surface` remains app-only as a compatibility alias for a cached Page widget and has no resource binding of its own. `workflow_status` likewise remains app-only for cached workflow widgets and native operator use. New model calls use `render_mso_page`; new workflows do not create a widget.
-
-## MCP contract
-
-1. `resources/list` / `resources/read` expose the two canonical `ui://…` resources as `text/html;profile=mcp-app`.
-2. Only `render_mso_block` and `render_mso_page` advertise `_meta.ui.resourceUri` plus the OpenAI `outputTemplate` compatibility alias.
-3. Every ChatGPT transport action declares an `outputSchema`. Stable UI-critical tools use typed schemas; other actions use the bounded `{ result }` envelope. Generic MCP clients retain their existing text fallback where applicable.
-4. Sandboxed Pages use the standard `tools/call` bridge for native data refreshes. ChatGPT-only helpers such as display mode, private widget state, follow-up messages, and `openExternal` are feature-detected.
-5. The dedicated UI origin is deployment-derived: explicit `OS_MCP_UI_ORIGIN` wins; otherwise an `mso.<domain>` public origin derives `mso-ui.<domain>`, and other safe public origins are reused. Standard CSP fields live only in `_meta.ui.csp`; the legacy `openai/widgetCSP` object retains only `redirect_domains` for `Open in MSO`.
-
-Current ChatGPT model profile is source-generated from the complete MSO-owned generic model/operator catalog; exact counts live in [`../generated/MCP-CATALOG.md`](../generated/MCP-CATALOG.md). `workflow_status` and `render_mso_surface` remain app-only compatibility bridges. Exactly two model tools bind UI resources: `render_mso_block` and `render_mso_page`.
-
-## Source boundaries
-
-| Contract | MSO source |
-| --- | --- |
-| Shared Block/Page visual tokens and host-theme bridge | `lib/mcp/ui-widget-tokens.ts` |
-| Block resource/runtime | `lib/mcp/ui-block.ts` |
-| Block tool/schema | `lib/mcp/tools-block.ts` |
-| Page resource/runtime | `lib/mcp/ui-surface.ts`, `lib/mcp/ui-surface-script.ts`, `lib/mcp/ui-surface-style.ts` |
-| Page security catalog/router | `lib/mcp/surface-catalog.ts`, `lib/mcp/tools-surface.ts` |
-| Resource registry and legacy aliases | `lib/mcp/ui-resources.ts` |
-| Workflow bootstrap/lifecycle | `lib/mcp/tools-workflow-start.ts`, `lib/mcp/tools-workflow-lifecycle.ts` |
-| Resource capability / RPC | `lib/mcp/dispatch.ts` |
-| MCP descriptor/profile contract | `lib/mcp/tool-contract.ts` |
-| Toolset signature | `lib/mcp/toolset.ts` |
-| Contract tests | `lib/mcp/ui-resources.test.ts`, `lib/mcp/ui-widget-theme.test.ts`, `lib/mcp/tools-block.test.ts`, `lib/mcp/tools-surface.test.ts`, `lib/mcp/surface-catalog.test.ts` |
-
-## Flow
-
-```text
-ChatGPT model
-   │
-   ├─ workflow_start ──→ structured workflow id only (headless)
-   │
-   ├─ bounded data/action tools ──→ structured/text results
-   │
-   ├─ render_mso_block ──→ compact validation/action/CRUD block
-   │                          └─ user click → follow-up message
-   │                                  └─ normal scoped/approved tool call
-   │
-   └─ render_mso_page ──→ full MSO Page
-                              ├─ /monitor ──tools/call──→ vps_status
-                              ├─ /project ──tools/call──→ project_get
-                              ├─ /diff    ──tools/call──→ project_diff
-                              ├─ exact-origin iframe after explicit review
-                              └─ remote-browser seam for anti-frame apps
-```
-
-## Manual ChatGPT smoke journeys
-
-| Journey | Suggested prompt/action | Pass condition |
-| --- | --- | --- |
-| Headless workflow | Start a harmless multi-step workflow | `workflow_start` returns a workflow id but opens no MCP App |
-| Validation Block | Render deployment checks with Approve/Revise actions | compact Block renders; click creates a follow-up; no mutation happens inside the widget |
-| CRUD Block | Render editable sample fields and a Save action | values remain editable, required validation works, and submitted values return through the follow-up message |
-| Native Page | Render `/monitor`, then `/project` | Page opens and refreshes bounded data through `tools/call` |
-| Configured Page app | Render `/apps/<configured-app-id>` after setting a reviewed local catalog | iframe stays on the configured exact HTTPS origin/start prefix; fullscreen stays user-initiated |
-| Anti-frame fallback | Open a Page target classified `remote` | no header stripping or unreviewed frame occurs; the remote-browser handoff is shown |
-| Filesystem CRUD | Create/read/copy/move/delete a disposable file through ordinary tools | Block/Page presentation never changes the filesystem permission boundary |
-
-## Deployment and client refresh
-
-After changing UI resources or tool metadata:
-
-1. run targeted tests, `bun run verify`, and the official production release path;
-2. verify `initialize` reports MCP server `1.10.0` and toolset `2026.09.05.1`;
-3. verify `tools/list` exposes 66 ChatGPT transport tools, keeps `workflow_start` headless, marks the two compatibility actions app-only, and binds only `render_mso_block` / `render_mso_page`;
-4. verify `resources/list` contains exactly `ui://mso/block-v2.html` and `ui://mso/page-v12.html`, both with `text/html;profile=mcp-app`;
-5. verify Block has no frame domain and Page has only reviewed exact origins;
-6. refresh/re-scan the ChatGPT development app so its cached action/resource snapshot is replaced.
-
-A widget already rendered in an old conversation cannot be removed retroactively. After the server deployment, a stale workflow card indicates a cached ChatGPT connector snapshot, not a new `workflow_start` binding.
-
-## Page initialization and readiness (v3)
-
-Page sends the MCP Apps `ui/initialize` request with `appInfo`, `appCapabilities` and
-protocol version `2026-01-26`, then acknowledges with `ui/notifications/initialized`.
-Host result notifications and wrapped legacy `window.openai.toolOutput` use the same validated
-route interpreter. Unchanged results or host globals do not remount a running embedded app.
-The cached `ui://mso/page-v2.html` URI is a read-only alias for current Page bytes.
-
-A reviewed game sends a versioned readiness acknowledgement; Page validates its exact origin
-and iframe source. An iframe load event does not prove readiness. The bounded timeout shows
-Retry preview and Open production controls instead of a permanent skeleton. The production
-link is user-initiated through the host, and the Page redirect allowlist contains only MSO and
-the reviewed game origin. Normal host tools and headless workflows are unchanged.
-
-Verification: `node scripts/e2e/mcp-page.mjs` exercises a pure MCP host without `window.openai`,
-legacy wrapped output, readiness/source checks, timeout/retry and no duplicate iframe reloads.
-For Play Together, the independent game server must allow every reviewed ancestor on `/embed`
-and keep the inner cartridge at `/embed/game-frame.html`; root app framing stays restricted.
-
-Page reports measured dimensions through `ui/notifications/size-changed`; its layout avoids viewport-relative height feedback when the host resizes the component.
-
-### Reviewed app authentication
-
-Page v6 adds a code-owned optional external-auth path for reviewed apps. The nested application
-can highlight the **Google login in browser** control using a public versioned message, but cannot
-navigate the host or supply the target URL. Only an explicit click on the host control invokes
-`ui/open-link` or the supported `openExternal` fallback. The path must remain on the reviewed app
-origin. Existing iframe sandbox restrictions are unchanged. OAuth finishes in the browser tab;
-no automatic session sharing, cookie copying, callback code forwarding or chat token transfer is
-implied. Cached Page v5 resources remain readable aliases. Play Together's entry is
-`/?auth=google`; Google itself is never framed by MSO.
+- [MCP Apps host dimensions](https://apps.extensions.modelcontextprotocol.io/api/interfaces/app.McpUiHostContext.html)
+- [MCP Apps specification](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/draft/apps.mdx)
+- [OpenAI plugin reference](https://developers.openai.com/plugins/reference)

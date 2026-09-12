@@ -56,10 +56,17 @@ function openPath(path){setMsoTarget(validRoute(path)?path:"/assistant/mcp")}
 function applyHostGlobals(){
   const api=hostConnected?{...(window.openai||{}),...hostContext}:{...hostContext,...(window.openai||{})};
   applyHostTheme();
-  const max=Number(api.maxHeight),hostMax=Number.isFinite(max)&&max>180?Math.floor(max):680;document.documentElement.style.setProperty("--host-max-h",hostMax+"px");document.documentElement.style.setProperty("--inline-max-h",Math.max(1,Math.floor(hostMax*.48))+"px");
-  const safe=api.safeArea||{};for(const [key,value] of [["top",safe.top],["right",safe.right],["bottom",safe.bottom],["left",safe.left]]){const n=Number(value);document.documentElement.style.setProperty("--safe-"+key,Number.isFinite(n)?Math.max(0,n)+"px":"0px")}
+  if(api.theme==="light"||api.theme==="dark")document.documentElement.dataset.theme=api.theme;
+  // MCP Apps fixed height fills the host; flexible height uses its full allowance.
+  // Never derive our height from the current iframe viewport: resize feedback shrinks it.
+  const dimensions=api.containerDimensions||{},values=[dimensions.height,dimensions.maxHeight,api.maxHeight];
+  const height=values.find(value=>typeof value==="number"&&Number.isFinite(value)&&value>0)??680;
+  document.documentElement.style.setProperty("--page-height",Math.floor(height)+"px");
+  const safe=api.safeAreaInsets||api.safeArea||{};for(const [key,value] of [["top",safe.top],["right",safe.right],["bottom",safe.bottom],["left",safe.left]]){const n=Number(value);document.documentElement.style.setProperty("--safe-"+key,Number.isFinite(n)?Math.max(0,n)+"px":"0px")}
   const mode=["inline","fullscreen","pip"].includes(api.displayMode)?api.displayMode:"inline";
   document.documentElement.dataset.displayMode=mode;
+  if(Array.isArray(api.availableDisplayModes)){pipBtn.hidden=!api.availableDisplayModes.includes("pip");fsBtn.hidden=mode!=="fullscreen"&&!api.availableDisplayModes.includes("fullscreen")}
+  requestAnimationFrame(reportPageSize);
   modeEl.textContent=mode;fsBtn.textContent=mode==="fullscreen"?"Exit fullscreen":"Fullscreen";
   fsBtn.setAttribute("aria-label",mode==="fullscreen"?"Exit fullscreen":"Fullscreen");
 }
@@ -83,10 +90,10 @@ function nav(route,extra={}){
 }
 function showError(error){viewCleanup();viewCleanup=()=>{};clear(body);const box=el("div","notice");const inner=el("div");inner.append(el("h3","","Page unavailable"),el("p","error",error&&error.message?error.message:"The requested page could not be loaded."));box.append(inner);body.append(box)}
 function renderHome(){
-  const root=el("div","home");const hero=el("section","hero");hero.append(el("h2","","MSO Page"),el("p","","ChatGPT is another MSO presentation target. Open native operator views here; registry-backed external apps continue through the isolated MSO Browser seam."));root.append(hero);
-  root.append(el("div","section-title","Native pages"));const native=el("div","grid");
-  for(const item of [{route:"/integrations",title:"Integrations",desc:"Secure, native credential setup."},{route:"/monitor",title:"System Monitor",desc:"Live bounded host status."},{route:"/project",title:"Project",desc:"Project snapshot and Git state."},{route:"/diff",title:"Diff",desc:"Review project changes."},{route:"/browser",title:"Remote Browser",desc:"Isolated seam for external apps and authenticated sites."}]){const card=button("",()=>nav(item.route),"card");card.append(el("strong","",item.title),el("span","",item.desc));native.append(card)}root.append(native);
-  root.append(el("div","section-title","Registry-backed external apps"));const apps=el("div","grid");
+  const root=el("div","home");const hero=el("section","hero");hero.append(el("h2","","MSO Page"),el("p","","Manage your services, inspect projects, and check your server."));root.append(hero);
+  root.append(el("div","section-title","Workspace"));const native=el("div","grid");
+  for(const item of [{route:"/integrations",title:"Integrations",desc:"Secure, native credential setup."},{route:"/monitor",title:"System Monitor",desc:"CPU, memory, disk, and service health."},{route:"/project",title:"Project",desc:"Project snapshot and Git state."},{route:"/diff",title:"Diff",desc:"Review project changes."},{route:"/browser",title:"Remote Browser",desc:"Open websites in your server browser."}]){const card=button("",()=>nav(item.route),"card");card.append(el("strong","",item.title),el("span","",item.desc));native.append(card)}root.append(native);
+  root.append(el("div","section-title","Your apps"));const apps=el("div","grid");
   for(const app of SAFE_APPS){const card=button("",()=>nav("/apps/"+encodeURIComponent(app.id)),"card");card.append(el("strong","",app.title),el("span","",app.description),el("span","tag",app.environment+" · "+app.renderer));apps.append(card)}root.append(apps);body.append(root)
 }
 function renderMonitor(){
@@ -105,7 +112,7 @@ function renderApp(){
   const box=el("div","notice"),inner=el("div");inner.append(el("h3","",safe.title+" opens through MSO Browser"),el("p","",safe.reason||"External apps stay outside the ChatGPT Page iframe and continue through MSO's isolated remote-browser seam."));const row=el("div","row");row.append(button("Open Remote Browser",()=>openMso(),"primary"));if(window.openai&&typeof window.openai.sendFollowUpMessage==="function")row.append(button("Ask ChatGPT to continue",()=>window.openai.sendFollowUpMessage({prompt:"Continue this demo using the MSO remote-browser fallback for "+safe.title+"."})));inner.append(row);box.append(inner);stage.content.append(box);if(safe.presentation==="pip")pipBtn.hidden=false
 }
 function renderBrowser(){const box=el("div","notice"),inner=el("div");inner.append(el("h3","","Remote Browser seam"),el("p","","Sites that deny iframe embedding stay isolated. MSO can continue them through Camoufox without exposing its VNC password or authenticated viewer URL to this widget."));const row=el("div","row");row.append(button("Open MSO Browser",()=>openMso(),"primary"));inner.append(row);box.append(inner);body.append(box);openPath("/browser")}
-function render(){viewCleanup();viewCleanup=()=>{};clear(body);titleEl.textContent=text(current.title,"MSO Page");routeEl.textContent=text(current.route,"/");openPath(text(current.openPath,"/assistant/mcp"));persistRoute();if(current.kind==="home")renderHome();else if(current.kind==="integrations")renderIntegrations();else if(current.kind==="monitor")renderMonitor();else if(current.kind==="project")renderProject("project");else if(current.kind==="diff")renderProject("diff");else if(current.kind==="app")renderApp();else if(current.kind==="browser")renderBrowser();else body.append(el("div","loading","Loading MSO Page…"))}
+function render(){viewCleanup();viewCleanup=()=>{};clear(body);titleEl.textContent="MSO";routeEl.textContent=text(current.title,"Workspace");openPath(text(current.openPath,"/assistant/mcp"));persistRoute();if(current.kind==="home")renderHome();else if(current.kind==="integrations")renderIntegrations();else if(current.kind==="monitor")renderMonitor();else if(current.kind==="project")renderProject("project");else if(current.kind==="diff")renderProject("diff");else if(current.kind==="app")renderApp();else if(current.kind==="browser")renderBrowser();else body.append(el("div","loading","Loading MSO Page…"))}
 function readOutput(){return acceptPageResult(window.openai&&window.openai.toolOutput)}
 window.addEventListener("message",onHostMessage,{passive:true});
 window.addEventListener("openai:set_globals",()=>{applyHostGlobals();readOutput()},{passive:true});

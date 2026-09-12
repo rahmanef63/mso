@@ -7,6 +7,7 @@ import { mcpOwnerJourneys, mcpPublicJourney, settingsAccessibilityJourney } from
 import { automationJourney } from "./automation.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
 
+execFileSync(process.execPath, ["scripts/e2e/mcp-page.mjs"], { stdio: "inherit" });
 const fixture = await releaseFixture();
 let browser;
 try {

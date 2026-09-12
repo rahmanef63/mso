@@ -2,6 +2,7 @@
 // AppShell. This is the ONE place brand + the built-in app set + shell features
 // are declared; appshell core imports none of it. Runtime-installed apps are
 // merged on top in os-root (they come from a hook, not static config).
+import { createElement } from "react";
 import type { AppDescriptor, Brand, FeatureDescriptor } from "@/features/appshell";
 import { DEFAULT_FEATURES } from "@/features/appshell";
 import { filesManagerApp } from "@/features/files-manager";
@@ -25,7 +26,7 @@ import { APP_MARKS } from "./brand-marks";
 
 export const TOPSIDE_BRAND: Brand = {
   name: "MSO",
-  logo: "M",
+  logo: createElement("img", { src: "/icon.svg", alt: "", width: 16, height: 16 }),
   idleAppName: "Finder",
 };
 

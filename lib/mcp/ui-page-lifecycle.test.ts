@@ -5,6 +5,7 @@ import { LEGACY_PAGE_V12_URI, LEGACY_PAGE_V11_URI, LEGACY_PAGE_V10_URI, LEGACY_P
 describe("MCP Page lifecycle and cached resource migration", () => {
   it("serves current bytes to cached v2 clients without advertising a third UI", async () => {
     const page = await readUiResource(MSO_PAGE_URI);
+    expect(await readUiResource("ui://mso/page-v13.html")).toMatchObject({ uri: "ui://mso/page-v13.html", text: page?.text });
     expect(await readUiResource(LEGACY_PAGE_V12_URI)).toMatchObject({ uri: LEGACY_PAGE_V12_URI, text: page?.text });
     expect(await readUiResource(LEGACY_PAGE_V11_URI)).toMatchObject({ uri: LEGACY_PAGE_V11_URI, text: page?.text });
     expect(await readUiResource(LEGACY_PAGE_V10_URI)).toMatchObject({ uri: LEGACY_PAGE_V10_URI, text: page?.text });
@@ -25,13 +26,13 @@ describe("MCP Page lifecycle and cached resource migration", () => {
       'method:"ui/notifications/initialized"',
       'event.source!==window.parent',
       'if(key===lastOutputKey){',
-      'hostMax*.48',
+      'dimensions.height,dimensions.maxHeight,api.maxHeight',
       'availableDisplayModes:["inline","fullscreen","pip"]',
       'stageBase("Remote-browser handoff")',
       'openPath("/browser")',
     ]) expect(script).toContain(marker);
-    expect(html).toContain('html[data-display-mode="inline"] .surface');
-    expect(html).toContain('max-height:var(--inline-max-h)');
+    expect(html).toContain('height:var(--page-height)');
+    expect(script).not.toContain('hostMax*.48');
     expect(html).toContain('html[data-display-mode="fullscreen"] .surface{height:100vh;height:100dvh');
     expect(html).not.toContain('presentation:"fullscreen"');
     expect(script).not.toContain('play-together:embed-ready');
