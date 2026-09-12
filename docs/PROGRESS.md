@@ -1,3 +1,11 @@
+## 2026-09-12 — Native scrollbars follow the active theme
+
+Direct inspection in the owner browser found a white native Settings scrollbar inside
+the dark shell. Global browser color-scheme now follows the existing theme attribute;
+scrollbars use the shared secondary-text token and forced-colors keeps system rendering.
+The global focus fallback also derives its corner radius from the selected preset.
+Release browser journeys check light/dark native controls and forced-colors behavior.
+
 ## 2026-09-12 — Reviewed project previews, responsive workspace and durable session recovery
 
 The owner reported empty Sessions and insufficient embedded UI improvement. Live diagnosis

@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `ui` theme native scrollbars across the MSO shell
 - `ui` fill MCP Page height and apply MSO branding
 - `flows` enforce canonical paths and bounded waits
 

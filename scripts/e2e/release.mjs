@@ -55,6 +55,14 @@ try {
         return badge && heading ? badge.y + badge.height <= heading.y : false;
       }).toBe(true);
     }
+    for (const theme of ["dark", "light"]) {
+      await page.evaluate(theme => {document.documentElement.dataset.theme=theme}, theme);
+      expect(await page.locator("body").evaluate(el => getComputedStyle(el).colorScheme)).toBe(theme);
+      expect(await page.locator("body").evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe("thin");
+    }
+    await page.emulateMedia({forcedColors:"active"});
+    expect(await page.locator("body").evaluate(el => getComputedStyle(el).scrollbarColor)).toBe("auto");
+    await page.emulateMedia({forcedColors:"none"});
     await mcpPublicJourney(page);
     await settingsAccessibilityJourney(page, fixture.base);
     expect(errors).toEqual([]);
