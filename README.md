@@ -1,7 +1,7 @@
 <h1 align="center">Manef Shell OS</h1>
 <p align="center"><strong>A workspace for your server. A runtime for your agents.</strong></p>
 <p align="center">Real terminals, project-aware AI, files and services — in one self-hosted workspace.</p>
-<p align="center"><a href="#see-it-work">Demo</a> · <a href="#install-or-update-mso-from-this-repo">Install</a> · <a href="./docs/COGNITIVE-RUNTIME.md">Agent runtime</a> · <a href="./docs/README.md">Docs</a></p>
+<p align="center"><a href="#see-it-work">Demo</a> · <a href="#install-or-update-mso-from-this-repo">Install</a> · <a href="./docs/COGNITIVE-RUNTIME.md">Agent runtime</a> · <a href="./docs/MCP-HOW-TO.md">Use MCP</a> · <a href="./docs/README.md">Docs</a></p>
 <p align="center"><a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="Tests and build" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a> <a href="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml"><img alt="Actual open security findings" src="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml/badge.svg" /></a></p>
 
 ## See it work
@@ -67,6 +67,30 @@ Applying reset/uninstall requires an offline runtime and an exact confirmation t
 Browser reset is separate in **Settings → About**. [Backups, scope and safeguards](./docs/MAINTENANCE.md).
 
 </details>
+
+## Use MSO from an AI app (MCP)
+
+Connect ChatGPT, Codex, Claude Code, Cursor, or another compatible MCP client to your
+MSO installation. **You do not need SI-Coder**: it is an optional MSO plugin, not the
+MCP server or an installation prerequisite.
+
+1. Open **Settings → MCP → Access MSO → Connect an app** and choose your client.
+2. Copy the server URL shown there (`https://mso.example.com/mcp` is a placeholder),
+   select **OAuth**, and authorize on an approved MSO owner device.
+3. Grant the minimum useful scope, refresh/scan the client's tools, and enable MSO
+   in the conversation. Start with: `@MSO check server status without changing anything`.
+
+| Direction | What it does |
+|---|---|
+| **Access MSO** | Your AI app → MSO → permitted server/project operations. |
+| **MSO Access** | MSO → external services/project MCPs with separately configured credentials. |
+
+Fresh installs enable MCP with an `exec` ceiling; existing installs preserve their settings.
+`read` observes, `write` adds bounded changes, and `exec` permits host/delegated execution.
+A ceiling is not a grant: actual token scope and server guards still apply. Lower the ceiling
+when shell access is unnecessary. Never paste passwords or tokens into a prompt.
+
+[How to use MCP — Bahasa Indonesia](./docs/MCP-HOW-TO.md) · [ChatGPT setup/reference](./docs/CHATGPT-PLUGIN.md) · [Protocol and security](./docs/MCP.md) · [Generated tool catalog](./docs/generated/MCP-CATALOG.md)
 
 ## Build with it
 

@@ -1,5 +1,7 @@
 # ChatGPT custom MCP app for MSO
 
+For first-time setup and copyable usage examples, start with [How to use MSO MCP](./MCP-HOW-TO.md).
+
 > **Current ChatGPT-facing reference.** MSO is one open-source MCP server. ChatGPT receives a deliberately compact static projection of MSO-owned generic tools; project-owned MCP tool names are never copied into the global catalog or ChatGPT scan snapshot.
 >
 > ChatGPT's Developer Mode/App UI can change independently of MSO. Use the current OpenAI MCP/App documentation for exact menu labels, and use MSO Settings → MCP / `GET /mcp` for the live server/profile signatures.
@@ -56,7 +58,7 @@ The restored Original MSO operator primitives (`sys_*`, `fs_usage` + full bounde
 
 Project-owned MCP names and Convex's own dynamic schemas still load on demand through `project_mcp_tools` / `project_mcp_call` and `project_database_tools` / `project_database_call`. That is how MSO keeps a bounded static model profile instead of copying every downstream provider/project action into ChatGPT.
 
-ChatGPT presentation is explicit rather than attached to every operation. `workflow_start` is headless. `render_mso_block` opens the compact validation/action/CRUD component and accepts only bounded fields, checks, outputs, and follow-up actions; a button cannot execute a mutation inside the widget. `render_mso_page` opens native MSO views or a code-reviewed development/preview/production app. It accepts only MSO-style routes and server-owned app ids, never arbitrary HTML or an external URL. `mso_surface_apps_list` exposes the reviewed Page catalog. External apps use the remote browser; Page does not mount third-party iframes. User-installed runtime HTML apps do not inherit this trust automatically. `render_mso_surface` and `workflow_status` remain app-only compatibility shims for cached clients.
+ChatGPT presentation is explicit rather than attached to every operation. `workflow_start` is headless. `render_mso_block` opens the compact validation/action/CRUD component and accepts only bounded fields, checks, outputs, and follow-up actions; a button cannot execute a mutation inside the widget. `render_mso_page` opens native MSO views or a code-reviewed development/preview/production app. It accepts only MSO-style routes and server-owned app ids, never arbitrary HTML or an external URL. `mso_surface_apps_list` exposes the reviewed Page catalog. Apps outside the reviewed Page catalog use the remote browser. Nested frames are limited to code-reviewed exact origins and registry policy; arbitrary third-party URLs are never accepted. User-installed runtime HTML apps do not inherit this trust automatically. `render_mso_surface` and `workflow_status` remain app-only compatibility shims for cached clients.
 
 `render_mso_page` and `integration_setup_open` bind Page through the standard MCP Apps `ui.resourceUri` field only. Do not mirror `openai/outputTemplate` onto Page tools: the current ChatGPT host already supports the standard binding, and dual Page bindings can mount the same UI twice. The current Page therefore uses one modern binding and keeps earlier Page URIs only as non-advertised read aliases.
 
@@ -85,7 +87,7 @@ projects_list
    ↓
 project_capabilities
    ↓
-project_mcp_tools(project, server)   # exec: initializing project MCP executes project code
+project_mcp_tools(project, server)   # exec: may start project code or contact a remote service
    ↓
 project_mcp_call(project, server, tool, arguments)
 ```
@@ -153,7 +155,7 @@ MSO uses Streamable HTTP JSON-RPC over `POST /mcp`.
 4. Choose OAuth and complete the MSO consent flow on an approved owner device.
 5. Select the lowest useful MSO tier. After changing `OS_MCP_MAX_SCOPE`, rebuild/restart MSO and repeat consent so the connector receives the new ceiling.
 6. Run **Scan Tools / Refresh** in ChatGPT.
-7. Verify that the action snapshot corresponds to the 66-tool transport profile (64 model-visible actions + app-only `workflow_status` and `render_mso_surface`) in the generated catalog.
+7. Compare the action snapshot with the current scope-filtered ChatGPT profile in the [generated catalog](./generated/MCP-CATALOG.md) and the live `GET /mcp` signature. Do not rely on a fixed historical tool count.
 8. Start a new chat when testing a newly scanned draft/action snapshot.
 
 After a schema/profile change, changing production code alone does not replace ChatGPT's frozen action snapshot. Refresh/re-scan (or recreate/republish where the workspace UI requires it) after deployment.

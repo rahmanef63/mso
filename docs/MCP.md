@@ -1,5 +1,8 @@
 # MCP — drive this VPS from ChatGPT, Claude.ai or Cursor
 
+> **First connection?** Start with [How to use MSO MCP — Bahasa Indonesia](./MCP-HOW-TO.md)
+> for setup, example prompts, workflow usage, and troubleshooting.
+
 > **Current deep reference.** For ChatGPT specifically, use
 > [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for current custom-MCP-app terminology,
 > setup values and diagrams. This file owns protocol, tool, discovery, workflow and
@@ -21,7 +24,9 @@ demo mode also forces MCP off. Existing installs keep their current `.env.local`
 
 ## Settings navigation
 
-Settings → MCP opens a task index: **Connect an app**, **Connected apps**, **Recent activity**, **Tools & updates**, and **Connection details**. Setup first asks for the client and shows only that client's steps. Use **MCP overview** to return; technical OAuth/tunnel fields live under Connection details. Connected apps separates active access from expired/revoked history and confirms disconnection. Tools & updates stores only a browser-local refresh reminder, never a verified client-health claim.
+Settings → MCP separates **Access MSO** (external clients → MSO), **MSO Access** (MSO → external services / plugin declarations), and **Sessions** (activity and handover). SI-Coder is an optional plugin, not a prerequisite. Registry declarations do not install code or configure credentials.
+
+Access MSO opens a task index: **Connect an app**, **Connected apps**, **Recent activity**, **Tools & updates**, and **Connection details**. Setup first asks for the client and shows only that client's steps. Use **MCP overview** to return; technical OAuth/tunnel fields live under Connection details. Connected apps separates active access from expired/revoked history and confirms disconnection. Tools & updates stores only a browser-local refresh reminder, never a verified client-health claim.
 
 Anonymous visitors see an Owner sign-in entry, not private API requests or an endless loading state. Failed settings/activity loads expose a retry action; activity failures never become an empty-success state. The public `/settings?section=mcp` deep link returns sign-in users to MCP.
 

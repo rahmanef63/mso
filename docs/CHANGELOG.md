@@ -21,6 +21,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `ui` constrain simulated host message origins
 
+**Docs**
+
+- `mcp` add README quickstart and practical how-to
+
 ## 2026-09-11
 
 **Added**

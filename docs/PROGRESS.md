@@ -1,3 +1,19 @@
+## 2026-09-13 — README MCP entry point and practical how-to
+
+Before: the product README linked general docs, while MCP onboarding was spread across
+long references and the ChatGPT refresh sequence still named an obsolete tool count.
+After: the README has a direct Use MCP entry point and explains inbound/outbound access;
+a Bahasa Indonesia how-to covers owner/HTTPS setup, least-privilege OAuth, client commands,
+first prompts, exact workflow correlation, dynamic project MCP discovery and troubleshooting.
+SI-Coder remains optional; registry declarations are explicitly not activation or credentials.
+Current references/index link to the guide, and snapshot verification uses the generated
+catalog rather than another hand-maintained count. The existing Page guidance now distinguishes
+reviewed exact-origin embeds from arbitrary URLs. No MCP schema, permission, or runtime code changed.
+Validation: documentation/catalog/comparison checks, both JSON examples, shell syntax and
+14 targeted client-guide/direction/integration-contract tests pass. Full repository gates remain
+required by the normal ship path. External-client snippets are source-checked guidance, not
+a claim that new OAuth accounts were connected end-to-end.
+
 ## 2026-09-12 — Native scrollbars follow the active theme
 
 Direct inspection in the owner browser found a white native Settings scrollbar inside
