@@ -1,3 +1,26 @@
+## 2026-09-12 — Reviewed project previews, responsive workspace and durable session recovery
+
+The owner reported empty Sessions and insufficient embedded UI improvement. Live diagnosis
+found exactly 1,001 presence leases against a 1,000-entry read validator, causing both
+active and saved monitors to return HTTP 400. Pruning now happens after insertion; only
+the known historical overflow shape is accepted and normalized without deleting sessions.
+The artifact path also confused 2,048 prepared exec folders with 128 populated artifact
+sessions, blocking new screenshots despite only nine populated sessions. Registered-session
+quota now counts populated manifests with bounded reads; original byte/ownership/retention
+guards remain. Screenshot automation writes owner-only files before registration.
+The repaired reader recovered 7,039 saved records in ~0.51 s on this instance. Settings
+starts with saved history, offers cross-page safe metadata search, and retains a clearly
+marked last observation during transient polling errors.
+
+Page v15 uses a shared type/spacing/control/radius/focus/scroll contract, standard host
+style overrides, a compact container-responsive selector, and a native service selector
+on narrow layouts. It reuses existing session/artifact/project tools for more native views,
+unboxes nested data consistently, and ignores stale responses after navigation. Reviewed
+project demos now honor registry iframe/remote policy with exact CSP origins, fixed sandbox
+and direct/browser fallback. The authenticated cockpit remains unframeable. OpenAI's
+stricter nested-frame review is preserved, not treated as a ban on requested previews.
+MCP 1.14.0 / toolset 2026.09.12.3 versions the refreshed Page contract.
+
 ## 2026-09-12 — Exact-origin Page browser fixtures
 
 The hosted Semgrep gate flagged a wildcard postMessage target in the new browser

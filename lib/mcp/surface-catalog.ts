@@ -1,8 +1,9 @@
+import { mcpUiOrigin, publicMsoOrigin } from "./ui-config";
 import { configuredSurfaceApps, type SurfaceApp } from "./surface-config";
 export type { SurfaceApp, SurfaceRenderer, SurfacePresentation, SurfaceEnvironment } from "./surface-config";
 
 export async function surfaceApps(): Promise<readonly SurfaceApp[]> {
-  return configuredSurfaceApps();
+  return (await configuredSurfaceApps()).map(app => [mcpUiOrigin(), publicMsoOrigin()].includes(app.origin) ? { ...app, renderer: "remote" as const, reason: "MSO authentication stays in the owner browser." } : app);
 }
 
 const ROUTE_MAX = 1024;
@@ -17,7 +18,9 @@ export type ResolvedSurface = {
     | "diff"
     | "browser"
     | "app"
-    | "integrations";
+    | "integrations"
+    | "sessions"
+    | "assets";
   title: string;
   openPath: string;
   project?: string;
@@ -29,11 +32,7 @@ export async function publicSurfaceApps(): Promise<Array<
   Omit<SurfaceApp, "sandbox" | "externalAuthPath">
 >> {
   return (await surfaceApps()).map(
-    ({ sandbox: _sandbox, externalAuthPath: _externalAuthPath, ...app }) => ({
-      ...app,
-      renderer: "remote" as const,
-      reason: app.reason ?? "External apps use the remote-browser seam so the ChatGPT Page stays free of nested external iframes.",
-    }),
+    ({ sandbox: _sandbox, externalAuthPath: _externalAuthPath, ...app }) => app,
   );
 }
 
@@ -79,6 +78,7 @@ function safeDemoUrl(app: SurfaceApp, suffix: string, search: string): string {
   }
   const url = new URL(`${path}${suffix ? search : ""}`, app.origin);
   if (
+    (base && url.pathname !== base && !url.pathname.startsWith(base + "/")) ||
     url.origin !== app.origin ||
     url.username ||
     url.password ||
@@ -106,6 +106,8 @@ export async function resolveSurfaceRoute(
       title: "Integrations",
       openPath: "/integrations",
     };
+  if (["sessions", "assets"].includes(parts[0]) && parts.length === 1)
+    return { route, kind: parts[0] as "sessions" | "assets", title: parts[0] === "sessions" ? "Sessions" : "Session assets", openPath: "/assistant/mcp", ...(context?.project ? { project: context.project } : {}) };
   if (parts[0] === "monitor" && parts.length === 1)
     return {
       route,
@@ -142,16 +144,15 @@ export async function resolveSurfaceRoute(
     const source = await surfaceAppById(parts[1]);
     if (!source) throw new Error(`unknown MSO Page app: ${parts[1]}`);
     const suffix = parts.slice(2).join("/");
-    const app: SurfaceApp = {
-      ...source,
-      renderer: "remote",
-      reason: source.reason ?? "External apps use the remote-browser seam so the ChatGPT Page stays free of nested external iframes.",
-    };
+    const app = source;
+    if (context?.project && app.project && context.project !== app.project)
+      throw new Error("preview project does not match the reviewed app context");
     return {
       route,
       kind: "app",
       title: app.title,
       openPath: "/browser",
+      ...(app.project ? { project: app.project } : context?.project ? { project: context.project } : {}),
       app: { ...app, url: safeDemoUrl(app, suffix, url.search) },
     };
   }

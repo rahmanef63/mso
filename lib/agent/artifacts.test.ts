@@ -71,6 +71,14 @@ describe("session artifact storage",()=>{
   m.artifacts=Array.from({length:200},(_,i)=>({...a,id:"shot_"+i.toString(16).padStart(24,"0")}));await writeArtifactManifest(one,m);
   await expect(saveSessionArtifact(one,png,{...meta,feature:"quota-extra"})).rejects.toThrow(/quota/);
  });
+ it("does not count empty exec manifests as registered sessions and still enforces 128 populated sessions",async()=>{
+  await prepareSessionArtifacts(one);const a=await saveSessionArtifact(one,png,meta);
+  const ids=Array.from({length:128},(_,i)=>"20260905_130000_"+i.toString(16).padStart(8,"0"));
+  for(const id of ids){const owner={...one,id};await writeArtifactManifest(owner,{...(await readArtifactManifest(owner)),artifacts:[]});}
+  await expect(saveSessionArtifact(one,png,{...meta,feature:"after-empty-execs"})).resolves.toMatchObject({kind:"screenshot"});
+  for(const id of ids){const owner={...one,id};await writeArtifactManifest(owner,{...(await readArtifactManifest(owner)),artifacts:[a]});}
+  await expect(saveSessionArtifact(one,png,{...meta,feature:"over-populated-quota"})).rejects.toThrow("registered artifact session quota");
+ });
  it("accepts JSON evidence but rejects credential-shaped text",async()=>{
   expect((await saveSessionArtifact(one,Buffer.from('{"checks":5,"errors":[]}'),{...meta,feature:"report"})).mimeType).toBe("application/json");
   await expect(saveSessionArtifact(one,Buffer.from('{"password":"do-not-store"}'),meta)).rejects.toThrow(/credential/);

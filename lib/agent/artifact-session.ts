@@ -46,8 +46,18 @@ export async function sessionArtifactEnvironment(context: { principal?: string; 
 export async function assertPrincipalArtifactQuota(owner: ArtifactOwner, incomingBytes: number) {
   const p = artifactPaths(owner);
   const names = (await fs.readdir(p.principal)).filter((n) => SESSION_ID.test(n));
-  if (names.length > ARTIFACT_LIMITS.sessions) throw new Error("too many temporary artifact sessions; clean up expired sessions");
-  let bytes = incomingBytes;
-  for (const id of names) bytes += (await readArtifactManifest({ ...owner, id })).artifacts.reduce((n, a) => n + a.bytes, 0);
-  if (bytes > ARTIFACT_LIMITS.principalBytes) throw new Error("principal artifact quota reached; clean up expired artifacts");
+  // Exec preparation creates empty manifests too. Only sessions with registered
+  // artifacts consume the registered-session quota, including this pending write.
+  let bytes = incomingBytes, sessions = 0;
+  for (let start = 0; start < names.length; start += 32) {
+    const ids = names.slice(start, start + 32);
+    const manifests = await Promise.all(ids.map(id => readArtifactManifest({ ...owner, id })));
+    for (let i = 0; i < manifests.length; i++) {
+      const entries = manifests[i].artifacts;
+      if (entries.length || ids[i] === owner.id) sessions++;
+      bytes += entries.reduce((n, a) => n + a.bytes, 0);
+    }
+    if (sessions > ARTIFACT_LIMITS.sessions) throw new Error("registered artifact session quota reached; clean up expired artifacts");
+    if (bytes > ARTIFACT_LIMITS.principalBytes) throw new Error("principal artifact quota reached; clean up expired artifacts");
+  }
 }

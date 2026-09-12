@@ -74,7 +74,7 @@ Automatic cleanup starts lazily on the first authenticated artifact preparation/
 
 Manual `session_artifacts_cleanup` defaults to dry-run. Explicit `dry_run:false` applies the same implementation to that client's dormant sessions. Cleanup validates ownership, directory/file types and expected names, and removes only known regular files in the fixed artifact subdirectories. It does not recursively delete an arbitrary path. Corrupt manifests, unknown files, symlinks, hard links, broad permissions and active locks are skipped for owner review. Durable session history is never deleted by artifact retention.
 
-Managed originals are capped at 12 MiB each, 200 entries/128 MiB per session, and 1 GiB across one principal's registered artifacts. Registration also bounds the principal's temporary-session inventory to 128 directories. These are application-level **registered artifact** quotas, not a disk quota for arbitrary exec commands or all unrelated temporary files. Staged copies occupy additional space until retention cleanup.
+Managed originals are capped at 12 MiB each, 200 entries/128 MiB per session, and 1 GiB across one principal's registered artifacts. Registration bounds the principal to 128 sessions containing registered artifacts, including the pending write. Empty manifests created for exec preparation do not consume that quota. Manifests are scanned with bounded concurrency; corrupt/unsafe manifests still fail closed. These are application-level **registered artifact** quotas, not a disk quota for arbitrary exec commands or all unrelated temporary files. Staged copies occupy additional space until retention cleanup.
 
 ## Shared implementation and verification
 

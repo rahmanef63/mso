@@ -66,4 +66,12 @@ describe("owner session monitor", () => {
     mocks.records.mockResolvedValue([]);
     expect(await ownerSessionPage(Number.NaN)).toMatchObject({ page: 1, pages: 1, total: 0, sessions: [] });
   });
+  it("searches safe saved metadata across pages without searching private transcripts", async () => {
+    const rows = Array.from({length: 9}, (_, i) => record(i));
+    mocks.records.mockResolvedValue(rows); mocks.presence.mockResolvedValue([]);
+    expect(await ownerSessionPage(1, true, "Work 8")).toMatchObject({total:1, sessions:[{title:"Work 8"}]});
+    expect(await ownerSessionPage(1, true, "private transcript")).toMatchObject({total:0});
+    await expect(ownerSessionPage(1, true, "x".repeat(201))).rejects.toThrow("200 characters");
+  });
+
 });

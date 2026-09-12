@@ -14,7 +14,7 @@ const APP_SCHEMA = {
     id: { type: "string" }, title: { type: "string" }, description: { type: "string" }, origin: { type: "string" },
     startPath: { type: "string" }, renderer: { type: "string", enum: ["iframe", "remote"] },
     presentation: { type: "string", enum: ["inline", "fullscreen", "pip"] },
-    environment: { type: "string", enum: ["development", "preview", "production", "other"] }, reason: { type: "string" },
+    environment: { type: "string", enum: ["development", "preview", "production", "other"] }, reason: { type: "string" }, project: { type: "string" },
   },
   required: ["id", "title", "description", "origin", "startPath", "renderer", "presentation", "environment"],
   additionalProperties: false,
@@ -23,7 +23,7 @@ const APP_SCHEMA = {
 const PAGE_OUTPUT = {
   type: "object",
   properties: {
-    route: { type: "string" }, kind: { type: "string", enum: ["home", "monitor", "project", "diff", "browser", "app", "integrations"] },
+    route: { type: "string" }, kind: { type: "string", enum: ["home", "monitor", "project", "diff", "browser", "app", "integrations", "sessions", "assets"] },
     title: { type: "string" }, openPath: { type: "string" }, project: { type: "string" }, sha: { type: "string" },
     setup: { type: "object" }, integrations: {type:"object"},
     app: { type: "object" }, catalog: { type: "array", items: APP_SCHEMA },
@@ -34,7 +34,7 @@ const PAGE_OUTPUT = {
 
 const PAGE_INPUT = S({
   route: { type: "string", minLength: 1, maxLength: 1024, description: "MSO Page route. External URLs are rejected." },
-  project: { type: "string", description: "Project id/path/name for /project or /diff." },
+  project: { type: "string", description: "Project id/path/name for project/diff/assets, or exact reviewed project value for /apps/<id>." },
   sha: { type: "string", description: "Optional commit SHA for /diff." },
 }, ["route"]);
 
@@ -79,8 +79,8 @@ export const SURFACE_TOOLS: McpTool[] = [
   {
     name: "mso_surface_apps_list",
     title: "List MSO Page Apps",
-    description: "List the server-owned catalog of development or production apps available from the ChatGPT MSO Page. The model cannot add URLs or HTML. External apps are presented through the isolated remote-browser seam, so the ChatGPT Page itself does not embed third-party frames.",
-    chatgptDescription: "List reviewed apps available from the ChatGPT MSO Page. External apps use the remote-browser seam; the Page itself stays free of nested external frames.",
+    description: "List the server-owned catalog of development or production apps available from the ChatGPT MSO Page. The model cannot add URLs or HTML. Reviewed iframe apps render sandboxed previews; remote apps retain a browser handoff. Use the returned project identity when opening a project demo.",
+    chatgptDescription: "List reviewed apps available from the ChatGPT MSO Page. Use renderer, project, origin and startPath to choose a sandboxed demo or remote-browser handoff.",
     scope: "read", annotations: READ_ONLY,
     inputSchema: S({}),
     outputSchema: { type: "object", properties: { apps: { type: "array", items: APP_SCHEMA } }, required: ["apps"], additionalProperties: false },
@@ -89,8 +89,8 @@ export const SURFACE_TOOLS: McpTool[] = [
   {
     name: "render_mso_page",
     title: "Render MSO Page",
-    description: "Render the full MSO Page MCP App for native operator views or registry-backed external app handoff. Use an MSO-style route such as /, /integrations, /monitor, /project, /diff, /browser, or /apps/<reviewed-app-id>. For project/diff views pass project separately. This tool never accepts raw HTML or arbitrary external URLs; external apps are resolved only from the server-owned registry and handed to the remote-browser seam.",
-    chatgptDescription: "Render the full secure MSO Page in ChatGPT. Native routes: /, /integrations, /monitor, /project, /diff, /browser; configured app route: /apps/<configured-app-id>. Raw HTML and arbitrary URLs are rejected.",
+    description: "Render the full MSO Page MCP App for native operator views or registry-backed external app handoff. Use an MSO-style route such as /, /integrations, /monitor, /project, /diff, /sessions, /assets, /browser, or /apps/<reviewed-app-id>. For project/diff views pass project separately. This tool never accepts raw HTML or arbitrary external URLs; external apps are resolved from the server-owned registry, embedded only when renderer=iframe, otherwise handed to the browser.",
+    chatgptDescription: "Render the full secure MSO Page in ChatGPT. Native routes: /, /integrations, /monitor, /project, /diff, /sessions, /assets, /browser; configured app route: /apps/<configured-app-id>. Raw HTML and arbitrary URLs are rejected.",
     scope: "read", annotations: READ_ONLY,
     inputSchema: PAGE_INPUT,
     outputSchema: PAGE_OUTPUT,

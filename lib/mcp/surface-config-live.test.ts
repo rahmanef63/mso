@@ -24,7 +24,7 @@ const app = (id: string, origin: string) => ({
 });
 
 describe("owner-local MSO Page surface registry", () => {
-  it("re-reads reviewed apps without adding external frame CSP to the ChatGPT Page", async () => {
+  it("re-reads reviewed apps and keeps exact frame CSP aligned with the same HTML snapshot", async () => {
     root = await mkdtemp(join(tmpdir(), "mso-surfaces-"));
     const registry = join(root, "surface-apps.json");
     vi.stubEnv("MSO_SURFACE_APPS_JSON", undefined);
@@ -39,9 +39,9 @@ describe("owner-local MSO Page surface registry", () => {
     expect((await configuredSurfaceApps()).map((row) => row.id)).toEqual(["alpha"]);
     let page = await msoPageResource();
     expect(page.text).toContain('"id":"alpha"');
-    expect((page._meta.ui as { csp: { frameDomains?: string[] } }).csp.frameDomains).toBeUndefined();
-    expect((page._meta["openai/widgetCSP"] as { frame_domains?: string[] }).frame_domains).toBeUndefined();
-    expect(page.text).toContain('"renderer":"remote"');
+    expect((page._meta.ui as { csp: { frameDomains?: string[] } }).csp.frameDomains).toEqual(["https://alpha.example.test"]);
+    expect((page._meta["openai/widgetCSP"] as { frame_domains?: string[] }).frame_domains).toEqual(["https://alpha.example.test"]);
+    expect(page.text).toContain('"renderer":"iframe"');
     expect(page.text).not.toContain("createElement(\"iframe\")");
 
     await writeFile(registry, JSON.stringify([app("beta", "https://beta.example.test")]), { mode: 0o600 });
@@ -49,9 +49,9 @@ describe("owner-local MSO Page surface registry", () => {
     page = await msoPageResource();
     expect(page.text).not.toContain('"id":"alpha"');
     expect(page.text).toContain('"id":"beta"');
-    expect((page._meta.ui as { csp: { frameDomains?: string[] } }).csp.frameDomains).toBeUndefined();
-    expect((page._meta["openai/widgetCSP"] as { frame_domains?: string[] }).frame_domains).toBeUndefined();
-    expect(page.text).toContain('"renderer":"remote"');
+    expect((page._meta.ui as { csp: { frameDomains?: string[] } }).csp.frameDomains).toEqual(["https://beta.example.test"]);
+    expect((page._meta["openai/widgetCSP"] as { frame_domains?: string[] }).frame_domains).toEqual(["https://beta.example.test"]);
+    expect(page.text).toContain('"renderer":"iframe"');
   });
 
   it("keeps an explicitly defined JSON env value as the deployment override", async () => {

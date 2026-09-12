@@ -24,7 +24,7 @@ function rpcRequest(method,params){
 function acceptPageResult(result){
   captureIntegrationAccess(result);captureIntegrationAccess(window.openai&&window.openai.toolResponseMetadata);
   const value=unbox(result);
-  if(!value||typeof value!=="object"||!validRoute(value.route)||!["home","monitor","project","diff","browser","app","integrations"].includes(value.kind))return false;
+  if(!value||typeof value!=="object"||!validRoute(value.route)||!["home","monitor","project","diff","browser","app","integrations","sessions","assets"].includes(value.kind))return false;
   if(value.kind==="app"&&!safeAppResult(value.app))return false;
   const key=JSON.stringify([value.route,value.kind,value.project,value.sha,value.app?.url,value.setup?.expiresAt]);
   if(key===lastOutputKey){if(value.kind==="integrations"&&value.setup&&integrationAccess&&!body.querySelector("form")){current=value;render()}return true;}

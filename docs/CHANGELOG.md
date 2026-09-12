@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `mcp` unify responsive previews and recover session storage
 - `mcp` add project automation flows and dynamic MCP sessions
 
 **Fixed**

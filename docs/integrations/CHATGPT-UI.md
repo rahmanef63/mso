@@ -6,7 +6,7 @@ headless; clients without MCP Apps keep structured/text results.
 | Surface | Entry tool | Resource | Purpose |
 | --- | --- | --- | --- |
 | Block | `render_mso_block` | `ui://mso/block-v3.html` | Validation, actions, bounded CRUD input/output |
-| Page | `render_mso_page`, `integration_setup_open` | `ui://mso/page-v14.html` | Native operator views and external-app browser handoff |
+| Page | `render_mso_page`, `integration_setup_open` | `ui://mso/page-v15.html` | Native workspaces, session assets and reviewed project previews |
 
 ## Layout and identity
 
@@ -22,11 +22,11 @@ the enclosing frame and may impose a smaller fixed height. Fullscreen/PiP requir
 explicit click and are hidden when the host declares them unsupported.
 
 Standard host context controls theme, display mode, dimensions and safe-area insets.
-Legacy OpenAI globals and the browser color-scheme remain compatible fallbacks.
+Standard `styles.variables` supplies host colors, type, font family and corners; removing an override restores the shared defaults. Legacy OpenAI globals and the browser color-scheme remain compatible fallbacks. Layout responds to the container, including a 320 × 200 viewport; narrow Integrations uses a native service selector instead of a nested scrolling rail.
 The compact header, readable controls, flat navigation and shared integration styles
 follow the existing MSO workbench. Block, Page and native Integrations embed the existing
 `public/icon.svg` mark without an image request; the shell uses that same public asset.
-Presentation colors and fonts remain in `lib/presentation/widget-tokens.ts`.
+Presentation colors, fonts, type scale, spacing, control size, focus, radii and scroll tokens remain in `lib/presentation/widget-tokens.ts`.
 
 ## Block behavior
 
@@ -45,14 +45,15 @@ Private widget state contains current form values. Block has no network or frame
 | `/monitor` | Bounded server status through `vps_status` |
 | `/project` | Explicit project context; `project_get` |
 | `/diff` | Explicit project and optional SHA; `project_diff` |
+| `/sessions` | Latest 50 safe saved conversation summaries belonging to the authenticated MCP client |
+| `/assets` | Paginated private session assets and bounded image/JSON previews through existing artifact tools |
 | `/browser` | Open the MSO remote browser |
-| `/apps/<reviewed-id>` | Validate the deployment registry and hand off to the remote browser |
+| `/apps/<reviewed-id>` | Reviewed sandboxed iframe preview, or explicit remote-browser handoff |
 
-Page does not mount third-party iframes. It accepts neither arbitrary HTML nor external
-URLs from the model. The bounded owner registry (`~/.mso/surface-apps.json`, or the explicit
+Page mounts a nested frame only for an owner-reviewed registry row with `renderer:"iframe"`. It accepts neither arbitrary HTML nor external URLs from the model. The bounded owner registry (`~/.mso/surface-apps.json`, or the explicit
 `MSO_SURFACE_APPS_JSON` override) supplies app identity, HTTPS origin and approved path.
 Public source defaults to an empty app catalog. Resource reads rebuild this safe catalog;
-the browser rechecks app identity, origin and path before exposing a handoff.
+the browser rechecks app identity, origin and path before mounting or opening it. Resource HTML and frame CSP are built from the same snapshot. Optional `project` identifies the reviewed project; a conflicting context fails explicitly. Sandbox tokens come only from that snapshot, default to `allow-scripts`, and exclude top navigation. The cockpit/widget origin is always remote-only. Preview failure exposes Open preview / MSO Browser without stripping frame headers or passing MSO credentials.
 
 Native integration forms and tools use the same capability/connection contracts as the
 browser. Credentials travel directly to MSO using private, expiring setup authorization,
@@ -73,19 +74,18 @@ Page-bound tools advertise standard `ui.resourceUri` only. Block also retains it
 `openai/outputTemplate` compatibility binding. Every ChatGPT tool has an output schema;
 exact tools, counts and scopes are generated in [the catalog](../generated/MCP-CATALOG.md).
 
-Resource CSP is explicit: neither surface allows nested frames; Page permits its MSO
-origin for private setup requests. `OS_MCP_UI_ORIGIN` controls the widget origin, otherwise
+Resource CSP is explicit: Block allows no nested frames; Page includes only exact reviewed iframe origins and permits its MSO origin for private setup requests. OpenAI requires stricter review for `frameDomains`; this is an official review boundary, not a blanket iframe ban. `OS_MCP_UI_ORIGIN` controls the widget origin, otherwise
 the configured public origin derives it. Legacy redirect metadata supports Open in MSO.
 
 Only the two current resources are listed. Older Block/Page URIs remain read aliases for
-current bytes, including Block v2 and Page v13. `workflow_status` and `render_mso_surface`
+current bytes, including Block v2 and Page v14. `workflow_status` and `render_mso_surface`
 remain app-only compatibility tools. `workflow_start` has no UI binding.
 
 ## Verification and deployment
 
 Run `node scripts/e2e/mcp-page.mjs` for a small initial host frame, standard-versus-legacy
-height precedence, fixed/flexible resize, light/dark theme, 320–1280 px layouts, logo,
-Add MCP and fullscreen. The release gate runs this browser contract automatically.
+height precedence, fixed/flexible resize, light/dark theme, 280–1280 px widths and 320 × 200 layouts, logo,
+Add MCP, native sessions/assets/monitor, host design tokens, interactive sandboxed demos, WCAG checks and fullscreen. The release gate runs this browser contract automatically.
 `node scripts/e2e/integrations.mjs` adds shared manager user CRUD, keyboard selection,
 provider search and 320–1920 px reflow. Production release journeys verify authorization,
 real server handlers and provider revocation using synthetic stores.

@@ -49,9 +49,12 @@ export async function GET(req: NextRequest) {
     try {
       const id = req.nextUrl.searchParams.get("id");
       const page = Number(req.nextUrl.searchParams.get("page") || 1);
-      const result = id ? await ownerSessionDetail(id, page) : await ownerSessionPage(page, req.nextUrl.searchParams.get("includeOffline") === "1");
+      const result = id ? await ownerSessionDetail(id, page) : await ownerSessionPage(page, req.nextUrl.searchParams.get("includeOffline") === "1", req.nextUrl.searchParams.get("q") || "");
       return NextResponse.json(result || { error: "session_not_found" }, { status: result ? 200 : 404, headers: { "Cache-Control": "private, no-store" } });
-    } catch { return NextResponse.json({ error: "session_monitor_unavailable" }, { status: 400 }); }
+    } catch (cause) {
+      const invalid = cause instanceof Error && ["invalid_session_id", "session search exceeds 200 characters"].includes(cause.message);
+      return NextResponse.json({ error: invalid ? "invalid_monitor_query" : "session_monitor_unavailable" }, { status: invalid ? 400 : 503, headers: { "Cache-Control": "private, no-store" } });
+    }
   }
   const ref = (
     req.nextUrl.searchParams.get("ref") ||

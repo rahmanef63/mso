@@ -28,7 +28,9 @@ function pagination(total: number, requested: number, pageSize: number) {
   return { total, page, pages, pageSize };
 }
 /** Owner dashboard only. Model-facing directory remains strictly principal-scoped. */
-export async function ownerSessionPage(requested = 1, includeOffline = false): Promise<SessionPage> {
+export async function ownerSessionPage(requested = 1, includeOffline = false, query = ""): Promise<SessionPage> {
+  if (query.length > 200) throw new Error("session search exceeds 200 characters");
+  const search = query.trim().toLowerCase();
   const presence = await listLocalAgentPresenceOwner();
   const now = Date.now(), byId = new Map(presence.map(row => [row.sessionId, row]));
   // Active refreshes must not load thousands of inactive transcripts from disk.
@@ -42,7 +44,7 @@ export async function ownerSessionPage(requested = 1, includeOffline = false): P
   }
   const all = records.map(row => card(row, byId.get(row.id), now));
   const active = all.filter(row => row.status !== "offline" && row.status !== "ended");
-  const rows = (includeOffline ? all : active).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt) || a.id.localeCompare(b.id));
+  const rows = (includeOffline ? all : active).filter(row => !search || [row.id, row.name, row.title, row.source, row.cwd].some(value => value?.toLowerCase().includes(search))).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt) || a.id.localeCompare(b.id));
   const paging = pagination(rows.length, requested, SESSION_PAGE_SIZE);
   return { ...paging, sessions: rows.slice((paging.page - 1) * paging.pageSize, paging.page * paging.pageSize),
     activeCount: active.length, observedAt: new Date(now).toISOString() };

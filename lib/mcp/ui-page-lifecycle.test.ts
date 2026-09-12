@@ -15,7 +15,7 @@ describe("MCP Page lifecycle and cached resource migration", () => {
     expect(await listUiResources()).toHaveLength(2);
     expect((await listUiResources()).some((resource) => resource.uri === LEGACY_PAGE_V2_URI)).toBe(false);
   });
-  it("includes the Apps handshake and iframe-free remote handoff contract in valid self-contained JavaScript", async () => {
+  it("includes the Apps handshake and reviewed preview contract in valid self-contained JavaScript", async () => {
     const html = (await readUiResource(MSO_PAGE_URI))?.text ?? "";
     const script = inlineScripts(html)[0];
     expect(script).toBeTruthy();
@@ -28,7 +28,7 @@ describe("MCP Page lifecycle and cached resource migration", () => {
       'if(key===lastOutputKey){',
       'dimensions.height,dimensions.maxHeight,api.maxHeight',
       'availableDisplayModes:["inline","fullscreen","pip"]',
-      'stageBase("Remote-browser handoff")',
+      'frame.setAttribute("sandbox",safe.sandbox)',
       'openPath("/browser")',
     ]) expect(script).toContain(marker);
     expect(html).toContain('height:var(--page-height)');
@@ -36,7 +36,7 @@ describe("MCP Page lifecycle and cached resource migration", () => {
     expect(html).toContain('html[data-display-mode="fullscreen"] .surface{height:100vh;height:100dvh');
     expect(html).not.toContain('presentation:"fullscreen"');
     expect(script).not.toContain('play-together:embed-ready');
-    expect(script).not.toContain('createElement("iframe")');
+    expect(script).toContain('el("iframe","preview-frame")');
     expect(script).not.toContain("mountReviewedFrame");
   });
 });

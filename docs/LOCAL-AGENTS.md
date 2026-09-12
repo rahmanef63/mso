@@ -201,9 +201,7 @@ New same-host communication should use Local Agents. Public/remote interoperabil
 ## Sessions dashboard and explicit handover
 
 Settings → MCP → **Sessions** is an Owner-only observation surface for durable external MCP,
-MSO CLI and recorded Alfa sessions. The default filter shows valid presence leases, six cards
-per page. All stored includes offline/ended records from the existing bounded session store
-(up to 5,000 entries, with unreadable records isolated). A plain terminal without an MSO agent
+MSO CLI and recorded Alfa sessions. The default All stored filter includes offline/ended records, six rows per page. Active shows valid presence leases. Search matches safe name, ID, title, source and project metadata across all readable records, not raw transcripts. A plain terminal without an MSO agent
 session is not a durable agent session. A lease does not prove a subscribed receiver.
 
 Click a card for metadata and newest-first tool/workflow events (20 per page). The monitor
@@ -211,8 +209,8 @@ returns allowlisted, redacted fields; no raw transcript, memory snapshot, princi
 arguments, or tool output. Existing event compaction/archival retention still applies. The
 owner browser polls every 15 seconds while visible and displays the observation time.
 `GET /api/v1/agent-sessions?view=monitor&page=1` is the same Owner-only API, with
-`includeOffline=1` for retained records; `id=<exact-session-id>&page=1` returns event pages.
-Responses are private/no-store. Observation does not broaden model-facing messaging rights.
+`includeOffline=1` for retained records and optional `q` (max 200 characters) for search; `id=<exact-session-id>&page=1` returns event pages.
+Responses are private/no-store. Transient refresh failures retain the last successful observation with an explicit error; changing query or losing Owner access clears it. Presence writes prune after insertion to a maximum of 1,000 leases; the historical 1,001-entry shape is validated, trimmed on read and repaired by the next locked write. Durable session records are separate and never deleted by presence pruning. Observation does not broaden model-facing messaging rights.
 
 The in-app **Handover guide** includes copyable examples and the recommended JSON Schema
 from `lib/contracts/session-handover.ts`. It is explicit message content, not a new MCP/A2A

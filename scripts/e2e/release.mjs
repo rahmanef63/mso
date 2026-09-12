@@ -20,8 +20,9 @@ try {
     page.on("pageerror", error => errors.push(error.message));
     await page.goto(fixture.base + "/integrations");
     await expect(page.getByRole("heading", { name: "Integrations", exact: true, level: 1 })).toBeVisible();
-    await page.getByLabel("Search services").fill("GitHub");
-    await expect(page.getByRole("button", { name: "GitHub", exact: true })).toBeVisible();
+    if (viewport.width < 600) await page.getByRole("combobox", { name: "Service", exact: true }).selectOption("github");
+    else {await page.getByLabel("Search services").fill("GitHub");await page.getByRole("button", { name:"GitHub", exact:true }).click();}
+    await expect(page.getByRole("heading", {name:"GitHub", exact:true})).toBeVisible();
     await page.getByText("Connection methods & setup guides", { exact: true }).click();
     await expect(page.getByRole("link", { name: "Official setup page" }).first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -70,6 +71,7 @@ try {
   await page.locator('input[type="password"]').fill(fixture.password);
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
   await expect(page).toHaveURL(fixture.base + "/integrations");
+  await page.getByLabel("Account and tools", {exact:true}).click();
   await expect(page.getByRole("group", { name: "Credential owner" }).getByRole("button")).toContainText("fixture");
   await page.getByRole("button", { name: /^Self-hosted Convex(?: 1)?$/ }).click();
   await page.getByRole("button", { name: "Verify", exact: true }).click();

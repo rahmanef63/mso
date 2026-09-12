@@ -12,12 +12,12 @@ export async function mcpSessionsJourney(page, fixture) {
     const file = path.join(process.env.MSO_SCREENSHOT_DIR, "mcp-sessions-" + page.viewportSize().width + ".png");
     await page.screenshot({ path: file }); await chmod(file, 0o600);
   }
-  await expect(page.getByText("Page 1 of 2 · 8 sessions", { exact: true })).toBeVisible();
+  await expect(page.getByText("Page 1 of 2 · 9 sessions", { exact: true })).toBeVisible();
   const response = await page.request.get(fixture.base + "/api/v1/agent-sessions?view=monitor&includeOffline=1");
   const raw = await response.text();
   expect(response.status()).toBe(200); expect(raw).not.toMatch(/PRIVATE_TRANSCRIPT|PRIVATE_CONTEXT|principalHash/);
   await page.getByRole("button", { name: "Next sessions page", exact: true }).click();
-  await expect(cards).toHaveCount(2);
+  await expect(cards).toHaveCount(3);
   await cards.first().click();
   await expect(page.getByRole("region", { name: "Session activity log" })).toBeVisible();
   await expect(page.getByText("Page 1 of 2 · 25 events", { exact: true })).toBeVisible();
@@ -33,10 +33,15 @@ export async function mcpSessionsJourney(page, fixture) {
   expect(audit.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target) }))).toEqual([]);
   await page.getByRole("button", { name: "Back to session", exact: true }).click();
   await page.getByRole("button", { name: "Back to sessions", exact: true }).click();
-  await page.getByRole("button", { name: "All stored", exact: true }).click();
-  await expect(page.getByText("Page 1 of 2 · 9 sessions", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Active", exact: true }).click();
+  await expect(page.getByText("Page 1 of 2 · 8 sessions", { exact: true })).toBeVisible();
   audit = await new AxeBuilder({ page }).include('[data-slot="mcp-page"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
   expect(audit.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target) }))).toEqual([]);
+  await page.getByRole("button", { name:"All stored", exact:true }).click();
+  const search=page.getByRole("searchbox", {name:"Search saved sessions"});
+  await search.fill("Session fixture 8"); await page.getByRole("button", {name:"Search",exact:true}).click();
+  await expect(cards).toHaveCount(1); await expect(cards.first()).toContainText("Session fixture 8");
+  await search.fill(""); await expect(cards).toHaveCount(6);
   // Keyboard navigation updates both selected tab and actual focus.
   await tab.focus(); await tab.press("ArrowRight");
   await expect(page.getByRole("tab", { name: /^Access MSO/ })).toBeFocused();
@@ -45,6 +50,7 @@ export async function mcpSessionsJourney(page, fixture) {
   await page.route("**/api/v1/agent-sessions?view=monitor&*", route => route.fulfill({ status: 503, body: "{}" }));
   await page.getByRole("button", { name: "Refresh sessions", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Sessions could not be loaded" })).toBeVisible();
+  await expect(cards).toHaveCount(6); // Last successful observation remains visible.
   await page.unroute("**/api/v1/agent-sessions?view=monitor&*");
   await page.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(cards).toHaveCount(6);

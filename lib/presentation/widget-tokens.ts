@@ -51,10 +51,22 @@ color-scheme:light;
 --warning:#ff9500;
 --info:#0060df;
 --destructive-text:#d70015;
---font-display:"Plus Jakarta Sans",Inter,ui-sans-serif,system-ui,sans-serif;
---font-body:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+--font-display:var(--font-family,ui-sans-serif,system-ui,sans-serif);
+--font-body:var(--font-family,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif);
 --font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
---radius:10px;
+--radius:var(--border-radius-md,.5rem);
+--radius-control:var(--border-radius-sm,.375rem);
+--radius-panel:var(--border-radius-lg,.75rem);
+--radius-pill:999px;
+--space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;--space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;
+--type-caption:var(--font-text-xs-size,.75rem);--type-small:var(--font-text-sm-size,.875rem);--type-body:var(--font-text-md-size,1rem);
+--type-title:var(--font-heading-md-size,1.5rem);--type-section:var(--font-heading-sm-size,1.125rem);
+--line-body:var(--font-text-md-line-height,1.5);--line-title:var(--font-heading-md-line-height,1.25);
+--weight-medium:var(--font-weight-medium,500);--weight-strong:var(--font-weight-semibold,600);
+--control-size:2.75rem;--icon-size:1.25rem;--brand-size:2rem;
+--stroke:1px;--focus-width:2px;--focus-gap:2px;
+--measure:72rem;--measure-copy:65ch;
+--scroll-thumb:var(--sep-strong);
 }
 :root[data-theme="dark"]{color-scheme:dark;${DARK_TOKENS}}
 @media(prefers-color-scheme:dark){:root:not([data-theme]){color-scheme:dark;${DARK_TOKENS}}}
@@ -68,3 +80,11 @@ function applyHostTheme(){
   else document.documentElement.removeAttribute("data-theme");
 }
 `;
+
+/** Standard MCP Apps host styles override the shared defaults without loading fonts remotely. */
+export const MSO_HOST_STYLE_ALIASES = {
+  "--text": "--color-text-primary", "--text-dim": "--color-text-secondary", "--text-faint": "--color-text-tertiary",
+  "--surface": "--color-background-primary", "--field": "--color-background-secondary", "--hover": "--color-background-tertiary",
+  "--sep": "--color-border-secondary", "--sep-strong": "--color-border-primary", "--os-accent": "--color-text-info",
+  "--success-text": "--color-text-success", "--destructive-text": "--color-text-danger",
+} as const;

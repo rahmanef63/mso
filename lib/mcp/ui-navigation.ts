@@ -8,7 +8,7 @@ export function openInMsoControls(primaryClass = "primary", targetPath = "/"): s
   const classAttr = primaryClass ? ` class="${primaryClass}"` : "";
   const path = safePath(targetPath);
   const href = new URL(path, MSO_ORIGIN).href;
-  return `<button${classAttr} type="button" id="open" data-mso-path="${path}">Open in MSO ↗</button><a class="open-direct" id="open-direct" href="${href}" target="_blank" rel="noopener noreferrer" hidden>Open directly ↗</a><span class="open-feedback" id="open-feedback" role="status" aria-live="polite"></span>`;
+  return `<button${classAttr} type="button" id="open" data-mso-path="${path}"><span class="open-label">Open in MSO</span> <span class="open-mark" aria-hidden="true">&#8599;</span></button><a class="open-direct" id="open-direct" href="${href}" target="_blank" rel="noopener noreferrer" hidden>Open directly ↗</a><span class="open-feedback" id="open-feedback" role="status" aria-live="polite"></span>`;
 }
 
 export const OPEN_IN_MSO_SCRIPT = String.raw`
@@ -16,6 +16,7 @@ const MSO_ORIGIN="${MSO_ORIGIN}";
 const openButton=document.getElementById("open");
 const openDirect=document.getElementById("open-direct");
 const openFeedback=document.getElementById("open-feedback");
+function setOpenLabel(value){if(openButton)(openButton.querySelector(".open-label")||openButton).textContent=value}
 function msoTargetUrl(){
   const path=openButton&&typeof openButton.dataset.msoPath==="string"?openButton.dataset.msoPath:"/";
   try{return new URL(path&&path.startsWith("/")&&!path.startsWith("//")?path:"/",MSO_ORIGIN).href}catch(_){return MSO_ORIGIN}
@@ -34,16 +35,16 @@ function configureOpenInApp(){
 async function openMso(){
   if(!openButton)return;
   openButton.disabled=true;
-  openButton.textContent="Opening…";
+  setOpenLabel("Opening…");
   if(openFeedback)openFeedback.textContent="";
   try {
-    if(!window.openai||typeof window.openai.openExternal!=="function") throw new Error("openExternal unavailable");
-    await window.openai.openExternal({href:msoTargetUrl(),redirectUrl:false});
-    openButton.textContent="Opened ✓";
+    if(typeof rpcRequest==="function"&&typeof hostConnected!=="undefined"&&hostConnected)await rpcRequest("ui/open-link",{url:msoTargetUrl()});
+    else {if(!window.openai||typeof window.openai.openExternal!=="function")throw new Error("openExternal unavailable");await window.openai.openExternal({href:msoTargetUrl(),redirectUrl:false});}
+    setOpenLabel("Opened");
     if(openFeedback)openFeedback.textContent="If no tab opened, use Open directly.";
     if(openDirect)openDirect.hidden=false;
   } catch (_) {
-    openButton.textContent="Try again";
+    setOpenLabel("Try again");
     if(openFeedback)openFeedback.textContent="Automatic open unavailable. Use Open directly.";
     if(openDirect)openDirect.hidden=false;
   } finally {

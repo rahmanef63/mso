@@ -18,6 +18,7 @@ export type SurfaceApp = {
   sandbox?: string;
   externalAuthPath?: string;
   reason?: string;
+  project?: string;
 };
 
 const MAX_APPS = 16;
@@ -83,12 +84,14 @@ function parseApp(entry: unknown, seen: Set<string>): SurfaceApp | null {
   if (sandbox && (sandbox.length > 240 || !sandbox.split(/\s+/).every((token) => SAFE_SANDBOX.has(token)))) return null;
   const externalAuthPath = row.externalAuthPath === undefined ? undefined : safeAuthPath(row.externalAuthPath);
   if (row.externalAuthPath !== undefined && !externalAuthPath) return null;
+  const project = boundedText(row.project, true);
+  if (row.project !== undefined && !project) return null;
   seen.add(id);
   const reason = boundedText(row.reason);
   return {
     id, title, description: boundedText(row.description) ?? "", origin, startPath, renderer,
     presentation: presentation as SurfacePresentation, environment: environment as SurfaceEnvironment,
-    ...(sandbox ? { sandbox } : {}), ...(externalAuthPath ? { externalAuthPath } : {}), ...(reason ? { reason } : {}),
+    ...(project ? { project } : {}), ...(sandbox ? { sandbox } : {}), ...(externalAuthPath ? { externalAuthPath } : {}), ...(reason ? { reason } : {}),
   };
 }
 

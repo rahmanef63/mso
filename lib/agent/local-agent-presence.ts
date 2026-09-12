@@ -26,7 +26,7 @@ function validPresence(value: unknown): value is LocalAgentPresenceRecord {
 function validStore(value: unknown): value is PresenceStore {
   if (!value || typeof value !== "object") return false;
   const row = value as PresenceStore;
-  return row.version === 1 && Array.isArray(row.entries) && row.entries.length <= MAX_ENTRIES && row.entries.every(validPresence);
+  return row.version === 1 && Array.isArray(row.entries) && row.entries.length <= MAX_ENTRIES + 1 && row.entries.every(validPresence);
 }
 
 function leaseMs(): number {
@@ -54,7 +54,10 @@ function allocateAlias(entries: LocalAgentPresenceRecord[], owner: string): stri
 }
 
 async function readStore(): Promise<PresenceStore> {
-  return readLocalAgentStore(STORE_PATH, MAX_STORE_BYTES, EMPTY, validStore);
+  // Accept only the historical off-by-one shape; all entries still pass validation.
+  // Trim ephemeral leases on read; the next locked write persists the repair.
+  const store = await readLocalAgentStore(STORE_PATH, MAX_STORE_BYTES, EMPTY, validStore);
+  return { ...store, entries: prune(store.entries, Date.now()) };
 }
 
 function prune(entries: LocalAgentPresenceRecord[], now: number): LocalAgentPresenceRecord[] {
@@ -96,8 +99,7 @@ export async function touchLocalAgentPresence(
       lastSeenAt: at,
       leaseUntil: new Date(now + leaseMs()).toISOString(),
     };
-    store.entries = prune(store.entries.filter((row) => !(row.sessionId === sessionId && row.principalHash === owner)), now);
-    store.entries.push(next);
+    store.entries = prune([...store.entries.filter((row) => !(row.sessionId === sessionId && row.principalHash === owner)), next], now);
     await writeLocalAgentStore(STORE_PATH, store, MAX_STORE_BYTES);
     return next;
   });

@@ -13,8 +13,8 @@ describe("session monitor route", () => {
   });
   it("uses explicit monitor pagination with private no-store responses", async () => {
     mocks.page.mockResolvedValue({ sessions: [], total: 0 });
-    const response = await GET(new NextRequest("http://localhost/api/v1/agent-sessions?view=monitor&page=2&includeOffline=1"));
-    expect(mocks.page).toHaveBeenCalledWith(2, true);
+    const response = await GET(new NextRequest("http://localhost/api/v1/agent-sessions?view=monitor&page=2&includeOffline=1&q=fixture"));
+    expect(mocks.page).toHaveBeenCalledWith(2, true, "fixture");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
   it("returns 404 for a missing exact session and does not expose store error details", async () => {
