@@ -87,6 +87,7 @@ Commands:
   model [ref]          Select active model from a connected provider
   onboard [-y]         Guided setup: AI, apps, infrastructure, skills
   setup                Alias for onboard
+  flow list|inspect|run|status|save|delete  Project API/MCP automation (flow --help)
   integrations  Named credential users, connections, sources, setup and execution
   provider *           Infrastructure credentials: list | set | rm | doctor
   providers *          Alias for provider

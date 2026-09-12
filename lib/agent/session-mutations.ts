@@ -66,7 +66,7 @@ export async function renameAgentSessionName(
 ): Promise<AgentSession> {
   const name = requireAgentSessionName(value);
   const owner = principalHash(principal);
-  return withSecurityStoreLock(sessionNameLockTarget(owner, name), async () => {
+  return withSecurityStoreLock(sessionNameLockTarget(owner), async () => {
     const duplicate = (await listSessionRecords()).find((row) =>
       row.principalHash === owner && row.id !== id && row.name === name,
     );

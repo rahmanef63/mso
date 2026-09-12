@@ -44,8 +44,20 @@ selected bearer. No account fallback or scope escalation occurs.
 
 Tools remain dynamic data behind `project_capabilities`, `project_mcp_tools`
 and `project_mcp_call`; no project-specific tool joins the MSO global catalog.
-Discovery follows at most eight pages and 128 permitted tools, and fails explicitly
-on incomplete/repeated cursors instead of claiming an exhaustive partial catalog.
+Discovery is paginated (default 50, maximum 100 tools per page), with opaque cursors
+bound to the connection identity and upstream page. Follow nextCursor until absent.
+A 30-second bounded cache reuses HTTP sessions and discovery; connection authorization
+is checked before reuse. Private credential rotation invalidates cached identity.
+The legacy aggregate helper still stops after eight upstream pages and fails explicitly
+if incomplete. Downstream responses are bounded to 2 MiB; an individually very large
+descriptor may exceed the preferred 48 KiB page budget.
+
+HTTP probes modern server/discover once and falls back to legacy initialize when unsupported.
+Modern stdio is opt-in with protocolVersion: 2026-07-28. Rich image/audio/resource results
+are preserved; downstream UI metadata is namespaced rather than trusted as MSO UI origins.
+
+Use Integrations → Add MCP or project_mcp_manage to register an HTTPS endpoint with
+revision checks. See [automation flows](AUTOMATION-FLOWS.md) for CLI, sessions and assets.
 Tool arguments are objects, bounded to 128 KiB; downstream schema validation remains
 the application's authority. Descriptions/results are untrusted tool data.
 

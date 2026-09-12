@@ -33,7 +33,7 @@ export async function startWorkflow(input: {
     startedAt: new Date().toISOString(), steps: [],
   };
   (store.active[actor] ??= {})[workflow.id] = workflow;
-  await persistWorkflowStore(store);
+  await persistWorkflowStore(store, true);
   return { workflow, activeWorkflowCount: Object.keys(store.active[actor]).length };
 }
 
@@ -43,7 +43,7 @@ export async function activeWorkflowForActor(actor?: string, workflowId?: string
   const changed = pruneStaleWorkflows(store, actor);
   const bucket = store.active[actor];
   const workflow = workflowId ? bucket?.[workflowId] ?? null : (bucket && Object.keys(bucket).length === 1 ? Object.values(bucket)[0] : null);
-  if (changed) await persistWorkflowStore(store);
+  if (changed) await persistWorkflowStore(store, true);
   return workflow;
 }
 
@@ -56,7 +56,7 @@ export async function recordWorkflowStep(actor: string | undefined, workflowId: 
   if (!sanitized) return;
   workflow.steps.push(sanitized);
   if (workflow.steps.length > 300) workflow.steps.splice(0, workflow.steps.length - 300);
-  await persistWorkflowStore(store);
+  await persistWorkflowStore(store, true);
 }
 
 export async function cancelWorkflow(input: { actor?: string; workflowId: string; reason?: string }): Promise<CancelWorkflowResult> {
@@ -65,7 +65,7 @@ export async function cancelWorkflow(input: { actor?: string; workflowId: string
   const workflow = workflowFor(store, actor, input.workflowId);
   if (!workflow) throw new Error("workflow_id was not found for this MSO session");
   removeActiveWorkflow(store, actor, input.workflowId);
-  await persistWorkflowStore(store);
+  await persistWorkflowStore(store, true);
   const reason = input.reason ? safeMemoryText(input.reason, 500) || undefined : undefined;
   return { workflow, ...(reason ? { reason } : {}) };
 }

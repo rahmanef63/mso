@@ -1,6 +1,7 @@
+import { isIP } from "node:net";
 import type { InfraProviderValues } from "./types";
 import { readInfraProvider } from "./store";
-import { HOST_RE, IPV4_RE, obj, request } from "./http";
+import { HOST_RE, obj, request } from "./http";
 
 const API = "https://api.cloudflare.com/client/v4";
 const MAX_PAGE = 20;
@@ -53,8 +54,8 @@ async function zoneFor(fqdn: string): Promise<{ id: string; name: string; token:
 function validateDns(name: string, type: string, content: string): void {
   if (!HOST_RE.test(name)) throw new Error("invalid DNS hostname");
   if (!["A", "AAAA", "CNAME", "TXT"].includes(type)) throw new Error("DNS type must be A, AAAA, CNAME, or TXT");
-  if (type === "A" && !IPV4_RE.test(content)) throw new Error("A record content must be an IPv4 address");
-  if (type === "AAAA" && (!content.includes(":") || !/^[0-9a-f:]+$/i.test(content))) throw new Error("AAAA record content must be an IPv6 address");
+  if (type === "A" && isIP(content) !== 4) throw new Error("A record content must be an IPv4 address");
+  if (type === "AAAA" && isIP(content) !== 6) throw new Error("AAAA record content must be an IPv6 address");
   if (type === "CNAME" && !HOST_RE.test(content.replace(/\.$/, ""))) throw new Error("CNAME content must be a hostname");
 }
 
@@ -63,6 +64,7 @@ export async function upsertCloudflareDns(input: { name: string; type: string; c
   const type = input.type.trim().toUpperCase();
   const content = input.content.trim();
   validateDns(name, type, content);
+  if (input.ttl !== undefined && (!Number.isInteger(input.ttl) || input.ttl !== 1 && (input.ttl < 60 || input.ttl > 86400))) throw new Error("Cloudflare TTL must be 1 (auto) or 60-86400");
   const zone = await zoneFor(name);
   const base = `${API}/zones/${encodeURIComponent(zone.id)}/dns_records`;
   const find = await request(`${base}?type=${encodeURIComponent(type)}&name.exact=${encodeURIComponent(name)}`, { headers: headers(zone.token) });
@@ -71,11 +73,11 @@ export async function upsertCloudflareDns(input: { name: string; type: string; c
   const exact = found.result.map(obj).filter((r) => String(r.name ?? "").toLowerCase() === name && String(r.type ?? "").toUpperCase() === type);
   if (exact.length > 1) throw new Error(`refusing ambiguous DNS change: ${exact.length} ${type} records already exist for ${name}`);
   const proxied = ["A", "AAAA", "CNAME"].includes(type) ? input.proxied === true : undefined;
-  const payload = { type, name, content, ttl: input.ttl && input.ttl >= 60 ? input.ttl : 1, ...(proxied === undefined ? {} : { proxied }) };
+  const payload = { type, name, content, ttl: proxied ? 1 : input.ttl ?? 1, ...(proxied === undefined ? {} : { proxied }) };
   if (exact.length === 1) {
     const current = exact[0];
     const same = String(current.content ?? "").replace(/\.$/, "") === content.replace(/\.$/, "") && (proxied === undefined || Boolean(current.proxied) === proxied);
-    if (same) return { action: "unchanged", id: String(current.id), name, type };
+    if (same && (input.ttl === undefined || Number(current.ttl) === payload.ttl)) return { action: "unchanged", id: String(current.id), name, type };
     const id = String(current.id ?? "");
     if (!id) throw new Error("Cloudflare returned a DNS record without an id");
     const changed = await request(`${base}/${encodeURIComponent(id)}`, { method: "PATCH", headers: headers(zone.token), body: JSON.stringify(payload) });

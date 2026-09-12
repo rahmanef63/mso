@@ -9,7 +9,7 @@ const MAX_SERVERS = 16;
 const MAX_ARGV = 32;
 const MAX_VALUE = 4096;
 
-type BaseServer = { integration?: { user: string; connection: string }; name: string; headers: Record<string, string>; oauthConfigured: boolean };
+type BaseServer = { protocolVersion?: "2026-07-28"; integration?: { user: string; connection: string }; name: string; headers: Record<string, string>; oauthConfigured: boolean };
 export type ProjectMcpServer = BaseServer & (
   | { transport: "stdio"; command: string; args: string[]; cwd: string; env: Record<string, string> }
   | { transport: "http"; url: string }
@@ -49,6 +49,8 @@ export async function readProjectMcpServers(projectPath: string): Promise<Projec
   const out: ProjectMcpServer[] = [];
   for (const [name, value] of entries) {
     if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(name) || !object(value)) continue;
+    if (value.protocolVersion !== undefined && value.protocolVersion !== "2026-07-28") throw new Error("project MCP protocolVersion override must be 2026-07-28");
+    const protocolVersion = value.protocolVersion as "2026-07-28" | undefined;
     const headers = stringMap(value.headers);
     const oauthConfigured = object(value.oauth);
     let integration: BaseServer["integration"];
@@ -63,11 +65,11 @@ export async function readProjectMcpServers(projectPath: string): Promise<Projec
     if (typeof value.command === "string" && value.command.trim() && value.command.length <= MAX_VALUE) {
       const args = value.args === undefined ? [] : strings(value.args, MAX_ARGV);
       if (value.args !== undefined && !args.length && Array.isArray(value.args) && value.args.length) throw new Error(`${name}: invalid args`);
-      out.push({ name, transport: "stdio", command: value.command, args, cwd: projectCwd(projectPath, value.cwd), env: stringMap(value.env, 64), headers, oauthConfigured });
+      out.push({ name, protocolVersion, transport: "stdio", command: value.command, args, cwd: projectCwd(projectPath, value.cwd), env: stringMap(value.env, 64), headers, oauthConfigured });
       continue;
     }
     if (typeof value.url === "string" && value.url.length <= MAX_VALUE) {
-      out.push({ name, transport: "http", url: value.url, headers, oauthConfigured, ...(integration ? { integration } : {}) });
+      out.push({ name, protocolVersion, transport: "http", url: value.url, headers, oauthConfigured, ...(integration ? { integration } : {}) });
     }
   }
   return out;

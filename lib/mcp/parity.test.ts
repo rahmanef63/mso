@@ -21,6 +21,13 @@ const ALFA_ONLY: Record<string, string> = {
 };
 
 const MCP_ONLY: Record<string, string> = {
+  "flow.catalog": "Project API/MCP automation belongs to the external/CLI session context; Alfa has its own browser workflow identity.",
+  "flow.run": "Provider mutations require the durable external principal, exact connection, and idempotency receipt; owner CLI shares this executor.",
+  "flow.status": "Flow receipts belong to their authenticated external/CLI principal; Alfa must not inherit that principal.",
+  "flow.manage": "Project-local automation definitions configure the external/CLI executor, not an Alfa browser thread.",
+  "agent.session.open": "Provider-neutral bootstrap for the external durable session store; Alfa already owns a separate browser thread.",
+  "project.mcp.manage": "External MCP and native owner Integrations share project binding CRUD; Alfa delegates to that owner surface.",
+  "project.asset.attach": "Source artifacts are owned by a durable external/CLI session and cannot be claimed by Alfa's browser identity.",
   "integration.query":"Native credential profiles are managed by owner browser/CLI and external agents; Alfa has no independent credential-owner identity and must not invent one",
   "integration.manage":"Same credential-owner boundary; browser and CLI use the shared native action service with confirmation rather than duplicating it in Alfa",
   "integration.execute":"External deployment agents require explicit account selection; the native owner UI/CLI share the executor without exposing keys to Alfa",
@@ -157,6 +164,7 @@ describe("MCP rate limits mirror the routes", () => {
       "fs.delete": 60, "fs.upload": 20, "exec": 60, "managed-app": 12, "camoufox": 12,
     };
     const MCP_NATIVE_LIMITS: Record<string, number> = {
+      "flow.run": 20, "flow.manage": 20, "agent.session.open": 20, "project.mcp.manage": 20, "project.asset.attach": 20,
       // Native capabilities have independent bounded buckets (no matching HTTP route).
       "screen.capture": 10,
       "session.artifacts": 60,

@@ -28,7 +28,7 @@ vi.mock("@/lib/mcp/capability-runtime", () => ({ msoCapabilityRuntime: { list: (
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
 vi.mock("@/lib/mcp/client-profile", () => ({ detectMcpToolProfile: () => "full" }));
-vi.mock("@/lib/mcp/protocol", () => ({ supportedMcpProtocol: (v: string) => ["2025-06-18", "2025-03-26", "2024-11-05"].includes(v) }));
+
 vi.mock("@/lib/mcp/tool-contract", () => ({ visibleToolsForProfile: () => [] }));
 vi.mock("@/lib/agent/session-store", () => ({ findOrCreateAgentSessionForConversation: vi.fn() }));
 
@@ -65,7 +65,7 @@ describe("/mcp protocol boundary", () => {
     expect(mocks.dispatch).not.toHaveBeenCalled();
   });
 
-  it("rejects a 2026-07-28 modern probe so the client can fall back to initialize", async () => {
+  it("rejects modern metadata missing required clientCapabilities", async () => {
     mocks.validateToken.mockResolvedValueOnce({ hash: "2".repeat(64), scope: "read", clientId: "client-modern-probe", label: "Modern probe" });
     const { POST } = await import("./route");
     const res = await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" } } }), { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "server/discover" }));

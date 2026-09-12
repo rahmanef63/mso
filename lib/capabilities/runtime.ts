@@ -1,8 +1,7 @@
 import type { Scope } from "./scope";
 
-export type CapabilityContent =
-  | { type: "text"; text: string }
-  | { type: "image"; data: string; mimeType: string };
+export type { McpContent as CapabilityContent } from "@/lib/contracts/mcp-content";
+import type { McpContent as CapabilityContent } from "@/lib/contracts/mcp-content";
 
 export interface CapabilityDescriptor {
   name: string;

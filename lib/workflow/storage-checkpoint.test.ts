@@ -1,0 +1,23 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { loadWorkflowStore, persistWorkflowStore, resetWorkflowStoreCache } from "./storage";
+let root = "";
+afterEach(async () => { resetWorkflowStoreCache(); vi.unstubAllEnvs(); if (root) await fs.rm(root, { recursive: true, force: true }); });
+it("checkpoints active state without rewriting recipes and recovers after restart/base replacement", async () => {
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-workflow-checkpoint-"));
+  const file = path.join(root, "memory.json"); vi.stubEnv("OS_SKILL_MEMORY_STORE", file);
+  const store = await loadWorkflowStore(); await persistWorkflowStore(store);
+  const base = await fs.readFile(file, "utf8");
+  await persistWorkflowStore(store, true);
+  expect(await fs.readFile(file, "utf8")).toBe(base);
+  expect((await fs.stat(file + ".active.json")).mode & 0o777).toBe(0o600);
+  resetWorkflowStoreCache(); expect(await loadWorkflowStore()).toEqual(store);
+  await persistWorkflowStore(store);
+  expect(await fs.stat(file + ".active.json").catch(() => null)).toBeNull();
+  const current = await fs.readFile(file, "utf8");
+  await fs.writeFile(file + ".active.json", JSON.stringify({ version: 1, baseSnapshot: JSON.parse(base).snapshotId, active: { stale: {} } }));
+  resetWorkflowStoreCache(); expect((await loadWorkflowStore()).active).toEqual({});
+  expect(current).not.toBe(base);
+});

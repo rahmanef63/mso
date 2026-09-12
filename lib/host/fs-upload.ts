@@ -18,6 +18,7 @@ const MAX_UPLOAD = 100 * 1024 * 1024; // 100 MiB per file
 export async function uploadInto(
   dest: string,
   files: { relPath: string; data: Uint8Array }[],
+  options: { overwrite?: boolean } = {},
 ): Promise<{ written: number; failed: string[] }> {
   const destReal = await resolveUploadDest(dest);
 
@@ -40,7 +41,8 @@ export async function uploadInto(
       await assertUploadTarget(full, destReal); // parent may have appeared since the first check
       await fs.writeFile(tmp, data, { mode: 0o600, flag: "wx" });
       await fs.chmod(tmp, 0o644);
-      await fs.rename(tmp, full);
+      if (options.overwrite === false) await fs.link(tmp, full);
+      else await fs.rename(tmp, full);
       written++;
     } catch {
       failed.push(relPath);

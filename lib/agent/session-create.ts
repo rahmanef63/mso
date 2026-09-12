@@ -24,12 +24,9 @@ async function buildRecord(
   principal: string,
   source: AgentSessionSource,
   options: CreateOptions,
+  usedNames: string[],
 ): Promise<AgentSession> {
   const now = new Date().toISOString();
-  const owner = principalHash(principal);
-  const usedNames = (await listSessionRecords())
-    .filter((row) => row.principalHash === owner)
-    .map((row) => row.name);
   const name = options.name ? requireAgentSessionName(options.name) : allocateAgentSessionName(usedNames);
   if (usedNames.includes(name)) throw new Error(`session name @${name} is already in use`);
   const memorySnapshot =
@@ -87,23 +84,9 @@ export async function withUniqueSessionName<T>(
   commit: (record: AgentSession) => Promise<T>,
 ): Promise<T> {
   const owner = principalHash(principal);
-  const requested = options.name ? requireAgentSessionName(options.name) : undefined;
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const used = (await listSessionRecords())
-      .filter((row) => row.principalHash === owner)
-      .map((row) => row.name);
-    const name = requested ?? allocateAgentSessionName(used);
-    try {
-      return await withSecurityStoreLock(sessionNameLockTarget(owner, name), async () => {
-        const record = await buildRecord(principal, source, { ...options, name });
-        return commit(record);
-      });
-    } catch (error) {
-      const duplicate = error instanceof Error && /session name @.+ is already in use/.test(error.message);
-      if (!requested && duplicate) continue;
-      throw error;
-    }
-  }
-  throw new Error("could not allocate a unique session name");
+  // ponytail: one owner lock and scan per creation; index names if this measured scan becomes material.
+  return withSecurityStoreLock(sessionNameLockTarget(owner), async () => {
+    const used = (await listSessionRecords()).filter(row => row.principalHash === owner).map(row => row.name);
+    return commit(await buildRecord(principal, source, options, used));
+  });
 }
-

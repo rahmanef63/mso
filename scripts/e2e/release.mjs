@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { mcpOwnerJourneys, mcpPublicJourney, settingsAccessibilityJourney } from "./mcp-settings.mjs";
+import { automationJourney } from "./automation.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
 
 const fixture = await releaseFixture();
@@ -88,6 +89,7 @@ try {
   expect((await call("/api/v1/exec/run", { cmd: "exit 0", cwd: fixture.dir + "/missing" })).status).not.toBe(200);
   expect((await call("/api/v1/fs/list?path=" + encodeURIComponent(fixture.dir))).status).toBe(200);
   await mcpOwnerJourneys(page, fixture);
+  await automationJourney(page, fixture);
   await fixture.setRole("viewer");
   expect((await call("/api/v1/agent-sessions?view=monitor")).status).toBe(403);
   expect((await call("/api/v1/integrations")).status).toBe(403);

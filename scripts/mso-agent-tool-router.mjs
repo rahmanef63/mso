@@ -4,6 +4,9 @@ export const MAX_ACTIVE_TOOLS = 10;
 const FALLBACK_TOOL_LIMIT = 3;
 
 const DEPENDENCIES = new Map([
+  ["flow_run", ["flow_catalog", "flow_status"]],
+  ["project_asset_attach", ["session_artifacts"]],
+  ["project_mcp_call", ["project_mcp_tools"]],
   ["apps_logs", ["apps_list"]],
   ["apps_power", ["apps_list"]],
   ["project_function_call", ["project_capabilities"]],
@@ -22,6 +25,8 @@ const DEPENDENCIES = new Map([
 ]);
 
 const LIFECYCLE = new Map([
+  ["flow_catalog", ["flow_run", "flow_status"]],
+  ["flow_run", ["flow_status"]],
   ["workflow_start", ["workflow_finish", "workflow_cancel", "skills_read", "project_script_run"]],
   ["exec_job_start", ["exec_job_status", "exec_job_cancel"]],
   ["skills_search", ["skills_read"]],

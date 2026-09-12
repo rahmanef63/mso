@@ -6,7 +6,8 @@ import { rateLimited, rateLimitedUntrusted } from "@/lib/host/limits-api";
 import { TOOLS } from "@/lib/mcp/tools";
 import { toolsetInfo } from "@/lib/mcp/toolset";
 import { detectMcpToolProfile } from "@/lib/mcp/client-profile";
-import { supportedMcpProtocol } from "@/lib/mcp/protocol";
+import { validateMcpRequest, modernMcpResult } from "@/lib/mcp/modern-http";
+import { MCP_SERVER_VERSION } from "@/lib/mcp/toolset";
 import { visibleToolsForProfile } from "@/lib/mcp/tool-contract";
 import { mcpSessionHeaders, resolveMcpSession } from "@/lib/mcp/session-context";
 import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
@@ -74,10 +75,8 @@ export async function POST(req: Request) {
   }
 
   const rpc = body as RpcRequest;
-  const protocolHeader = (req.headers.get("mcp-protocol-version") ?? "").trim();
-  if (rpc.method !== "initialize" && protocolHeader && !supportedMcpProtocol(protocolHeader)) {
-    return Response.json({ jsonrpc: "2.0", id: rpc.id ?? null, error: { code: -32600, message: "unsupported MCP-Protocol-Version" } }, { status: 400, headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
-  }
+  const wire = validateMcpRequest(req, body);
+  if (wire.error) return Response.json(wire.error, { status: 400, headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
   const principal = token.clientId ? `mcp-client:${token.clientId}` : `mcp-token:${token.hash}`;
   const expectedResource = `${origin}/mcp`;
   if (token.resource && token.resource !== expectedResource) return unauthorized("token was minted for a different MCP resource");
@@ -85,7 +84,7 @@ export async function POST(req: Request) {
   const toolProfile = token.profile ?? client?.profile ?? detectMcpToolProfile({ clientId: token.clientId, name: client?.name, redirectUris: client?.redirectUris });
   const resolved = await resolveMcpSession(req, rpc, principal, token.label);
   if ("response" in resolved) return resolved.response;
-  const headers = responseHeaders(req, mcpSessionHeaders(resolved.responseSessionId));
+  const headers = responseHeaders(req, mcpSessionHeaders(wire.modern ? undefined : resolved.responseSessionId));
   if (isNotification(body)) return new Response(null, { status: 202, headers });
 
   void touchToken(token.hash).catch(() => {});
@@ -99,7 +98,7 @@ export async function POST(req: Request) {
     capabilities: msoCapabilityRuntime,
   };
   const result = await dispatch(rpc, effectiveScope, actor, agentContext);
-  return Response.json(result, { status: 200, headers });
+  return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION) : result, { status: wire.modern && (result.error as { code?: number } | undefined)?.code === -32601 ? 404 : 200, headers });
 }
 
 export async function GET(req: Request) {
@@ -111,6 +110,7 @@ export async function GET(req: Request) {
   if ((req.headers.get("accept") ?? "").toLowerCase().includes("text/event-stream")) {
     return new Response(null, { status: 405, headers: responseHeaders(req, { Allow: "POST", "Cache-Control": "no-store" }) });
   }
+  if (req.headers.get("MCP-Protocol-Version") === "2026-07-28") return new Response(null, { status: 405, headers: responseHeaders(req, { Allow: "POST", "Cache-Control": "no-store" }) });
   const full = toolsetInfo(TOOLS, undefined, "full");
   const chatgptTools = visibleToolsForProfile(TOOLS, "exec", "chatgpt");
   return Response.json({

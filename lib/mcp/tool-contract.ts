@@ -82,7 +82,7 @@ export function completeToolAnnotations(tool: McpTool): McpToolAnnotations {
     readOnlyHint: typeof supplied.readOnlyHint === "boolean" ? supplied.readOnlyHint : tool.scope === "read",
     destructiveHint: typeof supplied.destructiveHint === "boolean" ? supplied.destructiveHint : DESTRUCTIVE.has(tool.name),
     openWorldHint: typeof supplied.openWorldHint === "boolean" ? supplied.openWorldHint : OPEN_WORLD.has(tool.name),
-    ...(typeof supplied.idempotentHint === "boolean" ? { idempotentHint: supplied.idempotentHint } : {}),
+    ...(supplied.idempotentHint === true ? { idempotentHint: true } : {}),
   };
 }
 
@@ -94,12 +94,12 @@ export function toolAllowedForProfile(_name: string, _profile: McpToolProfile = 
   return true;
 }
 
-function compactText(value: string, max = 125): string {
+function compactText(value: string, max = 80): string {
   const clean = value.replace(/\s+/g, " ").trim();
   if (clean.length <= max) return clean;
   const cut = clean.slice(0, max - 1);
   const sentence = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("; "));
-  return `${(sentence > 100 ? cut.slice(0, sentence + 1) : cut).trim()}…`;
+  return `${(sentence > max * 0.8 ? cut.slice(0, sentence + 1) : cut).trim()}…`;
 }
 
 function compactSchema(value: unknown): unknown {
@@ -107,8 +107,9 @@ function compactSchema(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (key === "additionalProperties" && item === true || key === "required" && Array.isArray(item) && item.length === 0) continue;
     if (key === "workflow_id" && item && typeof item === "object") out[key] = { type:"string" };
-    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 72);
+    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 40);
     else out[key] = compactSchema(item);
   }
   return out;

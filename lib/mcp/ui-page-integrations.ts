@@ -22,6 +22,7 @@ function renderIntegrations(){
   const bridge={openTransferBrowser:()=>openIntegrationReference(INTEGRATION_BROWSER+"?transfer=1"),remember:s=>integrationSelection=s,openLink:openIntegrationReference,
     query:async args=>(await integrationTool("integration_query",args)).data,
     manage:async args=>{const{response,data}=await integrationTool("integration_manage",args);const meta=privateIntegrationMeta(response,"integrationAuthorization")||privateIntegrationMeta(window.openai?.toolResponseMetadata,"integrationAuthorization");return{...data,...(meta?.url?{privateUrl:meta.url}:{})}},
+    projectMcp:async args=>(await integrationTool("project_mcp_manage",args)).data,
     execute:async args=>(await integrationTool("integration_execute",args)).data,
     openSetup:async args=>{const{response}=await integrationTool("integration_setup_open",args);captureIntegrationAccess(response);captureIntegrationAccess(window.openai?.toolResponseMetadata);if(!acceptPageResult(response))throw new Error("The host did not return a valid setup Page. Use Open in MSO or refresh this connector.")},
   };

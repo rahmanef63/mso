@@ -66,7 +66,10 @@ normally omit `Origin`; browser-origin traffic is accepted only from the configu
 from a loopback browser talking to the loopback cockpit.
 
 
-MSO uses Streamable HTTP JSON-RPC on `POST /mcp`. `initialize` negotiates supported protocol versions and subsequent `MCP-Protocol-Version` headers are validated. MSO does not expose an SSE listener; therefore `GET /mcp` with `Accept: text/event-stream` returns **405** instead of a JSON response pretending to be an event stream. A non-SSE GET remains a bounded operator diagnostic containing full/profile toolset signatures.
+For reusable provider/project flows, explicit agent sessions, Add MCP and asset promotion,
+see [AUTOMATION-FLOWS.md](./AUTOMATION-FLOWS.md).
+
+MSO uses Streamable HTTP JSON-RPC on `POST /mcp`. `initialize` negotiates supported protocol versions and subsequent `MCP-Protocol-Version` headers are validated. Modern 2026-07-28 clients use per-request protocol/capability metadata, matching Mcp-Method/Mcp-Name headers and server/discover; initialize and Mcp-Session-Id remain legacy-only. Modern responses include resultType and serverInfo metadata. MSO does not expose an SSE listener; therefore `GET /mcp` with `Accept: text/event-stream` returns **405** instead of a JSON response pretending to be an event stream. A non-SSE GET remains a bounded operator diagnostic containing full/profile toolset signatures.
 
 MSO supports OAuth 2.1-style authorization-code flow with PKCE S256 and public clients (token endpoint auth `none`) plus rotating `refresh_token` grants. New OAuth codes/access/refresh grants are bound to the exact MCP `resource=https://<origin>/mcp`; the authorization response also returns `iss`. Access tokens default to one hour, refresh credentials rotate and expire after 90 days, and raw codes/tokens are never stored. Legacy pre-resource bearers remain accepted only as a migration path until expiry/revocation.
 

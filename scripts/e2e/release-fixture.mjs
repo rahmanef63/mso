@@ -3,7 +3,7 @@ import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServer } from "node:http";
-import { randomUUID, randomBytes } from "node:crypto";
+import { createHash, randomUUID, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 
 export async function releaseFixture({ live = false } = {}) {
@@ -42,9 +42,10 @@ export async function releaseFixture({ live = false } = {}) {
     OS_SESSION_SECRET: randomBytes(32).toString("hex"), OS_FS_READ_ROOTS: dir, OS_FS_WRITE_ROOTS: dir,
     OS_MCP_ENABLED: "1", NEXT_PUBLIC_OS_DEMO: "0", NEXT_TELEMETRY_DISABLED: "1",
   });
-  const seedMcp = async () => {
+  const mcpToken = randomBytes(32).toString("hex");
+  const seedMcp = async (scope = "read") => {
     await writeFile(env.OS_MCP_STORE, JSON.stringify({ clients: {}, codes: {}, refreshTokens: {}, tokens: {
-      ["a".repeat(64)]: { label: "Fixture client", clientId: "fixture-client", scope: "read", createdAt: Date.now(), expiresAt: Date.now() + 3600_000 },
+      [createHash("sha256").update(mcpToken).digest("hex")]: { label: "Fixture client", clientId: "fixture-client", scope, createdAt: Date.now(), expiresAt: Date.now() + 3600_000 },
     } }), { mode: 0o600 });
   };
   await seedMcp();
@@ -74,6 +75,6 @@ export async function releaseFixture({ live = false } = {}) {
       await new Promise(resolve => setTimeout(resolve, 250));
     }
     if (!ready) throw new Error("Fixture server did not become ready: " + logs);
-    return { dir, base, device, password, setRole, seedMcp, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
+    return { dir, base, device, password, setRole, seedMcp, mcpToken, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
   } catch (error) { await close(); throw error; }
 }
