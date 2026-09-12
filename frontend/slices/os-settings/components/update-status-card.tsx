@@ -25,6 +25,17 @@ export function UpdateStatusSkeleton() {
   );
 }
 
+export function UpdateStatusUnavailable({ error, onRetry }: { error: string | null; onRetry: () => void }) {
+  return (
+    <SettingsBlock className="space-y-3 p-4">
+      <p role="alert" className="text-sm text-destructive-text">
+        {error ?? "Update status is unavailable. Try again."}
+      </p>
+      <Button type="button" variant="outline" onClick={onRetry}>Try again</Button>
+    </SettingsBlock>
+  );
+}
+
 export function UpdateStatusCard({
   info,
   checking,
@@ -69,7 +80,9 @@ export function UpdateStatusCard({
           ? `${behind} update${behind > 1 ? "s" : ""} available`
           : pending
             ? "A build is pending"
-            : "Up to date";
+            : !info.remoteChecked || error
+              ? "Update status not verified"
+              : "Up to date";
 
   const stateLabel = running
     ? "Running"
@@ -81,7 +94,9 @@ export function UpdateStatusCard({
           ? "Build required"
           : behind > 0
             ? "Available"
-            : "Current";
+            : !info.remoteChecked || error
+              ? "Not verified"
+              : "Current";
 
   return (
     <SettingsBlock className="space-y-3 p-4">
@@ -89,7 +104,10 @@ export function UpdateStatusCard({
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-medium text-foreground">{headline}</p>
           <p className="font-mono text-[11px] text-muted-foreground">
-            running {info.buildSha || info.current || "—"}
+            Running {info.buildSha || "unknown"} · Checkout {info.current || "unknown"}
+          </p>
+          <p className="font-mono text-[11px] text-muted-foreground">
+            {info.remoteChecked ? "Latest" : "Last fetched"} {info.latest || "not checked"}
           </p>
         </div>
         <span className="w-fit shrink-0 rounded-full border border-border/70 bg-secondary px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -121,7 +139,7 @@ export function UpdateStatusCard({
           update is blocked until it is pushed or reconciled.
         </p>
       )}
-      {info.supported !== false && !info.remoteChecked && !running && (
+      {!info.remoteChecked && !running && (
         <p className="text-[11px] leading-relaxed text-amber-500">
           Could not reach the remote — this is what was last fetched, not
           necessarily what is on main now.
