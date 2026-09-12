@@ -15,6 +15,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `ui` fill MCP Page height and apply MSO branding
 - `flows` enforce canonical paths and bounded waits
 
+**Tests**
+
+- `ui` constrain simulated host message origins
+
 ## 2026-09-11
 
 **Added**

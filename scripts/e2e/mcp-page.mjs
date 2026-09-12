@@ -84,13 +84,13 @@ try {
   window.hostContext={theme:"dark",displayMode:"inline",availableDisplayModes:["inline","fullscreen"],containerDimensions:{maxHeight:680}};
   window.addEventListener("message",event=>{
     const m=event.data;if(!m||m.jsonrpc!=="2.0")return;
-    const frame=document.querySelector("iframe");let result;
+    const frame=document.querySelector("iframe");if(event.origin!=="https://mso-ui.example.com"||event.source!==frame.contentWindow)return;let result;
     if(m.method==="ui/initialize")result={protocolVersion:"2026-01-26",hostContext:window.hostContext};
     else if(m.method==="ui/notifications/size-changed"){window.lastSize=m.params;frame.style.height=m.params.height+"px";return}
     else if(m.method==="ui/request-display-mode"){window.hostContext.displayMode=m.params.mode;frame.style.height=m.params.mode==="fullscreen"?"900px":"680px";result={mode:m.params.mode}}
     else if(m.method==="tools/call")result={structuredContent:{result:${JSON.stringify(snapshot)}}};
     else return;
-    if(m.id!==undefined)event.source.postMessage({jsonrpc:"2.0",id:m.id,result},"*");
+    if(m.id!==undefined)event.source.postMessage({jsonrpc:"2.0",id:m.id,result},"https://mso-ui.example.com");
   });
   </script><iframe title="MSO Page" src="https://mso-ui.example.com/qa"></iframe></html>`}));
   await page.goto("https://chatgpt.com/qa");
@@ -114,7 +114,7 @@ try {
   await component.getByRole("button",{name:"Exit fullscreen",exact:true}).click();
   await component.getByRole("button",{name:"Fullscreen",exact:true}).waitFor();
   const setContext=async context=>{
-    await page.evaluate(context=>{window.hostContext={...window.hostContext,...context};document.querySelector("iframe").contentWindow.postMessage({jsonrpc:"2.0",method:"ui/notifications/host-context-changed",params:context},"*")},context);
+    await page.evaluate(context=>{window.hostContext={...window.hostContext,...context};document.querySelector("iframe").contentWindow.postMessage({jsonrpc:"2.0",method:"ui/notifications/host-context-changed",params:context},"https://mso-ui.example.com")},context);
     await page.waitForFunction(height=>window.lastSize?.height===height,context.containerDimensions.height??context.containerDimensions.maxHeight);
   };
   await setContext({theme:"light",containerDimensions:{height:720}});

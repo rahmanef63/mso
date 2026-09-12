@@ -1,3 +1,10 @@
+## 2026-09-12 — Exact-origin Page browser fixtures
+
+The hosted Semgrep gate flagged a wildcard postMessage target in the new browser
+host simulator. Fixture messages now use the exact reviewed test origin and check
+the sending frame identity. The Page regression and pinned strict Semgrep pass;
+production host-bridge behavior is unchanged.
+
 ## 2026-09-12 — Full-height MSO Page and shared brand
 
 The embedded Integrations report reproduced the old 48% legacy height cap. Page v14 now
