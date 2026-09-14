@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const state = vi.hoisted(() => ({ values: { endpoint: "https://app.example/mcp", accessToken: "private-downstream-token", allowedTools: "read_project" } as Record<string, string>, calls: [] as Record<string, unknown>[], paging: "" }));
+const state = vi.hoisted(() => ({ values: { endpoint: "https://app.example/mcp", accessToken: "private-downstream-token", allowedTools: "read_project" } as Record<string, string>, calls: [] as Record<string, unknown>[], paging: "", discoverStatus: 400 }));
 vi.mock("@/lib/infra/connection-service", () => ({ directConnectionValues: vi.fn(async () => state.values) }));
 vi.mock("./ssrf", () => ({ safeProviderFetch: vi.fn(async (_url, init) => {
   const payload = JSON.parse(init.body);
   state.calls.push({ ...payload, auth: new Headers(init.headers).get("authorization") });
-  if (payload.method === "server/discover") return new Response(JSON.stringify({ jsonrpc: "2.0", id: payload.id, error: { code: -32601, message: "legacy" } }), { status: 400 });
+  if (payload.method === "server/discover") return new Response(JSON.stringify({ jsonrpc: "2.0", id: payload.id, error: { code: -32601, message: "Method not found" } }), { status: state.discoverStatus });
   if (payload.method === "tools/list" && state.paging) {
     const second = Boolean(payload.params?.cursor);
     return new Response(JSON.stringify({ jsonrpc: "2.0", id: payload.id, result: {
@@ -23,9 +23,21 @@ import { normalizeMcpEndpoint, parseMcpToolAllowlist } from "@/lib/infra/mcp-pol
 import type { ProjectMcpServer } from "./project-mcp-config";
 const server: ProjectMcpServer = { name: "app", transport: "http", url: "https://app.example/mcp", headers: {}, oauthConfigured: false, integration: { user: "owner", connection: "assistant" } };
 
-beforeEach(() => { state.calls = []; state.paging = ""; state.values = { endpoint: "https://app.example/mcp", accessToken: "private-downstream-token", allowedTools: "read_project" }; });
+beforeEach(() => { state.calls = []; state.paging = ""; state.discoverStatus = 400; state.values = { endpoint: "https://app.example/mcp", accessToken: "private-downstream-token", allowedTools: "read_project" }; });
 
 describe("private modular MCP connection", () => {
+  it("falls back from HTTP 200 method-not-found when the private token is verified", async () => {
+    state.discoverStatus = 200;
+    const url = "https://app.example/mcp/http200";
+    state.values.endpoint = url;
+    const tools = await listMcpServerTools({ ...server, url } as ProjectMcpServer);
+    expect(tools.map((tool) => tool.name)).toEqual(["read_project"]);
+    expect(state.calls[0]).toMatchObject({ method: "server/discover", auth: "Bearer private-downstream-token" });
+    expect(state.calls.some((call) => call.method === "initialize")).toBe(true);
+    const result = await callMcpServerTool({ ...server, url } as ProjectMcpServer, "read_project", {});
+    expect(JSON.stringify({ tools, result })).not.toContain("private-downstream-token");
+    expect(JSON.stringify(result)).toContain("[redacted]");
+  });
   it("discovers only granted tools and authenticates without returning the credential", async () => {
     expect((await listMcpServerTools(server)).map((tool) => tool.name)).toEqual(["read_project"]);
     expect(state.calls.every((call) => call.auth === "Bearer private-downstream-token")).toBe(true);

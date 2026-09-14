@@ -1,3 +1,14 @@
+## 2026-09-14 — Project MCP HTTP discover falls back on JSON-RPC -32601
+
+`project_mcp_tools` probed modern `server/discover` and treated only HTTP 400/404/405
+as unsupported. A legacy-only HTTP MCP that answers JSON-RPC method-not-found on HTTP 200
+— the usual JSON-RPC wire — entered the fallback branch and then threw `-32601` because
+the status was not 4xx. HTTP project MCP now treats `-32601` and modern-protocol refusal
+(`-32022`) as unsupported regardless of HTTP 200 vs 4xx, then continues with legacy
+`initialize` + `tools/list`. Malformed-request codes still fail closed. SSRF, exact
+endpoint match and credential scrubbing are unchanged. A Batonly-like server does not
+need to implement `server/discover`.
+
 ## 2026-09-13 — About version detection without systemd
 
 An installation on a non-systemd host was thirteen commits behind origin/main, but

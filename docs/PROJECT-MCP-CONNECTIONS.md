@@ -52,8 +52,11 @@ The legacy aggregate helper still stops after eight upstream pages and fails exp
 if incomplete. Downstream responses are bounded to 2 MiB; an individually very large
 descriptor may exceed the preferred 48 KiB page budget.
 
-HTTP probes modern server/discover once and falls back to legacy initialize when unsupported.
-Modern stdio is opt-in with protocolVersion: 2026-07-28. Rich image/audio/resource results
+HTTP probes modern `server/discover` once. JSON-RPC `-32601` (method not found),
+modern-protocol refusal (`-32022`), and HTTP 400/404/405 without a malformed-request
+error fall back to legacy `initialize` + `tools/list`. A JSON-RPC error on HTTP 200
+is treated as unsupported, not a hard failure. Modern stdio is opt-in with
+protocolVersion: 2026-07-28. Rich image/audio/resource results
 are preserved; downstream UI metadata is namespaced rather than trusted as MSO UI origins.
 
 Use Integrations → Add MCP or project_mcp_manage to register an HTTPS endpoint with

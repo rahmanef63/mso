@@ -46,6 +46,12 @@ function complete(message: Rpc) {
   failure(message);
   if (!object(message.result) || message.result.resultType !== "complete") throw new Error("modern MCP result must be complete; input_required is unsupported by this connection");
 }
+/** JSON-RPC method-not-found and modern-protocol refusal mean "try initialize", including HTTP 200. */
+function modernDiscoverUnsupported(status: number, error?: { code?: number }): boolean {
+  const code = error?.code;
+  if (code === -32601 || code === -32022) return true;
+  return [400, 404, 405].includes(status) && code !== -32020 && code !== -32602;
+}
 export async function withHttp<T>(server: Server, work: (rpc: (method: string, params?: unknown) => Promise<Rpc>) => Promise<T>): Promise<T> {
   if (server.oauthConfigured && !Object.keys(server.headers).some(name => name.toLowerCase() === "authorization")) throw new Error("project MCP OAuth requires a private server-side authorization connection");
   const deadline = Date.now() + 15_000, key = createHash("sha256").update(JSON.stringify(server)).digest("hex");
@@ -54,9 +60,7 @@ export async function withHttp<T>(server: Server, work: (rpc: (method: string, p
   if (!connection) {
     connection = { protocol: MODERN, until: Date.now() + 30_000, tools: new Map() };
     const probe = await post(server, "server/discover", {}, connection, deadline);
-    if (probe.status >= 400 || probe.message.error && ![-32022, -32020, -32602].includes(probe.message.error.code ?? 0)) {
-      if (probe.message.error?.code === -32022) throw new Error("downstream MCP requires an unsupported modern protocol version");
-      if (![400, 404, 405].includes(probe.status) || probe.message.error && [-32020, -32602].includes(probe.message.error.code ?? 0)) failure(probe.message);
+    if (modernDiscoverUnsupported(probe.status, probe.message.error)) {
       connection.protocol = LEGACY;
       const init = await post(server, "initialize", { protocolVersion: LEGACY, capabilities: {}, clientInfo: { name: "mso-project-mcp", version: "2" } }, connection, deadline);
       failure(init.message);
