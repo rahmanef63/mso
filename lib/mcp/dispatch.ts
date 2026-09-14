@@ -4,6 +4,7 @@ import { TOOLS } from "./tools";
 import { listUiResources, readUiResource } from "./ui-resources";
 import { MCP_SKILLS_EXTENSION, getMcpSkill, listMcpSkills, readMcpSkillResource } from "./skills-extension";
 import { dispatchToolCall } from "./dispatch-tools";
+import { readMcpFileResource } from "./file-transfer-resource";
 import { toolDescriptor, visibleToolsForProfile, type McpToolProfile } from "./tool-contract";
 import { MCP_PROTOCOL_LATEST, MCP_PROTOCOLS, negotiateMcpProtocol } from "./protocol";
 import { rpcFail, rpcOk, type McpAgentContext, type RpcRequest } from "./dispatch-types";
@@ -69,6 +70,10 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, ag
       if (!uri) return rpcFail(id, -32602, "resources/read needs { uri }");
       const resource = await readUiResource(uri);
       if (resource) return rpcOk(id, { contents: [{ uri: resource.uri, mimeType: resource.mimeType, text: resource.text, _meta: resource._meta }] });
+      try {
+        const fileResource = await readMcpFileResource(uri, agentContext?.principal, agentContext?.sessionId);
+        if (fileResource) return rpcOk(id, { contents: [{ uri: fileResource.uri, mimeType: fileResource.mimeType, blob: fileResource.data.toString("base64") }] });
+      } catch (error) { return rpcFail(id, -32602, error instanceof Error ? error.message : String(error)); }
       try {
         const skillResource = await readMcpSkillResource(uri);
         if (skillResource) return rpcOk(id, { contents: [skillResource] });

@@ -1,9 +1,10 @@
 export { listDir, readFile, writeFile, makeDir, remove, move, copy, searchFs, usage, statReadable, mimeFor, fileStream } from "./fs";
 export { uploadInto, resolveUploadDest, streamFileInto } from "./fs-upload";
+export { uploadOneGuarded } from "./fs-upload-guarded";
+export type { UploadConflictPolicy, GuardedUploadResult } from "./fs-upload-guarded";
 export { zipStream } from "./fs-zip";
 export { parseMultipart, boundaryFromContentType, UploadTooLargeError } from "./multipart";
 export type { MultipartPart } from "./multipart";
 export { sha256Text, utf8Bytes } from "./hash";
 export { writeFileGuarded } from "./guarded-write";
-
 export { readFileBytes } from "./fs-read-bytes";

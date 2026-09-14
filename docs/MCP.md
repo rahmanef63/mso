@@ -566,17 +566,12 @@ and ZIP signatures are validated before the normal credential/path jail writes i
 registered callback is owned by `chatgpt.com`, the `openai/fileParams` bridge may also follow the
 rotating `oaisdmntpr<region>.blob.core.windows.net` family used by ChatGPT temporary downloads.
 That family exception is never granted from a self-declared client name alone; generic MCP clients
-still need exact Azure hosts in `OS_MCP_OPENAI_FILE_HOSTS`. The final write uses an exclusive random
-temporary file and atomic rename, never executes transferred bytes, and returns path, bytes and
-SHA-256. Existing same-name files may still be replaced, so import remains a write/destructive action.
+still need exact Azure hosts in `OS_MCP_OPENAI_FILE_HOSTS`. Raster files must also fully decode through bounded Sharp validation; magic bytes alone are insufficient. ZIP input requires a valid end-of-central-directory structure. The final write uses exclusive temporary files and atomic filesystem operations and never executes transferred bytes. Same bytes are idempotent; different existing bytes fail by default. `conflict=rename` uses a deterministic content-hash filename, while `conflict=replace` requires the current `expected_sha256`, so stale overwrites fail.
 
 **`fs_export_file`** is the read-side counterpart for one original file up to **10 MiB**. It uses
 the same `OS_FS_READ_ROOTS`, realpath and credential denylist as other reads, reads with
 `O_NOFOLLOW`, computes SHA-256 over the original bytes, then copies those bytes into the existing
-private temporary-share store. The returned resource/download link requires an approved-device MSO
-session, is `no-store`, expires after 15 minutes and is limited to five downloads. It never creates
-a public URL and never routes through `session_artifacts`, so images and archives are not
-recompressed or text-decoded. See `CHATGPT-PLUGIN.md` for the end-to-end contract.
+private temporary-share store and creates an owner+conversation-session-bound `mso-file:///…` MCP resource. `resources/read` returns that resource as the exact base64 `blob` only to the same authenticated MCP principal and session; it expires after 15 minutes and is read-count bounded. The approved-device browser download remains a separate fallback. Neither path routes through `session_artifacts`, so images and archives are not recompressed or text-decoded. After a public tool/schema change, deploy first, then Scan Tools / Refresh in ChatGPT and test from a new chat. See `CHATGPT-PLUGIN.md` for the end-to-end contract.
 
 `OS_CODEX_BUILTIN_TOOLS` still exists and still takes an allowlisted list, but its
 default is now EMPTY and `image_generation` is no longer an accepted value — naming it

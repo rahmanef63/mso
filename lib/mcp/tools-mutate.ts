@@ -34,11 +34,9 @@ export const MUTATE_TOOLS: McpTool[] = [
     name: "fs_upload_file",
     limit: { key: "fs.upload", max: 20, windowMs: 60_000 },
     audit: { action: "fs.upload" as const, targetArg: "dest" },
-    description:
-      "Import one ChatGPT conversation/generated PNG, WebP, JPEG, JSON or ZIP file into an existing VPS directory. " +
-      "ChatGPT binds the top-level file through openai/fileParams; MSO validates temporary URL provenance, type, size and content before writing inside OS_FS_WRITE_ROOTS. Verified ChatGPT OAuth callbacks may use its rotating Azure file hosts; generic MCP clients require exact Azure allowlisting. Returns bytes + SHA-256; existing same-name files may be replaced.",
+    description: "Import one ChatGPT conversation/generated PNG, WebP, JPEG, JSON or ZIP file through openai/fileParams. MSO validates OAuth-bound temporary URL provenance, type, size and content before writing inside OS_FS_WRITE_ROOTS. Verified ChatGPT callbacks may use rotating Azure file hosts; generic MCP clients require exact allowlisting. Same bytes are idempotent; different existing bytes fail by default. conflict=rename is deterministic; conflict=replace requires expected_sha256.",
     scope: "write",
-    annotations: { destructiveHint: true, openWorldHint: true },
+    annotations: { destructiveHint: true, openWorldHint: true, idempotentHint: true },
     meta: { "openai/fileParams": ["file"] },
     inputSchema: S({
       file: {
@@ -56,13 +54,16 @@ export const MUTATE_TOOLS: McpTool[] = [
         additionalProperties: true,
       },
       dest: { type: "string", description: "Existing destination directory on the VPS, within OS_FS_WRITE_ROOTS." },
-      filename: { type: "string", description: "Optional safe destination basename; defaults to the ChatGPT filename." },
+      filename: { type: "string", description: "Optional safe destination basename; extension must match the validated file type." },
+      conflict: { type: "string", enum: ["error", "rename", "replace"], description: "Default error. rename chooses a deterministic content-hash suffix. replace requires expected_sha256." },
+      expected_sha256: { type: "string", description: "Required only for conflict=replace; SHA-256 from a prior read/export of the current destination." },
     }, ["file", "dest"]),
     run: async (a, context) => importOpenAiProvidedFile({
       file: a.file,
       dest: str(a, "dest"),
       filename: opt(a, "filename"),
-      allowChatGptAzureFamily: context.trustedOpenAiFileParams === true,
+      conflict: opt(a, "conflict") as "error" | "rename" | "replace" | undefined,
+      expectedSha256: opt(a, "expected_sha256"), allowChatGptAzureFamily: context.trustedOpenAiFileParams === true,
     }),
   },
   {

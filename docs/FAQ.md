@@ -122,10 +122,7 @@ does not grant the other.
 
 ### Can ChatGPT send a generated image/file into the VPS?
 
-Yes. `fs_upload_file` accepts a ChatGPT-provided temporary file reference, validates the
-OpenAI download host/redirects/type/size, and writes it inside `OS_FS_WRITE_ROOTS`. MSO does
-not maintain a second image generator; use ChatGPT's native generation, then transfer the
-result.
+Yes. `fs_upload_file` accepts ChatGPT-provided PNG/WebP/JPEG/JSON/ZIP references, validates the OpenAI download host, redirects, type, size and content, then writes inside `OS_FS_WRITE_ROOTS`. Identical retries are unchanged; different existing bytes fail unless deterministic rename or guarded `expected_sha256` replacement is explicit. `fs_export_file` returns an owner-bound MCP resource whose exact bytes are fetched with `resources/read`, plus a separate approved-device browser download fallback. MSO does not maintain a second image generator; use ChatGPT's native generation, then transfer the result.
 
 ### Does MCP expose every project automatically?
 

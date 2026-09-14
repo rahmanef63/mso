@@ -131,20 +131,15 @@ ChatGPT file parameter                         VPS file
         ├─ PNG/WebP/JPEG/JSON/ZIP only            ├─ OS_FS_READ_ROOTS + credential denylist
         ├─ 20 MiB streamed cap                     ├─ original bytes, max 10 MiB
         ├─ provenance-bound OpenAI/Azure host       ├─ SHA-256
-        └─ OS_FS_WRITE_ROOTS                       └─ private 15-minute temp-share
-                                                          │
-                                                          ▼
-                                              approved-device authenticated download
+        ├─ full image/JSON/ZIP validation           ├─ owner+session mso-file resource
+        ├─ conflict guard / CAS replace             └─ private browser temp-share fallback
+        └─ OS_FS_WRITE_ROOTS
 ```
 
 Upload trusts `*.oaiusercontent.com` directly. When OAuth proves a `chatgpt.com` callback,
 `openai/fileParams` may also use ChatGPT's rotating `oaisdmntpr<region>.blob.core.windows.net`
 temporary-file family. A self-declared client name never unlocks that family; generic MCP clients
-need exact `OS_MCP_OPENAI_FILE_HOSTS` entries. Export returns a `resource_link` plus structured
-checksum/size metadata.
-The link is not public, consumes the existing MSO approved-device session gate, allows at most five
-downloads, and preserves the source bytes exactly. `session_artifacts` remains a preview/artifact
-workflow and may recompress large images, so it is not the original-file export path.
+need exact `OS_MCP_OPENAI_FILE_HOSTS` entries. Raster uploads must fully decode; JSON and ZIP are structurally validated. Identical retries are unchanged, different existing bytes fail by default, deterministic rename is explicit, and replace requires the current `expected_sha256`. Export returns an owner+conversation-session-bound `mso-file:///…` `resource_link`; `resources/read` returns the exact original blob with expiry/read limits. A separate approved-device browser URL remains available as a human fallback. `session_artifacts` is still a preview workflow and may recompress large images, so it is not the original-file export path.
 
 ## OAuth contract
 

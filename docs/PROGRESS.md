@@ -1,4 +1,9 @@
-## 2026-09-14 — Original-byte MCP file export + explicit ChatGPT import matrix
+## 2026-09-15 — Original-byte MCP transfer final hardening
+
+- `fs_upload_file` is content-idempotent and fail-closed on filename conflicts by default; deterministic rename and SHA-guarded replacement are explicit.
+- PNG/JPEG/WebP require bounded full decode; JSON requires fatal UTF-8 + parse; ZIP requires an EOCD structure before write.
+- `fs_export_file` now exposes owner-bound ephemeral `mso-file:///…` resources; `resources/read` returns exact original blobs only to the same MCP principal + conversation session while browser temp-share remains a separate convenience.
+- Public schema changes require ChatGPT Scan Tools / Refresh and a new chat before external-client acceptance testing.
 
 ## 2026-09-15 — Project plugins are opt-in, isolated installations
 
@@ -8,6 +13,8 @@ Batonly joins SI-Coder as a first-class reviewed project plugin. Its project bin
 
 This preserves three separate layers: host MCP access, reusable MSO Integrations credentials, and project-local plugin bindings. Installing or removing a plugin from one project changes neither standalone SI-Coder nor Batonly data nor another project.
 
+
+## 2026-09-14 — Original-byte MCP file export + explicit ChatGPT import matrix
 
 The upstream MSO file-transfer audit is now implemented instead of remaining a read-only finding.
 `fs_export_file` exports one original file through the existing authenticated temporary-share store:
