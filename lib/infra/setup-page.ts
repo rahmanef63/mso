@@ -11,7 +11,7 @@ export const INTEGRATION_PAGE_STYLE = String.raw`
 body{margin:0;background:var(--background);padding:var(--space-6);font-family:var(--font-body);color:var(--foreground)}
 .site-bar{max-width:var(--measure);margin:0 auto var(--space-6);font-size:var(--type-small);display:flex;justify-content:space-between;gap:var(--space-3)}
 .site-bar strong{display:flex;align-items:center;gap:var(--space-3);font-weight:var(--weight-strong)}.site-bar svg{width:var(--brand-size);height:var(--brand-size)}.site-bar span{color:var(--muted-foreground)}
-button{border:var(--stroke) solid var(--input);border-radius:var(--radius-control);background:var(--secondary);color:var(--secondary-foreground);padding:var(--space-2) var(--space-3);font:var(--type-small)/var(--line-body) var(--font-body);cursor:pointer}a{color:var(--primary)}
+button{border:var(--stroke) solid var(--input);border-radius:var(--radius-control);background:var(--secondary);color:var(--secondary-foreground);padding:var(--space-2) var(--space-3);font:var(--type-small)/var(--line-body) var(--font-body);cursor:pointer}a{color:var(--settings-action-text)}
 `;
 
 export function integrationSetupPage(embedded = false) {

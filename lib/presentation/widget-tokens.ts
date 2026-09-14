@@ -75,7 +75,7 @@ color-scheme:light;
 --muted:var(--inset);--muted-foreground:var(--text-dim);--border:var(--sep);--input:var(--sep-strong);
 --sidebar:color-mix(in srgb,var(--surface) 72%,var(--field));--sidebar-foreground:var(--text);
 --settings-card:var(--card);--settings-sidebar:var(--sidebar);--settings-canvas:var(--background);
---settings-selected:var(--primary);--settings-selected-text:var(--primary-foreground);
+--settings-selected:var(--primary);--settings-selected-text:var(--primary-foreground);--settings-action-text:var(--info);
 --settings-selected-subtle:color-mix(in srgb,var(--settings-selected-text) 14%,transparent);--settings-selected-border:color-mix(in srgb,var(--settings-selected-text) 42%,transparent);
 --settings-success-fill:color-mix(in srgb,var(--success-text) 10%,var(--surface));
 --settings-danger-fill:color-mix(in srgb,var(--destructive-text) 6%,var(--surface));
@@ -106,7 +106,7 @@ export const MSO_HOST_STYLE_ALIASES = {
   "--text": "--color-text-primary", "--text-dim": "--color-text-secondary", "--text-faint": "--color-text-tertiary",
   "--surface": "--color-background-primary", "--field": "--color-background-secondary", "--hover": "--color-background-tertiary",
   "--sep": "--color-border-secondary", "--sep-strong": "--color-border-primary", "--os-accent": "--color-text-info",
-  "--success-text": "--color-text-success", "--destructive-text": "--color-text-danger",
+  "--success-text": "--color-text-success", "--destructive-text": "--color-text-danger", "--info": "--color-text-info",
   "--background": "--color-background-primary", "--foreground": "--color-text-primary", "--card": "--color-background-secondary",
   "--primary": "--color-text-info", "--muted": "--color-background-tertiary", "--muted-foreground": "--color-text-secondary",
   "--border": "--color-border-secondary", "--input": "--color-border-primary",

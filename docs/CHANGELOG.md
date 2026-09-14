@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `integrations` use contrast-safe action tokens
 - `integrations` inherit shell design tokens
 - `integrations` align layout with Settings sidebar
 - `mcp` harden bidirectional file transfer
