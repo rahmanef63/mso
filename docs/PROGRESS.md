@@ -1,3 +1,31 @@
+## 2026-09-14 — Integrations is a first-class shell app and SI-Coder worktrees are detected safely
+
+The native Integrations workbench existed as a browser/Page/CLI surface but was absent from the
+OS-shell app manifest, so it could not behave like the other dock/launcher features. Integrations
+now has its own feature-slice `AppDescriptor`, is pinned by the MSO consumer manifest, and reuses
+the canonical `/integrations` manager instead of duplicating credential state or actions. The
+ordinary browser route remains anti-frame (`DENY` / `frame-ancestors 'none'`). Only the explicit
+`?embed=shell` mode permits same-origin framing (`SAMEORIGIN` / `frame-ancestors 'self'`), so the
+new window does not widen cross-origin framing policy.
+
+Local SI-Coder migration discovery previously required the version-reported source path to contain
+`si-coder-agent`. The installed SC 0.9.8 currently resolves to a legitimate worktree named
+`~/worktrees/sc-flow-merge-main`, so that name check produced a false unavailable state.
+Discovery now validates that the resolved SC executable lives inside the absolute checkout reported
+by `sc version --json`, treats an explicit `MSO_SC_BIN` override as authoritative, and additionally
+validates the exported Integration Bundle v1 producer/mode before reading metadata. Arbitrary
+binaries that merely claim another source tree are rejected. The bridge remains optional,
+metadata-only for automatic discovery, and is still an explicit snapshot/import path rather than
+live bidirectional credential replication. The real installed probe now reports 10 users and 72
+named connections without exposing credential values.
+
+Verification: the focused Integrations/SC/security-capability suite passed 12/12, TypeScript passed,
+repository-wide ESLint passed with zero warnings, and the safe out-of-tree `mso build` completed its
+isolated Next production build plus mandatory release journeys. Browser release checks passed the
+reviewed desktop/mobile demos, 45 MCP Page assertions, production smoke 4/4, public responsive
+journeys, Sessions/MCP accessibility, Add MCP/project-flow CRUD, and authentication/role/file/exec
+boundaries. The live checkout was not rebuilt in place during verification.
+
 ## 2026-09-14 — Project MCP HTTP discover falls back on JSON-RPC -32601
 
 `project_mcp_tools` probed modern `server/discover` and treated only HTTP 400/404/405
