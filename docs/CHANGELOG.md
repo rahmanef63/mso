@@ -8,8 +8,9 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
-- `integrations` expose native shell and managed SC project bindings
+- `integrations` preserve strict SC bundle validation
 - `integrations` add shell app and detect SC worktrees
+- `integrations` expose native shell and managed SC project bindings
 - `mcp` fall back when project MCP discover returns -32601
 
 ## 2026-09-12
