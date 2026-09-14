@@ -25,4 +25,11 @@ describe("SC package identity", () => {
     const f = await fixture(); await fs.chmod(f.bin, 0o777);
     await expect(inspectScInstallation(f.bin)).rejects.toThrow("unsafe_sc_binary");
   });
+  it("rejects symlinked package metadata instead of checking then reopening it", async () => {
+    const f = await fixture();
+    const real = path.join(f.root, "package.real.json");
+    await fs.rename(path.join(f.root, "package.json"), real);
+    await fs.symlink(real, path.join(f.root, "package.json"));
+    await expect(inspectScInstallation(f.bin)).rejects.toThrow("unsafe_sc_package");
+  });
 });

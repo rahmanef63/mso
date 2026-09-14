@@ -18,6 +18,7 @@ import { WindowContent } from "../../window-content";
 import { ShellContextMenu, useShellContextMenu } from "../context-menu";
 import { useInspectorInfo } from "../../../lib/inspector";
 import { ResponsiveToolbar } from "../../../primitives/responsive-toolbar";
+import { Slot } from "../../../registry/feature-registry";
 import { ControlCenterDesktop } from "../../../features/control-center/components/control-center-desktop";
 import type { AppDescriptor } from "../../../lib/types";
 import { DashboardHome, NavItem, SidebarLabel } from "./dashboard-parts";
@@ -152,13 +153,16 @@ function DashboardShell() {
               <span className="font-medium">{pane.title}</span>
             </>
           )}
-          {pane && paneActions.length > 0 && (
-            <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <span data-slot="system-status-host" data-status-placement="dashboard-header" className="flex items-center">
+              <Slot region="systemStatus" />
+            </span>
+            {pane && paneActions.length > 0 && (
               <ResponsiveToolbar
                 items={paneActions.map((a) => ({ id: a.id, label: a.label, onClick: () => void a.run() }))}
               />
-            </div>
-          )}
+            )}
+          </div>
         </header>
         {/* container context is REQUIRED: app @container styles never match without it.
             Right-click the Home view opens the (registry-driven) dashboard menu;

@@ -138,6 +138,14 @@ function AndroidShell() {
         className="absolute inset-0 z-[10] flex flex-col overflow-hidden text-foreground"
         style={{ "--android-nav": showSystemNav ? "48px" : "0px" } as CSSProperties}
       >
+        <div
+          data-slot="system-status-host"
+          data-status-placement="android-status-bar"
+          className="pointer-events-none absolute inset-x-0 top-0 z-[40] flex items-center justify-end px-2"
+          style={{ height: "var(--sai-top)" }}
+        >
+          <div className="pointer-events-auto"><Slot region="systemStatus" /></div>
+        </div>
         {/* HOME (always mounted; app overlays it — inert while covered so its
             grid + NavBar drop out of tab/AT order under the z-20 app layer).
             Pull down → Control Center; clock+date live on the wallpaper. */}

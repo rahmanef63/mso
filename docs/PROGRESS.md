@@ -1,3 +1,19 @@
+## 2026-09-15 — Shell-native server status + CI security fixes
+
+The global floating `Live server · owner` badge is gone. MSO now contributes one `systemStatus` feature into AppShell and each shell places that shared status in native chrome: macOS menu bar, Windows taskbar, iOS/Android top status area, and the Dashboard header. Auth/session logic remains single-source in the consumer feature; generic AppShell owns only the slot placement.
+
+Security CI root causes were fixed rather than suppressed: the SI-Coder migration shell bridge no longer triggers ShellCheck SC2066, and SI-Coder package discovery now opens `package.json` once with `O_NOFOLLOW`, validates the opened descriptor, and reads through that same descriptor, removing CodeQL alert #126 (`js/file-system-race`).
+
+## 2026-09-15 — Integrations removes its final local layout constant
+
+The compact master/detail threshold is no longer written directly in Integrations styles. Generated `@container` rules now interpolate `SETTINGS_COMPACT_MAX` from the shared presentation responsive contract. This keeps the unavoidable query value in one reviewed SSOT while provider content, setup and Transfer source files contain no local color, length, typography, radius, spacing or breakpoint constants. The style contract tests both generated CSS and the feature source files to prevent regression.
+
+## 2026-09-15 — Integrations content is fully token-driven
+
+The Settings-style Integrations shell and its content pane now consume one semantic visual contract instead of feature-local colors, dimensions, radii, typography, or spacing constants. Provider cards, credential rows, menus, setup forms, Transfer & backup, status pills, buttons, and empty states use shared `background/card/primary/muted/border` aliases plus the MSO widget spacing/type/radius tokens. A regression test rejects feature-local hex/RGB, px/rem visual lengths, numeric font weights, and literal white/black in Integrations styles; only the structural container breakpoint is exempt because CSS custom properties cannot parameterize media/container-query conditions.
+
+The native same-origin Integrations iframe now receives the active AppShell palette, accent/foreground, sidebar, shadow, radius, shell font, and root font scale at load time and whenever shell theme/preset styles change. This removes the previous split where the window/sidebar followed MSO but the generated content retained its own fallback appearance. MCP Page continues to map host style variables through the same semantic aliases.
+
 ## 2026-09-15 — Integrations adopts the Settings sidebar/detail layout
 
 Integrations now uses the same navigation grammar as Settings instead of its own toolbar + nested provider rail. Desktop uses a searchable 224px sidebar grouped into **Connections** and **Manage**, with a bounded 48rem detail pane; below 600px the same sidebar becomes an accessible drawer with Escape/backdrop close behavior. Credential owner selection stays in the sidebar, section state persists across owner changes, and connection counts are decorative so accessible button names remain stable.

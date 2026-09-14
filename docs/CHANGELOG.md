@@ -13,6 +13,9 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `shell` place server status in native chrome
+- `integrations` use contrast-safe action tokens
+- `integrations` inherit shell design tokens
 - `integrations` align layout with Settings sidebar
 - `mcp` harden bidirectional file transfer
 - `mcp` bind ChatGPT Azure file trust to OAuth provenance
@@ -23,6 +26,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `integrations` add shell app and detect SC worktrees
 - `integrations` expose native shell and managed SC project bindings
 - `mcp` fall back when project MCP discover returns -32601
+
+**Changed**
+
+- `integrations` source compact width from responsive SSOT
 
 ## 2026-09-12
 

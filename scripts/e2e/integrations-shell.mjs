@@ -21,6 +21,9 @@ try {
     const frame = page.frameLocator('iframe[title="MSO native Integrations manager"]');
     await expect(frame.getByRole("heading", { name: "GitHub", level: 2, exact: true })).toBeVisible();
     await expect(frame.getByRole("link", { name: "Sign in to MSO as Owner" })).toBeVisible();
+    // Native iframe visual tokens follow the live AppShell preset/accent.
+    await page.evaluate(() => document.documentElement.style.setProperty("--accent", "rgb(31, 109, 240)"));
+    await expect.poll(() => frame.locator("html").evaluate((el) => getComputedStyle(el).getPropertyValue("--os-accent").trim())).toBe("rgb(31, 109, 240)");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.reload();
     await expect(frame.getByRole("heading", { name: "GitHub", level: 2, exact: true })).toBeVisible();

@@ -23,6 +23,7 @@ import { docsApp } from "@/features/docs";
 import { integrationsApp } from "@/features/integrations";
 import { cloudflareApp, dokployApp } from "@/features/infrastructure";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
+import { serverConnectionStatusFeature } from "./server-connection-status";
 import { APP_MARKS } from "./brand-marks";
 
 export const TOPSIDE_BRAND: Brand = {
@@ -82,4 +83,4 @@ export const BUILTIN_APPS: AppDescriptor[] = [
 // controlCenter/today), so a feature absent from the array just doesn't render.
 // Settings stays the `os-settings` app (its own slice). mso adds one consumer
 // feature: a compact theme-preset switcher in the menu-bar status cluster.
-export const TOPSIDE_FEATURES: FeatureDescriptor[] = [...DEFAULT_FEATURES, themeQuickPickerFeature];
+export const TOPSIDE_FEATURES: FeatureDescriptor[] = [...DEFAULT_FEATURES, serverConnectionStatusFeature, themeQuickPickerFeature];

@@ -102,8 +102,10 @@ Open `/integrations`. Public instructions are readable before sign-in; an Owner
 session is required to read/manage credential profiles or open their private forms.
 Choose the credential user, provider, named connection, source and authentication.
 The browser workbench uses the same master/detail navigation grammar as Settings.
-Desktop has a searchable **224px sidebar** and a bounded **48rem detail pane**; below
-600px the sidebar becomes an accessible drawer. Providers live under **Connections**.
+Desktop uses the shared Settings sidebar/content measure tokens; compact windows turn the
+same sidebar into an accessible drawer. Providers live under **Connections**. Visual
+surfaces, accent, typography, radius and spacing come from the shared semantic token
+contract, and the native iframe synchronizes those tokens from the active AppShell.
 **Credential owners**, **Project routing**, **Transfer & backup**, and **Add project MCP**
 live under **Manage**. Section state stays selected when the credential owner changes,
 and Transfer & backup renders in the detail pane instead of replacing the navigation.

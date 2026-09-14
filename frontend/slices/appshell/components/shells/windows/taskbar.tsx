@@ -23,6 +23,7 @@ import { WindowPreview } from "../../window-preview";
 import { ContextMenu, useContextMenu, type MenuItem } from "../context-menu";
 import { ControlCenterDesktop } from "../../../features/control-center/components/control-center-desktop";
 import { StartMenu } from "./start-menu";
+import { Slot } from "../../../registry/feature-registry";
 
 export const TASKBAR_H = 48;
 
@@ -80,6 +81,9 @@ export function Taskbar({ onTaskView }: { onTaskView?: () => void }) {
           ))}
         </div>
         <div className="ml-auto flex items-center gap-0.5">
+          <span data-slot="system-status-host" data-status-placement="taskbar" className="flex items-center">
+            <Slot region="systemStatus" />
+          </span>
           <ControlCenterDesktop size={40} />
           <Clock />
         </div>
