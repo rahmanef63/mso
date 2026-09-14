@@ -19,7 +19,7 @@ new window does not widen cross-origin framing policy.
 
 Local SI-Coder migration discovery previously required the version-reported source path to contain
 `si-coder-agent`. The installed SC 0.9.8 currently resolves to a legitimate worktree named
-`/home/rahman/worktrees/sc-flow-merge-main`, so that name check produced a false unavailable state.
+`~/worktrees/sc-flow-merge-main`, so that name check produced a false unavailable state.
 Discovery now validates that the resolved SC executable lives inside the absolute checkout reported
 by `sc version --json`, treats an explicit `MSO_SC_BIN` override as authoritative, and additionally
 validates the exported Integration Bundle v1 producer/mode before reading metadata. Arbitrary

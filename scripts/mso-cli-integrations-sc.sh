@@ -18,7 +18,11 @@ integration_sc_bundle(){
   dir=$(mktemp -d "${TMPDIR:-/tmp}/mso-sc-migration.XXXXXX") || return 1
   chmod 700 "$dir"; out="$dir/sc.integration-bundle.json"
   "$bin" data export --out "$out" >/dev/null 2>&1 || rc=$?
-  if [ "$rc" -eq 0 ]; then cat "$out"; fi
+  if [ "$rc" -eq 0 ] && jq -e '.format=="integration-bundle" and .version==1 and .producer.name=="si-coder" and .mode=="metadata" and (.users|type=="array")' "$out" >/dev/null 2>&1; then
+    cat "$out"
+  else
+    rc=1
+  fi
   [ ! -e "$out" ] || { : >"$out"; unlink "$out"; }
   rmdir "$dir" 2>/dev/null || true
   return "$rc"
