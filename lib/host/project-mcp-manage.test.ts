@@ -21,3 +21,15 @@ it("preserves existing servers, refuses stale revisions and stores only private 
   await manageProjectMcp(root, { action: "delete", server: "one", revision: current.revision });
   expect((await inspectProjectMcp(root)).servers.map(s => s.name)).toEqual(["two"]);
 });
+
+it("stores managed SC without a command or copied account and permits removal when SC is absent", async () => {
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-managed-sc-"));
+  vi.stubEnv("OS_FS_WRITE_ROOTS", root); vi.stubEnv("OS_FS_READ_ROOTS", root); vi.resetModules();
+  const { inspectProjectMcp, manageProjectMcp } = await import("./project-mcp-manage");
+  const saved = await manageProjectMcp(root, { action: "upsert", server: "si-coder", revision: "new", plugin: "si-coder" });
+  expect(JSON.parse(await fs.readFile(path.join(root, ".mcp.json"), "utf8"))).toEqual({ mcpServers: { "si-coder": { plugin: "si-coder", credentialAuthority: "mso" } } });
+  expect((await inspectProjectMcp(root)).servers[0]).toMatchObject({ name: "si-coder", transport: "stdio", plugin: "si-coder", credentialAuthority: "mso" });
+  await expect(manageProjectMcp(root, { action: "upsert", server: "si-coder", revision: saved.revision, plugin: "si-coder", user: "other" })).rejects.toThrow("no copied account");
+  await manageProjectMcp(root, { action: "delete", server: "si-coder", revision: saved.revision });
+  expect((await inspectProjectMcp(root)).servers).toHaveLength(0);
+});

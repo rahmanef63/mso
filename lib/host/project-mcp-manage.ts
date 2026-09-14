@@ -27,7 +27,7 @@ export async function inspectProjectMcp(projectPath: string) {
   const stored = await manifest(projectPath);
   return { revision: stored.revision, servers: publicProjectMcpServers(await readProjectMcpServers(projectPath)) };
 }
-export async function manageProjectMcp(projectPath: string, input: { action: "upsert" | "delete"; server: string; revision: string; url?: string; user?: string; connection?: string }) {
+export async function manageProjectMcp(projectPath: string, input: { action: "upsert" | "delete"; server: string; revision: string; plugin?: "si-coder"; url?: string; user?: string; connection?: string }) {
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(input.server) || ["__proto__", "constructor", "prototype"].includes(input.server)) throw new Error("invalid MCP server alias");
   return withSecurityStoreLock(path.join(projectPath, ".mcp.json"), async () => {
     const stored = await manifest(projectPath);
@@ -36,6 +36,10 @@ export async function manageProjectMcp(projectPath: string, input: { action: "up
     const servers = { ...((stored.data[key] ?? {}) as Record<string, unknown>) };
     if (input.action === "delete") delete servers[input.server];
     else {
+      if (input.plugin) {
+        if (input.plugin !== "si-coder" || input.url || input.user || input.connection) throw new Error("managed SC has no copied account configuration");
+        servers[input.server] = { plugin: "si-coder", credentialAuthority: "mso" };
+      } else {
       const url = normalizeMcpEndpoint(input.url ?? "");
       let integration: { user: string; connection: string } | undefined;
       if (input.user || input.connection) {
@@ -45,6 +49,7 @@ export async function manageProjectMcp(projectPath: string, input: { action: "up
         if (values.endpoint && normalizeMcpEndpoint(values.endpoint) !== url) throw new Error("MCP endpoint does not match the private connection");
       }
       servers[input.server] = { url, ...(integration ? { integration } : {}) };
+      }
     }
     if (Object.keys(servers).length > 16) throw new Error("project MCP limit is 16 servers");
     const content = JSON.stringify({ ...stored.data, [key]: servers }, null, 2) + "\n";

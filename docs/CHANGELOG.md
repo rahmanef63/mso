@@ -4,6 +4,13 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-14
+
+**Fixed**
+
+- `integrations` expose native shell and managed SC project bindings
+- `mcp` fall back when project MCP discover returns -32601
+
 ## 2026-09-12
 
 **Added**

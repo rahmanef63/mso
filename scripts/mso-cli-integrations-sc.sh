@@ -3,15 +3,15 @@
 # MSO remains standalone: this file is inert when SI-Coder is absent. Only metadata is
 # auto-detected; direct credential values require the existing encrypted/manual transfer.
 integration_sc_binary(){
-  local c meta
+  local c detected
   for c in "${MSO_SC_BIN-}" "$HOME/.local/bin/sc"; do
     [ -n "$c" ] && [ -x "$c" ] || continue
-    meta=$("$c" version --json 2>/dev/null) || continue
-    jq -e '.version and (.source|type=="string") and (.source|test("(^|/)si-coder-agent($|/)"))' >/dev/null 2>&1 <<<"$meta" || continue
-    printf '%s' "$c"; return 0
+    detected=$(node "$ROOT/lib/host/sc-installation.mjs" "$c" 2>/dev/null) || continue
+    printf '%s' "$detected"; return 0
   done
   return 1
 }
+
 integration_sc_bundle(){
   local bin dir out rc=0
   bin=$(integration_sc_binary) || return 1

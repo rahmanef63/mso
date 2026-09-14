@@ -51,6 +51,45 @@ and holds a short operation lease against concurrent deletion/relink/rotation.
 Provider-MCP OAuth is completed in the provider's client. Returning that route does
 not prove the external session is authorized, and MSO never falls back to a local key.
 
+## Ownership and managed SI-Coder
+
+MSO Integrations owns provider/account authority. Batonly owns project plans, task state,
+project-to-connection bindings, QA and delivery evidence; it must not mirror provider secrets.
+SI-Coder remains optional portable developer tooling. Its standalone store is unchanged.
+
+The shell now exposes **Integrations** in Dock, Launchpad and the App Store, with a pinned
+mobile shortcut. `/connections` opens the addressable shell window; `/integrations` remains
+the standalone compatibility entrypoint for secure setup links and terminal workflows. Its same-origin
+`/integrations/manager` document reuses the existing native service/form and nonce policy;
+only that internal document permits same-origin framing. Other origins remain blocked.
+Transfer and private setup fragment handoffs remain supported without copying field values.
+
+Settings → MCP → Plugins / Registry separates a declaration from a project binding.
+Enter an exact project, inspect the revision, then explicitly activate/deactivate a built-in.
+Custom manifests remain declarations only. The browser's registry is not runtime authority;
+`.mcp.json` is the project binding. A configured row is deliberately **not** labelled verified.
+Use `project_mcp_tools` and then `project_mcp_call` to verify real discovery/execution.
+
+For an MSO-managed SC binding, use `project_mcp_manage` with `plugin: "si-coder"` instead
+of `url`, retaining the revision returned by `action: "inspect"`. The portable binding is:
+
+```json
+{"mcpServers":{"si-coder":{"plugin":"si-coder","credentialAuthority":"mso"}}}
+```
+
+The installed package is resolved by its declared package/bin identity, not the name of a
+worktree directory. An unrelated system command named `sc` is never executed as SI-Coder.
+This mode exposes reviewed workspace utilities and redirects supported SC account/catalog/
+connection-status/verification functions to native MSO. Verification requires explicit
+`user`, `provider`, and `connection`; there is no fallback to standalone SC accounts.
+SC store mutations, import/export and unaudited flow execution are not exposed in managed
+mode. Provider deployment operations continue through `integration_execute`; credentials
+are neither copied nor silently synchronized. Standalone SC retains its complete own surface.
+
+This is not an operating-system sandbox for installed code. Activating and calling a local
+MCP still requires trust in the installed package and the existing MSO exec-scope approval.
+The managed dispatch boundary prevents accidental use of SC's parallel credential workflow.
+
 ## Browser and ChatGPT
 
 Open `/integrations`. Public instructions are readable before sign-in; an Owner
@@ -102,7 +141,7 @@ Credential values still enter only through the private setup flow; the Agent con
 
 ### Local SI-Coder migration
 
-When `~/.local/bin/sc` is present, `mso integrations` automatically detects its **metadata-only** Integration Bundle and shows **Import from SI-Coder** in Transfer. Detection is read-only; applying the preview is an explicit create-only action. Existing MSO identities are preserved. Direct credential values are never copied silently; move them with the encrypted bundle/private transfer flow. MSO remains fully standalone when SC is absent. The equivalent explicit command is `mso integrations import-sc`.
+When a verified `si-coder-agent` package is present at `~/.local/bin/sc`, `mso integrations` automatically detects its **metadata-only** Integration Bundle and shows **Import from SI-Coder** in Transfer. Detection is read-only; applying the preview is an explicit create-only action. Existing MSO identities are preserved. Direct credential values are never copied silently; move them with the encrypted bundle/private transfer flow. MSO remains fully standalone when SC is absent. The equivalent explicit command is `mso integrations import-sc`.
 
 ## CLI
 

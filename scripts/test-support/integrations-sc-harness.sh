@@ -2,6 +2,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)";trap 'find "$TMP" -type f -delete 2>/dev/null||true;rmdir "$TMP" 2>/dev/null||true' EXIT
+printf '%s' '{"name":"si-coder-agent","version":"0.9.3","bin":{"sc":"sc"}}' >"$TMP/package.json"
+chmod 600 "$TMP/package.json"
 FAKE="$TMP/sc";LOG="$TMP/log";:>"$LOG"
 cat >"$FAKE" <<'SC'
 #!/usr/bin/env bash

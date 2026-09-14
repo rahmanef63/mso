@@ -20,7 +20,7 @@ import { hermesApp, nineRouterApp, openclawApp } from "@/features/managed-apps";
 import { osSettingsApp } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
-import { cloudflareApp, dokployApp } from "@/features/infrastructure";
+import { cloudflareApp, dokployApp, integrationsApp } from "@/features/infrastructure";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
 import { APP_MARKS } from "./brand-marks";
 
@@ -64,6 +64,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(hermesApp), "hermes"),
   withSlug(withArtwork(openclawApp), "openclaw"),
   withSlug(withArtwork(nineRouterApp), "9router"),
+  pin(withSlug(integrationsApp, "connections")),
   withSlug(withArtwork(dokployApp), "dokploy"),
   withSlug(withArtwork(cloudflareApp), "cloudflare"),
   withSlug(withArtwork(quicklinksApp), "links"),

@@ -59,6 +59,12 @@ if ! node scripts/e2e/release.mjs; then
   exit 43
 fi
 
+echo "== verify native Integrations shell journey"
+if ! node scripts/e2e/integrations-shell.mjs; then
+  echo "verification failed during native Integrations shell E2E" >&2
+  exit 43
+fi
+
 # Optional deeper media/native acceptance, using the same isolated built tree.
 if [ "${1:-}" = "--extended" ]; then
   echo "== verify extended: desktop native acceptance"

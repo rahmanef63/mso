@@ -1,6 +1,8 @@
 /** Metadata returned by project discovery; credential values are never DTOs. */
 export type PublicProjectMcpServer = {
   name: string;
+  plugin?: "si-coder";
+  credentialAuthority?: "mso";
   transport: "stdio" | "http";
   auth: "none" | "configured" | "oauth" | "integration";
 };

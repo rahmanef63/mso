@@ -4,6 +4,8 @@ import { withHttp } from "./project-mcp-http";
 import { projectMcpAuthorization } from "./project-mcp-auth";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { childEnv } from "./child-env";
+import { resolveManagedSc } from "./sc-managed";
+import { managedScCall, managedScTools } from "./sc-consumer";
 import type { ProjectMcpServer } from "./project-mcp-config";
 
 const PROTOCOL = "2025-11-25";
@@ -86,19 +88,30 @@ async function withStdio<T>(server: Extract<ProjectMcpServer, { transport: "stdi
 }
 
 export async function withProjectMcpServer<T>(server: ProjectMcpServer, work: (rpc: (method: string, params?: unknown) => Promise<Rpc>) => Promise<T>): Promise<T> {
+  if (server.transport === "plugin") return withProjectMcpServer(await resolveManagedSc(server), work);
   const auth = await projectMcpAuthorization(server);
   const guarded = async (rpc: (method: string, params?: unknown) => Promise<Rpc>) => work(async (method, params) => {
     if (method === "tools/call" && auth.allowed && !auth.allowed.includes(String((params as { name?: string })?.name))) throw new Error("project MCP tool is not allowed by this connection");
     // Re-resolve at each RPC: removing or changing the named connection takes effect now.
     const current = await projectMcpAuthorization(server);
     if (JSON.stringify(current.server.headers) !== JSON.stringify(auth.server.headers) || JSON.stringify(current.allowed) !== JSON.stringify(auth.allowed)) throw new Error("project MCP connection changed; rediscover before continuing");
+    if (server.consumer === "mso" && method === "tools/call") {
+      const call = params as { name?: unknown; arguments?: unknown };
+      const managed = await managedScCall(String(call?.name), call?.arguments ?? {});
+      if (managed.handled) return { jsonrpc: "2.0", result: managed.result } as Rpc;
+    }
     const row = auth.redact(await rpc(method, params)) as Rpc;
+    if (server.consumer === "mso" && method === "tools/list" && row.result && typeof row.result === "object") {
+      const result = row.result as { tools?: ProjectMcpTool[] };
+      if (Array.isArray(result.tools)) result.tools = managedScTools(result.tools);
+    }
     if (method === "tools/list" && auth.allowed && row.result && typeof row.result === "object") {
       const result = row.result as { tools?: ProjectMcpTool[] };
       if (Array.isArray(result.tools)) result.tools = result.tools.filter((tool) => auth.allowed!.includes(tool.name));
     }
     return row;
   });
+  if (auth.server.transport === "plugin") throw new Error("unresolved managed plugin");
   try { return await (auth.server.transport === "stdio" ? withStdio(auth.server, (rpc) => guarded(rpc)) : withHttp(auth.server, guarded)); }
   catch (error) { throw new Error(String(auth.redact(error instanceof Error ? error.message : "project MCP request failed"))); }
 }

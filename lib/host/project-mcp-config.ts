@@ -9,10 +9,11 @@ const MAX_SERVERS = 16;
 const MAX_ARGV = 32;
 const MAX_VALUE = 4096;
 
-type BaseServer = { protocolVersion?: "2026-07-28"; integration?: { user: string; connection: string }; name: string; headers: Record<string, string>; oauthConfigured: boolean };
+type BaseServer = { consumer?: "mso"; protocolVersion?: "2026-07-28"; integration?: { user: string; connection: string }; name: string; headers: Record<string, string>; oauthConfigured: boolean };
 export type ProjectMcpServer = BaseServer & (
   | { transport: "stdio"; command: string; args: string[]; cwd: string; env: Record<string, string> }
   | { transport: "http"; url: string }
+  | { transport: "plugin"; plugin: "si-coder"; cwd: string }
 );
 export type { PublicProjectMcpServer } from "@/lib/contracts/project-mcp";
 
@@ -62,6 +63,11 @@ export async function readProjectMcpServers(projectPath: string): Promise<Projec
       if (value.command || oauthConfigured || Object.keys(headers).some((key) => key.toLowerCase() === "authorization")) throw new Error(`${name}: conflicting MCP authentication configuration`);
       integration = { user: ref.user, connection: ref.connection };
     }
+    if (value.plugin !== undefined) {
+      if (value.plugin !== "si-coder" || value.credentialAuthority !== "mso" || Object.keys(value).some(key => !["plugin", "credentialAuthority"].includes(key))) throw new Error("invalid managed plugin declaration");
+      out.push({ name, transport: "plugin", plugin: "si-coder", cwd: projectPath, headers: {}, oauthConfigured: false });
+      continue;
+    }
     if (typeof value.command === "string" && value.command.trim() && value.command.length <= MAX_VALUE) {
       const args = value.args === undefined ? [] : strings(value.args, MAX_ARGV);
       if (value.args !== undefined && !args.length && Array.isArray(value.args) && value.args.length) throw new Error(`${name}: invalid args`);
@@ -76,5 +82,5 @@ export async function readProjectMcpServers(projectPath: string): Promise<Projec
 }
 
 export function publicProjectMcpServers(servers: ProjectMcpServer[]): PublicProjectMcpServer[] {
-  return servers.map((server) => ({ name: server.name, transport: server.transport, auth: server.integration ? "integration" : server.oauthConfigured ? "oauth" : Object.keys(server.headers).length ? "configured" : "none" }));
+  return servers.map((server) => ({ name: server.name, transport: server.transport === "plugin" ? "stdio" : server.transport, ...(server.transport === "plugin" ? { plugin: server.plugin, credentialAuthority: "mso" as const } : {}), auth: server.transport === "plugin" || server.integration ? "integration" : server.oauthConfigured ? "oauth" : Object.keys(server.headers).length ? "configured" : "none" }));
 }

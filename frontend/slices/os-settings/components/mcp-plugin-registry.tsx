@@ -1,6 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { McpPluginRuntime } from "./mcp-plugin-runtime";
 import { Textarea } from "@/components/ui/textarea";
 import { SettingsBlock } from "@/features/shell-settings";
 import {
@@ -35,6 +37,7 @@ function restoreCustomPlugins(raw: string | null) {
 
 export function McpPluginRegistry() {
   const [custom, setCustom] = useState<PluginManifest[]>([]);
+  const [project, setProject] = useState("");
   const [source, setSource] = useState("");
   const [message, setMessage] = useState(
     "Custom manifests are validated only. Registration never installs or runs plugin code.",
@@ -84,12 +87,16 @@ export function McpPluginRegistry() {
       <SettingsBlock className="space-y-3 py-4">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-medium">Plugins / Registry</p>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">declarations only</span>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">project-scoped activation</span>
         </div>
         <p className="text-sm text-muted-foreground">
           SI-Coder, Batonly, and custom plugins use the same portable manifest. A declaration may describe Agent Skills and
           MCP surfaces, but never credentials, environment values, headers, or shell commands.
         </p>
+        <label className="grid gap-2 text-sm">Exact target project
+          <Input value={project} onChange={event => setProject(event.target.value)} placeholder="Project name, ID, or absolute path" aria-label="Plugin target project" />
+        </label>
+        <p className="text-xs text-muted-foreground">Inspect before activation. A configured binding is not proof that discovery or a tool call works. Custom declarations remain inactive.</p>
         <ul className="grid gap-2 sm:grid-cols-2" aria-label="Registered plugins">
           {plugins.map((plugin) => {
             const isCustom = custom.some((item) => item.id === plugin.id);
@@ -99,7 +106,7 @@ export function McpPluginRegistry() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium">{plugin.metadata.name}</p>
-                      <span className="text-xs text-muted-foreground">v{plugin.version}</span>
+                      <span className="text-xs text-muted-foreground">Manifest v{plugin.version}</span>
                       <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
                         {isCustom ? "Custom" : "Built-in"}
                       </span>
@@ -116,6 +123,7 @@ export function McpPluginRegistry() {
                     </Button>
                   ) : null}
                 </div>
+                {!isCustom && <McpPluginRuntime key={`${plugin.id}:${project}`} plugin={plugin.id} project={project} endpoint={plugin.mcp?.find(row => row.transport === "https")?.endpoint} />}
               </li>
             );
           })}

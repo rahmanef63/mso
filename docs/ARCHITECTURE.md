@@ -62,7 +62,7 @@ frontend/slices/             vertical application slices
   appshell/                  generic shell framework
     features/                shell features
   os-shell/                  MSO manifest + capability adapters
-  infrastructure/            Dokploy and Cloudflare default feature apps
+  infrastructure/            Integrations, Dokploy and Cloudflare default feature apps
 lib/auth/                    login/session/device approval + live roles
 lib/host/                    bounded host capability implementation
 lib/mcp/                     OAuth/MCP tool catalog and dispatcher

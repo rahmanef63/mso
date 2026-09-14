@@ -130,6 +130,9 @@ const nextConfig = {
       // Private API responses must never be cached by any intermediary — they
       // carry host bytes (fs/read), auth state, and per-session data.
       { source: "/api/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
+      // Only the internal manager is same-origin embeddable; its nonce CSP also
+      // restricts frame-ancestors to self. The standalone page/shell retain DENY.
+      { source: "/integrations/manager", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/integrations", headers: [{ key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/api/integrations/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       // Named brand/wallpaper assets are effectively immutable but, unlike

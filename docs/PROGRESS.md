@@ -1,5 +1,21 @@
 ## 2026-09-14 — Project MCP HTTP discover falls back on JSON-RPC -32601
 
+## 2026-09-14 — Native Integrations shell and project-scoped SC activation
+
+Before: Integrations had a standalone page but no app descriptor/catalog entry; plugin
+registry declarations looked disconnected from runtime; SC detection assumed its checkout
+folder was named `si-coder-agent`. After: a pinned native Integrations shell window reuses
+the existing manager, reviewed built-ins can be explicitly bound to exact projects from
+Settings, and package/bin identity accepts legitimate renamed worktrees without invoking
+an unrelated system `sc`. Managed SC account/status/verification calls resolve through MSO
+Integrations; standalone SC remains unchanged and no credential synchronization is applied.
+
+The registry distinguishes configured from verified. Existing project MCP discovery/call
+tools remain the verification path; no new privileged browser execution endpoint is added.
+Batonly remains project/task/evidence authority. See `docs/INTEGRATIONS.md` for the managed
+binding contract and the explicit limits on SC's exposed managed tool surface.
+
+
 `project_mcp_tools` probed modern `server/discover` and treated only HTTP 400/404/405
 as unsupported. A legacy-only HTTP MCP that answers JSON-RPC method-not-found on HTTP 200
 — the usual JSON-RPC wire — entered the fallback branch and then threw `-32601` because

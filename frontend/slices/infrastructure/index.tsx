@@ -1,4 +1,4 @@
-import { Cloud, ServerCog } from "lucide-react";
+import { Cloud, Plug, ServerCog } from "lucide-react";
 import type { AppDescriptor } from "@/features/appshell";
 
 export type InfrastructureFeatureId = "dokploy" | "cloudflare";
@@ -20,3 +20,10 @@ function descriptor(id: InfrastructureFeatureId): AppDescriptor {
 
 export const dokployApp = descriptor("dokploy");
 export const cloudflareApp = descriptor("cloudflare");
+
+/** A shell app over the existing native manager, not another connection store. */
+export const integrationsApp: AppDescriptor = {
+  id: "integrations", title: "Integrations", icon: Plug, gradient: "var(--primary)",
+  load: () => import("./integrations-app"),
+  defaultSize: { w: 1040, h: 720 },
+};
