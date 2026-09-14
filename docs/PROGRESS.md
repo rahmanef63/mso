@@ -1,3 +1,7 @@
+## 2026-09-15 — Integrations removes its final local layout constant
+
+The compact master/detail threshold is no longer written directly in Integrations styles. Generated `@container` rules now interpolate `SETTINGS_COMPACT_MAX` from the shared presentation responsive contract. This keeps the unavoidable query value in one reviewed SSOT while provider content, setup and Transfer source files contain no local color, length, typography, radius, spacing or breakpoint constants. The style contract tests both generated CSS and the feature source files to prevent regression.
+
 ## 2026-09-15 — Integrations content is fully token-driven
 
 The Settings-style Integrations shell and its content pane now consume one semantic visual contract instead of feature-local colors, dimensions, radii, typography, or spacing constants. Provider cards, credential rows, menus, setup forms, Transfer & backup, status pills, buttons, and empty states use shared `background/card/primary/muted/border` aliases plus the MSO widget spacing/type/radius tokens. A regression test rejects feature-local hex/RGB, px/rem visual lengths, numeric font weights, and literal white/black in Integrations styles; only the structural container breakpoint is exempt because CSS custom properties cannot parameterize media/container-query conditions.

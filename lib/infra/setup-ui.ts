@@ -1,3 +1,4 @@
+import { SETTINGS_COMPACT_MAX } from "@/lib/presentation/responsive-contract";
 // The same DOM-only form runs in a temporary browser page and in MSO Page.
 // No input, capability, or provider response is sent through the MCP bridge.
 export const INTEGRATION_FORM_STYLE = String.raw`
@@ -9,7 +10,7 @@ export const INTEGRATION_FORM_STYLE = String.raw`
 .integration .input-row{display:flex;gap:var(--space-2)}.integration .input-row input{flex:1;width:0}.integration button{font-size:var(--type-small);min-height:var(--control-size);white-space:normal}.integration .field{margin-bottom:var(--space-4);min-width:0}.integration small{display:block;margin-top:var(--space-1);color:var(--muted-foreground);overflow-wrap:anywhere}
 .integration details{border:var(--stroke) solid var(--border);border-radius:var(--radius-panel);padding:var(--space-3);background:var(--settings-card);margin:var(--space-3) 0}.integration summary{cursor:pointer;font-weight:var(--weight-strong)}.integration li{margin:var(--space-2) 0}.integration a{color:var(--settings-action-text);text-underline-offset:var(--space-1);overflow-wrap:anywhere}.integration .setup-status{min-height:var(--control-size);overflow-wrap:anywhere}.integration button:disabled{cursor:not-allowed;opacity:var(--settings-disabled-opacity)}
 .integration .setup-tag{display:inline-block;border:var(--stroke) solid var(--border);border-radius:var(--radius-pill);padding:var(--space-1) var(--space-3);margin-bottom:var(--space-3);font-size:var(--type-caption);background:var(--muted)}.integration .setup-actions{display:flex;gap:var(--space-2);flex-wrap:wrap}.integration .primary{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
-@container integration (max-width:37.5rem){.integration .setup-grid{grid-template-columns:1fr;gap:0}}
+@container integration (max-width:${SETTINGS_COMPACT_MAX}){.integration .setup-grid{grid-template-columns:1fr;gap:0}}
 `;
 
 export const INTEGRATION_FORM_SCRIPT = String.raw`

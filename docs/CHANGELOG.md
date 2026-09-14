@@ -26,6 +26,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `integrations` expose native shell and managed SC project bindings
 - `mcp` fall back when project MCP discover returns -32601
 
+**Changed**
+
+- `integrations` source compact width from responsive SSOT
+
 ## 2026-09-12
 
 **Added**
