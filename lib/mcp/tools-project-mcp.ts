@@ -1,5 +1,5 @@
 import { callManagedScProvider } from "./managed-sc-call";
-import { projectMcpResult } from "@/lib/host/project-mcp-result";
+import { projectMcpResult, projectMcpStructuredProjection } from "@/lib/host/project-mcp-result";
 import { callProjectMcpTool, listProjectMcpToolPage, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint } from "@/lib/host/projects-api";
 import { type McpTool, S, str, mcpDirect } from "./tool-kit";
 
@@ -48,7 +48,7 @@ export const PROJECT_MCP_TOOLS: McpTool[] = [
       const project = await resolveProjectHint(str(a, "project")); if (!project) throw new Error(`project not found: ${String(a.project)}`);
       const managed = await callManagedScProvider(project.path, str(a, "server"), str(a, "tool"), a.arguments ?? {});
       const out = projectMcpResult(managed.handled ? managed.result : await callProjectMcpTool(project.path, str(a, "server"), str(a, "tool"), a.arguments ?? {}));
-      return mcpDirect(out.content, out.isError, { result: { project: project.id, server: str(a, "server"), tool: str(a, "tool"), ...(out.structuredContent ? { structuredContent: out.structuredContent } : {}) } }, out.meta);
+      return mcpDirect(out.content, out.isError, { result: { project: project.id, server: str(a, "server"), tool: str(a, "tool"), output: projectMcpStructuredProjection(out) } }, out.meta);
     },
   },
 ];
