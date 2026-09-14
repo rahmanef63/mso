@@ -1,3 +1,4 @@
+import { SETTINGS_COMPACT_MAX } from "@/lib/presentation/responsive-contract";
 // Owner-only transfer workbench. The default Integrations screen stays simple;
 // this surface is opened explicitly from Integrations sidebar → Transfer & backup.
 export const PORTABILITY_SCRIPT=String.raw`
@@ -70,5 +71,5 @@ export const PORTABILITY_STYLE=String.raw`
 .portable-transfer .identity-check{display:flex;gap:var(--space-2);align-items:center;font-weight:var(--weight-regular)}.portable-transfer .identity-check input{width:var(--icon-size);height:var(--icon-size);margin:0;order:-1;flex:none;accent-color:var(--primary)}
 .portable-transfer .transfer-tree{max-height:var(--settings-scroll-max-height);overflow:auto;margin:var(--space-3) 0;padding:var(--space-3);border:var(--stroke) solid var(--border);border-radius:var(--radius-control);background:var(--background)}.portable-transfer .transfer-tree-user{padding:var(--space-2) 0;border-bottom:var(--stroke) solid var(--border)}.portable-transfer .transfer-tree-provider{padding-left:var(--space-6)}.portable-transfer .transfer-tree-provider>.identity-check~.identity-check{padding-left:var(--space-6);color:var(--muted-foreground)}
 .portable-transfer pre{max-height:var(--settings-code-max-height);overflow:auto;font:var(--type-caption)/var(--line-body) var(--font-mono);white-space:pre-wrap;overflow-wrap:anywhere;background:var(--muted);border-radius:var(--radius-control);padding:var(--space-3)}.portable-transfer [role=status]{font-size:var(--type-small);overflow-wrap:anywhere}.portable-transfer .transfer-hint{font-size:var(--type-caption);color:var(--muted-foreground);margin-top:var(--space-3)}.portable-transfer button{min-height:var(--control-size);margin:var(--space-2) var(--space-2) var(--space-2) 0}
-@container integration (max-width:37.5rem){.portable-transfer .transfer-card{padding:var(--space-4)}.portable-transfer .transfer-tabs button{flex:1}.portable-transfer .transfer-tree-provider,.portable-transfer .transfer-tree-provider>.identity-check~.identity-check{padding-left:var(--space-3)}}
+@container integration (max-width:${SETTINGS_COMPACT_MAX}){.portable-transfer .transfer-card{padding:var(--space-4)}.portable-transfer .transfer-tabs button{flex:1}.portable-transfer .transfer-tree-provider,.portable-transfer .transfer-tree-provider>.identity-check~.identity-check{padding-left:var(--space-3)}}
 `;

@@ -3,6 +3,8 @@ import { CONNECTION_MANAGER_STYLE } from "./connection-ui-style";
 import { INTEGRATION_FORM_STYLE } from "./setup-ui";
 import { PORTABILITY_STYLE } from "./portable/ui";
 import { INTEGRATION_PAGE_STYLE } from "./setup-page";
+import { SETTINGS_COMPACT_MAX } from "@/lib/presentation/responsive-contract";
+import { readFileSync } from "node:fs";
 
 const styles = {
   manager: CONNECTION_MANAGER_STYLE,
@@ -11,16 +13,16 @@ const styles = {
   page: INTEGRATION_PAGE_STYLE,
 };
 
-// CSS custom properties cannot be substituted inside container-query conditions,
-// so the one shared structural breakpoint is intentionally exempt. Every visual
-// declaration inside the feature must consume semantic tokens instead of literals.
-function withoutStructuralBreakpoint(css: string) {
-  return css.replaceAll("37.5rem", "TOKEN_BREAKPOINT");
+// CSS custom properties cannot be substituted inside container-query conditions.
+// The generated CSS receives the query threshold from the shared responsive SSOT;
+// feature source files themselves must not own that value.
+function withoutSharedBreakpoint(css: string) {
+  return css.replaceAll(SETTINGS_COMPACT_MAX, "TOKEN_BREAKPOINT");
 }
 
 describe("Integrations visual token contract", () => {
   it.each(Object.entries(styles))("%s has no feature-local colors or absolute visual lengths", (_name, css) => {
-    const value = withoutStructuralBreakpoint(css);
+    const value = withoutSharedBreakpoint(css);
     expect(value).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(value).not.toMatch(/rgba?\s*\(/i);
     expect(value).not.toMatch(/hsla?\s*\(/i);
@@ -39,4 +41,12 @@ describe("Integrations visual token contract", () => {
     expect(CONNECTION_MANAGER_STYLE).toContain("color:var(--settings-action-text)");
     expect(INTEGRATION_FORM_STYLE).toContain("color:var(--settings-action-text)");
   });
+  it("keeps the structural query threshold outside Integrations feature source", () => {
+    for (const file of ["connection-ui-style.ts", "setup-ui.ts", "portable/ui.ts"]) {
+      const source = readFileSync(new URL(file, import.meta.url), "utf8");
+      expect(source).not.toContain(SETTINGS_COMPACT_MAX);
+      expect(source).toContain("SETTINGS_COMPACT_MAX");
+    }
+  });
+
 });

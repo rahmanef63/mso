@@ -1,3 +1,4 @@
+import { SETTINGS_COMPACT_MAX } from "@/lib/presentation/responsive-contract";
 // Shared by the browser route and the MCP Page; all visual values come from widget/shell semantic tokens.
 export const CONNECTION_MANAGER_STYLE = String.raw`
 .integration{color:var(--foreground);font:var(--type-small)/var(--line-body) var(--font-body)}
@@ -49,7 +50,7 @@ export const CONNECTION_MANAGER_STYLE = String.raw`
 .integration .integration-sidebar-footer{flex:none;border-top:var(--stroke) solid var(--border);padding:var(--space-3)}.integration .integration-sidebar-footer button{width:100%;justify-content:center;border-color:transparent;background:transparent;color:var(--muted-foreground)}
 .integration .integration-settings-content{min-width:0;min-height:0;overflow-y:auto;background:var(--settings-canvas)}.integration .integration-settings-detail,.integration .identity-feedback{width:min(100%,var(--settings-content-width));margin-inline:auto}.integration .integration-settings-detail{padding:var(--space-5);padding-bottom:max(var(--space-5),env(safe-area-inset-bottom))}.integration .identity-feedback{padding:0 var(--space-5) var(--space-5)}
 .integration .integration-mobile-toolbar{display:none}.integration .integration-sidebar-backdrop{display:none}.integration .integration-sidebar-toggle{min-height:var(--control-size)}
-@container integration (max-width:37.5rem){
+@container integration (max-width:${SETTINGS_COMPACT_MAX}){
  .integration .integration-settings-shell{display:block;position:relative;min-height:100%}
  .integration .integration-settings-sidebar{position:absolute;inset:0 auto 0 0;z-index:var(--settings-layer-drawer);width:min(100%,var(--settings-sidebar-sheet-width));transform:translateX(-100%);transition:transform var(--settings-transition);box-shadow:var(--shadow-pop)}
  .integration .integration-settings-sidebar[data-open=true]{transform:translateX(0)}
