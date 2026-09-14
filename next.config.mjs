@@ -135,6 +135,10 @@ const nextConfig = {
       { source: "/integrations", has: [{ type: "query", key: "embed", value: "shell" }], headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
       { source: "/integrations/manager", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/integrations", headers: [{ key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] },
+      // Dedicated shell-only embed path. The global DENY remains authoritative for
+      // every ordinary page; this one path is still same-origin only and also has
+      // a route-level CSP `frame-ancestors 'self'`.
+      { source: "/integrations/embed", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }, { key: "Cache-Control", value: "no-store" }, { key: "Referrer-Policy", value: "no-referrer" }] },
       { source: "/api/integrations/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
       // Named brand/wallpaper assets are effectively immutable but, unlike
       // /_next chunks, are NOT content-hashed — rename or add ?v= if ever redrawn.

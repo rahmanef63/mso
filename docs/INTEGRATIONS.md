@@ -61,7 +61,7 @@ The shell now exposes **Integrations** in Dock, Launchpad and the App Store, wit
 mobile shortcut. `/connections` opens the addressable shell window; `/integrations` remains
 the standalone compatibility entrypoint for secure setup links and terminal workflows. Its same-origin
 `/integrations/manager` document reuses the existing native service/form and nonce policy;
-only that internal document and the compatibility alias `/integrations?embed=shell` permit same-origin framing. Other origins remain blocked.
+that internal document, `/integrations/embed`, and the compatibility alias `/integrations?embed=shell` permit same-origin framing. Other origins remain blocked.
 Transfer and private setup fragment handoffs remain supported without copying field values.
 
 Settings → MCP → Plugins / Registry separates a declaration from a project binding.
