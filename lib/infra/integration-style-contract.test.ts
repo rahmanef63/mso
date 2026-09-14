@@ -36,5 +36,7 @@ describe("Integrations visual token contract", () => {
     expect(CONNECTION_MANAGER_STYLE).toContain("var(--primary)");
     expect(PORTABILITY_STYLE).toContain("var(--settings-card)");
     expect(INTEGRATION_FORM_STYLE).toContain("var(--settings-card)");
+    expect(CONNECTION_MANAGER_STYLE).toContain("color:var(--settings-action-text)");
+    expect(INTEGRATION_FORM_STYLE).toContain("color:var(--settings-action-text)");
   });
 });

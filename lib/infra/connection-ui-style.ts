@@ -17,7 +17,7 @@ export const CONNECTION_MANAGER_STYLE = String.raw`
 .integration .identity-guide{border:var(--stroke) solid var(--border);border-radius:var(--radius-panel);padding:var(--space-3);background:var(--card);margin:var(--space-3) 0}
 .integration .identity-guide[open]{padding-bottom:var(--space-3)}
 .integration .identity-guide summary{cursor:pointer;font-weight:var(--weight-strong)}
-.integration .identity-guide li{margin:var(--space-2) 0}.integration .identity-guide a{display:inline-block;margin:var(--space-2) var(--space-3) var(--space-1) 0;color:var(--primary);overflow-wrap:anywhere}
+.integration .identity-guide li{margin:var(--space-2) 0}.integration .identity-guide a{display:inline-block;margin:var(--space-2) var(--space-3) var(--space-1) 0;color:var(--settings-action-text);overflow-wrap:anywhere}
 .integration .provider-heading,.integration .connection-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)}
 .integration .provider-title{display:flex;align-items:flex-start;gap:var(--space-3);min-width:0}.integration .provider-heading .provider-mark{width:var(--settings-section-icon-size);height:var(--settings-section-icon-size);border-radius:var(--radius-panel)}
 .integration .provider-title h2,.integration .integration-settings-detail>h2{font:var(--weight-strong) var(--type-title)/var(--line-title) var(--font-display);margin:0}.integration .provider-title p{max-width:var(--measure-copy);margin:var(--space-1) 0 0;color:var(--muted-foreground);font-size:var(--type-small)}
