@@ -3,11 +3,17 @@
 # MSO remains standalone: this file is inert when SI-Coder is absent. Only metadata is
 # auto-detected; direct credential values require the existing encrypted/manual transfer.
 integration_sc_binary(){
-  local c meta
-  for c in "${MSO_SC_BIN-}" "$HOME/.local/bin/sc"; do
-    [ -n "$c" ] && [ -x "$c" ] || continue
+  local c meta source source_real resolved
+  local -a candidates
+  if [ -n "${MSO_SC_BIN-}" ]; then candidates=("$MSO_SC_BIN"); else candidates=("$HOME/.local/bin/sc"); fi
+  for c in "${candidates[@]}"; do
+    [ -x "$c" ] || continue
     meta=$("$c" version --json 2>/dev/null) || continue
-    jq -e '.version and (.source|type=="string") and (.source|test("(^|/)si-coder-agent($|/)"))' >/dev/null 2>&1 <<<"$meta" || continue
+    source=$(jq -er 'select((.version|type)=="string" and (.version|length)>0) | .source | select(type=="string" and startswith("/"))' <<<"$meta") || continue
+    source_real=$(readlink -f -- "$source" 2>/dev/null) || continue
+    resolved=$(readlink -f -- "$c" 2>/dev/null) || continue
+    [ -d "$source_real" ] || continue
+    case "$resolved" in "$source_real"/*) ;; *) continue;; esac
     printf '%s' "$c"; return 0
   done
   return 1
@@ -18,7 +24,11 @@ integration_sc_bundle(){
   dir=$(mktemp -d "${TMPDIR:-/tmp}/mso-sc-migration.XXXXXX") || return 1
   chmod 700 "$dir"; out="$dir/sc.integration-bundle.json"
   "$bin" data export --out "$out" >/dev/null 2>&1 || rc=$?
-  if [ "$rc" -eq 0 ]; then cat "$out"; fi
+  if [ "$rc" -eq 0 ] && jq -e '.format=="integration-bundle" and .version==1 and .producer.name=="si-coder" and .mode=="metadata" and (.users|type=="array")' "$out" >/dev/null 2>&1; then
+    cat "$out"
+  else
+    rc=1
+  fi
   [ ! -e "$out" ] || { : >"$out"; unlink "$out"; }
   rmdir "$dir" 2>/dev/null || true
   return "$rc"
