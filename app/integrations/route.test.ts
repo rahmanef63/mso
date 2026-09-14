@@ -1,3 +1,4 @@
+import { GET as standaloneGET } from "./route";
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 vi.mock("server-only", () => ({}));
@@ -11,6 +12,10 @@ describe("friendly native Integrations page", () => {
     expect(html).toContain("INTEGRATIONS_CATALOG"); expect(html).toContain('"id":"supabase"');
     expect(html).toContain("How to get this credential / authorization"); expect(html).not.toContain("si-coder");
     expect(() => new Function(html.match(/<script nonce="[^"]+">([\s\S]*)<\/script>/)![1])).not.toThrow();
+  });
+  it("preserves the earlier embed=shell alias and keeps standalone framing denied", () => {
+    expect(standaloneGET(new Request("https://mso.example.com/integrations?embed=shell")).headers.get("content-security-policy")).toContain("frame-ancestors 'self'");
+    expect(standaloneGET(new Request("https://mso.example.com/integrations")).headers.get("x-frame-options")).toBe("DENY");
   });
   it("limits the embedded manager to the same origin", () => {
     const response = GET();

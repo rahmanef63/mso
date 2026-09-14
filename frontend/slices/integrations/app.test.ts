@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { managerLocation } from "./integrations-app";
+import { managerLocation } from "./app";
 import { integrationsApp } from "./index";
 
 describe("native Integrations shell app", () => {

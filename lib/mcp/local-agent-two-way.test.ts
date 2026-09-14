@@ -48,7 +48,9 @@ describe("two-way Local Agent MCP receive", () => {
     const contextA = { principal, sessionId: a.id };
     const contextB = { principal, sessionId: b.id };
 
-    const receiveB = dispatch(call("local_agent_inbox", { wait_ms: 1000 }), "read", "mcp:b", contextB);
+    // Coverage under concurrent builds can exceed 1s; keep the real receiver
+    // alive while asserting the same delivered/acknowledged semantics.
+    const receiveB = dispatch(call("local_agent_inbox", { wait_ms: 10000 }), "read", "mcp:b", contextB);
     await waitForSubscriber(b.id);
 
     const sent = await dispatch(call("local_agent_message_send", {
@@ -63,7 +65,7 @@ describe("two-way Local Agent MCP receive", () => {
     expect(inboxB[0]).toMatchObject({ text: "PING_FROM_A", intent: "request" });
     expect(events.localAgentSubscriberCount(b.id)).toBe(0);
 
-    const receiveA = dispatch(call("local_agent_inbox", { wait_ms: 1000 }), "read", "mcp:a", contextA);
+    const receiveA = dispatch(call("local_agent_inbox", { wait_ms: 10000 }), "read", "mcp:a", contextA);
     await waitForSubscriber(a.id);
 
     const replied = await dispatch(call("local_agent_reply", {
@@ -80,7 +82,7 @@ describe("two-way Local Agent MCP receive", () => {
       replyToMessageId: inboxB[0].id,
     });
     expect(events.localAgentSubscriberCount(a.id)).toBe(0);
-  });
+  }, 20000);
 
   it("preserves immediate reads when wait_ms is omitted", async () => {
     const subscribe = vi.spyOn(events, "subscribeLocalAgentMessages");

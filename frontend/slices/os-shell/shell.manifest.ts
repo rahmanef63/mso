@@ -20,7 +20,8 @@ import { hermesApp, nineRouterApp, openclawApp } from "@/features/managed-apps";
 import { osSettingsApp } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
-import { cloudflareApp, dokployApp, integrationsApp } from "@/features/infrastructure";
+import { integrationsApp } from "@/features/integrations";
+import { cloudflareApp, dokployApp } from "@/features/infrastructure";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
 import { APP_MARKS } from "./brand-marks";
 

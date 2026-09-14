@@ -17,5 +17,5 @@ function integrationResponse(embedded: boolean) {
   return new Response(page.html,{headers:{"Content-Type":"text/html; charset=utf-8","Content-Security-Policy":page.csp,"Cache-Control":"no-store, private","Referrer-Policy":"no-referrer","X-Content-Type-Options":"nosniff","X-Frame-Options":embedded ? "SAMEORIGIN" : "DENY"}});
 }
 
-export const integrationPageResponse = () => integrationResponse(false);
+export const integrationPageResponse = (request?: Request) => integrationResponse(request ? new URL(request.url).searchParams.get("embed") === "shell" : false);
 export const integrationManagerResponse = () => integrationResponse(true);

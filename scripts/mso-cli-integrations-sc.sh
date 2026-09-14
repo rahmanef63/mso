@@ -4,7 +4,7 @@
 # auto-detected; direct credential values require the existing encrypted/manual transfer.
 integration_sc_binary(){
   local c detected
-  for c in "${MSO_SC_BIN-}" "$HOME/.local/bin/sc"; do
+  for c in "${MSO_SC_BIN:-$HOME/.local/bin/sc}"; do
     [ -n "$c" ] && [ -x "$c" ] || continue
     detected=$(node "$ROOT/lib/host/sc-installation.mjs" "$c" 2>/dev/null) || continue
     printf '%s' "$detected"; return 0
