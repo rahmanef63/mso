@@ -4,11 +4,18 @@ function hostOf(value: string): string {
   try { return new URL(value).hostname.toLowerCase(); } catch { return ""; }
 }
 
-export function detectMcpToolProfile(input: { clientId?: string; name?: string; redirectUris?: string[] }): McpToolProfile {
-  const name = (input.name ?? "").toLowerCase();
+function isChatGptHost(host: string): boolean {
+  return host === "chatgpt.com" || host.endsWith(".chatgpt.com");
+}
+
+export function isTrustedOpenAiFileParamsClient(input: { clientId?: string; redirectUris?: string[] }): boolean {
   const clientHost = hostOf(input.clientId ?? "");
   const redirectHosts = (input.redirectUris ?? []).map(hostOf);
-  if (name.includes("chatgpt") || name === "openai" || clientHost === "chatgpt.com" || clientHost.endsWith(".chatgpt.com") ||
-      redirectHosts.some((host) => host === "chatgpt.com" || host.endsWith(".chatgpt.com"))) return "chatgpt";
+  return isChatGptHost(clientHost) || redirectHosts.some(isChatGptHost);
+}
+
+export function detectMcpToolProfile(input: { clientId?: string; name?: string; redirectUris?: string[] }): McpToolProfile {
+  const name = (input.name ?? "").toLowerCase();
+  if (name.includes("chatgpt") || name === "openai" || isTrustedOpenAiFileParamsClient(input)) return "chatgpt";
   return "full";
 }

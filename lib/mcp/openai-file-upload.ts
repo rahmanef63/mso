@@ -15,7 +15,7 @@ export interface OpenAiProvidedFile {
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const SUPPORTED_MIME = new Set(["image/png", "image/webp", "image/jpeg", "application/json", "application/zip"]);
 const WIRE_MIME = new Set([...SUPPORTED_MIME, "application/octet-stream"]);
-const BUILTIN_AZURE_HOSTS = new Set(["oaisdmntprkoreacentral.blob.core.windows.net"]);
+const CHATGPT_AZURE_FILE_HOST = /^oaisdmntpr[a-z0-9]{2,40}\.blob\.core\.windows\.net$/;
 const MIME_ALIASES = new Map([["application/x-zip-compressed", "application/zip"]]);
 const EXTENSION_MIME = new Map([
   [".png", "image/png"],
@@ -40,7 +40,7 @@ function normalizeMime(value: string): string {
 }
 
 function configuredAzureHosts(): Set<string> {
-  const hosts = new Set<string>(BUILTIN_AZURE_HOSTS);
+  const hosts = new Set<string>();
   for (const raw of (process.env.OS_MCP_OPENAI_FILE_HOSTS || "").split(",")) {
     const host = raw.trim().toLowerCase();
     if (!host) continue;
@@ -52,23 +52,24 @@ function configuredAzureHosts(): Set<string> {
   return hosts;
 }
 
-function trustedDownloadUrl(raw: string): URL {
+function trustedDownloadUrl(raw: string, allowChatGptAzureFamily = false): URL {
   let url: URL;
   try { url = new URL(raw); } catch { throw new HostError("file.download_url is invalid"); }
   if (url.protocol !== "https:") throw new HostError("file.download_url must use HTTPS");
   const host = url.hostname.toLowerCase();
 
-  // OpenAI-owned oaiusercontent hosts are trusted directly. Azure Blob accounts
-  // are accepted only as exact known hosts; one observed ChatGPT host is built in
-  // and operators may add more. Shared prefixes are never ownership proof.
+  // Generic MCP clients get only oaiusercontent + operator-exact Azure hosts.
+  // The rotating oaisdmntpr Azure family is accepted only when the OAuth client
+  // is proven to use a ChatGPT-owned callback and fileParams performed the bind.
   const openAiContentHost = host === "files.oaiusercontent.com" || host.endsWith(".oaiusercontent.com");
-  if (!openAiContentHost && !configuredAzureHosts().has(host)) {
+  const trustedChatGptAzure = allowChatGptAzureFamily && CHATGPT_AZURE_FILE_HOST.test(host);
+  if (!openAiContentHost && !trustedChatGptAzure && !configuredAzureHosts().has(host)) {
     throw new HostError(`file.download_url host is not allowed: ${host}`);
   }
   return url;
 }
 
-async function fetchTrustedFile(initialUrl: URL): Promise<Response> {
+async function fetchTrustedFile(initialUrl: URL, allowChatGptAzureFamily = false): Promise<Response> {
   let url = initialUrl;
   for (let hop = 0; hop <= 3; hop += 1) {
     const response = await fetch(url, {
@@ -79,7 +80,7 @@ async function fetchTrustedFile(initialUrl: URL): Promise<Response> {
     if (![301, 302, 303, 307, 308].includes(response.status)) return response;
     const location = response.headers.get("location");
     if (!location) throw new HostError("OpenAI file redirect was missing a location");
-    url = trustedDownloadUrl(new URL(location, url).toString());
+    url = trustedDownloadUrl(new URL(location, url).toString(), allowChatGptAzureFamily);
   }
   throw new HostError("OpenAI file download exceeded the redirect limit");
 }
@@ -167,6 +168,7 @@ export async function importOpenAiProvidedFile(opts: {
   file: unknown;
   dest: string;
   filename?: string;
+  allowChatGptAzureFamily?: boolean;
 }): Promise<{
   ok: true;
   fileId: string;
@@ -177,13 +179,13 @@ export async function importOpenAiProvidedFile(opts: {
   sha256: string;
 }> {
   const file = providedFile(opts.file);
-  const url = trustedDownloadUrl(file.download_url);
+  const url = trustedDownloadUrl(file.download_url, opts.allowChatGptAzureFamily === true);
   const mimeType = declaredMime(file);
   if (typeof file.size === "number" && (!Number.isFinite(file.size) || file.size < 0 || file.size > MAX_FILE_BYTES)) {
     throw new HostError("file exceeds the 20 MiB MCP import limit");
   }
 
-  const response = await fetchTrustedFile(url);
+  const response = await fetchTrustedFile(url, opts.allowChatGptAzureFamily === true);
   if (!response.ok) throw new HostError(`OpenAI file download failed (${response.status})`);
   const wireMime = responseMime(response);
   if (wireMime && wireMime !== "application/octet-stream" && wireMime !== mimeType) {

@@ -49,6 +49,7 @@ export interface CapabilityRunContext {
   toolArgumentConstraints?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
   capabilities?: CapabilityRuntime;
   toolProfile?: CapabilityToolProfile;
+  trustedOpenAiFileParams?: boolean;
 }
 
 /**

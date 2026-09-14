@@ -32,7 +32,7 @@ function importFile(input: {
   mime_type?: string;
   file_name?: string;
   size?: number;
-}) {
+}, allowChatGptAzureFamily = false) {
   return importOpenAiProvidedFile({
     file: {
       download_url: input.download_url || "https://files.oaiusercontent.com/file",
@@ -42,6 +42,7 @@ function importFile(input: {
       size: input.size,
     },
     dest: "/home/example/generated-files",
+    allowChatGptAzureFamily,
   });
 }
 
@@ -49,6 +50,13 @@ describe("ChatGPT file host allowlist", () => {
   it("accepts OpenAI oaiusercontent content hosts by default", async () => {
     await expect(importFile({ download_url: "https://files.oaiusercontent.com/file.png", mime_type: "image/png" })).resolves.toMatchObject({ bytes: 8 });
   });
+
+  it.each(["oaisdmntprkoreacentral.blob.core.windows.net", "oaisdmntprjapaneast.blob.core.windows.net"])
+    ("accepts rotating ChatGPT Azure host %s only with trusted fileParams provenance", async (host) => {
+      await expect(importFile({ download_url: `https://${host}/container/file.png?sig=redacted`, mime_type: "image/png" }, true))
+        .resolves.toMatchObject({ bytes: 8 });
+    });
+
 
   it("rejects Azure account-name prefixes unless the exact host is configured", async () => {
     await expect(importFile({ download_url: "https://oaisdmntprseasia.blob.core.windows.net/container/file.png", mime_type: "image/png" }))
@@ -79,6 +87,12 @@ describe("ChatGPT file host allowlist", () => {
     await expect(importFile({ download_url: "https://files.oaiusercontent.com/start/file.png", mime_type: "image/png" }))
       .rejects.toThrow("host is not allowed: attacker.blob.core.windows.net");
   });
+
+  it("keeps the ChatGPT Azure exception scoped to the oaisdmntpr account family", async () => {
+    await expect(importFile({ download_url: "https://attacker.blob.core.windows.net/container/file.png?sig=redacted", mime_type: "image/png" }, true))
+      .rejects.toThrow("host is not allowed");
+  });
+
 
   it("allows a redirect to an exact configured Azure host", async () => {
     process.env.OS_MCP_OPENAI_FILE_HOSTS = "oaisdmntprseasia.blob.core.windows.net";

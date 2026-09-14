@@ -20,6 +20,7 @@ export interface McpAgentContext {
   principal?: string;
   sessionId?: string;
   toolProfile?: McpToolProfile;
+  trustedOpenAiFileParams?: boolean;
   allowedTools?: readonly string[];
   toolArgumentConstraints?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
   capabilities?: CapabilityRuntime;

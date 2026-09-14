@@ -130,16 +130,18 @@ ChatGPT file parameter                         VPS file
         │                                         │
         ├─ PNG/WebP/JPEG/JSON/ZIP only            ├─ OS_FS_READ_ROOTS + credential denylist
         ├─ 20 MiB streamed cap                     ├─ original bytes, max 10 MiB
-        ├─ trusted OpenAI host / exact Azure host  ├─ SHA-256
+        ├─ provenance-bound OpenAI/Azure host       ├─ SHA-256
         └─ OS_FS_WRITE_ROOTS                       └─ private 15-minute temp-share
                                                           │
                                                           ▼
                                               approved-device authenticated download
 ```
 
-Upload trusts `*.oaiusercontent.com` directly. If ChatGPT supplies an Azure Blob URL, the exact
-host must be configured in `OS_MCP_OPENAI_FILE_HOSTS`; wildcard or prefix-based Azure trust is
-intentionally rejected. Export returns a `resource_link` plus structured checksum/size metadata.
+Upload trusts `*.oaiusercontent.com` directly. When OAuth proves a `chatgpt.com` callback,
+`openai/fileParams` may also use ChatGPT's rotating `oaisdmntpr<region>.blob.core.windows.net`
+temporary-file family. A self-declared client name never unlocks that family; generic MCP clients
+need exact `OS_MCP_OPENAI_FILE_HOSTS` entries. Export returns a `resource_link` plus structured
+checksum/size metadata.
 The link is not public, consumes the existing MSO approved-device session gate, allows at most five
 downloads, and preserves the source bytes exactly. `session_artifacts` remains a preview/artifact
 workflow and may recompress large images, so it is not the original-file export path.

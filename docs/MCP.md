@@ -562,11 +562,13 @@ body incrementally with a hard **20 MiB** ceiling even when `Content-Length` is 
 The declared/inferred MIME must be in that five-format matrix; generic octet-stream may be used on
 the wire but cannot bypass the declared matrix. PNG/JPEG/WebP magic bytes, JSON UTF-8 + syntax,
 and ZIP signatures are validated before the normal credential/path jail writes into
-`OS_FS_WRITE_ROOTS`. `*.oaiusercontent.com` is trusted directly. Azure Blob hosts are accepted only
-when their exact hostname is listed in `OS_MCP_OPENAI_FILE_HOSTS`; account-name prefixes are not
-treated as ownership proof. The final write uses an exclusive random temporary file and atomic
-rename, never executes transferred bytes, and returns path, bytes and SHA-256. Existing same-name
-files may still be replaced, so import remains a write/destructive action.
+`OS_FS_WRITE_ROOTS`. `*.oaiusercontent.com` is trusted directly. For an OAuth client whose
+registered callback is owned by `chatgpt.com`, the `openai/fileParams` bridge may also follow the
+rotating `oaisdmntpr<region>.blob.core.windows.net` family used by ChatGPT temporary downloads.
+That family exception is never granted from a self-declared client name alone; generic MCP clients
+still need exact Azure hosts in `OS_MCP_OPENAI_FILE_HOSTS`. The final write uses an exclusive random
+temporary file and atomic rename, never executes transferred bytes, and returns path, bytes and
+SHA-256. Existing same-name files may still be replaced, so import remains a write/destructive action.
 
 **`fs_export_file`** is the read-side counterpart for one original file up to **10 MiB**. It uses
 the same `OS_FS_READ_ROOTS`, realpath and credential denylist as other reads, reads with

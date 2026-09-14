@@ -5,7 +5,7 @@ import { publicOrigin, clientIp, mcpCorsHeaders, mcpRequestOriginAllowed } from 
 import { rateLimited, rateLimitedUntrusted } from "@/lib/host/limits-api";
 import { TOOLS } from "@/lib/mcp/tools";
 import { toolsetInfo } from "@/lib/mcp/toolset";
-import { detectMcpToolProfile } from "@/lib/mcp/client-profile";
+import { detectMcpToolProfile, isTrustedOpenAiFileParamsClient } from "@/lib/mcp/client-profile";
 import { validateMcpRequest, modernMcpResult } from "@/lib/mcp/modern-http";
 import { MCP_SERVER_VERSION } from "@/lib/mcp/toolset";
 import { visibleToolsForProfile } from "@/lib/mcp/tool-contract";
@@ -82,6 +82,7 @@ export async function POST(req: Request) {
   if (token.resource && token.resource !== expectedResource) return unauthorized("token was minted for a different MCP resource");
   const client = token.clientId ? await getClient(token.clientId).catch(() => null) : null;
   const toolProfile = token.profile ?? client?.profile ?? detectMcpToolProfile({ clientId: token.clientId, name: client?.name, redirectUris: client?.redirectUris });
+  const trustedOpenAiFileParams = isTrustedOpenAiFileParamsClient({ clientId: token.clientId, redirectUris: client?.redirectUris });
   const resolved = await resolveMcpSession(req, rpc, principal, token.label);
   if ("response" in resolved) return resolved.response;
   const headers = responseHeaders(req, mcpSessionHeaders(wire.modern ? undefined : resolved.responseSessionId));
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
     principal,
     ...(resolved.agentSessionId ? { sessionId: resolved.agentSessionId } : {}),
     toolProfile,
+    trustedOpenAiFileParams,
     ...(token.allowedTools ? { allowedTools: token.allowedTools } : {}),
     ...(token.toolArgumentConstraints ? { toolArgumentConstraints: token.toolArgumentConstraints } : {}),
     capabilities: msoCapabilityRuntime,

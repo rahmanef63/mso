@@ -47,7 +47,11 @@ vi.mock("@/lib/mcp/capability-runtime", () => ({
 }));
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
-vi.mock("@/lib/mcp/client-profile", () => ({ detectMcpToolProfile: ({ name }: { name?: string }) => name === "ChatGPT" ? "chatgpt" : "full" }));
+vi.mock("@/lib/mcp/client-profile", () => ({
+  detectMcpToolProfile: ({ name }: { name?: string }) => name === "ChatGPT" ? "chatgpt" : "full",
+  isTrustedOpenAiFileParamsClient: ({ redirectUris }: { redirectUris?: string[] }) =>
+    (redirectUris ?? []).some((uri) => uri.startsWith("https://chatgpt.com/")),
+}));
 vi.mock("@/lib/mcp/tool-contract", () => ({ visibleToolsForProfile: () => [] }));
 
 vi.mock("@/lib/agent/session-store", () => ({
@@ -164,6 +168,7 @@ describe("/mcp request boundary", () => {
       principal: `mcp-client:${token.clientId}`,
       sessionId: "20260901_100000_aabbccdd",
       toolProfile: "chatgpt",
+      trustedOpenAiFileParams: true,
       capabilities: expect.objectContaining({ list: expect.any(Function), invoke: expect.any(Function) }),
     });
   });

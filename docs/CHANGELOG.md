@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` bind ChatGPT Azure file trust to OAuth provenance
 - `mcp` make project plugins explicit opt-in installs
 - `mcp` trust verified ChatGPT Azure file host
 - `integrations` preserve strict SC bundle validation

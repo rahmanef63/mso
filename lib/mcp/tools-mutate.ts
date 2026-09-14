@@ -36,7 +36,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     audit: { action: "fs.upload" as const, targetArg: "dest" },
     description:
       "Import one ChatGPT conversation/generated PNG, WebP, JPEG, JSON or ZIP file into an existing VPS directory. " +
-      "ChatGPT binds the top-level file parameter through openai/fileParams; MSO downloads the temporary OpenAI URL immediately, validates exact host/type/size/content, writes within OS_FS_WRITE_ROOTS, and returns byte count plus SHA-256. Azure Blob download hosts require explicit OS_MCP_OPENAI_FILE_HOSTS allowlisting. Existing same-name files may be replaced.",
+      "ChatGPT binds the top-level file through openai/fileParams; MSO validates temporary URL provenance, type, size and content before writing inside OS_FS_WRITE_ROOTS. Verified ChatGPT OAuth callbacks may use its rotating Azure file hosts; generic MCP clients require exact Azure allowlisting. Returns bytes + SHA-256; existing same-name files may be replaced.",
     scope: "write",
     annotations: { destructiveHint: true, openWorldHint: true },
     meta: { "openai/fileParams": ["file"] },
@@ -58,10 +58,11 @@ export const MUTATE_TOOLS: McpTool[] = [
       dest: { type: "string", description: "Existing destination directory on the VPS, within OS_FS_WRITE_ROOTS." },
       filename: { type: "string", description: "Optional safe destination basename; defaults to the ChatGPT filename." },
     }, ["file", "dest"]),
-    run: async (a) => importOpenAiProvidedFile({
+    run: async (a, context) => importOpenAiProvidedFile({
       file: a.file,
       dest: str(a, "dest"),
       filename: opt(a, "filename"),
+      allowChatGptAzureFamily: context.trustedOpenAiFileParams === true,
     }),
   },
   {

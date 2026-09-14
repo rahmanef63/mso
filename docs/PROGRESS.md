@@ -15,9 +15,11 @@ READ-root/credential guards and `O_NOFOLLOW` remain authoritative, bytes are not
 recompressed, SHA-256 is returned, and the approved-device download expires after 15 minutes / five
 downloads. ChatGPT import is now an explicit PNG/WebP/JPEG/JSON/ZIP matrix with format validation;
 generic octet-stream is accepted only as a transport response for a known declared/inferred format,
-not as a bypass. Azure Blob trust moved from an account-name prefix heuristic to exact optional
-`OS_MCP_OPENAI_FILE_HOSTS` entries; `*.oaiusercontent.com` remains trusted directly. Derivative MSO
-projects remain unchanged until this upstream contract passes release verification.
+not as a bypass. Generic MCP Azure Blob trust remains exact-only through optional
+`OS_MCP_OPENAI_FILE_HOSTS`, while `*.oaiusercontent.com` is trusted directly. The rotating
+`oaisdmntpr<region>` Azure family is accepted only when OAuth registration proves a
+`chatgpt.com` callback; a self-declared ChatGPT client name does not grant that exception.
+Derivative MSO projects remain unchanged until this upstream contract passes release verification.
 
 ## 2026-09-14 — Integrations is a first-class shell app and SI-Coder worktrees are detected safely
 
