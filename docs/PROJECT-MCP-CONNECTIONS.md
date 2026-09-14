@@ -4,9 +4,28 @@ MSO's generic project MCP tools can use a named private Project MCP integration.
 This keeps one user-facing connector while each downstream app remains modular.
 The host capability keeps exec-scope enforcement, rate limits and audit ownership.
 
-## Declaration
+## Default and installation boundary
 
-An HTTP server in the selected project's regular `.mcp.json` may include:
+A fresh project has no project MCP server and no SI-Coder/Batonly plugin. MSO's plugin catalog is only a list of available integrations. Installation always targets one exact project and writes only that project's `.mcp.json`; parent and sibling manifests are not inherited.
+
+Reviewed plugins use compact identities rather than copied executable/endpoint details:
+
+```json
+{
+  "mcpServers": {
+    "si-coder": { "plugin": "si-coder", "credentialAuthority": "mso" },
+    "batonly": {
+      "plugin": "batonly",
+      "credentialAuthority": "mso",
+      "integration": { "user": "owner", "connection": "batonly-assistant" }
+    }
+  }
+}
+```
+
+SI-Coder resolves the reviewed installed package at call time. Batonly resolves its reviewed HTTPS endpoint from MSO's plugin catalog and requires the referenced private MCP connection to target that endpoint. The project file stores neither Batonly's endpoint nor its bearer.
+
+Arbitrary HTTP MCPs remain modular too. An HTTP server in the selected project's regular `.mcp.json` may include:
 
 ```json
 {
@@ -59,8 +78,7 @@ is treated as unsupported, not a hard failure. Modern stdio is opt-in with
 protocolVersion: 2026-07-28. Rich image/audio/resource results
 are preserved; downstream UI metadata is namespaced rather than trusted as MSO UI origins.
 
-Use Integrations → Add MCP or project_mcp_manage to register an HTTPS endpoint with
-revision checks. See [automation flows](AUTOMATION-FLOWS.md) for CLI, sessions and assets.
+Use **Settings → MCP → MSO Access → Project plugins** for reviewed SI-Coder/Batonly installation, or `project_mcp_manage` with revision checks. Use Integrations → Add MCP for reusable private MCP credentials. Arbitrary HTTPS project MCPs can still be registered directly with `url`. See [automation flows](AUTOMATION-FLOWS.md) for CLI, sessions and assets.
 Tool arguments are objects, bounded to 128 KiB; downstream schema validation remains
 the application's authority. Descriptions/results are untrusted tool data.
 

@@ -1,5 +1,14 @@
 ## 2026-09-14 — Original-byte MCP file export + explicit ChatGPT import matrix
 
+## 2026-09-15 — Project plugins are opt-in, isolated installations
+
+MSO Access now treats SI-Coder and Batonly as **available**, not pre-installed. A fresh project has no plugin binding; exact-project `.mcp.json` is the installation authority and discovery never inherits parent/sibling bindings. The Settings wording is now Catalog → Project install with explicit Install / Update / Uninstall actions.
+
+Batonly joins SI-Coder as a first-class reviewed project plugin. Its project binding stores only `plugin: batonly`, MSO credential authority, and an exact named connection reference; endpoint/token remain in the reviewed catalog and Integrations. Inspecting an alias no longer counts as plugin installation unless its returned plugin identity matches.
+
+This preserves three separate layers: host MCP access, reusable MSO Integrations credentials, and project-local plugin bindings. Installing or removing a plugin from one project changes neither standalone SI-Coder nor Batonly data nor another project.
+
+
 The upstream MSO file-transfer audit is now implemented instead of remaining a read-only finding.
 `fs_export_file` exports one original file through the existing authenticated temporary-share store:
 READ-root/credential guards and `O_NOFOLLOW` remain authoritative, bytes are not decoded or

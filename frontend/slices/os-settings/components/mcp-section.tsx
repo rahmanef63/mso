@@ -61,7 +61,11 @@ function OwnerMcpSection() {
       <div id="mcp-direction-panel" role="tabpanel" aria-labelledby={`mcp-${direction}-tab`} className="@container min-w-0 space-y-4">
       {direction === "sessions" ? <McpSessions /> : <>
       <p className="text-sm text-muted-foreground">{direction === "inbound" ? "Approve how external clients and agents access this MSO host." : "Choose how MSO reaches external services and projects."}</p>
-      {page === "overview" && direction === "outbound" && <SettingsBlock className="space-y-2 py-4"><p className="text-sm font-medium">External connections</p><p className="text-sm text-muted-foreground">Manage external MCP and service credentials through Integrations. Registry entries remain descriptive until a separate approved connection or activation is completed.</p><Button asChild variant="secondary"><Link href="/integrations">Open Integrations</Link></Button></SettingsBlock>}
+      {page === "overview" && direction === "outbound" && <SettingsBlock className="space-y-3 py-4">
+        <div><p className="text-sm font-medium">Service connections</p><p className="text-sm text-muted-foreground">Integrations owns reusable provider/MCP credentials on this MSO host. A saved credential does not install a plugin into any project.</p></div>
+        <div><p className="text-sm font-medium">Project plugins</p><p className="text-sm text-muted-foreground">Each project starts with no SI-Coder or Batonly binding. Install them separately per exact project; parent/sibling projects never inherit the binding.</p></div>
+        <Button asChild variant="secondary"><Link href="/integrations">Open Integrations</Link></Button>
+      </SettingsBlock>}
       <McpNavigation active={page} onSelect={navigate} activeCount={state.tokens.filter(token => token.status === "active").length} direction={direction} />
       {page === "connect" && <McpSetupGuide origin={state.origin} maxScope={state.maxScope} />}
       {page === "connection" && <McpConnectionSection origin={state.origin} />}

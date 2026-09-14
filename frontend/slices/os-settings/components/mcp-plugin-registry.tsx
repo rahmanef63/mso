@@ -68,7 +68,7 @@ export function McpPluginRegistry() {
       }
       persist([...custom, result.manifest]);
       setSource("");
-      setMessage(`Registered ${result.manifest.metadata.name}. Activation remains a separate approved action.`);
+      setMessage(`Registered ${result.manifest.metadata.name} in this browser catalog. It is not installed into any project.`);
     } catch {
       setMessage("Enter valid JSON matching portable plugin manifest v1.");
     }
@@ -86,17 +86,16 @@ export function McpPluginRegistry() {
     <div className="space-y-4">
       <SettingsBlock className="space-y-3 py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium">Plugins / Registry</p>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">project-scoped activation</span>
+          <p className="text-sm font-medium">Project plugins</p>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">catalog → project install</span>
         </div>
         <p className="text-sm text-muted-foreground">
-          SI-Coder, Batonly, and custom plugins use the same portable manifest. A declaration may describe Agent Skills and
-          MCP surfaces, but never credentials, environment values, headers, or shell commands.
+          SI-Coder and Batonly are available catalog entries, not default project dependencies. Installing one writes only the selected project’s MCP binding. Custom manifests stay browser-local declarations.
         </p>
         <label className="grid gap-2 text-sm">Exact target project
           <Input value={project} onChange={event => setProject(event.target.value)} placeholder="Project name, ID, or absolute path" aria-label="Plugin target project" />
         </label>
-        <p className="text-xs text-muted-foreground">Inspect before activation. A configured binding is not proof that discovery or a tool call works. Custom declarations remain inactive.</p>
+        <p className="text-xs text-muted-foreground">Check the exact target before installing. Fresh projects are empty; no parent, sibling, or catalog entry is inherited as an installed plugin. Installation is still not a health check.</p>
         <ul className="grid gap-2 sm:grid-cols-2" aria-label="Registered plugins">
           {plugins.map((plugin) => {
             const isCustom = custom.some((item) => item.id === plugin.id);
@@ -108,7 +107,7 @@ export function McpPluginRegistry() {
                       <p className="text-sm font-medium">{plugin.metadata.name}</p>
                       <span className="text-xs text-muted-foreground">Manifest v{plugin.version}</span>
                       <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                        {isCustom ? "Custom" : "Built-in"}
+                        {isCustom ? "Custom catalog" : "Available"}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{plugin.metadata.description}</p>
@@ -123,7 +122,7 @@ export function McpPluginRegistry() {
                     </Button>
                   ) : null}
                 </div>
-                {!isCustom && <McpPluginRuntime key={`${plugin.id}:${project}`} plugin={plugin.id} project={project} endpoint={plugin.mcp?.find(row => row.transport === "https")?.endpoint} />}
+                {!isCustom && <McpPluginRuntime key={`${plugin.id}:${project}`} plugin={plugin.id} project={project} />}
               </li>
             );
           })}
@@ -136,7 +135,7 @@ export function McpPluginRegistry() {
             Custom plugin manifest
           </label>
           <p className="mt-1 text-xs text-muted-foreground">
-            Valid manifests are stored in this browser only. Activation and credentials stay separate from the registry.
+            Valid custom manifests are stored in this browser only. Catalog registration never installs code or adds a project MCP binding.
           </p>
         </div>
         <Textarea

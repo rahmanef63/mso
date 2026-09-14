@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -39,6 +39,16 @@ describe("dynamic project MCP boundary", () => {
     const result = await callProjectMcpTool(project, "projectFixture", "private_echo", { value: "hello" });
     const text = (result as { content: Array<{ text: string }> }).content[0].text;
     expect(JSON.parse(text)).toEqual({ value: "hello", visible: "ok", secretLeak: false, secretRef: "" });
+  });
+
+
+  it("does not inherit parent or sibling MCP bindings into a project with no manifest", async () => {
+    const parent = path.join(root, "isolated-parent"), child = path.join(parent, "child"), sibling = path.join(parent, "sibling");
+    await mkdir(child, { recursive: true }); await mkdir(sibling, { recursive: true });
+    await writeFile(path.join(parent, ".mcp.json"), JSON.stringify({ mcpServers: { "si-coder": { plugin: "si-coder", credentialAuthority: "mso" } } }));
+    await writeFile(path.join(sibling, ".mcp.json"), JSON.stringify({ mcpServers: { batonly: { plugin: "batonly", credentialAuthority: "mso", integration: { user: "owner", connection: "batonly" } } } }));
+    const { readProjectMcpServers } = await import("./project-mcp-config");
+    expect(await readProjectMcpServers(child)).toEqual([]);
   });
 
   it("refuses a stdio cwd that escapes the selected project", async () => {

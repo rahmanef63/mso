@@ -1,4 +1,5 @@
-import type { PublicProjectMcpServer } from "@/lib/contracts/project-mcp";
+import type { ProjectPluginId, PublicProjectMcpServer } from "@/lib/contracts/project-mcp";
+import { BUILT_IN_PLUGINS } from "@/lib/plugins/manifest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { BOUNDED_READ, readBoundedRegularFile } from "./bounded-read";
@@ -9,7 +10,7 @@ const MAX_SERVERS = 16;
 const MAX_ARGV = 32;
 const MAX_VALUE = 4096;
 
-type BaseServer = { consumer?: "mso"; protocolVersion?: "2026-07-28"; integration?: { user: string; connection: string }; name: string; headers: Record<string, string>; oauthConfigured: boolean };
+type BaseServer = { consumer?: "mso"; plugin?: ProjectPluginId; protocolVersion?: "2026-07-28"; integration?: { user: string; connection: string }; name: string; headers: Record<string, string>; oauthConfigured: boolean };
 export type ProjectMcpServer = BaseServer & (
   | { transport: "stdio"; command: string; args: string[]; cwd: string; env: Record<string, string> }
   | { transport: "http"; url: string }
@@ -64,8 +65,17 @@ export async function readProjectMcpServers(projectPath: string): Promise<Projec
       integration = { user: ref.user, connection: ref.connection };
     }
     if (value.plugin !== undefined) {
-      if (value.plugin !== "si-coder" || value.credentialAuthority !== "mso" || Object.keys(value).some(key => !["plugin", "credentialAuthority"].includes(key))) throw new Error("invalid managed plugin declaration");
-      out.push({ name, transport: "plugin", plugin: "si-coder", cwd: projectPath, headers: {}, oauthConfigured: false });
+      if (!["si-coder", "batonly"].includes(String(value.plugin)) || value.credentialAuthority !== "mso") throw new Error("invalid managed plugin declaration");
+      if (value.plugin === "si-coder") {
+        if (Object.keys(value).some(key => !["plugin", "credentialAuthority"].includes(key))) throw new Error("invalid managed SI-Coder declaration");
+        out.push({ name, transport: "plugin", plugin: "si-coder", cwd: projectPath, headers: {}, oauthConfigured: false });
+        continue;
+      }
+      if (!integration || Object.keys(value).some(key => !["plugin", "credentialAuthority", "integration"].includes(key))) throw new Error("Batonly plugin requires an exact MSO integration reference");
+      const manifest = BUILT_IN_PLUGINS.find(plugin => plugin.id === "batonly");
+      const remote = manifest?.mcp?.find(descriptor => descriptor.transport === "https");
+      if (!remote || remote.transport !== "https") throw new Error("Batonly plugin endpoint is unavailable");
+      out.push({ name, transport: "http", plugin: "batonly", url: remote.endpoint, headers: {}, oauthConfigured: false, integration });
       continue;
     }
     if (typeof value.command === "string" && value.command.trim() && value.command.length <= MAX_VALUE) {
@@ -82,5 +92,5 @@ export async function readProjectMcpServers(projectPath: string): Promise<Projec
 }
 
 export function publicProjectMcpServers(servers: ProjectMcpServer[]): PublicProjectMcpServer[] {
-  return servers.map((server) => ({ name: server.name, transport: server.transport === "plugin" ? "stdio" : server.transport, ...(server.transport === "plugin" ? { plugin: server.plugin, credentialAuthority: "mso" as const } : {}), auth: server.transport === "plugin" || server.integration ? "integration" : server.oauthConfigured ? "oauth" : Object.keys(server.headers).length ? "configured" : "none" }));
+  return servers.map((server) => ({ name: server.name, transport: server.transport === "plugin" ? "stdio" : server.transport, ...(server.plugin ? { plugin: server.plugin, credentialAuthority: "mso" as const } : {}), auth: server.plugin || server.integration ? "integration" : server.oauthConfigured ? "oauth" : Object.keys(server.headers).length ? "configured" : "none" }));
 }

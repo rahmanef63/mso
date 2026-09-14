@@ -64,11 +64,8 @@ the standalone compatibility entrypoint for secure setup links and terminal work
 that internal document, `/integrations/embed`, and the compatibility alias `/integrations?embed=shell` permit same-origin framing. Other origins remain blocked.
 Transfer and private setup fragment handoffs remain supported without copying field values.
 
-Settings → MCP → Plugins / Registry separates a declaration from a project binding.
-Enter an exact project, inspect the revision, then explicitly activate/deactivate a built-in.
-Custom manifests remain declarations only. The browser's registry is not runtime authority;
-`.mcp.json` is the project binding. A configured row is deliberately **not** labelled verified.
-Use `project_mcp_tools` and then `project_mcp_call` to verify real discovery/execution.
+Settings → MCP → **MSO Access → Project plugins** separates the available plugin catalog from installed project bindings.
+Every project starts with no SI-Coder or Batonly plugin. Select one exact project, inspect its revision, then explicitly **Install to project** or **Uninstall**. Parent and sibling `.mcp.json` files are never inherited. Custom manifests remain browser-local declarations only. The catalog is not runtime authority; the selected project's `.mcp.json` is. Installed is deliberately **not** labelled verified; use `project_mcp_tools` and then `project_mcp_call` for real discovery/execution evidence.
 
 For an MSO-managed SC binding, use `project_mcp_manage` with `plugin: "si-coder"` instead
 of `url`, retaining the revision returned by `action: "inspect"`. The portable binding is:
@@ -76,6 +73,15 @@ of `url`, retaining the revision returned by `action: "inspect"`. The portable b
 ```json
 {"mcpServers":{"si-coder":{"plugin":"si-coder","credentialAuthority":"mso"}}}
 ```
+
+
+Batonly uses the same project-install contract. Its project file stores only the reviewed plugin identity plus an exact private MSO connection reference; it does not duplicate the Batonly endpoint or access token:
+
+```json
+{"mcpServers":{"batonly":{"plugin":"batonly","credentialAuthority":"mso","integration":{"user":"owner","connection":"batonly-assistant"}}}}
+```
+
+The named `mcp` connection in Integrations must resolve to the reviewed Batonly endpoint before installation succeeds. Removing this binding affects only the selected project; it does not revoke the credential, delete Batonly data, or change another project.
 
 The installed package is resolved by its declared package/bin identity, not the name of a
 worktree directory. An unrelated system command named `sc` is never executed as SI-Coder.

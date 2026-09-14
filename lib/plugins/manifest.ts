@@ -166,6 +166,7 @@ export function validatePluginManifest(value: unknown): ManifestValidation {
   return { ok: true, manifest: value as PluginManifest };
 }
 
+/** Catalog declarations bundled with MSO. Presence here never installs a plugin into a project. */
 export const BUILT_IN_PLUGINS: readonly PluginManifest[] = Object.freeze([
   {
     $schema: PLUGIN_MANIFEST_SCHEMA,

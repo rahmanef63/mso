@@ -2,7 +2,9 @@ import { afterEach, expect, it, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-vi.mock("@/lib/infra/connection-service", () => ({ directConnectionValues: async () => ({ endpoint: "https://example.test/mcp", accessToken: "private-value" }) }));
+vi.mock("@/lib/infra/connection-service", () => ({ directConnectionValues: async (_provider: string, selector: { connection?: string }) => selector.connection === "batonly-private"
+  ? { endpoint: "https://site.batonly.site/mcp", accessToken: "batonly-private-value" }
+  : { endpoint: "https://example.test/mcp", accessToken: "private-value" } }));
 let root = "";
 afterEach(async () => { vi.unstubAllEnvs(); if (root) await fs.rm(root, { recursive: true, force: true }); });
 it("preserves existing servers, refuses stale revisions and stores only private connection references", async () => {
@@ -10,7 +12,7 @@ it("preserves existing servers, refuses stale revisions and stores only private 
   vi.stubEnv("OS_FS_WRITE_ROOTS", root); vi.stubEnv("OS_FS_READ_ROOTS", root); vi.resetModules();
   const { inspectProjectMcp, manageProjectMcp } = await import("./project-mcp-manage");
   const first = await inspectProjectMcp(root);
-  expect(first.revision).toBe("new");
+  expect(first).toEqual({ revision: "new", servers: [] });
   const saved = await manageProjectMcp(root, { action: "upsert", server: "one", revision: first.revision, url: "https://example.test/mcp", user: "owner", connection: "private" });
   await expect(manageProjectMcp(root, { action: "delete", server: "one", revision: "new" })).rejects.toThrow("revision changed");
   await manageProjectMcp(root, { action: "upsert", server: "two", revision: saved.revision, url: "https://public.test/mcp" });
@@ -32,4 +34,26 @@ it("stores managed SC without a command or copied account and permits removal wh
   await expect(manageProjectMcp(root, { action: "upsert", server: "si-coder", revision: saved.revision, plugin: "si-coder", user: "other" })).rejects.toThrow("no copied account");
   await manageProjectMcp(root, { action: "delete", server: "si-coder", revision: saved.revision });
   expect((await inspectProjectMcp(root)).servers).toHaveLength(0);
+});
+
+
+it("installs Batonly only in the exact project without storing endpoint or token", async () => {
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-managed-batonly-"));
+  vi.stubEnv("OS_FS_WRITE_ROOTS", root); vi.stubEnv("OS_FS_READ_ROOTS", root); vi.resetModules();
+  const { inspectProjectMcp, manageProjectMcp } = await import("./project-mcp-manage");
+  const saved = await manageProjectMcp(root, { action: "upsert", server: "batonly", revision: "new", plugin: "batonly", user: "owner", connection: "batonly-private" });
+  const raw = await fs.readFile(path.join(root, ".mcp.json"), "utf8");
+  expect(JSON.parse(raw)).toEqual({ mcpServers: { batonly: { plugin: "batonly", credentialAuthority: "mso", integration: { user: "owner", connection: "batonly-private" } } } });
+  expect(raw).not.toContain("site.batonly.site"); expect(raw).not.toContain("batonly-private-value");
+  expect((await inspectProjectMcp(root)).servers[0]).toMatchObject({ name: "batonly", plugin: "batonly", transport: "http", auth: "integration", credentialAuthority: "mso" });
+  await manageProjectMcp(root, { action: "delete", server: "batonly", revision: saved.revision });
+  expect((await inspectProjectMcp(root)).servers).toEqual([]);
+});
+
+it("refuses Batonly installation through a connection for another endpoint", async () => {
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-managed-batonly-wrong-"));
+  vi.stubEnv("OS_FS_WRITE_ROOTS", root); vi.stubEnv("OS_FS_READ_ROOTS", root); vi.resetModules();
+  const { manageProjectMcp } = await import("./project-mcp-manage");
+  await expect(manageProjectMcp(root, { action: "upsert", server: "batonly", revision: "new", plugin: "batonly", user: "owner", connection: "private" })).rejects.toThrow("reviewed Batonly endpoint");
+  await expect(fs.stat(path.join(root, ".mcp.json"))).rejects.toMatchObject({ code: "ENOENT" });
 });

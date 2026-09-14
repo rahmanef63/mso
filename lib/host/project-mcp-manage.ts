@@ -5,6 +5,8 @@ import { resolveReadable } from "./paths";
 import { writeFileGuarded, sha256Text } from "./fs-api";
 import { readProjectMcpServers, publicProjectMcpServers } from "./project-mcp-config";
 import { normalizeMcpEndpoint } from "@/lib/infra/mcp-policy";
+import { BUILT_IN_PLUGINS } from "@/lib/plugins/manifest";
+import type { ProjectPluginId } from "@/lib/contracts/project-mcp";
 import { directConnectionValues } from "@/lib/infra/connection-service";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 
@@ -27,7 +29,7 @@ export async function inspectProjectMcp(projectPath: string) {
   const stored = await manifest(projectPath);
   return { revision: stored.revision, servers: publicProjectMcpServers(await readProjectMcpServers(projectPath)) };
 }
-export async function manageProjectMcp(projectPath: string, input: { action: "upsert" | "delete"; server: string; revision: string; plugin?: "si-coder"; url?: string; user?: string; connection?: string }) {
+export async function manageProjectMcp(projectPath: string, input: { action: "upsert" | "delete"; server: string; revision: string; plugin?: ProjectPluginId; url?: string; user?: string; connection?: string }) {
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(input.server) || ["__proto__", "constructor", "prototype"].includes(input.server)) throw new Error("invalid MCP server alias");
   return withSecurityStoreLock(path.join(projectPath, ".mcp.json"), async () => {
     const stored = await manifest(projectPath);
@@ -37,8 +39,19 @@ export async function manageProjectMcp(projectPath: string, input: { action: "up
     if (input.action === "delete") delete servers[input.server];
     else {
       if (input.plugin) {
-        if (input.plugin !== "si-coder" || input.url || input.user || input.connection) throw new Error("managed SC has no copied account configuration");
-        servers[input.server] = { plugin: "si-coder", credentialAuthority: "mso" };
+        if (input.url) throw new Error("project plugins resolve their endpoint from the reviewed catalog");
+        if (input.plugin === "si-coder") {
+          if (input.user || input.connection) throw new Error("managed SC has no copied account configuration");
+          servers[input.server] = { plugin: "si-coder", credentialAuthority: "mso" };
+        } else if (input.plugin === "batonly") {
+          if (![input.user, input.connection].every(value => typeof value === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(value))) throw new Error("Batonly installation requires exact user and connection");
+          const descriptor = BUILT_IN_PLUGINS.find(plugin => plugin.id === "batonly")?.mcp?.find(row => row.transport === "https");
+          if (!descriptor || descriptor.transport !== "https") throw new Error("Batonly plugin endpoint is unavailable");
+          const integration = { user: input.user!, connection: input.connection! };
+          const values = await directConnectionValues("mcp", integration);
+          if (!values.endpoint || normalizeMcpEndpoint(values.endpoint) !== normalizeMcpEndpoint(descriptor.endpoint)) throw new Error("Batonly MCP connection must target the reviewed Batonly endpoint");
+          servers[input.server] = { plugin: "batonly", credentialAuthority: "mso", integration };
+        } else throw new Error("unsupported project plugin");
       } else {
       const url = normalizeMcpEndpoint(input.url ?? "");
       let integration: { user: string; connection: string } | undefined;
@@ -55,6 +68,8 @@ export async function manageProjectMcp(projectPath: string, input: { action: "up
     const content = JSON.stringify({ ...stored.data, [key]: servers }, null, 2) + "\n";
     if (Buffer.byteLength(content) > 64 * 1024) throw new Error("MCP manifest exceeds 64 KiB");
     const result = await writeFileGuarded({ path: stored.file, content, ...(stored.revision === "new" ? {} : { expectedSha256: stored.revision }) });
-    return { action: input.action, server: input.server, revision: result.sha256, next: "project_mcp_tools discovers the server; credentials use integration_setup_open." };
+    return { action: input.action, server: input.server, revision: result.sha256, next: input.action === "delete"
+      ? "Removed only from the selected project; other projects and Integrations credentials are unchanged."
+      : "Installed only in the selected project; use project_mcp_tools for discovery evidence." };
   });
 }

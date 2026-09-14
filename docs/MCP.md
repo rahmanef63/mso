@@ -24,7 +24,7 @@ demo mode also forces MCP off. Existing installs keep their current `.env.local`
 
 ## Settings navigation
 
-Settings → MCP separates **Access MSO** (external clients → MSO), **MSO Access** (MSO → external services / plugin declarations), and **Sessions** (activity and handover). SI-Coder is an optional plugin, not a prerequisite. Registry declarations do not install code or configure credentials.
+Settings → MCP separates **Access MSO** (external clients → MSO), **MSO Access** (host connections plus exact-project plugin installation), and **Sessions** (activity and handover). Under MSO Access, **Project plugins** lists SI-Coder and Batonly as available catalog entries. They are not installed into a fresh project, are never inherited from a parent/sibling project, and require an explicit project-scoped install. Registry declarations alone do not install code or configure credentials.
 
 Access MSO opens a task index: **Connect an app**, **Connected apps**, **Recent activity**, **Tools & updates**, and **Connection details**. Setup first asks for the client and shows only that client's steps. Use **MCP overview** to return; technical OAuth/tunnel fields live under Connection details. Connected apps separates active access from expired/revoked history and confirms disconnection. Tools & updates stores only a browser-local refresh reminder, never a verified client-health claim.
 
@@ -124,6 +124,8 @@ Local collaboration/orchestration tools are intentionally MCP/terminal-runtime p
 global by design, and withholding it from the connector was scoping nobody chose. The
 two catalogs stay separate on purpose (different transport and guard) but may not
 drift by accident.
+
+**Project plugin default is empty.** MSO may know an available plugin manifest without installing it anywhere. A project has SI-Coder/Batonly only when that exact project's `.mcp.json` contains the reviewed plugin binding. Discovery reads that file only; it never walks upward to inherit a parent manifest and never copies a sibling binding.
 
 **Global MCP names belong to MSO only.** Project-specific functions and project MCP tools are discovered as data through the generic `project_capabilities`, `project_mcp_tools`, `project_mcp_call`, and `project_function_call` seams. A project may add or remove its own MCP tools without changing MSO's global tool list or ChatGPT scan snapshot.
 
