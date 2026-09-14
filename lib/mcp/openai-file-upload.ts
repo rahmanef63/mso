@@ -15,6 +15,7 @@ export interface OpenAiProvidedFile {
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const SUPPORTED_MIME = new Set(["image/png", "image/webp", "image/jpeg", "application/json", "application/zip"]);
 const WIRE_MIME = new Set([...SUPPORTED_MIME, "application/octet-stream"]);
+const BUILTIN_AZURE_HOSTS = new Set(["oaisdmntprkoreacentral.blob.core.windows.net"]);
 const MIME_ALIASES = new Map([["application/x-zip-compressed", "application/zip"]]);
 const EXTENSION_MIME = new Map([
   [".png", "image/png"],
@@ -39,7 +40,7 @@ function normalizeMime(value: string): string {
 }
 
 function configuredAzureHosts(): Set<string> {
-  const hosts = new Set<string>();
+  const hosts = new Set<string>(BUILTIN_AZURE_HOSTS);
   for (const raw of (process.env.OS_MCP_OPENAI_FILE_HOSTS || "").split(",")) {
     const host = raw.trim().toLowerCase();
     if (!host) continue;
@@ -58,8 +59,8 @@ function trustedDownloadUrl(raw: string): URL {
   const host = url.hostname.toLowerCase();
 
   // OpenAI-owned oaiusercontent hosts are trusted directly. Azure Blob accounts
-  // are accepted only by exact operator allowlist: a shared account-name prefix
-  // is not proof that an arbitrary Azure storage account belongs to OpenAI.
+  // are accepted only as exact known hosts; one observed ChatGPT host is built in
+  // and operators may add more. Shared prefixes are never ownership proof.
   const openAiContentHost = host === "files.oaiusercontent.com" || host.endsWith(".oaiusercontent.com");
   if (!openAiContentHost && !configuredAzureHosts().has(host)) {
     throw new HostError(`file.download_url host is not allowed: ${host}`);
