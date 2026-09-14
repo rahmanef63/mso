@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `integrations` make shell embed frameable
 - `integrations` add shell app and detect SC worktrees
 - `mcp` fall back when project MCP discover returns -32601
 

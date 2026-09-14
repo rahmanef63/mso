@@ -15,7 +15,7 @@ function cors(req: NextRequest): Record<string, string> | null {
   if (!origin || (![MSO_ORIGIN, MCP_UI_DOMAIN].includes(origin) && !local)) return null;
   return { ...BASE_HEADERS, "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Authorization, Content-Type" };
 }
-export const GET = integrationPageResponse;
+export function GET() { return integrationPageResponse(false); }
 export function OPTIONS(req: NextRequest) {
   const headers = cors(req);
   return new NextResponse(null, { status: headers ? 204 : 403, headers: headers ?? BASE_HEADERS });

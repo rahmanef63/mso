@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 vi.mock("server-only", () => ({}));
 import { GET } from "./route";
+import { GET as GET_EMBED } from "./embed/route";
 import { proxy } from "@/proxy";
 describe("friendly native Integrations page", () => {
   it("renders an uncached full catalog with public instructions but no credential grant", async () => {
@@ -13,8 +14,8 @@ describe("friendly native Integrations page", () => {
     expect(html).toContain("How to get this credential / authorization"); expect(html).not.toContain("si-coder");
     expect(() => new Function(html.match(/<script nonce="[^"]+">([\s\S]*)<\/script>/)![1])).not.toThrow();
   });
-  it("allows only same-origin framing for the explicit shell embed mode", async () => {
-    const response = GET(new NextRequest("https://mso.example.com/integrations?embed=shell"));
+  it("allows only same-origin framing on the dedicated shell embed route", async () => {
+    const response = GET_EMBED();
     expect(response.headers.get("x-frame-options")).toBe("SAMEORIGIN");
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'self'");
     expect(response.headers.get("content-security-policy")).not.toContain("frame-ancestors 'none'");

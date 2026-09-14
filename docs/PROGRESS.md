@@ -4,9 +4,10 @@ The native Integrations workbench existed as a browser/Page/CLI surface but was 
 OS-shell app manifest, so it could not behave like the other dock/launcher features. Integrations
 now has its own feature-slice `AppDescriptor`, is pinned by the MSO consumer manifest, and reuses
 the canonical `/integrations` manager instead of duplicating credential state or actions. The
-ordinary browser route remains anti-frame (`DENY` / `frame-ancestors 'none'`). Only the explicit
-`?embed=shell` mode permits same-origin framing (`SAMEORIGIN` / `frame-ancestors 'self'`), so the
-new window does not widen cross-origin framing policy.
+ordinary browser route remains anti-frame (`DENY` / `frame-ancestors 'none'`). Only the dedicated
+`/integrations/embed` shell route permits same-origin framing (`SAMEORIGIN` / `frame-ancestors 'self'`);
+the global header policy explicitly overrides `DENY` only for that route, so the new window does not widen
+cross-origin framing policy.
 
 Local SI-Coder migration discovery previously required the version-reported source path to contain
 `si-coder-agent`. The installed SC 0.9.8 currently resolves to a legitimate worktree named
