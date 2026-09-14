@@ -19,11 +19,11 @@ try {
     await launcher.click();
     await expect(page).toHaveURL(fixture.base + "/connections");
     const frame = page.frameLocator('iframe[title="MSO native Integrations manager"]');
-    await expect(frame.getByRole("heading", { name: "Integrations", level: 1, exact: true })).toBeVisible();
+    await expect(frame.getByRole("heading", { name: "GitHub", level: 2, exact: true })).toBeVisible();
     await expect(frame.getByRole("link", { name: "Sign in to MSO as Owner" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.reload();
-    await expect(frame.getByRole("heading", { name: "Integrations", level: 1, exact: true })).toBeVisible();
+    await expect(frame.getByRole("heading", { name: "GitHub", level: 2, exact: true })).toBeVisible();
     const response = await context.request.get(fixture.base + "/integrations/manager");
     expect(response.headers()["x-frame-options"]).toBe("SAMEORIGIN");
     expect(response.headers()["content-security-policy"]).toContain("frame-ancestors 'self'");

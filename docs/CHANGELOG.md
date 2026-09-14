@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `integrations` align layout with Settings sidebar
 - `mcp` harden bidirectional file transfer
 - `mcp` bind ChatGPT Azure file trust to OAuth provenance
 - `mcp` make project plugins explicit opt-in installs

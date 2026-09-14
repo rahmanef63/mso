@@ -1,5 +1,5 @@
 // Owner-only transfer workbench. The default Integrations screen stays simple;
-// this surface is opened explicitly from More → Transfer & backup.
+// this surface is opened explicitly from Integrations sidebar → Transfer & backup.
 export const PORTABILITY_SCRIPT=String.raw`
 function mountPortability(root,bridge){
   let disposed=false,documentData=null,preview=null,tree=null,active='export';const selected=new Set();root.replaceChildren();root.classList.add('integration','portable-transfer');

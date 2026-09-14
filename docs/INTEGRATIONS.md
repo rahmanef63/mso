@@ -101,11 +101,13 @@ The managed dispatch boundary prevents accidental use of SC's parallel credentia
 Open `/integrations`. Public instructions are readable before sign-in; an Owner
 session is required to read/manage credential profiles or open their private forms.
 Choose the credential user, provider, named connection, source and authentication.
-The browser workbench is intentionally progressive: the main surface shows the current
-connections, **Add connection**, and **More**. Credential owners, project routing,
-**Transfer & backup**, project MCP setup, and refresh live under More so users who only
-need one service account do not have to understand the whole credential model. Mobile
-uses the same hierarchy with the service picker collapsed to a native control.
+The browser workbench uses the same master/detail navigation grammar as Settings.
+Desktop has a searchable **224px sidebar** and a bounded **48rem detail pane**; below
+600px the sidebar becomes an accessible drawer. Providers live under **Connections**.
+**Credential owners**, **Project routing**, **Transfer & backup**, and **Add project MCP**
+live under **Manage**. Section state stays selected when the credential owner changes,
+and Transfer & backup renders in the detail pane instead of replacing the navigation.
+The secure credential-entry form remains an intentional drill-down from a connection.
 
 When an agent needs external access, it must inspect Integrations before asking for a new
 credential. Resolve the exact project/context → credential owner → provider → named
@@ -279,7 +281,7 @@ Official contracts: [MCP Apps](https://github.com/modelcontextprotocol/ext-apps)
 
 ## Move identities between standalone projects
 
-Open **More → Transfer & backup** or `/integrations?transfer=1`.
+Open **Integrations sidebar → Transfer & backup** or `/integrations?transfer=1`.
 
 - **Encrypted JSON** is the default/recommended backup and may carry selected direct
   credential values behind a separate backup passphrase.

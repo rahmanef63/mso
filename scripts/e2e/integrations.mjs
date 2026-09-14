@@ -33,9 +33,10 @@ try{
  });
  await page.goto("https://mso.example.com/integrations");
  await waitDelivery("initial");
- const accountTools=page.getByLabel("More integration actions",{exact:true});
- const expandTools=async()=>{if(!await accountTools.evaluate(el=>el.parentElement.open))await accountTools.click()};
- await expandTools();
+ const nav=page.getByRole("navigation",{name:"Integrations sections",exact:true});
+ const mobileToggle=page.getByRole("button",{name:"Integrations sections",exact:true});
+ const openSidebar=async()=>{if(await mobileToggle.isVisible()){if(await mobileToggle.getAttribute("aria-expanded")!=="true")await mobileToggle.click();await nav.waitFor();}};
+ const closeSidebar=async()=>{if(await mobileToggle.isVisible()&&await mobileToggle.getAttribute("aria-expanded")==="true")await page.keyboard.press("Escape");};
  assert.equal(await page.getByRole("combobox",{name:"Credential owner"}).count(),0,"credential owner must not use a native select popup");checks++;
  for(const width of [320,390,768,1440,1920]){
   await page.setViewportSize({width,height:900});
@@ -43,26 +44,27 @@ try{
    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),"no document overflow at "+width+" "+theme);checks++;
    assert(await page.getByRole("button",{name:"Update credentials",exact:true}).isVisible());checks++;
-   for(const action of ["Credential owners","Project routing","Transfer & backup"])assert(await page.getByRole("button",{name:action,exact:true}).isVisible(),action+" must stay discoverable");checks++;
+   await openSidebar();for(const action of ["Credential owners","Project routing","Transfer & backup","Add project MCP"])assert(await nav.getByRole("button",{name:action,exact:true}).isVisible(),action+" must stay discoverable in the Settings-style sidebar");checks++;await closeSidebar();
   }
  }
  await page.setViewportSize({width:1440,height:900});
+ await nav.getByRole("button",{name:"Transfer & backup",exact:true}).click();await page.getByRole("heading",{name:"Transfer & backup",exact:true}).waitFor();assert(await nav.isVisible(),"Settings-style sidebar remains visible inside Transfer & backup");checks++;await page.getByRole("button",{name:"← Connections",exact:true}).click();await waitDelivery("after inline Transfer & backup");
  await page.getByRole("button",{name:"Verify",exact:true}).click();
  await page.getByRole("status").filter({hasText:"Verified: Connected to GitHub"}).waitFor();checks++;
  assert(await page.getByRole("button",{name:"Remove",exact:true}).isVisible(),"stored credential fields expose per-field removal");checks++;
  const connectionCard=page.getByRole("article").filter({hasText:"Delivery GitHub"});await connectionCard.getByText("More",{exact:true}).click();assert(await connectionCard.getByRole("button",{name:"Copy to another owner",exact:true}).isVisible());await connectionCard.getByRole("button",{name:"Share linked access",exact:true}).click();await page.getByRole("heading",{name:"Share Delivery GitHub"}).waitFor();assert(await page.getByRole("group",{name:"Target credential owner"}).getByRole("button").isVisible());assert(await page.getByRole("textbox",{name:"New alias label",exact:true}).isVisible());checks++;await page.getByRole("button",{name:"Cancel",exact:true}).click();
- await expandTools();
+ await openSidebar();
  const owner=page.getByRole("group",{name:"Credential owner"}).getByRole("button");await owner.focus();await owner.press("ArrowDown");await page.getByRole("option",{name:/Studio/}).waitFor();await page.getByRole("option",{name:/Studio/}).press("ArrowDown");await page.getByRole("option",{name:/Personal/}).press("Enter");
  await page.getByRole("button",{name:"Add GitHub account",exact:true}).waitFor();assert.equal(await page.getByRole("heading",{name:"Delivery GitHub"}).count(),0);checks++;
- await expandTools();await owner.click();await page.getByRole("option",{name:/Studio/}).click();await waitDelivery("after owner switch back to Studio");checks++;
- await expandTools();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("textbox",{name:"New user ID",exact:true}).fill("client-a");await page.getByRole("textbox",{name:"Display label",exact:true}).fill("Client A");await page.getByRole("button",{name:"Create user",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").filter({hasText:/Client A/}).waitFor();checks++;
- await expandTools();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("textbox",{name:"Target user ID",exact:true}).fill("client-main");await page.getByRole("textbox",{name:"New display label",exact:true}).fill("Client Main");await page.getByRole("button",{name:"Rename user",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").filter({hasText:/Client Main/}).waitFor();checks++;
- await expandTools();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("textbox",{name:"Target user ID",exact:true}).fill("client-copy");await page.getByRole("textbox",{name:"New display label",exact:true}).fill("Client Copy");await page.getByRole("button",{name:"Duplicate user",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").filter({hasText:/Client Copy/}).waitFor();checks++;
- await expandTools();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("button",{name:"Delete user",exact:true}).click();await page.getByRole("textbox",{name:"Confirmation",exact:true}).fill("client-copy");await page.getByRole("button",{name:"Confirm",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").waitFor();assert.equal(users.some(row=>row.id==="client-copy"),false);checks++;
- await expandTools();await owner.click();await page.getByRole("option",{name:/Studio/}).click();await waitDelivery("after user CRUD returns to Studio");
+ await openSidebar();await owner.click();await page.getByRole("option",{name:/Studio/}).click();await waitDelivery("after owner switch back to Studio");checks++;
+ await openSidebar();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("textbox",{name:"New user ID",exact:true}).fill("client-a");await page.getByRole("textbox",{name:"Display label",exact:true}).fill("Client A");await page.getByRole("button",{name:"Create user",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").filter({hasText:/Client A/}).waitFor();checks++;
+ await openSidebar();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("textbox",{name:"Target user ID",exact:true}).fill("client-main");await page.getByRole("textbox",{name:"New display label",exact:true}).fill("Client Main");await page.getByRole("button",{name:"Rename user",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").filter({hasText:/Client Main/}).waitFor();checks++;
+ await openSidebar();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("textbox",{name:"Target user ID",exact:true}).fill("client-copy");await page.getByRole("textbox",{name:"New display label",exact:true}).fill("Client Copy");await page.getByRole("button",{name:"Duplicate user",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").filter({hasText:/Client Copy/}).waitFor();checks++;
+ await openSidebar();await page.getByRole("button",{name:"Credential owners",exact:true}).click();await page.getByRole("button",{name:"Delete user",exact:true}).click();await page.getByRole("textbox",{name:"Confirmation",exact:true}).fill("client-copy");await page.getByRole("button",{name:"Confirm",exact:true}).click();await page.getByRole("group",{name:"Credential owner"}).getByRole("button").waitFor();assert.equal(users.some(row=>row.id==="client-copy"),false);checks++;
+ await openSidebar();await owner.click();await page.getByRole("option",{name:/Studio/}).click();await nav.getByRole("button",{name:"GitHub",exact:true}).click();await waitDelivery("after user CRUD returns to Studio and selects GitHub");
  await page.getByRole("button",{name:"Add GitHub account",exact:true}).count();
- await page.getByRole("searchbox",{name:"Search services"}).fill("cloudflare");assert.equal(await page.getByRole("navigation",{name:"Services"}).getByRole("button",{includeHidden:true}).count(),14);assert.equal(await page.getByRole("navigation",{name:"Services"}).getByRole("button").filter({visible:true}).count(),1);checks++;
- await page.getByRole("searchbox",{name:"Search services"}).fill("");
+ await page.getByRole("searchbox",{name:"Search integrations"}).fill("cloudflare");assert.equal(await page.locator(".integration-nav-group").first().getByRole("button",{includeHidden:true}).count(),14);assert.equal(await page.locator(".integration-nav-group").first().getByRole("button").filter({visible:true}).count(),1);checks++;
+ await page.getByRole("searchbox",{name:"Search integrations"}).fill("");
  assert.deepEqual(errors,[]);checks++;
- console.log("Integrations browser: "+checks+" checks passed (320–1920 px, light/dark, semantic owner picker, user CRUD, search, setup, verification).");
+ console.log("Integrations browser: "+checks+" checks passed (Settings-style sidebar/detail, 320–1920 px, mobile drawer, light/dark, inline transfer, user CRUD).");
 }finally{await browser.close()}

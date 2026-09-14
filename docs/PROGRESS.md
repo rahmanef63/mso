@@ -1,6 +1,12 @@
+## 2026-09-15 — Integrations adopts the Settings sidebar/detail layout
+
+Integrations now uses the same navigation grammar as Settings instead of its own toolbar + nested provider rail. Desktop uses a searchable 224px sidebar grouped into **Connections** and **Manage**, with a bounded 48rem detail pane; below 600px the same sidebar becomes an accessible drawer with Escape/backdrop close behavior. Credential owner selection stays in the sidebar, section state persists across owner changes, and connection counts are decorative so accessible button names remain stable.
+
+**Transfer & backup** now mounts inside the right detail pane rather than replacing the whole manager, so the sidebar remains present while exporting/importing. Credential setup remains an intentional secure drill-down. Provider CRUD, raw/encrypted export, copy/share, routing and project-MCP behavior are unchanged. Browser coverage exercises 320–1920px, light/dark, drawer navigation, persistent section state and inline transfer.
+
 ## 2026-09-15 — Integrations progressive UI + password-gated credential export
 
-Integrations now defaults to a simple connection-management surface: current account, **Add connection**, and **More**. Credential-owner administration, project routing, transfer/backup and project MCP setup are progressive-disclosure actions rather than peer-level toolbar controls. Connection cards distinguish linked **Share** from independent **Copy to another owner**.
+Integrations keeps provider actions simple inside the selected detail pane while navigation lives in the Settings-style sidebar. Connection cards still distinguish linked **Share** from independent **Copy to another owner**.
 
 Transfer & backup adds All/Custom selection with an owner → provider → connection checkbox tree. Encrypted JSON remains the recommended secret-bearing backup; metadata JSON is value-free. Deliberate raw JSON/.env downloads require Owner role, the current MSO password, an explicit plaintext acknowledgement, a 90-second one-time grant bound to the selection, no-store response headers and audit metadata that never contains the password or exported values. Bulk imports remain preview-first/create-only. Agent guidance now requires checking Integrations before asking for a new credential.
 

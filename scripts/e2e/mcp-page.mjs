@@ -107,7 +107,7 @@ try {
   </script><iframe title="MSO Page" src="https://mso-ui.example.com/qa"></iframe></html>`}));
   await page.goto("https://chatgpt.com/qa");
   const component=page.frameLocator("iframe"),surface=component.locator(".surface"),body=component.locator("#surface-body");
-  await component.getByLabel("More integration actions",{exact:true}).waitFor();
+  await component.getByRole("navigation",{name:"Integrations sections",exact:true}).waitFor();
   await page.waitForFunction(()=>window.lastSize?.height===680);
   assert.equal(await surface.evaluate(el=>el.getBoundingClientRect().height),680);assertions++;
   assert.equal(await component.locator("html").getAttribute("data-theme"),"dark");assertions++;
@@ -139,9 +139,9 @@ try {
   await setContext({theme:"light",containerDimensions:{height:200},styles:{variables:{"--font-family":"system-ui","--font-text-md-size":"18px","--font-text-sm-size":"16px","--border-radius-sm":"3px","--color-background-primary":"#ffffff","--color-text-primary":"#151515"}}});
   await page.setViewportSize({width:320,height:900});
   assert(await body.evaluate(el=>el.clientHeight>=130),"tiny embed keeps a usable scroll area");assertions++;
-  assert.equal(await component.getByRole("combobox",{name:"Service",exact:true}).evaluate(el=>getComputedStyle(el).fontSize),"16px");assertions++;
-  assert.equal(await component.getByRole("combobox",{name:"Service",exact:true}).evaluate(el=>getComputedStyle(el).borderRadius),"3px");assertions++;
-  await component.getByRole("combobox",{name:"Service",exact:true}).selectOption("cloudflare");
+  const mobileSections=component.getByRole("button",{name:"Integrations sections",exact:true});assert.equal(await mobileSections.evaluate(el=>getComputedStyle(el).fontSize),"16px");assertions++;
+  assert.equal(await mobileSections.evaluate(el=>getComputedStyle(el).borderRadius),"3px");assertions++;
+  await mobileSections.click();await component.getByRole("navigation",{name:"Integrations sections",exact:true}).getByRole("button",{name:"Cloudflare",exact:true}).click();
   await component.getByRole("heading",{name:"Cloudflare",exact:true}).waitFor();assertions++;
   if(imageDir)await saveScreenshot("mso-page-320x200.png");
   await component.getByRole("combobox",{name:"MSO page",exact:true}).selectOption("/monitor");
@@ -153,8 +153,7 @@ try {
   await component.getByRole("combobox",{name:"MSO page",exact:true}).selectOption("/integrations");
   await setContext({theme:"dark",containerDimensions:{height:680},styles:{variables:{}}});
   await page.setViewportSize({width:736,height:900});
-  await component.getByLabel("More integration actions",{exact:true}).click();
-  await component.getByRole("button",{name:"Add project MCP",exact:true}).click();
+  await component.getByRole("navigation",{name:"Integrations sections",exact:true}).getByRole("button",{name:"Add project MCP",exact:true}).click();
   await component.getByRole("heading",{name:"Add MCP to project",exact:true}).waitFor();
   if(imageDir)await saveScreenshot("mso-page-add-mcp.png");
   const audit=await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze();

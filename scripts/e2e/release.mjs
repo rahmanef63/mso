@@ -19,9 +19,10 @@ try {
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.goto(fixture.base + "/integrations");
-    await expect(page.getByRole("heading", { name: "Integrations", exact: true, level: 1 })).toBeVisible();
-    if (viewport.width < 600) await page.getByRole("combobox", { name: "Service", exact: true }).selectOption("github");
-    else {await page.getByLabel("Search services").fill("GitHub");await page.getByRole("button", { name:"GitHub", exact:true }).click();}
+    await expect(page.getByRole("navigation", { name: "Integrations sections", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "GitHub", exact: true, level: 2 })).toBeVisible();
+    if (viewport.width < 600) {await page.getByRole("button", { name: "Integrations sections", exact: true }).click();await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name:"GitHub", exact:true }).click();}
+    else {await page.getByLabel("Search integrations").fill("GitHub");await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name:"GitHub", exact:true }).click();}
     await expect(page.getByRole("heading", {name:"GitHub", exact:true})).toBeVisible();
     await page.getByText("Connection methods & setup guides", { exact: true }).click();
     await expect(page.getByRole("link", { name: "Official setup page" }).first()).toBeVisible();
@@ -79,9 +80,8 @@ try {
   await page.locator('input[type="password"]').fill(fixture.password);
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
   await expect(page).toHaveURL(fixture.base + "/integrations");
-  await page.getByLabel("More integration actions", {exact:true}).click();
   await expect(page.getByRole("group", { name: "Credential owner" }).getByRole("button")).toContainText("fixture");
-  await page.getByRole("button", { name: "Transfer & backup", exact: true }).click();
+  await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name: "Transfer & backup", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Transfer & backup", exact: true })).toBeVisible();
   await expect(page.getByLabel("Export scope")).toHaveValue("all");
   await page.getByLabel("Export scope").selectOption("custom");

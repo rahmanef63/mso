@@ -73,4 +73,49 @@ export const CONNECTION_MANAGER_STYLE = String.raw`
 .integration .identity-providers{overflow:visible}
 @container integration (max-width:35rem){.integration .identity-current-owner{width:100%;max-width:none;margin-right:0}.integration .identity-bar>.primary{flex:1}.integration .service-picker{display:block;margin-bottom:var(--space-4)}.integration .connection-card{padding-inline:0}.integration .identity-summary dl{gap:var(--space-4)}.integration .identity-tools[open] .identity-actions{position:static;box-shadow:none;min-width:0}.integration .identity-credential-status>div{grid-template-columns:minmax(0,1fr) auto}.integration .identity-credential-status>div>button{grid-column:1/-1;justify-self:start}}
 @container mso (max-height:20rem){.integration .service-picker{margin-bottom:var(--space-2);font-size:0}.integration .service-picker select{font-size:var(--type-small);margin:0}.integration .identity-heading,.integration .identity-summary{display:none}.integration .identity-bar{margin-block:var(--space-2)}.integration .identity-picker-label{display:none}}
+
+/* Integrations shares the Settings master/detail grammar: grouped searchable
+   sidebar, compact section detail, and a mobile side sheet. */
+.surface>.body.integration{margin:0!important;max-width:none!important;width:100%!important;padding:0!important}
+.integration.manager{container:integration / inline-size;position:relative;max-width:none;width:100%;height:100%;min-height:100%;overflow:hidden;background:var(--surface)}
+.integration .integration-settings-shell{display:grid;grid-template-columns:14rem minmax(0,1fr);height:100%;min-height:0;background:color-mix(in srgb,var(--surface) 92%,var(--field))}
+.integration .integration-settings-sidebar{display:flex;min-height:0;flex-direction:column;border-right:var(--stroke) solid var(--sep);background:color-mix(in srgb,var(--field) 70%,var(--surface));overflow:hidden}
+.integration .integration-sidebar-header{display:grid;gap:var(--space-3);padding:var(--space-5) var(--space-3) var(--space-3)}
+.integration .integration-sidebar-brand{display:flex;align-items:center;gap:var(--space-3);padding:0 var(--space-1) var(--space-1)}
+.integration .integration-sidebar-brand strong,.integration .integration-sidebar-brand small{display:block}.integration .integration-sidebar-brand strong{font-size:var(--type-small)}.integration .integration-sidebar-brand small{margin-top:2px;color:var(--text-dim);font-size:var(--type-caption)}
+.integration .integration-brand-icon{display:grid;width:44px;height:44px;place-items:center;border-radius:12px;background:var(--field);box-shadow:inset 0 0 0 var(--stroke) var(--sep-strong);font-size:11px;font-weight:800;letter-spacing:.04em}
+.integration .integration-sidebar-header>input[type=search]{width:100%;min-height:36px;margin:0;border-radius:9px;background:color-mix(in srgb,var(--surface) 75%,transparent);font-size:var(--type-caption)}
+.integration .integration-settings-sidebar .owner-picker{min-width:0;max-width:none;width:100%}.integration .integration-settings-sidebar .owner-picker-trigger{min-height:38px;font-size:var(--type-caption)}
+.integration .integration-settings-nav{min-height:0;flex:1;overflow-y:auto;padding:0 var(--space-2) var(--space-4);scrollbar-width:thin}
+.integration .integration-nav-group{display:grid;gap:2px;margin-top:var(--space-3)}
+.integration .integration-nav-label{margin:0;padding:0 var(--space-2) var(--space-1);font-size:11px;font-weight:650;color:var(--text-dim)}
+.integration .integration-nav-item{position:relative;display:flex;width:100%;min-height:42px;align-items:center;gap:10px;border:0;border-radius:7px;padding:6px 8px;text-align:left;background:transparent;color:var(--text);font-size:13px;font-weight:500}
+.integration .integration-nav-item:hover{background:var(--hover)}
+.integration .integration-nav-item[aria-current=page]{background:var(--os-accent);color:white;font-weight:650}
+.integration .integration-nav-item[aria-current=page] .provider-mark{border-color:color-mix(in srgb,white 45%,transparent);background:color-mix(in srgb,white 14%,transparent);color:white}
+.integration .integration-nav-item .provider-mark{width:25px;height:25px;border-radius:6px;box-shadow:0 1px 2px color-mix(in srgb,var(--text) 10%,transparent)}
+.integration .integration-nav-item .provider-count{margin-left:auto;font-size:11px;color:inherit;opacity:.72}
+.integration .integration-nav-utility{padding-left:10px}.integration .integration-nav-utility::before{content:"";width:7px;height:7px;flex:none;border-radius:50%;background:var(--sep-strong)}.integration .integration-nav-utility[aria-current=page]::before{background:white}
+.integration .integration-sidebar-footer{flex:none;border-top:var(--stroke) solid var(--sep);padding:var(--space-3)}.integration .integration-sidebar-footer button{width:100%;justify-content:center;border-color:transparent;background:transparent;color:var(--text-dim)}
+.integration .integration-settings-content{min-width:0;min-height:0;overflow-y:auto;background:var(--surface)}
+.integration .integration-settings-detail,.integration .identity-feedback,.integration .identity-readonly{width:min(100%,48rem);margin-inline:auto}
+.integration .integration-settings-detail{padding:var(--space-5);padding-bottom:max(var(--space-5),env(safe-area-inset-bottom))}.integration .identity-feedback{padding:0 var(--space-5) var(--space-5)}
+.integration .integration-settings-detail>h2,.integration .provider-title h2{font-size:20px;font-weight:650;letter-spacing:-.012em}
+.integration .provider-heading{align-items:flex-start;padding-bottom:var(--space-1)}.integration .provider-title{align-items:flex-start}.integration .provider-heading .provider-mark{width:38px;height:38px;border-radius:9px}.integration .provider-title p{max-width:58ch;color:var(--text-dim);font-size:var(--type-small);line-height:1.5}
+.integration .identity-summary-line{margin:var(--space-3) 0 0;padding-bottom:var(--space-3)}
+.integration .integration-mobile-toolbar{display:none}
+.integration .integration-sidebar-backdrop{display:none}
+.integration .integration-sidebar-toggle{min-height:38px}
+@container integration (max-width:37.5rem){
+ .integration .integration-settings-shell{display:block;position:relative;min-height:100%}
+ .integration .integration-settings-sidebar{position:absolute;inset:0 auto 0 0;z-index:30;width:min(82%,18rem);transform:translateX(-102%);transition:transform 160ms ease;box-shadow:var(--shadow-pop)}
+ .integration .integration-settings-sidebar[data-open=true]{transform:translateX(0)}
+ .integration .integration-sidebar-backdrop{position:absolute;inset:0;z-index:20;display:block;width:100%;height:100%;padding:0;border:0;border-radius:0;background:color-mix(in srgb,#000 38%,transparent)}
+ .integration .integration-sidebar-backdrop[hidden]{display:none}
+ .integration .integration-settings-content{height:100%;overflow-y:auto}
+ .integration .integration-mobile-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;border-bottom:var(--stroke) solid var(--sep);padding:6px var(--space-3);background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(14px)}
+ .integration .integration-settings-detail{padding:var(--space-4)}.integration .identity-feedback{padding:0 var(--space-4) var(--space-4)}
+ .integration .provider-heading{gap:var(--space-3);flex-wrap:wrap}.integration .provider-heading>.primary{width:100%}
+ .integration .connection-card{padding-inline:0}
+}
 `;

@@ -34,8 +34,7 @@ export async function automationJourney(page, fixture) {
     return {status:response.status,body:await response.json()};
   }, [route,body]);
   await page.goto(fixture.base + "/integrations");
-  await page.getByLabel("More integration actions", {exact:true}).click();
-  await page.getByRole("button", {name:"Add project MCP",exact:true}).click();
+  await page.getByRole("navigation", {name:"Integrations sections",exact:true}).getByRole("button", {name:"Add project MCP",exact:true}).click();
   await page.getByLabel("Project id or path").fill(project);
   await page.getByLabel("Server alias", {exact:true}).fill("public-fixture");
   await page.getByLabel("HTTPS MCP endpoint").fill("https://example.com/mcp");
