@@ -193,7 +193,7 @@ const MIME: Record<string, string> = {
   mp3: "audio/mpeg", wav: "audio/wav", m4a: "audio/mp4", flac: "audio/flac",
   aiff: "audio/aiff", aif: "audio/aiff", ogg: "audio/ogg", oga: "audio/ogg",
   opus: "audio/opus", aac: "audio/aac", wma: "audio/x-ms-wma",
-  pdf: "application/pdf",
+  pdf: "application/pdf", json: "application/json", zip: "application/zip",
 };
 
 export function mimeFor(p: string): string {

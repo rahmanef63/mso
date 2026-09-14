@@ -43,6 +43,7 @@ const MCP_ONLY: Record<string, string> = {
   "project.mcp.tools": "external MCP clients discover one selected project MCP lazily; dynamic project tool names never enter either global catalog",
   "project.mcp.call": "external MCP clients execute one exact dynamically-discovered project MCP tool under exec scope; Alfa can use its approved exec path and must not import project MCP catalogs",
   "fs.upload.file": "external ChatGPT connectors need openai/fileParams to move conversation-generated files onto the VPS; in-shell Alfa already has direct host filesystem access",
+  "fs.export.file": "external MCP clients need an authenticated original-byte download bridge; in-shell Alfa already has direct host filesystem access",
   "workflow.start": "the external connector needs an actor-scoped task boundary; Alfa already owns an in-app conversation/run boundary",
   "workflow.status": "app-only MCP Apps bridge used by the ChatGPT progress component; Alfa already owns its in-shell run state and must not poll the external workflow store",
   "workflow.cancel": "same actor-scoped boundary; external runs need explicit recovery from an interrupted task",
@@ -167,6 +168,7 @@ describe("MCP rate limits mirror the routes", () => {
       "flow.run": 20, "flow.manage": 20, "agent.session.open": 20, "project.mcp.manage": 20, "project.asset.attach": 20,
       // Native capabilities have independent bounded buckets (no matching HTTP route).
       "screen.capture": 10,
+      "fs.export": 20,
       "session.artifacts": 60,
       "session.artifact.register": 30,
       "session.artifact.cleanup": 6,

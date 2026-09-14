@@ -118,6 +118,32 @@ The ChatGPT model profile includes:
 
 A completely idle ChatGPT conversation still cannot be awakened by a remote MCP server. Its durable mail is delivered on its next MCP call. `local_agent_request` and `agent_subagent_run` are part of the ChatGPT model profile; their existing scope, isolation, and server-side authorization rules remain authoritative.
 
+## Original-byte file transfer
+
+MSO exposes two bounded file bridges instead of treating screenshots/previews as general transfer:
+
+```text
+ChatGPT file parameter                         VPS file
+        │                                         │
+        ▼                                         ▼
+ fs_upload_file                              fs_export_file
+        │                                         │
+        ├─ PNG/WebP/JPEG/JSON/ZIP only            ├─ OS_FS_READ_ROOTS + credential denylist
+        ├─ 20 MiB streamed cap                     ├─ original bytes, max 10 MiB
+        ├─ trusted OpenAI host / exact Azure host  ├─ SHA-256
+        └─ OS_FS_WRITE_ROOTS                       └─ private 15-minute temp-share
+                                                          │
+                                                          ▼
+                                              approved-device authenticated download
+```
+
+Upload trusts `*.oaiusercontent.com` directly. If ChatGPT supplies an Azure Blob URL, the exact
+host must be configured in `OS_MCP_OPENAI_FILE_HOSTS`; wildcard or prefix-based Azure trust is
+intentionally rejected. Export returns a `resource_link` plus structured checksum/size metadata.
+The link is not public, consumes the existing MSO approved-device session gate, allows at most five
+downloads, and preserves the source bytes exactly. `session_artifacts` remains a preview/artifact
+workflow and may recompress large images, so it is not the original-file export path.
+
 ## OAuth contract
 
 For origin `https://mso.example.com`:

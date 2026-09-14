@@ -553,18 +553,26 @@ image generation**, and offering a second tool for the same job made the model c
 between them — usually wrong, and the MSO one billed a separate API key. Nothing
 replaces it: ask the client to generate the image with its own capability.
 
-Importing the result is unchanged and deliberately preserved: **`fs_upload_file`** takes
-one ChatGPT conversation/generated file through `openai/fileParams`, downloads its
-temporary OpenAI HTTPS URL immediately, re-validates up to three redirects, and consumes the
+File transfer is now explicit in both directions. **`fs_upload_file`** takes one ChatGPT
+conversation/generated PNG, WebP, JPEG, JSON or ZIP file through `openai/fileParams`, downloads
+its temporary OpenAI HTTPS URL immediately, re-validates up to three redirects, and consumes the
 body incrementally with a hard **20 MiB** ceiling even when `Content-Length` is absent or false.
-It accepts PNG/WebP/JPEG or generic octet-stream, rejects a conflicting response MIME, validates
-PNG/JPEG/WebP magic bytes, and writes only inside `OS_FS_WRITE_ROOTS`. Allowed download hosts are
-OpenAI `*.oaiusercontent.com` content hosts or the explicitly matched
-`oaisdmntpr<region>.blob.core.windows.net` storage-account family—not arbitrary Azure Blob hosts.
-The final write uses the normal credential/path jail, an exclusive random temporary file and an
-atomic rename; MSO never executes the transferred bytes automatically. The result returns path,
-bytes and SHA-256. An existing same-name file may be replaced, so the tool is classified as a
-write/destructive action. See `CHATGPT-PLUGIN.md` for the end-to-end diagram.
+The declared/inferred MIME must be in that five-format matrix; generic octet-stream may be used on
+the wire but cannot bypass the declared matrix. PNG/JPEG/WebP magic bytes, JSON UTF-8 + syntax,
+and ZIP signatures are validated before the normal credential/path jail writes into
+`OS_FS_WRITE_ROOTS`. `*.oaiusercontent.com` is trusted directly. Azure Blob hosts are accepted only
+when their exact hostname is listed in `OS_MCP_OPENAI_FILE_HOSTS`; account-name prefixes are not
+treated as ownership proof. The final write uses an exclusive random temporary file and atomic
+rename, never executes transferred bytes, and returns path, bytes and SHA-256. Existing same-name
+files may still be replaced, so import remains a write/destructive action.
+
+**`fs_export_file`** is the read-side counterpart for one original file up to **10 MiB**. It uses
+the same `OS_FS_READ_ROOTS`, realpath and credential denylist as other reads, reads with
+`O_NOFOLLOW`, computes SHA-256 over the original bytes, then copies those bytes into the existing
+private temporary-share store. The returned resource/download link requires an approved-device MSO
+session, is `no-store`, expires after 15 minutes and is limited to five downloads. It never creates
+a public URL and never routes through `session_artifacts`, so images and archives are not
+recompressed or text-decoded. See `CHATGPT-PLUGIN.md` for the end-to-end contract.
 
 `OS_CODEX_BUILTIN_TOOLS` still exists and still takes an allowlisted list, but its
 default is now EMPTY and `image_generation` is no longer an accepted value — naming it

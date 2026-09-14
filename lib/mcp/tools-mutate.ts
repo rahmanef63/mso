@@ -35,15 +35,15 @@ export const MUTATE_TOOLS: McpTool[] = [
     limit: { key: "fs.upload", max: 20, windowMs: 60_000 },
     audit: { action: "fs.upload" as const, targetArg: "dest" },
     description:
-      "Import one ChatGPT conversation/generated file into an existing VPS directory. " +
-      "ChatGPT binds the top-level file parameter through openai/fileParams, MSO downloads the temporary OpenAI URL immediately, validates the host/type/size, writes within OS_FS_WRITE_ROOTS, and returns byte count plus SHA-256. Existing same-name files may be replaced.",
+      "Import one ChatGPT conversation/generated PNG, WebP, JPEG, JSON or ZIP file into an existing VPS directory. " +
+      "ChatGPT binds the top-level file parameter through openai/fileParams; MSO downloads the temporary OpenAI URL immediately, validates exact host/type/size/content, writes within OS_FS_WRITE_ROOTS, and returns byte count plus SHA-256. Azure Blob download hosts require explicit OS_MCP_OPENAI_FILE_HOSTS allowlisting. Existing same-name files may be replaced.",
     scope: "write",
     annotations: { destructiveHint: true, openWorldHint: true },
     meta: { "openai/fileParams": ["file"] },
     inputSchema: S({
       file: {
         type: "object",
-        description: "ChatGPT-provided file reference. Select or attach exactly one generated/uploaded image.",
+        description: "ChatGPT-provided file reference. Select or attach exactly one PNG, WebP, JPEG, JSON or ZIP file.",
         properties: {
           download_url: { type: "string" },
           file_id: { type: "string" },

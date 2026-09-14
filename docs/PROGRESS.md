@@ -1,3 +1,15 @@
+## 2026-09-14 — Original-byte MCP file export + explicit ChatGPT import matrix
+
+The upstream MSO file-transfer audit is now implemented instead of remaining a read-only finding.
+`fs_export_file` exports one original file through the existing authenticated temporary-share store:
+READ-root/credential guards and `O_NOFOLLOW` remain authoritative, bytes are not decoded or
+recompressed, SHA-256 is returned, and the approved-device download expires after 15 minutes / five
+downloads. ChatGPT import is now an explicit PNG/WebP/JPEG/JSON/ZIP matrix with format validation;
+generic octet-stream is accepted only as a transport response for a known declared/inferred format,
+not as a bypass. Azure Blob trust moved from an account-name prefix heuristic to exact optional
+`OS_MCP_OPENAI_FILE_HOSTS` entries; `*.oaiusercontent.com` remains trusted directly. Derivative MSO
+projects remain unchanged until this upstream contract passes release verification.
+
 ## 2026-09-14 — Integrations is a first-class shell app and SI-Coder worktrees are detected safely
 
 ## 2026-09-14 — Preserve dedicated embed endpoint from concurrent release

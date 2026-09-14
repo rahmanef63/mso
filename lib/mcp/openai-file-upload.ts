@@ -13,7 +13,17 @@ export interface OpenAiProvidedFile {
 }
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
-const ALLOWED_MIME = new Set(["image/png", "image/webp", "image/jpeg", "application/octet-stream"]);
+const SUPPORTED_MIME = new Set(["image/png", "image/webp", "image/jpeg", "application/json", "application/zip"]);
+const WIRE_MIME = new Set([...SUPPORTED_MIME, "application/octet-stream"]);
+const MIME_ALIASES = new Map([["application/x-zip-compressed", "application/zip"]]);
+const EXTENSION_MIME = new Map([
+  [".png", "image/png"],
+  [".webp", "image/webp"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".json", "application/json"],
+  [".zip", "application/zip"],
+]);
 
 function providedFile(value: unknown): OpenAiProvidedFile {
   if (!value || typeof value !== "object") throw new HostError("file must be a ChatGPT-provided file object");
@@ -23,21 +33,35 @@ function providedFile(value: unknown): OpenAiProvidedFile {
   return row as OpenAiProvidedFile;
 }
 
+function normalizeMime(value: string): string {
+  const mime = value.split(";", 1)[0]?.trim().toLowerCase() || "";
+  return MIME_ALIASES.get(mime) || mime;
+}
+
+function configuredAzureHosts(): Set<string> {
+  const hosts = new Set<string>();
+  for (const raw of (process.env.OS_MCP_OPENAI_FILE_HOSTS || "").split(",")) {
+    const host = raw.trim().toLowerCase();
+    if (!host) continue;
+    if (!/^[a-z0-9-]+\.blob\.core\.windows\.net$/.test(host)) {
+      throw new HostError("OS_MCP_OPENAI_FILE_HOSTS contains an invalid Azure Blob hostname");
+    }
+    hosts.add(host);
+  }
+  return hosts;
+}
+
 function trustedDownloadUrl(raw: string): URL {
   let url: URL;
   try { url = new URL(raw); } catch { throw new HostError("file.download_url is invalid"); }
   if (url.protocol !== "https:") throw new HostError("file.download_url must use HTTPS");
   const host = url.hostname.toLowerCase();
 
-  // ChatGPT temporary files are served either from oaiusercontent.com or from
-  // OpenAI-owned Azure Storage accounts whose globally unique account name uses
-  // the stable `oaisdmntpr<region>` prefix. Match that account family rather than
-  // enumerating regions, but never accept arbitrary *.blob.core.windows.net hosts.
-  // Azure storage account names are globally unique, so an unrelated tenant cannot
-  // create another account with the same full account name.
-  const openAiAzureBlobHost = /^oaisdmntpr[a-z0-9]{2,40}\.blob\.core\.windows\.net$/;
+  // OpenAI-owned oaiusercontent hosts are trusted directly. Azure Blob accounts
+  // are accepted only by exact operator allowlist: a shared account-name prefix
+  // is not proof that an arbitrary Azure storage account belongs to OpenAI.
   const openAiContentHost = host === "files.oaiusercontent.com" || host.endsWith(".oaiusercontent.com");
-  if (!openAiContentHost && !openAiAzureBlobHost.test(host)) {
+  if (!openAiContentHost && !configuredAzureHosts().has(host)) {
     throw new HostError(`file.download_url host is not allowed: ${host}`);
   }
   return url;
@@ -49,7 +73,7 @@ async function fetchTrustedFile(initialUrl: URL): Promise<Response> {
     const response = await fetch(url, {
       redirect: "manual",
       signal: AbortSignal.timeout(60_000),
-      headers: { accept: "image/png,image/webp,image/jpeg,application/octet-stream" },
+      headers: { accept: "image/png,image/webp,image/jpeg,application/json,application/zip,application/octet-stream" },
     });
     if (![301, 302, 303, 307, 308].includes(response.status)) return response;
     const location = response.headers.get("location");
@@ -91,19 +115,44 @@ async function readBoundedBody(response: Response): Promise<Buffer> {
 }
 
 function responseMime(response: Response): string | null {
-  const value = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+  const value = response.headers.get("content-type");
   if (!value) return null;
-  if (!ALLOWED_MIME.has(value)) throw new HostError(`unsupported response file type: ${value}`);
-  return value;
+  const mime = normalizeMime(value);
+  if (!WIRE_MIME.has(mime)) throw new HostError(`unsupported response file type: ${mime}`);
+  return mime;
 }
 
-function hasExpectedSignature(data: Buffer, mimeType: string): boolean {
+function declaredMime(file: OpenAiProvidedFile): string {
+  const explicit = file.mime_type ? normalizeMime(file.mime_type) : "";
+  if (explicit) {
+    if (!SUPPORTED_MIME.has(explicit)) throw new HostError(`unsupported file type: ${explicit}`);
+    return explicit;
+  }
+  const candidate = file.file_name || file.name || "";
+  const inferred = EXTENSION_MIME.get(path.extname(candidate).toLowerCase());
+  if (!inferred) throw new HostError("file type is missing or unsupported");
+  return inferred;
+}
+
+function validateBody(data: Buffer, mimeType: string): boolean {
   if (mimeType === "image/png") {
     return data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
   }
   if (mimeType === "image/jpeg") return data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
   if (mimeType === "image/webp") return data.length >= 12 && data.subarray(0, 4).toString("ascii") === "RIFF" && data.subarray(8, 12).toString("ascii") === "WEBP";
-  return true; // application/octet-stream is intentionally a generic file bridge.
+  if (mimeType === "application/zip") {
+    return data.length >= 4 && data[0] === 0x50 && data[1] === 0x4b && [0x03, 0x05, 0x07].includes(data[2]) && [0x04, 0x06, 0x08].includes(data[3]);
+  }
+  if (mimeType === "application/json") {
+    try {
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(data);
+      JSON.parse(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 function safeFilename(input: string | undefined, fallback: string): string {
@@ -128,8 +177,7 @@ export async function importOpenAiProvidedFile(opts: {
 }> {
   const file = providedFile(opts.file);
   const url = trustedDownloadUrl(file.download_url);
-  const mimeType = (file.mime_type || "application/octet-stream").toLowerCase();
-  if (!ALLOWED_MIME.has(mimeType)) throw new HostError(`unsupported file type: ${mimeType}`);
+  const mimeType = declaredMime(file);
   if (typeof file.size === "number" && (!Number.isFinite(file.size) || file.size < 0 || file.size > MAX_FILE_BYTES)) {
     throw new HostError("file exceeds the 20 MiB MCP import limit");
   }
@@ -137,19 +185,13 @@ export async function importOpenAiProvidedFile(opts: {
   const response = await fetchTrustedFile(url);
   if (!response.ok) throw new HostError(`OpenAI file download failed (${response.status})`);
   const wireMime = responseMime(response);
-  if (
-    mimeType !== "application/octet-stream" &&
-    wireMime &&
-    wireMime !== "application/octet-stream" &&
-    wireMime !== mimeType
-  ) {
+  if (wireMime && wireMime !== "application/octet-stream" && wireMime !== mimeType) {
     throw new HostError(`response file type ${wireMime} does not match ${mimeType}`);
   }
   const data = await readBoundedBody(response);
-  const effectiveMime = mimeType === "application/octet-stream" ? (wireMime || mimeType) : mimeType;
-  if (!hasExpectedSignature(data, effectiveMime)) throw new HostError(`file signature does not match ${effectiveMime}`);
+  if (!validateBody(data, mimeType)) throw new HostError(`file content does not match ${mimeType}`);
 
-  const fallback = file.file_name || file.name || `${file.file_id}.bin`;
+  const fallback = file.file_name || file.name || `${file.file_id}${[...EXTENSION_MIME.entries()].find(([, mime]) => mime === mimeType)?.[0] || ".bin"}`;
   const filename = safeFilename(opts.filename, fallback);
   const result = await uploadInto(opts.dest, [{ relPath: filename, data }]);
   if (result.written !== 1 || result.failed.length) throw new HostError(`file import failed: ${result.failed.join(", ") || "not written"}`);

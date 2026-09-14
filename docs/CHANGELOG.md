@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-09-14
 
+**Added**
+
+- `mcp` add original-byte file transfer
+
 **Fixed**
 
 - `integrations` preserve strict SC bundle validation
