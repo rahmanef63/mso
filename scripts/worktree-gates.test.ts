@@ -49,6 +49,10 @@ function fixture(script: string) {
     path.join(repo, "scripts/e2e/integrations-shell.mjs"),
     "import fs from 'node:fs'; if (!fs.existsSync('.build-verified') || fs.existsSync('.env.local')) throw Error('unsafe shell fixture'); console.log('isolated shell fixture passed');",
   );
+  writeFileSync(
+    path.join(repo, "scripts/e2e/shell-status.mjs"),
+    "import fs from 'node:fs'; if (!fs.existsSync('.build-verified') || fs.existsSync('.env.local')) throw Error('unsafe status fixture'); console.log('isolated shell status fixture passed');",
+  );
   git("init", "-q");
   git("add", "scripts");
   git(
@@ -118,6 +122,7 @@ describe("isolated worktree release guards", () => {
     expect(run.stdout).toContain("Playwright Chromium ready");
     expect(run.stdout).toContain("isolated E2E fixture passed");
     expect(run.stdout).toContain("isolated shell fixture passed");
+    expect(run.stdout).toContain("isolated shell status fixture passed");
     expect(readFileSync(path.join(repo, ".next/keep"), "utf8")).toBe(
       "live marker",
     );

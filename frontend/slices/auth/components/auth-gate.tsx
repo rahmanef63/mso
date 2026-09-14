@@ -5,7 +5,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { useAppearance } from "@/lib/appearance";
 import { IS_DEMO } from "@/lib/demo";
-import { SessionModeBanner } from "./session-mode-banner";
 import { useSession } from "../lib/use-session";
 
 // The shell is PUBLIC: anyone can open it and browse on mock data — no sign-in
@@ -13,7 +12,7 @@ import { useSession } from "../lib/use-session";
 // monitor); every /api host route enforces the session server-side, so a
 // signed-out visitor is confined to mock (see lib/os-api). Sign-in is available directly at /login and
 // inside Settings → Server. This gate resolves the session before showing the
-// shell and keeps its actual mock/live mode visible.
+// shell while the shell-native system status keeps its actual mock/live mode visible.
 export function AuthGate({ children }: { children: ReactNode }) {
   if (IS_DEMO) {
     return (
@@ -57,7 +56,6 @@ function GatedOS({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      <SessionModeBanner />
       {status === "in" && <FirstLoginOnboarding />}
     </>
   ); // signed-in AND signed-out → the shell (mock when out)

@@ -1,3 +1,9 @@
+## 2026-09-15 — Shell-native server status + CI security fixes
+
+The global floating `Live server · owner` badge is gone. MSO now contributes one `systemStatus` feature into AppShell and each shell places that shared status in native chrome: macOS menu bar, Windows taskbar, iOS/Android top status area, and the Dashboard header. Auth/session logic remains single-source in the consumer feature; generic AppShell owns only the slot placement.
+
+Security CI root causes were fixed rather than suppressed: the SI-Coder migration shell bridge no longer triggers ShellCheck SC2066, and SI-Coder package discovery now opens `package.json` once with `O_NOFOLLOW`, validates the opened descriptor, and reads through that same descriptor, removing CodeQL alert #126 (`js/file-system-race`).
+
 ## 2026-09-15 — Integrations removes its final local layout constant
 
 The compact master/detail threshold is no longer written directly in Integrations styles. Generated `@container` rules now interpolate `SETTINGS_COMPACT_MAX` from the shared presentation responsive contract. This keeps the unavoidable query value in one reviewed SSOT while provider content, setup and Transfer source files contain no local color, length, typography, radius, spacing or breakpoint constants. The style contract tests both generated CSS and the feature source files to prevent regression.

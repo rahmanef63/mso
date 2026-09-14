@@ -13,6 +13,7 @@ export type SlotRegion =
   | "topPill" // mobile top-center status pill (e.g. dynamic island)
   | "controlCenter" // mobile pull-down control center
   | "menuBarStatus" // desktop menu-bar trailing cluster (e.g. control center)
+  | "systemStatus" // shell-native server/session status: menu bar, taskbar, mobile status area
   | "today" // mobile widgets / today page
   | "desktopWidgets"; // desktop wallpaper-layer widget stack (behind windows)
 

@@ -154,6 +154,14 @@ export function MobileShell() {
           [data-shell="ios"] rule in globals.css — one source of truth for both
           touch shells, inherited by every iOS surface (home, nav, spotlight). */}
       <div className="absolute inset-0 z-[10] flex flex-col">
+      <div
+        data-slot="system-status-host"
+        data-status-placement="ios-status-bar"
+        className="pointer-events-none absolute inset-x-0 top-0 z-[40] flex items-center justify-end px-2"
+        style={{ height: "var(--sai-top)" }}
+      >
+        <div className="pointer-events-auto"><Slot region="systemStatus" /></div>
+      </div>
       {/* Home is inert while an app covers it (a11y: its grid, pager pages and
           home-indicator otherwise stay in tab/AT order under the opaque app
           layer). It stays visually mounted behind the app transition. */}

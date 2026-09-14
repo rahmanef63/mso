@@ -65,6 +65,12 @@ if ! node scripts/e2e/integrations-shell.mjs; then
   exit 43
 fi
 
+echo "== verify shell-native server status"
+if ! node scripts/e2e/shell-status.mjs; then
+  echo "verification failed during shell-native server status E2E" >&2
+  exit 43
+fi
+
 # Optional deeper media/native acceptance, using the same isolated built tree.
 if [ "${1:-}" = "--extended" ]; then
   echo "== verify extended: desktop native acceptance"

@@ -35,7 +35,7 @@ try {
     await expect(login.getByRole("heading", { name: "Sign in to your server" })).toBeVisible();
     await login.close();
     await page.goto(fixture.base);
-    await expect(page.getByLabel("Server connection mode")).toContainText("Mock data only");
+    await expect(page.getByLabel("Server connection mode")).toHaveAttribute("data-connection-mode", "mock");
     // Real launcher click, not only deep-link route mounting.
     const settingsName = /^(System )?Settings(?: \(running\))?$/;
     const settings = viewport.width >= 768
@@ -45,7 +45,7 @@ try {
     await settings.hover(); // Let dock magnification move its hit target before pressing.
     await settings.click();
     await expect(page).toHaveURL(/\/settings/);
-    await expect(page.getByLabel("Server connection mode")).toContainText("Mock data only");
+    await expect(page.getByLabel("Server connection mode")).toHaveAttribute("data-connection-mode", "mock");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     if (viewport.width < 768) {
       const title = page.locator('[data-slot="mobile-feature-header"]').getByText("Settings", { exact: true });

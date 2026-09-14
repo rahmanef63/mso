@@ -17,6 +17,9 @@ export function StatusCluster() {
 
   return (
     <div className="ml-auto flex items-center gap-0.5 text-muted-foreground">
+      <span data-slot="system-status-host" data-status-placement="menu-bar" className="flex items-center">
+        <Slot region="systemStatus" />
+      </span>
       {cpu != null && (
         <span className="flex items-center gap-1 rounded-md px-2 py-0.5 tabular-nums">
           <Activity className="size-3.5" />
