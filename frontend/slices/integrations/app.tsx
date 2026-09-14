@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { syncIntegrationFrameTokens } from "./frame-theme";
 
 /** Preserve transfer/setup deep links without putting private capabilities in React state. */
 export function managerLocation(search: string, hash = "") {
@@ -19,7 +20,23 @@ export default function IntegrationsApp() {
     target.src = managerLocation(window.location.search, window.location.hash);
     if (window.location.hash) window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
     const timer = window.setTimeout(() => setStatus(current => current === "loading" ? "error" : current), 15000);
-    return () => window.clearTimeout(timer);
+    let animation = 0;
+    const sync = () => {
+      window.cancelAnimationFrame(animation);
+      animation = window.requestAnimationFrame(() => syncIntegrationFrameTokens(target));
+    };
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style", "data-theme", "data-shell"] });
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    scheme.addEventListener("change", sync);
+    sync();
+    return () => {
+      window.clearTimeout(timer);
+      window.cancelAnimationFrame(animation);
+      observer.disconnect();
+      scheme.removeEventListener("change", sync);
+    };
   }, [retry]);
   return (
     <section className="flex h-full min-h-0 flex-col bg-background" aria-label="Integrations">
@@ -30,7 +47,7 @@ export default function IntegrationsApp() {
         {status === "error" && <Button variant="secondary" onClick={() => { setStatus("loading"); setRetry(n => n + 1); }}>Retry</Button>}
       </div>}
       <iframe ref={frame} title="MSO native Integrations manager" className="min-h-0 w-full flex-1 border-0"
-        referrerPolicy="no-referrer" onLoad={() => { if (frame.current?.getAttribute("src")) setStatus("ready"); }}
+        referrerPolicy="no-referrer" onLoad={() => { if (frame.current?.getAttribute("src")) { syncIntegrationFrameTokens(frame.current); setStatus("ready"); } }}
         onError={() => setStatus("error")} />
     </section>
   );

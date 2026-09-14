@@ -10,8 +10,8 @@ it("uses the Settings master/detail navigation contract", () => {
   expect(CONNECTION_MANAGER_SCRIPT).toContain('n("p","Manage","integration-nav-label")');
   expect(CONNECTION_MANAGER_SCRIPT).toContain('["transfer","Transfer & backup",showTransfer]');
   expect(CONNECTION_MANAGER_SCRIPT).toContain('["project-mcp","Add project MCP",showProjectMcp]');
-  expect(CONNECTION_MANAGER_STYLE).toContain('grid-template-columns:14rem minmax(0,1fr)');
-  expect(CONNECTION_MANAGER_STYLE).toContain('width:min(100%,48rem)');
+  expect(CONNECTION_MANAGER_STYLE).toContain('grid-template-columns:var(--settings-sidebar-width) minmax(0,1fr)');
+  expect(CONNECTION_MANAGER_STYLE).toContain('width:min(100%,var(--settings-content-width))');
   expect(CONNECTION_MANAGER_STYLE).toContain('@container integration (max-width:37.5rem)');
   expect(CONNECTION_MANAGER_STYLE).toContain('integration-sidebar-toggle');
 });
