@@ -54,3 +54,9 @@ it('rejects truncated GCM authentication tags before importing any credentials',
   await expect(codec.open(envelope,PASS)).rejects.toThrow('invalid_envelope');
   await expect(fs.stat(process.env.OS_INFRA_STORE!)).rejects.toMatchObject({code:'ENOENT'});
 });
+
+it('exports only the exact custom selection while preserving the all-scope default',async()=>{
+  const api=await import('./data'),apply=async(prefix='')=>{const p=await api.importIntegrationData(sample,{prefix});await api.importIntegrationData(sample,{prefix,apply:true,confirm:p.planId})};
+  await apply();await apply('copy-');const all=await api.exportIntegrationData() as {users:Array<{id:string;connections:unknown[]}>};expect(all.users.map(u=>u.id).sort()).toEqual(['copy-sample-user','sample-user']);
+  const one=await api.exportIntegrationData({selection:[{user:'sample-user',provider:'github',connection:'work'}]}) as {users:Array<{id:string;connections:unknown[]}>};expect(one.users.map(u=>u.id)).toEqual(['sample-user']);expect(one.users[0].connections).toHaveLength(1);
+});

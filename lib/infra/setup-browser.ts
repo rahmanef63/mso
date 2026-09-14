@@ -7,7 +7,7 @@ export const INTEGRATION_BROWSER_SCRIPT=String.raw`
   function showForm(setup,token){cleanup();authController?.abort();cleanup=mountIntegrationForm(root,setup,{endpoint,token,onBack:loadManager})||(()=>{})}
   function openTransfer(){
     cleanup();authController?.abort();wantsTransfer=true;
-    cleanup=mountPortability(root,{back:()=>{wantsTransfer=false;void loadManager()},request:body=>json("/api/v1/integrations/transfer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})});
+    cleanup=mountPortability(root,{back:()=>{wantsTransfer=false;void loadManager()},request:body=>json("/api/v1/integrations/transfer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}),download:async body=>{const r=await fetch("/api/v1/integrations/transfer",{method:"POST",credentials:"same-origin",cache:"no-store",referrerPolicy:"no-referrer",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(!r.ok)throw error(await r.json());const disposition=r.headers.get("content-disposition")||"",match=/filename="([^"]+)"/.exec(disposition);return{blob:await r.blob(),filename:match?.[1]||"mso-credentials.txt"}}});
   }
   async function loadManager(){
     cleanup();authController?.abort();authController=new AbortController();

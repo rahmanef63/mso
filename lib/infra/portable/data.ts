@@ -5,7 +5,8 @@ import {readIntegrationState,mutateIntegrationState} from '../connection-storage
 import {connectionMethod} from '../connection-registry';
 import {IntegrationError,identity,type IntegrationState} from '../identity';
 import {isInfraProviderId,normalizeInfraValues} from '../catalog';
-export type TransferOptions={users?:string[];includeSecrets?:boolean;passphrase?:string;prefix?:string;policy?:'skip'|'error';apply?:boolean;confirm?:string;acceptWarnings?:boolean};
+import {assertTransferSelectionExists,normalizeTransferSelection,transferSelectionMatches,type TransferSelection} from './selection';
+export type TransferOptions={users?:string[];selection?:TransferSelection[];includeSecrets?:boolean;passphrase?:string;prefix?:string;policy?:'skip'|'error';apply?:boolean;confirm?:string;acceptWarnings?:boolean};
 // Import previews use opaque, process-local one-time tokens. The snapshot contains
 // the original document (encrypted when credentials are present), options and
 // destination metadata — never a password/credential digest exposed to the caller.
@@ -15,9 +16,9 @@ function snapshot(document:unknown,options:TransferOptions,state:IntegrationStat
 function issuePlan(value:string){const now=Date.now();for(const [id,p]of plans)if(p.expires<=now)plans.delete(id);while(plans.size>=MAX_PLANS)plans.delete(plans.keys().next().value!);const id=randomBytes(32).toString('hex');plans.set(id,{snapshot:value,expires:now+PLAN_TTL_MS});return id;}
 function requirePlan(id:string|undefined,value:string){if(!id)throw new IntegrationError('preview_required_or_destination_changed',409);const p=plans.get(id);if(!p||p.expires<=Date.now()||p.snapshot!==value){plans.delete(id);throw new IntegrationError('preview_required_or_destination_changed',409)}return id;}
 export async function exportIntegrationData(options:TransferOptions={}){
-  const state=await readIntegrationState(),ids=options.users??Object.keys(state.users);
-  if(!Array.isArray(ids)||ids.some(id=>!Object.hasOwn(state.users,identity(id))))throw new IntegrationError('unknown_export_user');
-  const users=[...new Set(ids)].map(id=>({id,label:state.users[id].label,connections:Object.values(state.users[id].connections).flatMap(rows=>Object.values(rows)).map(c=>{
+  const state=await readIntegrationState(),selection=normalizeTransferSelection(options.selection),ids=options.users??(selection?[...new Set(selection.map(row=>row.user))]:Object.keys(state.users));
+  if(!Array.isArray(ids)||ids.some(id=>!Object.hasOwn(state.users,identity(id))))throw new IntegrationError('unknown_export_user');assertTransferSelectionExists(state,selection);
+  const users=[...new Set(ids)].map(id=>({id,label:state.users[id].label,connections:Object.values(state.users[id].connections).flatMap(rows=>Object.values(rows)).filter(c=>transferSelectionMatches(selection,id,c.provider,c.id)).map(c=>{
     const m=connectionMethod(c.provider,c.source,c.authMethod),map=FIELD_MAP[c.provider]??{},reverse=Object.fromEntries(Object.entries(map).map(([a,b])=>[b,a]));
     const fields=m.fields.map(f=>({key:reverse[f.key],secret:f.secret,configured:Boolean(c.values[f.key])}));
     if(fields.some(f=>!f.key))throw new IntegrationError('unmapped_export_field');

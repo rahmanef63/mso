@@ -26,6 +26,8 @@ demo mode also forces MCP off. Existing installs keep their current `.env.local`
 
 Settings → MCP separates **Access MSO** (external clients → MSO), **MSO Access** (host connections plus exact-project plugin installation), and **Sessions** (activity and handover). Under MSO Access, **Project plugins** lists SI-Coder and Batonly as available catalog entries. They are not installed into a fresh project, are never inherited from a parent/sibling project, and require an explicit project-scoped install. Registry declarations alone do not install code or configure credentials.
 
+Credential-dependent work follows one rule: **inspect MSO Integrations first**. Resolve the exact project/context → credential owner → provider → named connection before asking for setup. Reuse an existing explicit connection when it matches; refuse ambiguity instead of guessing. Secret values enter only private Integrations setup/export surfaces, never ordinary chat or MCP tool arguments.
+
 Access MSO opens a task index: **Connect an app**, **Connected apps**, **Recent activity**, **Tools & updates**, and **Connection details**. Setup first asks for the client and shows only that client's steps. Use **MCP overview** to return; technical OAuth/tunnel fields live under Connection details. Connected apps separates active access from expired/revoked history and confirms disconnection. Tools & updates stores only a browser-local refresh reminder, never a verified client-health claim.
 
 Anonymous visitors see an Owner sign-in entry, not private API requests or an endless loading state. Failed settings/activity loads expose a retry action; activity failures never become an empty-success state. The public `/settings?section=mcp` deep link returns sign-in users to MCP.

@@ -1,51 +1,67 @@
-// Bundled independent implementation of the versioned transfer UI.
+// Owner-only transfer workbench. The default Integrations screen stays simple;
+// this surface is opened explicitly from More → Transfer & backup.
 export const PORTABILITY_SCRIPT=String.raw`
 function mountPortability(root,bridge){
-  let disposed=false,documentData=null,preview=null;root.replaceChildren();root.classList.add('integration','portable-transfer');
-  const el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n};
-  const button=(text,fn)=>{const b=el('button',text);b.type='button';b.addEventListener('click',fn);return b};
+  let disposed=false,documentData=null,preview=null,tree=null,active='export';const selected=new Set();root.replaceChildren();root.classList.add('integration','portable-transfer');
+  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n};
+  const button=(text,fn,cls)=>{const b=el('button',text,cls);b.type='button';b.addEventListener('click',fn);return b};
   const field=(name,type='text')=>{const l=el('label',name),i=el('input');i.type=type;i.autocomplete='off';if(type==='checkbox')l.className='check identity-check';l.append(i);return{l,i}};
-  const back=button('← Connections',()=>{cleanup();bridge.back()});root.append(back,el('h2','Import / export JSON'),el('p','Move credential users and named connections between independent applications. This is a one-time copy, not live synchronization. No existing connection is overwritten.'));
-  const exp=el('section'),imp=el('section');exp.className=imp.className='connection-card';exp.append(el('h3','Export'));
-  const owner=field('User ID (blank exports all users)'),secrets=field('Include direct credentials — encrypted JSON','checkbox'),password=field('Export passphrase (12+ characters)','password'),repeat=field('Confirm export passphrase','password');
-  password.i.maxLength=1024;
-  repeat.i.maxLength=1024;
-  password.l.hidden=true;
-  repeat.l.hidden=true;
-  secrets.i.addEventListener('change',()=>{password.l.hidden=repeat.l.hidden=!secrets.i.checked;if(!secrets.i.checked)password.i.value=repeat.i.value=''});
-  const note=el('p','Metadata export includes names, source/auth methods and field status only. All field values, active OAuth sessions, defaults and folder mappings are excluded.');
-  const exportStatus=el('p');exportStatus.setAttribute('role','status');
-  const download=button('Export JSON',async()=>{
-    download.disabled=true;exportStatus.textContent='Preparing export…';
-    try{if(secrets.i.checked&&(password.i.value.length<12||password.i.value!==repeat.i.value))throw Error('Use a matching passphrase of at least 12 characters.');
-      const response=await bridge.request({action:'export',...(owner.i.value.trim()?{users:[owner.i.value.trim()]}:{}),includeSecrets:secrets.i.checked,...(secrets.i.checked?{passphrase:password.i.value}:{})});
-      if(disposed)return;const encrypted=response.bundle.format.endsWith('.encrypted');
-      const blob=new Blob([JSON.stringify(response.bundle,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),a=el('a','Save JSON file');
-      a.href=url;a.download='connections-'+new Date().toISOString().slice(0,10)+(encrypted?'.integration-bundle.enc.json':'.integration-bundle.json');a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      exportStatus.textContent=encrypted?'Encrypted export created. Share the passphrase through a separate channel.':'Metadata export created. It contains no credential values.';
-    }catch(e){exportStatus.textContent=e.message}finally{password.i.value=repeat.i.value='';download.disabled=false}
-  });exp.append(owner.l,secrets.l,password.l,repeat.l,note,download,exportStatus);
-  imp.append(el('h3','Import'));const file=field('JSON bundle file','file');file.i.accept='.json,application/json';
-  const decrypt=field('Import passphrase (encrypted files only)','password'),prefix=field('User ID prefix (optional, for a separate copy)'),policy=el('select'),policyLabel=el('label','Conflicts');
-  decrypt.i.maxLength=1024;prefix.i.placeholder='imported-';prefix.i.maxLength=32;decrypt.l.hidden=true;
-  for(const [value,text]of [['skip','Preserve existing connections; skip conflicts'],['error','Stop when a conflict exists']]){const o=el('option',text);o.value=value;policy.append(o)}policyLabel.append(policy);
-  const previewBox=el('pre');const importStatus=el('p');importStatus.setAttribute('role','status');
-  const reviewed=field('I reviewed the preview and accept listed skips / omitted fields','checkbox');reviewed.i.checked=false;
-  function reset(){preview=null;previewBox.textContent='';apply.disabled=true;reviewed.i.checked=false;}
-  file.i.addEventListener('change',async()=>{reset();documentData=null;decrypt.i.value='';const selected=file.i.files?.[0];if(!selected)return;try{if(selected.size>2*1024*1024)throw Error('JSON file exceeds 2 MiB.');documentData=JSON.parse(await selected.text());decrypt.l.hidden=documentData.format!=='integration-bundle.encrypted';importStatus.textContent='File loaded locally. Choose Preview import.'}catch(e){importStatus.textContent=e.message}});
-  prefix.i.addEventListener('input',reset);policy.addEventListener('change',reset);
-  const input=()=>({action:'import',document:documentData,prefix:prefix.i.value.trim(),policy:policy.value,...(!decrypt.l.hidden?{passphrase:decrypt.i.value}:{})});
-  const check=button('Preview import',async()=>{if(!documentData){importStatus.textContent='Choose a JSON file first.';return}check.disabled=true;try{preview=await bridge.request(input());if(disposed)return;previewBox.textContent=JSON.stringify(preview,null,2);apply.disabled=!preview.canApply;importStatus.textContent='Preview only: nothing has been imported.'}catch(e){reset();importStatus.textContent=e.message}finally{check.disabled=false}});
-  const apply=button('Apply import',async()=>{
-    if(!preview||!reviewed.i.checked){importStatus.textContent='Review the preview and check the confirmation box.';return}apply.disabled=check.disabled=true;
-    try{const result=await bridge.request({...input(),apply:true,confirm:preview.planId,acceptWarnings:reviewed.i.checked});if(disposed)return;previewBox.textContent=JSON.stringify(result,null,2);importStatus.textContent='Imported. Connections are not marked verified; external sources must be authorized again. Select the imported user when you return.';documentData=null;file.i.value='';decrypt.i.value='';preview=null;}
-    catch(e){importStatus.textContent=e.message;apply.disabled=false}finally{check.disabled=false}
-  });apply.disabled=true;
-  imp.append(file.l,decrypt.l,prefix.l,policyLabel,check,previewBox,reviewed.l,apply,importStatus);const grid=el('div');grid.className='transfer-grid';grid.append(exp,imp);root.append(grid);
-  function cleanup(){disposed=true;password.i.value=repeat.i.value=decrypt.i.value='';documentData=null;preview=null;root.replaceChildren();root.classList.remove('portable-transfer','integration')}
+  const save=(blob,name)=>{const url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+  const selection=()=>scope.value==='all'?undefined:[...selected].map(key=>{const[user,provider,connection]=key.split('|');return{user,provider,connection}});
+  const ensureSelection=()=>{const value=selection();if(value&&value.length===0)throw Error('Choose at least one connection.');return value};
+  const back=button('← Connections',()=>{cleanup();bridge.back()});const title=el('div',undefined,'transfer-heading');title.append(el('h2','Transfer & backup'),el('p','Backup, move, or restore connections. Advanced tools stay out of the normal connection screen.'));root.append(back,title);
+  const tabs=el('div',undefined,'transfer-tabs'),body=el('div');const exportTab=button('Export',()=>{active='export';render()}),importTab=button('Import',()=>{active='import';render()});tabs.setAttribute('role','tablist');for(const b of[exportTab,importTab])b.setAttribute('role','tab');tabs.append(exportTab,importTab);root.append(tabs,body);
+  const scope=el('select');for(const[value,text]of[['all','All connections'],['custom','Custom selection…']]){const o=el('option',text);o.value=value;scope.append(o)}
+  function scopeTree(){
+    const wrap=el('div',undefined,'transfer-tree');if(!tree){wrap.append(el('p','Loading connection list…'));return wrap}
+    for(const owner of tree.users){const group=el('section',undefined,'transfer-tree-user'),head=field(owner.label+' · '+owner.id,'checkbox'),keys=[];{const ownerKeys=owner.providers.flatMap(p=>p.connections.map(c=>owner.id+'|'+p.id+'|'+c.id));head.i.checked=ownerKeys.length>0&&ownerKeys.every(key=>selected.has(key));head.i.indeterminate=!head.i.checked&&ownerKeys.some(key=>selected.has(key))}group.append(head.l);
+      for(const provider of owner.providers){const pgroup=el('div',undefined,'transfer-tree-provider'),ph=field(provider.title||provider.id,'checkbox'),providerKeys=provider.connections.map(c=>owner.id+'|'+provider.id+'|'+c.id);keys.push(...providerKeys);ph.i.checked=providerKeys.length>0&&providerKeys.every(key=>selected.has(key));ph.i.indeterminate=!ph.i.checked&&providerKeys.some(key=>selected.has(key));pgroup.append(ph.l);
+        for(const c of provider.connections){const key=owner.id+'|'+provider.id+'|'+c.id,cf=field(c.label+' · '+c.id+(c.source==='direct'?' · '+c.storedFields+' stored fields':' · authorization metadata only'),'checkbox');cf.i.checked=selected.has(key);cf.i.addEventListener('change',()=>{cf.i.checked?selected.add(key):selected.delete(key);render()});pgroup.append(cf.l)}
+        ph.i.addEventListener('change',()=>{for(const key of providerKeys)ph.i.checked?selected.add(key):selected.delete(key);render()});group.append(pgroup)}
+      head.i.addEventListener('change',()=>{for(const key of keys)head.i.checked?selected.add(key):selected.delete(key);render()});wrap.append(group)}return wrap;
+  }
+  function exportView(){
+    const card=el('section',undefined,'connection-card transfer-card'),head=el('div');head.append(el('h3','Download backup'),el('p','Encrypted backup is recommended. Plaintext downloads require your MSO password and expire after one use.'));card.append(head);
+    const scopeLabel=el('label','Download');scope.setAttribute('aria-label','Export scope');scopeLabel.append(scope);scope.onchange=render;card.append(scopeLabel);if(scope.value==='custom')card.append(scopeTree());
+    const format=el('select');for(const[value,text]of[['encrypted','Encrypted JSON · recommended'],['metadata','Metadata JSON · no credential values'],['raw-json','Raw JSON · plaintext credentials'],['env','.env · plaintext credentials']]){const o=el('option',text);o.value=value;format.append(o)}format.value=exportView.format||'encrypted';format.setAttribute('aria-label','Export format');const formatLabel=el('label','Format');formatLabel.append(format);card.append(formatLabel);
+    const security=el('div',undefined,'transfer-security'),status=el('p');status.setAttribute('role','status');let pass,repeat,ownerPassword,ack;
+    const paint=()=>{exportView.format=format.value;render()};format.addEventListener('change',paint);
+    if(format.value==='encrypted'){
+      pass=field('Backup passphrase (12+ characters)','password');repeat=field('Confirm backup passphrase','password');pass.i.maxLength=repeat.i.maxLength=1024;security.append(el('p','The file contains selected direct credentials encrypted with your passphrase.'),pass.l,repeat.l);
+    }else if(format.value==='raw-json'||format.value==='env'){
+      ownerPassword=field('MSO owner password','password');ownerPassword.i.autocomplete='current-password';ownerPassword.i.maxLength=1024;ack=field('I understand this download contains plaintext credentials','checkbox');security.classList.add('danger-zone');security.append(el('strong','Sensitive download'),el('p','MSO will re-authenticate you, issue a 90-second one-time grant, create the file, then invalidate the grant. The password is not stored. Use encrypted JSON when you need a restorable backup.'),ownerPassword.l,ack.l);
+    }else security.append(el('p','Metadata only: connection names, methods and configured-field status. No credential values.'));
+    card.append(security);
+    const download=button(format.value==='metadata'?'Download metadata':format.value==='encrypted'?'Download encrypted backup':'Re-authenticate & download',async()=>{
+      download.disabled=true;status.textContent='Preparing download…';
+      try{const chosen=ensureSelection();
+        if(format.value==='metadata'||format.value==='encrypted'){
+          if(format.value==='encrypted'&&(pass.i.value.length<12||pass.i.value!==repeat.i.value))throw Error('Use a matching backup passphrase of at least 12 characters.');
+          const response=await bridge.request({action:'export',...(chosen?{selection:chosen}:{}),includeSecrets:format.value==='encrypted',...(format.value==='encrypted'?{passphrase:pass.i.value}:{})});const encrypted=response.bundle.format.endsWith('.encrypted');
+          save(new Blob([JSON.stringify(response.bundle,null,2)+'\n'],{type:'application/json'}),'connections-'+new Date().toISOString().slice(0,10)+(encrypted?'.integration-bundle.enc.json':'.integration-bundle.json'));status.textContent=encrypted?'Encrypted backup downloaded.':'Metadata downloaded; it contains no credential values.';
+        }else{
+          if(!ownerPassword.i.value||!ack.i.checked)throw Error('Enter your MSO password and confirm the plaintext warning.');
+          const authorized=await bridge.request({action:'authorize-raw-export',password:ownerPassword.i.value,...(chosen?{selection:chosen}:{})});ownerPassword.i.value='';
+          const file=await bridge.download({action:'export-raw',grant:authorized.grant,format:format.value==='env'?'env':'json',...(chosen?{selection:chosen}:{})});save(file.blob,file.filename);ack.i.checked=false;status.textContent='Sensitive file downloaded. The one-time export grant is now invalid.';
+        }
+      }catch(e){status.textContent=e.message}finally{if(pass)pass.i.value=repeat.i.value='';if(ownerPassword)ownerPassword.i.value='';download.disabled=false}
+    },format.value==='raw-json'||format.value==='env'?'danger':'primary');card.append(download,status);body.append(card);
+    const hint=el('p','Need to move one credential between owners? Go back to Connections → More on that connection and choose Copy to another owner. Share keeps one owner; Copy creates an independent connection.','transfer-hint');body.append(hint);
+  }
+  function importView(){
+    const card=el('section',undefined,'connection-card transfer-card');card.append(el('h3','Bulk import'),el('p','Upload a metadata or encrypted Integration Bundle. MSO always previews changes first and never overwrites an existing connection.'));
+    const file=field('JSON bundle file','file');file.i.accept='.json,application/json';const decrypt=field('Import passphrase (encrypted files only)','password'),prefix=field('User ID prefix (optional)'),policy=el('select'),policyLabel=el('label','Conflicts');decrypt.i.maxLength=1024;prefix.i.placeholder='imported-';prefix.i.maxLength=32;decrypt.l.hidden=true;
+    for(const[value,text]of[['skip','Preserve existing connections; skip conflicts'],['error','Stop when a conflict exists']]){const o=el('option',text);o.value=value;policy.append(o)}policyLabel.append(policy);const previewBox=el('pre'),status=el('p');status.setAttribute('role','status');const reviewed=field('I reviewed the preview and accept listed skips / omitted fields','checkbox');
+    const reset=()=>{preview=null;previewBox.textContent='';apply.disabled=true;reviewed.i.checked=false};file.i.addEventListener('change',async()=>{reset();documentData=null;decrypt.i.value='';const selectedFile=file.i.files?.[0];if(!selectedFile)return;try{if(selectedFile.size>2*1024*1024)throw Error('JSON file exceeds 2 MiB.');documentData=JSON.parse(await selectedFile.text());decrypt.l.hidden=documentData.format!=='integration-bundle.encrypted';status.textContent='File loaded locally. Preview before applying.'}catch(e){status.textContent=e.message}});prefix.i.addEventListener('input',reset);policy.addEventListener('change',reset);
+    const input=()=>({action:'import',document:documentData,prefix:prefix.i.value.trim(),policy:policy.value,...(!decrypt.l.hidden?{passphrase:decrypt.i.value}:{})});const check=button('Preview import',async()=>{if(!documentData){status.textContent='Choose a JSON file first.';return}check.disabled=true;try{preview=await bridge.request(input());previewBox.textContent=JSON.stringify(preview,null,2);apply.disabled=!preview.canApply;status.textContent='Preview only — nothing has changed yet.'}catch(e){reset();status.textContent=e.message}finally{check.disabled=false}});
+    const apply=button('Apply import',async()=>{if(!preview||!reviewed.i.checked){status.textContent='Review the preview and confirm first.';return}apply.disabled=check.disabled=true;try{const result=await bridge.request({...input(),apply:true,confirm:preview.planId,acceptWarnings:reviewed.i.checked});previewBox.textContent=JSON.stringify(result,null,2);status.textContent='Import complete. Imported connections are not marked verified; external authorization must be completed again.';documentData=null;file.i.value='';decrypt.i.value='';preview=null}catch(e){status.textContent=e.message;apply.disabled=false}finally{check.disabled=false}},'primary');apply.disabled=true;card.append(file.l,decrypt.l,prefix.l,policyLabel,check,previewBox,reviewed.l,apply,status);body.append(card);
+  }
+  function render(){if(disposed)return;body.replaceChildren();exportTab.setAttribute('aria-selected',String(active==='export'));importTab.setAttribute('aria-selected',String(active==='import'));active==='export'?exportView():importView()}
+  render();bridge.request({action:'tree'}).then(data=>{if(disposed)return;tree=data;for(const owner of tree.users)for(const p of owner.providers)for(const c of p.connections)selected.add(owner.id+'|'+p.id+'|'+c.id);if(active==='export')render()}).catch(e=>{if(!disposed){tree={users:[]};body.prepend(el('p',e.message,'transfer-error'))}});
+  function cleanup(){disposed=true;documentData=null;preview=null;selected.clear();root.replaceChildren();root.classList.remove('portable-transfer','integration')}
   return cleanup;
 }
 `;
 export const PORTABILITY_STYLE=String.raw`
-.portable-transfer{max-width:1100px!important;margin:auto}.portable-transfer .transfer-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}.portable-transfer section{min-width:0;border:1px solid var(--sep-strong);border-radius:12px;padding:20px;background:var(--field)}.portable-transfer h3{margin-top:0}.portable-transfer label{display:block;margin:14px 0 6px;font-weight:600;font-size:13px}.portable-transfer input,.portable-transfer select{margin-top:6px;min-width:0;max-width:100%}.portable-transfer .identity-check{display:flex;gap:9px;align-items:center;font-weight:400}.portable-transfer .identity-check input{width:18px;height:18px;margin:0;order:-1;flex:none}.portable-transfer button{min-height:40px;margin:8px 7px 8px 0}.portable-transfer pre{max-height:330px;overflow:auto;font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}.portable-transfer [role=status]{font-size:13px;overflow-wrap:anywhere}@media(max-width:700px){.portable-transfer .transfer-grid{grid-template-columns:1fr}.portable-transfer section{padding:15px}}
+.portable-transfer{max-width:880px!important;margin:auto}.portable-transfer .transfer-heading h2{margin-bottom:4px}.portable-transfer .transfer-heading p{margin-top:0}.portable-transfer .transfer-tabs{display:flex;gap:4px;margin:20px 0;border-bottom:1px solid var(--sep)}.portable-transfer .transfer-tabs button{border:0;border-radius:0;background:transparent;margin:0;padding:10px 14px}.portable-transfer .transfer-tabs button[aria-selected=true]{border-bottom:2px solid var(--os-accent);font-weight:700}.portable-transfer .transfer-card{border:1px solid var(--sep-strong);border-radius:12px;padding:20px;background:var(--field);margin-top:0}.portable-transfer .transfer-card>label{display:block;margin:14px 0 6px;font-weight:600;font-size:13px}.portable-transfer select,.portable-transfer input{margin-top:6px;max-width:100%}.portable-transfer .transfer-security{margin:16px 0;padding:14px;border-radius:10px;background:var(--inset)}.portable-transfer .danger-zone{border:1px solid color-mix(in srgb,var(--destructive-text) 40%,var(--sep));background:color-mix(in srgb,var(--destructive-text) 5%,var(--surface))}.portable-transfer .identity-check{display:flex;gap:9px;align-items:center;font-weight:400}.portable-transfer .identity-check input{width:18px;height:18px;margin:0;order:-1;flex:none}.portable-transfer .transfer-tree{max-height:360px;overflow:auto;margin:10px 0;padding:10px;border:1px solid var(--sep);border-radius:10px;background:var(--surface)}.portable-transfer .transfer-tree-user{padding:8px 0;border-bottom:1px solid var(--sep)}.portable-transfer .transfer-tree-provider{padding-left:22px}.portable-transfer .transfer-tree-provider>.identity-check~.identity-check{padding-left:22px;color:var(--text-dim)}.portable-transfer pre{max-height:330px;overflow:auto;font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}.portable-transfer [role=status]{font-size:13px;overflow-wrap:anywhere}.portable-transfer .transfer-hint{font-size:12px;color:var(--text-dim);margin-top:12px}.portable-transfer button{min-height:40px;margin:8px 7px 8px 0}@media(max-width:700px){.portable-transfer .transfer-card{padding:14px}.portable-transfer .transfer-tabs button{flex:1}.portable-transfer .transfer-tree-provider{padding-left:12px}.portable-transfer .transfer-tree-provider>.identity-check~.identity-check{padding-left:12px}}
 `;

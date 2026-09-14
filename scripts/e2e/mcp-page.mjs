@@ -107,7 +107,7 @@ try {
   </script><iframe title="MSO Page" src="https://mso-ui.example.com/qa"></iframe></html>`}));
   await page.goto("https://chatgpt.com/qa");
   const component=page.frameLocator("iframe"),surface=component.locator(".surface"),body=component.locator("#surface-body");
-  await component.getByRole("button",{name:"Add MCP",exact:true}).waitFor();
+  await component.getByLabel("More integration actions",{exact:true}).waitFor();
   await page.waitForFunction(()=>window.lastSize?.height===680);
   assert.equal(await surface.evaluate(el=>el.getBoundingClientRect().height),680);assertions++;
   assert.equal(await component.locator("html").getAttribute("data-theme"),"dark");assertions++;
@@ -153,14 +153,15 @@ try {
   await component.getByRole("combobox",{name:"MSO page",exact:true}).selectOption("/integrations");
   await setContext({theme:"dark",containerDimensions:{height:680},styles:{variables:{}}});
   await page.setViewportSize({width:736,height:900});
-  await component.getByRole("button",{name:"Add MCP",exact:true}).click();
+  await component.getByLabel("More integration actions",{exact:true}).click();
+  await component.getByRole("button",{name:"Add project MCP",exact:true}).click();
   await component.getByRole("heading",{name:"Add MCP to project",exact:true}).waitFor();
   if(imageDir)await saveScreenshot("mso-page-add-mcp.png");
   const audit=await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze();
   assert.deepEqual(audit.violations.map(v=>({id:v.id,targets:v.nodes.map(n=>n.target)})),[]);assertions++;
   assert.deepEqual(errors,[]);assertions++;
   await page.close();
-  console.log(`MCP Page browser checks: ${assertions} assertions passed (full height, host resize, theme, mobile, logo, Add MCP, fullscreen)`);
+  console.log(`MCP Page browser checks: ${assertions} assertions passed (full height, host resize, theme, mobile, logo, progressive Add MCP, fullscreen)`);
 } finally {
   await browser.close();
 }

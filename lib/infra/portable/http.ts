@@ -6,10 +6,11 @@ export async function transferBody(req:Request):Promise<Record<string,unknown>>{
   const reader=req.body?.getReader();if(!reader)throw new IntegrationError('invalid_transfer_request');let bytes=0;const chunks:Uint8Array[]=[];
   try{for(;;){let timer:ReturnType<typeof setTimeout>|undefined;const r=await Promise.race([reader.read(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new IntegrationError('request_timeout',408)),5000)})]).finally(()=>clearTimeout(timer));if(r.done)break;bytes+=r.value.byteLength;if(bytes>MAX_BYTES+16384)throw new IntegrationError('bundle_too_large',413);chunks.push(r.value);}
     let b;try{b=JSON.parse(Buffer.concat(chunks).toString('utf8'))}catch{throw new IntegrationError('invalid_json')}
-    const allowed=['action','document','users','includeSecrets','passphrase','prefix','policy','apply','confirm','acceptWarnings'];
+    const allowed=['action','document','users','selection','includeSecrets','passphrase','password','grant','format','prefix','policy','apply','confirm','acceptWarnings'];
     if(!b||typeof b!=='object'||Array.isArray(b)||Object.keys(b).some(k=>!allowed.includes(k)))throw new IntegrationError('invalid_transfer_request');
     for(const k of ['apply','includeSecrets','acceptWarnings'])if(b[k]!==undefined&&typeof b[k]!=='boolean')throw new IntegrationError('invalid_transfer_request');
-    for(const k of ['passphrase','confirm','prefix','policy'])if(b[k]!==undefined&&typeof b[k]!=='string')throw new IntegrationError('invalid_transfer_request');
+    for(const k of ['passphrase','password','grant','format','confirm','prefix','policy'])if(b[k]!==undefined&&typeof b[k]!=='string')throw new IntegrationError('invalid_transfer_request');
+    if(b.selection!==undefined&&(!Array.isArray(b.selection)||b.selection.length<1||b.selection.length>512))throw new IntegrationError('invalid_transfer_request');
     return b;
   }finally{await reader.cancel().catch(()=>{});reader.releaseLock()}
 }

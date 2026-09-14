@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import { mutateIntegrationState } from "./connection-storage";
 import { createConnectionIn, summaryIn } from "./connection-service";
 import { IntegrationError, identity, connectionLabel, canonicalFolder, selectConnection, metadataOnly, assertNotBusy, type ConnectionSource } from "./identity";
-export const INTEGRATION_ACTIONS=["user.create","user.rename","user.duplicate","user.delete","user.default","folder.map","folder.unmap","connection.create","connection.rename","connection.default","connection.delete","connection.share","connection.unshare","credential.delete"] as const;
+export const INTEGRATION_ACTIONS=["user.create","user.rename","user.duplicate","user.delete","user.default","folder.map","folder.unmap","connection.create","connection.rename","connection.default","connection.delete","connection.share","connection.duplicate","connection.unshare","credential.delete"] as const;
 export async function integrationManage(input:Record<string,unknown>){
   metadataOnly(input);if(input.confirm!==true)throw new IntegrationError("confirmation_required",403);
   const shapes:Record<string,string[]>={
     "user.create":["user","label"],"user.rename":["user","target","label"],"user.duplicate":["user","target","label","copyCredentials"],"user.delete":["user"],"user.default":["user"],
     "folder.map":["user","path","provider","connection"],"folder.unmap":["path"],"connection.create":["user","provider","connection","label","source","authMethod","makeDefault"],
-    "connection.rename":["user","provider","connection","label"],"connection.default":["user","provider","connection"],"connection.delete":["user","provider","connection"],"connection.share":["user","provider","connection","target","label","makeDefault"],"connection.unshare":["user","provider","connection"],"credential.delete":["user","provider","connection","key"],
+    "connection.rename":["user","provider","connection","label"],"connection.default":["user","provider","connection"],"connection.delete":["user","provider","connection"],"connection.share":["user","provider","connection","target","label","makeDefault"],"connection.duplicate":["user","provider","connection","target","targetConnection","label","copyCredentials","makeDefault"],"connection.unshare":["user","provider","connection"],"credential.delete":["user","provider","connection","key"],
   };
   const action=String(input.action);if(!shapes[action]||Object.keys(input).some(k=>!["action","confirm",...shapes[action]].includes(k)))throw new IntegrationError("invalid_management_fields");
   return mutateIntegrationState(state=>{
@@ -45,6 +45,13 @@ export async function integrationManage(input:Record<string,unknown>){
     const provider=identity(input.provider,"provider"),connection=identity(input.connection,"connection");
     if(action==="connection.create"){const c=createConnectionIn(state,{user,provider,connection,label:input.label as string|undefined,source:input.source as ConnectionSource|undefined,authMethod:input.authMethod as string|undefined,makeDefault:input.makeDefault===true});return{ok:true,action,connection:summaryIn(state,user,c)};}
     const {connection:c}=selectConnection(state,provider,{user,connection});assertNotBusy(c);
+    if(action==="connection.duplicate"){
+      if(c.sharedFrom)throw new IntegrationError("shared_alias_copy_from_owner",409);
+      const target=identity(input.target,"target"),targetUser=state.users[target];if(!targetUser)throw new IntegrationError("user_not_found",404);
+      const targetConnection=identity(input.targetConnection??connection,"target_connection"),rows=targetUser.connections[provider]??{};if(Object.hasOwn(rows,targetConnection))throw new IntegrationError("connection_exists",409);
+      const clone=structuredClone(c);clone.id=targetConnection;clone.uid=randomUUID();clone.label=connectionLabel(input.label??c.label);clone.values=c.source==="direct"&&input.copyCredentials===true?{...c.values}:{};delete clone.sharedFrom;delete clone.external;delete clone.verifiedAt;delete clone.lastCheck;delete clone.lease;clone.revision=1;clone.createdAt=clone.updatedAt=Date.now();
+      targetUser.connections[provider]={...rows,[targetConnection]:clone};if(input.makeDefault===true||!targetUser.defaults[provider])targetUser.defaults[provider]=targetConnection;return{ok:true,action,connection:summaryIn(state,target,clone)};
+    }
     if(action==="connection.share"){
       if(c.source!=="direct")throw new IntegrationError("external_connections_cannot_share",409);if(c.sharedFrom)throw new IntegrationError("shared_alias_cannot_share",409);
       const target=identity(input.target,"target"), targetUser=state.users[target];if(!targetUser)throw new IntegrationError("user_not_found",404);if(target===user)throw new IntegrationError("shared_alias_same_user",409);

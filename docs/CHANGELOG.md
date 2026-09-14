@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `integrations` simplify UI and secure credential exports
 - `mcp` add original-byte file transfer
 
 **Fixed**

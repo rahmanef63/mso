@@ -101,12 +101,16 @@ The managed dispatch boundary prevents accidental use of SC's parallel credentia
 Open `/integrations`. Public instructions are readable before sign-in; an Owner
 session is required to read/manage credential profiles or open their private forms.
 Choose the credential user, provider, named connection, source and authentication.
-The browser workbench keeps **Users**, **Routing**, and **Transfer** visible instead of
-hiding identity management in a generic settings menu. The credential-owner picker is
-a semantic-token listbox rather than a native OS select, so dark/light rendering stays
-consistent across desktop and mobile. User creation/rename/duplicate/default/deletion,
-folder mappings, connection CRUD/defaults, verification, per-field credential removal,
-and full credential clearing use the same metadata actions as the CLI/MCP.
+The browser workbench is intentionally progressive: the main surface shows the current
+connections, **Add connection**, and **More**. Credential owners, project routing,
+**Transfer & backup**, project MCP setup, and refresh live under More so users who only
+need one service account do not have to understand the whole credential model. Mobile
+uses the same hierarchy with the service picker collapsed to a native control.
+
+When an agent needs external access, it must inspect Integrations before asking for a new
+credential. Resolve the exact project/context → credential owner → provider → named
+connection first. Only open setup when no suitable connection exists. Credential values
+belong in the private setup/export surfaces, never chat or MCP tool arguments.
 
 A direct named connection can also be **shared** to another credential user as a
 read-only alias. The alias resolves the owner's current backing credential at use time,
@@ -275,11 +279,24 @@ Official contracts: [MCP Apps](https://github.com/modelcontextprotocol/ext-apps)
 
 ## Move identities between standalone projects
 
-Use **Import / export JSON** or `/integrations?transfer=1`. Plain JSON carries
-metadata only; optional encrypted JSON can carry direct credential values. Imports
-are previewed, create-only, unverified, and never change defaults or folder bindings.
-See [Integration Bundle v1](INTEGRATION-PORTABILITY.md) for CLI syntax, mappings and
-receiver support. There is no mandatory SC dependency or automatic data sharing.
+Open **More → Transfer & backup** or `/integrations?transfer=1`.
+
+- **Encrypted JSON** is the default/recommended backup and may carry selected direct
+  credential values behind a separate backup passphrase.
+- **Metadata JSON** never contains credential values.
+- **Raw JSON** and **.env** are deliberate plaintext exports. They are Owner-only and
+  require the current MSO owner password. The server issues a 90-second, one-time grant
+  bound to the selected connection tree; the grant is consumed by one download and the
+  password is not stored in the export state or audit log.
+- **All connections / Custom selection…** uses a checkbox tree of credential owner →
+  provider → named connection. Raw formats include direct stored values only; external
+  OAuth/provider sessions are never converted into local secrets.
+
+Imports remain preview-first, create-only, unverified, and never overwrite existing
+connections or silently change defaults/folder bindings. **Share linked access** keeps
+one owner/backing secret; **Copy to another owner** creates an independent connection
+and copies direct values only when explicitly selected. See [Integration Bundle v1]
+(INTEGRATION-PORTABILITY.md) for portable bundle details.
 
 ## Hostinger Mail API
 

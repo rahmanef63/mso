@@ -90,6 +90,12 @@ describe("native credential identity core",()=>{
     await f.manage({action:"user.duplicate",confirm:true,user:"alice",target:"key-copy",copyCredentials:true});expect((await f.directConnectionValues("github",{user:"key-copy",connection:"work"})).apiKey).toBe(KEY_A);
     await f.manage({action:"folder.map",confirm:true,user:"alice",path:root});await f.manage({action:"user.rename",confirm:true,user:"alice",target:"renamed"});expect((await f.integrationQuery({view:"which",cwd:root}) as {user:string}).user).toBe("renamed");
   });
+  it("copies one connection independently to another owner without overwriting an existing id",async()=>{
+    const f=await fixture();await f.add("alice","github","work","direct",{apiKey:KEY_A});await f.manage({action:"connection.duplicate",confirm:true,user:"alice",provider:"github",connection:"work",target:"bob",targetConnection:"copied",label:"Copied GitHub",copyCredentials:true});
+    expect((await f.directConnectionValues("github",{user:"bob",connection:"copied"})).apiKey).toBe(KEY_A);const owner=await f.credentialSnapshot("github",{user:"alice",connection:"work"});await f.saveConnectionValues("github",{user:"alice",connection:"work"},{apiKey:KEY_B},owner.connection);expect((await f.directConnectionValues("github",{user:"bob",connection:"copied"})).apiKey).toBe(KEY_A);
+    await expect(f.manage({action:"connection.duplicate",confirm:true,user:"alice",provider:"github",connection:"work",target:"bob",targetConnection:"copied",label:"No overwrite",copyCredentials:true})).rejects.toMatchObject({code:"connection_exists"});
+    await f.manage({action:"connection.duplicate",confirm:true,user:"alice",provider:"github",connection:"work",target:"bob",targetConnection:"metadata-only",label:"Metadata only"});expect(await f.directConnectionValues("github",{user:"bob",connection:"metadata-only"})).toEqual({});
+  });
   it("shares direct credentials as read-only aliases with live backing, safe ids, rename/default, duplication, and unshare invariants",async()=>{
     const f=await fixture();await f.add("alice","github","work","direct",{apiKey:KEY_A});
     const shared=await f.manage({action:"connection.share",confirm:true,user:"alice",provider:"github",connection:"work",target:"bob",label:"Shared Work GitHub"}) as {connection:{id:string}};

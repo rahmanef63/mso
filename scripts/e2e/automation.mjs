@@ -34,7 +34,8 @@ export async function automationJourney(page, fixture) {
     return {status:response.status,body:await response.json()};
   }, [route,body]);
   await page.goto(fixture.base + "/integrations");
-  await page.getByRole("button", {name:"Add MCP",exact:true}).click();
+  await page.getByLabel("More integration actions", {exact:true}).click();
+  await page.getByRole("button", {name:"Add project MCP",exact:true}).click();
   await page.getByLabel("Project id or path").fill(project);
   await page.getByLabel("Server alias", {exact:true}).fill("public-fixture");
   await page.getByLabel("HTTPS MCP endpoint").fill("https://example.com/mcp");
@@ -69,5 +70,5 @@ export async function automationJourney(page, fixture) {
   expect((await call("/api/v1/flows",{action:"delete",project,flow:definition.id,revision:current.body.revision})).status).toBe(200);
   const binding = await call("/api/v1/project-mcp",{action:"inspect",project});
   expect((await call("/api/v1/project-mcp",{action:"delete",project,server:"public-fixture",revision:binding.body.revision})).status).toBe(200);
-  console.log("PASS Add MCP, preserved binding, project flow CRUD, execution, Unicode result and idempotent replay");
+  console.log("PASS progressive Add MCP, preserved binding, project flow CRUD, execution, Unicode result and idempotent replay");
 }

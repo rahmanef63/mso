@@ -1,3 +1,9 @@
+## 2026-09-15 — Integrations progressive UI + password-gated credential export
+
+Integrations now defaults to a simple connection-management surface: current account, **Add connection**, and **More**. Credential-owner administration, project routing, transfer/backup and project MCP setup are progressive-disclosure actions rather than peer-level toolbar controls. Connection cards distinguish linked **Share** from independent **Copy to another owner**.
+
+Transfer & backup adds All/Custom selection with an owner → provider → connection checkbox tree. Encrypted JSON remains the recommended secret-bearing backup; metadata JSON is value-free. Deliberate raw JSON/.env downloads require Owner role, the current MSO password, an explicit plaintext acknowledgement, a 90-second one-time grant bound to the selection, no-store response headers and audit metadata that never contains the password or exported values. Bulk imports remain preview-first/create-only. Agent guidance now requires checking Integrations before asking for a new credential.
+
 ## 2026-09-15 — Original-byte MCP transfer final hardening
 
 - `fs_upload_file` is content-idempotent and fail-closed on filename conflicts by default; deterministic rename and SHA-guarded replacement are explicit.

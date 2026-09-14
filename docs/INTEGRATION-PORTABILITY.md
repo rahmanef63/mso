@@ -7,10 +7,12 @@ explicit, reviewed JSON transfer instead. This is a snapshot, not live sync.
 ## Supported workflows
 
 SI-Coder provides `sc data export`, `sc data import`, and **Import / export JSON**
-in its temporary browser manager. MSO provides the same browser workflow at
+in its temporary browser manager. MSO exposes **More → Transfer & backup** at
 `/integrations?transfer=1`, opened from the native manager or
-`mso integrations transfer`. Both use their own independent bundled codec and
-native store adapter. Neither imports application code from the other product.
+`mso integrations transfer`. Portable metadata/encrypted backups use the same
+Integration Bundle v1 contract. MSO also offers deliberate raw JSON/.env downloads
+for private/manual use; those files are not Integration Bundles and are not the
+recommended restore format. Neither product imports application code from the other.
 
 **Metadata is the default.** It carries user IDs/labels, named connections,
 provider/source/auth identity, scope, and field names/presence. It carries **no
@@ -21,8 +23,15 @@ users/connections appear but credentials still need to be configured.
 AES-256-GCM with a random 12-byte IV and 16-byte authentication tag, and a 32-byte
 key derived by scrypt (N=32768, r=8, p=1; random 16-byte salt). Passphrases must be
 at least 12 UTF-8 bytes; the UI requires 12 characters. No passphrase CLI argument,
-MCP field, browser storage, or unencrypted full export is provided. Share the
-passphrase separately from the file. A forgotten passphrase cannot be recovered.
+MCP field, or browser storage is used. Share the passphrase separately from the
+file. A forgotten passphrase cannot be recovered.
+
+**Raw JSON / `.env` export is a separate Owner-only escape hatch**, not a portable
+bundle. It requires the current MSO owner password, an explicit plaintext warning,
+and a 90-second one-time export grant bound to the selected owner/provider/connection
+tree. The grant is consumed by one no-store download. Password and credential values
+are excluded from audit details. External OAuth/provider sessions are never converted
+into local plaintext secrets. Use encrypted export for backup/restore whenever possible.
 
 The encrypted bundle protects the transferred file; it does not add encryption
 at rest to either application's existing private credential store. Metadata names
