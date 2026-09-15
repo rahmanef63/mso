@@ -305,6 +305,11 @@ export async function proxy(request: NextRequest) {
   const isA2A =
     pathname === "/a2a/v1" || pathname === "/.well-known/agent-card.json";
   const isMachineProtocol = isMcp || isA2A;
+  // Workflow webhook triggers are intentionally inbound machine endpoints. Their
+  // own route enforces method, rate, body bounds, idempotency and optional bearer
+  // auth; browser-cookie CSRF proof would make legitimate external webhooks
+  // impossible and is not their authentication authority.
+  const isWorkflowWebhook = pathname.startsWith("/api/v1/workflows/webhook/");
   const isApi = pathname.startsWith("/api/") || isMachineProtocol || (["/integrations", "/integrations/manager", "/integrations/embed"].includes(pathname) && ["GET", "HEAD"].includes(request.method));
   // The historical same-origin bridge is permanently closed. noVNC is executable
   // third-party code and is served only from its reserved split-origin host above.
@@ -318,6 +323,7 @@ export async function proxy(request: NextRequest) {
     MUTATING.has(request.method) &&
     isApi &&
     !isMachineProtocol &&
+    !isWorkflowWebhook &&
     pathname !== "/api/integrations/setup" &&
     crossOriginMutation(request)
   )

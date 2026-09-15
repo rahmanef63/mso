@@ -158,4 +158,27 @@ describe("single-origin mode (template unset) is unchanged", () => {
     expect(res.status).toBe(404);
     expect(res.headers.get("x-middleware-rewrite")).toBeNull();
   });
+
+  it("allows cross-origin workflow webhook triggers while keeping workflow management CSRF-protected", async () => {
+    const proxy = await loadProxy("");
+    const webhook = await proxy(
+      req("mso.example.com", "/api/v1/workflows/webhook/graph-1/hook", {
+        method: "POST",
+        headers: { "sec-fetch-site": "cross-site", "content-type": "application/json" },
+        body: JSON.stringify({ event: "smoke" }),
+      }),
+    );
+    expect(webhook.status).toBe(200);
+
+    const management = await proxy(
+      req("mso.example.com", "/api/v1/workflows", {
+        method: "POST",
+        headers: { "sec-fetch-site": "cross-site", "content-type": "application/json" },
+        body: JSON.stringify({ action: "create" }),
+      }),
+    );
+    expect(management.status).toBe(403);
+    expect(await management.json()).toEqual({ error: "cross_origin_blocked" });
+  });
+
 });
