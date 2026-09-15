@@ -7,7 +7,7 @@ const START_Y = 72;
 
 export function tidyWorkflowNodes(graph: WorkflowGraph): WorkflowGraphNode[] {
   const byId = new Map(graph.nodes.map((node) => [node.id, node]));
-  const incoming = new Map(graph.nodes.map((node) => [node.id, graph.edges.filter((edge) => edge.target === node.id && byId.has(edge.source))]));
+  const incoming = new Map(graph.nodes.map((node) => [node.id, graph.edges.filter((edge) => !edge.disabled && edge.target === node.id && byId.has(edge.source))]));
   const indegree = new Map(graph.nodes.map((node) => [node.id, incoming.get(node.id)?.length ?? 0]));
   const layer = new Map<string, number>();
   const queue = graph.nodes.filter((node) => (indegree.get(node.id) ?? 0) === 0).sort((a, b) => a.position.y - b.position.y || a.name.localeCompare(b.name));
@@ -16,7 +16,7 @@ export function tidyWorkflowNodes(graph: WorkflowGraph): WorkflowGraphNode[] {
   for (let index = 0; index < queue.length; index += 1) {
     const current = queue[index]!;
     const currentLayer = layer.get(current.id) ?? 0;
-    for (const edge of graph.edges.filter((row) => row.source === current.id && byId.has(row.target))) {
+    for (const edge of graph.edges.filter((row) => !row.disabled && row.source === current.id && byId.has(row.target))) {
       layer.set(edge.target, Math.max(layer.get(edge.target) ?? 0, currentLayer + 1));
       const next = (indegree.get(edge.target) ?? 1) - 1;
       indegree.set(edge.target, next);

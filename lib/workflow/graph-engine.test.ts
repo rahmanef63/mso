@@ -32,6 +32,24 @@ describe("workflow graph engine", () => {
     expect(done.edges?.find((edge) => edge.id === "b")?.state).toBe("enabled");
     expect(done.edges?.find((edge) => edge.id === "c")?.state).toBe("disabled");
   });
+
+  it("keeps disabled connections visible in receipts but excludes them from execution", async () => {
+    const graph = await createWorkflowGraph("graph-owner", { name: "Disabled edge", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
+      { id: "start-disabled", name: "Start", type: "manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "live", name: "Live", type: "output", position: { x: 140, y: 0 }, config: { value: "live" } },
+      { id: "offline", name: "Offline", type: "output", position: { x: 140, y: 120 }, config: { value: "offline" } },
+    ], edges: [
+      { id: "live-edge", source: "start-disabled", target: "live" },
+      { id: "disabled-edge", source: "start-disabled", target: "offline", style: "dashed", disabled: true },
+    ] });
+    const started = await startWorkflowGraph(graph, {}, "disabled-edge-once", context, () => undefined);
+    const done = await workflowGraphRunStatus("graph-owner", started.id, 5000);
+    expect(done.state).toBe("completed");
+    expect(done.nodes.find((node) => node.id === "live")?.state).toBe("completed");
+    expect(done.nodes.find((node) => node.id === "offline")?.state).toBe("skipped");
+    expect(done.edges?.find((edge) => edge.id === "disabled-edge")?.state).toBe("disabled");
+  });
+
   it("pinpoints the failed node and blocks downstream nodes", async () => {
     const graph = await createWorkflowGraph("graph-owner", { name: "Failure", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
       { id: "start2", name: "Start", type: "manual", position: { x: 0, y: 0 }, config: {} },
