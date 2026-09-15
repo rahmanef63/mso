@@ -19,7 +19,9 @@ run_workflow() {
       *) die "unknown workflow option: $1" ;;
     esac
   done
-  case "$input" in @*) input=$(cat -- "${input#@}") ;; esac
+  if [[ "$input" == @* ]]; then
+    input=$(cat -- "${input#@}")
+  fi
   case "$sub" in
     list) jget "/api/v1/workflows"; return ;;
     show) jget "/api/v1/workflows?graph_id=$(enc "$id")"; return ;;
@@ -41,6 +43,13 @@ run_workflow() {
     run) [ -n "$key" ] || die "workflow run requires --key <unique-operation-id>"; body=$(jq -n --arg id "$id" --arg key "$key" --argjson input "$input" '{action:"run",graph_id:$id,input:$input,idempotency_key:$key}'); result=$(jpost "/api/v1/workflows" "$body"); id=$(jq -er .id <<<"$result") ;;
     *) die "usage: mso ${U_workflow:-workflow}" ;;
   esac
-  while [ "$wait" -eq 1 ] && [ "$(jq -r .state <<<"$result")" = running ]; do result=$(jget "/api/v1/workflows?run_id=$(enc "$id")&wait_ms=1500"); done
-  printf '%s\n' "$result"; case "$(jq -r .state <<<"$result")" in failed|interrupted) return 1 ;; esac
+  while [ "$wait" -eq 1 ] && [ "$(jq -r .state <<<"$result")" = "running" ]; do
+    result=$(jget "/api/v1/workflows?run_id=$(enc "$id")&wait_ms=1500")
+  done
+  printf '%s\n' "$result"
+  case "$(jq -r .state <<<"$result")" in
+    failed|interrupted)
+      return 1
+      ;;
+  esac
 }

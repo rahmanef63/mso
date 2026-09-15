@@ -129,15 +129,17 @@ AI assistance has an isolated workflow-design system prompt, receives no implici
 - searchable node palette
 - draggable canvas
 - click-to-connect input/output ports
+- persistent per-edge `Auto/Solid/Dashed` presentation, execution `Active` toggle, directional arrows and bounded reverse-direction control
 - true/false, switch and error handles
 - structured trigger/action/retry inspectors plus advanced JSON
 - real project/folder navigation
+- one live Directory for Tools, Workflows, Sessions, Projects and Skills (the same registries used by runtime nodes)
 - execution log + persisted history
 - graph version restore
 - private variable/secret manager
 - template and AI-assisted creation
 
-Run automatically saves a dirty graph before execution, so execution always uses the revision visible in the editor.
+Run automatically saves a dirty graph before execution, so execution always uses the revision visible in the editor. Disabled connections remain visible in the graph and receipts but are excluded from runtime traversal, cycle checks and tidy layout; a target reachable only through disabled connections is skipped rather than silently promoted to a new root.
 
 ## CLI
 

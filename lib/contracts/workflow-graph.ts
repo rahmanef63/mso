@@ -20,6 +20,10 @@ export type WorkflowGraphEdge = {
   target: string;
   sourceHandle?: string;
   targetHandle?: string;
+  /** Optional visual override. Branch/error semantics may still color the edge. */
+  style?: "solid" | "dashed";
+  /** Disabled edges stay visible in the editor but are excluded from execution/topology. */
+  disabled?: boolean;
 };
 
 export type WorkflowGraphMetadata = {

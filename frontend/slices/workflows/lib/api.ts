@@ -36,7 +36,13 @@ export type SessionArtifactHistoryView = {
 export type SessionArtifactHistoryResponse = {artifact:{ref:string;revisionRef:string;path:string;relativePath:string;label:string;kind:"file"|"script";language?:string};history:SessionArtifactHistoryView};
 export async function getSessionArtifactHistory(id:string,actionRef:string){const q=new URLSearchParams({view:"artifact",id,action_ref:actionRef});return json<SessionArtifactHistoryResponse>(`/api/v1/agent-sessions?${q}`);}
 
-export type WorkflowDirectory = {tools:Array<{name:string;description:string;scope:string;inputSchema:Record<string,unknown>}>;workflows:Array<{id:string;name:string;status:string;nodeCount:number;updatedAt:string}>;sessions:Array<{id:string;label?:string;title:string;name:string;updatedAt:string;cwd?:string;source:string}>};
+export type WorkflowDirectory = {
+  tools:Array<{name:string;description:string;scope:string;inputSchema:Record<string,unknown>}>;
+  workflows:Array<{id:string;name:string;status:string;nodeCount:number;updatedAt:string}>;
+  sessions:Array<{id:string;label?:string;title:string;name:string;updatedAt:string;cwd?:string;source:string}>;
+  projects:Array<{id:string;name:string;packageName?:string;packageVersion?:string;branch?:string;head?:string}>;
+  skills:Array<{id:string;name:string;description:string;source:string;trust:string;project?:string}>;
+};
 export async function listWorkflowDirectory(query=""){return cachedWorkflowResource(`directory:${query}`,15000,()=>json<WorkflowDirectory>(`/api/v1/workflows?directory=1&q=${encodeURIComponent(query)}`));}
 
 export type WorkflowScriptSummary = { id:string; intent:string; status:"candidate"|"tested"; stepCount:number; updatedAt:string; project?:string; tools:string[] };

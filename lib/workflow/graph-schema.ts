@@ -56,7 +56,15 @@ function parseEdge(value: unknown, nodeIds: Set<string>): WorkflowGraphEdge {
   if (!graphObject(value) || !text(value.id, 96) || !ID.test(value.id) || !text(value.source, 96) || !text(value.target, 96)) throw new Error("invalid workflow edge");
   if (!nodeIds.has(value.source) || !nodeIds.has(value.target) || value.source === value.target) throw new Error("workflow edge references invalid node");
   const handle = (key: "sourceHandle" | "targetHandle") => value[key] === undefined ? undefined : (text(value[key], 64) && ID.test(value[key] as string) ? String(value[key]) : (() => { throw new Error("invalid workflow edge handle"); })());
-  return { id: value.id, source: value.source, target: value.target, ...(handle("sourceHandle") ? { sourceHandle: handle("sourceHandle") } : {}), ...(handle("targetHandle") ? { targetHandle: handle("targetHandle") } : {}) };
+  if (value.style !== undefined && !["solid", "dashed"].includes(String(value.style))) throw new Error("invalid workflow edge style");
+  if (value.disabled !== undefined && typeof value.disabled !== "boolean") throw new Error("invalid workflow edge disabled flag");
+  return {
+    id: value.id, source: value.source, target: value.target,
+    ...(handle("sourceHandle") ? { sourceHandle: handle("sourceHandle") } : {}),
+    ...(handle("targetHandle") ? { targetHandle: handle("targetHandle") } : {}),
+    ...(value.style === "dashed" ? { style: "dashed" as const } : value.style === "solid" ? { style: "solid" as const } : {}),
+    ...(value.disabled === true ? { disabled: true } : {}),
+  };
 }
 
 function assertAcyclic(nodes: WorkflowGraphNode[], edges: WorkflowGraphEdge[]): void {
@@ -97,9 +105,10 @@ export function parseWorkflowGraphDefinition(raw: unknown): WorkflowGraphDefinit
   if (!Array.isArray(raw.edges) || raw.edges.length > 400) throw new Error("workflow graph supports up to 400 edges");
   const edges = raw.edges.map((edge) => parseEdge(edge, nodeIds));
   if (new Set(edges.map((edge) => edge.id)).size !== edges.length) throw new Error("duplicate workflow edge id");
+  const activeEdges = edges.filter((edge) => !edge.disabled);
   const triggerIds = new Set(nodes.filter((node) => ["manual", "schedule", "webhook"].includes(node.type)).map((node) => node.id));
-  if (edges.some((edge) => triggerIds.has(edge.target))) throw new Error("trigger nodes must be workflow roots");
-  assertAcyclic(nodes, edges);
+  if (activeEdges.some((edge) => triggerIds.has(edge.target))) throw new Error("trigger nodes must be workflow roots");
+  assertAcyclic(nodes, activeEdges);
   return { ...(typeof raw.id === "string" ? { id: raw.id } : {}), name: raw.name.trim(), description: raw.description, status: raw.status as WorkflowGraphStatus, inputs: structuredClone(raw.inputs), nodes, edges, metadata: parseMetadata(raw.metadata) };
 }
 
