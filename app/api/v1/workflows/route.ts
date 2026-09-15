@@ -6,6 +6,7 @@ import { readSetupJson } from "@/lib/infra/setup-http";
 import { rateLimited } from "@/lib/host/limits-api";
 import { maxScope } from "@/lib/mcp/scope";
 import { TOOLS_BY_NAME } from "@/lib/mcp/tools";
+import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
 import { cloneWorkflowGraph, createWorkflowGraph, deleteWorkflowGraph, getWorkflowGraph, listWorkflowGraphs, updateWorkflowGraph, workflowGraphOwner } from "@/lib/workflow/graph-store";
 import { startWorkflowGraph, workflowGraphRunStatus } from "@/lib/workflow/graph-engine";
 import { listWorkflowGraphRuns } from "@/lib/workflow/graph-run-store";
@@ -39,5 +40,5 @@ export async function POST(req:NextRequest){const session=await auth("operator")
  if(action==="restore_version"){const id=String(body.graph_id??""),snapshot=await readWorkflowGraphVersion(workflowGraphOwner(session.principal),id,String(body.revision??""));if(!snapshot)throw new Error("workflow version not found");return NextResponse.json({graph:await updateWorkflowGraph(session.principal,id,String(body.expected_revision??""),definition(snapshot.graph),"restore")},{headers});}
  if(action==="variable_set"||action==="variable_delete"){if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);return NextResponse.json(action==="variable_set"?await setWorkflowVariable(session.principal,String(body.key??""),body.value,body.secret===true):await deleteWorkflowVariable(session.principal,String(body.key??"")),{headers});}
  if(action==="ai_suggest"){if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);return NextResponse.json({definition:await suggestWorkflowGraph(String(body.prompt??""))},{headers});}
- if(action==="run"){const graph=await getWorkflowGraph(session.principal,String(body.graph_id??""));if(!graph)throw new Error("workflow graph not found");const agentSession=await createAgentSession(session.principal,"cli",{title:`Workflow: ${graph.name}`,titleSource:"auto"}),context={principal:session.principal,actor:session.principal,sessionId:agentSession.id,scope:maxScope()} as const;return NextResponse.json(await startWorkflowGraph(graph,body.input??{},String(body.idempotency_key??`${Date.now()}`),context,(name)=>TOOLS_BY_NAME.get(name)),{headers});}
+ if(action==="run"){const graph=await getWorkflowGraph(session.principal,String(body.graph_id??""));if(!graph)throw new Error("workflow graph not found");const agentSession=await createAgentSession(session.principal,"cli",{title:`Workflow: ${graph.name}`,titleSource:"auto"}),context={principal:session.principal,actor:session.principal,sessionId:agentSession.id,scope:maxScope(),capabilities:msoCapabilityRuntime} as const;return NextResponse.json(await startWorkflowGraph(graph,body.input??{},String(body.idempotency_key??`${Date.now()}`),context,(name)=>TOOLS_BY_NAME.get(name)),{headers});}
  throw new Error("unknown workflow action");}catch(error){return fail(error);}}

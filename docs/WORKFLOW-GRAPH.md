@@ -176,3 +176,7 @@ The linear `flow_catalog`, `flow_manage`, `flow_run` and `flow_status` tools rem
 ## Scope of n8n parity
 
 MSO targets **core self-hosted workflow parity**, not n8n's SaaS business surface. MSO intentionally uses its own server-native project, filesystem, Skill, agent and integration nodes instead of reproducing n8n's marketplace or cloud billing/team-administration products. Free cyclic graph topology is also intentionally replaced by bounded loop/subflow constructs for safer unattended server execution.
+
+## Organization seat routing
+
+Organization is not owned by Workflow Graph. An `agent` node may set `orgSeatId`; at execution time MSO resolves that seat from the private Organization registry and routes to its current Project Agent, Local Agent, or A2A target. This indirection lets a workflow say “send to the CTO seat” without duplicating which concrete agent currently fills that seat. Direct project-bound Agent nodes remain backward compatible. See [`ORGANIZATION.md`](./ORGANIZATION.md).

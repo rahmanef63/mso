@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { assistantTabFromPayload } from "./navigation";
+import { assistantRouteFromPayload } from "./navigation";
 
-describe("assistant deep-link payload", () => {
-  it("opens the MCP activity tab for /assistant/mcp", () => {
-    expect(assistantTabFromPayload({ path: "/mcp" })).toBe("mcp");
-  });
-
-  it("fails back to chat for absent or unknown paths", () => {
-    expect(assistantTabFromPayload(undefined)).toBe("chat");
-    expect(assistantTabFromPayload({ path: "/unknown" })).toBe("chat");
+describe("assistant navigation", () => {
+  it("deep-links Organization as a first-class Alfa tab", () => {
+    expect(assistantRouteFromPayload({ path: "/organization" })).toEqual({ key: "/organization", tab: "organization" });
+    expect(assistantRouteFromPayload({ path: "/organization/holding" }).tab).toBe("organization");
   });
 });

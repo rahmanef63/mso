@@ -24,6 +24,7 @@ export type AuditAction =
   | "workflow.cancel"
   | "workflow.finish"
   | "agent.session"
+  | "agent.organization"
   | "agent.message"
   | "agent.subagent"
   | "agent.memory"

@@ -109,6 +109,7 @@ Commands:
   threads *            Conversation history: list | show | rm
   agent-sessions *     Durable MSO Agent sessions: list | show | create
   agents *             Native local session agents: list | send | inbox
+  org *                Organization chart: units, seats, reporting lines, targets
   a2a *                Agent-to-Agent v1: list | discover | add | rm | send | task | cancel | handoff
   memory *             Assistant memories: list | add | rm
   config *             Advanced raw AI config compatibility surface

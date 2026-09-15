@@ -60,16 +60,13 @@ const ACTION_SCHEMA = {
 } as const;
 
 export const BLOCK_OUTPUT_SCHEMA = {
+  // Output is normalized by normalizeBlock() below. Keep the advertised result
+  // envelope intentionally compact: duplicating every input constraint here adds
+  // several KiB to tools/list without adding a runtime safety boundary.
   type: "object",
   properties: {
-    kind: { type: "string", enum: ["validation", "crud", "action"] },
-    title: { type: "string" },
-    description: { type: "string" },
-    status: { type: "string", enum: ["neutral", "pending", "success", "warning", "error"] },
-    fields: { type: "array", items: FIELD_SCHEMA },
-    checks: { type: "array", items: CHECK_SCHEMA },
-    outputs: { type: "array", items: OUTPUT_SCHEMA },
-    actions: { type: "array", items: ACTION_SCHEMA },
+    kind: { type: "string" }, title: { type: "string" }, description: { type: "string" }, status: { type: "string" },
+    fields: { type: "array" }, checks: { type: "array" }, outputs: { type: "array" }, actions: { type: "array" },
   },
   required: ["kind", "title", "status", "fields", "checks", "outputs", "actions"],
   additionalProperties: false,

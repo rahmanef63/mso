@@ -10,6 +10,7 @@ import { graphObject } from "./graph-schema";
 import { bindLoopItem, bindWorkflowValue } from "./graph-bindings";
 import { executeFlowNode, workflowItems, type FlowNodeResult } from "./graph-flow-nodes";
 import { workflowVariableValues } from "./variables";
+import { organizationLocalAgentPrincipal, resolveOrganizationSeat } from "@/lib/agent/organization-runtime";
 
 type Resolver = (name: string) => CapabilityTool | undefined;
 type NodeExecutionResult = FlowNodeResult;
@@ -84,7 +85,19 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
   if (node.type === "project_function") { if (!project || typeof config.name !== "string") throw new Error("project_function node requires project and name"); return { output: await callTool("project_function_call", { project, name: config.name, input: graphObject(config.input) ? config.input : {}, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, context, resolve), log: `Project function ${config.name} completed.` }; }
   if (node.type === "project_mcp") { if (!project || typeof config.server !== "string" || typeof config.tool !== "string") throw new Error("project_mcp node requires project/server/tool"); return { output: await callTool("project_mcp_call", { project, server: config.server, tool: config.tool, arguments: graphObject(config.arguments) ? config.arguments : {}, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, context, resolve), log: `Project MCP ${config.server}.${config.tool} completed.` }; }
   if (node.type === "script") { if (!project || typeof config.script_id !== "string") throw new Error("script node requires project and script_id"); return { output: await callTool("project_script_run", { project, script_id: config.script_id, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, context, resolve), log: `Script ${config.script_id} completed.` }; }
-  if (node.type === "agent") { if (!project || typeof config.message !== "string") throw new Error("agent node requires project and message"); const args: Record<string, unknown> = { project, message: config.message, wait: config.wait !== false, plan_mode: Boolean(config.plan_mode), max_scope: ["read", "write", "exec"].includes(String(config.max_scope)) ? config.max_scope : "write" }; if (context.workflowId) args.workflow_id = context.workflowId; return { output: await callTool("project_agent_run", args, context, resolve), log: "Project agent action completed." }; }
+  if (node.type === "agent") {
+    if (typeof config.message !== "string" || !config.message.trim()) throw new Error("agent node requires message");
+    if (typeof config.orgSeatId === "string" && config.orgSeatId) {
+      const seat = await resolveOrganizationSeat(config.orgSeatId), target = seat.target;
+      if (seat.state !== "active" || seat.seatMode === "inactive") throw new Error(`organization seat ${seat.title} is not active`);
+      if (target.kind === "project-agent") { const args: Record<string, unknown> = { project: target.project, message: config.message, wait: config.wait !== false, plan_mode: Boolean(config.plan_mode), max_scope: ["read", "write", "exec"].includes(String(config.max_scope)) ? config.max_scope : "write" }; if (context.workflowId) args.workflow_id = context.workflowId; return { output: await callTool("project_agent_run", args, context, resolve), log: `Organization seat ${seat.title} routed to project agent.` }; }
+      if (target.kind === "local-agent") return { output: await callTool("local_agent_request", { target: target.ref, objective: config.message, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, { ...context, principal: organizationLocalAgentPrincipal(principal) }, resolve), log: `Organization seat ${seat.title} routed to local agent.` };
+      if (target.kind === "a2a") return { output: await callTool("a2a_handoff", { target: target.ref, objective: config.message, return_immediately: config.wait === false, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, context, resolve), log: `Organization seat ${seat.title} routed to A2A agent.` };
+      throw new Error(`organization seat ${seat.title} has no execution target`);
+    }
+    if (!project) throw new Error("agent node requires project or organization seat");
+    const args: Record<string, unknown> = { project, message: config.message, wait: config.wait !== false, plan_mode: Boolean(config.plan_mode), max_scope: ["read", "write", "exec"].includes(String(config.max_scope)) ? config.max_scope : "write" }; if (context.workflowId) args.workflow_id = context.workflowId; return { output: await callTool("project_agent_run", args, context, resolve), log: "Project agent action completed." };
+  }
   if (node.type === "subflow") {
     if (typeof config.workflowId === "string" && config.workflowId) {
       const principal = context.principal ?? context.actor; if (!principal) throw new Error("workflow subflow requires principal");

@@ -48,6 +48,7 @@ const TITLES: Record<string, string> = {
   exec_run: "Run Command", exec_job_start: "Start Command Job", exec_job_status: "Command Job Status", exec_job_cancel: "Cancel Command Job",
   agent_session_current: "Current Agent Session", agent_session_rename: "Rename Agent Session",
   local_agents_list: "List Local Agents", local_agent_inbox: "Receive Local Agent Messages",
+  organization_chart: "Organization Chart", organization_manage: "Manage Organization",
   local_agent_message_send: "Send Local Agent Message", local_agent_reply: "Reply to Local Agent", local_agent_request_wait: "Wait for Local Agent Reply",
   a2a_agent_discover: "Discover A2A Agent", a2a_agents_list: "List A2A Agents", a2a_message_send: "Send A2A Message",
   cloudflare_dns_upsert: "Upsert Cloudflare DNS", hostinger_dns_upsert: "Upsert Hostinger DNS",

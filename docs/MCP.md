@@ -200,6 +200,8 @@ RASMIC adds three stable generic MCP tools without coupling MSO to another repos
 
 ### Local Agent collaboration
 
+Organization is a separate private operating-structure domain. `organization_chart` reads units, seats, reporting lines, execution bindings, and live target status; `organization_manage` applies revision-checked mutations. Seats only reference existing Project Agent, Local Agent, or A2A targets and never copy credentials or hidden session context. Workflow graphs may reference a seat by `orgSeatId`, but the Organization registry remains the SSOT. See [Organization](./ORGANIZATION.md).
+
 Local same-owner session collaboration is intentionally separate from public A2A. `local_agents_list` reports each durable session's short public `name`, lease status, and live receiver observability (`consumerConnected` / `consumerCount`). `local_agent_message_send` + `local_agent_reply` provide durable correlated mailbox semantics. `local_agent_inbox(wait_ms=...)` can hold one foreground MCP call for at most 20 seconds and returns early when a peer message arrives; the implementation registers the same in-process receiver used by terminal Local Agents, closes the read/subscribe race with a second durable-mailbox read, and unsubscribes on return/timeout. The default `wait_ms=0` preserves immediate reads. `local_agent_request_wait` remains the bounded wait for one exact correlated outbound request, while `local_agent_request` remains an explicit exec-gated fresh worker from another durable session context and never claims to wake/control its original terminal/ChatGPT process. Human `@name` mentions resolve active public names only.
 
 ### Agent-to-Agent (A2A) peers

@@ -17,6 +17,7 @@ import { ThreadList } from "./components/thread-list";
 import { LibraryGrid } from "./components/library-grid";
 import { SkillForm } from "./components/skill-form";
 import { McpActivityView } from "./components/mcp-activity-view";
+import { OrganizationView } from "./components/organization-view";
 import { AlfaCockpitBar } from "./components/alfa-cockpit-bar";
 import { assistantRouteFromPayload, type AssistantTab } from "./lib/navigation";
 
@@ -30,6 +31,7 @@ type FormState =
 const TABS: [Tab, string][] = [
   ["chat", "Chat"],
   ["agents", "Agents"],
+  ["organization", "Organization"],
   ["skills", "Playbooks"],
   ["automations", "Automations"],
   ["mcp", "Activity"],
@@ -151,6 +153,8 @@ export default function Assistant({ payload }: AppProps) {
           onNew={() => setForm({ kind: "agent" })}
           onEdit={(it) => setForm({ kind: "agent", item: it as Agent })}
         />
+      ) : tab === "organization" ? (
+        <OrganizationView />
       ) : tab === "skills" ? (
         <LibraryGrid
           kind="skill"

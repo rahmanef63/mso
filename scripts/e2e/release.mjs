@@ -5,6 +5,7 @@ import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { mcpOwnerJourneys, mcpPublicJourney, settingsAccessibilityJourney } from "./mcp-settings.mjs";
 import { automationJourney } from "./automation.mjs";
+import { organizationJourney } from "./organization.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
 
 execFileSync(process.execPath, ["scripts/e2e/mcp-page.mjs"], { stdio: "inherit" });
@@ -116,6 +117,7 @@ try {
   expect((await call("/api/v1/fs/list?path=" + encodeURIComponent(fixture.dir))).status).toBe(200);
   await mcpOwnerJourneys(page, fixture);
   await automationJourney(page, fixture);
+  await organizationJourney(page, fixture);
   await fixture.setRole("viewer");
   expect((await call("/api/v1/agent-sessions?view=monitor")).status).toBe(403);
   expect((await call("/api/v1/integrations")).status).toBe(403);

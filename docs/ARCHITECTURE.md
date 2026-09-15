@@ -291,4 +291,8 @@ Each MSO connector/server scope owns its own Page app catalog. Core MSO Page cod
 
 ## Server-native workflow graph
 
+## Organization and agent routing
+
+MSO Organization is a first-class owner-private domain beside Workflow Graph, Local Agents, A2A, Project Agents, and Integrations. It stores stable units/seats/reporting lines and execution-target references; it does not store credentials, transcripts, or workflow topology. An active seat may be `unbound`, and a seat may reference an existing `project-agent`, `local-agent`, or `a2a` executor. Workflow Agent nodes can hold `orgSeatId` and resolve that pointer at run time, so organizational identity remains stable when the underlying executor changes. All existing capability/audit/approval boundaries still apply. See [`ORGANIZATION.md`](./ORGANIZATION.md).
+
 MSO has a Workflow Graph v2 layer above the existing automation/lifecycle/RASMIC primitives. It is the automation-topology SSOT and provides server-side schedule/webhook triggers, bounded branching/loops/subflows, retry/error paths, versioned definitions, private variables and persisted execution history. Canonical project paths resolve dynamically and credentials remain in integration authorities rather than portable graph definitions. Graph definitions/versions/runs/variables are isolated by authenticated principal, while tools/scripts/subflows retain normal capability scope, audit, connection and project guards. See [`WORKFLOW-GRAPH.md`](./WORKFLOW-GRAPH.md).

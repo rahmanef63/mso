@@ -9,7 +9,7 @@ unrelated things both called "skill".
 
 ---
 
-> **Where this lives, and how to not lose it.** Agents, Skills and Automations are
+> **Where this lives, and how to not lose it.** Alfa personas, Playbooks and browser Automations are
 > per-browser localStorage (`alfa.*`), so clearing site data destroys them and there
 > is no server copy. **Settings → Backup** exports every mso-owned key as one JSON
 > file and imports it back. The `alfa.` prefix is matched by rule, so a new
@@ -95,6 +95,10 @@ and a regular non-symlink `SKILL.md`; the generic HOME agent roots stay untruste
 `skills.read` takes the exact id and refuses an ambiguous bare name rather than guessing.
 Every response carries a scan report, so a truncated catalog is never presented as
 complete. See [`docs/MCP.md`](../../../docs/MCP.md) and [`skills/README.md`](../../../skills/README.md).
+
+## Organization (not an Alfa persona)
+
+The **Organization** tab is a server-side owner-private operating-structure view, not another browser Agent persona store. Its SSOT is `~/.mso/private/organization.json` via `lib/agent/organization-store.ts`. Units and seats define stable hierarchy/reporting context; a seat can point at an existing Project Agent, Local Agent/session, or A2A peer. Those references grant no extra tools or credentials. Workflows may resolve `orgSeatId` at execution time. See [`docs/ORGANIZATION.md`](../../../docs/ORGANIZATION.md).
 
 ## Agent
 

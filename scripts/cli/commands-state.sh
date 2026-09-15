@@ -53,6 +53,7 @@ case "$cmd" in
         jget "/api/v1/local-agents?inbox=1&session=$(enc "$session_id")$([ "$include" = "--all" ] && printf '&includeRead=1')" ;;
       *) die "usage: mso $U_agents" ;;
     esac ;;
+  org) source "$ROOT/scripts/cli/organization.sh"; run_org "$@" ;;
   a2a)
     sub="${1:-list}"; shift || true
     case "$sub" in

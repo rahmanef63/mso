@@ -1,6 +1,6 @@
-export type AssistantTab = "chat" | "agents" | "skills" | "automations" | "mcp";
+export type AssistantTab = "chat" | "agents" | "organization" | "skills" | "automations" | "mcp";
 
-const TABS = new Set<AssistantTab>(["chat", "agents", "skills", "automations", "mcp"]);
+const TABS = new Set<AssistantTab>(["chat", "agents", "organization", "skills", "automations", "mcp"]);
 
 export function assistantRouteFromPayload(payload: unknown): { key: string; tab: AssistantTab } {
   if (!payload || typeof payload !== "object") return { key: "", tab: "chat" };

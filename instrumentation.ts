@@ -16,8 +16,8 @@ export async function register() {
       import("./lib/agent/session-archive")
         .then(({ pruneAgentSessionArchives }) => pruneAgentSessionArchives())
         .catch(() => undefined),
-      Promise.all([import("./lib/workflow/graph-triggers"), import("./lib/mcp/tools")])
-        .then(([{ startWorkflowScheduler }, { TOOLS_BY_NAME }]) => startWorkflowScheduler((name) => TOOLS_BY_NAME.get(name)))
+      Promise.all([import("./lib/workflow/graph-triggers"), import("./lib/mcp/tools"), import("./lib/mcp/capability-runtime")])
+        .then(([{ startWorkflowScheduler }, { TOOLS_BY_NAME }, { msoCapabilityRuntime }]) => startWorkflowScheduler((name) => TOOLS_BY_NAME.get(name), msoCapabilityRuntime))
         .catch(() => undefined),
     ]);
     // systemd liveness: when the unit sets WatchdogSec, systemd exposes
