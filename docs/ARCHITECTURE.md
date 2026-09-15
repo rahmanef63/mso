@@ -288,3 +288,7 @@ future archaeology task.
 ### ChatGPT MSO Page trust boundary
 
 Each MSO connector/server scope owns its own Page app catalog. Core MSO Page code must not import project identities or trusted frame origins from another server scope. Portable source ships with an empty external-app catalog. An installation may opt into reviewed apps through the bounded owner-local `~/.mso/surface-apps.json` registry (or an explicit `MSO_SURFACE_APPS_JSON` override); MSO re-reads the registry when the Page resource is read and validates each exact HTTPS origin, approved start-path prefix, renderer, sandbox, and presentation before it can enter Page CSP. The dedicated widget origin is installation-derived from `OS_MCP_UI_ORIGIN` / `OS_PUBLIC_ORIGIN`. The Block resource has no frame domains.
+
+## Server-native workflow graph
+
+MSO now has a Workflow Graph v2 layer above the existing automation/lifecycle/RASMIC primitives. The graph is the automation-topology SSOT; canonical project paths are resolved dynamically from the project registry and are not copied into portable workflow definitions. Graph definitions/runs are isolated by authenticated principal, while tools/scripts/subflows retain normal capability scope, audit, connection and project guards. See [`WORKFLOW-GRAPH.md`](./WORKFLOW-GRAPH.md).

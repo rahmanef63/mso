@@ -21,6 +21,7 @@
 | **Understand a project** | Project context, trusted skills and task-specific tool discovery. |
 | **Do the work** | Real PTY, bounded file tools, service controls and explicit approvals. |
 | **Pick up where you left off** | Durable sessions, local memory, workflow evidence and agent handoffs. |
+| **Build server-native workflows** | Visual n8n-like workflow graphs, reusable scripts/subflows, per-node logs, dynamic project/folder bindings, and automatic private learning from successful sessions. |
 
 **One runtime, three ways in:** use desktop/mobile windows, stay in your terminal, or connect an MCP client.
 Code, image/video tools, a browser and native credential setup live beside your operational tools.

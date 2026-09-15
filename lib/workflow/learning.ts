@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { allows } from "@/lib/capabilities/scope";
 import { embedSkillText, normalizeSemanticText, SKILL_EMBEDDING_VERSION } from "@/lib/skills/semantic";
 import { compactRecipeSteps, elapsedMs, enrichBestSteps, mergeQuality, summarizeWorkflowQuality } from "./quality";
@@ -7,6 +7,8 @@ import { safeMemoryText } from "./sanitize";
 import { actorKey, removeActiveWorkflow, workflowFor } from "./state";
 import { loadWorkflowStore, persistWorkflowStore } from "./storage";
 import type { FinishWorkflowResult, LearnedRecipe, RecipeAccess } from "./types";
+import { ensureLearnedWorkflowGraph } from "./graph-store";
+import { rememberAgentMemory } from "@/lib/agent/memory-store";
 
 export async function finishWorkflow(input: {
   actor?: string;
@@ -91,6 +93,18 @@ export async function finishWorkflow(input: {
       .forEach((row) => delete store.recipes[row.id]);
   }
   await persistWorkflowStore(store);
+  // Successful sanitized session routes automatically become private graph drafts.
+  // This is best-effort learning: graph persistence must never turn workflow_finish into a failure.
+  if (input.success && (process.env.NODE_ENV !== "test" || process.env.OS_WORKFLOW_GRAPH_LEARNING_TEST === "1")) await ensureLearnedWorkflowGraph(recipe).catch(() => undefined);
+  if (input.success && process.env.NODE_ENV !== "test") {
+    const memoryKey = `workflow:${createHash("sha256").update(`${recipe.normalizedIntent}|${recipe.project ?? ""}`).digest("hex").slice(0, 20)}`;
+    const route = recipe.bestSteps.map((step) => step.tool).join(" → ").slice(0, 1200);
+    const value = safeMemoryText([`Intent: ${recipe.intent}`, recipe.project ? `Project: ${recipe.project}` : "", `Outcome: ${recipe.summary}`, route ? `Successful route: ${route}` : ""].filter(Boolean).join("\n"), 3000);
+    if (value) await rememberAgentMemory(recipeOwner, "MEMORY.md", memoryKey, value, {
+      kind: "procedural", sensitivity: "private", confidence: Math.min(1, 0.65 + Math.min(recipe.successes, 7) * 0.05),
+      provenance: { authority: "observed", channel: "system" },
+    }).catch(() => undefined);
+  }
 
   const improvedByMs = input.success && previousFastestMs != null && durationMs < previousFastestMs
     ? previousFastestMs - durationMs : undefined;

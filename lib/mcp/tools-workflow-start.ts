@@ -1,6 +1,7 @@
 import { ownedArtifactSession, prepareSessionArtifacts } from "@/lib/agent/artifact-session";
 import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
-import { markRecipeUsed, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
+import { listLearnedRecipes, markRecipeUsed, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
+import { ensureLearnedWorkflowGraph, findMatchingWorkflowGraph } from "@/lib/workflow/graph-store";
 import { searchSkillMemory } from "@/lib/skills/search";
 import { progressiveVerification } from "@/lib/orchestration/automation";
 import { routeIntentText } from "@/lib/orchestration/capability-catalog.mjs";
@@ -49,10 +50,6 @@ export const WORKFLOW_START_TOOL: McpTool =
       const routedTools = intentRoute.catalogMatched
         ? tools.filter((tool) => intentRoute.tools.includes(tool.name) || tool.name === "workflow_start")
         : tools;
-      // Complete every fallible read-only preflight before allocating the run id.
-      // A catalog hit narrows tool discovery before semantic search, so known intents
-      // do not pay to score/return the entire tool catalog. Skills and learned recipes
-      // remain globally searchable because they are content, not model tool schemas.
       const search = await searchSkillMemory(intent, {
         topK: intentRoute.catalogMatched ? 5 : 7,
         recipeAccess: { actor: recipeOwner, scope: context.scope },
@@ -84,6 +81,13 @@ export const WORKFLOW_START_TOOL: McpTool =
       const reusableScript = project && search.recommendedRecipe
         ? await readAutomationScript(project.path, `script_${search.recommendedRecipe.id}`).catch(() => null)
         : null;
+      const projectKeys = [project?.id, project?.path, project?.name, projectHint].filter((value): value is string => Boolean(value));
+      let graphAutomation = await findMatchingWorkflowGraph(recipeOwner, intent, projectKeys).catch(() => null);
+      if (!graphAutomation && search.recommendedRecipe) {
+        const fullRecipe = (await listLearnedRecipes({ actor: recipeOwner, scope: context.scope }))
+          .find((recipe) => recipe.id === search.recommendedRecipe?.id);
+        if (fullRecipe) graphAutomation = await ensureLearnedWorkflowGraph(fullRecipe).catch(() => null);
+      }
       const recipePlan = search.recommendedRecipe ? {
         id: search.recommendedRecipe.id,
         attempts: search.recommendedRecipe.attempts ?? 0,
@@ -131,9 +135,6 @@ export const WORKFLOW_START_TOOL: McpTool =
         createdAt: new Date().toISOString(),
       };
       const toolset = toolsetInfo(tools, context.scope, context.toolProfile);
-      // Discovery incompleteness travels WITH the bootstrap. A model told "here is the
-      // project and the trusted skills" will not re-check whether the scan covered the
-      // whole box; if it did not, it has to be told in the same breath.
       const discovery = {
         catalog: search.catalog,
         complete: !search.catalog.truncated,
@@ -146,8 +147,6 @@ export const WORKFLOW_START_TOOL: McpTool =
         constraints: opt(a, "constraints"),
         orchestration,
       });
-      // Recommendation telemetry is useful, but failure to persist lastUsedAt must
-      // never turn a successfully-created workflow into an opaque tool failure.
       if (search.recommendedRecipe) {
         await markRecipeUsed(search.recommendedRecipe.id, { actor: recipeOwner, scope: context.scope }).catch(() => undefined);
       }
@@ -167,12 +166,20 @@ export const WORKFLOW_START_TOOL: McpTool =
             classification,
             verificationPlan: progressiveVerification(classification.risk),
             recipe: recipePlan,
-            automation: reusableScript ? {
-              scriptId: reusableScript.id, status: reusableScript.status,
-              instruction: reusableScript.status === "tested"
-                ? "Prefer project_script_run before replanning this deterministic repeated route."
-                : "Run project_script_run once to verify this bounded candidate; success promotes it to tested.",
-            } : undefined,
+            automation: {
+              ...(graphAutomation ? {
+                graph: { id: graphAutomation.id, name: graphAutomation.name, status: graphAutomation.status, revision: graphAutomation.revision, provenance: graphAutomation.metadata.provenance },
+                graphInstruction: graphAutomation.status === "active"
+                  ? "A private workflow graph already matches this task. Prefer it before replanning when current evidence is compatible."
+                  : "A private learned/user draft matches this task. Inspect it before activation/run; normal authorization still applies.",
+              } : {}),
+              ...(reusableScript ? {
+                scriptId: reusableScript.id, status: reusableScript.status,
+                instruction: reusableScript.status === "tested"
+                  ? "Prefer project_script_run before replanning this deterministic repeated route."
+                  : "Run project_script_run once to verify this bounded candidate; success promotes it to tested.",
+              } : {}),
+            },
             memory: repoMemory.map((hit) => ({
               id: hit.record.id, kind: hit.record.kind, title: hit.record.title, summary: hit.record.summary,
               status: hit.record.status, score: hit.score, lastVerified: hit.record.lastVerified,
@@ -186,6 +193,7 @@ export const WORKFLOW_START_TOOL: McpTool =
             `[Knowledge] ${projectKnowledge?.exists ? `${projectKnowledge.bytes} bytes always-on` : "not configured"}`,
             `[Memory] ${repoMemory.length} repo-local hit(s) · ${search.recommendedRecipe ? "recipe available" : "no verified recipe selected"} · ~${contextEstimateTokens} context tokens`,
             ...(recipePlan ? [`[Recipe] ${recipePlan.attempts} attempts · ${recipePlan.successRate}% success · ${recipePlan.steps.length} reusable step(s)`] : []),
+            ...(graphAutomation ? [`[Workflow graph] ${graphAutomation.status} · ${graphAutomation.name} · ${graphAutomation.metadata.provenance ?? "private"}`] : [`[Workflow graph] no matching private graph; successful completion will seed a learned draft`]),
             ...(reusableScript ? [`[Automation] ${reusableScript.status} script ${reusableScript.id} available`] : []),
             ...(contention.conflictingWorkflowCount ? [`[Collision] ${contention.conflictingWorkflowCount} workflow(s) overlap declared paths/resources`] : []),
             ...(discovery.complete ? [] : [`[Discovery] partial scan — ${search.catalog.truncationReasons.join(", ")}; do not conclude something is absent`]),

@@ -139,3 +139,7 @@ of serializing learned recipes on every tool event. Snapshot ids prevent an old 
 from undoing a newer complete store. Back up both files together. Full learning writes
 still atomically persist the complete store. This follows the existing single-process
 workflow-store model; a multi-writer database is not introduced.
+
+## Workflow Graph v2
+
+For visual, branching, mixed-node workflows, see [WORKFLOW-GRAPH.md](./WORKFLOW-GRAPH.md). Graph v2 is private per authenticated principal, has per-node logs/error identity, resolves project/folder locations dynamically, and coexists with the linear flow format documented above. `workflow_start` checks matching private graphs before learned recipes; successful `workflow_finish` seeds private draft graphs automatically.
