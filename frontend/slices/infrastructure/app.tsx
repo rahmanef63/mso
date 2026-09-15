@@ -76,17 +76,17 @@ export function InfrastructureProviderApp({ provider }: { provider: Infrastructu
   const summary = useMemo(() => meta?.configured ? "Configured" : meta ? `Missing ${meta.missing.join(", ")}` : "Loading", [meta]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[color:var(--window-bg)] text-[color:var(--text)]">
+    <div data-slot="infrastructure-feature" className="@container flex h-full min-h-0 min-w-0 flex-col bg-[color:var(--window-bg)] text-[color:var(--text)]">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[color:var(--separator)] px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="grid size-8 place-items-center rounded-lg bg-[color:var(--inset)]"><Icon className="size-4.5" /></div>
           <div className="min-w-0"><h2 className="truncate text-sm font-semibold">{meta?.title ?? (provider === "dokploy" ? "Dokploy" : "Cloudflare")}</h2><p className="truncate text-[11px] text-[color:var(--text-dim)]">{summary}</p></div>
         </div>
-        <div className="flex items-center gap-2"><Button size="sm" variant="outline" onClick={() => void verify()} disabled={busy || !meta?.configured}><ShieldCheck className="size-3.5" /> Verify</Button><Button size="sm" onClick={() => void save()} disabled={busy || !meta}>{busy ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />} Save</Button></div>
+        <div className="flex w-full items-center gap-2 @min-[480px]:w-auto"><Button size="sm" variant="outline" className="flex-1 @min-[480px]:flex-none" onClick={() => void verify()} disabled={busy || !meta?.configured}><ShieldCheck className="size-3.5" /> Verify</Button><Button size="sm" className="flex-1 @min-[480px]:flex-none" onClick={() => void save()} disabled={busy || !meta}>{busy ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />} Save</Button></div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,.95fr)]">
+        <div className="mx-auto grid w-full max-w-5xl gap-4 @min-[760px]:grid-cols-[minmax(0,1.05fr)_minmax(280px,.95fr)]">
           <section className="rounded-xl border border-[color:var(--separator)] bg-[color:var(--surface)] p-4">
             <div className="mb-4"><h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-dim)]">Connection</h3><p className="mt-1 text-xs text-[color:var(--text-dim)]">{meta?.description}</p></div>
             <div className="space-y-3">

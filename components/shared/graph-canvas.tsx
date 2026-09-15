@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -18,6 +18,7 @@ import {
 } from "@xyflow/react";
 import { Hand, LayoutGrid, Maximize2, MousePointer2, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useContainer } from "@/features/appshell";
 
 export type GraphCanvasMode = "select" | "pan";
 type MiniMapNodeColor = MiniMapProps["nodeColor"];
@@ -32,6 +33,9 @@ type GraphCanvasProps<NodeType extends Node = Node, EdgeType extends Edge = Edge
   fitPadding?: number;
   miniMapNodeColor?: MiniMapNodeColor;
   miniMapNodeStrokeColor?: MiniMapNodeColor;
+  /** On compact panes, keep these nodes readable instead of shrinking an entire wide graph. */
+  compactFitNodeIds?: string[];
+  compactFitMaxZoom?: number;
 };
 
 export function GraphCanvas<NodeType extends Node = Node, EdgeType extends Edge = Edge>(props: GraphCanvasProps<NodeType, EdgeType>) {
@@ -40,12 +44,23 @@ export function GraphCanvas<NodeType extends Node = Node, EdgeType extends Edge 
 
 function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = Edge>({
   ariaLabel, initialMode = "select", showMinimap = true, onTidy, fitPadding = 0.22,
-  miniMapNodeColor, miniMapNodeStrokeColor, className, children, fitViewOptions, onKeyDown, ...props
+  miniMapNodeColor, miniMapNodeStrokeColor, compactFitNodeIds, compactFitMaxZoom = 0.9,
+  className, children, fitViewOptions, onKeyDown, ...props
 }: GraphCanvasProps<NodeType, EdgeType>) {
   const [mode, setMode] = useState<GraphCanvasMode>(initialMode);
+  const [containerRef, pane] = useContainer<HTMLDivElement>();
+  const compact = pane === "xs" || pane === "sm";
   const { fitView, zoomIn, zoomOut } = useReactFlow<NodeType, EdgeType>();
   const fit = useCallback(() => void fitView({ padding: fitPadding, duration: 220, ...fitViewOptions }), [fitPadding, fitView, fitViewOptions]);
-  const tidy = useCallback(() => { onTidy?.(); requestAnimationFrame(() => requestAnimationFrame(fit)); }, [fit, onTidy]);
+  const fitResponsive = useCallback(() => {
+    const nodes = compact && compactFitNodeIds?.length ? compactFitNodeIds.map((id) => ({ id })) : undefined;
+    void fitView({ padding: compact ? Math.min(fitPadding, 0.14) : fitPadding, duration: 220, ...fitViewOptions, ...(nodes ? { nodes, maxZoom: compactFitMaxZoom } : {}) });
+  }, [compact, compactFitMaxZoom, compactFitNodeIds, fitPadding, fitView, fitViewOptions]);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => requestAnimationFrame(fitResponsive));
+    return () => cancelAnimationFrame(raf);
+  }, [fitResponsive, pane]);
+  const tidy = useCallback(() => { onTidy?.(); requestAnimationFrame(() => requestAnimationFrame(fitResponsive)); }, [fitResponsive, onTidy]);
   const keyboard = (event: React.KeyboardEvent<HTMLDivElement>) => {
     onKeyDown?.(event); if (event.defaultPrevented) return;
     const target = event.target as HTMLElement;
@@ -57,7 +72,7 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
     if (key === "+" || key === "=") { event.preventDefault(); void zoomIn({ duration: 160 }); }
     if (key === "-") { event.preventDefault(); void zoomOut({ duration: 160 }); }
   };
-  return <div className="h-full w-full outline-none" tabIndex={0} onKeyDown={keyboard}>
+  return <div ref={containerRef} className="h-full min-h-0 w-full min-w-0 outline-none" tabIndex={0} onKeyDown={keyboard}>
     <ReactFlow<NodeType, EdgeType>
       {...props}
       aria-label={ariaLabel}
@@ -80,6 +95,7 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
       </Controls>
       {showMinimap ? <MiniMap
         pannable zoomable position="bottom-right" ariaLabel={`${ariaLabel} minimap`}
+        style={compact ? { width: 116, height: 82 } : { width: 180, height: 126 }}
         nodeColor={miniMapNodeColor ?? "var(--text-dim)"}
         nodeStrokeColor={miniMapNodeStrokeColor ?? "var(--border)"}
         nodeStrokeWidth={2} nodeBorderRadius={5}

@@ -44,6 +44,27 @@ export async function organizationJourney(page, fixture) {
   await expect(page.getByText("E2E Product", { exact: true }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 
+  // Responsive contract: compact panes use one native unit picker, hide desktop-only
+  // shortcut copy, keep the graph readable, and never grow wider than the feature pane.
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(fixture.base + "/organization");
+    const feature = page.locator('[data-slot="organization-feature"]');
+    await expect(feature).toBeVisible();
+    expect(await feature.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    if (viewport.width < 700) {
+      await expect(page.getByLabel("Organization unit", { exact: true })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Organization units" })).toBeHidden();
+      const rootNode = page.locator('.react-flow__node').first();
+      const box = await rootNode.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThan(140);
+    } else {
+      await expect(page.getByRole("navigation", { name: "Organization units" })).toBeVisible();
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(fixture.base + "/organization");
+
   await page.getByRole("button", { name: /E2E Product/ }).click();
   await expect(page.getByRole("application", { name: "Organization seats canvas" })).toBeVisible();
   await expect(page.locator(".react-flow__node", { hasText: "Chief Executive Officer" })).toBeVisible();
@@ -71,5 +92,5 @@ export async function organizationJourney(page, fixture) {
     expect(response.status).toBe(200); revision = response.body.chart.revision;
   }
   expect((await call(page, "/api/v1/organization")).body.chart.units).toHaveLength(0);
-  console.log("PASS Organization 5/5 canvas controls, populated minimap, directional cross-unit reporting edge, seat edit/routing and cleanup");
+  console.log("PASS Organization responsive picker/sidebar reflow, readable compact graph, 5/5 controls, populated minimap, directional reporting edge, seat edit/routing and cleanup");
 }

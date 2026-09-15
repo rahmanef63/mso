@@ -20,4 +20,15 @@ describe("organization canvas layout", () => {
     const byId = new Map(rows.map((row) => [row.item.id, row.position]));
     expect(byId.get("subsidiary-ceo")!.y).toBeGreaterThan(byId.get("holding-ceo")!.y);
   });
+  it("wraps wide sibling rows for compact panes instead of shrinking the whole graph", () => {
+    const units = [unit("holding"), ...Array.from({ length: 5 }, (_, index) => unit(`child-${index + 1}`, "holding"))];
+    const rows = organizationUnitLayout(chart(units, []), { maxColumns: 2, xGap: 248, yGap: 154, startX: 42, startY: 42 });
+    const children = rows.filter((row) => row.item.id.startsWith("child-"));
+    const byY = new Map<number, number>();
+    for (const row of children) byY.set(row.position.y, (byY.get(row.position.y) ?? 0) + 1);
+    expect(byY.size).toBe(3);
+    expect(Math.max(...byY.values())).toBeLessThanOrEqual(2);
+    expect(Math.max(...children.map((row) => row.position.x)) - Math.min(...children.map((row) => row.position.x))).toBeLessThanOrEqual(248);
+  });
+
 });

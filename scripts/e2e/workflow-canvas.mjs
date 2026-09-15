@@ -48,6 +48,28 @@ export async function workflowCanvasJourney(page, fixture) {
   await expect(minimap.locator(".react-flow__minimap-node")).toHaveCount(8);
   await expect(page.locator(".react-flow__node", { hasText: "Manual Trigger" })).toBeVisible();
 
+  // Responsive contract: on a phone-sized pane the wide graph starts focused on
+  // the trigger at a readable zoom, side panels become drawers, and the toolbar
+  // collapses secondary actions without horizontal feature overflow.
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(fixture.base + "/workflows");
+    const feature = page.locator('[data-slot="workflows-feature"]');
+    await expect(feature).toBeVisible();
+    expect(await feature.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await expect(page.getByLabel("Workflow name")).toBeVisible();
+    const trigger = page.locator(".react-flow__node", { hasText: "Manual Trigger" });
+    await expect(trigger).toBeVisible();
+    const box = await trigger.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThan(viewport.width < 700 ? 140 : 95);
+    if (viewport.width < 700) {
+      await expect(page.getByRole("button", { name: "New workflow" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "More actions" })).toBeVisible();
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(fixture.base + "/workflows");
+
   const normalPath = page.locator('[data-testid="rf__edge-edge-manual-cache"] .react-flow__edge-path');
   const branchPath = page.locator('[data-testid="rf__edge-edge-true"] .react-flow__edge-path');
   await expect(normalPath).toHaveAttribute("marker-end", /url/);
@@ -96,5 +118,5 @@ export async function workflowCanvasJourney(page, fixture) {
   // Delete using the last persisted revision; the local tidy is intentionally unsaved.
   response = await call(page, { action: "delete", graph_id: graph.id, expected_revision: graph.revision });
   expect(response.status).toBe(200);
-  console.log("PASS Workflow 5/5 canvas controls, populated minimap, directional edge semantics, active mode, cache/memory/session/directory runtime and cleanup");
+  console.log("PASS Workflow responsive toolbar/drawers, readable compact trigger focus, 5/5 canvas controls, minimap, edge semantics, active mode, cache/memory/session/directory runtime and cleanup");
 }

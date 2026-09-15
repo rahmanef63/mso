@@ -6,6 +6,7 @@ import { Handle, MarkerType, Position, type Edge, type Node, type NodeProps } fr
 import type { OrganizationChart, OrganizationSeat, OrganizationSeatRuntime, OrganizationUnit } from "@/lib/contracts/organization";
 import { Badge } from "@/components/ui/badge";
 import { GraphCanvas } from "@/components/shared/graph-canvas";
+import { useContainer } from "@/features/appshell";
 import { cn } from "@/lib/utils";
 import { organizationSeatLayout, organizationUnitLayout } from "../lib/canvas-layout";
 
@@ -43,12 +44,18 @@ export function OrganizationCanvas({ chart, runtime, unitId, selectedSeatId, onU
   onSeatSelect: (seat: OrganizationSeat | null) => void;
   onSeatOpen: (seat: OrganizationSeat) => void;
 }) {
+  const [canvasRef, pane] = useContainer<HTMLDivElement>();
+  const layoutOptions = useMemo(() => pane === "xs" || pane === "sm"
+    ? { maxColumns: 2, xGap: 248, yGap: 154, startX: 42, startY: 42 }
+    : pane === "md"
+      ? { maxColumns: 3, xGap: 258, yGap: 162, startX: 56, startY: 52 }
+      : { maxColumns: 5, xGap: 270, yGap: 176, startX: 80, startY: 70 }, [pane]);
   const runtimeById = useMemo(() => new Map(runtime.map((row) => [row.seatId, row])), [runtime]);
   const unitById = useMemo(() => new Map(chart.units.map((unit) => [unit.id, unit])), [chart.units]);
   const nodes = useMemo<OrganizationNode[]>(() => {
-    if (!unitId) return organizationUnitLayout(chart).map(({ item, position }) => ({ id: item.id, type: "unit", position, width: 230, height: 96, data: { unit: item, seatCount: chart.seats.filter((seat) => seat.unitId === item.id).length } }));
-    return organizationSeatLayout(chart, unitId).map(({ item, position, external }) => ({ id: item.id, type: "seat", position, width: 238, height: 96, selected: item.id === selectedSeatId, data: { seat: item, runtime: runtimeById.get(item.id), unitName: unitById.get(item.unitId)?.name ?? item.unitId, external } }));
-  }, [chart, runtimeById, selectedSeatId, unitById, unitId]);
+    if (!unitId) return organizationUnitLayout(chart, layoutOptions).map(({ item, position }) => ({ id: item.id, type: "unit", position, width: 230, height: 96, data: { unit: item, seatCount: chart.seats.filter((seat) => seat.unitId === item.id).length } }));
+    return organizationSeatLayout(chart, unitId, layoutOptions).map(({ item, position, external }) => ({ id: item.id, type: "seat", position, width: 238, height: 96, selected: item.id === selectedSeatId, data: { seat: item, runtime: runtimeById.get(item.id), unitName: unitById.get(item.unitId)?.name ?? item.unitId, external } }));
+  }, [chart, layoutOptions, runtimeById, selectedSeatId, unitById, unitId]);
   const visible = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes]);
   const edges = useMemo<Edge[]>(() => {
     if (!unitId) return chart.units.filter((unit) => unit.parentUnitId && visible.has(unit.parentUnitId)).map((unit) => ({ id: `unit-${unit.parentUnitId}-${unit.id}`, source: unit.parentUnitId!, target: unit.id, type: "smoothstep", markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "var(--sep-strong)" }, style: { stroke: "var(--sep-strong)", strokeWidth: 1.6 } }));
@@ -58,21 +65,28 @@ export function OrganizationCanvas({ chart, runtime, unitId, selectedSeatId, onU
     });
   }, [chart.seats, chart.units, runtimeById, unitId, visible]);
 
-  return <GraphCanvas<OrganizationNode, Edge>
-    key={unitId || "unit-overview"}
-    ariaLabel={unitId ? "Organization seats canvas" : "Organization units canvas"}
-    nodes={nodes}
-    edges={edges}
-    nodeTypes={nodeTypes}
-    nodesDraggable={false}
-    nodesConnectable={false}
-    edgesFocusable={false}
-    deleteKeyCode={null}
-    onPaneClick={() => onSeatSelect(null)}
-    onNodeClick={(_, node) => node.type === "unit" ? onUnitSelect(node.id) : onSeatSelect((node as SeatNode).data.seat)}
-    onNodeDoubleClick={(_, node) => { if (node.type === "seat") onSeatOpen((node as SeatNode).data.seat); }}
-    fitPadding={0.28}
-    miniMapNodeColor={(node) => node.type === "unit" ? "var(--info)" : (() => { const status = (node as SeatNode).data.runtime?.status ?? "vacant"; return status === "busy" ? "var(--warning)" : status === "ready" ? "var(--success)" : status === "unresolved" ? "var(--destructive)" : "var(--text-dim)"; })()}
-    miniMapNodeStrokeColor={(node) => node.selected ? "var(--accent)" : "var(--border)"}
-  />;
+  return (
+    <div ref={canvasRef} className="h-full min-h-0 w-full min-w-0">
+      <GraphCanvas<OrganizationNode, Edge>
+        key={unitId || "unit-overview"}
+        ariaLabel={unitId ? "Organization seats canvas" : "Organization units canvas"}
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        edgesFocusable={false}
+        deleteKeyCode={null}
+        onPaneClick={() => onSeatSelect(null)}
+        onNodeClick={(_, node) => node.type === "unit" ? onUnitSelect(node.id) : onSeatSelect((node as SeatNode).data.seat)}
+        onNodeDoubleClick={(_, node) => { if (node.type === "seat") onSeatOpen((node as SeatNode).data.seat); }}
+        fitPadding={pane === "xs" || pane === "sm" ? 0.12 : pane === "md" ? 0.18 : 0.26}
+        miniMapNodeColor={(node) => node.type === "unit" ? "var(--info)" : (() => {
+          const status = (node as SeatNode).data.runtime?.status ?? "vacant";
+          return status === "busy" ? "var(--warning)" : status === "ready" ? "var(--success)" : status === "unresolved" ? "var(--destructive)" : "var(--text-dim)";
+        })()}
+        miniMapNodeStrokeColor={(node) => node.selected ? "var(--accent)" : "var(--border)"}
+      />
+    </div>
+  );
 }

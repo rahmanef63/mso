@@ -22,22 +22,26 @@ export type ToolbarItem = {
   disabled?: boolean;
 };
 
-// Declare actions as DATA; the toolbar decides inline vs overflow. On compact
-// form factors, non-primary actions collapse into a "⋯" menu so a wide desktop
-// toolbar and a phone toolbar share one source. No per-app breakpoints.
+// Declare actions as DATA; the toolbar decides inline vs overflow. The feature
+// pane owns compactness when it has a local container contract; otherwise the
+// shell mobile state remains the safe default. This avoids measuring the
+// shrink-to-content toolbar itself, which creates circular width decisions.
 export function ResponsiveToolbar({
   items,
   className,
+  compact: compactOverride,
 }: {
   items: ToolbarItem[];
   className?: string;
+  compact?: boolean;
 }) {
   const { isMobile } = useResponsive();
-  const inline = isMobile ? items.filter((i) => i.primary) : items;
-  const overflow = isMobile ? items.filter((i) => !i.primary) : [];
+  const compact = compactOverride ?? isMobile;
+  const inline = compact ? items.filter((i) => i.primary) : items;
+  const overflow = compact ? items.filter((i) => !i.primary) : [];
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex min-w-0 items-center gap-1", className)}>
       {inline.map((i) => (
         <Button
           key={i.id}
@@ -48,7 +52,7 @@ export function ResponsiveToolbar({
           className="gap-1.5 [@media(pointer:coarse)]:min-h-[44px]"
         >
           {i.icon && <i.icon className="size-4" />}
-          <span className={cn(isMobile && "sr-only @sm:not-sr-only")}>{i.label}</span>
+          <span className={cn(compact && "sr-only")}>{i.label}</span>
         </Button>
       ))}
       {overflow.length > 0 && (
