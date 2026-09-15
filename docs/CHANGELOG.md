@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `workflows` honor responsive shell modal policy
 - `workflows` compact graph mcp surface
 - `workflows` complete cli and release gates
 - `mcp` expose downstream project tool results (#43)
