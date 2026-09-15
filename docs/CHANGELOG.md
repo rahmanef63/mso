@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` finish edge controls and directory
 - `workflows` complete canvas runtime
 - `canvas` unify organization and workflow navigation
 - `organization` surface as first-class app

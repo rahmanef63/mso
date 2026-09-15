@@ -23,5 +23,11 @@ export async function deleteVariable(key:string){return post({action:"variable_d
 export async function aiSuggest(prompt:string){return(await post<{definition:Omit<WorkflowGraph,"version"|"id"|"revision"|"createdAt"|"updatedAt">}>({action:"ai_suggest",prompt})).definition;}
 export async function resolveNode(graphId:string,nodeId:string){return json<{project:string;name:string;path:string;relativePath:string}>(`/api/v1/workflows?graph_id=${encodeURIComponent(graphId)}&node_id=${encodeURIComponent(nodeId)}&resolve=target`);}
 
-export type WorkflowDirectory = {tools:Array<{name:string;description:string;scope:string;inputSchema:Record<string,unknown>}>;workflows:Array<{id:string;name:string;status:string;nodeCount:number;updatedAt:string}>;sessions:Array<{id:string;title:string;name:string;updatedAt:string;cwd?:string;source:string}>};
+export type WorkflowDirectory = {
+  tools:Array<{name:string;description:string;scope:string;inputSchema:Record<string,unknown>}>;
+  workflows:Array<{id:string;name:string;status:string;nodeCount:number;updatedAt:string}>;
+  sessions:Array<{id:string;title:string;name:string;updatedAt:string;cwd?:string;source:string}>;
+  projects:Array<{id:string;name:string;packageName?:string;packageVersion?:string;branch?:string;head?:string}>;
+  skills:Array<{id:string;name:string;description:string;source:string;trust:string;project?:string}>;
+};
 export async function listWorkflowDirectory(query=""){return cachedWorkflowResource(`directory:${query}`,15000,()=>json<WorkflowDirectory>(`/api/v1/workflows?directory=1&q=${encodeURIComponent(query)}`));}

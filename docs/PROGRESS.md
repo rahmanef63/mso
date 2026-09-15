@@ -1,3 +1,9 @@
+## 2026-09-15 — Workflow edges and Directory close the remaining n8n-style interaction gaps
+
+Workflow Graph v2 already had the real server-native pieces—schedule/webhook triggers, cache, memory, sessions, capability tools, project functions/MCP, organization-seat agent routing, run history, versions and variables—but two editor gaps still made the surface feel incomplete. Connections now persist an explicit **Auto / Solid / Dashed** presentation, an **Active** execution toggle, directional arrows and a guarded reverse-direction action. A disabled connection stays visible for documentation/debugging and is recorded as disabled in run receipts, but it cannot be re-enabled by source execution, affect cycle/tidy topology, or accidentally promote its target into a new executable root.
+
+The Workflow Directory now exposes the five runtime registries users actually work with: **Tools, Workflows, Sessions, Projects and Skills**. Project/skill metadata is added only for Operator/Owner sessions so the existing Viewer boundary is not widened. The web UI and Directory nodes continue to reuse MSO's project/Skill SSOTs rather than introducing another catalog. Release E2E covers the 5/5 graph controls, responsive canvas/drawers, minimap content, project/skill directory, edge style/active/reverse controls, real cache/memory/session/directory execution and Organization responsiveness.
+
 ## 2026-09-15 — Shell-native server status + CI security fixes
 
 The global floating `Live server · owner` badge is gone. MSO now contributes one `systemStatus` feature into AppShell and each shell places that shared status in native chrome: macOS menu bar, Windows taskbar, iOS/Android top status area, and the Dashboard header. Auth/session logic remains single-source in the consumer feature; generic AppShell owns only the slot placement.

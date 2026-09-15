@@ -7,6 +7,8 @@ import { rateLimited } from "@/lib/host/limits-api";
 import { maxScope } from "@/lib/mcp/scope";
 import { TOOLS_BY_NAME } from "@/lib/mcp/tools";
 import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
+import { listProjects } from "@/lib/host/projects-api";
+import { catalogSkillsDetailed } from "@/lib/skills/catalog";
 import { cloneWorkflowGraph, createWorkflowGraph, deleteWorkflowGraph, getWorkflowGraph, listWorkflowGraphs, updateWorkflowGraph, workflowGraphOwner } from "@/lib/workflow/graph-store";
 import { startWorkflowGraph, workflowGraphRunStatus } from "@/lib/workflow/graph-engine";
 import { listWorkflowGraphRuns } from "@/lib/workflow/graph-run-store";
@@ -21,7 +23,14 @@ const fail=(error:unknown,status=400)=>NextResponse.json({error:error instanceof
 async function auth(minimum:"viewer"|"operator"|"owner"="viewer"){const context=await getSessionContext();if(!context?.session.device_id||!roleAtLeast(context.role,minimum))return null;return{context,principal:`web:${context.session.device_id}`};}
 function definition(graph:NonNullable<Awaited<ReturnType<typeof getWorkflowGraph>>>){const{revision:_r,createdAt:_c,updatedAt:_u,version:_v,...rest}=graph;return rest;}
 export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,minimum=q.has("variables")?"operator":"viewer",session=await auth(minimum);if(!session)return fail("unauthorized",401);try{
- if(q.get("directory")==="1"){const query=(q.get("q")??"").toLowerCase().trim(),tools=msoCapabilityRuntime.list(maxScope()).filter((tool)=>!query||`${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query)).slice(0,150),graphs=await listWorkflowGraphs(session.principal),sessions=await listAgentSessions(session.principal,50);return NextResponse.json({tools,workflows:graphs.filter((graph)=>!query||`${graph.name} ${graph.description} ${(graph.metadata.tags??[]).join(" ")}`.toLowerCase().includes(query)).map((graph)=>({id:graph.id,name:graph.name,status:graph.status,nodeCount:graph.nodes.length,updatedAt:graph.updatedAt})),sessions:sessions.filter((row)=>!query||`${row.title} ${row.name} ${row.cwd??""}`.toLowerCase().includes(query))},{headers});}
+ if(q.get("directory")==="1"){
+  const query=(q.get("q")??"").toLowerCase().trim(),tools=msoCapabilityRuntime.list(maxScope()).filter((tool)=>!query||`${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query)).slice(0,150);
+  const operator=roleAtLeast(session.context.role,"operator");
+  const [graphs,sessions,projectResult,skillResult]=await Promise.all([listWorkflowGraphs(session.principal),listAgentSessions(session.principal,50),operator?listProjects({query:query||undefined,limit:100}):Promise.resolve(null),operator?catalogSkillsDetailed():Promise.resolve(null)]);
+  const projects=projectResult?.projects.map((row)=>({id:row.id,name:row.name,...(row.packageName?{packageName:row.packageName}:{}),...(row.packageVersion?{packageVersion:row.packageVersion}:{}),...(row.git?.branch?{branch:row.git.branch}:{}),...(row.git?.head?{head:row.git.head}:{})}))??[];
+  const skills=skillResult?.skills.filter((row)=>!query||`${row.id} ${row.name} ${row.description} ${row.source} ${row.trust} ${row.project?.name??""}`.toLowerCase().includes(query)).slice(0,150).map((row)=>({id:row.id,name:row.name,description:row.description,source:row.source,trust:row.trust,...(row.project?{project:row.project.name}:{})}))??[];
+  return NextResponse.json({tools,workflows:graphs.filter((graph)=>!query||`${graph.name} ${graph.description} ${(graph.metadata.tags??[]).join(" ")}`.toLowerCase().includes(query)).map((graph)=>({id:graph.id,name:graph.name,status:graph.status,nodeCount:graph.nodes.length,updatedAt:graph.updatedAt})),sessions:sessions.filter((row)=>!query||`${row.title} ${row.name} ${row.cwd??""}`.toLowerCase().includes(query)),projects,skills},{headers});
+ }
  if(q.get("catalog")==="1")return NextResponse.json({nodes:workflowNodeCatalog(q.get("q")??"")},{headers});
  if(q.get("templates")==="1")return NextResponse.json({templates:workflowTemplates()},{headers});
  if(q.get("variables")==="1")return NextResponse.json({variables:await listWorkflowVariables(session.principal)},{headers});
