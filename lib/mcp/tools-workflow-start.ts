@@ -17,10 +17,7 @@ import { optionalStringList, visibleTools, WORKFLOW_PROGRESS_OUTPUT, workflowPro
 export const WORKFLOW_START_TOOL: McpTool =
   {
     name: "workflow_start",
-    description:
-      "The ONE startup call for a multi-step task. It starts the workflow, searches trusted skills and prior recipes, " +
-      "resolves project aliases, reports the current toolset/version, and inspects repository context when available. " +
-      "Do not call skills_search first for the same task; this already includes it. Multiple conversations may start isolated workflows on one token; correlate every later step with the returned workflow_id. This tool is orchestration-only and never opens a UI by itself.",
+    description: "Start one isolated multi-step workflow, resolve project context, and search trusted skills/recipes/graphs. Use the returned workflow_id on later steps.",
     scope: "write",
     annotations: { idempotentHint: false },
     outputSchema: WORKFLOW_PROGRESS_OUTPUT,
@@ -31,11 +28,11 @@ export const WORKFLOW_START_TOOL: McpTool =
     limit: { key: "workflow.memory", max: 30, windowMs: 60_000 },
     audit: { action: "workflow.start" as const, targetArg: "project" },
     inputSchema: S({
-      intent: { type: "string", description: "The user's task in one complete sentence." },
-      project: { type: "string", description: "Optional project id from projects_list, absolute path, name or alias (e.g. os-vps, mso, projects/mso)." },
-      constraints: { type: "string", description: "Optional important constraints, such as no downtime or WebP only." },
-      affected_paths: { type: "array", maxItems: 80, items: { type: "string" }, description: "Optional expected files/directories this workflow may touch; used for pre-merge collision detection." },
-      reserved_resources: { type: "array", maxItems: 40, items: { type: "string" }, description: "Optional shared resources such as port:4173, database:development, deployment:staging, queue:name." },
+      intent: { type: "string", description: "Task in one sentence." },
+      project: { type: "string", description: "Optional project id/path/name/alias." },
+      constraints: { type: "string", description: "Optional constraints." },
+      affected_paths: { type: "array", maxItems: 80, items: { type: "string" }, description: "Optional touched paths." },
+      reserved_resources: { type: "array", maxItems: 40, items: { type: "string" }, description: "Optional shared resources." },
     }, ["intent"]),
     run: async (a, context) => {
       const actor = context.workflowActor ?? context.actor;

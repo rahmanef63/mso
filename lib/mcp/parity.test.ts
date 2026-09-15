@@ -21,10 +21,7 @@ const ALFA_ONLY: Record<string, string> = {
 };
 
 const MCP_ONLY: Record<string, string> = {
-  "workflow.graph.catalog": "Native Workflows UI uses the private REST surface; MCP agents need a principal-scoped catalog without inheriting an unrelated Alfa browser-thread identity.",
-  "workflow.graph.manage": "Workflow graph CRUD is exposed natively by the Workflows app and separately to MCP principals; sharing Alfa thread identity would collapse the deliberate principal boundary.",
-  "workflow.graph.run": "Server-native graph execution is principal/idempotency scoped; Alfa uses the native Workflows app rather than claiming an external MCP workflow principal.",
-  "workflow.graph.status": "Per-node graph receipts belong to the exact workflow principal; the native Workflows app has its own authenticated receipt surface.",
+  "workflow.graph": "Native Workflows UI has its own authenticated principal; external MCP graph CRUD/run/status must stay principal-scoped instead of inheriting an unrelated browser identity.",
   "flow.catalog": "Project API/MCP automation belongs to the external/CLI session context; Alfa has its own browser workflow identity.",
   "flow.run": "Provider mutations require the durable external principal, exact connection, and idempotency receipt; owner CLI shares this executor.",
   "flow.status": "Flow receipts belong to their authenticated external/CLI principal; Alfa must not inherit that principal.",
@@ -169,7 +166,7 @@ describe("MCP rate limits mirror the routes", () => {
       "fs.delete": 60, "fs.upload": 20, "exec": 60, "managed-app": 12, "camoufox": 12,
     };
     const MCP_NATIVE_LIMITS: Record<string, number> = {
-      "flow.run": 20, "flow.manage": 20, "workflow.graph.manage": 30, "workflow.graph.run": 20, "agent.session.open": 20, "project.mcp.manage": 20, "project.asset.attach": 20,
+      "flow.run": 20, "flow.manage": 20, "workflow.graph": 20, "agent.session.open": 20, "project.mcp.manage": 20, "project.asset.attach": 20,
       // Native capabilities have independent bounded buckets (no matching HTTP route).
       "screen.capture": 10,
       "fs.export": 20,

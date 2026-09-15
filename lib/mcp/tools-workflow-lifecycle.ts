@@ -12,8 +12,7 @@ import { evidenceInput, evidenceSchema, WORKFLOW_PROGRESS_OUTPUT, workflowProgre
 export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
   {
     name: "workflow_status",
-    description:
-      "Return a redacted live status snapshot for one workflow. This remains app-only for compatibility with cached progress widgets and MSO operator views; workflow_start itself is headless. It exposes only workflow identity, timing and high-level tool outcomes, never tool arguments, command strings, file contents or credentials.",
+    description: "Return a redacted live status snapshot for one workflow; arguments, file contents and credentials stay hidden.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
     outputSchema: WORKFLOW_PROGRESS_OUTPUT,
@@ -23,7 +22,7 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
     },
     limit: { key: "workflow.status", max: 30, windowMs: 60_000 },
     inputSchema: S({
-      workflow_id: { type: "string", description: "Exact id returned by workflow_start." },
+      workflow_id: { type: "string", description: "workflow_start id." },
     }),
     run: async (a, context) => {
       const workflowId = str(a, "workflow_id");
@@ -36,16 +35,14 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
   },
   {
     name: "workflow_cancel",
-    description:
-      "Cancel one exact active workflow without saving a learned recipe. Use this only when the task is being abandoned or the prior run was interrupted; " +
-      "workflow_id is required so a different conversation cannot be cancelled accidentally.",
+    description: "Cancel one exact active workflow without saving a learned recipe.",
     scope: "write",
     annotations: { idempotentHint: false },
     limit: { key: "workflow.memory", max: 30, windowMs: 60_000 },
     audit: { action: "workflow.cancel" as const, targetArg: "workflow_id" },
     inputSchema: S({
-      workflow_id: { type: "string", description: "Exact id returned by workflow_start." },
-      reason: { type: "string", description: "Optional concise reason; no secrets or file contents." },
+      workflow_id: { type: "string", description: "workflow_start id." },
+      reason: { type: "string", description: "Optional reason; no secrets." },
     }, ["workflow_id"]),
     run: async (a, context) => {
       const cancelled = await cancelWorkflow({
@@ -58,17 +55,15 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
   },
   {
     name: "workflow_finish",
-    description:
-      "Finish one exact learned workflow after verification. workflow_id is required so another conversation using the same token cannot close the wrong run. " +
-      "MSO saves a redacted Evidence Receipt, task/failure memory, recipe quality, and safe automation-promotion metadata. New HIGH-risk workflows cannot claim success without explicit evidence.",
+    description: "Finish one verified workflow. MSO saves redacted evidence, memory, recipe quality and safe automation-learning metadata.",
     scope: "write",
     annotations: { idempotentHint: false },
     limit: { key: "workflow.memory", max: 30, windowMs: 60_000 },
     audit: { action: "workflow.finish" as const, targetArg: "workflow_id" },
     inputSchema: S({
-      workflow_id: { type: "string", description: "Exact id returned by workflow_start." },
-      summary: { type: "string", description: "Concise outcome and verification result; no secrets." },
-      success: { type: "boolean", description: "True only after the requested result is verified." },
+      workflow_id: { type: "string", description: "workflow_start id." },
+      summary: { type: "string", description: "Outcome and verification; no secrets." },
+      success: { type: "boolean", description: "True only after verification." },
       evidence: evidenceSchema(),
     }, ["workflow_id", "summary", "success"]),
     run: async (a, context) => {

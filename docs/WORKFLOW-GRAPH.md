@@ -78,10 +78,7 @@ This makes repeated session history useful without requiring a separate manual m
 
 ## MCP tools
 
-- `workflow_graph_catalog`
-- `workflow_graph_manage`
-- `workflow_graph_run`
-- `workflow_graph_status`
+- `workflow_graph` — `action=list|get|create|update|delete|clone|run|status`; action-specific fields go in `data` (`definition`, `revision`, `input`, `key`).
 
 The existing v1 tools remain compatible:
 
