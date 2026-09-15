@@ -23,6 +23,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `mcp` register organization parity boundaries
 - `cli` include organization command module in route coverage
 
 ## 2026-09-14

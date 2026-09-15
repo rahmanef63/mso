@@ -22,6 +22,8 @@ const ALFA_ONLY: Record<string, string> = {
 
 const MCP_ONLY: Record<string, string> = {
   "workflow.graph": "Native Workflows UI has its own authenticated principal; external MCP graph CRUD/run/status must stay principal-scoped instead of inheriting an unrelated browser identity.",
+  "organization.chart": "MSO already exposes the owner-private Organization registry through Alfa’s dedicated Organization tab/API; external MCP needs a bounded programmatic read surface without duplicating that registry into conversational Alfa host tools.",
+  "organization.manage": "Organization mutations belong to the dedicated owner Organization UI/API with revision checks; external MCP gets the same store under write scope/audit, while Alfa conversation does not gain a second parallel mutation surface.",
   "flow.catalog": "Project API/MCP automation belongs to the external/CLI session context; Alfa has its own browser workflow identity.",
   "flow.run": "Provider mutations require the durable external principal, exact connection, and idempotency receipt; owner CLI shares this executor.",
   "flow.status": "Flow receipts belong to their authenticated external/CLI principal; Alfa must not inherit that principal.",
@@ -213,6 +215,8 @@ describe("MCP rate limits mirror the routes", () => {
       "tool.forge.promote": 6,
       "read.pipeline": 30,
       "project.knowledge": 30,
+      "organization.read": 60,
+      "organization.write": 40,
     };
     for (const t of TOOLS) {
       if (!t.limit) continue;
