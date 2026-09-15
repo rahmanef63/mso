@@ -1,90 +1,178 @@
-# Workflow Graph v2
+# Workflow Graph v2 — server-native automation
 
-MSO Workflow Graph v2 is the private, server-native automation layer for reusable workflows. It extends the existing linear project flow engine rather than replacing it.
+MSO Workflow Graph v2 is MSO's private, server-native visual automation layer. It provides the core self-hosted workflow capabilities normally expected from n8n while keeping MSO's project registry, Linux filesystem, Skills, project knowledge, agents, integrations and capability permissions as the execution authorities.
 
-## SSOT boundaries
+It is additive: existing deterministic project flows, RASMIC scripts and learned workflow memory remain supported.
 
-- **MSO Workflow Graph** owns automation topology, runtime node state, execution bindings and reusable workflow definitions.
-- **MSO project registry** resolves canonical projects and real server paths at runtime. Graph definitions store project ids/hints, not installation-specific absolute paths.
-- **Git** remains the code source of truth.
-- **Project `.mso/KNOWLEDGE.md` / repo memory** remain project knowledge sources.
-- External delivery systems may remain delivery/task SSOT when connected; MSO does not copy their task state into graph definitions.
-- No separate organizational-memory product is required for workflow execution.
+## Authority and storage
 
-## Privacy and portability
+- **Workflow Graph** owns automation topology, triggers, flow control, node configuration, execution history and graph versions.
+- **Project registry** resolves canonical projects and real server paths at runtime. Portable graph definitions store ids/hints, never installation-specific absolute paths.
+- **Integrations** own credentials and provider connections. Graphs store connection references only.
+- **Private workflow variables** provide runtime values through `{"$var":"KEY"}`. Secret variables are never returned by list APIs and exact secret values are redacted from execution receipts.
+- **Git** remains code SSOT; project knowledge/memory remain their existing SSOTs.
 
-Private graphs and run receipts are keyed by an authenticated principal hash. Another principal cannot list, read or poll them. Source code and builtin templates contain no installation owner, private path, credential or user-specific workflow seed. Project/folder paths are resolved only at runtime after canonical-project containment checks.
+Graphs, versions, variables and execution receipts are private per authenticated principal. Source and builtin templates contain no operator-specific user, credential, path or seeded workflow.
 
-Secret-like fields (`token`, `password`, `apiKey`, authorization headers, cookies, etc.) are rejected recursively from stored graph definitions. Credentials continue to resolve through normal MSO integration/project authorities during execution.
+## Node catalog
 
-## Graph model
+### Triggers
 
-A graph is a versioned DAG with revision conflict protection. MVP node types:
+- `manual` — UI/CLI/MCP run
+- `schedule` — interval or five-field cron, with IANA timezone support
+- `webhook` — GET/POST/PUT/PATCH/DELETE server endpoint; optional bearer token from a private secret variable
 
-- `manual`
+Trigger nodes must be roots. Activating a workflow enables its server-side schedule/webhook behavior; drafts remain inert.
+
+Webhook endpoint:
+
+```text
+/api/v1/workflows/webhook/<graphId>/<nodeId>
+```
+
+`responseMode=onReceived` returns a run id immediately. `responseMode=lastNode` waits for bounded execution and returns only the explicit output-node result.
+
+### Flow control
+
+- `condition` — true/false handles
+- `switch` — named case handles plus default
+- `merge` — combine, append or pass-through incoming outputs
+- `batch` — split up to 1000 items into deterministic batches
+- `loop` — execute one bounded tool for each item with concurrency 1–4
+- `wait` — delay/until, bounded to ten minutes inside a run
+- `subflow` — execute another private Workflow Graph, or a legacy project flow
+- `output` — explicit result collection
+
+Graph edges stay acyclic. Repetition is represented by the bounded `loop` node or reusable subflow rather than unrestricted cyclic edges, preventing accidental runaway server automation. Cross-workflow recursion is rejected with an ancestry guard.
+
+### Actions and context
+
 - `tool`
 - `project_function`
 - `project_mcp`
+- `integration`
 - `script`
 - `agent`
-- `subflow`
-- `condition`
 - `project`
 - `folder`
 - `skill`
 - `knowledge`
-- `output`
 
-Cycles are rejected in v2 MVP. Condition nodes route `true` / `false` handles. Disabled or unselected branches become `skipped`.
+Project/folder nodes resolve the live canonical server path when the graph runs and can open that real directory in MSO Files/Finder.
 
-## Runtime receipts
+## Data binding
 
-Each graph run persists a private receipt. Nodes expose:
+Node config supports safe declarative bindings:
 
-- queued / running / completed / failed / skipped / blocked
-- start/end/duration
-- bounded redacted output
-- error text
-- compact node log
+```json
+{ "$ref": "nodes.previous.output.value" }
+```
 
-On failure, the receipt includes `failedNodeId` and `failedNodeName`; downstream queued nodes become `blocked`. Failed mutations are not replayed automatically.
+```json
+{ "$var": "PRIVATE_VARIABLE" }
+```
 
-## Visual editor
+Loop arguments additionally support `$item` and `$index`.
 
-The native **Workflows** app (`/workflows`) provides:
+Secret-like fields such as raw tokens, passwords, API keys, cookies and authorization headers are rejected recursively from stored graph definitions. Credential-backed actions use an `integration` node referencing an existing MSO integration connection instead.
 
-- private workflow list
-- draggable node canvas and edges
-- node/edge CRUD
-- JSON node config inspector
-- duplicate/archive/save/run controls
-- per-node run log
-- project/folder nodes that open the resolved real server directory in MSO Files/Finder
+## Retry and error handling
 
-The browser does not attempt to open a VPS desktop file manager.
+Action nodes may use:
+
+```json
+{
+  "retry": { "maxAttempts": 3, "backoffMs": 1000 }
+}
+```
+
+Retries are bounded to five attempts with bounded exponential backoff. A red `error` output routes a failed node to an explicit error branch. `onError: "continue"` supports continue-on-fail behavior. A graph can also set `metadata.errorWorkflowId` to invoke another private workflow after an unhandled failure.
+
+Successful runs finish `completed`; handled action failures finish `completed_with_errors`; unhandled failures record the exact failed node and block downstream nodes.
+
+## Execution history and observability
+
+Private run receipts retain up to 1000 recent executions and expose:
+
+- trigger type
+- graph revision
+- queued / running / completed / failed / skipped / blocked node state
+- attempts and duration
+- bounded node output
+- compact logs
+- failed node id/name
+
+The Workflows canvas reflects live node state and pulses edges while related nodes run. The History panel filters one graph's persisted executions and can reopen a complete receipt.
+
+## Versions and rollback
+
+Create/update/restore operations save private snapshots. Up to 100 versions are retained per graph. The Versions panel shows timestamp, reason, revision and node count; restore is compare-and-swap against the current graph revision so concurrent edits cannot be silently overwritten.
+
+## Templates and AI-assisted creation
+
+The Create dialog supports:
+
+- blank graph
+- generic builtin templates
+- AI-assisted draft generation using MSO's currently selected model
+
+AI assistance has an isolated workflow-design system prompt, receives no implicit owner-memory recall, emits JSON only, cannot authorize execution, and is validated through the same graph schema. AI-created graphs always start as drafts.
+
+## Native Workflows app
+
+`/workflows` provides:
+
+- private searchable workflow library with folder/tag metadata
+- draft / active / archived lifecycle
+- searchable node palette
+- draggable canvas
+- click-to-connect input/output ports
+- true/false, switch and error handles
+- structured trigger/action/retry inspectors plus advanced JSON
+- real project/folder navigation
+- execution log + persisted history
+- graph version restore
+- private variable/secret manager
+- template and AI-assisted creation
+
+Run automatically saves a dirty graph before execution, so execution always uses the revision visible in the editor.
+
+## CLI
+
+```bash
+mso workflow list
+mso workflow show <id>
+mso workflow catalog --query webhook
+mso workflow templates
+mso workflow template webhook-router
+mso workflow create --input @workflow.json
+mso workflow save <id> --revision <rev> --input @workflow.json
+mso workflow run <id> --input '{}' --key operation-001 --wait
+mso workflow runs <id>
+mso workflow versions <id>
+mso workflow restore <id> --revision <current> --version <saved>
+mso workflow variables
+mso workflow variable-set WEBHOOK_TOKEN --input '"secret"' --secret
+mso workflow variable-delete WEBHOOK_TOKEN
+mso workflow ai --prompt "Every weekday inspect project health and route failures"
+```
+
+## MCP
+
+MSO deliberately keeps this capability behind one compact MCP tool to preserve the public schema budget:
+
+`workflow_graph`
+
+Actions:
+
+`list`, `get`, `create`, `update`, `delete`, `clone`, `run`, `status`, `runs`, `versions`, `restore`, `catalog`, `templates`, `create_from_template`, `variables`, `variable_set`, `variable_delete`.
+
+The linear `flow_catalog`, `flow_manage`, `flow_run` and `flow_status` tools remain compatible for small deterministic project-owned sequences.
 
 ## Automatic learning
 
-`workflow_start` checks automation in this order:
+`workflow_start` still checks reusable automation before performing exploratory work. Successful `workflow_finish` learns a sanitized route, updates private procedural memory and creates/deduplicates a private draft graph candidate. Learned workflows never auto-activate or bypass normal scope/authz checks.
 
-1. matching private Workflow Graph v2
-2. existing project/builtin linear flow
-3. learned recipe and deterministic script candidate
-4. normal bounded execution
+## Scope of n8n parity
 
-Successful `workflow_finish` automatically learns the sanitized route, updates private procedural memory and creates/deduplicates a private **draft** graph candidate. Learned drafts never auto-activate or auto-run; ordinary scope/authorization still applies.
-
-This makes repeated session history useful without requiring a separate manual memory write for every successful workflow. Manual user-test evidence still uses project memory because it has stronger authority semantics.
-
-## MCP tools
-
-- `workflow_graph` — `action=list|get|create|update|delete|clone|run|status`; action-specific fields go in `data` (`definition`, `revision`, `input`, `key`).
-
-The existing v1 tools remain compatible:
-
-- `flow_catalog`
-- `flow_manage`
-- `flow_run`
-- `flow_status`
-
-Use v1 for compact deterministic ordered API/MCP sequences; use graph v2 for visual branching workflows, mixed node types and richer runtime observability.
+MSO targets **core self-hosted workflow parity**, not n8n's SaaS business surface. MSO intentionally uses its own server-native project, filesystem, Skill, agent and integration nodes instead of reproducing n8n's marketplace or cloud billing/team-administration products. Free cyclic graph topology is also intentionally replaced by bounded loop/subflow constructs for safer unattended server execution.

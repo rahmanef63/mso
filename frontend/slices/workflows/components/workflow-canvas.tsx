@@ -1,52 +1,25 @@
 "use client";
-
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { WorkflowGraph, WorkflowGraphNode, WorkflowGraphNodeState } from "@/lib/contracts/workflow-graph";
 import { cn } from "@/lib/utils";
-
-const W = 184, H = 76;
-
-export function WorkflowCanvas({ graph, selectedId, onSelect, onMove, nodeStates, onOpen }: {
-  graph: WorkflowGraph;
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
-  onMove: (id: string, position: { x: number; y: number }) => void;
-  nodeStates?: ReadonlyMap<string, WorkflowGraphNodeState>;
-  onOpen?: (id: string) => void;
-}) {
-  const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
-  const nodes = useMemo(() => new Map(graph.nodes.map((node) => [node.id, node])), [graph.nodes]);
-  const down = (event: React.PointerEvent, node: WorkflowGraphNode) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    drag.current = { id: node.id, dx: event.clientX - box.left, dy: event.clientY - box.top };
-    event.currentTarget.setPointerCapture(event.pointerId); onSelect(node.id);
-  };
-  const move = (event: React.PointerEvent) => {
-    if (!drag.current) return;
-    const canvas = event.currentTarget.getBoundingClientRect();
-    onMove(drag.current.id, { x: Math.max(12, event.clientX - canvas.left - drag.current.dx), y: Math.max(12, event.clientY - canvas.top - drag.current.dy) });
-  };
-  return (
-    <div className="relative h-full min-h-[520px] min-w-[880px] overflow-auto bg-muted/20" onPointerMove={move} onPointerUp={() => { drag.current = null; }} onClick={(event) => { if (event.target === event.currentTarget) onSelect(null); }}>
-      <svg className="pointer-events-none absolute inset-0 h-[1400px] w-[2200px]" aria-hidden>
-        {graph.edges.map((edge) => {
-          const a = nodes.get(edge.source), b = nodes.get(edge.target); if (!a || !b) return null;
-          const x1 = a.position.x + W, y1 = a.position.y + H / 2, x2 = b.position.x, y2 = b.position.y + H / 2, c = Math.max(60, Math.abs(x2 - x1) / 2);
-          return <path key={edge.id} d={`M ${x1} ${y1} C ${x1 + c} ${y1}, ${x2 - c} ${y2}, ${x2} ${y2}`} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-border" />;
-        })}
-      </svg>
-      <div className="relative h-[1400px] w-[2200px]">
-        {graph.nodes.map((node) => (
-          <button key={node.id} type="button" onPointerDown={(event) => down(event, node)} onClick={(event) => { event.stopPropagation(); onSelect(node.id); }}
-            onDoubleClick={() => { if ((node.type === "project" || node.type === "folder") && onOpen) onOpen(node.id); }}
-            className={cn("absolute flex h-[76px] w-[184px] cursor-grab flex-col items-start justify-center rounded-xl border bg-card px-3 text-left shadow-sm active:cursor-grabbing", selectedId === node.id && "ring-2 ring-ring", nodeStates?.get(node.id) === "failed" && "border-destructive ring-1 ring-destructive", nodeStates?.get(node.id) === "running" && "border-primary ring-1 ring-primary", ["skipped", "blocked"].includes(nodeStates?.get(node.id) ?? "") && "opacity-55", node.disabled && "opacity-50")}
-            style={{ transform: `translate(${node.position.x}px, ${node.position.y}px)` }}>
-            <span className="w-full truncate text-xs font-semibold">{node.name}</span>
-            <span className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">{node.type.replaceAll("_", " ")}{nodeStates?.get(node.id) ? ` · ${nodeStates.get(node.id)}` : ""}</span>
-            {node.type === "condition" && <span className="mt-1 text-[10px] text-muted-foreground">true / false</span>}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+const W=184,H=76;
+type Source={id:string;handle?:string}|null;
+function handles(node:WorkflowGraphNode){if(node.type==="condition")return["true","false"];if(node.type==="switch"){const cases=Array.isArray(node.config.cases)?node.config.cases:[];return[...cases.map((row,i)=>row&&typeof row==="object"&&typeof (row as {handle?:unknown}).handle==="string"?String((row as {handle:string}).handle):`case-${i+1}`),"default"];}return[undefined];}
+function canError(node:WorkflowGraphNode){return!["manual","schedule","webhook","output"].includes(node.type);}
+export function WorkflowCanvas({graph,selectedId,onSelect,onMove,onConnect,nodeStates,onOpen}:{graph:WorkflowGraph;selectedId:string|null;onSelect:(id:string|null)=>void;onMove:(id:string,position:{x:number;y:number})=>void;onConnect:(source:string,target:string,sourceHandle?:string)=>void;nodeStates?:ReadonlyMap<string,WorkflowGraphNodeState>;onOpen?:(id:string)=>void;}){
+ const drag=useRef<{id:string;dx:number;dy:number}|null>(null),[source,setSource]=useState<Source>(null),nodes=useMemo(()=>new Map(graph.nodes.map((node)=>[node.id,node])),[graph.nodes]);
+ const down=(event:React.PointerEvent,node:WorkflowGraphNode)=>{const box=event.currentTarget.getBoundingClientRect();drag.current={id:node.id,dx:event.clientX-box.left,dy:event.clientY-box.top};event.currentTarget.setPointerCapture(event.pointerId);onSelect(node.id);};
+ const move=(event:React.PointerEvent)=>{if(!drag.current)return;const canvas=event.currentTarget.getBoundingClientRect();onMove(drag.current.id,{x:Math.max(12,event.clientX-canvas.left-drag.current.dx),y:Math.max(12,event.clientY-canvas.top-drag.current.dy)});};
+ const connect=(target:string)=>{if(source&&source.id!==target)onConnect(source.id,target,source.handle);setSource(null);};
+ return <div className="relative h-full min-h-[520px] min-w-[880px] overflow-auto bg-muted/20" onPointerMove={move} onPointerUp={()=>{drag.current=null;}} onClick={(event)=>{if(event.target===event.currentTarget){onSelect(null);setSource(null);}}}>
+  <svg className="absolute inset-0 h-[1400px] w-[2200px]" aria-hidden>{graph.edges.map((edge)=>{const a=nodes.get(edge.source),b=nodes.get(edge.target);if(!a||!b)return null;const x1=a.position.x+W,y1=a.position.y+H/2,x2=b.position.x,y2=b.position.y+H/2,c=Math.max(60,Math.abs(x2-x1)/2),live=nodeStates?.get(edge.source)==="running"||nodeStates?.get(edge.target)==="running";return <path key={edge.id} d={`M ${x1} ${y1} C ${x1+c} ${y1}, ${x2-c} ${y2}, ${x2} ${y2}`} fill="none" stroke="currentColor" strokeWidth="1.5" className={cn("pointer-events-none text-border",live&&"animate-pulse text-primary")}/>;})}</svg>
+  <div className="relative h-[1400px] w-[2200px]">{graph.nodes.map((node)=><div key={node.id} className="absolute" style={{transform:`translate(${node.position.x}px, ${node.position.y}px)`}}>
+   <button type="button" onPointerDown={(event)=>down(event,node)} onClick={(event)=>{event.stopPropagation();onSelect(node.id);}} onDoubleClick={()=>{if((node.type==="project"||node.type==="folder")&&onOpen)onOpen(node.id);}} className={cn("flex h-[76px] w-[184px] cursor-grab flex-col items-start justify-center rounded-xl border bg-card px-3 text-left shadow-sm active:cursor-grabbing",selectedId===node.id&&"ring-2 ring-ring",nodeStates?.get(node.id)==="failed"&&"border-destructive ring-1 ring-destructive",nodeStates?.get(node.id)==="running"&&"border-primary ring-1 ring-primary",["skipped","blocked"].includes(nodeStates?.get(node.id)??"")&&"opacity-55",node.disabled&&"opacity-50")}>
+    <span className="w-full truncate text-xs font-semibold">{node.name}</span><span className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">{node.type.replaceAll("_"," ")}{nodeStates?.get(node.id)?` · ${nodeStates.get(node.id)}`:""}</span>{node.type==="condition"&&<span className="mt-1 text-[10px] text-muted-foreground">true / false</span>}
+   </button>
+   {!["manual","schedule","webhook"].includes(node.type)&&<button type="button" aria-label={`Connect into ${node.name}`} onPointerDown={(e)=>e.stopPropagation()} onClick={(e)=>{e.stopPropagation();connect(node.id);}} className={cn("absolute -left-2 top-1/2 size-4 -translate-y-1/2 rounded-full border bg-background",source&&"ring-1 ring-ring")}/>}
+   {node.type!=="output"&&handles(node).map((handle,index)=><button key={handle??"default"} type="button" title={handle??"output"} aria-label={`Connect ${node.name} ${handle??"output"}`} onPointerDown={(e)=>e.stopPropagation()} onClick={(e)=>{e.stopPropagation();setSource({id:node.id,...(handle?{handle}:{})});}} className={cn("absolute -right-2 size-4 rounded-full border bg-background",source?.id===node.id&&source.handle===handle&&"ring-2 ring-ring")} style={{top:`${22+index*22}px`}}/>)}
+   {canError(node)&&<button type="button" title="error" aria-label={`Connect ${node.name} error`} onPointerDown={(e)=>e.stopPropagation()} onClick={(e)=>{e.stopPropagation();setSource({id:node.id,handle:"error"});}} className={cn("absolute -right-2 bottom-1 size-3 rounded-full border border-destructive bg-background",source?.id===node.id&&source.handle==="error"&&"ring-2 ring-destructive")}/>}
+  </div>)}</div>
+ </div>;
 }

@@ -16,6 +16,9 @@ export async function register() {
       import("./lib/agent/session-archive")
         .then(({ pruneAgentSessionArchives }) => pruneAgentSessionArchives())
         .catch(() => undefined),
+      Promise.all([import("./lib/workflow/graph-triggers"), import("./lib/mcp/tools")])
+        .then(([{ startWorkflowScheduler }, { TOOLS_BY_NAME }]) => startWorkflowScheduler((name) => TOOLS_BY_NAME.get(name)))
+        .catch(() => undefined),
     ]);
     // systemd liveness: when the unit sets WatchdogSec, systemd exposes
     // NOTIFY_SOCKET + WATCHDOG_USEC. Node has no native AF_UNIX SOCK_DGRAM

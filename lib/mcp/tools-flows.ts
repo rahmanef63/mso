@@ -3,8 +3,13 @@ import { startFlow, flowStatus } from "@/lib/workflow/automation-engine";
 import { BUILTIN_FLOWS } from "@/lib/workflow/automation-builtins";
 import { manageProjectFlow } from "@/lib/host/project-flow-manifest";
 import { type McpTool, S, str } from "./tool-kit";
-import { cloneWorkflowGraph, createWorkflowGraph, deleteWorkflowGraph, getWorkflowGraph, listWorkflowGraphs, updateWorkflowGraph } from "@/lib/workflow/graph-store";
+import { cloneWorkflowGraph, createWorkflowGraph, deleteWorkflowGraph, getWorkflowGraph, listWorkflowGraphs, updateWorkflowGraph, workflowGraphOwner } from "@/lib/workflow/graph-store";
 import { startWorkflowGraph, workflowGraphRunStatus } from "@/lib/workflow/graph-engine";
+import { listWorkflowGraphRuns } from "@/lib/workflow/graph-run-store";
+import { listWorkflowGraphVersions, readWorkflowGraphVersion } from "@/lib/workflow/graph-version-store";
+import { workflowNodeCatalog } from "@/lib/workflow/node-catalog";
+import { workflowTemplate, workflowTemplates } from "@/lib/workflow/templates";
+import { deleteWorkflowVariable, listWorkflowVariables, setWorkflowVariable } from "@/lib/workflow/variables";
 const project = { type: "string", maxLength: 4096 };
 const flow = { type: "string", maxLength: 64 };
 
@@ -50,18 +55,27 @@ export const FLOW_TOOLS: McpTool[] = [
       return manageProjectFlow(catalog.project.path, { action: a.action, id, flow: a.definition, revision: str(a, "revision") });
     } },
   { name: "workflow_graph", title: "Workflow Graph", scope: "exec", limit: { key: "workflow.graph", max: 20, windowMs: 60_000 },
-    description: "Private Workflow Graph v2 CRUD/run/status. Use action list|get|create|update|delete|clone|run|status. Definitions reject secrets; runs keep per-node receipts.",
+    description: "Private workflow graph CRUD/run plus history, versions, templates, catalog and variable references. Definitions reject embedded secrets.",
     chatgptDescription: "CRUD/run workflows; read node logs.",
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }, audit: { action: "exec.run", targetArg: "id" },
-    inputSchema: S({ action: { type: "string", enum: ["list", "get", "create", "update", "delete", "clone", "run", "status"] }, id: { type: "string", maxLength: 96 }, data: { type: "object", additionalProperties: true }, wait_ms: { type: "integer", minimum: 0, maximum: 25_000 } }, ["action"]),
+    inputSchema: S({ action: { type: "string", minLength: 1, maxLength: 32 }, id: { type: "string", maxLength: 96 }, data: { type: "object", additionalProperties: true }, wait_ms: { type: "integer", minimum: 0, maximum: 25_000 } }, ["action"]),
     run: async (a, context) => {
       const principal = privateGraphPrincipal(context), action = str(a, "action");
       const data = a.data && typeof a.data === "object" && !Array.isArray(a.data) ? a.data as Record<string, unknown> : {};
       if (action === "list") { const graphs = await listWorkflowGraphs(principal); return { graphs: graphs.map(graph => ({ id: graph.id, name: graph.name, status: graph.status, revision: graph.revision, nodeCount: graph.nodes.length, updatedAt: graph.updatedAt, provenance: graph.metadata.provenance, project: graph.metadata.project })) }; }
       if (action === "status") return workflowGraphRunStatus(principal, str(a, "id"), Number(a.wait_ms) || 0);
+      if (action === "runs") return listWorkflowGraphRuns(workflowGraphOwner(principal), { graphId: typeof data.graph_id === "string" ? data.graph_id : undefined, limit: Number(data.limit) || 30, offset: Number(data.offset) || 0 });
+      if (action === "catalog") return { nodes: workflowNodeCatalog(typeof data.query === "string" ? data.query : "") };
+      if (action === "templates") return { templates: workflowTemplates() };
+      if (action === "variables") return { variables: await listWorkflowVariables(principal) };
+      if (action === "variable_set") return setWorkflowVariable(principal, String(data.key ?? ""), data.value, data.secret === true);
+      if (action === "variable_delete") return deleteWorkflowVariable(principal, String(data.key ?? ""));
+      if (action === "create_from_template") { const row = workflowTemplate(String(data.template_id ?? "")); if (!row) throw new Error("workflow template not found"); return { graph: await createWorkflowGraph(principal, row.definition, "template") }; }
       if (action === "create") return { graph: await createWorkflowGraph(principal, data.definition ?? data) };
       const id = str(a, "id");
       if (action === "get") { const graph = await getWorkflowGraph(principal, id); if (!graph) throw new Error("workflow graph not found"); return { graph }; }
+      if (action === "versions") return { versions: await listWorkflowGraphVersions(workflowGraphOwner(principal), id) };
+      if (action === "restore") { const current = await getWorkflowGraph(principal, id), snapshot = await readWorkflowGraphVersion(workflowGraphOwner(principal), id, String(data.version ?? "")); if (!current || !snapshot) throw new Error("workflow graph/version not found"); const { revision: _r, createdAt: _c, updatedAt: _u, version: _v, ...definition } = snapshot.graph; return { graph: await updateWorkflowGraph(principal, id, String(data.revision ?? current.revision), definition, "restore") }; }
       if (action === "clone") return { graph: await cloneWorkflowGraph(principal, id) };
       if (action === "update") return { graph: await updateWorkflowGraph(principal, id, String(data.revision ?? ""), data.definition) };
       if (action === "delete") return deleteWorkflowGraph(principal, id, String(data.revision ?? ""));

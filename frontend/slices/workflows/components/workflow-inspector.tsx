@@ -1,41 +1,47 @@
 "use client";
 import { useMemo, useState } from "react";
-import { FolderOpen, Link2, Trash2 } from "lucide-react";
+import { Copy, FolderOpen, Trash2 } from "lucide-react";
 import type { WorkflowGraph, WorkflowGraphNode, WorkflowGraphNodeType } from "@/lib/contracts/workflow-graph";
 import { WORKFLOW_GRAPH_NODE_TYPES } from "@/lib/contracts/workflow-graph";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { openWindow } from "@/features/appshell";
 import { resolveNode } from "../lib/api";
+const selectClass="h-9 w-full rounded-md border bg-background px-2";
+function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="block space-y-1"><span className="text-muted-foreground">{label}</span>{children}</label>;}
+function number(value:unknown,fallback:number){const n=Number(value);return Number.isFinite(n)?n:fallback;}
 
-export function WorkflowInspector({ graph, node, onNode, onDeleteNode, onGraph }: {
-  graph: WorkflowGraph; node: WorkflowGraphNode | null;
-  onNode: (node: WorkflowGraphNode) => void; onDeleteNode: (id: string) => void; onGraph: (graph: WorkflowGraph) => void;
-}) {
-  const [configText, setConfigText] = useState(node ? JSON.stringify(node.config, null, 2) : "{}");
-  const [target, setTarget] = useState("");
-  const outgoing = useMemo(() => node ? graph.edges.filter((edge) => edge.source === node.id) : [], [graph.edges, node]);
-  if (!node) return <div className="p-4 text-xs text-muted-foreground">Select a node to edit config, edges, or open project folders.</div>;
-  const patch = (next: Partial<WorkflowGraphNode>) => onNode({ ...node, ...next });
-  const applyConfig = () => { try { patch({ config: JSON.parse(configText) as Record<string, unknown> }); } catch { /* keep draft text */ } };
-  const addEdge = () => {
-    if (!target || target === node.id) return;
-    const id = `edge-${crypto.randomUUID().slice(0, 8)}`;
-    onGraph({ ...graph, edges: [...graph.edges, { id, source: node.id, target }] }); setTarget("");
-  };
-  const openTarget = async () => {
-    const resolved = await resolveNode(graph.id, node.id);
-    openWindow("files-manager", resolved.name, undefined, { path: resolved.path }, { multi: true });
-  };
-  return <div className="space-y-4 p-3 text-xs">
-    <div><label className="mb-1 block text-muted-foreground">Name</label><Input value={node.name} onChange={(e) => patch({ name: e.target.value })} /></div>
-    <div><label className="mb-1 block text-muted-foreground">Type</label><select className="h-9 w-full rounded-md border bg-background px-2" value={node.type} onChange={(e) => patch({ type: e.target.value as WorkflowGraphNodeType })}>{WORKFLOW_GRAPH_NODE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></div>
-    <div><label className="mb-1 block text-muted-foreground">Config JSON</label><Textarea className="min-h-36 font-mono text-[11px]" value={configText} onChange={(e) => setConfigText(e.target.value)} onBlur={applyConfig} /></div>
-    {(node.type === "project" || node.type === "folder") && <Button variant="secondary" size="sm" className="w-full" onClick={() => void openTarget()}><FolderOpen className="mr-2 size-3" />Open real folder</Button>}
-    <div className="space-y-2"><div className="font-medium">Outgoing edges</div>{outgoing.map((edge) => <div key={edge.id} className="flex items-center justify-between rounded border p-2"><span className="truncate">→ {graph.nodes.find((item) => item.id === edge.target)?.name ?? edge.target}</span><Button size="icon" variant="ghost" onClick={() => onGraph({ ...graph, edges: graph.edges.filter((item) => item.id !== edge.id) })}><Trash2 className="size-3" /></Button></div>)}
-      <div className="flex gap-1"><select className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2" value={target} onChange={(e) => setTarget(e.target.value)}><option value="">Connect to…</option>{graph.nodes.filter((item) => item.id !== node.id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><Button size="sm" variant="outline" onClick={addEdge}><Link2 className="size-3" /></Button></div>
-    </div>
-    <Button variant="destructive" size="sm" className="w-full" onClick={() => onDeleteNode(node.id)}><Trash2 className="mr-2 size-3" />Delete node</Button>
-  </div>;
+function AdvancedConfig({value,onApply}:{value:Record<string,unknown>;onApply:(text:string)=>void}){const[text,setText]=useState(JSON.stringify(value,null,2));return <Textarea className="min-h-40 font-mono text-[11px]" value={text} onChange={(e)=>setText(e.target.value)} onBlur={()=>onApply(text)}/>;}
+export function WorkflowInspector({graph,graphs,node,onNode,onDeleteNode,onGraph}:{graph:WorkflowGraph;graphs:WorkflowGraph[];node:WorkflowGraphNode|null;onNode:(node:WorkflowGraphNode)=>void;onDeleteNode:(id:string)=>void;onGraph:(graph:WorkflowGraph)=>void;}){
+ const[advancedError,setAdvancedError]=useState("");
+ const outgoing=useMemo(()=>node?graph.edges.filter((edge)=>edge.source===node.id):[],[graph.edges,node]);
+ if(!node){const tags=graph.metadata.tags?.join(", ")??"";return <div className="space-y-4 p-3 text-xs"><div className="font-semibold">Workflow settings</div><Field label="Description"><Textarea value={graph.description} onChange={(e)=>onGraph({...graph,description:e.target.value})}/></Field><Field label="Folder"><Input value={graph.metadata.folder??""} placeholder="Automation / Operations" onChange={(e)=>onGraph({...graph,metadata:{...graph.metadata,folder:e.target.value||undefined}})}/></Field><Field label="Tags"><Input value={tags} placeholder="deploy, qa, daily" onChange={(e)=>onGraph({...graph,metadata:{...graph.metadata,tags:e.target.value.split(",").map((v)=>v.trim()).filter(Boolean).slice(0,32)}})}/></Field><Field label="Timezone"><Input value={graph.metadata.timezone??"UTC"} placeholder="UTC" onChange={(e)=>onGraph({...graph,metadata:{...graph.metadata,timezone:e.target.value||undefined}})}/></Field><Field label="Error workflow"><select className={selectClass} value={graph.metadata.errorWorkflowId??""} onChange={(e)=>onGraph({...graph,metadata:{...graph.metadata,errorWorkflowId:e.target.value||undefined}})}><option value="">None</option>{graphs.filter((item)=>item.id!==graph.id).map((item)=><option key={item.id} value={item.id}>{item.name}</option>)}</select></Field><p className="text-[10px] text-muted-foreground">Active schedule/webhook triggers execute server-side. Workflow data, versions, runs and variables stay private to the authenticated principal.</p></div>;}
+ const patch=(next:Partial<WorkflowGraphNode>)=>onNode({...node,...next}),setConfig=(key:string,value:unknown)=>patch({config:{...node.config,[key]:value}}),removeConfig=(key:string)=>{const next={...node.config};delete next[key];patch({config:next});};
+ const applyAdvanced=(text:string)=>{try{const value=JSON.parse(text);if(!value||typeof value!=="object"||Array.isArray(value))throw new Error("Config must be an object");patch({config:value as Record<string,unknown>});setAdvancedError("");}catch(e){setAdvancedError(e instanceof Error?e.message:"Invalid JSON");}};
+ const openTarget=async()=>{const resolved=await resolveNode(graph.id,node.id);openWindow("files-manager",resolved.name,undefined,{path:resolved.path},{multi:true});};
+ const copyWebhook=()=>void navigator.clipboard?.writeText(`${window.location.origin}/api/v1/workflows/webhook/${graph.id}/${node.id}`);
+ const actionNode=["tool","project_function","project_mcp","integration","script","agent","subflow","loop"].includes(node.type);
+ return <div className="space-y-4 p-3 text-xs">
+  <Field label="Name"><Input value={node.name} onChange={(e)=>patch({name:e.target.value})}/></Field>
+  <Field label="Type"><select className={selectClass} value={node.type} onChange={(e)=>patch({type:e.target.value as WorkflowGraphNodeType})}>{WORKFLOW_GRAPH_NODE_TYPES.map((type)=><option key={type} value={type}>{type}</option>)}</select></Field>
+  {node.type==="schedule"&&<><Field label="Schedule mode"><select className={selectClass} value={String(node.config.mode??"interval")} onChange={(e)=>setConfig("mode",e.target.value)}><option value="interval">Interval</option><option value="cron">Cron</option></select></Field>{node.config.mode==="cron"?<Field label="Cron (5 fields)"><Input value={String(node.config.cron??"0 * * * *")} onChange={(e)=>setConfig("cron",e.target.value)}/></Field>:<Field label="Every minutes"><Input type="number" min={1} max={10080} value={number(node.config.everyMinutes,60)} onChange={(e)=>setConfig("everyMinutes",Number(e.target.value))}/></Field>}<Field label="Timezone override"><Input value={String(node.config.timezone??"")} placeholder={graph.metadata.timezone??"UTC"} onChange={(e)=>setConfig("timezone",e.target.value)}/></Field></>}
+  {node.type==="webhook"&&<><Field label="Methods"><Input value={Array.isArray(node.config.methods)?node.config.methods.join(", "):"POST"} onChange={(e)=>setConfig("methods",e.target.value.split(",").map((v)=>v.trim().toUpperCase()).filter(Boolean))}/></Field><Field label="Response"><select className={selectClass} value={String(node.config.responseMode??"onReceived")} onChange={(e)=>setConfig("responseMode",e.target.value)}><option value="onReceived">202 immediately</option><option value="lastNode">Wait for output</option></select></Field><Field label="Auth variable"><Input value={String(node.config.authVariable??"")} placeholder="WEBHOOK_TOKEN (optional)" onChange={(e)=>e.target.value?setConfig("authVariable",e.target.value.toUpperCase()):removeConfig("authVariable")}/></Field><div className="rounded border p-2"><div className="break-all font-mono text-[10px]">/api/v1/workflows/webhook/{graph.id}/{node.id}</div><Button className="mt-2" size="sm" variant="outline" onClick={copyWebhook}><Copy className="mr-1 size-3"/>Copy URL</Button></div></>}
+  {(node.type==="project"||node.type==="folder"||node.type==="knowledge"||node.type==="agent"||node.type==="script"||node.type==="project_function"||node.type==="project_mcp"||node.type==="subflow")&&<Field label="Project"><Input value={String(node.config.project??graph.metadata.project??"")} placeholder="Canonical project id/name" onChange={(e)=>setConfig("project",e.target.value)}/></Field>}
+  {node.type==="folder"&&<Field label="Relative path"><Input value={String(node.config.path??".")} onChange={(e)=>setConfig("path",e.target.value)}/></Field>}
+  {node.type==="tool"&&<Field label="MSO tool"><Input value={String(node.config.tool??"")} placeholder="project_get" onChange={(e)=>setConfig("tool",e.target.value)}/></Field>}
+  {node.type==="integration"&&<>{["user","provider","connection","operation"].map((key)=><Field key={key} label={key[0]!.toUpperCase()+key.slice(1)}><Input value={String(node.config[key]??"")} onChange={(e)=>setConfig(key,e.target.value)}/></Field>)}</>}
+  {node.type==="agent"&&<Field label="Agent objective"><Textarea value={String(node.config.message??"")} onChange={(e)=>setConfig("message",e.target.value)}/></Field>}
+  {node.type==="subflow"&&<><Field label="Workflow graph"><select className={selectClass} value={String(node.config.workflowId??"")} onChange={(e)=>e.target.value?setConfig("workflowId",e.target.value):removeConfig("workflowId")}><option value="">Legacy project flow</option>{graphs.filter((item)=>item.id!==graph.id).map((item)=><option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>{!node.config.workflowId&&<Field label="Legacy flow id"><Input value={String(node.config.flow??"")} onChange={(e)=>setConfig("flow",e.target.value)}/></Field>}</>}
+  {node.type==="wait"&&<Field label="Delay ms"><Input type="number" min={0} max={600000} value={number(node.config.delayMs,1000)} onChange={(e)=>setConfig("delayMs",Number(e.target.value))}/></Field>}
+  {node.type==="batch"&&<><Field label="Items path"><Input value={String(node.config.itemsPath??"input.items")} onChange={(e)=>setConfig("itemsPath",e.target.value)}/></Field><Field label="Batch size"><Input type="number" min={1} max={1000} value={number(node.config.size,10)} onChange={(e)=>setConfig("size",Number(e.target.value))}/></Field></>}
+  {node.type==="loop"&&<><Field label="Items path"><Input value={String(node.config.itemsPath??"input.items")} onChange={(e)=>setConfig("itemsPath",e.target.value)}/></Field><Field label="Tool per item"><Input value={String(node.config.tool??"")} onChange={(e)=>setConfig("tool",e.target.value)}/></Field><Field label="Concurrency"><Input type="number" min={1} max={4} value={number(node.config.concurrency,1)} onChange={(e)=>setConfig("concurrency",Number(e.target.value))}/></Field></>}
+  {node.type==="merge"&&<Field label="Merge mode"><select className={selectClass} value={String(node.config.mode??"combine")} onChange={(e)=>setConfig("mode",e.target.value)}><option value="combine">Combine by source</option><option value="append">Append</option><option value="passThrough">Pass through latest</option></select></Field>}
+  {actionNode&&<div className="space-y-3 rounded-lg border p-3"><div className="font-medium">Failure policy</div><Field label="Attempts"><Input type="number" min={1} max={5} value={number((node.config.retry as Record<string,unknown>|undefined)?.maxAttempts,1)} onChange={(e)=>setConfig("retry",{...((node.config.retry as Record<string,unknown>|undefined)??{}),maxAttempts:Number(e.target.value)})}/></Field><Field label="Backoff ms"><Input type="number" min={0} max={30000} value={number((node.config.retry as Record<string,unknown>|undefined)?.backoffMs,0)} onChange={(e)=>setConfig("retry",{...((node.config.retry as Record<string,unknown>|undefined)??{}),backoffMs:Number(e.target.value)})}/></Field><label className="flex items-center justify-between"><span>Continue on error</span><Switch checked={node.config.onError==="continue"} onCheckedChange={(checked)=>checked?setConfig("onError","continue"):removeConfig("onError")}/></label><p className="text-[10px] text-muted-foreground">Connect the red error port for an explicit error branch.</p></div>}
+  {(node.type==="project"||node.type==="folder")&&<Button variant="secondary" size="sm" className="w-full" onClick={()=>void openTarget()}><FolderOpen className="mr-2 size-3"/>Open real folder</Button>}
+  <details><summary className="cursor-pointer font-medium">Advanced config JSON</summary><div className="mt-2 space-y-2"><AdvancedConfig key={JSON.stringify(node.config)} value={node.config} onApply={applyAdvanced}/>{advancedError&&<p className="text-destructive">{advancedError}</p>}</div></details>
+  <div className="space-y-2"><div className="font-medium">Connections</div>{outgoing.map((edge)=><div key={edge.id} className="flex items-center justify-between rounded border p-2"><span className="truncate">{edge.sourceHandle?`${edge.sourceHandle} → `:"→ "}{graph.nodes.find((item)=>item.id===edge.target)?.name??edge.target}</span><Button size="icon" variant="ghost" onClick={()=>onGraph({...graph,edges:graph.edges.filter((item)=>item.id!==edge.id)})}><Trash2 className="size-3"/></Button></div>)}<p className="text-[10px] text-muted-foreground">Connect nodes directly from canvas ports.</p></div>
+  <Button variant="destructive" size="sm" className="w-full" onClick={()=>onDeleteNode(node.id)}><Trash2 className="mr-2 size-3"/>Delete node</Button>
+ </div>;
 }

@@ -35,7 +35,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `reel-editor` | Video/reel timeline editor |
 | `shell-settings` | Shared shell settings UI primitives |
 | `system-monitor` | Live metrics/processes plus service inventory/logs/allowlisted lifecycle and cache-only package updates |
-| `workflows` | Server-native visual workflow graph editor, private runs and node-level logs |
+| `workflows` | Server-native automation editor with schedule/webhook triggers, flow control, private history/versions/variables and node-level logs |
 
 ## AppShell feature directories (10)
 

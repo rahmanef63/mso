@@ -6,12 +6,13 @@ import type { LearnedRecipe } from "./types";
 import type { WorkflowGraph } from "@/lib/contracts/workflow-graph";
 import { normalizeWorkflowIntent, parseWorkflowGraphDefinition, type WorkflowGraphDefinition } from "./graph-schema";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
+import { saveWorkflowGraphVersion, type WorkflowGraphVersionReason } from "./graph-version-store";
 
-const STORE_VERSION = 1;
+const STORE_VERSION = 2;
 const MAX_STORE_BYTES = 4 * 1024 * 1024;
 const MAX_GRAPHS = 200;
 
-type WorkflowGraphStore = { version: 1; owner: string; graphs: WorkflowGraph[] };
+type WorkflowGraphStore = { version: 2; owner: string; principal: string; graphs: WorkflowGraph[] };
 
 function hash(value: string): string { return createHash("sha256").update(value).digest("hex"); }
 export function workflowGraphOwner(principal: string): string { return hash(principal); }
@@ -39,18 +40,20 @@ function parseStoredGraph(raw: unknown): WorkflowGraph {
   return { ...definition, version: 2, id: row.id, createdAt: row.createdAt, updatedAt: row.updatedAt, revision: row.revision };
 }
 
-async function readStore(owner: string): Promise<WorkflowGraphStore> {
+async function readStore(owner: string, principal = ""): Promise<WorkflowGraphStore> {
   const target = file(owner);
   try {
     const stat = await fs.lstat(target);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_STORE_BYTES || (stat.mode & 0o077)) throw new Error("unsafe workflow graph store");
     const parsed: unknown = JSON.parse(await fs.readFile(target, "utf8"));
     if (!parsed || typeof parsed !== "object") throw new Error("invalid workflow graph store");
-    const row = parsed as { version?: unknown; owner?: unknown; graphs?: unknown };
-    if (row.version !== STORE_VERSION || row.owner !== owner || !Array.isArray(row.graphs) || row.graphs.length > MAX_GRAPHS) throw new Error("invalid workflow graph store");
-    return { version: 1, owner, graphs: row.graphs.map(parseStoredGraph) };
+    const row = parsed as { version?: unknown; owner?: unknown; principal?: unknown; graphs?: unknown };
+    if (row.owner !== owner || !Array.isArray(row.graphs) || row.graphs.length > MAX_GRAPHS) throw new Error("invalid workflow graph store");
+    if (row.version === 1) return { version: 2, owner, principal, graphs: row.graphs.map(parseStoredGraph) };
+    if (row.version !== STORE_VERSION || typeof row.principal !== "string") throw new Error("invalid workflow graph store");
+    return { version: 2, owner, principal: row.principal, graphs: row.graphs.map(parseStoredGraph) };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { version: 1, owner, graphs: [] };
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { version: 2, owner, principal, graphs: [] };
     throw error;
   }
 }
@@ -81,7 +84,7 @@ function materialize(definition: WorkflowGraphDefinition, previous?: WorkflowGra
 }
 
 export async function listWorkflowGraphs(principal: string): Promise<WorkflowGraph[]> {
-  const owner = workflowGraphOwner(principal), store = await readStore(owner);
+  const owner = workflowGraphOwner(principal), store = await readStore(owner, principal);
   return store.graphs.slice().sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
 }
 
@@ -89,36 +92,36 @@ export async function getWorkflowGraph(principal: string, id: string): Promise<W
   return (await listWorkflowGraphs(principal)).find((graph) => graph.id === id) ?? null;
 }
 
-export async function createWorkflowGraph(principal: string, raw: unknown): Promise<WorkflowGraph> {
+export async function createWorkflowGraph(principal: string, raw: unknown, reason: WorkflowGraphVersionReason = "create"): Promise<WorkflowGraph> {
   const owner = workflowGraphOwner(principal), definition = parseWorkflowGraphDefinition(raw);
   return withGraphLock(owner, async () => {
-    const store = await readStore(owner);
+    const store = await readStore(owner, principal);
     if (store.graphs.length >= MAX_GRAPHS) throw new Error("private workflow graph limit reached");
     const graph = materialize({ ...definition, id: definition.id ?? randomUUID() });
     if (store.graphs.some((row) => row.id === graph.id)) throw new Error("workflow graph id already exists");
-    store.graphs.push(graph); await writeStore(store); return graph;
+    store.principal = principal; store.graphs.push(graph); await writeStore(store); await saveWorkflowGraphVersion(owner, graph, reason); return graph;
   });
 }
 
-export async function updateWorkflowGraph(principal: string, id: string, expectedRevision: string, raw: unknown): Promise<WorkflowGraph> {
+export async function updateWorkflowGraph(principal: string, id: string, expectedRevision: string, raw: unknown, reason: WorkflowGraphVersionReason = "update"): Promise<WorkflowGraph> {
   const owner = workflowGraphOwner(principal), definition = parseWorkflowGraphDefinition(raw);
   return withGraphLock(owner, async () => {
-    const store = await readStore(owner), index = store.graphs.findIndex((graph) => graph.id === id);
+    const store = await readStore(owner, principal), index = store.graphs.findIndex((graph) => graph.id === id);
     if (index < 0) throw new Error("workflow graph not found");
     const current = store.graphs[index];
     if (current.revision !== expectedRevision) throw new Error("workflow graph revision changed; refresh before editing");
     if (definition.id && definition.id !== id) throw new Error("workflow graph id mismatch");
-    const graph = materialize({ ...definition, id }, current); store.graphs[index] = graph; await writeStore(store); return graph;
+    const graph = materialize({ ...definition, id }, current); store.principal = principal; store.graphs[index] = graph; await writeStore(store); await saveWorkflowGraphVersion(owner, graph, reason); return graph;
   });
 }
 
 export async function deleteWorkflowGraph(principal: string, id: string, expectedRevision: string): Promise<{ id: string; deleted: true }> {
   const owner = workflowGraphOwner(principal);
   return withGraphLock(owner, async () => {
-    const store = await readStore(owner), current = store.graphs.find((graph) => graph.id === id);
+    const store = await readStore(owner, principal), current = store.graphs.find((graph) => graph.id === id);
     if (!current) throw new Error("workflow graph not found");
     if (current.revision !== expectedRevision) throw new Error("workflow graph revision changed; refresh before deleting");
-    store.graphs = store.graphs.filter((graph) => graph.id !== id); await writeStore(store); return { id, deleted: true };
+    store.principal = principal; store.graphs = store.graphs.filter((graph) => graph.id !== id); await writeStore(store); return { id, deleted: true };
   });
 }
 
@@ -158,7 +161,7 @@ export async function ensureLearnedWorkflowGraph(recipe: LearnedRecipe): Promise
   if (!recipe.successes || !recipe.bestSteps.length) return null;
   const principal = recipe.actor, fingerprint = learnedFingerprint(recipe), owner = workflowGraphOwner(principal);
   return withGraphLock(owner, async () => {
-    const store = await readStore(owner), existing = store.graphs.find((graph) => graph.metadata.fingerprint === fingerprint);
+    const store = await readStore(owner, recipe.actor), existing = store.graphs.find((graph) => graph.metadata.fingerprint === fingerprint);
     if (existing) return existing;
     if (store.graphs.length >= MAX_GRAPHS) return null;
     const nodes = [
@@ -171,6 +174,16 @@ export async function ensureLearnedWorkflowGraph(recipe: LearnedRecipe): Promise
       name: recipe.intent.slice(0, 120), description: `Learned draft from ${recipe.successes} successful session run(s).`, status: "draft",
       inputs: {}, nodes, edges, metadata: { intent: recipe.intent, normalizedIntent: recipe.normalizedIntent, project: recipe.project, provenance: "learned-from-session", fingerprint, sourceDigests: [hash(recipe.id)] },
     });
-    const graph = materialize({ ...definition, id: randomUUID() }); store.graphs.push(graph); await writeStore(store); return graph;
+    const graph = materialize({ ...definition, id: randomUUID() }); store.principal = recipe.actor; store.graphs.push(graph); await writeStore(store); await saveWorkflowGraphVersion(owner, graph, "create"); return graph;
   });
+}
+
+export async function listWorkflowGraphTriggerSources(): Promise<Array<{ owner: string; principal: string; graph: WorkflowGraph }>> {
+  let owners: string[]; try { owners = await fs.readdir(root()); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
+  const out: Array<{ owner: string; principal: string; graph: WorkflowGraph }> = [];
+  for (const owner of owners.filter((value) => /^[a-f0-9]{64}$/.test(value)).slice(0, 4096)) {
+    const store = await readStore(owner).catch(() => null); if (!store?.principal) continue;
+    for (const graph of store.graphs) if (graph.status === "active" && graph.nodes.some((node) => node.type === "schedule" || node.type === "webhook")) out.push({ owner, principal: store.principal, graph });
+  }
+  return out;
 }

@@ -69,7 +69,7 @@ function assertAcyclic(nodes: WorkflowGraphNode[], edges: WorkflowGraphEdge[]): 
     const id = queue.shift()!; visited += 1;
     for (const target of outgoing.get(id) ?? []) { const next = (indegree.get(target) ?? 0) - 1; indegree.set(target, next); if (next === 0) queue.push(target); }
   }
-  if (visited !== nodes.length) throw new Error("workflow graph contains a cycle; loops are not supported in v2 MVP");
+  if (visited !== nodes.length) throw new Error("workflow graph contains a cycle; use the loop node with a subflow/body binding instead of cyclic edges");
 }
 
 function parseMetadata(value: unknown): WorkflowGraphMetadata {
@@ -77,8 +77,8 @@ function parseMetadata(value: unknown): WorkflowGraphMetadata {
   if (!graphObject(value)) throw new Error("workflow metadata must be an object");
   assertWorkflowMetadataOnly(value);
   const out: WorkflowGraphMetadata = {};
-  for (const key of ["intent", "normalizedIntent", "project", "fingerprint"] as const) if (typeof value[key] === "string" && value[key]) out[key] = String(value[key]).slice(0, 1000);
-  if (["user", "learned-from-session", "clone", "import"].includes(String(value.provenance))) out.provenance = value.provenance as WorkflowGraphMetadata["provenance"];
+  for (const key of ["intent", "normalizedIntent", "project", "fingerprint", "folder", "errorWorkflowId", "timezone"] as const) if (typeof value[key] === "string" && value[key]) out[key] = String(value[key]).slice(0, 1000);
+  if (["user", "learned-from-session", "clone", "import", "template", "ai-assisted"].includes(String(value.provenance))) out.provenance = value.provenance as WorkflowGraphMetadata["provenance"];
   if (Array.isArray(value.sourceDigests)) out.sourceDigests = value.sourceDigests.filter((item): item is string => typeof item === "string").slice(0, 32).map((item) => item.slice(0, 128));
   if (Array.isArray(value.tags)) out.tags = value.tags.filter((item): item is string => typeof item === "string").slice(0, 32).map((item) => item.slice(0, 64));
   return out;
@@ -97,6 +97,8 @@ export function parseWorkflowGraphDefinition(raw: unknown): WorkflowGraphDefinit
   if (!Array.isArray(raw.edges) || raw.edges.length > 400) throw new Error("workflow graph supports up to 400 edges");
   const edges = raw.edges.map((edge) => parseEdge(edge, nodeIds));
   if (new Set(edges.map((edge) => edge.id)).size !== edges.length) throw new Error("duplicate workflow edge id");
+  const triggerIds = new Set(nodes.filter((node) => ["manual", "schedule", "webhook"].includes(node.type)).map((node) => node.id));
+  if (edges.some((edge) => triggerIds.has(edge.target))) throw new Error("trigger nodes must be workflow roots");
   assertAcyclic(nodes, edges);
   return { ...(typeof raw.id === "string" ? { id: raw.id } : {}), name: raw.name.trim(), description: raw.description, status: raw.status as WorkflowGraphStatus, inputs: structuredClone(raw.inputs), nodes, edges, metadata: parseMetadata(raw.metadata) };
 }

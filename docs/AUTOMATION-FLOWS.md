@@ -142,4 +142,4 @@ workflow-store model; a multi-writer database is not introduced.
 
 ## Workflow Graph v2
 
-For visual, branching, mixed-node workflows, see [WORKFLOW-GRAPH.md](./WORKFLOW-GRAPH.md). Graph v2 is private per authenticated principal, has per-node logs/error identity, resolves project/folder locations dynamically, and coexists with the linear flow format documented above. `workflow_start` checks matching private graphs before learned recipes; successful `workflow_finish` seeds private draft graphs automatically.
+For visual, branching, mixed-node workflows, see [WORKFLOW-GRAPH.md](./WORKFLOW-GRAPH.md). Graph v2 is private per authenticated principal and now covers server schedule/webhook triggers, switch/merge/batch/loop/wait/sub-workflow control, retry/error routing, version/history rollback, private variables, integration references and per-node receipts while resolving project/folder locations dynamically. It coexists with the linear flow format documented above. `workflow_start` checks matching private graphs before learned recipes; successful `workflow_finish` seeds private draft graphs automatically.

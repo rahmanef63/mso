@@ -1,6 +1,6 @@
 export const WORKFLOW_GRAPH_NODE_TYPES = [
-  "manual", "tool", "project_function", "project_mcp", "script", "agent", "subflow",
-  "condition", "project", "folder", "skill", "knowledge", "output",
+  "manual", "schedule", "webhook", "tool", "project_function", "project_mcp", "integration", "script", "agent", "subflow",
+  "condition", "switch", "merge", "batch", "loop", "wait", "project", "folder", "skill", "knowledge", "output",
 ] as const;
 export type WorkflowGraphNodeType = (typeof WORKFLOW_GRAPH_NODE_TYPES)[number];
 export type WorkflowGraphStatus = "draft" | "active" | "archived";
@@ -26,10 +26,13 @@ export type WorkflowGraphMetadata = {
   intent?: string;
   normalizedIntent?: string;
   project?: string;
-  provenance?: "user" | "learned-from-session" | "clone" | "import";
+  provenance?: "user" | "learned-from-session" | "clone" | "import" | "template" | "ai-assisted";
   fingerprint?: string;
   sourceDigests?: string[];
   tags?: string[];
+  folder?: string;
+  errorWorkflowId?: string;
+  timezone?: string;
 };
 
 export type WorkflowGraph = {
@@ -60,6 +63,8 @@ export type WorkflowGraphRunNode = {
   output?: unknown;
   error?: string;
   logs: string[];
+  attempts?: number;
+  waitingUntil?: string;
 };
 
 export type WorkflowGraphRun = {
@@ -72,7 +77,7 @@ export type WorkflowGraphRun = {
   graphName: string;
   idempotencyKey: string;
   fingerprint: string;
-  state: "running" | "completed" | "failed" | "interrupted";
+  state: "running" | "completed" | "completed_with_errors" | "failed" | "interrupted";
   startedAt: string;
   updatedAt: string;
   finishedAt?: string;
@@ -82,4 +87,6 @@ export type WorkflowGraphRun = {
   pid: number;
   instance: string;
   nodes: WorkflowGraphRunNode[];
+  trigger?: { type: "manual" | "schedule" | "webhook" | "system"; nodeId?: string; receivedAt: string };
+  ancestry?: string[];
 };

@@ -61,6 +61,25 @@ export async function pruneWorkflowGraphRuns(owner: string): Promise<void> {
 }
 
 export function publicWorkflowGraphRun(run: WorkflowGraphRun) {
-  const { owner: _owner, pid: _pid, instance: _instance, sessionId: _sessionId, fingerprint: _fingerprint, ...safe } = run;
+  const { owner: _owner, pid: _pid, instance: _instance, sessionId: _sessionId, fingerprint: _fingerprint, ancestry: _ancestry, ...safe } = run;
   return { ...safe, pollAfterMs: run.state === "running" ? 1500 : 0 };
+}
+
+export type WorkflowGraphRunFilter = { graphId?: string; state?: WorkflowGraphRun["state"]; limit?: number; offset?: number };
+export async function listWorkflowGraphRuns(owner: string, filter: WorkflowGraphRunFilter = {}) {
+  await ensureOwnerDir(owner);
+  const dir = path.dirname(file(owner, "0".repeat(32))), names = (await fs.readdir(dir)).filter((name) => /^[a-f0-9]{32}\.json$/.test(name));
+  const rows: WorkflowGraphRun[] = [];
+  for (const name of names.slice(0, MAX_RECEIPTS)) {
+    const row = await readWorkflowGraphRun(owner, name.slice(0, 32)).catch(() => null); if (!row) continue;
+    if (filter.graphId && row.graphId !== filter.graphId) continue;
+    if (filter.state && row.state !== filter.state) continue;
+    rows.push(row);
+  }
+  rows.sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
+  const offset = Math.max(0, Math.trunc(filter.offset ?? 0)), limit = Math.max(1, Math.min(100, Math.trunc(filter.limit ?? 30)));
+  return { total: rows.length, runs: rows.slice(offset, offset + limit).map((run) => {
+    const safe = publicWorkflowGraphRun(run);
+    return { id: safe.id, graphId: safe.graphId, graphRevision: safe.graphRevision, graphName: safe.graphName, state: safe.state, startedAt: safe.startedAt, updatedAt: safe.updatedAt, finishedAt: safe.finishedAt, failedNodeId: safe.failedNodeId, failedNodeName: safe.failedNodeName, trigger: safe.trigger };
+  }), nextOffset: offset + limit < rows.length ? offset + limit : undefined };
 }

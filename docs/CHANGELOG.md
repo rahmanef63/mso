@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` complete server-native automation parity
 - `workflows` add server-native workflow graph
 
 **Fixed**
