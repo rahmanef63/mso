@@ -25,6 +25,7 @@ U_camoufox="camoufox status|start|stop|session"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
 U_doctor="doctor [--fix]"
 U_flow="flow list|inspect <id> [--project <project>]|run <id> --input <JSON|@file> --key <id> [--wait]|status <run-id> [--wait]|save|delete <id> --revision <revision> [--input <JSON|@file>]"
+U_workflow="workflow list|show <id>|create --input <JSON|@file>|save <id> --revision <revision> --input <JSON|@file>|clone <id>|delete <id> --revision <revision>|run <id> --input <JSON|@file> --key <id> [--wait]|status <run-id> [--wait]"
 U_integrations="integrations [interactive]|transfer|status|users|catalog|connections [user] [provider]|which [folder]|request|resolve <user> <provider> [connection]|create-user <id> [label]|create-connection <user> <provider> <id> <source> <auth>|manage <JSON>|setup|verify <user> <provider> <connection>|hostinger-mail-orders|hostinger-mail-list|hostinger-mail-logs|execute <JSON>"
 U_provider="provider list|show <id>|setup <provider> <user> <connection>|set <id>|rm <id>|doctor [id]|projects|zones"
 U_model="model [current|list [provider]|set <provider> <model>|set <provider/model>|<model-or-ref>]"
@@ -91,7 +92,7 @@ mso_cli_main() {
   case "$cmd" in
     version|--version|-V|-v|ls|cat|raw|share|usage|search|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|cleanup|status|health|doctor)
       mso_cmd_host "$cmd" "$@" ;;
-    agent|chat|model|setup|onboard|provider|providers|integrations|flow|gateway|web|camoufox|apps|mapp|term)
+    agent|chat|model|setup|onboard|provider|providers|integrations|flow|workflow|gateway|web|camoufox|apps|mapp|term)
       mso_cmd_runtime "$cmd" "$@" ;;
     ai|cockpit|threads|agent-sessions|agents|a2a|memory|config|prefs|models|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;

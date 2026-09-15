@@ -13,8 +13,8 @@ const graph = { name: "Generic build", description: "test", status: "draft" as c
   { id: "out", name: "Output", type: "output" as const, position: { x: 200, y: 0 }, config: {} },
 ], edges: [{ id: "e", source: "start", target: "out" }] };
 
-beforeAll(() => { process.env.OS_WORKFLOW_GRAPH_LEARNING_TEST = "1"; });
-afterAll(async () => { delete process.env.OS_WORKFLOW_GRAPH_LEARNING_TEST; await rm(dir, { recursive: true, force: true }); });
+beforeAll(() => undefined);
+afterAll(async () => { await rm(dir, { recursive: true, force: true }); });
 
 describe("private workflow graph store", () => {
   it("isolates principals and enforces revisions", async () => {

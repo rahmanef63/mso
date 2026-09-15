@@ -88,6 +88,7 @@ Commands:
   onboard [-y]         Guided setup: AI, apps, infrastructure, skills
   setup                Alias for onboard
   flow list|inspect|run|status|save|delete  Project API/MCP automation (flow --help)
+  workflow *           Visual/private Workflow Graph v2 CRUD + run/status (workflow --help)
   integrations  Named credential users, connections, sources, setup and execution
   provider *           Infrastructure credentials: list | set | rm | doctor
   providers *          Alias for provider

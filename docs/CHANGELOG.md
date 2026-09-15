@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `workflows` complete cli and release gates
 - `mcp` expose downstream project tool results (#43)
 
 ## 2026-09-14
