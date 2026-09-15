@@ -21,9 +21,12 @@ const CATEGORY: Record<string, string> = {
   "create-app": "Develop",
   browser: "Web & AI",
   assistant: "Web & AI",
+  organization: "Work & Automation",
+  workflows: "Work & Automation",
+  integrations: "Work & Automation",
   "app-store": "Web & AI",
 };
-const ORDER = ["Files & System", "Creative", "Develop", "Web & AI", "Other"];
+const ORDER = ["Files & System", "Creative", "Develop", "Work & Automation", "Web & AI", "Other"];
 
 // iPhone App Library: category folder-cards by default; an A–Z list while the
 // search field has text. Tapping a folder's cluster (or its label) opens it.

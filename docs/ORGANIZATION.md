@@ -100,7 +100,7 @@ This is a private runtime store. MSO source ships **no operator-specific organiz
 
 ## UI
 
-Open **Alfa → Organization**.
+Open the first-class **Organization** app from the dock, launcher, Start menu, App Library, Spotlight, or `/organization`. **Alfa → Organization** remains a secondary deep-link to the same view and SSOT.
 
 The default `All organization` view renders the complete reporting hierarchy across units. Selecting a unit filters the view while keeping the same SSOT. Seat cards show role, unit, seat mode, execution binding, and current runtime state.
 

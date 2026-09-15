@@ -3,12 +3,12 @@
 > **Current reference.** Counts are checked against the directory tree by
 > `scripts/check-docs.mjs`; the directory remains the final authority.
 
-<!-- slice-catalog: slices=24 appshell-features=10 -->
+<!-- slice-catalog: slices=25 appshell-features=10 -->
 
 Every application is a vertical slice under `frontend/slices/`. Host-facing slices use the
 shared API/host seam rather than reaching arbitrary Node host APIs from client code.
 
-## Slices (24)
+## Slices (25)
 
 | Slug | Purpose |
 |---|---|
@@ -31,6 +31,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `os-settings` | MSO Settings |
 | `os-shell` | MSO consumer manifest/capabilities for AppShell |
 | `os-terminal` | Interactive PTY Terminal / Claude Code surface |
+| `organization` | Owner-private organization chart, reporting lines, seat state, and execution bindings |
 | `quicklinks` | Website shortcuts/favicons |
 | `reel-editor` | Video/reel timeline editor |
 | `shell-settings` | Shared shell settings UI primitives |

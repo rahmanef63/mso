@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `organization` surface as first-class app
 - `organization` add agent org chart and routing
 - `workflows` complete server-native automation parity
 - `workflows` add server-native workflow graph

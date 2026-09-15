@@ -98,7 +98,7 @@ complete. See [`docs/MCP.md`](../../../docs/MCP.md) and [`skills/README.md`](../
 
 ## Organization (not an Alfa persona)
 
-The **Organization** tab is a server-side owner-private operating-structure view, not another browser Agent persona store. Its SSOT is `~/.mso/private/organization.json` via `lib/agent/organization-store.ts`. Units and seats define stable hierarchy/reporting context; a seat can point at an existing Project Agent, Local Agent/session, or A2A peer. Those references grant no extra tools or credentials. Workflows may resolve `orgSeatId` at execution time. See [`docs/ORGANIZATION.md`](../../../docs/ORGANIZATION.md).
+Organization is a first-class app/domain with a secondary **Organization** tab inside Alfa. Both render the same server-side owner-private SSOT at `~/.mso/private/organization.json` via `lib/agent/organization-store.ts`; Alfa does not own or duplicate it. Units and seats define stable hierarchy/reporting context; a seat can point at an existing Project Agent, Local Agent/session, or A2A peer. Those references grant no extra tools or credentials. Workflows may resolve `orgSeatId` at execution time. See [`docs/ORGANIZATION.md`](../../../docs/ORGANIZATION.md).
 
 ## Agent
 

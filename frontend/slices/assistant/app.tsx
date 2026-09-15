@@ -17,7 +17,7 @@ import { ThreadList } from "./components/thread-list";
 import { LibraryGrid } from "./components/library-grid";
 import { SkillForm } from "./components/skill-form";
 import { McpActivityView } from "./components/mcp-activity-view";
-import { OrganizationView } from "./components/organization-view";
+import { OrganizationView } from "@/features/organization";
 import { AlfaCockpitBar } from "./components/alfa-cockpit-bar";
 import { assistantRouteFromPayload, type AssistantTab } from "./lib/navigation";
 

@@ -22,6 +22,7 @@ import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
 import { integrationsApp } from "@/features/integrations";
 import { workflowsApp } from "@/features/workflows";
+import { organizationApp } from "@/features/organization";
 import { cloudflareApp, dokployApp } from "@/features/infrastructure";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
 import { serverConnectionStatusFeature } from "./server-connection-status";
@@ -69,6 +70,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(nineRouterApp), "9router"),
   pin(withSlug(integrationsApp, "connections")),
   pin(withSlug(withArtwork(workflowsApp), "workflows")),
+  withSlug(withArtwork(organizationApp), "organization"),
   withSlug(withArtwork(dokployApp), "dokploy"),
   withSlug(withArtwork(cloudflareApp), "cloudflare"),
   withSlug(withArtwork(quicklinksApp), "links"),
