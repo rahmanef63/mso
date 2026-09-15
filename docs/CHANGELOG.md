@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` complete canvas runtime
 - `canvas` unify organization and workflow navigation
 - `organization` surface as first-class app
 - `organization` add agent org chart and routing

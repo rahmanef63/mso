@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Building2 } from "lucide-react";
-import type { Edge, Node, NodeProps } from "@xyflow/react";
+import { Handle, MarkerType, Position, type Edge, type Node, type NodeProps } from "@xyflow/react";
 import type { OrganizationChart, OrganizationSeat, OrganizationSeatRuntime, OrganizationUnit } from "@/lib/contracts/organization";
 import { Badge } from "@/components/ui/badge";
 import { GraphCanvas } from "@/components/shared/graph-canvas";
@@ -20,14 +20,14 @@ const statusClass: Record<OrganizationSeatRuntime["status"], string> = {
 };
 
 function UnitCard({ data, selected }: NodeProps<UnitNode>) {
-  return <div className={cn("w-[230px] rounded-xl border bg-card p-3 shadow-sm", selected && "ring-2 ring-ring")}>
+  return <div className={cn("relative w-[230px] rounded-xl border bg-card p-3 shadow-sm", selected && "ring-2 ring-ring")}><Handle type="target" position={Position.Top} id="input" className="!size-2 !border-0 !bg-muted-foreground/50"/><Handle type="source" position={Position.Bottom} id="output" className="!size-2 !border-0 !bg-muted-foreground/50"/>
     <div className="flex items-start gap-2"><Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground"/><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{data.unit.name}</div><div className="mt-0.5 text-[10px] text-muted-foreground">{data.unit.description || data.unit.kind}</div></div></div>
     <div className="mt-2 flex gap-1"><Badge variant="secondary" className="text-[9px]">{data.unit.kind}</Badge><Badge variant="outline" className="text-[9px]">{data.seatCount} seats</Badge></div>
   </div>;
 }
 function SeatCard({ data, selected }: NodeProps<SeatNode>) {
   const status = data.runtime?.status ?? "vacant";
-  return <div className={cn("w-[238px] rounded-xl border bg-card p-3 shadow-sm", selected && "ring-2 ring-ring", data.external && "opacity-75")}>
+  return <div className={cn("relative w-[238px] rounded-xl border bg-card p-3 shadow-sm", selected && "ring-2 ring-ring", data.external && "opacity-75")}><Handle type="target" position={Position.Top} id="input" className="!size-2 !border-0 !bg-muted-foreground/50"/><Handle type="source" position={Position.Bottom} id="output" className="!size-2 !border-0 !bg-muted-foreground/50"/>
     <div className="flex items-start gap-2"><span className={cn("mt-1 size-2.5 shrink-0 rounded-full", statusClass[status])}/><div className="min-w-0 flex-1"><div className="text-xs font-semibold leading-tight">{data.seat.title}</div><div className="mt-0.5 truncate text-[10px] text-muted-foreground">{data.seat.name}</div></div></div>
     <div className="mt-2 flex flex-wrap gap-1"><Badge variant="secondary" className="text-[9px]">{data.seat.role}</Badge><Badge variant="outline" className="max-w-[140px] truncate text-[9px]">{data.unitName}</Badge>{data.external?<Badge variant="outline" className="text-[9px]">reporting parent</Badge>:null}</div>
   </div>;
@@ -46,14 +46,17 @@ export function OrganizationCanvas({ chart, runtime, unitId, selectedSeatId, onU
   const runtimeById = useMemo(() => new Map(runtime.map((row) => [row.seatId, row])), [runtime]);
   const unitById = useMemo(() => new Map(chart.units.map((unit) => [unit.id, unit])), [chart.units]);
   const nodes = useMemo<OrganizationNode[]>(() => {
-    if (!unitId) return organizationUnitLayout(chart).map(({ item, position }) => ({ id: item.id, type: "unit", position, data: { unit: item, seatCount: chart.seats.filter((seat) => seat.unitId === item.id).length } }));
-    return organizationSeatLayout(chart, unitId).map(({ item, position, external }) => ({ id: item.id, type: "seat", position, selected: item.id === selectedSeatId, data: { seat: item, runtime: runtimeById.get(item.id), unitName: unitById.get(item.unitId)?.name ?? item.unitId, external } }));
+    if (!unitId) return organizationUnitLayout(chart).map(({ item, position }) => ({ id: item.id, type: "unit", position, width: 230, height: 96, data: { unit: item, seatCount: chart.seats.filter((seat) => seat.unitId === item.id).length } }));
+    return organizationSeatLayout(chart, unitId).map(({ item, position, external }) => ({ id: item.id, type: "seat", position, width: 238, height: 96, selected: item.id === selectedSeatId, data: { seat: item, runtime: runtimeById.get(item.id), unitName: unitById.get(item.unitId)?.name ?? item.unitId, external } }));
   }, [chart, runtimeById, selectedSeatId, unitById, unitId]);
   const visible = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes]);
   const edges = useMemo<Edge[]>(() => {
-    if (!unitId) return chart.units.filter((unit) => unit.parentUnitId && visible.has(unit.parentUnitId)).map((unit) => ({ id: `unit-${unit.parentUnitId}-${unit.id}`, source: unit.parentUnitId!, target: unit.id, type: "smoothstep" }));
-    return chart.seats.filter((seat) => visible.has(seat.id) && seat.reportsToSeatId && visible.has(seat.reportsToSeatId)).map((seat) => ({ id: `seat-${seat.reportsToSeatId}-${seat.id}`, source: seat.reportsToSeatId!, target: seat.id, type: "smoothstep" }));
-  }, [chart.seats, chart.units, unitId, visible]);
+    if (!unitId) return chart.units.filter((unit) => unit.parentUnitId && visible.has(unit.parentUnitId)).map((unit) => ({ id: `unit-${unit.parentUnitId}-${unit.id}`, source: unit.parentUnitId!, target: unit.id, type: "smoothstep", markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "var(--sep-strong)" }, style: { stroke: "var(--sep-strong)", strokeWidth: 1.6 } }));
+    return chart.seats.filter((seat) => visible.has(seat.id) && seat.reportsToSeatId && visible.has(seat.reportsToSeatId)).map((seat) => {
+      const parent = chart.seats.find((row) => row.id === seat.reportsToSeatId), crossUnit = Boolean(parent && parent.unitId !== seat.unitId), busy = runtimeById.get(seat.id)?.status === "busy" || runtimeById.get(seat.reportsToSeatId!)?.status === "busy", stroke = busy ? "var(--warning)" : "var(--sep-strong)";
+      return { id: `seat-${seat.reportsToSeatId}-${seat.id}`, source: seat.reportsToSeatId!, target: seat.id, type: "smoothstep", animated: busy, markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: stroke }, style: { stroke, strokeWidth: busy ? 2.4 : 1.6, strokeDasharray: crossUnit ? "7 5" : undefined } };
+    });
+  }, [chart.seats, chart.units, runtimeById, unitId, visible]);
 
   return <GraphCanvas<OrganizationNode, Edge>
     key={unitId || "unit-overview"}
@@ -69,5 +72,7 @@ export function OrganizationCanvas({ chart, runtime, unitId, selectedSeatId, onU
     onNodeClick={(_, node) => node.type === "unit" ? onUnitSelect(node.id) : onSeatSelect((node as SeatNode).data.seat)}
     onNodeDoubleClick={(_, node) => { if (node.type === "seat") onSeatOpen((node as SeatNode).data.seat); }}
     fitPadding={0.28}
+    miniMapNodeColor={(node) => node.type === "unit" ? "var(--info)" : (() => { const status = (node as SeatNode).data.runtime?.status ?? "vacant"; return status === "busy" ? "var(--warning)" : status === "ready" ? "var(--success)" : status === "unresolved" ? "var(--destructive)" : "var(--text-dim)"; })()}
+    miniMapNodeStrokeColor={(node) => node.selected ? "var(--accent)" : "var(--border)"}
   />;
 }

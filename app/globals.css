@@ -745,7 +745,11 @@ body {
   backdrop-filter: blur(var(--blur));
 }
 .mso-graph-flow .react-flow__minimap-mask { fill: color-mix(in srgb, var(--surface) 60%, transparent); }
-.mso-graph-flow .react-flow__minimap-node { fill: var(--text-dim); stroke: none; }
+.mso-graph-flow .react-flow__minimap-node { vector-effect: non-scaling-stroke; }
+.mso-graph-flow .react-flow__minimap svg { width: 100%; height: 100%; }
+.mso-graph-flow .mso-graph-secondary-control { border-top: 1px solid var(--border); }
 .mso-graph-flow .react-flow__selection,
 .mso-graph-flow .react-flow__nodesselection-rect { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
-.mso-graph-flow .react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent); }
+.mso-graph-flow .react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent); stroke-width: 2.25; }
+.mso-graph-flow .react-flow__edge-path { transition: stroke 140ms ease, stroke-width 140ms ease, opacity 140ms ease; }
+.mso-graph-flow .react-flow__edge.animated path { stroke-dasharray: 6 6; animation-duration: 0.7s; }

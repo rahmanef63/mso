@@ -29,6 +29,8 @@ describe("workflow graph engine", () => {
     expect(done.state).toBe("completed");
     expect(done.nodes.find((node) => node.id === "yes")?.state).toBe("completed");
     expect(done.nodes.find((node) => node.id === "no")?.state).toBe("skipped");
+    expect(done.edges?.find((edge) => edge.id === "b")?.state).toBe("enabled");
+    expect(done.edges?.find((edge) => edge.id === "c")?.state).toBe("disabled");
   });
   it("pinpoints the failed node and blocks downstream nodes", async () => {
     const graph = await createWorkflowGraph("graph-owner", { name: "Failure", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
@@ -41,6 +43,7 @@ describe("workflow graph engine", () => {
     const done = await workflowGraphRunStatus("graph-owner", started.id, 5000);
     expect(done.state).toBe("failed"); expect(done.failedNodeId).toBe("bad"); expect(done.failedNodeName).toBe("Broken tool");
     expect(done.nodes.find((node) => node.id === "after")?.state).toBe("blocked");
+    expect(done.edges?.find((edge) => edge.id === "e")?.state).toBe("pending");
     expect(done.nodes.find((node) => node.id === "bad")?.logs.join(" ")).toContain("fixture exploded");
   });
   it("keeps run receipts private to the principal", async () => {

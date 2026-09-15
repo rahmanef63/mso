@@ -11,6 +11,7 @@ import { bindLoopItem, bindWorkflowValue } from "./graph-bindings";
 import { executeFlowNode, workflowItems, type FlowNodeResult } from "./graph-flow-nodes";
 import { workflowVariableValues } from "./variables";
 import { organizationLocalAgentPrincipal, resolveOrganizationSeat } from "@/lib/agent/organization-runtime";
+import { workflowCacheDelete, workflowCacheGet, workflowCacheSet } from "./cache-store";
 
 type Resolver = (name: string) => CapabilityTool | undefined;
 type NodeExecutionResult = FlowNodeResult;
@@ -68,6 +69,53 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
     if (!project) throw new Error("knowledge node requires project binding");
     if (typeof config.query === "string" && config.query) return { output: await callTool("project_memory_search", { project, query: config.query, limit: Number(config.limit) || 8, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, context, resolve), log: "Project memory queried." };
     return { output: await callTool("project_knowledge_get", { project, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, context, resolve), log: "Project knowledge resolved." };
+  }
+  if (node.type === "cache") {
+    const key = typeof config.key === "string" ? config.key : `${graph.id}:${node.id}`;
+    const mode = typeof config.mode === "string" ? config.mode : "get";
+    if (mode === "delete") return { output: await workflowCacheDelete(principal, key), log: `Cache ${key} deleted.` };
+    if (mode === "get") return { output: await workflowCacheGet(principal, key), log: `Cache ${key} read.` };
+    if (mode === "get_or_set") {
+      const hit = await workflowCacheGet(principal, key); if (hit.hit) return { output: hit, log: `Cache ${key} hit.` };
+      const stored = await workflowCacheSet(principal, key, Object.hasOwn(config, "value") ? config.value : graphInput, Number(config.ttlSeconds) || 300);
+      return { output: { ...stored, cacheMiss: true }, log: `Cache ${key} populated.` };
+    }
+    if (mode === "set") return { output: await workflowCacheSet(principal, key, Object.hasOwn(config, "value") ? config.value : graphInput, Number(config.ttlSeconds) || 300), log: `Cache ${key} stored.` };
+    throw new Error("cache node mode must be get, set, get_or_set, or delete");
+  }
+  if (node.type === "memory") {
+    const scope = config.scope === "project" ? "project" : "agent", mode = typeof config.mode === "string" ? config.mode : "search";
+    if (scope === "project") {
+      if (!project) throw new Error("project memory node requires project binding");
+      if (mode === "search") return { output: await callTool("project_memory_search", { project, query: String(config.query ?? ""), limit: Number(config.limit) || 8 }, context, resolve), log: "Project memory searched." };
+      if (mode === "remember") return { output: await callTool("project_memory_upsert", { project, kind: String(config.kind ?? "decision"), title: String(config.title ?? node.name), summary: String(config.value ?? config.summary ?? ""), source: "automation" }, context, resolve), log: "Project memory persisted." };
+      throw new Error("project memory node supports search or remember");
+    }
+    if (mode === "read") return { output: await callTool("agent_memory_read", {}, context, resolve), log: "Agent memory read." };
+    if (mode === "search") return { output: await callTool("agent_memory_search", { query: String(config.query ?? ""), limit: Number(config.limit) || 12, ...(typeof config.document === "string" && config.document ? { document: config.document } : {}) }, context, resolve), log: "Agent memory searched." };
+    if (mode === "remember") return { output: await callTool("agent_memory_remember", { document: String(config.document ?? "MEMORY.md"), key: String(config.key ?? node.id), value: String(config.value ?? ""), kind: String(config.kind ?? "procedural"), mode: String(config.writeMode ?? "replace") }, context, resolve), log: "Agent memory persisted." };
+    if (mode === "forget") return { output: await callTool("agent_memory_forget", { document: String(config.document ?? "MEMORY.md"), key: String(config.key ?? "") }, context, resolve), log: "Agent memory forgotten." };
+    throw new Error("agent memory node mode must be read, search, remember, or forget");
+  }
+  if (node.type === "session") {
+    const mode = typeof config.mode === "string" ? config.mode : "current";
+    if (mode === "current") return { output: await callTool("agent_session_current", {}, context, resolve), log: "Current durable session resolved." };
+    if (mode === "list") return { output: await callTool("agent_sessions_list", { limit: Number(config.limit) || 20 }, context, resolve), log: "Durable sessions listed." };
+    if (mode === "resume") return { output: await callTool("agent_session_resume", { session_id: String(config.sessionId ?? "") }, context, resolve), log: "Session resume packet loaded." };
+    if (mode === "note") return { output: await callTool("agent_session_note", { note: String(config.note ?? "") }, context, resolve), log: "Session note saved." };
+    throw new Error("session node mode must be current, list, resume, or note");
+  }
+  if (node.type === "directory") {
+    const source = typeof config.source === "string" ? config.source : "tools", query = String(config.query ?? "").toLowerCase().trim();
+    if (source === "tools") {
+      const tools = context.capabilities?.list(context.scope) ?? [];
+      return { output: { tools: tools.filter((tool) => !query || `${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query)).slice(0, Math.max(1, Math.min(100, Number(config.limit) || 50))) }, log: "MSO capability directory queried." };
+    }
+    if (source === "workflows") { const { listWorkflowGraphs } = await import("./graph-store"); const rows = await listWorkflowGraphs(principal); return { output: { workflows: rows.filter((row) => !query || `${row.name} ${row.description} ${(row.metadata.tags ?? []).join(" ")}`.toLowerCase().includes(query)).map((row) => ({ id: row.id, name: row.name, status: row.status, updatedAt: row.updatedAt, nodes: row.nodes.length })) }, log: "Workflow directory queried." }; }
+    if (source === "sessions") return { output: await callTool("agent_sessions_list", { limit: Number(config.limit) || 30 }, context, resolve), log: "Session directory queried." };
+    if (source === "projects") return { output: await callTool("projects_list", { query: String(config.query ?? "") }, context, resolve), log: "Project directory queried." };
+    if (source === "skills") return { output: await callTool("skills_search", { query: String(config.query ?? node.name), top_k: Number(config.limit) || 12 }, context, resolve), log: "Skill directory queried." };
+    throw new Error("directory node source must be tools, workflows, sessions, projects, or skills");
   }
   const flow = await executeFlowNode(node, config, graph, outputs, runtime); if (flow) return flow;
   if (node.type === "output") return { output: Object.hasOwn(config, "value") ? config.value : { nodes: outputs }, log: "Workflow output collected." };

@@ -36,9 +36,10 @@ export async function organizationJourney(page, fixture) {
 
   await page.goto(fixture.base + "/organization");
   await expect(page.getByRole("application", { name: "Organization units canvas" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Select mode" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Pan mode" })).toBeVisible();
-  await expect(page.getByLabel("Organization units canvas minimap")).toBeVisible();
+  for (const name of ["Select mode", "Pan mode", "Zoom in", "Zoom out", "Fit view"]) await expect(page.getByRole("button", { name })).toBeVisible();
+  const unitMinimap = page.getByLabel("Organization units canvas minimap");
+  await expect(unitMinimap).toBeVisible();
+  await expect(unitMinimap.locator(".react-flow__minimap-node")).toHaveCount(2);
   await expect(page.getByText("E2E Holding", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("E2E Product", { exact: true }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -46,6 +47,11 @@ export async function organizationJourney(page, fixture) {
   await page.getByRole("button", { name: /E2E Product/ }).click();
   await expect(page.getByRole("application", { name: "Organization seats canvas" })).toBeVisible();
   await expect(page.locator(".react-flow__node", { hasText: "Chief Executive Officer" })).toBeVisible();
+  const seatMinimap = page.getByLabel("Organization seats canvas minimap");
+  await expect(seatMinimap.locator(".react-flow__minimap-node")).toHaveCount(2);
+  const reportingEdge = page.getByRole("img", { name: "Edge from e2e-ceo to e2e-cto" }).locator(".react-flow__edge-path");
+  await expect(reportingEdge).toHaveAttribute("marker-end", /url/);
+  expect(await reportingEdge.evaluate((el) => getComputedStyle(el).strokeDasharray)).not.toBe("none");
   const cto = page.locator(".react-flow__node", { hasText: "Chief Technology Officer" });
   await expect(cto).toBeVisible();
   await cto.click();
@@ -65,5 +71,5 @@ export async function organizationJourney(page, fixture) {
     expect(response.status).toBe(200); revision = response.body.chart.revision;
   }
   expect((await call(page, "/api/v1/organization")).body.chart.units).toHaveLength(0);
-  console.log("PASS Organization hierarchy, cross-unit reporting, responsive chart, seat edit/routing and cleanup");
+  console.log("PASS Organization 5/5 canvas controls, populated minimap, directional cross-unit reporting edge, seat edit/routing and cleanup");
 }

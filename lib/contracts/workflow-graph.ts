@@ -1,6 +1,6 @@
 export const WORKFLOW_GRAPH_NODE_TYPES = [
   "manual", "schedule", "webhook", "tool", "project_function", "project_mcp", "integration", "script", "agent", "subflow",
-  "condition", "switch", "merge", "batch", "loop", "wait", "project", "folder", "skill", "knowledge", "output",
+  "condition", "switch", "merge", "batch", "loop", "wait", "cache", "memory", "session", "directory", "project", "folder", "skill", "knowledge", "output",
 ] as const;
 export type WorkflowGraphNodeType = (typeof WORKFLOW_GRAPH_NODE_TYPES)[number];
 export type WorkflowGraphStatus = "draft" | "active" | "archived";
@@ -51,6 +51,11 @@ export type WorkflowGraph = {
 };
 
 export type WorkflowGraphNodeState = "queued" | "running" | "completed" | "failed" | "skipped" | "blocked";
+export type WorkflowGraphRunEdgeState = "pending" | "enabled" | "disabled";
+export type WorkflowGraphRunEdge = {
+  id: string; source: string; target: string; sourceHandle?: string; state: WorkflowGraphRunEdgeState;
+};
+
 export type WorkflowGraphRunNode = {
   id: string;
   name: string;
@@ -87,6 +92,7 @@ export type WorkflowGraphRun = {
   pid: number;
   instance: string;
   nodes: WorkflowGraphRunNode[];
+  edges?: WorkflowGraphRunEdge[];
   trigger?: { type: "manual" | "schedule" | "webhook" | "system"; nodeId?: string; receivedAt: string };
   ancestry?: string[];
 };

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
 import { roleAtLeast } from "@/lib/auth/roles";
-import { createAgentSession } from "@/lib/agent/session-store";
+import { createAgentSession, listAgentSessions } from "@/lib/agent/session-store";
 import { readSetupJson } from "@/lib/infra/setup-http";
 import { rateLimited } from "@/lib/host/limits-api";
 import { maxScope } from "@/lib/mcp/scope";
@@ -21,6 +21,7 @@ const fail=(error:unknown,status=400)=>NextResponse.json({error:error instanceof
 async function auth(minimum:"viewer"|"operator"|"owner"="viewer"){const context=await getSessionContext();if(!context?.session.device_id||!roleAtLeast(context.role,minimum))return null;return{context,principal:`web:${context.session.device_id}`};}
 function definition(graph:NonNullable<Awaited<ReturnType<typeof getWorkflowGraph>>>){const{revision:_r,createdAt:_c,updatedAt:_u,version:_v,...rest}=graph;return rest;}
 export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,minimum=q.has("variables")?"operator":"viewer",session=await auth(minimum);if(!session)return fail("unauthorized",401);try{
+ if(q.get("directory")==="1"){const query=(q.get("q")??"").toLowerCase().trim(),tools=msoCapabilityRuntime.list(maxScope()).filter((tool)=>!query||`${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query)).slice(0,150),graphs=await listWorkflowGraphs(session.principal),sessions=await listAgentSessions(session.principal,50);return NextResponse.json({tools,workflows:graphs.filter((graph)=>!query||`${graph.name} ${graph.description} ${(graph.metadata.tags??[]).join(" ")}`.toLowerCase().includes(query)).map((graph)=>({id:graph.id,name:graph.name,status:graph.status,nodeCount:graph.nodes.length,updatedAt:graph.updatedAt})),sessions:sessions.filter((row)=>!query||`${row.title} ${row.name} ${row.cwd??""}`.toLowerCase().includes(query))},{headers});}
  if(q.get("catalog")==="1")return NextResponse.json({nodes:workflowNodeCatalog(q.get("q")??"")},{headers});
  if(q.get("templates")==="1")return NextResponse.json({templates:workflowTemplates()},{headers});
  if(q.get("variables")==="1")return NextResponse.json({variables:await listWorkflowVariables(session.principal)},{headers});
