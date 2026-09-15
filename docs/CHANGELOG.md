@@ -21,6 +21,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `workflows` complete cli and release gates
 - `mcp` expose downstream project tool results (#43)
 
+**Tests**
+
+- `cli` include organization command module in route coverage
+
 ## 2026-09-14
 
 **Added**

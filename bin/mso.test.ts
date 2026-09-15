@@ -15,6 +15,7 @@ const commandOwnerFiles = [
   "scripts/cli/flows.sh",
   "scripts/cli/workflows.sh",
   "scripts/cli/commands-state.sh",
+  "scripts/cli/organization.sh",
   "scripts/cli/config-command.sh",
   "scripts/cli/commands-admin.sh",
 ];
