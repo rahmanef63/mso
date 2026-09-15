@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { CapabilityRunContext, CapabilityTool } from "@/lib/capabilities/tool";
 import type { WorkflowGraph, WorkflowGraphRun } from "@/lib/contracts/workflow-graph";
 import { redactText } from "@/lib/security/redact-text";
-import { assertWorkflowMetadataOnly, graphObject } from "./graph-schema";
+import { graphObject } from "./graph-schema";
 import { workflowGraphOwner } from "./graph-store";
 import { compact, executeNode } from "./graph-runtime";
 import { lockWorkflowGraphRun, pruneWorkflowGraphRuns, publicWorkflowGraphRun, readWorkflowGraphRun, writeWorkflowGraphRun } from "./graph-run-store";
@@ -15,11 +15,21 @@ type Resolver = (name: string) => CapabilityTool | undefined;
 export type WorkflowRunTrigger = WorkflowGraphRun["trigger"];
 function hash(value: string): string { return createHash("sha256").update(value).digest("hex"); }
 function canonical(value: unknown): string { if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`; if (value && typeof value === "object") return `{${Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`; return JSON.stringify(value); }
-function inputObject(raw: unknown): Record<string, unknown> { if (!graphObject(raw) || Buffer.byteLength(JSON.stringify(raw)) > 64 * 1024) throw new Error("workflow graph input must be an object up to 64 KiB"); assertWorkflowMetadataOnly(raw); return structuredClone(raw); }
+function assertRuntimeInput(value: unknown, depth = 0): void {
+  if (depth > 14) throw new Error("workflow runtime input too deep");
+  if (Array.isArray(value)) { value.forEach((item) => assertRuntimeInput(item, depth + 1)); return; }
+  if (!graphObject(value)) return;
+  for (const [key, child] of Object.entries(value)) {
+    if (["__proto__", "constructor", "prototype"].includes(key)) throw new Error("workflow runtime input contains an unsafe key");
+    assertRuntimeInput(child, depth + 1);
+  }
+}
+function inputObject(raw: unknown): Record<string, unknown> { if (!graphObject(raw) || Buffer.byteLength(JSON.stringify(raw)) > 64 * 1024) throw new Error("workflow graph input must be an object up to 64 KiB"); assertRuntimeInput(raw); return structuredClone(raw); }
 function retryPolicy(node: WorkflowGraph["nodes"][number]) { const raw = graphObject(node.config.retry) ? node.config.retry : {}; return { maxAttempts: Math.max(1, Math.min(5, Math.trunc(Number(raw.maxAttempts) || 1))), backoffMs: Math.max(0, Math.min(30_000, Math.trunc(Number(raw.backoffMs) || 0))) }; }
 function sleep(ms:number){return ms?new Promise((resolve)=>setTimeout(resolve,ms)):Promise.resolve();}
 function secretText(text:string,secrets:string[]){let out=text;for(const value of secrets)out=out.split(value).join("[REDACTED]");return out;}
-function secretValue(value:unknown,secrets:string[],depth=0):unknown{if(depth>14)return "[TRUNCATED]";if(typeof value==="string")return secretText(value,secrets);if(Array.isArray(value))return value.map((item)=>secretValue(item,secrets,depth+1));if(value&&typeof value==="object")return Object.fromEntries(Object.entries(value).map(([key,child])=>[key,secretValue(child,secrets,depth+1)]));return value;}
+const RECEIPT_SECRET_KEY = /^(secrets?|secretValue|password|passphrase|token|apiKey|apiToken|accessToken|refreshToken|authorization|headers|cookie|cookies)$/i;
+function secretValue(value:unknown,secrets:string[],depth=0):unknown{if(depth>14)return "[TRUNCATED]";if(typeof value==="string")return secretText(value,secrets);if(Array.isArray(value))return value.map((item)=>secretValue(item,secrets,depth+1));if(value&&typeof value==="object")return Object.fromEntries(Object.entries(value).map(([key,child])=>[key,RECEIPT_SECRET_KEY.test(key)?"[REDACTED]":secretValue(child,secrets,depth+1)]));return value;}
 
 async function execute(run: WorkflowGraphRun, graph: WorkflowGraph, input: Record<string, unknown>, context: CapabilityRunContext, resolve: Resolver): Promise<void> {
   const rows = new Map(run.nodes.map((row) => [row.id, row])), outputs: Record<string, unknown> = {}, secrets = await workflowSecretValues(context.principal ?? context.actor ?? ""), edgeState = new Map(graph.edges.map((edge) => [edge.id, "pending" as "pending"|"enabled"|"disabled"]));

@@ -100,4 +100,15 @@ describe("workflow graph engine", () => {
     const recursive = await startWorkflowGraph(parent, {}, "subflow-recursive", context, () => undefined), recursiveDone = await workflowGraphRunStatus("graph-owner", recursive.id, 5000);
     expect(recursiveDone.state).toBe("failed"); expect(recursiveDone.nodes.find((node) => node.id === "child")?.error).toContain("recursive");
   });
+  it("accepts secret-shaped runtime input but redacts it from persisted trigger receipts", async () => {
+    const graph = await createWorkflowGraph("graph-owner", { name: "Runtime input", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
+      { id: "start-runtime", name: "Webhook", type: "webhook", position: { x: 0, y: 0 }, config: {} },
+      { id: "runtime-out", name: "Out", type: "output", position: { x: 100, y: 0 }, config: { value: { ok: true } } },
+    ], edges: [{ id: "runtime-e", source: "start-runtime", target: "runtime-out" }] });
+    const started = await startWorkflowGraph(graph, { headers: { authorization: "Bearer abc" }, body: { token: "incoming-token", safe: "visible" } }, "runtime-secret-input", context, () => undefined, "graph-owner", { type: "webhook", nodeId: "start-runtime", receivedAt: new Date().toISOString() });
+    const done = await workflowGraphRunStatus("graph-owner", started.id, 5000), receipt = JSON.stringify(done);
+    expect(done.state).toBe("completed");
+    expect(receipt).not.toContain("Bearer abc"); expect(receipt).not.toContain("incoming-token"); expect(receipt).toContain("[REDACTED]"); expect(receipt).toContain("visible");
+  });
+
 });

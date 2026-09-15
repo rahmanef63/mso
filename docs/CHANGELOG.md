@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `workflows` separate runtime input from graph secret guards
 - `workflows` allow inbound webhook trigger boundary
 - `workflows` honor responsive shell modal policy
 - `workflows` compact graph mcp surface
