@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@xyflow/react/dist/style.css";
 
 /* Dark is driven by [data-theme=dark] (os-rr convention), so shadcn `dark:`
    utilities key off the same attribute. */
@@ -704,3 +705,47 @@ body {
 }
 [data-shell="ios"] [data-slot="widget-card"] { border-radius: 22px; }
 [data-slot="mobile-widgets"], [data-slot="quicklinks-widget-grid"] { max-width: 100%; }
+
+/* Shared node-canvas chrome (Organization + Workflows). */
+.mso-graph-flow {
+  --xy-background-color: transparent;
+  --xy-node-border: 1px solid var(--border);
+  --xy-handle-background-color: var(--background);
+  --xy-handle-border-color: var(--sep-strong);
+  --xy-edge-stroke: var(--sep-strong);
+  --xy-edge-stroke-selected: var(--accent);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+}
+.mso-graph-flow .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.125rem);
+  background: var(--glass-panel);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(var(--blur));
+}
+.mso-graph-flow .react-flow__controls-button {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+.mso-graph-flow .react-flow__controls-button:last-child { border-bottom: 0; }
+.mso-graph-flow .react-flow__controls-button:hover,
+.mso-graph-flow .react-flow__controls-button.is-active { background: var(--hover-strong); }
+.mso-graph-flow .react-flow__controls-button svg { max-width: 0.9rem; max-height: 0.9rem; fill: none; }
+.mso-graph-flow .react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.125rem);
+  background: var(--glass-panel);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: blur(var(--blur));
+}
+.mso-graph-flow .react-flow__minimap-mask { fill: color-mix(in srgb, var(--surface) 60%, transparent); }
+.mso-graph-flow .react-flow__minimap-node { fill: var(--text-dim); stroke: none; }
+.mso-graph-flow .react-flow__selection,
+.mso-graph-flow .react-flow__nodesselection-rect { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.mso-graph-flow .react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent); }

@@ -6,6 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { mcpOwnerJourneys, mcpPublicJourney, settingsAccessibilityJourney } from "./mcp-settings.mjs";
 import { automationJourney } from "./automation.mjs";
 import { organizationJourney } from "./organization.mjs";
+import { workflowCanvasJourney } from "./workflow-canvas.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
 
 execFileSync(process.execPath, ["scripts/e2e/mcp-page.mjs"], { stdio: "inherit" });
@@ -118,6 +119,7 @@ try {
   await mcpOwnerJourneys(page, fixture);
   await automationJourney(page, fixture);
   await organizationJourney(page, fixture);
+  await workflowCanvasJourney(page, fixture);
   await fixture.setRole("viewer");
   expect((await call("/api/v1/agent-sessions?view=monitor")).status).toBe(403);
   expect((await call("/api/v1/integrations")).status).toBe(403);

@@ -67,7 +67,7 @@ const check = (cond, m) => (cond ? pass(m) : fail(m));
 const TITLES = {
   files: "Files", browser: "Camoufox", code: "Code", terminal: "Terminal", claude: "Claude Code",
   studio: "Image Editor", reel: "Video Editor", viewer: "Preview", store: "App Store", create: "Create App",
-  monitor: "System Monitor", assistant: "Alfa", links: "Quicklinks", docs: "Docs", settings: "Settings",
+  monitor: "System Monitor", assistant: "Alfa", organization: "Organization", workflows: "Workflows", links: "Quicklinks", docs: "Docs", settings: "Settings",
   hermes: "Hermes", openclaw: "OpenClaw", "9router": "9Router", dokploy: "Dokploy", cloudflare: "Cloudflare",
 };
 
@@ -188,7 +188,7 @@ async function session(browser, { width, height, label, touch = width < 768, exp
   // this app render", and conflating them made both unreliable.
   const nativeSlugs = [
     "files", "browser", "code", "terminal", "claude", "studio", "reel", "viewer",
-    "store", "create", "monitor", "assistant", "links", "docs", "settings", "dokploy", "cloudflare",
+    "store", "create", "monitor", "assistant", "organization", "workflows", "links", "docs", "settings", "dokploy", "cloudflare",
   ];
   for (const slug of nativeSlugs) {
     await page.goto(`${BASE}/${slug}`, { waitUntil: "domcontentloaded" });

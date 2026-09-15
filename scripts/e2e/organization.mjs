@@ -34,21 +34,28 @@ export async function organizationJourney(page, fixture) {
   });
   expect(response.status).toBe(200);
 
-  await page.goto(fixture.base + "/assistant/organization");
-  await expect(page.getByRole("button", { name: "Organization", exact: true })).toBeVisible();
-  await expect(page.getByText("All organization", { exact: true })).toBeVisible();
-  await expect(page.getByText("Chief Executive Officer", { exact: true })).toBeVisible();
-  await expect(page.getByText("Chief Technology Officer", { exact: true })).toBeVisible();
+  await page.goto(fixture.base + "/organization");
+  await expect(page.getByRole("application", { name: "Organization units canvas" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Select mode" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pan mode" })).toBeVisible();
+  await expect(page.getByLabel("Organization units canvas minimap")).toBeVisible();
   await expect(page.getByText("E2E Holding", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("E2E Product", { exact: true }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 
-  await page.getByRole("button", { name: /Chief Technology Officer/ }).click();
+  await page.getByRole("button", { name: /E2E Product/ }).click();
+  await expect(page.getByRole("application", { name: "Organization seats canvas" })).toBeVisible();
+  await expect(page.locator(".react-flow__node", { hasText: "Chief Executive Officer" })).toBeVisible();
+  const cto = page.locator(".react-flow__node", { hasText: "Chief Technology Officer" });
+  await expect(cto).toBeVisible();
+  await cto.click();
+  await expect(page.getByRole("button", { name: "Edit seat" })).toBeVisible();
+  await page.getByRole("button", { name: "Edit seat" }).click();
   await expect(page.getByRole("heading", { name: "Edit seat" })).toBeVisible();
   await page.getByLabel("Execution target").selectOption("project-agent");
   await page.getByRole("textbox", { name: "Project", exact: true }).fill("fixture-project");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("fixture-project", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Edit seat" })).toBeHidden();
 
   response = await call(page, "/api/v1/organization");
   expect(response.status).toBe(200); revision = response.body.chart.revision;
