@@ -107,7 +107,7 @@ describe("workflow_start bootstrap", () => {
 
   it("replays a bounded read-only candidate script and promotes it to tested", async () => {
     const runner = LEARNING_TOOLS.find((tool) => tool.name === "project_script_run")!;
-    const { writeAutomationScript, readAutomationScript } = await import("@/lib/orchestration/repo-memory-artifacts");
+    const { writeAutomationScript, readAutomationScript, listAutomationScripts } = await import("@/lib/orchestration/repo-memory-artifacts");
     const now = new Date().toISOString();
     const script = {
       schemaVersion: 1 as const, id: "script-test-health", recipeId: "recipe-test-health",
@@ -120,6 +120,7 @@ describe("workflow_start bootstrap", () => {
       createdAt: now, updatedAt: now,
     };
     await writeAutomationScript(project, script, script.id, true);
+    await expect(listAutomationScripts(project)).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: script.id, status: "candidate", intent: "verify system health" })]));
     const result = await runner.run({ project, script_id: script.id }, { actor: "mcp:script", scope: "write" }) as {
       status: string; success: boolean; stepsExecuted: number; outputs: Array<{ tool: string; state: string }>; manifestPath?: string;
     };

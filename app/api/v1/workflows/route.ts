@@ -16,12 +16,16 @@ import { deleteWorkflowVariable, listWorkflowVariables, setWorkflowVariable } fr
 import { workflowNodeCatalog } from "@/lib/workflow/node-catalog";
 import { workflowTemplate, workflowTemplates } from "@/lib/workflow/templates";
 import { suggestWorkflowGraph } from "@/lib/workflow/ai-assist";
+import { workflowMatchesQuery } from "@/lib/workflow/search";
+import { resolveProjectHint } from "@/lib/host/projects-api";
+import { listAutomationScripts } from "@/lib/orchestration/repo-memory-artifacts";
 export const runtime="nodejs";export const dynamic="force-dynamic";const headers={"Cache-Control":"no-store, private"};
 const fail=(error:unknown,status=400)=>NextResponse.json({error:error instanceof Error?error.message.slice(0,500):String(error).slice(0,500)||"workflow request failed"},{status,headers});
 async function auth(minimum:"viewer"|"operator"|"owner"="viewer"){const context=await getSessionContext();if(!context?.session.device_id||!roleAtLeast(context.role,minimum))return null;return{context,principal:`web:${context.session.device_id}`};}
 function definition(graph:NonNullable<Awaited<ReturnType<typeof getWorkflowGraph>>>){const{revision:_r,createdAt:_c,updatedAt:_u,version:_v,...rest}=graph;return rest;}
 export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,minimum=q.has("variables")?"operator":"viewer",session=await auth(minimum);if(!session)return fail("unauthorized",401);try{
  if(q.get("directory")==="1"){const query=(q.get("q")??"").toLowerCase().trim(),tools=msoCapabilityRuntime.list(maxScope()).filter((tool)=>!query||`${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query)).slice(0,150),graphs=await listWorkflowGraphs(session.principal),sessions=await listAgentSessions(session.principal,50);return NextResponse.json({tools,workflows:graphs.filter((graph)=>!query||`${graph.name} ${graph.description} ${(graph.metadata.tags??[]).join(" ")}`.toLowerCase().includes(query)).map((graph)=>({id:graph.id,name:graph.name,status:graph.status,nodeCount:graph.nodes.length,updatedAt:graph.updatedAt})),sessions:sessions.filter((row)=>!query||`${row.title} ${row.name} ${row.cwd??""}`.toLowerCase().includes(query))},{headers});}
+ if(q.get("scripts")==="1"){const hint=q.get("project")?.trim();if(!hint)throw new Error("project is required");const project=await resolveProjectHint(hint);if(!project||project.matchedBy==="fuzzy")throw new Error("exact project not found");const query=(q.get("q")??"").toLowerCase().trim(),scripts=(await listAutomationScripts(project.path)).filter((script)=>!query||`${script.id} ${script.intent} ${script.status} ${script.steps.map((step)=>step.tool).join(" ")}`.toLowerCase().includes(query)).map((script)=>({id:script.id,intent:script.intent,status:script.status,stepCount:script.steps.length,updatedAt:script.updatedAt,project:script.project,tools:script.steps.map((step)=>step.tool)}));return NextResponse.json({project:project.id,scripts},{headers});}
  if(q.get("catalog")==="1")return NextResponse.json({nodes:workflowNodeCatalog(q.get("q")??"")},{headers});
  if(q.get("templates")==="1")return NextResponse.json({templates:workflowTemplates()},{headers});
  if(q.get("variables")==="1")return NextResponse.json({variables:await listWorkflowVariables(session.principal)},{headers});
@@ -30,7 +34,7 @@ export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,mini
  if(q.has("run_id"))return NextResponse.json(await workflowGraphRunStatus(session.principal,q.get("run_id")!,Number(q.get("wait_ms"))||0),{headers});
  if(q.has("graph_id")&&q.has("node_id")&&q.get("resolve")==="target"){const graph=await getWorkflowGraph(session.principal,q.get("graph_id")!);if(!graph)throw new Error("workflow graph not found");return NextResponse.json(await resolveWorkflowGraphNodeTarget(graph,q.get("node_id")!),{headers});}
  if(q.has("graph_id")){const graph=await getWorkflowGraph(session.principal,q.get("graph_id")!);if(!graph)return fail("workflow graph not found",404);return NextResponse.json({graph},{headers});}
- return NextResponse.json({graphs:await listWorkflowGraphs(session.principal)},{headers});
+ const graphs=await listWorkflowGraphs(session.principal),query=q.get("q")??"",filters={tag:q.get("tag")||undefined,status:q.get("status")||undefined,project:q.get("project")||undefined,folder:q.get("folder")||undefined,node:q.get("node")||undefined}; return NextResponse.json({graphs:graphs.filter((graph)=>workflowMatchesQuery(graph,query,filters))},{headers});
  }catch(error){return fail(error);}}
 export async function POST(req:NextRequest){const session=await auth("operator");if(!session)return fail("operator_required",403);try{const body=await readSetupJson(req),action=typeof body.action==="string"?body.action:"";if(rateLimited(`workflow:${action}:${session.context.session.device_id}`,action==="run"?60:30,60_000))return fail("rate_limited",429);
  if(action==="create")return NextResponse.json({graph:await createWorkflowGraph(session.principal,body.graph)},{headers});

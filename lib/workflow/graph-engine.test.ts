@@ -103,6 +103,21 @@ describe("workflow graph engine", () => {
     const recursive = await startWorkflowGraph(parent, {}, "subflow-recursive", context, () => undefined), recursiveDone = await workflowGraphRunStatus("graph-owner", recursive.id, 5000);
     expect(recursiveDone.state).toBe("failed"); expect(recursiveDone.nodes.find((node) => node.id === "child")?.error).toContain("recursive");
   });
+  it("executes a saved RASMIC script node through project_script_run", async () => {
+    let received: Record<string, unknown> | undefined;
+    const graph = await createWorkflowGraph("graph-owner", { name: "Script run", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
+      { id: "script-start", name: "Start", type: "manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "script-node", name: "Saved script", type: "script", position: { x: 100, y: 0 }, config: { project: "mso", script_id: "script-health" } },
+      { id: "script-out", name: "Out", type: "output", position: { x: 200, y: 0 }, config: {} },
+    ], edges: [{ id: "script-e1", source: "script-start", target: "script-node" }, { id: "script-e2", source: "script-node", target: "script-out" }] });
+    const tool: CapabilityTool = { name: "project_script_run", description: "fixture", scope: "write", inputSchema: { type: "object", properties: {} }, run: async (args) => { received = args; return { success: true, status: "tested" }; } };
+    const started = await startWorkflowGraph(graph, {}, "script-run-once", context, (name) => name === tool.name ? tool : undefined);
+    const done = await workflowGraphRunStatus("graph-owner", started.id, 5000);
+    expect(done.state).toBe("completed");
+    expect(received).toMatchObject({ project: "mso", script_id: "script-health" });
+    expect(done.nodes.find((node) => node.id === "script-node")?.logs.join(" ")).toContain("script-health");
+  });
+
   it("accepts secret-shaped runtime input but redacts it from persisted trigger receipts", async () => {
     const graph = await createWorkflowGraph("graph-owner", { name: "Runtime input", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
       { id: "start-runtime", name: "Webhook", type: "webhook", position: { x: 0, y: 0 }, config: {} },

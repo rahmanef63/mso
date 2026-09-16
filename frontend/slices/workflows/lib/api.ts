@@ -25,3 +25,6 @@ export async function resolveNode(graphId:string,nodeId:string){return json<{pro
 
 export type WorkflowDirectory = {tools:Array<{name:string;description:string;scope:string;inputSchema:Record<string,unknown>}>;workflows:Array<{id:string;name:string;status:string;nodeCount:number;updatedAt:string}>;sessions:Array<{id:string;title:string;name:string;updatedAt:string;cwd?:string;source:string}>};
 export async function listWorkflowDirectory(query=""){return cachedWorkflowResource(`directory:${query}`,15000,()=>json<WorkflowDirectory>(`/api/v1/workflows?directory=1&q=${encodeURIComponent(query)}`));}
+
+export type WorkflowScriptSummary = { id:string; intent:string; status:"candidate"|"tested"; stepCount:number; updatedAt:string; project?:string; tools:string[] };
+export async function listWorkflowScripts(project:string,query=""){const q=new URLSearchParams({scripts:"1",project});if(query.trim())q.set("q",query.trim());return cachedWorkflowResource(`scripts:${project}:${query}`,15000,async()=> (await json<{project:string;scripts:WorkflowScriptSummary[]}>(`/api/v1/workflows?${q}`)).scripts);}

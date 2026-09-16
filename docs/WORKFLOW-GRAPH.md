@@ -51,7 +51,7 @@ Graph edges stay acyclic. Repetition is represented by the bounded `loop` node o
 - `project_function`
 - `project_mcp`
 - `integration`
-- `script`
+- `script` — execute a saved, validated repo-local RASMIC automation manifest by `project + script_id`; the graph stores only the reference, while runtime re-validates the manifest before replay
 - `agent`
 - `project`
 - `folder`
@@ -59,6 +59,8 @@ Graph edges stay acyclic. Repetition is represented by the bounded `loop` node o
 - `knowledge`
 
 Project/folder nodes resolve the live canonical server path when the graph runs and can open that real directory in MSO Files/Finder.
+
+Script nodes intentionally do **not** execute arbitrary shell or browser-supplied JavaScript. The Inspector can search the selected project's `.agent/scripts` catalog, shows candidate/tested state and step count, and persists the chosen `script_id` in the graph. Execution delegates to `project_script_run`, which re-reads the manifest and refuses steps outside the bounded replay-safe RASMIC policy. A successful candidate replay is promoted to tested by the existing script runner.
 
 ## Data binding
 
@@ -122,7 +124,7 @@ AI assistance has an isolated workflow-design system prompt, receives no implici
 
 `/workflows` provides:
 
-- private searchable workflow library with folder/tag metadata
+- private searchable workflow library with description/project/folder/tag metadata, clickable tag chips, and shared query syntax (`tag:`, `status:`, `project:`, `folder:`, `node:` plus free-text AND terms)
 - draft / active / archived lifecycle
 - searchable node palette
 - draggable canvas
@@ -165,7 +167,7 @@ MSO deliberately keeps this capability behind one compact MCP tool to preserve t
 
 Actions:
 
-`list`, `get`, `create`, `update`, `delete`, `clone`, `run`, `status`, `runs`, `versions`, `restore`, `catalog`, `templates`, `create_from_template`, `variables`, `variable_set`, `variable_delete`.
+`list`, `search`, `get`, `create`, `update`, `delete`, `clone`, `run`, `status`, `runs`, `versions`, `restore`, `catalog`, `scripts`, `templates`, `create_from_template`, `variables`, `variable_set`, `variable_delete`. `list` and `search` accept the same workflow query/filter semantics used by the UI; `scripts` returns safe RASMIC manifest summaries for an exact project without exposing raw script files or credentials.
 
 The linear `flow_catalog`, `flow_manage`, `flow_run` and `flow_status` tools remain compatible for small deterministic project-owned sequences.
 

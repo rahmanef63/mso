@@ -54,3 +54,18 @@ export async function readAutomationScript(projectPath: string, id: string): Pro
   }
   return null;
 }
+
+export async function listAutomationScripts(projectPath: string, limit = 200): Promise<AutomationScriptManifest[]> {
+  const agent = await existingRepoMemoryLayout(projectPath);
+  if (!agent) return [];
+  const dir = path.join(agent, "scripts");
+  const names = await fs.readdir(dir).catch(() => [] as string[]);
+  const ids = new Set<string>();
+  for (const name of names.slice(0, Math.max(1, Math.min(500, limit * 3)))) {
+    const id = name.endsWith(".candidate.json") ? name.slice(0, -".candidate.json".length) : name.endsWith(".json") ? name.slice(0, -".json".length) : "";
+    if (id) ids.add(id);
+    if (ids.size >= limit) break;
+  }
+  const rows = (await Promise.all([...ids].map((id) => readAutomationScript(projectPath, id)))).filter((row): row is AutomationScriptManifest => Boolean(row));
+  return rows.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+}

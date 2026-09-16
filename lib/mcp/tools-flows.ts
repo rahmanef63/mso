@@ -10,6 +10,9 @@ import { listWorkflowGraphVersions, readWorkflowGraphVersion } from "@/lib/workf
 import { workflowNodeCatalog } from "@/lib/workflow/node-catalog";
 import { workflowTemplate, workflowTemplates } from "@/lib/workflow/templates";
 import { deleteWorkflowVariable, listWorkflowVariables, setWorkflowVariable } from "@/lib/workflow/variables";
+import { workflowMatchesQuery } from "@/lib/workflow/search";
+import { resolveProjectHint } from "@/lib/host/projects-api";
+import { listAutomationScripts } from "@/lib/orchestration/repo-memory-artifacts";
 const project = { type: "string", maxLength: 4096 };
 const flow = { type: "string", maxLength: 64 };
 
@@ -62,9 +65,10 @@ export const FLOW_TOOLS: McpTool[] = [
     run: async (a, context) => {
       const principal = privateGraphPrincipal(context), action = str(a, "action");
       const data = a.data && typeof a.data === "object" && !Array.isArray(a.data) ? a.data as Record<string, unknown> : {};
-      if (action === "list") { const graphs = await listWorkflowGraphs(principal); return { graphs: graphs.map(graph => ({ id: graph.id, name: graph.name, status: graph.status, revision: graph.revision, nodeCount: graph.nodes.length, updatedAt: graph.updatedAt, provenance: graph.metadata.provenance, project: graph.metadata.project })) }; }
+      if (action === "list" || action === "search") { const graphs = await listWorkflowGraphs(principal), query = typeof data.query === "string" ? data.query : "", filters = { tag: typeof data.tag === "string" ? data.tag : undefined, status: typeof data.status === "string" ? data.status : undefined, project: typeof data.project === "string" ? data.project : undefined, folder: typeof data.folder === "string" ? data.folder : undefined, node: typeof data.node === "string" ? data.node : undefined }; return { graphs: graphs.filter((graph) => workflowMatchesQuery(graph, query, filters)).map(graph => ({ id: graph.id, name: graph.name, description: graph.description, status: graph.status, revision: graph.revision, nodeCount: graph.nodes.length, updatedAt: graph.updatedAt, provenance: graph.metadata.provenance, project: graph.metadata.project, folder: graph.metadata.folder, tags: graph.metadata.tags ?? [] })) }; }
       if (action === "status") return workflowGraphRunStatus(principal, str(a, "id"), Number(a.wait_ms) || 0);
       if (action === "runs") return listWorkflowGraphRuns(workflowGraphOwner(principal), { graphId: typeof data.graph_id === "string" ? data.graph_id : undefined, limit: Number(data.limit) || 30, offset: Number(data.offset) || 0 });
+      if (action === "scripts") { const hint = typeof data.project === "string" ? data.project : ""; if (!hint) throw new Error("project is required"); const project = await resolveProjectHint(hint); if (!project || project.matchedBy === "fuzzy") throw new Error("exact project not found"); const query = typeof data.query === "string" ? data.query.toLowerCase().trim() : ""; const scripts = (await listAutomationScripts(project.path)).filter((script) => !query || `${script.id} ${script.intent} ${script.status} ${script.steps.map((step) => step.tool).join(" ")}`.toLowerCase().includes(query)).map((script) => ({ id: script.id, intent: script.intent, status: script.status, stepCount: script.steps.length, updatedAt: script.updatedAt, project: script.project, tools: script.steps.map((step) => step.tool) })); return { project: project.id, scripts }; }
       if (action === "catalog") return { nodes: workflowNodeCatalog(typeof data.query === "string" ? data.query : "") };
       if (action === "templates") return { templates: workflowTemplates() };
       if (action === "variables") return { variables: await listWorkflowVariables(principal) };

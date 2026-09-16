@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-16
+
+**Added**
+
+- `workflows` maximize script and search automation
+
 ## 2026-09-15
 
 **Added**

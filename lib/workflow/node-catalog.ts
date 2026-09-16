@@ -18,7 +18,7 @@ export const WORKFLOW_NODE_CATALOG:WorkflowNodeCatalogItem[]=[
  {type:"project_function",title:"Project Function",category:"Actions",description:"Call a project-owned function.",defaults:{}},
  {type:"project_mcp",title:"Project MCP",category:"Actions",description:"Call a project-owned MCP tool.",defaults:{}},
  {type:"integration",title:"Integration",category:"Actions",description:"Execute through an existing MSO integration connection; credentials stay outside the graph.",defaults:{}},
- {type:"script",title:"Script",category:"Actions",description:"Run a learned RASMIC script.",defaults:{}},
+ {type:"script",title:"Script",category:"Actions",description:"Run a saved validated RASMIC script by project and script id.",defaults:{}},
  {type:"agent",title:"Agent",category:"AI",description:"Run an organization seat or focused project agent action.",defaults:{wait:true,max_scope:"write"}},
  {type:"subflow",title:"Subflow",category:"Flow",description:"Run an existing project flow.",defaults:{}},
  {type:"project",title:"Project",category:"Context",description:"Resolve canonical project identity/path at runtime.",defaults:{}},
