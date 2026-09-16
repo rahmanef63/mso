@@ -79,7 +79,39 @@ Cross-slice imports go through the public slice barrels. Host-facing code is cen
 a client slice calls its adapter/API contract, an API route calls `lib/host`, and neither
 route nor component reimplements path-jail or process guards.
 
-## 3. AppShell
+## 3. Extension taxonomy
+
+MSO uses several extension concepts because they own different authority. They are **not** aliases for one generic plugin object. Use the narrow term that matches the lifecycle being changed:
+
+| Term | What it owns | State / authority | Do not confuse with |
+|---|---|---|---|
+| **Skill** | Trusted reusable instructions and routing policy (`SKILL.md`, optional structured contract/resources). | Skill trust (`official / verified / local / untrusted`) controls whether instructions may be model-loaded. A skill does not grant credentials or tool permission. | MCP server, Integration, executable app. |
+| **OpenAI/Codex plugin package** | Distribution metadata for reviewed skills plus an optional registered-app mapping (`.codex-plugin/plugin.json` + `.app.json`). | Packaging only. The package does not authorize the live MSO MCP server. | MSO Project Plugin, registered app, MCP authorization. |
+| **Registered app** | External platform identity referenced by `.app.json` when an exact real app registration exists. | Platform-owned install/connection/permission state. MSO keeps the mapping empty until an exact registration exists. | Generic MSO Integration or Project Plugin. |
+| **Project Plugin** | A reviewed portable capability package that can declare skills and an MCP binding for one exact project. | Catalog presence never means installed. `project_mcp_manage` installs/removes only the selected project and uses revision guards. | Global plugin install, Skill Market entry, Integration credential. |
+| **MCP** | Protocol/transport boundary for structured tools. This includes MSO's own `/mcp` and project-declared MCP servers. | Tool schemas are discovered from the selected server; OAuth/project policy and call-time guards remain authoritative. | Package identity or credential storage. |
+| **Integration** | Credential identity and provider routing: credential user → provider → named connection → source/backend → auth method. | Native Integrations is the credential authority; secrets stay outside ordinary model/tool arguments. | MCP itself, Project Plugin, App. |
+| **App** | AppShell user-interface application or feature surfaced inside the MSO workspace. | UI install/toggle state belongs to the shell/app registry. | Managed service runtime or MCP capability. |
+| **Managed App** | External runtime/service that MSO installs or operates, such as Hermes, OpenClaw or 9Router. | Host/service lifecycle, health, version, backup/update/uninstall state. | App Store entry, Integration, Project Plugin. |
+| **Skill Market** | Curated source of reviewed skill bundles. | Install state is local skill state (`installed / modified / conflict / not-installed`); removal refuses unmanaged content. | General app/plugin marketplace. |
+| **App Store** | MSO shell catalog for UI apps/features. | Presentation/install state in the workspace. | OpenAI plugin directory, Project Plugin catalog, Managed App registry. |
+
+### Capability selection order
+
+For agent routing, reuse before adding another extension:
+
+1. Use an existing bounded/native MSO capability when it already completes the task.
+2. Use an already-declared exact-project function or MCP capability when that project owns the operation.
+3. For credential-dependent provider work, resolve an existing **Integration** before asking for setup or creating another connection.
+4. Use an existing trusted **Skill** when the missing piece is reusable procedure/routing knowledge rather than executable capability.
+5. Inspect before installing a **Project Plugin**; add one only when the selected project genuinely needs the packaged capability. Never infer global or parent-project installation.
+6. Use **App** / **Managed App** lifecycle only when the request is about workspace UI or an external runtime/service.
+
+A store/catalog is discovery metadata, not execution authority. Likewise, package metadata, a rendered widget, or the existence of a connection record never substitutes for the underlying scope, trust, revision, confirmation, provider and postcondition checks.
+
+The cross-reference audit that informs this taxonomy lives in [`PLUGIN-REFERENCE-MATRIX.md`](./PLUGIN-REFERENCE-MATRIX.md).
+
+## 4. AppShell
 
 `frontend/slices/appshell/` is the generic shell framework. `os-shell` is the thin MSO
 consumer that supplies brand, app manifest, shell choice and capabilities.
@@ -106,7 +138,7 @@ same app/window state. Phone portrait resolves to a mobile shell; phone landscap
 the desktop surface according to the responsive policy. App windows themselves remain the
 same feature code.
 
-## 4. Addressable routing without page-per-app duplication
+## 5. Addressable routing without page-per-app duplication
 
 MSO uses one catch-all application route, `app/[[...slug]]/page.tsx`. The focused app is
 mirrored into the URL while window state remains client-side. App slugs are assigned in
@@ -144,7 +176,7 @@ sandboxed. The MCP widget origin comes from `OS_MCP_UI_ORIGIN`, or is derived fr
 origin remains deployment-owned and retains its deny-framing headers. The split prevents convenient
 HTML/runtime extensibility from becoming a CSP privilege-escalation path.
 
-## 5. Host API and filesystem model
+## 6. Host API and filesystem model
 
 `/api/v1/*` is the authenticated host API. Important families include:
 
@@ -180,7 +212,7 @@ cache-only and exposes no apply action. These are MSO roles over one Unix proces
 identity directory, Linux-user switch, or tenant boundary. Appearance/Theme/Quicklinks are still a
 single deployment-wide prefs document: delegated devices read it; Owner is the only writer.
 
-## 6. Alfa versus MCP
+## 7. Alfa versus MCP
 
 Alfa and MCP are two separate model-facing catalogs on purpose.
 
@@ -198,7 +230,7 @@ The exact full transport catalog and ChatGPT model profile are generated from so
 See `docs/MCP.md` for protocol/security internals, `docs/A2A.md` for peer-agent delegation, and `docs/CHATGPT-PLUGIN.md` for the
 ChatGPT-facing setup and diagrams.
 
-## 7. Project and skill discovery
+## 8. Project and skill discovery
 
 MSO can discover projects across configured containers instead of assuming a single
 `~/projects` tree. Enumeration and resolution share the same containment/ownership checks,
@@ -216,7 +248,7 @@ Skills are merged from official/operator/bundled roots plus eligible per-project
 Trust is derived from provenance, ownership and containment; untrusted instructions are not
 fed directly to the model. See `skills/README.md`.
 
-## 8. Managed applications
+## 9. Managed applications
 
 Hermes, OpenClaw and 9Router are managed, not embedded into MSO's process model. MSO can
 detect, install, start/stop/restart, read logs, update, back up, restore and conservatively
@@ -240,7 +272,7 @@ dashboard as one surface plus MSO's Details management surface.
 See `docs/MANAGED-APPS.md`, `docs/HERMES-INTEGRATION.md`,
 `docs/OPENCLAW-INTEGRATION.md` and `docs/9ROUTER-INTEGRATION.md`.
 
-## 9. Camoufox Browser
+## 10. Camoufox Browser
 
 The Browser app is a real Camoufox Firefox session on a headless X display. It is streamed
 through noVNC on a reserved split-origin host such as `camoufox.mso.example.com`. That host
@@ -253,7 +285,7 @@ The logged-in Firefox profile is intentionally outside `~/.mso`, under the user'
 share tree. It can hold live account cookies. Browser status tools never return the VNC
 password or profile contents.
 
-## 10. Build and release architecture
+## 11. Build and release architecture
 
 Production is a systemd deployment, not a webhook deployment. `git push` alone changes no
 running bytes. The supported developer release command is:
@@ -272,7 +304,7 @@ For operator updates use Settings → About or `mso update`; use `--rebuild` for
 supported recovery rebuild. See `docs/INSTALL.md`, `docs/DEVELOPMENT.md` and
 `docs/TROUBLESHOOTING.md`.
 
-## 11. What is authoritative
+## 12. What is authoritative
 
 When sources disagree, use this order:
 

@@ -41,6 +41,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `mcp` close session terminal across shells
 - `mcp` close terminal after session graph check
 
+**Docs**
+
+- `plugin` clarify extension taxonomy
+
 ## 2026-09-15
 
 **Added**

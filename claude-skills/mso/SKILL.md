@@ -22,6 +22,19 @@ Choose the least-powerful capability that can finish the task:
 
 Never choose Bash merely because it is shorter for a simple operation. For repository-wide work, one scoped terminal batch is safer and faster than many disconnected discovery calls. The permission boundary remains a feature. Before destructive actions, service topology changes, credential changes, production rollback, or deleting data you did not create in the current task, require explicit human approval.
 
+## Capability selection — reuse before adding
+
+Treat `Skill`, `Project Plugin`, `MCP`, `Integration`, `App`, and `Managed App` as different authority domains, not synonyms. Before installing or creating anything:
+
+1. Use an existing bounded/native MSO capability if it already completes the task.
+2. For a selected project, inspect its declared functions/MCP before adding another project plugin or server.
+3. For credential-dependent provider work, inspect native Integrations and reuse the exact existing user/provider/connection when it matches. Do not ask for pasted credentials or create a duplicate connection first.
+4. Use a trusted skill when the missing piece is reusable procedure/routing knowledge rather than a new executable capability.
+5. Install a Project Plugin only for the exact project that needs it, after inspection. Catalog presence is not installation and nothing is inherited from another project.
+6. App/App Store state controls workspace UI; Managed App state controls an external runtime. Neither substitutes for MCP authorization or Integration credentials.
+
+When a useful external capability is unavailable, continue any independent work and state the exact missing connection/capability rather than treating setup as proof of completion. Verify connection/install state before using or claiming it.
+
 ## Resolve the install — never hardcode a username/path
 
 ```bash
