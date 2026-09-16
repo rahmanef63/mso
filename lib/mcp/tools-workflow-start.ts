@@ -103,7 +103,7 @@ export const WORKFLOW_START_TOOL: McpTool =
         hits: search.hits.slice(0, 5).map((hit) => ({
           kind: hit.kind, id: hit.id, name: hit.name, score: hit.score,
           description: hit.description.slice(0, 600), source: hit.source, trust: hit.trust, scope: hit.scope, project: hit.project,
-          successRate: hit.successRate, attempts: hit.attempts, missingTools: hit.missingTools,
+          successRate: hit.successRate, attempts: hit.attempts, missingTools: hit.missingTools, contract: hit.contract,
         })),
         recommendedRecipe: search.recommendedRecipe ? {
           ...search.recommendedRecipe,

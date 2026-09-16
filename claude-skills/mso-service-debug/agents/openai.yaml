@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Service Debug"
+  short_description: "Diagnose service failures safely"
+  default_prompt: "Use $mso-service-debug to diagnose a managed service or runtime regression."

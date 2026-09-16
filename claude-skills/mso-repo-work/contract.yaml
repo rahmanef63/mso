@@ -1,0 +1,30 @@
+version: 1
+routing:
+  use_when:
+    - "make safe repository changes"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: repository
+  mode: mixed
+  actor: operator
+lifecycle:
+  discover:
+    - workflow_start
+    - project_get
+  validate:
+    - diff-boundary
+    - targeted-tests
+  verify:
+    - project_diff
+    - tests
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: medium
+  confirmation: contextual
+  concurrency: revision
+presentation:
+  authority: hybrid

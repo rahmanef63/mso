@@ -18,6 +18,8 @@ describe("MCP Skills extension", () => {
       expect(skill.frontmatter.description).toEqual(expect.any(String));
       expect(skill.resources.length).toBeGreaterThan(0);
       expect(skill.resources[0].uri).toBe(skill.uri);
+      expect(skill.resources.some((resource) => resource.uri.endsWith("/contract.yaml"))).toBe(true);
+      expect(skill.resources.some((resource) => resource.uri.endsWith("/agents/openai.yaml"))).toBe(true);
       for (const resource of skill.resources) expect(resource.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
     }
   });

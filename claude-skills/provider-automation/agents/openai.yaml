@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Provider Automation"
+  short_description: "Automate supported infrastructure providers"
+  default_prompt: "Use $provider-automation to run bounded provider automation through configured MSO connections."

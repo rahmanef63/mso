@@ -26,12 +26,14 @@ export const FLOW_TOOLS: McpTool[] = [
     description: "Discover project API/MCP flows, schemas and ordered steps. Inspect before flow_run.",
     chatgptDescription: "Discover project flows and inputs before flow_run.",
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    actionContract: { phase: "discover", target: "project-flow", sourceOfTruth: "live", validators: ["project-selection", "flow-definition"], confirmation: "none", concurrency: "revision", presentation: "structured" },
     inputSchema: S({ project, flow }, ["project"]),
     run: async a => { const { project: p, flows, revision } = await flowCatalog(str(a, "project"), typeof a.flow === "string" ? a.flow : undefined); return { project: p.id, revision, flows }; } },
   { name: "flow_run", title: "Run Automation Flow", scope: "exec",
     description: "Run an inspected project flow with exact input/idempotency key. Returns a durable receipt; failed writes are not auto-retried.",
     chatgptDescription: "Run an inspected flow; use flow_status for its receipt.",
-    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }, audit: { action: "exec.run", targetArg: "flow" },
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+    actionContract: { phase: "execute", target: "project-flow", sourceOfTruth: "live", discover: ["flow_catalog"], validators: ["flow-input-schema", "idempotency-key"], verify: ["flow_status"], confirmation: "contextual", concurrency: "compare", presentation: "structured" }, audit: { action: "exec.run", targetArg: "flow" },
     limit: { key: "flow.run", max: 20, windowMs: 60_000 },
     inputSchema: S({ project, flow, input: { type: "object", additionalProperties: true }, idempotency_key: { type: "string", minLength: 1, maxLength: 128 } }, ["project", "flow", "input", "idempotency_key"]),
     run: async (a, context) => {
@@ -48,7 +50,8 @@ export const FLOW_TOOLS: McpTool[] = [
   { name: "flow_manage", limit: { key: "flow.manage", max: 20, windowMs: 60_000 }, title: "Save Project Automation", scope: "write",
     description: "Create/update/delete a project flow with flow_catalog revision. Built-ins are immutable; credentials are forbidden.",
     chatgptDescription: "Save/delete a project flow by revision; no credentials.",
-    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false }, audit: { action: "fs.write", targetArg: "project" },
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    actionContract: { phase: "mutate", target: "project-flow", sourceOfTruth: "live", discover: ["flow_catalog"], validators: ["flow-definition", "revision"], verify: ["flow_catalog"], confirmation: "contextual", concurrency: "revision", presentation: "structured" }, audit: { action: "fs.write", targetArg: "project" },
     inputSchema: S({ project, flow, action: { type: "string", enum: ["upsert", "delete"] }, revision: { type: "string" }, definition: { type: "object", additionalProperties: true } }, ["project", "flow", "action", "revision"]),
     run: async a => {
       const id = str(a, "flow");

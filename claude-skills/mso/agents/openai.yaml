@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO"
+  short_description: "Operate MSO and the VPS safely"
+  default_prompt: "Use $mso for general MSO/VPS operations when no narrower official skill is a better match."

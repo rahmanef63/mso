@@ -30,4 +30,14 @@ describe("MCP advertised tool contract", () => {
     expect(toolDescriptor(fileList!, "chatgpt").outputSchema).toEqual({ type: "object", properties: { result: {} }, required: ["result"], additionalProperties: false });
   });
 
+  it("publishes additive action contracts on full MCP descriptors without bloating the compact ChatGPT scanner", () => {
+    const write = TOOLS.find((tool) => tool.name === "fs_write");
+    expect(write).toBeDefined();
+    const full = toolDescriptor(write!, "full");
+    expect(full._meta["mso/actionContract"]).toMatchObject({
+      version: 1, phase: "mutate", target: "filesystem-text", concurrency: "hash",
+    });
+    expect(toolDescriptor(write!, "chatgpt")._meta).not.toHaveProperty("mso/actionContract");
+  });
+
 });

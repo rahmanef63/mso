@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Apps"
+  short_description: "Operate managed apps on the VPS"
+  default_prompt: "Use $mso-apps to inspect, start, stop, or troubleshoot managed MSO apps."

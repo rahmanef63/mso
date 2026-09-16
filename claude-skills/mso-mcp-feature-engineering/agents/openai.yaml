@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO MCP Engineering"
+  short_description: "Build and verify MCP capabilities"
+  default_prompt: "Use $mso-mcp-feature-engineering to add or repair MSO MCP tools, skills, scopes, or app surfaces."

@@ -1,0 +1,29 @@
+version: 1
+routing:
+  use_when:
+    - "operate MSO and the VPS safely"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task; prefer the specialist skill."
+  fallback: true
+context:
+  target: host
+  mode: mixed
+  actor: operator
+lifecycle:
+  discover:
+    - workflow_start
+  validate:
+    - bounded-first
+    - scope-policy
+    - progressive-verification
+  verify:
+    - workflow_finish
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: high
+  confirmation: contextual
+  concurrency: contextual
+presentation:
+  authority: hybrid

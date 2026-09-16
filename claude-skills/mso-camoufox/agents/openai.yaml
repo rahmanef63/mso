@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Camoufox"
+  short_description: "Operate the managed browser session"
+  default_prompt: "Use $mso-camoufox to inspect or operate the managed Camoufox browser."

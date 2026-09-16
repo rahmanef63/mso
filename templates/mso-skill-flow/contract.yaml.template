@@ -1,0 +1,27 @@
+version: 1
+routing:
+  use_when:
+    - "{{USE_WHEN}}"
+  do_not_use_when:
+    - "{{DO_NOT_USE}}"
+  fallback: false
+context:
+  target: {{TARGET}}
+  mode: mixed
+  actor: operator
+lifecycle:
+  discover:
+    - workflow_start
+  validate:
+    - targeted-checks
+  verify:
+    - workflow_finish
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: {{RISK}}
+  confirmation: contextual
+  concurrency: contextual
+presentation:
+  authority: hybrid

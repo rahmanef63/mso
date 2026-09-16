@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Skill Authoring"
+  short_description: "Create trusted MSO workflow skills"
+  default_prompt: "Use $mso-skill-authoring to create or update a durable trusted MSO skill."

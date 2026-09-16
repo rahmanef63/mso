@@ -1,0 +1,28 @@
+version: 1
+routing:
+  use_when:
+    - "manage provider connections and credentials"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: integrations
+  mode: mixed
+  actor: operator
+lifecycle:
+  discover:
+    - connections_list
+  validate:
+    - identity-policy
+    - secret-boundary
+  verify:
+    - connections_list
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: high
+  confirmation: contextual
+  concurrency: contextual
+presentation:
+  authority: hybrid

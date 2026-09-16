@@ -1,3 +1,4 @@
+import type { SkillContract } from "./skill-contract-types";
 // The catalog's shared vocabulary. Split from catalog.ts so per-project discovery
 // can depend on the types without an import cycle back through the scanner.
 
@@ -51,6 +52,8 @@ export type SkillInfo = {
     version?: string;
     sha256?: string;
   };
+  /** Optional structured execution/routing contract. Parsed only for trusted skills. */
+  contract?: SkillContract;
 };
 
 /** A resumable position in a skill scan. Positional in readdir order, like the project

@@ -1,0 +1,28 @@
+{
+  "name": "mso",
+  "version": "0.2.16",
+  "description": "Operate MSO projects, workflows, VPS resources, integrations, deployments, and MCP capabilities through reusable safety-first skills.",
+  "author": {
+    "name": "MSO"
+  },
+  "homepage": "https://github.com/rahmanef63/mso",
+  "skills": "./claude-skills/",
+  "interface": {
+    "displayName": "MSO",
+    "shortDescription": "Operate projects, VPS, workflows, and MCP safely",
+    "longDescription": "MSO provides reusable operator workflows for project work, deployments, service debugging, integrations, MCP feature engineering, managed apps, and VPS operations. Skills preserve MSO trust, scope, concurrency, evidence, and bounded-tool policies while the live MSO MCP app remains a separately authorized connection.",
+    "developerName": "MSO",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/rahmanef63/mso",
+    "defaultPrompt": [
+      "Inspect this project and continue the safest verified workflow.",
+      "Debug this service using bounded MSO tools and evidence.",
+      "Implement and verify this MCP capability without weakening existing MSO safeguards."
+    ]
+  }
+}

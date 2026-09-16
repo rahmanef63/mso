@@ -62,7 +62,11 @@ describe("protocol", () => {
     const r = await dispatch({ id: 1, method: "tools/list" }, "write");
     const tools = (r.result as { tools: Array<{ name: string; _meta?: Record<string, unknown> }> }).tools;
     const upload = tools.find((tool) => tool.name === "fs_upload_file");
-    expect(upload?._meta).toEqual({ "openai/fileParams": ["file"], securitySchemes: [{ type: "oauth2", scopes: ["write"] }] });
+    expect(upload?._meta).toMatchObject({
+      "openai/fileParams": ["file"],
+      securitySchemes: [{ type: "oauth2", scopes: ["write"] }],
+      "mso/actionContract": { version: 1, phase: "mutate", target: "artifact-ingress" },
+    });
   });
 
   it("answers ping and initialized", async () => {

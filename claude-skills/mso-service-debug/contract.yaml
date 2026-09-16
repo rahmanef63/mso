@@ -1,0 +1,29 @@
+version: 1
+routing:
+  use_when:
+    - "diagnose service failures safely"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: service-runtime
+  mode: execute
+  actor: operator
+lifecycle:
+  discover:
+    - apps_list
+    - apps_logs
+  validate:
+    - runtime-evidence
+  verify:
+    - apps_status
+    - health
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: medium
+  confirmation: contextual
+  concurrency: contextual
+presentation:
+  authority: hybrid

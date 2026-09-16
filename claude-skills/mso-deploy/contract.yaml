@@ -1,0 +1,30 @@
+version: 1
+routing:
+  use_when:
+    - "verify and deploy MSO itself"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: mso-production
+  mode: execute
+  actor: operator
+lifecycle:
+  discover:
+    - project_get
+  validate:
+    - targeted-tests
+    - build
+    - release-gates
+  verify:
+    - health
+    - runtime
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: high
+  confirmation: contextual
+  concurrency: revision
+presentation:
+  authority: hybrid

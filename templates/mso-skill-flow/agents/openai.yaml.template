@@ -1,0 +1,4 @@
+interface:
+  display_name: "{{TITLE}}"
+  short_description: "{{OPENAI_SHORT_DESCRIPTION}}"
+  default_prompt: "Use ${{NAME}} for this workflow."

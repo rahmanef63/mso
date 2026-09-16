@@ -8,6 +8,7 @@ import path from "path";
 import { readBoundedRegularFile } from "@/lib/host/bounded-read";
 import { SKILL_FILE, SKILL_SCAN_LIMITS, type ProjectRef, type SkillInfo, type SkillSource, type SkillTrust } from "./catalog-types";
 import { projectSkillTrust } from "./project-skills";
+import { readSkillContract } from "./skill-contract";
 
 export type RootSpec = {
   path: string;
@@ -129,6 +130,7 @@ export async function scanRoot(
             trust = verified.trust;
             provenance = verified.provenance;
           }
+          const contract = trust === "untrusted" ? undefined : await readSkillContract(dir).catch(() => undefined);
           found.push({
             priority: spec.priority,
             skill: {
@@ -140,6 +142,7 @@ export async function scanRoot(
               trust,
               ...(spec.project ? { project: spec.project } : {}),
               ...(provenance ? { provenance } : {}),
+              ...(contract ? { contract } : {}),
             },
           });
         }

@@ -37,6 +37,24 @@ export function isCapabilityDirectResult(value: unknown): value is CapabilityDir
   return Boolean(value && typeof value === "object" && (value as CapabilityDirectResult).__mcpDirect === true);
 }
 
+export type CapabilityActionContract = {
+  /** Contract version; omitted on declarations and normalized to 1 for transport metadata. */
+  version?: 1;
+  phase?: "discover" | "read" | "validate" | "execute" | "mutate" | "verify";
+  /** Semantic target/surface such as project-mcp, filesystem-text, workflow, or artifact-ingress. */
+  target?: string;
+  sourceOfTruth?: "live" | "local" | "snapshot" | "provider";
+  /** Named capabilities or checks that should precede this action. */
+  discover?: string[];
+  /** Validator/policy identifiers. They are metadata, not arbitrary commands. */
+  validators?: string[];
+  /** Named read/status capabilities expected after mutation/execution. */
+  verify?: string[];
+  confirmation?: "none" | "contextual" | "explicit";
+  concurrency?: "none" | "hash" | "revision" | "compare" | "provider" | "contextual";
+  presentation?: "structured" | "tool-owned" | "ui-owned" | "hybrid";
+};
+
 export interface CapabilityRunContext {
   actor?: string;
   principal?: string;
@@ -68,6 +86,8 @@ export interface CapabilityTool {
   annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean; idempotentHint?: boolean };
   securitySchemes?: Array<{ type: "oauth2"; scopes: string[] } | { type: "noauth" }>;
   meta?: Record<string, unknown>;
+  /** Optional compact lifecycle contract surfaced to clients as mso/actionContract metadata. */
+  actionContract?: CapabilityActionContract;
   run: (args: Record<string, unknown>, context: CapabilityRunContext) => Promise<unknown>;
   audit?: {
     action: AuditAction;

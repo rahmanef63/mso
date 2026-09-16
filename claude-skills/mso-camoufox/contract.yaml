@@ -1,0 +1,28 @@
+version: 1
+routing:
+  use_when:
+    - "operate the managed browser session"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: browser-session
+  mode: execute
+  actor: operator
+lifecycle:
+  discover:
+    - browser_status
+  validate:
+    - browser-session-policy
+    - credential-boundary
+  verify:
+    - browser_status
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: high
+  confirmation: contextual
+  concurrency: contextual
+presentation:
+  authority: hybrid

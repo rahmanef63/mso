@@ -108,6 +108,7 @@ export const PROJECT_STATE_TOOLS: McpTool[] = [
     title: "Set Project Knowledge",
     description: `Replace .mso/KNOWLEDGE.md for one project (max ${PROJECT_KNOWLEDGE_MAX_BYTES} UTF-8 bytes). Read project_knowledge_get first and pass expected_sha256 to avoid overwriting concurrent changes. Empty content clears the knowledge text but keeps the canonical file.`,
     scope: "write", annotations: { destructiveHint: true, idempotentHint: true },
+    actionContract: { phase: "mutate", target: "project-knowledge", sourceOfTruth: "live", discover: ["project_knowledge_get"], validators: ["content-limit", "sha256-cas"], verify: ["project_knowledge_get"], confirmation: "contextual", concurrency: "hash", presentation: "structured" },
     limit: { key: "project.knowledge", max: 30, windowMs: 60_000 }, audit: { action: "fs.write" as const, targetArg: "project" },
     inputSchema: S({
       project: { type: "string" }, content: { type: "string", maxLength: PROJECT_KNOWLEDGE_MAX_BYTES },

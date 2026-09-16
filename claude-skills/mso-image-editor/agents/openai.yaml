@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Image Editor"
+  short_description: "Edit project images with the local pipeline"
+  default_prompt: "Use $mso-image-editor to run the trusted MSO image-editing workflow."

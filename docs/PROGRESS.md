@@ -1,3 +1,10 @@
+## 2026-09-17 — OpenAI plugin skill contracts + local validator registry
+
+- Implemented additive structured `contract.yaml` + `agents/openai.yaml` bundles for all 13 official skills, a portable root `.codex-plugin/plugin.json`, local artifact validators, compact contract-aware skill discovery, and full-MCP `mso/actionContract` lifecycle metadata on selected stateful tools.
+- WHY: make routing, target, source-of-truth, validation, confirmation, concurrency, and OpenAI presentation machine-readable without replacing MSO's stronger trust/provenance, bounded scopes, CAS/revision guards, workflow isolation, evidence receipts, dynamic project MCP boundaries, explicit confirmations, or shell escape hatch.
+- Kept all 112 ChatGPT actions and the 97,350-byte compact action profile; per-tool action contracts stay on the full MCP descriptor while OpenAI receives the structured workflow policy through skill resources, preserving the scanner budget without hiding capabilities.
+- Re-reviewed the refreshed Shopify reference implementation: adopted its offline/local schema-validation and per-skill OpenAI descriptor ideas, but did not copy external prompt/code telemetry. The live OAuth `/mcp` app remains a separate connection from the skill-only Codex/OpenAI plugin package.
+
 ## 2026-09-15 — Shell-native server status + CI security fixes
 
 The global floating `Live server · owner` badge is gone. MSO now contributes one `systemStatus` feature into AppShell and each shell places that shared status in native chrome: macOS menu bar, Windows taskbar, iOS/Android top status area, and the Dashboard header. Auth/session logic remains single-source in the consumer feature; generic AppShell owns only the slot placement.

@@ -38,6 +38,7 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
     description: "Cancel one exact active workflow without saving a learned recipe.",
     scope: "write",
     annotations: { idempotentHint: false },
+    actionContract: { phase: "mutate", target: "workflow", sourceOfTruth: "live", validators: ["workflow-ownership"], confirmation: "contextual", concurrency: "contextual", presentation: "structured" },
     limit: { key: "workflow.memory", max: 30, windowMs: 60_000 },
     audit: { action: "workflow.cancel" as const, targetArg: "workflow_id" },
     inputSchema: S({
@@ -58,6 +59,7 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
     description: "Finish one verified workflow. MSO saves redacted evidence, memory, recipe quality and safe automation-learning metadata.",
     scope: "write",
     annotations: { idempotentHint: false },
+    actionContract: { phase: "verify", target: "workflow", sourceOfTruth: "live", validators: ["evidence-receipt", "risk-policy"], confirmation: "none", concurrency: "contextual", presentation: "structured" },
     limit: { key: "workflow.memory", max: 30, windowMs: 60_000 },
     audit: { action: "workflow.finish" as const, targetArg: "workflow_id" },
     inputSchema: S({

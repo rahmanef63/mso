@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Repo Work"
+  short_description: "Make safe repository changes"
+  default_prompt: "Use $mso-repo-work for multi-file repository implementation, tests, and Git verification."

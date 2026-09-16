@@ -19,6 +19,7 @@ export const MUTATE_TOOLS: McpTool[] = [
       "Bounded to OS_FS_WRITE_ROOTS (home + ~/projects by default).",
     scope: "write",
     annotations: { idempotentHint: true },
+    actionContract: { phase: "mutate", target: "filesystem-text", sourceOfTruth: "live", discover: ["fs_read"], validators: ["path-policy", "sha256-cas"], verify: ["fs_read"], confirmation: "contextual", concurrency: "hash", presentation: "structured" },
     inputSchema: S({
       ...PATH_P,
       content: { type: "string" },
@@ -37,6 +38,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     description: "Import one ChatGPT conversation/generated PNG, WebP, JPEG, JSON or ZIP file through openai/fileParams. MSO validates OAuth-bound temporary URL provenance, type, size and content before writing inside OS_FS_WRITE_ROOTS. Verified ChatGPT callbacks may use rotating Azure file hosts; generic MCP clients require exact allowlisting. Same bytes are idempotent; different existing bytes fail by default. conflict=rename is deterministic; conflict=replace requires expected_sha256.",
     scope: "write",
     annotations: { destructiveHint: true, openWorldHint: true, idempotentHint: true },
+    actionContract: { phase: "mutate", target: "artifact-ingress", sourceOfTruth: "provider", validators: ["openai-file-provenance", "content-type", "content-size", "content-structure", "destination-policy"], verify: ["fs_read"], confirmation: "contextual", concurrency: "hash", presentation: "structured" },
     meta: { "openai/fileParams": ["file"] },
     inputSchema: S({
       file: {

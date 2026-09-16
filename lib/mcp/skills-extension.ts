@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
+import { validateSkillArtifact } from "@/lib/skills/skill-artifact-validators";
 import { readBoundedRegularBuffer } from "@/lib/host/bounded-read";
 
 export const MCP_SKILLS_EXTENSION = "io.modelcontextprotocol/skills";
@@ -117,6 +118,14 @@ async function loadSkill(name: string): Promise<LoadedSkill> {
   const files = await collectFiles(root, name);
   const skillMd = files[0];
   const frontmatter = parseFrontmatter(skillMd.data.toString("utf8"), name);
+  const contractFile = files.find((file) => file.relative === "contract.yaml");
+  if (!contractFile) throw new Error(`published skill ${name} is missing contract.yaml`);
+  const contractValidation = validateSkillArtifact("skill-contract-v1", parseYaml(contractFile.data.toString("utf8")));
+  if (!contractValidation.ok) throw new Error(`published skill ${name} has invalid contract.yaml: ${contractValidation.errors.join("; ")}`);
+  const openAiFile = files.find((file) => file.relative === "agents/openai.yaml");
+  if (!openAiFile) throw new Error(`published skill ${name} is missing agents/openai.yaml`);
+  const openAiValidation = validateSkillArtifact("openai-skill-interface-v1", parseYaml(openAiFile.data.toString("utf8")));
+  if (!openAiValidation.ok) throw new Error(`published skill ${name} has invalid agents/openai.yaml: ${openAiValidation.errors.join("; ")}`);
   return { name, files, entry: { uri: skillMd.uri, frontmatter, resources: files.map(({ uri, digest }) => ({ uri, digest })) } };
 }
 

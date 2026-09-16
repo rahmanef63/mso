@@ -1,0 +1,31 @@
+version: 1
+routing:
+  use_when:
+    - "deploy one project through bounded providers"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: project-production
+  mode: execute
+  actor: operator
+lifecycle:
+  discover:
+    - project_get
+    - connections_list
+  validate:
+    - provider-policy
+    - project-identity
+    - build
+  verify:
+    - deployment
+    - health
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: high
+  confirmation: contextual
+  concurrency: contextual
+presentation:
+  authority: hybrid

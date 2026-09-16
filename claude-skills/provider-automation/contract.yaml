@@ -1,0 +1,28 @@
+version: 1
+routing:
+  use_when:
+    - "automate supported infrastructure providers"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: provider-integration
+  mode: execute
+  actor: operator
+lifecycle:
+  discover:
+    - connections_list
+  validate:
+    - provider-policy
+    - identity-policy
+  verify:
+    - provider-status
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: high
+  confirmation: contextual
+  concurrency: contextual
+presentation:
+  authority: hybrid

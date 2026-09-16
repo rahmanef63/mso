@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Project Deploy"
+  short_description: "Deploy one project through bounded providers"
+  default_prompt: "Use $mso-project-deploy to publish or repair a project deployment through MSO integrations."

@@ -1,5 +1,6 @@
 import { listProjects, projectCapabilities, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint, PROJECT_LIMITS } from "@/lib/host/projects-api";
 import { catalogSkillsDetailed, resolveSkill, readSkillFile, skillIsExecutableByDefault, SKILL_SCAN_LIMITS } from "@/lib/skills/catalog";
+import { compactSkillContract } from "@/lib/skills/skill-contract";
 import { type McpTool, str, opt, S, READ_ONLY } from "./tool-kit";
 
 // GLOBAL discovery: every project container the owner configured, and every skill
@@ -124,6 +125,7 @@ export const DISCOVERY_TOOLS: McpTool[] = [
           instructionsReadable: skillIsExecutableByDefault(skill),
           ...(skill.project ? { project: skill.project } : {}),
           ...(skill.provenance ? { provenance: skill.provenance } : {}),
+          ...(skill.contract ? { contract: compactSkillContract(skill.contract) } : {}),
         })),
       };
     },
@@ -155,6 +157,7 @@ export const DISCOVERY_TOOLS: McpTool[] = [
       const meta = {
         id: skill.id, name: skill.name, description: skill.description, source: skill.source, trust: skill.trust,
         ...(skill.project ? { project: skill.project } : {}),
+        ...(skill.contract ? { contract: skill.contract } : {}),
       };
       if (!skillIsExecutableByDefault(skill)) {
         return {

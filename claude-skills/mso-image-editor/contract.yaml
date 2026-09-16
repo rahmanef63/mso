@@ -1,0 +1,28 @@
+version: 1
+routing:
+  use_when:
+    - "edit project images with the local pipeline"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: image-artifact
+  mode: execute
+  actor: operator
+lifecycle:
+  discover:
+    - fs_read
+  validate:
+    - image-input
+    - output-path
+  verify:
+    - artifact
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: medium
+  confirmation: contextual
+  concurrency: hash
+presentation:
+  authority: hybrid

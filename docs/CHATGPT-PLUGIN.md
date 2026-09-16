@@ -50,6 +50,8 @@ Every advertised MSO tool has:
 
 The ChatGPT projection compacts verbose descriptions/schema descriptions without changing names, required arguments, enum/range constraints, scopes, or safety semantics.
 
+Selected lifecycle-sensitive tools also declare an additive `mso/actionContract` on the **full** MCP descriptor. The contract names the semantic target, discover/validate/verify path, source-of-truth policy, confirmation mode and concurrency guard. It is documentation/orchestration metadata only: OAuth scope, tool implementation checks, CAS/revision guards, provider policy and explicit confirmations remain authoritative. The compact ChatGPT action snapshot intentionally omits this extra per-tool metadata because the complete 112-action profile already sits close to MSO's strict 96 KiB scanner budget; ChatGPT receives the same structured workflow policy through the published skill resources instead, without dropping any action.
+
 ## Exact ChatGPT model tool profile
 
 The exact current ChatGPT profile is generated under **ChatGPT model profile** in [`generated/MCP-CATALOG.md`](./generated/MCP-CATALOG.md). It automatically projects every MSO-owned generic model/operator tool registered in `lib/mcp/tools.ts`; only the two compatibility bridges marked app-only remain outside model tool calling. Project-owned MCP names still never enter the global catalog. OAuth `read < write < exec` remains enforced independently.
@@ -70,9 +72,27 @@ After the Fresh 3 rescan exposed `Output schema recommended` on non-UI actions, 
 
 ### Native MCP skill snapshot
 
-Fresh 3 also advertises the bounded `io.modelcontextprotocol/skills` extension. `skills/list`, `skills/get`, and `resources/read` publish a submission-time snapshot of exactly five general official MSO skills: `mso`, `mso-repo-work`, `mso-service-debug`, `mso-deploy`, and `mso-mcp-feature-engineering`. The manifest is generated from `claude-skills/`, includes complete resources plus `sha256:` digests, refuses symlinks/path normalization conflicts/oversize files, and never publishes operator, project, verified-third-party, or untrusted skill roots. The ordinary `skills_search/list/read` actions remain the live runtime catalog for the rest.
+Fresh 3 also advertises the bounded `io.modelcontextprotocol/skills` extension. `skills/list`, `skills/get`, and `resources/read` publish a submission-time snapshot of exactly five general official MSO skills: `mso`, `mso-repo-work`, `mso-service-debug`, `mso-deploy`, and `mso-mcp-feature-engineering`. Each published skill is now a reviewed bundle containing `SKILL.md`, `contract.yaml`, and `agents/openai.yaml` (plus any skill-specific resources). `contract.yaml` carries structured routing/lifecycle/safety metadata; `agents/openai.yaml` carries concise OpenAI display/default-prompt metadata. Publication fails closed when either structured file is missing or invalid. The manifest still includes complete resources plus `sha256:` digests, refuses symlinks/path normalization conflicts/oversize files, and never publishes operator, project, verified-third-party, or untrusted skill roots. The ordinary `skills_search/list/read` actions remain the live runtime catalog for the rest.
 
 For the complete non-ChatGPT MSO catalog, scopes, limits, A2A, providers, Tool Forge and other generic capabilities, see [`MCP.md`](./MCP.md).
+
+## OpenAI/Codex plugin package
+
+The repository root also carries `.codex-plugin/plugin.json` as a **skill-only** OpenAI/Codex package. It points directly at `./claude-skills/`, so the same reviewed skill bundles are reusable without maintaining a second copy. The package deliberately does **not** declare `mcpServers`: the live web-capable MSO MCP connection remains the separately authorized custom app at `/mcp`, preserving its OAuth scopes, server-side credentials, dynamic project MCP seams and browser/mobile availability instead of coupling those capabilities to a local plugin executor. Installing/importing the skill package never grants MCP access by itself.
+
+Do not invent a root `.app.json` id. If an existing OpenAI app registration is intentionally packaged later, add its exact registered app id and keep that connection lifecycle separate from the skill package.
+
+The OpenAI-facing repository shape is therefore:
+
+```text
+MSO repo
+├── .codex-plugin/plugin.json       # OpenAI/Codex skill package
+├── claude-skills/<skill>/
+│   ├── SKILL.md
+│   ├── contract.yaml
+│   └── agents/openai.yaml
+└── /mcp + /oauth/*                 # live custom MCP app, separately authorized
+```
 
 ## Dynamic project capabilities without global project tools
 

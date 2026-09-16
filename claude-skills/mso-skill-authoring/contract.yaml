@@ -1,0 +1,29 @@
+version: 1
+routing:
+  use_when:
+    - "create trusted MSO workflow skills"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: skill
+  mode: write
+  actor: operator
+lifecycle:
+  discover:
+    - skills_search
+  validate:
+    - skill-contract-v1
+    - openai-skill-interface-v1
+    - skill-check
+  verify:
+    - skills_search
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: low
+  confirmation: contextual
+  concurrency: revision
+presentation:
+  authority: hybrid

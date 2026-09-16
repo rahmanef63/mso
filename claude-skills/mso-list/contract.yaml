@@ -1,0 +1,25 @@
+version: 1
+routing:
+  use_when:
+    - "inspect MSO capabilities and routes"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: true
+context:
+  target: capability-catalog
+  mode: read
+  actor: operator
+lifecycle:
+  discover:
+    - skills_search
+  validate:
+    - catalog-freshness
+state:
+  source_of_truth: live
+  refresh: contextual
+safety:
+  risk: low
+  confirmation: none
+  concurrency: none
+presentation:
+  authority: hybrid

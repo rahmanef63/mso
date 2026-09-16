@@ -1,6 +1,7 @@
 import { catalogSkillsDetailed, readSkillFile, type ProjectRef, type SkillInfo, type SkillScanReport } from "./catalog";
 import { listLearnedRecipes, type LearnedRecipe, type RecipeAccess } from "@/lib/workflow";
 import { embedSkillText, hybridSemanticScore, prepareSemanticQuery, SKILL_EMBEDDING_VERSION } from "./semantic";
+import { compactSkillContract } from "./skill-contract";
 
 export type SkillSearchToolDoc = {
   name: string;
@@ -25,6 +26,7 @@ export type SkillSearchHit = {
   attempts?: number;
   steps?: Array<{ tool: string; target?: string; args?: Record<string, string | number | boolean>; durationMs?: number }>;
   missingTools?: string[];
+  contract?: ReturnType<typeof compactSkillContract>;
 };
 
 export type SkillSearchOptions = {
@@ -99,7 +101,8 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
   for (const skill of skills) {
     if (!options.includeUntrusted && skill.trust === "untrusted") continue;
     const content = skill.trust === "untrusted" ? "" : (await readSkillFile(skill.path))?.slice(0, 18_000) ?? "";
-    const text = `${skill.id}\n${skill.name}\n${skill.project?.name ?? ""}\n${skill.description}\n${content}`;
+    const contractText = skill.contract ? JSON.stringify(compactSkillContract(skill.contract)) : "";
+    const text = `${skill.id}\n${skill.name}\n${skill.project?.name ?? ""}\n${skill.description}\n${contractText}\n${content}`;
     hits.push({
       kind: "skill",
       id: skill.id,
@@ -109,6 +112,7 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
       description: skill.description,
       source: skill.source,
       trust: skill.trust,
+      ...(skill.contract ? { contract: compactSkillContract(skill.contract) } : {}),
     });
   }
 

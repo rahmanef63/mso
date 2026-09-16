@@ -11,6 +11,7 @@ export const PROJECT_RUNTIME_TOOLS: McpTool[] = [
     title: "Get Convex Database Status",
     description: "Get Convex status for one validated project through the project's installed official Convex MCP server. Supports cloud/local/self-hosted project configuration. MSO pins --project-dir to the selected project and refuses cross-project deployment selectors.",
     scope: "exec", annotations: { destructiveHint: false, openWorldHint: true, idempotentHint: true },
+    actionContract: { phase: "discover", target: "project-database", sourceOfTruth: "provider", validators: ["project-selection", "deployment-scope"], confirmation: "none", concurrency: "provider", presentation: "structured" },
     limit: { key: "projects.mcp.read", max: 30, windowMs: 60_000 }, audit: { action: "exec.run" as const, targetArg: "project" },
     inputSchema: S({ project: { type: "string" }, deployment: { type: "string", description: "Optional dev, prod, local, staging-like name, or dev/<name>." } }, ["project"]),
     run: async (a) => {
@@ -25,6 +26,7 @@ export const PROJECT_RUNTIME_TOOLS: McpTool[] = [
     title: "List Convex Database Tools",
     description: "List the supported official Convex MCP schemas for one selected project/deployment. Use this before project_database_call so dynamic Convex schemas stay out of MSO's global ChatGPT catalog.",
     scope: "exec", annotations: { destructiveHint: false, openWorldHint: true, idempotentHint: true },
+    actionContract: { phase: "discover", target: "project-database", sourceOfTruth: "provider", discover: ["project_database_status"], validators: ["project-selection", "deployment-scope"], confirmation: "none", concurrency: "provider", presentation: "structured" },
     limit: { key: "projects.mcp.read", max: 30, windowMs: 60_000 }, audit: { action: "exec.run" as const, targetArg: "project" },
     inputSchema: S({ project: { type: "string" }, deployment: { type: "string" } }, ["project"]),
     run: async (a) => {
@@ -37,6 +39,7 @@ export const PROJECT_RUNTIME_TOOLS: McpTool[] = [
     title: "Call Convex Database Tool",
     description: "Call one supported official Convex MCP tool for the selected project. Dynamic arguments must match project_database_tools. MSO removes projectDir overrides and refuses cross-project deployment selectors; Convex production PII/write restrictions remain fail-closed because MSO never enables dangerous production flags automatically.",
     scope: "exec", annotations: { destructiveHint: true, openWorldHint: true, idempotentHint: false },
+    actionContract: { phase: "execute", target: "project-database", sourceOfTruth: "provider", discover: ["project_database_status", "project_database_tools"], validators: ["dynamic-input-schema", "project-selection", "deployment-scope", "provider-production-policy"], confirmation: "contextual", concurrency: "provider", presentation: "tool-owned" },
     limit: { key: "projects.mcp.call", max: 30, windowMs: 60_000 }, audit: { action: "exec.run" as const, targetArg: "tool" },
     result: { maxTextBytes: 96 * 1024, overflowHint: "Convex result was compacted; use a narrower query or table/function target." },
     inputSchema: S({

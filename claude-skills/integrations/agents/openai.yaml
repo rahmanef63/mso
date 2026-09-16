@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Integrations"
+  short_description: "Manage provider connections and credentials"
+  default_prompt: "Use $integrations to inspect or configure MSO integrations safely."

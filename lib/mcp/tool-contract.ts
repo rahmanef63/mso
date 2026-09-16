@@ -91,6 +91,11 @@ export function toolSecuritySchemes(tool: McpTool): McpSecurityScheme[] {
   return tool.securitySchemes ?? [{ type: "oauth2", scopes: [tool.scope] }];
 }
 
+export function actionContractForTool(tool: McpTool): Record<string, unknown> | undefined {
+  if (!tool.actionContract) return undefined;
+  return { version: 1, ...tool.actionContract };
+}
+
 export function toolAllowedForProfile(_name: string, _profile: McpToolProfile = "full"): boolean {
   return true;
 }
@@ -118,7 +123,11 @@ function compactSchema(value: unknown): unknown {
 
 export function toolDescriptor(tool: McpTool, profile: McpToolProfile = "full") {
   const securitySchemes = toolSecuritySchemes(tool);
-  const meta = { ...(tool.meta ?? {}), securitySchemes };
+  // ChatGPT already receives the structured contract through published skill resources.
+  // Keep action-level contracts on the full MCP descriptor so the compact ChatGPT
+  // scanner stays below its deliberately strict byte budget without hiding any tools.
+  const actionContract = profile === "full" ? actionContractForTool(tool) : undefined;
+  const meta = { ...(tool.meta ?? {}), securitySchemes, ...(actionContract ? { "mso/actionContract": actionContract } : {}) };
   const compact = profile === "chatgpt";
   const outputSchema = outputSchemaForProfile(tool, profile);
   return {

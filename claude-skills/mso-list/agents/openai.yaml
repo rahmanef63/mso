@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Capability Guide"
+  short_description: "Inspect MSO capabilities and routes"
+  default_prompt: "Use $mso-list to discover MSO capabilities, routes, and supported surfaces."

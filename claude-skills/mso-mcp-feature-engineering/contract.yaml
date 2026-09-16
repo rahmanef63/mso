@@ -1,0 +1,31 @@
+version: 1
+routing:
+  use_when:
+    - "build and verify MCP capabilities"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task."
+  fallback: false
+context:
+  target: mcp-server
+  mode: mixed
+  actor: operator
+lifecycle:
+  discover:
+    - workflow_start
+  validate:
+    - mcp-contract
+    - scope-policy
+    - mcp-catalog
+    - targeted-tests
+  verify:
+    - mcp-catalog
+    - runtime
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: medium
+  confirmation: contextual
+  concurrency: revision
+presentation:
+  authority: hybrid

@@ -12,6 +12,7 @@ export const PROJECT_MCP_TOOLS: McpTool[] = [
     chatgptDescription: "Discover a declared project MCP through its private connection. Dynamic tools stay project-scoped.",
     scope: "exec",
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true, idempotentHint: false },
+    actionContract: { phase: "discover", target: "project-mcp", sourceOfTruth: "provider", discover: ["project_capabilities"], validators: ["project-selection", "private-connection"], confirmation: "none", concurrency: "provider", presentation: "structured" },
     audit: { action: "exec.run" as const, targetArg: "server" },
     limit: { key: "projects.mcp.read", max: 30, windowMs: 60_000 },
     inputSchema: S({
@@ -35,6 +36,7 @@ export const PROJECT_MCP_TOOLS: McpTool[] = [
     scope: "exec",
     outputSchema: { type: "object", properties: { result: { type: "object" } }, required: ["result"], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true, idempotentHint: false },
+    actionContract: { phase: "execute", target: "project-mcp", sourceOfTruth: "provider", discover: ["project_capabilities", "project_mcp_tools"], validators: ["dynamic-input-schema", "project-scope", "private-connection"], confirmation: "contextual", concurrency: "provider", presentation: "tool-owned" },
     limit: { key: "projects.mcp.call", max: 30, windowMs: 60_000 },
     audit: { action: "exec.run" as const, targetArg: "server" },
     result: { maxTextBytes: 64 * 1024, overflowHint: "Project MCP result was compacted; request a narrower project tool call." },

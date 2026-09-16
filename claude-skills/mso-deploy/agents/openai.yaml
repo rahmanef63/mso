@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Deploy"
+  short_description: "Verify and deploy MSO itself"
+  default_prompt: "Use $mso-deploy to build, deploy, or verify the MSO production service."

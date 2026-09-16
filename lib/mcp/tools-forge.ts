@@ -112,6 +112,7 @@ export const FORGE_TOOLS: McpTool[] = [
       "Use only after reviewing tool_forge_candidates/evaluation evidence.",
     scope: "exec",
     annotations: { destructiveHint: true, openWorldHint: false },
+    actionContract: { phase: "mutate", target: "tool-forge-candidate", sourceOfTruth: "live", discover: ["tool_forge_candidates"], validators: ["fresh-evaluation", "target-drift", "tool-drift", "image-drift"], verify: ["tool_forge_candidates"], confirmation: "explicit", concurrency: "compare", presentation: "structured" },
     limit: { key: "tool.forge.promote", max: 6, windowMs: 60_000 },
     audit: { action: "tool.forge.promote" as const, targetArg: "candidate_id" },
     inputSchema: S({
