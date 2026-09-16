@@ -55,6 +55,7 @@ const MCP_ONLY: Record<string, string> = {
   "project.memory.upsert": "same repo-local RASMIC ledger; writes are workflow-scoped/audited for external agents rather than shared with Alfa owner recall",
   "project.script.run": "RASMIC script replay is an external/terminal orchestration primitive that revalidates bounded read-only steps and may promote candidate metadata; Alfa has no matching workflow/script lifecycle",
   "agent.session.current": "external MCP clients need a stable durable MSO session id they can quote from a later ChatGPT conversation; in-shell Alfa already owns its conversation identity",
+  "agent.session.flow": "semantic flow lookup reads the external durable AgentSession ledger used by MCP/terminal agents; Alfa browser threads intentionally keep a separate conversation identity, while the owner can inspect the same projection in the native Workflows Sessions UI",
   "agent.sessions.list": "external MCP clients need explicit cross-conversation session discovery; Alfa's in-app thread UI already provides its own conversation list",
   "agent.session.resume": "external MCP clients must reconstruct only the safe MSO resume packet across ChatGPT conversations; Alfa can reopen its own persisted in-app thread directly",
   "agent.session.rename": "durable MCP/terminal session titles are metadata in the isolated agent-session store; Alfa keeps its separate in-app thread/title lifecycle",

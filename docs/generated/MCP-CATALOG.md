@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.14.4 version=2026.09.15.3 tools=108 read=51 write=35 exec=22 -->
+<!-- mcp-toolset: server=1.14.4 version=2026.09.15.3 tools=109 read=52 write=35 exec=22 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.14.4` |
 | Toolset | `2026.09.15.3` |
 | Toolset changed at | `2026-09-15T03:35:00+07:00` |
-| Transport tools | **110** |
-| Model/operator tools | **108** |
-| Read | **51** |
+| Transport tools | **111** |
+| Model/operator tools | **109** |
+| Read | **52** |
 | Write | **35** |
 | Exec | **22** |
 | App-only bridges | **2** |
 
-### Read (51)
+### Read (52)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -26,6 +26,7 @@
 - `agent_memory_read`
 - `agent_memory_search`
 - `agent_session_current`
+- `agent_session_flow`
 - `agent_session_resume`
 - `agent_sessions_list`
 - `apps_list`
@@ -142,20 +143,20 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.14.4 version=2026.09.15.3 tools=108 read=51 write=35 exec=22 app-only=2 total=110 -->
+<!-- mcp-chatgpt-profile: server=1.14.4 version=2026.09.15.3 tools=109 read=52 write=35 exec=22 app-only=2 total=111 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **110** |
-| ChatGPT model/operator tools | **108** |
-| Read | **51** |
+| ChatGPT transport tools | **111** |
+| ChatGPT model/operator tools | **109** |
+| Read | **52** |
 | Write | **35** |
 | Exec | **22** |
 | App-only bridges | **2** |
 
-### ChatGPT read (51)
+### ChatGPT read (52)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -163,6 +164,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `agent_memory_read`
 - `agent_memory_search`
 - `agent_session_current`
+- `agent_session_flow`
 - `agent_session_resume`
 - `agent_sessions_list`
 - `apps_list`

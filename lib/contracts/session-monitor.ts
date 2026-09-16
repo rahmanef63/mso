@@ -46,9 +46,36 @@ export interface SessionDetail {
   pageSize: number;
   observedAt: string;
 }
+
+export type SessionFlowCategory = "context" | "plan" | "inspect" | "implement" | "verify" | "integrate" | "deploy" | "result" | "other";
+export interface SessionFlowAction {
+  ref: string;
+  eventRef: string;
+  title: string;
+  category: SessionFlowCategory;
+  at: string;
+  kind: string;
+  tool?: string;
+  state?: string;
+  detail?: string;
+  terminalContext?: boolean;
+  code?: { kind: "command" | "script" | "snippet"; language: string; content: string };
+  artifact?: { path: string; label: string; kind: "file" | "script"; language?: string };
+}
+export interface SessionFlowStep {
+  ref: string;
+  title: string;
+  category: SessionFlowCategory;
+  summary: string;
+  startedAt: string;
+  finishedAt: string;
+  actions: SessionFlowAction[];
+}
+
 export interface SessionGraphView {
   session: SessionCard;
   graph: WorkflowGraph;
+  steps: SessionFlowStep[];
   totalEvents: number;
   shownEvents: number;
   omittedEvents: number;

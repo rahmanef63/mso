@@ -71,7 +71,9 @@ describe("owner session monitor", () => {
     expect(view?.graph.name).toBe("session-0-work-0");
     expect(view?.graph.nodes[0]).toMatchObject({ id: "session-root", type: "session", name: "session-0-work-0" });
     expect(view?.shownEvents).toBe(2); expect(view?.omittedEvents).toBe(1);
-    expect(view?.graph.nodes.some((node) => node.config.terminalContext === true)).toBe(true);
+    expect(view?.graph.nodes.length).toBeLessThanOrEqual(1 + (view?.steps.length || 0));
+    expect(view?.steps.flatMap((step) => step.actions).some((action) => action.terminalContext === true)).toBe(true);
+    expect(view?.steps.flatMap((step) => step.actions).every((action) => /^S\d+\.A\d+$/.test(action.ref))).toBe(true);
     expect(JSON.stringify(view)).not.toContain("secret-value");
   });
 

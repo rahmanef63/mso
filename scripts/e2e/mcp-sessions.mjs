@@ -61,12 +61,23 @@ export async function mcpSessionsJourney(page, fixture) {
   await cards.first().click();
   await expect(page.getByRole("application", { name: "Workflow canvas" })).toBeVisible();
   await expect(page.getByText(openLabel, { exact: true }).last()).toBeVisible();
-  const terminalToolNode = page.locator(".react-flow__node").filter({ hasText: "Exec Run" }).first();
+  const selectedMonitorResponse = await page.request.get(fixture.base + "/api/v1/agent-sessions?view=monitor&includeOffline=1&page=2");
+  const selectedMonitor = await selectedMonitorResponse.json();
+  const selectedGraphResponse = await page.request.get(fixture.base + `/api/v1/agent-sessions?view=graph&id=${encodeURIComponent(selectedMonitor.sessions[0].id)}`);
+  const selectedGraph = await selectedGraphResponse.json();
+  expect(selectedGraph.graph.nodes.length).toBeLessThanOrEqual(9);
+  const terminalStep = selectedGraph.steps.find(step => step.actions.some(action => action.terminalContext));
+  expect(terminalStep).toBeTruthy();
+  const terminalStepNode = page.locator(".react-flow__node").filter({ hasText: terminalStep.ref + " ·" }).first();
   const terminalTabs = page.getByRole("tablist", { name: "Terminal sessions" });
   const terminalCountBefore = await terminalTabs.count();
-  await expect(terminalToolNode).toBeVisible();
+  await expect(terminalStepNode).toBeVisible();
   expect(await page.locator('[data-slot="workflows-feature"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
-  await terminalToolNode.click();
+  await terminalStepNode.click();
+  await expect(page.getByText("Actions", { exact: true }).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Open terminal here/ }).first()).toBeVisible();
+  expect(await terminalTabs.count()).toBe(terminalCountBefore); // Selecting a node must not launch tools.
+  await page.getByRole("button", { name: /Open terminal here/ }).first().click();
   await expect(terminalTabs.last()).toBeVisible();
   const backHome = page.getByRole("button", { name: "Back to Home", exact: true });
   if (await backHome.isVisible().catch(() => false)) {
@@ -94,5 +105,5 @@ export async function mcpSessionsJourney(page, fixture) {
   }
   // Mobile/full-screen navigation changes the active route; restore Settings so the caller can continue its recovery journey.
   await page.goto(fixture.base + "/settings");
-  console.log("PASS session labels, Workflow graph handoff, terminal context, redaction, handover, keyboard and accessibility");
+  console.log("PASS session labels, semantic Workflow handoff, explicit terminal action, redaction, handover, keyboard and accessibility");
 }

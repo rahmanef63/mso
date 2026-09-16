@@ -6,6 +6,8 @@ const settingsSessions = readFileSync(new URL("../os-settings/components/mcp-ses
 const settingsDetail = readFileSync(new URL("../os-settings/components/mcp-session-detail.tsx", import.meta.url), "utf8");
 const sessionGuide = readFileSync(new URL("../os-settings/components/mcp-session-guide.tsx", import.meta.url), "utf8");
 const inspector = readFileSync(new URL("./components/workflow-inspector.tsx", import.meta.url), "utf8");
+const sessionDetails = readFileSync(new URL("./components/workflow-session-details.tsx", import.meta.url), "utf8");
+const sessionLibrary = readFileSync(new URL("./components/workflow-session-library.tsx", import.meta.url), "utf8");
 
 describe("Workflow session graph UI contract", () => {
   it("routes Settings sessions into the Workflow Sessions view and never renders the internal id", () => {
@@ -17,9 +19,18 @@ describe("Workflow session graph UI contract", () => {
     }
   });
 
-  it("keeps session graphs read-only and opens terminal context in a fresh window", () => {
+  it("keeps session graphs read-only and makes tool execution an explicit inspector action", () => {
     expect(workflowApp).toContain('type LibraryMode = "automations" | "sessions"');
     expect(workflowApp).toContain("readOnly/>");
-    expect(workflowApp).toContain('openWindow("os-terminal", "Terminal", undefined, { initialCwd: sessionView.session.cwd || "~" }, { multi: true })');
+    expect(workflowApp).toContain('const chooseSessionNode = (id: string | null) => { setSessionSelected(id); if (id && overlayPane) setDetailsOpen(true); };');
+    expect(sessionDetails).toContain("Open terminal here");
+    expect(sessionDetails).toContain("Open {action.artifact.label} in Code");
+    expect(sessionDetails).toContain("S3.A4");
+  });
+
+  it("gives the desktop session library enough width and lets labels wrap instead of clipping", () => {
+    expect(workflowApp).toContain("grid-cols-[300px_minmax(0,1fr)]");
+    expect(sessionLibrary).toContain("[overflow-wrap:anywhere]");
+    expect(sessionLibrary).toContain("Page {data.page} of {data.pages}");
   });
 });
