@@ -75,8 +75,11 @@ export async function mcpSessionsJourney(page, fixture) {
   expect(await page.locator('[data-slot="workflows-feature"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
   await terminalStepNode.click();
   await expect(page.getByText("Actions", { exact: true }).last()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Open terminal here/ }).first()).toBeVisible();
   expect(await terminalTabs.count()).toBe(terminalCountBefore); // Selecting a node must not launch tools.
+  const terminalAction = terminalStep.actions.find(action => action.terminalContext);
+  await page.getByRole("button", { name: `Inspect action ${terminalAction.ref}: ${terminalAction.title}` }).click();
+  await expect(page.getByRole("button", { name: /Open terminal here/ }).first()).toBeVisible();
+  expect(await terminalTabs.count()).toBe(terminalCountBefore); // Inspecting an action is still read-only.
   await page.getByRole("button", { name: /Open terminal here/ }).first().click();
   await expect(terminalTabs.last()).toBeVisible();
   const backHome = page.getByRole("button", { name: "Back to Home", exact: true });

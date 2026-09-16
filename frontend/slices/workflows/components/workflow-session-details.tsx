@@ -12,7 +12,7 @@ function value(config: Record<string, unknown>, key: string): string | undefined
 }
 function actionReceipt(action: SessionFlowAction, onOpenTerminal: () => void, onOpenCode: (path: string) => void) {
   return <details key={action.ref} className="group rounded-lg border bg-background/35">
-    <summary className="flex cursor-pointer list-none items-start gap-2 p-2.5 text-xs marker:hidden">
+    <summary aria-label={`Inspect action ${action.ref}: ${action.title}`} className="flex cursor-pointer list-none items-start gap-2 p-2.5 text-xs marker:hidden">
       <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">{action.ref}</code>
       <div className="min-w-0 flex-1"><div className="break-words font-medium leading-4">{action.title}</div><div className="mt-0.5 text-[10px] text-muted-foreground">{action.tool || action.kind}{action.state ? ` · ${action.state}` : ""}</div></div>
     </summary>
