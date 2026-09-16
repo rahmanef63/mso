@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppProps } from "@/features/appshell";
 import { TerminalSession, type TerminalSessionProps } from "./components/terminal-session";
 import { TerminalTabs } from "./components/terminal-tabs";
 
@@ -15,6 +16,9 @@ export function Terminal({ initialCommand, initialCwd, tabbed = true }: Terminal
   return <TerminalTabs initialCommand={initialCommand} initialCwd={initialCwd} />;
 }
 
-export default function TerminalApp() {
-  return <Terminal />;
+export default function TerminalApp({ payload }: AppProps) {
+  const row = payload && typeof payload === "object" ? payload as { initialCwd?: unknown; initialCommand?: unknown } : undefined;
+  const initialCwd = typeof row?.initialCwd === "string" && row.initialCwd ? row.initialCwd : undefined;
+  const initialCommand = typeof row?.initialCommand === "string" && row.initialCommand ? row.initialCommand : undefined;
+  return <Terminal initialCwd={initialCwd} initialCommand={initialCommand} />;
 }

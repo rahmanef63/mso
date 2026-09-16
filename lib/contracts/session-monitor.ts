@@ -1,9 +1,13 @@
+import type { WorkflowGraph } from "@/lib/contracts/workflow-graph";
+
 export const SESSION_PAGE_SIZE = 6;
 export const SESSION_EVENT_PAGE_SIZE = 20;
+export const SESSION_GRAPH_EVENT_LIMIT = 120;
 export type SessionStatus = "ready" | "idle" | "busy" | "ended" | "offline";
 export interface SessionCard {
   id: string;
   name: string;
+  label: string;
   title: string;
   source: "mcp" | "cli" | "alfa";
   status: SessionStatus;
@@ -40,5 +44,13 @@ export interface SessionDetail {
   page: number;
   pages: number;
   pageSize: number;
+  observedAt: string;
+}
+export interface SessionGraphView {
+  session: SessionCard;
+  graph: WorkflowGraph;
+  totalEvents: number;
+  shownEvents: number;
+  omittedEvents: number;
   observedAt: string;
 }

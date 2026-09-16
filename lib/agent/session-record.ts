@@ -3,12 +3,14 @@ import { archiveAgentSession, pruneAgentSessionArchives } from "./session-archiv
 import { principalHash, readSessionFile } from "./session-files";
 import { compactSessionContext, MAX_EVENTS, sessionContextTokens } from "./session-policy";
 import type { AgentSession, AgentSessionEvent, AgentSessionSummary } from "./session-types";
+import { agentSessionLabel } from "./session-name";
 
 export function summary(record: AgentSession): AgentSessionSummary {
   return {
     id: record.id,
     source: record.source,
     name: record.name,
+    label: agentSessionLabel(record.name, record.title, record.cwd),
     title: record.title,
     titleSource: record.titleSource,
     createdAt: record.createdAt,

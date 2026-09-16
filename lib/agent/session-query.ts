@@ -6,6 +6,7 @@ import {
 import { listSessionRecords, principalHash } from "./session-files";
 import { redactText } from "@/lib/security/redact-text";
 import type { AgentSession } from "./session-types";
+import { agentSessionLabel } from "./session-name";
 import {
   normalizeAgentSessionCwd,
   sessionCwdRefMatch,
@@ -34,6 +35,9 @@ export function chooseAgentSessionRecord(
   const ref = cleanRef(refValue),
     q = ref.toLowerCase();
   if (!ref || q === "latest" || q === "continue") return resumable[0]!;
+  const exactLabel = resumable.filter((row) => agentSessionLabel(row.name, row.title, row.cwd) === q);
+  if (exactLabel.length === 1) return exactLabel[0]!;
+  if (exactLabel.length > 1) throw new Error("session label is ambiguous");
   const exactId = resumable.find((row) => row.id === ref);
   if (exactId) return exactId;
   const wantedName = q.replace(/^@/, "");
@@ -79,7 +83,7 @@ export function chooseAgentSessionRecord(
   if (unique.length > 1) {
     const labels = unique
       .slice(0, 6)
-      .map((row) => row.title.replace(/[\r\n\t]+/g, " ").slice(0, 72));
+      .map((row) => agentSessionLabel(row.name, row.title, row.cwd));
     throw new Error(`session reference is ambiguous: ${labels.join(" | ")}`);
   }
   throw new Error("session_not_found");

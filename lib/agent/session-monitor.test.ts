@@ -8,7 +8,7 @@ vi.mock("./local-agent-presence", () => ({
   localAgentStatus: (row: LocalAgentPresenceRecord, now: number) => row.state === "ended" ? "ended" : Date.parse(row.leaseUntil) > now ? row.state : "offline",
 }));
 vi.mock("./local-agent-events", () => ({ localAgentConsumerConnected: mocks.connected }));
-import { ownerSessionDetail, ownerSessionPage } from "./session-monitor";
+import { ownerSessionDetail, ownerSessionGraph, ownerSessionPage } from "./session-monitor";
 const now = Date.now();
 function record(i: number): AgentSession {
   return { id: `20260909_120000_${i.toString(16).padStart(8, "0")}`, principalHash: "a".repeat(64),
@@ -58,6 +58,23 @@ describe("owner session monitor", () => {
     expect(JSON.stringify(first)).not.toMatch(/secret-value|hidden-value|should-not-appear|private transcript|private-memory|principalHash/);
     expect(first?.events[0].workflowId).toBe("workflow-1");
   });
+  it("projects a bounded read-only session graph using the human agent-context label", async () => {
+    const row = record(0);
+    row.events = [
+      { at: new Date(now).toISOString(), kind: "created", detail: "started" },
+      { at: new Date(now + 1).toISOString(), kind: "tool", tool: "exec_run", state: "completed", detail: "cwd=/project token=secret-value" },
+      { at: new Date(now + 2).toISOString(), kind: "tool", tool: "fs_read", state: "completed", detail: "package.json" },
+    ];
+    mocks.read.mockResolvedValue(row); mocks.presence.mockResolvedValue([]);
+    const view = await ownerSessionGraph(row.id, 2);
+    expect(view?.session.label).toBe("session-0-work-0");
+    expect(view?.graph.name).toBe("session-0-work-0");
+    expect(view?.graph.nodes[0]).toMatchObject({ id: "session-root", type: "session", name: "session-0-work-0" });
+    expect(view?.shownEvents).toBe(2); expect(view?.omittedEvents).toBe(1);
+    expect(view?.graph.nodes.some((node) => node.config.terminalContext === true)).toBe(true);
+    expect(JSON.stringify(view)).not.toContain("secret-value");
+  });
+
   it("rejects path traversal and handles a removed session or an empty list", async () => {
     await expect(ownerSessionDetail("../private")).rejects.toThrow("invalid_session_id");
     expect(mocks.read).not.toHaveBeenCalled();

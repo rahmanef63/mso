@@ -101,7 +101,7 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
     const mode = typeof config.mode === "string" ? config.mode : "current";
     if (mode === "current") return { output: await callTool("agent_session_current", {}, context, resolve), log: "Current durable session resolved." };
     if (mode === "list") return { output: await callTool("agent_sessions_list", { limit: Number(config.limit) || 20 }, context, resolve), log: "Durable sessions listed." };
-    if (mode === "resume") return { output: await callTool("agent_session_resume", { session_id: String(config.sessionId ?? "") }, context, resolve), log: "Session resume packet loaded." };
+    if (mode === "resume") return { output: await callTool("agent_session_resume", { session_ref: String(config.sessionRef ?? config.sessionId ?? "") }, context, resolve), log: "Session resume packet loaded." };
     if (mode === "note") return { output: await callTool("agent_session_note", { note: String(config.note ?? "") }, context, resolve), log: "Session note saved." };
     throw new Error("session node mode must be current, list, resume, or note");
   }

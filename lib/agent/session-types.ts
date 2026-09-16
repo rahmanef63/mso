@@ -51,6 +51,7 @@ export interface AgentSessionSummary {
   id: string;
   source: AgentSessionSource;
   name: string;
+  label: string;
   title: string;
   titleSource: AgentSessionTitleSource;
   createdAt: string;

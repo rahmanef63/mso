@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { forgetAgentMemory, queryAgentMemory, readAgentMemory, rememberAgentMemory, type AgentMemoryDocument, type AgentMemoryKind, type AgentMemorySensitivity } from "@/lib/agent/memory-store";
 import { agentSessionSummary, appendAgentSessionEvent, getAgentSession, listAgentSessions, renameAgentSession, resumeAgentSession } from "@/lib/agent/session-store";
 import { type McpTool, S, str } from "./tool-kit";
+import { resolveAgentSessionRef } from "@/lib/agent/session-query";
 
 function principal(context: { principal?: string }): string {
   if (!context.principal) throw new Error("agent session principal is unavailable");
@@ -47,8 +48,13 @@ export const AGENT_TOOLS: McpTool[] = [
     name: "agent_session_resume",
     description: "Read the safe resume packet for one prior MSO session owned by this client. It returns summary/recent context, never ChatGPT hidden transcript.",
     scope: "read", annotations: { readOnlyHint: true, idempotentHint: true },
-    inputSchema: S({ session_id: { type: "string", description: "Exact MSO session id from agent_session_current/list." } }, ["session_id"]),
-    run: (a, context) => resumeAgentSession(principal(context), str(a, "session_id"), context.sessionId),
+    inputSchema: S({ session_ref: { type: "string", description: "Human session label (agent-context), @name, title, or legacy exact id." }, session_id: { type: "string", description: "Legacy exact MSO session id; prefer session_ref." } }),
+    run: async (a, context) => {
+      const owner = principal(context), ref = optionalString(a, "session_ref") || optionalString(a, "session_id");
+      if (!ref) throw new Error("session_ref is required");
+      const target = await resolveAgentSessionRef(owner, ref);
+      return resumeAgentSession(owner, target.id, context.sessionId);
+    },
   },
   {
     name: "agent_session_rename",

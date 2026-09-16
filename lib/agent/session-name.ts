@@ -29,6 +29,27 @@ export function normalizeAgentSessionName(value: unknown): string {
   return AGENT_SESSION_NAME_RE.test(raw) ? raw : "";
 }
 
+function labelPart(value: unknown, max = 48): string {
+  return String(value ?? "")
+    .trim()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, max)
+    .replace(/-$/g, "");
+}
+
+/** Human-facing session label. Durable session ids remain an internal lookup key. */
+export function agentSessionLabel(name: unknown, title: unknown, cwd?: unknown): string {
+  const agent = normalizeAgentSessionName(name) || labelPart(name, 24) || "agent";
+  const cwdLeaf = String(cwd ?? "").split(/[\\/]+/).filter(Boolean).pop();
+  const context = labelPart(title, 48) || labelPart(cwdLeaf, 48) || "session";
+  return `${agent}-${context}`.slice(0, 80).replace(/-$/g, "");
+}
+
 export function requireAgentSessionName(value: unknown): string {
   const name = normalizeAgentSessionName(value);
   if (!name) throw new Error("session name must be 2-24 lowercase letters/numbers/hyphens, starting with a letter");

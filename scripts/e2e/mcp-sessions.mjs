@@ -16,23 +16,21 @@ export async function mcpSessionsJourney(page, fixture) {
   const response = await page.request.get(fixture.base + "/api/v1/agent-sessions?view=monitor&includeOffline=1");
   const raw = await response.text();
   expect(response.status()).toBe(200); expect(raw).not.toMatch(/PRIVATE_TRANSCRIPT|PRIVATE_CONTEXT|principalHash/);
-  await page.getByRole("button", { name: "Next sessions page", exact: true }).click();
-  await expect(cards).toHaveCount(3);
-  await cards.first().click();
-  await expect(page.getByRole("region", { name: "Session activity log" })).toBeVisible();
-  await expect(page.getByText("Page 1 of 2 · 25 events", { exact: true })).toBeVisible();
-  expect(await page.locator('[data-slot="mcp-page"]').innerText()).not.toContain("FIXTURE_SECRET_MUST_NOT_LEAK");
-  await page.getByRole("button", { name: "Next events page", exact: true }).click();
-  await expect(page.getByText("Page 2 of 2 · 25 events", { exact: true })).toBeVisible();
+  const monitor = JSON.parse(raw);
+  const graphResponse = await page.request.get(fixture.base + `/api/v1/agent-sessions?view=graph&id=${encodeURIComponent(monitor.sessions[0].id)}`);
+  const graphRaw = await graphResponse.text();
+  expect(graphResponse.status()).toBe(200); expect(graphRaw).not.toMatch(/PRIVATE_TRANSCRIPT|PRIVATE_CONTEXT|FIXTURE_SECRET_MUST_NOT_LEAK|principalHash/);
+
   await page.getByRole("button", { name: "Handover guide", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Session handover guide", exact: true })).toBeVisible();
   await page.getByText("JSON Schema reference", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Copy Handover JSON Schema", exact: true })).toBeVisible();
+  expect(await page.locator('[data-slot="mcp-page"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   let audit = await new AxeBuilder({ page }).include('[data-slot="mcp-page"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
   expect(audit.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target) }))).toEqual([]);
-  await page.getByRole("button", { name: "Back to session", exact: true }).click();
   await page.getByRole("button", { name: "Back to sessions", exact: true }).click();
+
   await page.getByRole("button", { name: "Active", exact: true }).click();
   await expect(page.getByText("Page 1 of 2 · 8 sessions", { exact: true })).toBeVisible();
   audit = await new AxeBuilder({ page }).include('[data-slot="mcp-page"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
@@ -54,6 +52,19 @@ export async function mcpSessionsJourney(page, fixture) {
   await page.unroute("**/api/v1/agent-sessions?view=monitor&*");
   await page.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(cards).toHaveCount(6);
-  await page.getByRole("tab", { name: /^Access MSO/ }).click();
-  console.log("PASS session cards, pagination, redacted logs, handover schema, keyboard and accessibility");
+
+  // Session selection now hands off to Workflow instead of expanding private detail inside Settings.
+  await page.getByRole("button", { name: "Next sessions page", exact: true }).click();
+  await expect(cards).toHaveCount(3);
+  const openLabel = (await cards.first().getAttribute("aria-label"))?.replace(/^Open session /, "") || "";
+  expect(openLabel).toMatch(/^[a-z][a-z0-9-]+-[a-z0-9-]+$/);
+  await cards.first().click();
+  await expect(page.getByRole("application", { name: "Workflow canvas" })).toBeVisible();
+  await expect(page.getByText(openLabel, { exact: true }).last()).toBeVisible();
+  const terminalToolNode = page.locator(".react-flow__node").filter({ hasText: "Exec Run" }).first();
+  await expect(terminalToolNode).toBeVisible();
+  expect(await page.locator('[data-slot="workflows-feature"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
+  await terminalToolNode.click();
+  await expect(page.getByRole("tablist", { name: "Terminal sessions" }).last()).toBeVisible();
+  console.log("PASS session labels, Workflow graph handoff, terminal context, redaction, handover, keyboard and accessibility");
 }

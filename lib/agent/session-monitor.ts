@@ -1,40 +1,202 @@
-import { SESSION_EVENT_PAGE_SIZE, SESSION_PAGE_SIZE } from "@/lib/contracts/session-monitor";
-import type { SessionCard, SessionDetail, SessionPage } from "@/lib/contracts/session-monitor";
+import {
+  SESSION_EVENT_PAGE_SIZE,
+  SESSION_GRAPH_EVENT_LIMIT,
+  SESSION_PAGE_SIZE,
+} from "@/lib/contracts/session-monitor";
+import type {
+  SessionCard,
+  SessionDetail,
+  SessionGraphView,
+  SessionPage,
+} from "@/lib/contracts/session-monitor";
+import type {
+  WorkflowGraph,
+  WorkflowGraphNode,
+} from "@/lib/contracts/workflow-graph";
 import { redactText } from "@/lib/security/redact-text";
-import { listSessionRecords, readSessionFile, SESSION_ID } from "./session-files";
-import { listLocalAgentPresenceOwner, localAgentStatus } from "./local-agent-presence";
+import {
+  listSessionRecords,
+  readSessionFile,
+  SESSION_ID,
+} from "./session-files";
+import {
+  listLocalAgentPresenceOwner,
+  localAgentStatus,
+} from "./local-agent-presence";
 import { localAgentConsumerConnected } from "./local-agent-events";
-import type { AgentSession } from "./session-types";
+import { agentSessionLabel } from "./session-name";
+import type { AgentSession, AgentSessionEvent } from "./session-types";
 import type { LocalAgentPresenceRecord } from "./local-agent-types";
 
 function text(value: string | undefined, max = 500): string | undefined {
-  return value ? redactText(value, max).replace(/[\u0000-\u001f\u007f]/g, " ") : undefined;
+  return value
+    ? redactText(value, max).replace(/[\u0000-\u001f\u007f]/g, " ")
+    : undefined;
 }
-function card(row: AgentSession, presence: LocalAgentPresenceRecord | undefined, now: number): SessionCard {
+function card(
+  row: AgentSession,
+  presence: LocalAgentPresenceRecord | undefined,
+  now: number,
+): SessionCard {
   // Never join a presence record from a different authenticated principal.
-  const entry = presence?.principalHash === row.principalHash ? presence : undefined;
+  const entry =
+    presence?.principalHash === row.principalHash ? presence : undefined;
+  const name = text(row.name, 24) || "agent";
+  const title = text(row.title, 160) || "Untitled session";
+  const cwd = text(row.cwd);
   return {
-    id: row.id, name: text(row.name, 24) || row.id, title: text(row.title, 160) || "Untitled session",
-    source: row.source, status: entry ? localAgentStatus(entry, now) : "offline",
+    id: row.id,
+    name,
+    label: agentSessionLabel(name, title, cwd),
+    title,
+    source: row.source,
+    status: entry ? localAgentStatus(entry, now) : "offline",
     receiverConnected: localAgentConsumerConnected(row.id),
-    lastSeenAt: entry?.lastSeenAt || row.updatedAt, createdAt: row.createdAt,
-    cwd: text(row.cwd), eventCount: row.events.length, archiveCount: row.archiveCount,
-    resumedFrom: row.resumedFrom, parentSessionId: row.parentSessionId,
+    lastSeenAt: entry?.lastSeenAt || row.updatedAt,
+    createdAt: row.createdAt,
+    cwd,
+    eventCount: row.events.length,
+    archiveCount: row.archiveCount,
+    resumedFrom: row.resumedFrom,
+    parentSessionId: row.parentSessionId,
   };
 }
 function pagination(total: number, requested: number, pageSize: number) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  const page = Math.min(pages, Math.max(1, Number.isFinite(requested) ? Math.trunc(requested) : 1));
+  const page = Math.min(
+    pages,
+    Math.max(1, Number.isFinite(requested) ? Math.trunc(requested) : 1),
+  );
   return { total, page, pages, pageSize };
 }
+function safeEvent(row: AgentSessionEvent) {
+  return {
+    at: row.at,
+    kind: text(row.kind, 40) || "note",
+    tool: text(row.tool, 100),
+    state: text(row.state, 60),
+    detail: text(row.detail, 1000),
+    workflowId: text(row.workflowId, 100),
+  };
+}
+function nodeName(event: ReturnType<typeof safeEvent>): string {
+  return (event.tool || event.kind || "event")
+    .replace(/[_.:-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .slice(0, 120);
+}
+function nodeType(
+  event: ReturnType<typeof safeEvent>,
+): WorkflowGraphNode["type"] {
+  if (event.kind === "workflow") return "subflow";
+  if (
+    event.kind === "note" ||
+    event.kind === "compacted" ||
+    event.kind === "archived"
+  )
+    return "memory";
+  return "tool";
+}
+function sessionGraph(
+  record: AgentSession,
+  session: SessionCard,
+  requestedLimit: number,
+): SessionGraphView {
+  const limit = Math.max(
+    1,
+    Math.min(
+      SESSION_GRAPH_EVENT_LIMIT,
+      Math.trunc(requestedLimit) || SESSION_GRAPH_EVENT_LIMIT,
+    ),
+  );
+  const totalEvents = record.events.length;
+  const omittedEvents = Math.max(0, totalEvents - limit);
+  const events = record.events.slice(-limit).map(safeEvent);
+  const root: WorkflowGraphNode = {
+    id: "session-root",
+    name: session.label,
+    type: "session",
+    position: { x: 70, y: 100 },
+    config: {
+      label: session.label,
+      source: session.source,
+      status: session.status,
+      title: session.title,
+      ...(session.cwd ? { cwd: session.cwd } : {}),
+    },
+  };
+  const eventNodes: WorkflowGraphNode[] = events.map((event, index) => {
+    const row = Math.floor(index / 4),
+      column = index % 4,
+      displayColumn = row % 2 === 0 ? column : 3 - column;
+    return {
+      id: `event-${omittedEvents + index + 1}`,
+      name: nodeName(event),
+      type: nodeType(event),
+      position: { x: 340 + displayColumn * 250, y: 70 + row * 140 },
+      config: {
+        at: event.at,
+        kind: event.kind,
+        ...(event.tool ? { tool: event.tool } : {}),
+        ...(event.state ? { state: event.state } : {}),
+        ...(event.detail ? { detail: event.detail } : {}),
+        terminalContext: Boolean(
+          event.tool && /^(exec(?:_|\.)|terminal|shell)/i.test(event.tool),
+        ),
+      },
+    };
+  });
+  const nodes = [root, ...eventNodes];
+  const edges = eventNodes.map((node, index) => ({
+    id: `session-edge-${omittedEvents + index + 1}`,
+    source: index === 0 ? root.id : eventNodes[index - 1]!.id,
+    target: node.id,
+  }));
+  const graph: WorkflowGraph = {
+    version: 2,
+    id: `session:${record.id}`,
+    name: session.label,
+    description: session.title,
+    status: "archived",
+    inputs: {},
+    nodes,
+    edges,
+    metadata: {
+      provenance: "learned-from-session",
+      intent: session.title,
+      ...(session.cwd ? { project: session.cwd } : {}),
+      tags: ["session", session.source],
+    },
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    revision: `session-${Date.parse(record.updatedAt) || 0}`,
+  };
+  return {
+    session,
+    graph,
+    totalEvents,
+    shownEvents: events.length,
+    omittedEvents,
+    observedAt: new Date().toISOString(),
+  };
+}
+
 /** Owner dashboard only. Model-facing directory remains strictly principal-scoped. */
-export async function ownerSessionPage(requested = 1, includeOffline = false, query = ""): Promise<SessionPage> {
-  if (query.length > 200) throw new Error("session search exceeds 200 characters");
+export async function ownerSessionPage(
+  requested = 1,
+  includeOffline = false,
+  query = "",
+): Promise<SessionPage> {
+  if (query.length > 200)
+    throw new Error("session search exceeds 200 characters");
   const search = query.trim().toLowerCase();
   const presence = await listLocalAgentPresenceOwner();
-  const now = Date.now(), byId = new Map(presence.map(row => [row.sessionId, row]));
+  const now = Date.now(),
+    byId = new Map(presence.map((row) => [row.sessionId, row]));
   // Active refreshes must not load thousands of inactive transcripts from disk.
-  const records: AgentSession[] = includeOffline ? await listSessionRecords() : [];
+  const records: AgentSession[] = includeOffline
+    ? await listSessionRecords()
+    : [];
   if (!includeOffline) {
     for (const entry of presence) {
       if (["offline", "ended"].includes(localAgentStatus(entry, now))) continue;
@@ -42,21 +204,84 @@ export async function ownerSessionPage(requested = 1, includeOffline = false, qu
       if (record) records.push(record);
     }
   }
-  const all = records.map(row => card(row, byId.get(row.id), now));
-  const active = all.filter(row => row.status !== "offline" && row.status !== "ended");
-  const rows = (includeOffline ? all : active).filter(row => !search || [row.id, row.name, row.title, row.source, row.cwd].some(value => value?.toLowerCase().includes(search))).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt) || a.id.localeCompare(b.id));
+  const all = records.map((row) => card(row, byId.get(row.id), now));
+  const active = all.filter(
+    (row) => row.status !== "offline" && row.status !== "ended",
+  );
+  const rows = (includeOffline ? all : active)
+    .filter(
+      (row) =>
+        !search ||
+        [row.label, row.name, row.title, row.source, row.cwd].some((value) =>
+          value?.toLowerCase().includes(search),
+        ),
+    )
+    .sort(
+      (a, b) =>
+        b.lastSeenAt.localeCompare(a.lastSeenAt) ||
+        a.label.localeCompare(b.label),
+    );
   const paging = pagination(rows.length, requested, SESSION_PAGE_SIZE);
-  return { ...paging, sessions: rows.slice((paging.page - 1) * paging.pageSize, paging.page * paging.pageSize),
-    activeCount: active.length, observedAt: new Date(now).toISOString() };
+  return {
+    ...paging,
+    sessions: rows.slice(
+      (paging.page - 1) * paging.pageSize,
+      paging.page * paging.pageSize,
+    ),
+    activeCount: active.length,
+    observedAt: new Date(now).toISOString(),
+  };
 }
-export async function ownerSessionDetail(id: string, requested = 1): Promise<SessionDetail | null> {
+export async function ownerSessionDetail(
+  id: string,
+  requested = 1,
+): Promise<SessionDetail | null> {
   if (!SESSION_ID.test(id)) throw new Error("invalid_session_id");
-  const [record, presence] = await Promise.all([readSessionFile(id), listLocalAgentPresenceOwner()]);
+  const [record, presence] = await Promise.all([
+    readSessionFile(id),
+    listLocalAgentPresenceOwner(),
+  ]);
   if (!record) return null;
-  const now = Date.now(), paging = pagination(record.events.length, requested, SESSION_EVENT_PAGE_SIZE);
-  const events = record.events.slice().reverse().slice((paging.page - 1) * paging.pageSize, paging.page * paging.pageSize)
-    .map(row => ({ at: row.at, kind: text(row.kind, 40) || "note", tool: text(row.tool, 100),
-      state: text(row.state, 60), detail: text(row.detail, 1000), workflowId: text(row.workflowId, 100) }));
-  return { ...paging, session: card(record, presence.find(row => row.sessionId === id), now),
-    events, observedAt: new Date(now).toISOString() };
+  const now = Date.now(),
+    paging = pagination(
+      record.events.length,
+      requested,
+      SESSION_EVENT_PAGE_SIZE,
+    );
+  const events = record.events
+    .slice()
+    .reverse()
+    .slice((paging.page - 1) * paging.pageSize, paging.page * paging.pageSize)
+    .map(safeEvent);
+  return {
+    ...paging,
+    session: card(
+      record,
+      presence.find((row) => row.sessionId === id),
+      now,
+    ),
+    events,
+    observedAt: new Date(now).toISOString(),
+  };
+}
+export async function ownerSessionGraph(
+  id: string,
+  requestedLimit = SESSION_GRAPH_EVENT_LIMIT,
+): Promise<SessionGraphView | null> {
+  if (!SESSION_ID.test(id)) throw new Error("invalid_session_id");
+  const [record, presence] = await Promise.all([
+    readSessionFile(id),
+    listLocalAgentPresenceOwner(),
+  ]);
+  if (!record) return null;
+  const now = Date.now();
+  return sessionGraph(
+    record,
+    card(
+      record,
+      presence.find((row) => row.sessionId === id),
+      now,
+    ),
+    requestedLimit,
+  );
 }

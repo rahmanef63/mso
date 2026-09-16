@@ -1,3 +1,4 @@
+import type { SessionGraphView, SessionPage } from "@/lib/contracts/session-monitor";
 import type { WorkflowGraph, WorkflowGraphRun, WorkflowGraphStatus } from "@/lib/contracts/workflow-graph";
 import type { WorkflowNodeCatalogItem } from "@/lib/workflow/node-catalog";
 import { cachedWorkflowResource, invalidateWorkflowResources, seedWorkflowResource } from "./resource-cache";
@@ -23,7 +24,10 @@ export async function deleteVariable(key:string){return post({action:"variable_d
 export async function aiSuggest(prompt:string){return(await post<{definition:Omit<WorkflowGraph,"version"|"id"|"revision"|"createdAt"|"updatedAt">}>({action:"ai_suggest",prompt})).definition;}
 export async function resolveNode(graphId:string,nodeId:string){return json<{project:string;name:string;path:string;relativePath:string}>(`/api/v1/workflows?graph_id=${encodeURIComponent(graphId)}&node_id=${encodeURIComponent(nodeId)}&resolve=target`);}
 
-export type WorkflowDirectory = {tools:Array<{name:string;description:string;scope:string;inputSchema:Record<string,unknown>}>;workflows:Array<{id:string;name:string;status:string;nodeCount:number;updatedAt:string}>;sessions:Array<{id:string;title:string;name:string;updatedAt:string;cwd?:string;source:string}>};
+export async function listWorkflowSessions(page=1,query=""){const q=new URLSearchParams({view:"monitor",includeOffline:"1",page:String(page)});if(query.trim())q.set("q",query.trim());return json<SessionPage>(`/api/v1/agent-sessions?${q}`);}
+export async function getSessionGraph(id:string){return json<SessionGraphView>(`/api/v1/agent-sessions?view=graph&id=${encodeURIComponent(id)}&limit=120`);}
+
+export type WorkflowDirectory = {tools:Array<{name:string;description:string;scope:string;inputSchema:Record<string,unknown>}>;workflows:Array<{id:string;name:string;status:string;nodeCount:number;updatedAt:string}>;sessions:Array<{id:string;label?:string;title:string;name:string;updatedAt:string;cwd?:string;source:string}>};
 export async function listWorkflowDirectory(query=""){return cachedWorkflowResource(`directory:${query}`,15000,()=>json<WorkflowDirectory>(`/api/v1/workflows?directory=1&q=${encodeURIComponent(query)}`));}
 
 export type WorkflowScriptSummary = { id:string; intent:string; status:"candidate"|"tested"; stepCount:number; updatedAt:string; project?:string; tools:string[] };

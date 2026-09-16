@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-const mocks = vi.hoisted(() => ({ context: vi.fn(), page: vi.fn(), detail: vi.fn() }));
+const mocks = vi.hoisted(() => ({ context: vi.fn(), page: vi.fn(), detail: vi.fn(), graph: vi.fn() }));
 vi.mock("@/lib/auth/require-session", () => ({ getSessionContext: mocks.context }));
-vi.mock("@/lib/agent/session-monitor", () => ({ ownerSessionPage: mocks.page, ownerSessionDetail: mocks.detail }));
+vi.mock("@/lib/agent/session-monitor", () => ({ ownerSessionPage: mocks.page, ownerSessionDetail: mocks.detail, ownerSessionGraph: mocks.graph }));
 import { GET } from "./route";
 beforeEach(() => { vi.clearAllMocks(); mocks.context.mockResolvedValue({ role: "owner", session: { device_id: "owner" } }); });
 describe("session monitor route", () => {
@@ -15,6 +15,13 @@ describe("session monitor route", () => {
     mocks.page.mockResolvedValue({ sessions: [], total: 0 });
     const response = await GET(new NextRequest("http://localhost/api/v1/agent-sessions?view=monitor&page=2&includeOffline=1&q=fixture"));
     expect(mocks.page).toHaveBeenCalledWith(2, true, "fixture");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+  it("serves the owner-only session graph projection with private no-store caching", async () => {
+    mocks.graph.mockResolvedValue({ session: { label: "fara-context" }, graph: { name: "fara-context" } });
+    const response = await GET(new NextRequest("http://localhost/api/v1/agent-sessions?view=graph&id=20260901_100000_aabbccdd"));
+    expect(response.status).toBe(200);
+    expect(mocks.graph).toHaveBeenCalledWith("20260901_100000_aabbccdd", 120);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
   it("returns 404 for a missing exact session and does not expose store error details", async () => {

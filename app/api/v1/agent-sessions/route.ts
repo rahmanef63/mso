@@ -1,4 +1,4 @@
-import { ownerSessionPage, ownerSessionDetail } from "@/lib/agent/session-monitor";
+import { ownerSessionPage, ownerSessionDetail, ownerSessionGraph } from "@/lib/agent/session-monitor";
 import type { AgentSession } from "@/lib/agent/session-types";
 import { artifactLocation } from "@/lib/agent/artifact-paths";
 import { NextRequest, NextResponse } from "next/server";
@@ -45,11 +45,14 @@ export async function GET(req: NextRequest) {
   const principal = await ownerPrincipal();
   if (!principal)
     return NextResponse.json({ error: "owner_role_required" }, { status: 403 });
-  if (req.nextUrl.searchParams.get("view") === "monitor") {
+  const view = req.nextUrl.searchParams.get("view");
+  if (view === "monitor" || view === "graph") {
     try {
       const id = req.nextUrl.searchParams.get("id");
       const page = Number(req.nextUrl.searchParams.get("page") || 1);
-      const result = id ? await ownerSessionDetail(id, page) : await ownerSessionPage(page, req.nextUrl.searchParams.get("includeOffline") === "1", req.nextUrl.searchParams.get("q") || "");
+      const result = view === "graph"
+        ? (id ? await ownerSessionGraph(id, Number(req.nextUrl.searchParams.get("limit") || 120)) : null)
+        : (id ? await ownerSessionDetail(id, page) : await ownerSessionPage(page, req.nextUrl.searchParams.get("includeOffline") === "1", req.nextUrl.searchParams.get("q") || ""));
       return NextResponse.json(result || { error: "session_not_found" }, { status: result ? 200 : 404, headers: { "Cache-Control": "private, no-store" } });
     } catch (cause) {
       const invalid = cause instanceof Error && ["invalid_session_id", "session search exceeds 200 characters"].includes(cause.message);
