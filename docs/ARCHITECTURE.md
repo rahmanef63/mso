@@ -96,6 +96,8 @@ MSO uses several extension concepts because they own different authority. They a
 | **Skill Market** | Curated source of reviewed skill bundles. | Install state is local skill state (`installed / modified / conflict / not-installed`); removal refuses unmanaged content. | General app/plugin marketplace. |
 | **App Store** | MSO shell catalog for UI apps/features. | Presentation/install state in the workspace. | OpenAI plugin directory, Project Plugin catalog, Managed App registry. |
 
+OpenAI/Codex `.app.json` bindings may point at a registered app or a portable connector/template identity, and each binding declares whether it is required. `required: true` is a hard package dependency; `required: false` is an optional capability. Optional does **not** authorize a silent identity change: a fallback may change transport only when it uses an already-authorized, explicitly selected principal/connection and preserves the task's scope. Never copy provider OAuth credentials, silently switch from provider-owned MCP/OAuth to a local token, or treat fallback availability as equivalent authorization.
+
 ### Capability selection order
 
 For agent routing, reuse before adding another extension:

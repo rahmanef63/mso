@@ -18,6 +18,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `plugin` support optional connector bindings
 - `workflows` keep session nodes clear on compact canvas
 - `workflows` dismiss session inspector on handoff
 - `canvas` isolate react flow accessibility ids

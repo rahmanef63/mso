@@ -33,7 +33,7 @@ Treat `Skill`, `Project Plugin`, `MCP`, `Integration`, `App`, and `Managed App` 
 5. Install a Project Plugin only for the exact project that needs it, after inspection. Catalog presence is not installation and nothing is inherited from another project.
 6. App/App Store state controls workspace UI; Managed App state controls an external runtime. Neither substitutes for MCP authorization or Integration credentials.
 
-When a useful external capability is unavailable, continue any independent work and state the exact missing connection/capability rather than treating setup as proof of completion. Verify connection/install state before using or claiming it.
+When a useful external capability is unavailable, continue any independent work and state the exact missing connection/capability rather than treating setup as proof of completion. An optional connector may fall back to another transport only when that fallback uses an already-authorized, explicitly selected identity and preserves scope; never silently switch principals, credential sources, or provider-owned OAuth/MCP into a local key. Verify connection/install state before using or claiming it.
 
 ## Resolve the install — never hardcode a username/path
 

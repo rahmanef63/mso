@@ -3,6 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { parse as parseYaml } from "yaml";
 import { validateSkillArtifact } from "../lib/skills/skill-artifact-validators.ts";
+import { validateOpenAiAppManifest } from "../lib/plugins/openai-app-binding.ts";
 
 const args = process.argv.slice(2).filter((arg) => arg !== "--");
 const argValue = (flag, fallback) => {
@@ -112,12 +113,8 @@ try {
   if (plugin.mcpServers !== undefined) errors.push(".codex-plugin/plugin.json must not declare mcpServers; the web-capable MSO custom MCP app remains a separate OAuth connection");
   if (!Array.isArray(plugin.interface?.capabilities)) errors.push(".codex-plugin/plugin.json interface.capabilities must be an array");
   const appManifest = JSON.parse(await fs.readFile(path.join(repo, ".app.json"), "utf8"));
-  if (!appManifest.apps || typeof appManifest.apps !== "object" || Array.isArray(appManifest.apps)) errors.push(".app.json must contain an apps object");
-  for (const [name, app] of Object.entries(appManifest.apps ?? {})) {
-    if (!slug.test(name)) errors.push(`.app.json app key must be kebab-case: ${name}`);
-    if (!app || typeof app !== "object" || typeof app.id !== "string" || !/^(?:plugin_)?asdk_app_[a-z0-9]+$/.test(app.id)) errors.push(`.app.json ${name}.id must be an exact registered OpenAI app id`);
-    if (app?.required !== true) errors.push(`.app.json ${name}.required must be true`);
-  }
+  const appValidation = validateOpenAiAppManifest(appManifest);
+  if (!appValidation.ok) errors.push(...appValidation.errors.map((error) => `.app.json ${error}`));
 } catch (error) {
   errors.push(`OpenAI plugin manifest invalid: ${error instanceof Error ? error.message : String(error)}`);
 }
