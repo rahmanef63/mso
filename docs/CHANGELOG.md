@@ -12,6 +12,25 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `ai` add dynamic free provider discovery
 - `workflows` maximize script and search automation
 
+**Fixed**
+
+- `canvas` isolate react flow accessibility ids
+- `workflows` keep compact session nodes clickable
+
+**Changed**
+
+- `workflows` satisfy session graph release gates
+
+**Tests**
+
+- `mcp` close mobile session windows
+- `canvas` scope graph controls per app
+- `mcp` clean workflow window after session journey
+- `mcp` restore settings after terminal handoff
+- `mcp` preserve preexisting terminal state
+- `mcp` close session terminal across shells
+- `mcp` close terminal after session graph check
+
 ## 2026-09-15
 
 **Added**
