@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `workflows` dismiss session inspector on handoff
 - `canvas` isolate react flow accessibility ids
 - `workflows` keep compact session nodes clickable
 
