@@ -5,7 +5,8 @@ import path from "node:path";
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-tools-agent-p1-"));
 process.env.OS_AGENT_MEMORY_DIR = root;
-afterAll(async () => { delete process.env.OS_AGENT_MEMORY_DIR; await fs.rm(root, { recursive: true, force: true }); });
+process.env.OS_AGENT_SESSIONS_DIR = path.join(root, "sessions");
+afterAll(async () => { delete process.env.OS_AGENT_MEMORY_DIR; delete process.env.OS_AGENT_SESSIONS_DIR; await fs.rm(root, { recursive: true, force: true }); });
 vi.resetModules();
 const { AGENT_TOOLS } = await import("./tools-agent");
 
@@ -31,5 +32,26 @@ describe("typed MCP agent memory tools", () => {
   it("validates typed metadata instead of accepting arbitrary labels", async () => {
     const context = { principal: "mcp-client:bad", sessionId: "session", scope: "exec" as const };
     expect(() => tool("agent_memory_remember").run({ document: "MEMORY.md", key: "x", value: "y", kind: "graph" }, context)).toThrow(/kind must be one of/);
+  });
+});
+
+
+describe("semantic session resolver tools", () => {
+  it("resolves stable human refs owner-safely without exposing internal session ids or secrets", async () => {
+    const store = await import("@/lib/agent/session-store");
+    const principal = "mcp-client:flow-owner";
+    const session = await store.createAgentSession(principal, "mcp", { title: "Semantic resolver", cwd: "/tmp/project" });
+    await store.appendAgentSessionEvent(principal, session.id, { kind: "tool", tool: "fs_read", state: "completed", detail: "src/app.ts token=secret-value" });
+    await store.appendAgentSessionEvent(principal, session.id, { kind: "tool", tool: "fs_write", state: "completed", detail: "src/app.ts" });
+    const context = { principal, sessionId: session.id, scope: "exec" as const };
+    const flow = await tool("agent_session_flow").run({ session_ref: `@${session.name}` }, context) as { steps: Array<{ actions: Array<{ ref: string; tool?: string }> }> };
+    const actionRef = flow.steps.flatMap((step) => step.actions).find((action) => action.tool === "fs_read")?.ref;
+    expect(actionRef).toMatch(/^S\d+\.A\d+$/);
+    const resolved = await tool("agent_session_action_resolve").run({ session_ref: `@${session.name}`, action_ref: actionRef }, context);
+    const body = JSON.stringify(resolved);
+    expect(body).not.toContain(session.id);
+    expect(body).not.toContain("secret-value");
+    expect(body).toContain("[redacted]");
+    await expect(tool("agent_session_action_resolve").run({ session_ref: `@${session.name}`, action_ref: actionRef }, { ...context, principal: "mcp-client:other" })).rejects.toThrow(/not found|session/i);
   });
 });

@@ -46,7 +46,7 @@ const TITLES: Record<string, string> = {
   project_mcp_tools: "List Project MCP Tools", project_mcp_call: "Call Project MCP Tool", project_function_call: "Call Project Function",
   read_pipeline: "Run Read Pipeline", fs_list: "List Files", fs_read: "Read File", fs_search: "Search Directories", fs_write: "Write File",
   exec_run: "Run Command", exec_job_start: "Start Command Job", exec_job_status: "Command Job Status", exec_job_cancel: "Cancel Command Job",
-  agent_session_current: "Current Agent Session", agent_session_flow: "Read Session Flow", agent_session_rename: "Rename Agent Session",
+  agent_session_current: "Current Agent Session", agent_session_flow: "Read Session Flow", agent_session_action_resolve: "Resolve Session Action", agent_session_rename: "Rename Agent Session",
   local_agents_list: "List Local Agents", local_agent_inbox: "Receive Local Agent Messages",
   organization_chart: "Organization Chart", organization_manage: "Manage Organization",
   local_agent_message_send: "Send Local Agent Message", local_agent_reply: "Reply to Local Agent", local_agent_request_wait: "Wait for Local Agent Reply",
@@ -110,7 +110,7 @@ function compactSchema(value: unknown): unknown {
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
     if (key === "additionalProperties" && item === true || key === "required" && Array.isArray(item) && item.length === 0) continue;
     if (key === "workflow_id" && item && typeof item === "object") out[key] = { type:"string" };
-    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 32);
+    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 28);
     else out[key] = compactSchema(item);
   }
   return out;
@@ -124,7 +124,7 @@ export function toolDescriptor(tool: McpTool, profile: McpToolProfile = "full") 
   return {
     name: tool.name,
     title: tool.title ?? toolTitle(tool.name),
-    description: compact ? compactText(tool.chatgptDescription ?? tool.description, 72) : tool.description,
+    description: compact ? compactText(tool.chatgptDescription ?? tool.description, 64) : tool.description,
     inputSchema: compact ? compactSchema(tool.inputSchema) : tool.inputSchema,
     ...(outputSchema ? { outputSchema: compact ? compactSchema(outputSchema) : outputSchema } : {}),
     securitySchemes,

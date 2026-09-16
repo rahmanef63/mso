@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { redactText } from "@/lib/security/redact-text";
 import type { AgentSession, AgentSessionEvent, AgentSessionTitleSource } from "./session-types";
+import { retainSessionEvents } from "./session-sequence";
+import { appendSemanticSessionEvent } from "./session-semantic";
 
 export const MAX_HISTORY = 4096;
 export const MAX_EVENTS = 400;
@@ -98,11 +100,13 @@ export function compactSessionContext(record: AgentSession, at: string): AgentSe
     if (used >= target) break;
   }
   const event: AgentSessionEvent = { at, kind: "compacted", detail: `context exceeded ${record.compactThresholdTokens} estimated tokens` };
+  const retained = retainSessionEvents(appendSemanticSessionEvent(record.events, event), record.eventSeqBase, MAX_EVENTS);
   const next: AgentSession = {
     ...record,
     contextSummary: summaryFrom(record, at),
     history: kept.slice(-MAX_HISTORY),
-    events: [...record.events.slice(-(MAX_EVENTS - 1)), event],
+    events: retained.events,
+    eventSeqBase: retained.eventSeqBase,
     compactionCount: record.compactionCount + 1,
     lastCompactedAt: at,
     updatedAt: at,

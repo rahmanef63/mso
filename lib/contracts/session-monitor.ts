@@ -48,7 +48,18 @@ export interface SessionDetail {
 }
 
 export type SessionFlowCategory = "context" | "plan" | "inspect" | "implement" | "verify" | "integrate" | "deploy" | "result" | "other";
+export interface SessionFlowArtifact {
+  ref: string;
+  revisionRef: string;
+  path: string;
+  relativePath: string;
+  label: string;
+  kind: "file" | "script";
+  language?: string;
+}
 export interface SessionFlowAction {
+  /** Opaque durable identity scoped to the session. Not rendered as the human reference. */
+  id: string;
   ref: string;
   eventRef: string;
   title: string;
@@ -60,16 +71,32 @@ export interface SessionFlowAction {
   detail?: string;
   terminalContext?: boolean;
   code?: { kind: "command" | "script" | "snippet"; language: string; content: string };
-  artifact?: { path: string; label: string; kind: "file" | "script"; language?: string };
+  artifact?: SessionFlowArtifact;
+}
+export interface SessionFlowActionGroup {
+  ref: string;
+  key: string;
+  title: string;
+  actionRefs: string[];
+  count: number;
 }
 export interface SessionFlowStep {
+  /** Opaque durable identity scoped to the session. */
+  id: string;
   ref: string;
   title: string;
   category: SessionFlowCategory;
   summary: string;
   startedAt: string;
   finishedAt: string;
+  groups: SessionFlowActionGroup[];
   actions: SessionFlowAction[];
+}
+export interface SessionFlowActionResolution {
+  step: SessionFlowStep;
+  action: SessionFlowAction;
+  beforeRef?: string;
+  afterRef?: string;
 }
 
 export interface SessionGraphView {

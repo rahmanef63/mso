@@ -23,9 +23,23 @@ function actionReceipt(action: SessionFlowAction, onOpenTerminal: () => void, on
         {action.terminalContext ? <Button type="button" size="sm" variant="outline" className="h-7 text-[10px]" onClick={onOpenTerminal}><TerminalSquare className="size-3.5"/>Open terminal here<ExternalLink className="size-3"/></Button> : null}
         {action.artifact ? <Button type="button" size="sm" variant="outline" className="h-7 text-[10px]" onClick={() => onOpenCode(action.artifact!.path)}><FileCode2 className="size-3.5"/>Open {action.artifact.label} in Code<ExternalLink className="size-3"/></Button> : null}
       </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-muted-foreground"><span>{new Date(action.at).toLocaleString()}</span><span>{action.eventRef}</span>{action.artifact ? <span className="break-all">{action.artifact.path}</span> : null}</div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-muted-foreground"><span>{new Date(action.at).toLocaleString()}</span><span>{action.eventRef}</span>{action.artifact ? <span className="break-all">{action.artifact.relativePath} · revision {action.artifact.revisionRef}</span> : null}</div>
     </div>
   </details>;
+}
+
+function actionGroups(step: SessionFlowStep, onOpenTerminal: () => void, onOpenCode: (path: string) => void) {
+  return step.groups.map((group) => {
+    const refs = new Set(group.actionRefs);
+    const actions = step.actions.filter((action) => refs.has(action.ref));
+    return <details key={group.ref} data-slot="session-action-group" data-action-group-ref={group.ref} className="rounded-lg border bg-muted/15">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 py-2 text-xs marker:hidden">
+        <span className="min-w-0 flex-1 truncate font-medium">{group.title}</span>
+        <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[9px]">{group.count}</Badge>
+      </summary>
+      <div className="space-y-1.5 border-t p-2">{actions.map((action) => actionReceipt(action, onOpenTerminal, onOpenCode))}</div>
+    </details>;
+  });
 }
 
 export function WorkflowSessionDetails({ view, node, onOpenTerminal, onOpenCode }: { view: SessionGraphView; node: WorkflowGraphNode | null; onOpenTerminal: () => void; onOpenCode: (path: string) => void }) {
@@ -41,7 +55,7 @@ export function WorkflowSessionDetails({ view, node, onOpenTerminal, onOpenCode 
     <ScrollArea className="min-h-0 flex-1"><div className="space-y-3 p-3">
       {!node || node.id === "session-root" ? <><div><div className="text-[10px] uppercase text-muted-foreground">Flow</div><div className="mt-1 text-sm font-semibold">{view.session.title}</div></div><div className="space-y-1.5">{view.steps.map((item) => <div key={item.ref} className="rounded-lg border bg-background/35 p-2"><div className="flex items-center gap-2"><code className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold">{item.ref}</code><span className="text-xs font-medium">{item.title}</span><span className="ml-auto text-[10px] text-muted-foreground">{item.actions.length} actions</span></div><p className="mt-1 text-[10px] text-muted-foreground">{item.summary}</p></div>)}</div></> : step ? <>
         <div><div className="flex items-center gap-2"><code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">{step.ref}</code><Badge variant="outline" className="text-[9px] capitalize">{step.category}</Badge></div><div className="mt-2 break-words text-sm font-semibold">{step.title}</div><p className="mt-1 text-xs text-muted-foreground">{step.summary}</p></div>
-        <div className="border-t pt-3"><div className="mb-2 flex items-center justify-between"><div className="text-[10px] font-semibold uppercase text-muted-foreground">Actions</div><span className="text-[10px] text-muted-foreground">{step.actions.length}</span></div><div className="space-y-1.5">{step.actions.map((action) => actionReceipt(action, onOpenTerminal, onOpenCode))}</div></div>
+        <div className="border-t pt-3"><div className="mb-2 flex items-center justify-between"><div className="text-[10px] font-semibold uppercase text-muted-foreground">Action groups</div><span className="text-[10px] text-muted-foreground">{step.groups.length} groups · {step.actions.length} actions</span></div><div className="space-y-1.5">{actionGroups(step, onOpenTerminal, onOpenCode)}</div></div>
       </> : <p className="text-xs text-muted-foreground">Select a semantic step to inspect its actions.</p>}
       {view.session.cwd ? <div className="border-t pt-3"><div className="text-[10px] uppercase text-muted-foreground">Session context</div><p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">{view.session.cwd}</p></div> : null}
     </div></ScrollArea>

@@ -2,6 +2,8 @@ import { artifactLocation } from "./artifact-paths";
 import { archiveAgentSession, pruneAgentSessionArchives } from "./session-archive";
 import { principalHash, readSessionFile } from "./session-files";
 import { compactSessionContext, MAX_EVENTS, sessionContextTokens } from "./session-policy";
+import { retainSessionEvents } from "./session-sequence";
+import { appendSemanticSessionEvent } from "./session-semantic";
 import type { AgentSession, AgentSessionEvent, AgentSessionSummary } from "./session-types";
 import { agentSessionLabel } from "./session-name";
 
@@ -49,9 +51,11 @@ export async function compactIfNeeded(
     kind: "archived",
     detail: `${reason}; 30-day retention`,
   };
+  const retained = retainSessionEvents(appendSemanticSessionEvent(next.events, archived), next.eventSeqBase, MAX_EVENTS);
   next = {
     ...next,
-    events: [...next.events.slice(-(MAX_EVENTS - 1)), archived],
+    events: retained.events,
+    eventSeqBase: retained.eventSeqBase,
     archiveCount: record.archiveCount + 1,
     lastArchivedAt: now.toISOString(),
   };

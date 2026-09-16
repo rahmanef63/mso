@@ -5,7 +5,7 @@ import type { AgentSession } from "./session-types";
 import { semanticSessionFlow } from "./session-flow";
 
 export function sessionGraph(record: AgentSession, session: SessionCard, requestedLimit = SESSION_GRAPH_EVENT_LIMIT): SessionGraphView {
-  const flow = semanticSessionFlow(record.events, requestedLimit, session.cwd);
+  const flow = semanticSessionFlow(record.events, requestedLimit, session.cwd, record.eventSeqBase);
   const root: WorkflowGraphNode = {
     id: "session-root", name: session.label, type: "session", position: { x: 60, y: 90 },
     config: { sessionRoot: true, label: session.label, source: session.source, status: session.status, title: session.title, ...(session.cwd ? { cwd: session.cwd } : {}), stepCount: flow.steps.length },

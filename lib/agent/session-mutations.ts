@@ -3,6 +3,8 @@ import { redactText } from "@/lib/security/redact-text";
 import { listSessionRecords, principalHash, sessionLockTarget, sessionNameLockTarget, writeSessionFile } from "./session-files";
 import { requireAgentSessionName } from "./session-name";
 import { autoSessionTitle, estimateTokens, MAX_EVENTS, MAX_HISTORY, safeTitle } from "./session-policy";
+import { retainSessionEvents } from "./session-sequence";
+import { appendSemanticSessionEvent } from "./session-semantic";
 import { compactIfNeeded, requireOwned } from "./session-record";
 import type { AgentSession, AgentSessionEvent, AgentSessionTitleSource } from "./session-types";
 
@@ -121,7 +123,9 @@ export async function appendAgentSessionEvent(
           }
         : {}),
     };
-    record.events = [...record.events, row].slice(-MAX_EVENTS);
+    const retained = retainSessionEvents(appendSemanticSessionEvent(record.events, row), record.eventSeqBase, MAX_EVENTS);
+    record.events = retained.events;
+    record.eventSeqBase = retained.eventSeqBase;
     record.updatedAt = at;
     record.lifetimeEstimatedTokens += estimateTokens(row);
     record = await compactIfNeeded(record, "event-threshold");

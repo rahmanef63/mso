@@ -4,6 +4,7 @@ import { listSessionRecords, newAgentSessionId, principalHash, sessionNameLockTa
 import { normalizeAgentSessionCwd } from "./session-location";
 import { allocateAgentSessionName, requireAgentSessionName } from "./session-name";
 import { MAX_HISTORY, compactThresholdTokens, safeTitle, sessionContextTokens } from "./session-policy";
+import { appendSemanticSessionEvent } from "./session-semantic";
 import type { AgentSession, AgentSessionEvent, AgentSessionSource, AgentSessionTitleSource } from "./session-types";
 
 export interface CreateOptions {
@@ -31,13 +32,13 @@ async function buildRecord(
   if (usedNames.includes(name)) throw new Error(`session name @${name} is already in use`);
   const memorySnapshot =
     options.memorySnapshot ?? (await snapshotAgentMemory(principal));
-  const created: AgentSessionEvent = {
+  const created: AgentSessionEvent = appendSemanticSessionEvent([], {
     at: now,
     kind: "created",
     ...(options.resumedFrom
       ? { detail: `resumed from ${options.resumedFrom}` }
       : {}),
-  };
+  })[0]!;
   const record: AgentSession = {
     id: options.id ?? newAgentSessionId(),
     principalHash: principalHash(principal),
@@ -63,6 +64,7 @@ async function buildRecord(
       : {}),
     history: (options.history ?? []).slice(-MAX_HISTORY),
     events: [created],
+    eventSeqBase: 0,
     estimatedTokens: 0,
     lifetimeEstimatedTokens: 0,
     compactThresholdTokens: compactThresholdTokens(),

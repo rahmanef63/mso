@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` stabilize semantic action references
 - `workflows` add semantic session flows
 - `workflows` visualize agent sessions
 - `ai` add dynamic free provider discovery

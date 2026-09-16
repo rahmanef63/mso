@@ -2,6 +2,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import path from "node:path";
 import { compactThresholdTokens, inferredTitleSource, MAX_EVENTS, MAX_HISTORY, safeTitle, sessionContextTokens } from "./session-policy";
+import { eventSequenceBase, retainSessionEvents } from "./session-sequence";
+import { normalizeSessionEventSemantics } from "./session-semantic";
 import type { AgentSession } from "./session-types";
 import { legacyAgentSessionName, normalizeAgentSessionName } from "./session-name";
 
@@ -112,13 +114,15 @@ function fileFor(id: string): string {
 export function normalizeSession(raw: AgentSession): AgentSession {
   const title = safeTitle(raw.title);
   const threshold = Number(raw.compactThresholdTokens) || compactThresholdTokens();
+  const retained = retainSessionEvents(Array.isArray(raw.events) ? raw.events : [], eventSequenceBase(raw.eventSeqBase), MAX_EVENTS);
   const base = {
     ...raw,
     name: normalizeAgentSessionName((raw as AgentSession & { name?: string }).name) || legacyAgentSessionName(raw.id),
     title,
     titleSource: inferredTitleSource(title, raw.titleSource),
     history: Array.isArray(raw.history) ? raw.history.slice(-MAX_HISTORY) : [],
-    events: Array.isArray(raw.events) ? raw.events.slice(-MAX_EVENTS) : [],
+    events: normalizeSessionEventSemantics(retained.events),
+    eventSeqBase: retained.eventSeqBase,
     compactThresholdTokens: threshold,
     compactionCount: Math.max(0, Number(raw.compactionCount) || 0),
     archiveCount: Math.max(0, Number(raw.archiveCount) || 0),

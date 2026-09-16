@@ -28,6 +28,9 @@ describe("Workflow session graph UI contract", () => {
     expect(workflowApp).toContain('const openSessionCode = (path: string) => { setDetailsOpen(false);');
     expect(sessionDetails).toContain("Open terminal here");
     expect(sessionDetails).toContain("Open {action.artifact.label} in Code");
+    expect(sessionDetails).toContain('data-slot="session-action-group"');
+    expect(sessionDetails).toContain("Action groups");
+    expect(sessionDetails).toContain("action.artifact.revisionRef");
     expect(sessionDetails).toContain("S3.A4");
     expect(workflowCanvas).toContain('showMinimap={!readOnly}');
   });

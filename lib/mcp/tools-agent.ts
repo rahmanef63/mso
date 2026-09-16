@@ -4,7 +4,7 @@ import { agentSessionSummary, appendAgentSessionEvent, getAgentSession, listAgen
 import { type McpTool, S, str } from "./tool-kit";
 import { resolveAgentSessionRef } from "@/lib/agent/session-query";
 import { agentSessionLabel } from "@/lib/agent/session-name";
-import { semanticSessionFlow } from "@/lib/agent/session-flow";
+import { resolveSessionFlowAction, semanticSessionFlow } from "@/lib/agent/session-flow";
 
 function principal(context: { principal?: string }): string {
   if (!context.principal) throw new Error("agent session principal is unavailable");
@@ -69,17 +69,33 @@ export const AGENT_TOOLS: McpTool[] = [
     }, ["session_ref"]),
     run: async (a, context) => {
       const owner = principal(context), target = await resolveAgentSessionRef(owner, str(a, "session_ref"));
-      const flow = semanticSessionFlow(target.events, Math.max(1, Math.min(120, Number(a.limit) || 120)), target.cwd);
+      const flow = semanticSessionFlow(target.events, Math.max(1, Math.min(120, Number(a.limit) || 120)), target.cwd, target.eventSeqBase);
       const session = { label: agentSessionLabel(target.name, target.title, target.cwd), title: target.title, source: target.source, updatedAt: target.updatedAt, ...(target.cwd ? { cwd: target.cwd } : {}) };
-      const wanted = optionalString(a, "action_ref")?.toUpperCase();
+      const wanted = optionalString(a, "action_ref");
       if (wanted) {
-        for (const step of flow.steps) {
-          const action = step.actions.find((row) => row.ref.toUpperCase() === wanted || row.eventRef.toUpperCase() === wanted);
-          if (action) return { session, step: { ref: step.ref, title: step.title, category: step.category, summary: step.summary }, action };
-        }
-        throw new Error(`session action not found: ${wanted}`);
+        const resolved = resolveSessionFlowAction(target.events, wanted, target.cwd, target.eventSeqBase);
+        if (!resolved) throw new Error(`session action not found: ${wanted.toUpperCase()}`);
+        return { session, ...resolved };
       }
       return { session, ...flow };
+    },
+  },
+  {
+    name: "agent_session_action_resolve",
+    description: "Resolve one stable human session action reference such as S3.A4 (or E217) to its exact sanitized semantic step/action receipt. The lookup is owner-scoped and never exposes the internal session id.",
+    scope: "read", annotations: { readOnlyHint: true, idempotentHint: true },
+    inputSchema: S({
+      session_ref: { type: "string", description: "Human session label (agent-context), @name, title, or legacy exact id." },
+      action_ref: { type: "string", description: "Stable semantic action reference such as S3.A4, event reference such as E217, or an opaque action id returned by the semantic flow." },
+    }, ["session_ref", "action_ref"]),
+    run: async (a, context) => {
+      const owner = principal(context), target = await resolveAgentSessionRef(owner, str(a, "session_ref"));
+      const resolved = resolveSessionFlowAction(target.events, str(a, "action_ref"), target.cwd, target.eventSeqBase);
+      if (!resolved) throw new Error(`session action not found: ${str(a, "action_ref").toUpperCase()}`);
+      return {
+        session: { label: agentSessionLabel(target.name, target.title, target.cwd), title: target.title, source: target.source, updatedAt: target.updatedAt, ...(target.cwd ? { cwd: target.cwd } : {}) },
+        ...resolved,
+      };
     },
   },
   {

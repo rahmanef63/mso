@@ -1,8 +1,16 @@
 import type { artifactLocation } from "./artifact-paths";
 import type { AgentMemorySnapshot } from "./memory-store";
+import type { SessionFlowCategory } from "@/lib/contracts/session-monitor";
 
 export type AgentSessionSource = "cli" | "mcp" | "alfa";
 export type AgentSessionTitleSource = "default" | "auto" | "manual";
+
+export interface AgentSessionEventSemantic {
+  version: 1;
+  step: number;
+  action: number;
+  category: SessionFlowCategory;
+}
 
 export interface AgentSessionEvent {
   at: string;
@@ -18,6 +26,8 @@ export interface AgentSessionEvent {
   state?: string;
   workflowId?: string;
   detail?: string;
+  /** Durable semantic index metadata. Raw execution fields above remain the source of truth. */
+  semantic?: AgentSessionEventSemantic;
 }
 
 export interface AgentSession {
@@ -37,6 +47,8 @@ export interface AgentSession {
   contextSummary?: string;
   history: unknown[];
   events: AgentSessionEvent[];
+  /** Count of events dropped before the first retained event. Legacy sessions normalize to zero. */
+  eventSeqBase?: number;
   estimatedTokens: number;
   lifetimeEstimatedTokens: number;
   compactThresholdTokens: number;
