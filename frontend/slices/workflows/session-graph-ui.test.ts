@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const workflowApp = readFileSync(new URL("./app.tsx", import.meta.url), "utf8");
+const workflowCanvas = readFileSync(new URL("./components/workflow-canvas.tsx", import.meta.url), "utf8");
 const settingsSessions = readFileSync(new URL("../os-settings/components/mcp-sessions.tsx", import.meta.url), "utf8");
 const settingsDetail = readFileSync(new URL("../os-settings/components/mcp-session-detail.tsx", import.meta.url), "utf8");
 const sessionGuide = readFileSync(new URL("../os-settings/components/mcp-session-guide.tsx", import.meta.url), "utf8");
@@ -28,6 +29,7 @@ describe("Workflow session graph UI contract", () => {
     expect(sessionDetails).toContain("Open terminal here");
     expect(sessionDetails).toContain("Open {action.artifact.label} in Code");
     expect(sessionDetails).toContain("S3.A4");
+    expect(workflowCanvas).toContain('showMinimap={!readOnly}');
   });
 
   it("gives the desktop session library enough width and lets labels wrap instead of clipping", () => {
