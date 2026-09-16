@@ -69,7 +69,7 @@ export async function mcpSessionsJourney(page, fixture) {
   const terminalStep = selectedGraph.steps.find(step => step.actions.some(action => action.terminalContext));
   expect(terminalStep).toBeTruthy();
   const terminalStepNode = page.locator(".react-flow__node").filter({ hasText: terminalStep.ref + " ·" }).first();
-  const terminalTabs = page.getByRole("tablist", { name: "Terminal sessions" });
+  const terminalTabs = page.getByRole("tablist", { name: "Terminal sessions", includeHidden: true });
   const terminalCountBefore = await terminalTabs.count();
   await expect(terminalStepNode).toBeVisible();
   expect(await page.locator('[data-slot="workflows-feature"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
