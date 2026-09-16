@@ -1,3 +1,7 @@
+## 2026-09-17 — ChatGPT List surface and OpenAI app scaffold
+
+Added `render_mso_list` + `ui://mso/list-v1.html` as the lightweight collection surface between Block and Page. Data tools remain headless; the model first fetches/filters structured results, then renders at most 40 selected items as list/grid with local search, bounded metadata and user-approved follow-up actions. The widget has no network/tool-call path and cannot execute mutations. ChatGPT now exposes 113 transport tools while retaining the strict 96 KiB internal descriptor budget through scanner-only summary compaction; full MCP descriptions and runtime schemas remain unchanged. `.app.json` is now a valid empty registered-app scaffold referenced by the compatibility manifest, with skill checks rejecting malformed or placeholder mappings.
+
 ## 2026-09-17 — OpenAI plugin skill contracts + local validator registry
 
 - Implemented additive structured `contract.yaml` + `agents/openai.yaml` bundles for all 13 official skills, a portable root `.codex-plugin/plugin.json`, local artifact validators, compact contract-aware skill discovery, and full-MCP `mso/actionContract` lifecycle metadata on selected stateful tools.

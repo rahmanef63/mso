@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MSO_BLOCK_RESOURCE } from "./ui-block";
+import { MSO_LIST_RESOURCE } from "./ui-list";
 import { MSO_PAGE_RESOURCE } from "./ui-surface";
 import { MSO_SURFACE_SCRIPT } from "./ui-surface-script";
 import { MSO_SURFACE_STYLE } from "./ui-surface-style";
@@ -7,7 +8,7 @@ import { MSO_WIDGET_THEME_SCRIPT, MSO_WIDGET_TOKENS } from "./ui-widget-tokens";
 
 const pageResource = await MSO_PAGE_RESOURCE;
 const surfaceScript = await MSO_SURFACE_SCRIPT;
-const canonicalHtml = `${MSO_BLOCK_RESOURCE.text}\n${pageResource.text}`;
+const canonicalHtml = `${MSO_LIST_RESOURCE.text}\n${MSO_BLOCK_RESOURCE.text}\n${pageResource.text}`;
 
 describe("Rahmanef widget theme", () => {
   it("mirrors the public site's light and dark palette from one shared token source", () => {
@@ -22,7 +23,8 @@ describe("Rahmanef widget theme", () => {
     expect(MSO_WIDGET_TOKENS).toContain(":root:not([data-theme])");
   });
 
-  it("injects the same palette into Block and Page and removes the old generic purple theme", () => {
+  it("injects the same palette into List, Block and Page and removes the old generic purple theme", () => {
+    expect(MSO_LIST_RESOURCE.text).toContain(MSO_WIDGET_TOKENS);
     expect(MSO_BLOCK_RESOURCE.text).toContain(MSO_WIDGET_TOKENS);
     expect(MSO_SURFACE_STYLE).toContain(MSO_WIDGET_TOKENS);
     expect(pageResource.text).toContain(MSO_WIDGET_TOKENS);
@@ -43,6 +45,7 @@ describe("Rahmanef widget theme", () => {
   it("tracks the ChatGPT host theme while retaining prefers-color-scheme fallback", () => {
     expect(MSO_WIDGET_THEME_SCRIPT).toContain("window.openai.theme");
     expect(MSO_WIDGET_THEME_SCRIPT).toContain('theme==="light"||theme==="dark"');
+    expect(MSO_LIST_RESOURCE.text).toContain("applyHostTheme();readHostOutput()");
     expect(MSO_BLOCK_RESOURCE.text).toContain("applyHostTheme();readHostOutput()");
     expect(surfaceScript).toContain("applyHostTheme();");
     expect(pageResource.text).toContain("window.openai.theme");

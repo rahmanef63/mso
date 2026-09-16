@@ -24,5 +24,6 @@
       "Debug this service using bounded MSO tools and evidence.",
       "Implement and verify this MCP capability without weakening existing MSO safeguards."
     ]
-  }
+  },
+  "apps": "./.app.json"
 }

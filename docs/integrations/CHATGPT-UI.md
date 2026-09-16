@@ -1,10 +1,12 @@
 # ChatGPT MCP App UI
 
-MSO exposes two explicit presentation resources. Ordinary tools and workflow startup stay
-headless; clients without MCP Apps keep structured/text results.
+MSO exposes three explicit presentation resources. Ordinary data tools and workflow startup stay
+headless; clients without MCP Apps keep structured/text results. The model fetches data first, then
+chooses List, Block or Page as a separate render step.
 
 | Surface | Entry tool | Resource | Purpose |
 | --- | --- | --- | --- |
+| List | `render_mso_list` | `ui://mso/list-v1.html` | Searchable compact collections and item actions |
 | Block | `render_mso_block` | `ui://mso/block-v3.html` | Validation, actions, bounded CRUD input/output |
 | Page | `render_mso_page`, `integration_setup_open` | `ui://mso/page-v15.html` | Native workspaces, session assets and reviewed project previews |
 
@@ -24,9 +26,15 @@ explicit click and are hidden when the host declares them unsupported.
 Standard host context controls theme, display mode, dimensions and safe-area insets.
 Standard `styles.variables` supplies host colors, type, font family and corners; removing an override restores the shared defaults. Legacy OpenAI globals and the browser color-scheme remain compatible fallbacks. Layout responds to the container, including a 320 × 200 viewport; narrow Integrations uses a native service selector instead of a nested scrolling rail.
 The compact header, readable controls, flat navigation and shared integration styles
-follow the existing MSO workbench. Block, Page and native Integrations embed the existing
+follow the existing MSO workbench. List, Block, Page and native Integrations embed the existing
 `public/icon.svg` mark without an image request; the shell uses that same public asset.
 Presentation colors, fonts, type scale, spacing, control size, focus, radii and scroll tokens remain in `lib/presentation/widget-tokens.ts`.
+
+## List behavior
+
+List is a pure presentation tool. The model first calls a normal list/search/read tool, reasons over the returned structured data, and then passes only the selected bounded items to `render_mso_list`. It accepts at most 40 items, four metadata pairs per item, two item actions and three collection actions. `layout` is `list` or `grid`; optional local search filters only the already-rendered items and makes no network request. Icons are semantic tokens, not arbitrary image URLs.
+
+List actions behave like Block actions: a click sends a bounded follow-up message to ChatGPT with the item id/title and requested continuation. The widget never names or directly calls an MSO mutation tool, so OAuth scope, confirmations, concurrency guards, audit and workflow ownership remain authoritative.
 
 ## Block behavior
 
@@ -70,14 +78,14 @@ Page initializes MCP Apps protocol `2026-01-26`, then sends
 notifications and legacy wrapped `window.openai.toolOutput` use the same route validator.
 Unchanged outputs do not remount views; teardown clears active forms and observers.
 
-Page-bound tools advertise standard `ui.resourceUri` only. Block also retains its
+List and Page tools advertise standard `ui.resourceUri` only. Block also retains its
 `openai/outputTemplate` compatibility binding. Every ChatGPT tool has an output schema;
 exact tools, counts and scopes are generated in [the catalog](../generated/MCP-CATALOG.md).
 
 Resource CSP is explicit: Block allows no nested frames; Page includes only exact reviewed iframe origins and permits its MSO origin for private setup requests. OpenAI requires stricter review for `frameDomains`; this is an official review boundary, not a blanket iframe ban. `OS_MCP_UI_ORIGIN` controls the widget origin, otherwise
 the configured public origin derives it. Legacy redirect metadata supports Open in MSO.
 
-Only the two current resources are listed. Older Block/Page URIs remain read aliases for
+Only the three current resources are listed. Older Block/Page URIs remain read aliases for
 current bytes, including Block v2 and Page v14. `workflow_status` and `render_mso_surface`
 remain app-only compatibility tools. `workflow_start` has no UI binding.
 
@@ -91,7 +99,7 @@ provider search and 320–1920 px reflow. Production release journeys verify aut
 real server handlers and provider revocation using synthetic stores.
 
 After shipping, compare live discovery/version/hash against `lib/mcp/toolset.ts` and the
-generated catalog, verify the two resource URIs, and reopen the Page. Hosts cache tool
+generated catalog, verify the three resource URIs, render a List, and reopen the Page. Hosts cache tool
 and resource descriptors: a development-app rescan/reconnect may still be needed.
 The server cannot replace an already mounted document in an old conversation.
 

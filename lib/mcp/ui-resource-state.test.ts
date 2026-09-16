@@ -21,7 +21,7 @@ const { activeWorkflowForActor } = await import("@/lib/workflow");
 const call = (name: string, args: Record<string, unknown> = {}) =>
   ({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } });
 
-describe("MCP Apps Block and Page contract", () => {
+describe("MCP Apps List, Block and Page contract", () => {
   it("returns only redacted structured workflow state and keeps status polling out of workflow memory", async () => {
     const actor = `mcp:ui-status-${Date.now()}`;
     const projectHint = "/private/operator/projects/mso";

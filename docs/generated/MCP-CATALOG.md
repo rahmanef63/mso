@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.14.4 version=2026.09.15.3 tools=110 read=53 write=35 exec=22 -->
+<!-- mcp-toolset: server=1.15.0 version=2026.09.17.1 tools=111 read=54 write=35 exec=22 -->
 
 | Fact | Current source value |
 |---|---:|
-| MCP server | `1.14.4` |
-| Toolset | `2026.09.15.3` |
-| Toolset changed at | `2026-09-15T03:35:00+07:00` |
-| Transport tools | **112** |
-| Model/operator tools | **110** |
-| Read | **53** |
+| MCP server | `1.15.0` |
+| Toolset | `2026.09.17.1` |
+| Toolset changed at | `2026-09-17T02:50:00+07:00` |
+| Transport tools | **113** |
+| Model/operator tools | **111** |
+| Read | **54** |
 | Write | **35** |
 | Exec | **22** |
 | App-only bridges | **2** |
 
-### Read (53)
+### Read (54)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -63,6 +63,7 @@
 - `projects_list`
 - `read_pipeline`
 - `render_mso_block`
+- `render_mso_list`
 - `render_mso_page`
 - `screen_capture`
 - `session_artifacts`
@@ -144,20 +145,20 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.14.4 version=2026.09.15.3 tools=110 read=53 write=35 exec=22 app-only=2 total=112 -->
+<!-- mcp-chatgpt-profile: server=1.15.0 version=2026.09.17.1 tools=111 read=54 write=35 exec=22 app-only=2 total=113 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **112** |
-| ChatGPT model/operator tools | **110** |
-| Read | **53** |
+| ChatGPT transport tools | **113** |
+| ChatGPT model/operator tools | **111** |
+| Read | **54** |
 | Write | **35** |
 | Exec | **22** |
 | App-only bridges | **2** |
 
-### ChatGPT read (53)
+### ChatGPT read (54)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -202,6 +203,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `projects_list`
 - `read_pipeline`
 - `render_mso_block`
+- `render_mso_list`
 - `render_mso_page`
 - `screen_capture`
 - `session_artifacts`

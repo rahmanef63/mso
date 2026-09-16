@@ -119,8 +119,9 @@ through the app catch-all.
 ### 4.1 ChatGPT as an MSO presentation target
 
 The web catch-all remains the authenticated cockpit route. ChatGPT does **not** frame that cockpit.
-MSO exposes exactly two user-visible MCP App classes instead:
+MSO exposes exactly three user-visible MCP App classes instead:
 
+- `render_mso_list` binds `ui://mso/list-v1.html` for compact searchable collections after ordinary data tools have returned model-checkable structured results. Item/global actions return follow-up messages and do not execute mutations in the widget.
 - `render_mso_block` binds `ui://mso/block-v3.html` for compact validation, action buttons, and
   CRUD input-output. A button returns a user-approved follow-up message; it does not execute a
   mutation inside the widget, so ordinary scope, approval, audit, and workflow rules still apply.

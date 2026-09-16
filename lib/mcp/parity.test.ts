@@ -111,6 +111,7 @@ const MCP_ONLY: Record<string, string> = {
   "project.agent.status": "status belongs to project-agent message ids owned by the external MCP principal/session; Alfa has no compatible project-agent task ledger",
   "vps.status": "this is an aggregate MCP Apps operator card over existing bounded host/app/browser/infra primitives; Alfa already renders equivalent in-shell operational surfaces",
   "mso.surface.apps.list": "the reviewed ChatGPT Page app catalog is MCP-App presentation metadata; Alfa already owns its in-shell app registry and must not inherit ChatGPT frame allowlists",
+  "render.mso.list": "the compact List is a ChatGPT MCP Apps presentation target for model-selected collections; Alfa already has native project/file/session/workflow/app lists and does not need a second presentation-only host tool",
   "render.mso.block": "the compact Block is a ChatGPT MCP Apps presentation target for validation/action/CRUD handoff; Alfa already has native forms and approval cards",
   "render.mso.page": "the full Page is a ChatGPT MCP Apps presentation target; Alfa already is an MSO presentation target and does not render another copy of itself",
   "render.mso.surface": "app-only compatibility alias for cached pre-Page widgets; Alfa has no reason to expose the retired presentation name",

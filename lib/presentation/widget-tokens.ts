@@ -1,5 +1,5 @@
 /**
- * Shared visual contract for ChatGPT Block and Page resources.
+ * Shared visual contract for ChatGPT List, Block and Page resources.
  *
  * Core values follow the MSO presentation palette. The widget keeps its own
  * small presentation aliases, but the public brand palette stays single-source.

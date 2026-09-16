@@ -41,7 +41,7 @@ export const CHATGPT_APP_ONLY_TOOL_NAMES = new Set([
 
 const TITLES: Record<string, string> = {
   workflow_start: "Start Workflow", workflow_status: "Workflow Status", workflow_finish: "Finish Workflow", workflow_cancel: "Cancel Workflow",
-  render_mso_block: "Render MSO Block", render_mso_page: "Render MSO Page", render_mso_surface: "Render MSO Surface (Compatibility)",
+  render_mso_list: "Render MSO List", render_mso_block: "Render MSO Block", render_mso_page: "Render MSO Page", render_mso_surface: "Render MSO Surface (Compatibility)",
   skills_search: "Search Skills", projects_list: "List Projects", project_capabilities: "Project Capabilities",
   project_mcp_tools: "List Project MCP Tools", project_mcp_call: "Call Project MCP Tool", project_function_call: "Call Project Function",
   read_pipeline: "Run Read Pipeline", fs_list: "List Files", fs_read: "Read File", fs_search: "Search Directories", fs_write: "Write File",
@@ -115,7 +115,7 @@ function compactSchema(value: unknown): unknown {
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
     if (key === "additionalProperties" && item === true || key === "required" && Array.isArray(item) && item.length === 0) continue;
     if (key === "workflow_id" && item && typeof item === "object") out[key] = { type:"string" };
-    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 28);
+    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 16);
     else out[key] = compactSchema(item);
   }
   return out;
@@ -133,7 +133,7 @@ export function toolDescriptor(tool: McpTool, profile: McpToolProfile = "full") 
   return {
     name: tool.name,
     title: tool.title ?? toolTitle(tool.name),
-    description: compact ? compactText(tool.chatgptDescription ?? tool.description, 64) : tool.description,
+    description: compact ? compactText(tool.chatgptDescription ?? tool.description, 56) : tool.description,
     inputSchema: compact ? compactSchema(tool.inputSchema) : tool.inputSchema,
     ...(outputSchema ? { outputSchema: compact ? compactSchema(outputSchema) : outputSchema } : {}),
     securitySchemes,

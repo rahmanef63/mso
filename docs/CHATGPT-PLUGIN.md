@@ -50,7 +50,7 @@ Every advertised MSO tool has:
 
 The ChatGPT projection compacts verbose descriptions/schema descriptions without changing names, required arguments, enum/range constraints, scopes, or safety semantics.
 
-Selected lifecycle-sensitive tools also declare an additive `mso/actionContract` on the **full** MCP descriptor. The contract names the semantic target, discover/validate/verify path, source-of-truth policy, confirmation mode and concurrency guard. It is documentation/orchestration metadata only: OAuth scope, tool implementation checks, CAS/revision guards, provider policy and explicit confirmations remain authoritative. The compact ChatGPT action snapshot intentionally omits this extra per-tool metadata because the complete 112-action profile already sits close to MSO's strict 96 KiB scanner budget; ChatGPT receives the same structured workflow policy through the published skill resources instead, without dropping any action.
+Selected lifecycle-sensitive tools also declare an additive `mso/actionContract` on the **full** MCP descriptor. The contract names the semantic target, discover/validate/verify path, source-of-truth policy, confirmation mode and concurrency guard. It is documentation/orchestration metadata only: OAuth scope, tool implementation checks, CAS/revision guards, provider policy and explicit confirmations remain authoritative. The compact ChatGPT action snapshot intentionally omits this extra per-tool metadata because the complete ChatGPT profile already sits close to MSO's strict 96 KiB scanner budget; ChatGPT receives the same structured workflow policy through the published skill resources instead, without dropping any action.
 
 ## Exact ChatGPT model tool profile
 
@@ -60,9 +60,9 @@ The restored Original MSO operator primitives (`sys_*`, `fs_usage` + full bounde
 
 Project-owned MCP names and Convex's own dynamic schemas still load on demand through `project_mcp_tools` / `project_mcp_call` and `project_database_tools` / `project_database_call`. That is how MSO keeps a bounded static model profile instead of copying every downstream provider/project action into ChatGPT.
 
-ChatGPT presentation is explicit rather than attached to every operation. `workflow_start` is headless. `render_mso_block` opens the compact validation/action/CRUD component and accepts only bounded fields, checks, outputs, and follow-up actions; a button cannot execute a mutation inside the widget. `render_mso_page` opens native MSO views or a code-reviewed development/preview/production app. It accepts only MSO-style routes and server-owned app ids, never arbitrary HTML or an external URL. `mso_surface_apps_list` exposes the reviewed Page catalog. Apps outside the reviewed Page catalog use the remote browser. Nested frames are limited to code-reviewed exact origins and registry policy; arbitrary third-party URLs are never accepted. User-installed runtime HTML apps do not inherit this trust automatically. `render_mso_surface` and `workflow_status` remain app-only compatibility shims for cached clients.
+ChatGPT presentation is explicit rather than attached to every operation. `workflow_start` is headless. `render_mso_list` renders a compact searchable list/grid from data already fetched by ordinary tools; it is the default lightweight surface for projects, files, sessions, workflows, apps, integrations and agents. `render_mso_block` opens the compact validation/action/CRUD component and accepts only bounded fields, checks, outputs, and follow-up actions; a button cannot execute a mutation inside either compact widget. `render_mso_page` opens native MSO views or a code-reviewed development/preview/production app. It accepts only MSO-style routes and server-owned app ids, never arbitrary HTML or an external URL. `mso_surface_apps_list` exposes the reviewed Page catalog. Apps outside the reviewed Page catalog use the remote browser. Nested frames are limited to code-reviewed exact origins and registry policy; arbitrary third-party URLs are never accepted. User-installed runtime HTML apps do not inherit this trust automatically. `render_mso_surface` and `workflow_status` remain app-only compatibility shims for cached clients.
 
-`render_mso_page` and `integration_setup_open` bind Page through the standard MCP Apps `ui.resourceUri` field only. Do not mirror `openai/outputTemplate` onto Page tools: the current ChatGPT host already supports the standard binding, and dual Page bindings can mount the same UI twice. The current Page therefore uses one modern binding and keeps earlier Page URIs only as non-advertised read aliases.
+`render_mso_list`, `render_mso_page` and `integration_setup_open` use the standard MCP Apps `ui.resourceUri` binding. List and Page intentionally omit the legacy `openai/outputTemplate`; Block retains it only for compatibility. Do not mirror `openai/outputTemplate` onto Page tools: the current ChatGPT host already supports the standard binding, and dual Page bindings can mount the same UI twice. The current Page therefore uses one modern binding and keeps earlier Page URIs only as non-advertised read aliases.
 
 Page enters in **inline** mode and fills standard MCP Apps `containerDimensions.height` or `maxHeight`, with legacy `maxHeight` and a 680 px fallback. Measured size notifications resize flexible host frames without viewport feedback. Fullscreen and supported PiP remain explicit user actions. See [the UI contract](integrations/CHATGPT-UI.md).
 
@@ -78,15 +78,14 @@ For the complete non-ChatGPT MSO catalog, scopes, limits, A2A, providers, Tool F
 
 ## OpenAI/Codex plugin package
 
-The repository root also carries `.codex-plugin/plugin.json` as a **skill-only** OpenAI/Codex package. It points directly at `./claude-skills/`, so the same reviewed skill bundles are reusable without maintaining a second copy. The package deliberately does **not** declare `mcpServers`: the live web-capable MSO MCP connection remains the separately authorized custom app at `/mcp`, preserving its OAuth scopes, server-side credentials, dynamic project MCP seams and browser/mobile availability instead of coupling those capabilities to a local plugin executor. Installing/importing the skill package never grants MCP access by itself.
-
-Do not invent a root `.app.json` id. If an existing OpenAI app registration is intentionally packaged later, add its exact registered app id and keep that connection lifecycle separate from the skill package.
+The repository root also carries `.codex-plugin/plugin.json` as an OpenAI/Codex compatibility package for the reviewed skills plus an optional registered-app mapping. It points directly at `./claude-skills/`, so the same reviewed skill bundles are reusable without maintaining a second copy. The package deliberately does **not** declare `mcpServers`: the live web-capable MSO MCP connection remains the separately authorized custom app at `/mcp`, preserving its OAuth scopes, server-side credentials, dynamic project MCP seams and browser/mobile availability instead of coupling those capabilities to a local plugin executor. `.app.json` is an intentionally empty OpenAI scaffold (`apps: {}`) until an exact registered app ID is available; this matches the supported plugin-creator scaffold and does not grant MCP access by itself. When an existing OpenAI registration is intentionally packaged, link only its exact registered ID—never a placeholder—and keep OAuth authorization on the live MSO app. Use `bun run plugin:link-app -- plugin_asdk_app_...` (legacy `asdk_app_...` is also accepted); `bun run plugin:link-app -- --clear` restores the empty scaffold.
 
 The OpenAI-facing repository shape is therefore:
 
 ```text
 MSO repo
-├── .codex-plugin/plugin.json       # OpenAI/Codex skill package
+├── .codex-plugin/plugin.json       # OpenAI/Codex compatibility manifest
+├── .app.json                       # registered-app mapping; empty until linked
 ├── claude-skills/<skill>/
 │   ├── SKILL.md
 │   ├── contract.yaml

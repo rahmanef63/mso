@@ -23,6 +23,11 @@ const resource = JSON.parse(execFileSync(
   ["-e", 'import { MSO_PAGE_RESOURCE } from "./lib/mcp/ui-surface"; console.log(JSON.stringify(await MSO_PAGE_RESOURCE))'],
   { encoding: "utf8", env: { ...process.env, MSO_SURFACE_APPS_JSON: JSON.stringify(registry), OS_PUBLIC_ORIGIN: "https://mso.example.com", OS_MCP_UI_ORIGIN: "https://mso-ui.example.com" } },
 ));
+const listResource = JSON.parse(execFileSync(
+  "bun",
+  ["-e", 'import { MSO_LIST_RESOURCE } from "./lib/mcp/ui-list"; console.log(JSON.stringify(MSO_LIST_RESOURCE))'],
+  { encoding: "utf8", env: { ...process.env, OS_PUBLIC_ORIGIN: "https://mso.example.com", OS_MCP_UI_ORIGIN: "https://mso-ui.example.com" } },
+));
 const output = {
   route: "/apps/play-together",
   kind: "app",
@@ -43,6 +48,9 @@ const output = {
   },
 };
 
+assert.equal(listResource.uri, "ui://mso/list-v1.html");
+assert.deepEqual(listResource._meta.ui.csp.connectDomains, []);
+assert.deepEqual(listResource._meta.ui.csp.resourceDomains, []);
 assert.equal(resource.uri, "ui://mso/page-v15.html");
 assert.deepEqual(resource._meta.ui.csp.frameDomains, [registry[0].origin]);
 assert.deepEqual(resource._meta["openai/widgetCSP"].frame_domains, [registry[0].origin]);
@@ -51,8 +59,27 @@ assert(!resource.text.includes("mountReviewedFrame"));
 assert(resource.text.includes('"renderer":"iframe"'));
 
 const browser = await chromium.launch({ ...(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {}), args: ["--no-sandbox", "--disable-dev-shm-usage"] });
-let assertions = 6;
+let assertions = 9;
 try {
+  const listContext=await browser.newContext({viewport:{width:640,height:720}});
+  const listPage=await listContext.newPage();
+  const listOutput={title:"Projects",description:"Model-selected projects",layout:"list",searchable:true,emptyMessage:"No projects.",items:[
+    {id:"baton",title:"Batonly",subtitle:"Project management",badge:"Active",status:"success",icon:"project",meta:[{label:"Branch",value:"main"}],actions:[{id:"open",label:"Open",style:"primary",prompt:"Open this project with render_mso_page."}]},
+    {id:"careerpack",title:"CareerPack",subtitle:"HR platform",badge:"Review",status:"info",icon:"project",meta:[],actions:[]},
+  ],actions:[]};
+  await listPage.route("https://mso-ui.example.com/list",route=>route.fulfill({contentType:"text/html",body:`<!doctype html><script>window.followUps=[];window.openai={toolOutput:${JSON.stringify(listOutput)},sendFollowUpMessage:async x=>window.followUps.push(x),setWidgetState:()=>{}}</script>${listResource.text}`}));
+  await listPage.goto("https://mso-ui.example.com/list");
+  assert.equal(await listPage.locator(".item").count(),2);assertions++;
+  await listPage.getByRole("searchbox").fill("career");
+  assert.equal(await listPage.locator(".item").count(),1);assertions++;
+  await listPage.getByRole("searchbox").fill("");
+  await listPage.getByRole("button",{name:"Open",exact:true}).click();
+  await listPage.waitForFunction(()=>window.followUps?.length===1);
+  assert.match(await listPage.evaluate(()=>window.followUps[0].prompt),/baton/);assertions++;
+  const listAudit=await new AxeBuilder({page:listPage}).include(".mso-list").withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze();
+  assert.deepEqual(listAudit.violations.map(v=>v.id),[]);assertions++;
+  await listPage.close();
+  await listContext.close();
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 800 }]) {
     const page = await browser.newPage({ viewport });
     await page.route("https://mso-ui.example.com/qa", (route) => route.fulfill({
