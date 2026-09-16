@@ -8,8 +8,10 @@ describe("public install guide", () => {
   it("documents the terminal onboarding that the one-line installer actually runs", () => {
     expect(source).toContain("Complete terminal onboarding");
     expect(source).toContain("mso onboard");
-    expect(source).toContain("OpenAI ChatGPT OAuth");
+    expect(source).toContain("OpenAI ChatGPT uses its separate device OAuth path");
+    expect(source).toContain("OpenCode Zen");
     expect(source).toContain("OpenRouter");
+    expect(source).toContain("marked FREE");
   });
 
   it("documents an immediately resolvable CLI and the curated skill market", () => {

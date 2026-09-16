@@ -9,15 +9,15 @@ import { filterAndSortModels, type CatModel, type ModelFilters, type ModelSort }
 const fmtCtx = (n?: number) => (!n ? "—" : n >= 1e6 ? `${n / 1e6}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : `${n}`);
 const fmtCost = (n?: number) => (n == null ? "—" : `$${n}`);
 
-// Searchable model browser over the models.dev catalog for the selected provider,
-// showing context window · $/M input+output · tool/reasoning/vision support. Pick →
-// sets the model id in the parent. Empty for custom/OAuth providers (not in the catalog).
+// Searchable browser over the same live model catalog used by CLI onboarding.
+// `free` is server-derived only from explicit zero input+output pricing; unknown
+// pricing never receives the badge or passes the Free filter.
 export function ModelCatalog({ provider, value, onPick }: { provider: string; value: string; onPick: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [models, setModels] = useState<CatModel[]>([]);
   const [sort, setSort] = useState<ModelSort>("best");
-  const [filters, setFilters] = useState<ModelFilters>({ tools: false, reasoning: false, vision: false, minContext: 0 });
+  const [filters, setFilters] = useState<ModelFilters>({ free: false, tools: false, reasoning: false, vision: false, minContext: 0 });
 
   useEffect(() => {
     if (!open) return;
@@ -32,7 +32,7 @@ export function ModelCatalog({ provider, value, onPick }: { provider: string; va
   }, [open, provider]);
 
   const filtered = useMemo(() => filterAndSortModels(models, q, filters, sort), [models, q, filters, sort]);
-  const toggle = (key: "tools" | "reasoning" | "vision") => setFilters((f) => ({ ...f, [key]: !f[key] }));
+  const toggle = (key: "free" | "tools" | "reasoning" | "vision") => setFilters((f) => ({ ...f, [key]: !f[key] }));
 
   return (
     <>
@@ -56,12 +56,18 @@ export function ModelCatalog({ provider, value, onPick }: { provider: string; va
               <option value={128000}>128K+ context</option>
               <option value={1000000}>1M+ context</option>
             </select>
+            <Filter checked={filters.free} label="Free" onChange={() => toggle("free")} />
             <Filter checked={filters.tools} label="Tools" onChange={() => toggle("tools")} />
             <Filter checked={filters.reasoning} label="Reasoning" onChange={() => toggle("reasoning")} />
             <Filter checked={filters.vision} label="Vision" onChange={() => toggle("vision")} />
           </div>
+          {models.some((model) => model.free) && (
+            <p className="text-xs leading-5 text-muted-foreground">
+              Free = the live catalog reports $0 input and $0 output token cost. Provider account/API key and rate limits may still apply.
+            </p>
+          )}
           {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No catalog for this provider.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">No models match these filters.</p>
           ) : (
             <div className="space-y-1 pr-3">
               {filtered.map((m) => (
@@ -76,6 +82,7 @@ export function ModelCatalog({ provider, value, onPick }: { provider: string; va
                 >
                   <div className="flex w-full flex-wrap items-center gap-2">
                     <span className="font-medium">{m.name || m.id}</span>
+                    {m.free && <Badge emphasis>FREE</Badge>}
                     {m.tools && <Badge>tools</Badge>}
                     {m.reasoning && <Badge>reasoning</Badge>}
                     {m.vision && <Badge>vision</Badge>}
@@ -96,8 +103,8 @@ export function ModelCatalog({ provider, value, onPick }: { provider: string; va
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{children}</span>;
+function Badge({ children, emphasis = false }: { children: React.ReactNode; emphasis?: boolean }) {
+  return <span className={emphasis ? "rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary" : "rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"}>{children}</span>;
 }
 
 function Filter({ checked, label, onChange }: { checked: boolean; label: string; onChange: () => void }) {

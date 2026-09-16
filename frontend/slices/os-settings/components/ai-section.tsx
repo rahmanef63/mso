@@ -4,39 +4,35 @@ import { useCallback, useEffect, useState } from "react";
 import { Sparkles, Check } from "lucide-react";
 import { toast } from "@/features/appshell";
 import { Input } from "@/components/ui/input";
-import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { SettingsSection, SettingsRow, SettingsBlock } from "@/features/shell-settings";
 import { DEFAULT_MODELS } from "@/lib/models/defaults";
 import { type ConnectedProvider } from "./provider-list";
 import { ProviderManage } from "./provider-manage";
 import { ModelCatalog } from "./model-catalog";
+import { AiProviderSelect } from "./ai-provider-select";
+import {
+  FALLBACK_PROVIDER_OPTIONS,
+  suggestedProviderModel,
+  type ProviderSummary,
+} from "./ai-provider-options";
 
 type Cfg = { hasApiKey: boolean; apiKeyMasked: string; model: string; provider?: string; providers?: ConnectedProvider[] };
-type CatModel = { ref: string; provider: string; id: string };
+type CatModel = { ref: string; provider: string; id: string; free?: boolean; agentReady?: boolean };
 
-// Curated built-in BYOK providers (the @rahmanef/models registry wires ~35; these
-// are the common ones with nice labels/hints). Any other endpoint → "Add custom
-// provider" below. Non-Anthropic providers stream through the openai-protocol adapter.
-const BUILTINS: { slug: string; label: string; keyHint: string }[] = [
-  { slug: "anthropic", label: "Anthropic (Claude)", keyHint: "sk-ant-…" },
-  { slug: "openai", label: "OpenAI (GPT)", keyHint: "sk-…" },
-  { slug: "openrouter", label: "OpenRouter", keyHint: "sk-or-…" },
-  { slug: "google", label: "Google (Gemini)", keyHint: "AIza…" },
-  { slug: "groq", label: "Groq", keyHint: "gsk_…" },
-  { slug: "xai", label: "xAI (Grok)", keyHint: "xai-…" },
-  { slug: "deepseek", label: "DeepSeek", keyHint: "sk-…" },
-  { slug: "mistral", label: "Mistral", keyHint: "…" },
-];
+// Presentation hints only. Provider availability itself comes from /api/models/providers.
+const KEY_HINTS: Record<string, string> = {
+  anthropic: "sk-ant-…",
+  openai: "sk-…",
+  openrouter: "sk-or-…",
+  google: "AIza…",
+  groq: "gsk_…",
+  xai: "xai-…",
+};
 
-// Sensible default model per built-in so switching provider never leaves a stale
-// cross-provider model id (e.g. anthropic's default paired with openai).
-// BYOK config for the Alfa assistant. Raw keys are write-only from here — GET
-// /api/config returns only masked previews. Empty key on save keeps the stored one.
 export function AiSection() {
   const [cfg, setCfg] = useState<Cfg | null>(null);
+  const [providerOptions, setProviderOptions] = useState<ProviderSummary[]>(FALLBACK_PROVIDER_OPTIONS);
   const [provider, setProvider] = useState("anthropic");
   const [key, setKey] = useState("");
   const [model, setModel] = useState("");
@@ -59,6 +55,7 @@ export function AiSection() {
     setProvider(c.provider || "anthropic");
     setModel(c.model || DEFAULT_MODELS[c.provider || "anthropic"] || "");
   }, []);
+
   const load = useCallback(async () => {
     const c = await fetchCfg();
     if (c) applyCfg(c);
@@ -67,23 +64,33 @@ export function AiSection() {
   useEffect(() => {
     let alive = true;
     fetchCfg().then((c) => alive && c && applyCfg(c));
+    fetch("/api/models/providers", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { providers: [] }))
+      .then((body) => {
+        if (!alive) return;
+        const rows = (body.providers ?? []) as ProviderSummary[];
+        if (rows.length) setProviderOptions(rows);
+      })
+      .catch(() => undefined);
     return () => {
       alive = false;
     };
   }, [fetchCfg, applyCfg]);
 
-  // Model suggestions for the picked provider (models.dev catalog); free-text field
-  // so it always works offline.
+  // Model suggestions use the same endpoint as CLI. Explicit-free, agent-ready
+  // rows are presentation-sorted first; this does not change the saved provider/model.
   useEffect(() => {
     let alive = true;
     fetch(`/api/models?provider=${encodeURIComponent(provider)}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { models: [] }))
       .then((d) => {
         if (!alive) return;
-        const rows = (d.models ?? []) as CatModel[];
+        const rows = ((d.models ?? []) as CatModel[]).sort((a, b) =>
+          Number(!!b.free && !!b.agentReady) - Number(!!a.free && !!a.agentReady)
+            || Number(!!b.free) - Number(!!a.free)
+            || a.id.localeCompare(b.id),
+        );
         setCatalog(rows);
-        // Providers with no static default (OAuth ones, whose ids are account-scoped)
-        // would otherwise leave the field blank. Take the account's first real model.
         setModel((current) => current || rows[0]?.id || "");
       })
       .catch(() => alive && setCatalog([]));
@@ -92,13 +99,15 @@ export function AiSection() {
     };
   }, [provider]);
 
-  const extraProviders = (cfg?.providers ?? []).filter((p) => p.kind === "custom" || p.kind === "oauth");
+  const liveIds = new Set(providerOptions.map((row) => row.id));
+  const extraProviders = (cfg?.providers ?? []).filter((p) => !liveIds.has(p.id));
   const selectedMeta = (cfg?.providers ?? []).find((p) => p.id === provider);
+  const selectedProvider = providerOptions.find((p) => p.id === provider);
   const isCustom = selectedMeta?.kind === "custom";
   const isOAuth = selectedMeta?.kind === "oauth";
-  const prov = BUILTINS.find((p) => p.slug === provider);
   const onSavedProvider = provider === cfg?.provider;
   const customModels = selectedMeta?.models ?? [];
+  const providerLabel = selectedProvider?.name || provider;
 
   async function onSave() {
     setBusy(true);
@@ -147,57 +156,37 @@ export function AiSection() {
       title="AI (Alfa)"
       footnote={
         <>
-          Bring your own key (stored server-side, never shown again). Built-ins use a pasted key — there
-          is no “sign in with OpenAI” for the platform API. Add any OpenAI-compatible or Anthropic-Messages
-          endpoint below. If the key is empty, the matching server env var (e.g. <code>ANTHROPIC_API_KEY</code>) is used.
+          Provider/model availability is discovered dynamically while runtime endpoints remain pinned by MSO. Keys are stored server-side and never shown again.
+          Free means the live model catalog explicitly reports $0 input and $0 output token cost; an account/API key and provider rate limits may still apply.
         </>
       }
     >
       <SettingsRow label="Provider">
-        <Select
+        <AiProviderSelect
           value={provider}
-          onValueChange={(v) => {
+          options={providerOptions}
+          connectedExtras={extraProviders}
+          onChange={(v) => {
             setProvider(v);
-            // OAuth providers have no static default worth having — their model ids
-            // are account-scoped. The catalog effect below refills `model` from the
-            // account's own first entry; clearing here avoids briefly showing a
-            // literal the backend would reject.
-            setModel(DEFAULT_MODELS[v] ?? "");
-            setTest(null); // drop any stale connection-test result for the old provider
+            const connected = (cfg?.providers ?? []).find((entry) => entry.id === v);
+            const fallback = DEFAULT_MODELS[v] || connected?.models?.[0] || "";
+            setModel(suggestedProviderModel(providerOptions, v, fallback));
+            setTest(null);
           }}
-        >
-          <SelectTrigger className="sm:w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {BUILTINS.map((p) => (
-              <SelectItem key={p.slug} value={p.slug}>{p.label}</SelectItem>
-            ))}
-            {extraProviders.length > 0 && (
-              <SelectGroup>
-                <SelectLabel>Connected</SelectLabel>
-                {extraProviders.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.id}{p.kind === "oauth" ? " (OAuth)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            )}
-          </SelectContent>
-        </Select>
+        />
       </SettingsRow>
       {isOAuth ? (
         <SettingsRow label="Auth">
           <span className="text-sm text-muted-foreground">Signed in via OAuth — no key needed</span>
         </SettingsRow>
       ) : (
-        <SettingsRow label={`${isCustom ? provider : prov?.label ?? "Provider"} key`}>
+        <SettingsRow label={`${isCustom ? provider : providerLabel} key`}>
           <Input
             type="password"
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder={onSavedProvider && cfg?.hasApiKey ? cfg.apiKeyMasked : (prov?.keyHint ?? "API key")}
-            className="sm:w-56"
+            placeholder={onSavedProvider && cfg?.hasApiKey ? cfg.apiKeyMasked : (KEY_HINTS[provider] ?? "API key")}
+            className="sm:w-64"
           />
         </SettingsRow>
       )}
@@ -207,8 +196,8 @@ export function AiSection() {
             list="ai-model-suggestions"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            placeholder={(onSavedProvider && cfg?.model) || DEFAULT_MODELS[provider] || "model id"}
-            className="sm:w-56"
+            placeholder={(onSavedProvider && cfg?.model) || DEFAULT_MODELS[provider] || selectedProvider?.recommendedFreeModel || "model id"}
+            className="sm:w-64"
           />
           <ModelCatalog provider={provider} value={model} onPick={setModel} />
         </div>

@@ -20,6 +20,8 @@ mso agent                   # explicit alias
 mso --continue              # resume latest durable Agent session
 mso --resume <query>        # resume by @name/index/id/short-id/title
 mso models                  # configure AI provider/API/OAuth connections
+mso models free             # live providers with explicit zero-cost, agent-ready models
+mso models free opencode    # inspect OpenCode Zen models currently marked zero-cost
 mso models add openai-codex # connect ChatGPT subscription OAuth without switching model
 mso model                   # choose active model from connected providers
 mso model list              # list models selectable from the active provider
@@ -39,8 +41,7 @@ When no AI provider is connected, bare `mso` opens the provider manager first an
 picker. If credentials already exist but the selection is unusable, only the model picker runs.
 Both interactive surfaces use the same native picker: **↑/↓** navigate, typing filters, **Enter**
 selects, and **Esc** cancels. Provider/model selection never falls back to a numbered prompt.
-The connection choices are OpenAI ChatGPT/Codex device OAuth plus the built-in API-key providers documented in
-[`INSTALL.md`](./INSTALL.md).
+The API-key provider choices are discovered dynamically from MSO's endpoint-pinned provider registry and model catalog; free-capable providers are annotated from explicit zero-cost pricing. OpenAI ChatGPT/Codex remains a separate device-OAuth choice. See [`INSTALL.md`](./INSTALL.md).
 
 Infrastructure secrets belong only in `mso provider set ...` hidden prompts/private provider state;
 do not commit them or paste real values into model prompts. Environment-shaped examples are placeholders

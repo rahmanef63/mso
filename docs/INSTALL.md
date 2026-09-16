@@ -125,16 +125,19 @@ production runtime itself, still bound to loopback, before proving the authentic
 runtime is reported as a runtime problem — it is not misreported as a device-approval failure. API keys are read with terminal echo
 disabled and posted from stdin; they are not placed in the CLI/curl argv.
 
-The current provider choices are OpenAI ChatGPT/Codex device OAuth, plus API-key providers
-Anthropic, OpenAI Platform, OpenRouter, Google, Groq, xAI, DeepSeek and Mistral. OpenRouter
-is an API-key integration here, not OAuth. The OpenAI OAuth path is the ChatGPT consumer
-Codex backend; it is separate from OpenAI Platform API keys and separate again from MSO's
-ChatGPT MCP OAuth.
+The provider picker is loaded dynamically from MSO's pinned provider registry plus the cached
+`models.dev` catalog instead of a fixed eight-provider menu. Providers with at least one model whose
+catalog price explicitly reports both input and output cost as zero **and** supports tool calls are shown
+as free-capable. Unknown/missing pricing is never treated as free. OpenCode Zen is a pinned
+OpenAI-compatible API-key provider (`https://opencode.ai/zen/v1`); OpenRouter remains an API-key
+integration. OpenAI ChatGPT/Codex keeps its separate device OAuth path. A FREE label describes model
+token pricing only: provider account/key requirements and rate limits can still apply.
 
-After onboarding, use the two AI commands deliberately: `mso models` manages provider/API/OAuth
-connections without changing the active model; `mso model` selects a model from providers that are
-already connected. `mso models test` validates the currently selected connection (including the
-ChatGPT/Codex subscription path), while `mso model list [provider]` shows selectable model IDs.
+After onboarding, use the AI commands deliberately: `mso models` manages provider/API/OAuth
+connections without changing the active model; `mso models free [provider]` reads the live zero-cost
+catalog; `mso model` selects a model from providers that are already connected. `mso models test`
+validates the currently selected connection (including the ChatGPT/Codex subscription path), while
+`mso model list [provider]` shows selectable model IDs.
 Interactive `mso model` / `mso models` menus are arrow-key pickers: **↑/↓** moves, typing filters,
 **Enter** selects, and **Esc** cancels; numeric provider/model prompts are not part of the UX.
 Agent sessions are durable: `mso --continue` resumes the latest session and

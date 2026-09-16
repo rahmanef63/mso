@@ -10,6 +10,8 @@ const cli = [
   fs.readFileSync(path.join(__dirname, "../bin/mso"), "utf8"),
   fs.readFileSync(path.join(__dirname, "../scripts/cli/onboarding.sh"), "utf8"),
   fs.readFileSync(path.join(__dirname, "../scripts/cli/onboarding-ai.sh"), "utf8"),
+  fs.readFileSync(path.join(__dirname, "../scripts/mso-cli-agent.sh"), "utf8"),
+  fs.readFileSync(path.join(__dirname, "../scripts/cli/ai-provider-catalog.sh"), "utf8"),
   fs.readFileSync(path.join(__dirname, "../scripts/cli/transport.sh"), "utf8"),
 ].join("\n");
 
@@ -26,10 +28,14 @@ describe("terminal onboarding contract", () => {
     expect(cli).toContain('secret_post "/api/config" "$body"');
   });
 
-  it("documents OAuth separately from API-key providers", () => {
-    expect(cli).toContain("OpenAI ChatGPT OAuth (Codex consumer backend; no API key)");
-    expect(cli).toContain("OpenRouter API key");
-    expect(cli).toContain("OpenAI Platform API key");
+  it("discovers AI platforms dynamically while keeping OAuth and API-key auth distinct", () => {
+    expect(cli).toContain('jget "/api/models/providers"');
+    expect(cli).toContain('tui_select "Connect AI platform"');
+    expect(cli).toContain("OpenAI ChatGPT");
+    expect(cli).toContain("Subscription · device OAuth");
+    expect(cli).toContain("OpenCode Zen");
+    expect(cli).toContain('tty_secret "Paste $provider API key: "');
+    expect(cli).toContain("FREE means the live catalog explicitly reports zero input + output token cost");
   });
 
   it("keeps -y minimal instead of selecting external accounts or installs", () => {

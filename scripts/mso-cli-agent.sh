@@ -88,33 +88,11 @@ connected_ai_provider_picker_rows() {
   done < <(connected_ai_provider_ids "$cfg")
 }
 
-known_ai_provider_picker_rows() {
-  cat <<'ROWS'
-openai-codex	openai-codex	ChatGPT subscription · device OAuth
-anthropic	anthropic	API key
-openai	openai	OpenAI Platform API key
-openrouter	openrouter	API key · multi-model router
-google	google	Gemini API key
-groq	groq	API key
-xai	xai	API key
-deepseek	deepseek	API key
-mistral	mistral	API key
-custom	custom	OpenAI/Anthropic-compatible endpoint
-ROWS
-}
+# Keep provider/model catalog discovery modular: the main agent CLI owns orchestration,
+# while this slice owns live provider/free-model presentation.
+# shellcheck source=cli/ai-provider-catalog.sh
+source "$ROOT/scripts/cli/ai-provider-catalog.sh"
 
-model_picker_rows() {
-  local data="$1" current="${2-}"
-  jq -r --arg current "$current" '.models[] |
-    [
-      .id,
-      .id,
-      ((if (.context // 0) > 0 then "ctx " + ((.context // 0)|tostring) else "ctx —" end)
-        + " · tools " + (if .tools then "yes" else "—" end)
-        + " · reasoning " + (if .reasoning then "yes" else "—" end)),
-      (if .id==$current then "current" else "" end)
-    ] | @tsv' <<<"$data"
-}
 
 picker_cancelled() { echo "  — selection cancelled"; }
 
@@ -162,6 +140,7 @@ print_model_catalog() {
     done
 }
 
+
 configure_oauth_provider() {
   local provider="$1" response code url interval poll
   [ "$provider" = "openai-codex" ] || die "OAuth provider not supported yet: $provider"
@@ -208,8 +187,7 @@ configure_ai_provider() {
       unset key body REPLY
       echo "  ✓ custom provider configured; active model unchanged"
       return ;;
-    anthropic|openai|openrouter|google|groq|xai|deepseek|mistral) ;;
-    *) die "provider must be: openai-codex anthropic openai openrouter google groq xai deepseek mistral custom" ;;
+    *) ai_provider_supported "$provider" || die "unknown/unsupported AI provider '$provider'; run: mso models free or mso models add" ;;
   esac
   tty_ok || die "provider setup needs an interactive terminal"
   tty_secret "Paste $provider API key: "; key="$REPLY"; [ -n "$key" ] || die "empty API key"
@@ -289,10 +267,11 @@ run_models() {
   cfg=$(ai_model_config)
   case "$sub" in
     status|list) print_ai_providers "$cfg" ;;
+    free) print_free_ai_options "${2:-}" ;;
     add|auth)
       provider="${2-}"
       if [ -z "$provider" ] && tty_ok; then
-        provider=$(known_ai_provider_picker_rows | tui_select "Connect AI provider" "openai-codex") || {
+        provider=$(dynamic_ai_provider_picker_rows "" "" | tui_select "Connect AI platform" "") || {
           rc=$?; [ "$rc" -eq 130 ] && { picker_cancelled; return 0; }; return "$rc";
         }
       fi
@@ -320,6 +299,7 @@ run_models() {
         action=$(cat <<'ROWS' | tui_select "AI provider/auth manager" "done"
 done	Done	Return to MSO Agent
 add	Add / authenticate provider	API key, OAuth, or custom endpoint
+free	Free AI options	Live zero-cost, agent-ready provider/model catalog
 remove	Remove provider	Forget one stored provider credential
 catalog	Browse model catalog	Inspect models for a connected provider
 test	Test active connection	Validate the selected provider/model
@@ -328,10 +308,11 @@ ROWS
         case "$action" in
           done) return ;;
           add)
-            provider=$(known_ai_provider_picker_rows | tui_select "Connect AI provider" "openai-codex") || {
+            provider=$(dynamic_ai_provider_picker_rows "" "" | tui_select "Connect AI platform" "") || {
               rc=$?; [ "$rc" -eq 130 ] && continue; return "$rc";
             }
             configure_ai_provider "$provider" ;;
+          free) echo; print_free_ai_options || true ;;
           remove)
             if ! connected_ai_provider_ids "$cfg" | grep -q .; then echo "  · no connected providers to remove"; continue; fi
             provider=$(connected_ai_provider_picker_rows "$cfg" "" | tui_select "Remove AI provider" "") || {
@@ -347,7 +328,7 @@ ROWS
           test) echo; jpost "/api/models/test" | jq . ;;
         esac
       done ;;
-    *) die "usage: mso models [status|list|add|auth <provider>|rm <provider>|catalog [provider]|test]" ;;
+    *) die "usage: mso models [status|list|free [provider]|add|auth <provider>|rm <provider>|catalog [provider]|test]" ;;
   esac
 }
 

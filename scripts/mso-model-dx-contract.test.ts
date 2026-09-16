@@ -9,6 +9,10 @@ const agentCli = fs.readFileSync(
   path.join(__dirname, "mso-cli-agent.sh"),
   "utf8",
 );
+const providerCatalogCli = fs.readFileSync(
+  path.join(root, "scripts/cli/ai-provider-catalog.sh"),
+  "utf8",
+);
 const configRoute = fs.readFileSync(
   path.join(root, "app/api/config/route.ts"),
   "utf8",
@@ -26,7 +30,7 @@ const picker = fs.readFileSync(
   "utf8",
 );
 
-const all = [cli, commandOwner, agentCli, configRoute, oauthRoute, slash, picker].join("\n");
+const all = [cli, commandOwner, agentCli, providerCatalogCli, configRoute, oauthRoute, slash, picker].join("\n");
 
 describe("MSO model/provider/session CLI contract", () => {
   it("keeps provider auth (`models`) separate from active selection (`model`)", () => {
@@ -56,6 +60,14 @@ describe("MSO model/provider/session CLI contract", () => {
       "↑↓ navigate · type filter · Enter select · Esc cancel",
     );
     expect(picker).toContain("nextPickerIndex");
+  });
+
+  it("shares a dynamic free-provider catalog between connect and model discovery", () => {
+    expect(providerCatalogCli).toContain('jget "/api/models/providers"');
+    expect(agentCli).toContain('tui_select "Connect AI platform"');
+    expect(agentCli).toContain('free) print_free_ai_options');
+    expect(providerCatalogCli).toContain('FREE · ');
+    expect(providerCatalogCli).toContain('provider account/key and rate limits may still apply');
   });
 
   it("supports explicit and slash-containing model IDs without losing provider intent", () => {

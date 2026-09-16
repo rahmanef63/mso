@@ -11,10 +11,14 @@ Alfa's server-side selection and credentials live in private host state (normall
 `~/.mso/config.json`, mode `0600`). Built-in environment variables remain fallback inputs.
 Credentials are not compiled into the client bundle.
 
-The current provider picker covers the common built-ins (Anthropic, OpenAI, OpenRouter,
-Google, Groq, xAI, DeepSeek and Mistral) and can use the vendored model registry for a
-broader catalog. Custom providers can define a base URL and OpenAI- or
-Anthropic-compatible protocol; custom URLs are SSRF-checked before use.
+The provider picker is dynamic over MSO's supported, endpoint-pinned provider registry and the
+cached `models.dev` capability/pricing catalog. The same provider summaries drive terminal onboarding,
+`mso models`, and Settings → AI. A model is marked **FREE** only when numeric `cost.input` and
+`cost.output` are both explicitly `0`; missing pricing is not free. For Alfa onboarding, the provider's
+free-capable count is further restricted to tool-call-capable models. OpenCode Zen is a built-in pinned
+OpenAI-compatible provider at `https://opencode.ai/zen/v1`; its model list is not hardcoded. Custom
+providers can still define a base URL and OpenAI- or Anthropic-compatible protocol; custom URLs are
+SSRF-checked before use.
 
 ## 2. Streaming architecture
 

@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `ai` add dynamic free provider discovery
 - `workflows` maximize script and search automation
 
 ## 2026-09-15

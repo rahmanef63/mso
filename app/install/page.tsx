@@ -33,7 +33,7 @@ const STEPS = [
   {
     n: 2,
     title: "Complete terminal onboarding",
-    body: "On a fresh interactive install, the same command opens /dev/tty after the service is healthy. Choose an Alfa provider (OpenAI ChatGPT OAuth or supported API-key providers including OpenRouter), a response preset, optional Hermes/OpenClaw installs, and reviewed skills. If no terminal exists, nothing hangs: run `mso onboard` later.",
+    body: "On a fresh interactive install, the same command opens /dev/tty after the service is healthy. Connect an Alfa AI platform from MSO's live supported-provider catalog, where explicitly zero-cost agent-capable models are marked FREE; OpenCode Zen and OpenRouter are supported API-key platforms, while OpenAI ChatGPT uses its separate device OAuth path. Then choose a model, response preset, optional Hermes/OpenClaw installs, and reviewed skills. If no terminal exists, nothing hangs: run `mso onboard` later.",
     code: "mso onboard\nmso skills available\nmso skills install ponytail caveman rtk -y",
     note: "`-y` is available for a safe non-interactive install, but it does not silently connect accounts, install managed apps, or trust community skills you did not select.",
   },
