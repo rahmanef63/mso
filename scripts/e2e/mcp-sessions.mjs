@@ -78,5 +78,7 @@ export async function mcpSessionsJourney(page, fixture) {
     await closeWindow.click();
   }
   await expect.poll(async () => await terminalTabs.count()).toBeLessThanOrEqual(terminalCountBefore);
+  // Mobile/full-screen terminal navigation changes the active route; restore Settings so the caller can continue its recovery journey.
+  await page.goto(fixture.base + "/settings");
   console.log("PASS session labels, Workflow graph handoff, terminal context, redaction, handover, keyboard and accessibility");
 }
