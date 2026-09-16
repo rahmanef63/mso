@@ -26,6 +26,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `workflows` count hidden terminal sessions during inspector
 - `workflows` expand semantic action receipt reliably
 - `workflows` target semantic action summary
 - `workflows` expand session actions before launch
