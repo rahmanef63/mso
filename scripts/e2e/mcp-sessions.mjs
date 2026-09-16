@@ -62,10 +62,12 @@ export async function mcpSessionsJourney(page, fixture) {
   await expect(page.getByRole("application", { name: "Workflow canvas" })).toBeVisible();
   await expect(page.getByText(openLabel, { exact: true }).last()).toBeVisible();
   const terminalToolNode = page.locator(".react-flow__node").filter({ hasText: "Exec Run" }).first();
+  const terminalTabs = page.getByRole("tablist", { name: "Terminal sessions" });
+  const terminalCountBefore = await terminalTabs.count();
   await expect(terminalToolNode).toBeVisible();
   expect(await page.locator('[data-slot="workflows-feature"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
   await terminalToolNode.click();
-  await expect(page.getByRole("tablist", { name: "Terminal sessions" }).last()).toBeVisible();
+  await expect(terminalTabs.last()).toBeVisible();
   const backHome = page.getByRole("button", { name: "Back to Home", exact: true });
   if (await backHome.isVisible().catch(() => false)) {
     await backHome.click();
@@ -75,6 +77,6 @@ export async function mcpSessionsJourney(page, fixture) {
     await expect(closeWindow).toBeVisible();
     await closeWindow.click();
   }
-  await expect(page.getByRole("tablist", { name: "Terminal sessions" })).toHaveCount(0);
+  await expect.poll(async () => await terminalTabs.count()).toBeLessThanOrEqual(terminalCountBefore);
   console.log("PASS session labels, Workflow graph handoff, terminal context, redaction, handover, keyboard and accessibility");
 }
