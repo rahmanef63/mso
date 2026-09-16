@@ -24,6 +24,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `workflows` target semantic action summary
 - `workflows` expand session actions before launch
 - `mcp` close mobile session windows
 - `canvas` scope graph controls per app
