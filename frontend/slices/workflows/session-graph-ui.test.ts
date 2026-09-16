@@ -23,6 +23,8 @@ describe("Workflow session graph UI contract", () => {
     expect(workflowApp).toContain('type LibraryMode = "automations" | "sessions"');
     expect(workflowApp).toContain("readOnly/>");
     expect(workflowApp).toContain('const chooseSessionNode = (id: string | null) => { setSessionSelected(id); if (id && overlayPane) setDetailsOpen(true); };');
+    expect(workflowApp).toContain('if (!sessionView) return; setDetailsOpen(false); openWindow("os-terminal"');
+    expect(workflowApp).toContain('const openSessionCode = (path: string) => { setDetailsOpen(false);');
     expect(sessionDetails).toContain("Open terminal here");
     expect(sessionDetails).toContain("Open {action.artifact.label} in Code");
     expect(sessionDetails).toContain("S3.A4");
