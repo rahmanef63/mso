@@ -66,5 +66,10 @@ export async function mcpSessionsJourney(page, fixture) {
   expect(await page.locator('[data-slot="workflows-feature"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
   await terminalToolNode.click();
   await expect(page.getByRole("tablist", { name: "Terminal sessions" }).last()).toBeVisible();
+  const terminalWindow = page.locator('[data-window="true"][data-app="os-terminal"]').last();
+  const closeWindow = terminalWindow.getByRole("button", { name: "Close window", exact: true });
+  await expect(closeWindow).toBeVisible();
+  await closeWindow.click();
+  await expect(terminalWindow).toHaveCount(0);
   console.log("PASS session labels, Workflow graph handoff, terminal context, redaction, handover, keyboard and accessibility");
 }
