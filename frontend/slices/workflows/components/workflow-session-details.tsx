@@ -31,6 +31,6 @@ export function WorkflowSessionDetails({ view, node, onOpenTerminal }: { view: S
         {terminalContext ? <Button className="w-full" variant="outline" onClick={onOpenTerminal}><TerminalSquare className="size-4"/>Open terminal here<ExternalLink className="ml-auto size-3.5"/></Button> : null}
       </>}
     </div></ScrollArea>
-    <div className="border-t p-3 text-[10px] text-muted-foreground">Successful MCP/Alfa workflows continue through MSO's existing learned-from-session automation pipeline; this view does not duplicate that state.</div>
+    <div className="border-t p-3 text-[10px] text-muted-foreground">Successful MCP/Alfa workflows continue through MSO&apos;s existing learned-from-session automation pipeline; this view does not duplicate that state.</div>
   </div>;
 }

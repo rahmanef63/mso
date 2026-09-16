@@ -50,8 +50,7 @@ export default function WorkflowsApp(props: AppProps) {
     const id = payloadSessionId(props.payload);
     if (!id) return;
     let alive = true;
-    setLibraryMode("sessions"); setMessage("");
-    void getSessionGraph(id).then((next) => { if (!alive) return; setSessionView(next); setSessionSelected("session-root"); }).catch((error: unknown) => { if (alive) setMessage(error instanceof Error ? error.message : "Could not load session"); });
+    void getSessionGraph(id).then((next) => { if (!alive) return; setLibraryMode("sessions"); setMessage(""); setSessionView(next); setSessionSelected("session-root"); }).catch((error: unknown) => { if (alive) setMessage(error instanceof Error ? error.message : "Could not load session"); });
     return () => { alive = false; };
   }, [props.payload]);
 

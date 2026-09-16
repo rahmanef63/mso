@@ -13,8 +13,7 @@ export function WorkflowSessionLibrary({ activeId, onSelect }: { activeId?: stri
   const [data, setData] = useState<SessionPage | null>(null), [error, setError] = useState(""), [nonce, setNonce] = useState(0);
   useEffect(() => {
     let alive = true;
-    setError("");
-    void listWorkflowSessions(page, query).then((value) => { if (alive) setData(value); }).catch((cause) => { if (alive) setError(cause instanceof Error ? cause.message : "Sessions unavailable"); });
+    void listWorkflowSessions(page, query).then((value) => { if (alive) { setError(""); setData(value); } }).catch((cause) => { if (alive) setError(cause instanceof Error ? cause.message : "Sessions unavailable"); });
     return () => { alive = false; };
   }, [page, query, nonce]);
   return <div className="flex h-full min-h-0 flex-col bg-card/20">
