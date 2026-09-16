@@ -40,13 +40,14 @@ export async function workflowCanvasJourney(page, fixture) {
   let graph = response.body.graph;
 
   await page.goto(fixture.base + "/workflows");
-  await expect(page.getByRole("application", { name: "Workflow canvas" })).toBeVisible();
-  for (const name of ["Select mode", "Pan mode", "Zoom in", "Zoom out", "Fit view"]) await expect(page.getByRole("button", { name })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Tidy up" })).toBeVisible();
-  const minimap = page.getByLabel("Workflow canvas minimap");
+  const canvas = page.getByRole("application", { name: "Workflow canvas" }).last();
+  await expect(canvas).toBeVisible();
+  for (const name of ["Select mode", "Pan mode", "Zoom in", "Zoom out", "Fit view"]) await expect(canvas.getByRole("button", { name })).toBeVisible();
+  await expect(canvas.getByRole("button", { name: "Tidy up" })).toBeVisible();
+  const minimap = canvas.getByLabel("Workflow canvas minimap");
   await expect(minimap).toBeVisible();
   await expect(minimap.locator(".react-flow__minimap-node")).toHaveCount(8);
-  await expect(page.locator(".react-flow__node", { hasText: "Manual Trigger" })).toBeVisible();
+  await expect(canvas.locator(".react-flow__node", { hasText: "Manual Trigger" })).toBeVisible();
 
   // Responsive contract: on a phone-sized pane the wide graph starts focused on
   // the trigger at a readable zoom, side panels become drawers, and the toolbar
@@ -58,7 +59,7 @@ export async function workflowCanvasJourney(page, fixture) {
     await expect(feature).toBeVisible();
     expect(await feature.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
     await expect(page.getByLabel("Workflow name")).toBeVisible();
-    const trigger = page.locator(".react-flow__node", { hasText: "Manual Trigger" });
+    const trigger = canvas.locator(".react-flow__node", { hasText: "Manual Trigger" });
     await expect(trigger).toBeVisible();
     const box = await trigger.boundingBox();
     expect(box?.width ?? 0).toBeGreaterThan(viewport.width < 700 ? 140 : 95);
@@ -77,13 +78,13 @@ export async function workflowCanvasJourney(page, fixture) {
   expect(await normalPath.evaluate((el) => getComputedStyle(el).strokeDasharray)).toBe("none");
   expect(await branchPath.evaluate((el) => getComputedStyle(el).strokeDasharray)).not.toBe("none");
 
-  await page.getByRole("button", { name: "Pan mode" }).click();
-  await expect(page.getByRole("button", { name: "Pan mode" })).toHaveClass(/is-active/);
-  await page.getByRole("button", { name: "Select mode" }).click();
-  await expect(page.getByRole("button", { name: "Select mode" })).toHaveClass(/is-active/);
-  await page.getByRole("button", { name: "Zoom in" }).click();
-  await page.getByRole("button", { name: "Zoom out" }).click();
-  await page.getByRole("button", { name: "Fit view" }).click();
+  await canvas.getByRole("button", { name: "Pan mode" }).click();
+  await expect(canvas.getByRole("button", { name: "Pan mode" })).toHaveClass(/is-active/);
+  await canvas.getByRole("button", { name: "Select mode" }).click();
+  await expect(canvas.getByRole("button", { name: "Select mode" })).toHaveClass(/is-active/);
+  await canvas.getByRole("button", { name: "Zoom in" }).click();
+  await canvas.getByRole("button", { name: "Zoom out" }).click();
+  await canvas.getByRole("button", { name: "Fit view" }).click();
 
   await page.getByRole("button", { name: "Directory", exact: true }).click();
   await expect(page.getByPlaceholder("Search tools…")).toBeVisible();

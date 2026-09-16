@@ -35,9 +35,10 @@ export async function organizationJourney(page, fixture) {
   expect(response.status).toBe(200);
 
   await page.goto(fixture.base + "/organization");
-  await expect(page.getByRole("application", { name: "Organization units canvas" })).toBeVisible();
-  for (const name of ["Select mode", "Pan mode", "Zoom in", "Zoom out", "Fit view"]) await expect(page.getByRole("button", { name })).toBeVisible();
-  const unitMinimap = page.getByLabel("Organization units canvas minimap");
+  const unitCanvas = page.getByRole("application", { name: "Organization units canvas" });
+  await expect(unitCanvas).toBeVisible();
+  for (const name of ["Select mode", "Pan mode", "Zoom in", "Zoom out", "Fit view"]) await expect(unitCanvas.getByRole("button", { name })).toBeVisible();
+  const unitMinimap = unitCanvas.getByLabel("Organization units canvas minimap");
   await expect(unitMinimap).toBeVisible();
   await expect(unitMinimap.locator(".react-flow__minimap-node")).toHaveCount(2);
   await expect(page.getByText("E2E Holding", { exact: true }).first()).toBeVisible();
@@ -55,7 +56,7 @@ export async function organizationJourney(page, fixture) {
     if (viewport.width < 700) {
       await expect(page.getByLabel("Organization unit", { exact: true })).toBeVisible();
       await expect(page.getByRole("navigation", { name: "Organization units" })).toBeHidden();
-      const rootNode = page.locator('.react-flow__node').first();
+      const rootNode = unitCanvas.locator('.react-flow__node').first();
       const box = await rootNode.boundingBox();
       expect(box?.width ?? 0).toBeGreaterThan(140);
     } else {
@@ -66,14 +67,15 @@ export async function organizationJourney(page, fixture) {
   await page.goto(fixture.base + "/organization");
 
   await page.getByRole("button", { name: /E2E Product/ }).click();
-  await expect(page.getByRole("application", { name: "Organization seats canvas" })).toBeVisible();
-  await expect(page.locator(".react-flow__node", { hasText: "Chief Executive Officer" })).toBeVisible();
-  const seatMinimap = page.getByLabel("Organization seats canvas minimap");
+  const seatCanvas = page.getByRole("application", { name: "Organization seats canvas" });
+  await expect(seatCanvas).toBeVisible();
+  await expect(seatCanvas.locator(".react-flow__node", { hasText: "Chief Executive Officer" })).toBeVisible();
+  const seatMinimap = seatCanvas.getByLabel("Organization seats canvas minimap");
   await expect(seatMinimap.locator(".react-flow__minimap-node")).toHaveCount(2);
-  const reportingEdge = page.getByRole("img", { name: "Edge from e2e-ceo to e2e-cto" }).locator(".react-flow__edge-path");
+  const reportingEdge = seatCanvas.getByRole("img", { name: "Edge from e2e-ceo to e2e-cto" }).locator(".react-flow__edge-path");
   await expect(reportingEdge).toHaveAttribute("marker-end", /url/);
   expect(await reportingEdge.evaluate((el) => getComputedStyle(el).strokeDasharray)).not.toBe("none");
-  const cto = page.locator(".react-flow__node", { hasText: "Chief Technology Officer" });
+  const cto = seatCanvas.locator(".react-flow__node", { hasText: "Chief Technology Officer" });
   await expect(cto).toBeVisible();
   await cto.click();
   await expect(page.getByRole("button", { name: "Edit seat" })).toBeVisible();
