@@ -71,6 +71,14 @@ export async function mcpSessionsJourney(page, fixture) {
   const backHome = page.getByRole("button", { name: "Back to Home", exact: true });
   if (await backHome.isVisible().catch(() => false)) {
     await backHome.click();
+    const homeIndicator = page.getByRole("button", { name: /^Home — swipe up for home/ });
+    if (await homeIndicator.isVisible().catch(() => false)) {
+      await homeIndicator.click();
+      const closeNewTerminal = page.getByRole("button", { name: "Close Terminal", exact: true }).first();
+      if (await closeNewTerminal.isVisible().catch(() => false)) await closeNewTerminal.click();
+      const closeMobileWorkflow = page.getByRole("button", { name: "Close Workflows", exact: true }).first();
+      if (await closeMobileWorkflow.isVisible().catch(() => false)) await closeMobileWorkflow.click();
+    }
   } else {
     const terminalWindow = page.locator('[data-window="true"][data-app="os-terminal"]').last();
     const closeWindow = terminalWindow.getByRole("button", { name: "Close window", exact: true });
