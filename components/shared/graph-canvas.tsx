@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -48,6 +48,8 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
   className, children, fitViewOptions, onKeyDown, ...props
 }: GraphCanvasProps<NodeType, EdgeType>) {
   const [mode, setMode] = useState<GraphCanvasMode>(initialMode);
+  const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const flowId = props.id || `mso-graph-${instanceId}`;
   const [containerRef, pane] = useContainer<HTMLDivElement>();
   const compact = pane === "xs" || pane === "sm";
   const { fitView, zoomIn, zoomOut } = useReactFlow<NodeType, EdgeType>();
@@ -75,6 +77,7 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
   return <div ref={containerRef} className="h-full min-h-0 w-full min-w-0 outline-none" tabIndex={0} onKeyDown={keyboard}>
     <ReactFlow<NodeType, EdgeType>
       {...props}
+      id={flowId}
       aria-label={ariaLabel}
       className={cn("mso-graph-flow h-full w-full", className)}
       fitView fitViewOptions={{ padding: fitPadding, duration: 220, ...fitViewOptions }}
