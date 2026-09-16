@@ -78,7 +78,13 @@ export async function mcpSessionsJourney(page, fixture) {
     await closeWindow.click();
   }
   await expect.poll(async () => await terminalTabs.count()).toBeLessThanOrEqual(terminalCountBefore);
-  // Mobile/full-screen terminal navigation changes the active route; restore Settings so the caller can continue its recovery journey.
+  // Teardown only: close the Workflow window opened by this journey so it cannot cover Settings later.
+  const workflowWindow = page.locator('[data-window="true"][data-app="workflows"]').last();
+  if (await workflowWindow.count()) {
+    const closeWorkflow = workflowWindow.getByRole("button", { name: "Close window", exact: true });
+    if (await closeWorkflow.count()) await closeWorkflow.click({ force: true });
+  }
+  // Mobile/full-screen navigation changes the active route; restore Settings so the caller can continue its recovery journey.
   await page.goto(fixture.base + "/settings");
   console.log("PASS session labels, Workflow graph handoff, terminal context, redaction, handover, keyboard and accessibility");
 }
