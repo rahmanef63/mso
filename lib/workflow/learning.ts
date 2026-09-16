@@ -6,8 +6,9 @@ import { closestRecipe, recipeText } from "./recipes";
 import { safeMemoryText } from "./sanitize";
 import { actorKey, removeActiveWorkflow, workflowFor } from "./state";
 import { loadWorkflowStore, persistWorkflowStore } from "./storage";
-import type { FinishWorkflowResult, LearnedRecipe, RecipeAccess } from "./types";
+import type { FinishWorkflowResult, LearnedRecipe, RecipeAccess, WorkflowStepProvenance } from "./types";
 import { ensureLearnedWorkflowGraph } from "./graph-store";
+import { archiveLearnedRecipes, listArchivedLearnedRecipes } from "./recipe-archive";
 import { rememberAgentMemory } from "@/lib/agent/memory-store";
 
 export async function finishWorkflow(input: {
@@ -16,6 +17,7 @@ export async function finishWorkflow(input: {
   workflowId: string;
   summary: string;
   success: boolean;
+  stepProvenance?: Record<string, WorkflowStepProvenance>;
 }): Promise<FinishWorkflowResult> {
   const actor = actorKey(input.actor);
   const recipeOwner = actorKey(input.recipeActor ?? input.actor);
@@ -31,7 +33,8 @@ export async function finishWorkflow(input: {
   const summary = safeMemoryText(input.summary, 1200) || (input.success ? "completed" : "failed");
   const vector = embedSkillText(recipeText(workflow.intent, workflow.project, summary));
   const timestamp = now.toISOString();
-  const compactSteps = compactRecipeSteps(workflow.steps);
+  const learnedSteps = workflow.steps.map((step) => input.stepProvenance?.[step.id] ? { ...step, provenance: input.stepProvenance[step.id] } : step);
+  const compactSteps = compactRecipeSteps(learnedSteps);
   const currentQuality = summarizeWorkflowQuality(workflow.steps);
 
   let recipe: LearnedRecipe;
@@ -50,7 +53,7 @@ export async function finishWorkflow(input: {
       summary,
       embeddingVersion: SKILL_EMBEDDING_VERSION,
       embedding: vector,
-      lastSteps: workflow.steps,
+      lastSteps: learnedSteps,
       bestSteps: faster ? compactSteps : (input.success ? enrichBestSteps(existing.bestSteps, compactSteps) : existing.bestSteps),
       attempts,
       successes,
@@ -70,7 +73,7 @@ export async function finishWorkflow(input: {
       id: randomUUID(), actor: recipeOwner, scope: workflow.scope, intent: workflow.intent,
       normalizedIntent: normalizeSemanticText(workflow.intent), project: workflow.project, summary,
       embeddingVersion: SKILL_EMBEDDING_VERSION, embedding: vector,
-      bestSteps: input.success ? compactSteps : [], lastSteps: workflow.steps,
+      bestSteps: input.success ? compactSteps : [], lastSteps: learnedSteps,
       attempts: 1, successes: input.success ? 1 : 0, failures: input.success ? 0 : 1,
       averageDurationMs: durationMs, fastestDurationMs: input.success ? durationMs : undefined, lastDurationMs: durationMs,
       averageWallDurationMs: wallMs, lastWallDurationMs: wallMs,
@@ -83,14 +86,15 @@ export async function finishWorkflow(input: {
   removeActiveWorkflow(store, actor, input.workflowId);
   const recipes = Object.values(store.recipes);
   if (recipes.length > 200) {
-    recipes
+    const evicted = recipes
       .sort((a, b) => {
         const qa = a.successes * 10 - a.failures + new Date(a.lastUsedAt ?? a.updatedAt).getTime() / 1e13;
         const qb = b.successes * 10 - b.failures + new Date(b.lastUsedAt ?? b.updatedAt).getTime() / 1e13;
         return qa - qb;
       })
-      .slice(0, recipes.length - 200)
-      .forEach((row) => delete store.recipes[row.id]);
+      .slice(0, recipes.length - 200);
+    // Archive before eviction. If archival cannot be proven, keep the recipe active rather than silently losing learned history.
+    try { await archiveLearnedRecipes(evicted); evicted.forEach((row) => delete store.recipes[row.id]); } catch { /* retain overflow until a later successful archival pass */ }
   }
   await persistWorkflowStore(store);
   // Successful sanitized session routes automatically become private graph drafts.
@@ -120,6 +124,10 @@ export async function listLearnedRecipes(access: RecipeAccess): Promise<LearnedR
   const recipes = Object.values(store.recipes);
   const visible = access.ownerView ? recipes : recipes.filter((recipe) => recipe.actor === access.actor && allows(access.scope, recipe.scope));
   return visible.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+export async function listArchivedRecipes(access: RecipeAccess): Promise<LearnedRecipe[]> {
+  return listArchivedLearnedRecipes(access);
 }
 
 export async function markRecipeUsed(id: string, access: RecipeAccess): Promise<void> {

@@ -11,6 +11,8 @@ import {
   updateAgentSessionLocation,
 } from "@/lib/agent/session-store";
 import { pruneAgentSessionArchives } from "@/lib/agent/session-archive";
+import { sessionWorkflowDraftDefinition } from "@/lib/agent/session-workflow-draft";
+import { createWorkflowGraph } from "@/lib/workflow/graph-store";
 import {
   ownerSessionSummaries,
   resolveAgentSessionOwnerRef,
@@ -93,6 +95,7 @@ export async function POST(req: NextRequest) {
     history?: unknown[];
     cwd?: string;
     parentSessionId?: string;
+    step_ref?: string;
   };
   try {
     body = await req.json();
@@ -159,6 +162,16 @@ export async function POST(req: NextRequest) {
       return sessionResponse({
         session: await renameAgentSession(principal, body.id, body.title),
       });
+    }
+    if (body.action === "save-workflow-draft") {
+      const ref = String(body.ref || body.id || "").trim();
+      if (!ref) return NextResponse.json({ error: "session_reference_required" }, { status: 400 });
+      const source = await resolveAgentSessionOwnerRef(ref);
+      const context = await getSessionContext();
+      if (!context?.session.device_id || context.role !== "owner") return NextResponse.json({ error: "owner_role_required" }, { status: 403 });
+      const definition = sessionWorkflowDraftDefinition(source, body.step_ref);
+      const graph = await createWorkflowGraph(`web:${context.session.device_id}`, definition, "create");
+      return NextResponse.json({ graph }, { headers: { "Cache-Control": "private, no-store" } });
     }
     if (body.action === "prune-archives")
       return NextResponse.json(await pruneAgentSessionArchives());

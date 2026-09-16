@@ -5,6 +5,7 @@ import { requireAgentSessionName } from "./session-name";
 import { autoSessionTitle, estimateTokens, MAX_EVENTS, MAX_HISTORY, safeTitle } from "./session-policy";
 import { retainSessionEvents } from "./session-sequence";
 import { appendSemanticSessionEvent } from "./session-semantic";
+import { archiveDroppedSessionEvents } from "./session-action-history";
 import { compactIfNeeded, requireOwned } from "./session-record";
 import type { AgentSession, AgentSessionEvent, AgentSessionTitleSource } from "./session-types";
 
@@ -123,7 +124,10 @@ export async function appendAgentSessionEvent(
           }
         : {}),
     };
-    const retained = retainSessionEvents(appendSemanticSessionEvent(record.events, row), record.eventSeqBase, MAX_EVENTS);
+    const expanded = appendSemanticSessionEvent(record.events, row);
+    const retained = retainSessionEvents(expanded, record.eventSeqBase, MAX_EVENTS);
+    const droppedCount = expanded.length - retained.events.length;
+    if (droppedCount > 0) await archiveDroppedSessionEvents(record, expanded.slice(0, droppedCount), record.eventSeqBase ?? 0);
     record.events = retained.events;
     record.eventSeqBase = retained.eventSeqBase;
     record.updatedAt = at;

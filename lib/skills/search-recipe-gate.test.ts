@@ -23,6 +23,14 @@ async function successfulRun() {
   await memory.finishWorkflow({ actor, recipeActor: actor, workflowId: started.workflow.id, summary: "healthy", success: true });
 }
 
+async function failedRun() {
+  const started = await memory.startWorkflow({ actor, scope: "read", intent });
+  await memory.recordWorkflowStep(actor, started.workflow.id, {
+    id: `failed-${Date.now()}-${Math.random()}`, tool: "sys_stats", state: "failed", durationMs: 4, ts: new Date().toISOString(),
+  });
+  await memory.finishWorkflow({ actor, recipeActor: actor, workflowId: started.workflow.id, summary: "failed", success: false });
+}
+
 async function search() {
   return searchSkillMemory(intent, {
     recipeAccess: { actor, scope: "read" },
@@ -50,6 +58,14 @@ describe("reusable recipe recommendation gate", () => {
     await successfulRun();
     await successfulRun();
     const result = await search();
-    expect(result.recommendedRecipe).toMatchObject({ kind: "recipe", attempts: 2, successRate: 100 });
+    expect(result.recommendedRecipe).toMatchObject({ kind: "recipe", attempts: 2, successRate: 100, maturity: "candidate" });
+  });
+
+  it("does not recommend a two-attempt 50% observed route", async () => {
+    await successfulRun();
+    await failedRun();
+    const result = await search();
+    expect(result.hits.find((hit) => hit.kind === "recipe")?.maturity).toBe("observed");
+    expect(result.recommendedRecipe).toBeUndefined();
   });
 });

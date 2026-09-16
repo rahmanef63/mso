@@ -1,5 +1,6 @@
 import { catalogSkillsDetailed, readSkillFile, type ProjectRef, type SkillInfo, type SkillScanReport } from "./catalog";
-import { listLearnedRecipes, type LearnedRecipe, type RecipeAccess } from "@/lib/workflow";
+import { listLearnedRecipes, type LearnedRecipe, type RecipeAccess, type RecipeMaturity } from "@/lib/workflow";
+import { recipeMaturity } from "@/lib/workflow/maturity";
 import { embedSkillText, hybridSemanticScore, prepareSemanticQuery, SKILL_EMBEDDING_VERSION } from "./semantic";
 import { compactSkillContract } from "./skill-contract";
 
@@ -24,6 +25,7 @@ export type SkillSearchHit = {
   successRate?: number;
   fastestDurationMs?: number;
   attempts?: number;
+  maturity?: RecipeMaturity;
   steps?: Array<{ tool: string; target?: string; args?: Record<string, string | number | boolean>; durationMs?: number }>;
   missingTools?: string[];
   contract?: ReturnType<typeof compactSkillContract>;
@@ -71,6 +73,7 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
 
   const recipes = options.recipeAccess ? await listLearnedRecipes(options.recipeAccess) : [];
   for (const recipe of recipes) {
+    const maturity = recipeMaturity(recipe);
     const text = [
       recipe.intent,
       recipe.project,
@@ -92,6 +95,7 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
       successRate: recipe.attempts ? Math.round((recipe.successes / recipe.attempts) * 1000) / 10 : 0,
       fastestDurationMs: recipe.fastestDurationMs,
       attempts: recipe.attempts,
+      maturity: maturity.maturity,
       steps: recipe.bestSteps.map((s) => ({ tool: s.tool, target: s.target, args: s.args, durationMs: s.durationMs })),
       ...(missingTools.length ? { missingTools } : {}),
     });
@@ -142,7 +146,7 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
     hits: sorted,
     catalog: scan,
     recommendedRecipe: sorted.find((h) =>
-      h.kind === "recipe" && h.score >= 0.22 && (h.attempts ?? 0) >= 2 && (h.successRate ?? 0) >= 50,
+      h.kind === "recipe" && h.score >= 0.22 && h.maturity !== "observed" && (h.attempts ?? 0) >= 2,
     ),
   };
 }

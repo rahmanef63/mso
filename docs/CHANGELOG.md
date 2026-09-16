@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` close session self-improvement loop
 - `mcp` add compact ChatGPT list surface
 - `plugins` add structured OpenAI skill contracts
 - `workflows` stabilize semantic action references

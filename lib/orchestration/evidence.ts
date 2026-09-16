@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ActiveWorkflow } from "@/lib/workflow";
 import { redactStrings, redactText } from "./redaction";
 import type { EvidenceInput, EvidenceItem, EvidenceReceipt, RiskLevel } from "./types";
@@ -16,8 +17,11 @@ export function buildEvidenceReceipt(input: {
   const orchestration = input.workflow.orchestration;
   const claims = redactStrings(evidence.claims);
   if (!claims.length) claims.push(redactText(input.summary, 1200) || (input.success ? "workflow completed" : "workflow failed"));
+  const createdAt = new Date().toISOString();
+  const ref = `evidence_${createHash("sha256").update(JSON.stringify([input.workflow.id, createdAt, claims])).digest("hex").slice(0, 20)}`;
   return {
     schemaVersion: 1,
+    ref,
     workflow: input.workflow.id,
     ...(input.workflow.project ? { repo: redactText(input.workflow.project, 240) } : {}),
     ...(orchestration?.baseCommit ? { baseCommit: orchestration.baseCommit } : {}),
@@ -33,7 +37,7 @@ export function buildEvidenceReceipt(input: {
     artifacts: redactStrings(evidence.artifacts),
     manualVerification: passed(evidence.manualVerification),
     knownRisks: redactStrings(evidence.knownRisks),
-    createdAt: new Date().toISOString(),
+    createdAt,
   };
 }
 

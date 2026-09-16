@@ -10,6 +10,7 @@ import type {
   WorkflowStep,
   WorkflowStepInput,
   WorkflowStepState,
+  WorkflowStepProvenance,
 } from "./types";
 
 export function safeMemoryText(value: string, max: number): string {
@@ -94,6 +95,21 @@ const SAFE_TOOL_ARGS: Record<string, readonly string[]> = {
   exec_run: ["cwd"], browser_power: ["on"],
 };
 
+function safeProvenance(value: unknown): WorkflowStepProvenance | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const row = value as Partial<WorkflowStepProvenance>;
+  const sessionLabel = typeof row.sessionLabel === "string" ? safeMemoryText(row.sessionLabel, 180) : "";
+  const actionRef = typeof row.actionRef === "string" && /^S\d+\.A\d+$/.test(row.actionRef) ? row.actionRef : "";
+  const eventRef = typeof row.eventRef === "string" && /^E\d+$/.test(row.eventRef) ? row.eventRef : "";
+  const observedAt = typeof row.observedAt === "string" && Number.isFinite(Date.parse(row.observedAt)) ? new Date(row.observedAt).toISOString() : "";
+  if (!sessionLabel || !actionRef || !eventRef || !observedAt) return undefined;
+  const artifactRefs = Array.isArray(row.artifactRefs)
+    ? row.artifactRefs.filter((item): item is string => typeof item === "string" && /^artifact_[a-f0-9]{20}$/.test(item)).slice(0, 8)
+    : [];
+  const evidenceRef = typeof row.evidenceRef === "string" && /^evidence_[a-f0-9]{20}$/.test(row.evidenceRef) ? row.evidenceRef : undefined;
+  return { sessionLabel, actionRef, eventRef, ...(artifactRefs.length ? { artifactRefs } : {}), ...(evidenceRef ? { evidenceRef } : {}), observedAt };
+}
+
 function safeArgs(tool: string, args?: Record<string, unknown>): Record<string, string | number | boolean> | undefined {
   if (!args) return undefined;
   const keys = SAFE_TOOL_ARGS[tool];
@@ -123,6 +139,7 @@ export function sanitizeStoredStep(value: unknown): WorkflowStep | null {
     target: safeTarget(row.tool, row.target), args: safeArgs(row.tool, row.args),
     ...(durationMs != null ? { durationMs } : {}),
     ts: Number.isFinite(Date.parse(row.ts)) ? new Date(row.ts).toISOString() : new Date(0).toISOString(),
+    ...(safeProvenance(row.provenance) ? { provenance: safeProvenance(row.provenance) } : {}),
   };
 }
 

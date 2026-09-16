@@ -71,5 +71,9 @@ export async function pruneAgentSessionArchives(now = Date.now()): Promise<{ rem
     finally { await handle?.close().catch(() => undefined); }
     await fs.unlink(file).then(() => { removed++; }).catch(() => undefined);
   }
+  try {
+    const { pruneSessionActionIndexes } = await import("./session-action-history");
+    removed += await pruneSessionActionIndexes(now);
+  } catch { /* action-index pruning is best-effort */ }
   return { removed, kept };
 }

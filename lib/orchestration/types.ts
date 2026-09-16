@@ -20,6 +20,7 @@ export type EvidenceItem = {
 
 export type EvidenceReceipt = {
   schemaVersion: 1;
+  ref: string;
   workflow: string;
   repo?: string;
   baseCommit?: string;

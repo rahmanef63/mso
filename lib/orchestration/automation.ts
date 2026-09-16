@@ -1,4 +1,5 @@
 import type { LearnedRecipe, WorkflowStep } from "@/lib/workflow";
+import { recipeMaturity } from "@/lib/workflow/maturity";
 import type { AutomationAssessment, AutomationScriptManifest } from "./types";
 
 export const REPLAY_SAFE_TOOLS = new Set([
@@ -7,20 +8,6 @@ export const REPLAY_SAFE_TOOLS = new Set([
   "skills_read", "browser_status", "infra_providers_list",
   "dokploy_projects_list", "cloudflare_zones_list",
 ]);
-
-function successfulTools(steps: WorkflowStep[]): string[] {
-  return steps.filter((step) => step.state === "completed").map((step) => step.tool);
-}
-
-function similarRoute(recipe: LearnedRecipe): boolean {
-  const best = successfulTools(recipe.bestSteps);
-  const last = successfulTools(recipe.lastSteps);
-  if (!best.length || !last.length) return false;
-  const compactLast = last.filter((tool, index) => index === 0 || tool !== last[index - 1]);
-  const compactBest = best.filter((tool, index) => index === 0 || tool !== best[index - 1]);
-  if (compactBest.length !== compactLast.length) return false;
-  return compactBest.every((tool, index) => tool === compactLast[index]);
-}
 
 export function isReplaySafeTool(tool: string): boolean { return REPLAY_SAFE_TOOLS.has(tool); }
 
@@ -34,13 +21,11 @@ export function assessAutomationPromotion(recipe: LearnedRecipe): AutomationAsse
   const attempts = Math.max(0, recipe.attempts || 0);
   const successes = Math.max(0, recipe.successes || 0);
   const failures = Math.max(0, recipe.failures || 0);
-  const successRate = attempts ? successes / attempts : 0;
-  const stableSteps = attempts >= 2 && similarRoute(recipe);
-  let stage: AutomationAssessment["stage"] = "observed";
+  const maturity = recipeMaturity(recipe);
+  const successRate = maturity.successRate;
+  const stableSteps = maturity.stableSteps;
+  const stage: AutomationAssessment["stage"] = maturity.maturity;
   const reasons: string[] = [];
-
-  if (successes >= 2 && attempts >= 2) stage = "candidate";
-  if (successes >= 3 && successRate >= 0.8 && stableSteps) stage = "verified";
 
   if (attempts < 2) reasons.push("needs repeated observations");
   if (successes < 2) reasons.push("needs at least two successful runs for a recipe candidate");

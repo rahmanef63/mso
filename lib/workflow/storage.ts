@@ -10,7 +10,7 @@ let cache: WorkflowStoreState | null = null, cachePath = "", baseSnapshot = "";
 let needsMigration = false;
 const loadInFlight = new Map<string, Promise<WorkflowStoreState>>();
 let writeChain: Promise<unknown> = Promise.resolve();
-function storePath(): string {
+export function workflowStorePath(): string {
   const env = process.env.OS_SKILL_MEMORY_STORE?.trim();
   if (process.env.VITEST && !env) return path.join(os.tmpdir(), `mso-skill-memory-test-${process.pid}.json`);
   return (env || path.join(os.homedir(), ".mso", "skill-memory.json")).replace(/^~(?=$|\/)/, os.homedir());
@@ -18,7 +18,7 @@ function storePath(): string {
 function legacySnapshot(raw: string) { return "legacy:" + createHash("sha256").update(raw).digest("hex"); }
 /** The base file remains a complete version-3 snapshot. Matching sidecar supersedes only active state. */
 export async function loadWorkflowStore(): Promise<WorkflowStoreState> {
-  const file = storePath();
+  const file = workflowStorePath();
   if (cache && cachePath === file) return cache;
   const current = loadInFlight.get(file); if (current) return current;
   const pending = (async () => {
@@ -48,7 +48,7 @@ async function atomic(file: string, snapshot: string) {
   } finally { await fs.unlink(tmp).catch(() => undefined); }
 }
 export async function persistWorkflowStore(store: WorkflowStoreState, activeOnly = false): Promise<void> {
-  const file = storePath(), partial = activeOnly && Boolean(baseSnapshot) && !needsMigration;
+  const file = workflowStorePath(), partial = activeOnly && Boolean(baseSnapshot) && !needsMigration;
   // Capture bytes now, before callers mutate the shared object again.
   if (!partial) { baseSnapshot = randomUUID(); needsMigration = false; }
   const snapshot = partial ? JSON.stringify({ version: 1, baseSnapshot, active: store.active }) : JSON.stringify({ ...store, snapshotId: baseSnapshot });

@@ -108,7 +108,7 @@ function semanticTitle(category: SessionFlowCategory, groups: SessionFlowActionG
   return informative.length ? `${TITLES[category]} · ${informative.join(" + ")}` : TITLES[category];
 }
 
-function buildActions(events: AgentSessionEvent[], cwd?: string, rawBase = 0): SessionFlowAction[] {
+export function sessionFlowActions(events: AgentSessionEvent[], cwd?: string, rawBase = 0): SessionFlowAction[] {
   const normalized = normalizeSessionEventSemantics(events);
   const base = eventSequenceBase(rawBase);
   return normalized.map((row, index) => {
@@ -165,7 +165,7 @@ function stepsFromActions(actions: SessionFlowAction[]): SessionFlowStep[] {
 export function semanticSessionFlow(events: AgentSessionEvent[], requestedLimit = SESSION_GRAPH_EVENT_LIMIT, cwd?: string, rawBase = 0) {
   const limit = Math.max(1, Math.min(SESSION_GRAPH_EVENT_LIMIT, Math.trunc(requestedLimit) || SESSION_GRAPH_EVENT_LIMIT));
   const base = eventSequenceBase(rawBase);
-  const allActions = buildActions(events, cwd, base);
+  const allActions = sessionFlowActions(events, cwd, base);
   const windowActions = allActions.slice(-limit);
   const windowSteps = stepsFromActions(windowActions);
   const steps = windowSteps.slice(-STEP_LIMIT);
@@ -175,7 +175,7 @@ export function semanticSessionFlow(events: AgentSessionEvent[], requestedLimit 
 }
 
 export function resolveSessionFlowAction(events: AgentSessionEvent[], actionRef: string, cwd?: string, rawBase = 0): SessionFlowActionResolution | null {
-  const actions = buildActions(events, cwd, rawBase);
+  const actions = sessionFlowActions(events, cwd, rawBase);
   const wanted = actionRef.trim();
   if (!wanted) return null;
   const upper = wanted.toUpperCase();

@@ -4,7 +4,8 @@ import { agentSessionSummary, appendAgentSessionEvent, getAgentSession, listAgen
 import { type McpTool, S, str } from "./tool-kit";
 import { resolveAgentSessionRef } from "@/lib/agent/session-query";
 import { agentSessionLabel } from "@/lib/agent/session-name";
-import { resolveSessionFlowAction, semanticSessionFlow } from "@/lib/agent/session-flow";
+import { semanticSessionFlow } from "@/lib/agent/session-flow";
+import { resolveHistoricalSessionAction } from "@/lib/agent/session-action-history";
 
 function principal(context: { principal?: string }): string {
   if (!context.principal) throw new Error("agent session principal is unavailable");
@@ -73,7 +74,7 @@ export const AGENT_TOOLS: McpTool[] = [
       const session = { label: agentSessionLabel(target.name, target.title, target.cwd), title: target.title, source: target.source, updatedAt: target.updatedAt, ...(target.cwd ? { cwd: target.cwd } : {}) };
       const wanted = optionalString(a, "action_ref");
       if (wanted) {
-        const resolved = resolveSessionFlowAction(target.events, wanted, target.cwd, target.eventSeqBase);
+        const resolved = await resolveHistoricalSessionAction(owner, target, wanted);
         if (!resolved) throw new Error(`session action not found: ${wanted.toUpperCase()}`);
         return { session, ...resolved };
       }
@@ -90,7 +91,7 @@ export const AGENT_TOOLS: McpTool[] = [
     }, ["session_ref", "action_ref"]),
     run: async (a, context) => {
       const owner = principal(context), target = await resolveAgentSessionRef(owner, str(a, "session_ref"));
-      const resolved = resolveSessionFlowAction(target.events, str(a, "action_ref"), target.cwd, target.eventSeqBase);
+      const resolved = await resolveHistoricalSessionAction(owner, target, str(a, "action_ref"));
       if (!resolved) throw new Error(`session action not found: ${str(a, "action_ref").toUpperCase()}`);
       return {
         session: { label: agentSessionLabel(target.name, target.title, target.cwd), title: target.title, source: target.source, updatedAt: target.updatedAt, ...(target.cwd ? { cwd: target.cwd } : {}) },

@@ -46,7 +46,7 @@ export function mergeQuality(a: WorkflowQuality, b: WorkflowQuality): WorkflowQu
 
 export function enrichBestSteps(best: WorkflowStep[], current: WorkflowStep[]): WorkflowStep[] {
   if (best.length !== current.length || best.some((step, i) => step.tool !== current[i]?.tool)) return best;
-  return best.map((step, i) => ({ ...step, args: step.args ?? current[i]?.args, target: step.target ?? current[i]?.target }));
+  return best.map((step, i) => ({ ...step, args: step.args ?? current[i]?.args, target: step.target ?? current[i]?.target, provenance: step.provenance ?? current[i]?.provenance }));
 }
 
 const MAX_RECIPE_STEPS = 24;

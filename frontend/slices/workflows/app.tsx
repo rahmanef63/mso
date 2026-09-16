@@ -17,7 +17,7 @@ import { WorkflowNodePalette } from "./components/workflow-node-palette";
 import { WorkflowSessionDetails } from "./components/workflow-session-details";
 import { WorkflowSessionLibrary } from "./components/workflow-session-library";
 import { tidyWorkflowNodes } from "./lib/canvas-layout";
-import { cloneGraph, createFromTemplate, createGraph, deleteGraph, getGraph, getSessionGraph, listGraphs, resolveNode, runGraph, runStatus, updateGraph } from "./lib/api";
+import { cloneGraph, createFromTemplate, createGraph, deleteGraph, getGraph, getSessionGraph, listGraphs, listWorkflowLearning, resolveNode, runGraph, runStatus, saveSessionWorkflowDraft, updateGraph, type WorkflowLearningRecipeSummary } from "./lib/api";
 
 type Definition = Omit<WorkflowGraph, "version" | "id" | "revision" | "createdAt" | "updatedAt">;
 type LibraryMode = "automations" | "sessions";
@@ -33,6 +33,7 @@ export default function WorkflowsApp(props: AppProps) {
   const [libraryOpen, setLibraryOpen] = useState(false), [detailsOpen, setDetailsOpen] = useState(false), [showLibrary, setShowLibrary] = useState(true), [showDetails, setShowDetails] = useState(true);
   const [libraryMode, setLibraryMode] = useState<LibraryMode>(() => payloadSessionId(props.payload) ? "sessions" : "automations");
   const [sessionView, setSessionView] = useState<SessionGraphView | null>(null), [sessionSelected, setSessionSelected] = useState<string | null>(null);
+  const [learning, setLearning] = useState<WorkflowLearningRecipeSummary[]>([]);
   const node = useMemo(() => graph?.nodes.find((item) => item.id === selected) ?? null, [graph, selected]);
   const sessionNode = useMemo(() => sessionView?.graph.nodes.find((item) => item.id === sessionSelected) ?? null, [sessionSelected, sessionView]);
   const runStates = useMemo(() => new Map(run?.nodes.map((item) => [item.id, item.state]) ?? []), [run]);
@@ -50,15 +51,15 @@ export default function WorkflowsApp(props: AppProps) {
     const id = payloadSessionId(props.payload);
     if (!id) return;
     let alive = true;
-    void getSessionGraph(id).then((next) => { if (!alive) return; setLibraryMode("sessions"); setMessage(""); setSessionView(next); setSessionSelected("session-root"); }).catch((error: unknown) => { if (alive) setMessage(error instanceof Error ? error.message : "Could not load session"); });
+    void Promise.all([getSessionGraph(id), listWorkflowLearning().catch(() => [])]).then(([next, recipes]) => { if (!alive) return; setLibraryMode("sessions"); setMessage(""); setSessionView(next); setLearning(recipes); setSessionSelected("session-root"); }).catch((error: unknown) => { if (alive) setMessage(error instanceof Error ? error.message : "Could not load session"); });
     return () => { alive = false; };
   }, [props.payload]);
 
   const wrap = async (fn: () => Promise<void>) => { setBusy(true); setMessage(""); try { await fn(); } catch (error) { setMessage(error instanceof Error ? error.message : "Action failed"); } finally { setBusy(false); } };
   const mutate = (next: WorkflowGraph) => { setGraph(next); setDirty(true); };
   const selectGraph = async (id: string) => { setLibraryMode("automations"); setGraph(await getGraph(id)); setSelected(null); setRun(null); setDirty(false); setPanel("inspector"); setLibraryOpen(false); };
-  const selectSession = async (id: string) => { const next = await getSessionGraph(id); setLibraryMode("sessions"); setSessionView(next); setSessionSelected("session-root"); setLibraryOpen(false); setDetailsOpen(false); };
-  const refreshSession = async () => { if (!sessionView) return; const next = await getSessionGraph(sessionView.session.id); setSessionView(next); if (sessionSelected && !next.graph.nodes.some((item) => item.id === sessionSelected)) setSessionSelected("session-root"); };
+  const selectSession = async (id: string) => { const [next, recipes] = await Promise.all([getSessionGraph(id), listWorkflowLearning().catch(() => [])]); setLibraryMode("sessions"); setSessionView(next); setLearning(recipes); setSessionSelected("session-root"); setLibraryOpen(false); setDetailsOpen(false); };
+  const refreshSession = async () => { if (!sessionView) return; const [next, recipes] = await Promise.all([getSessionGraph(sessionView.session.id), listWorkflowLearning(true).catch(() => [])]); setSessionView(next); setLearning(recipes); if (sessionSelected && !next.graph.nodes.some((item) => item.id === sessionSelected)) setSessionSelected("session-root"); };
   const createBlank = () => wrap(async () => { const next = await createGraph(starterGraph()); setLibraryMode("automations"); await load(next.id); setSelected("manual"); setLibraryOpen(false); });
   const createTemplate = (id: string) => wrap(async () => { const next = await createFromTemplate(id); setLibraryMode("automations"); await load(next.id); setSelected(next.nodes[0]?.id ?? null); setLibraryOpen(false); });
   const createAI = (definition: Definition) => wrap(async () => { const next = await createGraph(definition); setLibraryMode("automations"); await load(next.id); setSelected(next.nodes[0]?.id ?? null); setLibraryOpen(false); });
@@ -75,6 +76,10 @@ export default function WorkflowsApp(props: AppProps) {
   const openNode = async (id: string) => { if (!graph) return; const resolved = await resolveNode(graph.id, id); openWindow("files-manager", resolved.name, undefined, { path: resolved.path }, { multi: true }); };
   const openSessionTerminal = () => { if (!sessionView) return; setDetailsOpen(false); openWindow("os-terminal", "Terminal", undefined, { initialCwd: sessionView.session.cwd || "~" }, { multi: true }); };
   const openSessionCode = (path: string) => { setDetailsOpen(false); const name = path.split("/").filter(Boolean).at(-1) || "Code"; openWindow("code-editor", name, undefined, { path }, { multi: true }); };
+  const saveSessionDraft = (stepRef?: string) => sessionView && void wrap(async () => {
+    const next = await saveSessionWorkflowDraft(sessionView.session.id, stepRef);
+    setGraphs(await listGraphs(true)); setGraph(next); setLibraryMode("automations"); setSelected(next.nodes[0]?.id ?? null); setDirty(false); setRun(null); setDetailsOpen(false); setMessage(`Saved ${stepRef ?? "session"} as review-first workflow draft`);
+  });
   const chooseNode = (id: string | null) => { setSelected(id); if (!id) return; setPanel("inspector"); if (overlayPane) setDetailsOpen(true); };
   const chooseSessionNode = (id: string | null) => { setSessionSelected(id); if (id && overlayPane) setDetailsOpen(true); };
   const tidy = () => graph && mutate({ ...graph, nodes: tidyWorkflowNodes(graph) });
@@ -83,7 +88,7 @@ export default function WorkflowsApp(props: AppProps) {
 
   const automationLibrary = <WorkflowLibrary graphs={graphs} activeId={graph?.id} search={search} onSearch={setSearch} onSelect={(id) => void wrap(() => selectGraph(id))} onBlank={async () => { await createBlank(); }} onTemplate={async (id) => { await createTemplate(id); }} onAI={async (definition) => { await createAI(definition); }}/>;
   const library = <div className="flex h-full min-h-0 flex-col"><div className="grid grid-cols-2 gap-1 border-b p-2">{(["automations", "sessions"] as const).map((mode) => <button key={mode} type="button" className={`rounded-md px-2 py-1.5 text-xs capitalize ${libraryMode === mode ? "bg-accent font-semibold" : "text-muted-foreground hover:bg-accent/60"}`} onClick={() => setLibraryMode(mode)}>{mode}</button>)}</div><div className="min-h-0 flex-1">{libraryMode === "automations" ? automationLibrary : <WorkflowSessionLibrary activeId={sessionView?.session.id} onSelect={(id) => void wrap(() => selectSession(id))}/>}</div></div>;
-  const details = libraryMode === "sessions" && sessionView ? <WorkflowSessionDetails view={sessionView} node={sessionNode} onOpenTerminal={openSessionTerminal} onOpenCode={openSessionCode}/> : graph ? <WorkflowDetails graph={graph} graphs={graphs} node={node} run={run} panel={panel} onPanel={setPanel} onNode={updateNode} onDeleteNode={(id) => deleteNodes([id])} onGraph={mutate} onRunSelect={(selectedRun) => { setRun(selectedRun); setPanel("run"); }} onRestored={(next) => { setGraph(next); setDirty(false); void listGraphs().then(setGraphs); }}/> : null;
+  const details = libraryMode === "sessions" && sessionView ? <WorkflowSessionDetails view={sessionView} node={sessionNode} onOpenTerminal={openSessionTerminal} onOpenCode={openSessionCode} onSaveDraft={saveSessionDraft} savingDraft={busy} learning={learning}/> : graph ? <WorkflowDetails graph={graph} graphs={graphs} node={node} run={run} panel={panel} onPanel={setPanel} onNode={updateNode} onDeleteNode={(id) => deleteNodes([id])} onGraph={mutate} onRunSelect={(selectedRun) => { setRun(selectedRun); setPanel("run"); }} onRestored={(next) => { setGraph(next); setDirty(false); void listGraphs().then(setGraphs); }}/> : null;
   const toolbarItems: ToolbarItem[] = [
     { id: "library", label: "Workflow library", icon: PanelLeft, onClick: toggleLibrary, primary: true },
     { id: "refresh", label: "Refresh", icon: RefreshCw, onClick: () => void wrap(async () => { if (libraryMode === "sessions") await refreshSession(); else await load(undefined, true); }), disabled: busy },

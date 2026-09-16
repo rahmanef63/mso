@@ -89,12 +89,15 @@ export const WORKFLOW_START_TOOL: McpTool =
         id: search.recommendedRecipe.id,
         attempts: search.recommendedRecipe.attempts ?? 0,
         successRate: search.recommendedRecipe.successRate ?? 0,
+        maturity: search.recommendedRecipe.maturity ?? "candidate",
         steps: (search.recommendedRecipe.steps ?? []).slice(0, 12).map((step) => ({
           tool: step.tool, target: step.target, args: step.args,
         })),
         instruction: reusableScript
-          ? "Use the verified/candidate script path below instead of replanning."
-          : "Reuse this successful bounded route directly; replan only if current evidence or tool availability conflicts.",
+          ? (reusableScript.status === "tested" ? "Prefer the tested script path below when current evidence is compatible." : "A script candidate exists; verify it before treating the route as tested.")
+          : search.recommendedRecipe.maturity === "verified"
+            ? "Prefer this verified bounded route when current evidence and tool availability remain compatible."
+            : "This is a candidate route from repeated successes. Use it as a planning shortcut, but verify the current task independently.",
       } : undefined;
       const compactSearch = {
         engine: search.engine,
@@ -103,7 +106,7 @@ export const WORKFLOW_START_TOOL: McpTool =
         hits: search.hits.slice(0, 5).map((hit) => ({
           kind: hit.kind, id: hit.id, name: hit.name, score: hit.score,
           description: hit.description.slice(0, 600), source: hit.source, trust: hit.trust, scope: hit.scope, project: hit.project,
-          successRate: hit.successRate, attempts: hit.attempts, missingTools: hit.missingTools, contract: hit.contract,
+          successRate: hit.successRate, attempts: hit.attempts, maturity: hit.maturity, missingTools: hit.missingTools, contract: hit.contract,
         })),
         recommendedRecipe: search.recommendedRecipe ? {
           ...search.recommendedRecipe,
@@ -188,8 +191,8 @@ export const WORKFLOW_START_TOOL: McpTool =
             `[Risk] ${classification.risk} · ${classification.complexity} complexity · ${classification.contention} contention · ${classification.isolation}`,
             `[Catalog] ${intentRoute.catalogMatched ? intentRoute.routeIds.join(", ") : "semantic fallback"} · ${routedTools.length}/${tools.length} tool docs scored`,
             `[Knowledge] ${projectKnowledge?.exists ? `${projectKnowledge.bytes} bytes always-on` : "not configured"}`,
-            `[Memory] ${repoMemory.length} repo-local hit(s) · ${search.recommendedRecipe ? "recipe available" : "no verified recipe selected"} · ~${contextEstimateTokens} context tokens`,
-            ...(recipePlan ? [`[Recipe] ${recipePlan.attempts} attempts · ${recipePlan.successRate}% success · ${recipePlan.steps.length} reusable step(s)`] : []),
+            `[Memory] ${repoMemory.length} repo-local hit(s) · ${search.recommendedRecipe ? `${search.recommendedRecipe.maturity ?? "candidate"} recipe available` : "no reusable recipe selected"} · ~${contextEstimateTokens} context tokens`,
+            ...(recipePlan ? [`[Recipe] ${recipePlan.maturity} · ${recipePlan.attempts} attempts · ${recipePlan.successRate}% success · ${recipePlan.steps.length} reusable step(s)`] : []),
             ...(graphAutomation ? [`[Workflow graph] ${graphAutomation.status} · ${graphAutomation.name} · ${graphAutomation.metadata.provenance ?? "private"}`] : [`[Workflow graph] no matching private graph; successful completion will seed a learned draft`]),
             ...(reusableScript ? [`[Automation] ${reusableScript.status} script ${reusableScript.id} available`] : []),
             ...(contention.conflictingWorkflowCount ? [`[Collision] ${contention.conflictingWorkflowCount} workflow(s) overlap declared paths/resources`] : []),

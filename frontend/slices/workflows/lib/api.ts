@@ -32,3 +32,14 @@ export async function listWorkflowDirectory(query=""){return cachedWorkflowResou
 
 export type WorkflowScriptSummary = { id:string; intent:string; status:"candidate"|"tested"; stepCount:number; updatedAt:string; project?:string; tools:string[] };
 export async function listWorkflowScripts(project:string,query=""){const q=new URLSearchParams({scripts:"1",project});if(query.trim())q.set("q",query.trim());return cachedWorkflowResource(`scripts:${project}:${query}`,15000,async()=> (await json<{project:string;scripts:WorkflowScriptSummary[]}>(`/api/v1/workflows?${q}`)).scripts);}
+
+export type WorkflowLearningRecipeSummary = {
+  id:string; intent:string; project?:string; maturity:"observed"|"candidate"|"verified"; stage:"observed"|"candidate"|"verified"|"tested";
+  scriptStatus?:"candidate"|"tested"; attempts:number; successes:number; failures:number; successRate:number; fastestDurationMs?:number; updatedAt:string;
+  sourceSessions:Array<{label:string;actionRef:string;eventRef:string;artifactRefs:string[]}>; forge:{eligible:boolean;promotion:"explicit"};
+};
+export async function listWorkflowLearning(force=false){const load=async()=> (await json<{recipes:WorkflowLearningRecipeSummary[]}>("/api/v1/workflows?learning=1")).recipes;return force?load():cachedWorkflowResource("learning",10000,load);}
+export async function saveSessionWorkflowDraft(id:string,stepRef?:string){
+  const next=(await json<{graph:WorkflowGraph}>("/api/v1/agent-sessions",{method:"POST",body:JSON.stringify({action:"save-workflow-draft",id,...(stepRef?{step_ref:stepRef}:{})})})).graph;
+  invalidateWorkflowResources("graphs"); seedWorkflowResource(`graph:${next.id}`,next,8000); return next;
+}

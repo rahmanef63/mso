@@ -1,5 +1,7 @@
 import { inspectProject, resolveProjectHint } from "@/lib/host/projects-api";
-import { activeWorkflowForActor, cancelWorkflow, finishWorkflow } from "@/lib/workflow";
+import { activeWorkflowForActor, cancelWorkflow, finishWorkflow, workflowStepProvenance } from "@/lib/workflow";
+import { getAgentSession } from "@/lib/agent/session-store";
+import { agentSessionLabel } from "@/lib/agent/session-name";
 import { assessAutomationPromotion, buildAutomationScriptManifest, workflowCleanupGuidance } from "@/lib/orchestration/automation";
 import { classifyTask } from "@/lib/orchestration/classifier";
 import { buildEvidenceReceipt, validateEvidenceReceipt } from "@/lib/orchestration/evidence";
@@ -92,8 +94,17 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
       // hard gate. Legacy in-flight workflows can still close under their old contract.
       if (workflow.orchestration && !validation.valid) throw new Error(validation.errors.join("; "));
 
+      let stepProvenance: ReturnType<typeof workflowStepProvenance> | undefined;
+      if (context.principal && context.sessionId) {
+        const sourceSession = await getAgentSession(context.principal, context.sessionId).catch(() => null);
+        if (sourceSession) {
+          stepProvenance = workflowStepProvenance(
+            sourceSession, workflowId, agentSessionLabel(sourceSession.name, sourceSession.title, sourceSession.cwd), workflow.steps, receipt.ref,
+          );
+        }
+      }
       const finished = await finishWorkflow({
-        actor, recipeActor: context.recipeActor ?? context.actor, workflowId, summary, success,
+        actor, recipeActor: context.recipeActor ?? context.actor, workflowId, summary, success, stepProvenance,
       });
       const automation = assessAutomationPromotion(finished.recipe);
       const persistenceWarnings: string[] = [];

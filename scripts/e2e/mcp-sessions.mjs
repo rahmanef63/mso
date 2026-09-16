@@ -75,7 +75,17 @@ export async function mcpSessionsJourney(page, fixture) {
   expect(await page.locator('[data-slot="workflows-feature"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
   await terminalStepNode.click();
   await expect(page.getByText("Action groups", { exact: true }).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: `Save ${terminalStep.ref} as workflow draft`, exact: true })).toBeVisible();
+  await expect(page.getByText("Self-improve", { exact: true }).last()).toBeVisible();
   expect(await terminalTabs.count()).toBe(terminalCountBefore); // Selecting a node must not launch tools.
+  const draftResponse = await page.request.post(fixture.base + "/api/v1/agent-sessions", { data: { action: "save-workflow-draft", id: selectedMonitor.sessions[0].id, step_ref: terminalStep.ref } });
+  expect(draftResponse.status()).toBe(200);
+  const draftPayload = await draftResponse.json();
+  expect(draftPayload.graph.status).toBe("draft");
+  expect(draftPayload.graph.metadata.provenance).toBe("learned-from-session");
+  expect(draftPayload.graph.nodes.filter(node => node.type === "tool").every(node => node.disabled === true && node.config.reviewRequired === true)).toBe(true);
+  expect(JSON.stringify(draftPayload)).not.toMatch(/PRIVATE_TRANSCRIPT|PRIVATE_CONTEXT|FIXTURE_SECRET_MUST_NOT_LEAK|principalHash/);
+  expect(JSON.stringify(draftPayload)).not.toContain(selectedMonitor.sessions[0].id);
   const terminalAction = terminalStep.actions.find(action => action.terminalContext);
   const terminalGroup = terminalStep.groups.find(group => group.actionRefs.includes(terminalAction.ref));
   expect(terminalGroup).toBeTruthy();
@@ -111,5 +121,5 @@ export async function mcpSessionsJourney(page, fixture) {
   }
   // Mobile/full-screen navigation changes the active route; restore Settings so the caller can continue its recovery journey.
   await page.goto(fixture.base + "/settings");
-  console.log("PASS session labels, semantic Workflow handoff, explicit terminal action, redaction, handover, keyboard and accessibility");
+  console.log("PASS session labels, semantic Workflow handoff, self-improve draft, explicit terminal action, redaction, handover, keyboard and accessibility");
 }

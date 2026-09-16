@@ -32,6 +32,12 @@ describe("Workflow session graph UI contract", () => {
     expect(sessionDetails).toContain("Action groups");
     expect(sessionDetails).toContain("action.artifact.revisionRef");
     expect(sessionDetails).toContain("S3.A4");
+    expect(sessionDetails).toContain('data-slot="save-session-workflow-draft"');
+    expect(sessionDetails).toContain('data-slot="save-step-workflow-draft"');
+    expect(sessionDetails).toContain('data-slot="session-self-improve"');
+    expect(sessionDetails).toContain("Self-improve");
+    expect(workflowApp).toContain("saveSessionWorkflowDraft");
+    expect(workflowApp).toContain("listWorkflowLearning");
     expect(workflowCanvas).toContain('showMinimap={!readOnly}');
   });
 

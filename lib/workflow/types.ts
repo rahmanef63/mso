@@ -2,6 +2,17 @@ import type { Scope } from "@/lib/capabilities/scope";
 import type { WorkflowOrchestrationSnapshot } from "@/lib/contracts/orchestration";
 
 export type WorkflowStepState = "completed" | "failed" | "denied" | "rate_limited" | "invalid_args";
+export type RecipeMaturity = "observed" | "candidate" | "verified";
+
+export type WorkflowStepProvenance = {
+  /** Human-readable session label only; internal session ids never enter learned recipes. */
+  sessionLabel: string;
+  actionRef: string;
+  eventRef: string;
+  artifactRefs?: string[];
+  evidenceRef?: string;
+  observedAt: string;
+};
 
 export type WorkflowStep = {
   id: string;
@@ -11,6 +22,7 @@ export type WorkflowStep = {
   args?: Record<string, string | number | boolean>;
   durationMs?: number;
   ts: string;
+  provenance?: WorkflowStepProvenance;
 };
 
 export type WorkflowStepInput = Omit<WorkflowStep, "args"> & { args?: Record<string, unknown> };
