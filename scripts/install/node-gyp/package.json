@@ -1,0 +1,9 @@
+{
+  "name": "mso-node-gyp-bootstrap",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated locked build tool; not an MSO runtime dependency.",
+  "dependencies": {
+    "node-gyp": "11.5.0"
+  }
+}

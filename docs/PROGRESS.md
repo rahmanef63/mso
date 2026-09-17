@@ -1,3 +1,15 @@
+## 2026-09-17 — Lock the native build bootstrap without touching the runtime tree
+
+The complete PR/branch audit found open Scorecard finding #136 in the user-local
+`node-gyp` bootstrap. An exact top-level version still allowed fresh transitive
+resolution. The helper now installs from a committed npm lock containing integrity
+hashes for all resolved packages, with lifecycle scripts disabled. A manifest-hash
+cache and private atomic staging preserve existing user-selected cache roots and
+never run `npm ci` against the MSO checkout. Cache validation, failed-install cleanup,
+wrong-version and symlink refusal, native-binding checks and the installer's outer
+recovery trap are covered. Node, node-gyp's existing version, Bun, privileges, bind
+addresses and runtime behavior are unchanged; no scanner suppression was added.
+
 ## 2026-09-17 — Finish the verified branch release and loopback managed-app relay
 
 The release audit reconciled the dormant Workflow/Organization controls, exact artifact history,

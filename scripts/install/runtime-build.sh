@@ -17,23 +17,8 @@ INSTALL_PHASE=dependencies
 # available. Minimal/Codespaces images can have a complete compiler toolchain but
 # no standalone node-gyp binary. Provide a pinned user-local runner before Bun
 # executes dependency lifecycle scripts; do not mutate global npm state.
-NODE_GYP_VERSION="11.5.0"
-NODE_GYP_PREFIX="${MSO_NODE_GYP_PREFIX:-$HOME/.cache/mso/node-gyp-$NODE_GYP_VERSION}"
-NODE_GYP_BIN="$NODE_GYP_PREFIX/node_modules/.bin/node-gyp"
-
-ensure_node_gyp_runner() {
-  if [ -x "$NODE_GYP_BIN" ] && [ "$("$NODE_GYP_BIN" --version 2>/dev/null || true)" = "v$NODE_GYP_VERSION" ]; then
-    export PATH="${NODE_GYP_BIN%/*}:$PATH"
-    return
-  fi
-  command -v npm >/dev/null 2>&1 || die "npm is required to provision pinned node-gyp for node-pty."
-  mkdir -p "$NODE_GYP_PREFIX"
-  info "provisioning node-gyp v$NODE_GYP_VERSION for node-pty…"
-  npm install --prefix "$NODE_GYP_PREFIX" --no-save --ignore-scripts "node-gyp@$NODE_GYP_VERSION" >/dev/null
-  [ -x "$NODE_GYP_BIN" ] || die "node-gyp bootstrap did not produce $NODE_GYP_BIN"
-  [ "$("$NODE_GYP_BIN" --version 2>/dev/null || true)" = "v$NODE_GYP_VERSION" ] || die "unexpected node-gyp version after bootstrap"
-  export PATH="${NODE_GYP_BIN%/*}:$PATH"
-}
+# shellcheck source=scripts/install/node-gyp.sh
+. "$DIR/scripts/install/node-gyp.sh"
 
 node_pty_ready() {
   node -e 'require("node-pty")' >/dev/null 2>&1
