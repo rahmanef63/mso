@@ -34,7 +34,13 @@ gateway_reconcile_active_tunnel() {
     gateway_fail "recovered runtime is healthy but gateway state could not be persisted"
   fi
   GATEWAY_PENDING_CLEANUP=0
-  gateway_cmd_status
+  # Reconciliation has already passed the provider readiness/identity gate above.
+  # `status` is an observational classifier and may intentionally report degraded
+  # when an operator disabled a public probe, so it must not redefine start success.
+  gateway_info "gateway reconciled"
+  gateway_info "public: $public"
+  gateway_info "local:  $LOCAL_URL"
+  return 0
 }
 
 gateway_reconcile_runtime_rollback() {

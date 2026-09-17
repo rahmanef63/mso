@@ -218,6 +218,8 @@ failed phase. Re-running the same one-liner is the supported recovery path.
 
 ## 2. Network exposure
 
+Gateway architecture, provider capabilities, external ownership, state semantics and non-systemd/container/Kubernetes examples are documented in [`GATEWAY.md`](./GATEWAY.md).
+
 The installer binds `127.0.0.1` by default. This is intentional: an authenticated MSO Owner
 session can execute host commands, and delegated roles still expose private server data.
 

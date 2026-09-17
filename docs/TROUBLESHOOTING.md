@@ -109,6 +109,18 @@ Next from a partially-mutated build. Let the update finish, then rerun the same 
 `mso deploy` uses the same runtime-quiesce lifecycle and requires the active service to belong to the
 checkout invoking the command.
 
+### `mso gateway status` says `external-running`
+
+This is a healthy, intentional state when `OS_PUBLIC_ORIGIN` reaches the exact same MSO health identity as the selected local runtime but MSO has no owned provider-process record. A reverse proxy, Tailscale, Kubernetes ingress, PaaS router, s6-managed tunnel, or another external supervisor may own that lifecycle. MSO inspects the route but will not stop, restart, or automatically adopt the external process. Use `mso gateway status --json` for the separate ownership/provider/process/local/public dimensions. See [Gateway architecture](./GATEWAY.md).
+
+### `mso gateway status` says `degraded`
+
+A running process is not sufficient proof of public readiness. Check `publicHealth`, `localHealth`, `processHealth`, and `ownership` in `mso gateway status --json`. `identity-mismatch` means the public health endpoint is a valid MSO deployment but not the selected local instance; fix routing rather than restarting blindly. Doctor/status do not mutate providers. An external gateway is report-only; managed recovery remains limited to processes whose ownership identity MSO can prove.
+
+### Public MSO works, but `mso gateway doctor` reports an unsafe local bind
+
+These are independent dimensions. A working public reverse proxy/tunnel does not make `0.0.0.0:<port>` safe. The normal deployment keeps the raw MSO app on loopback/private scope and publishes it through the chosen HTTPS provider. Fix the runtime/service bind separately; do not suppress the doctor finding merely because public health is green.
+
 ### `mso gateway start` cannot install or verify cloudflared
 
 Current MSO installs a reviewed `cloudflared` release automatically into `~/.mso/tools` on first
