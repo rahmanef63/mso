@@ -61,8 +61,14 @@ export async function workflowCanvasJourney(page, fixture) {
     await expect(page.getByLabel("Workflow name")).toBeVisible();
     const trigger = canvas.locator(".react-flow__node", { hasText: "Manual Trigger" });
     await expect(trigger).toBeVisible();
-    const box = await trigger.boundingBox();
-    expect(box?.width ?? 0).toBeGreaterThan(viewport.width < 700 ? 140 : 95);
+    // Measure settled geometry, not a lucky intermediate fit animation frame.
+    let previousWidth = 0, stableSamples = 0;
+    await expect.poll(async () => {
+      const width = (await trigger.boundingBox())?.width ?? 0;
+      stableSamples = Math.abs(width - previousWidth) < 0.5 ? stableSamples + 1 : 0;
+      previousWidth = width;
+      return stableSamples >= 3 ? width : 0;
+    }, { timeout: 10000, intervals: [100] }).toBeGreaterThan(viewport.width < 700 ? 140 : 95);
     if (viewport.width < 700) {
       await expect(page.getByRole("button", { name: "New workflow" })).toBeVisible();
       await expect(page.getByRole("button", { name: "More actions" })).toBeVisible();

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+import { GeistMono } from "./mono-font";
 import { RegisterSW } from "./register-sw";
 import { InstallPrompt } from "./install-prompt";
 import "./globals.css";

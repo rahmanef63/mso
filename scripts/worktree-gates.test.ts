@@ -53,6 +53,13 @@ function fixture(script: string) {
     path.join(repo, "scripts/e2e/shell-status.mjs"),
     "import fs from 'node:fs'; if (!fs.existsSync('.build-verified') || fs.existsSync('.env.local')) throw Error('unsafe status fixture'); console.log('isolated shell status fixture passed');",
   );
+  for (const [file, label] of [
+    ["scripts/check-bundle.mjs", "bundle budget"],
+    ["scripts/e2e/bundle-performance.mjs", "deferred performance"],
+  ]) {
+    writeFileSync(path.join(repo, file),
+      `import fs from 'node:fs'; if (!fs.existsSync('.build-verified') || fs.existsSync('.env.local')) throw Error('unsafe bundle fixture'); console.log('isolated ${label} fixture passed');`);
+  }
   git("init", "-q");
   git("add", "scripts");
   git(
@@ -123,6 +130,8 @@ describe("isolated worktree release guards", () => {
     expect(run.stdout).toContain("isolated E2E fixture passed");
     expect(run.stdout).toContain("isolated shell fixture passed");
     expect(run.stdout).toContain("isolated shell status fixture passed");
+    expect(run.stdout).toContain("isolated bundle budget fixture passed");
+    expect(run.stdout).toContain("isolated deferred performance fixture passed");
     expect(readFileSync(path.join(repo, ".next/keep"), "utf8")).toBe(
       "live marker",
     );

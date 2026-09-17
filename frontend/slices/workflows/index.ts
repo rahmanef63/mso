@@ -6,6 +6,7 @@ export const workflowsApp: AppDescriptor = {
   title: "Workflows",
   icon: Workflow,
   gradient: "var(--primary)",
+  prefetch: "never",
   load: () => import("./app"),
   defaultSize: { w: 1180, h: 760 },
 };

@@ -66,11 +66,17 @@ jobs:
       - name: Production build
         run: bun run build
 
+      - name: Bundle budget
+        run: bun run bundle:check
+
       - name: Install browser
         run: node_modules/.bin/playwright install --with-deps chromium
 
       - name: Required browser journeys
         run: bun run e2e:release
+
+      - name: Deferred shell performance journeys
+        run: node scripts/e2e/bundle-performance.mjs
 
   dependency-watch:
     name: Scheduled dependency audit

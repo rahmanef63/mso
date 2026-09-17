@@ -70,6 +70,48 @@ claim that every feature is covered. Two-instance tests independently load origi
 widget CSP and external app catalogs. The literal guard is supporting evidence,
 not a substitute for runtime isolation tests.
 
+## Bundle boundaries and performance verification
+
+`bun run bundle:report` reads an existing production build; `bun run bundle:check`
+enforces `scripts/bundle-budget.json`. `scripts/verify-build.sh` runs the budget
+and `scripts/e2e/bundle-performance.mjs` on its isolated committed build; CI runs
+the same checks after its production build. The
+browser journey checks all five shells, absence of graph/editor/terminal/ONNX
+runtime chunks on cold startup, delayed first-open/close/reopen Search, eager
+clipboard capture, and retained Inspector tab state. It uses synthetic stores.
+
+The report deduplicates eager catch-all entry chunks plus the framework runtime.
+It lists `nomodule` polyfills separately: charging them to modern browsers would
+overstate first-load bytes. Gzip/Brotli values are compression estimates, not
+network timings or an LCP/INP benchmark. Actual selected-shell and feature-driven
+lazy downloads are checked separately in the browser. Font limits apply to
+preloaded files, not to fonts subsequently needed by visible monospace text.
+
+Keep app descriptors cheap. Organization retains its public `OrganizationView`
+through a lazy facade; its graph engine and shared canvas stylesheet must not be
+reachable eagerly from the shell manifest. Settings navigation/access checks stay
+eager, but section bodies load only after selection and their existing role gate.
+`DeferredSurface` uses the window host's effect/state loader rather than relying
+on a Suspense retry from an external-store update. Retain mounted presentation
+when local tab state or exit animations require it. Auto-lock, shortcut listeners,
+notifications and clipboard capture remain eager; only noncritical UI is deferred.
+
+Dock/Launcher keep Next link `prefetch={false}`. Their separate app-module warming
+waits 250 ms for hover/keyboard intent, cancels pending timers on leave/blur/close,
+checks online/visibility/Save-Data/slow-network state, and deduplicates in-flight
+loads. Expensive descriptors opt out with `prefetch: "never"`; explicit app opens
+still use the normal loader. No project-specific app-id blacklist lives in AppShell.
+
+Shared graph fitting waits for node measurements and uses both canvas width and
+height so short landscape windows keep their trigger readable. Only the responsive
+fit controller owns initial fitting; explicit Fit still shows the full graph.
+Geist Mono keeps its original local font, fallback stack and root CSS variable,
+with `preload: false`; no font CDN or external runtime dependency is introduced.
+
+Optional background-removal engines/models, model quality defaults, production
+artifact packaging and build-cache retention are unchanged. Do not delete WASM
+or enable site-wide cross-origin isolation just to make a size number smaller.
+
 ## Comparison governance
 
 `docs/comparison-data.json` is the only hand-edited comparison source. It records criterion
