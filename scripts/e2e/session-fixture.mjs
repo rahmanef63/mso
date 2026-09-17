@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, access } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -11,8 +11,13 @@ export async function seedSessionMonitor(env, count = 9) {
   const original = "export const value = 1;\n", current = "export const value = 2;\n", artifactFile = path.join(project, "src", "fixture.ts");
   await writeFile(artifactFile, original, { mode: 0o600 });
   const git = (...args) => execFileSync("git", args, { cwd: project, encoding: "utf8" }).trim();
-  git("init", "-b", "main"); git("config", "user.email", "release-fixture@example.invalid"); git("config", "user.name", "MSO Release Fixture");
-  git("add", "src/fixture.ts"); git("commit", "-m", "fixture artifact");
+  // Each viewport reseeds the same synthetic store. Reuse the exact fixture
+  // commit instead of failing on a second commit with an unchanged index.
+  const initialized = await access(path.join(project, ".git")).then(() => true, () => false);
+  if (!initialized) git("init", "-b", "main");
+  git("config", "user.email", "release-fixture@example.invalid"); git("config", "user.name", "MSO Release Fixture");
+  git("add", "src/fixture.ts");
+  if (git("status", "--porcelain", "--", "src/fixture.ts")) git("commit", "-m", "fixture artifact");
   const gitHead = git("rev-parse", "HEAD"), headBlob = git("rev-parse", "HEAD:src/fixture.ts"), worktreeSha256 = createHash("sha256").update(original).digest("hex");
   const artifactRevision = { version: 1, cwd: project, relativePath: "src/fixture.ts", repoRoot: project, repoRelativePath: "src/fixture.ts", gitHead, headBlob, worktreeBlob: headBlob, worktreeSha256, bytes: Buffer.byteLength(original), cleanAtCapture: true };
   await writeFile(artifactFile, current, { mode: 0o600 });

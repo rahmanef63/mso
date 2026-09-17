@@ -88,10 +88,12 @@ export async function mcpSessionsJourney(page, fixture) {
   await expect(page.locator('[data-slot="session-artifact-snapshot"]')).toBeVisible();
   await expect(page.locator('[data-slot="session-artifact-diff"]')).toBeVisible();
   expect(await page.locator('[data-slot="session-artifact-history"]').innerText()).not.toMatch(/FIXTURE_SECRET_MUST_NOT_LEAK/);
-  const openDetailsOverlay = page.locator('[data-slot="sheet-overlay"][data-state="open"]');
-  if (await openDetailsOverlay.count()) {
+  const artifactDialog = page.locator('[data-slot="shell-dialog-surface"]').filter({ has: page.locator('[data-slot="session-artifact-history"]') });
+  if (await artifactDialog.isVisible()) {
     await page.keyboard.press("Escape");
-    await expect(openDetailsOverlay).toHaveCount(0);
+    // A closed state is not an unmounted modal. Wait for its exit/focus cleanup
+    // before the next canvas click, for both desktop Sheet and mobile Drawer.
+    await expect(artifactDialog).toHaveCount(0);
   }
   const terminalStep = selectedGraph.steps.find(step => step.actions.some(action => action.terminalContext));
   expect(terminalStep).toBeTruthy();
@@ -102,9 +104,9 @@ export async function mcpSessionsJourney(page, fixture) {
   expect(await page.locator('[data-slot="workflows-feature"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
   await terminalStepNode.click();
   const terminalActionGroups = page.getByText("Action groups", { exact: true }).last();
-  if (!await terminalActionGroups.isVisible().catch(() => false)) {
-    await page.getByRole("button", { name: "Session details", exact: true }).click();
-  }
+  // Selection updates asynchronously; assert the promised node-click behavior
+  // instead of racing it with a fallback button that lives in compact overflow.
+  await expect(terminalStepNode).toHaveClass(/\bselected\b/);
   await expect(terminalActionGroups).toBeVisible();
   await expect(page.getByRole("button", { name: `Save ${terminalStep.ref} as workflow draft`, exact: true })).toBeVisible();
   await expect(page.getByText("Self-improve", { exact: true }).last()).toBeVisible();

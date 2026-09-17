@@ -31,6 +31,10 @@ UI ordering must not change the existing API default for an omitted connection s
 The API retains its original direct default; the UI explicitly submits the selected OAuth
 source, preserving both existing callers and OAuth-first presentation. Detailed verification
 and release status belong to the workflow evidence; this entry does not claim deployment.
+The expanded browser acceptance now reseeds its synthetic Git history idempotently for
+all three viewports, waits for complete modal exit/focus cleanup, and asserts node-click
+selection before inspecting details. It does not replace a failed node click with a
+compact-toolbar fallback or skip any artifact, redaction, terminal or accessibility check.
 
 ## 2026-09-17 — GitHub OAuth-first Integrations routing
 
