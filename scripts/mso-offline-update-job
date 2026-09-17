@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Detached update owner for hosts with no systemd user manager (containers, hosted
+# workspaces, etc.). The web API launches this through `setsid -f`; this process
+# must therefore own its PID marker and log before it asks mso-update to quiesce
+# the currently serving Next runtime.
+set -euo pipefail
+umask 077
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOG="${MSO_UPDATE_LOG:-$HOME/.mso/self-update.log}"
+PID_FILE="${MSO_UPDATE_PID_FILE:-$HOME/.mso/self-update.pid}"
+mkdir -p "$(dirname "$LOG")" "$(dirname "$PID_FILE")"
+printf '%s\n' "$$" >"$PID_FILE"
+cleanup() { rm -f "$PID_FILE"; }
+trap cleanup EXIT HUP INT TERM
+
+# Close the pipe inherited from Node/setsid immediately. This is what lets the
+# API request return while the detached process continues through a rebuild.
+: >"$LOG"
+exec >>"$LOG" 2>&1
+printf '[%s] == detached offline update\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+case "${1:-}" in
+  "") /bin/bash "$ROOT/scripts/mso-update" ;;
+  --rebuild-only) /bin/bash "$ROOT/scripts/mso-update" --rebuild ;;
+  *) echo "usage: mso-offline-update-job [--rebuild-only]" >&2; exit 2 ;;
+esac
+
+printf 'UPDATE OK\n'

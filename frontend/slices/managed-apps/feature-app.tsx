@@ -51,7 +51,9 @@ export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { 
           it is a deployment that serves no dashboards, and only this file knows that. */}
       {!uiAvailable ? (
         <p className="shrink-0 border-b border-border px-3 py-1.5 text-[11px] leading-snug text-muted-foreground">
-          No browser UI is exposed by this deployment, so the CLI below is the view. A managed app can work without a domain; split-origin dashboard hosts are optional.
+          {feature.applicationId === "hermes"
+            ? "Hermes is running as its agent/CLI runtime. The optional browser dashboard is not exposed on this host; use the interactive Hermes terminal below."
+            : "No browser UI is exposed by this deployment, so the CLI below is the view. A managed app can work without a domain; split-origin dashboard hosts are optional."}
         </p>
       ) : null}
       {view === "cli" || !uiAvailable ? (
