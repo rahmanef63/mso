@@ -69,27 +69,17 @@ NODE
 }
 
 gateway_cmd_domain() {
-  local sub="${1:-show}" origin domain_host
+  local sub="${1:-show}" origin
   case "$sub" in
     show) origin="$(gateway_env_origin)"; [ -n "$origin" ] && gateway_info "$origin" || gateway_info "OS_PUBLIC_ORIGIN is not set" ;;
     set)
       [ -n "${2-}" ] || gateway_fail "usage: mso gateway domain set https://mso.example.com"
       origin="$(gateway_validate_public_origin "$2" 2>/dev/null || true)"
       [ -n "$origin" ] || gateway_fail "public origin must be a clean HTTPS origin"
-      gateway_rewrite_env_origin set "$origin"; domain_host="${origin#https://}"
+      gateway_rewrite_env_origin set "$origin"
       gateway_info "saved OS_PUBLIC_ORIGIN=$origin in $ENVF"
       gateway_info "MSO still binds only to $LOCAL_URL"
-      cat <<CFG
-named Cloudflare config example:
-  tunnel: <TUNNEL-UUID>
-  credentials-file: $HOME/.cloudflared/<TUNNEL-UUID>.json
-  ingress:
-    - hostname: $domain_host
-      service: $LOCAL_URL
-    - service: http_status:404
-then: cloudflared tunnel route dns <TUNNEL-UUID-or-name> $domain_host
-and:  mso gateway start --config ~/.cloudflared/config.yml --tunnel <TUNNEL-UUID-or-name>
-CFG
+      gateway_provider_domain_hint "$(gateway_provider_default)" "$origin"
       gateway_info "rebuild/restart MSO after stable origin or split-host env changes" ;;
     clear) gateway_rewrite_env_origin clear; gateway_info "removed OS_PUBLIC_ORIGIN" ;;
     *) gateway_fail "usage: mso gateway domain show|set <https://host>|clear" ;;

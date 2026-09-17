@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Handshake + provisional child identity for the fork -> cloudflared exec window.
+# Handshake + provisional child identity for the fork -> provider process exec window.
 
 TUNNEL_PENDING_PID=0
 TUNNEL_PENDING_TICKS=''
@@ -63,12 +63,12 @@ gateway_spawn_held_tunnel() {
   [ -n "${gate:-}" ] || return 1
   TUNNEL_PENDING_GATE="$gate"
 
-  # The helper starts in a scrubbed environment and cannot exec cloudflared until
+  # The helper starts in a scrubbed environment and cannot exec the provider process until
   # this parent has recorded the child lifetime. If this parent dies first, the
   # helper observes the missing/reused parent PID and exits on its own.
   nohup env -i "HOME=$HOME" "PATH=$safe_path" "LANG=$safe_lang" \
     /bin/bash "$ROOT/scripts/lib/gateway-held-child.sh" "$$" "$parent_ticks" "$gate" "$@" \
-    >>"$CF_LOG" 2>&1 & pid=$!
+    >>"$PROVIDER_LOG" 2>&1 & pid=$!
   if ! gateway_track_pending_tunnel "$pid"; then
     kill "$pid" 2>/dev/null || true
     gateway_pending_gate_cleanup
@@ -76,19 +76,4 @@ gateway_spawn_held_tunnel() {
   fi
   printf '1\n' | mso_private_state_atomic_write "$gate" >/dev/null || { gateway_stop_pending_tunnel; return 1; }
   TUNNEL_SPAWN_PID="$pid"
-}
-
-# Readiness discovery belongs to the provisional child lifetime, before final identity.
-gateway_discover_quick_url() {
-  local pid i
-  pid="$(jq -r .pid <<<"$TUNNEL_IDENTITY")"
-  for i in $(seq 1 80); do
-    GATEWAY_PUBLIC_URL="$(grep -Eo 'https://[A-Za-z0-9-]+\.trycloudflare\.(com|app)' "$CF_LOG" | tail -1 || true)"
-    [ -n "$GATEWAY_PUBLIC_URL" ] && return 0
-    # Startup may legitimately exec an interpreter before publishing the URL.
-    # Pin the spawned lifetime here; require exact executable/argv after readiness.
-    [ "$(gateway_proc_start_ticks "$pid" 2>/dev/null || true)" = "$TUNNEL_PENDING_TICKS" ] || return 1
-    sleep 0.25
-  done
-  return 1
 }

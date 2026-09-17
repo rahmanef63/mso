@@ -22,7 +22,7 @@ gateway_reconcile_active_tunnel() {
   gateway_assert_port_loopback_only
   LOCAL_HEALTH_IDENTITY="$(gateway_health_url_identity "$LOCAL_URL" "${RUNTIME_INSTANCE_ID:-}")" \
     || { gateway_reconcile_runtime_rollback; gateway_fail "active tunnel has no verified local MSO runtime"; }
-  if ! gateway_probe_public; then
+  if ! gateway_provider_probe_public "$provider"; then
     gateway_reconcile_runtime_rollback
     gateway_fail "active tunnel did not return the selected local MSO health identity"
   fi
