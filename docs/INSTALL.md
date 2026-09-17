@@ -620,6 +620,28 @@ restore those fallbacks. `mso service start` and `mso service restart` take the 
 checkout lock and refuse while an offline update/deploy is mutating `.next`; they also refuse when the
 installed service belongs to another checkout.
 
+### No-systemd and hosted workspaces
+
+The presence of `systemctl` does not mean the host runs systemd. `mso doctor` checks
+manager availability before diagnosing a system service; containers with a healthy
+MSO runtime are not failures merely because PID 1 is tini or another supervisor.
+The health check requires an actual MSO response, not an arbitrary HTTP 200. With
+`--base` pointing at a remote server, doctor does not inspect or start local units.
+
+Use `mso web --local --print` to recover an installed, built loopback runtime without
+publishing it. `mso update` remains the update path; `mso service` and `mso deploy`
+are for installations actually controlled by the corresponding systemd unit.
+A detached process surviving a shell exit is not proof of restart persistence: wire
+the local startup command into the platform's supported startup configuration and
+verify a real workspace/container restart before claiming that guarantee.
+
+Cursor's [environment setup](https://cursor.com/docs/cloud-agent/setup) separates
+`install` (disk preparation) from `start`/`terminals` (per-run processes). Use the
+existing environment's startup configuration rather than modifying Cursor's private
+supervisor. Editor port forwarding is not by itself a verified public HTTPS origin.
+Only register a replacement gateway after its health identity and authenticated MCP
+work; keep the existing provider until that cutover is verified. See [Gateway](./GATEWAY.md).
+
 ### Developer release
 
 After code/docs changes and verification:
