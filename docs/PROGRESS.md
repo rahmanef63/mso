@@ -1,3 +1,11 @@
+## 2026-09-17 — Keep native dependency updates behind the existing cooldown
+
+The hosted Semgrep scan reproduced a missing seven-day cooldown on the new isolated
+node-gyp Dependabot entry. That entry now follows the same policy as the existing Bun
+and GitHub Actions entries. A regression checks every configured ecosystem, so adding
+another updater cannot silently omit the policy. Scanner rules and severity gates are
+unchanged; this corrects update configuration without changing the application runtime.
+
 ## 2026-09-17 — Lock the native build bootstrap without touching the runtime tree
 
 The complete PR/branch audit found open Scorecard finding #136 in the user-local

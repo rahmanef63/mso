@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` retain cooldown for native dependency updates
 - `installer` lock isolated native build tool dependencies
 - `proxy` finish portable managed-app loopback relay
 - `workflows` pin private storage reads and atomic writes
