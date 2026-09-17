@@ -192,29 +192,49 @@ gateway_cmd_stop_locked() {
 }
 
 gateway_cmd_status() {
-  local state mode rc
-  if state="$(gateway_active_state)"; then
-    mode="$(jq -r .mode <<<"$state")"
-    gateway_info "gateway: running"
-    gateway_info "mode:    $mode"
-    gateway_info "provider: $(jq -r .provider <<<"$state")"
-    gateway_info "public:  $(jq -r .url <<<"$state")"
-    gateway_info "local:   $(jq -r .localUrl <<<"$state")"
-    [ "$mode" != temporary ] || gateway_info "note:    Quick Tunnel is preview-only; live Terminal SSE is not supported"
-    return 0
+  local json=0 observed rc state legacy mode
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json) json=1 ;;
+      *) gateway_fail "usage: mso gateway status [--json]" ;;
+    esac
+    shift
+  done
+  if observed="$(gateway_observe_state)"; then rc=0; else rc=$?; fi
+  if [ "$json" = 1 ]; then
+    printf '%s\n' "$observed"
   else
-    rc=$?
+    state="$(jq -r .state <<<"$observed")"
+    legacy="$(jq -r .legacyState <<<"$observed")"
+    if [ "$legacy" = running ]; then gateway_info "gateway: running"
+    else gateway_info "gateway: $legacy"; fi
+    gateway_info "state:   $state"
+    gateway_info "provider: $(jq -r .provider <<<"$observed")"
+    gateway_info "ownership: $(jq -r .ownership <<<"$observed")"
+    gateway_info "supervisor: $(jq -r .supervisor <<<"$observed")"
+    gateway_info "process-health: $(jq -r .processHealth <<<"$observed")"
+    gateway_info "local-health:   $(jq -r .localHealth <<<"$observed")"
+    gateway_info "public-health:  $(jq -r .publicHealth <<<"$observed")"
+    gateway_info "provider-health: $(jq -r .providerHealth <<<"$observed")"
+    gateway_info "public:  $(jq -r '.public // "--"' <<<"$observed")"
+    gateway_info "local:   $(jq -r .local <<<"$observed")"
+    mode="$(jq -r '.mode // empty' <<<"$observed")"
+    [ -z "$mode" ] || gateway_info "mode:    $mode"
+    [ "$mode" != temporary ] || gateway_info "note:    Quick Tunnel is preview-only; live Terminal SSE is not supported"
   fi
-  [ "$rc" = 1 ] || return "$rc"
-  gateway_info "gateway: stopped"
-  gateway_info "local:   $LOCAL_URL"
-  gateway_health_ok && gateway_info "runtime: healthy MSO (loopback)" || gateway_info "runtime: not a verified MSO endpoint"
-  return 1
+  [ "$rc" = 0 ] || return "$rc"
+  state="$(jq -r .state <<<"$observed")"
+  gateway_status_exit_code "$state"
 }
 
 gateway_cmd_url() {
-  local state rc
-  if state="$(gateway_active_state)"; then jq -r .url <<<"$state"; return 0; else rc=$?; fi
-  [ "$rc" = 1 ] || return "$rc"
-  gateway_fail "gateway is not running; run: mso gateway start"
+  local observed state public rc
+  if observed="$(gateway_observe_state)"; then rc=0; else rc=$?; fi
+  [ "$rc" = 0 ] || return "$rc"
+  state="$(jq -r .state <<<"$observed")"
+  public="$(jq -r '.public // empty' <<<"$observed")"
+  case "$state" in
+    managed-running|external-running) [ -n "$public" ] && { printf '%s\n' "$public"; return 0; } ;;
+  esac
+  gateway_fail "gateway has no healthy public route; run: mso gateway status"
 }

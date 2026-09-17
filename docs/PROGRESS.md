@@ -1,3 +1,7 @@
+## 2026-09-17 — Gateway core becomes deployment/provider/supervisor agnostic
+
+Refactored the gateway reliability boundary without removing the existing Cloudflare lifecycle or process-ownership protections. The new read-only classifier separates local, public, provider and process health from ownership/supervisor state and reports `managed-running`, `external-running`, `degraded`, `recovering`, `stopped` or `unknown`. A configured public origin is healthy only when its structured MSO health identity matches the selected local runtime, including `buildSha` when present; this fixes the real case where a healthy externally supervised public route was previously displayed as stopped. Added `mso gateway status --json`, capability-based provider metadata, external duplicate-start protection, and provider-neutral non-mutating doctor diagnostics. Cloudflare remains the current managed/default adapter; external reverse proxies/tunnels are detected but never adopted, stopped or restarted. Existing PID/start-ticks/executable/argv/runtime-instance, atomic private state, update locks and recovery markers remain authoritative. No generic `gateway supervise` daemon was added because the current external-supervisor model already covers systemd/s6/container/Kubernetes/PaaS ownership without duplicating supervisor semantics. Added provider-neutral regression coverage and a dedicated `docs/GATEWAY.md` architecture/operations reference.
+
 ## 2026-09-17 — GitHub reference audit and optional app-binding compatibility
 
 

@@ -97,27 +97,54 @@ CFG
 }
 
 gateway_cmd_doctor() {
-  local fails=0 origin
+  local fails=0 observed rc state provider public_health local_health ownership public
   gateway_info "mso gateway doctor"
-  gateway_health_ok && gateway_info "  ok    verified MSO runtime $LOCAL_URL" \
-    || gateway_info "  --    no verified MSO runtime (mso web can start the built loopback fallback)"
-  if MSO_GATEWAY_NO_AUTO_INSTALL=1 gateway_resolve_cloudflared >/dev/null 2>&1; then
-    gateway_info "  ok    $("$CLOUDFLARED" --version 2>/dev/null | head -1) (pinned/explicit)"
-  else gateway_info "  FAIL  cloudflared unavailable — run: mso gateway install"; fails=$((fails+1)); fi
+  if observed="$(gateway_observe_state)"; then rc=0; else rc=$?; fi
+  if [ "$rc" != 0 ]; then
+    gateway_info "  FAIL  gateway state is unsafe/corrupt"
+    fails=$((fails+1))
+  fi
+  local_health="$(jq -r '.localHealth // "unknown"' <<<"$observed")"
+  if [ "$local_health" = healthy ]; then gateway_info "  ok    verified MSO runtime (local) $LOCAL_URL"
+  else gateway_info "  warn  no verified MSO runtime at $LOCAL_URL (local)"; fi
+
   if gateway_port_exposure_state; then
-    gateway_info "  FAIL  raw MSO port has a non-loopback listener — reconfigure it to 127.0.0.1 before public tunneling"; fails=$((fails+1))
+    gateway_info "  FAIL  local binding security: raw MSO port has a non-loopback listener"
+    fails=$((fails+1))
   else
     rc=$?
-    if [ "$rc" = 1 ]; then gateway_info "  ok    raw MSO port has no non-loopback listener"
-    else gateway_info "  FAIL  cannot verify kernel listener exposure"; fails=$((fails+1)); fi
+    if [ "$rc" = 1 ]; then gateway_info "  ok    local binding security: raw MSO port has no non-loopback listener"
+    else gateway_info "  FAIL  local binding security: cannot verify kernel listener exposure"; fails=$((fails+1)); fi
   fi
   gateway_info "  ok    gateway upstream policy is loopback-only"
-  origin="$(gateway_env_origin 2>/dev/null || true)"
-  [ -n "$origin" ] && gateway_info "  ok    stable public origin: $origin" || gateway_info "  --    no stable public origin (temporary mode available)"
-  local active_rc
-  if gateway_active_state >/dev/null; then gateway_info "  ok    public gateway running"
-  else active_rc=$?; if [ "$active_rc" = 1 ]; then gateway_info "  --    public gateway stopped"
-    else gateway_info "  FAIL  gateway state is unsafe/corrupt"; fails=$((fails+1)); fi; fi
+
+  public="$(jq -r '.public // empty' <<<"$observed")"
+  public_health="$(jq -r '.publicHealth // "unknown"' <<<"$observed")"
+  if [ -n "$public" ]; then gateway_info "  info  configured public origin: $public"
+  else gateway_info "  info  no configured stable public origin"; fi
+  case "$public_health" in
+    healthy) gateway_info "  ok    public MSO identity matches local runtime" ;;
+    identity-mismatch) gateway_info "  FAIL  public route reaches a different MSO identity"; fails=$((fails+1)) ;;
+    failing) gateway_info "  FAIL  public route unreachable"; fails=$((fails+1)) ;;
+    invalid) gateway_info "  FAIL  public route does not return the MSO health contract"; fails=$((fails+1)) ;;
+    unverified) gateway_info "  warn  public MSO responder exists but local identity is unavailable for comparison" ;;
+    not-configured) gateway_info "  info  public health not configured" ;;
+    *) gateway_info "  warn  public health is unknown" ;;
+  esac
+
+  state="$(jq -r '.state // "unknown"' <<<"$observed")"
+  ownership="$(jq -r '.ownership // "unknown"' <<<"$observed")"
+  case "$state" in
+    managed-running) gateway_info "  ok    gateway lifecycle managed by MSO" ;;
+    external-running) gateway_info "  warn  gateway lifecycle managed externally; MSO will not stop/restart/adopt it" ;;
+    degraded) gateway_info "  FAIL  gateway is degraded (ownership: $ownership)"; fails=$((fails+1)) ;;
+    recovering) gateway_info "  warn  recorded MSO-owned provider process is stale/recovering; no mutation performed" ;;
+    stopped) gateway_info "  info  no verified public gateway is running" ;;
+    *) gateway_info "  FAIL  gateway lifecycle state is unknown"; fails=$((fails+1)) ;;
+  esac
+  gateway_info "  info  supervisor: $(jq -r '.supervisor // "unknown"' <<<"$observed")"
+  provider="$(jq -r '.provider // "custom"' <<<"$observed")"
+  gateway_provider_doctor_readonly "$provider"
   return "$fails"
 }
 
@@ -125,18 +152,31 @@ gateway_cmd_web_resolve_locked() {
   local mode="$1" state rc
   case "$mode" in
     public|auto)
+      # Existing MSO-owned lifecycle remains authoritative and is checked first.
+      # This preserves lock/race behavior without adding public probes to the hot path.
       if state="$(gateway_active_state)"; then
-        # The lifecycle decision and reconciliation share the SAME exclusive lock.
-        # Only the checkout-wide runtime lock nests inside it while Next may start.
         gateway_with_runtime_shared gateway_reconcile_active_tunnel "$state" >/dev/null
         state="$(gateway_active_state)" || gateway_fail "public gateway stopped during reconciliation"
         jq -r .url <<<"$state"
         return 0
       else rc=$?; fi
       [ "$rc" = 1 ] || return "$rc"
+
       if [ "$mode" = public ]; then
+        local observed observed_state external_url
+        observed="$(gateway_observe_state 2>/dev/null || true)"
+        observed_state="$(jq -r '.state // empty' <<<"$observed" 2>/dev/null || true)"
+        if [ "$observed_state" = external-running ]; then
+          external_url="$(jq -r '.public // empty' <<<"$observed")"
+          [ -n "$external_url" ] || gateway_fail "external gateway has no valid public origin"
+          printf '%s\n' "$external_url"
+          return 0
+        fi
         gateway_fail "public gateway is not running; run: mso gateway start"
       fi
+
+      # Auto mode deliberately stays local unless MSO itself owns the public
+      # lifecycle. Merely configuring an external origin does not change defaults.
       gateway_with_runtime_shared gateway_cmd_local_start_locked >/dev/null
       printf '%s\n' "$LOCAL_URL"
       ;;

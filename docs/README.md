@@ -21,6 +21,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 |---|---|
 | [`../README.md`](../README.md) | Product overview and quickstart |
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Current runtime, shell, role, host, Agent/Local Agent/subagent, MCP and deployment architecture |
+| [`GATEWAY.md`](./GATEWAY.md) | Provider-neutral gateway state, health, ownership, supervisor and deployment contract |
 | [`COGNITIVE-RUNTIME.md`](./COGNITIVE-RUNTIME.md) | Provider-neutral MCP/session/context/tool-routing runtime and benchmark contract |
 | [`RASMIC.md`](./RASMIC.md) | Risk-aware orchestration, repo-local memory/evidence, collision detection and recipe/script promotion |
 | [`COMPARISON.md`](./COMPARISON.md) | Generated product comparison methodology, evidence and notes |

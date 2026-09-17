@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# MSO local/public gateway dispatcher. Public access is always an outbound HTTPS
-# tunnel; the Next application itself remains on a validated loopback origin.
+# MSO local/public gateway dispatcher. Gateway core is provider/supervisor/deployment
+# neutral; the application upstream remains a validated loopback origin.
 set -euo pipefail
 umask 077
 
@@ -62,8 +62,12 @@ GATEWAY_LOCK_FD=''
 
 # shellcheck source=scripts/lib/gateway-network.sh
 . "$ROOT/scripts/lib/gateway-network.sh"
+# Cloudflare is the current managed-provider adapter; generic core calls it through
+# gateway-provider.sh rather than treating it as an architecture boundary.
 # shellcheck source=scripts/lib/gateway-tool.sh
 . "$ROOT/scripts/lib/gateway-tool.sh"
+# shellcheck source=scripts/lib/gateway-provider.sh
+. "$ROOT/scripts/lib/gateway-provider.sh"
 # shellcheck source=scripts/lib/gateway-lock.sh
 . "$ROOT/scripts/lib/gateway-lock.sh"
 # shellcheck source=scripts/lib/runtime-exclusion.sh
@@ -74,6 +78,8 @@ GATEWAY_LOCK_FD=''
 . "$ROOT/scripts/lib/gateway-recovery.sh"
 # shellcheck source=scripts/lib/gateway-runtime.sh
 . "$ROOT/scripts/lib/gateway-runtime.sh"
+# shellcheck source=scripts/lib/gateway-state.sh
+. "$ROOT/scripts/lib/gateway-state.sh"
 # shellcheck source=scripts/lib/gateway-pending.sh
 . "$ROOT/scripts/lib/gateway-pending.sh"
 # shellcheck source=scripts/lib/gateway-tunnel.sh
@@ -98,9 +104,9 @@ gateway_stop_serialized() {
 }
 
 case "${1:-status}" in
-  start) gateway_parse_start_args "$@"; gateway_with_lock gateway_with_runtime_shared gateway_cmd_start_locked ;;
+  start) gateway_provider_parse_start_args "$@"; gateway_with_lock gateway_with_runtime_shared gateway_provider_start_locked ;;
   stop) gateway_stop_serialized ;;
-  status) gateway_cmd_status ;;
+  status) shift || true; gateway_cmd_status "$@" ;;
   url) gateway_cmd_url ;;
   doctor) gateway_cmd_doctor ;;
   install) gateway_cmd_install_tool ;;
@@ -109,5 +115,5 @@ case "${1:-status}" in
   local-start) gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked ;; # internal: onboard/web/update fallback
   runtime-assert-update-safe) gateway_with_lock gateway_cmd_runtime_assert_update_safe_locked ;; # internal: read-only offline-build preflight
   runtime-stop) gateway_with_lock gateway_cmd_runtime_stop_locked ;; # internal: quiesce owned runtime before offline build
-  *) gateway_fail "usage: mso gateway start|stop|status|url|doctor|install|domain ..." ;;
+  *) gateway_fail "usage: mso gateway start|stop|status [--json]|url|doctor|install|domain ..." ;;
 esac

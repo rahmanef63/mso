@@ -54,6 +54,10 @@ under `~/.mso/` plus the independent state directories owned by managed applicat
 Window layout and several shell preferences are browser-local or synchronized through the
 existing preference store.
 
+### Gateway lifecycle boundary
+
+**MSO Gateway is deployment-agnostic, supervisor-agnostic, and provider-agnostic by design.** The core classifies local/public/provider/process health plus ownership and supervisor independently; provider-specific launch details remain adapters. A verified public route with no MSO-owned provider process is `external-running`, not `stopped`, and external processes are never auto-adopted or mutated. Cloudflare remains the current managed/default adapter rather than a core architecture assumption. See [`docs/GATEWAY.md`](./GATEWAY.md) for state semantics, provider capabilities, systemd/s6/container/Kubernetes examples and the foreground-supervision decision.
+
 ## 2. Repository layout
 
 ```text

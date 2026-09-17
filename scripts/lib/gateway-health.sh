@@ -5,7 +5,7 @@ gateway_health_body_ok() {
   local body="$1" expected_instance="${2-}"
   [ -n "$body" ] || return 1
   jq -e --arg version "$GATEWAY_EXPECTED_VERSION" --arg instance "$expected_instance" '
-    type == "object" and .status == "ok" and .version == $version and
+    type == "object" and .status == "ok" and (.service == null or .service == "mso") and .version == $version and
     (.buildId | type == "string") and (.buildId | length > 0) and has("runtimeInstanceId") and
     (if $instance == "" then true else .runtimeInstanceId == $instance end)
   ' <<<"$body" >/dev/null 2>&1
@@ -14,7 +14,7 @@ gateway_health_body_ok() {
 gateway_health_identity_from_body() {
   local body="$1" expected_instance="${2-}"
   gateway_health_body_ok "$body" "$expected_instance" || return 1
-  jq -c '{version,buildId,runtimeInstanceId}' <<<"$body"
+  jq -c '{version,buildId,buildSha:(.buildSha // null),runtimeInstanceId}' <<<"$body"
 }
 
 gateway_fetch_health_body() {
