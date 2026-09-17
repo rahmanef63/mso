@@ -48,7 +48,7 @@ U_memory="memory list|add <text>|rm <id>"
 U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
 U_prefs="prefs show|set <json>"
 U_models="models [status|list|add|auth <provider>|rm <provider>|catalog [provider]|test]"
-U_skills="skills list|read <id>|search <query…>|available|info <id>|install <id…> [-y] [--force]|remove <id…> [-y]"
+U_skills="skills list|read <id>|search <query…>|available|info <id>|install <id…> [-y] [--force]|remove <id…> [-y]|store list|store install|remove <id> <revision>"
 U_mcp="mcp project <JSON>|list|activity [n]|service-token --label <label> --client-id <id> --scope <read|write|exec> --tools <name,name> [--constraints-json <json>]|revoke <id>|revoke all"
 U_oauth="oauth <provider> start|poll   OAuth currently: openai (ChatGPT Codex)"
 # Command families are sourced here so bin/mso remains only bootstrap + entrypoint.

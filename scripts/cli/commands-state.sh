@@ -193,6 +193,14 @@ case "$cmd" in
               jget "/api/skills?name=$(enc "$2")" ;;
       search) shift; [ $# -gt 0 ] || die "usage: mso $U_skills"
               jget "/api/skills?q=$(enc "$*")" ;;
+      store)
+        case "${2:-list}" in
+          list) jget "/api/v1/skill-market" ;;
+          install|remove)
+            [ -n "${3-}" ] && [ -n "${4-}" ] || die "usage: mso skills store install|remove <id> <revision>"
+            jpost "/api/v1/skill-market" "$(jq -nc --arg action "$2" --arg id "$3" --arg revision "$4" '{action:$action,id:$id,revision:$revision}')" ;;
+          *) die "usage: mso skills store list|install <id> <revision>|remove <id> <revision>" ;;
+        esac ;;
       available) shift; node "$ROOT/scripts/skill-market.mjs" available "$@" ;;
       info)    shift; node "$ROOT/scripts/skill-market.mjs" info "$@" ;;
       install) shift; node "$ROOT/scripts/skill-market.mjs" install "$@" ;;

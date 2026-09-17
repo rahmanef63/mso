@@ -1,5 +1,26 @@
 ## 2026-09-17 — GitHub reference audit and optional app-binding compatibility
 
+
+## 2026-09-17 — VPS-backed Store MCP/Skills and explicit host MCP harness
+
+The former custom plugin registry lived only in browser storage while actual project
+bindings and reviewed skill installation already had server-side authorities. Store now
+keeps its existing Apps surface and adds MCP/Skills tabs; Settings → MCP → MSO to External
+reuses the same panels. Previous browser declarations are retained for explicit review,
+not silently installed. Host `@host` and exact-project targets never inherit each other.
+
+Native manage/discover/call tools accept `@host`, so an external client can discover and
+invoke an installed downstream MCP without global tool-name duplication. Check tools is
+real paginated native discovery. The skill API reuses reviewed CLI payloads and its local
+root, enforces owner access/revision checks and refuses modified/unmanaged/extra/symlink
+content before deletion. Remote MCPs remain connection installs, not SaaS downloads;
+shared runtimes and provider credentials are not uninstall-owned resources.
+
+Verification is recorded in the release workflow: actual temporary-filesystem install,
+update/removal, stale revision and unsafe-content refusals, dynamic stdio dispatch,
+secret-scrubbing, post-uninstall denial, owner API and shared UI contracts. CLI/API parity
+and synthetic browser release journeys were updated with isolated skill state.
+
 Audited the saved OpenAI GitHub `0.1.12-5f7cd798dc99` package. The snapshot is package/interface metadata only, so no unobserved PR/issue/CI action semantics were invented. Its `.app.json` provides a concrete compatibility correction: GitHub binds an exact `connector_*` identity with `required:false`, while MSO's OpenAI plugin checker previously accepted only `asdk_app_*` and required every dependency to be `true`. Added a tested app-binding validator that accepts registered-app, connector and documented template binding identities plus boolean required/optional state; authorization behavior is unchanged. Also made optional capability fallback explicit in architecture and `/mso`: fallback may change transport only through an already-authorized, explicitly selected identity and must never silently switch principal, credential source, or provider-owned OAuth/MCP into a local key. Updated the living plugin-reference matrix and recorded that GitHub strengthens the target-aware resolver/dependency-contract candidates but does not yet justify a generic dependency graph or universal fallback engine.
 
 ## 2026-09-17 — Plugin Management reference audit and extension taxonomy

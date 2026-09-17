@@ -3,12 +3,12 @@
 > **Current reference.** Counts are checked against the directory tree by
 > `scripts/check-docs.mjs`; the directory remains the final authority.
 
-<!-- slice-catalog: slices=25 appshell-features=10 -->
+<!-- slice-catalog: slices=26 appshell-features=10 -->
 
 Every application is a vertical slice under `frontend/slices/`. Host-facing slices use the
 shared API/host seam rather than reaching arbitrary Node host APIs from client code.
 
-## Slices (25)
+## Slices (26)
 
 | Slug | Purpose |
 |---|---|
@@ -20,6 +20,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `code-editor` | Code/text editor with integrated terminal |
 | `create-app` | Create App manifest authoring surface |
 | `docs` | In-app documentation browser |
+| `extensions` | Shared VPS-backed MCP and Skills Store / Settings installation panels |
 | `files-manager` | VPS Files manager |
 | `image-editor` | Layered raster image editor |
 | `image-picker` | Reusable image/wallpaper picker |

@@ -40,7 +40,7 @@ export async function releaseFixture({ live = false } = {}) {
     OS_CONFIG_STORE: path.join(dir, "config.json"), OS_PREFS_PATH: path.join(dir, "prefs.json"),
     OS_AUDIT_LOG: path.join(dir, "audit.jsonl"), OS_LOGIN_PASSWORD: password,
     OS_SESSION_SECRET: randomBytes(32).toString("hex"), OS_FS_READ_ROOTS: dir, OS_FS_WRITE_ROOTS: dir,
-    OS_MCP_ENABLED: "1", NEXT_PUBLIC_OS_DEMO: "0", NEXT_TELEMETRY_DISABLED: "1",
+    MSO_SKILL_INSTALL_ROOT: path.join(dir, "skills"), OS_MCP_ENABLED: "1", NEXT_PUBLIC_OS_DEMO: "0", NEXT_TELEMETRY_DISABLED: "1",
   });
   const mcpToken = randomBytes(32).toString("hex");
   const seedMcp = async (scope = "read") => {

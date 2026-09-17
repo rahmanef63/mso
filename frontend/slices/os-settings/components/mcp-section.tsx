@@ -46,7 +46,12 @@ function OwnerMcpSection() {
   }
   if (error) return <SettingsBlock className="space-y-3"><p role="alert" className="text-sm">{error}</p><Button variant="secondary" onClick={reload}>Try again</Button><Button asChild variant="ghost"><Link prefetch={false} href="/login?returnTo=%2Fsettings%3Fsection%3Dmcp">Sign in</Link></Button></SettingsBlock>;
   if (!state) return <SettingsBlock><p role="status" className="text-sm">Loading MCP settings…</p></SettingsBlock>;
-  if (!state.enabled) return (
+
+  return (
+    <div ref={top} tabIndex={-1} data-slot="mcp-page" className="space-y-4 outline-none">
+      <McpDirectionTabs value={direction} onChange={selectDirection} />
+      <div id="mcp-direction-panel" role="tabpanel" aria-labelledby={`mcp-${direction}-tab`} className="@container min-w-0 space-y-4">
+      {!state.enabled && direction === "inbound" ? (
     <SettingsSection icon={<Plug />} title="MCP is off">
       <SettingsBlock className="space-y-3 py-4">
         <p className="text-sm">Enable MCP on this host before connecting an AI app.</p>
@@ -54,26 +59,22 @@ function OwnerMcpSection() {
         <p className="text-sm text-muted-foreground">Apply with <code>mso update --rebuild</code>. Fresh installs allow consent up to exec; lower the ceiling to read/write before connecting clients that do not need remote command execution.</p>
       </SettingsBlock>
     </SettingsSection>
-  );
-  return (
-    <div ref={top} tabIndex={-1} data-slot="mcp-page" className="space-y-4 outline-none">
-      <McpDirectionTabs value={direction} onChange={selectDirection} />
-      <div id="mcp-direction-panel" role="tabpanel" aria-labelledby={`mcp-${direction}-tab`} className="@container min-w-0 space-y-4">
-      {direction === "sessions" ? <McpSessions /> : <>
-      <p className="text-sm text-muted-foreground">{direction === "inbound" ? "Approve how external clients and agents access this MSO host." : "Choose how MSO reaches external services and projects."}</p>
+) : (
+      direction === "sessions" ? <McpSessions /> : <>
+      <p className="text-sm text-muted-foreground">{direction === "inbound" ? "Approve how external clients and agents access this MSO host." : "Manage installed MCPs and skills through the same VPS-backed Store."}</p>
       {page === "overview" && direction === "outbound" && <SettingsBlock className="space-y-3 py-4">
         <div><p className="text-sm font-medium">Service connections</p><p className="text-sm text-muted-foreground">Integrations owns reusable provider/MCP credentials on this MSO host. A saved credential does not install a plugin into any project.</p></div>
         <div><p className="text-sm font-medium">Project plugins</p><p className="text-sm text-muted-foreground">Each project starts with no SI-Coder or Batonly binding. Install them separately per exact project; parent/sibling projects never inherit the binding.</p></div>
         <Button asChild variant="secondary"><Link href="/integrations">Open Integrations</Link></Button>
       </SettingsBlock>}
-      <McpNavigation active={page} onSelect={navigate} activeCount={state.tokens.filter(token => token.status === "active").length} direction={direction} />
+      {direction === "inbound" && <McpNavigation active={page} onSelect={navigate} activeCount={state.tokens.filter(token => token.status === "active").length} direction={direction} />}
       {page === "connect" && <McpSetupGuide origin={state.origin} maxScope={state.maxScope} />}
       {page === "connection" && <McpConnectionSection origin={state.origin} />}
       {page === "access" && <McpTokenSection tokens={state.tokens} onChanged={reload} onConnect={() => navigate("connect")} />}
       {page === "activity" && <McpActivity />}
       {page === "tools" && <McpToolsetCard info={state.toolset} />}
-      {page === "registry" && <McpPluginRegistry />}
-      </>}
+      {(page === "registry" || (direction === "outbound" && page === "overview")) && <McpPluginRegistry />}
+      </>)}
       </div>
     </div>
   );

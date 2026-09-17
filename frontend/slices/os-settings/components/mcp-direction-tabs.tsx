@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 export const MCP_TABS = [
   { id: "inbound", title: "Access MSO", description: "External clients → MSO" },
-  { id: "outbound", title: "MSO Access", description: "Connections & per-project plugins" },
+  { id: "outbound", title: "MSO to External", description: "Installed MCPs, skills & connections" },
   { id: "sessions", title: "Sessions", description: "Activity & handover" },
 ] as const;
 export type McpTab = (typeof MCP_TABS)[number]["id"];

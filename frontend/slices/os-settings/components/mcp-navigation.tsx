@@ -10,7 +10,7 @@ export const MCP_PAGES = [
   { id: "activity", title: "Recent activity", description: "Review the latest actions requested through MCP.", icon: ListChecks },
   { id: "tools", title: "Tools & updates", description: "Check the server tool catalog and your last client refresh reminder.", icon: Wrench },
   { id: "connection", title: "Connection details", description: "Server address, reachability checks, tunnels, and manual OAuth settings.", icon: Settings2 },
-  { id: "registry", title: "Project plugins", description: "Install SI-Coder or Batonly into one exact project. Catalog entries are not installed by default.", icon: Wrench },
+  { id: "registry", title: "MCP & Skills", description: "Manage the same VPS-backed extensions as Store. Select this host or one exact project.", icon: Wrench },
 ] as const;
 export type McpPage = "overview" | (typeof MCP_PAGES)[number]["id"];
 export type McpDirection = "inbound" | "outbound";

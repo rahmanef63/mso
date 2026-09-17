@@ -38,7 +38,7 @@ type CatalogOptions = {
  */
 export function skillRoots(appDir = process.cwd(), homeDir = os.homedir()): RootSpec[] {
   return [
-    { path: path.join(homeDir, ".mso/skills"), source: "operator", trust: "local", priority: 120 },
+    { path: process.env.MSO_SKILL_INSTALL_ROOT ? path.resolve(/* turbopackIgnore: true */ process.env.MSO_SKILL_INSTALL_ROOT) : path.join(homeDir, ".mso/skills"), source: "operator", trust: "local", priority: 120 },
     { path: path.join(appDir, "claude-skills"), source: "mso", trust: "official", priority: 100 },
     { path: path.join(appDir, "skills"), source: "bundled", trust: "untrusted", priority: 80, verifyClawHub: true },
     { path: path.join(homeDir, ".claude/skills"), source: "claude", trust: "untrusted", priority: 20 },

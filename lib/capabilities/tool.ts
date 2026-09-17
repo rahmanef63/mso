@@ -95,7 +95,7 @@ export interface CapabilityTool {
     outcome?: (result: unknown) => { ok: boolean; action?: AuditAction; detail?: string };
   };
   result?: { maxTextBytes?: number; overflowHint?: string };
-  limit?: { max: number; windowMs: number; keyArg?: string; key: string };
+  limit?: { max: number; windowMs: number; keyArg?: string; key: string; actionLimits?: Readonly<Record<string, { max: number; windowMs: number }>> };
 }
 
 export const str = (args: Record<string, unknown>, key: string): string => {
