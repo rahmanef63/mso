@@ -1,8 +1,9 @@
-import { createHash, randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { agentSessionsDir } from "@/lib/agent/session-paths";
+
+import { readWorkflowJson, writeWorkflowFile } from "./private-file";
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const MAX_VALUE_BYTES = 64 * 1024;
@@ -16,14 +17,15 @@ function normalizedKey(raw: string) { const value = raw.trim(); if (!value || va
 function expired(entry: CacheEntry, now = Date.now()) { return Boolean(entry.expiresAt && Date.parse(entry.expiresAt) <= now); }
 async function read(file: string): Promise<CacheFile> {
   try {
-    const stat = await fs.lstat(file); if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_FILE_BYTES || (stat.mode & 0o077)) throw new Error("unsafe workflow cache store");
-    const parsed = JSON.parse(await fs.readFile(file, "utf8")) as CacheFile; if (parsed.version !== 1 || !parsed.entries || typeof parsed.entries !== "object") throw new Error("invalid workflow cache store");
+    const parsed = await readWorkflowJson(file, MAX_FILE_BYTES, "workflow cache store") as CacheFile;
+    if (parsed.version !== 1 || !parsed.entries || typeof parsed.entries !== "object") throw new Error("invalid workflow cache store");
     return parsed;
   } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return { version: 1, entries: {} }; throw error; }
 }
 async function write(file: string, data: CacheFile) {
-  await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 }); const body = JSON.stringify(data); if (Buffer.byteLength(body) > MAX_FILE_BYTES) throw new Error("workflow cache store exceeds 2 MiB");
-  const temp = `${file}.${randomUUID()}.tmp`; try { await fs.writeFile(temp, body, { flag: "wx", mode: 0o600 }); await fs.rename(temp, file); await fs.chmod(file, 0o600); } finally { await fs.unlink(temp).catch(() => undefined); }
+  const body = JSON.stringify(data);
+  if (Buffer.byteLength(body) > MAX_FILE_BYTES) throw new Error("workflow cache store exceeds 2 MiB");
+  await writeWorkflowFile(file, body);
 }
 export async function workflowCacheGet(principal: string, rawKey: string) {
   const file = target(principal), key = normalizedKey(rawKey); return withSecurityStoreLock(file, async () => {

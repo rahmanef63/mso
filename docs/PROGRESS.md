@@ -1,3 +1,21 @@
+## 2026-09-17 — Descriptor-pinned Workflow storage hardening
+
+The PR/branch audit exposed default-branch security annotations for Workflow run,
+graph, version, variable, cache and recipe-archive storage. These stores now reuse
+the existing owner-root and ancestor-pinning authority, open each file without
+following links, inspect and read the same descriptor, bound reads against file
+growth, and atomically write through a pinned parent. Version listing and exact
+revision lookup both enforce full snapshot filenames, byte limits and matching
+graph/revision identity. Receipt pruning still reads only bounded metadata rather
+than parsing every receipt; existing formats, quotas and revision guards remain.
+
+Added real filesystem regressions for symlinks, symlinked ancestors, FIFOs, unsafe
+permissions, oversized/growing files, mismatched versions and unchanged atomic
+serialization. The installed node-gyp PATH setup now separates assignment/export
+so command failures are not masked. Scanner settings, ignores and alert thresholds
+are unchanged. Passing local tests or scans does not close GitHub alerts: the
+candidate still requires the normal PR checks and production release path.
+
 ## 2026-09-17 — Recover dormant PR/branch work without overwriting active agents
 
 Reconciled the verified performance candidate, the preserved GitHub OAuth-first preference,

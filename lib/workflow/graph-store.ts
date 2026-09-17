@@ -8,6 +8,8 @@ import { normalizeWorkflowIntent, parseWorkflowGraphDefinition, type WorkflowGra
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { saveWorkflowGraphVersion, type WorkflowGraphVersionReason } from "./graph-version-store";
 
+import { readWorkflowJson, writeWorkflowFile } from "./private-file";
+
 const STORE_VERSION = 2;
 const MAX_STORE_BYTES = 4 * 1024 * 1024;
 const MAX_GRAPHS = 200;
@@ -23,14 +25,6 @@ function file(owner: string): string {
 }
 function graphRevision(graph: Omit<WorkflowGraph, "revision">): string { return hash(JSON.stringify(graph)); }
 
-async function safeDirectory(owner: string): Promise<string> {
-  const dir = path.dirname(file(owner));
-  await fs.mkdir(dir, { recursive: true, mode: 0o700 });
-  const stat = await fs.lstat(dir);
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("unsafe workflow graph directory");
-  await fs.chmod(dir, 0o700).catch(() => undefined);
-  return dir;
-}
 
 function parseStoredGraph(raw: unknown): WorkflowGraph {
   if (!raw || typeof raw !== "object") throw new Error("invalid stored workflow graph");
@@ -43,9 +37,7 @@ function parseStoredGraph(raw: unknown): WorkflowGraph {
 async function readStore(owner: string, principal = ""): Promise<WorkflowGraphStore> {
   const target = file(owner);
   try {
-    const stat = await fs.lstat(target);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_STORE_BYTES || (stat.mode & 0o077)) throw new Error("unsafe workflow graph store");
-    const parsed: unknown = JSON.parse(await fs.readFile(target, "utf8"));
+    const parsed = await readWorkflowJson(target, MAX_STORE_BYTES, "workflow graph store");
     if (!parsed || typeof parsed !== "object") throw new Error("invalid workflow graph store");
     const row = parsed as { version?: unknown; owner?: unknown; principal?: unknown; graphs?: unknown };
     if (row.owner !== owner || !Array.isArray(row.graphs) || row.graphs.length > MAX_GRAPHS) throw new Error("invalid workflow graph store");
@@ -59,14 +51,9 @@ async function readStore(owner: string, principal = ""): Promise<WorkflowGraphSt
 }
 
 async function writeStore(store: WorkflowGraphStore): Promise<void> {
-  await safeDirectory(store.owner);
-  const target = file(store.owner), temp = `${target}.${randomUUID()}.tmp`;
   const body = JSON.stringify(store, null, 2) + "\n";
   if (Buffer.byteLength(body) > MAX_STORE_BYTES) throw new Error("workflow graph store exceeds 4 MiB");
-  try {
-    await fs.writeFile(temp, body, { flag: "wx", mode: 0o600 });
-    await fs.rename(temp, target);
-  } finally { await fs.unlink(temp).catch(() => undefined); }
+  await writeWorkflowFile(file(store.owner), body);
 }
 
 function withGraphLock<T>(owner: string, fn: () => Promise<T>): Promise<T> {
