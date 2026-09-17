@@ -63,6 +63,8 @@ Do not claim an OAuth/provider-MCP account is connected merely because routing m
 
 Use the provider catalog to choose a valid source and auth method. Create a stable named connection, then open private setup only when the source is direct and secret fields are required. For Composio or provider-owned MCP, follow the hosted/provider authorization route instead of collecting OAuth secrets locally.
 
+For **GitHub**, present OAuth-capable sources before the manual token fallback. `composio/oauth2` is the hosted executable OAuth route; `native-mcp/provider-oauth` keeps the provider session client-owned. A direct PAT is an explicit fallback only. Never silently replace a failed OAuth/MCP identity with an existing PAT, even when that PAT is verified or default. Reauthorization must preserve the intended credential user and named connection.
+
 Multiple deployment/account connections under one provider are first-class. Never overwrite `production` with `staging` merely because they use the same auth method.
 
 ### Transfer identities
