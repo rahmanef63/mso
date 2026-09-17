@@ -1,6 +1,6 @@
 {
   "name": "mso",
-  "version": "0.2.17",
+  "version": "0.2.18",
   "description": "Operate MSO projects, workflows, VPS resources, integrations, deployments, and MCP capabilities through reusable safety-first skills.",
   "author": {
     "name": "MSO"

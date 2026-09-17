@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-09-17
 
+**Added**
+
+- `store` unify VPS MCP and skills installation with dynamic host harness
+
 **Fixed**
 
 - `installer` build node-pty reliably on Codespaces
@@ -17,6 +21,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Chores**
 
+- `release` bump app version to 0.2.18
 - `release` bump app version to 0.2.17
 
 ## 2026-09-16
