@@ -15,6 +15,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `comparison` refresh product audit
 
+**Chores**
+
+- `release` bump app version to 0.2.17
+
 ## 2026-09-16
 
 **Added**
