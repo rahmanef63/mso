@@ -1,3 +1,18 @@
+## 2026-09-17 — Finish the verified branch release and loopback managed-app relay
+
+The release audit reconciled the dormant Workflow/Organization controls, exact artifact history,
+private-store hardening and bundle work through PR #47 rather than rewriting their source branches.
+All candidate changes were already gated; this handoff independently rechecked 83 targeted tests,
+typecheck and current PR checks before integration. Dirty worktrees, stashes, historical alternatives
+and recovery refs remain preserved; an old branch name alone is not evidence of a missing feature.
+
+The remaining managed-app relay patch was reproduced with a failing reverse-proxy test, then applied
+from the preserved source after reviewing its two-file delta. Public HTTPS headers can describe an
+HTTP loopback Next listener as HTTPS; internal managed-app rewrites now correct only loopback
+transport while retaining the public scheme for non-loopback origins. Regression cases cover
+localhost, IPv4 and IPv6 loopback, query preservation and unchanged public-host/cross-origin guards.
+There is no bind-address change, provider requirement or weakening of managed-app isolation.
+
 ## 2026-09-17 — Lock-fixture cleanup prevents accumulated test processes
 
 The branch/worktree audit found orphaned `mso-lock-holder` shells and `sleep` children from completed gateway boundary tests. The fixture killed only the forking `flock` parent, leaving the command and inherited lock descriptor alive after its temporary directory was removed. The holder now uses `flock --no-fork` with a single Node process; readiness is inside `try/finally`, and the regression asserts exact PID identity, process exit and kernel-lock reacquisition. No gateway/provider runtime behavior or release guard is changed. Historical process cleanup is restricted to verified orphan fixtures from this conversation's worktrees, not other agents or production processes.

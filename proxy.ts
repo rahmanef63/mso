@@ -96,6 +96,17 @@ function notFound() {
   });
 }
 
+// Reverse proxies correctly preserve the public HTTPS scheme in x-forwarded-proto,
+// and Next folds that into nextUrl.origin even though this Next process itself is
+// listening on plain HTTP loopback. Rewriting to that synthetic https://localhost
+// origin makes Next open TLS to its own HTTP socket and fail with EPROTO. Keep the
+// public scheme everywhere else, but use the actual transport for a loopback rewrite.
+function internalRewriteOrigin(request: NextRequest): URL {
+  const origin = new URL(request.nextUrl.origin);
+  if (LOOPBACK_HOST.test(origin.hostname)) origin.protocol = "http:";
+  return origin;
+}
+
 // Extracted so the app-host branch can apply the SAME rule: after its rewrite the
 // path starts with /api/, i.e. past the point where this gate would have run.
 function crossOriginMutation(request: NextRequest): boolean {
@@ -269,18 +280,15 @@ export async function proxy(request: NextRequest) {
     // trailing slash away before middleware even runs, and re-adding one here would
     // send that redirect back to this host to be rewritten a second time, one prefix
     // deeper. Two traps in building this URL:
-    //  • the origin must be the one NEXT derived for this request (nextUrl's: bind
-    //    host + x-forwarded-proto, NOT the public Host). A rewrite stays internal
-    //    only while the destination's origin matches that; otherwise Next PROXIES
-    //    the destination — i.e. opens an https socket to this server's plain http
-    //    port and dies with EPROTO. `next start --hostname 0.0.0.0` (how the unit
-    //    starts it) agrees with itself here; `--hostname 127.0.0.1` does NOT, and
-    //    every rewrite 500s under it.
+    //  • use the local transport for a loopback nextUrl origin. Reverse proxies set
+    //    x-forwarded-proto=https, which can make Next describe its own plain-HTTP
+    //    listener as https://localhost:PORT. internalRewriteOrigin() corrects only
+    //    that loopback mismatch; a real public/non-loopback origin keeps its scheme.
     //  • a plain URL, not nextUrl.clone(): NextURL remembers the incoming trailing
     //    slash and puts it back when the pathname is reassigned.
     const path = `${proxyPrefix(managedApp)}${pathname.replace(/\/+$/, "")}`;
     return NextResponse.rewrite(
-      new URL(`${path}${request.nextUrl.search}`, request.nextUrl.origin),
+      new URL(`${path}${request.nextUrl.search}`, internalRewriteOrigin(request)),
       {
         request: { headers },
       },

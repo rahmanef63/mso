@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `proxy` finish portable managed-app loopback relay
 - `workflows` pin private storage reads and atomic writes
 - `ci` preserve strict scanner coverage on hosted release
 - `forge` make sandbox bootstrap portable on hosted Linux
