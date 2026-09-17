@@ -7,7 +7,8 @@ const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-tools-agent-p1-"));
 process.env.OS_AGENT_MEMORY_DIR = root;
 process.env.OS_AGENT_SESSIONS_DIR = path.join(root, "sessions");
 process.env.OS_FS_WRITE_ROOTS = root;
-afterAll(async () => { delete process.env.OS_AGENT_MEMORY_DIR; delete process.env.OS_AGENT_SESSIONS_DIR; delete process.env.OS_FS_WRITE_ROOTS; await fs.rm(root, { recursive: true, force: true }); });
+process.env.OS_FS_READ_ROOTS = root;
+afterAll(async () => { delete process.env.OS_AGENT_MEMORY_DIR; delete process.env.OS_AGENT_SESSIONS_DIR; delete process.env.OS_FS_WRITE_ROOTS; delete process.env.OS_FS_READ_ROOTS; await fs.rm(root, { recursive: true, force: true }); });
 vi.resetModules();
 const { AGENT_TOOLS } = await import("./tools-agent");
 

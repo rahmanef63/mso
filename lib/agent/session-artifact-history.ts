@@ -7,11 +7,12 @@ import { childEnv } from "@/lib/host/child-env";
 import { resolveCwd } from "@/lib/host/exec";
 import { redactText } from "@/lib/security/redact-text";
 import { resolveSessionArtifactCandidate } from "./session-artifact-path";
+import { ARTIFACT_FILE_LIMIT, authorizeArtifactPath, readArtifactFile as regularFileInfo } from "./session-artifact-read";
 import type { AgentSessionArtifactRevision, AgentSessionEvent } from "./session-types";
 
 const OID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i;
 const SHA256 = /^[a-f0-9]{64}$/i;
-const MAX_FILE_BYTES = 4 * 1024 * 1024;
+const MAX_FILE_BYTES = ARTIFACT_FILE_LIMIT;
 const MAX_SNAPSHOT_TEXT = 128 * 1024;
 const MAX_DIFF_BYTES = 256 * 1024;
 const GIT_TIMEOUT_MS = 5_000;
@@ -42,16 +43,6 @@ async function git(cwd: string, args: string[], maxBytes = MAX_DIFF_BYTES): Prom
   });
 }
 
-async function regularFileInfo(file: string): Promise<{ bytes: Buffer; sha256: string; size: number } | null> {
-  try {
-    const stat = await fs.lstat(file);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.size < 0 || stat.size > MAX_FILE_BYTES) return null;
-    const bytes = await fs.readFile(file);
-    if (bytes.length !== stat.size || bytes.length > MAX_FILE_BYTES) return null;
-    return { bytes, sha256: createHash("sha256").update(bytes).digest("hex"), size: bytes.length };
-  } catch { return null; }
-}
-
 function safeRel(value: string): boolean {
   return Boolean(value && !path.isAbsolute(value) && value !== ".." && !value.startsWith("../") && !value.includes("\0"));
 }
@@ -80,7 +71,7 @@ export async function captureSessionArtifactRevision(event: Pick<AgentSessionEve
   const dir = await resolveCwd(cwd).catch(() => null);
   if (!dir) return undefined;
   const candidate = resolveSessionArtifactCandidate(event.detail, dir);
-  if (!candidate) return undefined;
+  if (!candidate || !await authorizeArtifactPath(candidate.path)) return undefined;
   const current = await regularFileInfo(candidate.path);
   const base: AgentSessionArtifactRevision = {
     version: 1, cwd: dir, relativePath: candidate.relativePath,
@@ -97,14 +88,11 @@ export async function captureSessionArtifactRevision(event: Pick<AgentSessionEve
     if (!safeRel(repoRel)) return base;
     const tree = await git(repoRoot, ["ls-tree", "-z", "HEAD", "--", repoRel], 32 * 1024);
     const headBlob = tree.code === 0 ? parseLsTree(tree.stdout, repoRel) : undefined;
-    let cleanAtCapture = false, worktreeBlob: string | undefined;
-    const diff = await git(repoRoot, ["diff", "--quiet", "HEAD", "--", repoRel], 8 * 1024).catch(() => null);
-    cleanAtCapture = Boolean(current && headBlob && diff?.code === 0);
-    if (current) {
-      const hashed = await git(repoRoot, ["hash-object", "--no-filters", "--", candidate.path], 8 * 1024).catch(() => null);
-      const oid = hashed?.stdout.toString("utf8").trim().toLowerCase();
-      if (hashed?.code === 0 && oid && OID.test(oid)) worktreeBlob = oid;
-    }
+    // Git blob IDs are content hashes; compute from the already-read bytes instead
+    // of spawning diff/hash-object or running repository filters for every event.
+    const worktreeBlob = current ? createHash(head.length === 64 ? "sha256" : "sha1")
+      .update(`blob ${current.size}\0`).update(current.bytes).digest("hex") : undefined;
+    const cleanAtCapture = Boolean(current && headBlob && headBlob === worktreeBlob);
     return {
       ...base, repoRoot, repoRelativePath: repoRel, gitHead: head,
       ...(headBlob ? { headBlob } : {}), ...(worktreeBlob ? { worktreeBlob } : {}), cleanAtCapture,
@@ -144,13 +132,15 @@ async function exactSnapshot(revision: AgentSessionArtifactRevision, current: Aw
   return null;
 }
 
-async function unifiedDiff(relativePath: string, historical: Buffer, currentPath: string): Promise<{ text: string; changed: boolean } | null> {
+async function unifiedDiff(relativePath: string, historical: Buffer, current: Buffer): Promise<{ text: string; changed: boolean } | null> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-artifact-diff-"));
   await fs.chmod(root, 0o700).catch(() => undefined);
   const oldFile = path.join(root, `${randomUUID()}.old`);
+  const currentPath = path.join(root, `${randomUUID()}.new`);
   try {
     await fs.writeFile(oldFile, historical, { mode: 0o600, flag: "wx" });
-    const result = await git(root, ["diff", "--no-index", "--no-ext-diff", "--unified=3", "--", oldFile, currentPath], MAX_DIFF_BYTES).catch(() => null);
+    await fs.writeFile(currentPath, current, { mode: 0o600, flag: "wx" });
+    const result = await git(root, ["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--unified=3", "--", oldFile, currentPath], MAX_DIFF_BYTES).catch(() => null);
     if (!result || (result.code !== 0 && result.code !== 1)) return null;
     let text = result.stdout.toString("utf8");
     text = text.replaceAll(oldFile, `a/${relativePath}`).replaceAll(currentPath, `b/${relativePath}`);
@@ -173,10 +163,16 @@ export async function resolveArtifactRevisionView(revision: AgentSessionArtifact
   const currentPath = path.resolve(captureCwd, revision.relativePath);
   const relCheck = path.relative(captureCwd, currentPath);
   if (!relCheck || relCheck === ".." || relCheck.startsWith(`..${path.sep}`) || path.isAbsolute(relCheck)) throw new Error("artifact revision escaped capture root");
+  if (!await authorizeArtifactPath(currentPath)) return {
+    capture: { state: "captured" as const, exactAtCapture: false },
+    current: { available: false as const },
+    historical: { available: false as const, reason: "path_unavailable" },
+    diff: { available: false as const, reason: "path_unavailable" },
+  };
   const current = await regularFileInfo(currentPath);
   const historical = await exactSnapshot(revision, current);
   const snapshotSha = historical ? createHash("sha256").update(historical.bytes).digest("hex") : undefined;
-  const diff = historical && current ? await unifiedDiff(revision.relativePath, historical.bytes, currentPath) : null;
+  const diff = historical && current ? await unifiedDiff(revision.relativePath, historical.bytes, current.bytes) : null;
   return {
     capture: {
       state: "captured" as const, exactAtCapture: Boolean(revision.cleanAtCapture && revision.headBlob), sha256: revision.worktreeSha256, bytes: revision.bytes,

@@ -1,3 +1,27 @@
+## 2026-09-17 — Recover dormant PR/branch work without overwriting active agents
+
+Reconciled the verified performance candidate, the preserved GitHub OAuth-first preference,
+the dormant exact-session-artifact history candidate, and fork PR #44's edge/directory
+improvements onto the current main lineage in an isolated worktree. Newer semantic session
+labels, script/learning directories, read-only session graphs and VPS-backed Store behavior
+are preserved instead of taking the older fork files wholesale. Original candidate branches
+remain recoverable until integration is complete. Active hosted/Hermes and gateway work is
+owned by other sessions and is not replaced or deployed by this reconciliation.
+
+Historical artifact previews now reapply current host read-root/credential policy, refuse
+symlink aliases, use bounded no-follow descriptor reads with post-open path identity checks,
+and compute diffs from the same verified byte buffers. Git blob identity is computed from
+already-read bytes, eliminating diff/hash-object subprocesses and repository filters during
+capture. No file body is persisted in the event metadata. PTY access remains scoped to its
+creating principal. Added denial coverage for restricted paths, symlink escapes and revoked
+read roots; synthetic test roots explicitly grant only their own read/write access.
+
+The audit records every observed branch, worktree and PR with a disposition. Normal Git
+cleanup removes only clean, dormant worktrees whose HEAD is already reachable from main;
+active/dirty/unmerged trees, local environments and referenced dependencies remain protected.
+A verified private Git bundle and ignored-note backups precede cleanup. Detailed verification
+and release status belong to the workflow evidence; this entry does not claim deployment.
+
 ## 2026-09-17 — GitHub OAuth-first Integrations routing
 
 GitHub Connections now present hosted OAuth and provider-owned OAuth/MCP before the manual PAT fallback. The direct GitHub path remains available without capability loss, but it is explicitly labeled as a fallback and recommends an expiring fine-grained token when a direct credential is deliberately required. `/integrations` now states the no-silent-fallback rule: a failed OAuth/MCP identity must never be replaced by another PAT/principal implicitly. This complements Baton tenant OAuth, which remains a separate user/workspace trust boundary instead of copying customer OAuth tokens into the MSO operator vault.

@@ -1,13 +1,15 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { captureSessionArtifactRevision, resolveArtifactRevisionView } from "./session-artifact-history";
 
 const roots: string[] = [];
 afterEach(async () => {
+  vi.unstubAllEnvs();
   delete process.env.OS_FS_WRITE_ROOTS;
+  delete process.env.OS_FS_READ_ROOTS;
   while (roots.length) await rm(roots.pop()!, { recursive: true, force: true });
 });
 
@@ -17,7 +19,7 @@ function git(cwd: string, ...args: string[]) {
 
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "mso-artifact-history-"));
-  roots.push(root); process.env.OS_FS_WRITE_ROOTS = root;
+  roots.push(root); process.env.OS_FS_WRITE_ROOTS = root; process.env.OS_FS_READ_ROOTS = root;
   git(root, "init", "-b", "main");
   git(root, "config", "user.email", "test@example.com"); git(root, "config", "user.name", "MSO Test");
   await writeFile(path.join(root, "app.ts"), "export const value = 1;\n", "utf8");
@@ -63,6 +65,27 @@ describe("session artifact revision proof", () => {
     const view = await resolveArtifactRevisionView(revision);
     expect(view.historical).toMatchObject({ available: true, exact: true, source: "current-match" });
     expect(view.diff).toMatchObject({ available: true, changed: false });
+  });
+
+  it("denies credential paths and symlink escapes before capture", async () => {
+    const root = await fixture();
+    vi.stubEnv("HOME", root);
+    await mkdir(path.join(root, ".mso"));
+    await writeFile(path.join(root, ".mso", "private.json"), '{"private":true}');
+    expect(await captureSessionArtifactRevision({ kind: "tool", tool: "fs_write", detail: ".mso/private.json" }, root)).toBeUndefined();
+    const outside = await mkdtemp(path.join(os.tmpdir(), "mso-history-outside-")); roots.push(outside);
+    await writeFile(path.join(outside, "private.ts"), "private bytes");
+    await symlink(outside, path.join(root, "alias"));
+    expect(await captureSessionArtifactRevision({ kind: "tool", tool: "fs_write", detail: "alias/private.ts" }, root)).toBeUndefined();
+  });
+
+  it("rechecks read access before returning an existing historical blob", async () => {
+    const root = await fixture();
+    const revision = await captureSessionArtifactRevision({ kind: "tool", tool: "fs_write", detail: "app.ts" }, root);
+    expect(revision?.headBlob).toBeDefined();
+    const other = await mkdtemp(path.join(os.tmpdir(), "mso-history-new-root-")); roots.push(other);
+    process.env.OS_FS_READ_ROOTS = other;
+    expect(await resolveArtifactRevisionView(revision)).toMatchObject({ historical: { available: false }, current: { available: false } });
   });
 
   it("keeps read-only/legacy events metadata-free rather than pretending a snapshot exists", async () => {
