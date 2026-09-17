@@ -112,7 +112,7 @@ Successful analysis jobs are not proof of zero open alerts; the security badge a
 [Security policy](./SECURITY.md) · [Verification and known limits](./docs/SECURITY-ASSURANCE.md)
 
 <!-- comparison:start -->
-[Product comparison, evidence and limitations](docs/COMPARISON.md) · reviewed 2026-08-29.
+[Product comparison, evidence and limitations](docs/COMPARISON.md) · reviewed 2026-09-17.
 <!-- comparison:end -->
 
 [MIT license](./LICENSE) · [Detailed workspace guide](./docs/reference/WORKSPACE-GUIDE.md)
