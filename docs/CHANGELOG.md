@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `forge` make sandbox bootstrap portable on hosted Linux
 - `doctor` respect no-systemd and remote runtimes
 - `hosted` restore updates and Hermes runtime
 - `update` recover no-systemd container installs
