@@ -10,6 +10,8 @@ command -v docker >/dev/null || { echo "Tool Forge: docker is required for execu
 docker info >/dev/null 2>&1 || { echo "Tool Forge: docker daemon is unavailable to this user" >&2; exit 1; }
 NODE_BIN="$(readlink -f "$NODE_BIN")"
 ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mso-forge-rootfs.XXXXXX")"
+# mktemp uses 0700; the imported root must be traversable by sandbox UIDs.
+chmod 0755 "$ROOT"
 cleanup() {
   find "$ROOT" -type f -delete 2>/dev/null || true
   find "$ROOT" -depth -type d -empty -delete 2>/dev/null || true
@@ -17,7 +19,7 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 install -Dm755 "$NODE_BIN" "$ROOT/usr/bin/node"
 # ldd output has two useful forms: `name => /abs/path (...)` and `/abs/loader (...)`.
-mapfile -t LIBS < <(ldd "$NODE_BIN" | awk '/=> \/[^ ]+/ {print $3} /^\s*\/[^ ]+/ {print $1}' | sort -u)
+mapfile -t LIBS < <(ldd "$NODE_BIN" | awk '/=> \/[^ ]+/ {print $3} /^[[:space:]]*\/[^ ]+/ {print $1}' | sort -u)
 [ "${#LIBS[@]}" -gt 0 ] || { echo "Tool Forge: could not resolve Node shared libraries" >&2; exit 1; }
 for lib in "${LIBS[@]}"; do
   [ -f "$lib" ] || { echo "Tool Forge: missing shared library $lib" >&2; exit 1; }

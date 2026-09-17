@@ -25,7 +25,7 @@ tty_secret() {
 ensure_local_cli_device() {
   local d; d=$(cli_device)
   case "$B" in
-    http://127.0.0.1:*|http://localhost:*|http://[::1]:*) ;;
+    'http://127.0.0.1:'*|'http://localhost:'*|'http://[::1]:'*) ;;
     *) return 0 ;;
   esac
   if ! dev_script --is-approved "$d" >/dev/null 2>&1; then

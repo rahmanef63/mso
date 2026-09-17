@@ -96,7 +96,8 @@ gateway_provider_start_locked() {
 }
 
 gateway_provider_doctor_readonly() {
-  local provider="$(gateway_provider_family "${1:-custom}")"
+  local provider
+  provider="$(gateway_provider_family "${1:-custom}")"
   case "$provider" in
     cloudflare)
       gateway_provider_load_cloudflare_adapter
@@ -113,7 +114,8 @@ gateway_provider_doctor_readonly() {
 }
 
 gateway_provider_install() {
-  local provider="$(gateway_provider_family "${1:-$(gateway_provider_default)}")"
+  local provider
+  provider="$(gateway_provider_family "${1:-$(gateway_provider_default)}")"
   case "$provider" in
     cloudflare) gateway_provider_load_cloudflare_adapter; gateway_cmd_install_tool ;;
     *) gateway_fail "provider '$provider' has no MSO-managed install adapter" ;;
@@ -121,7 +123,8 @@ gateway_provider_install() {
 }
 
 gateway_provider_probe_public() {
-  local provider="$(gateway_provider_family "${1:-custom}")"
+  local provider
+  provider="$(gateway_provider_family "${1:-custom}")"
   case "$provider" in
     cloudflare) gateway_provider_load_cloudflare_adapter; gateway_probe_public ;;
     *) gateway_health_url_matches_identity "$GATEWAY_PUBLIC_URL" "$LOCAL_HEALTH_IDENTITY" ;;
@@ -129,7 +132,8 @@ gateway_provider_probe_public() {
 }
 
 gateway_provider_domain_hint() {
-  local provider="$(gateway_provider_family "${1:-$(gateway_provider_default)}")" origin="$2" domain_host
+  local provider origin="$2" domain_host
+  provider="$(gateway_provider_family "${1:-$(gateway_provider_default)}")"
   domain_host="${origin#https://}"
   case "$provider" in
     cloudflare)
