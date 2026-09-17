@@ -96,6 +96,7 @@
 #   build                Compile HEAD out-of-tree (safe against the live checkout)
 #   deploy               Rebuild active service with runtime quiesce/restore
 #   update [--rebuild]   Update from origin/main safely; works even when the web runtime is down
+#   update reconcile     Preserve a local-only/diverged HEAD, then sync main to origin/main
 #
 #   reset [--scope config|all]  Preview local factory reset; explicit token required to apply
 #   uninstall [--purge] [--remove-code]  Preview owned installation removal
@@ -136,7 +137,7 @@
 # Docs: https://github.com/rahmanef63/mso
 set -euo pipefail
 
-VERSION="1.13.0"
+VERSION="1.13.1"
 ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
 die() { echo "mso: $*" >&2; exit 1; }

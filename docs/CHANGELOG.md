@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `update` recover no-systemd container installs
 - `installer` build node-pty reliably on Codespaces
 - `managed-apps` support Hermes without systemd
 

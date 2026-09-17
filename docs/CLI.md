@@ -136,6 +136,7 @@ Commands:
   build                Compile HEAD out-of-tree (safe against the live checkout)
   deploy               Rebuild active service with runtime quiesce/restore
   update [--rebuild]   Update from origin/main safely; works even when the web runtime is down
+  update reconcile     Preserve a local-only/diverged HEAD, then sync main to origin/main
 
   reset [--scope config|all]  Preview local factory reset; explicit token required to apply
   uninstall [--purge] [--remove-code]  Preview owned installation removal

@@ -3,6 +3,26 @@
 > **Current reference.** Symptoms → likely cause → supported recovery. Historical browser
 > sidecar and manual deploy instructions are intentionally not used here.
 
+
+## `mso update` says local `main` diverged from `origin/main`
+
+This is a Git safety stop, not a systemd failure. MSO refuses to overwrite local commits. Use:
+
+```bash
+mso update reconcile
+mso update
+```
+
+`reconcile` requires a clean `main`, fetches `origin/main`, preserves the previous local HEAD on a timestamped `rescue/mso-update-*` branch, then makes local `main` exactly match `origin/main`. It never deletes the preserved commit. On a container/Codespaces host without systemd, the subsequent update uses the loopback fallback runtime; systemd is optional.
+
+If the local web/PTY runtime is down after a container restart, start the loopback runtime directly:
+
+```bash
+mso web --local --print
+```
+
+Then verify `http://127.0.0.1:4005/api/health` (or the configured loopback port). Public HTTPS is a separate layer: Cloudflare is optional; Tailscale Serve, a reverse proxy, or another externally managed HTTPS endpoint can be used instead.
+
 ## Login & sessions
 
 ### Login returns `not_configured` (HTTP 500)

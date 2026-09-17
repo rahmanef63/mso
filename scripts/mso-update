@@ -28,7 +28,13 @@ require_checkout() {
   [ -z "$(git -C "$ROOT" status --porcelain)" ] || fail "checkout has local changes; refusing to overwrite them"
 }
 fetch_main() { git -C "$ROOT" fetch --quiet origin main || fail "could not reach origin/main"; }
-service_is_active() { command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet mso.service; }
+service_is_active() {
+  # Containers/Codespaces often ship the systemctl binary without systemd as PID 1.
+  # A read-only probe must classify that as "no active service" without leaking
+  # systemd bus errors into ordinary `mso update` output.
+  command -v systemctl >/dev/null 2>&1 || return 1
+  systemctl is-active --quiet mso.service >/dev/null 2>&1
+}
 service_port() {
   local raw port
   raw="$(systemctl show -p Environment --value mso.service 2>/dev/null || true)"
@@ -64,11 +70,13 @@ print_status() {
   read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
   local_v="$(current_version)"; remote_v="$(remote_version)"; head="$(git -C "$ROOT" rev-parse HEAD)"
   if [ "$relation" = ahead ]; then
-    printf 'local main is ahead of origin/main by %s commit%s; refusing to deploy unpushed code. push/reset the checkout first.\n' "$ahead" "$([ "$ahead" = 1 ] || printf s)"
+    printf 'local main is ahead of origin/main by %s commit%s; refusing to deploy unpushed code.\n' "$ahead" "$([ "$ahead" = 1 ] || printf s)"
+    printf 'run: mso update reconcile  # preserves current HEAD on a rescue branch first\n'
     return
   fi
   if [ "$relation" = diverged ]; then
-    printf 'local main has diverged from origin/main (ahead %s, behind %s); refusing update. reconcile the checkout first.\n' "$ahead" "$n"
+    printf 'local main has diverged from origin/main (ahead %s, behind %s); refusing update.\n' "$ahead" "$n"
+    printf 'run: mso update reconcile  # preserves current HEAD on a rescue branch first\n'
     return
   fi
   if [ "$n" -gt 0 ]; then
@@ -103,6 +111,43 @@ print_status() {
     printf 'mso is up to date (CLI %s, build %s)\n' "${local_v:-unknown}" "${head:0:7}"
   fi
 }
+reconcile_checkout() {
+  local relation ahead behind rescue stamp head
+  require_checkout
+  fetch_main
+  read -r relation ahead behind < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
+  case "$relation" in
+    exact)
+      printf 'checkout already matches origin/main at %s\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
+      return 0
+      ;;
+    behind)
+      git -C "$ROOT" merge --ff-only origin/main >/dev/null \
+        || fail "could not fast-forward local main to origin/main"
+      printf 'checkout fast-forwarded to origin/main at %s\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
+      printf 'run: mso update\n'
+      return 0
+      ;;
+    ahead|diverged)
+      stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+      rescue="rescue/mso-update-$stamp"
+      head="$(git -C "$ROOT" rev-parse HEAD)"
+      git -C "$ROOT" branch "$rescue" "$head" \
+        || fail "could not preserve local HEAD on a rescue branch"
+      git -C "$ROOT" reset --hard origin/main >/dev/null \
+        || fail "rescue branch $rescue was created, but main could not be reset to origin/main"
+      read -r relation ahead behind < <(update_git_relation "$ROOT") || fail "could not verify reconciled checkout"
+      [ "$relation" = exact ] \
+        || fail "rescue branch $rescue preserved the old HEAD, but checkout still does not match origin/main"
+      printf 'preserved previous local HEAD %s on %s\n' "${head:0:7}" "$rescue"
+      printf 'checkout now matches origin/main at %s\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
+      printf 'run: mso update\n'
+      return 0
+      ;;
+    *) fail "unknown Git authority state" ;;
+  esac
+}
+
 notice() {
   local dir stamp now last=0 relation ahead n local_v remote_v
   git_root || return 0
@@ -115,7 +160,7 @@ notice() {
   fi
   read -r relation ahead n < <(update_git_relation "$ROOT") || return 0
   if [ "$relation" = ahead ] || [ "$relation" = diverged ]; then
-    printf 'MSO update refused: local main is %s origin/main (ahead %s, behind %s). Reconcile/push the checkout first.\n' \
+    printf 'MSO update refused: local main is %s origin/main (ahead %s, behind %s). Run: mso update reconcile\n' \
       "$relation" "$ahead" "$n" >&2
     return 0
   fi
@@ -159,8 +204,8 @@ offline_build_locked() {
     case "$relation" in
       exact) ;;
       behind) git -C "$ROOT" merge --ff-only origin/main || fail "cannot fast-forward to origin/main" ;;
-      ahead) fail "local main is ahead of origin/main by $ahead commit(s); refusing to deploy unpushed code" ;;
-      diverged) fail "local main has diverged from origin/main (ahead $ahead, behind $n); reconcile it before update" ;;
+      ahead) fail "local main is ahead of origin/main by $ahead commit(s); run: mso update reconcile" ;;
+      diverged) fail "local main has diverged from origin/main (ahead $ahead, behind $n); run: mso update reconcile" ;;
       *) fail "unknown Git authority state" ;;
     esac
     read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not re-check origin/main after fast-forward"
@@ -286,12 +331,13 @@ run_update() {
 case "${1:-run}" in
   notice) notice ;;
   status|check) print_status ;;
+  reconcile) reconcile_checkout ;;
   log) [ -f "$LOG" ] && tail -n "${2:-80}" "$LOG" || printf 'no update log yet: %s\n' "$LOG" ;;
   run) case "${2-}" in
     "" ) run_update 0 ;;
     --rebuild|--rebuild-only) run_update 1 ;;
-    *) fail "usage: mso update [--rebuild] | status | log" ;;
+    *) fail "usage: mso update [--rebuild] | status | reconcile | log" ;;
   esac ;;
   --rebuild|--rebuild-only) run_update 1 ;;
-  *) fail "usage: mso update [--rebuild] | status | log" ;;
+  *) fail "usage: mso update [--rebuild] | status | reconcile | log" ;;
 esac
