@@ -13,9 +13,45 @@ install_runtime_lifecycle_begin
 
 INSTALL_PHASE=dependencies
 # ---- deps (compiles node-pty) ----
+# node-pty@1.1.0 falls back to the `node-gyp` command when no Linux prebuild is
+# available. Minimal/Codespaces images can have a complete compiler toolchain but
+# no standalone node-gyp binary. Provide a pinned user-local runner before Bun
+# executes dependency lifecycle scripts; do not mutate global npm state.
+NODE_GYP_VERSION="11.5.0"
+NODE_GYP_PREFIX="${MSO_NODE_GYP_PREFIX:-$HOME/.cache/mso/node-gyp-$NODE_GYP_VERSION}"
+NODE_GYP_BIN="$NODE_GYP_PREFIX/node_modules/.bin/node-gyp"
+
+ensure_node_gyp_runner() {
+  if [ -x "$NODE_GYP_BIN" ] && [ "$("$NODE_GYP_BIN" --version 2>/dev/null || true)" = "v$NODE_GYP_VERSION" ]; then
+    export PATH="$(dirname "$NODE_GYP_BIN"):$PATH"
+    return
+  fi
+  command -v npm >/dev/null 2>&1 || die "npm is required to provision pinned node-gyp for node-pty."
+  mkdir -p "$NODE_GYP_PREFIX"
+  info "provisioning node-gyp v$NODE_GYP_VERSION for node-pty…"
+  npm install --prefix "$NODE_GYP_PREFIX" --no-save --ignore-scripts "node-gyp@$NODE_GYP_VERSION" >/dev/null
+  [ -x "$NODE_GYP_BIN" ] || die "node-gyp bootstrap did not produce $NODE_GYP_BIN"
+  [ "$("$NODE_GYP_BIN" --version 2>/dev/null || true)" = "v$NODE_GYP_VERSION" ] || die "unexpected node-gyp version after bootstrap"
+  export PATH="$(dirname "$NODE_GYP_BIN"):$PATH"
+}
+
+node_pty_ready() {
+  node -e 'require("node-pty")' >/dev/null 2>&1
+}
+
+ensure_node_gyp_runner
 info "installing dependencies…"
 install_runtime_lifecycle_mark_mutation_started
 bun install --frozen-lockfile || bun install
+
+# A package-manager retry may report "no changes" after a failed lifecycle
+# script. Verify the native binding immediately so Next.js cannot fail much later
+# while collecting route configuration. One explicit rebuild is safe/idempotent.
+if ! node_pty_ready; then
+  warn "node-pty native binding missing after dependency install — rebuilding once…"
+  "$NODE_GYP_BIN" rebuild --directory="$DIR/node_modules/node-pty"
+fi
+node_pty_ready || die "node-pty native binding is still unavailable after rebuild."
 
 INSTALL_PHASE=configuration
 # ---- data dir + secrets (write .env.local only if absent) ----
