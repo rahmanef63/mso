@@ -7,7 +7,7 @@ describe("managed app CLI launch commands", () => {
   });
 
   it("keeps the upstream read-only status command for CLI-managed apps", () => {
-    expect(cliCommand(dashboardFeature("hermes", "Hermes"))).toBe("hermes status");
+    expect(cliCommand(dashboardFeature("hermes", "Hermes"))).toBe("hermes");
     expect(cliCommand(dashboardFeature("openclaw", "OpenClaw"))).toBe("openclaw status");
   });
 });

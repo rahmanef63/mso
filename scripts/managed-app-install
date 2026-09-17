@@ -171,42 +171,139 @@ persist_hermes_provider_key() {
   mv "$tmp" "$env_file"
 }
 
+hermes_flat_image_ref() {
+  printf 'mso/hermes-agent:%s-vfs-flat' "${HERMES_INSTALLER_TAG#v}"
+}
+
+prepare_hermes_runtime_image() {
+  HERMES_RUNTIME_IMAGE="$HERMES_IMAGE_REF"
+
+  local driver flat source_label tmp
+  driver="$("${DOCKER[@]}" info --format '{{.Driver}}' 2>/dev/null || true)"
+  flat="$(hermes_flat_image_ref)"
+  if [ "$driver" = "vfs" ]; then
+    # Reuse an already-derived image BEFORE pulling upstream again. On VFS, merely
+    # pulling the multi-layer source can consume tens of GB because each layer is
+    # a full snapshot. The source label binds this local representation to the
+    # exact reviewed digest in managed-app-artifacts.env.
+    source_label="$("${DOCKER[@]}" image inspect --format '{{index .Config.Labels "io.mso.source-image"}}' "$flat" 2>/dev/null || true)"
+    if [ "$source_label" = "$HERMES_IMAGE_REF" ]; then
+      HERMES_RUNTIME_IMAGE="$flat"
+      log "reusing flattened Hermes image for Docker VFS storage"
+      return 0
+    fi
+  fi
+
+  log "pulling pinned Hermes image ($HERMES_INSTALLER_TAG)"
+  "${DOCKER[@]}" pull "$HERMES_IMAGE_REF"
+  [ "$driver" = "vfs" ] || return 0
+
+  # Docker's VFS driver deep-copies every cumulative image layer. The upstream
+  # Hermes image has many layers, so its ~2.7 GB logical rootfs can consume tens
+  # of GB physically. Flatten ONLY the already-reviewed pinned source image into
+  # one local layer; the source digest remains recorded as a label and is checked
+  # before reuse. This is a storage representation change, not a different build.
+  source_label="$("${DOCKER[@]}" image inspect --format '{{index .Config.Labels "io.mso.source-image"}}' "$flat" 2>/dev/null || true)"
+  if [ "$source_label" != "$HERMES_IMAGE_REF" ]; then
+    tmp="mso-hermes-flatten-$$"
+    "${DOCKER[@]}" rm -f "$tmp" >/dev/null 2>&1 || true
+    "${DOCKER[@]}" create --name "$tmp" "$HERMES_IMAGE_REF" >/dev/null
+    log "flattening Hermes for Docker VFS storage"
+    if ! "${DOCKER[@]}" export "$tmp" | "${DOCKER[@]}" import \
+      --change 'ENV PATH=/opt/hermes/bin:/opt/hermes/.venv/bin:/opt/data/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+      --change 'ENV PYTHONUNBUFFERED=1' \
+      --change 'ENV PYTHONDONTWRITEBYTECODE=1' \
+      --change 'ENV PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright' \
+      --change 'ENV npm_config_install_links=false' \
+      --change 'ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist' \
+      --change 'ENV HERMES_TUI_DIR=/opt/hermes/ui-tui' \
+      --change 'ENV HERMES_HOME=/opt/data' \
+      --change 'ENV HERMES_WRITE_SAFE_ROOT=/opt/data' \
+      --change 'ENV HERMES_DISABLE_LAZY_INSTALLS=1' \
+      --change 'ENV HERMES_LAZY_INSTALL_TARGET=/opt/data/lazy-packages' \
+      --change 'WORKDIR /opt/hermes' \
+      --change 'VOLUME ["/opt/data"]' \
+      --change 'ENTRYPOINT ["/opt/hermes/docker/entrypoint-dispatch.sh"]' \
+      --change "LABEL org.opencontainers.image.revision=$HERMES_INSTALLER_COMMIT" \
+      --change "LABEL io.mso.source-image=$HERMES_IMAGE_REF" \
+      - "$flat" >/dev/null; then
+      "${DOCKER[@]}" rm -f "$tmp" >/dev/null 2>&1 || true
+      return 1
+    fi
+    "${DOCKER[@]}" rm -f "$tmp" >/dev/null 2>&1 || true
+  fi
+  HERMES_RUNTIME_IMAGE="$flat"
+}
+
+install_hermes_cli_wrapper() {
+  local wrapper="$HOME/.local/bin/hermes"
+  mkdir -p "$(dirname "$wrapper")"
+  cat >"$wrapper" <<'WRAPPER'
+#!/usr/bin/env bash
+set -euo pipefail
+cwd="$PWD"
+case "$cwd" in
+  "$HOME"|"$HOME"/*) ;;
+  *) cwd="$HOME" ;;
+esac
+runner=(docker)
+if ! docker version --format '{{.Server.Version}}' >/dev/null 2>&1; then runner=(sudo -n docker); fi
+args=(exec --user "$(id -u):$(id -g)" -w "$cwd")
+if [ -t 0 ] && [ -t 1 ]; then args+=(-it); else args+=(-i); fi
+exec "${runner[@]}" "${args[@]}" hermes /opt/hermes/hermes "$@"
+WRAPPER
+  chmod 755 "$wrapper"
+}
+
 install_hermes_docker() {
   docker_cli || { echo "Docker is unavailable to $(id -un)" >&2; return 1; }
   mkdir -p "$HOME/.hermes"
+  persist_hermes_provider_key
+  prepare_hermes_runtime_image
+
+  log "configuring Hermes in the persistent data volume"
+  "${DOCKER[@]}" run --rm --network host \
+    -v "$HOME/.hermes:/opt/data" \
+    -v "$HOME:$HOME" \
+    -e "HERMES_UID=$(id -u)" -e "HERMES_GID=$(id -g)" \
+    "$HERMES_RUNTIME_IMAGE" setup --non-interactive
+  "${DOCKER[@]}" run --rm \
+    -v "$HOME/.hermes:/opt/data" -v "$HOME:$HOME" \
+    -e "HERMES_UID=$(id -u)" -e "HERMES_GID=$(id -g)" \
+    "$HERMES_RUNTIME_IMAGE" config set terminal.cwd "$HOME" >/dev/null
+  install_hermes_cli_wrapper
 
   if "${DOCKER[@]}" container inspect hermes >/dev/null 2>&1; then
-    local configured_image
+    local source_label configured_image
     configured_image="$("${DOCKER[@]}" inspect --format '{{.Config.Image}}' hermes 2>/dev/null || true)"
-    if [ "$configured_image" != "$HERMES_IMAGE_REF" ]; then
-      echo "a container named 'hermes' already exists with a different image; refusing to replace it" >&2
+    source_label="$("${DOCKER[@]}" inspect --format '{{index .Config.Labels "io.mso.source-image"}}' hermes 2>/dev/null || true)"
+    if [ "$configured_image" != "$HERMES_IMAGE_REF" ] && [ "$configured_image" != "$HERMES_RUNTIME_IMAGE" ] && [ "$source_label" != "$HERMES_IMAGE_REF" ]; then
+      echo "a container named 'hermes' already exists with an unrelated image; refusing to replace it" >&2
       return 1
     fi
-    log "Hermes container already exists; starting the reviewed image"
-    "${DOCKER[@]}" start hermes >/dev/null
-  else
-    log "pulling pinned Hermes image ($HERMES_INSTALLER_TAG)"
-    "${DOCKER[@]}" pull "$HERMES_IMAGE_REF"
+    log "reconciling existing Hermes container"
+    "${DOCKER[@]}" rm -f hermes >/dev/null
+  fi
 
-    persist_hermes_provider_key
+  log "starting Hermes gateway + dashboard on loopback"
+  "${DOCKER[@]}" run -d \
+    --name hermes \
+    --restart unless-stopped \
+    --network host \
+    --label "io.mso.source-image=$HERMES_IMAGE_REF" \
+    -v "$HOME/.hermes:/opt/data" \
+    -v "$HOME:$HOME" \
+    -e "HERMES_UID=$(id -u)" \
+    -e "HERMES_GID=$(id -g)" \
+    -e HERMES_DASHBOARD=1 \
+    -e HERMES_DASHBOARD_HOST=127.0.0.1 \
+    "$HERMES_RUNTIME_IMAGE" gateway run >/dev/null
 
-    log "configuring Hermes in the persistent data volume"
-    "${DOCKER[@]}" run --rm --network host \
-      -v "$HOME/.hermes:/opt/data" \
-      -e "HERMES_UID=$(id -u)" -e "HERMES_GID=$(id -g)" \
-      "$HERMES_IMAGE_REF" setup --non-interactive
-
-    log "starting Hermes gateway + dashboard on loopback"
-    "${DOCKER[@]}" run -d \
-      --name hermes \
-      --restart unless-stopped \
-      --network host \
-      -v "$HOME/.hermes:/opt/data" \
-      -e "HERMES_UID=$(id -u)" \
-      -e "HERMES_GID=$(id -g)" \
-      -e HERMES_DASHBOARD=1 \
-      -e HERMES_DASHBOARD_HOST=127.0.0.1 \
-      "$HERMES_IMAGE_REF" gateway run >/dev/null
+  # The flattened VFS image supersedes the multi-layer source locally. Removing
+  # the reviewed source image after the container is on the derived image frees
+  # the duplicated VFS layer trees; a future update pulls the pinned source again.
+  if [ "$HERMES_RUNTIME_IMAGE" != "$HERMES_IMAGE_REF" ]; then
+    "${DOCKER[@]}" image rm "$HERMES_IMAGE_REF" >/dev/null 2>&1 || true
   fi
 
   local i running

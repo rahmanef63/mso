@@ -8,13 +8,21 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` add exact session artifact history
 - `store` unify VPS MCP and skills installation with dynamic host harness
 
 **Fixed**
 
+- `workflows` harden reconciled artifact history reads
+- `integrations` prefer GitHub OAuth
+- `hosted` restore updates and Hermes runtime
 - `update` recover no-systemd container installs
 - `installer` build node-pty reliably on Codespaces
 - `managed-apps` support Hermes without systemd
+
+**Faster**
+
+- `shell` defer optional surfaces and bound cold-load bundles
 
 **Changed**
 

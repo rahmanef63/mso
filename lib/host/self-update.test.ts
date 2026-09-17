@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { parseCommits, blockingReason, updateBranchReason, updateUnitArgs } = await import("./self-update");
+const { offlineUpdateArgs } = await import("./self-update-offline");
 
 const status = (over: Partial<Parameters<typeof blockingReason>[0]> = {}) => ({
   supported: true,
@@ -64,6 +65,18 @@ describe("updateUnitArgs", () => {
   it("exposes only the rebuild boolean as the optional operation", () => {
     const args = updateUnitArgs("/srv/mso", "/tmp/update.log", true);
     expect(args.at(-1)).toBe("--rebuild-only");
+  });
+});
+
+describe("offlineUpdateArgs", () => {
+  it("hands systemd-less updates to a detached fixed wrapper with only the rebuild boolean optional", () => {
+    expect(offlineUpdateArgs("/srv/mso")).toEqual([
+      "-f",
+      "/bin/bash",
+      "/srv/mso/scripts/mso-offline-update-job",
+    ]);
+    expect(offlineUpdateArgs("/srv/mso", true).at(-1)).toBe("--rebuild-only");
+    expect(offlineUpdateArgs("/srv/mso", true).join(" ")).not.toContain("sudo");
   });
 });
 

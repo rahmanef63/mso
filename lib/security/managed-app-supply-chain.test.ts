@@ -31,11 +31,16 @@ describe("managed-app immutable artifact contract", () => {
     expect(executable).not.toMatch(/curl[^\n]+\|\s*(?:ba)?sh/);
   });
 
-  it("pins the Hermes Docker fallback and never uses a mutable image tag", () => {
+  it("pins the Hermes Docker fallback, preserves VPS workspace access, and bounds VFS storage", () => {
     const script = source(INSTALL);
-    expect(script).toContain('"$HERMES_IMAGE_REF" gateway run');
+    expect(script).toContain('"$HERMES_RUNTIME_IMAGE" gateway run');
     expect(script).toContain("HERMES_DASHBOARD_HOST=127.0.0.1");
     expect(script).toContain("--restart unless-stopped");
+    expect(script).toContain('-v "$HOME:$HOME"');
+    expect(script).toContain('config set terminal.cwd "$HOME"');
+    expect(script).toContain("io.mso.source-image=$HERMES_IMAGE_REF");
+    expect(script).toContain("flattening Hermes for Docker VFS storage");
+    expect(script).toContain('exec "${runner[@]}" "${args[@]}" hermes /opt/hermes/hermes "$@"');
     expect(script).not.toContain("nousresearch/hermes-agent:latest");
   });
 

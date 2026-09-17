@@ -5,6 +5,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { HostError } from "./host-error";
+import { offlineUpdateArgs, offlineUpdateRunning } from "./self-update-offline";
 
 // SERVER-ONLY. "Is there a newer MSO, and pull it in" — the deploy that CLAUDE.md
 // describes (`git pull` → build → restart), driven from Settings instead of from a
@@ -36,7 +37,7 @@ export interface UpdateCommit {
 }
 
 export interface UpdateStatus {
-  /** False when this deployment cannot self-update (not a checkout, no systemd). */
+  /** False when this deployment cannot self-update (for example, not a checkout or no safe handoff runtime). */
   supported: boolean;
   /** Why not, when `supported` is false — shown to the operator verbatim. */
   reason: string | null;
@@ -164,7 +165,8 @@ async function isRunning(): Promise<boolean> {
     run("systemctl", ["--user", "is-active", `${UNIT}.service`], 10_000),
     run("systemctl", ["is-active", `${UNIT}.service`], 10_000),
   ]);
-  return userUnit.code === 0 || legacySystemUnit.code === 0;
+  if (userUnit.code === 0 || legacySystemUnit.code === 0) return true;
+  return offlineUpdateRunning();
 }
 
 async function readLog(): Promise<string> {
@@ -185,6 +187,13 @@ async function automaticUpdateReason(): Promise<string | null> {
   // is both non-interactive and non-root.
   const userManager = await run("systemctl", ["--user", "show-environment"], 10_000);
   if (userManager.code !== 0) {
+    // A container/hosted runtime can legitimately have no systemd at all (PID 1
+    // may be tini). The CLI already has a safe offline update path that quiesces
+    // only MSO-owned runtimes under the checkout exclusion lock. `setsid -f` is
+    // the missing handoff boundary: it lets that path survive the Next process it
+    // intentionally stops and replaces. No sudo and no arbitrary client argv.
+    const setsid = process.platform === "linux" ? await run("setsid", ["--version"], 5_000) : { code: 1 };
+    if (setsid.code === 0) return null;
     return "Automatic restart is unavailable on this host. Run mso update from a terminal; version checks still work.";
   }
 
@@ -217,19 +226,9 @@ export async function getUpdateStatus(fetchRemote = true): Promise<UpdateStatus>
   // the biggest thing in the response.
   const log = await readLog();
   const base: UpdateStatus = {
-    supported: false,
-    reason: null,
-    current: "unknown",
-    currentSubject: "",
-    buildSha,
-    pendingBuild: false,
-    ahead: 0,
-    behind: 0,
-    commits: [],
-    dirty: false,
-    running: false,
-    remoteChecked: false,
-    log,
+    supported: false, reason: null, current: "unknown", currentSubject: "", buildSha,
+    pendingBuild: false, ahead: 0, behind: 0, commits: [], dirty: false,
+    running: false, remoteChecked: false, log,
   };
 
   const inside = await git(["rev-parse", "--is-inside-work-tree"]);
@@ -294,17 +293,23 @@ export async function startUpdate(rebuildOnly = false): Promise<UpdateStatus> {
   const blocked = blockingReason(status, rebuildOnly);
   if (blocked) throw new HostError(blocked);
 
-  const script = path.join(repoRoot(), "scripts", "mso-service-update");
-  if (!(await fs.stat(script).catch(() => null))) throw new HostError(`missing ${script}`);
-
-  const started = await run(
-    "systemd-run",
-    updateUnitArgs(repoRoot(), updateLogPath(), rebuildOnly),
-    30_000,
-  );
+  const userManager = await run("systemctl", ["--user", "show-environment"], 10_000);
+  let started: Ran;
+  if (userManager.code === 0) {
+    const script = path.join(repoRoot(), "scripts", "mso-service-update");
+    if (!(await fs.stat(script).catch(() => null))) throw new HostError(`missing ${script}`);
+    started = await run("systemd-run", updateUnitArgs(repoRoot(), updateLogPath(), rebuildOnly), 30_000);
+  } else {
+    const script = path.join(repoRoot(), "scripts", "mso-offline-update-job");
+    if (!(await fs.stat(script).catch(() => null))) throw new HostError(`missing ${script}`);
+    // The wrapper writes its PID before doing any mutation and redirects stdout/
+    // stderr to the same log the panel already polls. setsid receives only a
+    // compile-time script path and the one allowed boolean flag.
+    started = await run("setsid", offlineUpdateArgs(repoRoot(), rebuildOnly), 30_000);
+  }
   if (started.code !== 0) {
     throw new HostError(
-      `could not start the updater: ${(started.stderr || started.stdout).trim().slice(0, 300) || `exit ${started.code}`}. Re-run scripts/install.sh once if the user systemd manager is unavailable`,
+      `could not start the updater: ${(started.stderr || started.stdout).trim().slice(0, 300) || `exit ${started.code}`}`,
     );
   }
   return { ...status, running: true };
