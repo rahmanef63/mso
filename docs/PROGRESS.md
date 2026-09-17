@@ -1,3 +1,7 @@
+## 2026-09-17 — Lock-fixture cleanup prevents accumulated test processes
+
+The branch/worktree audit found orphaned `mso-lock-holder` shells and `sleep` children from completed gateway boundary tests. The fixture killed only the forking `flock` parent, leaving the command and inherited lock descriptor alive after its temporary directory was removed. The holder now uses `flock --no-fork` with a single Node process; readiness is inside `try/finally`, and the regression asserts exact PID identity, process exit and kernel-lock reacquisition. No gateway/provider runtime behavior or release guard is changed. Historical process cleanup is restricted to verified orphan fixtures from this conversation's worktrees, not other agents or production processes.
+
 ## 2026-09-17 — Descriptor-pinned Workflow storage hardening
 
 The PR/branch audit exposed default-branch security annotations for Workflow run,
