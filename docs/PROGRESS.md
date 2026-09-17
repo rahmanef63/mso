@@ -20,6 +20,12 @@ The audit records every observed branch, worktree and PR with a disposition. Nor
 cleanup removes only clean, dormant worktrees whose HEAD is already reachable from main;
 active/dirty/unmerged trees, local environments and referenced dependencies remain protected.
 A verified private Git bundle and ignored-note backups precede cleanup.
+The resumed build exposed a broad Turbopack filesystem trace from the artifact reader.
+Owner-selected files are runtime data, so the three guarded open/lstat path arguments now
+use the established runtime-only tracing annotation. No files are excluded globally and
+read-root, no-follow, size and identity checks remain intact. An isolated production build
+now passes without warnings; the existing targeted artifact/PTY/connection tests also pass.
+
 Full-suite verification caught a compatibility issue in the preserved OAuth candidate:
 UI ordering must not change the existing API default for an omitted connection source.
 The API retains its original direct default; the UI explicitly submits the selected OAuth

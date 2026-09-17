@@ -23,6 +23,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Faster**
 
+- `workflows` keep runtime artifacts out of build tracing
 - `shell` defer optional surfaces and bound cold-load bundles
 
 **Changed**

@@ -28,12 +28,14 @@ export async function readArtifactFile(file: string): Promise<{ bytes: Buffer; s
   if (!real) return null;
   let handle;
   try {
-    handle = await fs.open(real, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    // Owner-selected host files are runtime data, not deploy-time source assets.
+    // Ignore only this guarded dynamic path; never weaken the filesystem policy.
+    handle = await fs.open(/* turbopackIgnore: true */ real, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     const before = await handle.stat();
     // Re-resolve after opening to reject a parent symlink changed between guard and open.
     const authorized = await authorizeArtifactPath(file);
     if (authorized !== real) return null;
-    const named = await fs.lstat(real);
+    const named = await fs.lstat(/* turbopackIgnore: true */ real);
     if (named.dev !== before.dev || named.ino !== before.ino) return null;
     if (!before.isFile() || before.size > ARTIFACT_FILE_LIMIT) return null;
     const buffer = Buffer.alloc(before.size + 1);
@@ -46,7 +48,7 @@ export async function readArtifactFile(file: string): Promise<{ bytes: Buffer; s
     const after = await handle.stat();
     if (length !== before.size || after.size !== before.size || after.mtimeMs !== before.mtimeMs) return null;
     if (await authorizeArtifactPath(file) !== real) return null;
-    const finalPath = await fs.lstat(real);
+    const finalPath = await fs.lstat(/* turbopackIgnore: true */ real);
     if (finalPath.dev !== before.dev || finalPath.ino !== before.ino) return null;
     const bytes = buffer.subarray(0, length);
     return { bytes, sha256: createHash("sha256").update(bytes).digest("hex"), size: bytes.length };
