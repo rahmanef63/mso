@@ -14,7 +14,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Fixed**
 
 - `workflows` pin private storage reads and atomic writes
+- `ci` preserve strict scanner coverage on hosted release
+- `forge` make sandbox bootstrap portable on hosted Linux
 - `integrations` preserve implicit direct connection compatibility
+- `doctor` respect no-systemd and remote runtimes
 - `workflows` harden reconciled artifact history reads
 - `integrations` prefer GitHub OAuth
 - `hosted` restore updates and Hermes runtime

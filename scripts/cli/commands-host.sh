@@ -114,7 +114,17 @@ case "$cmd" in
       fails=$((fails+1))
     fi
 
-    if ! service_manager_read is-active --quiet mso.service 2>/dev/null; then
+    local_runtime=0
+    case "$B" in
+      'http://127.'*:*|'http://localhost:'*|'http://[::1]:'*) local_runtime=1 ;;
+    esac
+    if [ "$local_runtime" = 0 ]; then
+      echo "  --    service unit    (skipped: --base is remote)"
+    elif ! service_manager_read show --property=Version --value >/dev/null 2>&1; then
+      # A systemctl binary is not proof that this environment runs systemd.
+      # Do not start/adopt an external supervisor; health below is authoritative.
+      echo "  --    service unit    (systemd manager unavailable; runtime health checked below)"
+    elif ! service_manager_read is-active --quiet mso.service 2>/dev/null; then
       if [ "$fix" = 1 ] && service_manager_read show -p WorkingDirectory --value mso.service 2>/dev/null | grep -q .; then
         if ( service_start_safe >/dev/null 2>&1 ); then fixed "service unit started"; else printf '  FAIL  service unit — automatic start failed; run: mso service logs\n'; fails=$((fails+1)); fi
       else
@@ -124,11 +134,17 @@ case "$cmd" in
     else
       echo "  ok    service unit"
     fi
-    chk "reachable"      "curl -fsS --max-time 5 '$B/api/health'"  "nothing answering at $B"
+    doctor_health_ok() {
+      local direct=()
+      [ "$local_runtime" = 0 ] || direct=(--noproxy '*')
+      curl "${direct[@]}" -fsS --max-time 5 "$B/api/health" \
+        | jq -e 'type == "object" and .status == "ok" and .service == "mso"' >/dev/null
+    }
+    chk "reachable" "doctor_health_ok" "no healthy MSO at $B; for local recovery run: mso web --local --print"
 
     d=$(cli_device); device_ready=0
-    case "$B" in
-      http://127.0.0.1:*|http://localhost:*|http://[::1]:*)
+    case "$local_runtime" in
+      1)
         if dev_script --is-approved "$d" >/dev/null 2>&1; then
           echo "  ok    device known"; device_ready=1
         elif [ "$fix" = 1 ]; then
