@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@xyflow/react/dist/style.css";
 
 /* Dark is driven by [data-theme=dark] (os-rr convention), so shadcn `dark:`
    utilities key off the same attribute. */

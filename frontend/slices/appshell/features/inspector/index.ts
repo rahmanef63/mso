@@ -1,6 +1,5 @@
 import { defineFeature } from "../../registry/types";
-import { Inspector } from "./components/inspector";
-import { AlfaSheet } from "./components/alfa-sheet";
+import { DeferredInspector, DeferredAlfaSheet } from "./deferred";
 
 // Inspector — the app-context panel + Alfa. The publish bus (usePublishInspector)
 // stays in appshell core so apps publish state without depending on this feature.
@@ -11,5 +10,5 @@ import { AlfaSheet } from "./components/alfa-sheet";
 // phone. Each returns null on the surface it is not for, so only one ever mounts.
 export const inspectorFeature = defineFeature({
   id: "inspector",
-  slots: { rightPanel: Inspector, overlay: AlfaSheet },
+  slots: { rightPanel: DeferredInspector, overlay: DeferredAlfaSheet },
 });

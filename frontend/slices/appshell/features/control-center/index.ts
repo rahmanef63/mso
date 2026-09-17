@@ -1,5 +1,5 @@
 import { defineFeature } from "../../registry/types";
-import { ControlCenter } from "./components/control-center";
+import { DeferredControlCenter } from "./deferred";
 import { ControlCenterDesktop } from "./components/control-center-desktop";
 
 // Control Center — the SAME real toggles on both surfaces: an iOS-style pull-down
@@ -8,5 +8,5 @@ import { ControlCenterDesktop } from "./components/control-center-desktop";
 // owned by the mobile surface via the shell-UI context; the desktop popover is local.
 export const controlCenterFeature = defineFeature({
   id: "control-center",
-  slots: { controlCenter: ControlCenter, menuBarStatus: ControlCenterDesktop },
+  slots: { controlCenter: DeferredControlCenter, menuBarStatus: ControlCenterDesktop },
 });

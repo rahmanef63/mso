@@ -8,6 +8,7 @@ export const mediaStudioApp: AppDescriptor = {
   title: "Image Editor",
   icon: Image,
   gradient: "linear-gradient(160deg,#ff9f43,#ee5253)",
+  prefetch: "never",
   load: () => import("./app"),
   defaultSize: { w: 1180, h: 760 },
 };

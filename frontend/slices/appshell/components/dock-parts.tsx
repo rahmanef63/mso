@@ -5,6 +5,7 @@
    BASE is the resting icon size the magnification math in dock.tsx shares. */
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useIntentPrefetch } from "../hooks/use-intent-prefetch";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { openWindow, focusApp, restoreWindow, closeWindow } from "../lib/store";
@@ -51,6 +52,7 @@ export function DockIcon({
   slotRef: (el: HTMLDivElement | null) => void;
   zoneRef: (el: HTMLDivElement | null) => void;
 }) {
+  const prefetch = useIntentPrefetch();
   const running = windows.length > 0;
   const href = "/" + (app.slug ?? app.id);
   const hasMenu = windows.length > 0 || !!app.multi;
@@ -109,7 +111,10 @@ export function DockIcon({
         <Link
           href={href}
           prefetch={false}
-          onPointerEnter={() => void app.load?.().catch(() => {})}
+          onPointerEnter={(event) => prefetch.schedule(app, event.pointerType)}
+          onPointerLeave={prefetch.cancel}
+          onFocus={() => prefetch.schedule(app, "keyboard")}
+          onBlur={prefetch.cancel}
           onContextMenu={ctx.open}
           onClick={(e) => {
             if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey) {

@@ -15,6 +15,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `installer` build node-pty reliably on Codespaces
 - `managed-apps` support Hermes without systemd
 
+**Faster**
+
+- `shell` defer optional surfaces and bound cold-load bundles
+
 **Docs**
 
 - `comparison` refresh product audit

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,18 +10,23 @@ import { SettingsSection } from "@/features/shell-settings";
 import { cn } from "@/lib/utils";
 import { Lock, ShieldCheck } from "lucide-react";
 import { SECTIONS, type SectionId } from "../lib/sections";
-import { A2ASection } from "./a2a-section";
-import { AboutSection } from "./about-section";
-import { AiSection } from "./ai-section";
-import { AppearanceSection } from "./appearance-section";
+
 import { AutoLockRow } from "./auto-lock-row";
-import { BackupSection } from "./backup-section";
-import { CleanupSection } from "./cleanup-section";
-import { McpSection } from "./mcp-section";
-import { MemorySection } from "./memory-section";
-import { QuicklinksSection } from "./quicklinks-section";
-import { ServerSection } from "./server-section";
-import { ThemeSection } from "./theme-section";
+
+// Metadata/navigation and access checks stay eager. No private panel mounts or
+// fetches before its existing role gate allows it; inactive sections stay deferred.
+const loadingSection = () => <p role="status" className="p-3 text-sm text-muted-foreground">Loading settings…</p>;
+const A2ASection = dynamic(() => import("./a2a-section").then((module) => module.A2ASection), { loading: loadingSection });
+const AboutSection = dynamic(() => import("./about-section").then((module) => module.AboutSection), { loading: loadingSection });
+const AiSection = dynamic(() => import("./ai-section").then((module) => module.AiSection), { loading: loadingSection });
+const AppearanceSection = dynamic(() => import("./appearance-section").then((module) => module.AppearanceSection), { loading: loadingSection });
+const BackupSection = dynamic(() => import("./backup-section").then((module) => module.BackupSection), { loading: loadingSection });
+const CleanupSection = dynamic(() => import("./cleanup-section").then((module) => module.CleanupSection), { loading: loadingSection });
+const McpSection = dynamic(() => import("./mcp-section").then((module) => module.McpSection), { loading: loadingSection });
+const MemorySection = dynamic(() => import("./memory-section").then((module) => module.MemorySection), { loading: loadingSection });
+const QuicklinksSection = dynamic(() => import("./quicklinks-section").then((module) => module.QuicklinksSection), { loading: loadingSection });
+const ServerSection = dynamic(() => import("./server-section").then((module) => module.ServerSection), { loading: loadingSection });
+const ThemeSection = dynamic(() => import("./theme-section").then((module) => module.ThemeSection), { loading: loadingSection });
 
 // The section content — one functional panel per SectionId, shared verbatim by
 // every shell's Settings layout (the per-shell seam only swaps the navigation

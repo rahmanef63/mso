@@ -31,6 +31,7 @@ function managedDescriptor(app: ManagedApp): AppDescriptor {
     title: look.title,
     icon: look.icon,
     gradient: look.gradient,
+    prefetch: "never",
     load: async () => {
       const loaded = await import("./app");
       return { default: loaded[look.loader as "HermesApp" | "OpenClawApp" | "NineRouterApp"] };

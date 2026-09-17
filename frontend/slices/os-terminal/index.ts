@@ -21,6 +21,7 @@ export const osTerminalApp: AppDescriptor = {
   title: "Terminal",
   icon: SquareTerminal,
   gradient: "linear-gradient(160deg,#3a3a40,#111114)",
+  prefetch: "never",
   load: () => import("./app"),
   defaultSize: { w: 640, h: 400 },
 };
@@ -31,6 +32,7 @@ export const claudeCodeApp: AppDescriptor = {
   title: "Claude Code",
   icon: Bot,
   gradient: "linear-gradient(160deg,#d97757,#8a4a30)",
+  prefetch: "never",
   load: () => import("./claude-code"),
   defaultSize: { w: 760, h: 480 },
 };

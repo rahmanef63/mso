@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+// Owned by the lazy graph boundary, not every page in the cockpit.
+import "@xyflow/react/dist/style.css";
+
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -11,6 +14,8 @@ import {
   ReactFlowProvider,
   SelectionMode,
   useReactFlow,
+  useNodesInitialized,
+  useStore,
   type Edge,
   type MiniMapProps,
   type Node,
@@ -18,7 +23,7 @@ import {
 } from "@xyflow/react";
 import { Hand, LayoutGrid, Maximize2, MousePointer2, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useContainer } from "@/features/appshell";
+import { compactGraphViewport } from "./graph-fit";
 
 export type GraphCanvasMode = "select" | "pan";
 type MiniMapNodeColor = MiniMapProps["nodeColor"];
@@ -50,19 +55,33 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
   const [mode, setMode] = useState<GraphCanvasMode>(initialMode);
   const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const flowId = props.id || `mso-graph-${instanceId}`;
-  const [containerRef, pane] = useContainer<HTMLDivElement>();
-  const compact = pane === "xs" || pane === "sm";
+  // Use the graph's measured viewport, including height: landscape panes can be
+  // wide but far too short to fit a complete graph at a readable scale.
+  const width = useStore((state) => state.width);
+  const height = useStore((state) => state.height);
+  const initialized = useNodesInitialized();
+  const compact = compactGraphViewport(width, height);
+  const fitted = useRef(false);
+  const [fitRevision, requestFit] = useState(0);
+  // Node selection/movement may recreate the array without changing the focus set.
+  const focusKey = JSON.stringify(compactFitNodeIds ?? []);
+  const focusNodes = useMemo(() => (JSON.parse(focusKey) as string[]).map((id) => ({ id })), [focusKey]);
   const { fitView, zoomIn, zoomOut } = useReactFlow<NodeType, EdgeType>();
   const fit = useCallback(() => void fitView({ padding: fitPadding, duration: 220, ...fitViewOptions }), [fitPadding, fitView, fitViewOptions]);
-  const fitResponsive = useCallback(() => {
-    const nodes = compact && compactFitNodeIds?.length ? compactFitNodeIds.map((id) => ({ id })) : undefined;
-    void fitView({ padding: compact ? Math.min(fitPadding, 0.14) : fitPadding, duration: 220, ...fitViewOptions, ...(nodes ? { nodes, maxZoom: compactFitMaxZoom } : {}) });
-  }, [compact, compactFitMaxZoom, compactFitNodeIds, fitPadding, fitView, fitViewOptions]);
+  const fitResponsive = useCallback((duration: number) => {
+    const nodes = compact && focusNodes.length ? focusNodes : undefined;
+    void fitView({ padding: compact ? Math.min(fitPadding, 0.14) : fitPadding, duration, ...fitViewOptions, ...(nodes ? { nodes, maxZoom: compactFitMaxZoom } : {}) });
+  }, [compact, compactFitMaxZoom, focusNodes, fitPadding, fitView, fitViewOptions]);
   useEffect(() => {
-    const raf = requestAnimationFrame(() => requestAnimationFrame(fitResponsive));
-    return () => cancelAnimationFrame(raf);
-  }, [fitResponsive, pane]);
-  const tidy = useCallback(() => { onTidy?.(); requestAnimationFrame(() => requestAnimationFrame(fitResponsive)); }, [fitResponsive, onTidy]);
+    if (!initialized || width <= 0 || height <= 0) return;
+    // A single owner fits only after lazy CSS and node measurement are ready.
+    // Cancel whichever frame is pending on resize/unmount, including the inner one.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => { fitResponsive(fitted.current ? 220 : 0); fitted.current = true; });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [initialized, width, height, fitResponsive, fitRevision]);
+  const tidy = useCallback(() => { onTidy?.(); requestFit((revision) => revision + 1); }, [onTidy]);
   const keyboard = (event: React.KeyboardEvent<HTMLDivElement>) => {
     onKeyDown?.(event); if (event.defaultPrevented) return;
     const target = event.target as HTMLElement;
@@ -74,13 +93,12 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
     if (key === "+" || key === "=") { event.preventDefault(); void zoomIn({ duration: 160 }); }
     if (key === "-") { event.preventDefault(); void zoomOut({ duration: 160 }); }
   };
-  return <div ref={containerRef} className="h-full min-h-0 w-full min-w-0 outline-none" tabIndex={0} onKeyDown={keyboard}>
+  return <div className="h-full min-h-0 w-full min-w-0 outline-none" tabIndex={0} onKeyDown={keyboard}>
     <ReactFlow<NodeType, EdgeType>
       {...props}
       id={flowId}
       aria-label={ariaLabel}
       className={cn("mso-graph-flow h-full w-full", className)}
-      fitView fitViewOptions={{ padding: fitPadding, duration: 220, ...fitViewOptions }}
       minZoom={props.minZoom ?? 0.18} maxZoom={props.maxZoom ?? 2.5}
       selectionMode={SelectionMode.Partial} selectionOnDrag={mode === "select"}
       panOnDrag={mode === "pan" ? true : [1, 2]} panOnScroll={mode === "select"}

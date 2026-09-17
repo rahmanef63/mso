@@ -86,6 +86,8 @@ export type AppDescriptor = {
   iconFill?: boolean;
   /** Lazy-loaded so a window only pulls its app bundle when opened. */
   load: () => Promise<{ default: ComponentType<AppProps> }>;
+  /** Warm after deliberate hover/focus, or only load on open for expensive apps. */
+  prefetch?: "intent" | "never";
   defaultSize?: { w: number; h: number };
   /** Hide from the dock (still launchable via launcher). */
   noDock?: boolean;
