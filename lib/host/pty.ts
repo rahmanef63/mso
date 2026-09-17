@@ -11,7 +11,7 @@
 // (high-volume, and the owner has a full shell by design).
 import { spawn } from "node-pty";
 import type { IPty } from "node-pty";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { HostError } from "./host-error";
 import { resolveCwd } from "./exec";
 import { childEnv } from "./child-env";
@@ -36,6 +36,7 @@ export type PtyListener = {
 
 type Session = {
   id: string;
+  ownerHash: string;
   pty: IPty;
   /** Replay ring: recent output chunks with absolute start offsets. */
   chunks: { off: number; data: string }[];
@@ -70,9 +71,14 @@ function ensureReaper(): void {
   g.__osPtyReaper.unref?.();
 }
 
-function get(id: string): Session {
+function ownerHash(owner: string): string {
+  if (!owner || owner.length > 512) throw new HostError("Unknown terminal session");
+  return createHash("sha256").update(owner).digest("hex");
+}
+
+function get(id: string, owner: string): Session {
   const s = sessions.get(id);
-  if (!s) throw new HostError("Unknown terminal session");
+  if (!s || s.ownerHash !== ownerHash(owner)) throw new HostError("Unknown terminal session");
   return s;
 }
 
@@ -102,6 +108,7 @@ export async function openPty(opts: {
   cols: number;
   rows: number;
   cwd?: string;
+  owner: string;
 }): Promise<{ id: string; cwd: string }> {
   let live = 0;
   for (const s of sessions.values()) if (!s.dead) live++;
@@ -123,6 +130,7 @@ export async function openPty(opts: {
   });
   const s: Session = {
     id: randomBytes(16).toString("hex"),
+    ownerHash: ownerHash(opts.owner),
     pty,
     chunks: [],
     buffered: 0,
@@ -154,15 +162,16 @@ export async function openPty(opts: {
 }
 
 /** True when the session id exists (live or recently exited). */
-export function hasPty(id: string): boolean {
-  return sessions.has(id);
+export function hasPty(id: string, owner: string): boolean {
+  const session = sessions.get(id);
+  return Boolean(session && session.ownerHash === ownerHash(owner));
 }
 
 // Attach a stream: replay buffered output past `fromOffset` synchronously,
 // then live events. A dead session replays + fires onExit immediately.
 // Returns the detach fn (idle-reap clock starts when the last client leaves).
-export function attachPty(id: string, fromOffset: number, l: PtyListener): () => void {
-  const s = get(id);
+export function attachPty(id: string, owner: string, fromOffset: number, l: PtyListener): () => void {
+  const s = get(id, owner);
   const from = Math.max(0, Math.min(fromOffset, s.offset));
   for (const c of s.chunks) {
     const end = c.off + c.data.length;
@@ -180,14 +189,14 @@ export function attachPty(id: string, fromOffset: number, l: PtyListener): () =>
   };
 }
 
-export function writePty(id: string, data: string): void {
-  const s = get(id);
+export function writePty(id: string, owner: string, data: string): void {
+  const s = get(id, owner);
   if (s.dead) throw new HostError("Terminal session has exited");
   s.pty.write(data);
 }
 
-export function resizePty(id: string, cols: number, rows: number): void {
-  const s = get(id);
+export function resizePty(id: string, owner: string, cols: number, rows: number): void {
+  const s = get(id, owner);
   if (s.dead) throw new HostError("Terminal session has exited");
   s.pty.resize(clampDim(cols), clampDim(rows));
 }
@@ -195,9 +204,9 @@ export function resizePty(id: string, cols: number, rows: number): void {
 // Idempotent close: the client fires close-on-unmount even after the shell
 // already exited. Returns whether a live shell was actually killed (audit
 // only logs a real kill).
-export function closePty(id: string): boolean {
+export function closePty(id: string, owner: string): boolean {
   const s = sessions.get(id);
-  if (!s || s.dead) return false;
+  if (!s || s.ownerHash !== ownerHash(owner) || s.dead) return false;
   s.pty.kill();
   return true;
 }

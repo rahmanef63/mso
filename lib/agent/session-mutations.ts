@@ -6,6 +6,7 @@ import { autoSessionTitle, estimateTokens, MAX_EVENTS, MAX_HISTORY, safeTitle } 
 import { retainSessionEvents } from "./session-sequence";
 import { appendSemanticSessionEvent } from "./session-semantic";
 import { archiveDroppedSessionEvents } from "./session-action-history";
+import { captureSessionArtifactRevision } from "./session-artifact-history";
 import { compactIfNeeded, requireOwned } from "./session-record";
 import type { AgentSession, AgentSessionEvent, AgentSessionTitleSource } from "./session-types";
 
@@ -124,6 +125,8 @@ export async function appendAgentSessionEvent(
           }
         : {}),
     };
+    const artifactRevision = await captureSessionArtifactRevision(row, record.cwd);
+    if (artifactRevision) row.artifactRevision = artifactRevision;
     const expanded = appendSemanticSessionEvent(record.events, row);
     const retained = retainSessionEvents(expanded, record.eventSeqBase, MAX_EVENTS);
     const droppedCount = expanded.length - retained.events.length;

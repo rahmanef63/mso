@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
+import { getSessionActor } from "@/lib/auth/require-session";
 import { attachPty, hasPty } from "@/lib/host/terminal-api";
 
 export const runtime = "nodejs";
@@ -17,8 +18,10 @@ export async function GET(req: Request) {
   if (!(await verifyAuth(req)))
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+  const actor = await getSessionActor();
+  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const id = new URL(req.url).searchParams.get("id") ?? "";
-  if (!id || !hasPty(id))
+  if (!id || !hasPty(id, actor))
     return NextResponse.json({ error: "Unknown terminal session" }, { status: 400 });
   const last = req.headers.get("last-event-id");
   const from = last ? parseInt(last, 10) || 0 : 0;
@@ -53,7 +56,7 @@ export async function GET(req: Request) {
         }
       };
       try {
-        detach = attachPty(id, from, {
+        detach = attachPty(id, actor, from, {
           onData: (chunk, off) =>
             send(`id: ${off}\nevent: data\ndata: ${Buffer.from(chunk, "utf8").toString("base64")}\n\n`),
           onExit: (code) => {
