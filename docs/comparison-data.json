@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-08-29",
+  "reviewedAt": "2026-09-17",
   "expiresAfterDays": 90,
   "positioning": "MSO is designed as a mobile-first, AI-native private Linux workspace for an owner or small trusted team. It does not claim to replace specialist products at their strongest specialty.",
   "legend": {
@@ -54,11 +54,13 @@
       "ratings": {
         "workspace": {
           "value": "strong",
-          "note": "Files, real PTY, code/media editors, managed apps, responsive shells, PWA, and CLI share one API surface.",
+          "note": "Files, real PTY, code/media editors, managed apps, Integrations, Workflows, Organization, responsive shells, PWA, and CLI share one authenticated runtime.",
           "evidence": [
             "app/os-root.tsx",
             "frontend/slices/files-manager/app.tsx",
             "frontend/slices/os-terminal/components/pty-terminal.tsx",
+            "frontend/slices/workflows/app.tsx",
+            "frontend/slices/organization/app.tsx",
             "frontend/slices/appshell/responsive/responsive-provider.tsx"
           ]
         },
@@ -74,11 +76,13 @@
         },
         "delivery": {
           "value": "partial",
-          "note": "Pinned managed-app install/update/backup/rollback paths exist, but MSO is not yet a general Git-to-container PaaS.",
+          "note": "Pinned managed-app install/update/backup/rollback paths are built in, and named Integrations can orchestrate GitHub/Dokploy delivery plus DNS/provider operations. MSO still delegates the underlying PaaS/container control plane rather than replacing one.",
           "evidence": [
             "lib/managed-apps/install.ts",
             "lib/managed-apps/update.ts",
-            "lib/managed-apps/backups.ts"
+            "lib/managed-apps/backups.ts",
+            "lib/infra/dokploy.ts",
+            "lib/infra/connection-dispatch.ts"
           ]
         },
         "observability": {
@@ -102,12 +106,13 @@
         },
         "aiControl": {
           "value": "strong",
-          "note": "BYOK Alfa, structured host/editor tools, remote OAuth/PKCE MCP, CLI parity, and project-aware tool discovery are native product surfaces.",
+          "note": "BYOK plus dynamic provider discovery, structured host/editor/integration/workflow tools, OAuth/PKCE Streamable-HTTP MCP, ChatGPT list/page surfaces, durable agent sessions, and project-aware MCP discovery are native product surfaces.",
           "evidence": [
             "app/api/assistant/route.ts",
             "app/mcp/route.ts",
-            "lib/mcp/dispatch.ts",
-            "frontend/slices/assistant/app.tsx"
+            "lib/mcp/tools.ts",
+            "app/api/v1/agent-sessions/route.ts",
+            "frontend/slices/workflows/app.tsx"
           ]
         }
       }
@@ -161,6 +166,10 @@
         {
           "label": "Coolify CI/CD",
           "url": "https://coolify.io/docs/applications/ci-cd"
+        },
+        {
+          "label": "Coolify MCP",
+          "url": "https://coolify.io/docs/mcp/what-is-mcp"
         }
       ],
       "ratings": {
@@ -185,8 +194,8 @@
           "note": "Team projects, roles, and permissions are first-class product features."
         },
         "aiControl": {
-          "value": "none",
-          "note": "No native AI workspace or MCP host control comparable to MSO."
+          "value": "partial",
+          "note": "Coolify now exposes a native team-scoped MCP server with tools, resources, prompts, deployment/lifecycle operations, logs, and Git integration discovery. Its documented MCP flow is client-driven through compatible external AI clients rather than an integrated Coolify assistant surface."
         }
       }
     },
@@ -200,8 +209,8 @@
           "url": "https://docs.portainer.io/"
         },
         {
-          "label": "Portainer stack operations",
-          "url": "https://docs.portainer.io/2.33-lts/user/docker/stacks/edit"
+          "label": "Portainer stack delivery",
+          "url": "https://docs.portainer.io/user/docker/stacks/add"
         }
       ],
       "ratings": {
@@ -243,6 +252,18 @@
         {
           "label": "Netdata AI Insights",
           "url": "https://learn.netdata.cloud/docs/netdata-ai/insights"
+        },
+        {
+          "label": "Netdata AI",
+          "url": "https://learn.netdata.cloud/docs/netdata-ai"
+        },
+        {
+          "label": "Netdata MCP",
+          "url": "https://learn.netdata.cloud/docs/netdata-ai/mcp"
+        },
+        {
+          "label": "Netdata access control",
+          "url": "https://learn.netdata.cloud/docs/security-and-privacy-design/access-control-and-feature-availability"
         }
       ],
       "ratings": {
@@ -264,11 +285,11 @@
         },
         "delegation": {
           "value": "partial",
-          "note": "Cloud/team access exists, but identity and remote host access are not its primary comparison axis."
+          "note": "Team management exists, and paid plans add RBAC and SSO; identity and remote host access are not Netdata’s primary product scope."
         },
         "aiControl": {
-          "value": "partial",
-          "note": "AI Insights explains telemetry and recommends actions; it does not expose a general host-action MCP surface."
+          "value": "strong",
+          "note": "Netdata AI provides built-in conversations, insights and investigations, while native Cloud and Agent/Parent MCP servers expose metrics, alerts, logs, anomaly/RCA queries, and supported function execution to AI clients."
         }
       }
     },
@@ -312,7 +333,7 @@
     {
       "id": "file-browser",
       "name": "File Browser",
-      "bestFor": "Focused web file management",
+      "bestFor": "Archived focused web file management",
       "sources": [
         {
           "label": "File Browser repository",
@@ -322,7 +343,7 @@
       "ratings": {
         "workspace": {
           "value": "partial",
-          "note": "Strong upload/delete/preview/edit file surface, without a complete server workspace."
+          "note": "The final shipped product provides upload/delete/preview/edit file management, but the repository is now archived and no longer maintained."
         },
         "hostOps": {
           "value": "none",
