@@ -12,8 +12,8 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "coverage": "vitest run --coverage",
+    "test": "node scripts/check-test-toolchain.mjs && vitest run",
+    "coverage": "node scripts/check-test-toolchain.mjs && vitest run --coverage",
     "check": "node scripts/check-cycles.mjs && node scripts/check-architecture.mjs && node scripts/check-docs.mjs && node scripts/gen-comparison.mjs --check && node scripts/check-contrast.mjs && bun scripts/check-skill-flows.mjs && bun run check:instance-literals",
     "audit": "node scripts/audit.mjs",
     "verify": "bun run typecheck && bun run lint && bun run coverage && bun run check && bun run audit",
@@ -98,7 +98,7 @@
     "@types/node": "^22.19.20",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "5.0.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.3.3",
     "fast-check": "^4.9.0",
@@ -107,7 +107,7 @@
     "simple-icons": "^16.30.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "5.0.0"
   },
   "packageManager": "bun@1.4.2"
 }

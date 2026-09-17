@@ -19,7 +19,19 @@ updates:
       - dependency-name: typescript
         update-types:
           - version-update:semver-major
+      # Typings track the supported runtime baseline in .nvmrc, not latest Node.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
     groups:
+      test-toolchain:
+        patterns:
+          - vitest
+          - "@vitest/*"
+        update-types:
+          - major
+          - minor
+          - patch
       production-minor-patch:
         dependency-type: production
         update-types:
@@ -27,6 +39,9 @@ updates:
           - patch
       development-minor-patch:
         dependency-type: development
+        exclude-patterns:
+          - vitest
+          - "@vitest/*"
         update-types:
           - minor
           - patch

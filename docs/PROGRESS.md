@@ -1,3 +1,22 @@
+## 2026-09-17 — Reconcile dependency PRs as one tested release candidate
+
+The continuation preserved the pending cooldown and lock-fixture fixes and reconciled
+Dependabot production, PostCSS and pinned CodeQL action changes in an isolated worktree.
+The PostCSS/React lockfile conflict contained independent nested package entries; both
+were retained instead of replacing the newer React dependency graph.
+
+The separate Vitest major PRs selected incompatible runner/coverage pairs. Even matching
+major versions can resolve to different patches, so canonical test and coverage commands
+now fail early unless the installed versions match exactly. The reviewed Vitest 5.0.0
+runner and coverage provider are pinned together, and Dependabot groups future Vitest
+packages in one PR. A fixture covers both major and patch mismatches. Node typings remain
+on the .nvmrc baseline (22); a newer typing major is not accepted merely because tsc passes.
+The existing coverage floors and test assertions are unchanged.
+
+These changes are a candidate, not a production claim. The current main release stays
+untouched while normal PR authentication, required checks and exact-SHA release verification
+are pending. No owner exception or direct-main publication is used by this continuation.
+
 ## 2026-09-17 — Keep native dependency updates behind the existing cooldown
 
 The hosted Semgrep scan reproduced a missing seven-day cooldown on the new isolated
