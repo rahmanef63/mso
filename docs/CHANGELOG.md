@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `integrations` preserve implicit direct connection compatibility
 - `workflows` harden reconciled artifact history reads
 - `integrations` prefer GitHub OAuth
 - `hosted` restore updates and Hermes runtime

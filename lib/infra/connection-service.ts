@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { connectionCatalog, connectionMethod, connectionSources, connectionSummary, nativeDefinition } from "./connection-registry";
+import { connectionCatalog, connectionMethod, connectionSummary, nativeDefinition } from "./connection-registry";
 import { readIntegrationState, mutateIntegrationState } from "./connection-storage";
 import { IntegrationError, identity, connectionLabel, selectConnection, resolveUser, folderBinding, metadataOnly, assertNotBusy, resolveSharedConnection, type ConnectionSelector, type IntegrationState, type IntegrationConnection, type ConnectionSource } from "./identity";
 import { normalizeInfraValues, isInfraProviderId } from "./catalog";
@@ -27,7 +27,7 @@ export async function integrationSnapshot(selector:ConnectionSelector={}){
 }
 export function createConnectionIn(state:IntegrationState,input:{user:string;provider:string;connection:string;label?:string;source?:ConnectionSource;authMethod?:string;makeDefault?:boolean}){
   const user=identity(input.user,"user"),provider=identity(input.provider,"provider"),id=identity(input.connection,"connection"),profile=state.users[user];if(!profile)throw new IntegrationError("user_not_found",404);
-  const source=input.source??connectionSources(provider)[0]??"direct",method=connectionMethod(provider,source,input.authMethod),rows=profile.connections[provider]??{};
+  const source=input.source??"direct",method=connectionMethod(provider,source,input.authMethod),rows=profile.connections[provider]??{};
   if(Object.hasOwn(rows,id))throw new IntegrationError("connection_exists",409);
   const c:IntegrationConnection={id,uid:randomUUID(),label:connectionLabel(input.label??id),provider,source,authMethod:method.id,scope:method.scope,revision:1,values:{},createdAt:Date.now(),updatedAt:Date.now()};
   profile.connections[provider]={...rows,[id]:c};if(input.makeDefault||!Object.keys(rows).length)profile.defaults[provider]=id;return c;

@@ -19,7 +19,11 @@ read roots; synthetic test roots explicitly grant only their own read/write acce
 The audit records every observed branch, worktree and PR with a disposition. Normal Git
 cleanup removes only clean, dormant worktrees whose HEAD is already reachable from main;
 active/dirty/unmerged trees, local environments and referenced dependencies remain protected.
-A verified private Git bundle and ignored-note backups precede cleanup. Detailed verification
+A verified private Git bundle and ignored-note backups precede cleanup.
+Full-suite verification caught a compatibility issue in the preserved OAuth candidate:
+UI ordering must not change the existing API default for an omitted connection source.
+The API retains its original direct default; the UI explicitly submits the selected OAuth
+source, preserving both existing callers and OAuth-first presentation. Detailed verification
 and release status belong to the workflow evidence; this entry does not claim deployment.
 
 ## 2026-09-17 — GitHub OAuth-first Integrations routing
