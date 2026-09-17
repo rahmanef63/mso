@@ -150,7 +150,9 @@ Cloudflare currently reports managed-process/restart/reconnect support. A generi
 reports public-health/external-detection capability but no managed-process/restart authority.
 
 The managed adapter contract is intentionally small: parse/validate start intent, start/reconcile through
-its provider implementation, inspect health/state through the generic core, and expose capabilities.
+its provider implementation, inspect health/state through the generic core, and expose capabilities. Provider-specific
+tool/tunnel code is loaded lazily through this boundary, so read-only status/external-route paths do not import the
+Cloudflare adapter and generic reconciliation calls the provider probe contract rather than a Cloudflare helper.
 This is additive to the existing shell architecture; it is not a new heavyweight plugin framework.
 
 ## Managed versus external gateway

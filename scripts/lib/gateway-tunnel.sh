@@ -62,7 +62,7 @@ gateway_validate_named_tunnel() {
 
 gateway_spawn_tunnel() {
   local pid identity
-  gateway_private_file "$CF_LOG"; : >"$CF_LOG"
+  gateway_private_file "$PROVIDER_LOG"; : >"$PROVIDER_LOG"
   # The parent intentionally has OS_LOGIN_PASSWORD, session secrets and BYOK keys
   # for the Next runtime. The held-child helper scrubs that environment and cannot
   # exec cloudflared until this parent has persisted the child lifetime identity.
@@ -98,60 +98,6 @@ gateway_refresh_tunnel_identity() {
 }
 
 
-gateway_quick_public_ipv4s() {
-  local host response
-  host="$(node - "$GATEWAY_PUBLIC_URL" <<'NODE'
-try {
-  const u = new URL(process.argv[2]);
-  if (u.protocol !== 'https:' || !/^[A-Za-z0-9-]+\.trycloudflare\.(?:com|app)$/.test(u.hostname)) process.exit(1);
-  process.stdout.write(u.hostname);
-} catch { process.exit(1); }
-NODE
-)" || return 1
-  response="$("$CURL" -fsS --max-time 5 -H 'accept: application/dns-json' \
-    "https://cloudflare-dns.com/dns-query?name=$host&type=A" 2>/dev/null || true)"
-  [ -n "$response" ] || return 1
-  jq -r '.Answer[]? | select(.type == 1) | .data' <<<"$response" 2>/dev/null \
-    | node -e '
-      const net=require("net"), readline=require("readline");
-      const blocked=(ip)=>{const p=ip.split(".").map(Number); return p[0]===0||p[0]===10||p[0]===127||p[0]>=224||
-        (p[0]===169&&p[1]===254)||(p[0]===172&&p[1]>=16&&p[1]<=31)||(p[0]===192&&p[1]===168)||
-        (p[0]===100&&p[1]>=64&&p[1]<=127)||(p[0]===198&&(p[1]===18||p[1]===19));};
-      const rl=readline.createInterface({input:process.stdin,crlfDelay:Infinity});
-      rl.on("line",ip=>{ip=ip.trim(); if(net.isIP(ip)===4&&!blocked(ip)) console.log(ip);});'
-}
-
-gateway_quick_edge_health_ok() {
-  local host ip body
-  [ "$GATEWAY_MODE" = temporary ] || return 1
-  host="${GATEWAY_PUBLIC_URL#https://}"
-  while IFS= read -r ip; do
-    [ -n "$ip" ] || continue
-    # --resolve bypasses only the caller's DNS cache. TLS still verifies the
-    # random trycloudflare hostname, and the body must match this launch's nonce.
-    body="$("$CURL" -fsS --max-time 5 --resolve "$host:443:$ip" \
-      "$GATEWAY_PUBLIC_URL/api/health" 2>/dev/null || true)"
-    gateway_health_body_matches_identity "$body" "$LOCAL_HEALTH_IDENTITY" && return 0
-  done < <(gateway_quick_public_ipv4s || true)
-  return 1
-}
-
-gateway_probe_public() {
-  local seconds="${MSO_GATEWAY_PUBLIC_READY_SECONDS:-60}" i
-  [ "${MSO_GATEWAY_SKIP_PUBLIC_PROBE:-0}" = 1 ] && return 0
-  [[ "$seconds" =~ ^[0-9]+$ ]] && [ "$seconds" -ge 10 ] && [ "$seconds" -le 120 ] \
-    || gateway_fail "MSO_GATEWAY_PUBLIC_READY_SECONDS must be an integer from 10 to 120"
-  # A newly allocated Quick Tunnel hostname can exist before the edge route has
-  # propagated. Do not weaken the MSO health/instance check; give the provider a
-  # bounded readiness window instead. Named tunnels usually pass on the first poll.
-  for i in $(seq 1 "$seconds"); do
-    gateway_health_url_matches_identity "$GATEWAY_PUBLIC_URL" "$LOCAL_HEALTH_IDENTITY" && return 0
-    gateway_quick_edge_health_ok && return 0
-    sleep 1
-  done
-  return 1
-}
-
 gateway_cleanup_failed_start() {
   # Until durable commit, the PID/start-ticks handshake proves this is OUR child
   # even if an interpreter exec or process-title update changed its argv identity.
@@ -186,11 +132,11 @@ gateway_cmd_start_locked() {
   TUNNEL_IDENTITY=null; GATEWAY_PUBLIC_URL="${GATEWAY_PUBLIC_URL:-}"
   gateway_spawn_tunnel || { gateway_cleanup_failed_start; gateway_fail "cloudflared failed to start with the expected argv"; }
   if [ "$GATEWAY_MODE" = temporary ]; then
-    gateway_discover_quick_url || { gateway_cleanup_failed_start; gateway_fail "Quick Tunnel did not return a public URL; see $CF_LOG"; }
+    gateway_discover_quick_url || { gateway_cleanup_failed_start; gateway_fail "Quick Tunnel did not return a public URL; see $PROVIDER_LOG"; }
   fi
   GATEWAY_PUBLIC_URL="$(gateway_validate_public_origin "$GATEWAY_PUBLIC_URL" 2>/dev/null || true)"
   [ -n "$GATEWAY_PUBLIC_URL" ] || { gateway_cleanup_failed_start; gateway_fail "tunnel produced an invalid public origin"; }
-  gateway_probe_public || { gateway_cleanup_failed_start; gateway_fail "public endpoint did not return the MSO health contract; see $CF_LOG"; }
+  gateway_probe_public || { gateway_cleanup_failed_start; gateway_fail "public endpoint did not return the MSO health contract; see $PROVIDER_LOG"; }
   gateway_refresh_tunnel_identity || { gateway_cleanup_failed_start; gateway_fail "ready tunnel no longer matches its spawned process"; }
   if ! gateway_write_state "$GATEWAY_PROVIDER" "$GATEWAY_MODE" "$GATEWAY_PUBLIC_URL" "$TUNNEL_IDENTITY"; then
     gateway_cleanup_failed_start
