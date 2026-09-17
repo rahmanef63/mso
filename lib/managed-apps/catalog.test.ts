@@ -25,6 +25,7 @@ describe("managed app catalog", () => {
     const hermes = getManagedAppDefinition("hermes");
     const openclaw = getManagedAppDefinition("openclaw");
     expect(hermes.serviceNames).not.toEqual(openclaw.serviceNames);
+    expect(hermes.healthPath).toBe("/api/health");
   });
   it("keeps 9Router loopback-only unless public exposure is explicitly enabled", () => {
     const source = readFileSync(new URL("../../scripts/managed-app-9router", import.meta.url), "utf8");

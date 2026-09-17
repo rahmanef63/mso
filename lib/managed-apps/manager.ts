@@ -2,9 +2,10 @@ import "server-only";
 import os from "node:os";
 import { createBackup } from "./backups";
 import { getManagedAppDefinition, listManagedAppDefinitions } from "./catalog";
+import { dockerUsable, requireDocker, runDocker } from "./docker";
 import { acquireOperation, activeOperation, releaseOperation } from "./lock";
 import { redact } from "./redact";
-import { commandExists, requireProgram, resolveCommand, runProgram } from "./runner";
+import { commandExists, resolveCommand, runProgram } from "./runner";
 import { userBusEnv, userBusUnavailable } from "./user-bus";
 import type { ManagedAppAction, ManagedAppDefinition, ManagedAppId, ManagedAppLogs, ManagedAppView } from "./types";
 
@@ -44,8 +45,8 @@ async function detect(definition: ManagedAppDefinition): Promise<Installation> {
   for (const serviceName of definition.serviceNames) {
     if (await systemdState(serviceName) !== "missing") return { type: "systemd", serviceName };
   }
-  if (await commandExists("docker")) {
-    const result = await runProgram("docker", ["ps", "-a", "--format", "{{.Names}}"], 10_000);
+  if (await dockerUsable()) {
+    const result = await runDocker(["ps", "-a", "--format", "{{.Names}}"], 10_000);
     const names = new Set(result.stdout.split(/\r?\n/).map((name) => name.trim()));
     const containerName = definition.containerNames.find((name) => names.has(name));
     if (containerName) return { type: "docker", containerName };
@@ -57,7 +58,7 @@ async function detect(definition: ManagedAppDefinition): Promise<Installation> {
 async function running(installation: Installation): Promise<boolean> {
   if (installation.type === "systemd" && installation.serviceName) return (await systemdState(installation.serviceName)) === "active";
   if (installation.type === "docker" && installation.containerName) {
-    const result = await runProgram("docker", ["inspect", "--format", "{{.State.Running}}", installation.containerName], 10_000);
+    const result = await runDocker(["inspect", "--format", "{{.State.Running}}", installation.containerName], 10_000);
     return result.code === 0 && result.stdout.trim() === "true";
   }
   return false;
@@ -156,6 +157,7 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
         : isRunning
           ? "running"
           : "stopped";
+  const dockerFallbackAvailable = id === "hermes" && installation.type === "not-installed" && await dockerUsable();
   return {
     id,
     name: definition.name,
@@ -172,7 +174,9 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
     // been seen, and nothing about the bus can make that observation wrong.
     diagnostic:
       installation.type === "not-installed" && userBusUnavailable()
-        ? "MSO cannot reach this user's systemd bus, so it cannot see user services — this app may in fact be installed. Run `loginctl enable-linger` for the user, and set XDG_RUNTIME_DIR=/run/user/<uid> in mso.service (a drop-in under /etc/systemd/system/mso.service.d/)."
+        ? dockerFallbackAvailable
+          ? null
+          : "MSO cannot reach this user's systemd bus, so it cannot see user services. On a systemd host enable user linger and provide XDG_RUNTIME_DIR; on a systemd-less/container host use a supported Docker runtime."
         : null,
   };
 }
@@ -198,7 +202,7 @@ async function runLifecycle(installation: Installation, action: "start" | "stop"
     throw new Error(`systemctl ${action} ${installation.serviceName} failed: ${lastError.slice(0, 300)}`);
   }
   if (installation.type === "docker" && installation.containerName) {
-    await requireProgram("docker", [action, installation.containerName], 30_000);
+    await requireDocker([action, installation.containerName], 30_000);
     return;
   }
   throw new Error("operation unsupported for detected installation type");
@@ -231,7 +235,7 @@ export async function getManagedAppLogs(id: ManagedAppId): Promise<ManagedAppLog
     result = await runProgram("journalctl", ["--user", "-u", installation.serviceName, "-n", "100", "--no-pager", "-o", "short-iso"], 15_000);
     if (result.code !== 0) result = await runProgram("journalctl", ["-u", installation.serviceName, "-n", "100", "--no-pager", "-o", "short-iso"], 15_000);
   } else if (installation.type === "docker" && installation.containerName) {
-    result = await runProgram("docker", ["logs", "--tail", "100", installation.containerName], 15_000);
+    result = await runDocker(["logs", "--tail", "100", installation.containerName], 15_000);
   }
   if (!result || result.code !== 0) return { available: false, entries: [] };
   return { available: true, entries: `${result.stdout}\n${result.stderr}`.split(/\r?\n/).filter(Boolean).slice(-100).map(redact) };

@@ -33,6 +33,7 @@ validate_artifact_lock() {
   [[ "$HERMES_INSTALLER_URL" == "https://raw.githubusercontent.com/NousResearch/hermes-agent/$HERMES_INSTALLER_TAG/scripts/install.sh" ]] || return 1
   [[ "$HERMES_INSTALLER_COMMIT" =~ ^[0-9a-f]{40}$ ]] || return 1
   [[ "$HERMES_INSTALLER_SHA256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$HERMES_IMAGE_REF" =~ ^nousresearch/hermes-agent@sha256:[0-9a-f]{64}$ ]] || return 1
   [[ "$OPENCLAW_VERSION" =~ ^[0-9][0-9A-Za-z.-]*$ ]] || return 1
   [[ "$OPENCLAW_TARBALL_SHA512" =~ ^[0-9a-f]{128}$ ]] || return 1
 }
@@ -95,35 +96,143 @@ ensure_user_bus() {
   return 1
 }
 
+
+# Hosted/systemd-less installs may expose Docker only through passwordless sudo.
+docker_cli() {
+  if docker version --format '{{.Server.Version}}' >/dev/null 2>&1; then
+    DOCKER=(docker)
+    return 0
+  fi
+  if sudo -n docker version --format '{{.Server.Version}}' >/dev/null 2>&1; then
+    DOCKER=(sudo -n docker)
+    return 0
+  fi
+  return 1
+}
+
+HERMES_RUNTIME=native
+
 # Checked HERE, before ~20 minutes of downloading and compiling, because the last
 # step is the most expensive place to discover a missing environment variable.
 if command -v systemctl >/dev/null 2>&1; then
   if ensure_user_bus; then
     log "user systemd bus: ${XDG_RUNTIME_DIR}/bus"
+  elif [ "$APP" = "hermes" ] && docker_cli; then
+    HERMES_RUNTIME=docker
+    log "user systemd unavailable; Hermes will use its pinned Docker runtime"
   else
     cat >&2 <<MSG
 cannot reach the systemd user bus for $(id -un), so $APP's service could not be
 installed even if everything else succeeded. Nothing has been changed.
 
-MSO is probably running as a systemd system unit, which gets no login session and
-therefore no XDG_RUNTIME_DIR. Fix it once, on the host:
-
-  sudo loginctl enable-linger $(id -un)
-  sudo mkdir -p /etc/systemd/system/mso.service.d
-  printf '[Service]\nEnvironment=XDG_RUNTIME_DIR=/run/user/%s\n' "$(id -u)" \\
-    | sudo tee /etc/systemd/system/mso.service.d/10-user-bus.conf
-  sudo systemctl daemon-reload && sudo systemctl restart mso
-
-Then start this install again.
+On a normal systemd host, enable user linger and give MSO the user's runtime dir.
+On a systemd-less/container host, Hermes can instead use the reviewed Docker
+runtime when Docker is available to the MSO service account.
 MSG
     exit 1
   fi
 else
-  echo "no systemctl on this host — $APP will be installed without a service" >&2
+  if [ "$APP" = "hermes" ] && docker_cli; then
+    HERMES_RUNTIME=docker
+    log "systemd is unavailable; Hermes will use its pinned Docker runtime"
+  else
+    echo "no usable systemd user bus or Docker runtime for $APP" >&2
+    exit 1
+  fi
 fi
 
 # ---------------------------------------------------------------- hermes ----
+hermes_provider_env_name() {
+  case "$PROVIDER" in
+    anthropic) echo ANTHROPIC_API_KEY ;;
+    openai) echo OPENAI_API_KEY ;;
+    openrouter) echo OPENROUTER_API_KEY ;;
+    nous) echo NOUS_API_KEY ;;
+    "") return 1 ;;
+    *) echo "unsupported Hermes provider '$PROVIDER'" >&2; return 2 ;;
+  esac
+}
+
+persist_hermes_provider_key() {
+  [ -n "$KEY" ] || return 0
+  local env_name env_file tmp
+  env_name="$(hermes_provider_env_name)" || return 1
+  case "$KEY" in
+    *$'\n'*|*$'\r'*) echo "Hermes provider key contains a control character" >&2; return 1 ;;
+  esac
+  mkdir -p "$HOME/.hermes"
+  env_file="$HOME/.hermes/.env"
+  tmp="$(mktemp "$HOME/.hermes/.env.mso.XXXXXX")"
+  if [ -f "$env_file" ]; then
+    grep -v "^${env_name}=" "$env_file" >"$tmp" || true
+  fi
+  printf '%s=%s\n' "$env_name" "$KEY" >>"$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$env_file"
+}
+
+install_hermes_docker() {
+  docker_cli || { echo "Docker is unavailable to $(id -un)" >&2; return 1; }
+  mkdir -p "$HOME/.hermes"
+
+  if "${DOCKER[@]}" container inspect hermes >/dev/null 2>&1; then
+    local configured_image
+    configured_image="$("${DOCKER[@]}" inspect --format '{{.Config.Image}}' hermes 2>/dev/null || true)"
+    if [ "$configured_image" != "$HERMES_IMAGE_REF" ]; then
+      echo "a container named 'hermes' already exists with a different image; refusing to replace it" >&2
+      return 1
+    fi
+    log "Hermes container already exists; starting the reviewed image"
+    "${DOCKER[@]}" start hermes >/dev/null
+  else
+    log "pulling pinned Hermes image ($HERMES_INSTALLER_TAG)"
+    "${DOCKER[@]}" pull "$HERMES_IMAGE_REF"
+
+    persist_hermes_provider_key
+
+    log "configuring Hermes in the persistent data volume"
+    "${DOCKER[@]}" run --rm --network host \
+      -v "$HOME/.hermes:/opt/data" \
+      -e "HERMES_UID=$(id -u)" -e "HERMES_GID=$(id -g)" \
+      "$HERMES_IMAGE_REF" setup --non-interactive
+
+    log "starting Hermes gateway + dashboard on loopback"
+    "${DOCKER[@]}" run -d \
+      --name hermes \
+      --restart unless-stopped \
+      --network host \
+      -v "$HOME/.hermes:/opt/data" \
+      -e "HERMES_UID=$(id -u)" \
+      -e "HERMES_GID=$(id -g)" \
+      -e HERMES_DASHBOARD=1 \
+      -e HERMES_DASHBOARD_HOST=127.0.0.1 \
+      "$HERMES_IMAGE_REF" gateway run >/dev/null
+  fi
+
+  local i running
+  for i in $(seq 1 90); do
+    if curl -fsS -o /dev/null --max-time 3 "http://127.0.0.1:${HERMES_DASHBOARD_PORT:-9119}/api/health"; then
+      log "Hermes Docker dashboard is answering on ${HERMES_DASHBOARD_PORT:-9119}"
+      return 0
+    fi
+    running="$("${DOCKER[@]}" inspect --format '{{.State.Running}}' hermes 2>/dev/null || true)"
+    if [ "$running" != "true" ]; then
+      echo "Hermes container exited before the dashboard became healthy" >&2
+      "${DOCKER[@]}" logs --tail 80 hermes >&2 || true
+      return 1
+    fi
+    sleep 2
+  done
+  echo "Hermes container is running but /api/health did not answer within 180s" >&2
+  "${DOCKER[@]}" logs --tail 80 hermes >&2 || true
+  return 1
+}
+
 install_hermes() {
+  if [ "$HERMES_RUNTIME" = docker ]; then
+    install_hermes_docker
+    return
+  fi
   local tmp
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
@@ -173,6 +282,7 @@ install_hermes() {
   fi
 
   hermes_cmd
+  persist_hermes_provider_key
   log "configuring from the environment"
   # `setup --non-interactive` is documented as "use defaults/env vars", and Hermes
   # reads ANTHROPIC_API_KEY / OPENAI_API_KEY / OPENROUTER_API_KEY / NOUS_API_KEY —

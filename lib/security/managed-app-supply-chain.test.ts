@@ -15,6 +15,7 @@ describe("managed-app immutable artifact contract", () => {
     expect(lock).toMatch(/HERMES_INSTALLER_TAG='v[^']+'/);
     expect(lock).toMatch(/HERMES_INSTALLER_COMMIT='[0-9a-f]{40}'/);
     expect(lock).toMatch(/HERMES_INSTALLER_SHA256='[0-9a-f]{64}'/);
+    expect(lock).toMatch(/HERMES_IMAGE_REF='nousresearch\/hermes-agent@sha256:[0-9a-f]{64}'/);
     expect(lock).toMatch(/OPENCLAW_VERSION='[^']+'/);
     expect(lock).toMatch(/OPENCLAW_TARBALL_SHA512='[0-9a-f]{128}'/);
     expect(lock).toMatch(/NINE_ROUTER_IMAGE_REF='[^']+@sha256:[0-9a-f]{64}'/);
@@ -28,6 +29,14 @@ describe("managed-app immutable artifact contract", () => {
     expect(script).not.toContain("hermes-agent.nousresearch.com/install.sh");
     const executable = script.split("\n").filter((line) => !line.trimStart().startsWith("#")).join("\n");
     expect(executable).not.toMatch(/curl[^\n]+\|\s*(?:ba)?sh/);
+  });
+
+  it("pins the Hermes Docker fallback and never uses a mutable image tag", () => {
+    const script = source(INSTALL);
+    expect(script).toContain('"$HERMES_IMAGE_REF" gateway run');
+    expect(script).toContain("HERMES_DASHBOARD_HOST=127.0.0.1");
+    expect(script).toContain("--restart unless-stopped");
+    expect(script).not.toContain("nousresearch/hermes-agent:latest");
   });
 
   it("verifies an exact OpenClaw tarball before lifecycle scripts can run", () => {

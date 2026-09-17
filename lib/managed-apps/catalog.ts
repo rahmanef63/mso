@@ -27,6 +27,7 @@ const definitions = {
     serviceNames: ["hermes-dashboard.service", "hermes-gateway.service", "hermes.service"],
     containerNames: ["hermes", "hermes-dashboard"],
     dashboardUrl: process.env.HERMES_DASHBOARD_URL ?? "http://127.0.0.1:9119",
+    healthPath: "/api/health",
     stateDirName: ".hermes",
     homeDir: expandHome(process.env.HERMES_HOME),
     gradient: "linear-gradient(160deg,#8b5cf6,#4f46e5)",
