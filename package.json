@@ -103,7 +103,7 @@
     "eslint-config-next": "^16.3.3",
     "fast-check": "^4.9.0",
     "parse5": "8.0.1",
-    "postcss": "^8.5.26",
+    "postcss": "^8.5.28",
     "simple-icons": "^16.30.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
