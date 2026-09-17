@@ -40,6 +40,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `security` drain lock contenders before fixture cleanup
 - `gateway` reap lock holder fixtures without orphan processes
 - `workflows` stabilize repeated artifact inspection journeys
 

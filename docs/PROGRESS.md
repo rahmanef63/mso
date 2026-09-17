@@ -6,6 +6,12 @@ and GitHub Actions entries. A regression checks every configured ecosystem, so a
 another updater cannot silently omit the policy. Scanner rules and severity gates are
 unchanged; this corrects update configuration without changing the application runtime.
 
+The full gate also exposed a scheduler-sensitive 24-contender lock fixture: its four-second
+acquisition budget could expire under parallel coverage while the isolated test passed.
+The fixture retains every contender and all mutual-exclusion assertions, waits for all
+outcomes before removing its files, and uses a bounded ten-second test-only budget.
+Production lock deadlines and the short fail-closed denial tests are unchanged.
+
 ## 2026-09-17 — Lock the native build bootstrap without touching the runtime tree
 
 The complete PR/branch audit found open Scorecard finding #136 in the user-local

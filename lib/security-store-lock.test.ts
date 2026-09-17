@@ -22,18 +22,19 @@ describe("security-store stale recovery", () => {
     let active = 0;
     let maxActive = 0;
     const entered: number[] = [];
-    await Promise.all(Array.from({ length: 24 }, (_, index) =>
+    const results = await Promise.allSettled(Array.from({ length: 24 }, (_, index) =>
       withSecurityStoreLock(store, async () => {
         active += 1;
         maxActive = Math.max(maxActive, active);
         entered.push(index);
         await new Promise((resolve) => setTimeout(resolve, 2));
         active -= 1;
-      // Coverage runs instrument hundreds of files in parallel and can delay fsync-heavy
-      // contenders beyond 2s without changing mutual exclusion. Keep the test budget
-      // below Vitest's outer timeout while avoiding a scheduler-dependent false failure.
-      }, { waitMs: 1, busyTimeoutMs: 4_000, staleMs: 1 }),
+      // This checks 24-way mutual exclusion, not throughput under parallel coverage.
+      // Retain all contenders, allow their fsyncs to drain, and await every outcome
+      // before fixture cleanup. Production and fail-closed timeout tests stay unchanged.
+      }, { waitMs: 1, busyTimeoutMs: 10_000, staleMs: 1 }),
     ));
+    expect(results.filter(result => result.status === "rejected")).toEqual([]);
     expect(maxActive).toBe(1);
     expect(entered).toHaveLength(24);
     await expect(fs.stat(lock)).rejects.toMatchObject({ code: "ENOENT" });
