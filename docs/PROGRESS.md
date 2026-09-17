@@ -1,3 +1,15 @@
+## 2026-09-17 — Lock the native build bootstrap without touching the runtime tree
+
+The complete PR/branch audit found open Scorecard finding #136 in the user-local
+`node-gyp` bootstrap. An exact top-level version still allowed fresh transitive
+resolution. The helper now installs from a committed npm lock containing integrity
+hashes for all resolved packages, with lifecycle scripts disabled. A manifest-hash
+cache and private atomic staging preserve existing user-selected cache roots and
+never run `npm ci` against the MSO checkout. Cache validation, failed-install cleanup,
+wrong-version and symlink refusal, native-binding checks and the installer's outer
+recovery trap are covered. Node, node-gyp's existing version, Bun, privileges, bind
+addresses and runtime behavior are unchanged; no scanner suppression was added.
+
 ## 2026-09-17 — Lock-fixture cleanup prevents accumulated test processes
 
 The branch/worktree audit found orphaned `mso-lock-holder` shells and `sleep` children from completed gateway boundary tests. The fixture killed only the forking `flock` parent, leaving the command and inherited lock descriptor alive after its temporary directory was removed. The holder now uses `flock --no-fork` with a single Node process; readiness is inside `try/finally`, and the regression asserts exact PID identity, process exit and kernel-lock reacquisition. No gateway/provider runtime behavior or release guard is changed. Historical process cleanup is restricted to verified orphan fixtures from this conversation's worktrees, not other agents or production processes.

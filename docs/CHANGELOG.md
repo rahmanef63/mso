@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `installer` lock isolated native build tool dependencies
 - `workflows` pin private storage reads and atomic writes
 - `ci` preserve strict scanner coverage on hosted release
 - `forge` make sandbox bootstrap portable on hosted Linux

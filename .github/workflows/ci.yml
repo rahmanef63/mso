@@ -63,6 +63,9 @@ jobs:
       - name: Audit dependencies
         run: bun audit --audit-level=high
 
+      - name: Audit locked native build tool
+        run: npm audit --prefix scripts/install/node-gyp --omit=dev --audit-level=high
+
       - name: Production build
         run: bun run build
 
@@ -93,3 +96,4 @@ jobs:
           node-version: 22
       - run: bun install --frozen-lockfile
       - run: bun run audit:strict
+      - run: npm audit --prefix scripts/install/node-gyp --omit=dev --audit-level=high

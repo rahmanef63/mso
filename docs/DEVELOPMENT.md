@@ -207,3 +207,22 @@ them. `sharp` was a third entry until 0.35.0 removed its install script entirely
 NOT add it to `trustedDependencies` to "restore" anything.
 
 For deeper Files/Settings and Preview acceptance, run `bash scripts/verify-build.sh --extended`. It reuses the isolated production build and synthetic credentials; legacy browser scripts no longer read deployment secrets. Media samples skip only when ffmpeg or a system PDF is unavailable.
+
+## Locked native build bootstrap
+
+The installer provisions `node-gyp` from the dedicated manifest and integrity-locked
+`package-lock.json` in `scripts/install/node-gyp/`. This does not change MSO's Bun
+package manager or add the build tool to the browser/runtime dependency graph.
+`npm ci --ignore-scripts` runs only in a private staging directory; successful
+payloads are published into a manifest-hash cache below `MSO_NODE_GYP_PREFIX` (or
+the normal user cache). Cache hits require matching manifests and the expected
+runner version. Failed downloads cannot publish a partial runner, replace the
+installer recovery trap, or remove the application's `node_modules`.
+
+Update the exact tool version in that manifest and regenerate its lock with
+`npm install --package-lock-only --ignore-scripts --no-audit --no-fund --prefix scripts/install/node-gyp`.
+Review the dependency diff, run `npm audit --prefix scripts/install/node-gyp --omit=dev --audit-level=high`,
+and run `bun run test scripts/install-node-gyp.test.ts` plus the installer lifecycle
+checks. CI and the scheduled dependency audit check this lock independently;
+Dependabot tracks its npm manifest separately. A local pass is
+not proof that a previously published GitHub security alert has closed.
