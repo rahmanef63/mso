@@ -79,7 +79,7 @@ describe("mso doctor", () => {
     const fx = fixture("unavailable");
     try {
       const result = spawnSync(CLI, ["doctor", "--fix"], { encoding: "utf8", env: fx.env });
-      expect(result.status).toBe(0);
+      expect(result.status, result.stdout + result.stderr).toBe(0);
       expect(result.stdout).toContain("systemd manager unavailable");
       expect(result.stdout).not.toContain("FAIL  service unit");
       expect(result.stderr).not.toContain("System has not been booted");
@@ -115,6 +115,16 @@ describe("mso doctor", () => {
       expect(result.stdout).toContain("FAIL  reachable");
       expect(result.stdout).toContain("mso web --local --print");
       expect(result.stdout).not.toContain("FAIL  service unit");
+    } finally { fs.rmSync(fx.root, { recursive: true, force: true }); }
+  });
+
+  it.each(["http://127.0.0.1:4555", "http://localhost:4555", "http://[::1]:4555"])("keeps local supervisor semantics for %s", (base) => {
+    const fx = fixture("unavailable");
+    try {
+      const result = spawnSync(CLI, ["--base", base, "doctor", "--fix"], { encoding: "utf8", env: fx.env });
+      expect(result.status, result.stdout + result.stderr).toBe(0);
+      expect(result.stdout).toContain("systemd manager unavailable");
+      expect(result.stdout).not.toContain("skipped: --base is remote");
     } finally { fs.rmSync(fx.root, { recursive: true, force: true }); }
   });
 

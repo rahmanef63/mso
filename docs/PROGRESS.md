@@ -1,3 +1,7 @@
+## 2026-09-17 — Preserve strict hosted-release scanner coverage
+
+The Cursor recovery PR exposed existing ShellCheck declaration warnings and Semgrep strict-parser ambiguities alongside one new loopback case pattern. Keep all scanners strict: split command-substitution declarations, use shell parameter expansion for the pinned node-gyp PATH, preserve the Organization usage contract, spell conditional decimal literals unambiguously, and express owner `@file` handling without nested one-line case statements. Regression tests preserve file paths containing spaces and both IPv4/IPv6 local doctor approval; IPv6 brackets are literal in CLI transport/onboarding rather than a shell character class. No rule exclusions, secret checks, or runtime isolation settings are weakened.
+
 ## 2026-09-17 — Portable executable Forge sandbox bootstrap
 
 A hosted Debian audit found two bootstrap assumptions that prevented the real, network-disabled Forge sandbox from starting: non-GNU awk omitted the ELF interpreter from `ldd`, and the imported `mktemp` root retained mode 0700. The bootstrap now uses POSIX whitespace matching and sets only the root traversal mode to 0755, without granting write access or changing the container isolation flags. Regression fixtures cover glibc/musl loader rows and the root mode; the real Docker fixture tests verify source read-only mounts, disabled networking and source-change refusal. The image is still built exclusively from the already-trusted local Node binary and shared libraries, with no version downgrade or registry download.

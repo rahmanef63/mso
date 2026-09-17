@@ -8,7 +8,7 @@
 # so the operator believed they had approved a device that was still pending.
 dev_script() {
   case "$B" in
-    http://127.0.0.1:*|http://localhost:*|http://[::1]:*) ;;
+    'http://127.0.0.1:'*|'http://localhost:'*|'http://[::1]:'*) ;;
     *) die "device commands edit the LOCAL allowlist (~/.mso/auth-devices.json) and cannot reach $B.
   Run them ON that host, or over ssh:  ssh <host> mso device $*" ;;
   esac

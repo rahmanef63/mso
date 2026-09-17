@@ -115,7 +115,9 @@ case "$cmd" in
     fi
 
     local_runtime=0
-    case "$B" in http://127.*:*|http://localhost:*|http://\[::1\]:*) local_runtime=1 ;; esac
+    case "$B" in
+      'http://127.'*:*|'http://localhost:'*|'http://[::1]:'*) local_runtime=1 ;;
+    esac
     if [ "$local_runtime" = 0 ]; then
       echo "  --    service unit    (skipped: --base is remote)"
     elif ! service_manager_read show --property=Version --value >/dev/null 2>&1; then
@@ -141,8 +143,8 @@ case "$cmd" in
     chk "reachable" "doctor_health_ok" "no healthy MSO at $B; for local recovery run: mso web --local --print"
 
     d=$(cli_device); device_ready=0
-    case "$B" in
-      http://127.0.0.1:*|http://localhost:*|http://[::1]:*)
+    case "$local_runtime" in
+      1)
         if dev_script --is-approved "$d" >/dev/null 2>&1; then
           echo "  ok    device known"; device_ready=1
         elif [ "$fix" = 1 ]; then

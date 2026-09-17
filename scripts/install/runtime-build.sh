@@ -23,7 +23,7 @@ NODE_GYP_BIN="$NODE_GYP_PREFIX/node_modules/.bin/node-gyp"
 
 ensure_node_gyp_runner() {
   if [ -x "$NODE_GYP_BIN" ] && [ "$("$NODE_GYP_BIN" --version 2>/dev/null || true)" = "v$NODE_GYP_VERSION" ]; then
-    export PATH="$(dirname "$NODE_GYP_BIN"):$PATH"
+    export PATH="${NODE_GYP_BIN%/*}:$PATH"
     return
   fi
   command -v npm >/dev/null 2>&1 || die "npm is required to provision pinned node-gyp for node-pty."
@@ -32,7 +32,7 @@ ensure_node_gyp_runner() {
   npm install --prefix "$NODE_GYP_PREFIX" --no-save --ignore-scripts "node-gyp@$NODE_GYP_VERSION" >/dev/null
   [ -x "$NODE_GYP_BIN" ] || die "node-gyp bootstrap did not produce $NODE_GYP_BIN"
   [ "$("$NODE_GYP_BIN" --version 2>/dev/null || true)" = "v$NODE_GYP_VERSION" ] || die "unexpected node-gyp version after bootstrap"
-  export PATH="$(dirname "$NODE_GYP_BIN"):$PATH"
+  export PATH="${NODE_GYP_BIN%/*}:$PATH"
 }
 
 node_pty_ready() {
