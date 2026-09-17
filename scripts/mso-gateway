@@ -14,7 +14,6 @@ STATE_ROOT=''
 GATEWAY_CANONICAL_ROOT=''
 GATEWAY_SCOPE_ID=''
 GATEWAY_ENV_IDENTITY=''
-CLOUDFLARED=""
 CURL="${MSO_GATEWAY_CURL:-$(command -v curl 2>/dev/null || true)}"
 
 for dep in node jq sha256sum realpath stat mktemp flock; do command -v "$dep" >/dev/null || { echo "mso gateway: missing dependency: $dep" >&2; exit 1; }; done
@@ -54,7 +53,7 @@ else
   STATE_ROOT="$(mso_private_state_dir "$STATE_BASE/$GATEWAY_SCOPE_ID")" || gateway_fail "unsafe scoped gateway state directory"
 fi
 STATE_FILE="$STATE_ROOT/state.json"
-CF_LOG="$STATE_ROOT/cloudflared.log"
+PROVIDER_LOG="$STATE_ROOT/provider.log"
 RUNTIME_LOG="$STATE_ROOT/runtime.log"
 LOCK_FILE="$STATE_ROOT/lifecycle.lock"
 LOCK_HELD=0
@@ -62,10 +61,7 @@ GATEWAY_LOCK_FD=''
 
 # shellcheck source=scripts/lib/gateway-network.sh
 . "$ROOT/scripts/lib/gateway-network.sh"
-# Cloudflare is the current managed-provider adapter; generic core calls it through
-# gateway-provider.sh rather than treating it as an architecture boundary.
-# shellcheck source=scripts/lib/gateway-tool.sh
-. "$ROOT/scripts/lib/gateway-tool.sh"
+# Provider-specific implementation is loaded lazily by gateway-provider.sh.
 # shellcheck source=scripts/lib/gateway-provider.sh
 . "$ROOT/scripts/lib/gateway-provider.sh"
 # shellcheck source=scripts/lib/gateway-lock.sh
@@ -82,8 +78,6 @@ GATEWAY_LOCK_FD=''
 . "$ROOT/scripts/lib/gateway-state.sh"
 # shellcheck source=scripts/lib/gateway-pending.sh
 . "$ROOT/scripts/lib/gateway-pending.sh"
-# shellcheck source=scripts/lib/gateway-tunnel.sh
-. "$ROOT/scripts/lib/gateway-tunnel.sh"
 # shellcheck source=scripts/lib/gateway-reconcile.sh
 . "$ROOT/scripts/lib/gateway-reconcile.sh"
 gateway_with_runtime_shared() {
@@ -109,7 +103,7 @@ case "${1:-status}" in
   status) shift || true; gateway_cmd_status "$@" ;;
   url) gateway_cmd_url ;;
   doctor) gateway_cmd_doctor ;;
-  install) gateway_cmd_install_tool ;;
+  install) gateway_provider_install ;;
   domain) shift; gateway_cmd_domain "$@" ;;
   web) gateway_cmd_web "$@" ;;
   local-start) gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked ;; # internal: onboard/web/update fallback

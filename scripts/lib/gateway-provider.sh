@@ -4,6 +4,19 @@
 # gateway-tunnel.sh. New providers should implement the same small contract rather
 # than branching provider names through the core.
 
+GATEWAY_CLOUDFLARE_ADAPTER_LOADED=0
+gateway_provider_load_cloudflare_adapter() {
+  [ "$GATEWAY_CLOUDFLARE_ADAPTER_LOADED" = 1 ] && return 0
+  # Provider-specific tool/tunnel code is loaded only through this boundary.
+  # shellcheck source=scripts/lib/gateway-tool.sh
+  . "$ROOT/scripts/lib/gateway-tool.sh"
+  # shellcheck source=scripts/lib/gateway-tunnel.sh
+  . "$ROOT/scripts/lib/gateway-tunnel.sh"
+  # shellcheck source=scripts/lib/gateway-cloudflare-edge.sh
+  . "$ROOT/scripts/lib/gateway-cloudflare-edge.sh"
+  GATEWAY_CLOUDFLARE_ADAPTER_LOADED=1
+}
+
 gateway_provider_family() {
   case "${1:-}" in
     cloudflare|cloudflare-quick|cloudflare-named) printf '%s\n' cloudflare ;;
@@ -34,6 +47,7 @@ gateway_provider_default() { printf '%s\n' cloudflare; }
 gateway_provider_parse_start_args() {
   GATEWAY_SELECTED_PROVIDER="$(gateway_provider_default)"
   # Backward-compatible Cloudflare adapter arguments remain the current default.
+  gateway_provider_load_cloudflare_adapter
   gateway_parse_start_args "$@"
 }
 
@@ -46,7 +60,7 @@ gateway_provider_start_locked() {
   # explicit named-start semantics under the same lifecycle lock.
   if active="$(gateway_active_state)"; then
     case "$(gateway_provider_family "$provider")" in
-      cloudflare) gateway_cmd_start_locked ;;
+      cloudflare) gateway_provider_load_cloudflare_adapter; gateway_cmd_start_locked ;;
       *) gateway_fail "provider '$provider' is not implemented for managed start yet" ;;
     esac
     return $?
@@ -60,7 +74,7 @@ gateway_provider_start_locked() {
   # ownership takeover from public-route observation.
   if [ -n "${GATEWAY_CONFIG:-}${GATEWAY_TUNNEL:-}" ]; then
     case "$(gateway_provider_family "$provider")" in
-      cloudflare) gateway_cmd_start_locked ;;
+      cloudflare) gateway_provider_load_cloudflare_adapter; gateway_cmd_start_locked ;;
       *) gateway_fail "provider '$provider' is not implemented for managed start yet" ;;
     esac
     return $?
@@ -76,7 +90,7 @@ gateway_provider_start_locked() {
   fi
 
   case "$(gateway_provider_family "$provider")" in
-    cloudflare) gateway_cmd_start_locked ;;
+    cloudflare) gateway_provider_load_cloudflare_adapter; gateway_cmd_start_locked ;;
     *) gateway_fail "provider '$provider' is not implemented for managed start yet" ;;
   esac
 }
@@ -85,6 +99,7 @@ gateway_provider_doctor_readonly() {
   local provider="$(gateway_provider_family "${1:-custom}")"
   case "$provider" in
     cloudflare)
+      gateway_provider_load_cloudflare_adapter
       # Explicitly disable the resolver's install path: doctor is observational.
       if MSO_GATEWAY_NO_AUTO_INSTALL=1 gateway_resolve_cloudflared >/dev/null 2>&1; then
         gateway_info "  ok    provider cloudflare: $("$CLOUDFLARED" --version 2>/dev/null | head -1)"
@@ -94,6 +109,43 @@ gateway_provider_doctor_readonly() {
       ;;
     local) gateway_info "  info  provider local: no public provider process" ;;
     *) gateway_info "  info  provider $provider: externally/custom managed; MSO will inspect but not mutate it" ;;
+  esac
+}
+
+gateway_provider_install() {
+  local provider="$(gateway_provider_family "${1:-$(gateway_provider_default)}")"
+  case "$provider" in
+    cloudflare) gateway_provider_load_cloudflare_adapter; gateway_cmd_install_tool ;;
+    *) gateway_fail "provider '$provider' has no MSO-managed install adapter" ;;
+  esac
+}
+
+gateway_provider_probe_public() {
+  local provider="$(gateway_provider_family "${1:-custom}")"
+  case "$provider" in
+    cloudflare) gateway_provider_load_cloudflare_adapter; gateway_probe_public ;;
+    *) gateway_health_url_matches_identity "$GATEWAY_PUBLIC_URL" "$LOCAL_HEALTH_IDENTITY" ;;
+  esac
+}
+
+gateway_provider_domain_hint() {
+  local provider="$(gateway_provider_family "${1:-$(gateway_provider_default)}")" origin="$2" domain_host
+  domain_host="${origin#https://}"
+  case "$provider" in
+    cloudflare)
+      cat <<CFG
+named Cloudflare config example:
+  tunnel: <TUNNEL-UUID>
+  credentials-file: $HOME/.cloudflared/<TUNNEL-UUID>.json
+  ingress:
+    - hostname: $domain_host
+      service: $LOCAL_URL
+    - service: http_status:404
+then: cloudflared tunnel route dns <TUNNEL-UUID-or-name> $domain_host
+and:  mso gateway start --config ~/.cloudflared/config.yml --tunnel <TUNNEL-UUID-or-name>
+CFG
+      ;;
+    *) gateway_info "configure provider '$provider' to route $origin to $LOCAL_URL; MSO will verify it through /api/health" ;;
   esac
 }
 

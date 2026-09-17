@@ -21,6 +21,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Changed**
 
+- `gateway` isolate provider adapter boundary
 - `gateway` make lifecycle provider agnostic
 
 **Docs**

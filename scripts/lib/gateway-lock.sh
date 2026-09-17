@@ -27,7 +27,17 @@ GATEWAY_PENDING_CLEANUP=0
 gateway_operation_cleanup() {
   [ "${GATEWAY_PENDING_CLEANUP:-0}" = 1 ] || return 0
   if declare -F gateway_cleanup_failed_start >/dev/null 2>&1; then
+    # A loaded managed-provider adapter owns provider + runtime rollback.
     gateway_cleanup_failed_start || true
+  elif declare -F gateway_stop_pending_runtime >/dev/null 2>&1; then
+    # Local-only fallback must remain signal-safe even when no provider adapter
+    # has been loaded. Once the runtime has a captured identity, stop that exact
+    # owned process; otherwise roll back only the provisional PID/start-ticks.
+    if [ "${RUNTIME_STARTED_NOW:-false}" = true ] && [ "${RUNTIME_IDENTITY:-null}" != null ]; then
+      gateway_stop_identity "$RUNTIME_IDENTITY" || true
+    else
+      gateway_stop_pending_runtime || true
+    fi
   fi
   GATEWAY_PENDING_CLEANUP=0
 }
