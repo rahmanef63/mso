@@ -285,15 +285,24 @@ ensure_bun() {
 }
 
 ensure_buildtools() {
-  # node-pty is a native addon with no linux prebuild → needs a C/C++ toolchain +
-  # python3 to compile at install time, under bun exactly as under pnpm.
-  # This is the single most likely install failure on a minimal box.
-  command -v cc >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 && return
+  # node-pty is a native addon with no Linux prebuild for every Node ABI. A host
+  # can have `cc` + Python (GitHub Codespaces does) while still missing `c++` or
+  # `make`, so validate the complete native toolchain instead of short-circuiting.
+  local missing=0 tool
+  for tool in cc c++ make python3; do
+    command -v "$tool" >/dev/null 2>&1 || { missing=1; break; }
+  done
+  [ "$missing" -eq 0 ] && return
+
   info "installing build toolchain (for node-pty)…"
   if   command -v apt-get >/dev/null 2>&1; then sudo_do apt-get update -qq && sudo_do apt-get install -y -qq build-essential python3
   elif command -v dnf     >/dev/null 2>&1; then sudo_do dnf install -y -q gcc-c++ make python3
   elif command -v pacman  >/dev/null 2>&1; then sudo_do pacman -Sy --noconfirm base-devel python
-  else warn "no known package manager — if 'bun install' fails on node-pty, install a C++ toolchain + python3 by hand."; fi
+  else warn "no known package manager — node-pty needs a C/C++ compiler, make and python3."; fi
+
+  for tool in cc c++ make python3; do
+    command -v "$tool" >/dev/null 2>&1 || die "native build dependency still missing: $tool"
+  done
 }
 
 ensure_cli_tools() {
