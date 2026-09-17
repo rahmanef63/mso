@@ -1,3 +1,75 @@
+## 2026-09-17 — Lock-fixture cleanup prevents accumulated test processes
+
+The branch/worktree audit found orphaned `mso-lock-holder` shells and `sleep` children from completed gateway boundary tests. The fixture killed only the forking `flock` parent, leaving the command and inherited lock descriptor alive after its temporary directory was removed. The holder now uses `flock --no-fork` with a single Node process; readiness is inside `try/finally`, and the regression asserts exact PID identity, process exit and kernel-lock reacquisition. No gateway/provider runtime behavior or release guard is changed. Historical process cleanup is restricted to verified orphan fixtures from this conversation's worktrees, not other agents or production processes.
+
+## 2026-09-17 — Descriptor-pinned Workflow storage hardening
+
+The PR/branch audit exposed default-branch security annotations for Workflow run,
+graph, version, variable, cache and recipe-archive storage. These stores now reuse
+the existing owner-root and ancestor-pinning authority, open each file without
+following links, inspect and read the same descriptor, bound reads against file
+growth, and atomically write through a pinned parent. Version listing and exact
+revision lookup both enforce full snapshot filenames, byte limits and matching
+graph/revision identity. Receipt pruning still reads only bounded metadata rather
+than parsing every receipt; existing formats, quotas and revision guards remain.
+
+Added real filesystem regressions for symlinks, symlinked ancestors, FIFOs, unsafe
+permissions, oversized/growing files, mismatched versions and unchanged atomic
+serialization. The installed node-gyp PATH setup now separates assignment/export
+so command failures are not masked. Scanner settings, ignores and alert thresholds
+are unchanged. Passing local tests or scans does not close GitHub alerts: the
+candidate still requires the normal PR checks and production release path.
+
+## 2026-09-17 — Recover dormant PR/branch work without overwriting active agents
+
+Reconciled the verified performance candidate, the preserved GitHub OAuth-first preference,
+the dormant exact-session-artifact history candidate, and fork PR #44's edge/directory
+improvements onto the current main lineage in an isolated worktree. Newer semantic session
+labels, script/learning directories, read-only session graphs and VPS-backed Store behavior
+are preserved instead of taking the older fork files wholesale. Original candidate branches
+remain recoverable until integration is complete. Active hosted/Hermes and gateway work is
+owned by other sessions and is not replaced or deployed by this reconciliation.
+
+Historical artifact previews now reapply current host read-root/credential policy, refuse
+symlink aliases, use bounded no-follow descriptor reads with post-open path identity checks,
+and compute diffs from the same verified byte buffers. Git blob identity is computed from
+already-read bytes, eliminating diff/hash-object subprocesses and repository filters during
+capture. No file body is persisted in the event metadata. PTY access remains scoped to its
+creating principal. Added denial coverage for restricted paths, symlink escapes and revoked
+read roots; synthetic test roots explicitly grant only their own read/write access.
+
+The audit records every observed branch, worktree and PR with a disposition. Normal Git
+cleanup removes only clean, dormant worktrees whose HEAD is already reachable from main;
+active/dirty/unmerged trees, local environments and referenced dependencies remain protected.
+A verified private Git bundle and ignored-note backups precede cleanup.
+The resumed build exposed a broad Turbopack filesystem trace from the artifact reader.
+Owner-selected files are runtime data, so the three guarded open/lstat path arguments now
+use the established runtime-only tracing annotation. No files are excluded globally and
+read-root, no-follow, size and identity checks remain intact. An isolated production build
+now passes without warnings; the existing targeted artifact/PTY/connection tests also pass.
+
+Full-suite verification caught a compatibility issue in the preserved OAuth candidate:
+UI ordering must not change the existing API default for an omitted connection source.
+The API retains its original direct default; the UI explicitly submits the selected OAuth
+source, preserving both existing callers and OAuth-first presentation. Detailed verification
+and release status belong to the workflow evidence; this entry does not claim deployment.
+The expanded browser acceptance now reseeds its synthetic Git history idempotently for
+all three viewports, waits for complete modal exit/focus cleanup, and asserts node-click
+selection before inspecting details. It does not replace a failed node click with a
+compact-toolbar fallback or skip any artifact, redaction, terminal or accessibility check.
+
+## 2026-09-17 — GitHub OAuth-first Integrations routing
+
+GitHub Connections now present hosted OAuth and provider-owned OAuth/MCP before the manual PAT fallback. The direct GitHub path remains available without capability loss, but it is explicitly labeled as a fallback and recommends an expiring fine-grained token when a direct credential is deliberately required. `/integrations` now states the no-silent-fallback rule: a failed OAuth/MCP identity must never be replaced by another PAT/principal implicitly. This complements Baton tenant OAuth, which remains a separate user/workspace trust boundary instead of copying customer OAuth tokens into the MSO operator vault.
+
+## 2026-09-17 — Isolated shell bundle and first-open performance improvements
+
+Reduced eager shell work without removing applications or changing authorization, persistence, native terminal sessions, service-worker recovery, or deployment behavior. Organization's public view now has a lazy facade (the descriptor stays cheap); ReactFlow CSS follows the shared graph canvas rather than the root stylesheet. Search, Inspector, mobile Alfa/Control Center and clipboard presentation load on demand through an effect/state boundary, while lock protection, capture, hotkeys and notifications remain active from startup. The Inspector keeps its selected tab across close/reopen. Settings section bodies are split behind the existing selection and Owner-role checks. App-module prefetch now requires 250 ms of intent, cancels pending requests on leave/blur/close, respects constrained connections, deduplicates loads, and lets expensive app descriptors opt out. The existing local Geist Mono stays available without global preloading.
+
+The exact production build at baseline `866ec61` and the optimized candidate, using the same lockfile and Next 16.3.4, measured eager modern-browser JS at 340,067 → 269,498 gzip bytes (20.8% reduction), shell-entry JS 208,982 → 138,413 (33.8%), CSS 31,158 → 28,887 (7.3%), and preloaded font files 141,020 → 69,652 raw bytes. These are build-manifest measurements, not a claimed page-speed percentage; legacy nomodule polyfills and optional lazy downloads are separate. Added fail-closed bundle limits, import-boundary/prefetch regression tests and a five-shell synthetic browser journey to both the existing isolated build gate and CI. Heavy background-removal assets, quality defaults and runtime/cache deployment layout are intentionally untouched in this phase.
+
+The mandatory Workflow landscape journey exposed an existing readability bug: the unchanged `866ec61` build also shrank a trigger to ~67 pixels in an 826 × 122 canvas. Shared graph fitting now considers canvas height as well as width, waits for measured nodes, cancels pending frames correctly and has a single initial-fit owner. Manual full-graph Fit and zoom remain available. The browser test retains its original size thresholds but samples settled geometry rather than transient animation frames.
+
 ## 2026-09-17 — Preserve strict hosted-release scanner coverage
 
 The Cursor recovery PR exposed existing ShellCheck declaration warnings and Semgrep strict-parser ambiguities alongside one new loopback case pattern. Keep all scanners strict: split command-substitution declarations, use shell parameter expansion for the pinned node-gyp PATH, preserve the Organization usage contract, spell conditional decimal literals unambiguously, and express owner `@file` handling without nested one-line case statements. Regression tests preserve file paths containing spaces and both IPv4/IPv6 local doctor approval; IPv6 brackets are literal in CLI transport/onboarding rather than a shell character class. No rule exclusions, secret checks, or runtime isolation settings are weakened.
@@ -53,6 +125,11 @@ Added `render_mso_list` + `ui://mso/list-v1.html` as the lightweight collection 
 - WHY: make routing, target, source-of-truth, validation, confirmation, concurrency, and OpenAI presentation machine-readable without replacing MSO's stronger trust/provenance, bounded scopes, CAS/revision guards, workflow isolation, evidence receipts, dynamic project MCP boundaries, explicit confirmations, or shell escape hatch.
 - Kept all 112 ChatGPT actions and the 97,350-byte compact action profile; per-tool action contracts stay on the full MCP descriptor while OpenAI receives the structured workflow policy through skill resources, preserving the scanner budget without hiding capabilities.
 - Re-reviewed the refreshed Shopify reference implementation: adopted its offline/local schema-validation and per-skill OpenAI descriptor ideas, but did not copy external prompt/code telemetry. The live OAuth `/mcp` app remains a separate connection from the skill-only Codex/OpenAI plugin package.
+## 2026-09-15 — Workflow edges and Directory close the remaining n8n-style interaction gaps
+
+Workflow Graph v2 already had the real server-native pieces—schedule/webhook triggers, cache, memory, sessions, capability tools, project functions/MCP, organization-seat agent routing, run history, versions and variables—but two editor gaps still made the surface feel incomplete. Connections now persist an explicit **Auto / Solid / Dashed** presentation, an **Active** execution toggle, directional arrows and a guarded reverse-direction action. A disabled connection stays visible for documentation/debugging and is recorded as disabled in run receipts, but it cannot be re-enabled by source execution, affect cycle/tidy topology, or accidentally promote its target into a new executable root.
+
+The Workflow Directory now exposes the five runtime registries users actually work with: **Tools, Workflows, Sessions, Projects and Skills**. Project/skill metadata is added only for Operator/Owner sessions so the existing Viewer boundary is not widened. The web UI and Directory nodes continue to reuse MSO's project/Skill SSOTs rather than introducing another catalog. Release E2E covers the 5/5 graph controls, responsive canvas/drawers, minimap content, project/skill directory, edge style/active/reverse controls, real cache/memory/session/directory execution and Organization responsiveness.
 
 ## 2026-09-15 — Shell-native server status + CI security fixes
 

@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import path from "node:path";
 import {
   SESSION_GRAPH_EVENT_LIMIT,
   type SessionFlowAction,
@@ -11,10 +10,11 @@ import {
 import { redactText } from "@/lib/security/redact-text";
 import { eventSequenceBase } from "./session-sequence";
 import { normalizeSessionEventSemantics } from "./session-semantic";
+import { resolveSessionArtifactCandidate } from "./session-artifact-path";
+import { validSessionArtifactRevision } from "./session-artifact-history";
 import type { AgentSessionEvent } from "./session-types";
 
 const STEP_LIMIT = 8;
-const CODE_EXTENSIONS = new Set(["ts", "tsx", "js", "jsx", "mjs", "cjs", "svelte", "py", "sh", "bash", "zsh", "md", "json", "yaml", "yml", "css", "scss", "html", "sql", "toml"]);
 const TITLES: Record<SessionFlowCategory, string> = {
   context: "Context", plan: "Plan", inspect: "Inspect", implement: "Implement",
   verify: "Verify", integrate: "Integrate", deploy: "Deploy", result: "Result", other: "Actions",
@@ -35,33 +35,27 @@ function actionTitle(event: ReturnType<typeof safeEvent>): string {
   if (event.tool && /^fs_(read|write|delete|move|copy)/i.test(event.tool) && detail) return `${humanize(event.tool)} · ${detail}`.slice(0, 110);
   return humanize(event.tool || event.kind || "Action").slice(0, 110);
 }
-function languageFor(filePath: string): string {
-  const ext = filePath.split(".").pop()?.toLowerCase() || "";
-  return ({ ts: "typescript", tsx: "tsx", js: "javascript", jsx: "jsx", mjs: "javascript", cjs: "javascript", svelte: "svelte", py: "python", sh: "bash", bash: "bash", zsh: "zsh", md: "markdown", json: "json", yaml: "yaml", yml: "yaml", css: "css", scss: "scss", html: "html", sql: "sql", toml: "toml" } as Record<string, string>)[ext] || "text";
-}
 function stableId(prefix: string, value: string): string {
   return `${prefix}_${createHash("sha256").update(value).digest("hex").slice(0, 20)}`;
 }
-function artifactPath(detail: string | undefined, cwd: string | undefined, revisionRef: string): SessionFlowAction["artifact"] | undefined {
-  if (!detail || !cwd) return undefined;
-  const candidates = detail.match(/(?:\/|\.?\.?\/)?[A-Za-z0-9_@.-]+(?:\/[A-Za-z0-9_@.-]+)*\.[A-Za-z0-9]+/g) || [];
-  for (const raw of candidates) {
-    const ext = raw.split(".").pop()?.toLowerCase() || "";
-    if (!CODE_EXTENSIONS.has(ext) || raw.includes("..")) continue;
-    const resolved = path.isAbsolute(raw) ? path.resolve(raw) : path.resolve(cwd, raw.replace(/^\.\//, ""));
-    const rel = path.relative(path.resolve(cwd), resolved);
-    if (!rel || rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) continue;
-    return {
-      ref: stableId("artifact", rel.replaceAll(path.sep, "/")),
-      revisionRef,
-      path: resolved,
-      relativePath: rel.replaceAll(path.sep, "/"),
-      label: path.basename(resolved),
-      kind: ["sh", "bash", "zsh", "py", "js", "ts"].includes(ext) ? "script" : "file",
-      language: languageFor(resolved),
-    };
-  }
-  return undefined;
+function artifactPath(row: AgentSessionEvent, detail: string | undefined, cwd: string | undefined, revisionRef: string): SessionFlowAction["artifact"] | undefined {
+  const revision = validSessionArtifactRevision(row.artifactRevision) ? row.artifactRevision : undefined;
+  const captureCwd = revision ? revision.cwd : cwd;
+  const candidate = resolveSessionArtifactCandidate(detail, captureCwd);
+  if (!candidate) return undefined;
+  const capture = revision ? {
+    state: "captured" as const,
+    exactAtCapture: Boolean(revision.cleanAtCapture && revision.headBlob),
+    ...(revision.worktreeSha256 ? { sha256: revision.worktreeSha256 } : {}),
+    ...(revision.bytes !== undefined ? { bytes: revision.bytes } : {}),
+    ...(revision.gitHead ? { gitHead: revision.gitHead } : {}),
+    ...(revision.cleanAtCapture && revision.headBlob ? { gitBlob: revision.headBlob } : {}),
+  } : { state: "legacy" as const, exactAtCapture: false };
+  return {
+    ref: stableId("artifact", candidate.relativePath), revisionRef,
+    path: candidate.path, relativePath: candidate.relativePath, label: candidate.label,
+    kind: candidate.kind, language: candidate.language, capture,
+  };
 }
 function actionCode(event: ReturnType<typeof safeEvent>, artifact: SessionFlowAction["artifact"]): SessionFlowAction["code"] | undefined {
   if (!event.detail) return undefined;
@@ -116,7 +110,7 @@ export function sessionFlowActions(events: AgentSessionEvent[], cwd?: string, ra
     const semantic = row.semantic!;
     const ref = `S${semantic.step}.A${semantic.action}`;
     const eventRef = `E${base + index + 1}`;
-    const artifact = artifactPath(event.detail, cwd, ref);
+    const artifact = artifactPath(row, event.detail, cwd, ref);
     const action: SessionFlowAction = {
       id: stableId("action", `${eventRef}\0${ref}\0${event.at}\0${event.kind}\0${event.tool || ""}`),
       ref,

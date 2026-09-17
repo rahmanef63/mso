@@ -12,6 +12,7 @@ import {
 } from "@/lib/agent/session-store";
 import { pruneAgentSessionArchives } from "@/lib/agent/session-archive";
 import { sessionWorkflowDraftDefinition } from "@/lib/agent/session-workflow-draft";
+import { resolveHistoricalSessionArtifactForOwner } from "@/lib/agent/session-artifact-resolver";
 import { createWorkflowGraph } from "@/lib/workflow/graph-store";
 import {
   ownerSessionSummaries,
@@ -48,6 +49,20 @@ export async function GET(req: NextRequest) {
   if (!principal)
     return NextResponse.json({ error: "owner_role_required" }, { status: 403 });
   const view = req.nextUrl.searchParams.get("view");
+  if (view === "artifact") {
+    try {
+      const ref = String(req.nextUrl.searchParams.get("id") || req.nextUrl.searchParams.get("ref") || "").trim();
+      const actionRef = String(req.nextUrl.searchParams.get("action_ref") || "").trim();
+      if (!ref || !actionRef) return NextResponse.json({ error: "session_and_action_reference_required" }, { status: 400 });
+      const source = await resolveAgentSessionOwnerRef(ref);
+      const result = await resolveHistoricalSessionArtifactForOwner(source, actionRef);
+      if (!result?.artifact) return NextResponse.json({ error: "artifact_revision_not_found" }, { status: 404, headers: { "Cache-Control": "private, no-store" } });
+      return NextResponse.json(result, { headers: { "Cache-Control": "private, no-store" } });
+    } catch (cause) {
+      const missing = cause instanceof Error && cause.message === "session_not_found";
+      return NextResponse.json({ error: missing ? "session_not_found" : "artifact_revision_unavailable" }, { status: missing ? 404 : 503, headers: { "Cache-Control": "private, no-store" } });
+    }
+  }
   if (view === "monitor" || view === "graph") {
     try {
       const id = req.nextUrl.searchParams.get("id");

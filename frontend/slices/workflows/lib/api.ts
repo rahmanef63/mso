@@ -27,7 +27,22 @@ export async function resolveNode(graphId:string,nodeId:string){return json<{pro
 export async function listWorkflowSessions(page=1,query=""){const q=new URLSearchParams({view:"monitor",includeOffline:"1",page:String(page)});if(query.trim())q.set("q",query.trim());return json<SessionPage>(`/api/v1/agent-sessions?${q}`);}
 export async function getSessionGraph(id:string){return json<SessionGraphView>(`/api/v1/agent-sessions?view=graph&id=${encodeURIComponent(id)}&limit=120`);}
 
-export type WorkflowDirectory = {tools:Array<{name:string;description:string;scope:string;inputSchema:Record<string,unknown>}>;workflows:Array<{id:string;name:string;status:string;nodeCount:number;updatedAt:string}>;sessions:Array<{id:string;label?:string;title:string;name:string;updatedAt:string;cwd?:string;source:string}>};
+export type SessionArtifactHistoryView = {
+  capture:{state:"legacy"|"captured";exactAtCapture:boolean;sha256?:string;bytes?:number;gitHead?:string;gitBlob?:string};
+  current:{available:boolean;path?:string;sha256?:string;bytes?:number;matchesCapture?:boolean};
+  historical:{available:boolean;exact?:true;source?:"git-blob"|"current-match";sha256?:string;bytes?:number;blobOid?:string;content?:string;previewRedacted?:boolean;truncated?:boolean;reason?:string};
+  diff:{available:boolean;changed?:boolean;unifiedDiff?:string;previewRedacted?:boolean;reason?:string};
+};
+export type SessionArtifactHistoryResponse = {artifact:{ref:string;revisionRef:string;path:string;relativePath:string;label:string;kind:"file"|"script";language?:string};history:SessionArtifactHistoryView};
+export async function getSessionArtifactHistory(id:string,actionRef:string){const q=new URLSearchParams({view:"artifact",id,action_ref:actionRef});return json<SessionArtifactHistoryResponse>(`/api/v1/agent-sessions?${q}`);}
+
+export type WorkflowDirectory = {
+  tools:Array<{name:string;description:string;scope:string;inputSchema:Record<string,unknown>}>;
+  workflows:Array<{id:string;name:string;status:string;nodeCount:number;updatedAt:string}>;
+  sessions:Array<{id:string;label?:string;title:string;name:string;updatedAt:string;cwd?:string;source:string}>;
+  projects:Array<{id:string;name:string;packageName?:string;packageVersion?:string;branch?:string;head?:string}>;
+  skills:Array<{id:string;name:string;description:string;source:string;trust:string;project?:string}>;
+};
 export async function listWorkflowDirectory(query=""){return cachedWorkflowResource(`directory:${query}`,15000,()=>json<WorkflowDirectory>(`/api/v1/workflows?directory=1&q=${encodeURIComponent(query)}`));}
 
 export type WorkflowScriptSummary = { id:string; intent:string; status:"candidate"|"tested"; stepCount:number; updatedAt:string; project?:string; tools:string[] };

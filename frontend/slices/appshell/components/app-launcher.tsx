@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useIntentPrefetch } from "../hooks/use-intent-prefetch";
 import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ import { QuicklinkIcon } from "./quicklink-icon";
 // overlay (8500) — overlays opened on top of Launchpad must win.
 export function AppLauncher() {
   const open = useLauncherOpen();
+  const prefetch = useIntentPrefetch(open);
   const apps = useApps();
   const { items: links, open: openLink } = useQuickLinks();
   const [q, setQ] = useState("");
@@ -76,7 +78,10 @@ export function AppLauncher() {
             key={app.id}
             href={"/" + (app.slug ?? app.id)}
             prefetch={false}
-            onPointerEnter={() => void app.load?.().catch(() => {})}
+            onPointerEnter={(event) => { if (open) prefetch.schedule(app, event.pointerType); }}
+            onPointerLeave={prefetch.cancel}
+            onFocus={() => { if (open) prefetch.schedule(app, "keyboard"); }}
+            onBlur={prefetch.cancel}
             onClick={(e) => {
               if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
                 e.preventDefault();

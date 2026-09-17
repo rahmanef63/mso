@@ -1,9 +1,9 @@
-import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
 import path from "node:path";
 import { agentSessionsDir } from "@/lib/agent/session-paths";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import type { WorkflowGraphRun } from "@/lib/contracts/workflow-graph";
+
+import { listWorkflowFiles, readWorkflowJson, removeWorkflowFile, workflowFileMtime, writeWorkflowFile } from "./private-file";
 
 const MAX_RUN_BYTES = 1024 * 1024;
 const MAX_RECEIPTS = 1000;
@@ -13,19 +13,10 @@ function file(owner: string, id: string): string {
   if (!/^[a-f0-9]{64}$/.test(owner) || !/^[a-f0-9]{32}$/.test(id)) throw new Error("invalid workflow graph run identity");
   return path.join(root(), owner, `${id}.json`);
 }
-async function ensureOwnerDir(owner: string): Promise<void> {
-  const dir = path.dirname(file(owner, "0".repeat(32)));
-  await fs.mkdir(dir, { recursive: true, mode: 0o700 });
-  const stat = await fs.lstat(dir);
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("unsafe workflow graph run directory");
-  await fs.chmod(dir, 0o700).catch(() => undefined);
-}
 
 export async function readWorkflowGraphRun(owner: string, id: string): Promise<WorkflowGraphRun | null> {
   try {
-    const target = file(owner, id), stat = await fs.lstat(target);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_RUN_BYTES || (stat.mode & 0o077)) throw new Error("unsafe workflow graph run");
-    const parsed = JSON.parse(await fs.readFile(target, "utf8")) as WorkflowGraphRun;
+    const parsed = await readWorkflowJson(file(owner, id), MAX_RUN_BYTES, "workflow graph run") as WorkflowGraphRun;
     if (parsed.version !== 1 || parsed.owner !== owner || parsed.id !== id || !Array.isArray(parsed.nodes)) throw new Error("invalid workflow graph run");
     return parsed;
   } catch (error) {
@@ -35,13 +26,9 @@ export async function readWorkflowGraphRun(owner: string, id: string): Promise<W
 }
 
 export async function writeWorkflowGraphRun(run: WorkflowGraphRun): Promise<void> {
-  await ensureOwnerDir(run.owner);
-  const target = file(run.owner, run.id), temp = `${target}.${randomUUID()}.tmp`, body = JSON.stringify(run);
+  const body = JSON.stringify(run);
   if (Buffer.byteLength(body) > MAX_RUN_BYTES) throw new Error("workflow graph run receipt exceeds 1 MiB");
-  try {
-    await fs.writeFile(temp, body, { flag: "wx", mode: 0o600 });
-    await fs.rename(temp, target);
-  } finally { await fs.unlink(temp).catch(() => undefined); }
+  await writeWorkflowFile(file(run.owner, run.id), body);
 }
 
 export function lockWorkflowGraphRun<T>(owner: string, id: string, fn: () => Promise<T>): Promise<T> {
@@ -49,15 +36,15 @@ export function lockWorkflowGraphRun<T>(owner: string, id: string, fn: () => Pro
 }
 
 export async function pruneWorkflowGraphRuns(owner: string): Promise<void> {
-  await ensureOwnerDir(owner);
-  const dir = path.dirname(file(owner, "0".repeat(32))), entries = await fs.readdir(dir);
-  const receipts: Array<{ name: string; mtime: number }> = [];
+  const dir = path.dirname(file(owner, "0".repeat(32))), entries = await listWorkflowFiles(dir);
+  const receipts: Array<{ id: string; mtime: number }> = [];
   for (const name of entries) {
     if (!/^[a-f0-9]{32}\.json$/.test(name)) continue;
-    const stat = await fs.stat(path.join(dir, name)); receipts.push({ name, mtime: stat.mtimeMs });
+    const id = name.slice(0, 32), mtime = await workflowFileMtime(file(owner, id));
+    receipts.push({ id, mtime });
   }
   receipts.sort((a, b) => b.mtime - a.mtime);
-  for (const old of receipts.slice(MAX_RECEIPTS - 1)) await fs.unlink(path.join(dir, old.name)).catch(() => undefined);
+  for (const old of receipts.slice(MAX_RECEIPTS - 1)) await removeWorkflowFile(file(owner, old.id)).catch(() => undefined);
 }
 
 export function publicWorkflowGraphRun(run: WorkflowGraphRun) {
@@ -67,8 +54,7 @@ export function publicWorkflowGraphRun(run: WorkflowGraphRun) {
 
 export type WorkflowGraphRunFilter = { graphId?: string; state?: WorkflowGraphRun["state"]; limit?: number; offset?: number };
 export async function listWorkflowGraphRuns(owner: string, filter: WorkflowGraphRunFilter = {}) {
-  await ensureOwnerDir(owner);
-  const dir = path.dirname(file(owner, "0".repeat(32))), names = (await fs.readdir(dir)).filter((name) => /^[a-f0-9]{32}\.json$/.test(name));
+  const dir = path.dirname(file(owner, "0".repeat(32))), names = (await listWorkflowFiles(dir)).filter((name) => /^[a-f0-9]{32}\.json$/.test(name));
   const rows: WorkflowGraphRun[] = [];
   for (const name of names.slice(0, MAX_RECEIPTS)) {
     const row = await readWorkflowGraphRun(owner, name.slice(0, 32)).catch(() => null); if (!row) continue;

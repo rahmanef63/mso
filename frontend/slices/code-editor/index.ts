@@ -8,6 +8,7 @@ export const codeEditorApp: AppDescriptor = {
   title: "Code",
   icon: Code2,
   gradient: "linear-gradient(160deg,#ff5f8f,#b5179e)",
+  prefetch: "never",
   load: () => import("./app"),
   defaultSize: { w: 820, h: 560 },
 };

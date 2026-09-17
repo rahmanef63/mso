@@ -1,5 +1,5 @@
 import { seedSessionMonitor } from "./session-fixture.mjs";
-import { mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServer } from "node:http";
@@ -23,6 +23,10 @@ export async function releaseFixture({ live = false } = {}) {
   await setRole("owner");
   if (live) await writeFile(path.join(dir, "prefs.json"), JSON.stringify({ tweaks: { server: { mode: "live", activeTargetId: "vps", url: "" } } }), { mode: 0o600 });
   await writeFile(path.join(dir, "fixture.txt"), "MSO release fixture");
+  // One real project makes Workflow Directory → Projects verifiable without borrowing the host owner's projects.
+  const fixtureProject = path.join(dir, "projects", "fixture-project");
+  await mkdir(fixtureProject, { recursive: true });
+  await writeFile(path.join(fixtureProject, "package.json"), JSON.stringify({ name: "fixture-project", version: "1.0.0", private: true }), { mode: 0o600 });
   await writeFile(path.join(dir, "infra.json"), JSON.stringify({
     version: 2, instanceId: randomUUID(), defaultUser: "fixture", bindings: [],
     users: { fixture: { id: "fixture", uid: randomUUID(), label: "Release fixture", defaults: { convex: "local" },

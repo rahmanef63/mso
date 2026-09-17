@@ -8,22 +8,37 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` add exact session artifact history
 - `store` unify VPS MCP and skills installation with dynamic host harness
 
 **Fixed**
 
+- `workflows` pin private storage reads and atomic writes
 - `ci` preserve strict scanner coverage on hosted release
 - `forge` make sandbox bootstrap portable on hosted Linux
+- `integrations` preserve implicit direct connection compatibility
 - `doctor` respect no-systemd and remote runtimes
+- `workflows` harden reconciled artifact history reads
+- `integrations` prefer GitHub OAuth
 - `hosted` restore updates and Hermes runtime
 - `update` recover no-systemd container installs
 - `installer` build node-pty reliably on Codespaces
 - `managed-apps` support Hermes without systemd
 
+**Faster**
+
+- `workflows` keep runtime artifacts out of build tracing
+- `shell` defer optional surfaces and bound cold-load bundles
+
 **Changed**
 
 - `gateway` isolate provider adapter boundary
 - `gateway` make lifecycle provider agnostic
+
+**Tests**
+
+- `gateway` reap lock holder fixtures without orphan processes
+- `workflows` stabilize repeated artifact inspection journeys
 
 **Docs**
 
@@ -81,6 +96,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` finish edge controls and directory
 - `workflows` complete canvas runtime
 - `canvas` unify organization and workflow navigation
 - `organization` surface as first-class app

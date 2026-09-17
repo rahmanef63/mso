@@ -74,9 +74,13 @@ esac
     // `flock ... command` acquires the lock before executing the command. The ready
     // file therefore proves ownership; a fixed sleep is not a synchronization primitive
     // when the full suite is deliberately running under nice/ionice.
-    const holder = spawn("flock", ["-x", lock, "sh", "-c", 'printf ready > "$1"; while :; do sleep 60; done', "mso-lock-holder", ready], { stdio: "ignore" });
-    await waitForFile(ready);
+    // --no-fork execs the holder in flock's PID. Killing a forking flock only
+    // stopped its parent and leaked the shell/sleep with the lock still held.
+    const holder = spawn("flock", ["--no-fork", "-x", lock, process.execPath, "-e",
+      "require('node:fs').writeFileSync(process.argv[1], String(process.pid)); setInterval(() => {}, 1000)", ready], { stdio: "ignore" });
     try {
+      await waitForFile(ready);
+      expect(Number(fs.readFileSync(ready, "utf8"))).toBe(holder.pid);
       const out = spawnSync(GATEWAY, ["local-start"], { encoding: "utf8", env: { ...f.baseEnv,
         MSO_RUNTIME_EXCLUSION_DIR: base, MSO_RUNTIME_EXCLUSION_TIMEOUT_SECONDS: "0.1" } });
       expect(out.status).not.toBe(0);
@@ -88,6 +92,9 @@ esac
         else holder.once("close", () => resolve());
       });
     }
+    // Prove teardown released the kernel lock and reaped the exact holder.
+    expect(() => process.kill(holder.pid!, 0)).toThrow();
+    expect(spawnSync("flock", ["-n", lock, "true"], { stdio: "ignore" }).status).toBe(0);
   });
 
   it("does not silently ignore named-tunnel arguments while another gateway is active", () => {

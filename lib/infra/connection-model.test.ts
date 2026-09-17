@@ -28,6 +28,15 @@ describe("native credential identity core",()=>{
     expect(await fs.readFile(file+".v1-backup.json","utf8")).toBe(original);expect((await fs.stat(file+".v1-backup.json")).mode&0o777).toBe(0o600);
     expect((await readIntegrationState()).instanceId).toBe(state.instanceId);
   });
+  it("preserves legacy implicit direct creation while supporting explicitly selected GitHub OAuth",async()=>{
+    const f=await fixture();
+    const oauth=await f.manage({action:"connection.create",confirm:true,user:"alice",provider:"github",connection:"oauth-default",source:"composio",authMethod:"oauth2"}) as {connection:{source:string;authMethod:string}};
+    expect(oauth.connection).toMatchObject({source:"composio",authMethod:"oauth2"});
+    const legacy=await f.manage({action:"connection.create",confirm:true,user:"alice",provider:"github",connection:"legacy"}) as {connection:{source:string;authMethod:string}};
+    expect(legacy.connection).toMatchObject({source:"direct",authMethod:"direct"});
+    const direct=await f.manage({action:"connection.create",confirm:true,user:"alice",provider:"github",connection:"manual",source:"direct",authMethod:"direct"}) as {connection:{source:string;authMethod:string}};
+    expect(direct.connection).toMatchObject({source:"direct",authMethod:"direct"});
+  });
   it("isolates two users and five named Convex account/deployment connections",async()=>{
     const f=await fixture();await f.add("alice","convex-cloud","admin","personal",{personalToken:KEY_A});
     for(const id of ["baton","mimin-production","mimin-staging","play-together"]){await f.add("alice","convex-cloud",id,"deployment",{deployKey:KEY_A+id,deploymentName:id});}

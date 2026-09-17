@@ -46,6 +46,9 @@ if grep -Ei "(^|[[:space:]])warnings?[: ]|⚠" "$MSO_VERIFY_BUILD_LOG"; then
   exit 41
 fi
 
+echo "== verify: eager shell bundle budget"
+node scripts/check-bundle.mjs
+
 echo "== verify 2/3: Playwright Chromium runtime"
 if ! node scripts/ensure-playwright-browser.mjs; then
   echo "verification failed while preparing the browser required by release E2E" >&2
@@ -68,6 +71,12 @@ fi
 echo "== verify shell-native server status"
 if ! node scripts/e2e/shell-status.mjs; then
   echo "verification failed during shell-native server status E2E" >&2
+  exit 43
+fi
+
+echo "== verify deferred shell performance"
+if ! node scripts/e2e/bundle-performance.mjs; then
+  echo "verification failed during deferred shell performance E2E" >&2
   exit 43
 fi
 

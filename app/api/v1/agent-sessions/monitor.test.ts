@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-const mocks = vi.hoisted(() => ({ context: vi.fn(), page: vi.fn(), detail: vi.fn(), graph: vi.fn() }));
+const mocks = vi.hoisted(() => ({ context: vi.fn(), page: vi.fn(), detail: vi.fn(), graph: vi.fn(), resolveOwner: vi.fn(), artifact: vi.fn() }));
 vi.mock("@/lib/auth/require-session", () => ({ getSessionContext: mocks.context }));
 vi.mock("@/lib/agent/session-monitor", () => ({ ownerSessionPage: mocks.page, ownerSessionDetail: mocks.detail, ownerSessionGraph: mocks.graph }));
+vi.mock("@/lib/agent/session-query", () => ({ ownerSessionSummaries: vi.fn(), resolveAgentSessionOwnerRef: mocks.resolveOwner, resumeAgentSessionForOwner: vi.fn() }));
+vi.mock("@/lib/agent/session-artifact-resolver", () => ({ resolveHistoricalSessionArtifactForOwner: mocks.artifact }));
 import { GET } from "./route";
 beforeEach(() => { vi.clearAllMocks(); mocks.context.mockResolvedValue({ role: "owner", session: { device_id: "owner" } }); });
 describe("session monitor route", () => {
@@ -24,6 +26,20 @@ describe("session monitor route", () => {
     expect(mocks.graph).toHaveBeenCalledWith("20260901_100000_aabbccdd", 120);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
+  it("serves owner-scoped artifact history without exposing resolver failures", async () => {
+    mocks.resolveOwner.mockResolvedValue({ id: "internal", principalHash: "a".repeat(64) });
+    mocks.artifact.mockResolvedValue({ artifact: { ref: "artifact_a", relativePath: "src/a.ts" }, history: { capture: { state: "captured", exactAtCapture: true }, historical: { available: true, exact: true }, diff: { available: true, changed: true } } });
+    const response = await GET(new NextRequest("http://localhost/api/v1/agent-sessions?view=artifact&id=20260901_100000_aabbccdd&action_ref=S3.A4"));
+    expect(response.status).toBe(200);
+    expect(mocks.resolveOwner).toHaveBeenCalledWith("20260901_100000_aabbccdd");
+    expect(mocks.artifact).toHaveBeenCalledWith(expect.objectContaining({ id: "internal" }), "S3.A4");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    mocks.artifact.mockRejectedValue(new Error("/private/path token=hidden"));
+    const failed = await GET(new NextRequest("http://localhost/api/v1/agent-sessions?view=artifact&id=x&action_ref=S3.A4"));
+    expect(failed.status).toBe(503);
+    expect(JSON.stringify(await failed.json())).not.toMatch(/private|hidden/);
+  });
+
   it("returns 404 for a missing exact session and does not expose store error details", async () => {
     mocks.detail.mockResolvedValue(null);
     expect((await GET(new NextRequest("http://localhost/api/v1/agent-sessions?view=monitor&id=missing"))).status).toBe(404);

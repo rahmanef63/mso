@@ -34,7 +34,8 @@ export async function POST(req: Request) {
   const cwd = optionalString(body, "cwd");
   if (cwd === null) return invalidRequest("cwd");
   try {
-    const { id, cwd: dir } = await openPty({ cols, rows, cwd });
+    if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    const { id, cwd: dir } = await openPty({ cols, rows, cwd, owner: actor });
     audit({
       action: "term.open",
       actor,

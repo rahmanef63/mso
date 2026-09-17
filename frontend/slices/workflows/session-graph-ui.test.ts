@@ -31,6 +31,11 @@ describe("Workflow session graph UI contract", () => {
     expect(sessionDetails).toContain('data-slot="session-action-group"');
     expect(sessionDetails).toContain("Action groups");
     expect(sessionDetails).toContain("action.artifact.revisionRef");
+    expect(sessionDetails).toContain('data-slot="session-artifact-history"');
+    expect(sessionDetails).toContain('data-slot="session-artifact-snapshot"');
+    expect(sessionDetails).toContain('data-slot="session-artifact-diff"');
+    expect(sessionDetails).toContain("Inspect revision");
+    expect(sessionDetails).toContain("MSO will not guess a historical snapshot");
     expect(sessionDetails).toContain("S3.A4");
     expect(sessionDetails).toContain('data-slot="save-session-workflow-draft"');
     expect(sessionDetails).toContain('data-slot="save-step-workflow-draft"');

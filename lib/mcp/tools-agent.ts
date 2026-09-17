@@ -6,6 +6,7 @@ import { resolveAgentSessionRef } from "@/lib/agent/session-query";
 import { agentSessionLabel } from "@/lib/agent/session-name";
 import { semanticSessionFlow } from "@/lib/agent/session-flow";
 import { resolveHistoricalSessionAction } from "@/lib/agent/session-action-history";
+import { resolveHistoricalSessionArtifact } from "@/lib/agent/session-artifact-resolver";
 
 function principal(context: { principal?: string }): string {
   if (!context.principal) throw new Error("agent session principal is unavailable");
@@ -88,15 +89,26 @@ export const AGENT_TOOLS: McpTool[] = [
     inputSchema: S({
       session_ref: { type: "string", description: "Human session label (agent-context), @name, title, or legacy exact id." },
       action_ref: { type: "string", description: "Stable semantic action reference such as S3.A4, event reference such as E217, or an opaque action id returned by the semantic flow." },
+      artifact_view: { type: "string", enum: ["metadata", "snapshot", "diff"], description: "Optional exact artifact history view. Snapshot/diff are returned only when capture proof is trustworthy." },
     }, ["session_ref", "action_ref"]),
     run: async (a, context) => {
       const owner = principal(context), target = await resolveAgentSessionRef(owner, str(a, "session_ref"));
-      const resolved = await resolveHistoricalSessionAction(owner, target, str(a, "action_ref"));
-      if (!resolved) throw new Error(`session action not found: ${str(a, "action_ref").toUpperCase()}`);
-      return {
-        session: { label: agentSessionLabel(target.name, target.title, target.cwd), title: target.title, source: target.source, updatedAt: target.updatedAt, ...(target.cwd ? { cwd: target.cwd } : {}) },
-        ...resolved,
-      };
+      const actionRef = str(a, "action_ref"), artifactView = enumValue(a, "artifact_view", ["metadata", "snapshot", "diff"] as const);
+      const session = { label: agentSessionLabel(target.name, target.title, target.cwd), title: target.title, source: target.source, updatedAt: target.updatedAt, ...(target.cwd ? { cwd: target.cwd } : {}) };
+      if (artifactView) {
+        const artifact = await resolveHistoricalSessionArtifact(owner, target, actionRef);
+        if (!artifact) throw new Error(`session action not found: ${actionRef.toUpperCase()}`);
+        if (!artifact.artifact || !artifact.history) return { session, ...artifact.resolution, artifactHistory: null };
+        const history = structuredClone(artifact.history) as any;
+        if (artifactView === "metadata") {
+          if (history.historical) delete history.historical.content;
+          if (history.diff) delete history.diff.unifiedDiff;
+        } else if (artifactView === "snapshot" && history.diff) delete history.diff.unifiedDiff;
+        return { session, ...artifact.resolution, artifactHistory: history };
+      }
+      const resolved = await resolveHistoricalSessionAction(owner, target, actionRef);
+      if (!resolved) throw new Error(`session action not found: ${actionRef.toUpperCase()}`);
+      return { session, ...resolved };
     },
   },
   {

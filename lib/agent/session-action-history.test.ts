@@ -18,6 +18,7 @@ describe("archive-backed session action lookup", () => {
     const principal = "mcp-client:owner", now = Date.now();
     const all = normalizeSessionEventSemantics(Array.from({ length: 401 }, (_, index) => ({
       at: new Date(now + index).toISOString(), kind: "tool" as const, tool: index === 0 ? "fs_read" : "fs_write", state: "completed", detail: index === 0 ? "src/old.ts token=secret-value" : `src/${index}.ts`,
+      ...(index === 0 ? { artifactRevision: { version: 1 as const, cwd: "/srv/project", relativePath: "src/old.ts", worktreeSha256: "a".repeat(64), bytes: 12, cleanAtCapture: false } } : {}),
     })));
     const original = resolveSessionFlowAction(all, "E1", "/srv/project", 0)!;
     const session: AgentSession = {
@@ -30,6 +31,8 @@ describe("archive-backed session action lookup", () => {
       const resolved = await history.resolveHistoricalSessionAction(principal, session, ref);
       expect(resolved?.action.eventRef).toBe("E1");
       expect(JSON.stringify(resolved)).not.toContain("secret-value");
+      const record = await history.resolveHistoricalSessionActionRecord(principal, session, ref);
+      expect(record?.event.artifactRevision).toMatchObject({ relativePath: "src/old.ts", bytes: 12 });
     }
     await expect(history.resolveHistoricalSessionAction("mcp-client:other", session, "E1")).rejects.toThrow("session not found");
   });

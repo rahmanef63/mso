@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
+import { getSessionActor } from "@/lib/auth/require-session";
 import { apiError, invalidRequest, readJson, requireInt, requireString } from "@/lib/host/request-api";
 import { resizePty } from "@/lib/host/terminal-api";
 
@@ -11,6 +12,8 @@ export async function POST(req: Request) {
   if (!(await verifyAuth(req)))
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+  const actor = await getSessionActor();
+  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await readJson(req);
   const id = requireString(body, "id");
   if (id === null) return invalidRequest("id");
@@ -19,7 +22,7 @@ export async function POST(req: Request) {
   const rows = requireInt(body, "rows", 2, 500);
   if (rows === null) return invalidRequest("rows");
   try {
-    resizePty(id, cols, rows);
+    resizePty(id, actor, cols, rows);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return apiError("term/resize", e);

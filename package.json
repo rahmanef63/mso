@@ -45,7 +45,9 @@
     "test:features": "node scripts/test-features.mjs",
     "screenshot:cli": "node scripts/capture-cli.mjs",
     "check:instance-literals": "bun scripts/check-instance-literals.mjs",
-    "e2e:release": "node scripts/e2e/release.mjs"
+    "e2e:release": "node scripts/e2e/release.mjs",
+    "bundle:report": "node scripts/check-bundle.mjs --report-only",
+    "bundle:check": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

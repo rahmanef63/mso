@@ -56,6 +56,14 @@ export interface SessionFlowArtifact {
   label: string;
   kind: "file" | "script";
   language?: string;
+  capture?: {
+    state: "legacy" | "captured";
+    exactAtCapture: boolean;
+    sha256?: string;
+    bytes?: number;
+    gitHead?: string;
+    gitBlob?: string;
+  };
 }
 export interface SessionFlowAction {
   /** Opaque durable identity scoped to the session. Not rendered as the human reference. */

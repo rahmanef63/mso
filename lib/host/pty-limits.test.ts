@@ -19,6 +19,7 @@ type FakePty = {
   _exitCbs: ((e: { exitCode: number }) => void)[];
 };
 
+const OWNER = "owner-a";
 const fakePtys: FakePty[] = [];
 
 vi.mock("node-pty", () => ({
@@ -69,13 +70,8 @@ function resetSessions() {
   fakePtys.length = 0;
 }
 
-beforeEach(() => {
-  resetSessions();
-});
-
-afterEach(() => {
-  resetSessions();
-});
+beforeEach(() => resetSessions());
+afterEach(() => resetSessions());
 
 async function importPty() {
   // Fresh import so the mock is wired up; the module is cached but the mock
@@ -83,38 +79,46 @@ async function importPty() {
   return await import("./pty");
 }
 
-describe("PTY session cap", () => {
+describe("PTY session limits and ownership", () => {
+  it("does not let another authenticated device use a live terminal id", async () => {
+    const { openPty, hasPty, attachPty, writePty, resizePty, closePty } = await importPty();
+    const { id } = await openPty({ cols: 80, rows: 24, owner: OWNER });
+    expect(hasPty(id, "owner-b")).toBe(false);
+    expect(() => attachPty(id, "owner-b", 0, { onData: () => {}, onExit: () => {} })).toThrow(/Unknown terminal session/);
+    expect(() => writePty(id, "owner-b", "echo nope\n")).toThrow(/Unknown terminal session/); expect(() => resizePty(id, "owner-b", 100, 30)).toThrow(/Unknown terminal session/);
+    expect(closePty(id, "owner-b")).toBe(false); expect(closePty(id, OWNER)).toBe(true);
+  });
   it("allows up to 8 concurrent sessions, rejects the 9th", async () => {
     const { openPty } = await importPty();
     const ids: string[] = [];
     for (let i = 0; i < 8; i++) {
-      const { id } = await openPty({ cols: 80, rows: 24 });
+      const { id } = await openPty({ cols: 80, rows: 24, owner: OWNER });
       ids.push(id);
     }
     expect(ids).toHaveLength(8);
-    await expect(openPty({ cols: 80, rows: 24 })).rejects.toThrow(/Too many terminal sessions/);
+    await expect(openPty({ cols: 80, rows: 24, owner: OWNER })).rejects.toThrow(/Too many terminal sessions/);
   });
 
   it("releases the slot when a session is closed → next open succeeds", async () => {
     const { openPty, closePty, attachPty } = await importPty();
     const ids: string[] = [];
     for (let i = 0; i < 8; i++) {
-      const { id } = await openPty({ cols: 80, rows: 24 });
+      const { id } = await openPty({ cols: 80, rows: 24, owner: OWNER });
       ids.push(id);
     }
     // Capacity is full.
-    await expect(openPty({ cols: 80, rows: 24 })).rejects.toThrow(/Too many/);
+    await expect(openPty({ cols: 80, rows: 24, owner: OWNER })).rejects.toThrow(/Too many/);
 
     // Close one — node-pty's exit fires via queueMicrotask, so attach to learn
     // when the session went dead.
     let exited = false;
-    attachPty(ids[0], 0, { onData: () => {}, onExit: () => (exited = true) });
-    expect(closePty(ids[0])).toBe(true);
+    attachPty(ids[0], OWNER, 0, { onData: () => {}, onExit: () => (exited = true) });
+    expect(closePty(ids[0], OWNER)).toBe(true);
     await new Promise((r) => setTimeout(r, 5));
     expect(exited).toBe(true);
 
     // Cap counts only LIVE (non-dead) sessions → slot freed.
-    const { id: id9 } = await openPty({ cols: 80, rows: 24 });
+    const { id: id9 } = await openPty({ cols: 80, rows: 24, owner: OWNER });
     expect(id9).toBeTruthy();
   });
 
@@ -124,13 +128,13 @@ describe("PTY session cap", () => {
     try {
       const { openPty, attachPty } = await importPty();
       const ids: string[] = [];
-      for (let i = 0; i < 8; i++) ids.push((await openPty({ cols: 80, rows: 24 })).id);
+      for (let i = 0; i < 8; i++) ids.push((await openPty({ cols: 80, rows: 24, owner: OWNER })).id);
 
       // Seven active streams are protected. Leave only the eighth detached.
-      for (const id of ids.slice(0, 7)) attachPty(id, 0, { onData: () => {}, onExit: () => {} });
+      for (const id of ids.slice(0, 7)) attachPty(id, OWNER, 0, { onData: () => {}, onExit: () => {} });
       await vi.advanceTimersByTimeAsync(11_000);
 
-      const { id: replacement } = await openPty({ cols: 80, rows: 24 });
+      const { id: replacement } = await openPty({ cols: 80, rows: 24, owner: OWNER });
       expect(replacement).toBeTruthy();
       expect(fakePtys[7]!.killed).toBe(true);
       expect(fakePtys.slice(0, 7).every((pty) => !pty.killed)).toBe(true);
@@ -145,11 +149,11 @@ describe("PTY session cap", () => {
     try {
       const { openPty, attachPty } = await importPty();
       const ids: string[] = [];
-      for (let i = 0; i < 8; i++) ids.push((await openPty({ cols: 80, rows: 24 })).id);
-      for (const id of ids) attachPty(id, 0, { onData: () => {}, onExit: () => {} });
+      for (let i = 0; i < 8; i++) ids.push((await openPty({ cols: 80, rows: 24, owner: OWNER })).id);
+      for (const id of ids) attachPty(id, OWNER, 0, { onData: () => {}, onExit: () => {} });
       await vi.advanceTimersByTimeAsync(60_000);
 
-      await expect(openPty({ cols: 80, rows: 24 })).rejects.toThrow(/Too many terminal sessions/);
+      await expect(openPty({ cols: 80, rows: 24, owner: OWNER })).rejects.toThrow(/Too many terminal sessions/);
       expect(fakePtys.every((pty) => !pty.killed)).toBe(true);
     } finally {
       vi.useRealTimers();
@@ -158,10 +162,10 @@ describe("PTY session cap", () => {
 
   it("closePty is idempotent + returns false on a dead session", async () => {
     const { openPty, closePty } = await importPty();
-    const { id } = await openPty({ cols: 80, rows: 24 });
-    expect(closePty(id)).toBe(true);
+    const { id } = await openPty({ cols: 80, rows: 24, owner: OWNER });
+    expect(closePty(id, OWNER)).toBe(true);
     await new Promise((r) => setTimeout(r, 5));
-    expect(closePty(id)).toBe(false);
+    expect(closePty(id, OWNER)).toBe(false);
   });
 });
 
@@ -171,10 +175,10 @@ describe("PTY idle reaper", () => {
     vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
     try {
       const { openPty, attachPty } = await importPty();
-      const { id } = await openPty({ cols: 80, rows: 24 });
+      const { id } = await openPty({ cols: 80, rows: 24, owner: OWNER });
 
       // Attach + detach so listeners.size === 0 → idle clock starts now.
-      const detach = attachPty(id, 0, { onData: () => {}, onExit: () => {} });
+      const detach = attachPty(id, OWNER, 0, { onData: () => {}, onExit: () => {} });
       detach();
 
       // The reaper ticks once a minute. Push past the 30-min idle threshold.
@@ -183,7 +187,7 @@ describe("PTY idle reaper", () => {
       // Session was killed → fake pty's onExit (queueMicrotask) marks it dead.
       // A fresh attach on a dead session replays exit immediately.
       let replayExit: number | null = null;
-      attachPty(id, 0, { onData: () => {}, onExit: (c) => (replayExit = c) });
+      attachPty(id, OWNER, 0, { onData: () => {}, onExit: (c) => (replayExit = c) });
       expect(replayExit).toBe(0);
     } finally {
       vi.useRealTimers();
@@ -194,16 +198,16 @@ describe("PTY idle reaper", () => {
     vi.useFakeTimers();
     try {
       const { openPty, attachPty, closePty } = await importPty();
-      const { id } = await openPty({ cols: 80, rows: 24 });
+      const { id } = await openPty({ cols: 80, rows: 24, owner: OWNER });
       let exit: number | null = null;
-      attachPty(id, 0, { onData: () => {}, onExit: (c) => (exit = c) });
+      attachPty(id, OWNER, 0, { onData: () => {}, onExit: (c) => (exit = c) });
 
       // Push past the idle window — but the listener pins it.
       vi.advanceTimersByTime(60 * 60_000);
       expect(exit).toBeNull();
 
       // Manual close still works.
-      expect(closePty(id)).toBe(true);
+      expect(closePty(id, OWNER)).toBe(true);
       await vi.advanceTimersByTimeAsync(0);
       expect(exit).toBe(0);
     } finally {

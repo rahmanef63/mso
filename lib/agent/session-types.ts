@@ -12,6 +12,23 @@ export interface AgentSessionEventSemantic {
   category: SessionFlowCategory;
 }
 
+export interface AgentSessionArtifactRevision {
+  version: 1;
+  /** Capture-time cwd. Backend metadata used to resolve the project safely later. */
+  cwd: string;
+  /** Path relative to the capture-time cwd. */
+  relativePath: string;
+  repoRoot?: string;
+  repoRelativePath?: string;
+  gitHead?: string;
+  headBlob?: string;
+  worktreeBlob?: string;
+  worktreeSha256?: string;
+  bytes?: number;
+  /** True only when the working file matched HEAD at capture time. */
+  cleanAtCapture?: boolean;
+}
+
 export interface AgentSessionEvent {
   at: string;
   kind:
@@ -28,6 +45,8 @@ export interface AgentSessionEvent {
   detail?: string;
   /** Durable semantic index metadata. Raw execution fields above remain the source of truth. */
   semantic?: AgentSessionEventSemantic;
+  /** Compact proof metadata for future exact artifact history. Never stores the source body. */
+  artifactRevision?: AgentSessionArtifactRevision;
 }
 
 export interface AgentSession {

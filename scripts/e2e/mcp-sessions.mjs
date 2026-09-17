@@ -66,6 +66,35 @@ export async function mcpSessionsJourney(page, fixture) {
   const selectedGraphResponse = await page.request.get(fixture.base + `/api/v1/agent-sessions?view=graph&id=${encodeURIComponent(selectedMonitor.sessions[0].id)}`);
   const selectedGraph = await selectedGraphResponse.json();
   expect(selectedGraph.graph.nodes.length).toBeLessThanOrEqual(9);
+  const artifactStep = selectedGraph.steps.find(step => step.actions.some(action => action.artifact));
+  const artifactAction = artifactStep?.actions.find(action => action.artifact);
+  expect(artifactStep).toBeTruthy(); expect(artifactAction).toBeTruthy();
+  const artifactApi = await page.request.get(fixture.base + `/api/v1/agent-sessions?view=artifact&id=${encodeURIComponent(selectedMonitor.sessions[0].id)}&action_ref=${encodeURIComponent(artifactAction.ref)}`);
+  expect(artifactApi.status()).toBe(200);
+  const artifactPayload = await artifactApi.json();
+  expect(artifactPayload.history.capture.exactAtCapture).toBe(true);
+  expect(artifactPayload.history.historical).toMatchObject({ available: true, exact: true, source: "git-blob", previewRedacted: true });
+  expect(artifactPayload.history.diff).toMatchObject({ available: true, changed: true, previewRedacted: true });
+  expect(JSON.stringify(artifactPayload)).not.toMatch(/FIXTURE_SECRET_MUST_NOT_LEAK|principalHash/);
+  const artifactStepNode = page.locator(".react-flow__node").filter({ hasText: artifactStep.ref + " ·" }).first();
+  await artifactStepNode.click();
+  await expect(page.getByText("Action groups", { exact: true }).last()).toBeVisible();
+  const artifactGroup = artifactStep.groups.find(group => group.actionRefs.includes(artifactAction.ref));
+  expect(artifactGroup).toBeTruthy();
+  await page.locator(`details[data-slot="session-action-group"][data-action-group-ref="${artifactGroup.ref}"] > summary`).click();
+  await page.locator(`details[data-slot="session-action"][data-action-ref="${artifactAction.ref}"] > summary`).click();
+  await page.getByRole("button", { name: "Inspect revision", exact: true }).click();
+  await expect(page.getByText("exact capture", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot="session-artifact-snapshot"]')).toBeVisible();
+  await expect(page.locator('[data-slot="session-artifact-diff"]')).toBeVisible();
+  expect(await page.locator('[data-slot="session-artifact-history"]').innerText()).not.toMatch(/FIXTURE_SECRET_MUST_NOT_LEAK/);
+  const artifactDialog = page.locator('[data-slot="shell-dialog-surface"]').filter({ has: page.locator('[data-slot="session-artifact-history"]') });
+  if (await artifactDialog.isVisible()) {
+    await page.keyboard.press("Escape");
+    // A closed state is not an unmounted modal. Wait for its exit/focus cleanup
+    // before the next canvas click, for both desktop Sheet and mobile Drawer.
+    await expect(artifactDialog).toHaveCount(0);
+  }
   const terminalStep = selectedGraph.steps.find(step => step.actions.some(action => action.terminalContext));
   expect(terminalStep).toBeTruthy();
   const terminalStepNode = page.locator(".react-flow__node").filter({ hasText: terminalStep.ref + " ·" }).first();
@@ -74,7 +103,11 @@ export async function mcpSessionsJourney(page, fixture) {
   await expect(terminalStepNode).toBeVisible();
   expect(await page.locator('[data-slot="workflows-feature"]').innerText()).not.toMatch(/\b\d{8}_\d{6}_[a-f0-9]{8}\b/);
   await terminalStepNode.click();
-  await expect(page.getByText("Action groups", { exact: true }).last()).toBeVisible();
+  const terminalActionGroups = page.getByText("Action groups", { exact: true }).last();
+  // Selection updates asynchronously; assert the promised node-click behavior
+  // instead of racing it with a fallback button that lives in compact overflow.
+  await expect(terminalStepNode).toHaveClass(/\bselected\b/);
+  await expect(terminalActionGroups).toBeVisible();
   await expect(page.getByRole("button", { name: `Save ${terminalStep.ref} as workflow draft`, exact: true })).toBeVisible();
   await expect(page.getByText("Self-improve", { exact: true }).last()).toBeVisible();
   expect(await terminalTabs.count()).toBe(terminalCountBefore); // Selecting a node must not launch tools.

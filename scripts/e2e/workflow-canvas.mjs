@@ -61,8 +61,14 @@ export async function workflowCanvasJourney(page, fixture) {
     await expect(page.getByLabel("Workflow name")).toBeVisible();
     const trigger = canvas.locator(".react-flow__node", { hasText: "Manual Trigger" });
     await expect(trigger).toBeVisible();
-    const box = await trigger.boundingBox();
-    expect(box?.width ?? 0).toBeGreaterThan(viewport.width < 700 ? 140 : 95);
+    // Measure settled geometry, not a lucky intermediate fit animation frame.
+    let previousWidth = 0, stableSamples = 0;
+    await expect.poll(async () => {
+      const width = (await trigger.boundingBox())?.width ?? 0;
+      stableSamples = Math.abs(width - previousWidth) < 0.5 ? stableSamples + 1 : 0;
+      previousWidth = width;
+      return stableSamples >= 3 ? width : 0;
+    }, { timeout: 10000, intervals: [100] }).toBeGreaterThan(viewport.width < 700 ? 140 : 95);
     if (viewport.width < 700) {
       await expect(page.getByRole("button", { name: "New workflow" })).toBeVisible();
       await expect(page.getByRole("button", { name: "More actions" })).toBeVisible();
@@ -89,8 +95,33 @@ export async function workflowCanvasJourney(page, fixture) {
   await page.getByRole("button", { name: "Directory", exact: true }).click();
   await expect(page.getByPlaceholder("Search tools…")).toBeVisible();
   await expect(page.getByText("agent_memory_search", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "projects", exact: true }).click();
+  await expect(page.getByText("fixture-project", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "skills", exact: true }).click();
+  await expect(page.getByText("No matching skills.", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Inspector", exact: true }).click();
 
-  const active = page.getByRole("switch", { name: "Active" });
+  // Connection controls are persisted graph metadata, not temporary React Flow styling.
+  await page.locator(".react-flow__node", { hasText: "Manual Trigger" }).click();
+  const connectionPanel = page.getByText("Connections", { exact: true }).locator("..");
+  const lineStyle = connectionPanel.getByLabel("Line style").first();
+  await expect(lineStyle).toHaveValue("auto");
+  await lineStyle.selectOption("dashed");
+  const connectionActive = connectionPanel.getByRole("switch", { name: "Active" }).first();
+  await expect(connectionActive).toBeChecked();
+  await connectionActive.click();
+  await expect(connectionActive).not.toBeChecked();
+  await connectionActive.click();
+  await lineStyle.selectOption("solid");
+
+  // Reverse is available for ordinary action edges, then reversible back before execution.
+  await page.locator(".react-flow__node", { hasText: "Cache Context" }).click();
+  await page.getByRole("button", { name: "Reverse Cache Context to Memory Search" }).click();
+  await page.locator(".react-flow__node", { hasText: "Memory Search" }).click();
+  await expect(page.getByText(/→ Cache Context/)).toBeVisible();
+  await page.getByRole("button", { name: "Reverse Memory Search to Cache Context" }).click();
+
+  const active = page.getByRole("switch", { name: "Active" }).first();
   await expect(active).not.toBeChecked();
   await active.click();
   await expect(active).toBeChecked();
@@ -119,5 +150,5 @@ export async function workflowCanvasJourney(page, fixture) {
   // Delete using the last persisted revision; the local tidy is intentionally unsaved.
   response = await call(page, { action: "delete", graph_id: graph.id, expected_revision: graph.revision });
   expect(response.status).toBe(200);
-  console.log("PASS Workflow responsive toolbar/drawers, readable compact trigger focus, 5/5 canvas controls, minimap, edge semantics, active mode, cache/memory/session/directory runtime and cleanup");
+  console.log("PASS Workflow responsive toolbar/drawers, readable compact trigger focus, 5/5 canvas controls, minimap, persistent edge style/active/reverse controls, project/skill directory, active mode, cache/memory/session/directory runtime and cleanup");
 }

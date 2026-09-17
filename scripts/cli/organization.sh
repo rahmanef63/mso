@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 # Owner-private Organization CLI. Same API as Alfa → Organization and MCP.
 run_org() {
-  local sub="${1:-show}" revision input action key body id
+  local sub="${1:-show}"
+  local revision=""
+  local input=""
+  local action=""
+  local key=""
+  local body=""
+  local id=""
   shift || true
+
   case "$sub" in
-    show|list) jget "/api/v1/organization" ;;
+    show|list)
+      jget "/api/v1/organization"
+      ;;
     unit-upsert|seat-upsert|replace)
       revision="${1:?revision}"; input="${2:?JSON or @file}"; if [ "${input:0:1}" = "@" ]; then input=$(cat -- "${input:1}"); fi
       action="${sub//-/_}"; key="${sub%%-*}"

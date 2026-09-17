@@ -6,7 +6,9 @@ import path from "node:path";
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-tools-agent-p1-"));
 process.env.OS_AGENT_MEMORY_DIR = root;
 process.env.OS_AGENT_SESSIONS_DIR = path.join(root, "sessions");
-afterAll(async () => { delete process.env.OS_AGENT_MEMORY_DIR; delete process.env.OS_AGENT_SESSIONS_DIR; await fs.rm(root, { recursive: true, force: true }); });
+process.env.OS_FS_WRITE_ROOTS = root;
+process.env.OS_FS_READ_ROOTS = root;
+afterAll(async () => { delete process.env.OS_AGENT_MEMORY_DIR; delete process.env.OS_AGENT_SESSIONS_DIR; delete process.env.OS_FS_WRITE_ROOTS; delete process.env.OS_FS_READ_ROOTS; await fs.rm(root, { recursive: true, force: true }); });
 vi.resetModules();
 const { AGENT_TOOLS } = await import("./tools-agent");
 
@@ -40,7 +42,10 @@ describe("semantic session resolver tools", () => {
   it("resolves stable human refs owner-safely without exposing internal session ids or secrets", async () => {
     const store = await import("@/lib/agent/session-store");
     const principal = "mcp-client:flow-owner";
-    const session = await store.createAgentSession(principal, "mcp", { title: "Semantic resolver", cwd: "/tmp/project" });
+    const project = path.join(root, "project");
+    await fs.mkdir(path.join(project, "src"), { recursive: true });
+    await fs.writeFile(path.join(project, "src", "app.ts"), "export const password=secret-value;\n", "utf8");
+    const session = await store.createAgentSession(principal, "mcp", { title: "Semantic resolver", cwd: project });
     await store.appendAgentSessionEvent(principal, session.id, { kind: "tool", tool: "fs_read", state: "completed", detail: "src/app.ts token=secret-value" });
     await store.appendAgentSessionEvent(principal, session.id, { kind: "tool", tool: "fs_write", state: "completed", detail: "src/app.ts" });
     const context = { principal, sessionId: session.id, scope: "exec" as const };
@@ -52,6 +57,12 @@ describe("semantic session resolver tools", () => {
     expect(body).not.toContain(session.id);
     expect(body).not.toContain("secret-value");
     expect(body).toContain("[redacted]");
+    const writeRef = flow.steps.flatMap((step) => step.actions).find((action) => action.tool === "fs_write")?.ref;
+    const historical = await tool("agent_session_action_resolve").run({ session_ref: `@${session.name}`, action_ref: writeRef, artifact_view: "snapshot" }, context);
+    const historicalBody = JSON.stringify(historical);
+    expect(historicalBody).toContain("artifactHistory");
+    expect(historicalBody).toContain("previewRedacted");
+    expect(historicalBody).not.toContain("password=secret-value");
     await expect(tool("agent_session_action_resolve").run({ session_ref: `@${session.name}`, action_ref: actionRef }, { ...context, principal: "mcp-client:other" })).rejects.toThrow(/not found|session/i);
   });
 });

@@ -15,13 +15,14 @@ export async function POST(req: Request) {
   if (!(await verifyAuth(req)))
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+  const actor = await getSessionActor();
+  if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await readJson(req);
   const id = requireString(body, "id");
   if (id === null) return invalidRequest("id");
   try {
-    const killed = closePty(id);
+    const killed = closePty(id, actor);
     if (killed) {
-      const actor = await getSessionActor();
       audit({ action: "term.close", actor, target: `pty ${id.slice(0, 8)}`, ok: true });
     }
     return NextResponse.json({ ok: true });

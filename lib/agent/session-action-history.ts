@@ -6,6 +6,7 @@ import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { redactText } from "@/lib/security/redact-text";
 import { agentSessionArchiveRoot, archiveRetentionDays } from "./session-archive";
 import { resolveSessionFlowAction } from "./session-flow";
+import { validSessionArtifactRevision } from "./session-artifact-history";
 import type { AgentSession, AgentSessionEvent } from "./session-types";
 
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -30,7 +31,8 @@ function validEvent(value: unknown): value is AgentSessionEvent {
     ["tool", "state", "workflowId", "detail"].every((key) => row[key as keyof AgentSessionEvent] === undefined || (typeof row[key as keyof AgentSessionEvent] === "string" && String(row[key as keyof AgentSessionEvent]).length <= 16000)) &&
     (row.semantic === undefined || (row.semantic.version === 1 && Number.isSafeInteger(row.semantic.step) && row.semantic.step > 0 &&
       Number.isSafeInteger(row.semantic.action) && row.semantic.action > 0 &&
-      ["context", "plan", "inspect", "implement", "verify", "integrate", "deploy", "result", "other"].includes(row.semantic.category)));
+      ["context", "plan", "inspect", "implement", "verify", "integrate", "deploy", "result", "other"].includes(row.semantic.category))) &&
+    (row.artifactRevision === undefined || validSessionArtifactRevision(row.artifactRevision));
 }
 function events(value: unknown): value is AgentSessionEvent[] {
   return Array.isArray(value) && value.length <= 10000 && value.every(validEvent);
@@ -43,6 +45,7 @@ function safeEvent(event: AgentSessionEvent): AgentSessionEvent {
     ...(event.workflowId ? { workflowId: event.workflowId.slice(0, 80) } : {}),
     ...(event.detail ? { detail: redactText(event.detail, 500) } : {}),
     ...(event.semantic ? { semantic: event.semantic } : {}),
+    ...(event.artifactRevision && validSessionArtifactRevision(event.artifactRevision) ? { artifactRevision: event.artifactRevision } : {}),
   };
 }
 function actionIndexPath(sessionId: string): string {
@@ -98,24 +101,37 @@ export async function archiveDroppedSessionEvents(session: Pick<AgentSession, "i
   });
 }
 
-async function resolveActionIndex(session: AgentSession, actionRef: string) {
+export type HistoricalSessionActionRecord = {
+  resolution: NonNullable<ReturnType<typeof resolveSessionFlowAction>>;
+  event: AgentSessionEvent;
+  sequence: number;
+};
+
+function resolveEventRecord(events: AgentSessionEvent[], actionRef: string, cwd: string | undefined, rawBase: number): HistoricalSessionActionRecord | null {
+  const resolution = resolveSessionFlowAction(events, actionRef, cwd, rawBase);
+  if (!resolution) return null;
+  const sequence = Number(resolution.action.eventRef.slice(1));
+  if (!Number.isSafeInteger(sequence) || sequence <= rawBase) return null;
+  const event = events[sequence - rawBase - 1];
+  return event ? { resolution, event, sequence } : null;
+}
+
+async function resolveActionIndex(session: AgentSession, actionRef: string): Promise<HistoricalSessionActionRecord | null> {
   const index = await readActionIndex(actionIndexPath(session.id)).catch(() => null);
   if (!index || index.sessionId !== session.id || index.principalHash !== session.principalHash) return null;
   const cutoff = Date.now() - archiveRetentionDays() * 86_400_000;
   for (const row of index.records) {
     if (Date.parse(row.event.at) < cutoff) continue;
-    const resolved = resolveSessionFlowAction([row.event], actionRef, session.cwd ?? index.cwd, row.sequence - 1);
-    if (resolved) return resolved;
+    const resolution = resolveSessionFlowAction([row.event], actionRef, session.cwd ?? index.cwd, row.sequence - 1);
+    if (resolution) return { resolution, event: row.event, sequence: row.sequence };
   }
   return null;
 }
 
-/** Caller supplies an authenticated principal and its exact loaded session, never an arbitrary archive path. */
-export async function resolveHistoricalSessionAction(principal: string, session: AgentSession, actionRef: string) {
-  const owner = createHash("sha256").update(principal).digest("hex");
+async function resolveHistoricalSessionActionRecordOwned(session: AgentSession, actionRef: string, owner: string): Promise<HistoricalSessionActionRecord | null> {
   if (session.principalHash !== owner) throw new Error("session not found");
   if (!/^(?:S\d+\.A\d+|E\d+|action_[a-f0-9]{20})$/i.test(actionRef.trim())) return null;
-  const current = resolveSessionFlowAction(session.events, actionRef, session.cwd, session.eventSeqBase);
+  const current = resolveEventRecord(session.events, actionRef, session.cwd, session.eventSeqBase ?? 0);
   if (current) return current;
   const indexed = await resolveActionIndex(session, actionRef);
   if (indexed) return indexed;
@@ -148,12 +164,27 @@ export async function resolveHistoricalSessionAction(principal: string, session:
       if (payload?.schemaVersion !== 1 || typeof payload.archivedAt !== "string" || !Number.isFinite(Date.parse(payload.archivedAt)) || Date.parse(payload.archivedAt) < cutoff || archived?.id !== session.id || archived?.principalHash !== owner || !events(archived.events)) continue;
       const base = archived.eventSeqBase ?? 0;
       if (!Number.isSafeInteger(base) || base < 0) continue;
-      const resolved = resolveSessionFlowAction(archived.events, actionRef, session.cwd, base);
-      if (resolved) return resolved;
+      const record = resolveEventRecord(archived.events, actionRef, session.cwd, base);
+      if (record) return record;
     } catch { /* malformed/expired/unsafe archives do not block other matches */ }
     finally { await handle?.close().catch(() => undefined); }
   }
   return null;
+}
+
+/** MCP/client path: caller supplies an authenticated principal and its exact loaded session. */
+export async function resolveHistoricalSessionActionRecord(principal: string, session: AgentSession, actionRef: string): Promise<HistoricalSessionActionRecord | null> {
+  const owner = createHash("sha256").update(principal).digest("hex");
+  return resolveHistoricalSessionActionRecordOwned(session, actionRef, owner);
+}
+
+/** Web owner-console path. Caller MUST already enforce the application owner role. */
+export async function resolveHistoricalSessionActionRecordForOwner(session: AgentSession, actionRef: string): Promise<HistoricalSessionActionRecord | null> {
+  return resolveHistoricalSessionActionRecordOwned(session, actionRef, session.principalHash);
+}
+
+export async function resolveHistoricalSessionAction(principal: string, session: AgentSession, actionRef: string) {
+  return (await resolveHistoricalSessionActionRecord(principal, session, actionRef))?.resolution ?? null;
 }
 
 export async function pruneSessionActionIndexes(now = Date.now()): Promise<number> {
