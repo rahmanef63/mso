@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `integrations` add safe Convex Cloud deploy runner
 - `workflows` add reviewed external editor tabs
 - `organization` add internal project flows with callable CRUD
 
