@@ -43,8 +43,9 @@ export const POWER_TOOLS: McpTool[] = [
     limit: { key: "camoufox", max: 12, windowMs: 60_000 },
     audit: { action: "camoufox.power" as const, targetArg: "on" },
     description:
-      "Start or stop the Camoufox browser session on the VPS. Starting boots a real Firefox on a headless " +
-      "X display; the session self-terminates after 2h. Stop it when done — it holds a live logged-in profile.",
+      "Start or stop the persistent Camoufox/noVNC session used by the human-facing MSO Browser app. Starting boots the saved-profile Firefox on a headless " +
+      "X display; the session self-terminates after 2h. Do not start it merely for automated public-site inspection: use the verified camoufox-browse skill with a disposable profile instead. " +
+      "If an agent explicitly starts this persistent session for a task and it was previously off, stop it when done — it holds a live logged-in profile.",
     scope: "exec",
     annotations: { destructiveHint: true },
     inputSchema: S({ on: { type: "boolean", description: "true = start, false = stop." } }, ["on"]),

@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `browser` keep Camoufox automation on demand
 - `browser` retain private viewer connectivity without server access
 - `release` align Node support and read-only browser reconnects
 - `extensions` lock project controls until initial inspection
