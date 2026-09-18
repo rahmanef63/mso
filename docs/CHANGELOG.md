@@ -23,6 +23,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `browser` make viewer fixtures independent of host configuration
 - `security` inspect organization fixture through one descriptor
 
+**Docs**
+
+- `ci` document independent runner state directory
+
 **Chores**
 
 - `deps` bump the production-minor-patch group across 1 directory with 7 updates
