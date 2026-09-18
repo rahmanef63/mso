@@ -226,3 +226,17 @@ and run `bun run test scripts/install-node-gyp.test.ts` plus the installer lifec
 checks. CI and the scheduled dependency audit check this lock independently;
 Dependabot tracks its npm manifest separately. A local pass is
 not proof that a previously published GitHub security alert has closed.
+
+## Test dependency update boundary
+
+`bun run test` and `bun run coverage` first run `scripts/check-test-toolchain.mjs`.
+The installed `vitest` and `@vitest/coverage-v8` versions must match exactly, including
+patch versions; the guard does not download packages or lower coverage thresholds.
+Update both direct versions and `bun.lock` together. Dependabot's `test-toolchain`
+group keeps the runner and `@vitest/*` providers out of unrelated dependency groups.
+
+The Vitest 5 development toolchain requires Node 22.12 or newer on the supported Node 22
+line; see the [official migration guide](https://vitest.dev/guide/migration/).
+The application runtime baseline remains `.nvmrc`; `@types/node` tracks that baseline,
+so moving its major requires an explicit runtime compatibility review. A successful
+compile with newer typings does not prove the APIs exist on the oldest supported runtime.

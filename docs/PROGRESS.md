@@ -1,3 +1,10 @@
+## 2026-09-18 — Reconcile pending browser and dependency work with Organization main
+
+Preserve the released Organization project-flow implementation while merging the previously
+verified dependency and Camoufox candidates. Only the generated changelog and historical
+progress entries conflicted; both source histories are retained. The combined commit must
+pass its own release gates. Local reconciliation does not imply a remote PR merge or deployment.
+
 ## 2026-09-18 — Organization-scoped project flow
 
 - The organization overview previously rendered long context notes directly inside unit cards. Keep overview descriptions clamped and put projects, activities, relationships and long notes inside the selected unit instead.
@@ -6,6 +13,54 @@
 - Extend the existing organization API/MCP/CLI contract rather than creating a second store or executable workflow. Expand only the organization HTTP body allowance; integration setup retains its original default bound.
 - Full verify passed (3,056 tests across 511 files), production build passed, and the isolated browser journey verifies node CRUD, visible directional edges, persistent drags, long notes, real MCP mutation, stale-revision and scope refusal, and desktop/portrait/landscape layouts. The complete release E2E and eager bundle budget also pass. Canvas measurements are preserved separately from server-owned data.
 
+## 2026-09-18 — Separate Camoufox process health from secure viewer reachability
+
+A running user service and loopback noVNC response did not prove the separate public
+viewer could negotiate TLS. The Browser app now requests an authenticated, rate-limited
+transport diagnosis before fetching its VNC credential. The probe uses the existing
+public-address/DNS-pinned transport, no credentials, no redirects, a bounded wait and
+short in-flight cache. Anonymous denial is recorded only as HTTPS transport evidence,
+never as proof of authenticated VNC access. TLS, DNS and upstream failures are readable.
+Connection failures preserve the service's real running state and expose retry rather
+than an endless spinner. Power help now acknowledges deployment-configured session limits.
+
+Native GitHub verification now displays the validated account login from the official
+user endpoint, while still explicitly declining to claim repository permissions. An
+MSO profile label is not a GitHub account identity. Unexpected payloads and credential
+reflections never enter the account label; no connection, token or account is replaced.
+
+## 2026-09-17 — Reconcile dependency PRs as one tested release candidate
+
+The continuation preserved the pending cooldown and lock-fixture fixes and reconciled
+Dependabot production, PostCSS and pinned CodeQL action changes in an isolated worktree.
+The PostCSS/React lockfile conflict contained independent nested package entries; both
+were retained instead of replacing the newer React dependency graph.
+
+The separate Vitest major PRs selected incompatible runner/coverage pairs. Even matching
+major versions can resolve to different patches, so canonical test and coverage commands
+now fail early unless the installed versions match exactly. The reviewed Vitest 5.0.0
+runner and coverage provider are pinned together, and Dependabot groups future Vitest
+packages in one PR. A fixture covers both major and patch mismatches. Node typings remain
+on the .nvmrc baseline (22); a newer typing major is not accepted merely because tsc passes.
+The existing coverage floors and test assertions are unchanged.
+
+These changes are a candidate, not a production claim. The current main release stays
+untouched while normal PR authentication, required checks and exact-SHA release verification
+are pending. No owner exception or direct-main publication is used by this continuation.
+
+## 2026-09-17 — Keep native dependency updates behind the existing cooldown
+
+The hosted Semgrep scan reproduced a missing seven-day cooldown on the new isolated
+node-gyp Dependabot entry. That entry now follows the same policy as the existing Bun
+and GitHub Actions entries. A regression checks every configured ecosystem, so adding
+another updater cannot silently omit the policy. Scanner rules and severity gates are
+unchanged; this corrects update configuration without changing the application runtime.
+
+The full gate also exposed a scheduler-sensitive 24-contender lock fixture: its four-second
+acquisition budget could expire under parallel coverage while the isolated test passed.
+The fixture retains every contender and all mutual-exclusion assertions, waits for all
+outcomes before removing its files, and uses a bounded ten-second test-only budget.
+Production lock deadlines and the short fail-closed denial tests are unchanged.
 
 ## 2026-09-17 — Lock the native build bootstrap without touching the runtime tree
 

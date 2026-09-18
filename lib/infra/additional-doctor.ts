@@ -77,7 +77,7 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
     }
     case "github": {
       if (!present(values.apiKey)) return null;
-      await checked("GitHub", "https://api.github.com/user", {
+      const response = await checked("GitHub", "https://api.github.com/user", {
         authorization: `Bearer ${values.apiKey}`,
         accept: "application/vnd.github+json",
         "user-agent": "MSO-integration-doctor",
@@ -85,7 +85,10 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
       });
       // request intentionally does not return response headers. Therefore this
       // doctor never claims repo scope: authentication is all it can prove here.
-      return "authenticated; repository scope not verified";
+      const login = obj(response.body).login;
+      const account = typeof login === "string" && /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i.test(login) && login !== values.apiKey
+        ? ` as ${login}` : " (account identity unavailable)";
+      return `authenticated${account}; repository scope not verified`;
     }
     case "vercel": {
       if (!present(values.apiKey)) return null;

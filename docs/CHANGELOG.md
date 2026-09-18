@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `organization` add internal project flows with callable CRUD
 
+**Fixed**
+
+- `browser` diagnose secure viewer failures without losing power state
+
 ## 2026-09-17
 
 **Added**
@@ -19,6 +23,8 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `ci` reconcile dependency updates as matched toolchains
+- `security` retain cooldown for native dependency updates
 - `installer` lock isolated native build tool dependencies
 - `proxy` finish portable managed-app loopback relay
 - `workflows` pin private storage reads and atomic writes
@@ -45,6 +51,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `security` drain lock contenders before fixture cleanup
 - `gateway` reap lock holder fixtures without orphan processes
 - `workflows` stabilize repeated artifact inspection journeys
 
@@ -54,6 +61,9 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Chores**
 
+- `deps` bump the actions-minor-patch group with 3 updates
+- `deps-dev` bump postcss in the development-minor-patch group
+- `deps` bump the production-minor-patch group with 7 updates
 - `release` bump app version to 0.2.18
 - `release` bump app version to 0.2.17
 

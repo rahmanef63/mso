@@ -452,3 +452,29 @@ continue with the returned cursor instead of concluding absence.
 - managed apps: `docs/MANAGED-APPS.md`
 - Camoufox: `claude-skills/mso-camoufox/SKILL.md`
 - security: `SECURITY.md`
+
+## Camoufox is running but its viewer is blank
+
+Check each boundary separately. `mso api GET /api/v1/camoufox/service` reports the
+user service and loopback viewer; `mso api GET '/api/v1/camoufox/service?probe=viewer'`
+checks public HTTPS transport through the authenticated API. The second operation
+never forwards session cookies or VNC passwords and does not authenticate a VNC client.
+A TLS failure must be fixed at the exact viewer hostname, certificate and reverse-proxy
+route; repeatedly starting an already running browser cannot fix it. Keep the viewer
+on its isolated origin, retain live Operator/Owner authorization, and never expose a
+bare noVNC listener or disable certificate verification as a workaround.
+
+A certificate for `*.example.com` does not cover `camoufox.mso.example.com`.
+Check the edge provider's coverage independently from the origin certificate.
+For Cloudflare full-setup Universal SSL, see its [hostname coverage limits](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/).
+DNS-only routing requires a publicly trusted origin certificate and the intended
+origin route; changing the record also changes which edge protections apply.
+
+The browser session may stop at its configured service time limit. A failed transport
+probe is not a stopped process. Verify actual navigation independently using an isolated
+profile before attributing a saved-profile failure to the browser binary. Preserve
+saved logins and profile data; a passing clean-profile test is not a repaired saved profile.
+
+For GitHub connection diagnosis, compare the returned authenticated login with the intended
+account, then verify permissions on the exact repository. A named MSO profile, a successful
+`/user` response, and permission to merge a repository are three different facts.
