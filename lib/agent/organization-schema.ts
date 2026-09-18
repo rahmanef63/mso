@@ -1,3 +1,4 @@
+import { parseOrganizationFlow } from "./organization-flow-schema";
 import type {
   OrganizationChart,
   OrganizationSeat,
@@ -36,6 +37,7 @@ export function parseOrganizationUnit(v: unknown, now = new Date().toISOString()
   return { id: id(row.id, "unit.id"), key, name: required(row.name, "unit.name", 120), kind,
     status: row.status === "inactive" ? "inactive" : "active", ...(parentUnitId ? { parentUnitId } : {}),
     ...(text(row.description, 1000) ? { description: text(row.description, 1000) } : {}), sortOrder: order(row.sortOrder),
+    ...(row.projectFlow !== undefined ? { projectFlow: parseOrganizationFlow(row.projectFlow) } : {}),
     createdAt: text(row.createdAt, 64) || now, updatedAt: text(row.updatedAt, 64) || now };
 }
 

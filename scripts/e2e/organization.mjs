@@ -67,6 +67,7 @@ export async function organizationJourney(page, fixture) {
   await page.goto(fixture.base + "/organization");
 
   await page.getByRole("button", { name: /E2E Product/ }).click();
+  await page.getByRole("button", { name: "Seats", exact: true }).click();
   const seatCanvas = page.getByRole("application", { name: "Organization seats canvas" });
   await expect(seatCanvas).toBeVisible();
   await expect(seatCanvas.locator(".react-flow__node", { hasText: "Chief Executive Officer" })).toBeVisible();

@@ -22,8 +22,8 @@ const statusClass: Record<OrganizationSeatRuntime["status"], string> = {
 
 function UnitCard({ data, selected }: NodeProps<UnitNode>) {
   return <div className={cn("relative w-[230px] rounded-xl border bg-card p-3 shadow-sm", selected && "ring-2 ring-ring")}><Handle type="target" position={Position.Top} id="input" className="!size-2 !border-0 !bg-muted-foreground/50"/><Handle type="source" position={Position.Bottom} id="output" className="!size-2 !border-0 !bg-muted-foreground/50"/>
-    <div className="flex items-start gap-2"><Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground"/><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{data.unit.name}</div><div className="mt-0.5 text-[10px] text-muted-foreground">{data.unit.description || data.unit.kind}</div></div></div>
-    <div className="mt-2 flex gap-1"><Badge variant="secondary" className="text-[9px]">{data.unit.kind}</Badge><Badge variant="outline" className="text-[9px]">{data.seatCount} seats</Badge></div>
+    <div className="flex items-start gap-2"><Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground"/><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{data.unit.name}</div><div className="mt-0.5 line-clamp-2 break-words text-[10px] text-muted-foreground">{data.unit.description || data.unit.kind}</div></div></div>
+    <div className="mt-2 flex gap-1"><Badge variant="secondary" className="text-[9px]">{data.unit.kind}</Badge><Badge variant="outline" className="text-[9px]">{data.seatCount} seats</Badge>{data.unit.projectFlow?.nodes.length ? <Badge variant="outline" className="text-[9px]">{data.unit.projectFlow.nodes.length} nodes</Badge> : null}</div>
   </div>;
 }
 function SeatCard({ data, selected }: NodeProps<SeatNode>) {

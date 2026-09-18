@@ -8,12 +8,15 @@ import type { OrganizationSeat, OrganizationUnit } from "@/lib/contracts/organiz
 import { getOrganization, mutateOrganization, type OrganizationPayload } from "../lib/organization-api";
 import { OrganizationCanvas } from "./organization-canvas";
 import { OrganizationEditor } from "./organization-editor";
+import { ProjectFlow } from "./project-flow";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type Draft = { kind: "unit"; item?: OrganizationUnit } | { kind: "seat"; item?: OrganizationSeat } | null;
+type Draft = { kind: "unit"; item?: OrganizationUnit } | { kind: "seat"; item?: OrganizationSeat; unitId?: string } | null;
 
 export function OrganizationView() {
   const [data, setData] = useState<OrganizationPayload | null>(null);
   const [selectedUnit, setSelectedUnit] = useState("__all__");
+  const [tab, setTab] = useState("projects");
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(null);
   const [error, setError] = useState("");
@@ -61,7 +64,7 @@ export function OrganizationView() {
     if (kind === "unit" && id === selectedUnit) setSelectedUnit("__all__");
     if (kind === "seat" && id === selectedSeatId) setSelectedSeatId(null);
   };
-  const chooseUnit = (id: string) => { setSelectedUnit(id); setSelectedSeatId(null); };
+  const chooseUnit = (id: string) => { setSelectedUnit(id); setSelectedSeatId(null); setTab("projects"); };
 
   if (!data) return <div className="grid h-full place-items-center p-6 text-sm text-muted-foreground">{error || "Loading organization…"}</div>;
 
@@ -97,13 +100,18 @@ export function OrganizationView() {
               <p className="mt-0.5 hidden max-w-2xl text-[11px] leading-snug text-muted-foreground @min-[520px]:line-clamp-2">{currentUnit?.description || "Open a unit to inspect its reporting graph. Pan, zoom, fit, and use the minimap like a workflow canvas."}</p>
             </div>
           </div>
-          <div className="flex shrink-0 gap-1">{currentUnit ? <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => setDraft({ kind: "unit", item: currentUnit })}><Pencil className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Unit</span></Button> : null}{currentUnit ? <Button size="sm" className="h-8 px-2" onClick={() => setDraft({ kind: "seat" })}><Users className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Seat</span></Button> : null}</div>
+          <div className="flex shrink-0 gap-1">{currentUnit ? <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => setDraft({ kind: "unit", item: currentUnit })}><Pencil className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Unit</span></Button> : null}{currentUnit ? <Button size="sm" className="h-8 px-2" onClick={() => setDraft({ kind: "seat", unitId: currentUnit.id })}><Users className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Seat</span></Button> : null}</div>
         </div>
         {error ? <div className="shrink-0 border-b bg-destructive/10 px-4 py-2 text-xs text-destructive">{error}</div> : null}
-        <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+        {currentUnit ? <Tabs key={currentUnit.id} className="flex min-h-0 flex-1 flex-col gap-0">
+          <TabsList className="mx-3 my-2 w-fit shrink-0"><TabsTrigger active={tab === "projects"} onClick={() => setTab("projects")}>Projects</TabsTrigger><TabsTrigger active={tab === "seats"} onClick={() => setTab("seats")}>Seats</TabsTrigger></TabsList>
+          {tab === "projects" ? <div className="relative min-h-0 flex-1 overflow-hidden"><ProjectFlow unit={currentUnit} onSave={async (action, record) => { const next = await mutateOrganization({ action, expected_revision: data.chart.revision, data: record }); setData(next); }}/></div> : <div className="relative min-h-0 flex-1 overflow-hidden">
           <OrganizationCanvas chart={data.chart} runtime={data.runtime} unitId={currentUnit?.id ?? ""} selectedSeatId={selectedSeatId} onUnitSelect={chooseUnit} onSeatSelect={(seat) => setSelectedSeatId(seat?.id ?? null)} onSeatOpen={(seat) => setDraft({ kind: "seat", item: seat })}/>
           {selectedSeat ? <SeatInspector seat={selectedSeat} runtimeLabel={selectedRuntime?.label} runtimeStatus={selectedRuntime?.status} onClose={() => setSelectedSeatId(null)} onEdit={() => setDraft({ kind: "seat", item: selectedSeat })}/> : null}
-        </div>
+          </div>}
+        </Tabs> : <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+          <OrganizationCanvas chart={data.chart} runtime={data.runtime} unitId="" selectedSeatId={null} onUnitSelect={chooseUnit} onSeatSelect={() => {}} onSeatOpen={() => {}}/>
+        </div>}
         <div className="hidden shrink-0 border-t px-3 py-1.5 text-[10px] leading-snug text-muted-foreground @min-[700px]:block">V select · H pan · Space temporary pan · F fit · wheel/pinch zoom. Seat execution status remains capability-safe and does not grant authority.</div>
       </section>
       <OrganizationEditor draft={draft} chart={data.chart} onClose={() => setDraft(null)} onSave={save} onDelete={remove}/>

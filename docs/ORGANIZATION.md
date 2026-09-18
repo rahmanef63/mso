@@ -125,3 +125,47 @@ Every mutation uses the current chart revision. Refresh and reconcile if another
 - `organization_manage` — revision-checked unit/seat mutation.
 
 The MCP tools expose the same store and do not create another organization database.
+
+
+## Internal project flow
+
+Every unit may own an optional `projectFlow` in the same private organization store.
+The outer organization card remains a two-line summary. Opening a unit defaults to
+**Projects**; **Seats** retains the existing reporting/execution-binding view.
+Project-flow cards are context nodes, not seats or executable Workflow Graph nodes.
+
+The flow stores a title, multiline notes, nodes and directed labeled connections.
+Node kinds are `project`, `activity`, `group`, and `note`; status defaults to
+`unconfirmed`, with explicit `planned`, `active`, `blocked`, and `done` alternatives.
+`projectRef` is a reference only and grants no authority. Clicking a node opens its
+details; editing, dragging positions, connecting and deleting persist through the API.
+Search and focus limit the visible context without changing stored data. Long source
+notes live inside the unit's Notes editor, not on the overview card.
+
+The existing `organization_chart` read tool returns each unit's `projectFlow`.
+The existing `organization_manage` write tool supports the following actions; all
+require `expected_revision` and `data.unitId` (the exact owning unit id):
+
+| Action | Additional data |
+|---|---|
+| `flow_update` | Optional `title`, `notes`; preserves nodes/edges |
+| `flow_replace` | Complete `flow: {version:1,title,notes,nodes,edges}` |
+| `flow_node_upsert` | `node: {id?,title,kind?,status?,summary?,notes?,position?:{x,y},projectRef?}` |
+| `flow_node_delete` | `id`; also removes that node's incident edges |
+| `flow_edge_upsert` | `edge: {id?,source,target,label?}` |
+| `flow_edge_delete` | `id` |
+
+An existing node/edge id permits a partial update. Missing ids are generated server-side.
+Edges must reference nodes in the same unit. Node and edge ids are stable and unique
+within their unit; unknown units, dangling edges, invalid positions and stale revisions
+fail without writing. Unit edits from older clients preserve an omitted `projectFlow`.
+The full-chart `replace` action remains an explicit destructive snapshot replacement.
+
+The HTTP route uses `{action,expected_revision,data}` for flow operations. CLI equivalents
+are `mso org flow-node-upsert <revision> <JSON|@file>` and the other hyphenated action names.
+UI, CLI and MCP share the same revision-checked mutation handler, not separate databases.
+Limits: 200 nodes, 400 edges per unit; 64,000-character flow notes; 12,000-character node
+notes; 2 MiB HTTP body and total private store. Over-limit notes are rejected, not clipped.
+No flow operation executes a command, fetches a source reference, assigns an agent,
+or promotes unconfirmed facts. Existing OAuth scope, device role and audit guards remain.
+Public names are unchanged; rescan clients to see the expanded action enum/descriptions.
