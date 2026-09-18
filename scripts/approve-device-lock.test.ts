@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -16,6 +16,32 @@ describe("approve-device cross-process lock protocol", () => {
     expect(primary).toBeGreaterThan(gate);
     expect(acquire).toContain("return openExclusive(LOCK, token)");
     expect(source).not.toContain("function recoverAbandonedLock");
+  });
+
+  it("preserves the durable session epoch across CLI approve, role and revoke writes", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "mso-approve-policy-"));
+    const store = path.join(root, "devices.json");
+    const owner = "a".repeat(32), device = "b".repeat(32);
+    const policy = { scope: "host", epoch: "epoch-1234567890abcdef", changedAt: 1 };
+    writeFileSync(store, JSON.stringify({
+      approved: { [owner]: { label: "owner", approvedAt: 1, role: "owner" } },
+      pending: { [device]: { label: "phone", firstSeen: 1, lastSeen: 1, ip: "127.0.0.1", attempts: 1 } },
+      sessionPolicy: policy,
+    }));
+    const run = (args: string[]) => spawnSync(process.execPath, [SCRIPT, ...args], {
+      env: { ...process.env, OS_DEVICE_STORE: store, MSO_SYSTEMCTL_BIN: "/bin/true" }, encoding: "utf8",
+    });
+    const savedPolicy = () => JSON.parse(readFileSync(store, "utf8")).sessionPolicy;
+    try {
+      expect(run([device, "phone", "--role", "viewer"]).status).toBe(0);
+      expect(savedPolicy()).toEqual(policy);
+      expect(run(["--set-role", device, "operator"]).status).toBe(0);
+      expect(savedPolicy()).toEqual(policy);
+      expect(run(["--revoke", device]).status).toBe(0);
+      expect(savedPolicy()).toEqual(policy);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("refuses approval as a role-change bypass for an existing device", () => {

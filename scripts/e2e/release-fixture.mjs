@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 import { createHash, randomUUID, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 
-export async function releaseFixture({ live = false } = {}) {
+export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), "mso-release-e2e-"));
   let providerStatus = 200;
   const provider = createServer((req, res) => {
@@ -17,9 +17,16 @@ export async function releaseFixture({ live = false } = {}) {
   const providerUrl = `http://127.0.0.1:${provider.address().port}`;
   const device = randomBytes(16).toString("hex"), password = randomBytes(24).toString("hex");
   const deviceFile = path.join(dir, "devices.json");
-  const setRole = role => writeFile(deviceFile, JSON.stringify({
-    approved: { [device]: { label: "Release fixture", role, approvedAt: Date.now() } }, pending: {},
-  }), { mode: 0o600 });
+  const setRole = async role => {
+    let current = {};
+    try { current = JSON.parse(await readFile(deviceFile, "utf8")); }
+    catch (error) { if (error?.code !== "ENOENT") throw error; }
+    await writeFile(deviceFile, JSON.stringify({
+      ...current,
+      approved: { [device]: { label: "Release fixture", role, approvedAt: current.approved?.[device]?.approvedAt ?? Date.now() } },
+      pending: current.pending ?? {},
+    }), { mode: 0o600 });
+  };
   await setRole("owner");
   if (live) await writeFile(path.join(dir, "prefs.json"), JSON.stringify({ tweaks: { server: { mode: "live", activeTargetId: "vps", url: "" } } }), { mode: 0o600 });
   await writeFile(path.join(dir, "fixture.txt"), "MSO release fixture");
@@ -36,10 +43,13 @@ export async function releaseFixture({ live = false } = {}) {
         createdAt: Date.now(), updatedAt: Date.now(), verifiedAt: Date.now() } } } } },
   }), { mode: 0o600 });
   // Never read deployment .env.local or borrow its credential/device stores.
+  const surfaceRegistry = path.join(dir, "surface-apps.json");
+  await writeFile(surfaceRegistry, JSON.stringify(surfaceApps), { mode: 0o600 });
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(OS_|MSO_|NEXT_PUBLIC_)/.test(key)));
   const example = await readFile(path.join(process.cwd(), ".env.example"), "utf8");
   for (const [, key] of example.matchAll(/\b((?:OS|MSO)_[A-Z_]*(?:STORE|PATH|DIR|LOG))=/g)) env[key] = path.join(dir, key.toLowerCase());
   Object.assign(env, {
+    MSO_SURFACE_APPS_FILE: surfaceRegistry,
     OS_DEVICE_STORE: deviceFile, OS_INFRA_STORE: path.join(dir, "infra.json"),
     OS_CONFIG_STORE: path.join(dir, "config.json"), OS_PREFS_PATH: path.join(dir, "prefs.json"),
     OS_AUDIT_LOG: path.join(dir, "audit.jsonl"), OS_LOGIN_PASSWORD: password,

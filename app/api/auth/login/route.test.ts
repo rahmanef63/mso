@@ -85,6 +85,7 @@ describe("rate limiting cannot be turned into a lockout of everyone else", () =>
     vi.stubEnv("NEXT_PUBLIC_OS_DEMO", "0");
     vi.doMock("@/lib/auth/device-store", async (orig) => ({
       ...(await orig<Record<string, unknown>>()),
+      currentSessionPolicy: async (scope: string) => ({ scope, epoch: "epoch-0000000000000000", changedAt: 1 }),
       isApproved: async () => false,
       recordPending: async () => {},
       touchApproved: async () => {},

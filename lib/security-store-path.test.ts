@@ -1,13 +1,16 @@
 import { constants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { pinSecurityStorePath } from "./security-store-path";
 import { withSecurityStoreLock } from "./security-store-lock";
 
 const roots: string[] = [];
 async function fixture() { const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-pinned-store-")); roots.push(root); return root; }
-afterEach(async () => { for (const root of roots.splice(0)) await fs.rm(root, { recursive: true, force: true }); });
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  for (const root of roots.splice(0)) await fs.rm(root, { recursive: true, force: true });
+});
 
 describe("pinned owner security-store paths", () => {
   it("supports the existing hidden artifact-lock basename", async () => {
@@ -27,6 +30,15 @@ describe("pinned owner security-store paths", () => {
     const root = await fixture(); await fs.chmod(root, 0o777);
     await expect(pinSecurityStorePath(path.join(root, "store.json"))).rejects.toThrow(/not writable by others/);
   });
+  it("authorizes the configured owner surface registry without another write-root entry", async () => {
+    const root = await fixture(), file = path.join(root, "surface-apps.json");
+    vi.stubEnv("VITEST", "");
+    vi.stubEnv("MSO_SURFACE_APPS_FILE", file);
+    const pinned = await pinSecurityStorePath(file);
+    try { expect(pinned.absolute).toBe(file); }
+    finally { await pinned.directory.close(); }
+  });
+
   it("keeps operations on the pinned inode after the pathname is replaced", async () => {
     const root = await fixture(), original = path.join(root, "original"), moved = path.join(root, "moved");
     await fs.mkdir(original, { mode: 0o700 });

@@ -60,17 +60,20 @@ function requestHostname(req: Request): string {
   return raw.split(",")[0].trim().split(":")[0].replace(/\.$/, "").toLowerCase();
 }
 
-/**
- * The validated Domain for this request, or undefined for host-only.
- * A Domain the request host does not domain-match would be dropped by the
- * browser, so that case degrades to host-only instead of shipping a dead cookie.
- */
-export function sessionCookieDomain(req: Request): string | undefined {
+/** Stable signature scope for every browser session minted under this config.
+ * Changing the cookie Domain invalidates existing signed sessions, including a
+ * broader Domain cookie the browser may retain until its original expiry. */
+export function configuredSessionCookieScope(): string {
   const raw = process.env.OS_SESSION_COOKIE_DOMAIN?.trim().toLowerCase() ?? "";
-  // A leading dot is legacy syntax and ignored by RFC 6265 §5.2.3; normalise
-  // rather than reject, since operators still write it out of habit.
   const domain = raw.startsWith(".") ? raw.slice(1) : raw;
-  if (!isCookieDomain(domain)) return undefined;
+  return isCookieDomain(domain) ? `domain:${domain}` : "host";
+}
+
+/** The validated Domain for this request, or undefined for host-only. */
+export function sessionCookieDomain(req: Request): string | undefined {
+  const scope = configuredSessionCookieScope();
+  if (!scope.startsWith("domain:")) return undefined;
+  const domain = scope.slice("domain:".length);
   const host = requestHostname(req);
   return host && domainMatches(host, domain) ? domain : undefined;
 }

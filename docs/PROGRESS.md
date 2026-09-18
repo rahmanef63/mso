@@ -1,3 +1,80 @@
+## 2026-09-18 — Close external-editor review around durable session policy and owner stores
+
+The latest PR review found four boundary issues after the cookie-policy epoch landed. CLI device
+approve/role/revoke writes now preserve the durable `sessionPolicy` record instead of rewriting
+the auth store without it. Repeated session validation uses a read-only fast path when the stored
+scope already matches and acquires the cross-process mutation lock only for an actual rotation,
+with a locked recheck before writing. Workflow-only surface updates preserve MCP Page placement
+only from an existing row that itself normalizes as a valid reviewed app, so malformed legacy
+bytes cannot create Page approval. `MSO_SURFACE_APPS_FILE` is now one of the explicitly allowed
+owner security-store paths, so a configured registry outside the home directory remains writable
+without a duplicate filesystem-write-root declaration. Existing validated Page auth query metadata
+is preserved unchanged. Targeted regressions cover all four boundaries.
+
+## 2026-09-18 — Permanently revoke prior cookie-policy generations
+
+A follow-up security review found that a deterministic scope label could revive an old signed session if configuration later returned to the same cookie Domain. The private auth-device store now keeps one durable cookie-policy epoch and rotates it on every actual scope transition, including A to host-only to A. Signed browser sessions carry both scope and epoch; route and middleware/WebSocket authorization require both. Existing approved devices and roles are preserved, but pre-epoch sessions require a one-time sign-in. Workflow edits also preserve an existing reviewed MCP Page auth path with query parameters without allowing the Workflow endpoint to create or change that Page-owned metadata.
+
+## 2026-09-18 — Preserve the strictest reviewed external-editor sandbox
+
+PR review found that an explicit empty iframe sandbox was normalized as if the owner had
+omitted the field, causing the runtime default to add scripts, same-origin and forms.
+The surface registry now distinguishes omitted sandbox policy from an explicitly empty
+policy. Empty remains a valid, strict sandbox; non-empty values still use the same
+allowlist and byte bound. No permission token is added or broadened.
+
+## 2026-09-18 — Bind signed sessions to their cookie policy
+
+The external-editor security review found a migration edge case: after a broad Domain cookie
+is narrowed or unset, the browser can retain the old cookie until its original expiry even
+though logout no longer knows its former Domain. Session payloads now carry the normalized
+cookie policy that minted them, and both route authorization and middleware/WebSocket gates
+reject a valid HMAC when that policy no longer matches current configuration. Legacy tokens
+without a scope are intentionally invalidated once. This preserves safe host-only sibling
+editors such as a separately hosted n8n while making a retained broader Owner cookie unusable
+against MSO after a scope change. No cookie is widened, no secret is rotated, and current
+domain-match/host collision checks remain in place.
+
+## 2026-09-18 — Remount reviewed workflow editors when sandbox policy changes
+
+A focus refresh can tighten an existing external editor's sandbox without changing its id or origin.
+The embedded document must not keep the permissions from the previous navigation. The iframe key now
+includes the reviewed sandbox policy, so a policy change remounts the document before it can continue.
+Blocked destinations and cookie-isolated origins remain unchanged; no sandbox capability is added.
+
+## 2026-09-18 — Preserve existing MCP Page approval during Workflow metadata edits
+
+The shared registry review found that a Workflow-only save replaced a previously shared
+entry with only the Workflows placement. Preserve an existing explicit MCP Page placement,
+or the legacy implicit Page approval, while adding/updating the Workflow placement. New
+and Workflow-only entries still cannot acquire Page approval through this endpoint. Repeated
+saves, prior explicit/legacy grants and refusal of caller-supplied Page escalation are tested;
+revision checks, owner review, unrelated entries and cookie-scope rejection remain intact.
+
+## 2026-09-18 — Keep external editor links outside the cockpit session-cookie scope
+
+The pending external-editor review exposed a domain-cookie leak: different origins can
+still receive the same session cookie. A new shared surface policy reuses the validated
+session-cookie authority and also accounts for host-only cookies across different ports.
+External Workflow entries that would receive cockpit credentials now remain visible as
+blocked metadata but expose no iframe, editor link or login URL. The same unsafe entries
+are omitted from the MCP Page catalogue and cannot be resolved as Page routes. Registry
+approval never grants cookie trust; exact cockpit links remain remote-only. No cookie,
+TLS, CSP, same-origin or role protection is relaxed and provider sessions are untouched.
+
+Regression tests reproduce the previous unsafe URLs before the fix and cover domain/host
+scope, leading-dot/case normalization, suffix lookalikes, remote-only links, runtime policy
+refresh and shared readers. The browser journey additionally verifies the blocked panel
+and zero unsafe requests rather than interpreting a hidden iframe as sufficient isolation.
+
+## 2026-09-18 — Reviewed workflow provider tabs
+
+- Keep the native automation/session editor unchanged and mounted while switching to external workflow editors such as n8n. The new wrapper consumes explicit workflow placements in the existing owner-reviewed surface registry, not app-store HTML or credential values.
+- Share the registry outside the MCP transport without adding another store. Owner-only no-store metadata and revision-checked, explicitly reviewed configuration APIs/CLI preserve exact origins, unrelated entries, safe sandbox permissions and remote-only fallback. Configuration input cannot carry paths or credentials.
+- Workflow-only placements never grant an MCP Page nested-frame origin. Load frames only on demand, preserve editor state when switching, expose top-level sign-in/open/reload actions and keyboard-accessible tabs. Browser login remains external-service-owned; framing never means MCP token forwarding or authentication bypass.
+- Add registry/access tests and a mandatory isolated browser journey with synthetic stores. Live n8n frame checks wait for actual nonblank paint as well as visible controls; keep the synthetic approved parent and signed-out proof distinct from authenticated editor claims.
+- The strict release build caught project-wide tracing of the dynamic registry path. Mark that owner-local runtime read as a non-build input, matching other private stores; the warning-fatal release gate remains unchanged.
+
 ## 2026-09-18 — Scope cache retrieval review to immutable asset paths
 
 PR review caught that a rule-wide 10050 INFO entry would also downgrade a future
