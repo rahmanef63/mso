@@ -173,7 +173,7 @@ lookup, collision detection, tracing, evidence, and learning, but no longer bind
 widgets; prior Block/Page URIs plus the previous workflow/surface resource URIs remain readable aliases but are not advertised. Page tools use the standard MCP Apps `ui.resourceUri` binding only; the legacy ChatGPT `openai/outputTemplate` alias is intentionally absent so one tool result maps to one Page mount.
 
 Reviewed Page apps honor their iframe/remote renderer. Iframes use exact registry origins, fixed sandbox permissions, no-referrer and a visible direct/browser fallback. Cockpit/widget origins remain remote-only.
-The owner-local registry (`~/.mso/surface-apps.json`, or explicit `MSO_SURFACE_APPS_JSON` override)
+The shared `lib/surfaces/config.ts` owner-local registry (`~/.mso/surface-apps.json`, or explicit `MSO_SURFACE_APPS_JSON` override)
 validates app identity, origin and approved path; portable source defaults to no external Page apps.
 This trust catalog is deliberately separate from Store/runtime `AppManifest` data. A locally installed `runtime:"html"` app or HTML widget is user-controlled presentation data
 and cannot grant itself a ChatGPT nested-frame origin. `srcDoc` HTML remains opaque-origin

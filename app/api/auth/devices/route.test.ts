@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/require-session", () => ({
   getSessionContext: vi.fn(async () => session.current ? ({
-    session: { device_id: CURRENT, issued_at: 1, expires_at: 2 },
+    session: { device_id: CURRENT, issued_at: 1, expires_at: 2, cookie_scope: "host", cookie_epoch: "epoch-0000000000000000" },
     device: { label: "current", approvedAt: 1, role: session.current },
     role: session.current,
   }) : null),

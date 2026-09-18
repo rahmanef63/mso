@@ -292,7 +292,6 @@ Refactored the gateway reliability boundary without removing the existing Cloudf
 
 ## 2026-09-17 — GitHub reference audit and optional app-binding compatibility
 
-
 ## 2026-09-17 — VPS-backed Store MCP/Skills and explicit host MCP harness
 
 The former custom plugin registry lived only in browser storage while actual project
@@ -329,6 +328,7 @@ Added `render_mso_list` + `ui://mso/list-v1.html` as the lightweight collection 
 - WHY: make routing, target, source-of-truth, validation, confirmation, concurrency, and OpenAI presentation machine-readable without replacing MSO's stronger trust/provenance, bounded scopes, CAS/revision guards, workflow isolation, evidence receipts, dynamic project MCP boundaries, explicit confirmations, or shell escape hatch.
 - Kept all 112 ChatGPT actions and the 97,350-byte compact action profile; per-tool action contracts stay on the full MCP descriptor while OpenAI receives the structured workflow policy through skill resources, preserving the scanner budget without hiding capabilities.
 - Re-reviewed the refreshed Shopify reference implementation: adopted its offline/local schema-validation and per-skill OpenAI descriptor ideas, but did not copy external prompt/code telemetry. The live OAuth `/mcp` app remains a separate connection from the skill-only Codex/OpenAI plugin package.
+
 ## 2026-09-15 — Workflow edges and Directory close the remaining n8n-style interaction gaps
 
 Workflow Graph v2 already had the real server-native pieces—schedule/webhook triggers, cache, memory, sessions, capability tools, project functions/MCP, organization-seat agent routing, run history, versions and variables—but two editor gaps still made the surface feel incomplete. Connections now persist an explicit **Auto / Solid / Dashed** presentation, an **Active** execution toggle, directional arrows and a guarded reverse-direction action. A disabled connection stays visible for documentation/debugging and is recorded as disabled in run receipts, but it cannot be re-enabled by source execution, affect cycle/tidy topology, or accidentally promote its target into a new executable root.
@@ -378,7 +378,6 @@ Batonly joins SI-Coder as a first-class reviewed project plugin. Its project bin
 
 This preserves three separate layers: host MCP access, reusable MSO Integrations credentials, and project-local plugin bindings. Installing or removing a plugin from one project changes neither standalone SI-Coder nor Batonly data nor another project.
 
-
 ## 2026-09-14 — Original-byte MCP file export + explicit ChatGPT import matrix
 
 The upstream MSO file-transfer audit is now implemented instead of remaining a read-only finding.
@@ -401,7 +400,6 @@ The concurrent `/integrations/embed` fix is retained as a same-service alias alo
 `/integrations/manager`; both use one nonce-protected response helper and same-origin framing.
 The shell keeps the tested loading/retry implementation and `/connections` deep link.
 Standalone setup/API routes remain compatible and keep their default deny-framing policy.
-
 
 ## 2026-09-14 — Reconcile parallel Integrations work
 
@@ -778,7 +776,6 @@ The actual GitHub alert inventory exposed 22 default-branch findings, unlike the
 
 ## 2026-09-05 — MCP Page preview lifecycle
 
-
 ## 2026-09-05 — Deliberate JSON portability between independent credential stores
 
 Users appearing in SC but not MSO were a data-transfer gap, not a Git clone issue.
@@ -794,7 +791,6 @@ fields; unsupported data is visible and requires explicit acceptance. Browser UI
 and each project's CLI use their own core. Other project receivers still need an
 adapter and tenant/role checks. Tests cover both encryption failures and actual
 SC→MSO→SC roundtrip plus browser upload/download using isolated synthetic stores.
-
 
 ## 2026-09-05 — Native named-connection identity, not parallel credential forms
 
@@ -821,7 +817,6 @@ measured against the fixture iframe viewport rather than assumed from a button.
 No real upstream OAuth success is inferred from these tests.
 
 - **Reviewed-app Google sign-in leaves the iframe (2026-09-05):** Page v6 adds an explicit host-side Google-login action using a code-owned same-origin path. A nested app may only highlight this action, never trigger navigation, supply a URL or transfer session data. The host opens through `ui/open-link`/`openExternal` after a real button click; sandbox popup restrictions remain unchanged. Play Together finishes sign-in in the browser tab; this does not promise shared login with storage-partitioned embeds. v5 resource requests remain compatible.
-
 
 ## 2026-09-05 — Repair native Integrations delivery and full credential catalog
 
@@ -855,7 +850,6 @@ both standard MCP and legacy ChatGPT host paths. Toolset: `2026.09.05.1`.
 - **Concurrent main reconciliation (2026-09-05):** preserved published MCP Page initialization/readiness changes e46c417 + changelog c4856d2 in the maintenance/PR integration branch without modifying the other session's unpublished work. MCP 1.11.1 / toolset 2026.09.05.2 records the combined compatible contract. The Settings maintenance files are unchanged from the isolated desktop/mobile acceptance at 2164d29; full repository and GitHub gates are rerun for the combined source.
 - **PR integration validation (2026-09-05):** preserve the reviewed PR36/PR37 ancestry while repairing PR38 glob escaping/native Bun audit checks and PR37 code-generating visual-test fixtures. Direct-image boundary tests now cover malformed content and size/type limits. MCP server 1.11.0 / toolset 2026.09.05.1 records the compatible restricted-service-token/direct-image contract; widget resources and ordinary OAuth token behavior are unchanged. Publication still requires complete current-head local and remote gates, including late CodeQL findings—not only the workflow completion status.
 - **Reviewed 9Router network boundary (PR36, 2026-09-05):** reuse the configured internal proxy network only when it already exists; Docker host publishing remains loopback-only unless explicitly enabled. This supports a containerized reverse proxy without opening the application port to the public interface. The update adds no automatic network creation or DNS mutation. The old PR lifecycle-test failure must be rechecked against the combined current baseline before publication.
-
 
 ## 2026-09-05 — Integration setup recovery and complete browser navigation
 
@@ -930,6 +924,7 @@ Selected project context is persisted as an `alfa.*` preference and sent per tur
 - **Vector and graph complexity remain evidence-blocked:** realistic retrieval calibration is **4/6 lexical**, with objective misses only for `IDE`↔`editor` synonym and Indonesian `kantor`↔English `office`. P10D compares the existing local `mso-local-hybrid-v1` semantic encoder against the same rows: it is deterministic but only **3/6**, fails the same two semantic cases and regresses the exact-domain rollback case. The candidate runs ephemerally with zero network calls / zero persisted memory vectors, so this is a direct architecture gate rather than an infrastructure limitation: adding a memory vector index now would make retrieval more complex without improving recall. Relationship calibration remains **3/3 two-hop**, so current keyed retrieval still does not justify graph storage.
 - **P9 privacy semantics preserved:** 200-correction `bench:memory:calibration` remains 6/6 and future-scheduled claims still cannot resurrect after `forget`. Cache remains observation-only, cost remains attribution-blocked, OpenClaw remains unranked without a legitimate matched provider/model path, and five-run reliability remains descriptive.
 - **MCP Apps navigation hardening (2026-09-03):** server `1.8.2` / toolset `2026.09.03.7` bumps all four UI resources to v2 and makes `Open in MSO` self-diagnosing: official `openExternal` + `setOpenInAppUrl`, visible success/failure feedback, and a user-clickable direct-link fallback. No tool count or security-scope changes.
+
 ## 2026-09-03 — Cognitive Runtime P9 memory calibration
 
 - **Repeated-correction calibration instead of graph expansion:** added `bench:memory:calibration`, which runs only against an isolated temporary agent-memory root and exercises explicit authority, confidence/recency, future replacement, forget semantics, finished-history integrity and deep repeated corrections.
@@ -1187,6 +1182,7 @@ commit-only release. A commit-only update now says `N new commits on mso CLI X` 
 `X -> X`; a true CLI bump still shows an explicit `mso CLI X -> Y`. Up-to-date status labels both CLI and
 build identity. Regression tests cover version-change, commit-only, active-service build matching and CLI
 version output so the ambiguity cannot silently return.
+
 ## 2026-09-01 — Terminal banner geometry + stable slash navigation — SHIPPED
 
 MSO Agent now uses the compact canonical folder + `MSO` ASCII geometry from the terminal logger instead of the oversized 12-row title. The seven title rows render as a cool blue → cyan → teal/emerald gradient with no purple. The slash palette also reserves its physical terminal rows only when it opens or grows; subsequent `↑/↓` selection redraws use ANSI cursor movement only, and the input prompt no longer embeds a leading newline that would be replayed on every redraw. A real PTY regression verifies both arrow directions emit zero LF/CRLF while still moving selection, so terminal scrollback stays stable. CLI patch version: **1.5.4**.
@@ -3537,3 +3533,80 @@ Screenshot evidence previously lived in unrelated scratch directories or only in
 - The browser route and embedded MCP Page now share a responsive service rail, real connection-readiness summary, compact account cards, and contextual setup/actions. Setup guides and maintenance controls use progressive disclosure; account switching remains explicit.
 - Integration snapshots no longer repeat the complete provider catalog, which is already embedded in the shared manager. The explicit catalog query remains available; compact snapshots prevent bounded MCP responses from truncating the Page.
 - Validation: 26 browser assertions at 320/390/768/1440/1920 px in light/dark themes, account isolation, service search, setup focus, auto identifiers and Verify feedback; full verify passes.
+
+## 2026-09-18 — Close external-editor review around durable session policy and owner stores
+
+The latest PR review found four boundary issues after the cookie-policy epoch landed. CLI device
+approve/role/revoke writes now preserve the durable `sessionPolicy` record instead of rewriting
+the auth store without it. Repeated session validation uses a read-only fast path when the stored
+scope already matches and acquires the cross-process mutation lock only for an actual rotation,
+with a locked recheck before writing. Workflow-only surface updates preserve MCP Page placement
+only from an existing row that itself normalizes as a valid reviewed app, so malformed legacy
+bytes cannot create Page approval. `MSO_SURFACE_APPS_FILE` is now one of the explicitly allowed
+owner security-store paths, so a configured registry outside the home directory remains writable
+without a duplicate filesystem-write-root declaration. Existing validated Page auth query metadata
+is preserved unchanged. Targeted regressions cover all four boundaries.
+
+## 2026-09-18 — Permanently revoke prior cookie-policy generations
+
+A follow-up security review found that a deterministic scope label could revive an old signed session if configuration later returned to the same cookie Domain. The private auth-device store now keeps one durable cookie-policy epoch and rotates it on every actual scope transition, including A to host-only to A. Signed browser sessions carry both scope and epoch; route and middleware/WebSocket authorization require both. Existing approved devices and roles are preserved, but pre-epoch sessions require a one-time sign-in. Workflow edits also preserve an existing reviewed MCP Page auth path with query parameters without allowing the Workflow endpoint to create or change that Page-owned metadata.
+
+## 2026-09-18 — Preserve the strictest reviewed external-editor sandbox
+
+PR review found that an explicit empty iframe sandbox was normalized as if the owner had
+omitted the field, causing the runtime default to add scripts, same-origin and forms.
+The surface registry now distinguishes omitted sandbox policy from an explicitly empty
+policy. Empty remains a valid, strict sandbox; non-empty values still use the same
+allowlist and byte bound. No permission token is added or broadened.
+
+## 2026-09-18 — Bind signed sessions to their cookie policy
+
+The external-editor security review found a migration edge case: after a broad Domain cookie
+is narrowed or unset, the browser can retain the old cookie until its original expiry even
+though logout no longer knows its former Domain. Session payloads now carry the normalized
+cookie policy that minted them, and both route authorization and middleware/WebSocket gates
+reject a valid HMAC when that policy no longer matches current configuration. Legacy tokens
+without a scope are intentionally invalidated once. This preserves safe host-only sibling
+editors such as a separately hosted n8n while making a retained broader Owner cookie unusable
+against MSO after a scope change. No cookie is widened, no secret is rotated, and current
+domain-match/host collision checks remain in place.
+
+## 2026-09-18 — Remount reviewed workflow editors when sandbox policy changes
+
+A focus refresh can tighten an existing external editor's sandbox without changing its id or origin.
+The embedded document must not keep the permissions from the previous navigation. The iframe key now
+includes the reviewed sandbox policy, so a policy change remounts the document before it can continue.
+Blocked destinations and cookie-isolated origins remain unchanged; no sandbox capability is added.
+
+## 2026-09-18 — Preserve existing MCP Page approval during Workflow metadata edits
+
+The shared registry review found that a Workflow-only save replaced a previously shared
+entry with only the Workflows placement. Preserve an existing explicit MCP Page placement,
+or the legacy implicit Page approval, while adding/updating the Workflow placement. New
+and Workflow-only entries still cannot acquire Page approval through this endpoint. Repeated
+saves, prior explicit/legacy grants and refusal of caller-supplied Page escalation are tested;
+revision checks, owner review, unrelated entries and cookie-scope rejection remain intact.
+
+## 2026-09-18 — Keep external editor links outside the cockpit session-cookie scope
+
+The pending external-editor review exposed a domain-cookie leak: different origins can
+still receive the same session cookie. A new shared surface policy reuses the validated
+session-cookie authority and also accounts for host-only cookies across different ports.
+External Workflow entries that would receive cockpit credentials now remain visible as
+blocked metadata but expose no iframe, editor link or login URL. The same unsafe entries
+are omitted from the MCP Page catalogue and cannot be resolved as Page routes. Registry
+approval never grants cookie trust; exact cockpit links remain remote-only. No cookie,
+TLS, CSP, same-origin or role protection is relaxed and provider sessions are untouched.
+
+Regression tests reproduce the previous unsafe URLs before the fix and cover domain/host
+scope, leading-dot/case normalization, suffix lookalikes, remote-only links, runtime policy
+refresh and shared readers. The browser journey additionally verifies the blocked panel
+and zero unsafe requests rather than interpreting a hidden iframe as sufficient isolation.
+
+## 2026-09-18 — Reviewed workflow provider tabs
+
+- Keep the native automation/session editor unchanged and mounted while switching to external workflow editors such as n8n. The new wrapper consumes explicit workflow placements in the existing owner-reviewed surface registry, not app-store HTML or credential values.
+- Share the registry outside the MCP transport without adding another store. Owner-only no-store metadata and revision-checked, explicitly reviewed configuration APIs/CLI preserve exact origins, unrelated entries, safe sandbox permissions and remote-only fallback. Configuration input cannot carry paths or credentials.
+- Workflow-only placements never grant an MCP Page nested-frame origin. Load frames only on demand, preserve editor state when switching, expose top-level sign-in/open/reload actions and keyboard-accessible tabs. Browser login remains external-service-owned; framing never means MCP token forwarding or authentication bypass.
+- Add registry/access tests and a mandatory isolated browser journey with synthetic stores. Live n8n frame checks wait for actual nonblank paint as well as visible controls; keep the synthetic approved parent and signed-out proof distinct from authenticated editor claims.
+- The strict release build caught project-wide tracing of the dynamic registry path. Mark that owner-local runtime read as a non-build input, matching other private stores; the warning-fatal release gate remains unchanged.

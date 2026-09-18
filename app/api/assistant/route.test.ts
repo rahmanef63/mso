@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // per-process rate-limit bucket starts clean (otherwise tests leak state via
 // the singleton Map in lib/host/rate-limit).
 const stableContext = {
-  session: { device_id: "test-device", issued_at: 1, expires_at: 2 },
+  session: { device_id: "test-device", issued_at: 1, expires_at: 2, cookie_scope: "host", cookie_epoch: "epoch-0000000000000000" },
   device: { label: "test owner", approvedAt: 1, role: "owner" as const },
   role: "owner" as const,
 };

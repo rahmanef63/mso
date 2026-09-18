@@ -36,6 +36,10 @@ export interface SessionPayload {
   expires_at: number;
   /** Approved device this session was issued to (traceability). */
   device_id?: string;
+  /** Cookie policy active when this token was minted. */
+  cookie_scope: string;
+  /** Durable generation for that policy. Scope changes rotate it permanently. */
+  cookie_epoch: string;
 }
 
 function base64urlEncode(input: string | Buffer): string {
@@ -64,7 +68,9 @@ function isSessionPayload(v: unknown): v is SessionPayload {
   return (
     typeof o.issued_at === "number" &&
     typeof o.expires_at === "number" &&
-    (o.device_id === undefined || typeof o.device_id === "string")
+    (o.device_id === undefined || typeof o.device_id === "string") &&
+    typeof o.cookie_scope === "string" && o.cookie_scope.length > 0 && o.cookie_scope.length <= 260 &&
+    typeof o.cookie_epoch === "string" && o.cookie_epoch.length >= 16 && o.cookie_epoch.length <= 128
   );
 }
 

@@ -20,7 +20,13 @@ function read() {
   try {
     const p = JSON.parse(fs.readFileSync(STORE, "utf8"));
     const approved = normalizeApproved(p.approved);
-    return { approved, pending: p.pending || {} };
+    return {
+      approved,
+      pending: p.pending || {},
+      ...(p.sessionPolicy && typeof p.sessionPolicy === "object" && !Array.isArray(p.sessionPolicy)
+        ? { sessionPolicy: p.sessionPolicy }
+        : {}),
+    };
   } catch (error) {
     if (error && error.code === "ENOENT") return { approved: {}, pending: {} };
     throw error;

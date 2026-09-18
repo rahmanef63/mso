@@ -1,4 +1,5 @@
 import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -31,9 +32,16 @@ export interface PendingDevice {
   attempts: number;
 }
 
+export interface SessionPolicy {
+  scope: string;
+  epoch: string;
+  changedAt: number;
+}
+
 export interface DeviceStore {
   approved: Record<string, ApprovedDevice>;
   pending: Record<string, PendingDevice>;
+  sessionPolicy?: SessionPolicy;
 }
 
 const MAX_PENDING = 50;
@@ -45,6 +53,7 @@ const STORE_PATH =
 
 // Device ids are client-generated 128-bit+ hex/uuid.
 const DEVICE_ID_RE = /^[a-f0-9-]{16,128}$/i;
+const COOKIE_SCOPE_RE = /^(?:host|domain:[a-z0-9.-]{1,253})$/;
 
 export function isValidDeviceId(id: unknown): id is string {
   return typeof id === "string" && DEVICE_ID_RE.test(id);
@@ -89,6 +98,15 @@ function normalizePending(raw: unknown): Record<string, PendingDevice> {
   return out;
 }
 
+function normalizeSessionPolicy(raw: unknown): SessionPolicy | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const row = raw as Record<string, unknown>;
+  if (typeof row.scope !== "string" || !COOKIE_SCOPE_RE.test(row.scope)) return undefined;
+  if (typeof row.epoch !== "string" || row.epoch.length < 16 || row.epoch.length > 128) return undefined;
+  if (typeof row.changedAt !== "number" || !Number.isFinite(row.changedAt) || row.changedAt < 0) return undefined;
+  return { scope: row.scope, epoch: row.epoch, changedAt: row.changedAt };
+}
+
 // "No file yet" is the ONLY failure that may look like an empty store. Anything else
 // — corrupt JSON, EACCES, EIO — must throw. A normalized read also migrates legacy
 // role-less entries in memory; the next legitimate mutation persists the role field.
@@ -101,9 +119,11 @@ async function read(): Promise<DeviceStore> {
     throw e;
   }
   const parsed = JSON.parse(raw) as Record<string, unknown>;
+  const sessionPolicy = normalizeSessionPolicy(parsed.sessionPolicy);
   return {
     approved: normalizeApproved(parsed.approved),
     pending: normalizePending(parsed.pending),
+    ...(sessionPolicy ? { sessionPolicy } : {}),
   };
 }
 
@@ -114,9 +134,8 @@ async function write(store: DeviceStore): Promise<void> {
   await fs.rename(tmp, STORE_PATH);
 }
 
-// Approval/revocation is a security decision, so serialize the entire read-modify-
-// write transaction. A plain atomic rename is not enough: two requests can read the
-// same approved set and a later `touchApproved` can otherwise overwrite a revoke.
+// Approval/revocation and session-policy rotation are security decisions, so serialize
+// the entire read-modify-write transaction. A plain atomic rename is not enough.
 let mutationChain: Promise<unknown> = Promise.resolve();
 function mutate<T>(fn: () => Promise<T>): Promise<T> {
   const locked = () => withSecurityStoreLock(STORE_PATH, fn);
@@ -127,6 +146,28 @@ function mutate<T>(fn: () => Promise<T>): Promise<T> {
 
 function ownerCount(store: DeviceStore): number {
   return Object.values(store.approved).filter((entry) => entry.role === "owner").length;
+}
+
+/**
+ * Return the durable generation for the current cookie scope. Every actual scope
+ * transition rotates the epoch, so A → host → A can never revive a token minted
+ * during the earlier A generation even if the browser retained that cookie.
+ */
+export async function currentSessionPolicy(scope: string): Promise<SessionPolicy> {
+  if (!COOKIE_SCOPE_RE.test(scope)) throw new Error("invalid_session_cookie_scope");
+  // Session validation is read-heavy. Avoid taking the cross-process mutation
+  // lock when the durable policy already matches this process configuration.
+  const current = await read();
+  if (current.sessionPolicy?.scope === scope) return current.sessionPolicy;
+  return mutate(async () => {
+    // Recheck under the lock so only one contender rotates a scope transition.
+    const store = await read();
+    if (store.sessionPolicy?.scope === scope) return store.sessionPolicy;
+    const sessionPolicy = { scope, epoch: randomUUID(), changedAt: Date.now() };
+    store.sessionPolicy = sessionPolicy;
+    await write(store);
+    return sessionPolicy;
+  });
 }
 
 export async function getApprovedDevice(deviceId: string): Promise<ApprovedDevice | null> {

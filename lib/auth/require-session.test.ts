@@ -8,6 +8,8 @@ import { MIN_SECRET_LEN, signSession } from "./session";
 // still in the jar, unfixable from the UI.
 const SECRET = "s".repeat(MIN_SECRET_LEN);
 const jar: { name: string; value: string }[] = [];
+const policy = vi.hoisted(() => ({ scope: "host", generation: 0 }));
+const epoch = () => `epoch-${String(policy.generation).padStart(16, "0")}`;
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -15,16 +17,22 @@ vi.mock("next/headers", () => ({
   }),
 }));
 vi.mock("./device-store", () => ({
+  currentSessionPolicy: async (scope: string) => {
+    if (policy.scope !== scope) { policy.scope = scope; policy.generation += 1; }
+    return { scope, epoch: epoch(), changedAt: policy.generation };
+  },
   getApprovedDevice: async (id: string) => id === "dev-1"
     ? { label: "device", approvedAt: 1, role: "operator" }
     : null,
 }));
 
-const valid = () => signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "dev-1" }, SECRET);
+const valid = () => signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "dev-1", cookie_scope: "host", cookie_epoch: epoch() }, SECRET);
 
 beforeEach(() => {
   jar.length = 0;
+  policy.scope = "host"; policy.generation = 0;
   process.env.OS_SESSION_SECRET = SECRET;
+  delete process.env.OS_SESSION_COOKIE_DOMAIN;
 });
 
 describe("getSession with a shadowed cookie", () => {
@@ -44,11 +52,29 @@ describe("getSession with a shadowed cookie", () => {
     const { getSession } = await import("./require-session");
     jar.push({
       name: "session",
-      value: signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "revoked" }, SECRET),
+      value: signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "revoked", cookie_scope: "host", cookie_epoch: epoch() }, SECRET),
     });
     expect(await getSession()).toBeNull();
   });
 
+
+  it("never revives a retained token when cookie scope changes away and later returns", async () => {
+    const { getSession } = await import("./require-session");
+    process.env.OS_SESSION_COOKIE_DOMAIN = "example.com";
+    policy.scope = "domain:example.com"; policy.generation = 1;
+    const retained = signSession({
+      issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "dev-1",
+      cookie_scope: "domain:example.com", cookie_epoch: epoch(),
+    }, SECRET);
+    jar.push({ name: "session", value: retained });
+    expect(await getSession()).toMatchObject({ device_id: "dev-1" });
+
+    delete process.env.OS_SESSION_COOKIE_DOMAIN;
+    expect(await getSession()).toBeNull();
+    process.env.OS_SESSION_COOKIE_DOMAIN = "example.com";
+    expect(await getSession()).toBeNull();
+    expect(policy.generation).toBe(3);
+  });
   it("rechecks the live device role for every authorization decision", async () => {
     const { getSessionContext, requireSession } = await import("./require-session");
     jar.push({ name: "session", value: valid() });

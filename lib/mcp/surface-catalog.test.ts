@@ -13,6 +13,15 @@ describe("MSO Page trusted app catalog", () => {
   beforeEach(() => { process.env.MSO_SURFACE_APPS_JSON = JSON.stringify(configured); });
   afterEach(() => { delete process.env.MSO_SURFACE_APPS_JSON; });
 
+  it("does not promote a workflow-only editor into the MCP Page trust catalog", async () => {
+    process.env.MSO_SURFACE_APPS_JSON = JSON.stringify([{ ...configured[0], placements: ["workflows"] }]);
+    expect(await publicSurfaceApps()).toEqual([]);
+    expect(await surfaceFrameDomains()).toEqual([]);
+    await expect(resolveSurfaceRoute("/apps/demo")).rejects.toThrow("unknown MSO Page app");
+    process.env.MSO_SURFACE_APPS_JSON = JSON.stringify([{ ...configured[0], placements: ["workflows", "mcp-page"] }]);
+    expect(await publicSurfaceApps()).toHaveLength(1);
+  });
+
   it("uses only instance-configured reviewed origins", async () => {
     expect(await surfaceFrameDomains()).toEqual(["https://demo.example.test"]);
     const apps = await publicSurfaceApps();
