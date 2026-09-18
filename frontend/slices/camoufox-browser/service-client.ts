@@ -33,12 +33,15 @@ export async function setPower(on: boolean, signal?: AbortSignal): Promise<Camou
 /** systemd reports `active` before websockify/noVNC is listening. The cockpit cannot
  * fetch the dedicated viewer origin directly without widening CORS, so the authenticated
  * same-origin status route performs the bounded loopback probe and returns viewerReady. */
-export async function waitForViewer(signal: AbortSignal, timeoutMs = 30_000): Promise<boolean> {
+export async function waitForViewer(signal: AbortSignal, timeoutMs = 30_000, onStatus?: (status: CamoufoxServiceStatus) => void): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (!signal.aborted) {
     try {
       const status = await fetchStatus(signal);
-      if (status.running && status.viewerReady) return true;
+      if (signal.aborted) return false;
+      onStatus?.(status);
+      if (!status.running) return false;
+      if (status.viewerReady) return true;
     } catch {
       if (signal.aborted) return false;
     }
@@ -46,4 +49,12 @@ export async function waitForViewer(signal: AbortSignal, timeoutMs = 30_000): Pr
     await new Promise((resolve) => setTimeout(resolve, 700));
   }
   return false;
+}
+
+/** Check public TLS through the authenticated API, never by widening browser CORS. */
+export async function verifyViewerTransport(signal: AbortSignal): Promise<void> {
+  const response = await fetch("/api/v1/camoufox/service?probe=viewer", { cache: "no-store", signal });
+  const result = await response.json() as { reachable?: boolean; state?: string; clientOnly?: boolean; message?: string; error?: string };
+  const clientPrivateRoute = result.state === "client-only" && result.clientOnly === true;
+  if (!response.ok || (result.reachable !== true && !clientPrivateRoute)) throw new Error(result.message ?? result.error ?? "The secure viewer is unavailable");
 }

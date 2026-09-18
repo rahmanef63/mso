@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, open, rm } from "node:fs/promises";
+import { constants } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { changeOrganizationFlow } from "./organization-flow-mutations";
@@ -27,9 +28,12 @@ describe("organization project flow persistence", () => {
     expect(saved.units.find((u) => u.id === "unit-a")?.projectFlow?.notes).toBe("# Source\n\nStill unconfirmed.\n");
     expect(saved.units.find((u) => u.id === "unit-b")?.projectFlow).toBeUndefined();
     expect(saved.seats).toEqual(chart.seats);
-    expect((await stat(api.ORGANIZATION_STORE_PATH)).mode & 0o077).toBe(0);
-    const raw = JSON.parse(await readFile(api.ORGANIZATION_STORE_PATH, "utf8"));
-    expect(raw.units.find((u: { id: string }) => u.id === "unit-a").projectFlow.title).toBe("Delivery");
+    const handle = await open(api.ORGANIZATION_STORE_PATH, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      expect((await handle.stat()).mode & 0o077).toBe(0);
+      const raw = JSON.parse(await handle.readFile("utf8"));
+      expect(raw.units.find((u: { id: string }) => u.id === "unit-a").projectFlow.title).toBe("Delivery");
+    } finally { await handle.close(); }
     expect((await api.getOrganizationChart()).units).toEqual(saved.units);
   });
   it("supports node/edge CRUD and position-only patches without dropping notes", async () => {

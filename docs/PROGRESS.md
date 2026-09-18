@@ -1,3 +1,77 @@
+## 2026-09-18 — Keep private viewer routing client-verifiable
+
+The PR review reproduced a deployment-compatibility regression: a hostname resolving
+only to RFC1918, carrier-grade NAT or unique-local IPv6 was blocked by the generic
+public-provider SSRF guard before the client's authenticated viewer could mount.
+Keep that guard intact. A typed refusal now distinguishes these private addresses
+from loopback, metadata, link-local, malformed and mixed DNS responses. The browser
+transport diagnostic records reachable=false and client-only verification instead
+of claiming success or opening any private server connection. The authenticated
+client accepts only that exact diagnostic; all other TLS/DNS/HTTP failures retain
+their behavior. Configured separate origins, TLS, cookies and VNC auth are unchanged.
+Boundary tests cover refused address classes and malformed hints; a desktop/mobile
+browser journey verifies private viewer mounting while connection retry stays read-only.
+Both isolated local verification and hosted CI now compile with the same synthetic
+viewer hostname; the new iframe case no longer relies on an inherited deployment
+hostname. Production install/update configuration is not overridden by this fixture.
+
+## 2026-09-18 — Resolve release review on Node support and browser retries
+
+The dependency toolchain now requires the same supported Node range everywhere:
+22.12+, 24.x or 26+. Package engines, early installer checks, the independent doctor
+check and install documentation agree; boundary tests exercise both installer and
+runtime predicates. The current Node runtime is not changed. An unsupported newer
+runtime is refused rather than silently downgraded by the installer. The verified
+installer-core checksum is updated with its source.
+
+Camoufox connection retry now creates a fresh read-only connection attempt rather than
+posting a power mutation. Readiness reports each observed service state and ends as
+soon as the browser stops, so the UI does not retain a stale running state after a
+lease expires. Unit and synthetic desktop/mobile browser regressions prove repeated
+retry sends no power POST, TLS failure fetches no VNC credential, and an observed
+stopped browser returns to the start panel. Authorization and rate limits are unchanged.
+
+## 2026-09-18 — Keep MCP target controls locked until their first inspection
+
+PR release verification caught the mobile MCP journey leaving Use project disabled after
+an early fill. The installation hook originally rendered busy=false with no snapshot,
+then disabled the controls on a deferred initial inspection. Start busy instead so there
+is no initially interactive, uninspected target. Mutations still require an inspected
+revision; backend authorization, target selection and all existing assertions are unchanged.
+
+A regression reproduces the incorrect first-render state for host, named and path targets.
+The browser journey now holds the initial inspection request, verifies disabled controls,
+releases it, checks readiness and the entered value, then performs the same real
+install/uninstall flow across desktop, portrait and landscape. No retries, timing sleeps,
+coverage reductions or skipped checks hide the original CI failure.
+
+## 2026-09-18 — Reconcile the refreshed production dependency PR
+
+The final PR audit found that the production update had advanced after the combined
+security/browser candidate was prepared: its Anthropic SDK target was now 0.125.0,
+not 0.124.0. Preserve the original PR ancestry and retain the verified paired
+Vitest/coverage 5.0.0, Node 22 typings, PostCSS, action pins and scanner fixes while
+applying only that remaining SDK delta. Regenerate the Bun lockfile instead of
+accepting the older PR lock wholesale; no transitive package or runtime provider
+configuration changes. The published SDK release notes were checked and targeted
+provider tests passed. Main integration, full gates and production status remain
+separate release evidence, not assumptions derived from this dependency edit.
+
+## 2026-09-18 — Inspect Organization fixture permissions and bytes on one descriptor
+
+The combined release's hosted CodeQL scan identified a filesystem race in the new
+Organization flow test: it inspected a pathname with stat and then opened it separately
+for reading. The fixture now opens once without following a final symlink, checks the
+same descriptor's permissions, reads those bytes and closes in finally. All persistence
+assertions remain; runtime Organization behavior, scanner policies and ignores are unchanged.
+
+## 2026-09-18 — Reconcile pending browser and dependency work with Organization main
+
+Preserve the released Organization project-flow implementation while merging the previously
+verified dependency and Camoufox candidates. Only the generated changelog and historical
+progress entries conflicted; both source histories are retained. The combined commit must
+pass its own release gates. Local reconciliation does not imply a remote PR merge or deployment.
+
 ## 2026-09-18 — Organization-scoped project flow
 
 - The organization overview previously rendered long context notes directly inside unit cards. Keep overview descriptions clamped and put projects, activities, relationships and long notes inside the selected unit instead.
@@ -6,6 +80,54 @@
 - Extend the existing organization API/MCP/CLI contract rather than creating a second store or executable workflow. Expand only the organization HTTP body allowance; integration setup retains its original default bound.
 - Full verify passed (3,056 tests across 511 files), production build passed, and the isolated browser journey verifies node CRUD, visible directional edges, persistent drags, long notes, real MCP mutation, stale-revision and scope refusal, and desktop/portrait/landscape layouts. The complete release E2E and eager bundle budget also pass. Canvas measurements are preserved separately from server-owned data.
 
+## 2026-09-18 — Separate Camoufox process health from secure viewer reachability
+
+A running user service and loopback noVNC response did not prove the separate public
+viewer could negotiate TLS. The Browser app now requests an authenticated, rate-limited
+transport diagnosis before fetching its VNC credential. The probe uses the existing
+public-address/DNS-pinned transport, no credentials, no redirects, a bounded wait and
+short in-flight cache. Anonymous denial is recorded only as HTTPS transport evidence,
+never as proof of authenticated VNC access. TLS, DNS and upstream failures are readable.
+Connection failures preserve the service's real running state and expose retry rather
+than an endless spinner. Power help now acknowledges deployment-configured session limits.
+
+Native GitHub verification now displays the validated account login from the official
+user endpoint, while still explicitly declining to claim repository permissions. An
+MSO profile label is not a GitHub account identity. Unexpected payloads and credential
+reflections never enter the account label; no connection, token or account is replaced.
+
+## 2026-09-17 — Reconcile dependency PRs as one tested release candidate
+
+The continuation preserved the pending cooldown and lock-fixture fixes and reconciled
+Dependabot production, PostCSS and pinned CodeQL action changes in an isolated worktree.
+The PostCSS/React lockfile conflict contained independent nested package entries; both
+were retained instead of replacing the newer React dependency graph.
+
+The separate Vitest major PRs selected incompatible runner/coverage pairs. Even matching
+major versions can resolve to different patches, so canonical test and coverage commands
+now fail early unless the installed versions match exactly. The reviewed Vitest 5.0.0
+runner and coverage provider are pinned together, and Dependabot groups future Vitest
+packages in one PR. A fixture covers both major and patch mismatches. Node typings remain
+on the .nvmrc baseline (22); a newer typing major is not accepted merely because tsc passes.
+The existing coverage floors and test assertions are unchanged.
+
+These changes are a candidate, not a production claim. The current main release stays
+untouched while normal PR authentication, required checks and exact-SHA release verification
+are pending. No owner exception or direct-main publication is used by this continuation.
+
+## 2026-09-17 — Keep native dependency updates behind the existing cooldown
+
+The hosted Semgrep scan reproduced a missing seven-day cooldown on the new isolated
+node-gyp Dependabot entry. That entry now follows the same policy as the existing Bun
+and GitHub Actions entries. A regression checks every configured ecosystem, so adding
+another updater cannot silently omit the policy. Scanner rules and severity gates are
+unchanged; this corrects update configuration without changing the application runtime.
+
+The full gate also exposed a scheduler-sensitive 24-contender lock fixture: its four-second
+acquisition budget could expire under parallel coverage while the isolated test passed.
+The fixture retains every contender and all mutual-exclusion assertions, waits for all
+outcomes before removing its files, and uses a bounded ten-second test-only budget.
+Production lock deadlines and the short fail-closed denial tests are unchanged.
 
 ## 2026-09-17 — Lock the native build bootstrap without touching the runtime tree
 

@@ -1,3 +1,4 @@
+import { isDeploymentPrivateAddress, providerNetworkRefusal } from "./provider-network-policy";
 import { lookup as dnsLookup } from "node:dns/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
@@ -120,10 +121,10 @@ export function assertSafeUrl(raw: string): URL {
   if (url.hash) throw new Error("Base URL must not contain a fragment");
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (!host || host === "localhost" || host === "0.0.0.0" || FORBIDDEN_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix))) {
-    throw new Error("Base URL host not allowed (private / loopback / link-local / metadata)");
+    throw providerNetworkRefusal("Base URL host not allowed (private / loopback / link-local / metadata)");
   }
   if (isIP(host) && isForbiddenProviderAddress(host)) {
-    throw new Error("Base URL host not allowed (private / loopback / link-local / metadata)");
+    throw providerNetworkRefusal("Base URL host not allowed (private / loopback / link-local / metadata)", isDeploymentPrivateAddress(host));
   }
   return url;
 }
@@ -140,7 +141,7 @@ export async function resolveSafeProviderEndpoint(
     : await resolver(host, { all: true, verbatim: true });
   if (!resolved.length) throw new Error("Base URL host did not resolve");
   if (resolved.some((entry) => isForbiddenProviderAddress(entry.address))) {
-    throw new Error("Base URL DNS resolved to a private / loopback / link-local / metadata address");
+    throw providerNetworkRefusal("Base URL DNS resolved to a private / loopback / link-local / metadata address", resolved.every(entry => isDeploymentPrivateAddress(entry.address)));
   }
   const first = resolved[0];
   if (first.family !== 4 && first.family !== 6) throw new Error("Base URL resolved to an unsupported address family");

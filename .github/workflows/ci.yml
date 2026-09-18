@@ -68,6 +68,9 @@ jobs:
 
       - name: Production build
         run: bun run build
+        env:
+          # Matches the isolated local build; never uses a maintainer hostname.
+          NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE: "{id}.mso.example.com"
 
       - name: Bundle budget
         run: bun run bundle:check

@@ -9,7 +9,7 @@
 
 - Linux; systemd is required for the installed background service, but not for the CLI;
 - WSL2 is supported for the CLI. Full service mode requires systemd enabled as PID 1;
-- Node.js 20.9+ (Node 22 recommended/current production runtime);
+- Node.js 22.12+, 24.x or 26+ (Node 22 recommended/current production runtime);
 - Bun for dependency installation/scripts;
 - a non-root user that owns MSO;
 - enough memory/swap for a Next production build (build needs more than idle runtime);

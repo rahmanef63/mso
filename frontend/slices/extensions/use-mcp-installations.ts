@@ -12,7 +12,8 @@ async function request(args: object, signal?: AbortSignal) {
 }
 export function useMcpInstallations(project: string) {
   const [snapshot, setSnapshot] = useState<McpSnapshot | null>(null);
-  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  // Keep target controls locked from the first render until inspection finishes.
+  const [busy, setBusy] = useState(true), [error, setError] = useState("");
   const generation = useRef(0), source = useRef(Symbol("mcp-installations"));
   const reload = useCallback(async (signal?: AbortSignal) => {
     const epoch = ++generation.current;

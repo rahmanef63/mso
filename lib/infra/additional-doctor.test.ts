@@ -98,3 +98,15 @@ describe("additional native credential providers", () => {
     expect(JSON.stringify(summarizeInfraProvider("doku", { mcpClientId: "BRN-synthetic", mcpApiKey: KEY, environment: "sandbox" }))).not.toContain(KEY);
   });
 });
+
+it("shows the verified GitHub login without claiming repository access", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ login: "account-other", email: "private@example.com", extra: KEY }), { status: 200 })));
+  const result = await doctorAdditionalProvider("github", { apiKey: KEY });
+  expect(result).toBe("authenticated as account-other; repository scope not verified");
+  expect(result).not.toContain(KEY); expect(result).not.toContain("private@example.com");
+});
+it("does not echo malformed or reflected account identity", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ login: KEY }), { status: 200 })));
+  const result = await doctorAdditionalProvider("github", { apiKey: KEY });
+  expect(result).toContain("account identity unavailable"); expect(result).not.toContain(KEY);
+});
