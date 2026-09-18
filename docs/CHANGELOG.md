@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` validate cache exceptions from raw report
 - `security` scope passive cache review by path
 - `security` review cache-only passive signal
 - `browser` keep Camoufox automation on demand
