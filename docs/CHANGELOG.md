@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` cover reviewed static asset variants
 - `review` preserve session and surface store invariants
 - `security` validate cache exceptions from raw report
 - `security` scope passive cache review by path
