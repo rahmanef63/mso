@@ -153,9 +153,14 @@ function ownerCount(store: DeviceStore): number {
  * transition rotates the epoch, so A → host → A can never revive a token minted
  * during the earlier A generation even if the browser retained that cookie.
  */
-export function currentSessionPolicy(scope: string): Promise<SessionPolicy> {
-  if (!COOKIE_SCOPE_RE.test(scope)) return Promise.reject(new Error("invalid_session_cookie_scope"));
+export async function currentSessionPolicy(scope: string): Promise<SessionPolicy> {
+  if (!COOKIE_SCOPE_RE.test(scope)) throw new Error("invalid_session_cookie_scope");
+  // Session validation is read-heavy. Avoid taking the cross-process mutation
+  // lock when the durable policy already matches this process configuration.
+  const current = await read();
+  if (current.sessionPolicy?.scope === scope) return current.sessionPolicy;
   return mutate(async () => {
+    // Recheck under the lock so only one contender rotates a scope transition.
     const store = await read();
     if (store.sessionPolicy?.scope === scope) return store.sessionPolicy;
     const sessionPolicy = { scope, epoch: randomUUID(), changedAt: Date.now() };

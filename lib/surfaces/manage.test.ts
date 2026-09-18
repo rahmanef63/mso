@@ -40,6 +40,14 @@ describe("owner-reviewed workflow surface configuration", () => {
     expect(saved.externalAuthPath).toBe(pageAuth);
     await expect(save({ ...app, externalAuthPath: "/?auth=other" })).rejects.toThrow("workflow_login_path_must_not_contain_query");
   });
+  it("does not inherit legacy Page approval from an invalid existing row", async () => {
+    await fs.writeFile(file, JSON.stringify([{ ...app, title: "", placements: undefined }]));
+    await save({ ...app, title: "Recovered workflow editor" });
+    const saved = (await surfaceRegistrySnapshot()).apps[0];
+    expect(saved.title).toBe("Recovered workflow editor");
+    expect(saved.placements).toEqual(["workflows"]);
+  });
+
   it("never adds Page approval to new or workflow-only entries", async () => {
     await save();
     expect((await surfaceRegistrySnapshot()).apps[0].placements).toEqual(["workflows"]);

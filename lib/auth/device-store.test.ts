@@ -110,6 +110,13 @@ describe("device-store — an unreadable file must never look like an empty one"
     expect((await listDevices()).sessionPolicy).toEqual(returned);
   });
 
+  it("reads an unchanged session policy without taking the mutation lock", async () => {
+    const { currentSessionPolicy } = await load();
+    const first = await currentSessionPolicy("host");
+    await fs.writeFile(`${store}.lock.recovery`, `${process.pid}:fixture`, { mode: 0o600 });
+    await expect(currentSessionPolicy("host")).resolves.toEqual(first);
+  });
+
   it("writes the store 0600 inside a 0700 dir", async () => {
     const { approveDevice } = await load();
     await approveDevice(DEV, "my laptop");

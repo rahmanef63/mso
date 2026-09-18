@@ -1,3 +1,16 @@
+## 2026-09-18 — Close external-editor review around durable session policy and owner stores
+
+The latest PR review found four boundary issues after the cookie-policy epoch landed. CLI device
+approve/role/revoke writes now preserve the durable `sessionPolicy` record instead of rewriting
+the auth store without it. Repeated session validation uses a read-only fast path when the stored
+scope already matches and acquires the cross-process mutation lock only for an actual rotation,
+with a locked recheck before writing. Workflow-only surface updates preserve MCP Page placement
+only from an existing row that itself normalizes as a valid reviewed app, so malformed legacy
+bytes cannot create Page approval. `MSO_SURFACE_APPS_FILE` is now one of the explicitly allowed
+owner security-store paths, so a configured registry outside the home directory remains writable
+without a duplicate filesystem-write-root declaration. Existing validated Page auth query metadata
+is preserved unchanged. Targeted regressions cover all four boundaries.
+
 ## 2026-09-18 — Permanently revoke prior cookie-policy generations
 
 A follow-up security review found that a deterministic scope label could revive an old signed session if configuration later returned to the same cookie Domain. The private auth-device store now keeps one durable cookie-policy epoch and rotates it on every actual scope transition, including A to host-only to A. Signed browser sessions carry both scope and epoch; route and middleware/WebSocket authorization require both. Existing approved devices and roles are preserved, but pre-epoch sessions require a one-time sign-in. Workflow edits also preserve an existing reviewed MCP Page auth path with query parameters without allowing the Workflow endpoint to create or change that Page-owned metadata.

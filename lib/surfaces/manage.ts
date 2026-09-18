@@ -47,12 +47,12 @@ export async function saveWorkflowSurface(input: Record<string, unknown>) {
     const matches = entries.filter((entry) => entry.id === selected.id);
     if (matches.length > 1) throw new SurfaceConfigError("duplicate_surface_identity", 409);
     const replacement = { ...selected };
-    // Missing placements is legacy Page approval; this workflow-only operation
-    // may preserve that grant but cannot create or mutate Page-only auth metadata.
+    // Missing placements is legacy Page approval only when the existing row is
+    // itself a valid reviewed app. Invalid historical bytes cannot grant Page.
     const existing = matches[0];
-    const sharesPage = Boolean(existing && (existing.placements === undefined ||
-      (Array.isArray(existing.placements) && existing.placements.includes("mcp-page"))));
     const existingNormalized = existing ? (await configuredSurfaceApps(JSON.stringify([existing])))[0] : undefined;
+    const sharesPage = Boolean(existingNormalized && (existingNormalized.placements === undefined ||
+      existingNormalized.placements?.includes("mcp-page")));
     if (selected.externalAuthPath?.includes("?") && (!sharesPage ||
       selected.externalAuthPath !== existingNormalized?.externalAuthPath)) {
       throw new SurfaceConfigError("workflow_login_path_must_not_contain_query");
