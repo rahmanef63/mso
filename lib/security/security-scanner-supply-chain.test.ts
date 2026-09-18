@@ -31,9 +31,12 @@ describe("security scanner supply chain", () => {
     expect(script).not.toContain("ghcr.io/zaproxy/zaproxy@sha256:");
   });
 
-  it("keeps cache retrieval informational only for the reviewed static-asset policy", () => {
+  it("keeps cache retrieval out of the rule-wide policy and validates raw reports on both DAST lanes", () => {
     const policy = fs.readFileSync(path.join(ROOT, "security/zap-baseline.conf"), "utf8");
-    expect(policy).toContain("10050\tINFO\t(Content-hashed Next.js static chunks/fonts are intentionally cacheable; authenticated and user-specific responses remain no-store)");
-    expect(policy).not.toContain("10050\tIGNORE");
+    const hosted = fs.readFileSync(path.join(ROOT, ".github/workflows/dast.yml"), "utf8");
+    const ultimate = fs.readFileSync(ULTIMATE, "utf8");
+    expect(policy).not.toMatch(/^10050\t/m);
+    expect(hosted).toContain("node scripts/check-zap-report.mjs report_json.json");
+    expect(ultimate).toContain('node "$ROOT/scripts/check-zap-report.mjs" "$ZAP_WORK/report_json.json"');
   });
 });
