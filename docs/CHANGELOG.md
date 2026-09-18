@@ -41,6 +41,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Docs**
 
+- `progress` preserve merged release order
 - `security` document the hosted passive scan target
 
 **Chores**
