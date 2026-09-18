@@ -29,6 +29,11 @@ describe("reviewed Workflows embed registry", () => {
   it.each([{ origin: "http://automation.example.test" }, { startPath: "//evil.example.test" }, { sandbox: "allow-top-navigation" }])("rejects unsafe destination or frame permission %j", async (change) => {
     expect(await configuredSurfaceApps(JSON.stringify([{ ...app, placements: ["workflows"], ...change }]))).toEqual([]);
   });
+  it("preserves an explicitly empty iframe sandbox as the strictest reviewed policy", async () => {
+    const apps = await configuredSurfaceApps(JSON.stringify([{ ...app, placements: ["workflows"], sandbox: "" }]));
+    expect(apps[0]).toHaveProperty("sandbox", "");
+    expect(workflowEmbeds(apps, [])[0].sandbox).toBe("");
+  });
   it("keeps non-workflow apps and approved sandbox permissions unchanged", async () => {
     const apps = await configuredSurfaceApps(JSON.stringify([app, { ...app, id: "reviewed", placements: ["workflows", "workflows"], sandbox: "allow-scripts allow-forms" }]));
     expect(apps[0]).toEqual(app);

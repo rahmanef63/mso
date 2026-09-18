@@ -1,3 +1,11 @@
+## 2026-09-18 — Preserve the strictest reviewed external-editor sandbox
+
+PR review found that an explicit empty iframe sandbox was normalized as if the owner had
+omitted the field, causing the runtime default to add scripts, same-origin and forms.
+The surface registry now distinguishes omitted sandbox policy from an explicitly empty
+policy. Empty remains a valid, strict sandbox; non-empty values still use the same
+allowlist and byte bound. No permission token is added or broadened.
+
 ## 2026-09-18 — Bind signed sessions to their cookie policy
 
 The external-editor security review found a migration edge case: after a broad Domain cookie

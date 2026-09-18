@@ -66,7 +66,7 @@ function parseApp(entry: unknown, seen: Set<string>): SurfaceApp | null {
   if (renderer !== "iframe" && renderer !== "remote") return null;
   if (!PRESENTATIONS.has(presentation as SurfacePresentation) || !ENVIRONMENTS.has(environment as SurfaceEnvironment)) return null;
   const sandbox = typeof row.sandbox === "string" ? row.sandbox.trim() : undefined;
-  if (sandbox && (sandbox.length > 240 || !sandbox.split(/\s+/).every((token) => SAFE_SANDBOX.has(token)))) return null;
+  if (sandbox !== undefined && (sandbox.length > 240 || (sandbox.length > 0 && !sandbox.split(/\s+/).every((token) => SAFE_SANDBOX.has(token))))) return null;
   const externalAuthPath = row.externalAuthPath === undefined ? undefined : safeAuthPath(row.externalAuthPath);
   if (row.externalAuthPath !== undefined && !externalAuthPath) return null;
   const project = boundedText(row.project, true);
@@ -78,7 +78,7 @@ function parseApp(entry: unknown, seen: Set<string>): SurfaceApp | null {
   return {
     id, title, description: boundedText(row.description) ?? "", origin, startPath, renderer,
     presentation: presentation as SurfacePresentation, environment: environment as SurfaceEnvironment,
-    ...(placements ? { placements } : {}), ...(project ? { project } : {}), ...(sandbox ? { sandbox } : {}), ...(externalAuthPath ? { externalAuthPath } : {}), ...(reason ? { reason } : {}),
+    ...(placements ? { placements } : {}), ...(project ? { project } : {}), ...(sandbox !== undefined ? { sandbox } : {}), ...(externalAuthPath ? { externalAuthPath } : {}), ...(reason ? { reason } : {}),
   };
 }
 
