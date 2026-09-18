@@ -1,3 +1,5 @@
+import { assertNodeRuntime } from "./check-node-runtime.mjs";
+assertNodeRuntime();
 // Test and coverage packages are one versioned contract, including patch releases.
 import { createRequire } from "node:module";
 import path from "node:path";

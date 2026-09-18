@@ -235,8 +235,8 @@ patch versions; the guard does not download packages or lower coverage threshold
 Update both direct versions and `bun.lock` together. Dependabot's `test-toolchain`
 group keeps the runner and `@vitest/*` providers out of unrelated dependency groups.
 
-The Vitest 5 development toolchain requires Node 22.12 or newer on the supported Node 22
-line; see the [official migration guide](https://vitest.dev/guide/migration/).
+The application, installer, doctor and Vitest 5 toolchain share the supported Node range
+`^22.12.0 || ^24.0.0 || >=26.0.0`; see the [official migration guide](https://vitest.dev/guide/migration/).
 The application runtime baseline remains `.nvmrc`; `@types/node` tracks that baseline,
 so moving its major requires an explicit runtime compatibility review. A successful
 compile with newer typings does not prove the APIs exist on the oldest supported runtime.

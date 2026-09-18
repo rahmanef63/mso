@@ -17,7 +17,7 @@ const AGENT_PROMPT = "Install or update MSO from this repo: https://github.com/r
 
 const REQUIREMENTS = [
   ["A Linux server you own", "A $5 VPS is enough. Debian/Ubuntu, Fedora and Arch are covered by the installer."],
-  ["Node 20.9 or newer", "The installer adds it via NodeSource if it is missing."],
+  ["Node 22.12+, 24.x or 26+", "The installer adds it via NodeSource if it is missing."],
   ["A normal, non-root user", "MSO runs as that user and can do whatever that user can do. Never install it as root."],
   ["About 2 GB free disk", "Mostly the build. The app itself is small; there is no database."],
 ];

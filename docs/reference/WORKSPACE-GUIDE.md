@@ -536,7 +536,7 @@ Tested:
 Supported deployment shapes:
 
 - WSL2 Ubuntu: CLI/install path works without systemd; the background service requires systemd enabled in WSL
-- Debian 12 and other systemd-based Linux distributions with Node.js 20.9+ and build tools
+- Debian 12 and other systemd-based Linux distributions with Node.js 22.12+, 24.x or 26+ and build tools
 
 Not currently supported:
 
