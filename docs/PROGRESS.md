@@ -1,11 +1,23 @@
+## 2026-09-18 — Include the remaining reviewed public asset variants
+
+The first exact-main run of the path-scoped validator correctly failed because the live
+asset graph also contains content-hashed CSS chunks and Next's versioned SVG app icon.
+The raw report showed rule 10050 only on public cacheable assets. Header checks confirmed
+CSS is public/immutable for one year and the icon is public for one week. Extend the
+validator narrowly to CSS chunks and only the exact ?icon.<hash>.svg icon query shape;
+arbitrary queries, API/login paths, cross-origin URLs and all otherwise-unreviewed alerts
+still fail closed.
+
 ## 2026-09-18 — Scope cache retrieval review to immutable asset paths
 
 PR review caught that a rule-wide 10050 INFO entry would also downgrade a future
 shared-cache exposure on an authenticated or user-specific URL. Rule 10050 is therefore
 removed from the rule-wide ZAP policy. Hosted and local DAST now validate the raw ZAP
-JSON: only same-origin, query-free /_next/static/chunks/*.js and
-/_next/static/media/*.woff2 instances are accepted for that rule; every other 10050
-instance and every otherwise-unreviewed alert remains a failing condition.
+JSON: only same-origin immutable public assets are accepted for that rule:
+query-free /_next/static/chunks/*.js, /_next/static/chunks/*.css and
+/_next/static/media/*.woff2, plus /icon.svg only with Next's bounded
+?icon.<hash>.svg cache-busting shape. Every other 10050 instance and every otherwise
+unreviewed alert remains a failing condition.
 
 ## 2026-09-18 — Classify cache retrieval only for immutable public assets
 
@@ -13,8 +25,9 @@ The first post-merge passive ZAP run against main produced one new default warni
 rule 10050 (Retrieved from Cache) on five content-hashed _next/static JavaScript/font
 assets carrying an Age header. The report contained no authenticated, personal, or
 user-specific URL for that rule. Keep the signal visible as INFO for those intentionally
-cacheable public assets; do not use IGNORE, do not alter authenticated response caching,
-and leave every other unreviewed ZAP rule at its default warning/failure behavior.
+cacheable public assets through path-scoped raw-report validation; do not add a
+rule-wide INFO or IGNORE, do not alter authenticated response caching, and leave every
+other unreviewed ZAP rule at its default warning/failure behavior.
 
 ## 2026-09-18 — Require executed passive security scan evidence
 
