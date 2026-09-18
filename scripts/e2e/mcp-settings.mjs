@@ -26,6 +26,33 @@ export async function mcpPublicJourney(page) {
   expect(privateRequests).toBe(0);
   page.off("request", listener);
 }
+async function chooseProjectTarget(page, fixture) {
+  let release = () => {};
+  const held = new Promise(resolve => { release = resolve; });
+  const initial = request => {
+    if (!request.url().endsWith("/api/v1/project-mcp") || request.method() !== "POST") return false;
+    const body = request.postDataJSON();
+    return body?.action === "inspect" && body.project === "@host";
+  };
+  const hold = async route => { if (initial(route.request())) await held; await route.continue(); };
+  await page.route("**/api/v1/project-mcp", hold);
+  try {
+    const request = page.waitForRequest(initial, { timeout: 10000 });
+    await page.getByRole("tab", { name: /MSO to External/ }).click();
+    await request;
+    const input = page.getByLabel("Exact MCP target project");
+    const useProject = page.getByRole("button", { name: "Use project", exact: true });
+    await expect(input).toBeDisabled();
+    await expect(useProject).toBeDisabled();
+    release();
+    await expect(input).toBeEnabled();
+    await expect(page.getByText("Each project starts with no SI-Coder or Batonly binding.", { exact: false })).toBeVisible();
+    await input.fill(fixture.dir);
+    await expect(input).toHaveValue(fixture.dir);
+    await expect(useProject).toBeEnabled();
+    await useProject.click();
+  } finally { release(); await page.unroute("**/api/v1/project-mcp", hold); }
+}
 export async function mcpOwnerJourneys(page, fixture) {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -58,11 +85,7 @@ export async function mcpOwnerJourneys(page, fixture) {
     await page.getByRole("button", { name: "Show expired & disconnected", exact: true }).click();
     await expect(page.getByText("Read data · revoked", { exact: true })).toBeVisible();
     await nav.getByRole("button", { name: "MCP overview", exact: true }).click();
-    await page.getByRole("tab", { name: /MSO to External/ }).click();
-    await expect(page.getByText("Each project starts with no SI-Coder or Batonly binding.", { exact: false })).toBeVisible();
-    await page.getByLabel("Exact MCP target project").fill(fixture.dir);
-    await expect(page.getByRole("button", { name: "Use project", exact: true })).toBeEnabled();
-    await page.getByRole("button", { name: "Use project", exact: true }).click();
+    await chooseProjectTarget(page, fixture);
     const siCoder = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "SI-Coder", exact: true }) });
     await expect(siCoder.getByRole("button", { name: "Install", exact: true })).toBeEnabled();
     page.once("dialog", dialog => dialog.accept());

@@ -29,3 +29,32 @@ it("surfaces public TLS failure without changing the process state", async () =>
   await expect(verifyViewerTransport(new AbortController().signal)).rejects.toThrow("Viewer TLS failed");
   expect(fetchMock).toHaveBeenCalledWith("/api/v1/camoufox/service?probe=viewer", expect.objectContaining({ cache: "no-store" }));
 });
+
+it("reports every observed power state and stops polling when the session stops", async () => {
+  vi.useFakeTimers();
+  const running = { installed: true, running: true, enabled: false, viewerReady: false };
+  const stopped = { ...running, running: false };
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify(running), { status: 200 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify(stopped), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const observed = vi.fn();
+  try {
+    const result = waitForViewer(new AbortController().signal, 30000, observed);
+    await vi.advanceTimersByTimeAsync(700);
+    await expect(result).resolves.toBe(false);
+    expect(observed.mock.calls.map(([status]) => status.running)).toEqual([true, false]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  } finally { vi.useRealTimers(); }
+});
+
+it("does not publish a state observation after cancellation", async () => {
+  const controller = new AbortController();
+  const observed = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    controller.abort();
+    return new Response(JSON.stringify({ installed: true, running: false, enabled: false }), { status: 200 });
+  }));
+  await expect(waitForViewer(controller.signal, 0, observed)).resolves.toBe(false);
+  expect(observed).not.toHaveBeenCalled();
+});

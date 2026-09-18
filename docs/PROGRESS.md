@@ -1,3 +1,33 @@
+## 2026-09-18 — Resolve release review on Node support and browser retries
+
+The dependency toolchain now requires the same supported Node range everywhere:
+22.12+, 24.x or 26+. Package engines, early installer checks, the independent doctor
+check and install documentation agree; boundary tests exercise both installer and
+runtime predicates. The current Node runtime is not changed. An unsupported newer
+runtime is refused rather than silently downgraded by the installer. The verified
+installer-core checksum is updated with its source.
+
+Camoufox connection retry now creates a fresh read-only connection attempt rather than
+posting a power mutation. Readiness reports each observed service state and ends as
+soon as the browser stops, so the UI does not retain a stale running state after a
+lease expires. Unit and synthetic desktop/mobile browser regressions prove repeated
+retry sends no power POST, TLS failure fetches no VNC credential, and an observed
+stopped browser returns to the start panel. Authorization and rate limits are unchanged.
+
+## 2026-09-18 — Keep MCP target controls locked until their first inspection
+
+PR release verification caught the mobile MCP journey leaving Use project disabled after
+an early fill. The installation hook originally rendered busy=false with no snapshot,
+then disabled the controls on a deferred initial inspection. Start busy instead so there
+is no initially interactive, uninspected target. Mutations still require an inspected
+revision; backend authorization, target selection and all existing assertions are unchanged.
+
+A regression reproduces the incorrect first-render state for host, named and path targets.
+The browser journey now holds the initial inspection request, verifies disabled controls,
+releases it, checks readiness and the entered value, then performs the same real
+install/uninstall flow across desktop, portrait and landscape. No retries, timing sleeps,
+coverage reductions or skipped checks hide the original CI failure.
+
 ## 2026-09-18 — Reconcile the refreshed production dependency PR
 
 The final PR audit found that the production update had advanced after the combined
