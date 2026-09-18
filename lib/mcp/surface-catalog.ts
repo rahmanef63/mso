@@ -3,7 +3,7 @@ import { configuredSurfaceApps, type SurfaceApp } from "./surface-config";
 export type { SurfaceApp, SurfaceRenderer, SurfacePresentation, SurfaceEnvironment } from "./surface-config";
 
 export async function surfaceApps(): Promise<readonly SurfaceApp[]> {
-  return (await configuredSurfaceApps()).map(app => [mcpUiOrigin(), publicMsoOrigin()].includes(app.origin) ? { ...app, renderer: "remote" as const, reason: "MSO authentication stays in the owner browser." } : app);
+  return (await configuredSurfaceApps()).filter(app => !app.placements || app.placements.includes("mcp-page")).map(app => [mcpUiOrigin(), publicMsoOrigin()].includes(app.origin) ? { ...app, renderer: "remote" as const, reason: "MSO authentication stays in the owner browser." } : app);
 }
 
 const ROUTE_MAX = 1024;

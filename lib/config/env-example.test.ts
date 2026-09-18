@@ -44,6 +44,9 @@ const NOT_A_KNOB: Record<string, string> = {
   WATCHDOG_USEC: "systemd's",
   // Test + tooling only, never part of a deployment.
   E2E_BASE_URL: "test harness",
+  E2E_EVIDENCE_DIR: "workflow embed browser harness only: screenshot/report output directory, never runtime configuration",
+  E2E_WORKFLOW_EMBED_PARENT_ORIGIN: "workflow embed browser harness only: explicitly approved synthetic parent origin for live policy checks",
+  E2E_WORKFLOW_EMBED_ORIGIN: "workflow embed browser harness only: explicit signed-out live provider smoke target, never production configuration",
   MSO_SCREENSHOT_DIR: "injected per-session artifact staging path for browser tooling; never persistent app configuration",
   E2E_DEMO: "desktop browser harness only: preview has no authentication; never production configuration",
   E2E_CAPTURE_ONLY: "desktop browser harness only: capture baseline before native behavior assertions",

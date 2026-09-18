@@ -22,6 +22,8 @@ run_workflow() {
   if [ "${input:0:1}" = "@" ]; then input=$(cat -- "${input:1}"); fi
   case "$sub" in
     list) jget "/api/v1/workflows"; return ;;
+    embeds) jget "/api/v1/workflow-embeds"; return ;;
+    embed-save) jpost "/api/v1/workflow-embeds" "$input"; return ;;
     show) jget "/api/v1/workflows?graph_id=$(enc "$id")"; return ;;
     runs) jget "/api/v1/workflows?runs=1&graph_id=$(enc "$id")"; return ;;
     versions) jget "/api/v1/workflows?versions=$(enc "$id")"; return ;;

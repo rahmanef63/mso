@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` add reviewed external editor tabs
 - `organization` add internal project flows with callable CRUD
 
 **Fixed**

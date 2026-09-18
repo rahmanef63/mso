@@ -141,10 +141,50 @@ AI assistance has an isolated workflow-design system prompt, receives no implici
 
 Run automatically saves a dirty graph before execution, so execution always uses the revision visible in the editor. Disabled connections remain visible in the graph and receipts but are excluded from runtime traversal, cycle checks and tidy layout; a target reachable only through disabled connections is skipped rather than silently promoted to a new root.
 
+## Reviewed external workflow tabs
+
+The Workflows workspace keeps the native MSO automation/session editor and can add
+external editors such as n8n as sibling tabs. External tabs are **off by default**.
+The owner-reviewed Page registry is shared through `lib/surfaces/config.ts`; add
+`"placements": ["workflows"]` to an approved external app in the existing
+`~/.mso/surface-apps.json` (or its configured override). Preserve existing entries.
+Workflow-only placements do not appear in the MCP Page catalog or grant ChatGPT a
+nested-frame origin. Legacy entries without placements retain their Page behavior;
+explicit `"mcp-page"` is a separate reviewed placement.
+For example, a private installation could add:
+
+```json
+{
+  "id": "n8n", "title": "n8n", "description": "External workflow editor",
+  "origin": "https://automation.example.test", "startPath": "/home/workflows",
+  "renderer": "iframe", "presentation": "inline", "environment": "production",
+  "externalAuthPath": "/signin", "placements": ["workflows"],
+  "sandbox": "allow-scripts allow-same-origin allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
+}
+```
+
+`GET /api/v1/workflow-embeds` and `mso workflow embeds` return only reviewed
+presentation metadata to an approved Owner device. They never return Integration
+credentials. The Owner-only POST and `mso workflow embed-save` accept `{app, expectedRevision, confirm:true}`; they validate metadata, preserve unrelated entries and reject stale revisions or environment-managed configuration. No raw file or credential access is exposed.
+The registry is refreshed when the window regains focus, without a
+rebuild. External frames load on first selection; switching tabs preserves both
+the native editor's unsaved state and the external editor's frame. Keyboard tab
+navigation and narrow viewport layouts use the same workspace wrapper.
+
+MCP authorization does not sign the browser into n8n. Use the visible **Sign in**
+link to authenticate directly with the external service, then reload its frame.
+**Open** remains available if its frame policy or browser cookie policy prevents
+embedding. MSO does not strip upstream security headers, proxy credentials, or
+claim that an iframe load proves authentication. Own-cockpit origins and
+remote-only registry entries never become embedded frames.
+
 ## CLI
 
 ```bash
 mso workflow list
+mso workflow embeds
+# Review a metadata-only app and use the revision above:
+mso workflow embed-save --input @reviewed-embed.json
 mso workflow show <id>
 mso workflow catalog --query webhook
 mso workflow templates
