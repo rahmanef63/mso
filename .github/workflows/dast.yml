@@ -51,7 +51,6 @@ jobs:
 
       - name: Require only reviewed passive findings
         if: ${{ always() }}
-        run: node scripts/check-zap-report.mjs report_json.json
+        run: node scripts/check-zap-report.mjs report_json.json "${{ steps.zap.outcome }}"
         env:
           MSO_DAST_URL: ${{ vars.MSO_DAST_URL }}
-          MSO_ZAP_STEP_OUTCOME: ${{ steps.zap.outcome }}

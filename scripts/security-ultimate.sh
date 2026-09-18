@@ -144,8 +144,8 @@ if [[ "${MSO_SECURITY_SKIP_DAST:-0}" != "1" ]]; then
       zap-baseline.py -t "$DAST_URL" -m 2 -c zap-baseline.conf -J report_json.json || rc=$?
     # ZAP uses 1/2 for alert findings; raw report validation decides whether every finding is reviewed.
     if (( rc > 2 )); then return "$rc"; fi
-    MSO_DAST_URL="$DAST_URL" MSO_ZAP_STEP_OUTCOME=success \
-      node "$ROOT/scripts/check-zap-report.mjs" "$ZAP_WORK/report_json.json"
+    MSO_DAST_URL="$DAST_URL" \
+      node "$ROOT/scripts/check-zap-report.mjs" "$ZAP_WORK/report_json.json" success
   }
   run_capture "OWASP ZAP baseline" run_reviewed_zap
   chmod 700 "$ZAP_WORK"

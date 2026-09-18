@@ -110,8 +110,8 @@ export function validateZapReport(report, { target, stepOutcome = "success", pol
 
 function main() {
   const reportPath = process.argv[2] || "report_json.json";
+  const stepOutcome = process.argv[3] || "success";
   const target = process.env.MSO_DAST_URL;
-  const stepOutcome = process.env.MSO_ZAP_STEP_OUTCOME || "success";
   try {
     const report = JSON.parse(readFileSync(reportPath, "utf8"));
     const policyText = readFileSync("security/zap-baseline.conf", "utf8");

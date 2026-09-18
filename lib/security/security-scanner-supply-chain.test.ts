@@ -36,7 +36,7 @@ describe("security scanner supply chain", () => {
     const hosted = fs.readFileSync(path.join(ROOT, ".github/workflows/dast.yml"), "utf8");
     const ultimate = fs.readFileSync(ULTIMATE, "utf8");
     expect(policy).not.toMatch(/^10050\t/m);
-    expect(hosted).toContain("node scripts/check-zap-report.mjs report_json.json");
-    expect(ultimate).toContain('node "$ROOT/scripts/check-zap-report.mjs" "$ZAP_WORK/report_json.json"');
+    expect(hosted).toContain('node scripts/check-zap-report.mjs report_json.json "${{ steps.zap.outcome }}"');
+    expect(ultimate).toContain('node "$ROOT/scripts/check-zap-report.mjs" "$ZAP_WORK/report_json.json" success');
   });
 });

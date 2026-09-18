@@ -34,8 +34,7 @@ describe("passive DAST requires an explicit safe target", () => {
     expect(workflow).toContain("allow_issue_writing: false");
     expect(workflow).toContain("rules_file_name: security/zap-baseline.conf");
     expect(workflow).toContain("cmd_options: -m 2 -c security/zap-baseline.conf");
-    expect(workflow).toContain("run: node scripts/check-zap-report.mjs report_json.json");
-    expect(workflow).toContain("MSO_ZAP_STEP_OUTCOME: ${{ steps.zap.outcome }}");
+    expect(workflow).toContain('run: node scripts/check-zap-report.mjs report_json.json "${{ steps.zap.outcome }}"');
     const rules = readFileSync("security/zap-baseline.conf", "utf8").split("\n").filter(line => line && !line.startsWith("#"));
     expect(rules.map(line => line.split("\t")[0])).toEqual(["10015", "10049", "10055", "10096", "90004"]);
     expect(rules.every(line => line.split("\t")[1] === "INFO")).toBe(true);
