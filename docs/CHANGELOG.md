@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `workflows` remount editors when sandbox policy changes
 - `workflows` retain approved shared surface placements
 - `browser` keep Camoufox automation on demand
 - `workflows` isolate external editors from cockpit session cookies

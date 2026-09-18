@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { WorkflowEmbedPanel } from "./workflow-embed-panel";
@@ -8,6 +9,11 @@ describe("blocked external editor rendering", () => {
     const html = renderToStaticMarkup(<WorkflowEmbedPanel app={{ ...app, blocked: true, reason: "Blocked session cookie scope" }} />);
     expect(html).toContain("Blocked session cookie scope");
     expect(html).not.toContain("<iframe"); expect(html).not.toContain('href='); expect(html).not.toContain(app.origin);
+  });
+
+  it("remounts the iframe whenever the reviewed sandbox policy changes", () => {
+    const source = readFileSync(new URL("./workflow-embed-panel.tsx", import.meta.url), "utf8");
+    expect(source).toContain('key={`${revision}:${app.sandbox}`}');
   });
   it("fails closed if a destination is missing even without the blocked flag", () => {
     const html = renderToStaticMarkup(<WorkflowEmbedPanel app={{ ...app, url: undefined }} />);

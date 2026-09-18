@@ -1,3 +1,10 @@
+## 2026-09-18 — Remount reviewed workflow editors when sandbox policy changes
+
+A focus refresh can tighten an existing external editor's sandbox without changing its id or origin.
+The embedded document must not keep the permissions from the previous navigation. The iframe key now
+includes the reviewed sandbox policy, so a policy change remounts the document before it can continue.
+Blocked destinations and cookie-isolated origins remain unchanged; no sandbox capability is added.
+
 ## 2026-09-18 — Preserve existing MCP Page approval during Workflow metadata edits
 
 The shared registry review found that a Workflow-only save replaced a previously shared

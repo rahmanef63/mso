@@ -27,7 +27,7 @@ export function WorkflowEmbedPanel({ app }: { app: WorkflowEmbed }) {
     </div>
     {app.renderer === "iframe" ? <div className="relative min-h-0 min-w-0 flex-1">
       {loading ? <div className="absolute inset-x-0 top-0 z-10 border-b bg-background px-3 py-2 text-xs text-muted-foreground" role="status">{slow ? `Taking longer than expected. Open ${app.title} in a new tab if its login or frame policy blocks embedding.` : `Loading ${app.title}…`}</div> : null}
-      <iframe key={revision} src={app.url} title={`${app.title} workflow editor`} sandbox={app.sandbox} referrerPolicy="no-referrer" className="h-full w-full border-0 bg-background" onLoad={() => setLoading(false)} onError={() => { setLoading(true); setSlow(true); }}/>
+      <iframe key={`${revision}:${app.sandbox}`} src={app.url} title={`${app.title} workflow editor`} sandbox={app.sandbox} referrerPolicy="no-referrer" className="h-full w-full border-0 bg-background" onLoad={() => setLoading(false)} onError={() => { setLoading(true); setSlow(true); }}/>
     </div> : <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">{app.reason || `${app.title} opens in a separate tab. Embedded access is not enabled for this provider.`}</div>}
     <p className="shrink-0 border-t px-3 py-1.5 text-xs text-muted-foreground [@media(max-height:520px)]:sr-only">{app.title} keeps its own login. Sign in in a new tab, then reload here. If embedding is blocked, use Open {app.title}.</p>
   </div>;
