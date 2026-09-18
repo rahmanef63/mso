@@ -25,6 +25,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Chores**
 
+- `deps-dev` bump @types/node
 - `deps` bump the production-minor-patch group across 1 directory with 7 updates
 
 ## 2026-09-17
