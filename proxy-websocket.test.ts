@@ -8,12 +8,11 @@ import { signSession } from "./lib/auth/session";
 
 const approved = vi.hoisted(() => ({ value: true, role: "owner" as "viewer" | "operator" | "owner" }));
 vi.mock("@/lib/auth/device-store", () => ({
+  currentSessionPolicy: async (scope: string) => ({ scope, epoch: "epoch-0000000000000000", changedAt: 1 }),
   getApprovedDevice: async () => approved.value
     ? { label: "test device", approvedAt: 1, role: approved.role }
     : null,
-}));
-
-const TEMPLATE = "{id}.mso.example.com";
+})); const TEMPLATE = "{id}.mso.example.com";
 
 /** Env is read at module load, so each case needs a fresh module graph. */
 async function loadProxy(template: string) {
@@ -43,7 +42,7 @@ describe("WebSocket upgrade on an app host", () => {
   /** A real signed cookie — the branch verifies the HMAC, so a placeholder won't do. */
   function session(cookieScope = "host"): string {
     const now = Date.now();
-    return signSession({ issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: cookieScope }, SECRET);
+    return signSession({ issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: cookieScope, cookie_epoch: "epoch-0000000000000000" }, SECRET);
   }
 
   function upgradeReq(host: string, path = "/", cookie?: string) {
@@ -126,7 +125,7 @@ describe("per-app upgrade adapters", () => {
 
   function signed(): string {
     const now = Date.now();
-    return signSession({ issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: "host" }, SECRET);
+    return signSession({ issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: "host", cookie_epoch: "epoch-0000000000000000" }, SECRET);
   }
 
   async function upstream(host: string, path: string, extra: Record<string, string> = {}) {
@@ -191,7 +190,7 @@ describe("the Camoufox split-origin VNC bridge", () => {
 
   function session(secret = SECRET): string {
     const now = Date.now();
-    return signSession({ issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: "host" }, secret);
+    return signSession({ issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: "host", cookie_epoch: "epoch-0000000000000000" }, secret);
   }
 
   async function load(novnc = NOVNC) {

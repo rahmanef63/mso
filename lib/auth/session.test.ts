@@ -6,7 +6,7 @@ const SECRET = "s".repeat(MIN_SECRET_LEN);
 
 function freshPayload(overrides: Partial<SessionPayload> = {}): SessionPayload {
   const now = Date.now();
-  return { issued_at: now, expires_at: now + 60_000, device_id: "dev-1", cookie_scope: "host", ...overrides };
+  return { issued_at: now, expires_at: now + 60_000, device_id: "dev-1", cookie_scope: "host", cookie_epoch: "epoch-0000000000000000", ...overrides };
 }
 
 function b64url(input: string | Buffer): string {
@@ -48,9 +48,10 @@ describe("signSession / verifySession roundtrip", () => {
     expect(verifySession(signSession(payload, SECRET), SECRET)).toEqual(payload);
   });
 
-  it("rejects legacy signed payloads that have no cookie scope", () => {
-    const encoded = b64url(JSON.stringify({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "dev-1" }));
-    expect(verifySession(forgeToken(encoded, SECRET), SECRET)).toBeNull();
+  it("rejects legacy signed payloads that have no cookie scope or durable epoch", () => {
+    const base = { issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "dev-1" };
+    expect(verifySession(forgeToken(b64url(JSON.stringify(base)), SECRET), SECRET)).toBeNull();
+    expect(verifySession(forgeToken(b64url(JSON.stringify({ ...base, cookie_scope: "host" })), SECRET), SECRET)).toBeNull();
   });
 });
 

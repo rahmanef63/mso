@@ -8,6 +8,7 @@ import { MIN_SECRET_LEN } from "@/lib/auth/session";
 
 vi.mock("@/lib/host/audit-api", () => ({ audit: vi.fn() }));
 vi.mock("@/lib/auth/device-store", () => ({
+  currentSessionPolicy: async (scope: string) => ({ scope, epoch: "epoch-0000000000000000", changedAt: 1 }),
   isValidDeviceId: (id: unknown) => typeof id === "string" && /^[a-f0-9-]{16,128}$/i.test(id),
   isApproved: async () => true,
   recordPending: async () => {},

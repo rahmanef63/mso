@@ -17,9 +17,16 @@ export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
   const providerUrl = `http://127.0.0.1:${provider.address().port}`;
   const device = randomBytes(16).toString("hex"), password = randomBytes(24).toString("hex");
   const deviceFile = path.join(dir, "devices.json");
-  const setRole = role => writeFile(deviceFile, JSON.stringify({
-    approved: { [device]: { label: "Release fixture", role, approvedAt: Date.now() } }, pending: {},
-  }), { mode: 0o600 });
+  const setRole = async role => {
+    let current = {};
+    try { current = JSON.parse(await readFile(deviceFile, "utf8")); }
+    catch (error) { if (error?.code !== "ENOENT") throw error; }
+    await writeFile(deviceFile, JSON.stringify({
+      ...current,
+      approved: { [device]: { label: "Release fixture", role, approvedAt: current.approved?.[device]?.approvedAt ?? Date.now() } },
+      pending: current.pending ?? {},
+    }), { mode: 0o600 });
+  };
   await setRole("owner");
   if (live) await writeFile(path.join(dir, "prefs.json"), JSON.stringify({ tweaks: { server: { mode: "live", activeTargetId: "vps", url: "" } } }), { mode: 0o600 });
   await writeFile(path.join(dir, "fixture.txt"), "MSO release fixture");

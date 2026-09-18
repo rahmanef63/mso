@@ -1,3 +1,7 @@
+## 2026-09-18 — Permanently revoke prior cookie-policy generations
+
+A follow-up security review found that a deterministic scope label could revive an old signed session if configuration later returned to the same cookie Domain. The private auth-device store now keeps one durable cookie-policy epoch and rotates it on every actual scope transition, including A to host-only to A. Signed browser sessions carry both scope and epoch; route and middleware/WebSocket authorization require both. Existing approved devices and roles are preserved, but pre-epoch sessions require a one-time sign-in. Workflow edits also preserve an existing reviewed MCP Page auth path with query parameters without allowing the Workflow endpoint to create or change that Page-owned metadata.
+
 ## 2026-09-18 — Preserve the strictest reviewed external-editor sandbox
 
 PR review found that an explicit empty iframe sandbox was normalized as if the owner had

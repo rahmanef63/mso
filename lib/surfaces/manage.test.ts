@@ -28,6 +28,18 @@ describe("owner-reviewed workflow surface configuration", () => {
     await save({ ...app, title: "Updated again" });
     expect((await surfaceRegistrySnapshot()).apps[0].placements).toEqual(["workflows", "mcp-page"]);
   });
+  it("preserves Page auth metadata with a validated query during workflow updates", async () => {
+    const pageAuth = "/?auth=google";
+    await fs.writeFile(file, JSON.stringify([{ ...app, externalAuthPath: pageAuth, placements: ["workflows", "mcp-page"] }]));
+    await save({ ...app, externalAuthPath: pageAuth, title: "Workflow title" });
+    let saved = (await surfaceRegistrySnapshot()).apps[0];
+    expect(saved.externalAuthPath).toBe(pageAuth);
+    expect(saved.placements).toEqual(["workflows", "mcp-page"]);
+    await save({ ...app, title: "Workflow title again" });
+    saved = (await surfaceRegistrySnapshot()).apps[0];
+    expect(saved.externalAuthPath).toBe(pageAuth);
+    await expect(save({ ...app, externalAuthPath: "/?auth=other" })).rejects.toThrow("workflow_login_path_must_not_contain_query");
+  });
   it("never adds Page approval to new or workflow-only entries", async () => {
     await save();
     expect((await surfaceRegistrySnapshot()).apps[0].placements).toEqual(["workflows"]);

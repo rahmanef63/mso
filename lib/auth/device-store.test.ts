@@ -97,6 +97,19 @@ describe("device-store — an unreadable file must never look like an empty one"
     await expect(isApproved(DEV)).resolves.toBe(false);
   });
 
+  it("rotates a durable session epoch on every cookie-scope transition, including A to host to A", async () => {
+    const { currentSessionPolicy, listDevices } = await load();
+    const first = await currentSessionPolicy("domain:example.com");
+    const same = await currentSessionPolicy("domain:example.com");
+    const host = await currentSessionPolicy("host");
+    const returned = await currentSessionPolicy("domain:example.com");
+    expect(same.epoch).toBe(first.epoch);
+    expect(host.epoch).not.toBe(first.epoch);
+    expect(returned.epoch).not.toBe(first.epoch);
+    expect(returned.epoch).not.toBe(host.epoch);
+    expect((await listDevices()).sessionPolicy).toEqual(returned);
+  });
+
   it("writes the store 0600 inside a 0700 dir", async () => {
     const { approveDevice } = await load();
     await approveDevice(DEV, "my laptop");

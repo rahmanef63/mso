@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "child_process";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import { listDevices } from "@/lib/auth/device-store";
+import { currentSessionPolicy, listDevices } from "@/lib/auth/device-store";
 import { signSession, MIN_SECRET_LEN } from "@/lib/auth/session";
 import { configuredSessionCookieScope } from "@/lib/auth/session-cookie";
 
@@ -106,7 +106,8 @@ export async function captureMsoScreen(opts?: {
   if (secret.length < MIN_SECRET_LEN) throw new Error("OS_SESSION_SECRET is not configured strongly enough");
   const deviceId = await approvedDeviceId();
   const now = Date.now();
-  const session = signSession({ issued_at: now, expires_at: now + 5 * 60_000, device_id: deviceId, cookie_scope: configuredSessionCookieScope() }, secret);
+  const policy = await currentSessionPolicy(configuredSessionCookieScope());
+  const session = signSession({ issued_at: now, expires_at: now + 5 * 60_000, device_id: deviceId, cookie_scope: policy.scope, cookie_epoch: policy.epoch }, secret);
   const origin = internalOrigin();
   const profile = await fs.mkdtemp(path.join(os.tmpdir(), "mso-shot-"));
   let chrome: ChildProcess | undefined;

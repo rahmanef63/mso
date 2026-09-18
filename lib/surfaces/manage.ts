@@ -37,7 +37,6 @@ export async function saveWorkflowSurface(input: Record<string, unknown>) {
   const normalized = await configuredSurfaceApps(JSON.stringify([{ ...row, placements: ["workflows"] }]));
   if (normalized.length !== 1) throw new SurfaceConfigError("invalid_surface_metadata");
   const selected = normalized[0];
-  if (selected.externalAuthPath?.includes("?")) throw new SurfaceConfigError("workflow_login_path_must_not_contain_query");
   return withSecurityStoreLock(surfaceRegistryPath(), async () => {
     const current = await readRegistry();
     if (current.managedByEnvironment) throw new SurfaceConfigError("surface_registry_managed_by_environment", 409);
@@ -49,11 +48,19 @@ export async function saveWorkflowSurface(input: Record<string, unknown>) {
     if (matches.length > 1) throw new SurfaceConfigError("duplicate_surface_identity", 409);
     const replacement = { ...selected };
     // Missing placements is legacy Page approval; this workflow-only operation
-    // may preserve that grant but cannot create a new Page approval.
+    // may preserve that grant but cannot create or mutate Page-only auth metadata.
     const existing = matches[0];
-    if (existing && (existing.placements === undefined ||
-      (Array.isArray(existing.placements) && existing.placements.includes("mcp-page")))) {
+    const sharesPage = Boolean(existing && (existing.placements === undefined ||
+      (Array.isArray(existing.placements) && existing.placements.includes("mcp-page"))));
+    const existingNormalized = existing ? (await configuredSurfaceApps(JSON.stringify([existing])))[0] : undefined;
+    if (selected.externalAuthPath?.includes("?") && (!sharesPage ||
+      selected.externalAuthPath !== existingNormalized?.externalAuthPath)) {
+      throw new SurfaceConfigError("workflow_login_path_must_not_contain_query");
+    }
+    if (sharesPage) {
       replacement.placements = ["workflows", "mcp-page"];
+      if (existingNormalized?.externalAuthPath !== undefined) replacement.externalAuthPath = existingNormalized.externalAuthPath;
+      else delete replacement.externalAuthPath;
     }
     const next = matches.length ? entries.map((entry) => entry.id === selected.id ? replacement : entry) : [...entries, replacement];
     const raw = JSON.stringify(next, null, 2) + "\n";

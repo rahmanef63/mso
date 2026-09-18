@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `auth` permanently revoke retired cookie sessions
 - `workflows` preserve explicit empty sandbox
 - `auth` bind sessions to cookie scope
 - `workflows` remount editors when sandbox policy changes

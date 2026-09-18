@@ -231,8 +231,8 @@ Different origins do not by themselves isolate cookies. Reviewed external editor
 be outside the currently validated `OS_SESSION_COOKIE_DOMAIN` and must not reuse a cockpit
 hostname on another port when cookies are host-only. MSO blocks both framing and editor/login
 links for colliding destinations and shows the configuration reason. Signed browser sessions
-are also bound to the normalized cookie policy that minted them: widening, narrowing or
-unsetting the Domain invalidates older tokens server-side, so a broader cookie retained by
-the browser cannot authenticate after the scope change. Shared MCP Page discovery uses the
-same boundary. Registry review is not a credential-sharing exception; native managed-app/
+are also bound to a durable cookie-policy generation. Widening, narrowing or unsetting the
+Domain rotates that generation in the private auth store; returning later to an earlier Domain
+rotates it again, so retained/captured tokens from that older generation never revive. Shared
+MCP Page discovery uses the same boundary. Registry review is not a credential-sharing exception; native managed-app/
 browser proxy routes keep their separate existing authentication boundaries.
