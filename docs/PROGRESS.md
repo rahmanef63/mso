@@ -1,3 +1,21 @@
+## 2026-09-18 — Scope cache retrieval review to immutable asset paths
+
+PR review caught that a rule-wide 10050 INFO entry would also downgrade a future
+shared-cache exposure on an authenticated or user-specific URL. Rule 10050 is therefore
+removed from the rule-wide ZAP policy. Hosted and local DAST now validate the raw ZAP
+JSON: only same-origin, query-free /_next/static/chunks/*.js and
+/_next/static/media/*.woff2 instances are accepted for that rule; every other 10050
+instance and every otherwise-unreviewed alert remains a failing condition.
+
+## 2026-09-18 — Classify cache retrieval only for immutable public assets
+
+The first post-merge passive ZAP run against main produced one new default warning:
+rule 10050 (Retrieved from Cache) on five content-hashed _next/static JavaScript/font
+assets carrying an Age header. The report contained no authenticated, personal, or
+user-specific URL for that rule. Keep the signal visible as INFO for those intentionally
+cacheable public assets; do not use IGNORE, do not alter authenticated response caching,
+and leave every other unreviewed ZAP rule at its default warning/failure behavior.
+
 ## 2026-09-18 — Require executed passive security scan evidence
 
 The security closeout found that the scheduled hosted ZAP workflow could report

@@ -12,6 +12,9 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` validate cache exceptions from raw report
+- `security` scope passive cache review by path
+- `security` review cache-only passive signal
 - `browser` keep Camoufox automation on demand
 - `security` apply existing ZAP informational policy explicitly
 - `security` require executed passive scan evidence
@@ -22,6 +25,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `security` track reviewed cache signal
 - `browser` make viewer fixtures independent of host configuration
 - `security` inspect organization fixture through one descriptor
 
