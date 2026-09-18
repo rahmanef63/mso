@@ -224,3 +224,13 @@ MSO targets **core self-hosted workflow parity**, not n8n's SaaS business surfac
 ## Organization seat routing
 
 Organization is not owned by Workflow Graph. An `agent` node may set `orgSeatId`; at execution time MSO resolves that seat from the private Organization registry and routes to its current Project Agent, Local Agent, or A2A target. This indirection lets a workflow say “send to the CTO seat” without duplicating which concrete agent currently fills that seat. Direct project-bound Agent nodes remain backward compatible. See [`ORGANIZATION.md`](./ORGANIZATION.md).
+
+### External editor credential isolation
+
+Different origins do not by themselves isolate cookies. Reviewed external editors must
+be outside `OS_SESSION_COOKIE_DOMAIN` and must not reuse a cockpit hostname on another
+port, including when cookies are host-only. MSO blocks both framing and editor/login links
+for colliding destinations and shows the configuration reason. Shared MCP Page discovery
+also excludes them. Use a distinct cookie-isolated editor hostname; registry review is not
+a credential-sharing exception. Native managed-app/browser proxy routes keep their separate
+existing authentication boundaries and are not granted trust by a registry entry.

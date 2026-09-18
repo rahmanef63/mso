@@ -20,6 +20,6 @@ export type SurfaceApp = {
 
 
 export type WorkflowEmbed = {
-  id: string; title: string; description: string; origin: string; url: string;
+  id: string; title: string; description: string; origin: string; url?: string; blocked?: boolean;
   loginUrl?: string; renderer: SurfaceRenderer; sandbox: string; reason?: string;
 };

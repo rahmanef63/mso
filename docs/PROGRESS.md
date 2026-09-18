@@ -1,3 +1,19 @@
+## 2026-09-18 — Keep external editor links outside the cockpit session-cookie scope
+
+The pending external-editor review exposed a domain-cookie leak: different origins can
+still receive the same session cookie. A new shared surface policy reuses the validated
+session-cookie authority and also accounts for host-only cookies across different ports.
+External Workflow entries that would receive cockpit credentials now remain visible as
+blocked metadata but expose no iframe, editor link or login URL. The same unsafe entries
+are omitted from the MCP Page catalogue and cannot be resolved as Page routes. Registry
+approval never grants cookie trust; exact cockpit links remain remote-only. No cookie,
+TLS, CSP, same-origin or role protection is relaxed and provider sessions are untouched.
+
+Regression tests reproduce the previous unsafe URLs before the fix and cover domain/host
+scope, leading-dot/case normalization, suffix lookalikes, remote-only links, runtime policy
+refresh and shared readers. The browser journey additionally verifies the blocked panel
+and zero unsafe requests rather than interpreting a hidden iframe as sufficient isolation.
+
 ## 2026-09-18 — Reviewed workflow provider tabs
 
 - Keep the native automation/session editor unchanged and mounted while switching to external workflow editors such as n8n. The new wrapper consumes explicit workflow placements in the existing owner-reviewed surface registry, not app-store HTML or credential values.

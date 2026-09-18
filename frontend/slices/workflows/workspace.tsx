@@ -46,6 +46,6 @@ export default function WorkflowsWorkspace(props: AppProps) {
     <section id={`${prefix}-panel-__native`} role={apps.length ? "tabpanel" : undefined} aria-labelledby={apps.length ? `${prefix}-tab-__native` : undefined} hidden={active !== "__native"} className={cn("min-h-0 min-w-0 flex-1 overflow-hidden", active !== "__native" && "hidden")}>
       <NativeWorkflowsApp {...props}/>
     </section>
-    {apps.map((app) => <section key={app.id + app.url} id={`${prefix}-panel-${app.id}`} role="tabpanel" aria-labelledby={`${prefix}-tab-${app.id}`} hidden={active !== app.id} className={cn("min-h-0 min-w-0 flex-1 overflow-hidden", active !== app.id && "hidden")}>{visited.includes(app.id) ? <WorkflowEmbedPanel app={app}/> : null}</section>)}
+    {apps.map((app) => <section key={app.id + app.origin + String(app.blocked)} id={`${prefix}-panel-${app.id}`} role="tabpanel" aria-labelledby={`${prefix}-tab-${app.id}`} hidden={active !== app.id} className={cn("min-h-0 min-w-0 flex-1 overflow-hidden", active !== app.id && "hidden")}>{visited.includes(app.id) ? <WorkflowEmbedPanel app={app}/> : null}</section>)}
   </div>;
 }

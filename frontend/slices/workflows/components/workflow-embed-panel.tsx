@@ -13,6 +13,10 @@ export function WorkflowEmbedPanel({ app }: { app: WorkflowEmbed }) {
     const timer = setTimeout(() => setSlow(true), 15000);
     return () => clearTimeout(timer);
   }, [revision]);
+  if (app.blocked || !app.url) return <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm" data-slot="workflow-embed-panel" role="alert">
+    <p>{app.reason || "This editor destination is unavailable."}</p>
+    <p className="text-xs text-muted-foreground">No editor or login link is opened. Configure a separate cookie-isolated origin before connecting.</p>
+  </div>;
   const reload = () => { setLoading(true); setSlow(false); setRevision((value) => value + 1); };
   return <div className="flex h-full min-h-0 min-w-0 flex-col" data-slot="workflow-embed-panel">
     <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">

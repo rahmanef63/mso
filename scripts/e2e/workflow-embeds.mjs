@@ -96,6 +96,24 @@ try {
   await expect(page.locator('iframe[title="n8n workflow editor"]')).toHaveCount(0);
   evidence.push({ ownerDemotion: '403 and frame removed', remoteOnly: 'no iframe' });
   console.log('PASS remote-only fallback');
+  // Cookies have no port isolation: prove a reviewed same-host HTTPS editor is
+  // visibly blocked before any frame/login/navigation can send the fixture session.
+  const unsafe = new URL(fixture.base); unsafe.protocol = 'https:'; unsafe.port = '4443';
+  let unsafeRequests = 0;
+  const watchUnsafe = request => { if (request.url().startsWith(unsafe.origin)) unsafeRequests++; };
+  page.on('request', watchUnsafe);
+  await writeFile(path.join(fixture.dir, 'surface-apps.json'), JSON.stringify([{ ...app, origin: unsafe.origin }]));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.getByRole('tab', { name: 'n8n', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'this editor would receive the MSO session cookie' })).toBeVisible();
+  await expect(page.locator('iframe[title="n8n workflow editor"]')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Open n8n', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(0);
+  expect(unsafeRequests).toBe(0);
+  page.off('request', watchUnsafe);
+  evidence.push({ cookieCollision: 'blocked frame, login and navigation', unsafeRequests });
+  console.log('PASS cookie-isolated external editors: no unsafe frame, link or request');
+
   if (liveOrigin) {
     await writeFile(path.join(fixture.dir, 'surface-apps.json'), JSON.stringify([{ ...app, id: 'live-n8n', origin: liveOrigin, startPath: '/home/workflows' }]));
     await page.setViewportSize({ width: 1280, height: 900 });

@@ -1,10 +1,16 @@
 import type { SurfaceApp, WorkflowEmbed } from "@/lib/contracts/surface-app";
 import { configuredSurfaceApps } from "@/lib/surfaces/config";
+import { externalSurfaceSharesSession } from "@/lib/surfaces/cookie-policy";
 import { surfaceRegistrySnapshot } from "@/lib/surfaces/manage";
 
 /** Presentation metadata only. An embed never inherits the cockpit's credentials. */
 export function workflowEmbeds(apps: SurfaceApp[], cockpitOrigins: string[]): WorkflowEmbed[] {
   return apps.filter((app) => app.placements?.includes("workflows")).map((app) => {
+    if (externalSurfaceSharesSession(app.origin, cockpitOrigins)) return {
+      id: app.id, title: app.title, description: app.description, origin: app.origin,
+      renderer: "remote" as const, sandbox: app.sandbox ?? "allow-scripts allow-same-origin allow-forms", blocked: true,
+      reason: "Blocked: this editor would receive the MSO session cookie. Use an origin outside the cockpit cookie scope.",
+    };
     const ownOrigin = cockpitOrigins.includes(app.origin);
     return {
       id: app.id, title: app.title, description: app.description, origin: app.origin,
