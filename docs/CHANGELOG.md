@@ -14,8 +14,11 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Fixed**
 
 - `review` preserve session and surface store invariants
+- `security` validate cache exceptions from raw report
+- `security` scope passive cache review by path
 - `auth` permanently revoke retired cookie sessions
 - `workflows` preserve explicit empty sandbox
+- `security` review cache-only passive signal
 - `auth` bind sessions to cookie scope
 - `workflows` remount editors when sandbox policy changes
 - `workflows` retain approved shared surface placements
@@ -31,6 +34,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `security` track reviewed cache signal
 - `browser` make viewer fixtures independent of host configuration
 - `security` inspect organization fixture through one descriptor
 

@@ -19,17 +19,22 @@ describe("passive DAST requires an explicit safe target", () => {
       expect(result.stderr).not.toContain("private-value");
     }
   });
-  it("runs the target guard before an unconditional passive scanner with unchanged alert policy", () => {
+  it("runs the target guard before an unconditional passive scanner with the reviewed alert policy", () => {
     const workflow = readFileSync(".github/workflows/dast.yml", "utf8");
     const guard = workflow.indexOf("run: node scripts/check-dast-target.mjs");
     const scan = workflow.indexOf("uses: zaproxy/action-baseline@");
     expect(guard).toBeGreaterThan(0); expect(scan).toBeGreaterThan(guard);
-    expect(workflow).not.toMatch(/^\s*if:/m);
+    const scanEnd = workflow.indexOf("- name: Require only reviewed passive findings");
+    const scanStep = workflow.slice(workflow.lastIndexOf("- name: Run passive ZAP baseline"), scanEnd);
+    expect(scanStep).not.toMatch(/^\s*if:/m);
     expect(workflow).toContain("MSO_DAST_URL: ${{ vars.MSO_DAST_URL }}");
-    expect(workflow).toContain("fail_action: true");
+    expect(workflow).toContain("id: zap");
+    expect(workflow).toContain("continue-on-error: true");
+    expect(workflow).toContain("fail_action: false");
     expect(workflow).toContain("allow_issue_writing: false");
     expect(workflow).toContain("rules_file_name: security/zap-baseline.conf");
     expect(workflow).toContain("cmd_options: -m 2 -c security/zap-baseline.conf");
+    expect(workflow).toContain('run: node scripts/check-zap-report.mjs report_json.json "${{ steps.zap.outcome }}"');
     const rules = readFileSync("security/zap-baseline.conf", "utf8").split("\n").filter(line => line && !line.startsWith("#"));
     expect(rules.map(line => line.split("\t")[0])).toEqual(["10015", "10049", "10055", "10096", "90004"]);
     expect(rules.every(line => line.split("\t")[1] === "INFO")).toBe(true);
