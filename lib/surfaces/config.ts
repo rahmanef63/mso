@@ -12,7 +12,8 @@ const DEFAULT_REGISTRY = resolve(homedir(), ".mso", "surface-apps.json");
 export function surfaceRegistryPath(): string {
   const value = process.env.MSO_SURFACE_APPS_FILE?.trim();
   if (!value) return DEFAULT_REGISTRY;
-  return resolve(value === "~" ? homedir() : value.startsWith("~/") ? `${homedir()}/${value.slice(2)}` : value);
+  // This is installation-owned runtime state, never an input to deployment tracing.
+  return resolve(/* turbopackIgnore: true */ value === "~" ? homedir() : value.startsWith("~/") ? `${homedir()}/${value.slice(2)}` : value);
 }
 const SAFE_SANDBOX = new Set([
   "allow-downloads", "allow-forms", "allow-modals", "allow-orientation-lock",

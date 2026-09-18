@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { chromium, expect } from '@playwright/test';
+import sharp from 'sharp';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { releaseFixture } from './release-fixture.mjs';
@@ -110,17 +111,26 @@ try {
     const probeUrl = parentOrigin + '/__workflow_embed_policy_probe__';
     // Synthetic parent document at the explicitly approved origin; the child is
     // live n8n. No owner session, response-header rewrite or browser-security flag.
-    await probe.route(probeUrl, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><title>n8n frame policy verification</title></head><body style="margin:0"><iframe title="Live n8n" style="width:100vw;height:100vh;border:0" referrerpolicy="no-referrer" sandbox="' + app.sandbox + '" src="' + liveOrigin + '/home/workflows"></iframe></body></html>' }));
+    await probe.route(probeUrl, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><title>n8n frame policy verification</title></head><body style="margin:0"><iframe title="Live n8n" style="display:block;width:100vw;height:100vh;border:0" referrerpolicy="no-referrer" sandbox="' + app.sandbox + '" src="' + liveOrigin + '/home/workflows"></iframe></body></html>' }));
     await probePage.goto(probeUrl);
+    await probePage.bringToFront();
     await expect(probePage.frameLocator('iframe').locator('input[type="password"]')).toBeVisible({ timeout:30000 });
-    evidence.push({ liveProvider: liveOrigin, approvedParentOrigin: parentOrigin, parentDocumentIsSynthetic: true, signedOutLoginRendered: true, authenticatedEditorTested: false });
-    if (process.env.E2E_EVIDENCE_DIR) {
-      await mkdir(process.env.E2E_EVIDENCE_DIR, { recursive: true });
-      await probePage.screenshot({ path: path.join(process.env.E2E_EVIDENCE_DIR, 'n8n-approved-parent-desktop.png'), fullPage: true });
-      await probePage.setViewportSize({ width: 390, height: 844 });
-      await expect(probePage.frameLocator('iframe').locator('input[type="password"]')).toBeVisible();
-      await probePage.screenshot({ path: path.join(process.env.E2E_EVIDENCE_DIR, 'n8n-approved-parent-mobile.png'), fullPage: true });
-    }
+    const capturePaint = async filename => {
+      let image;
+      await expect.poll(async () => {
+        image = await probePage.screenshot({ fullPage: false, animations: 'disabled' });
+        return (await sharp(image).stats()).entropy;
+      }, { timeout:10000, intervals:[100,250,500] }).toBeGreaterThan(0.1);
+      if (process.env.E2E_EVIDENCE_DIR) {
+        await mkdir(process.env.E2E_EVIDENCE_DIR, { recursive: true });
+        await writeFile(path.join(process.env.E2E_EVIDENCE_DIR, filename), image);
+      }
+    };
+    await capturePaint('n8n-approved-parent-desktop.png');
+    await probePage.setViewportSize({ width:390, height:844 });
+    await expect(probePage.frameLocator('iframe').locator('input[type="password"]')).toBeVisible();
+    await capturePaint('n8n-approved-parent-mobile.png');
+    evidence.push({ liveProvider: liveOrigin, approvedParentOrigin: parentOrigin, parentDocumentIsSynthetic: true, signedOutLoginRendered: true, paintVerified: true, authenticatedEditorTested: false });
     await probe.close();
   }
   expect(errors).toEqual([]);

@@ -3,7 +3,7 @@
 - Keep the native automation/session editor unchanged and mounted while switching to external workflow editors such as n8n. The new wrapper consumes explicit workflow placements in the existing owner-reviewed surface registry, not app-store HTML or credential values.
 - Share the registry outside the MCP transport without adding another store. Owner-only no-store metadata and revision-checked, explicitly reviewed configuration APIs/CLI preserve exact origins, unrelated entries, safe sandbox permissions and remote-only fallback. Configuration input cannot carry paths or credentials.
 - Workflow-only placements never grant an MCP Page nested-frame origin. Load frames only on demand, preserve editor state when switching, expose top-level sign-in/open/reload actions and keyboard-accessible tabs. Browser login remains external-service-owned; framing never means MCP token forwarding or authentication bypass.
-- Add registry/access tests and an isolated browser journey with synthetic stores; keep live n8n signed-out frame evidence separate from logged-in editor claims.
+- Add registry/access tests and a mandatory isolated browser journey with synthetic stores. Live n8n frame checks wait for actual nonblank paint as well as visible controls; keep the synthetic approved parent and signed-out proof distinct from authenticated editor claims.
 - The strict release build caught project-wide tracing of the dynamic registry path. Mark that owner-local runtime read as a non-build input, matching other private stores; the warning-fatal release gate remains unchanged.
 
 ## 2026-09-18 — Keep private viewer routing client-verifiable

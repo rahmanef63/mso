@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `workflows` keep runtime registry out of deployment tracing
 - `browser` retain private viewer connectivity without server access
 - `release` align Node support and read-only browser reconnects
 - `extensions` lock project controls until initial inspection
