@@ -14,6 +14,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `browser` diagnose secure viewer failures without losing power state
 
+**Tests**
+
+- `security` inspect organization fixture through one descriptor
+
 ## 2026-09-17
 
 **Added**

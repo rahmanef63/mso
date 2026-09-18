@@ -1,3 +1,11 @@
+## 2026-09-18 — Inspect Organization fixture permissions and bytes on one descriptor
+
+The combined release's hosted CodeQL scan identified a filesystem race in the new
+Organization flow test: it inspected a pathname with stat and then opened it separately
+for reading. The fixture now opens once without following a final symlink, checks the
+same descriptor's permissions, reads those bytes and closes in finally. All persistence
+assertions remain; runtime Organization behavior, scanner policies and ignores are unchanged.
+
 ## 2026-09-18 — Reconcile pending browser and dependency work with Organization main
 
 Preserve the released Organization project-flow implementation while merging the previously
