@@ -81,7 +81,7 @@ case "$cmd" in
     echo "$doctor_label  (base $B)"
     chk "curl"           "command -v curl"  "install curl"
     chk "jq"             "command -v jq"    "install jq"
-    chk "node"           "command -v node"  "install Node >=20.9"
+    chk "node"           "node '$ROOT/scripts/check-node-runtime.mjs'"  "install Node 22.12+, 24.x or 26+"
     chk "env file"       "[ -f '$ENVF' ]"   "no $ENVF — copy .env.example and fill it"
     chk "login password" "[ -n '$PASS' ]"   "OS_LOGIN_PASSWORD unset in $ENVF"
     chk "session secret" "[ -n \"\${OS_SESSION_SECRET-}\" ]" "OS_SESSION_SECRET unset in $ENVF"

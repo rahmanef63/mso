@@ -7,34 +7,10 @@ import { PowerPanel } from "./power-panel";
 import { fetchStatus, setPower, waitForViewer, verifyViewerTransport, type CamoufoxServiceStatus } from "./service-client";
 import { camoufoxViewerOrigin } from "@/lib/camoufox/origin";
 
-// A REAL Firefox (Camoufox, anti-fingerprinting) running on a headless X display on
-// this host, shown over noVNC. This replaced the old iframe browser because an iframe
-// cannot render most of the web: X-Frame-Options / frame-ancestors refuse framing on
-// the majority of real sites, so that app could only ever show the minority that
-// opted in. Here the page is rendered by an actual browser process and only PIXELS
-// cross into the cockpit — nothing to refuse, and no third-party JS in this origin.
-//
-// noVNC runs only on the reserved split-origin viewer host. proxy.ts verifies the
-// approved device at that host, strips cockpit credentials, and maps every path only
-// to loopback websockify; the historical same-origin /camoufox-vnc path is closed.
-//
-// The window OWNS the host session's power (see service-client + power-panel):
-// hiding this app used to leave a browser, an Xvfb and an x11vnc running for nobody,
-// and only a root shell could stop them. The switch in the header drives the
-// `camoufox-vnc` user unit, so what the UI says is what the host is doing.
-//
-// vnc.html, NOT vnc_lite.html, and this is what makes the app usable on a phone:
-//  • vnc_lite has no focusable text input anywhere, and noVNC's on-screen keyboard
-//    lives in the full UI (#noVNC_keyboard_button + a hidden textarea), not in core.
-//    Tapping a canvas focuses nothing, so on touch the OS keyboard never opens and
-//    the remote Firefox can never receive a keystroke — no URL, no search, no login.
-//  • resize=remote instead of scale=true. scale only shrinks-to-fit and keeps the
-//    aspect ratio, so a 1440x920 desktop landed at 0.273x inside a 393px phone
-//    window with ~60% of the window as empty letterbox — the "black rectangle".
-//    resize=remote drives the framebuffer to the client's own box (measured 393x727)
-//    for 1:1 pixels and no letterbox. It only works because a window manager now runs
-//    on the display (see scripts/camoufox-vnc-service) — without one the browser
-//    window never reflows on the RANDR change and the client gets a cropped corner.
+// Camoufox runs on the host, streamed as pixels through a separately authenticated
+// noVNC origin. Never embed its third-party JS on the cockpit origin.
+// The full viewer supplies touch keyboard input; resize=remote plus the host
+// window manager reflows the framebuffer rather than scaling a desktop thumbnail.
 const VIEWER_ORIGIN = camoufoxViewerOrigin();
 const VIEWER = VIEWER_ORIGIN
   ? `${VIEWER_ORIGIN}/vnc.html?path=websockify&autoconnect=1&resize=remote`
@@ -74,7 +50,7 @@ export default function CamoufoxBrowser() {
   // from the power action because it is also the mount path for a session that was
   // already up before this window opened.
   const connect = useCallback(async (signal: AbortSignal) => {
-    const ready = await waitForViewer(signal);
+    const ready = await waitForViewer(signal, 30_000, setStatus);
     if (signal.aborted) return;
     if (!ready) {
       setError("The browser session started but is not answering. Check its logs on the host.");
@@ -115,6 +91,19 @@ export default function CamoufoxBrowser() {
       }
     })();
     return () => controller.abort();
+  }, [connect]);
+
+  const retryConnection = useCallback(async () => {
+    abort.current?.abort();
+    const controller = new AbortController();
+    abort.current = controller;
+    setBusy(true); setError(null); setSrc(null);
+    try { await connect(controller.signal); }
+    catch (cause) {
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "The browser session is unreachable");
+    } finally {
+      if (abort.current === controller) setBusy(false);
+    }
   }, [connect]);
 
   const power = useCallback(async (on: boolean) => {
@@ -189,7 +178,7 @@ export default function CamoufoxBrowser() {
         </button>
       </header>
       {error && <div role="alert" className="shrink-0 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
-        <p>{error}</p><button type="button" disabled={busy} className="mt-2 underline" onClick={() => void power(true)}>Retry connection</button>
+        <p>{error}</p><button type="button" disabled={busy} className="mt-2 underline" onClick={() => void retryConnection()}>Retry connection</button>
       </div>}
       {src ? (
         <iframe

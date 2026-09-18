@@ -33,12 +33,15 @@ export async function setPower(on: boolean, signal?: AbortSignal): Promise<Camou
 /** systemd reports `active` before websockify/noVNC is listening. The cockpit cannot
  * fetch the dedicated viewer origin directly without widening CORS, so the authenticated
  * same-origin status route performs the bounded loopback probe and returns viewerReady. */
-export async function waitForViewer(signal: AbortSignal, timeoutMs = 30_000): Promise<boolean> {
+export async function waitForViewer(signal: AbortSignal, timeoutMs = 30_000, onStatus?: (status: CamoufoxServiceStatus) => void): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (!signal.aborted) {
     try {
       const status = await fetchStatus(signal);
-      if (status.running && status.viewerReady) return true;
+      if (signal.aborted) return false;
+      onStatus?.(status);
+      if (!status.running) return false;
+      if (status.viewerReady) return true;
     } catch {
       if (signal.aborted) return false;
     }
