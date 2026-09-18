@@ -11,6 +11,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `graph` add selected custom nodes and readable connection routing
 - `organization` add internal project flows with callable CRUD
 
+**Fixed**
+
+- `security` restore native dependency update cooldown
+
 ## 2026-09-17
 
 **Added**

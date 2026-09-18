@@ -1,3 +1,7 @@
+## 2026-09-18 — Restore native dependency update cooldown
+
+PR verification caught the isolated node-gyp Dependabot entry missing the existing seven-day version-update cooldown. Reuse the already-reviewed configuration and regression-test delta from the parallel security work; the change adds only the missing cooldown and tests all declared ecosystems. No scanner suppression, dependency replacement, or runtime behavior change is involved.
+
 ## 2026-09-18 — Selected custom nodes and visible connector routing
 
 - Complete selection-based named grouping in Workflow and Organization project canvases. Collapse/expand/ungroup retain original executable nodes, ports and edges; grouping is bounded, validated metadata in the existing private stores.
