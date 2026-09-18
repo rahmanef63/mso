@@ -297,7 +297,8 @@ x11vnc, noVNC/websockify, the VNC password file and the user systemd runtime/lin
 ### Browser is installed but Off
 
 That is the expected idle state. The user unit is intentionally not enabled at boot and has
-a finite lease. Start it from Browser/Settings; stop it again when done.
+a finite lease. The human-facing Browser app may start it from Browser/Settings when needed.
+Agent website audits should normally use the verified `camoufox-browse` automation skill with a disposable profile instead, so the persistent logged-in VNC session can remain off.
 
 ### Browser reports secure embedding is unavailable
 

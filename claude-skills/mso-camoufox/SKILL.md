@@ -11,11 +11,19 @@ metadata:
 
 Camoufox is MSO's anti-fingerprinting Firefox on a headless X display. It is useful for **authorized** access when ordinary automation is blocked by fingerprinting.
 
+## Two browser modes
+
+1. **Agent automation (default for website checks/audits):** use the verified `camoufox-browse` skill with a disposable profile. The persistent `camoufox-vnc.service` may remain off. Do not reuse the human profile or its cookies.
+2. **Human persistent Browser app:** use `browser_status` / `browser_power` only when the user wants the live MSO Browser window or explicitly needs the saved human browser session.
+
 ## What an agent may do
 
-- Check installed/running state.
-- Start or stop the Camoufox service through the bounded browser capability.
-- Tell the user to open the Browser app / Settings to drive the live screen.
+- Treat `running: false` as the normal idle state, not a failure.
+- For automated site inspection, discover/read `camoufox-browse` and run it with a disposable profile.
+- Check installed/running state of the persistent Browser app.
+- Start or stop the persistent Camoufox service through the bounded browser capability when that mode is actually required.
+- If the agent found the persistent session off and started it itself, stop it after the task unless the user asked to leave it running.
+- Tell the user to open the Browser app / Settings to drive the live persistent screen.
 - Diagnose non-secret service failures and resource pressure.
 
 ## What an agent must never retrieve or expose
@@ -27,9 +35,11 @@ Camoufox is MSO's anti-fingerprinting Firefox on a headless X display. It is use
 
 The CLI has a human/operator command that can reveal the one-time VNC credential. **Do not invoke that command from an agent.** The omission of session credentials from bounded MSO tools is intentional least privilege, not a missing feature.
 
-## Power only
+## Persistent Browser app power
 
-If no bounded browser tool exists in the current runtime, resolve the local CLI and limit automation to status/start/stop:
+Do not power this service merely because a task mentions a browser. First decide whether the task needs the **human persistent session** or only automated inspection. Automated inspection uses `camoufox-browse` and leaves this service off.
+
+If the persistent mode is required and no bounded browser tool exists in the current runtime, resolve the local CLI and limit lifecycle control to status/start/stop:
 
 ```bash
 MSO_ROOT="${MSO_DIR:-$(systemctl show -p WorkingDirectory --value mso.service 2>/dev/null || true)}"
