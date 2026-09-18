@@ -5,7 +5,7 @@ const tool = (name: string, description: string) => ({ name, description, scope:
 const catalog = [
   tool("workflow_start", "Start multi-step workflow"), tool("workflow_status", "Workflow status"),
   tool("workflow_finish", "Finish workflow"), tool("workflow_cancel", "Cancel workflow"),
-  tool("skills_search", "Search capabilities skills tools recipes"), tool("projects_list", "List projects repositories"),
+  tool("skills_search", "Search capabilities skills tools recipes"), tool("skills_read", "Read one skill"), tool("projects_list", "List projects repositories"),
   tool("project_capabilities", "Inspect project functions"), tool("agent_session_current", "Current session"),
   tool("sys_stats", "Live VPS CPU memory disk uptime health"), tool("sys_processes", "Top CPU processes"),
   tool("apps_list", "Managed apps hermes openclaw"), tool("apps_logs", "Recent application logs"),
@@ -14,7 +14,7 @@ const catalog = [
   tool("project_memory_upsert", "Persist repo-local memory including user manual tests"),
   tool("exec_run", "Run a short shell command"), tool("exec_job_start", "Run long tests and builds"),
   tool("exec_job_status", "Read long job status"), tool("exec_job_cancel", "Cancel long job"),
-  tool("screen_capture", "Capture screenshot"), tool("browser_status", "Camoufox browser state"),
+  tool("screen_capture", "Capture screenshot"), tool("browser_status", "Camoufox browser state"), tool("browser_power", "Start or stop persistent Camoufox Browser app"),
   tool("cloudflare_zones_list", "List Cloudflare DNS zones"), tool("hostinger_dns_upsert", "Update Hostinger DNS record"),
   tool("local_agents_list", "List active same-host local session agents"), tool("local_agent_inbox", "Read local session agent inbox"),
   tool("local_agent_message_send", "Send message or task to a local session agent"), tool("local_agent_reply", "Reply to a correlated local agent request"),
@@ -36,6 +36,13 @@ describe("MSO per-turn tool router", () => {
     expect(out.fallbackUsed).toBe(false);
     expect(out.activeCount).toBe(2);
     expect(out.softLimit).toBe(MAX_ACTIVE_TOOLS);
+  });
+
+
+  it("routes browser intent to lifecycle plus skill discovery so automation can stay disposable", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "use camoufox to check this website UI" }]);
+    expect(out.routeIds).toContain("browser");
+    expect(out.selectedNames).toEqual(expect.arrayContaining(["skills_search", "skills_read", "browser_status", "browser_power"]));
   });
 
   it("falls back to discovery only when the catalog cannot classify the request", () => {

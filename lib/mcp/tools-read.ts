@@ -194,7 +194,8 @@ export const READ_TOOLS: McpTool[] = [
   {
     name: "browser_status",
     description:
-      "State of the Camoufox anti-fingerprinting browser (a real Firefox on a headless display). " +
+      "State of the persistent Camoufox/noVNC browser session used by the human-facing MSO Browser app. Off is a healthy idle state. " +
+      "Automated website inspection should prefer the verified camoufox-browse skill with a disposable profile and should not start this persistent session just to inspect a public site. " +
       "Returns installed/running/autostart only. The viewer URL and its one-time VNC password are DELIBERATELY not " +
       "returned here — that session holds live Google and LinkedIn logins, so its credentials never leave " +
       "the box through a tool result. Open Settings in mso to get them.",
