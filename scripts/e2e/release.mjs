@@ -9,6 +9,7 @@ import { organizationJourney } from "./organization.mjs";
 import { workflowCanvasJourney } from "./workflow-canvas.mjs";
 import { storeExtensionsJourney } from "./store-extensions.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
+import { camoufoxConnectionJourney } from "./camoufox-connection.mjs";
 
 execFileSync(process.execPath, ["scripts/e2e/mcp-page.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/organization-flow.mjs"], { stdio: "inherit" });
@@ -121,6 +122,7 @@ try {
   expect(exec.status).toBe(200); expect(exec.body.cwd).toBe(fixture.dir);
   expect((await call("/api/v1/exec/run", { cmd: "exit 0", cwd: fixture.dir + "/missing" })).status).not.toBe(200);
   expect((await call("/api/v1/fs/list?path=" + encodeURIComponent(fixture.dir))).status).toBe(200);
+  await camoufoxConnectionJourney(page, fixture);
   await mcpOwnerJourneys(page, fixture);
   await automationJourney(page, fixture);
   await organizationJourney(page, fixture);

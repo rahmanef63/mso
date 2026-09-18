@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
 import { camoufoxStatus, setCamoufoxEnabled } from "@/lib/camoufox/service";
 import { apiError, readJson } from "@/lib/host/request-api";
+import { probeViewerTransport } from "@/lib/camoufox/viewer-transport";
 import { audit } from "@/lib/host/audit-api";
 import { rateLimited } from "@/lib/host/limits-api";
 
@@ -16,6 +17,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   try {
+    if (new URL(req.url).searchParams.get("probe") === "viewer") {
+      if (rateLimited("camoufox.viewer-probe", 30, 60_000)) return NextResponse.json({ error: "too many viewer probes" }, { status: 429 });
+      return NextResponse.json(await probeViewerTransport(), { headers: { "Cache-Control": "no-store" } });
+    }
     return NextResponse.json(await camoufoxStatus());
   } catch (e) {
     return apiError("camoufox/service", e);

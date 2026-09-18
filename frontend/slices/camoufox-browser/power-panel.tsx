@@ -45,7 +45,7 @@ export function PowerPanel({
         {busy ? "Starting the browser…" : "Turn the browser on"}
       </Button>
       <p className="text-[10px] text-muted-foreground">
-        Takes a few seconds. It runs until you switch it off here, and stays off after a reboot. Your
+        Takes a few seconds. It may also stop at the server’s configured session limit, and stays off after a reboot. Your
         logins, history and open tabs are kept on the server&apos;s disk and come back next time.
       </p>
       {error && <Failure message={error} />}

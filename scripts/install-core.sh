@@ -243,19 +243,22 @@ ensure_git() {
 
 node_ok() {
   command -v node >/dev/null 2>&1 || return 1
-  node -e 'const[a,b]=process.versions.node.split(".").map(Number);process.exit(a>20||(a===20&&b>=9)?0:1)'
+  node -e 'const[a,b]=process.versions.node.split(".").map(Number);process.exit((a===22&&b>=12)||a===24||a>=26?0:1)'
 }
 ensure_node() {
   node_ok && { info "node $(node -v) ok"; return; }
-  warn "Node >=20.9 not found"
+  warn "Supported Node not found (22.12+, 24.x or 26+)"
+  if command -v node >/dev/null 2>&1 && node -e 'process.exit(Number(process.versions.node.split(".")[0])>22?0:1)'; then
+    die "this Node release is not supported; select Node 22.12+, 24.x or 26+. The installer will not downgrade a newer runtime."
+  fi
   if command -v apt-get >/dev/null 2>&1; then
     info "installing Node 22 via NodeSource…"
     curl -fsSL https://deb.nodesource.com/setup_22.x | sudo_do -E bash -
     sudo_do apt-get install -y -qq nodejs
   else
-    die "install Node >=20.9 (22 recommended) from https://nodejs.org or your distro, then re-run."
+    die "install Node 22.12+, 24.x or 26+ (22 recommended) from https://nodejs.org or your distro, then re-run."
   fi
-  node_ok || die "Node still <20.9 after install."
+  node_ok || die "Node still outside the supported range after install."
 }
 
 # bun installs dependencies; it does NOT run the app. `next start` stays on node
