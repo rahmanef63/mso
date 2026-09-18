@@ -1,6 +1,6 @@
 {
   "name": "mso",
-  "version": "0.2.20",
+  "version": "0.2.21",
   "private": true,
   "engines": {
     "node": ">=20.9",

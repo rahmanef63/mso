@@ -69,7 +69,7 @@ describe("organization project flow persistence", () => {
     expect(output.chart.units[0].projectFlow?.nodes[0].id).toBe("via-mcp");
     const reread = await read.run({ runtime: false }, { principal: "test" } as never) as { chart: typeof chart };
     expect(reread.chart.revision).toBe(output.chart.revision);
-    expect(ORGANIZATION_FLOW_ACTIONS).toHaveLength(6);
+    expect(ORGANIZATION_FLOW_ACTIONS).toEqual(expect.arrayContaining(["flow_custom_nodes", "flow_nodes_move", "flow_update", "flow_node_upsert", "flow_node_delete", "flow_edge_upsert", "flow_edge_delete", "flow_replace"]));
   });
 });
 

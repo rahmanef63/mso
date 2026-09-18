@@ -1,3 +1,4 @@
+import { parseGraphCustomNodes } from "@/lib/contracts/graph-custom-nodes";
 import { WORKFLOW_GRAPH_NODE_TYPES, type WorkflowGraphEdge, type WorkflowGraphMetadata, type WorkflowGraphNode, type WorkflowGraphStatus } from "@/lib/contracts/workflow-graph";
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}$/;
@@ -80,11 +81,12 @@ function assertAcyclic(nodes: WorkflowGraphNode[], edges: WorkflowGraphEdge[]): 
   if (visited !== nodes.length) throw new Error("workflow graph contains a cycle; use the loop node with a subflow/body binding instead of cyclic edges");
 }
 
-function parseMetadata(value: unknown): WorkflowGraphMetadata {
+function parseMetadata(value: unknown, nodeIds: ReadonlySet<string>): WorkflowGraphMetadata {
   if (value === undefined) return {};
   if (!graphObject(value)) throw new Error("workflow metadata must be an object");
   assertWorkflowMetadataOnly(value);
   const out: WorkflowGraphMetadata = {};
+  if (value.customNodes !== undefined) out.customNodes = parseGraphCustomNodes(value.customNodes, nodeIds);
   for (const key of ["intent", "normalizedIntent", "project", "fingerprint", "folder", "errorWorkflowId", "timezone"] as const) if (typeof value[key] === "string" && value[key]) out[key] = String(value[key]).slice(0, 1000);
   if (["user", "learned-from-session", "clone", "import", "template", "ai-assisted"].includes(String(value.provenance))) out.provenance = value.provenance as WorkflowGraphMetadata["provenance"];
   if (Array.isArray(value.sourceDigests)) out.sourceDigests = value.sourceDigests.filter((item): item is string => typeof item === "string").slice(0, 32).map((item) => item.slice(0, 128));
@@ -109,7 +111,7 @@ export function parseWorkflowGraphDefinition(raw: unknown): WorkflowGraphDefinit
   const triggerIds = new Set(nodes.filter((node) => ["manual", "schedule", "webhook"].includes(node.type)).map((node) => node.id));
   if (activeEdges.some((edge) => triggerIds.has(edge.target))) throw new Error("trigger nodes must be workflow roots");
   assertAcyclic(nodes, activeEdges);
-  return { ...(typeof raw.id === "string" ? { id: raw.id } : {}), name: raw.name.trim(), description: raw.description, status: raw.status as WorkflowGraphStatus, inputs: structuredClone(raw.inputs), nodes, edges, metadata: parseMetadata(raw.metadata) };
+  return { ...(typeof raw.id === "string" ? { id: raw.id } : {}), name: raw.name.trim(), description: raw.description, status: raw.status as WorkflowGraphStatus, inputs: structuredClone(raw.inputs), nodes, edges, metadata: parseMetadata(raw.metadata, nodeIds) };
 }
 
 export function normalizeWorkflowIntent(value: string): string {

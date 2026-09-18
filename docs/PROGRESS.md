@@ -1,3 +1,10 @@
+## 2026-09-18 — Selected custom nodes and visible connector routing
+
+- Complete selection-based named grouping in Workflow and Organization project canvases. Collapse/expand/ungroup retain original executable nodes, ports and edges; grouping is bounded, validated metadata in the existing private stores.
+- Preserve multi-selection and atomic group/multi-node movement; prune group membership only on explicit member deletion. Extend existing function-calling and CLI actions rather than inventing another store.
+- Replace unconditional smoothstep connectors with shared bounded orthogonal routing against measured cards, directional markers, crossing halos and selected-route emphasis. Impossible overlapping-card paths are visibly marked rather than silently claimed safe.
+- Verification is performed against synthetic stores and the real production build; private operator graph content is never embedded in source.
+
 ## 2026-09-18 — Organization-scoped project flow
 
 - The organization overview previously rendered long context notes directly inside unit cards. Keep overview descriptions clamped and put projects, activities, relationships and long notes inside the selected unit instead.

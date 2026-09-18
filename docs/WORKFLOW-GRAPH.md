@@ -184,3 +184,23 @@ MSO targets **core self-hosted workflow parity**, not n8n's SaaS business surfac
 ## Organization seat routing
 
 Organization is not owned by Workflow Graph. An `agent` node may set `orgSeatId`; at execution time MSO resolves that seat from the private Organization registry and routes to its current Project Agent, Local Agent, or A2A target. This indirection lets a workflow say “send to the CTO seat” without duplicating which concrete agent currently fills that seat. Direct project-bound Agent nodes remain backward compatible. See [`ORGANIZATION.md`](./ORGANIZATION.md).
+
+
+## Selected custom nodes and connector routing
+
+One or multiple selected nodes can become a named, collapsible custom node directly
+on the automation canvas. Ctrl/Cmd-click or box-select, then **Create custom node**.
+The selection survives rerenders. Double-click the compact card to expand it;
+**Ungroup** removes only the wrapper. Save persists the change as ordinary graph data.
+`metadata.customNodes` stores `{id,name,nodeIds,collapsed}` arrays, validated against
+the same graph. Members cannot belong to overlapping/nested groups.
+
+This is a presentation abstraction, not an executable new node type: stored node ids,
+configurations, boundary handles, input references, edge topology and run receipts stay
+unchanged. Original members execute in the original graph. Clone/export/import carry
+the grouping metadata. The existing `workflow_graph` get/update actions provide function
+calling with the current revision; no new transport or permission bypass is introduced.
+
+The shared connector renderer avoids measured node cards where a route exists, uses
+arrowheads and crossing halos, and highlights a selected node's incident routes.
+Overlapping cards without a viable port exit receive a visible routing warning.

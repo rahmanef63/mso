@@ -169,3 +169,26 @@ notes; 2 MiB HTTP body and total private store. Over-limit notes are rejected, n
 No flow operation executes a command, fetches a source reference, assigns an agent,
 or promotes unconfirmed facts. Existing OAuth scope, device role and audit guards remain.
 Public names are unchanged; rescan clients to see the expanded action enum/descriptions.
+
+
+### Custom nodes from canvas selection
+
+Select one node, Ctrl/Cmd-click additional nodes, or drag a selection rectangle in
+Select mode, then choose **Create custom node**. A named collapsed card keeps original
+member ids, notes and directed connections intact. Double-click or choose **Expand**
+to edit individual members; **Collapse** restores the compact view and **Ungroup**
+removes only the presentation wrapper. Nested/overlapping groups are rejected.
+Grouping and member positions persist in the same owner-private store; changes remain
+revision-checked, including one atomic write for a group/multi-node drag.
+
+`organization_manage` adds `flow_custom_nodes` with `data.unitId` and
+`data.customNodes: [{id,name,nodeIds,collapsed}]`, plus `flow_nodes_move` with
+`data.unitId` and `data.positions: [{id,position:{x,y}}]`. An explicit empty group array
+ungroups all; omitting it is an error. The CLI exposes the equivalent hyphenated actions.
+Deleting a member trims its group without deleting other members.
+
+Connectors now route against measured cards, use directional markers and crossing
+halos, and highlight adjacent routes on selection. A bounded router marks an impossible
+route with a dotted line and an overlap warning rather than claiming clearance; separate
+overlapping cards when their ports have no exit. Group boundary ports retain the original
+edge identity. Expand a custom node before creating new member connections.
