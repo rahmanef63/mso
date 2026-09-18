@@ -4,9 +4,11 @@
 > `docs/PROGRESS.md` records why the architecture changed; dated plans and audits are
 > historical inputs, not runtime contracts.
 
-MSO is one self-hosted Next.js application running as a non-root Linux user. The
-browser UI, CLI, Alfa assistant, and optional MCP connector all converge on the same
-bounded host layer rather than each implementing filesystem or process access.
+MSO is one self-hosted Next.js application running under a non-root Linux runtime.
+On Linux that runtime is native; macOS, Windows and Android can supply it through the platform
+adapters documented in [PLATFORMS.md](./PLATFORMS.md). iOS/iPadOS is a client/PWA surface.
+The browser UI, CLI, Alfa assistant, and optional MCP connector all converge on the same bounded
+host layer rather than each implementing filesystem or process access.
 
 ```mermaid
 flowchart LR

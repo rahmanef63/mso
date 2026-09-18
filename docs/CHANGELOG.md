@@ -8,12 +8,14 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `install` add cross-platform host adapters
 - `integrations` add safe Convex Cloud deploy runner
 - `workflows` add reviewed external editor tabs
 - `organization` add internal project flows with callable CRUD
 
 **Fixed**
 
+- `integrations` allow Convex snapshot imports
 - `review` preserve session and surface store invariants
 - `security` validate cache exceptions from raw report
 - `security` scope passive cache review by path
