@@ -36,6 +36,16 @@ API denial, malformed evidence, analysis failure, branch movement and open findi
 fail closed. The CLI remains immediate unless `--wait-seconds` is explicitly supplied,
 and `--commit` prevents a newer branch tip from being reported as the requested revision.
 
+## Passive baseline execution evidence
+
+The hosted baseline requires the repository variable `MSO_DAST_URL` to identify an
+explicit approved HTTPS instance without credentials, query parameters or fragments.
+A missing target fails before ZAP starts; it must never produce a green workflow by
+skipping the scanner. An accepted target alone is not a pass: inspect the completed
+ZAP step, its findings and the report artifact. The existing rule classifications and
+warning/failure behavior remain unchanged. Baseline coverage is unauthenticated and
+passive, not an authenticated penetration test or proof about every host service.
+
 ## GitHub security controls
 
 The public repository enables:
@@ -92,12 +102,12 @@ Automation cannot establish every ASVS requirement. Deployment architecture, hos
 
 ## Current OpenSSF posture gaps
 
-OpenSSF Scorecard is deliberately treated as external posture evidence rather than a scanner whose score MSO can self-declare. Two current findings remain open and must not be hidden or dismissed just to make the security tab look green:
+OpenSSF Scorecard is deliberately treated as external posture evidence rather than a scanner whose score MSO can self-declare. Two repository-process gaps require separate disclosure even when the open-alert count is zero. The September 18 audit confirmed that the corresponding historical alerts were already dismissed by the maintainer on August 31; dismissal is not evidence that the gap was fixed:
 
-- **Code-Review — High.** The repository currently has one human collaborator, so recent changes do not have independent human approvals. Scorecard explicitly does not count bot/AI reviews as human code review. This closes only after a second human maintainer participates in real review history; enabling a one-approval rule without a second reviewer would only lock the repository and would not create legitimate review evidence.
-- **CII / OpenSSF Best Practices — Low.** The project is not yet enrolled in the OpenSSF Best Practices program. Enrollment and its questionnaire are maintainer-attested work and must not be faked by adding a badge image without registering the project.
+- **Code-Review — High, historical alert #64 dismissed as `won't fix`.** The recorded maintainer rationale is a solo-maintainer workflow without a second active reviewer. Scorecard explicitly does not count bot/AI reviews as human code review. This closes only after a second human maintainer participates in real review history; enabling a one-approval rule without a second reviewer would only lock the repository and would not create legitimate review evidence.
+- **CII / OpenSSF Best Practices — Low, historical alert #65 dismissed as `won't fix`.** The recorded rationale excludes badge enrollment from the release scope. Enrollment and its questionnaire are maintainer-attested work and must not be faked by adding a badge image without registering the project.
 
-These are repository-process posture findings, not detected application CVEs or leaked secrets. They remain part of the public security evidence.
+These are repository-process posture findings, not detected application CVEs or leaked secrets. They remain part of the public security evidence. The audit also observed thirteen other historical CodeQL/Scorecard dismissals classified as false positives or test usage. Re-read their recorded rationale before relying on them; this audit did not dismiss, delete or reopen any alert. Counts are dated evidence, not a permanent clean-state guarantee.
 
 ## What is safe to say publicly
 
@@ -105,4 +115,4 @@ When the latest `main` workflows and the latest full assurance run are green, th
 
 > MSO is continuously tested with CodeQL, Semgrep, Trivy, OSV-Scanner, Gitleaks, ShellCheck and Dependency Review, with a passive OWASP ZAP production baseline and a separate component-partitioned Codex Security review covering the tracked repository. The public repository has private vulnerability reporting, secret scanning/push protection, dependency alerts, an SBOM workflow and MSO-specific security regression tests. OpenSSF Scorecard is published separately as repository-process posture evidence, and any open Scorecard findings are disclosed rather than folded into a zero-finding claim.
 
-Do **not** claim “no unresolved High/Critical findings across all gates” while a High Scorecard posture finding is open. Also do **not** shorten the evidence into “certified secure”, “OWASP certified”, “penetration-tested by OWASP”, “100% secure”, or “third-party audited”. Those claims are not established by this process.
+Do **not** claim “no unresolved High/Critical findings across all gates” while a High Scorecard posture gap remains unresolved, even when its GitHub alert has been dismissed. Also do **not** shorten the evidence into “certified secure”, “OWASP certified”, “penetration-tested by OWASP”, “100% secure”, or “third-party audited”. Those claims are not established by this process.

@@ -23,8 +23,17 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Require an explicit passive scan target
+        run: node scripts/check-dast-target.mjs
+        env:
+          MSO_DAST_URL: ${{ vars.MSO_DAST_URL }}
+
       - name: Run passive ZAP baseline against configured live instance
-        if: ${{ vars.MSO_DAST_URL != '' }}
         uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
           target: ${{ vars.MSO_DAST_URL }}

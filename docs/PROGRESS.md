@@ -1,3 +1,14 @@
+## 2026-09-18 — Require executed passive security scan evidence
+
+The security closeout found that the scheduled hosted ZAP workflow could report
+success while its only scan step was skipped when no target was configured. Add a
+dependency-free target guard before an unconditional passive scan. Missing, unsafe
+or credential-bearing targets fail without echoing their contents; existing scanner
+pins, passive scope, rule classifications and alert failures remain unchanged.
+Tests exercise the CLI refusal and workflow wiring. Security assurance guidance now
+separates successful code/dependency/secret checks from historical alert dismissals
+and passive-scan execution; no dismissal or badge attestation is performed.
+
 ## 2026-09-18 — Keep private viewer routing client-verifiable
 
 The PR review reproduced a deployment-compatibility regression: a hostname resolving
