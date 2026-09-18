@@ -478,3 +478,12 @@ saved logins and profile data; a passing clean-profile test is not a repaired sa
 For GitHub connection diagnosis, compare the returned authenticated login with the intended
 account, then verify permissions on the exact repository. A named MSO profile, a successful
 `/user` response, and permission to merge a repository are three different facts.
+
+### Private or split-DNS Camoufox viewers
+
+A configured viewer hostname may resolve exclusively to RFC1918, carrier-grade NAT,
+or unique-local IPv6 addresses. MSO does not send a server-side request to these
+addresses: diagnostics report `client-only` and `reachable: false`. The browser may
+then load the configured, separate viewer origin and verify its own HTTPS/authentication.
+This is not a server reachability pass. Loopback, metadata, link-local and mixed DNS
+answers remain denied; there is no unauthenticated proxy or same-origin fallback.

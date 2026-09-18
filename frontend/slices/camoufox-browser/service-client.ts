@@ -54,6 +54,7 @@ export async function waitForViewer(signal: AbortSignal, timeoutMs = 30_000, onS
 /** Check public TLS through the authenticated API, never by widening browser CORS. */
 export async function verifyViewerTransport(signal: AbortSignal): Promise<void> {
   const response = await fetch("/api/v1/camoufox/service?probe=viewer", { cache: "no-store", signal });
-  const result = await response.json() as { reachable?: boolean; message?: string; error?: string };
-  if (!response.ok || result.reachable !== true) throw new Error(result.message ?? result.error ?? "The secure viewer is unavailable");
+  const result = await response.json() as { reachable?: boolean; state?: string; clientOnly?: boolean; message?: string; error?: string };
+  const clientPrivateRoute = result.state === "client-only" && result.clientOnly === true;
+  if (!response.ok || (result.reachable !== true && !clientPrivateRoute)) throw new Error(result.message ?? result.error ?? "The secure viewer is unavailable");
 }

@@ -58,3 +58,23 @@ it("does not publish a state observation after cancellation", async () => {
   await expect(waitForViewer(controller.signal, 0, observed)).resolves.toBe(false);
   expect(observed).not.toHaveBeenCalled();
 });
+
+it("permits client verification only for the explicit private-route diagnostic", async () => {
+  const { verifyViewerTransport } = await import("./service-client");
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reachable: false, state: "client-only", clientOnly: true }), { status: 200 })));
+  await expect(verifyViewerTransport(new AbortController().signal)).resolves.toBeUndefined();
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reachable: false, state: "tls", clientOnly: true, message: "TLS remains blocked" }), { status: 200 })));
+  await expect(verifyViewerTransport(new AbortController().signal)).rejects.toThrow("TLS remains blocked");
+});
+
+it.each([
+  [200, { reachable: false, state: "client-only" }],
+  [200, { reachable: false, state: "client-only", clientOnly: "true" }],
+  [200, { reachable: false, state: "network", clientOnly: true }],
+  [401, { reachable: false, state: "client-only", clientOnly: true }],
+  [503, { reachable: false, state: "client-only", clientOnly: true }],
+])("does not turn HTTP %s or incomplete client-only evidence into permission", async (status, payload) => {
+  const { verifyViewerTransport } = await import("./service-client");
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(payload), { status })));
+  await expect(verifyViewerTransport(new AbortController().signal)).rejects.toThrow();
+});

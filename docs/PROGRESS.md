@@ -1,3 +1,17 @@
+## 2026-09-18 — Keep private viewer routing client-verifiable
+
+The PR review reproduced a deployment-compatibility regression: a hostname resolving
+only to RFC1918, carrier-grade NAT or unique-local IPv6 was blocked by the generic
+public-provider SSRF guard before the client's authenticated viewer could mount.
+Keep that guard intact. A typed refusal now distinguishes these private addresses
+from loopback, metadata, link-local, malformed and mixed DNS responses. The browser
+transport diagnostic records reachable=false and client-only verification instead
+of claiming success or opening any private server connection. The authenticated
+client accepts only that exact diagnostic; all other TLS/DNS/HTTP failures retain
+their behavior. Configured separate origins, TLS, cookies and VNC auth are unchanged.
+Boundary tests cover refused address classes and malformed hints; a desktop/mobile
+browser journey verifies private viewer mounting while connection retry stays read-only.
+
 ## 2026-09-18 — Resolve release review on Node support and browser retries
 
 The dependency toolchain now requires the same supported Node range everywhere:

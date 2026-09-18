@@ -1,10 +1,12 @@
 import "server-only";
 import { safeProviderFetch } from "@/lib/host/ssrf";
 import { camoufoxViewerOrigin } from "./origin";
+import { PRIVATE_ROUTE_CODE } from "@/lib/host/provider-network-policy";
 
 export type ViewerTransport = {
   reachable: boolean;
-  state: "reachable" | "unconfigured" | "tls" | "dns" | "network" | "http";
+  state: "reachable" | "unconfigured" | "tls" | "dns" | "network" | "http" | "client-only";
+  clientOnly?: boolean;
   message: string;
   status?: number;
 };
@@ -17,6 +19,10 @@ function failure(error: unknown): ViewerTransport {
     codes.push(String(row.code ?? ""), String(row.name ?? "")); value = row.cause;
   }
   const code = codes.join(" ");
+  if (codes.includes(PRIVATE_ROUTE_CODE)) return {
+    reachable: false, state: "client-only", clientOnly: true,
+    message: "The server did not access this deployment-owned private route. The client browser must validate its HTTPS, authentication and viewer connection.",
+  };
   if (/TLS|SSL|CERT|SELF_SIGNED|UNABLE_TO_VERIFY/i.test(code)) return {
     reachable: false, state: "tls",
     message: "The browser is running, but its separate HTTPS viewer failed TLS validation. Check certificate coverage for the exact viewer hostname; restarting the browser will not repair TLS.",
