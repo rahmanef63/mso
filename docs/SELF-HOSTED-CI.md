@@ -30,7 +30,9 @@ A verify PASS does not imply security parity, deployment approval or production 
 Private reports/logs: `${XDG_STATE_HOME:-$HOME/.local/state}/mso-ci/runs/<run-id>/`.
 Directories are 0700 and files 0600. CLI output is statuses/report path, not raw logs.
 Only an environment allowlist reaches child commands; provider credentials and Git hook
-variables are not inherited. Review/redact private logs before any external sharing.
+variables are not inherited. Commands select noninteractive modes explicitly; the runner
+does not inject a global CI flag that changes the existing local gate behavior.
+Review/redact private logs before any external sharing.
 
 Reports record exact SHA, PASS/FAIL/BLOCKED/NOT_RUN, timings and process outcomes.
 Missing prerequisites, timeout, cancellation and truncated evidence never pass.

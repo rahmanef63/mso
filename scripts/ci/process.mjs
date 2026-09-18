@@ -5,7 +5,8 @@ export function childEnvironment(source = process.env) {
   for (const key of ['PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'TZ', 'XDG_CACHE_HOME', 'XDG_STATE_HOME']) {
     if (source[key]) env[key] = source[key];
   }
-  return { ...env, CI: 'true', NEXT_TELEMETRY_DISABLED: '1' };
+  // Commands already select noninteractive modes; do not change gate behavior with a global CI flag.
+  return { ...env, NEXT_TELEMETRY_DISABLED: '1' };
 }
 /** Fixed argv, private bounded logs, and whole-process-group timeout/cancellation. */
 export async function executeStep(step, { cwd, logPath, signal, maxBytes = 8 * 1024 * 1024 }) {

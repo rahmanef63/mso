@@ -35,6 +35,7 @@ test('child environment does not inherit credentials or Git hook context', () =>
   const env = childEnvironment({ PATH: '/bin', HOME: '/home/test', GITHUB_TOKEN: 'not-a-token', GIT_DIR: '/wrong', OS_SESSION_SECRET: 'not-a-secret' });
   assert.equal(env.PATH, '/bin'); assert.equal(env.GITHUB_TOKEN, undefined);
   assert.equal(env.GIT_DIR, undefined); assert.equal(env.OS_SESSION_SECRET, undefined);
+  assert.equal(env.CI, undefined); // The wrapper must preserve the repository's local gate behavior.
 });
 test('private state refuses a symlink', () => fixture(async (root) => {
   await mkdir(join(root, 'target'), { mode: 0o700 });
