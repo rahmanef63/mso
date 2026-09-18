@@ -1,3 +1,15 @@
+## 2026-09-18 — Reconcile the refreshed production dependency PR
+
+The final PR audit found that the production update had advanced after the combined
+security/browser candidate was prepared: its Anthropic SDK target was now 0.125.0,
+not 0.124.0. Preserve the original PR ancestry and retain the verified paired
+Vitest/coverage 5.0.0, Node 22 typings, PostCSS, action pins and scanner fixes while
+applying only that remaining SDK delta. Regenerate the Bun lockfile instead of
+accepting the older PR lock wholesale; no transitive package or runtime provider
+configuration changes. The published SDK release notes were checked and targeted
+provider tests passed. Main integration, full gates and production status remain
+separate release evidence, not assumptions derived from this dependency edit.
+
 ## 2026-09-18 — Inspect Organization fixture permissions and bytes on one descriptor
 
 The combined release's hosted CodeQL scan identified a filesystem race in the new

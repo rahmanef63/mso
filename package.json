@@ -50,7 +50,7 @@
     "bundle:check": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.124.0",
+    "@anthropic-ai/sdk": "^0.125.0",
     "@imgly/background-removal": "^1.7.0",
     "@radix-ui/react-alert-dialog": "^1.1.16",
     "@radix-ui/react-dialog": "^1.1.16",

@@ -18,6 +18,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `security` inspect organization fixture through one descriptor
 
+**Chores**
+
+- `deps` bump the production-minor-patch group across 1 directory with 7 updates
+
 ## 2026-09-17
 
 **Added**
