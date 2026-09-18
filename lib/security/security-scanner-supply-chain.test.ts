@@ -30,4 +30,10 @@ describe("security scanner supply chain", () => {
     expect(script).toContain("zaproxy/zap-stable@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef");
     expect(script).not.toContain("ghcr.io/zaproxy/zaproxy@sha256:");
   });
+
+  it("keeps cache retrieval informational only for the reviewed static-asset policy", () => {
+    const policy = fs.readFileSync(path.join(ROOT, "security/zap-baseline.conf"), "utf8");
+    expect(policy).toContain("10050\tINFO\t(Content-hashed Next.js static chunks/fonts are intentionally cacheable; authenticated and user-specific responses remain no-store)");
+    expect(policy).not.toContain("10050\tIGNORE");
+  });
 });

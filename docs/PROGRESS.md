@@ -1,3 +1,12 @@
+## 2026-09-18 — Classify cache retrieval only for immutable public assets
+
+The first post-merge passive ZAP run against main produced one new default warning:
+rule 10050 (Retrieved from Cache) on five content-hashed _next/static JavaScript/font
+assets carrying an Age header. The report contained no authenticated, personal, or
+user-specific URL for that rule. Keep the signal visible as INFO for those intentionally
+cacheable public assets; do not use IGNORE, do not alter authenticated response caching,
+and leave every other unreviewed ZAP rule at its default warning/failure behavior.
+
 ## 2026-09-18 — Require executed passive security scan evidence
 
 The security closeout found that the scheduled hosted ZAP workflow could report

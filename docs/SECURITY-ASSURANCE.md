@@ -89,7 +89,7 @@ The exception is intentionally finding-specific. The file and rules are **not** 
 
 ## Reviewed ZAP informational alerts
 
-The production baseline keeps five known passive signals visible as `INFO`: cache policy on the public manifest, intentionally non-storable private/auth-shell responses, broad HTTPS sources in `img-src`/`frame-src`, a Unix timestamp in a static bundle, and the deliberate absence of COEP. The CSP exception is a product trade-off: MSO permits user-selected remote images and sandboxed HTTPS embeds, while `connect-src` remains restricted and inbound framing is blocked by CSP `frame-ancestors 'none'` plus `X-Frame-Options: DENY`. COEP would break those supported cross-origin resources.
+The production baseline keeps six known passive signals visible as `INFO`: cache policy on the public manifest, intentionally non-storable private/auth-shell responses, retrieval of content-hashed Next.js static chunks/fonts from the shared cache, broad HTTPS sources in `img-src`/`frame-src`, a Unix timestamp in a static bundle, and the deliberate absence of COEP. The cache-retrieval classification is limited to immutable public framework assets observed in the September 18 production scan; authenticated and user-specific responses remain `private, no-cache, no-store`. The CSP exception is a product trade-off: MSO permits user-selected remote images and sandboxed HTTPS embeds, while `connect-src` remains restricted and inbound framing is blocked by CSP `frame-ancestors 'none'` plus `X-Frame-Options: DENY`. COEP would break those supported cross-origin resources.
 
 These are rule-specific classifications in `security/zap-baseline.conf`, not a global warning bypass. Any other ZAP baseline alert remains a warning/failure and makes the gate non-zero.
 
