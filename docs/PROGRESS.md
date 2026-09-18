@@ -6,6 +6,21 @@
 - Add registry/access tests and a mandatory isolated browser journey with synthetic stores. Live n8n frame checks wait for actual nonblank paint as well as visible controls; keep the synthetic approved parent and signed-out proof distinct from authenticated editor claims.
 - The strict release build caught project-wide tracing of the dynamic registry path. Mark that owner-local runtime read as a non-build input, matching other private stores; the warning-fatal release gate remains unchanged.
 
+## 2026-09-18 — Require executed passive security scan evidence
+
+The security closeout found that the scheduled hosted ZAP workflow could report
+success while its only scan step was skipped when no target was configured. Add a
+dependency-free target guard before an unconditional passive scan. Missing, unsafe
+or credential-bearing targets fail without echoing their contents; existing scanner
+pins, passive scope, rule classifications and alert failures remain unchanged.
+Tests exercise the CLI refusal and workflow wiring. Security assurance guidance now
+separates successful code/dependency/secret checks from historical alert dismissals
+and passive-scan execution; no dismissal or badge attestation is performed.
+The first executed hosted scan exposed a second wiring error: the pinned ZAP action
+only forwarded its policy input when it found IGNORE entries. Pass the existing
+INFO-only file explicitly with `-c`; preserve all five informational findings, new
+warning failures and the original policy bytes rather than inventing new exceptions.
+
 ## 2026-09-18 — Keep private viewer routing client-verifiable
 
 The PR review reproduced a deployment-compatibility regression: a hostname resolving
