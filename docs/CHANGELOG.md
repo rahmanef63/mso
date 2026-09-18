@@ -24,6 +24,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `browser` make viewer fixtures independent of host configuration
 - `security` inspect organization fixture through one descriptor
 
+**Docs**
+
+- `security` document the hosted passive scan target
+
 **Chores**
 
 - `deps-dev` bump @types/node
