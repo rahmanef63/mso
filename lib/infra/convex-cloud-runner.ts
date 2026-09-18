@@ -74,7 +74,7 @@ export async function importConvexCloudSnapshot(
   return withConvexEphemeralDeployKey(
     deployment,
     token,
-    ["deployment:data:view", "deployment:data:write"],
+    ["deployment:data:view", "deployment:data:write", "deployment:backups:view", "deployment:backups:import"],
     async (deployKey) => {
       const modeFlag = input.mode === "replace-all" ? "--replace-all" : "--append";
       const result = await execute(

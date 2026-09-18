@@ -123,7 +123,12 @@ it("imports only with explicit mode and a data-scoped ephemeral key", async () =
       const url = String(input);
       if (url.endsWith("/create_deploy_key")) {
         expect(JSON.parse(String(init?.body))).toMatchObject({
-          allowedActions: ["deployment:data:view", "deployment:data:write"],
+          allowedActions: [
+            "deployment:data:view",
+            "deployment:data:write",
+            "deployment:backups:view",
+            "deployment:backups:import",
+          ],
         });
         return json({ deployKey: DEPLOY_KEY });
       }
