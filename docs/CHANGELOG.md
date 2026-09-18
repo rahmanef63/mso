@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `browser` retain private viewer connectivity without server access
 - `release` align Node support and read-only browser reconnects
 - `extensions` lock project controls until initial inspection
 - `browser` diagnose secure viewer failures without losing power state
@@ -19,6 +20,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Tests**
 
 - `security` inspect organization fixture through one descriptor
+
+**Chores**
+
+- `deps` bump the production-minor-patch group across 1 directory with 7 updates
 
 ## 2026-09-17
 
