@@ -3,7 +3,10 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
+import { getSessionContext } from "@/lib/auth/require-session";
+import { roleAtLeast } from "@/lib/auth/roles";
+import { camoufoxViewerOrigin } from "@/lib/camoufox/origin";
+import { createCamoufoxViewerTicket } from "@/lib/camoufox/viewer-auth";
 import { IS_DEMO } from "@/lib/demo";
 
 export const runtime = "nodejs";
@@ -27,11 +30,20 @@ const PASSWD_FILE = process.env.CAMOUFOX_VNC_PASSWD_TEXT
 export async function GET() {
   // Demo has no host, no display and no session — never hand out a credential there.
   if (IS_DEMO) return NextResponse.json({ error: "unavailable" }, { status: 404 });
-  if (!(await requireSession("operator"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const context = await getSessionContext();
+  if (!context?.session.device_id || !roleAtLeast(context.role, "operator")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const viewerOrigin = camoufoxViewerOrigin();
+  const secret = process.env.OS_SESSION_SECRET ?? "";
+  if (!viewerOrigin || secret.length < 32) {
+    return NextResponse.json({ error: "viewer_unconfigured" }, { status: 503 });
+  }
+  const viewerTicket = createCamoufoxViewerTicket(context.session.device_id, secret);
 
   const password = (await fs.readFile(/* turbopackIgnore: true */ PASSWD_FILE, "utf8").catch(() => "")).trim();
   // Absent file = the operator has not set one. Say so plainly rather than 500 — the
   // browser window falls back to letting noVNC prompt.
-  if (!password) return NextResponse.json({ password: null, reason: "no_password_file" });
-  return NextResponse.json({ password });
+  if (!password) return NextResponse.json({ password: null, viewerOrigin, viewerTicket, reason: "no_password_file" });
+  return NextResponse.json({ password, viewerOrigin, viewerTicket });
 }

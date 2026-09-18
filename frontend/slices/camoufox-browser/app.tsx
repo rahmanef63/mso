@@ -5,37 +5,33 @@ import { Loader2, Power, ScanEye } from "lucide-react";
 import { IS_DEMO } from "@/lib/demo";
 import { PowerPanel } from "./power-panel";
 import { fetchStatus, setPower, waitForViewer, verifyViewerTransport, type CamoufoxServiceStatus } from "./service-client";
-import { camoufoxViewerOrigin } from "@/lib/camoufox/origin";
 
 // Camoufox runs on the host, streamed as pixels through a separately authenticated
 // noVNC origin. Never embed its third-party JS on the cockpit origin.
 // The full viewer supplies touch keyboard input; resize=remote plus the host
 // window manager reflows the framebuffer rather than scaling a desktop thumbnail.
-const VIEWER_ORIGIN = camoufoxViewerOrigin();
-const VIEWER = VIEWER_ORIGIN
-  ? `${VIEWER_ORIGIN}/vnc.html?path=websockify&autoconnect=1&resize=remote`
-  : null;
-
 /** The display's VNC password, fetched for this already-authenticated session so
  *  noVNC does not prompt on every open. Absent = none configured; let noVNC ask. */
 async function viewerSrc(): Promise<string | null> {
-  if (!VIEWER) return null;
   try {
     const response = await fetch("/api/v1/camoufox/session", { cache: "no-store" });
-    if (response.ok) {
-      const password = ((await response.json()) as { password?: string | null }).password ?? null;
-      // `#password=`, never `&password=`. Behind this display sits a live Google session,
-      // so the VNC password is the second lock on it and must not end up anywhere it can
-      // be read back: a fragment is never sent to the server, so it cannot land in a
-      // Traefik access log, a Next.js request log, or a Referer header — a query string
-      // can do all three the moment anyone enables logging. noVNC reads either, and
-      // prefers the fragment (WebUtil.getConfigVar → getHashVar first, app/ui.js:997).
-      if (password) return `${VIEWER}#password=${encodeURIComponent(password)}`;
-    }
+    if (!response.ok) return null;
+    const payload = (await response.json()) as {
+      password?: string | null;
+      viewerOrigin?: string | null;
+      viewerTicket?: string | null;
+    };
+    if (!payload.viewerOrigin || !payload.viewerTicket) return null;
+    const viewer = payload.viewerOrigin + "/vnc.html?path=websockify&autoconnect=1&resize=remote";
+    const fragment = new URLSearchParams({ viewer_ticket: payload.viewerTicket });
+    // Password and viewer ticket live in the URL fragment, never the request/query.
+    // The sibling viewer bootstrap exchanges the short-lived ticket for a host-only
+    // HttpOnly cookie, removes it from the fragment, then loads noVNC.
+    if (payload.password) fragment.set("password", payload.password);
+    return viewer + "#" + fragment.toString();
   } catch {
-    // Offline or route missing — fall through to the prompting viewer.
+    return null;
   }
-  return VIEWER;
 }
 
 export default function CamoufoxBrowser() {

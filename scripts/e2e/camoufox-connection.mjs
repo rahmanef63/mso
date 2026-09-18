@@ -19,7 +19,15 @@ export async function camoufoxConnectionJourney(page, fixture) {
     const running = mode !== "stopping" || reads === 1;
     return route.fulfill({ status: 200, json: { installed: true, running, enabled: false, viewerReady: mode !== "stopping" } });
   };
-  const session = route => route.fulfill({ status: 200, json: { password: null } });
+  const viewerOrigin = "https://camoufox-fixture.invalid";
+  const session = route => route.fulfill({
+    status: 200,
+    json: {
+      password: null,
+      viewerOrigin,
+      viewerTicket: "fixture-viewer-ticket-0123456789abcdef",
+    },
+  });
   const viewer = route => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>Private fixture viewer</title><p>Client-only viewer fixture</p>" });
   page.on("request", observe);
   await page.route("**/api/v1/camoufox/session", session);
@@ -44,6 +52,7 @@ export async function camoufoxConnectionJourney(page, fixture) {
       await retry.click();
       const frame = page.locator('iframe[title="Camoufox browser"]');
       await expect(frame).toBeVisible();
+      expect((await frame.getAttribute("src")) ?? "").toContain(viewerOrigin + "/vnc.html?");
       await expect(page.frameLocator('iframe[title="Camoufox browser"]').getByText("Client-only viewer fixture")).toBeVisible();
       expect(credentials).toBe(beforeCredentials + 1); expect(posts).toBe(0);
       mode = "stopping"; reads = 0;

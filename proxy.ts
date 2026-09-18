@@ -34,6 +34,10 @@ import { currentSessionPolicy, getApprovedDevice } from "@/lib/auth/device-store
 import { roleAtLeast, type DeviceRole } from "@/lib/auth/roles";
 import { IS_DEMO } from "@/lib/demo";
 import { camoufoxViewerCsp, isCamoufoxViewerHost } from "@/lib/camoufox/origin";
+import {
+  camoufoxViewerAuthorized,
+  gateCamoufoxViewer,
+} from "@/lib/camoufox/viewer-gate";
 import { applyPrivatePageCachePolicy } from "@/lib/auth/page-cache";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -176,13 +180,14 @@ export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? request.nextUrl.host;
   const managedApp = managedAppIdForHost(host);
 
-  // noVNC gets one reserved split-origin host. Every path on it goes ONLY to the
-  // loopback viewer; no cockpit route exists there. The Domain session cookie is
-  // used solely at this edge gate and is stripped before noVNC receives the request.
+  // noVNC gets one reserved split-origin host. The cockpit session cookie is
+  // intentionally NOT shared with a sibling viewer hostname. Instead, an authenticated
+  // operator obtains a 60-second ticket on the cockpit, carries it only in the URL
+  // fragment, and exchanges it here for a host-only HttpOnly viewer cookie.
   if (isCamoufoxViewerHost(host)) {
-    if (!(await hasApprovedSession(request, "operator"))) return notFound();
-    if (request.method !== "GET" && request.method !== "HEAD")
-      return notFound();
+    const viewerGate = await gateCamoufoxViewer(request, pathname);
+    if (!camoufoxViewerAuthorized(viewerGate)) return viewerGate;
+    if (request.method !== "GET" && request.method !== "HEAD") return notFound();
     let base: URL;
     try {
       base = new URL(CAMOUFOX_NOVNC_URL);
@@ -196,8 +201,6 @@ export async function proxy(request: NextRequest) {
       return notFound();
     }
     const target = new URL(base);
-    // Assign pathname/search separately: resolving a caller path beginning `//`
-    // against base would otherwise change the destination host.
     target.pathname = pathname === "/" ? "/vnc.html" : pathname;
     target.search = request.nextUrl.search;
     const response = NextResponse.rewrite(target, {
@@ -211,6 +214,7 @@ export async function proxy(request: NextRequest) {
     response.headers.set("Referrer-Policy", "no-referrer");
     response.headers.set("X-Content-Type-Options", "nosniff");
     response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
+    response.headers.delete("X-Frame-Options");
     return response;
   }
 
