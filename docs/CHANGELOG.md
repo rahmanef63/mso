@@ -13,6 +13,8 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Fixed**
 
 - `browser` keep Camoufox automation on demand
+- `security` apply existing ZAP informational policy explicitly
+- `security` require executed passive scan evidence
 - `browser` retain private viewer connectivity without server access
 - `release` align Node support and read-only browser reconnects
 - `extensions` lock project controls until initial inspection
@@ -23,8 +25,13 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `browser` make viewer fixtures independent of host configuration
 - `security` inspect organization fixture through one descriptor
 
+**Docs**
+
+- `security` document the hosted passive scan target
+
 **Chores**
 
+- `deps-dev` bump @types/node
 - `deps` bump the production-minor-patch group across 1 directory with 7 updates
 
 ## 2026-09-17
