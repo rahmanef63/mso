@@ -45,6 +45,11 @@ skipping the scanner. An accepted target alone is not a pass: inspect the comple
 ZAP step, its findings and the report artifact. The existing rule classifications and
 warning/failure behavior remain unchanged. Baseline coverage is unauthenticated and
 passive, not an authenticated penetration test or proof about every host service.
+The pinned action's helper forwards `rules_file_name` only when it recognizes an
+`IGNORE` entry. Because the reviewed policy uses `INFO`, `cmd_options` also passes
+that same committed file with `-c`. This applies the already-reviewed classifications;
+it does not add an ignore or disable failures for new warnings. Reports retain all
+five informational signals.
 
 ## GitHub security controls
 

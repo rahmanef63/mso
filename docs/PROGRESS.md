@@ -8,6 +8,10 @@ pins, passive scope, rule classifications and alert failures remain unchanged.
 Tests exercise the CLI refusal and workflow wiring. Security assurance guidance now
 separates successful code/dependency/secret checks from historical alert dismissals
 and passive-scan execution; no dismissal or badge attestation is performed.
+The first executed hosted scan exposed a second wiring error: the pinned ZAP action
+only forwarded its policy input when it found IGNORE entries. Pass the existing
+INFO-only file explicitly with `-c`; preserve all five informational findings, new
+warning failures and the original policy bytes rather than inventing new exceptions.
 
 ## 2026-09-18 — Keep private viewer routing client-verifiable
 

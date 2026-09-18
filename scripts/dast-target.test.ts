@@ -29,6 +29,10 @@ describe("passive DAST requires an explicit safe target", () => {
     expect(workflow).toContain("fail_action: true");
     expect(workflow).toContain("allow_issue_writing: false");
     expect(workflow).toContain("rules_file_name: security/zap-baseline.conf");
+    expect(workflow).toContain("cmd_options: -m 2 -c security/zap-baseline.conf");
+    const rules = readFileSync("security/zap-baseline.conf", "utf8").split("\n").filter(line => line && !line.startsWith("#"));
+    expect(rules.map(line => line.split("\t")[0])).toEqual(["10015", "10049", "10055", "10096", "90004"]);
+    expect(rules.every(line => line.split("\t")[1] === "INFO")).toBe(true);
     expect(workflow).not.toContain("-I");
   });
 });
