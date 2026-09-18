@@ -1,10 +1,11 @@
+import { isOrganizationFlowAction } from "@/lib/contracts/organization-flow";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
 import { roleAtLeast } from "@/lib/auth/roles";
 import { audit } from "@/lib/host/audit-api";
 import { rateLimited } from "@/lib/host/limits-api";
 import { readSetupJson } from "@/lib/infra/setup-http";
-import { deleteOrganizationSeat, deleteOrganizationUnit, getOrganizationChart, replaceOrganization, upsertOrganizationSeat, upsertOrganizationUnit } from "@/lib/agent/organization-store";
+import { deleteOrganizationSeat, deleteOrganizationUnit, mutateOrganizationFlow, getOrganizationChart, replaceOrganization, upsertOrganizationSeat, upsertOrganizationUnit } from "@/lib/agent/organization-store";
 import { organizationRuntime, resolveOrganizationSeat } from "@/lib/agent/organization-runtime";
 
 export const runtime = "nodejs";
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth("operator"); if (!session) return fail("operator_required", 403);
   try {
-    const body = await readSetupJson(req), action = String(body.action || "");
+    const body = await readSetupJson(req, 2 * 1024 * 1024), action = String(body.action || "");
     if (rateLimited(`organization:${action}:${session.context.session.device_id}`, 40, 60_000)) return fail("rate_limited", 429);
     const revision = String(body.expected_revision || ""); if (!revision) throw new Error("expected_revision is required");
     let chart;
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
     else if (action === "seat_upsert") chart = await upsertOrganizationSeat(revision, body.seat as Record<string, unknown>);
     else if (action === "unit_delete") chart = await deleteOrganizationUnit(revision, String(body.id || ""));
     else if (action === "seat_delete") chart = await deleteOrganizationSeat(revision, String(body.id || ""));
+    else if (isOrganizationFlowAction(action)) chart = await mutateOrganizationFlow(revision, action, (body.data ?? {}) as Record<string, unknown>);
     else if (action === "replace") { if (!roleAtLeast(session.context.role, "owner")) return fail("owner_required", 403); chart = await replaceOrganization(revision, body.chart as never); }
     else throw new Error("unknown organization action");
     void audit({ action: "agent.organization", actor: session.context.session.device_id, target: action, detail: `organization ${action}` });

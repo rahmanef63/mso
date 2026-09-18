@@ -1,3 +1,5 @@
+import { isOrganizationFlowAction } from "@/lib/contracts/organization-flow";
+import { changeOrganizationFlow } from "./organization-flow-mutations";
 import { createHash, randomUUID } from "node:crypto";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
@@ -32,8 +34,21 @@ async function writeUnlocked(chart: OrganizationChart) { const body = JSON.strin
 export async function getOrganizationChart() { return structuredClone(await readUnlocked()); }
 async function mutate(expectedRevision: string, fn: (chart: OrganizationChart) => OrganizationChart) { return withSecurityStoreLock(ORGANIZATION_STORE_PATH, async () => { const current = await readUnlocked(); if (current.revision !== expectedRevision) throw new Error("organization revision changed; refresh before editing"); const next = fn(current); await writeUnlocked(next); return structuredClone(next); }); }
 const touch = (row: Record<string, unknown>, previous?: { createdAt?: string }) => ({ ...row, createdAt: previous?.createdAt || row.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() });
-export async function upsertOrganizationUnit(expectedRevision: string, raw: Record<string, unknown>) { return mutate(expectedRevision, (chart) => { const id = typeof raw.id === "string" && raw.id ? raw.id : `unit_${randomUUID()}`; const previous = chart.units.find((u) => u.id === id); const unit = parseOrganizationUnit(touch({ ...raw, id }, previous)); const units = [...chart.units.filter((u) => u.id !== id), unit]; return materialize(chart.name, units, chart.seats); }); }
+export async function upsertOrganizationUnit(expectedRevision: string, raw: Record<string, unknown>) { return mutate(expectedRevision, (chart) => { const id = typeof raw.id === "string" && raw.id ? raw.id : `unit_${randomUUID()}`; const previous = chart.units.find((u) => u.id === id); const unit = parseOrganizationUnit(touch({ ...raw, id, ...(raw.projectFlow === undefined && previous?.projectFlow ? { projectFlow: previous.projectFlow } : {}) }, previous)); const units = [...chart.units.filter((u) => u.id !== id), unit]; return materialize(chart.name, units, chart.seats); }); }
 export async function upsertOrganizationSeat(expectedRevision: string, raw: Record<string, unknown>) { return mutate(expectedRevision, (chart) => { const id = typeof raw.id === "string" && raw.id ? raw.id : `seat_${randomUUID()}`; const previous = chart.seats.find((s) => s.id === id); const seat = parseOrganizationSeat(touch({ ...raw, id }, previous)); const seats = [...chart.seats.filter((s) => s.id !== id), seat]; return materialize(chart.name, chart.units, seats); }); }
 export async function deleteOrganizationUnit(expectedRevision: string, id: string) { return mutate(expectedRevision, (chart) => { if (chart.units.some((u) => u.parentUnitId === id) || chart.seats.some((s) => s.unitId === id)) throw new Error("organization unit still has children or seats"); return materialize(chart.name, chart.units.filter((u) => u.id !== id), chart.seats); }); }
 export async function deleteOrganizationSeat(expectedRevision: string, id: string) { return mutate(expectedRevision, (chart) => { if (chart.seats.some((s) => s.reportsToSeatId === id)) throw new Error("organization seat still has direct reports"); return materialize(chart.name, chart.units, chart.seats.filter((s) => s.id !== id)); }); }
 export async function replaceOrganization(expectedRevision: string, raw: { name?: unknown; units?: unknown; seats?: unknown }) { return mutate(expectedRevision, () => { const units = Array.isArray(raw.units) ? raw.units.map((v) => parseOrganizationUnit(v)) : []; const seats = Array.isArray(raw.seats) ? raw.seats.map((v) => parseOrganizationSeat(v)) : []; return materialize(String(raw.name || "Organization"), units, seats); }); }
+
+
+export async function mutateOrganizationFlow(expectedRevision: string, action: string, data: Record<string, unknown>) {
+  if (!isOrganizationFlowAction(action)) throw new Error("unsupported project flow action");
+  if (typeof data.unitId !== "string" || !data.unitId) throw new Error("unitId is required for project flow actions");
+  return mutate(expectedRevision, (chart) => {
+    const unit = chart.units.find((item) => item.id === data.unitId);
+    if (!unit) throw new Error("organization unit not found");
+    const projectFlow = changeOrganizationFlow(unit.projectFlow, action, data);
+    const next = { ...unit, projectFlow, updatedAt: new Date().toISOString() };
+    return materialize(chart.name, chart.units.map((item) => item.id === unit.id ? next : item), chart.seats);
+  });
+}

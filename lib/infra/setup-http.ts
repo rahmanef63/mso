@@ -1,7 +1,8 @@
 import { SetupError, SETUP_MAX_BODY } from "./setup-capability";
-export async function readSetupJson(req: Request): Promise<Record<string, unknown>> {
+export async function readSetupJson(req: Request, maxBytes = SETUP_MAX_BODY): Promise<Record<string, unknown>> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 2 * 1024 * 1024) throw new SetupError("invalid_body_limit", 400);
   if (req.headers.get("content-type")?.split(";")[0].trim() !== "application/json") throw new SetupError("json_required", 415);
-  if (Number(req.headers.get("content-length")) > SETUP_MAX_BODY) throw new SetupError("request_too_large", 413);
+  if (Number(req.headers.get("content-length")) > maxBytes) throw new SetupError("request_too_large", 413);
   const reader = req.body?.getReader(); if (!reader) throw new SetupError("invalid_request", 400);
   let text = "", bytes = 0;
   const decoder = new TextDecoder();
@@ -10,7 +11,7 @@ export async function readSetupJson(req: Request): Promise<Record<string, unknow
       let timer: ReturnType<typeof setTimeout> | undefined;
       const part = await Promise.race([reader.read(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new SetupError("request_timeout", 408)), 5000); })]).finally(() => clearTimeout(timer));
       if (part.done) break;
-      bytes += part.value.byteLength; if (bytes > SETUP_MAX_BODY) throw new SetupError("request_too_large", 413);
+      bytes += part.value.byteLength; if (bytes > maxBytes) throw new SetupError("request_too_large", 413);
       text += decoder.decode(part.value, { stream: true });
     }
     text += decoder.decode();

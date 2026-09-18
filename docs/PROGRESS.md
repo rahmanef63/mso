@@ -1,3 +1,12 @@
+## 2026-09-18 — Organization-scoped project flow
+
+- The organization overview previously rendered long context notes directly inside unit cards. Keep overview descriptions clamped and put projects, activities, relationships and long notes inside the selected unit instead.
+- Add a generic optional `projectFlow` to the private organization store with bounded schema, stable node/edge ids, same-unit edge validation, atomic revision-checked CRUD and legacy-unit-edit preservation. Public source contains no operator organization data.
+- Projects/Seats navigation preserves reporting and execution bindings. Project-flow nodes support details, editing, persistent drag positions, search, focus and explicit connections/deletion; project references do not execute anything.
+- Extend the existing organization API/MCP/CLI contract rather than creating a second store or executable workflow. Expand only the organization HTTP body allowance; integration setup retains its original default bound.
+- Full verify passed (3,056 tests across 511 files), production build passed, and the isolated browser journey verifies node CRUD, visible directional edges, persistent drags, long notes, real MCP mutation, stale-revision and scope refusal, and desktop/portrait/landscape layouts. The complete release E2E and eager bundle budget also pass. Canvas measurements are preserved separately from server-owned data.
+
+
 ## 2026-09-17 — Lock the native build bootstrap without touching the runtime tree
 
 The complete PR/branch audit found open Scorecard finding #136 in the user-local

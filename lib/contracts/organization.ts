@@ -1,3 +1,5 @@
+import type { OrganizationProjectFlow } from "./organization-flow";
+
 export type OrganizationUnitKind = "holding" | "company" | "division" | "team" | "client" | "other";
 export type OrganizationStatus = "active" | "inactive";
 export type OrganizationSeatMode = "permanent" | "on_demand" | "inactive";
@@ -17,6 +19,7 @@ export type OrganizationUnit = {
   status: OrganizationStatus;
   parentUnitId?: string;
   description?: string;
+  projectFlow?: OrganizationProjectFlow;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;

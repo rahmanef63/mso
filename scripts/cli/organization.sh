@@ -14,6 +14,10 @@ run_org() {
     show|list)
       jget "/api/v1/organization"
       ;;
+    flow-update|flow-replace|flow-node-upsert|flow-node-delete|flow-edge-upsert|flow-edge-delete)
+      revision="${1:?revision}"; input="${2:?JSON containing unitId or @file}"; if [ "${input:0:1}" = "@" ]; then input=$(cat -- "${input:1}"); fi
+      action="${sub//-/_}"
+      jpost "/api/v1/organization" "$(jq -n --arg action "$action" --arg revision "$revision" --argjson data "$input" '{action:$action,expected_revision:$revision,data:$data}')" ;;
     unit-upsert|seat-upsert|replace)
       revision="${1:?revision}"; input="${2:?JSON or @file}"; if [ "${input:0:1}" = "@" ]; then input=$(cat -- "${input:1}"); fi
       action="${sub//-/_}"; key="${sub%%-*}"
