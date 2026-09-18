@@ -25,12 +25,13 @@ export async function camoufoxConnectionJourney(page, fixture) {
       await page.setViewportSize(viewport);
       await page.goto(fixture.base + "/browser");
       const retry = page.getByRole("button", { name: "Retry connection", exact: true });
-      await expect(page.getByRole("alert")).toContainText("Fixture viewer TLS failed");
+      const connectionAlert = page.getByRole("alert").filter({ has: retry });
+      await expect(connectionAlert).toContainText("Fixture viewer TLS failed");
       await expect(page.getByText("Running on the server", { exact: true })).toBeVisible();
       for (let i = 0; i < 3; i++) {
         await retry.click();
         await expect(retry).toBeEnabled();
-        await expect(page.getByRole("alert")).toContainText("Fixture viewer TLS failed");
+        await expect(connectionAlert).toContainText("Fixture viewer TLS failed");
       }
       expect(posts).toBe(0); expect(credentials).toBe(0);
       mode = "stopping"; reads = 0;
