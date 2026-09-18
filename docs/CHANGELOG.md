@@ -19,6 +19,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `browser` make viewer fixtures independent of host configuration
 - `security` inspect organization fixture through one descriptor
 
 **Chores**

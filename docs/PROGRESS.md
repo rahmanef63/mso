@@ -11,6 +11,9 @@ client accepts only that exact diagnostic; all other TLS/DNS/HTTP failures retai
 their behavior. Configured separate origins, TLS, cookies and VNC auth are unchanged.
 Boundary tests cover refused address classes and malformed hints; a desktop/mobile
 browser journey verifies private viewer mounting while connection retry stays read-only.
+Both isolated local verification and hosted CI now compile with the same synthetic
+viewer hostname; the new iframe case no longer relies on an inherited deployment
+hostname. Production install/update configuration is not overridden by this fixture.
 
 ## 2026-09-18 — Resolve release review on Node support and browser retries
 

@@ -37,6 +37,9 @@ MSO_VERIFY_BUILD_LOG="$TMP/build-output.log"
 
 echo "== verify 1/3: isolated Next build"
 # nice/ionice: this box also serves prod. A build gate must not starve :4005.
+# A reviewed synthetic viewer origin is needed by iframe journeys. Never inherit
+# an installation's public hostname into verification artifacts.
+export NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE='{id}.mso.example.com'
 if ! nice -n 15 ionice -c2 -n7 node node_modules/.bin/next build 2>&1 | tee "$MSO_VERIFY_BUILD_LOG"; then
   echo "verification failed during isolated compile/build" >&2
   exit 40
