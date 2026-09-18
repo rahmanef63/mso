@@ -1,5 +1,11 @@
 ## 2026-09-18 — Keep private viewer routing client-verifiable
 
+## 2026-09-18 — Independent CI verification pilot
+
+Related URL: https://github.com/rahmanef63/mso
+[before: verification had no standalone structured CI receipt] → [after: an exact-SHA manual runner wraps committed gates with private reports, host/repository locks and fail-closed outcomes]. Batonly tracks migration acceptance. Security/release profiles remain BLOCKED until standalone scanner parity is actually verified; Actions, branch protections and production are not changed. Run `bun run test:ci`; fixtures do not attest product or security acceptance.
+
+
 The PR review reproduced a deployment-compatibility regression: a hostname resolving
 only to RFC1918, carrier-grade NAT or unique-local IPv6 was blocked by the generic
 public-provider SSRF guard before the client's authenticated viewer could mount.

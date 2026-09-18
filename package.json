@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node scripts/check-test-toolchain.mjs && vitest run",
     "coverage": "node scripts/check-test-toolchain.mjs && vitest run --coverage",
-    "check": "node scripts/check-cycles.mjs && node scripts/check-architecture.mjs && node scripts/check-docs.mjs && node scripts/gen-comparison.mjs --check && node scripts/check-contrast.mjs && bun scripts/check-skill-flows.mjs && bun run check:instance-literals",
+    "check": "node scripts/check-cycles.mjs && node scripts/check-architecture.mjs && node scripts/check-docs.mjs && node scripts/gen-comparison.mjs --check && node scripts/check-contrast.mjs && bun scripts/check-skill-flows.mjs && bun run check:instance-literals && bun run test:ci",
     "audit": "node scripts/audit.mjs",
     "verify": "bun run typecheck && bun run lint && bun run coverage && bun run check && bun run audit",
     "security:ultimate": "bash scripts/security-ultimate.sh",
@@ -47,7 +47,12 @@
     "check:instance-literals": "bun scripts/check-instance-literals.mjs",
     "e2e:release": "node scripts/e2e/release.mjs",
     "bundle:report": "node scripts/check-bundle.mjs --report-only",
-    "bundle:check": "node scripts/check-bundle.mjs"
+    "bundle:check": "node scripts/check-bundle.mjs",
+    "ci:plan": "node scripts/ci/run.mjs --plan",
+    "ci:verify": "node scripts/ci/run.mjs --profile verify",
+    "ci:security": "node scripts/ci/run.mjs --profile security",
+    "ci:release": "node scripts/ci/run.mjs --profile release",
+    "test:ci": "node --test scripts/ci/contract.node.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

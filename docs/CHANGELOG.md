@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `ci` add independent exact-SHA verification runner
 - `organization` add internal project flows with callable CRUD
 
 **Fixed**

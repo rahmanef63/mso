@@ -96,3 +96,7 @@ the current-reference doc.
 [Maintenance, factory reset and clean uninstall](./MAINTENANCE.md) · [Extended workspace reference](./reference/WORKSPACE-GUIDE.md)
 
 - [Session screenshots and temporary artifacts](./SESSION-ARTIFACTS.md) — private per-session paths, MCP/CLI reads, quotas and safe retention.
+
+## Independent CI pilot
+
+[SELF-HOSTED-CI.md](./SELF-HOSTED-CI.md) is the current manual-runner reference and Actions migration gap matrix. It does not claim completed security parity or deployment automation.
