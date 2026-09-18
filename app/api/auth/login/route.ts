@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { constantTimeEq, MAX_COMPARE_BYTES, MIN_SECRET_LEN, signSession, type SessionPayload } from "@/lib/auth/session";
 import { SESSION_COOKIE } from "@/lib/auth/require-session";
-import { sessionCookieAttrs } from "@/lib/auth/session-cookie";
+import { configuredSessionCookieScope, sessionCookieAttrs } from "@/lib/auth/session-cookie";
 import { isApproved, isValidDeviceId, recordPending, touchApproved } from "@/lib/auth/device-store";
 import { audit } from "@/lib/host/audit-api";
 import { IS_DEMO } from "@/lib/demo";
@@ -163,6 +163,7 @@ export async function POST(req: NextRequest) {
     issued_at: now,
     expires_at: now + hours * 3600 * 1000,
     device_id: deviceId,
+    cookie_scope: configuredSessionCookieScope(),
   };
   const res = NextResponse.json({ success: true });
   // Attributes (incl. the optional Domain for the split-origin app hosts) come

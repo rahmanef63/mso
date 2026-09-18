@@ -1,3 +1,15 @@
+## 2026-09-18 — Bind signed sessions to their cookie policy
+
+The external-editor security review found a migration edge case: after a broad Domain cookie
+is narrowed or unset, the browser can retain the old cookie until its original expiry even
+though logout no longer knows its former Domain. Session payloads now carry the normalized
+cookie policy that minted them, and both route authorization and middleware/WebSocket gates
+reject a valid HMAC when that policy no longer matches current configuration. Legacy tokens
+without a scope are intentionally invalidated once. This preserves safe host-only sibling
+editors such as a separately hosted n8n while making a retained broader Owner cookie unusable
+against MSO after a scope change. No cookie is widened, no secret is rotated, and current
+domain-match/host collision checks remain in place.
+
 ## 2026-09-18 — Remount reviewed workflow editors when sandbox policy changes
 
 A focus refresh can tighten an existing external editor's sandbox without changing its id or origin.

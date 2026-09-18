@@ -29,6 +29,7 @@ import {
 import { getManagedAppDefinition } from "@/lib/managed-apps/catalog";
 import { projectIngressDecision } from "@/lib/managed-apps/project-ingress";
 import { verifySession } from "@/lib/auth/session";
+import { configuredSessionCookieScope } from "@/lib/auth/session-cookie";
 import { getApprovedDevice } from "@/lib/auth/device-store";
 import { roleAtLeast, type DeviceRole } from "@/lib/auth/roles";
 import { IS_DEMO } from "@/lib/demo";
@@ -68,9 +69,10 @@ async function hasApprovedSession(
 ): Promise<boolean> {
   if (IS_DEMO) return false;
   const secret = process.env.OS_SESSION_SECRET ?? "";
+  const cookieScope = configuredSessionCookieScope();
   for (const { value } of request.cookies.getAll(SESSION_COOKIE)) {
     const payload = verifySession(value, secret);
-    if (!payload?.device_id) continue;
+    if (!payload?.device_id || payload.cookie_scope !== cookieScope) continue;
     const device = await getApprovedDevice(payload.device_id);
     if (device && roleAtLeast(device.role, minimumRole)) return true;
   }

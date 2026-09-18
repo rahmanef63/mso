@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { configuredSessionCookieScope } from "./session-cookie";
 import { verifySession, type SessionPayload } from "./session";
 import { getApprovedDevice, type ApprovedDevice } from "./device-store";
 import { roleAtLeast, type DeviceRole } from "./roles";
@@ -22,9 +23,10 @@ export type SessionContext = {
 export async function getSessionContext(): Promise<SessionContext | null> {
   if (IS_DEMO) return null;
   const jar = await cookies();
+  const cookieScope = configuredSessionCookieScope();
   for (const { value } of jar.getAll(SESSION_COOKIE)) {
     const session = verifySession(value, secret());
-    if (!session?.device_id) continue;
+    if (!session?.device_id || session.cookie_scope !== cookieScope) continue;
     const device = await getApprovedDevice(session.device_id);
     if (!device) continue;
     return { session, device, role: device.role };

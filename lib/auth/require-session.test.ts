@@ -20,11 +20,12 @@ vi.mock("./device-store", () => ({
     : null,
 }));
 
-const valid = () => signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "dev-1" }, SECRET);
+const valid = () => signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "dev-1", cookie_scope: "host" }, SECRET);
 
 beforeEach(() => {
   jar.length = 0;
   process.env.OS_SESSION_SECRET = SECRET;
+  delete process.env.OS_SESSION_COOKIE_DOMAIN;
 });
 
 describe("getSession with a shadowed cookie", () => {
@@ -44,11 +45,19 @@ describe("getSession with a shadowed cookie", () => {
     const { getSession } = await import("./require-session");
     jar.push({
       name: "session",
-      value: signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "revoked" }, SECRET),
+      value: signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "revoked", cookie_scope: "host" }, SECRET),
     });
     expect(await getSession()).toBeNull();
   });
 
+
+  it("rejects a still-signed cookie after its configured cookie scope changes", async () => {
+    const { getSession } = await import("./require-session");
+    jar.push({ name: "session", value: signSession({ issued_at: Date.now(), expires_at: Date.now() + 60_000, device_id: "dev-1", cookie_scope: "domain:example.com" }, SECRET) });
+    expect(await getSession()).toBeNull();
+    process.env.OS_SESSION_COOKIE_DOMAIN = "example.com";
+    expect(await getSession()).toMatchObject({ device_id: "dev-1", cookie_scope: "domain:example.com" });
+  });
   it("rechecks the live device role for every authorization decision", async () => {
     const { getSessionContext, requireSession } = await import("./require-session");
     jar.push({ name: "session", value: valid() });

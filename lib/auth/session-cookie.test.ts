@@ -3,7 +3,7 @@
 // waves through lands verbatim in a Set-Cookie header, and anything it wrongly
 // rejects only falls back to today's host-only cookie (fail closed).
 import { afterEach, describe, expect, it } from "vitest";
-import { hostOnlyClearHeader, sessionCookieAttrs, sessionCookieDomain } from "./session-cookie";
+import { configuredSessionCookieScope, hostOnlyClearHeader, sessionCookieAttrs, sessionCookieDomain } from "./session-cookie";
 
 const req = (host: string, forwarded?: string) =>
   new Request("http://internal/api/auth/login", {
@@ -19,6 +19,18 @@ const domainFor = (value: string | undefined, host = "mso.example.com") => {
 
 afterEach(() => {
   delete process.env.OS_SESSION_COOKIE_DOMAIN;
+});
+
+
+describe("configuredSessionCookieScope", () => {
+  it("canonicalizes the policy that signed sessions are bound to", () => {
+    delete process.env.OS_SESSION_COOKIE_DOMAIN;
+    expect(configuredSessionCookieScope()).toBe("host");
+    process.env.OS_SESSION_COOKIE_DOMAIN = " .MSO.Example.com ";
+    expect(configuredSessionCookieScope()).toBe("domain:mso.example.com");
+    process.env.OS_SESSION_COOKIE_DOMAIN = "bad; Domain=evil.test";
+    expect(configuredSessionCookieScope()).toBe("host");
+  });
 });
 
 describe("sessionCookieDomain", () => {
