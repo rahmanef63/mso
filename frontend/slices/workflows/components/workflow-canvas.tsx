@@ -12,6 +12,7 @@ import { GraphCustomCard } from "@/components/shared/graph-custom-card";
 import { projectCustomNodes, moveCustomNode, type CustomCanvasNode } from "@/components/shared/graph-custom-projection";
 import { graphRoutedEdgeTypes } from "@/components/shared/graph-routed-edge";
 import type { GraphCustomNode } from "@/lib/contracts/graph-custom-nodes";
+import { compactWorkflowFocusIds } from "../lib/compact-focus";
 import { cn } from "@/lib/utils";
 
 interface WorkflowNodeData extends Record<string, unknown> { node: WorkflowGraphNode; state?: WorkflowGraphNodeState }
@@ -63,7 +64,9 @@ export function WorkflowCanvas({graph,selectedId,onSelect,onMove,onMoveMany,onCu
   const changeGroups=(next:GraphCustomNode[])=>{onCustomNodes?.(next);onSelect(null);};
   const move=(items:CanvasNode[])=>{let next=graph.nodes;for(const item of items){const group=groups.find((g)=>g.id===item.id);next=group?moveCustomNode(next,group,item.position):next.map((n)=>n.id===item.id?{...n,position:item.position}:n);}if(onMoveMany)onMoveMany(next);else for(const item of items)onMove(item.id,item.position);};
   const connect=(connection:Connection)=>{if(!graph.nodes.some((n)=>n.id===connection.source)||!graph.nodes.some((n)=>n.id===connection.target)||connection.source===connection.target)return;const handle=connection.sourceHandle&&connection.sourceHandle!=="output"?connection.sourceHandle:undefined;onConnect(connection.source!,connection.target!,handle);};
-  const compactIds=readOnly?nodes.slice(0,9).map((n)=>n.id):nodes.slice(0,2).map((n)=>n.id);
+  const visibleIds=useMemo(()=>new Set(nodes.map((node)=>node.id)),[nodes]);
+  const rootFocusIds=useMemo(()=>compactWorkflowFocusIds(graph.nodes,groups,visibleIds,readOnly?9:2),[graph.nodes,groups,readOnly,visibleIds]);
+  const compactIds=rootFocusIds.length?rootFocusIds:(readOnly?nodes.slice(0,9):nodes.slice(0,2)).map((node)=>node.id);
   return <div className="flex h-full min-h-0 flex-col">
     {!readOnly&&onCustomNodes?<GraphCustomControls groups={groups} selectedIds={selectedIds} nodeIds={graph.nodes.map((n)=>n.id)} onChange={changeGroups}/>:null}
     <div className="min-h-0 flex-1"><GraphCanvas<CanvasNode,FlowEdge> ariaLabel="Workflow canvas" showMinimap={!readOnly} nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={graphRoutedEdgeTypes}

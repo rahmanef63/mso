@@ -24,6 +24,7 @@ import {
 import { Hand, LayoutGrid, Maximize2, MousePointer2, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { compactGraphViewport } from "./graph-fit";
+import { GraphRoutingProvider } from "./graph-routed-edge";
 
 export type GraphCanvasMode = "select" | "pan";
 type MiniMapNodeColor = MiniMapProps["nodeColor"];
@@ -93,7 +94,9 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
     if (key === "+" || key === "=") { event.preventDefault(); void zoomIn({ duration: 160 }); }
     if (key === "-") { event.preventDefault(); void zoomOut({ duration: 160 }); }
   };
-  return <div className="h-full min-h-0 w-full min-w-0 outline-none" tabIndex={0} onKeyDown={keyboard}>
+  const routingNodes = props.nodes ?? props.defaultNodes ?? [];
+  const routingEdges = props.edges ?? props.defaultEdges ?? [];
+  return <GraphRoutingProvider nodes={routingNodes} edges={routingEdges}><div className="h-full min-h-0 w-full min-w-0 outline-none" tabIndex={0} onKeyDown={keyboard}>
     <ReactFlow<NodeType, EdgeType>
       {...props}
       id={flowId}
@@ -123,5 +126,5 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
       /> : null}
       {children}
     </ReactFlow>
-  </div>;
+  </div></GraphRoutingProvider>;
 }

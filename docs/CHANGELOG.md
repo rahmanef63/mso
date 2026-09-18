@@ -13,6 +13,8 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `graph` close routing and compact focus review
+- `graph` reconcile controlled selection and preserve routing groundwork
 - `security` restore native dependency update cooldown
 - `browser` retain private viewer connectivity without server access
 - `release` align Node support and read-only browser reconnects

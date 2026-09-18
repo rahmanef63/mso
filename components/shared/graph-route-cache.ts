@@ -19,8 +19,22 @@ const intersects = (a: RouteRect, b: RouteRect) => a.x <= b.x + b.width && a.x +
 export function createRoutingScene(nodes: RoutingNode[], edges: RoutingEdge[]): RoutingScene {
   const rects = new Map(nodes.map((n) => [n.id, { x: n.x - PAD, y: n.y - PAD, width: n.width + PAD * 2, height: n.height + PAD * 2 }]));
   const outgoing = new Map<string, string[]>(), incoming = new Map<string, string[]>();
-  for (const e of edges) { outgoing.set(e.source, [...(outgoing.get(e.source) ?? []), e.id]); incoming.set(e.target, [...(incoming.get(e.target) ?? []), e.id]); }
-  const lanes = new Map(edges.map((e) => [e.id, [...new Set([...(outgoing.get(e.source) ?? []), ...(incoming.get(e.target) ?? [])])].sort().indexOf(e.id)]));
+  for (const e of edges) {
+    const out = outgoing.get(e.source); if (out) out.push(e.id); else outgoing.set(e.source, [e.id]);
+    const into = incoming.get(e.target); if (into) into.push(e.id); else incoming.set(e.target, [e.id]);
+  }
+  const pairRanks = new Map<string, Map<string, number>>();
+  const lanes = new Map<string, number>();
+  for (const e of edges) {
+    const pair = e.source + "\0" + e.target;
+    let ranks = pairRanks.get(pair);
+    if (!ranks) {
+      const ids = [...new Set([...(outgoing.get(e.source) ?? []), ...(incoming.get(e.target) ?? [])])].sort();
+      ranks = new Map(ids.map((id, index) => [id, index]));
+      pairRanks.set(pair, ranks);
+    }
+    lanes.set(e.id, ranks.get(e.id) ?? 0);
+  }
   return { rects, obstacles: [...rects.values()], lanes, changes: new WeakMap() };
 }
 function changedRects(before: RoutingScene, after: RoutingScene): RouteRect[] {
