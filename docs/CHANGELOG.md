@@ -14,8 +14,8 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Fixed**
 
 - `workflows` retain approved shared surface placements
-- `workflows` isolate external editors from cockpit session cookies
 - `browser` keep Camoufox automation on demand
+- `workflows` isolate external editors from cockpit session cookies
 - `workflows` keep runtime registry out of deployment tracing
 - `security` apply existing ZAP informational policy explicitly
 - `security` require executed passive scan evidence
