@@ -1,3 +1,17 @@
+## 2026-09-18 — Keep MCP target controls locked until their first inspection
+
+PR release verification caught the mobile MCP journey leaving Use project disabled after
+an early fill. The installation hook originally rendered busy=false with no snapshot,
+then disabled the controls on a deferred initial inspection. Start busy instead so there
+is no initially interactive, uninspected target. Mutations still require an inspected
+revision; backend authorization, target selection and all existing assertions are unchanged.
+
+A regression reproduces the incorrect first-render state for host, named and path targets.
+The browser journey now holds the initial inspection request, verifies disabled controls,
+releases it, checks readiness and the entered value, then performs the same real
+install/uninstall flow across desktop, portrait and landscape. No retries, timing sleeps,
+coverage reductions or skipped checks hide the original CI failure.
+
 ## 2026-09-18 — Inspect Organization fixture permissions and bytes on one descriptor
 
 The combined release's hosted CodeQL scan identified a filesystem race in the new

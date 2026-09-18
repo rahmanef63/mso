@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `extensions` lock project controls until initial inspection
 - `browser` diagnose secure viewer failures without losing power state
 
 **Tests**
