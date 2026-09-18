@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Power, ScanEye } from "lucide-react";
 import { IS_DEMO } from "@/lib/demo";
 import { PowerPanel } from "./power-panel";
-import { fetchStatus, setPower, waitForViewer, type CamoufoxServiceStatus } from "./service-client";
+import { fetchStatus, setPower, waitForViewer, verifyViewerTransport, type CamoufoxServiceStatus } from "./service-client";
 import { camoufoxViewerOrigin } from "@/lib/camoufox/origin";
 
 // A REAL Firefox (Camoufox, anti-fingerprinting) running on a headless X display on
@@ -78,7 +78,13 @@ export default function CamoufoxBrowser() {
     if (signal.aborted) return;
     if (!ready) {
       setError("The browser session started but is not answering. Check its logs on the host.");
-      setStatus((current) => (current ? { ...current, running: false } : current));
+      setSrc(null); // A failed connection must not falsify the host power state.
+      return;
+    }
+    try { await verifyViewerTransport(signal); }
+    catch (cause) {
+      if (!signal.aborted) setError(cause instanceof Error ? cause.message : "The secure viewer is unavailable");
+      setSrc(null);
       return;
     }
     const source = await viewerSrc();
@@ -182,7 +188,9 @@ export default function CamoufoxBrowser() {
           {busy ? "Working…" : "Turn off"}
         </button>
       </header>
-      {error && <p className="shrink-0 bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">{error}</p>}
+      {error && <div role="alert" className="shrink-0 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+        <p>{error}</p><button type="button" disabled={busy} className="mt-2 underline" onClick={() => void power(true)}>Retry connection</button>
+      </div>}
       {src ? (
         <iframe
           src={src}
@@ -193,11 +201,11 @@ export default function CamoufoxBrowser() {
           referrerPolicy="no-referrer"
           allowFullScreen
         />
-      ) : (
+      ) : !error ? (
         <div className="flex min-h-0 w-full flex-1 items-center justify-center gap-2 bg-black text-xs text-white/60">
           <Loader2 className="size-4 animate-spin" /> Connecting to the browser session…
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

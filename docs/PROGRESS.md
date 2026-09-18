@@ -1,3 +1,19 @@
+## 2026-09-18 — Separate Camoufox process health from secure viewer reachability
+
+A running user service and loopback noVNC response did not prove the separate public
+viewer could negotiate TLS. The Browser app now requests an authenticated, rate-limited
+transport diagnosis before fetching its VNC credential. The probe uses the existing
+public-address/DNS-pinned transport, no credentials, no redirects, a bounded wait and
+short in-flight cache. Anonymous denial is recorded only as HTTPS transport evidence,
+never as proof of authenticated VNC access. TLS, DNS and upstream failures are readable.
+Connection failures preserve the service's real running state and expose retry rather
+than an endless spinner. Power help now acknowledges deployment-configured session limits.
+
+Native GitHub verification now displays the validated account login from the official
+user endpoint, while still explicitly declining to claim repository permissions. An
+MSO profile label is not a GitHub account identity. Unexpected payloads and credential
+reflections never enter the account label; no connection, token or account is replaced.
+
 ## 2026-09-17 — Reconcile dependency PRs as one tested release candidate
 
 The continuation preserved the pending cooldown and lock-fixture fixes and reconciled

@@ -21,3 +21,11 @@ describe("Camoufox viewer readiness", () => {
     await expect(waitForViewer(new AbortController().signal, 0)).resolves.toBe(false);
   });
 });
+
+it("surfaces public TLS failure without changing the process state", async () => {
+  const { verifyViewerTransport } = await import("./service-client");
+  const fetchMock = vi.fn(async () => new Response(JSON.stringify({ reachable: false, state: "tls", message: "Viewer TLS failed" }), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(verifyViewerTransport(new AbortController().signal)).rejects.toThrow("Viewer TLS failed");
+  expect(fetchMock).toHaveBeenCalledWith("/api/v1/camoufox/service?probe=viewer", expect.objectContaining({ cache: "no-store" }));
+});
