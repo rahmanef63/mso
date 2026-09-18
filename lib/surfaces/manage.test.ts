@@ -19,6 +19,22 @@ describe("owner-reviewed workflow surface configuration", () => {
     expect(entries[0]).toEqual(unrelated); expect(entries[1]).toMatchObject({ ...app, placements: ["workflows"] });
     expect(out.revision).not.toBe(before.revision); expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
   });
+  it.each([undefined, ["mcp-page"], ["workflows", "mcp-page"]])("preserves prior Page approval when updating %j", async placements => {
+    await fs.writeFile(file, JSON.stringify([{ ...app, ...(placements ? { placements } : {}) }]));
+    await save({ ...app, title: "Updated editor" });
+    const saved = (await surfaceRegistrySnapshot()).apps[0];
+    expect(saved.title).toBe("Updated editor");
+    expect(saved.placements).toEqual(["workflows", "mcp-page"]);
+    await save({ ...app, title: "Updated again" });
+    expect((await surfaceRegistrySnapshot()).apps[0].placements).toEqual(["workflows", "mcp-page"]);
+  });
+  it("never adds Page approval to new or workflow-only entries", async () => {
+    await save();
+    expect((await surfaceRegistrySnapshot()).apps[0].placements).toEqual(["workflows"]);
+    await save({ ...app, title: "Only workflows" });
+    expect((await surfaceRegistrySnapshot()).apps[0].placements).toEqual(["workflows"]);
+    await expect(save({ ...app, placements: ["workflows", "mcp-page"] })).rejects.toThrow("invalid_workflow_placement");
+  });
   it("rejects stale updates and concurrent lost writes", async () => {
     const revision = (await surfaceRegistrySnapshot()).revision;
     await save();

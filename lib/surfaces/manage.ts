@@ -47,7 +47,15 @@ export async function saveWorkflowSurface(input: Record<string, unknown>) {
     if (!Array.isArray(entries) || entries.some((entry) => !entry || typeof entry !== "object" || Array.isArray(entry))) throw new SurfaceConfigError("invalid_existing_surface_registry", 409);
     const matches = entries.filter((entry) => entry.id === selected.id);
     if (matches.length > 1) throw new SurfaceConfigError("duplicate_surface_identity", 409);
-    const next = matches.length ? entries.map((entry) => entry.id === selected.id ? selected : entry) : [...entries, selected];
+    const replacement = { ...selected };
+    // Missing placements is legacy Page approval; this workflow-only operation
+    // may preserve that grant but cannot create a new Page approval.
+    const existing = matches[0];
+    if (existing && (existing.placements === undefined ||
+      (Array.isArray(existing.placements) && existing.placements.includes("mcp-page")))) {
+      replacement.placements = ["workflows", "mcp-page"];
+    }
+    const next = matches.length ? entries.map((entry) => entry.id === selected.id ? replacement : entry) : [...entries, replacement];
     const raw = JSON.stringify(next, null, 2) + "\n";
     if (next.length > 16 || Buffer.byteLength(raw) > MAX_BYTES) throw new SurfaceConfigError("surface_registry_capacity", 409);
     const file = surfaceRegistryPath(), temporary = `${file}.${randomUUID()}.tmp`;

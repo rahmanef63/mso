@@ -1,3 +1,12 @@
+## 2026-09-18 — Preserve existing MCP Page approval during Workflow metadata edits
+
+The shared registry review found that a Workflow-only save replaced a previously shared
+entry with only the Workflows placement. Preserve an existing explicit MCP Page placement,
+or the legacy implicit Page approval, while adding/updating the Workflow placement. New
+and Workflow-only entries still cannot acquire Page approval through this endpoint. Repeated
+saves, prior explicit/legacy grants and refusal of caller-supplied Page escalation are tested;
+revision checks, owner review, unrelated entries and cookie-scope rejection remain intact.
+
 ## 2026-09-18 — Keep external editor links outside the cockpit session-cookie scope
 
 The pending external-editor review exposed a domain-cookie leak: different origins can
