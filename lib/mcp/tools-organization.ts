@@ -22,13 +22,13 @@ export const ORGANIZATION_TOOLS: McpTool[] = [
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false }, audit: { action: "agent.organization", targetArg: "action" }, limit: { key: "organization.write", max: 30, windowMs: 60_000 },
     chatgptDescription: "Edit units/seats or internal project flows. flow_* actions require data.unitId and current revision.",
     inputSchema: S({ action: { type: "string", enum: ["unit_upsert", "seat_upsert", "unit_delete", "seat_delete", "replace", ...ORGANIZATION_FLOW_ACTIONS] }, expected_revision: { type: "string" }, id: { type: "string" }, data: { type: "object", description: "For flow_* actions: unitId is required; flow_custom_nodes uses customNodes=[{id,name,nodeIds,collapsed}], flow_nodes_move uses positions=[{id,position:{x,y}}]; flow_update uses title/notes; flow_replace uses flow={version:1,title,notes,nodes,edges}; flow_node_upsert uses node={id?,title,kind?,status?,summary?,notes?,position?:{x,y},projectRef?}; flow_edge_upsert uses edge={id?,source,target,label?}; deletes use id. Existing node/edge id permits partial update." } }, ["action", "expected_revision"]),
-    run: async (a) => {
+    run: async (a, context) => {
       const action = str(a, "action"), revision = str(a, "expected_revision"), data = a.data && typeof a.data === "object" && !Array.isArray(a.data) ? a.data as Record<string, unknown> : {};
       if (action === "unit_upsert") return { chart: await upsertOrganizationUnit(revision, data) };
       if (action === "seat_upsert") return { chart: await upsertOrganizationSeat(revision, data) };
       if (action === "unit_delete") return { chart: await deleteOrganizationUnit(revision, str(a, "id")) };
       if (action === "seat_delete") return { chart: await deleteOrganizationSeat(revision, str(a, "id")) };
-      if (isOrganizationFlowAction(action)) return { chart: await mutateOrganizationFlow(revision, action, data) };
+      if (isOrganizationFlowAction(action)) return { chart: await mutateOrganizationFlow(revision, action, data, { principal: context.principal }) };
       if (action === "replace") return { chart: await replaceOrganization(revision, data as never) };
       throw new Error("unsupported organization action");
     },

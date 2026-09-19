@@ -13,6 +13,9 @@ password, cockpit cookie, or viewer asset access is broadened.
 
 ## 2026-09-19 — Memory v3 closes the learn → retrieve → expose → reuse loop
 
+- Memory mutation boundaries are now explicit: `agent_memory_remember`, verified `workflow_finish(success=true)`, user-facing Workflow create/save/restore (including session→draft), and Organization `flow_node_upsert`. Workflow/node domain receipts are bounded metadata only; graph configs, node notes, variable values and credentials are excluded.
+- Historical Gitleaks closeout: the two remaining findings were exact older fingerprints of deterministic SC-sync test fixtures. Added only those exact fingerprints to `.gitleaksignore`; a full 820-commit Gitleaks history scan now reports no leaks.
+
 - Replaced terminal/A2A first-12k head truncation with a frozen stable-core + query-relevant JIT memory projection. Defaults are 6k core / 8k JIT characters and are configurable without changing the durable typed-memory ledger.
 - Added deterministic bilingual/synonym normalization for bounded memory retrieval. The calibration improves from 4/6 to 6/6 lexical cases; the existing local semantic candidate stays 3/6, so vector memory remains blocked rather than adding complexity without recall benefit.
 - `workflow_start` compact structured output now carries selected agent/project memory plus the maturity-aware recipe plan, fixing the ChatGPT wrapper path that previously exposed only progress fields.
