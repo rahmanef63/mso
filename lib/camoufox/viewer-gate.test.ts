@@ -97,6 +97,18 @@ describe("the Camoufox split-origin VNC bridge", () => {
     expect(asset.headers.get("cache-control")).toBe("no-store");
   });
 
+  it("forces a network reload after the ticket exchange instead of a hash-only navigation", async () => {
+    const proxy = await load();
+    const response = await proxy(req(VIEWER_HOST, "/__viewer_bootstrap.js"));
+    expect(response.status).toBe(200);
+    const script = await response.text();
+    expect(script).toContain("p.delete('viewer_ticket')");
+    expect(script).toContain("history.replaceState");
+    expect(script).toContain("p.toString()");
+    expect(script).toContain("location.reload()");
+    expect(script).not.toContain("location.replace(");
+  });
+
   it("does not accept the cockpit session cookie on the sibling viewer host", async () => {
     const proxy = await load();
     const page = await proxy(req(

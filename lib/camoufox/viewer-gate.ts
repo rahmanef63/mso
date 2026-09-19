@@ -64,7 +64,8 @@ const BOOTSTRAP_JS = [
   "p.delete('viewer_ticket');",
   "const r=await fetch('/__viewer_auth',{method:'POST',headers:{authorization:'Bearer '+t},credentials:'include',cache:'no-store'});",
   "if(!r.ok){document.body.textContent='Viewer authorization failed.';return;}",
-  "location.replace(location.pathname+location.search+(p.toString()?'#'+p.toString():''));",
+  "history.replaceState(null,'',location.pathname+location.search+(p.toString()?'#'+p.toString():''));",
+  "location.reload();",
   "})().catch(()=>{document.body.textContent='Viewer authorization failed.';});",
 ].join("");
 
