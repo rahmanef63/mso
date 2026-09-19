@@ -69,6 +69,7 @@ Commands:
   zip <base> <name…>   Zip entries of <base> to stdout (redirect it to a .zip)
   upload <local> <dst> Upload a local file into <dst> (the dir must already exist)
   search <q> [root]    Find DIRECTORIES whose name matches (not contents; use exec+grep)
+  project-candidates <project> <query> [limit] [cursor]  Search bounded project path/content candidates
   usage [path]         Disk usage
 
  Host

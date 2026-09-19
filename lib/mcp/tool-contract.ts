@@ -115,7 +115,7 @@ function compactSchema(value: unknown): unknown {
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
     if (key === "additionalProperties" && item === true || key === "required" && Array.isArray(item) && item.length === 0) continue;
     if (key === "workflow_id" && item && typeof item === "object") out[key] = { type:"string" };
-    else if (key === "description" && typeof item === "string") out[key] = compactText(item, 16);
+    else if (key === "description") continue;
     else out[key] = compactSchema(item);
   }
   return out;
@@ -133,7 +133,7 @@ export function toolDescriptor(tool: McpTool, profile: McpToolProfile = "full") 
   return {
     name: tool.name,
     title: tool.title ?? toolTitle(tool.name),
-    description: compact ? compactText(tool.chatgptDescription ?? tool.description, 56) : tool.description,
+    description: compact ? compactText(tool.chatgptDescription ?? tool.description, 48) : tool.description,
     inputSchema: compact ? compactSchema(tool.inputSchema) : tool.inputSchema,
     ...(outputSchema ? { outputSchema: compact ? compactSchema(outputSchema) : outputSchema } : {}),
     securitySchemes,

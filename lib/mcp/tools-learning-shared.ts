@@ -46,6 +46,18 @@ export const WORKFLOW_PROGRESS_OUTPUT = {
           tool: { type: "string" },
           state: { type: "string", enum: ["completed", "failed", "denied", "rate_limited", "invalid_args"] },
           durationMs: { type: "number" }, ts: { type: "string" },
+          replay: {
+            type: "array", maxItems: 4, items: {
+              type: "object",
+              properties: {
+                kind: { type: "string", enum: ["file", "job", "artifact", "cursor"] },
+                path: { type: "string" }, sha256: { type: "string" }, jobId: { type: "string" },
+                artifactId: { type: "string" }, cursor: { type: "string" }, truncated: { type: "boolean" },
+                rereadWith: { type: "string", enum: ["fs_read", "read_pipeline", "exec_job_status", "session_artifacts", "project_candidate_search"] },
+              },
+              required: ["kind"], additionalProperties: false,
+            },
+          },
         },
         required: ["tool", "state", "ts"], additionalProperties: false,
       },
@@ -56,6 +68,10 @@ export const WORKFLOW_PROGRESS_OUTPUT = {
 
 type WorkflowProgressStep = {
   tool: string; state: "completed" | "failed" | "denied" | "rate_limited" | "invalid_args"; durationMs?: number; ts: string;
+  replay?: Array<{
+    kind: "file" | "job" | "artifact" | "cursor"; path?: string; sha256?: string; jobId?: string;
+    artifactId?: string; cursor?: string; truncated?: boolean; rereadWith?: string;
+  }>;
 };
 
 function projectLabel(value: unknown): string | undefined {
@@ -74,8 +90,28 @@ function workflowSteps(value: unknown): WorkflowProgressStep[] {
     const state = step.state;
     if (typeof step.tool !== "string" || typeof step.ts !== "string") continue;
     if (state !== "completed" && state !== "failed" && state !== "denied" && state !== "rate_limited" && state !== "invalid_args") continue;
+    const replay: NonNullable<WorkflowProgressStep["replay"]> = [];
+    if (Array.isArray(step.replay)) {
+      for (const value of step.replay.slice(-4)) {
+        if (!value || typeof value !== "object") continue;
+        const row = value as Record<string, unknown>;
+        const kind = row.kind;
+        if (kind !== "file" && kind !== "job" && kind !== "artifact" && kind !== "cursor") continue;
+        replay.push({
+          kind,
+          ...(typeof row.path === "string" ? { path: row.path.slice(0, 512) } : {}),
+          ...(typeof row.sha256 === "string" ? { sha256: row.sha256.slice(0, 80) } : {}),
+          ...(typeof row.jobId === "string" ? { jobId: row.jobId.slice(0, 160) } : {}),
+          ...(typeof row.artifactId === "string" ? { artifactId: row.artifactId.slice(0, 160) } : {}),
+          ...(typeof row.cursor === "string" ? { cursor: row.cursor.slice(0, 512) } : {}),
+          ...(row.truncated === true ? { truncated: true } : {}),
+          ...(typeof row.rereadWith === "string" ? { rereadWith: row.rereadWith.slice(0, 40) } : {}),
+        });
+      }
+    }
     out.push({ tool: step.tool.slice(0, 100), state,
-      ...(typeof step.durationMs === "number" && Number.isFinite(step.durationMs) ? { durationMs: Math.max(0, step.durationMs) } : {}), ts: step.ts });
+      ...(typeof step.durationMs === "number" && Number.isFinite(step.durationMs) ? { durationMs: Math.max(0, step.durationMs) } : {}),
+      ts: step.ts, ...(replay.length ? { replay } : {}) });
   }
   return out;
 }

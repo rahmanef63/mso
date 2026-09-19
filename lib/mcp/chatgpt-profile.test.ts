@@ -32,12 +32,13 @@ describe("ChatGPT full generic MCP profile", () => {
 
     const bytes = Buffer.byteLength(JSON.stringify(tools));
     if (process.env.MSO_PROFILE_METRICS === "1") console.info(`CHATGPT_PROFILE_METRICS tools=${tools.length} bytes=${bytes} roughTokens4=${Math.ceil(bytes/4)} maxToolBytes=${Math.max(...tools.map((tool)=>Buffer.byteLength(JSON.stringify(tool))))}`);
-    expect(bytes).toBeLessThan(96 * 1024);
+    expect(bytes).toBeLessThan(92 * 1024);
     const start = tools.find((tool) => tool.name === "workflow_start") as { description?: string };
     expect(String(start?.description)).toMatch(/First call for multi-step work/i);
     const search = tools.find((tool) => tool.name === "skills_search") as { description?: string };
     expect(String(search?.description)).toContain("mso-agent-bootstrap");
     expect(tools.some((tool) => tool.name === "local_agent_inbox")).toBe(true);
+    expect(tools.some((tool) => tool.name === "project_candidate_search")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_mcp_tools")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_mcp_call")).toBe(true);
     expect(tools.some((tool) => tool.name === "tool_forge_promote")).toBe(true);

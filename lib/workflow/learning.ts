@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { allows } from "@/lib/capabilities/scope";
-import { embedSkillText, normalizeSemanticText, SKILL_EMBEDDING_VERSION } from "@/lib/skills/semantic";
+import { embedSkillText, hybridSemanticScore, normalizeSemanticText, SKILL_EMBEDDING_VERSION } from "@/lib/skills/semantic";
 import { compactRecipeSteps, elapsedMs, enrichBestSteps, mergeQuality, summarizeWorkflowQuality } from "./quality";
 import { closestRecipe, recipeText } from "./recipes";
 import { safeMemoryText } from "./sanitize";
@@ -9,6 +9,7 @@ import { loadWorkflowStore, persistWorkflowStore } from "./storage";
 import type { FinishWorkflowResult, LearnedRecipe, RecipeAccess, WorkflowStepProvenance } from "./types";
 import { ensureLearnedWorkflowGraph } from "./graph-store";
 import { archiveLearnedRecipes, listArchivedLearnedRecipes } from "./recipe-archive";
+import { mergeCandidatePools } from "./candidate-pool";
 import { rememberAgentMemory } from "@/lib/agent/memory-store";
 
 export async function finishWorkflow(input: {
@@ -43,6 +44,9 @@ export async function finishWorkflow(input: {
     const successes = existing.successes + (input.success ? 1 : 0);
     const failures = existing.failures + (input.success ? 0 : 1);
     const faster = input.success && (existing.fastestDurationMs == null || durationMs < existing.fastestDurationMs);
+    const candidatePool = input.success
+      ? mergeCandidatePools(existing.candidatePool, workflow.candidatePool)
+      : existing.candidatePool;
     recipe = {
       ...existing,
       actor: recipeOwner,
@@ -55,6 +59,7 @@ export async function finishWorkflow(input: {
       embedding: vector,
       lastSteps: learnedSteps,
       bestSteps: faster ? compactSteps : (input.success ? enrichBestSteps(existing.bestSteps, compactSteps) : existing.bestSteps),
+      ...(candidatePool ? { candidatePool } : {}),
       attempts,
       successes,
       failures,
@@ -74,6 +79,7 @@ export async function finishWorkflow(input: {
       normalizedIntent: normalizeSemanticText(workflow.intent), project: workflow.project, summary,
       embeddingVersion: SKILL_EMBEDDING_VERSION, embedding: vector,
       bestSteps: input.success ? compactSteps : [], lastSteps: learnedSteps,
+      ...(input.success && workflow.candidatePool ? { candidatePool: workflow.candidatePool } : {}),
       attempts: 1, successes: input.success ? 1 : 0, failures: input.success ? 0 : 1,
       averageDurationMs: durationMs, fastestDurationMs: input.success ? durationMs : undefined, lastDurationMs: durationMs,
       averageWallDurationMs: wallMs, lastWallDurationMs: wallMs,
@@ -117,6 +123,30 @@ export async function finishWorkflow(input: {
     ...(previousFastestMs != null ? { previousFastestMs } : {}),
     ...(improvedByMs != null ? { improvedByMs, improvedPct: Math.round((improvedByMs / previousFastestMs!) * 1000) / 10 } : {}),
   };
+}
+
+
+
+export async function findReusableRecipe(input: {
+  actor: string;
+  scope: import("@/lib/capabilities/scope").Scope;
+  intent: string;
+  project?: string;
+}): Promise<LearnedRecipe | undefined> {
+  const store = await loadWorkflowStore();
+  const prepared = recipeText(input.intent, input.project);
+  let best: { recipe: LearnedRecipe; score: number } | undefined;
+  for (const recipe of Object.values(store.recipes)) {
+    if (recipe.actor !== input.actor || !allows(input.scope, recipe.scope) || recipe.successes < 1 || !recipe.candidatePool) continue;
+    if ((recipe.project ?? "") !== (input.project ?? "")) continue;
+    const score = hybridSemanticScore(
+      prepared,
+      recipeText(recipe.intent, recipe.project, recipe.summary),
+      recipe.embeddingVersion === SKILL_EMBEDDING_VERSION ? recipe.embedding : undefined,
+    ) + (recipe.normalizedIntent === normalizeSemanticText(input.intent) ? 0.2 : 0);
+    if (!best || score > best.score) best = { recipe, score };
+  }
+  return best && best.score >= 0.48 ? best.recipe : undefined;
 }
 
 export async function listLearnedRecipes(access: RecipeAccess): Promise<LearnedRecipe[]> {

@@ -4,5 +4,6 @@ export type {
   Unsub, HostAccessRole, HostAccess, SysStats, FsEntry, FsRoot, FsList, FsUsage, FsHit,
   UploadFile, UploadResult, UploadProgress, ExecResult, Process, ServiceScope, ServiceAction,
   SystemService, ServiceInventory, ServiceLogs, PackageUpdate, PackageUpdateSummary, AppManifest,
-  ManagedAppSummary, ManagedAppAction, BrowserState, OsApi,
+  ManagedAppSummary, ManagedAppAction, BrowserState, ProjectCandidateRow, ProjectCandidateContentMatch,
+  ProjectCandidateSearchResult, OsApi,
 } from "@/lib/contracts/os-api";

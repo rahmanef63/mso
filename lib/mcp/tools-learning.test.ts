@@ -25,10 +25,12 @@ const previous = {
   read: process.env.OS_FS_READ_ROOTS,
   write: process.env.OS_FS_WRITE_ROOTS,
   memory: process.env.OS_SKILL_MEMORY_STORE,
+  candidateIndex: process.env.MSO_CANDIDATE_INDEX_DIR,
 };
 process.env.OS_FS_READ_ROOTS = dir;
 process.env.OS_FS_WRITE_ROOTS = dir;
 process.env.OS_SKILL_MEMORY_STORE = path.join(dir, "memory.json");
+process.env.MSO_CANDIDATE_INDEX_DIR = path.join(dir, "candidate-cache");
 const { resetWorkflowStoreCache } = await import("@/lib/workflow");
 const { projectRefFor } = await import("@/lib/skills/project-skills");
 const { LEARNING_TOOLS } = await import("./tools-learning");
@@ -49,6 +51,8 @@ describe("workflow_start bootstrap", () => {
     else process.env.OS_FS_WRITE_ROOTS = previous.write;
     if (previous.memory === undefined) delete process.env.OS_SKILL_MEMORY_STORE;
     else process.env.OS_SKILL_MEMORY_STORE = previous.memory;
+    if (previous.candidateIndex === undefined) delete process.env.MSO_CANDIDATE_INDEX_DIR;
+    else process.env.MSO_CANDIDATE_INDEX_DIR = previous.candidateIndex;
     resetWorkflowStoreCache();
     await fs.rm(dir, { recursive: true, force: true });
   });
@@ -124,6 +128,57 @@ describe("workflow_start bootstrap", () => {
     expect(result.bootstrap.discovery.complete).toBe(true);
     expect(result.bootstrap.discovery.catalog.truncated).toBe(false);
     expect(result.bootstrap.trace.some((line) => line.startsWith("[Discovery]"))).toBe(false);
+  });
+
+
+
+  it("reuses the prior redacted candidate pool instead of repeating global skill/path discovery", async () => {
+    await fs.writeFile(path.join(project, "workflow-reuse.md"), "workflow reuse candidate\n");
+    const start = LEARNING_TOOLS.find((tool) => tool.name === "workflow_start")!;
+    const finish = LEARNING_TOOLS.find((tool) => tool.name === "workflow_finish")!;
+    const context = { actor: "mcp:reuse-bootstrap", scope: "write" as const };
+    const first = await start.run({
+      intent: "workflow reuse candidate",
+      project,
+    }, context) as {
+      workflow: { id: string };
+      search: { engine: string };
+      bootstrap: { discovery: { candidatePool?: { source: string; candidates: Array<{ path: string }> } } };
+    };
+    expect(first.search.engine).not.toBe("candidate-pool-reuse-v1");
+    expect(first.bootstrap.discovery.candidatePool?.source).toBe("host-index");
+    expect(first.bootstrap.discovery.candidatePool?.candidates.map((row) => row.path)).toContain("workflow-reuse.md");
+    const { recordWorkflowStep } = await import("@/lib/workflow");
+    await recordWorkflowStep(context.actor, first.workflow.id, {
+      id: "mcp-candidate", tool: "project_mcp_tools", state: "completed",
+      args: { project: "mso", server: "si-coder" }, ts: new Date().toISOString(),
+    });
+    await recordWorkflowStep(context.actor, first.workflow.id, {
+      id: "connection-candidate", tool: "integration_query", state: "completed",
+      args: { connection: "github-main", provider: "github" }, ts: new Date().toISOString(),
+    });
+    await finish.run({ workflow_id: first.workflow.id, summary: "verified reusable candidate pool", success: true }, context);
+
+    const second = await start.run({
+      intent: "workflow reuse candidate",
+      project,
+    }, context) as {
+      workflow: { id: string };
+      search: { engine: string; recommendedRecipe?: unknown };
+      bootstrap: { discovery: { candidatePool?: {
+        source: string; reused: boolean; candidates: Array<{ path: string }>;
+        hints?: { paths: string[]; skillIds: string[]; connectionIds: string[]; mcpAliases: string[] };
+      } } };
+    };
+    expect(second.search.engine).toBe("candidate-pool-reuse-v1");
+    expect(second.search.recommendedRecipe).toBeUndefined();
+    expect(second.bootstrap.discovery.candidatePool).toMatchObject({ source: "recipe-reuse", reused: true });
+    expect(second.bootstrap.discovery.candidatePool?.candidates.map((row) => row.path)).toContain("workflow-reuse.md");
+    expect(second.bootstrap.discovery.candidatePool?.hints).toMatchObject({
+      paths: expect.arrayContaining(["workflow-reuse.md"]),
+      connectionIds: ["github-main"],
+      mcpAliases: ["si-coder"],
+    });
   });
 
   it("supports parallel conversations and exposes explicit cancel/finish ids", async () => {

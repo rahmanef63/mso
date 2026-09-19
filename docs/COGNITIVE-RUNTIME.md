@@ -89,6 +89,44 @@ Environment overrides are documented in `.env.example`:
 `OS_AGENT_SESSION_COMPACT_TOKENS`, `OS_AGENT_SESSION_RECENT_TOKENS`,
 `OS_AGENT_SESSION_ARCHIVE_DIR`, and `OS_AGENT_SESSION_ARCHIVE_DAYS`.
 
+## Bounded replay and sparse candidate reuse
+
+MSO applies input-heavy-agent lessons at the **control-plane** boundary only. The naming is
+an analogy to DeepSeek-V4.1-Flash (arXiv:2609.19969), not a runtime dependency. There is no
+vendor runtime, model layer, KV implementation, precision mode, or architecture-specific
+dependency in this design.
+
+- **Bounded Replay** — workflow steps persist only sanitized execution metadata plus up to
+  six durable replay handles (`path` + optional SHA-256, job id, artifact id, or cursor).
+  Raw tool bodies/stdout are not copied into learned recipes. `workflow_status` exposes at
+  most the recent step window and four handles per step; callers re-read explicitly with
+  `read_pipeline`, `exec_job_status`, `session_artifacts`, or the candidate-search cursor.
+  Cold session/archive content stays cold unless explicitly requested.
+- **Owner-local candidate index** — `project_candidate_search` is a `read`-scoped,
+  bounded two-stage lookup. The private cache lives under
+  `~/.mso/cache/candidate-index-v1` (or `MSO_CANDIDATE_INDEX_DIR`), stores path/skill
+  metadata rather than a repository mirror, excludes Git/dependency/build/credential
+  paths and symlinks, and invalidates on the supplied repository revision or a bounded
+  directory-structure fingerprint. Stage two reads content only inside the ranked page.
+  Pagination is cursored and truncation is explicit.
+- **Candidate-pool reuse** — successful recipes may carry only redacted path, skill-id,
+  connection-id, and MCP-alias candidates. A later `workflow_start` for the same recipe
+  owner, compatible scope, and exact project may validate/reuse that pool instead of
+  repeating global skill/path discovery. Reuse never supplies credentials and never
+  bypasses current identity, project resolution, tool visibility, scope checks,
+  confirmations, rate limits, or host guards.
+- **Descriptor flattening** — ChatGPT still receives every callable MSO tool in
+  `tools/list`. Its compact profile removes repeated property-description prose while
+  preserving names, types, required fields, enums, limits, security metadata and output
+  contracts. `workflow_start` also returns bounded `activePack` orientation metadata;
+  that is a hint, not an allowlist.
+
+These primitives are shared below presentation adapters. Terminal `mso`, generic MCP
+clients (Cursor/Grok/Claude/etc.), ChatGPT, and Alfa-via-`mso`-gateway therefore retain
+the same maximum host capabilities and policy boundaries; only schema/presentation cost
+differs. The bootstrap sequence remains unchanged; see
+[`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md).
+
 ## Deferred capability selection
 
 The external MCP server keeps a stable, complete scope-filtered catalog for standards interoperability.

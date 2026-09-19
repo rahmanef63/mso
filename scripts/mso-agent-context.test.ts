@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { modelHistoryBudget, projectHistoryForModel } from "./mso-agent-context.mjs";
+import { compactConsumedReadToolResults, modelHistoryBudget, projectHistoryForModel } from "./mso-agent-context.mjs";
 
 describe("MSO model context projection", () => {
   it("reserves provider-neutral headroom instead of filling the whole context window", () => {
@@ -26,4 +26,51 @@ describe("MSO model context projection", () => {
     const out = projectHistoryForModel([...old, call, result], 32_000);
     expect(out.messages.slice(-2)).toEqual([call, result]);
   });
+
+  it("compacts consumed read results into replay handles but leaves write receipts intact", () => {
+    const readCall = {
+      role: "assistant",
+      text: "",
+      toolUses: [{ id: "r1", name: "fs_read", input: { path: "/repo/src/app.ts" } }],
+    };
+    const secret = "raw-secret-that-must-not-survive";
+    const readResult = {
+      role: "tool",
+      results: [{
+        id: "r1",
+        content: JSON.stringify({
+          path: "/repo/src/app.ts",
+          sha256: "a".repeat(64),
+          content: secret,
+        }),
+      }],
+    };
+    const writeCall = {
+      role: "assistant",
+      text: "",
+      toolUses: [{ id: "w1", name: "fs_write", input: { path: "/repo/src/app.ts", content: "new" } }],
+    };
+    const writeResult = { role: "tool", results: [{ id: "w1", content: "write-receipt" }] };
+    const history = [readCall, readResult, writeCall, writeResult];
+    const compacted = compactConsumedReadToolResults(history, [
+      { name: "fs_read", scope: "read" },
+      { name: "fs_write", scope: "write" },
+    ]);
+
+    expect(compacted).toBe(1);
+    const envelope = JSON.parse(String(readResult.results[0].content));
+    expect(envelope).toMatchObject({
+      msoReplay: true,
+      handles: expect.arrayContaining([
+        expect.objectContaining({ kind: "file", path: "/repo/src/app.ts", rereadWith: "read_pipeline" }),
+      ]),
+    });
+    expect(JSON.stringify(readResult)).not.toContain(secret);
+    expect(writeResult.results[0].content).toBe("write-receipt");
+    expect(compactConsumedReadToolResults(history, [
+      { name: "fs_read", scope: "read" },
+      { name: "fs_write", scope: "write" },
+    ])).toBe(0);
+  });
+
 });

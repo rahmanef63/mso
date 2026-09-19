@@ -13,16 +13,8 @@ import type {
   WorkflowStepProvenance,
 } from "./types";
 
-export function safeMemoryText(value: string, max: number): string {
-  const out = value
-    .replace(/([?&](?:token|key|secret|password|code)=)[^&\s]+/gi, "$1[redacted]")
-    .replace(/\b(password|token|secret|api[_-]?key)\s*[:=]\s*\S+/gi, "$1=[redacted]")
-    .replace(/\b(?:bearer\s+)?(?:sk|pk|ghp|mso_mcp)_[a-z0-9_-]{8,}\b/gi, "[redacted]")
-    .replace(/\b[a-f0-9]{48,}\b/gi, "[opaque-id]")
-    .trim();
-  return out.length > max ? `${out.slice(0, max)}…` : out;
-}
-
+import { safeMemoryText, sanitizeCandidatePool, sanitizeReplayHandles } from "./replay-sanitize";
+export { safeMemoryText, sanitizeCandidatePool, sanitizeReplayHandles } from "./replay-sanitize";
 export function sanitizeOrchestration(value: unknown): WorkflowOrchestrationSnapshot | undefined {
   if (!value || typeof value !== "object") return undefined;
   const row = value as Partial<WorkflowOrchestrationSnapshot>;
@@ -139,6 +131,7 @@ export function sanitizeStoredStep(value: unknown): WorkflowStep | null {
     target: safeTarget(row.tool, row.target), args: safeArgs(row.tool, row.args),
     ...(durationMs != null ? { durationMs } : {}),
     ts: Number.isFinite(Date.parse(row.ts)) ? new Date(row.ts).toISOString() : new Date(0).toISOString(),
+    ...(sanitizeReplayHandles(row.replay) ? { replay: sanitizeReplayHandles(row.replay) } : {}),
     ...(safeProvenance(row.provenance) ? { provenance: safeProvenance(row.provenance) } : {}),
   };
 }
@@ -161,6 +154,7 @@ export function normalizeActive(value: unknown): ActiveWorkflowBuckets {
         project: candidate.project ? safeMemoryText(candidate.project, 240) || undefined : undefined,
         constraints: candidate.constraints ? safeMemoryText(candidate.constraints, 500) || undefined : undefined,
         orchestration: sanitizeOrchestration(candidate.orchestration),
+        ...(sanitizeCandidatePool(candidate.candidatePool) ? { candidatePool: sanitizeCandidatePool(candidate.candidatePool) } : {}),
         steps: candidate.steps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)),
       };
       continue;
@@ -174,6 +168,7 @@ export function normalizeActive(value: unknown): ActiveWorkflowBuckets {
         project: workflow.project ? safeMemoryText(workflow.project, 240) || undefined : undefined,
         constraints: workflow.constraints ? safeMemoryText(workflow.constraints, 500) || undefined : undefined,
         orchestration: sanitizeOrchestration(workflow.orchestration),
+        ...(sanitizeCandidatePool(workflow.candidatePool) ? { candidatePool: sanitizeCandidatePool(workflow.candidatePool) } : {}),
         steps: workflow.steps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)),
       };
     }
@@ -197,6 +192,7 @@ export function normalizeRecipes(value: unknown): Record<string, LearnedRecipe> 
       summary: safeMemoryText(typeof row.summary === "string" ? row.summary : "completed", 1200) || "completed",
       bestSteps: row.bestSteps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)),
       lastSteps: Array.isArray(row.lastSteps) ? row.lastSteps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)) : [],
+      ...(sanitizeCandidatePool(row.candidatePool) ? { candidatePool: sanitizeCandidatePool(row.candidatePool) } : {}),
       quality: normalizeQuality(row.quality), lastQuality: normalizeQuality(row.lastQuality),
       ...(row.qualityVersion === 1 ? { qualityVersion: 1 as const } : {}),
     };

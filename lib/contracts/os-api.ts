@@ -42,6 +42,25 @@ export type AppManifest = { name: string; slug: string; runtime: string; entry: 
 export type ManagedAppSummary = { id: string; name: string; installed: boolean; running: boolean };
 export type ManagedAppAction = "start" | "stop" | "restart" | "backup";
 export type BrowserState = { installed: boolean; running: boolean; autostart: boolean };
+export type ProjectCandidateRow = {
+  path: string;
+  kind: "path" | "skill";
+  size: number;
+  score: number;
+};
+export type ProjectCandidateContentMatch = { path: string; line: number; preview: string };
+export type ProjectCandidateSearchResult = {
+  project: { id: string; name: string; path: string };
+  revision: string;
+  rebuilt: boolean;
+  reusedSeed: boolean;
+  indexedEntries: number;
+  candidates: ProjectCandidateRow[];
+  matches: ProjectCandidateContentMatch[];
+  truncated: boolean;
+  truncationReasons: string[];
+  cursor?: string;
+};
 
 export type OsApi = {
   mode: "mock" | "live";
@@ -78,4 +97,7 @@ export type OsApi = {
     power: (id: string, action: ManagedAppAction) => Promise<ManagedAppSummary>;
   };
   browser: { status: () => Promise<BrowserState>; power: (on: boolean) => Promise<BrowserState> };
+  projects: {
+    candidateSearch: (project: string, query: string, limit?: number, cursor?: string) => Promise<ProjectCandidateSearchResult>;
+  };
 };

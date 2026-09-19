@@ -91,7 +91,7 @@ mso_cli_main() {
   if [ "$cmd" = agent ] || [ "$cmd" = chat ]; then set -- "${AGENT_START_ARGS[@]}" "$@"; fi
 
   case "$cmd" in
-    version|--version|-V|-v|ls|cat|raw|share|usage|search|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|cleanup|status|health|doctor)
+    version|--version|-V|-v|ls|cat|raw|share|usage|search|project-candidates|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|cleanup|status|health|doctor)
       mso_cmd_host "$cmd" "$@" ;;
     agent|chat|model|setup|onboard|provider|providers|integrations|flow|workflow|gateway|web|camoufox|apps|mapp|term)
       mso_cmd_runtime "$cmd" "$@" ;;

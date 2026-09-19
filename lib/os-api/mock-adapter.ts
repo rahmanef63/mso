@@ -103,5 +103,18 @@ export function MockAdapter(): OsApi {
       status: () => delay({ installed: true, running: false, autostart: false }),
       power: (on) => delay({ installed: true, running: on, autostart: false }, 400),
     },
+    projects: {
+      candidateSearch: (project, query) => delay({
+        project: { id: `mock/${project || "demo"}`, name: project || "demo", path: `/mock/projects/${project || "demo"}` },
+        revision: "mock",
+        rebuilt: false,
+        reusedSeed: false,
+        indexedEntries: 1,
+        candidates: query ? [{ path: "src/demo.ts", kind: "path" as const, size: 128, score: 1 }] : [],
+        matches: query ? [{ path: "src/demo.ts", line: 1, preview: `mock candidate for ${query}` }] : [],
+        truncated: false,
+        truncationReasons: [],
+      }),
+    },
   };
 }

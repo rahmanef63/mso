@@ -4,6 +4,29 @@ import type { WorkflowOrchestrationSnapshot } from "@/lib/contracts/orchestratio
 export type WorkflowStepState = "completed" | "failed" | "denied" | "rate_limited" | "invalid_args";
 export type RecipeMaturity = "observed" | "candidate" | "verified";
 
+export type WorkflowReplayHandle = {
+  kind: "file" | "job" | "artifact" | "cursor";
+  path?: string;
+  sha256?: string;
+  jobId?: string;
+  artifactId?: string;
+  cursor?: string;
+  truncated?: boolean;
+  rereadWith?: "fs_read" | "read_pipeline" | "exec_job_status" | "session_artifacts" | "project_candidate_search";
+};
+
+export type WorkflowCandidatePool = {
+  version: 1;
+  revision?: string;
+  paths: string[];
+  skillIds: string[];
+  connectionIds: string[];
+  mcpAliases: string[];
+  truncated?: boolean;
+  cursor?: string;
+  reusedFromRecipe?: string;
+};
+
 export type WorkflowStepProvenance = {
   /** Human-readable session label only; internal session ids never enter learned recipes. */
   sessionLabel: string;
@@ -22,6 +45,7 @@ export type WorkflowStep = {
   args?: Record<string, string | number | boolean>;
   durationMs?: number;
   ts: string;
+  replay?: WorkflowReplayHandle[];
   provenance?: WorkflowStepProvenance;
 };
 
@@ -35,6 +59,7 @@ export type ActiveWorkflow = {
   project?: string;
   constraints?: string;
   orchestration?: WorkflowOrchestrationSnapshot;
+  candidatePool?: WorkflowCandidatePool;
   startedAt: string;
   steps: WorkflowStep[];
 };
@@ -57,6 +82,7 @@ export type LearnedRecipe = {
   embedding: number[];
   bestSteps: WorkflowStep[];
   lastSteps: WorkflowStep[];
+  candidatePool?: WorkflowCandidatePool;
   attempts: number;
   successes: number;
   failures: number;

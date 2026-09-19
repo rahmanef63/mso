@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { Scope } from "@/lib/capabilities/scope";
 import type { WorkflowOrchestrationSnapshot } from "@/lib/contracts/orchestration";
-import { safeMemoryText, sanitizeOrchestration, sanitizeStoredStep } from "./sanitize";
+import { safeMemoryText, sanitizeCandidatePool, sanitizeOrchestration, sanitizeStoredStep } from "./sanitize";
+import { candidatePoolFromStep, mergeCandidatePools } from "./candidate-pool";
 import { actorKey, pruneStaleWorkflows, removeActiveWorkflow, workflowFor } from "./state";
 import { loadWorkflowStore, persistWorkflowStore } from "./storage";
-import type { ActiveWorkflow, CancelWorkflowResult, WorkflowStepInput } from "./types";
+import type { ActiveWorkflow, CancelWorkflowResult, WorkflowCandidatePool, WorkflowStepInput } from "./types";
 
 const MAX_ACTIVE_PER_ACTOR = 20;
 
@@ -15,6 +16,7 @@ export async function startWorkflow(input: {
   project?: string;
   constraints?: string;
   orchestration?: WorkflowOrchestrationSnapshot;
+  candidatePool?: WorkflowCandidatePool;
 }): Promise<{ workflow: ActiveWorkflow; activeWorkflowCount: number }> {
   const actor = actorKey(input.actor);
   const scope: Scope = input.scope ?? "read";
@@ -30,6 +32,7 @@ export async function startWorkflow(input: {
     project: input.project ? safeMemoryText(input.project, 240) || undefined : undefined,
     constraints: input.constraints ? safeMemoryText(input.constraints, 500) || undefined : undefined,
     orchestration: sanitizeOrchestration(input.orchestration),
+    ...(sanitizeCandidatePool(input.candidatePool) ? { candidatePool: sanitizeCandidatePool(input.candidatePool) } : {}),
     startedAt: new Date().toISOString(), steps: [],
   };
   (store.active[actor] ??= {})[workflow.id] = workflow;
@@ -55,6 +58,10 @@ export async function recordWorkflowStep(actor: string | undefined, workflowId: 
   const sanitized = sanitizeStoredStep(step);
   if (!sanitized) return;
   workflow.steps.push(sanitized);
+  workflow.candidatePool = mergeCandidatePools(
+    workflow.candidatePool,
+    candidatePoolFromStep(step, workflow.project, sanitized.replay ?? []),
+  );
   if (workflow.steps.length > 300) workflow.steps.splice(0, workflow.steps.length - 300);
   await persistWorkflowStore(store, true);
 }

@@ -2,31 +2,26 @@ import { ownedArtifactSession, prepareSessionArtifacts } from "@/lib/agent/artif
 import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
 import { listLearnedRecipes, markRecipeUsed, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
 import { ensureLearnedWorkflowGraph, findMatchingWorkflowGraph } from "@/lib/workflow/graph-store";
-import { searchSkillMemory } from "@/lib/skills/search";
 import { progressiveVerification } from "@/lib/orchestration/automation";
 import { routeIntentText } from "@/lib/orchestration/capability-catalog.mjs";
 import { classifyTask, gitChangedPaths } from "@/lib/orchestration/classifier";
 import { searchRepoMemory } from "@/lib/orchestration/repo-memory";
 import { readAutomationScript } from "@/lib/orchestration/repo-memory-artifacts";
 import type { WorkflowOrchestrationSnapshot } from "@/lib/orchestration/types";
-import type { McpTool } from "./tool-kit";
-import { opt, S, str } from "./tool-kit";
+import { type McpTool, opt, S, str } from "./tool-kit";
 import { toolsetInfo } from "./toolset";
 import { optionalStringList, visibleTools, WORKFLOW_PROGRESS_OUTPUT, workflowProgress } from "./tools-learning-shared";
 import { AGENT_BOOTSTRAP_SKILL, workflowOrientation, workflowStartPolicy } from "./instructions";
-
-export const WORKFLOW_START_TOOL: McpTool =
-  {
+import { workflowStartCandidateContext } from "./workflow-start-candidates";
+export const WORKFLOW_START_TOOL: McpTool = {
     name: "workflow_start",
     description: "First call for multi-step work: resolve project context, search trusted skills/recipes/graphs, and return workflow_id. Carry that exact id on later steps. Read official skill mso-agent-bootstrap when learning the MSO map.",
     chatgptDescription: "First call for multi-step work; keep workflow_id.",
     scope: "write",
     annotations: { idempotentHint: false },
     outputSchema: WORKFLOW_PROGRESS_OUTPUT,
-    toStructuredContent: (result) => {
-      if (!result || typeof result !== "object") return undefined;
-      return workflowProgress((result as { workflow?: unknown }).workflow, true);
-    },
+    toStructuredContent: (result) => result && typeof result === "object"
+      ? workflowProgress((result as { workflow?: unknown }).workflow, true) : undefined,
     limit: { key: "workflow.memory", max: 30, windowMs: 60_000 },
     audit: { action: "workflow.start" as const, targetArg: "project" },
     inputSchema: S({
@@ -46,23 +41,17 @@ export const WORKFLOW_START_TOOL: McpTool =
       const project = projectHint ? await resolveProjectHint(projectHint).catch(() => null) : null;
       const tools = await visibleTools(context.scope, context.toolProfile);
       const intentRoute = routeIntentText(intent);
-      const routedTools = intentRoute.catalogMatched
-        ? tools.filter((tool) => intentRoute.tools.includes(tool.name) || tool.name === "workflow_start")
-        : tools;
-      const search = await searchSkillMemory(intent, {
-        topK: intentRoute.catalogMatched ? 5 : 7,
-        recipeAccess: { actor: recipeOwner, scope: context.scope },
-        toolDocs: routedTools.map((tool) => ({
-          name: tool.name, description: tool.description, scope: tool.scope, inputSchema: tool.inputSchema,
-        })),
-      });
-      const [repository, projectKnowledge] = project
-        ? await Promise.all([
-          inspectProject(project, { includeGitStatus: context.scope === "exec" }).catch(() => undefined),
-          readProjectKnowledge(project.path).catch(() => undefined),
-        ])
-        : [undefined, undefined] as const;
+      const routedTools = intentRoute.catalogMatched ? tools.filter((tool) =>
+        intentRoute.tools.includes(tool.name) || tool.name === "workflow_start") : tools;
+      const [repository, projectKnowledge] = project ? await Promise.all([
+        inspectProject(project, { includeGitStatus: context.scope === "exec" }).catch(() => undefined),
+        readProjectKnowledge(project.path).catch(() => undefined),
+      ]) : [undefined, undefined] as const;
       const changedPaths = gitChangedPaths(repository?.git.changes ?? []);
+      const { search, reusablePool, candidateSearch, candidatePool } = await workflowStartCandidateContext({
+        intent, recipeOwner, scope: context.scope, project, projectHint, repository,
+        catalogMatched: intentRoute.catalogMatched, routedTools,
+      });
       const affectedPaths = optionalStringList(a.affected_paths, 80);
       const reservedResources = optionalStringList(a.reserved_resources, 40);
       const contention = project
@@ -75,16 +64,15 @@ export const WORKFLOW_START_TOOL: McpTool =
       });
       const memoryLimit = classification.memoryRelevance === "high" ? 5 : classification.memoryRelevance === "medium" ? 3 : 0;
       const repoMemory = project && memoryLimit > 0
-        ? await searchRepoMemory(project.path, { query: intent, limit: memoryLimit }).catch(() => [])
-        : [];
+        ? await searchRepoMemory(project.path, { query: intent, limit: memoryLimit }).catch(() => []) : [];
       const reusableScript = project && search.recommendedRecipe
         ? await readAutomationScript(project.path, `script_${search.recommendedRecipe.id}`).catch(() => null)
         : null;
       const projectKeys = [project?.id, project?.path, project?.name, projectHint].filter((value): value is string => Boolean(value));
       let graphAutomation = await findMatchingWorkflowGraph(recipeOwner, intent, projectKeys).catch(() => null);
       if (!graphAutomation && search.recommendedRecipe) {
-        const fullRecipe = (await listLearnedRecipes({ actor: recipeOwner, scope: context.scope }))
-          .find((recipe) => recipe.id === search.recommendedRecipe?.id);
+        const fullRecipe = (await listLearnedRecipes({ actor: recipeOwner, scope: context.scope })).find(
+          (recipe) => recipe.id === search.recommendedRecipe?.id);
         if (fullRecipe) graphAutomation = await ensureLearnedWorkflowGraph(fullRecipe).catch(() => null);
       }
       const recipePlan = search.recommendedRecipe ? {
@@ -92,9 +80,8 @@ export const WORKFLOW_START_TOOL: McpTool =
         attempts: search.recommendedRecipe.attempts ?? 0,
         successRate: search.recommendedRecipe.successRate ?? 0,
         maturity: search.recommendedRecipe.maturity ?? "candidate",
-        steps: (search.recommendedRecipe.steps ?? []).slice(0, 12).map((step) => ({
-          tool: step.tool, target: step.target, args: step.args,
-        })),
+        steps: (search.recommendedRecipe.steps ?? []).slice(0, 12).map((step) => (
+          { tool: step.tool, target: step.target, args: step.args })),
         instruction: reusableScript
           ? (reusableScript.status === "tested" ? "Prefer the tested script path below when current evidence is compatible." : "A script candidate exists; verify it before treating the route as tested.")
           : search.recommendedRecipe.maturity === "verified"
@@ -120,6 +107,7 @@ export const WORKFLOW_START_TOOL: McpTool =
         intent,
         ...(projectKnowledge?.content ? [projectKnowledge.content] : []),
         ...repoMemory.map((hit) => `${hit.record.title} ${hit.record.summary}`),
+        ...(candidateSearch?.matches ?? []).map((match) => `${match.path}:${match.line} ${match.preview}`),
         compactSearch.recommendedRecipe?.description ?? "",
       ].join("\n").length / 4);
       const orchestration: WorkflowOrchestrationSnapshot = {
@@ -136,10 +124,26 @@ export const WORKFLOW_START_TOOL: McpTool =
         ...(search.recommendedRecipe ? { recipeUsed: search.recommendedRecipe.id } : {}),
         createdAt: new Date().toISOString(),
       };
-      const toolset = toolsetInfo(tools, context.scope, context.toolProfile);
+      const toolset = {
+        ...toolsetInfo(tools, context.scope, context.toolProfile),
+        activePack: { source: intentRoute.catalogMatched ? "catalog" : "semantic-fallback",
+          count: routedTools.length, names: routedTools.map((tool) => tool.name).slice(0, 20) },
+      };
       const discovery = {
         catalog: search.catalog,
-        complete: !search.catalog.truncated,
+        complete: !search.catalog.truncated && !(candidateSearch?.truncated ?? false),
+        candidatePool: candidateSearch || candidatePool ? {
+          source: reusablePool ? "recipe-reuse" : "host-index",
+          reused: candidateSearch?.reusedSeed ?? Boolean(reusablePool),
+          revision: candidateSearch?.revision ?? candidatePool?.revision,
+          candidates: candidateSearch?.candidates.slice(0, 12) ?? [],
+          matches: candidateSearch?.matches.slice(0, 12) ?? [],
+          truncated: candidateSearch?.truncated ?? candidatePool?.truncated ?? false,
+          truncationReasons: candidateSearch?.truncationReasons ?? [],
+          hints: candidatePool ? { paths: candidatePool.paths.slice(0, 12), skillIds: candidatePool.skillIds.slice(0, 12),
+            connectionIds: candidatePool.connectionIds.slice(0, 12), mcpAliases: candidatePool.mcpAliases.slice(0, 12) } : undefined,
+          ...(candidateSearch?.cursor ? { cursor: candidateSearch.cursor } : candidatePool?.cursor ? { cursor: candidatePool.cursor } : {}),
+        } : undefined,
       };
       const started = await startWorkflow({
         actor,
@@ -148,6 +152,7 @@ export const WORKFLOW_START_TOOL: McpTool =
         project: project?.path ?? projectHint,
         constraints: opt(a, "constraints"),
         orchestration,
+        candidatePool,
       });
       if (search.recommendedRecipe) {
         await markRecipeUsed(search.recommendedRecipe.id, { actor: recipeOwner, scope: context.scope }).catch(() => undefined);
@@ -198,7 +203,8 @@ export const WORKFLOW_START_TOOL: McpTool =
             ...(graphAutomation ? [`[Workflow graph] ${graphAutomation.status} · ${graphAutomation.name} · ${graphAutomation.metadata.provenance ?? "private"}`] : [`[Workflow graph] no matching private graph; successful completion will seed a learned draft`]),
             ...(reusableScript ? [`[Automation] ${reusableScript.status} script ${reusableScript.id} available`] : []),
             ...(contention.conflictingWorkflowCount ? [`[Collision] ${contention.conflictingWorkflowCount} workflow(s) overlap declared paths/resources`] : []),
-            ...(discovery.complete ? [] : [`[Discovery] partial scan — ${search.catalog.truncationReasons.join(", ")}; do not conclude something is absent`]),
+            ...(candidateSearch ? [`[Candidates] ${candidateSearch.reusedSeed ? "reused recipe pool" : "host index"} · ${candidateSearch.candidates.length} path candidate(s) · ${candidateSearch.matches.length} bounded content hit(s)`] : []),
+            ...(discovery.complete ? [] : [`[Discovery] partial scan — ${[...search.catalog.truncationReasons, ...(candidateSearch?.truncationReasons ?? [])].join(", ")}; do not conclude something is absent`]),
             `[Orient] follow ${AGENT_BOOTSTRAP_SKILL} then the discover→act loop`,
             "[Plan] classify → retrieve minimal memory → isolate if required → execute → progressive verify → learn → workflow_finish",
           ],

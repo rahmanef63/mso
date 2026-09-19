@@ -7,6 +7,7 @@ import { beginSkillInvocation, endSkillInvocation } from "./mso-agent-skills.mjs
 import { isAbortError } from "./mso-agent-interrupt.mjs";
 import { approvesTool } from "./mso-agent-permissions.mjs";
 import { api, C, streamTurn } from "./mso-agent-runtime.mjs";
+import { compactConsumedReadToolResults } from "./mso-agent-context.mjs";
 import { persistSession } from "./mso-agent-session-ui.mjs";
 import { addUsage } from "./mso-agent-status.mjs";
 import { oneShotApproves } from "./mso-agent-oneshot.mjs";
@@ -95,6 +96,10 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
         session.history, session.state.tools, session.agentSession, skillContext, signal,
         session.state.modelMeta?.context, lazyAssistantOutput(session, options),
       );
+      // The current model round has consumed all prior read-tool payloads that were
+      // still inside its projected context. Persist only bounded replay envelopes
+      // afterwards; write/exec receipts remain untouched.
+      compactConsumedReadToolResults(session.history, session.state.tools);
       if (skillContext) session.lastInvokedSkill = skillContext;
       finalText = result.text;
       session.usage = addUsage(session.usage, result.usage);
