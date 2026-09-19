@@ -203,10 +203,10 @@ export const MUTATE_TOOLS: McpTool[] = [
     },
     description:
       "Run a shell command on the VPS as the owner and return stdout, stderr and exit code. " +
-      "FULL HOST POWER — prefer fs_* and sys_* tools whenever they cover the task; they are bounded and " +
+      "Do not use this as the first call: start multi-step work with workflow_start and prefer bounded reads or read_pipeline. FULL HOST POWER — prefer fs_* and sys_* tools whenever they cover the task; they are bounded and " +
       "this is not. Catastrophic patterns (rm -rf /, fork bombs, disk wipes) are refused by the server. " +
       "Long-running or interactive commands will time out: this is not a terminal session.",
-    scope: "exec",
+    chatgptDescription: "Last resort shell; prefer reads/read_pipeline first.", scope: "exec",
     annotations: { destructiveHint: true, openWorldHint: true },
     result: { maxTextBytes: 48 * 1024, overflowHint: "Command output was compacted; rerun a narrower command (grep/head/tail) for the omitted evidence." },
     inputSchema: S({

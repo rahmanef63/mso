@@ -50,9 +50,11 @@ export const DISCOVERY_TOOLS: McpTool[] = [
       "Enumerate the owner's projects across EVERY configured project container (each OS_FS_READ_ROOTS entry and its projects/ subdirectory), not just ~/projects. " +
       "Returns a globally unique id (<rootId>/<name>, so two roots may hold a project of the same name), absolute path, its container root, package name/version, bounded Git branch/head, and opt-in MCP/function capability summary. " +
       "USE THIS FIRST when the user names a project you have not located — it is one call, needs no shell scope, and its id or path is the input to workflow_start. " +
+      "After orientation (mso-agent-bootstrap), this is the project-resolution step. " +
       "Hidden directories, symlinks, credential paths and directories not owned by the MSO user are excluded. " +
       "ALWAYS check `scan.truncated`: when true the listing is incomplete and `scan.truncationReasons` says which cap was hit — do not report that a project is absent from a truncated scan. " +
       "Every cap is resumable: pass `scan.continuation.cursor` back as `cursor` to continue, and use `nextOffset`/`hasMore` for ordinary paging within one scan.",
+    chatgptDescription: "Resolve project before workflow_start or MCP calls.",
     scope: "read",
     annotations: READ_ONLY,
     limit: { key: "projects.list", max: 30, windowMs: 60_000 },

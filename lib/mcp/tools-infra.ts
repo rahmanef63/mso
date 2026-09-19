@@ -22,7 +22,8 @@ const BASE_INFRA_TOOLS: McpTool[] = [
   },
   {
     name: "infra_provider_doctor",
-    description: "Live-check one configured infrastructure provider against its real API. Use infra_providers_list first. Tokens are read from MSO private state and never passed in tool arguments.",
+    description: "Live-check one configured infrastructure provider against its real API. Use infra_providers_list first. Tokens are read from MSO private state and never passed in tool arguments. Doctor/health before mutating infra.",
+    chatgptDescription: "Live-check one provider; never pass tokens.",
     scope: "read",
     annotations: { readOnlyHint: true, openWorldHint: true },
     inputSchema: S({ id: { type: "string", enum: [...INFRA_PROVIDER_IDS] } }, ["id"]),

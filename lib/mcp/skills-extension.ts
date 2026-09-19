@@ -10,12 +10,13 @@ export const MCP_SKILL_SCHEME = "skill:";
 
 // OpenAI currently imports at most five skills. Keep this as a deliberately small
 // operator syllabus rather than exposing project/local/untrusted instructions.
+// mso-agent-bootstrap is first so a partial ChatGPT import still gets the first-call map.
 export const CHATGPT_PUBLISHED_SKILLS = [
+  "mso-agent-bootstrap",
   "mso",
   "mso-repo-work",
   "mso-service-debug",
   "mso-deploy",
-  "mso-mcp-feature-engineering",
 ] as const;
 
 const SERVER_NAMESPACE = "mso";

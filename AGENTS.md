@@ -71,6 +71,8 @@ official [`mso-mcp-feature-engineering`](./claude-skills/mso-mcp-feature-enginee
 skill. Public MCP tool names, schemas, scope, audit metadata, parity, toolset signature,
 external mappings, skill trust/routing, and client action refresh are one release contract.
 Do not declare an MCP change complete until that full contract is verified.
+Agents *using* MSO over MCP start from [`docs/AGENT-BOOTSTRAP.md`](./docs/AGENT-BOOTSTRAP.md)
+and official skill `mso-agent-bootstrap`, not by jumping to `exec_run`.
 
 
 ## Cognitive-runtime work

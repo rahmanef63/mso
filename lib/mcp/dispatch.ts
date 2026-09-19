@@ -7,6 +7,7 @@ import { dispatchToolCall } from "./dispatch-tools";
 import { readMcpFileResource } from "./file-transfer-resource";
 import { toolDescriptor, visibleToolsForProfile, type McpToolProfile } from "./tool-contract";
 import { MCP_PROTOCOL_LATEST, MCP_PROTOCOLS, negotiateMcpProtocol } from "./protocol";
+import { mcpInstructions } from "./instructions";
 import { rpcFail, rpcOk, type McpAgentContext, type RpcRequest } from "./dispatch-types";
 export type { McpAgentContext, RpcRequest } from "./dispatch-types";
 
@@ -24,15 +25,7 @@ const visibleTools = (scope: Scope, profile: McpToolProfile = "full", allowedToo
 const toolList = (scope: Scope, profile: McpToolProfile = "full", allowedTools?: readonly string[]) =>
   visibleTools(scope, profile, allowedTools).map((tool) => toolDescriptor(tool, profile));
 
-function instructions(scope: Scope, profile: McpToolProfile = "full", allowedTools?: readonly string[]): string {
-  const startup = allowedTools
-    ? `This machine token is restricted to: ${allowedTools.join(", ")}.`
-    : scope === "read"
-      ? "This token is read-only: use skills_search for capability discovery, then bounded read tools."
-      : "For multi-step work call workflow_start once, pass its exact workflow_id on every operation in this conversation, verify, then workflow_finish or workflow_cancel.";
-  const projectBoundary = profile === "chatgpt" ? " Project-owned MCP tools never join this catalog: use project_mcp_tools then project_mcp_call." : "";
-  return `${startup}${projectBoundary} Call agent_session_open for provider-neutral sessions, then send params._meta[mso/sessionId]. Use flow_catalog to inspect required inputs before flow_run; flow_status waits for completion. Session/workflow state is isolated per conversation. Prefer bounded tools and exec_job_start for long builds. Never expose hidden transcripts, credentials, or private chain-of-thought.`;
-}
+const instructions = mcpInstructions;
 
 export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, agentContext?: McpAgentContext): Promise<Record<string, unknown>> {
   const id = req.id ?? null;
