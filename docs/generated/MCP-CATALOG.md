@@ -10,7 +10,7 @@
 |---|---:|
 | MCP server | `1.15.1` |
 | Toolset | `2026.09.19.2` |
-| Toolset changed at | `2026-09-19T15:20:00+07:00` |
+| Toolset changed at | `2026-09-19T16:47:44+07:00` |
 | Transport tools | **113** |
 | Model/operator tools | **111** |
 | Read | **54** |

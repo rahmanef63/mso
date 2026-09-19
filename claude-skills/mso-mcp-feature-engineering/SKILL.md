@@ -69,6 +69,22 @@ For a trusted workflow skill:
 - validate with `bun run skill:check` and confirm `skills_search` routes intended prompts;
 - remember that trust is derived from root/provenance/ownership, never frontmatter.
 
+## MCP App/UI contract
+
+When a feature includes a ChatGPT/MCP App surface:
+
+- keep ordinary data tools headless and bind only explicit render tools to `ui.resourceUri`;
+- serve `text/html;profile=mcp-app` and prefer the host-neutral `ui/*` bridge:
+  `ui/initialize` → initialized → tool input/result notifications → `tools/call` or `ui/message`;
+- keep `window.openai` APIs only as documented compatibility fallbacks, never the sole portable path;
+- bump a versioned `ui://` resource URI when host-visible behavior changes and keep old URIs read-only;
+- prove the real postMessage lifecycle in browser E2E instead of only checking metadata or HTML strings;
+- keep `.app.json` package bindings separate from UI resources and authorization. Persist only canonical
+  `asdk_app_`, `connector_`, or `templated_apps_` IDs; never persist a `plugin_...` URL identifier.
+
+For deterministic repeated validation/search steps, prefer a bounded script referenced by the skill,
+then verify the script result before returning. Do not turn script convenience into a new authority path.
+
 ## Project function contract
 
 Keep project function names as data behind the stable `project_capabilities` and

@@ -11,8 +11,10 @@ if(args.includes("--clear")){
   console.log("openai-app: cleared registered app mapping; live MCP authorization is unchanged");
   process.exit(0);
 }
-const id=args[0]?.trim();
-if(!id) fail("usage: bun run plugin:link-app -- <plugin_asdk_app...|asdk_app...> | --clear");
-if(!/^(?:plugin_)?asdk_app_[a-z0-9]+$/.test(id)) fail("expected an exact registered OpenAI app id; placeholders and URLs are rejected");
+const raw=args[0]?.trim();
+if(!raw) fail("usage: bun run plugin:link-app -- <asdk_app...|connector_...|templated_apps_...> | --clear");
+const id=raw.startsWith("plugin_asdk_app_")?raw.slice("plugin_".length):raw;
+if(!/^(?:asdk_app_|connector_|templated_apps_)[A-Za-z0-9][A-Za-z0-9_-]*$/.test(id))
+  fail("expected an exact canonical OpenAI app/connector id; placeholders and URLs are rejected");
 await fs.writeFile(target,JSON.stringify({apps:{mso:{id,required:true}}},null,2)+"\n");
-console.log(`openai-app: linked mso -> ${id}`);
+console.log(`openai-app: linked mso -> ${id}${raw===id?"":" (normalized from plugin URL id)"}`);

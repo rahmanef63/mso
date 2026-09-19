@@ -9,7 +9,10 @@ afterAll(() => vi.unstubAllEnvs());
 const { dispatch } = await import("./dispatch");
 const {
   MSO_BLOCK_URI,
+  MSO_LIST_URI,
   MSO_PAGE_URI,
+  LEGACY_LIST_V1_URI,
+  LEGACY_BLOCK_V3_URI,
   LEGACY_BLOCK_V1_URI,
   LEGACY_PAGE_V1_URI,
   LEGACY_WORKFLOW_PROGRESS_URI,
@@ -70,12 +73,17 @@ describe("MCP Apps List, Block and Page contract", () => {
   });
 
   it("keeps latest cached workflow/surface URIs as non-advertised Block/Page aliases", async () => {
+    const canonicalList = await readUiResource(MSO_LIST_URI);
     const canonicalBlock = await readUiResource(MSO_BLOCK_URI);
     const canonicalPage = await readUiResource(MSO_PAGE_URI);
+    const listV1 = await readUiResource(LEGACY_LIST_V1_URI);
+    const blockV3 = await readUiResource(LEGACY_BLOCK_V3_URI);
     const blockV1 = await readUiResource(LEGACY_BLOCK_V1_URI);
     const pageV1 = await readUiResource(LEGACY_PAGE_V1_URI);
     const legacyBlock = await readUiResource(LEGACY_WORKFLOW_PROGRESS_URI);
     const legacyPage = await readUiResource(LEGACY_SURFACE_URI);
+    expect(listV1).toMatchObject({ uri: LEGACY_LIST_V1_URI, text: canonicalList?.text });
+    expect(blockV3).toMatchObject({ uri: LEGACY_BLOCK_V3_URI, text: canonicalBlock?.text });
     expect(blockV1).toMatchObject({ uri: LEGACY_BLOCK_V1_URI, text: canonicalBlock?.text });
     expect(pageV1).toMatchObject({ uri: LEGACY_PAGE_V1_URI, text: canonicalPage?.text });
     expect(legacyBlock).toMatchObject({ uri: LEGACY_WORKFLOW_PROGRESS_URI, text: canonicalBlock?.text });
@@ -83,6 +91,8 @@ describe("MCP Apps List, Block and Page contract", () => {
 
     const listed = await dispatch({ id: 31, method: "resources/list" }, "read", "mcp:ui-alias");
     const serialized = JSON.stringify(listed.result);
+    expect(serialized).not.toContain(LEGACY_LIST_V1_URI);
+    expect(serialized).not.toContain(LEGACY_BLOCK_V3_URI);
     expect(serialized).not.toContain(LEGACY_BLOCK_V1_URI);
     expect(serialized).not.toContain(LEGACY_PAGE_V1_URI);
     expect(serialized).not.toContain(LEGACY_WORKFLOW_PROGRESS_URI);

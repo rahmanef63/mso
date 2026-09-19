@@ -1,3 +1,23 @@
+## 2026-09-19 — Make compact MCP Apps standards-first and align plugin bindings with references
+
+A live ChatGPT test showed MSO render tools returning valid structured data without a visible
+component in the current nested connector/orchestration path. Server-side audit confirmed Page
+already implements the MCP Apps `ui/*` lifecycle, while compact List/Block still depended on
+ChatGPT-specific follow-up APIs for part of their interaction path. List v2 and Block v4 now share
+a standards-first bridge: `ui/initialize`, initialized/tool-result notifications, `ui/message`,
+host-context updates and teardown, with `window.openai` retained only as a capability-detected
+compatibility fallback. Old List v1 and Block v3 remain non-advertised read aliases so cached
+clients fail safely. Browser E2E now exercises the real compact postMessage lifecycle.
+
+The plugin/package audit also compared MSO against the saved Shopify, GitHub, Data Analytics,
+OpenAI Templates, Plugin Management, Google, Figma, Notion, Convex and Sites references. The
+`.app.json` validator now matches the documented canonical ID families, accepts optional/required
+booleans and snake/kebab aliases used by the references, and rejects persisted `plugin_...` URL
+identifiers. The linker normalizes a copied `plugin_asdk_app_...` identifier to canonical
+`asdk_app_...` before writing. All 18 saved reference manifests validate, and all 14 official MSO
+skills still pass their contract + `agents/openai.yaml` checks. No app ID is invented for MSO:
+the package mapping remains empty until an exact registered identity is supplied.
+
 ## 2026-09-19 — Derive an isolated Camoufox sibling instead of assuming the managed-app namespace
 
 Camoufox viewer authentication no longer needs the cockpit Domain cookie, so tying its hostname

@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` harden native UI and plugin bindings
 - `ai` separate provider connect from selection
 - `security` bind Convex snapshot path identity
 - `browser` derive isolated Camoufox viewer origin

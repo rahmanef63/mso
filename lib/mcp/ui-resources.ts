@@ -8,6 +8,8 @@ export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 // Read-only aliases keep already-cached ChatGPT action descriptors functional
 // across the UI-contract migration. They are intentionally not advertised by
 // resources/list advertises the three canonical presentation levels: List, Block and Page.
+export const LEGACY_LIST_V1_URI = "ui://mso/list-v1.html";
+export const LEGACY_BLOCK_V3_URI = "ui://mso/block-v3.html";
 export const LEGACY_BLOCK_V2_URI = "ui://mso/block-v2.html";
 export const LEGACY_PAGE_V14_URI = "ui://mso/page-v14.html";
 export const LEGACY_PAGE_V13_URI = "ui://mso/page-v13.html";
@@ -61,9 +63,10 @@ export async function listUiResources(): Promise<Array<{ uri: string; name: stri
 
 export async function readUiResource(uri: string): Promise<McpUiResource | undefined> {
   if (uri === MSO_LIST_URI) return MSO_LIST_RESOURCE;
+  if (uri === LEGACY_LIST_V1_URI) return { ...MSO_LIST_RESOURCE, uri };
   if (uri === MSO_BLOCK_URI) return MSO_BLOCK_RESOURCE;
   if (uri === MSO_PAGE_URI) return msoPageResource();
-  if (uri === LEGACY_BLOCK_V2_URI || uri === LEGACY_BLOCK_V1_URI || uri === LEGACY_WORKFLOW_PROGRESS_URI) return { ...MSO_BLOCK_RESOURCE, uri };
+  if (uri === LEGACY_BLOCK_V3_URI || uri === LEGACY_BLOCK_V2_URI || uri === LEGACY_BLOCK_V1_URI || uri === LEGACY_WORKFLOW_PROGRESS_URI) return { ...MSO_BLOCK_RESOURCE, uri };
   if (LEGACY_PAGE_URIS.has(uri)) return { ...(await msoPageResource()), uri };
   return undefined;
 }
