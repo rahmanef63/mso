@@ -14,6 +14,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `plugin` bind ChatGPT app by stable app id only
 - `cli` keep candidate command parser strict
 - `plugin` keep OpenAI app binding private per install
 - `security` keep remote-authority test shell path trusted

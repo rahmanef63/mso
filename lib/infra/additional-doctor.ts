@@ -78,7 +78,6 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
     case "openai-app": {
       if (!present(values.appId)) return null;
       if (!/^asdk_app_[A-Za-z0-9][A-Za-z0-9_-]*$/.test(values.appId)) throw new Error("OpenAI registered App ID format is invalid");
-      if (present(values.versionId) && !/^asdk_app_v_[A-Za-z0-9][A-Za-z0-9_-]*$/.test(values.versionId)) throw new Error("OpenAI Version ID format is invalid");
       return "private registered-app binding configured; format verified locally; ChatGPT remains authoritative for registration/review status";
     }
     case "github": {
