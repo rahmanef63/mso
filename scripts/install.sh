@@ -11,7 +11,7 @@ umask 077
 
 RAW_BASE="${MSO_INSTALL_RAW_BASE:-https://raw.githubusercontent.com/rahmanef63/mso/main/scripts}"
 CORE_URL="${MSO_INSTALL_CORE_URL:-https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-core.sh}"
-CORE_SHA256="5f0ed84924773d906cf0abc7499911ed5cfa6b31890b0bacc9dbe8bcbdfd0e52"
+CORE_SHA256="794d8893285c045a8ab608d8c1d2803188b4a2a13058695d6c1fd54520973b65"
 CORE_EOF='# MSO_INSTALLER_CORE_EOF'
 MACOS_SHA256="668ec3c8bbf3ee36dc2ae70952c3ba43c6f73ebc3acd6956fa4be2f65a076bfe"
 TERMUX_SHA256="27c1a7d558c51ec875d17fd4a02a49e9e309eeb57fb306f62ea8de890ae2e65d"

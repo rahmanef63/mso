@@ -1,7 +1,8 @@
+import type { GraphCustomNode } from "./graph-custom-nodes";
 /** Organization context graph, not an executable automation workflow. */
 export const ORGANIZATION_FLOW_KINDS = ["project", "activity", "group", "note"] as const;
 export const ORGANIZATION_FLOW_STATUSES = ["unconfirmed", "planned", "active", "blocked", "done"] as const;
-export const ORGANIZATION_FLOW_ACTIONS = ["flow_update", "flow_replace", "flow_node_upsert", "flow_node_delete", "flow_edge_upsert", "flow_edge_delete"] as const;
+export const ORGANIZATION_FLOW_ACTIONS = ["flow_custom_nodes", "flow_nodes_move", "flow_update", "flow_replace", "flow_node_upsert", "flow_node_delete", "flow_edge_upsert", "flow_edge_delete"] as const;
 export type OrganizationFlowAction = typeof ORGANIZATION_FLOW_ACTIONS[number];
 export type OrganizationFlowNode = {
   id: string;
@@ -16,6 +17,7 @@ export type OrganizationFlowNode = {
 };
 export type OrganizationFlowEdge = { id: string; source: string; target: string; label: string };
 export type OrganizationProjectFlow = {
+  customNodes?: GraphCustomNode[];
   version: 1;
   title: string;
   notes: string;

@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` keep installer sources strict-semgrep parseable
 - `browser` reload viewer after ticket exchange
 - `mcp` harden native UI and plugin bindings
 - `ai` separate provider connect from selection
@@ -34,6 +35,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `browser` keep viewer reload regression within architecture ratchet
 - `security` keep snapshot regression descriptor-only
 
+**Chores**
+
+- `mcp` advance graph toolset signature
+
 ## 2026-09-18
 
 **Added**
@@ -41,6 +46,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `install` add cross-platform host adapters
 - `integrations` add safe Convex Cloud deploy runner
 - `workflows` add reviewed external editor tabs
+- `graph` add selected custom nodes and readable connection routing
 - `organization` add internal project flows with callable CRUD
 
 **Fixed**
@@ -54,14 +60,17 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `auth` permanently revoke retired cookie sessions
 - `workflows` preserve explicit empty sandbox
 - `security` review cache-only passive signal
+- `graph` close routing and compact focus review
 - `auth` bind sessions to cookie scope
 - `workflows` remount editors when sandbox policy changes
 - `workflows` retain approved shared surface placements
 - `browser` keep Camoufox automation on demand
 - `workflows` isolate external editors from cockpit session cookies
+- `graph` reconcile controlled selection and preserve routing groundwork
 - `workflows` keep runtime registry out of deployment tracing
 - `security` apply existing ZAP informational policy explicitly
 - `security` require executed passive scan evidence
+- `security` restore native dependency update cooldown
 - `browser` retain private viewer connectivity without server access
 - `release` align Node support and read-only browser reconnects
 - `extensions` lock project controls until initial inspection
