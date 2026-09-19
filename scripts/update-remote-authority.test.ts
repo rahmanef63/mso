@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-const HELPER = path.join(process.cwd(), "scripts/lib/update-remote-authority.sh");
+const HELPER = new URL("./lib/update-remote-authority.sh", import.meta.url);
 const roots: string[] = [];
 
 function git(cwd: string, ...args: string[]) {
@@ -20,7 +20,7 @@ function repo(origin: string) {
 }
 
 function prepare(root: string) {
-  execFileSync("bash", ["-c", 'source "$1"; update_prepare_origin "$2"', "_", HELPER, root], { encoding: "utf8" });
+  execFileSync("bash", ["-c", 'source "./lib/update-remote-authority.sh"; update_prepare_origin "$1"', "_", root], { cwd: new URL(".", import.meta.url), encoding: "utf8" });
   return git(root, "remote", "get-url", "origin");
 }
 
