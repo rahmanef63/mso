@@ -25,6 +25,12 @@ password, cockpit cookie, or viewer asset access is broadened.
 - Research boundary: adopts provider-neutral control-plane lessons from DeepSeek-V4.1-Flash (2609.19969), Hermes bounded frozen memory/on-demand recall, LongMemEval-V2 compact evidence gathering, and structured/evidence-aware ideas from Memory-R1, Hindsight, Mem0 and A-MEM. It does not import vendor model/KV code, require embeddings/graph storage, or weaken scope/promotion gates.
 - New/updated gates: memory context unit coverage, compact workflow-start projection coverage, recipe recommendation-vs-route-match regression, 6/6 lexical retrieval, 4/4 stable-core/JIT, 3/3 two-hop, existing 8/8 lifecycle and typed-memory deterministic suites.
 
+## 2026-09-19 — Separate ChatGPT native-app context from plugin staging
+
+Post-refresh acceptance proved that ChatGPT has the latest MSO tool schema but the currently selected orchestration path still returns `render_mso_block` as decoded structured data rather than mounting the MCP App. The server-side descriptor/resource/result contracts remain unchanged: the new evidence is at the host/package boundary. The owner-private OpenAI package was validly staged with a redacted registered-app binding, but this machine had neither a personal marketplace declaration nor a cached MSO plugin install. Staging on the VPS therefore did not install, publish, refresh, or select anything in ChatGPT.
+
+Added `plugin:doctor-private` plus a post-stage doctor that verifies private modes, the `.app.json` link and canonical binding while never printing the binding value, and reports local marketplace/cache state separately. The ChatGPT plugin reference now makes the acceptance boundary explicit: direct registered-app/app-context or an actually installed package is required for native UI verification; a generic function/Code Mode wrapper returning the inner object is not visual MCP Apps evidence. No MCP UI HTML, CSP, resource URI, OAuth behavior, tool scope, or personal App ID changed.
+
 ## 2026-09-19 — Make compact MCP Apps standards-first and align plugin bindings with references
 
 A live ChatGPT test showed MSO render tools returning valid structured data without a visible
