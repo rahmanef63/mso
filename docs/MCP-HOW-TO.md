@@ -102,14 +102,21 @@ atau memanggil MCP proyek memerlukan `exec`. Prompt tidak bisa menaikkan scope t
 
 ## 5. Urutan tool untuk agent
 
-Untuk satu pembacaan sederhana, gunakan tool read yang sesuai. Untuk tugas multi-langkah:
+Urutan resmi (sama di ChatGPT/Cursor/CLI/Alfa-via-gateway) ada di
+[`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md) dan skill `mso-agent-bootstrap`:
 
 ```text
-workflow_start (sekali) → inspeksi target → perubahan yang diizinkan
-→ verifikasi hasil → workflow_finish
+1. skills_search / skills_read mso-agent-bootstrap
+2. projects_list jika proyek belum diketahui
+3. workflow_start sekali → simpan workflow_id
+4. project_capabilities → project_mcp_tools → project_mcp_call
+5. integration_query → setup/verify → integration_execute (tanpa secret di chat)
+6. read_pipeline / fs_* / sys_* sebelum exec_run
+7. infra bounded + confirm
 ```
 
-`workflow_start` sudah mencari skill/konteks yang relevan; jangan mengulang `skills_search`
+Untuk satu pembacaan sederhana, cukup tool read. Untuk tugas multi-langkah, panggil
+`workflow_start` sekali. Ia sudah mencari skill/konteks; jangan mengulang `skills_search`
 sebelumnya untuk tugas sama. Contoh argumen bootstrap:
 
 ```json

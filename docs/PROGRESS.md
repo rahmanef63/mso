@@ -9,6 +9,18 @@ PR review exposed four presentation/runtime issues: clear short facing ports cou
 - Replace unconditional smoothstep connectors with shared bounded orthogonal routing against measured cards, directional markers, crossing halos and selected-route emphasis. Impossible overlapping-card paths are visibly marked rather than silently claimed safe.
 - Verification is performed against synthetic stores and the real production build; private operator graph content is never embedded in source.
 
+## 2026-09-19 — MCP agent bootstrap and capability-parity map
+
+MCP clients were skipping `workflow_start` / `skills_search` and jumping to `exec_run` because
+the full `tools/list` had no explicit first-call contract. The canonical sequence now lives in
+`lib/mcp/instructions.ts` and is injected into `initialize.instructions`,
+`workflow_start.bootstrap.orientation`, and official skill `mso-agent-bootstrap` (ChatGPT
+published skill #1). ChatGPT still sees every callable MSO tool; project MCP discover/call stay
+two tools; secrets stay out of args. The parity matrix in `docs/AGENT-BOOTSTRAP.md` separates
+presentation differences from intentional Alfa identity boundaries. Catalog routing now matches
+orientation prompts to `skills_search`/`skills_read` instead of shell. Follow-ups (host file
+index, replay-by-handle) are documented, not shipped.
+
 ## 2026-09-18 — Close external-editor review around durable session policy and owner stores
 
 The latest PR review found four boundary issues after the cookie-policy epoch landed. CLI device

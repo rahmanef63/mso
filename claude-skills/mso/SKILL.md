@@ -52,6 +52,9 @@ Use the absolute CLI path above in automation. `$HOME/.local/bin/mso` is a conve
 
 ## Learning loop — bootstrap once, keep the fastest verified path
 
+MCP clients: read `/mso-agent-bootstrap` first (or `skills_search` query `mso-agent-bootstrap`).
+That skill is the first-call map. This skill is the operational policy once you already know it.
+
 For any task likely to need two or more operational calls:
 
 1. Call `workflow_start` directly with the user's complete intent, project hint and constraints. It already searches trusted skills, the live MCP tool catalog and learned recipes, resolves project aliases, and reports the current toolset.

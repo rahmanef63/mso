@@ -170,6 +170,8 @@ MSO exposes exactly three user-visible MCP App classes instead:
 
 `workflow_start` is orchestration-only and headless: it still owns workflow isolation, skill/recipe
 lookup, collision detection, tracing, evidence, and learning, but no longer binds a UI resource.
+MCP agents learn the first-call map from `mso-agent-bootstrap` and `initialize.instructions`;
+see [`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md).
 `project_get`, `project_diff`, and `vps_status` likewise remain pure data tools. The previous
 `render_mso_surface` and `workflow_status` actions are app-only compatibility shims for cached
 widgets; prior Block/Page URIs plus the previous workflow/surface resource URIs remain readable aliases but are not advertised. Page tools use the standard MCP Apps `ui.resourceUri` binding only; the legacy ChatGPT `openai/outputTemplate` alias is intentionally absent so one tool result maps to one Page mount.

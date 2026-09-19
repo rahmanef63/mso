@@ -23,7 +23,18 @@ async function viewerSrc(): Promise<string | null> {
       viewerPathPrefix?: string | null;
     };
     if (!payload.viewerOrigin || !payload.viewerTicket || !payload.viewerPathPrefix) return null;
-    const viewer = payload.viewerOrigin + payload.viewerPathPrefix + "/vnc.html?path=websockify&autoconnect=1&resize=remote";
+    const socketPath =
+      payload.viewerPathPrefix.replace(/^\/+|\/+$/g, "") + "/websockify";
+    const viewerQuery = new URLSearchParams({
+      path: socketPath,
+      autoconnect: "1",
+      resize: "remote",
+    });
+    const viewer =
+      payload.viewerOrigin +
+      payload.viewerPathPrefix +
+      "/vnc.html?" +
+      viewerQuery.toString();
     const fragment = new URLSearchParams({ viewer_ticket: payload.viewerTicket });
     // Password and viewer ticket live in the URL fragment, never the request/query.
     // The sibling viewer bootstrap exchanges the short-lived ticket for a host-only

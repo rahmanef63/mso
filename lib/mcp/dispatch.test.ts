@@ -42,6 +42,8 @@ describe("protocol", () => {
     expect(execInstructions).toContain("workflow_start");
     expect(execInstructions).toContain("workflow_cancel");
     expect(execInstructions).toContain("workflow_finish");
+    expect(execInstructions).toContain("mso-agent-bootstrap");
+    expect(execInstructions).toContain("read_pipeline");
   });
 
   it("does not impersonate modern server/discover with an initialize-shaped result", async () => {

@@ -22,7 +22,8 @@ export const READ_PIPELINE_TOOLS: McpTool[] = [{
   name: "read_pipeline",
   description:
     "Execute 1-6 independent READ-ONLY MSO tool calls server-side, then deterministically filter/project/sort/unique/limit/aggregate their results before returning them to the model. " +
-    "Use this when several reads can be batched or raw lists/log metadata would waste context. It cannot call write/exec tools, workflow_status, screenshots, wait/poll tools, arbitrary code, shell, or nested pipelines. Child calls inherit this session/workflow and retain their own rate limits.",
+    "Prefer this over exec_run when several reads can be batched or raw lists/log metadata would waste context. It cannot call write/exec tools, workflow_status, screenshots, wait/poll tools, arbitrary code, shell, or nested pipelines. Child calls inherit this session/workflow and retain their own rate limits.",
+  chatgptDescription: "Batch bounded reads before jumping to exec_run.",
   scope: "read",
   annotations: { readOnlyHint: true, idempotentHint: true },
   limit: { key: "read.pipeline", max: 30, windowMs: 60_000 },
