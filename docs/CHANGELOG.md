@@ -12,11 +12,22 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` bind Convex snapshot path identity
 - `browser` derive isolated Camoufox viewer origin
 - `browser` probe cache-isolated Camoufox path
+- `security` pin Convex snapshot import bytes
+- `security` keep macOS installer fully parseable
 - `mcp` keep architecture ratchet and bootstrap tests green
 - `browser` route Camoufox websocket through viewer namespace
 - `browser` isolate Camoufox viewer cache
+
+**Changed**
+
+- `security` isolate Convex snapshot staging
+
+**Tests**
+
+- `security` keep snapshot regression descriptor-only
 
 ## 2026-09-18
 
@@ -31,6 +42,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `browser` isolate sibling Camoufox viewer auth
 - `integrations` allow Convex snapshot imports
+- `security` cover reviewed static asset variants
 - `review` preserve session and surface store invariants
 - `security` validate cache exceptions from raw report
 - `security` scope passive cache review by path
@@ -58,6 +70,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Docs**
 
+- `progress` preserve merged release order
 - `security` document the hosted passive scan target
 
 **Chores**

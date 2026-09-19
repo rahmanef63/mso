@@ -28,11 +28,13 @@ describe("path-scoped ZAP report review", () => {
         alert("10055", [target + "/"]),
         alert("10050", [
           target + "/_next/static/chunks/abc-123.js",
+          target + "/_next/static/chunks/styles-123.css",
           target + "/_next/static/media/Geist_Variable-s.p.hash.woff2",
+          target + "/icon.svg?icon.2nz7bd3koounz.svg",
         ]),
       ]),
       { target, policyText },
-    )).toMatchObject({ reviewedCacheInstances: 2, reviewedInfoAlerts: 1 });
+    )).toMatchObject({ reviewedCacheInstances: 4, reviewedInfoAlerts: 1 });
   });
 
   it.each([
@@ -40,6 +42,8 @@ describe("path-scoped ZAP report review", () => {
     target + "/login",
     target + "/_next/static/chunks/a.js?token=secret",
     target + "/_next/static/media/font.ttf",
+    target + "/icon.svg?token=secret",
+    target + "/icon.svg?icon.unexpected.png",
     "https://other.example.com/_next/static/chunks/a.js",
   ])("rejects rule 10050 outside the reviewed static-cache boundary: %s", uri => {
     expect(() => validateZapReport(
