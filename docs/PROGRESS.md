@@ -1,3 +1,15 @@
+## 2026-09-19 — Pin Convex snapshot imports to validated bytes
+
+The security inventory exposed CodeQL alert #139: snapshot metadata was checked by
+pathname, then the same pathname was reopened for hashing and later passed to the
+Convex CLI. Snapshot validation now opens the source once, performs ownership/size/
+ZIP checks and hashing through that descriptor, copies those exact bytes into a private
+0700/0600 staging location, verifies the descriptor did not change during the copy,
+and imports only the staged file. The private copy is removed in a final cleanup path,
+while result metadata continues to identify the caller's original source path. Regression
+coverage changes the source after validation and proves the CLI still receives the
+validated staged bytes.
+
 ## 2026-09-19 — Keep strict Semgrep coverage complete on the macOS installer
 
 Hosted Semgrep reported zero findings but exited 3 under `--strict` because its Bash parser
