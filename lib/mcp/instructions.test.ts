@@ -16,7 +16,8 @@ describe("MSO agent bootstrap instructions", () => {
       "project_mcp_tools", "project_mcp_call", "integration_query", "integration_execute",
       "read_pipeline", "exec_run",
     ]) expect(joined).toContain(token);
-    expect(joined).not.toMatch(/secret|token|password|api[_-]?key/i);
+    expect(joined.toLowerCase()).toContain("never put secrets");
+    expect(joined).not.toMatch(/OS_LOGIN_PASSWORD|api[_-]?key\s*=/i);
   });
 
   it("advertises the sequence at initialize time without promoting write tools on a read token", () => {

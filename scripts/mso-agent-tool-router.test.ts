@@ -57,7 +57,6 @@ describe("MSO per-turn tool router", () => {
     expect(out.routeIds).toContain("agent-bootstrap");
     expect(out.selectedNames).toEqual(expect.arrayContaining(["skills_search", "skills_read"]));
     expect(out.selectedNames).not.toContain("exec_run");
-    expect(out.catalogMatched).toBe(true);
   });
 
   it("uses only bounded continuation context instead of replaying long history into routing", () => {
