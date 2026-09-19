@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.15.1 version=2026.09.19.2 tools=111 read=54 write=35 exec=22 -->
+<!-- mcp-toolset: server=1.15.1 version=2026.09.19.3 tools=112 read=55 write=35 exec=22 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.15.1` |
-| Toolset | `2026.09.19.2` |
-| Toolset changed at | `2026-09-19T16:47:44+07:00` |
-| Transport tools | **113** |
-| Model/operator tools | **111** |
-| Read | **54** |
+| Toolset | `2026.09.19.3` |
+| Toolset changed at | `2026-09-19T19:11:32+07:00` |
+| Transport tools | **114** |
+| Model/operator tools | **112** |
+| Read | **55** |
 | Write | **35** |
 | Exec | **22** |
 | App-only bridges | **2** |
 
-### Read (54)
+### Read (55)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -54,6 +54,7 @@
 - `mso_surface_apps_list`
 - `organization_chart`
 - `project_agent_status`
+- `project_candidate_search`
 - `project_capabilities`
 - `project_changes_list`
 - `project_diff`
@@ -145,20 +146,20 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.15.1 version=2026.09.19.2 tools=111 read=54 write=35 exec=22 app-only=2 total=113 -->
+<!-- mcp-chatgpt-profile: server=1.15.1 version=2026.09.19.3 tools=112 read=55 write=35 exec=22 app-only=2 total=114 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **113** |
-| ChatGPT model/operator tools | **111** |
-| Read | **54** |
+| ChatGPT transport tools | **114** |
+| ChatGPT model/operator tools | **112** |
+| Read | **55** |
 | Write | **35** |
 | Exec | **22** |
 | App-only bridges | **2** |
 
-### ChatGPT read (54)
+### ChatGPT read (55)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -194,6 +195,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `mso_surface_apps_list`
 - `organization_chart`
 - `project_agent_status`
+- `project_candidate_search`
 - `project_capabilities`
 - `project_changes_list`
 - `project_diff`

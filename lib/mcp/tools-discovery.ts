@@ -1,4 +1,5 @@
-import { listProjects, projectCapabilities, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint, PROJECT_LIMITS } from "@/lib/host/projects-api";
+import { listProjects, inspectProject, projectCapabilities, publicProjectMcpServers, readProjectMcpServers, resolveProjectHint, PROJECT_LIMITS } from "@/lib/host/projects-api";
+import { projectCandidateRevision, searchProjectCandidateIndex } from "@/lib/host/project-candidate-index";
 import { catalogSkillsDetailed, resolveSkill, readSkillFile, skillIsExecutableByDefault, SKILL_SCAN_LIMITS } from "@/lib/skills/catalog";
 import { compactSkillContract } from "@/lib/skills/skill-contract";
 import { type McpTool, str, opt, S, READ_ONLY } from "./tool-kit";
@@ -21,6 +22,7 @@ const page = (a: Record<string, unknown>, max: number, fallback: number) => ({
   offset: Math.max(Math.round(typeof a.offset === "number" ? a.offset : 0), 0),
 });
 
+
 export const DISCOVERY_TOOLS: McpTool[] = [
   {
     name: "project_capabilities",
@@ -42,6 +44,36 @@ export const DISCOVERY_TOOLS: McpTool[] = [
       const capabilities = (await projectCapabilities(project.path)) ?? {};
       if (capabilities.mcp) capabilities.mcp.servers = publicProjectMcpServers(await readProjectMcpServers(project.path));
       return { project: { id: project.id, name: project.name, path: project.path }, capabilities };
+    },
+  },
+  {
+    name: "project_candidate_search",
+    description:
+      "Search a bounded owner-local candidate index for ONE validated project. Stage one ranks only path/skill metadata; stage two searches file content only inside the returned candidate pool. " +
+      "The index is revision-invalidated, excludes Git/build/dependency/credential paths, returns truncation/cursor state, and is never an authorization or source-control authority.",
+    chatgptDescription: "Search bounded project path candidates, then content only inside that pool.",
+    scope: "read",
+    annotations: READ_ONLY,
+    limit: { key: "projects.candidates", max: 30, windowMs: 60_000 },
+    inputSchema: S({
+      project: { type: "string", description: "Exact project id/path/name/alias." },
+      query: { type: "string", description: "Path/content terms." },
+      limit: { type: "number", minimum: 1, maximum: 40, description: "Candidate page size. Default 16." },
+      cursor: { type: "string", description: "Cursor from a truncated previous page." },
+    }, ["project", "query"]),
+    run: async (a) => {
+      const project = await resolveProjectHint(str(a, "project"));
+      if (!project) throw new Error(`project not found: ${String(a.project)}`);
+      const repository = await inspectProject(project, { includeGitStatus: true }).catch(() => undefined);
+      const revision = projectCandidateRevision(repository);
+      const result = await searchProjectCandidateIndex({
+        projectPath: project.path,
+        query: str(a, "query"),
+        revision,
+        limit: typeof a.limit === "number" ? a.limit : undefined,
+        cursor: opt(a, "cursor"),
+      });
+      return { project: { id: project.id, name: project.name, path: project.path }, ...result };
     },
   },
   {

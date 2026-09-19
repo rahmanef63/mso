@@ -146,5 +146,15 @@ export function HttpAdapter(cfg: { url?: string; role?: Exclude<HostAccessRole, 
       status: () => req("GET", "/camoufox/service"),
       power: (on) => req("POST", "/camoufox/service", { body: { action: on ? "start" : "stop" } }),
     },
+    projects: {
+      candidateSearch: (project, query, limit = 16, cursor) => req("GET", "/projects/candidates", {
+        query: {
+          project,
+          q: query,
+          limit: String(Math.min(Math.max(Math.round(limit), 1), 40)),
+          ...(cursor ? { cursor } : {}),
+        },
+      }),
+    },
   };
 }

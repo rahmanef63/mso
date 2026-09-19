@@ -41,6 +41,20 @@ Copy this. Do not skip to `exec_run`.
 Then verify independently and call `workflow_finish` with the same id (or
 `workflow_cancel` to abandon). A recipe is guidance, not permission.
 
+## Context-economy behavior
+
+The sequence above is unchanged. `workflow_start` now performs provider-neutral bounded
+replay/candidate reuse internally when a compatible learned pool exists; an agent does
+**not** add another bootstrap call just to use it. For explicit repo discovery,
+`project_candidate_search` is a read-only two-stage path/content search with cursors and
+truncation. Replay handles point back to existing bounded read/job/artifact surfaces
+instead of embedding old tool dumps in the next prompt.
+
+Authorization is deliberately outside the reuse layer: current identity, project
+resolution, scope, confirmation, and host policy are checked again on every call. Full
+design and parity details are in
+[`COGNITIVE-RUNTIME.md#bounded-replay-and-sparse-candidate-reuse`](./COGNITIVE-RUNTIME.md#bounded-replay-and-sparse-candidate-reuse).
+
 ## Hard constraints
 
 - Do **not** hide callable tools from ChatGPT `tools/list` to compress context.
@@ -79,15 +93,13 @@ Legend: **Reach** = how this surface performs the capability. **Gap** = accident
 | Doctor / health | `mso doctor`, `sys_stats`, `vps_status`, `infra_provider_doctor` | `vps_status`, `sys_stats`, `infra_provider_doctor` | same | Monitor app + `sys.stats` |
 | Deploys | `mso-deploy` skill / `bun run ship` / Dokploy tools | same tools + skill | same; Page is not a deploy button | owner UI / CLI; no extra Alfa deploy primitive (**Intentional**) |
 
-Presentation differences (ChatGPT 56-character descriptions, terminal pack routing,
+Presentation differences (compact ChatGPT descriptions, terminal pack routing,
 Alfa `dot.case` names) are **not** capability holes.
 
 ## Follow-ups (not in this change)
 
 These remain designed-not-shipped. They must not block agents from the sequence above.
 
-- Host file index / replay-by-handle for DRY results across turns.
-- Deeper ChatGPT context compression that does **not** hide callable tools.
 - Closing an Alfa in-shell identity boundary only when a shared principal exists.
 
 ## Related contracts

@@ -1,4 +1,4 @@
-import { clip, obj, str } from "./schema";
+import { clip, num, obj, str } from "./schema";
 import { MUTATE_TOOLS } from "./catalog-mutate";
 import { SKILL_TOOLS } from "./catalog-skills";
 import type { HostTool } from "./types";
@@ -51,6 +51,29 @@ const READ_TOOLS: HostTool[] = [
     run: async (api, a) => {
       const hits = await api.fs.search(String(a.query));
       return hits.length ? hits.map((h) => h.path).join("\n") : "no matches";
+    },
+  },
+  {
+    name: "project.candidate.search",
+    group: "files",
+    label: "Project candidates",
+    effect: "read",
+    description:
+      "Search one validated project through MSO's bounded owner-local path/skill candidate index. It ranks path metadata first, then searches content only inside that bounded pool; results are cursored/truncated and never grant authorization.",
+    parameters: obj({
+      "project!": str("Exact project id/path/name/alias"),
+      "query!": str("Path/content search terms"),
+      limit: num("Candidate page size", { min: 1, max: 40 }),
+      cursor: str("Cursor returned by a truncated prior call"),
+    }),
+    run: async (api, a) => {
+      const result = await api.projects.candidateSearch(
+        String(a.project ?? ""),
+        String(a.query ?? ""),
+        typeof a.limit === "number" ? a.limit : undefined,
+        typeof a.cursor === "string" && a.cursor ? a.cursor : undefined,
+      );
+      return clip(JSON.stringify(result));
     },
   },
   {

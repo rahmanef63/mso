@@ -2,7 +2,7 @@ import { capabilityReportedFailure } from "./result-outcome";
 import { audit } from "@/lib/host/audit-api";
 import { maybeAutoTitleAgentSession } from "@/lib/agent/session-store";
 import { touchLocalAgentPresence } from "@/lib/agent/local-agent-presence";
-import { activeWorkflowForActor, recordWorkflowStep } from "@/lib/workflow";
+import { activeWorkflowForActor, recordWorkflowStep, replayHandlesFromResult } from "@/lib/workflow";
 import { allows, type Scope } from "./scope";
 import type { CapabilityRuntime } from "./runtime";
 import type { CapabilityTool } from "./tool";
@@ -127,9 +127,13 @@ export async function executeCapabilityCall(input: {
       void audit({ action: outcome?.action ?? trail.action, actor, target: auditTarget, ok: !reportedFailure, detail: outcome?.detail, meta: { via: "mcp", scope } });
     }
     const durationMs = Date.now() - startedAt, completedWorkflow = workflowFromResult(result) ?? activeWorkflow;
+    const replay = replayHandlesFromResult(result);
     if (!workflowProbe) {
       void recordCapabilityActivity({ id: activityId, actor, tool: name, state: completedState, scope, ...flowFields(completedWorkflow), target, durationMs });
-      await recordWorkflowStep(flowActor, completedWorkflow?.id, { id: activityId, tool: name, state: completedState, target, args, durationMs, ts: new Date().toISOString() });
+      await recordWorkflowStep(flowActor, completedWorkflow?.id, {
+        id: activityId, tool: name, state: completedState, target, args, durationMs, ts: new Date().toISOString(),
+        ...(replay.length ? { replay } : {}),
+      });
       await recordAgentEvent(context, name, completedState, args, completedWorkflow?.id, target);
     }
     if (presence)

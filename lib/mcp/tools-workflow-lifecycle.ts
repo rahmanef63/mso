@@ -160,7 +160,7 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
             await writePortableRecipe(project.path, {
               schemaVersion: 1, id: finished.recipe.id, intent: finished.recipe.intent, summary: finished.recipe.summary,
               stage: automation.stage, attempts: finished.recipe.attempts, successes: finished.recipe.successes, failures: finished.recipe.failures,
-              successRate: automation.successRate, bestSteps: finished.recipe.bestSteps, quality: finished.recipe.quality, updatedAt: finished.recipe.updatedAt,
+              successRate: automation.successRate, bestSteps: finished.recipe.bestSteps, candidatePool: finished.recipe.candidatePool, quality: finished.recipe.quality, updatedAt: finished.recipe.updatedAt,
             }, finished.recipe.id);
           }
           if (automation.scriptCandidate) {

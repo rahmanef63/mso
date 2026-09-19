@@ -193,6 +193,7 @@ describe("MCP rate limits mirror the routes", () => {
       "exec.job.cancel": 30,
       // Global discovery reads use independent bounded buckets.
       "projects.list": 30,
+      "projects.candidates": 30,
       "projects.capabilities": 60,
       "projects.function": 60,
       "projects.mcp.read": 30,

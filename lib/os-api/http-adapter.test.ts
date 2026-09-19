@@ -73,3 +73,32 @@ describe("HttpAdapter — managed apps", () => {
     await expect(api.apps.power("hermes", "restart")).rejects.toThrow("managed application operation failed");
   });
 });
+
+
+describe("HttpAdapter — project candidates", () => {
+  const api = HttpAdapter({ url: "" });
+
+  it("uses the bounded read route and preserves cursor/truncation metadata", async () => {
+    const payload = {
+      project: { id: "root/mso", name: "mso", path: "/srv/mso" },
+      revision: "rev",
+      rebuilt: false,
+      reusedSeed: false,
+      indexedEntries: 12,
+      candidates: [{ path: "lib/workflow/replay.ts", kind: "path", size: 120, score: 1 }],
+      matches: [{ path: "lib/workflow/replay.ts", line: 10, preview: "bounded replay" }],
+      truncated: true,
+      truncationReasons: ["page"],
+      cursor: "next-page",
+    };
+    const f = mockFetch(payload);
+    const result = await api.projects.candidateSearch("root/mso", "bounded replay", 12, "cursor-1");
+    const url = String(f.mock.calls[0]?.[0] ?? "");
+    expect(url).toContain("/api/v1/projects/candidates?");
+    expect(url).toContain("project=root%2Fmso");
+    expect(url).toContain("q=bounded+replay");
+    expect(url).toContain("limit=12");
+    expect(url).toContain("cursor=cursor-1");
+    expect(result).toEqual(payload);
+  });
+});
