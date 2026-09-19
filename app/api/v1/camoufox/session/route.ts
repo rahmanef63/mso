@@ -7,6 +7,7 @@ import { getSessionContext } from "@/lib/auth/require-session";
 import { roleAtLeast } from "@/lib/auth/roles";
 import { camoufoxViewerOrigin } from "@/lib/camoufox/origin";
 import { createCamoufoxViewerTicket } from "@/lib/camoufox/viewer-auth";
+import { CAMOUFOX_VIEWER_PUBLIC_PREFIX } from "@/lib/camoufox/viewer-gate";
 import { IS_DEMO } from "@/lib/demo";
 
 export const runtime = "nodejs";
@@ -44,6 +45,6 @@ export async function GET() {
   const password = (await fs.readFile(/* turbopackIgnore: true */ PASSWD_FILE, "utf8").catch(() => "")).trim();
   // Absent file = the operator has not set one. Say so plainly rather than 500 — the
   // browser window falls back to letting noVNC prompt.
-  if (!password) return NextResponse.json({ password: null, viewerOrigin, viewerTicket, reason: "no_password_file" });
-  return NextResponse.json({ password, viewerOrigin, viewerTicket });
+  if (!password) return NextResponse.json({ password: null, viewerOrigin, viewerTicket, viewerPathPrefix: CAMOUFOX_VIEWER_PUBLIC_PREFIX, reason: "no_password_file" });
+  return NextResponse.json({ password, viewerOrigin, viewerTicket, viewerPathPrefix: CAMOUFOX_VIEWER_PUBLIC_PREFIX });
 }

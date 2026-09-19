@@ -14,11 +14,21 @@ import { IS_DEMO } from "@/lib/demo";
 const AUTHORIZED = Symbol("camoufox-viewer-authorized");
 export type CamoufoxViewerGateResult = typeof AUTHORIZED | NextResponse;
 
+export const CAMOUFOX_VIEWER_PUBLIC_PREFIX = "/_mso-camoufox";
+
+function noStore(headers: Headers): void {
+  headers.set("cache-control", "no-store");
+  headers.set("cdn-cache-control", "no-store");
+  headers.set("cloudflare-cdn-cache-control", "no-store");
+}
+
 function notFound() {
-  return new NextResponse("Not Found", {
+  const response = new NextResponse("Not Found", {
     status: 404,
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
+  noStore(response.headers);
+  return response;
 }
 
 async function approvedDevice(token: string, kind: "ticket" | "cookie"): Promise<string | null> {
@@ -73,20 +83,22 @@ function bootstrap(method: string) {
   // The global cockpit header is DENY. This split-origin viewer is the one exception:
   // its CSP frame-ancestors names the exact cockpit and remains the authoritative gate.
   response.headers.delete("x-frame-options");
+  noStore(response.headers);
   return response;
 }
 
 function bootstrapScript() {
-  return new NextResponse(BOOTSTRAP_JS, {
+  const response = new NextResponse(BOOTSTRAP_JS, {
     status: 200,
     headers: {
       "content-type": "application/javascript; charset=utf-8",
-      "cache-control": "no-store",
       "referrer-policy": "no-referrer",
       "x-content-type-options": "nosniff",
       "cross-origin-resource-policy": "same-origin",
     },
   });
+  noStore(response.headers);
+  return response;
 }
 
 async function exchangeTicket(request: NextRequest) {
@@ -108,7 +120,7 @@ async function exchangeTicket(request: NextRequest) {
       maxAge: Math.floor(CAMOUFOX_VIEWER_COOKIE_TTL_MS / 1000),
     },
   );
-  response.headers.set("cache-control", "no-store");
+  noStore(response.headers);
   return response;
 }
 
@@ -125,12 +137,36 @@ export async function gateCamoufoxViewer(
     return request.method === "GET" ? bootstrapScript() : notFound();
   }
   if (pathname === "/__viewer_auth") return exchangeTicket(request);
-  if (await hasViewerSession(request)) return AUTHORIZED;
+
   if (
     (request.method === "GET" || request.method === "HEAD") &&
     (pathname === "/" || pathname === "/vnc.html")
+  ) {
+    const redirect = new URL(request.url);
+    redirect.pathname = CAMOUFOX_VIEWER_PUBLIC_PREFIX + "/vnc.html";
+    return NextResponse.redirect(redirect, 307);
+  }
+
+  const inViewerNamespace =
+    pathname === CAMOUFOX_VIEWER_PUBLIC_PREFIX ||
+    pathname.startsWith(CAMOUFOX_VIEWER_PUBLIC_PREFIX + "/");
+  if (!inViewerNamespace) return notFound();
+
+  if (await hasViewerSession(request)) return AUTHORIZED;
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    pathname === CAMOUFOX_VIEWER_PUBLIC_PREFIX + "/vnc.html"
   ) return bootstrap(request.method);
   return notFound();
+}
+
+export function camoufoxViewerUpstreamPath(pathname: string): string | null {
+  if (
+    pathname !== CAMOUFOX_VIEWER_PUBLIC_PREFIX &&
+    !pathname.startsWith(CAMOUFOX_VIEWER_PUBLIC_PREFIX + "/")
+  ) return null;
+  const stripped = pathname.slice(CAMOUFOX_VIEWER_PUBLIC_PREFIX.length);
+  return stripped === "" || stripped === "/" ? "/vnc.html" : stripped;
 }
 
 export function camoufoxViewerAuthorized(
