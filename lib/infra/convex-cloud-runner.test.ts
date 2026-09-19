@@ -2,8 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-const PAT = "pat_synthetic_12345678901234567890";
-const DEPLOY_KEY = "prod:happy-otter-123|synthetic_deploy_key_1234567890abcdef";
+const PAT = "pat_synthetic_12345678901234567890", DEPLOY_KEY = "prod:happy-otter-123|synthetic_deploy_key_1234567890abcdef";
 let root: string;
 let project: string;
 let snapshot: string;
@@ -165,8 +164,7 @@ it("imports only with explicit mode and a data-scoped ephemeral key", async () =
     imported: true, mode: "replace-all", snapshot: { bytes: 22, path: snapshot },
   });
   expect(result.snapshot.sha256).toMatch(/^[a-f0-9]{64}$/); expect(deleted).toBe(true);
-  await expect(fs.stat(stagedSnapshot)).rejects.toMatchObject({ code: "ENOENT" });
-  expect(JSON.stringify(result)).not.toContain(DEPLOY_KEY);
+  await expect(fs.stat(stagedSnapshot)).rejects.toMatchObject({ code: "ENOENT" });  expect(JSON.stringify(result)).not.toContain(DEPLOY_KEY);
 });
 it("revokes the ephemeral key when the CLI operation fails", async () => {
   const withSelection = await seeded();
