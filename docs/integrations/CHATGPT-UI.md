@@ -111,4 +111,4 @@ Official references:
 
 Native MSO UI must be invoked through the registered ChatGPT MCP App rather than a nested function wrapper. Each MSO installation therefore keeps its registered OpenAI App ID in the owner-private **OpenAI / ChatGPT App** Integrations connection. The public source repository does not contain the maintainer's App ID.
 
-Users get their own ID by enabling ChatGPT developer mode, registering their MSO remote MCP endpoint, completing tool scan/OAuth, and copying the App ID from app details (or the equivalent `plugin_asdk_app_...` technical ID from the browser URL). The private staging command writes canonical `asdk_app_...` only into the owner-private package. Version IDs are not valid substitutes for App IDs.
+Users get their own ID by enabling ChatGPT developer mode, registering their MSO remote MCP endpoint, completing tool scan/OAuth, and copying the App ID from app details (or the equivalent `plugin_asdk_app_...` technical ID from the browser URL). The private staging command writes canonical `asdk_app_...` only into the owner-private package. Version IDs are version-scoped metadata; MSO intentionally does not store or use them.

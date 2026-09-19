@@ -8,14 +8,13 @@ describe("OpenAI registered app integration", () => {
     const def=getInfraProviderDefinition("openai-app");
     expect(def.fields).toEqual(expect.arrayContaining([
       expect.objectContaining({key:"appId",secret:true,required:true}),
-      expect.objectContaining({key:"versionId",secret:true,required:false}),
     ]));
     expect(connectionMethods("openai-app","direct")[0].guidance.steps.join(" ")).toContain("App ID");
   });
 
-  it("normalizes browser plugin ids and keeps version ids separate", () => {
+  it("normalizes browser plugin ids and ignores version-scoped metadata", () => {
     expect(normalizeInfraValues("openai-app",{appId:"plugin_asdk_app_example123",versionId:"asdk_app_v_example456"})).toEqual({
-      appId:"asdk_app_example123",versionId:"asdk_app_v_example456",
+      appId:"asdk_app_example123",
     });
     expect(()=>normalizeInfraValues("openai-app",{appId:"asdk_app_v_wrong"})).toThrow();
   });

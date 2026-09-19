@@ -106,7 +106,6 @@ export const ADDITIONAL_PROVIDERS = {
     feature: false,
     fields: [
       { key: "appId", label: "Registered App ID", secret: true, required: true, description: "Private per-installation OpenAI App ID used only to generate .app.json for personal/plugin packaging. Canonical form starts with asdk_app_; plugin_asdk_app_ copied from a browser URL is normalized automatically." },
-      { key: "versionId", label: "Version ID", secret: true, required: false, description: "Optional private development-version reference for operator diagnostics. It is never written into .app.json and is not required for MCP Apps UI binding." },
     ],
   },
 } as const satisfies Record<string, AdditionalProvider>;
