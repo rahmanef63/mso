@@ -7,6 +7,7 @@ import type { WorkflowGraph } from "@/lib/contracts/workflow-graph";
 import { normalizeWorkflowIntent, parseWorkflowGraphDefinition, type WorkflowGraphDefinition } from "./graph-schema";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { saveWorkflowGraphVersion, type WorkflowGraphVersionReason } from "./graph-version-store";
+import { rememberWorkflowGraphSave } from "@/lib/agent/domain-memory";
 
 import { readWorkflowJson, writeWorkflowFile } from "./private-file";
 
@@ -79,20 +80,22 @@ export async function getWorkflowGraph(principal: string, id: string): Promise<W
   return (await listWorkflowGraphs(principal)).find((graph) => graph.id === id) ?? null;
 }
 
-export async function createWorkflowGraph(principal: string, raw: unknown, reason: WorkflowGraphVersionReason = "create"): Promise<WorkflowGraph> {
+export async function createWorkflowGraph(principal: string, raw: unknown, reason: WorkflowGraphVersionReason = "create", options: { remember?: boolean } = {}): Promise<WorkflowGraph> {
   const owner = workflowGraphOwner(principal), definition = parseWorkflowGraphDefinition(raw);
-  return withGraphLock(owner, async () => {
+  const graph = await withGraphLock(owner, async () => {
     const store = await readStore(owner, principal);
     if (store.graphs.length >= MAX_GRAPHS) throw new Error("private workflow graph limit reached");
     const graph = materialize({ ...definition, id: definition.id ?? randomUUID() });
     if (store.graphs.some((row) => row.id === graph.id)) throw new Error("workflow graph id already exists");
     store.principal = principal; store.graphs.push(graph); await writeStore(store); await saveWorkflowGraphVersion(owner, graph, reason); return graph;
   });
+  if (options.remember) await rememberWorkflowGraphSave(principal, graph, reason).catch(() => false);
+  return graph;
 }
 
-export async function updateWorkflowGraph(principal: string, id: string, expectedRevision: string, raw: unknown, reason: WorkflowGraphVersionReason = "update"): Promise<WorkflowGraph> {
+export async function updateWorkflowGraph(principal: string, id: string, expectedRevision: string, raw: unknown, reason: WorkflowGraphVersionReason = "update", options: { remember?: boolean } = {}): Promise<WorkflowGraph> {
   const owner = workflowGraphOwner(principal), definition = parseWorkflowGraphDefinition(raw);
-  return withGraphLock(owner, async () => {
+  const graph = await withGraphLock(owner, async () => {
     const store = await readStore(owner, principal), index = store.graphs.findIndex((graph) => graph.id === id);
     if (index < 0) throw new Error("workflow graph not found");
     const current = store.graphs[index];
@@ -100,6 +103,8 @@ export async function updateWorkflowGraph(principal: string, id: string, expecte
     if (definition.id && definition.id !== id) throw new Error("workflow graph id mismatch");
     const graph = materialize({ ...definition, id }, current); store.principal = principal; store.graphs[index] = graph; await writeStore(store); await saveWorkflowGraphVersion(owner, graph, reason); return graph;
   });
+  if (options.remember) await rememberWorkflowGraphSave(principal, graph, reason).catch(() => false);
+  return graph;
 }
 
 export async function deleteWorkflowGraph(principal: string, id: string, expectedRevision: string): Promise<{ id: string; deleted: true }> {
@@ -112,13 +117,13 @@ export async function deleteWorkflowGraph(principal: string, id: string, expecte
   });
 }
 
-export async function cloneWorkflowGraph(principal: string, id: string): Promise<WorkflowGraph> {
+export async function cloneWorkflowGraph(principal: string, id: string, options: { remember?: boolean } = {}): Promise<WorkflowGraph> {
   const source = await getWorkflowGraph(principal, id);
   if (!source) throw new Error("workflow graph not found");
   return createWorkflowGraph(principal, {
     name: `${source.name} Copy`, description: source.description, status: "draft", inputs: source.inputs,
     nodes: source.nodes, edges: source.edges, metadata: { ...source.metadata, provenance: "clone", fingerprint: undefined },
-  });
+  }, "create", options);
 }
 
 function tokens(value: string): Set<string> { return new Set(normalizeWorkflowIntent(value).split(" ").filter((word) => word.length > 2)); }

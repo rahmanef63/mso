@@ -8,6 +8,7 @@ import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import type { OrganizationChart, OrganizationSeat, OrganizationUnit } from "@/lib/contracts/organization";
 import { parseOrganizationSeat, parseOrganizationUnit, validateOrganizationChart } from "./organization-schema";
+import { rememberOrganizationNodeUpdate, type OrganizationNodeMemory } from "./domain-memory";
 
 export const ORGANIZATION_STORE_PATH = expandOwnerStorePath(process.env.OS_ORGANIZATION_STORE ?? path.join(os.homedir(), ".mso", "private", "organization.json"));
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -41,14 +42,34 @@ export async function deleteOrganizationSeat(expectedRevision: string, id: strin
 export async function replaceOrganization(expectedRevision: string, raw: { name?: unknown; units?: unknown; seats?: unknown }) { return mutate(expectedRevision, () => { const units = Array.isArray(raw.units) ? raw.units.map((v) => parseOrganizationUnit(v)) : []; const seats = Array.isArray(raw.seats) ? raw.seats.map((v) => parseOrganizationSeat(v)) : []; return materialize(String(raw.name || "Organization"), units, seats); }); }
 
 
-export async function mutateOrganizationFlow(expectedRevision: string, action: string, data: Record<string, unknown>) {
+export async function mutateOrganizationFlow(
+  expectedRevision: string,
+  action: string,
+  data: Record<string, unknown>,
+  options: { principal?: string } = {},
+) {
   if (!isOrganizationFlowAction(action)) throw new Error("unsupported project flow action");
   if (typeof data.unitId !== "string" || !data.unitId) throw new Error("unitId is required for project flow actions");
-  return mutate(expectedRevision, (chart) => {
-    const unit = chart.units.find((item) => item.id === data.unitId);
+  const unitId = data.unitId;
+  let memory: Omit<OrganizationNodeMemory, "chartRevision"> | undefined;
+  const chart = await mutate(expectedRevision, (current) => {
+    const unit = current.units.find((item) => item.id === unitId);
     if (!unit) throw new Error("organization unit not found");
+    const beforeIds = new Set(unit.projectFlow?.nodes.map((node) => node.id) ?? []);
     const projectFlow = changeOrganizationFlow(unit.projectFlow, action, data);
+    if (action === "flow_node_upsert") {
+      const raw = data.node && typeof data.node === "object" && !Array.isArray(data.node) ? data.node as Record<string, unknown> : {};
+      const requestedId = typeof raw.id === "string" ? raw.id : undefined;
+      const node = requestedId
+        ? projectFlow.nodes.find((item) => item.id === requestedId)
+        : projectFlow.nodes.find((item) => !beforeIds.has(item.id));
+      if (node) memory = { unitId, node, change: beforeIds.has(node.id) ? "updated" : "created" };
+    }
     const next = { ...unit, projectFlow, updatedAt: new Date().toISOString() };
-    return materialize(chart.name, chart.units.map((item) => item.id === unit.id ? next : item), chart.seats);
+    return materialize(current.name, current.units.map((item) => item.id === unit.id ? next : item), current.seats);
   });
+  if (options.principal && memory) {
+    await rememberOrganizationNodeUpdate(options.principal, { ...memory, chartRevision: chart.revision }).catch(() => false);
+  }
+  return chart;
 }
