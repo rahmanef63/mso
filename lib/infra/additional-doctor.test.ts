@@ -35,6 +35,14 @@ describe("additional native credential providers", () => {
     expect(result).toContain("authenticated"); expect(result).not.toContain(KEY);
     expect(mock.mock.calls[0]?.[0]).toBe(endpoint);
   });
+  it.each([401, 403])("keeps Resend Domains %s as capability-unavailable instead of credential-invalid", async (status) => {
+    const mock = vi.fn(async () => new Response("scope denied", { status }));
+    vi.stubGlobal("fetch", mock);
+    await expect(doctorAdditionalProvider("resend", { apiKey: KEY })).rejects.toThrow(
+      "Resend Domains API access unavailable; sending capability not verified"
+    );
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
   it("verifies DOKU Payment with a signed read-only synthetic status lookup",async()=>{
     const mock=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{expect(String(input)).toContain("api-sandbox.doku.com/orders/v1/status/MSO-CRED-CHECK-");const h=new Headers(init?.headers);expect(h.get("Client-Id")).toBe("MCH-synthetic");expect(h.get("Signature")).toMatch(/^HMACSHA256=/);return new Response(JSON.stringify({responseCode:"4040001",responseMessage:"Transaction Not Found"}),{status:404});});vi.stubGlobal("fetch",mock);
     const result=await doctorAdditionalProvider("doku",{paymentClientId:"MCH-synthetic",paymentSecretKey:KEY,paymentEnvironment:"sandbox"});expect(result).toBe("authenticated; sandbox signed status lookup verified");expect(result).not.toContain(KEY);expect(mock).toHaveBeenCalledTimes(1);

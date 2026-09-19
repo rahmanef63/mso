@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { emptyIntegrationState } from "./identity";
 import { createConnectionIn, saveConnectionValues } from "./connection-service";
 import { connectionSummary } from "./connection-registry";
-import { recordConnectionCheck } from "./connection-health";
+import { checkCategory, recordConnectionCheck } from "./connection-health";
 
 const fixture = vi.hoisted(() => ({ state: null as any }));
 vi.mock("./connection-storage", () => ({
@@ -31,6 +31,15 @@ describe("revision-bound connection health", () => {
     await recordConnectionCheck("github", snapshot(), { id: "github", ok: false, detail: "HTTP 503 secret-response" }, 20);
     expect(connectionSummary("owner", current()).state).toBe("unavailable");
     expect(JSON.stringify(current().lastCheck)).not.toContain("secret-response");
+  });
+  it("does not classify scope-limited Resend domain reads as an invalid credential", () => {
+    expect(
+      checkCategory({
+        id: "resend",
+        ok: false,
+        detail: "Resend Domains API access unavailable; sending capability not verified",
+      }),
+    ).toBe("unavailable");
   });
   it("rejects stale results after credential rotation or connection recreation", async () => {
     const old = snapshot();

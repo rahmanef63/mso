@@ -102,7 +102,20 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
     }
     case "resend": {
       if (!present(values.apiKey)) return null;
-      const response = await checked("Resend", "https://api.resend.com/domains", { authorization: `Bearer ${values.apiKey}`, accept: "application/json" });
+      let response;
+      try {
+        response = await request(
+          "https://api.resend.com/domains",
+          { headers: { authorization: `Bearer ${values.apiKey}`, accept: "application/json" } },
+          TIMEOUT_MS,
+        );
+      } catch {
+        throw new Error("Resend request failed");
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("Resend Domains API access unavailable; sending capability not verified");
+      }
+      if (!response.ok) throw new Error(`Resend HTTP ${response.status}`);
       return `authenticated; ${countRows(response.body)} accessible domain(s)`;
     }
     case "stripe": {

@@ -1,3 +1,7 @@
+## 2026-09-20 — Distinguish Resend send-only scope from invalid credentials
+
+HR provider UAT exposed a verification-model bug: MSO's Resend doctor probed only `GET /domains`, so a legitimate Sending-only key could receive 401/403 and then be persisted as `invalid` even though that response only proved the key lacked Domains-read capability. The doctor now treats those Resend-specific scope denials as capability-unavailable with sending explicitly unverified, while preserving strict invalidation for providers/endpoints where 401/403 actually establishes invalid access. It does not claim a Sending-only key is valid, does not send a probe email, does not broaden permissions, and never exposes the credential. Regression coverage locks both Resend 401/403 handling and the connection-health classification.
+
 ## 2026-09-20 — Make the Camoufox session stop leave a clean user unit
 
 Final production Browser QA proved viewer/auth transport clean, but stopping the Browser left
