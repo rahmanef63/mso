@@ -1,3 +1,14 @@
+## 2026-09-19 — Bind Convex snapshot authorization to the opened descriptor
+
+The prior staging hardening consumed bytes through one open descriptor but still authorized the
+caller path before opening it. `O_NOFOLLOW` protects only the final component, so a parent-path
+rename/symlink swap could otherwise redirect the later open outside the reviewed read root. Snapshot
+staging now re-runs `resolveReadable()` immediately after open, requires the caller-visible canonical
+path to be unchanged, and compares the named file's `dev`/`ino` to the descriptor `fstat`. The same
+identity check runs again after the private descriptor-only copy. An adversarial regression replaces
+the path after `open()` and proves the import is rejected rather than staging the old descriptor bytes
+under a now-different pathname.
+
 ## 2026-09-19 — Pin Convex snapshot imports to validated bytes
 
 The security inventory exposed CodeQL alert #139: snapshot metadata was checked by

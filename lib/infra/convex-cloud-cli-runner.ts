@@ -107,12 +107,13 @@ export async function convexProjectContext(projectPath: unknown) {
 export async function convexSnapshotContext(snapshotPath: unknown) {
   if (typeof snapshotPath !== "string" || !snapshotPath.trim())
     throw new IntegrationError("invalid_snapshot_path");
-  const snapshot = await resolveReadable(snapshotPath.trim()).catch(() => {
+  const requestedPath = snapshotPath.trim();
+  const snapshot = await resolveReadable(requestedPath).catch(() => {
     throw new IntegrationError("invalid_snapshot_path");
   });
   if (!snapshot.toLowerCase().endsWith(".zip"))
     throw new IntegrationError("convex_snapshot_zip_required");
-  return { snapshot, ...(await stageConvexSnapshot(snapshot)) };
+  return { snapshot, ...(await stageConvexSnapshot(requestedPath, snapshot)) };
 }
 
 export function convexCliEnv(deployKey: string): Record<string, string> {

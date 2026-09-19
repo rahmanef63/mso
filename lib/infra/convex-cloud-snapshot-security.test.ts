@@ -43,3 +43,36 @@ it("stages the checked snapshot from one open descriptor into a private immutabl
   await context.cleanup();
   await expect(fs.stat(context.stagedSnapshot)).rejects.toMatchObject({ code: "ENOENT" });
 });
+
+it("rejects a snapshot path replaced after the descriptor is opened", async () => {
+  const replacement = path.join(root, "replacement.zip");
+  await fs.writeFile(
+    replacement,
+    Buffer.from([
+      0x50, 0x4b, 0x05, 0x06, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0,
+    ]),
+    { mode: 0o600 },
+  );
+  const openedOriginal = path.join(root, "opened-original.zip");
+  const realOpen = fs.open.bind(fs);
+  let swapped = false;
+  const openSpy = vi.spyOn(fs, "open").mockImplementation(async (...args) => {
+    const handle = await realOpen(...args);
+    if (!swapped && String(args[0]) === snapshot) {
+      swapped = true;
+      await fs.rename(snapshot, openedOriginal);
+      await fs.rename(replacement, snapshot);
+    }
+    return handle;
+  });
+  try {
+    const { convexSnapshotContext } = await import("./convex-cloud-cli-runner");
+    await expect(convexSnapshotContext(snapshot)).rejects.toMatchObject({
+      code: "invalid_snapshot_path",
+    });
+    expect(swapped).toBe(true);
+  } finally {
+    openSpy.mockRestore();
+  }
+});

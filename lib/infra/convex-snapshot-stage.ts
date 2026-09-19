@@ -2,12 +2,27 @@ import { createHash } from "node:crypto";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { resolveReadable } from "@/lib/host/paths";
 import { IntegrationError } from "./identity";
 
 const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024 * 1024;
 const COPY_CHUNK_BYTES = 1024 * 1024;
 
-export async function stageConvexSnapshot(snapshot: string) {
+async function assertOpenedSnapshotIdentity(
+  requestedPath: string,
+  canonicalSnapshot: string,
+  opened: Awaited<ReturnType<typeof fs.stat>>,
+) {
+  const current = await resolveReadable(requestedPath).catch(() => {
+    throw new IntegrationError("invalid_snapshot_path");
+  });
+  if (current !== canonicalSnapshot) throw new IntegrationError("invalid_snapshot_path");
+  const named = await fs.lstat(canonicalSnapshot).catch(() => null);
+  if (!named?.isFile() || named.dev !== opened.dev || named.ino !== opened.ino)
+    throw new IntegrationError("invalid_snapshot_path");
+}
+
+export async function stageConvexSnapshot(requestedPath: string, snapshot: string) {
   const handle = await fs
     .open(snapshot, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW)
     .catch(() => {
@@ -20,6 +35,11 @@ export async function stageConvexSnapshot(snapshot: string) {
       throw new IntegrationError("invalid_snapshot_path");
     if (typeof process.getuid === "function" && stat.uid !== process.getuid())
       throw new IntegrationError("invalid_snapshot_path");
+
+    // Re-authorize the caller path after open and bind its current name to the
+    // already-open descriptor. O_NOFOLLOW protects only the final component; this
+    // additionally rejects parent-directory/symlink swaps between check and open.
+    await assertOpenedSnapshotIdentity(requestedPath, snapshot, stat);
 
     const head = Buffer.alloc(4);
     const first = await handle.read(head, 0, 4, 0);
@@ -79,6 +99,10 @@ export async function stageConvexSnapshot(snapshot: string) {
       after.ctimeMs !== stat.ctimeMs
     )
       throw new IntegrationError("invalid_snapshot_path");
+    // Bind the final result metadata to the same caller-visible path as well.
+    // A late rename/replacement after the copy is rejected instead of returning
+    // a staged snapshot whose audit path now names different bytes.
+    await assertOpenedSnapshotIdentity(requestedPath, snapshot, stat);
 
     return {
       stagedSnapshot,

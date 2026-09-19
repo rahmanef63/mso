@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` bind Convex snapshot path identity
 - `security` pin Convex snapshot import bytes
 - `security` keep macOS installer fully parseable
 - `mcp` keep architecture ratchet and bootstrap tests green
