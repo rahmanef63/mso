@@ -23,6 +23,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `security` isolate Convex snapshot staging
 
+**Tests**
+
+- `security` keep snapshot regression descriptor-only
+
 ## 2026-09-18
 
 **Added**

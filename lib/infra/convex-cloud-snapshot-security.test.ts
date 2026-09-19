@@ -36,9 +36,14 @@ it("stages the checked snapshot from one open descriptor into a private immutabl
     /mso-convex-snapshot-[^/\\]+$/,
   );
   expect((await fs.stat(path.dirname(context.stagedSnapshot))).mode & 0o777).toBe(0o700);
-  expect((await fs.stat(context.stagedSnapshot)).mode & 0o777).toBe(0o600);
-  await fs.writeFile(snapshot, "changed after validation", { mode: 0o600 });
-  expect(await fs.readFile(context.stagedSnapshot)).toEqual(original);
+  const staged = await fs.open(context.stagedSnapshot, "r");
+  try {
+    expect((await staged.stat()).mode & 0o777).toBe(0o600);
+    await fs.writeFile(snapshot, "changed after validation", { mode: 0o600 });
+    expect(await staged.readFile()).toEqual(original);
+  } finally {
+    await staged.close();
+  }
   expect(context.sha256).toMatch(/^[a-f0-9]{64}$/);
   await context.cleanup();
   await expect(fs.stat(context.stagedSnapshot)).rejects.toMatchObject({ code: "ENOENT" });
