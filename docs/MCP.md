@@ -1,7 +1,9 @@
 # MCP — drive this VPS from ChatGPT, Claude.ai or Cursor
 
 > **First connection?** Start with [How to use MSO MCP — Bahasa Indonesia](./MCP-HOW-TO.md)
-> for setup, example prompts, workflow usage, and troubleshooting.
+> for setup, example prompts, workflow usage, and troubleshooting. Agents should follow
+> the first-call sequence in [`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md) (official skill
+> `mso-agent-bootstrap`) before mutating the host.
 
 > **Current deep reference.** For ChatGPT specifically, use
 > [`CHATGPT-PLUGIN.md`](./CHATGPT-PLUGIN.md) for current custom-MCP-app terminology,
@@ -457,7 +459,7 @@ reported but is not declared beaten on a non-comparable metric.
 
 In addition to the live `skills_*` actions, MSO advertises `capabilities.extensions["io.modelcontextprotocol/skills"]` for ChatGPT/OpenAI plugin scans. The extension is intentionally **static and bounded**: it publishes at most five general official skills from `claude-skills/`, then serves the same complete entry through `skills/list` and `skills/get` and every declared `skill://mso/...` resource through `resources/read`. Each resource is read with `O_NOFOLLOW`, capped before allocation, path-normalized, included in the per-skill 100-file / 5 MiB budget, and hashed as `sha256:<hex>`.
 
-The published set is `mso`, `mso-repo-work`, `mso-service-debug`, `mso-deploy`, and `mso-mcp-feature-engineering`. This is deliberately separate from MSO's much larger live catalog: operator `~/.mso/skills`, per-project skills, local skills, and third-party/verified/untrusted roots can still be searched/read at runtime but never silently become plugin-submission instructions.
+The published set is `mso-agent-bootstrap`, `mso`, `mso-repo-work`, `mso-service-debug`, and `mso-deploy`. Orientation is first so a ChatGPT import that only takes the syllabus still learns the first-call sequence. Implementer skill `mso-mcp-feature-engineering` remains official and searchable but is not in the five-slot ChatGPT snapshot. This is deliberately separate from MSO's much larger live catalog: operator `~/.mso/skills`, per-project skills, local skills, and third-party/verified/untrusted roots can still be searched/read at runtime but never silently become plugin-submission instructions.
 
 ## Semantic skill search and learned workflows
 
@@ -498,12 +500,16 @@ or token budget. This is a small local semantic router for MSO's skill/tool cata
 not a general-purpose cloud embedding model. A future encoder can re-index recipes
 because every saved vector carries its version.
 
-Connected clients receive the bootstrap, terminal-batching, verification and visible-trace policy in MCP `initialize.instructions`:
+Connected clients receive the bootstrap sequence in MCP `initialize.instructions` (see
+[`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md)). The exec-scope form is:
 
 ```text
-workflow_start → bounded tools or one scoped terminal batch → verify → workflow_finish
-interrupted run → workflow_cancel with the exact workflow id
+MSO agent bootstrap: 1) skills_search|skills_read … 7) bounded infra + confirm
+Then verify and workflow_finish, or workflow_cancel.
 ```
+
+Read-scope tokens get the same map minus `workflow_start`. ChatGPT additionally hears
+that project MCP names never join the global catalog.
 
 A recipe is guidance, not permission. The connector still checks current tool
 availability, token scope, project context and safety constraints before reusing it.

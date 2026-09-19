@@ -1,0 +1,4 @@
+interface:
+  display_name: "MSO Agent Bootstrap"
+  short_description: "Call these MSO tools first"
+  default_prompt: "Use $mso-agent-bootstrap before mutating the host. Follow its first-call sequence, then the normal discover-to-act loop."

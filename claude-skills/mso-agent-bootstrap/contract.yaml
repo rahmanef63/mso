@@ -1,0 +1,35 @@
+version: 1
+routing:
+  use_when:
+    - "connecting to MSO via MCP"
+    - "agent needs the first-call orientation sequence"
+    - "capability parity across Alfa, CLI, and MCP"
+  do_not_use_when:
+    - "A narrower official MSO skill exactly matches the requested task and the agent already knows the map."
+  fallback: false
+  prefer_over:
+    - mso
+context:
+  target: mso-agent-bootstrap
+  mode: read
+  actor: operator
+lifecycle:
+  discover:
+    - skills_search
+    - skills_read
+    - projects_list
+    - workflow_start
+  validate:
+    - token-scope
+    - project-identity
+  verify:
+    - workflow_finish
+state:
+  source_of_truth: live
+  refresh: always
+safety:
+  risk: low
+  confirmation: none
+  concurrency: none
+presentation:
+  authority: hybrid

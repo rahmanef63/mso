@@ -68,6 +68,7 @@ describe("workflow_start bootstrap", () => {
         repository: { package: { name?: string; version?: string; scripts: string[] }; git: { statusChecked: boolean } };
         toolset: { toolCount: number; names: string[]; hash: string };
         trace: string[];
+        orientation: { skill: string; scope: string; steps: Array<{ n: number; call: string }> };
       };
       search: { hits: Array<{ kind: string; name: string; trust?: string }> };
     };
@@ -84,8 +85,14 @@ describe("workflow_start bootstrap", () => {
     expect(result.bootstrap.trace).toEqual(expect.arrayContaining([
       expect.stringContaining("[MSO]"),
       expect.stringContaining("[Project]"),
+      expect.stringContaining("[Orient]"),
       expect.stringContaining("[Plan]"),
     ]));
+    expect(result.bootstrap.orientation).toMatchObject({
+      skill: "mso-agent-bootstrap",
+      scope: "write",
+    });
+    expect(result.bootstrap.orientation.steps.map((step: { n: number }) => step.n)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(result.search.hits).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: "skill", name: "mso-repo-work", trust: "official" }),
     ]));

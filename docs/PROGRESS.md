@@ -29,6 +29,18 @@ validator narrowly to CSS chunks and only the exact ?icon.<hash>.svg icon query 
 arbitrary queries, API/login paths, cross-origin URLs and all otherwise-unreviewed alerts
 still fail closed.
 
+## 2026-09-19 — MCP agent bootstrap and capability-parity map
+
+MCP clients were skipping `workflow_start` / `skills_search` and jumping to `exec_run` because
+the full `tools/list` had no explicit first-call contract. The canonical sequence now lives in
+`lib/mcp/instructions.ts` and is injected into `initialize.instructions`,
+`workflow_start.bootstrap.orientation`, and official skill `mso-agent-bootstrap` (ChatGPT
+published skill #1). ChatGPT still sees every callable MSO tool; project MCP discover/call stay
+two tools; secrets stay out of args. The parity matrix in `docs/AGENT-BOOTSTRAP.md` separates
+presentation differences from intentional Alfa identity boundaries. Catalog routing now matches
+orientation prompts to `skills_search`/`skills_read` instead of shell. Follow-ups (host file
+index, replay-by-handle) are documented, not shipped.
+
 ## 2026-09-18 — Close external-editor review around durable session policy and owner stores
 
 The latest PR review found four boundary issues after the cookie-policy epoch landed. CLI device
