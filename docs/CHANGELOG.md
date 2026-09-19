@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` keep installer sources strict-semgrep parseable
 - `mcp` harden native UI and plugin bindings
 - `ai` separate provider connect from selection
 - `security` bind Convex snapshot path identity
@@ -31,6 +32,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Tests**
 
 - `security` keep snapshot regression descriptor-only
+
+**Chores**
+
+- `mcp` advance graph toolset signature
 
 ## 2026-09-18
 
