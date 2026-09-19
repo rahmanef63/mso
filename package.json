@@ -28,6 +28,7 @@
     "skill:check": "bun scripts/check-skill-flows.mjs",
     "plugin:link-app": "node scripts/link-openai-app.mjs",
     "plugin:stage-private": "node scripts/stage-openai-plugin.mjs",
+    "plugin:doctor-private": "node scripts/openai-plugin-doctor.mjs",
     "comparison": "node scripts/gen-comparison.mjs",
     "bench:cognitive": "bun scripts/bench-cognitive-runtime.mjs",
     "bench:memory": "bun scripts/bench-memory-retrieval.mjs",

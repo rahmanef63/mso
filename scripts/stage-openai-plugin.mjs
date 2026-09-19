@@ -25,3 +25,16 @@ await fs.mkdir(path.dirname(stage),{recursive:true,mode:0o700});
 await fs.rename(temp,stage);
 await fs.chmod(stage,0o700);
 console.log("openai-app: private plugin package staged at "+stage+"; App ID is redacted and the source repository was not modified");
+
+const doctor=spawnSync(process.execPath,[path.join(repo,"scripts","openai-plugin-doctor.mjs")],{
+  cwd:repo,
+  stdio:["ignore","pipe","pipe"],
+  encoding:"utf8",
+  env:{...process.env,MSO_OPENAI_PLUGIN_STAGE:stage},
+});
+if(doctor.status!==0){
+  process.stderr.write(doctor.stderr||"openai-app: staged package verification failed\n");
+  process.exit(doctor.status??2);
+}
+process.stdout.write(doctor.stdout);
+console.log("openai-app: no ChatGPT install or refresh was attempted; staging is preparation only");
