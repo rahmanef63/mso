@@ -20,7 +20,9 @@ case "$cmd" in
   search) jget "/api/v1/fs/search?q=$(enc "${1:?query}")${2:+"&root=$(enc "$2")"}" ;;
   project-candidates)
     project="${1:?project}"; query="${2:?query}"; limit="${3:-16}"; cursor="${4:-}"
-    case "$limit" in (*[!0-9]*|'') die "limit must be an integer from 1 to 40" ;; esac
+    case "$limit" in
+      *[!0-9]*|"") die "limit must be an integer from 1 to 40" ;;
+    esac
     [ "$limit" -ge 1 ] && [ "$limit" -le 40 ] || die "limit must be an integer from 1 to 40"
     jget "/api/v1/projects/candidates?project=$(enc "$project")&q=$(enc "$query")&limit=$(enc "$limit")${cursor:+"&cursor=$(enc "$cursor")"}" ;;
   write)  jpost "/api/v1/fs/write" "$(jq -n --arg p "${1:?path}" --arg c "${2-}" '{path:$p,content:$c}')" ;;
