@@ -71,35 +71,41 @@ export async function importConvexCloudSnapshot(
   const fetchImpl = deps.fetchImpl ?? fetch;
   const execute = deps.runCli ?? runConvexCli;
 
-  return withConvexEphemeralDeployKey(
-    deployment,
-    token,
-    ["deployment:data:view", "deployment:data:write", "deployment:backups:view", "deployment:backups:import"],
-    async (deployKey) => {
-      const modeFlag = input.mode === "replace-all" ? "--replace-all" : "--append";
-      const result = await execute(
-        executable,
-        ["import", snap.snapshot, modeFlag, "--yes"],
-        {
-          cwd: project,
-          env: convexCliEnv(deployKey),
-          timeoutMs: IMPORT_TIMEOUT_MS,
-        },
-      );
-      if (result.code !== 0) throwConvexCliFailure("import", result, deployKey);
-      return {
-        deploymentName: deployment,
-        projectPath: project,
-        imported: true,
-        mode: input.mode,
-        snapshot: {
-          path: snap.snapshot,
-          bytes: snap.size,
-          sha256: snap.sha256,
-        },
-        durationMs: result.durationMs,
-      };
-    },
-    fetchImpl,
-  );
+  try {
+    return await withConvexEphemeralDeployKey(
+      deployment,
+      token,
+      ["deployment:data:view", "deployment:data:write", "deployment:backups:view", "deployment:backups:import"],
+      async (deployKey) => {
+        const modeFlag =
+          input.mode === "replace-all" ? "--replace-all" : "--append";
+        const result = await execute(
+          executable,
+          ["import", snap.stagedSnapshot, modeFlag, "--yes"],
+          {
+            cwd: project,
+            env: convexCliEnv(deployKey),
+            timeoutMs: IMPORT_TIMEOUT_MS,
+          },
+        );
+        if (result.code !== 0)
+          throwConvexCliFailure("import", result, deployKey);
+        return {
+          deploymentName: deployment,
+          projectPath: project,
+          imported: true,
+          mode: input.mode,
+          snapshot: {
+            path: snap.snapshot,
+            bytes: snap.size,
+            sha256: snap.sha256,
+          },
+          durationMs: result.durationMs,
+        };
+      },
+      fetchImpl,
+    );
+  } finally {
+    await snap.cleanup();
+  }
 }

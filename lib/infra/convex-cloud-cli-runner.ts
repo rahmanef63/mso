@@ -1,10 +1,10 @@
-import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { createReadStream, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import { childEnv } from "@/lib/host/child-env";
 import { resolveReadable } from "@/lib/host/paths";
 import { IntegrationError } from "./identity";
+import { stageConvexSnapshot } from "./convex-snapshot-stage";
 
 export type ConvexCliResult = {
   code: number;
@@ -20,7 +20,6 @@ export type RunConvexCli = (
 ) => Promise<ConvexCliResult>;
 
 const MAX_CLI_OUTPUT = 64 * 1024;
-const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024 * 1024;
 
 function appendBounded(current: string, chunk: Buffer | string): string {
   const text = current + chunk.toString();
@@ -108,34 +107,13 @@ export async function convexProjectContext(projectPath: unknown) {
 export async function convexSnapshotContext(snapshotPath: unknown) {
   if (typeof snapshotPath !== "string" || !snapshotPath.trim())
     throw new IntegrationError("invalid_snapshot_path");
-  const snapshot = await resolveReadable(snapshotPath.trim()).catch(() => {
+  const requestedPath = snapshotPath.trim();
+  const snapshot = await resolveReadable(requestedPath).catch(() => {
     throw new IntegrationError("invalid_snapshot_path");
   });
   if (!snapshot.toLowerCase().endsWith(".zip"))
     throw new IntegrationError("convex_snapshot_zip_required");
-  const stat = await fs.stat(snapshot).catch(() => null);
-  if (!stat?.isFile() || stat.size <= 0 || stat.size > MAX_SNAPSHOT_BYTES)
-    throw new IntegrationError("invalid_snapshot_path");
-  if (typeof process.getuid === "function" && stat.uid !== process.getuid())
-    throw new IntegrationError("invalid_snapshot_path");
-
-  const head = Buffer.alloc(4);
-  const handle = await fs.open(snapshot, "r");
-  try {
-    await handle.read(head, 0, 4, 0);
-  } finally {
-    await handle.close().catch(() => undefined);
-  }
-  if (
-    head[0] !== 0x50 ||
-    head[1] !== 0x4b ||
-    ![0x03, 0x05, 0x07].includes(head[2])
-  )
-    throw new IntegrationError("convex_snapshot_zip_required");
-
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(snapshot)) hash.update(chunk);
-  return { snapshot, size: stat.size, sha256: hash.digest("hex") };
+  return { snapshot, ...(await stageConvexSnapshot(requestedPath, snapshot)) };
 }
 
 export function convexCliEnv(deployKey: string): Record<string, string> {

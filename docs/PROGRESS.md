@@ -1,3 +1,45 @@
+## 2026-09-19 — Bind Convex snapshot authorization to the opened descriptor
+
+The prior staging hardening consumed bytes through one open descriptor but still authorized the
+caller path before opening it. `O_NOFOLLOW` protects only the final component, so a parent-path
+rename/symlink swap could otherwise redirect the later open outside the reviewed read root. Snapshot
+staging now re-runs `resolveReadable()` immediately after open, requires the caller-visible canonical
+path to be unchanged, and compares the named file's `dev`/`ino` to the descriptor `fstat`. The same
+identity check runs again after the private descriptor-only copy. An adversarial regression replaces
+the path after `open()` and proves the import is rejected rather than staging the old descriptor bytes
+under a now-different pathname.
+
+## 2026-09-19 — Pin Convex snapshot imports to validated bytes
+
+The security inventory exposed CodeQL alert #139: snapshot metadata was checked by
+pathname, then the same pathname was reopened for hashing and later passed to the
+Convex CLI. Snapshot validation now opens the source once, performs ownership/size/
+ZIP checks and hashing through that descriptor, copies those exact bytes into a private
+0700/0600 staging location, verifies the descriptor did not change during the copy,
+and imports only the staged file. The private copy is removed in a final cleanup path,
+while result metadata continues to identify the caller's original source path. Regression
+coverage changes the source after validation and proves the CLI still receives the
+validated staged bytes.
+
+## 2026-09-19 — Keep strict Semgrep coverage complete on the macOS installer
+
+Hosted Semgrep reported zero findings but exited 3 under `--strict` because its Bash parser
+partially parsed the heredoc nested inside `persist_path` in `scripts/install-macos.sh`. The
+installer now emits the exact same shell-profile block with literal `printf` arguments instead
+of that heredoc. `--strict` and `--error` remain enabled, the public dispatcher checksum is
+updated, `bash -n` stays clean and platform/install regressions pass. This fixes parser coverage
+rather than suppressing or downgrading the security scanner.
+
+## 2026-09-18 — Include the remaining reviewed public asset variants
+
+The first exact-main run of the path-scoped validator correctly failed because the live
+asset graph also contains content-hashed CSS chunks and Next's versioned SVG app icon.
+The raw report showed rule 10050 only on public cacheable assets. Header checks confirmed
+CSS is public/immutable for one year and the icon is public for one week. Extend the
+validator narrowly to CSS chunks and only the exact ?icon.<hash>.svg icon query shape;
+arbitrary queries, API/login paths, cross-origin URLs and all otherwise-unreviewed alerts
+still fail closed.
+
 ## 2026-09-19 — MCP agent bootstrap and capability-parity map
 
 MCP clients were skipping `workflow_start` / `skills_search` and jumping to `exec_run` because
