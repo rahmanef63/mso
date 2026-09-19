@@ -135,6 +135,9 @@ describe("MCP Apps List, Block and Page contract", () => {
     }).contents[0];
     expect(content.uri).toBe(MSO_BLOCK_URI);
     expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
+    expect(content.text).toContain("ui/initialize");
+    expect(content.text).toContain("ui/notifications/initialized");
+    expect(content.text).toContain("ui/message");
     expect(content.text).toContain("sendFollowUpMessage");
     expect(content.text).toContain("reportValidity");
     expect(content.text).toContain("label.id=controlId+\"-label\"");
@@ -157,7 +160,7 @@ describe("MCP Apps List, Block and Page contract", () => {
     });
     expect(content._meta.ui.csp.frameDomains).toBeUndefined();
     expect(content._meta["openai/widgetCSP"]).toEqual({ redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_BLOCK_URI).toContain("block-v3.html");
+    expect(MSO_BLOCK_URI).toContain("block-v4.html");
   });
 
   it("serves the full Page without external frame domains by default", async () => {

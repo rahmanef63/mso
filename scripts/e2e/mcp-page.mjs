@@ -48,7 +48,7 @@ const output = {
   },
 };
 
-assert.equal(listResource.uri, "ui://mso/list-v1.html");
+assert.equal(listResource.uri, "ui://mso/list-v2.html");
 assert.deepEqual(listResource._meta.ui.csp.connectDomains, []);
 assert.deepEqual(listResource._meta.ui.csp.resourceDomains, []);
 assert.equal(resource.uri, "ui://mso/page-v15.html");
@@ -80,6 +80,23 @@ try {
   assert.deepEqual(listAudit.violations.map(v=>v.id),[]);assertions++;
   await listPage.close();
   await listContext.close();
+
+  // Standards-first compact widget host: initialize over ui/*, deliver tool
+  // results through notifications, and receive the follow-up through ui/message.
+  const standardContext=await browser.newContext({viewport:{width:640,height:720}});
+  const standardPage=await standardContext.newPage();
+  await standardPage.route("https://mso-ui.example.com/list-standard",route=>route.fulfill({contentType:"text/html",body:'<!doctype html><script>window.openai={setWidgetState:()=>{}}</script>'+listResource.text}));
+  await standardPage.route("https://chatgpt.com/list-standard",route=>route.fulfill({contentType:"text/html",body:'<!doctype html><iframe id="app" src="https://mso-ui.example.com/list-standard" style="width:100%;height:600px"></iframe><script>window.messages=[];window.listOutput='+JSON.stringify(listOutput)+';window.addEventListener("message",event=>{const frame=document.getElementById("app"),m=event.data;if(event.origin!=="https://mso-ui.example.com"||event.source!==frame.contentWindow||!m||m.jsonrpc!=="2.0")return;if(m.method==="ui/initialize")event.source.postMessage({jsonrpc:"2.0",id:m.id,result:{protocolVersion:"2026-01-26",hostContext:{theme:"light"}}},"https://mso-ui.example.com");else if(m.method==="ui/notifications/initialized"){window.initialized=true;event.source.postMessage({jsonrpc:"2.0",method:"ui/notifications/tool-result",params:{structuredContent:window.listOutput}},"https://mso-ui.example.com")}else if(m.method==="ui/message"){window.messages.push(m.params);if(m.id!==undefined)event.source.postMessage({jsonrpc:"2.0",id:m.id,result:{}},"https://mso-ui.example.com")}});</script>'}));
+  await standardPage.goto("https://chatgpt.com/list-standard");
+  const standardList=standardPage.frameLocator('iframe[src="https://mso-ui.example.com/list-standard"]');
+  await standardList.locator(".item").first().waitFor();
+  assert.equal(await standardList.locator(".item").count(),2);assertions++;
+  assert.equal(await standardPage.evaluate(()=>window.initialized),true);assertions++;
+  await standardList.getByRole("button",{name:"Open",exact:true}).click();
+  await standardPage.waitForFunction(()=>window.messages?.length===1);
+  assert.match(await standardPage.evaluate(()=>window.messages[0].content[0].text),/baton/);assertions++;
+  await standardPage.close();
+  await standardContext.close();
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 800 }]) {
     const page = await browser.newPage({ viewport });
     await page.route("https://mso-ui.example.com/qa", (route) => route.fulfill({
