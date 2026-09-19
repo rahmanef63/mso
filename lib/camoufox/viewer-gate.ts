@@ -17,7 +17,7 @@ export type CamoufoxViewerGateResult = typeof AUTHORIZED | NextResponse;
 
 
 function noStore(headers: Headers): void {
-  headers.set("cache-control", "no-store");
+  headers.set("cache-control", "no-store, no-transform");
   headers.set("cdn-cache-control", "no-store");
   headers.set("cloudflare-cdn-cache-control", "no-store");
 }
@@ -65,7 +65,7 @@ const BOOTSTRAP_JS = [
   "const r=await fetch('/__viewer_auth',{method:'POST',headers:{authorization:'Bearer '+t},credentials:'include',cache:'no-store'});",
   "if(!r.ok){document.body.textContent='Viewer authorization failed.';return;}",
   "history.replaceState(null,'',location.pathname+location.search+(p.toString()?'#'+p.toString():''));",
-  "location.reload();",
+  "setTimeout(()=>location.reload(),50);",
   "})().catch(()=>{document.body.textContent='Viewer authorization failed.';});",
 ].join("");
 

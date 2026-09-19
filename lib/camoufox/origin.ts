@@ -104,6 +104,7 @@ export function camoufoxViewerCsp(): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self' data:",
+    "media-src 'self'",
     "connect-src 'self'",
     "worker-src 'self' blob:",
     "object-src 'none'",
