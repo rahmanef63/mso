@@ -465,11 +465,15 @@ route; repeatedly starting an already running browser cannot fix it. Keep the vi
 on its isolated origin, retain live Operator/Owner authorization, and never expose a
 bare noVNC listener or disable certificate verification as a workaround.
 
-A certificate for `*.example.com` does not cover `camoufox.mso.example.com`.
-Check the edge provider's coverage independently from the origin certificate.
-For Cloudflare full-setup Universal SSL, see its [hostname coverage limits](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/).
-DNS-only routing requires a publicly trusted origin certificate and the intended
-origin route; changing the record also changes which edge protections apply.
+A certificate for `*.example.com` covers `camoufox.example.com` but does not cover
+`camoufox.mso.example.com`. MSO therefore derives the safe sibling outside a configured
+`mso.example.com` cookie namespace when possible. If that hostname is not routed in your
+deployment, set `CAMOUFOX_VIEWER_ORIGIN` to an isolated HTTPS origin with valid DNS/TLS; do
+not move it back inside the cockpit cookie Domain. Check edge coverage independently from
+the origin certificate. For Cloudflare full-setup Universal SSL, see its
+[hostname coverage limits](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/).
+DNS-only routing requires a publicly trusted origin certificate and the intended origin route;
+changing the record also changes which edge protections apply.
 
 The browser session may stop at its configured service time limit. A failed transport
 probe is not a stopped process. Verify actual navigation independently using an isolated
