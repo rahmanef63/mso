@@ -36,6 +36,7 @@ import { IS_DEMO } from "@/lib/demo";
 import { camoufoxViewerCsp, isCamoufoxViewerHost } from "@/lib/camoufox/origin";
 import {
   camoufoxViewerAuthorized,
+  camoufoxViewerUpstreamPath,
   gateCamoufoxViewer,
 } from "@/lib/camoufox/viewer-gate";
 import { applyPrivatePageCachePolicy } from "@/lib/auth/page-cache";
@@ -200,8 +201,10 @@ export async function proxy(request: NextRequest) {
     ) {
       return notFound();
     }
+    const upstreamPath = camoufoxViewerUpstreamPath(pathname);
+    if (!upstreamPath) return notFound();
     const target = new URL(base);
-    target.pathname = pathname === "/" ? "/vnc.html" : pathname;
+    target.pathname = upstreamPath;
     target.search = request.nextUrl.search;
     const response = NextResponse.rewrite(target, {
       request: { headers: upstreamSocketHeaders(request.headers) },
@@ -214,6 +217,9 @@ export async function proxy(request: NextRequest) {
     response.headers.set("Referrer-Policy", "no-referrer");
     response.headers.set("X-Content-Type-Options", "nosniff");
     response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
+    response.headers.set("Cache-Control", "no-store");
+    response.headers.set("CDN-Cache-Control", "no-store");
+    response.headers.set("Cloudflare-CDN-Cache-Control", "no-store");
     response.headers.delete("X-Frame-Options");
     return response;
   }

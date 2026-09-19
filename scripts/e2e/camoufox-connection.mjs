@@ -26,6 +26,7 @@ export async function camoufoxConnectionJourney(page, fixture) {
       password: null,
       viewerOrigin,
       viewerTicket: "fixture-viewer-ticket-0123456789abcdef",
+      viewerPathPrefix: "/_mso-camoufox",
     },
   });
   const viewer = route => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>Private fixture viewer</title><p>Client-only viewer fixture</p>" });
@@ -52,7 +53,7 @@ export async function camoufoxConnectionJourney(page, fixture) {
       await retry.click();
       const frame = page.locator('iframe[title="Camoufox browser"]');
       await expect(frame).toBeVisible();
-      expect((await frame.getAttribute("src")) ?? "").toContain(viewerOrigin + "/vnc.html?");
+      expect((await frame.getAttribute("src")) ?? "").toContain(viewerOrigin + "/_mso-camoufox/vnc.html?");
       await expect(page.frameLocator('iframe[title="Camoufox browser"]').getByText("Client-only viewer fixture")).toBeVisible();
       expect(credentials).toBe(beforeCredentials + 1); expect(posts).toBe(0);
       mode = "stopping"; reads = 0;
