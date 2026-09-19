@@ -63,6 +63,7 @@ describe("the Camoufox split-origin VNC bridge", () => {
   async function load(novnc = NOVNC) {
     vi.stubEnv("OS_SESSION_SECRET", SECRET);
     vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.example.com");
+    vi.stubEnv("OS_SESSION_COOKIE_DOMAIN", "mso.example.com");
     vi.stubEnv("CAMOUFOX_NOVNC_URL", novnc);
     vi.stubEnv("CAMOUFOX_VIEWER_ORIGIN", "https://" + VIEWER_HOST);
     approved.value = true;

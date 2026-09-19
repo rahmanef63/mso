@@ -1,3 +1,15 @@
+## 2026-09-19 — Derive an isolated Camoufox sibling instead of assuming the managed-app namespace
+
+Camoufox viewer authentication no longer needs the cockpit Domain cookie, so tying its hostname
+to `{id}.mso.example.com` unnecessarily inherited deeper wildcard-certificate and cookie-scope
+constraints. The viewer now prefers an explicit `CAMOUFOX_VIEWER_ORIGIN`, otherwise derives a
+sibling outside the configured cookie namespace (`mso.example.com` → `camoufox.example.com`) or
+from a host-only cockpit origin. Overrides that share the cockpit host/cookie Domain, contain
+credentials, paths, queries, fragments or non-default ports fail closed. A broad two-label Domain
+has no safely inferable sibling and requires an explicit separate viewer origin. Managed-app host
+templates remain independent. A deployment shaped as `mso.operator.test` therefore resolves to
+`camoufox.operator.test` without any maintainer-specific source literal.
+
 ## 2026-09-19 — Probe the cache-isolated Camoufox viewer entry path
 
 The viewer cache boundary moved noVNC under `/_mso-camoufox`, while the authenticated

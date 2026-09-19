@@ -466,11 +466,16 @@ The service should be a systemd **user** unit named `camoufox-vnc.service`. It i
 to stay **disabled at boot**, with `Restart=no` and a finite runtime lease; the Browser UI
 powers it on only when needed.
 
-The noVNC document is never served on the cockpit origin. Configure
-`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` plus `OS_SESSION_COOKIE_DOMAIN`, provision the reserved
-viewer host (for example `camoufox.mso.example.com`) with DNS/TLS, and keep
-`CAMOUFOX_NOVNC_URL` loopback-only. The historical `/camoufox-vnc/*` route intentionally returns
-404; the dedicated host strips cockpit cookies and authorization before forwarding to noVNC.
+The noVNC document is never served on the cockpit origin and does not need the cockpit
+Domain cookie. MSO gives an authenticated Operator/Owner a short-lived viewer ticket; the
+separate viewer host exchanges it for a host-only HttpOnly cookie before noVNC loads. When
+`OS_SESSION_COOKIE_DOMAIN=mso.example.com`, the safe default is `camoufox.example.com`; with a
+host-only cockpit at `mso.example.com`, the same sibling is derived from `OS_PUBLIC_ORIGIN`.
+Provision DNS/TLS for that host, or set `CAMOUFOX_VIEWER_ORIGIN` to another isolated HTTPS
+origin. A broad two-label Domain cookie has no safely inferable sibling and therefore requires
+an explicit isolated viewer origin. Keep `CAMOUFOX_NOVNC_URL` loopback-only. The historical
+`/camoufox-vnc/*` route intentionally returns 404; the viewer gate never forwards cockpit
+cookies or authorization to noVNC.
 
 Important paths/defaults:
 

@@ -6,9 +6,16 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-09-19
 
+**Added**
+
+- `mcp` encode agent bootstrap and capability-parity map
+
 **Fixed**
 
+- `browser` derive isolated Camoufox viewer origin
 - `browser` probe cache-isolated Camoufox path
+- `mcp` keep architecture ratchet and bootstrap tests green
+- `browser` route Camoufox websocket through viewer namespace
 - `browser` isolate Camoufox viewer cache
 
 ## 2026-09-18
