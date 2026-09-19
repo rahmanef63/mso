@@ -1,3 +1,14 @@
+## 2026-09-19 — Probe the cache-isolated Camoufox viewer entry path
+
+The viewer cache boundary moved noVNC under `/_mso-camoufox`, while the authenticated
+transport diagnostic still probed legacy `/vnc.html` with redirects forbidden. A healthy
+viewer therefore returned 307 and the Browser UI rejected it before requesting its viewer
+ticket. The public viewer prefix and entry path now live in one lightweight contract used by
+the gate, session metadata and server-side transport probe. The probe still sends no cockpit
+credentials, follows no redirects, requires HTTPS and keeps the existing SSRF/TLS checks.
+Targeted regressions verify the exact namespaced HEAD request, viewer gate, service route and
+client connection behavior.
+
 ## 2026-09-19 — MCP agent bootstrap and capability-parity map
 
 MCP clients were skipping `workflow_start` / `skills_search` and jumping to `exec_run` because
