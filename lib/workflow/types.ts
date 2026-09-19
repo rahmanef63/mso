@@ -96,6 +96,15 @@ export type LearnedRecipe = {
   qualityVersion?: 1;
   createdAt: string;
   updatedAt: string;
+  intentAliases?: string[];
+  recommendationCount?: number;
+  routeMatchCount?: number;
+  routeDivergenceCount?: number;
+  lastRecommendedAt?: string;
+  lastRouteMatchedAt?: string;
+  lastRouteDivergedAt?: string;
+  lastReuseScore?: number;
+  /** Legacy pre-v3 field: historical selection/recommendation time, not proof of application. */
   lastUsedAt?: string;
 };
 
@@ -113,6 +122,7 @@ export type FinishWorkflowResult = {
   previousFastestMs?: number;
   improvedByMs?: number;
   improvedPct?: number;
+  reuse?: { recommendedRecipeId: string; routeMatched: boolean; score: number };
 };
 
 export type CancelWorkflowResult = { workflow: ActiveWorkflow; reason?: string };

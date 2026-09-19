@@ -16,7 +16,8 @@ export function closestRecipe(
   let best: { recipe: LearnedRecipe; score: number } | undefined;
   for (const recipe of Object.values(store.recipes)) {
     if (recipe.actor !== actor || recipe.scope !== scope) continue;
-    const semantic = hybridSemanticScore(recipeText(intent, project), recipeText(recipe.intent, recipe.project));
+    const recipeIntent = [recipe.intent, ...(recipe.intentAliases ?? [])].join("\n");
+    const semantic = hybridSemanticScore(recipeText(intent, project), recipeText(recipeIntent, recipe.project));
     const exact = recipe.normalizedIntent === normalizeSemanticText(intent) ? 0.2 : 0;
     const projectBonus = project && recipe.project && normalizeSemanticText(project) === normalizeSemanticText(recipe.project) ? 0.08 : 0;
     const score = semantic + exact + projectBonus;

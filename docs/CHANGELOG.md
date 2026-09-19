@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `memory` close self-improvement loop
 - `cognitive` add bounded replay and candidate reuse
 - `install` add detailed platform tabs
 - `mcp` encode agent bootstrap and capability-parity map

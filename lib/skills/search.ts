@@ -76,6 +76,7 @@ export async function searchSkillMemory(query: string, options: SkillSearchOptio
     const maturity = recipeMaturity(recipe);
     const text = [
       recipe.intent,
+      ...(recipe.intentAliases ?? []),
       recipe.project,
       recipe.summary,
       recipe.bestSteps.map((s) => `${s.tool} ${s.target ?? ""}`).join(" "),

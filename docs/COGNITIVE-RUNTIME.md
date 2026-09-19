@@ -127,6 +127,54 @@ the same maximum host capabilities and policy boundaries; only schema/presentati
 differs. The bootstrap sequence remains unchanged; see
 [`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md).
 
+## Memory v3: stable core + just-in-time evidence
+
+The memory-v3 projection keeps the durable typed ledger as source of truth while changing what is
+actually placed in model-active context. The design is research-informed but remains provider/model
+agnostic; no paper implementation is a runtime dependency.
+
+- **Stable frozen core** — each durable session still freezes resolved memory at session creation. A
+  deterministic, query-independent core projection (default 6,000 characters) is placed early in the
+  system prompt so repeated turns preserve a stable prefix instead of reserializing the whole memory
+  store. This applies the control-plane lesson from DeepSeek-V4.1-Flash (arXiv:2609.19969): input-heavy
+  agents benefit when hot context is bounded and stable. MSO does not implement or depend on its model
+  KV/cache-compression architecture.
+- **Just-in-time evidence pack** — a second bounded projection (default 8,000 characters) selects only
+  memory sections relevant to the current intent, including entries beyond the head of `USER.md` /
+  `MEMORY.md`. The variable pack is appended after stable context. This follows the same practical
+  separation Hermes uses between small frozen memory and on-demand session/provider recall, and the
+  compact evidence-gathering formulation evaluated by LongMemEval-V2 (arXiv:2605.12493).
+- **Deterministic lexical normalization first** — a small versioned, general bilingual/synonym lexicon
+  handles objective misses such as `IDE`↔`editor` and `kantor`↔`office`. Retrieval calibration is now
+  6/6 lexical while the existing local semantic candidate remains 3/6, so persistent vector memory stays
+  blocked. This preserves the benchmark-before-complexity rule rather than adding embeddings because
+  A-MEM (arXiv:2502.12110) or Mem0 (arXiv:2504.19413) demonstrate useful graph/vector designs elsewhere.
+- **Evidence, not authority** — prompt projections redact secret-shaped material, strip hidden/bidi control
+  characters and neutralize reserved memory delimiters. Typed provenance/authority/temporal resolution
+  remains unchanged. This is consistent with Hindsight (arXiv:2512.12818), which separates retained
+  evidence from synthesized/evolving interpretation; MSO keeps those boundaries in its ledger instead of
+  turning retrieved memory into permission.
+- **Structured lifecycle semantics** — existing `remember`/replace-or-claim/forget behavior remains the
+  bounded memory-management API. Memory-R1 (arXiv:2508.19828) reinforces the value of explicit memory
+  operations such as add/update/delete/no-op. Memory v3 now treats an exact identical ordinary current
+  replacement as a deterministic NOOP so repeated workflow learning does not grow history for no semantic
+  change; explicit temporal/provenance timestamps and parallel claims are still retained as evidence.
+  MSO does not add an RL-trained manager or make model policy responsible for authorization.
+- **ChatGPT/MCP parity** — `workflow_start` now publishes selected agent memory, project memory and a
+  recommended recipe through its compact structured output instead of collapsing the response to progress
+  only. Generic MCP clients still receive the full bootstrap result; terminal/A2A use the same projection
+  logic directly.
+- **Truthful reuse telemetry** — recipe selection is recorded as a *recommendation*. A later successful
+  execution is separately measured for bounded tool-route match/divergence; the system does not call a
+  recommendation “used” merely because it was surfaced. Historical intent aliases remain searchable when
+  repeated phrasings consolidate into one recipe. Hindsight Memory-PRM (arXiv:2608.29605) strengthens this
+  evidence-first direction: MSO exposes stable retrieved-memory refs and records recommendation/route
+  receipts, but does not claim causal memory utility merely from retrieval or infer hidden answer-time use.
+
+`bun run bench:memory:retrieval-calibration` now gates both retrieval and context projection: 6/6
+lexical cases, 4/4 stable-core/JIT cases and 3/3 bounded two-hop relationship cases must pass. Graph or
+vector storage remains evidence-gated.
+
 ## Deferred capability selection
 
 The external MCP server keeps a stable, complete scope-filtered catalog for standards interoperability.
@@ -448,7 +496,7 @@ Archive segments are bounded (up to 400 records / 768 KiB), owner-only (`0700` d
 
 The lifecycle fixture also closed one deterministic lexical defect. A history search for `Runtime-1` could previously be crowded out by substring matches such as `Runtime-10` through `Runtime-19` before the result limit. Search scoring now prioritizes exact phrase/token matches and only uses bounded alphabetic-prefix matching for ordinary word stems. The existing 8-scenario `bench:memory` suite remains 100%.
 
-`bun run bench:memory:retrieval-calibration` deliberately probes cases that literal lexical retrieval may not solve. The bounded fixture currently passes **4/6 lexical cases**: paraphrase-with-overlap, long-value tail retrieval, similar-key disambiguation and exact domain phrase pass; `IDE`↔`editor` synonym and Indonesian `kantor`↔English `office` remain objective misses. P10D then calibrates the repo's already-existing local skill-routing encoder, **`mso-local-hybrid-v1`**, against the exact same memory rows with no network call and no persisted memory vectors. That candidate scores **3/6**: it does not fix either synonym/bilingual miss and additionally ranks `Deployment region` above the exact-domain rollback record. Because the local semantic candidate is **one case worse than lexical (−1/6)**, reusing it for memory would add vector/index complexity without recall benefit. Production vector/embedding storage therefore remains blocked; a future encoder must first beat the lexical baseline on a broader objective fixture before privacy, latency and index-lifecycle costs even become relevant.
+At the P10D checkpoint, `bun run bench:memory:retrieval-calibration` deliberately probed cases that literal lexical retrieval could not yet solve. That historical fixture passed **4/6 lexical cases**: paraphrase-with-overlap, long-value tail retrieval, similar-key disambiguation and exact domain phrase passed; `IDE`↔`editor` synonym and Indonesian `kantor`↔English `office` were objective misses. P10D also calibrated the repo's already-existing local skill-routing encoder, **`mso-local-hybrid-v1`**, against the same rows with no network call and no persisted memory vectors. That candidate scored **3/6** and additionally regressed the exact-domain rollback case. Memory v3 later closes the two lexical misses with deterministic normalization and reaches 6/6 while the semantic candidate remains 3/6, so production vector/embedding storage remains blocked until a future encoder actually beats the stronger lexical baseline and justifies privacy, latency and index-lifecycle costs.
 
 The same calibration passes **3/3 two-hop relationship fixtures** by retrieving the first edge and then the intermediate-node edge with the existing keyed records. This proves only that the tested relationship chains are reachable without graph storage; it is not a universal graph-reasoning claim. Graph memory remains blocked until a reproduced task cannot be solved with bounded keyed retrieval and a smaller relationship layer measurably fixes it.
 

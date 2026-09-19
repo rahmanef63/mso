@@ -1,6 +1,6 @@
 export { startWorkflow, activeWorkflowForActor, recordWorkflowStep, cancelWorkflow } from "./lifecycle";
 export { summarizeProjectContention, countActiveWorkflowsForProject } from "./contention";
-export { finishWorkflow, findReusableRecipe, listLearnedRecipes, listArchivedRecipes, markRecipeUsed } from "./learning";
+export { finishWorkflow, findReusableRecipe, listLearnedRecipes, listArchivedRecipes, markRecipeRecommended, markRecipeUsed } from "./learning";
 export { resetWorkflowStoreCache } from "./storage";
 export { summarizeWorkflowQuality } from "./quality";
 export { recipeMaturity } from "./maturity";

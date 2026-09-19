@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { queryMemoryLedger } from "../lib/agent/memory-query.ts";
+import { buildMemoryContext } from "../lib/agent/memory-context.mjs";
 import { hybridSemanticScore, prepareSemanticQuery, SKILL_EMBEDDING_VERSION } from "../lib/skills/semantic.ts";
 
 const AT = "2026-09-03T00:00:00.000Z";
@@ -84,6 +85,29 @@ export function runMemoryRetrievalCalibration() {
     return { id: row.id, class: row.class, pass: first === row.expected, deterministic: first === second, topKey: first };
   });
 
+  const contextSnapshot = {
+    capturedAt: AT,
+    user: [
+      "## Office location", "Jakarta", "",
+      "## Primary editor", "VS Code", "",
+      "## Credential policy", "Use Integrations first",
+    ].join("\n"),
+    memory: [
+      ...Array.from({ length: 24 }, (_, index) => `## Routine ${index + 1}\nRoutine note ${index + 1}`),
+      "## Release gotcha\nBefore rollback always verify service health and preserve evidence.",
+      "## Browser gotcha\nCamoufox persistent browser stays on-demand.",
+    ].join("\n\n"),
+  };
+  const coreA = buildMemoryContext(contextSnapshot, "IDE preference", { coreChars: 1000, jitChars: 1200 });
+  const coreB = buildMemoryContext(contextSnapshot, "production rollback service health", { coreChars: 1000, jitChars: 1200 });
+  const unrelated = buildMemoryContext(contextSnapshot, "calculate two plus two", { coreChars: 1000, jitChars: 1200 });
+  const contextProjection = [
+    { id: "stable-core-prefix", pass: coreA.coreText === coreB.coreText && coreA.stats.coreChars <= 1000 && coreB.stats.coreChars <= 1000 },
+    { id: "synonym-jit", pass: [...coreA.coreEntries, ...coreA.relevantEntries].some((entry) => entry.key === "Primary editor") },
+    { id: "tail-jit", pass: coreB.relevantEntries.some((entry) => entry.key === "Release gotcha") && coreB.stats.relevantChars <= 1200 },
+    { id: "unrelated-jit-empty", pass: unrelated.relevantEntries.length === 0 },
+  ];
+
   const graphCases = [
     { id: "ownership-dependency", first: "Atlas", intermediate: "Beacon", second: "Core", records: [rec("Atlas ownership", "Atlas owns Beacon"), rec("Beacon dependency", "Beacon depends on Core"), rec("Unrelated preference", "Compact UI")] },
     { id: "service-team", first: "Orchid", intermediate: "Platform", second: "Infra", records: [rec("Orchid owner", "Orchid is owned by Platform"), rec("Platform dependency", "Platform depends on Infra"), rec("Theme", "Dark") ] },
@@ -105,7 +129,7 @@ export function runMemoryRetrievalCalibration() {
   const candidateImprovesRecall = semanticPassed > retrievalPassed;
 
   return {
-    calibrationVersion: "mso-memory-retrieval-calibration-v2",
+    calibrationVersion: "mso-memory-retrieval-calibration-v3",
     retrieval: { passed: retrievalPassed, total: retrieval.length, accuracyPct: pct(retrievalPassed, retrieval.length), deterministic: retrieval.every((row) => row.deterministic), rows: retrieval },
     semanticCandidate: {
       encoder: SKILL_EMBEDDING_VERSION,
@@ -128,6 +152,7 @@ export function runMemoryRetrievalCalibration() {
         ? "The existing local semantic encoder improves this bounded fixture, but production memory vectors remain blocked until privacy, latency and index lifecycle costs are calibrated."
         : "The existing local semantic encoder does not improve this bounded memory fixture, so reusing it for production memory retrieval would add vector/index complexity without a recall benefit.",
     },
+    contextProjection: { passed: contextProjection.filter((row) => row.pass).length, total: contextProjection.length, rows: contextProjection },
     graph: { passed: graphPassed, total: graph.length, rows: graph, graphStorageRequired: graphPassed !== graph.length },
     note: "This is a bounded synthetic evidence gate. The semantic candidate is the repo's existing local skill-routing encoder and is evaluated ephemerally with no network call or persisted memory vector. Graph rows prove only whether these small relationship chains remain reachable through explicit two-step retrieval; neither result is a universal retrieval/reasoning claim.",
   };
@@ -141,7 +166,8 @@ if (import.meta.main) {
     for (const row of result.retrieval.rows) console.log(`  lexical  ${row.pass && row.deterministic ? "PASS" : "MISS"} ${row.id}`);
     for (const row of result.semanticCandidate.rows) console.log(`  semantic ${row.pass && row.deterministic ? "PASS" : "MISS"} ${row.id}`);
     console.log(`  semantic gate: ${result.semanticEvidenceGate.vectorLayerRequired ? "vector candidate" : "vector blocked"} · delta=${result.semanticCandidate.deltaPassedVsLexical}`);
+    console.log(`  context pack: ${result.contextProjection.passed}/${result.contextProjection.total} stable-core/JIT fixtures`);
     console.log(`  graph gate: ${result.graph.passed}/${result.graph.total} two-hop fixtures · graph storage ${result.graph.graphStorageRequired ? "candidate" : "blocked"}`);
   }
-  if (!result.retrieval.deterministic || !result.semanticCandidate.deterministic || result.graph.passed !== result.graph.total) process.exitCode = 1;
+  if (!result.retrieval.deterministic || !result.semanticCandidate.deterministic || result.contextProjection.passed !== result.contextProjection.total || result.graph.passed !== result.graph.total) process.exitCode = 1;
 }

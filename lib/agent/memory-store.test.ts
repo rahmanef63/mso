@@ -53,6 +53,31 @@ describe("typed provenance-aware agent memory", () => {
     expect((await store.readAgentMemory(principal)).user).toContain("## Primary stack\nSvelteKit");
   });
 
+  it("treats an identical ordinary replace as NOOP but preserves explicit-time evidence", async () => {
+    const principal = "memory:noop";
+    await store.rememberAgentMemory(principal, "MEMORY.md", "Deploy rule", "Verify before ship", {
+      kind: "procedural", confidence: 0.9, provenance: { authority: "observed", channel: "system" },
+    });
+    const first = await store.queryAgentMemory(principal, { query: "deploy rule", includeHistory: true, limit: 10 });
+    expect(first.records).toHaveLength(1);
+
+    const nooped = await store.rememberAgentMemory(principal, "MEMORY.md", "Deploy rule", "Verify before ship", {
+      kind: "procedural", confidence: 0.9, provenance: { authority: "observed", channel: "system" },
+    });
+    expect(nooped.recordCount).toBe(1);
+    const afterNoop = await store.queryAgentMemory(principal, { query: "deploy rule", includeHistory: true, limit: 10 });
+    expect(afterNoop.records).toHaveLength(1);
+    expect(afterNoop.records[0].record.id).toBe(first.records[0].record.id);
+
+    const observedAt = new Date(Date.now() + 1_000).toISOString();
+    await store.rememberAgentMemory(principal, "MEMORY.md", "Deploy rule", "Verify before ship", {
+      kind: "procedural", confidence: 0.9,
+      provenance: { authority: "observed", channel: "system", observedAt },
+    });
+    const explicitEvidence = await store.queryAgentMemory(principal, { query: "deploy rule", includeHistory: true, limit: 10 });
+    expect(explicitEvidence.records).toHaveLength(2);
+  });
+
   it("keeps parallel claims and resolves conflicts by authority, confidence, then recency", async () => {
     const principal = "memory:conflict";
     await store.rememberAgentMemory(principal, "MEMORY.md", "Release region", "Singapore", { mode: "claim", confidence: 0.7, provenance: { authority: "observed", channel: "system" } });

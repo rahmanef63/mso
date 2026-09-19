@@ -1,6 +1,6 @@
 import { ownedArtifactSession, prepareSessionArtifacts } from "@/lib/agent/artifact-session";
 import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
-import { listLearnedRecipes, markRecipeUsed, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
+import { listLearnedRecipes, markRecipeRecommended, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
 import { ensureLearnedWorkflowGraph, findMatchingWorkflowGraph } from "@/lib/workflow/graph-store";
 import { progressiveVerification } from "@/lib/orchestration/automation";
 import { routeIntentText } from "@/lib/orchestration/capability-catalog.mjs";
@@ -10,7 +10,9 @@ import { readAutomationScript } from "@/lib/orchestration/repo-memory-artifacts"
 import type { WorkflowOrchestrationSnapshot } from "@/lib/orchestration/types";
 import { type McpTool, opt, S, str } from "./tool-kit";
 import { toolsetInfo } from "./toolset";
-import { optionalStringList, visibleTools, WORKFLOW_PROGRESS_OUTPUT, workflowProgress } from "./tools-learning-shared";
+import { optionalStringList, visibleTools } from "./tools-learning-shared";
+import { WORKFLOW_START_OUTPUT, workflowStartProjection } from "./tools-workflow-start-output";
+import { workflowStartAgentMemory } from "./workflow-start-memory";
 import { AGENT_BOOTSTRAP_SKILL, workflowOrientation, workflowStartPolicy } from "./instructions";
 import { workflowStartCandidateContext } from "./workflow-start-candidates";
 export const WORKFLOW_START_TOOL: McpTool = {
@@ -19,9 +21,8 @@ export const WORKFLOW_START_TOOL: McpTool = {
     chatgptDescription: "First call for multi-step work; keep workflow_id.",
     scope: "write",
     annotations: { idempotentHint: false },
-    outputSchema: WORKFLOW_PROGRESS_OUTPUT,
-    toStructuredContent: (result) => result && typeof result === "object"
-      ? workflowProgress((result as { workflow?: unknown }).workflow, true) : undefined,
+    outputSchema: WORKFLOW_START_OUTPUT,
+    toStructuredContent: workflowStartProjection,
     limit: { key: "workflow.memory", max: 30, windowMs: 60_000 },
     audit: { action: "workflow.start" as const, targetArg: "project" },
     inputSchema: S({
@@ -32,28 +33,24 @@ export const WORKFLOW_START_TOOL: McpTool = {
       reserved_resources: { type: "array", maxItems: 40, items: { type: "string" }, description: "Optional shared resources." },
     }, ["intent"]),
     run: async (a, context) => {
-      const actor = context.workflowActor ?? context.actor;
-      const recipeOwner = context.recipeActor ?? context.actor;
+      const actor = context.workflowActor ?? context.actor, recipeOwner = context.recipeActor ?? context.actor;
       if (!actor || !recipeOwner) throw new Error("workflow memory needs an authenticated session and client");
       const artifactStorage = context.principal && context.sessionId ? await prepareSessionArtifacts(await ownedArtifactSession(context.principal,context.sessionId)) : undefined;
       const intent = str(a, "intent");
+      const agentMemory = await workflowStartAgentMemory(context, intent);
       const projectHint = opt(a, "project");
       const project = projectHint ? await resolveProjectHint(projectHint).catch(() => null) : null;
       const tools = await visibleTools(context.scope, context.toolProfile);
       const intentRoute = routeIntentText(intent);
-      const routedTools = intentRoute.catalogMatched ? tools.filter((tool) =>
-        intentRoute.tools.includes(tool.name) || tool.name === "workflow_start") : tools;
-      const [repository, projectKnowledge] = project ? await Promise.all([
-        inspectProject(project, { includeGitStatus: context.scope === "exec" }).catch(() => undefined),
-        readProjectKnowledge(project.path).catch(() => undefined),
-      ]) : [undefined, undefined] as const;
+      const routedTools = intentRoute.catalogMatched ? tools.filter((tool) => intentRoute.tools.includes(tool.name) || tool.name === "workflow_start") : tools;
+      const [repository, projectKnowledge] = project ? await Promise.all([inspectProject(project, { includeGitStatus: context.scope === "exec" }).catch(() => undefined),
+        readProjectKnowledge(project.path).catch(() => undefined)]) : [undefined, undefined] as const;
       const changedPaths = gitChangedPaths(repository?.git.changes ?? []);
       const { search, reusablePool, candidateSearch, candidatePool } = await workflowStartCandidateContext({
         intent, recipeOwner, scope: context.scope, project, projectHint, repository,
         catalogMatched: intentRoute.catalogMatched, routedTools,
       });
-      const affectedPaths = optionalStringList(a.affected_paths, 80);
-      const reservedResources = optionalStringList(a.reserved_resources, 40);
+      const affectedPaths = optionalStringList(a.affected_paths, 80), reservedResources = optionalStringList(a.reserved_resources, 40);
       const contention = project
         ? await summarizeProjectContention(project.path, affectedPaths, reservedResources)
         : { activeWorkflowCount: 0, conflictingWorkflowCount: 0, overlappingPaths: [], overlappingResources: [] };
@@ -71,8 +68,7 @@ export const WORKFLOW_START_TOOL: McpTool = {
       const projectKeys = [project?.id, project?.path, project?.name, projectHint].filter((value): value is string => Boolean(value));
       let graphAutomation = await findMatchingWorkflowGraph(recipeOwner, intent, projectKeys).catch(() => null);
       if (!graphAutomation && search.recommendedRecipe) {
-        const fullRecipe = (await listLearnedRecipes({ actor: recipeOwner, scope: context.scope })).find(
-          (recipe) => recipe.id === search.recommendedRecipe?.id);
+        const fullRecipe = (await listLearnedRecipes({ actor: recipeOwner, scope: context.scope })).find((recipe) => recipe.id === search.recommendedRecipe?.id);
         if (fullRecipe) graphAutomation = await ensureLearnedWorkflowGraph(fullRecipe).catch(() => null);
       }
       const recipePlan = search.recommendedRecipe ? {
@@ -106,6 +102,7 @@ export const WORKFLOW_START_TOOL: McpTool = {
       const contextEstimateTokens = Math.ceil([
         intent,
         ...(projectKnowledge?.content ? [projectKnowledge.content] : []),
+        ...agentMemory.map((hit) => `${hit.key} ${hit.value}`),
         ...repoMemory.map((hit) => `${hit.record.title} ${hit.record.summary}`),
         ...(candidateSearch?.matches ?? []).map((match) => `${match.path}:${match.line} ${match.preview}`),
         compactSearch.recommendedRecipe?.description ?? "",
@@ -118,7 +115,7 @@ export const WORKFLOW_START_TOOL: McpTool = {
         changedPaths, affectedPaths, reservedResources,
         overlappingPaths: contention.overlappingPaths, overlappingResources: contention.overlappingResources,
         activeProjectWorkflows, conflictingWorkflowCount: contention.conflictingWorkflowCount,
-        memoryHits: repoMemory.length + (search.recommendedRecipe ? 1 : 0),
+        memoryHits: agentMemory.length + repoMemory.length + (search.recommendedRecipe ? 1 : 0),
         contextEstimateTokens,
         cleanupState: classification.isolation === "direct" ? "not-required" : "pending",
         ...(search.recommendedRecipe ? { recipeUsed: search.recommendedRecipe.id } : {}),
@@ -155,7 +152,7 @@ export const WORKFLOW_START_TOOL: McpTool = {
         candidatePool,
       });
       if (search.recommendedRecipe) {
-        await markRecipeUsed(search.recommendedRecipe.id, { actor: recipeOwner, scope: context.scope }).catch(() => undefined);
+        await markRecipeRecommended(search.recommendedRecipe.id, { actor: recipeOwner, scope: context.scope }).catch(() => undefined);
       }
       return {
         ...started,
@@ -187,6 +184,10 @@ export const WORKFLOW_START_TOOL: McpTool = {
                   : "Run project_script_run once to verify this bounded candidate; success promotes it to tested.",
               } : {}),
             },
+            agentMemory: agentMemory.map((hit) => ({
+              ref: hit.ref, document: hit.document, kind: hit.document === "USER.md" ? "semantic" : "procedural",
+              key: hit.key, value: hit.value, score: hit.score,
+            })),
             memory: repoMemory.map((hit) => ({
               id: hit.record.id, kind: hit.record.kind, title: hit.record.title, summary: hit.record.summary,
               status: hit.record.status, score: hit.score, lastVerified: hit.record.lastVerified,
@@ -198,7 +199,7 @@ export const WORKFLOW_START_TOOL: McpTool = {
             `[Risk] ${classification.risk} · ${classification.complexity} complexity · ${classification.contention} contention · ${classification.isolation}`,
             `[Catalog] ${intentRoute.catalogMatched ? intentRoute.routeIds.join(", ") : "semantic fallback"} · ${routedTools.length}/${tools.length} tool docs scored`,
             `[Knowledge] ${projectKnowledge?.exists ? `${projectKnowledge.bytes} bytes always-on` : "not configured"}`,
-            `[Memory] ${repoMemory.length} repo-local hit(s) · ${search.recommendedRecipe ? `${search.recommendedRecipe.maturity ?? "candidate"} recipe available` : "no reusable recipe selected"} · ~${contextEstimateTokens} context tokens`,
+            `[Memory] ${agentMemory.length} agent + ${repoMemory.length} repo-local hit(s) · ${search.recommendedRecipe ? `${search.recommendedRecipe.maturity ?? "candidate"} recipe available` : "no reusable recipe selected"} · ~${contextEstimateTokens} context tokens`,
             ...(recipePlan ? [`[Recipe] ${recipePlan.maturity} · ${recipePlan.attempts} attempts · ${recipePlan.successRate}% success · ${recipePlan.steps.length} reusable step(s)`] : []),
             ...(graphAutomation ? [`[Workflow graph] ${graphAutomation.status} · ${graphAutomation.name} · ${graphAutomation.metadata.provenance ?? "private"}`] : [`[Workflow graph] no matching private graph; successful completion will seed a learned draft`]),
             ...(reusableScript ? [`[Automation] ${reusableScript.status} script ${reusableScript.id} available`] : []),

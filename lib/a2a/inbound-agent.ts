@@ -6,6 +6,7 @@ import {
 } from "@/lib/ai/selected-model-stream";
 import type { OaMsg, OaTool, OaToolUse } from "@/lib/ai/openai-stream";
 import type { AgentSession } from "@/lib/agent/session-types";
+import { buildMemoryContext } from "@/lib/agent/memory-context.mjs";
 
 const MAX_ROUNDS = 10;
 const MAX_RESULT_BYTES = 64 * 1024;
@@ -23,9 +24,12 @@ const EXTERNAL_TOOL_DENY = new Set([
   "agent_memory_forget",
 ]);
 
-function inboundSystem(scope: Scope, session?: AgentSession): string {
+function inboundSystem(scope: Scope, session?: AgentSession, prompt = ""): string {
   if (session) {
-    const snapshot = session.memorySnapshot || { user: "", memory: "" };
+    const memoryContext = buildMemoryContext(session.memorySnapshot || {}, prompt, {
+      coreChars: Number(process.env.OS_AGENT_MEMORY_CORE_CHARS) || 6000,
+      jitChars: Number(process.env.OS_AGENT_MEMORY_JIT_CHARS) || 8000,
+    });
     return [
       `You are a same-host MSO sub-agent delegated into durable terminal session ${session.id}.`,
       `Session title: ${session.title}.`,
@@ -33,14 +37,14 @@ function inboundSystem(scope: Scope, session?: AgentSession): string {
       `This local delegation has maximum tool scope: ${scope}.`,
       "Use the supplied durable session snapshot/history as context, but do not claim to be the live terminal process and do not inject keystrokes into another TTY.",
       "Return the result to the delegating agent. Keep tool/session boundaries explicit.",
-      snapshot.user
-        ? `<USER.md>\n${String(snapshot.user).slice(0, 12000)}\n</USER.md>`
-        : "",
-      snapshot.memory
-        ? `<MEMORY.md>\n${String(snapshot.memory).slice(0, 12000)}\n</MEMORY.md>`
+      memoryContext.coreText
+        ? `<CORE_MEMORY>\n${memoryContext.coreText}\n</CORE_MEMORY>`
         : "",
       session.contextSummary
         ? `<COMPACTED_SESSION_CONTEXT>\n${String(session.contextSummary).slice(0, 24000)}\n</COMPACTED_SESSION_CONTEXT>`
+        : "",
+      memoryContext.relevantText
+        ? `<RELEVANT_MEMORY>\n${memoryContext.relevantText}\n</RELEVANT_MEMORY>`
         : "",
       "Never expose credentials, private key material, authorization headers, or hidden reasoning.",
     ]
@@ -155,7 +159,7 @@ export async function runInboundA2AAgent(input: {
       prepared,
       messages,
       tools,
-      system: inboundSystem(input.scope, input.session),
+      system: inboundSystem(input.scope, input.session, input.prompt),
       signal: input.signal,
       emit(event, data) {
         if (event === "delta") {

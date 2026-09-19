@@ -1,4 +1,5 @@
 import { resolveMemoryLedger } from "./memory-resolution";
+import { expandMemoryTerms, normalizeMemoryPhrase } from "./memory-context.mjs";
 import type { AgentMemoryLedger, AgentMemoryQuery, AgentMemoryRecord } from "./memory-types";
 
 export function memoryQueryTime(value = new Date().toISOString()): string {
@@ -8,11 +9,11 @@ export function memoryQueryTime(value = new Date().toISOString()): string {
 }
 
 function words(value: string): string[] {
-  return value.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+(?:[-_][\p{L}\p{N}]+)*/gu) ?? [];
+  return expandMemoryTerms(value);
 }
 
 function fieldScore(field: string, query: string, queryWords: string[], weight: number): number {
-  const normalized = field.normalize("NFKC").toLowerCase();
+  const normalized = normalizeMemoryPhrase(field);
   const fieldWords = words(normalized);
   let score = normalized === query ? weight * 20 : normalized.includes(query) ? weight * 5 : 0;
   for (const token of queryWords) {
@@ -24,7 +25,7 @@ function fieldScore(field: string, query: string, queryWords: string[], weight: 
 
 function searchScore(record: AgentMemoryRecord, query: string): number {
   if (!query) return 1;
-  const normalized = query.normalize("NFKC").toLowerCase().trim();
+  const normalized = normalizeMemoryPhrase(query);
   const tokens = words(normalized);
   if (!tokens.length) return 0;
   return fieldScore(record.key, normalized, tokens, 4) + fieldScore(record.value, normalized, tokens, 1);

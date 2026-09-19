@@ -1,3 +1,14 @@
+## 2026-09-19 — Memory v3 closes the learn → retrieve → expose → reuse loop
+
+- Replaced terminal/A2A first-12k head truncation with a frozen stable-core + query-relevant JIT memory projection. Defaults are 6k core / 8k JIT characters and are configurable without changing the durable typed-memory ledger.
+- Added deterministic bilingual/synonym normalization for bounded memory retrieval. The calibration improves from 4/6 to 6/6 lexical cases; the existing local semantic candidate stays 3/6, so vector memory remains blocked rather than adding complexity without recall benefit.
+- `workflow_start` compact structured output now carries selected agent/project memory plus the maturity-aware recipe plan, fixing the ChatGPT wrapper path that previously exposed only progress fields.
+- Learned recipes preserve prior intent phrasings as aliases. Telemetry now distinguishes recommendation from observed tool-route match/divergence instead of treating selection as proof of reuse.
+- Exact identical ordinary current `replace` writes now resolve to deterministic NOOP instead of growing redundant ledger history; explicit temporal/provenance timestamps and parallel `claim` evidence remain append-only. Retrieved memory keeps stable refs for audit, but retrieval alone is never labeled causal use.
+- Prompt projection strips hidden/bidi controls, neutralizes reserved memory-boundary tags and redacts secret-shaped material before model injection. Persistent memory remains evidence/context, never authorization.
+- Research boundary: adopts provider-neutral control-plane lessons from DeepSeek-V4.1-Flash (2609.19969), Hermes bounded frozen memory/on-demand recall, LongMemEval-V2 compact evidence gathering, and structured/evidence-aware ideas from Memory-R1, Hindsight, Mem0 and A-MEM. It does not import vendor model/KV code, require embeddings/graph storage, or weaken scope/promotion gates.
+- New/updated gates: memory context unit coverage, compact workflow-start projection coverage, recipe recommendation-vs-route-match regression, 6/6 lexical retrieval, 4/4 stable-core/JIT, 3/3 two-hop, existing 8/8 lifecycle and typed-memory deterministic suites.
+
 ## 2026-09-19 — Make compact MCP Apps standards-first and align plugin bindings with references
 
 A live ChatGPT test showed MSO render tools returning valid structured data without a visible

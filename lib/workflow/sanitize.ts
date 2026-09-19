@@ -188,7 +188,16 @@ export function normalizeRecipes(value: unknown): Record<string, LearnedRecipe> 
     if (!intent) continue;
     out[id] = {
       ...(row as LearnedRecipe), actor: typeof row.actor === "string" && row.actor ? row.actor : "legacy:owner",
-      scope, intent, project: row.project ? safeMemoryText(row.project, 240) || undefined : undefined,
+      scope, intent,
+      ...(Array.isArray(row.intentAliases) ? { intentAliases: [...new Set(row.intentAliases.flatMap((value) => typeof value === "string" ? [safeMemoryText(value, 1000)] : []).filter((value): value is string => Boolean(value)))].slice(-12) } : {}),
+      ...(Number.isFinite(row.recommendationCount) ? { recommendationCount: Math.max(0, Math.round(Number(row.recommendationCount))) } : {}),
+      ...(Number.isFinite(row.routeMatchCount) ? { routeMatchCount: Math.max(0, Math.round(Number(row.routeMatchCount))) } : {}),
+      ...(Number.isFinite(row.routeDivergenceCount) ? { routeDivergenceCount: Math.max(0, Math.round(Number(row.routeDivergenceCount))) } : {}),
+      ...(typeof row.lastRecommendedAt === "string" ? { lastRecommendedAt: row.lastRecommendedAt.slice(0, 48) } : {}),
+      ...(typeof row.lastRouteMatchedAt === "string" ? { lastRouteMatchedAt: row.lastRouteMatchedAt.slice(0, 48) } : {}),
+      ...(typeof row.lastRouteDivergedAt === "string" ? { lastRouteDivergedAt: row.lastRouteDivergedAt.slice(0, 48) } : {}),
+      ...(Number.isFinite(row.lastReuseScore) ? { lastReuseScore: Math.max(0, Math.min(1, Number(row.lastReuseScore))) } : {}),
+      project: row.project ? safeMemoryText(row.project, 240) || undefined : undefined,
       summary: safeMemoryText(typeof row.summary === "string" ? row.summary : "completed", 1200) || "completed",
       bestSteps: row.bestSteps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)),
       lastSteps: Array.isArray(row.lastSteps) ? row.lastSteps.map(sanitizeStoredStep).filter((step): step is WorkflowStep => Boolean(step)) : [],

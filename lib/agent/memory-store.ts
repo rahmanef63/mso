@@ -8,7 +8,7 @@ import { archiveMemoryRecords, readMemoryArchive } from "./memory-archive";
 import { ledgerFile, materializeDocuments, readMemoryLedger, seedLedger, writeMemoryLedger } from "./memory-ledger";
 import { queryMemoryLedger } from "./memory-query";
 import { planMemoryRetention } from "./memory-retention";
-import { recordCanBeEffectiveAtOrAfter, recordEffectiveAt } from "./memory-resolution";
+import { recordCanBeEffectiveAtOrAfter, recordEffectiveAt, resolveMemoryKey } from "./memory-resolution";
 import { collectMemoryTelemetry, type AgentMemoryTelemetry } from "./memory-telemetry";
 import type { AgentMemoryDocument, AgentMemoryLedger, AgentMemoryQuery, AgentMemoryRecord, AgentMemoryWriteOptions } from "./memory-types";
 
@@ -127,8 +127,27 @@ export async function rememberAgentMemory(principal: string, document: AgentMemo
   };
   let result!: AgentMemoryLedger;
   await withSecurityStoreLock(ledgerFile(dirFor(principal)), async () => {
-    const current = await readMemoryLedger(dirFor(principal)) ?? await (async () => { const docs = await legacyDocs(principal); return seedLedger(docs.user, docs.memory, now); })();
-    if ((options.mode ?? "replace") === "replace") {
+    const stored = await readMemoryLedger(dirFor(principal));
+    const current = stored ?? await (async () => { const docs = await legacyDocs(principal); return seedLedger(docs.user, docs.memory, now); })();
+    const mode = options.mode ?? "replace";
+    // Conservative NOOP: dedupe only an ordinary "replace current value" write.
+    // Explicit temporal/provenance timestamps and claims remain append-only evidence.
+    if (stored && mode === "replace" && !options.validFrom && !options.validUntil && !options.provenance?.observedAt) {
+      const resolved = resolveMemoryKey(current, document, safeKey, now)?.record;
+      const same = resolved
+        && resolved.value === safeValue
+        && resolved.kind === record.kind
+        && resolved.confidence === record.confidence
+        && resolved.sensitivity === record.sensitivity
+        && resolved.provenance.authority === record.provenance.authority
+        && resolved.provenance.channel === record.provenance.channel
+        && (resolved.provenance.sessionHash ?? "") === (record.provenance.sessionHash ?? "");
+      if (same) {
+        result = current;
+        return;
+      }
+    }
+    if (mode === "replace") {
       let searchable = current.records;
       if (Date.parse(validFrom) < Date.parse(now)) {
         const archived = await readMemoryArchive(dirFor(principal));

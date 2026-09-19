@@ -11,6 +11,7 @@ import { ensureLearnedWorkflowGraph } from "./graph-store";
 import { archiveLearnedRecipes, listArchivedLearnedRecipes } from "./recipe-archive";
 import { mergeCandidatePools } from "./candidate-pool";
 import { rememberAgentMemory } from "@/lib/agent/memory-store";
+import { mergeIntentAliases, recipeReuseScore } from "./recipe-reuse";
 
 export async function finishWorkflow(input: {
   actor?: string;
@@ -32,11 +33,16 @@ export async function finishWorkflow(input: {
   const existing = closestRecipe(store, recipeOwner, workflow.scope, workflow.intent, workflow.project);
   const previousFastestMs = existing?.fastestDurationMs;
   const summary = safeMemoryText(input.summary, 1200) || (input.success ? "completed" : "failed");
-  const vector = embedSkillText(recipeText(workflow.intent, workflow.project, summary));
   const timestamp = now.toISOString();
   const learnedSteps = workflow.steps.map((step) => input.stepProvenance?.[step.id] ? { ...step, provenance: input.stepProvenance[step.id] } : step);
   const compactSteps = compactRecipeSteps(learnedSteps);
   const currentQuality = summarizeWorkflowQuality(workflow.steps);
+  const intentAliases = mergeIntentAliases(existing, workflow.intent);
+  const vector = embedSkillText(recipeText([workflow.intent, ...intentAliases].join("\n"), workflow.project, summary));
+  const recommendedRecipeId = workflow.orchestration?.recipeUsed;
+  const recommendedRecipe = recommendedRecipeId ? store.recipes[recommendedRecipeId] : undefined;
+  const reuseScore = recommendedRecipe ? recipeReuseScore(recommendedRecipe, learnedSteps) : 0;
+  const routeMatched = Boolean(recommendedRecipe && input.success && reuseScore >= 0.6);
 
   let recipe: LearnedRecipe;
   if (existing) {
@@ -57,6 +63,7 @@ export async function finishWorkflow(input: {
       summary,
       embeddingVersion: SKILL_EMBEDDING_VERSION,
       embedding: vector,
+      ...(intentAliases.length ? { intentAliases } : {}),
       lastSteps: learnedSteps,
       bestSteps: faster ? compactSteps : (input.success ? enrichBestSteps(existing.bestSteps, compactSteps) : existing.bestSteps),
       ...(candidatePool ? { candidatePool } : {}),
@@ -89,13 +96,26 @@ export async function finishWorkflow(input: {
   }
 
   store.recipes[recipe.id] = recipe;
+  if (recommendedRecipeId) {
+    const recommended = store.recipes[recommendedRecipeId];
+    if (recommended) {
+      recommended.lastReuseScore = reuseScore;
+      if (routeMatched) {
+        recommended.routeMatchCount = (recommended.routeMatchCount ?? 0) + 1;
+        recommended.lastRouteMatchedAt = timestamp;
+      } else {
+        recommended.routeDivergenceCount = (recommended.routeDivergenceCount ?? 0) + 1;
+        recommended.lastRouteDivergedAt = timestamp;
+      }
+    }
+  }
   removeActiveWorkflow(store, actor, input.workflowId);
   const recipes = Object.values(store.recipes);
   if (recipes.length > 200) {
     const evicted = recipes
       .sort((a, b) => {
-        const qa = a.successes * 10 - a.failures + new Date(a.lastUsedAt ?? a.updatedAt).getTime() / 1e13;
-        const qb = b.successes * 10 - b.failures + new Date(b.lastUsedAt ?? b.updatedAt).getTime() / 1e13;
+        const qa = a.successes * 10 - a.failures + new Date(a.lastRouteMatchedAt ?? a.lastRecommendedAt ?? a.lastUsedAt ?? a.updatedAt).getTime() / 1e13;
+        const qb = b.successes * 10 - b.failures + new Date(b.lastRouteMatchedAt ?? b.lastRecommendedAt ?? b.lastUsedAt ?? b.updatedAt).getTime() / 1e13;
         return qa - qb;
       })
       .slice(0, recipes.length - 200);
@@ -122,6 +142,7 @@ export async function finishWorkflow(input: {
     workflow, recipe, currentDurationMs: durationMs,
     ...(previousFastestMs != null ? { previousFastestMs } : {}),
     ...(improvedByMs != null ? { improvedByMs, improvedPct: Math.round((improvedByMs / previousFastestMs!) * 1000) / 10 } : {}),
+    ...(recommendedRecipeId ? { reuse: { recommendedRecipeId, routeMatched, score: reuseScore } } : {}),
   };
 }
 
@@ -141,7 +162,7 @@ export async function findReusableRecipe(input: {
     if ((recipe.project ?? "") !== (input.project ?? "")) continue;
     const score = hybridSemanticScore(
       prepared,
-      recipeText(recipe.intent, recipe.project, recipe.summary),
+      recipeText([recipe.intent, ...(recipe.intentAliases ?? [])].join("\n"), recipe.project, recipe.summary),
       recipe.embeddingVersion === SKILL_EMBEDDING_VERSION ? recipe.embedding : undefined,
     ) + (recipe.normalizedIntent === normalizeSemanticText(input.intent) ? 0.2 : 0);
     if (!best || score > best.score) best = { recipe, score };
@@ -160,11 +181,16 @@ export async function listArchivedRecipes(access: RecipeAccess): Promise<Learned
   return listArchivedLearnedRecipes(access);
 }
 
-export async function markRecipeUsed(id: string, access: RecipeAccess): Promise<void> {
+export async function markRecipeRecommended(id: string, access: RecipeAccess): Promise<void> {
   const store = await loadWorkflowStore();
   const recipe = store.recipes[id];
   if (!recipe) return;
   if (!access.ownerView && (recipe.actor !== access.actor || !allows(access.scope, recipe.scope))) return;
-  recipe.lastUsedAt = new Date().toISOString();
+  const at = new Date().toISOString();
+  recipe.recommendationCount = (recipe.recommendationCount ?? 0) + 1;
+  recipe.lastRecommendedAt = at;
   await persistWorkflowStore(store);
 }
+
+/** @deprecated pre-v3 name; selection is a recommendation, not proof of recipe application. */
+export const markRecipeUsed = markRecipeRecommended;

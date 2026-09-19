@@ -35,6 +35,7 @@ describe("learned workflow recipes", () => {
     expect(two.improvedByMs).toBe(2800);
     expect(two.recipe.bestSteps.map((s) => s.tool)).toEqual(["screen_capture"]);
     expect(two.recipe.bestSteps[0].args).toEqual({ shell: "macos", width: 1440, height: 900 });
+    expect(two.recipe.intentAliases).toContain("capture a macOS screenshot and return a secure temporary link");
   });
 
   it("enriches a fastest recipe with safe args from a slower equivalent run", async () => {
@@ -231,6 +232,7 @@ describe("learned workflow recipes", () => {
     expect(recipe.bestSteps[0]).toMatchObject({ target: "npm → curl", args: { cwd: "/srv/app" } });
     expect(recipe.bestSteps[1].args).toEqual({ path: "/srv/app/.env" });
   });
+
 
 
 });
