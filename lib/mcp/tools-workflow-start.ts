@@ -13,11 +13,13 @@ import type { McpTool } from "./tool-kit";
 import { opt, S, str } from "./tool-kit";
 import { toolsetInfo } from "./toolset";
 import { optionalStringList, visibleTools, WORKFLOW_PROGRESS_OUTPUT, workflowProgress } from "./tools-learning-shared";
+import { AGENT_BOOTSTRAP_SKILL, workflowOrientation, workflowStartPolicy } from "./instructions";
 
 export const WORKFLOW_START_TOOL: McpTool =
   {
     name: "workflow_start",
-    description: "Start one isolated multi-step workflow, resolve project context, and search trusted skills/recipes/graphs. Use the returned workflow_id on later steps.",
+    description: "First call for multi-step work: resolve project context, search trusted skills/recipes/graphs, and return workflow_id. Carry that exact id on later steps. Read official skill mso-agent-bootstrap when learning the MSO map.",
+    chatgptDescription: "First call for multi-step work; keep workflow_id.",
     scope: "write",
     annotations: { idempotentHint: false },
     outputSchema: WORKFLOW_PROGRESS_OUTPUT,
@@ -197,20 +199,11 @@ export const WORKFLOW_START_TOOL: McpTool =
             ...(reusableScript ? [`[Automation] ${reusableScript.status} script ${reusableScript.id} available`] : []),
             ...(contention.conflictingWorkflowCount ? [`[Collision] ${contention.conflictingWorkflowCount} workflow(s) overlap declared paths/resources`] : []),
             ...(discovery.complete ? [] : [`[Discovery] partial scan — ${search.catalog.truncationReasons.join(", ")}; do not conclude something is absent`]),
+            `[Orient] follow ${AGENT_BOOTSTRAP_SKILL} then the discover→act loop`,
             "[Plan] classify → retrieve minimal memory → isolate if required → execute → progressive verify → learn → workflow_finish",
           ],
-          policy: {
-            simple: "LOW-risk work may run directly with a targeted check; branch/worktree is a safety tool, not a goal.",
-            isolation: classification.risk === "high"
-              ? "HIGH-risk work requires isolation plus explicit verification before integration."
-              : classification.isolation === "optional-worktree"
-                ? "Use a short-lived branch/worktree when it reduces current contention."
-                : "Direct work is acceptable when scope remains isolated.",
-            repository: "For short repository-wide search/git checks use one narrow exec_run batch; for tests/builds that may exceed 30 seconds use exec_job_start and poll exec_job_status.",
-            progress: "Show only high-level feature/tool badges and outcomes; never private chain-of-thought.",
-            manualUserTest: "When the user reports a manual test result, persist it with project_memory_upsert source=user-manual; a failed manual test outranks an automated healthy assumption.",
-            finish: "Call workflow_finish with this exact workflow id only after independent verification; new HIGH-risk workflows require structured evidence. Use workflow_cancel for an abandoned run.",
-          },
+          orientation: workflowOrientation(context.scope),
+          policy: workflowStartPolicy(classification),
         },
         search: compactSearch,
         instruction: "Use the smallest useful returned memory context and any safe recipe. Follow the risk/isolation policy, verify progressively, then call workflow_finish with evidence.",

@@ -8,6 +8,17 @@ This document is the current contract for the MCP-first Cognitive Runtime throug
 used when available, but correctness must not depend on OpenAI-, Anthropic-, Google-, Qwen-, GLM-,
 DeepSeek-, or other vendor-specific hidden state.
 
+## Agent bootstrap (first calls)
+
+Every MCP client receives the numbered first-call sequence in `initialize.instructions`.
+The official skill is `mso-agent-bootstrap`. ChatGPT publishes it first in the five-slot
+Skills extension. Terminal `mso` agent uses catalog-first packs that already start
+repository work with `workflow_start`. Alfa-via-gateway is the same MCP server.
+
+The full sequence, surface variants, and capability-parity matrix live in
+[`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md). Presentation (schema size, tool names, UI)
+may differ; core ops must remain reachable.
+
 ## Invariants
 
 1. **Authentication is not conversation state.** OAuth/client identity owns durable user state and learned

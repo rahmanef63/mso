@@ -119,8 +119,9 @@ export const READ_TOOLS: McpTool[] = [
     name: "skills_search",
     description:
       "Semantic search across trusted SKILL.md files, the live MCP tool catalog and learned successful workflows. " +
-      "Use this alone for capability research or unfamiliar single-step work. For a multi-step task call workflow_start directly — it already performs this search and avoids a duplicate startup call. " +
+      "For MCP orientation, query mso-agent-bootstrap. Use this alone for capability research or unfamiliar single-step work. For a multi-step task call workflow_start directly — it already performs this search and avoids a duplicate startup call. " +
       "The embedding runs locally with no API cost; untrusted skill instructions are excluded unless explicitly requested.",
+    chatgptDescription: "Find mso-agent-bootstrap or research capabilities.",
     scope: "read",
     annotations: READ_ONLY,
     inputSchema: S({

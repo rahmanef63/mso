@@ -113,7 +113,10 @@ and minor typos without a cloud embedding API. Untrusted skill instructions rema
 excluded by default.
 
 A multi-step MCP client can bracket work with `workflow_start` and
-`workflow_finish`. MSO records only redacted terminal tool steps, explicitly allowlisted scalar
+`workflow_finish`. The first-call map is official skill `mso-agent-bootstrap`
+([`docs/AGENT-BOOTSTRAP.md`](../docs/AGENT-BOOTSTRAP.md)). `workflow_start` already
+searches this catalog, so do not call `skills_search` immediately before startup
+for the same task. MSO records only redacted terminal tool steps, explicitly allowlisted scalar
 arguments, timings and the verified outcome in `~/.mso/skill-memory.json`, merges semantically equivalent
 intents, and retains the fastest successful sequence as a future recipe. Failed
 attempts remain evidence but never replace a successful path. Recipes are ranked

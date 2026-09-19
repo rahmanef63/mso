@@ -52,6 +52,14 @@ describe("MSO per-turn tool router", () => {
     expect(out.selectedNames).toContain("skills_search");
   });
 
+  it("routes MCP orientation prompts to the agent-bootstrap pack instead of exec_run", () => {
+    const out = selectToolsForTurn(catalog, [{ role: "user", text: "How does MSO MCP work? What are the first tools to call?" }]);
+    expect(out.routeIds).toContain("agent-bootstrap");
+    expect(out.selectedNames).toEqual(expect.arrayContaining(["skills_search", "skills_read"]));
+    expect(out.selectedNames).not.toContain("exec_run");
+    expect(out.catalogMatched).toBe(true);
+  });
+
   it("uses only bounded continuation context instead of replaying long history into routing", () => {
     const history = [
       { role: "user", text: "why is hermes down? inspect its logs" },

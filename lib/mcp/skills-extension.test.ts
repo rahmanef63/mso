@@ -11,6 +11,8 @@ describe("MCP Skills extension", () => {
     const listed = await dispatch({ id: 2, method: "skills/list", params: {} }, "read", "skills-test");
     const skills = (listed.result as { skills: Array<{ uri: string; frontmatter: Record<string, unknown>; resources: Array<{ uri: string; digest: string }> }>; nextCursor?: string }).skills;
     expect(skills).toHaveLength(5);
+    expect(CHATGPT_PUBLISHED_SKILLS[0]).toBe("mso-agent-bootstrap");
+    expect(CHATGPT_PUBLISHED_SKILLS).toHaveLength(5);
     expect(skills.map((skill) => skill.frontmatter.name)).toEqual([...CHATGPT_PUBLISHED_SKILLS]);
     expect((listed.result as { nextCursor?: string }).nextCursor).toBeUndefined();
     for (const skill of skills) {
