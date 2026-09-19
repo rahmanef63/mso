@@ -524,26 +524,19 @@ See [the generated product comparison](../COMPARISON.md).
 ## Tested platforms
 
 <details>
-<summary><strong>Linux / WSL deployment support and untested platforms</strong></summary>
+<summary><strong>Machine / runtime support</strong></summary>
 
-Not yet formally tested across a full distro matrix.
+The canonical runtime is Linux; platform adapters decide where that Linux runtime lives.
 
-Tested:
+Validated Linux baselines include Ubuntu 22.04 and Ubuntu 24.04. Supported machine paths are:
 
-- Ubuntu 22.04
-- Ubuntu 24.04
+- Linux: native host; systemd service when available, foreground/no-systemd fallback otherwise.
+- Windows: WSL2 Linux distro; MSO manages the distro rather than native Win32 services.
+- macOS: Lima Linux guest; MSO manages the guest rather than native launchd services.
+- Android: Termux + Ubuntu PRoot; local hosts remain subject to Android battery/background policy.
+- iOS/iPadOS: browser/PWA client to an MSO host; no native host-runtime claim.
 
-Supported deployment shapes:
-
-- WSL2 Ubuntu: CLI/install path works without systemd; the background service requires systemd enabled in WSL
-- Debian 12 and other systemd-based Linux distributions with Node.js 22.12+, 24.x or 26+ and build tools
-
-Not currently supported:
-
-- Windows host
-- macOS host
-- Automatic service install on non-systemd hosts
-- Root deployment
+Root deployment remains unsupported. See [PLATFORMS.md](../PLATFORMS.md).
 
 </details>
 

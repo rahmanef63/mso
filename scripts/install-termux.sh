@@ -65,6 +65,7 @@ proot-distro login "$DISTRO" -- bash -lc "
 info 'installing/updating MSO inside Ubuntu'
 proot-distro login "$DISTRO" --user "$GUEST_USER" -- bash -lc "
   set -Eeuo pipefail
+  unset PREFIX TERMUX_VERSION
   export PATH=\"\$HOME/.local/bin:\$HOME/.bun/bin:\$PATH\"
   curl -fsSL '$INSTALL_URL' | bash -s -- --no-service --no-onboard
   command -v mso >/dev/null 2>&1

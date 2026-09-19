@@ -41,23 +41,24 @@ flowchart LR
 [Private session screenshots](./docs/SESSION-ARTIFACTS.md) · [How the agent runtime works](./docs/COGNITIVE-RUNTIME.md) · [Architecture](./docs/ARCHITECTURE.md) · [Native Integrations](./docs/INTEGRATIONS.md)
 
 ## Install or update MSO from this repo
+**Linux, macOS, Windows/WSL2, Android/Termux · iOS/iPadOS client.** MSO keeps one Linux host-runtime contract and adapts the machine around it.
 
-**Linux · normal non-root user · Node 22.** One application; no required database or separate agent service.
-Review [scripts/install.sh](./scripts/install.sh), then:
-
+| Machine | Supported path |
+|---|---|
+| Linux | Native host — canonical POSIX installer |
+| macOS | Lima Linux guest — canonical POSIX installer auto-routes |
+| Windows | WSL2 Linux distro — PowerShell bootstrap |
+| Android | Termux + Ubuntu PRoot — canonical POSIX installer auto-routes |
+| iOS / iPadOS | PWA/client to a protected MSO host |
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
+mso doctor
+mso
+mso web
 ```
+Windows PowerShell: `iwr -useb https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-windows.ps1 | iex`.
 
-```bash
-mso doctor       # check the installation
-mso              # work with the terminal agent
-mso web          # open the browser workspace
-mso --continue   # resume your last session
-```
-
-The application binds to **127.0.0.1** by default. Use a VPN or protected HTTPS proxy for remote access.
-[Full installation and WSL guide](./docs/INSTALL.md) · [Android / Termux one-paste install](./docs/TERMUX.md) · [CLI reference](./docs/CLI.md)
+The raw application binds to **127.0.0.1** by default. Compatibility hosts manage their Linux runtime, not native parent-OS services. [Platform support](./docs/PLATFORMS.md) · [Full installation guide](./docs/INSTALL.md) · [Android / Termux details](./docs/TERMUX.md) · [CLI reference](./docs/CLI.md)
 
 <details>
 <summary><strong>Update, reset or uninstall — preview before changing anything</strong></summary>

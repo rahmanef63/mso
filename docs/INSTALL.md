@@ -1,20 +1,32 @@
-# Installing MSO on a Linux server
+# Installing MSO across machines
 
-> **Current reference.** The one-command installer is the supported path for a normal
-> deployment. Manual commands below explain the model and recovery boundaries; release
-> developers should use `bun run ship`, while operators update through Settings → About or
-> `mso update` (`mso update run` remains accepted).
+> **Current reference.** MSO keeps one Linux host-runtime contract and adapts the machine
+> around it. This preserves terminal/process/filesystem/gateway safety semantics while allowing
+> the same product to run from Linux, macOS, Windows and Android machines. iOS/iPadOS is a
+> first-class browser/PWA client surface.
 
-## 0. Requirements
+## 0. Platform support
 
-- Linux; systemd is required for the installed background service, but not for the CLI;
-- WSL2 is supported for the CLI. Full service mode requires systemd enabled as PID 1;
-- Node.js 22.12+, 24.x or 26+ (Node 22 recommended/current production runtime);
+| Machine | Mode | Install |
+|---|---|---|
+| Linux | Native host | `curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh \| bash` |
+| macOS | Lima Linux guest | same POSIX command; Darwin auto-routes |
+| Windows | WSL2 Linux distro | `iwr -useb https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-windows.ps1 \| iex` |
+| Android | Termux + Ubuntu PRoot | same POSIX command; Termux auto-routes |
+| iOS / iPadOS | PWA/client | open the protected MSO HTTPS URL in Safari and Add to Home Screen |
+
+See [PLATFORMS.md](./PLATFORMS.md) for the exact host scope and limitations.
+
+### Runtime requirements
+
+- canonical host runtime: Linux userspace;
+- systemd is optional for the CLI/web fallback runtime and required only for features that explicitly depend on systemd;
+- Node.js 22.12+, 24.x or 26+ inside the Linux runtime;
 - Bun for dependency installation/scripts;
-- a non-root user that owns MSO;
-- enough memory/swap for a Next production build (build needs more than idle runtime);
-- HTTPS through Tailscale Serve or a reverse proxy for normal non-localhost browser use.
-- CLI runtime tools `curl`, `jq`, GNU coreutils and util-linux `flock` (the installer adds missing packages on supported package managers).
+- a normal non-root runtime user;
+- enough memory/swap for a Next production build;
+- HTTPS through Tailscale Serve or a reverse proxy for normal non-localhost browser use;
+- CLI runtime tools `curl`, `jq`, GNU coreutils and util-linux `flock` inside the Linux runtime.
 
 Optional Browser support additionally needs Camoufox, Xvfb, a lightweight X window manager,
 x11vnc, noVNC/websockify and a user systemd runtime.
@@ -34,10 +46,11 @@ for a current install when available, fall back to this installer for older buil
 and finish with `mso doctor`. It should ask the user only for non-inferable choices/credentials; secrets
 belong in MSO's hidden/STDIN onboarding prompts, never CLI argv or chat transcripts.
 
-`scripts/install.sh` is intentionally a tiny bootstrap. It downloads `scripts/install-core.sh`
-completely into a private temporary file, retries transient transfers, checks a committed SHA-256,
-requires the exact EOF marker, runs `bash -n`, and only then executes the payload. The large
-installer is therefore never executed while bytes are still arriving over the network.
+`scripts/install.sh` is the public dispatcher. On Linux it downloads and verifies
+`scripts/install-core.sh`; on macOS and Termux it downloads and verifies the matching compatibility
+bootstrap before handing off. Git Bash/MSYS/Cygwin prints the supported PowerShell/WSL2 entrypoint.
+The verified payload is downloaded completely before execution, so a truncated network stream cannot
+look like a successful install.
 
 The installer core:
 

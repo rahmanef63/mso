@@ -11,13 +11,15 @@ References:
 
 ## One-paste install
 
-Run this in Termux:
+Run the canonical public installer in Termux:
 
 ```bash
-apt update && apt full-upgrade -y && \
-apt install -y curl ca-certificates proot-distro && \
-curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-termux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 ```
+
+The public bootstrap detects Termux, verifies `scripts/install-termux.sh`, and hands off to it.
+If a partial Termux package upgrade has broken `curl` before that command can run, use the repair
+steps below first.
 
 The Termux bootstrap is idempotent. Re-running the same command repairs/upgrades the host packages, reuses the `mso-ubuntu` PRoot environment when it already exists, and runs the normal MSO installer again to update the existing checkout.
 
