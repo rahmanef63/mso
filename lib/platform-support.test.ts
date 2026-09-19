@@ -4,10 +4,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { PLATFORM_INSTALL_GUIDES } from "./platform-install-guides";
 import { PLATFORM_SUPPORT, platformSupport } from "./platform-support";
 
 const ROOT = path.join(__dirname, "..");
 const INSTALL_PAGE = fs.readFileSync(path.join(ROOT, "app/install/page.tsx"), "utf8");
+const PLATFORM_TABS = fs.readFileSync(path.join(ROOT, "app/install/platform-tabs.tsx"), "utf8");
 const INSTALLER_PATH = path.join(ROOT, "scripts/install.sh");
 const INSTALLER = fs.readFileSync(INSTALLER_PATH, "utf8");
 const MACOS_INSTALLER = fs.readFileSync(path.join(ROOT, "scripts/install-macos.sh"), "utf8");
@@ -56,7 +58,25 @@ describe("MSO platform support contract", () => {
       "android",
       "ios",
     ]);
-    expect(INSTALL_PAGE).toContain("PLATFORM_SUPPORT.map((platform)");
+    expect(INSTALL_PAGE).toContain("<PlatformInstallTabs />");
+    expect(PLATFORM_TABS).toContain("PLATFORM_SUPPORT.map((platform)");
+  });
+
+  it("keeps every platform tab detailed and link-backed", () => {
+    for (const platform of PLATFORM_SUPPORT) {
+      const guide = PLATFORM_INSTALL_GUIDES[platform.id];
+      expect(guide.id).toBe(platform.id);
+      expect(guide.prerequisites.length).toBeGreaterThanOrEqual(3);
+      expect(guide.steps.length).toBeGreaterThanOrEqual(5);
+      expect(guide.troubleshooting.length).toBeGreaterThanOrEqual(3);
+      expect(guide.links.length).toBeGreaterThanOrEqual(4);
+      for (const link of guide.links) expect(link.href).toMatch(/^https:\/\//);
+    }
+    expect(PLATFORM_TABS).toContain('role="tablist"');
+    expect(PLATFORM_TABS).toContain('role="tabpanel"');
+    expect(PLATFORM_TABS).toContain('url.searchParams.set("platform", id)');
+    expect(PLATFORM_TABS).toContain("Step by step");
+    expect(PLATFORM_TABS).toContain("Official links & references");
   });
 
   it("prevents macOS from silently disappearing from install UX", () => {

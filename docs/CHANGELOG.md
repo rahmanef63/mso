@@ -8,10 +8,12 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `install` add detailed platform tabs
 - `mcp` encode agent bootstrap and capability-parity map
 
 **Fixed**
 
+- `ai` separate provider connect from selection
 - `security` bind Convex snapshot path identity
 - `browser` derive isolated Camoufox viewer origin
 - `browser` probe cache-isolated Camoufox path
