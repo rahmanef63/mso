@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { copyFile, mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
+import { chmod, copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -50,4 +50,24 @@ describe("link-openai-app", () => {
       expect(() => execFileSync(process.execPath, [script, input], { encoding: "utf8", stdio: "pipe" })).toThrow();
     },
   );
+  it("loads the app id from the owner-private Integrations store without printing it", async () => {
+    const { root, script } = await fixture();
+    const privateRoot = await mkdtemp(path.join(os.tmpdir(), "mso-openai-private-"));
+    roots.push(privateRoot);
+    const store=path.join(privateRoot,"infra-providers.json");
+    const appId="asdk_app_privatefixture123";
+    await writeFile(store, JSON.stringify({
+      version:2, instanceId:"fixture", defaultUser:"alice", bindings:[],
+      users:{alice:{id:"alice",uid:"u",label:"Alice",defaults:{"openai-app":"personal"},connections:{"openai-app":{personal:{
+        id:"personal",uid:"c",label:"Personal",provider:"openai-app",source:"direct",authMethod:"direct",scope:"account",revision:1,
+        values:{appId},createdAt:1,updatedAt:1
+      }}}}}
+    }), {mode:0o600});
+    await chmod(store,0o600);
+    const stdout=execFileSync(process.execPath,[script],{cwd:root,encoding:"utf8",env:{...process.env,OS_INFRA_STORE:store}});
+    expect(await manifest(root)).toEqual({apps:{mso:{id:appId,required:true}}});
+    expect(stdout).not.toContain(appId);
+    expect(stdout).toContain("id redacted");
+  });
+
 });
