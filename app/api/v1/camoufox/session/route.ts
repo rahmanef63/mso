@@ -7,7 +7,7 @@ import { getSessionContext } from "@/lib/auth/require-session";
 import { roleAtLeast } from "@/lib/auth/roles";
 import { camoufoxViewerOrigin } from "@/lib/camoufox/origin";
 import { createCamoufoxViewerTicket } from "@/lib/camoufox/viewer-auth";
-import { CAMOUFOX_VIEWER_PUBLIC_PREFIX } from "@/lib/camoufox/viewer-gate";
+import { CAMOUFOX_VIEWER_PUBLIC_PREFIX } from "@/lib/camoufox/viewer-path";
 import { IS_DEMO } from "@/lib/demo";
 
 export const runtime = "nodejs";
