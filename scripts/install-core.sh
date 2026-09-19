@@ -396,23 +396,23 @@ install_early_update_lock_acquire() {
   if ! flock -x -w "$timeout" "$INSTALL_EARLY_UPDATE_LOCK_FD"; then exec {INSTALL_EARLY_UPDATE_LOCK_FD}>&- || true; INSTALL_EARLY_UPDATE_LOCK_FD=''; die "another MSO installer/update/deploy transaction is still running for $canonical"; fi
   INSTALL_EARLY_UPDATE_LOCK_HELD=1; INSTALL_EARLY_UPDATE_LOCK_FILE="$lock"; INSTALL_EARLY_UPDATE_CANONICAL_ROOT="$canonical"; trap install_early_update_lock_release EXIT
 }
-
 install_early_update_lock_acquire
-
 # portable 32-byte hex RNG (node is guaranteed present by now)
 rand_hex() {
   if command -v openssl >/dev/null 2>&1; then openssl rand -hex "$1"
   else node -e "process.stdout.write(require('crypto').randomBytes($1).toString('hex'))"; fi
 }
-
 rand_password() {
   node -e 'const c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";const b=require("crypto").randomBytes(24);let s="";for(const x of b)s+=c[x%c.length];process.stdout.write(s)'
 }
-
-install_repo_is_canonical_url() { case "$1" in https://github.com/rahmanef63/mso|https://github.com/rahmanef63/mso.git|https://github.com/rahmanef63/mso/|https://github.com/rahmanef63/mso.git/|git@github.com:rahmanef63/mso|git@github.com:rahmanef63/mso.git|ssh://git@github.com/rahmanef63/mso|ssh://git@github.com/rahmanef63/mso.git) return 0 ;; *) return 1 ;; esac; }
+install_repo_is_canonical_url() {
+  case "$1" in
+    https://github.com/rahmanef63/mso|https://github.com/rahmanef63/mso.git|https://github.com/rahmanef63/mso/|https://github.com/rahmanef63/mso.git/|git@github.com:rahmanef63/mso|git@github.com:rahmanef63/mso.git|ssh://git@github.com/rahmanef63/mso|ssh://git@github.com/rahmanef63/mso.git) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 install_git_noninteractive() { GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -oBatchMode=yes}" "$@"; }
 install_prepare_origin() { local url; url="$(git -C "$DIR" remote get-url origin 2>/dev/null || true)"; [ -n "$url" ] || die "existing checkout has no readable origin remote"; if install_repo_is_canonical_url "$url" && [ "$url" != "$CANONICAL_REPO_URL" ]; then git -C "$DIR" remote set-url origin "$CANONICAL_REPO_URL" || die "could not normalize canonical origin to public HTTPS"; fi; }
-
 INSTALL_PHASE=checkout
 # ---- clone or update (idempotent, resilient to a dirty tree) ----
 if [ -d "$DIR/.git" ]; then

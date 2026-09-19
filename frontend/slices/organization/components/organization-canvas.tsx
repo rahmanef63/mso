@@ -5,6 +5,7 @@ import { Building2 } from "lucide-react";
 import { Handle, MarkerType, Position, type Edge, type Node, type NodeProps } from "@xyflow/react";
 import type { OrganizationChart, OrganizationSeat, OrganizationSeatRuntime, OrganizationUnit } from "@/lib/contracts/organization";
 import { Badge } from "@/components/ui/badge";
+import { graphRoutedEdgeTypes } from "@/components/shared/graph-routed-edge";
 import { GraphCanvas } from "@/components/shared/graph-canvas";
 import { useContainer } from "@/features/appshell";
 import { cn } from "@/lib/utils";
@@ -58,10 +59,10 @@ export function OrganizationCanvas({ chart, runtime, unitId, selectedSeatId, onU
   }, [chart, layoutOptions, runtimeById, selectedSeatId, unitById, unitId]);
   const visible = useMemo(() => new Set(nodes.map((node) => node.id)), [nodes]);
   const edges = useMemo<Edge[]>(() => {
-    if (!unitId) return chart.units.filter((unit) => unit.parentUnitId && visible.has(unit.parentUnitId)).map((unit) => ({ id: `unit-${unit.parentUnitId}-${unit.id}`, source: unit.parentUnitId!, target: unit.id, type: "smoothstep", markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "var(--sep-strong)" }, style: { stroke: "var(--sep-strong)", strokeWidth: 1.6 } }));
+    if (!unitId) return chart.units.filter((unit) => unit.parentUnitId && visible.has(unit.parentUnitId)).map((unit) => ({ id: `unit-${unit.parentUnitId}-${unit.id}`, source: unit.parentUnitId!, target: unit.id, type: "routed", markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: "var(--muted-foreground)" }, style: { stroke: "var(--muted-foreground)", strokeWidth: 1.6 } }));
     return chart.seats.filter((seat) => visible.has(seat.id) && seat.reportsToSeatId && visible.has(seat.reportsToSeatId)).map((seat) => {
-      const parent = chart.seats.find((row) => row.id === seat.reportsToSeatId), crossUnit = Boolean(parent && parent.unitId !== seat.unitId), busy = runtimeById.get(seat.id)?.status === "busy" || runtimeById.get(seat.reportsToSeatId!)?.status === "busy", stroke = busy ? "var(--warning)" : "var(--sep-strong)";
-      return { id: `seat-${seat.reportsToSeatId}-${seat.id}`, source: seat.reportsToSeatId!, target: seat.id, type: "smoothstep", animated: busy, markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: stroke }, style: { stroke, strokeWidth: busy ? 2.4 : 1.6, strokeDasharray: crossUnit ? "7 5" : undefined } };
+      const parent = chart.seats.find((row) => row.id === seat.reportsToSeatId), crossUnit = Boolean(parent && parent.unitId !== seat.unitId), busy = runtimeById.get(seat.id)?.status === "busy" || runtimeById.get(seat.reportsToSeatId!)?.status === "busy", stroke = busy ? "var(--warning)" : "var(--muted-foreground)";
+      return { id: `seat-${seat.reportsToSeatId}-${seat.id}`, source: seat.reportsToSeatId!, target: seat.id, type: "routed", animated: busy, markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: stroke }, style: { stroke, strokeWidth: busy ? 2.4 : 1.6, strokeDasharray: crossUnit ? "7 5" : undefined } };
     });
   }, [chart.seats, chart.units, runtimeById, unitId, visible]);
 
@@ -72,7 +73,7 @@ export function OrganizationCanvas({ chart, runtime, unitId, selectedSeatId, onU
         ariaLabel={unitId ? "Organization seats canvas" : "Organization units canvas"}
         nodes={nodes}
         edges={edges}
-        nodeTypes={nodeTypes}
+        nodeTypes={nodeTypes} edgeTypes={graphRoutedEdgeTypes}
         nodesDraggable={false}
         nodesConnectable={false}
         edgesFocusable={false}

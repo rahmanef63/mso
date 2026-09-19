@@ -168,7 +168,7 @@ export function PlatformInstallTabs() {
             </ul>
           </div>
           <div>
-            <h4 className="text-sm font-semibold">Official links & references</h4>
+            <h4 className="text-sm font-semibold">{"Official links & references"}</h4>
             <div className="mt-3 space-y-2">
               {guide.links.map((link) => (
                 <a

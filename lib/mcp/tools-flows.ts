@@ -61,7 +61,7 @@ export const FLOW_TOOLS: McpTool[] = [
       return manageProjectFlow(catalog.project.path, { action: a.action, id, flow: a.definition, revision: str(a, "revision") });
     } },
   { name: "workflow_graph", title: "Workflow Graph", scope: "exec", limit: { key: "workflow.graph", max: 20, windowMs: 60_000 },
-    description: "Private workflow graph CRUD/run plus history, versions, templates, catalog and variable references. Definitions reject embedded secrets.",
+    description: "Private workflow graph CRUD/run plus history, versions, templates, catalog and variable references. Definitions reject embedded secrets. metadata.customNodes supports named collapsible groups [{id,name,nodeIds,collapsed}]; original nodes/edges and execution stay unchanged. Update with the current revision.",
     chatgptDescription: "CRUD/run workflows; read node logs.",
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }, audit: { action: "exec.run", targetArg: "id" },
     inputSchema: S({ action: { type: "string", minLength: 1, maxLength: 32 }, id: { type: "string", maxLength: 96 }, data: { type: "object", additionalProperties: true }, wait_ms: { type: "integer", minimum: 0, maximum: 25_000 } }, ["action"]),
