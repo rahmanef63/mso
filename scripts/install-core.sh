@@ -409,7 +409,16 @@ rand_password() {
   node -e 'const c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";const b=require("crypto").randomBytes(24);let s="";for(const x of b)s+=c[x%c.length];process.stdout.write(s)'
 }
 
-install_repo_is_canonical_url() { case "$1" in https://github.com/rahmanef63/mso|https://github.com/rahmanef63/mso.git|https://github.com/rahmanef63/mso/|https://github.com/rahmanef63/mso.git/|git@github.com:rahmanef63/mso|git@github.com:rahmanef63/mso.git|ssh://git@github.com/rahmanef63/mso|ssh://git@github.com/rahmanef63/mso.git) return 0 ;; *) return 1 ;; esac; }
+install_repo_is_canonical_url() {
+  case "$1" in
+    https://github.com/rahmanef63/mso|https://github.com/rahmanef63/mso.git|https://github.com/rahmanef63/mso/|https://github.com/rahmanef63/mso.git/|git@github.com:rahmanef63/mso|git@github.com:rahmanef63/mso.git|ssh://git@github.com/rahmanef63/mso|ssh://git@github.com:rahmanef63/mso.git)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
 install_git_noninteractive() { GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -oBatchMode=yes}" "$@"; }
 install_prepare_origin() { local url; url="$(git -C "$DIR" remote get-url origin 2>/dev/null || true)"; [ -n "$url" ] || die "existing checkout has no readable origin remote"; if install_repo_is_canonical_url "$url" && [ "$url" != "$CANONICAL_REPO_URL" ]; then git -C "$DIR" remote set-url origin "$CANONICAL_REPO_URL" || die "could not normalize canonical origin to public HTTPS"; fi; }
 
