@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` pin Convex snapshot import bytes
 - `security` keep macOS installer fully parseable
 - `browser` route Camoufox websocket through viewer namespace
 - `browser` isolate Camoufox viewer cache
