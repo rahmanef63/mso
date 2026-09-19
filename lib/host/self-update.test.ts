@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { parseCommits, blockingReason, updateBranchReason, updateUnitArgs } = await import("./self-update");
+const { isCanonicalMsoRemote, CANONICAL_MSO_REMOTE } = await import("./update-remote-authority");
 const { offlineUpdateArgs } = await import("./self-update-offline");
 
 const status = (over: Partial<Parameters<typeof blockingReason>[0]> = {}) => ({
@@ -25,6 +26,18 @@ const status = (over: Partial<Parameters<typeof blockingReason>[0]> = {}) => ({
   remoteChecked: true,
   log: "",
   ...over,
+});
+
+
+describe("canonical Git remote recognition", () => {
+  it("recognizes canonical HTTPS and SSH forms without treating forks as upstream", () => {
+    expect(isCanonicalMsoRemote(CANONICAL_MSO_REMOTE)).toBe(true);
+    expect(isCanonicalMsoRemote("https://github.com/rahmanef63/mso")).toBe(true);
+    expect(isCanonicalMsoRemote("git@github.com:rahmanef63/mso.git")).toBe(true);
+    expect(isCanonicalMsoRemote("ssh://git@github.com/rahmanef63/mso")).toBe(true);
+    expect(isCanonicalMsoRemote("https://github.com/example/mso.git")).toBe(false);
+    expect(isCanonicalMsoRemote("git@github.com:example/private-mso.git")).toBe(false);
+  });
 });
 
 describe("parseCommits", () => {

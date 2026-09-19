@@ -43,7 +43,8 @@ describe("MSO model/provider/session CLI contract", () => {
     expect(agentCli).toContain("custom_provider_body_unselected");
     expect(all).toContain("select:false");
     expect(configRoute).toContain("body.select !== false");
-    expect(oauthRoute).toContain("body.select !== false");
+    expect(oauthRoute).toContain("body.select === true");
+    expect(oauthRoute).not.toContain("body.select !== false");
     expect(slash).toMatch(/text:\s*"\/models"[\s\S]{0,120}meta:\s*"Configure AI providers and authentication"/);
     expect(slash).toMatch(/text:\s*"\/model"[\s\S]{0,120}meta:\s*"Select the active model from connected providers"/);
   });

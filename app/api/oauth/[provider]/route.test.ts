@@ -37,18 +37,28 @@ describe("OpenAI Codex OAuth selection semantics", () => {
     codexPoll.mockReset().mockResolvedValue({ bundle: { access: "token" } });
   });
 
-  it("stores OAuth credentials but preserves active model when select:false", async () => {
+  it("connects credentials without replacing the active provider when select is omitted", async () => {
     const { POST } = await import("./route");
-    const res = await POST(request({ action: "poll", select: false }), ctx);
+    const res = await POST(request({ action: "poll" }), ctx);
     expect(res.status).toBe(200);
     expect(writeOAuthBundle).toHaveBeenCalled();
     expect(writeConfig).not.toHaveBeenCalled();
     expect(await res.json()).toMatchObject({ slug: "openai-codex", selected: false, model: "gpt-account-model" });
   });
 
-  it("keeps existing callers selecting the OAuth provider when select is omitted", async () => {
+  it("keeps explicit select:false as connect-only", async () => {
     const { POST } = await import("./route");
-    await POST(request({ action: "poll" }), ctx);
+    const res = await POST(request({ action: "poll", select: false }), ctx);
+    expect(res.status).toBe(200);
+    expect(writeOAuthBundle).toHaveBeenCalled();
+    expect(writeConfig).not.toHaveBeenCalled();
+    expect(await res.json()).toMatchObject({ slug: "openai-codex", selected: false });
+  });
+
+  it("switches Alfa only when select:true is explicit", async () => {
+    const { POST } = await import("./route");
+    const res = await POST(request({ action: "poll", select: true }), ctx);
     expect(writeConfig).toHaveBeenCalledWith({ provider: "openai-codex", model: "gpt-account-model" });
+    expect(await res.json()).toMatchObject({ slug: "openai-codex", selected: true, model: "gpt-account-model" });
   });
 });

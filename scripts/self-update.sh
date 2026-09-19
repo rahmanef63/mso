@@ -18,6 +18,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 cd "$ROOT" || exit 1
 # shellcheck source=scripts/lib/update-git-authority.sh
 . "$ROOT/scripts/lib/update-git-authority.sh"
+# shellcheck source=scripts/lib/update-remote-authority.sh
+. "$ROOT/scripts/lib/update-remote-authority.sh"
 
 LOG="${MSO_UPDATE_LOG:-$HOME/.mso/self-update.log}"
 mkdir -p "$(dirname "$LOG")"
@@ -65,7 +67,7 @@ fi
 
 if [ "$REBUILD_ONLY" -eq 0 ]; then
   step "fetching origin/main"
-  git fetch --quiet origin main || die "could not reach the remote"
+  update_git_fetch_origin "$ROOT" main || die "could not reach the remote"
   step "verifying remote authority / fast-forwarding"
   read -r RELATION AHEAD_COUNT BEHIND_COUNT < <(update_git_relation "$ROOT") \
     || die "could not compare checkout with origin/main"

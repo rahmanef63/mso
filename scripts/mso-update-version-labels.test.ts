@@ -13,7 +13,7 @@ function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "mso-update-labels-")); roots.push(root);
   const repo = path.join(root, "repo"), remote = path.join(root, "remote.git"), fakeBin = path.join(root, "bin");
   fs.mkdirSync(path.join(repo, "scripts/lib"), { recursive: true }); fs.mkdirSync(path.join(repo, "bin")); fs.mkdirSync(fakeBin);
-  for (const name of ["private-state.sh", "update-state.sh", "runtime-exclusion.sh", "update-gateway-runtimes.sh", "update-git-authority.sh"]) {
+  for (const name of ["private-state.sh", "update-state.sh", "runtime-exclusion.sh", "update-gateway-runtimes.sh", "update-git-authority.sh", "update-remote-authority.sh"]) {
     fs.copyFileSync(path.join(process.cwd(), "scripts/lib", name), path.join(repo, "scripts/lib", name));
   }
   fs.writeFileSync(path.join(repo, "bin/mso"), '#!/bin/sh\nVERSION="1.3.0"\n', { mode: 0o755 });

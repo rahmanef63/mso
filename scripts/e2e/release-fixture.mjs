@@ -89,6 +89,9 @@ export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
       await new Promise(resolve => setTimeout(resolve, 250));
     }
     if (!ready) throw new Error("Fixture server did not become ready: " + logs);
-    return { dir, base, device, password, setRole, seedMcp, mcpToken, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
+    const setAiConfig = async config => {
+      await writeFile(env.OS_CONFIG_STORE, JSON.stringify(config, null, 2), { mode: 0o600 });
+    };
+    return { dir, base, device, password, setRole, seedMcp, mcpToken, setAiConfig, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
   } catch (error) { await close(); throw error; }
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { PLATFORM_SUPPORT } from "@/lib/platform-support";
 import { Copy } from "./copy";
+import { PlatformInstallTabs } from "./platform-tabs";
 
 export const metadata: Metadata = {
   title: "Install Manef Shell OS",
@@ -77,34 +77,14 @@ export default function InstallPage() {
       </header>
 
       <section className="mb-12">
-        <h2 className="mb-4 text-lg font-semibold">Supported platforms</h2>
-        <div className="grid gap-3 md:grid-cols-2">
-          {PLATFORM_SUPPORT.map((platform) => (
-            <article key={platform.id} className="rounded-lg border border-border p-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="text-base font-semibold">{platform.label}</h3>
-                <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                  {platform.modeLabel}
-                </span>
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{platform.summary}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Manages: <span className="font-medium text-foreground">{platform.hostScope}</span>
-              </p>
-              {platform.installCommand ? <Copy text={platform.installCommand} /> : (
-                <p className="mt-3 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-                  Open your protected MSO HTTPS URL in Safari, then Share → Add to Home Screen.
-                </p>
-              )}
-              {platform.verifyCommand ? (
-                <p className="mt-2 break-words font-mono text-xs text-muted-foreground">{platform.verifyCommand}</p>
-              ) : null}
-              <ul className="mt-3 space-y-1 text-xs leading-relaxed text-muted-foreground">
-                {platform.notes.map((note) => <li key={note}>• {note}</li>)}
-              </ul>
-            </article>
-          ))}
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">Choose your platform</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            Each tab includes prerequisites, exact commands, step-by-step setup, troubleshooting,
+            verification, and links to the relevant official documentation.
+          </p>
         </div>
+        <PlatformInstallTabs />
       </section>
 
       <section className="mb-12">
@@ -133,7 +113,8 @@ export default function InstallPage() {
       </section>
 
       <section className="mb-12">
-        <h2 className="mb-5 text-lg font-semibold">Five steps</h2>
+        <h2 className="mb-2 text-lg font-semibold">Shared MSO flow</h2>
+        <p className="mb-5 text-sm leading-relaxed text-muted-foreground">These are the common product steps after the platform-specific setup above.</p>
         <ol className="space-y-8">
           {STEPS.map((step) => (
             <li key={step.n} className="grid grid-cols-[2rem_1fr] gap-x-3">

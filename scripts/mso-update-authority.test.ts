@@ -18,7 +18,7 @@ function fixture() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "mso-update-authority-")); roots.push(base);
   const repo = path.join(base, "repo"), remote = path.join(base, "remote.git"), fakebin = path.join(base, "bin"), capture = path.join(base, "capture");
   fs.mkdirSync(path.join(repo, "scripts/lib"), { recursive: true }); fs.mkdirSync(path.join(repo, "bin")); fs.mkdirSync(fakebin);
-  for (const rel of ["scripts/lib/private-state.sh", "scripts/lib/update-state.sh", "scripts/lib/runtime-exclusion.sh", "scripts/lib/update-gateway-runtimes.sh", "scripts/lib/update-git-authority.sh", "scripts/self-update.sh"]) copy(path.join(ROOT, rel), path.join(repo, rel));
+  for (const rel of ["scripts/lib/private-state.sh", "scripts/lib/update-state.sh", "scripts/lib/runtime-exclusion.sh", "scripts/lib/update-gateway-runtimes.sh", "scripts/lib/update-git-authority.sh", "scripts/lib/update-remote-authority.sh", "scripts/self-update.sh"]) copy(path.join(ROOT, rel), path.join(repo, rel));
   fs.writeFileSync(path.join(repo, "bin/mso"), '#!/bin/sh\nVERSION="1.0.0"\n', { mode: 0o755 });
   git(repo, "init", "-q", "-b", "main"); git(repo, "config", "user.name", "MSO Test"); git(repo, "config", "user.email", "mso@example.invalid");
   git(repo, "add", "."); git(repo, "commit", "-q", "-m", "remote base");

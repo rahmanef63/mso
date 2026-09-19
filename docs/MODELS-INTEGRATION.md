@@ -58,6 +58,12 @@ This path exists so the owner can choose to run Alfa against an eligible ChatGPT
 subscription. It is a consumer-backend integration and can be more fragile than the public
 Platform API. Tokens are host-side private state.
 
+Connecting this OAuth credential and selecting it for inference are separate actions. The default
+Settings action stores `openai-codex` without changing the current provider/model; an explicit
+**Connect & use** action switches Alfa after authorization. Existing BYOK credentials such as Google
+Gemini remain stored and selectable. Alfa Cockpit may switch provider/model only among connections
+already present in Settings; it never creates or copies credentials.
+
 Current Alfa requests through this adapter can carry Alfa's tool definitions; the older
 "chat-only/no tools" limitation from the original July plan no longer describes `main`.
 

@@ -10,6 +10,7 @@ import { workflowCanvasJourney } from "./workflow-canvas.mjs";
 import { storeExtensionsJourney } from "./store-extensions.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
 import { camoufoxConnectionJourney } from "./camoufox-connection.mjs";
+import { aiProviderSwitchJourney } from "./ai-provider-switch.mjs";
 
 execFileSync(process.execPath, ["scripts/e2e/mcp-page.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/workflow-embeds.mjs"], { stdio: "inherit" });
@@ -128,6 +129,7 @@ try {
   await automationJourney(page, fixture);
   await organizationJourney(page, fixture);
   await workflowCanvasJourney(page, fixture);
+  await aiProviderSwitchJourney(page, fixture);
   await fixture.setRole("viewer");
   expect((await call("/api/v1/agent-sessions?view=monitor")).status).toBe(403);
   expect((await call("/api/v1/integrations")).status).toBe(403);

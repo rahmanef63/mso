@@ -1,3 +1,32 @@
+## 2026-09-19 — Derive an isolated Camoufox sibling instead of assuming the managed-app namespace
+
+Camoufox viewer authentication no longer needs the cockpit Domain cookie, so tying its hostname
+to `{id}.mso.example.com` unnecessarily inherited deeper wildcard-certificate and cookie-scope
+constraints. The viewer now prefers an explicit `CAMOUFOX_VIEWER_ORIGIN`, otherwise derives a
+sibling outside the configured cookie namespace (`mso.example.com` → `camoufox.example.com`) or
+from a host-only cockpit origin. Overrides that share the cockpit host/cookie Domain, contain
+credentials, paths, queries, fragments or non-default ports fail closed. A broad two-label Domain
+has no safely inferable sibling and requires an explicit separate viewer origin. Managed-app host
+templates remain independent. A deployment shaped as `mso.operator.test` therefore resolves to
+`camoufox.operator.test` without any maintainer-specific source literal.
+
+## 2026-09-19 — Probe the cache-isolated Camoufox viewer entry path
+
+The viewer cache boundary moved noVNC under `/_mso-camoufox`, while the authenticated
+transport diagnostic still probed legacy `/vnc.html` with redirects forbidden. A healthy
+viewer therefore returned 307 and the Browser UI rejected it before requesting its viewer
+ticket. The public viewer prefix and entry path now live in one lightweight contract used by
+the gate, session metadata and server-side transport probe. The probe still sends no cockpit
+credentials, follows no redirects, requires HTTPS and keeps the existing SSRF/TLS checks.
+Targeted regressions verify the exact namespaced HEAD request, viewer gate, service route and
+client connection behavior.
+## 2026-09-19 — Separate AI connection from selection and harden public updates
+
+- OpenAI/Codex OAuth now connects credentials without changing Alfa's active provider/model unless the owner explicitly chooses **Connect & use**. Existing Google Gemini and other BYOK connections remain stored and selectable.
+- Alfa Cockpit can switch provider + model only among already-connected providers; credential creation/copy stays in Settings. A release browser journey proves Google Gemini → Codex → Google Gemini while both credentials remain connected.
+- Canonical MSO Git remotes are recognized across HTTPS/SSH forms and canonical SSH is normalized to the public HTTPS repository before install/update fetches. Git fetch/clone is non-interactive by default; explicit forks/private/custom `MSO_REPO` origins are never rewritten and retain their own `origin/main` authority.
+- Focused provider/updater regressions, full TypeScript/ESLint, production build and release E2E pass on the isolated candidate.
+
 ## 2026-09-19 — Bind Convex snapshot authorization to the opened descriptor
 
 The prior staging hardening consumed bytes through one open descriptor but still authorized the

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { inspectViewerTransport } from "./viewer-transport";
+import { CAMOUFOX_VIEWER_ENTRY_PATH } from "./viewer-path";
 
 describe("Camoufox public transport is separate from power", () => {
   it("does not probe an absent origin", async () => {
@@ -12,7 +13,7 @@ describe("Camoufox public transport is separate from power", () => {
     const fetcher = vi.fn(async () => new Response(null, { status }));
     expect(await inspectViewerTransport("https://camoufox.example.com", fetcher)).toMatchObject({ reachable: true, status });
     const [target, init] = fetcher.mock.calls[0] as unknown as [URL, RequestInit];
-    expect(target.href).toBe("https://camoufox.example.com/vnc.html");
+    expect(target.href).toBe("https://camoufox.example.com" + CAMOUFOX_VIEWER_ENTRY_PATH);
     expect(init).toMatchObject({ method: "HEAD", redirect: "error", cache: "no-store" });
     expect(init.headers).toBeUndefined();
   });

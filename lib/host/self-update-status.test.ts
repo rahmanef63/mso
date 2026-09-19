@@ -11,6 +11,7 @@ vi.mock("node:child_process", () => ({
     else if (command !== "git") code = 1; // This deployment has no systemd manager, but does have detached handoff.
     else if (key === "rev-parse --is-inside-work-tree") { output = "true"; code = fixture.noGit ? 1 : 0; }
     else if (key === "branch --show-current") output = fixture.branch;
+    else if (key === "remote get-url origin") output = "https://github.com/rahmanef63/mso.git";
     else if (key === "rev-parse --short HEAD") output = "16860d9";
     else if (key === "rev-parse --short origin/main") output = "7cffd11";
     else if (args[0] === "fetch") code = fixture.fetchFails ? 1 : 0;

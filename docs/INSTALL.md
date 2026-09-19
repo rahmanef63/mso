@@ -92,6 +92,10 @@ Useful flags:
 ```
 
 Public environment equivalents are `MSO_DIR`, `MSO_REF`, `MSO_PORT`, `MSO_BIND`, and `MSO_REPO`.
+The default repository is the public canonical HTTPS URL. Existing canonical SSH origins are
+normalized to that public HTTPS origin before update so normal MSO maintenance never needs a
+GitHub username/token. A non-canonical `MSO_REPO` or existing fork/private origin remains its own
+`origin/main` authority and is never rewritten; it must have non-interactive credentials configured.
 `MSO_BIN_DIR`, `MSO_SYSTEM_BIN_DIR`, `MSO_SKILL_DIR`, `MSO_UPDATE_STATE_DIR`, and
 `MSO_UPDATE_LOCK_TIMEOUT_SECONDS` are advanced operator/test overrides rather than normal install UX;
 avoid them unless you are deliberately changing those boundaries.
@@ -466,11 +470,16 @@ The service should be a systemd **user** unit named `camoufox-vnc.service`. It i
 to stay **disabled at boot**, with `Restart=no` and a finite runtime lease; the Browser UI
 powers it on only when needed.
 
-The noVNC document is never served on the cockpit origin. Configure
-`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` plus `OS_SESSION_COOKIE_DOMAIN`, provision the reserved
-viewer host (for example `camoufox.mso.example.com`) with DNS/TLS, and keep
-`CAMOUFOX_NOVNC_URL` loopback-only. The historical `/camoufox-vnc/*` route intentionally returns
-404; the dedicated host strips cockpit cookies and authorization before forwarding to noVNC.
+The noVNC document is never served on the cockpit origin and does not need the cockpit
+Domain cookie. MSO gives an authenticated Operator/Owner a short-lived viewer ticket; the
+separate viewer host exchanges it for a host-only HttpOnly cookie before noVNC loads. When
+`OS_SESSION_COOKIE_DOMAIN=mso.example.com`, the safe default is `camoufox.example.com`; with a
+host-only cockpit at `mso.example.com`, the same sibling is derived from `OS_PUBLIC_ORIGIN`.
+Provision DNS/TLS for that host, or set `CAMOUFOX_VIEWER_ORIGIN` to another isolated HTTPS
+origin. A broad two-label Domain cookie has no safely inferable sibling and therefore requires
+an explicit isolated viewer origin. Keep `CAMOUFOX_NOVNC_URL` loopback-only. The historical
+`/camoufox-vnc/*` route intentionally returns 404; the viewer gate never forwards cockpit
+cookies or authorization to noVNC.
 
 Important paths/defaults:
 
@@ -496,8 +505,10 @@ include Anthropic/OpenAI/OpenRouter/Google/Groq/xAI/DeepSeek/Mistral; custom com
 endpoints are supported and SSRF-checked.
 
 The optional `openai-codex` provider uses a separate ChatGPT consumer OAuth/device flow for
-Alfa inference. It is unrelated to the ChatGPT MCP connector. See
-`docs/MODELS-INTEGRATION.md`.
+Alfa inference. It is unrelated to the ChatGPT MCP connector. **Connect OpenAI** stores that
+credential without changing Alfa's current provider/model; **Connect & use** explicitly switches.
+Alfa Cockpit can then switch among providers that are already connected, while credentials remain
+managed in Settings. See `docs/MODELS-INTEGRATION.md`.
 
 ## 8. Curated skill installation
 

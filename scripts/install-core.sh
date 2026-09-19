@@ -10,7 +10,8 @@
 set -Eeuo pipefail
 
 # ---- config: env override > flag > default ----
-REPO_URL="${MSO_REPO:-https://github.com/rahmanef63/mso.git}"
+CANONICAL_REPO_URL="https://github.com/rahmanef63/mso.git"
+REPO_URL="${MSO_REPO:-$CANONICAL_REPO_URL}"
 DIR="${MSO_DIR:-$HOME/mso}"
 DIR_EXPLICIT=0
 REF="${MSO_REF:-main}"
@@ -408,6 +409,10 @@ rand_password() {
   node -e 'const c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";const b=require("crypto").randomBytes(24);let s="";for(const x of b)s+=c[x%c.length];process.stdout.write(s)'
 }
 
+install_repo_is_canonical_url() { case "$1" in https://github.com/rahmanef63/mso|https://github.com/rahmanef63/mso.git|https://github.com/rahmanef63/mso/|https://github.com/rahmanef63/mso.git/|git@github.com:rahmanef63/mso|git@github.com:rahmanef63/mso.git|ssh://git@github.com/rahmanef63/mso|ssh://git@github.com/rahmanef63/mso.git) return 0 ;; *) return 1 ;; esac; }
+install_git_noninteractive() { GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -oBatchMode=yes}" "$@"; }
+install_prepare_origin() { local url; url="$(git -C "$DIR" remote get-url origin 2>/dev/null || true)"; [ -n "$url" ] || die "existing checkout has no readable origin remote"; if install_repo_is_canonical_url "$url" && [ "$url" != "$CANONICAL_REPO_URL" ]; then git -C "$DIR" remote set-url origin "$CANONICAL_REPO_URL" || die "could not normalize canonical origin to public HTTPS"; fi; }
+
 INSTALL_PHASE=checkout
 # ---- clone or update (idempotent, resilient to a dirty tree) ----
 if [ -d "$DIR/.git" ]; then
@@ -417,14 +422,16 @@ if [ -d "$DIR/.git" ]; then
     die "checkout has uncommitted changes at $DIR. Commit/stash them, or install into another --dir. Current commit: $old_commit"
   fi
   info "current commit: $old_commit"
-  git -C "$DIR" fetch --quiet origin "$REF" || die "could not fetch origin $REF"
+  install_prepare_origin
+  install_git_noninteractive git -C "$DIR" fetch --quiet origin "$REF" || die "could not fetch origin $REF non-interactively; canonical MSO uses public HTTPS, custom/private origins need preconfigured credentials"
   target_commit="$(git -C "$DIR" rev-parse --short FETCH_HEAD)" || die "could not resolve fetched ref $REF"
   info "target commit:  $target_commit"
   git -C "$DIR" checkout --quiet FETCH_HEAD || die "could not check out $target_commit"
   ok "updated checkout $old_commit → $(git -C "$DIR" rev-parse --short HEAD)"
 else
+  if install_repo_is_canonical_url "$REPO_URL"; then REPO_URL="$CANONICAL_REPO_URL"; fi
   info "cloning $REPO_URL → $DIR"
-  git clone --quiet --branch "$REF" "$REPO_URL" "$DIR" 2>/dev/null || git clone --quiet "$REPO_URL" "$DIR"
+  install_git_noninteractive git clone --quiet --branch "$REF" "$REPO_URL" "$DIR" 2>/dev/null || install_git_noninteractive git clone --quiet "$REPO_URL" "$DIR"
 fi
 cd "$DIR"
 
