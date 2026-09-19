@@ -9,5 +9,10 @@ describe("Camoufox noVNC webroot", () => {
     expect(script).toContain('NOVNC_WEBROOT/package.json');
     expect(script).toContain('websockify --web="$NOVNC_WEBROOT"');
     expect(script).not.toContain("websockify --web=/usr/share/novnc");
+    expect(script).toContain('x11vnc -remote stop');
+    expect(script).toContain("trap 'exit 0' TERM");
+    expect(script).toContain('wait "$!"');
+    expect(script).not.toContain("exec websockify");
+    expect(script).not.toContain("trap cleanup EXIT INT TERM");
   });
 });

@@ -1,3 +1,16 @@
+## 2026-09-20 — Make the Camoufox session stop leave a clean user unit
+
+Final production Browser QA proved viewer/auth transport clean, but stopping the Browser left
+`camoufox-vnc.service` in `failed (Result: timeout)`. The launcher installed a cleanup trap and
+then replaced itself with `exec websockify`, so the shell that owned the trap no longer existed.
+x11vnc could remain alive until systemd's 90-second stop timeout.
+
+The launcher now remains the service supervisor: websockify runs as a child, the shell waits for
+it, and the TERM path first asks x11vnc to stop through its X11 control channel before terminating
+remaining direct child jobs. The persistent profile, viewer cookie boundary, `Restart=no`,
+disabled-at-boot policy, and finite runtime lease are unchanged. Production acceptance requires
+the UI's final OFF state to correspond to `inactive/dead`, not merely `running=false`.
+
 ## 2026-09-19 — Settle the Camoufox viewer ticket exchange before reloading noVNC
 
 Production Browser QA showed the split-origin ticket exchange returning HTTP 204, setting the

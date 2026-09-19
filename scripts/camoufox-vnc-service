@@ -66,9 +66,12 @@ grep -qs "browser.startup.page" "$PROFILE/user.js" ||
 rm -f "/tmp/.X${DISPLAY_NUM}-lock"
 
 cleanup() {
+  DISPLAY="$DISPLAY" x11vnc -remote stop >/dev/null 2>&1 || true
   jobs -pr | xargs -r kill 2>/dev/null || true
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 0' TERM
+trap 'exit 130' INT
 
 Xvfb "$DISPLAY" -screen 0 "$GEOMETRY" -nolisten tcp &
 sleep 0.5
@@ -129,4 +132,5 @@ NOVNC_VERSION="$(dpkg-query -W -f='${Version}' novnc 2>/dev/null || printf 'syst
 printf '{"version":"%s"}\n' "$NOVNC_VERSION" >"$NOVNC_WEBROOT/package.json"
 chmod 600 "$NOVNC_WEBROOT/package.json"
 
-exec websockify --web="$NOVNC_WEBROOT" "127.0.0.1:${NOVNC_PORT}" "127.0.0.1:${VNC_PORT}"
+websockify --web="$NOVNC_WEBROOT" "127.0.0.1:${NOVNC_PORT}" "127.0.0.1:${VNC_PORT}" &
+wait "$!"

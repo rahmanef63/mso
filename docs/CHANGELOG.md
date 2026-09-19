@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `browser` stop Camoufox session cleanly
 - `plugin` distinguish staging from ChatGPT app install
 - `memory` persist workflow and organization actions
 - `browser` settle Camoufox viewer auth before reload
