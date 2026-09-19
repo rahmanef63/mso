@@ -7,7 +7,10 @@ describe("Camoufox mobile layout", () => {
     expect(src).toContain("min-h-0 w-full flex-1 border-0 bg-black");
     expect(src).toContain("overflow-hidden bg-black");
     expect(src).toContain("allowFullScreen");
-    expect(src).toContain("camoufoxViewerOrigin");
+    expect(src).toContain("viewerOrigin");
+    expect(src).toContain("viewerTicket");
+    expect(src).toContain("viewer_ticket");
+    expect(src).not.toContain("camoufoxViewerOrigin");
     expect(src).toContain('sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads"');
     expect(src).toContain('referrerPolicy="no-referrer"');
     expect(src).not.toContain('src="/camoufox-vnc/');

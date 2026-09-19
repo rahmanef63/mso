@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `browser` isolate sibling Camoufox viewer auth
 - `integrations` allow Convex snapshot imports
 - `security` cover reviewed static asset variants
 - `review` preserve session and surface store invariants

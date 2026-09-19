@@ -5,13 +5,34 @@ import { appNamespaceHost, cockpitOrigin } from "@/lib/managed-apps/origin";
 
 export const CAMOUFOX_VIEWER_LABEL = "camoufox";
 
+function configuredViewerOrigin(): URL | null {
+  const raw = process.env.CAMOUFOX_VIEWER_ORIGIN?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash
+    ) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 export function camoufoxViewerHost(): string | null {
-  return appNamespaceHost(CAMOUFOX_VIEWER_LABEL);
+  return configuredViewerOrigin()?.host.toLowerCase() ?? appNamespaceHost(CAMOUFOX_VIEWER_LABEL);
 }
 
 export function camoufoxViewerOrigin(): string | null {
+  const configured = configuredViewerOrigin();
+  if (configured) return configured.origin;
   const host = camoufoxViewerHost();
-  return host ? `https://${host}` : null;
+  return host ? "https://" + host : null;
 }
 
 export function isCamoufoxViewerHost(host: string | null | undefined): boolean {
