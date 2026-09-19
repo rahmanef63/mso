@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `plugin` keep OpenAI app binding private per install
 - `security` keep remote-authority test shell path trusted
 - `security` keep installer sources strict-semgrep parseable
 - `browser` reload viewer after ticket exchange

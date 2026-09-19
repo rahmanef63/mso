@@ -99,6 +99,16 @@ export const ADDITIONAL_PROVIDERS = {
     {key:"mcpApiKey",label:"MCP API Key",secret:true,required:false,description:"DOKU-issued MCP API Key. It is distinct from the REST payment HMAC Secret Key."},
     {key:"environment",label:"MCP Environment",secret:false,required:false,description:"Exactly sandbox or production. MSO derives the official DOKU MCP endpoint from this value."},
   ] },
+  "openai-app": {
+    id: "openai-app",
+    title: "OpenAI / ChatGPT App",
+    description: "Privately bind this MSO installation to its registered ChatGPT MCP App without committing the personal App ID to Git.",
+    feature: false,
+    fields: [
+      { key: "appId", label: "Registered App ID", secret: true, required: true, description: "Private per-installation OpenAI App ID used only to generate .app.json for personal/plugin packaging. Canonical form starts with asdk_app_; plugin_asdk_app_ copied from a browser URL is normalized automatically." },
+      { key: "versionId", label: "Version ID", secret: true, required: false, description: "Optional private development-version reference for operator diagnostics. It is never written into .app.json and is not required for MCP Apps UI binding." },
+    ],
+  },
 } as const satisfies Record<string, AdditionalProvider>;
 
 export type AdditionalProviderId = keyof typeof ADDITIONAL_PROVIDERS;
@@ -114,4 +124,5 @@ export const ADDITIONAL_GUIDANCE = {
   clerk: { url: "https://dashboard.clerk.com", reference: "https://clerk.com/docs/guides/development/api-keys", steps: ["Open the intended Clerk instance in the Clerk dashboard.", "Find its secret key in the API Keys or Developers settings.", "Keep the key server-side and limit access to the intended instance.", "Copy it into this form; this check only confirms Backend API authentication."] },
   supabase: { url: "https://supabase.com/dashboard/account/tokens", reference: "https://supabase.com/docs/reference/api/introduction", steps: ["Open Account → Access Tokens in the Supabase dashboard.", "Generate a personal access token for the account that owns the intended projects.", "Give it a clear name and an appropriate expiry.", "Copy it once into this form; project API keys cannot be used as Management API tokens."] },
   doku: { url: "https://developers.doku.com/accept-payments/doku-mcp-server", reference: "https://developers.doku.com/accept-payments/doku-mcp-server", steps: ["Open DOKU's official MCP Server guide and choose Sandbox first unless this project is explicitly approved for production payments.", "Obtain the DOKU Client ID and MCP API Key for that environment.", "Enter them only in this private setup form; do not paste them into chat, Baton notes, RR, Git, or project MCP JSON.", "MSO calls the fixed official DOKU MCP endpoint with a read-only MCP initialize request before saving the connection."] },
+  "openai-app": { url: "https://chatgpt.com/", reference: "https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt", steps: ["Enable ChatGPT developer mode, then create/register the remote MCP app for this MSO installation and complete Scan Tools + OAuth.", "Open the registered app details. Copy the App ID shown there, or copy the technical plugin_asdk_app_… id from the browser URL; do not use the Version ID as the app binding.", "Enter the App ID only in this private Integrations form. MSO normalizes plugin_asdk_app_… to canonical asdk_app_… and never returns the stored value through tool/model responses.", "Use the private plugin staging/link command when packaging. Keep the repository .app.json empty so a maintainer-specific App ID is never committed or distributed to other users."] },
 } as const satisfies Record<AdditionalProviderId, { url: string; reference: string; steps: readonly string[] }>;

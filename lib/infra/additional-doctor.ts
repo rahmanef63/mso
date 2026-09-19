@@ -75,6 +75,12 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
       if (allowed?.some((name) => !tools.some((tool) => tool.name === name))) throw new Error("MCP allowlist includes a tool unavailable to this token");
       return `MCP discovery verified; ${tools.length} advertised tool(s). Identity and resource access remain downstream-token controlled.`;
     }
+    case "openai-app": {
+      if (!present(values.appId)) return null;
+      if (!/^asdk_app_[A-Za-z0-9][A-Za-z0-9_-]*$/.test(values.appId)) throw new Error("OpenAI registered App ID format is invalid");
+      if (present(values.versionId) && !/^asdk_app_v_[A-Za-z0-9][A-Za-z0-9_-]*$/.test(values.versionId)) throw new Error("OpenAI Version ID format is invalid");
+      return "private registered-app binding configured; format verified locally; ChatGPT remains authoritative for registration/review status";
+    }
     case "github": {
       if (!present(values.apiKey)) return null;
       const response = await checked("GitHub", "https://api.github.com/user", {

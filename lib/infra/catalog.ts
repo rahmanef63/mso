@@ -108,6 +108,14 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
     for(const key of ["paymentClientId","mcpClientId"])if(out[key]&&(out[key].length<3||out[key].length>256||/[\s\x00-\x1f\x7f]/.test(out[key])))throw new Error("DOKU Client ID must be an opaque single-line value");
     for(const key of ["paymentSecretKey","mcpApiKey"])if(out[key]&&(out[key].length<8||/[\s\x00-\x1f\x7f]/.test(out[key])))throw new Error("DOKU secret/API key must be an opaque single-line value");
   }
+  if (id === "openai-app") {
+    if (out.appId) {
+      const normalized = out.appId.startsWith("plugin_asdk_app_") ? out.appId.slice("plugin_".length) : out.appId;
+      if (normalized.startsWith("asdk_app_v_") || !/^asdk_app_[A-Za-z0-9][A-Za-z0-9_-]*$/.test(normalized)) throw new Error("OpenAI App ID must be canonical asdk_app_… or browser URL form plugin_asdk_app_…");
+      out.appId = normalized;
+    }
+    if (out.versionId && !/^asdk_app_v_[A-Za-z0-9][A-Za-z0-9_-]*$/.test(out.versionId)) throw new Error("OpenAI Version ID must start with asdk_app_v_");
+  }
   if (id === "hostinger") {
     if (out.apiToken && out.apiToken.length < 24) throw new Error("Hostinger API token is too short");
     if (out.mailApiToken && out.mailApiToken.length < 24) throw new Error("Hostinger Mail API token is too short");
