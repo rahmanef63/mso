@@ -2,9 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-const PAT = "pat_synthetic_12345678901234567890";
-const DEPLOY_KEY =
-  "prod:happy-otter-123|synthetic_deploy_key_1234567890abcdef";
+const PAT = "pat_synthetic_12345678901234567890", DEPLOY_KEY = "prod:happy-otter-123|synthetic_deploy_key_1234567890abcdef";
 let root: string;
 let project: string;
 let snapshot: string;
@@ -139,8 +137,12 @@ it("imports only with explicit mode and a data-scoped ephemeral key", async () =
       return json({ error: "unexpected" }, 500);
     },
   );
+  let stagedSnapshot = "";
   const runCli = vi.fn(async (_exe, args, options) => {
-    expect(args).toEqual(["import", snapshot, "--replace-all", "--yes"]);
+    expect(args[0]).toBe("import");
+    stagedSnapshot = String(args[1]);
+    expect(stagedSnapshot).not.toBe(snapshot);
+    expect(args.slice(2)).toEqual(["--replace-all", "--yes"]);
     expect(options.env.CONVEX_DEPLOY_KEY).toBe(DEPLOY_KEY);
     return { code: 0, stdout: "imported", stderr: "", durationMs: 21 };
   });
@@ -158,12 +160,11 @@ it("imports only with explicit mode and a data-scoped ephemeral key", async () =
         { fetchImpl, runCli },
       ),
   );
-  expect(result.imported).toBe(true);
-  expect(result.mode).toBe("replace-all");
-  expect(result.snapshot.bytes).toBe(22);
-  expect(result.snapshot.sha256).toMatch(/^[a-f0-9]{64}$/);
-  expect(deleted).toBe(true);
-  expect(JSON.stringify(result)).not.toContain(DEPLOY_KEY);
+  expect(result).toMatchObject({
+    imported: true, mode: "replace-all", snapshot: { bytes: 22, path: snapshot },
+  });
+  expect(result.snapshot.sha256).toMatch(/^[a-f0-9]{64}$/); expect(deleted).toBe(true);
+  await expect(fs.stat(stagedSnapshot)).rejects.toMatchObject({ code: "ENOENT" });  expect(JSON.stringify(result)).not.toContain(DEPLOY_KEY);
 });
 it("revokes the ephemeral key when the CLI operation fails", async () => {
   const withSelection = await seeded();

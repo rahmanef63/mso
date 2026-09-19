@@ -1,3 +1,35 @@
+## 2026-09-19 — Bind Convex snapshot authorization to the opened descriptor
+
+The prior staging hardening consumed bytes through one open descriptor but still authorized the
+caller path before opening it. `O_NOFOLLOW` protects only the final component, so a parent-path
+rename/symlink swap could otherwise redirect the later open outside the reviewed read root. Snapshot
+staging now re-runs `resolveReadable()` immediately after open, requires the caller-visible canonical
+path to be unchanged, and compares the named file's `dev`/`ino` to the descriptor `fstat`. The same
+identity check runs again after the private descriptor-only copy. An adversarial regression replaces
+the path after `open()` and proves the import is rejected rather than staging the old descriptor bytes
+under a now-different pathname.
+
+## 2026-09-19 — Pin Convex snapshot imports to validated bytes
+
+The security inventory exposed CodeQL alert #139: snapshot metadata was checked by
+pathname, then the same pathname was reopened for hashing and later passed to the
+Convex CLI. Snapshot validation now opens the source once, performs ownership/size/
+ZIP checks and hashing through that descriptor, copies those exact bytes into a private
+0700/0600 staging location, verifies the descriptor did not change during the copy,
+and imports only the staged file. The private copy is removed in a final cleanup path,
+while result metadata continues to identify the caller's original source path. Regression
+coverage changes the source after validation and proves the CLI still receives the
+validated staged bytes.
+
+## 2026-09-19 — Keep strict Semgrep coverage complete on the macOS installer
+
+Hosted Semgrep reported zero findings but exited 3 under `--strict` because its Bash parser
+partially parsed the heredoc nested inside `persist_path` in `scripts/install-macos.sh`. The
+installer now emits the exact same shell-profile block with literal `printf` arguments instead
+of that heredoc. `--strict` and `--error` remain enabled, the public dispatcher checksum is
+updated, `bash -n` stays clean and platform/install regressions pass. This fixes parser coverage
+rather than suppressing or downgrading the security scanner.
+
 ## 2026-09-18 — Close graph routing review without changing executable topology
 
 PR review exposed four presentation/runtime issues: clear short facing ports could be mislabeled as overlaps, controlled parent selection could be ignored for existing nodes, each routed edge recomputed against the whole obstacle set during drag, and compact fitting could center arbitrary storage-order nodes instead of workflow triggers. The shared route scene now clamps/direct-routes short clear links, caches route geometry across unrelated movement, and is owned at the canvas boundary. Endpoint sibling ranks are built once per scene instead of rebuilding/sorting an adjacency union for every edge; after warm-up, a 25-run 200-node/400-edge synthetic scene build measured about 0.48 ms median on this host, while repeated unrelated movement reused all 400 cached routes. Controlled selection changes win while transient box/ctrl selections survive data-only updates. Compact focus derives from manual/schedule/webhook or semantic session roots and maps collapsed trigger members to their visible custom-group proxy. Grouping remains presentation metadata; stored nodes, handles, edges and execution semantics are unchanged.
@@ -8,6 +40,16 @@ PR review exposed four presentation/runtime issues: clear short facing ports cou
 - Preserve multi-selection and atomic group/multi-node movement; prune group membership only on explicit member deletion. Extend existing function-calling and CLI actions rather than inventing another store.
 - Replace unconditional smoothstep connectors with shared bounded orthogonal routing against measured cards, directional markers, crossing halos and selected-route emphasis. Impossible overlapping-card paths are visibly marked rather than silently claimed safe.
 - Verification is performed against synthetic stores and the real production build; private operator graph content is never embedded in source.
+
+## 2026-09-18 — Include the remaining reviewed public asset variants
+
+The first exact-main run of the path-scoped validator correctly failed because the live
+asset graph also contains content-hashed CSS chunks and Next's versioned SVG app icon.
+The raw report showed rule 10050 only on public cacheable assets. Header checks confirmed
+CSS is public/immutable for one year and the icon is public for one week. Extend the
+validator narrowly to CSS chunks and only the exact ?icon.<hash>.svg icon query shape;
+arbitrary queries, API/login paths, cross-origin URLs and all otherwise-unreviewed alerts
+still fail closed.
 
 ## 2026-09-19 — MCP agent bootstrap and capability-parity map
 

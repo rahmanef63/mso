@@ -5,9 +5,10 @@ import { requireDastTarget } from "./check-dast-target.mjs";
 
 const CACHE_RULE = "10050";
 const STATIC_CACHE_PATHS = [
-  /^\/_next\/static\/chunks\/[^/?#]+\.js$/,
+  /^\/_next\/static\/chunks\/[^/?#]+\.(?:js|css)$/,
   /^\/_next\/static\/media\/[^/?#]+\.woff2$/,
 ];
+const VERSIONED_ICON_QUERY = /^\?icon\.[a-z0-9_-]+\.svg$/i;
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
@@ -46,7 +47,9 @@ function reviewedStaticCacheInstance(instance, targetOrigin) {
   } catch {
     return false;
   }
-  if (url.origin !== targetOrigin || url.username || url.password || url.search || url.hash) return false;
+  if (url.origin !== targetOrigin || url.username || url.password || url.hash) return false;
+  if (url.pathname === "/icon.svg") return VERSIONED_ICON_QUERY.test(url.search);
+  if (url.search) return false;
   return STATIC_CACHE_PATHS.some((pattern) => pattern.test(url.pathname));
 }
 
