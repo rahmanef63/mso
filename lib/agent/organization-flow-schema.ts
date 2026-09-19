@@ -1,3 +1,4 @@
+import { parseGraphCustomNodes } from "@/lib/contracts/graph-custom-nodes";
 import { ORGANIZATION_FLOW_KINDS, ORGANIZATION_FLOW_STATUSES, type OrganizationFlowNode, type OrganizationFlowEdge, type OrganizationProjectFlow } from "@/lib/contracts/organization-flow";
 
 export function flowRecord(value: unknown): Record<string, unknown> {
@@ -44,5 +45,5 @@ export function parseOrganizationFlow(value: unknown): OrganizationProjectFlow {
   const ids = new Set(nodes.map((node) => node.id));
   if (ids.size !== nodes.length || new Set(edges.map((edge) => edge.id)).size !== edges.length) throw new Error("project flow ids must be unique");
   if (edges.some((edge) => !ids.has(edge.source) || !ids.has(edge.target))) throw new Error("flow edge endpoint not found in this unit");
-  return { version: 1, title: text(row.title, "flow title", 160, true).trim(), notes: text(row.notes, "flow notes", 64000), nodes, edges };
+  return { version: 1, title: text(row.title, "flow title", 160, true).trim(), notes: text(row.notes, "flow notes", 64000), nodes, edges, ...(row.customNodes !== undefined ? { customNodes: parseGraphCustomNodes(row.customNodes, ids) } : {}) };
 }

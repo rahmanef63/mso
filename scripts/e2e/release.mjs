@@ -14,6 +14,7 @@ import { camoufoxConnectionJourney } from "./camoufox-connection.mjs";
 execFileSync(process.execPath, ["scripts/e2e/mcp-page.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/workflow-embeds.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/organization-flow.mjs"], { stdio: "inherit" });
+execFileSync(process.execPath, ["scripts/e2e/graph-custom.mjs"], { stdio: "inherit" });
 const fixture = await releaseFixture();
 let browser;
 try {

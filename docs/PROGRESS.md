@@ -1,3 +1,14 @@
+## 2026-09-18 — Close graph routing review without changing executable topology
+
+PR review exposed four presentation/runtime issues: clear short facing ports could be mislabeled as overlaps, controlled parent selection could be ignored for existing nodes, each routed edge recomputed against the whole obstacle set during drag, and compact fitting could center arbitrary storage-order nodes instead of workflow triggers. The shared route scene now clamps/direct-routes short clear links, caches route geometry across unrelated movement, and is owned at the canvas boundary. Endpoint sibling ranks are built once per scene instead of rebuilding/sorting an adjacency union for every edge; after warm-up, a 25-run 200-node/400-edge synthetic scene build measured about 0.48 ms median on this host, while repeated unrelated movement reused all 400 cached routes. Controlled selection changes win while transient box/ctrl selections survive data-only updates. Compact focus derives from manual/schedule/webhook or semantic session roots and maps collapsed trigger members to their visible custom-group proxy. Grouping remains presentation metadata; stored nodes, handles, edges and execution semantics are unchanged.
+
+## 2026-09-18 — Selected custom nodes and visible connector routing
+
+- Complete selection-based named grouping in Workflow and Organization project canvases. Collapse/expand/ungroup retain original executable nodes, ports and edges; grouping is bounded, validated metadata in the existing private stores.
+- Preserve multi-selection and atomic group/multi-node movement; prune group membership only on explicit member deletion. Extend existing function-calling and CLI actions rather than inventing another store.
+- Replace unconditional smoothstep connectors with shared bounded orthogonal routing against measured cards, directional markers, crossing halos and selected-route emphasis. Impossible overlapping-card paths are visibly marked rather than silently claimed safe.
+- Verification is performed against synthetic stores and the real production build; private operator graph content is never embedded in source.
+
 ## 2026-09-18 — Close external-editor review around durable session policy and owner stores
 
 The latest PR review found four boundary issues after the cookie-policy epoch landed. CLI device

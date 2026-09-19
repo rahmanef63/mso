@@ -1,7 +1,8 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import { FileText, FolderKanban, Link2, Pencil, Plus, X } from "lucide-react";
-import { Handle, MarkerType, Position, type Edge, type NodeProps, type NodeChange } from "@xyflow/react";
+import { Handle, MarkerType, Position, type Edge, type NodeProps } from "@xyflow/react";
+import { useGraphProjection } from "@/components/shared/use-graph-projection";
 import { GraphCanvas } from "@/components/shared/graph-canvas";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,12 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { emptyOrganizationFlow, type OrganizationFlowAction } from "@/lib/contracts/organization-flow";
 import type { OrganizationUnit } from "@/lib/contracts/organization";
-import { projectCanvasNodes, updateFlowProjection, type FlowProjection, type ProjectCanvasNode as FlowNode } from "../lib/flow-projection";
+import { type ProjectCanvasNode as FlowNode } from "../lib/flow-projection";
+import { projectCustomNodes, moveCustomNode, type CustomCanvasNode } from "@/components/shared/graph-custom-projection";
+import { GraphCustomControls } from "@/components/shared/graph-custom-controls";
+import { GraphCustomCard } from "@/components/shared/graph-custom-card";
+import { graphRoutedEdgeTypes } from "@/components/shared/graph-routed-edge";
+import type { GraphCustomNode } from "@/lib/contracts/graph-custom-nodes";
 import { ProjectFlowEditor, type FlowDraft } from "./project-flow-editor";
 
 function ProjectCard({ data, selected }: NodeProps<FlowNode>) {
@@ -21,24 +27,32 @@ function ProjectCard({ data, selected }: NodeProps<FlowNode>) {
     <Handle type="source" position={Position.Bottom} className="!size-3 !bg-muted-foreground"/>
   </div>;
 }
-const nodeTypes = { project: ProjectCard };
+const nodeTypes = { project: ProjectCard, customGroup: GraphCustomCard };
+type CanvasNode = FlowNode | CustomCanvasNode;
 
 type Props = { unit: OrganizationUnit; onSave: (action: OrganizationFlowAction, data: Record<string, unknown>) => Promise<void> };
 export function ProjectFlow({ unit, onSave }: Props) {
   const flow = useMemo(() => unit.projectFlow ?? emptyOrganizationFlow(), [unit.projectFlow]);
   const [query, setQuery] = useState(""), [selectedId, setSelectedId] = useState<string | null>(null), [focus, setFocus] = useState(false);
   const [draft, setDraft] = useState<FlowDraft | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false);
-  const [projection, setProjection] = useState<FlowProjection>({ nodes: [] });
+  const groups = useMemo(() => flow.customNodes ?? [], [flow.customNodes]);
   const pending = useRef(false);
-  const selected = flow.nodes.find((node) => node.id === selectedId);
   const visible = useMemo(() => {
     const match = new Set(flow.nodes.filter((node) => focus && selectedId ? node.id === selectedId : `${node.title} ${node.summary} ${node.kind}`.toLowerCase().includes(query.toLowerCase())).map((node) => node.id));
     const ids = new Set(match);
     if (query || (focus && selectedId)) for (const edge of flow.edges) if (match.has(edge.source) || match.has(edge.target)) { ids.add(edge.source); ids.add(edge.target); }
     return ids;
   }, [flow, query, focus, selectedId]);
-  const nodes = useMemo<FlowNode[]>(() => projectCanvasNodes(flow.nodes, projection).filter((node) => visible.has(node.id)).map((node) => ({ ...node, selected: node.id === selectedId })), [flow.nodes, projection, selectedId, visible]);
-  const edges = useMemo<Edge[]>(() => flow.edges.filter((edge) => visible.has(edge.source) && visible.has(edge.target)).map((edge) => ({ ...edge, type: "smoothstep", markerEnd: { type: MarkerType.ArrowClosed, color: "var(--muted-foreground)" }, style: { stroke: "var(--muted-foreground)" }, labelStyle: { fill: "var(--foreground)", fontSize: 11 }, labelBgStyle: { fill: "var(--background)" } })), [flow.edges, visible]);
+  const mapped = useMemo(() => {
+    const base: FlowNode[] = flow.nodes.map((item) => ({ id: item.id, type: "project", position: item.position, data: { item } }));
+    const lines: Edge[] = flow.edges.map((edge) => ({ ...edge, type: "routed", markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: "var(--muted-foreground)" }, style: { stroke: "var(--muted-foreground)" } }));
+    const result = projectCustomNodes(base, lines, groups, []);
+    const ids = new Set(result.nodes.filter((node) => node.type === "customGroup" ? node.data.group.nodeIds.some((id) => visible.has(id)) : visible.has(node.id)).map((node) => node.id));
+    return { nodes: result.nodes.filter((node) => ids.has(node.id)), edges: result.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)) };
+  }, [flow.nodes, flow.edges, groups, visible]);
+  const { nodes, edges, onNodesChange, onEdgesChange, reset } = useGraphProjection<CanvasNode, Edge>(mapped);
+  const selectedIds = nodes.filter((node) => node.selected).map((node) => node.id);
+  const selected = selectedIds.length <= 1 ? flow.nodes.find((node) => node.id === selectedId) : undefined;
   const save = async (action: OrganizationFlowAction, data: Record<string, unknown>) => {
     if (pending.current) throw new Error("A change is still saving. Try again after it completes.");
     pending.current = true; setBusy(true); setError("");
@@ -46,8 +60,14 @@ export function ProjectFlow({ unit, onSave }: Props) {
     catch (cause) { const message = cause instanceof Error ? cause.message : "Save failed"; setError(message); throw cause; }
     finally { pending.current = false; setBusy(false); }
   };
-  const changes = (updates: NodeChange<FlowNode>[]) => setProjection((prev) => updateFlowProjection(flow.nodes, prev, updates));
-  const quickSave = (action: OrganizationFlowAction, data: Record<string, unknown>) => { void save(action, data).catch(() => setProjection({ nodes: [] })); };
+  const quickSave = (action: OrganizationFlowAction, data: Record<string, unknown>) => { if (pending.current) return; void save(action, data).catch(() => reset()); };
+  const changeGroups = (customNodes: GraphCustomNode[]) => { quickSave("flow_custom_nodes", { customNodes }); setSelectedId(null); };
+  const move = (items: CanvasNode[]) => {
+    let moved = flow.nodes;
+    for (const item of items) { const group = groups.find((row) => row.id === item.id); moved = group ? moveCustomNode(moved, group, item.position) : moved.map((node) => node.id === item.id ? { ...node, position: item.position } : node); }
+    const positions = moved.filter((node, i) => node.position !== flow.nodes[i].position).map(({ id, position }) => ({ id, position }));
+    if (positions.length) quickSave("flow_nodes_move", { positions });
+  };
   return <div data-slot="organization-project-flow" className="flex h-full min-h-0 flex-col">
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
       <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{flow.title}</div><p className="text-[10px] text-muted-foreground">{flow.nodes.length} nodes · {flow.edges.length} connections · {busy ? "Saving…" : "Stored in this organization"}</p></div>
@@ -56,15 +76,16 @@ export function ProjectFlow({ unit, onSave }: Props) {
       <Button size="sm" disabled={busy} onClick={() => setDraft({ kind: "node" })}><Plus className="mr-1 size-3.5"/>Node</Button>
       <div className="flex w-full items-center gap-2"><Input aria-label="Search project flow" className="h-8 min-w-0 flex-1" placeholder="Search projects, activities, or notes…" value={query} onChange={(e) => setQuery(e.target.value)}/><Button size="sm" variant={focus ? "secondary" : "outline"} disabled={!selected} onClick={() => setFocus(!focus)}>Focus</Button></div>
     </div>
+    <GraphCustomControls groups={groups} selectedIds={selectedIds} nodeIds={flow.nodes.map((node) => node.id)} onChange={changeGroups} disabled={busy}/>
     {error ? <div role="alert" className="shrink-0 border-b px-3 py-2 text-xs text-destructive">{error} Refresh the organization before retrying a conflicting change.</div> : null}
     <div className="relative min-h-0 flex-1">
-      {flow.nodes.length ? <GraphCanvas<FlowNode, Edge>
-        ariaLabel="Organization project flow canvas" nodes={nodes} edges={edges} nodeTypes={nodeTypes}
-        nodesDraggable={!busy} nodesConnectable={!busy} deleteKeyCode={null} onNodesChange={changes}
-        onNodeClick={(_, node) => setSelectedId(node.id)} onNodeDoubleClick={(_, node) => setDraft({ kind: "node", node: node.data.item })}
+      {flow.nodes.length ? <GraphCanvas<CanvasNode, Edge>
+        ariaLabel="Organization project flow canvas" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={graphRoutedEdgeTypes}
+        nodesDraggable={!busy} nodesConnectable={!busy} deleteKeyCode={null} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+        onNodeClick={(event, node) => { if (!event.ctrlKey && !event.metaKey) setSelectedId(node.type === "customGroup" ? null : node.id); }} onNodeDoubleClick={(_, node) => { if (node.type === "customGroup") changeGroups(groups.map((group) => group.id === node.id ? { ...group, collapsed: false } : group)); else setDraft({ kind: "node", node: (node as FlowNode).data.item }); }}
         onPaneClick={() => { setSelectedId(null); setFocus(false); }}
-        onNodeDragStop={(_, node) => quickSave("flow_node_upsert", { node: { id: node.id, position: node.position } })}
-        onConnect={(connection) => quickSave("flow_edge_upsert", { edge: { source: connection.source, target: connection.target, label: "" } })}
+        onNodeDragStop={(_, node, items) => move(items.length ? items : [node])} onSelectionDragStop={(_, items) => move(items)}
+        onConnect={(connection) => { if (flow.nodes.some((n) => n.id === connection.source) && flow.nodes.some((n) => n.id === connection.target)) quickSave("flow_edge_upsert", { edge: { source: connection.source, target: connection.target, label: "" } }); }}
         onEdgeClick={(_, edge) => setDraft({ kind: "edge", edge: flow.edges.find((item) => item.id === edge.id) })}
         compactFitNodeIds={selected ? [selected.id] : nodes.slice(0, 2).map((node) => node.id)}
       /> : <div className="grid h-full place-items-center p-6"><div className="max-w-sm text-center"><FolderKanban className="mx-auto mb-3 size-7 text-muted-foreground"/><h3 className="font-medium">Project flow inside {unit.name}</h3><p className="mt-2 text-sm text-muted-foreground">Add projects, activities, notes and connections here. The organization overview stays compact.</p><Button className="mt-4" onClick={() => setDraft({ kind: "node" })}>Add first node</Button></div></div>}
