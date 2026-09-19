@@ -4,6 +4,13 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-19
+
+**Fixed**
+
+- `browser` probe cache-isolated Camoufox path
+- `browser` isolate Camoufox viewer cache
+
 ## 2026-09-18
 
 **Added**

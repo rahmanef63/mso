@@ -7,7 +7,7 @@ import {
   createCamoufoxViewerCookie,
   createCamoufoxViewerTicket,
 } from "@/lib/camoufox/viewer-auth";
-import { CAMOUFOX_VIEWER_PUBLIC_PREFIX } from "@/lib/camoufox/viewer-gate";
+import { CAMOUFOX_VIEWER_PUBLIC_PREFIX } from "@/lib/camoufox/viewer-path";
 
 const approved = vi.hoisted(() => ({
   value: true,

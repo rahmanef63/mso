@@ -10,11 +10,11 @@ import {
   verifyCamoufoxViewerTicket,
 } from "./viewer-auth";
 import { IS_DEMO } from "@/lib/demo";
+import { CAMOUFOX_VIEWER_ENTRY_PATH, CAMOUFOX_VIEWER_PUBLIC_PREFIX } from "./viewer-path";
 
 const AUTHORIZED = Symbol("camoufox-viewer-authorized");
 export type CamoufoxViewerGateResult = typeof AUTHORIZED | NextResponse;
 
-export const CAMOUFOX_VIEWER_PUBLIC_PREFIX = "/_mso-camoufox";
 
 function noStore(headers: Headers): void {
   headers.set("cache-control", "no-store");
@@ -143,7 +143,7 @@ export async function gateCamoufoxViewer(
     (pathname === "/" || pathname === "/vnc.html")
   ) {
     const redirect = new URL(request.url);
-    redirect.pathname = CAMOUFOX_VIEWER_PUBLIC_PREFIX + "/vnc.html";
+    redirect.pathname = CAMOUFOX_VIEWER_ENTRY_PATH;
     return NextResponse.redirect(redirect, 307);
   }
 
@@ -155,7 +155,7 @@ export async function gateCamoufoxViewer(
   if (await hasViewerSession(request)) return AUTHORIZED;
   if (
     (request.method === "GET" || request.method === "HEAD") &&
-    pathname === CAMOUFOX_VIEWER_PUBLIC_PREFIX + "/vnc.html"
+    pathname === CAMOUFOX_VIEWER_ENTRY_PATH
   ) return bootstrap(request.method);
   return notFound();
 }

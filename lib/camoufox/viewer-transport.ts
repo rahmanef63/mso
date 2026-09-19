@@ -2,6 +2,7 @@ import "server-only";
 import { safeProviderFetch } from "@/lib/host/ssrf";
 import { camoufoxViewerOrigin } from "./origin";
 import { PRIVATE_ROUTE_CODE } from "@/lib/host/provider-network-policy";
+import { CAMOUFOX_VIEWER_ENTRY_PATH } from "./viewer-path";
 
 export type ViewerTransport = {
   reachable: boolean;
@@ -40,7 +41,7 @@ export async function inspectViewerTransport(origin: string | null, fetcher = sa
   try {
     const url = new URL(origin);
     if (url.protocol !== "https:" || url.username || url.password || url.origin !== origin) throw new Error("Invalid viewer origin");
-    url.pathname = "/vnc.html";
+    url.pathname = CAMOUFOX_VIEWER_ENTRY_PATH;
     const signal = AbortSignal.timeout(4_000);
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
