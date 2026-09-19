@@ -1,3 +1,12 @@
+## 2026-09-19 — Keep strict Semgrep coverage complete on the macOS installer
+
+Hosted Semgrep reported zero findings but exited 3 under `--strict` because its Bash parser
+partially parsed the heredoc nested inside `persist_path` in `scripts/install-macos.sh`. The
+installer now emits the exact same shell-profile block with literal `printf` arguments instead
+of that heredoc. `--strict` and `--error` remain enabled, the public dispatcher checksum is
+updated, `bash -n` stays clean and platform/install regressions pass. This fixes parser coverage
+rather than suppressing or downgrading the security scanner.
+
 ## 2026-09-18 — Include the remaining reviewed public asset variants
 
 The first exact-main run of the path-scoped validator correctly failed because the live

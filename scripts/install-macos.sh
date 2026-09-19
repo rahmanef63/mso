@@ -56,15 +56,14 @@ persist_path() {
   local rc="$1"
   touch "$rc"
   grep -Fq '# >>> mso cli >>>' "$rc" 2>/dev/null && return
-  cat >> "$rc" <<'EOF_PATH'
-
-# >>> mso cli >>>
-case ":$PATH:" in
-  *":$HOME/.local/bin:"*) ;;
-  *) export PATH="$HOME/.local/bin:$PATH" ;;
-esac
-# <<< mso cli <<<
-EOF_PATH
+  printf '%s\n' \
+    '' \
+    '# >>> mso cli >>>' \
+    'case ":$PATH:" in' \
+    '  *":$HOME/.local/bin:"*) ;;' \
+    '  *) export PATH="$HOME/.local/bin:$PATH" ;;' \
+    'esac' \
+    '# <<< mso cli <<<' >> "$rc"
 }
 persist_path "$HOME/.zprofile"
 persist_path "$HOME/.bash_profile"
