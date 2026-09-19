@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `browser` reload viewer after ticket exchange
 - `mcp` harden native UI and plugin bindings
 - `ai` separate provider connect from selection
 - `security` bind Convex snapshot path identity
@@ -30,6 +31,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `browser` keep viewer reload regression within architecture ratchet
 - `security` keep snapshot regression descriptor-only
 
 ## 2026-09-18
