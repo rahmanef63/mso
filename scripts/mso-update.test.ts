@@ -20,7 +20,7 @@ function fixture(options: { failInstallOnce?: boolean; activeService?: "same" | 
   fs.copyFileSync(UPDATE_STATE, path.join(repo, "scripts/lib/update-state.sh"));
   fs.copyFileSync(RUNTIME_EXCLUSION, path.join(repo, "scripts/lib/runtime-exclusion.sh"));
   fs.copyFileSync(UPDATE_GATEWAYS, path.join(repo, "scripts/lib/update-gateway-runtimes.sh"));
-  fs.copyFileSync(path.join(process.cwd(), "scripts/lib/update-git-authority.sh"), path.join(repo, "scripts/lib/update-git-authority.sh"));
+  for (const name of ["update-git-authority.sh", "update-remote-authority.sh"]) fs.copyFileSync(path.join(process.cwd(), "scripts/lib", name), path.join(repo, "scripts/lib", name));
   fs.copyFileSync(SERVICE_UPDATE, path.join(repo, "scripts/mso-service-update")); fs.chmodSync(path.join(repo, "scripts/mso-service-update"), 0o755);
   fs.writeFileSync(path.join(repo, "scripts/self-update.sh"), `#!/bin/sh\nprintf 'self-update %s\\n' "$*" >> "${capture}"\n`, { mode: 0o755 });
   fs.writeFileSync(path.join(repo, "scripts/verify-build.sh"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });

@@ -33,6 +33,7 @@ function fixture() {
     "scripts/lib/runtime-exclusion.sh",
     "scripts/lib/update-gateway-runtimes.sh",
     "scripts/lib/update-git-authority.sh",
+    "scripts/lib/update-remote-authority.sh",
   ]) copy(repo, rel);
   fs.mkdirSync(path.join(repo, "bin"), { recursive: true });
   fs.writeFileSync(path.join(repo, "bin/mso"), '#!/bin/sh\nVERSION="test"\n', { mode: 0o755 });

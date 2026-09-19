@@ -18,6 +18,8 @@ GATEWAY="$ROOT/scripts/mso-gateway"
 . "$ROOT/scripts/lib/update-gateway-runtimes.sh"
 # shellcheck source=scripts/lib/update-git-authority.sh
 . "$ROOT/scripts/lib/update-git-authority.sh"
+# shellcheck source=scripts/lib/update-remote-authority.sh
+. "$ROOT/scripts/lib/update-remote-authority.sh"
 fail() { printf 'mso update: %s\n' "$*" >&2; exit 1; }
 git_root() { [ "$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)" = "$ROOT" ]; }
 current_version() { sed -n 's/^VERSION="\([^"]*\)".*/\1/p' "$ROOT/bin/mso" | head -1; }
@@ -27,7 +29,7 @@ require_checkout() {
   [ "$(git -C "$ROOT" branch --show-current)" = main ] || fail "updates require the installed checkout to be on main"
   [ -z "$(git -C "$ROOT" status --porcelain)" ] || fail "checkout has local changes; refusing to overwrite them"
 }
-fetch_main() { git -C "$ROOT" fetch --quiet origin main || fail "could not reach origin/main"; }
+fetch_main() { update_git_fetch_origin "$ROOT" main || fail "could not reach origin/main"; }
 service_is_active() {
   # Containers/Codespaces often ship the systemctl binary without systemd as PID 1.
   # A read-only probe must classify that as "no active service" without leaking
@@ -156,7 +158,7 @@ notice() {
   if [ -s "$stamp" ] && mso_private_state_validate_file "$stamp" >/dev/null 2>&1; then last="$(cat "$stamp" 2>/dev/null || printf 0)"; fi
   if ! [[ "$last" =~ ^[0-9]+$ ]] || [ $((now-last)) -ge 21600 ]; then
     printf '%s\n' "$now" | mso_private_state_atomic_write "$stamp" >/dev/null 2>&1 || true
-    (cd "$ROOT" && nohup git fetch --quiet --no-write-fetch-head origin main >/dev/null 2>&1 </dev/null &) || true
+    (cd "$ROOT" && nohup bash -c 'source "$1/scripts/lib/update-remote-authority.sh"; update_git_fetch_origin "$1" main --no-write-fetch-head' _ "$ROOT" >/dev/null 2>&1 </dev/null &) || true
   fi
   read -r relation ahead n < <(update_git_relation "$ROOT") || return 0
   if [ "$relation" = ahead ] || [ "$relation" = diverged ]; then

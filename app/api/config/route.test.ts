@@ -55,7 +55,7 @@ describe("/api/config provider-auth vs model-selection contract", () => {
     expect(writeConfig).not.toHaveBeenCalled();
   });
 
-  it("keeps legacy/default POST behavior selecting provider+model when select is omitted", async () => {
+  it("keeps normal POST behavior selecting an explicitly chosen provider+model", async () => {
     const { POST } = await import("./route");
     await POST(request({ provider: "openrouter", model: "openai/gpt-4o" }));
     expect(writeConfig).toHaveBeenCalledWith({ provider: "openrouter", model: "openai/gpt-4o" });
@@ -72,5 +72,33 @@ describe("/api/config provider-auth vs model-selection contract", () => {
     expect(setKey).toHaveBeenCalledWith(undefined, "my-hub", "secret");
     expect(writeConfig).not.toHaveBeenCalled();
     expect(await res.json()).toMatchObject({ slug: "my-hub", selected: false });
+  });
+
+  it("keeps Google active and connected after Codex credentials are added", async () => {
+    readConfig.mockResolvedValue({
+      provider: "google",
+      model: "gemini-2.0-flash",
+      keys: { google: "google-secret" },
+      customProviders: {},
+      oauthTokens: { "openai-codex": { kind: "oauth", access: "codex-token", expires: Date.now() + 60_000 } },
+    });
+    const { GET } = await import("./route");
+    const res = await GET();
+    const body = await res.json();
+    expect(body).toMatchObject({ provider: "google", model: "gemini-2.0-flash", hasApiKey: true });
+    expect(body.providers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "google", kind: "builtin", hasKey: true }),
+      expect.objectContaining({ id: "openai-codex", kind: "oauth", hasKey: true }),
+    ]));
+  });
+
+  it("can explicitly switch Codex on and then return to Google Gemini without touching credentials", async () => {
+    const { POST } = await import("./route");
+    await POST(request({ provider: "openai-codex", model: "gpt-account-model" }));
+    await POST(request({ provider: "google", model: "gemini-2.0-flash" }));
+    expect(writeConfig).toHaveBeenNthCalledWith(1, { provider: "openai-codex", model: "gpt-account-model" });
+    expect(writeConfig).toHaveBeenNthCalledWith(2, { provider: "google", model: "gemini-2.0-flash" });
+    expect(setKey).not.toHaveBeenCalled();
+    expect(deleteKey).not.toHaveBeenCalled();
   });
 });

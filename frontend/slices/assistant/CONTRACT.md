@@ -131,7 +131,7 @@ The Assistant chat now has a compact **Cockpit** bar + responsive panel (desktop
 - Typed memory is owner-visible as metadata/current records, but non-`normal` keys/values are masked as `Private memory`. Raw `KNOWLEDGE.md` content and raw repo-memory bodies are not copied into the Cockpit response.
 - `Activity & Runs` merges client-side Alfa host-tool events with server MCP workflow activity only at the presentation layer. The execution engines remain separate; this is observability, not a fake shared workflow id.
 - Native MSO Agent sessions shown in Cockpit are **read-only summaries** and are explicitly separate from Alfa's browser YAML chat threads.
-- Provider/credential management remains Settings' responsibility. Cockpit can switch/test a model only inside the provider that is already configured.
+- Provider/credential management remains Settings' responsibility. Cockpit can switch/test provider + model only among providers that are already connected; it never creates, copies, or exposes credentials.
 
 Browser Automations likewise do not introduce a second executor. `Run` turns the saved ordered recipe into one Alfa task; the normal host-tool schemas, server guards, and approval rendezvous remain the execution path.
 

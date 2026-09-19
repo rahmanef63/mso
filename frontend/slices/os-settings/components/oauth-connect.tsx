@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { CopyButton, toast } from "@/features/appshell";
 import { Button } from "@/components/ui/button";
 
-// "Sign in with OpenAI" (ChatGPT Codex, device-code). Starts the flow, shows the
-// user code + opens the verification page, polls until the token lands, then
-// onConnected() refreshes the parent (the provider becomes openai-codex, selected).
+// OpenAI/ChatGPT Codex device OAuth. Credential connection and active-provider
+// selection are deliberately separate: "Connect OpenAI" preserves Alfa's current
+// provider/model, while "Connect & use" explicitly switches after authorization.
 export function OAuthConnect({ onConnected }: { onConnected: () => void }) {
   const [flow, setFlow] = useState<{ userCode: string; url: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selectAfterConnect, setSelectAfterConnect] = useState(false);
   const timer = useRef<number | null>(null);
 
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
@@ -19,10 +20,12 @@ export function OAuthConnect({ onConnected }: { onConnected: () => void }) {
     timer.current = null;
     setBusy(false);
     setFlow(null);
+    setSelectAfterConnect(false);
   }
 
-  async function start() {
+  async function start(select: boolean) {
     setBusy(true);
+    setSelectAfterConnect(select);
     try {
       const r = await fetch("/api/oauth/openai", {
         method: "POST",
@@ -33,29 +36,31 @@ export function OAuthConnect({ onConnected }: { onConnected: () => void }) {
       if (!r.ok) {
         toast(d.error || "Couldn’t start sign-in", { tone: "error" });
         setBusy(false);
+        setSelectAfterConnect(false);
         return;
       }
       setFlow({ userCode: d.userCode, url: d.verificationUrl });
       window.open(d.verificationUrl, "_blank", "noopener,noreferrer");
-      schedule(Math.max(3000, d.intervalMs || 5000));
+      schedule(Math.max(3000, d.intervalMs || 5000), select);
     } catch {
       toast("Couldn’t reach the server", { tone: "error" });
       setBusy(false);
+      setSelectAfterConnect(false);
     }
   }
 
-  function schedule(intervalMs: number) {
+  function schedule(intervalMs: number, select: boolean) {
     timer.current = window.setTimeout(async () => {
       try {
         const r = await fetch("/api/oauth/openai", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "poll" }),
+          body: JSON.stringify({ action: "poll", select }),
         });
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.ok) {
           stop();
-          toast("Signed in with OpenAI");
+          toast(select ? "OpenAI connected and selected" : "OpenAI connected — current Alfa provider kept");
           onConnected();
           return;
         }
@@ -67,37 +72,38 @@ export function OAuthConnect({ onConnected }: { onConnected: () => void }) {
       } catch {
         /* transient network blip — keep polling */
       }
-      schedule(intervalMs); // still pending
+      schedule(intervalMs, select);
     }, intervalMs);
   }
 
   return (
     <div>
       {!flow ? (
-        <div className="space-y-1.5">
-          <Button variant="outline" size="sm" className="[@media(pointer:coarse)]:min-h-[44px]" disabled={busy} onClick={start}>
-            {busy ? "Starting…" : "Sign in with OpenAI (ChatGPT)"}
-          </Button>
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" className="[@media(pointer:coarse)]:min-h-[44px]" disabled={busy} onClick={() => start(false)}>
+              {busy ? "Starting…" : "Connect OpenAI"}
+            </Button>
+            <Button size="sm" className="[@media(pointer:coarse)]:min-h-[44px]" disabled={busy} onClick={() => start(true)}>
+              Connect &amp; use
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Uses your ChatGPT Codex subscription through device OAuth. Alfa&apos;s normal tool catalog is forwarded on this path too.
+            Connect OpenAI keeps Alfa&apos;s current provider/model. Connect &amp; use switches Alfa to an account-available Codex model after authorization.
           </p>
         </div>
       ) : (
         <div className="space-y-1 rounded-lg border border-border p-3 text-sm">
+          <p>{selectAfterConnect ? "Connect OpenAI and use it for Alfa." : "Connect OpenAI and keep the current Alfa provider."}</p>
           <p>Enter this code at:</p>
           <div className="flex items-center gap-1">
             <a className="min-w-0 flex-1 truncate text-primary underline" href={flow.url} target="_blank" rel="noreferrer">
               {flow.url}
             </a>
-            {/* The popup below is opened AFTER an await, so it lands outside the
-                transient user-activation window and browsers routinely block it.
-                When that happens this link + button is the only way through. */}
             <CopyButton value={flow.url} label="verification link" />
           </div>
           <div className="flex items-center gap-1">
             <p className="font-mono text-lg tracking-widest">{flow.userCode}</p>
-            {/* history={false}: a live auth factor, valid ~15 min. The clipboard panel
-                persists what it records, and this must not outlive the flow there. */}
             <CopyButton value={flow.userCode} label="device code" history={false} />
           </div>
           <p className="text-xs text-muted-foreground">Waiting for authorization…</p>

@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { HostError } from "./host-error";
 import { offlineUpdateArgs, offlineUpdateRunning } from "./self-update-offline";
+import { prepareUpdateOrigin, updateGitEnv } from "./update-remote-authority";
 
 // SERVER-ONLY. "Is there a newer MSO, and pull it in" — the deploy that CLAUDE.md
 // describes (`git pull` → build → restart), driven from Settings instead of from a
@@ -101,12 +102,12 @@ interface Ran {
   stderr: string;
 }
 
-function run(command: string, args: readonly string[], timeout = GIT_TIMEOUT_MS): Promise<Ran> {
+function run(command: string, args: readonly string[], timeout = GIT_TIMEOUT_MS, env?: NodeJS.ProcessEnv): Promise<Ran> {
   return new Promise((resolve) => {
     execFile(
       command,
       [...args],
-      { cwd: repoRoot(), timeout, maxBuffer: 1024 * 1024, windowsHide: true, shell: false },
+      { cwd: repoRoot(), timeout, maxBuffer: 1024 * 1024, windowsHide: true, shell: false, ...(env ? { env } : {}) },
       (error, stdout, stderr) => {
         const code = typeof (error as { code?: number } | null)?.code === "number" ? (error as { code: number }).code : error ? 1 : 0;
         resolve({ code, stdout: String(stdout ?? ""), stderr: String(stderr ?? "") });
@@ -115,7 +116,7 @@ function run(command: string, args: readonly string[], timeout = GIT_TIMEOUT_MS)
   });
 }
 
-const git = (args: readonly string[], timeout?: number) => run("git", args, timeout);
+const git = (args: readonly string[], timeout?: number) => run("git", args, timeout, updateGitEnv());
 
 /** `<sha>\x1f<subject>\x1f<iso date>` per line — a separator no subject can contain. */
 export function parseCommits(stdout: string): UpdateCommit[] {
@@ -247,7 +248,10 @@ export async function getUpdateStatus(fetchRemote = true): Promise<UpdateStatus>
   if (fetchRemote && !running) {
     // Quiet + a hard timeout: an unreachable remote must degrade to "could not
     // check", never hang the Settings panel that is waiting on this.
-    const fetched = await git(["fetch", "--quiet", "origin", "main"], FETCH_TIMEOUT_MS);
+    const originReady = await prepareUpdateOrigin(git);
+    const fetched = originReady
+      ? await git(["fetch", "--quiet", "origin", "main"], FETCH_TIMEOUT_MS)
+      : { code: 1, stdout: "", stderr: "origin unavailable" };
     remoteChecked = fetched.code === 0;
   }
 

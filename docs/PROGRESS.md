@@ -20,6 +20,12 @@ the gate, session metadata and server-side transport probe. The probe still send
 credentials, follows no redirects, requires HTTPS and keeps the existing SSRF/TLS checks.
 Targeted regressions verify the exact namespaced HEAD request, viewer gate, service route and
 client connection behavior.
+## 2026-09-19 — Separate AI connection from selection and harden public updates
+
+- OpenAI/Codex OAuth now connects credentials without changing Alfa's active provider/model unless the owner explicitly chooses **Connect & use**. Existing Google Gemini and other BYOK connections remain stored and selectable.
+- Alfa Cockpit can switch provider + model only among already-connected providers; credential creation/copy stays in Settings. A release browser journey proves Google Gemini → Codex → Google Gemini while both credentials remain connected.
+- Canonical MSO Git remotes are recognized across HTTPS/SSH forms and canonical SSH is normalized to the public HTTPS repository before install/update fetches. Git fetch/clone is non-interactive by default; explicit forks/private/custom `MSO_REPO` origins are never rewritten and retain their own `origin/main` authority.
+- Focused provider/updater regressions, full TypeScript/ESLint, production build and release E2E pass on the isolated candidate.
 
 ## 2026-09-19 — Bind Convex snapshot authorization to the opened descriptor
 

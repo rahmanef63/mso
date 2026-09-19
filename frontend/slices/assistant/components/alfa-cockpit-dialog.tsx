@@ -55,7 +55,7 @@ export function AlfaCockpitDialog({
             {data?.model.tokenSaver && data.model.tokenSaver !== "off" ? <Badge variant="outline">token saver · {data.model.tokenSaver}</Badge> : null}
             <Button size="sm" variant="ghost" className="ml-auto h-8" onClick={() => openWindow("settings", "Settings", undefined, { tab: "ai" })}><Settings2 className="size-3.5" />AI settings</Button>
           </div>
-          {data ? <ModelQuickControl provider={data.model.provider} model={data.model.model} onSaved={onRefresh} /> : null}
+          {data ? <ModelQuickControl key={`${data.model.provider}/${data.model.model}`} provider={data.model.provider} model={data.model.model} onSaved={onRefresh} /> : null}
         </Section>
 
         <Section title="Project Context" icon={FolderGit2}>

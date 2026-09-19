@@ -92,6 +92,10 @@ Useful flags:
 ```
 
 Public environment equivalents are `MSO_DIR`, `MSO_REF`, `MSO_PORT`, `MSO_BIND`, and `MSO_REPO`.
+The default repository is the public canonical HTTPS URL. Existing canonical SSH origins are
+normalized to that public HTTPS origin before update so normal MSO maintenance never needs a
+GitHub username/token. A non-canonical `MSO_REPO` or existing fork/private origin remains its own
+`origin/main` authority and is never rewritten; it must have non-interactive credentials configured.
 `MSO_BIN_DIR`, `MSO_SYSTEM_BIN_DIR`, `MSO_SKILL_DIR`, `MSO_UPDATE_STATE_DIR`, and
 `MSO_UPDATE_LOCK_TIMEOUT_SECONDS` are advanced operator/test overrides rather than normal install UX;
 avoid them unless you are deliberately changing those boundaries.
@@ -501,8 +505,10 @@ include Anthropic/OpenAI/OpenRouter/Google/Groq/xAI/DeepSeek/Mistral; custom com
 endpoints are supported and SSRF-checked.
 
 The optional `openai-codex` provider uses a separate ChatGPT consumer OAuth/device flow for
-Alfa inference. It is unrelated to the ChatGPT MCP connector. See
-`docs/MODELS-INTEGRATION.md`.
+Alfa inference. It is unrelated to the ChatGPT MCP connector. **Connect OpenAI** stores that
+credential without changing Alfa's current provider/model; **Connect & use** explicitly switches.
+Alfa Cockpit can then switch among providers that are already connected, while credentials remain
+managed in Settings. See `docs/MODELS-INTEGRATION.md`.
 
 ## 8. Curated skill installation
 

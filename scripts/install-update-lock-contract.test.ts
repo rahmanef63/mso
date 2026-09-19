@@ -8,7 +8,7 @@ describe("installer update transaction ordering", () => {
   it("acquires the checkout transaction lock before fetch/checkout mutation", () => {
     const core = fs.readFileSync(path.join(ROOT, "scripts/install-core.sh"), "utf8");
     const acquire = core.indexOf("\ninstall_early_update_lock_acquire\n");
-    const fetch = core.indexOf('git -C "$DIR" fetch --quiet origin "$REF"');
+    const fetch = core.indexOf('install_git_noninteractive git -C "$DIR" fetch --quiet origin "$REF"');
     const checkout = core.indexOf('git -C "$DIR" checkout --quiet FETCH_HEAD');
     expect(acquire).toBeGreaterThan(0);
     expect(fetch).toBeGreaterThan(acquire);
