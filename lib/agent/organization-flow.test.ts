@@ -9,8 +9,8 @@ import { emptyOrganizationFlow, ORGANIZATION_FLOW_ACTIONS } from "@/lib/contract
 
 const node = (id: string) => ({ id, title: id, kind: "project", status: "unconfirmed", summary: "", notes: "", position: { x: 0, y: 0 } });
 let dir = "";
-beforeEach(async () => { dir = await mkdtemp(path.join(os.tmpdir(), "mso-org-flow-")); process.env.OS_ORGANIZATION_STORE = path.join(dir, "organization.json"); vi.resetModules(); });
-afterEach(async () => { delete process.env.OS_ORGANIZATION_STORE; await rm(dir, { recursive: true, force: true }); vi.resetModules(); });
+beforeEach(async () => { dir = await mkdtemp(path.join(os.tmpdir(), "mso-org-flow-")); process.env.OS_ORGANIZATION_STORE = path.join(dir, "organization.json"); process.env.OS_AGENT_MEMORY_DIR = path.join(dir, "memory"); vi.resetModules(); });
+afterEach(async () => { delete process.env.OS_ORGANIZATION_STORE; delete process.env.OS_AGENT_MEMORY_DIR; await rm(dir, { recursive: true, force: true }); vi.resetModules(); });
 
 async function fixture() {
   const api = await import("./organization-store");
@@ -69,8 +69,14 @@ describe("organization project flow persistence", () => {
     const write = ORGANIZATION_TOOLS.find((t) => t.name === "organization_manage")!;
     expect(read.scope).toBe("read"); expect(write.scope).toBe("write"); expect(write.audit?.action).toBe("agent.organization");
     expect(JSON.stringify(write.inputSchema)).toContain("flow_node_upsert");
-    const output = await write.run({ action: "flow_node_upsert", expected_revision: chart.revision, data: { unitId: "unit-a", node: node("via-mcp") } }, { principal: "test", scope: "write" } as never) as { chart: typeof chart };
+    const output = await write.run({ action: "flow_node_upsert", expected_revision: chart.revision, data: { unitId: "unit-a", node: { ...node("via-mcp"), notes: "token=must-not-enter-memory" } } }, { principal: "test", scope: "write" } as never) as { chart: typeof chart };
     expect(output.chart.units[0].projectFlow?.nodes[0].id).toBe("via-mcp");
+    const memory = await import("./memory-store");
+    const remembered = await memory.queryAgentMemory("test", { query: "organization node via mcp", limit: 10 });
+    expect(remembered.records).toHaveLength(1);
+    expect(remembered.records[0].record.value).toContain("Event: organization_node_update");
+    expect(remembered.records[0].record.value).toContain("Node ID: via-mcp");
+    expect(remembered.records[0].record.value).not.toContain("must-not-enter-memory");
     const reread = await read.run({ runtime: false }, { principal: "test" } as never) as { chart: typeof chart };
     expect(reread.chart.revision).toBe(output.chart.revision);
     expect(ORGANIZATION_FLOW_ACTIONS).toEqual(expect.arrayContaining(["flow_custom_nodes", "flow_nodes_move", "flow_update", "flow_node_upsert", "flow_node_delete", "flow_edge_upsert", "flow_edge_delete", "flow_replace"]));

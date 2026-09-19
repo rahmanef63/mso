@@ -175,6 +175,22 @@ agnostic; no paper implementation is a runtime dependency.
 lexical cases, 4/4 stable-core/JIT cases and 3/3 bounded two-hop relationship cases must pass. Graph or
 vector storage remains evidence-gated.
 
+### Memory write triggers
+
+Persistent memory changes only on explicit or verified mutation boundaries, never merely because a value
+was retrieved into context:
+
+- `agent_memory_remember` writes an explicit typed claim for the current principal.
+- `workflow_finish(success=true)` writes the verified workflow's bounded procedural receipt.
+- user-facing Workflow Graph create/save/restore (including **Save session as workflow draft**) writes a
+  bounded `workflow_save` episodic receipt containing only graph identity/status/counts/revision metadata;
+  node configs, variable values and credentials are not copied into memory.
+- user-facing Organization `flow_node_upsert` writes a bounded `organization_node_update` episodic receipt
+  containing unit/node identity, title, kind, status, optional project reference and chart revision; notes
+  and free-form node payloads are not copied into memory.
+- exact-identical ordinary `replace` writes are deterministic NOOPs. Retrieval, `workflow_start`, graph
+  reads, organization reads, and unsuccessful/cancelled workflows do not create memory just by being read.
+
 ## Deferred capability selection
 
 The external MCP server keeps a stable, complete scope-filtered catalog for standards interoperability.

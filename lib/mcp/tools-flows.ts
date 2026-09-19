@@ -77,14 +77,14 @@ export const FLOW_TOOLS: McpTool[] = [
       if (action === "variables") return { variables: await listWorkflowVariables(principal) };
       if (action === "variable_set") return setWorkflowVariable(principal, String(data.key ?? ""), data.value, data.secret === true);
       if (action === "variable_delete") return deleteWorkflowVariable(principal, String(data.key ?? ""));
-      if (action === "create_from_template") { const row = workflowTemplate(String(data.template_id ?? "")); if (!row) throw new Error("workflow template not found"); return { graph: await createWorkflowGraph(principal, row.definition, "template") }; }
-      if (action === "create") return { graph: await createWorkflowGraph(principal, data.definition ?? data) };
+      if (action === "create_from_template") { const row = workflowTemplate(String(data.template_id ?? "")); if (!row) throw new Error("workflow template not found"); return { graph: await createWorkflowGraph(principal, row.definition, "template", { remember: true }) }; }
+      if (action === "create") return { graph: await createWorkflowGraph(principal, data.definition ?? data, "create", { remember: true }) };
       const id = str(a, "id");
       if (action === "get") { const graph = await getWorkflowGraph(principal, id); if (!graph) throw new Error("workflow graph not found"); return { graph }; }
       if (action === "versions") return { versions: await listWorkflowGraphVersions(workflowGraphOwner(principal), id) };
-      if (action === "restore") { const current = await getWorkflowGraph(principal, id), snapshot = await readWorkflowGraphVersion(workflowGraphOwner(principal), id, String(data.version ?? "")); if (!current || !snapshot) throw new Error("workflow graph/version not found"); const { revision: _r, createdAt: _c, updatedAt: _u, version: _v, ...definition } = snapshot.graph; return { graph: await updateWorkflowGraph(principal, id, String(data.revision ?? current.revision), definition, "restore") }; }
-      if (action === "clone") return { graph: await cloneWorkflowGraph(principal, id) };
-      if (action === "update") return { graph: await updateWorkflowGraph(principal, id, String(data.revision ?? ""), data.definition) };
+      if (action === "restore") { const current = await getWorkflowGraph(principal, id), snapshot = await readWorkflowGraphVersion(workflowGraphOwner(principal), id, String(data.version ?? "")); if (!current || !snapshot) throw new Error("workflow graph/version not found"); const { revision: _r, createdAt: _c, updatedAt: _u, version: _v, ...definition } = snapshot.graph; return { graph: await updateWorkflowGraph(principal, id, String(data.revision ?? current.revision), definition, "restore", { remember: true }) }; }
+      if (action === "clone") return { graph: await cloneWorkflowGraph(principal, id, { remember: true }) };
+      if (action === "update") return { graph: await updateWorkflowGraph(principal, id, String(data.revision ?? ""), data.definition, "update", { remember: true }) };
       if (action === "delete") return deleteWorkflowGraph(principal, id, String(data.revision ?? ""));
       if (action === "run") {
         const graph = await getWorkflowGraph(principal, id); if (!graph) throw new Error("workflow graph not found");

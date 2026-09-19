@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
       const context = await getSessionContext();
       if (!context?.session.device_id || context.role !== "owner") return NextResponse.json({ error: "owner_role_required" }, { status: 403 });
       const definition = sessionWorkflowDraftDefinition(source, body.step_ref);
-      const graph = await createWorkflowGraph(`web:${context.session.device_id}`, definition, "create");
+      const graph = await createWorkflowGraph(`web:${context.session.device_id}`, definition, "create", { remember: true });
       return NextResponse.json({ graph }, { headers: { "Cache-Control": "private, no-store" } });
     }
     if (body.action === "prune-archives")
