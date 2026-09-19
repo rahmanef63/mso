@@ -18,6 +18,9 @@ it("forces a network reload after the viewer ticket exchange", async () => {
   expect(response.status).toBe(200);
   const script = await response.text();
   expect(script).toContain("p.delete('viewer_ticket')");
+  expect(script).toContain("keepalive:true");
+  expect(script).toContain("await r.text()");
+  expect(script.indexOf("await r.text()")).toBeLessThan(script.indexOf("history.replaceState"));
   expect(script).toContain("history.replaceState");
   expect(script).toContain("p.toString()");
   expect(script).toContain("setTimeout(()=>location.reload(),50)");

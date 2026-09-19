@@ -1,3 +1,16 @@
+## 2026-09-19 — Settle the Camoufox viewer ticket exchange before reloading noVNC
+
+Production Browser QA showed the split-origin ticket exchange returning HTTP 204, setting the
+host-only viewer cookie, and opening the encrypted noVNC WebSocket, while browser tooling still
+reported the POST to `/__viewer_auth` as `net::ERR_ABORTED`. Increasing the reload delay from
+50 ms through 800 ms did not change that result. A controlled production experiment isolated the
+actual boundary: when the bootstrap explicitly consumes the completed 204 response before
+navigating, the aborted-request report disappears while noVNC remains connected and the existing
+HttpOnly/Secure/SameSite=Strict host-only cookie boundary is unchanged. The bootstrap now consumes
+the response and marks the bodyless auth request `keepalive` before removing the ticket from the
+fragment and reloading. Regression coverage locks the settle-before-navigation ordering; no ticket,
+password, cockpit cookie, or viewer asset access is broadened.
+
 ## 2026-09-19 — Memory v3 closes the learn → retrieve → expose → reuse loop
 
 - Memory mutation boundaries are now explicit: `agent_memory_remember`, verified `workflow_finish(success=true)`, user-facing Workflow create/save/restore (including session→draft), and Organization `flow_node_upsert`. Workflow/node domain receipts are bounded metadata only; graph configs, node notes, variable values and credentials are excluded.
