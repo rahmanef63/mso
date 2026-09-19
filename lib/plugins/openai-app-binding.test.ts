@@ -3,7 +3,7 @@ import { isOpenAiAppBindingId, validateOpenAiAppManifest } from "./openai-app-bi
 
 describe("OpenAI app binding compatibility", () => {
   it.each([
-    "asdk_app_6a834fa9d250819197e75b23fe1223da",
+    "asdk_app_private_fixture_123",
     "connector_76869538009648d5b282a4bb21c3d157",
     "connector_openai_plugin_management",
     "templated_apps_example_connector-v2",
@@ -12,7 +12,7 @@ describe("OpenAI app binding compatibility", () => {
   });
 
   it.each([
-    "plugin_asdk_app_6a834fa9d250819197e75b23fe1223da",
+    "plugin_asdk_app_private_fixture_123",
     "unknown_abc123",
     "asdk_app_",
     "connector_bad value",

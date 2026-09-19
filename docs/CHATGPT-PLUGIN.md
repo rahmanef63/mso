@@ -230,3 +230,12 @@ The live diagnostic `GET /mcp` returns both `toolset` (full MSO) and `chatgptToo
 - Hidden ChatGPT transcript, private chain-of-thought and credentials are never copied into Local Agent/project MCP messages.
 - MSO Block accepts only bounded fields/checks/outputs/actions and never executes a mutation directly; MSO Page never accepts raw HTML/arbitrary URL input, and nested iframe origins are code-reviewed, exact-origin CSP entries revalidated in the widget.
 - The authenticated MSO cockpit stays non-frameable, and user-installed HTML/runtime manifests cannot promote themselves into the ChatGPT frame allowlist.
+
+
+### Private per-installation app binding
+
+The source repository intentionally keeps `.app.json` free of maintainer-specific App IDs. Each installation can create an **OpenAI / ChatGPT App** connection in MSO Integrations. The registered App ID is stored only in the owner-private integration store and is redacted from model/tool responses.
+
+To obtain the ID, enable ChatGPT developer mode, register the installation's remote `/mcp` endpoint, complete **Scan Tools** and OAuth, then copy the **App ID** from the registered app details. A browser URL may expose the equivalent technical `plugin_asdk_app_...` identifier; MSO normalizes that to canonical `asdk_app_...`. A Version ID is optional operator metadata and is never used as the plugin binding.
+
+Use `bun run plugin:stage-private` to create an owner-private plugin package at `~/.mso/private/plugin-packages/mso`. Its generated `.app.json` contains the selected installation's binding, while the Git checkout remains portable. `bun run plugin:link-app` without an explicit ID resolves the default private Integrations connection and redacts the ID from stdout. Explicit ID arguments remain only for compatibility/tests and should not be used for personal IDs in shell history.

@@ -105,3 +105,10 @@ Official references:
 - [MCP Apps host dimensions](https://apps.extensions.modelcontextprotocol.io/api/interfaces/app.McpUiHostContext.html)
 - [MCP Apps specification](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/draft/apps.mdx)
 - [OpenAI plugin reference](https://developers.openai.com/plugins/reference)
+
+
+## Per-installation registered app binding
+
+Native MSO UI must be invoked through the registered ChatGPT MCP App rather than a nested function wrapper. Each MSO installation therefore keeps its registered OpenAI App ID in the owner-private **OpenAI / ChatGPT App** Integrations connection. The public source repository does not contain the maintainer's App ID.
+
+Users get their own ID by enabling ChatGPT developer mode, registering their MSO remote MCP endpoint, completing tool scan/OAuth, and copying the App ID from app details (or the equivalent `plugin_asdk_app_...` technical ID from the browser URL). The private staging command writes canonical `asdk_app_...` only into the owner-private package. Version IDs are not valid substitutes for App IDs.
