@@ -10,6 +10,7 @@ describe("Camoufox mobile layout", () => {
     expect(src).toContain("viewerOrigin");
     expect(src).toContain("viewerTicket");
     expect(src).toContain("viewer_ticket");
+    expect(src).toContain('payload.viewerPathPrefix.replace(/^\\/+|\\/+$/g, "") + "/websockify"');
     expect(src).not.toContain("camoufoxViewerOrigin");
     expect(src).toContain('sandbox="allow-scripts allow-forms allow-same-origin allow-pointer-lock allow-downloads"');
     expect(src).toContain('referrerPolicy="no-referrer"');
