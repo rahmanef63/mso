@@ -1,3 +1,16 @@
+## 2026-09-19 — Finish the Camoufox viewer ticket exchange before reload
+
+Production Browser QA exposed a subtle transport-cleanliness issue after the split-origin viewer
+was otherwise healthy: `POST /__viewer_auth` returned HTTP 204 and the authenticated noVNC
+assets/WebSocket loaded, but browser network tooling still recorded the POST as
+`net::ERR_ABORTED`. The bootstrap had awaited `fetch()`, which resolves once response headers
+arrive, then reloaded the document before the empty 204 response was marked finished. It now
+consumes the response body before stripping the fragment and scheduling the same delayed network
+reload. A Chromium regression experiment proves the old sequence reports an aborted request while
+the drained sequence reaches `requestfinished` with no failed request. Viewer tickets remain
+fragment-only, the viewer cookie remains host-only/HttpOnly/Secure/SameSite=Strict, and the CSP,
+cache isolation and WebSocket namespace are unchanged.
+
 ## 2026-09-19 — Memory v3 closes the learn → retrieve → expose → reuse loop
 
 - Replaced terminal/A2A first-12k head truncation with a frozen stable-core + query-relevant JIT memory projection. Defaults are 6k core / 8k JIT characters and are configurable without changing the durable typed-memory ledger.

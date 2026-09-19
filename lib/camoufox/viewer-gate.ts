@@ -64,6 +64,7 @@ const BOOTSTRAP_JS = [
   "p.delete('viewer_ticket');",
   "const r=await fetch('/__viewer_auth',{method:'POST',headers:{authorization:'Bearer '+t},credentials:'include',cache:'no-store'});",
   "if(!r.ok){document.body.textContent='Viewer authorization failed.';return;}",
+  "await r.text();",
   "history.replaceState(null,'',location.pathname+location.search+(p.toString()?'#'+p.toString():''));",
   "setTimeout(()=>location.reload(),50);",
   "})().catch(()=>{document.body.textContent='Viewer authorization failed.';});",
