@@ -217,7 +217,7 @@ export async function proxy(request: NextRequest) {
     response.headers.set("Referrer-Policy", "no-referrer");
     response.headers.set("X-Content-Type-Options", "nosniff");
     response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
-    response.headers.set("Cache-Control", "no-store");
+    response.headers.set("Cache-Control", "no-store, no-transform");
     response.headers.set("CDN-Cache-Control", "no-store");
     response.headers.set("Cloudflare-CDN-Cache-Control", "no-store");
     response.headers.delete("X-Frame-Options");

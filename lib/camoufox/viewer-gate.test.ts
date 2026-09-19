@@ -89,12 +89,12 @@ describe("the Camoufox split-origin VNC bridge", () => {
     expect(await page.text()).toContain("/__viewer_bootstrap.js");
     expect(page.headers.get("content-security-policy")).toContain("frame-ancestors https://mso.example.com");
     expect(page.headers.get("set-cookie")).toBeNull();
-    expect(page.headers.get("cache-control")).toBe("no-store");
+    expect(page.headers.get("cache-control")).toBe("no-store, no-transform");
     expect(page.headers.get("cdn-cache-control")).toBe("no-store");
 
     const asset = await proxy(vnc(undefined, CAMOUFOX_VIEWER_PUBLIC_PREFIX + "/app/ui.js"));
     expect(asset.status).toBe(404);
-    expect(asset.headers.get("cache-control")).toBe("no-store");
+    expect(asset.headers.get("cache-control")).toBe("no-store, no-transform");
   });
 
   it("does not accept the cockpit session cookie on the sibling viewer host", async () => {
@@ -178,7 +178,7 @@ describe("the Camoufox split-origin VNC bridge", () => {
     const proxy = await load();
     const root = await proxy(vnc(viewerCookie(), CAMOUFOX_VIEWER_PUBLIC_PREFIX));
     expect(new URL(rewriteOf(root)!).pathname).toBe("/vnc.html");
-    expect(root.headers.get("cache-control")).toBe("no-store");
+    expect(root.headers.get("cache-control")).toBe("no-store, no-transform");
     const res = await proxy(vnc(
       viewerCookie(),
       CAMOUFOX_VIEWER_PUBLIC_PREFIX + "/vnc.html?path=websockify&resize=remote",

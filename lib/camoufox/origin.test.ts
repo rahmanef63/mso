@@ -93,5 +93,6 @@ describe("Camoufox split origin", () => {
     expect(csp).toContain("frame-ancestors https://mso.example.com");
     expect(csp).toContain("form-action 'none'");
     expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("media-src 'self'");
   });
 });
