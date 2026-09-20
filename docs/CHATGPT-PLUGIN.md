@@ -76,22 +76,23 @@ Fresh 3 also advertises the bounded `io.modelcontextprotocol/skills` extension. 
 
 For the complete non-ChatGPT MSO catalog, scopes, limits, A2A, providers, Tool Forge and other generic capabilities, see [`MCP.md`](./MCP.md).
 
-## OpenAI/Codex plugin package
+## OpenAI plugin package
 
-The repository root also carries `.codex-plugin/plugin.json` as an OpenAI/Codex compatibility package for the reviewed skills plus an optional registered-app mapping. It points directly at `./claude-skills/`, so the same reviewed skill bundles are reusable without maintaining a second copy. The package deliberately does **not** declare `mcpServers`: the live web-capable MSO MCP connection remains the separately authorized custom app at `/mcp`, preserving its OAuth scopes, server-side credentials, dynamic project MCP seams and browser/mobile availability instead of coupling those capabilities to a local plugin executor. `.app.json` is an intentionally empty OpenAI scaffold (`apps: {}`) until an exact registered app ID is available; this matches the supported plugin-creator scaffold and does not grant MCP access by itself. When an existing OpenAI registration is intentionally packaged, link only its exact registered ID—never a placeholder—and keep OAuth authorization on the live MSO app. Use `bun run plugin:link-app -- asdk_app_...`, `connector_...`, or `templated_apps_...`; if a copied plugin URL exposes `plugin_asdk_app_...`, the helper accepts it only as input and writes the canonical `asdk_app_...` ID. `bun run plugin:link-app -- --clear` restores the empty scaffold.
+The portable OpenAI package is generated privately by `bun run plugin:stage-private`; the source repository remains operator-neutral. Staging projects the reviewed `claude-skills/` SSOT into the portable package's required root `skills/` directory, generates a root Agent Plugins `plugin.json` using the supported `https://agent-plugins.org/schemas/1.0.0/plugin.schema.json` schema, and writes the OpenAI-specific app/interface metadata under `extensions.com.openai`. A rewritten `.codex-plugin/plugin.json` is retained only as a compatibility fallback for older clients.
 
-The OpenAI-facing repository shape is therefore:
+The staged package deliberately does **not** declare a bundled `mcp.json`: the live web-capable MSO MCP connection remains the separately authorized registered app at `/mcp`, preserving OAuth scopes, server-side credentials, dynamic project MCP seams and browser/mobile availability. The repository `.app.json` stays empty (`apps: {}`) so a maintainer-specific registered App ID is never committed. Staging resolves the exact App ID from private MSO Integrations, writes it only into the owner-private staged package, and redacts it from command output. A registered-app reference does not install, refresh, select, or authorize the app in ChatGPT.
+
+The source and staged shapes are therefore intentionally different:
 
 ```text
-MSO repo
-├── .codex-plugin/plugin.json       # OpenAI/Codex compatibility manifest
-├── .app.json                       # registered-app mapping; empty until linked
-├── claude-skills/<skill>/
-│   ├── SKILL.md
-│   ├── contract.yaml
-│   └── agents/openai.yaml
-└── /mcp + /oauth/*                 # live custom MCP app, separately authorized
+MSO source                                  owner-private staged package
+├── .codex-plugin/plugin.json               ├── plugin.json
+├── .app.json            apps: {}           ├── .app.json       real id, private
+├── claude-skills/<skill>/                  ├── skills/<skill>/
+└── /mcp + /oauth/*                         └── .codex-plugin/plugin.json
 ```
+
+Use `bun run plugin:stage-private` to regenerate the portable private package and `bun run plugin:doctor-private` to verify portable/compatibility manifests, skill projection, private modes and redacted app binding. Installation/refresh remains a ChatGPT client action; after a package/app update, reload or refresh the app as required and test native UI in a **new conversation launched with the registered app/plugin selected**.
 
 ## Dynamic project capabilities without global project tools
 

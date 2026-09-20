@@ -5,6 +5,7 @@ import path from "node:path";
 
 const home = os.homedir();
 const argv = process.argv.slice(2);
+const PORTABLE_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
 function option(name) {
   const index = argv.indexOf(name);
@@ -40,10 +41,35 @@ async function isSafePrivatePath(target, expectedMode) {
   }
 }
 
+async function countSkills(root) {
+  try {
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    let count = 0;
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try {
+        const st = await fs.stat(path.join(root, entry.name, "SKILL.md"));
+        if (st.isFile()) count += 1;
+      } catch {}
+    }
+    return count;
+  } catch (error) {
+    if (error?.code === "ENOENT") return 0;
+    throw error;
+  }
+}
+
 async function marketplaceDeclaresMso() {
   const state = await readJson(marketplace);
   if (!state || !Array.isArray(state.plugins)) return false;
   return state.plugins.some((plugin) => plugin?.name === "mso");
+}
+
+async function installedManifest(pluginVersionDir) {
+  const portable = await readJson(path.join(pluginVersionDir, "plugin.json"));
+  if (portable?.name === "mso") return portable;
+  const compatibility = await readJson(path.join(pluginVersionDir, ".codex-plugin", "plugin.json"));
+  return compatibility?.name === "mso" ? compatibility : null;
 }
 
 async function cachedMsoInstalls() {
@@ -76,22 +102,39 @@ async function cachedMsoInstalls() {
       }
       for (const version of versions) {
         if (!version.isDirectory()) continue;
-        const manifest = await readJson(path.join(pluginDir, version.name, ".codex-plugin", "plugin.json"));
-        if (manifest?.name === "mso") count += 1;
+        if (await installedManifest(path.join(pluginDir, version.name))) count += 1;
       }
     }
   }
   return count;
 }
 
-const pluginManifest = await readJson(path.join(stage, ".codex-plugin", "plugin.json"));
+const portableManifest = await readJson(path.join(stage, "plugin.json"));
+const compatibilityManifest = await readJson(path.join(stage, ".codex-plugin", "plugin.json"));
 const appManifest = await readJson(path.join(stage, ".app.json"));
 const binding = appManifest?.apps?.mso;
+
+const portableValid = Boolean(
+  portableManifest?.$schema === PORTABLE_SCHEMA &&
+  portableManifest?.name === "mso" &&
+  portableManifest?.extensions?.["com.openai"]?.apps === "./.app.json" &&
+  portableManifest?.extensions?.["com.openai"]?.interface &&
+  typeof portableManifest.extensions["com.openai"].interface === "object",
+);
+const compatibilityValid = Boolean(
+  compatibilityManifest?.name === "mso" &&
+  compatibilityManifest?.skills === "./skills/" &&
+  compatibilityManifest?.apps === "./.app.json",
+);
 const bindingValid = Boolean(binding && canonicalId(binding.id) && binding.required === true);
-const staged = Boolean(pluginManifest && appManifest);
+const staged = Boolean(portableManifest && compatibilityManifest && appManifest);
+const skillCount = await countSkills(path.join(stage, "skills"));
+const skillsValid = skillCount > 0;
+
 const stageModeSafe = await isSafePrivatePath(stage, 0o700);
 const appModeSafe = await isSafePrivatePath(path.join(stage, ".app.json"), 0o600);
-const manifestLinksApp = pluginManifest?.apps === "./.app.json";
+const portableModeSafe = await isSafePrivatePath(path.join(stage, "plugin.json"), 0o600);
+const compatibilityModeSafe = await isSafePrivatePath(path.join(stage, ".codex-plugin", "plugin.json"), 0o600);
 const marketplaceDeclared = await marketplaceDeclaresMso();
 const installedCacheCount = await cachedMsoInstalls();
 
@@ -99,7 +142,12 @@ const status = {
   staged,
   stageModeSafe,
   appModeSafe,
-  manifestLinksApp,
+  portableModeSafe,
+  compatibilityModeSafe,
+  portableValid,
+  compatibilityValid,
+  skillsValid,
+  skillCount,
   bindingPresent: Boolean(binding),
   bindingValid,
   marketplaceDeclared,
@@ -109,23 +157,36 @@ const status = {
 console.log(
   [
     "openai-app: staged=" + (status.staged ? "yes" : "no"),
-    "private-modes=" + (status.stageModeSafe && status.appModeSafe ? "safe" : "check"),
-    "manifest-link=" + (status.manifestLinksApp ? "ok" : "missing"),
+    "private-modes=" + (status.stageModeSafe && status.appModeSafe && status.portableModeSafe && status.compatibilityModeSafe ? "safe" : "check"),
+    "portable-manifest=" + (status.portableValid ? "ok" : "invalid"),
+    "compat-manifest=" + (status.compatibilityValid ? "ok" : "invalid"),
+    "manifest-link=" + (status.portableValid ? "ok" : "missing"),
+    "skills=" + status.skillCount,
     "binding=" + (status.bindingValid ? "present(redacted)" : status.bindingPresent ? "invalid(redacted)" : "missing"),
     "marketplace-declared=" + (status.marketplaceDeclared ? "yes" : "no"),
     "installed-cache=" + status.installedCacheCount,
   ].join("; "),
 );
 
-if (!status.staged || !status.manifestLinksApp || !status.bindingValid || !status.stageModeSafe || !status.appModeSafe) {
+if (
+  !status.staged ||
+  !status.portableValid ||
+  !status.compatibilityValid ||
+  !status.skillsValid ||
+  !status.bindingValid ||
+  !status.stageModeSafe ||
+  !status.appModeSafe ||
+  !status.portableModeSafe ||
+  !status.compatibilityModeSafe
+) {
   console.error("openai-app: private package is not installation-ready; App ID remains redacted");
   process.exitCode = 2;
 } else if (!status.marketplaceDeclared || status.installedCacheCount === 0) {
   console.log(
-    "openai-app: package is staged only. Staging does not install or refresh ChatGPT. Native MCP Apps acceptance must run through the registered app/direct app context or an actually installed plugin package.",
+    "openai-app: portable package is installation-ready but staged only. Staging does not install or refresh ChatGPT. Native MCP Apps acceptance must run through the registered app/direct app context or an actually installed plugin package.",
   );
 } else {
   console.log(
-    "openai-app: a local marketplace declaration and cached MSO plugin install were detected on this machine; start a new client conversation before native MCP Apps acceptance.",
+    "openai-app: a local marketplace declaration and cached MSO plugin install were detected on this machine; reload the client and start a new conversation before native MCP Apps acceptance.",
   );
 }
