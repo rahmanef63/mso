@@ -138,6 +138,22 @@ describe("typed provenance-aware agent memory", () => {
     }
   });
 
+  it("keeps typed memory mutable after the Markdown projection grows beyond the legacy 64 KiB limit", async () => {
+    const principal = "memory:large-projection";
+    const payload = "x".repeat(7_000);
+    for (let index = 0; index < 12; index++) {
+      await store.rememberAgentMemory(principal, "MEMORY.md", `Large entry ${index}`, `${index}:${payload}`);
+    }
+    const file = path.join(dirFor(principal), "MEMORY.md");
+    expect((await fs.stat(file)).size).toBeGreaterThan(64 * 1024);
+
+    const after = await store.forgetAgentMemory(principal, "MEMORY.md", "Large entry 11");
+    expect(after.memory).not.toContain("## Large entry 11");
+    expect(after.memory).toContain("## Large entry 10");
+    expect((await fs.stat(file)).size).toBeGreaterThan(64 * 1024);
+    expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
+  });
+
   it("rejects invalid confidence and invalid temporal windows", async () => {
     await expect(store.rememberAgentMemory("memory:bad", "MEMORY.md", "Bad", "x", { confidence: 1.2 })).rejects.toThrow(/confidence/);
     await expect(store.rememberAgentMemory("memory:bad", "MEMORY.md", "Bad", "x", { validFrom: "2026-09-02T00:00:00Z", validUntil: "2026-09-01T00:00:00Z" })).rejects.toThrow(/valid_until/);

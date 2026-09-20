@@ -5,7 +5,7 @@ import { resolveMemoryLedger } from "./memory-resolution";
 import type { AgentMemoryDocument, AgentMemoryLedger, AgentMemoryRecord } from "./memory-types";
 
 const LEDGER_NAME = "records-v1.json";
-const MAX_LEDGER_BYTES = 2 * 1024 * 1024;
+export const MAX_MEMORY_LEDGER_BYTES = 2 * 1024 * 1024;
 export const MAX_MEMORY_RECORDS = 2000;
 
 export function ledgerFile(dir: string): string { return path.join(dir, LEDGER_NAME); }
@@ -16,7 +16,7 @@ export async function readMemoryLedger(dir: string): Promise<AgentMemoryLedger |
   try {
     handle = await fs.open(file, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     const stat = await handle.stat();
-    if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_LEDGER_BYTES) throw new Error("agent memory ledger has an invalid file shape");
+    if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_MEMORY_LEDGER_BYTES) throw new Error("agent memory ledger has an invalid file shape");
     if ((stat.mode & 0o077) !== 0) throw new Error("agent memory ledger permissions are too broad; expected 0600");
     if (typeof process.getuid === "function" && stat.uid !== process.getuid()) throw new Error("agent memory ledger is not owned by the MSO user");
     const parsed = JSON.parse(await handle.readFile("utf8")) as AgentMemoryLedger;
@@ -34,7 +34,7 @@ export async function writeMemoryLedger(dir: string, ledger: AgentMemoryLedger):
   await fs.chmod(dir, 0o700).catch(() => undefined);
   const file = ledgerFile(dir), tmp = `${file}.${randomUUID()}.tmp`;
   const body = JSON.stringify(ledger, null, 2);
-  if (Buffer.byteLength(body, "utf8") > MAX_LEDGER_BYTES) throw new Error("agent memory ledger exceeds 2 MiB");
+  if (Buffer.byteLength(body, "utf8") > MAX_MEMORY_LEDGER_BYTES) throw new Error("agent memory ledger exceeds 2 MiB");
   await fs.writeFile(tmp, body, { encoding: "utf8", mode: 0o600, flag: "wx" });
   await fs.chmod(tmp, 0o600); await fs.rename(tmp, file); await fs.chmod(file, 0o600);
 }

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { archiveMemoryRecords, readMemoryArchive } from "./memory-archive";
-import { ledgerFile, materializeDocuments, readMemoryLedger, seedLedger, writeMemoryLedger } from "./memory-ledger";
+import { ledgerFile, materializeDocuments, MAX_MEMORY_LEDGER_BYTES, readMemoryLedger, seedLedger, writeMemoryLedger } from "./memory-ledger";
 import { queryMemoryLedger } from "./memory-query";
 import { planMemoryRetention } from "./memory-retention";
 import { recordCanBeEffectiveAtOrAfter, recordEffectiveAt, resolveMemoryKey } from "./memory-resolution";
@@ -17,7 +17,8 @@ export type { AgentMemoryTelemetry } from "./memory-telemetry";
 export interface AgentMemorySnapshot { capturedAt: string; user: string; memory: string; schemaVersion?: 1; recordCount?: number; }
 
 const ROOT = path.resolve(/* turbopackIgnore: true */ process.env.OS_AGENT_MEMORY_DIR || path.join(os.homedir(), ".mso", "agent-memory"));
-const MAX_DOC_BYTES = 64 * 1024;
+const MAX_LEGACY_DOC_BYTES = 64 * 1024;
+const MAX_PROJECTION_BYTES = MAX_MEMORY_LEDGER_BYTES;
 const KEY_RE = /^[^\r\n]{1,80}$/;
 
 function principalKey(principal: string): string {
@@ -32,7 +33,7 @@ async function readDocument(principal: string, document: AgentMemoryDocument): P
   try {
     handle = await fs.open(/* turbopackIgnore: true */ fileFor(principal, document), fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     const stat = await handle.stat();
-    if (!stat.isFile() || stat.size > MAX_DOC_BYTES) throw new Error("agent memory document has an invalid file shape");
+    if (!stat.isFile() || stat.size > MAX_LEGACY_DOC_BYTES) throw new Error("agent memory document has an invalid file shape");
     if ((stat.mode & 0o077) !== 0) throw new Error("agent memory permissions are too broad; expected 0600");
     if (typeof process.getuid === "function" && stat.uid !== process.getuid()) throw new Error("agent memory is not owned by the MSO user");
     return await handle.readFile("utf8");
@@ -43,7 +44,7 @@ async function readDocument(principal: string, document: AgentMemoryDocument): P
 }
 
 async function writeDocument(principal: string, document: AgentMemoryDocument, content: string): Promise<void> {
-  if (Buffer.byteLength(content, "utf8") > MAX_DOC_BYTES) throw new Error("agent memory document exceeds 64 KiB");
+  if (Buffer.byteLength(content, "utf8") > MAX_PROJECTION_BYTES) throw new Error("agent memory projection exceeds 2 MiB");
   const file = fileFor(principal, document), dir = path.dirname(file), tmp = `${file}.${randomUUID()}.tmp`;
   await fs.mkdir(dir, { recursive: true, mode: 0o700 });
   await fs.chmod(ROOT, 0o700).catch(() => undefined); await fs.chmod(dir, 0o700).catch(() => undefined);
