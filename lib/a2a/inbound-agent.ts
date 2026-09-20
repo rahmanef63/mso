@@ -7,11 +7,10 @@ import {
 import type { OaMsg, OaTool, OaToolUse } from "@/lib/ai/openai-stream";
 import type { AgentSession } from "@/lib/agent/session-types";
 import { buildMemoryContext } from "@/lib/agent/memory-context.mjs";
-
 const MAX_ROUNDS = 10;
 const MAX_RESULT_BYTES = 64 * 1024;
 const MAX_OUTPUT_BYTES = 64 * 1024;
-
+const FIXED_WORKFLOW_DENY = new Set(["workflow_start", "workflow_finish", "workflow_cancel", "local_agent_standby"]);
 const EXTERNAL_TOOL_DENY = new Set([
   "agent_session_current",
   "agent_sessions_list",
@@ -23,7 +22,6 @@ const EXTERNAL_TOOL_DENY = new Set([
   "agent_memory_remember",
   "agent_memory_forget",
 ]);
-
 function inboundSystem(scope: Scope, session?: AgentSession, prompt = ""): string {
   if (session) {
     const memoryContext = buildMemoryContext(session.memorySnapshot || {}, prompt, {
@@ -93,9 +91,10 @@ function sessionHistory(session?: AgentSession): OaMsg[] {
   return out;
 }
 
-function modelTools(runtime: CapabilityRuntime, scope: Scope): OaTool[] {
+function modelTools(runtime: CapabilityRuntime, scope: Scope, fixedWorkflow = false): OaTool[] {
   return runtime.list(scope).filter(
-    (tool) => allows(scope, tool.scope) && !EXTERNAL_TOOL_DENY.has(tool.name),
+    (tool) => allows(scope, tool.scope) && !EXTERNAL_TOOL_DENY.has(tool.name) &&
+      !(fixedWorkflow && FIXED_WORKFLOW_DENY.has(tool.name)),
   ).map((tool) => ({
     name: tool.name,
     description: tool.description,
@@ -134,13 +133,14 @@ export async function runInboundA2AAgent(input: {
   signal: AbortSignal;
   onDelta?: (text: string) => void | Promise<void>;
   capabilities: CapabilityRuntime;
+  executionContext?: { workflowId?: string; workflowActor?: string; fixedWorkflow?: boolean };
 }): Promise<{
   text: string;
   rounds: number;
   toolCalls: Array<{ name: string; ok: boolean }>;
 }> {
   const prepared = await prepareSelectedModel();
-  const tools = modelTools(input.capabilities, input.scope);
+  const tools = modelTools(input.capabilities, input.scope, input.executionContext?.fixedWorkflow === true);
   const messages: OaMsg[] = [
     ...sessionHistory(input.session),
     { role: "user", text: input.prompt },
@@ -193,6 +193,8 @@ export async function runInboundA2AAgent(input: {
         actor: input.principal,
         principal: input.principal,
         sessionId: input.taskId,
+        ...(input.executionContext?.workflowId ? { workflowId: input.executionContext.workflowId } : {}),
+        ...(input.executionContext?.workflowActor ? { workflowActor: input.executionContext.workflowActor } : {}),
       });
       const result = toolResultText(invoked);
       results.push({

@@ -56,6 +56,12 @@ export type AlfaCockpitData = {
     label: string;
     status: string;
     title: string;
+    consumerConnected: boolean;
+    standbyArmed: boolean;
+    standbyState?: string;
+    standbyWorkflowId?: string;
+    actionable: boolean;
+    queuedCount: number;
     cwd?: string;
     lastSeenAt: string;
   }>;

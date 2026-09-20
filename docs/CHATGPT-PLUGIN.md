@@ -133,10 +133,14 @@ The ChatGPT model profile includes:
 - `local_agent_inbox`
 - `local_agent_reply`
 - `local_agent_request_wait`
+- `local_agent_standby`
+- `local_agent_request`
 
 `local_agent_inbox(wait_ms=1..20000)` keeps only the current foreground MCP request open, registers the existing in-process Local Agent receiver, and returns early when another same-principal session sends a message. Durable file-backed mailbox state remains authoritative and closes the read→subscribe race. There is no DB, webhook, broker, WebSocket or spawned worker in this path.
 
-A completely idle ChatGPT conversation still cannot be awakened by a remote MCP server. Its durable mail is delivered on its next MCP call. `local_agent_request` and `agent_subagent_run` are part of the ChatGPT model profile; their existing scope, isolation, and server-side authorization rules remain authoritative.
+`local_agent_standby(mode="listen", workflow_id=...)` adds a different contract: the exec-scoped call returns immediately and arms server-native durable standby for that exact ChatGPT-bound AgentSession/workflow. After the assistant turn ends, an authorized same-owner correlated request can be claimed by MSO, executed through the existing bounded durable-session/A2A task machinery, replied to, and returned to waiting without another user `[continue]`. `consumerConnected` remains false unless a real foreground inbox receiver is actually subscribed.
+
+This capability wakes the **durable MSO worker**, not the ChatGPT browser tab. MSO does not claim that an inactive ChatGPT conversation UI will spontaneously render a new assistant bubble; host-side relay/rendering is separate. A write-only caller cannot authorize standby execution, notify-only mail never executes, workflow finish/cancel disarms standby, and restart reconciliation rereads the durable mailbox after reinstalling standby listeners.
 
 ## Original-byte file transfer
 

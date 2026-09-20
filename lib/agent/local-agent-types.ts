@@ -6,11 +6,45 @@ export type LocalAgentMessageKind = "message" | "task";
 export type LocalAgentMessageIntent = "request" | "reply" | "notify";
 export type LocalAgentDeliveryStatus =
   | "accepted"
+  | "accepted_for_standby"
   | "delivered"
   | "queued"
   | "target_offline"
   | "failed";
 export type LocalAgentStoredMessageState = "accepted" | "queued" | "delivered" | "read";
+export type LocalAgentStandbyState = "waiting" | "working" | "blocked";
+export type LocalAgentMessageExecutionState = "pending" | "claimed" | "completed" | "failed";
+
+export interface LocalAgentMessageExecution {
+  requested: true;
+  authorized: boolean;
+  state: LocalAgentMessageExecutionState;
+  attempts?: number;
+  claimedBy?: string;
+  claimLeaseUntil?: string;
+  taskId?: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export interface LocalAgentStandbyRecord {
+  principalHash: string;
+  principal: string;
+  sessionId: string;
+  workflowActor: string;
+  workflowId: string;
+  armed: boolean;
+  state: LocalAgentStandbyState;
+  armedAt: string;
+  updatedAt: string;
+  executionLeaseUntil?: string;
+  claimedBy?: string;
+  currentMessageId?: string;
+  currentTaskId?: string;
+  lastMessageId?: string;
+  lastRunAt?: string;
+  lastError?: string;
+}
 
 export interface LocalAgentPresenceRecord {
   sessionId: string;
@@ -34,6 +68,13 @@ export interface LocalAgentTarget {
   status: LocalAgentStatus;
   consumerConnected: boolean;
   consumerCount: number;
+  standbyArmed: boolean;
+  standbyState?: LocalAgentStandbyState;
+  standbyWorkflowId?: string;
+  standbySince?: string;
+  actionable: boolean;
+  queuedCount: number;
+  currentCommand?: string;
   cwd?: string;
   lastSeenAt: string;
 }
@@ -52,6 +93,7 @@ export interface LocalAgentStoredMessage {
   requiresUserRelay?: boolean;
   text: string;
   state: LocalAgentStoredMessageState;
+  execution?: LocalAgentMessageExecution;
   createdAt: string;
   deliveredAt?: string;
   readAt?: string;
@@ -70,6 +112,7 @@ export interface LocalAgentMessageView {
   requiresUserRelay: boolean;
   text: string;
   state: LocalAgentStoredMessageState;
+  execution?: LocalAgentMessageExecution;
   createdAt: string;
   deliveredAt?: string;
   readAt?: string;

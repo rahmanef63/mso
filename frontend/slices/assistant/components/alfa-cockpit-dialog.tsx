@@ -97,7 +97,7 @@ export function AlfaCockpitDialog({
 
         <Section title="Native Sessions & Agents" icon={Bot}>
           {(data?.sessions ?? []).slice(0, 4).map((session) => <div key={session.id} className="flex gap-2 text-[11px]"><span className="min-w-0 flex-1 truncate">@{session.name} · {session.title}</span><Badge variant="outline" className="text-[9px]">{session.source}</Badge></div>)}
-          {(data?.localAgents ?? []).length ? <div className="flex flex-wrap gap-1.5 pt-1">{data!.localAgents.slice(0, 8).map((agent) => <Badge key={agent.id} variant="secondary">{agent.label} · {agent.status}</Badge>)}</div> : <p className="text-[10px] text-muted-foreground">No active same-owner local agents.</p>}
+          {(data?.localAgents ?? []).length ? <div className="flex flex-wrap gap-1.5 pt-1">{data!.localAgents.slice(0, 8).map((agent) => <Badge key={agent.id} variant="secondary">{agent.label} · {agent.standbyArmed ? `standby ${agent.standbyState ?? "waiting"}${agent.queuedCount ? ` · ${agent.queuedCount} queued` : ""}` : agent.consumerConnected ? `${agent.status} · receiver` : agent.status}</Badge>)}</div> : <p className="text-[10px] text-muted-foreground">No actionable same-owner local agents.</p>}
           <p className="text-[10px] text-muted-foreground">These are durable MSO Agent sessions, separate from Alfa&apos;s browser chat history.</p>
         </Section>
       </ResponsiveDialog.Body>

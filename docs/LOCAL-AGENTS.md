@@ -74,8 +74,9 @@ MSO persists both the raw role `agent` row and, only for a valid user-relay corr
 |---|---|---|
 | Talk to another **currently active** Agent session | `@name …` / correlated mailbox request | Immediate acknowledgement, durable queue, target processes only on its own explicit turn, async reply relays by correlation. |
 | Send passive information | `/message` / `local_agent_message_send` | Notify-only by default; no synthetic assistant reply. Explicit low-level callers may queue to known offline sessions. |
-| Need a result now from another durable session context | `local_agent_request` | `exec`-gated fresh bounded worker using that saved session context. It does **not** wake/control the original terminal or ChatGPT conversation. |
-| Observe one mailbox request without polling forever | `local_agent_request_wait` | Foreground bounded wait/status check (0–30s): `replied`, `target_offline`, `consumer_absent`, or `timeout`. Never resends or starts a background worker. |
+| Need a result now from another durable session context | `local_agent_request` | One-shot `exec`-gated fresh bounded worker using that saved session context. |
+| Keep this exact session server-actionable between ChatGPT/terminal turns | `local_agent_standby(mode="listen")` | `exec`-gated durable standby bound to the exact active workflow. The call returns immediately; authorized correlated requests are claimed, executed sequentially through the existing durable-session worker, replied to, then the session returns to waiting. |
+| Observe one mailbox request without polling forever | `local_agent_request_wait` | Foreground bounded wait/status check (0–30s): `replied`, `target_offline`, `consumer_absent`, or `timeout`. Never resends the request. |
 
 ## Request/reply correlation
 
@@ -102,7 +103,11 @@ Local Agents uses a small private lease store rather than rewriting the potentia
 
 Interactive CLI sessions maintain a lightweight lease heartbeat and one SSE receive stream. There is no message polling loop. **Presence and consumption are separate signals:** `idle` means the lease is current; it does not by itself prove that an SSE receiver is subscribed. Directory rows therefore also expose `consumerConnected` and `consumerCount`. `/new` and `/resume` release the old receiver and bind the same terminal to the new durable session automatically. `/restart` keeps the exact durable session alive across process replacement and the replacement process renews its lease.
 
-MCP conversation sessions have no persistent terminal socket, so MSO refreshes their lease around bound MCP tool calls. Toolset `2026.09.02.10` adds a KISS foreground receive path: `local_agent_inbox(wait_ms=...)` may keep one MCP call open for 0–20 seconds. A positive wait registers the same in-process Local Agent subscriber used by terminal delivery, keeps that session receivable/idle for the duration of the call, and returns early when another same-principal session sends a message. The implementation performs a second durable-mailbox read after subscribing so a message cannot be lost in the read→subscribe race. The subscriber is always removed on message, timeout, or error. When no MCP call is active, messages remain durable and are read on a later call; MSO still does not claim it can wake an idle ChatGPT conversation.
+MCP conversation sessions have no persistent terminal socket, so MSO refreshes their presence lease around bound MCP tool calls. `local_agent_inbox(wait_ms=...)` remains the legacy **foreground** receive path: it may keep one MCP call open for 0–20 seconds, registers the normal receiver subscriber, performs a second durable-mailbox read to close the read→subscribe race, and always unsubscribes on message, timeout, or error.
+
+Durable standby is a separate server-side state. `local_agent_standby(mode="listen", workflow_id=...)` is `exec`-gated, conversation-bound, and returns immediately. MSO persists the standby record in an owner-private store, registers a **standby** event listener that is deliberately excluded from `consumerConnected`, and rehydrates armed records from the durable mailbox after process restart. Directory rows therefore distinguish `consumerConnected` from `standbyArmed`, `standbyState`, `standbyWorkflowId`, `actionable`, `queuedCount`, and the current message id.
+
+An armed offline ChatGPT session can execute a fresh bounded durable worker without a manual `[continue]`. This does **not** mean the original ChatGPT tab/socket was awakened: the server executes from the saved AgentSession context and writes a correlated result back to MSO. Whether the original ChatGPT UI later renders a new assistant bubble is a host/platform relay concern and must not be claimed unless independently observed.
 
 Only `ready`, `idle`, and `busy` sessions appear in the normal lease-active target list. `@mention` is stricter: it resolves only those rows that also have `consumerConnected=true`. An explicit lower-level send to a known `offline`/`ended` target can still retain a durable queued message; the sender receives `target_offline` instead of a false delivered status.
 
@@ -125,8 +130,9 @@ Sender-visible statuses:
 | Status | Meaning |
 |---|---|
 | `delivered` | Persisted and handed to a live local receiver stream. It remains replayable until acknowledged. |
-| `accepted` | Persisted for a live non-busy lease, but no receive-stream listener was present at that instant. Inspect `consumerConnected=false`; the durable inbox is authoritative. |
-| `queued` | Persisted while the target is `busy`; an idle transition flushes the queue. |
+| `accepted` | Persisted, but no foreground receiver or authorized standby claim has taken ownership yet. The durable inbox is authoritative. |
+| `accepted_for_standby` | Persisted executable request accepted by an armed standby worker. This is **not** the same as `delivered`; execution may still be queued/claimed/running. |
+| `queued` | Persisted while the foreground target is busy/offline or awaiting a compatible receiver. |
 | `target_offline` | Target is known but its receiver is offline/ended. The message remains queued for the next receiver. |
 | `failed` | Reserved for a delivery/store failure; schema/target errors are returned as request errors instead of fake delivery. |
 
@@ -146,7 +152,9 @@ A message contains only the explicit `message` string plus minimal routing metad
 
 Payloads are limited to **16 KiB**, known secret-shaped values are redacted before persistence, terminal control bytes are stripped, and both private stores use owner-only `0700/0600`, no-follow reads, bounded size, security-store locking, and atomic replacement.
 
-Receiving a local message grants no capability. The next model turn still has exactly the session's normal tool catalog, deployment scope, and `ask` / `auto-write` / `yolo` approval behavior.
+Receiving a local message grants no capability. Standby state is control-plane metadata, not authorization. A request is auto-executable only when its durable mailbox metadata was created by an `exec`-scoped caller; a `write` caller may enqueue the same structured request but cannot authorize execution. `notify` and `reply` never wake the model worker. The bounded durable-session worker still uses the target session's normal capability/scope enforcement and receives only the explicit objective plus saved safe session context.
+
+Standby uses one active command per session. A durable message claim plus a session execution lease prevents event/restart races from creating overlapping workers. On crash, an expired claim can be recovered idempotently; MSO promises at-most-one **active** execution, not impossible-to-prove exactly-once external side effects after a process dies between an external mutation and its completion marker. `workflow_finish` and `workflow_cancel` disarm the matching standby record, and every dispatch revalidates the exact workflow before model execution.
 
 ## MCP tools
 
@@ -154,8 +162,9 @@ Local messaging has explicit tools so it cannot be confused with public A2A peer
 
 | Tool | Scope | Purpose |
 |---|---|---|
-| `local_agents_list` | read | List same-principal sessions, including short public names plus lease status and `consumerConnected` / `consumerCount`; optionally include offline/ended targets. |
-| `local_agent_message_send` | write | Backward-compatible explicit send. Default `intent=notify`; can create a durable request and may explicitly queue to known offline targets. |
+| `local_agents_list` | read | List same-principal sessions with lease/foreground receiver state **and** separate durable standby/actionable state. |
+| `local_agent_standby` | exec | `listen` arms this exact conversation/workflow and returns immediately; `stop` disarms it. It never fakes `consumerConnected`. |
+| `local_agent_message_send` | write | Backward-compatible explicit send. Default `intent=notify`; an exec-scoped caller can authorize a structured request for an armed standby, while write-only callers remain mailbox-only. |
 | `local_agent_reply` | write | Reply to one exact request message ID; target, correlation ID, and relay policy are inherited. |
 | `local_agent_request_wait` | read | Bounded 0–30s foreground wait/status for one exact sent request; returns replied/offline/no-consumer/timeout without resend. |
 | `local_agent_inbox` | read | Read this exact durable session's mailbox with explicit intent/correlation metadata; optional `wait_ms=0..20000` makes the current foreground MCP call a bounded live receiver and returns early on peer delivery. |
@@ -187,6 +196,7 @@ Defaults:
 ```text
 OS_LOCAL_AGENT_PRESENCE_STORE=~/.mso/private/local-agent-presence.json
 OS_LOCAL_AGENT_MESSAGE_STORE=~/.mso/private/local-agent-messages.json
+OS_LOCAL_AGENT_STANDBY_STORE=~/.mso/private/local-agent-standby.json
 OS_LOCAL_AGENT_LEASE_MS=60000
 ```
 

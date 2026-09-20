@@ -2,6 +2,7 @@ import { inspectProject, resolveProjectHint } from "@/lib/host/projects-api";
 import { activeWorkflowForActor, cancelWorkflow, finishWorkflow, workflowStepProvenance } from "@/lib/workflow";
 import { getAgentSession } from "@/lib/agent/session-store";
 import { agentSessionLabel } from "@/lib/agent/session-name";
+import { disarmLocalAgentStandbyWorkflow } from "@/lib/agent/local-agent-standby";
 import { assessAutomationPromotion, buildAutomationScriptManifest, workflowCleanupGuidance } from "@/lib/orchestration/automation";
 import { classifyTask } from "@/lib/orchestration/classifier";
 import { buildEvidenceReceipt, validateEvidenceReceipt } from "@/lib/orchestration/evidence";
@@ -48,11 +49,14 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
       reason: { type: "string", description: "Optional reason; no secrets." },
     }, ["workflow_id"]),
     run: async (a, context) => {
+      const workflowActor = context.workflowActor ?? context.actor;
       const cancelled = await cancelWorkflow({
-        actor: context.workflowActor ?? context.actor,
+        actor: workflowActor,
         workflowId: str(a, "workflow_id"),
         reason: opt(a, "reason"),
       });
+      if (workflowActor)
+        await disarmLocalAgentStandbyWorkflow(workflowActor, cancelled.workflow.id, "workflow cancelled");
       return { ...cancelled, cleanup: workflowCleanupGuidance(cancelled.workflow.orchestration) };
     },
   },
@@ -106,6 +110,7 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
       const finished = await finishWorkflow({
         actor, recipeActor: context.recipeActor ?? context.actor, workflowId, summary, success, stepProvenance,
       });
+      if (actor) await disarmLocalAgentStandbyWorkflow(actor, workflowId, "workflow finished");
       const automation = assessAutomationPromotion(finished.recipe);
       const persistenceWarnings: string[] = [];
       let evidencePath: string | undefined;

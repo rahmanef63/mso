@@ -90,7 +90,9 @@ The Settings → **A2A** panel exposes the same flow, shows the one-time token o
 
 MSO 1.9 separates live same-host session communication from this remote interoperability protocol. `/agents`, `/message`, local `/delegate`, local inbox delivery, and the `local_agent_*` MCP tools use a private **presence lease + durable mailbox + SSE/event-bus** layer. They require no Agent Card, URL, registration, credential, refresh, or restart when another session appears or is renamed.
 
-See [Local Agents](./LOCAL-AGENTS.md) for lifecycle (`ready` / `idle` / `busy` / `offline` / `ended`), short `@name` handles, receiver-subscription observability, delivery statuses, storage, TUI commands, tools, and API.
+See [Local Agents](./LOCAL-AGENTS.md) for lifecycle (`ready` / `idle` / `busy` / `offline` / `ended`), short `@name` handles, foreground receiver observability, durable standby, delivery statuses, storage, TUI commands, tools, and API.
+
+Durable Local Agent standby does **not** create a second orchestration engine. Once a structured local request is safely claimed, MSO executes it through the same bounded durable-session/A2A task machinery already used by `local_agent_request`; only the host-local mailbox/listener/claim layer is new. Public A2A keeps its own standard authenticated task lifecycle and trust boundary, but both paths converge on the existing bounded agent execution semantics rather than duplicating a model runtime.
 
 The older `mso a2a local ...` and loopback virtual-card helpers remain as compatibility/protocol-testing surfaces for one-shot local delegation. They are not the native live-session transport. `OS_A2A_ALLOW_LOOPBACK=0` can disable those legacy A2A-over-loopback paths without disabling Local Agents.
 

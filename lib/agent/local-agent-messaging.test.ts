@@ -7,6 +7,7 @@ const root = mkdtempSync(path.join(os.tmpdir(), "mso-local-agent-messaging-"));
 process.env.OS_AGENT_SESSIONS_DIR = path.join(root, "sessions");
 process.env.OS_LOCAL_AGENT_PRESENCE_STORE = path.join(root, "presence.json");
 process.env.OS_LOCAL_AGENT_MESSAGE_STORE = path.join(root, "messages.json");
+process.env.OS_LOCAL_AGENT_STANDBY_STORE = path.join(root, "standby.json");
 process.env.OS_LOCAL_AGENT_LEASE_MS = "15000";
 process.env.NEXT_PUBLIC_OS_DEMO = "0";
 

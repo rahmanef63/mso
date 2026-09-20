@@ -1,9 +1,11 @@
 import path from "node:path";
 import { listAgentSessions } from "./session-store";
+import { countLocalAgentExecutableMessages } from "./local-agent-mailbox";
 import { listLocalAgentPresence, localAgentStatus } from "./local-agent-presence";
 import { localAgentSubscriberCount } from "./local-agent-events";
+import { listLocalAgentStandbyRecords } from "./local-agent-standby-store";
 import type { AgentSessionSummary } from "./session-types";
-import type { LocalAgentPresenceRecord, LocalAgentTarget } from "./local-agent-types";
+import type { LocalAgentPresenceRecord, LocalAgentStandbyRecord, LocalAgentTarget } from "./local-agent-types";
 
 function normalizeRef(value: string): string {
   const clean = String(value || "").trim();
@@ -19,33 +21,47 @@ function cleanDisplayName(value: string): string {
     .slice(0, 80);
 }
 
-function buildRows(
+async function buildRows(
+  principal: string,
   sessions: AgentSessionSummary[],
   presence: LocalAgentPresenceRecord[],
+  standby: LocalAgentStandbyRecord[],
   now: number,
-): LocalAgentTarget[] {
-  const byId = new Map(sessions.map((row) => [row.id, row]));
-  return presence.flatMap((entry) => {
-    const session = byId.get(entry.sessionId);
-    if (!session) return [];
+): Promise<LocalAgentTarget[]> {
+  const presenceById = new Map(presence.map((row) => [row.sessionId, row]));
+  const standbyById = new Map(standby.map((row) => [row.sessionId, row]));
+  const relevant = sessions.filter((session) => presenceById.has(session.id) || standbyById.has(session.id));
+  return Promise.all(relevant.flatMap((session) => {
+    const entry = presenceById.get(session.id);
+    const armed = standbyById.get(session.id);
     const name = cleanDisplayName(session.name).toLocaleLowerCase();
     if (!name) return [];
-    const consumerCount = localAgentSubscriberCount(session.id);
-    return [{
-      id: session.id,
-      name,
-      alias: entry.alias,
-      label: `[${name}]`,
-      source: session.source,
-      title: session.title,
-      titleSource: session.titleSource,
-      status: localAgentStatus(entry, now),
-      consumerConnected: consumerCount > 0,
-      consumerCount,
-      ...(session.cwd ? { cwd: session.cwd } : {}),
-      lastSeenAt: entry.lastSeenAt,
-    }];
-  });
+    return [Promise.resolve(countLocalAgentExecutableMessages(principal, session.id)).catch(() => 0).then((queuedCount) => {
+      const consumerCount = localAgentSubscriberCount(session.id);
+      const status = entry ? localAgentStatus(entry, now) : "offline";
+      const standbyArmed = armed?.armed === true;
+      const actionable = consumerCount > 0 || standbyArmed;
+      return {
+        id: session.id,
+        name,
+        alias: entry?.alias ?? session.id,
+        label: `[${name}]`,
+        source: session.source,
+        title: session.title,
+        titleSource: session.titleSource,
+        status,
+        consumerConnected: consumerCount > 0,
+        consumerCount,
+        standbyArmed,
+        ...(armed ? { standbyState: armed.state, standbyWorkflowId: armed.workflowId, standbySince: armed.armedAt } : {}),
+        actionable,
+        queuedCount,
+        ...(armed?.currentMessageId ? { currentCommand: armed.currentMessageId } : {}),
+        ...(session.cwd ? { cwd: session.cwd } : {}),
+        lastSeenAt: entry?.lastSeenAt ?? armed?.updatedAt ?? session.updatedAt,
+      } satisfies LocalAgentTarget;
+    })];
+  }));
 }
 
 export async function listLocalAgents(
@@ -53,12 +69,13 @@ export async function listLocalAgents(
   options: { currentSessionId?: string; includeOffline?: boolean; now?: number } = {},
 ): Promise<LocalAgentTarget[]> {
   const now = options.now ?? Date.now();
-  const [sessions, presence] = await Promise.all([
+  const [sessions, presence, standby] = await Promise.all([
     listAgentSessions(principal, 500),
     listLocalAgentPresence(principal),
+    listLocalAgentStandbyRecords(principal),
   ]);
-  return buildRows(sessions, presence, now)
-    .filter((row) => options.includeOffline || !["offline", "ended"].includes(row.status))
+  return (await buildRows(principal, sessions, presence, standby, now))
+    .filter((row) => options.includeOffline || row.actionable || !["offline", "ended"].includes(row.status))
     .filter((row) => !options.currentSessionId || row.id !== options.currentSessionId)
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -82,7 +99,7 @@ export async function resolveLocalAgent(
   const rows = await listLocalAgents(principal, { includeOffline: true });
   const matched = rows.filter((row) => matches(row, wanted));
   if (!matched.length) throw new Error("local agent target not found");
-  const active = matched.filter((row) => !["offline", "ended"].includes(row.status));
+  const active = matched.filter((row) => row.actionable || !["offline", "ended"].includes(row.status));
   if (active.length > 1 || (!active.length && matched.length > 1)) {
     const choices = (active.length ? active : matched).map((row) => row.alias).join(" or ");
     throw new Error(`local agent target is ambiguous; use ${choices}`);

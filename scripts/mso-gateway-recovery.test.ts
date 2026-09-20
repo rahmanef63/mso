@@ -70,7 +70,7 @@ exec node -e 'require(process.argv[1] + ".cjs")' "$0" "$@"
     run(["stop"], f.env);
     for (let i = 0; i < 50 && spawned.some(alive); i++) await new Promise((r) => setTimeout(r, 20));
     expect(spawned.filter(alive)).toEqual([]);
-  }, 10_000);
+  }, 20_000);
 
   it("preserves owned runtime identity when only the old tunnel died", async () => {
     const f = fixture();

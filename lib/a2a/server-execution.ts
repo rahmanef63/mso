@@ -19,12 +19,19 @@ import {
 } from "./server-events";
 import { a2aRpcOk, type A2ARpcId } from "./server-protocol";
 
+export interface A2AExecutionContext {
+  workflowId?: string;
+  workflowActor?: string;
+  fixedWorkflow?: boolean;
+}
+
 export async function executeInboundA2ATask(
   task: A2ATaskRecord,
   profile: A2AAuthenticatedProfile,
   prompt: string,
   session: AgentSession | undefined,
   capabilities: CapabilityRuntime,
+  executionContext?: A2AExecutionContext,
 ): Promise<A2ATaskRecord> {
   const principal = task.principal;
   const controller = new AbortController();
@@ -51,6 +58,7 @@ export async function executeInboundA2ATask(
       session,
       signal: controller.signal,
       capabilities,
+      executionContext,
       onDelta(chunk) {
         if (pendingDelta) {
           publishA2AEvent(

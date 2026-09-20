@@ -11,6 +11,7 @@ import { MCP_SERVER_VERSION } from "@/lib/mcp/toolset";
 import { visibleToolsForProfile } from "@/lib/mcp/tool-contract";
 import { mcpSessionHeaders, resolveMcpSession } from "@/lib/mcp/session-context";
 import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
+import { ensureLocalAgentStandbyRuntime } from "@/lib/agent/local-agent-standby";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,6 +100,10 @@ export async function POST(req: Request) {
     ...(token.toolArgumentConstraints ? { toolArgumentConstraints: token.toolArgumentConstraints } : {}),
     capabilities: msoCapabilityRuntime,
   };
+  // Rehydrate durable standby listeners after process restart. This only reads
+  // persisted control-plane state and schedules eligible work; it never keeps
+  // the current MCP request open for model execution.
+  await ensureLocalAgentStandbyRuntime(msoCapabilityRuntime).catch(() => undefined);
   const result = await dispatch(rpc, effectiveScope, actor, agentContext);
   return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION) : result, { status: wire.modern && (result.error as { code?: number } | undefined)?.code === -32601 ? 404 : 200, headers });
 }

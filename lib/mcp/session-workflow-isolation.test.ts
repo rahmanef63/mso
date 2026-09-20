@@ -32,6 +32,11 @@ describe("conversation-scoped workflow ownership", () => {
     const intent = "verify the repeated session-scoped deployment recipe";
 
     expect(aOwner).not.toBe(bOwner);
+    expect(workflowActor("a2a:delegate", {
+      principal: "a2a:local:worker",
+      sessionId: "task_delegate",
+      workflowActorOverride: aOwner,
+    })).toBe(aOwner);
     expect(learnedOwnerA).toBe(principal);
     expect(learnedOwnerB).toBe(principal);
 

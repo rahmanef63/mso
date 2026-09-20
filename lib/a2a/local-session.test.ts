@@ -92,6 +92,30 @@ describe("same-host A2A durable-session agents", () => {
     await expect(handoffOwnerLocalSession("cli:owner", session.id, "answer this", capabilities, session.id)).rejects.toThrow(/same session/);
   });
 
+  it("carries an optional fixed workflow execution context through the existing local A2A worker", async () => {
+    const session = await bece();
+    const executionContext = {
+      workflowId: "22222222-2222-4222-8222-222222222222",
+      workflowActor: "mcp:original-session",
+      fixedWorkflow: true,
+    };
+    runner.mockImplementationOnce(async ({ session: target, executionContext: received }) => {
+      expect(target.id).toBe(session.id);
+      expect(received).toEqual(executionContext);
+      return { text: "fixed workflow result", rounds: 1, toolCalls: [] };
+    });
+    const result = await handoffOwnerLocalSession(
+      "cli:owner",
+      session.id,
+      "continue exact workflow",
+      capabilities,
+      undefined,
+      executionContext,
+    );
+    expect(result.task.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(result.task.artifacts[0].parts[0].text).toBe("fixed workflow result");
+  });
+
   it("spawns a durable child agent that inherits context/cwd but has its own id", async () => {
     const source = await bece();
     runner.mockImplementationOnce(async ({ session: child, principal }) => {

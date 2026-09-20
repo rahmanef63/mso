@@ -17,6 +17,9 @@ export interface CapabilityInvocation {
   actor?: string;
   principal?: string;
   sessionId?: string;
+  /** Optional fixed workflow context used by durable delegated workers. */
+  workflowId?: string;
+  workflowActor?: string;
 }
 
 export interface CapabilityInvocationResult {

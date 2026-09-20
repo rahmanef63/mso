@@ -11,7 +11,7 @@ import {
 import type { AgentSession } from "@/lib/agent/session-types";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import { a2aLoopbackOrigin } from "./network";
-import { executeInboundA2ATask } from "./server-execution";
+import { executeInboundA2ATask, type A2AExecutionContext } from "./server-execution";
 import { createA2ATask, taskPublicView } from "./tasks";
 import type { A2AAuthenticatedProfile } from "./server-protocol";
 
@@ -43,7 +43,12 @@ export async function resolveA2ALocalSession(
   return resolveAgentSessionOwnerRef(ref);
 }
 
-async function runLocalSessionTask(session: AgentSession, objective: string, capabilities: CapabilityRuntime) {
+async function runLocalSessionTask(
+  session: AgentSession,
+  objective: string,
+  capabilities: CapabilityRuntime,
+  executionContext?: A2AExecutionContext,
+) {
   const prompt = String(objective || "").trim();
   if (!prompt) throw new Error("A2A local objective is required");
   const principal = `a2a:local:${session.id}`;
@@ -63,6 +68,7 @@ async function runLocalSessionTask(session: AgentSession, objective: string, cap
     prompt,
     session,
     capabilities,
+    executionContext,
   );
   return taskPublicView(completed);
 }
@@ -77,12 +83,19 @@ export async function handoffA2ALocalSession(ref: string, objective: string, cap
 
 /** Execute against a same-owner durable session without requiring its terminal
  * process to be present. This is a fresh bounded agent run, never a TTY wake. */
-export async function handoffOwnerLocalSession(principal: string, ref: string, objective: string, capabilities: CapabilityRuntime, currentSessionId?: string) {
+export async function handoffOwnerLocalSession(
+  principal: string,
+  ref: string,
+  objective: string,
+  capabilities: CapabilityRuntime,
+  currentSessionId?: string,
+  executionContext?: A2AExecutionContext,
+) {
   const session = await resolveAgentSessionRef(principal, ref);
   if (session.id === currentSessionId) throw new Error("cannot run a local agent request against the same session");
   return {
     session: agentSessionSummary(session),
-    task: await runLocalSessionTask(session, objective, capabilities),
+    task: await runLocalSessionTask(session, objective, capabilities, executionContext),
   };
 }
 

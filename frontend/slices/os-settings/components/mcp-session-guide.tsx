@@ -33,6 +33,13 @@ export function McpSessionGuide({ sessionRef, onBack }: { sessionRef?: string; o
       <p className="text-xs text-muted-foreground">Tool: local_agent_request_wait · read scope. Queued or delivered does not mean completed. On timeout, check status; do not resend the same task blindly.</p>
     </SettingsBlock>
     <SettingsBlock className="space-y-3">
+      <h4 className="text-sm font-semibold">Optional: keep this session on durable standby</h4>
+      <p className="text-sm">With an active workflow and exec scope, call <code>local_agent_standby</code> using <code>mode: &quot;listen&quot;</code>. The call returns immediately. Later authorized correlated requests can run through the saved durable session without keeping this ChatGPT tab or an MCP request open.</p>
+      <McpCopyField label="Arm standby" value={JSON.stringify({ mode: "listen", workflow_id: "WORKFLOW_ID" }, null, 2)} multiline />
+      <p className="text-xs text-muted-foreground"><code>consumerConnected</code> still means a real foreground receiver. Check <code>standbyArmed</code>, <code>standbyState</code>, workflow, and queued count separately. Finishing/cancelling the workflow disarms standby automatically.</p>
+      <p className="text-xs text-muted-foreground">MSO can wake the durable worker; it does not promise that an inactive ChatGPT tab will spontaneously render a new assistant bubble.</p>
+    </SettingsBlock>
+    <SettingsBlock className="space-y-3">
       <h4 className="text-sm font-semibold">Continue in the terminal</h4>
       <McpCopyField label="CLI resume command" value={`mso agent --resume ${sessionRef || "agent-context-session"}`} />
       <p className="text-sm">Owner-authorized CLI resume accepts the human session reference and uses saved context. An external MCP session is resumed into a CLI session with a source reference; it does not take control of the original client.</p>

@@ -30,7 +30,7 @@ beforeEach(() => {
   mocks.readConfig.mockResolvedValue({ provider: "openai", model: "gpt-test", tokenSaver: "ponytail" });
   mocks.listProjects.mockResolvedValue({ total: 1, hasMore: false, scan: { truncated: false }, projects: [{ id: "root/mso", name: "mso", path: "/srv/mso", packageName: "mso", git: { branch: "main", head: "abcdef" } }] });
   mocks.sessions.mockResolvedValue([{ id: "s1", name: "luna", source: "cli", title: "Debug updater", updatedAt: "2026-09-04T00:00:00Z", estimatedTokens: 1200, eventCount: 4 }]);
-  mocks.agents.mockResolvedValue([{ id: "s2", name: "milo", label: "[milo]", status: "idle", title: "Worker", lastSeenAt: "2026-09-04T00:00:00Z" }]);
+  mocks.agents.mockResolvedValue([{ id: "s2", name: "milo", label: "[milo]", status: "offline", title: "Worker", consumerConnected: false, standbyArmed: true, standbyState: "waiting", standbyWorkflowId: "wf-1", actionable: true, queuedCount: 0, lastSeenAt: "2026-09-04T00:00:00Z" }]);
   mocks.memories.mockResolvedValue([{ id: "legacy1", text: "prefers concise output", createdAt: 1 }]);
   mocks.typed.mockResolvedValue({ records: [
     { record: { id: "m1", document: "USER.md", key: "editor", value: "zed", kind: "semantic", confidence: 1, sensitivity: "normal", provenance: { authority: "explicit", observedAt: "2026-09-04T00:00:00Z" } }, conflicts: [] },
@@ -54,7 +54,15 @@ describe("Alfa cockpit read model", () => {
     expect(body.model).toEqual({ provider: "openai", model: "gpt-test", tokenSaver: "ponytail" });
     expect(body.projects.rows[0]).toMatchObject({ id: "root/mso", name: "mso" });
     expect(body.sessions[0]).toMatchObject({ name: "luna", source: "cli" });
-    expect(body.localAgents[0]).toMatchObject({ label: "[milo]", status: "idle" });
+    expect(body.localAgents[0]).toMatchObject({
+      label: "[milo]",
+      status: "offline",
+      consumerConnected: false,
+      standbyArmed: true,
+      standbyState: "waiting",
+      actionable: true,
+      queuedCount: 0,
+    });
     expect(body.typedMemory.records[0]).toMatchObject({ key: "editor", value: "zed" });
     expect(body.typedMemory.records[1]).toMatchObject({ key: "Private memory", value: "Private memory", sensitivity: "private" });
     expect(body.legacyMemoryCount).toBe(1);

@@ -15,6 +15,7 @@ describe("native local session agent MCP tools", () => {
     expect(local.get("local_agent_message_send")?.scope).toBe("write");
     expect(local.get("local_agent_reply")?.scope).toBe("write");
     expect(local.get("local_agent_request")?.scope).toBe("exec");
+    expect(local.get("local_agent_standby")?.scope).toBe("exec");
   });
 
   it("describes local collaboration without Agent Card registration", () => {
@@ -26,6 +27,8 @@ describe("native local session agent MCP tools", () => {
     expect(local.get("local_agent_request_wait")?.description).toMatch(/bounded foreground/i);
     expect(local.get("local_agent_request")?.description).toMatch(/fresh bounded worker/i);
     expect(local.get("local_agent_inbox")?.description).toMatch(/bounded interval/i);
+    expect(local.get("local_agent_standby")?.description).toMatch(/returns immediately/i);
+    expect(local.get("local_agent_standby")?.description).toMatch(/consumerConnected/i);
     const inboxSchema = JSON.stringify(local.get("local_agent_inbox")?.inputSchema ?? {});
     expect(inboxSchema).toContain('"wait_ms"');
     expect(inboxSchema).toContain('"maximum":20000');

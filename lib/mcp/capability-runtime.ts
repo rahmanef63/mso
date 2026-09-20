@@ -25,14 +25,17 @@ export const msoCapabilityRuntime: CapabilityRuntime = {
   async invoke(input) {
     const tool = TOOLS_BY_NAME.get(input.name);
     if (!tool) return { content: [{ type: "text", text: `error: unknown tool: ${input.name}` }], isError: true };
+    const args = { ...(input.args ?? {}) };
+    if (input.workflowId) args.workflow_id = input.workflowId;
     const outcome = await executeCapabilityCall({
       tool,
-      args: input.args ?? {},
+      args,
       scope: input.scope,
       actor: input.actor,
       context: {
         principal: input.principal,
         sessionId: input.sessionId,
+        ...(input.workflowActor ? { workflowActorOverride: input.workflowActor } : {}),
         capabilities: msoCapabilityRuntime,
       },
     });
