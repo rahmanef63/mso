@@ -9,6 +9,7 @@ export const WORKFLOW_NODE_CATALOG:WorkflowNodeCatalogItem[]=[
  {type:"merge",title:"Merge",category:"Flow",description:"Merge enabled incoming node outputs.",defaults:{mode:"combine"}},
  {type:"batch",title:"Split In Batches",category:"Flow",description:"Chunk an array into deterministic batches.",defaults:{size:10}},
  {type:"loop",title:"Loop Over Items",category:"Flow",description:"Run one bounded tool once per item without cyclic graph edges.",defaults:{concurrency:1}},
+ {type:"repeat",title:"Repeat Until",category:"Flow",description:"Run a saved workflow repeatedly until its output matches a condition or a hard iteration/time limit is reached.",handles:["done","exhausted"],defaults:{input:{},path:"result.output",equals:true,maxIterations:5,delayMs:1000,maxDurationMs:600000}},
  {type:"wait",title:"Wait",category:"Flow",description:"Delay execution or wait until a timestamp within run timeout.",defaults:{delayMs:1000}},
  {type:"cache",title:"Cache",category:"Context",description:"Read/write/delete a private principal-scoped TTL cache for reusable workflow data.",defaults:{mode:"get_or_set",ttlSeconds:300,key:"workflow-cache"}},
  {type:"memory",title:"Memory",category:"Context",description:"Read/search/remember MSO agent memory or repo-local project memory.",defaults:{scope:"agent",mode:"search",query:""}},

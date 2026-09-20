@@ -121,6 +121,47 @@ describe("workflow graph engine", () => {
     const recursive = await startWorkflowGraph(parent, {}, "subflow-recursive", context, () => undefined), recursiveDone = await workflowGraphRunStatus("graph-owner", recursive.id, 5000);
     expect(recursiveDone.state).toBe("failed"); expect(recursiveDone.nodes.find((node) => node.id === "child")?.error).toContain("recursive");
   });
+  it("repeats a saved workflow until its output matches and routes exhaustion separately", async () => {
+    const child = await createWorkflowGraph("graph-owner", { name: "Repeat child", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
+      { id: "repeat-child-start", name: "Start", type: "manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "repeat-child-out", name: "Out", type: "output", position: { x: 120, y: 0 }, config: { value: { $ref: "input.repeat.iteration" } } },
+    ], edges: [{ id: "repeat-child-e", source: "repeat-child-start", target: "repeat-child-out" }] });
+
+    const matchedGraph = await createWorkflowGraph("graph-owner", { name: "Repeat matched", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
+      { id: "repeat-start", name: "Start", type: "manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "repeat-node", name: "Repeat until 3", type: "repeat", position: { x: 120, y: 0 }, config: { workflowId: child.id, path: "result.output", equals: 3, maxIterations: 5, delayMs: 0, maxDurationMs: 30_000 } },
+      { id: "repeat-done", name: "Done", type: "output", position: { x: 280, y: 0 }, config: { value: "done" } },
+      { id: "repeat-exhausted", name: "Exhausted", type: "output", position: { x: 280, y: 120 }, config: { value: "exhausted" } },
+    ], edges: [
+      { id: "repeat-e1", source: "repeat-start", target: "repeat-node" },
+      { id: "repeat-e2", source: "repeat-node", target: "repeat-done", sourceHandle: "done" },
+      { id: "repeat-e3", source: "repeat-node", target: "repeat-exhausted", sourceHandle: "exhausted" },
+    ] });
+    const matchedStarted = await startWorkflowGraph(matchedGraph, {}, "repeat-until-match", context, () => undefined);
+    const matched = await workflowGraphRunStatus("graph-owner", matchedStarted.id, 5000);
+    expect(matched.state).toBe("completed");
+    expect(matched.nodes.find((node) => node.id === "repeat-done")?.state).toBe("completed");
+    expect(matched.nodes.find((node) => node.id === "repeat-exhausted")?.state).toBe("skipped");
+    expect(matched.nodes.find((node) => node.id === "repeat-node")?.output).toMatchObject({ matched: true, exhausted: false, count: 3 });
+
+    const exhaustedGraph = await createWorkflowGraph("graph-owner", { name: "Repeat exhausted", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
+      { id: "exhaust-start", name: "Start", type: "manual", position: { x: 0, y: 0 }, config: {} },
+      { id: "exhaust-node", name: "Repeat twice", type: "repeat", position: { x: 120, y: 0 }, config: { workflowId: child.id, path: "result.output", equals: 3, maxIterations: 2, delayMs: 0, maxDurationMs: 30_000 } },
+      { id: "exhaust-done", name: "Done", type: "output", position: { x: 280, y: 0 }, config: { value: "done" } },
+      { id: "exhaust-out", name: "Exhausted", type: "output", position: { x: 280, y: 120 }, config: { value: "exhausted" } },
+    ], edges: [
+      { id: "exhaust-e1", source: "exhaust-start", target: "exhaust-node" },
+      { id: "exhaust-e2", source: "exhaust-node", target: "exhaust-done", sourceHandle: "done" },
+      { id: "exhaust-e3", source: "exhaust-node", target: "exhaust-out", sourceHandle: "exhausted" },
+    ] });
+    const exhaustedStarted = await startWorkflowGraph(exhaustedGraph, {}, "repeat-until-exhausted", context, () => undefined);
+    const exhausted = await workflowGraphRunStatus("graph-owner", exhaustedStarted.id, 5000);
+    expect(exhausted.state).toBe("completed");
+    expect(exhausted.nodes.find((node) => node.id === "exhaust-done")?.state).toBe("skipped");
+    expect(exhausted.nodes.find((node) => node.id === "exhaust-out")?.state).toBe("completed");
+    expect(exhausted.nodes.find((node) => node.id === "exhaust-node")?.output).toMatchObject({ matched: false, exhausted: true, count: 2 });
+  });
+
   it("executes a saved RASMIC script node through project_script_run", async () => {
     let received: Record<string, unknown> | undefined;
     const graph = await createWorkflowGraph("graph-owner", { name: "Script run", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [

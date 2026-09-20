@@ -12,6 +12,7 @@ import { executeFlowNode, workflowItems, type FlowNodeResult } from "./graph-flo
 import { workflowVariableValues } from "./variables";
 import { organizationLocalAgentPrincipal, resolveOrganizationSeat } from "@/lib/agent/organization-runtime";
 import { workflowCacheDelete, workflowCacheGet, workflowCacheSet } from "./cache-store";
+import { repeatWorkflow, runWorkflowGraphChild } from "./graph-repeat";
 
 type Resolver = (name: string) => CapabilityTool | undefined;
 type NodeExecutionResult = FlowNodeResult;
@@ -120,6 +121,7 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
   const flow = await executeFlowNode(node, config, graph, outputs, runtime); if (flow) return flow;
   if (node.type === "output") return { output: Object.hasOwn(config, "value") ? config.value : { nodes: outputs }, log: "Workflow output collected." };
   if (node.type === "loop") return loopTool(config, runtime, context, resolve);
+  if (node.type === "repeat") return repeatWorkflow(config, run, graph, context, resolve);
   if (node.type === "tool") {
     const tool = typeof config.tool === "string" ? config.tool : ""; if (!tool || BLOCKED_TOOL_NODES.has(tool)) throw new Error("tool node requires a bounded non-workflow tool");
     const args = graphObject(config.arguments) ? structuredClone(config.arguments) : {}; if (context.workflowId) args.workflow_id = context.workflowId;
@@ -148,12 +150,15 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
   }
   if (node.type === "subflow") {
     if (typeof config.workflowId === "string" && config.workflowId) {
-      const principal = context.principal ?? context.actor; if (!principal) throw new Error("workflow subflow requires principal");
-      const { getWorkflowGraph } = await import("./graph-store"), { startWorkflowGraph, workflowGraphRunStatus } = await import("./graph-engine"), child = await getWorkflowGraph(principal, config.workflowId);
-      if (!child) throw new Error("subflow workflow graph not found");
-      const started = await startWorkflowGraph(child, graphObject(config.input) ? config.input : {}, `${run.id}:${node.id}`, context, resolve, principal, { type: "system", receivedAt: new Date().toISOString() }, run.ancestry ?? [graph.id]);
-      let latest = started; for (let tries = 0; tries < 24 && latest.state === "running"; tries += 1) latest = await workflowGraphRunStatus(principal, latest.id, 25_000);
-      if (latest.state === "failed" || latest.state === "interrupted" || latest.state === "running") throw new Error(`subflow workflow ${child.name} did not complete successfully`);
+      const { child, latest } = await runWorkflowGraphChild(
+        config.workflowId,
+        graphObject(config.input) ? config.input : {},
+        `${run.id}:${node.id}`,
+        run,
+        graph,
+        context,
+        resolve,
+      );
       return { output: latest, log: `Workflow subflow ${child.name} completed.` };
     }
     if (!project || typeof config.flow !== "string") throw new Error("subflow node requires workflowId or project/flow"); const started = await callTool("flow_run", { project, flow: config.flow, input: graphObject(config.input) ? config.input : {}, idempotency_key: `${run.id}:${node.id}`, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, context, resolve) as Record<string, unknown>;

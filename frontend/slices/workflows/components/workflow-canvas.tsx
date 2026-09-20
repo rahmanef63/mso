@@ -21,6 +21,7 @@ type FlowEdge = Edge;
 
 function sourceHandles(node: WorkflowGraphNode): Array<string | undefined> {
   if (node.type === "condition") return ["true", "false"];
+  if (node.type === "repeat") return ["done", "exhausted"];
   if (node.type === "switch") { const cases = Array.isArray(node.config.cases) ? node.config.cases : []; return [...cases.map((row,index)=>row&&typeof row==="object"&&typeof (row as {handle?:unknown}).handle==="string"?String((row as {handle:string}).handle):`case-${index+1}`),"default"]; }
   return [undefined];
 }

@@ -30,7 +30,7 @@ describe("workflow graph schema", () => {
   });
 
   it("accepts parity node types but keeps triggers root-only", () => {
-    expect(parseWorkflowGraphDefinition({ ...base(), nodes: [{ id: "start", name: "Schedule", type: "schedule", position: { x: 0, y: 0 }, config: { mode: "interval", everyMinutes: 5 } }, { id: "wait", name: "Wait", type: "wait", position: { x: 100, y: 0 }, config: { delayMs: 0 } }, base().nodes[1]], edges: [{ id: "a", source: "start", target: "wait" }, { id: "b", source: "wait", target: "done" }] }).nodes.map((node) => node.type)).toEqual(["schedule", "wait", "output"]);
+    expect(parseWorkflowGraphDefinition({ ...base(), nodes: [{ id: "start", name: "Schedule", type: "schedule", position: { x: 0, y: 0 }, config: { mode: "interval", everyMinutes: 5 } }, { id: "repeat", name: "Repeat", type: "repeat", position: { x: 100, y: 0 }, config: { workflowId: "saved-workflow", path: "result.output", equals: true, maxIterations: 5 } }, { id: "wait", name: "Wait", type: "wait", position: { x: 200, y: 0 }, config: { delayMs: 0 } }, base().nodes[1]], edges: [{ id: "a", source: "start", target: "repeat" }, { id: "b", source: "repeat", target: "wait", sourceHandle: "done" }, { id: "c", source: "wait", target: "done" }] }).nodes.map((node) => node.type)).toEqual(["schedule", "repeat", "wait", "output"]);
     expect(() => parseWorkflowGraphDefinition({ ...base(), nodes: [base().nodes[0], { id: "hook", name: "Hook", type: "webhook", position: { x: 100, y: 0 }, config: {} }], edges: [{ id: "bad", source: "start", target: "hook" }] })).toThrow("root");
   });
 });

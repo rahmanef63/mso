@@ -39,11 +39,12 @@ Webhook endpoint:
 - `merge` — combine, append or pass-through incoming outputs
 - `batch` — split up to 1000 items into deterministic batches
 - `loop` — execute one bounded tool for each item with concurrency 1–4
+- `repeat` — execute one saved Workflow Graph repeatedly until a result condition matches, with explicit `done` / `exhausted` branches, `maxIterations` 1–50, optional inter-iteration delay, and a hard node duration cap
 - `wait` — delay/until, bounded to ten minutes inside a run
 - `subflow` — execute another private Workflow Graph, or a legacy project flow
 - `output` — explicit result collection
 
-Graph edges stay acyclic. Repetition is represented by the bounded `loop` node or reusable subflow rather than unrestricted cyclic edges, preventing accidental runaway server automation. Cross-workflow recursion is rejected with an ancestry guard.
+Graph edges stay acyclic. Item fan-out uses `loop`; conditional loop-back uses `repeat`, which reruns a referenced saved Workflow Graph internally instead of creating an unrestricted graph cycle. `repeat` always has hard iteration/time bounds and emits `done` or `exhausted`. Cross-workflow recursion is rejected with an ancestry guard.
 
 ### Actions and context
 
@@ -61,6 +62,32 @@ Graph edges stay acyclic. Repetition is represented by the bounded `loop` node o
 Project/folder nodes resolve the live canonical server path when the graph runs and can open that real directory in MSO Files/Finder.
 
 Script nodes intentionally do **not** execute arbitrary shell or browser-supplied JavaScript. The Inspector can search the selected project's `.agent/scripts` catalog, shows candidate/tested state and step count, and persists the chosen `script_id` in the graph. Execution delegates to `project_script_run`, which re-reads the manifest and refuses steps outside the bounded replay-safe RASMIC policy. A successful candidate replay is promoted to tested by the existing script runner.
+
+## Repeat Until and saved Session workflows
+
+`repeat` is the bounded equivalent of a normal `while` / `do...while` automation loop:
+
+1. Select an existing `workflowId` as the body. A workflow created with **Save session as workflow draft** is valid after its disabled learned actions have been reviewed and enabled.
+2. The child workflow runs with the configured `input` plus `input.repeat.iteration` and `input.repeat.previous`.
+3. MSO reads the child workflow's explicit Output node. `path` is resolved against `{ result, iteration, previous }`; for example `result.output.ok`.
+4. When `equals` is configured, MSO performs exact JSON equality. Without `equals`, normal truthiness is used.
+5. A match routes `done`; reaching `maxIterations` routes `exhausted`. A child failure remains a node failure and can use the normal red error branch / retry policy.
+
+Example configuration:
+
+```json
+{
+  "workflowId": "saved-workflow-id",
+  "input": { "target": "production" },
+  "path": "result.output.ready",
+  "equals": true,
+  "maxIterations": 10,
+  "delayMs": 30000,
+  "maxDurationMs": 600000
+}
+```
+
+Each child execution has its own persisted Workflow run receipt. The parent `repeat` receipt stores bounded iteration metadata and the final output rather than duplicating every child receipt.
 
 ## Data binding
 
