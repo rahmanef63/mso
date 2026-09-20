@@ -12,7 +12,7 @@ describe("MCP Page lifecycle and cached resource migration", () => {
     expect(await readUiResource(LEGACY_PAGE_V2_URI)).toMatchObject({ uri: LEGACY_PAGE_V2_URI, text: page?.text });
     expect(await readUiResource(LEGACY_PAGE_V3_URI)).toMatchObject({ uri: LEGACY_PAGE_V3_URI, text: page?.text });
     expect(await readUiResource(LEGACY_PAGE_V9_URI)).toMatchObject({ uri: LEGACY_PAGE_V9_URI, text: page?.text });
-    expect(await listUiResources()).toHaveLength(3);
+    expect(await listUiResources()).toHaveLength(4);
     expect((await listUiResources()).some((resource) => resource.uri === LEGACY_PAGE_V2_URI)).toBe(false);
   });
   it("includes the Apps handshake and reviewed preview contract in valid self-contained JavaScript", async () => {

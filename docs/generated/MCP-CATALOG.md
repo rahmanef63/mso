@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.15.1 version=2026.09.20.1 tools=113 read=55 write=35 exec=23 -->
+<!-- mcp-toolset: server=1.15.1 version=2026.09.20.2 tools=114 read=56 write=35 exec=23 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.15.1` |
-| Toolset | `2026.09.20.1` |
-| Toolset changed at | `2026-09-20T11:37:43+07:00` |
-| Transport tools | **115** |
-| Model/operator tools | **113** |
-| Read | **55** |
+| Toolset | `2026.09.20.2` |
+| Toolset changed at | `2026-09-20T14:51:00+07:00` |
+| Transport tools | **116** |
+| Model/operator tools | **114** |
+| Read | **56** |
 | Write | **35** |
 | Exec | **23** |
 | App-only bridges | **2** |
 
-### Read (55)
+### Read (56)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -51,6 +51,7 @@
 - `local_agent_inbox`
 - `local_agent_request_wait`
 - `local_agents_list`
+- `mso_native_ui_probe`
 - `mso_surface_apps_list`
 - `organization_chart`
 - `project_agent_status`
@@ -147,20 +148,20 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.15.1 version=2026.09.20.1 tools=113 read=55 write=35 exec=23 app-only=2 total=115 -->
+<!-- mcp-chatgpt-profile: server=1.15.1 version=2026.09.20.2 tools=114 read=56 write=35 exec=23 app-only=2 total=116 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **115** |
-| ChatGPT model/operator tools | **113** |
-| Read | **55** |
+| ChatGPT transport tools | **116** |
+| ChatGPT model/operator tools | **114** |
+| Read | **56** |
 | Write | **35** |
 | Exec | **23** |
 | App-only bridges | **2** |
 
-### ChatGPT read (55)
+### ChatGPT read (56)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -193,6 +194,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `local_agent_inbox`
 - `local_agent_request_wait`
 - `local_agents_list`
+- `mso_native_ui_probe`
 - `mso_surface_apps_list`
 - `organization_chart`
 - `project_agent_status`

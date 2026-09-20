@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` add native UI host probe
 - `chatgpt` stage portable OpenAI plugin package
 - `memory` keep large typed projections mutable
 

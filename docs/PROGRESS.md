@@ -1,3 +1,11 @@
+## 2026-09-20 — Add a static Native MCP App host-mount probe
+
+A fresh ChatGPT acceptance from this session still executed `render_mso_page("/integrations")` and `integration_setup_open` successfully but surfaced their decoded structured objects instead of mounting the declared MCP App resource. That repeats the same failure across Page, Block/List history and dedicated Integrations setup while current tool schema, registered-app binding and production package state are already refreshed.
+
+To isolate the remaining boundary without another Page/CSP/iframe rewrite, MSO now exposes one deliberately tiny read-only diagnostic tool, `mso_native_ui_probe`, bound only through standard `_meta.ui.resourceUri` to `ui://mso/native-probe-v1.html`. The resource is static dependency-free HTML containing only “MSO NATIVE UI WORKS”: no iframe, fetch, router, React bundle, bridge, tools/call, external domain or credential logic. It is advertised by normal `tools/list` and `resources/list/read`, included in the ChatGPT profile and generated MCP catalog, and has a tiny explicit output schema.
+
+This is diagnostic instrumentation, not a claim that Native UI is fixed. Server-side tests can prove descriptor/resource correctness only. Final acceptance still requires reconnect/rescan into the newly deployed toolset and a new conversation where the registered MSO App itself is selected; only a visibly host-mounted component satisfies the UI Definition of Done. If the static probe also degrades to ordinary structured output there, Page/Integrations/CSP/iframe code is excluded and the remaining defect is the ChatGPT host invocation/presentation-attachment boundary.
+
 ## 2026-09-20 — Add durable server-native Local Agent standby
 
 ChatGPT/MCP local-agent collaboration previously had two useful but incomplete modes: a foreground `local_agent_inbox(wait_ms)` receiver that ended with the current request, and one-shot `local_agent_request` execution from a saved durable session. A coordinator therefore could not safely leave a session waiting, send it work later, receive the result, and keep the worker available without another manual user turn.

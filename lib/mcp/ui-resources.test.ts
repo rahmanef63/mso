@@ -12,12 +12,13 @@ const {
   MCP_APP_MIME_TYPE,
   MSO_BLOCK_URI,
   MSO_LIST_URI,
+  MSO_NATIVE_UI_PROBE_URI,
   MSO_PAGE_URI,
 } = await import("./ui-resources");
 const { MCP_UI_DOMAIN, MSO_ORIGIN } = await import("./ui-config");
 
 describe("MCP Apps List, Block and Page contract", () => {
-  it("keeps workflow_start headless and binds only explicit Block/Page render tools", async () => {
+  it("keeps workflow_start headless and binds only explicit presentation/probe tools", async () => {
     const initialized = await dispatch({ id: 1, method: "initialize" }, "write", "mcp:ui-init");
     expect(initialized.result).toMatchObject({
       capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
@@ -71,6 +72,14 @@ describe("MCP Apps List, Block and Page contract", () => {
     });
     expect(setup?._meta?.["openai/outputTemplate"]).toBeUndefined();
 
+    const probe = tools.find((tool) => tool.name === "mso_native_ui_probe");
+    expect(probe?.outputSchema).toBeDefined();
+    expect(probe?._meta).toMatchObject({
+      ui: { resourceUri: MSO_NATIVE_UI_PROBE_URI, visibility: ["model", "app"] },
+    });
+    expect(probe?._meta?.["openai/outputTemplate"]).toBeUndefined();
+    expect(probe?._meta?.["openai/widgetAccessible"]).toBeUndefined();
+
     const legacy = tools.find((tool) => tool.name === "render_mso_surface");
     expect(legacy?._meta).toMatchObject({ ui: { visibility: ["app"] }, "openai/widgetAccessible": true });
     expect((legacy?._meta?.ui as { resourceUri?: string } | undefined)?.resourceUri).toBeUndefined();
@@ -80,7 +89,7 @@ describe("MCP Apps List, Block and Page contract", () => {
       .filter((tool) => Boolean((tool._meta?.ui as { resourceUri?: string } | undefined)?.resourceUri))
       .map((tool) => tool.name)
       .sort();
-    expect(resourceBound).toEqual(["integration_setup_open", "render_mso_block", "render_mso_list", "render_mso_page"]);
+    expect(resourceBound).toEqual(["integration_setup_open", "mso_native_ui_probe", "render_mso_block", "render_mso_list", "render_mso_page"]);
     const appOnly = tools
       .filter((tool) => {
         const visibility = (tool._meta?.ui as { visibility?: string[] } | undefined)?.visibility;
@@ -98,16 +107,33 @@ describe("MCP Apps List, Block and Page contract", () => {
     }
   });
 
-  it("advertises exactly three canonical resources: List, Block and Page", async () => {
+  it("advertises the three product resources plus the isolated Native UI diagnostic probe", async () => {
     const listed = await dispatch({ id: 1, method: "resources/list" }, "read", "mcp:ui-resource");
     const resources = (listed.result as { resources: Array<{ uri: string; name: string; mimeType: string }> }).resources;
     expect(resources).toEqual([
       expect.objectContaining({ uri: MSO_LIST_URI, name: "MSO List", mimeType: MCP_APP_MIME_TYPE }),
       expect.objectContaining({ uri: MSO_BLOCK_URI, name: "MSO Block", mimeType: MCP_APP_MIME_TYPE }),
       expect.objectContaining({ uri: MSO_PAGE_URI, name: "MSO Page", mimeType: MCP_APP_MIME_TYPE }),
+      expect.objectContaining({ uri: MSO_NATIVE_UI_PROBE_URI, name: "MSO Native UI Probe", mimeType: MCP_APP_MIME_TYPE }),
     ]);
   });
 
+  it("serves the Native UI probe as static dependency-free HTML", async () => {
+    const read = await dispatch({ id: 31, method: "resources/read", params: { uri: MSO_NATIVE_UI_PROBE_URI } }, "read", "mcp:ui-native-probe");
+    const content = (read.result as { contents: Array<{ uri: string; mimeType: string; text: string; _meta: Record<string, any> }> }).contents[0];
+    expect(content.uri).toBe(MSO_NATIVE_UI_PROBE_URI);
+    expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
+    expect(content.text).toContain("MSO NATIVE UI WORKS");
+    expect(content.text).not.toContain("<script");
+    expect(content.text).not.toContain("fetch(");
+    expect(content.text).not.toContain("iframe");
+    expect(content._meta).toEqual({
+      ui: {
+        prefersBorder: true,
+        csp: { connectDomains: [], resourceDomains: [] },
+      },
+    });
+  });
 
   it("serves a self-contained searchable List whose actions only return follow-ups", async () => {
     const read = await dispatch({ id: 29, method: "resources/read", params: { uri: MSO_LIST_URI } }, "read", "mcp:ui-list");

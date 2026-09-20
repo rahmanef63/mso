@@ -1,13 +1,14 @@
 import { MSO_BLOCK_RESOURCE, MSO_BLOCK_URI } from "./ui-block";
 import { MSO_LIST_RESOURCE, MSO_LIST_URI } from "./ui-list";
 import { MSO_PAGE_URI, msoPageResource } from "./ui-surface";
+import { MSO_NATIVE_UI_PROBE_RESOURCE, MSO_NATIVE_UI_PROBE_URI } from "./ui-native-probe";
 
-export { MSO_BLOCK_URI, MSO_LIST_URI, MSO_PAGE_URI };
+export { MSO_BLOCK_URI, MSO_LIST_URI, MSO_NATIVE_UI_PROBE_URI, MSO_PAGE_URI };
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
 
 // Read-only aliases keep already-cached ChatGPT action descriptors functional
 // across the UI-contract migration. They are intentionally not advertised by
-// resources/list advertises the three canonical presentation levels: List, Block and Page.
+// resources/list advertises the three product presentation levels plus the isolated Native UI diagnostic probe.
 export const LEGACY_LIST_V1_URI = "ui://mso/list-v1.html";
 export const LEGACY_BLOCK_V3_URI = "ui://mso/block-v3.html";
 export const LEGACY_BLOCK_V2_URI = "ui://mso/block-v2.html";
@@ -58,7 +59,7 @@ const LEGACY_PAGE_URIS = new Set([
 
 export async function listUiResources(): Promise<Array<{ uri: string; name: string; description: string; mimeType: string }>> {
   const page = await msoPageResource();
-  return [MSO_LIST_RESOURCE, MSO_BLOCK_RESOURCE, page].map(({ uri, name, description, mimeType }) => ({ uri, name, description, mimeType }));
+  return [MSO_LIST_RESOURCE, MSO_BLOCK_RESOURCE, page, MSO_NATIVE_UI_PROBE_RESOURCE].map(({ uri, name, description, mimeType }) => ({ uri, name, description, mimeType }));
 }
 
 export async function readUiResource(uri: string): Promise<McpUiResource | undefined> {
@@ -66,6 +67,7 @@ export async function readUiResource(uri: string): Promise<McpUiResource | undef
   if (uri === LEGACY_LIST_V1_URI) return { ...MSO_LIST_RESOURCE, uri };
   if (uri === MSO_BLOCK_URI) return MSO_BLOCK_RESOURCE;
   if (uri === MSO_PAGE_URI) return msoPageResource();
+  if (uri === MSO_NATIVE_UI_PROBE_URI) return MSO_NATIVE_UI_PROBE_RESOURCE;
   if (uri === LEGACY_BLOCK_V3_URI || uri === LEGACY_BLOCK_V2_URI || uri === LEGACY_BLOCK_V1_URI || uri === LEGACY_WORKFLOW_PROGRESS_URI) return { ...MSO_BLOCK_RESOURCE, uri };
   if (LEGACY_PAGE_URIS.has(uri)) return { ...(await msoPageResource()), uri };
   return undefined;

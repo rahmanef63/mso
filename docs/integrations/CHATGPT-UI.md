@@ -1,14 +1,15 @@
 # ChatGPT MCP App UI
 
-MSO exposes three explicit presentation resources. Ordinary data tools and workflow startup stay
+MSO exposes three product presentation resources plus one deliberately minimal Native UI diagnostic probe. Ordinary data tools and workflow startup stay
 headless; clients without MCP Apps keep structured/text results. The model fetches data first, then
-chooses List, Block or Page as a separate render step.
+chooses List, Block or Page as a separate render step. The probe exists only to distinguish server-side resource binding from ChatGPT host mounting and contains no product routing or interaction logic.
 
 | Surface | Entry tool | Resource | Purpose |
 | --- | --- | --- | --- |
 | List | `render_mso_list` | `ui://mso/list-v2.html` | Searchable compact collections and item actions |
 | Block | `render_mso_block` | `ui://mso/block-v4.html` | Validation, actions, bounded CRUD input/output |
 | Page | `render_mso_page`, `integration_setup_open` | `ui://mso/page-v15.html` | Native workspaces, session assets and reviewed project previews |
+| Native probe | `mso_native_ui_probe` | `ui://mso/native-probe-v1.html` | Static diagnostic text only; no bridge, iframe, fetch, router or external dependency |
 
 ## Layout and identity
 
@@ -78,13 +79,13 @@ Page initializes MCP Apps protocol `2026-01-26`, then sends
 notifications and legacy wrapped `window.openai.toolOutput` use the same route validator.
 Unchanged outputs do not remount views; teardown clears active forms and observers.
 
-List, Block and Page use the standards-first MCP Apps bridge (`ui/initialize`, tool-result notifications and `ui/message`/`tools/call` where applicable). Their render tools advertise standard `ui.resourceUri`; Block additionally retains its existing `openai/outputTemplate` compatibility binding for older ChatGPT hosts. Every ChatGPT tool has an output schema;
+List, Block and Page use the standards-first MCP Apps bridge (`ui/initialize`, tool-result notifications and `ui/message`/`tools/call` where applicable). Their render tools advertise standard `ui.resourceUri`; Block additionally retains its existing `openai/outputTemplate` compatibility binding for older ChatGPT hosts. The Native UI probe intentionally advertises only standard `ui.resourceUri` and renders static HTML so a failure cannot be attributed to the Page shell, bridge, iframe, network access or legacy output-template compatibility. Every ChatGPT tool has an output schema;
 exact tools, counts and scopes are generated in [the catalog](../generated/MCP-CATALOG.md).
 
 Resource CSP is explicit: Block allows no nested frames; Page includes only exact reviewed iframe origins and permits its MSO origin for private setup requests. OpenAI requires stricter review for `frameDomains`; this is an official review boundary, not a blanket iframe ban. `OS_MCP_UI_ORIGIN` controls the widget origin, otherwise
 the configured public origin derives it. Legacy redirect metadata supports Open in MSO.
 
-Only the three current resources are listed. Older List/Block/Page URIs remain read aliases for current bytes, including List v1, Block v3/v2 and Page v14. `workflow_status` and `render_mso_surface`
+The three product resources and the isolated Native UI diagnostic probe are listed. Older List/Block/Page URIs remain read aliases for current bytes, including List v1, Block v3/v2 and Page v14. `workflow_status` and `render_mso_surface`
 remain app-only compatibility tools. `workflow_start` has no UI binding.
 
 ## Verification and deployment
@@ -97,7 +98,7 @@ provider search and 320–1920 px reflow. Production release journeys verify aut
 real server handlers and provider revocation using synthetic stores.
 
 After shipping, compare live discovery/version/hash against `lib/mcp/toolset.ts` and the
-generated catalog, verify the three resource URIs, render a List, and reopen the Page. Hosts cache tool
+generated catalog, verify the three product resource URIs plus `ui://mso/native-probe-v1.html`, call `mso_native_ui_probe` from a directly selected registered app context, render a List, and reopen the Page. Hosts cache tool
 and resource descriptors: a development-app rescan/reconnect may still be needed.
 The server cannot replace an already mounted document in an old conversation.
 

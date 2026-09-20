@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 const { dispatch } = await import("./dispatch");
 const { CHATGPT_APP_ONLY_TOOL_NAMES } = await import("./tool-contract");
 const { TOOLS } = await import("./tools");
+const { MSO_NATIVE_UI_PROBE_URI } = await import("./ui-native-probe");
 
 const context = { principal: "mcp-client:chatgpt-test", sessionId: "session-profile", toolProfile: "chatgpt" as const };
 
@@ -44,6 +45,11 @@ describe("ChatGPT full generic MCP profile", () => {
     expect(tools.some((tool) => tool.name === "tool_forge_promote")).toBe(true);
     expect(tools.some((tool) => tool.name === "a2a_handoff")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_memory_upsert")).toBe(true);
+    const nativeProbe = tools.find((tool) => tool.name === "mso_native_ui_probe") as { _meta?: { ui?: { resourceUri?: string; visibility?: string[] } } } | undefined;
+    expect(nativeProbe?._meta?.ui).toEqual({ resourceUri: MSO_NATIVE_UI_PROBE_URI, visibility: ["model", "app"] });
+    const probeCall = await dispatch({ id: 3, method: "tools/call", params: { name: "mso_native_ui_probe", arguments: {} } }, "read", "mcp:native-ui-probe", context);
+    expect(probeCall.error).toBeUndefined();
+    expect(JSON.stringify(probeCall.result)).toContain("MSO NATIVE UI WORKS");
     for (const name of CHATGPT_APP_ONLY_TOOL_NAMES) {
       const tool = tools.find((entry) => entry.name === name) as { _meta?: { ui?: { visibility?: string[] } } } | undefined;
       expect(tool?._meta?.ui?.visibility, name).toEqual(["app"]);
