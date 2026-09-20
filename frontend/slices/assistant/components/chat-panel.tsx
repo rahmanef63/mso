@@ -42,6 +42,11 @@ const SUGGESTED = ["Show system stats", "List ~/projects", "Create notes.txt in 
 let seq = 0;
 const nextId = () => `m${Date.now()}-${seq++}`;
 
+function legacyMessageTime(id: string): number | undefined {
+  const match = /^m(\d+)-/.exec(id);
+  return match ? Number(match[1]) : undefined;
+}
+
 export type ChatHandle = {
   runSteps: (auto: Automation, agent?: Agent) => void;
   stop: () => void;
@@ -103,7 +108,7 @@ export function ChatPanel({
 
   // Stable UI seam for the tool binding: push/patch tool cards + await approval.
   const pushCard = useCallback((id: string, card: ToolCard) => {
-    setMessages((prev) => [...prev, { id, role: "tool", tool: card }]);
+    setMessages((prev) => [...prev, { id, createdAt: Date.now(), role: "tool", tool: card }]);
   }, [setMessages]);
   const updateCard = useCallback((id: string, patch: Partial<ToolCard>) => {
     setMessages((prev) => prev.map((m) => (m.id === id && m.tool ? { ...m, tool: { ...m.tool, ...patch } } : m)));
@@ -139,10 +144,11 @@ export function ChatPanel({
       const a = activeAgent();
       // `appId` tags the turn with the app it came from — that tag is the whole
       // cross-feature trail the sheet renders ("in Camoufox", "in Files").
+      const createdAt = Date.now();
       setMessages((prev) => [
         ...prev,
-        { id: nextId(), role: "user", text, appId: fromAppId },
-        { id: nextId(), role: "assistant", text: "", appId: fromAppId },
+        { id: nextId(), createdAt, role: "user", text, appId: fromAppId },
+        { id: nextId(), createdAt, role: "assistant", text: "", appId: fromAppId },
       ]);
       historyRef.current.push({ role: "user", text });
 
@@ -172,7 +178,7 @@ export function ChatPanel({
             onDelta: (c) => appendToLastAssistant((t) => t + c),
             // After each tool card, open a fresh assistant bubble so the next
             // turn's text streams BELOW the card rather than into an earlier one.
-            onTool: () => setMessages((prev) => [...prev, { id: nextId(), role: "assistant", text: "" }]),
+            onTool: () => setMessages((prev) => [...prev, { id: nextId(), createdAt: Date.now(), role: "assistant", text: "" }]),
           },
           8,
           // The persona belongs HERE, rebuilt every turn, not smuggled into history
@@ -241,14 +247,36 @@ export function ChatPanel({
         </div>
       ) : (
         <ScrollArea className="flex-1">
-          <div className={cn("flex flex-col p-4", ios ? "gap-1.5" : "gap-4")}>
-            {messages.map((m) =>
-              m.role === "tool" ? (
-                <ApprovalCard key={m.id} message={m} onResolve={resolve} />
-              ) : (
-                <MessageBubble key={m.id} message={m} ios={ios} />
-              ),
-            )}
+          <div
+            data-native-context-menu
+            onContextMenu={(e) => e.stopPropagation()}
+            className={cn("flex flex-col p-4", ios ? "gap-1.5" : "gap-4")}
+          >
+            {messages.map((m, i) => {
+              const currentTime = m.createdAt || legacyMessageTime(m.id);
+              const previousTime = i > 0 ? (messages[i - 1].createdAt || legacyMessageTime(messages[i - 1].id)) : undefined;
+              const showDateSeparator = Boolean(
+                currentTime &&
+                  (!previousTime ||
+                    new Date(currentTime).toLocaleDateString() !== new Date(previousTime).toLocaleDateString()),
+              );
+              return (
+                <div key={m.id} className="contents">
+                  {showDateSeparator ? (
+                    <div className="flex items-center gap-1.5 py-1 text-[10px] text-muted-foreground">
+                      <span className="h-px flex-1 bg-border" />
+                      <span>{new Date(currentTime!).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
+                      <span className="h-px flex-1 bg-border" />
+                    </div>
+                  ) : null}
+                  {m.role === "tool" ? (
+                    <ApprovalCard message={m} onResolve={resolve} />
+                  ) : (
+                    <MessageBubble message={m} ios={ios} />
+                  )}
+                </div>
+              );
+            })}
             <div ref={bottomRef} />
           </div>
         </ScrollArea>

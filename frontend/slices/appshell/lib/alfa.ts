@@ -26,6 +26,8 @@ export type AlfaRole = "user" | "assistant" | "tool";
 
 export type AlfaMessage = {
   id: string;
+  /** Local creation time of this display message. */
+  createdAt: number;
   role: AlfaRole;
   text?: string;
   /** Which app this turn happened in — the cross-feature trail. */

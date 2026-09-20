@@ -10,6 +10,7 @@ import { openWindow } from "../lib/store";
 import { ChatComposer } from "./chat-composer";
 import { ApprovalCard } from "./approval-card";
 import type { ToolCard } from "./message-bubble";
+import { CopyButton } from "./copy-button";
 import { resolveAlfaApproval, useAlfaApprovalCount } from "../lib/alfa-approvals";
 import { useAlfaProjectContext } from "../lib/alfa-work-context";
 
@@ -22,6 +23,11 @@ import { useAlfaProjectContext } from "../lib/alfa-work-context";
 // happened in different apps a divider names the new one, so a long task Alfa
 // carried from Files to Terminal to the Browser reads as one story instead of
 // three disconnected chats.
+function legacyMessageTime(id: string): number | undefined {
+  const match = /^m(\d+)-/.exec(id);
+  return match ? Number(match[1]) : undefined;
+}
+
 export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder?: string }) {
   const messages = useAlfaMessages();
   const busy = useAlfaBusy();
@@ -83,8 +89,20 @@ export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder
             // Only when the app actually changes between consecutive turns.
             const prev = i > 0 ? messages[i - 1].appId : undefined;
             const crossed = m.appId && m.appId !== prev;
+            const createdAt = m.createdAt || legacyMessageTime(m.id);
+            const dateLabel = createdAt ? new Date(createdAt).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : null;
+            const previousCreatedAt = i > 0 ? (messages[i - 1].createdAt || legacyMessageTime(messages[i - 1].id)) : undefined;
+            const newDay = Boolean(dateLabel && (!previousCreatedAt || new Date(createdAt!).toLocaleDateString() !== new Date(previousCreatedAt).toLocaleDateString()));
+            const time = createdAt ? new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : null;
             return (
               <div key={m.id} className="contents">
+                {newDay ? (
+                  <div className="flex items-center gap-1.5 py-1 text-[10px] text-muted-foreground">
+                    <span className="h-px flex-1 bg-border" />
+                    <span>{dateLabel}</span>
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                ) : null}
                 {crossed ? (
                   <div className="flex items-center gap-1.5 py-0.5 text-[10px] text-muted-foreground">
                     <span className="h-px flex-1 bg-border" />
@@ -102,15 +120,24 @@ export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder
                     onResolve={resolveAlfaApproval}
                   />
                 ) : (
-                  <div
-                    className={cn(
-                      "max-w-[92%] whitespace-pre-wrap rounded-lg px-2.5 py-1.5 text-xs leading-relaxed",
-                      m.role === "user"
-                        ? "self-end bg-primary text-primary-foreground"
-                        : "self-start bg-secondary text-secondary-foreground",
-                    )}
-                  >
-                    {m.text || "…"}
+                  <div className={cn("max-w-[92%]", m.role === "user" ? "self-end" : "self-start")}>
+                    <div
+                      onContextMenu={(e) => e.stopPropagation()}
+                      className={cn(
+                        "select-text [user-select:text] [-webkit-user-select:text] [-webkit-touch-callout:default] min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed",
+                        m.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground",
+                      )}
+                    >
+                      {m.text || "…"}
+                    </div>
+                    {m.text ? (
+                      <div className={cn("mt-0.5 flex items-center gap-1.5", m.role === "user" ? "justify-end" : "justify-start")}>
+                        {time ? <span className="flex h-8 items-center [@media(pointer:coarse)]:h-11 text-[10px] leading-none text-muted-foreground">{time}</span> : null}
+                        <CopyButton value={m.text} label="message" />
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>

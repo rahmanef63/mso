@@ -42,8 +42,15 @@ export function ContextMenuHost({ children }: { children: ReactNode }) {
   const onContextMenu = useCallback(
     (e: React.MouseEvent) => {
       if (e.defaultPrevented) return; // a descendant / legacy handler already claimed it
-      const target = e.target as Element;
-      const closest = (sel: string) => !!(target.closest && target.closest(sel));
+      const target = e.target as Element | null;
+      const closest = (sel: string) => !!(target?.closest && target.closest(sel));
+      const nativeContextMenu =
+        closest("[data-native-context-menu]") ||
+        e.nativeEvent.composedPath().some((node) =>
+          !!(node && typeof (node as Element).matches === "function" && (node as Element).matches("[data-native-context-menu]")),
+        );
+      if (nativeContextMenu || !target) return;
+
       const base = { shell, surface, x: e.clientX, y: e.clientY };
       const { groups, sealed } = collectZones(target, base);
 
