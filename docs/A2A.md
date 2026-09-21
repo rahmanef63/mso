@@ -86,6 +86,18 @@ mso a2a inbound rm <tokenId>
 
 The Settings → **A2A** panel exposes the same flow, shows the one-time token once, lists/revokes inbound profiles, and surfaces bounded task/audit activity.
 
+## Relationship to Workflow and Organization
+
+A2A is a **transport boundary**, not MSO's visual orchestration graph and not its organization chart.
+
+- **Workflow Graph** owns repeatable automation topology: triggers, If/Switch, Merge, Loop Over Items, bounded Repeat Until, Execute Workflow/subflow, retry/error routing, and run receipts.
+- **Organization** owns stable unit/seat identity, reporting lines, and the pointer from a seat to its current Project Agent, Local Agent, or remote A2A executor.
+- **A2A** owns discovery, authentication, message/task lifecycle, streaming, cancellation, and the remote trust boundary.
+
+A Workflow `agent` node may target an `orgSeatId`. If that seat currently maps to an A2A peer, runtime resolution reaches the existing `a2a_handoff` path; changing the concrete peer later does not rewrite the workflow. Likewise, a saved Session workflow can be called through Execute Workflow or bounded Repeat Until without turning A2A itself into a loop engine. This separation keeps transport credentials and remote task state out of portable workflow definitions and organization metadata.
+
+See [Workflow Graph](./WORKFLOW-GRAPH.md) and [Organization](./ORGANIZATION.md).
+
 ## Same-host sessions are native Local Agents, not remote A2A
 
 MSO 1.9 separates live same-host session communication from this remote interoperability protocol. `/agents`, `/message`, local `/delegate`, local inbox delivery, and the `local_agent_*` MCP tools use a private **presence lease + durable mailbox + SSE/event-bus** layer. They require no Agent Card, URL, registration, credential, refresh, or restart when another session appears or is renamed.

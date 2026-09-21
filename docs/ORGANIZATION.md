@@ -139,8 +139,11 @@ Node kinds are `project`, `activity`, `group`, and `note`; status defaults to
 `unconfirmed`, with explicit `planned`, `active`, `blocked`, and `done` alternatives.
 `projectRef` is a reference only and grants no authority. Clicking a node opens its
 details; editing, dragging positions, connecting and deleting persist through the API.
-Search and focus limit the visible context without changing stored data. Long source
-notes live inside the unit's Notes editor, not on the overview card.
+Search and focus limit the visible context without changing stored data. Search also
+matches named presentation groups. Selecting an individual node can focus that node plus
+its immediate incoming/outgoing context; selecting a collapsed custom group can focus all
+members plus their one-hop boundary context. Long source notes live inside the unit's
+Notes editor, not on the overview card.
 
 The existing `organization_chart` read tool returns each unit's `projectFlow`.
 The existing `organization_manage` write tool supports the following actions; all
@@ -180,6 +183,14 @@ to edit individual members; **Collapse** restores the compact view and **Ungroup
 removes only the presentation wrapper. Nested/overlapping groups are rejected.
 Grouping and member positions persist in the same owner-private store; changes remain
 revision-checked, including one atomic write for a group/multi-node drag.
+
+A collapsed group is also a **focus boundary**. Click the group to open its member summary,
+jump directly to an individual member, toggle **Focus group**, expand/collapse it, or ungroup
+the presentation wrapper. Group focus keeps the group's one-hop external dependencies visible
+so the user sees the surrounding operating context rather than an isolated box. This adopts
+the useful Paperclip-style control-plane principle of understanding a team/work area at a
+glance while keeping MSO's Organization store, routing model and execution authorities unchanged.
+Paperclip is a UX reference only; MSO does not depend on Paperclip or import its company data model.
 
 `organization_manage` adds `flow_custom_nodes` with `data.unitId` and
 `data.customNodes: [{id,name,nodeIds,collapsed}]`, plus `flow_nodes_move` with
