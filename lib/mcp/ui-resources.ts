@@ -5,6 +5,8 @@ import { MSO_NATIVE_UI_PROBE_RESOURCE, MSO_NATIVE_UI_PROBE_URI } from "./ui-nati
 
 export { MSO_BLOCK_URI, MSO_LIST_URI, MSO_NATIVE_UI_PROBE_URI, MSO_PAGE_URI };
 export const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
+export const MCP_UI_EXTENSION = "io.modelcontextprotocol/ui";
+export const MCP_UI_EXTENSION_CAPABILITY = { mimeTypes: [MCP_APP_MIME_TYPE] } as const;
 
 // Read-only aliases keep already-cached ChatGPT action descriptors functional
 // across the UI-contract migration. They are intentionally not advertised by

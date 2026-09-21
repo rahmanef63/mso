@@ -1,3 +1,11 @@
+## 2026-09-22 — Negotiate MCP Apps UI and expose host-boundary telemetry
+
+The Native UI probe proved that MSO's tool descriptor, `ui://` resource, MCP App MIME and static HTML were valid, yet direct host acceptance still returned the structured fallback. The missing server-side contract was capability negotiation: MSO advertised its Skills extension but never declared `io.modelcontextprotocol/ui` during either legacy `initialize` or modern `server/discover`. A host could therefore execute the tool successfully without having a negotiated MCP Apps presentation channel.
+
+MSO now advertises the UI extension with `text/html;profile=mcp-app` in both protocol eras while preserving ordinary structured/text fallback for non-UI clients. Owner-private protocol telemetry records only whether initialize/discover saw compatible client UI capabilities and whether `resources/list` / `resources/read` occurred, including bounded URI/MIME/state/duration metadata but never resource HTML or credentials. Regression covers bilateral negotiation and redacted resource lifecycle. The reference MCP Inspector reports the minimal probe as `hasApp:true` with the expected URI, model/app visibility, CSP and MCP App MIME.
+
+This release fixes the MSO-owned negotiation gap; it does not redefine visual acceptance. A generic Code Mode/function wrapper can still unwrap the inner tool result and cannot prove host mounting. Final ChatGPT acceptance remains a direct registered-app invocation after the refreshed server descriptor is active, with success defined by a visibly host-mounted `MSO NATIVE UI WORKS` component and then a real List → Page interaction round-trip.
+
 ## 2026-09-21 — Add bounded Repeat Until for reusable Session workflows
 
 Workflow Graph could already save successful/reviewable Session action history as a private workflow draft and invoke saved workflows through Subflow, but its graph schema deliberately rejected cyclic edges and the existing `loop` node only iterated arrays. That left ordinary automation patterns such as “run this saved task, inspect its result, and try again until ready” without a native bounded control-flow primitive.

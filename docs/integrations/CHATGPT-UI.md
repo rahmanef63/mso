@@ -74,6 +74,19 @@ retains its framing protections; external sites keep their own authentication bo
 
 ## Bridge, metadata and compatibility
 
+The MCP transport advertises the standard `io.modelcontextprotocol/ui` extension with
+`mimeTypes: ["text/html;profile=mcp-app"]` in both legacy `initialize` and modern
+`server/discover`. A native host must advertise the matching extension/MIME in its
+client capabilities for MCP Apps presentation to be negotiated. Without that bilateral
+capability, MSO remains usable as a normal structured/text MCP server instead of
+assuming that a `ui.resourceUri` descriptor alone proves host support.
+
+For host-boundary debugging, the owner-private MCP activity stream records
+`protocol.initialize` / `protocol.discover` with `client-ui=true|false` plus
+`resources.list` / `resources.read` URI, MIME, result state and duration. It never
+records the resource HTML itself. This makes a missing host resource fetch observable
+without exposing widget bytes, OAuth material or tool arguments.
+
 Page initializes MCP Apps protocol `2026-01-26`, then sends
 `ui/notifications/initialized`. Only parent-source messages are accepted. Tool result
 notifications and legacy wrapped `window.openai.toolOutput` use the same route validator.
