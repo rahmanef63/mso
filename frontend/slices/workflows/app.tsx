@@ -82,8 +82,19 @@ export default function WorkflowsApp(props: AppProps) {
     const next = await saveSessionWorkflowDraft(sessionView.session.id, stepRef);
     setGraphs(await listGraphs(true)); setGraph(next); setLibraryMode("automations"); setSelected(next.nodes[0]?.id ?? null); setDirty(false); setRun(null); setDetailsOpen(false); setMessage(`Saved ${stepRef ?? "session"} as review-first workflow draft`);
   });
-  const chooseNode = (id: string | null) => { setSelected(id); if (!id) return; setPanel("inspector"); if (overlayPane) setDetailsOpen(true); };
-  const chooseSessionNode = (id: string | null) => { setSessionSelected(id); if (id && overlayPane) setDetailsOpen(true); };
+  const chooseNode = (id: string | null) => {
+    setSelected(id);
+    if (!id) return;
+    setPanel("inspector");
+    if (overlayPane) setDetailsOpen(true);
+    else setShowDetails(true);
+  };
+  const chooseSessionNode = (id: string | null) => {
+    setSessionSelected(id);
+    if (!id) return;
+    if (overlayPane) setDetailsOpen(true);
+    else setShowDetails(true);
+  };
   const tidy = () => graph && mutate({ ...graph, nodes: tidyWorkflowNodes(graph) });
   const toggleLibrary = () => overlayPane ? setLibraryOpen(true) : setShowLibrary((value) => !value);
   const toggleDetails = () => overlayPane ? setDetailsOpen(true) : setShowDetails((value) => !value);

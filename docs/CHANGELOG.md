@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `workflows` reopen details on node selection
 - `mcp` normalize widget resource discovery
 
 **Changed**
