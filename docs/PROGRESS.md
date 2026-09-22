@@ -1,3 +1,11 @@
+## 2026-09-22 — Reduce Organization and Workflow chrome after first production pass
+
+The first Organization/Workflow/n8n release fixed the structural problem but still left too much chrome around the actual work. This polish pass removes a second overview header, boxed summary metrics and card-within-card counters from Organization. Unit and seat directories now use one compact search/status row and denser cards with inline operational metadata. The overview Directory/Map control moves into the primary Organization header, project tabs lose explanatory filler, and the redundant cross-app shortcut block is removed from the Organization sidebar.
+
+Workflow drops the duplicated Active toggle + lifecycle selector in favor of one explicit Status control. The secondary keyboard-help sentence is removed from the canvas toolbar, cross-app shortcuts no longer occupy Workflow actions, and the seven horizontally scrolling detail tabs are replaced by a narrow vertical icon rail with accessible labels/tooltips. n8n keeps navigation links in its empty-state guidance but removes duplicate Workflows/Organization/Integrations buttons from the configured editor toolbar. These changes reduce visual density without removing capabilities or changing auth/execution ownership.
+
+TypeScript, focused ESLint, architecture/docs/contrast/skill checks, targeted regressions, production build and the full release browser journey all pass across desktop, mobile and landscape.
+
 ## 2026-09-22 -- Match ext-apps widget discovery after ChatGPT ecosystem 404
 
 A browser-console capture finally exposed the host failure that ordinary MCP logs could not see. ChatGPT correctly selected the registered MSO app, exact action name and ui:// template pointer, but its internal /backend-api/ecosystem/widget request returned HTTP 404 for the Native probe, Block, List, Page and integration_setup_open. At the same time MSO's own telemetry showed successful resources/read for the product resources, proving that public HTTPS, OAuth, resource bytes and MCP MIME delivery were not the failing boundary. A private equality check also proved the stored OpenAI App binding matches the ChatGPT connector ID exactly, without printing the App ID.

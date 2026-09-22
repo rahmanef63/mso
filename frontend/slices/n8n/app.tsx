@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Boxes, Building2, Cable, RefreshCw, Workflow } from "lucide-react";
+import { Boxes, RefreshCw } from "lucide-react";
 import type { AppProps } from "@/features/appshell";
 import { AppFrame, openWindow } from "@/features/appshell";
 import type { WorkflowEmbed } from "@/lib/contracts/surface-app";
@@ -54,9 +54,6 @@ export default function N8nApp(_: AppProps) {
         </Badge>
       </div>
     </div>
-    <Button size="sm" variant="ghost" onClick={() => openWindow("workflows", "Workflows")}><Workflow className="size-4"/><span className="hidden @min-[640px]:inline">Workflows</span></Button>
-    <Button size="sm" variant="ghost" onClick={() => openWindow("organization", "Organization")}><Building2 className="size-4"/><span className="hidden @min-[760px]:inline">Organization</span></Button>
-    <Button size="sm" variant="ghost" onClick={() => openWindow("integrations", "Integrations")}><Cable className="size-4"/><span className="hidden @min-[900px]:inline">Integrations</span></Button>
     <Button size="icon" variant="ghost" onClick={() => { setLoading(true); void load(); }} aria-label="Refresh n8n surface"><RefreshCw className="size-4"/></Button>
   </div>;
 

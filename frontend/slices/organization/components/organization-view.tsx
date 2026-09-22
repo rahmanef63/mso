@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, ArrowLeft, Building2, Cable, LayoutGrid, Network, Pencil, Plus, RefreshCw, Users, Workflow, X } from "lucide-react";
+import { ArrowLeft, Building2, LayoutGrid, Network, Pencil, Plus, RefreshCw, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { OrganizationSeat, OrganizationUnit } from "@/lib/contracts/organization";
@@ -11,7 +11,6 @@ import { OrganizationEditor } from "./organization-editor";
 import { OrganizationSeatDirectory, OrganizationUnitDirectory } from "./organization-directory";
 import { ProjectFlow } from "./project-flow";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { openWindow } from "@/features/appshell";
 
 type Draft = { kind: "unit"; item?: OrganizationUnit } | { kind: "seat"; item?: OrganizationSeat; unitId?: string } | null;
 type CanvasMode = "directory" | "map";
@@ -99,24 +98,19 @@ export function OrganizationView() {
           <UnitButton active={selectedUnit === "__all__"} icon={<Users className="size-4"/>} label="All organization" count={data.chart.seats.length} onClick={() => chooseUnit("__all__")}/>
           {units.map((unit) => <UnitButton key={unit.id} active={selectedUnit === unit.id} icon={<Building2 className="size-4"/>} label={unit.name} count={data.chart.seats.filter((seat) => seat.unitId === unit.id).length} onClick={() => chooseUnit(unit.id)}/>)}
         </nav>
-        <div className="hidden shrink-0 border-t p-2 @min-[760px]:grid @min-[760px]:grid-cols-3 @min-[920px]:grid-cols-1 @min-[920px]:gap-1">
-          <OrgLink icon={<Workflow className="size-3.5"/>} label="Workflows" onClick={() => openWindow("workflows", "Workflows")}/>
-          <OrgLink icon={<Cable className="size-3.5"/>} label="Integrations" onClick={() => openWindow("integrations", "Integrations")}/>
-          <OrgLink icon={<Activity className="size-3.5"/>} label="System" onClick={() => openWindow("system-monitor", "System Monitor")}/>
-        </div>
       </aside>
 
       <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-        <div className="grid min-h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b px-3 py-2">
+        <div className="grid min-h-12 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b px-3 py-1.5">
           <div className="flex min-w-0 items-start gap-1.5">
             {currentUnit ? <Button size="icon" variant="ghost" className="size-8 shrink-0" onClick={() => chooseUnit("__all__")} aria-label="Back to organization overview"><ArrowLeft className="size-4"/></Button> : null}
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2"><h2 className="truncate text-sm font-semibold">{currentUnit?.name ?? data.chart.name}</h2>{currentUnit ? <Badge variant="secondary" className="shrink-0">{currentUnit.kind}</Badge> : <Badge variant="outline" className="shrink-0">overview</Badge>}</div>
+              <div className="flex min-w-0 items-center gap-2"><h2 className="truncate text-sm font-semibold">{currentUnit?.name ?? data.chart.name}</h2>{currentUnit ? <Badge variant="secondary" className="shrink-0">{currentUnit.kind}</Badge> : null}</div>
               <p className="mt-0.5 hidden max-w-3xl text-[11px] leading-snug text-muted-foreground @min-[520px]:line-clamp-2">{currentUnit?.description || "Directory first for fast scanning. The map remains available when you need reporting or relationship topology."}</p>
             </div>
           </div>
           <div className="flex shrink-0 gap-1">
-            {currentUnit ? <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => setDraft({ kind: "unit", item: currentUnit })}><Pencil className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Unit</span></Button> : null}
+            {currentUnit ? <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => setDraft({ kind: "unit", item: currentUnit })}><Pencil className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Unit</span></Button> : <ModeSwitch value={overviewMode} onChange={setOverviewMode}/>}
             {currentUnit ? <Button size="sm" className="h-8 px-2" onClick={() => setDraft({ kind: "seat", unitId: currentUnit.id })}><Users className="size-3 @min-[480px]:mr-1"/><span className="hidden @min-[480px]:inline">Seat</span></Button> : null}
           </div>
         </div>
@@ -126,17 +120,13 @@ export function OrganizationView() {
         {currentUnit ? <Tabs key={currentUnit.id} className="flex min-h-0 flex-1 flex-col gap-0">
           <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
             <TabsList className="w-fit shrink-0"><TabsTrigger active={tab === "projects"} onClick={() => setTab("projects")}>Projects</TabsTrigger><TabsTrigger active={tab === "seats"} onClick={() => setTab("seats")}>Seats</TabsTrigger></TabsList>
-            {tab === "seats" ? <ModeSwitch value={seatMode} onChange={setSeatMode}/> : <span className="hidden text-[10px] text-muted-foreground @min-[720px]:inline">Project map starts at a readable cluster; press F to fit everything.</span>}
+            {tab === "seats" ? <ModeSwitch value={seatMode} onChange={setSeatMode}/> : null}
           </div>
           {tab === "projects" ? <div className="relative min-h-0 flex-1 overflow-hidden"><ProjectFlow unit={currentUnit} onSave={async (action, record) => { const next = await mutateOrganization({ action, expected_revision: data.chart.revision, data: record }); setData(next); }}/></div> : <div className="relative min-h-0 flex-1 overflow-hidden">
             {seatMode === "directory" ? <OrganizationSeatDirectory chart={data.chart} runtime={data.runtime} unitId={currentUnit.id} onSeatSelect={(seat) => setSelectedSeatId(seat?.id ?? null)} onSeatOpen={(seat) => setDraft({ kind: "seat", item: seat })}/> : <OrganizationCanvas chart={data.chart} runtime={data.runtime} unitId={currentUnit.id} selectedSeatId={selectedSeatId} onUnitSelect={chooseUnit} onSeatSelect={(seat) => setSelectedSeatId(seat?.id ?? null)} onSeatOpen={(seat) => setDraft({ kind: "seat", item: seat })}/>}
             {selectedSeat ? <SeatInspector seat={selectedSeat} runtimeLabel={selectedRuntime?.label} runtimeStatus={selectedRuntime?.status} onClose={() => setSelectedSeatId(null)} onEdit={() => setDraft({ kind: "seat", item: selectedSeat })}/> : null}
           </div>}
         </Tabs> : <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b px-3 py-2">
-            <div className="min-w-0 text-xs text-muted-foreground">Browse the organization as cards, or switch to the relationship map when topology matters.</div>
-            <ModeSwitch value={overviewMode} onChange={setOverviewMode}/>
-          </div>
           <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
             {overviewMode === "directory" ? <OrganizationUnitDirectory chart={data.chart} runtime={data.runtime} onUnitSelect={chooseUnit}/> : <OrganizationCanvas chart={data.chart} runtime={data.runtime} unitId="" selectedSeatId={null} onUnitSelect={chooseUnit} onSeatSelect={() => {}} onSeatOpen={() => {}}/>}
           </div>
@@ -145,10 +135,6 @@ export function OrganizationView() {
       <OrganizationEditor draft={draft} chart={data.chart} onClose={() => setDraft(null)} onSave={save} onDelete={remove}/>
     </div>
   );
-}
-
-function OrgLink({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className="flex min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] text-muted-foreground hover:bg-accent/60 hover:text-foreground @min-[920px]:justify-start">{icon}<span className="hidden truncate @min-[920px]:inline">{label}</span></button>;
 }
 
 function ModeSwitch({ value, onChange }: { value: CanvasMode; onChange: (value: CanvasMode) => void }) {
