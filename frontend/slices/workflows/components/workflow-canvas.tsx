@@ -9,8 +9,10 @@ import { useGraphProjection } from "@/components/shared/use-graph-projection";
 import { GraphCanvas } from "@/components/shared/graph-canvas";
 import { GraphCustomControls } from "@/components/shared/graph-custom-controls";
 import { GraphCustomCard } from "@/components/shared/graph-custom-card";
-import { projectCustomNodes, moveCustomNode, type CustomCanvasNode } from "@/components/shared/graph-custom-projection";
+import { projectCustomNodes, moveGraphNodesWithCustomGroups, type CustomCanvasNode } from "@/components/shared/graph-custom-projection";
 import { graphRoutedEdgeTypes } from "@/components/shared/graph-routed-edge";
+import { graphFocusClusterIds } from "@/components/shared/graph-focus";
+import { GraphNodeShell } from "@/components/shared/graph-node-shell";
 import type { GraphCustomNode } from "@/lib/contracts/graph-custom-nodes";
 import { compactWorkflowFocusIds } from "../lib/compact-focus";
 import { cn } from "@/lib/utils";
@@ -35,14 +37,14 @@ function nodeMetrics(node:WorkflowGraphNode){
 function WorkflowNodeCard({data,selected}:NodeProps<FlowNode>){
   const{node,state}=data,handles=sourceHandles(node),metrics=nodeMetrics(node),semantic=node.config.sessionStep===true||node.config.sessionRoot===true;
   const actionCount=typeof node.config.actionCount==="number"?node.config.actionCount:undefined,summary=typeof node.config.summary==="string"?node.config.summary:undefined;
-  return <div className={cn("relative rounded-xl border bg-card px-3 py-3 shadow-sm transition-shadow",semantic?"w-[250px]":"w-[200px]",selected&&"ring-2 ring-ring shadow-md",state==="failed"&&"border-destructive ring-1 ring-destructive",state==="running"&&"border-primary ring-1 ring-primary",["skipped","blocked"].includes(state??"")&&"opacity-55",node.disabled&&"opacity-50")} style={{minHeight:metrics.height}}>
+  return <GraphNodeShell selected={selected} className={cn(semantic?"w-[250px]":"w-[200px]",state==="failed"&&"border-destructive ring-1 ring-destructive",state==="running"&&"border-primary ring-1 ring-primary",["skipped","blocked"].includes(state??"")&&"opacity-55",node.disabled&&"opacity-50")} style={{minHeight:metrics.height}}>
     {canInput(node)?<Handle type="target" position={Position.Left} id="input" className="!size-3.5 !border-2 !border-background !bg-muted-foreground"/>:null}
     <div className={cn("text-xs font-semibold",semantic?"line-clamp-2 leading-4":"truncate")}>{node.name}</div>
     <div className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground"><span>{node.type.replaceAll("_"," ")}{state?` · ${state}`:""}</span>{actionCount!==undefined?<span className="rounded bg-muted px-1.5 py-0.5 normal-case tracking-normal">{actionCount} actions</span>:null}</div>
     {summary?<p className="mt-1.5 line-clamp-2 text-[10px] leading-4 text-muted-foreground">{summary}</p>:null}
     {canOutput(node)?handles.map((handle,index)=><div key={handle??"output"} className="absolute right-0 flex translate-x-1/2 items-center" style={{top:38+index*20}}>{handle?<span className="pointer-events-none absolute right-4 whitespace-nowrap pr-1 text-[8px] text-muted-foreground">{handle}</span>:null}<Handle type="source" position={Position.Right} id={handle??"output"} className="!relative !right-auto !top-auto !size-3.5 !translate-x-0 !translate-y-0 !border-2 !border-background !bg-muted-foreground"/></div>):null}
     {canError(node)?<Handle type="source" position={Position.Bottom} id="error" className="!size-3 !border-2 !border-background !bg-destructive"/>:null}
-  </div>;
+  </GraphNodeShell>;
 }
 const nodeTypes={workflow:WorkflowNodeCard, customGroup:GraphCustomCard};
 type CanvasNode = FlowNode | CustomCanvasNode;
@@ -63,14 +65,14 @@ export function WorkflowCanvas({graph,selectedId,onSelect,onMove,onMoveMany,onCu
   const {nodes,edges,onNodesChange,onEdgesChange}=useGraphProjection<CanvasNode,FlowEdge>(mapped);
   const selectedIds=nodes.filter((node)=>node.selected).map((node)=>node.id);
   const changeGroups=(next:GraphCustomNode[])=>{onCustomNodes?.(next);onSelect(null);};
-  const move=(items:CanvasNode[])=>{let next=graph.nodes;for(const item of items){const group=groups.find((g)=>g.id===item.id);next=group?moveCustomNode(next,group,item.position):next.map((n)=>n.id===item.id?{...n,position:item.position}:n);}if(onMoveMany)onMoveMany(next);else for(const item of items)onMove(item.id,item.position);};
+  const move=(items:CanvasNode[])=>{const next=moveGraphNodesWithCustomGroups(graph.nodes,groups,items);if(onMoveMany)onMoveMany(next);else for(const item of items)onMove(item.id,item.position);};
   const connect=(connection:Connection)=>{if(!graph.nodes.some((n)=>n.id===connection.source)||!graph.nodes.some((n)=>n.id===connection.target)||connection.source===connection.target)return;const handle=connection.sourceHandle&&connection.sourceHandle!=="output"?connection.sourceHandle:undefined;onConnect(connection.source!,connection.target!,handle);};
   const visibleIds=useMemo(()=>new Set(nodes.map((node)=>node.id)),[nodes]);
-  const rootFocusIds=useMemo(()=>compactWorkflowFocusIds(graph.nodes,groups,visibleIds,readOnly?9:2),[graph.nodes,groups,readOnly,visibleIds]);
-  const compactIds=rootFocusIds.length?rootFocusIds:(readOnly?nodes.slice(0,9):nodes.slice(0,2)).map((node)=>node.id);
+  const rootFocusIds=useMemo(()=>compactWorkflowFocusIds(graph.nodes,groups,visibleIds,readOnly?2:1),[graph.nodes,groups,readOnly,visibleIds]);
+  const compactIds=graphFocusClusterIds(nodes.map((node)=>node.id),edges,selectedId?[selectedId]:rootFocusIds,{depth:1,maxNodes:readOnly?12:8,fallbackLimit:readOnly?2:1});
   return <div className="flex h-full min-h-0 flex-col">
     {!readOnly&&onCustomNodes?<GraphCustomControls groups={groups} selectedIds={selectedIds} nodeIds={graph.nodes.map((n)=>n.id)} onChange={changeGroups}/>:null}
-    <div className="min-h-0 flex-1"><GraphCanvas<CanvasNode,FlowEdge> ariaLabel="Workflow canvas" showMinimap={!readOnly} nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={graphRoutedEdgeTypes}
+    <div className="min-h-0 flex-1"><GraphCanvas<CanvasNode,FlowEdge> ariaLabel="Workflow canvas" showMinimap={nodes.length > 3} nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={graphRoutedEdgeTypes}
       onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={readOnly?undefined:connect}
       onPaneClick={()=>{onSelect(null);}}
       onNodeClick={(event,item)=>{if(event.ctrlKey||event.metaKey)return;onSelect(item.type==="customGroup"?null:item.id);}}

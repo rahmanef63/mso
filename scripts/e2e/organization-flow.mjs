@@ -58,6 +58,7 @@ try {
   await page.getByLabel("Relationship", { exact: true }).fill("supports");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("heading", { name: "New edge", exact: true })).toBeHidden();
+  await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0);
   const canvas = page.getByRole("application", { name: "Organization project flow canvas", exact: true });
   await expect(canvas.locator(".react-flow__edge")).toHaveCount(1);
   await expect(canvas.locator(".react-flow__edge-path")).toHaveAttribute("marker-end", /url/);
@@ -119,6 +120,61 @@ try {
   const deleted = await call({ action: "flow_node_delete", expected_revision: chart.revision, data: { unitId: "flow-workspace", id: first } });
   expect(deleted.status).toBe(200);
   expect(deleted.body.chart.units.find((u) => u.id === "flow-workspace").projectFlow.edges).toEqual([]);
+
+  // Dense acceptance: Focus is the default task view; Map is an explicit full-topology action.
+  chart = deleted.body.chart;
+  const denseNodes = Array.from({ length: 36 }, (_, index) => {
+    const cluster = Math.floor(index / 12);
+    const local = index % 12;
+    return {
+      id: `dense-${index + 1}`,
+      title: `Dense ${String.fromCharCode(65 + cluster)}${local + 1}`,
+      kind: local === 0 ? "group" : "project",
+      status: "active",
+      summary: `Cluster ${cluster + 1} relationship node`,
+      position: { x: cluster * 2500 + (local % 4) * 320, y: Math.floor(local / 4) * 210 },
+    };
+  });
+  const denseEdges = [];
+  for (let cluster = 0; cluster < 3; cluster += 1) {
+    const start = cluster * 12;
+    for (let local = 1; local < 12; local += 1) {
+      denseEdges.push({ id: `dense-edge-${cluster}-${local}`, source: `dense-${start + local}`, target: `dense-${start + local + 1}`, label: "depends on" });
+    }
+  }
+  const dense = await call({
+    action: "flow_replace",
+    expected_revision: chart.revision,
+    data: { unitId: "flow-workspace", flow: { version: 1, title: "Dense Organization Flow", notes: "36-node visual acceptance fixture", nodes: denseNodes, edges: denseEdges } },
+  });
+  expect(dense.status).toBe(200);
+  chart = dense.body.chart;
+
+  for (const viewport of [{ width: 1363, height: 936 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    await open();
+    const denseCanvas = page.getByRole("application", { name: "Organization project flow canvas", exact: true });
+    await expect(denseCanvas).toBeVisible();
+    const feature = page.locator('[data-slot="organization-feature"]');
+    expect(await feature.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+
+    const focusedNodes = denseCanvas.locator(".react-flow__node");
+    await expect.poll(async () => focusedNodes.count()).toBeGreaterThan(0);
+    expect(await focusedNodes.count()).toBeLessThan(36);
+    const focusedBox = await focusedNodes.first().boundingBox();
+    expect(focusedBox?.width ?? 0).toBeGreaterThan(viewport.width < 700 ? 120 : 145);
+
+    if (process.env.MSO_SCREENSHOT_DIR) {
+      await mkdir(process.env.MSO_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({ path: path.join(process.env.MSO_SCREENSHOT_DIR, `dense-organization-flow-${viewport.width}x${viewport.height}.png`), fullPage: false });
+    }
+
+    await page.getByRole("button", { name: "Map", exact: true }).click();
+    await expect(denseCanvas.locator(".react-flow__node")).toHaveCount(36);
+    await page.getByRole("button", { name: "Focus", exact: true }).click();
+    await expect.poll(async () => denseCanvas.locator(".react-flow__node").count()).toBeLessThan(36);
+  }
+
   expect(errors).toEqual([]);
-  console.log("PASS: compact overview; internal node create/edit/connect/drag; visible directional edges after reload; multiline notes >16 KiB; reload persistence; real MCP mutation; stale revision/cross-unit/viewer/read-scope refusal; 3 responsive viewports; cascade delete; no browser errors.");
+  console.log("PASS: compact overview; internal node create/edit/connect/drag; visible directional edges after reload; multiline notes >16 KiB; reload persistence; real MCP mutation; stale revision/cross-unit/viewer/read-scope refusal; cascade delete; dense 36-node Focus/Map acceptance at desktop/portrait/landscape; no browser errors.");
 } finally { await browser?.close(); await fixture.close(); }

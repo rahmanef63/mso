@@ -39,6 +39,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`PROJECT-MCP-CONNECTIONS.md`](./PROJECT-MCP-CONNECTIONS.md) | Named private connections, endpoint binding and identity for modular project MCPs |
 | [`AUTOMATION-FLOWS.md`](./AUTOMATION-FLOWS.md) | Versioned project API/MCP flows, CLI, sessions, Add MCP, assets and limits |
 | [`WORKFLOW-GRAPH.md`](./WORKFLOW-GRAPH.md) | Private server-native Workflow Graph v2 with n8n-core triggers/flow control, versions/history, variables, integrations, visual execution and automatic learning |
+| [`SHARED-GRAPH-FOUNDATION.md`](./SHARED-GRAPH-FOUNDATION.md) | Canonical shared graph mechanics, feature adapters, ownership matrix and dense-graph Focus/Map interaction boundary |
 | [`N8N-PARITY.md`](./N8N-PARITY.md) | Core n8n capability map across native Workflows, Organization, Integrations and the dedicated external n8n workspace |
 | [`ORGANIZATION.md`](./ORGANIZATION.md) | Owner-private organization units, seats, reporting lines, live agent bindings, and workflow routing references |
 | [`MCP-HOW-TO.md`](./MCP-HOW-TO.md) | Bahasa Indonesia onboarding: client connection, prompts, workflow, project MCP and troubleshooting |

@@ -106,7 +106,7 @@ export function OrganizationView() {
             {currentUnit ? <Button size="icon" variant="ghost" className="size-8 shrink-0" onClick={() => chooseUnit("__all__")} aria-label="Back to organization overview"><ArrowLeft className="size-4"/></Button> : null}
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2"><h2 className="truncate text-sm font-semibold">{currentUnit?.name ?? data.chart.name}</h2>{currentUnit ? <Badge variant="secondary" className="shrink-0">{currentUnit.kind}</Badge> : null}</div>
-              <p className="mt-0.5 hidden max-w-3xl text-[11px] leading-snug text-muted-foreground @min-[520px]:line-clamp-2">{currentUnit?.description || "Directory first for fast scanning. The map remains available when you need reporting or relationship topology."}</p>
+              <p className="mt-0.5 hidden max-w-3xl text-[11px] leading-snug text-muted-foreground @min-[520px]:line-clamp-2 [@media(max-height:520px)]:!hidden">{currentUnit?.description || "Directory first for fast scanning. The map remains available when you need reporting or relationship topology."}</p>
             </div>
           </div>
           <div className="flex shrink-0 gap-1">
