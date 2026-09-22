@@ -21,6 +21,7 @@ import { osSettingsApp } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
 import { integrationsApp } from "@/features/integrations";
+import { channelsApp } from "@/features/channels";
 import { workflowsApp } from "@/features/workflows";
 import { n8nApp } from "@/features/n8n";
 import { organizationApp } from "@/features/organization";
@@ -70,16 +71,19 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(openclawApp), "openclaw"),
   withSlug(withArtwork(nineRouterApp), "9router"),
   pin(withSlug(integrationsApp, "connections")),
+  pin(withSlug(channelsApp, "channels")),
   pin(withSlug(withArtwork(workflowsApp), "workflows")),
   pin(withSlug(withArtwork(n8nApp), "n8n")),
   withSlug(withArtwork(organizationApp), "organization"),
   withSlug(withArtwork(dokployApp), "dokploy"),
   withSlug(withArtwork(cloudflareApp), "cloudflare"),
-  withSlug(withArtwork(quicklinksApp), "links"),
+  // Keep Docs + Settings on the first 24-icon mobile home page. Quicklinks is
+  // non-pinned and may begin page 2 as the built-in catalog grows.
   // Docs is deliberately dockable, not noDock: for a signed-out visitor it is the
   // only app that explains what they are looking at and how to get their own.
   withSlug(withArtwork(docsApp), "docs"),
   pin(withSlug(withArtwork(osSettingsApp), "settings")),
+  withSlug(withArtwork(quicklinksApp), "links"),
 ];
 
 // Shell features — the generic brand-free set now lives INSIDE the appshell

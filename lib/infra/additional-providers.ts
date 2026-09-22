@@ -91,6 +91,27 @@ export const ADDITIONAL_PROVIDERS = {
     feature: false,
     fields: [{ key: "organizationId", label: "Organization ID", secret: false, required: false, description: "Optional connection-specific configuration; retained during JSON transfer." }, { key: "managementToken", label: "Management access token", secret: true, required: true, description: "A Supabase personal access token for the Management API; it is distinct from project API keys." }],
   },
+  telegram: {
+    id: "telegram",
+    title: "Telegram",
+    description: "Connect a Telegram bot for MSO Channels without storing bot credentials in channel configuration.",
+    feature: false,
+    fields: [
+      { key: "botToken", label: "Bot token", secret: true, required: true, description: "Telegram Bot API token created by BotFather. Kept only in MSO Integrations." },
+      { key: "webhookSecret", label: "Webhook secret", secret: true, required: false, description: "Optional 1–256 character secret used to validate X-Telegram-Bot-Api-Secret-Token on inbound webhooks." },
+    ],
+  },
+  discord: {
+    id: "discord",
+    title: "Discord",
+    description: "Connect a Discord bot/application for MSO Channels with REST sending and signed Interactions.",
+    feature: false,
+    fields: [
+      { key: "botToken", label: "Bot token", secret: true, required: true, description: "Discord bot token. Kept only in MSO Integrations." },
+      { key: "applicationId", label: "Application ID", secret: false, required: false, description: "Discord application snowflake used to bind signed interaction payloads to this application." },
+      { key: "publicKey", label: "Interactions public key", secret: false, required: false, description: "64-character Ed25519 public key from the Discord Developer Portal for interaction signature verification." },
+    ],
+  },
   doku: { id:"doku", title:"DOKU", description:"Verify DOKU Payment REST or DOKU MCP merchant credentials without copying secrets into project configuration.", feature:false, fields:[
     {key:"paymentClientId",label:"Payment Client ID",secret:true,required:false,description:"DOKU Back Office Client ID used by the signed Non-SNAP payment API."},
     {key:"paymentSecretKey",label:"Payment Secret Key",secret:true,required:false,description:"DOKU Back Office HMAC Secret Key for signed payment API requests. This is not the MCP API Key."},
@@ -122,6 +143,8 @@ export const ADDITIONAL_GUIDANCE = {
   stripe: { url: "https://dashboard.stripe.com/apikeys", reference: "https://docs.stripe.com/keys", steps: ["Open Developers → API keys in the intended Stripe account.", "Use a restricted key when its available permissions cover the integration.", "Confirm whether you are using test or live mode before copying the secret key.", "Copy the key once and rotate it promptly if it is exposed."] },
   clerk: { url: "https://dashboard.clerk.com", reference: "https://clerk.com/docs/guides/development/api-keys", steps: ["Open the intended Clerk instance in the Clerk dashboard.", "Find its secret key in the API Keys or Developers settings.", "Keep the key server-side and limit access to the intended instance.", "Copy it into this form; this check only confirms Backend API authentication."] },
   supabase: { url: "https://supabase.com/dashboard/account/tokens", reference: "https://supabase.com/docs/reference/api/introduction", steps: ["Open Account → Access Tokens in the Supabase dashboard.", "Generate a personal access token for the account that owns the intended projects.", "Give it a clear name and an appropriate expiry.", "Copy it once into this form; project API keys cannot be used as Management API tokens."] },
+  telegram: { url: "https://t.me/BotFather", reference: "https://core.telegram.org/bots/api", steps: ["Create or select the intended bot in BotFather.", "Copy its Bot API token into this private Integrations form; never paste it into a Channel record.", "Create a webhook secret with letters, digits, underscore or hyphen before enabling inbound webhooks.", "MSO verifies the token with Bot API getMe before marking the connection verified."] },
+  discord: { url: "https://discord.com/developers/applications", reference: "https://discord.com/developers/docs/quick-start/getting-started", steps: ["Open the intended application in the Discord Developer Portal.", "Create/reset the bot token only if needed and enter it in this private Integrations form.", "For inbound interactions also copy the Application ID and Interactions Endpoint public key.", "MSO verifies the bot token through the Discord REST API; signed interactions are verified separately at the public channel endpoint."] },
   doku: { url: "https://developers.doku.com/accept-payments/doku-mcp-server", reference: "https://developers.doku.com/accept-payments/doku-mcp-server", steps: ["Open DOKU's official MCP Server guide and choose Sandbox first unless this project is explicitly approved for production payments.", "Obtain the DOKU Client ID and MCP API Key for that environment.", "Enter them only in this private setup form; do not paste them into chat, Baton notes, RR, Git, or project MCP JSON.", "MSO calls the fixed official DOKU MCP endpoint with a read-only MCP initialize request before saving the connection."] },
   "openai-app": { url: "https://chatgpt.com/", reference: "https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt", steps: ["Enable ChatGPT developer mode, then create/register the remote MCP app for this MSO installation and complete Scan Tools + OAuth.", "Open the registered app details. Copy the App ID shown there, or copy the technical plugin_asdk_app_… id from the browser URL; do not use the Version ID as the app binding.", "Enter the App ID only in this private Integrations form. MSO normalizes plugin_asdk_app_… to canonical asdk_app_… and never returns the stored value through tool/model responses.", "Use the private plugin staging/link command when packaging. Keep the repository .app.json empty so a maintainer-specific App ID is never committed or distributed to other users."] },
 } as const satisfies Record<AdditionalProviderId, { url: string; reference: string; steps: readonly string[] }>;

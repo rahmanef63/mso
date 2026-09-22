@@ -28,6 +28,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `channels` add Telegram and Discord channels
 - `federation` bridge Batonly to MSO and SI-Coder
 - `workflows` split n8n and improve org automation ux
 

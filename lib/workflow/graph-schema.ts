@@ -108,7 +108,7 @@ export function parseWorkflowGraphDefinition(raw: unknown): WorkflowGraphDefinit
   const edges = raw.edges.map((edge) => parseEdge(edge, nodeIds));
   if (new Set(edges.map((edge) => edge.id)).size !== edges.length) throw new Error("duplicate workflow edge id");
   const activeEdges = edges.filter((edge) => !edge.disabled);
-  const triggerIds = new Set(nodes.filter((node) => ["manual", "schedule", "webhook"].includes(node.type)).map((node) => node.id));
+  const triggerIds = new Set(nodes.filter((node) => ["manual", "schedule", "webhook", "channel_trigger"].includes(node.type)).map((node) => node.id));
   if (activeEdges.some((edge) => triggerIds.has(edge.target))) throw new Error("trigger nodes must be workflow roots");
   assertAcyclic(nodes, activeEdges);
   return { ...(typeof raw.id === "string" ? { id: raw.id } : {}), name: raw.name.trim(), description: raw.description, status: raw.status as WorkflowGraphStatus, inputs: structuredClone(raw.inputs), nodes, edges, metadata: parseMetadata(raw.metadata, nodeIds) };

@@ -14,6 +14,7 @@ const commandOwnerFiles = [
   "scripts/cli/commands-runtime.sh",
   "scripts/cli/flows.sh",
   "scripts/cli/workflows.sh",
+  "scripts/cli/channels.sh",
   "scripts/cli/commands-state.sh",
   "scripts/cli/organization.sh",
   "scripts/cli/config-command.sh",
@@ -115,6 +116,8 @@ describe("bin/mso", () => {
       // named CLI setup verb opens that form without placing keys in shell/tool JSON.
       "POST /api/integrations/setup",
       "GET /api/sw",
+      "POST /api/v1/channels/telegram/[id]", // Provider callback: requires Telegram webhook signature, not a user CLI action.
+      "POST /api/v1/channels/discord/[id]", // Provider callback: requires Discord Ed25519 signature, not a user CLI action.
       "/api/v1/managed-apps/[id]/proxy/[[...path]]",
       "/api/auth/devices",
       // Internal transport between scripts/mso-agent.mjs and the authenticated

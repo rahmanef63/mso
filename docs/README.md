@@ -36,6 +36,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`CLI.md`](./CLI.md) | Generated `mso` CLI contract |
 | [`INTEGRATION-PORTABILITY.md`](./INTEGRATION-PORTABILITY.md) | Reviewed JSON identity transfers, encrypted credentials, SC interoperability and receiver limits |
 | [`INTEGRATIONS.md`](./INTEGRATIONS.md) | Native temporary credential forms, direct HTTPS secret submission, CLI and ChatGPT Page |
+| [`CHANNELS.md`](./CHANNELS.md) | Provider-neutral Telegram/Discord messaging, inbound verification, outbound send and Workflow bridge |
 | [`PROJECT-MCP-CONNECTIONS.md`](./PROJECT-MCP-CONNECTIONS.md) | Named private connections, endpoint binding and identity for modular project MCPs |
 | [`BATONLY-FEDERATION.md`](./BATONLY-FEDERATION.md) | Pull-based Batonly capability federation worker, MSO/SI-Coder execution boundary, polling, security and acceptance contract |
 | [`AUTOMATION-FLOWS.md`](./AUTOMATION-FLOWS.md) | Versioned project API/MCP flows, CLI, sessions, Add MCP, assets and limits |

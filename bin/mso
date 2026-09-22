@@ -51,6 +51,7 @@
 #   flow list|inspect|run|status|save|delete  Project API/MCP automation (flow --help)
 #   workflow *           Visual/private Workflow Graph v2 CRUD + run/status (workflow --help)
 #   integrations  Named credential users, connections, sources, setup and execution
+#   channels *     Telegram/Discord channels: list, create/save/delete, test, send
 #   provider *           Infrastructure credentials: list | set | rm | doctor
 #   providers *          Alias for provider
 #   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain

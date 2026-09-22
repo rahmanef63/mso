@@ -1,3 +1,13 @@
+## 2026-09-23 — Add native Channels for Telegram and Discord
+
+MSO now has a first-class **Channels** application and provider-neutral messaging runtime. Telegram and Discord are adapters over one shared channel contract rather than separate feature implementations. Channel records contain only routing metadata and exact native Integrations references; bot tokens and webhook secrets remain in Integrations.
+
+Telegram supports Bot API credential verification, outbound text, normalized webhook events and webhook-secret validation. Discord supports REST bot verification, outbound channel messages, signed Ed25519 Interactions including PING/PONG, and normalized command/component/modal events. Discord Gateway message ingestion is explicitly not claimed.
+
+Native Workflows gains `Channel Trigger` and `Channel Send` nodes. Verified inbound events use the existing Workflow Graph engine and durable session/run machinery instead of a parallel automation runtime. The Channels UI exposes connection health, enabled state, default target, workflow binding, provider inbound URL, test, edit/delete and test-message controls, with direct navigation back to Integrations when setup is missing.
+
+Focused provider/schema/store/API tests and TypeScript verification cover the new boundary. `docs/CHANNELS.md` records runtime, security and capability truth.
+
 ## 2026-09-23 — Isolate Termux installations inside Ubuntu PRoot
 
 The Termux adapter now starts installation and the generated CLI launcher with a fresh guest environment, explicit Linux-only PATH and non-root owner. It rejects an Android Node/Bun runtime accidentally visible inside the guest, retains the legacy native launcher target while replacing its symlink, and supports bounded build workers, Node heap, resumable installs and a private persistent install log for low-memory tablets. Shell tests exercise the exact guest argv boundary, hostile inherited environment, argument forwarding and failed guest-runtime probes without installing packages. The launcher test reads its generated file directly instead of first checking filesystem metadata, avoiding a check/read race flagged by CodeQL.

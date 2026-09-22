@@ -133,6 +133,28 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
       const response = await checked("Supabase", "https://api.supabase.com/v1/projects", { authorization: `Bearer ${values.managementToken}`, accept: "application/json" });
       return `authenticated; ${countRows(response.body)} accessible project(s)`;
     }
+    case "telegram": {
+      if (!present(values.botToken)) return null;
+      if (!/^\\d{5,16}:[A-Za-z0-9_-]{20,}$/.test(values.botToken)) throw new Error("Telegram bot token format is invalid");
+      const response = await checked("Telegram", "https://api.telegram.org/bot" + values.botToken + "/getMe", { accept: "application/json" });
+      const root = obj(response.body);
+      const result = obj(root.result);
+      if (root.ok !== true || (typeof result.id !== "number" && typeof result.id !== "string")) throw new Error("Telegram bot identity unavailable");
+      const username = typeof result.username === "string" && /^[A-Za-z0-9_]{3,64}$/.test(result.username) ? " @" + result.username : "";
+      return "authenticated; bot identity verified" + username;
+    }
+    case "discord": {
+      if (!present(values.botToken)) return null;
+      const response = await checked("Discord", "https://discord.com/api/v10/users/@me", {
+        authorization: "Bot " + values.botToken,
+        accept: "application/json",
+        "user-agent": "MSO-integration-doctor",
+      });
+      const body = obj(response.body);
+      if (typeof body.id !== "string") throw new Error("Discord bot identity unavailable");
+      const username = typeof body.username === "string" && body.username.length <= 80 ? " as " + body.username : "";
+      return "authenticated; bot identity verified" + username;
+    }
     case "doku":
       return doctorDoku(values);
     case "convex-cloud": {
