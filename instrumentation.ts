@@ -19,6 +19,9 @@ export async function register() {
       Promise.all([import("./lib/workflow/graph-triggers"), import("./lib/mcp/tools"), import("./lib/mcp/capability-runtime")])
         .then(([{ startWorkflowScheduler }, { TOOLS_BY_NAME }, { msoCapabilityRuntime }]) => startWorkflowScheduler((name) => TOOLS_BY_NAME.get(name), msoCapabilityRuntime))
         .catch(() => undefined),
+      import("./lib/mcp/federation/batonly-worker")
+        .then(({ startBatonlyFederationWorker }) => startBatonlyFederationWorker())
+        .catch(() => undefined),
     ]);
     // systemd liveness: when the unit sets WatchdogSec, systemd exposes
     // NOTIFY_SOCKET + WATCHDOG_USEC. Node has no native AF_UNIX SOCK_DGRAM
