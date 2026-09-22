@@ -35,6 +35,7 @@ try {
   let saved = chart.units.find((u) => u.id === "custom-test").projectFlow;
   expect(saved.nodes).toEqual(orgNodes); expect(saved.edges).toEqual(orgEdges); expect(saved.customNodes[0].nodeIds.sort()).toEqual(["a", "b"]);
   await openOrg(); await expect(orgCanvas.locator(".react-flow__node-customGroup")).toHaveCount(1);
+  await page.getByRole("button", { name: "Map", exact: true }).click();
   await expect(orgCanvas.locator(".react-flow__edge")).toHaveCount(1);
   const customCard = orgCanvas.locator(".react-flow__node-customGroup");
   await page.waitForTimeout(350);
@@ -53,6 +54,7 @@ try {
   await expect.poll(async () => (await api("/api/v1/organization")).body.chart.units.find((u) => u.id === "custom-test").projectFlow.customNodes).toEqual([]);
   await openOrg(); await select(orgCanvas, ["a"]); await createGroup("Single custom");
   await expect(orgCanvas.locator(".react-flow__node-customGroup")).toHaveCount(1);
+  await page.getByRole("button", { name: "Map", exact: true }).click();
   await orgCanvas.locator(".react-flow__node-customGroup").dblclick();
   await expect(orgCanvas.locator(".react-flow__node-project")).toHaveCount(3);
   await expect(orgCanvas.locator('[data-routing-state="clear"]')).toHaveCount(2);

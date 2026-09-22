@@ -21,7 +21,7 @@ import {
   type Node,
   type ReactFlowProps,
 } from "@xyflow/react";
-import { Hand, LayoutGrid, Maximize2, MousePointer2, ZoomIn, ZoomOut } from "lucide-react";
+import { Hand, LayoutGrid, LocateFixed, Maximize2, MousePointer2, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { compactGraphViewport } from "./graph-fit";
 import { GraphRoutingProvider } from "./graph-routed-edge";
@@ -74,7 +74,15 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
   const initialKey = JSON.stringify(initialFitNodeIds ?? []);
   const initialNodes = useMemo(() => (JSON.parse(initialKey) as string[]).map((id) => ({ id })), [initialKey]);
   const { fitView, zoomIn, zoomOut } = useReactFlow<NodeType, EdgeType>();
+  const routingNodes = props.nodes ?? props.defaultNodes ?? [];
+  const routingEdges = props.edges ?? props.defaultEdges ?? [];
+  const selectionKey = JSON.stringify(routingNodes.filter((node) => node.selected).map((node) => node.id).sort());
+  const selectedNodes = useMemo(() => (JSON.parse(selectionKey) as string[]).map((id) => ({ id })), [selectionKey]);
   const fit = useCallback(() => void fitView({ padding: fitPadding, duration: 220, ...fitViewOptions }), [fitPadding, fitView, fitViewOptions]);
+  const focusSelection = useCallback(() => {
+    if (!selectedNodes.length) return;
+    void fitView({ nodes: selectedNodes, padding: Math.min(fitPadding, 0.16), duration: 220, maxZoom: 1.2, ...fitViewOptions });
+  }, [fitPadding, fitView, fitViewOptions, selectedNodes]);
   const fitResponsive = useCallback((duration: number) => {
     const preferredNodes = compact ? focusNodes : initialNodes;
     const nodes = preferredNodes.length ? preferredNodes : undefined;
@@ -103,12 +111,10 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
     const key = event.key.toLowerCase();
     if (key === "v") { event.preventDefault(); setMode("select"); }
     if (key === "h") { event.preventDefault(); setMode("pan"); }
-    if (key === "f") { event.preventDefault(); fit(); }
+    if (key === "f") { event.preventDefault(); if (event.shiftKey && selectedNodes.length) focusSelection(); else fit(); }
     if (key === "+" || key === "=") { event.preventDefault(); void zoomIn({ duration: 160 }); }
     if (key === "-") { event.preventDefault(); void zoomOut({ duration: 160 }); }
   };
-  const routingNodes = props.nodes ?? props.defaultNodes ?? [];
-  const routingEdges = props.edges ?? props.defaultEdges ?? [];
   return <GraphRoutingProvider nodes={routingNodes} edges={routingEdges}><div className="h-full min-h-0 w-full min-w-0 outline-none" tabIndex={0} onKeyDown={keyboard}>
     <ReactFlow<NodeType, EdgeType>
       {...props}
@@ -127,6 +133,7 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
         <ControlButton aria-label="Pan mode" title="Pan (H or hold Space)" onClick={() => setMode("pan")} className={mode === "pan" ? "is-active" : undefined}><Hand aria-hidden/></ControlButton>
         <ControlButton aria-label="Zoom in" title="Zoom in (+)" onClick={() => void zoomIn({ duration: 160 })}><ZoomIn aria-hidden/></ControlButton>
         <ControlButton aria-label="Zoom out" title="Zoom out (-)" onClick={() => void zoomOut({ duration: 160 })}><ZoomOut aria-hidden/></ControlButton>
+        <ControlButton aria-label="Focus selection" title="Focus selection (Shift+F)" disabled={!selectedNodes.length} onClick={focusSelection}><LocateFixed aria-hidden/></ControlButton>
         <ControlButton aria-label="Fit view" title="Fit complete graph (F)" onClick={fit}><Maximize2 aria-hidden/></ControlButton>
         {onTidy ? <ControlButton aria-label="Tidy up" title="Tidy up" onClick={tidy} className="mso-graph-secondary-control"><LayoutGrid aria-hidden/></ControlButton> : null}
       </Controls>

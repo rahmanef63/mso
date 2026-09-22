@@ -45,7 +45,8 @@ describe("Workflow session graph UI contract", () => {
     expect(sessionDetails).toContain("Self-improve");
     expect(workflowApp).toContain("saveSessionWorkflowDraft");
     expect(workflowApp).toContain("listWorkflowLearning");
-    expect(workflowCanvas).toContain('showMinimap={!readOnly}');
+    expect(workflowCanvas).toContain('showMinimap={nodes.length > 3}');
+    expect(workflowCanvas).not.toContain('showMinimap={!readOnly}');
   });
 
   it("gives the desktop session library enough width and lets labels wrap instead of clipping", () => {

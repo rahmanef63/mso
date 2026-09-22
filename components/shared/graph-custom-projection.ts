@@ -31,3 +31,19 @@ export function moveCustomNode<T extends { id: string; position: { x: number; y:
   const dx = position.x - Math.min(...members.map((node) => node.position.x)), dy = position.y - Math.min(...members.map((node) => node.position.y));
   return nodes.map((node) => group.nodeIds.includes(node.id) ? { ...node, position: { x: node.position.x + dx, y: node.position.y + dy } } : node);
 }
+
+
+export function moveGraphNodesWithCustomGroups<T extends { id: string; position: { x: number; y: number } }>(
+  nodes: T[],
+  groups: GraphCustomNode[],
+  movedItems: Array<{ id: string; position: { x: number; y: number } }>,
+): T[] {
+  let next = nodes;
+  for (const item of movedItems) {
+    const group = groups.find((candidate) => candidate.id === item.id);
+    next = group
+      ? moveCustomNode(next, group, item.position)
+      : next.map((node) => node.id === item.id ? { ...node, position: item.position } : node);
+  }
+  return next;
+}

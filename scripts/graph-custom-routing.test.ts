@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseGraphCustomNodes, pruneGraphCustomNodes } from "../lib/contracts/graph-custom-nodes";
-import { projectCustomNodes, moveCustomNode } from "../components/shared/graph-custom-projection";
+import { projectCustomNodes, moveCustomNode, moveGraphNodesWithCustomGroups } from "../components/shared/graph-custom-projection";
 import { orthogonalRoute, segmentBlocked, routePath } from "../components/shared/graph-route";
 import { parseWorkflowGraphDefinition } from "../lib/workflow/graph-schema";
 import { changeOrganizationFlow } from "../lib/agent/organization-flow-mutations";
@@ -30,6 +30,15 @@ describe("custom node contract", () => {
     const result = projectCustomNodes(nodes, edges, [group, second], []);
     expect(result.edges[0]).toMatchObject({ source: group.id, target: second.id, sourceHandle: "out-boundary", targetHandle: "in-boundary" });
     expect(projectCustomNodes([], [], [group], []).nodes).toEqual([]);
+  });
+  it("applies mixed normal/group canvas moves through one shared helper", () => {
+    const moved = moveGraphNodesWithCustomGroups(nodes, [group], [
+      { id: group.id, position: { x: 100, y: 200 } },
+      { id: "c", position: { x: 900, y: 300 } },
+    ]);
+    expect(moved[0].position).toEqual({ x: 100, y: 200 });
+    expect(moved[1].position).toEqual({ x: 400, y: 260 });
+    expect(moved[2].position).toEqual({ x: 900, y: 300 });
   });
   it("moves members together and only removes grouping on ungroup", () => {
     const moved = moveCustomNode(nodes, group, { x: 100, y: 200 });

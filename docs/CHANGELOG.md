@@ -42,6 +42,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Changed**
 
+- `graph` establish shared flow foundation
 - `ui` reduce organization and workflow chrome
 
 **Tests**
@@ -53,6 +54,11 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Fixed**
 
 - `mcp` negotiate native app ui
+
+**Chores**
+
+- `deps-dev` bump the development-minor-patch group with 3 updates
+- `deps` bump the production-minor-patch group with 4 updates
 
 ## 2026-09-20
 
