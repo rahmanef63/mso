@@ -27,7 +27,30 @@ export function validateMcpRequest(req: Request, body: unknown): { modern: boole
   if (["tools/call", "resources/read", "prompts/get"].includes(rpc.method) && (typeof name !== "string" || decodeMcpHeader(req.headers.get("Mcp-Name")) !== name)) return fail(-32020, "Mcp-Name header does not match the request body");
   return { modern: true };
 }
-export function modernMcpResult(value: Record<string, unknown>, serverVersion: string) {
+const CACHEABLE_METHODS = new Set([
+  "server/discover",
+  "tools/list",
+  "prompts/list",
+  "resources/list",
+  "resources/read",
+  "resources/templates/list",
+]);
+
+export function modernMcpResult(value: Record<string, unknown>, serverVersion: string, method?: string) {
   if (!object(value.result)) return value;
-  return { ...value, result: { ...value.result, resultType: "complete", _meta: { ...(object(value.result._meta) ? value.result._meta : {}), "io.modelcontextprotocol/serverInfo": { name: "mso", version: serverVersion } } } };
+  const result = value.result;
+  const cacheable = Boolean(method && CACHEABLE_METHODS.has(method));
+  return {
+    ...value,
+    result: {
+      ...result,
+      resultType: "complete",
+      ...(cacheable && typeof result.ttlMs !== "number" ? { ttlMs: 60_000 } : {}),
+      ...(cacheable && result.cacheScope !== "public" && result.cacheScope !== "private" ? { cacheScope: "private" } : {}),
+      _meta: {
+        ...(object(result._meta) ? result._meta : {}),
+        "io.modelcontextprotocol/serverInfo": { name: "mso", version: serverVersion },
+      },
+    },
+  };
 }

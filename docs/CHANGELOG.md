@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` publish modern cache hints
 - `mcp` normalize widget resource discovery
 
 **Changed**
