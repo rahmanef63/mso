@@ -12,12 +12,17 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` publish modern cache hints
 - `workflows` reopen details on node selection
 - `mcp` normalize widget resource discovery
 
 **Changed**
 
 - `ui` reduce organization and workflow chrome
+
+**Tests**
+
+- `workflows` update details selection contract
 
 ## 2026-09-21
 
