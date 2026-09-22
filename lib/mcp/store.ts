@@ -1,5 +1,5 @@
 import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -124,8 +124,8 @@ function referencedClientIds(store: Store): Set<string> {
   const now = Date.now();
   return new Set([
     ...Object.values(store.codes).filter((row) => row.expiresAt >= now).map((row) => row.clientId),
-    ...Object.values(store.tokens).filter((row) => !row.revokedAt && row.expiresAt >= now).map((row) => row.clientId),
-    ...Object.values(store.refreshTokens).filter((row) => !row.revokedAt && row.expiresAt >= now).map((row) => row.clientId),
+    ...Object.values(store.tokens).filter((row) => !row.revokedAt && (row.expiresAt === 0 || row.expiresAt >= now)).map((row) => row.clientId),
+    ...Object.values(store.refreshTokens).filter((row) => !row.revokedAt && (row.expiresAt === 0 || row.expiresAt >= now)).map((row) => row.clientId),
   ].filter(Boolean));
 }
 
@@ -225,7 +225,7 @@ export async function validateToken(token: string): Promise<(McpToken & { hash: 
   const hash = sha256hex(token);
   const rec = (await read()).tokens[hash];
   if (!rec || rec.revokedAt) return null;
-  if (rec.expiresAt < Date.now()) return null;
+  if (rec.expiresAt > 0 && rec.expiresAt < Date.now()) return null;
   return { ...rec, hash };
 }
 
@@ -255,7 +255,7 @@ export async function listTokens(): Promise<TokenView[]> {
     .map(([hash, t]) => ({
       ...t,
       id: hash.slice(0, 16),
-      status: t.revokedAt ? ("revoked" as const) : t.expiresAt < now ? ("expired" as const) : ("active" as const),
+      status: t.revokedAt ? ("revoked" as const) : (t.expiresAt > 0 && t.expiresAt < now) ? ("expired" as const) : ("active" as const),
     }))
     .sort((a, b) => b.createdAt - a.createdAt);
 }
@@ -282,5 +282,38 @@ export function revokeAllTokens(): Promise<number> {
     for (const t of Object.values(store.refreshTokens)) if (!t.revokedAt) t.revokedAt = now;
     if (n || Object.keys(store.refreshTokens).length) await write(store);
     return n;
+  });
+}
+
+export function mintPatToken(input: {
+  label: string;
+  scope: Scope;
+  ttlDays?: number | null;
+}): Promise<{ rawToken: string; tokenView: TokenView }> {
+  return mutate(async () => {
+    const store = sweep(await read());
+    const rawToken = "mso_pat_" + randomUUID().replaceAll("-", "") + randomBytes(16).toString("hex");
+    const now = Date.now();
+    const ttlDays = typeof input.ttlDays === "number" && input.ttlDays > 0 ? input.ttlDays : 0;
+    const expiresAt = ttlDays > 0 ? now + ttlDays * 24 * 60 * 60 * 1000 : 0;
+    const label = input.label.trim().slice(0, 80) || "Personal Access Token";
+    const tokenRec: McpToken = {
+      label,
+      clientId: "manual:pat",
+      scope: input.scope,
+      createdAt: now,
+      expiresAt,
+    };
+    const hash = sha256hex(rawToken);
+    store.tokens[hash] = tokenRec;
+    await write(store);
+    return {
+      rawToken,
+      tokenView: {
+        ...tokenRec,
+        id: hash.slice(0, 16),
+        status: "active" as const,
+      },
+    };
   });
 }

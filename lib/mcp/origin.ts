@@ -7,7 +7,9 @@
 // client-settable and is consulted LAST.
 
 function normalizedConfiguredOrigin(): string | null {
-  const explicit = process.env.OS_PUBLIC_ORIGIN?.trim();
+  const explicit = process.env.OS_PUBLIC_ORIGIN?.trim() ||
+                   process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+                   process.env.APP_URL?.trim();
   if (!explicit) return null;
   try {
     return new URL(explicit).origin;
@@ -99,20 +101,44 @@ export function mcpCorsHeaders(req: Request): Record<string, string> {
   };
 }
 
+export function getBaseUrl(req: Request): string {
+  const explicit = process.env.OS_PUBLIC_ORIGIN?.trim() ||
+                   process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+                   process.env.APP_URL?.trim();
+  if (explicit) {
+    try {
+      return new URL(explicit).origin;
+    } catch {
+      // Misconfigured value — fall through to header resolution
+    }
+  }
+
+  const url = new URL(req.url);
+  const forwardedHost = req.headers.get("x-forwarded-host")?.split(",")[0].trim();
+  const host = forwardedHost || req.headers.get("host")?.trim() || url.host || "localhost:3000";
+  const hostname = host.split(":")[0];
+  const isLoopback = isLoopbackHostname(hostname);
+
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0].trim();
+  const proto = forwardedProto || (isLoopback ? "http" : url.protocol ? url.protocol.replace(":", "") : "https");
+
+  try {
+    return new URL(`${proto}://${host}`).origin;
+  } catch {
+    return `${proto}://${host}`;
+  }
+}
+
 export function publicOrigin(req: Request): string {
   const explicit = process.env.OS_PUBLIC_ORIGIN?.trim();
   if (explicit) {
     try {
       return new URL(explicit).origin;
     } catch {
-      // Misconfigured value (a bare hostname, no scheme) — fall through to the
-      // headers rather than emit a URL no client can resolve.
+      // Misconfigured value — fall through to dynamic resolution
     }
   }
-  const url = new URL(req.url);
-  const proto = req.headers.get("x-forwarded-proto")?.split(",")[0].trim() || url.protocol.replace(":", "");
-  const host = req.headers.get("host") ?? req.headers.get("x-forwarded-host") ?? url.host;
-  return `${proto}://${host}`;
+  return getBaseUrl(req);
 }
 
 export { clientIp } from "@/lib/host/request-ip";

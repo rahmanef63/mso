@@ -57,6 +57,20 @@ describe("MCP conversation/session correlation", () => {
     expect(result.agentSessionId).toBeUndefined();
     expect(mocks.findOrCreate).not.toHaveBeenCalled();
   });
+
+  it("auto-provisions a persistent default session when client sends no session metadata or header", async () => {
+    const bare = new Request("https://mso.test/mcp");
+    const result = await resolveMcpSession(bare, call(), "mcp-client:x", "Antigravity");
+    if ("response" in result) throw new Error("unexpected error response");
+    expect(result.conversationBound).toBe(false);
+    expect(result.agentSessionId).toBeTruthy();
+    expect(result.responseSessionId).toBe(result.agentSessionId);
+    expect(mocks.findOrCreate).toHaveBeenCalledWith(
+      "mcp-client:x",
+      expect.stringMatching(/^[a-f0-9]{64}$/),
+      "Default · Antigravity"
+    );
+  });
 });
 
 it("bootstraps without transport state and rejects a foreign explicit application session", async () => {

@@ -57,7 +57,11 @@ export async function resolveMcpSession(req: Request, rpc: RpcLike, principal: s
     return { responseSessionId: transportId, agentSessionId: session.id, conversationBound: true };
   }
 
-  if (!transportId) return { response: errorResponse(rpc, 400, "missing MSO session: call agent_session_open, then send params._meta[mso/sessionId]; ChatGPT metadata and legacy Mcp-Session-Id remain supported") };
+  if (!transportId) {
+    const autoHash = conversationHash(principal, "auto:default");
+    const session = await findOrCreateAgentSessionForConversation(principal, autoHash, `Default · ${label || "MSO"}`);
+    return { responseSessionId: session.id, agentSessionId: session.id, conversationBound: false };
+  }
   const legacyHash = conversationHash(principal, `legacy:${transportId}`);
   const session = await findOrCreateAgentSessionForConversation(principal, legacyHash, `MCP legacy · ${label || "MSO"}`);
   return { responseSessionId: transportId, agentSessionId: session.id, conversationBound: false };

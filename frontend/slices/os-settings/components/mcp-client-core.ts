@@ -4,6 +4,7 @@ export type McpClientId =
   | "claude-code"
   | "cursor"
   | "gemini"
+  | "antigravity"
   | "vscode"
   | "other";
 
@@ -41,6 +42,7 @@ export const MCP_CLIENTS: Array<{
   { id: "claude-code", label: "Claude Code", description: "Remote HTTP + browser OAuth", kind: "cli" },
   { id: "cursor", label: "Cursor", description: "Remote MCP in mcp.json", kind: "editor" },
   { id: "gemini", label: "Gemini CLI", description: "Remote HTTP server", kind: "cli" },
+  { id: "antigravity", label: "Antigravity", description: "Google Antigravity MCP", kind: "cli" },
   { id: "vscode", label: "VS Code", description: "MCP: Add Server / mcp.json", kind: "editor" },
   { id: "other", label: "Other MCP", description: "Any Streamable HTTP client", kind: "generic" },
 ];
@@ -89,3 +91,16 @@ export function codexMcpConfig(rawOrigin: string): string {
   const { mcp } = mcpEndpoints(rawOrigin);
   return `[mcp_servers.mso]\nurl = "${mcp}"`;
 }
+
+export function antigravityMcpConfig(rawOrigin: string, token?: string): string {
+  const { mcp } = mcpEndpoints(rawOrigin);
+  return JSON.stringify({
+    mso: {
+      url: mcp,
+      headers: {
+        Authorization: `Bearer ${token || "<YOUR_PAT_TOKEN>"}`,
+      },
+    },
+  }, null, 2);
+}
+

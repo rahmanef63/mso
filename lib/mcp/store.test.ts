@@ -111,6 +111,35 @@ describe("tokens", () => {
     expect(results.at(-1)).toBe(true);
     expect(await store.validateToken("tok-race")).toBeNull();
   });
+
+  it("mints and validates Personal Access Tokens (PAT) with Never Expire", async () => {
+    const { rawToken, tokenView } = await store.mintPatToken({ label: "Antigravity PAT", scope: "exec", ttlDays: 0 });
+    expect(rawToken).toMatch(/^mso_pat_[a-f0-9]+$/);
+    expect(tokenView.label).toBe("Antigravity PAT");
+    expect(tokenView.scope).toBe("exec");
+    expect(tokenView.expiresAt).toBe(0);
+    expect(tokenView.status).toBe("active");
+
+    const validated = await store.validateToken(rawToken);
+    expect(validated).not.toBeNull();
+    expect(validated!.scope).toBe("exec");
+    expect(validated!.expiresAt).toBe(0);
+
+    const listed = await store.listTokens();
+    const hit = listed.find((t) => t.id === tokenView.id);
+    expect(hit).toBeDefined();
+    expect(hit!.status).toBe("active");
+  });
+
+  it("mints PAT with specific ttlDays", async () => {
+    const { rawToken, tokenView } = await store.mintPatToken({ label: "Gemini CLI", scope: "read", ttlDays: 30 });
+    expect(tokenView.expiresAt).toBeGreaterThan(Date.now() + 29 * 86_400_000);
+    expect(tokenView.status).toBe("active");
+
+    const validated = await store.validateToken(rawToken);
+    expect(validated).not.toBeNull();
+    expect(validated!.scope).toBe("read");
+  });
 });
 
 describe("clients", () => {
