@@ -94,6 +94,10 @@ proot-distro login "$DISTRO" --user "$GUEST_USER" -- /usr/bin/env -i \
 
 LAUNCHER="$TERMUX_BIN/mso"
 info "installing Termux launcher: $LAUNCHER"
+# Legacy native-Termux installs used a symlink here pointing into ~/projects/mso.
+# Remove the directory entry first so redirection cannot follow that symlink and
+# overwrite the legacy checkout target.
+rm -f -- "$LAUNCHER"
 cat > "$LAUNCHER" <<EOF
 #!$TERMUX_BIN/bash
 set -Eeuo pipefail

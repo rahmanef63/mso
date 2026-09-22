@@ -16,6 +16,9 @@ function fixture() {
   const poison = path.join(root, "poison.sh");
   fs.writeFileSync(poison, "echo HOST_STARTUP_LEAK >&2; exit 91\n");
   for (const name of ["node", "bun"]) fs.writeFileSync(path.join(prefix, "bin", name), "#!/bin/sh\necho android\n", { mode: 0o755 });
+  const legacyTarget = path.join(root, "legacy-native-mso");
+  fs.writeFileSync(legacyTarget, "LEGACY_NATIVE_TARGET\n");
+  fs.symlinkSync(legacyTarget, path.join(prefix, "bin/mso"));
   // No packages, downloads, user creation or real PRoot operations are performed.
   // Capture the real installer argv, including its generated launcher heredoc.
   const mock = `
@@ -42,7 +45,7 @@ proot-distro() {
     LD_PRELOAD: `${prefix}/lib/nonexistent-test-preload.so`, CFLAGS: "-I/android", LDFLAGS: "-L/android",
     BASH_ENV: poison, ENV: poison, "BASH_FUNC_node%%": "() { echo android; }",
   };
-  return { root, prefix, mock, env, dirty, readArgs, launcher: path.join(prefix, "bin/mso") };
+  return { root, prefix, legacyTarget, mock, env, dirty, readArgs, launcher: path.join(prefix, "bin/mso") };
 }
 function probe(args: string[], env: NodeJS.ProcessEnv) {
   const copy = [...args], body = copy.indexOf("-c") + 1;
@@ -76,6 +79,8 @@ describe("Termux PRoot Linux environment boundary", () => {
   });
   it("generates a syntax-valid launcher with the same clean boundary and lossless argument forwarding", () => {
     const f = fixture();
+    expect(fs.lstatSync(f.launcher).isSymbolicLink()).toBe(false);
+    expect(fs.readFileSync(f.legacyTarget, "utf8")).toBe("LEGACY_NATIVE_TARGET\n");
     expect(fs.statSync(f.launcher).mode & 0o777).toBe(0o755);
     expect(spawnSync("/bin/bash", ["-n", f.launcher]).status).toBe(0);
     // exec cannot call the shell mock; a test-only copy removes just that exec.
