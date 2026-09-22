@@ -48,10 +48,10 @@ const output = {
   },
 };
 
-assert.equal(listResource.uri, "ui://mso/list-v2.html");
+assert.equal(listResource.uri, "ui://mso/list-v3.html");
 assert.deepEqual(listResource._meta.ui.csp.connectDomains, []);
 assert.deepEqual(listResource._meta.ui.csp.resourceDomains, []);
-assert.equal(resource.uri, "ui://mso/page-v15.html");
+assert.equal(resource.uri, "ui://mso/page-v16.html");
 assert.deepEqual(resource._meta.ui.csp.frameDomains, [registry[0].origin]);
 assert.deepEqual(resource._meta["openai/widgetCSP"].frame_domains, [registry[0].origin]);
 assert(resource.text.includes('el("iframe","preview-frame")'));

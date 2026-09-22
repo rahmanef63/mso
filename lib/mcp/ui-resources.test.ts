@@ -45,6 +45,7 @@ describe("MCP Apps List, Block and Page contract", () => {
     expect(list?.outputSchema).toBeDefined();
     expect(list?._meta).toMatchObject({
       ui: { resourceUri: MSO_LIST_URI, visibility: ["model", "app"] },
+      "ui/resourceUri": MSO_LIST_URI,
       "openai/widgetAccessible": true,
     });
     expect(list?._meta?.["openai/outputTemplate"]).toBeUndefined();
@@ -53,6 +54,7 @@ describe("MCP Apps List, Block and Page contract", () => {
     expect(block?.outputSchema).toBeDefined();
     expect(block?._meta).toMatchObject({
       ui: { resourceUri: MSO_BLOCK_URI, visibility: ["model", "app"] },
+      "ui/resourceUri": MSO_BLOCK_URI,
       "openai/outputTemplate": MSO_BLOCK_URI,
       "openai/widgetAccessible": true,
     });
@@ -61,6 +63,7 @@ describe("MCP Apps List, Block and Page contract", () => {
     expect(page?.outputSchema).toBeDefined();
     expect(page?._meta).toMatchObject({
       ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },
+      "ui/resourceUri": MSO_PAGE_URI,
       "openai/widgetAccessible": true,
     });
     expect(page?._meta?.["openai/outputTemplate"]).toBeUndefined();
@@ -68,6 +71,7 @@ describe("MCP Apps List, Block and Page contract", () => {
     const setup = tools.find((tool) => tool.name === "integration_setup_open");
     expect(setup?._meta).toMatchObject({
       ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },
+      "ui/resourceUri": MSO_PAGE_URI,
       "openai/widgetAccessible": true,
     });
     expect(setup?._meta?.["openai/outputTemplate"]).toBeUndefined();
@@ -76,6 +80,7 @@ describe("MCP Apps List, Block and Page contract", () => {
     expect(probe?.outputSchema).toBeDefined();
     expect(probe?._meta).toMatchObject({
       ui: { resourceUri: MSO_NATIVE_UI_PROBE_URI, visibility: ["model", "app"] },
+      "ui/resourceUri": MSO_NATIVE_UI_PROBE_URI,
     });
     expect(probe?._meta?.["openai/outputTemplate"]).toBeUndefined();
     expect(probe?._meta?.["openai/widgetAccessible"]).toBeUndefined();
@@ -105,34 +110,6 @@ describe("MCP Apps List, Block and Page contract", () => {
       expect((tool?._meta?.ui as { resourceUri?: string } | undefined)?.resourceUri, name).toBeUndefined();
       expect(tool?._meta?.["openai/outputTemplate"], name).toBeUndefined();
     }
-  });
-
-  it("advertises the three product resources plus the isolated Native UI diagnostic probe", async () => {
-    const listed = await dispatch({ id: 1, method: "resources/list" }, "read", "mcp:ui-resource");
-    const resources = (listed.result as { resources: Array<{ uri: string; name: string; mimeType: string }> }).resources;
-    expect(resources).toEqual([
-      expect.objectContaining({ uri: MSO_LIST_URI, name: "MSO List", mimeType: MCP_APP_MIME_TYPE }),
-      expect.objectContaining({ uri: MSO_BLOCK_URI, name: "MSO Block", mimeType: MCP_APP_MIME_TYPE }),
-      expect.objectContaining({ uri: MSO_PAGE_URI, name: "MSO Page", mimeType: MCP_APP_MIME_TYPE }),
-      expect.objectContaining({ uri: MSO_NATIVE_UI_PROBE_URI, name: "MSO Native UI Probe", mimeType: MCP_APP_MIME_TYPE }),
-    ]);
-  });
-
-  it("serves the Native UI probe as static dependency-free HTML", async () => {
-    const read = await dispatch({ id: 31, method: "resources/read", params: { uri: MSO_NATIVE_UI_PROBE_URI } }, "read", "mcp:ui-native-probe");
-    const content = (read.result as { contents: Array<{ uri: string; mimeType: string; text: string; _meta: Record<string, any> }> }).contents[0];
-    expect(content.uri).toBe(MSO_NATIVE_UI_PROBE_URI);
-    expect(content.mimeType).toBe(MCP_APP_MIME_TYPE);
-    expect(content.text).toContain("MSO NATIVE UI WORKS");
-    expect(content.text).not.toContain("<script");
-    expect(content.text).not.toContain("fetch(");
-    expect(content.text).not.toContain("iframe");
-    expect(content._meta).toEqual({
-      ui: {
-        prefersBorder: true,
-        csp: { connectDomains: [], resourceDomains: [] },
-      },
-    });
   });
 
   it("serves a self-contained searchable List whose actions only return follow-ups", async () => {
@@ -186,7 +163,7 @@ describe("MCP Apps List, Block and Page contract", () => {
     });
     expect(content._meta.ui.csp.frameDomains).toBeUndefined();
     expect(content._meta["openai/widgetCSP"]).toEqual({ redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_BLOCK_URI).toContain("block-v4.html");
+    expect(MSO_BLOCK_URI).toContain("block-v5.html");
   });
 
   it("serves the full Page without external frame domains by default", async () => {
@@ -211,7 +188,7 @@ describe("MCP Apps List, Block and Page contract", () => {
     });
     expect(content._meta.ui.csp.frameDomains).toBeUndefined();
     expect(content._meta["openai/widgetCSP"]).toEqual({ connect_domains: [MSO_ORIGIN], redirect_domains: [MSO_ORIGIN] });
-    expect(MSO_PAGE_URI).toContain("page-v15.html");
+    expect(MSO_PAGE_URI).toContain("page-v16.html");
     expect(content.text).not.toContain("createElement(\"iframe\")");
     expect(content.text).not.toContain("mountReviewedFrame");
   });

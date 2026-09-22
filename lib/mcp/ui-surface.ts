@@ -7,7 +7,7 @@ import { OPEN_IN_MSO_SCRIPT, openInMsoControls } from "./ui-navigation";
 import { msoSurfaceScript } from "./ui-surface-script";
 import { MSO_SURFACE_STYLE } from "./ui-surface-style";
 
-export const MSO_PAGE_URI = "ui://mso/page-v15.html";
+export const MSO_PAGE_URI = "ui://mso/page-v16.html";
 const MIME = "text/html;profile=mcp-app";
 
 async function pageHtml(apps: readonly SurfaceApp[]): Promise<string> {

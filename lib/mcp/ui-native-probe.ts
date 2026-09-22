@@ -1,4 +1,4 @@
-export const MSO_NATIVE_UI_PROBE_URI = "ui://mso/native-probe-v1.html";
+export const MSO_NATIVE_UI_PROBE_URI = "ui://mso/native-probe-v2.html";
 const MIME = "text/html;profile=mcp-app";
 
 const html = String.raw`<!doctype html><meta charset="utf-8"><title>MSO Native UI Probe</title><main style="box-sizing:border-box;padding:16px;font:600 16px/1.4 system-ui,sans-serif">MSO NATIVE UI WORKS</main>`;

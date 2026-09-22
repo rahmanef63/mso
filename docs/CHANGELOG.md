@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-22
+
+**Fixed**
+
+- `mcp` normalize widget resource discovery
+
 ## 2026-09-21
 
 **Fixed**
