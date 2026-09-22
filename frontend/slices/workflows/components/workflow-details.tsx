@@ -36,19 +36,19 @@ export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNo
   onRunSelect: (run: WorkflowGraphRun) => void;
   onRestored: (graph: WorkflowGraph) => void;
 }) {
-  return <div className="flex h-full min-h-0 flex-col bg-card/20">
-    <div className="shrink-0 overflow-x-auto border-b">
-      <div className="flex min-w-max gap-1 p-1.5">
-        {PANELS.map(([value, label, Icon]) => <button
-          key={value}
-          type="button"
-          aria-pressed={panel === value}
-          className={`flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] transition ${panel === value ? "bg-accent font-semibold text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"}`}
-          onClick={() => onPanel(value)}
-        ><Icon className="size-3.5"/><span>{label}</span></button>)}
-      </div>
-    </div>
-    <div className="min-h-0 flex-1">
+  return <div className="flex h-full min-h-0 bg-card/20">
+    <nav aria-label="Workflow details" className="flex w-11 shrink-0 flex-col items-center gap-1 border-r bg-card/30 p-1.5">
+      {PANELS.map(([value, label, Icon]) => <button
+        key={value}
+        type="button"
+        aria-label={label}
+        title={label}
+        aria-pressed={panel === value}
+        className={`grid size-8 place-items-center rounded-md transition ${panel === value ? "bg-accent text-foreground shadow-sm" : "text-muted-foreground hover:bg-accent/55 hover:text-foreground"}`}
+        onClick={() => onPanel(value)}
+      ><Icon className="size-3.5"/></button>)}
+    </nav>
+    <div className="min-h-0 min-w-0 flex-1">
       {panel === "inspector" ? <ScrollArea className="h-full"><WorkflowInspector key={node?.id ?? `graph-${graph.id}`} graph={graph} graphs={graphs} node={node} onNode={onNode} onDeleteNode={onDeleteNode} onGraph={onGraph}/></ScrollArea> : null}
       {panel === "run" ? <WorkflowRunPanel run={run}/> : null}
       {panel === "history" ? <WorkflowRunHistory graph={graph} onSelect={onRunSelect}/> : null}

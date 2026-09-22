@@ -14,6 +14,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `mcp` normalize widget resource discovery
 
+**Changed**
+
+- `ui` reduce organization and workflow chrome
+
 ## 2026-09-21
 
 **Fixed**

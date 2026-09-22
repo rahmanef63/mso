@@ -121,10 +121,10 @@ export async function workflowCanvasJourney(page, fixture) {
   await expect(page.getByText(/→ Cache Context/)).toBeVisible();
   await page.getByRole("button", { name: "Reverse Memory Search to Cache Context" }).click();
 
-  const active = page.getByRole("switch", { name: "Active" }).first();
-  await expect(active).not.toBeChecked();
-  await active.click();
-  await expect(active).toBeChecked();
+  const statusSelect = page.getByLabel("Workflow status");
+  await expect(statusSelect).toHaveValue("draft");
+  await statusSelect.selectOption("active");
+  await expect(statusSelect).toHaveValue("active");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Unsaved", { exact: true })).toBeHidden();
   response = await get(page, `graph_id=${encodeURIComponent(graph.id)}`);
@@ -150,5 +150,5 @@ export async function workflowCanvasJourney(page, fixture) {
   // Delete using the last persisted revision; the local tidy is intentionally unsaved.
   response = await call(page, { action: "delete", graph_id: graph.id, expected_revision: graph.revision });
   expect(response.status).toBe(200);
-  console.log("PASS Workflow responsive toolbar/drawers, readable compact trigger focus, 5/5 canvas controls, minimap, persistent edge style/active/reverse controls, project/skill directory, active mode, cache/memory/session/directory runtime and cleanup");
+  console.log("PASS Workflow responsive toolbar/drawers, readable compact trigger focus, 5/5 canvas controls, minimap, persistent edge style/active/reverse controls, project/skill directory, lifecycle status, cache/memory/session/directory runtime and cleanup");
 }
