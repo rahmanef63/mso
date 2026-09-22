@@ -1,5 +1,6 @@
 "use client";
 
+import { Activity, BookOpen, Braces, Clock3, Database, History, SlidersHorizontal } from "lucide-react";
 import type { WorkflowGraph, WorkflowGraphNode, WorkflowGraphRun } from "@/lib/contracts/workflow-graph";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkflowInspector } from "./workflow-inspector";
@@ -8,10 +9,19 @@ import { WorkflowRunPanel } from "./workflow-run-panel";
 import { WorkflowVariablePanel } from "./workflow-variable-panel";
 import { WorkflowVersionPanel } from "./workflow-version-panel";
 import { WorkflowDirectoryPanel } from "./workflow-directory-panel";
+import { WorkflowDataTablePanel } from "./workflow-data-table-panel";
 
-export type WorkflowPanel = "inspector" | "run" | "history" | "versions" | "variables" | "directory";
+export type WorkflowPanel = "inspector" | "run" | "history" | "versions" | "variables" | "data" | "directory";
 
-const LABELS: Array<[WorkflowPanel, string]> = [["inspector", "Inspector"], ["run", "Run"], ["history", "History"], ["versions", "Versions"], ["variables", "Vars"], ["directory", "Directory"]];
+const PANELS = [
+  ["inspector", "Builder", SlidersHorizontal],
+  ["run", "Current run", Activity],
+  ["history", "Executions", History],
+  ["versions", "Versions", Clock3],
+  ["variables", "Variables", Braces],
+  ["data", "Data", Database],
+  ["directory", "Directory", BookOpen],
+] as const satisfies ReadonlyArray<readonly [WorkflowPanel, string, typeof SlidersHorizontal]>;
 
 export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNode, onDeleteNode, onGraph, onRunSelect, onRestored }: {
   graph: WorkflowGraph;
@@ -27,7 +37,25 @@ export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNo
   onRestored: (graph: WorkflowGraph) => void;
 }) {
   return <div className="flex h-full min-h-0 flex-col bg-card/20">
-    <div className="flex h-10 shrink-0 overflow-x-auto border-b">{LABELS.map(([value, label]) => <button key={value} type="button" className={`min-w-14 flex-1 px-1 text-[10px] ${panel === value ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"}`} onClick={() => onPanel(value)}>{label}</button>)}</div>
-    <div className="min-h-0 flex-1">{panel === "inspector" ? <ScrollArea className="h-full"><WorkflowInspector key={node?.id ?? `graph-${graph.id}`} graph={graph} graphs={graphs} node={node} onNode={onNode} onDeleteNode={onDeleteNode} onGraph={onGraph}/></ScrollArea> : null}{panel === "run" ? <WorkflowRunPanel run={run}/> : null}{panel === "history" ? <WorkflowRunHistory graph={graph} onSelect={onRunSelect}/> : null}{panel === "versions" ? <WorkflowVersionPanel graph={graph} onRestored={onRestored}/> : null}{panel === "variables" ? <WorkflowVariablePanel/> : null}{panel === "directory" ? <WorkflowDirectoryPanel/> : null}</div>
+    <div className="shrink-0 overflow-x-auto border-b">
+      <div className="flex min-w-max gap-1 p-1.5">
+        {PANELS.map(([value, label, Icon]) => <button
+          key={value}
+          type="button"
+          aria-pressed={panel === value}
+          className={`flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] transition ${panel === value ? "bg-accent font-semibold text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"}`}
+          onClick={() => onPanel(value)}
+        ><Icon className="size-3.5"/><span>{label}</span></button>)}
+      </div>
+    </div>
+    <div className="min-h-0 flex-1">
+      {panel === "inspector" ? <ScrollArea className="h-full"><WorkflowInspector key={node?.id ?? `graph-${graph.id}`} graph={graph} graphs={graphs} node={node} onNode={onNode} onDeleteNode={onDeleteNode} onGraph={onGraph}/></ScrollArea> : null}
+      {panel === "run" ? <WorkflowRunPanel run={run}/> : null}
+      {panel === "history" ? <WorkflowRunHistory graph={graph} onSelect={onRunSelect}/> : null}
+      {panel === "versions" ? <WorkflowVersionPanel graph={graph} onRestored={onRestored}/> : null}
+      {panel === "variables" ? <WorkflowVariablePanel/> : null}
+      {panel === "data" ? <WorkflowDataTablePanel/> : null}
+      {panel === "directory" ? <WorkflowDirectoryPanel/> : null}
+    </div>
   </div>;
 }

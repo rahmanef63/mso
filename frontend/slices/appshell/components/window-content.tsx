@@ -46,8 +46,12 @@ export function WindowContent({ app, payload, winId }: { app: string; payload?: 
 
   if (!descriptor) {
     return (
-      <div className="grid h-full place-items-center text-sm text-muted-foreground">
-        Unknown app: {app}
+      <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">
+        <div>
+          <p className="font-medium text-foreground">App unavailable</p>
+          <p className="mt-1 max-w-sm">This app is not installed or is not available for the current session role.</p>
+          <p className="mt-2 text-[10px] opacity-70">{app}</p>
+        </div>
       </div>
     );
   }

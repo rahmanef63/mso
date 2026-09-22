@@ -24,7 +24,7 @@ try {
   const orgEdges = [{ id: "a-b", source: "a", target: "b", label: "supports" }, { id: "b-c", source: "b", target: "c", label: "continues" }];
   const created = await api("/api/v1/organization", { action: "unit_upsert", expected_revision: chart.revision, unit: { id: "custom-test", key: "custom-test", name: "Custom Test", kind: "team", projectFlow: { version: 1, title: "Context", notes: "Source", nodes: orgNodes, edges: orgEdges } } });
   expect(created.status).toBe(200);
-  const openOrg = async () => { await page.goto(fixture.base + "/organization"); await page.getByRole("application", { name: "Organization units canvas", exact: true }).locator('[data-id="custom-test"]').click(); await expect(page.locator('[data-slot="organization-project-flow"]')).toBeVisible(); };
+  const openOrg = async () => { await page.goto(fixture.base + "/organization"); const directory = page.locator('[data-slot="organization-unit-directory"]'); await expect(directory).toBeVisible(); await directory.getByRole("button", { name: /Custom Test/ }).click(); await expect(page.locator('[data-slot="organization-project-flow"]')).toBeVisible(); };
   await openOrg();
   const orgCanvas = page.getByRole("application", { name: "Organization project flow canvas", exact: true });
   const select = async (canvas, ids) => { for (const id of ids) await canvas.locator(`[data-id="${id}"]`).click({ modifiers: ["Control"] }); await expect(page.locator('[data-slot="graph-custom-controls"]')).toContainText(`${ids.length} selected`); };
@@ -86,7 +86,12 @@ try {
   for (const viewport of [{ width: 1600, height: 1000 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport); await page.reload();
     await expect(wfCanvas.locator(".react-flow__node-customGroup")).toBeVisible();
-    expect(await page.locator('[data-slot="workflows-feature"]').evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    const overflow = await page.locator('[data-slot="workflows-feature"]').evaluate((el) => {
+      const root = el.getBoundingClientRect();
+      const offenders = [...el.querySelectorAll('*')].map((node) => ({ node, rect: node.getBoundingClientRect() })).filter(({ rect }) => rect.right > root.right + 1 || rect.left < root.left - 1).slice(0, 12).map(({ node, rect }) => ({ tag: node.tagName, slot: node.getAttribute('data-slot'), cls: node.className?.toString?.().slice(0, 160), text: node.textContent?.trim().slice(0, 80), left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width) }));
+      return { ok: el.scrollWidth <= el.clientWidth + 1, clientWidth: el.clientWidth, scrollWidth: el.scrollWidth, offenders };
+    });
+    expect(overflow, JSON.stringify(overflow, null, 2)).toMatchObject({ ok: true });
     if (process.env.MSO_SCREENSHOT_DIR) { await mkdir(process.env.MSO_SCREENSHOT_DIR, { recursive: true }); await page.screenshot({ path: path.join(process.env.MSO_SCREENSHOT_DIR, `custom-workflow-${viewport.width}.png`) }); }
   }
   expect(errors).toEqual([]);

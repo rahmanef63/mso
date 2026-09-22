@@ -99,7 +99,7 @@ export async function workflowCanvasJourney(page, fixture) {
   await expect(page.getByText("fixture-project", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "skills", exact: true }).click();
   await expect(page.getByText("No matching skills.", { exact: true })).toBeHidden();
-  await page.getByRole("button", { name: "Inspector", exact: true }).click();
+  await page.getByRole("button", { name: "Builder", exact: true }).click();
 
   // Connection controls are persisted graph metadata, not temporary React Flow styling.
   await page.locator(".react-flow__node", { hasText: "Manual Trigger" }).click();

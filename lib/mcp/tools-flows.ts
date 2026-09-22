@@ -4,8 +4,8 @@ import { BUILTIN_FLOWS } from "@/lib/workflow/automation-builtins";
 import { manageProjectFlow } from "@/lib/host/project-flow-manifest";
 import { type McpTool, S, str } from "./tool-kit";
 import { cloneWorkflowGraph, createWorkflowGraph, deleteWorkflowGraph, getWorkflowGraph, listWorkflowGraphs, updateWorkflowGraph, workflowGraphOwner } from "@/lib/workflow/graph-store";
-import { startWorkflowGraph, workflowGraphRunStatus } from "@/lib/workflow/graph-engine";
-import { listWorkflowGraphRuns } from "@/lib/workflow/graph-run-store";
+import { requestWorkflowGraphStop, startWorkflowGraph, workflowGraphRunStatus } from "@/lib/workflow/graph-engine";
+import { deleteWorkflowGraphRun, listWorkflowGraphRuns, readWorkflowGraphRun } from "@/lib/workflow/graph-run-store";
 import { listWorkflowGraphVersions, readWorkflowGraphVersion } from "@/lib/workflow/graph-version-store";
 import { workflowNodeCatalog } from "@/lib/workflow/node-catalog";
 import { workflowTemplate, workflowTemplates } from "@/lib/workflow/templates";
@@ -13,6 +13,7 @@ import { deleteWorkflowVariable, listWorkflowVariables, setWorkflowVariable } fr
 import { workflowMatchesQuery } from "@/lib/workflow/search";
 import { resolveProjectHint } from "@/lib/host/projects-api";
 import { listAutomationScripts } from "@/lib/orchestration/repo-memory-artifacts";
+import { createWorkflowDataTable, deleteWorkflowDataTable, deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "@/lib/workflow/data-table-store";
 const project = { type: "string", maxLength: 4096 };
 const flow = { type: "string", maxLength: 64 };
 
@@ -61,7 +62,7 @@ export const FLOW_TOOLS: McpTool[] = [
       return manageProjectFlow(catalog.project.path, { action: a.action, id, flow: a.definition, revision: str(a, "revision") });
     } },
   { name: "workflow_graph", title: "Workflow Graph", scope: "exec", limit: { key: "workflow.graph", max: 20, windowMs: 60_000 },
-    description: "Private workflow graph CRUD/run plus history, versions, templates, catalog and variable references. Definitions reject embedded secrets. metadata.customNodes supports named collapsible groups [{id,name,nodeIds,collapsed}]; original nodes/edges and execution stay unchanged. Update with the current revision.",
+    description: "Private workflow graph CRUD/run plus execution controls, history, versions, templates, catalog, variables and data tables. Definitions reject embedded secrets. metadata.customNodes supports named collapsible groups [{id,name,nodeIds,collapsed}]; original nodes/edges and execution stay unchanged. Update with the current revision.",
     chatgptDescription: "CRUD/run workflows; read node logs.",
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }, audit: { action: "exec.run", targetArg: "id" },
     inputSchema: S({ action: { type: "string", minLength: 1, maxLength: 32 }, id: { type: "string", maxLength: 96 }, data: { type: "object", additionalProperties: true }, wait_ms: { type: "integer", minimum: 0, maximum: 25_000 } }, ["action"]),
@@ -71,12 +72,21 @@ export const FLOW_TOOLS: McpTool[] = [
       if (action === "list" || action === "search") { const graphs = await listWorkflowGraphs(principal), query = typeof data.query === "string" ? data.query : "", filters = { tag: typeof data.tag === "string" ? data.tag : undefined, status: typeof data.status === "string" ? data.status : undefined, project: typeof data.project === "string" ? data.project : undefined, folder: typeof data.folder === "string" ? data.folder : undefined, node: typeof data.node === "string" ? data.node : undefined }; return { graphs: graphs.filter((graph) => workflowMatchesQuery(graph, query, filters)).map(graph => ({ id: graph.id, name: graph.name, description: graph.description, status: graph.status, revision: graph.revision, nodeCount: graph.nodes.length, updatedAt: graph.updatedAt, provenance: graph.metadata.provenance, project: graph.metadata.project, folder: graph.metadata.folder, tags: graph.metadata.tags ?? [] })) }; }
       if (action === "status") return workflowGraphRunStatus(principal, str(a, "id"), Number(a.wait_ms) || 0);
       if (action === "runs") return listWorkflowGraphRuns(workflowGraphOwner(principal), { graphId: typeof data.graph_id === "string" ? data.graph_id : undefined, limit: Number(data.limit) || 30, offset: Number(data.offset) || 0 });
+      if (action === "stop") return requestWorkflowGraphStop(principal, str(a, "id"));
+      if (action === "run_delete") return deleteWorkflowGraphRun(workflowGraphOwner(principal), str(a, "id"));
+      if (action === "retry") { const prior = await readWorkflowGraphRun(workflowGraphOwner(principal), str(a, "id")); if (!prior) throw new Error("workflow execution not found"); if (prior.state === "running") throw new Error("running execution must be stopped before retry"); if (!prior.runtimeInput) throw new Error("execution predates retry input retention; run the workflow again instead"); const graph = await getWorkflowGraph(principal, prior.graphId); if (!graph) throw new Error("workflow graph not found"); if (graph.revision !== prior.graphRevision) throw new Error("workflow changed since this execution; run current graph instead"); const key = typeof data.key === "string" ? data.key : ""; if (!key) throw new Error("data.key is required for retry idempotency"); const { TOOLS_BY_NAME } = await import("./tools"); return startWorkflowGraph(graph, prior.runtimeInput, key, context, name => TOOLS_BY_NAME.get(name), principal); }
       if (action === "scripts") { const hint = typeof data.project === "string" ? data.project : ""; if (!hint) throw new Error("project is required"); const project = await resolveProjectHint(hint); if (!project || project.matchedBy === "fuzzy") throw new Error("exact project not found"); const query = typeof data.query === "string" ? data.query.toLowerCase().trim() : ""; const scripts = (await listAutomationScripts(project.path)).filter((script) => !query || `${script.id} ${script.intent} ${script.status} ${script.steps.map((step) => step.tool).join(" ")}`.toLowerCase().includes(query)).map((script) => ({ id: script.id, intent: script.intent, status: script.status, stepCount: script.steps.length, updatedAt: script.updatedAt, project: script.project, tools: script.steps.map((step) => step.tool) })); return { project: project.id, scripts }; }
       if (action === "catalog") return { nodes: workflowNodeCatalog(typeof data.query === "string" ? data.query : "") };
       if (action === "templates") return { templates: workflowTemplates() };
       if (action === "variables") return { variables: await listWorkflowVariables(principal) };
       if (action === "variable_set") return setWorkflowVariable(principal, String(data.key ?? ""), data.value, data.secret === true);
       if (action === "variable_delete") return deleteWorkflowVariable(principal, String(data.key ?? ""));
+      if (action === "data_tables") return { tables: await listWorkflowDataTables(principal) };
+      if (action === "data_table_get") return { table: await getWorkflowDataTable(principal, data.table_id) };
+      if (action === "data_table_create") return { table: await createWorkflowDataTable(principal, data.name, data.columns) };
+      if (action === "data_table_delete") return deleteWorkflowDataTable(principal, data.table_id);
+      if (action === "data_table_row_upsert") return { row: await upsertWorkflowDataTableRow(principal, data.table_id, data.row_id, data.values) };
+      if (action === "data_table_row_delete") return deleteWorkflowDataTableRow(principal, data.table_id, data.row_id);
       if (action === "create_from_template") { const row = workflowTemplate(String(data.template_id ?? "")); if (!row) throw new Error("workflow template not found"); return { graph: await createWorkflowGraph(principal, row.definition, "template", { remember: true }) }; }
       if (action === "create") return { graph: await createWorkflowGraph(principal, data.definition ?? data, "create", { remember: true }) };
       const id = str(a, "id");

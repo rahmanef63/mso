@@ -80,6 +80,6 @@ export function WorkflowCanvas({graph,selectedId,onSelect,onMove,onMoveMany,onCu
       onNodesDelete={readOnly?undefined:(items)=>onDeleteNodes?.(items.filter((n)=>n.type!=="customGroup").map((n)=>n.id))}
       onEdgesDelete={readOnly?undefined:(items)=>onDeleteEdges?.(items.map((item)=>item.id))}
       nodesDraggable={!readOnly} nodesConnectable={!readOnly} edgesReconnectable={false} deleteKeyCode={readOnly?null:["Backspace","Delete"]} onTidy={onTidy} snapToGrid snapGrid={[12,12]}
-      miniMapNodeColor={(node)=>node.type==="customGroup"?"var(--primary)":minimapColor(node as FlowNode)} compactFitNodeIds={compactIds} compactFitMaxZoom={readOnly?0.72:0.9}/></div>
+      miniMapNodeColor={(node)=>node.type==="customGroup"?"var(--primary)":minimapColor(node as FlowNode)} compactFitNodeIds={compactIds} compactFitMaxZoom={readOnly?0.72:0.9} initialFitNodeIds={compactIds} initialFitMaxZoom={readOnly?0.78:0.94}/></div>
   </div>;
 }

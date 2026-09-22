@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 ## 2026-09-22
 
+**Added**
+
+- `workflows` split n8n and improve org automation ux
+
 **Fixed**
 
 - `mcp` normalize widget resource discovery

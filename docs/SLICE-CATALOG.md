@@ -3,12 +3,12 @@
 > **Current reference.** Counts are checked against the directory tree by
 > `scripts/check-docs.mjs`; the directory remains the final authority.
 
-<!-- slice-catalog: slices=26 appshell-features=10 -->
+<!-- slice-catalog: slices=27 appshell-features=10 -->
 
 Every application is a vertical slice under `frontend/slices/`. Host-facing slices use the
 shared API/host seam rather than reaching arbitrary Node host APIs from client code.
 
-## Slices (26)
+## Slices (27)
 
 | Slug | Purpose |
 |---|---|
@@ -27,6 +27,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `infrastructure` | Dokploy/Cloudflare provider configuration and live inventory apps |
 | `integrations` | Native connection manager shell window using the existing Integrations service |
 | `managed-apps` | Hermes/OpenClaw install/lifecycle/update/backup/proxy |
+| `n8n` | Dedicated reviewed n8n workspace, isolated from native Workflows and MSO credentials |
 | `media-studio` | Image/media studio surface |
 | `media-viewer` | Preview/Quick Look-style media viewer |
 | `os-settings` | MSO Settings |

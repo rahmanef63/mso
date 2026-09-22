@@ -11,8 +11,8 @@ import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
 import { listProjects } from "@/lib/host/projects-api";
 import { catalogSkillsDetailed } from "@/lib/skills/catalog";
 import { cloneWorkflowGraph, createWorkflowGraph, deleteWorkflowGraph, getWorkflowGraph, listWorkflowGraphs, updateWorkflowGraph, workflowGraphOwner } from "@/lib/workflow/graph-store";
-import { startWorkflowGraph, workflowGraphRunStatus } from "@/lib/workflow/graph-engine";
-import { listWorkflowGraphRuns } from "@/lib/workflow/graph-run-store";
+import { requestWorkflowGraphStop, startWorkflowGraph, workflowGraphRunStatus } from "@/lib/workflow/graph-engine";
+import { deleteWorkflowGraphRun, listWorkflowGraphRuns, readWorkflowGraphRun } from "@/lib/workflow/graph-run-store";
 import { listWorkflowGraphVersions, readWorkflowGraphVersion } from "@/lib/workflow/graph-version-store";
 import { resolveWorkflowGraphNodeTarget } from "@/lib/workflow/graph-target";
 import { deleteWorkflowVariable, listWorkflowVariables, setWorkflowVariable } from "@/lib/workflow/variables";
@@ -23,11 +23,12 @@ import { workflowMatchesQuery } from "@/lib/workflow/search";
 import { resolveProjectHint } from "@/lib/host/projects-api";
 import { listAutomationScripts, readAutomationScript } from "@/lib/orchestration/repo-memory-artifacts";
 import { listLearnedRecipes, recipeMaturity } from "@/lib/workflow";
+import { createWorkflowDataTable, deleteWorkflowDataTable, deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "@/lib/workflow/data-table-store";
 export const runtime="nodejs";export const dynamic="force-dynamic";const headers={"Cache-Control":"no-store, private"};
 const fail=(error:unknown,status=400)=>NextResponse.json({error:error instanceof Error?error.message.slice(0,500):String(error).slice(0,500)||"workflow request failed"},{status,headers});
 async function auth(minimum:"viewer"|"operator"|"owner"="viewer"){const context=await getSessionContext();if(!context?.session.device_id||!roleAtLeast(context.role,minimum))return null;return{context,principal:`web:${context.session.device_id}`};}
 function definition(graph:NonNullable<Awaited<ReturnType<typeof getWorkflowGraph>>>){const{revision:_r,createdAt:_c,updatedAt:_u,version:_v,...rest}=graph;return rest;}
-export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,minimum=q.has("variables")?"operator":"viewer",session=await auth(minimum);if(!session)return fail("unauthorized",401);try{
+export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,minimum=(q.has("variables")||q.has("data_tables")||q.has("data_table"))?"operator":"viewer",session=await auth(minimum);if(!session)return fail("unauthorized",401);try{
  if(q.get("directory")==="1"){
   const query=(q.get("q")??"").toLowerCase().trim(),tools=msoCapabilityRuntime.list(maxScope()).filter((tool)=>!query||`${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query)).slice(0,150);
   const operator=roleAtLeast(session.context.role,"operator");
@@ -41,6 +42,8 @@ export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,mini
  if(q.get("catalog")==="1")return NextResponse.json({nodes:workflowNodeCatalog(q.get("q")??"")},{headers});
  if(q.get("templates")==="1")return NextResponse.json({templates:workflowTemplates()},{headers});
  if(q.get("variables")==="1")return NextResponse.json({variables:await listWorkflowVariables(session.principal)},{headers});
+ if(q.get("data_tables")==="1")return NextResponse.json({tables:await listWorkflowDataTables(session.principal)},{headers});
+ if(q.has("data_table"))return NextResponse.json({table:await getWorkflowDataTable(session.principal,q.get("data_table"))},{headers});
  if(q.get("runs")==="1")return NextResponse.json(await listWorkflowGraphRuns(workflowGraphOwner(session.principal),{graphId:q.get("graph_id")||undefined,state:(q.get("state")||undefined) as never,limit:Number(q.get("limit"))||30,offset:Number(q.get("offset"))||0}),{headers});
  if(q.has("versions")){const graphId=q.get("versions")!;return NextResponse.json({versions:await listWorkflowGraphVersions(workflowGraphOwner(session.principal),graphId)},{headers});}
  if(q.has("run_id"))return NextResponse.json(await workflowGraphRunStatus(session.principal,q.get("run_id")!,Number(q.get("wait_ms"))||0),{headers});
@@ -57,5 +60,12 @@ export async function POST(req:NextRequest){const session=await auth("operator")
  if(action==="restore_version"){const id=String(body.graph_id??""),snapshot=await readWorkflowGraphVersion(workflowGraphOwner(session.principal),id,String(body.revision??""));if(!snapshot)throw new Error("workflow version not found");return NextResponse.json({graph:await updateWorkflowGraph(session.principal,id,String(body.expected_revision??""),definition(snapshot.graph),"restore",{remember:true})},{headers});}
  if(action==="variable_set"||action==="variable_delete"){if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);return NextResponse.json(action==="variable_set"?await setWorkflowVariable(session.principal,String(body.key??""),body.value,body.secret===true):await deleteWorkflowVariable(session.principal,String(body.key??"")),{headers});}
  if(action==="ai_suggest"){if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);return NextResponse.json({definition:await suggestWorkflowGraph(String(body.prompt??""))},{headers});}
+ if(action==="data_table_create")return NextResponse.json({table:await createWorkflowDataTable(session.principal,body.name,body.columns)},{headers});
+ if(action==="data_table_delete")return NextResponse.json(await deleteWorkflowDataTable(session.principal,body.table_id),{headers});
+ if(action==="data_table_row_upsert")return NextResponse.json({row:await upsertWorkflowDataTableRow(session.principal,body.table_id,body.row_id,body.values)},{headers});
+ if(action==="data_table_row_delete")return NextResponse.json(await deleteWorkflowDataTableRow(session.principal,body.table_id,body.row_id),{headers});
+ if(action==="run_stop")return NextResponse.json(await requestWorkflowGraphStop(session.principal,String(body.run_id??"")),{headers});
+ if(action==="run_delete")return NextResponse.json(await deleteWorkflowGraphRun(workflowGraphOwner(session.principal),String(body.run_id??"")),{headers});
+ if(action==="run_retry"){const prior=await readWorkflowGraphRun(workflowGraphOwner(session.principal),String(body.run_id??""));if(!prior)throw new Error("workflow execution not found");if(prior.state==="running")throw new Error("running execution must be stopped before retry");if(!prior.runtimeInput)throw new Error("execution predates retry input retention; run the workflow again instead");const graph=await getWorkflowGraph(session.principal,prior.graphId);if(!graph)throw new Error("workflow graph not found");if(graph.revision!==prior.graphRevision)throw new Error("workflow changed since this execution; run the current workflow instead of retrying stale input");const agentSession=await createAgentSession(session.principal,"cli",{title:`Workflow retry: ${graph.name}`,titleSource:"auto"}),context={principal:session.principal,actor:session.principal,sessionId:agentSession.id,scope:maxScope(),capabilities:msoCapabilityRuntime} as const;return NextResponse.json(await startWorkflowGraph(graph,prior.runtimeInput,String(body.idempotency_key??`retry:${prior.id}:${Date.now()}`),context,(name)=>TOOLS_BY_NAME.get(name)),{headers});}
  if(action==="run"){const graph=await getWorkflowGraph(session.principal,String(body.graph_id??""));if(!graph)throw new Error("workflow graph not found");const agentSession=await createAgentSession(session.principal,"cli",{title:`Workflow: ${graph.name}`,titleSource:"auto"}),context={principal:session.principal,actor:session.principal,sessionId:agentSession.id,scope:maxScope(),capabilities:msoCapabilityRuntime} as const;return NextResponse.json(await startWorkflowGraph(graph,body.input??{},String(body.idempotency_key??`${Date.now()}`),context,(name)=>TOOLS_BY_NAME.get(name)),{headers});}
  throw new Error("unknown workflow action");}catch(error){return fail(error);}}
