@@ -28,6 +28,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `channels` add Telegram and Discord channels
 - `workflows` split n8n and improve org automation ux
 
 **Fixed**
@@ -53,6 +54,11 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Fixed**
 
 - `mcp` negotiate native app ui
+
+**Chores**
+
+- `deps-dev` bump the development-minor-patch group with 3 updates
+- `deps` bump the production-minor-patch group with 4 updates
 
 ## 2026-09-20
 

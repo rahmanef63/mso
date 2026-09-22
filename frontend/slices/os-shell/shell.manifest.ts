@@ -21,6 +21,7 @@ import { osSettingsApp } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
 import { integrationsApp } from "@/features/integrations";
+import { channelsApp } from "@/features/channels";
 import { workflowsApp } from "@/features/workflows";
 import { n8nApp } from "@/features/n8n";
 import { organizationApp } from "@/features/organization";
@@ -70,6 +71,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(openclawApp), "openclaw"),
   withSlug(withArtwork(nineRouterApp), "9router"),
   pin(withSlug(integrationsApp, "connections")),
+  pin(withSlug(channelsApp, "channels")),
   pin(withSlug(withArtwork(workflowsApp), "workflows")),
   pin(withSlug(withArtwork(n8nApp), "n8n")),
   withSlug(withArtwork(organizationApp), "organization"),

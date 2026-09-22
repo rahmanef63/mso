@@ -10,6 +10,7 @@ case "$cmd" in
   setup) run_onboard "${1-}" ;;
   onboard) run_onboard "${1-}" ;;
   integrations) run_integrations "$@" ;;
+  channels) source "$ROOT/scripts/cli/channels.sh"; run_channels "$@" ;;
   flow) source "$ROOT/scripts/cli/flows.sh"; run_flow "$@" ;;
   workflow) source "$ROOT/scripts/cli/workflows.sh"; run_workflow "$@" ;;
   provider|providers) run_provider "$@" ;;

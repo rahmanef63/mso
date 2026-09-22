@@ -1,4 +1,4 @@
-export const INFRA_PROVIDER_IDS = ["dokploy", "cloudflare", "hostinger", "composio", "github", "vercel", "convex-cloud", "convex", "resend", "stripe", "clerk", "supabase", "doku", "mcp", "openai-app"] as const;
+export const INFRA_PROVIDER_IDS = ["dokploy", "cloudflare", "hostinger", "composio", "github", "vercel", "convex-cloud", "convex", "resend", "stripe", "clerk", "supabase", "telegram", "discord", "doku", "mcp", "openai-app"] as const;
 export type InfraProviderId = (typeof INFRA_PROVIDER_IDS)[number];
 
 export type InfraProviderValues = Record<string, string>;

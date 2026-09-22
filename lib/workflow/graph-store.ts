@@ -175,7 +175,7 @@ export async function listWorkflowGraphTriggerSources(): Promise<Array<{ owner: 
   const out: Array<{ owner: string; principal: string; graph: WorkflowGraph }> = [];
   for (const owner of owners.filter((value) => /^[a-f0-9]{64}$/.test(value)).slice(0, 4096)) {
     const store = await readStore(owner).catch(() => null); if (!store?.principal) continue;
-    for (const graph of store.graphs) if (graph.status === "active" && graph.nodes.some((node) => node.type === "schedule" || node.type === "webhook")) out.push({ owner, principal: store.principal, graph });
+    for (const graph of store.graphs) if (graph.status === "active" && graph.nodes.some((node) => node.type === "schedule" || node.type === "webhook" || node.type === "channel_trigger")) out.push({ owner, principal: store.principal, graph });
   }
   return out;
 }

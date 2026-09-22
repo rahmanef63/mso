@@ -103,6 +103,15 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
     if (out.accessToken && (out.accessToken.length < 16 || /\s/.test(out.accessToken))) throw new Error("MCP token must be an opaque single-line value");
     parseMcpToolAllowlist(out.allowedTools);
   }
+  if (id === "telegram") {
+    if (out.botToken && !/^\d{5,16}:[A-Za-z0-9_-]{20,}$/.test(out.botToken)) throw new Error("Telegram bot token format is invalid");
+    if (out.webhookSecret && !/^[A-Za-z0-9_-]{1,256}$/.test(out.webhookSecret)) throw new Error("Telegram webhook secret must use only letters, digits, underscore or hyphen");
+  }
+  if (id === "discord") {
+    if (out.botToken && (out.botToken.length < 24 || out.botToken.length > 256 || /[\s\x00-\x1f\x7f]/.test(out.botToken))) throw new Error("Discord bot token format is invalid");
+    if (out.applicationId && !/^\d{15,22}$/.test(out.applicationId)) throw new Error("Discord applicationId must be a snowflake");
+    if (out.publicKey && !/^[0-9a-f]{64}$/i.test(out.publicKey)) throw new Error("Discord publicKey must be 64 hexadecimal characters");
+  }
   if (id === "doku") {
     for(const key of ["environment","paymentEnvironment"])if(out[key]&&!["sandbox","production"].includes(out[key]))throw new Error("DOKU environment must be sandbox or production");
     for(const key of ["paymentClientId","mcpClientId"])if(out[key]&&(out[key].length<3||out[key].length>256||/[\s\x00-\x1f\x7f]/.test(out[key])))throw new Error("DOKU Client ID must be an opaque single-line value");

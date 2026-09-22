@@ -312,3 +312,13 @@ Hostinger is one provider with two direct connection methods:
 The native connection executor supports read-only mail-order/plan/resource/log operations plus reviewed non-secret mailbox management for aliases, forwarders, autoreplies, catch-alls and mailbox deletion. Mailbox creation/password rotation, webhook creation/regeneration, and Mail API-token creation are deliberately not accepted through model/tool JSON because those operations create or consume secret values. Use a private Hostinger/browser flow for those secrets.
 
 Official reference: <https://developers.hostinger.com/> → **Mail**. The API documents Mail Orders, Mailboxes, Aliases, Autoreplies, Forwarders, Catchalls, Webhooks, API Tokens and Logs under `/api/mail/v1`.
+
+## Telegram and Discord for Channels
+
+Telegram and Discord are native direct Integration providers used by MSO Channels. Channel configuration never stores bot credentials.
+
+Telegram direct connections store the Bot API token plus an optional webhook secret. Verification uses Bot API `getMe`; the webhook secret becomes mandatory only when the connection is used for inbound Channels delivery.
+
+Discord direct connections store the bot token and may also store the non-secret application ID and Interactions Ed25519 public key. Verification uses Discord REST bot identity. The public key is required before signed Discord Interactions can be accepted. Gateway event ingestion is intentionally not implied by a verified Discord connection.
+
+The Channels application resolves an exact credential user + named connection. If no compatible connection exists, setup remains in Integrations rather than exposing a token field inside Channels. See [CHANNELS.md](./CHANNELS.md).

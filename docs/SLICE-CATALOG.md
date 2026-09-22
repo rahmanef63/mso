@@ -3,12 +3,12 @@
 > **Current reference.** Counts are checked against the directory tree by
 > `scripts/check-docs.mjs`; the directory remains the final authority.
 
-<!-- slice-catalog: slices=27 appshell-features=10 -->
+<!-- slice-catalog: slices=28 appshell-features=10 -->
 
 Every application is a vertical slice under `frontend/slices/`. Host-facing slices use the
 shared API/host seam rather than reaching arbitrary Node host APIs from client code.
 
-## Slices (27)
+## Slices (28)
 
 | Slug | Purpose |
 |---|---|
@@ -17,6 +17,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `assistant` | Alfa assistant, agents/playbooks and tool activity |
 | `auth` | Authentication UI/helpers |
 | `camoufox-browser` | Remote Camoufox/noVNC Browser app |
+| `channels` | Provider-neutral Telegram/Discord channel configuration, status, send/test, inbound URLs and workflow binding |
 | `code-editor` | Code/text editor with integrated terminal |
 | `create-app` | Create App manifest authoring surface |
 | `docs` | In-app documentation browser |
@@ -38,7 +39,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `reel-editor` | Video/reel timeline editor |
 | `shell-settings` | Shared shell settings UI primitives |
 | `system-monitor` | Live metrics/processes plus service inventory/logs/allowlisted lifecycle and cache-only package updates |
-| `workflows` | Server-native automation editor with schedule/webhook triggers, flow control, private history/versions/variables and node-level logs |
+| `workflows` | Server-native automation editor with schedule/webhook/channel triggers, channel send, flow control, private history/versions/variables and node-level logs |
 
 ## AppShell feature directories (10)
 

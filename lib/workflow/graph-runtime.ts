@@ -59,7 +59,7 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
   const principal = context.principal ?? context.actor; if (!principal) throw new Error("workflow node requires principal");
   const config = bindWorkflowValue(node.config, runtime, await workflowVariableValues(principal)) as Record<string, unknown>;
   const project = typeof config.project === "string" ? config.project : graph.metadata.project;
-  if (["manual", "schedule", "webhook"].includes(node.type)) return { output: graphInput, log: `${node.type} trigger accepted.` };
+  if (["manual", "schedule", "webhook", "channel_trigger"].includes(node.type)) return { output: graphInput, log: `${node.type} trigger accepted.` };
   if (node.type === "project") return { output: await resolvedProject(config.project ?? project), log: "Canonical project resolved at runtime." };
   if (node.type === "folder") {
     const resolved = await resolvedProject(config.project ?? project), relative = typeof config.path === "string" ? config.path : ".", target = path.resolve(resolved.path, relative), root = resolved.path.endsWith(path.sep) ? resolved.path : resolved.path + path.sep;
@@ -145,6 +145,12 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
     const tool = typeof config.tool === "string" ? config.tool : ""; if (!tool || BLOCKED_TOOL_NODES.has(tool)) throw new Error("tool node requires a bounded non-workflow tool");
     const args = graphObject(config.arguments) ? structuredClone(config.arguments) : {}; if (context.workflowId) args.workflow_id = context.workflowId;
     return { output: await callTool(tool, args, context, resolve), log: `Tool ${tool} completed.` };
+  }
+  if (node.type === "channel_send") {
+    if (typeof config.channelId !== "string" || !config.channelId) throw new Error("channel_send node requires channelId");
+    if (typeof config.text !== "string" || !config.text) throw new Error("channel_send node requires text");
+    const { sendChannelText } = await import("@/lib/channels");
+    return { output: await sendChannelText(config.channelId, { text: config.text, ...(typeof config.target === "string" && config.target ? { target: config.target } : {}) }), log: "Channel message sent." };
   }
   if (node.type === "integration") {
     for (const key of ["user", "provider", "connection", "operation"]) if (typeof config[key] !== "string" || !config[key]) throw new Error(`integration node requires ${key}`);
