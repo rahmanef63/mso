@@ -26,8 +26,8 @@ vi.mock("@/lib/mcp/origin", () => ({
 vi.mock("@/lib/host/limits-api", () => ({ rateLimited: mocks.rateLimited, rateLimitedUntrusted: mocks.rateLimitedUntrusted }));
 vi.mock("@/lib/mcp/capability-runtime", () => ({ msoCapabilityRuntime: { list: () => [], invoke: vi.fn(async () => ({ content: [] })) } }));
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
-vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
-vi.mock("@/lib/mcp/client-profile", () => ({ detectMcpToolProfile: () => "full" }));
+vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}), MCP_SERVER_VERSION: "1.15.4" }));
+vi.mock("@/lib/mcp/client-profile", () => ({ detectMcpToolProfile: () => "full", isTrustedOpenAiFileParamsClient: () => false }));
 
 vi.mock("@/lib/mcp/tool-contract", () => ({ visibleToolsForProfile: () => [] }));
 vi.mock("@/lib/agent/session-store", () => ({ findOrCreateAgentSessionForConversation: vi.fn() }));
@@ -71,6 +71,31 @@ describe("/mcp protocol boundary", () => {
     const res = await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" } } }), { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "server/discover" }));
     expect(res.status).toBe(400);
     expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("adds modern cache hints to resources/read at the HTTP boundary", async () => {
+    mocks.validateToken.mockResolvedValueOnce({ hash: "3".repeat(64), scope: "read", clientId: "client-modern-cache", label: "Modern cache" });
+    mocks.dispatch.mockResolvedValueOnce({ jsonrpc: "2.0", id: 1, result: { contents: [] } });
+    const { POST } = await import("./route");
+    const uri = "ui://mso/block-v5.html";
+    const res = await POST(request(JSON.stringify({
+      jsonrpc: "2.0", id: 1, method: "resources/read",
+      params: {
+        uri,
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientCapabilities": { extensions: {} },
+        },
+      },
+    }), {
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": "resources/read",
+      "Mcp-Name": uri,
+    }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      result: { resultType: "complete", ttlMs: 60_000, cacheScope: "private", contents: [] },
+    });
   });
 
   it("rejects an unsupported MCP-Protocol-Version before dispatch", async () => {
