@@ -22,6 +22,7 @@ export const NATIVE_UI_PROBE_TOOLS: McpTool[] = [{
   outputSchema: NATIVE_UI_PROBE_OUTPUT_SCHEMA,
   meta: {
     ui: { resourceUri: MSO_NATIVE_UI_PROBE_URI, visibility: ["model", "app"] },
+    "ui/resourceUri": MSO_NATIVE_UI_PROBE_URI,
   },
   run: async () => ({ ok: true, message: "MSO NATIVE UI WORKS" }),
 }];

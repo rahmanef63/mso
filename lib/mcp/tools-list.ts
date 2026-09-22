@@ -22,6 +22,6 @@ export const LIST_TOOLS:McpTool[]=[{
   scope:"read",annotations:READ_ONLY,
   inputSchema:S({title:{type:"string",minLength:1,maxLength:240},description:{type:"string",maxLength:1000},layout:{type:"string",enum:["list","grid"]},searchable:{type:"boolean"},emptyMessage:{type:"string",maxLength:240},items:{type:"array",maxItems:40,items:ITEM_SCHEMA},actions:{type:"array",maxItems:3,items:ACTION_SCHEMA}},["title","items"]),
   outputSchema:LIST_OUTPUT_SCHEMA,
-  meta:{ui:{resourceUri:MSO_LIST_URI,visibility:["model","app"]},"openai/toolInvocation/invoking":"Preparing list…","openai/toolInvocation/invoked":"List ready","openai/widgetAccessible":true},
+  meta:{ui:{resourceUri:MSO_LIST_URI,visibility:["model","app"]},"ui/resourceUri":MSO_LIST_URI,"openai/toolInvocation/invoking":"Preparing list…","openai/toolInvocation/invoked":"List ready","openai/widgetAccessible":true},
   run:async input=>normalizeList({...input,title:str(input,"title")}),
 }];

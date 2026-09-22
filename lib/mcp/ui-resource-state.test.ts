@@ -11,10 +11,14 @@ const {
   MSO_BLOCK_URI,
   MSO_LIST_URI,
   MSO_PAGE_URI,
+  LEGACY_LIST_V2_URI,
   LEGACY_LIST_V1_URI,
+  LEGACY_BLOCK_V4_URI,
   LEGACY_BLOCK_V3_URI,
   LEGACY_BLOCK_V1_URI,
+  LEGACY_PAGE_V15_URI,
   LEGACY_PAGE_V1_URI,
+  LEGACY_NATIVE_UI_PROBE_V1_URI,
   LEGACY_WORKFLOW_PROGRESS_URI,
   LEGACY_SURFACE_URI,
   readUiResource,
@@ -76,25 +80,37 @@ describe("MCP Apps List, Block and Page contract", () => {
     const canonicalList = await readUiResource(MSO_LIST_URI);
     const canonicalBlock = await readUiResource(MSO_BLOCK_URI);
     const canonicalPage = await readUiResource(MSO_PAGE_URI);
+    const listV2 = await readUiResource(LEGACY_LIST_V2_URI);
     const listV1 = await readUiResource(LEGACY_LIST_V1_URI);
+    const blockV4 = await readUiResource(LEGACY_BLOCK_V4_URI);
     const blockV3 = await readUiResource(LEGACY_BLOCK_V3_URI);
     const blockV1 = await readUiResource(LEGACY_BLOCK_V1_URI);
+    const pageV15 = await readUiResource(LEGACY_PAGE_V15_URI);
     const pageV1 = await readUiResource(LEGACY_PAGE_V1_URI);
+    const probeV1 = await readUiResource(LEGACY_NATIVE_UI_PROBE_V1_URI);
     const legacyBlock = await readUiResource(LEGACY_WORKFLOW_PROGRESS_URI);
     const legacyPage = await readUiResource(LEGACY_SURFACE_URI);
+    expect(listV2).toMatchObject({ uri: LEGACY_LIST_V2_URI, text: canonicalList?.text });
     expect(listV1).toMatchObject({ uri: LEGACY_LIST_V1_URI, text: canonicalList?.text });
+    expect(blockV4).toMatchObject({ uri: LEGACY_BLOCK_V4_URI, text: canonicalBlock?.text });
     expect(blockV3).toMatchObject({ uri: LEGACY_BLOCK_V3_URI, text: canonicalBlock?.text });
     expect(blockV1).toMatchObject({ uri: LEGACY_BLOCK_V1_URI, text: canonicalBlock?.text });
+    expect(pageV15).toMatchObject({ uri: LEGACY_PAGE_V15_URI, text: canonicalPage?.text });
     expect(pageV1).toMatchObject({ uri: LEGACY_PAGE_V1_URI, text: canonicalPage?.text });
+    expect(probeV1?.text).toContain("MSO NATIVE UI WORKS");
     expect(legacyBlock).toMatchObject({ uri: LEGACY_WORKFLOW_PROGRESS_URI, text: canonicalBlock?.text });
     expect(legacyPage).toMatchObject({ uri: LEGACY_SURFACE_URI, text: canonicalPage?.text });
 
     const listed = await dispatch({ id: 31, method: "resources/list" }, "read", "mcp:ui-alias");
     const serialized = JSON.stringify(listed.result);
+    expect(serialized).not.toContain(LEGACY_LIST_V2_URI);
     expect(serialized).not.toContain(LEGACY_LIST_V1_URI);
+    expect(serialized).not.toContain(LEGACY_BLOCK_V4_URI);
     expect(serialized).not.toContain(LEGACY_BLOCK_V3_URI);
     expect(serialized).not.toContain(LEGACY_BLOCK_V1_URI);
+    expect(serialized).not.toContain(LEGACY_PAGE_V15_URI);
     expect(serialized).not.toContain(LEGACY_PAGE_V1_URI);
+    expect(serialized).not.toContain(LEGACY_NATIVE_UI_PROBE_V1_URI);
     expect(serialized).not.toContain(LEGACY_WORKFLOW_PROGRESS_URI);
     expect(serialized).not.toContain(LEGACY_SURFACE_URI);
   });

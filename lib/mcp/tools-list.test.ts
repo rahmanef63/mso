@@ -8,6 +8,7 @@ describe("render_mso_list", () => {
   it("is a read-only explicit render tool bound only to the List resource", () => {
     expect(tool.scope).toBe("read");
     expect(tool.meta).toMatchObject({ ui: { resourceUri: MSO_LIST_URI, visibility: ["model", "app"] } });
+    expect(tool.meta?.["ui/resourceUri"]).toBe(MSO_LIST_URI);
     expect(tool.meta?.["openai/outputTemplate"]).toBeUndefined();
   });
 

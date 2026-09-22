@@ -64,6 +64,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     outputSchema: PAGE_OUTPUT,
     meta: {
       ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },
+      "ui/resourceUri": MSO_PAGE_URI,
       "openai/widgetAccessible": true,
       "openai/toolInvocation/invoking": "Opening secure integration setup…",
       "openai/toolInvocation/invoked": "Secure setup form opened",
@@ -96,6 +97,7 @@ export const SURFACE_TOOLS: McpTool[] = [
     outputSchema: PAGE_OUTPUT,
     meta: {
       ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },
+      "ui/resourceUri": MSO_PAGE_URI,
       "openai/toolInvocation/invoking": "Opening MSO Page…",
       "openai/toolInvocation/invoked": "MSO Page opened",
       "openai/widgetAccessible": true,

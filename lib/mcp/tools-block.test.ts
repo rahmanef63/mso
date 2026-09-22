@@ -41,6 +41,7 @@ describe("MSO Block MCP tool", () => {
     expect(tool.inputSchema.properties).not.toHaveProperty("tool");
     expect(tool.meta).toMatchObject({
       ui: { resourceUri: MSO_BLOCK_URI, visibility: ["model", "app"] },
+      "ui/resourceUri": MSO_BLOCK_URI,
       "openai/outputTemplate": MSO_BLOCK_URI,
     });
     expect(JSON.stringify(tool.inputSchema)).toContain("Follow-up instruction");
