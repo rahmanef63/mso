@@ -35,14 +35,17 @@ export async function organizationJourney(page, fixture) {
   expect(response.status).toBe(200);
 
   await page.goto(fixture.base + "/organization");
+  const unitDirectory = page.locator('[data-slot="organization-unit-directory"]');
+  await expect(unitDirectory).toBeVisible();
+  await expect(unitDirectory.getByRole("button", { name: /E2E Holding/ })).toBeVisible();
+  await expect(unitDirectory.getByRole("button", { name: /E2E Product/ })).toBeVisible();
+  await page.getByRole("button", { name: "Map", exact: true }).click();
   const unitCanvas = page.getByRole("application", { name: "Organization units canvas" });
   await expect(unitCanvas).toBeVisible();
   for (const name of ["Select mode", "Pan mode", "Zoom in", "Zoom out", "Fit view"]) await expect(unitCanvas.getByRole("button", { name })).toBeVisible();
   const unitMinimap = unitCanvas.getByLabel("Organization units canvas minimap");
   await expect(unitMinimap).toBeVisible();
   await expect(unitMinimap.locator(".react-flow__minimap-node")).toHaveCount(2);
-  await expect(page.getByText("E2E Holding", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("E2E Product", { exact: true }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 
   // Responsive contract: compact panes use one native unit picker, hide desktop-only
@@ -56,18 +59,18 @@ export async function organizationJourney(page, fixture) {
     if (viewport.width < 700) {
       await expect(page.getByLabel("Organization unit", { exact: true })).toBeVisible();
       await expect(page.getByRole("navigation", { name: "Organization units" })).toBeHidden();
-      const rootNode = unitCanvas.locator('.react-flow__node').first();
-      const box = await rootNode.boundingBox();
-      expect(box?.width ?? 0).toBeGreaterThan(140);
     } else {
       await expect(page.getByRole("navigation", { name: "Organization units" })).toBeVisible();
     }
+    await expect(page.locator('[data-slot="organization-unit-directory"]')).toBeVisible();
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(fixture.base + "/organization");
 
-  await page.getByRole("button", { name: /E2E Product/ }).click();
+  await page.locator('[data-slot="organization-unit-directory"]').getByRole("button", { name: /E2E Product/ }).click();
   await page.getByRole("button", { name: "Seats", exact: true }).click();
+  await expect(page.locator('[data-slot="organization-seat-directory"]')).toBeVisible();
+  await page.getByRole("button", { name: "Map", exact: true }).click();
   const seatCanvas = page.getByRole("application", { name: "Organization seats canvas" });
   await expect(seatCanvas).toBeVisible();
   await expect(seatCanvas.locator(".react-flow__node", { hasText: "Chief Executive Officer" })).toBeVisible();

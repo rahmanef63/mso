@@ -5,7 +5,7 @@ import { surfaceRegistrySnapshot } from "@/lib/surfaces/manage";
 
 /** Presentation metadata only. An embed never inherits the cockpit's credentials. */
 export function workflowEmbeds(apps: SurfaceApp[], cockpitOrigins: string[]): WorkflowEmbed[] {
-  return apps.filter((app) => app.placements?.includes("workflows")).map((app) => {
+  return apps.filter((app) => app.placements?.includes("workflows") || app.placements?.includes("n8n")).map((app) => {
     if (externalSurfaceSharesSession(app.origin, cockpitOrigins)) return {
       id: app.id, title: app.title, description: app.description, origin: app.origin,
       renderer: "remote" as const, sandbox: app.sandbox ?? "allow-scripts allow-same-origin allow-forms", blocked: true,

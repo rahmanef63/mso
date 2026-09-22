@@ -2,11 +2,11 @@
 import { pruneGraphCustomNodes } from "@/lib/contracts/graph-custom-nodes";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Copy, PanelLeft, PanelRight, Play, RefreshCw, Save, Trash2, Workflow } from "lucide-react";
+import { Activity, Building2, Cable, Copy, Download, PanelLeft, PanelRight, Play, RefreshCw, Save, Trash2, Workflow } from "lucide-react";
 import type { AppProps, ToolbarItem } from "@/features/appshell";
 import type { SessionGraphView } from "@/lib/contracts/session-monitor";
 import type { WorkflowGraph, WorkflowGraphNode, WorkflowGraphNodeType, WorkflowGraphRun } from "@/lib/contracts/workflow-graph";
-import { AppFrame, ResponsiveDialog, ResponsiveToolbar, openWindow, useContainer, useResponsive } from "@/features/appshell";
+import { AppFrame, ResponsiveDialog, ResponsiveToolbar, openWindow, saveAs, useContainer, useResponsive } from "@/features/appshell";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -18,11 +18,11 @@ import { WorkflowNodePalette } from "./components/workflow-node-palette";
 import { WorkflowSessionDetails } from "./components/workflow-session-details";
 import { WorkflowSessionLibrary } from "./components/workflow-session-library";
 import { tidyWorkflowNodes } from "./lib/canvas-layout";
+import { buildWorkflowPackage, workflowPackageFilename, type WorkflowDefinition } from "./lib/portability";
 import { cloneGraph, createFromTemplate, createGraph, deleteGraph, getGraph, getSessionGraph, listGraphs, listWorkflowLearning, resolveNode, runGraph, runStatus, saveSessionWorkflowDraft, updateGraph, type WorkflowLearningRecipeSummary } from "./lib/api";
 
-type Definition = Omit<WorkflowGraph, "version" | "id" | "revision" | "createdAt" | "updatedAt">;
 type LibraryMode = "automations" | "sessions";
-function starterGraph(): Definition { return { name: "New Workflow", description: "Private workflow graph.", status: "draft", inputs: {}, metadata: { provenance: "user" }, nodes: [{ id: "manual", name: "Manual Trigger", type: "manual", position: { x: 80, y: 160 }, config: {} }, { id: "output", name: "Output", type: "output", position: { x: 420, y: 160 }, config: {} }], edges: [{ id: "edge-start", source: "manual", target: "output" }] }; }
+function starterGraph(): WorkflowDefinition { return { name: "New Workflow", description: "Private workflow graph.", status: "draft", inputs: {}, metadata: { provenance: "user" }, nodes: [{ id: "manual", name: "Manual Trigger", type: "manual", position: { x: 80, y: 160 }, config: {} }, { id: "output", name: "Output", type: "output", position: { x: 420, y: 160 }, config: {} }], edges: [{ id: "edge-start", source: "manual", target: "output" }] }; }
 function payloadSessionId(payload: unknown): string | undefined { if (!payload || typeof payload !== "object") return undefined; const row = payload as { view?: unknown; sessionId?: unknown }; return row.view === "sessions" && typeof row.sessionId === "string" ? row.sessionId : undefined; }
 
 export default function WorkflowsApp(props: AppProps) {
@@ -63,10 +63,12 @@ export default function WorkflowsApp(props: AppProps) {
   const refreshSession = async () => { if (!sessionView) return; const [next, recipes] = await Promise.all([getSessionGraph(sessionView.session.id), listWorkflowLearning(true).catch(() => [])]); setSessionView(next); setLearning(recipes); if (sessionSelected && !next.graph.nodes.some((item) => item.id === sessionSelected)) setSessionSelected("session-root"); };
   const createBlank = () => wrap(async () => { const next = await createGraph(starterGraph()); setLibraryMode("automations"); await load(next.id); setSelected("manual"); setLibraryOpen(false); });
   const createTemplate = (id: string) => wrap(async () => { const next = await createFromTemplate(id); setLibraryMode("automations"); await load(next.id); setSelected(next.nodes[0]?.id ?? null); setLibraryOpen(false); });
-  const createAI = (definition: Definition) => wrap(async () => { const next = await createGraph(definition); setLibraryMode("automations"); await load(next.id); setSelected(next.nodes[0]?.id ?? null); setLibraryOpen(false); });
+  const createAI = (definition: WorkflowDefinition) => wrap(async () => { const next = await createGraph(definition); setLibraryMode("automations"); await load(next.id); setSelected(next.nodes[0]?.id ?? null); setLibraryOpen(false); });
+  const createImported = (definition: WorkflowDefinition) => wrap(async () => { const next = await createGraph({ ...definition, metadata: { ...definition.metadata, provenance: "import" } }); setLibraryMode("automations"); await load(next.id); setSelected(next.nodes[0]?.id ?? null); setLibraryOpen(false); });
   const saveCurrent = async () => { if (!graph) throw new Error("No workflow selected"); if (!dirty) return graph; const next = await updateGraph(graph); setGraph(next); setDirty(false); setGraphs(await listGraphs()); return next; };
   const save = () => graph && wrap(async () => { await saveCurrent(); setMessage("Saved"); });
   const duplicate = () => graph && wrap(async () => { const next = await cloneGraph(graph.id); await load(next.id); });
+  const exportCurrent = () => { if (!graph) return; const blob = new Blob([JSON.stringify(buildWorkflowPackage(graph), null, 2)], { type: "application/json" }); saveAs(URL.createObjectURL(blob), workflowPackageFilename(graph.name)); setMessage("Exported portable workflow package"); };
   const remove = () => graph && wrap(async () => { await deleteGraph(graph); setSelected(null); setRun(null); const list = await listGraphs(); setGraphs(list); setGraph(list[0] ? await getGraph(list[0].id) : null); setDirty(false); });
   const execute = () => graph && wrap(async () => { const saved = await saveCurrent(); setRun(await runGraph(saved.id)); setPanel("run"); if (overlayPane) setDetailsOpen(true); });
   const updateNode = (next: WorkflowGraphNode) => graph && mutate({ ...graph, nodes: graph.nodes.map((item) => item.id === next.id ? next : item) });
@@ -87,26 +89,30 @@ export default function WorkflowsApp(props: AppProps) {
   const toggleLibrary = () => overlayPane ? setLibraryOpen(true) : setShowLibrary((value) => !value);
   const toggleDetails = () => overlayPane ? setDetailsOpen(true) : setShowDetails((value) => !value);
 
-  const automationLibrary = <WorkflowLibrary graphs={graphs} activeId={graph?.id} search={search} onSearch={setSearch} onSelect={(id) => void wrap(() => selectGraph(id))} onBlank={async () => { await createBlank(); }} onTemplate={async (id) => { await createTemplate(id); }} onAI={async (definition) => { await createAI(definition); }}/>;
+  const automationLibrary = <WorkflowLibrary graphs={graphs} activeId={graph?.id} search={search} onSearch={setSearch} onSelect={(id) => void wrap(() => selectGraph(id))} onBlank={async () => { await createBlank(); }} onTemplate={async (id) => { await createTemplate(id); }} onAI={async (definition) => { await createAI(definition); }} onImport={async (definition) => { await createImported(definition); }}/>;
   const library = <div className="flex h-full min-h-0 flex-col"><div className="grid grid-cols-2 gap-1 border-b p-2">{(["automations", "sessions"] as const).map((mode) => <button key={mode} type="button" className={`rounded-md px-2 py-1.5 text-xs capitalize ${libraryMode === mode ? "bg-accent font-semibold" : "text-muted-foreground hover:bg-accent/60"}`} onClick={() => setLibraryMode(mode)}>{mode}</button>)}</div><div className="min-h-0 flex-1">{libraryMode === "automations" ? automationLibrary : <WorkflowSessionLibrary activeId={sessionView?.session.id} onSelect={(id) => void wrap(() => selectSession(id))}/>}</div></div>;
   const details = libraryMode === "sessions" && sessionView ? <WorkflowSessionDetails view={sessionView} node={sessionNode} onOpenTerminal={openSessionTerminal} onOpenCode={openSessionCode} onSaveDraft={saveSessionDraft} savingDraft={busy} learning={learning}/> : graph ? <WorkflowDetails graph={graph} graphs={graphs} node={node} run={run} panel={panel} onPanel={setPanel} onNode={updateNode} onDeleteNode={(id) => deleteNodes([id])} onGraph={mutate} onRunSelect={(selectedRun) => { setRun(selectedRun); setPanel("run"); }} onRestored={(next) => { setGraph(next); setDirty(false); void listGraphs().then(setGraphs); }}/> : null;
   const toolbarItems: ToolbarItem[] = [
     { id: "library", label: "Workflow library", icon: PanelLeft, onClick: toggleLibrary, primary: true },
+    { id: "organization", label: "Organization", icon: Building2, onClick: () => openWindow("organization", "Organization") },
+    { id: "connections", label: "Integrations", icon: Cable, onClick: () => openWindow("integrations", "Integrations") },
     { id: "refresh", label: "Refresh", icon: RefreshCw, onClick: () => void wrap(async () => { if (libraryMode === "sessions") await refreshSession(); else await load(undefined, true); }), disabled: busy },
     ...(libraryMode === "automations" && graph ? [
       { id: "duplicate", label: "Duplicate", icon: Copy, onClick: () => void duplicate(), disabled: busy },
-      { id: "save", label: "Save", icon: Save, onClick: () => void save(), disabled: busy || !dirty },
+      { id: "export", label: "Export", icon: Download, onClick: exportCurrent, disabled: busy },
+      { id: "save", label: "Save", icon: Save, onClick: () => void save(), disabled: busy || !dirty, primary: true },
       { id: "run", label: "Run", icon: Play, onClick: () => void execute(), disabled: busy, primary: true },
       { id: "details", label: "Details", icon: PanelRight, onClick: toggleDetails },
       { id: "delete", label: "Delete", icon: Trash2, onClick: () => void remove(), disabled: busy },
     ] satisfies ToolbarItem[] : libraryMode === "sessions" && sessionView ? [{ id: "details", label: "Session details", icon: PanelRight, onClick: toggleDetails }] satisfies ToolbarItem[] : []),
   ];
+  const toolbarCompact = overlayPane || toolbarItems.length > 7;
   const showLibraryPanel = !overlayPane && showLibrary;
   const showDetailsPanel = !overlayPane && showDetails && Boolean(libraryMode === "sessions" ? sessionView : graph);
   const headerTitle = libraryMode === "sessions" ? sessionView?.session.label : graph?.name;
 
   return <div ref={appRef} data-slot="workflows-feature" className="@container h-full min-h-0 min-w-0">
-    <AppFrame safeArea={false} className="h-full min-w-0" toolbar={<div className="flex h-11 min-w-0 items-center gap-1 px-2 @min-[700px]:gap-2 @min-[700px]:px-3"><Workflow className="hidden size-4 shrink-0 @min-[700px]:block"/><span className="hidden shrink-0 text-sm font-semibold @min-[700px]:inline">Workflows</span>{libraryMode === "sessions" ? <Badge variant="outline" className="shrink-0"><Activity className="mr-1 size-3"/>Session</Badge> : dirty ? <Badge variant="outline" className="hidden shrink-0 @min-[520px]:inline-flex">Unsaved</Badge> : null}{libraryMode === "automations" && graph ? <Input aria-label="Workflow name" className="h-8 min-w-[7rem] max-w-56 flex-1 @max-[600px]:max-w-none" value={graph.name} onChange={(event) => mutate({ ...graph, name: event.target.value })}/> : <div className="min-w-0 flex-1 truncate text-sm font-medium">{headerTitle || (libraryMode === "sessions" ? "Sessions" : "Workflows")}</div>}{libraryMode === "automations" ? <WorkflowCreateDialog compact={overlayPane} onBlank={async () => { await createBlank(); }} onTemplate={async (id) => { await createTemplate(id); }} onAI={async (definition) => { await createAI(definition); }}/> : null}<ResponsiveToolbar items={toolbarItems} compact={overlayPane} className="ml-auto shrink-0"/></div>}>
+    <AppFrame safeArea={false} className="h-full min-w-0" toolbar={<div className="flex h-11 min-w-0 items-center gap-1 px-2 @min-[700px]:gap-2 @min-[700px]:px-3"><Workflow className="hidden size-4 shrink-0 @min-[700px]:block"/><span className="hidden shrink-0 text-sm font-semibold @min-[700px]:inline">Workflows</span>{libraryMode === "sessions" ? <Badge variant="outline" className="shrink-0"><Activity className="mr-1 size-3"/>Session</Badge> : dirty ? <Badge variant="outline" className="hidden shrink-0 @min-[520px]:inline-flex">Unsaved</Badge> : null}{libraryMode === "automations" && graph ? <Input aria-label="Workflow name" className="h-8 min-w-[7rem] max-w-56 flex-1 @max-[600px]:max-w-none" value={graph.name} onChange={(event) => mutate({ ...graph, name: event.target.value })}/> : <div className="min-w-0 flex-1 truncate text-sm font-medium">{headerTitle || (libraryMode === "sessions" ? "Sessions" : "Workflows")}</div>}{libraryMode === "automations" ? <WorkflowCreateDialog compact={overlayPane} onBlank={async () => { await createBlank(); }} onTemplate={async (id) => { await createTemplate(id); }} onAI={async (definition) => { await createAI(definition); }} onImport={async (definition) => { await createImported(definition); }}/> : null}<ResponsiveToolbar items={toolbarItems} compact={toolbarCompact} className="ml-auto shrink-0"/></div>}>
       <div className={`grid h-full min-h-0 min-w-0 ${showLibraryPanel ? "grid-cols-[300px_minmax(0,1fr)] @min-[1200px]:grid-cols-[340px_minmax(0,1fr)]" : "grid-cols-1"}`}>
         {showLibraryPanel ? <aside className="min-h-0 min-w-0 border-r">{library}</aside> : null}
         <main className="flex min-h-0 min-w-0 overflow-hidden">

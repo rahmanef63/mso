@@ -42,6 +42,9 @@ type GraphCanvasProps<NodeType extends Node = Node, EdgeType extends Edge = Edge
   /** On compact panes, keep these nodes readable instead of shrinking an entire wide graph. */
   compactFitNodeIds?: string[];
   compactFitMaxZoom?: number;
+  /** On roomy panes, auto-fit this representative cluster instead of shrinking a very large graph. Manual F still fits the complete graph. */
+  initialFitNodeIds?: string[];
+  initialFitMaxZoom?: number;
 };
 
 export function GraphCanvas<NodeType extends Node = Node, EdgeType extends Edge = Edge>(props: GraphCanvasProps<NodeType, EdgeType>) {
@@ -51,6 +54,7 @@ export function GraphCanvas<NodeType extends Node = Node, EdgeType extends Edge 
 function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = Edge>({
   ariaLabel, initialMode = "select", showMinimap = true, onTidy, fitPadding = 0.22,
   miniMapNodeColor, miniMapNodeStrokeColor, compactFitNodeIds, compactFitMaxZoom = 0.9,
+  initialFitNodeIds, initialFitMaxZoom = 1,
   className, children, fitViewOptions, onKeyDown, ...props
 }: GraphCanvasProps<NodeType, EdgeType>) {
   const [mode, setMode] = useState<GraphCanvasMode>(initialMode);
@@ -67,12 +71,21 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
   // Node selection/movement may recreate the array without changing the focus set.
   const focusKey = JSON.stringify(compactFitNodeIds ?? []);
   const focusNodes = useMemo(() => (JSON.parse(focusKey) as string[]).map((id) => ({ id })), [focusKey]);
+  const initialKey = JSON.stringify(initialFitNodeIds ?? []);
+  const initialNodes = useMemo(() => (JSON.parse(initialKey) as string[]).map((id) => ({ id })), [initialKey]);
   const { fitView, zoomIn, zoomOut } = useReactFlow<NodeType, EdgeType>();
   const fit = useCallback(() => void fitView({ padding: fitPadding, duration: 220, ...fitViewOptions }), [fitPadding, fitView, fitViewOptions]);
   const fitResponsive = useCallback((duration: number) => {
-    const nodes = compact && focusNodes.length ? focusNodes : undefined;
-    void fitView({ padding: compact ? Math.min(fitPadding, 0.14) : fitPadding, duration, ...fitViewOptions, ...(nodes ? { nodes, maxZoom: compactFitMaxZoom } : {}) });
-  }, [compact, compactFitMaxZoom, focusNodes, fitPadding, fitView, fitViewOptions]);
+    const preferredNodes = compact ? focusNodes : initialNodes;
+    const nodes = preferredNodes.length ? preferredNodes : undefined;
+    const maxZoom = compact ? compactFitMaxZoom : initialFitMaxZoom;
+    void fitView({
+      padding: compact ? Math.min(fitPadding, 0.14) : fitPadding,
+      duration,
+      ...fitViewOptions,
+      ...(nodes ? { nodes, maxZoom } : {}),
+    });
+  }, [compact, compactFitMaxZoom, fitPadding, fitView, fitViewOptions, focusNodes, initialFitMaxZoom, initialNodes]);
   useEffect(() => {
     if (!initialized || width <= 0 || height <= 0) return;
     // A single owner fits only after lazy CSS and node measurement are ready.
@@ -114,7 +127,7 @@ function GraphCanvasInner<NodeType extends Node = Node, EdgeType extends Edge = 
         <ControlButton aria-label="Pan mode" title="Pan (H or hold Space)" onClick={() => setMode("pan")} className={mode === "pan" ? "is-active" : undefined}><Hand aria-hidden/></ControlButton>
         <ControlButton aria-label="Zoom in" title="Zoom in (+)" onClick={() => void zoomIn({ duration: 160 })}><ZoomIn aria-hidden/></ControlButton>
         <ControlButton aria-label="Zoom out" title="Zoom out (-)" onClick={() => void zoomOut({ duration: 160 })}><ZoomOut aria-hidden/></ControlButton>
-        <ControlButton aria-label="Fit view" title="Fit view (F)" onClick={fit}><Maximize2 aria-hidden/></ControlButton>
+        <ControlButton aria-label="Fit view" title="Fit complete graph (F)" onClick={fit}><Maximize2 aria-hidden/></ControlButton>
         {onTidy ? <ControlButton aria-label="Tidy up" title="Tidy up" onClick={tidy} className="mso-graph-secondary-control"><LayoutGrid aria-hidden/></ControlButton> : null}
       </Controls>
       {showMinimap ? <MiniMap

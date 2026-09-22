@@ -33,8 +33,10 @@ export async function saveWorkflowSurface(input: Record<string, unknown>) {
   const app = input.app;
   if (!app || typeof app !== "object" || Array.isArray(app) || Object.keys(app).some((key) => !APP_FIELDS.has(key))) throw new SurfaceConfigError("invalid_surface_metadata");
   const row = app as Record<string, unknown>;
-  if (row.placements !== undefined && JSON.stringify(row.placements) !== JSON.stringify(["workflows"])) throw new SurfaceConfigError("invalid_workflow_placement");
-  const normalized = await configuredSurfaceApps(JSON.stringify([{ ...row, placements: ["workflows"] }]));
+  const placement = Array.isArray(row.placements) && row.placements.length === 1 && (row.placements[0] === "workflows" || row.placements[0] === "n8n") ? row.placements[0] : undefined;
+  if (row.placements !== undefined && !placement) throw new SurfaceConfigError("invalid_workflow_placement");
+  const selectedPlacement = placement ?? "workflows";
+  const normalized = await configuredSurfaceApps(JSON.stringify([{ ...row, placements: [selectedPlacement] }]));
   if (normalized.length !== 1) throw new SurfaceConfigError("invalid_surface_metadata");
   const selected = normalized[0];
   return withSecurityStoreLock(surfaceRegistryPath(), async () => {
@@ -58,7 +60,7 @@ export async function saveWorkflowSurface(input: Record<string, unknown>) {
       throw new SurfaceConfigError("workflow_login_path_must_not_contain_query");
     }
     if (sharesPage) {
-      replacement.placements = ["workflows", "mcp-page"];
+      replacement.placements = [selectedPlacement, "mcp-page"];
       if (existingNormalized?.externalAuthPath !== undefined) replacement.externalAuthPath = existingNormalized.externalAuthPath;
       else delete replacement.externalAuthPath;
     }

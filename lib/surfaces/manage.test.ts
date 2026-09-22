@@ -55,6 +55,11 @@ describe("owner-reviewed workflow surface configuration", () => {
     expect((await surfaceRegistrySnapshot()).apps[0].placements).toEqual(["workflows"]);
     await expect(save({ ...app, placements: ["workflows", "mcp-page"] })).rejects.toThrow("invalid_workflow_placement");
   });
+  it("persists n8n as a dedicated reviewed placement without adding Page approval", async () => {
+    await save({ ...app, id: "n8n", title: "n8n", placements: ["n8n"] });
+    const saved = (await surfaceRegistrySnapshot()).apps[0];
+    expect(saved).toMatchObject({ id: "n8n", title: "n8n", placements: ["n8n"] });
+  });
   it("rejects stale updates and concurrent lost writes", async () => {
     const revision = (await surfaceRegistrySnapshot()).revision;
     await save();

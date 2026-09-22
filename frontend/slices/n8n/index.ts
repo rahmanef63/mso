@@ -1,10 +1,10 @@
-import { Workflow } from "lucide-react";
+import { Waypoints } from "lucide-react";
 import type { AppDescriptor } from "@/features/appshell";
 
-export const workflowsApp: AppDescriptor = {
-  id: "workflows",
-  title: "Workflows",
-  icon: Workflow,
+export const n8nApp: AppDescriptor = {
+  id: "n8n",
+  title: "n8n",
+  icon: Waypoints,
   gradient: "var(--primary)",
   prefetch: "never",
   load: () => import("./app"),

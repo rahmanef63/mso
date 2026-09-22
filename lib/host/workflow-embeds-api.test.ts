@@ -7,6 +7,7 @@ describe("reviewed Workflows embed registry", () => {
   it("is disabled by default and requires explicit placement", () => {
     expect(workflowEmbeds([app], [])).toEqual([]);
     expect(workflowEmbeds([{ ...app, placements: ["workflows"] }], [])).toHaveLength(1);
+    expect(workflowEmbeds([{ ...app, id: "n8n", title: "n8n", placements: ["n8n"] }], [])).toHaveLength(1);
   });
   it("shares the Page registry and only returns approved non-secret presentation metadata", async () => {
     vi.stubEnv("MSO_SURFACE_APPS_JSON", JSON.stringify([{ ...app, placements: ["workflows"], externalAuthPath: "/signin", accessToken: "must-not-leak" }]));

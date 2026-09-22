@@ -102,9 +102,11 @@ This is a private runtime store. MSO source ships **no operator-specific organiz
 
 Open the first-class **Organization** app from the dock, launcher, Start menu, App Library, Spotlight, or `/organization`. **Alfa → Organization** remains a secondary deep-link to the same view and SSOT.
 
-The default `All organization` view renders the complete reporting hierarchy across units. Selecting a unit filters the view while keeping the same SSOT. Seat cards show role, unit, seat mode, execution binding, and current runtime state.
+The default `All organization` view is now **directory-first** so large organizations stay readable instead of shrinking dozens of cards into one tiny fit-to-screen graph. The overview shows searchable unit cards and operational counts; **Map** remains available when relationship topology matters.
 
-Editing uses the shell-responsive dialog/drawer primitive so desktop and mobile use the same contract.
+Opening a unit keeps **Projects** and **Seats** as explicit sub-surfaces. Projects uses the internal project-flow canvas; Seats defaults to a searchable directory and can switch to the reporting map. Large canvases initially focus a representative readable cluster, while `F` still fits the complete graph on demand. Seat cards show role, unit, seat mode, execution binding, and current runtime state.
+
+Editing uses the shell-responsive dialog/drawer primitive so desktop and mobile use the same contract. The n8n capability split and the boundary between Organization, Workflows and Integrations are documented in [`N8N-PARITY.md`](./N8N-PARITY.md).
 
 ## CLI
 

@@ -82,6 +82,8 @@ export function OrganizationCanvas({ chart, runtime, unitId, selectedSeatId, onU
         onNodeClick={(_, node) => node.type === "unit" ? onUnitSelect(node.id) : onSeatSelect((node as SeatNode).data.seat)}
         onNodeDoubleClick={(_, node) => { if (node.type === "seat") onSeatOpen((node as SeatNode).data.seat); }}
         fitPadding={pane === "xs" || pane === "sm" ? 0.12 : pane === "md" ? 0.18 : 0.26}
+        initialFitNodeIds={nodes.slice(0, 6).map((node) => node.id)}
+        initialFitMaxZoom={0.96}
         miniMapNodeColor={(node) => node.type === "unit" ? "var(--info)" : (() => {
           const status = (node as SeatNode).data.runtime?.status ?? "vacant";
           return status === "busy" ? "var(--warning)" : status === "ready" ? "var(--success)" : status === "unresolved" ? "var(--destructive)" : "var(--text-dim)";

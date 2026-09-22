@@ -1,6 +1,7 @@
 export type SurfaceRenderer = "iframe" | "remote";
 export type SurfacePresentation = "inline" | "fullscreen" | "pip";
 export type SurfaceEnvironment = "development" | "preview" | "production" | "other";
+export type SurfacePlacement = "workflows" | "n8n" | "mcp-page";
 
 export type SurfaceApp = {
   id: string;
@@ -15,9 +16,8 @@ export type SurfaceApp = {
   externalAuthPath?: string;
   reason?: string;
   project?: string;
-  placements?: Array<"workflows" | "mcp-page">;
+  placements?: SurfacePlacement[];
 };
-
 
 export type WorkflowEmbed = {
   id: string; title: string; description: string; origin: string; url?: string; blocked?: boolean;
