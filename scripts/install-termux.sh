@@ -7,8 +7,12 @@ DISTRO="${MSO_TERMUX_DISTRO:-mso-ubuntu}"
 GUEST_USER="${MSO_TERMUX_USER:-mso}"
 IMAGE="${MSO_TERMUX_IMAGE:-ubuntu:24.04}"
 INSTALL_URL="${MSO_TERMUX_INSTALL_URL:-https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh}"
+GUEST_REF="${MSO_TERMUX_REF:-main}"
+BUILD_CPUS="${MSO_TERMUX_BUILD_CPUS:-1}"
+NODE_HEAP_MB="${MSO_TERMUX_NODE_HEAP_MB:-1536}"
 TERMUX_BIN="${PREFIX:-/data/data/com.termux/files/usr}/bin"
 GUEST_SYSTEM_PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+INSTALL_LOG="${MSO_TERMUX_LOG:-$HOME/.mso/install-termux.log}"
 
 info() { printf '· %s\n' "$*"; }
 ok() { printf '✓ %s\n' "$*"; }
@@ -22,6 +26,18 @@ esac
 # arbitrary shell source (the download URL is passed as a positional argument).
 [[ "$DISTRO" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]] || fail 'invalid distro name.'
 [[ "$GUEST_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] && [ "$GUEST_USER" != root ] || fail 'invalid non-root guest user.'
+[[ "$GUEST_REF" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ ]] || fail 'invalid MSO ref.'
+[[ "$BUILD_CPUS" =~ ^[1-9][0-9]*$ ]] || fail 'MSO_TERMUX_BUILD_CPUS must be a positive integer.'
+[[ "$NODE_HEAP_MB" =~ ^[1-9][0-9]*$ ]] || fail 'MSO_TERMUX_NODE_HEAP_MB must be a positive integer.'
+
+mkdir -p "$(dirname "$INSTALL_LOG")"
+touch "$INSTALL_LOG"
+chmod 600 "$INSTALL_LOG"
+if [ "${MSO_TERMUX_NO_TEE:-0}" != 1 ]; then
+  exec > >(tee -a "$INSTALL_LOG") 2>&1
+fi
+info "persistent install log: $INSTALL_LOG"
+info "Android-safe build limits: workers=$BUILD_CPUS node-heap=${NODE_HEAP_MB}MiB"
 
 command -v apt >/dev/null 2>&1 || fail 'Termux apt is missing.'
 info 'repairing/updating Termux packages'
@@ -70,10 +86,18 @@ info 'installing/updating MSO inside Ubuntu'
 proot-distro login "$DISTRO" --user "$GUEST_USER" -- /usr/bin/env -i \
   HOME="/home/$GUEST_USER" USER="$GUEST_USER" LOGNAME="$GUEST_USER" SHELL=/bin/bash \
   PATH="/home/$GUEST_USER/.local/bin:/home/$GUEST_USER/.bun/bin:$GUEST_SYSTEM_PATH" \
-  BUN_INSTALL="/home/$GUEST_USER/.bun" LANG=C.UTF-8 TERM="${TERM:-xterm-256color}" \
+  BUN_INSTALL="/home/$GUEST_USER/.bun" MSO_REF="$GUEST_REF" \
+  MSO_BUILD_CPUS="$BUILD_CPUS" MSO_LOW_MEMORY_BUILD=1 \
+  NODE_OPTIONS="--max-old-space-size=$NODE_HEAP_MB" MAKEFLAGS="-j$BUILD_CPUS" \
+  npm_config_jobs="$BUILD_CPUS" RAYON_NUM_THREADS="$BUILD_CPUS" \
+  LANG=C.UTF-8 TERM="${TERM:-xterm-256color}" \
   /bin/bash --noprofile --norc -c '
   set -Eeuo pipefail
   cd "$HOME"
+  printf "· guest runtime: "
+  uname -m
+  grep "^MemTotal:" /proc/meminfo 2>/dev/null | sed "s/^/· guest memory: /" || true
+  df -h "$HOME" 2>/dev/null | tail -n 1 | sed "s/^/· guest storage: /" || true
   # Refuse manually linked Android runtimes even on an otherwise clean PATH.
   # Missing tools are installed by the normal Linux installer (NodeSource/Bun).
   for runtime in node bun; do
@@ -90,6 +114,11 @@ proot-distro login "$DISTRO" --user "$GUEST_USER" -- /usr/bin/env -i \
   command -v mso >/dev/null 2>&1
   mso --version
   mso -h >/dev/null
+
+  # Normal installs must end attached to main so future `mso update` calls work.
+  if [ "$MSO_REF" = main ] && [ -d "$HOME/mso/.git" ]; then
+    git -C "$HOME/mso" switch -C main origin/main >/dev/null
+  fi
 ' bash "$INSTALL_URL"
 
 LAUNCHER="$TERMUX_BIN/mso"

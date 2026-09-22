@@ -34,7 +34,7 @@ proot-distro() {
   printf '%s\\0' "$@" > ${quote(root)}/"$user.args"
 }
 `;
-  const env: NodeJS.ProcessEnv = { PATH: `/usr/bin:/bin`, HOME: root, PREFIX: prefix, TERM: "xterm-256color", NODE_ENV: "test" };
+  const env: NodeJS.ProcessEnv = { PATH: `/usr/bin:/bin`, HOME: root, PREFIX: prefix, TERM: "xterm-256color", NODE_ENV: "test", MSO_TERMUX_NO_TEE: "1" };
   const run = spawnSync("/bin/bash", ["--noprofile", "--norc", "-c", `${mock}\nsource ${quote(installer)}`], { env, encoding: "utf8", timeout: 10000 });
   expect(run.status, run.stderr).toBe(0);
   const readArgs = (name: string) => fs.readFileSync(path.join(root, `${name}.args`), "utf8").split("\0").slice(0, -1);
@@ -70,7 +70,7 @@ describe("Termux PRoot Linux environment boundary", () => {
       const result = probe(args, f.dirty);
       expect(result.status, result.stderr).toBe(0);
       expect(result.stdout).not.toContain(f.prefix);
-      expect(result.stdout).not.toMatch(/TERMUX_VERSION=|NODE_PATH=|NODE_OPTIONS=|npm_config_|LD_PRELOAD=|LD_LIBRARY_PATH=|CFLAGS=|LDFLAGS=|BASH_ENV=|ENV=|BASH_FUNC_|function/);
+      expect(result.stdout).not.toMatch(/TERMUX_VERSION=|NODE_PATH=|npm_config_nodedir=|npm_config_prefix=|LD_PRELOAD=|LD_LIBRARY_PATH=|CFLAGS=|LDFLAGS=|BASH_ENV=|ENV=|BASH_FUNC_|function/);
       expect(result.stderr).not.toContain("HOST_STARTUP_LEAK");
       expect(result.stdout).toContain(`PATH=${name === "root" ? "" : "/home/mso/.local/bin:/home/mso/.bun/bin:"}${systemPath}\n`);
       expect(result.stdout).toContain(`HOME=${name === "root" ? "/root" : "/home/mso"}\n`);
