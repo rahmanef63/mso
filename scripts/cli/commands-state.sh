@@ -179,6 +179,11 @@ case "$cmd" in
       *) die "usage: mso $U_memory" ;;
     esac ;;
   config) mso_config_command "$U_config" "$@" ;;
+  federation)
+    case "${1:-status}" in
+      status) jget "/api/v1/federation/status" ;;
+      *) die "usage: mso ${U_federation}" ;;
+    esac ;;
   prefs)
     case "${1:-show}" in
       show) jget "/api/prefs" ;;
