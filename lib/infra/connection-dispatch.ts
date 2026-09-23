@@ -26,7 +26,7 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
   if(operation==="dokploy.application.publicEnv.upsert"){
     const {arguments:operationArgs,...meta}=a;metadataOnly(meta);
     const args=operationArgs;if(!args||typeof args!=="object"||Array.isArray(args))throw new IntegrationError("invalid_tool_arguments");
-    if(Object.keys(args).some(k=>!["applicationId","key","value"].includes(k)))throw new IntegrationError("invalid_tool_arguments");
+    if(Object.keys(args).some(k=>!["applicationId","key","value","redeploy"].includes(k)))throw new IntegrationError("invalid_tool_arguments");
   }else metadataOnly(a);
   if(Object.keys(a).some(k=>!["user","provider","connection","operation","arguments","tool","confirm"].includes(k)))throw new IntegrationError("invalid_execution_fields");
   const user=identity(a.user,"user"),provider=identity(a.provider,"provider"),connection=identity(a.connection,"connection"),selection={user,connection};
@@ -48,7 +48,7 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     "dokploy.git.recover":{provider:"dokploy",fields:["applicationId"],run:()=>recoverDokployPublicGithubToHttpsGit(String((args as Record<string,unknown>).applicationId))},
     "dokploy.application.deploy":{provider:"dokploy",fields:["applicationId"],run:()=>deployDokployApplication(String((args as Record<string,unknown>).applicationId))},
     "dokploy.dockerfile":{provider:"dokploy",fields:["applicationId","dockerfile","dockerContextPath"],run:()=>configureDokployDockerfileBuild(args as {applicationId:string;dockerfile?:string;dockerContextPath?:string})},
-    "dokploy.application.publicEnv.upsert":{provider:"dokploy",fields:["applicationId","key","value"],run:()=>upsertDokployPublicBuildEnv(args as {applicationId:string;key:string;value:string})},
+    "dokploy.application.publicEnv.upsert":{provider:"dokploy",fields:["applicationId","key","value","redeploy"],run:()=>upsertDokployPublicBuildEnv(args as {applicationId:string;key:string;value:string;redeploy?:boolean})},
     "dokploy.project.ensure":{provider:"dokploy",fields:["name"],run:()=>ensureDokployProject(String((args as Record<string,unknown>).name))},
     "convex.customDomains.list":{provider:"convex-cloud",fields:["deploymentName"],run:()=>listConvexCustomDomains(String((args as Record<string,unknown>).deploymentName))},
     "convex.customDomain.ensure":{provider:"convex-cloud",fields:["deploymentName","domain","requestDestination"],run:()=>ensureConvexCustomDomain(args as {deploymentName:string;domain:string;requestDestination:"convexCloud"|"convexSite"})},

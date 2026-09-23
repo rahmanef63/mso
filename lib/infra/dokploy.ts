@@ -147,22 +147,27 @@ export async function upsertDokployPublicBuildEnv(args: {
   applicationId: string;
   key: string;
   value: string;
+  redeploy?: boolean;
 }): Promise<{ applicationId: string; key: string; changed: boolean; redeployQueued: boolean }> {
   const applicationId = dokployId(args.applicationId, "application id");
   const before = await readDokployApplication(applicationId);
   const sourceEnv = typeof before.env === "string" ? before.env : "";
-  const next = upsertPublicEnvText(sourceEnv, args.key, args.value);
-  if (!next.changed) return { applicationId, key: args.key, changed: false, redeployQueued: false };
+  const sourceBuildArgs = typeof before.buildArgs === "string" ? before.buildArgs : "";
+  const nextEnv = upsertPublicEnvText(sourceEnv, args.key, args.value);
+  const nextBuildArgs = upsertPublicEnvText(sourceBuildArgs, args.key, args.value);
+  if (!nextEnv.changed && !nextBuildArgs.changed) return { applicationId, key: args.key, changed: false, redeployQueued: false };
   await call("/application.saveEnvironment", "POST", {
     applicationId,
-    env: next.env,
-    buildArgs: typeof before.buildArgs === "string" ? before.buildArgs : null,
+    env: nextEnv.env,
+    buildArgs: nextBuildArgs.env,
     buildSecrets: typeof before.buildSecrets === "string" ? before.buildSecrets : null,
     createEnvFile: before.createEnvFile === true,
   });
   const after = await readDokployApplication(applicationId);
-  const verified = upsertPublicEnvText(typeof after.env === "string" ? after.env : "", args.key, args.value);
-  if (verified.changed) throw new Error("Dokploy environment update could not be verified");
+  const verifiedEnv = upsertPublicEnvText(typeof after.env === "string" ? after.env : "", args.key, args.value);
+  const verifiedBuildArgs = upsertPublicEnvText(typeof after.buildArgs === "string" ? after.buildArgs : "", args.key, args.value);
+  if (verifiedEnv.changed || verifiedBuildArgs.changed) throw new Error("Dokploy public build environment update could not be verified");
+  if (args.redeploy === false) return { applicationId, key: args.key, changed: true, redeployQueued: false };
   await call("/application.deploy", "POST", { applicationId });
   return { applicationId, key: args.key, changed: true, redeployQueued: true };
 }
