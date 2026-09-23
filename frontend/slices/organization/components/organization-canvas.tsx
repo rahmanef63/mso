@@ -7,6 +7,7 @@ import type { OrganizationChart, OrganizationSeat, OrganizationSeatRuntime, Orga
 import { Badge } from "@/components/ui/badge";
 import { graphRoutedEdgeTypes } from "@/components/shared/graph-routed-edge";
 import { GraphCanvas } from "@/components/shared/graph-canvas";
+import { GraphNodeShell } from "@/components/shared/graph-node-shell";
 import { useContainer } from "@/features/appshell";
 import { cn } from "@/lib/utils";
 import { organizationSeatLayout, organizationUnitLayout } from "../lib/canvas-layout";
@@ -22,17 +23,17 @@ const statusClass: Record<OrganizationSeatRuntime["status"], string> = {
 };
 
 function UnitCard({ data, selected }: NodeProps<UnitNode>) {
-  return <div className={cn("relative w-[230px] rounded-xl border bg-card p-3 shadow-sm", selected && "ring-2 ring-ring")}><Handle type="target" position={Position.Top} id="input" className="!size-2 !border-0 !bg-muted-foreground/50"/><Handle type="source" position={Position.Bottom} id="output" className="!size-2 !border-0 !bg-muted-foreground/50"/>
+  return <GraphNodeShell selected={selected} className="w-[230px]"><Handle type="target" position={Position.Top} id="input" className="!size-2 !border-0 !bg-muted-foreground/50"/><Handle type="source" position={Position.Bottom} id="output" className="!size-2 !border-0 !bg-muted-foreground/50"/>
     <div className="flex items-start gap-2"><Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground"/><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{data.unit.name}</div><div className="mt-0.5 line-clamp-2 break-words text-[10px] text-muted-foreground">{data.unit.description || data.unit.kind}</div></div></div>
     <div className="mt-2 flex gap-1"><Badge variant="secondary" className="text-[9px]">{data.unit.kind}</Badge><Badge variant="outline" className="text-[9px]">{data.seatCount} seats</Badge>{data.unit.projectFlow?.nodes.length ? <Badge variant="outline" className="text-[9px]">{data.unit.projectFlow.nodes.length} nodes</Badge> : null}</div>
-  </div>;
+  </GraphNodeShell>;
 }
 function SeatCard({ data, selected }: NodeProps<SeatNode>) {
   const status = data.runtime?.status ?? "vacant";
-  return <div className={cn("relative w-[238px] rounded-xl border bg-card p-3 shadow-sm", selected && "ring-2 ring-ring", data.external && "opacity-75")}><Handle type="target" position={Position.Top} id="input" className="!size-2 !border-0 !bg-muted-foreground/50"/><Handle type="source" position={Position.Bottom} id="output" className="!size-2 !border-0 !bg-muted-foreground/50"/>
+  return <GraphNodeShell selected={selected} className={cn("w-[238px]", data.external && "opacity-75")}><Handle type="target" position={Position.Top} id="input" className="!size-2 !border-0 !bg-muted-foreground/50"/><Handle type="source" position={Position.Bottom} id="output" className="!size-2 !border-0 !bg-muted-foreground/50"/>
     <div className="flex items-start gap-2"><span className={cn("mt-1 size-2.5 shrink-0 rounded-full", statusClass[status])}/><div className="min-w-0 flex-1"><div className="text-xs font-semibold leading-tight">{data.seat.title}</div><div className="mt-0.5 truncate text-[10px] text-muted-foreground">{data.seat.name}</div></div></div>
     <div className="mt-2 flex flex-wrap gap-1"><Badge variant="secondary" className="text-[9px]">{data.seat.role}</Badge><Badge variant="outline" className="max-w-[140px] truncate text-[9px]">{data.unitName}</Badge>{data.external?<Badge variant="outline" className="text-[9px]">reporting parent</Badge>:null}</div>
-  </div>;
+  </GraphNodeShell>;
 }
 const nodeTypes = { unit: UnitCard, seat: SeatCard };
 
@@ -82,7 +83,8 @@ export function OrganizationCanvas({ chart, runtime, unitId, selectedSeatId, onU
         onNodeClick={(_, node) => node.type === "unit" ? onUnitSelect(node.id) : onSeatSelect((node as SeatNode).data.seat)}
         onNodeDoubleClick={(_, node) => { if (node.type === "seat") onSeatOpen((node as SeatNode).data.seat); }}
         fitPadding={pane === "xs" || pane === "sm" ? 0.12 : pane === "md" ? 0.18 : 0.26}
-        initialFitNodeIds={nodes.slice(0, 6).map((node) => node.id)}
+        compactFitNodeIds={selectedSeatId ? [selectedSeatId] : nodes.slice(0, 4).map((node) => node.id)}
+        initialFitNodeIds={selectedSeatId ? [selectedSeatId] : nodes.slice(0, 6).map((node) => node.id)}
         initialFitMaxZoom={0.96}
         miniMapNodeColor={(node) => node.type === "unit" ? "var(--info)" : (() => {
           const status = (node as SeatNode).data.runtime?.status ?? "vacant";

@@ -51,6 +51,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Changed**
 
+- `graph` establish shared flow foundation
 - `ui` reduce organization and workflow chrome
 
 **Tests**
