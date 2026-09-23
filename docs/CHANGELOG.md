@@ -28,10 +28,12 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `federation` bridge Batonly to MSO and SI-Coder
 - `workflows` split n8n and improve org automation ux
 
 **Fixed**
 
+- `cli` cover federation status and PAT creation
 - `termux` make partial installs resumable on low memory
 - `mcp` restore main quality gates
 - `termux` replace legacy launcher symlink safely
@@ -53,6 +55,11 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 **Fixed**
 
 - `mcp` negotiate native app ui
+
+**Chores**
+
+- `deps-dev` bump the development-minor-patch group with 3 updates
+- `deps` bump the production-minor-patch group with 4 updates
 
 ## 2026-09-20
 
