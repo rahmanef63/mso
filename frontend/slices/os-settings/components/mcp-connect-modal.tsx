@@ -2,13 +2,7 @@
 
 import { AlertTriangle, Key } from "lucide-react";
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/features/appshell";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { McpCopyField } from "./mcp-copy-field";
 
@@ -78,18 +72,18 @@ export function McpConnectModal({
   const geminiCliCommand = `gemini mcp add --transport http --scope user -H "Authorization: Bearer ${tokenValue}" mso ${mcpUrl}`;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto p-6">
-        <DialogHeader className="space-y-2">
-          <DialogTitle className="flex items-center gap-2 text-xl">
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange} size="lg" mobileVariant="drawer-bottom">
+      <ResponsiveDialog.Header>
+          <ResponsiveDialog.Title className="flex items-center gap-2 text-xl">
             <Key className="size-5 text-primary" />
             Connect MCP to Your AI Agent
-          </DialogTitle>
-          <DialogDescription>
+          </ResponsiveDialog.Title>
+          <ResponsiveDialog.Description>
             {label ? `Credentials for “${label}”. ` : ""}
             Configure your AI assistant or IDE to control MSO using Streamable HTTP.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialog.Description>
+      </ResponsiveDialog.Header>
+      <ResponsiveDialog.Body className="space-y-4">
 
         {token && (
           <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3.5 text-sm text-amber-600 dark:text-amber-400">
@@ -106,7 +100,7 @@ export function McpConnectModal({
           </div>
         )}
 
-        <div className="mt-2 space-y-4">
+        <div className="space-y-4">
           <Tabs>
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger
@@ -198,7 +192,7 @@ export function McpConnectModal({
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialog.Body>
+    </ResponsiveDialog>
   );
 }

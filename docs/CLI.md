@@ -118,7 +118,7 @@ Commands:
   models *             Configure AI providers/auth; inspect model catalog
   skills *             Discover host skills + curated market: available/install/remove
   changelog            What shipped, newest first (same text Settings → About shows)
-  mcp *                MCP tokens + live activity: list | activity [n] | revoke <id> | revoke all
+  mcp *                MCP tokens + live activity: list | pat <label> [scope] [ttlDays] | activity [n] | revoke <id> | revoke all
   oauth <prov> *       Provider sign-in (device code): start | poll
   audit [n] [prefix]   Audit trail, newest first (writes/exec/auth; reads are not logged)
   stock <query> [page] Stock-image search (Unsplash key optional, Openverse fallback)
