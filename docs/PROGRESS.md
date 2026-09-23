@@ -1,3 +1,9 @@
+## 2026-09-23 — Bind public Dokploy build env to Docker build args
+
+The bounded Dokploy public-build environment operation now writes each approved public key to both the application runtime env and Docker build args before queueing one redeploy. This closes the staging gap where a value such as NEXT_PUBLIC_CONVEX_URL existed at runtime but Docker ARG still received an empty value during image build. Secret/server keys remain rejected, existing build secrets and unrelated build args are preserved, and an already-synchronized key is idempotent without another deploy.
+
+A credential-isolated regression verifies runtime env, build args, preservation of neighboring settings, single redeploy, idempotent reread, and no public value reflection in the operation result.
+
 ## 2026-09-23 — Add native Channels for Telegram and Discord
 
 MSO now has a first-class **Channels** application and provider-neutral messaging runtime. Telegram and Discord are adapters over one shared channel contract rather than separate feature implementations. Channel records contain only routing metadata and exact native Integrations references; bot tokens and webhook secrets remain in Integrations.
@@ -7,7 +13,6 @@ Telegram supports Bot API credential verification, outbound text, normalized web
 Native Workflows gains `Channel Trigger` and `Channel Send` nodes. Verified inbound events use the existing Workflow Graph engine and durable session/run machinery instead of a parallel automation runtime. The Channels UI exposes connection health, enabled state, default target, workflow binding, provider inbound URL, test, edit/delete and test-message controls, with direct navigation back to Integrations when setup is missing.
 
 Focused provider/schema/store/API tests and TypeScript verification cover the new boundary. `docs/CHANNELS.md` records runtime, security and capability truth.
-
 ## 2026-09-23 — Isolate Termux installations inside Ubuntu PRoot
 
 The Termux adapter now starts installation and the generated CLI launcher with a fresh guest environment, explicit Linux-only PATH and non-root owner. It rejects an Android Node/Bun runtime accidentally visible inside the guest, retains the legacy native launcher target while replacing its symlink, and supports bounded build workers, Node heap, resumable installs and a private persistent install log for low-memory tablets. Shell tests exercise the exact guest argv boundary, hostile inherited environment, argument forwarding and failed guest-runtime probes without installing packages. The launcher test reads its generated file directly instead of first checking filesystem metadata, avoiding a check/read race flagged by CodeQL.

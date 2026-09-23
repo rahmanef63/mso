@@ -12,6 +12,8 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `architecture` keep Dokploy adapter within ratchet
+- `dokploy` sync public Docker build args
 - `security` restore federation gate checks
 - `termux` pin guest bootstrap and align platform contracts
 - `ci` keep PAT scope case parseable by strict Semgrep
