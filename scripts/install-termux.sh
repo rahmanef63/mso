@@ -6,7 +6,10 @@ umask 077
 DISTRO="${MSO_TERMUX_DISTRO:-mso-ubuntu}"
 GUEST_USER="${MSO_TERMUX_USER:-mso}"
 IMAGE="${MSO_TERMUX_IMAGE:-ubuntu:24.04}"
-INSTALL_URL="${MSO_TERMUX_INSTALL_URL:-https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh}"
+GUEST_INSTALL_URL_DEFAULT="https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-core.sh"
+GUEST_INSTALL_SHA256_DEFAULT="794d8893285c045a8ab608d8c1d2803188b4a2a13058695d6c1fd54520973b65"
+INSTALL_URL="${MSO_TERMUX_INSTALL_URL:-$GUEST_INSTALL_URL_DEFAULT}"
+INSTALL_SHA256="${MSO_TERMUX_INSTALL_SHA256:-$GUEST_INSTALL_SHA256_DEFAULT}"
 GUEST_REF="${MSO_TERMUX_REF:-main}"
 BUILD_CPUS="${MSO_TERMUX_BUILD_CPUS:-1}"
 NODE_HEAP_MB="${MSO_TERMUX_NODE_HEAP_MB:-1536}"
@@ -29,6 +32,10 @@ esac
 [[ "$GUEST_REF" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ ]] || fail 'invalid MSO ref.'
 [[ "$BUILD_CPUS" =~ ^[1-9][0-9]*$ ]] || fail 'MSO_TERMUX_BUILD_CPUS must be a positive integer.'
 [[ "$NODE_HEAP_MB" =~ ^[1-9][0-9]*$ ]] || fail 'MSO_TERMUX_NODE_HEAP_MB must be a positive integer.'
+if [ -n "${MSO_TERMUX_INSTALL_URL:-}" ] && [ -z "${MSO_TERMUX_INSTALL_SHA256:-}" ]; then
+  fail 'MSO_TERMUX_INSTALL_SHA256 is required when overriding MSO_TERMUX_INSTALL_URL.'
+fi
+[[ "$INSTALL_SHA256" =~ ^[0-9a-f]{64}$ ]] || fail 'MSO_TERMUX_INSTALL_SHA256 must be a lowercase SHA-256 digest.'
 
 mkdir -p "$(dirname "$INSTALL_LOG")"
 touch "$INSTALL_LOG"
@@ -108,7 +115,23 @@ proot-distro login "$DISTRO" --user "$GUEST_USER" -- /usr/bin/env -i \
       }
     fi
   done
-  curl -fsSL "$1" | /bin/bash -s -- --no-service --no-onboard
+  TMP_INSTALLER="$(mktemp "$HOME/.mso-install-core.XXXXXX")"
+  cleanup_installer() { rm -f "$TMP_INSTALLER"; }
+  trap cleanup_installer EXIT
+  curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 15 --max-time 180 "$1" -o "$TMP_INSTALLER" || {
+    echo "MSO installer payload download failed." >&2
+    exit 1
+  }
+  ACTUAL_SHA256="$(sha256sum "$TMP_INSTALLER")"
+  ACTUAL_SHA256="${ACTUAL_SHA256%% *}"
+  [ "$ACTUAL_SHA256" = "$2" ] || {
+    echo "MSO installer payload hash mismatch; refusing execution." >&2
+    exit 1
+  }
+  /bin/bash -n "$TMP_INSTALLER"
+  /bin/bash "$TMP_INSTALLER" --no-service --no-onboard
+  cleanup_installer
+  trap - EXIT
   [ "$(node -p "process.platform")" = linux ]
   [ "$(bun -p "process.platform")" = linux ]
   command -v mso >/dev/null 2>&1
@@ -119,7 +142,7 @@ proot-distro login "$DISTRO" --user "$GUEST_USER" -- /usr/bin/env -i \
   if [ "$MSO_REF" = main ] && [ -d "$HOME/mso/.git" ]; then
     git -C "$HOME/mso" switch -C main origin/main >/dev/null
   fi
-' bash "$INSTALL_URL"
+' bash "$INSTALL_URL" "$INSTALL_SHA256"
 
 LAUNCHER="$TERMUX_BIN/mso"
 info "installing Termux launcher: $LAUNCHER"

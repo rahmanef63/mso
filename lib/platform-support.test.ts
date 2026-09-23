@@ -12,6 +12,7 @@ const INSTALL_PAGE = fs.readFileSync(path.join(ROOT, "app/install/page.tsx"), "u
 const PLATFORM_TABS = fs.readFileSync(path.join(ROOT, "app/install/platform-tabs.tsx"), "utf8");
 const INSTALLER_PATH = path.join(ROOT, "scripts/install.sh");
 const INSTALLER = fs.readFileSync(INSTALLER_PATH, "utf8");
+const INSTALL_CORE = fs.readFileSync(path.join(ROOT, "scripts/install-core.sh"), "utf8");
 const MACOS_INSTALLER = fs.readFileSync(path.join(ROOT, "scripts/install-macos.sh"), "utf8");
 const TERMUX_INSTALLER = fs.readFileSync(path.join(ROOT, "scripts/install-termux.sh"), "utf8");
 const WINDOWS_INSTALLER = fs.readFileSync(path.join(ROOT, "scripts/install-windows.ps1"), "utf8");
@@ -99,6 +100,7 @@ describe("MSO platform support contract", () => {
   it("pins compatibility bootstraps from the public dispatcher", () => {
     expect(INSTALLER).toContain('MACOS_SHA256="' + sha256(MACOS_INSTALLER) + '"');
     expect(INSTALLER).toContain('TERMUX_SHA256="' + sha256(TERMUX_INSTALLER) + '"');
+    expect(TERMUX_INSTALLER).toContain('GUEST_INSTALL_SHA256_DEFAULT="' + sha256(INSTALL_CORE) + '"');
     expect(INSTALLER).toContain("*/com.termux/files/usr)");
     expect(INSTALLER).toContain("MINGW*|MSYS*|CYGWIN*)");
   });
