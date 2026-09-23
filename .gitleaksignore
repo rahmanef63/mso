@@ -24,3 +24,9 @@ db292708a0ce5554a1a265091a65fb6a19636538:lib/infra/portable/ui.ts:generic-api-ke
 # all provider calls mocked/in-memory. Exact historical fingerprints, not path/rule suppression.
 2c0723d5df847fa3e4f4e0a2b966cfae052e7c71:lib/infra/sc-sync.test.ts:generic-api-key:4
 2c0723d5df847fa3e4f4e0a2b966cfae052e7c71:lib/infra/sc-sync.test.ts:generic-api-key:15
+
+# Reviewed Channels schema-test fixtures: synthetic Discord snowflake-shaped IDs only.
+# The fixture was shortened in current source; these exact historical fingerprints remain
+# because Gitleaks intentionally scans every reachable branch/commit.
+ac5d08fba5d053f14704ac36d8e1af759f9caff4:lib/channels/schema.test.ts:discord-client-id:18
+837aff008dac31e97ceec583ce12e658dbe3f2e4:lib/channels/schema.test.ts:discord-client-id:18
