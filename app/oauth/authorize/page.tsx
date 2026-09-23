@@ -32,8 +32,10 @@ export default async function AuthorizePage({
   const clientId = one("client_id");
   const h = await headers();
   const configured = process.env.OS_PUBLIC_ORIGIN?.trim();
-  const proto = h.get("x-forwarded-proto")?.split(",")[0].trim() || "https";
-  const host = h.get("host") ?? h.get("x-forwarded-host") ?? "";
+  const forwardedHost = h.get("x-forwarded-host")?.split(",")[0].trim();
+  const host = forwardedHost || h.get("host")?.trim() || "";
+  const isLoopback = host.startsWith("localhost") || host.startsWith("127.") || host.startsWith("[::1]");
+  const proto = h.get("x-forwarded-proto")?.split(",")[0].trim() || (isLoopback ? "http" : "https");
   const issuer = (() => { try { return configured ? new URL(configured).origin : new URL(`${proto}://${host}`).origin; } catch { return ""; } })();
   const expectedResource = issuer ? `${issuer}/mcp` : "";
   const resource = one("resource") || expectedResource;

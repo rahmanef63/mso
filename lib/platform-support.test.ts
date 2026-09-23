@@ -27,7 +27,7 @@ function dispatcherSmoke(uname: string, extraEnv: Partial<NodeJS.ProcessEnv> = {
     `#!/bin/sh
 [ "\${1:-}" = -n ] && exit 0
 if grep -q 'macOS compatibility bootstrap' "\${1:-}" 2>/dev/null; then printf macos >"$MSO_TEST_DISPATCH_LOG"; fi
-if grep -q 'MSO bootstrap for Termux/Android' "\${1:-}" 2>/dev/null; then printf android >"$MSO_TEST_DISPATCH_LOG"; fi
+if grep -q 'Termux is only the launcher' "\${1:-}" 2>/dev/null; then printf android >"$MSO_TEST_DISPATCH_LOG"; fi
 exit 0
 `,
     { mode: 0o755 },
@@ -112,7 +112,8 @@ describe("MSO platform support contract", () => {
   });
 
   it("prevents Termux recursion inside the Ubuntu guest", () => {
-    expect(TERMUX_INSTALLER).toContain("unset PREFIX TERMUX_VERSION");
+    expect(TERMUX_INSTALLER).toContain('proot-distro login "$DISTRO" --user "$GUEST_USER" -- /usr/bin/env -i');
+    expect(TERMUX_INSTALLER).not.toMatch(/\/bin\/bash -lc(?:\s|['"])/);
   });
 
   it("keeps guest-side shell variables literal until guest execution", () => {

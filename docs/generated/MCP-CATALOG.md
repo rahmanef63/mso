@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.15.1 version=2026.09.20.2 tools=114 read=56 write=35 exec=23 -->
+<!-- mcp-toolset: server=1.15.4 version=2026.09.22.2 tools=114 read=57 write=34 exec=23 -->
 
 | Fact | Current source value |
 |---|---:|
-| MCP server | `1.15.1` |
-| Toolset | `2026.09.20.2` |
-| Toolset changed at | `2026-09-20T14:51:00+07:00` |
+| MCP server | `1.15.4` |
+| Toolset | `2026.09.22.2` |
+| Toolset changed at | `2026-09-22T10:30:00+07:00` |
 | Transport tools | **116** |
 | Model/operator tools | **114** |
-| Read | **56** |
-| Write | **35** |
+| Read | **57** |
+| Write | **34** |
 | Exec | **23** |
 | App-only bridges | **2** |
 
-### Read (56)
+### Read (57)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -28,6 +28,7 @@
 - `agent_session_action_resolve`
 - `agent_session_current`
 - `agent_session_flow`
+- `agent_session_open`
 - `agent_session_resume`
 - `agent_sessions_list`
 - `apps_list`
@@ -77,14 +78,13 @@
 - `tool_forge_candidates`
 - `vps_status`
 
-### Write (35)
+### Write (34)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
 - `agent_memory_forget`
 - `agent_memory_remember`
 - `agent_session_note`
-- `agent_session_open`
 - `agent_session_rename`
 - `apps_power`
 - `cloudflare_dns_upsert`
@@ -148,7 +148,7 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.15.1 version=2026.09.20.2 tools=114 read=56 write=35 exec=23 app-only=2 total=116 -->
+<!-- mcp-chatgpt-profile: server=1.15.4 version=2026.09.22.2 tools=114 read=57 write=34 exec=23 app-only=2 total=116 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
@@ -156,12 +156,12 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 |---|---:|
 | ChatGPT transport tools | **116** |
 | ChatGPT model/operator tools | **114** |
-| Read | **56** |
-| Write | **35** |
+| Read | **57** |
+| Write | **34** |
 | Exec | **23** |
 | App-only bridges | **2** |
 
-### ChatGPT read (56)
+### ChatGPT read (57)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -171,6 +171,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `agent_session_action_resolve`
 - `agent_session_current`
 - `agent_session_flow`
+- `agent_session_open`
 - `agent_session_resume`
 - `agent_sessions_list`
 - `apps_list`
@@ -220,14 +221,13 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `tool_forge_candidates`
 - `vps_status`
 
-### ChatGPT write (35)
+### ChatGPT write (34)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
 - `agent_memory_forget`
 - `agent_memory_remember`
 - `agent_session_note`
-- `agent_session_open`
 - `agent_session_rename`
 - `apps_power`
 - `cloudflare_dns_upsert`

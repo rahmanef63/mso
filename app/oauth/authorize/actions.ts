@@ -39,7 +39,11 @@ export async function approve(form: FormData): Promise<ApprovalResult> {
   let expectedIssuer = "";
   if (configured) { try { expectedIssuer = new URL(configured).origin; } catch {} }
   if (!expectedIssuer) {
-    const h = await headers(), proto = h.get("x-forwarded-proto")?.split(",")[0].trim() || "https", host = h.get("host") ?? h.get("x-forwarded-host") ?? "";
+    const h = await headers();
+    const forwardedHost = h.get("x-forwarded-host")?.split(",")[0].trim();
+    const host = forwardedHost || h.get("host")?.trim() || "";
+    const isLoopback = host.startsWith("localhost") || host.startsWith("127.") || host.startsWith("[::1]");
+    const proto = h.get("x-forwarded-proto")?.split(",")[0].trim() || (isLoopback ? "http" : "https");
     try { expectedIssuer = new URL(`${proto}://${host}`).origin; } catch {}
   }
   if (!expectedIssuer || issuer !== expectedIssuer || resource !== `${expectedIssuer}/mcp`) return { ok: false, error: "OAuth resource/issuer mismatch." };

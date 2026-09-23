@@ -12,6 +12,7 @@ import { executeFlowNode, workflowItems, type FlowNodeResult } from "./graph-flo
 import { workflowVariableValues } from "./variables";
 import { organizationLocalAgentPrincipal, resolveOrganizationSeat } from "@/lib/agent/organization-runtime";
 import { workflowCacheDelete, workflowCacheGet, workflowCacheSet } from "./cache-store";
+import { deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "./data-table-store";
 import { repeatWorkflow, runWorkflowGraphChild } from "./graph-repeat";
 
 type Resolver = (name: string) => CapabilityTool | undefined;
@@ -70,6 +71,24 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
     if (!project) throw new Error("knowledge node requires project binding");
     if (typeof config.query === "string" && config.query) return { output: await callTool("project_memory_search", { project, query: config.query, limit: Number(config.limit) || 8, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, context, resolve), log: "Project memory queried." };
     return { output: await callTool("project_knowledge_get", { project, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, context, resolve), log: "Project knowledge resolved." };
+  }
+  if (node.type === "data_table") {
+    const mode = typeof config.mode === "string" ? config.mode : "list";
+    if (mode === "list") return { output: { tables: await listWorkflowDataTables(principal) }, log: "Workflow data tables listed." };
+    const tableId = typeof config.tableId === "string" ? config.tableId : "";
+    if (!tableId) throw new Error("data_table node requires config.tableId");
+    if (mode === "get") return { output: await getWorkflowDataTable(principal, tableId), log: "Workflow data table read." };
+    if (mode === "insert" || mode === "update") {
+      const values = graphObject(config.values) ? config.values : graphInput;
+      const rowId = mode === "update" ? String(config.rowId ?? "") : undefined;
+      if (mode === "update" && !rowId) throw new Error("data_table update requires config.rowId");
+      return { output: await upsertWorkflowDataTableRow(principal, tableId, rowId, values), log: `Workflow data-table row ${mode === "insert" ? "inserted" : "updated"}.` };
+    }
+    if (mode === "delete") {
+      const rowId = String(config.rowId ?? ""); if (!rowId) throw new Error("data_table delete requires config.rowId");
+      return { output: await deleteWorkflowDataTableRow(principal, tableId, rowId), log: "Workflow data-table row deleted." };
+    }
+    throw new Error("data_table node mode must be list, get, insert, update, or delete");
   }
   if (node.type === "cache") {
     const key = typeof config.key === "string" ? config.key : `${graph.id}:${node.id}`;

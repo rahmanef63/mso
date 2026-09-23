@@ -1,4 +1,5 @@
 import {
+  antigravityMcpConfig,
   codexMcpConfig,
   cursorMcpConfig,
   mcpEndpoints,
@@ -97,17 +98,36 @@ export function mcpClientSteps(client: McpClientId, rawOrigin: string): McpGuide
     return [
       {
         title: "Add the remote HTTP server",
-        body: "Gemini CLI stores MCP servers in settings.json and can add an HTTP endpoint from the command line.",
-        copy: { label: "Gemini CLI", value: `gemini mcp add --transport http mso ${endpoints.mcp}` },
+        body: "Gemini CLI stores MCP servers in settings.json. You can connect using OAuth or a Personal Access Token (PAT).",
+        copy: { label: "Gemini CLI (OAuth)", value: `gemini mcp add --transport http mso ${endpoints.mcp}` },
       },
       {
-        title: "Authorize if prompted",
-        body: "Use the client's OAuth flow when it detects MSO's protected-resource metadata. Never hardcode a standing token in a shared project settings file.",
+        title: "Personal Access Token alternative",
+        body: "For long-lived persistent access without OAuth re-prompting, pass your PAT token via the Authorization header.",
+        copy: { label: "Gemini CLI (PAT)", value: `gemini mcp add --transport http --scope user -H "Authorization: Bearer <TOKEN>" mso ${endpoints.mcp}` },
       },
       {
         title: "Verify",
         body: "List MCP servers and make a read-only request first so you can confirm discovery, scope, and tool availability before using mutations.",
         copy: { label: "Verify", value: "gemini mcp list" },
+      },
+    ];
+  }
+
+  if (client === "antigravity") {
+    return [
+      {
+        title: "Add to Antigravity MCP config",
+        body: "Google Antigravity reads MCP servers from ~/.gemini/config/mcp_config.json. Add MSO with your Personal Access Token (PAT).",
+        copy: { label: "Antigravity config", value: antigravityMcpConfig(endpoints.origin), multiline: true },
+      },
+      {
+        title: "Zero-Config Auto-Session",
+        body: "Antigravity automatically connects to MSO's tools. MSO server automatically provisions and tracks durable execution sessions without manual session negotiation.",
+      },
+      {
+        title: "Verify tools",
+        body: "In Antigravity chat, your agent will immediately see all 116+ host tools (vps_status, sys_stats, exec_run, etc.).",
       },
     ];
   }

@@ -157,6 +157,7 @@ export const BLOCK_TOOLS: McpTool[] = [
     outputSchema: BLOCK_OUTPUT_SCHEMA,
     meta: {
       ui: { resourceUri: MSO_BLOCK_URI, visibility: ["model", "app"] },
+      "ui/resourceUri": MSO_BLOCK_URI,
       "openai/outputTemplate": MSO_BLOCK_URI,
       "openai/toolInvocation/invoking": "Preparing interaction…",
       "openai/toolInvocation/invoked": "Interaction ready",

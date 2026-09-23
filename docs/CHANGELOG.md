@@ -4,6 +4,56 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-23
+
+**Added**
+
+- `mcp` add personal access tokens and auto-session fallback
+
+**Fixed**
+
+- `termux` pin guest bootstrap and align platform contracts
+- `ci` keep PAT scope case parseable by strict Semgrep
+
+**Tests**
+
+- `termux` avoid check then read race in launcher fixture
+
+**Docs**
+
+- `mcp` record restored PAT quality gates
+- `termux` record PRoot isolation and verification
+
+## 2026-09-22
+
+**Added**
+
+- `workflows` split n8n and improve org automation ux
+
+**Fixed**
+
+- `termux` make partial installs resumable on low memory
+- `mcp` restore main quality gates
+- `termux` replace legacy launcher symlink safely
+- `termux` isolate Linux runtime inside PRoot
+- `mcp` publish modern cache hints
+- `workflows` reopen details on node selection
+- `mcp` normalize widget resource discovery
+
+**Changed**
+
+- `ui` reduce organization and workflow chrome
+
+**Tests**
+
+- `workflows` update details selection contract
+
+## 2026-09-21
+
+**Fixed**
+
+- `mcp` negotiate native app ui
+
 ## 2026-09-20
 
 **Added**

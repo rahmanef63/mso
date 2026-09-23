@@ -105,7 +105,7 @@ export async function POST(req: Request) {
   // the current MCP request open for model execution.
   await ensureLocalAgentStandbyRuntime(msoCapabilityRuntime).catch(() => undefined);
   const result = await dispatch(rpc, effectiveScope, actor, agentContext);
-  return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION) : result, { status: wire.modern && (result.error as { code?: number } | undefined)?.code === -32601 ? 404 : 200, headers });
+  return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION, rpc.method) : result, { status: wire.modern && (result.error as { code?: number } | undefined)?.code === -32601 ? 404 : 200, headers });
 }
 
 export async function GET(req: Request) {

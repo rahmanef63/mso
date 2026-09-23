@@ -12,6 +12,7 @@ export const WORKFLOW_NODE_CATALOG:WorkflowNodeCatalogItem[]=[
  {type:"repeat",title:"Repeat Until",category:"Flow",description:"Run a saved workflow repeatedly until its output matches a condition or a hard iteration/time limit is reached.",handles:["done","exhausted"],defaults:{input:{},path:"result.output",equals:true,maxIterations:5,delayMs:1000,maxDurationMs:600000}},
  {type:"wait",title:"Wait",category:"Flow",description:"Delay execution or wait until a timestamp within run timeout.",defaults:{delayMs:1000}},
  {type:"cache",title:"Cache",category:"Context",description:"Read/write/delete a private principal-scoped TTL cache for reusable workflow data.",defaults:{mode:"get_or_set",ttlSeconds:300,key:"workflow-cache"}},
+ {type:"data_table",title:"Data Table",category:"Context",description:"List/read persistent workflow tables or insert/update/delete table rows.",defaults:{mode:"list",tableId:""}},
  {type:"memory",title:"Memory",category:"Context",description:"Read/search/remember MSO agent memory or repo-local project memory.",defaults:{scope:"agent",mode:"search",query:""}},
  {type:"session",title:"Session",category:"Context",description:"Read current durable session, list/resume sessions, or attach a durable note.",defaults:{mode:"current"}},
  {type:"directory",title:"Directory",category:"Context",description:"Discover MSO tools, workflows, sessions, projects or skills at runtime.",defaults:{source:"tools",query:"",limit:30}},

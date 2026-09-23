@@ -23,7 +23,9 @@ describe("Workflow session graph UI contract", () => {
   it("keeps session graphs read-only and makes tool execution an explicit inspector action", () => {
     expect(workflowApp).toContain('type LibraryMode = "automations" | "sessions"');
     expect(workflowApp).toContain("readOnly/>");
-    expect(workflowApp).toContain('const chooseSessionNode = (id: string | null) => { setSessionSelected(id); if (id && overlayPane) setDetailsOpen(true); };');
+    expect(workflowApp).toContain('const chooseSessionNode = (id: string | null) => {');
+    expect(workflowApp).toContain('if (overlayPane) setDetailsOpen(true);');
+    expect(workflowApp).toContain('else setShowDetails(true);');
     expect(workflowApp).toContain('if (!sessionView) return; setDetailsOpen(false); openWindow("os-terminal"');
     expect(workflowApp).toContain('const openSessionCode = (path: string) => { setDetailsOpen(false);');
     expect(sessionDetails).toContain("Open terminal here");

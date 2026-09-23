@@ -39,7 +39,8 @@ describe("MSO Page MCP tools", () => {
       url: "https://demo.example.test/embed",
     });
     expect(result.app).not.toHaveProperty("sandbox");
-    expect((render.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v15\.html$/);
+    expect((render.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v16\.html$/);
+    expect(render.meta?.["ui/resourceUri"]).toBe((render.meta?.ui as { resourceUri?: string }).resourceUri);
     expect(render.meta?.["openai/outputTemplate"]).toBeUndefined();
   });
 
@@ -58,7 +59,8 @@ describe("MSO Page MCP tools", () => {
   it("uses only the standard resource binding for Page tools", () => {
     for (const name of ["render_mso_page", "integration_setup_open"] as const) {
       const value = tool(name);
-      expect((value.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v15\.html$/);
+      expect((value.meta?.ui as { resourceUri?: string }).resourceUri).toMatch(/^ui:\/\/mso\/page-v16\.html$/);
+      expect(value.meta?.["ui/resourceUri"]).toBe((value.meta?.ui as { resourceUri?: string }).resourceUri);
       expect(value.meta?.["openai/outputTemplate"]).toBeUndefined();
     }
   });

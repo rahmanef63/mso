@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { workflowEmbeds, listWorkflowEmbeds, workflowEmbedSettings } from "./workflow-embeds-api";
 const cockpit = "https://mso.example.com";
-const app = { id: "editor", title: "Editor", description: "Reviewed external editor", origin: "https://n8n.mso.example.com", startPath: "/editor", externalAuthPath: "/signin", renderer: "iframe" as const, presentation: "inline" as const, environment: "production" as const, placements: ["workflows", "mcp-page"] as Array<"workflows" | "mcp-page"> };
+const app = { id: "editor", title: "Editor", description: "Reviewed external editor", origin: "https://n8n.mso.example.com", startPath: "/editor", externalAuthPath: "/signin", renderer: "iframe" as const, presentation: "inline" as const, environment: "production" as const, placements: ["n8n", "mcp-page"] as Array<"n8n" | "mcp-page"> };
 afterEach(() => vi.unstubAllEnvs());
 describe("external editor session-cookie isolation", () => {
   it.each(["mso.example.com", ".MSO.EXAMPLE.COM", " example.com "])("blocks frames AND navigation under cookie domain %s", domain => {
