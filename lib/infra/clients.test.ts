@@ -59,6 +59,25 @@ describe("infrastructure clients", () => {
     expect(fetchMock.mock.calls.every(([, init]) => !init || (init as RequestInit).method == null || (init as RequestInit).method === "GET")).toBe(true);
   });
 
+  it("supports an exact wildcard Hostinger owner without widening the zone mutation", async () => {
+    const store = await import("./store");
+    await store.setInfraProvider("hostinger", { apiToken: "h".repeat(32) });
+    let putBody: unknown = null;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input); const method = init?.method ?? "GET";
+      if (url.includes("/domains/v1/portfolio")) return response([{ domain: "example.com" }]);
+      if (url.includes("/dns/v1/zones/example.com") && method === "GET") return response([]);
+      if (url.includes("/dns/v1/zones/example.com") && method === "PUT") { putBody = JSON.parse(String(init?.body)); return response({ ok: true }); }
+      throw new Error(`unexpected ${method} ${url}`);
+    }));
+    const client = await import("./clients");
+    const result = await client.upsertHostingerDns({ name: "*.staging.example.com", type: "A", content: "203.0.113.9", ttl: 300 });
+    expect(result).toMatchObject({ action: "created", name: "*.staging.example.com", type: "A" });
+    const payload = putBody as { overwrite: boolean; zone: Array<{ name: string; type: string; records: Array<{ content: string }> }> };
+    expect(payload.overwrite).toBe(true);
+    expect(payload.zone).toEqual([{ name: "*.staging", type: "A", ttl: 300, records: [{ content: "203.0.113.9", is_disabled: false }] }]);
+  });
+
   it("sends only the requested Hostinger RR-set so unrelated zone rows cannot be overwritten", async () => {
     const store = await import("./store");
     await store.setInfraProvider("hostinger", { apiToken: "h".repeat(32) });

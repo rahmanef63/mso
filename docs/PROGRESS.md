@@ -1,3 +1,9 @@
+## 2026-09-23 — Allow exact wildcard Hostinger DNS owners for Batonly staging
+
+The bounded Hostinger DNS adapter now accepts a leading wildcard label in the requested owner while preserving all existing per-RR-set safeguards. Validation still resolves the exact portfolio root, refuses ambiguous rows and CNAME/A conflicts, and sends one overwrite payload containing only the requested name/type. This enables wildcard staging under batonly.site to route deterministic Batonly preview hosts to the verified Dokploy origin without creating one DNS record per preview.
+
+A dedicated regression asserts that the wildcard request writes only the wildcard staging owner and leaves unrelated zone rows outside the provider mutation payload.
+
 ## 2026-09-23 — Isolate Termux installations inside Ubuntu PRoot
 
 The Termux adapter now starts installation and the generated CLI launcher with a fresh guest environment, explicit Linux-only PATH and non-root owner. It rejects an Android Node/Bun runtime accidentally visible inside the guest, retains the legacy native launcher target while replacing its symlink, and supports bounded build workers, Node heap, resumable installs and a private persistent install log for low-memory tablets. Shell tests exercise the exact guest argv boundary, hostile inherited environment, argument forwarding and failed guest-runtime probes without installing packages. The launcher test reads its generated file directly instead of first checking filesystem metadata, avoiding a check/read race flagged by CodeQL.
