@@ -25,8 +25,10 @@ db292708a0ce5554a1a265091a65fb6a19636538:lib/infra/portable/ui.ts:generic-api-ke
 2c0723d5df847fa3e4f4e0a2b966cfae052e7c71:lib/infra/sc-sync.test.ts:generic-api-key:4
 2c0723d5df847fa3e4f4e0a2b966cfae052e7c71:lib/infra/sc-sync.test.ts:generic-api-key:15
 
-# Reviewed channel-schema test fixtures: Discord snowflake-shaped IDs are synthetic routing targets,
-# not credentials. Exact historical fingerprints only; no path/rule suppression.
+# Reviewed Channels schema-test fixtures: synthetic Discord snowflake-shaped IDs only.
+# Current source uses a shorter fixture; these exact historical fingerprints remain because
+# Gitleaks scans every reachable branch/commit. No path/rule suppression.
+ac5d08fba5d053f14704ac36d8e1af759f9caff4:lib/channels/schema.test.ts:discord-client-id:18
 d73f8a16ef1f1971350c0c1f9b1f7885358b650a:lib/channels/schema.test.ts:discord-client-id:18
 837aff008dac31e97ceec583ce12e658dbe3f2e4:lib/channels/schema.test.ts:discord-client-id:18
 29d881c9e2f123fcc30f1136f43f79ac8a305f0d:lib/channels/schema.test.ts:discord-client-id:18

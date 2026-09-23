@@ -19,6 +19,7 @@ import {
   Cloud,
   ServerCog,
   Plug,
+  MessageSquareMore,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,6 +45,7 @@ export type SystemEntry = {
 export const SYSTEM_CATALOG: SystemEntry[] = [
   // ── Built-in apps ─────────────────────────────────────────────────────────
   { id: "integrations", title: "Integrations", kind: "app", icon: Plug, gradient: "var(--primary)", desc: "Manage native service accounts, connections, and private setup." },
+  { id: "channels", title: "Channels", kind: "app", icon: MessageSquareMore, gradient: "var(--primary)", desc: "Connect Telegram and Discord to MSO Workflows and outbound messaging." },
   { id: "files-manager", title: "Files", kind: "app", icon: Folder, gradient: "linear-gradient(160deg,#3aa0ff,#1f6dff)", desc: "Browse, upload, and manage host files." },
   { id: "browser", title: "Browser", kind: "app", icon: Globe, gradient: "linear-gradient(160deg,#22b1ff,#1666e0)", desc: "Tabbed web viewer — pages render in a sandboxed embedded frame." },
   { id: "code-editor", title: "Code", kind: "app", icon: Code, gradient: "linear-gradient(160deg,#7a5cff,#4f2fd6)", desc: "Edit host files in a tabbed code editor." },

@@ -12,12 +12,15 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `architecture` keep Dokploy adapter within ratchet
+- `dokploy` sync public Docker build args
 - `security` restore federation gate checks
 - `termux` pin guest bootstrap and align platform contracts
 - `ci` keep PAT scope case parseable by strict Semgrep
 
 **Tests**
 
+- `channels` avoid secret-like Discord fixture
 - `termux` avoid check then read race in launcher fixture
 
 **Docs**
@@ -25,10 +28,15 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - `mcp` record restored PAT quality gates
 - `termux` record PRoot isolation and verification
 
+**Other**
+
+- `channels` allowlist synthetic Discord fixtures
+
 ## 2026-09-22
 
 **Added**
 
+- `channels` add Telegram and Discord channels
 - `federation` bridge Batonly to MSO and SI-Coder
 - `workflows` split n8n and improve org automation ux
 
