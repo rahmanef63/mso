@@ -143,12 +143,7 @@ async function readDokployApplication(applicationId: string): Promise<Record<str
   return obj(await call(`/application.one?applicationId=${encodeURIComponent(id)}`));
 }
 
-export async function upsertDokployPublicBuildEnv(args: {
-  applicationId: string;
-  key: string;
-  value: string;
-  redeploy?: boolean;
-}): Promise<{ applicationId: string; key: string; changed: boolean; redeployQueued: boolean }> {
+export async function upsertDokployPublicBuildEnv(args:{applicationId:string;key:string;value:string;redeploy?:boolean}):Promise<{applicationId:string;key:string;changed:boolean;redeployQueued:boolean}>{
   const applicationId = dokployId(args.applicationId, "application id");
   const before = await readDokployApplication(applicationId);
   const sourceEnv = typeof before.env === "string" ? before.env : "";
