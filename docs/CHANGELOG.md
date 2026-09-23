@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` restore federation gate checks
 - `termux` pin guest bootstrap and align platform contracts
 - `ci` keep PAT scope case parseable by strict Semgrep
 
@@ -28,10 +29,12 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `federation` bridge Batonly to MSO and SI-Coder
 - `workflows` split n8n and improve org automation ux
 
 **Fixed**
 
+- `cli` cover federation status and PAT creation
 - `termux` make partial installs resumable on low memory
 - `mcp` restore main quality gates
 - `termux` replace legacy launcher symlink safely

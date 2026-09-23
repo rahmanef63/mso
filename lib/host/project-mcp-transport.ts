@@ -12,6 +12,11 @@ const PROTOCOL = "2025-11-25";
 const TIMEOUT_MS = 15_000;
 const MAX_WIRE_BYTES = 2 * 1024 * 1024;
 
+/** Keep project MCP manifests portable even when the service uses a scrubbed PATH. */
+export function resolveProjectMcpExecutable(command: string): string {
+  return command === "node" ? process.execPath : command;
+}
+
 import type { ProjectMcpTool } from "@/lib/contracts/project-mcp";
 
 function resolveConfigEnv(server: Extract<ProjectMcpServer, { transport: "stdio" }>): Record<string, string> {
@@ -30,7 +35,7 @@ function rpcError(message: Rpc): Error | null {
 
 async function withStdio<T>(server: Extract<ProjectMcpServer, { transport: "stdio" }>, work: (rpc: (method: string, params?: unknown) => Promise<Rpc>, notify: (method: string, params?: unknown) => void) => Promise<T>): Promise<T> {
   return await new Promise<T>((resolve, reject) => {
-    const child = spawn(server.command, server.args, { cwd: server.cwd, env: resolveConfigEnv(server) as unknown as NodeJS.ProcessEnv, shell: false, stdio: ["pipe", "pipe", "pipe"] }) as ChildProcessWithoutNullStreams;
+    const child = spawn(resolveProjectMcpExecutable(server.command), server.args, { cwd: server.cwd, env: resolveConfigEnv(server) as unknown as NodeJS.ProcessEnv, shell: false, stdio: ["pipe", "pipe", "pipe"] }) as ChildProcessWithoutNullStreams;
     const decoder = new StringDecoder("utf8");
     let nextId = 1, buffer = "", bytes = 0, stderr = "", done = false;
     const pending = new Map<number, { resolve: (v: Rpc) => void; reject: (e: Error) => void }>();
