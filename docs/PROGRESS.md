@@ -1,3 +1,7 @@
+## 2026-09-23 — Isolate Termux installations inside Ubuntu PRoot
+
+The Termux adapter now starts installation and the generated CLI launcher with a fresh guest environment, explicit Linux-only PATH and non-root owner. It rejects an Android Node/Bun runtime accidentally visible inside the guest, retains the legacy native launcher target while replacing its symlink, and supports bounded build workers, Node heap, resumable installs and a private persistent install log for low-memory tablets. Shell tests exercise the exact guest argv boundary, hostile inherited environment, argument forwarding and failed guest-runtime probes without installing packages. The launcher test reads its generated file directly instead of first checking filesystem metadata, avoiding a check/read race flagged by CodeQL.
+
 ## 2026-09-23 — Restore quality gates after the MCP personal token release
 
 The personal access token and automatic session change on main grew the Settings token view and MCP store past the repository's strict line limit. The UI dialog is now its own component, and token administration, state mutation and record types are split into focused MCP modules while preserving the existing hashed-token storage, lock and revocation behavior. Settings connection instructions and CLI entry points remain aligned with the token flow. This restores lint for the current main feature without weakening the line limit.

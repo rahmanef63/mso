@@ -12,6 +12,13 @@ const BUILD_ID =
 // running build is current, different means a build is pending and the update panel
 // offers the rebuild. Empty is fine and expected — scripts/verify-build.sh compiles
 // a `git archive` export with no .git in it.
+const BUILD_CPUS_RAW = Number(process.env.MSO_BUILD_CPUS || "");
+const BUILD_CPUS =
+  Number.isInteger(BUILD_CPUS_RAW) && BUILD_CPUS_RAW > 0
+    ? BUILD_CPUS_RAW
+    : undefined;
+const LOW_MEMORY_BUILD = process.env.MSO_LOW_MEMORY_BUILD === "1";
+
 const COMMIT_SHA =
   process.env.NEXT_PUBLIC_COMMIT_SHA ||
   (() => {
@@ -60,6 +67,21 @@ const nextConfig = {
     : {}),
   env: { NEXT_PUBLIC_BUILD_ID: BUILD_ID, NEXT_PUBLIC_COMMIT_SHA: COMMIT_SHA },
   experimental: {
+    // Constrained Android/PRoot builders can opt into bounded worker fan-out.
+    // Normal VPS/CI builds are unchanged unless these environment variables exist.
+    ...(BUILD_CPUS
+      ? {
+          cpus: BUILD_CPUS,
+          staticGenerationMaxConcurrency: BUILD_CPUS,
+        }
+      : {}),
+    ...(LOW_MEMORY_BUILD
+      ? {
+          parallelServerCompiles: false,
+          parallelServerBuildTraces: false,
+          turbopackMemoryEviction: "auto",
+        }
+      : {}),
     // proxy.ts clones request bodies; the default clone cap is 10MB, which
     // silently truncated large /api/v1/fs/upload payloads. Raise it so big
     // media uploads land intact (proxy* is the Next 16 name of the option).

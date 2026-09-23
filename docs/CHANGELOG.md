@@ -12,11 +12,17 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `termux` pin guest bootstrap and align platform contracts
 - `ci` keep PAT scope case parseable by strict Semgrep
+
+**Tests**
+
+- `termux` avoid check then read race in launcher fixture
 
 **Docs**
 
 - `mcp` record restored PAT quality gates
+- `termux` record PRoot isolation and verification
 
 ## 2026-09-22
 
@@ -26,7 +32,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `termux` make partial installs resumable on low memory
 - `mcp` restore main quality gates
+- `termux` replace legacy launcher symlink safely
+- `termux` isolate Linux runtime inside PRoot
 - `mcp` publish modern cache hints
 - `workflows` reopen details on node selection
 - `mcp` normalize widget resource discovery
