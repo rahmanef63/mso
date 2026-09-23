@@ -15,7 +15,7 @@ describe("channel schema", () => {
 
   it("validates provider-specific targets", () => {
     expect(validateTarget("telegram", "-100123456789")).toBe("-100123456789");
-    expect(validateTarget("discord", "123456789012345678")).toBe("123456789012345678");
+    expect(validateTarget("discord", "123456789012345")).toBe("123456789012345");
     expect(() => validateTarget("discord", "#general")).toThrow("invalid_discord_target");
   });
 });
