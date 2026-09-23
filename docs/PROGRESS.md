@@ -1,3 +1,9 @@
+## 2026-09-23 — Bind public Dokploy build env to Docker build args
+
+The bounded Dokploy public-build environment operation now writes each approved public key to both the application runtime env and Docker build args before queueing one redeploy. This closes the staging gap where a value such as NEXT_PUBLIC_CONVEX_URL existed at runtime but Docker ARG still received an empty value during image build. Secret/server keys remain rejected, existing build secrets and unrelated build args are preserved, and an already-synchronized key is idempotent without another deploy.
+
+A credential-isolated regression verifies runtime env, build args, preservation of neighboring settings, single redeploy, idempotent reread, and no public value reflection in the operation result.
+
 ## 2026-09-23 — Isolate Termux installations inside Ubuntu PRoot
 
 The Termux adapter now starts installation and the generated CLI launcher with a fresh guest environment, explicit Linux-only PATH and non-root owner. It rejects an Android Node/Bun runtime accidentally visible inside the guest, retains the legacy native launcher target while replacing its symlink, and supports bounded build workers, Node heap, resumable installs and a private persistent install log for low-memory tablets. Shell tests exercise the exact guest argv boundary, hostile inherited environment, argument forwarding and failed guest-runtime probes without installing packages. The launcher test reads its generated file directly instead of first checking filesystem metadata, avoiding a check/read race flagged by CodeQL.
