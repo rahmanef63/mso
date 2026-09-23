@@ -15,6 +15,12 @@ describe("readable measured graph viewport", () => {
     expect(compactGraphViewport(0, 0)).toBe(false);
     expect(compactGraphViewport(826, 0)).toBe(false);
   });
+  it("focuses selected nodes explicitly without changing full-fit semantics", () => {
+    const source = readFileSync("components/shared/graph-canvas.tsx", "utf8");
+    expect(source).toContain('aria-label="Focus selection"');
+    expect(source).toContain('event.shiftKey && selectedNodes.length');
+    expect(source).toContain('title="Fit complete graph (F)"');
+  });
   it("waits for node measurements and avoids competing initial fit controllers", () => {
     const source = readFileSync("components/shared/graph-canvas.tsx", "utf8");
     expect(source).toContain("useNodesInitialized()");

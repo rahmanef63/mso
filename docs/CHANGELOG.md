@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` restore federation gate checks
 - `termux` pin guest bootstrap and align platform contracts
 - `ci` keep PAT scope case parseable by strict Semgrep
 
@@ -44,6 +45,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Changed**
 
+- `graph` establish shared flow foundation
 - `ui` reduce organization and workflow chrome
 
 **Tests**

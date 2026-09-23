@@ -1,5 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/federation/si-coder-runtime", () => ({
+  inspectSiCoderFederationRuntime: vi.fn(async () => ({
+    version: "0.9.8",
+    functionCount: 56,
+    tools: [],
+  })),
+  executeSiCoderFederation: vi.fn(async () => {
+    throw new Error("SI-Coder execution is outside this Batonly protocol test");
+  }),
+}));
+
 import {
   executeMsoFederation,
   runBatonlyFederationPoll,
