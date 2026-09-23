@@ -101,7 +101,7 @@ describe("Termux PRoot Linux environment boundary", () => {
     const f = fixture(), bin = path.join(f.root, "guest-bin"); fs.mkdirSync(bin);
     for (const runtime of ["node", "bun"]) fs.writeFileSync(path.join(bin, runtime), `#!/bin/sh\necho ${runtime === android ? "android" : "linux"}\n`, { mode: 0o755 });
     const args = f.readArgs("owner"), body = args[args.indexOf("-c") + 1];
-    const guard = body.slice(0, body.indexOf('  curl -fsSL "$1"'));
+    const guard = body.slice(0, body.indexOf('  TMP_INSTALLER="$(mktemp'));
     expect(guard).toContain('for runtime in node bun; do');
     const result = spawnSync("/bin/bash", ["--noprofile", "--norc", "-c", `${guard}\necho DOWNLOAD_REACHED`], { env: { HOME: f.root, PATH: `${bin}:/usr/bin:/bin`, NODE_ENV: "test" }, encoding: "utf8", timeout: 10000 });
     expect(result.status).not.toBe(0);
@@ -109,5 +109,14 @@ describe("Termux PRoot Linux environment boundary", () => {
     expect(result.stdout).not.toContain("DOWNLOAD_REACHED");
     expect(body).toContain('[ "$(node -p "process.platform")" = linux ]');
     expect(body).toContain('[ "$(bun -p "process.platform")" = linux ]');
+  });
+  it("downloads the Ubuntu guest installer to a file and verifies its pinned SHA-256 before execution", () => {
+    const source = fs.readFileSync(installer, "utf8");
+    expect(source).toContain('GUEST_INSTALL_URL_DEFAULT="https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-core.sh"');
+    expect(source).toMatch(/GUEST_INSTALL_SHA256_DEFAULT="[0-9a-f]{64}"/);
+    expect(source).toContain('[ "$ACTUAL_SHA256" = "$2" ]');
+    expect(source).toContain('/bin/bash -n "$TMP_INSTALLER"');
+    expect(source).toContain('/bin/bash "$TMP_INSTALLER" --no-service --no-onboard');
+    expect(source).not.toMatch(/curl[^\n]*\|\s*\/?bin\/bash/);
   });
 });
