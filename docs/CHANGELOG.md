@@ -12,17 +12,23 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `security` restore federation gate checks
 - `termux` pin guest bootstrap and align platform contracts
 - `ci` keep PAT scope case parseable by strict Semgrep
 
 **Tests**
 
+- `channels` avoid secret-like Discord fixture
 - `termux` avoid check then read race in launcher fixture
 
 **Docs**
 
 - `mcp` record restored PAT quality gates
 - `termux` record PRoot isolation and verification
+
+**Other**
+
+- `channels` allowlist synthetic Discord fixtures
 
 ## 2026-09-22
 
