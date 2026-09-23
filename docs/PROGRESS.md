@@ -1,3 +1,7 @@
+## 2026-09-23 — Integrate Channels on the current main architecture
+
+The Telegram/Discord channel webhook dispatch adapter now lives under MCP, keeping the channel domain independent of the MCP catalog and runtime. Both verified webhook routes call that adapter after provider authentication. The current-main dependency set, typecheck, architecture ratchets and endpoint tests pass; the complete release gates remain required before merge.
+
 ## 2026-09-23 — Add native Channels for Telegram and Discord
 
 MSO now has a first-class **Channels** application and provider-neutral messaging runtime. Telegram and Discord are adapters over one shared channel contract rather than separate feature implementations. Channel records contain only routing metadata and exact native Integrations references; bot tokens and webhook secrets remain in Integrations.

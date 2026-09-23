@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ChannelError, dispatchChannelInbound, receiveDiscord } from "@/lib/channels";
+import { ChannelError, receiveDiscord } from "@/lib/channels";
+import { dispatchChannelInbound } from "@/lib/mcp/channels/dispatch";
 import { rateLimitedUntrusted } from "@/lib/host/rate-limit";
 
 export const runtime = "nodejs";

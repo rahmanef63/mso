@@ -3,11 +3,12 @@ import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({ receive: vi.fn(), dispatch: vi.fn(), rate: vi.fn() }));
 vi.mock("@/lib/host/rate-limit", () => ({ rateLimitedUntrusted: mocks.rate }));
+vi.mock("@/lib/mcp/channels/dispatch", () => ({ dispatchChannelInbound: mocks.dispatch }));
 vi.mock("@/lib/channels", () => {
   class ChannelError extends Error {
     constructor(public readonly code: string, public readonly status = 400) { super(code); }
   }
-  return { ChannelError, receiveDiscord: mocks.receive, dispatchChannelInbound: mocks.dispatch };
+  return { ChannelError, receiveDiscord: mocks.receive };
 });
 
 const { POST } = await import("./route");

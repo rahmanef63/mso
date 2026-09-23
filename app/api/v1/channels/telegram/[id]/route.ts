@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ChannelError, dispatchChannelInbound, receiveTelegram } from "@/lib/channels";
+import { ChannelError, receiveTelegram } from "@/lib/channels";
+import { dispatchChannelInbound } from "@/lib/mcp/channels/dispatch";
 import { rateLimitedUntrusted } from "@/lib/host/rate-limit";
 import { readSetupJson } from "@/lib/infra/setup-http";
 

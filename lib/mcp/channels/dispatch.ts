@@ -3,9 +3,9 @@ import { maxScope } from "@/lib/mcp/scope";
 import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
 import { findActiveChannelSource } from "@/lib/workflow/graph-triggers";
 import { startWorkflowGraph } from "@/lib/workflow/graph-engine";
-import { ChannelError } from "./errors";
-import { channelById, recordChannelActivity } from "./store";
-import type { ChannelInboundEvent } from "./types";
+import { ChannelError } from "@/lib/channels/errors";
+import { channelById, recordChannelActivity } from "@/lib/channels/store";
+import type { ChannelInboundEvent } from "@/lib/channels/types";
 
 function workflowInput(channel: Awaited<ReturnType<typeof channelById>>, event: ChannelInboundEvent) {
   const { raw: _raw, ...safeEvent } = event;
