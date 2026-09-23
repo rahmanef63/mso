@@ -1,6 +1,6 @@
 ## 2026-09-23 — Integrate Channels on the current main architecture
 
-The Telegram/Discord channel webhook dispatch adapter now lives under MCP, keeping the channel domain independent of the MCP catalog and runtime. Both verified webhook routes call that adapter after provider authentication. The current-main dependency set, typecheck, architecture ratchets and endpoint tests pass; the complete release gates remain required before merge.
+The Telegram/Discord channel webhook dispatch adapter now lives under MCP, keeping the channel domain independent of the MCP catalog and runtime. Both verified webhook routes call that adapter after provider authentication. The current-main dependency set, typecheck, architecture ratchets and endpoint tests pass; the complete release gates remain required before merge. The mandatory mobile browser journey now follows the visible home-page dots to locate Settings when the additional Channels icon moves it to another page.
 
 ## 2026-09-23 — Add native Channels for Telegram and Discord
 

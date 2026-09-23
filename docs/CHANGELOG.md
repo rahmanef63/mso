@@ -18,6 +18,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Tests**
 
+- `release` find Settings across mobile home pages
 - `termux` avoid check then read race in launcher fixture
 
 **Docs**

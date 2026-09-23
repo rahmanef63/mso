@@ -49,8 +49,17 @@ try {
     const settings = viewport.width >= 768
       ? page.getByRole("link", { name: settingsName }).first()
       : page.getByRole("button", { name: settingsName }).first();
+    if (viewport.width < 768 && !(await settings.isVisible().catch(() => false))) {
+      const pages = page.getByRole("button", { name: /^Go to page \d+$/ });
+      for (let i = 2, count = await pages.count(); i <= count; i++) {
+        const dot = page.getByRole("button", { name: `Go to page ${i}` });
+        await dot.click();
+        await expect(dot).toHaveAttribute("aria-current", "true");
+        if (await settings.isVisible().catch(() => false)) break;
+      }
+    }
     await expect(settings).toBeVisible();
-    await settings.hover(); // Let dock magnification move its hit target before pressing.
+    if (viewport.width >= 768) await settings.hover(); // Let desktop dock magnification settle.
     await settings.click();
     await expect(page).toHaveURL(/\/settings/);
     await expect(page.getByLabel("Server connection mode")).toHaveAttribute("data-connection-mode", "mock");
