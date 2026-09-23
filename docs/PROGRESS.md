@@ -2,7 +2,7 @@
 
 The personal access token and automatic session change on main grew the Settings token view and MCP store past the repository's strict line limit. The UI dialog is now its own component, and token administration, state mutation and record types are split into focused MCP modules while preserving the existing hashed-token storage, lock and revocation behavior. Settings connection instructions and CLI entry points remain aligned with the token flow. This restores lint for the current main feature without weakening the line limit.
 
-Typecheck, zero-warning ESLint, the full coverage suite (3,369 tests), architecture, docs, contrast, skill-flow, instance-literal and high/critical dependency audit passed after provisioning the repository's isolated Tool Forge fixture image on this host. One lock-contention test failed on the first highly concurrent run; it passed alone and in the clean full rerun.
+Typecheck, zero-warning ESLint, the full coverage suite (3,369 tests), architecture, docs, contrast, skill-flow, instance-literal and high/critical dependency audit passed after provisioning the repository's isolated Tool Forge fixture image on this host. One lock-contention test failed on the first highly concurrent run; it passed alone and in the clean full rerun. Hosted Semgrep initially rejected a valid but single-line Bash `case` PAT scope guard as a partial parse in strict mode; the equivalent multiline form has zero parser errors and zero findings under the exact pinned image and rule set.
 
 ## 2026-09-22 — Reduce Organization and Workflow chrome after first production pass
 

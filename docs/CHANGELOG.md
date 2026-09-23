@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `mcp` add personal access tokens and auto-session fallback
 
+**Fixed**
+
+- `ci` keep PAT scope case parseable by strict Semgrep
+
 **Docs**
 
 - `mcp` record restored PAT quality gates

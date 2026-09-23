@@ -40,7 +40,10 @@ case "$cmd" in
       list)     jget "/api/mcp/tokens" ;;
       pat) label="${2-}"; scope="${3:-read}"; ttl_days="${4:-0}"
            [ -n "$label" ] || die "usage: mso mcp pat <label> [read|write|exec] [ttlDays]"
-           case "$scope" in read|write|exec) ;; *) die "scope must be read, write, or exec" ;; esac
+           case "$scope" in
+             read|write|exec) ;;
+             *) die "scope must be read, write, or exec" ;;
+           esac
            [[ "$ttl_days" =~ ^[0-9]+$ ]] || die "ttlDays must be a non-negative integer"
            jpost "/api/mcp/tokens" "$(jq -cn --arg label "$label" --arg scope "$scope" --argjson ttlDays "$ttl_days" '{label:$label,scope:$scope,ttlDays:$ttlDays}')" ;;
       project) jpost "/api/v1/project-mcp" "${2:?project MCP JSON required}" ;;
