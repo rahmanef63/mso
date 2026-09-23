@@ -70,7 +70,7 @@ function OwnerMcpSection() {
       {direction === "inbound" && <McpNavigation active={page} onSelect={navigate} activeCount={state.tokens.filter(token => token.status === "active").length} direction={direction} />}
       {page === "connect" && <McpSetupGuide origin={state.origin} maxScope={state.maxScope} />}
       {page === "connection" && <McpConnectionSection origin={state.origin} />}
-      {page === "access" && <McpTokenSection tokens={state.tokens} onChanged={reload} onConnect={() => navigate("connect")} />}
+      {page === "access" && <McpTokenSection tokens={state.tokens} origin={state.origin} maxScope={state.maxScope} onChanged={reload} onConnect={() => navigate("connect")} />}
       {page === "activity" && <McpActivity />}
       {page === "tools" && <McpToolsetCard info={state.toolset} />}
       {(page === "registry" || (direction === "outbound" && page === "overview")) && <McpPluginRegistry />}

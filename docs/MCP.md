@@ -457,6 +457,21 @@ Run `bun run bench:cognitive` for the reproducible provider-neutral routing/foot
 Hermes is compared only where an equivalent offline `prompt-size` metric exists; OpenClaw is
 reported but is not declared beaten on a non-comparable metric.
 
+## MCP Apps UI extension
+
+MSO advertises `capabilities.extensions["io.modelcontextprotocol/ui"]` with
+`mimeTypes: ["text/html;profile=mcp-app"]` during legacy `initialize` and modern
+`server/discover`. MCP Apps is negotiated bilaterally: a capable host advertises the
+same extension/MIME in its client capabilities, while clients that do not negotiate it
+continue to receive ordinary structured/text tool results. The UI tools still bind
+their exact `ui://` resources through `_meta.ui.resourceUri`; capability negotiation
+does not grant extra tool scope or bypass OAuth.
+
+The private MCP activity stream records only the protocol lifecycle needed to debug
+host mounting: initialize/discover records whether the client advertised compatible UI
+support, and `resources/list` / `resources/read` record bounded URI/MIME/status metadata.
+Resource HTML, bearer credentials and tool payloads are never copied into that telemetry.
+
 ## OpenAI/MCP static skill extension
 
 In addition to the live `skills_*` actions, MSO advertises `capabilities.extensions["io.modelcontextprotocol/skills"]` for ChatGPT/OpenAI plugin scans. The extension is intentionally **static and bounded**: it publishes at most five general official skills from `claude-skills/`, then serves the same complete entry through `skills/list` and `skills/get` and every declared `skill://mso/...` resource through `resources/read`. Each resource is read with `O_NOFOLLOW`, capped before allocation, path-normalized, included in the per-skill 100-file / 5 MiB budget, and hashed as `sha256:<hex>`.

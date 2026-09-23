@@ -45,8 +45,11 @@ describe("ChatGPT full generic MCP profile", () => {
     expect(tools.some((tool) => tool.name === "tool_forge_promote")).toBe(true);
     expect(tools.some((tool) => tool.name === "a2a_handoff")).toBe(true);
     expect(tools.some((tool) => tool.name === "project_memory_upsert")).toBe(true);
-    const nativeProbe = tools.find((tool) => tool.name === "mso_native_ui_probe") as { _meta?: { ui?: { resourceUri?: string; visibility?: string[] } } } | undefined;
+    const nativeProbe = tools.find((tool) => tool.name === "mso_native_ui_probe") as {
+      _meta?: { ui?: { resourceUri?: string; visibility?: string[] }; "ui/resourceUri"?: string };
+    } | undefined;
     expect(nativeProbe?._meta?.ui).toEqual({ resourceUri: MSO_NATIVE_UI_PROBE_URI, visibility: ["model", "app"] });
+    expect(nativeProbe?._meta?.["ui/resourceUri"]).toBe(MSO_NATIVE_UI_PROBE_URI);
     const probeCall = await dispatch({ id: 3, method: "tools/call", params: { name: "mso_native_ui_probe", arguments: {} } }, "read", "mcp:native-ui-probe", context);
     expect(probeCall.error).toBeUndefined();
     expect(JSON.stringify(probeCall.result)).toContain("MSO NATIVE UI WORKS");

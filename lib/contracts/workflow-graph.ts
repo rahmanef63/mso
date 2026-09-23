@@ -1,7 +1,7 @@
 import type { GraphCustomNode } from "./graph-custom-nodes";
 export const WORKFLOW_GRAPH_NODE_TYPES = [
   "manual", "schedule", "webhook", "tool", "project_function", "project_mcp", "integration", "script", "agent", "subflow",
-  "condition", "switch", "merge", "batch", "loop", "repeat", "wait", "cache", "memory", "session", "directory", "project", "folder", "skill", "knowledge", "output",
+  "condition", "switch", "merge", "batch", "loop", "repeat", "wait", "cache", "data_table", "memory", "session", "directory", "project", "folder", "skill", "knowledge", "output",
 ] as const;
 export type WorkflowGraphNodeType = (typeof WORKFLOW_GRAPH_NODE_TYPES)[number];
 export type WorkflowGraphStatus = "draft" | "active" | "archived";
@@ -101,4 +101,6 @@ export type WorkflowGraphRun = {
   edges?: WorkflowGraphRunEdge[];
   trigger?: { type: "manual" | "schedule" | "webhook" | "system"; nodeId?: string; receivedAt: string };
   ancestry?: string[];
+  /** Owner-private runtime input retained only so an execution can be retried safely. Public receipts strip this field. */
+  runtimeInput?: Record<string, unknown>;
 };

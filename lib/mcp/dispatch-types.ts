@@ -10,6 +10,8 @@ export interface RpcRequest {
     name?: string;
     arguments?: Record<string, unknown>;
     protocolVersion?: string;
+    capabilities?: Record<string, unknown>;
+    clientInfo?: Record<string, unknown>;
     uri?: string;
     cursor?: string;
     _meta?: Record<string, unknown>;

@@ -15,7 +15,21 @@ describe("modern MCP HTTP", () => {
   it("decodes sentinels and decorates only result envelopes", () => {
     expect(decodeMcpHeader("=?base64?" + Buffer.from(" hello 世界 ").toString("base64") + "?=")).toBe(" hello 世界 ");
     expect(decodeMcpHeader("=?base64?bad!?=")).toBeNull();
-    expect(modernMcpResult({ result: { content: [] } }, "1").result).toMatchObject({ resultType: "complete" });
-    expect(modernMcpResult({ error: { code: -32601 } }, "1")).toEqual({ error: { code: -32601 } });
+    expect(modernMcpResult({ result: { content: [] } }, "1", "tools/call").result).toMatchObject({ resultType: "complete" });
+    expect(modernMcpResult({ error: { code: -32601 } }, "1", "tools/list")).toEqual({ error: { code: -32601 } });
+  });
+
+  it("adds 2026-07-28 cache metadata only to cacheable results and preserves explicit hints", () => {
+    expect(modernMcpResult({ result: { tools: [] } }, "1", "tools/list").result).toMatchObject({
+      resultType: "complete", ttlMs: 60_000, cacheScope: "private",
+    });
+    expect(modernMcpResult({ result: { contents: [] } }, "1", "resources/read").result).toMatchObject({
+      resultType: "complete", ttlMs: 60_000, cacheScope: "private",
+    });
+    expect(modernMcpResult({ result: { ttlMs: 30_000, cacheScope: "public" } }, "1", "server/discover").result).toMatchObject({
+      ttlMs: 30_000, cacheScope: "public",
+    });
+    expect(modernMcpResult({ result: { structuredContent: {} } }, "1", "tools/call").result).not.toHaveProperty("ttlMs");
+    expect(modernMcpResult({ result: { structuredContent: {} } }, "1", "tools/call").result).not.toHaveProperty("cacheScope");
   });
 });

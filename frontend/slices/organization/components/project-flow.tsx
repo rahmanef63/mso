@@ -88,6 +88,8 @@ export function ProjectFlow({ unit, onSave }: Props) {
         onConnect={(connection) => { if (flow.nodes.some((n) => n.id === connection.source) && flow.nodes.some((n) => n.id === connection.target)) quickSave("flow_edge_upsert", { edge: { source: connection.source, target: connection.target, label: "" } }); }}
         onEdgeClick={(_, edge) => setDraft({ kind: "edge", edge: flow.edges.find((item) => item.id === edge.id) })}
         compactFitNodeIds={selected ? [selected.id] : nodes.slice(0, 2).map((node) => node.id)}
+        initialFitNodeIds={nodes.slice(0, 6).map((node) => node.id)}
+        initialFitMaxZoom={0.96}
       /> : <div className="grid h-full place-items-center p-6"><div className="max-w-sm text-center"><FolderKanban className="mx-auto mb-3 size-7 text-muted-foreground"/><h3 className="font-medium">Project flow inside {unit.name}</h3><p className="mt-2 text-sm text-muted-foreground">Add projects, activities, notes and connections here. The organization overview stays compact.</p><Button className="mt-4" onClick={() => setDraft({ kind: "node" })}>Add first node</Button></div></div>}
       {selected ? <div className="absolute inset-x-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl border bg-popover p-3 shadow-lg @min-[700px]:left-auto @min-[700px]:right-3 @min-[700px]:w-80">
         <div className="flex items-start gap-2"><h3 className="min-w-0 flex-1 break-words text-sm font-semibold">{selected.title}</h3><Button size="icon" variant="ghost" className="size-7 shrink-0" aria-label="Close node details" onClick={() => setSelectedId(null)}><X className="size-4"/></Button></div>

@@ -30,9 +30,11 @@ try {
   }
   const open = async () => {
     await page.goto(fixture.base + "/organization");
-    const card = page.getByRole("application", { name: "Organization units canvas", exact: true }).locator('[data-id="flow-workspace"]');
+    const directory = page.locator('[data-slot="organization-unit-directory"]');
+    await expect(directory).toBeVisible();
+    const card = directory.getByRole("button", { name: /Flow Workspace/ });
     await expect(card).toBeVisible();
-    expect(await card.evaluate((el) => el.offsetHeight)).toBeLessThan(170);
+    expect(await card.evaluate((el) => el.offsetHeight)).toBeLessThan(220);
     await card.click();
     await expect(page.locator('[data-slot="organization-project-flow"]')).toBeVisible();
   };

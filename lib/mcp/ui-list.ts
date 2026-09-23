@@ -3,7 +3,7 @@ import { widgetResourceMeta } from "./ui-config";
 import { compactUiBridgeScript } from "./ui-compact-bridge";
 import { MSO_WIDGET_THEME_SCRIPT, MSO_WIDGET_TOKENS } from "./ui-widget-tokens";
 
-export const MSO_LIST_URI = "ui://mso/list-v2.html";
+export const MSO_LIST_URI = "ui://mso/list-v3.html";
 const MIME = "text/html;profile=mcp-app";
 
 const html = String.raw`<meta charset="utf-8"><main class="mso-list" aria-live="polite">

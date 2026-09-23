@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
-import type { SurfaceApp, SurfacePresentation, SurfaceEnvironment } from "@/lib/contracts/surface-app";
+import type { SurfaceApp, SurfacePlacement, SurfacePresentation, SurfaceEnvironment } from "@/lib/contracts/surface-app";
 export type { SurfaceApp, SurfaceRenderer, SurfacePresentation, SurfaceEnvironment } from "@/lib/contracts/surface-app";
 
 const MAX_APPS = 16;
@@ -71,8 +71,8 @@ function parseApp(entry: unknown, seen: Set<string>): SurfaceApp | null {
   if (row.externalAuthPath !== undefined && !externalAuthPath) return null;
   const project = boundedText(row.project, true);
   if (row.project !== undefined && !project) return null;
-  if (row.placements !== undefined && (!Array.isArray(row.placements) || row.placements.some((value) => value !== "workflows" && value !== "mcp-page"))) return null;
-  const placements = row.placements === undefined ? undefined : [...new Set(row.placements)] as Array<"workflows" | "mcp-page">;
+  if (row.placements !== undefined && (!Array.isArray(row.placements) || row.placements.some((value) => value !== "workflows" && value !== "n8n" && value !== "mcp-page"))) return null;
+  const placements = row.placements === undefined ? undefined : [...new Set(row.placements)] as SurfacePlacement[];
   seen.add(id);
   const reason = boundedText(row.reason);
   return {

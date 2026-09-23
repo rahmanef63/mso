@@ -48,8 +48,16 @@ export async function pruneWorkflowGraphRuns(owner: string): Promise<void> {
 }
 
 export function publicWorkflowGraphRun(run: WorkflowGraphRun) {
-  const { owner: _owner, pid: _pid, instance: _instance, sessionId: _sessionId, fingerprint: _fingerprint, ancestry: _ancestry, ...safe } = run;
+  const { owner: _owner, pid: _pid, instance: _instance, sessionId: _sessionId, fingerprint: _fingerprint, ancestry: _ancestry, runtimeInput: _runtimeInput, ...safe } = run;
   return { ...safe, pollAfterMs: run.state === "running" ? 1500 : 0 };
+}
+
+export async function deleteWorkflowGraphRun(owner: string, id: string) {
+  const existing = await readWorkflowGraphRun(owner, id);
+  if (!existing) return { id, deleted: false as const };
+  if (existing.state === "running") throw new Error("running workflow execution must be stopped before deletion");
+  await removeWorkflowFile(file(owner, id));
+  return { id, deleted: true as const };
 }
 
 export type WorkflowGraphRunFilter = { graphId?: string; state?: WorkflowGraphRun["state"]; limit?: number; offset?: number };
