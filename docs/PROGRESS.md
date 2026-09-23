@@ -1,3 +1,7 @@
+## 2026-09-23 — Isolate Termux installations inside Ubuntu PRoot
+
+The Termux adapter now starts installation and the generated CLI launcher with a fresh guest environment, explicit Linux-only PATH and non-root owner. It rejects an Android Node/Bun runtime accidentally visible inside the guest, retains the legacy native launcher target while replacing its symlink, and supports bounded build workers, Node heap, resumable installs and a private persistent install log for low-memory tablets. Shell tests exercise the exact guest argv boundary, hostile inherited environment, argument forwarding and failed guest-runtime probes without installing packages. The launcher test reads its generated file directly instead of first checking filesystem metadata, avoiding a check/read race flagged by CodeQL.
+
 ## 2026-09-22 — Reduce Organization and Workflow chrome after first production pass
 
 The first Organization/Workflow/n8n release fixed the structural problem but still left too much chrome around the actual work. This polish pass removes a second overview header, boxed summary metrics and card-within-card counters from Organization. Unit and seat directories now use one compact search/status row and denser cards with inline operational metadata. The overview Directory/Map control moves into the primary Organization header, project tabs lose explanatory filler, and the redundant cross-app shortcut block is removed from the Organization sidebar.
