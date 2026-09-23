@@ -4,6 +4,16 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-23
+
+**Added**
+
+- `mcp` add personal access tokens and auto-session fallback
+
+**Docs**
+
+- `mcp` record restored PAT quality gates
+
 ## 2026-09-22
 
 **Added**
@@ -12,6 +22,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `mcp` restore main quality gates
 - `mcp` publish modern cache hints
 - `workflows` reopen details on node selection
 - `mcp` normalize widget resource discovery

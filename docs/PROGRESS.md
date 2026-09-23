@@ -1,3 +1,9 @@
+## 2026-09-23 — Restore quality gates after the MCP personal token release
+
+The personal access token and automatic session change on main grew the Settings token view and MCP store past the repository's strict line limit. The UI dialog is now its own component, and token administration, state mutation and record types are split into focused MCP modules while preserving the existing hashed-token storage, lock and revocation behavior. Settings connection instructions and CLI entry points remain aligned with the token flow. This restores lint for the current main feature without weakening the line limit.
+
+Typecheck, zero-warning ESLint, the full coverage suite (3,369 tests), architecture, docs, contrast, skill-flow, instance-literal and high/critical dependency audit passed after provisioning the repository's isolated Tool Forge fixture image on this host. One lock-contention test failed on the first highly concurrent run; it passed alone and in the clean full rerun.
+
 ## 2026-09-22 — Reduce Organization and Workflow chrome after first production pass
 
 The first Organization/Workflow/n8n release fixed the structural problem but still left too much chrome around the actual work. This polish pass removes a second overview header, boxed summary metrics and card-within-card counters from Organization. Unit and seat directories now use one compact search/status row and denser cards with inline operational metadata. The overview Directory/Map control moves into the primary Organization header, project tabs lose explanatory filler, and the redundant cross-app shortcut block is removed from the Organization sidebar.
