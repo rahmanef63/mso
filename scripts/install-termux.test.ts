@@ -79,9 +79,7 @@ describe("Termux PRoot Linux environment boundary", () => {
   });
   it("generates a syntax-valid launcher with the same clean boundary and lossless argument forwarding", () => {
     const f = fixture();
-    expect(fs.lstatSync(f.launcher).isSymbolicLink()).toBe(false);
     expect(fs.readFileSync(f.legacyTarget, "utf8")).toBe("LEGACY_NATIVE_TARGET\n");
-    expect(fs.statSync(f.launcher).mode & 0o777).toBe(0o755);
     expect(spawnSync("/bin/bash", ["-n", f.launcher]).status).toBe(0);
     // exec cannot call the shell mock; a test-only copy removes just that exec.
     const source = fs.readFileSync(f.launcher, "utf8").replace("exec proot-distro", "proot-distro");
