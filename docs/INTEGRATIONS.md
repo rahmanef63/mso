@@ -218,8 +218,11 @@ mso integrations execute '{"user":"rahman","provider":"dokploy","connection":"pr
 source-aware setup instructions. `integration_manage` performs confirmed user,
 connection, folder-binding, credential-deletion or hosted-authorization actions.
 `integration_execute` takes explicit user/provider/connection and returns a route,
-verifies that connection, performs supported bounded direct operations, or executes
-a toolkit-matching Composio tool using its exact connected account.
+verifies that connection, performs supported bounded direct operations, executes
+a toolkit-matching Composio tool using its exact connected account, or calls one exact
+tool on a named direct `mcp` connection through `mcp.tool`. `mcp.tools.list` exposes the
+downstream tool catalog after the connection allowlist is applied. The bearer credential
+is resolved inside the transport and never appears in model/tool arguments.
 `integration_setup_open` requires `user`, `provider` and `connection`; optional `method`
 must match the connection. Its private grant exists only in result `_meta` for the UI.
 
@@ -241,6 +244,8 @@ This release does **not** add every service's entire API or replace provider-own
 OAuth clients. Explicit direct execution covers Dokploy project listing/ensure,
 Cloudflare zone listing/DNS upsert, and Hostinger DNS upsert. Composio tool execution
 is generic but restricted to the selected toolkit, active account and exec permission.
+Named direct MCP execution is likewise restricted to the selected endpoint/token and its
+optional exact `allowedTools` list; it is not an arbitrary URL/request escape hatch.
 
 ## Existing-data migration and concurrency
 

@@ -1,6 +1,7 @@
 import type { SessionGraphView, SessionPage } from "@/lib/contracts/session-monitor";
 import type { WorkflowGraph, WorkflowGraphRun, WorkflowGraphStatus } from "@/lib/contracts/workflow-graph";
 import type { WorkflowNodeCatalogItem } from "@/lib/workflow/node-catalog";
+import type { WorkflowOptimizationPreview } from "@/lib/workflow/graph-optimizer";
 import { cachedWorkflowResource, invalidateWorkflowResources, seedWorkflowResource } from "./resource-cache";
 async function json<T>(input:RequestInfo,init?:RequestInit):Promise<T>{const response=await fetch(input,{...init,cache:"no-store",headers:{"Content-Type":"application/json",...(init?.headers??{})}}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(typeof body.error==="string"?body.error:`request failed (${response.status})`);return body as T;}
 const post=<T>(body:Record<string,unknown>)=>json<T>("/api/v1/workflows",{method:"POST",body:JSON.stringify(body)});
@@ -34,6 +35,9 @@ export async function deleteDataTable(id:string){return post<{id:string;deleted:
 export async function upsertDataTableRow(tableId:string,values:Record<string,unknown>,rowId?:string){return(await post<{row:WorkflowDataTableRow}>({action:"data_table_row_upsert",table_id:tableId,...(rowId?{row_id:rowId}:{}),values})).row;}
 export async function deleteDataTableRow(tableId:string,rowId:string){return post<{tableId:string;rowId:string;deleted:boolean}>({action:"data_table_row_delete",table_id:tableId,row_id:rowId});}
 export async function aiSuggest(prompt:string){return(await post<{definition:Omit<WorkflowGraph,"version"|"id"|"revision"|"createdAt"|"updatedAt">}>({action:"ai_suggest",prompt})).definition;}
+export type WorkflowOptimizeOptions={mode?:"deterministic"|"jev";threshold?:number;applyReview?:boolean;jev?:{user:string;connection:string;tool?:string;model?:string}};
+export async function optimizeGraphPreview(graph:WorkflowGraph,options:WorkflowOptimizeOptions={}){return(await post<{optimization:WorkflowOptimizationPreview}>({action:"optimize_preview",graph_id:graph.id,mode:options.mode??"deterministic",threshold:options.threshold,apply_review:options.applyReview===true,...(options.jev?{jev:options.jev}:{})})).optimization;}
+export async function optimizeGraphClone(graph:WorkflowGraph,options:WorkflowOptimizeOptions={}){const result=await post<{graph:WorkflowGraph;optimization:WorkflowOptimizationPreview}>({action:"optimize_clone",graph_id:graph.id,expected_revision:graph.revision,mode:options.mode??"deterministic",threshold:options.threshold,apply_review:options.applyReview===true,...(options.jev?{jev:options.jev}:{})});invalidateWorkflowResources("graphs");seedWorkflowResource(`graph:${result.graph.id}`,result.graph,8000);return result;}
 export async function resolveNode(graphId:string,nodeId:string){return json<{project:string;name:string;path:string;relativePath:string}>(`/api/v1/workflows?graph_id=${encodeURIComponent(graphId)}&node_id=${encodeURIComponent(nodeId)}&resolve=target`);}
 
 export async function listWorkflowSessions(page=1,query=""){const q=new URLSearchParams({view:"monitor",includeOffline:"1",page:String(page)});if(query.trim())q.set("q",query.trim());return json<SessionPage>(`/api/v1/agent-sessions?${q}`);}

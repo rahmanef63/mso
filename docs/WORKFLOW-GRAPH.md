@@ -213,9 +213,30 @@ MSO deliberately keeps this capability behind one compact MCP tool to preserve t
 
 Actions:
 
-`list`, `search`, `get`, `create`, `update`, `delete`, `clone`, `run`, `status`, `runs`, `stop`, `retry`, `run_delete`, `versions`, `restore`, `catalog`, `scripts`, `templates`, `create_from_template`, `variables`, `variable_set`, `variable_delete`, `data_tables`, `data_table_get`, `data_table_create`, `data_table_delete`, `data_table_row_upsert`, `data_table_row_delete`. `list` and `search` accept the same workflow query/filter semantics used by the UI; `scripts` returns safe RASMIC manifest summaries for an exact project without exposing raw script files or credentials.
+`list`, `search`, `get`, `create`, `update`, `delete`, `clone`, `optimize_preview`, `optimize_clone`, `run`, `status`, `runs`, `stop`, `retry`, `run_delete`, `versions`, `restore`, `catalog`, `scripts`, `templates`, `create_from_template`, `variables`, `variable_set`, `variable_delete`, `data_tables`, `data_table_get`, `data_table_create`, `data_table_delete`, `data_table_row_upsert`, `data_table_row_delete`. `list` and `search` accept the same workflow query/filter semantics used by the UI; `scripts` returns safe RASMIC manifest summaries for an exact project without exposing raw script files or credentials.
 
 The linear `flow_catalog`, `flow_manage`, `flow_run` and `flow_status` tools remain compatible for small deterministic project-owned sequences.
+
+## Flow Optimizer
+
+Flow Optimizer is a review-first compiler pass over an existing Workflow Graph. It does not replace the graph engine, planner, capability catalog, permissions or confirmation policy.
+
+`optimize_preview` analyzes an exact saved graph revision and returns bounded candidate transformations, per-candidate probability, risk class, before/after counts and whether deterministic fallback was used. It never mutates the graph. `optimize_clone` repeats the analysis against the exact current revision and creates a new **draft** graph; the source graph is never overwritten.
+
+Two candidate classes exist in v1:
+
+- **Safe / presentation-only** — consecutive action/context nodes may be wrapped in a collapsed `metadata.customNodes` group. Original executable nodes, edges, arguments and run receipts stay unchanged.
+- **Review / structural** — three or more consecutive calls to the same read-only MSO tool may be compacted into one sequential `loop` node containing the exact already-prepared argument objects. This changes the output shape and therefore requires `apply_review=true`. Write/exec tools are not eligible.
+
+Decision modes:
+
+- `deterministic` is always available and uses local policy scores.
+- `jev` sends only the compact workflow summary plus host-generated candidate descriptions to a named generic MCP Integration. The graph arguments themselves, credentials and capability authority stay in MSO. Jev can score the candidates; it cannot invent a new tool call, alter arguments, authorize an action, or execute anything. The preview also computes a deterministic shadow baseline and reports agreement/disagreement so rollout can be measured before relying more heavily on Jev.
+- If the Jev call fails or returns no usable probability, the preview records `provider: fallback` and uses the deterministic scores.
+
+For Jev, create a normal **Integrations → Project MCP** named connection to the reviewed Jev MCP endpoint, keep the bearer key in the private Integrations form, and optionally pin `allowedTools` to the exact decision tool (for example `jev_decide`). The workflow stores only the non-secret Integration user/connection reference supplied at optimization time.
+
+The native Workflows UI exposes **Optimize** and a Flow Optimizer detail panel. Dirty graph edits are saved before opening the optimizer so preview/clone always operate on the revision the user can see.
 
 ## Automatic learning
 

@@ -6,6 +6,7 @@ import { importConvexCliPersonalConnection } from "./convex-cli-import";
 import { listConvexCustomDomains, ensureConvexCustomDomain, getConvexCanonicalUrls, setConvexCanonicalUrl, getConvexEnvPresence, deployConvexCloudProject, importConvexCloudSnapshot } from "./convex-cloud";
 import { doctorInfraProvider, ensureDokployProject, listDokployApplications, listDokployDeployments, readDokployDeploymentLogs, listDokployGitProviders, listDokployGithubRepositories, ensureDokployGithubApplication, ensureDokployApplicationDomain, recoverDokployPublicGithubToHttpsGit, deployDokployApplication, configureDokployDockerfileBuild, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
 import { isInfraProviderId } from "./catalog";
+import { callNamedMcpConnectionTool, listNamedMcpConnectionTools } from "./mcp-connection";
 export const safeActionInput=(input:Record<string,unknown>)=>Object.fromEntries(Object.entries(input).filter(([key])=>key!=="workflow_id"));
 export const selectionFrom=(a:Record<string,unknown>):ConnectionSelector=>({user:typeof a.user==="string"?a.user:undefined,connection:typeof a.connection==="string"?a.connection:undefined,cwd:typeof a.cwd==="string"?a.cwd:undefined});
 export async function manageIntegrationAction(raw:Record<string,unknown>){
@@ -65,6 +66,8 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     "hostinger.mail.list":{provider:"hostinger",fields:["orderId","resource","page"],run:()=>listHostingerMail((args as Record<string,unknown>).orderId,(args as Record<string,unknown>).resource,(args as Record<string,unknown>).page as number)},
     "hostinger.mail.logs.list":{provider:"hostinger",fields:["orderId","kind","page"],run:()=>listHostingerMailLogs((args as Record<string,unknown>).orderId,(args as Record<string,unknown>).kind,(args as Record<string,unknown>).page as number)},
     "hostinger.mail.mutate":{provider:"hostinger",fields:["orderId","mailboxId","aliasId","forwarderId","autoreplyId","catchallId","localPart","destination","keepCopy","subject","body","displayName","startsAt","endsAt","action"],run:()=>mutateHostingerMail(String((args as Record<string,unknown>).action),args as Record<string,unknown>)},
+    "mcp.tools.list":{provider:"mcp",fields:[],run:()=>listNamedMcpConnectionTools(selection)},
+    "mcp.tool":{provider:"mcp",fields:["name","arguments"],run:()=>callNamedMcpConnectionTool(selection,String((args as Record<string,unknown>).name??""),((args as Record<string,unknown>).arguments&&typeof (args as Record<string,unknown>).arguments==="object"&&!Array.isArray((args as Record<string,unknown>).arguments)?(args as Record<string,unknown>).arguments:{} ) as Record<string,unknown>)},
 
   };
   const verb=verbs[operation];if(!verb||verb.provider!==provider)throw new IntegrationError("provider_operation_mismatch");

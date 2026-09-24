@@ -14,6 +14,8 @@ import { workflowMatchesQuery } from "@/lib/workflow/search";
 import { resolveProjectHint } from "@/lib/host/projects-api";
 import { listAutomationScripts } from "@/lib/orchestration/repo-memory-artifacts";
 import { createWorkflowDataTable, deleteWorkflowDataTable, deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "@/lib/workflow/data-table-store";
+import { optimizeWorkflowGraph } from "@/lib/workflow/graph-optimizer";
+import { createJevWorkflowOptimizerEvaluator } from "@/lib/workflow/jev-optimizer";
 const project = { type: "string", maxLength: 4096 };
 const flow = { type: "string", maxLength: 64 };
 
@@ -62,8 +64,8 @@ export const FLOW_TOOLS: McpTool[] = [
       return manageProjectFlow(catalog.project.path, { action: a.action, id, flow: a.definition, revision: str(a, "revision") });
     } },
   { name: "workflow_graph", title: "Workflow Graph", scope: "exec", limit: { key: "workflow.graph", max: 20, windowMs: 60_000 },
-    description: "Private workflow graph CRUD/run plus execution controls, history, versions, templates, catalog, variables and data tables. Definitions reject embedded secrets. metadata.customNodes supports named collapsible groups [{id,name,nodeIds,collapsed}]; original nodes/edges and execution stay unchanged. Update with the current revision.",
-    chatgptDescription: "CRUD/run workflows; read node logs.",
+    description: "Private workflow graph CRUD/run/optimization plus execution controls, history, versions, templates, catalog, variables and data tables. optimize_preview is read-only; optimize_clone creates a new review-first draft and never overwrites the source. Definitions reject embedded secrets. metadata.customNodes supports named collapsible groups [{id,name,nodeIds,collapsed}]; original nodes/edges and execution stay unchanged. Update with the current revision.",
+    chatgptDescription: "CRUD/run/optimize workflows; preview before creating an optimized draft.",
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }, audit: { action: "exec.run", targetArg: "id" },
     inputSchema: S({ action: { type: "string", minLength: 1, maxLength: 32 }, id: { type: "string", maxLength: 96 }, data: { type: "object", additionalProperties: true }, wait_ms: { type: "integer", minimum: 0, maximum: 25_000 } }, ["action"]),
     run: async (a, context) => {
@@ -90,6 +92,31 @@ export const FLOW_TOOLS: McpTool[] = [
       if (action === "create_from_template") { const row = workflowTemplate(String(data.template_id ?? "")); if (!row) throw new Error("workflow template not found"); return { graph: await createWorkflowGraph(principal, row.definition, "template", { remember: true }) }; }
       if (action === "create") return { graph: await createWorkflowGraph(principal, data.definition ?? data, "create", { remember: true }) };
       const id = str(a, "id");
+      if (action === "optimize_preview" || action === "optimize_clone") {
+        const graph = await getWorkflowGraph(principal, id); if (!graph) throw new Error("workflow graph not found");
+        if (action === "optimize_clone" && String(data.revision ?? "") !== graph.revision) throw new Error("workflow graph revision changed; refresh before optimizing");
+        const mode = data.mode === "jev" ? "jev" as const : "deterministic" as const;
+        let evaluator;
+        if (mode === "jev") {
+          const jev = data.jev;
+          if (!jev || typeof jev !== "object" || Array.isArray(jev)) throw new Error("data.jev with user and connection is required for Jev optimization");
+          const ref = jev as Record<string, unknown>;
+          if (typeof ref.user !== "string" || typeof ref.connection !== "string") throw new Error("Jev optimizer requires integration user and connection");
+          evaluator = createJevWorkflowOptimizerEvaluator({ user: ref.user, connection: ref.connection, ...(typeof ref.tool === "string" ? { tool: ref.tool } : {}), ...(typeof ref.model === "string" ? { model: ref.model } : {}) });
+        }
+        const { TOOLS_BY_NAME } = await import("./tools");
+        const optimized = await optimizeWorkflowGraph(graph, { mode, threshold: Number(data.threshold) || undefined, applyReview: data.apply_review === true, evaluator, resolveTool: name => TOOLS_BY_NAME.get(name) });
+        if (action === "optimize_preview") return { optimization: optimized.preview };
+        if (optimized.preview.summary.selectedCount < 1) throw new Error("no optimization candidate selected; preview first or enable review transformations");
+        const definition = optimized.definition as Record<string, unknown>;
+        const metadata = definition.metadata && typeof definition.metadata === "object" && !Array.isArray(definition.metadata) ? definition.metadata as Record<string, unknown> : {};
+        const tags = Array.isArray(metadata.tags) ? metadata.tags.filter((value): value is string => typeof value === "string") : [];
+        definition.name = typeof data.name === "string" && data.name.trim() ? data.name.trim().slice(0, 160) : `${graph.name} · Optimized`.slice(0, 160);
+        definition.status = "draft";
+        definition.metadata = { ...metadata, provenance: "ai-assisted", fingerprint: undefined, tags: [...new Set([...tags, "optimized", optimized.preview.provider === "jev" ? "jev" : "deterministic"])].slice(0, 32) };
+        const clone = await createWorkflowGraph(principal, definition, "create", { remember: true });
+        return { graph: clone, optimization: optimized.preview };
+      }
       if (action === "get") { const graph = await getWorkflowGraph(principal, id); if (!graph) throw new Error("workflow graph not found"); return { graph }; }
       if (action === "versions") return { versions: await listWorkflowGraphVersions(workflowGraphOwner(principal), id) };
       if (action === "restore") { const current = await getWorkflowGraph(principal, id), snapshot = await readWorkflowGraphVersion(workflowGraphOwner(principal), id, String(data.version ?? "")); if (!current || !snapshot) throw new Error("workflow graph/version not found"); const { revision: _r, createdAt: _c, updatedAt: _u, version: _v, ...definition } = snapshot.graph; return { graph: await updateWorkflowGraph(principal, id, String(data.revision ?? current.revision), definition, "restore", { remember: true }) }; }

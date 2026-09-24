@@ -2,7 +2,7 @@
 import { pruneGraphCustomNodes } from "@/lib/contracts/graph-custom-nodes";
 
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Copy, Download, PanelLeft, PanelRight, Play, RefreshCw, Save, Trash2, Workflow } from "lucide-react";
+import { Activity, Copy, Download, PanelLeft, PanelRight, Play, RefreshCw, Save, Sparkles, Trash2, Workflow } from "lucide-react";
 import type { AppProps, ToolbarItem } from "@/features/appshell";
 import type { SessionGraphView } from "@/lib/contracts/session-monitor";
 import type { WorkflowGraph, WorkflowGraphNode, WorkflowGraphNodeType, WorkflowGraphRun } from "@/lib/contracts/workflow-graph";
@@ -70,6 +70,7 @@ export default function WorkflowsApp(props: AppProps) {
   const exportCurrent = () => { if (!graph) return; const blob = new Blob([JSON.stringify(buildWorkflowPackage(graph), null, 2)], { type: "application/json" }); saveAs(URL.createObjectURL(blob), workflowPackageFilename(graph.name)); setMessage("Exported portable workflow package"); };
   const remove = () => graph && wrap(async () => { await deleteGraph(graph); setSelected(null); setRun(null); const list = await listGraphs(); setGraphs(list); setGraph(list[0] ? await getGraph(list[0].id) : null); setDirty(false); });
   const execute = () => graph && wrap(async () => { const saved = await saveCurrent(); setRun(await runGraph(saved.id)); setPanel("run"); if (overlayPane) setDetailsOpen(true); });
+  const openOptimizer = () => graph && wrap(async () => { await saveCurrent(); setPanel("optimizer"); if (overlayPane) setDetailsOpen(true); else setShowDetails(true); });
   const updateNode = (next: WorkflowGraphNode) => graph && mutate({ ...graph, nodes: graph.nodes.map((item) => item.id === next.id ? next : item) });
   const deleteNodes = (ids: string[]) => { if (!graph || !ids.length) return; const removed = new Set(ids); mutate({ ...graph, nodes: graph.nodes.filter((item) => !removed.has(item.id)), edges: graph.edges.filter((edge) => !removed.has(edge.source) && !removed.has(edge.target)), metadata: { ...graph.metadata, ...(graph.metadata.customNodes ? { customNodes: pruneGraphCustomNodes(graph.metadata.customNodes, new Set(graph.nodes.filter((n) => !removed.has(n.id)).map((n) => n.id))) } : {}) } }); if (selected && removed.has(selected)) setSelected(null); };
   const deleteEdges = (ids: string[]) => { if (!graph || !ids.length) return; const removed = new Set(ids); mutate({ ...graph, edges: graph.edges.filter((edge) => !removed.has(edge.id)) }); };
@@ -101,13 +102,14 @@ export default function WorkflowsApp(props: AppProps) {
 
   const automationLibrary = <WorkflowLibrary graphs={graphs} activeId={graph?.id} search={search} onSearch={setSearch} onSelect={(id) => void wrap(() => selectGraph(id))} onBlank={async () => { await createBlank(); }} onTemplate={async (id) => { await createTemplate(id); }} onAI={async (definition) => { await createAI(definition); }} onImport={async (definition) => { await createImported(definition); }}/>;
   const library = <div className="flex h-full min-h-0 flex-col"><div className="grid grid-cols-2 gap-1 border-b p-2">{(["automations", "sessions"] as const).map((mode) => <button key={mode} type="button" className={`rounded-md px-2 py-1.5 text-xs capitalize ${libraryMode === mode ? "bg-accent font-semibold" : "text-muted-foreground hover:bg-accent/60"}`} onClick={() => setLibraryMode(mode)}>{mode}</button>)}</div><div className="min-h-0 flex-1">{libraryMode === "automations" ? automationLibrary : <WorkflowSessionLibrary activeId={sessionView?.session.id} onSelect={(id) => void wrap(() => selectSession(id))}/>}</div></div>;
-  const details = libraryMode === "sessions" && sessionView ? <WorkflowSessionDetails view={sessionView} node={sessionNode} onOpenTerminal={openSessionTerminal} onOpenCode={openSessionCode} onSaveDraft={saveSessionDraft} savingDraft={busy} learning={learning}/> : graph ? <WorkflowDetails graph={graph} graphs={graphs} node={node} run={run} panel={panel} onPanel={setPanel} onNode={updateNode} onDeleteNode={(id) => deleteNodes([id])} onGraph={mutate} onRunSelect={(selectedRun) => { setRun(selectedRun); setPanel("run"); }} onRestored={(next) => { setGraph(next); setDirty(false); void listGraphs().then(setGraphs); }}/> : null;
+  const details = libraryMode === "sessions" && sessionView ? <WorkflowSessionDetails view={sessionView} node={sessionNode} onOpenTerminal={openSessionTerminal} onOpenCode={openSessionCode} onSaveDraft={saveSessionDraft} savingDraft={busy} learning={learning}/> : graph ? <WorkflowDetails graph={graph} graphs={graphs} node={node} run={run} panel={panel} onPanel={(next) => next === "optimizer" && dirty ? void openOptimizer() : setPanel(next)} onNode={updateNode} onDeleteNode={(id) => deleteNodes([id])} onGraph={mutate} onRunSelect={(selectedRun) => { setRun(selectedRun); setPanel("run"); }} onRestored={(next) => { setGraph(next); setDirty(false); void listGraphs().then(setGraphs); }} onOptimizerCloned={(next) => { setGraph(next); setSelected(null); setRun(null); setDirty(false); setPanel("optimizer"); void listGraphs(true).then(setGraphs); }}/> : null;
   const toolbarItems: ToolbarItem[] = [
     { id: "library", label: "Workflow library", icon: PanelLeft, onClick: toggleLibrary, primary: true },
     { id: "refresh", label: "Refresh", icon: RefreshCw, onClick: () => void wrap(async () => { if (libraryMode === "sessions") await refreshSession(); else await load(undefined, true); }), disabled: busy },
     ...(libraryMode === "automations" && graph ? [
       { id: "duplicate", label: "Duplicate", icon: Copy, onClick: () => void duplicate(), disabled: busy },
       { id: "export", label: "Export", icon: Download, onClick: exportCurrent, disabled: busy },
+      { id: "optimize", label: "Optimize", icon: Sparkles, onClick: () => void openOptimizer(), disabled: busy },
       { id: "save", label: "Save", icon: Save, onClick: () => void save(), disabled: busy || !dirty, primary: true },
       { id: "run", label: "Run", icon: Play, onClick: () => void execute(), disabled: busy, primary: true },
       { id: "details", label: "Details", icon: PanelRight, onClick: toggleDetails },

@@ -24,6 +24,8 @@ import { resolveProjectHint } from "@/lib/host/projects-api";
 import { listAutomationScripts, readAutomationScript } from "@/lib/orchestration/repo-memory-artifacts";
 import { listLearnedRecipes, recipeMaturity } from "@/lib/workflow";
 import { createWorkflowDataTable, deleteWorkflowDataTable, deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "@/lib/workflow/data-table-store";
+import { optimizeWorkflowGraph } from "@/lib/workflow/graph-optimizer";
+import { createJevWorkflowOptimizerEvaluator } from "@/lib/workflow/jev-optimizer";
 export const runtime="nodejs";export const dynamic="force-dynamic";const headers={"Cache-Control":"no-store, private"};
 const fail=(error:unknown,status=400)=>NextResponse.json({error:error instanceof Error?error.message.slice(0,500):String(error).slice(0,500)||"workflow request failed"},{status,headers});
 async function auth(minimum:"viewer"|"operator"|"owner"="viewer"){const context=await getSessionContext();if(!context?.session.device_id||!roleAtLeast(context.role,minimum))return null;return{context,principal:`web:${context.session.device_id}`};}
@@ -60,6 +62,23 @@ export async function POST(req:NextRequest){const session=await auth("operator")
  if(action==="restore_version"){const id=String(body.graph_id??""),snapshot=await readWorkflowGraphVersion(workflowGraphOwner(session.principal),id,String(body.revision??""));if(!snapshot)throw new Error("workflow version not found");return NextResponse.json({graph:await updateWorkflowGraph(session.principal,id,String(body.expected_revision??""),definition(snapshot.graph),"restore",{remember:true})},{headers});}
  if(action==="variable_set"||action==="variable_delete"){if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);return NextResponse.json(action==="variable_set"?await setWorkflowVariable(session.principal,String(body.key??""),body.value,body.secret===true):await deleteWorkflowVariable(session.principal,String(body.key??"")),{headers});}
  if(action==="ai_suggest"){if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);return NextResponse.json({definition:await suggestWorkflowGraph(String(body.prompt??""))},{headers});}
+ if(action==="optimize_preview"||action==="optimize_clone"){
+  const graph=await getWorkflowGraph(session.principal,String(body.graph_id??""));if(!graph)throw new Error("workflow graph not found");
+  if(action==="optimize_clone"&&String(body.expected_revision??"")!==graph.revision)throw new Error("workflow graph revision changed; refresh before optimizing");
+  const mode=body.mode==="jev"?"jev" as const:"deterministic" as const;let evaluator;
+  if(mode==="jev"){
+   if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);
+   const jev=body.jev;if(!jev||typeof jev!=="object"||Array.isArray(jev))throw new Error("jev connection reference is required");
+   const ref=jev as Record<string,unknown>;if(typeof ref.user!=="string"||typeof ref.connection!=="string")throw new Error("jev user and connection are required");
+   evaluator=createJevWorkflowOptimizerEvaluator({user:ref.user,connection:ref.connection,...(typeof ref.tool==="string"?{tool:ref.tool}:{}),...(typeof ref.model==="string"?{model:ref.model}:{})});
+  }
+  const optimized=await optimizeWorkflowGraph(graph,{mode,threshold:Number(body.threshold)||undefined,applyReview:body.apply_review===true,evaluator,resolveTool:name=>TOOLS_BY_NAME.get(name)});
+  if(action==="optimize_preview")return NextResponse.json({optimization:optimized.preview},{headers});
+  if(optimized.preview.summary.selectedCount<1)throw new Error("no optimization candidate selected; analyze first or enable review transformations");
+  const next=optimized.definition as Record<string,unknown>,meta=next.metadata&&typeof next.metadata==="object"&&!Array.isArray(next.metadata)?next.metadata as Record<string,unknown>:{},tags=Array.isArray(meta.tags)?meta.tags.filter((value):value is string=>typeof value==="string"):[];
+  next.name=typeof body.name==="string"&&body.name.trim()?body.name.trim().slice(0,160):`${graph.name} · Optimized`.slice(0,160);next.status="draft";next.metadata={...meta,provenance:"ai-assisted",fingerprint:undefined,tags:[...new Set([...tags,"optimized",optimized.preview.provider==="jev"?"jev":"deterministic"])].slice(0,32)};
+  return NextResponse.json({graph:await createWorkflowGraph(session.principal,next,"create",{remember:true}),optimization:optimized.preview},{headers});
+ }
  if(action==="data_table_create")return NextResponse.json({table:await createWorkflowDataTable(session.principal,body.name,body.columns)},{headers});
  if(action==="data_table_delete")return NextResponse.json(await deleteWorkflowDataTable(session.principal,body.table_id),{headers});
  if(action==="data_table_row_upsert")return NextResponse.json({row:await upsertWorkflowDataTableRow(session.principal,body.table_id,body.row_id,body.values)},{headers});

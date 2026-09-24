@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BookOpen, Braces, Clock3, Database, History, SlidersHorizontal } from "lucide-react";
+import { Activity, BookOpen, Braces, Clock3, Database, History, SlidersHorizontal, Sparkles } from "lucide-react";
 import type { WorkflowGraph, WorkflowGraphNode, WorkflowGraphRun } from "@/lib/contracts/workflow-graph";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkflowInspector } from "./workflow-inspector";
@@ -10,11 +10,13 @@ import { WorkflowVariablePanel } from "./workflow-variable-panel";
 import { WorkflowVersionPanel } from "./workflow-version-panel";
 import { WorkflowDirectoryPanel } from "./workflow-directory-panel";
 import { WorkflowDataTablePanel } from "./workflow-data-table-panel";
+import { WorkflowOptimizerPanel } from "./workflow-optimizer-panel";
 
-export type WorkflowPanel = "inspector" | "run" | "history" | "versions" | "variables" | "data" | "directory";
+export type WorkflowPanel = "inspector" | "optimizer" | "run" | "history" | "versions" | "variables" | "data" | "directory";
 
 const PANELS = [
   ["inspector", "Builder", SlidersHorizontal],
+  ["optimizer", "Flow optimizer", Sparkles],
   ["run", "Current run", Activity],
   ["history", "Executions", History],
   ["versions", "Versions", Clock3],
@@ -23,7 +25,7 @@ const PANELS = [
   ["directory", "Directory", BookOpen],
 ] as const satisfies ReadonlyArray<readonly [WorkflowPanel, string, typeof SlidersHorizontal]>;
 
-export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNode, onDeleteNode, onGraph, onRunSelect, onRestored }: {
+export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNode, onDeleteNode, onGraph, onRunSelect, onRestored, onOptimizerCloned }: {
   graph: WorkflowGraph;
   graphs: WorkflowGraph[];
   node: WorkflowGraphNode | null;
@@ -35,6 +37,7 @@ export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNo
   onGraph: (graph: WorkflowGraph) => void;
   onRunSelect: (run: WorkflowGraphRun) => void;
   onRestored: (graph: WorkflowGraph) => void;
+  onOptimizerCloned: (graph: WorkflowGraph) => void;
 }) {
   return <div className="flex h-full min-h-0 bg-card/20">
     <nav aria-label="Workflow details" className="flex w-11 shrink-0 flex-col items-center gap-1 border-r bg-card/30 p-1.5">
@@ -50,6 +53,7 @@ export function WorkflowDetails({ graph, graphs, node, run, panel, onPanel, onNo
     </nav>
     <div className="min-h-0 min-w-0 flex-1">
       {panel === "inspector" ? <ScrollArea className="h-full"><WorkflowInspector key={node?.id ?? `graph-${graph.id}`} graph={graph} graphs={graphs} node={node} onNode={onNode} onDeleteNode={onDeleteNode} onGraph={onGraph}/></ScrollArea> : null}
+      {panel === "optimizer" ? <WorkflowOptimizerPanel graph={graph} onCloned={onOptimizerCloned}/> : null}
       {panel === "run" ? <WorkflowRunPanel run={run}/> : null}
       {panel === "history" ? <WorkflowRunHistory graph={graph} onSelect={onRunSelect}/> : null}
       {panel === "versions" ? <WorkflowVersionPanel graph={graph} onRestored={onRestored}/> : null}
