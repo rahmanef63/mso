@@ -1,7 +1,7 @@
 import type { GraphCustomNode } from "@/lib/contracts/graph-custom-nodes";
 import type { WorkflowGraph, WorkflowGraphEdge, WorkflowGraphNode } from "@/lib/contracts/workflow-graph";
 import type { CapabilityTool } from "@/lib/capabilities/tool";
-import type { WorkflowOptimizerCandidate } from "./graph-optimizer";
+import type { WorkflowOptimizerCandidate } from "./graph-optimizer-types";
 
 export type InternalOptimizerCandidate = WorkflowOptimizerCandidate & {
   apply: (graph: WorkflowGraph) => WorkflowGraph;
