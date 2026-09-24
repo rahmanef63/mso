@@ -8,11 +8,16 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `integrations` add JEV variables and AI providers tab
 - `workflows` add Jev flow optimizer
 
 **Changed**
 
 - `workflows` remove optimizer type cycle
+
+**Docs**
+
+- `integrations` record release verification
 
 **Chores**
 
