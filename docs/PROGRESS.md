@@ -4,7 +4,7 @@ Integrations now has metadata-only variables that alias an exact named connectio
 
 The native Integrations Settings-style manager adds **Variables** and **AI Providers** under Manage. AI Providers reuses Alfa's existing /api/config, /api/models/providers, /api/models, /api/models/test, and /api/oauth/openai surfaces for active provider/model selection, API-key updates, tests, OpenAI authorization, custom providers and disconnect. It does not introduce a second AI credential store. The MCP Page keeps secret-bearing AI management browser-only and links into the native page.
 
-Focused verification: 7 Vitest files, 34/34 tests passed for Integrations identity/variables, MCP contracts, direct MCP dispatch, Jev variable resolution/adapter, Workflow optimizer actions, and Integrations UI layout/script parsing. Full type/build/release verification follows before merge/deploy.
+Verification: focused regressions passed 46/46 across 11 files; full `bun run verify` passed (typecheck, lint, coverage, architecture/check and audit); `scripts/verify-build.sh` passed the isolated Next.js production build, bundle budget, Chromium readiness, mandatory release E2E, native Integrations desktop/mobile/landscape journey, five shell server-status checks and deferred-shell performance.
 
 ## 2026-09-24 — Add review-first Jev Flow Optimizer for Workflow Graph
 
