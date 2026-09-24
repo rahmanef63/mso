@@ -4,6 +4,20 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → About shows as “What's new”.
 
+## 2026-09-24
+
+**Added**
+
+- `workflows` add Jev flow optimizer
+
+**Changed**
+
+- `workflows` remove optimizer type cycle
+
+**Chores**
+
+- `workflows` finalize Jev flow optimizer release
+
 ## 2026-09-23
 
 **Added**

@@ -26,9 +26,9 @@ beforeAll(async () => {
     accessToken: "opaque-private-token-123456",
     allowedTools: "jev_decide, jev_route_task",
   }, snapshot.connection, true);
-  const module = await import("./mcp-connection");
-  callNamedMcpConnectionTool = module.callNamedMcpConnectionTool;
-  listNamedMcpConnectionTools = module.listNamedMcpConnectionTools;
+  const mcpModule = await import("./mcp-connection");
+  callNamedMcpConnectionTool = mcpModule.callNamedMcpConnectionTool;
+  listNamedMcpConnectionTools = mcpModule.listNamedMcpConnectionTools;
 });
 
 afterAll(async () => {
