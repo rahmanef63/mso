@@ -57,6 +57,10 @@ describe("bin/mso", () => {
     expect(undocumented).toEqual([]);
   });
 
+  it("prints memory-graph usage instead of the assistant memory verb", () => {
+    expect(run("memory-graph", "--help")).toContain("memory-graph [project]");
+  });
+
   it("exits non-zero on an unknown command", () => {
     expect(() => run("definitely-not-a-verb")).toThrow();
   });

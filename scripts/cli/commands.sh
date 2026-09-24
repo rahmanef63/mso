@@ -46,6 +46,7 @@ U_agents="agents list [current-session-id]|send <source-session-id> <target> <me
 U_org="org flow-custom-nodes|flow-nodes-move|flow-update|flow-replace|flow-node-upsert|flow-node-delete|flow-edge-upsert|flow-edge-delete <revision> <JSON with unitId|@file>|show|unit-upsert <revision> <JSON|@file>|seat-upsert <revision> <JSON|@file>|unit-delete <revision> <id>|seat-delete <revision> <id>|replace <revision> <JSON|@file>"
 U_a2a="a2a list|state|sessions|spawn <source-session> <objective> [title]|inbox <session>|discover <url>|add <url> [alias]|rm <target>|send <target> <message> [--wait]|stream <target> <message>|task <target> <taskId> [history]|cancel <target> <taskId>|handoff <target> <objective> [context] [--wait]|local sessions|local handoff <session> <objective>|local spawn <sourceSession> <objective> [title]|local inbox <session>|auth list [target]|auth add <target> [label] [bearer|api-key|oauth2]|auth use <target> <credentialId|none>|auth rm <credentialId>|inbound list|inbound create [label] [read|write|exec]|inbound rm <tokenId>"
 U_memory="memory list|add <text>|rm <id>"
+U_memory_graph="memory-graph [project]"
 U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
 U_prefs="prefs show|set <json>"
 U_federation="federation status"
@@ -80,7 +81,10 @@ mso_cli_main() {
   if [ $# -ge 2 ]; then
     case "$2" in
       -h|--help|help)
-        eval "u=\${U_$1-}"
+        # Hyphenated verbs (`memory-graph`) map to U_memory_graph. A raw
+        # ${U_memory-graph} expansion is the unrelated `memory` usage string.
+        local help_key="${1//-/_}"
+        eval "u=\${U_${help_key}-}"
         [ -n "${u-}" ] && { echo "usage: mso $u"; exit 0; }
         usage | grep -E "^ +$1( |$)" || usage
         exit 0 ;;
@@ -97,7 +101,7 @@ mso_cli_main() {
       mso_cmd_host "$cmd" "$@" ;;
     agent|chat|model|setup|onboard|provider|providers|integrations|channels|flow|workflow|gateway|web|camoufox|apps|mapp|term)
       mso_cmd_runtime "$cmd" "$@" ;;
-    ai|cockpit|threads|agent-sessions|agents|org|a2a|memory|config|prefs|federation|models|skills|changelog|stock)
+    ai|cockpit|threads|agent-sessions|agents|org|a2a|memory|memory-graph|config|prefs|federation|models|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;
     devices|device|approve|revoke|oauth|mcp|audit|whoami|login|logout|service|build|deploy|update|reset|uninstall|crud|api|completion)
       mso_cmd_admin "$cmd" "$@" ;;

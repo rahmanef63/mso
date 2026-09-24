@@ -3,12 +3,12 @@
 > **Current reference.** Counts are checked against the directory tree by
 > `scripts/check-docs.mjs`; the directory remains the final authority.
 
-<!-- slice-catalog: slices=28 appshell-features=10 -->
+<!-- slice-catalog: slices=29 appshell-features=10 -->
 
 Every application is a vertical slice under `frontend/slices/`. Host-facing slices use the
 shared API/host seam rather than reaching arbitrary Node host APIs from client code.
 
-## Slices (28)
+## Slices (29)
 
 | Slug | Purpose |
 |---|---|
@@ -31,6 +31,7 @@ shared API/host seam rather than reaching arbitrary Node host APIs from client c
 | `n8n` | Dedicated reviewed n8n workspace, isolated from native Workflows and MSO credentials |
 | `media-studio` | Image/media studio surface |
 | `media-viewer` | Preview/Quick Look-style media viewer |
+| `memory-graph` | Interactive knowledge and memory graph (vault notes, project knowledge, agent memory) |
 | `os-settings` | MSO Settings |
 | `os-shell` | MSO consumer manifest/capabilities for AppShell |
 | `os-terminal` | Interactive PTY Terminal / Claude Code surface |

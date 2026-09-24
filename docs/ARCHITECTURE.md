@@ -347,3 +347,7 @@ MSO has a Workflow Graph v2 layer above the existing automation/lifecycle/RASMIC
 Telegram and Discord credentials remain under `lib/infra/*`. Telegram inbound requests require the configured Bot API webhook secret; Discord inbound requests require Ed25519-signed Interactions. Discord Gateway message ingestion is not part of the current capability.
 
 Inbound channel events may dispatch into the existing Workflow Graph engine through the `channel_trigger` node. Outbound automation uses `channel_send`, which calls the same Channels send service as the UI/API. This keeps Channels, Integrations, and Workflows as separate authorities without copying credentials or building a second automation engine. See [CHANNELS.md](./CHANNELS.md).
+
+## Memory graph
+
+`frontend/slices/memory-graph/` is the owner-only Memory app at `/memory` (`mso memory-graph`). It draws vault markdown, project `.mso/KNOWLEDGE.md`, repo-local `.agent` memory, the signed-in device's typed agent memory, and assistant memories. Unresolved `[[wikilinks]]` are ghost nodes. Web, radial, and layered layouts plus a local hop neighbourhood are client-side. This surface is inspired by open-silong's memory graph (MIT) and does not depend on Obsidian or Convex. It is not the Workflow session graph. See [`MEMORY-GRAPH.md`](./MEMORY-GRAPH.md).

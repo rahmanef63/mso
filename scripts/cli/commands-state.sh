@@ -178,6 +178,9 @@ case "$cmd" in
       rm)   jdel "/api/memory?id=$(enc "${2:?id}")" ;;
       *) die "usage: mso $U_memory" ;;
     esac ;;
+  memory-graph)
+    if [ -n "${1-}" ]; then jget "/api/v1/memory-graph?project=$(enc "$1")";
+    else jget "/api/v1/memory-graph"; fi ;;
   config) mso_config_command "$U_config" "$@" ;;
   federation)
     case "${1:-status}" in

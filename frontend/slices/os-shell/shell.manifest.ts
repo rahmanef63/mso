@@ -25,6 +25,7 @@ import { channelsApp } from "@/features/channels";
 import { workflowsApp } from "@/features/workflows";
 import { n8nApp } from "@/features/n8n";
 import { organizationApp } from "@/features/organization";
+import { memoryGraphApp } from "@/features/memory-graph";
 import { cloudflareApp, dokployApp } from "@/features/infrastructure";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
 import { serverConnectionStatusFeature } from "./server-connection-status";
@@ -84,6 +85,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(docsApp), "docs"),
   pin(withSlug(withArtwork(osSettingsApp), "settings")),
   withSlug(withArtwork(quicklinksApp), "links"),
+  withSlug(memoryGraphApp, "memory"),
 ];
 
 // Shell features — the generic brand-free set now lives INSIDE the appshell

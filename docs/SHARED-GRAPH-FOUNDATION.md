@@ -22,6 +22,7 @@ This document records the current ownership boundary for first-party MSO graph U
 | Organization persistence | Organization API/actions | owner | — | — | B feature-owned |
 | Workflow persistence / execution / run state | Workflow API/runtime | — | owner | read-only history input | B feature-owned |
 | Session artifacts / terminal / save-as-workflow | `workflow-session-details.tsx` + session APIs | — | — | owner | B feature-owned |
+| Memory graph (notes, knowledge, agent memory) | `frontend/slices/memory-graph/` | — | — | — | B feature-owned. Separate from the workflow canvas. |
 | n8n iframe/auth/origin/sandbox | `frontend/slices/n8n/**` | — | — | — | C provider-specific |
 | Legacy Organization projection helper | removed; superseded by shared projection | — | — | — | D obsolete |
 

@@ -14,6 +14,7 @@ describe("host API role policy", () => {
       "/api/v1/temp-share/abc",
     ]) expect(requiredRoleForRequest(req("GET", path)), path).toBe("viewer");
     expect(requiredRoleForRequest(req("GET", "/api/v1/future-feature"))).toBe("owner");
+    expect(requiredRoleForRequest(req("GET", "/api/v1/memory-graph"))).toBe("owner");
     expect(requiredRoleForRequest(req("GET", "/api/v1/sys/stats-private"))).toBe("owner");
     expect(requiredRoleForRequest(req("GET", "/api/v1/sys/services-private"))).toBe("owner");
     expect(requiredRoleForRequest(req("POST", "/api/v1/future-feature"))).toBe("owner");
