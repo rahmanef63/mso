@@ -12,7 +12,7 @@ export type TransferOptions={users?:string[];selection?:TransferSelection[];incl
 // destination metadata — never a password/credential digest exposed to the caller.
 const PLAN_TTL_MS=10*60*1000,MAX_PLANS=128;
 const plans=new Map<string,{snapshot:string;expires:number}>();
-function snapshot(document:unknown,options:TransferOptions,state:IntegrationState){return JSON.stringify([document,options.prefix??'',options.policy??'skip',state.users,state.defaultUser,state.bindings]);}
+function snapshot(document:unknown,options:TransferOptions,state:IntegrationState){return JSON.stringify([document,options.prefix??'',options.policy??'skip',state.users,state.defaultUser,state.bindings,state.variables??{}]);}
 function issuePlan(value:string){const now=Date.now();for(const [id,p]of plans)if(p.expires<=now)plans.delete(id);while(plans.size>=MAX_PLANS)plans.delete(plans.keys().next().value!);const id=randomBytes(32).toString('hex');plans.set(id,{snapshot:value,expires:now+PLAN_TTL_MS});return id;}
 function requirePlan(id:string|undefined,value:string){if(!id)throw new IntegrationError('preview_required_or_destination_changed',409);const p=plans.get(id);if(!p||p.expires<=Date.now()||p.snapshot!==value){plans.delete(id);throw new IntegrationError('preview_required_or_destination_changed',409)}return id;}
 export async function exportIntegrationData(options:TransferOptions={}){

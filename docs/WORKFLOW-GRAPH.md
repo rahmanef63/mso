@@ -234,9 +234,9 @@ Decision modes:
 - `jev` sends only the compact workflow summary plus host-generated candidate descriptions to a named generic MCP Integration. The graph arguments themselves, credentials and capability authority stay in MSO. Jev can score the candidates; it cannot invent a new tool call, alter arguments, authorize an action, or execute anything. The preview also computes a deterministic shadow baseline and reports agreement/disagreement so rollout can be measured before relying more heavily on Jev.
 - If the Jev call fails or returns no usable probability, the preview records `provider: fallback` and uses the deterministic scores.
 
-For Jev, create a normal **Integrations → Project MCP** named connection to the reviewed Jev MCP endpoint, keep the bearer key in the private Integrations form, and optionally pin `allowedTools` to the exact decision tool (for example `jev_decide`). The workflow stores only the non-secret Integration user/connection reference supplied at optimization time.
+For Jev, create a normal **Integrations → Project MCP** named connection to the reviewed Jev MCP endpoint, keep the bearer key in the private Integrations form, and optionally pin allowedTools to the exact decision tool (for example jev_decide). Point the metadata-only **Integration Variable JEV** at that named connection. Jev optimization resolves JEV by default; an explicit user/connection override remains available for diagnostics or alternate evaluators. Neither path stores the endpoint/token in the Workflow Graph.
 
-The native Workflows UI exposes **Optimize** and a Flow Optimizer detail panel. Dirty graph edits are saved before opening the optimizer so preview/clone always operate on the revision the user can see.
+The native Workflows UI exposes **Optimize** and a Flow Optimizer detail panel. Dirty graph edits are saved before opening the optimizer so preview/clone always operate on the revision the user can see. Jev mode now shows JEV as the normal path, with explicit connection fields moved under an optional override.
 
 ## Automatic learning
 

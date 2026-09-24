@@ -17,8 +17,15 @@ it("uses the same native metadata services through actual MCP calls and rejects 
   const metadata=await call(4,"integration_query",{view:"resolve",user:"alice",provider:"convex-cloud",connection:"mimin-production"});expect((metadata.result as any)?.structuredContent?.result).toMatchObject({user:"alice",id:"mimin-production",source:"direct",authMethod:"deployment"});
   const inputRejected=await call(5,"integration_manage",{action:"user.create",user:"eve",confirm:true,token:"synthetic"});expect((await readIntegrationState()).users.eve).toBeUndefined();expect(inputRejected.error??(inputRejected.result as any)?.isError).toBeTruthy();
 });
+it("exposes metadata-only Integration Variables through the compact query/manage contract",async()=>{
+  const {INTEGRATION_TOOLS}=await import("./tools-integrations");
+  const query=INTEGRATION_TOOLS.find(entry=>entry.name==="integration_query")!,manage=INTEGRATION_TOOLS.find(entry=>entry.name==="integration_manage")!;
+  const q=query.inputSchema as {properties?:Record<string,{enum?:string[]}>},m=manage.inputSchema as {properties?:Record<string,{enum?:string[]}>};
+  expect(q.properties?.view?.enum).toContain("variables");expect(m.properties?.action?.enum).toEqual(expect.arrayContaining(["variable.set","variable.delete"]));
+  expect(m.properties).not.toHaveProperty("value");expect(m.properties).not.toHaveProperty("secret");
+});
 it("keeps share/unshare in the same integration management contract without accepting secret values",async()=>{
-  const {INTEGRATION_TOOLS}=await import("./tools-integrations");const tool=INTEGRATION_TOOLS.find(entry=>entry.name==="integration_manage")!;const schema=tool.inputSchema as {properties?:Record<string,{enum?:string[]}>};const actions=schema.properties?.action?.enum??[];expect(actions).toContain("connection.share");expect(actions).toContain("connection.duplicate");expect(actions).toContain("connection.unshare");expect(schema.properties).toHaveProperty("target");expect(schema.properties).toHaveProperty("targetConnection");expect(schema.properties).toHaveProperty("label");expect(schema.properties).toHaveProperty("key");expect(schema.properties).not.toHaveProperty("token");expect(schema.properties).not.toHaveProperty("apiKey");
+  const {INTEGRATION_TOOLS}=await import("./tools-integrations");const tool=INTEGRATION_TOOLS.find(entry=>entry.name==="integration_manage")!;const schema=tool.inputSchema as {properties?:Record<string,{enum?:string[]}>};const actions=schema.properties?.action?.enum??[];expect(actions).toContain("connection.share");expect(actions).toContain("connection.duplicate");expect(actions).toContain("connection.unshare");expect(actions).toContain("variable.set");expect(actions).toContain("variable.delete");expect(schema.properties).toHaveProperty("target");expect(schema.properties).toHaveProperty("targetConnection");expect(schema.properties).toHaveProperty("label");expect(schema.properties).toHaveProperty("key");expect(schema.properties).not.toHaveProperty("token");expect(schema.properties).not.toHaveProperty("apiKey");
 });
 it("exposes the bounded Dokploy application operations through integration_execute without adding a generic request escape hatch",async()=>{
   const {INTEGRATION_TOOLS}=await import("./tools-integrations");
@@ -32,6 +39,8 @@ it("exposes the bounded Dokploy application operations through integration_execu
   expect(operations).toContain("dokploy.domain.ensure");
   expect(operations).toContain("dokploy.dockerfile");
   expect(operations).toContain("dokploy.application.publicEnv.upsert");
+  expect(operations).toContain("mcp.tools.list");
+  expect(operations).toContain("mcp.tool");
   expect(operations.some(operation=>/request|fetch|raw/i.test(operation))).toBe(false);
 });
 it("returns identity-bound setup only in UI-private metadata on both supported MCP profiles",async()=>{

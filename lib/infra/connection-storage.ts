@@ -1,3 +1,4 @@
+import { normalizeIntegrationVariables } from "./connection-variables";
 import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { constants, promises as fs } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -21,6 +22,7 @@ function validate(d:IntegrationState):IntegrationState{
   for(const [id,u] of Object.entries(d.users)){identity(id);if(u.id!==id||!u.connections||!u.defaults)throw new IntegrationError("invalid_integration_store");
     for(const [p,rows]of Object.entries(u.connections)){identity(p);for(const [cid,c]of Object.entries(rows)){identity(cid);if(c.id!==cid||c.provider!==p||!c.uid||!Number.isInteger(c.revision)||!c.values||typeof c.values!=="object"||Array.isArray(c.values)||Object.values(c.values).some(v=>typeof v!=="string"))throw new IntegrationError("invalid_connection_store");connectionMethod(c.provider,c.source,c.authMethod);if(c.sharedFrom&&(!c.sharedFrom.user||!c.sharedFrom.connection||c.sharedFrom.provider!==p||c.source!=="direct"||Object.keys(c.values).length))throw new IntegrationError("invalid_shared_connection");if(c.source!=="direct"&&Object.keys(c.values).length)throw new IntegrationError("external_secrets_forbidden");}}
   }
+  normalizeIntegrationVariables(d);
   return d;
 }
 function projected(raw:Record<string,unknown>|undefined):IntegrationState{

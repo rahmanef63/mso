@@ -32,6 +32,22 @@ are ambiguous and refused. An explicit missing user/connection is never replaced
 a default from somewhere else. Compound direct operations pin resolved values for
 their duration; concurrent work cannot mix two profiles partway through one operation.
 
+
+### Integration Variables
+
+Integration Variables are global, metadata-only aliases to an existing named connection,
+for example JEV → credential-user / mcp / jev. A variable stores only provider, user and
+connection references; it never copies endpoint, API key, bearer token, OAuth bundle or
+connection field values. Names use uppercase A-Z, 0-9 and underscore. integration_manage
+owns variable.set / variable.delete, while integration_query with view=variables returns
+only those safe references. User rename updates references. Deleting a referenced
+user/connection is refused until the variable is removed or retargeted.
+
+When a pre-variable v2 store already contains one unambiguous mcp/jev connection, the
+upgrade projection seeds JEV in memory. An explicitly stored variable map, including an
+explicit empty map, wins and is never silently re-seeded. This gives existing Jev installs
+a safe default without hardcoding an operator/user ID.
+
 ## Sources are not authentication methods
 
 **MSO direct** stores owner-only local credential fields. **Composio** keeps the
@@ -106,9 +122,15 @@ Desktop uses the shared Settings sidebar/content measure tokens; compact windows
 same sidebar into an accessible drawer. Providers live under **Connections**. Visual
 surfaces, accent, typography, radius and spacing come from the shared semantic token
 contract, and the native iframe synchronizes those tokens from the active AppShell.
-**Credential owners**, **Project routing**, **Transfer & backup**, and **Add project MCP**
-live under **Manage**. Section state stays selected when the credential owner changes,
-and Transfer & backup renders in the detail pane instead of replacing the navigation.
+**AI Providers**, **Variables**, **Credential owners**, **Project routing**,
+**Transfer & backup**, and **Add project MCP** live under **Manage**. The AI Providers tab
+reuses the existing Alfa /api/config, /api/models/providers, /api/models, /api/models/test,
+and /api/oauth/openai services as its single source of truth: active provider/model
+selection, API-key updates, provider tests, OpenAI account authorization, custom-provider
+creation and disconnect all use the same runtime/config store as Settings. It does not
+create an Integrations copy of AI credentials. Section state stays selected when the
+credential owner changes, and Transfer & backup renders in the detail pane instead of
+replacing the navigation.
 The secure credential-entry form remains an intentional drill-down from a connection.
 
 When an agent needs external access, it must inspect Integrations before asking for a new
@@ -214,9 +236,10 @@ mso integrations execute '{"user":"rahman","provider":"dokploy","connection":"pr
 
 ## Machine tools and operation coverage
 
-`integration_query` reads catalog/users/connections, resolves an identity, and returns
-source-aware setup instructions. `integration_manage` performs confirmed user,
-connection, folder-binding, credential-deletion or hosted-authorization actions.
+`integration_query` reads catalog/users/connections/Integration Variables, resolves an
+identity, and returns source-aware setup instructions. `integration_manage` performs
+confirmed user, connection, Integration Variable, folder-binding, credential-deletion or
+hosted-authorization actions.
 `integration_execute` takes explicit user/provider/connection and returns a route,
 verifies that connection, performs supported bounded direct operations, executes
 a toolkit-matching Composio tool using its exact connected account, or calls one exact

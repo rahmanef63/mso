@@ -1,3 +1,11 @@
+## 2026-09-24 — Integrations Variables + native AI Providers tab
+
+Integrations now has metadata-only variables that alias an exact named connection without copying credentials. variable.set / variable.delete are part of the existing integration_manage authority, integration_query view=variables exposes only safe references, rename/delete invariants prevent stale aliases, and an existing pre-variable mcp/jev connection can project a JEV alias without hardcoding a user. Workflow Optimizer Jev mode resolves JEV by default while preserving an explicit diagnostic override; endpoint/token remain private in Integrations.
+
+The native Integrations Settings-style manager adds **Variables** and **AI Providers** under Manage. AI Providers reuses Alfa's existing /api/config, /api/models/providers, /api/models, /api/models/test, and /api/oauth/openai surfaces for active provider/model selection, API-key updates, tests, OpenAI authorization, custom providers and disconnect. It does not introduce a second AI credential store. The MCP Page keeps secret-bearing AI management browser-only and links into the native page.
+
+Focused verification: 7 Vitest files, 34/34 tests passed for Integrations identity/variables, MCP contracts, direct MCP dispatch, Jev variable resolution/adapter, Workflow optimizer actions, and Integrations UI layout/script parsing. Full type/build/release verification follows before merge/deploy.
+
 ## 2026-09-24 — Add review-first Jev Flow Optimizer for Workflow Graph
 
 MSO Workflow Graph now has a compact optimizer path without adding another global MCP tool. The existing `workflow_graph` surface owns `optimize_preview` and `optimize_clone`: preview never mutates the source graph, while clone requires the exact current revision and creates a new draft only when at least one optimization candidate is selected. The original workflow remains immutable during optimization.

@@ -1,3 +1,4 @@
+import { variableKey } from "./connection-variables";
 import { randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { connectionCatalog, connectionMethod, connectionSummary, nativeDefinition } from "./connection-registry";
@@ -19,11 +20,18 @@ export async function resolveIntegration(provider:string,selector:ConnectionSele
   const state=await readIntegrationState(),resolved=selectConnection(state,provider,selector),c=resolved.connection;
   return{...summaryIn(state,resolved.user,c),resolution:resolved.reason,execution:c.source==="direct"?{route:"native-direct"}:c.source==="composio"?{route:"composio",connectedAccountId:c.external?.connectedAccountId??null,toolkit:c.external?.toolkit??null}:{route:"provider-mcp",endpoint:nativeDefinition(provider)?.url??null,authorization:"provider-client-owned"}};
 }
+export async function resolveIntegrationVariable(key:string){
+  const name=variableKey(key),state=await readIntegrationState(),ref=state.variables?.[name];
+  if(!ref)throw new IntegrationError("integration_variable_not_found",404);
+  const selected=selectConnection(state,ref.provider,{user:ref.user,connection:ref.connection});
+  const summary=summaryIn(state,selected.user,selected.connection);
+  return{key:name,provider:ref.provider,user:ref.user,connection:ref.connection,label:summary.label,state:summary.state};
+}
 export async function integrationSnapshot(selector:ConnectionSelector={}){
   const state=await readIntegrationState();let user:string|null=null;try{user=resolveUser(state,selector);}catch(e){if(selector.user)throw e;}
   const profiles=Object.values(state.users).map(u=>({id:u.id,label:u.label,isDefault:state.defaultUser===u.id,connectionCount:Object.values(u.connections).reduce((n,rows)=>n+Object.keys(rows).length,0)}));
   const connections=user?Object.values(state.users[user].connections).flatMap(rows=>Object.values(rows).map(c=>summaryIn(state,user!,c))):[];
-  return{version:2,users:profiles,user,bindings:state.bindings,connections,resolution:user?(selector.user?"explicit":folderBinding(state,selector.cwd)?"folder":"default"):"choose-user"};
+  return{version:2,variables:state.variables??{},users:profiles,user,bindings:state.bindings,connections,resolution:user?(selector.user?"explicit":folderBinding(state,selector.cwd)?"folder":"default"):"choose-user"};
 }
 export function createConnectionIn(state:IntegrationState,input:{user:string;provider:string;connection:string;label?:string;source?:ConnectionSource;authMethod?:string;makeDefault?:boolean}){
   const user=identity(input.user,"user"),provider=identity(input.provider,"provider"),id=identity(input.connection,"connection"),profile=state.users[user];if(!profile)throw new IntegrationError("user_not_found",404);
@@ -61,6 +69,6 @@ export async function integrationQuery(input:Record<string,unknown>){
     if(!input.connection)return{provider,user:input.user??null,sources:catalog.sources,next:"choose named connection, source and auth; never pass keys through tool JSON"};
     const route=await resolveIntegration(provider,selection);return{...route,guidance:connectionMethod(provider,route.source,route.authMethod).guidance,next:route.source==="direct"?"integration_setup_open with this user and connection":route.source==="composio"?"authorize, then sync until ACTIVE":"authorize the provider-owned MCP in your client"};
   }
-  if(!["snapshot","users","connections","which"].includes(String(view)))throw new IntegrationError("unknown_query_view");
-  const out=await integrationSnapshot(selection);if(view==="users")return{users:out.users,user:out.user};if(view==="which")return{user:out.user,resolution:out.resolution,bindings:out.bindings};if(view==="connections")return{user:out.user,connections:out.connections.filter(c=>!input.provider||c.provider===input.provider)};return out;
+  if(!["snapshot","variables","users","connections","which"].includes(String(view)))throw new IntegrationError("unknown_query_view");
+  const out=await integrationSnapshot(selection);if(view==="variables")return{variables:out.variables};if(view==="users")return{users:out.users,user:out.user};if(view==="which")return{user:out.user,resolution:out.resolution,bindings:out.bindings};if(view==="connections")return{user:out.user,connections:out.connections.filter(c=>!input.provider||c.provider===input.provider)};return out;
 }

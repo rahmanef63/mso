@@ -25,10 +25,16 @@ export function WorkflowOptimizerPanel({ graph, onCloned }: {
   const options = (): WorkflowOptimizeOptions => ({
     mode,
     applyReview,
-    ...(mode === "jev" ? { jev: { user: user.trim(), connection: connection.trim() } } : {}),
+    ...(mode === "jev" ? {
+      jev: user.trim() && connection.trim()
+        ? { user: user.trim(), connection: connection.trim() }
+        : { variable: "JEV" },
+    } : {}),
   });
 
-  const valid = mode === "deterministic" || Boolean(user.trim() && connection.trim());
+  const hasUser = Boolean(user.trim());
+  const hasConnection = Boolean(connection.trim());
+  const valid = mode === "deterministic" || hasUser === hasConnection;
   const analyze = async () => {
     setBusy(true); setMessage("");
     try { setPreview(await optimizeGraphPreview(graph, options())); }
@@ -62,9 +68,17 @@ export function WorkflowOptimizerPanel({ graph, onCloned }: {
         </select>
       </label>
       {mode === "jev" ? <div className="grid gap-2">
-        <p className="text-[11px] leading-relaxed text-muted-foreground">Use a named Integrations → Project MCP connection. Endpoint/token remain in Integrations and never enter the workflow graph.</p>
-        <Input className={inputClass} value={user} onChange={(event) => setUser(event.target.value)} placeholder="Credential user ID"/>
-        <Input className={inputClass} value={connection} onChange={(event) => setConnection(event.target.value)} placeholder="MCP connection ID, e.g. jev"/>
+        <div className="rounded-md border border-dashed p-2 text-[11px] leading-relaxed text-muted-foreground">
+          Uses Integrations variable <b className="text-foreground">JEV</b> by default. The variable only points to a named MCP connection; endpoint and token remain private in Integrations.
+        </div>
+        <details className="rounded-md border p-2">
+          <summary className="cursor-pointer text-xs font-medium">Override JEV connection</summary>
+          <div className="mt-2 grid gap-2">
+            <Input className={inputClass} value={user} onChange={(event) => setUser(event.target.value)} placeholder="Credential user ID"/>
+            <Input className={inputClass} value={connection} onChange={(event) => setConnection(event.target.value)} placeholder="MCP connection ID"/>
+            {hasUser !== hasConnection ? <p className="text-[11px] text-destructive">Fill both override fields, or leave both empty to use JEV.</p> : null}
+          </div>
+        </details>
       </div> : null}
       <label className="flex items-start gap-2 text-xs">
         <input className="mt-0.5" type="checkbox" checked={applyReview} onChange={(event) => { setApplyReview(event.target.checked); setPreview(null); }}/>

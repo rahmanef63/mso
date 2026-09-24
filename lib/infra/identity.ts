@@ -13,7 +13,7 @@ export type IntegrationConnection = {
 };
 export type IntegrationUser = { id: string; uid:string; label: string; connections: Record<string, Record<string, IntegrationConnection>>; defaults: Record<string, string> };
 export type IntegrationBinding = { path: string; user: string; connections: Record<string, string> };
-export type IntegrationState = { version: 2; instanceId:string; defaultUser: string | null; users: Record<string, IntegrationUser>; bindings: IntegrationBinding[]; migratedAt?: number };
+export type IntegrationState = { version: 2; instanceId:string; defaultUser: string | null; users: Record<string, IntegrationUser>; bindings: IntegrationBinding[]; variables?: Record<string, {provider:string;user:string;connection:string}>; migratedAt?: number };
 export class IntegrationError extends Error { constructor(public readonly code: string, public readonly status = 400) { super(code); } }
 export const emptyIntegrationState = (): IntegrationState => ({ version: 2, instanceId:randomUUID(), defaultUser: null, users: {}, bindings: [] });
 export function identity(value: unknown, name = "identity"): string {

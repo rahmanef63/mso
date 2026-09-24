@@ -26,6 +26,7 @@ import { listLearnedRecipes, recipeMaturity } from "@/lib/workflow";
 import { createWorkflowDataTable, deleteWorkflowDataTable, deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "@/lib/workflow/data-table-store";
 import { optimizeWorkflowGraph } from "@/lib/workflow/graph-optimizer";
 import { createJevWorkflowOptimizerEvaluator } from "@/lib/workflow/jev-optimizer";
+import { resolveJevIntegrationConfig } from "@/lib/workflow/jev-integration";
 export const runtime="nodejs";export const dynamic="force-dynamic";const headers={"Cache-Control":"no-store, private"};
 const fail=(error:unknown,status=400)=>NextResponse.json({error:error instanceof Error?error.message.slice(0,500):String(error).slice(0,500)||"workflow request failed"},{status,headers});
 async function auth(minimum:"viewer"|"operator"|"owner"="viewer"){const context=await getSessionContext();if(!context?.session.device_id||!roleAtLeast(context.role,minimum))return null;return{context,principal:`web:${context.session.device_id}`};}
@@ -68,9 +69,7 @@ export async function POST(req:NextRequest){const session=await auth("operator")
   const mode=body.mode==="jev"?"jev" as const:"deterministic" as const;let evaluator;
   if(mode==="jev"){
    if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);
-   const jev=body.jev;if(!jev||typeof jev!=="object"||Array.isArray(jev))throw new Error("jev connection reference is required");
-   const ref=jev as Record<string,unknown>;if(typeof ref.user!=="string"||typeof ref.connection!=="string")throw new Error("jev user and connection are required");
-   evaluator=createJevWorkflowOptimizerEvaluator({user:ref.user,connection:ref.connection,...(typeof ref.tool==="string"?{tool:ref.tool}:{}),...(typeof ref.model==="string"?{model:ref.model}:{})});
+   evaluator=createJevWorkflowOptimizerEvaluator(await resolveJevIntegrationConfig(body.jev));
   }
   const optimized=await optimizeWorkflowGraph(graph,{mode,threshold:Number(body.threshold)||undefined,applyReview:body.apply_review===true,evaluator,resolveTool:name=>TOOLS_BY_NAME.get(name)});
   if(action==="optimize_preview")return NextResponse.json({optimization:optimized.preview},{headers});

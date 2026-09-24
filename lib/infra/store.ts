@@ -1,3 +1,4 @@
+import { assertNoVariableReferences } from "./connection-variables";
 import {randomUUID} from "node:crypto";
 import { getInfraProviderDefinition, normalizeInfraValues } from "./catalog";
 import { mutateIntegrationState } from "./connection-storage";
@@ -26,7 +27,7 @@ export async function setInfraProvider(id:InfraProviderId,raw:Record<string,unkn
   });
 }
 export async function removeInfraProvider(id:InfraProviderId){
-  await mutateIntegrationState(state=>{const selection=currentIntegrationSelection();const r=selectConnection(state,id,selection);assertNotBusy(r.connection);if(state.bindings.some(b=>b.user===r.user&&b.connections[id]===r.connection.id))throw new IntegrationError("connection_has_folder_binding");if(id==="composio"&&Object.values(state.users[r.user].connections).some(rows=>Object.values(rows).some(c=>c.source==="composio"&&c.external?.brokerConnection===r.connection.id)))throw new IntegrationError("broker_has_linked_connections",409);const profile=state.users[r.user];
+  await mutateIntegrationState(state=>{const selection=currentIntegrationSelection();const r=selectConnection(state,id,selection);assertNotBusy(r.connection);assertNoVariableReferences(state,r.user,id,r.connection.id);if(state.bindings.some(b=>b.user===r.user&&b.connections[id]===r.connection.id))throw new IntegrationError("connection_has_folder_binding");if(id==="composio"&&Object.values(state.users[r.user].connections).some(rows=>Object.values(rows).some(c=>c.source==="composio"&&c.external?.brokerConnection===r.connection.id)))throw new IntegrationError("broker_has_linked_connections",409);const profile=state.users[r.user];
     const remaining=Object.fromEntries(Object.entries(profile.connections[id]).filter(([key])=>key!==r.connection.id));
     profile.connections=Object.fromEntries(Object.entries(profile.connections).map(([key,rows])=>[key,key===id?remaining:rows]));
     profile.defaults=Object.fromEntries(Object.entries(profile.defaults).filter(([key,value])=>key!==id||value!==r.connection.id));});

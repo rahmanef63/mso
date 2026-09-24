@@ -129,6 +129,30 @@ describe("native credential identity core",()=>{
     await f.manage({action:"connection.unshare",confirm:true,user:"bob",provider:"github",connection:alias.id});expect((await f.integrationSnapshot({user:"bob"})).connections).toHaveLength(0);await expect(f.manage({action:"connection.unshare",confirm:true,user:"bob-copy",provider:"github",connection:alias.id})).rejects.toMatchObject({code:"connection_not_shared"});
     await f.manage({action:"connection.delete",confirm:true,user:"owner-renamed",provider:"github",connection:"work"});
   });
+  it("stores metadata-only Integration Variables, keeps references coherent, and blocks deleting referenced identities",async()=>{
+    const f=await fixture();await f.add("alice","mcp","jev","direct",{});
+    await expect(f.manage({action:"variable.set",confirm:true,key:"jev",user:"alice",provider:"mcp",connection:"jev"})).rejects.toMatchObject({code:"invalid_variable_key"});
+    await expect(f.manage({action:"variable.set",confirm:true,key:"MISSING",user:"alice",provider:"mcp",connection:"missing"})).rejects.toMatchObject({code:"connection_not_found"});
+    await f.manage({action:"variable.set",confirm:true,key:"JEV",user:"alice",provider:"mcp",connection:"jev"});
+    expect(await f.integrationQuery({view:"variables"})).toEqual({variables:{JEV:{provider:"mcp",user:"alice",connection:"jev"}}});
+    expect(await f.resolveIntegrationVariable("JEV")).toMatchObject({key:"JEV",provider:"mcp",user:"alice",connection:"jev",state:"incomplete"});
+    await expect(f.manage({action:"connection.delete",confirm:true,user:"alice",provider:"mcp",connection:"jev"})).rejects.toMatchObject({code:"integration_has_variables"});
+    await expect(f.manage({action:"user.delete",confirm:true,user:"alice"})).rejects.toMatchObject({code:"integration_has_variables"});
+    await f.manage({action:"user.rename",confirm:true,user:"alice",target:"owner-renamed"});
+    expect(await f.integrationQuery({view:"variables"})).toEqual({variables:{JEV:{provider:"mcp",user:"owner-renamed",connection:"jev"}}});
+    await f.manage({action:"variable.delete",confirm:true,key:"JEV"});
+    expect(await f.integrationQuery({view:"variables"})).toEqual({variables:{}});
+    await f.manage({action:"connection.delete",confirm:true,user:"owner-renamed",provider:"mcp",connection:"jev"});
+  });
+  it("seeds JEV only when upgrading a pre-variable store with an unambiguous mcp/jev connection",async()=>{
+    const f=await fixture();await f.add("alice","mcp","jev","direct",{});
+    const raw=JSON.parse(await fs.readFile(file,"utf8"));delete raw.variables;const legacyLike=JSON.stringify(raw,null,2);await fs.writeFile(file,legacyLike,{mode:0o600});
+    vi.resetModules();const {readIntegrationState}=await import("./connection-storage");const state=await readIntegrationState();
+    expect(state.variables).toEqual({JEV:{provider:"mcp",user:"alice",connection:"jev"}});
+    expect(await fs.readFile(file,"utf8")).toBe(legacyLike);
+    raw.variables={};await fs.writeFile(file,JSON.stringify(raw,null,2),{mode:0o600});vi.resetModules();
+    const explicit=await (await import("./connection-storage")).readIntegrationState();expect(explicit.variables).toEqual({});
+  });
   it("rejects sharing external sources and deletes one direct credential field without exposing values",async()=>{
     const f=await fixture();await f.add("alice","github","hosted","oauth2",{},"composio");await expect(f.manage({action:"connection.share",confirm:true,user:"alice",provider:"github",connection:"hosted",target:"bob",label:"Hosted share"})).rejects.toMatchObject({code:"external_connections_cannot_share"});
     await f.add("alice","convex-cloud","deploy","deployment",{deployKey:KEY_A,deploymentName:"test-deployment"});await f.manage({action:"credential.delete",confirm:true,user:"alice",provider:"convex-cloud",connection:"deploy",key:"deploymentName"});const values=await f.directConnectionValues("convex-cloud",{user:"alice",connection:"deploy"});expect(values).toEqual({deployKey:KEY_A});const row=(await f.integrationSnapshot({user:"alice"})).connections.find(c=>c.id==="deploy")!;expect(row.missing).toContain("deploymentName");expect(JSON.stringify(row)).not.toContain(KEY_A);
