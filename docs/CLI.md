@@ -114,6 +114,7 @@ Commands:
   org *                Organization chart: units, seats, reporting lines, targets
   a2a *                Agent-to-Agent v1: list | discover | add | rm | send | task | cancel | handoff
   memory *             Assistant memories: list | add | rm
+  memory-graph [project]  Knowledge graph: vault notes, project memory, agent memory
   config *             Advanced raw AI config compatibility surface
   prefs *              UI preferences: show | set
   federation *         Batonly capability federation worker: status

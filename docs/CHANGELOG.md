@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `memory-graph` add an owner knowledge graph
 - `integrations` add JEV variables and AI providers tab
 - `workflows` add Jev flow optimizer
 
