@@ -1,3 +1,4 @@
+import { discoverOwnerGraphs, cloneOwnerGraph } from "@/lib/workflow/owner-discovery";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
 import { roleAtLeast } from "@/lib/auth/roles";
@@ -32,6 +33,7 @@ const fail=(error:unknown,status=400)=>NextResponse.json({error:error instanceof
 async function auth(minimum:"viewer"|"operator"|"owner"="viewer"){const context=await getSessionContext();if(!context?.session.device_id||!roleAtLeast(context.role,minimum))return null;return{context,principal:`web:${context.session.device_id}`};}
 function definition(graph:NonNullable<Awaited<ReturnType<typeof getWorkflowGraph>>>){const{revision:_r,createdAt:_c,updatedAt:_u,version:_v,...rest}=graph;return rest;}
 export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,minimum=(q.has("variables")||q.has("data_tables")||q.has("data_table"))?"operator":"viewer",session=await auth(minimum);if(!session)return fail("unauthorized",401);try{
+ if(q.get("owner_view")==="1"){if(session.context.role!=="owner")return fail("owner_required",403);return NextResponse.json(await discoverOwnerGraphs(session.context.role,session.principal,Number(q.get("owner_offset"))||0),{headers});}
  if(q.get("directory")==="1"){
   const query=(q.get("q")??"").toLowerCase().trim(),tools=msoCapabilityRuntime.list(maxScope()).filter((tool)=>!query||`${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query)).slice(0,150);
   const operator=roleAtLeast(session.context.role,"operator");
@@ -55,6 +57,7 @@ export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,mini
  const graphs=await listWorkflowGraphs(session.principal),query=q.get("q")??"",filters={tag:q.get("tag")||undefined,status:q.get("status")||undefined,project:q.get("project")||undefined,folder:q.get("folder")||undefined,node:q.get("node")||undefined}; return NextResponse.json({graphs:graphs.filter((graph)=>workflowMatchesQuery(graph,query,filters))},{headers});
  }catch(error){return fail(error);}}
 export async function POST(req:NextRequest){const session=await auth("operator");if(!session)return fail("operator_required",403);try{const body=await readSetupJson(req),action=typeof body.action==="string"?body.action:"";if(rateLimited(`workflow:${action}:${session.context.session.device_id}`,action==="run"?60:30,60_000))return fail("rate_limited",429);
+ if(action==="owner_clone"){if(session.context.role!=="owner")return fail("owner_required",403);return NextResponse.json({graph:await cloneOwnerGraph(session.context.role,session.principal,String(body.origin_owner??""),String(body.graph_id??""))},{headers});}
  if(action==="create")return NextResponse.json({graph:await createWorkflowGraph(session.principal,body.graph,"create",{remember:true})},{headers});
  if(action==="update")return NextResponse.json({graph:await updateWorkflowGraph(session.principal,String(body.graph_id??""),String(body.expected_revision??""),body.graph,"update",{remember:true})},{headers});
  if(action==="delete")return NextResponse.json(await deleteWorkflowGraph(session.principal,String(body.graph_id??""),String(body.expected_revision??"")),{headers});
