@@ -65,7 +65,6 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(reelEditorApp), "reel"),
   withSlug(withArtwork(mediaViewerApp), "viewer"),
   withSlug(withArtwork(appStoreApp), "store"),
-  withSlug(withArtwork(createAppApp), "create"),
   pin(withSlug(withArtwork(systemMonitorApp), "monitor")),
   withSlug(withArtwork(assistantApp), "assistant"),
   withSlug(withArtwork(hermesApp), "hermes"),
@@ -75,6 +74,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   pin(withSlug(channelsApp, "channels")),
   pin(withSlug(withArtwork(workflowsApp), "workflows")),
   pin(withSlug(withArtwork(n8nApp), "n8n")),
+  pin(withSlug(memoryGraphApp, "memory")),
   withSlug(withArtwork(organizationApp), "organization"),
   withSlug(withArtwork(dokployApp), "dokploy"),
   withSlug(withArtwork(cloudflareApp), "cloudflare"),
@@ -85,7 +85,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(docsApp), "docs"),
   pin(withSlug(withArtwork(osSettingsApp), "settings")),
   withSlug(withArtwork(quicklinksApp), "links"),
-  withSlug(memoryGraphApp, "memory"),
+  withSlug(withArtwork(createAppApp), "create"),
 ];
 
 // Shell features — the generic brand-free set now lives INSIDE the appshell

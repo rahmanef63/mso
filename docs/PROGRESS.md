@@ -1,3 +1,17 @@
+## 2026-09-26 — Memory safety and second-brain visibility candidate (not released)
+
+Implemented fail-closed session-source preservation, preview/confirmation-first
+owner cleanup, private local server-memory snapshots with isolated restore
+verification, owner-only cross-principal graph discovery, paginated archived
+learning with explicit errors and graph-persistence warnings, and bounded
+Organization/workflow/recipe links in the pinned Memory app.
+
+This is a candidate, not a deployed or browser-verified release. Full resumable
+backup, source-release review UI, cache-only cleanup separation and Jev memory
+admission remain open. No session, archive, memory, evidence or Docker volume was
+deleted by this work. See [Memory safety](./MEMORY-SAFETY.md) for behavior,
+interfaces and honest limits; operational receipts remain outside public source.
+
 ## 2026-09-25 — Native Google Integrations foundation
 
 Native Google OAuth app configuration, Search Console and Google Analytics 4 now

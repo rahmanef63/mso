@@ -1,6 +1,6 @@
 export type WorkflowDiscoveryRow = {
   id: string; name: string; status: string; project?: string; updatedAt: string;
-  originPrincipal: string; owner: string; readOnly: boolean; nodeCount: number;
+  originPrincipal: string; owner: string; revision: string; readOnly: boolean; nodeCount: number;
 };
 export type WorkflowDiscoveryPage = {
   graphs: WorkflowDiscoveryRow[];

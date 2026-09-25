@@ -26,6 +26,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md) | Canonical first-call sequence and capability-parity matrix across CLI, MCP, and Alfa |
 | [`RASMIC.md`](./RASMIC.md) | Risk-aware orchestration, repo-local memory/evidence, collision detection and recipe/script promotion |
 | [`MEMORY-GRAPH.md`](./MEMORY-GRAPH.md) | Owner Memory app: vault notes, project knowledge, agent memory, layouts and limits |
+| [`MEMORY-SAFETY.md`](./MEMORY-SAFETY.md) | Session-source preservation, owner cleanup previews, local memory backups, learning/discovery visibility and remaining limits |
 | [`COMPARISON.md`](./COMPARISON.md) | Generated product comparison methodology, evidence and notes |
 | [`COMPETITIVE-ROADMAP.md`](./COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate specialist boundaries and next investments |
 | [`INSTALL.md`](./INSTALL.md) | Owner installation, TLS, updates, backup and uninstall |

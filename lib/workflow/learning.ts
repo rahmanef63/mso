@@ -125,7 +125,7 @@ export async function finishWorkflow(input: {
   await persistWorkflowStore(store);
   // Successful sanitized session routes automatically become private graph drafts.
   // This is best-effort learning: graph persistence must never turn workflow_finish into a failure.
-  const graphReceipt = input.success ? await learnedGraphReceipt(recipe) : undefined;
+  const graphReceipt = input.success && process.env.NODE_ENV !== "test" ? await learnedGraphReceipt(recipe) : undefined;
   if (input.success && process.env.NODE_ENV !== "test") {
     const memoryKey = `workflow:${createHash("sha256").update(`${recipe.normalizedIntent}|${recipe.project ?? ""}`).digest("hex").slice(0, 20)}`;
     const route = recipe.bestSteps.map((step) => step.tool).join(" → ").slice(0, 1200);

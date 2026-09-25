@@ -79,7 +79,8 @@ Commands:
   units [query]        systemd service inventory (system + user)
   unit *               logs | start | stop | restart for exact allowlisted units
   packages             Cached package-update visibility (never applies updates)
-  cleanup [--run]      Reclaimable junk; --run actually deletes it
+  cleanup [--run]      Preview categories; writes require preview_id, confirm and selected ids
+  memory-backup *      Local memory snapshot: preview | create | verify (memory-backup --help)
   status               Public service status (no session needed)
   health               Is this CLI's session valid?
   doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues

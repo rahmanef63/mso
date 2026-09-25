@@ -4,15 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { IS_DEMO } from "@/lib/demo";
 import { Switch } from "@/components/ui/switch";
-import {
-  SettingsSection,
-  SettingsValueRow,
-  SettingsActionRow,
-} from "@/features/shell-settings";
+import { Button } from "@/components/ui/button";
+import { FormDrawer } from "@/features/appshell";
+import { SettingsSection, SettingsValueRow, SettingsActionRow } from "@/features/shell-settings";
 
 type Item = { id: string; label: string; desc: string; bytes: number; available: boolean };
+type Preview = { items: Item[]; preview: { id: string; expiresAt: string }; protected: string[] };
 type Result = { id: string; ok: boolean; freedBytes: number; error?: string };
-
 function fmt(n: number): string {
   if (n < 1e3) return `${n} B`;
   if (n < 1e6) return `${Math.round(n / 1e3)} kB`;
@@ -20,149 +18,74 @@ function fmt(n: number): string {
   return `${(n / 1e9).toFixed(1)} GB`;
 }
 
-// One-tap safe disk cleanup. Every row is a server-side allowlisted category
-// (caches, old logs, trash, dangling docker layers) that can be deleted without
-// breaking anything — the checklist is the filter; the single button runs it.
 export function CleanupSection() {
-  const [items, setItems] = useState<Item[] | null>(null);
-  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [data, setData] = useState<Preview | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<"scan" | "clean" | null>("scan");
+  const [confirming, setConfirming] = useState(false);
   const [freed, setFreed] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Pure fetch (no setState) so effects can use the .then form
-  // (react-hooks/set-state-in-effect).
-  const fetchItems = useCallback(async (): Promise<Item[]> => {
-    const r = await fetch("/api/v1/sys/cleanup", { cache: "no-store" });
-    if (!r.ok) throw new Error(`scan failed (${r.status})`);
-    return ((await r.json()) as { items: Item[] }).items;
+  const fetchPreview = useCallback(async (): Promise<Preview> => {
+    const response = await fetch("/api/v1/sys/cleanup", { cache: "no-store" });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || `scan failed (${response.status})`);
+    return body;
   }, []);
-
-  const applyScan = useCallback((list: Item[]) => {
-    setItems(list);
-    // Everything listed is safe — pre-check every row that has something to free.
-    setSel(new Set(list.filter((i) => i.available && i.bytes > 0).map((i) => i.id)));
-    setBusy(null);
+  const applyPreview = useCallback((next: Preview) => {
+    setData(next); setSelected(new Set()); setBusy(null);
   }, []);
-
   useEffect(() => {
     if (IS_DEMO) return;
     let alive = true;
-    fetchItems().then(
-      (list) => alive && applyScan(list),
-      (e) => {
-        if (!alive) return;
-        setError(e instanceof Error ? e.message : String(e));
-        setBusy(null);
-      },
-    );
-    return () => {
-      alive = false;
-    };
-  }, [fetchItems, applyScan]);
-
+    fetchPreview().then((next) => { if (alive) applyPreview(next); }, (cause: unknown) => {
+      if (alive) { setError(cause instanceof Error ? cause.message : "Preview unavailable"); setBusy(null); }
+    });
+    return () => { alive = false; };
+  }, [fetchPreview, applyPreview]);
   const rescan = () => {
-    setBusy("scan");
-    setError(null);
-    fetchItems().then(applyScan, (e) => {
-      setError(e instanceof Error ? e.message : String(e));
-      setBusy(null);
+    setBusy("scan"); setError(null);
+    fetchPreview().then(applyPreview, (cause: unknown) => {
+      setError(cause instanceof Error ? cause.message : "Preview unavailable"); setBusy(null);
     });
   };
-
   const clean = async () => {
-    setBusy("clean");
-    setError(null);
-    setFreed(null);
+    if (!data) return;
+    setConfirming(false); setBusy("clean"); setError(null); setFreed(null);
     try {
-      const r = await fetch("/api/v1/sys/cleanup", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids: [...sel] }),
+      const response = await fetch("/api/v1/sys/cleanup", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ids: [...selected], preview_id: data.preview.id, confirm: true }),
       });
-      if (!r.ok) throw new Error(`cleanup failed (${r.status})`);
-      const { results } = (await r.json()) as { results: Result[] };
-      setFreed(results.reduce((a, x) => a + x.freedBytes, 0));
-      const failed = results.filter((x) => !x.ok);
-      if (failed.length) setError(`${failed.length} item(s) failed: ${failed.map((f) => f.id).join(", ")}`);
-      applyScan(await fetchItems());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setBusy(null);
-    }
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || `cleanup failed (${response.status})`);
+      const results = body.results as Result[];
+      setFreed(results.reduce((sum, result) => sum + result.freedBytes, 0));
+      const failed = results.filter((result) => !result.ok);
+      if (failed.length) setError(`Not completed: ${failed.map((result) => result.id).join(", ")}`);
+      applyPreview(await fetchPreview());
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Cleanup failed"); setBusy(null); }
   };
-
-  if (IS_DEMO)
-    return (
-      <SettingsSection
-        icon={<Trash2 />}
-        title="Cleanup"
-        footnote="Disabled in the demo. In a live deployment this frees disk space from caches, old logs and trash — all safe to delete."
-      >
-        <SettingsValueRow label="Status" value="Disabled in demo" />
-      </SettingsSection>
-    );
-
-  const toggle = (id: string, on: boolean) =>
-    setSel((s) => {
-      const next = new Set(s);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-
-  const selectedBytes = (items ?? [])
-    .filter((i) => sel.has(i.id))
-    .reduce((a, i) => a + i.bytes, 0);
-
-  return (
-    <SettingsSection
-      icon={<Trash2 />}
-      title="Cleanup"
-      footnote="Everything listed is safe to remove: download caches, logs older than 7 days, trash and unused docker layers. Your files, apps and running services are never touched."
-    >
-      {items === null && (
-        <SettingsValueRow label="Scanning…" value={error ?? "measuring reclaimable space"} />
-      )}
-      {items?.map((i) => (
-        <div
-          key={i.id}
-          data-slot="settings-row"
-          className="relative flex min-h-[46px] items-center gap-3 px-4 py-[11px] after:absolute after:inset-x-0 after:bottom-0 after:left-4 after:h-px after:bg-border/60 last:after:hidden"
-        >
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-foreground">{i.label}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {i.available ? i.desc : "Not available on this server"}
-            </p>
-          </div>
-          <span className="shrink-0 text-[13px] tabular-nums text-muted-foreground">
-            {i.available ? fmt(i.bytes) : "—"}
-          </span>
-          <Switch
-            checked={sel.has(i.id)}
-            disabled={!i.available || busy !== null}
-            onCheckedChange={(on) => toggle(i.id, on)}
-            aria-label={`Include ${i.label}`}
-          />
-        </div>
-      ))}
-      {freed !== null && <SettingsValueRow label="Last cleanup freed" value={fmt(freed)} />}
-      {error && items !== null && <SettingsValueRow label="Problem" value={error} />}
-      <SettingsActionRow
-        label={sel.size ? `Clean up — free about ${fmt(selectedBytes)}` : "Nothing selected"}
-        icon={<Trash2 />}
-        onClick={clean}
-        busy={busy === "clean"}
-        disabled={!sel.size || busy !== null}
-      />
-      <SettingsActionRow
-        label="Rescan"
-        icon={<RefreshCw />}
-        onClick={rescan}
-        busy={busy === "scan"}
-        disabled={busy !== null}
-      />
+  const choices = (data?.items ?? []).filter((item) => selected.has(item.id));
+  const selectedBytes = choices.reduce((sum, item) => sum + item.bytes, 0);
+  if (IS_DEMO) return <SettingsSection icon={<Trash2 />} title="Cleanup" footnote="Preview and cleanup are disabled in the demo."><SettingsValueRow label="Status" value="Disabled in demo" /></SettingsSection>;
+  return <>
+    <SettingsSection icon={<Trash2 />} title="Cleanup" footnote="Nothing is selected automatically. Estimates may exceed actual reclaimed space. Trash and old logs are irreversible; broad temporary-file cleanup is blocked. Session records, memory stores and volumes are not cleanup targets.">
+      <SettingsValueRow label="Session evidence" value="Automatic session-source deletion disabled" />
+      {busy === "scan" ? <SettingsValueRow label="Scanning…" value="Preparing a fresh preview" /> : null}
+      {data?.items.map((item) => <div key={item.id} data-slot="settings-row" className="flex min-h-[46px] items-center gap-3 border-b px-4 py-3 last:border-b-0">
+        <div className="min-w-0 flex-1"><p className="text-sm">{item.label}</p><p className="text-xs text-muted-foreground">{item.desc}</p></div>
+        <span className="shrink-0 text-[13px] tabular-nums text-muted-foreground">{item.available ? fmt(item.bytes) : "Protected / unavailable"}</span>
+        <Switch checked={selected.has(item.id)} disabled={!item.available || busy !== null} aria-label={`Include ${item.label}`} onCheckedChange={(on) => setSelected((prior) => { const next = new Set(prior); if (on) next.add(item.id); else next.delete(item.id); return next; })} />
+      </div>)}
+      {freed !== null ? <SettingsValueRow label="Last cleanup freed" value={fmt(freed)} /> : null}
+      {error ? <SettingsValueRow label="Problem" value={error} /> : null}
+      <SettingsActionRow label={selected.size ? `Review ${selected.size} categories — up to ${fmt(selectedBytes)}` : "Select categories to review"} icon={<Trash2 />} onClick={() => setConfirming(true)} busy={busy === "clean"} disabled={!selected.size || busy !== null} />
+      <SettingsActionRow label="Rescan" icon={<RefreshCw />} onClick={rescan} busy={busy === "scan"} disabled={busy !== null} />
     </SettingsSection>
-  );
+    <FormDrawer open={confirming} onOpenChange={setConfirming} size="sm">
+      <FormDrawer.Header><FormDrawer.Title>Confirm selected cleanup</FormDrawer.Title><FormDrawer.Description>Only the selected categories below will run. This does not back up your VPS. Preview expires after five minutes.</FormDrawer.Description></FormDrawer.Header>
+      <FormDrawer.Body><div className="space-y-2 text-sm">{choices.map((item) => <p key={item.id}>{item.label} — up to {fmt(item.bytes)}</p>)}<p className="text-xs text-muted-foreground">Preserved: {data?.protected.join(", ")}. Do not treat logs or Trash as recoverable caches.</p></div></FormDrawer.Body>
+      <FormDrawer.Footer><Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button><Button variant="destructive" onClick={() => void clean()}>Confirm cleanup</Button></FormDrawer.Footer>
+    </FormDrawer>
+  </>;
 }

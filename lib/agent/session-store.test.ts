@@ -50,14 +50,15 @@ describe("durable agent session context policy", () => {
     expect(archived).toContain("[redacted]");
   });
 
-  it("prunes archives older than the default 30-day retention window", async () => {
+  it("preserves unreviewed archives beyond the 30-day age window", async () => {
     const [name] = (await fs.readdir(archives)).filter((row) => row.endsWith(".json.gz"));
     const file = path.join(archives, name);
     const old = new Date(Date.now() - 31 * 86_400_000);
     await fs.utimes(file, old, old);
     const result = await archive.pruneAgentSessionArchives();
-    expect(result.removed).toBe(1);
-    await expect(fs.stat(file)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(result.removed).toBe(0);
+    expect(result.kept).toBeGreaterThan(0);
+    expect((await fs.stat(file)).isFile()).toBe(true);
   });
 
   it("allows an explicit rename to replace a manual title and refresh modified time", async () => {

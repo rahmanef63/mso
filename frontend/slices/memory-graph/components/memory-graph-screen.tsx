@@ -63,6 +63,7 @@ export function MemoryGraphScreen() {
   const current = visible?.nodes.find((node) => node.id === selected) ?? null;
 
   const openNode = (node: MemoryGraphNode) => {
+    if (node.targetApp) { openWindow(node.targetApp, node.targetApp === "workflows" ? "Workflows" : "Organization", undefined, node.targetApp === "workflows" ? { view: "sources" } : undefined); return; }
     if (!node.path) return;
     openWindow("code-editor", node.title, { w: 860, h: 600 }, { path: node.path });
   };
@@ -91,7 +92,7 @@ export function MemoryGraphScreen() {
       />
       <div className="flex items-center gap-2 border-b px-3 py-1">
         <input aria-label="Search graph" value={query} placeholder="Search titles" onChange={(event) => setQuery(event.target.value)} className="h-7 w-full bg-transparent text-xs outline-none" />
-        <span className="shrink-0 text-[11px] text-muted-foreground">{busy ? "Loading" : `${visible?.nodes.length ?? 0} nodes`}</span>
+        <span className="shrink-0 text-[11px] text-muted-foreground">{busy ? "Loading" : `${visible?.nodes.length ?? 0} nodes${graph?.truncated ? " · partial" : ""}`}</span>
       </div>
       {error ? <p className="px-3 py-2 text-xs text-destructive">{error}</p> : null}
       {graph?.warnings.length ? <p className="px-3 py-1 text-xs text-muted-foreground">{graph.warnings.join(" · ")}</p> : null}

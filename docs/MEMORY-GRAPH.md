@@ -4,7 +4,10 @@ Owner-only knowledge graph inside the MSO shell. Open it from Launchpad or Spotl
 
 The graph is built on the server by `GET /api/v1/memory-graph` and rendered in the browser. It does not use Convex, and it does not require Obsidian. Layout ideas — web (force), radial rings, layered hop columns, a local neighbourhood, ghost nodes for unresolved `[[wikilinks]]`, and folder/group color — follow [open-silong](https://github.com/rahmanef63/open-silong) `frontend/slices/memory-graph` (MIT). The implementation is MSO-native.
 
-This is separate from the Workflow session graph.
+This is separate from the Workflow session graph. The pinned Memory app also
+projects bounded owner-only Organization, saved workflow and learned-recipe
+metadata with links back to their source apps. See [Memory safety](./MEMORY-SAFETY.md)
+for the exact scope, privacy boundaries and remaining limits.
 
 ## What becomes a node
 

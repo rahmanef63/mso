@@ -1,4 +1,5 @@
 "use client";
+import { ServerBackupSection } from "./server-backup-section";
 
 import { useRef, useState } from "react";
 import { AlertTriangle, Download, DatabaseBackup, Upload } from "lucide-react";
@@ -57,13 +58,14 @@ export function BackupSection() {
 
   return (
     <div className="space-y-4 sm:space-y-5">
+      <ServerBackupSection />
       <SettingsSection
         icon={<DatabaseBackup />}
-        title="Backup"
+        title="Browser backup"
         footnote="Covers Playbooks, Agents, Automations, the window layout, installed apps, desktop icons, widgets and wallpapers — everything stored in this browser only. The approved-device identity is deliberately left out, so a leaked backup can't skip device approval. Appearance and Quicklinks also sync to the server, and the server copy wins on the next sign-in."
       >
-        <SettingsActionRow label="Export backup…" icon={<Download />} onClick={doExport} />
-        <SettingsActionRow label="Import backup…" icon={<Upload />} onClick={() => fileInput.current?.click()} />
+        <SettingsActionRow label="Export browser backup…" icon={<Download />} onClick={doExport} />
+        <SettingsActionRow label="Import browser backup…" icon={<Upload />} onClick={() => fileInput.current?.click()} />
         {exported !== null && (
           <SettingsBlock>
             <p className="text-xs text-muted-foreground">

@@ -8,6 +8,7 @@ const settingsDetail = readFileSync(new URL("../os-settings/components/mcp-sessi
 const sessionGuide = readFileSync(new URL("../os-settings/components/mcp-session-guide.tsx", import.meta.url), "utf8");
 const inspector = readFileSync(new URL("./components/workflow-inspector.tsx", import.meta.url), "utf8");
 const sessionDetails = readFileSync(new URL("./components/workflow-session-details.tsx", import.meta.url), "utf8");
+const learningPanel = readFileSync(new URL("./components/workflow-learning-panel.tsx", import.meta.url), "utf8");
 const sessionLibrary = readFileSync(new URL("./components/workflow-session-library.tsx", import.meta.url), "utf8");
 
 describe("Workflow session graph UI contract", () => {
@@ -41,10 +42,13 @@ describe("Workflow session graph UI contract", () => {
     expect(sessionDetails).toContain("S3.A4");
     expect(sessionDetails).toContain('data-slot="save-session-workflow-draft"');
     expect(sessionDetails).toContain('data-slot="save-step-workflow-draft"');
-    expect(sessionDetails).toContain('data-slot="session-self-improve"');
-    expect(sessionDetails).toContain("Self-improve");
+    expect(learningPanel).toContain('data-slot="session-self-improve"');
+    expect(learningPanel).toContain("Self-improve");
     expect(workflowApp).toContain("saveSessionWorkflowDraft");
-    expect(workflowApp).toContain("listWorkflowLearning");
+    expect(sessionDetails).toContain("WorkflowLearningPanel");
+    expect(workflowApp).not.toContain("listWorkflowLearning().catch(() => [])");
+    expect(learningPanel).toContain("include_archived");
+    expect(learningPanel).toContain('role="alert"');
     expect(workflowCanvas).toContain('showMinimap={nodes.length > 3}');
     expect(workflowCanvas).not.toContain('showMinimap={!readOnly}');
   });
