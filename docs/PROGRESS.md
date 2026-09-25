@@ -22,6 +22,14 @@ all five shell status/performance checks and existing role/cookie isolation pass
 The new Google UI is included in the mandatory build gate. Real Google account consent
 and property access remain an operator follow-through, not a synthetic-test claim.
 
+The pre-deploy MCP audit caught an omitted public operation enum before any
+production update. Native Google action names now come from the same operation
+catalog used by dispatch and UI; private setup methods share their enum with the
+native registry. Eight actual MCP descriptor/call regressions cover both full and
+ChatGPT profiles, scope refusal, private app setup and safe browser handoff.
+The MCP toolset advances to `2026.09.25.1`; clients caching descriptors must refresh
+before invoking newly added operations. The global tool count is unchanged.
+
 This is not full Composio provider/trigger/UI parity. The user's global embed
 padding/margin request remains a separate deferred task. Setup, exact operations,
 security controls and remaining phases are documented in

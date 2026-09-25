@@ -48,6 +48,16 @@ Read operations:
 
 Arguments use Google's camelCase field names; use the returned property identity verbatim. Follow schema bounds and pagination. Filters, custom metric syntaxes, service-account credentials, write operations, webhooks and broader Google products are not silently supported by this slice.
 
+## MCP client refresh
+
+Native Google operations require toolset `2026.09.25.1` or newer. The provider
+operation enum is derived from the same Google operation catalog as the backend,
+and private setup uses the shared method list. Both full and ChatGPT descriptors
+are tested through actual MCP dispatch, not only direct helper calls. The global
+tool count does not increase: these remain operations on the existing Integrations
+capabilities. Refresh a client's action/schema snapshot after upgrading. A local
+MSO acknowledgement does not remotely refresh ChatGPT or another client.
+
 ## Status semantics
 
 `app-configured` is not a user connection. Service states distinguish `app-required`, `authorization-required`, `authorization-pending`, `authorized`, `verified`, `reauthorization-required`, `scope-missing`, `invalid` and `unavailable`. Failed verification never retains a stale green state. Consent alone does not verify access to a particular property. Changing a pinned OAuth app's credentials invalidates existing grants until reauthorization. Reconnect must retain the same Google account; disconnect explicitly before switching accounts.

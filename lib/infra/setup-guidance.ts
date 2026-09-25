@@ -3,7 +3,8 @@ import { ADDITIONAL_GUIDANCE, type AdditionalProviderId } from "./additional-pro
 import { getInfraProviderDefinition } from "./catalog";
 import type { InfraProviderId } from "./types";
 
-export type SetupMethod = "direct" | "project" | "organization" | "personal" | "deployment" | "mail" | "payment" | "mcp" | "oauth-app" | "oauth2";
+export const SETUP_METHOD_IDS = ["direct", "project", "organization", "personal", "deployment", "mail", "payment", "mcp", "oauth-app", "oauth2"] as const;
+export type SetupMethod = typeof SETUP_METHOD_IDS[number];
 export function setupFields(provider: InfraProviderId, method: SetupMethod) {
   if (provider === GOOGLE_APP_PROVIDER || isGoogleProvider(provider)) {
     if (method !== (provider === GOOGLE_APP_PROVIDER ? "oauth-app" : "oauth2")) throw new Error("Unsupported Google authentication method");
@@ -33,7 +34,7 @@ export function setupFields(provider: InfraProviderId, method: SetupMethod) {
 }
 export function setupMethod(provider: InfraProviderId, method?: string): SetupMethod {
   const value = method ?? (provider === GOOGLE_APP_PROVIDER ? "oauth-app" : isGoogleProvider(provider) ? "oauth2" : provider === "composio" ? "project" : provider === "convex-cloud" ? "personal" : provider === "doku" ? "mcp" : "direct");
-  if (!["direct", "project", "organization", "personal", "deployment", "mail", "payment", "mcp", "oauth-app", "oauth2"].includes(value)) throw new Error("Unsupported authentication method");
+  if (!(SETUP_METHOD_IDS as readonly string[]).includes(value)) throw new Error("Unsupported authentication method");
   setupFields(provider, value as SetupMethod);
   return value as SetupMethod;
 }

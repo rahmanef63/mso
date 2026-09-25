@@ -1,3 +1,5 @@
+import { isGoogleProvider } from "@/lib/infra/google-native-config";
+import { SETUP_METHOD_IDS } from "@/lib/infra/setup-guidance";
 import {metadataOnly} from "@/lib/infra/identity";
 import { selectionFrom, safeActionInput } from "@/lib/infra/connection-dispatch";
 import { integrationSnapshot } from "@/lib/infra/connection-service";
@@ -53,21 +55,21 @@ const renderPage = async (input:Record<string,unknown>) => {
 export const SURFACE_TOOLS: McpTool[] = [
   {
     name: "integration_setup_open",
-    title: "Open MSO Integration Setup",
-    description: "Open a native MSO Integrations credential form in ChatGPT. Requires write scope. The user enters a key directly in the form, which sends it only to the MSO HTTPS server for validation and owner-only storage. Never pass credentials in tool arguments or chat. The provider-bound session expires after ten minutes and is consumed after a successful save. MSO needs no external credential plugin. Composio project and organization keys use different methods.",
-    chatgptDescription: "Open native MSO Integrations in the Page. User enters keys in the form, never chat/tool arguments. Direct HTTPS validation, owner-only storage, ten-minute single-use setup. Composio project and organization keys are separate.",
+    title: "Private Setup",
+    description: "Open a native MSO Integrations credential form in ChatGPT. Requires write scope. The user enters a key directly in the form, which sends it only to the MSO HTTPS server for validation and owner-only storage. Never pass credentials in tool arguments or chat. The provider-bound session expires after ten minutes and is consumed after a successful save. MSO needs no external credential plugin. Composio project and organization keys use different methods. Native Google OAuth app setup stores client configuration only; Google account consent uses the native browser authorization flow.",
+    chatgptDescription: "Open private credential setup.",
     scope: "write",
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false, idempotentHint: false },
     audit: { action: "infra.write", targetArg: "provider" },
     limit: { key: "integration.setup", max: 10, windowMs: 60_000 },
-    inputSchema: S({ user:{type:"string",maxLength:64},connection:{type:"string",maxLength:64}, provider: { type: "string", enum: [...INFRA_PROVIDER_IDS] }, method: { type: "string", enum: ["direct", "project", "organization", "personal", "deployment"], description: "Must match this connection; omitted uses its stored auth method." } }, ["user","provider","connection"]),
+    inputSchema: S({ user:{type:"string",maxLength:64},connection:{type:"string",maxLength:64}, provider: { type: "string", enum: INFRA_PROVIDER_IDS.filter(provider => !isGoogleProvider(provider)) }, method: { type: "string", enum: SETUP_METHOD_IDS.filter(method => method !== "oauth2"), description: "Must match this connection; omitted uses its stored auth method." } }, ["user","provider","connection"]),
     outputSchema: PAGE_OUTPUT,
     meta: {
       ui: { resourceUri: MSO_PAGE_URI, visibility: ["model", "app"] },
       "ui/resourceUri": MSO_PAGE_URI,
       "openai/widgetAccessible": true,
-      "openai/toolInvocation/invoking": "Opening secure integration setup…",
-      "openai/toolInvocation/invoked": "Secure setup form opened",
+      "openai/toolInvocation/invoking": "Opening setup…",
+      "openai/toolInvocation/invoked": "Setup opened",
     },
     run: async (input, context) => {
       metadataOnly(safeActionInput(input));
