@@ -1,5 +1,8 @@
 // Wire names are stable environment-key identifiers; native storage remains independent.
 export const FIELD_MAP:Record<string,Record<string,string>>={
+  'google-oauth-app':{GOOGLE_CLIENT_ID:'clientId',GOOGLE_CLIENT_SECRET:'clientSecret'},
+  'google-search-console':{GOOGLE_APP_CONNECTION:'appConnection'},
+  'google-analytics':{GOOGLE_APP_CONNECTION:'appConnection'},
   github:{GITHUB_TOKEN:'apiKey',GH_OWNER:'owner'},
   dokploy:{DOKPLOY_API_URL:'apiUrl',DOKPLOY_API_KEY:'apiKey',DOKPLOY_PUBLIC_IP:'publicIp'},
   cloudflare:{CLOUDFLARE_API_TOKEN:'apiToken',CLOUDFLARE_ZONE_ID:'zoneId',CLOUDFLARE_ACCOUNT_ID:'accountId'},

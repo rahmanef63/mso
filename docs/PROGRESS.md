@@ -1,3 +1,24 @@
+## 2026-09-25 — Native Google Integrations foundation
+
+Native Google OAuth app configuration, Search Console and Google Analytics 4 now
+use the existing Integrations identity/store and generic UI/CLI/MCP dispatch.
+The consumer UI selects an OAuth app and opens Google consent instead of a
+Composio project-key form. App-only configuration remains distinct from user
+consent and actual API verification. Six bounded read operations cover property
+listing, search analytics, sitemap metadata, stored URL inspection, GA account
+summaries and GA4 reports. No Google write/event-sending action is introduced.
+
+The callback uses single-use state, PKCE, a separate host-only browser binding,
+issuing Owner-device/policy checks and app/connection revision pins. Runtime
+Google grants stay out of shared/copy/export DTOs. Native user authorization and
+actual property access still require an operator's real Google consent; tests
+with synthetic identities do not establish a production connection.
+
+This is not full Composio provider/trigger/UI parity. The user's global embed
+padding/margin request remains a separate deferred task. Setup, exact operations,
+security controls and remaining phases are documented in
+[Native Google Integrations](./INTEGRATIONS-NATIVE-GOOGLE.md).
+
 ## 2026-09-24 — Add a first-class Memory graph
 
 MSO now has a Memory app (`/memory`, Launchpad and Spotlight “Memory”, CLI `mso memory-graph`) for a navigable knowledge graph. The owner-only `GET /api/v1/memory-graph` builds it from an optional markdown vault (`OS_MEMORY_GRAPH_ROOT` or a path typed in the app, jailed to `OS_FS_READ_ROOTS`), project `.mso/KNOWLEDGE.md`, bounded repo-local `.agent` memory, the signed-in device’s typed agent memory, and assistant memories. Unresolved `[[wikilinks]]` become ghost nodes; folders and projects color groups. The client offers web, radial, and layered layouts plus a local hop neighbourhood, and opens a note in Code on a second click, double-click, or Open. Layout ideas follow open-silong’s memory graph (MIT). This is not the Workflow session graph and does not require Obsidian. Production picks it up with `mso update` after the commit is on `origin/main`; a GitHub merge does not rebuild the systemd service by itself.

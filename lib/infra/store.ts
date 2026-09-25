@@ -1,3 +1,4 @@
+import { clearGoogleRuntime } from "./google-native-state";
 import { assertNoVariableReferences } from "./connection-variables";
 import {randomUUID} from "node:crypto";
 import { getInfraProviderDefinition, normalizeInfraValues } from "./catalog";
@@ -23,7 +24,7 @@ export async function setInfraProvider(id:InfraProviderId,raw:Record<string,unkn
     const method=connectionMethod(id,c.source,c.authMethod),normalized=normalizeInfraValues(id,raw);
     if(Object.keys(normalized).some(k=>!method.fields.some(f=>f.key===k)))throw new IntegrationError("connection_auth_mismatch",409);
     const values={...c.values,...normalized};if(method.fields.some(f=>f.required&&!values[f.key]))throw new IntegrationError("required_fields_missing");
-    c.values=values;c.revision++;c.updatedAt=Date.now();delete c.verifiedAt;return{...values};
+    clearGoogleRuntime(c);c.values=values;c.revision++;c.updatedAt=Date.now();delete c.verifiedAt;return{...values};
   });
 }
 export async function removeInfraProvider(id:InfraProviderId){

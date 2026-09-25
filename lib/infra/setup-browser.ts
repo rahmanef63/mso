@@ -1,6 +1,6 @@
 export const INTEGRATION_BROWSER_SCRIPT=String.raw`
 (async()=>{
-  const root=document.getElementById("setup"),endpoint=location.origin+"/api/integrations/setup",params=new URLSearchParams(location.search);let cleanup=()=>{},state={...(params.get("section")==="ai-providers"?{section:"ai-providers"}:{})},authController,wantsTransfer=params.get("transfer")==="1";
+  const root=document.getElementById("setup"),endpoint=location.origin+"/api/integrations/setup",params=new URLSearchParams(location.search);let cleanup=()=>{},state={...(params.get("user")?{user:params.get("user")}:{ }),...(params.get("provider")?{provider:params.get("provider")}:{ }),...(params.get("section")==="ai-providers"?{section:"ai-providers"}:{})},authController,wantsTransfer=params.get("transfer")==="1";
   const error=data=>{const e=new Error(data.error||"integration_operation_failed");e.code=data.error;return e};
   async function json(url,init){const r=await fetch(url,{credentials:"same-origin",cache:"no-store",referrerPolicy:"no-referrer",...init});const data=await r.json();if(!r.ok)throw error(data);return data}
   const post=(mode,input)=>json("/api/v1/integrations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode,...input})});
@@ -21,6 +21,7 @@ export const INTEGRATION_BROWSER_SCRIPT=String.raw`
       bridge.projectMcp=args=>json("/api/v1/project-mcp",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(args)});
       bridge.query=args=>json("/api/v1/integrations?"+new URLSearchParams(args));
       bridge.manage=args=>post("manage",args);bridge.execute=args=>post("execute",args);
+      bridge.googleAuthorize=body=>json("/api/integrations/google/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       bridge.aiConfig=()=>json("/api/config");bridge.aiCatalog=()=>json("/api/models/providers");bridge.aiModels=provider=>json("/api/models?provider="+encodeURIComponent(provider));
       bridge.aiSave=body=>json("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});bridge.aiRemove=provider=>json("/api/config?provider="+encodeURIComponent(provider),{method:"DELETE"});
       bridge.aiTest=()=>json("/api/models/test",{method:"POST"});bridge.aiOauth=body=>json("/api/oauth/openai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
@@ -28,6 +29,8 @@ export const INTEGRATION_BROWSER_SCRIPT=String.raw`
     }
     if(owner&&wantsTransfer){openTransfer();return}
     cleanup=mountConnectionManager(root,INTEGRATIONS_CATALOG,bridge,state);
+    if(params.get("google")===("authorized"))root.prepend(integrationNode("p","Google authorization completed. Choose the connection and verify API access; no property has been selected automatically."));
+    else if(params.get("google")===("retry"))root.prepend(integrationNode("p","Google authorization was not completed. Retry from the intended connection after reviewing app setup, permissions, and account identity."));
     if(!owner&&authenticated)root.prepend(integrationNode("p","This device has "+role+" access. An Owner must approve Owner access before it can manage integrations."));
     if(!owner&&!authenticated){const link=integrationNode("a","Sign in to MSO as Owner");link.href="/login?returnTo=%2Fintegrations";link.className="primary integration-signin";link.target="_blank";link.rel="noopener noreferrer";root.prepend(link);const refresh=()=>{if(document.visibilityState!=="hidden")void loadManager()};document.addEventListener("visibilitychange",refresh,{signal:authController.signal});window.addEventListener("focus",refresh,{signal:authController.signal});}
   }

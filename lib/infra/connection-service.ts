@@ -1,3 +1,5 @@
+import { googleConnectionMetadata, clearGoogleRuntime } from "./google-native-state";
+import { isGoogleProvider, GOOGLE_APP_PROVIDER } from "./google-native-config";
 import { variableKey } from "./connection-variables";
 import { randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -15,7 +17,7 @@ export async function directConnectionValues(provider:string,selector:Connection
   if(result.connection.source!=="direct")throw new IntegrationError("external_source_requires_own_executor",409);
   const copy={...resolveSharedConnection(state,result.user,result.connection).connection.values};if(context&&context.selector===selector)context.pinned.set(provider,copy);return copy;
 }
-export function summaryIn(state:IntegrationState,user:string,c:IntegrationConnection){return connectionSummary(user,c,state.users[user].defaults[c.provider]===c.id,resolveSharedConnection(state,user,c).connection.values);}
+export function summaryIn(state:IntegrationState,user:string,c:IntegrationConnection){return {...connectionSummary(user,c,state.users[user].defaults[c.provider]===c.id,resolveSharedConnection(state,user,c).connection.values),...googleConnectionMetadata(state,user,c)};}
 export async function resolveIntegration(provider:string,selector:ConnectionSelector={}){
   const state=await readIntegrationState(),resolved=selectConnection(state,provider,selector),c=resolved.connection;
   return{...summaryIn(state,resolved.user,c),resolution:resolved.reason,execution:c.source==="direct"?{route:"native-direct"}:c.source==="composio"?{route:"composio",connectedAccountId:c.external?.connectedAccountId??null,toolkit:c.external?.toolkit??null}:{route:"provider-mcp",endpoint:nativeDefinition(provider)?.url??null,authorization:"provider-client-owned"}};
@@ -54,7 +56,7 @@ export async function saveConnectionValues(provider:string,selector:ConnectionSe
     if(Object.keys(values).some(k=>!allowed.has(k)))throw new IntegrationError("invalid_credential_fields");
     const normalized=normalizeInfraValues(provider,values),candidate={...c.values,...normalized};
     if(method.fields.some(f=>f.required&&!candidate[f.key]))throw new IntegrationError("required_fields_missing");
-    delete c.lastCheck; c.values=candidate;c.revision++;c.updatedAt=Date.now();if(verified)c.verifiedAt=Date.now();else delete c.verifiedAt;
+    delete c.lastCheck; clearGoogleRuntime(c); c.values=candidate;c.revision++;c.updatedAt=Date.now();if(verified&&provider!==GOOGLE_APP_PROVIDER)c.verifiedAt=Date.now();else delete c.verifiedAt;
     return summaryIn(state,r.user,c);
   });
 }
@@ -67,7 +69,7 @@ export async function integrationQuery(input:Record<string,unknown>){
   if(view==="request"){
     const provider=identity(input.provider,"provider");const catalog=connectionCatalog().find(p=>p.id===provider);if(!catalog)throw new IntegrationError("unknown_provider",404);
     if(!input.connection)return{provider,user:input.user??null,sources:catalog.sources,next:"choose named connection, source and auth; never pass keys through tool JSON"};
-    const route=await resolveIntegration(provider,selection);return{...route,guidance:connectionMethod(provider,route.source,route.authMethod).guidance,next:route.source==="direct"?"integration_setup_open with this user and connection":route.source==="composio"?"authorize, then sync until ACTIVE":"authorize the provider-owned MCP in your client"};
+    const route=await resolveIntegration(provider,selection);return{...route,guidance:connectionMethod(provider,route.source,route.authMethod).guidance,next:isGoogleProvider(provider)?"Open native MSO Integrations to bind an OAuth app and authorize Google; never paste user tokens":route.source==="direct"?"integration_setup_open with this user and connection":route.source==="composio"?"authorize, then sync until ACTIVE":"authorize the provider-owned MCP in your client"};
   }
   if(!["snapshot","variables","users","connections","which"].includes(String(view)))throw new IntegrationError("unknown_query_view");
   const out=await integrationSnapshot(selection);if(view==="variables")return{variables:out.variables};if(view==="users")return{users:out.users,user:out.user};if(view==="which")return{user:out.user,resolution:out.resolution,bindings:out.bindings};if(view==="connections")return{user:out.user,connections:out.connections.filter(c=>!input.provider||c.provider===input.provider)};return out;

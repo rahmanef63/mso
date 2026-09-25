@@ -1,43 +1,17 @@
-export const INFRA_PROVIDER_IDS = ["dokploy", "cloudflare", "hostinger", "composio", "github", "vercel", "convex-cloud", "convex", "resend", "stripe", "clerk", "supabase", "telegram", "discord", "doku", "mcp", "openai-app"] as const;
+export const INFRA_PROVIDER_IDS = ["dokploy", "cloudflare", "hostinger", "composio", "github", "vercel", "convex-cloud", "convex", "resend", "stripe", "clerk", "supabase", "telegram", "discord", "doku", "mcp", "openai-app", "google-oauth-app", "google-search-console", "google-analytics"] as const;
 export type InfraProviderId = (typeof INFRA_PROVIDER_IDS)[number];
 
 export type InfraProviderValues = Record<string, string>;
-export type LegacyInfraStore = {
-  providers?: Partial<Record<InfraProviderId, InfraProviderValues>>;
-};
-
+export type LegacyInfraStore = { providers?: Partial<Record<InfraProviderId, InfraProviderValues>> };
 export type InfraField = {
-  key: string;
-  label: string;
-  secret: boolean;
-  required: boolean;
-  placeholder?: string;
-  description: string;
+  key: string; label: string; secret: boolean; required: boolean; placeholder?: string; description: string;
 };
-
 export type InfraProviderDefinition = {
-  id: InfraProviderId;
-  title: string;
-  description: string;
-  feature: boolean;
-  fields: InfraField[];
+  id: InfraProviderId; title: string; description: string; feature: boolean; fields: InfraField[];
 };
-
 export type InfraProviderSummary = {
-  id: InfraProviderId;
-  title: string;
-  description: string;
-  feature: boolean;
-  configured: boolean;
-  missing: string[];
-  values: Record<string, string>;
-  fields: InfraField[];
+  id: InfraProviderId; title: string; description: string; feature: boolean;
+  configured: boolean; missing: string[]; values: Record<string, string>; fields: InfraField[];
 };
-
-export type InfraDoctorResult = {
-  id: InfraProviderId;
-  ok: boolean | null;
-  detail: string;
-};
-
+export type InfraDoctorResult = { id: InfraProviderId; ok: boolean | null; detail: string };
 export type { IntegrationState as InfraStore, ConnectionSelector, IntegrationConnection, IntegrationUser } from "./identity";

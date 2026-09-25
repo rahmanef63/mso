@@ -71,6 +71,12 @@ if ! node scripts/e2e/integrations-shell.mjs; then
   exit 43
 fi
 
+echo "== verify native Google Integrations UI (synthetic accounts)"
+if ! node scripts/e2e/google-integrations.mjs; then
+  echo "verification failed during native Google Integrations UI E2E" >&2
+  exit 43
+fi
+
 echo "== verify shell-native server status"
 if ! node scripts/e2e/shell-status.mjs; then
   echo "verification failed during shell-native server status E2E" >&2

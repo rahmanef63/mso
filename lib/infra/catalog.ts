@@ -1,10 +1,13 @@
+import { GOOGLE_PROVIDERS, GOOGLE_APP_PROVIDER, isGoogleProvider, normalizeGoogleConfig } from "./google-native-config";
 import { normalizeMcpEndpoint, parseMcpToolAllowlist } from "./mcp-policy";
 import { ADDITIONAL_PROVIDERS, type AdditionalProviderId } from "./additional-providers";
 import { INFRA_PROVIDER_IDS, type InfraProviderDefinition, type InfraProviderId, type InfraProviderValues } from "./types";
 
 const additional = Object.fromEntries(Object.entries(ADDITIONAL_PROVIDERS).map(([id, value]) => [id, { ...value, fields: value.fields.map(f => ({ ...f })) }])) as Record<AdditionalProviderId, InfraProviderDefinition>;
+const google = Object.fromEntries(GOOGLE_PROVIDERS.map(p => [p.id, p])) as Record<"google-oauth-app" | "google-search-console" | "google-analytics", InfraProviderDefinition>;
 const definitions: Record<InfraProviderId, InfraProviderDefinition> = {
   ...additional,
+  ...google,
   dokploy: {
     id: "dokploy",
     title: "Dokploy",
@@ -129,5 +132,6 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
     if (out.mailApiToken && out.mailApiToken.length < 24) throw new Error("Hostinger Mail API token is too short");
     if (out.mailOrderId && !/^[A-Za-z0-9._-]{3,128}$/.test(out.mailOrderId)) throw new Error("Invalid Hostinger Mail order ID");
   }
+  if (id === GOOGLE_APP_PROVIDER || isGoogleProvider(id)) return normalizeGoogleConfig(id, out);
   return out;
 }

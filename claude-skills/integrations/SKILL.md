@@ -67,6 +67,16 @@ For **GitHub**, present OAuth-capable sources before the manual token fallback. 
 
 Multiple deployment/account connections under one provider are first-class. Never overwrite `production` with `staging` merely because they use the same auth method.
 
+### Native Google OAuth
+
+Google Search Console and Google Analytics use native MSO OAuth, not a required Composio broker. Inspect the live catalog first: `google-oauth-app` stores a Web client configuration through private setup; `google-search-console` and `google-analytics` bind to that same owner's app and authorize separate accounts.
+
+- Configure the Google app once. A saved client ID/secret is not a connected Google account.
+- Service connections use `direct` / `oauth2`. Use `google.bind` for the existing app, then `connection.authorize` to obtain only a native UI entrypoint. OAuth state, code and tokens never belong in a tool response.
+- The human completes top-level Google consent in native MSO. Do not invoke the browser callback from a tool or borrow saved browser cookies.
+- Verify the exact connection, list actual properties, and use only operations returned by its catalog. An API key or GA measurement ID cannot substitute for Google user consent.
+- Native grants cannot be shared or copied as authorization. Local disconnect does not claim Google-wide revocation.
+
 ### Transfer identities
 
 Use Integration Bundle v1 for deliberate portability. Plain JSON is metadata-only. Encrypted bundles may carry direct credentials through the dedicated private import/export path. OAuth sessions and externally managed connected-account secrets are not portable and require reauthorization.

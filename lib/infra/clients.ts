@@ -1,3 +1,5 @@
+import { isGoogleProvider, GOOGLE_APP_PROVIDER } from "./google-native-config";
+import { nativeGoogleStatus } from "./google-native";
 import { recordConnectionCheck } from "./connection-health";
 import { credentialSnapshot, currentIntegrationSelection, resolveIntegration } from "./connection-service";
 import { verifyExternalIntegration } from "./connection-external";
@@ -34,6 +36,7 @@ async function probeInfraProvider(id: InfraProviderId, candidate?: InfraProvider
 
 // Pin the credential revision before probing; never attribute an old request to new keys.
 export async function doctorInfraProvider(id: InfraProviderId, candidate?: InfraProviderValues): Promise<InfraDoctorResult> {
+  if(isGoogleProvider(id)||id===GOOGLE_APP_PROVIDER)return candidate?{id,ok:null,detail:"Google OAuth consent and actual API verification required"}:nativeGoogleStatus(id,currentIntegrationSelection());
   if (candidate) return probeInfraProvider(id, candidate);
   const selector = currentIntegrationSelection();
   let snapshot;

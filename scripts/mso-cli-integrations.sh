@@ -23,6 +23,13 @@ run_integrations() {
       [ $# -ge 2 ] || die "usage: mso integrations $sub <user> <provider> [connection]"
       query="view=$sub&user=$(enc "$1")&provider=$(enc "$2")"; [ -n "${3-}" ] && query="$query&connection=$(enc "$3")"
       jget "/api/v1/integrations?$query" ;;
+    authorize)
+      [ $# -eq 3 ] || die "usage: mso integrations authorize <user> <provider> <connection>"
+      body=$(jq -nc --arg user "$1" --arg provider "$2" --arg connection "$3" '{mode:"manage",action:"connection.authorize",confirm:true,user:$user,provider:$provider,connection:$connection}')
+      data=$(jpost "/api/v1/integrations" "$body")
+      if jq -e '.openPath' >/dev/null <<<"$data"; then
+        printf 'Complete authorization in the native Owner browser (no OAuth code is printed):\n%s\n' "$(jq -r .openPath <<<"$data")"
+      elif tty_ok; then jq . <<<"$data"; else jq 'del(.privateUrl)+{notice:"Complete authorization in the private browser UI"}' <<<"$data"; fi ;;
     setup)
       [ $# -eq 3 ] || die "usage: mso integrations setup <user> <provider> <connection>"
       tty_ok || die "private setup links are terminal-only; use integration_setup_open from MCP"
@@ -65,6 +72,6 @@ run_integrations() {
       [ $# -eq 1 ] || die 'usage: mso integrations execute <metadata-JSON with user, provider, connection, operation and confirm:true>'
       body=$(jq -ce 'if type=="object" then .+{mode:"execute"} else error("object required") end' <<<"$1")
       jpost "/api/v1/integrations" "$body" ;;
-    *) die 'usage: mso integrations import-sc|transfer|status|users|catalog|connections|which|request|resolve|create-user|create-connection|manage|setup|verify|route|hostinger-mail-orders|hostinger-mail-list|hostinger-mail-logs|execute' ;;
+    *) die 'usage: mso integrations import-sc|transfer|status|users|catalog|connections|which|request|resolve|create-user|create-connection|manage|setup|authorize|verify|route|hostinger-mail-orders|hostinger-mail-list|hostinger-mail-logs|execute' ;;
   esac
 }

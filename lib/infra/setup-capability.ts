@@ -1,3 +1,4 @@
+import { GOOGLE_APP_PROVIDER, googleRedirectUri, isGoogleProvider } from "./google-native-config";
 import { createHash, randomBytes } from "node:crypto";
 import { constants, promises as fs } from "node:fs";
 import path from "node:path";
@@ -50,15 +51,18 @@ async function target(g: Grant) {
 }
 async function schema(g: Grant) {
   const c=await target(g),method=connectionMethod(g.provider,"direct",g.method);
+  let redirectUri: string | undefined;
+  if(g.provider===GOOGLE_APP_PROVIDER)try{redirectUri=googleRedirectUri()}catch{}
   return {
     user:g.user,connection:c.id,label:c.label,source:c.source,authMethod:c.authMethod,scope:c.scope,
     provider:g.provider,title:getInfraProviderDefinition(g.provider).title,method:g.method,
-    expiresAt:g.expiresAt,store:"MSO named connection · owner-only permissions (0600)",
+    ...(redirectUri?{redirectUri}:{}),expiresAt:g.expiresAt,store:"MSO named connection · owner-only permissions (0600)",
     fields:method.fields.map(f=>({...f,stored:Boolean(c.values[f.key])})),guidance:method.guidance,
   };
 }
 export async function openIntegrationSetup(provider: string, principal: string, method?: string, selection:ConnectionSelector={}) {
   if (!isInfraProviderId(provider)) throw new SetupError("unknown_provider", 400);
+  if (isGoogleProvider(provider)) throw new SetupError("google_use_native_authorization", 409);
   if (!principal || principal.length > 256) throw new SetupError("authenticated_principal_required", 403);
   // A UI must never guess which user's deployment to rotate.
   if(!selection.user||!selection.connection)throw new SetupError("choose_user_and_connection",409);
@@ -106,12 +110,13 @@ export async function consumeIntegrationSetup(token: string, raw: unknown) {
     await fs.writeFile(file, JSON.stringify(grant), { mode: 0o600 });
     // Probe candidate values before mutating the real store. Only safe enums/status
     // escape this boundary, never provider response text or credential values.
-    const result = await doctorInfraProvider(grant.provider, candidate);
+    const configurationOnly = grant.provider === GOOGLE_APP_PROVIDER;
+    const result = configurationOnly ? { ok: true } : await doctorInfraProvider(grant.provider, candidate);
     if (result.ok !== true) throw new SetupError(result.ok === null ? "live_validation_unavailable" : "credential_validation_failed", 422);
     if (grant.expiresAt <= Date.now()) throw invalid();
     grant.used = true;
     await fs.writeFile(file, JSON.stringify(grant), { mode: 0o600 });
-    await saveConnectionValues(grant.provider,{user:grant.user,connection:grant.connection},updates,{uid:grant.uid,revision:grant.revision},true);
-    return { ok: true, verified: true, provider: grant.provider,user:grant.user,connection:grant.connection,principal: grant.principal };
+    await saveConnectionValues(grant.provider,{user:grant.user,connection:grant.connection},updates,{uid:grant.uid,revision:grant.revision},!configurationOnly);
+    return { ok: true, verified: !configurationOnly, configurationOnly, provider: grant.provider,user:grant.user,connection:grant.connection,principal: grant.principal };
   });
 }

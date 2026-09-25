@@ -350,3 +350,24 @@ Telegram direct connections store the Bot API token plus an optional webhook sec
 Discord direct connections store the bot token and may also store the non-secret application ID and Interactions Ed25519 public key. Verification uses Discord REST bot identity. The public key is required before signed Discord Interactions can be accepted. Gateway event ingestion is intentionally not implied by a verified Discord connection.
 
 The Channels application resolves an exact credential user + named connection. If no compatible connection exists, setup remains in Integrations rather than exposing a token field inside Channels. See [CHANNELS.md](./CHANNELS.md).
+
+
+## Native Google OAuth: Search Console and GA4
+
+MSO can own Google authorization directly; Composio is optional, not required.
+Configure a same-owner `google-oauth-app` once through private setup, then bind
+`google-search-console` or `google-analytics` named connections and authorize the
+intended account in the native Owner browser. These private reporting APIs are
+OAuth-only in this slice; an API key or GA measurement ID is not a substitute.
+
+`mso integrations authorize <user> <provider> <connection>` opens the native
+consent entrypoint without returning an OAuth code or state. Google web callback
+routes are browser-bound protocol controls, unlike device-code provider flows.
+The existing generic `integration_execute` exposes schema-listed read operations,
+verification, app binding and local disconnect. No per-provider global MCP tool
+or parallel credential store is added.
+
+App configuration is not verified account access. Native Google user grants are
+never shared, copied to another owner or exported, including encrypted/raw
+credential formats. Read [Native Google integrations](./INTEGRATIONS-NATIVE-GOOGLE.md)
+for setup, states, operations, security and the remaining Composio-class parity roadmap.

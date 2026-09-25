@@ -1,3 +1,5 @@
+import { GOOGLE_READ_OPERATIONS } from "./google-api-catalog";
+import { isGoogleProvider, GOOGLE_APP_PROVIDER, googleRedirectUri, googlePublicOrigin } from "./google-native-config";
 import { listInfraProviderDefinitions, getInfraProviderDefinition, isInfraProviderId } from "./catalog";
 import { setupFields, setupGuidance, setupMethods, type SetupMethod } from "./setup-guidance";
 import { IntegrationError, type ConnectionSource, type IntegrationConnection } from "./identity";
@@ -17,7 +19,7 @@ export function providerDefinition(provider:string) {
 }
 export function connectionMethods(provider:string, source:ConnectionSource) {
   const p=providerDefinition(provider);
-  if(source==="direct") return setupMethods(p.id).map(m=>({id:m.id as string,label:provider==="github"?"Personal access token fallback":m.label,scope:provider==="convex-cloud"?(m.id==="deployment"?"deployment":"account"):provider==="composio"?m.id:provider==="dokploy"?"server":provider==="hostinger"&&m.id==="mail"?"mail-order":provider==="doku"?"merchant":"account",fields:setupFields(p.id,m.id),guidance:setupGuidance(p.id,m.id)}));
+  if(source==="direct") return setupMethods(p.id).map(m=>({id:m.id as string,label:provider==="github"?"Personal access token fallback":m.label,scope:provider===GOOGLE_APP_PROVIDER?"client-configuration":isGoogleProvider(provider)?"read-only-account":provider==="convex-cloud"?(m.id==="deployment"?"deployment":"account"):provider==="composio"?m.id:provider==="dokploy"?"server":provider==="hostinger"&&m.id==="mail"?"mail-order":provider==="doku"?"merchant":"account",fields:setupFields(p.id,m.id),guidance:setupGuidance(p.id,m.id)}));
   if(source==="composio" && COMPOSIO[provider]) return COMPOSIO[provider].methods.map(id=>({id,label:id==="oauth2"?"OAuth2":"Hosted API key",scope:"account",fields:[],guidance:{url:"https://platform.composio.dev",reference:`https://docs.composio.dev/toolkits/${COMPOSIO[provider].toolkit}`,steps:["Configure a Composio project key under this same credential user.","Choose a matching authentication configuration for this provider and method.","Open the hosted authorization link. Enter credentials only on the provider/Composio page.","Return and refresh status. MSO stores routing identifiers, not provider OAuth tokens."]}}));
   if(source==="native-mcp" && NATIVE[provider])return[{id:"provider-oauth",label:"Provider-owned MCP / OAuth",scope:"account",fields:[],guidance:{url:NATIVE[provider].reference,reference:NATIVE[provider].reference,steps:["Connect the provider-owned MCP server in your client.","Complete authorization in that provider's browser flow.","Use this named MSO connection to identify the intended provider route; the authenticated MCP session remains client-owned.","MSO does not copy provider access/refresh tokens or silently fall back to a local key."]}}];
   throw new IntegrationError("unsupported_connection_source");
@@ -36,7 +38,7 @@ function sourceLabel(provider:string,id:ConnectionSource){
   if(provider==="github") return id==="composio"?"Hosted OAuth (Composio)":id==="native-mcp"?"Provider OAuth / MCP":"Manual token fallback";
   return id==="direct"?"MSO direct":id==="composio"?"Composio":"Provider MCP";
 }
-export function connectionCatalog(){return listInfraProviderDefinitions().map(p=>({id:p.id,title:p.title,description:p.description,sources:connectionSources(p.id).map(id=>({id,label:sourceLabel(p.id,id),methods:connectionMethods(p.id,id)}))}));}
+export function connectionCatalog(){return listInfraProviderDefinitions().map(p=>({id:p.id,title:p.title,description:p.description,...googleCatalogInfo(p.id),sources:connectionSources(p.id).map(id=>({id,label:sourceLabel(p.id,id),methods:connectionMethods(p.id,id)}))}));}
 export function connectionSummary(user:string,c:IntegrationConnection,isDefault=false,values:Record<string,string>=c.values){
   const method=connectionMethod(c.provider,c.source,c.authMethod),missing=method.fields.filter(f=>f.required&&!values[f.key]).map(f=>f.key);
   return {user,id:c.id,label:c.label,provider:c.provider,source:c.source,authMethod:c.authMethod,scope:c.scope,revision:c.revision,isDefault,missing,fields:method.fields.map(f=>({...f,stored:Boolean(values[f.key])})),state:c.source==="direct"?(missing.length?"incomplete":c.lastCheck?(c.lastCheck.revision===c.revision?c.lastCheck.result:"configured"):c.verifiedAt?"verified":"configured"):c.external?.status??"authorization-required",verifiedAt:c.verifiedAt??null,lastCheck:c.lastCheck?.revision===c.revision?c.lastCheck:null,sharedFrom:c.sharedFrom??null,external:c.external??null};
@@ -45,4 +47,10 @@ export const composioDefinition=(provider:string)=>COMPOSIO[provider];
 export const nativeDefinition=(provider:string)=>NATIVE[provider];
 export function legacyMethod(provider:string,values:Record<string,string>):SetupMethod {
   return provider==="composio"?(values.orgApiKey?"organization":"project"):provider==="convex-cloud"?(values.deployKey?"deployment":"personal"):provider==="doku"?(values.paymentClientId||values.paymentSecretKey?"payment":"mcp"):"direct";
+}
+
+function googleCatalogInfo(provider:string){
+  if(provider!==GOOGLE_APP_PROVIDER&&!isGoogleProvider(provider))return{};
+  let callbackUrl:string|null=null,openPath:string|null=null;try{callbackUrl=googleRedirectUri();openPath=googlePublicOrigin()+"/integrations?provider="+provider}catch{}
+  return{nativeGoogle:true,configurationOnly:provider===GOOGLE_APP_PROVIDER,callbackUrl,openPath,operations:GOOGLE_READ_OPERATIONS.filter(op=>op.provider===provider)};
 }

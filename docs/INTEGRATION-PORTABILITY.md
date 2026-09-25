@@ -120,3 +120,14 @@ remain application-owned.
 References: Node.js `node:crypto` documentation and the OWASP Cryptographic Storage
 Cheat Sheet. The protocol uses authenticated encryption and OS randomness rather
 than reversible obfuscation or an application-owned hardcoded encryption key.
+
+
+### Native Google authorization is not portable
+
+The Google OAuth app configuration can use the existing explicit direct-field
+transfer flow. A native Search Console or Analytics connection exports only its
+app-binding metadata/configuration. Runtime account authorizations, pending flow
+state, PKCE verifier, access tokens and refresh tokens are never exported, even
+with credential export enabled. Imported/copied accounts need fresh Google
+consent and actual API verification. This also applies to copies between
+credential owners on the same installation.

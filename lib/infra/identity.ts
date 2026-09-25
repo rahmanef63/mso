@@ -1,3 +1,4 @@
+import type { GoogleGrant, GooglePending } from "./google-native-types";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { realpathSync } from "node:fs";
@@ -8,6 +9,8 @@ export type ExternalIdentity = { toolkit?: string; connectedAccountId?: string; 
 export type IntegrationConnection = {
   id: string; uid: string; label: string; provider: string; source: ConnectionSource; authMethod: string;
   scope: string; revision: number; values: Record<string,string>; /** Read-only alias of another direct connection. */ sharedFrom?: { user: string; connection: string; provider: string }; external?: ExternalIdentity;
+  /** Private runtime authorization; never copied into metadata or portable bundles. */
+  googleOAuth?: GoogleGrant; googlePending?: GooglePending;
   createdAt: number; updatedAt: number; verifiedAt?: number;
   lastCheck?: { revision: number; checkedAt: number; result: "verified" | "invalid" | "unavailable" | "unconfigured" }; lease?: {id:string;until:number};
 };
@@ -58,7 +61,7 @@ export function metadataOnly(value: unknown, depth = 0): void {
   if (depth > 12) throw new IntegrationError("metadata_too_deep");
   if (!value || typeof value !== "object") return;
   for (const [k,v] of Object.entries(value)) {
-    if (/^(values?|secrets?|secretValue|password|passphrase|token|apiKey|apiToken|accessToken|refreshToken|authorization|headers|__proto__|constructor|prototype)$/i.test(k)) throw new IntegrationError("secret_input_forbidden");
+    if (/^(values?|secrets?|secretValue|password|passphrase|token|apiKey|apiToken|accessToken|refreshToken|authorization|headers|clientSecret|client_secret|access_token|refresh_token|id_token|codeVerifier|code_verifier|googleOAuth|googlePending|__proto__|constructor|prototype)$/i.test(k)) throw new IntegrationError("secret_input_forbidden");
     metadataOnly(v,depth+1);
   }
 }

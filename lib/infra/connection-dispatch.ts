@@ -1,3 +1,5 @@
+import { isGoogleProvider, GOOGLE_APP_PROVIDER, googlePublicOrigin } from "./google-native-config";
+import { bindGoogleApp, disconnectGoogle, runNativeGoogle, nativeGoogleStatus, googleOperations } from "./google-native";
 import { integrationManage } from "./connection-manage";
 import { integrationQuery, withIntegrationSelection, resolveIntegration } from "./connection-service";
 import { authorizeIntegration, composioConnectionCall } from "./connection-external";
@@ -17,6 +19,12 @@ export async function manageIntegrationAction(raw:Record<string,unknown>){
     if(a.provider!=="convex-cloud")throw new IntegrationError("provider_operation_mismatch");
     return importConvexCliPersonalConnection(selectionFrom(a));
   }
+  if(a.action==="connection.authorize"&&isGoogleProvider(String(a.provider))){
+    if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
+    if(Object.keys(a).some(k=>!["action","confirm","user","provider","connection"].includes(k)))throw new IntegrationError("invalid_management_fields");
+    const route=await resolveIntegration(String(a.provider),selectionFrom(a));
+    return{user:route.user,provider:a.provider,connection:route.id,authorization:"owner-browser-required",openPath:googlePublicOrigin()+"/integrations?"+new URLSearchParams({provider:String(a.provider),user:route.user,connection:route.id})};
+  }
   if(a.action!=="connection.authorize")return integrationManage(a);
   if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
   if(Object.keys(a).some(k=>!["action","confirm","user","provider","connection","authConfigId","brokerConnection","createManaged"].includes(k)))throw new IntegrationError("invalid_management_fields");
@@ -33,9 +41,17 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
   const user=identity(a.user,"user"),provider=identity(a.provider,"provider"),connection=identity(a.connection,"connection"),selection={user,connection};
   const route=await resolveIntegration(provider,selection);
   if(operation==="route")return route;
+  if(operation==="verify"&&(isGoogleProvider(provider)||provider===GOOGLE_APP_PROVIDER))return nativeGoogleStatus(provider,selection);
   if(operation==="verify")return withIntegrationSelection(selection,()=>{if(!isInfraProviderId(provider))throw new IntegrationError("unknown_provider");return doctorInfraProvider(provider);});
   if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
   const args=a.arguments??{};if(!args||typeof args!=="object"||Array.isArray(args))throw new IntegrationError("invalid_tool_arguments");
+  if(isGoogleProvider(provider)){
+    if(route.source!=="direct")throw new IntegrationError("google_native_connection_required",409);
+    const body=args as Record<string,unknown>;
+    if(operation==="google.bind"){if(Object.keys(body).some(k=>k!=="appConnection"))throw new IntegrationError("invalid_tool_arguments");return bindGoogleApp(provider,selection,body.appConnection)}
+    if(operation==="google.disconnect"||operation==="google.operations.list"){if(Object.keys(body).length)throw new IntegrationError("invalid_tool_arguments");return operation==="google.disconnect"?disconnectGoogle(provider,selection):{operations:googleOperations(provider)}}
+    return runNativeGoogle(provider,selection,operation,body);
+  }
   if(operation==="composio.tool")return composioConnectionCall(provider,selection,String(a.tool),args as Record<string,unknown>);
   const verbs:Record<string,{provider:string;fields:string[];run:()=>Promise<unknown>}>= {
     "dokploy.projects.list":{provider:"dokploy",fields:[],run:()=>listDokployProjects()},

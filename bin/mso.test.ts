@@ -119,6 +119,11 @@ describe("bin/mso", () => {
       // Credential input is delegated to a write-only browser capability; the
       // named CLI setup verb opens that form without placing keys in shell/tool JSON.
       "POST /api/integrations/setup",
+      // Google web OAuth needs a bound browser cookie; unlike device-code OAuth,
+      // mso integrations authorize opens the native consent UI. Neither this
+      // browser start nor Google's redirect callback may expose codes to a shell.
+      "POST /api/integrations/google/start",
+      "GET /api/integrations/google/callback",
       "GET /api/sw",
       "POST /api/v1/channels/telegram/[id]", // Provider callback: requires Telegram webhook signature, not a user CLI action.
       "POST /api/v1/channels/discord/[id]", // Provider callback: requires Discord Ed25519 signature, not a user CLI action.

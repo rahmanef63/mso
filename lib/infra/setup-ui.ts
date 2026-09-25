@@ -21,7 +21,7 @@ function mountIntegrationForm(root,setup,access){
   const back=()=>{if(typeof access?.onBack==="function"){const b=integrationNode("button","← All integrations");b.type="button";b.className="back-link";b.addEventListener("click",access.onBack);root.append(b)}};back();
   if(!token||!endpoint){root.append(integrationNode("h2","Secure form unavailable"),integrationNode("p","The chat host did not deliver private setup authorization. Reopen the form or use the browser entrypoint; never paste a credential into chat."));if(access?.openBrowser){const b=integrationNode("button","Open Integrations in browser");b.type="button";b.addEventListener("click",()=>access.openBrowser());root.append(b)}return()=>{root.replaceChildren();root.classList.remove("integration")}}
   const heading=integrationNode("h2",setup.title+" · "+(setup.label||setup.connection||"connection")),tag=integrationNode("span",setup.method+" · single-use session");tag.className="setup-tag";
-  root.append(tag,heading,integrationNode("p",[setup.user,setup.connection,setup.source,setup.scope].filter(Boolean).join(" → ")),integrationNode("p","API keys go directly to your MSO server. They are not sent to ChatGPT or saved in browser storage."));
+  root.append(tag,heading,integrationNode("p",[setup.user,setup.connection,setup.source,setup.scope].filter(Boolean).join(" → ")),integrationNode("p","Credentials go directly to your MSO server. They are not sent to ChatGPT or saved in browser storage."));
   const grid=integrationNode("div"),form=integrationNode("form"),aside=integrationNode("aside");grid.className="setup-grid";form.autocomplete="off";form.setAttribute("action","#");
   const inputs=[];
   for(const f of setup.fields){
@@ -31,9 +31,11 @@ function mountIntegrationForm(root,setup,access){
     if(f.secret){const toggle=integrationNode("button","Show");toggle.type="button";toggle.setAttribute("aria-label","Show or hide "+f.label);toggle.addEventListener("click",()=>{input.type=input.type==="password"?"text":"password";toggle.textContent=input.type==="password"?"Show":"Hide"});row.append(toggle)}
     wrap.append(label,row,integrationNode("small",f.description));form.append(wrap);
   }
-  const save=integrationNode("button","Validate & save"),status=integrationNode("p");save.type="button";save.className="primary";status.className="setup-status";status.setAttribute("role","status");status.setAttribute("aria-live","polite");form.append(save,status);
+  const configurationOnly=setup.provider==="google-oauth-app";
+  const save=integrationNode("button",configurationOnly?"Save OAuth app configuration":"Validate & save"),status=integrationNode("p");save.type="button";save.className="primary";status.className="setup-status";status.setAttribute("role","status");status.setAttribute("aria-live","polite");form.append(save,status);
   const guide=integrationNode("details"),summary=integrationNode("summary","How to get this credential"),steps=integrationNode("ol");guide.open=true;guide.append(summary);
   function link(url,label){const a=integrationNode("a",label);try{const u=new URL(url);if(u.protocol!=="https:")return integrationNode("span",label);a.href=u.href}catch{return integrationNode("span",label)}a.target="_blank";a.rel="noopener noreferrer";if(typeof access.openLink==="function")a.addEventListener("click",e=>{e.preventDefault();Promise.resolve(access.openLink(a.href)).catch(()=>{status.textContent="The host could not open this reference. Open the provider dashboard in your browser."})});return a}
+  if(configurationOnly&&setup.redirectUri)guide.append(integrationNode("p","Register this exact authorized redirect URI in Google Cloud:"),integrationNode("small",setup.redirectUri));
   guide.append(link(setup.guidance.url,"Open official provider dashboard"));for(const text of setup.guidance.steps)steps.append(integrationNode("li",text));guide.append(steps,link(setup.guidance.reference,"Official documentation"));
   const storage=integrationNode("details");storage.append(integrationNode("summary","Storage and privacy"),integrationNode("p",setup.store),integrationNode("p","The form expires after 10 minutes and closes after a successful save. Existing keys are never displayed. Blank fields keep existing values. If a key was shared publicly, revoke it at its provider."));
   aside.append(guide,storage);grid.append(form,aside);root.append(grid);
@@ -43,13 +45,13 @@ function mountIntegrationForm(root,setup,access){
   form.addEventListener("submit",e=>e.preventDefault());
   form.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target instanceof HTMLInputElement){e.preventDefault();save.click()}});
   save.addEventListener("click",async e=>{
-    e.preventDefault();if(used||save.disabled||!form.reportValidity())return;save.disabled=true;status.textContent="Checking provider access…";
+    e.preventDefault();if(used||save.disabled||!form.reportValidity())return;save.disabled=true;status.textContent=configurationOnly?"Saving app configuration; user consent is separate…":"Checking provider access…";
     const values={};for(const f of inputs)if(f.input.value.trim())values[f.key]=f.input.value.trim();
     try{
       const response=await fetch(endpoint,{method:"POST",credentials:"omit",cache:"no-store",referrerPolicy:"no-referrer",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({action:"save",values}),signal:AbortSignal.any([abort.signal,AbortSignal.timeout(45000)])});
       const data=await response.json();
       if(!response.ok){const messages={credential_validation_failed:"The provider rejected this key or could not be reached. Check key type, permissions, and expiry; nothing was saved.",invalid_credential_format:"Check the credential format and remove pasted line breaks.",connection_changed_reopen_setup:"This connection changed after the form opened. Reopen it before updating credentials.",required_fields_missing:"Complete all required fields.",enter_at_least_one_value:"Enter a value to update.",setup_expired_or_invalid:"Setup expired or already used. Open a new form."};throw new Error(messages[data.error]||"Unable to save. Reopen setup or check the provider; nothing was displayed.")}
-      used=true;clearTimeout(timer);inputs.forEach(f=>{f.input.value="";f.input.disabled=true});save.textContent="Saved";status.textContent="Verified and saved in MSO. This setup session is now closed.";
+      used=true;clearTimeout(timer);inputs.forEach(f=>{f.input.value="";f.input.disabled=true});save.textContent="Saved";status.textContent=data.configurationOnly?"OAuth app configuration saved. Create or select a Google service connection to complete consent and verify API access.":"Verified and saved in MSO. This setup session is now closed.";
     }catch(error){status.textContent=error.message||"Connection failed. Check MSO connectivity."}finally{if(!used)save.disabled=false;for(const key of Object.keys(values))delete values[key]}
   });
   return()=>{abort.abort();clearTimeout(timer);inputs.forEach(f=>{f.input.value=""});root.replaceChildren();root.classList.remove("integration")};
