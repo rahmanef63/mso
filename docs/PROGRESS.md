@@ -14,7 +14,7 @@ Google grants stay out of shared/copy/export DTOs. Native user authorization and
 actual property access still require an operator's real Google consent; tests
 with synthetic identities do not establish a production connection.
 
-Verification: all 3,497 tests in 597 files passed with TypeScript, zero-warning lint,
+Verification: all 3,505 tests in 598 files passed with TypeScript, zero-warning lint,
 architecture/documentation/skill/contrast gates and the high/critical dependency audit.
 The isolated production build, bundle budget, mandatory release browser journeys,
 new native Google UI journey (20 synthetic-account checks, light/dark mobile/desktop),

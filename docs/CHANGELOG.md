@@ -10,8 +10,13 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 - `integrations` add native Google OAuth and read-only APIs
 
+**Fixed**
+
+- `integrations` expose native Google through MCP schemas
+
 **Docs**
 
+- `integrations` finalize native Google MCP verification
 - `integrations` record native Google verification
 
 ## 2026-09-24
