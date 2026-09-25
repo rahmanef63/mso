@@ -10,7 +10,7 @@ export async function memorySources(): Promise<{ sources: Source[]; incomplete: 
   const home = path.join(os.homedir(), ".mso");
   const recipes = workflowStorePath();
   const sources: Source[] = [
-    { key: "memory", path: path.resolve(process.env.OS_AGENT_MEMORY_DIR || path.join(home, "agent-memory")) },
+    { key: "memory", path: path.resolve(/* turbopackIgnore: true */ process.env.OS_AGENT_MEMORY_DIR || path.join(home, "agent-memory")) },
     { key: "session-archive", path: agentSessionArchiveRoot() },
     { key: "recipes", path: recipes },
     { key: "active-workflows", path: recipes + ".active.json" },

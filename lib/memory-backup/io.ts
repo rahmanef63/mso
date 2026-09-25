@@ -11,7 +11,8 @@ export async function existing(file: string) {
   if (!path.isAbsolute(file) || file.split(path.sep).includes("..")) throw new Error("unsafe path");
   let current = "/";
   for (const part of file.split("/").filter(Boolean)) {
-    current = path.join(current, part);
+    // Host-owned runtime paths are guarded below, not deployable build assets.
+    current = path.join(/* turbopackIgnore: true */ current, part);
     if ((await fs.lstat(current)).isSymbolicLink()) throw new Error("unsafe path");
   }
 }

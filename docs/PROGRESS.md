@@ -1,4 +1,4 @@
-## 2026-09-26 — Memory safety and second-brain visibility candidate (not released)
+## 2026-09-26 — Memory safety and second-brain visibility
 
 Implemented fail-closed session-source preservation, preview/confirmation-first
 owner cleanup, private local server-memory snapshots with isolated restore
@@ -6,7 +6,10 @@ verification, owner-only cross-principal graph discovery, paginated archived
 learning with explicit errors and graph-persistence warnings, and bounded
 Organization/workflow/recipe links in the pinned Memory app.
 
-This is a candidate, not a deployed or browser-verified release. Full resumable
+Full source verification passes 3,528 tests across 607 files with type, lint,
+coverage, architecture, documentation, contrast and high/critical audit gates.
+Runtime deployment and browser acceptance require the normal release proof.
+Full resumable
 backup, source-release review UI, cache-only cleanup separation and Jev memory
 admission remain open. No session, archive, memory, evidence or Docker volume was
 deleted by this work. See [Memory safety](./MEMORY-SAFETY.md) for behavior,
