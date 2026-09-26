@@ -15,8 +15,7 @@ import { WORKFLOW_START_OUTPUT, workflowStartProjection } from "./tools-workflow
 import { workflowStartAgentMemory } from "./workflow-start-memory";
 import { AGENT_BOOTSTRAP_SKILL, workflowOrientation, workflowStartPolicy } from "./instructions";
 import { workflowStartCandidateContext } from "./workflow-start-candidates";
-import { prepareWorkflowStartWorkspace, startWorkflowWithWorkspace, workflowWorkspaceResources } from "./workflow-start-workspace";
-import { updateAgentSessionLocation } from "@/lib/agent/session-store";
+import { prepareWorkflowStartWorkspace, startWorkflowWithWorkspace, workflowWorkspaceResources } from "./workflow-start-workspace"; import { updateAgentSessionLocation } from "@/lib/agent/session-store";
 export const WORKFLOW_START_TOOL: McpTool = {
     name: "workflow_start",
     description: "First call for multi-step work: resolve project context, search trusted skills/recipes/graphs, and return workflow_id. Carry that exact id on later steps. Read official skill mso-agent-bootstrap when learning the MSO map.",

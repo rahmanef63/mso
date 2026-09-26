@@ -5,10 +5,7 @@ import { resolveProjectHint, runProjectFunction } from "@/lib/host/projects-api"
 import { importOpenAiProvidedFile } from "./openai-file-upload";
 import { type McpTool, opt, PATH_P, S, str } from "./tool-kit";
 import { requireWorkflowExecCwd, requireWorkflowMutationPath, requireWorkflowProjectTarget } from "./workflow-workspace-guard";
-
-// The write and exec tiers. Each carries an `audit` descriptor — the dispatcher,
-// not the tool, writes the trail, because these call lib/host directly and so
-// never pass the route-layer audit that covers /api/v1.
+// Write/exec tools carry audit descriptors; the dispatcher records the route-independent trail.
 export const MUTATE_TOOLS: McpTool[] = [
   {
     name: "fs_write",
