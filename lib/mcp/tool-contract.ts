@@ -115,7 +115,9 @@ function compactSchema(value: unknown): unknown {
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
     if (key === "additionalProperties" && item === true || key === "required" && Array.isArray(item) && item.length === 0) continue;
     if (key === "workflow_id" && item && typeof item === "object") out[key] = { type:"string" };
-    else if (key === "description") continue;
+    else if (key === "additionalProperties" && item && typeof item === "object") out[key] = true;
+    else if (key === "items" && item && typeof item === "object" && (item as Record<string, unknown>).type === "object") { const row=compactSchema(item) as Record<string,unknown>; delete row.additionalProperties; out[key]=row; }
+    else if (key === "description" || key === "title") continue;
     else out[key] = compactSchema(item);
   }
   return out;

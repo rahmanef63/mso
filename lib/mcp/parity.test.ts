@@ -21,6 +21,7 @@ const ALFA_ONLY: Record<string, string> = {
 };
 
 const MCP_ONLY: Record<string, string> = {
+  "jev.action": "JEV action arbitration belongs to the external/terminal capability authority so selected actions re-enter MCP scope, allowlist, workflow and audit enforcement instead of bypassing them through Alfa browser identity.",
   "mso.native.ui.probe": "Static ChatGPT MCP Apps host-mount diagnostic; Alfa already runs inside the native MSO browser shell and has no equivalent external host-renderer boundary to probe.",
   "workflow.graph": "Native Workflows UI has its own authenticated principal; external MCP graph CRUD/run/status must stay principal-scoped instead of inheriting an unrelated browser identity.",
   "organization.chart": "MSO already exposes the owner-private Organization registry through Alfa’s dedicated Organization tab/API; external MCP needs a bounded programmatic read surface without duplicating that registry into conversational Alfa host tools.",

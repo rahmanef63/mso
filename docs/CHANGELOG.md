@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `jev` add policy-bound MCP actions
 - `workflows` isolate source-changing agents
 - `agent` recover interrupted sessions automatically
 - connect OpenRouter for JEV without switching model

@@ -1,0 +1,13 @@
+import { describe,it,expect,vi } from "vitest";
+const evaluate=vi.fn();
+vi.mock("./jev-evaluator",()=>({createResolvedJevWorkflowOptimizerEvaluator:()=>evaluate}));
+vi.mock("./jev-integration",()=>({resolveJevIntegrationConfig:vi.fn(async()=>({transport:"openrouter",provider:"openrouter",model:"~typesafe/jev-latest"}))}));
+vi.mock("@/lib/capabilities/execute",()=>({executeCapabilityCall:vi.fn(async(input)=>({kind:"success",result:{tool:input.tool.name,args:input.args}}))}));
+import { proposeJevActions,executeJevAction } from "./jev-action-layer";
+const tool=(name:string,scope:"read"|"write"|"exec"="read",destructive=false)=>({name,scope,description:name,inputSchema:{type:"object" as const,properties:{}},annotations:{destructiveHint:destructive},run:async()=>({})});
+describe("JEV action layer",()=>{
+ it("produces non-executable structured proposals and strips secret-shaped state/arguments",async()=>{evaluate.mockResolvedValue({provider:"jev",probabilities:{a:.91}});const p=await proposeJevActions({token:"hidden",ok:"yes"},[{id:"a",tool:"sys_stats",arguments:{apiKey:"hidden",x:"ok"},rationale:"inspect health",risk:"safe"}],n=>n==="sys_stats"?tool(n):undefined);expect(p.executable).toBe(false);expect(p.selected[0]).toMatchObject({id:"a",tool:"sys_stats",probability:.91,arguments:{x:"ok"}});expect(JSON.stringify(p)).not.toContain("hidden");});
+ it("rejects arbitrary shell and destructive tools before JEV",async()=>{await expect(proposeJevActions({},[{id:"a",tool:"exec_run",arguments:{command:"id"},rationale:"x",risk:"safe"}],n=>tool(n,"exec",true))).rejects.toThrow("not eligible");});
+ it("executes only selected safe actions through the capability authority",async()=>{const p={kind:"mso.jev-action-proposal.v1" as const,provider:"jev" as const,selected:[{id:"a",tool:"sys_stats",arguments:{},rationale:"health",risk:"safe" as const,probability:.9}],rejected:[],executable:false as const,instruction:"review"};const out=await executeJevAction(p,"a",{scope:"read",actor:"tester",context:{scope:"read"}},n=>n==="sys_stats"?tool(n):undefined);expect(out).toMatchObject({kind:"success",result:{tool:"sys_stats"}});});
+ it("blocks review/destructive selections from proposal execution",async()=>{const p={kind:"mso.jev-action-proposal.v1" as const,provider:"jev" as const,selected:[{id:"a",tool:"project_mcp_call",arguments:{},rationale:"call",risk:"review" as const,probability:.9}],rejected:[],executable:false as const,instruction:"review"};await expect(executeJevAction(p,"a",{scope:"exec",context:{scope:"exec"}},n=>tool(n,"exec",true))).rejects.toThrow("explicit tool confirmation");});
+});
