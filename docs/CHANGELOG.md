@@ -8,28 +8,53 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- `workflows` isolate source-changing agents
+- `agent` recover interrupted sessions automatically
 - connect OpenRouter for JEV without switching model
 - route JEV through OpenRouter and preserve sessions
 - `integrations` clarify DOKU credential fields
+- `memory` expose backup history and checksum-bound verification receipts
 
 **Fixed**
 
+- `tests` make recovery fixtures portable
+- `config` document agent worktree root
 - tolerate bounded session name contention
+
+**Changed**
+
+- `mcp` preserve architecture line ratchet
+
+**Tests**
+
+- `memory` isolate backup panel accessibility and preserve failure evidence
+
+**Docs**
+
+- `launch` focus demo on one verifiable agent journey
+- `launch` define measurable MSO readiness contract
 
 ## 2026-09-25
 
 **Added**
 
+- `memory` preserve session sources and expose owner second brain
 - `integrations` add native Google OAuth and read-only APIs
 
 **Fixed**
 
+- `memory` exclude guarded runtime backup paths from build tracing
 - `integrations` expose native Google through MCP schemas
 
 **Docs**
 
 - `integrations` finalize native Google MCP verification
 - `integrations` record native Google verification
+
+**Other**
+
+- `memory` preserve non-destructive backup worker checkpoint
+- `memory` preserve bounded discovery worker checkpoint
 
 ## 2026-09-24
 
