@@ -3,6 +3,7 @@ import { callManagedScProvider } from "./managed-sc-call";
 import { projectMcpResult, projectMcpStructuredProjection } from "@/lib/host/project-mcp-result";
 import { callProjectMcpTool, listProjectMcpToolPage, publicProjectMcpServers, readProjectMcpServers } from "@/lib/host/projects-api";
 import { type McpTool, S, str, mcpDirect } from "./tool-kit";
+import { requireWorkflowProjectTarget } from "./workflow-workspace-guard";
 
 export const PROJECT_MCP_TOOLS: McpTool[] = [
   {
@@ -47,8 +48,9 @@ export const PROJECT_MCP_TOOLS: McpTool[] = [
       tool: { type: "string", description: "Exact tool name from project_mcp_tools." },
       arguments: { type: "object", description: "Arguments matching that dynamic tool's input schema.", additionalProperties: true },
     }, ["project", "server", "tool"]),
-    run: async (a) => {
+    run: async (a, context) => {
       const project = await resolveMcpInstallTarget(str(a, "project"));
+      if (project.installationScope === "project") await requireWorkflowProjectTarget(context, project.path);
       const managed = await callManagedScProvider(project.path, str(a, "server"), str(a, "tool"), a.arguments ?? {});
       const out = projectMcpResult(managed.handled ? managed.result : await callProjectMcpTool(project.path, str(a, "server"), str(a, "tool"), a.arguments ?? {}));
       return mcpDirect(out.content, out.isError, { result: { project: project.id, server: str(a, "server"), tool: str(a, "tool"), output: projectMcpStructuredProjection(out) } }, out.meta);

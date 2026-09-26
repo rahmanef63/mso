@@ -17,6 +17,7 @@ import { createWorkflowDataTable, deleteWorkflowDataTable, deleteWorkflowDataTab
 import { optimizeWorkflowGraph } from "@/lib/workflow/graph-optimizer";
 import { createJevWorkflowOptimizerEvaluator } from "@/lib/workflow/jev-optimizer";
 import { resolveJevIntegrationConfig } from "@/lib/workflow/jev-integration";
+import { requireWorkflowProjectTarget } from "./workflow-workspace-guard";
 const project = { type: "string", maxLength: 4096 };
 const flow = { type: "string", maxLength: 64 };
 
@@ -42,6 +43,7 @@ export const FLOW_TOOLS: McpTool[] = [
     inputSchema: S({ project, flow, input: { type: "object", additionalProperties: true }, idempotency_key: { type: "string", minLength: 1, maxLength: 128 } }, ["project", "flow", "input", "idempotency_key"]),
     run: async (a, context) => {
       const catalog = await flowCatalog(str(a, "project"), str(a, "flow"));
+      await requireWorkflowProjectTarget(context, catalog.project.path);
       const { TOOLS_BY_NAME } = await import("./tools");
       return startFlow(catalog.definitions[0], catalog.project.id, a.input, str(a, "idempotency_key"), context, name => TOOLS_BY_NAME.get(name));
     } },
@@ -57,11 +59,12 @@ export const FLOW_TOOLS: McpTool[] = [
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     actionContract: { phase: "mutate", target: "project-flow", sourceOfTruth: "live", discover: ["flow_catalog"], validators: ["flow-definition", "revision"], verify: ["flow_catalog"], confirmation: "contextual", concurrency: "revision", presentation: "structured" }, audit: { action: "fs.write", targetArg: "project" },
     inputSchema: S({ project, flow, action: { type: "string", enum: ["upsert", "delete"] }, revision: { type: "string" }, definition: { type: "object", additionalProperties: true } }, ["project", "flow", "action", "revision"]),
-    run: async a => {
+    run: async (a, context) => {
       const id = str(a, "flow");
       if (BUILTIN_FLOWS.some(flow => flow.id === id)) throw new Error("built-in flow is immutable");
       if (a.action !== "upsert" && a.action !== "delete") throw new Error("action must be upsert or delete");
       const catalog = await flowCatalog(str(a, "project"));
+      await requireWorkflowProjectTarget(context, catalog.project.path);
       return manageProjectFlow(catalog.project.path, { action: a.action, id, flow: a.definition, revision: str(a, "revision") });
     } },
   { name: "workflow_graph", title: "Workflow Graph", scope: "exec", limit: { key: "workflow.graph", max: 20, windowMs: 60_000 },

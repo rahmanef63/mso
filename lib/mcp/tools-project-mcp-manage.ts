@@ -1,6 +1,7 @@
 import { inspectProjectMcp, manageProjectMcp } from "@/lib/host/project-mcp-manage";
 import { resolveMcpInstallTarget } from "@/lib/host/mcp-install-target";
 import { type McpTool, S, str } from "./tool-kit";
+import { requireWorkflowProjectTarget } from "./workflow-workspace-guard";
 export const PROJECT_MCP_MANAGE_TOOLS: McpTool[] = [{
   name: "project_mcp_manage", title: "Install or Manage MCP", scope: "write",
   description: "Inspect/install/update/uninstall an MCP binding on one exact project, or project=@host for this MSO host. Host installations never propagate to projects. Fresh projects have no plugin binding and nothing is inherited from parent projects. For reviewed project plugins set plugin=si-coder or plugin=batonly; Batonly also requires an exact MSO credential user/connection. Arbitrary HTTP MCPs still use url. Inspect first for revision; mutations preserve other servers.",
@@ -19,11 +20,12 @@ export const PROJECT_MCP_MANAGE_TOOLS: McpTool[] = [{
     user: { type: "string", description: "Exact credential owner; use together with connection." },
     connection: { type: "string", description: "Exact private MCP connection; omit both for public MCP." },
   }, ["project", "action"]),
-  run: async a => {
+  run: async (a, context) => {
     if (a.plugin !== undefined && !["si-coder", "batonly"].includes(String(a.plugin))) throw new Error("unsupported project plugin");
     const project = await resolveMcpInstallTarget(str(a, "project"), a.action === "upsert");
     if (a.action === "inspect") return { project: project.id, installationScope: project.installationScope, ...await inspectProjectMcp(project.path) };
     if (a.action !== "upsert" && a.action !== "delete") throw new Error("invalid MCP action");
+    if (project.installationScope === "project") await requireWorkflowProjectTarget(context, project.path);
     return { project: project.id, installationScope: project.installationScope, ...await manageProjectMcp(project.path, { action: a.action, server: str(a, "server"), revision: str(a, "revision"),
       plugin: a.plugin === "si-coder" || a.plugin === "batonly" ? a.plugin : undefined, url: typeof a.url === "string" ? a.url : undefined, user: typeof a.user === "string" ? a.user : undefined, connection: typeof a.connection === "string" ? a.connection : undefined }) };
   },
