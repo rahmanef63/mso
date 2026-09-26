@@ -1,3 +1,28 @@
+## 2026-09-26 — Make DOKU credential fields self-explanatory
+
+The native DOKU setup form now puts the official source beside each credential
+label instead of forcing the operator to interpret one generic help panel. Payment
+Client ID and Payment Secret Key link directly to the Sandbox and Production API
+Key surfaces; Payment Environment links to the environment guide and Sandbox
+registration. Safe, clearly synthetic placeholders show the expected shape without
+resembling a stored credential.
+
+Payment Environment is now explicit product language rather than an implied DOKU
+secret: it is the operator choice `sandbox` when the Client ID + Secret Key come
+from DOKU Sandbox/testing, or `production` when they come from the live DOKU
+Dashboard. The REST Secret Key remains distinct from the DOKU MCP API Key.
+
+The form renderer gains reusable per-field HTTPS reference links, so the same
+pattern can be applied to other integrations without duplicating provider-specific
+markup. Secret storage, masking, verification, and blank-to-keep behavior are
+unchanged.
+
+Verification: DOKU/setup regressions pass 23/23; TypeScript and zero-warning
+focused ESLint pass; the isolated Next.js production build, bundle budget,
+mandatory release E2E, native Integrations responsive shell journey, native Google
+Integrations regression, shell status checks, and deferred shell-performance gates
+all pass.
+
 ## 2026-09-25 — Native Google Integrations foundation
 
 Native Google OAuth app configuration, Search Console and Google Analytics 4 now

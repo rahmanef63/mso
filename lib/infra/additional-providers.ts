@@ -3,7 +3,9 @@ type AdditionalField = {
   label: string;
   secret: boolean;
   required: boolean;
+  placeholder?: string;
   description: string;
+  links?: readonly { label: string; url: string }[];
 };
 
 type AdditionalProvider = {
@@ -113,12 +115,51 @@ export const ADDITIONAL_PROVIDERS = {
     ],
   },
   doku: { id:"doku", title:"DOKU", description:"Verify DOKU Payment REST or DOKU MCP merchant credentials without copying secrets into project configuration.", feature:false, fields:[
-    {key:"paymentClientId",label:"Payment Client ID",secret:true,required:false,description:"DOKU Back Office Client ID used by the signed Non-SNAP payment API."},
-    {key:"paymentSecretKey",label:"Payment Secret Key",secret:true,required:false,description:"DOKU Back Office HMAC Secret Key for signed payment API requests. This is not the MCP API Key."},
-    {key:"paymentEnvironment",label:"Payment Environment",secret:false,required:false,description:"Exactly sandbox or production for the signed payment API."},
-    {key:"mcpClientId",label:"MCP Client ID",secret:true,required:false,description:"DOKU-issued Client ID for MCP access in the selected environment."},
-    {key:"mcpApiKey",label:"MCP API Key",secret:true,required:false,description:"DOKU-issued MCP API Key. It is distinct from the REST payment HMAC Secret Key."},
-    {key:"environment",label:"MCP Environment",secret:false,required:false,description:"Exactly sandbox or production. MSO derives the official DOKU MCP endpoint from this value."},
+    {
+      key:"paymentClientId",label:"Payment Client ID",secret:true,required:false,
+      placeholder:"MCH-0001-xxxxxxxxxxxxxxx",
+      description:"Client ID from DOKU Back Office for the same environment selected below. DOKU documents MCH-… as a common Non-SNAP merchant Client-Id shape.",
+      links:[
+        {label:"Sandbox API Keys",url:"https://sandbox.doku.com/bo/developer/api-keys"},
+        {label:"Production API Keys",url:"https://dashboard.doku.com/bo/developer/api-keys"},
+      ],
+    },
+    {
+      key:"paymentSecretKey",label:"Payment Secret Key",secret:true,required:false,
+      placeholder:"SK-EXAMPLE-DO-NOT-USE",
+      description:"Secret Key from the same DOKU Back Office/environment as the Client ID. Used only for HMAC signing; this is not the MCP API Key.",
+      links:[
+        {label:"Sandbox API Keys",url:"https://sandbox.doku.com/bo/developer/api-keys"},
+        {label:"Production API Keys",url:"https://dashboard.doku.com/bo/developer/api-keys"},
+      ],
+    },
+    {
+      key:"paymentEnvironment",label:"Payment Environment",secret:false,required:false,
+      placeholder:"sandbox",
+      description:"You do not copy this from a credential field. Enter sandbox when using Sandbox Client ID + Secret Key (testing), or production when using Production credentials (real payments).",
+      links:[
+        {label:"Environment guide",url:"https://developers.doku.com/accept-payments/doku-checkout/integration-guide/backend-integration"},
+        {label:"Sandbox signup",url:"https://sandbox.doku.com/bo/sandbox-registration"},
+      ],
+    },
+    {
+      key:"mcpClientId",label:"MCP Client ID",secret:true,required:false,
+      placeholder:"BRN-EXAMPLE-000000000000",
+      description:"DOKU-issued Client ID for MCP access in the selected environment.",
+      links:[{label:"DOKU MCP guide",url:"https://developers.doku.com/accept-payments/doku-mcp-server"}],
+    },
+    {
+      key:"mcpApiKey",label:"MCP API Key",secret:true,required:false,
+      placeholder:"DOKU-MCP-API-KEY-EXAMPLE",
+      description:"DOKU-issued MCP API Key. It is distinct from the REST payment HMAC Secret Key.",
+      links:[{label:"DOKU MCP guide",url:"https://developers.doku.com/accept-payments/doku-mcp-server"}],
+    },
+    {
+      key:"environment",label:"MCP Environment",secret:false,required:false,
+      placeholder:"sandbox",
+      description:"Enter sandbox for the DOKU sandbox MCP endpoint or production for live access. MSO derives the official endpoint from this value.",
+      links:[{label:"DOKU MCP guide",url:"https://developers.doku.com/accept-payments/doku-mcp-server"}],
+    },
   ] },
   "openai-app": {
     id: "openai-app",
