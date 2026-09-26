@@ -1,5 +1,4 @@
-import { ownedArtifactSession, prepareSessionArtifacts } from "@/lib/agent/artifact-session";
-import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
+import { ownedArtifactSession, prepareSessionArtifacts } from "@/lib/agent/artifact-session"; import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
 import { listLearnedRecipes, markRecipeRecommended, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
 import { ensureLearnedWorkflowGraph, findMatchingWorkflowGraph } from "@/lib/workflow/graph-store";
 import { progressiveVerification } from "@/lib/orchestration/automation";
@@ -15,6 +14,7 @@ import { WORKFLOW_START_OUTPUT, workflowStartProjection } from "./tools-workflow
 import { workflowStartAgentMemory } from "./workflow-start-memory";
 import { AGENT_BOOTSTRAP_SKILL, workflowOrientation, workflowStartPolicy } from "./instructions";
 import { workflowStartCandidateContext } from "./workflow-start-candidates";
+import { updateAgentSessionLocation } from "@/lib/agent/session-store";
 export const WORKFLOW_START_TOOL: McpTool = {
     name: "workflow_start",
     description: "First call for multi-step work: resolve project context, search trusted skills/recipes/graphs, and return workflow_id. Carry that exact id on later steps. Read official skill mso-agent-bootstrap when learning the MSO map.",
@@ -40,6 +40,7 @@ export const WORKFLOW_START_TOOL: McpTool = {
       const agentMemory = await workflowStartAgentMemory(context, intent);
       const projectHint = opt(a, "project");
       const project = projectHint ? await resolveProjectHint(projectHint).catch(() => null) : null;
+      if (project?.path && context.principal && context.sessionId) await updateAgentSessionLocation(context.principal, context.sessionId, project.path).catch(() => undefined);
       const tools = await visibleTools(context.scope, context.toolProfile);
       const intentRoute = routeIntentText(intent);
       const routedTools = intentRoute.catalogMatched ? tools.filter((tool) => intentRoute.tools.includes(tool.name) || tool.name === "workflow_start") : tools;

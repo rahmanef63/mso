@@ -31,6 +31,11 @@ not missing features.
 3. `workflow_start` once for multi-step work; pass exact `workflow_id` thereafter.
    Skip this on a read token. Do not call `skills_search` immediately before startup
    for the same task.
+   If the user is continuing work from a dead/overlong conversation and did not
+   provide a session id, call `agent_session_resume` with the project when known.
+   It auto-selects the newest relevant unfinished workflow/session and returns a
+   safe continuation recipe. Never ask the user to hunt for an MSO session id
+   unless recovery is genuinely ambiguous or no matching durable state exists.
 4. Project MCP: `project_capabilities` → `project_mcp_tools` → `project_mcp_call`.
    Never fuse discover and call. Never copy project tool names into the global catalog.
 5. Credentials: `integration_query` → private setup/verify → `integration_execute`.

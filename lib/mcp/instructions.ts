@@ -15,7 +15,7 @@ export type AgentBootstrapStep = {
 export const AGENT_BOOTSTRAP_STEPS: readonly AgentBootstrapStep[] = [
   { n: 1, call: "skills_search|skills_read", when: "Learn the map", detail: `Query or read official skill ${AGENT_BOOTSTRAP_SKILL} before expensive mutations.` },
   { n: 2, call: "projects_list", when: "Project unresolved", detail: "Resolve id/path/alias; do not guess across roots." },
-  { n: 3, call: "workflow_start", when: "Multi-step work", detail: "Call once; pass exact workflow_id on every later operation." },
+  { n: 3, call: "workflow_start", when: "Multi-step work", detail: "Call once; pass exact workflow_id on every later operation. For continuation after a dead/overlong conversation, first use agent_session_resume with project when known; no session id is required." },
   { n: 4, call: "project_capabilities→project_mcp_tools→project_mcp_call", when: "Project MCP", detail: "Keep discover and call as two tools; never copy project names into the global catalog." },
   { n: 5, call: "integration_query→setup/verify→integration_execute", when: "Credentials", detail: "Never put secrets in chat or tool arguments." },
   { n: 6, call: "read_pipeline|bounded reads", when: "Inspect", detail: "Prefer these before exec_run." },

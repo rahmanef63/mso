@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { forgetAgentMemory, queryAgentMemory, readAgentMemory, rememberAgentMemory, type AgentMemoryDocument, type AgentMemoryKind, type AgentMemorySensitivity } from "@/lib/agent/memory-store";
-import { agentSessionSummary, appendAgentSessionEvent, getAgentSession, listAgentSessions, renameAgentSession, resumeAgentSession } from "@/lib/agent/session-store";
+import { agentSessionSummary, appendAgentSessionEvent, getAgentSession, listAgentSessions, renameAgentSession } from "@/lib/agent/session-store";
 import { type McpTool, S, str } from "./tool-kit";
 import { resolveAgentSessionRef } from "@/lib/agent/session-query";
 import { agentSessionLabel } from "@/lib/agent/session-name";
 import { semanticSessionFlow } from "@/lib/agent/session-flow";
 import { resolveHistoricalSessionAction } from "@/lib/agent/session-action-history";
 import { resolveHistoricalSessionArtifact } from "@/lib/agent/session-artifact-resolver";
+import { AGENT_SESSION_RESUME_TOOL } from "./tools-agent-recovery";
 
 function principal(context: { principal?: string }): string {
   if (!context.principal) throw new Error("agent session principal is unavailable");
@@ -48,18 +49,7 @@ export const AGENT_TOOLS: McpTool[] = [
     inputSchema: S({ limit: { type: "number", description: "How many sessions to return (1-100, default 20)." } }),
     run: (a, context) => listAgentSessions(principal(context), Math.max(1, Math.min(100, Number(a.limit) || 20))),
   },
-  {
-    name: "agent_session_resume",
-    description: "Read the safe resume packet for one prior MSO session owned by this client. It returns summary/recent context, never ChatGPT hidden transcript.",
-    scope: "read", annotations: { readOnlyHint: true, idempotentHint: true },
-    inputSchema: S({ session_ref: { type: "string", description: "Human session label (agent-context), @name, title, or legacy exact id." }, session_id: { type: "string", description: "Legacy exact MSO session id; prefer session_ref." } }),
-    run: async (a, context) => {
-      const owner = principal(context), ref = optionalString(a, "session_ref") || optionalString(a, "session_id");
-      if (!ref) throw new Error("session_ref is required");
-      const target = await resolveAgentSessionRef(owner, ref);
-      return resumeAgentSession(owner, target.id, context.sessionId);
-    },
-  },
+  AGENT_SESSION_RESUME_TOOL,
   {
     name: "agent_session_flow",
     description: "Read one session as a compact semantic flow for humans and agents. Returns intent-level steps with human-readable Sx.Ay action references, sanitized execution receipts, commands/code hints, and artifacts without exposing the internal session id. Pass action_ref to jump directly to one action.",

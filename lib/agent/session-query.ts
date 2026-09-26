@@ -100,6 +100,44 @@ export async function resolveAgentSessionRef(
   );
 }
 
+function normalizedProjectRef(value: string): string {
+  return value.trim().replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+function continuationProjectMatch(record: AgentSession, refs: string[]): boolean {
+  const aliases = new Set<string>();
+  for (const raw of refs) {
+    const normalized = normalizedProjectRef(raw);
+    if (!normalized) continue;
+    aliases.add(normalized);
+    const basename = normalized.split("/").filter(Boolean).at(-1);
+    if (basename) aliases.add(basename);
+  }
+  if (!aliases.size) return true;
+  const cwd = normalizedProjectRef(record.cwd ?? "");
+  const cwdBase = cwd.split("/").filter(Boolean).at(-1) ?? "";
+  if (aliases.has(cwd) || aliases.has(cwdBase)) return true;
+  const haystack = [
+    record.title,
+    ...record.events.slice(-80).map((event) => event.detail ?? ""),
+  ].join("\n").toLowerCase();
+  return [...aliases].some((alias) => alias.length >= 3 && haystack.includes(alias));
+}
+
+/** Resolve a crash-recovery source without making the user find a session id. */
+export async function resolveAgentSessionContinuation(
+  principal: string,
+  options: { excludeSessionId?: string; projectRefs?: string[] } = {},
+): Promise<AgentSession> {
+  const owner = principalHash(principal);
+  const candidates = (await listSessionRecords())
+    .filter((row) => row.principalHash === owner && row.id !== options.excludeSessionId)
+    .filter((row) => continuationProjectMatch(row, options.projectRefs ?? []))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  if (!candidates.length) throw new Error("session_not_found");
+  return candidates[0]!;
+}
+
 export async function resolveAgentSessionOwnerRef(
   ref: string,
 ): Promise<AgentSession> {

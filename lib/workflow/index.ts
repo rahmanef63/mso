@@ -7,6 +7,8 @@ export { recipeMaturity } from "./maturity";
 export { workflowStepProvenance } from "./session-provenance";
 export { replayHandlesFromResult } from "./replay";
 export { mergeCandidatePools } from "./candidate-pool";
+export { workflowRecoveryCandidates } from "./recovery";
+export type { WorkflowRecoveryCandidate } from "./recovery";
 export type {
   WorkflowStepState, WorkflowStep, WorkflowStepProvenance, WorkflowReplayHandle, WorkflowCandidatePool, RecipeMaturity, ActiveWorkflow, WorkflowQuality, LearnedRecipe,
   FinishWorkflowResult, CancelWorkflowResult, RecipeAccess, ProjectContentionSummary,
