@@ -90,5 +90,5 @@ export async function withUniqueSessionName<T>(
   return withSecurityStoreLock(sessionNameLockTarget(owner), async () => {
     const used = (await listSessionRecords()).filter(row => row.principalHash === owner).map(row => row.name);
     return commit(await buildRecord(principal, source, options, used));
-  });
+  }, { busyTimeoutMs: 15_000 });
 }

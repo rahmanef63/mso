@@ -12,6 +12,10 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 - route JEV through OpenRouter and preserve sessions
 - `integrations` clarify DOKU credential fields
 
+**Fixed**
+
+- tolerate bounded session name contention
+
 ## 2026-09-25
 
 **Added**
