@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Monitor, Search } from "lucide-react";
 import { useState } from "react";
-import { filterSettingsSections, groupSettingsSections, SECTIONS, type SectionId } from "../lib/sections";
+import { filterSettingsSections, groupSettingsSections, SECTIONS, settingsNavActive, type SectionId } from "../lib/sections";
 
 export type { SectionId } from "../lib/sections";
 
@@ -13,7 +13,7 @@ export function SettingsTabs({ active, onSelect }: { active: SectionId; onSelect
   return (
     <nav  aria-label="Settings" data-slot="settings-desktop-tabs" className="flex gap-1 overflow-x-auto p-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       {SECTIONS.map(({ id, label, icon: Icon, blurb }) => {
-        const on = id === active;
+        const on = settingsNavActive(id, active);
         return (
           <button key={id} type="button" aria-current={on ? "page" : undefined} title={blurb} onClick={() => onSelect(id)}
             className={cn("flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium leading-none transition-colors", on ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
@@ -33,7 +33,7 @@ export function SettingsSidebar({ active, onSelect, windows = false }: { active:
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className={cn("space-y-4 px-3 pb-3 pt-5", windows && "px-4")}>
-        <Button variant="ghost" onClick={() => onSelect("about")} className="h-auto w-full justify-start gap-3 px-1 py-2 text-left">
+        <Button variant="ghost" onClick={() => onSelect("account")} className="h-auto w-full justify-start gap-3 px-1 py-2 text-left">
           <span className={cn("grid size-11 shrink-0 place-items-center bg-secondary", windows ? "rounded-full" : "rounded-xl")}><Monitor className="size-6 text-muted-foreground" /></span>
           <span><span className="block text-sm font-semibold">MSO</span><span className="block text-xs font-normal text-muted-foreground">{windows ? "Settings" : "System Settings"}</span></span>
         </Button>
@@ -46,7 +46,7 @@ export function SettingsSidebar({ active, onSelect, windows = false }: { active:
         {groups.map((group) => <div key={group[0].group} className="space-y-0.5">
           <p className="px-2 pb-1 text-[11px] font-medium text-muted-foreground">{({ personalization: "Personalization", services: "Apps & connections", system: "System" })[group[0].group]}</p>
           {group.map(({ id, label, icon: Icon, color, blurb }) => {
-            const on = id === active;
+            const on = settingsNavActive(id, active);
             return <Button key={id} variant="ghost" aria-current={on ? "page" : undefined} title={blurb} onClick={() => onSelect(id)}
               className={cn("relative h-auto min-h-11 w-full justify-start gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] font-normal", on ? windows ? "bg-accent text-accent-foreground hover:bg-accent" : "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground" : "text-foreground hover:bg-accent")}>
               {windows && on && <span className="absolute left-0 h-4 w-[3px] rounded-full bg-primary" />}

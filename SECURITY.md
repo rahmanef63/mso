@@ -243,8 +243,8 @@ app identity, state path and symlink collisions before writing, then creates an 
 ## Rotation and retention
 
 - change `OS_SESSION_SECRET` to invalidate browser sessions;
-- change `OS_LOGIN_PASSWORD` to rotate the owner password;
-- change device roles or revoke browsers in Settings → Devices / `mso device`; use the local CLI for recovery;
+- change `OS_LOGIN_PASSWORD`, or use Settings → Account → Reset password, to rotate the owner password;
+- change device roles or revoke browsers in Settings → Account → Devices / `mso device`; use the local CLI for recovery;
 - remove/revoke MCP tokens from Settings → MCP;
 - rotate provider credentials from Settings → AI or the corresponding environment source;
 - rotate managed-app credentials if a state snapshot containing them was exposed.

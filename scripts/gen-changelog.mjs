@@ -6,7 +6,7 @@
 // reason. This does not reopen that: nothing is written here by hand, so there is
 // no second thing to keep in sync and no way for it to disagree with history.
 // PROGRESS.md stays the SSOT for WHY; this is a reverse-chronological WHAT, and it
-// is what Settings → About renders as "What's new" so a change is visible in the
+// is what Settings → Account → About renders as "What's new" so a change is visible in the
 // running app instead of only in a terminal.
 //
 //   node scripts/gen-changelog.mjs           # write docs/CHANGELOG.md
@@ -95,7 +95,7 @@ const out = [
   "",
   "**Generated — do not edit.** `node scripts/gen-changelog.mjs`, run by `bun run ship`.",
   "Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;",
-  "this is the *what*, and it is what Settings → About shows as “What's new”.",
+  "this is the *what*, and it is what Settings → Account → About shows as “What's new”.",
   "",
 ];
 

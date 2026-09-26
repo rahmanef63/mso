@@ -3,7 +3,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 
-// Serves docs/CHANGELOG.md so Settings → About can show "What's new" in the running
+// Serves docs/CHANGELOG.md so Settings → Account → About can show "What's new" in the running
 // app. The point of the whole thing: a shipped change should be visible where the
 // owner already is, not only in a terminal they would have to go and open.
 //

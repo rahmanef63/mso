@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { SECTIONS } from "./lib/sections";
+import { sectionFromSearch } from "./lib/sections";
 import { useEffect, useState } from "react";
 import { useAppearance, effectiveServerTarget } from "@/lib/appearance";
 import { useSession } from "@/features/auth";
@@ -17,7 +17,7 @@ import { SettingsShell } from "./components/settings-shell";
 // Default export so os-shell can lazy-load it as a window app.
 export default function OsSettings() {
   const params = useSearchParams();
-  const initial = SECTIONS.find(section => section.id === params.get("section"))?.id;
+  const initial = sectionFromSearch(params.get("section"));
   const { tweaks } = useAppearance();
   const { status, role } = useSession();
   // Shared Settings state stays here; SettingsShell selects the presentation profile.

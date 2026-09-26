@@ -83,7 +83,7 @@ case "$cmd" in
   # checkout-wide quiesce/build/restart/restore lifecycle as service self-update.
   build)  (cd "$ROOT" && bash scripts/verify-build.sh) ;;
   deploy) deploy_safe ;;
-  # The same self-update Settings → About drives, so both surfaces get the same
+  # The same self-update Settings → Account → About drives, so both surfaces get the same
   # preflight and the same transient-unit handoff (a build spawned from the service
   # would be killed by the restart it performs).
   update) local_url="$(gateway_local_url)"; MSO_UPDATE_ROOT="$ROOT" MSO_UPDATE_LOCAL_URL="$local_url" "$ROOT/scripts/mso-update" "$@" ;;

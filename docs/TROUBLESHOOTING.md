@@ -38,7 +38,7 @@ forward the real client IP consistently so every user does not share the proxy a
 ### Correct password but "pending approval"
 
 Expected for a new browser. Approve the shown device id from an already-approved browser
-(Settings → Devices) or from the server using the approval script. Pair and re-check from the
+(Settings → Account → Devices) or from the server using the approval script. Pair and re-check from the
 **same browser origin**. Device identity is browser-origin scoped, so approving an ID from
 `http://server-ip:4005` and then switching to `https://mso.example.com` creates a different ID.
 
@@ -223,7 +223,7 @@ the expected release. If the deployment is correct but the build tree is inconsi
 
 ### Update button says a newer version exists forever
 
-Check Settings → About and `~/.mso/self-update.log`. A successful self-update ends with
+Check Settings → Account → About and `~/.mso/self-update.log`. A successful self-update ends with
 `UPDATE OK`. Also verify only one production process is serving the public origin. If the
 browser cached an old service worker, unregister it once and hard reload after the server is
 confirmed healthy.

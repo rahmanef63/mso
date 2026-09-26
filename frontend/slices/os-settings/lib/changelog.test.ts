@@ -1,4 +1,4 @@
-// The generated changelog is what Settings → About shows as "What's new", so what
+// The generated changelog is what Settings → Account → About shows as "What's new", so what
 // this parser drops, the owner never sees. These pin the two things that were
 // actually wrong when it was rendered as markdown: the developer preamble reached
 // the reader, and the `scope` chip was just more prose.

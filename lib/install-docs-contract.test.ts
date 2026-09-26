@@ -73,7 +73,7 @@ describe("installer documentation contract", () => {
 
   it("prints modern update surfaces plus a legacy fallback after installation", () => {
     expect(core).toContain("Update:    mso update");
-    expect(core).toContain("Settings → About");
+    expect(core).toContain("Settings → Account → About");
     expect(core).toContain("Legacy:    re-run the official one-line installer");
     expect(core).toContain('ok "mso updated at $DIR"');
     const pairing = core.indexOf("Pair your first device after the API is running");

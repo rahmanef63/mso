@@ -8,7 +8,7 @@ const BUILD_ID =
 
 // WHICH COMMIT THIS BUILD IS, baked in at build time — the only way the running app
 // can know it, since `git rev-parse HEAD` at runtime answers for the CHECKOUT, which
-// moves whenever someone pulls. Settings → About compares the two: equal means the
+// moves whenever someone pulls. Settings → Account → About compares the two: equal means the
 // running build is current, different means a build is pending and the update panel
 // offers the rebuild. Empty is fine and expected — scripts/verify-build.sh compiles
 // a `git archive` export with no .git in it.

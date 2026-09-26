@@ -52,7 +52,7 @@ For a public connector use a stable HTTPS origin, normally a named Cloudflare Tu
 random `*.trycloudflare.com` Quick Tunnel URL as `OS_PUBLIC_ORIGIN`.
 
 After changing deployment environment or `OS_MCP_MAX_SCOPE`, use the normal MSO update/rebuild path
-(Settings → About or `mso update --rebuild`), then repeat/refresh the OAuth consent flow in ChatGPT so
+(Settings → Account → About or `mso update --rebuild`), then repeat/refresh the OAuth consent flow in ChatGPT so
 the connector receives the new scope ceiling. A Git push or editing `.env.local` does not change the
 running service by itself, and existing tokens are not magically widened.
 

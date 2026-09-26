@@ -46,7 +46,7 @@ back in; the root `progress.md` is gitignored local scratch and claims authority
 does not have.) `docs/CHANGELOG.md` exists again as of 2026-08-11 but is **generated
 from git subjects** by `scripts/gen-changelog.mjs` and gated stale-by-`gates.sh`, so
 there is nothing to keep in sync and no way for it to disagree with history. PROGRESS
-is the WHY; CHANGELOG is the WHAT, and it is what Settings → About renders as
+is the WHY; CHANGELOG is the WHAT, and it is what Settings → Account → About renders as
 "What's new" so a shipped change is visible in the running app.
 
 
@@ -202,7 +202,7 @@ to `resources/` (rr) and drive any project from one manifest:
   changelog, runs committed pre-push gates/out-of-tree build, pushes the exact SHA, then finalizes
   the supported service replacement/chunk verification. Through MSO/MCP, finalization runs in
   `mso-self-update.service`; completion is proven only when the log ends `UPDATE OK`. Operator
-  update/recovery is Settings → About or `mso update [--rebuild]`. Do not use a bare in-place
+  update/recovery is Settings → Account → About or `mso update [--rebuild]`. Do not use a bare in-place
   build merely to verify code.
 - **Service worker** is served from `app/api/sw/route.ts` with a `beforeFiles` rewrite
   `/sw.js`→`/api/sw`. It caches only icons+manifest, never chunks/HTML, and bakes `BUILD_ID` into
@@ -294,7 +294,7 @@ the real runtime and working analogue before changing a tool or skill contract.
 ## Install/update requests from an AI agent
 When a user points an agent at this repository and asks to install or update MSO, the agent must use
 `scripts/install.sh` / `mso update`, not hand-roll a competing setup. The installer is also the backward-
-compatible bridge for old installations that predate `mso update` and Settings → About: it detects the
+compatible bridge for old installations that predate `mso update` and Settings → Account → About: it detects the
 active service checkout, preserves `.env.local` + `~/.mso`, and updates in place. Never create a second
 install beside an owned service or reset dirty/diverged source. End with `mso doctor` and health proof.
 Credential prompts remain hidden/STDIN; tell the user where to create/store a required key, never put it
