@@ -78,7 +78,7 @@ export function LoginCard({ onAuthed }: { onAuthed: () => void }) {
             <ShieldQuestion className="mt-0.5 size-4 shrink-0" />
             <p>
               This device isn’t approved yet. Send the ID below to an approved
-              device’s <strong>Settings → Devices</strong>, or to the owner.
+              device’s <strong>Settings → Account → Devices</strong>, or to the owner.
             </p>
           </div>
           <div className="flex items-center gap-2">

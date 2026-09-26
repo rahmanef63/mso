@@ -201,10 +201,13 @@ const run = async () => {
   await open("report.docx");
   check(/No browser can render this format/i.test(await scope(page, "report.docx").innerText()), "DOCX says why, and offers the download");
 
-  // Settings → About: the update panel is the other thing that can only be wrong live.
+  // Settings → Account → About: the update panel is the other thing that can only be wrong live.
   await page.goto(`${BASE}/settings`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2500);
-  const about = page.getByText("About", { exact: true }).first();
+  const account = page.getByRole("button", { name: "Account", exact: true }).first();
+  if (await account.count()) await account.click().catch(() => {});
+  await page.waitForTimeout(800);
+  const about = page.getByRole("button", { name: "About", exact: true }).first();
   if (await about.count()) await about.click().catch(() => {});
   await page.waitForTimeout(3500);
   const settings = await (MOBILE ? page.locator("#main-content") : page.locator("[data-window]").last()).innerText();

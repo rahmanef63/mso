@@ -9,7 +9,7 @@ import { DevicesPanel, useSession } from "@/features/auth";
 import { SettingsSection } from "@/features/shell-settings";
 import { cn } from "@/lib/utils";
 import { Lock, ShieldCheck } from "lucide-react";
-import { SECTIONS, type SectionId } from "../lib/sections";
+import { settingsSection, type SectionId } from "../lib/sections";
 
 import { AutoLockRow } from "./auto-lock-row";
 
@@ -17,6 +17,7 @@ import { AutoLockRow } from "./auto-lock-row";
 // fetches before its existing role gate allows it; inactive sections stay deferred.
 const loadingSection = () => <p role="status" className="p-3 text-sm text-muted-foreground">Loading settings…</p>;
 const A2ASection = dynamic(() => import("./a2a-section").then((module) => module.A2ASection), { loading: loadingSection });
+const AccountSection = dynamic(() => import("./account-section").then((module) => module.AccountSection), { loading: loadingSection });
 const AboutSection = dynamic(() => import("./about-section").then((module) => module.AboutSection), { loading: loadingSection });
 const AiSection = dynamic(() => import("./ai-section").then((module) => module.AiSection), { loading: loadingSection });
 const AppearanceSection = dynamic(() => import("./appearance-section").then((module) => module.AppearanceSection), { loading: loadingSection });
@@ -43,7 +44,7 @@ const OWNER_ONLY = new Set<SectionId>([
   "backup",
 ]);
 
-export function SettingsSectionBody({ id }: { id: SectionId }) {
+export function SettingsSectionBody({ id, onOpen }: { id: SectionId; onOpen?: (id: SectionId) => void }) {
   const { status, role } = useSession();
   const privateSection = ["a2a", "devices", "cleanup", "ai"].includes(id);
   if (privateSection && status !== "in") return <SettingsSection icon={<Lock />} title="Sign in to manage this section">
@@ -64,6 +65,8 @@ export function SettingsSectionBody({ id }: { id: SectionId }) {
     );
   }
   switch (id) {
+    case "account":
+      return <AccountSection onOpen={onOpen ?? (() => {})} />;
     case "appearance":
       return <AppearanceSection />;
     case "theme":
@@ -115,12 +118,14 @@ export function SettingsSectionBody({ id }: { id: SectionId }) {
 export function SectionDetail({
   id,
   showHeading = true,
+  onOpen,
 }: {
   id: SectionId;
   showHeading?: boolean;
+  onOpen?: (id: SectionId) => void;
 }) {
   const { id: shellId } = useActiveShell();
-  const meta = SECTIONS.find((s) => s.id === id);
+  const meta = settingsSection(id);
   return (
     <ScrollArea className="h-full">
       <div
@@ -142,7 +147,7 @@ export function SectionDetail({
             <p className="text-xs text-muted-foreground">{meta.blurb}</p>
           </header>
         )}
-        <SettingsSectionBody id={id} />
+        <SettingsSectionBody id={id} onOpen={onOpen} />
       </div>
     </ScrollArea>
   );

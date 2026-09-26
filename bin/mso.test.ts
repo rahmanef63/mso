@@ -132,6 +132,10 @@ describe("bin/mso", () => {
       "POST /api/v1/channels/discord/[id]", // Provider callback: requires Discord Ed25519 signature, not a user CLI action.
       "/api/v1/managed-apps/[id]/proxy/[[...path]]",
       "/api/auth/devices",
+      // Settings → Account owns display name, icon, and password rotation.
+      // Passwords stay in OS_LOGIN_PASSWORD and must not be placed on a shell argv.
+      "/api/auth/account",
+      "/api/auth/password",
       // Internal transport between scripts/mso-agent.mjs and the authenticated
       // server-side MCP catalog. It is not a user-facing CLI verb by design.
       "/api/v1/agent-tools",

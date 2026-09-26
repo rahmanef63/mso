@@ -66,7 +66,7 @@ The raw application binds to **127.0.0.1** by default. Compatibility hosts manag
 `mso update` updates from main. `mso reset` and `mso reset --scope all` preview configuration/factory resets;
 `mso uninstall --purge --remove-code` previews removal of owned data and a clean standalone clone.
 Applying reset/uninstall requires an offline runtime and an exact confirmation token from an independent terminal.
-Browser reset is separate in **Settings → About**. [Backups, scope and safeguards](./docs/MAINTENANCE.md).
+Browser reset is separate in **Settings → Account → About**. [Backups, scope and safeguards](./docs/MAINTENANCE.md).
 
 </details>
 

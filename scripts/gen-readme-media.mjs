@@ -5,7 +5,7 @@
 //   OS_MEDIA_DEVICE=<approved-device-id> node scripts/gen-readme-media.mjs
 //
 // Requires: the server running (default http://127.0.0.1:4005), an APPROVED device
-// id (Settings → Devices, or scripts/approve-device.js --list), OS_SESSION_SECRET in
+// id (Settings → Account → Devices, or scripts/approve-device.js --list), OS_SESSION_SECRET in
 // .env.local, the Playwright install under os-browser/, and ffmpeg (for the gif).
 //
 // It also shot docs/media/hero-desktop.png until 2026-07-30. README.md:42 has rendered

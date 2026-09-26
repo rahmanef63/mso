@@ -1,3 +1,13 @@
+## 2026-09-26 — Settings Account section
+
+Settings now opens on an Account section. Rename, icon, and password reset live
+there, and Devices and About are reached from inside Account instead of as
+sibling sections. The display name and icon are the owner profile in
+`~/.mso/account.json`. Password reset still rotates `OS_LOGIN_PASSWORD` in
+`.env.local` with the existing constant-time compare; it does not add a second
+password store. Deep links to `?section=devices` and `?section=about` still open
+those panels, and mobile back returns to Account.
+
 ## 2026-09-26 — Crash-safe continuation and source-isolated agent work
 
 ChatGPT/MCP continuation no longer depends on the user recovering a dead tab or

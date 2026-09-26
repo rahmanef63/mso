@@ -97,4 +97,4 @@ fi
 
 echo
 echo "✅ shipped ${RELEASE_SHA:0:7} → ${OS_PUBLIC_ORIGIN:-http://localhost:4005}"
-echo "   What's new is in Settings → About (docs/CHANGELOG.md, regenerated above)."
+echo "   What's new is in Settings → Account → About (docs/CHANGELOG.md, regenerated above)."
