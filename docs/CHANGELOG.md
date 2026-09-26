@@ -36,6 +36,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `auth` rebuild the account profile before writing it
 - `windows` match native taskbar proportions
+- `jev` close release contract gaps
 - `worktrees` keep runtime paths out of build tracing
 - `memory` keep runtime backup paths out of build tracing
 - `tests` make recovery fixtures portable

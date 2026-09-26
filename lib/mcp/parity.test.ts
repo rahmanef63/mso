@@ -188,6 +188,7 @@ describe("MCP rate limits mirror the routes", () => {
       // workflow_status is app-only polling. Keep its own bucket so UI refreshes
       // neither consume lifecycle capacity nor bypass the server-wide token limit.
       "workflow.status": 30,
+      "jev.action": 30,
       "agent.session": 30,
       "agent.memory": 30,
       "agent.subagent": 12,
