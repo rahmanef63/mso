@@ -41,7 +41,7 @@ describe("MCP crash-safe session continuation", () => {
       actor: principal + "#session:" + prior.id,
       scope: "write",
       intent: "implement crash-safe continuation",
-      project: "/home/rahman/projects/mso",
+      project: "/srv/projects/mso",
       constraints: "do not reuse dead session workflow ids",
     });
     await workflow.recordWorkflowStep(principal + "#session:" + prior.id, active.workflow.id, {
@@ -71,12 +71,12 @@ describe("MCP crash-safe session continuation", () => {
       source: "unfinished_workflow",
       workflow: {
         intent: "implement crash-safe continuation",
-        project: "/home/rahman/projects/mso",
+        project: "/srv/projects/mso",
         stepCount: 1,
       },
       workflowStart: {
         intent: "implement crash-safe continuation",
-        project: "/home/rahman/projects/mso",
+        project: "/srv/projects/mso",
         constraints: "do not reuse dead session workflow ids",
       },
     });
@@ -94,7 +94,7 @@ describe("MCP crash-safe session continuation", () => {
       actor: principal + "#session:" + first.id,
       scope: "write",
       intent: "continue Batonly UI remediation",
-      project: "/home/rahman/projects/baton",
+      project: "/srv/projects/baton",
     });
     await workflow.recordWorkflowStep(principal + "#session:" + first.id, a.workflow.id, {
       id: "a", tool: "fs_read", state: "completed", ts: "2026-09-26T08:10:00.000Z",
@@ -103,7 +103,7 @@ describe("MCP crash-safe session continuation", () => {
       actor: principal + "#session:" + second.id,
       scope: "write",
       intent: "continue BelajarAI staging",
-      project: "/home/rahman/projects/belajar-ai",
+      project: "/srv/projects/belajar-ai",
     });
     await workflow.recordWorkflowStep(principal + "#session:" + second.id, b.workflow.id, {
       id: "b", tool: "fs_read", state: "completed", ts: "2026-09-26T08:11:00.000Z",

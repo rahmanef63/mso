@@ -32,7 +32,7 @@ describe("workflow crash recovery", () => {
       actor: a,
       scope: "write",
       intent: "continue MSO session recovery",
-      project: "/home/rahman/projects/mso",
+      project: "/srv/projects/mso",
       constraints: "preserve session isolation",
     });
     await workflow.recordWorkflowStep(a, first.workflow.id, {
@@ -46,7 +46,7 @@ describe("workflow crash recovery", () => {
       actor: b,
       scope: "write",
       intent: "finish MSO crash-safe continuation",
-      project: "/home/rahman/projects/mso",
+      project: "/srv/projects/mso",
     });
     await workflow.recordWorkflowStep(b, latest.workflow.id, {
       id: "b-1",
@@ -59,7 +59,7 @@ describe("workflow crash recovery", () => {
       actor: other,
       scope: "write",
       intent: "unrelated Batonly work",
-      project: "/home/rahman/projects/baton",
+      project: "/srv/projects/baton",
     });
 
     const rows = await workflow.workflowRecoveryCandidates({
@@ -72,7 +72,7 @@ describe("workflow crash recovery", () => {
     expect(rows[0]).toMatchObject({
       sourceSessionId: "session-b",
       intent: "finish MSO crash-safe continuation",
-      project: "/home/rahman/projects/mso",
+      project: "/srv/projects/mso",
       stepCount: 1,
     });
     expect(JSON.stringify(rows[0])).not.toContain(latest.workflow.id);
