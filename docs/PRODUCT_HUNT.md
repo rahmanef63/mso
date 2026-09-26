@@ -9,24 +9,19 @@ MSO — Manef Shell OS
 
 ## Tagline
 
-Manage your Linux server from any browser.
+Self-hosted control plane for AI agents
 
 ## Description
 
-MSO is an open-source, mobile-friendly visual shell for a Linux server you own. It combines
-Files, real PTY Terminal, Code with an integrated terminal, live metrics, a safe Service Center,
-cached package-update visibility, a remote Camoufox browser, device-scoped roles, media tools,
-optional BYOK Alfa AI, and managed Hermes/OpenClaw controls
-inside one private browser workspace.
+MSO is an open-source, self-hosted control plane for AI agents working across projects, tools, workflows and infrastructure. It combines project-aware agent sessions, scoped MCP/tools, native integrations, server-native workflows, files/terminal/service operations, memory and execution evidence behind one responsive browser/CLI/MCP runtime.
+
+The OS-style interface is the workspace metaphor, not the product boundary. MSO runs on a server you control and keeps provider credentials and privileged operations behind server-side identity, scope and approval rules.
 
 ## First comment draft
 
-I built MSO because managing a personal Linux server from a phone is still more awkward than
-it should be. SSH is powerful, but on mobile I kept jumping between terminal tabs, file
-transfer tools, metrics dashboards, docs and AI chat.
+I built MSO because useful agent work kept fragmenting across chat history, repositories, terminals, MCP tools, workflow apps, credentials and deployment consoles. I wanted one self-hosted control plane that could keep the project context, tool authority and execution evidence together.
 
-MSO is not a Linux distribution, desktop environment or VPS provider. "OS" is the interface
-metaphor: a responsive workspace over a server you already own.
+MSO is not a Linux distribution, VPS provider or a claim to replace every specialist automation product. "OS" is the interface metaphor; the product boundary is the agent control plane over infrastructure you already own.
 
 It is owner-first, with live Viewer, Operator, and Owner roles assigned per approved device.
 Owner remains shell-equivalent to the Linux service account; Operator is limited to bounded,

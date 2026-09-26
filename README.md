@@ -1,7 +1,7 @@
 <h1 align="center">Manef Shell OS</h1>
-<p align="center"><strong>A workspace for your server. A runtime for your agents.</strong></p>
-<p align="center">Real terminals, project-aware AI, files and services — in one self-hosted workspace.</p>
-<p align="center"><a href="#see-it-work">Demo</a> · <a href="#install-or-update-mso-from-this-repo">Install</a> · <a href="./docs/COGNITIVE-RUNTIME.md">Agent runtime</a> · <a href="./docs/MCP-HOW-TO.md">Use MCP</a> · <a href="./docs/README.md">Docs</a></p>
+<p align="center"><strong>A self-hosted control plane for AI agents.</strong></p>
+<p align="center">Let agents work across your projects, tools, workflows and infrastructure while keeping context, permissions and execution evidence under your control.</p>
+<p align="center"><a href="#see-it-work">Demo</a> · <a href="./docs/QUICKSTART.md">First 10 minutes</a> · <a href="#install-or-update-mso-from-this-repo">Install</a> · <a href="./docs/LAUNCH-READINESS.md">Launch readiness</a> · <a href="./docs/README.md">Docs</a></p>
 <p align="center"><a href="https://github.com/rahmanef63/mso/actions/workflows/ci.yml"><img alt="Tests and build" src="https://github.com/rahmanef63/mso/actions/workflows/ci.yml/badge.svg" /></a> <a href="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml"><img alt="Actual open security findings" src="https://github.com/rahmanef63/mso/actions/workflows/security-alerts.yml/badge.svg" /></a></p>
 
 ## See it work

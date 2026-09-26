@@ -20,6 +20,13 @@ evidence and review freshness. The repository quality gate runs both automatical
 | Document | Contract |
 |---|---|
 | [`../README.md`](../README.md) | Product overview and quickstart |
+| [`QUICKSTART.md`](./QUICKSTART.md) | Canonical first-10-minutes tutorial: install → doctor → provider → project → safe first agent action → evidence |
+| [`LAUNCH-READINESS.md`](./LAUNCH-READINESS.md) | 20 measurable product/launch gates, P0/P1 policy and truthful launch-label contract |
+| [`LAUNCH-QA.md`](./LAUNCH-QA.md) | Concise launch answers for category, competitors, agent concepts, security, memory, recovery and readiness |
+| [`SOURCE-CONCURRENCY.md`](./SOURCE-CONCURRENCY.md) | One-task-one-worktree, canonical integration authority, remote protection and concurrency acceptance tests |
+| [`AGENT-SECURITY.md`](./AGENT-SECURITY.md) | Agent-specific threat model, tool risk classes, abuse cases and memory-admission security contract |
+| [`DISASTER-RECOVERY.md`](./DISASTER-RECOVERY.md) | 3-2-1 target, RPO/RTO objectives, backup classes and restore-drill acceptance |
+| [`RELIABILITY.md`](./RELIABILITY.md) | Initial SLIs/SLO targets, error-budget policy, disk thresholds and release reliability contract |
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Current runtime, shell, role, host, Agent/Local Agent/subagent, MCP and deployment architecture |
 | [`GATEWAY.md`](./GATEWAY.md) | Provider-neutral gateway state, health, ownership, supervisor and deployment contract |
 | [`COGNITIVE-RUNTIME.md`](./COGNITIVE-RUNTIME.md) | Provider-neutral MCP/session/context/tool-routing runtime and benchmark contract |
