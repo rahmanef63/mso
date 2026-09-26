@@ -17,7 +17,14 @@ describe("additional native credential providers", () => {
     expect(setupFields("convex-cloud", "personal").map(f => f.key)).toEqual(["personalToken"]);
     expect(setupFields("convex-cloud", "deployment").map(f => f.key)).toEqual(["deployKey", "deploymentName"]);
     expect(() => setupFields("convex-cloud", "organization")).toThrow();
-    expect(setupFields("doku","payment").map(f=>f.key)).toEqual(["paymentClientId","paymentSecretKey","paymentEnvironment"]);
+    const dokuPayment = setupFields("doku","payment");
+    expect(dokuPayment.map(f=>f.key)).toEqual(["paymentClientId","paymentSecretKey","paymentEnvironment"]);
+    expect(dokuPayment.map(f=>f.placeholder)).toEqual(["MCH-0001-xxxxxxxxxxxxxxx","SK-EXAMPLE-DO-NOT-USE","sandbox"]);
+    for (const field of dokuPayment) {
+      expect(field.links?.length).toBeGreaterThan(0);
+      for (const item of field.links ?? []) expect(item.url).toMatch(/^https:\/\//);
+    }
+    expect(dokuPayment.find(f=>f.key==="paymentEnvironment")?.description).toContain("You do not copy this");
     expect(setupFields("doku", "mcp").map(f => f.key)).toEqual(["mcpClientId", "mcpApiKey", "environment"]);
     expect(() => setupFields("doku", "direct")).toThrow();
   });

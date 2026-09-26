@@ -4,7 +4,13 @@ export type InfraProviderId = (typeof INFRA_PROVIDER_IDS)[number];
 export type InfraProviderValues = Record<string, string>;
 export type LegacyInfraStore = { providers?: Partial<Record<InfraProviderId, InfraProviderValues>> };
 export type InfraField = {
-  key: string; label: string; secret: boolean; required: boolean; placeholder?: string; description: string;
+  key: string;
+  label: string;
+  secret: boolean;
+  required: boolean;
+  placeholder?: string;
+  description: string;
+  links?: readonly { label: string; url: string }[];
 };
 export type InfraProviderDefinition = {
   id: InfraProviderId; title: string; description: string; feature: boolean; fields: InfraField[];

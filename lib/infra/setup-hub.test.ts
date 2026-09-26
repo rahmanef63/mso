@@ -12,6 +12,6 @@ it("derives the complete native setup catalog from the same provider registry", 
 it("keeps guidance before login and preserves explicit role/expiry recovery", () => {
   const page = integrationSetupPage();
   expect(() => new Function(inlineScripts(page.html)[0])).not.toThrow();
-  for (const marker of ['"/api/auth/me"', 'owner=auth.role==="owner"', '"visibilitychange"', 'How to get this credential', 'mountConnectionManager']) expect(page.html).toContain(marker);
+  for (const marker of ['"/api/auth/me"', 'owner=auth.role==="owner"', '"visibilitychange"', 'How to get this credential', 'mountConnectionManager', 'field-source', 'Array.isArray(f.links)']) expect(page.html).toContain(marker);
   expect(CONNECTION_MANAGER_SCRIPT).not.toContain('localStorage'); expect(page.csp).toContain("form-action 'none'");
 });
