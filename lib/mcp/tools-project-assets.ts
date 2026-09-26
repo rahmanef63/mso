@@ -3,6 +3,7 @@ import { readSessionArtifact } from "@/lib/agent/artifacts";
 import { attachProjectAsset } from "@/lib/host/project-assets";
 import { resolveProjectHint } from "@/lib/host/projects-api";
 import { type McpTool, S, str, opt } from "./tool-kit";
+import { requireWorkflowProjectTarget } from "./workflow-workspace-guard";
 export const PROJECT_ASSET_TOOLS: McpTool[] = [{
   name: "project_asset_attach", title: "Attach Asset to Project", scope: "write",
   description: "Copy one owned session image/JSON artifact into an exact project at relative_path. Verifies source checksum and creates the destination atomically; same bytes are idempotent, different existing bytes are refused. Project copy survives session cleanup. Preview with session_artifacts; manage project files with fs_*.",
@@ -14,6 +15,7 @@ export const PROJECT_ASSET_TOOLS: McpTool[] = [{
   run: async (a, context) => {
     const project = await resolveProjectHint(str(a, "project"));
     if (!project || project.matchedBy === "fuzzy") throw new Error("exact project required");
+    await requireWorkflowProjectTarget(context, project.path);
     const owner = await ownedArtifactSession(context.principal, opt(a, "session_id") || context.sessionId);
     const source = await readSessionArtifact(owner, str(a, "artifact_id"));
     return { project: project.id, artifactId: source.entry.id, ...await attachProjectAsset(project.path, str(a, "relative_path"), source.bytes, source.entry.mimeType) };

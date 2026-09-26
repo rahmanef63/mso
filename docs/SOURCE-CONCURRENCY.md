@@ -29,6 +29,20 @@ user request
 7. A worktree is removed only after unique tracked/untracked work is proven preserved and accounted for.
 8. Release evidence records candidate SHA, integrated SHA, deployed SHA and live SHA separately.
 
+## Mutation-surface classification
+
+Source isolation is about protecting repository/source authority, not relocating every durable control-plane store into a Git worktree.
+
+| Surface | Classification during isolated source workflow | Rule |
+|---|---|---|
+| `fs_*`, shell, project functions | Source/host mutation | Must target the task worktree; canonical/implicit cwd is refused. |
+| Project MCP config/calls, project assets, project-agent write/exec, project flow run/manage, Tool Forge promotion | Project source/config or project-code execution | Must resolve to the task worktree. Canonical project targets fail closed. |
+| `.mso/KNOWLEDGE.md`, `.agent/` memory/evidence/recipes/scripts | Canonical private project metadata | Remain project-private/canonical and gitignored; they must not authorize source writes or destructive cleanup. |
+| Workflow graph private store, session/artifact indexes, organization, local/A2A messages | Control-plane private state | Stay in their existing private authority store; no worktree redirection. |
+| Project database calls, integrations and infrastructure providers | External/provider state | Keep provider-scoped authorization/concurrency rules; worktree isolation does not replace those boundaries. |
+
+Dynamic/project automation does not create an escape hatch: any downstream source-facing tool is still workspace-bound, and project flow execution itself must select the owned worktree. Read-only discovery may inspect canonical state.
+
 ## Remote protection target
 
 GitHub is code storage and a remote policy boundary; MSO/Batonly may remain the CI/CD executor. Protect `main` with a ruleset/branch policy that, where account/repository capabilities allow:

@@ -4,6 +4,7 @@ import { createProjectAgentTask, getProjectAgentTask, updateProjectAgentTask } f
 import { allows, parseScope } from "./scope";
 import { type McpTool, S, str, opt, READ_ONLY } from "./tool-kit";
 import { databaseDeployment, selectedProject } from "./tools-project-shared";
+import { requireWorkflowProjectTarget } from "./workflow-workspace-guard";
 
 export const PROJECT_RUNTIME_TOOLS: McpTool[] = [
   {
@@ -86,6 +87,7 @@ export const PROJECT_RUNTIME_TOOLS: McpTool[] = [
       const project = await selectedProject(str(a, "project"));
       const requested = parseScope(a.plan_mode === true ? "read" : (opt(a, "max_scope") ?? "write"));
       if (!allows(context.scope, requested)) throw new Error(`project agent max_scope ${requested} exceeds caller scope ${context.scope}`);
+      if (requested !== "read") await requireWorkflowProjectTarget(context, project.path);
       const message = str(a, "message"), planMode = a.plan_mode === true;
       const task = await createProjectAgentTask({ principal: context.principal, sessionId: context.sessionId, project: { id: project.id, name: project.name }, planMode, maxScope: requested });
       const execute = async () => {

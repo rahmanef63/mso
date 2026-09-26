@@ -6,6 +6,7 @@ import { getForgeCandidate, listForgeCandidates, publicForgeCandidate, updateFor
 import { listLearnedRecipes } from "@/lib/workflow";
 import { type McpTool, S, str, opt } from "./tool-kit";
 import { toolsetInfo } from "./toolset";
+import { requireWorkflowProjectTarget } from "./workflow-workspace-guard";
 
 function forgeOwner(context: { recipeActor?: string; actor?: string }): string {
   const owner = context.recipeActor ?? context.actor;
@@ -125,6 +126,7 @@ export const FORGE_TOOLS: McpTool[] = [
       const current = await getForgeCandidate(id, owner);
       if (!current) throw new Error("forge candidate not found");
       if (current.state === "promoted") throw new Error("forge candidate is already promoted");
+      await requireWorkflowProjectTarget(context, current.projectPath);
       const evaluation = await freshEvaluation(current);
       if (!evaluation.passed) {
         await updateForgeCandidate(id, owner, (candidate) => ({ ...candidate, state: "draft", evaluation, updatedAt: new Date().toISOString() }));
