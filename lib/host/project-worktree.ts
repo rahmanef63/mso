@@ -54,10 +54,11 @@ export type PreparedProjectWorktree = {
  * another by hiding or committing its source state.
  */
 export async function prepareProjectWorktree(projectPath: string): Promise<PreparedProjectWorktree> {
+  // Runtime host paths are policy-guarded inputs, never deploy-time project assets.
   const canonicalPath = await fs.realpath(projectPath).catch(() => null);
   if (!canonicalPath) throw new HostError("Project path does not exist");
   const top = await git(canonicalPath, ["rev-parse", "--show-toplevel"]);
-  const topReal = await fs.realpath(top).catch(() => top);
+  const topReal = await fs.realpath(/* turbopackIgnore: true */ top).catch(() => top);
   if (topReal !== canonicalPath) throw new HostError("Source isolation requires the exact Git project root");
 
   const marker = await fs.lstat(path.join(canonicalPath, ".git")).catch(() => null);
@@ -73,9 +74,9 @@ export async function prepareProjectWorktree(projectPath: string): Promise<Prepa
   const baseCommit = await git(canonicalPath, ["rev-parse", "HEAD"]);
   if (!/^[a-f0-9]{40}$/.test(baseCommit)) throw new HostError("Could not prove the canonical Git commit");
 
-  const root = path.resolve(worktreeRoot());
+  const root = path.resolve(/* turbopackIgnore: true */ worktreeRoot());
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
-  const rootReal = await fs.realpath(root);
+  const rootReal = await fs.realpath(/* turbopackIgnore: true */ root);
   const token = randomUUID().replace(/-/g, "").slice(0, 12);
   const slug = safeSlug(path.basename(canonicalPath));
   const workspacePath = path.join(rootReal, `${slug}-${token}`);
@@ -117,7 +118,7 @@ export async function discardWorkflowWorktreeIfUnchanged(input: { canonicalPath:
   const canonicalPath = await fs.realpath(input.canonicalPath).catch(() => null);
   const workspacePath = await fs.realpath(input.workspacePath).catch(() => null);
   if (!canonicalPath || !workspacePath || canonicalPath === workspacePath) return false;
-  const root = await fs.realpath(path.resolve(worktreeRoot())).catch(() => null);
+  const root = await fs.realpath(/* turbopackIgnore: true */ path.resolve(/* turbopackIgnore: true */ worktreeRoot())).catch(() => null);
   if (!root) return false;
   const rel = path.relative(root, workspacePath);
   if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) return false;
@@ -141,7 +142,7 @@ function insideRoot(root: string, candidate: string): boolean {
  * This is the explicit exception that lets project-scoped tools operate on a task
  * workspace without making arbitrary hidden directories globally resolvable. */
 export async function linkedWorkflowWorktreeCanonicalPath(candidatePath: string): Promise<string | null> {
-  const root = await fs.realpath(path.resolve(worktreeRoot())).catch(() => null);
+  const root = await fs.realpath(/* turbopackIgnore: true */ path.resolve(/* turbopackIgnore: true */ worktreeRoot())).catch(() => null);
   const candidate = await fs.realpath(candidatePath).catch(() => null);
   if (!root || !candidate || candidate === root || !insideRoot(root, candidate)) return null;
   const marker = await fs.lstat(path.join(candidate, ".git")).catch(() => null);

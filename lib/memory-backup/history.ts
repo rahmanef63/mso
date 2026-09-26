@@ -24,7 +24,7 @@ export async function listSnapshots(root: string, options: Options = {}): Promis
   try {
     const revision = stamp(await pin.directory.stat());
     if (offset > 0 && revision !== options.revision) throw new Error("backup history changed; refresh the first page");
-    dir = await fs.opendir(/* turbopackIgnore: true */ path.dirname(pin.file));
+    dir = await fs.opendir(path.dirname(pin.file));
     const items: MemoryBackupHistory["items"] = [];
     const deadline = Date.now() + 5000;
     let position = 0, scannedEntries = 0, finished = false;

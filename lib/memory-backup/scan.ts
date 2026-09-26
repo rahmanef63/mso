@@ -21,11 +21,11 @@ export async function scanSources(sources: Source[], limits: Limits, consume?: (
     if (depth > 32 || !safeRelative(name)) { report.rejected++; return; }
     try {
       await existing(file);
-      const stat = await fs.lstat(/* turbopackIgnore: true */ file);
+      const stat = await fs.lstat(file);
       if (stat.isDirectory()) {
         const pin = await pinSecurityStorePath(path.join(file, ".backup-index"));
         try {
-          const dir = await fs.opendir(/* turbopackIgnore: true */ path.dirname(pin.file));
+          const dir = await fs.opendir(path.dirname(pin.file));
           for await (const entry of dir) {
             if (stopped()) break;
             if (excluded.test(entry.name)) { entries++; report.excluded++; continue; }
