@@ -29,6 +29,7 @@ export type AuditAction =
   | "agent.message"
   | "agent.subagent"
   | "agent.memory"
+  | "jev.decision"
   | "tool.forge.propose"
   | "tool.forge.evaluate"
   | "tool.forge.promote"

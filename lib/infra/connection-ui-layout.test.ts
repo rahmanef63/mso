@@ -33,6 +33,13 @@ it("keeps AI Providers on the existing AI config/runtime SSOT and browser-only c
   expect(CONNECTION_MANAGER_SCRIPT).toContain('select:false');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiConfig=()=>json("/api/config")');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiCatalog=()=>json("/api/models/providers")');
+  expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.jevStatus=()=>json("/api/v1/jev")');
+  expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.jevDecide=body=>json("/api/v1/jev"');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("JEV Lab · bounded decision test");
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("JEV Lab never executes tools");
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("Actual JEV input / cost · 30d");
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("Estimated LLM input / cost avoided · 30d");
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("Actual = provider-reported JEV usage");
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiTest=()=>json("/api/models/test"');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiOauth=body=>json("/api/oauth/openai"');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiRemove=provider=>json("/api/config?provider="');

@@ -26,8 +26,7 @@ import { resolveProjectHint } from "@/lib/host/projects-api";
 import { listAutomationScripts } from "@/lib/orchestration/repo-memory-artifacts";
 import { createWorkflowDataTable, deleteWorkflowDataTable, deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "@/lib/workflow/data-table-store";
 import { optimizeWorkflowGraph } from "@/lib/workflow/graph-optimizer";
-import { createResolvedJevWorkflowOptimizerEvaluator } from "@/lib/workflow/jev-evaluator";
-import { resolveJevIntegrationConfig } from "@/lib/workflow/jev-integration";
+import { createJevDecisionEvaluator } from "@/lib/workflow/jev-decision-plane";
 export const runtime="nodejs";export const dynamic="force-dynamic";const headers={"Cache-Control":"no-store, private"};
 const fail=(error:unknown,status=400)=>NextResponse.json({error:error instanceof Error?error.message.slice(0,500):String(error).slice(0,500)||"workflow request failed"},{status,headers});
 async function auth(minimum:"viewer"|"operator"|"owner"="viewer"){const context=await getSessionContext();if(!context?.session.device_id||!roleAtLeast(context.role,minimum))return null;return{context,principal:`web:${context.session.device_id}`};}
@@ -72,7 +71,7 @@ export async function POST(req:NextRequest){const session=await auth("operator")
   const mode=body.mode==="jev"?"jev" as const:"deterministic" as const;let evaluator;
   if(mode==="jev"){
    if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);
-   evaluator=createResolvedJevWorkflowOptimizerEvaluator(await resolveJevIntegrationConfig(body.jev));
+   evaluator=createJevDecisionEvaluator("workflow.optimize",body.jev,{workflowRef:graph.id},Number(body.threshold)||undefined);
   }
   const optimized=await optimizeWorkflowGraph(graph,{mode,threshold:Number(body.threshold)||undefined,applyReview:body.apply_review===true,evaluator,resolveTool:name=>TOOLS_BY_NAME.get(name)});
   if(action==="optimize_preview")return NextResponse.json({optimization:optimized.preview},{headers});

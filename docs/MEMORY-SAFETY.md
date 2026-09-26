@@ -95,9 +95,11 @@ widen retrieval grants for agents, operators or MCP clients.
 
 ## Remaining integrations and release gates
 
-Jev currently remains a Workflow Optimizer adapter, not a memory-admission
-selector. Real endpoint/token verification and a separate review-first memory
-admission design are required. No model may authorize evidence deletion.
+Jev now participates in **automatic observed workflow-memory admission** only.
+It may classify a bounded successful-route candidate as ignore, episodic, semantic,
+procedural, or candidate-recipe. Explicit user memory writes remain authoritative,
+candidate-recipe does not bypass existing recipe maturity/promotion rules, and a Jev
+decision never grants memory deletion or source-evidence cleanup authority.
 
 New source behavior becomes active only after the normal verified build and
 release process. Passing unit/type/architecture tests alone is not production

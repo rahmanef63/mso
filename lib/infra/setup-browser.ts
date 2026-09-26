@@ -22,7 +22,7 @@ export const INTEGRATION_BROWSER_SCRIPT=String.raw`
       bridge.query=args=>json("/api/v1/integrations?"+new URLSearchParams(args));
       bridge.manage=args=>post("manage",args);bridge.execute=args=>post("execute",args);
       bridge.googleAuthorize=body=>json("/api/integrations/google/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-      bridge.aiConfig=()=>json("/api/config");bridge.aiCatalog=()=>json("/api/models/providers");bridge.aiModels=provider=>json("/api/models?provider="+encodeURIComponent(provider));
+      bridge.aiConfig=()=>json("/api/config");bridge.aiCatalog=()=>json("/api/models/providers");bridge.aiModels=provider=>json("/api/models?provider="+encodeURIComponent(provider));bridge.jevStatus=()=>json("/api/v1/jev");bridge.jevDecide=body=>json("/api/v1/jev",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       bridge.aiSave=body=>json("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});bridge.aiRemove=provider=>json("/api/config?provider="+encodeURIComponent(provider),{method:"DELETE"});
       bridge.aiTest=()=>json("/api/models/test",{method:"POST"});bridge.aiOauth=body=>json("/api/oauth/openai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
       bridge.openSetup=async args=>{const data=await json("/api/v1/infra/setup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(args)});showForm(data.setup,data.token)};

@@ -48,6 +48,10 @@ upgrade projection seeds JEV in memory. An explicitly stored variable map, inclu
 explicit empty map, wins and is never silently re-seeded. This gives existing Jev installs
 a safe default without hardcoding an operator/user ID.
 
+### JEV decision plane observability
+
+**Integrations → AI Providers** shows the JEV model and OpenRouter connection state from the same Settings AI credential SSOT, plus 1/7/30-day decision telemetry. Provider-reported JEV input/output tokens and cost are labeled **actual**; frontier-model calls/tokens/cost/latency avoided are separate **estimates** and are never presented as measured savings. The owner-only JEV Lab exposes decision definitions and bounded read-only test decisions without tool execution or credential exposure.
+
 ## Sources are not authentication methods
 
 **MSO direct** stores owner-only local credential fields. **Composio** keeps the

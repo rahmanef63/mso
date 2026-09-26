@@ -42,6 +42,11 @@ describe("Workflow session graph UI contract", () => {
     expect(sessionDetails).toContain("S3.A4");
     expect(sessionDetails).toContain('data-slot="save-session-workflow-draft"');
     expect(sessionDetails).toContain('data-slot="save-step-workflow-draft"');
+    expect(sessionDetails).toContain("JEV DECISION");
+    expect(sessionDetails).toContain('data-slot="jev-decision-metadata"');
+    expect(sessionDetails).toContain("MCP ACTION · not executed");
+    expect(sessionDetails).toContain("VERIFIED RESULT · n/a");
+    expect(sessionDetails).toContain("Actual JEV cost");
     expect(learningPanel).toContain('data-slot="session-self-improve"');
     expect(learningPanel).toContain("Self-improve");
     expect(workflowApp).toContain("saveSessionWorkflowDraft");
