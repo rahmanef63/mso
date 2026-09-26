@@ -18,6 +18,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `windows` match native taskbar proportions
 - `worktrees` keep runtime paths out of build tracing
 - `memory` keep runtime backup paths out of build tracing
 - `tests` make recovery fixtures portable
@@ -35,6 +36,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Docs**
 
+- refresh changelog for Windows taskbar fidelity
 - `launch` focus demo on one verifiable agent journey
 - `launch` define measurable MSO readiness contract
 
