@@ -5,15 +5,10 @@ import { DatabaseBackup, ShieldCheck, Search } from "lucide-react";
 import { SettingsSection, SettingsActionRow, SettingsValueRow, SettingsBlock } from "@/features/shell-settings";
 import type { MemoryBackupSummary, MemoryBackupVerification, MemoryBackupScan } from "@/lib/contracts/memory-backup";
 
+import { requestBackup as request } from "./server-backup-request";
+import { ServerBackupHistory } from "./server-backup-history";
+
 type Preview = { scan: MemoryBackupScan; sourceDiscoveryTruncated: boolean; sourceCount: number; scope: string; directory: string };
-async function request<T>(body?: Record<string, unknown>): Promise<T> {
-  const response = await fetch("/api/v1/sys/memory-backup", {
-    cache: "no-store", ...(body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
-  });
-  const value = await response.json();
-  if (!response.ok) throw new Error(value.error || `Memory backup failed (${response.status})`);
-  return value;
-}
 const size = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 
 export function ServerBackupSection() {
@@ -41,6 +36,7 @@ export function ServerBackupSection() {
       <SettingsActionRow label="Verify checksum and rehearse restore" icon={<ShieldCheck />} busy={busy === "verify"} disabled={busy !== null} onClick={() => void perform("verify", async () => setVerification(await request<MemoryBackupVerification>({ action: "verify", id: snapshot.id, manifest_sha256: snapshot.manifestSha256, confirm: true })))} />
     </> : null}
     {verification ? <SettingsValueRow label="Restore verification" value={`${verification.restoredFiles} files verified · ${verification.complete ? "captured scope complete" : "partial snapshot only"} · source writes: ${verification.sourceWritesPerformed}`} /> : null}
+    <ServerBackupHistory disabled={busy !== null} onSelect={(saved) => { setSnapshot(saved); setVerification(null); setError(""); }} />
     {error ? <SettingsBlock><p role="alert" className="text-xs text-destructive-text">{error}</p></SettingsBlock> : null}
   </SettingsSection>;
 }

@@ -5,19 +5,14 @@ import { randomUUID } from "node:crypto";
 import { gzip, gunzipSync } from "node:zlib";
 import { promisify } from "node:util";
 import { memorySources, type Source } from "./sources";
-import { scanSources, LIMITS, type Limits, type Scan } from "./scan";
-import { digest, readBytes, safeRelative, writeExclusive } from "./io";
+import { scanSources, LIMITS, type Limits } from "./scan";
+import { digest, readBytes, writeExclusive } from "./io";
+import { backupTarget as target, readManifest, snapshotComplete, type Entry, type Manifest } from "./manifest";
+import { recordVerification } from "./verification-receipt";
 import type { MemoryBackupSummary, MemoryBackupVerification } from "@/lib/contracts/memory-backup";
 
 const compress = promisify(gzip);
-const ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
-type Entry = { name: string; bytes: number; sha256: string; compressedBytes: number; compressedSha256: string };
-type Manifest = { version: 1; id: string; createdAt: string; scan: Scan; sourceDiscoveryTruncated: boolean; entries: Entry[] };
 export const memoryBackupRoot = () => path.join(os.homedir(), ".mso", "backups", "memory");
-function target(root: string, id: string) {
-  if (!ID.test(id)) throw new Error("invalid memory backup id");
-  return path.join(root, id);
-}
 
 export async function previewMemoryBackup() {
   const inventory = await memorySources();
@@ -63,18 +58,7 @@ export async function createMemoryBackup() {
 
 /** Restore rehearsal writes a NEW isolated tree only; never restore over source. */
 export async function verifySnapshot(root: string, id: string, expectedManifestSha256: string): Promise<MemoryBackupVerification> {
-  if (!/^[a-f0-9]{64}$/.test(expectedManifestSha256)) throw new Error("manifest checksum required");
-  const directory = target(root, id), bytes = await readBytes(path.join(directory, "manifest.json"), 8 * 1024 * 1024);
-  if (digest(bytes) !== expectedManifestSha256) throw new Error("backup manifest checksum mismatch");
-  const manifest = JSON.parse(bytes.toString("utf8")) as Manifest;
-  if (manifest.version !== 1 || manifest.id !== id || !Array.isArray(manifest.entries) || manifest.entries.length > LIMITS.files || !manifest.scan) throw new Error("invalid backup manifest");
-  const names = new Set<string>();
-  let total = 0;
-  for (const row of manifest.entries) {
-    if (!row || !safeRelative(row.name) || names.has(row.name) || !Number.isSafeInteger(row.bytes) || row.bytes < 0 || row.bytes > LIMITS.fileBytes || !Number.isSafeInteger(row.compressedBytes) || row.compressedBytes < 0 || row.compressedBytes > LIMITS.fileBytes + 65536 || !/^[a-f0-9]{64}$/.test(row.sha256) || !/^[a-f0-9]{64}$/.test(row.compressedSha256)) throw new Error("unsafe backup entry");
-    names.add(row.name); total += row.bytes;
-    if (total > LIMITS.bytes) throw new Error("restore size limit exceeded");
-  }
+  const { directory, manifest } = await readManifest(root, id, expectedManifestSha256);
   const restoreDirectory = path.join(directory, `restore-check-${randomUUID()}`);
   let restoredFiles = 0;
   for (const row of manifest.entries) {
@@ -88,9 +72,10 @@ export async function verifySnapshot(root: string, id: string, expectedManifestS
     restoredFiles++;
   }
   const result = { id, integrity: true, restoredFiles, restoreDirectory,
-    complete: restoredFiles > 0 && !manifest.scan.truncated && !manifest.scan.rejected && !manifest.sourceDiscoveryTruncated,
+    complete: snapshotComplete(manifest),
     sourceWritesPerformed: 0 as const };
   await writeExclusive(path.join(restoreDirectory, "verification.json"), Buffer.from(JSON.stringify(result)));
+  await recordVerification(directory, expectedManifestSha256, result);
   return result;
 }
 

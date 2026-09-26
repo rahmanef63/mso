@@ -35,6 +35,8 @@ destination paths and never returns backed-up contents.
 
 ```bash
 mso memory-backup preview
+mso memory-backup history
+mso memory-backup history <offset> <revision>
 mso memory-backup create --confirm
 mso memory-backup verify <id> <manifest-sha256> --confirm
 ```
@@ -54,7 +56,22 @@ restore. Concurrent input files can change; this is a per-file verified copy,
 not a transactional point-in-time snapshot, and it is not offsite protection.
 
 Limits: 10,000 files, 40,000 scan entries, 1 GiB input, 32 MiB/file and a 45-second
-scan budget. Full resumable inventory/backup and snapshot-history UI remain open.
+scan budget. Full resumable inventory/backup remains open. History pagination
+continues the saved-snapshot listing only; it does not resume backup copying.
+
+Settings > Backup > Load saved server snapshots reads metadata in bounded pages
+of 12 snapshots, at most 200 directory entries and five seconds per request.
+Continuation uses a directory revision; changes require refreshing the first page.
+The listing is directory order, not a promise of chronological ordering. Corrupt
+metadata is shown as unreadable rather than hidden as empty. Manifest validation
+requires file and byte totals to match its entries before accepting coverage.
+
+New successful restore rehearsals write an immutable receipt bound to the manifest
+checksum. History reports integrity at that recorded time, not a fresh integrity
+check. Older snapshots without receipts remain "not recorded"; they are not
+silently promoted or invalidated. A partial snapshot stays partial after a passing
+restore. Selecting history metadata never starts restore automatically. Receipt
+write failures surface as errors and preserve the isolated restore evidence.
 No backup result grants deletion permission.
 
 ## Visibility and access

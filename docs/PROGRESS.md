@@ -1,3 +1,20 @@
+## 2026-09-26 — Backup history and checksum-bound verification records
+
+Extended the existing owner-only server-memory backup, without creating another
+backup authority. Settings and CLI can page saved metadata, select an old snapshot
+for an explicit isolated restore check, distinguish partial coverage from recorded
+integrity, and show unreadable/error states instead of false empty or complete
+results. Manifest coverage totals are validated by one shared reader. Successful
+rehearsals retain an immutable checksum-bound receipt; old snapshots may lack one.
+
+Targeted synthetic manifest/history/receipt/API/CLI/transport tests pass. The
+mandatory release journey now includes the actual Settings backup UI at desktop,
+phone and landscape sizes, error/retry and accessibility checks, synthetic backup
+transport, and real API role refusals before any private backup access. Full gate
+and production evidence remain release obligations, not assertions made here.
+History pagination is not resumable copying. Source-release review, complete and
+offsite backup, learning coverage and Jev admission remain separate open work.
+
 ## 2026-09-26 — Memory safety and second-brain visibility
 
 Implemented fail-closed session-source preservation, preview/confirmation-first
