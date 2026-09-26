@@ -13,7 +13,7 @@ export async function existing(file: string) {
   for (const part of file.split("/").filter(Boolean)) {
     // Host-owned runtime paths are guarded below, not deployable build assets.
     current = path.join(/* turbopackIgnore: true */ current, part);
-    if ((await fs.lstat(current)).isSymbolicLink()) throw new Error("unsafe path");
+    if ((await fs.lstat(/* turbopackIgnore: true */ current)).isSymbolicLink()) throw new Error("unsafe path");
   }
 }
 export async function readBytes(file: string, max: number) {
@@ -21,7 +21,7 @@ export async function readBytes(file: string, max: number) {
   const pin = await pinSecurityStorePath(file);
   let handle;
   try {
-    handle = await fs.open(pin.file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    handle = await fs.open(/* turbopackIgnore: true */ pin.file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     const before = await handle.stat();
     if (!before.isFile() || before.uid !== process.getuid?.() || (before.mode & 0o022) || before.size > max) throw new Error("unsafe or oversized input");
     const bytes = Buffer.alloc(before.size + 1);
@@ -43,7 +43,7 @@ export async function writeExclusive(file: string, bytes: Buffer) {
   let handle;
   try {
     if ((await pin.directory.stat()).mode & 0o077) throw new Error("backup directory is not private");
-    handle = await fs.open(pin.file, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    handle = await fs.open(/* turbopackIgnore: true */ pin.file, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
     await handle.writeFile(bytes); await handle.sync();
   } finally { await handle?.close(); await pin.directory.close(); }
 }

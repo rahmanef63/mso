@@ -50,7 +50,7 @@ export async function createSnapshot(sources: Source[], root: string, sourceDisc
 }
 
 export async function createMemoryBackup() {
-  const space = await fs.statfs(os.homedir());
+  const space = await fs.statfs(/* turbopackIgnore: true */ os.homedir());
   if (space.bavail * space.bsize < LIMITS.bytes * 3 + 1024 * 1024 * 1024) throw new Error("insufficient headroom for a backup and isolated restore; source files preserved");
   const inventory = await memorySources();
   return createSnapshot(inventory.sources, memoryBackupRoot(), inventory.incomplete);
