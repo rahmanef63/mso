@@ -10,7 +10,7 @@ const snapshot = { id, state: "partial", createdAt: "2026-01-01T00:00:00.000Z", 
 export async function memoryBackupHistoryJourney(page, fixture) {
   const pattern = "**/api/v1/sys/memory-backup**", checks = [], screenshots = [], errors = [];
   const onError = error => errors.push(error.message); page.on("pageerror", onError);
-  let fail = false, posts = [], queries = [];
+  let fail = false, passed = false, posts = [], queries = [];
   await page.route(pattern, async route => {
     const req = route.request(), url = new URL(req.url());
     if (req.method() === "POST") {
@@ -34,6 +34,7 @@ export async function memoryBackupHistoryJourney(page, fixture) {
       await page.goto(fixture.base + "/settings?section=backup");
       await expect(page.getByText("Server memory backup", { exact: true })).toBeVisible();
       await expect(page.getByText("Browser backup", { exact: true })).toBeVisible();
+      await expect(page.locator('[data-slot="backup-settings"]')).toHaveCount(1);
       expect(queries).toHaveLength(0); expect(posts).toHaveLength(0);
       await page.getByRole("button", { name: "Load saved server snapshots", exact: true }).click();
       await expect(page.getByText(/Partial snapshot · 2 files · No saved integrity receipt/)).toBeVisible();
@@ -48,8 +49,8 @@ export async function memoryBackupHistoryJourney(page, fixture) {
       for (const theme of ["light", "dark"]) {
         await page.evaluate(value => document.documentElement.dataset.theme = value, theme);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-        const accessibility = await new AxeBuilder({ page }).include('section:has([data-slot="settings-section-title"])').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
-        expect(accessibility.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target) }))).toEqual([]);
+        const accessibility = await new AxeBuilder({ page }).include('[data-slot="backup-settings"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+        expect(accessibility.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => ({ target: n.target, html: n.html, failure: n.failureSummary })) }))).toEqual([]);
         checks.push(`backup history/reflow/accessibility ${viewport.width}x${viewport.height} ${theme}`);
         if (out) {
           await mkdir(out, { recursive: true, mode: 0o700 });
@@ -71,10 +72,17 @@ export async function memoryBackupHistoryJourney(page, fixture) {
       const status = await page.evaluate(async () => (await fetch("/api/v1/sys/memory-backup?view=history")).status);
       expect(status).toBe(403); checks.push(`real API refuses ${role} before private backup access`);
     }
-    expect(errors).toEqual([]);
+    expect(errors).toEqual([]); passed = true;
+  } catch (error) {
+    errors.push(error.stack || String(error));
+    if (out) {
+      const file = path.join(out, "memory-backup-history-failure.png");
+      await page.screenshot({ path: file }); screenshots.push(file);
+    }
+    throw error;
   } finally {
     await fixture.setRole("owner"); await page.unroute(pattern); page.off("pageerror", onError);
-    if (out) await writeFile(path.join(out, "memory-backup-history-receipt.json"), JSON.stringify({ at: new Date().toISOString(), environment: "isolated built Settings UI; synthetic backup transport; real role denials", checks, errors, screenshots }, null, 2), { mode: 0o600 });
+    if (out) await writeFile(path.join(out, "memory-backup-history-receipt.json"), JSON.stringify({ at: new Date().toISOString(), environment: "isolated built Settings backup panel; synthetic backup transport; real role denials", passed, checks, errors, screenshots }, null, 2), { mode: 0o600 });
   }
   console.log(`PASS memory backup history: ${checks.length} viewport/accessibility/pagination/role checks; no host snapshots accessed`);
 }

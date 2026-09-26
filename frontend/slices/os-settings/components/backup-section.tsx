@@ -57,7 +57,7 @@ export function BackupSection() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div data-slot="backup-settings" className="space-y-4 sm:space-y-5">
       <ServerBackupSection />
       <SettingsSection
         icon={<DatabaseBackup />}

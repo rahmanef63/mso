@@ -12,6 +12,12 @@ mandatory release journey now includes the actual Settings backup UI at desktop,
 phone and landscape sizes, error/retry and accessibility checks, synthetic backup
 transport, and real API role refusals before any private backup access. Full gate
 and production evidence remain release obligations, not assertions made here.
+The first browser run also exposed an over-broad new test selector: it matched
+the desktop shell ancestor and included an existing Terminal window. The backup
+journey now names its exact feature root without disabling any accessibility rule.
+The observed Terminal tablist/input-label findings remain separate UI debt, not
+fixed by this selector correction. Failure receipts now include assertion errors
+and an explicit pass flag; an empty page-error list alone is never success.
 History pagination is not resumable copying. Source-release review, complete and
 offsite backup, learning coverage and Jev admission remain separate open work.
 
