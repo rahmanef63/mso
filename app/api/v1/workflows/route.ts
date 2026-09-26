@@ -25,7 +25,7 @@ import { listAutomationScripts, readAutomationScript } from "@/lib/orchestration
 import { listLearnedRecipes, recipeMaturity } from "@/lib/workflow";
 import { createWorkflowDataTable, deleteWorkflowDataTable, deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "@/lib/workflow/data-table-store";
 import { optimizeWorkflowGraph } from "@/lib/workflow/graph-optimizer";
-import { createJevWorkflowOptimizerEvaluator } from "@/lib/workflow/jev-optimizer";
+import { createResolvedJevWorkflowOptimizerEvaluator } from "@/lib/workflow/jev-evaluator";
 import { resolveJevIntegrationConfig } from "@/lib/workflow/jev-integration";
 export const runtime="nodejs";export const dynamic="force-dynamic";const headers={"Cache-Control":"no-store, private"};
 const fail=(error:unknown,status=400)=>NextResponse.json({error:error instanceof Error?error.message.slice(0,500):String(error).slice(0,500)||"workflow request failed"},{status,headers});
@@ -69,7 +69,7 @@ export async function POST(req:NextRequest){const session=await auth("operator")
   const mode=body.mode==="jev"?"jev" as const:"deterministic" as const;let evaluator;
   if(mode==="jev"){
    if(!roleAtLeast(session.context.role,"owner"))return fail("owner_required",403);
-   evaluator=createJevWorkflowOptimizerEvaluator(await resolveJevIntegrationConfig(body.jev));
+   evaluator=createResolvedJevWorkflowOptimizerEvaluator(await resolveJevIntegrationConfig(body.jev));
   }
   const optimized=await optimizeWorkflowGraph(graph,{mode,threshold:Number(body.threshold)||undefined,applyReview:body.apply_review===true,evaluator,resolveTool:name=>TOOLS_BY_NAME.get(name)});
   if(action==="optimize_preview")return NextResponse.json({optimization:optimized.preview},{headers});

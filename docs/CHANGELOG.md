@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Added**
 
+- route JEV through OpenRouter and preserve sessions
 - `integrations` clarify DOKU credential fields
 
 ## 2026-09-25

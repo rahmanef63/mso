@@ -158,6 +158,7 @@ export function AiSection() {
         <>
           Provider/model availability is discovered dynamically while runtime endpoints remain pinned by MSO. Keys are stored server-side and never shown again.
           Free means the live model catalog explicitly reports $0 input and $0 output token cost; an account/API key and provider rate limits may still apply.
+          MSO’s JEV decision kernel reuses the OpenRouter key from this exact store with ~typesafe/jev-latest; it never creates a separate JEV credential.
         </>
       }
     >

@@ -14,6 +14,8 @@ import { pruneAgentSessionArchives } from "@/lib/agent/session-archive";
 import { sessionWorkflowDraftDefinition } from "@/lib/agent/session-workflow-draft";
 import { resolveHistoricalSessionArtifactForOwner } from "@/lib/agent/session-artifact-resolver";
 import { createWorkflowGraph } from "@/lib/workflow/graph-store";
+import { optimizeSessionWithJev } from "@/lib/workflow/jev-session-optimizer";
+import { jevPreservationStatus, optimizeSessionPreservationBatch } from "@/lib/agent/session-jev-preservation";
 import {
   ownerSessionSummaries,
   resolveAgentSessionOwnerRef,
@@ -63,6 +65,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: missing ? "session_not_found" : "artifact_revision_unavailable" }, { status: missing ? 404 : 503, headers: { "Cache-Control": "private, no-store" } });
     }
   }
+  if (view === "jev-preservation") {
+    try { return NextResponse.json(await jevPreservationStatus(), { headers: { "Cache-Control": "private, no-store" } }); }
+    catch (cause) { return error(cause); }
+  }
   if (view === "monitor" || view === "graph") {
     try {
       const id = req.nextUrl.searchParams.get("id");
@@ -111,6 +117,9 @@ export async function POST(req: NextRequest) {
     cwd?: string;
     parentSessionId?: string;
     step_ref?: string;
+    jev?: unknown;
+    cursor?: number;
+    limit?: number;
   };
   try {
     body = await req.json();
@@ -177,6 +186,17 @@ export async function POST(req: NextRequest) {
       return sessionResponse({
         session: await renameAgentSession(principal, body.id, body.title),
       });
+    }
+    if (body.action === "optimize-with-jev") {
+      const ref = String(body.ref || body.id || "").trim();
+      if (!ref) return NextResponse.json({ error: "session_reference_required" }, { status: 400 });
+      const source = await resolveAgentSessionOwnerRef(ref);
+      const view = await ownerSessionGraph(source.id, 120);
+      if (!view) return NextResponse.json({ error: "session_not_found" }, { status: 404 });
+      return NextResponse.json({ optimization: await optimizeSessionWithJev(view, body.jev) }, { headers: { "Cache-Control": "private, no-store" } });
+    }
+    if (body.action === "optimize-all-with-jev") {
+      return NextResponse.json(await optimizeSessionPreservationBatch({ cursor: body.cursor, limit: body.limit }), { headers: { "Cache-Control": "private, no-store" } });
     }
     if (body.action === "save-workflow-draft") {
       const ref = String(body.ref || body.id || "").trim();

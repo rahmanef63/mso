@@ -27,6 +27,8 @@ it("keeps AI Providers on the existing AI config/runtime SSOT and browser-only c
   expect(() => new Function(CONNECTION_MANAGER_SCRIPT)).not.toThrow();
   expect(CONNECTION_MANAGER_SCRIPT).toContain("same AI runtime/config store as Settings");
   expect(CONNECTION_MANAGER_SCRIPT).toContain("Integration Variables");
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("~typesafe/jev-latest");
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("same OpenRouter key managed here and in Settings");
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiConfig=()=>json("/api/config")');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiCatalog=()=>json("/api/models/providers")');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiTest=()=>json("/api/models/test"');

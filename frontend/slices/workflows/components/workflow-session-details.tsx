@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SessionFlowAction, SessionFlowStep, SessionGraphView } from "@/lib/contracts/session-monitor";
 import type { WorkflowGraphNode } from "@/lib/contracts/workflow-graph";
-import { getSessionArtifactHistory, type SessionArtifactHistoryResponse, type WorkflowLearningRecipeSummary } from "../lib/api";
+import { getSessionArtifactHistory, optimizeSessionWithJev, type JevSessionOptimization, type SessionArtifactHistoryResponse, type WorkflowLearningRecipeSummary } from "../lib/api";
 
 function value(config: Record<string, unknown>, key: string): string | undefined {
   const raw = config[key]; return typeof raw === "string" && raw ? raw : undefined;
@@ -98,11 +98,18 @@ export function WorkflowSessionDetails({ view, node, onOpenTerminal, onOpenCode,
   const ref = node ? value(node.config, "ref") : undefined;
   const step: SessionFlowStep | undefined = ref ? view.steps.find((item) => item.ref === ref) : undefined;
   const linked = learning.filter((recipe) => recipe.sourceSessions.some((source) => source.label === view.session.label));
+  const [jev, setJev] = useState<JevSessionOptimization | null>(null);
+  const [jevBusy, setJevBusy] = useState(false);
+  const [jevError, setJevError] = useState("");
+  const useJev = async () => { setJevBusy(true); setJevError(""); try { setJev(await optimizeSessionWithJev(view.session.id)); } catch (cause) { setJevError(cause instanceof Error ? cause.message : "JEV unavailable"); } finally { setJevBusy(false); } };
   return <div className="flex h-full min-h-0 flex-col bg-card/20">
     <div className="border-b p-3">
       <div className="break-words text-sm font-semibold">{view.session.label}</div>
       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] uppercase text-muted-foreground"><span>{view.session.source}</span><span>·</span><span>{view.session.status}</span><Badge variant="outline" className="h-5 px-1.5 text-[9px] normal-case">{view.steps.length} semantic steps</Badge></div>
       <p className="mt-2 text-xs text-muted-foreground">Canvas shows intent-level steps. Click a step to inspect its grouped actions, commands, code, artifacts, and raw execution receipt.</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2"><Button data-slot="use-jev-session" type="button" size="sm" variant="outline" className="h-7 text-[10px]" disabled={jevBusy} onClick={() => void useJev()}><BrainCircuit className="size-3.5"/>{jevBusy ? "Calculating…" : "Use JEV"}</Button><span className="text-[10px] text-muted-foreground">Review-first optimization packet for this session; no tools are executed.</span></div>
+      {jevError ? <p className="mt-2 text-[10px] text-destructive">{jevError}</p> : null}
+      {jev ? <div data-slot="jev-session-output" className="mt-2 rounded-lg border bg-muted/15 p-2.5 text-[10px]"><div className="flex items-center gap-2"><Badge variant="outline" className="h-5 text-[9px]">{jev.provider === "jev" ? "JEV" : "fallback"}</Badge><span>{jev.recommendations.length} optimization signals</span><Button type="button" size="sm" variant="ghost" className="ml-auto h-6 text-[9px]" onClick={() => void navigator.clipboard?.writeText(JSON.stringify(jev.llmContext,null,2))}><Copy className="size-3"/>Copy for LLM</Button></div>{jev.fallbackReason ? <p className="mt-1 text-muted-foreground">{jev.fallbackReason}</p> : null}<div className="mt-2 space-y-1">{jev.recommendations.slice(0,6).map(item=><div key={item.id} className="rounded border bg-background/40 p-2"><div className="font-medium">{Math.round(item.probability*100)}% · {item.title}</div><p className="mt-0.5 text-muted-foreground">{item.description}</p><div className="mt-1 font-mono text-[9px] text-muted-foreground">{item.actionRefs.slice(0,8).join(" · ")}</div></div>)}</div></div> : null}
       {view.omittedEvents ? <p className="mt-2 text-[10px] text-muted-foreground">Projection uses the latest {view.shownEvents} of {view.totalEvents} events to stay fast. Raw session history remains the source of truth.</p> : null}
     </div>
     <ScrollArea className="min-h-0 flex-1"><div className="space-y-3 p-3">

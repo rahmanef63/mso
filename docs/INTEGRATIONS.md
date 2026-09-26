@@ -36,7 +36,7 @@ their duration; concurrent work cannot mix two profiles partway through one oper
 ### Integration Variables
 
 Integration Variables are global, metadata-only aliases to an existing named connection,
-for example JEV → credential-user / mcp / jev. A variable stores only provider, user and
+for example JEV → credential-user / mcp / jev. This JEV alias is now a legacy/diagnostic MCP override; native Jev optimization uses the OpenRouter key from the shared AI Provider store. A variable stores only provider, user and
 connection references; it never copies endpoint, API key, bearer token, OAuth bundle or
 connection field values. Names use uppercase A-Z, 0-9 and underscore. integration_manage
 owns variable.set / variable.delete, while integration_query with view=variables returns

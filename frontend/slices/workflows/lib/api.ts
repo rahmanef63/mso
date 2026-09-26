@@ -70,6 +70,13 @@ export type WorkflowLearningRecipeSummary = {
   sourceSessions:Array<{label:string;actionRef:string;eventRef:string;artifactRefs:string[]}>; forge:{eligible:boolean;promotion:"explicit"};
 };
 export async function listWorkflowLearning(force=false){const load=async()=> (await json<{recipes:WorkflowLearningRecipeSummary[]}>("/api/v1/workflows?learning=1")).recipes;return force?load():cachedWorkflowResource("learning",10000,load);}
+export type JevSessionOptimization={provider:"jev"|"fallback";source:{sessionLabel:string;observedAt:string;shownEvents:number;omittedEvents:number};recommendations:Array<{id:string;title:string;description:string;probability:number;actionRefs:string[]}>;llmContext:{kind:"mso.jev-session-optimization.v1";instruction:string;facts:string[];recommendations:Array<{id:string;probability:number;actionRefs:string[];guidance:string}>};fallbackReason?:string};
+export async function optimizeSessionWithJev(id:string){return(await json<{optimization:JevSessionOptimization}>("/api/v1/agent-sessions",{method:"POST",body:JSON.stringify({action:"optimize-with-jev",id})})).optimization;}
+export type JevPreservationStatus={model:string;credentialSource:"settings-ai/openrouter";openrouterConnected:boolean;liveSessions:number;archives:number;preservedLive:number;preservedArchives:number;pending:number};
+export type JevPreservationBatch={total:number;cursor:number;nextCursor?:number;processed:number;preserved:number;skipped:number;failed:number;errors:string[]};
+export async function getJevPreservationStatus(){return json<JevPreservationStatus>("/api/v1/agent-sessions?view=jev-preservation");}
+export async function optimizeAllSessionsWithJev(){let cursor:number|undefined=0,total=0,preserved=0,skipped=0,failed=0;const errors:string[]=[];do{const batch:JevPreservationBatch=await json<JevPreservationBatch>("/api/v1/agent-sessions",{method:"POST",body:JSON.stringify({action:"optimize-all-with-jev",cursor,limit:100})});total=batch.total;preserved+=batch.preserved;skipped+=batch.skipped;failed+=batch.failed;errors.push(...batch.errors.slice(0,4));cursor=batch.nextCursor;}while(cursor!==undefined);return{total,preserved,skipped,failed,errors};}
+
 export async function saveSessionWorkflowDraft(id:string,stepRef?:string){
   const next=(await json<{graph:WorkflowGraph}>("/api/v1/agent-sessions",{method:"POST",body:JSON.stringify({action:"save-workflow-draft",id,...(stepRef?{step_ref:stepRef}:{})})})).graph;
   invalidateWorkflowResources("graphs"); seedWorkflowResource(`graph:${next.id}`,next,8000); return next;

@@ -231,12 +231,12 @@ Two candidate classes exist in v1:
 Decision modes:
 
 - `deterministic` is always available and uses local policy scores.
-- `jev` sends only the compact workflow summary plus host-generated candidate descriptions to a named generic MCP Integration. The graph arguments themselves, credentials and capability authority stay in MSO. Jev can score the candidates; it cannot invent a new tool call, alter arguments, authorize an action, or execute anything. The preview also computes a deterministic shadow baseline and reports agreement/disagreement so rollout can be measured before relying more heavily on Jev.
+- `jev` sends only the compact workflow summary plus host-generated candidate descriptions to TypeSafe Jev through OpenRouter’s Decisions API by default. The OpenRouter key comes from the exact Settings → AI / Integrations → AI Providers credential store. Graph arguments, credentials and capability authority stay in MSO. Jev can score host-generated candidates; it cannot invent a new tool call, alter arguments, authorize an action, or execute anything. The preview also computes a deterministic shadow baseline and reports agreement/disagreement.
 - If the Jev call fails or returns no usable probability, the preview records `provider: fallback` and uses the deterministic scores.
 
-For Jev, create a normal **Integrations → Project MCP** named connection to the reviewed Jev MCP endpoint, keep the bearer key in the private Integrations form, and optionally pin allowedTools to the exact decision tool (for example jev_decide). Point the metadata-only **Integration Variable JEV** at that named connection. Jev optimization resolves JEV by default; an explicit user/connection override remains available for diagnostics or alternate evaluators. Neither path stores the endpoint/token in the Workflow Graph.
+For Jev, connect **OpenRouter** once in **Settings → AI** or **Integrations → AI Providers**. Both surfaces use the same server-side credential store. MSO calls `~typesafe/jev-latest` through OpenRouter’s Decisions API and never creates a second Jev/TypeSafe key store. Existing `JEV` Integration Variables and named MCP Jev connections remain supported only as explicit diagnostic/legacy overrides; they are no longer the default path. Neither path stores credentials in a Workflow Graph.
 
-The native Workflows UI exposes **Optimize** and a Flow Optimizer detail panel. Dirty graph edits are saved before opening the optimizer so preview/clone always operate on the revision the user can see. Jev mode now shows JEV as the normal path, with explicit connection fields moved under an optional override.
+The native Workflows UI exposes **Optimize** and a Flow Optimizer detail panel. Dirty graph edits are saved before opening the optimizer so preview/clone always operate on the revision the user can see. Jev mode shows OpenRouter Jev as the normal path, with explicit named-MCP fields retained only under a legacy/diagnostic override.
 
 ## Automatic learning
 

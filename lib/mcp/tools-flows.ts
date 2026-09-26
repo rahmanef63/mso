@@ -15,7 +15,7 @@ import { resolveProjectHint } from "@/lib/host/projects-api";
 import { listAutomationScripts } from "@/lib/orchestration/repo-memory-artifacts";
 import { createWorkflowDataTable, deleteWorkflowDataTable, deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "@/lib/workflow/data-table-store";
 import { optimizeWorkflowGraph } from "@/lib/workflow/graph-optimizer";
-import { createJevWorkflowOptimizerEvaluator } from "@/lib/workflow/jev-optimizer";
+import { createResolvedJevWorkflowOptimizerEvaluator } from "@/lib/workflow/jev-evaluator";
 import { resolveJevIntegrationConfig } from "@/lib/workflow/jev-integration";
 const project = { type: "string", maxLength: 4096 };
 const flow = { type: "string", maxLength: 64 };
@@ -99,7 +99,7 @@ export const FLOW_TOOLS: McpTool[] = [
         const mode = data.mode === "jev" ? "jev" as const : "deterministic" as const;
         let evaluator;
         if (mode === "jev") {
-          evaluator = createJevWorkflowOptimizerEvaluator(await resolveJevIntegrationConfig(data.jev));
+          evaluator = createResolvedJevWorkflowOptimizerEvaluator(await resolveJevIntegrationConfig(data.jev));
         }
         const { TOOLS_BY_NAME } = await import("./tools");
         const optimized = await optimizeWorkflowGraph(graph, { mode, threshold: Number(data.threshold) || undefined, applyReview: data.apply_review === true, evaluator, resolveTool: name => TOOLS_BY_NAME.get(name) });

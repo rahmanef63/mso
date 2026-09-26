@@ -1,3 +1,7 @@
+## 2026-09-26 — JEV session preservation + OpenRouter SSOT
+
+JEV now uses `~typesafe/jev-latest` through OpenRouter’s Decisions API by default. Its credential is read from the same `hostCredentialStore()` used by Settings → AI and Integrations → AI Providers, so MSO no longer needs a separate TypeSafe/JEV token for the normal path. Existing named MCP JEV connections and the `JEV` Integration Variable remain explicit diagnostic compatibility overrides. Workflow Sessions expose **Use JEV**, can copy a bounded `mso.jev-session-optimization.v1` packet for another LLM, and expose **Optimize all before cleanup**. Batch preservation covers both live durable sessions and archived compacted session snapshots. Old archive deletion is hard-gated by an exact SHA-256-bound JEV preservation receipt; unpreserved archives and their action indexes are retained instead of silently aging out.
+
 ## 2026-09-26 — Make DOKU credential fields self-explanatory
 
 The native DOKU setup form now puts the official source beside each credential

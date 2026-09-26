@@ -10,15 +10,17 @@ const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-agent-session-p0-"));
 const sessions = path.join(root, "sessions");
 const memory = path.join(root, "memory");
 const archives = path.join(root, "archives");
+const preservation = path.join(root, "preservation");
 
 process.env.OS_AGENT_SESSIONS_DIR = sessions;
 process.env.OS_AGENT_MEMORY_DIR = memory;
 process.env.OS_AGENT_SESSION_ARCHIVE_DIR = archives;
+process.env.OS_AGENT_SESSION_PRESERVATION_DIR = preservation;
 process.env.OS_AGENT_SESSION_COMPACT_TOKENS = "10000";
 process.env.OS_AGENT_SESSION_RECENT_TOKENS = "5000";
 process.env.OS_AGENT_SESSION_ARCHIVE_DAYS = "30";
 afterAll(async () => {
-  for (const key of ["OS_AGENT_SESSIONS_DIR", "OS_AGENT_MEMORY_DIR", "OS_AGENT_SESSION_ARCHIVE_DIR", "OS_AGENT_SESSION_COMPACT_TOKENS", "OS_AGENT_SESSION_RECENT_TOKENS", "OS_AGENT_SESSION_ARCHIVE_DAYS"]) delete process.env[key];
+  for (const key of ["OS_AGENT_SESSIONS_DIR", "OS_AGENT_MEMORY_DIR", "OS_AGENT_SESSION_ARCHIVE_DIR", "OS_AGENT_SESSION_PRESERVATION_DIR", "OS_AGENT_SESSION_COMPACT_TOKENS", "OS_AGENT_SESSION_RECENT_TOKENS", "OS_AGENT_SESSION_ARCHIVE_DAYS"]) delete process.env[key];
   await fs.rm(root, { recursive: true, force: true });
 });
 
@@ -50,13 +52,18 @@ describe("durable agent session context policy", () => {
     expect(archived).toContain("[redacted]");
   });
 
-  it("prunes archives older than the default 30-day retention window", async () => {
+  it("blocks old archive cleanup until an exact JEV preservation receipt exists", async () => {
     const [name] = (await fs.readdir(archives)).filter((row) => row.endsWith(".json.gz"));
     const file = path.join(archives, name);
     const old = new Date(Date.now() - 31 * 86_400_000);
     await fs.utimes(file, old, old);
+    const blocked = await archive.pruneAgentSessionArchives();
+    expect(blocked).toMatchObject({ removed: 0, blocked: 1 });
+    await expect(fs.stat(file)).resolves.toBeTruthy();
+    const archived = await archive.readAgentSessionArchive(name);
+    await archive.writeAgentSessionArchiveJevReceipt(name, archived.sha256, { optimization: { kind: "fixture" } });
     const result = await archive.pruneAgentSessionArchives();
-    expect(result.removed).toBe(1);
+    expect(result).toMatchObject({ removed: 1, blocked: 0 });
     await expect(fs.stat(file)).rejects.toMatchObject({ code: "ENOENT" });
   });
 

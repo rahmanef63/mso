@@ -161,14 +161,18 @@ export async function writeSessionFile(record: AgentSession): Promise<void> {
   await fs.chmod(tmp, 0o600); await fs.rename(tmp, file); await fs.chmod(file, 0o600);
 }
 
-export async function listSessionRecords(): Promise<AgentSession[]> {
+export async function listSessionIds(): Promise<string[]> {
   let names: string[];
   try { names = await fs.readdir(ROOT); } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
+  return names.filter(name => name.endsWith(".json") && SESSION_ID.test(name.slice(0, -5))).map(name => name.slice(0, -5)).sort();
+}
+
+export async function listSessionRecords(): Promise<AgentSession[]> {
   const out: AgentSession[] = [];
-  const ids = names.filter(name => name.endsWith(".json") && SESSION_ID.test(name.slice(0, -5))).map(name => name.slice(0, -5));
+  const ids = await listSessionIds();
   // Bounded concurrency, complete enumeration: never silently drop later sessions.
   for (let start = 0; start < ids.length; start += 32) {
     const rows = await Promise.all(ids.slice(start, start + 32).map(id => readSessionFile(id).catch(() => null)));

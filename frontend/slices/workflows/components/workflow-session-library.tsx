@@ -1,21 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
+import { Activity, BrainCircuit, ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SessionPage } from "@/lib/contracts/session-monitor";
-import { listWorkflowSessions } from "../lib/api";
+import { getJevPreservationStatus, listWorkflowSessions, optimizeAllSessionsWithJev, type JevPreservationStatus } from "../lib/api";
 
 export function WorkflowSessionLibrary({ activeId, onSelect }: { activeId?: string; onSelect: (id: string) => void }) {
   const [search, setSearch] = useState(""), [query, setQuery] = useState(""), [page, setPage] = useState(1);
   const [data, setData] = useState<SessionPage | null>(null), [error, setError] = useState(""), [nonce, setNonce] = useState(0);
+  const [preservation, setPreservation] = useState<JevPreservationStatus | null>(null), [preserving, setPreserving] = useState(false);
   useEffect(() => {
     let alive = true;
     void listWorkflowSessions(page, query).then((value) => { if (alive) { setError(""); setData(value); } }).catch((cause) => { if (alive) setError(cause instanceof Error ? cause.message : "Sessions unavailable"); });
     return () => { alive = false; };
   }, [page, query, nonce]);
+  useEffect(() => { let alive=true; void getJevPreservationStatus().then((value)=>{if(alive)setPreservation(value);}).catch(()=>undefined); return()=>{alive=false;}; }, [nonce]);
+  const optimizeAll = async () => { setPreserving(true); setError(""); try { const result=await optimizeAllSessionsWithJev(); setPreservation(await getJevPreservationStatus()); setNonce((value)=>value+1); if(result.failed) setError(`${result.failed} session(s) still require an OpenRouter JEV decision. Connect OpenRouter in Settings → AI or Integrations → AI Providers, then run this again.`); } catch(cause) { setError(cause instanceof Error?cause.message:"JEV preservation failed"); } finally { setPreserving(false); } };
   return <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card/20">
     <div className="shrink-0 space-y-2 border-b p-3">
       <form className="flex min-w-0 gap-1" onSubmit={(event) => { event.preventDefault(); setPage(1); setQuery(search.trim()); }}>
@@ -24,6 +27,8 @@ export function WorkflowSessionLibrary({ activeId, onSelect }: { activeId?: stri
         <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0" aria-label="Refresh sessions" onClick={() => setNonce((value) => value + 1)}><RefreshCw className="size-3.5"/></Button>
       </form>
       <p className="text-[10px] leading-4 text-muted-foreground">Readable execution flows. Session labels use agent-context; internal IDs stay hidden.</p>
+      <Button type="button" variant="outline" size="sm" className="h-8 w-full justify-start text-[10px]" disabled={preserving || preservation?.pending === 0} onClick={() => void optimizeAll()}><BrainCircuit className="size-3.5"/>{preserving ? "Optimizing sessions with JEV…" : "Optimize all before cleanup"}</Button>
+      {preservation ? <p className="text-[10px] leading-4 text-muted-foreground">JEV {preservation.preservedLive + preservation.preservedArchives}/{preservation.liveSessions + preservation.archives} preserved · {preservation.model}{preservation.openrouterConnected ? " · OpenRouter ready" : " · connect OpenRouter in Settings → AI or Integrations → AI Providers"}</p> : null}
     </div>
     <ScrollArea className="min-h-0 min-w-0 flex-1"><div className="space-y-1.5 p-2.5">
       {error ? <p className="p-2 text-xs text-destructive">{error}</p> : null}
