@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { WorkflowLearningPanel } from "./workflow-learning-panel";
 import { BrainCircuit, Code2, Copy, ExternalLink, FileCode2, GitCompareArrows, History, Save, TerminalSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SessionFlowAction, SessionFlowStep, SessionGraphView } from "@/lib/contracts/session-monitor";
 import type { WorkflowGraphNode } from "@/lib/contracts/workflow-graph";
-import { getSessionArtifactHistory, optimizeSessionWithJev, type JevSessionOptimization, type SessionArtifactHistoryResponse, type WorkflowLearningRecipeSummary } from "../lib/api";
+import { getSessionArtifactHistory, optimizeSessionWithJev, type JevSessionOptimization, type SessionArtifactHistoryResponse } from "../lib/api";
 
 function value(config: Record<string, unknown>, key: string): string | undefined {
   const raw = config[key]; return typeof raw === "string" && raw ? raw : undefined;
@@ -82,22 +83,9 @@ function actionGroups(step: SessionFlowStep, sessionId: string, onOpenTerminal: 
   });
 }
 
-function SelfImprove({ recipes }: { recipes: WorkflowLearningRecipeSummary[] }) {
-  return <div data-slot="session-self-improve" className="border-t pt-3">
-    <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase text-muted-foreground"><BrainCircuit className="size-3.5"/>Self-improve</div>
-    {recipes.length ? <div className="space-y-2">{recipes.slice(0, 4).map((recipe) => <div key={recipe.id} className="rounded-lg border bg-background/35 p-2.5">
-      <div className="flex flex-wrap items-center gap-1.5"><Badge variant="outline" className="h-5 text-[9px] capitalize">{recipe.stage}</Badge><span className="min-w-0 flex-1 truncate text-xs font-medium">{recipe.intent}</span></div>
-      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground"><span>{recipe.attempts} attempts</span><span>{recipe.successRate}% success</span>{recipe.fastestDurationMs != null ? <span>fastest {Math.max(1, Math.round(recipe.fastestDurationMs / 1000))}s</span> : null}</div>
-      <div className="mt-1.5 flex flex-wrap gap-1">{recipe.sourceSessions.filter((source, index, rows) => rows.findIndex((row) => row.actionRef === source.actionRef) === index).slice(0, 8).map((source) => <code key={`${source.actionRef}-${source.eventRef}`} className="rounded bg-muted px-1.5 py-0.5 text-[9px]">{source.actionRef}</code>)}</div>
-      <p className="mt-1.5 text-[9px] text-muted-foreground">{recipe.stage === "tested" ? "Tested automation is reusable when current evidence matches." : recipe.stage === "verified" ? "Verified route; current task still requires independent verification." : recipe.stage === "candidate" ? "Repeated route; use as a planning shortcut, not a guarantee." : "Observed route; more successful runs are needed."}{recipe.forge.eligible ? " Skill/tool promotion remains explicit through Tool Forge." : ""}</p>
-    </div>)}</div> : <p className="rounded-lg border border-dashed p-2.5 text-[10px] text-muted-foreground">No learned recipe is linked to this session yet. A verified <code>workflow_finish</code> can attach future recipe steps to their <code>Sx.Ay</code> receipts.</p>}
-  </div>;
-}
-
-export function WorkflowSessionDetails({ view, node, onOpenTerminal, onOpenCode, onSaveDraft, savingDraft = false, learning = [] }: { view: SessionGraphView; node: WorkflowGraphNode | null; onOpenTerminal: () => void; onOpenCode: (path: string) => void; onSaveDraft: (stepRef?: string) => void; savingDraft?: boolean; learning?: WorkflowLearningRecipeSummary[] }) {
+export function WorkflowSessionDetails({ view, node, onOpenTerminal, onOpenCode, onSaveDraft, savingDraft = false }: { view: SessionGraphView; node: WorkflowGraphNode | null; onOpenTerminal: () => void; onOpenCode: (path: string) => void; onSaveDraft: (stepRef?: string) => void; savingDraft?: boolean }) {
   const ref = node ? value(node.config, "ref") : undefined;
   const step: SessionFlowStep | undefined = ref ? view.steps.find((item) => item.ref === ref) : undefined;
-  const linked = learning.filter((recipe) => recipe.sourceSessions.some((source) => source.label === view.session.label));
   const [jev, setJev] = useState<JevSessionOptimization | null>(null);
   const [jevBusy, setJevBusy] = useState(false);
   const [jevError, setJevError] = useState("");
@@ -117,7 +105,7 @@ export function WorkflowSessionDetails({ view, node, onOpenTerminal, onOpenCode,
         <div><div className="flex items-center gap-2"><code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">{step.ref}</code><Badge variant="outline" className="text-[9px] capitalize">{step.category}</Badge></div><div className="mt-2 break-words text-sm font-semibold">{step.title}</div><p className="mt-1 text-xs text-muted-foreground">{step.summary}</p><Button data-slot="save-step-workflow-draft" type="button" size="sm" variant="outline" className="mt-2 h-7 text-[10px]" disabled={savingDraft} onClick={() => onSaveDraft(step.ref)}><Save className="size-3.5"/>Save {step.ref} as workflow draft</Button></div>
         <div className="border-t pt-3"><div className="mb-2 flex items-center justify-between"><div className="text-[10px] font-semibold uppercase text-muted-foreground">Action groups</div><span className="text-[10px] text-muted-foreground">{step.groups.length} groups · {step.actions.length} actions</span></div><div className="space-y-1.5">{actionGroups(step, view.session.id, onOpenTerminal, onOpenCode)}</div></div>
       </> : <p className="text-xs text-muted-foreground">Select a semantic step to inspect its actions.</p>}
-      <SelfImprove recipes={linked}/>
+      <WorkflowLearningPanel key={view.session.id} sessionLabel={view.session.label}/>
       {view.session.cwd ? <div className="border-t pt-3"><div className="text-[10px] uppercase text-muted-foreground">Session context</div><p className="mt-1 break-all font-mono text-[10px] text-muted-foreground">{view.session.cwd}</p></div> : null}
     </div></ScrollArea>
     <div className="border-t p-3 text-[10px] text-muted-foreground">Use references such as <code>S3.A4</code> when discussing a specific action. MSO keeps internal session IDs hidden from this surface.</div>

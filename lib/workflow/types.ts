@@ -116,6 +116,7 @@ export type WorkflowStoreState = {
 };
 
 export type FinishWorkflowResult = {
+  graphReceipt?: { state: "available" | "skipped" | "warning"; graphId?: string; warning?: string };
   workflow: ActiveWorkflow;
   recipe: LearnedRecipe;
   currentDurationMs: number;

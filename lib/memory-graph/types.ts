@@ -15,6 +15,8 @@ export interface MemoryGraphNode {
   /** Host path the Code app can open. Absent for ghosts and private claims. */
   path?: string;
   excerpt?: string;
+  targetApp?: "workflows" | "organization";
+  origin?: string;
 }
 
 export interface MemoryGraphEdge {
@@ -41,6 +43,8 @@ export interface GraphInputNode {
   group: string;
   path?: string;
   excerpt?: string;
+  targetApp?: "workflows" | "organization";
+  origin?: string;
   /** Link source only. Never copied onto the returned node. */
   text?: string;
 }

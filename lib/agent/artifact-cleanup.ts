@@ -1,4 +1,5 @@
 import path from "node:path";
+import { sessionPreservation } from "./session-preservation";
 import { promises as fs } from "node:fs";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { readSessionFile, listSessionRecords, principalHash } from "./session-files";
@@ -19,6 +20,8 @@ export async function pruneSessionArtifacts(owner: ArtifactOwner, dryRun = true,
       const latest = Math.max(Date.parse(session.updatedAt), Date.parse(m.updatedAt));
       if (Date.parse(m.leaseUntil) > now || now - latest < artifactRetentionDays() * 86400000)
         return { sessionId: owner.id, state: "active", bytes: 0 };
+      const preservation = await sessionPreservation(owner.id);
+      if (preservation.protected) return { sessionId: owner.id, state: "protected", reason: preservation.reason, bytes: 0 };
       const rootEntries = await fs.readdir(p.directory);
       if (rootEntries.some((n) => !["incoming", "screenshots", "reports", "manifest.json"].includes(n)))
         return { sessionId: owner.id, state: "unknown-files", bytes: 0 };

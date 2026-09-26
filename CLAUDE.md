@@ -220,6 +220,7 @@ to `resources/` (rr) and drive any project from one manifest:
 
 ## Rules in force
 - **One canonical checkout; parallel work only through isolated hidden worktrees.**
+  The canonical `main` checkout is a **release/integration surface, not an agent scratchpad**. Automated source-changing work must happen in a task-owned hidden worktree; if canonical is dirty with another session's work, stop and preserve it rather than stashing, resetting, committing, merging or overwriting on that session's behalf. Only a release/integration step may advance canonical after the candidate and concurrent work are independently preserved and verified.
   the current `git rev-parse --show-toplevel` checkout on `main` is the canonical release SSOT.
   Never create task-specific `mso-*` siblings under `~/projects` and never let two
   sessions share one worktree, `HEAD`, or index. If parallel work is necessary, use one

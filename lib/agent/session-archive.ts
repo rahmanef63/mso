@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { sessionPreservation } from "./session-preservation";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -133,6 +134,7 @@ export async function pruneAgentSessionArchives(now = Date.now()): Promise<{ rem
   let removed = 0, kept = 0, blocked = 0;
   for (const name of names) {
     if (!ARCHIVE_FILE.test(name)) continue;
+    if ((await sessionPreservation(name.split("__")[0])).protected) { blocked++; kept++; continue; }
     const file = path.join(root, name);
     let handle: Awaited<ReturnType<typeof fs.open>> | null = null;
     try {

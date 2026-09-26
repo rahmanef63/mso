@@ -14,6 +14,7 @@ export type AuditAction =
   | "fs.upload"
   | "fs.zip"
   | "sys.cleanup"
+  | "sys.memory-backup"
   | "sys.service"
   /** The cockpit replacing its own code (Settings → About, or `mso update run`). */
   | "sys.update"

@@ -2,6 +2,7 @@
 // repo memory, the signed-in device's typed agent memory, and assistant memories.
 
 import path from "node:path";
+import { workspaceSources } from "./workspace-sources";
 import { queryAgentMemory } from "@/lib/agent/memory-store";
 import { listMemories } from "@/lib/agent/legacy-owner-memory";
 import type { AgentMemoryRecord } from "@/lib/agent/memory-types";
@@ -19,6 +20,7 @@ export interface CollectInput {
   root: string;
   project: string;
   principal: string;
+  ownerView?: boolean;
 }
 
 function folderHubs(notes: GraphInputNode[]): { nodes: GraphInputNode[]; links: GraphInputLink[] } {
@@ -65,12 +67,12 @@ function agentPieces(records: Array<{ record: AgentMemoryRecord }>): { nodes: Gr
   return { nodes, links };
 }
 
-async function projectPieces(projectPath: string, projectId: string, projectName: string): Promise<{ nodes: GraphInputNode[]; links: GraphInputLink[] }> {
+async function projectPieces(projectPath: string, projectId: string, projectName: string): Promise<{ nodes: GraphInputNode[]; links: GraphInputLink[]; truncated: boolean }> {
   const nodes: GraphInputNode[] = [];
   const links: GraphInputLink[] = [];
   const hub = `project:${projectId}`;
   nodes.push({ id: hub, title: projectName, kind: "folder", group: projectName });
-  const knowledge = await readProjectKnowledge(projectPath).catch(() => null);
+  const knowledge = await readProjectKnowledge(projectPath);
   if (knowledge?.exists && knowledge.content.trim()) {
     const id = `knowledge:${projectId}`;
     nodes.push({
@@ -81,15 +83,15 @@ async function projectPieces(projectPath: string, projectId: string, projectName
     });
     links.push({ source: hub, targetId: id, kind: "contains" });
   }
-  const records = await listRepoMemoryRecords(projectPath, { limit: RECORD_CAP }).catch(() => []);
-  for (const record of records) {
+  const records = await listRepoMemoryRecords(projectPath, { limit: RECORD_CAP + 1 });
+  for (const record of records.slice(0, RECORD_CAP)) {
     const id = `memory:${projectId}:${record.id}`;
     const summary = redactText(`${record.title}\n${record.summary}`, 160);
     nodes.push({ id, title: record.title.slice(0, 80), kind: "memory", group: projectName, excerpt: summary, text: `${record.title}\n${record.summary}` });
     links.push({ source: hub, targetId: id, kind: "contains" });
     for (const prior of record.supersedes) links.push({ source: id, targetId: `memory:${projectId}:${prior}`, kind: "related" });
   }
-  return { nodes, links };
+  return { nodes, links, truncated: records.length > RECORD_CAP };
 }
 
 export async function collectMemoryGraph(input: CollectInput): Promise<MemoryGraphDocument> {
@@ -117,11 +119,13 @@ export async function collectMemoryGraph(input: CollectInput): Promise<MemoryGra
       return { projects: [] as Array<{ id: string; name: string; path: string }> };
     });
     projectTargets.push(...listed.projects.slice(0, PROJECT_CAP));
+    if (("hasMore" in listed && listed.hasMore) || ("scan" in listed && listed.scan?.truncated)) truncated = true;
   }
 
   for (const project of projectTargets) {
     try {
       const piece = await projectPieces(project.path, project.id, project.name);
+      truncated ||= piece.truncated;
       nodes.push(...piece.nodes);
       links.push(...piece.links);
     } catch (error) {
@@ -130,8 +134,9 @@ export async function collectMemoryGraph(input: CollectInput): Promise<MemoryGra
   }
 
   try {
-    const agent = await queryAgentMemory(input.principal, { limit: 40 });
-    const piece = agentPieces(agent.records);
+    const agent = await queryAgentMemory(input.principal, { limit: 41 });
+    if (agent.records.length > 40) truncated = true;
+    const piece = agentPieces(agent.records.slice(0, 40));
     nodes.push(...piece.nodes);
     links.push(...piece.links);
   } catch (error) {
@@ -139,7 +144,9 @@ export async function collectMemoryGraph(input: CollectInput): Promise<MemoryGra
   }
 
   try {
-    for (const memory of (await listMemories()).slice(0, 40)) {
+    const memories = await listMemories();
+    if (memories.length > 40) truncated = true;
+    for (const memory of memories.slice(0, 40)) {
       nodes.push({
         id: `owner:${memory.id}`,
         title: memory.text.split("\n")[0]?.slice(0, 80) || "Memory",
@@ -153,6 +160,11 @@ export async function collectMemoryGraph(input: CollectInput): Promise<MemoryGra
     warnings.push(error instanceof Error ? error.message.slice(0, 160) : "Assistant memory unavailable");
   }
 
+  if (input.ownerView) {
+    const workspace = await workspaceSources("owner", input.principal, projectTargets, Boolean(input.project.trim()));
+    nodes.push(...workspace.nodes); links.push(...workspace.links); warnings.push(...workspace.warnings); truncated ||= workspace.truncated;
+  }
+  warnings.push("Bounded projection: up to 4 projects, 12 records/project, 40 device memories, 40 assistant memories, and 160 workspace nodes. Use Workflows > Sources and session Self-improve for paginated history.");
   const graph = assembleMemoryGraph(nodes, links, { includeGhosts: true, includeTags: true });
   return { ...graph, truncated, warnings, root: vault.root };
 }

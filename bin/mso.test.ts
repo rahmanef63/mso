@@ -11,6 +11,7 @@ const run = (...args: string[]) =>
   execFileSync(CLI, args, { encoding: "utf8", env: { ...process.env, MSO_ENV: "/dev/null" } });
 const commandOwnerFiles = [
   "scripts/cli/commands-host.sh",
+  "scripts/cli/memory-backup.sh",
   "scripts/cli/commands-runtime.sh",
   "scripts/cli/flows.sh",
   "scripts/cli/workflows.sh",
@@ -56,6 +57,8 @@ describe("bin/mso", () => {
     );
     expect(undocumented).toEqual([]);
   });
+
+  it("documents the owner-only memory backup command", () => { expect(run("memory-backup", "--help")).toContain("create --confirm"); });
 
   it("prints memory-graph usage instead of the assistant memory verb", () => {
     expect(run("memory-graph", "--help")).toContain("memory-graph [project]");

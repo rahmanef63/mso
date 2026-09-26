@@ -7,7 +7,7 @@ import { safeMemoryText } from "./sanitize";
 import { actorKey, removeActiveWorkflow, workflowFor } from "./state";
 import { loadWorkflowStore, persistWorkflowStore } from "./storage";
 import type { FinishWorkflowResult, LearnedRecipe, RecipeAccess, WorkflowStepProvenance } from "./types";
-import { ensureLearnedWorkflowGraph } from "./graph-store";
+import { learnedGraphReceipt } from "./learning-graph-receipt";
 import { archiveLearnedRecipes, listArchivedLearnedRecipes } from "./recipe-archive";
 import { mergeCandidatePools } from "./candidate-pool";
 import { rememberAgentMemory } from "@/lib/agent/memory-store";
@@ -125,7 +125,7 @@ export async function finishWorkflow(input: {
   await persistWorkflowStore(store);
   // Successful sanitized session routes automatically become private graph drafts.
   // This is best-effort learning: graph persistence must never turn workflow_finish into a failure.
-  if (input.success && process.env.NODE_ENV !== "test") await ensureLearnedWorkflowGraph(recipe).catch(() => undefined);
+  const graphReceipt = input.success && process.env.NODE_ENV !== "test" ? await learnedGraphReceipt(recipe) : undefined;
   if (input.success && process.env.NODE_ENV !== "test") {
     const memoryKey = `workflow:${createHash("sha256").update(`${recipe.normalizedIntent}|${recipe.project ?? ""}`).digest("hex").slice(0, 20)}`;
     const route = recipe.bestSteps.map((step) => step.tool).join(" → ").slice(0, 1200);
@@ -139,7 +139,7 @@ export async function finishWorkflow(input: {
   const improvedByMs = input.success && previousFastestMs != null && durationMs < previousFastestMs
     ? previousFastestMs - durationMs : undefined;
   return {
-    workflow, recipe, currentDurationMs: durationMs,
+    workflow, recipe, graphReceipt, currentDurationMs: durationMs,
     ...(previousFastestMs != null ? { previousFastestMs } : {}),
     ...(improvedByMs != null ? { improvedByMs, improvedPct: Math.round((improvedByMs / previousFastestMs!) * 1000) / 10 } : {}),
     ...(recommendedRecipeId ? { reuse: { recommendedRecipeId, routeMatched, score: reuseScore } } : {}),

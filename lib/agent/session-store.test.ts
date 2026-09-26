@@ -52,7 +52,7 @@ describe("durable agent session context policy", () => {
     expect(archived).toContain("[redacted]");
   });
 
-  it("blocks old archive cleanup until an exact JEV preservation receipt exists", async () => {
+  it("keeps raw archives protected even after an exact JEV preservation receipt", async () => {
     const [name] = (await fs.readdir(archives)).filter((row) => row.endsWith(".json.gz"));
     const file = path.join(archives, name);
     const old = new Date(Date.now() - 31 * 86_400_000);
@@ -63,8 +63,11 @@ describe("durable agent session context policy", () => {
     const archived = await archive.readAgentSessionArchive(name);
     await archive.writeAgentSessionArchiveJevReceipt(name, archived.sha256, { optimization: { kind: "fixture" } });
     const result = await archive.pruneAgentSessionArchives();
-    expect(result).toMatchObject({ removed: 1, blocked: 0 });
-    await expect(fs.stat(file)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await archive.hasAgentSessionArchiveJevReceipt(name, file)).toBe(true);
+    expect(result.removed).toBe(0);
+    expect(result.blocked).toBeGreaterThan(0);
+    expect(result.kept).toBeGreaterThan(0);
+    expect((await fs.stat(file)).isFile()).toBe(true);
   });
 
   it("allows an explicit rename to replace a manual title and refresh modified time", async () => {

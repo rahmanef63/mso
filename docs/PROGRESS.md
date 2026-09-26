@@ -1,3 +1,29 @@
+## 2026-09-26 — Crash-safe continuation and source-isolated agent work
+
+ChatGPT/MCP continuation no longer depends on the user recovering a dead tab or
+manually finding a durable session id. `agent_session_resume` can auto-select the
+newest relevant unfinished workflow/session by stable principal and project, return
+safe recent context plus a fresh `workflow_start` recipe, and return human session
+candidates rather than guessing when multiple unfinished tasks are plausible. Old
+workflow ids remain conversation-scoped and are never reused across sessions.
+
+Source-changing workflows now prepare a task-owned linked Git worktree after
+read-only discovery succeeds. Workflow-bound filesystem/project/shell mutations are
+restricted to that workspace; a dirty canonical checkout fails closed instead of
+being stashed, reset, or overwritten. Clean unused task worktrees may be removed
+only by their own workflow close path; changed work is preserved.
+
+The release reconciliation keeps both JEV session optimization and the new Workflow
+learning/second-brain surfaces. JEV archive receipts remain checksum-bound
+preservation evidence, but they are not deletion authority: fail-closed session
+preservation keeps raw archives until a separate explicit source-release policy
+exists. This supersedes the earlier same-day wording that a JEV receipt alone could
+authorize aged archive deletion.
+
+Conflict-focused regression coverage passed 35/35 plus TypeScript and targeted
+zero-warning ESLint before the full release gate. Full build/runtime evidence remains
+a separate release-stage requirement and is not implied by this entry.
+
 ## 2026-09-26 — JEV session preservation + OpenRouter SSOT
 
 JEV now uses `~typesafe/jev-latest` through OpenRouter’s Decisions API by default. Its credential is read from the same `hostCredentialStore()` used by Settings → AI and Integrations → AI Providers, so MSO no longer needs a separate TypeSafe/JEV token for the normal path. Existing named MCP JEV connections and the `JEV` Integration Variable remain explicit diagnostic compatibility overrides. Workflow Sessions expose **Use JEV**, can copy a bounded `mso.jev-session-optimization.v1` packet for another LLM, and expose **Optimize all before cleanup**. Batch preservation covers both live durable sessions and archived compacted session snapshots. Old archive deletion is hard-gated by an exact SHA-256-bound JEV preservation receipt; unpreserved archives and their action indexes are retained instead of silently aging out.
@@ -26,6 +52,46 @@ focused ESLint pass; the isolated Next.js production build, bundle budget,
 mandatory release E2E, native Integrations responsive shell journey, native Google
 Integrations regression, shell status checks, and deferred shell-performance gates
 all pass.
+
+## 2026-09-26 — Backup history and checksum-bound verification records
+
+Extended the existing owner-only server-memory backup, without creating another
+backup authority. Settings and CLI can page saved metadata, select an old snapshot
+for an explicit isolated restore check, distinguish partial coverage from recorded
+integrity, and show unreadable/error states instead of false empty or complete
+results. Manifest coverage totals are validated by one shared reader. Successful
+rehearsals retain an immutable checksum-bound receipt; old snapshots may lack one.
+
+Targeted synthetic manifest/history/receipt/API/CLI/transport tests pass. The
+mandatory release journey now includes the actual Settings backup UI at desktop,
+phone and landscape sizes, error/retry and accessibility checks, synthetic backup
+transport, and real API role refusals before any private backup access. Full gate
+and production evidence remain release obligations, not assertions made here.
+The first browser run also exposed an over-broad new test selector: it matched
+the desktop shell ancestor and included an existing Terminal window. The backup
+journey now names its exact feature root without disabling any accessibility rule.
+The observed Terminal tablist/input-label findings remain separate UI debt, not
+fixed by this selector correction. Failure receipts now include assertion errors
+and an explicit pass flag; an empty page-error list alone is never success.
+History pagination is not resumable copying. Source-release review, complete and
+offsite backup, learning coverage and Jev admission remain separate open work.
+
+## 2026-09-26 — Memory safety and second-brain visibility
+
+Implemented fail-closed session-source preservation, preview/confirmation-first
+owner cleanup, private local server-memory snapshots with isolated restore
+verification, owner-only cross-principal graph discovery, paginated archived
+learning with explicit errors and graph-persistence warnings, and bounded
+Organization/workflow/recipe links in the pinned Memory app.
+
+Full source verification passes 3,528 tests across 607 files with type, lint,
+coverage, architecture, documentation, contrast and high/critical audit gates.
+Runtime deployment and browser acceptance require the normal release proof.
+Full resumable
+backup, source-release review UI, cache-only cleanup separation and Jev memory
+admission remain open. No session, archive, memory, evidence or Docker volume was
+deleted by this work. See [Memory safety](./MEMORY-SAFETY.md) for behavior,
+interfaces and honest limits; operational receipts remain outside public source.
 
 ## 2026-09-25 — Native Google Integrations foundation
 

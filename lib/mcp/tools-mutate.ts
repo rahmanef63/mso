@@ -4,6 +4,7 @@ import { copy, makeDir, move, remove, writeFileGuarded } from "@/lib/host/fs-api
 import { resolveProjectHint, runProjectFunction } from "@/lib/host/projects-api";
 import { importOpenAiProvidedFile } from "./openai-file-upload";
 import { type McpTool, opt, PATH_P, S, str } from "./tool-kit";
+import { requireWorkflowExecCwd, requireWorkflowMutationPath, requireWorkflowProjectTarget } from "./workflow-workspace-guard";
 
 // The write and exec tiers. Each carries an `audit` descriptor — the dispatcher,
 // not the tool, writes the trail, because these call lib/host directly and so
@@ -13,10 +14,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     name: "fs_write",
     limit: { key: "fs.write", max: 120, windowMs: 60_000 },
     audit: { action: "fs.write" as const, targetArg: "path" },
-    description:
-      "Create or overwrite a text file on the VPS. Inspect with fs_read first and pass its SHA-256 as expected_sha256 " +
-      "to refuse a stale overwrite when another process changed the file. Omitting the hash keeps legacy overwrite behaviour. " +
-      "Bounded to OS_FS_WRITE_ROOTS (home + ~/projects by default).",
+    description: "Create or overwrite a text file on the VPS. Inspect with fs_read first and pass its SHA-256 as expected_sha256 to refuse a stale overwrite when another process changed the file. Omitting the hash keeps legacy overwrite behaviour. Bounded to OS_FS_WRITE_ROOTS (home + ~/projects by default).",
     scope: "write",
     annotations: { idempotentHint: true },
     actionContract: { phase: "mutate", target: "filesystem-text", sourceOfTruth: "live", discover: ["fs_read"], validators: ["path-policy", "sha256-cas"], verify: ["fs_read"], confirmation: "contextual", concurrency: "hash", presentation: "structured" },
@@ -25,11 +23,15 @@ export const MUTATE_TOOLS: McpTool[] = [
       content: { type: "string" },
       expected_sha256: { type: "string", description: "Optional SHA-256 returned by fs_read; refuse if the current file no longer matches." },
     }, ["path", "content"]),
-    run: async (a) => ({ ok: true, ...(await writeFileGuarded({
-      path: str(a, "path"),
-      content: typeof a.content === "string" ? a.content : "",
-      expectedSha256: opt(a, "expected_sha256"),
-    })) }),
+    run: async (a, context) => {
+      const target = str(a, "path");
+      await requireWorkflowMutationPath(context, target);
+      return { ok: true, ...(await writeFileGuarded({
+        path: target,
+        content: typeof a.content === "string" ? a.content : "",
+        expectedSha256: opt(a, "expected_sha256"),
+      })) };
+    },
   },
   {
     name: "fs_upload_file",
@@ -60,13 +62,15 @@ export const MUTATE_TOOLS: McpTool[] = [
       conflict: { type: "string", enum: ["error", "rename", "replace"], description: "Default error. rename chooses a deterministic content-hash suffix. replace requires expected_sha256." },
       expected_sha256: { type: "string", description: "Required only for conflict=replace; SHA-256 from a prior read/export of the current destination." },
     }, ["file", "dest"]),
-    run: async (a, context) => importOpenAiProvidedFile({
-      file: a.file,
-      dest: str(a, "dest"),
-      filename: opt(a, "filename"),
-      conflict: opt(a, "conflict") as "error" | "rename" | "replace" | undefined,
-      expectedSha256: opt(a, "expected_sha256"), allowChatGptAzureFamily: context.trustedOpenAiFileParams === true,
-    }),
+    run: async (a, context) => {
+      const dest = str(a, "dest");
+      await requireWorkflowMutationPath(context, dest);
+      return importOpenAiProvidedFile({
+        file: a.file, dest, filename: opt(a, "filename"),
+        conflict: opt(a, "conflict") as "error" | "rename" | "replace" | undefined,
+        expectedSha256: opt(a, "expected_sha256"), allowChatGptAzureFamily: context.trustedOpenAiFileParams === true,
+      });
+    },
   },
   {
     name: "fs_mkdir",
@@ -76,7 +80,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     scope: "write",
     annotations: { idempotentHint: true },
     inputSchema: S(PATH_P, ["path"]),
-    run: async (a) => { await makeDir(str(a, "path")); return { ok: true, path: a.path }; },
+    run: async (a, context) => { const target = str(a, "path"); await requireWorkflowMutationPath(context, target); await makeDir(target); return { ok: true, path: a.path }; },
   },
   {
     name: "fs_move",
@@ -85,7 +89,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     description: "Move or rename a file or directory. Refuses when the source holds credential paths.",
     scope: "write",
     inputSchema: S({ from: { type: "string" }, to: { type: "string" } }, ["from", "to"]),
-    run: async (a) => { await move(str(a, "from"), str(a, "to")); return { ok: true }; },
+    run: async (a, context) => { const from = str(a, "from"), to = str(a, "to"); await requireWorkflowMutationPath(context, from); await requireWorkflowMutationPath(context, to); await move(from, to); return { ok: true }; },
   },
   {
     name: "fs_copy",
@@ -94,19 +98,17 @@ export const MUTATE_TOOLS: McpTool[] = [
     description: "Copy a file or directory. The cockpit's own secrets are skipped rather than duplicated.",
     scope: "write",
     inputSchema: S({ from: { type: "string" }, to: { type: "string" } }, ["from", "to"]),
-    run: async (a) => { await copy(str(a, "from"), str(a, "to")); return { ok: true }; },
+    run: async (a, context) => { const from = str(a, "from"), to = str(a, "to"); await requireWorkflowMutationPath(context, to); await copy(from, to); return { ok: true }; },
   },
   {
     name: "fs_delete",
     limit: { key: "fs.delete", max: 60, windowMs: 60_000 },
     audit: { action: "fs.delete" as const, targetArg: "path" },
-    description:
-      "Delete a file or directory on the VPS. PERMANENT — there is no trash and no undo. " +
-      "Confirm with the user before calling this on anything you did not create in this conversation.",
+    description: "Delete a file or directory on the VPS. PERMANENT — there is no trash and no undo. Confirm with the user before calling this on anything you did not create in this conversation.",
     scope: "write",
     annotations: { destructiveHint: true },
     inputSchema: S(PATH_P, ["path"]),
-    run: async (a) => { await remove(str(a, "path")); return { ok: true, path: a.path }; },
+    run: async (a, context) => { const target = str(a, "path"); await requireWorkflowMutationPath(context, target); await remove(target); return { ok: true, path: a.path }; },
   },
 
   {
@@ -120,10 +122,7 @@ export const MUTATE_TOOLS: McpTool[] = [
         return { ok: code === 0, action: "exec.run", detail: `project function exit ${code}` };
       },
     },
-    description:
-      "Execute ONE function explicitly declared by a validated project's .mso/functions.json. " +
-      "This is project code execution and therefore requires exec scope. The manifest supplies fixed argv; model/user input is passed only as JSON on stdin and is NEVER interpolated into a shell command. " +
-      "Call project_capabilities first for function names and schemas. Projects without an opt-in manifest expose nothing. A function may return a validated bounded direct-image envelope for visual debugging; invalid envelopes remain ordinary text output.",
+    description: "Execute ONE function explicitly declared by a validated project's .mso/functions.json. This is project code execution and therefore requires exec scope. The manifest supplies fixed argv; model/user input is passed only as JSON on stdin and is NEVER interpolated into a shell command. Call project_capabilities first for function names and schemas. Projects without an opt-in manifest expose nothing. A function may return a validated bounded direct-image envelope for visual debugging; invalid envelopes remain ordinary text output.",
     scope: "exec",
     annotations: { destructiveHint: true, openWorldHint: true },
     inputSchema: S({
@@ -131,9 +130,10 @@ export const MUTATE_TOOLS: McpTool[] = [
       name: { type: "string", description: "Function name returned by project_capabilities." },
       input: { type: "object", description: "JSON object passed to the project function on stdin.", additionalProperties: true },
     }, ["project", "name", "input"]),
-    run: async (a) => {
+    run: async (a, context) => {
       const project = await resolveProjectHint(str(a, "project"));
       if (!project) throw new Error(`project not found: ${String(a.project)}`);
+      await requireWorkflowProjectTarget(context, project.path);
       return (await import("./project-function-content")).projectFunctionContent(await runProjectFunction(project.path, str(a, "name"), a.input));
     },
   },
@@ -149,19 +149,21 @@ export const MUTATE_TOOLS: McpTool[] = [
         return { ok: !refused, action: refused ? "exec.blocked" : "exec.job.start", detail: refused ? "refused" : "started" };
       },
     },
-    description:
-      "Start one bounded asynchronous shell job for legitimate test/build pipelines that exceed exec_run's 30s request budget. " +
-      "The job is client/workflow-bound, capped at 20 minutes and 1 MiB per output stream, limited to four concurrent jobs per client, and uses the same cwd jail and catastrophic-command filter as exec_run. Use exec_job_status to read it and exec_job_cancel to stop it.",
+    description: "Start one bounded asynchronous shell job for legitimate test/build pipelines that exceed exec_run's 30s request budget. The job is client/workflow-bound, capped at 20 minutes and 1 MiB per output stream, limited to four concurrent jobs per client, and uses the same cwd jail and catastrophic-command filter as exec_run. Use exec_job_status to read it and exec_job_cancel to stop it.",
     scope: "exec",
     annotations: { destructiveHint: true, openWorldHint: true },
     inputSchema: S({
       command: { type: "string", description: "The shell command line to run asynchronously." },
       cwd: { type: "string", description: "Working directory. Defaults to the owner's home." },
     }, ["command"]),
-    run: async (a, context) => startExecJob({
-      artifactEnv: await sessionArtifactEnvironment(context),
-      command: str(a, "command"), cwd: opt(a, "cwd"), actor: context.workflowActor ?? context.actor, workflowId: context.workflowId,
-    }),
+    run: async (a, context) => {
+      const cwd = opt(a, "cwd");
+      await requireWorkflowExecCwd(context, cwd);
+      return startExecJob({
+        artifactEnv: await sessionArtifactEnvironment(context),
+        command: str(a, "command"), cwd, actor: context.workflowActor ?? context.actor, workflowId: context.workflowId,
+      });
+    },
   },
   {
     name: "exec_job_status",
@@ -201,11 +203,7 @@ export const MUTATE_TOOLS: McpTool[] = [
         return { ok: !blocked && code === 0, action: blocked ? "exec.blocked" : "exec.run", detail: `exit ${code}` };
       },
     },
-    description:
-      "Run a shell command on the VPS as the owner and return stdout, stderr and exit code. " +
-      "Do not use this as the first call: start multi-step work with workflow_start and prefer bounded reads or read_pipeline. FULL HOST POWER — prefer fs_* and sys_* tools whenever they cover the task; they are bounded and " +
-      "this is not. Catastrophic patterns (rm -rf /, fork bombs, disk wipes) are refused by the server. " +
-      "Long-running or interactive commands will time out: this is not a terminal session.",
+    description: "Run a shell command on the VPS as the owner and return stdout, stderr and exit code. Do not use this as the first call: start multi-step work with workflow_start and prefer bounded reads or read_pipeline. FULL HOST POWER — prefer fs_* and sys_* tools whenever they cover the task; they are bounded and this is not. Catastrophic patterns (rm -rf /, fork bombs, disk wipes) are refused by the server. Long-running or interactive commands will time out: this is not a terminal session.",
     chatgptDescription: "Last resort shell; prefer reads/read_pipeline first.", scope: "exec",
     annotations: { destructiveHint: true, openWorldHint: true },
     result: { maxTextBytes: 48 * 1024, overflowHint: "Command output was compacted; rerun a narrower command (grep/head/tail) for the omitted evidence." },
@@ -213,7 +211,11 @@ export const MUTATE_TOOLS: McpTool[] = [
       command: { type: "string", description: "The shell command line to run." },
       cwd: { type: "string", description: "Working directory. Defaults to the owner's home." },
     }, ["command"]),
-    run: async (a, context) => runCommand(str(a, "command"), opt(a, "cwd"), await sessionArtifactEnvironment(context)),
+    run: async (a, context) => {
+      const cwd = opt(a, "cwd");
+      await requireWorkflowExecCwd(context, cwd);
+      return runCommand(str(a, "command"), cwd, await sessionArtifactEnvironment(context));
+    },
   },
 ];
 

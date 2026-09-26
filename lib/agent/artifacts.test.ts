@@ -91,12 +91,12 @@ describe("session artifact storage",()=>{
 describe("bounded artifact retention",()=>{
  it("preserves live/leased files and defaults to a dry-run",async()=>{
   await prepareSessionArtifacts(one);await saveSessionArtifact(one,png,meta);expect((await pruneSessionArtifacts(one)).state).toBe("active");
-  const future=Date.now()+9*86400000;expect((await pruneSessionArtifacts(one,true,future)).state).toBe("would-remove");expect((await listSessionArtifacts(one)).total).toBe(1);
-  expect((await pruneSessionArtifacts(one,false,future)).state).toBe("removed");expect(await readSessionFile(one.id)).not.toBeNull();
+  const future=Date.now()+9*86400000;expect((await pruneSessionArtifacts(one,true,future)).state).toBe("protected");expect((await listSessionArtifacts(one)).total).toBe(1);
+  expect((await pruneSessionArtifacts(one,false,future)).state).toBe("protected");expect(await readSessionFile(one.id)).not.toBeNull();expect((await listSessionArtifacts(one)).total).toBe(1);
  });
  it("never follows foreign files during cleanup and never removes another principal's session",async()=>{
   await prepareSessionArtifacts(one);await saveSessionArtifact(one,png,meta);const p=artifactPaths(one);await fs.writeFile(path.join(p.directory,"unknown.txt"),"preserve",{mode:0o600});
-  expect((await pruneSessionArtifacts(one,false,Date.now()+9*86400000)).state).toBe("unknown-files");
+  expect((await pruneSessionArtifacts(one,false,Date.now()+9*86400000)).state).toBe("protected");
   const report=await cleanupSessionArtifacts({principal:other,dryRun:false});expect(report.results.some(r=>r.sessionId===one.id)).toBe(false);
  });
 });

@@ -4,6 +4,7 @@ import { boundedGitMeta, fullGitMeta, packageMeta } from "./project-meta";
 import { projectCapabilities } from "./project-capabilities";
 import { homeDir, isUnderRoot } from "./paths";
 import { validateProjectChild, validateProjectDescendant, validateRootHint } from "./project-candidate";
+import { linkedWorkflowWorktreeCanonicalPath } from "./project-worktree";
 import { configuredRootPaths, containerById, containerFor, listProjectDirsIn, projectContainers, type ProjectContainer } from "./project-roots";
 
 export type ProjectResolution = {
@@ -88,15 +89,28 @@ export async function resolveProjectHint(hint: string, rootHint?: string): Promi
 
   const pathHint = raw.startsWith("projects/") ? `~/${raw}` : raw;
   if (/^(?:~\/|\/|\.\.?\/)/.test(pathHint)) {
-    // A path hint gets the SAME component-by-component validation an enumerated entry
-    // gets — hidden, symlinked or foreign-uid components are refused at every depth,
-    // rather than canonicalized away by a single resolveReadable() call.
+    // Normal projects stay within configured containers. The sole hidden-path
+    // exception is an MSO-owned linked worktree, whose git-common-dir proves the
+    // canonical project before we reuse that project's logical id/root.
     const absolute = expandHome(pathHint);
     for (const container of containers) {
       if (!isUnderRoot(absolute, container.path)) continue;
       const candidate = await validateProjectDescendant(container, absolute);
       if (candidate.ok) return resolutionFor(container, candidate.path, raw, "path");
       return null; // it belongs to this container and was refused; do not try a wider one
+    }
+    const canonical = await linkedWorkflowWorktreeCanonicalPath(absolute);
+    if (!canonical) return null;
+    for (const container of containers) {
+      if (!isUnderRoot(canonical, container.path)) continue;
+      const validated = await validateProjectDescendant(container, canonical);
+      if (!validated.ok) return null;
+      const meta = await packageMeta(absolute);
+      const name = path.basename(canonical);
+      return {
+        hint: raw, id: `${container.id}/${name}`, name, path: absolute, rootId: container.id, root: container.path,
+        packageName: meta.name, aliases: projectAliasesFor(name), matchedBy: "path",
+      };
     }
     return null;
   }

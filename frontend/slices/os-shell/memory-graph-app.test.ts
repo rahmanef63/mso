@@ -9,6 +9,7 @@ describe("Memory graph registration", () => {
     const index = (slug: string) => BUILTIN_APPS.findIndex((item) => item.slug === slug);
     expect(index("docs")).toBeLessThan(24);
     expect(index("settings")).toBeLessThan(24);
-    expect(index("memory")).toBeGreaterThan(index("links"));
+    expect(index("memory")).toBeLessThan(24);
+    expect(app?.pinned).toBe(true);
   });
 });

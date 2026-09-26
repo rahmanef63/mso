@@ -1,5 +1,6 @@
-import { ownedArtifactSession, prepareSessionArtifacts } from "@/lib/agent/artifact-session"; import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
-import { listLearnedRecipes, markRecipeRecommended, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
+import { ownedArtifactSession, prepareSessionArtifacts } from "@/lib/agent/artifact-session";
+import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
+import { listLearnedRecipes, markRecipeRecommended, summarizeProjectContention } from "@/lib/workflow";
 import { ensureLearnedWorkflowGraph, findMatchingWorkflowGraph } from "@/lib/workflow/graph-store";
 import { progressiveVerification } from "@/lib/orchestration/automation";
 import { routeIntentText } from "@/lib/orchestration/capability-catalog.mjs";
@@ -14,6 +15,7 @@ import { WORKFLOW_START_OUTPUT, workflowStartProjection } from "./tools-workflow
 import { workflowStartAgentMemory } from "./workflow-start-memory";
 import { AGENT_BOOTSTRAP_SKILL, workflowOrientation, workflowStartPolicy } from "./instructions";
 import { workflowStartCandidateContext } from "./workflow-start-candidates";
+import { prepareWorkflowStartWorkspace, startWorkflowWithWorkspace, workflowWorkspaceResources } from "./workflow-start-workspace";
 import { updateAgentSessionLocation } from "@/lib/agent/session-store";
 export const WORKFLOW_START_TOOL: McpTool = {
     name: "workflow_start",
@@ -108,12 +110,14 @@ export const WORKFLOW_START_TOOL: McpTool = {
         ...(candidateSearch?.matches ?? []).map((match) => `${match.path}:${match.line} ${match.preview}`),
         compactSearch.recommendedRecipe?.description ?? "",
       ].join("\n").length / 4);
+      const isolatedWorkspace = await prepareWorkflowStartWorkspace(project?.path, repository?.git.available, classification.isolation);
+      const workspacePath = isolatedWorkspace?.workspacePath ?? project?.path;
       const orchestration: WorkflowOrchestrationSnapshot = {
         ...classification,
-        ...(repository?.git.head?.sha ? { baseCommit: repository.git.head.sha } : {}),
+        ...(isolatedWorkspace?.baseCommit || repository?.git.head?.sha ? { baseCommit: isolatedWorkspace?.baseCommit ?? repository?.git.head?.sha } : {}),
         ...(repository?.git.branch ? { baseBranch: repository.git.branch } : {}),
-        ...(project?.path ? { workspacePath: project.path } : {}),
-        changedPaths, affectedPaths, reservedResources,
+        ...(workspacePath ? { workspacePath } : {}),
+        changedPaths, affectedPaths, reservedResources: workflowWorkspaceResources(reservedResources, isolatedWorkspace),
         overlappingPaths: contention.overlappingPaths, overlappingResources: contention.overlappingResources,
         activeProjectWorkflows, conflictingWorkflowCount: contention.conflictingWorkflowCount,
         memoryHits: agentMemory.length + repoMemory.length + (search.recommendedRecipe ? 1 : 0),
@@ -143,15 +147,10 @@ export const WORKFLOW_START_TOOL: McpTool = {
           ...(candidateSearch?.cursor ? { cursor: candidateSearch.cursor } : candidatePool?.cursor ? { cursor: candidatePool.cursor } : {}),
         } : undefined,
       };
-      const started = await startWorkflow({
-        actor,
-        scope: context.scope,
-        intent,
-        project: project?.path ?? projectHint,
-        constraints: opt(a, "constraints"),
-        orchestration,
-        candidatePool,
-      });
+      const started = await startWorkflowWithWorkspace({
+        actor, scope: context.scope, intent, project: project?.path ?? projectHint,
+        constraints: opt(a, "constraints"), orchestration, candidatePool,
+      }, isolatedWorkspace);
       if (search.recommendedRecipe) {
         await markRecipeRecommended(search.recommendedRecipe.id, { actor: recipeOwner, scope: context.scope }).catch(() => undefined);
       }
@@ -204,6 +203,7 @@ export const WORKFLOW_START_TOOL: McpTool = {
             ...(recipePlan ? [`[Recipe] ${recipePlan.maturity} · ${recipePlan.attempts} attempts · ${recipePlan.successRate}% success · ${recipePlan.steps.length} reusable step(s)`] : []),
             ...(graphAutomation ? [`[Workflow graph] ${graphAutomation.status} · ${graphAutomation.name} · ${graphAutomation.metadata.provenance ?? "private"}`] : [`[Workflow graph] no matching private graph; successful completion will seed a learned draft`]),
             ...(reusableScript ? [`[Automation] ${reusableScript.status} script ${reusableScript.id} available`] : []),
+            ...(isolatedWorkspace ? [`[Workspace] ${isolatedWorkspace.created ? "task-owned worktree" : "existing linked worktree"} · ${isolatedWorkspace.workspacePath} · ${isolatedWorkspace.branch || "detached"}`] : []),
             ...(contention.conflictingWorkflowCount ? [`[Collision] ${contention.conflictingWorkflowCount} workflow(s) overlap declared paths/resources`] : []),
             ...(candidateSearch ? [`[Candidates] ${candidateSearch.reusedSeed ? "reused recipe pool" : "host index"} · ${candidateSearch.candidates.length} path candidate(s) · ${candidateSearch.matches.length} bounded content hit(s)`] : []),
             ...(discovery.complete ? [] : [`[Discovery] partial scan — ${[...search.catalog.truncationReasons, ...(candidateSearch?.truncationReasons ?? [])].join(", ")}; do not conclude something is absent`]),
@@ -211,7 +211,7 @@ export const WORKFLOW_START_TOOL: McpTool = {
             "[Plan] classify → retrieve minimal memory → isolate if required → execute → progressive verify → learn → workflow_finish",
           ],
           orientation: workflowOrientation(context.scope),
-          policy: workflowStartPolicy(classification),
+          policy: { ...workflowStartPolicy(classification), ...(isolatedWorkspace ? { workspace: `Use this exact task workspace for source writes and shell cwd: ${isolatedWorkspace.workspacePath}` } : {}) },
         },
         search: compactSearch,
         instruction: "Use the smallest useful returned memory context and any safe recipe. Follow the risk/isolation policy, verify progressively, then call workflow_finish with evidence.",

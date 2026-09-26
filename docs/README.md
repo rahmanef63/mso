@@ -20,12 +20,20 @@ evidence and review freshness. The repository quality gate runs both automatical
 | Document | Contract |
 |---|---|
 | [`../README.md`](../README.md) | Product overview and quickstart |
+| [`QUICKSTART.md`](./QUICKSTART.md) | Canonical first-10-minutes tutorial: install → doctor → provider → project → safe first agent action → evidence |
+| [`LAUNCH-READINESS.md`](./LAUNCH-READINESS.md) | 20 measurable product/launch gates, P0/P1 policy and truthful launch-label contract |
+| [`LAUNCH-QA.md`](./LAUNCH-QA.md) | Concise launch answers for category, competitors, agent concepts, security, memory, recovery and readiness |
+| [`SOURCE-CONCURRENCY.md`](./SOURCE-CONCURRENCY.md) | One-task-one-worktree, canonical integration authority, remote protection and concurrency acceptance tests |
+| [`AGENT-SECURITY.md`](./AGENT-SECURITY.md) | Agent-specific threat model, tool risk classes, abuse cases and memory-admission security contract |
+| [`DISASTER-RECOVERY.md`](./DISASTER-RECOVERY.md) | 3-2-1 target, RPO/RTO objectives, backup classes and restore-drill acceptance |
+| [`RELIABILITY.md`](./RELIABILITY.md) | Initial SLIs/SLO targets, error-budget policy, disk thresholds and release reliability contract |
 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Current runtime, shell, role, host, Agent/Local Agent/subagent, MCP and deployment architecture |
 | [`GATEWAY.md`](./GATEWAY.md) | Provider-neutral gateway state, health, ownership, supervisor and deployment contract |
 | [`COGNITIVE-RUNTIME.md`](./COGNITIVE-RUNTIME.md) | Provider-neutral MCP/session/context/tool-routing runtime and benchmark contract |
 | [`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md) | Canonical first-call sequence and capability-parity matrix across CLI, MCP, and Alfa |
 | [`RASMIC.md`](./RASMIC.md) | Risk-aware orchestration, repo-local memory/evidence, collision detection and recipe/script promotion |
 | [`MEMORY-GRAPH.md`](./MEMORY-GRAPH.md) | Owner Memory app: vault notes, project knowledge, agent memory, layouts and limits |
+| [`MEMORY-SAFETY.md`](./MEMORY-SAFETY.md) | Session-source preservation, owner cleanup previews, local memory backups, learning/discovery visibility and remaining limits |
 | [`COMPARISON.md`](./COMPARISON.md) | Generated product comparison methodology, evidence and notes |
 | [`COMPETITIVE-ROADMAP.md`](./COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate specialist boundaries and next investments |
 | [`INSTALL.md`](./INSTALL.md) | Owner installation, TLS, updates, backup and uninstall |
