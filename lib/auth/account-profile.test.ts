@@ -2,7 +2,7 @@ import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_ACCOUNT_PROFILE } from "./account-profile-model";
+import { ACCOUNT_PRESETS, DEFAULT_ACCOUNT_PROFILE } from "./account-profile-model";
 import { AccountProfileError, readAccountProfile, writeAccountProfile } from "./account-profile";
 
 let dir: string;
@@ -38,6 +38,17 @@ describe("account profile", () => {
     const saved = JSON.parse(await fs.readFile(file, "utf8")) as Record<string, unknown>;
     expect(saved).toEqual({ name: "Rahman", icon: { type: "image", src: png } });
     expect(saved).not.toHaveProperty("password");
+    const loose = png.replace(/=+$/, "");
+    await writeAccountProfile({ icon: { type: "image", src: loose } });
+    const recoded = JSON.parse(await fs.readFile(file, "utf8")) as { icon: { src: string } };
+    expect(recoded.icon.src).toBe(png);
+    expect(recoded.icon.src).not.toBe(loose);
+    await writeAccountProfile({ name: "  José 李  " });
+    expect(await readAccountProfile()).toMatchObject({ name: "José 李" });
+    for (const id of ACCOUNT_PRESETS) {
+      await writeAccountProfile({ icon: { type: "preset", id } });
+      expect(await readAccountProfile()).toMatchObject({ icon: { type: "preset", id } });
+    }
     const stat = await fs.stat(file);
     expect(stat.mode & 0o077).toBe(0);
   });

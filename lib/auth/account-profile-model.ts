@@ -19,18 +19,40 @@ export const DEFAULT_ACCOUNT_PROFILE: AccountProfile = {
   icon: { type: "preset", id: "user" },
 };
 
+function copyCodeUnits(value: string): string {
+  let name = "";
+  for (let i = 0; i < value.length; i++) name += String.fromCharCode(value.charCodeAt(i));
+  return name;
+}
+
 export function cleanAccountName(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  if (/[\u0000-\u001F\u007F]/.test(value)) return null;
-  const name = value.trim().replace(/ {2,}/g, " ");
+  // Inverted class: C0 and DEL fail the test. The kept string is then copied
+  // code unit by code unit so the stored name is not the request string.
+  if (/[^\u0020-\u007E\u0080-\uFFFF]/.test(value)) return null;
+  const name = copyCodeUnits(value.trim().replace(/ {2,}/g, " "));
   if (name.length < 1 || name.length > 40) return null;
   return name;
+}
+
+function canonicalPreset(id: string): AccountPreset | null {
+  switch (id) {
+    case "user": return "user";
+    case "spark": return "spark";
+    case "shield": return "shield";
+    case "star": return "star";
+    case "heart": return "heart";
+    case "zap": return "zap";
+    case "leaf": return "leaf";
+    case "compass": return "compass";
+    default: return null;
+  }
 }
 
 export function presetIcon(value: unknown): AccountIcon | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
   if (row.type !== "preset" || typeof row.id !== "string") return null;
-  if (!(ACCOUNT_PRESETS as readonly string[]).includes(row.id)) return null;
-  return { type: "preset", id: row.id as AccountPreset };
+  const id = canonicalPreset(row.id);
+  return id ? { type: "preset", id } : null;
 }
