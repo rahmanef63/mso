@@ -17,6 +17,7 @@ this is the *what*, and it is what Settings → About shows as “What's new”.
 
 **Fixed**
 
+- `worktrees` keep runtime paths out of build tracing
 - `memory` keep runtime backup paths out of build tracing
 - `tests` make recovery fixtures portable
 - `workflows` close source isolation bypasses
