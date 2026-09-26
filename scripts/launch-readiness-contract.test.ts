@@ -42,4 +42,13 @@ describe("launch narrative and readiness SSOT", () => {
     expect(qa).toContain("Public Alpha / Developer Preview");
     expect(qa).toContain("You should not trust it blindly");
   });
+
+  it("keeps the launch demo on one agent control-plane journey", () => {
+    const demo = read("docs/DEMO-SCRIPT.md");
+    expect(demo).toContain("3-minute launch demo — one agent job, end to end");
+    expect(demo).toContain("Read first, authority stays bounded");
+    expect(demo).toContain("task-owned isolated worktree");
+    expect(demo).toContain("IMPLEMENTED → TESTED");
+    expect(demo).toContain("Self-hosted control plane for AI agents.");
+  });
 });
