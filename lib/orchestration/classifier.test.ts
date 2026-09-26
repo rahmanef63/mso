@@ -1,20 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { classifyTask, gitChangedPaths, sharedResourceWarnings } from "./classifier";
+import { classifyTask, gitChangedPaths, sharedResourceWarnings, sourceChangeLikely } from "./classifier";
 
 describe("RASMIC risk and contention classifier", () => {
-  it("keeps trivial docs work direct without a worktree", () => {
+  it("keeps trivial docs work low-risk but isolates the source mutation", () => {
     const result = classifyTask({ intent: "fix a typo in docs only", scope: "write" });
     expect(result).toMatchObject({
       risk: "low",
       complexity: "light",
-      isolation: "direct",
+      isolation: "isolated-worktree",
       verification: "targeted",
     });
   });
 
-  it("marks contained feature work medium with optional isolation", () => {
+  it("isolates contained feature work even when its risk remains medium", () => {
     const result = classifyTask({ intent: "implement one contained feature across a few files", scope: "write" });
-    expect(result).toMatchObject({ risk: "medium", isolation: "optional-worktree", verification: "affected" });
+    expect(result).toMatchObject({ risk: "medium", isolation: "isolated-worktree", verification: "affected" });
+  });
+
+  it("does not create source-change pressure for a read-only project audit", () => {
+    expect(sourceChangeLikely("audit the repository and explain the current state")).toBe(false);
+    const result = classifyTask({ intent: "audit the repository and explain the current state", scope: "write" });
+    expect(result.isolation).toBe("direct");
   });
 
   it("requires isolated work for high-risk auth/schema/infra work", () => {

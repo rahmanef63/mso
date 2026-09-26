@@ -4,6 +4,7 @@ import { copy, makeDir, move, remove, writeFileGuarded } from "@/lib/host/fs-api
 import { resolveProjectHint, runProjectFunction } from "@/lib/host/projects-api";
 import { importOpenAiProvidedFile } from "./openai-file-upload";
 import { type McpTool, opt, PATH_P, S, str } from "./tool-kit";
+import { requireWorkflowExecCwd, requireWorkflowMutationPath, requireWorkflowProjectTarget } from "./workflow-workspace-guard";
 
 // The write and exec tiers. Each carries an `audit` descriptor — the dispatcher,
 // not the tool, writes the trail, because these call lib/host directly and so
@@ -25,11 +26,15 @@ export const MUTATE_TOOLS: McpTool[] = [
       content: { type: "string" },
       expected_sha256: { type: "string", description: "Optional SHA-256 returned by fs_read; refuse if the current file no longer matches." },
     }, ["path", "content"]),
-    run: async (a) => ({ ok: true, ...(await writeFileGuarded({
-      path: str(a, "path"),
-      content: typeof a.content === "string" ? a.content : "",
-      expectedSha256: opt(a, "expected_sha256"),
-    })) }),
+    run: async (a, context) => {
+      const target = str(a, "path");
+      await requireWorkflowMutationPath(context, target);
+      return { ok: true, ...(await writeFileGuarded({
+        path: target,
+        content: typeof a.content === "string" ? a.content : "",
+        expectedSha256: opt(a, "expected_sha256"),
+      })) };
+    },
   },
   {
     name: "fs_upload_file",
@@ -60,13 +65,15 @@ export const MUTATE_TOOLS: McpTool[] = [
       conflict: { type: "string", enum: ["error", "rename", "replace"], description: "Default error. rename chooses a deterministic content-hash suffix. replace requires expected_sha256." },
       expected_sha256: { type: "string", description: "Required only for conflict=replace; SHA-256 from a prior read/export of the current destination." },
     }, ["file", "dest"]),
-    run: async (a, context) => importOpenAiProvidedFile({
-      file: a.file,
-      dest: str(a, "dest"),
-      filename: opt(a, "filename"),
-      conflict: opt(a, "conflict") as "error" | "rename" | "replace" | undefined,
-      expectedSha256: opt(a, "expected_sha256"), allowChatGptAzureFamily: context.trustedOpenAiFileParams === true,
-    }),
+    run: async (a, context) => {
+      const dest = str(a, "dest");
+      await requireWorkflowMutationPath(context, dest);
+      return importOpenAiProvidedFile({
+        file: a.file, dest, filename: opt(a, "filename"),
+        conflict: opt(a, "conflict") as "error" | "rename" | "replace" | undefined,
+        expectedSha256: opt(a, "expected_sha256"), allowChatGptAzureFamily: context.trustedOpenAiFileParams === true,
+      });
+    },
   },
   {
     name: "fs_mkdir",
@@ -76,7 +83,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     scope: "write",
     annotations: { idempotentHint: true },
     inputSchema: S(PATH_P, ["path"]),
-    run: async (a) => { await makeDir(str(a, "path")); return { ok: true, path: a.path }; },
+    run: async (a, context) => { const target = str(a, "path"); await requireWorkflowMutationPath(context, target); await makeDir(target); return { ok: true, path: a.path }; },
   },
   {
     name: "fs_move",
@@ -85,7 +92,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     description: "Move or rename a file or directory. Refuses when the source holds credential paths.",
     scope: "write",
     inputSchema: S({ from: { type: "string" }, to: { type: "string" } }, ["from", "to"]),
-    run: async (a) => { await move(str(a, "from"), str(a, "to")); return { ok: true }; },
+    run: async (a, context) => { const from = str(a, "from"), to = str(a, "to"); await requireWorkflowMutationPath(context, from); await requireWorkflowMutationPath(context, to); await move(from, to); return { ok: true }; },
   },
   {
     name: "fs_copy",
@@ -94,7 +101,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     description: "Copy a file or directory. The cockpit's own secrets are skipped rather than duplicated.",
     scope: "write",
     inputSchema: S({ from: { type: "string" }, to: { type: "string" } }, ["from", "to"]),
-    run: async (a) => { await copy(str(a, "from"), str(a, "to")); return { ok: true }; },
+    run: async (a, context) => { const from = str(a, "from"), to = str(a, "to"); await requireWorkflowMutationPath(context, to); await copy(from, to); return { ok: true }; },
   },
   {
     name: "fs_delete",
@@ -106,7 +113,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     scope: "write",
     annotations: { destructiveHint: true },
     inputSchema: S(PATH_P, ["path"]),
-    run: async (a) => { await remove(str(a, "path")); return { ok: true, path: a.path }; },
+    run: async (a, context) => { const target = str(a, "path"); await requireWorkflowMutationPath(context, target); await remove(target); return { ok: true, path: a.path }; },
   },
 
   {
@@ -131,9 +138,10 @@ export const MUTATE_TOOLS: McpTool[] = [
       name: { type: "string", description: "Function name returned by project_capabilities." },
       input: { type: "object", description: "JSON object passed to the project function on stdin.", additionalProperties: true },
     }, ["project", "name", "input"]),
-    run: async (a) => {
+    run: async (a, context) => {
       const project = await resolveProjectHint(str(a, "project"));
       if (!project) throw new Error(`project not found: ${String(a.project)}`);
+      await requireWorkflowProjectTarget(context, project.path);
       return (await import("./project-function-content")).projectFunctionContent(await runProjectFunction(project.path, str(a, "name"), a.input));
     },
   },
@@ -158,10 +166,14 @@ export const MUTATE_TOOLS: McpTool[] = [
       command: { type: "string", description: "The shell command line to run asynchronously." },
       cwd: { type: "string", description: "Working directory. Defaults to the owner's home." },
     }, ["command"]),
-    run: async (a, context) => startExecJob({
-      artifactEnv: await sessionArtifactEnvironment(context),
-      command: str(a, "command"), cwd: opt(a, "cwd"), actor: context.workflowActor ?? context.actor, workflowId: context.workflowId,
-    }),
+    run: async (a, context) => {
+      const cwd = opt(a, "cwd");
+      await requireWorkflowExecCwd(context, cwd);
+      return startExecJob({
+        artifactEnv: await sessionArtifactEnvironment(context),
+        command: str(a, "command"), cwd, actor: context.workflowActor ?? context.actor, workflowId: context.workflowId,
+      });
+    },
   },
   {
     name: "exec_job_status",
@@ -213,7 +225,11 @@ export const MUTATE_TOOLS: McpTool[] = [
       command: { type: "string", description: "The shell command line to run." },
       cwd: { type: "string", description: "Working directory. Defaults to the owner's home." },
     }, ["command"]),
-    run: async (a, context) => runCommand(str(a, "command"), opt(a, "cwd"), await sessionArtifactEnvironment(context)),
+    run: async (a, context) => {
+      const cwd = opt(a, "cwd");
+      await requireWorkflowExecCwd(context, cwd);
+      return runCommand(str(a, "command"), cwd, await sessionArtifactEnvironment(context));
+    },
   },
 ];
 

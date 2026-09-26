@@ -1,4 +1,5 @@
 import { inspectProject, resolveProjectHint } from "@/lib/host/projects-api";
+import { discardWorkflowWorktreeIfUnchanged } from "@/lib/host/project-worktree";
 import { activeWorkflowForActor, cancelWorkflow, finishWorkflow, workflowStepProvenance } from "@/lib/workflow";
 import { getAgentSession } from "@/lib/agent/session-store";
 import { agentSessionLabel } from "@/lib/agent/session-name";
@@ -11,6 +12,22 @@ import { writeAutomationScript, writeEvidenceReceipt, writePortableRecipe } from
 import type { McpTool } from "./tool-kit";
 import { opt, S, str } from "./tool-kit";
 import { evidenceInput, evidenceSchema, WORKFLOW_PROGRESS_OUTPUT, workflowProgress } from "./tools-learning-shared";
+
+async function workflowCleanupResult(workflow: { project?: string; orchestration?: { isolation?: "direct" | "optional-worktree" | "isolated-worktree"; workspacePath?: string; baseCommit?: string; affectedPaths?: string[]; reservedResources?: string[] } }) {
+  const guidance = workflowCleanupGuidance(workflow.orchestration);
+  if (!workflow.project || !workflow.orchestration?.workspacePath || workflow.orchestration.isolation !== "isolated-worktree") return guidance;
+  try {
+    const autoRemoved = await discardWorkflowWorktreeIfUnchanged({
+      canonicalPath: workflow.project, workspacePath: workflow.orchestration.workspacePath, baseCommit: workflow.orchestration.baseCommit,
+    });
+    return autoRemoved ? {
+      ...guidance, autoRemoved: true, worktreeCleanupRequired: false,
+      instruction: "Unused clean task worktree was removed automatically after workflow close.",
+    } : { ...guidance, autoRemoved: false };
+  } catch (error) {
+    return { ...guidance, autoRemoved: false, warning: error instanceof Error ? error.message : String(error) };
+  }
+}
 
 export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
   {
@@ -57,7 +74,7 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
       });
       if (workflowActor)
         await disarmLocalAgentStandbyWorkflow(workflowActor, cancelled.workflow.id, "workflow cancelled");
-      return { ...cancelled, cleanup: workflowCleanupGuidance(cancelled.workflow.orchestration) };
+      return { ...cancelled, cleanup: await workflowCleanupResult(cancelled.workflow) };
     },
   },
   {
@@ -194,7 +211,7 @@ export const WORKFLOW_LIFECYCLE_TOOLS: McpTool[] = [
           scriptCandidateCreated: Boolean(scriptPath),
         },
         repoMemory: { taskMemoryId, scriptPath, warnings: persistenceWarnings },
-        cleanup: workflowCleanupGuidance(workflow.orchestration),
+        cleanup: await workflowCleanupResult(workflow),
       };
     },
   },

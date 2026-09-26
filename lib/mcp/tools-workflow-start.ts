@@ -1,5 +1,6 @@
 import { ownedArtifactSession, prepareSessionArtifacts } from "@/lib/agent/artifact-session";
 import { inspectProject, readProjectKnowledge, resolveProjectHint } from "@/lib/host/projects-api";
+import { discardPreparedProjectWorktree, prepareProjectWorktree } from "@/lib/host/project-worktree";
 import { listLearnedRecipes, markRecipeRecommended, startWorkflow, summarizeProjectContention } from "@/lib/workflow";
 import { ensureLearnedWorkflowGraph, findMatchingWorkflowGraph } from "@/lib/workflow/graph-store";
 import { progressiveVerification } from "@/lib/orchestration/automation";
@@ -107,12 +108,21 @@ export const WORKFLOW_START_TOOL: McpTool = {
         ...(candidateSearch?.matches ?? []).map((match) => `${match.path}:${match.line} ${match.preview}`),
         compactSearch.recommendedRecipe?.description ?? "",
       ].join("\n").length / 4);
+      // Create a source workspace only after read-only discovery/planning succeeds.
+      // A failed catalog/memory lookup must never leave an orphan linked worktree.
+      const isolatedWorkspace = project && repository?.git.available && classification.isolation === "isolated-worktree"
+        ? await prepareProjectWorktree(project.path)
+        : undefined;
+      const workspacePath = isolatedWorkspace?.workspacePath ?? project?.path;
       const orchestration: WorkflowOrchestrationSnapshot = {
         ...classification,
-        ...(repository?.git.head?.sha ? { baseCommit: repository.git.head.sha } : {}),
+        ...(isolatedWorkspace?.baseCommit || repository?.git.head?.sha ? { baseCommit: isolatedWorkspace?.baseCommit ?? repository?.git.head?.sha } : {}),
         ...(repository?.git.branch ? { baseBranch: repository.git.branch } : {}),
-        ...(project?.path ? { workspacePath: project.path } : {}),
-        changedPaths, affectedPaths, reservedResources,
+        ...(workspacePath ? { workspacePath } : {}),
+        changedPaths, affectedPaths, reservedResources: [...new Set([
+          ...reservedResources,
+          ...(isolatedWorkspace?.created ? [isolatedWorkspace.workspacePath] : []),
+        ])].slice(0, 40),
         overlappingPaths: contention.overlappingPaths, overlappingResources: contention.overlappingResources,
         activeProjectWorkflows, conflictingWorkflowCount: contention.conflictingWorkflowCount,
         memoryHits: agentMemory.length + repoMemory.length + (search.recommendedRecipe ? 1 : 0),
@@ -142,15 +152,21 @@ export const WORKFLOW_START_TOOL: McpTool = {
           ...(candidateSearch?.cursor ? { cursor: candidateSearch.cursor } : candidatePool?.cursor ? { cursor: candidatePool.cursor } : {}),
         } : undefined,
       };
-      const started = await startWorkflow({
-        actor,
-        scope: context.scope,
-        intent,
-        project: project?.path ?? projectHint,
-        constraints: opt(a, "constraints"),
-        orchestration,
-        candidatePool,
-      });
+      let started;
+      try {
+        started = await startWorkflow({
+          actor,
+          scope: context.scope,
+          intent,
+          project: project?.path ?? projectHint,
+          constraints: opt(a, "constraints"),
+          orchestration,
+          candidatePool,
+        });
+      } catch (error) {
+        if (isolatedWorkspace?.created) await discardPreparedProjectWorktree(isolatedWorkspace).catch(() => false);
+        throw error;
+      }
       if (search.recommendedRecipe) {
         await markRecipeRecommended(search.recommendedRecipe.id, { actor: recipeOwner, scope: context.scope }).catch(() => undefined);
       }
@@ -203,6 +219,7 @@ export const WORKFLOW_START_TOOL: McpTool = {
             ...(recipePlan ? [`[Recipe] ${recipePlan.maturity} · ${recipePlan.attempts} attempts · ${recipePlan.successRate}% success · ${recipePlan.steps.length} reusable step(s)`] : []),
             ...(graphAutomation ? [`[Workflow graph] ${graphAutomation.status} · ${graphAutomation.name} · ${graphAutomation.metadata.provenance ?? "private"}`] : [`[Workflow graph] no matching private graph; successful completion will seed a learned draft`]),
             ...(reusableScript ? [`[Automation] ${reusableScript.status} script ${reusableScript.id} available`] : []),
+            ...(isolatedWorkspace ? [`[Workspace] ${isolatedWorkspace.created ? "task-owned worktree" : "existing linked worktree"} · ${isolatedWorkspace.workspacePath} · ${isolatedWorkspace.branch || "detached"}`] : []),
             ...(contention.conflictingWorkflowCount ? [`[Collision] ${contention.conflictingWorkflowCount} workflow(s) overlap declared paths/resources`] : []),
             ...(candidateSearch ? [`[Candidates] ${candidateSearch.reusedSeed ? "reused recipe pool" : "host index"} · ${candidateSearch.candidates.length} path candidate(s) · ${candidateSearch.matches.length} bounded content hit(s)`] : []),
             ...(discovery.complete ? [] : [`[Discovery] partial scan — ${[...search.catalog.truncationReasons, ...(candidateSearch?.truncationReasons ?? [])].join(", ")}; do not conclude something is absent`]),
@@ -210,7 +227,10 @@ export const WORKFLOW_START_TOOL: McpTool = {
             "[Plan] classify → retrieve minimal memory → isolate if required → execute → progressive verify → learn → workflow_finish",
           ],
           orientation: workflowOrientation(context.scope),
-          policy: workflowStartPolicy(classification),
+          policy: {
+            ...workflowStartPolicy(classification),
+            ...(isolatedWorkspace ? { workspace: `Use this exact task workspace for source writes and shell cwd: ${isolatedWorkspace.workspacePath}` } : {}),
+          },
         },
         search: compactSearch,
         instruction: "Use the smallest useful returned memory context and any safe recipe. Follow the risk/isolation policy, verify progressively, then call workflow_finish with evidence.",
