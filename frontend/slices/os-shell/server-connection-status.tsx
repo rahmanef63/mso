@@ -6,6 +6,7 @@ import { useSession } from "@/features/auth";
 import { useAppearance } from "@/lib/appearance";
 import { IS_DEMO } from "@/lib/demo";
 import { cn } from "@/lib/utils";
+import { ChevronUp } from "lucide-react";
 
 /**
  * One status source, many native placements. AppShell exposes `systemStatus`
@@ -20,6 +21,7 @@ function ServerConnectionStatus() {
 
   const live = status === "in" && tweaks.server.mode === "live";
   const mobile = shell.surface === "mobile";
+  const windows = shell.id === "windows";
   const label = live
     ? `${mobile ? "Live" : "Live server"} · ${role ?? "viewer"}`
     : mobile ? "Demo" : "Demo · Mock data only";
@@ -29,21 +31,25 @@ function ServerConnectionStatus() {
       aria-label="Server connection mode"
       data-connection-mode={live ? "live" : "mock"}
       data-shell-status={shell.id}
+      title={windows ? label : undefined}
       className={cn(
         "flex max-w-full items-center gap-1.5 whitespace-nowrap text-muted-foreground",
         mobile
           ? "rounded-full border border-border/70 bg-card/80 px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur"
-          : shell.id === "windows"
-            ? "h-8 rounded-md px-2 text-[11px] hover:bg-muted"
+          : windows
+            ? "grid size-10 place-items-center gap-0 rounded-md p-0 text-foreground hover:bg-foreground/10"
             : "rounded-md px-1.5 py-0.5 text-[11px]",
       )}
     >
-      <span
-        aria-hidden
-        className={cn("size-1.5 shrink-0 rounded-full", live ? "bg-success" : "bg-warning")}
-      />
-      <span className="truncate">{label}</span>
-      {status === "out" && !mobile && (
+      {windows ? (
+        <ChevronUp aria-hidden className={cn("size-4", !live && "text-warning")} />
+      ) : (
+        <>
+          <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", live ? "bg-success" : "bg-warning")} />
+          <span className="truncate">{label}</span>
+        </>
+      )}
+      {status === "out" && !mobile && !windows && (
         <Link
           prefetch={false}
           href="/login"

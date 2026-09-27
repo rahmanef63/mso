@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { BatteryMedium, SlidersHorizontal, Volume2, Wifi } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ControlCenterTiles } from "./control-center-tiles";
@@ -14,13 +14,21 @@ import { ControlCenterTiles } from "./control-center-tiles";
  *  original and still default home). The Windows taskbar row is 40px per the
  *  Fluent table, and a 28px box there left one visibly short item next to the
  *  clock — so the taskbar passes 40 rather than every surface being bumped. */
-export function ControlCenterDesktop({ size = 28 }: { size?: number } = {}) {
+export function ControlCenterDesktop({ size = 28, variant = "default" }: { size?: number; variant?: "default" | "windows" } = {}) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label="Control Center" className="rounded-md" style={{ width: size, height: size }}>
-          <SlidersHorizontal className="size-4" />
+        <Button type="button" variant="ghost" size="icon" aria-label="Control Center" className="rounded-md text-foreground hover:bg-foreground/10" style={{ width: size, height: variant === "windows" ? 40 : size }}>
+          {variant === "windows" ? (
+            <span className="flex items-center gap-1.5" aria-hidden>
+              <Wifi className="size-4" />
+              <Volume2 className="size-4" />
+              <BatteryMedium className="size-[18px]" />
+            </span>
+          ) : (
+            <SlidersHorizontal className="size-4" />
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent
