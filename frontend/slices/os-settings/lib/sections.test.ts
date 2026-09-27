@@ -7,6 +7,8 @@ describe("settings section model", () => {
     expect(filterSettingsSections("wallpaper").map((x) => x.id)).toEqual(["appearance"]);
     expect(filterSettingsSections("devices").map((x) => x.id)).toEqual(["account"]);
     expect(filterSettingsSections("system info").map((x) => x.id)).toEqual(["account"]);
+    expect(filterSettingsSections("version").map((x) => x.id)).toEqual(["account"]);
+    expect(filterSettingsSections("updates").map((x) => x.id)).toEqual(["account"]);
   });
 
   it("groups Account with personalization and keeps Devices and About nested", () => {

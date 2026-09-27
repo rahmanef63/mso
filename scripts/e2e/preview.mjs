@@ -201,7 +201,7 @@ const run = async () => {
   await open("report.docx");
   check(/No browser can render this format/i.test(await scope(page, "report.docx").innerText()), "DOCX says why, and offers the download");
 
-  // Settings → Account → About: the update panel is the other thing that can only be wrong live.
+  // Settings → Account → About → Updates: the update panel is the other thing that can only be wrong live.
   await page.goto(`${BASE}/settings`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2500);
   const account = page.getByRole("button", { name: "Account", exact: true }).first();
@@ -209,9 +209,12 @@ const run = async () => {
   await page.waitForTimeout(800);
   const about = page.getByRole("button", { name: "About", exact: true }).first();
   if (await about.count()) await about.click().catch(() => {});
+  await page.waitForTimeout(800);
+  const updates = page.getByRole("button", { name: "Check software updates", exact: true }).first();
+  if (await updates.count()) await updates.click().catch(() => {});
   await page.waitForTimeout(3500);
   const settings = await (MOBILE ? page.locator("#main-content") : page.locator("[data-window]").last()).innerText();
-  check(/Software update/i.test(settings), "Settings → About shows the update panel");
+  check(/Software update/i.test(settings), "Settings → About → Updates shows the update panel");
   check(/Up to date|available|build is pending/i.test(settings), "Update panel reported a state");
   const update = await page.evaluate(async () => (await fetch("/api/v1/sys/update?check=0")).json());
   if (update.supported === false) {

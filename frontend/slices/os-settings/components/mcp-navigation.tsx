@@ -1,8 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { SettingsBlock } from "@/features/shell-settings";
-import { ArrowLeft, ChevronRight, KeyRound, ListChecks, PlugZap, Settings2, Wrench } from "lucide-react";
+import { SettingsBlock, type SettingsBreadcrumb } from "@/features/shell-settings";
+import { ChevronRight, KeyRound, ListChecks, PlugZap, Settings2, Wrench } from "lucide-react";
 
 export const MCP_PAGES = [
   { id: "connect", title: "Connect an app", description: "Choose ChatGPT, Claude, Cursor, or another client and follow its setup steps.", icon: PlugZap },
@@ -16,14 +16,15 @@ export type McpPage = "overview" | (typeof MCP_PAGES)[number]["id"];
 export type McpDirection = "inbound" | "outbound";
 export const pagesForDirection = (direction: McpDirection) => MCP_PAGES.filter(page => direction === "inbound" ? page.id !== "registry" : page.id === "registry");
 
+/** Crumbs for a nested MCP page. Overview omits them so the cell renders no trail. */
+export function mcpBreadcrumbs(active: McpPage, onOverview: () => void): SettingsBreadcrumb[] | undefined {
+  if (active === "overview") return undefined;
+  const title = MCP_PAGES.find((page) => page.id === active)?.title ?? "MCP";
+  return [{ label: "MCP", onSelect: onOverview }, { label: title }];
+}
+
 export function McpNavigation({ active, onSelect, activeCount, direction }: { active: McpPage; onSelect: (page: McpPage) => void; activeCount: number; direction: McpDirection }) {
-  if (active !== "overview") return (
-    <nav aria-label="MCP navigation" className="flex flex-wrap items-center gap-2 text-sm">
-      <Button variant="ghost" className="min-h-11 px-2" onClick={() => onSelect("overview")}><ArrowLeft className="size-4" /> MCP overview</Button>
-      <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
-      <span aria-current="page">{MCP_PAGES.find(page => page.id === active)?.title}</span>
-    </nav>
-  );
+  if (active !== "overview") return null;
   return (
     <nav aria-label="MCP navigation">
       <SettingsBlock className="!p-0 divide-y divide-border">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { initialAboutPage } from "./lib/about-pages";
 import { sectionFromSearch } from "./lib/sections";
 import { useEffect, useState } from "react";
 import { useAppearance, effectiveServerTarget } from "@/lib/appearance";
@@ -12,6 +13,7 @@ import {
   toast,
 } from "@/features/appshell";
 import type { SectionId } from "./lib/sections";
+import { AboutPageState } from "./components/about-page-state";
 import { SettingsShell } from "./components/settings-shell";
 
 // Default export so os-shell can lazy-load it as a window app.
@@ -65,5 +67,9 @@ export default function OsSettings() {
     [tweaks.theme, tweaks.preset, tweaks.device, tweaks.fontScale, tweaks.wallpaper, tweaks.wallpaperImage, tweaks.server.mode, serverTarget?.label, model],
   );
 
-  return <SettingsShell active={active} onSelect={setActive} />;
+  return (
+    <AboutPageState initial={initialAboutPage(initial ?? null, params.get("page"))}>
+      <SettingsShell active={active} onSelect={setActive} />
+    </AboutPageState>
+  );
 }

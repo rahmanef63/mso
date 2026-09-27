@@ -6,6 +6,14 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-09-27
 
+**Added**
+
+- `settings` nest version and updates under About
+
+**Fixed**
+
+- `settings` scroll MCP pages without reading a ref during render
+
 **Docs**
 
 - `release` record Windows taskbar fidelity

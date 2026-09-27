@@ -141,7 +141,7 @@ const NAV_ORDER: readonly SectionId[] = [
 ];
 
 const SEARCH_EXTRA: Partial<Record<SectionId, string>> = {
-  account: "devices approved browsers sessions about system info reset rename password icon",
+  account: "devices approved browsers sessions about system info reset rename password icon version updates software build",
 };
 
 function meta(id: SectionId): SettingsSectionMeta {
