@@ -12,7 +12,7 @@ describe("blocked external editor rendering", () => {
   });
 
   it("remounts the iframe whenever the reviewed sandbox policy changes", () => {
-    const source = readFileSync(new URL("./n8n-embed-panel.tsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("../../../../components/external-app-frame.tsx", import.meta.url), "utf8");
     expect(source).toContain('key={`${revision}:${app.sandbox}`}');
   });
   it("fails closed if a destination is missing even without the blocked flag", () => {

@@ -2,6 +2,7 @@
 
 import { Boxes, ExternalLink } from "lucide-react";
 import type { AppProps } from "../lib/host";
+import { LegacyHtmlApp } from "./legacy-html-app";
 import { AppConsole } from "./app-console";
 import type { AppManifest } from "./runtime-app-types";
 
@@ -10,7 +11,7 @@ export type { AppManifest } from "./runtime-app-types";
 const isUrl = (s: string) => /^https?:\/\//i.test(s);
 
 // Generic host for runtime apps. HTML apps whose entry is a URL render in a
-// sandboxed iframe; non-html apps whose entry is a command/script run live on
+// reviewed shell connection; non-html apps whose entry is a command/script run live on
 // the VPS via the OsApi exec contract (terminal-style console). Anything else
 // falls back to the manifest card.
 export function RuntimeApp({ manifest, payload }: { manifest?: AppManifest } & AppProps) {
@@ -24,16 +25,7 @@ export function RuntimeApp({ manifest, payload }: { manifest?: AppManifest } & A
     );
   }
 
-  if (m.runtime === "html" && isUrl(m.entry)) {
-    return (
-      <iframe
-        title={m.title}
-        src={m.entry}
-        className="size-full border-0 bg-white"
-        sandbox="allow-scripts allow-same-origin allow-forms"
-      />
-    );
-  }
+  if (m.runtime === "html" && isUrl(m.entry)) return <LegacyHtmlApp manifest={m} />;
 
   // Non-html runtime with a command/script entry → run it on the host.
   if (m.runtime !== "html" && m.entry && !isUrl(m.entry)) {

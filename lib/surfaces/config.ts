@@ -23,11 +23,11 @@ const SAFE_SANDBOX = new Set([
 const PRESENTATIONS = new Set<SurfacePresentation>(["inline", "fullscreen", "pip"]);
 const ENVIRONMENTS = new Set<SurfaceEnvironment>(["development", "preview", "production", "other"]);
 
-function safeOrigin(value: unknown): string | null {
+function safeOrigin(value: unknown, allowHttp = false): string | null {
   if (typeof value !== "string") return null;
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) return null;
+    if ((url.protocol !== "https:" && !(allowHttp && url.protocol === "http:")) || url.username || url.password || url.pathname !== "/" || url.search || url.hash) return null;
     return url.origin;
   } catch { return null; }
 }
@@ -60,7 +60,8 @@ function parseApp(entry: unknown, seen: Set<string>): SurfaceApp | null {
   if (!entry || typeof entry !== "object") return null;
   const row = entry as Record<string, unknown>;
   const id = boundedText(row.id, true), title = boundedText(row.title, true);
-  const origin = safeOrigin(row.origin), startPath = safePath(row.startPath);
+  const shellOnly = Array.isArray(row.placements) && row.placements.length === 1 && row.placements[0] === "shell";
+  const origin = safeOrigin(row.origin, shellOnly && row.renderer === "remote"), startPath = safePath(row.startPath);
   const renderer = row.renderer, presentation = row.presentation, environment = row.environment;
   if (!id || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(id) || seen.has(id) || !title || !origin || !startPath) return null;
   if (renderer !== "iframe" && renderer !== "remote") return null;
@@ -71,7 +72,7 @@ function parseApp(entry: unknown, seen: Set<string>): SurfaceApp | null {
   if (row.externalAuthPath !== undefined && !externalAuthPath) return null;
   const project = boundedText(row.project, true);
   if (row.project !== undefined && !project) return null;
-  if (row.placements !== undefined && (!Array.isArray(row.placements) || row.placements.some((value) => value !== "workflows" && value !== "n8n" && value !== "mcp-page"))) return null;
+  if (row.placements !== undefined && (!Array.isArray(row.placements) || row.placements.some((value) => value !== "workflows" && value !== "n8n" && value !== "mcp-page" && value !== "shell"))) return null;
   const placements = row.placements === undefined ? undefined : [...new Set(row.placements)] as SurfacePlacement[];
   seen.add(id);
   const reason = boundedText(row.reason);

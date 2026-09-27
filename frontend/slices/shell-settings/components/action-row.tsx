@@ -4,13 +4,8 @@ import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// A full-width tappable action row for a grouped settings card (Reset, Test,
-// Refresh, Add…) — so actions live IN the card, not in a flush button block.
-// Same min-height + inset hairline as SettingsRow. tone="destructive" = iOS red
-// action. Labels use AA-safe text tints in BOTH themes: --info (link blue,
-// darkened for light) for the default, --destructive-text (deep red on light,
-// bright on dark) for destructive — NOT the fill-tuned --primary/--destructive,
-// which are sub-AA as text on the light card. Optional icon; busy → spinner.
+// Full-width action inside a settings card. Default labels use the card text
+// color; icons retain the info tint. Destructive labels keep their semantic tint.
 export function SettingsActionRow({
   label,
   onClick,
@@ -45,7 +40,7 @@ export function SettingsActionRow({
       )}
     >
       {icon && <span className="shrink-0 [&_svg]:size-4">{icon}</span>}
-      <span data-slot="settings-row-label" className="flex-1">{label}</span>
+      <span data-slot="settings-row-label" className={cn("flex-1", tone === "default" && "text-foreground")}>{label}</span>
       {busy ? <Loader2 role="status" aria-label="Working…" className="size-4 shrink-0 animate-spin" /> : trailing ?? null}
     </button>
   );

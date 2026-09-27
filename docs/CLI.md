@@ -103,7 +103,7 @@ Commands:
 
  Apps
   apps                 App-store runtime apps
-  mapp *               Managed apps on the box (hermes, openclaw): logs, update…
+  mapp *               Managed apps; shell-list / shell-save <JSON|@file> for connected apps
   term *               Interactive PTY sessions (open | input | resize | stream | close)
 
  AI + state

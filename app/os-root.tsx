@@ -17,15 +17,17 @@ import "@/features/os-shell/integrations";
 
 import { AuthGate, SessionProvider, useSession, type DeviceRole, type SessionStatus } from "@/features/auth";
 import { appAllowedForRole } from "@/lib/auth/app-access";
-import { useInstalledApps, useDisabledIds } from "@/features/app-store";
+import { useInstalledApps, useDisabledIds, useExternalApps, ShellAppsProvider } from "@/features/app-store";
 
 function Shell() {
   const dynamic = useInstalledApps();
+  const external = useExternalApps();
   const disabled = useDisabledIds();
   const { status, role } = useSession();
   const manifest: ShellManifest = useMemo(() => {
     const off = new Set(disabled);
-    const all = [...BUILTIN_APPS, ...dynamic].filter((app) => !off.has(app.id));
+    const reserved = new Set([...BUILTIN_APPS, ...external].map(app => app.id));
+    const all = [...BUILTIN_APPS, ...external, ...dynamic.filter(app => !reserved.has(app.id))].filter((app) => !off.has(app.id));
     // Signed-out is the unrestricted mock showcase. A live delegated session sees
     // only apps its role can actually use; unknown runtime apps fail closed for
     // non-owners because their host contract cannot be inferred safely.
@@ -43,8 +45,13 @@ function Shell() {
       persistKey: TOPSIDE_PERSIST_KEY,
       capabilities: topsideCapabilities,
     };
-  }, [dynamic, disabled, status, role]);
+  }, [dynamic, external, disabled, status, role]);
   return <AppShell manifest={manifest} />;
+}
+
+function ConnectedShell() {
+  const { status, role } = useSession();
+  return <ShellAppsProvider active={status === "in" && role === "owner"}><Shell /></ShellAppsProvider>;
 }
 
 export function OsRoot({
@@ -67,7 +74,7 @@ export function OsRoot({
         <SessionProvider initialStatus={initialStatus} initialRole={initialRole}>
           <AuthGate>
             <OsApiProvider>
-              <Shell />
+              <ConnectedShell />
             </OsApiProvider>
           </AuthGate>
         </SessionProvider>

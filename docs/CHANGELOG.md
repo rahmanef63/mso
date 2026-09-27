@@ -8,12 +8,14 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `shell` persist and embed external app connections
 - `managed-apps` preflight install backend on host
 - `jev` persist reusable session capsules
 - `settings` nest version and updates under About
 
 **Fixed**
 
+- `settings` keep action labels readable on dark cards
 - `install` preserve portable host commits and validate WSL2
 - `jev` validate decision release contract
 - `jev` open responsive session details in release journey
