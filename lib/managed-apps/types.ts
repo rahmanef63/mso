@@ -12,7 +12,11 @@ export type ManagedAppState =
   | "unhealthy"
   | "error";
 
+export type ManagedAppInstallBackend = "user-systemd" | "docker";
+
 export interface ManagedAppDefinition {
+  /** Backends the reviewed install adapter can actually create on this host. */
+  installBackends: readonly ManagedAppInstallBackend[];
   id: ManagedAppId;
   name: string;
   description: string;

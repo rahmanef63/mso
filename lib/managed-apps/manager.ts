@@ -157,7 +157,7 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
         : isRunning
           ? "running"
           : "stopped";
-  const dockerFallbackAvailable = id === "hermes" && installation.type === "not-installed" && await dockerUsable();
+  const dockerInstallAvailable = definition.installBackends.includes("docker") && installation.type === "not-installed" && await dockerUsable();
   return {
     id,
     name: definition.name,
@@ -174,7 +174,7 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
     // been seen, and nothing about the bus can make that observation wrong.
     diagnostic:
       installation.type === "not-installed" && userBusUnavailable()
-        ? dockerFallbackAvailable
+        ? dockerInstallAvailable
           ? null
           : "MSO cannot reach this user's systemd bus, so it cannot see user services. On a systemd host enable user linger and provide XDG_RUNTIME_DIR; on a systemd-less/container host use a supported Docker runtime."
         : null,
