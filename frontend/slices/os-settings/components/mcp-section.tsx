@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/features/auth";
-import { SettingsBlock, SettingsSection } from "@/features/shell-settings";
+import { SettingsBlock, SettingsFeatureCell, SettingsSection } from "@/features/shell-settings";
 import { IS_DEMO } from "@/lib/demo";
 import { Lock, Plug } from "lucide-react";
 import { useRef, useState } from "react";
@@ -12,7 +12,7 @@ import { McpSessions } from "./mcp-sessions";
 import { McpActivity } from "./mcp-activity";
 import { McpConnectionSection } from "./mcp-connection-section";
 import { McpCopyField } from "./mcp-copy-field";
-import { McpNavigation, type McpPage } from "./mcp-navigation";
+import { mcpBreadcrumbs, McpNavigation, type McpPage } from "./mcp-navigation";
 import { McpSetupGuide } from "./mcp-setup-guide";
 import { useMcpState } from "./mcp-state";
 import { McpTokenSection } from "./mcp-token-section";
@@ -50,6 +50,7 @@ function OwnerMcpSection() {
   return (
     <div ref={top} tabIndex={-1} data-slot="mcp-page" className="space-y-4 outline-none">
       <McpDirectionTabs value={direction} onChange={selectDirection} />
+      <SettingsFeatureCell breadcrumbs={direction === "inbound" ? mcpBreadcrumbs(page, () => navigate("overview")) : undefined} className="@container min-w-0 space-y-4">
       <div id="mcp-direction-panel" role="tabpanel" aria-labelledby={`mcp-${direction}-tab`} className="@container min-w-0 space-y-4">
       {!state.enabled && direction === "inbound" ? (
     <SettingsSection icon={<Plug />} title="MCP is off">
@@ -76,6 +77,7 @@ function OwnerMcpSection() {
       {(page === "registry" || (direction === "outbound" && page === "overview")) && <McpPluginRegistry />}
       </>)}
       </div>
+      </SettingsFeatureCell>
     </div>
   );
 }
