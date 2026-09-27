@@ -20,3 +20,5 @@ export { useApps, setInstalled, createApp, type AppRow } from "./lib/apps-store"
 export { useDisabledIds } from "./lib/enabled-store";
 // Shared glyph helpers (create-app icon picker/preview reuse the App Store set).
 export { GLYPH_KEYS, glyphIcon } from "./lib/glyph";
+
+export { ShellAppsProvider, useShellApps, useExternalApps } from "./lib/shell-apps";

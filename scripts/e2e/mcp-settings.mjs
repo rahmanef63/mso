@@ -50,7 +50,14 @@ async function chooseProjectTarget(page, fixture) {
     await input.fill(fixture.dir);
     await expect(input).toHaveValue(fixture.dir);
     await expect(useProject).toBeEnabled();
+    const inspected = page.waitForResponse(response => {
+      if (!response.url().endsWith("/api/v1/project-mcp") || response.request().method() !== "POST") return false;
+      const body = response.request().postDataJSON();
+      return body?.action === "inspect" && body.project === fixture.dir;
+    }, { timeout: 15000 });
     await useProject.click();
+    expect((await inspected).status()).toBe(200);
+    await expect(useProject).toBeEnabled();
   } finally { release(); await page.unroute("**/api/v1/project-mcp", hold); }
 }
 export async function mcpOwnerJourneys(page, fixture) {

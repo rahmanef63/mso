@@ -1,7 +1,7 @@
 export type SurfaceRenderer = "iframe" | "remote";
 export type SurfacePresentation = "inline" | "fullscreen" | "pip";
 export type SurfaceEnvironment = "development" | "preview" | "production" | "other";
-export type SurfacePlacement = "workflows" | "n8n" | "mcp-page";
+export type SurfacePlacement = "workflows" | "n8n" | "mcp-page" | "shell";
 
 export type SurfaceApp = {
   id: string;

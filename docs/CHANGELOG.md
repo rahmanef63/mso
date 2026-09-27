@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `shell` persist and embed external app connections
 - `managed-apps` preflight install backend on host
 - `jev` persist reusable session capsules
 - `settings` nest version and updates under About

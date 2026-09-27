@@ -1,5 +1,10 @@
 ## 2026-09-27 — External feature contract and registry audit
 
+## 2026-09-27 — Server-persisted connected applications
+
+The Owner App Store now exposes real Managed Apps setup and a versioned external connection registry. Connected tools run separately and become dynamic shell windows without rebuilding MSO. Registry mutations share the surface-store lock and revision, reject cross-placement ownership and cookie-scope overlap, and never execute install scripts or delete service data. HTTP/no-domain connections open separately; n8n and registered tools share the reviewed iframe renderer. Legacy HTML manifests require registry admission. manef-ui and manef-db are unrelated and excluded. Remote catalog delivery and extraction of native features remain pending; see CONNECTED-APPS.md for the implemented boundary.
+
+
 Defined the v1 design contract for portable feature definitions, separate installation
 bindings and grants, embedded views, reviewed adapters, shell slots and lifecycle
 verification. Audited the existing AppShell, runtime App Store, SurfaceApp and Managed

@@ -26,9 +26,9 @@ import { useStoreInstall } from "../lib/use-store-install";
 // flips its localStorage row (useInstalledApps surfaces it in the dock/launchpad).
 // The "Apps"/"Features" sections instead toggle the built-in apps + shell features
 // on/off (enabled-store) — os-root filters the manifest by the disabled set.
-export default function AppStore() {
+export default function AppStore({ systemOnly = false }: { systemOnly?: boolean }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<StoreFilter>("Featured");
+  const [filter, setFilter] = useState<StoreFilter>(systemOnly ? "Apps" : "Featured");
   // Store-level zone: a right-click anywhere in the grid gets this, and a
   // right-click ON a card merges the card's items ABOVE it (nested).
   const storeZone = useContextZone((): MenuItem[] => [
@@ -99,7 +99,7 @@ export default function AppStore() {
 
   return (
     <div ref={paneRef} className="flex h-full">
-      {!compact && <StoreSidebar value={filter} onChange={setFilter} />}
+      {!compact && <StoreSidebar systemOnly={systemOnly} value={filter} onChange={setFilter} />}
 
       <AppFrame
         className="min-w-0 flex-1"
@@ -122,7 +122,7 @@ export default function AppStore() {
                 className={ios ? "h-9 border-0 bg-[var(--fill)] pl-8" : "h-9 pl-8"}
               />
             </div>
-            {compact && <StoreFilterChips value={filter} onChange={setFilter} />}
+            {compact && <StoreFilterChips systemOnly={systemOnly} value={filter} onChange={setFilter} />}
           </header>
         }
       >
