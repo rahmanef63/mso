@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `settings` keep action labels readable on dark cards
 - `install` preserve portable host commits and validate WSL2
 - `jev` validate decision release contract
 - `jev` open responsive session details in release journey

@@ -1,5 +1,10 @@
 ## 2026-09-27 — External feature contract and registry audit
 
+## 2026-09-27 — Readable Settings action labels
+
+PR95 CI exposed default Settings action labels at 4.13:1 against dark cards (and 4.0:1 on hover), below the required 4.5:1. Default action labels now use the same foreground token as other settings rows; icons retain the info tint and destructive labels retain their semantic color. The existing real-browser backup accessibility journey remains the release gate, without exclusions or reduced assertions.
+
+
 ## 2026-09-27 — Server-persisted connected applications
 
 The Owner App Store now exposes real Managed Apps setup and a versioned external connection registry. Connected tools run separately and become dynamic shell windows without rebuilding MSO. Registry mutations share the surface-store lock and revision, reject cross-placement ownership and cookie-scope overlap, and never execute install scripts or delete service data. HTTP/no-domain connections open separately; n8n and registered tools share the reviewed iframe renderer. Legacy HTML manifests require registry admission. manef-ui and manef-db are unrelated and excluded. Remote catalog delivery and extraction of native features remain pending; see CONNECTED-APPS.md for the implemented boundary.
