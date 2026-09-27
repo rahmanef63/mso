@@ -22,6 +22,7 @@ If a partial Termux package upgrade has broken `curl` before that command can ru
 steps below first.
 
 The Termux bootstrap is idempotent. Re-running the same command repairs/upgrades the host packages, reuses the `mso-ubuntu` PRoot environment when it already exists, and runs the normal MSO installer again to update the existing checkout.
+Before package downloads, it rejects unsupported CPU architectures (Linux Bun requires arm64 or x86_64). On an existing checkout, it refuses to replace local commits absent from the requested ref, and will not force-move `main` over unique commits; preserve/reconcile those commits first.
 
 The script deliberately does **not** enable YOLO mode.
 
@@ -112,7 +113,7 @@ This Android installation is optimized for MSO CLI and local browser workspace u
 - long-running Android processes are still subject to Android background/battery policies;
 - performance is lower than a native Linux host because PRoot translates filesystem/syscall paths in userspace.
 
-For always-on production hosting, install MSO on a normal Linux VPS and use Termux as the client/operator terminal instead.
+An Android tablet can be the MSO host: MSO, its data, and compatible applications run inside its Ubuntu PRoot guest. Start `mso web` on the tablet, confirm `mso doctor` and local health, then test protected access from a second device through a private network or HTTPS tunnel. The default loopback bind is intentional: plain HTTP on the tablet's LAN IP is not a supported login path. Keep the foreground process alive, and test backgrounding, battery policy, reboot, update, storage pressure and network changes on the actual tablet before treating it as an always-on server. A separate VPS is optional; an always-on Linux host remains the better choice when the tablet fails those acceptance tests.
 
 ## Security
 

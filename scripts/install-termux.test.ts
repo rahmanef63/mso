@@ -61,6 +61,18 @@ describe("Termux PRoot Linux environment boundary", () => {
     const result = spawnSync("/bin/bash", ["-n", installer], { encoding: "utf8" });
     expect(result.status, result.stderr).toBe(0);
   });
+  it("rejects unsupported CPU architectures before touching Termux packages", () => {
+    const f = fixture();
+    const script = `uname() { printf 'armv7l\\n'; }
+apt() { echo APT_SHOULD_NOT_RUN; }
+source ${quote(installer)}`;
+    const result = spawnSync("/bin/bash", ["--noprofile", "--norc", "-c", script], {
+      env: f.env, encoding: "utf8", timeout: 10000,
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("needs arm64 or x86_64");
+    expect(result.stdout).not.toContain("APT_SHOULD_NOT_RUN");
+  });
   it("clears Android PATH, Node/Bun configuration, loader flags and shell startup hooks before either guest shell", () => {
     const f = fixture();
     for (const name of ["root", "owner"]) {

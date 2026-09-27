@@ -7,7 +7,7 @@ DISTRO="${MSO_TERMUX_DISTRO:-mso-ubuntu}"
 GUEST_USER="${MSO_TERMUX_USER:-mso}"
 IMAGE="${MSO_TERMUX_IMAGE:-ubuntu:24.04}"
 GUEST_INSTALL_URL_DEFAULT="https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-core.sh"
-GUEST_INSTALL_SHA256_DEFAULT="794d8893285c045a8ab608d8c1d2803188b4a2a13058695d6c1fd54520973b65"
+GUEST_INSTALL_SHA256_DEFAULT="d56a6ed0f1330e53d18d796caf272ac47a1b1abc0ee86c92b4eff5cd2a5bb206"
 INSTALL_URL="${MSO_TERMUX_INSTALL_URL:-$GUEST_INSTALL_URL_DEFAULT}"
 INSTALL_SHA256="${MSO_TERMUX_INSTALL_SHA256:-$GUEST_INSTALL_SHA256_DEFAULT}"
 GUEST_REF="${MSO_TERMUX_REF:-main}"
@@ -45,6 +45,10 @@ if [ "${MSO_TERMUX_NO_TEE:-0}" != 1 ]; then
 fi
 info "persistent install log: $INSTALL_LOG"
 info "Android-safe build limits: workers=$BUILD_CPUS node-heap=${NODE_HEAP_MB}MiB"
+case "$(uname -m)" in
+  aarch64|x86_64) ;;
+  *) fail "This Android CPU architecture has no supported Linux Bun runtime; MSO needs arm64 or x86_64." ;;
+esac
 
 command -v apt >/dev/null 2>&1 || fail 'Termux apt is missing.'
 info 'repairing/updating Termux packages'
@@ -138,9 +142,24 @@ proot-distro login "$DISTRO" --user "$GUEST_USER" -- /usr/bin/env -i \
   mso --version
   mso -h >/dev/null
 
-  # Normal installs must end attached to main so future `mso update` calls work.
+  # Reattach main only when its previous tip is reachable from the installed tip.
+  # A detached checkout may carry a different main branch with unique work.
+  reconcile_main_branch() {
+    local repo="$1"
+    [ "$(git -C "$repo" symbolic-ref --quiet --short HEAD || true)" != main ] || return 0
+    if git -C "$repo" show-ref --verify --quiet refs/heads/main; then
+      git -C "$repo" merge-base --is-ancestor refs/heads/main HEAD || {
+        echo "Local main has commits absent from the installed ref; preserve/reconcile them before switching." >&2
+        return 1
+      }
+      git -C "$repo" branch -f main HEAD >/dev/null
+    else
+      git -C "$repo" branch main HEAD >/dev/null
+    fi
+    git -C "$repo" switch --quiet main
+  }
   if [ "$MSO_REF" = main ] && [ -d "$HOME/mso/.git" ]; then
-    git -C "$HOME/mso" switch -C main origin/main >/dev/null
+    reconcile_main_branch "$HOME/mso"
   fi
 ' bash "$INSTALL_URL" "$INSTALL_SHA256"
 

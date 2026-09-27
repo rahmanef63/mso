@@ -34,10 +34,14 @@ $Distros = @(
 
 $Distro = if ($RequestedDistro) {
   $RequestedDistro
-} elseif ($Distros.Count -gt 0) {
-  $Distros[0]
-} else {
+} elseif ($Distros -contains "Ubuntu") {
   "Ubuntu"
+} elseif ($Distros.Count -eq 1) {
+  $Distros[0]
+} elseif ($Distros.Count -eq 0) {
+  "Ubuntu"
+} else {
+  Fail "Multiple WSL distros are installed. Set MSO_WSL_DISTRO to the one that should host MSO, then rerun."
 }
 
 if ($Distros -notcontains $Distro) {
@@ -50,6 +54,22 @@ if ($Distros -notcontains $Distro) {
   Write-Host "Windows may require a reboot or first-launch Linux user setup."
   Write-Host "Complete that setup, then rerun this same MSO installer command."
   exit 0
+}
+
+# WSL1 has a different kernel/process contract; refuse before invoking the Linux installer.
+$WslDetails = & wsl.exe --list --verbose 2>$null
+if ($LASTEXITCODE -ne 0) {
+  Fail "Could not verify WSL2 distro version. Run wsl --list --verbose and rerun the installer."
+}
+$EscapedDistro = [regex]::Escape($Distro)
+$VersionLine = @($WslDetails | ForEach-Object { $_.Trim([char]0).Trim() } |
+  Where-Object { $_ -match ("^\*?\s*" + $EscapedDistro + "\s+.+\s+[12]\s*$") })
+if ($VersionLine.Count -ne 1) {
+  Fail "Could not determine the WSL version for $Distro. Run wsl --list --verbose and select a WSL2 distro explicitly."
+}
+$Version = [regex]::Match($VersionLine[0], "([12])\s*$").Groups[1].Value
+if ($Version -ne "2") {
+  Fail "$Distro is WSL1. Convert it explicitly with: wsl --set-version $Distro 2 ; then rerun this installer."
 }
 
 Info "Installing/updating MSO inside WSL2 ($Distro)"
