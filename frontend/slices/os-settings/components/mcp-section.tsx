@@ -6,7 +6,7 @@ import { useSession } from "@/features/auth";
 import { SettingsBlock, SettingsFeatureCell, SettingsSection } from "@/features/shell-settings";
 import { IS_DEMO } from "@/lib/demo";
 import { Lock, Plug } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { McpDirectionTabs, type McpTab } from "./mcp-direction-tabs";
 import { McpSessions } from "./mcp-sessions";
 import { McpActivity } from "./mcp-activity";
@@ -39,18 +39,24 @@ function OwnerMcpSection() {
   const [page, setPage] = useState<McpPage>("overview");
   const [direction, setDirection] = useState<McpTab>("inbound");
   const top = useRef<HTMLDivElement>(null);
+  const scrolled = useRef(false);
   function selectDirection(next: McpTab) { setDirection(next); setPage("overview"); }
-  function navigate(next: McpPage) {
-    setPage(next);
-    requestAnimationFrame(() => { top.current?.focus(); top.current?.scrollIntoView({ block: "nearest" }); });
-  }
+  function navigate(next: McpPage) { setPage(next); }
+  useEffect(() => {
+    if (!scrolled.current) {
+      scrolled.current = true;
+      return;
+    }
+    top.current?.focus();
+    top.current?.scrollIntoView({ block: "nearest" });
+  }, [page]);
   if (error) return <SettingsBlock className="space-y-3"><p role="alert" className="text-sm">{error}</p><Button variant="secondary" onClick={reload}>Try again</Button><Button asChild variant="ghost"><Link prefetch={false} href="/login?returnTo=%2Fsettings%3Fsection%3Dmcp">Sign in</Link></Button></SettingsBlock>;
   if (!state) return <SettingsBlock><p role="status" className="text-sm">Loading MCP settings…</p></SettingsBlock>;
 
   return (
     <div ref={top} tabIndex={-1} data-slot="mcp-page" className="space-y-4 outline-none">
       <McpDirectionTabs value={direction} onChange={selectDirection} />
-      <SettingsFeatureCell breadcrumbs={direction === "inbound" ? mcpBreadcrumbs(page, () => navigate("overview")) : undefined} className="@container min-w-0 space-y-4">
+      <SettingsFeatureCell breadcrumbs={direction === "inbound" ? mcpBreadcrumbs(page, () => setPage("overview")) : undefined} className="@container min-w-0 space-y-4">
       <div id="mcp-direction-panel" role="tabpanel" aria-labelledby={`mcp-${direction}-tab`} className="@container min-w-0 space-y-4">
       {!state.enabled && direction === "inbound" ? (
     <SettingsSection icon={<Plug />} title="MCP is off">
