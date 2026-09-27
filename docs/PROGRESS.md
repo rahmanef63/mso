@@ -1,3 +1,18 @@
+## 2026-09-27 — Managed app host compatibility preflight
+
+Managed app definitions now declare the installer backends they actually support:
+Hermes user systemd or Docker, OpenClaw user systemd, and 9Router Docker.
+The install API checks the local Linux runtime and reachable backend before
+starting a job or downloading an artifact. This includes Android tablets hosting
+MSO under Ubuntu PRoot: MSO core can run there while applications whose runtime
+backend is unavailable are rejected with a specific reason. The 9Router
+not-installed diagnostic no longer mislabels an accessible Docker host as
+uncertain solely because its user systemd bus is absent.
+
+The Managed Apps documentation matches the reviewed Hermes Docker fallback.
+This step does not add a Docker daemon to Android PRoot or claim those three
+applications can all run on every tablet. Physical host verification remains open.
+
 ## 2026-09-27 — Portable host installer safety
 
 An Android tablet with supported arm64/x86_64 architecture can host the MSO Linux

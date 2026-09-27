@@ -13,9 +13,12 @@ vi.hoisted(() => {
 vi.mock("server-only", () => ({}));
 vi.mock("./manager", () => ({ getManagedApp: vi.fn() }));
 vi.mock("./jobs", () => ({ startManagedAppJob: vi.fn() }));
-
+vi.mock("./docker", () => ({ dockerUsable: vi.fn() }));
+vi.mock("./user-bus", () => ({ userBusUnavailable: vi.fn() }));
 import { startManagedAppJob } from "./jobs";
 import { getManagedApp } from "./manager";
+import { dockerUsable } from "./docker";
+import { userBusUnavailable } from "./user-bus";
 import { startInstall } from "./install";
 import { providersFor } from "./providers";
 import type { ManagedAppView } from "./types";
@@ -47,6 +50,8 @@ beforeEach(() => {
   mockGet.mockReset();
   mockStart.mockResolvedValue({} as never);
   mockGet.mockResolvedValue(view(false));
+  vi.mocked(dockerUsable).mockResolvedValue(true);
+  vi.mocked(userBusUnavailable).mockReturnValue(false);
 });
 
 describe("install job options", () => {

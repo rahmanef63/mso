@@ -31,7 +31,7 @@ flowchart LR
 
 | App | MSO-managed runtime | Internal dashboard upstream | Direct browser access | State directory |
 |---|---|---|---|---|
-| Hermes | user systemd (`hermes-dashboard.service`, `hermes-gateway.service`) | `127.0.0.1:9119` by default | none by default | `~/.hermes` or `HERMES_HOME` |
+| Hermes | user systemd (`hermes-dashboard.service`, `hermes-gateway.service`) or pinned Docker fallback | `127.0.0.1:9119` by default | none by default | `~/.hermes` or `HERMES_HOME` |
 | OpenClaw | user systemd (`openclaw-gateway.service`) | `127.0.0.1:18789` by default | none by default | `~/.openclaw` |
 | 9Router | Docker container `9router` | `127.0.0.1:20128` by default | `http://<public-ip>:20128` when the host has a global IPv4 | `~/.9router` mounted at `/app/data` |
 
@@ -47,9 +47,13 @@ on hosts without systemd; MSO does not widen 9Router just to compensate. The rep
 `scripts/managed-app-9router install` or `mso mapp install 9router`; the safe bind remains
 `127.0.0.1:20128` unless the owner explicitly opts into `NINE_ROUTER_EXPOSE_PUBLIC=1`.
 
-Hermes and OpenClaw depend on a working user systemd bus. Ensure linger, `XDG_RUNTIME_DIR`, and the
-user manager are healthy before install; do not treat a partially available bus as a successful
-half-install.
+OpenClaw needs a working user systemd bus. Hermes uses user systemd when available and can
+fall back to its reviewed Docker runtime if the daemon is accessible to the MSO service user.
+9Router needs an accessible Docker daemon. On a Termux/PRoot host without either backend, MSO
+rejects all three install jobs before downloads; the tablet can still host the MSO core.
+A Linux guest on Windows/macOS follows the same backend checks inside that guest. Ensure linger,
+`XDG_RUNTIME_DIR`, and the user manager are healthy for apps using user systemd; do not treat
+a partially available bus as a successful half-install.
 
 ## 2. User experience
 

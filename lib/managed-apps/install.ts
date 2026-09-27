@@ -1,6 +1,9 @@
 import "server-only";
 import path from "node:path";
 import { getManagedAppDefinition } from "./catalog";
+import { dockerUsable } from "./docker";
+import { managedAppInstallSupport } from "./host-compatibility";
+import { userBusUnavailable } from "./user-bus";
 import { startManagedAppJob } from "./jobs";
 import { getManagedApp } from "./manager";
 import { managedAppOrigin } from "./origin";
@@ -55,8 +58,16 @@ const BINDS = new Set(["loopback", "lan", "tailnet", "auto"]);
  *  or a stale page, and re-running one restarts services under whoever is using
  *  them. Update is the verb for an app that is already there. */
 export async function startInstall(id: ManagedAppId, options: InstallOptions = {}): Promise<ManagedAppJob> {
+  const definition = getManagedAppDefinition(id);
   const view = await getManagedApp(id);
-  if (view.installed) throw new Error(`${getManagedAppDefinition(id).name} is already installed — use Update instead`);
+  if (view.installed) throw new Error(`${definition.name} is already installed — use Update instead`);
+  const support = managedAppInstallSupport(definition, {
+    platform: process.platform,
+    userSystemd: !userBusUnavailable(),
+    docker: definition.installBackends.includes("docker") && await dockerUsable(),
+  });
+  if (!support.supported) throw new Error(support.reason ?? "managed app installer unsupported on this host");
+
   // Fail CLOSED on an unreadable reading. This guard's own reason for existing
   // (above) is that re-running an installer "restarts services under whoever is
   // using them" — and Hermes' upstream installer recreates the venv that the
@@ -64,7 +75,7 @@ export async function startInstall(id: ManagedAppId, options: InstallOptions = {
   // cannot see user services is exactly when that is most destructive, so
   // "I could not check" must not be treated as "it is not there".
   if (view.diagnostic) {
-    throw new Error(`cannot determine whether ${getManagedAppDefinition(id).name} is installed — refusing to run the installer. ${view.diagnostic}`);
+    throw new Error(`cannot determine whether ${definition.name} is installed — refusing to run the installer. ${view.diagnostic}`);
   }
 
   const env: Record<string, string> = {};

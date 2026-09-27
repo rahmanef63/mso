@@ -13,6 +13,7 @@ export function expandHome(value: string | undefined): string {
 const definitions = {
   hermes: {
     id: "hermes",
+    installBackends: ["user-systemd", "docker"],
     name: "Hermes",
     description: "Hermes Agent runtime and dashboard",
     command: "hermes",
@@ -34,6 +35,7 @@ const definitions = {
   },
   openclaw: {
     id: "openclaw",
+    installBackends: ["user-systemd"],
     name: "OpenClaw",
     description: "OpenClaw runtime and control surface",
     command: "openclaw",
@@ -47,6 +49,7 @@ const definitions = {
   },
   "9router": {
     id: "9router",
+    installBackends: ["docker"],
     name: "9Router",
     description: "9Router AI gateway — one endpoint routing coding agents across 40+ providers",
     // Upstream ships BOTH an npm CLI and Docker images. MSO deliberately manages
