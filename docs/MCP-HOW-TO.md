@@ -32,7 +32,7 @@ OS_MCP_ENABLED=1
 OS_MCP_MAX_SCOPE=read
 ```
 
-Jangan mengganti seluruh `.env.local`. Terapkan perubahan melalui **Settings → About**
+Jangan mengganti seluruh `.env.local`. Terapkan perubahan melalui **Settings → Account → About**
 atau `mso update --rebuild`, lalu ulangi otorisasi bila scope koneksi perlu berubah.
 
 | Scope | Pemakaian |

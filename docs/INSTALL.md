@@ -102,7 +102,7 @@ avoid them unless you are deliberately changing those boundaries.
 
 ### Upgrading an older MSO install
 
-Modern installations update through **Settings → About** or `mso update`. Releases from before those
+Modern installations update through **Settings → Account → About** or `mso update`. Releases from before those
 surfaces existed cannot invoke an updater they do not have. For those installations, re-run the current
 one-line installer exactly as if installing fresh. Before choosing `$HOME/mso`, it reads the active
 `mso.service` WorkingDirectory and upgrades that checkout in place. Existing `.env.local` credentials and
@@ -374,7 +374,7 @@ origin, and the hostname change has a different browser-scoped device identity.
 The local CLI device created by `mso onboard`/`mso doctor --fix` is approved as **Owner** on the
 host and remains the recovery path. The first correct login from a browser creates a **pending
 device**. Bootstrap the browser with the role you intend, then approve additional devices from
-Settings → Devices or the CLI:
+Settings → Account → Devices or the CLI:
 
 ```bash
 mso device approve <device-id> "owner laptop" --role owner
@@ -600,7 +600,7 @@ no API-key storage. Do not toggle demo mode in the production owner checkout.
 
 ### Operator update
 
-Use Settings → About or:
+Use Settings → Account → About or:
 
 ```bash
 mso update status     # fetch + show incoming commits and labeled CLI/build identity
@@ -609,7 +609,7 @@ mso update            # preferred: update safely even if :4005 is down
 mso update log
 ```
 
-MSO has two explicitly labeled version domains: the app/package version shown in Settings → About and the independently versioned CLI contract shown by `mso --version`. The Git commit/build remains update authority. If commits changed without a CLI bump, status says `N new commits on mso CLI X` rather than rendering `X -> X`.
+MSO has two explicitly labeled version domains: the app/package version shown in Settings → Account → About and the independently versioned CLI contract shown by `mso --version`. The Git commit/build remains update authority. If commits changed without a CLI bump, status says `N new commits on mso CLI X` rather than rendering `X -> X`.
 
 The updater verifies the incoming checkout/build before replacing the service. Re-running the installer on an existing checkout acquires the same checkout-scoped transaction lock **before** Git fetch/checkout mutation and hands that open lock FD to the post-checkout runtime lifecycle, so installer, `mso update`, and `mso deploy` cannot mutate one checkout concurrently. The lock primitive is carried by the verified installer payload itself, so older MSO checkouts that predate the current private-state helper remain upgradeable in place. A normal `mso update` treats fetched `origin/main` as the release authority: after any fast-forward, local `main` must equal that remote commit exactly. A clean branch that is locally ahead or diverged is refused before dependency/build mutation instead of deploying unpushed code. `mso update status` reports that state explicitly; `mso update reconcile` makes recovery explicit and lossless by preserving the previous HEAD on a timestamped local `rescue/mso-update-*` branch before resetting clean `main` to fetched `origin/main`. `mso update --rebuild` is different by design: it rebuilds the already-selected clean checkout without changing Git history. With an active
 `mso.service` it first canonicalizes the unit's `WorkingDirectory` and requires it to equal the checkout

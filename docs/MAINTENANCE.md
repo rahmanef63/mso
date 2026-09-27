@@ -8,8 +8,8 @@ installation owner on Linux, from an independent local/SSH terminal—not inside
 
 | Action | Removes from active use | Preserves |
 |---|---|---|
-| Settings → About → Appearance only | This browser's appearance cache | Identity, drafts, server data |
-| Settings → About → All MSO browser data | MSO layouts, Playbooks, drafts and owned local storage | Device approval, unrelated browser storage, server files |
+| Settings → Account → About → Appearance only | This browser's appearance cache | Identity, drafts, server data |
+| Settings → Account → About → All MSO browser data | MSO layouts, Playbooks, drafts and owned local storage | Device approval, unrelated browser storage, server files |
 | `mso reset` | Managed server preferences and model/infrastructure configuration | Authentication, history, `.env.local`, source, external apps |
 | `mso reset --scope all` | Known MSO configuration, identity/token stores, memory, sessions/history, `.env.local` | Source, unknown files, other projects and external providers |
 | `mso uninstall` | Verified service registrations and CLI/skill symlinks belonging to this checkout | Source, all server data, browser storage |

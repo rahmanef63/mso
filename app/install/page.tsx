@@ -107,7 +107,7 @@ export default function InstallPage() {
         </p>
         <Copy text={AGENT_PROMPT} />
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Already installed? Current MSO uses <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">mso update</code> or Settings → About.
+          Already installed? Current MSO uses <code className="rounded bg-muted px-1 py-0.5 text-[0.85em]">mso update</code> or Settings → Account → About.
           For an older build where those do not exist, re-run the installer above; it upgrades the existing checkout in place and preserves existing configuration/state.
         </p>
       </section>

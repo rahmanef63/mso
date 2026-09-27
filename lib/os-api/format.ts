@@ -1,5 +1,5 @@
 // Telemetry formatters shared by every surface that renders SysStats/FsUsage
-// (System Monitor, Settings → About, terminal neofetch…). One machine → one
+// (System Monitor, Settings → Account → About, terminal neofetch…). One machine → one
 // set of numbers: binary GiB everywhere, uptime from the ms contract.
 const GiB = 1024 ** 3;
 

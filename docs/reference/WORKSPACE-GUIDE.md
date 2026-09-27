@@ -50,7 +50,7 @@ CLI, and optional MCP interface use the same guarded host capabilities.
 - **Inspect system health** — view live CPU, memory, disk, network, process, and uptime signals.
 - **Operate services safely** — inventory system and user `systemd` units, read bounded journal output, and expose start/stop/restart only for exact owner-configured allowlist entries.
 - **See pending package updates** — read the package manager’s existing local cache without refreshing repositories or applying an upgrade.
-- **Update itself** — A clean local main that is ahead of or diverged from origin/main is reported explicitly and refused until reconciled; unpushed work is not silently overwritten.  Settings → About shows what is on `origin/main`, lists the incoming commits, and runs the whole deploy (pull → verify the build out-of-tree → build → restart) from a button. The verification runs first on purpose: a commit that does not compile becomes a refusal, not an outage. The updater runs in the owner's systemd user manager and does not require passwordless sudo. Same thing from a shell: `mso update` (`mso update run` remains a compatibility alias). The CLI update path is Git-based and still works when the web runtime is down.
+- **Update itself** — A clean local main that is ahead of or diverged from origin/main is reported explicitly and refused until reconciled; unpushed work is not silently overwritten.  Settings → Account → About shows what is on `origin/main`, lists the incoming commits, and runs the whole deploy (pull → verify the build out-of-tree → build → restart) from a button. The verification runs first on purpose: a commit that does not compile becomes a refusal, not an outage. The updater runs in the owner's systemd user manager and does not require passwordless sudo. Same thing from a shell: `mso update` (`mso update run` remains a compatibility alias). The CLI update path is Git-based and still works when the web runtime is down.
 - **Manage other apps on the box** — detect, start/stop/restart, health, version, logs, and state backups for separate applications you already run (Hermes, OpenClaw, 9Router), driven through their own systemd/Docker/CLI contracts. 9Router uses its configured application domain or split-origin host as the in-shell dashboard; its Docker port is loopback-only unless public exposure is explicitly enabled. See [docs/MANAGED-APPS.md](../MANAGED-APPS.md).
 
 **Work** — code/text editor, browser, and media tools in the same workspace.
@@ -123,7 +123,7 @@ The repository carries the rest of the contract. The agent should use MSO's offi
 paths rather than reconstructing setup commands by hand, preserve an existing `.env.local` and
 `~/.mso`, update the checkout already owned by `mso.service` instead of creating a second clone, and
 finish with `mso doctor`. For a current install it may use `mso update` (the same lifecycle exposed by
-Settings → About). If the installed build is old enough that `mso update` or the About updater does not
+Settings → Account → About). If the installed build is old enough that `mso update` or the About updater does not
 exist yet, the universal upgrade/recovery path is simply to re-run the current one-line installer below.
 Only credentials or choices that cannot be inferred should come back to the user; provider secrets must
 stay in hidden/STDIN onboarding prompts rather than command arguments or chat logs.
@@ -186,7 +186,7 @@ curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install
 
 Already installed? Use the least surprising path:
 
-- **Current MSO:** `mso update`, or Settings → About → Update.
+- **Current MSO:** `mso update`, or Settings → Account → About → Update.
 - **Older/legacy MSO where that updater is missing or broken:** re-run the same one-line installer.
   It discovers an existing `mso.service` WorkingDirectory before choosing a default directory, updates
   that checkout in place, preserves `.env.local` + `~/.mso`, and does not repeat onboarding unless

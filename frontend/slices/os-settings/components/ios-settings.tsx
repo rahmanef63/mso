@@ -17,7 +17,7 @@ export function IosSettings({
   onSelect: (id: SectionId) => void;
 }) {
   return active ? (
-    <IosSettingsDetail id={active} />
+    <IosSettingsDetail id={active} onOpen={onSelect} />
   ) : (
     <IosSettingsIndex onSelect={onSelect} />
   );
@@ -84,7 +84,7 @@ function IosSettingsIndex({ onSelect }: { onSelect: (id: SectionId) => void }) {
   );
 }
 
-function IosSettingsDetail({ id }: { id: SectionId }) {
+function IosSettingsDetail({ id, onOpen }: { id: SectionId; onOpen: (id: SectionId) => void }) {
   const meta = settingsSection(id);
   // Appearance/Theme are control-first. About already has the Manef Shell OS
   // identity block, so a second category hero would duplicate its header.
@@ -103,7 +103,7 @@ function IosSettingsDetail({ id }: { id: SectionId }) {
             <p className="mx-auto mt-2 max-w-[32rem] text-[16px] leading-[1.35] text-foreground/90">{meta.blurb}</p>
           </section>
         )}
-        <SettingsSectionBody id={id} />
+        <SettingsSectionBody id={id} onOpen={onOpen} />
       </div>
     </div>
   );
