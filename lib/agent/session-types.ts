@@ -101,10 +101,26 @@ export interface AgentSessionSummary {
   historyTurns: number;
 }
 
+export interface AgentSessionValueCapsule {
+  kind: "mso.jev-session-capsule.v1";
+  model: string;
+  sourceSha256: string;
+  sourceBytes: number;
+  capturedAt: string;
+  sessionLabel: string;
+  updatedAt: string;
+  decision: { id: string; version: number; threshold: number; provider: "jev" | "fallback"; model?: string; latencyMs?: number; inputTokens?: number; actualCostUsd?: number };
+  summary: { candidateCount: number; acceptedCount: number; rejectedCount: number; semanticStepCount: number; toolCount: number; artifactRefCount: number };
+  semanticSteps: Array<{ ref: string; category: SessionFlowCategory; title: string; summary: string; tools: string[]; actionRefs: string[]; artifactRefs: string[] }>;
+  recommendations: Array<{ id: string; title: string; probability: number; actionRefs: string[]; guidance: string }>;
+  continuation: { kind: "mso.jev-session-optimization.v1"; instruction: string; facts: string[]; recommendations: Array<{ id: string; probability: number; actionRefs: string[]; guidance: string }> };
+}
+
 export interface AgentSessionResumePacket {
   session: AgentSessionSummary;
   memorySnapshot: AgentMemorySnapshot;
   contextSummary?: string;
   recentHistory: unknown[];
   recentEvents: AgentSessionEvent[];
+  jevCapsule?: AgentSessionValueCapsule;
 }

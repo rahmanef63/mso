@@ -238,6 +238,8 @@ For Jev, connect **OpenRouter** once in **Settings → AI** or **Integrations �
 
 The native Workflows UI exposes **Optimize** and a Flow Optimizer detail panel. Dirty graph edits are saved before opening the optimizer so preview/clone always operate on the revision the user can see. Jev mode shows OpenRouter Jev as the normal path, with explicit named-MCP fields retained only under a legacy/diagnostic override.
 
+Workflow Sessions also retain a `mso.jev-session-capsule.v1` value packet after JEV preservation. The packet is exact-source checksum-bound and includes bounded semantic steps/tool routes/artifact refs plus the LLM continuation packet. It is surfaced in Workflow Sessions and automatically attached by `agent_session_resume` when still current. A zero-recommendation JEV result therefore still has reusable semantic value; it is not treated as permission to delete the source session.
+
 The separate MCP capability `jev_action` is a policy gate, not an autonomous agent. `propose` scores only caller/host-supplied structured capability candidates and never executes. `execute` requires the server-held proposal id, rejects expired or capability-digest-stale proposals, and permits only selected safe non-destructive **read** capabilities. The call re-enters the normal MSO Capability Runtime, so token allowlists, argument constraints, workflow correlation and rate limits stay authoritative. Write/review/destructive candidates return to the normal explicit tool flow. Post-action Jev verification is a semantic signal alongside—not instead of—deterministic execution status.
 
 ## Automatic learning

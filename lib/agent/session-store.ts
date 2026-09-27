@@ -4,6 +4,7 @@ import { conversationIndexReady, conversationLockTarget, listSessionRecords, pri
 import { normalizeAgentSessionCwd } from "./session-location";
 import { appendAgentSessionEvent } from "./session-mutations";
 import { requireOwned, summary } from "./session-record";
+import { readLiveJevSessionCapsule } from "./session-jev-preservation";
 import type { AgentSession, AgentSessionResumePacket, AgentSessionSource, AgentSessionSummary } from "./session-types";
 export { appendAgentSessionEvent, maybeAutoTitleAgentSession, renameAgentSession, renameAgentSessionName, updateAgentSessionHistory } from "./session-mutations";
 export type { AgentSession,AgentSessionEvent,AgentSessionResumePacket,AgentSessionSource,AgentSessionSummary } from "./session-types";
@@ -108,12 +109,14 @@ export async function resumeAgentSession(
       kind: "resumed",
       detail: `resumed ${targetId}`,
     });
+  const jevCapsule = await readLiveJevSessionCapsule(target).catch(() => null);
   return {
     session: summary(target),
     memorySnapshot: target.memorySnapshot,
     ...(target.contextSummary ? { contextSummary: target.contextSummary } : {}),
     recentHistory: target.history.slice(-24),
     recentEvents: target.events.slice(-40),
+    ...(jevCapsule ? { jevCapsule } : {}),
   };
 }
 

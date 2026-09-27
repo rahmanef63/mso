@@ -4,6 +4,7 @@ import { hostCredentialStore } from "@/lib/config/store";
 import { DEFAULT_JEV_OPENROUTER_MODEL } from "@/lib/workflow/jev-openrouter";
 import { listJevDecisionDefinitions } from "@/lib/workflow/jev-decision-registry";
 import { readJevCalibration, readJevTelemetryWindows } from "@/lib/workflow/jev-telemetry";
+import { jevPreservationStatus } from "@/lib/agent/session-jev-preservation";
 import { readSetupJson } from "@/lib/infra/setup-http";
 import { assessRecipePromotionWithJev, budgetContextWithJev, classifyMemoryAdmissionWithJev, routeModelWithJev, triageFailureWithJev, verifyActionOutcomeWithJev } from "@/lib/workflow/jev-services";
 
@@ -14,10 +15,11 @@ const headers={"Cache-Control":"private, no-store"};
 export async function GET(){
   const context=await getSessionContext();
   if(!context?.session.device_id||context.role!=="owner")return NextResponse.json({error:"owner_role_required"},{status:403,headers});
-  const [openrouterKey,windows,calibration]=await Promise.all([
+  const [openrouterKey,windows,calibration,preservation]=await Promise.all([
     hostCredentialStore().getKey(undefined,"openrouter"),
     readJevTelemetryWindows(),
     readJevCalibration(),
+    jevPreservationStatus(),
   ]);
   return NextResponse.json({
     kind:"mso.jev-control-plane.v1",
@@ -26,6 +28,7 @@ export async function GET(){
     registry:listJevDecisionDefinitions(),
     windows,
     calibration,
+    preservation,
     accounting:{actual:"Provider-reported JEV tokens/cost only.",estimated:"Avoided LLM/token/cost/latency fields are estimates and are never reported as actual savings."},
   },{headers});
 }

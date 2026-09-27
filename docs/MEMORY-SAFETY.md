@@ -95,6 +95,8 @@ widen retrieval grants for agents, operators or MCP clients.
 
 ## Remaining integrations and release gates
 
+JEV session preservation now writes a checksum-bound **value capsule** for every current session source. The capsule stores bounded semantic step summaries, unique tool routes, artifact references, decision metadata and the continuation packet; it does not store credentials or raw authorization material. `agent_session_resume` reuses the exact current capsule when its source SHA-256 and byte count still match, so even a session with zero probabilistic optimization recommendations retains a useful continuation asset. Capsule existence is preservation/value evidence, not raw-source deletion authority.
+
 Jev now participates in **automatic observed workflow-memory admission** only.
 It may classify a bounded successful-route candidate as ignore, episodic, semantic,
 procedural, or candidate-recipe. Explicit user memory writes remain authoritative,

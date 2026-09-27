@@ -11,6 +11,7 @@ export type JevSessionOptimization = {
   decision:{id:"session.optimize";version:number;threshold:number;model?:string;latencyMs?:number;inputTokens?:number;actualCostUsd?:number};
   source: { sessionLabel: string; observedAt: string; shownEvents: number; omittedEvents: number };
   summary: { candidateCount: number; acceptedCount: number; rejectedCount: number };
+  valueSummary: { semanticStepCount: number; toolCount: number; artifactRefCount: number };
   recommendations: Array<{ id: string; title: string; description: string; probability: number; actionRefs: string[] }>;
   llmContext: { kind: "mso.jev-session-optimization.v1"; instruction: string; facts: string[]; recommendations: Array<{ id: string; probability: number; actionRefs: string[]; guidance: string }> };
   fallbackReason?: string;
@@ -36,10 +37,17 @@ export async function optimizeSessionWithJev(view: SessionGraphView, raw?: unkno
     meta={...(evaluation.jev?.model?{model:evaluation.jev.model}:{}),...(evaluation.jev?.latencyMs!=null?{latencyMs:evaluation.jev.latencyMs}:{}),...(evaluation.jev?.inputTokens!=null?{inputTokens:evaluation.jev.inputTokens}:{}),...(evaluation.jev?.actualCostUsd!=null?{actualCostUsd:evaluation.jev.actualCostUsd}:{})};
   }catch(cause){provider="fallback";fallbackReason=cause instanceof Error?cause.message.slice(0,240):"Jev evaluation failed"}
   const recommendations=rows.map(row=>({...row, probability:provider==="jev"?(probabilities[row.id]??0):0, actionRefs:row.nodeIds})).filter(row=>row.probability>=definition.threshold).sort((a,b)=>b.probability-a.probability).map(({id,title,description,probability,actionRefs})=>({id,title,description,probability,actionRefs}));
-  const llmContext={kind:"mso.jev-session-optimization.v1" as const,instruction:"JEV DECISION only. Re-check live state before mutation. MCP ACTION and VERIFIED RESULT are separate stages; never infer credentials, arguments, permissions, execution, or success from this packet.",facts:[`Session ${view.session.label} has ${view.steps.length} semantic steps.`,`Projection covers ${view.shownEvents}/${view.totalEvents} events.`,...(view.omittedEvents?[`${view.omittedEvents} older events are omitted from this bounded projection.`]:[])],recommendations:recommendations.map(r=>({id:r.id,probability:r.probability,actionRefs:r.actionRefs,guidance:r.description}))};
+  const semanticFacts=view.steps.slice(-16).map(step=>{
+    const tools=[...new Set(step.actions.map(action=>action.tool).filter((tool):tool is string=>Boolean(tool)))].slice(0,8);
+    return `${step.ref} · ${step.category} · ${step.title}: ${step.summary}${tools.length?` · tools ${tools.join(" → ")}`:""}`;
+  });
+  const tools=new Set(view.steps.flatMap(step=>step.actions.map(action=>action.tool).filter((tool):tool is string=>Boolean(tool))));
+  const artifactRefs=new Set(view.steps.flatMap(step=>step.actions.flatMap(action=>action.artifact?[action.artifact.ref]:[])));
+  const valueSummary={semanticStepCount:view.steps.length,toolCount:tools.size,artifactRefCount:artifactRefs.size};
+  const llmContext={kind:"mso.jev-session-optimization.v1" as const,instruction:"JEV DECISION only. Re-check live state before mutation. MCP ACTION and VERIFIED RESULT are separate stages; never infer credentials, arguments, permissions, execution, or success from this packet.",facts:[`Session ${view.session.label} has ${view.steps.length} semantic steps.`,`Projection covers ${view.shownEvents}/${view.totalEvents} events.`,`Continuation capsule retains ${valueSummary.semanticStepCount} semantic steps, ${valueSummary.toolCount} unique tools, and ${valueSummary.artifactRefCount} artifact references.`,...(view.omittedEvents?[`${view.omittedEvents} older events are omitted from this bounded projection.`]:[]),...semanticFacts],recommendations:recommendations.map(r=>({id:r.id,probability:r.probability,actionRefs:r.actionRefs,guidance:r.description}))};
   if(provider==="jev"&&recommendations.length){
     const rawTokens=estimateJevTokens(state),selectedTokens=estimateJevTokens(llmContext),reuse=recommendations.some(row=>row.id.startsWith("reuse-"));
     await recordJevTelemetry({event:"impact",decisionId:"session.optimize",decisionVersion:definition.version,decisionType:definition.type,sessionRef:view.session.label,estimated:{llmAvoided:reuse,inputTokensAvoided:Math.max(0,rawTokens-selectedTokens)}}).catch(()=>undefined);
   }
-  return {provider,decision:{id:"session.optimize",version:definition.version,threshold:definition.threshold,...meta},source:{sessionLabel:view.session.label,observedAt:view.observedAt,shownEvents:view.shownEvents,omittedEvents:view.omittedEvents},summary:{candidateCount:rows.length,acceptedCount:recommendations.length,rejectedCount:Math.max(0,rows.length-recommendations.length)},recommendations,llmContext,...(fallbackReason?{fallbackReason}:{})};
+  return {provider,decision:{id:"session.optimize",version:definition.version,threshold:definition.threshold,...meta},source:{sessionLabel:view.session.label,observedAt:view.observedAt,shownEvents:view.shownEvents,omittedEvents:view.omittedEvents},summary:{candidateCount:rows.length,acceptedCount:recommendations.length,rejectedCount:Math.max(0,rows.length-recommendations.length)},valueSummary,recommendations,llmContext,...(fallbackReason?{fallbackReason}:{})};
 }

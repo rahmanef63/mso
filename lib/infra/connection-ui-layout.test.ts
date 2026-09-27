@@ -40,6 +40,7 @@ it("keeps AI Providers on the existing AI config/runtime SSOT and browser-only c
   expect(CONNECTION_MANAGER_SCRIPT).toContain("Actual JEV input / cost · 30d");
   expect(CONNECTION_MANAGER_SCRIPT).toContain("Estimated LLM input / cost avoided · 30d");
   expect(CONNECTION_MANAGER_SCRIPT).toContain("Actual = provider-reported JEV usage");
+  expect(CONNECTION_MANAGER_SCRIPT).toContain("Session value capsules");
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiTest=()=>json("/api/models/test"');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiOauth=body=>json("/api/oauth/openai"');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiRemove=provider=>json("/api/config?provider="');

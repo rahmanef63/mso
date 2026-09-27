@@ -1,3 +1,26 @@
+## 2026-09-27 — JEV decision plane and value capsules
+
+JEV is now a versioned bounded decision plane rather than a Workflow-only adapter.
+Decision definitions, bounded state compilation, action proposal/execution separation,
+post-action semantic verification, memory admission, model/context/failure routing and
+metadata-only telemetry share one policy surface. JEV action proposals are held
+server-side, expire, bind the exact capability contract digest and can auto-execute only
+safe non-destructive reads through the existing MSO Capability Runtime; write/review/
+destructive candidates remain on the normal explicit tool path.
+
+Session preservation advances from a thin receipt to an exact-source
+`mso.jev-session-capsule.v1`. Every capsule is bound to the current session SHA-256 and
+byte count and retains bounded semantic steps, tool routes, artifact references, decision
+metadata and the LLM continuation packet. `agent_session_resume` automatically includes
+that capsule while the source identity still matches, so zero-recommendation sessions
+still have useful continuation value. Capsule existence remains preservation/value
+evidence and does not authorize deletion of raw session evidence.
+
+Integrations → AI Providers exposes JEV connection state, actual provider-reported usage
+separately from estimated avoided LLM impact, calibration/decision metadata, preservation
+coverage and an owner-only bounded JEV Lab. Workflow Sessions explicitly distinguish JEV
+DECISION, MCP ACTION and VERIFIED RESULT and show the continuation capsule value summary.
+
 ## 2026-09-27 — Windows taskbar fidelity release
 
 The Windows desktop shell taskbar now follows the supplied Windows 11 reference
@@ -42,7 +65,6 @@ code units and a raster icon re-encoded from magic-checked bytes, with mode
 `.env.local` with the existing constant-time compare; it does not add a second
 password store. Deep links to `?section=devices` and `?section=about` still open
 those panels, and mobile back returns to Account.
-
 ## 2026-09-26 — Crash-safe continuation and source-isolated agent work
 
 ChatGPT/MCP continuation no longer depends on the user recovering a dead tab or

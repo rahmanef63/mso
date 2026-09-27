@@ -19,6 +19,12 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `release` record Windows taskbar fidelity
 
+## 2026-09-27
+
+**Added**
+
+- `jev` persist reusable session capsules
+
 ## 2026-09-26
 
 **Added**
