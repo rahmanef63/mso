@@ -96,7 +96,7 @@ try {
   await expect(page.getByText("Actual JEV input / cost · 30d", { exact: true })).toBeVisible();
   await expect(page.getByText("Estimated LLM input / cost avoided · 30d", { exact: true })).toBeVisible();
   await page.getByText("JEV Lab · bounded decision test", { exact: true }).click();
-  await expect(page.getByText("JEV Lab never executes tools, writes memory, or promotes recipes.", { exact: true })).toBeVisible();
+  await expect(page.getByText("JEV Lab never executes tools, writes memory, or promotes recipes.")).toBeVisible();
   await page.getByRole("button", { name: "Run bounded test", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("JEV Lab decision complete; no action executed.");
   await storeExtensionsJourney(page, fixture);

@@ -21,6 +21,10 @@ separately from estimated avoided LLM impact, calibration/decision metadata, pre
 coverage and an owner-only bounded JEV Lab. Workflow Sessions explicitly distinguish JEV
 DECISION, MCP ACTION and VERIFIED RESULT and show the continuation capsule value summary.
 
+The public MCP action contract advances to toolset `2026.09.27.1`. External clients that
+cache MCP descriptors must refresh or rescan actions before using the revised `jev_action`
+schema and read scope.
+
 ## 2026-09-27 — Windows taskbar fidelity release
 
 The Windows desktop shell taskbar now follows the supplied Windows 11 reference

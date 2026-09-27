@@ -135,7 +135,7 @@ export function toolDescriptor(tool: McpTool, profile: McpToolProfile = "full") 
   return {
     name: tool.name,
     title: tool.title ?? toolTitle(tool.name),
-    description: compact ? compactText(tool.chatgptDescription ?? tool.description, 44) : tool.description,
+    description: compact ? compactText(tool.chatgptDescription ?? tool.description, 48) : tool.description,
     inputSchema: compact ? compactSchema(tool.inputSchema) : tool.inputSchema,
     ...(outputSchema ? { outputSchema: compact ? compactSchema(outputSchema) : outputSchema } : {}),
     securitySchemes,
