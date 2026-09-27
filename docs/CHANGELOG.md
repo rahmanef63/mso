@@ -4,10 +4,17 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-09-27
+
+**Docs**
+
+- `release` record Windows taskbar fidelity
+
 ## 2026-09-26
 
 **Added**
 
+- `settings` add an Account section for profile, password, devices, and about
 - `jev` add policy-bound MCP actions
 - `workflows` isolate source-changing agents
 - `agent` recover interrupted sessions automatically
@@ -18,6 +25,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `auth` rebuild the account profile before writing it
 - `windows` match native taskbar proportions
 - `worktrees` keep runtime paths out of build tracing
 - `memory` keep runtime backup paths out of build tracing

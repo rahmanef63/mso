@@ -1,3 +1,23 @@
+## 2026-09-27 — Windows taskbar fidelity release
+
+The Windows desktop shell taskbar now follows the supplied Windows 11 reference
+instead of using generic dashboard-like chrome. It keeps the native 48px taskbar
+geometry, centers Start/search/apps, uses a 34px rounded search pill, keeps running
+windows as compact icon buttons, and moves VPS connection status into a
+Windows-style tray affordance. The trailing tray now presents locale,
+Wi-Fi/volume/battery, clock/date, and the thin Show Desktop target without changing
+the underlying shared window/control-center/status behavior. Browser locale selects
+the visible Search/Pencarian and ENG/IND labels; the shell remains portable rather
+than hardcoding one operator locale.
+
+PR #89 merged the taskbar implementation into main as 662e4179. Release validation
+is performed against exact merged main, not only the feature branch. The first
+exact-main full gate correctly found the Tool Forge fixture image absent on this
+host; the repository's explicit offline provisioning script restored that required
+test dependency. A later full-suite PTY timeout was isolated as environmental after
+the exact test passed twice standalone. Deployment remains gated on a clean complete
+release-gate run plus exact-SHA runtime/health/chunk/browser proof.
+
 ## 2026-09-26 — Settings Account section
 
 Settings now opens on an Account section. Rename, icon, and password reset live
