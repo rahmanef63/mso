@@ -66,7 +66,10 @@ iwr -useb https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-
 
 The bootstrap installs or reuses WSL2 Ubuntu and runs the canonical Linux installer inside it.
 A first-time WSL setup can require a Windows reboot or first-launch Linux user creation; rerun the
-same MSO command afterward.
+same MSO command afterward. The installer verifies the chosen distro is WSL2 before invoking the
+Linux installer. It reuses Ubuntu when present, otherwise a sole existing distro; for several
+non-Ubuntu distros, set `MSO_WSL_DISTRO` explicitly. An existing WSL1 distro is never converted
+without the operator running `wsl --set-version <distro> 2` deliberately.
 
 The MSO host tools manage the **WSL2 Linux distro**, not Windows Service Control Manager or
 arbitrary Win32 processes.
@@ -80,8 +83,12 @@ curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install
 ~~~
 
 The Android adapter creates or reuses Ubuntu PRoot and exposes a Termux-side `mso` launcher.
-No Android root access is required. Because Android may suspend background processes, this is best
-for local/personal use; an always-on Linux host is still the stronger production target.
+MSO **runs and hosts work on that Android device**, including a tablet; a separate VPS is optional.
+No Android root access is required. Use `mso web` for a local browser workspace, and verify
+access from a second device through a protected private/HTTPS route. Raw MSO binds to loopback
+by default; a plain HTTP LAN-IP login is not a valid substitute for trusted HTTPS. Android can
+suspend background processes, so a tablet remains a personal/conditional host until actual
+background, reboot, power, network and recovery tests pass.
 
 See [TERMUX.md](./TERMUX.md) for repair and PRoot details.
 

@@ -426,6 +426,7 @@ if [ -d "$DIR/.git" ]; then
   install_git_noninteractive git -C "$DIR" fetch --quiet origin "$REF" || die "could not fetch origin $REF non-interactively; canonical MSO uses public HTTPS, custom/private origins need preconfigured credentials"
   target_commit="$(git -C "$DIR" rev-parse --short FETCH_HEAD)" || die "could not resolve fetched ref $REF"
   info "target commit:  $target_commit"
+  git -C "$DIR" merge-base --is-ancestor HEAD FETCH_HEAD || die "checkout has commits not present in the requested ref; preserve/reconcile them before updating $DIR"
   git -C "$DIR" checkout --quiet FETCH_HEAD || die "could not check out $target_commit"
   ok "updated checkout $old_commit → $(git -C "$DIR" rev-parse --short HEAD)"
 else
@@ -434,7 +435,6 @@ else
   install_git_noninteractive git clone --quiet --branch "$REF" "$REPO_URL" "$DIR" 2>/dev/null || install_git_noninteractive git clone --quiet "$REPO_URL" "$DIR"
 fi
 cd "$DIR"
-
 # ---- post-checkout phases ----
 # Fresh installs have the requested checkout now, so the rest of the installer is
 # split into bounded repo-owned phases without adding bootstrap downloads.

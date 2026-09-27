@@ -94,13 +94,13 @@ export const PLATFORM_INSTALL_GUIDES: Record<MsoPlatformId, PlatformInstallGuide
     bestFor: "Windows 10/11 users who want the full MSO host runtime without maintaining a separate VPS.",
     prerequisites: [
       "Windows 10 version 2004+ or Windows 11 for the modern WSL install flow.",
-      "WSL2 is the stable MSO host path; the bootstrap reuses a normal existing distro when possible and ignores docker-desktop distros.",
+      "WSL2 is the stable MSO host path; the bootstrap verifies the chosen distro is version 2 and ignores docker-desktop distros.",
       "Use PowerShell. Administrator elevation is needed when Windows itself still needs WSL installed.",
       "MSO manages the Linux distro inside WSL2, not Windows Service Control Manager or arbitrary Win32 processes.",
     ],
     steps: [
       { title: "Open PowerShell", body: "If WSL is already installed, a normal PowerShell window is enough. If this is the first WSL setup, reopen PowerShell as Administrator." },
-      { title: "Run the Windows bootstrap", body: "It finds an existing Linux distro or installs Ubuntu, then runs the canonical MSO Linux installer inside WSL2.", command: WINDOWS_INSTALL },
+      { title: "Run the Windows bootstrap", body: "It chooses Ubuntu if installed, reuses a sole other distro, or asks you to select among several; it verifies WSL2 before running the Linux installer.", command: WINDOWS_INSTALL },
       { title: "Complete first-time WSL setup when prompted", body: "If the command installed WSL/Ubuntu, restart Windows when requested, launch the distro once, create the Linux username/password, then rerun the same MSO PowerShell command.", command: "wsl --status\nwsl -l -v" },
       { title: "Enter WSL and verify MSO", body: "Use the distro shell for direct diagnostics.", command: "wsl\nexport PATH=\"$HOME/.local/bin:$HOME/.bun/bin:$PATH\"\nmso --version\nmso doctor" },
       { title: "Start/open the workspace", body: "Run from WSL. WSL2 normally forwards Linux localhost services to Windows localhost.", command: "mso web", note: "Open http://localhost:4005 in Edge/Chrome when it does not open automatically." },
@@ -109,6 +109,7 @@ export const PLATFORM_INSTALL_GUIDES: Record<MsoPlatformId, PlatformInstallGuide
     troubleshooting: [
       "If wsl.exe is missing, follow Microsoft's WSL installation guide and rerun the MSO bootstrap after the required reboot.",
       "If no distro appears in wsl -l -v, install one with wsl --install -d Ubuntu, complete first launch, then rerun MSO.",
+      "If the chosen distro is WSL1, explicitly convert it with wsl --set-version <distro> 2, then rerun MSO; if several distros exist, set MSO_WSL_DISTRO first.",
       "If Windows cannot reach port 4005, verify mso web is running inside WSL and review Microsoft's localhost-forwarding documentation.",
     ],
     links: [

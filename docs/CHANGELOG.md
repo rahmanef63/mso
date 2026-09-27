@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `install` preserve portable host commits and validate WSL2
 - `jev` validate decision release contract
 - `jev` open responsive session details in release journey
 - `settings` align MCP release journey with breadcrumbs

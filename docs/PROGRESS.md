@@ -1,3 +1,23 @@
+## 2026-09-27 — Portable host installer safety
+
+An Android tablet with supported arm64/x86_64 architecture can host the MSO Linux
+runtime inside Termux/Ubuntu PRoot; the tablet does not require a second VPS.
+The adapter now rejects unsupported CPU architectures before package downloads.
+On rerun, the canonical core installer rejects a checkout whose current commit
+is not an ancestor of the fetched target. The Termux adapter only reattaches
+`main` when its old tip is an ancestor of the installed tip, avoiding the old
+forced branch reset over local commits. Both installer digest pins advance with
+the changed payloads. The Windows bootstrap now verifies the chosen distro is
+WSL2 before installing; when several distros exist without Ubuntu it asks for
+an explicit choice instead of taking the first list entry.
+
+Focused installer/platform/docs tests passed 39/39 plus TypeScript and shell syntax
+checks in an isolated worktree. A physical Android tablet and Windows/WSL2 host
+still need fresh-install, process-background, remote-access, update and recovery
+acceptance before those platforms can be claimed verified. This increment does
+not implement the managed app manifest, domain/IP provisioning or multi-host
+registry from the broader agnostic audit.
+
 ## 2026-09-27 — JEV decision plane and value capsules
 
 JEV is now a versioned bounded decision plane rather than a Workflow-only adapter.

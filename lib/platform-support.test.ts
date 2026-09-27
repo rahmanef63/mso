@@ -113,6 +113,19 @@ describe("MSO platform support contract", () => {
     expect(WINDOWS_INSTALLER).toContain('Where-Object { $_ -and ($_ -notlike "docker-desktop*") }');
   });
 
+  it("refuses WSL1 and ambiguous distro choices before running the guest installer", () => {
+    expect(WINDOWS_INSTALLER).toContain("wsl.exe --list --verbose");
+    expect(WINDOWS_INSTALLER).toContain('if ($Version -ne "2")');
+    expect(WINDOWS_INSTALLER).toContain('elseif ($Distros.Count -eq 1)');
+    expect(WINDOWS_INSTALLER).toContain("Multiple WSL distros are installed");
+    expect(WINDOWS_INSTALLER).toContain("wsl --set-version $Distro 2");
+    expect(WINDOWS_INSTALLER).toContain(String.raw`"^\*?\s*"`);
+    expect(WINDOWS_INSTALLER).not.toContain(String.raw`"^\\*?\\s*"`);
+    expect(WINDOWS_INSTALLER.indexOf('if ($Version -ne "2")')).toBeLessThan(
+      WINDOWS_INSTALLER.indexOf("Installing/updating MSO inside WSL2"),
+    );
+  });
+
   it("prevents Termux recursion inside the Ubuntu guest", () => {
     expect(TERMUX_INSTALLER).toContain('proot-distro login "$DISTRO" --user "$GUEST_USER" -- /usr/bin/env -i');
     expect(TERMUX_INSTALLER).not.toMatch(/\/bin\/bash -lc(?:\s|['"])/);
