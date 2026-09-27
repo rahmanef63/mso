@@ -120,6 +120,7 @@ Commands:
   prefs *              UI preferences: show | set
   federation *         Batonly capability federation worker: status
   models *             Configure AI providers/auth; inspect model catalog
+  jev *                JEV decision plane: status | decide | request (never executes actions)
   skills *             Discover host skills + curated market: available/install/remove
   changelog            What shipped, newest first (same text Settings → Account → About shows)
   mcp *                MCP tokens + live activity: list | pat <label> [scope] [ttlDays] | activity [n] | revoke <id> | revoke all

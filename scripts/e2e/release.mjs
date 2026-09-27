@@ -90,6 +90,15 @@ try {
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
   await expect(page).toHaveURL(fixture.base + "/integrations");
   await expect(page.getByRole("group", { name: "Credential owner" }).getByRole("button")).toContainText("fixture");
+  await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name: "AI Providers", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "AI Providers", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "JEV decision kernel", exact: true })).toBeVisible();
+  await expect(page.getByText("Actual JEV input / cost · 30d", { exact: true })).toBeVisible();
+  await expect(page.getByText("Estimated LLM input / cost avoided · 30d", { exact: true })).toBeVisible();
+  await page.getByText("JEV Lab · bounded decision test", { exact: true }).click();
+  await expect(page.getByText("JEV Lab never executes tools, writes memory, or promotes recipes.")).toBeVisible();
+  await page.getByRole("button", { name: "Run bounded test", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("JEV Lab decision complete; no action executed.");
   await storeExtensionsJourney(page, fixture);
   await page.goto(fixture.base + "/integrations");
   await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name: "Transfer & backup", exact: true }).click();

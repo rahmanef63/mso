@@ -19,6 +19,15 @@ export type WorkflowOptimizerEvaluation = {
   provider: "deterministic" | "jev" | "fallback";
   probabilities: Record<string, number>;
   fallbackReason?: string;
+  jev?: {
+    model: string;
+    provider?: string;
+    requestId?: string;
+    latencyMs: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    actualCostUsd?: number;
+  };
 };
 
 export type WorkflowOptimizerEvaluator = (

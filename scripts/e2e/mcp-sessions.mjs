@@ -66,6 +66,28 @@ export async function mcpSessionsJourney(page, fixture) {
   const selectedGraphResponse = await page.request.get(fixture.base + `/api/v1/agent-sessions?view=graph&id=${encodeURIComponent(selectedMonitor.sessions[0].id)}`);
   const selectedGraph = await selectedGraphResponse.json();
   expect(selectedGraph.graph.nodes.length).toBeLessThanOrEqual(9);
+  const useJev = page.getByRole("button", { name: "Use JEV", exact: true });
+  if (!(await useJev.isVisible().catch(() => false))) {
+    const sessionDetails = page.getByRole("button", { name: "Session details", exact: true });
+    if (await sessionDetails.isVisible()) await sessionDetails.click();
+    else {
+      await page.getByRole("button", { name: "More actions", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Session details", exact: true }).click();
+    }
+  }
+  await expect(useJev).toBeVisible();
+  await useJev.click();
+  await expect(page.locator('[data-slot="jev-session-output"]')).toBeVisible();
+  await expect(page.getByText("JEV DECISION", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot="jev-decision-metadata"]')).toContainText("Decision v1");
+  await expect(page.locator('[data-slot="jev-capsule-summary"]')).toContainText("Continuation capsule");
+  await expect(page.getByText("MCP ACTION · not executed", { exact: true })).toBeVisible();
+  await expect(page.getByText("VERIFIED RESULT · n/a", { exact: true })).toBeVisible();
+  const sessionDialog = page.locator('[data-slot="shell-dialog-surface"]').filter({ has: page.locator('[data-slot="jev-session-output"]') });
+  if (await sessionDialog.isVisible()) {
+    await page.keyboard.press("Escape");
+    await expect(sessionDialog).toHaveCount(0);
+  }
   const artifactStep = selectedGraph.steps.find(step => step.actions.some(action => action.artifact));
   const artifactAction = artifactStep?.actions.find(action => action.artifact);
   expect(artifactStep).toBeTruthy(); expect(artifactAction).toBeTruthy();

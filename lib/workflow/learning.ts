@@ -11,6 +11,7 @@ import { learnedGraphReceipt } from "./learning-graph-receipt";
 import { archiveLearnedRecipes, listArchivedLearnedRecipes } from "./recipe-archive";
 import { mergeCandidatePools } from "./candidate-pool";
 import { rememberAgentMemory } from "@/lib/agent/memory-store";
+import { classifyMemoryAdmissionWithJev } from "./jev-services";
 import { mergeIntentAliases, recipeReuseScore } from "./recipe-reuse";
 
 export async function finishWorkflow(input: {
@@ -130,10 +131,21 @@ export async function finishWorkflow(input: {
     const memoryKey = `workflow:${createHash("sha256").update(`${recipe.normalizedIntent}|${recipe.project ?? ""}`).digest("hex").slice(0, 20)}`;
     const route = recipe.bestSteps.map((step) => step.tool).join(" → ").slice(0, 1200);
     const value = safeMemoryText([`Intent: ${recipe.intent}`, recipe.project ? `Project: ${recipe.project}` : "", `Outcome: ${recipe.summary}`, route ? `Successful route: ${route}` : ""].filter(Boolean).join("\n"), 3000);
-    if (value) await rememberAgentMemory(recipeOwner, "MEMORY.md", memoryKey, value, {
-      kind: "procedural", sensitivity: "private", confidence: Math.min(1, 0.65 + Math.min(recipe.successes, 7) * 0.05),
-      provenance: { authority: "observed", channel: "system" },
-    }).catch(() => undefined);
+    if (value) {
+      const admission = await classifyMemoryAdmissionWithJev(
+        { workflow:{ intent:recipe.intent, project:recipe.project, summary:recipe.summary, successes:recipe.successes, failures:recipe.failures, route } },
+        { kind:"procedural", summary:value, provenance:"observed successful workflow route" },
+        undefined,
+        { workflowRef:input.workflowId },
+      );
+      if (admission.admit && admission.classification !== "candidate-recipe") {
+        const memoryKind = ["episodic","semantic","procedural"].includes(admission.classification) ? admission.classification as "episodic"|"semantic"|"procedural" : "procedural";
+        await rememberAgentMemory(recipeOwner, "MEMORY.md", memoryKey, value, {
+          kind: memoryKind, sensitivity: "private", confidence: Math.min(1, 0.65 + Math.min(recipe.successes, 7) * 0.05),
+          provenance: { authority: "observed", channel: "system" },
+        }).catch(() => undefined);
+      }
+    }
   }
 
   const improvedByMs = input.success && previousFastestMs != null && durationMs < previousFastestMs

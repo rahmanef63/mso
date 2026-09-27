@@ -194,6 +194,16 @@ case "$cmd" in
       *) die "usage: mso $U_prefs" ;;
     esac ;;
   models) run_models "$@" ;;
+  jev)
+    case "${1:-status}" in
+      status) jget "/api/v1/jev" ;;
+      decide)
+        decision="${2:?decision id}"; state="$(json_arg "${3:-{}}")"
+        jpost "/api/v1/jev" "$(jq -nc --arg decision_id "$decision" --argjson state "$state" '{decision_id:$decision_id,state:$state}')" ;;
+      request)
+        jpost "/api/v1/jev" "$(json_arg "${2:?JSON or @file}")" ;;
+      *) die "usage: mso $U_jev" ;;
+    esac ;;
   skills)
     case "${1:-list}" in
       list)   jget "/api/skills" ;;

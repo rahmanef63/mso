@@ -8,10 +8,13 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `jev` persist reusable session capsules
 - `settings` nest version and updates under About
 
 **Fixed**
 
+- `jev` validate decision release contract
+- `jev` open responsive session details in release journey
 - `settings` align MCP release journey with breadcrumbs
 - `settings` scroll MCP pages without reading a ref during render
 
@@ -23,6 +26,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `jev` productionize decision plane
 - `settings` add an Account section for profile, password, devices, and about
 - `jev` add policy-bound MCP actions
 - `workflows` isolate source-changing agents
@@ -34,6 +38,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `jev` close release contract gaps
 - `auth` rebuild the account profile before writing it
 - `windows` match native taskbar proportions
 - `worktrees` keep runtime paths out of build tracing

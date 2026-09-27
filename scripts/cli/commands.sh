@@ -51,6 +51,7 @@ U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm 
 U_prefs="prefs show|set <json>"
 U_federation="federation status"
 U_models="models [status|list|add|auth <provider>|rm <provider>|catalog [provider]|test]"
+U_jev="jev status|decide <model.route|failure.triage|recipe.promote> [JSON|@file]|request <JSON|@file>"
 U_skills="skills list|read <id>|search <query…>|available|info <id>|install <id…> [-y] [--force]|remove <id…> [-y]|store list|store install|remove <id> <revision>"
 U_mcp="mcp project <JSON>|list|pat <label> [read|write|exec] [ttlDays]|activity [n]|service-token --label <label> --client-id <id> --scope <read|write|exec> --tools <name,name> [--constraints-json <json>]|revoke <id>|revoke all"
 U_oauth="oauth <provider> start|poll   OAuth currently: openai (ChatGPT Codex)"
@@ -101,7 +102,7 @@ mso_cli_main() {
       mso_cmd_host "$cmd" "$@" ;;
     agent|chat|model|setup|onboard|provider|providers|integrations|channels|flow|workflow|gateway|web|camoufox|apps|mapp|term)
       mso_cmd_runtime "$cmd" "$@" ;;
-    ai|cockpit|threads|agent-sessions|agents|org|a2a|memory|memory-graph|config|prefs|federation|models|skills|changelog|stock)
+    ai|cockpit|threads|agent-sessions|agents|org|a2a|memory|memory-graph|config|prefs|federation|models|jev|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;
     devices|device|approve|revoke|oauth|mcp|audit|whoami|login|logout|service|build|deploy|update|reset|uninstall|crud|api|completion)
       mso_cmd_admin "$cmd" "$@" ;;

@@ -7,11 +7,12 @@ const {createOpenRouterJevWorkflowOptimizerEvaluator}=await import("./jev-openro
 const candidate=(id:string):WorkflowOptimizerCandidate=>({id,kind:"presentation-group",title:`Candidate ${id}`,description:"Improve a bounded route.",nodeIds:["a","b"],risk:"safe",estimatedNodeDelta:1,hostEligible:true});
 beforeEach(()=>{getKey.mockReset();safeProviderFetch.mockReset();});
 describe("OpenRouter Jev evaluator",()=>{
- it("reuses the Settings AI OpenRouter key and Decisions API without exposing it in state",async()=>{
+ it("reuses the Settings AI OpenRouter key and records provider-measured usage without exposing it in state",async()=>{
   getKey.mockResolvedValue("private-key");
-  safeProviderFetch.mockResolvedValue(new Response(JSON.stringify({model:"typesafe/jev-1.13",answers:{q1:{type:"noul",noul:.93}},usage:{input_tokens:123}}),{status:200,headers:{"content-type":"application/json"}}));
+  safeProviderFetch.mockResolvedValue(new Response(JSON.stringify({model:"typesafe/jev-1.13",provider:"TypeSafe",id:"gen-dec-1",answers:{q1:{type:"noul",noul:.93}},usage:{input_tokens:123,output_tokens:20,cost:.000012}}),{status:200,headers:{"content-type":"application/json"}}));
   const result=await createOpenRouterJevWorkflowOptimizerEvaluator()({workflow:{nodeCount:2}},[candidate("c1")]);
-  expect(result).toEqual({provider:"jev",probabilities:{c1:.93}});
+  expect(result).toMatchObject({provider:"jev",probabilities:{c1:.93},jev:{model:"typesafe/jev-1.13",provider:"TypeSafe",requestId:"gen-dec-1",inputTokens:123,outputTokens:20,actualCostUsd:.000012}});
+  expect(result.jev?.latencyMs).toEqual(expect.any(Number));
   expect(getKey).toHaveBeenCalledWith(undefined,"openrouter");
   const [url,init]=safeProviderFetch.mock.calls[0];expect(url).toBe("https://openrouter.ai/api/alpha/decisions");
   const body=JSON.parse(String(init.body));expect(body.model).toBe("~typesafe/jev-latest");expect(body.state).toEqual({workflow:{nodeCount:2}});expect(JSON.stringify(body)).not.toContain("private-key");

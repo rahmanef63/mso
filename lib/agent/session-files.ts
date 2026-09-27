@@ -132,6 +132,20 @@ export function normalizeSession(raw: AgentSession): AgentSession {
   return { ...base, estimatedTokens, lifetimeEstimatedTokens: Math.max(base.lifetimeEstimatedTokens, estimatedTokens) };
 }
 
+export async function sessionFileIdentity(id: string): Promise<{ sha256: string; bytes: number }> {
+  const file = fileFor(id);
+  let handle: Awaited<ReturnType<typeof fs.open>> | null = null;
+  try {
+    handle = await fs.open(file, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size <= 0 || stat.size > MAX_SESSION_BYTES) throw new Error("agent session has an invalid file shape");
+    if ((stat.mode & 0o077) !== 0) throw new Error("agent session permissions are too broad; expected 0600");
+    if (typeof process.getuid === "function" && stat.uid !== process.getuid()) throw new Error("agent session is not owned by the MSO user");
+    const body = await handle.readFile();
+    return { sha256: createHash("sha256").update(body).digest("hex"), bytes: body.length };
+  } finally { await handle?.close().catch(() => undefined); }
+}
+
 export async function readSessionFile(id: string): Promise<AgentSession | null> {
   const file = fileFor(id);
   let handle: Awaited<ReturnType<typeof fs.open>> | null = null;
