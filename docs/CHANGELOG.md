@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `jev` open responsive session details in release journey
 - `settings` align MCP release journey with breadcrumbs
 - `settings` scroll MCP pages without reading a ref during render
 

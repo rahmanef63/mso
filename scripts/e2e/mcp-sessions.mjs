@@ -66,7 +66,14 @@ export async function mcpSessionsJourney(page, fixture) {
   const selectedGraphResponse = await page.request.get(fixture.base + `/api/v1/agent-sessions?view=graph&id=${encodeURIComponent(selectedMonitor.sessions[0].id)}`);
   const selectedGraph = await selectedGraphResponse.json();
   expect(selectedGraph.graph.nodes.length).toBeLessThanOrEqual(9);
-  await page.getByRole("button", { name: "Use JEV", exact: true }).click();
+  const useJev = page.getByRole("button", { name: "Use JEV", exact: true });
+  if (!(await useJev.isVisible().catch(() => false))) {
+    const sessionDetails = page.getByRole("button", { name: "Session details", exact: true });
+    await expect(sessionDetails).toBeVisible();
+    await sessionDetails.click();
+  }
+  await expect(useJev).toBeVisible();
+  await useJev.click();
   await expect(page.locator('[data-slot="jev-session-output"]')).toBeVisible();
   await expect(page.getByText("JEV DECISION", { exact: true })).toBeVisible();
   await expect(page.locator('[data-slot="jev-decision-metadata"]')).toContainText("Decision v1");
