@@ -74,7 +74,7 @@ export async function mcpOwnerJourneys(page, fixture) {
     await page.getByRole("button", { name: "Choose another app", exact: true }).click();
     await page.getByRole("button", { name: /^Cursor Remote/ }).click();
     await expect(page.getByText("Connect Cursor", { exact: true })).toBeVisible();
-    await nav.getByRole("button", { name: "MCP overview", exact: true }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "MCP", exact: true }).click();
     await nav.getByRole("button", { name: /^Connected apps/ }).click();
     await page.getByRole("button", { name: "Disconnect Fixture client", exact: true }).click();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -84,7 +84,7 @@ export async function mcpOwnerJourneys(page, fixture) {
     await expect(page.getByText("0 active connections", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Show expired & disconnected", exact: true }).click();
     await expect(page.getByText("Read data · revoked", { exact: true })).toBeVisible();
-    await nav.getByRole("button", { name: "MCP overview", exact: true }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "MCP", exact: true }).click();
     await chooseProjectTarget(page, fixture);
     const siCoder = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "SI-Coder", exact: true }) });
     await expect(siCoder.getByRole("button", { name: "Install", exact: true })).toBeEnabled();

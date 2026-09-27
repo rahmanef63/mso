@@ -17,6 +17,19 @@ host; the repository's explicit offline provisioning script restored that requir
 test dependency. A later full-suite PTY timeout was isolated as environmental after
 the exact test passed twice standalone. Deployment remains gated on a clean complete
 release-gate run plus exact-SHA runtime/health/chunk/browser proof.
+## 2026-09-27 — Settings version, updates, and optional breadcrumbs
+
+Account still owns the profile, password, Devices, and the About overview.
+Version and software updates are nested pages under About, so `?section=about`
+stays the overview and `?section=about&page=version` (or `updates`) opens the
+detail. Version reads `/api/health` — the same build id, build SHA, and app
+version the watchdog already reports — and falls back to that same baked-in
+identity when the probe does not answer. Updates still calls the existing
+self-update API.
+
+Nested Settings pages opt into a trail with `SettingsFeatureCell`'s optional
+`breadcrumbs` prop. Omitting it renders the cell's children with no extra
+chrome. MCP's inbound pages use that same prop instead of a one-off back row.
 
 ## 2026-09-26 — Settings Account section
 

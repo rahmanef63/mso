@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 const read = (name: string) => readFileSync(`frontend/slices/os-settings/components/${name}.tsx`, "utf8");
 describe("About update visibility contract", () => {
   it("offers a software update action from Overview", () => {
-    expect(read("about-section")).toContain('label="Check software updates"');
+    expect(read("about-overview")).toContain('label="Check software updates"');
+    expect(read("about-section")).toContain('page === "updates"');
+    expect(read("version-section")).toContain('"/api/health"');
+    expect(read("version-section")).toContain('label="Build SHA"');
   });
   it("does not disappear on authentication/network failure", () => {
     const source = read("update-section");

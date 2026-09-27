@@ -6,3 +6,4 @@ export { SettingsSection } from "./components/section";
 export { SettingsRow, SettingsValueRow } from "./components/row";
 export { SettingsActionRow } from "./components/action-row";
 export { SettingsBlock } from "./components/block";
+export { SettingsBreadcrumbs, SettingsFeatureCell, type SettingsBreadcrumb } from "./components/breadcrumbs";

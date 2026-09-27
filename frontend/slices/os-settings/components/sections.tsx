@@ -108,7 +108,7 @@ export function SettingsSectionBody({ id, onOpen }: { id: SectionId; onOpen?: (i
     case "backup":
       return <BackupSection />;
     case "about":
-      return <AboutSection />;
+      return <AboutSection onOpen={onOpen} />;
   }
 }
 
