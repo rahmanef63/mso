@@ -75,6 +75,12 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`../CLAUDE.md`](../CLAUDE.md) | Repository/operator implementation rules |
 | [`../skills/README.md`](../skills/README.md) | Skill catalog, trust and discovery semantics |
 
+## Design contracts awaiting implementation
+
+| Document | Status |
+|---|---|
+| [`EXTERNAL-FEATURE-CONTRACT.md`](./EXTERNAL-FEATURE-CONTRACT.md) | v1 target contract for modular shell/external features; implementation status is explicit |
+
 ## Generated/current records
 
 | Document | Source |
@@ -92,6 +98,7 @@ source comments. They are **not current implementation contracts**.
 
 | Document | Status |
 |---|---|
+| [`EXTERNAL-FEATURE-AUDIT-2026-09-27.md`](./EXTERNAL-FEATURE-AUDIT-2026-09-27.md) | Registry/manifest/embed source audit at 330d0cb4; migration phases remain pending |
 | [`AUDIT-2026-08-24.md`](./AUDIT-2026-08-24.md) | Fable/Ultracode + dynamic security audit at its named commit; includes reproduced findings and release remediation |
 | [`AUDIT-2026-06-11.md`](./AUDIT-2026-06-11.md) | Archived audit at its named date; later fixes changed many findings |
 | [`SHELL-FIDELITY-PLAN.md`](./SHELL-FIDELITY-PLAN.md) | Historical design backlog/baseline; current shell design lives in code + architecture |

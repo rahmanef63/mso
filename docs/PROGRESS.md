@@ -1,3 +1,13 @@
+## 2026-09-27 — External feature contract and registry audit
+
+Defined the v1 design contract for portable feature definitions, separate installation
+bindings and grants, embedded views, reviewed adapters, shell slots and lifecycle
+verification. Audited the existing AppShell, runtime App Store, SurfaceApp and Managed
+App registries against baseline 330d0cb4, with twelve findings and ordered migration
+gates. This documentation does not implement a dynamic plugin loader or broaden
+existing execution/embed permissions. The documentation map explicitly separates
+the proposed contract from current runtime references.
+
 ## 2026-09-27 — Managed app host compatibility preflight
 
 Managed app definitions now declare the installer backends they actually support:

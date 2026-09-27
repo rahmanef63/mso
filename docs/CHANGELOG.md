@@ -22,6 +22,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `features` define modular external feature contract
 - `release` record Windows taskbar fidelity
 
 ## 2026-09-26
