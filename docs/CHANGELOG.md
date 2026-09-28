@@ -4,6 +4,16 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-09-28
+
+**Added**
+
+- `store` import portable connected app manifests
+
+**Tests**
+
+- `projects` isolate count and deadline continuation budgets
+
 ## 2026-09-27
 
 **Added**

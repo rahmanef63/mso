@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useShellApps } from "../lib/shell-apps";
 import { ConnectAppForm } from "./connect-app-form";
+import { ImportAppManifest } from "./import-app-manifest";
 import { ManagedAppsCatalog } from "./managed-apps-catalog";
 
 export default function ConnectedAppsPanel() {
   const { active, snapshot, loading, error, refresh, mutate } = useShellApps();
+  const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<ShellAppDefinition | "new" | null>(null);
   const [removing, setRemoving] = useState<ShellAppDefinition | null>(null);
@@ -30,12 +32,13 @@ export default function ConnectedAppsPanel() {
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <ManagedAppsCatalog query={query}/>
     <section className="space-y-3" aria-label="Connected apps">
-      <div className="flex flex-wrap items-center gap-2"><h3 className="mr-auto font-medium">Connected apps</h3><Button onClick={() => setEditing("new")} disabled={!snapshot.configurable || loading}><Plus className="size-4"/>Connect app</Button></div>
+      <div className="flex flex-wrap items-center gap-2"><h3 className="mr-auto font-medium">Connected apps</h3><Button variant="outline" disabled={!snapshot.configurable || loading} onClick={() => setImporting(true)}>Import manifest</Button><Button onClick={() => setEditing("new")} disabled={!snapshot.configurable || loading}><Plus className="size-4"/>Connect app</Button></div>
       <Input aria-label="Search connected apps" placeholder="Search connected apps" value={query} onChange={event => setQuery(event.target.value)}/>
       {!snapshot.configurable && !loading && !error && <p className="text-xs text-muted-foreground">This registry is managed by deployment configuration.</p>}
       {loading && !snapshot.revision ? <p role="status" className="text-sm text-muted-foreground">Loading apps…</p> : apps.length === 0 ? <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">{query ? "No matching apps." : "No connected apps yet. Add the address of n8n or your own tool to open it from the shell."}</p> : <div className="grid gap-3 @min-[640px]:grid-cols-2">
         {apps.map(app => <article key={app.id} className="min-w-0 space-y-3 rounded-xl border p-4">
           <div className="flex items-center gap-2"><Globe className="size-5 shrink-0"/><h4 className="truncate font-medium">{app.title}</h4></div>
+          {app.manifest && <p className="break-words text-xs text-muted-foreground">{app.manifest.id} · {app.manifest.version} · {app.manifest.publisher} (self-declared)</p>}
           {app.description && <p className="text-sm text-muted-foreground">{app.description}</p>}
           <p className="break-all text-xs text-muted-foreground">{app.origin}</p>
           <p className="text-xs text-muted-foreground">{app.blocked ? app.reason : app.renderer === "iframe" ? "Embedded app · service managed separately" : app.reason || "Opens in a separate tab"}</p>
@@ -43,6 +46,7 @@ export default function ConnectedAppsPanel() {
         </article>)}
       </div>}
     </section>
+    {importing && <ImportAppManifest onClose={() => setImporting(false)}/>}
     {editing && <ConnectAppForm existing={editing === "new" ? undefined : editing} onClose={() => setEditing(null)}/>}
     <FormDrawer open={Boolean(removing)} onOpenChange={open => { if (!open && !busy) setRemoving(null); }} size="sm">
       <FormDrawer.Header><FormDrawer.Title>Disconnect {removing?.title}?</FormDrawer.Title><FormDrawer.Description>This removes its shell entry. The application keeps running and its data is untouched.</FormDrawer.Description></FormDrawer.Header>

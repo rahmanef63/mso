@@ -3,16 +3,18 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Globe } from "lucide-react";
 import type { AppDescriptor } from "@/features/appshell";
-import { shellAppId, type ShellAppMutation, type ShellAppSnapshot } from "@/lib/contracts/shell-app";
+import { shellAppId, type ShellAppChange, type ShellAppSnapshot } from "@/lib/contracts/shell-app";
 
 const EMPTY: ShellAppSnapshot = { schemaVersion: 1, revision: "", configurable: false, apps: [] };
 type ShellAppsContext = {
   active: boolean; loading: boolean; error: string; snapshot: ShellAppSnapshot;
   refresh: () => Promise<void>;
-  mutate: (value: Pick<ShellAppMutation, "action" | "app" | "id">) => Promise<void>;
+  mutate: (value: ShellAppChange) => Promise<void>;
 };
 const Context = createContext<ShellAppsContext>({ active: false, loading: false, error: "", snapshot: EMPTY, refresh: async () => {}, mutate: async () => { throw new Error("Owner access required."); } });
 const errors: Record<string, string> = {
+  surface_registry_capacity: "The shared app registry is full. Disconnect an unused entry before adding another app.",
+  invalid_app_manifest: "This app manifest is unsupported or invalid. Review the file before connecting.",
   app_id_exists: "That app ID is already registered. Choose another ID.",
   app_cookie_scope_conflict: "This address shares MSO's login cookies. Use a different host address, not just a different port.",
   plain_app_url_required: "Use an HTTP or HTTPS address without credentials, query parameters or fragments.",
@@ -48,7 +50,7 @@ export function ShellAppsProvider({ active, children }: { active: boolean; child
     window.addEventListener("focus", focus);
     return () => { invalidate(); cancelAnimationFrame(frame); clearInterval(poll); window.removeEventListener("focus", focus); };
   }, [active, refresh, invalidate]);
-  const mutate = useCallback(async (value: Pick<ShellAppMutation, "action" | "app" | "id">) => {
+  const mutate = useCallback(async (value: ShellAppChange) => {
     if (!active || !snapshot.configurable) throw new Error("Owner access to a configurable app registry is required.");
     const response = await fetch("/api/v1/shell-apps", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...value, schemaVersion: 1, expectedRevision: snapshot.revision, confirm: true }) });
     const data = await response.json() as { error?: string };

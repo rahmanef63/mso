@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { chromium, expect } from "@playwright/test";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { releaseFixture } from "./release-fixture.mjs";
 
@@ -67,11 +67,47 @@ try {
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(card).toHaveCount(0);
     expect(JSON.parse(await readFile(path.join(fixture.dir, "surface-apps.json"), "utf8"))).toEqual([]);
+    const manifest = { schema: "urn:mso:connected-app:v1", schemaVersion: 1, id: "custom-editor", version: "1.0.0-rc.1", title: "Imported tool", description: "External service", publisher: "Fixture developer", presentation: "embed" };
+    await page.getByRole("button", { name: "Import manifest", exact: true }).click();
+    await form.getByLabel("Manifest JSON", { exact: true }).fill(JSON.stringify({ ...manifest, command: "unsupported" }));
+    await form.getByRole("button", { name: "Review app", exact: true }).click();
+    await expect(form.getByRole("alert")).toContainText("unsupported fields");
+    expect(JSON.parse(await readFile(path.join(fixture.dir, "surface-apps.json"), "utf8"))).toEqual([]);
+    if (viewport.width === 1280) {
+      await form.getByLabel("Manifest file", { exact: true }).setInputFiles({ name: "app.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(manifest)) });
+      await expect(form.getByLabel("Manifest JSON", { exact: true })).toHaveValue(JSON.stringify(manifest));
+    } else await form.getByLabel("Manifest JSON", { exact: true }).fill(JSON.stringify(manifest));
+    await form.getByRole("button", { name: "Review app", exact: true }).click();
+    await expect(form.getByText("Publisher: Fixture developer (self-declared)")).toBeVisible();
+    await expect(form.getByLabel("App name", { exact: true })).toHaveAttribute("readonly", "");
+    await form.getByLabel("App ID", { exact: true }).fill("imported-instance");
+    await form.getByLabel("App URL", { exact: true }).fill("https://tool.example.test/editor");
+    await form.locator("form").hover(); await page.mouse.wheel(0, 1200);
+    await expect(form.getByRole("button", { name: "Connect app", exact: true })).toBeInViewport({ ratio: 1 });
+    await form.getByRole("button", { name: "Connect app", exact: true }).click();
+    await expect(form).toHaveCount(0);
+    const imported = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Imported tool", exact: true }) });
+    await expect(imported).toContainText("Fixture developer (self-declared)");
+    await page.reload();
+    await expect(imported).toBeVisible();
+    const row = JSON.parse(await readFile(path.join(fixture.dir, "surface-apps.json"), "utf8"))[0];
+    expect(row.id).toBe("imported-instance"); expect(row.manifest).toEqual(manifest);
+    if (process.env.MSO_SCREENSHOT_DIR) {
+      await mkdir(process.env.MSO_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({ path: path.join(process.env.MSO_SCREENSHOT_DIR, `connected-manifest-${viewport.width}x${viewport.height}.png`) });
+    }
+    await imported.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(page.frameLocator('iframe[title="Imported tool application"]').getByRole("heading", { name: "Custom tool" })).toBeVisible();
+    await page.goto(fixture.base + "/store");
+    await imported.getByRole("button", { name: "Disconnect", exact: true }).click();
+    await form.getByRole("button", { name: "Disconnect", exact: true }).click();
+    await expect(form).toHaveCount(0); await expect(imported).toHaveCount(0);
+    expect(JSON.parse(await readFile(path.join(fixture.dir, "surface-apps.json"), "utf8"))).toEqual([]);
     await fixture.setRole("viewer");
     expect(await page.evaluate(async () => (await fetch("/api/v1/shell-apps")).status)).toBe(403);
     await fixture.setRole("owner");
     expect(errors).toEqual([]);
     await context.close();
-    console.log(`PASS connected app CRUD, embed draft retention, persistence, IP fallback and authorization ${viewport.width}x${viewport.height}`);
+    console.log(`PASS manifest file/paste review, import/reload/removal, connected app CRUD, embed draft retention, persistence, IP fallback and authorization ${viewport.width}x${viewport.height}`);
   }
 } finally { await browser?.close(); await fixture.close(); }
