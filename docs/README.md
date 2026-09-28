@@ -67,6 +67,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`HERMES-INTEGRATION.md`](./HERMES-INTEGRATION.md) | Hermes-specific integration behaviour |
 | [`OPENCLAW-INTEGRATION.md`](./OPENCLAW-INTEGRATION.md) | OpenClaw-specific integration behaviour |
 | [`9ROUTER-INTEGRATION.md`](./9ROUTER-INTEGRATION.md) | 9Router immutable Docker ownership, loopback default and explicit dashboard exposure |
+| [`9ROUTER-MSO-APPHOST-RFC.md`](./9ROUTER-MSO-APPHOST-RFC.md) | Proposed default MSO-protected 9Router app-host, single-login boundary and migration criteria |
 | [`MODELS-INTEGRATION.md`](./MODELS-INTEGRATION.md) | Alfa BYOK/custom/Codex provider model |
 | [`SLICE-CATALOG.md`](./SLICE-CATALOG.md) | Current slice/AppShell feature inventory |
 | [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) | Symptom → cause → supported recovery |

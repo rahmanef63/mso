@@ -4,6 +4,8 @@
 future changes do not confuse its upstream npm CLI, Docker runtime, public access, and
 optional MSO dashboard proxy.
 
+For the proposed default owner experience and the security conditions for using MSO as the sole browser login gate, see [`9ROUTER-MSO-APPHOST-RFC.md`](./9ROUTER-MSO-APPHOST-RFC.md).
+
 ## Distribution choice
 
 Upstream publishes both:
