@@ -1,0 +1,10 @@
+{
+  "schema": "urn:mso:connected-app:v1",
+  "schemaVersion": 1,
+  "id": "custom-editor",
+  "version": "1.0.0",
+  "title": "Custom editor",
+  "description": "Open your running editor in MSO",
+  "publisher": "Your project",
+  "presentation": "embed"
+}

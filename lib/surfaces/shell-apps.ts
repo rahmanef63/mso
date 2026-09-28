@@ -1,3 +1,4 @@
+import { validateConnectedAppManifest, type ConnectedAppManifest } from "@/lib/contracts/connected-app-manifest";
 import type { ShellAppDefinition, ShellAppSnapshot, ShellAppView } from "@/lib/contracts/shell-app";
 import type { SurfaceApp } from "@/lib/contracts/surface-app";
 import { configuredSurfaceApps } from "./config";
@@ -39,19 +40,32 @@ function view(app: SurfaceApp, requestOrigin: string): ShellAppView {
   return { ...base, url, renderer: insecure ? "remote" : app.renderer,
     ...(insecure ? { reason: "HTTP apps open separately. Use an HTTPS address to embed this app." } : {}) };
 }
+function storedManifest(value: unknown): ConnectedAppManifest | undefined {
+  try { return validateConnectedAppManifest(value); } catch { return undefined; }
+}
 export async function shellAppSettings(requestOrigin: string): Promise<ShellAppSnapshot> {
   const state = await readSurfaceRegistry();
   const apps = await configuredSurfaceApps(state.raw);
+  let entries: Array<Record<string, unknown>> = [];
+  try { const raw = JSON.parse(state.raw); if (Array.isArray(raw)) entries = raw.filter(entry => object(entry)); } catch { /* Registry admission remains authoritative. */ }
   return { schemaVersion: 1, revision: registryRevision(state.raw), configurable: !state.managedByEnvironment,
-    apps: apps.filter(app => app.placements?.includes("shell")).map(app => view(app, requestOrigin)) };
+    apps: apps.filter(app => app.placements?.includes("shell")).map(app => ({ ...view(app, requestOrigin), manifest: storedManifest(entries.find(entry => entry.id === app.id)?.manifest) })) };
 }
 export async function manageShellApp(input: Record<string, unknown>, requestOrigin: string) {
   if (input.schemaVersion !== 1 || input.confirm !== true ||
-      Object.keys(input).some(key => !["schemaVersion", "action", "expectedRevision", "confirm", "app", "id"].includes(key)) ||
-      !["add", "update", "remove"].includes(String(input.action))) throw new SurfaceConfigError("invalid_shell_request");
+      Object.keys(input).some(key => !["schemaVersion", "action", "expectedRevision", "confirm", "app", "id", "manifest", "binding"].includes(key)) ||
+      !["add", "update", "remove", "import"].includes(String(input.action))) throw new SurfaceConfigError("invalid_shell_request");
+  const importing = input.action === "import";
+  let manifest: ConnectedAppManifest | undefined;
+  if (importing) {
+    if (input.app !== undefined || input.id !== undefined || !object(input.binding) ||
+        Object.keys(input.binding).some(key => !["id", "url", "mode"].includes(key))) throw new SurfaceConfigError("invalid_shell_request");
+    try { manifest = validateConnectedAppManifest(input.manifest); } catch { throw new SurfaceConfigError("invalid_app_manifest"); }
+  } else if (input.manifest !== undefined || input.binding !== undefined) throw new SurfaceConfigError("invalid_shell_request");
   const removing = input.action === "remove";
+  const adding = input.action === "add" || importing;
   if ((removing && input.app !== undefined) || (!removing && input.id !== undefined)) throw new SurfaceConfigError("invalid_shell_request");
-  const app = removing ? undefined : definition(input.app);
+  const app = removing ? undefined : definition(manifest ? { ...(input.binding as object), title: manifest.title, description: manifest.description } : input.app);
   const id = app?.id ?? input.id;
   if (typeof id !== "string" || !ID.test(id)) throw new SurfaceConfigError("invalid_shell_app");
   const url = app ? new URL(app.url) : undefined;
@@ -64,11 +78,11 @@ export async function manageShellApp(input: Record<string, unknown>, requestOrig
   if (row && (await configuredSurfaceApps(JSON.stringify([row]))).length !== 1) throw new SurfaceConfigError("invalid_shell_app");
   const result = await mutateSurfaceRegistry(input.expectedRevision, async entries => {
     const matches = entries.filter(entry => entry.id === id);
-    if (input.action === "add" && matches.length) throw new SurfaceConfigError("app_id_exists", 409);
-    if (input.action !== "add" && matches.length !== 1) throw new SurfaceConfigError("app_not_found_or_ambiguous", 409);
+    if (adding && matches.length) throw new SurfaceConfigError("app_id_exists", 409);
+    if (!adding && matches.length !== 1) throw new SurfaceConfigError("app_not_found_or_ambiguous", 409);
     if (matches.some(entry => !Array.isArray(entry.placements) || entry.placements.length !== 1 || entry.placements[0] !== "shell")) throw new SurfaceConfigError("app_owned_by_another_surface", 409);
     if (removing) return entries.filter(entry => entry.id !== id);
-    return input.action === "add" ? [...entries, row!] : entries.map(entry => entry.id === id ? row! : entry);
+    return adding ? [...entries, { ...row!, ...(manifest ? { manifest } : {}) }] : entries.map(entry => entry.id === id ? { ...row!, ...(entry.manifest ? { manifest: entry.manifest } : {}) } : entry);
   });
   return { ...result, id, schemaVersion: 1 };
 }

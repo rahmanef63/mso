@@ -1,7 +1,7 @@
 # External feature contract v1
 
 > **Design contract, 2026-09-27.** Normative requirements for new modular feature work.
-> This document does not claim a v1 loader or schema validator is implemented.
+> The general v1 loader/schema below is not implemented. The narrower [connected-app manifest profile](./CONNECTED-APPS.md#portable-manifest-import) supports reviewed connections only.
 > Current implementation and gaps: [registry audit](./EXTERNAL-FEATURE-AUDIT-2026-09-27.md).
 > Existing authority: [architecture](./ARCHITECTURE.md), [Managed Apps](./MANAGED-APPS.md),
 > [Integrations](./INTEGRATIONS.md), [platforms](./PLATFORMS.md).

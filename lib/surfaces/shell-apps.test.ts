@@ -96,4 +96,26 @@ describe("server-owned connected applications", () => {
     await expect(manageShellApp({ ...base, schemaVersion: 2 }, origin)).rejects.toThrow("invalid_shell_request");
     await expect(manageShellApp({ ...base, confirm: false }, origin)).rejects.toThrow("invalid_shell_request");
   });
+  it("imports one manifest into independent bindings and preserves provenance on edit", async () => {
+    const manifest = { schema: "urn:mso:connected-app:v1", schemaVersion: 1, id: "tool", version: "1.0.0", title: "Template tool", description: "", publisher: "Local developer", presentation: "embed" };
+    const request = async (id: string, url = app.url, extra = {}) => manageShellApp({ schemaVersion: 1, action: "import", manifest, binding: { id, url, mode: "embed" }, expectedRevision: (await shellAppSettings(origin)).revision, confirm: true, ...extra }, origin);
+    await request("first"); await request("second", "http://192.0.2.10:5678/");
+    let snapshot = await shellAppSettings(origin);
+    expect(snapshot.apps.map(row => row.definition.id)).toEqual(["first", "second"]);
+    expect(snapshot.apps.map(row => row.manifest)).toEqual([manifest, manifest]);
+    expect(snapshot.apps[1].renderer).toBe("remote");
+    await save({ id: "first", title: "Instance name" }, "update");
+    snapshot = await shellAppSettings(origin);
+    expect(snapshot.apps[0].manifest).toEqual(manifest);
+    expect(snapshot.apps[0].title).toBe("Instance name");
+    const before = await fs.readFile(file, "utf8");
+    await expect(request("first")).rejects.toThrow("app_id_exists");
+    await expect(request("third", origin)).rejects.toThrow("app_cookie_scope_conflict");
+    await expect(request("third", app.url, { manifest: { ...manifest, command: "run-tool" } })).rejects.toThrow("invalid_app_manifest");
+    await expect(request("third", app.url, { app })).rejects.toThrow("invalid_shell_request");
+    await expect(request("third", app.url, { binding: { id: "third", url: app.url, mode: "embed", token: "not-allowed" } })).rejects.toThrow("invalid_shell_request");
+    await expect(request("third", app.url, { confirm: false })).rejects.toThrow("invalid_shell_request");
+    expect(await fs.readFile(file, "utf8")).toBe(before);
+  });
+
 });
