@@ -63,7 +63,7 @@
 #
 #  Apps
 #   apps                 App-store runtime apps
-#   mapp *               Managed apps; shell-list / shell-save <JSON|@file> for connected apps
+#   mapp *               Managed apps; catalog / shell-list / shell-save <JSON|@file> for connections
 #   term *               Interactive PTY sessions (open | input | resize | stream | close)
 #
 #  AI + state
