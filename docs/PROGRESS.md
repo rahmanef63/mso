@@ -1,3 +1,9 @@
+## 2026-09-28 — Native host and shared relay groundwork
+
+A separate design contract maps the supplied Remote Desktop Commander actions onto MSO capabilities and defines the account, device, OAuth, scope, pairing, revocation and outbound connection boundaries for a shared mso.manef.dev/dashboard and /mcp service. The shared relay is not implemented or deployed; the hostname is not yet resolving.
+
+The host runtime now selects PowerShell for Windows PTYs, samples CPU on non-Linux systems, reads macOS/Windows process inventories, and parses OS-specific file-root delimiters. Candidate native Mac/Windows installer and foreground launcher build MSO with Node, Bun and node-pty in the host account and bind loopback; CI checks a fresh build and health route on both OS runner families. These candidates are not connected to the public installers. Physical-machine login, device approval, PTY, filesystem containment, update, service lifetime and remote MCP remain release gates. The public macOS Lima and Windows WSL2 paths remain the current installed release.
+
 ## 2026-09-28 — Portable connected app manifests
 
 Added a bounded connected-app manifest profile and Store file/paste → review → connect journey. Portable publisher/version/presentation metadata stays separate from per-instance IDs and endpoints; one definition can connect several instances. The shared validator rejects unsupported fields/versions and executable payloads in both client and server. Import uses existing Owner authority, revision locking, cookie isolation and atomic registry storage. Connection edits preserve the original manifest and disconnect never touches service data. The starter JSON and current contract document what works; the full feature loader, verified remote manef.dev catalog and generic installers remain pending. No dependency on unrelated manef-ui/manef-db is introduced.

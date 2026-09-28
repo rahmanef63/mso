@@ -8,7 +8,7 @@ MSO installs and hosts directly under the user's ordinary account in macOS Termi
 
 The public, shared control plane uses **mso.manef.dev**: `/dashboard` is the user and device console, `/mcp` is one HTTPS Streamable HTTP endpoint with OAuth. The local MSO agent makes an outbound TLS connection to that relay. Each user signs into the shared service and pairs only their own devices. MSO installations stay loopback-bound; the relay cannot read a local file or issue a host command by itself.
 
-The current personal MSO installation at mso.rahmanef.com must remain independent. Do not redirect mso.manef.dev or expose `/mcp` as a relay until the shared service is deployed and ownership isolation is verified. A missing DNS record is not a functioning gateway.
+The currently deployed personal MSO installation must remain independent. Do not redirect mso.manef.dev or expose `/mcp` as a relay until the shared service is deployed and ownership isolation is verified. A missing DNS record is not a functioning gateway.
 
 ## Native host boundaries
 
