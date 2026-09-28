@@ -2,6 +2,8 @@
 
 Added a bounded connected-app manifest profile and Store file/paste → review → connect journey. Portable publisher/version/presentation metadata stays separate from per-instance IDs and endpoints; one definition can connect several instances. The shared validator rejects unsupported fields/versions and executable payloads in both client and server. Import uses existing Owner authority, revision locking, cookie isolation and atomic registry storage. Connection edits preserve the original manifest and disconnect never touches service data. The starter JSON and current contract document what works; the full feature loader, verified remote manef.dev catalog and generic installers remain pending. No dependency on unrelated manef-ui/manef-db is introduced.
 
+The full coverage gate exposed an existing count-cap continuation test racing the independent four-second scan budget under load. Count-cap fixtures now use a controlled clock; an additional deterministic deadline case verifies that timed-out scans resume without losing or duplicating projects. Production scan limits and assertions remain unchanged.
+
 ## 2026-09-27 — External feature contract and registry audit
 
 ## 2026-09-27 — Readable Settings action labels

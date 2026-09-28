@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `store` import portable connected app manifests
 
+**Tests**
+
+- `projects` isolate count and deadline continuation budgets
+
 ## 2026-09-27
 
 **Added**

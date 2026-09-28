@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -11,6 +11,12 @@ const previous = process.env.OS_FS_READ_ROOTS;
 const { listProjects } = await import("./project-list");
 const { PROJECT_LIMITS } = await import("./project-roots");
 const setRoots = (...roots: string[]) => { process.env.OS_FS_READ_ROOTS = roots.join(":"); };
+
+// Count-cap cases must not accidentally exercise the independent wall-clock budget
+// when coverage workers saturate the host. The deadline case below advances this clock.
+const epoch = 1_800_000_000_000;
+beforeEach(() => { vi.spyOn(Date, "now").mockReturnValue(epoch); });
+afterEach(() => { vi.restoreAllMocks(); });
 
 afterAll(async () => {
   if (previous === undefined) delete process.env.OS_FS_READ_ROOTS;
@@ -123,5 +129,25 @@ describe("a complete scan still reports no continuation", () => {
     expect(scan.truncated).toBe(false);
     expect(scan.continuation).toBeUndefined();
     expect(projects.map((p) => p.name)).toEqual(["one"]);
+  });
+});
+
+describe("deadline continuation", () => {
+  it("resumes the timed-out scan without dropping or duplicating processed entries", async () => {
+    const root = path.join(base, "deadline");
+    const count = 12;
+    await Promise.all(Array.from({ length: count }, (_, i) => fs.mkdir(path.join(root, `p${i}`), { recursive: true })));
+    setRoots(root);
+    let ticks = 0;
+    vi.mocked(Date.now).mockImplementation(() => epoch + (++ticks < 6 ? 0 : PROJECT_LIMITS.maxScanMs + 1));
+    const first = await listProjects({ limit: PROJECT_LIMITS.maxPageSize });
+    expect(first.scan.truncationReasons).toContain("deadline");
+    expect(first.projects.length).toBeGreaterThan(0);
+    expect(first.projects.length).toBeLessThan(count);
+    expect(first.scan.continuation?.cursor).toBeTruthy();
+    vi.mocked(Date.now).mockReturnValue(epoch + PROJECT_LIMITS.maxScanMs + 1);
+    const remaining = await drain(first.scan.continuation!.cursor);
+    expect(first.projects.every(project => !remaining.has(project.path))).toBe(true);
+    expect(first.projects.length + remaining.size).toBe(count);
   });
 });
