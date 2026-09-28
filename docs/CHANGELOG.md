@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `app-store` read bounded MANEF catalog metadata
 - `store` import portable connected app manifests
 
 **Tests**

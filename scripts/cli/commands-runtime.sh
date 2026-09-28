@@ -34,6 +34,7 @@ case "$cmd" in
   mapp)
     sub="${1:-list}"; shift || true
     case "$sub" in
+      catalog) jget "/api/v1/app-catalog" ;;
       shell-list) jget "/api/v1/shell-apps" ;;
       shell-save) shell_input="${1:?JSON or @file required}"; if [ "${shell_input:0:1}" = "@" ]; then shell_input=$(cat -- "${shell_input:1}"); fi; jpost "/api/v1/shell-apps" "$shell_input" ;;
       list)    jget "/api/v1/managed-apps" ;;
