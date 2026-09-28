@@ -46,6 +46,12 @@ The existing Owner-only POST and `mso mapp shell-save @request.json` also accept
 
 Binding mode is explicit: the UI initializes it from presentation and lets the Owner choose a separate tab. Import reuses the same revision lock, duplicate-ID checks, cookie isolation, capacity limits and explicit confirmation as manual connections. Edits preserve the original manifest while changing instance metadata. Disconnect removes the binding and its manifest copy, leaving the external service untouched. Existing entries require no migration.
 
+## MANEF catalog
+
+The public `https://manef.dev/catalog/v1.json` is a versioned list of metadata. The Owner's App Store reads it through `GET /api/v1/app-catalog`, which never sends browser credentials to MANEF. The server pins the URL, rejects redirects and invalid or oversized documents, limits entries to 32, caches a validated response for 15 minutes and may show that response for up to 24 hours during an outage. A cold outage leaves the locally reviewed Managed Apps visible.
+
+Catalog managed entries can only reference the existing Hermes, OpenClaw and 9Router adapters. Selecting one opens its existing setup and host preflight. Connected entries reuse the portable manifest validator and the Owner's review form: the operator supplies an instance ID and URL before a shell connection is saved. The catalog cannot provide an installer, endpoint, command, credential or grant. The n8n entry is a connection template for an already running service.
+
 ## Remaining migration
 
-This is the first implemented registry path, not the complete [external feature target contract](./EXTERNAL-FEATURE-CONTRACT.md). Native shell features still ship with MSO. The remote manef.dev catalog, generic install recipes, generic domain provisioning, feature extraction and independent package releases remain future work. Connecting an arbitrary URL does not imply an installer, health check, SSO or AI tool grant. Existing Managed Apps retain their separate reviewed runtime and proxy boundaries.
+This implements a bounded remote discovery path, not the complete [external feature target contract](./EXTERNAL-FEATURE-CONTRACT.md). Native shell features still ship with MSO. Generic install recipes, generic domain provisioning, feature extraction and independent package releases remain future work. Connecting an arbitrary URL does not imply an installer, health check, SSO or AI tool grant. Existing Managed Apps retain their separate reviewed runtime and proxy boundaries.
