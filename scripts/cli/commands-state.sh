@@ -57,6 +57,12 @@ case "$cmd" in
   a2a)
     sub="${1:-list}"; shift || true
     case "$sub" in
+      trace)
+        # Explicit CLI invocation is the approval boundary. Reuse the normal owner
+        # session + /api/v1/agent-tools path so workflow ownership, audit, redaction
+        # and evidence gates stay identical to native MSO MCP calls.
+        jget "/api/v1/agent-tools" >/dev/null
+        MSO_AGENT_BASE="$B" MSO_AGENT_ORIGIN="$B" MSO_AGENT_JAR="$JAR"           node "$ROOT/scripts/a2a-trace.mjs" "$@" ;;
       list) jget "/api/v1/a2a" ;;
       state) jget "/api/v1/a2a?action=state" ;;
       sessions) jget "/api/v1/a2a?action=local-sessions" ;;

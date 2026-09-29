@@ -86,6 +86,28 @@ mso a2a inbound rm <tokenId>
 
 The Settings → **A2A** panel exposes the same flow, shows the one-time token once, lists/revokes inbound profiles, and surfaces bounded task/audit activity.
 
+## A2A skill — provider-neutral workflow trace
+
+The official `a2a` Agent Skill also exposes an owner-authenticated **workflow trace bridge** for AI runtimes that are doing work locally through Codex CLI, Claude/Cloud CLI, Antigravity, or another Agent Skills-compatible CLI.
+
+This is intentionally separate from A2A protocol message streaming. Remote A2A remains a trust-domain boundary and does not inherit owner memory. The trace bridge runs only through the normal authenticated MSO owner CLI/MCP session and records concise observable milestones into one durable agent session plus one exact MSO workflow.
+
+Native MCP-capable agents should use `workflow_start`, `agent_session_note`, `agent_session_flow`, and `workflow_finish` directly. Shell-capable agents can use:
+
+```bash
+mso a2a trace start --intent "Implement the requested feature" --project my-project --agent codex
+mso a2a trace progress --run <run-id> --stage implement --message "Bounded implementation is complete."
+mso a2a trace evidence --run <run-id> --stage verify --message "Targeted tests passed."
+mso a2a trace context --run <run-id>
+mso a2a trace finish --run <run-id> --summary "Implemented and verified." --evidence @evidence.json
+```
+
+The bridge returns the durable `session_id`, exact `workflow_id`, a local `run_id`, and the isolated workspace when MSO created one. The same workflow id is attached to every milestone call, so semantic session flow and workflow receipts remain correlated for later agents.
+
+Allowed trace kinds are `plan`, `progress`, `action`, `evidence`, `blocker`, `result`, and `handoff`. They are summaries of observable work only. Hidden chain-of-thought, private reasoning, system/developer prompts, complete transcripts, credentials, cookies, and tokens must never be sent as trace events.
+
+Local correlation state lives under `~/.mso/private/a2a-traces` with owner-only permissions and contains identifiers/status only. It does not grant access to sessions from another MSO device/principal. `workflow_finish` still enforces the normal Evidence Receipt rules; streamed progress is context, not verification proof.
+
 ## Same-host sessions are native Local Agents, not remote A2A
 
 MSO 1.9 separates live same-host session communication from this remote interoperability protocol. `/agents`, `/message`, local `/delegate`, local inbox delivery, and the `local_agent_*` MCP tools use a private **presence lease + durable mailbox + SSE/event-bus** layer. They require no Agent Card, URL, registration, credential, refresh, or restart when another session appears or is renamed.

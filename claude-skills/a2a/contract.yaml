@@ -1,0 +1,30 @@
+version: 1
+routing:
+  use_when:
+    - "persist external AI or CLI work into one durable MSO workflow for cross-agent progress, evidence, resume, or handoff"
+  do_not_use_when:
+    - "the request is only standard remote A2A peer delegation or a trivial single operation"
+  fallback: false
+context:
+  target: a2a
+  mode: mixed
+  actor: operator
+lifecycle:
+  discover:
+    - workflow_start
+    - agent_session_current
+  validate:
+    - session-workflow-correlation
+    - redacted-progress-events
+  verify:
+    - agent_session_flow
+    - workflow_finish
+state:
+  source_of_truth: live
+  refresh: before-write
+safety:
+  risk: medium
+  confirmation: contextual
+  concurrency: contextual
+presentation:
+  authority: hybrid
