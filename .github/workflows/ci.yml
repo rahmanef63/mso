@@ -84,6 +84,35 @@ jobs:
       - name: Deferred shell performance journeys
         run: node scripts/e2e/bundle-performance.mjs
 
+  native-host:
+    name: Native host (${{ matrix.os }})
+    if: github.event_name != 'schedule'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Build directly on host
+        run: node scripts/install-native.mjs
+
+      - name: Health check on loopback
+        run: node scripts/native-host-smoke.mjs
+
   dependency-watch:
     name: Scheduled dependency audit
     if: github.event_name == 'schedule'

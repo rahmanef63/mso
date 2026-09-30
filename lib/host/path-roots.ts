@@ -7,15 +7,17 @@ export function homeDir(): string {
 
 function expandHome(p: string): string {
   if (p === "~") return homeDir();
-  if (p.startsWith("~/")) return path.join(homeDir(), p.slice(2));
+  if (p.startsWith("~/") || p.startsWith("~\\")) return path.join(homeDir(), p.slice(2));
   return p;
+}
+
+export function parseRootEnv(raw: string, delimiter = path.delimiter): string[] {
+  return raw.split(delimiter).map((entry) => entry.trim()).filter(Boolean).map(expandHome);
 }
 
 function rootsFromEnv(name: string, fallback: string[]): string[] {
   const env = process.env[name];
-  if (env && env.trim())
-    return env.split(":").map((s) => s.trim()).filter(Boolean).map(expandHome);
-  return fallback;
+  return env && env.trim() ? parseRootEnv(env) : fallback;
 }
 
 export function readRootList(): string[] {

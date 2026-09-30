@@ -5,6 +5,11 @@ Added the official `a2a` skill and `mso a2a trace` bridge so external AI CLIs ca
 ## 2026-09-28 — Bounded MANEF application catalog
 
 Added a versioned metadata catalog to manef-web and an Owner-only MSO reader. The site PR merged, but Vercel blocked its production deployment; live publication remains pending hosting access. The remote list may order existing reviewed Managed App adapters or offer a portable connection template; it cannot authorize a new installer, command, URL, credential or grant. Selecting a managed entry follows its existing preflight and setup; selecting a connected entry still requires an instance address and explicit Owner review. The server pins the catalog URL, bounds and validates the whole response, caches a valid copy for a short outage and leaves local installers available without the site. This completes remote discovery for this profile while generic installation recipes, domains and independent package releases remain separate work.
+## 2026-09-28 — Native host and shared relay groundwork
+
+A separate design contract maps the supplied Remote Desktop Commander actions onto MSO capabilities and defines the account, device, OAuth, scope, pairing, revocation and outbound connection boundaries for a shared mso.manef.dev/dashboard and /mcp service. The shared relay is not implemented or deployed; the hostname is not yet resolving.
+
+The host runtime now selects PowerShell for Windows PTYs, samples CPU on non-Linux systems, reads macOS/Windows process inventories, and parses OS-specific file-root delimiters. Candidate native Mac/Windows installer and foreground launcher build MSO with Node, Bun and node-pty in the host account and bind loopback; CI checks a fresh build and health route on both OS runner families. These candidates are not connected to the public installers. Physical-machine login, device approval, PTY, filesystem containment, update, service lifetime and remote MCP remain release gates. The public macOS Lima and Windows WSL2 paths remain the current installed release.
 
 ## 2026-09-28 — Portable connected app manifests
 

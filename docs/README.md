@@ -81,6 +81,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | Document | Status |
 |---|---|
 | [`EXTERNAL-FEATURE-CONTRACT.md`](./EXTERNAL-FEATURE-CONTRACT.md) | v1 target contract for modular shell/external features; implementation status is explicit |
+| [`NATIVE-HOST-RELAY.md`](./NATIVE-HOST-RELAY.md) | Requested native macOS/Windows hosts and shared no-domain MCP relay; implementation and verification gates remain explicit |
 
 ## Generated/current records
 

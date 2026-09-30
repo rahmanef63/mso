@@ -116,12 +116,15 @@ export async function openPty(opts: {
     throw new HostError(`Too many terminal sessions (max ${MAX_SESSIONS}) — close one first`);
 
   const cwd = await resolveCwd(opts.cwd); // write-root bounded; explicit invalid paths fail
-  const shell = process.env.SHELL || "/bin/bash";
+  const isWindows = process.platform === "win32";
+  const shell = isWindows
+    ? process.env.POWERSHELL_EXE || "powershell.exe"
+    : process.env.SHELL || "/bin/bash";
   const env = childEnv(); // process.env minus the app's own secrets
   env.TERM = "xterm-256color";
   env.COLORTERM = "truecolor";
 
-  const pty = spawn(shell, ["-l"], {
+  const pty = spawn(shell, isWindows ? ["-NoLogo"] : ["-l"], {
     name: "xterm-256color",
     cols: clampDim(opts.cols),
     rows: clampDim(opts.rows),

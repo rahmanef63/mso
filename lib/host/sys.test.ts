@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stats } from "./sys";
+import { parsePosixProcesses, parseWindowsProcesses, stats } from "./sys";
 
 // The System Monitor polls /api/v1/sys/stats every 1500ms. Taking both /proc/stat
 // samples inside one call made every one of those requests sleep 120ms; reusing
@@ -33,3 +33,24 @@ async function timed() {
   const value = await stats();
   return { ms: Date.now() - t0, value };
 }
+
+
+describe("native process inventory", () => {
+  it("parses macOS ps columns and ranks recent CPU", () => {
+    const rows = parsePosixProcesses(" 42 /usr/bin/zsh 12.5 2048 S\n 7 WindowServer 45.1 102400 R\n");
+    expect(rows).toEqual([
+      { pid: 7, name: "WindowServer", cpu: 45.1, mem: 100, status: "R" },
+      { pid: 42, name: "/usr/bin/zsh", cpu: 12.5, mem: 2, status: "S" },
+    ]);
+  });
+
+  it("parses Windows CIM sample, excludes idle, and normalizes cores", () => {
+    const output = JSON.stringify([
+      { IDProcess: 0, Name: "Idle", PercentProcessorTime: 400, WorkingSet: 0 },
+      { IDProcess: 12, Name: "powershell", PercentProcessorTime: 200, WorkingSet: 104857600 },
+    ]);
+    expect(parseWindowsProcesses(output, 8)).toEqual([
+      { pid: 12, name: "powershell", cpu: 25, mem: 100, status: "running" },
+    ]);
+  });
+});
