@@ -91,9 +91,7 @@ export class LocalAgentBridge {
     this.sessionId = null;
     this.state = "idle";
     this.closed = false;
-    this.feedAbort = null;
-    this.heartbeat = null;
-    this.feedTask = null;
+    this.feedAbort = this.heartbeat = this.feedTask = null;
     this.pending = [];
     this.seen = new Set();
   }
