@@ -17,6 +17,15 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `deps` update brace-expansion within supported major lines
 - `reconciliation` close combined environment and fixture contracts
 
+**Changed**
+
+- `local-agent` keep lifecycle initialization within source gate
+- `alfa` extract dated transcript within source size gate
+
+**Docs**
+
+- `progress` record verified reconciliation takeover
+
 ## 2026-09-29
 
 **Added**
@@ -160,6 +169,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `architecture` keep Dokploy adapter within ratchet
 - `dokploy` sync public Docker build args
 - `security` restore federation gate checks
+- `dns` support wildcard staging hosts
 - `termux` pin guest bootstrap and align platform contracts
 - `ci` keep PAT scope case parseable by strict Semgrep
 
@@ -774,6 +784,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Fixed**
 
 - make modular shell ownership explicit
+- `agent` wake on local requests
 - `cli` clear ShellCheck warnings
 - `agent` require live receiver for mentions
 - `agent` make restart process-safe
@@ -864,6 +875,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `jobs` finish retention before releasing runtime
 - `runtime` preserve fallback recovery readiness
 - `runtime` keep service starts on shared exclusion
+- `service` bound lifecycle exclusion wait
 - `settings` hide premature update warning
 - `update` enforce main and raise MCP daily limit
 - `mcp` raise daily token call limit
