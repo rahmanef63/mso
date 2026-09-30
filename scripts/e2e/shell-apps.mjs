@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-import { chromium, expect } from "@playwright/test";
+import { chromium, expect as playwrightExpect } from "@playwright/test";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { releaseFixture } from "./release-fixture.mjs";
 
+// Standalone expect has its own timeout; match the page readiness budget.
+const expect = playwrightExpect.configure({ timeout: 15_000 });
 const fixture = await releaseFixture();
 let browser;
 try {
