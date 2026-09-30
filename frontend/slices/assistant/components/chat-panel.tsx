@@ -29,8 +29,8 @@ import { activeAgent } from "../lib/store";
 import { composeSystem } from "../lib/agent-request";
 import { composeAutomationRequest } from "../lib/automation-request";
 import { useHostCommands, type HostToolUi } from "../host-tools/use-host-commands";
-import { MessageBubble, type ChatMessage, type ToolCard } from "@/features/appshell";
-import { ApprovalCard } from "@/features/appshell";
+import { type ChatMessage, type ToolCard } from "@/features/appshell";
+import { ChatTranscript } from "./chat-transcript";
 
 import { EmptyState } from "./empty-state";
 import { useThreadPersistence } from "./use-thread-persistence";
@@ -42,11 +42,6 @@ const SUGGESTED = ["Show system stats", "List ~/projects", "Create notes.txt in 
 
 let seq = 0;
 const nextId = () => `m${Date.now()}-${seq++}`;
-
-function legacyMessageTime(id: string): number | undefined {
-  const match = /^m(\d+)-/.exec(id);
-  return match ? Number(match[1]) : undefined;
-}
 
 export type ChatHandle = {
   runSteps: (auto: Automation, agent?: Agent) => void;
@@ -266,31 +261,7 @@ export function ChatPanel({
             onContextMenu={(e) => e.stopPropagation()}
             className={cn("flex flex-col p-4", ios ? "gap-1.5" : "gap-4")}
           >
-            {messages.map((m, i) => {
-              const currentTime = m.createdAt || legacyMessageTime(m.id);
-              const previousTime = i > 0 ? (messages[i - 1].createdAt || legacyMessageTime(messages[i - 1].id)) : undefined;
-              const showDateSeparator = Boolean(
-                currentTime &&
-                  (!previousTime ||
-                    new Date(currentTime).toLocaleDateString() !== new Date(previousTime).toLocaleDateString()),
-              );
-              return (
-                <div key={m.id} className="contents">
-                  {showDateSeparator ? (
-                    <div className="flex items-center gap-1.5 py-1 text-[10px] text-muted-foreground">
-                      <span className="h-px flex-1 bg-border" />
-                      <span>{new Date(currentTime!).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
-                      <span className="h-px flex-1 bg-border" />
-                    </div>
-                  ) : null}
-                  {m.role === "tool" ? (
-                    <ApprovalCard message={m} onResolve={resolve} />
-                  ) : (
-                    <MessageBubble message={m} ios={ios} />
-                  )}
-                </div>
-              );
-            })}
+            <ChatTranscript messages={messages} ios={ios} onResolve={resolve}/>
             <div ref={bottomRef} />
           </div>
         </ScrollArea>
