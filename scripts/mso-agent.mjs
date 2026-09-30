@@ -69,7 +69,17 @@ async function main() {
     statusBar: restartUi.statusBar ?? true, permission: forcedPermission, pendingApproval: null,
   };
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C }); syncPromptHistory(rl, session);
-  const localBridge = new LocalAgentBridge({ session, composer: rl });
+  let inboundRequestQueued = false;
+  const localBridge = new LocalAgentBridge({
+    session,
+    composer: rl,
+    onRequest: () => {
+      // A local request otherwise only becomes model context on the next manual
+      // turn. Cancel the idle editor and let the main loop run it immediately.
+      inboundRequestQueued = true;
+      rl.cancelCurrent({ echo: false });
+    },
+  });
   await localBridge.start();
   const interrupts = new AgentInterruptManager({ output: process.stdout, colors: C });
   const onSigint = () => {
@@ -86,6 +96,11 @@ async function main() {
   try {
     while (true) {
       if (interrupts.exitRequested) break;
+      if (inboundRequestQueued) {
+        inboundRequestQueued = false;
+        await runInteractiveRound(rl, session, null, interrupts, localBridge);
+        continue;
+      }
       let line = "";
       try {
         const answer = await rl.question(() => composerPrompt(session, C), {
@@ -94,7 +109,10 @@ async function main() {
           separator: () => composerSeparator(session, C, process.stdout.columns),
           footer: () => composerFooter(session, C, process.stdout.columns),
         });
-        if (answer === null) break;
+        if (answer === null) {
+          if (inboundRequestQueued) continue;
+          break;
+        }
         line = answer.trim();
       } catch { break; }
       if (!line) continue;
