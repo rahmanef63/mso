@@ -57,6 +57,7 @@ function fixture(script: string) {
     ["scripts/check-bundle.mjs", "bundle budget"],
     ["scripts/e2e/bundle-performance.mjs", "deferred performance"],
     ["scripts/e2e/google-integrations.mjs", "native Google UI"],
+    ["scripts/e2e/assistant-chat-ux.mjs", "Assistant chat UX"],
   ]) {
     writeFileSync(path.join(repo, file),
       `import fs from 'node:fs'; if (!fs.existsSync('.build-verified') || fs.existsSync('.env.local')) throw Error('unsafe bundle fixture'); console.log('isolated ${label} fixture passed');`);
@@ -134,6 +135,7 @@ describe("isolated worktree release guards", () => {
     expect(run.stdout).toContain("isolated bundle budget fixture passed");
     expect(run.stdout).toContain("isolated deferred performance fixture passed");
     expect(run.stdout).toContain("isolated native Google UI fixture passed");
+    expect(run.stdout).toContain("isolated Assistant chat UX fixture passed");
     expect(readFileSync(path.join(repo, ".next/keep"), "utf8")).toBe(
       "live marker",
     );

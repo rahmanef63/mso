@@ -4,16 +4,42 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-09-30
+
+**Added**
+
+- `settings` surface MSO updates in footer
+- `assistant` show explicit run state and scoped approvals
+
+**Fixed**
+
+- `reconciliation` close combined environment and fixture contracts
+
+## 2026-09-29
+
+**Added**
+
+- `a2a` add provider-neutral workflow trace skill
+
 ## 2026-09-28
 
 **Added**
 
 - `app-store` read bounded MANEF catalog metadata
+- `host` begin native platform runtime adapters
 - `store` import portable connected app manifests
 
 **Tests**
 
+- `host` exercise native macOS and Windows candidate build
 - `projects` isolate count and deadline continuation budgets
+
+**Chores**
+
+- `deps-dev` bump the development-minor-patch group across 1 directory with 3 updates
+- `deps` bump the actions-minor-patch group with 3 updates
+- `deps` bump the production-minor-patch group with 5 updates
+- `deps-dev` bump the test-toolchain group with 2 updates
 
 ## 2026-09-27
 
@@ -254,6 +280,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `install` add cross-platform host adapters
 - `integrations` add safe Convex Cloud deploy runner
+- `ci` add independent exact-SHA verification runner
 - `workflows` add reviewed external editor tabs
 - `graph` add selected custom nodes and readable connection routing
 - `organization` add internal project flows with callable CRUD
@@ -275,6 +302,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `workflows` retain approved shared surface placements
 - `browser` keep Camoufox automation on demand
 - `workflows` isolate external editors from cockpit session cookies
+- `ci` preserve repository-owned local gate environment
 - `graph` reconcile controlled selection and preserve routing groundwork
 - `workflows` keep runtime registry out of deployment tracing
 - `security` apply existing ZAP informational policy explicitly
@@ -294,6 +322,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Docs**
 
 - `progress` preserve merged release order
+- `ci` document independent runner state directory
 - `security` document the hosted passive scan target
 
 **Chores**
@@ -472,6 +501,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 **Docs**
 
 - `mcp` add README quickstart and practical how-to
+- `progress` record native scrollbar verification
 
 ## 2026-09-11
 

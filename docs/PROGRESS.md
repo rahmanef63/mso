@@ -1,3 +1,9 @@
+## 2026-09-30 — Repository reconciliation candidate
+
+Integrated committed Update navigation, provider-neutral A2A traces, Assistant run state and scoped approvals, native host adapters, and the isolated CI runner. Historical branches with identical patches and package changes are reconciled as ancestry without replaying superseded source. The complete all-ref bundle was verified before cleanup. Dirty worktrees, stashes and unrelated legacy histories remain preserved until their work can be individually verified. Native host candidates remain outside the public installer pending physical-machine acceptance. This entry describes the integration candidate; main merge and runtime release require the normal gates.
+
+The combined suite identified a missing synthetic Assistant E2E fixture and undocumented A2A/PowerShell environment options; both are corrected without weakening validation.
+
 ## 2026-09-29 — Provider-neutral A2A workflow trace skill
 
 Added the official `a2a` skill and `mso a2a trace` bridge so external AI CLIs can keep one owner-authenticated durable MSO session/workflow while they work. The bridge records only concise plan/progress/action/evidence/blocker/result/handoff summaries, correlates every milestone with the exact workflow id, exposes semantic context for later agents, and preserves MSO workflow isolation and Evidence Receipt gates. It explicitly rejects private chain-of-thought as a trace surface. Local run metadata is stored under the owner-private MSO state directory; remote A2A trust boundaries and cross-device session ownership remain unchanged.
