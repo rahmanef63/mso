@@ -22,6 +22,7 @@ import {
   ChatComposer,
   type AlfaMessage
 } from "@/features/appshell";
+import { AlfaRunProgress, AlfaApprovalGrants, alfaRunState, setAlfaOperation, pulseAlfaRun, recordAlfaRunActivity, endAlfaRunState, stopAlfaRunState } from "@/features/appshell";
 import { runToolAgent, useOsApi, type AgentMsg } from "../lib/host";
 import type { Agent, Automation } from "../lib/types";
 import { activeAgent } from "../lib/store";
@@ -103,9 +104,15 @@ export function ChatPanel({
 
   // Stable UI seam for the tool binding: push/patch tool cards + await approval.
   const pushCard = useCallback((id: string, card: ToolCard) => {
+    setAlfaOperation(card.name, card.status === "pending");
+    recordAlfaRunActivity(id, card.name, card.status);
     setMessages((prev) => [...prev, { id, role: "tool", tool: card }]);
   }, [setMessages]);
   const updateCard = useCallback((id: string, patch: Partial<ToolCard>) => {
+    if (patch.status) {
+      recordAlfaRunActivity(id, "", patch.status);
+      setAlfaOperation(patch.status === "running" ? "Executing tool" : "Requesting response");
+    }
     setMessages((prev) => prev.map((m) => (m.id === id && m.tool ? { ...m, tool: { ...m.tool, ...patch } } : m)));
   }, [setMessages]);
   // Shared rendezvous: any surface showing the card can answer it, including the
@@ -119,13 +126,14 @@ export function ChatPanel({
   }, []);
 
   const stop = useCallback(() => {
+    stopAlfaRunState();
     abortRef.current?.abort();
     abortRef.current = null;
     clearAlfaApprovals(); // unblock parked calls so the loop unwinds cleanly
   }, []);
 
   // Abort the in-flight run if the panel unmounts (window close / app swap).
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => stop, [stop]);
 
   // Thread persistence: save the conversation to a YAML thread + resume one.
   const { persist, loadThread, newThread } = useThreadPersistence(historyRef, setMessages, stop);
@@ -162,14 +170,16 @@ export function ChatPanel({
           ? " You are in LIVE mode on a production VPS; tool actions are real."
           : " You are in MOCK mode: fs, exec and sys tools are simulated (no real VPS). The skills.* and memory.* tools are NOT simulated — they read and write real host state even here.";
       const runId = beginAlfaRun(text);
+      const stateId = alfaRunState()?.id;
+      setAlfaOperation("Requesting response");
       let runOk = false;
       try {
-        const { history: next } = await runToolAgent(
+        const { history: next, outcome } = await runToolAgent(
           historyRef.current,
           tools,
           invoke,
           {
-            onDelta: (c) => appendToLastAssistant((t) => t + c),
+            onDelta: (c) => { pulseAlfaRun(); appendToLastAssistant((t) => t + c); },
             // After each tool card, open a fresh assistant bubble so the next
             // turn's text streams BELOW the card rather than into an earlier one.
             onTool: () => setMessages((prev) => [...prev, { id: nextId(), role: "assistant", text: "" }]),
@@ -183,13 +193,15 @@ export function ChatPanel({
           ctrl.signal,
         );
         historyRef.current = next;
-        runOk = true;
+        runOk = outcome === "completed";
+        if (outcome === "limit") appendToLastAssistant((t) => t + "\n\nTurn limit reached. Execution has stopped; send a new message to continue.");
       } catch (err) {
         if (!ctrl.signal.aborted) {
           const note = errText(err);
           appendToLastAssistant((t) => (t ? `${t}\n\n⚠ ${note}` : note));
         }
       } finally {
+        if (stateId !== undefined) endAlfaRunState(stateId, ctrl.signal.aborted ? "stopped" : runOk ? "done" : "failed");
         finishAlfaRun(runId, ctrl.signal.aborted ? "cancelled" : runOk ? "completed" : "failed");
         if (abortRef.current === ctrl) abortRef.current = null;
         // Drop the empty streaming placeholders (model ended on a tool / no text),
@@ -225,6 +237,8 @@ export function ChatPanel({
         {switcher}
       </div>
       {cockpit}
+      <AlfaRunProgress />
+      <AlfaApprovalGrants />
       <div
         className={cn(
           "px-3 py-1 text-center text-[11px] font-medium",

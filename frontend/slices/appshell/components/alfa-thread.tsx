@@ -8,6 +8,8 @@ import { useAlfaBusy, useAlfaMessages, sendToAlfa, alfaReady, stopAlfa, type Alf
 import { useApps } from "../lib/registry";
 import { openWindow } from "../lib/store";
 import { ChatComposer } from "./chat-composer";
+import { AlfaRunProgress } from "./alfa-run-progress";
+import { AlfaApprovalGrants } from "./alfa-approval-grants";
 import { ApprovalCard } from "./approval-card";
 import type { ToolCard } from "./message-bubble";
 import { resolveAlfaApproval, useAlfaApprovalCount } from "../lib/alfa-approvals";
@@ -43,7 +45,7 @@ export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder
   async function submit(text: string) {
     const body = text.trim();
     if (!body || busy) return;
-    if (await sendToAlfa(body, ctx)) return;
+    if (alfaReady()) { await sendToAlfa(body, ctx); return; }
     openWindow("assistant", "Alfa");
     // The panel registers on mount; poll briefly rather than wiring a bespoke
     // ready-event for a path that resolves in one or two frames.
@@ -53,6 +55,8 @@ export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <AlfaRunProgress />
+      <AlfaApprovalGrants />
       {project || approvals ? (
         <button
           type="button"

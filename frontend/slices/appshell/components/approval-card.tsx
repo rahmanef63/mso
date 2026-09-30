@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "./message-bubble";
-
-// "Allow this exact call again" — mirrors REMEMBERABLE in use-host-commands.
-const REMEMBERABLE = new Set(["fs.write", "fs.mkdir", "fs.move"]);
+import { canRememberAlfaTool } from "../lib/alfa-approval-policy";
 
 // Renders a role:"tool" message — one host tool call. A pending MUTATE call shows
 // the full args + Approve/Deny (the agent loop is parked awaiting the click);
@@ -64,18 +62,19 @@ export function ApprovalCard({
       )}
 
       {pending && (
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" className="h-7 px-2.5 text-xs [@media(pointer:coarse)]:min-h-[44px]" onClick={() => onResolve(message.id, true, remember)}>
             Approve
           </Button>
           <Button type="button" size="sm" variant="outline" className="h-7 px-2.5 text-xs [@media(pointer:coarse)]:min-h-[44px]" onClick={() => onResolve(message.id, false, false)}>
             Deny
           </Button>
-          {REMEMBERABLE.has(t.name) && (
-            <label className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Switch checked={remember} onCheckedChange={setRemember} /> allow again
+          {!t.danger && t.approvalScope && canRememberAlfaTool(t.name, t.input) && (
+            <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground [@media(pointer:coarse)]:min-h-11">
+              <Switch checked={remember} onCheckedChange={setRemember} /> Always approve this exact call
             </label>
           )}
+          {t.approvalScope ? <p className="w-full break-words text-[11px] text-muted-foreground">Scope: {t.name} + identical arguments · {t.approvalScope}</p> : null}
         </div>
       )}
     </div>

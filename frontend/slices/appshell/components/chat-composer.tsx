@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useActiveShell } from "../registry/shells";
+import { useAlfaRunState } from "../lib/alfa-run-state";
 import { alfaSources, subscribeAlfaSources, alfaSourcesVersion } from "../lib/alfa-sources";
 import { mentionAt, applyMention, rankMentions, type MentionItem } from "../lib/mentions";
 
@@ -39,6 +40,7 @@ export function ChatComposer({
   const ref = useRef<HTMLTextAreaElement>(null);
   const canSend = value.trim().length > 0 && !streaming;
   const ios = useActiveShell().id === "ios";
+  const run = useAlfaRunState();
   // Re-render when a source's data lands asynchronously: the consumer module is
   // imported on this component's first render, and its skills fetch starts on the
   // first `/`. `items` below is computed during render, so without this the new
@@ -180,18 +182,18 @@ export function ChatComposer({
           onClick={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
           onKeyDown={onKeyDown}
           rows={1}
-          placeholder={streaming ? "Alfa is replying…" : (placeholder ?? "Message Alfa…  @agent  /skill")}
+          placeholder={streaming ? (run?.status === "waiting" ? "Waiting for your approval…" : run?.status === "stopped" ? "Stopping the run…" : "Alfa is working…") : (placeholder ?? "Message Alfa…  @agent  /skill")}
           className={cn(
             "max-h-32 min-h-9 flex-1 resize-none scrollbar-thin",
             ios && "min-h-8 border-0 bg-transparent px-0 py-1.5 shadow-none focus-visible:ring-0",
           )}
         />
         {streaming ? (
-          <Button type="button" size="icon" variant="secondary" onClick={onStop} aria-label="Stop generating" className={cn("flex-none", ios ? "size-[30px] rounded-full" : "size-9")}>
+          <Button type="button" size="icon" variant="secondary" onClick={onStop} aria-label="Stop generating" className={cn("flex-none [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11", ios ? "size-[30px] rounded-full" : "size-9")}>
             <Square className={ios ? "size-3 fill-current" : "size-4 fill-current"} />
           </Button>
         ) : (
-          <Button type="button" size="icon" onClick={submit} disabled={!canSend} aria-label="Send message" className={cn("flex-none", ios ? "size-[30px] rounded-full" : "size-9")}>
+          <Button type="button" size="icon" onClick={submit} disabled={!canSend} aria-label="Send message" className={cn("flex-none [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11", ios ? "size-[30px] rounded-full" : "size-9")}>
             {ios ? <ArrowUp className="size-4" /> : <Send className="size-4" />}
           </Button>
         )}

@@ -28,24 +28,30 @@ export async function runToolAgent(
   maxTurns = 8,
   system?: string,
   signal?: AbortSignal,
-): Promise<{ history: AgentMsg[]; text: string }> {
+): Promise<{ history: AgentMsg[]; text: string; outcome: "completed" | "stopped" | "limit" }> {
   const msgs = [...history];
   let lastText = "";
+  let outcome: "completed" | "stopped" | "limit" = "limit";
   for (let i = 0; i < maxTurns; i++) {
-    if (signal?.aborted) break;
+    if (signal?.aborted) { outcome = "stopped"; break; }
     const { text, toolUses } = await streamAgentTurn(msgs, tools, ev.onDelta, signal, system);
     msgs.push({ role: "assistant", text, toolUses });
     if (text) lastText = text;
-    if (toolUses.length === 0) break;
+    if (toolUses.length === 0) { outcome = signal?.aborted ? "stopped" : "completed"; break; }
     const results = [];
     for (const tu of toolUses) {
-      const outcome = await invoke({ name: tu.name, input: tu.input });
-      ev.onTool(tu.name, tu.input, outcome);
-      results.push({ id: tu.id, content: outcome.result, isError: !outcome.ok });
+      if (signal?.aborted) {
+        results.push({ id: tu.id, content: "Stopped before execution.", isError: true });
+        outcome = "stopped";
+        continue;
+      }
+      const toolOutcome = await invoke({ name: tu.name, input: tu.input });
+      ev.onTool(tu.name, tu.input, toolOutcome);
+      results.push({ id: tu.id, content: toolOutcome.result, isError: !toolOutcome.ok });
     }
     msgs.push({ role: "tool", results });
   }
-  return { history: msgs, text: lastText };
+  return { history: msgs, text: lastText, outcome: signal?.aborted ? "stopped" : outcome };
 }
 
 export type { AgentMsg, AiTool } from "./stream";
