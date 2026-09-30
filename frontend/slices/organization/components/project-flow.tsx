@@ -17,6 +17,7 @@ import { GraphCustomControls } from "@/components/shared/graph-custom-controls";
 import { GraphCustomCard } from "@/components/shared/graph-custom-card";
 import { graphRoutedEdgeTypes } from "@/components/shared/graph-routed-edge";
 import type { GraphCustomNode } from "@/lib/contracts/graph-custom-nodes";
+import { organizationProjectFlowVisibleIds } from "../lib/project-flow-focus";
 import { ProjectFlowEditor, type FlowDraft } from "./project-flow-editor";
 
 type FlowNode = Node<{ item: OrganizationFlowNode }, "project">;
@@ -44,14 +45,12 @@ export function ProjectFlow({ unit, onSave }: Props) {
   const groups = useMemo(() => flow.customNodes ?? [], [flow.customNodes]);
   const pending = useRef(false);
   const nodeIds = useMemo(() => flow.nodes.map((node) => node.id), [flow.nodes]);
-  const selectedGroup = selectedGroupId ? groups.find((group) => group.id === selectedGroupId) : undefined;
+  const selectedGroup = useMemo(() => selectedGroupId ? groups.find((group) => group.id === selectedGroupId) : undefined, [groups, selectedGroupId]);
   const selectedGroupMembers = selectedGroup ? flow.nodes.filter((node) => selectedGroup.nodeIds.includes(node.id)) : [];
   const visible = useMemo(() => {
     const search = query.trim().toLowerCase();
     if (search) {
-      const matches = flow.nodes
-        .filter((node) => `${node.title} ${node.summary} ${node.kind}`.toLowerCase().includes(search))
-        .map((node) => node.id);
+      const matches = Array.from(organizationProjectFlowVisibleIds({ nodes: flow.nodes, edges: flow.edges, groups, query }));
       if (!matches.length) return new Set<string>();
       return new Set(graphFocusClusterIds(nodeIds, flow.edges, matches, { depth: 1, maxNodes: 36, fallbackLimit: 1 }));
     }
@@ -61,7 +60,7 @@ export function ProjectFlow({ unit, onSave }: Props) {
       maxNodes: focusDepth > 1 ? 24 : 12,
       fallbackLimit: 1,
     }));
-  }, [flow.edges, flow.nodes, focusDepth, nodeIds, query, selectedId, selectedGroup, viewMode]);
+  }, [flow.edges, flow.nodes, focusDepth, groups, nodeIds, query, selectedId, selectedGroup, viewMode]);
   const mapped = useMemo(() => {
     const base: FlowNode[] = flow.nodes.map((item) => ({ id: item.id, type: "project", position: item.position, data: { item } }));
     const lines: Edge[] = flow.edges.map((edge) => ({ ...edge, type: "routed", markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: "var(--muted-foreground)" }, style: { stroke: "var(--muted-foreground)" } }));
