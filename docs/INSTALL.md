@@ -102,7 +102,7 @@ avoid them unless you are deliberately changing those boundaries.
 
 ### Upgrading an older MSO install
 
-Modern installations update through **Settings → Account → About** or `mso update`. Releases from before those
+Modern installations update through **Settings → Update MSO** or `mso update`. Releases from before those
 surfaces existed cannot invoke an updater they do not have. For those installations, re-run the current
 one-line installer exactly as if installing fresh. Before choosing `$HOME/mso`, it reads the active
 `mso.service` WorkingDirectory and upgrades that checkout in place. Existing `.env.local` credentials and
@@ -600,7 +600,7 @@ no API-key storage. Do not toggle demo mode in the production owner checkout.
 
 ### Operator update
 
-Use Settings → Account → About or:
+Use Settings → Update MSO or:
 
 ```bash
 mso update status     # fetch + show incoming commits and labeled CLI/build identity

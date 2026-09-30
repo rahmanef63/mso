@@ -57,7 +57,7 @@ When a user asks an agent to "install MSO from this repo" or "update MSO", do no
 setup flow. Read `README.md` + `docs/INSTALL.md` and use the repository-owned entry points:
 
 - fresh install or legacy install without `mso update`: run the official `scripts/install.sh` bootstrap;
-- current install: prefer `mso update` or the equivalent Settings → Account → About action;
+- current install: prefer `mso update` or the equivalent Settings → Update MSO action;
 - never create a second checkout when `mso.service` already owns one; preserve `.env.local`, `~/.mso`,
   and any dirty/diverged source rather than resetting it;
 - finish with `mso doctor` plus runtime health, and report only the remaining action the user must take;

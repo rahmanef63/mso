@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { filterSettingsSections, groupSettingsSections, type SectionId } from "../lib/sections";
+import { UpdateNavBadge } from "./update-nav-badge";
 
 export function AndroidSettingsIndex({ onSelect }: { onSelect: (id: SectionId) => void }) {
   const [query, setQuery] = useState("");
@@ -49,6 +50,7 @@ export function AndroidSettingsIndex({ onSelect }: { onSelect: (id: SectionId) =
                       <span className="block truncate text-[16px] font-medium text-foreground">{section.label}</span>
                       <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">{section.blurb}</span>
                     </span>
+                    {section.id === "updates" ? <UpdateNavBadge /> : null}
                     <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden />
                   </button>
                 );

@@ -21,7 +21,7 @@ export function AboutSection({ onOpen }: { onOpen?: (id: SectionId) => void }) {
       onAbout: () => setPage("overview"),
     })}>
       {page === "overview" ? <AboutOverview onOpenPage={setPage} /> : null}
-      {page === "version" ? <VersionSection onCheckUpdates={() => setPage("updates")} /> : null}
+      {page === "version" ? <VersionSection /> : null}
       {page === "updates" ? <AboutUpdates /> : null}
       {page === "whats-new" ? <WhatsNew /> : null}
       {page === "maintenance" ? <AboutMaintenance /> : null}

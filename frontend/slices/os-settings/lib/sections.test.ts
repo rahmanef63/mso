@@ -7,18 +7,19 @@ describe("settings section model", () => {
     expect(filterSettingsSections("wallpaper").map((x) => x.id)).toEqual(["appearance"]);
     expect(filterSettingsSections("devices").map((x) => x.id)).toEqual(["account"]);
     expect(filterSettingsSections("system info").map((x) => x.id)).toEqual(["account"]);
-    expect(filterSettingsSections("version").map((x) => x.id)).toEqual(["account"]);
-    expect(filterSettingsSections("updates").map((x) => x.id)).toEqual(["account"]);
+    expect(filterSettingsSections("version").map((x) => x.id)).toEqual(["updates"]);
+    expect(filterSettingsSections("updates").map((x) => x.id)).toEqual(["updates"]);
   });
 
-  it("groups Account with personalization and keeps Devices and About nested", () => {
+  it("groups Account with personalization, keeps Devices/About nested, and places Update MSO last", () => {
     expect(SECTIONS.map((section) => section.id)).not.toContain("devices");
     expect(SECTIONS.map((section) => section.id)).not.toContain("about");
     expect(groupSettingsSections().map((group) => group.map((x) => x.id))).toEqual([
       ["account", "appearance", "theme"],
       ["ai", "quicklinks", "mcp", "a2a"],
-      ["server", "cleanup", "backup"],
+      ["server", "cleanup", "backup", "updates"],
     ]);
+    expect(SECTIONS.at(-1)?.id).toBe("updates");
   });
 
   it("opens Devices and About from Account, including old deep links", () => {

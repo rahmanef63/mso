@@ -16,7 +16,7 @@ export type AuditAction =
   | "sys.cleanup"
   | "sys.memory-backup"
   | "sys.service"
-  /** The cockpit replacing its own code (Settings → Account → About, or `mso update run`). */
+  /** The cockpit replacing its own code (Settings → Update MSO, or `mso update run`). */
   | "sys.update"
   | "managed-app.action"
   | "infra.write"

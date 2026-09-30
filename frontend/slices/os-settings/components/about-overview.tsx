@@ -75,7 +75,6 @@ export function AboutOverview({ onOpenPage }: { onOpenPage: (page: AboutPage) =>
       >
         {rows.map(([key, value]) => <SettingsValueRow key={key} label={key} value={value} />)}
         <SettingsActionRow label="Version" trailing={<ChevronRight className="size-4" aria-hidden />} onClick={() => onOpenPage("version")} />
-        <SettingsActionRow label="Check software updates" icon={<Info />} trailing={<ChevronRight className="size-4" aria-hidden />} onClick={() => onOpenPage("updates")} />
       </SettingsSection>
 
       <SettingsSection icon={<Info />} title="Also in About" footnote="Release notes and maintenance open from here.">
