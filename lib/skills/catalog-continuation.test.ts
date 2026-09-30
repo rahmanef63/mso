@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
@@ -12,7 +12,7 @@ async function temp() {
   temps.push(dir);
   return dir;
 }
-afterEach(async () => { await Promise.all(temps.splice(0).map((d) => rm(d, { recursive: true, force: true }))); });
+afterEach(async () => { vi.restoreAllMocks(); await Promise.all(temps.splice(0).map((d) => rm(d, { recursive: true, force: true }))); });
 
 const body = (name: string) => `---\nname: ${name}\ndescription: ${name} desc\n---\n\n# ${name}\n`;
 
@@ -45,6 +45,8 @@ async function drain(opts: { appDir: string; homeDir: string; projects: ReturnTy
 }
 
 describe("maxProjectSkills continuation returns the remainder of a partially consumed root", () => {
+  // These assertions measure the count cap; the independent deadline is tested below.
+  beforeEach(() => { const now = Date.now(); vi.spyOn(Date, "now").mockReturnValue(now); });
   it("drains 150 + 160 project skills across pages without losing the last 10", async () => {
     const workspace = await temp();
     const one = path.join(workspace, "one");

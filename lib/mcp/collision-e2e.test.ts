@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { createHash } from "crypto";
 import { promises as fs } from "fs";
@@ -57,6 +57,8 @@ beforeAll(async () => {
   process.env.OS_FS_WRITE_ROOTS = `${ROOT_A}:${ROOT_B}`;
   process.env.OS_SKILL_MEMORY_STORE = path.join(ROOT_A, "memory.json");
 });
+
+afterEach(() => { vi.restoreAllMocks(); });
 
 afterAll(async () => {
   for (const [key, value] of Object.entries(previous)) {
@@ -128,6 +130,8 @@ describe("the 8-hex collision pair stays distinct on every surface", () => {
   });
 
   it("skills_search surfaces both, each carrying its own project id", async () => {
+    // Identity is independent of the scanner deadline, covered by catalog deadline tests.
+    const now = Date.now(); vi.spyOn(Date, "now").mockReturnValue(now);
     const { hits } = await searchSkillMemory("deploy the widget service");
     const deploys = hits.filter((h) => h.kind === "skill" && h.id.endsWith("/deploy"));
     expect(deploys.map((h) => h.id).sort()).toEqual([`${idA()}/deploy`, `${idB()}/deploy`].sort());

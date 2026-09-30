@@ -25,6 +25,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `security` isolate count and identity scans from elapsed deadlines
 - `store` align standalone assertions with page readiness budget
 
 **Docs**
