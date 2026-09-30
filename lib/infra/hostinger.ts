@@ -6,6 +6,7 @@ import { doctorHostingerMail } from "./hostinger-mail";
 
 const API = "https://developers.hostinger.com/api";
 const headers = (token: string) => ({ authorization: `Bearer ${token}`, accept: "application/json", "content-type": "application/json" });
+const validDnsOwner = (name: string) => HOST_RE.test(name.startsWith("*.") ? name.slice(2) : name);
 
 export async function doctorHostinger(candidate?: InfraProviderValues): Promise<string | null> {
   const values = candidate ?? await readInfraProvider("hostinger");
@@ -34,7 +35,7 @@ export async function upsertHostingerDns(input: { name: string; type: string; co
   if (!values.apiToken) throw new Error("Hostinger is not configured; run `mso provider set hostinger`");
   const fullDomain = input.name.trim().replace(/\.$/, "").toLowerCase();
   const type = input.type.trim().toUpperCase(); const content = input.content.trim();
-  if (!HOST_RE.test(fullDomain)) throw new Error("invalid DNS hostname");
+  if (!validDnsOwner(fullDomain)) throw new Error("invalid DNS hostname");
   if (!["A", "CNAME", "TXT"].includes(type)) throw new Error("Hostinger DNS type must be A, CNAME, or TXT");
   if (type === "A" && isIP(content) !== 4) throw new Error("A record content must be an IPv4 address");
   if (type === "CNAME" && !HOST_RE.test(content.replace(/\.$/, ""))) throw new Error("CNAME content must be a hostname");
