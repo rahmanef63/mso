@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -9,7 +9,8 @@ import { BOUNDED_READ, readBoundedRegularFile } from "./bounded-read";
 // attacker-influenced checkout must cost one fstat, not 2 GiB of heap, and a
 // read-scope projects_list must not be a memory-exhaustion primitive.
 const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mso-bounded-"));
-afterAll(async () => { await fs.rm(dir, { recursive: true, force: true }); });
+vi.stubEnv("OS_FS_READ_ROOTS", dir);
+afterAll(async () => { vi.unstubAllEnvs(); await fs.rm(dir, { recursive: true, force: true }); });
 
 describe("readBoundedRegularFile", () => {
   it("reads a regular file within the cap", async () => {
@@ -37,6 +38,20 @@ describe("readBoundedRegularFile", () => {
   it("refuses a directory and a missing path", async () => {
     await expect(readBoundedRegularFile(dir, 1024)).resolves.toBeNull();
     await expect(readBoundedRegularFile(path.join(dir, "nope"), 1024)).resolves.toBeNull();
+  });
+
+  it("rejects outside roots and parent symlink escapes before opening", async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "mso-bounded-outside-"));
+    try {
+      const file = path.join(outside, "secret");
+      await fs.writeFile(file, "secret");
+      await expect(readBoundedRegularFile(file, 1024)).resolves.toBeNull();
+      await expect(readBoundedRegularFile(file, 1024, outside)).resolves.toBe("secret");
+      await expect(readBoundedRegularFile(file, 1024, dir)).resolves.toBeNull();
+      await expect(readBoundedRegularFile(path.join(dir, "..", path.basename(outside), "secret"), 1024)).resolves.toBeNull();
+      await fs.symlink(outside, path.join(dir, "redirect"));
+      await expect(readBoundedRegularFile(path.join(dir, "redirect", "secret"), 1024)).resolves.toBeNull();
+    } finally { await fs.rm(outside, { recursive: true, force: true }); }
   });
 
   it("publishes a cap for every discovery read", () => {

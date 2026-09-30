@@ -1,15 +1,16 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import { projectCapabilities, runProjectFunction } from "./project-capabilities";
 
 const roots: string[] = [];
-afterEach(async () => { await Promise.all(roots.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true }))); });
+afterEach(async () => { vi.unstubAllEnvs(); await Promise.all(roots.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true }))); });
 
 async function project() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mso-project-cap-"));
   roots.push(dir);
+  vi.stubEnv("OS_FS_READ_ROOTS", roots.join(path.delimiter));
   await fs.mkdir(path.join(dir, ".mso"));
   return dir;
 }

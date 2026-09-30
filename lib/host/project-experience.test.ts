@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -6,6 +6,7 @@ import path from "node:path";
 import { detectProjectConvex, projectGitDiff, projectGitEdits, projectGitSnapshot, readProjectKnowledge } from "./project-experience";
 
 const root = await mkdtemp(path.join(os.tmpdir(), "mso-project-exp-"));
+vi.stubEnv("OS_FS_READ_ROOTS", root);
 const project = path.join(root, "app");
 
 beforeAll(async () => {
@@ -24,7 +25,7 @@ beforeAll(async () => {
   await writeFile(path.join(project, "a.txt"), "one\ntwo\nworking\n");
 });
 
-afterAll(async () => rm(root, { recursive: true, force: true }));
+afterAll(async () => { vi.unstubAllEnvs(); await rm(root, { recursive: true, force: true }); });
 
 describe("project experience host helpers", () => {
   it("returns bounded Git snapshot, history and working-tree diff", async () => {
@@ -57,6 +58,15 @@ describe("project experience host helpers", () => {
     await rm(path.join(project, ".mso", "KNOWLEDGE.md"));
     await symlink(target, path.join(project, ".mso", "KNOWLEDGE.md"));
     await expect(readProjectKnowledge(project)).rejects.toThrow(/regular non-symlink/i);
+  });
+
+  it("refuses a symlinked knowledge directory inside readable roots", async () => {
+    const outside = path.join(root, "other-project");
+    await mkdir(outside);
+    await writeFile(path.join(outside, "KNOWLEDGE.md"), "other project's knowledge");
+    await rm(path.join(project, ".mso"), { recursive: true });
+    await symlink(outside, path.join(project, ".mso"));
+    await expect(readProjectKnowledge(project)).rejects.toThrow(/real directory/i);
   });
 
   it("detects Convex without returning deployment values", async () => {

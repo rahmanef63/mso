@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { BOUNDED_READ, readBoundedRegularFile } from "./bounded-read";
+import { resolveReadable } from "./paths";
 import { childEnv } from "./child-env";
 
 const GIT_TIMEOUT_MS = 8_000;
@@ -104,7 +105,13 @@ export async function projectGitDiff(projectPath: string, options: { sha?: strin
 }
 
 export async function readProjectKnowledge(projectPath: string) {
-  const file = path.join(projectPath, KNOWLEDGE_REL);
+  const root = await resolveReadable(projectPath);
+  const directory = path.join(root, ".mso");
+  const directoryStat = await fs.lstat(directory).catch(() => null);
+  if (directoryStat && (!directoryStat.isDirectory() || directoryStat.isSymbolicLink())) {
+    throw new Error(`${KNOWLEDGE_REL} must be a regular non-symlink file in a real directory`);
+  }
+  const file = path.join(root, KNOWLEDGE_REL);
   const stat = await fs.lstat(file).catch(() => null);
   if (!stat) return { exists: false, path: KNOWLEDGE_REL, content: "", bytes: 0, sha256: undefined };
   if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${KNOWLEDGE_REL} must be a regular non-symlink file`);

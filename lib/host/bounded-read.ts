@@ -15,6 +15,29 @@
 // Returns null — never throws and never partially reads. A file that fails any check
 // is simply "no metadata", which every caller already handles.
 import { constants, promises as fs } from "fs";
+import path from "node:path";
+import { readRootList } from "./path-roots";
+
+async function openReadableFile(file: string, trustedRoot?: string) {
+  const absolute = path.resolve(file);
+  for (const configured of trustedRoot ? [trustedRoot] : readRootList()) {
+    const root = path.resolve(configured);
+    const relative = path.relative(root, absolute);
+    if (relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) {
+      continue;
+    } else {
+      const parent = await fs.realpath(path.dirname(absolute));
+      const realRoot = await fs.realpath(root);
+      const realRelative = path.relative(realRoot, parent);
+      if (realRelative === ".." || realRelative.startsWith(".." + path.sep) || path.isAbsolute(realRelative)) {
+        throw new Error("bounded read outside readable roots");
+      }
+      // Keep O_NOFOLLOW on the original final component; only resolve its parent.
+      return fs.open(path.join(parent, path.basename(absolute)), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    }
+  }
+  throw new Error("bounded read outside readable roots");
+}
 
 /** Per-artifact caps. Generous enough for real files, small enough that the worst
  *  case of a full scan is bounded arithmetic rather than "whatever is on disk". */
@@ -28,9 +51,10 @@ export const BOUNDED_READ = {
   projectMcpConfig: 256 * 1024,
 } as const;
 
-export async function readBoundedRegularBufferOrThrow(file: string, maxBytes: number): Promise<Buffer> {
+// Internal stores/skill scans may supply their already-authorized root; host reads default to configured read roots.
+export async function readBoundedRegularBufferOrThrow(file: string, maxBytes: number, trustedRoot?: string): Promise<Buffer> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 0 || maxBytes > 64 * 1024 * 1024) throw new Error("invalid bounded-read limit");
-  const handle = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  const handle = await openReadableFile(file, trustedRoot);
   try {
     const before = await handle.stat();
     if (!before.isFile() || before.size > maxBytes) throw new Error("not a bounded regular file");
@@ -47,12 +71,12 @@ export async function readBoundedRegularBufferOrThrow(file: string, maxBytes: nu
   } finally { await handle.close(); }
 }
 
-export async function readBoundedRegularBuffer(file: string, maxBytes: number): Promise<Buffer | null> {
-  try { return await readBoundedRegularBufferOrThrow(file, maxBytes); }
+export async function readBoundedRegularBuffer(file: string, maxBytes: number, trustedRoot?: string): Promise<Buffer | null> {
+  try { return await readBoundedRegularBufferOrThrow(file, maxBytes, trustedRoot); }
   catch { return null; }
 }
 
-export async function readBoundedRegularFile(file: string, maxBytes: number): Promise<string | null> {
-  const buffer = await readBoundedRegularBuffer(file, maxBytes);
+export async function readBoundedRegularFile(file: string, maxBytes: number, trustedRoot?: string): Promise<string | null> {
+  const buffer = await readBoundedRegularBuffer(file, maxBytes, trustedRoot);
   return buffer === null ? null : buffer.toString("utf8");
 }

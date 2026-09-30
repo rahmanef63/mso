@@ -94,7 +94,7 @@ export function parseSkillContract(value: unknown): SkillContract {
 }
 
 export async function readSkillContract(skillDir: string): Promise<SkillContract | undefined> {
-  const raw = await readBoundedRegularFile(path.join(skillDir, CONTRACT_FILE), CONTRACT_MAX_BYTES);
+  const raw = await readBoundedRegularFile(path.join(skillDir, CONTRACT_FILE), CONTRACT_MAX_BYTES, skillDir);
   if (!raw) return undefined;
   return parseSkillContract(parseYaml(raw));
 }

@@ -1,9 +1,10 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-candidate-index-"));
+vi.stubEnv("OS_FS_READ_ROOTS", root);
 const cache = path.join(root, "cache");
 process.env.MSO_CANDIDATE_INDEX_DIR = cache;
 const { searchProjectCandidateIndex } = await import("./project-candidate-index");
@@ -27,6 +28,7 @@ describe("project candidate index", () => {
     await fs.rm(cache, { recursive: true, force: true });
   });
   afterAll(async () => {
+    vi.unstubAllEnvs();
     delete process.env.MSO_CANDIDATE_INDEX_DIR;
     await fs.rm(root, { recursive: true, force: true });
   });

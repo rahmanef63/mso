@@ -36,7 +36,7 @@ export type RootSpec = {
  */
 export async function readSkillFile(file: string): Promise<string | null> {
   if (path.basename(file) !== SKILL_FILE) return null;
-  return readBoundedRegularFile(file, SKILL_SCAN_LIMITS.maxSkillBytes);
+  return readBoundedRegularFile(file, SKILL_SCAN_LIMITS.maxSkillBytes, path.dirname(file));
 }
 
 export function skillDescription(md: string): string {
@@ -54,7 +54,7 @@ type ClawHubOrigin = {
 };
 
 async function verifiedBundledSkill(dir: string, md: string): Promise<Pick<SkillInfo, "trust" | "provenance">> {
-  const raw = await readBoundedRegularFile(path.join(dir, ".clawhub/origin.json"), 64 * 1024);
+  const raw = await readBoundedRegularFile(path.join(dir, ".clawhub/origin.json"), 64 * 1024, dir);
   if (!raw) return { trust: "untrusted" };
   let origin: ClawHubOrigin;
   try {

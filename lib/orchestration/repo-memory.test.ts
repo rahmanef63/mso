@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -13,11 +13,13 @@ const roots: string[] = [];
 async function project() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-rasmic-memory-"));
   roots.push(root);
+  vi.stubEnv("OS_FS_READ_ROOTS", roots.join(path.delimiter));
   await fs.writeFile(path.join(root, "package.json"), JSON.stringify({ name: "fixture" }));
   return root;
 }
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(roots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })));
 });
 
@@ -150,6 +152,17 @@ describe("repo-local structured memory", () => {
     await expect(fs.lstat(path.join(root, "outside.json"))).rejects.toMatchObject({ code: "ENOENT" });
     const files = await fs.readdir(path.join(root, ".agent/memory/tasks"));
     expect(files).toHaveLength(1);
+  });
+
+  it("refuses an unauthorized project and a symlinked memory parent before writes", async () => {
+    const root = await project();
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "mso-memory-outside-"));
+    roots.push(outside);
+    await expect(searchRepoMemory(outside, { query: "secret" })).rejects.toThrow(/outside readable roots/i);
+    await fs.mkdir(path.join(root, ".agent"));
+    await fs.symlink(outside, path.join(root, ".agent", "memory"));
+    await expect(upsertRepoMemory(root, { kind: "task", title: "escape", summary: "blocked", source: "agent" })).rejects.toThrow(/not a safe directory/i);
+    expect(await fs.readdir(outside)).toEqual([]);
   });
 
   it("refuses nested symlink escapes during read-only retrieval", async () => {

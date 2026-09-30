@@ -1,4 +1,5 @@
 import { readBoundedRegularFile } from "@/lib/host/bounded-read";
+import { resolveReadable } from "@/lib/host/paths";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -23,10 +24,10 @@ async function assertDirectoryNoSymlink(dir: string): Promise<void> {
 }
 
 export async function projectRoot(projectPath: string): Promise<string> {
-  const absolute = path.resolve(projectPath);
+  const absolute = await resolveReadable(projectPath);
   const stat = await fs.lstat(absolute).catch(() => null);
-  if (!stat?.isDirectory() || stat.isSymbolicLink()) throw new Error("project path must be a real directory");
-  return fs.realpath(absolute);
+  if (absolute !== path.resolve(projectPath) || !stat?.isDirectory() || stat.isSymbolicLink()) throw new Error("project path must be a real directory");
+  return absolute;
 }
 
 export async function existingRepoMemoryLayout(projectPath: string): Promise<string | null> {
@@ -35,6 +36,7 @@ export async function existingRepoMemoryLayout(projectPath: string): Promise<str
   const stat = await fs.lstat(agent).catch(() => null);
   if (!stat) return null;
   if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("repo memory .agent path is not a safe directory");
+  await assertDirectoryNoSymlink(path.join(agent, "memory"));
   for (const relative of LAYOUT) {
     const candidate = path.join(agent, relative);
     const nested = await fs.lstat(candidate).catch(() => null);
@@ -50,6 +52,7 @@ export async function ensureRepoMemoryLayout(projectPath: string): Promise<strin
   const agent = path.join(root, ".agent");
   await assertDirectoryNoSymlink(agent);
   await fs.mkdir(agent, { recursive: true, mode: 0o700 });
+  await assertDirectoryNoSymlink(path.join(agent, "memory"));
   for (const relative of LAYOUT) {
     const dir = path.join(agent, relative);
     await assertDirectoryNoSymlink(dir);

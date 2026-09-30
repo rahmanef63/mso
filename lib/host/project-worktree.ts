@@ -143,17 +143,23 @@ function insideRoot(root: string, candidate: string): boolean {
  * workspace without making arbitrary hidden directories globally resolvable. */
 export async function linkedWorkflowWorktreeCanonicalPath(candidatePath: string): Promise<string | null> {
   const root = await fs.realpath(/* turbopackIgnore: true */ path.resolve(/* turbopackIgnore: true */ worktreeRoot())).catch(() => null);
-  const candidate = await fs.realpath(candidatePath).catch(() => null);
-  if (!root || !candidate || candidate === root || !insideRoot(root, candidate)) return null;
-  const marker = await fs.lstat(path.join(candidate, ".git")).catch(() => null);
-  if (!marker?.isFile() || marker.isSymbolicLink()) return null;
-  const commonRaw = await git(candidate, ["rev-parse", "--git-common-dir"]).catch(() => "");
-  if (!commonRaw) return null;
-  const common = await fs.realpath(path.resolve(candidate, commonRaw)).catch(() => null);
-  if (!common || path.basename(common) !== ".git") return null;
-  const canonical = await fs.realpath(path.dirname(common)).catch(() => null);
-  if (!canonical || canonical === candidate) return null;
-  const canonicalMarker = await fs.lstat(path.join(canonical, ".git")).catch(() => null);
-  if (!canonicalMarker?.isDirectory() || canonicalMarker.isSymbolicLink()) return null;
-  return canonical;
+  if (!root) return null;
+  const absolute = path.resolve(candidatePath);
+  const relative = path.relative(root, absolute);
+  if (relative === "" || relative === ".." || relative.startsWith(".." + path.sep) || path.isAbsolute(relative)) return null;
+  else {
+    const candidate = await fs.realpath(absolute).catch(() => null);
+    if (!candidate || candidate === root || !insideRoot(root, candidate)) return null;
+    const marker = await fs.lstat(path.join(candidate, ".git")).catch(() => null);
+    if (!marker?.isFile() || marker.isSymbolicLink()) return null;
+    const commonRaw = await git(candidate, ["rev-parse", "--git-common-dir"]).catch(() => "");
+    if (!commonRaw) return null;
+    const common = await fs.realpath(path.resolve(candidate, commonRaw)).catch(() => null);
+    if (!common || path.basename(common) !== ".git") return null;
+    const canonical = await fs.realpath(path.dirname(common)).catch(() => null);
+    if (!canonical || canonical === candidate) return null;
+    const canonicalMarker = await fs.lstat(path.join(canonical, ".git")).catch(() => null);
+    if (!canonicalMarker?.isDirectory() || canonicalMarker.isSymbolicLink()) return null;
+    return canonical;
+  }
 }

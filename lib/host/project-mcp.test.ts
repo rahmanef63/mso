@@ -1,9 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 const root = await mkdtemp(path.join(os.tmpdir(), "mso-project-mcp-"));
+vi.stubEnv("OS_FS_READ_ROOTS", root);
 const fixture = path.join(root, "fixture.mjs");
 const project = path.join(root, "project");
 await import("node:fs/promises").then(({ mkdir }) => mkdir(project, { recursive: true }));
@@ -17,7 +18,7 @@ rl.on('line',(line)=>{const m=JSON.parse(line); if(m.method==='initialize') retu
 `);
   await writeFile(path.join(project, ".mcp.json"), JSON.stringify({ mcpServers: { projectFixture: { command: process.execPath, args: [fixture], env: { PROJECT_VISIBLE: "ok", SECRET_REF: "${OS_SESSION_SECRET}" } } } }));
 });
-afterAll(async () => rm(root, { recursive: true, force: true }));
+afterAll(async () => { vi.unstubAllEnvs(); await rm(root, { recursive: true, force: true }); });
 
 describe("dynamic project MCP boundary", () => {
   it("returns only safe server aliases, never config/env values", async () => {

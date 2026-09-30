@@ -33,8 +33,8 @@ async function installation(row: SkillMarketRow, root: string, catalogDigest: st
       const names = (await fs.readdir(target)).sort();
       signature += ":" + names.join(",");
       if (names.length === 2 && names.includes("SKILL.md") && names.includes(".mso-market.json")) {
-        const body = await readBoundedRegularFile(path.join(target, "SKILL.md"), 256 * 1024);
-        const raw = await readBoundedRegularFile(path.join(target, ".mso-market.json"), 64 * 1024);
+        const body = await readBoundedRegularFile(path.join(target, "SKILL.md"), 256 * 1024, root);
+        const raw = await readBoundedRegularFile(path.join(target, ".mso-market.json"), 64 * 1024, root);
         signature += ":" + sha((body ?? "") + "\0" + (raw ?? ""));
         let marker; try { marker = JSON.parse(raw ?? "null"); } catch { marker = null; }
         if (body && marker?.id === row.id && typeof marker.sha256 === "string") {
@@ -54,7 +54,7 @@ export async function listSkillMarket(): Promise<SkillMarketSnapshot> {
   const pin = await pinSecurityStorePath(path.join(root, ".market-state"));
   try {
     const data = JSON.parse(await marketCommand(["list", "--json"])) as SkillMarketSnapshot;
-    const catalog = await readBoundedRegularFile(path.join(process.cwd(), "skill-market/catalog.json"), 512 * 1024);
+    const catalog = await readBoundedRegularFile(path.join(process.cwd(), "skill-market/catalog.json"), 512 * 1024, path.join(process.cwd(), "skill-market"));
     if (!catalog) throw new Error("Reviewed skill catalog unavailable");
     if (!Array.isArray(data.skills) || data.skills.length > 200 || data.root !== root || data.skills.some(row => !idPattern.test(row.id))) throw new Error("Invalid skill market response");
     return { ...data, skills: await Promise.all(data.skills.map(row => installation(row, root, sha(catalog)))) };

@@ -36,7 +36,7 @@ async function ensureRoot(): Promise<void> {
 
 async function readCandidateFile(file: string): Promise<ForgeCandidate | null> {
   try {
-    const data = await readBoundedRegularBufferOrThrow(file, 256 * 1024);
+    const data = await readBoundedRegularBufferOrThrow(file, 256 * 1024, candidatesDir());
     if (!data.length) throw new Error("invalid forge candidate file");
     return JSON.parse(data.toString("utf8")) as ForgeCandidate;
   } catch (error) {

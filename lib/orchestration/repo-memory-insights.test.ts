@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,12 +7,13 @@ import { relatedRepoMemory, repoMemoryTimeline } from "./repo-memory-insights";
 import { upsertRepoMemory } from "./repo-memory";
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-memory-insights-"));
+vi.stubEnv("OS_FS_READ_ROOTS", root);
 const project = path.join(root, "source");
 const target = path.join(root, "target");
 await fs.mkdir(project);
 await fs.mkdir(target);
 
-afterAll(() => fs.rm(root, { recursive: true, force: true }));
+afterAll(async () => { vi.unstubAllEnvs(); await fs.rm(root, { recursive: true, force: true }); });
 
 describe("repo memory insights and portable sync", () => {
   it("derives explicit and conflict relations without an embedding/model call", async () => {

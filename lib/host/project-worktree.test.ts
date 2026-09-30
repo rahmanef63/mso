@@ -55,6 +55,7 @@ describe("task-owned project worktrees", () => {
     const workspace = await prepareProjectWorktree(repo);
     await expect(linkedWorkflowWorktreeCanonicalPath(workspace.workspacePath)).resolves.toBe(repo);
     await expect(linkedWorkflowWorktreeCanonicalPath(repo)).resolves.toBeNull();
+    await expect(linkedWorkflowWorktreeCanonicalPath(path.join(workspace.workspacePath, "..", "..", "project"))).resolves.toBeNull();
   });
 
   it("rolls back only a still-clean fresh worktree and preserves changed work", async () => {

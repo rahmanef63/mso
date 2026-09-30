@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import path from "node:path";
-const script = path.resolve("scripts/cli/memory-backup.sh");
 function run(...args: string[]) {
-  return spawnSync("bash", ["-c", 'source "$1"; shift; jget() { printf "%s" "$1"; }; jpost() { printf "%s" "$2"; }; die() { exit 2; }; mso_memory_backup "$@"', "test", script, ...args], { encoding: "utf8" });
+  return spawnSync("bash", ["scripts/cli/memory-backup-test.sh", ...args], { encoding: "utf8" });
 }
 describe("memory backup history CLI", () => {
   it("reads the first and subsequent pages using the existing transport", () => {
