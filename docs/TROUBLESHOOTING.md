@@ -223,7 +223,7 @@ the expected release. If the deployment is correct but the build tree is inconsi
 
 ### Update button says a newer version exists forever
 
-Check Settings → Account → About and `~/.mso/self-update.log`. A successful self-update ends with
+Check Settings → Update MSO and `~/.mso/self-update.log`. A successful self-update ends with
 `UPDATE OK`. Also verify only one production process is serving the public origin. If the
 browser cached an old service worker, unregister it once and hard reload after the server is
 confirmed healthy.

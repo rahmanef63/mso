@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SettingsActionRow, SettingsBlock, SettingsSection, SettingsValueRow } from "@/features/shell-settings";
+import { SettingsBlock, SettingsSection, SettingsValueRow } from "@/features/shell-settings";
 import pkg from "../../../../package.json";
 
 type HealthIdentity = {
@@ -20,7 +20,7 @@ const fallback = (): HealthIdentity => ({
   buildSha: process.env.NEXT_PUBLIC_COMMIT_SHA || null,
 });
 
-export function VersionSection({ onCheckUpdates }: { onCheckUpdates: () => void }) {
+export function VersionSection() {
   const [health, setHealth] = useState<HealthIdentity | null>(null);
   const [live, setLive] = useState(true);
 
@@ -70,7 +70,6 @@ export function VersionSection({ onCheckUpdates }: { onCheckUpdates: () => void 
       <SettingsValueRow label="App version" value={health.version || pkg.version || "0.0.0"} />
       <SettingsValueRow label="Build ID" value={health.buildId || "dev"} />
       <SettingsValueRow label="Build SHA" value={buildSha} />
-      <SettingsActionRow label="Check software updates" icon={<Info />} onClick={onCheckUpdates} />
     </SettingsSection>
   );
 }

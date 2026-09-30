@@ -5,6 +5,7 @@ import { ChevronRight, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { filterSettingsSections, groupSettingsSections, settingsSection, type SectionId } from "../lib/sections";
 import { SettingsSectionBody } from "./sections";
+import { UpdateNavBadge } from "./update-nav-badge";
 
 // iOS System Settings owns only its CONTENT renderer. The mobile shell owns the
 // single navigation bar: < Home | Settings | AI at root, then the published
@@ -68,6 +69,7 @@ function IosSettingsIndex({ onSelect }: { onSelect: (id: SectionId) => void }) {
                       <Icon className="size-[18px] text-primary-foreground" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[17px] font-normal leading-tight text-foreground">{section.label}</span>
+                    {section.id === "updates" ? <UpdateNavBadge /> : null}
                     <ChevronRight className="size-[17px] shrink-0 text-muted-foreground/55" aria-hidden />
                   </button>
                 );

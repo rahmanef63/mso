@@ -11,3 +11,7 @@ export async function readStatus(check: boolean): Promise<UpdateStatus> {
   return (await res.json()) as UpdateStatus;
 }
 
+export function hasAvailableUpdate(status: Pick<UpdateStatus, "behind" | "pendingBuild" | "remoteChecked">): boolean {
+  return status.pendingBuild === true || (status.remoteChecked === true && status.behind > 0);
+}
+

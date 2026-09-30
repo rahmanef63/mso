@@ -101,7 +101,7 @@ cat <<EOF
   Onboard:   mso onboard
   Public:    mso gateway domain set https://mso.example.com   (replace with your stable HTTPS hostname)
              then use a named Cloudflare Tunnel; Quick Tunnel is preview-only and never OS_PUBLIC_ORIGIN
-  Update:    mso update   (or Settings → Account → About in the web UI)
+  Update:    mso update   (or Settings → Update MSO in the web UI)
   Legacy:    re-run the official one-line installer to upgrade/recover an older install
   Uninstall: re-run the installer with --uninstall
   Listen:    $BIND:$PORT   (change with --bind / MSO_BIND)

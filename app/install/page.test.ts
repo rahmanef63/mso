@@ -24,7 +24,7 @@ describe("public install guide", () => {
   it("gives AI agents one canonical install/update path including legacy upgrades", () => {
     expect(source).toContain("Install or update MSO from this repo");
     expect(source).toContain("mso update");
-    expect(source).toContain("Settings → Account → About");
+    expect(source).toContain("Settings → Update MSO");
     expect(source).toContain("older build");
     expect(source).toContain("preserves existing configuration/state");
   });

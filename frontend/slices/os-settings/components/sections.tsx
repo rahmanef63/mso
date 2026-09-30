@@ -28,6 +28,7 @@ const MemorySection = dynamic(() => import("./memory-section").then((module) => 
 const QuicklinksSection = dynamic(() => import("./quicklinks-section").then((module) => module.QuicklinksSection), { loading: loadingSection });
 const ServerSection = dynamic(() => import("./server-section").then((module) => module.ServerSection), { loading: loadingSection });
 const ThemeSection = dynamic(() => import("./theme-section").then((module) => module.ThemeSection), { loading: loadingSection });
+const UpdateSection = dynamic(() => import("./update-section").then((module) => module.UpdateSection), { loading: loadingSection });
 
 // The section content — one functional panel per SectionId, shared verbatim by
 // every shell's Settings layout (the per-shell seam only swaps the navigation
@@ -42,11 +43,12 @@ const OWNER_ONLY = new Set<SectionId>([
   "devices",
   "cleanup",
   "backup",
+  "updates",
 ]);
 
 export function SettingsSectionBody({ id, onOpen }: { id: SectionId; onOpen?: (id: SectionId) => void }) {
   const { status, role } = useSession();
-  const privateSection = ["a2a", "devices", "cleanup", "ai"].includes(id);
+  const privateSection = ["a2a", "devices", "cleanup", "ai", "updates"].includes(id);
   if (privateSection && status !== "in") return <SettingsSection icon={<Lock />} title="Sign in to manage this section">
     <p className="mb-3 text-sm text-muted-foreground">These controls require an Owner device on this server.</p>
     {status === "loading" ? <p role="status">Checking access…</p> : <Button asChild className="min-h-11"><Link prefetch={false} href="/login?returnTo=%2Fsettings">Sign in</Link></Button>}
@@ -107,6 +109,8 @@ export function SettingsSectionBody({ id, onOpen }: { id: SectionId; onOpen?: (i
       return <CleanupSection />;
     case "backup":
       return <BackupSection />;
+    case "updates":
+      return <UpdateSection />;
     case "about":
       return <AboutSection onOpen={onOpen} />;
   }

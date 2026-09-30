@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Monitor, Search } from "lucide-react";
 import { useState } from "react";
-import { filterSettingsSections, groupSettingsSections, SECTIONS, settingsNavActive, type SectionId } from "../lib/sections";
+import { filterSettingsSections, groupSettingsSections, SECTIONS, settingsNavActive, type SectionId, type SettingsSectionMeta } from "../lib/sections";
+import { UpdateNavBadge } from "./update-nav-badge";
 
 export type { SectionId } from "../lib/sections";
 
@@ -20,6 +21,7 @@ export function SettingsTabs({ active, onSelect }: { active: SectionId; onSelect
           >
             <Icon className="size-4 shrink-0" />
             <span>{label}</span>
+            {id === "updates" ? <UpdateNavBadge /> : null}
           </button>
         );
       })}
@@ -29,7 +31,9 @@ export function SettingsTabs({ active, onSelect }: { active: SectionId; onSelect
 
 export function SettingsSidebar({ active, onSelect, windows = false }: { active: SectionId; onSelect: (id: SectionId) => void; windows?: boolean }) {
   const [query, setQuery] = useState("");
-  const groups = groupSettingsSections(filterSettingsSections(query));
+  const filtered = filterSettingsSections(query);
+  const updateSection = filtered.find((section) => section.id === "updates");
+  const groups = groupSettingsSections(filtered.filter((section) => section.id !== "updates"));
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className={cn("space-y-4 px-3 pb-3 pt-5", windows && "px-4")}>
@@ -42,23 +46,59 @@ export function SettingsSidebar({ active, onSelect, windows = false }: { active:
           <Input aria-label="Find a setting" placeholder={windows ? "Find a setting" : "Search"} value={query} onChange={(e) => setQuery(e.target.value)} className={cn("h-9 bg-background/70 pl-8 text-xs", windows ? "rounded-md border-b-2" : "rounded-lg")} />
         </div>
       </div>
-      <nav aria-label="Settings sections" data-slot={windows ? "settings-windows-sidebar" : "settings-macos-sidebar"} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-2 pb-4">
+      <nav aria-label="Settings sections" data-slot={windows ? "settings-windows-sidebar" : "settings-macos-sidebar"} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-2 pb-2">
         {groups.map((group) => <div key={group[0].group} className="space-y-0.5">
           <p className="px-2 pb-1 text-[11px] font-medium text-muted-foreground">{({ personalization: "Personalization", services: "Apps & connections", system: "System" })[group[0].group]}</p>
-          {group.map(({ id, label, icon: Icon, color, blurb }) => {
-            const on = settingsNavActive(id, active);
-            return <Button key={id} variant="ghost" aria-current={on ? "page" : undefined} title={blurb} onClick={() => onSelect(id)}
-              className={cn("relative h-auto min-h-11 w-full justify-start gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] font-normal", on ? windows ? "bg-accent text-accent-foreground hover:bg-accent" : "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground" : "text-foreground hover:bg-accent")}>
-              {windows && on && <span className="absolute left-0 h-4 w-[3px] rounded-full bg-primary" />}
-              <span className={cn("grid shrink-0 place-items-center", windows ? "size-7" : "size-[25px] rounded-md shadow-sm")} style={windows ? undefined : { background: color }}>
-                <Icon className={cn("size-4", !windows && "text-primary-foreground")} />
-              </span>
-              <span className="min-w-0 flex-1 truncate">{label}</span>
-            </Button>;
-          })}
+          {group.map((section) => <SettingsSidebarRow key={section.id} section={section} active={active} windows={windows} onSelect={onSelect} />)}
         </div>)}
-        {!groups.length && <p role="status" className="px-2 py-4 text-xs text-muted-foreground">No settings found.</p>}
+        {!groups.length && !updateSection && <p role="status" className="px-2 py-4 text-xs text-muted-foreground">No settings found.</p>}
       </nav>
+      {updateSection ? (
+        <div data-slot="settings-update-footer" className="shrink-0 border-t border-border/60 p-2">
+          <SettingsSidebarRow section={updateSection} active={active} windows={windows} onSelect={onSelect} />
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function SettingsSidebarRow({
+  section,
+  active,
+  windows,
+  onSelect,
+}: {
+  section: SettingsSectionMeta;
+  active: SectionId;
+  windows: boolean;
+  onSelect: (id: SectionId) => void;
+}) {
+  const { id, label, icon: Icon, color, blurb } = section;
+  const on = settingsNavActive(id, active);
+  return (
+    <Button
+      variant="ghost"
+      aria-current={on ? "page" : undefined}
+      title={blurb}
+      onClick={() => onSelect(id)}
+      className={cn(
+        "relative h-auto min-h-11 w-full justify-start gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] font-normal",
+        on
+          ? windows
+            ? "bg-accent text-accent-foreground hover:bg-accent"
+            : "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+          : "text-foreground hover:bg-accent",
+      )}
+    >
+      {windows && on && <span className="absolute left-0 h-4 w-[3px] rounded-full bg-primary" />}
+      <span
+        className={cn("grid shrink-0 place-items-center", windows ? "size-7" : "size-[25px] rounded-md shadow-sm")}
+        style={windows ? undefined : { background: color }}
+      >
+        <Icon className={cn("size-4", !windows && "text-primary-foreground")} />
+      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {id === "updates" ? <UpdateNavBadge /> : null}
+    </Button>
   );
 }

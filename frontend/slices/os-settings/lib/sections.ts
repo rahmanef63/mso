@@ -1,4 +1,5 @@
 import {
+  ArrowDownToLine,
   DatabaseBackup,
   Info,
   Link2,
@@ -26,6 +27,7 @@ export type SectionId =
   | "server"
   | "cleanup"
   | "backup"
+  | "updates"
   | "about";
 export type SettingsGroup = "personalization" | "services" | "system";
 
@@ -118,6 +120,13 @@ const CATALOG: Record<SectionId, SectionFields> = {
     color: "var(--primary)",
     group: "system",
   },
+  updates: {
+    label: "Update MSO",
+    blurb: "New version, release status, and rebuild",
+    icon: ArrowDownToLine,
+    color: "var(--primary)",
+    group: "system",
+  },
   about: {
     label: "About",
     blurb: "System info and reset",
@@ -138,10 +147,12 @@ const NAV_ORDER: readonly SectionId[] = [
   "server",
   "cleanup",
   "backup",
+  "updates",
 ];
 
 const SEARCH_EXTRA: Partial<Record<SectionId, string>> = {
-  account: "devices approved browsers sessions about system info reset rename password icon version updates software build",
+  account: "devices approved browsers sessions about system info reset rename password icon",
+  updates: "version versions update updates software release new build latest",
 };
 
 function meta(id: SectionId): SettingsSectionMeta {
