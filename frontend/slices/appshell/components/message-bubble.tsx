@@ -17,6 +17,7 @@ export type ToolCard = {
   status: ToolStatus;
   result?: string;
   danger?: string;
+  approvalScope?: string;
 };
 
 export type ChatMessage = {

@@ -3,6 +3,7 @@
 import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AgentMsg } from "../lib/host";
 import type { ChatMessage } from "@/features/appshell";
+import { clearAlfaRunState, newAlfaApprovalSession } from "@/features/appshell";
 
 type LoadArg = { id: string; createdAt: number; messages: unknown[]; history: unknown[] };
 
@@ -43,6 +44,8 @@ export function useThreadPersistence(
   const loadThread = useCallback(
     (t: LoadArg) => {
       stop();
+      clearAlfaRunState();
+      newAlfaApprovalSession();
       threadIdRef.current = t.id;
       createdAtRef.current = t.createdAt || Date.now();
       historyRef.current = (t.history ?? []) as AgentMsg[];
@@ -53,6 +56,8 @@ export function useThreadPersistence(
 
   const newThread = useCallback(() => {
     stop();
+    clearAlfaRunState();
+    newAlfaApprovalSession();
     threadIdRef.current = null;
     createdAtRef.current = 0;
     historyRef.current = [];

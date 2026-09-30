@@ -83,6 +83,12 @@ if ! node scripts/e2e/shell-status.mjs; then
   exit 43
 fi
 
+echo "== verify Assistant chat UX (synthetic tools and provider)"
+if ! node scripts/e2e/assistant-chat-ux.mjs; then
+  echo "verification failed during Assistant chat UX E2E" >&2
+  exit 43
+fi
+
 echo "== verify deferred shell performance"
 if ! node scripts/e2e/bundle-performance.mjs; then
   echo "verification failed during deferred shell performance E2E" >&2

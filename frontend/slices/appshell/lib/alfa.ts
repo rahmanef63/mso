@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { alfaRunState, startAlfaRunState, endAlfaRunState, stopAlfaRunState } from "./alfa-run-state";
 
 // THE Alfa conversation. One store, one conversation, many windows onto it — the
 // Assistant app and the per-app Alfa sheet are two views of this, not two chats.
@@ -96,8 +97,8 @@ export function registerAlfaStop(fn: () => void): void {
 }
 
 export function stopAlfa(): void {
+  stopAlfaRunState();
   stopper?.();
-  setAlfaBusy(false);
 }
 
 /**
@@ -123,6 +124,7 @@ export function registerAlfaRunner(loader: () => Promise<AlfaRunner>): void {
  *  first-ever send would MEMOISE the no-op, after which every send resolved silently
  *  and sendToAlfa still returned true. */
 export function unregisterAlfaRunner(): void {
+  stopAlfa();
   runner = null;
   loaded = null;
   stopper = null;
@@ -141,11 +143,17 @@ export async function sendToAlfa(text: string, ctx: AlfaContext = {}): Promise<b
   const body = text.trim();
   if (!body || busy || !runner) return false;
   setAlfaBusy(true);
+  const runId = startAlfaRunState();
+  const loader = runner;
   try {
-    loaded = loaded ?? (await runner());
+    const engine = loaded ?? (await loader());
+    if (alfaRunState()?.status === "stopped" || runner !== loader) return false;
+    loaded = engine;
     await loaded(body, ctx);
+    endAlfaRunState(runId, "done");
     return true;
   } catch {
+    endAlfaRunState(runId, "failed");
     // The engine owns its own error rows; this only guarantees the lock is freed.
     return false;
   } finally {

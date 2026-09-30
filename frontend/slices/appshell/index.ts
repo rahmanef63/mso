@@ -1,8 +1,5 @@
 // Public barrel — other slices/app layer import ONLY from here.
 export { OsDesktop } from "./components/desktop";
-// Bundled single-pane cockpit shell (self-registers as ShellId "dashboard" on
-// import — matching rr). Brand comes from <BrandProvider> (useBrand); the file
-// is brand-free. macOS/Windows/iOS/Android register from the framework itself.
 export { AppIcon } from "./components/app-icon";
 export { QuicklinkIcon } from "./components/quicklink-icon";
 // Generic app mounter (lazy-loads an app by id + payload). Used by windows AND
@@ -126,6 +123,10 @@ export { AlfaThread } from "./components/alfa-thread";
 export { ChatComposer } from "./components/chat-composer";
 export * from "./lib/mentions";
 export * from "./lib/alfa";
+export * from "./lib/alfa-run-state";
+export * from "./lib/alfa-approval-policy";
+export { AlfaApprovalGrants } from "./components/alfa-approval-grants";
+export { AlfaRunProgress } from "./components/alfa-run-progress";
 export * from "./lib/alfa-sources";
 export * from "./lib/alfa-approvals";
 export * from "./lib/alfa-work-context";
@@ -133,9 +134,6 @@ export { MessageBubble } from "./components/message-bubble";
 export type { ChatMessage, ToolCard } from "./components/message-bubble";
 export { ApprovalCard } from "./components/approval-card";
 
-// ── Shell registry — the pluggable multi-shell seam (macOS/Windows/iOS/…) ────
-// Per-surface preference: the user picks a desktop shell AND a mobile shell; the
-// active one is resolved by form factor.
 export {
   registerShell,
   shellList,
