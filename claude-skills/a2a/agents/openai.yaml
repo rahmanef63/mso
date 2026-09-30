@@ -1,0 +1,4 @@
+interface:
+  display_name: "A2A"
+  short_description: "Stream cross-agent progress into durable MSO workflows."
+  default_prompt: "Use $a2a for this workflow."

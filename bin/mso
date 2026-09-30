@@ -73,7 +73,7 @@
 #   agent-sessions *     Durable MSO Agent sessions: list | show | create
 #   agents *             Native local session agents: list | send | inbox
 #   org *                Organization chart: units, seats, reporting lines, targets
-#   a2a *                Agent-to-Agent v1: list | discover | add | rm | send | task | cancel | handoff
+#   a2a *                Agent-to-Agent v1 + workflow trace: list | discover | send | handoff | trace
 #   memory *             Assistant memories: list | add | rm
 #   memory-graph [project]  Knowledge graph: vault notes, project memory, agent memory
 #   config *             Advanced raw AI config compatibility surface
