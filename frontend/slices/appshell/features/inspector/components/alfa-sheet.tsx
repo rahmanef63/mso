@@ -79,7 +79,7 @@ export function AlfaSheet() {
             </div>
           </div>
         ) : null}
-        <div className="min-h-0 flex-1">
+        <div data-native-context-menu className="min-h-0 flex-1">
           <AlfaThread
             ctx={{
               appId: appId ?? undefined,

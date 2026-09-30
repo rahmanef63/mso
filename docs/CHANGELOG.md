@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `organization` memoize focused groups and retain group search
 - `deps` update brace-expansion within supported major lines
 - `reconciliation` close combined environment and fixture contracts
 
@@ -228,6 +229,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `alfa` restore mobile text selection and copy
 - `mcp` add native UI host probe
 - `chatgpt` stage portable OpenAI plugin package
 - `memory` keep large typed projections mutable

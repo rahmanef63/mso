@@ -44,6 +44,14 @@ describe("ContextMenuHost", () => {
     expect(host).toMatch(/\},\s*\[shell, surface\],\s*\);/);
   });
 
+  it("leaves descendants marked for native context menus untouched before collecting zones or registry items", () => {
+    const guard = host.indexOf("if (nativeContextMenu || !target) return;");
+    expect(guard).toBeGreaterThan(-1);
+    expect(host).toContain('e.nativeEvent.composedPath().some((node) =>');
+    expect(guard).toBeLessThan(host.indexOf("collectZones(target, base)"));
+    expect(guard).toBeLessThan(host.indexOf("getContextMenuItems(base)"));
+  });
+
   // onClose was only the loudest of the three props. `pos` and `items` were still
   // rebuilt inline every render (`pos={menu ? { x: menu.x, y: menu.y } : null}`,
   // `items={menu?.items ?? []}`); harmless only because ContextMenu's destructive
