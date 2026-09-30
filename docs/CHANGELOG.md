@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` validate trace metadata and use atomic file descriptors
 - `security` bound code-scanning filesystem paths and CLI test execution
 - `organization` memoize focused groups and retain group search
 - `deps` update brace-expansion within supported major lines

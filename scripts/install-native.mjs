@@ -49,12 +49,17 @@ if (fs.existsSync(path.join(root, ".next"))) {
 const state = path.join(home, ".mso");
 fs.mkdirSync(state, { recursive: true, mode: 0o700 });
 if (fs.lstatSync(state).isSymbolicLink()) fail("private state directory cannot be a symlink");
-if (fs.existsSync(envFile) && fs.lstatSync(envFile).isSymbolicLink()) fail("refusing symlinked .env.local");
 
 run("bun", ["install", "--frozen-lockfile"]);
 run(process.execPath, ["-e", "require('node-pty')"], { quiet: true });
 let generatedPassword = "";
-if (!fs.existsSync(envFile)) {
+let envFd;
+try { envFd = fs.openSync(envFile, "wx", 0o600); }
+catch (error) {
+  if (error.code !== "EEXIST") throw error;
+  if (fs.lstatSync(envFile).isSymbolicLink()) fail("refusing symlinked .env.local");
+}
+if (envFd !== undefined) {
   generatedPassword = randomBytes(24).toString("base64url");
   const secret = randomBytes(32).toString("hex");
   const content = `# Native MSO host. Keep this file private.
@@ -63,7 +68,7 @@ OS_SESSION_SECRET=${secret}
 OS_MCP_ENABLED=1
 OS_MCP_MAX_SCOPE=read
 `;
-  fs.writeFileSync(envFile, content, { flag: "wx", mode: 0o600 });
+  try { fs.writeFileSync(envFd, content); } finally { fs.closeSync(envFd); }
   if (host === "win32") {
     const account = run("whoami", ["/user", "/fo", "csv", "/nh"], { quiet: true });
     const sid = account.match(/S-1-\d+(?:-\d+)+/i)?.[0];

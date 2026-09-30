@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
+import { constants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -65,21 +65,38 @@ async function statePath(id) {
   return path.join(ROOT, validRunId(id) + ".json");
 }
 
+const STATE_LIMITS = { runId: 80, agent: 48, project: 240, sessionId: 120, sessionLabel: 120, workflowId: 120, status: 24, startedAt: 40, updatedAt: 40, lastFingerprint: 600 };
+function checkState(state) {
+  if (!state || state.version !== 1 || typeof state.runId !== "string" || state.runId !== validRunId(state.runId)) fail("invalid A2A trace state");
+  if (!/^[a-zA-Z0-9_-]{1,120}$/.test(state.sessionId) || !/^[a-zA-Z0-9_-]{1,120}$/.test(state.workflowId)) fail("invalid A2A trace identifiers");
+  if (!["active", "attached", "finished", "failed", "cancelled"].includes(state.status)) fail("invalid A2A trace status");
+  for (const [key, value] of Object.entries(state)) {
+    if (key === "version") continue;
+    if (key === "lastEventMs") { if (!Number.isSafeInteger(value) || value < 0) fail("invalid A2A trace timestamp"); continue; }
+    if (!Object.hasOwn(STATE_LIMITS, key) || (value !== undefined && (typeof value !== "string" || value.length > STATE_LIMITS[key]))) fail("invalid A2A trace field: " + key);
+  }
+  return state;
+}
+
 export async function saveState(state) {
+  checkState(state);
   const file = await statePath(state.runId);
   const temp = file + "." + process.pid + "." + Date.now() + ".tmp";
   await fs.writeFile(temp, JSON.stringify(state, null, 2) + "\n", { mode: 0o600, flag: "wx" });
-  await fs.chmod(temp, 0o600).catch(() => undefined);
   await fs.rename(temp, file);
 }
 
 export async function readState(id) {
   const file = await statePath(id);
-  const stat = await fs.lstat(file).catch(() => null);
-  if (!stat || !stat.isFile() || stat.isSymbolicLink()) fail("A2A trace run not found: " + id);
-  const state = JSON.parse(await fs.readFile(file, "utf8"));
-  if (state && state.version === 1 && state.sessionId && state.workflowId) return state;
-  fail("invalid A2A trace state: " + id);
+  const handle = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size > 8192) fail("invalid A2A trace state file");
+    const body = Buffer.alloc(stat.size);
+    const { bytesRead } = await handle.read(body, 0, body.length, 0);
+    if (bytesRead !== body.length) fail("A2A trace state changed during read");
+    return checkState(JSON.parse(body.toString("utf8")));
+  } finally { await handle.close(); }
 }
 
 export async function resolveState(options) {
@@ -152,7 +169,7 @@ export async function listRuns() {
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
     try {
-      const value = JSON.parse(await fs.readFile(path.join(ROOT, entry.name), "utf8"));
+      const value = await readState(entry.name.slice(0, -5));
       if (value && value.version === 1) rows.push({
         run_id: value.runId, agent: value.agent, project: value.project, status: value.status,
         workflow_id: value.workflowId, session_label: value.sessionLabel, updated_at: value.updatedAt

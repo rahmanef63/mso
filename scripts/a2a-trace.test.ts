@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -79,6 +79,20 @@ describe("A2A workflow trace bridge", () => {
       status: "finished"
     });
     expect((await stat(file)).mode & 0o777).toBe(0o600);
+  });
+
+  it("rejects malformed remote state and never follows a swapped state-file symlink", async () => {
+    const support = await import("./a2a-trace-support.mjs");
+    const state = JSON.parse(await readFile(path.join(stateDir, "a2a-test.json"), "utf8"));
+    await expect(support.saveState({ ...state, sessionId: { command: "malicious" } })).rejects.toThrow("invalid A2A trace");
+    await expect(support.saveState({ ...state, sessionLabel: "x".repeat(121) })).rejects.toThrow("invalid A2A trace field");
+    await expect(support.saveState({ ...state, executable: "malicious" })).rejects.toThrow("invalid A2A trace field");
+    const target = path.join(stateDir, "outside.json");
+    await writeFile(target, JSON.stringify(state));
+    await symlink(target, path.join(stateDir, "a2a-link.json"));
+    await expect(support.readState("a2a-link")).rejects.toMatchObject({ code: "ELOOP" });
+    await writeFile(path.join(stateDir, "a2a-huge.json"), "x".repeat(8193));
+    await expect(support.readState("a2a-huge")).rejects.toThrow("invalid A2A trace state file");
   });
 
   it("does not expose hidden reasoning as a trace event type", async () => {
