@@ -22,6 +22,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `local-agent` keep lifecycle initialization within source gate
 - `alfa` extract dated transcript within source size gate
 
+**Tests**
+
+- `store` align standalone assertions with page readiness budget
+
 **Docs**
 
 - `progress` record verified reconciliation takeover
