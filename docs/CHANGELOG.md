@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `deps` update brace-expansion within supported major lines
 - `reconciliation` close combined environment and fixture contracts
 
 ## 2026-09-29
