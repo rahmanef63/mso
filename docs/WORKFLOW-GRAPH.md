@@ -41,7 +41,7 @@ Webhook endpoint:
 - `loop` — execute one bounded tool for each item with concurrency 1–4
 - `repeat` — execute one saved Workflow Graph repeatedly until a result condition matches, with explicit `done` / `exhausted` branches, `maxIterations` 1–50, optional inter-iteration delay, and a hard node duration cap
 - `wait` — delay/until, bounded to ten minutes inside a run
-- `subflow` — execute another private Workflow Graph, or a legacy project flow
+- `subflow` / **Execute Workflow** — execute another private Workflow Graph, or a legacy project flow
 - `output` — explicit result collection
 
 Graph edges stay acyclic. Item fan-out uses `loop`; conditional loop-back uses `repeat`, which reruns a referenced saved Workflow Graph internally instead of creating an unrestricted graph cycle. `repeat` always has hard iteration/time bounds and emits `done` or `exhausted`. Cross-workflow recursion is rejected with an ancestry guard.
@@ -154,8 +154,9 @@ AI assistance has an isolated workflow-design system prompt, receives no implici
 
 - private searchable workflow library with description/project/folder/tag metadata, clickable tag chips, and shared query syntax (`tag:`, `status:`, `project:`, `folder:`, `node:` plus free-text AND terms)
 - draft / active / archived lifecycle
-- searchable node palette
-- draggable canvas
+- category-aware node creator with search across Triggers, Actions, AI, Flow and Context
+- contextual **+** quick-add from every executable output/branch; the chosen node is positioned and connected automatically, while trigger-only nodes stay out of after-node suggestions
+- draggable canvas with node-family iconography, live execution state, multi-select and collapsible presentation groups
 - click-to-connect input/output ports
 - persistent per-edge `Auto/Solid/Dashed` presentation, execution `Active` toggle, directional arrows and bounded reverse-direction control
 - true/false, switch and error handles
@@ -171,6 +172,19 @@ AI assistance has an isolated workflow-design system prompt, receives no implici
 - template and AI-assisted creation
 
 Run automatically saves a dirty graph before execution, so execution always uses the revision visible in the editor. Disabled connections remain visible in the graph and receipts but are excluded from runtime traversal, cycle checks and tidy layout; a target reachable only through disabled connections is skipped rather than silently promoted to a new root.
+
+### Canvas construction UX
+
+The native editor follows the same construction rhythm users expect from tools such as n8n without copying n8n code or branding:
+
+1. **Add node** opens a searchable category browser rather than a flat technical type list.
+2. Hover any executable output and use **+** to choose the next node in context. Trigger nodes are omitted because a connected trigger would violate the graph contract.
+3. The new node is placed to the right of its source, connected through the exact branch handle (`true`, `false`, switch case, `done`, `exhausted`, or ordinary output), and opened in Inspector immediately.
+4. Node cards separate Trigger / Action / AI / Flow / Context families visually and surface running/completed/failed state without changing the stored definition.
+5. Multi-select grouping remains presentation-only. Selecting a collapsed group makes it manageable directly on the canvas; expanding restores its original executable members and ports.
+
+The result is a fast visual-builder path while the saved Workflow Graph remains the execution SSOT. There is no hidden browser-local automation state.
+
 
 ## Dedicated n8n workspace
 
@@ -248,7 +262,9 @@ The separate MCP capability `jev_action` is a policy gate, not an autonomous age
 
 ## Scope of n8n parity
 
-MSO targets **core self-hosted workflow parity**, not n8n's SaaS business surface. MSO intentionally uses its own server-native project, filesystem, Skill, agent and integration nodes instead of reproducing n8n's marketplace or cloud billing/team-administration products. Free cyclic graph topology is also intentionally replaced by bounded loop/subflow constructs for safer unattended server execution.
+MSO targets **core self-hosted workflow parity**, not visual cloning or n8n's SaaS business surface. The native editor intentionally matches the high-value interaction model: searchable categorized node creation, contextual insert-and-connect, explicit branch handles, drag/connect/tidy/minimap canvas controls, run-state overlays, execution history, retry/error routing, reusable **Execute Workflow**, Loop Over Items, Split In Batches, Merge, If/Switch, Wait, schedules/webhooks, variables, and previous-node data references.
+
+MSO intentionally uses its own server-native Project, Folder, Skill, Agent, Organization-seat, RASMIC and Integration nodes instead of reproducing n8n's marketplace or cloud billing/team-administration products. n8n's richer drag-and-drop input/output data mapper and full community-node ecosystem are not claimed as native parity today. Free cyclic graph topology is also intentionally replaced by bounded Loop/Repeat/Execute-Workflow constructs for safer unattended server execution. A reviewed external n8n editor can still be mounted as a sibling Workflows tab when an owner wants the original n8n surface.
 
 ## Organization seat routing
 

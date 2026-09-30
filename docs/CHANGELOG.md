@@ -206,6 +206,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-09-21
 
+**Added**
+
+- `workflows` refine builder and organization focus UX
+
 **Fixed**
 
 - `mcp` negotiate native app ui

@@ -38,6 +38,14 @@ try {
   await page.getByRole("button", { name: "Map", exact: true }).click();
   await expect(orgCanvas.locator(".react-flow__edge")).toHaveCount(1);
   const customCard = orgCanvas.locator(".react-flow__node-customGroup");
+  await customCard.click();
+  const groupFocus = page.locator('[data-slot="organization-group-focus"]');
+  await expect(groupFocus).toContainText("Delivery custom");
+  await expect(groupFocus).toContainText("2 mapped members");
+  await groupFocus.getByRole("button", { name: "Focus group", exact: true }).click();
+  await expect(groupFocus.getByRole("button", { name: "Exit focus", exact: true })).toBeVisible();
+  await expect(orgCanvas.locator('[data-id="c"]')).toBeVisible();
+  await groupFocus.getByRole("button", { name: "Exit focus", exact: true }).click();
   await page.waitForTimeout(350);
   const box = await customCard.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + 24); await page.mouse.down();
@@ -97,5 +105,5 @@ try {
     if (process.env.MSO_SCREENSHOT_DIR) { await mkdir(process.env.MSO_SCREENSHOT_DIR, { recursive: true }); await page.screenshot({ path: path.join(process.env.MSO_SCREENSHOT_DIR, `custom-workflow-${viewport.width}.png`) }); }
   }
   expect(errors).toEqual([]);
-  console.log("PASS: one/multi selection, custom node create/expand/ungroup/reload in organization; workflow grouping preserves branch ports/topology and executes original steps; directional obstacle-aware edges; desktop/mobile reflow.");
+  console.log("PASS: one/multi selection, Paperclip-like organization group focus, custom node create/expand/ungroup/reload; workflow grouping preserves branch ports/topology and executes original steps; directional obstacle-aware edges; desktop/mobile reflow.");
 } finally { await browser?.close(); await fixture.close(); }

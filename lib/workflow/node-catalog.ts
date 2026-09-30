@@ -24,7 +24,7 @@ export const WORKFLOW_NODE_CATALOG:WorkflowNodeCatalogItem[]=[
  {type:"channel_send",title:"Channel Send",category:"Actions",description:"Send text through an existing MSO Channel. Channel credentials remain in Integrations.",defaults:{channelId:"",text:{"$ref":"input.event.text"}}},
  {type:"script",title:"Script",category:"Actions",description:"Run a saved validated RASMIC script by project and script id.",defaults:{}},
  {type:"agent",title:"Agent",category:"AI",description:"Run an organization seat or focused project agent action.",defaults:{wait:true,max_scope:"write"}},
- {type:"subflow",title:"Subflow",category:"Flow",description:"Run an existing project flow.",defaults:{}},
+ {type:"subflow",title:"Execute Workflow",category:"Flow",description:"Run a saved Workflow Graph or a legacy project flow as a reusable sub-workflow.",defaults:{}},
  {type:"project",title:"Project",category:"Context",description:"Resolve canonical project identity/path at runtime.",defaults:{}},
  {type:"folder",title:"Folder",category:"Context",description:"Resolve a real folder inside a canonical project.",defaults:{path:"."}},
  {type:"skill",title:"Skill",category:"Context",description:"Search trusted skill catalog with provenance.",defaults:{}},

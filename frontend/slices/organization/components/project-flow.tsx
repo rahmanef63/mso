@@ -38,11 +38,14 @@ type Props = { unit: OrganizationUnit; onSave: (action: OrganizationFlowAction, 
 export function ProjectFlow({ unit, onSave }: Props) {
   const flow = useMemo(() => unit.projectFlow ?? emptyOrganizationFlow(), [unit.projectFlow]);
   const [query, setQuery] = useState(""), [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("focus"), [focusDepth, setFocusDepth] = useState(1);
   const [draft, setDraft] = useState<FlowDraft | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const groups = useMemo(() => flow.customNodes ?? [], [flow.customNodes]);
   const pending = useRef(false);
   const nodeIds = useMemo(() => flow.nodes.map((node) => node.id), [flow.nodes]);
+  const selectedGroup = selectedGroupId ? groups.find((group) => group.id === selectedGroupId) : undefined;
+  const selectedGroupMembers = selectedGroup ? flow.nodes.filter((node) => selectedGroup.nodeIds.includes(node.id)) : [];
   const visible = useMemo(() => {
     const search = query.trim().toLowerCase();
     if (search) {
@@ -53,19 +56,19 @@ export function ProjectFlow({ unit, onSave }: Props) {
       return new Set(graphFocusClusterIds(nodeIds, flow.edges, matches, { depth: 1, maxNodes: 36, fallbackLimit: 1 }));
     }
     if (viewMode === "map") return new Set(nodeIds);
-    return new Set(graphFocusClusterIds(nodeIds, flow.edges, selectedId ? [selectedId] : [], {
+    return new Set(graphFocusClusterIds(nodeIds, flow.edges, selectedGroup ? selectedGroup.nodeIds : selectedId ? [selectedId] : [], {
       depth: focusDepth,
       maxNodes: focusDepth > 1 ? 24 : 12,
       fallbackLimit: 1,
     }));
-  }, [flow.edges, flow.nodes, focusDepth, nodeIds, query, selectedId, viewMode]);
+  }, [flow.edges, flow.nodes, focusDepth, nodeIds, query, selectedId, selectedGroup, viewMode]);
   const mapped = useMemo(() => {
     const base: FlowNode[] = flow.nodes.map((item) => ({ id: item.id, type: "project", position: item.position, data: { item } }));
     const lines: Edge[] = flow.edges.map((edge) => ({ ...edge, type: "routed", markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: "var(--muted-foreground)" }, style: { stroke: "var(--muted-foreground)" } }));
-    const result = projectCustomNodes(base, lines, groups, selectedId ? [selectedId] : []);
+    const result = projectCustomNodes(base, lines, groups, selectedGroupId ? [selectedGroupId] : selectedId ? [selectedId] : []);
     const ids = new Set(result.nodes.filter((node) => node.type === "customGroup" ? node.data.group.nodeIds.some((id) => visible.has(id)) : visible.has(node.id)).map((node) => node.id));
     return { nodes: result.nodes.filter((node) => ids.has(node.id)), edges: result.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)) };
-  }, [flow.edges, flow.nodes, groups, selectedId, visible]);
+  }, [flow.edges, flow.nodes, groups, selectedGroupId, selectedId, visible]);
   const { nodes, edges, onNodesChange, onEdgesChange, reset } = useGraphProjection<CanvasNode, Edge>(mapped);
   const selectedIds = nodes.filter((node) => node.selected).map((node) => node.id);
   const selected = selectedIds.length <= 1 && selectedId && visible.has(selectedId) ? flow.nodes.find((node) => node.id === selectedId) : undefined;
@@ -79,13 +82,17 @@ export function ProjectFlow({ unit, onSave }: Props) {
     finally { pending.current = false; setBusy(false); }
   };
   const quickSave = (action: OrganizationFlowAction, data: Record<string, unknown>) => { if (pending.current) return; void save(action, data).catch(() => reset()); };
-  const changeGroups = (customNodes: GraphCustomNode[]) => { quickSave("flow_custom_nodes", { customNodes }); setSelectedId(null); };
+  const changeGroups = (customNodes: GraphCustomNode[]) => {
+    quickSave("flow_custom_nodes", { customNodes });
+    setSelectedId(null);
+    if (selectedGroupId && !customNodes.some((group) => group.id === selectedGroupId)) { setSelectedGroupId(null); }
+  };
   const move = (items: CanvasNode[]) => {
     const moved = moveGraphNodesWithCustomGroups(flow.nodes, groups, items);
     const positions = moved.filter((node, i) => node.position !== flow.nodes[i].position).map(({ id, position }) => ({ id, position }));
     if (positions.length) quickSave("flow_nodes_move", { positions });
   };
-  const selectNode = (id: string | null) => { setSelectedId(id); if (id && viewMode === "focus") setFocusDepth(1); };
+  const selectNode = (id: string | null) => { setSelectedGroupId(null); setSelectedId(id); if (id && viewMode === "focus") setFocusDepth(1); };
 
   return <div data-slot="organization-project-flow" className="@container flex h-full min-h-0 flex-col">
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2 [@media(max-height:520px)]:flex-nowrap [@media(max-height:520px)]:py-1">
@@ -109,7 +116,7 @@ export function ProjectFlow({ unit, onSave }: Props) {
         {flow.nodes.length ? nodes.length ? <GraphCanvas<CanvasNode, Edge>
           ariaLabel="Organization project flow canvas" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={graphRoutedEdgeTypes}
           nodesDraggable={!busy} nodesConnectable={!busy} deleteKeyCode={null} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-          onNodeClick={(event, node) => { if (!event.ctrlKey && !event.metaKey) selectNode(node.type === "customGroup" ? null : node.id); }} onNodeDoubleClick={(_, node) => { if (node.type === "customGroup") changeGroups(groups.map((group) => group.id === node.id ? { ...group, collapsed: false } : group)); else setDraft({ kind: "node", node: (node as FlowNode).data.item }); }}
+          onNodeClick={(event, node) => { if (!event.ctrlKey && !event.metaKey) { if (node.type === "customGroup") { setSelectedGroupId(node.id); setSelectedId(null); } else selectNode(node.id); } }} onNodeDoubleClick={(_, node) => { if (node.type === "customGroup") changeGroups(groups.map((group) => group.id === node.id ? { ...group, collapsed: false } : group)); else setDraft({ kind: "node", node: (node as FlowNode).data.item }); }}
           onPaneClick={() => selectNode(null)}
           onNodeDragStop={(_, node, items) => move(items.length ? items : [node])} onSelectionDragStop={(_, items) => move(items)}
           onConnect={(connection) => { if (flow.nodes.some((node) => node.id === connection.source) && flow.nodes.some((node) => node.id === connection.target)) quickSave("flow_edge_upsert", { edge: { source: connection.source, target: connection.target, label: "" } }); }}
@@ -120,6 +127,12 @@ export function ProjectFlow({ unit, onSave }: Props) {
         /> : <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">No nodes match this search.</div>
         : <div className="grid h-full place-items-center p-6"><div className="max-w-sm text-center"><FolderKanban className="mx-auto mb-3 size-7 text-muted-foreground"/><h3 className="font-medium">Project flow inside {unit.name}</h3><p className="mt-2 text-sm text-muted-foreground">Add projects, activities, notes and connections here. The organization overview stays compact.</p><Button className="mt-4" onClick={() => setDraft({ kind: "node" })}>Add first node</Button></div></div>}
       </div>
+      {selectedGroup ? <div data-slot="organization-group-focus" className="absolute inset-x-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl border bg-popover p-3 shadow-lg @min-[700px]:left-auto @min-[700px]:right-3 @min-[700px]:w-80">
+        <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Group focus</div><h3 className="mt-1 break-words text-sm font-semibold">{selectedGroup.name}</h3><p className="mt-1 text-xs text-muted-foreground">{selectedGroupMembers.length} mapped members · {selectedGroup.collapsed ? "collapsed" : "expanded"}</p></div><Button size="icon" variant="ghost" className="size-7 shrink-0" aria-label="Close group details" onClick={() => { setSelectedGroupId(null); setViewMode("map"); }}><X className="size-4"/></Button></div>
+        <div className="mt-3 space-y-1.5">{selectedGroupMembers.map((member) => <button type="button" key={member.id} className="flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-left hover:bg-accent/60" onClick={() => { setSelectedGroupId(null); setSelectedId(member.id); }}><span className="min-w-0 truncate text-xs font-medium">{member.title}</span><Badge variant="outline" className="shrink-0 text-[9px]">{member.status}</Badge></button>)}</div>
+        <div className="mt-3 grid grid-cols-2 gap-2"><Button size="sm" variant={viewMode === "focus" ? "secondary" : "outline"} onClick={() => setViewMode(viewMode === "focus" ? "map" : "focus")}>{viewMode === "focus" ? "Exit focus" : "Focus group"}</Button><Button size="sm" variant="outline" onClick={() => changeGroups(groups.map((group) => group.id === selectedGroup.id ? { ...group, collapsed: !group.collapsed } : group))}>{selectedGroup.collapsed ? "Expand" : "Collapse"}</Button></div>
+        <Button className="mt-2 w-full" size="sm" variant="ghost" onClick={() => changeGroups(groups.filter((group) => group.id !== selectedGroup.id))}>Ungroup presentation only</Button>
+      </div> : null}
       {selected ? <aside className="absolute inset-x-2 top-2 z-10 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl border bg-popover p-3 shadow-lg @min-[920px]:static @min-[920px]:inset-auto @min-[920px]:max-h-none @min-[920px]:rounded-none @min-[920px]:border-y-0 @min-[920px]:border-r-0 @min-[920px]:border-l @min-[920px]:bg-card/60 @min-[920px]:shadow-none">
         <div className="flex items-start gap-2"><h3 className="min-w-0 flex-1 break-words text-sm font-semibold">{selected.title}</h3><Button size="icon" variant="ghost" className="size-7 shrink-0" aria-label="Close node details" onClick={() => selectNode(null)}><X className="size-4"/></Button></div>
         <div className="mt-2 flex gap-1"><Badge variant="secondary">{selected.kind}</Badge><Badge variant="outline">{selected.status}</Badge></div>

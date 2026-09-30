@@ -47,7 +47,25 @@ export async function workflowCanvasJourney(page, fixture) {
   const minimap = canvas.getByLabel("Workflow canvas minimap");
   await expect(minimap).toBeVisible();
   await expect(minimap.locator(".react-flow__minimap-node")).toHaveCount(8);
-  await expect(canvas.locator(".react-flow__node", { hasText: "Manual Trigger" })).toBeVisible();
+  const manualNode = canvas.locator(".react-flow__node", { hasText: "Manual Trigger" });
+  await expect(manualNode).toBeVisible();
+
+  // n8n-style fast construction: a node output exposes +, opens the contextual
+  // node creator without trigger types, and inserts+connects the chosen next step.
+  await manualNode.hover();
+  await canvas.getByRole("button", { name: "Add after Manual Trigger", exact: true }).click();
+  await expect(page.getByText("What happens next?", { exact: true })).toBeVisible();
+  await expect(page.getByPlaceholder("Search nodes…")).toBeFocused();
+  await expect(page.getByRole("button", { name: "Flow", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Triggers", exact: true })).toHaveCount(0);
+  await page.getByPlaceholder("Search nodes…").fill("Wait");
+  await page.getByText("Wait", { exact: true }).click();
+  const insertedWait = canvas.locator(".react-flow__node", { hasText: "Wait" });
+  await expect(insertedWait).toBeVisible();
+  await expect(canvas.locator(".react-flow__edge")).toHaveCount(8);
+  await page.getByRole("button", { name: "Delete node", exact: true }).click();
+  await expect(insertedWait).toHaveCount(0);
+  await expect(canvas.locator(".react-flow__edge")).toHaveCount(7);
 
   // Responsive contract: on a phone-sized pane the wide graph starts focused on
   // the trigger at a readable zoom, side panels become drawers, and the toolbar
@@ -150,5 +168,5 @@ export async function workflowCanvasJourney(page, fixture) {
   // Delete using the last persisted revision; the local tidy is intentionally unsaved.
   response = await call(page, { action: "delete", graph_id: graph.id, expected_revision: graph.revision });
   expect(response.status).toBe(200);
-  console.log("PASS Workflow responsive toolbar/drawers, readable compact trigger focus, 5/5 canvas controls, minimap, persistent edge style/active/reverse controls, project/skill directory, lifecycle status, cache/memory/session/directory runtime and cleanup");
+  console.log("PASS Workflow n8n-like contextual node creator/quick-add, responsive toolbar/drawers, readable compact trigger focus, 5/5 canvas controls, minimap, persistent edge style/active/reverse controls, project/skill directory, active mode, cache/memory/session/directory runtime and cleanup");
 }
