@@ -102,6 +102,8 @@ and official skill `mso-agent-bootstrap`, not by jumping to `exec_run`.
 
 ## Shipping
 
+Run validation with `umask 077`: security fixtures must create private files/directories, not inherit group-writable shell defaults. On a busy shared host, bound Vitest concurrency with `VITEST_MAX_WORKERS=2` before changing timeout or coverage limits.
+
 Follow `CLAUDE.md`: update `docs/PROGRESS.md`, run the relevant gates, and ship through
 `bun run ship "<conventional commit>"`. Do not replace the repository's release path with a
 bare push.

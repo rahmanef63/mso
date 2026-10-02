@@ -5,6 +5,7 @@ const readOAuthBundle = vi.fn();
 const writeOAuthBundle = vi.fn();
 const codexModels = vi.fn();
 const ensureFreshCodex = vi.fn();
+const streamCodex = vi.fn();
 
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: vi.fn(async () => true) }));
 vi.mock("@/lib/config/store", () => ({
@@ -18,6 +19,7 @@ vi.mock("@/lib/ai/oauth/codex", () => ({
   codexModels: (...args: unknown[]) => codexModels(...args),
   ensureFreshCodex: (...args: unknown[]) => ensureFreshCodex(...args),
 }));
+vi.mock("@/lib/ai/codex-stream", () => ({ streamCodex: (...args: unknown[]) => streamCodex(...args) }));
 vi.mock("@/lib/models", () => ({ resolveModel: vi.fn() }));
 vi.mock("@/lib/host/ssrf", () => ({ safeProviderFetch: vi.fn() }));
 
@@ -29,13 +31,22 @@ describe("/api/models/test OpenAI Codex OAuth", () => {
     ensureFreshCodex.mockReset().mockResolvedValue(bundle);
     codexModels.mockReset().mockResolvedValue(["gpt-5.6-sol", "gpt-5.6-terra"]);
     writeOAuthBundle.mockReset().mockResolvedValue(undefined);
+    streamCodex.mockReset().mockImplementation(async ({ emit }) => {
+      emit("delta", "OK");
+      emit("done", { stopReason: "end_turn" });
+    });
   });
 
-  it("validates the selected subscription model via the account model list", async () => {
+  it("validates the selected subscription model with a real streaming request", async () => {
     const { POST } = await import("./route");
     const res = await POST();
     expect(await res.json()).toEqual({ ok: true, provider: "openai-codex", model: "gpt-5.6-sol" });
     expect(codexModels).toHaveBeenCalled();
+    expect(streamCodex).toHaveBeenCalledWith(expect.objectContaining({
+      model: "gpt-5.6-sol",
+      messages: [{ role: "user", text: "Reply with OK only." }],
+      signal: expect.any(AbortSignal),
+    }));
   });
 
   it("reports a selected model that the account does not expose", async () => {
@@ -43,5 +54,22 @@ describe("/api/models/test OpenAI Codex OAuth", () => {
     const { POST } = await import("./route");
     const res = await POST();
     expect(await res.json()).toMatchObject({ ok: false, error: expect.stringContaining("not available") });
+    expect(streamCodex).not.toHaveBeenCalled();
+  });
+
+  it("does not report ready when inference fails despite model-list access", async () => {
+    streamCodex.mockRejectedValueOnce(new Error("openai-codex HTTP 429"));
+    const { POST } = await import("./route");
+    expect(await (await POST()).json()).toEqual({ ok: false, error: "openai-codex HTTP 429" });
+  });
+
+  it("rejects empty or unfinished streams", async () => {
+    const { POST } = await import("./route");
+    for (const events of [["done"], ["delta"]]) {
+      streamCodex.mockImplementationOnce(async ({ emit }) => {
+        for (const event of events) emit(event, event === "delta" ? "OK" : { stopReason: "end_turn" });
+      });
+      expect(await (await POST()).json()).toEqual({ ok: false, error: "OpenAI ChatGPT returned no completed reply" });
+    }
   });
 });

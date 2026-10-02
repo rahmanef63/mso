@@ -132,6 +132,7 @@ The Assistant chat now has a compact **Cockpit** bar + responsive panel (desktop
 - `Activity & Runs` merges client-side Alfa host-tool events with server MCP workflow activity only at the presentation layer. The execution engines remain separate; this is observability, not a fake shared workflow id.
 - Native MSO Agent sessions shown in Cockpit are **read-only summaries** and are explicitly separate from Alfa's browser YAML chat threads.
 - Provider/credential management remains Settings' responsibility. Cockpit can switch/test provider + model only among providers that are already connected; it never creates, copies, or exposes credentials.
+- Connected providers include environment-backed built-ins. Model-only configuration keeps the active provider; provider changes choose that provider's default or declared model, and Codex requires an explicit account model. Custom providers without a model connect without changing the active selection. Codex's connection test performs a short inference through Alfa's existing streamer, with a 30-second timeout, rather than treating model-list access as chat readiness.
 
 Browser Automations likewise do not introduce a second executor. `Run` turns the saved ordered recipe into one Alfa task; the normal host-tool schemas, server guards, and approval rendezvous remain the execution path.
 

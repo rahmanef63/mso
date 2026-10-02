@@ -39,7 +39,7 @@ const RESERVED_RECORD_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 export const DEFAULT_MODEL = defaultModelFor(DEFAULT_PROVIDER);
 export { DEFAULT_PROVIDER };
 
-function safeProviderId(value: string): string {
+export function safeProviderId(value: string): string {
   if (!PROVIDER_ID_RE.test(value) || RESERVED_RECORD_KEYS.has(value)) throw new Error("invalid provider id");
   return value;
 }

@@ -11,7 +11,9 @@ import {
   upsertCustomProvider,
   removeCustomProvider,
   removeOAuthBundle,
+  safeProviderId,
 } from "@/lib/config/store";
+import { PROVIDERS } from "@/lib/models";
 import { defaultModelFor } from "@/lib/models/defaults";
 import { resolveSafeProviderEndpoint } from "@/lib/host/ssrf";
 
@@ -38,13 +40,14 @@ export async function GET() {
   const stored = keys[provider] ?? (provider === "anthropic" ? cfg.anthropicApiKey : undefined) ?? "";
   const key = stored || (await hostCredentialStore().getKey(undefined, provider)) || "";
 
-  // Connected = every provider with a stored key, plus custom + OAuth providers.
-  // Custom rows carry baseUrl/protocol/models; OAuth rows just report "signed in".
-  const ids = new Set([...Object.keys(keys), ...Object.keys(custom), ...Object.keys(oauth)]);
+  const connected = Object.fromEntries(await Promise.all(Object.keys(PROVIDERS).map(async (id) =>
+    [id, Boolean(await hostCredentialStore().getKey(undefined, id))] as const)));
+  const ids = new Set([...Object.keys(keys), ...Object.keys(custom), ...Object.keys(oauth),
+    ...Object.keys(connected).filter((id) => connected[id])]);
   const providers = [...ids].sort().map((id) => ({
     id,
     kind: oauth[id] ? "oauth" : isBuiltinProvider(id) ? "builtin" : "custom",
-    hasKey: !!keys[id] || !!oauth[id],
+    hasKey: !!keys[id] || !!oauth[id] || connected[id] === true,
     masked: oauth[id] ? "signed in" : mask(keys[id] ?? ""),
     baseUrl: custom[id]?.baseUrl,
     protocol: custom[id]?.protocol,
@@ -80,6 +83,19 @@ export async function POST(req: NextRequest) {
   };
   try {
     body = await req.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)
+      || [body.provider, body.model, body.apiKey, body.anthropicApiKey, body.tokenSaver].some((v) => v !== undefined && typeof v !== "string")
+      || (body.select !== undefined && typeof body.select !== "boolean")
+      || (body.model !== undefined && !body.model.trim())) throw new Error("invalid");
+    if (body.provider !== undefined) safeProviderId(body.provider.trim());
+    if (body.customProvider !== undefined) {
+      const c = body.customProvider;
+      if (!c || typeof c !== "object" || Array.isArray(c)
+        || [c.name, c.baseURL, c.baseUrl, c.apiKey].some((v) => v !== undefined && typeof v !== "string")
+        || (c.protocol !== undefined && c.protocol !== "openai" && c.protocol !== "anthropic")
+        || (c.models !== undefined && (!Array.isArray(c.models) || c.models.some((m) => typeof m !== "string")))) throw new Error("invalid");
+      slugifyProvider(c.name ?? "");
+    }
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
@@ -96,7 +112,7 @@ export async function POST(req: NextRequest) {
     const c = body.customProvider;
     const slug = slugifyProvider(String(c.name ?? ""));
     if (!slug) return NextResponse.json({ error: "Provider name is required" }, { status: 400 });
-    if (isBuiltinProvider(slug)) {
+    if (isBuiltinProvider(slug) || slug === "openai-codex") {
       return NextResponse.json({ error: `"${slug}" is a built-in provider — choose another name` }, { status: 400 });
     }
     if (!c.apiKey || !c.apiKey.trim()) return NextResponse.json({ error: "API key is required" }, { status: 400 });
@@ -114,21 +130,25 @@ export async function POST(req: NextRequest) {
       ...(models.length ? { models } : {}),
     });
     await hostCredentialStore().setKey(undefined, slug, c.apiKey.trim());
-    // Preserve legacy Settings behavior unless the caller explicitly asks to only
-    // configure credentials. This is what lets `mso models` manage auth while
-    // `mso model` remains the only model-selection UX.
-    if (body.select !== false) {
-      await writeConfig({ provider: slug, ...(models[0] ? { model: models[0] } : {}) });
+    const model = body.model?.trim() || models[0];
+    const selected = body.select !== false && Boolean(model);
+    if (selected) {
+      await writeConfig({ provider: slug, model });
     }
-    return NextResponse.json({ ok: true, slug, selected: body.select !== false });
+    return NextResponse.json({ ok: true, slug, selected });
   }
 
   // ── Set a built-in provider / model / key ──────────────────────────────────
-  const provider = (body.provider || DEFAULT_PROVIDER).trim();
+  const cfg = await readConfig();
+  const provider = (body.provider ?? (body.anthropicApiKey !== undefined ? "anthropic" : cfg.provider) ?? DEFAULT_PROVIDER).trim();
+  if (!isBuiltinProvider(provider) && provider !== "openai-codex" && !Object.hasOwn(cfg.customProviders ?? {}, provider)) {
+    return NextResponse.json({ error: "Unknown provider" }, { status: 400 });
+  }
   if (body.select !== false) {
-    const patch: { model?: string; provider?: string } = { provider };
-    if (typeof body.model === "string" && body.model.trim()) patch.model = body.model.trim();
-    await writeConfig(patch);
+    const model = body.model?.trim() || (provider === cfg.provider ? cfg.model : undefined)
+      || cfg.customProviders?.[provider]?.models?.[0] || (isBuiltinProvider(provider) ? defaultModelFor(provider) : undefined);
+    if (!model) return NextResponse.json({ error: "Select a model for this provider" }, { status: 400 });
+    await writeConfig({ provider, model });
   }
 
   // Key routes through the per-provider store. Empty string clears it (incl. the
@@ -155,8 +175,7 @@ export async function DELETE(req: NextRequest) {
   await hostCredentialStore().deleteKey(undefined, slug);
   await removeCustomProvider(slug);
   await removeOAuthBundle(slug);
-  // If the deleted provider was selected, fall back to the default so the
-  // assistant never points at a now-keyless provider.
+  // Reset a deleted selection; the default provider may still need credentials.
   const cfg = await readConfig();
   if (cfg.provider === slug) await writeConfig({ provider: DEFAULT_PROVIDER, model: DEFAULT_MODEL });
   return NextResponse.json({ ok: true });

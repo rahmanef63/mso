@@ -5,11 +5,12 @@ import { resolveModelRef, hostCredentialStore, selectedCustomConn, readOAuthBund
 import { resolveModel } from "@/lib/models";
 import { safeProviderFetch } from "@/lib/host/ssrf";
 import { codexModels, ensureFreshCodex } from "@/lib/ai/oauth/codex";
+import { streamCodex } from "@/lib/ai/codex-stream";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// 1-token validation of the SELECTED provider's key + endpoint. Session-gated POST.
+// Minimal inference validation of the SELECTED provider's key + endpoint. Session-gated POST.
 // Returns { ok:true } or { ok:false, error } (HTTP 200 either way — a failed key is
 // a normal UX outcome, not a server error). Mirrors models-rahmanef-com testCredential.
 export async function POST() {
@@ -27,6 +28,17 @@ export async function POST() {
       if (!models.includes(selectedModel)) {
         return NextResponse.json({ ok: false, error: `model ${selectedModel} is not available for this ChatGPT account` });
       }
+      let text = "";
+      let completed = false;
+      await streamCodex({
+        bundle: fresh, model: selectedModel, messages: [{ role: "user", text: "Reply with OK only." }],
+        system: "You are checking inference readiness. Reply with OK only.", signal: AbortSignal.timeout(30_000),
+        emit: (event, data) => {
+          if (event === "delta" && typeof data === "string") text += data;
+          if (event === "done") completed = true;
+        },
+      });
+      if (!completed || !text.trim()) return NextResponse.json({ ok: false, error: "OpenAI ChatGPT returned no completed reply" });
       return NextResponse.json({ ok: true, provider: "openai-codex", model: selectedModel });
     } catch (e) {
       return NextResponse.json({ ok: false, error: (e as Error).message });

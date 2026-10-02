@@ -7,25 +7,25 @@ const upsertCustomProvider = vi.fn();
 const removeCustomProvider = vi.fn();
 const removeOAuthBundle = vi.fn();
 const readConfig = vi.fn();
+const getKey = vi.fn();
 
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: vi.fn(async () => true) }));
-vi.mock("@/lib/config/store", () => ({
+vi.mock("@/lib/config/store", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/config/store")>(),
   DEFAULT_MODEL: "default-model",
   DEFAULT_PROVIDER: "anthropic",
   readConfig: (...args: unknown[]) => readConfig(...args),
   writeConfig: (...args: unknown[]) => writeConfig(...args),
   hostCredentialStore: () => ({
-    getKey: vi.fn(async () => ""),
+    getKey: (...args: unknown[]) => getKey(...args),
     setKey: (...args: unknown[]) => setKey(...args),
     deleteKey: (...args: unknown[]) => deleteKey(...args),
   }),
-  isBuiltinProvider: (id: string) => ["anthropic", "openai", "openrouter", "google", "groq", "xai", "deepseek", "mistral"].includes(id),
-  slugifyProvider: (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
   upsertCustomProvider: (...args: unknown[]) => upsertCustomProvider(...args),
   removeCustomProvider: (...args: unknown[]) => removeCustomProvider(...args),
   removeOAuthBundle: (...args: unknown[]) => removeOAuthBundle(...args),
 }));
-vi.mock("@/lib/models/defaults", () => ({ defaultModelFor: (p: string) => `${p}-default` }));
+vi.mock("@/lib/models/defaults", () => ({ DEFAULT_PROVIDER: "anthropic", defaultModelFor: (p: string) => `${p}-default` }));
 vi.mock("@/lib/host/ssrf", () => ({
   resolveSafeProviderEndpoint: vi.fn(async (url: string) => ({ url: new URL(url) })),
 }));
@@ -45,6 +45,73 @@ describe("/api/config provider-auth vs model-selection contract", () => {
     removeCustomProvider.mockReset().mockResolvedValue(undefined);
     removeOAuthBundle.mockReset().mockResolvedValue(undefined);
     readConfig.mockReset().mockResolvedValue({ provider: "anthropic", model: "claude-active", keys: {}, customProviders: {}, oauthTokens: {} });
+    getKey.mockReset().mockResolvedValue("");
+  });
+
+  it.each([
+    null, [], { provider: 1 }, { provider: " " }, { provider: "../openai" },
+    { provider: "constructor" }, { provider: "missing-provider" }, { model: [] }, { model: " " },
+    { apiKey: {} }, { select: "false" }, { customProvider: "invalid" },
+    { customProvider: { name: "constructor", baseURL: "https://ai.example.com/v1", apiKey: "secret" } },
+    { customProvider: { name: "Hub", apiKey: 1 } },
+    { customProvider: { name: "Hub", baseURL: "https://ai.example.com/v1", apiKey: "secret", models: "m1" } },
+  ].map((body) => [body]))("rejects malformed config before mutation: %j", async (body) => {
+    const { POST } = await import("./route");
+    expect((await POST(request(body))).status).toBe(400);
+    expect(writeConfig).not.toHaveBeenCalled();
+    expect(setKey).not.toHaveBeenCalled();
+    expect(upsertCustomProvider).not.toHaveBeenCalled();
+  });
+
+  it("preserves the active provider on a model-only update", async () => {
+    readConfig.mockResolvedValue({ provider: "google", model: "gemini-old" });
+    const { POST } = await import("./route");
+    expect((await POST(request({ model: "gemini-next" }))).status).toBe(200);
+    expect(writeConfig).toHaveBeenCalledWith({ provider: "google", model: "gemini-next" });
+  });
+
+  it("uses the new built-in provider default when switching without a model", async () => {
+    const { POST } = await import("./route");
+    await POST(request({ provider: "google" }));
+    expect(writeConfig).toHaveBeenCalledWith({ provider: "google", model: "google-default" });
+  });
+
+  it("requires an explicit account model when switching to Codex", async () => {
+    const { POST } = await import("./route");
+    expect((await POST(request({ provider: "openai-codex" }))).status).toBe(400);
+    expect(writeConfig).not.toHaveBeenCalled();
+  });
+
+  it("keeps the selected Codex model when updating its existing selection", async () => {
+    readConfig.mockResolvedValue({ provider: "openai-codex", model: "gpt-account-model" });
+    const { POST } = await import("./route");
+    expect((await POST(request({ provider: "openai-codex" }))).status).toBe(200);
+    expect(writeConfig).toHaveBeenCalledWith({ provider: "openai-codex", model: "gpt-account-model" });
+  });
+
+  it("selects the first declared custom model without inheriting the old model", async () => {
+    readConfig.mockResolvedValue({ provider: "anthropic", model: "claude-active", customProviders: { hub: { baseUrl: "https://ai.example.com/v1", models: ["hub-model"] } } });
+    const { POST } = await import("./route");
+    await POST(request({ provider: "hub" }));
+    expect(writeConfig).toHaveBeenCalledWith({ provider: "hub", model: "hub-model" });
+  });
+
+  it("only connects a custom provider with no known model", async () => {
+    const { POST } = await import("./route");
+    const response = await POST(request({ customProvider: { name: "Hub", baseURL: "https://ai.example.com/v1", apiKey: "secret" } }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ selected: false });
+    expect(setKey).toHaveBeenCalled();
+    expect(writeConfig).not.toHaveBeenCalled();
+  });
+
+  it("lists env-connected built-ins without exposing or masking their keys", async () => {
+    getKey.mockImplementation(async (_tenant: unknown, id: string) => id === "google" ? "env-private-sentinel" : "");
+    const { GET } = await import("./route");
+    const response = await GET();
+    const body = await response.json();
+    expect(body.providers).toEqual([expect.objectContaining({ id: "google", kind: "builtin", hasKey: true, masked: "" })]);
+    expect(JSON.stringify(body)).not.toContain("env-private");
   });
 
   it("stores a built-in provider key with select:false without changing the active provider/model", async () => {
