@@ -93,6 +93,7 @@ export function SubPanel({ item, m, onClose, pos, panelRef, onEnter, onLeave }: 
       aria-label={item.label}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
+      data-macos-menu={m.chrome ? "" : undefined}
       className={cn(PANEL, "z-[1202]", m.radius, m.chrome, m.motion)}
       style={{ left: pos.x, top: pos.y }}
     >
@@ -105,7 +106,7 @@ export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: Men
   return (
     <>
       {items.map((it, i) => {
-        if (it.type === "sep") return <div key={i} role="separator" className="my-1 h-px bg-border" />;
+        if (it.type === "sep") return <div key={i} role="separator" className={m.isWin || m.isTouch ? "my-1 h-px bg-border" : "my-[5px] h-px bg-black/10 dark:bg-white/12"} />;
         if (it.type === "submenu")
           return (
             <button
@@ -145,7 +146,11 @@ export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: Men
                   {/* Selection is a GLYPH, never colour alone (a11y). */}
                   {it.checked && <Check className="size-4 shrink-0" />}
                   {/* macOS-style right-aligned keyboard hint (display only). */}
-                  {it.shortcut && <span className="shrink-0 pl-4 text-xs tabular-nums opacity-50 group-hover:opacity-80">{it.shortcut}</span>}
+                  {it.shortcut && (
+                    <span className={cn("shrink-0 pl-4 tabular-nums group-hover:opacity-80", m.isWin || m.isTouch ? "text-xs opacity-50" : "text-[13px] font-medium text-[#8e8e93] dark:text-white/45")}>
+                      {it.shortcut}
+                    </span>
+                  )}
                 </>
               }
             />

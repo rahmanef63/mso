@@ -55,7 +55,7 @@ function Light({
         onClick();
       }}
       onPointerDown={(e) => e.stopPropagation()}
-      className="grid size-3.5 h-auto w-auto place-items-center rounded-full border-[0.5px] border-black/45 hover:bg-transparent data-[dim=true]:border-black/10 data-[dim=true]:bg-black/15 dark:data-[dim=true]:border-white/10 dark:data-[dim=true]:bg-white/20"
+      className="!size-[14px] !min-h-[14px] !min-w-[14px] !p-0 rounded-full border-[0.5px] border-black/45 hover:!bg-transparent [&_svg]:!size-2 data-[dim=true]:border-black/10 data-[dim=true]:!bg-black/15 dark:data-[dim=true]:border-white/10 dark:data-[dim=true]:!bg-white/20"
       data-dim={focused ? undefined : true}
       style={focused ? { background: color } : undefined}
     >

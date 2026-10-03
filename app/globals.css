@@ -215,6 +215,10 @@
    their own rings; this catches native <a>/<input>, custom tabIndex divs and
    anything else without a bespoke focus style. WCAG 2.4.7 (Focus Visible). */
 *:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--radius); }
+/* The focus rule above flattens every focused radius to --radius (10px).
+   macOS 27 menus stay 12px while the open panel holds focus. */
+[data-macos-menu],
+[data-macos-menu]:focus-visible { border-radius: 12px; }
 html, body { height: 100%; margin: 0; }
 /* Root font-size = browser default × the a11y scale, so every rem reacts live. */
 html { font-size: calc(100% * var(--font-scale, 1)); }

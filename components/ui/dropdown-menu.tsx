@@ -23,6 +23,7 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Portal>
         <DropdownMenuPrimitive.Content
           sideOffset={sideOffset}
+          data-macos-menu={macos ? "" : undefined}
           className={cn(
             macos
               ? "glass z-[950] min-w-[244px] overflow-hidden rounded-[12px] border border-black/10 bg-white/75 px-3 py-[5px] text-[13px] text-foreground shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_8px_48px_rgba(0,0,0,0.25)] dark:border-white/10 dark:bg-[rgba(44,44,48,0.88)] dark:shadow-[0_0_0_0.5px_rgba(255,255,255,0.14),0_8px_48px_rgba(0,0,0,0.55)]"

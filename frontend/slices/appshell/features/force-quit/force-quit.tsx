@@ -75,7 +75,10 @@ export function ForceQuitDialog() {
         if (!v) setSel(null);
       }}
     >
-      <DialogContent className="max-w-[280px] rounded-[34px] border-0 bg-[var(--window-bg)] p-4 shadow-[0_0_1px_rgba(0,0,0,0.8),0_18px_48px_rgba(0,0,0,0.25)]">
+      <DialogContent
+        showCloseButton={false}
+        className="w-[min(280px,calc(100vw-2rem))] max-w-[min(280px,calc(100vw-2rem))] rounded-[34px] border-0 bg-[var(--window-bg)] p-4 shadow-[0_0_1px_rgba(0,0,0,0.8),0_18px_48px_rgba(0,0,0,0.25)] sm:max-w-[min(280px,calc(100vw-2rem))] dark:shadow-[0_0_1px_rgba(0,0,0,0.95),0_22px_56px_rgba(0,0,0,0.62)]"
+      >
         <DialogHeader className="gap-0 border-0 p-0 text-left">
           <DialogTitle className="text-[13px] font-bold leading-4">Force Quit Applications</DialogTitle>
         </DialogHeader>
