@@ -26,13 +26,6 @@ export function shouldUseMobileSurface(device: DeviceMode, vw: number, vh: numbe
   return vw < MOBILE_W || (coarse && vw < TABLET_W);
 }
 
-/** Letterbox only the explicit Phone preview. A portrait tablet is the iPad
- *  shell and must stay full-bleed so its tab bar is not trapped in a phone frame. */
-export function shouldFramePhoneShell(device: DeviceMode, vw: number, isMobile: boolean): boolean {
-  return isMobile && device === "phone" && vw >= MOBILE_W;
-}
-
-
 /** The visual viewport is the actually visible browser area after dynamic URL bars
  * and the soft keyboard are accounted for. Ignore it while pinch-zoomed: resizing
  * the entire shell to a zoomed viewport makes content jump under accessibility zoom. */

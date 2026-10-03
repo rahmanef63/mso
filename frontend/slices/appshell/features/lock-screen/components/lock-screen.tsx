@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Lock } from "lucide-react";
+import { Camera, Flashlight } from "lucide-react";
 import { autoLockMinutes, lock, requestUnlock, useLocked } from "../../../lib/lock";
 
 // Fullscreen privacy curtain: blurred backdrop, big clock, click/key unlocks
@@ -33,6 +33,7 @@ export function LockScreen() {
 
 function LockCurtain() {
   const [now, setNow] = useState<Date>(() => new Date());
+  const [torch, setTorch] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 10_000);
@@ -59,22 +60,40 @@ function LockCurtain() {
 
   return (
     <div
-      className="absolute inset-0 z-[var(--z-lock-screen)] flex cursor-pointer flex-col items-center justify-between bg-background/35 px-6 backdrop-blur-2xl"
-      style={{ paddingTop: "calc(14vh + var(--sai-top, 0px))", paddingBottom: "calc(10vh + var(--sai-bottom, 0px))" }}
+      className="absolute inset-0 z-[var(--z-lock-screen)] flex cursor-pointer flex-col items-center justify-between bg-background/35 px-8 backdrop-blur-2xl"
+      style={{ paddingTop: "calc(12vh + var(--sai-top, 0px))", paddingBottom: "calc(4vh + var(--sai-bottom, 0px))" }}
       onClick={() => void requestUnlock()}
     >
-      {/* Clock near the top (iPhone-style) rather than dead-center. */}
-      <div className="flex flex-col items-center gap-1">
-        <div className="text-6xl font-light tracking-tight">
-          {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      <div className="flex flex-col items-center text-foreground">
+        <div className="text-[22px] font-medium">
+          {now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
         </div>
-        <div className="text-sm text-muted-foreground">
-          {now.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })}
+        <div className="text-[92px] font-thin leading-none tracking-tight">
+          {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
         </div>
       </div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Lock className="size-3.5" /> Click to unlock
+      <div className="flex w-full items-center justify-between">
+        <button
+          type="button"
+          data-slot="ios-lock-flashlight"
+          aria-label="Flashlight"
+          aria-pressed={torch}
+          onClick={(e) => { e.stopPropagation(); setTorch((on) => !on); }}
+          className={`glass grid size-12 place-items-center rounded-full border border-white/30 ${torch ? "bg-white text-black" : "bg-white/25 text-foreground"}`}
+        >
+          <Flashlight className="size-5" aria-hidden />
+        </button>
+        <button
+          type="button"
+          data-slot="ios-lock-camera"
+          aria-label="Camera"
+          onClick={(e) => e.stopPropagation()}
+          className="glass grid size-12 place-items-center rounded-full border border-white/30 bg-white/25 text-foreground"
+        >
+          <Camera className="size-5" aria-hidden />
+        </button>
       </div>
+      {torch && <div className="pointer-events-none absolute inset-0 bg-white/75" />}
     </div>
   );
 }

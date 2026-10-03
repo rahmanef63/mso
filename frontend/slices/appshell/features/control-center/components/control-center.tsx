@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useShellDesign } from "../../../design";
 import { useShellUI } from "../../../registry/shell-ui";
 import { ControlCenterTiles } from "./control-center-tiles";
+import { IosControlCenter } from "./control-center-ios";
 
 // One quick-settings behavior model, shell-native presentation. iOS uses a glass
 // pull-down; Android uses a solid/tonal Material sheet. No fake Wi-Fi/cellular
@@ -31,7 +32,7 @@ export function ControlCenter() {
         <SheetTitle className="sr-only">Control Center</SheetTitle>
         <SheetDescription className="sr-only">Quick system toggles</SheetDescription>
         <div className="mx-auto w-full max-w-md">
-          <ControlCenterTiles onClose={() => onOpenChange(false)} />
+          {apple ? <IosControlCenter onClose={() => onOpenChange(false)} /> : <ControlCenterTiles onClose={() => onOpenChange(false)} />}
         </div>
       </SheetContent>
     </Sheet>

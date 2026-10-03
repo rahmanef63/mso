@@ -1,6 +1,6 @@
-## 2026-10-03 — iOS 27 tab bar chrome
+## 2026-10-03 — iOS 27 home screen frames
 
-The iPhone home dock was a near full-width glass bar of app tiles, and a portrait tablet reused that phone chrome inside a phone frame. iOS / iPadOS 27 treats the tab bar as a floating capsule: iPhone expanded and minimized, with a separate trailing capsule only for a search-role or prominent tab, and iPad as one short horizontal capsule (sidebar, tabs, search). The pinned apps, their titles, icons and launch behavior stay the ones the dock already used. Measurements that fought the existing home indicator, the live tab count, or this shell's glass (plus-darker and plus-lighter flatten the selected pill) were not applied. This is shell chrome only; the macOS menu bar, dock, windows and alerts are unchanged.
+The first pass treated a third-party tab-bar measurement as the Home Screen. The linked Figma page is a different frame: the dock is a glass capsule of app icons with no labels, and Search is a separate pill above it. Grid icons keep their labels, and the page dots stay. Today shows the four widget sizes as purple placeholders named for the widgets this shell already has. The lock screen keeps the clock and puts the date above it, with flashlight and camera controls. iOS Control Center is a glass tile mosaic; the macOS menu-bar popover keeps the shared labeled list. A home-icon long-press is a floating menu (Remove App, Require Face ID, Edit Home Screen, then that app's own actions) instead of a bottom sheet. The macOS shell is unchanged.
 
 ## 2026-10-02 — Alfa configuration and inference readiness
 

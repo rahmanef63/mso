@@ -28,6 +28,7 @@ export function MobileWidgets() {
 
   return (
     <div data-slot="mobile-widgets" className="flex h-full w-full min-w-0 max-w-full flex-col gap-3 overflow-x-clip overflow-y-auto px-4 py-3 [scrollbar-width:none]">
+      <HomeWidgetSizes />
       <div className="flex items-center justify-between px-1">
         <h2 className="text-[28px] font-extrabold tracking-[-0.02em] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">{shell.id === "android" ? "Widgets" : "Today"}</h2>
         {/* Edit the glanceable VPS telemetry set right from the phone — opens the
@@ -67,6 +68,30 @@ export function MobileWidgets() {
       {/* The picker Dialog is desktop-only in the tree; mount it here so the phone
           Today view can open it (portals to body, so page inert-ness is fine). */}
       <WidgetPicker />
+    </div>
+  );
+}
+
+const WIDGET_SIZES = [
+  { size: "small", title: "CPU", box: "h-[158px] w-[158px]" },
+  { size: "medium", title: "Memory", box: "h-[158px] w-full" },
+  { size: "large", title: "Storage", box: "aspect-square w-full" },
+  { size: "extra-large", title: "Clock", box: "h-[430px] w-full" },
+] as const;
+
+function HomeWidgetSizes() {
+  return (
+    <div data-slot="ios-widget-sizes" className="flex flex-col gap-3">
+      {WIDGET_SIZES.map((widget) => (
+        <div
+          key={widget.size}
+          data-slot="ios-widget-placeholder"
+          data-size={widget.size}
+          className={`flex items-end rounded-[28px] p-4 text-[15px] font-semibold text-white ${widget.box}`}
+        >
+          {widget.title}
+        </div>
+      ))}
     </div>
   );
 }
