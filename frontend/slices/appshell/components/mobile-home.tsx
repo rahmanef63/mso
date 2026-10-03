@@ -1,36 +1,42 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AppDescriptor } from "../lib/types";
-import { AppIcon } from "./app-icon";
 import { Slot } from "../registry/feature-registry";
 import { MobileAppLibrary } from "./mobile-app-library";
 import { AppActionSheet, AppsGrid, useHomePages } from "./mobile-home-parts";
 import { ShellContextMenu, useShellContextMenu } from "./shells/context-menu";
 
-// Paged iPhone home: [Today widgets] · [App grid ×N] · [App Library]. The dock,
-// page dots and home-indicator persist across pages. The app grid is N pages of
-// 24 (iPhone's 6×4), not one vertical scroller — see mobile-home-parts.
+// Paged iPhone home: [Today widgets] · [App grid ×N] · [App Library]. Page dots
+// and the home indicator persist. The tab bar itself is shell chrome (a floating
+// capsule on iPhone, a short top capsule on iPad); this surface only reserves
+// its space. The app grid is N pages of 24 (iPhone's 6×4) — see mobile-home-parts.
 export function MobileHome({
   apps,
-  dockApps,
   inactive = false,
   onLaunch,
   onSearch,
   onControlCenter,
   onNotifications,
   indicator,
+  ipad = false,
+  onContentScroll,
+  libraryToken = 0,
+  libraryTarget = "grid",
 }: {
   apps: AppDescriptor[];
-  dockApps: AppDescriptor[];
   inactive?: boolean; // an app layer covers the home — pull it from tab/AT order
   onLaunch: (app: AppDescriptor) => void;
   onSearch: () => void;
   onControlCenter: () => void;
   onNotifications?: () => void;
   indicator: React.ReactNode;
+  /** iPad reserves a top band for the horizontal tab bar instead of a bottom dock. */
+  ipad?: boolean;
+  onContentScroll?: (scrolled: boolean) => void;
+  libraryToken?: number;
+  libraryTarget?: "library" | "grid";
 }) {
   const pagerRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1); // 0 widgets · 1…N apps · N+1 library
@@ -45,9 +51,20 @@ export function MobileHome({
     if (el) el.scrollLeft = el.clientWidth;
   }, []);
 
+  useLayoutEffect(() => {
+    if (!libraryToken) return;
+    const el = pagerRef.current;
+    if (!el) return;
+    const index = libraryTarget === "library" ? Math.max(0, pageCount - 1) : 1;
+    el.scrollTo({ left: index * el.clientWidth, behavior: "smooth" });
+  }, [libraryToken, libraryTarget, pageCount]);
+
   const onScroll = () => {
     const el = pagerRef.current;
-    if (el) setPage(Math.round(el.scrollLeft / el.clientWidth));
+    if (!el) return;
+    const next = Math.round(el.scrollLeft / el.clientWidth);
+    setPage(next);
+    if (next !== 0) onContentScroll?.(false);
   };
 
   // Swipe DOWN from the top safe-area: LEFT half → Notification Center,
@@ -90,13 +107,14 @@ export function MobileHome({
           This 2.25rem is ON TOP of --sai-top, which globals.css floors at 2.75rem
           for data-shell="ios" — they ADD, so iOS starts the pager 80px down even in
           a browser reporting no inset. Read that before "reclaiming" space here:
-          80px + 34px of dots + a 100px dock block + a 36px indicator = 250px, and
+          80px + 34px of dots + a 70px tab reserve + a 36px indicator = 220px, and
           what is left is what caps the home icon (60px at 844 tall, 45.5 at 667). */}
       <div
         className="shrink-0 [touch-action:none]"
         style={{ height: "calc(2.25rem + var(--sai-top))" }}
         onPointerDown={onTopPointerDown}
       />
+      {ipad && <div data-slot="ipad-tab-reserve" className="h-6 shrink-0" />}
 
       <div
         ref={pagerRef}
@@ -106,7 +124,10 @@ export function MobileHome({
         <Page active={page === 0}>
           {/* Today keeps its OWN scroller — a widget stack is genuinely taller than
               the page. The app pages deliberately do not scroll (see AppsGrid). */}
-          <div className="h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div
+            className="h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            onScroll={(e) => onContentScroll?.(e.currentTarget.scrollTop > 4)}
+          >
             <Slot region="today" />
           </div>
         </Page>
@@ -138,18 +159,7 @@ export function MobileHome({
         ))}
       </div>
 
-      {dockApps.length > 0 && (
-        <div
-          className="glass mx-3 mb-3.5 flex justify-around rounded-[30px] border border-white/15 px-3.5 py-3"
-          style={{ background: "var(--glass-bar)", boxShadow: "inset 0 0.5px 0 var(--glass-hi), 0 12px 34px rgba(0,0,0,0.30)" }}
-        >
-          {dockApps.map((app) => (
-            <Button key={app.id} type="button" variant="ghost" size="icon" aria-label={app.title} onClick={() => onLaunch(app)} className="h-auto w-auto hover:bg-transparent size-[60px] p-0">
-              <AppIcon app={app} />
-            </Button>
-          ))}
-        </div>
-      )}
+      {!ipad && <div data-slot="ios-tab-reserve" className="h-[70px] shrink-0" />}
 
       {indicator}
 

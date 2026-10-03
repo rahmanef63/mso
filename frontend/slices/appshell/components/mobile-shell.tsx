@@ -15,6 +15,7 @@ import { Slot } from "../registry/feature-registry";
 import { ShellUIProvider, type ShellUI } from "../registry/shell-ui";
 import { useMobileNavigationInfo } from "../lib/mobile-navigation";
 import { IosFeatureHeader } from "./shells/ios/ios-feature-header";
+import { IosShellTabs, useIosDockTabs, useIosShellVariant, useLibraryPager } from "./shells/ios/ios-shell-tabs";
 
 // Phones: no floating windows — a paged home + one fullscreen app at a time.
 // Reuses the same store (open/minimize/focus) so state matches the desktop.
@@ -26,7 +27,9 @@ export function MobileShell() {
   const [cc, setCc] = useState(false);
   const [nc, setNc] = useState(false); // notification center (pull down, left half)
   const [appScrolled, setAppScrolled] = useState(false); // iOS nav-bar frost-on-scroll
+  const [homeScrolled, setHomeScrolled] = useState(false);
   const [closing, setClosing] = useState(false); // playing the dismiss-to-home slide
+  const variant = useIosShellVariant();
 
   // Dock = manifest-pinned apps (AppDescriptor.pinned — the generic shell never
   // hardcodes project app ids); falls back to the first 4 dockable apps.
@@ -137,6 +140,8 @@ export function MobileShell() {
   };
 
   const quickAppIds = useMemo(() => dockApps.map((a) => a.id), [dockApps]);
+  const { tabs, selectedId } = useIosDockTabs(dockApps, launch, showApp && activeApp ? activeApp.id : null);
+  const { library, openSidebar } = useLibraryPager(!!(showApp && activeApp), goHome);
   const shellUI = useMemo<ShellUI>(
     () => ({
       controlCenterOpen: cc,
@@ -167,12 +172,15 @@ export function MobileShell() {
           layer). It stays visually mounted behind the app transition. */}
       <MobileHome
         apps={apps}
-        dockApps={dockApps}
         inactive={!!(showApp && activeApp)}
+        ipad={variant === "ipad"}
         onLaunch={launch}
         onSearch={toggleSpotlight}
         onControlCenter={() => setCc(true)}
         onNotifications={() => setNc(true)}
+        onContentScroll={setHomeScrolled}
+        libraryToken={library.n}
+        libraryTarget={library.target}
         indicator={<HomeIndicator onHome={goHome} onSwitcher={openSwitcher} onSwitchApp={switchApp} />}
       />
 
@@ -181,6 +189,7 @@ export function MobileShell() {
         <div
           className={cn(
             "absolute inset-0 z-[10] flex flex-col [transform-origin:center_bottom]",
+            variant === "ipad" && "pt-[calc(var(--sai-top)+60px)]",
             closing && "pointer-events-none", // lock interaction during the dismiss transition
           )}
           style={{
@@ -207,6 +216,7 @@ export function MobileShell() {
             onBack={mobileNav?.onBack ?? goHome}
             onAI={toggleInspector}
             scrolled={appScrolled}
+            safeTop={variant !== "ipad"}
           />
           {/* The home-indicator overlays the content edge-to-edge (real-iOS), so
               --sai-bottom INSIDE the app pane must clear its 34px band — every app
@@ -220,7 +230,7 @@ export function MobileShell() {
           <main
             onScrollCapture={(e) => setAppScrolled((e.target as HTMLElement).scrollTop > 4)}
             className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto [container-type:inline-size]"
-            style={{ "--sai-bottom": "max(env(safe-area-inset-bottom, 0px), 34px)" } as React.CSSProperties}
+            style={{ "--sai-bottom": variant === "ipad" ? "max(env(safe-area-inset-bottom, 0px), 34px)" : "calc(max(env(safe-area-inset-bottom, 0px), 34px) + 70px)" } as React.CSSProperties}
           >
             <WindowContent app={top.app} payload={top.payload} />
           </main>
@@ -230,6 +240,14 @@ export function MobileShell() {
         </div>
       )}
 
+      <IosShellTabs
+        variant={variant}
+        tabs={tabs}
+        selectedId={selectedId}
+        scrolled={showApp ? appScrolled : homeScrolled}
+        onSearch={toggleSpotlight}
+        onSidebar={openSidebar}
+      />
       {switcher && <MobileSwitcher onPick={resume} onHome={goHome} />}
       <MobileNotifications open={nc} onClose={() => setNc(false)} />
       <Slot region="controlCenter" />

@@ -10,12 +10,15 @@ export function IosFeatureHeader({
   onBack,
   onAI,
   scrolled,
+  safeTop = true,
 }: {
   title: string;
   backLabel: string;
   onBack: () => void;
   onAI: () => void;
   scrolled: boolean;
+  /** Skip the notch pad when a parent already cleared the status area (iPad tab bar). */
+  safeTop?: boolean;
 }) {
   return (
     <header
@@ -24,7 +27,7 @@ export function IosFeatureHeader({
         "shrink-0 border-b transition-[background-color,border-color] duration-200",
         scrolled ? "glass border-border bg-[var(--glass-bar)]" : "border-transparent bg-transparent",
       )}
-      style={{ paddingTop: "var(--sai-top)" }}
+      style={safeTop ? { paddingTop: "var(--sai-top)" } : undefined}
     >
       <div className="relative flex h-[46px] items-center px-1.5">
         <Button

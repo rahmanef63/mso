@@ -367,6 +367,33 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
+/* iOS 27 tab bar. Ink and the selected pill stay on the shell so Android,
+   Windows, Dashboard and macOS do not pick them up. The kit composites
+   #EDEDED / #121212 with a #0088FF / #0091FF tint through plus-darker and
+   plus-lighter. Those blend modes sample the wallpaper through this glass
+   and flatten the pill to gray, so the same two colors are mixed here
+   instead. 18% tint keeps a blue cast without turning the pill into a
+   flat blue fill. */
+[data-shell="ios"] {
+  --ios-tab-ink: #1a1a1a;
+  --ios-tab-glass: rgba(250, 250, 252, 0.74);
+  --ios-tab-stroke: rgba(255, 255, 255, 0.72);
+  --ios-tab-selected: #ededed;
+  --ios-tab-tint: #0088ff;
+}
+[data-theme="dark"] [data-shell="ios"] {
+  --ios-tab-ink: #f5f5f5;
+  --ios-tab-glass: rgba(22, 22, 26, 0.66);
+  --ios-tab-stroke: rgba(255, 255, 255, 0.16);
+  --ios-tab-selected: #121212;
+  --ios-tab-tint: #0091ff;
+}
+[data-shell="ios"] [data-slot="ios-tab-selected"],
+[data-shell="ios"] [data-slot="ipad-tab-selected"] {
+  background-color: color-mix(in srgb, var(--ios-tab-tint) 18%, var(--ios-tab-selected));
+  border-radius: 100px;
+}
+
 /* iOS Settings grouped-list body. The shell-settings primitives render the SAME
    markup in every shell; the iOS type scale + borderless-card-on-grouped-page
    look lives here (scoped) so the portable slice stays brand/shell-free.

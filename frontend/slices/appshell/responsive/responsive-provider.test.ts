@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { effectiveVisualViewportHeight, sameGeometry, shouldUseMobileSurface } from "./responsive-provider";
+import { effectiveVisualViewportHeight, sameGeometry, shouldFramePhoneShell, shouldUseMobileSurface } from "./responsive-provider";
 import type { Responsive } from "./use-responsive";
 
 const base: Responsive = {
@@ -68,6 +68,21 @@ describe("shouldUseMobileSurface", () => {
 
   it("desktop override always stays desktop", () => {
     expect(shouldUseMobileSurface("desktop", 390, 844, true)).toBe(false);
+  });
+});
+
+describe("shouldFramePhoneShell", () => {
+  it("frames the forced phone preview on a wide desktop", () => {
+    expect(shouldFramePhoneShell("phone", 1280, true)).toBe(true);
+  });
+
+  it("leaves a portrait tablet full-bleed for the iPad tab bar", () => {
+    expect(shouldFramePhoneShell("auto", 834, true)).toBe(false);
+  });
+
+  it("does not frame a phone-width viewport", () => {
+    expect(shouldFramePhoneShell("phone", 390, true)).toBe(false);
+    expect(shouldFramePhoneShell("auto", 390, true)).toBe(false);
   });
 });
 

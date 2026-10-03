@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, type ComponentType } from "react";
 import { useResponsive } from "../responsive/use-responsive";
+import { shouldFramePhoneShell } from "../responsive/responsive-provider";
 import { inEditable } from "../lib/use-focused-hotkey";
 import { usePersistLayout } from "../hooks/use-persist-layout";
 import { Wallpaper } from "./wallpaper";
@@ -50,7 +51,9 @@ function Surface() {
   // hotkey would silently snap the hidden focused window under a single-pane or
   // mobile shell, surprising the user when they switch back.
   useWindowSnapKeys(!!desc.windowed);
-  const framed = surface === "mobile" && r.vw >= 768;
+  // Wide + forced Phone is a preview frame. A portrait tablet stays full-bleed
+  // so the iPad tab bar is the shell, not a phone dock inside a phone frame.
+  const framed = shouldFramePhoneShell(r.device, r.vw, surface === "mobile");
 
   // The shell renders ONLY after mount, and this is a correctness fix, not caution.
   // Which shell to draw depends on three things the server cannot know: the viewport

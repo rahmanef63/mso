@@ -11,4 +11,5 @@ Source of truth: the project Apple-platform design reference (Apple HIG/Liquid G
 - Settings: the MSO root contract keeps `Settings` in the centered shell bar, so the content begins with Search (no second large “Settings”). Use grouped inset cards, ~16–18pt radius, 50–52pt rows, inset separators, muted section labels, system-green switches.
 - Forms/actions that interrupt flow use a bottom drawer/sheet. Keep destructive actions red and separated.
 - Navigation/overlay materials may use glass; content cards remain solid.
+- Tab bar: iPhone is a floating glass capsule above the home indicator (expanded 54pt with icon and label, minimized 40pt). A trailing capsule appears only when a tab is the search role or a prominent tab. iPad is one short horizontal capsule — sidebar, text tabs, search — not a vertical strip. Same pinned apps, titles and icons either way.
 - Respect safe areas, Reduce Motion, Reduce Transparency and high contrast.
