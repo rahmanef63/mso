@@ -31,6 +31,13 @@ export function LockScreen() {
   return locked ? <LockCurtain /> : null;
 }
 
+/** 12-hour clock with no day period, so "PM" cannot wrap onto a second line. */
+function lockTime(now: Date): string {
+  const hour = now.getHours() % 12 || 12;
+  const minute = String(now.getMinutes()).padStart(2, "0");
+  return `${hour}:${minute}`;
+}
+
 function LockCurtain() {
   const [now, setNow] = useState<Date>(() => new Date());
   const [torch, setTorch] = useState(false);
@@ -60,16 +67,16 @@ function LockCurtain() {
 
   return (
     <div
-      className="absolute inset-0 z-[var(--z-lock-screen)] flex cursor-pointer flex-col items-center justify-between bg-background/35 px-8 backdrop-blur-2xl"
+      className="absolute inset-0 z-[var(--z-lock-screen)] flex cursor-pointer flex-col items-center justify-between bg-black/25 px-8 backdrop-blur-2xl"
       style={{ paddingTop: "calc(12vh + var(--sai-top, 0px))", paddingBottom: "calc(4vh + var(--sai-bottom, 0px))" }}
       onClick={() => void requestUnlock()}
     >
-      <div className="flex flex-col items-center text-foreground">
-        <div className="text-[22px] font-medium">
+      <div className="flex flex-col items-center text-white">
+        <div data-slot="ios-lock-date" className="text-[17px] font-medium text-white">
           {now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
         </div>
-        <div className="text-[92px] font-thin leading-none tracking-tight">
-          {now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        <div data-slot="ios-lock-time" className="whitespace-nowrap text-[84px] font-thin leading-none tracking-tight text-white">
+          {lockTime(now)}
         </div>
       </div>
       <div className="flex w-full items-center justify-between">
@@ -79,7 +86,7 @@ function LockCurtain() {
           aria-label="Flashlight"
           aria-pressed={torch}
           onClick={(e) => { e.stopPropagation(); setTorch((on) => !on); }}
-          className={`glass grid size-12 place-items-center rounded-full border border-white/30 ${torch ? "bg-white text-black" : "bg-white/25 text-foreground"}`}
+          className={`glass grid size-12 place-items-center rounded-full border border-white/35 ${torch ? "bg-white text-black" : "bg-white/20 text-white"}`}
         >
           <Flashlight className="size-5" aria-hidden />
         </button>
@@ -88,7 +95,7 @@ function LockCurtain() {
           data-slot="ios-lock-camera"
           aria-label="Camera"
           onClick={(e) => e.stopPropagation()}
-          className="glass grid size-12 place-items-center rounded-full border border-white/30 bg-white/25 text-foreground"
+          className="glass grid size-12 place-items-center rounded-full border border-white/35 bg-white/20 text-white"
         >
           <Camera className="size-5" aria-hidden />
         </button>

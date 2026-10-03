@@ -9,6 +9,7 @@ import { AppsGrid, useHomePages } from "./mobile-home-parts";
 import { ShellContextMenu, useShellContextMenu } from "./shells/context-menu";
 import { IosHomeChrome } from "./shells/ios/ios-home-chrome";
 import { IosQuickActions } from "./shells/ios/ios-quick-actions";
+import { IOS_WIDGET_HOMES, IosWidgetHome } from "./shells/ios/ios-widget-home";
 import { lock } from "../lib/lock";
 
 // Paged iPhone home: [Today widgets] · [App grid ×N] · [App Library]. Page dots,
@@ -38,8 +39,11 @@ export function MobileHome({
   const [hidden, setHidden] = useState<string[]>([]);
   const [ctxApp, setCtxApp] = useState<{ app: AppDescriptor; x: number; y: number } | null>(null);
   const menu = useShellContextMenu("ios", "mobile"); // home background long-press menu
-  const gridPages = useHomePages(apps.filter((app) => !hidden.includes(app.id)));
-  const pageCount = gridPages.length + 2; // + Today + App Library
+  const visible = apps.filter((app) => !hidden.includes(app.id));
+  const gridPages = useHomePages(visible);
+  // Today, plain icon pages, one home per widget size, then the App Library.
+  const widgetStart = gridPages.length + 1;
+  const pageCount = widgetStart + IOS_WIDGET_HOMES.length + 1;
 
   // Open on the app grid (the middle page), like iPhone's default home.
   useLayoutEffect(() => {
@@ -119,6 +123,19 @@ export function MobileHome({
         {gridPages.map((tiles, i) => (
           <Page key={tiles[0]?.key ?? `home-${i}`} active={page === i + 1}>
             <AppsGrid tiles={tiles} onLaunch={onLaunch} onSearch={onSearch} onContext={(app, point) => setCtxApp({ app, ...point })} />
+          </Page>
+        ))}
+        {IOS_WIDGET_HOMES.map((widget, i) => (
+          <Page key={widget.size} active={page === widgetStart + i}>
+            <IosWidgetHome
+              apps={visible}
+              size={widget.size}
+              title={widget.title}
+              span={widget.span}
+              slots={widget.slots}
+              onLaunch={onLaunch}
+              onContext={(app, point) => setCtxApp({ app, ...point })}
+            />
           </Page>
         ))}
         <Page active={page === pageCount - 1}>

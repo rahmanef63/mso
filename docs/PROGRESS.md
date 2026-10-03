@@ -1,3 +1,7 @@
+## 2026-10-03 — Widget homes, lock type, Control Center mosaic
+
+The purple widget sizes were stacked on Today, which hid the icon grid. Each size is now its own home screen: one placeholder in the 4×6 grid and the existing apps in the cells around it. The plain icon home, search pill, and icon dock stay. The lock clock was rendering the day period as a second giant line in black on the blurred wallpaper; it is now one light 12-hour time under a small light date. iOS Control Center is a single packed mosaic (circle group, tall card, two lower tiles) of the toggles this shell already has.
+
 ## 2026-10-03 — iOS 27 home screen frames
 
 The first pass treated a third-party tab-bar measurement as the Home Screen. The linked Figma page is a different frame: the dock is a glass capsule of app icons with no labels, and Search is a separate pill above it. Grid icons keep their labels, and the page dots stay. Today shows the four widget sizes as purple placeholders named for the widgets this shell already has. The lock screen keeps the clock and puts the date above it, with flashlight and camera controls. iOS Control Center is a glass tile mosaic; the macOS menu-bar popover keeps the shared labeled list. A home-icon long-press is a floating menu (Remove App, Require Face ID, Edit Home Screen, then that app's own actions) instead of a bottom sheet. The macOS shell is unchanged.

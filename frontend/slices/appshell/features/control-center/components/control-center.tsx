@@ -25,7 +25,7 @@ export function ControlCenter() {
         className={cn(
           "border-border p-4 pt-[max(2.25rem,var(--sai-top,0px))]",
           apple
-            ? "glass rounded-b-[28px] bg-[var(--glass-menu)]"
+            ? "rounded-b-[34px] border-white/10 bg-black/35 shadow-none backdrop-blur-2xl"
             : "rounded-b-[28px] bg-card shadow-xl",
         )}
       >

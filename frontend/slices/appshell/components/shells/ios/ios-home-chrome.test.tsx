@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { AppDescriptor } from "../../../lib/types";
 import { IosHomeChrome } from "./ios-home-chrome";
 import { IosQuickActions } from "./ios-quick-actions";
+import { IOS_WIDGET_HOMES, IosWidgetHome } from "./ios-widget-home";
 
 function app(id: string, title: string): AppDescriptor {
   return {
@@ -48,5 +49,27 @@ describe("iOS 27 home chrome", () => {
     expect(html).toContain("Require Face ID");
     expect(html).toContain("Edit Home Screen");
     expect(html).not.toContain("justify-end");
+  });
+
+  it("gives each widget size its own home with one placeholder and icons around it", () => {
+    const cells = { small: 4, medium: 8, large: 16, "extra-large": 20 };
+    for (const widget of IOS_WIDGET_HOMES) {
+      expect(widget.slots + cells[widget.size]).toBe(24);
+      const html = renderToStaticMarkup(
+        <IosWidgetHome
+          apps={[app("files", "Files"), app("terminal", "Terminal")]}
+          size={widget.size}
+          title={widget.title}
+          span={widget.span}
+          slots={widget.slots}
+          onLaunch={() => {}}
+          onContext={() => {}}
+        />,
+      );
+      expect(html.match(/data-slot="ios-widget-placeholder"/g)).toHaveLength(1);
+      expect(html).toContain(`data-size="${widget.size}"`);
+      expect(html).toContain(widget.span);
+      expect(html).toContain('aria-label="Files"');
+    }
   });
 });

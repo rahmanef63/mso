@@ -18,7 +18,6 @@ describe("mobile widget layout policy", () => {
     expect(mobile).toContain("overflow-x-clip");
     expect(mobile).toContain('data-slot="quick-open-grid"');
     expect(mobile).toContain("grid-cols-4");
-    expect(mobile).toContain('data-slot="ios-widget-placeholder"');
-    expect(mobile).toContain('"extra-large"');
+    expect(mobile).not.toContain('data-slot="ios-widget-placeholder"');
   });
 });
