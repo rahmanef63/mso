@@ -72,7 +72,7 @@ function LockCurtain() {
       onClick={() => void requestUnlock()}
     >
       <div className="flex flex-col items-center gap-1 text-white">
-        <div data-slot="ios-lock-date" className="text-[20px] font-semibold leading-[25px] tracking-[-0.45px] text-white">
+        <div data-slot="ios-lock-date" className="text-[20px] font-semibold leading-[25px] tracking-[0.38px] text-white">
           {now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
         </div>
         <div data-slot="ios-lock-time" className="whitespace-nowrap text-[96px] font-normal leading-none tracking-normal text-white">

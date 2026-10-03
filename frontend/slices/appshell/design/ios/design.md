@@ -5,7 +5,7 @@ Source of truth: the project Apple-platform design reference (Apple HIG/Liquid G
 ## Contract
 - Clarity, deference, depth. Content is solid; glass belongs to navigation/overlays, never content cards.
 - 16–20pt side margins, 4/8pt rhythm, continuous/concentric corners.
-- SF-style system typography at the Large Dynamic Type size. Body and menu rows are 17/22 Regular (tracking −0.43). Navigation titles are Headline 17/22 Semibold. Home icon labels are Caption 1, 12/16 Regular. Screen titles such as Today are Title 1 emphasized, 28/34 Bold. The lock date is Title 3 emphasized, 20/25 Semibold; the lock time is 96pt Regular with the 96pt tracking of 0. Controls are at least 44×44pt and sit on a 16pt side margin.
+- SF-style system typography at the Large Dynamic Type size. Body and menu rows are 17/22 Regular (tracking −0.43). Navigation titles are Headline 17/22 Semibold. Home icon labels are Caption 1, 12/16 Regular. Screen titles such as Today are Title 1 emphasized, 28/34 Bold. The lock date is Title 3 emphasized, 20/25 Semibold, tracking +0.38; the lock time is 96pt Regular with the 96pt tracking of 0. Controls are at least 44×44pt and sit on a 16pt side margin.
 - Root feature header: **`< Home`** left, feature title centered, AI icon right; 44pt minimum targets.
 - Drill-down uses the same single header: parent on the left, detail title centered, AI right. Never render a second navigation header inside content.
 - Settings: the MSO root contract keeps `Settings` in the centered shell bar, so the content begins with Search (no second large “Settings”). Use grouped inset cards, ~16–18pt radius, 50–52pt rows, inset separators, muted section labels, system-green switches.

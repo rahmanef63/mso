@@ -1,3 +1,7 @@
+## 2026-10-03 — Lock date tracking and full-screen cover
+
+The lock date keeps Title 3 emphasized (20/25 Semibold) and now uses tracking +0.38. While the iOS shell is locked, the home does not paint through the curtain, so the lock surface covers it. Flashlight and camera stay the circular glass buttons. Other type sizes are unchanged.
+
 ## 2026-10-03 — iOS type styles and touch sizes
 
 Home labels, the search pill, widget titles, menu rows, the lock date and time, and Control Center type now use Apple’s Large Dynamic Type styles instead of nearby one-off sizes. Icon labels are Caption 1 (12/16 Regular). The search pill and menu rows are Body (17/22 Regular) with a 44pt target and 16pt inset. Widget and card titles are Headline (17/22 Semibold). The lock date is Title 3 emphasized (20/25 Semibold) and the lock time is 96pt Regular, which is the size whose SF Pro tracking is 0. The macOS shell is unchanged.
