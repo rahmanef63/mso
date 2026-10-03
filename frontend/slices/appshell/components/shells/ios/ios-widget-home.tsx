@@ -37,7 +37,7 @@ export function IosWidgetHome({
       <div
         data-slot="ios-widget-placeholder"
         data-size={size}
-        className={`flex min-h-0 items-end rounded-[22px] p-3 text-[15px] font-semibold text-white ${span}`}
+        className={`flex min-h-0 items-end rounded-[22px] p-4 text-[17px] font-semibold leading-[22px] tracking-[-0.43px] text-white ${span}`}
       >
         {title}
       </div>
@@ -54,7 +54,7 @@ export function IosWidgetHome({
           <span className="aspect-square min-h-0 max-h-[60px] flex-1">
             <AppIcon app={app} />
           </span>
-          <span className="max-w-full shrink-0 truncate text-[11px] font-medium leading-[13px] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">
+          <span className="max-w-full shrink-0 truncate text-[12px] font-normal leading-4 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">
             {app.title}
           </span>
         </Button>

@@ -1,3 +1,7 @@
+## 2026-10-03 — iOS type styles and touch sizes
+
+Home labels, the search pill, widget titles, menu rows, the lock date and time, and Control Center type now use Apple’s Large Dynamic Type styles instead of nearby one-off sizes. Icon labels are Caption 1 (12/16 Regular). The search pill and menu rows are Body (17/22 Regular) with a 44pt target and 16pt inset. Widget and card titles are Headline (17/22 Semibold). The lock date is Title 3 emphasized (20/25 Semibold) and the lock time is 96pt Regular, which is the size whose SF Pro tracking is 0. The macOS shell is unchanged.
+
 ## 2026-10-03 — Widget homes, lock type, Control Center mosaic
 
 The purple widget sizes were stacked on Today, which hid the icon grid. Each size is now its own home screen: one placeholder in the 4×6 grid and the existing apps in the cells around it. The plain icon home, search pill, and icon dock stay. The lock clock was rendering the day period as a second giant line in black on the blurred wallpaper; it is now one light 12-hour time under a small light date. iOS Control Center is a single packed mosaic (circle group, tall card, two lower tiles) of the toggles this shell already has.

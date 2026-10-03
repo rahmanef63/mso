@@ -35,12 +35,12 @@ export function IosFeatureHeader({
           variant="ghost"
           onClick={onBack}
           aria-label={`Back to ${backLabel}`}
-          className="absolute left-1 top-1/2 h-[44px] max-w-[34%] -translate-y-1/2 gap-0 overflow-hidden px-1 text-[17px] font-normal text-info hover:bg-transparent hover:text-info"
+          className="absolute left-1 top-1/2 h-[44px] max-w-[34%] -translate-y-1/2 gap-0 overflow-hidden px-1 text-[17px] font-normal leading-[22px] tracking-[-0.43px] text-info hover:bg-transparent hover:text-info"
         >
           <ChevronLeft className="size-[25px] shrink-0" aria-hidden />
           <span className="truncate">{backLabel}</span>
         </Button>
-        <span className="mx-auto max-w-[44%] truncate text-[17px] font-semibold tracking-[-0.01em] text-foreground">{title}</span>
+        <span className="mx-auto max-w-[44%] truncate text-[17px] font-semibold leading-[22px] tracking-[-0.43px] text-foreground">{title}</span>
         <Button
           type="button"
           variant="ghost"

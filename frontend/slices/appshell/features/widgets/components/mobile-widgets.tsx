@@ -25,11 +25,16 @@ export function MobileWidgets() {
   const { enabled } = useWidgetState();
 
   const quick = quickIds.map((id) => apps.find((a) => a.id === id)).filter(Boolean) as AppDescriptor[];
+  const ios = shell.id !== "android";
 
   return (
     <div data-slot="mobile-widgets" className="flex h-full w-full min-w-0 max-w-full flex-col gap-3 overflow-x-clip overflow-y-auto px-4 py-3 [scrollbar-width:none]">
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-[28px] font-extrabold tracking-[-0.02em] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">{shell.id === "android" ? "Widgets" : "Today"}</h2>
+        <h2 className={ios
+          ? "text-[28px] font-bold leading-[34px] tracking-[0.38px] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]"
+          : "text-[28px] font-extrabold tracking-[-0.02em] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]"}>
+          {shell.id === "android" ? "Widgets" : "Today"}
+        </h2>
         {/* Edit the glanceable VPS telemetry set right from the phone — opens the
             shared widget picker (add/remove Clock/Notes/Quicklinks/CPU/Mem/…). */}
         <Button
@@ -37,7 +42,9 @@ export function MobileWidgets() {
           variant="ghost"
           size="sm"
           onClick={() => setPickerOpen(true)}
-          className="h-8 gap-1.5 rounded-full bg-white/15 px-3 text-[13px] font-medium text-white backdrop-blur hover:bg-white/25 hover:text-white [@media(pointer:coarse)]:min-h-[44px]"
+          className={ios
+            ? "h-11 gap-2 rounded-full bg-white/15 px-4 text-[17px] font-normal leading-[22px] tracking-[-0.43px] text-white backdrop-blur hover:bg-white/25 hover:text-white"
+            : "h-8 gap-1.5 rounded-full bg-white/15 px-3 text-[13px] font-medium text-white backdrop-blur hover:bg-white/25 hover:text-white [@media(pointer:coarse)]:min-h-[44px]"}
         >
           <Plus className="size-4" /> Edit
         </Button>
@@ -50,14 +57,14 @@ export function MobileWidgets() {
 
       {quick.length > 0 && (
         <Card>
-          <span className="mb-2 block text-[12px] font-semibold text-muted-foreground">Quick open</span>
+          <span className={ios ? "mb-2 block text-[12px] font-semibold leading-4 text-muted-foreground" : "mb-2 block text-[12px] font-semibold text-muted-foreground"}>Quick open</span>
           <div data-slot="quick-open-grid" className="grid min-w-0 max-w-full grid-cols-4 gap-x-3 gap-y-3 overflow-x-clip">
             {quick.map((app) => (
               <Button key={app.id} type="button" variant="ghost" onClick={() => onOpen(app)} className="h-auto min-w-0 max-w-full p-0 hover:bg-transparent flex flex-col items-center gap-1.5 overflow-hidden">
                 <span className="size-12">
                   <AppIcon app={app} />
                 </span>
-                <span className="max-w-[56px] truncate text-[10.5px] font-medium">{app.title}</span>
+                <span className={ios ? "max-w-[56px] truncate text-[12px] font-normal leading-4" : "max-w-[56px] truncate text-[10.5px] font-medium"}>{app.title}</span>
               </Button>
             ))}
           </div>

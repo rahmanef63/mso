@@ -19,15 +19,15 @@ export function IosHomeChrome({
   onSearch: () => void;
 }) {
   return (
-    <div data-slot="ios-home-chrome" className="flex flex-col items-center gap-3 px-5 pb-1">
+    <div data-slot="ios-home-chrome" className="flex flex-col items-center gap-2 px-4 pb-1">
       <Button
         type="button"
         variant="ghost"
         data-slot="ios-search-pill"
         onClick={onSearch}
-        className={`${GLASS} h-9 gap-1.5 rounded-full px-4 text-[15px] font-medium text-white/80 hover:bg-white/10 hover:text-white`}
+        className={`${GLASS} h-11 gap-2 rounded-full px-4 text-[17px] font-normal leading-[22px] tracking-[-0.43px] text-white/80 hover:bg-white/10 hover:text-white [&_svg]:size-[17px]`}
       >
-        <Search className="size-4" aria-hidden />
+        <Search aria-hidden />
         Search
       </Button>
       {dockApps.length > 0 && (

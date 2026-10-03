@@ -22,6 +22,8 @@ describe("iOS 27 home chrome", () => {
       <IosHomeChrome dockApps={[app("files", "Files"), app("terminal", "Terminal")]} onLaunch={() => {}} onSearch={() => {}} />,
     );
     expect(html).toContain('data-slot="ios-search-pill"');
+    expect(html).toContain("text-[17px]");
+    expect(html).toContain("h-11");
     expect(html).toContain(">Search<");
     expect(html).toContain('data-slot="ios-dock"');
     expect(html).toContain('aria-label="Files"');
@@ -44,6 +46,8 @@ describe("iOS 27 home chrome", () => {
       />,
     );
     expect(html).toContain('data-slot="ios-quick-actions"');
+    expect(html).toContain("text-[17px]");
+    expect(html).toContain("min-h-11");
     expect(html).toContain("Remove App");
     expect(html).toContain("text-destructive");
     expect(html).toContain("Require Face ID");
@@ -67,6 +71,8 @@ describe("iOS 27 home chrome", () => {
         />,
       );
       expect(html.match(/data-slot="ios-widget-placeholder"/g)).toHaveLength(1);
+      expect(html).toContain("text-[12px]");
+      expect(html).toContain("text-[17px]");
       expect(html).toContain(`data-size="${widget.size}"`);
       expect(html).toContain(widget.span);
       expect(html).toContain('aria-label="Files"');

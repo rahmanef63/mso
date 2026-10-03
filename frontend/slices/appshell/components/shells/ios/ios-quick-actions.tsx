@@ -80,9 +80,9 @@ function Row({
       role="menuitem"
       disabled={disabled}
       onClick={onClick}
-      className={`h-auto min-h-11 w-full justify-start gap-3 rounded-none border-t border-border px-3.5 py-2.5 text-left text-[17px] font-normal first:border-t-0 hover:bg-foreground/5 ${destructive ? "text-destructive hover:text-destructive" : ""}`}
+      className={`h-auto min-h-11 w-full justify-start gap-3 rounded-none border-t border-border px-4 py-2.5 text-left text-[17px] font-normal leading-[22px] tracking-[-0.43px] first:border-t-0 hover:bg-foreground/5 [&_svg]:size-[17px] ${destructive ? "text-destructive hover:text-destructive" : ""}`}
     >
-      {Icon && <Icon className="size-[18px] shrink-0" aria-hidden />}
+      {Icon && <Icon className="shrink-0" aria-hidden />}
       <span className="truncate">{label}</span>
     </Button>
   );
@@ -90,8 +90,8 @@ function Row({
 
 function Footer({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
   return (
-    <Button type="button" variant="ghost" aria-label={label} onClick={onClick} className="h-12 rounded-none p-0 hover:bg-foreground/5">
-      <Icon className="size-[18px]" aria-hidden />
+    <Button type="button" variant="ghost" aria-label={label} onClick={onClick} className="h-11 min-h-11 rounded-none p-0 hover:bg-foreground/5 [&_svg]:size-[17px]">
+      <Icon aria-hidden />
     </Button>
   );
 }

@@ -67,15 +67,15 @@ function LockCurtain() {
 
   return (
     <div
-      className="absolute inset-0 z-[var(--z-lock-screen)] flex cursor-pointer flex-col items-center justify-between bg-black/25 px-8 backdrop-blur-2xl"
+      className="absolute inset-0 z-[var(--z-lock-screen)] flex cursor-pointer flex-col items-center justify-between bg-black/25 px-4 backdrop-blur-2xl"
       style={{ paddingTop: "calc(12vh + var(--sai-top, 0px))", paddingBottom: "calc(4vh + var(--sai-bottom, 0px))" }}
       onClick={() => void requestUnlock()}
     >
-      <div className="flex flex-col items-center text-white">
-        <div data-slot="ios-lock-date" className="text-[17px] font-medium text-white">
+      <div className="flex flex-col items-center gap-1 text-white">
+        <div data-slot="ios-lock-date" className="text-[20px] font-semibold leading-[25px] tracking-[-0.45px] text-white">
           {now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
         </div>
-        <div data-slot="ios-lock-time" className="whitespace-nowrap text-[84px] font-thin leading-none tracking-tight text-white">
+        <div data-slot="ios-lock-time" className="whitespace-nowrap text-[96px] font-normal leading-none tracking-normal text-white">
           {lockTime(now)}
         </div>
       </div>

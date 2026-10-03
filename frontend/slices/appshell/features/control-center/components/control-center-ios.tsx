@@ -21,7 +21,7 @@ export function IosControlCenter({ onClose }: { onClose: () => void }) {
   const windowsLabel = openCount ? `Close all (${openCount})` : "None open";
 
   return (
-    <div data-slot="ios-control-center" className="grid grid-cols-4 gap-2.5">
+    <div data-slot="ios-control-center" className="grid grid-cols-4 gap-2">
       <div data-slot="ios-cc-cluster" className={cn(WELL, "col-span-2 row-span-2 grid grid-cols-2 place-items-center gap-2.5 rounded-[28px] p-3")}>
         <Orb icon={dark ? Moon : Sun} label="Appearance" on={dark} onClick={() => setTheme(dark ? "light" : "dark")} />
         <Orb icon={focus ? MoonStar : Bell} label="Focus" on={focus} onClick={toggleFocusMode} />
@@ -43,8 +43,8 @@ export function IosControlCenter({ onClose }: { onClose: () => void }) {
           <Sparkles className="size-5" aria-hidden />
         </span>
         <span>
-          <span className="block text-[15px] font-semibold">Alfa</span>
-          <span className="block text-[12px] text-white/70">Ask about this app</span>
+          <span className="block text-[17px] font-semibold leading-[22px] tracking-[-0.43px]">Alfa</span>
+          <span className="block text-[15px] font-normal leading-5 tracking-[-0.23px] text-white/70">Ask about this app</span>
         </span>
       </Button>
       <Tile
@@ -94,12 +94,12 @@ function Tile({
       variant="ghost"
       disabled={disabled}
       onClick={onClick}
-      className={cn(WELL, "col-span-2 h-[78px] flex-col items-start justify-between rounded-[22px] px-3.5 py-3 text-left text-white hover:bg-white/25 disabled:opacity-40")}
+      className={cn(WELL, "col-span-2 h-[78px] flex-col items-start justify-between rounded-[22px] px-4 py-2 text-left text-white hover:bg-white/25 disabled:opacity-40")}
     >
       <Icon className="size-5" aria-hidden />
       <span>
-        <span className="block text-[13px] font-semibold leading-tight">{label}</span>
-        <span className="block truncate text-[11px] text-white/70">{value}</span>
+        <span className="block text-[13px] font-semibold leading-[18px] tracking-[-0.08px]">{label}</span>
+        <span className="block truncate text-[11px] font-normal leading-[13px] tracking-[0.06px] text-white/70">{value}</span>
       </span>
     </Button>
   );

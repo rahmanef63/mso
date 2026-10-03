@@ -59,10 +59,9 @@ function Tile({
       {/* No max-w — width follows height via aspect-square. Clamping the width too
           made the tile 58.5×60, visibly non-square, on a 360px-wide phone. */}
       <span className="aspect-square min-h-0 max-h-[60px] flex-1">{icon}</span>
-      {/* 11px/13px — iOS home labels are 11pt SF, one line, tight leading. Was 12px
-          inheriting the Button's 1.43 (17.1px measured), wasting 4px per row — 24px
-          over six rows, which is the margin six rows fit by. */}
-      <span className="max-w-full shrink-0 truncate text-[11px] font-medium leading-[13px] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">
+      {/* Caption 1: 12/16 Regular. Leading is set so the Button's text-sm
+          line-height cannot stretch the six-row grid. */}
+      <span className="max-w-full shrink-0 truncate text-[12px] font-normal leading-4 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">
         {label}
       </span>
     </Button>
