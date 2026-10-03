@@ -34,7 +34,9 @@ export function ControlCenterDesktop({ size = 28, variant = "default" }: { size?
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="glass w-80 rounded-xl border-border bg-[var(--glass-menu)] p-3"
+        className={variant === "windows"
+          ? "glass w-80 rounded-xl border-border bg-[var(--glass-menu)] p-3"
+          : "glass w-80 rounded-[26px] border-black/10 bg-white/75 p-3 shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_18px_48px_rgba(0,0,0,0.25)] dark:border-white/10 dark:bg-[rgba(44,44,48,0.88)]"}
       >
         <ControlCenterTiles onClose={() => setOpen(false)} />
       </PopoverContent>

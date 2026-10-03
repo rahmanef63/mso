@@ -269,6 +269,9 @@ body {
   --shell-font: var(--font-ui);
   --shell-radius-win: var(--radius-win);
   --shell-radius-ui: var(--radius);
+  /* Window shadow defaults to the shared token. macOS 27 overrides below. */
+  --shell-shadow-win: var(--shadow-win);
+  --shell-shadow-win-front: var(--shadow-win);
   --shell-icon-radius: 22.37%;
   /* App-icon look, per shell. Defaults are FLAT (iOS 7+ killed the glassy dome);
      macOS re-adds a whisper of depth below. Plain rounded-rect corner — a true
@@ -288,6 +291,26 @@ body {
   --shell-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", var(--font-ui);
   --shell-radius-win: 10px;
   --shell-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+/* macOS 27 community kit: 16px windows, vibrancy bar, capsule dock, lighter
+   resting shadow and a deeper shadow on the front window. Light and dark
+   share the same geometry; only the materials flip. */
+[data-shell="macos"] {
+  --shell-radius-win: 16px;
+  --shell-titlebar: rgba(255, 255, 255, 0.85);
+  --shell-titlebar-line: rgba(0, 0, 0, 0.05);
+  --shell-menu-bar: rgba(250, 250, 252, 0.55);
+  --shell-dock-bg: rgba(255, 255, 255, 0.32);
+  --shell-shadow-win: 0 0 1px rgba(0, 0, 0, 0.8), 0 7px 21px rgba(0, 0, 0, 0.2);
+  --shell-shadow-win-front: 0 0 1px rgba(0, 0, 0, 0.8), 0 18px 54px rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] [data-shell="macos"] {
+  --shell-titlebar: rgba(36, 36, 42, 0.82);
+  --shell-titlebar-line: rgba(255, 255, 255, 0.08);
+  --shell-menu-bar: rgba(22, 22, 26, 0.55);
+  --shell-dock-bg: rgba(32, 32, 36, 0.46);
+  --shell-shadow-win: 0 0 1px rgba(0, 0, 0, 0.9), 0 10px 28px rgba(0, 0, 0, 0.45);
+  --shell-shadow-win-front: 0 0 1px rgba(0, 0, 0, 0.95), 0 22px 56px rgba(0, 0, 0, 0.62);
 }
 /* macOS icons keep gentle Big-Sur dimensionality (not flat, not glossy) + a
    soft layered dock shadow + a slightly more inset glyph. iOS inherits the flat
@@ -528,7 +551,12 @@ body {
    used inline before, so iOS is visually unchanged); Android floors ONLY in the
    installed PWA (display-mode: standalone), so the browser tab / desktop
    PhoneFrame preview stays visually unchanged while the real app clears the bar. */
-[data-shell="ios"] { --sai-top: max(env(safe-area-inset-top, 0px), 2.75rem); }
+[data-shell="ios"] {
+  --sai-top: max(env(safe-area-inset-top, 0px), 2.75rem);
+  /* iOS 27 keyboard search field (gray 6). Used only by existing text chrome. */
+  --kbd-field: #f2f2f7;
+}
+[data-theme="dark"] [data-shell="ios"] { --kbd-field: #2c2c2e; }
 /* Android floors BOTH insets, in every display mode.
    It used to floor only --sai-top, only at 1.5rem (24px), and only inside
    `display-mode: standalone`. Three problems on a real phone, all reported from
@@ -598,8 +626,19 @@ body {
   background: var(--card);
 }
 [data-slot="shell-dialog-surface"][data-shell-id="macos"] {
-  border-radius: 12px;
+  border-radius: 16px;
+  border-color: transparent;
   background: var(--window-bg);
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.8), 0 18px 54px rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] [data-slot="shell-dialog-surface"][data-shell-id="macos"] {
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.95), 0 22px 56px rgba(0, 0, 0, 0.62);
+}
+/* Side-by-side alerts in the kit are a 34px liquid-glass capsule, ~260px wide. */
+[data-slot="shell-dialog-surface"][data-shell-id="macos"][data-variant="alert"] {
+  border-radius: 34px;
+  width: min(280px, calc(100vw - 2rem));
+  max-width: min(280px, calc(100vw - 2rem));
 }
 [data-slot="shell-dialog-surface"][data-shell-id="windows"] {
   border-radius: 8px;

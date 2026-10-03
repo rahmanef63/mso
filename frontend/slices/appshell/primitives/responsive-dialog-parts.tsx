@@ -37,8 +37,9 @@ export function ResponsiveDialogHeader({ className, children, ...props }: Respon
     );
   }
   if (variant === "alert") {
+    const macos = design.id === "macos";
     return (
-      <AlertDialogHeader className={cn(baseClasses, "gap-1.5 px-6 pb-4 pt-6", className)} {...props}>
+      <AlertDialogHeader className={cn(baseClasses, macos ? "gap-2.5 border-0 px-4 pb-0 pt-5 text-left" : "gap-1.5 px-6 pb-4 pt-6", className)} {...props}>
         {children}
       </AlertDialogHeader>
     );
@@ -65,7 +66,7 @@ export function ResponsiveDialogTitle({ className, children, ...props }: Respons
   const { variant, isMobile } = useResponsiveDialogContext("Title");
   const design = useShellDesign();
   if (isMobile) return <DrawerTitle className={cn(design.family === "apple" ? "text-[17px] font-semibold" : "text-[20px] font-medium", className)} {...props}>{children}</DrawerTitle>;
-  if (variant === "alert") return <AlertDialogTitle className={className} {...props}>{children}</AlertDialogTitle>;
+  if (variant === "alert") return <AlertDialogTitle className={cn(design.id === "macos" && "text-[13px] font-bold leading-4", className)} {...props}>{children}</AlertDialogTitle>;
   if (variant === "panel") return <SheetTitle className={className} {...props}>{children}</SheetTitle>;
   return <DialogTitle className={className} {...props}>{children}</DialogTitle>;
 }
@@ -76,8 +77,9 @@ export interface ResponsiveDialogDescriptionProps extends React.HTMLAttributes<H
 
 export function ResponsiveDialogDescription({ className, children, ...props }: ResponsiveDialogDescriptionProps) {
   const { variant, isMobile } = useResponsiveDialogContext("Description");
+  const design = useShellDesign();
   if (isMobile) return <DrawerDescription className={className} {...props}>{children}</DrawerDescription>;
-  if (variant === "alert") return <AlertDialogDescription className={className} {...props}>{children}</AlertDialogDescription>;
+  if (variant === "alert") return <AlertDialogDescription className={cn(design.id === "macos" && "text-[11px] leading-[14px]", className)} {...props}>{children}</AlertDialogDescription>;
   if (variant === "panel") return <SheetDescription className={className} {...props}>{children}</SheetDescription>;
   return <DialogDescription className={className} {...props}>{children}</DialogDescription>;
 }
@@ -119,8 +121,9 @@ export function ResponsiveDialogFooter({ className, children, ...props }: Respon
     );
   }
   if (variant === "alert") {
+    const macos = design.id === "macos";
     return (
-      <AlertDialogFooter className={cn(baseClasses, "gap-2 px-6 pb-5 pt-4 sm:justify-end", className)} {...props}>
+      <AlertDialogFooter className={cn(baseClasses, macos ? "flex-row gap-2 border-0 px-4 pb-4 pt-3.5 [&_button]:h-8 [&_button]:flex-1 [&_button]:rounded-full [&_button]:text-[13px]" : "gap-2 px-6 pb-5 pt-4 sm:justify-end", className)} {...props}>
         {children}
       </AlertDialogFooter>
     );

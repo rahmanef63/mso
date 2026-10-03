@@ -75,9 +75,9 @@ export function ForceQuitDialog() {
         if (!v) setSel(null);
       }}
     >
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Force Quit Applications</DialogTitle>
+      <DialogContent className="max-w-[280px] rounded-[34px] border-0 bg-[var(--window-bg)] p-4 shadow-[0_0_1px_rgba(0,0,0,0.8),0_18px_48px_rgba(0,0,0,0.25)]">
+        <DialogHeader className="gap-0 border-0 p-0 text-left">
+          <DialogTitle className="text-[13px] font-bold leading-4">Force Quit Applications</DialogTitle>
         </DialogHeader>
         {order.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">No open windows.</p>
@@ -88,8 +88,11 @@ export function ForceQuitDialog() {
             ))}
           </div>
         )}
-        <div className="flex justify-end">
-          <Button type="button" variant="destructive" disabled={!sel} onClick={() => sel && quit(sel)}>
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" className="h-8 flex-1 rounded-full text-[13px]" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="button" variant="destructive" className="h-8 flex-1 rounded-full text-[13px]" disabled={!sel} onClick={() => sel && quit(sel)}>
             Force Quit
           </Button>
         </div>

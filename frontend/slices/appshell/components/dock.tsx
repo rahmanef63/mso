@@ -18,8 +18,8 @@ import type { AppDescriptor, WindowState } from "../lib/types";
 // rest, one stable expanded size on hover. Icons are square, so it grows in height
 // too. Distance is measured against each slot's FIXED rest centre (invariant under
 // symmetric growth), so there's no measure→grow feedback.
-const SEP_W = 13; // divider slot px
-const GAP = 8; // px between slots
+const SEP_W = 11; // divider slot — kit separator is a 1px hairline with 5px of side padding
+const GAP = 9; // px between slots (macOS 27 dock)
 const MAG_SIGMA = 100; // bell-curve spread (≈3 icons each side ripple)
 const MIN_ICON = 22; // shrink floor — past it the row scrolls instead
 
@@ -161,7 +161,7 @@ export function Dock({ onMissionControl }: { onMissionControl?: () => void }) {
   });
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-2 z-[880] flex justify-center">
+    <div className="pointer-events-none absolute inset-x-0 bottom-1 z-[880] flex justify-center">
       {/* The scroll container is this WRAPPER, never the glass row: `overflow-x`
           forces `overflow-y` from visible to auto (CSS Overflow 3 §3.2), and every
           DockIcon HoverPanel sits `bottom-full` — ABOVE the row — so scrolling the
@@ -175,12 +175,12 @@ export function Dock({ onMissionControl }: { onMissionControl?: () => void }) {
           ref={rowRef}
           onPointerMove={(e) => { mouseX.current = e.clientX; schedule(); }}
           onPointerLeave={() => { mouseX.current = null; schedule(); }}
-          className={`glass pointer-events-auto flex items-end rounded-[22px] border border-white/40 px-2.5 py-2 shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_18px_50px_-10px_rgba(0,0,0,0.5)] dark:border-white/10 ${cramped ? "w-max" : ""}`}
-          style={{ background: "var(--dock-bg)", gap: GAP }}
+          className={`glass pointer-events-auto flex items-end rounded-full border border-black/10 px-2 pb-1 pt-2 shadow-[0_0_0_0.5px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.45)] dark:border-white/10 dark:shadow-[0_0_0_0.5px_rgba(255,255,255,0.12),inset_0_1px_0_rgba(255,255,255,0.08)] ${cramped ? "w-max" : ""}`}
+          style={{ background: "var(--shell-dock-bg, var(--dock-bg))", gap: GAP }}
         >
           {slots.map((s, i) => {
             if (s.kind === "sep") {
-              return <div key={`sep-${i}`} className="flex shrink-0 self-stretch items-center justify-center" style={{ width: SEP_W }}><span className="my-1 h-full w-px bg-border" /></div>;
+              return <div key={`sep-${i}`} className="flex shrink-0 self-stretch items-center justify-center" style={{ width: SEP_W }}><span className="my-1.5 h-9 w-px bg-black/30 mix-blend-plus-lighter dark:bg-white/35" /></div>;
             }
             const slotRef = (el: HTMLDivElement | null) => { slotEls.current[i] = el; };
             const zoneRef = (el: HTMLDivElement | null) => { zoneEls.current[i] = el; };

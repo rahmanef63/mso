@@ -33,10 +33,11 @@ export function menuMetrics(shell: string) {
     isTouch,
     /** No hover on a coarse pointer → submenus open on TAP instead. */
     tap: isTouch || coarse,
-    rowH: isTouch || coarse ? 44 : isWin ? 34 : 30,
-    item: isWin ? "h-[34px] rounded-[4px]" : isTouch ? "min-h-11 rounded-lg py-2.5 text-[15px]" : "rounded-md py-1",
+    rowH: isTouch || coarse ? 44 : isWin ? 34 : 24,
+    item: isWin ? "h-[34px] rounded-[4px]" : isTouch ? "min-h-11 rounded-lg py-2.5 text-[15px]" : "h-6 rounded-[5px] px-0 text-[13px] font-medium",
     motion: isWin ? "fade-in-0 slide-in-from-top-2 duration-150" : "fade-in zoom-in-95 duration-100",
-    radius: isWin ? "rounded-lg" : isTouch ? "rounded-2xl" : "rounded-xl",
+    radius: isWin ? "rounded-lg" : isTouch ? "rounded-2xl" : "rounded-[12px]",
+    chrome: isWin || isTouch ? "" : "border-black/10 bg-white/75 px-3 py-[5px] text-[13px] shadow-[0_0_0_0.5px_rgba(0,0,0,0.12),0_8px_48px_rgba(0,0,0,0.25)] backdrop-blur-xl dark:border-white/10 dark:bg-[rgba(44,44,48,0.88)]",
     iconSize: isTouch ? "size-[18px]" : "size-4",
   };
 }
@@ -92,7 +93,7 @@ export function SubPanel({ item, m, onClose, pos, panelRef, onEnter, onLeave }: 
       aria-label={item.label}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
-      className={cn(PANEL, "z-[1202]", m.radius, m.motion)}
+      className={cn(PANEL, "z-[1202]", m.radius, m.chrome, m.motion)}
       style={{ left: pos.x, top: pos.y }}
     >
       <MenuRows items={item.items} m={m} onClose={onClose} />

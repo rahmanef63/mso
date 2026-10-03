@@ -76,6 +76,7 @@ export function ResponsiveDialogShell({
             data-slot="shell-dialog-surface"
             data-shell-id={design.id}
             data-shell-family={design.family}
+            data-variant={variant}
             data-shell-mobile="true"
             className={cn(
               "flex flex-col gap-0 p-0",
@@ -101,6 +102,7 @@ export function ResponsiveDialogShell({
             data-slot="shell-dialog-surface"
             data-shell-id={design.id}
             data-shell-family={design.family}
+            data-variant={variant}
             data-shell-mobile="false"
             className={cn("flex flex-col gap-0 overflow-hidden p-0", SIZE_DESKTOP_WIDTH[size], contentClassName)}
           >
@@ -119,6 +121,7 @@ export function ResponsiveDialogShell({
             data-slot="shell-dialog-surface"
             data-shell-id={design.id}
             data-shell-family={design.family}
+            data-variant={variant}
             data-shell-mobile="false"
             side={sheetSide}
             className={cn(
@@ -140,6 +143,7 @@ export function ResponsiveDialogShell({
           data-slot="shell-dialog-surface"
           data-shell-id={design.id}
           data-shell-family={design.family}
+          data-variant={variant}
           data-shell-mobile="false"
           showCloseButton={showCloseButton}
           className={cn(

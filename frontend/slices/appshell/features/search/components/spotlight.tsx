@@ -164,8 +164,8 @@ function SpotlightPanel() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* iOS: input becomes a systemFill pill with a leading search glyph. */}
-        <div className={cn("flex items-center", ios && "m-3 gap-2 rounded-xl bg-[var(--fill)] px-3")}>
-          {ios && <Search className="size-[15px] shrink-0 text-muted-foreground" />}
+        <div className={cn("flex items-center", ios && "m-3 gap-1.5 rounded-full bg-[var(--kbd-field,#f2f2f7)] px-3")}>
+          {ios && <Search className="size-4 shrink-0 text-muted-foreground" />}
           <input
             ref={inputRef}
             role="combobox"
@@ -178,7 +178,7 @@ function SpotlightPanel() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
             placeholder="Search apps, folders, actions…"
-            className={cn("w-full bg-transparent text-base outline-none placeholder:text-muted-foreground", ios ? "py-2.5" : "px-5 py-4")}
+            className={cn("w-full bg-transparent outline-none placeholder:text-muted-foreground", ios ? "py-2.5 text-[17px] tracking-[-0.02em]" : "px-5 py-4 text-base")}
           />
         </div>
         {results.length > 0 && (

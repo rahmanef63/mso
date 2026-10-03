@@ -200,7 +200,7 @@ export function ContextMenu({ pos, items, onClose }: { pos: Pos; items: MenuItem
         ref={menuRef}
         role="menu"
         onMouseLeave={leaveSub}
-        className={cn(PANEL, "z-[1201]", m.radius, m.motion)}
+        className={cn(PANEL, "z-[1201]", m.radius, m.chrome, m.motion)}
         style={{ left: x, top: y }}
       >
         <MenuRows items={items} m={m} onClose={onClose} sub={{ open: sub?.i ?? null, onOpen: openSub, onLeave: leaveSub }} />

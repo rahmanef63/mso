@@ -173,7 +173,7 @@ export function ChatComposer({
       ) : null}
 
       {/* iOS = iMessage pill: the send FAB nests inside the --fill rounded pill. */}
-      <div className={cn("flex items-end gap-2", ios && "gap-1.5 rounded-[20px] border border-[var(--sep)] bg-[var(--fill)] py-1 pl-3.5 pr-1")}>
+      <div className={cn("flex items-end gap-2", ios && "gap-1.5 rounded-full border-0 bg-[var(--kbd-field,#f2f2f7)] py-1 pl-3.5 pr-1 shadow-[inset_0_0_8px_rgba(0,0,0,0.05)]")}>
         <Textarea
           ref={ref}
           value={value}
@@ -185,7 +185,7 @@ export function ChatComposer({
           placeholder={streaming ? (run?.status === "waiting" ? "Waiting for your approval…" : run?.status === "stopped" ? "Stopping the run…" : "Alfa is working…") : (placeholder ?? "Message Alfa…  @agent  /skill")}
           className={cn(
             "max-h-32 min-h-9 flex-1 resize-none scrollbar-thin",
-            ios && "min-h-8 border-0 bg-transparent px-0 py-1.5 shadow-none focus-visible:ring-0",
+            ios && "min-h-8 border-0 bg-transparent px-0 py-1.5 text-[17px] tracking-[-0.02em] shadow-none focus-visible:ring-0",
           )}
         />
         {streaming ? (

@@ -86,7 +86,8 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
         data-window
         data-app={win.app}
         className={cn(
-          "win-geo absolute flex flex-col overflow-hidden border border-border bg-card shadow-[var(--shadow-win)]",
+          "win-geo absolute flex flex-col overflow-hidden border border-border bg-card",
+          focused ? "shadow-[var(--shell-shadow-win-front)]" : "shadow-[var(--shell-shadow-win)]",
           "rounded-[var(--shell-radius-win)]",
           anim,
           // pinned (always-on-top) windows beat even the focused regular window
@@ -125,21 +126,22 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
           </div>
         ) : (
           <div
-            className="glass flex h-[38px] shrink-0 cursor-grab items-center gap-2 border-b border-border px-3 font-[family-name:var(--shell-font)] active:cursor-grabbing"
-            style={{ background: "var(--window-head)" }}
+            className="glass flex h-[52px] shrink-0 cursor-grab items-center gap-2 border-b px-[18px] font-[family-name:var(--shell-font)] active:cursor-grabbing"
+            style={{ background: "var(--shell-titlebar, var(--window-head))", borderColor: "var(--shell-titlebar-line, var(--border))" }}
             onPointerDown={onBarDown}
             onDoubleClick={() => toggleMaximize(id)}
             onContextMenu={ctx.open}
           >
             <TrafficLights
+              focused={focused}
               onClose={beginClose}
               onMinimize={beginMinimize}
               onMaximize={() => toggleMaximize(id)}
             />
-            <div className="pointer-events-none flex-1 truncate text-center text-[13px] font-semibold text-muted-foreground">
+            <div className="pointer-events-none flex-1 truncate text-center text-[13px] font-bold leading-[15px] text-foreground">
               {title}
             </div>
-            <div className="min-w-[54px]" />
+            <div className="min-w-[52px]" />
           </div>
         )}
 

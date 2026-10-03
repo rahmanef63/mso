@@ -16,12 +16,12 @@ export function StatusCluster() {
   const unread = useNotifications().some((n) => !n.read);
 
   return (
-    <div className="ml-auto flex items-center gap-0.5 text-muted-foreground">
+    <div className="ml-auto flex items-center text-foreground">
       <span data-slot="system-status-host" data-status-placement="menu-bar" className="flex items-center">
         <Slot region="systemStatus" />
       </span>
       {cpu != null && (
-        <span className="flex items-center gap-1 rounded-md px-2 py-0.5 tabular-nums">
+        <span className="flex items-center gap-1 rounded-[4px] px-[9px] py-1 text-[13px] font-semibold tabular-nums">
           <Activity className="size-3.5" />
           {cpu}%
         </span>
@@ -32,7 +32,7 @@ export function StatusCluster() {
         size="icon"
         aria-label="Spotlight (⌘K)"
         onClick={toggleSpotlight}
-        className="h-auto grid size-6 place-items-center rounded-md hover:bg-[var(--hover-strong)]"
+        className="h-auto grid size-6 place-items-center rounded-[4px] hover:bg-foreground/10"
       >
         <Search className="size-4" />
       </Button>
@@ -42,7 +42,7 @@ export function StatusCluster() {
         size="icon"
         aria-label="AI Inspector (⌘I)"
         onClick={toggleInspector}
-        className="h-auto grid size-6 place-items-center rounded-md hover:bg-[var(--hover-strong)]"
+        className="h-auto grid size-6 place-items-center rounded-[4px] hover:bg-foreground/10"
       >
         <Sparkles className="size-4" />
       </Button>
@@ -52,7 +52,7 @@ export function StatusCluster() {
         size="icon"
         aria-label="Toggle theme"
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        className="h-auto grid size-6 place-items-center rounded-md hover:bg-[var(--hover-strong)]"
+        className="h-auto grid size-6 place-items-center rounded-[4px] hover:bg-foreground/10"
       >
         {theme === "dark" ? <Moon className="size-4" /> : <Sun className="size-4" />}
       </Button>
@@ -64,7 +64,7 @@ export function StatusCluster() {
         variant="ghost"
         aria-label="Notification Center"
         onClick={toggleNotificationCenter}
-        className="h-auto relative flex items-center rounded-md px-1.5 py-0.5 font-semibold tabular-nums text-foreground hover:bg-[var(--hover-strong)]"
+        className="h-auto relative flex items-center gap-2 rounded-[4px] py-1 pl-[9px] text-[13px] font-semibold tabular-nums text-foreground hover:bg-foreground/10"
       >
         {clock}
         {unread && <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-primary" />}

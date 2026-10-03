@@ -4,23 +4,25 @@ import { Button } from "@/components/ui/button";
 
 // macOS window controls. Glyphs fade in on hover of the cluster (os-rr).
 export function TrafficLights({
+  focused = true,
   onClose,
   onMinimize,
   onMaximize,
 }: {
+  focused?: boolean;
   onClose: () => void;
   onMinimize: () => void;
   onMaximize: () => void;
 }) {
   return (
-    <div className="group/lights flex gap-2">
-      <Light color="#ff5f57" stroke="#7a0a00" label="Close window" onClick={onClose}>
+    <div className="group/lights flex items-center gap-[9px] pr-2">
+      <Light focused={focused} color="#ff5c60" stroke="#7a0a00" label="Close window" onClick={onClose}>
         <path d="M1.6 1.6l4.8 4.8M6.4 1.6l-4.8 4.8" strokeWidth="1.2" strokeLinecap="round" />
       </Light>
-      <Light color="#febc2e" stroke="#7a4b00" label="Minimize window" onClick={onMinimize}>
+      <Light focused={focused} color="#fac800" stroke="#7a4b00" label="Minimize window" onClick={onMinimize}>
         <path d="M1.4 4h5.2" strokeWidth="1.4" strokeLinecap="round" />
       </Light>
-      <Light color="#28c840" stroke="#0a5200" label="Maximize window" onClick={onMaximize}>
+      <Light focused={focused} color="#35c759" stroke="#0a5200" label="Maximize window" onClick={onMaximize}>
         <path d="M2 6V2h4M6 2L2 6" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </Light>
     </div>
@@ -28,12 +30,14 @@ export function TrafficLights({
 }
 
 function Light({
+  focused,
   color,
   stroke,
   label,
   onClick,
   children,
 }: {
+  focused: boolean;
   color: string;
   stroke: string;
   label: string;
@@ -51,8 +55,9 @@ function Light({
         onClick();
       }}
       onPointerDown={(e) => e.stopPropagation()}
-      className="h-auto w-auto hover:bg-transparent grid size-3 place-items-center rounded-full shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.18)]"
-      style={{ background: color }}
+      className="grid size-3.5 h-auto w-auto place-items-center rounded-full border-[0.5px] border-black/45 hover:bg-transparent data-[dim=true]:border-black/10 data-[dim=true]:bg-black/15 dark:data-[dim=true]:border-white/10 dark:data-[dim=true]:bg-white/20"
+      data-dim={focused ? undefined : true}
+      style={focused ? { background: color } : undefined}
     >
       <svg
         viewBox="0 0 8 8"

@@ -32,7 +32,7 @@ function IosSettingsIndex({ onSelect }: { onSelect: (id: SectionId) => void }) {
   return (
     <div data-slot="ios-settings-root" className="h-full overflow-y-auto bg-[var(--grouped)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <div className="mx-auto w-full max-w-2xl px-4 pb-[calc(var(--sai-bottom,0px)+1.5rem)] pt-6">
-        <label className="flex h-[38px] items-center gap-2 rounded-[11px] bg-[var(--fill)] px-3 text-muted-foreground">
+        <label className="flex h-10 items-center gap-1.5 rounded-full bg-[var(--kbd-field,#f2f2f7)] px-3 text-muted-foreground">
           <Search className="size-[19px] shrink-0" aria-hidden />
           <span className="sr-only">Search settings</span>
           <input
