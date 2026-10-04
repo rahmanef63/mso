@@ -1,3 +1,7 @@
+## 2026-10-04 — Smaller home widgets, lock time weight, glass fill
+
+Home widgets sit in an 80px icon grid instead of stretching with the page. Small is 2×2, medium is 4×2, large is 3×3 with icons beside it, and extra-large is 4×3 with icons below, so none of them fills the home. The lock time is 92pt Regular, the next SF Pro size under 96pt and the Large Title weight, with tracking 0, still one cream line. Search, the dock, lock complications, and Control Center tiles paint the glass fill, including the tiles that render outside the shell.
+
 ## 2026-10-04 — Lock date line and cream time
 
 The lock date is a short device date, Footnote size, tight above the time. The city is added on that line only after the location grant returns a name. The time is 96pt light cream at 78% opacity. Weather fallback, wallpaper, flashlight, camera, and complications stay.

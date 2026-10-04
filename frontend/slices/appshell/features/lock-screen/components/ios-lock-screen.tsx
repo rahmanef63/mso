@@ -93,7 +93,7 @@ export function IosLockFace({ now }: { now: Date }) {
           <span>{lockShortDate(now)}</span>
           {city ? <span data-slot="ios-lock-city">{` · ${city}`}</span> : null}
         </div>
-        <div data-slot="ios-lock-time" className="-mt-1 whitespace-nowrap text-[96px] font-light leading-none tracking-normal text-[oklch(0.94_0.03_95/0.78)]">
+        <div data-slot="ios-lock-time" className="-mt-1 whitespace-nowrap text-[92px] font-normal leading-none tracking-normal text-[oklch(0.94_0.03_95/0.78)]">
           {lockTime(now)}
         </div>
         <IosLockComplications now={now} weather={weather} />

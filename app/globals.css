@@ -374,6 +374,21 @@ body {
   background: #6e56cf;
 }
 
+/* Liquid Glass needs a fill, not blur alone. These iOS surfaces share the
+   shell glass tint; --blur still drops to 0 under Reduce Transparency. */
+[data-shell="ios"] [data-slot="ios-search-pill"],
+[data-shell="ios"] [data-slot="ios-dock"],
+[data-shell="ios"] [data-slot="ios-lock-weather"],
+[data-shell="ios"] [data-slot="ios-lock-rings"],
+[data-shell="ios"] [data-slot="ios-lock-analog"],
+[data-slot="ios-cc-cluster"],
+[data-slot="ios-cc-card"],
+[data-slot="ios-cc-tile"] {
+  background-color: var(--glass-bar);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);
+  backdrop-filter: blur(var(--blur)) saturate(180%);
+}
+
 /* iOS Settings grouped-list body. The shell-settings primitives render the SAME
    markup in every shell; the iOS type scale + borderless-card-on-grouped-page
    look lives here (scoped) so the portable slice stays brand/shell-free.

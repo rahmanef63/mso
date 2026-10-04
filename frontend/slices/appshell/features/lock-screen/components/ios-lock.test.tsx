@@ -31,7 +31,9 @@ describe("iOS lock clock", () => {
     expect(html).toContain('data-slot="ios-lock-camera"');
     expect(html).toContain('data-slot="ios-lock-home-indicator"');
     expect(html).toContain(">3:07<");
-    expect(html).toContain("font-light");
+    expect(html).toContain("text-[92px]");
+    expect(html).toContain("font-normal");
+    expect(html).not.toContain("font-light");
     expect(html).toContain("text-[13px]");
     expect(html).not.toContain("text-[20px]");
     expect(html).not.toContain('data-slot="ios-lock-city"');

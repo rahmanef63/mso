@@ -9,8 +9,8 @@ import { AppIcon } from "../../app-icon";
 export const IOS_WIDGET_HOMES = [
   { size: "small", title: "CPU", span: "col-span-2 row-span-2", slots: 20 },
   { size: "medium", title: "Memory", span: "col-span-4 row-span-2", slots: 16 },
-  { size: "large", title: "Storage", span: "col-span-4 row-span-4", slots: 8 },
-  { size: "extra-large", title: "Clock", span: "col-span-4 row-span-5", slots: 4 },
+  { size: "large", title: "Storage", span: "col-span-3 row-span-3", slots: 15 },
+  { size: "extra-large", title: "Clock", span: "col-span-4 row-span-3", slots: 12 },
 ] as const;
 
 export type IosWidgetSize = (typeof IOS_WIDGET_HOMES)[number]["size"];
@@ -33,7 +33,7 @@ export function IosWidgetHome({
   onContext: (app: AppDescriptor, point: { x: number; y: number }) => void;
 }) {
   return (
-    <div className="grid h-full grid-cols-4 grid-rows-6 gap-x-[26px] overflow-hidden px-6 pb-6 pt-[18px]">
+    <div className="grid h-full content-start grid-cols-4 grid-rows-[repeat(6,minmax(0,80px))] gap-x-[26px] gap-y-2 overflow-hidden px-6 pb-6 pt-[18px]">
       <div
         data-slot="ios-widget-placeholder"
         data-size={size}
@@ -51,7 +51,7 @@ export function IosWidgetHome({
           onContextMenu={(e) => { e.preventDefault(); onContext(app, { x: e.clientX, y: e.clientY }); }}
           className="h-auto min-h-0 p-0 hover:bg-transparent flex flex-col items-center gap-1"
         >
-          <span className="aspect-square min-h-0 max-h-[60px] flex-1">
+          <span className="size-[60px] max-h-full shrink-0">
             <AppIcon app={app} />
           </span>
           <span className="max-w-full shrink-0 truncate text-[12px] font-normal leading-4 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">

@@ -8,7 +8,7 @@ import { closeAll, toggleInspector, toggleSpotlight } from "../../../lib/store";
 import { toggleFocusMode, useFocusMode } from "../../../lib/focus-mode";
 import { useShellAppearance, useServerToggle } from "../../../registry/capabilities";
 
-const WELL = "border border-white/15 bg-white/18";
+const WELL = "glass border border-white/15 bg-[var(--glass-bar)]";
 
 /** Packed glass mosaic: a 2×2 circle group, a tall card beside it, then two
  *  lower tiles. Only real MSO toggles. The macOS popover keeps the labeled list. */
@@ -95,6 +95,7 @@ function Tile({
       disabled={disabled}
       onClick={onClick}
       className={cn(WELL, "col-span-2 h-[78px] flex-col items-start justify-between rounded-[22px] px-4 py-2 text-left text-white hover:bg-white/25 disabled:opacity-40")}
+      data-slot="ios-cc-tile"
     >
       <Icon className="size-5" aria-hidden />
       <span>

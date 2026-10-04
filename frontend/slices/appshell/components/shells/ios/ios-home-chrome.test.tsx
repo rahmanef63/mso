@@ -56,7 +56,7 @@ describe("iOS 27 home chrome", () => {
   });
 
   it("gives each widget size its own home with one placeholder and icons around it", () => {
-    const cells = { small: 4, medium: 8, large: 16, "extra-large": 20 };
+    const cells = { small: 4, medium: 8, large: 9, "extra-large": 12 };
     for (const widget of IOS_WIDGET_HOMES) {
       expect(widget.slots + cells[widget.size]).toBe(24);
       const html = renderToStaticMarkup(
