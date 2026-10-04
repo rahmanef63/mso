@@ -49,6 +49,8 @@ describe("locked isolated node-gyp bootstrap", () => {
     const p = JSON.parse(fs.readFileSync(path.join(SOURCE, "package.json"), "utf8"));
     const lock = JSON.parse(fs.readFileSync(path.join(SOURCE, "package-lock.json"), "utf8"));
     expect(p.private).toBe(true); expect(Object.keys(p.dependencies)).toEqual(["node-gyp"]);
+    expect(p.dependencies["node-gyp"]).toBe("12.4.0");
+    expect(Object.keys(lock.packages).some((name) => /http-cache-semantics|make-fetch-happen/.test(name))).toBe(false);
     expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     expect(lock.lockfileVersion).toBe(3);
     for (const [name, row] of Object.entries(lock.packages) as [string, { version: string; resolved: string; integrity: string }][]) {
