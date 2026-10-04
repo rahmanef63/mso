@@ -15,6 +15,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `appearance` refine default 27 desktop wallpapers
 - `security` clear unfixed dependency and Semgrep audit gates
 
+**Chores**
+
+- `deps` bump the actions-minor-patch group with 3 updates
+
 ## 2026-10-02
 
 **Fixed**
