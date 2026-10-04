@@ -5,12 +5,14 @@ import { BRACES_DEV_LINT, bracesDevLintAllows, readRepoLock } from "./audit-exce
 const IDS = [BRACES_DEV_LINT.id, BRACES_DEV_LINT.cve];
 const OPEN = new Date("2026-10-04T00:00:00Z");
 const EXPIRED = new Date(BRACES_DEV_LINT.until);
+type Deps = Record<string, string>;
+type Lock = {
+  workspaces: { "": { dependencies: Deps; devDependencies: Deps } };
+  packages: Record<string, [string, string, { dependencies: Deps }]>;
+};
 
-function lock(mutate: (row: {
-  workspaces: { "": { dependencies: Record<string, string>; devDependencies: Record<string, string> } };
-  packages: Record<string, [string, string, { dependencies: Record<string, string> }]>;
-}) => void = () => {}) {
-  const row = {
+function lock(mutate: (row: Lock) => void = () => {}) {
+  const row: Lock = {
     workspaces: { "": { dependencies: { next: "1" }, devDependencies: { "eslint-config-next": "1" } } },
     packages: {
       braces: ["braces@3.0.3", "", { dependencies: {} }],
