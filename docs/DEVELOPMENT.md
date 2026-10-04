@@ -219,6 +219,11 @@ the normal user cache). Cache hits require matching manifests and the expected
 runner version. Failed downloads cannot publish a partial runner, replace the
 installer recovery trap, or remove the application's `node_modules`.
 
+node-gyp 12.4.0 is the newest release whose engines (`^20.17.0 || >=22.9.0`) still
+cover MSO's Node range and whose lockfile does not include `http-cache-semantics`.
+node-gyp 13 requires `^22.22.2 || ^24.15.0 || >=26.0.0`, which is narrower than
+`^22.12.0`, so Dependabot keeps ignoring node-gyp major updates.
+
 Update the exact tool version in that manifest and regenerate its lock with
 `npm install --package-lock-only --ignore-scripts --no-audit --no-fund --prefix scripts/install/node-gyp`.
 Review the dependency diff, run `npm audit --prefix scripts/install/node-gyp --omit=dev --audit-level=high`,

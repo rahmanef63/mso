@@ -1,0 +1,7 @@
+# OSV-Scanner loads this file only for lockfiles in this directory (bun.lock).
+# It does not apply to scripts/install/node-gyp/package-lock.json or other children.
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-12-03T00:00:00Z
+reason = "braces 3.0.3 is reachable only through the devDependency chain eslint-config-next → @next/eslint-plugin-next → fast-glob → micromatch in bun.lock. @next/eslint-plugin-next calls fast-glob only when ESLint settings.next.rootDir is set, and eslint.config.mjs does not set it. No MSO source imports braces or passes a pattern to it. npm still publishes 3.0.3 as the newest braces release. This exception expires at 2026-12-03T00:00:00Z and the root osv-scanner.toml applies only to bun.lock."

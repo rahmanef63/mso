@@ -8,23 +8,27 @@ const removeCustomProvider = vi.fn();
 const removeOAuthBundle = vi.fn();
 const readConfig = vi.fn();
 const getKey = vi.fn();
+type ConfigStore = typeof import("@/lib/config/store");
 
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: vi.fn(async () => true) }));
-vi.mock("@/lib/config/store", async (importOriginal) => ({
-  ...await importOriginal<typeof import("@/lib/config/store")>(),
-  DEFAULT_MODEL: "default-model",
-  DEFAULT_PROVIDER: "anthropic",
-  readConfig: (...args: unknown[]) => readConfig(...args),
-  writeConfig: (...args: unknown[]) => writeConfig(...args),
-  hostCredentialStore: () => ({
-    getKey: (...args: unknown[]) => getKey(...args),
-    setKey: (...args: unknown[]) => setKey(...args),
-    deleteKey: (...args: unknown[]) => deleteKey(...args),
-  }),
-  upsertCustomProvider: (...args: unknown[]) => upsertCustomProvider(...args),
-  removeCustomProvider: (...args: unknown[]) => removeCustomProvider(...args),
-  removeOAuthBundle: (...args: unknown[]) => removeOAuthBundle(...args),
-}));
+vi.mock("@/lib/config/store", async (importOriginal) => {
+  const actual = await importOriginal<ConfigStore>();
+  return {
+    ...actual,
+    DEFAULT_MODEL: "default-model",
+    DEFAULT_PROVIDER: "anthropic",
+    readConfig: (...args: unknown[]) => readConfig(...args),
+    writeConfig: (...args: unknown[]) => writeConfig(...args),
+    hostCredentialStore: () => ({
+      getKey: (...args: unknown[]) => getKey(...args),
+      setKey: (...args: unknown[]) => setKey(...args),
+      deleteKey: (...args: unknown[]) => deleteKey(...args),
+    }),
+    upsertCustomProvider: (...args: unknown[]) => upsertCustomProvider(...args),
+    removeCustomProvider: (...args: unknown[]) => removeCustomProvider(...args),
+    removeOAuthBundle: (...args: unknown[]) => removeOAuthBundle(...args),
+  };
+});
 vi.mock("@/lib/models/defaults", () => ({ DEFAULT_PROVIDER: "anthropic", defaultModelFor: (p: string) => `${p}-default` }));
 vi.mock("@/lib/host/ssrf", () => ({
   resolveSafeProviderEndpoint: vi.fn(async (url: string) => ({ url: new URL(url) })),

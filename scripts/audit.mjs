@@ -2,6 +2,7 @@
 // Local development tolerates an unavailable registry; --strict never treats a
 // skipped/incomplete dependency audit as success. CI and security assurance use strict mode.
 import { spawnSync } from "node:child_process";
+import { bracesDevLintAllows, readRepoLock } from "./audit-exceptions.mjs";
 
 const FLOOR = new Set(["high", "critical"]);
 const AUDIT_TIMEOUT_MS = 15_000;
@@ -11,8 +12,9 @@ if (process.argv.slice(2).some((arg) => arg !== "--strict")) {
   process.exit(2);
 }
 
-// GHSA/CVE -> reason + acceptance date, only when no upstream fix exists.
-const IGNORE = {};
+// Path-scoped exceptions are proved from bun.lock. A GHSA id alone is not enough.
+let repoLock = "";
+try { repoLock = readRepoLock(); } catch { repoLock = ""; }
 function unavailable(reason) {
   console.error(`audit: ${reason}; ${STRICT ? "INCOMPLETE (strict gate failed)" : "SKIPPED (not a security pass)"}`);
   process.exit(STRICT ? 2 : 0);
@@ -55,7 +57,7 @@ for (const [pkg, advisories] of Object.entries(report)) {
     const ghsa = /(GHSA-[a-z0-9-]+)/i.exec(String(advisory.url ?? ""))?.[1];
     const ids = [ghsa, advisory.github_advisory_id, advisory.id, advisory.cve,
       ...(Array.isArray(advisory.cves) ? advisory.cves : [])].filter(Boolean).map(String);
-    if (ids.some((id) => Object.hasOwn(IGNORE, id))) continue;
+    if (bracesDevLintAllows(pkg, ids, repoLock)) continue;
     // Print only bounded identifiers, never arbitrary registry text/URLs.
     hits.push({ pkg: pkg.replace(/[^a-zA-Z0-9@/_.-]/g, "").slice(0, 160),
       id: ghsa ?? "unidentified-advisory", severity: advisory.severity.toUpperCase() });
