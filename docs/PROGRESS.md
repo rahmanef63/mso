@@ -1,3 +1,7 @@
+## 2026-10-04 — Lock time Semibold
+
+The lock time stays 92pt cream and one device-local line. The weight is Semibold, the Headline and emphasized Title 3 weight, because Regular was still too light. It does not return to 96pt.
+
 ## 2026-10-04 — Smaller home widgets, lock time weight, glass fill
 
 Home widgets sit in an 80px icon grid instead of stretching with the page. Small is 2×2, medium is 4×2, large is 3×3 with icons beside it, and extra-large is 4×3 with icons below, so none of them fills the home. The lock time is 92pt Regular, the next SF Pro size under 96pt and the Large Title weight, with tracking 0, still one cream line. Search, the dock, lock complications, and Control Center tiles paint the glass fill, including the tiles that render outside the shell.
