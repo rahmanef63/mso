@@ -12,12 +12,15 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `appearance` version immutable default wallpaper URLs
 - `appearance` refine default 27 desktop wallpapers
 - `security` clear unfixed dependency and Semgrep audit gates
 
 **Chores**
 
 - `deps` bump the actions-minor-patch group with 3 updates
+- `deps` bump the production-minor-patch group with 5 updates
+- `deps-dev` bump the test-toolchain group with 2 updates
 
 ## 2026-10-02
 
