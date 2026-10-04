@@ -1,3 +1,7 @@
+## 2026-10-04 — Version replaced default wallpaper URLs
+
+The deployed light wallpaper reused an immutable one-year URL. Browser evidence still returned the old 40,480-byte mountain image while origin served the new 47,714-byte light asset. The CSS now includes each default image's content hash in its URL, so existing client/CDN caches request new bytes without clearing custom wallpaper preferences. A regression ties both light and dark URL versions to their actual image bytes.
+
 ## 2026-10-04 — Security Core dependency and Semgrep gates
 
 OSV-Scanner 2.5.1, Trivy, and `bun audit --audit-level=high` were red on `2690b5e` and on PR 104 (`ec38f332`) for two unfixed HIGH advisories. npm still lists braces 3.0.3 and http-cache-semantics 4.2.0 as the newest releases. node-gyp 12.4.0 replaces `make-fetch-happen` with `undici`, still accepts MSO's Node range (`^20.17.0 || >=22.9.0`), and the regenerated `scripts/install/node-gyp/package-lock.json` no longer contains `http-cache-semantics` or `make-fetch-happen`. `npm audit --omit=dev --audit-level=high` on that prefix is clean, so the Trivy filesystem finding and the OSV finding for GHSA-ch52-4w7c-c8xp leave with the package. node-gyp 13 was not used because it requires `^22.22.2 || ^24.15.0 || >=26.0.0`.

@@ -245,12 +245,12 @@ body {
    ShellDescriptor.wallpaper; a per-shell override or custom image wins. graphite
    (Dashboard) stays a pure gradient — a photo backdrop fights data widgets. */
 .wp-aurora { background:
-  url("/wallpapers/aurora.webp") center/cover no-repeat,
+  url("/wallpapers/aurora.webp?v=933abb0485f5") center/cover no-repeat,
   radial-gradient(110% 120% at 16% 16%, #f4d6a0 0%, rgba(244,214,160,0) 46%),
   radial-gradient(110% 110% at 82% 18%, #f2eee9 0%, rgba(242,238,233,0) 44%),
   linear-gradient(145deg, #d3c5bd 0%, #d9dce7 56%, #b7c8dc 100%); }
 [data-theme="dark"] .wp-aurora { background:
-  url("/wallpapers/aurora-dark.webp") center/cover no-repeat,
+  url("/wallpapers/aurora-dark.webp?v=8b6e434e3409") center/cover no-repeat,
   radial-gradient(110% 120% at 18% 14%, #30386f 0%, rgba(48,56,111,0) 46%),
   radial-gradient(110% 110% at 84% 20%, #263d67 0%, rgba(38,61,103,0) 44%),
   linear-gradient(145deg, #161629 0%, #10152c 58%, #0b1223 100%); }
