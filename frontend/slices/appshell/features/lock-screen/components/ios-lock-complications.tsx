@@ -5,7 +5,7 @@ import { useSystemStats } from "../../../registry/capabilities";
 import { lockZone } from "./ios-lock-format";
 import { loadDeviceWeather, type LockWeather } from "./ios-lock-weather";
 
-function useLockWeather(): LockWeather {
+export function useLockWeather(): LockWeather {
   const [weather, setWeather] = useState<LockWeather>({ status: "pending" });
   useEffect(() => {
     const ac = new AbortController();
@@ -90,8 +90,7 @@ function AnalogClock({ now }: { now: Date }) {
   );
 }
 
-export function IosLockComplications({ now }: { now: Date }) {
-  const weather = useLockWeather();
+export function IosLockComplications({ now, weather }: { now: Date; weather: LockWeather }) {
   return (
     <div data-slot="ios-lock-complications" className="mt-4 flex w-full max-w-[360px] items-center gap-3 px-4">
       <WeatherCard weather={weather} />

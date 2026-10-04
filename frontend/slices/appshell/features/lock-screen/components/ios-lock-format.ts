@@ -6,8 +6,9 @@ export function lockTime(now: Date): string {
   return `${hour}:${minute}`;
 }
 
-export function lockDate(now: Date): string {
-  return now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+/** Short device date, for the small line tight above the lock time. */
+export function lockShortDate(now: Date): string {
+  return now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
 export function lockZone(now: Date): string {

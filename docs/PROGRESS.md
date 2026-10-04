@@ -1,3 +1,7 @@
+## 2026-10-04 — Lock date line and cream time
+
+The lock date is a short device date, Footnote size, tight above the time. The city is added on that line only after the location grant returns a name. The time is 96pt light cream at 78% opacity. Weather fallback, wallpaper, flashlight, camera, and complications stay.
+
 ## 2026-10-04 — iOS lock screen on the shell wallpaper
 
 The iOS lock face now follows the lock-screen frame: status bar, date, one large time, weather, activity rings, a round clock, flashlight, camera, and the home indicator. It uses the shell wallpaper. The home stays hidden, so the curtain is not a blur of the icons. Clock, date, and timezone come from the browser Date and Intl. Weather is a client geolocation prompt plus a client forecast; a denial shows Unavailable and does not ask this server for a place. In a standalone PWA the system status bar keeps the top inset and the shell does not paint a second one. The macOS curtain is unchanged.

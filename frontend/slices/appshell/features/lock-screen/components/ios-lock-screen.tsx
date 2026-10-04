@@ -3,8 +3,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Camera, Flashlight } from "lucide-react";
 import { requestUnlock } from "../../../lib/lock";
-import { lockDate, lockTime } from "./ios-lock-format";
-import { IosLockComplications } from "./ios-lock-complications";
+import { lockShortDate, lockTime } from "./ios-lock-format";
+import { IosLockComplications, useLockWeather } from "./ios-lock-complications";
 
 function subscribeStandalone(onChange: () => void) {
   const queries = ["(display-mode: standalone)", "(display-mode: fullscreen)"].map((q) => window.matchMedia(q));
@@ -78,6 +78,8 @@ function LockHomeIndicator({ onUnlock }: { onUnlock: () => void }) {
 /** iOS 27 lock face on the shell wallpaper. Clock values are the browser's Date. */
 export function IosLockFace({ now }: { now: Date }) {
   const [torch, setTorch] = useState(false);
+  const weather = useLockWeather();
+  const city = weather.status === "ready" ? weather.city : null;
   const unlock = () => void requestUnlock();
   return (
     <div
@@ -86,14 +88,15 @@ export function IosLockFace({ now }: { now: Date }) {
       onClick={unlock}
     >
       <LockStatus now={now} />
-      <div className="flex flex-col items-center pt-3">
-        <div data-slot="ios-lock-date" className="text-[20px] font-semibold leading-[25px] tracking-[0.38px]">
-          {lockDate(now)}
+      <div className="flex flex-col items-center pt-6">
+        <div data-slot="ios-lock-date" className="text-[13px] font-normal leading-[18px] tracking-[-0.08px] text-white/80">
+          <span>{lockShortDate(now)}</span>
+          {city ? <span data-slot="ios-lock-city">{` · ${city}`}</span> : null}
         </div>
-        <div data-slot="ios-lock-time" className="whitespace-nowrap text-[96px] font-normal leading-none tracking-normal">
+        <div data-slot="ios-lock-time" className="-mt-1 whitespace-nowrap text-[96px] font-light leading-none tracking-normal text-[oklch(0.94_0.03_95/0.78)]">
           {lockTime(now)}
         </div>
-        <IosLockComplications now={now} />
+        <IosLockComplications now={now} weather={weather} />
       </div>
       <div className="mt-auto flex w-full items-center justify-between px-4 pb-2">
         <button
