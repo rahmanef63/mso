@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Camera, Flashlight } from "lucide-react";
 import { autoLockMinutes, lock, requestUnlock, useLocked } from "../../../lib/lock";
+import { useActiveShell } from "../../../registry/shells";
+import { IosLockScreen } from "./ios-lock-screen";
 
 // Fullscreen privacy curtain: blurred backdrop, big clock, click/key unlocks
 // (through the consumer guard when one is injected). Owns the idle timer.
@@ -28,7 +30,9 @@ export function LockScreen() {
     };
   }, []);
 
-  return locked ? <LockCurtain /> : null;
+  const shell = useActiveShell();
+  if (!locked) return null;
+  return shell.id === "ios" ? <IosLockScreen /> : <LockCurtain />;
 }
 
 /** 12-hour clock with no day period, so "PM" cannot wrap onto a second line. */

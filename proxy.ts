@@ -143,8 +143,9 @@ function crossOriginMutation(request: NextRequest): boolean {
 //   ignored for scripts once a nonce is present (CSP3), so no XSS weakening.
 // - img-src https:: quicklink favicons hit www.google.com directly + the stock
 //   picker renders arbitrary Openverse/Unsplash hosts + "paste any image URL".
-// - connect-src stays TIGHT (self + @imgly host): all AI/BYOK/stock/oauth fetches
-//   are SERVER-side, so the browser only hits same-origin /api — the exfil gate.
+// - connect-src stays TIGHT. AI/BYOK/stock/oauth fetches are server-side. The two
+//   extra hosts are the iOS lock screen's client weather call only: the browser
+//   sends device geolocation coordinates there, never to this origin.
 // - frame-src https:: media-viewer PDF + widget "Embed" + app-store runtime iframes
 //   load external URLs (each sandboxed). worker/child blob: = SW + onnx worker.
 function contentSecurityPolicy(nonce: string): string {
@@ -154,7 +155,7 @@ function contentSecurityPolicy(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://staticimgly.com blob: data:",
+    "connect-src 'self' https://staticimgly.com https://api.open-meteo.com https://api.bigdatacloud.net blob: data:",
     "worker-src 'self' blob:",
     "child-src 'self' blob:",
     "media-src 'self' blob: data:",

@@ -1,3 +1,7 @@
+## 2026-10-04 — iOS lock screen on the shell wallpaper
+
+The iOS lock face now follows the lock-screen frame: status bar, date, one large time, weather, activity rings, a round clock, flashlight, camera, and the home indicator. It uses the shell wallpaper. The home stays hidden, so the curtain is not a blur of the icons. Clock, date, and timezone come from the browser Date and Intl. Weather is a client geolocation prompt plus a client forecast; a denial shows Unavailable and does not ask this server for a place. In a standalone PWA the system status bar keeps the top inset and the shell does not paint a second one. The macOS curtain is unchanged.
+
 ## 2026-10-03 — Lock date tracking and full-screen cover
 
 The lock date keeps Title 3 emphasized (20/25 Semibold) and now uses tracking +0.38. While the iOS shell is locked, the home does not paint through the curtain, so the lock surface covers it. Flashlight and camera stay the circular glass buttons. Other type sizes are unchanged.
