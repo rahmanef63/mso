@@ -4,6 +4,21 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-04
+
+**Added**
+
+- `appearance` refresh default light and dark wallpapers
+
+**Fixed**
+
+- `appearance` refine default 27 desktop wallpapers
+- `security` clear unfixed dependency and Semgrep audit gates
+
+**Chores**
+
+- `deps` bump the actions-minor-patch group with 3 updates
+
 ## 2026-10-02
 
 **Fixed**
