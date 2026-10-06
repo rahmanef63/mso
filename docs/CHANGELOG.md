@@ -12,7 +12,12 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `deps` update source-map-js to patched 1.2.2
 - `agent` preserve overlapping standby wakeups
+
+**Docs**
+
+- reconcile reviewed 9Router app-host proposal
 
 ## 2026-10-05
 

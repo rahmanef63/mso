@@ -1,3 +1,9 @@
+## 2026-10-06: Patch source-map-js and retain the 9Router proposal
+
+Hosted Verify and OSV identified GHSA-68fv-2mgg-jv7q in the locked source-map-js 1.2.1 dependency. The targeted update resolves it to the patched 1.2.2 without changing package ranges, audit policy or existing dependency patches. A fresh frozen install loads the native PTY module, and both strict and native Bun audits are clean. Full combined-head repository, build, browser and security verification remains required before integration.
+
+The reviewed PR 102 app-host RFC is retained from source commit 3fcbe16997c23e03da8efad548abd9ff62ec4f27 and indexed as a proposal awaiting implementation. All tenant documentation stays in place. CodeQL and DAST workflows remain unchanged; this documentation reconciliation performs no routing, cookie-domain, credential or production configuration change.
+
 ## 2026-10-06: Preserve overlapping standby wakeups
 
 The PR integration exposed a dropped-wakeup race in local-agent standby: a drain requested while another pass was reading an empty mailbox returned immediately, so a newly invalid workflow or arriving authorized message could remain unprocessed. Concurrent drains now share one completion promise and request a fresh validated pass. Cleanup happens inside the runner's own finalization step, without a microtask window that could discard a late join. Per-pass bounds, sequential message execution, claim checks and fatal blocking remain intact.

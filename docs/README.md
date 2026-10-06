@@ -80,6 +80,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 
 | Document | Status |
 |---|---|
+| [`9ROUTER-MSO-APPHOST-RFC.md`](./9ROUTER-MSO-APPHOST-RFC.md) | Proposed MSO-protected 9Router app host, single-login boundary and migration criteria; implementation remains pending |
 | [`EXTERNAL-FEATURE-CONTRACT.md`](./EXTERNAL-FEATURE-CONTRACT.md) | v1 target contract for modular shell/external features; implementation status is explicit |
 | [`TENANT-PREVIEW.md`](./TENANT-PREVIEW.md) | Disabled identity and scoped-memory runtime; live activation and full production isolation remain unimplemented |
 | [`TENANT-PERSISTENCE.md`](./TENANT-PERSISTENCE.md) | Source-only durable registry, scoped memory and audit; transactions, recovery limits and operational gates |
