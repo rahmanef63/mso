@@ -21,7 +21,7 @@ import type { AppDescriptor, WindowState } from "../lib/types";
 // (window list); otherwise a compact macOS name caption centred over the icon.
 export function HoverPanel({ wide, children }: { wide?: boolean; children: React.ReactNode }) {
   return (
-    <div className="pointer-events-none invisible absolute bottom-full left-1/2 z-[60] -translate-x-1/2 pb-4 opacity-0 transition-all duration-150 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto">
+    <div className="pointer-events-none invisible absolute bottom-full left-1/2 z-[60] -translate-x-1/2 pb-4 opacity-0 transition-all duration-150 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-focus-within:pointer-events-auto">
       <div
         className={
           "glass rounded-xl border border-border shadow-[0_12px_40px_-8px_rgba(0,0,0,0.55)] " +

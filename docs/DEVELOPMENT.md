@@ -208,6 +208,28 @@ NOT add it to `trustedDependencies` to "restore" anything.
 
 For deeper Files/Settings and Preview acceptance, run `bash scripts/verify-build.sh --extended`. It reuses the isolated production build and synthetic credentials; legacy browser scripts no longer read deployment secrets. Media samples skip only when ffmpeg or a system PDF is unavailable.
 
+## Next ESLint glob dependency
+
+Next ESLint keeps fast-glob 3.3.1 and its filesystem traversal unchanged. Its only
+micromatch consumer uses scan/makeRe (forwarders to picomatch) and brace expansion.
+The exact npm alias to picomatch 2.3.2 retains the original matcher. A versioned Bun
+patch replaces only brace expansion with brace-expansion 5.0.12, removing braces.
+Both replacements are MIT-licensed maintained npm packages. All lint rules and
+security scans remain enabled without advisory exceptions. A matching patch for
+brace-expansion's CommonJS and ESM entrypoints turns every count, encoded-length,
+depth and rewrite limit into an error, preventing silent partial lint discovery.
+
+Expansion fails closed above 4096 input characters, 32 nested brace levels or
+1000 expanded results. Escape handling and deduplication remain covered by tests.
+The output-length budget is bounded by input length times the result limit.
+On dependency upgrades, recheck the sole consumer and the matching/expansion API,
+regenerate or remove the patch with `bun patch`, then run
+`scripts/next-eslint-root-dirs.test.ts`, a clean frozen install, raw audit and full
+gates. The regression fixtures preserve literal/relative, trailing-slash, recursive,
+brace, extglob, negative, hidden, symlink and Windows-normalized roots and actual
+Next link-rule enforcement. Broader tinyglobby/glob replacements were rejected
+because differential tests found behavior changes.
+
 ## Locked native build bootstrap
 
 The installer provisions `node-gyp` from the dedicated manifest and integrity-locked
@@ -219,10 +241,10 @@ the normal user cache). Cache hits require matching manifests and the expected
 runner version. Failed downloads cannot publish a partial runner, replace the
 installer recovery trap, or remove the application's `node_modules`.
 
-node-gyp 12.4.0 is the newest release whose engines (`^20.17.0 || >=22.9.0`) still
-cover MSO's Node range and whose lockfile does not include `http-cache-semantics`.
-node-gyp 13 requires `^22.22.2 || ^24.15.0 || >=26.0.0`, which is narrower than
-`^22.12.0`, so Dependabot keeps ignoring node-gyp major updates.
+node-gyp 12.4.0 replaces `make-fetch-happen` with `undici`, removing
+`http-cache-semantics`. Its engines (`^20.17.0 || >=22.9.0`) cover MSO's Node range.
+node-gyp 13 requires `^22.22.2 || ^24.15.0 || >=26.0.0`, narrower than `^22.12.0`,
+so Dependabot continues ignoring node-gyp major updates.
 
 Update the exact tool version in that manifest and regenerate its lock with
 `npm install --package-lock-only --ignore-scripts --no-audit --no-fund --prefix scripts/install/node-gyp`.

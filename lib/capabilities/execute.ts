@@ -1,3 +1,6 @@
+import { TenantMemoryInputError } from "@/lib/tenancy/memory-tools";
+import { TenantCommitUncertain } from "@/lib/tenancy/persistence-file";
+import { tenantCapabilityPlan } from "@/lib/tenancy/capability";
 import { capabilityReportedFailure } from "./result-outcome";
 import { audit } from "@/lib/host/audit-api";
 import { maybeAutoTitleAgentSession } from "@/lib/agent/session-store";
@@ -38,6 +41,18 @@ export async function executeCapabilityCall(input: {
   if (context?.allowedTools && !context.allowedTools.includes(name)) return { kind: "error", message: "tool is not allowed for this token" };
   const constraints = context?.toolArgumentConstraints?.[name];
   if (constraints && Object.entries(constraints).some(([key, allowed]) => typeof args[key] !== "string" || !allowed.includes(args[key] as string))) return { kind: "error", message: "tool input is not allowed for this token" };
+  try {
+    const tenantPlan = await tenantCapabilityPlan(context?.tenantContext, name);
+    if (tenantPlan) {
+      if (!allows(scope, tool.scope)) return { kind: "error", message: "error: insufficient tenant tool scope" };
+      if (capabilityRateLimited(tool, args, tenantPlan.principal)) return { kind: "error", message: "error: tenant tool is rate limited" };
+      return { kind: "success", result: await tenantPlan.run(args) };
+    }
+  } catch (error) {
+    if (error instanceof TenantMemoryInputError) return { kind: "protocol_error", code: -32602, message: error.message };
+    if (error instanceof TenantCommitUncertain) return { kind: "error", message: "error: tenant mutation outcome uncertain; do not retry automatically; operation " + error.operationId };
+    return { kind: "error", message: "error: tenant capability unavailable or unauthorized" };
+  }
   const presence = context?.principal?.startsWith("mcp-") && context.sessionId
     ? { principal: context.principal, sessionId: context.sessionId, instanceId: `mcp:${context.sessionId}` }
     : null;
@@ -109,6 +124,7 @@ export async function executeCapabilityCall(input: {
     const result = await tool.run(args, {
       actor,
       principal: context?.principal,
+      tenantContext: context?.tenantContext,
       sessionId: context?.sessionId,
       scope,
       workflowId: activeWorkflow?.id,

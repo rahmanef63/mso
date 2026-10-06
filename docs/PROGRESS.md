@@ -1,8 +1,71 @@
+## 2026-10-05: Reconcile reviewed shell and tenant candidates
+
+CI keeps the strict dependency-audit wrapper, including its timeout, malformed-report checks and redacted diagnostics, and adds the native Bun high/critical audit as a separate required step. Both run after removal of the vulnerable dependency chain and its exception files. Workflow permissions remain read-only. A contract test prevents either audit from becoming optional.
+
+The integration starts from current GitHub main and preserves its content-versioned wallpaper URLs and dependency updates. It combines the managed-app return refresh, linked-worktree lint boundary, disabled-by-default tenant identity and durable memory runtime, reviewed macOS chrome, and privacy-safe iOS lock and home changes. Tenant credentials retain exact issuer, subject and binding-generation checks; the normal legacy mode remains the default and no live tenant registry, grants or storage are configured.
+
+The macOS source tree is reproduced from reviewed candidate dc74b7af, while its deleted intermediate wallpaper PNGs remain in the preserved source history. The iOS history is preserved through 846dbfea. The dependency reconciliation retains Vitest and coverage 5.0.2 and removes the vulnerable braces chain through the reviewed bounded expansion patches; neither the advisory-wide local ignore nor the superseded scoped waiver is carried forward. Full repository, raw/strict dependency, isolated-build, mandatory release, macOS and iOS browser checks must all pass on the combined head before publication. This source integration does not rebuild or restart the live installation.
+
+## 2026-10-05 — Refresh managed-app install state when returning to App Store
+
+The managed-app backend already detected a healthy Docker-managed 9Router installation, but the App Store catalog read `/api/v1/managed-apps` only once when mounted. Installing 9Router in its separate MSO window could therefore leave the background Store card showing `Not installed` until the Store was reloaded, even though the server was already running. The catalog now refreshes managed-app state when the document becomes visible again or the window regains focus, while leaving the remote MANEF catalog fetch mount-only and avoiding background polling. This changes only Store state synchronization; 9Router lifecycle, container detection, credentials and runtime configuration are unchanged.
+
+The release gate also now ignores `.claude/worktrees/**`, which are Git-ignored linked task checkouts and must be linted from their own roots rather than re-scanned from canonical `main`. This does not relax lint rules for tracked MSO source.
+
+## 2026-10-04 — iOS lock safety and integration candidate
+
+The PR 104 follow-through removes automatic geolocation and external weather requests, restores the original non-iOS privacy curtain, removes the inactive camera button, and labels the existing actions accurately as Lock screen and Hide from Home. Weather remains unavailable pending a separately reviewed explicit opt-in. The iOS Unlock control now has a 44px target, visible keyboard focus, Tab containment, and focus restoration. Locale matching compares complete language/region subtags rather than a partially anchored regular expression. These safety changes supersede the weather, camera, and biometric-label behavior described in earlier candidate entries below.
+
+The isolated candidate passed 366 tests across 52 files, architecture/docs checks, targeted lint, a production build, and four mock-only browser cases covering phone/tablet, light/dark, keyboard and focus, no location/provider calls, and the original macOS lock/unlock after landscape switching. Current-main integration preserves both progress histories; its full gates are verified separately. This is not a deployment or a claim of Figma pixel fidelity.
+
+## 2026-10-04 — Lock time Semibold
+
+The lock time stays 92pt cream and one device-local line. The weight is Semibold, the Headline and emphasized Title 3 weight, because Regular was still too light. It does not return to 96pt.
+
+## 2026-10-04 — Smaller home widgets, lock time weight, glass fill
+
+Home widgets sit in an 80px icon grid instead of stretching with the page. Small is 2×2, medium is 4×2, large is 3×3 with icons beside it, and extra-large is 4×3 with icons below, so none of them fills the home. The lock time is 92pt Regular, the next SF Pro size under 96pt and the Large Title weight, with tracking 0, still one cream line. Search, the dock, lock complications, and Control Center tiles paint the glass fill, including the tiles that render outside the shell.
+
+## 2026-10-04 — Lock date line and cream time
+
+The lock date is a short device date, Footnote size, tight above the time. The city is added on that line only after the location grant returns a name. The time is 96pt light cream at 78% opacity. Weather fallback, wallpaper, flashlight, camera, and complications stay.
+
+## 2026-10-04 — iOS lock screen on the shell wallpaper
+
+The iOS lock face now follows the lock-screen frame: status bar, date, one large time, weather, activity rings, a round clock, flashlight, camera, and the home indicator. It uses the shell wallpaper. The home stays hidden, so the curtain is not a blur of the icons. Clock, date, and timezone come from the browser Date and Intl. Weather is a client geolocation prompt plus a client forecast; a denial shows Unavailable and does not ask this server for a place. In a standalone PWA the system status bar keeps the top inset and the shell does not paint a second one. The macOS curtain is unchanged.
+
+## 2026-10-03 — Lock date tracking and full-screen cover
+
+The lock date keeps Title 3 emphasized (20/25 Semibold) and now uses tracking +0.38. While the iOS shell is locked, the home does not paint through the curtain, so the lock surface covers it. Flashlight and camera stay the circular glass buttons. Other type sizes are unchanged.
+
+## 2026-10-03 — iOS type styles and touch sizes
+
+Home labels, the search pill, widget titles, menu rows, the lock date and time, and Control Center type now use Apple’s Large Dynamic Type styles instead of nearby one-off sizes. Icon labels are Caption 1 (12/16 Regular). The search pill and menu rows are Body (17/22 Regular) with a 44pt target and 16pt inset. Widget and card titles are Headline (17/22 Semibold). The lock date is Title 3 emphasized (20/25 Semibold) and the lock time is 96pt Regular, which is the size whose SF Pro tracking is 0. The macOS shell is unchanged.
+
+## 2026-10-03 — Widget homes, lock type, Control Center mosaic
+
+The purple widget sizes were stacked on Today, which hid the icon grid. Each size is now its own home screen: one placeholder in the 4×6 grid and the existing apps in the cells around it. The plain icon home, search pill, and icon dock stay. The lock clock was rendering the day period as a second giant line in black on the blurred wallpaper; it is now one light 12-hour time under a small light date. iOS Control Center is a single packed mosaic (circle group, tall card, two lower tiles) of the toggles this shell already has.
+
+## 2026-10-03 — iOS 27 home screen frames
+
+The first pass treated a third-party tab-bar measurement as the Home Screen. The linked Figma page is a different frame: the dock is a glass capsule of app icons with no labels, and Search is a separate pill above it. Grid icons keep their labels, and the page dots stay. Today shows the four widget sizes as purple placeholders named for the widgets this shell already has. The lock screen keeps the clock and puts the date above it, with flashlight and camera controls. iOS Control Center is a glass tile mosaic; the macOS menu-bar popover keeps the shared labeled list. A home-icon long-press is a floating menu (Remove App, Require Face ID, Edit Home Screen, then that app's own actions) instead of a bottom sheet. The macOS shell is unchanged.
 ## 2026-10-04 — Version replaced default wallpaper URLs
 
 The deployed light wallpaper reused an immutable one-year URL. Browser evidence still returned the old 40,480-byte mountain image while origin served the new 47,714-byte light asset. The CSS now includes each default image's content hash in its URL, so existing client/CDN caches request new bytes without clearing custom wallpaper preferences. A regression ties both light and dark URL versions to their actual image bytes.
 
+## 2026-10-04 — Descriptor assertions and validated trace snapshots
+
+The native installer fixture checks file permissions and reads its content through one no-follow descriptor, closing it in finally rather than checking and reopening a pathname. A2A trace persistence now requires primitive session/workflow identifiers, rejects accessors and unknown fields, builds a fresh allowlisted scalar snapshot, and serializes it before filesystem awaits. Caller mutation or toJSON hooks cannot replace validated content. Private exclusive JSON writes and atomic rename remain; the byte cap matches readState's limit. Regression tests cover malformed IDs, custom hooks, asynchronous mutation and valid maximum escaped metadata. These are real validation fixes; closure of the network-to-file review finding still requires fresh exact-commit CodeQL evidence.
+
+## 2026-10-04 — Remove vulnerable build and lint dependencies
+
+The locked node-gyp bootstrap moves from 11.5.0 to 12.4.0, removing make-fetch-happen and http-cache-semantics while retaining MSO's Node support. Next ESLint's fast-glob traversal stays unchanged. Its micromatch dependency aliases the same underlying picomatch 2.3.2 matcher; a versioned Bun patch replaces only brace expansion with maintained brace-expansion 5.0.12. A second patch makes both CJS and ESM expansion entrypoints throw on result, encoded-length, depth or rewrite exhaustion instead of silently returning partial patterns. Regression fixtures cover actual lint diagnostics, path and brace semantics, escaping and each limit. Broader tinyglobby and glob replacements were rejected after differential tests found compatibility changes. The vulnerable braces package is removed without exemptions.
+
+Semgrep's parser rejected the inline import type in a mocked-module spread. A named type alias preserves the same mocked exports and assertions while restoring complete strict parsing. Raw dependency audit and scanner policies remain unchanged; PR 105's exceptions are not adopted. Final CI and integrated UI verification remain release-candidate gates.
+
 ## 2026-10-04 — Security Core dependency and Semgrep gates
+
+Historical PR 105 decision: the temporary braces exception described below has been retired by the verified dependency replacement above. Raw audit and OSV scanning no longer exempt it.
 
 OSV-Scanner 2.5.1, Trivy, and `bun audit --audit-level=high` were red on `2690b5e` and on PR 104 (`ec38f332`) for two unfixed HIGH advisories. npm still lists braces 3.0.3 and http-cache-semantics 4.2.0 as the newest releases. node-gyp 12.4.0 replaces `make-fetch-happen` with `undici`, still accepts MSO's Node range (`^20.17.0 || >=22.9.0`), and the regenerated `scripts/install/node-gyp/package-lock.json` no longer contains `http-cache-semantics` or `make-fetch-happen`. `npm audit --omit=dev --audit-level=high` on that prefix is clean, so the Trivy filesystem finding and the OSV finding for GHSA-ch52-4w7c-c8xp leave with the package. node-gyp 13 was not used because it requires `^22.22.2 || ^24.15.0 || >=26.0.0`.
 

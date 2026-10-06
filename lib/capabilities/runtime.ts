@@ -1,3 +1,4 @@
+import type { TenantContext } from "@/lib/tenancy/authority";
 import type { Scope } from "./scope";
 
 export type { McpContent as CapabilityContent } from "@/lib/contracts/mcp-content";
@@ -11,6 +12,7 @@ export interface CapabilityDescriptor {
 }
 
 export interface CapabilityInvocation {
+  tenantContext?: TenantContext;
   name: string;
   args?: Record<string, unknown>;
   scope: Scope;

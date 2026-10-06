@@ -71,7 +71,6 @@ describe("shouldUseMobileSurface", () => {
   });
 });
 
-
 describe("effectiveVisualViewportHeight", () => {
   it("tracks browser chrome and keyboard at normal scale", () => {
     expect(effectiveVisualViewportHeight(844, 706.4, 1)).toBe(706);

@@ -1,3 +1,4 @@
+import { TenantDenied } from "@/lib/tenancy/authority";
 import { consumeCode, OAUTH_ACCESS_TOKEN_TTL_MS, rotateOAuthGrant, storeOAuthGrant } from "@/lib/mcp/store";
 import { verifyPkce, randomToken } from "@/lib/mcp/pkce";
 import { mcpEnabled, oauthScopeString } from "@/lib/mcp/scope";
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
   if (!verifyPkce(p.code_verifier, rec.codeChallenge, "S256")) return json({ error: "invalid_grant" }, 400);
 
   const access = randomToken("mso_mcp_"), refresh = randomToken("mso_refresh_"), grantId = randomToken("grant_", 16);
-  await storeOAuthGrant({ accessToken: access, refreshToken: refresh, label: `oauth · ${rec.clientId.slice(0, 14)}`, clientId: rec.clientId, scope: rec.scope, resource, profile: rec.profile, offlineAccess: rec.offlineAccess, grantId });
+  try { await storeOAuthGrant({ accessToken: access, refreshToken: refresh, label: `oauth · ${rec.clientId.slice(0, 14)}`, clientId: rec.clientId, scope: rec.scope, resource, profile: rec.profile, offlineAccess: rec.offlineAccess, grantId, tenantBinding: rec.tenantBinding }); }
+  catch (error) { if (error instanceof TenantDenied) return json({ error: "invalid_grant" }, 400); throw error; }
   return json({ access_token: access, token_type: "Bearer", refresh_token: refresh, expires_in: Math.floor(OAUTH_ACCESS_TOKEN_TTL_MS / 1000), scope: oauthScopeString(rec.scope, rec.offlineAccess === true) });
 }

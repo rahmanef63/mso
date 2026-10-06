@@ -1,0 +1,164 @@
+diff --git a/dist/commonjs/index.js b/dist/commonjs/index.js
+--- a/dist/commonjs/index.js
++++ b/dist/commonjs/index.js
+@@ -147,14 +147,14 @@
+     for (let a = 0; a < acc.length; a++) {
+         for (let v = 0; v < values.length; v++) {
+             if (out.length >= max)
++                throw new RangeError('Brace expansion exceeds configured result limit');
+-                return out;
+             const expansion = acc[a] + pre + values[v];
+             // Bash drops empty results at the top level. Skip them before they count
+             // against `max`, so `max` bounds the number of *kept* results.
+             if (dropEmpties && !expansion)
+                 continue;
+             if (length + expansion.length > maxLength)
++                throw new RangeError('Brace expansion exceeds configured length limit');
+-                return out;
+             out.push(expansion);
+             length += expansion.length;
+         }
+@@ -187,7 +187,8 @@
+     }
+     const pad = n.some(isPadded);
+     let length = 0;
++    for (let i = x; test(i, y); i += incr) {
++        if (N.length >= max) throw new RangeError('Brace expansion exceeds configured result limit');
+-    for (let i = x; test(i, y) && N.length < max; i += incr) {
+         let c;
+         if (isAlphaSequence) {
+             c = String.fromCharCode(i);
+@@ -211,18 +212,16 @@
+             }
+         }
+         if (length + c.length > maxLength)
++            throw new RangeError('Brace expansion exceeds configured length limit');
+-            break;
+         N.push(c);
+         length += c.length;
+     }
+     return N;
+ }
+ function expand_(str, max, maxLength, maxDepth, depth, maxRewrites, isTop) {
++    // A partial expansion could hide a lint target. Limits must fail closed.
+-    // Too deeply nested to keep following: treat the rest as literal, the same
+-    // way a group that cannot expand is already handled. Truncating rather than
+-    // throwing keeps `expand` total, matching `max` and `maxLength`.
+     if (depth > maxDepth) {
++        throw new RangeError('Brace expansion exceeds configured depth limit');
+-        return [str];
+     }
+     // Consume the string's top-level brace groups left to right, threading a
+     // running set of combined prefixes (`acc`). Expanding the tail iteratively -
+@@ -262,7 +261,8 @@
+         const isOptions = m.body.indexOf(',') >= 0;
+         if (!isSequence && !isOptions) {
+             // {a},b}
++            if (m.post.match(/,(?!,).*\}/)) {
++                if (rewrites >= maxRewrites) throw new RangeError('Brace expansion exceeds configured rewrite limit');
+-            if (rewrites < maxRewrites && m.post.match(/,(?!,).*\}/)) {
+                 rewrites++;
+                 str = m.pre + '{' + m.body + escClose + m.post;
+                 isTop = true;
+@@ -308,16 +308,14 @@
+             }
+             values = [];
+             let valuesLength = 0;
++            for (let j = 0; j < n.length; j++) {
+-            outer: for (let j = 0; j < n.length; j++) {
+                 const expanded = expand_(n[j], max, maxLength, maxDepth, depth + 1, maxRewrites, false);
+                 for (let k = 0; k < expanded.length; k++) {
+                     const v = expanded[k];
+                     if (dropsEmpties && !v)
+                         continue;
++                    if (values.length >= max) throw new RangeError('Brace expansion exceeds configured result limit');
++                    if (valuesLength + v.length > maxLength) throw new RangeError('Brace expansion exceeds configured length limit');
+-                    if (values.length >= max ||
+-                        valuesLength + v.length > maxLength) {
+-                        break outer;
+-                    }
+                     values.push(v);
+                     valuesLength += v.length;
+                 }
+diff --git a/dist/esm/index.js b/dist/esm/index.js
+--- a/dist/esm/index.js
++++ b/dist/esm/index.js
+@@ -143,14 +143,14 @@
+     for (let a = 0; a < acc.length; a++) {
+         for (let v = 0; v < values.length; v++) {
+             if (out.length >= max)
++                throw new RangeError('Brace expansion exceeds configured result limit');
+-                return out;
+             const expansion = acc[a] + pre + values[v];
+             // Bash drops empty results at the top level. Skip them before they count
+             // against `max`, so `max` bounds the number of *kept* results.
+             if (dropEmpties && !expansion)
+                 continue;
+             if (length + expansion.length > maxLength)
++                throw new RangeError('Brace expansion exceeds configured length limit');
+-                return out;
+             out.push(expansion);
+             length += expansion.length;
+         }
+@@ -183,7 +183,8 @@
+     }
+     const pad = n.some(isPadded);
+     let length = 0;
++    for (let i = x; test(i, y); i += incr) {
++        if (N.length >= max) throw new RangeError('Brace expansion exceeds configured result limit');
+-    for (let i = x; test(i, y) && N.length < max; i += incr) {
+         let c;
+         if (isAlphaSequence) {
+             c = String.fromCharCode(i);
+@@ -207,18 +208,16 @@
+             }
+         }
+         if (length + c.length > maxLength)
++            throw new RangeError('Brace expansion exceeds configured length limit');
+-            break;
+         N.push(c);
+         length += c.length;
+     }
+     return N;
+ }
+ function expand_(str, max, maxLength, maxDepth, depth, maxRewrites, isTop) {
++    // A partial expansion could hide a lint target. Limits must fail closed.
+-    // Too deeply nested to keep following: treat the rest as literal, the same
+-    // way a group that cannot expand is already handled. Truncating rather than
+-    // throwing keeps `expand` total, matching `max` and `maxLength`.
+     if (depth > maxDepth) {
++        throw new RangeError('Brace expansion exceeds configured depth limit');
+-        return [str];
+     }
+     // Consume the string's top-level brace groups left to right, threading a
+     // running set of combined prefixes (`acc`). Expanding the tail iteratively -
+@@ -258,7 +257,8 @@
+         const isOptions = m.body.indexOf(',') >= 0;
+         if (!isSequence && !isOptions) {
+             // {a},b}
++            if (m.post.match(/,(?!,).*\}/)) {
++                if (rewrites >= maxRewrites) throw new RangeError('Brace expansion exceeds configured rewrite limit');
+-            if (rewrites < maxRewrites && m.post.match(/,(?!,).*\}/)) {
+                 rewrites++;
+                 str = m.pre + '{' + m.body + escClose + m.post;
+                 isTop = true;
+@@ -304,16 +304,14 @@
+             }
+             values = [];
+             let valuesLength = 0;
++            for (let j = 0; j < n.length; j++) {
+-            outer: for (let j = 0; j < n.length; j++) {
+                 const expanded = expand_(n[j], max, maxLength, maxDepth, depth + 1, maxRewrites, false);
+                 for (let k = 0; k < expanded.length; k++) {
+                     const v = expanded[k];
+                     if (dropsEmpties && !v)
+                         continue;
++                    if (values.length >= max) throw new RangeError('Brace expansion exceeds configured result limit');
++                    if (valuesLength + v.length > maxLength) throw new RangeError('Brace expansion exceeds configured length limit');
+-                    if (values.length >= max ||
+-                        valuesLength + v.length > maxLength) {
+-                        break outer;
+-                    }
+                     values.push(v);
+                     valuesLength += v.length;
+                 }

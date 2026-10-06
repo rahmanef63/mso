@@ -5,6 +5,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu";
+import { TOPBAR } from "../lib/store-geometry";
 import { useApps } from "../lib/registry";
 import { useBrand } from "../registry/brand";
 import { useFocused } from "../hooks/use-shell";
@@ -34,10 +35,11 @@ export function MenuBar() {
 
   return (
     <header
-      className="glass absolute inset-x-0 top-0 z-[900] flex h-[30px] items-center gap-0.5 border-b border-border px-2.5 text-[13px] font-medium font-[family-name:var(--shell-font)]"
-      style={{ background: "var(--glass-bar)" }}
+      className="macos-menubar absolute inset-x-0 top-0 z-[900] flex items-center gap-1 px-2.5 text-[13px] font-medium font-[family-name:var(--shell-font)]"
+      style={{ height: TOPBAR }}
     >
-      <span className="grid size-4 place-items-center rounded-[5px] bg-primary text-[10px] font-extrabold text-primary-foreground">
+      <div className="flex min-w-0 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <span aria-hidden className="grid shrink-0 size-4 place-items-center rounded-[5px] bg-primary text-[10px] font-extrabold text-primary-foreground">
         {brand.logo}
       </span>
 
@@ -90,6 +92,7 @@ export function MenuBar() {
       <WindowMenu focusedId={focusedId} />
       <HelpMenu />
 
+      </div>
       <StatusCluster />
     </header>
   );

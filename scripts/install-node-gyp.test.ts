@@ -53,6 +53,8 @@ describe("locked isolated node-gyp bootstrap", () => {
     expect(Object.keys(lock.packages).some((name) => /http-cache-semantics|make-fetch-happen/.test(name))).toBe(false);
     expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     expect(lock.lockfileVersion).toBe(3);
+    expect(lock.packages["node_modules/http-cache-semantics"]).toBeUndefined();
+    expect(lock.packages["node_modules/make-fetch-happen"]).toBeUndefined();
     for (const [name, row] of Object.entries(lock.packages) as [string, { version: string; resolved: string; integrity: string }][]) {
       if (!name) continue;
       expect(row.version).toMatch(/^\d+\.\d+\.\d+/);

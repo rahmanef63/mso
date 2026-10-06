@@ -1,3 +1,7 @@
+import { TenantDenied } from "@/lib/tenancy/authority";
+import { tenantCredentialFields } from "@/lib/tenancy/credentials";
+import { authorizeMcpTenantGrant } from "@/lib/tenancy/runtime";
+import type { TenantCredentialBinding } from "@/lib/tenancy/types";
 import { randomUUID } from "node:crypto";
 import { sha256hex } from "./pkce";
 import type { Scope } from "./scope";
@@ -41,9 +45,10 @@ export async function getClient(clientId: string): Promise<McpClient | null> {
 }
 
 export function storeCode(code: string, rec: McpCode): Promise<void> {
+  const captured = structuredClone(rec), tenant = tenantCredentialFields(captured);
   return mutate(async () => {
     const store = sweep(await read());
-    store.codes[sha256hex(code)] = rec;
+    store.codes[sha256hex(code)] = { ...captured, ...tenant };
     await write(store);
   });
 }
@@ -55,6 +60,7 @@ export function consumeCode(code: string): Promise<McpCode | null> {
     const hash = sha256hex(code);
     const rec = store.codes[hash];
     if (!rec || rec.expiresAt < Date.now()) return null;
+    try { await authorizeMcpTenantGrant(rec); } catch (error) { if (error instanceof TenantDenied) return null; throw error; }
     delete store.codes[hash];
     await write(store);
     return rec;
@@ -62,15 +68,17 @@ export function consumeCode(code: string): Promise<McpCode | null> {
 }
 
 export function storeToken(token: string, rec: Omit<McpToken, "createdAt" | "expiresAt">): Promise<void> {
+  const captured = structuredClone(rec), tenant = tenantCredentialFields(captured);
   return mutate(async () => {
     const store = sweep(await read());
     const now = Date.now();
-    store.tokens[sha256hex(token)] = { ...rec, createdAt: now, expiresAt: now + TOKEN_TTL_MS };
+    store.tokens[sha256hex(token)] = { ...captured, ...tenant, createdAt: now, expiresAt: now + TOKEN_TTL_MS };
     await write(store);
   });
 }
 
 export function storeOAuthGrant(input: {
+  tenantBinding?: Readonly<TenantCredentialBinding>;
   accessToken: string;
   refreshToken: string;
   label: string;
@@ -81,26 +89,30 @@ export function storeOAuthGrant(input: {
   offlineAccess?: boolean;
   grantId: string;
 }): Promise<void> {
+  const captured = structuredClone(input), tenant = tenantCredentialFields(captured);
   return mutate(async () => {
     const store = sweep(await read());
     const now = Date.now();
-    store.tokens[sha256hex(input.accessToken)] = {
-      label: input.label,
-      clientId: input.clientId,
-      scope: input.scope,
-      resource: input.resource,
-      profile: input.profile,
-      grantId: input.grantId,
+    await authorizeMcpTenantGrant({ ...captured, ...tenant, expiresAt: now + OAUTH_ACCESS_TOKEN_TTL_MS });
+    store.tokens[sha256hex(captured.accessToken)] = {
+      ...tenant,
+      label: captured.label,
+      clientId: captured.clientId,
+      scope: captured.scope,
+      resource: captured.resource,
+      profile: captured.profile,
+      grantId: captured.grantId,
       createdAt: now,
       expiresAt: now + OAUTH_ACCESS_TOKEN_TTL_MS,
     };
-    store.refreshTokens[sha256hex(input.refreshToken)] = {
-      grantId: input.grantId,
-      clientId: input.clientId,
-      scope: input.scope,
-      resource: input.resource,
-      profile: input.profile,
-      offlineAccess: input.offlineAccess,
+    store.refreshTokens[sha256hex(captured.refreshToken)] = {
+      ...tenant,
+      grantId: captured.grantId,
+      clientId: captured.clientId,
+      scope: captured.scope,
+      resource: captured.resource,
+      profile: captured.profile,
+      offlineAccess: captured.offlineAccess,
       createdAt: now,
       expiresAt: now + REFRESH_TOKEN_TTL_MS,
     };
@@ -116,15 +128,19 @@ export function rotateOAuthGrant(input: {
   clientId: string;
   resource: string;
 }): Promise<McpRefreshToken | null> {
+  const captured = structuredClone(input);
   return mutate(async () => {
     const store = sweep(await read());
-    const oldHash = sha256hex(input.oldRefreshToken);
+    const oldHash = sha256hex(captured.oldRefreshToken);
     const rec = store.refreshTokens[oldHash];
-    if (!rec || rec.revokedAt || rec.expiresAt < Date.now() || rec.clientId !== input.clientId || rec.resource !== input.resource) return null;
+    if (!rec || rec.revokedAt || rec.expiresAt < Date.now() || rec.clientId !== captured.clientId || rec.resource !== captured.resource) return null;
+    try { await authorizeMcpTenantGrant(rec); } catch (error) { if (error instanceof TenantDenied) return null; throw error; }
+    const tenant = tenantCredentialFields(rec);
     delete store.refreshTokens[oldHash];
     const now = Date.now();
-    store.tokens[sha256hex(input.accessToken)] = {
-      label: input.label,
+    store.tokens[sha256hex(captured.accessToken)] = {
+      ...tenant,
+      label: captured.label,
       clientId: rec.clientId,
       scope: rec.scope,
       resource: rec.resource,
@@ -133,8 +149,8 @@ export function rotateOAuthGrant(input: {
       createdAt: now,
       expiresAt: now + OAUTH_ACCESS_TOKEN_TTL_MS,
     };
-    store.refreshTokens[sha256hex(input.refreshToken)] = {
-      ...rec,
+    store.refreshTokens[sha256hex(captured.refreshToken)] = {
+      ...rec, ...tenant,
       createdAt: now,
       expiresAt: now + REFRESH_TOKEN_TTL_MS,
     };
@@ -149,7 +165,7 @@ export async function validateToken(token: string): Promise<(McpToken & { hash: 
   const rec = (await read()).tokens[hash];
   if (!rec || rec.revokedAt) return null;
   if (rec.expiresAt > 0 && rec.expiresAt < Date.now()) return null;
-  return { ...rec, hash };
+  try { return { ...rec, ...tenantCredentialFields(rec), hash }; } catch { return null; }
 }
 
 export function touchToken(hash: string): Promise<void> {

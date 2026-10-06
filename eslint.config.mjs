@@ -8,6 +8,7 @@ const config = [
     ignores: [
       ".next/**",
       "node_modules/**",
+      ".claude/worktrees/**", // linked task checkouts; lint each worktree from its own root
       "os-browser/**", // separate sidecar package (plain Node)
       "public/**",
       "next-env.d.ts",

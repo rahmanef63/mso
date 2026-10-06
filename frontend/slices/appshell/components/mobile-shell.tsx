@@ -13,6 +13,7 @@ import { MobileHome } from "./mobile-home";
 import { MobileNotifications } from "./mobile-notifications";
 import { Slot } from "../registry/feature-registry";
 import { ShellUIProvider, type ShellUI } from "../registry/shell-ui";
+import { useLocked } from "../lib/lock";
 import { useMobileNavigationInfo } from "../lib/mobile-navigation";
 import { IosFeatureHeader } from "./shells/ios/ios-feature-header";
 
@@ -27,6 +28,7 @@ export function MobileShell() {
   const [nc, setNc] = useState(false); // notification center (pull down, left half)
   const [appScrolled, setAppScrolled] = useState(false); // iOS nav-bar frost-on-scroll
   const [closing, setClosing] = useState(false); // playing the dismiss-to-home slide
+  const locked = useLocked();
 
   // Dock = manifest-pinned apps (AppDescriptor.pinned — the generic shell never
   // hardcodes project app ids); falls back to the first 4 dockable apps.
@@ -153,7 +155,7 @@ export function MobileShell() {
       {/* --sai-top (notch/Dynamic-Island floor) now comes from the shared
           [data-shell="ios"] rule in globals.css — one source of truth for both
           touch shells, inherited by every iOS surface (home, nav, spotlight). */}
-      <div className="absolute inset-0 z-[10] flex flex-col">
+      <div className={cn("absolute inset-0 z-[10] flex flex-col", locked && "invisible")} inert={locked || undefined}>
       <div
         data-slot="system-status-host"
         data-status-placement="ios-status-bar"

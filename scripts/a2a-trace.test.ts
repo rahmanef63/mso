@@ -95,6 +95,66 @@ describe("A2A workflow trace bridge", () => {
     await expect(support.readState("a2a-huge")).rejects.toThrow("invalid A2A trace state file");
   });
 
+  function fixture(runId) {
+    return {
+      version: 1, runId, agent: "test", sessionId: "session-1", workflowId: "workflow-1",
+      status: "active", sessionLabel: "original",
+      startedAt: "2026-10-04T00:00:00.000Z", updatedAt: "2026-10-04T00:00:00.000Z",
+    };
+  }
+
+  it("requires present primitive session and workflow identifiers", async () => {
+    const support = await import("./a2a-trace-support.mjs");
+    for (const key of ["sessionId", "workflowId"]) {
+      const missing = fixture("a2a-schema");
+      delete missing[key];
+      await expect(support.saveState(missing)).rejects.toThrow("invalid A2A trace identifiers");
+      for (const value of [undefined, null, 123, {}, []]) {
+        await expect(support.saveState({ ...fixture("a2a-schema"), [key]: value })).rejects.toThrow("invalid A2A trace identifiers");
+      }
+    }
+  });
+
+  it("rejects accessors and never serializes caller-provided toJSON hooks", async () => {
+    const support = await import("./a2a-trace-support.mjs");
+    const getter = vi.fn(() => "session-1"), accessor = fixture("a2a-accessor");
+    Object.defineProperty(accessor, "sessionId", { enumerable: true, get: getter });
+    await expect(support.saveState(accessor)).rejects.toThrow("invalid A2A trace accessor");
+    expect(getter).not.toHaveBeenCalled();
+    const toJSON = vi.fn(() => ({ sessionId: "injected" })), own = fixture("a2a-ownjson");
+    Object.defineProperty(own, "toJSON", { value: toJSON });
+    await expect(support.saveState(own)).rejects.toThrow("invalid A2A trace field");
+    const inherited = Object.assign(Object.create({ toJSON }), fixture("a2a-inherited"));
+    await support.saveState(inherited);
+    expect(await support.readState("a2a-inherited")).toMatchObject({ sessionId: "session-1" });
+    expect(toJSON).not.toHaveBeenCalled();
+  });
+
+  it("persists the validated snapshot even when the caller mutates during filesystem awaits", async () => {
+    const support = await import("./a2a-trace-support.mjs");
+    const state = fixture("a2a-snapshot"), pending = support.saveState(state);
+    state.runId = "a2a-swapped";
+    state.sessionId = "changed-session";
+    state.sessionLabel = "changed";
+    await pending;
+    expect(await support.readState("a2a-snapshot")).toMatchObject({
+      runId: "a2a-snapshot", sessionId: "session-1", sessionLabel: "original",
+    });
+  });
+
+  it("round-trips maximum allowed escaped metadata within the read-size budget", async () => {
+    const support = await import("./a2a-trace-support.mjs");
+    const state = {
+      ...fixture("a2a-escaped"), agent: "\u0001".repeat(48), project: "\u0001".repeat(240),
+      sessionLabel: "\u0001".repeat(120), lastFingerprint: "\u0001".repeat(600),
+      startedAt: "\u0001".repeat(40), updatedAt: "\u0001".repeat(40),
+    };
+    await support.saveState(state);
+    const body = await readFile(path.join(stateDir, "a2a-escaped.json"), "utf8");
+    expect(Buffer.byteLength(body, "utf8")).toBeLessThanOrEqual(8192);
+    expect(await support.readState("a2a-escaped")).toEqual(state);
+  });
+
   it("does not expose hidden reasoning as a trace event type", async () => {
     await expect(mod.main(["reasoning", "--run", "a2a-test", "--message", "private thoughts"])).rejects.toThrow("unknown A2A trace command");
   });

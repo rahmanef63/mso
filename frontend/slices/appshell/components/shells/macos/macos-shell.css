@@ -1,0 +1,93 @@
+/* macOS 27 chrome: Figma Examples 4440:8154/8155 and 4440:8164/8165.
+   Tokens stay local to chrome so app content and other shells keep their palette. */
+[data-shell="macos"][data-shell] {
+  --mac-window: #fff;
+  --mac-title: #222;
+  --mac-divider: rgba(0, 0, 0, .06);
+  --mac-inactive-light: #d4d4d4;
+  --mac-window-shadow: 0 0 1px rgba(0, 0, 0, .8), 0 18px 54px rgba(0, 0, 0, .3);
+  --mac-inactive-shadow: 0 0 1px rgba(0, 0, 0, .8), 0 7px 21px rgba(0, 0, 0, .2);
+  --mac-close: #ff5c60;
+  --mac-minimize: #fac800;
+  --mac-maximize: #35c759;
+  --shell-radius-win: 16px;
+}
+[data-theme="dark"] [data-shell="macos"] {
+  --mac-window: #1e1e1e;
+  --mac-title: #f2f2f2;
+  --mac-divider: rgba(255, 255, 255, .1);
+  --mac-inactive-light: #424242;
+  --mac-window-shadow: 0 0 1px rgba(0, 0, 0, .8), 0 18px 54px rgba(0, 0, 0, .55);
+  --mac-inactive-shadow: 0 0 1px rgba(0, 0, 0, .8), 0 7px 21px rgba(0, 0, 0, .35);
+}
+.macos-menubar {
+  color: #fff;
+  /* Keep white status text legible even over a user-supplied white wallpaper. */
+  background: rgba(24, 24, 28, .62);
+  backdrop-filter: blur(var(--blur));
+}
+.macos-status { --foreground: #fff; --muted-foreground: #eee; --info: #fff; }
+.macos-menu-trigger:hover,
+.macos-menubar .macos-status button:hover,
+.macos-menu-trigger[data-state="open"] { background: #555557; }
+.macos-menubar button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+.macos-menu:focus-visible { border-radius: 12px; }
+.macos-menu {
+  border-radius: 12px;
+  width: 244px;
+  max-width: calc(100vw - 16px);
+  padding: 5px;
+  color: #1a1a1a;
+  background: rgba(255, 255, 255, .75);
+  box-shadow: 0 8px 48px rgba(0, 0, 0, .25);
+  font-family: system-ui;
+}
+.macos-menu [role^="menuitem"] {
+  padding: 3px 7px;
+  border-radius: 8px;
+  line-height: 18px;
+}
+.macos-menu [role^="menuitem"]:is(:focus, :hover):not(:disabled, [data-disabled]) {
+  color: #fff;
+  background: #0062e6;
+}
+.macos-menu [role^="menuitem"] > span:last-child { opacity: 1; }
+[data-theme="dark"] .macos-menu {
+  color: #f5f5f5;
+  background: rgba(44, 44, 48, .88);
+  box-shadow: 0 8px 48px rgba(0, 0, 0, .45);
+}
+[data-shell="macos"] [data-window-chrome="macos"] {
+  background: var(--mac-window);
+  border-color: var(--mac-divider);
+  box-shadow: var(--mac-window-shadow);
+}
+[data-shell="macos"] [data-window-chrome="macos"][data-focused="false"] {
+  box-shadow: var(--mac-inactive-shadow);
+}
+.macos-titlebar {
+  background: var(--mac-window);
+  border-bottom: .5px solid var(--mac-divider);
+  color: var(--mac-title);
+}
+.macos-light {
+  background: var(--mac-light);
+  box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .35);
+}
+[data-focused="false"] .macos-light { background: var(--mac-inactive-light); }
+.macos-light-button:hover .macos-light,
+.macos-light-button:focus-visible .macos-light { background: var(--mac-light); }
+.macos-light-button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+.reduce-glass .macos-menubar { background: #333337; backdrop-filter: none; }
+.reduce-glass .macos-menu { background: #f5f5f5; backdrop-filter: none; }
+.reduce-glass[data-theme="dark"] .macos-menu { background: #2a2a2d; }
+
+@media (max-height: 500px) {
+  .macos-titlebar { height: 32px; }
+}

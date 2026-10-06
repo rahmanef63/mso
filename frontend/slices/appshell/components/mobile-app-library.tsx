@@ -58,19 +58,19 @@ export function MobileAppLibrary({
 
   return (
     <div className="relative flex h-full flex-col px-4 py-3">
-      <h2 className="mb-2 px-1 text-lg font-bold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">
+      <h2 className="mb-2 px-1 text-[28px] font-bold leading-[34px] tracking-[0.38px] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">
         App Library
       </h2>
       <label
-        className="mb-3 flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 backdrop-blur-xl"
+        className="mb-3 flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 backdrop-blur-xl"
         style={{ background: "var(--glass-menu)" }}
       >
-        <Search className="size-4 text-muted-foreground" />
+        <Search className="size-[17px] text-muted-foreground" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="App Library"
-          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="w-full bg-transparent text-[17px] font-normal leading-[22px] tracking-[-0.43px] outline-none placeholder:text-muted-foreground"
         />
       </label>
 
@@ -94,7 +94,7 @@ export function MobileAppLibrary({
             style={{ background: "var(--glass-menu)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="mb-3 text-center text-base font-semibold">{folder}</h3>
+            <h3 className="mb-3 text-center text-[17px] font-semibold leading-[22px] tracking-[-0.43px]">{folder}</h3>
             <div className="grid grid-cols-4 gap-x-3 gap-y-4">
               {folderApps.map((a) => (
                 <Button key={a.id} type="button" variant="ghost" onClick={() => onOpen(a)} className="h-auto p-0 hover:bg-transparent flex flex-col items-center gap-1.5">
@@ -105,7 +105,7 @@ export function MobileAppLibrary({
                   <span className="aspect-square w-full max-w-[60px]">
                     <AppIcon app={a} />
                   </span>
-                  <span className="max-w-full truncate text-[11px] font-medium leading-[13px]">{a.title}</span>
+                  <span className="max-w-full truncate text-[12px] font-normal leading-4">{a.title}</span>
                 </Button>
               ))}
             </div>

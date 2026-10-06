@@ -19,8 +19,12 @@ function install(name: string, seed?: (root: string) => void, fileSystem = fs) {
 }
 describe("native installer atomic private environment creation", () => {
   it("creates a private file and preserves an existing environment", () => {
-    const file = install("fresh"); expect(fs.statSync(file).mode & 0o777).toBe(0o600);
-    expect(fs.readFileSync(file, "utf8")).toContain("OS_SESSION_SECRET=");
+    const file = install("fresh");
+    const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try {
+      expect(fs.fstatSync(fd).mode & 0o777).toBe(0o600);
+      expect(fs.readFileSync(fd, "utf8")).toContain("OS_SESSION_SECRET=");
+    } finally { fs.closeSync(fd); }
     const existing = install("existing", root => fs.writeFileSync(path.join(root, ".env.local"), "keep"));
     expect(fs.readFileSync(existing, "utf8")).toBe("keep");
   });

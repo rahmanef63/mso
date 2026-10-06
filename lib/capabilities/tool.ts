@@ -1,3 +1,4 @@
+import type { TenantContext } from "@/lib/tenancy/authority";
 import type { AuditAction } from "@/lib/contracts/audit";
 import type { CapabilityRuntime } from "./runtime";
 import type { Scope } from "./scope";
@@ -56,6 +57,7 @@ export type CapabilityActionContract = {
 };
 
 export interface CapabilityRunContext {
+  tenantContext?: TenantContext;
   actor?: string;
   principal?: string;
   sessionId?: string;

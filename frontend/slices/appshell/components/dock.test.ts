@@ -35,6 +35,13 @@ describe("dockFit", () => {
     expect(dockFit(900, 27, 2, MED, false).base).toBeGreaterThan(dockFit(900, 27, 2, MED, true).base);
   });
 
+  it("reserves the entire hover pool inside the viewport", () => {
+    for (const vw of [844, 1024, 1280, 1512]) {
+      const { base, cramped, dockExtra } = dockFit(vw, 27, 2, MED, true);
+      if (!cramped) expect(base * 25 + 8 * 26 + 13 * 2 + 32 + dockExtra).toBeLessThanOrEqual(vw);
+    }
+  });
+
   it("never divides by zero on an empty dock", () => {
     expect(dockFit(1024, 0, 0, MED, false).base).toBe(MED);
   });

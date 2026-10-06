@@ -50,6 +50,8 @@ function Surface() {
   // hotkey would silently snap the hidden focused window under a single-pane or
   // mobile shell, surprising the user when they switch back.
   useWindowSnapKeys(!!desc.windowed);
+  // A mobile shell on a wide viewport (device override = phone, or a portrait
+  // tablet) previews inside a phone frame; a real narrow screen fills.
   const framed = surface === "mobile" && r.vw >= 768;
 
   // The shell renders ONLY after mount, and this is a correctness fix, not caution.

@@ -26,7 +26,6 @@ export function shouldUseMobileSurface(device: DeviceMode, vw: number, vh: numbe
   return vw < MOBILE_W || (coarse && vw < TABLET_W);
 }
 
-
 /** The visual viewport is the actually visible browser area after dynamic URL bars
  * and the soft keyboard are accounted for. Ignore it while pinch-zoomed: resizing
  * the entire shell to a zoomed viewport makes content jump under accessibility zoom. */

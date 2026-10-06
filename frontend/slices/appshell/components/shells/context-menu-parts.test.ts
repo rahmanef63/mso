@@ -9,11 +9,15 @@ import { SUBMENU_ID, menuMetrics } from "./context-menu-parts";
 const src = readFileSync(resolve(__dirname, "context-menu-parts.tsx"), "utf8");
 
 describe("menuMetrics", () => {
-  it("reserves 44px rows on touch shells and 34/30px on desktop personas", () => {
+  it("reserves 44px rows on touch shells and 34/24px on desktop personas", () => {
     expect(menuMetrics("ios").rowH).toBe(44);
     expect(menuMetrics("android").rowH).toBe(44);
     expect(menuMetrics("windows").rowH).toBe(34);
-    expect(menuMetrics("macos").rowH).toBe(30);
+    expect(menuMetrics("macos").rowH).toBe(24);
+    expect(menuMetrics("dashboard").rowH).toBe(30);
+    expect(menuMetrics("macos").width).toBe(244);
+    expect(menuMetrics("windows").chrome).toBe("");
+    expect(menuMetrics("ios").chrome).toBe("");
   });
 
   it("switches submenus to tap-to-open on touch shells only (fine pointer here)", () => {

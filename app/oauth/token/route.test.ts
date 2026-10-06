@@ -1,3 +1,4 @@
+import { TenantDenied } from "@/lib/tenancy/authority";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ consumeCode: vi.fn(), storeGrant: vi.fn(), rotate: vi.fn(), random: vi.fn(), verify: vi.fn(() => true), limited: vi.fn(() => false) }));
 vi.mock("@/lib/mcp/store", () => ({ consumeCode: mocks.consumeCode, storeOAuthGrant: mocks.storeGrant, rotateOAuthGrant: mocks.rotate, OAUTH_ACCESS_TOKEN_TTL_MS: 3_600_000 }));
@@ -9,7 +10,7 @@ const { POST } = await import("./route");
 const post = (body: Record<string, string>) => new Request("https://mso.example.test/oauth/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(body) });
 
 describe("OAuth token endpoint", () => {
-  beforeEach(() => { vi.clearAllMocks(); mocks.random.mockImplementation((prefix: string) => `${prefix}${mocks.random.mock.calls.length}`); mocks.verify.mockReturnValue(true); });
+  beforeEach(() => { vi.clearAllMocks(); mocks.random.mockImplementation((prefix: string) => `${prefix}${mocks.random.mock.calls.length}`); mocks.verify.mockReturnValue(true); mocks.storeGrant.mockReset(); });
 
   it("exchanges an authorization code into resource-bound access + refresh credentials", async () => {
     mocks.consumeCode.mockResolvedValue({ clientId: "chatgpt", redirectUri: "https://chatgpt.com/cb", codeChallenge: "challenge", scope: "exec", resource: "https://mso.example.test/mcp", profile: "chatgpt", offlineAccess: true });
@@ -27,5 +28,28 @@ describe("OAuth token endpoint", () => {
     expect(ok.status).toBe(200); expect((await ok.json()).refresh_token).toMatch(/^mso_refresh_/);
     const bad = await POST(post({ grant_type: "refresh_token", refresh_token: "r1", client_id: "chatgpt", resource: "https://other.example/mcp" }));
     expect(bad.status).toBe(400); expect(await bad.json()).toMatchObject({ error: "invalid_target" });
+  });
+});
+
+describe("tenant credential exchange projection", () => {
+  const binding = { version: 1, issuer: "fixture", subject: "alice", tenantId: "tenant-a", principalId: "person-a", mappingRevision: 3 };
+  const request = () => post({ grant_type: "authorization_code", code: "fixture-code", code_verifier: "v".repeat(43),
+    client_id: "fixture-client", redirect_uri: "https://fixture.invalid/cb", tenantSubject: "attacker", tenantBinding: "forged" });
+  beforeEach(() => {
+    vi.clearAllMocks(); mocks.storeGrant.mockReset(); mocks.verify.mockReturnValue(true);
+    mocks.random.mockImplementation((prefix: string) => prefix + "synthetic");
+    mocks.consumeCode.mockResolvedValue({ clientId: "fixture-client", redirectUri: "https://fixture.invalid/cb",
+      codeChallenge: "fake", scope: "read", tenantBinding: binding });
+  });
+  it("copies only the server-owned code binding and ignores request selectors", async () => {
+    expect((await POST(request())).status).toBe(200);
+    expect(mocks.storeGrant).toHaveBeenCalledWith(expect.objectContaining({ tenantBinding: binding }));
+    expect(mocks.storeGrant.mock.calls[0][0]).not.toHaveProperty("tenantSubject");
+  });
+  it("returns a sanitized denial when binding changes before grant storage", async () => {
+    mocks.storeGrant.mockRejectedValue(new TenantDenied("private registry state"));
+    const response = await POST(request());
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_grant" });
   });
 });
