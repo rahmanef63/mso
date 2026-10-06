@@ -17,6 +17,7 @@ case "$cmd" in
 
   # ── local/public gateway + browser launcher ───────────────────────────────
   gateway) local_url="$(gateway_local_url)"; MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$local_url" "$ROOT/scripts/mso-gateway" "$@" ;;
+  heartbeat) MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" "$ROOT/scripts/mso-heartbeat" "$@" ;;
   web)     local_url="$(gateway_local_url)"; MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$local_url" "$ROOT/scripts/mso-gateway" web "$@" ;;
 
   # ── camoufox (the real browser the Browser app drives) ────────────────────

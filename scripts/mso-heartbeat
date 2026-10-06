@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Optional, one-shot fallback recovery. Scheduling belongs to the host supervisor.
+set -euo pipefail
+umask 077
+ROOT="${MSO_GATEWAY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+ENVF="${MSO_GATEWAY_ENV:-$ROOT/.env.local}"
+gateway_fail() { echo "mso heartbeat: $*" >&2; exit 1; }
+. "$ROOT/scripts/lib/gateway-config.sh"
+if [ "$ENVF" != /dev/null ] && { [ -e "$ENVF" ] || [ -L "$ENVF" ]; }; then
+  gateway_safe_env_file
+  set -a; . "$ENVF"; set +a
+fi
+ACTION="${1:-once}"
+case "$ACTION" in once|install-cron|remove-cron) ;; *) gateway_fail 'usage: mso heartbeat [once|install-cron|remove-cron]' ;; esac
+[ "$#" -le 1 ] || gateway_fail 'unexpected arguments'
+ENABLED="${OS_HEARTBEAT_ENABLED:-0}"
+case "$ENABLED" in 0|1) ;; *) gateway_fail 'OS_HEARTBEAT_ENABLED must be 0 or 1' ;; esac
+if [ "$ENABLED" != 1 ] && [ "$ACTION" != remove-cron ]; then
+  echo 'heartbeat: disabled (OS_HEARTBEAT_ENABLED=0)'; exit 0
+fi
+for dep in node jq flock sha256sum realpath stat; do
+  command -v "$dep" >/dev/null || gateway_fail "missing dependency: $dep"
+done
+ROOT="$(realpath -e -- "$ROOT")"
+LOCAL="${MSO_GATEWAY_LOCAL_URL:-http://127.0.0.1:${MSO_PORT:-4005}}"
+. "$ROOT/scripts/lib/gateway-common.sh"
+LOCAL="$(gateway_validate_loopback_origin "$LOCAL")" || gateway_fail 'upstream must be loopback'
+KEY="$(printf '%s\n%s\n%s' "$ROOT" "$LOCAL" "$ENVF" | sha256sum | cut -d' ' -f1)"
+if [ "$ACTION" != once ]; then
+  . "$ROOT/scripts/lib/heartbeat-cron.sh"
+  heartbeat_cron "$ACTION"; exit 0
+fi
+. "$ROOT/scripts/lib/private-state.sh"
+DIR="$(mso_private_state_dir "$HOME/.mso/private/heartbeat/$KEY")"
+mso_private_state_ensure_file "$DIR/check.lock" >/dev/null
+exec 9>>"$DIR/check.lock"
+flock -n 9 || { echo 'heartbeat: check already running'; exit 0; }
+LIMIT="${OS_HEARTBEAT_FAILURE_THRESHOLD:-1}"
+[[ "$LIMIT" =~ ^[1-9][0-9]?$ ]] || gateway_fail 'failure threshold must be 1..99'
+# Existing lifecycle commands retain update locks, env identity and exact PID ownership.
+gateway() { MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$LOCAL" bash "$ROOT/scripts/mso-gateway" "$@" 9>&-; }
+observe() {
+  local rc=0
+  SNAPSHOT="$(gateway status --json)" || rc=$?
+  [ "$rc" -le 2 ] && jq -e 'type == "object" and (.stateError == null) and
+    (.ownership | IN("none", "mso", "external")) and
+    (.localHealth | IN("healthy", "unhealthy"))' <<<"$SNAPSHOT" >/dev/null || gateway_fail 'invalid gateway observation; no recovery attempted'
+}
+healthy() {
+  jq -e '.localHealth == "healthy" and
+    ((.public == null) or (.publicHealth == "healthy"))' <<<"$SNAPSHOT" >/dev/null
+}
+record() {
+  jq -nc --arg at "$(date -u +%FT%TZ)" --arg result "$1" --argjson failures "$2" \
+    '{checkedAt:$at,result:$result,failures:$failures}' | mso_private_state_atomic_write "$DIR/status.json" >/dev/null
+  echo "heartbeat: $1"
+}
+observe
+if healthy; then record healthy 0; exit 0; fi
+# Opt-in fallback recovery never adopts an external supervisor or connector.
+if jq -e '.ownership == "external" or (.supervisor | IN("external", "systemd", "s6", "docker", "kubernetes"))' <<<"$SNAPSHOT" >/dev/null; then
+  record external-unhealthy 0; exit 2
+fi
+COUNT=0
+if [ -e "$DIR/status.json" ]; then
+  mso_private_state_validate_file "$DIR/status.json" >/dev/null
+  COUNT="$(jq -er '.failures | select(type == "number" and . >= 0 and . <= 99 and floor == .)' "$DIR/status.json")" || gateway_fail 'corrupt heartbeat status'
+fi
+COUNT=$((COUNT + 1)); [ "$COUNT" -le 99 ] || COUNT=99
+if [ "$COUNT" -lt "$LIMIT" ]; then record unhealthy "$COUNT"; exit 2; fi
+CONFIG="${OS_HEARTBEAT_GATEWAY_CONFIG:-}"
+TUNNEL="${OS_HEARTBEAT_GATEWAY_TUNNEL:-}"
+if jq -e '.ownership == "mso"' <<<"$SNAPSHOT" >/dev/null; then
+  # Require an explicit recovery recipe; never replace a named tunnel with a quick one.
+  [ -n "$CONFIG" ] && [ -n "$TUNNEL" ] || { record recovery-config-required "$COUNT"; exit 2; }
+  LOCAL_URL="$LOCAL"
+  . "$ROOT/scripts/lib/gateway-provider.sh"
+  gateway_provider_validate_start_recipe --config "$CONFIG" --tunnel "$TUNNEL"
+  gateway stop
+  gateway start --config "$CONFIG" --tunnel "$TUNNEL"
+else
+  # Recover only the built loopback fallback. External ingress is report-only.
+  [ -z "${OS_PUBLIC_ORIGIN:-}" ] || { record recovery-config-required "$COUNT"; exit 2; }
+  gateway local-start
+fi
+observe
+if healthy; then record recovered 0; exit 0; fi
+record recovery-failed "$COUNT"; exit 2

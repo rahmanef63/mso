@@ -310,6 +310,42 @@ signal-aware foreground contract across supervisors. If added, it must use the s
 ownership proof, deterministic exit codes and structured health model; it must not daemonize or assume a
 specific init system.
 
+## Optional cron heartbeat
+
+`mso heartbeat` is a one-shot health/recovery command, disabled by default. It uses structured gateway
+health (including the public MSO identity), rather than treating a live connector PID as healthy.
+It starts no monitoring daemon and installs no packages. Existing gateway lifecycle commands retain
+update serialization, loopback binding, credential validation and exact process ownership checks.
+
+For a built loopback fallback, set this in the installation's owner-only `.env.local`:
+
+```dotenv
+OS_HEARTBEAT_ENABLED=1
+OS_HEARTBEAT_INTERVAL_MINUTES=30
+OS_HEARTBEAT_FAILURE_THRESHOLD=1
+```
+
+Run `mso heartbeat install-cron` once to install a check every 30 minutes and at cron startup. The host
+must run cron; in a container the platform must start it after a restart. An `@reboot` entry does not
+keep a suspended workspace alive. The installer preserves unrelated cron jobs and captures the current
+Node executable directory in the job's PATH. Repeat installation after changing the interval or Node path.
+Set `OS_HEARTBEAT_ENABLED=0` to disable checks without removing the job, or run
+`mso heartbeat remove-cron` to remove only this checkout's entries. Existing systemd/s6/container/external
+supervisors remain responsible for their own services; heartbeat reports their unhealthy state without
+adopting or stopping them.
+
+For an **already MSO-managed named gateway**, also set `OS_HEARTBEAT_GATEWAY_CONFIG` to its dedicated
+owner-owned config file and `OS_HEARTBEAT_GATEWAY_TUNNEL` to its name/UUID. The recipe must pass the
+existing named-gateway preflight before anything is stopped. `OS_PUBLIC_ORIGIN` must match the config.
+Heartbeat never replaces a named tunnel with a temporary quick tunnel or adopts an external connector.
+A stopped external public route requires its own supervisor; setting these values is not an adoption flow.
+
+Each invocation holds a checkout/origin/env-scoped lock and persists only a timestamp, result and
+consecutive failure count under `~/.mso/private/heartbeat/`. Exit 0 means healthy/recovered, disabled or
+already being checked; exit 2 means unhealthy/report-only; exit 1 indicates a validation/lifecycle error.
+The default threshold of 1 repairs on the first scheduled failure. Higher thresholds count failed
+scheduled checks, not seconds. `mso heartbeat once` runs the same check manually without scheduling it.
+
 ## Operational examples
 
 Cloudflare remains the current managed/default provider:

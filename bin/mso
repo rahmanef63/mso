@@ -56,6 +56,7 @@
 #   provider *           Infrastructure credentials: list | set | rm | doctor
 #   providers *          Alias for provider
 #   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain
+#   heartbeat [once|install-cron|remove-cron]  Optional fallback health/recovery
 #   web                   Open the MSO browser UI (active gateway first, else loopback)
 #
 #  Browser
@@ -165,6 +166,10 @@ done
 
 # Dispatch local maintenance before sourcing credentials or creating a cookie jar.
 case "${1-}" in
+  heartbeat)
+    [ -z "$BASE_OVERRIDE" ] || die "heartbeat is local-only; omit --base"
+    shift
+    MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="${ENV_OVERRIDE:-${MSO_ENV:-${OS_ENV:-$ROOT/.env.local}}}" exec "$ROOT/scripts/mso-heartbeat" "$@" ;;
   reset|uninstall)
     [ -z "$BASE_OVERRIDE$ENV_OVERRIDE${MSO_BASE:-}${OS_BASE:-}${MSO_ENV:-}${OS_ENV:-}" ] \
       || die "maintenance is local-only; omit --base/--env and run over SSH on the intended host"
