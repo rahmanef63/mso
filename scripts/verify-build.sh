@@ -95,6 +95,12 @@ if ! node scripts/e2e/bundle-performance.mjs; then
   exit 43
 fi
 
+echo "== verify reviewed macOS chrome"
+node scripts/e2e/macos-figma.mjs
+
+echo "== verify privacy-safe iOS lock"
+node scripts/e2e/ios-lock.mjs
+
 # Optional deeper media/native acceptance, using the same isolated built tree.
 if [ "${1:-}" = "--extended" ]; then
   echo "== verify extended: desktop native acceptance"

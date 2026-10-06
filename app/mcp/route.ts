@@ -1,3 +1,7 @@
+import { TENANT_MEMORY_TOOLS } from "@/lib/tenancy/memory-tools";
+import { tenantPreviewEnabled } from "@/lib/tenancy/mode";
+import { resolveMcpTenant, tenantRuntimeConfigurationPresent } from "@/lib/tenancy/runtime";
+import { dispatchTenantRpc } from "@/lib/mcp/tenant-dispatch";
 import { dispatch, isNotification, rpcError, UNAUTHORIZED, RATE_LIMITED, type RpcRequest } from "@/lib/mcp/dispatch";
 import { getClient, validateToken, touchToken } from "@/lib/mcp/store";
 import { clampScope, mcpEnabled } from "@/lib/mcp/scope";
@@ -81,6 +85,19 @@ export async function POST(req: Request) {
   const principal = token.clientId ? `mcp-client:${token.clientId}` : `mcp-token:${token.hash}`;
   const expectedResource = `${origin}/mcp`;
   if (token.resource && token.resource !== expectedResource) return unauthorized("token was minted for a different MCP resource");
+  let tenantContext;
+  try { tenantContext = await resolveMcpTenant(token); }
+  catch { return unauthorized("tenant access is unavailable"); }
+  if (tenantContext) {
+    const result = await dispatchTenantRpc(rpc, effectiveScope, `mcp:${token.hash.slice(0, 16)}`, {
+      tenantContext, toolProfile: token.profile ?? "full",
+      allowedTools: token.allowedTools, toolArgumentConstraints: token.toolArgumentConstraints,
+    });
+    if (isNotification(body)) return new Response(null, { status: 202, headers: responseHeaders(req) });
+    return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION, rpc.method) : result,
+      { status: wire.modern && (result.error as { code?: number } | undefined)?.code === -32601 ? 404 : 200,
+        headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
+  }
   const client = token.clientId ? await getClient(token.clientId).catch(() => null) : null;
   const toolProfile = token.profile ?? client?.profile ?? detectMcpToolProfile({ clientId: token.clientId, name: client?.name, redirectUris: client?.redirectUris });
   const trustedOpenAiFileParams = isTrustedOpenAiFileParamsClient({ clientId: token.clientId, redirectUris: client?.redirectUris });
@@ -118,6 +135,12 @@ export async function GET(req: Request) {
     return new Response(null, { status: 405, headers: responseHeaders(req, { Allow: "POST", "Cache-Control": "no-store" }) });
   }
   if (req.headers.get("MCP-Protocol-Version") === "2026-07-28") return new Response(null, { status: 405, headers: responseHeaders(req, { Allow: "POST", "Cache-Control": "no-store" }) });
+  try {
+    if (tenantPreviewEnabled()) return Response.json({ name: "mso MCP tenant preview",
+      transport: "streamable-http", supportedTenantTools: [...TENANT_MEMORY_TOOLS],
+      storageRootConfigured: tenantRuntimeConfigurationPresent(), productionTenantIsolationReady: false },
+      { headers: responseHeaders(req, { "Cache-Control": "no-store" }) });
+  } catch { return Response.json({ error: "invalid tenancy mode" }, { status: 503, headers: responseHeaders(req) }); }
   const full = toolsetInfo(TOOLS, undefined, "full");
   const chatgptTools = visibleToolsForProfile(TOOLS, "exec", "chatgpt");
   return Response.json({

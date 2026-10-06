@@ -1,0 +1,30 @@
+diff --git a/out/utils/pattern.js b/out/utils/pattern.js
+index 0f5e9ca7308230601294f1d3a66d641e3b50c267..a200adc828e539b3dc49dcf70c77c28a53814728 100644
+--- a/out/utils/pattern.js
++++ b/out/utils/pattern.js
+@@ -4,6 +4,7 @@ exports.removeDuplicateSlashes = exports.matchAny = exports.convertPatternsToRe
+ const path = require("path");
+ const globParent = require("glob-parent");
+ const micromatch = require("micromatch");
++const { expand } = require("brace-expansion");
+ const GLOBSTAR = '**';
+ const ESCAPE_SYMBOL = '\\';
+ const COMMON_GLOB_SYMBOLS_RE = /[*?]|^!/;
+@@ -134,7 +135,16 @@ function expandPatternsWithBraceExpansion(patterns) {
+ }
+ exports.expandPatternsWithBraceExpansion = expandPatternsWithBraceExpansion;
+ function expandBraceExpansion(pattern) {
+-    const patterns = micromatch.braces(pattern, { expand: true, nodupes: true });
++    if (pattern.length > 4096) throw new RangeError('Brace pattern exceeds 4096 characters');
++    let depth = 0;
++    for (let i = 0; i < pattern.length; i++) {
++        if (pattern.charCodeAt(i) === 92) { i++; continue; }
++        if (pattern[i] === '{' && ++depth > 32) throw new RangeError('Brace nesting exceeds 32 levels');
++        if (pattern[i] === '}') depth = Math.max(0, depth - 1);
++    }
++    const expanded = expand(pattern, { max: 1001, maxLength: 4100096, maxDepth: 32, maxRewrites: 32 });
++    if (expanded.length > 1000) throw new RangeError('Brace expansion exceeds 1000 results');
++    const patterns = [...new Set(expanded)];
+     /**
+      * Sort the patterns by length so that the same depth patterns are processed side by side.
+      * `a/{b,}/{c,}/*` – `['a///*', 'a/b//*', 'a//c/*', 'a/b/c/*']`

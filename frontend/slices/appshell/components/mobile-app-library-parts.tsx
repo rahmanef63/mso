@@ -54,7 +54,7 @@ export function FolderCard({
         {!overflow &&
           Array.from({ length: 4 - big.length }).map((_, i) => <span key={`pad-${i}`} />)}
       </div>
-      <span className={cn("max-w-full truncate text-[12px] font-medium text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]")}>
+      <span className={cn("max-w-full truncate text-[12px] font-normal leading-4 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]")}>
         {name}
       </span>
     </Button>
@@ -83,7 +83,7 @@ export function AlphaList({
         return (
           <div key={a.id}>
             {header && (
-              <div className="px-1 pb-1 pt-2 text-[12px] font-bold text-white/70 [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
+              <div className="px-1 pb-1 pt-2 text-[13px] font-semibold leading-[18px] tracking-[-0.08px] text-white/70 [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
                 {header}
               </div>
             )}
@@ -91,12 +91,12 @@ export function AlphaList({
               type="button"
               variant="ghost"
               onClick={() => onOpen(a)}
-              className="h-auto flex w-full items-center gap-3 rounded-xl px-1 py-1.5 text-left hover:bg-white/10"
+              className="flex h-auto min-h-11 w-full items-center gap-3 rounded-xl px-4 py-1.5 text-left hover:bg-white/10"
             >
               <span className="size-9 shrink-0">
                 <AppIcon app={a} />
               </span>
-              <span className="text-sm font-medium text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">{a.title}</span>
+              <span className="text-[17px] font-normal leading-[22px] tracking-[-0.43px] text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">{a.title}</span>
             </Button>
           </div>
         );

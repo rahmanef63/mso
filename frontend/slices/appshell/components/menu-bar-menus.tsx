@@ -182,15 +182,13 @@ export function Menu(props: { label: string; bold?: boolean; children: React.Rea
     <DropdownMenu>
       <DropdownMenuTrigger
         className={
-          // Smooth macOS feel: snappy colour transition, subtle hover wash, and a
-          // solid accent highlight (blue + white text) while the menu is open.
-          "rounded-[6px] px-2 py-[3px] outline-none transition-colors duration-150 hover:bg-[var(--hover-strong)] data-[state=open]:bg-primary data-[state=open]:text-primary-foreground " +
-          (props.bold ? "font-bold" : "font-medium")
+          "macos-menu-trigger shrink-0 rounded-full px-[9px] py-1 leading-4 outline-none transition-colors duration-150 " +
+          (props.bold ? "font-extrabold" : "font-semibold")
         }
       >
         {props.label}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="rounded-xl">
+      <DropdownMenuContent align="start" sideOffset={5} className="macos-menu rounded-xl">
         {props.children}
       </DropdownMenuContent>
     </DropdownMenu>

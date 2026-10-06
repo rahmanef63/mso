@@ -44,11 +44,12 @@ describe("dependency audit evidence boundary", () => {
     expect(result.status).toBe(1); expect(result.stderr).toContain("GHSA-test-test-test");
     expect(result.stderr).not.toContain("private-registry-diagnostic");
   });
-  it("accepts the dev-lint braces advisory only while bun.lock still matches that chain", () => {
-    const allowed = audit(JSON.stringify({ braces: [{ severity: "high", url: "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm" }] }), 1);
-    expect(allowed.status).toBe(0);
-    const moved = audit(JSON.stringify({ micromatch: [{ severity: "high", url: "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm" }] }), 1);
-    expect(moved.status).toBe(1);
+  it("does not exempt the formerly waived braces advisory", () => {
+    for (const pkg of ["braces", "micromatch"]) {
+      const result = audit(JSON.stringify({ [pkg]: [{ severity: "high", url: "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm" }] }), 1);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("GHSA-vfj7-8cjw-p6xm");
+    }
   });
   it("applies the documented high/critical threshold to a valid lower-severity report", () => {
     const result = audit(JSON.stringify({ example: [{ severity: "moderate", id: 1 }] }), 1);

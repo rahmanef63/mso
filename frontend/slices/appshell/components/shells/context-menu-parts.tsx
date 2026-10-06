@@ -26,15 +26,19 @@ export const SUBMENU_ID = "shell-context-submenu";
  *  shell, so a persona-only rowH under-reserves height and the menu clips. */
 export function menuMetrics(shell: string) {
   const isWin = shell === "windows";
+  const isMac = shell === "macos";
   const isTouch = shell === "ios" || shell === "android";
   const coarse = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
   return {
     isWin,
+    isMac,
+    width: isMac ? 244 : 220,
+    chrome: isMac ? "macos-menu" : "",
     isTouch,
     /** No hover on a coarse pointer → submenus open on TAP instead. */
     tap: isTouch || coarse,
-    rowH: isTouch || coarse ? 44 : isWin ? 34 : 30,
-    item: isWin ? "h-[34px] rounded-[4px]" : isTouch ? "min-h-11 rounded-lg py-2.5 text-[15px]" : "rounded-md py-1",
+    rowH: isTouch || coarse ? 44 : isWin ? 34 : isMac ? 24 : 30,
+    item: isWin ? "h-[34px] rounded-[4px]" : isTouch ? "min-h-11 rounded-lg py-2.5 text-[15px]" : isMac ? "h-6 rounded-lg py-0" : "rounded-md py-1",
     motion: isWin ? "fade-in-0 slide-in-from-top-2 duration-150" : "fade-in zoom-in-95 duration-100",
     radius: isWin ? "rounded-lg" : isTouch ? "rounded-2xl" : "rounded-xl",
     iconSize: isTouch ? "size-[18px]" : "size-4",
@@ -92,7 +96,7 @@ export function SubPanel({ item, m, onClose, pos, panelRef, onEnter, onLeave }: 
       aria-label={item.label}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
-      className={cn(PANEL, "z-[1202]", m.radius, m.motion)}
+      className={cn(PANEL, "z-[1202]", m.radius, m.chrome, m.motion)}
       style={{ left: pos.x, top: pos.y }}
     >
       <MenuRows items={item.items} m={m} onClose={onClose} />
@@ -144,7 +148,7 @@ export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: Men
                   {/* Selection is a GLYPH, never colour alone (a11y). */}
                   {it.checked && <Check className="size-4 shrink-0" />}
                   {/* macOS-style right-aligned keyboard hint (display only). */}
-                  {it.shortcut && <span className="shrink-0 pl-4 text-xs tabular-nums opacity-50 group-hover:opacity-80">{it.shortcut}</span>}
+                  {it.shortcut && <span className={cn("shrink-0 pl-4 text-xs tabular-nums", !m.isMac && "opacity-50 group-hover:opacity-80")}>{it.shortcut}</span>}
                 </>
               }
             />

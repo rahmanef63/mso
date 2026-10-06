@@ -1,6 +1,6 @@
 "use client";
 /* iPhone-home sub-surfaces — ONE page of the app grid (upward-swipe search +
-   long-press quick actions) and the haptic-touch action sheet. Split from
+   long-press point). The quick-actions menu lives in shells/ios. Split from
    mobile-home.tsx (≤200-LOC modularity gate). */
 import { useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -15,47 +15,6 @@ import { QuicklinkIcon } from "./quicklink-icon";
 // at 17 on a 375×667 one — 375 already scrolled with the 18 apps shipping today,
 // and quicklinks spend the same budget, so three bookmarks tipped 390 over too.
 const ICONS_PER_PAGE = 24;
-
-// Long-press quick-actions sheet (iPhone's haptic-touch menu): Open + whatever
-// menu items the app declares for the macOS menu bar — one declaration, both OSes.
-export function AppActionSheet({
-  app, onOpen, onClose,
-}: {
-  app: AppDescriptor; onOpen: () => void; onClose: () => void;
-}) {
-  const items = (app.menus ?? []).flatMap((m) => m.items).filter(
-    (it): it is Extract<typeof it, { label: string }> => !("sep" in it),
-  );
-  return (
-    <div className="absolute inset-0 z-[45] flex flex-col justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px]" />
-      <div
-        className="relative mx-4 mb-6 overflow-hidden rounded-2xl bg-card/95 text-card-foreground shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
-          <span className="size-9"><AppIcon app={app} /></span>
-          <strong className="text-[15px]">{app.title}</strong>
-        </div>
-        <Button type="button" variant="ghost" onClick={onOpen} className="h-auto block w-full justify-start rounded-none px-4 py-3 text-left text-[15px] font-medium">
-          Open
-        </Button>
-        {items.slice(0, 4).map((it, i) => (
-          <Button
-            key={i}
-            type="button"
-            variant="ghost"
-            disabled={it.disabled}
-            onClick={() => { onClose(); it.onSelect?.(); }}
-            className="h-auto block w-full justify-start rounded-none border-t border-border px-4 py-3 text-left text-[15px]"
-          >
-            {it.label}
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export type HomeTile =
   | { key: string; kind: "app"; app: AppDescriptor }
@@ -100,10 +59,9 @@ function Tile({
       {/* No max-w — width follows height via aspect-square. Clamping the width too
           made the tile 58.5×60, visibly non-square, on a 360px-wide phone. */}
       <span className="aspect-square min-h-0 max-h-[60px] flex-1">{icon}</span>
-      {/* 11px/13px — iOS home labels are 11pt SF, one line, tight leading. Was 12px
-          inheriting the Button's 1.43 (17.1px measured), wasting 4px per row — 24px
-          over six rows, which is the margin six rows fit by. */}
-      <span className="max-w-full shrink-0 truncate text-[11px] font-medium leading-[13px] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">
+      {/* Caption 1: 12/16 Regular. Leading is set so the Button's text-sm
+          line-height cannot stretch the six-row grid. */}
+      <span className="max-w-full shrink-0 truncate text-[12px] font-normal leading-4 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.5)]">
         {label}
       </span>
     </Button>
@@ -116,7 +74,8 @@ export function AppsGrid({
   tiles, onLaunch, onSearch, onContext,
 }: {
   tiles: HomeTile[]; onSearch: () => void;
-  onLaunch: (app: AppDescriptor) => void; onContext: (app: AppDescriptor) => void;
+  onLaunch: (app: AppDescriptor) => void;
+  onContext: (app: AppDescriptor, point: { x: number; y: number }) => void;
 }) {
   const { open: openLink } = useQuickLinks();
   // Long-press bookkeeping: a fired hold must swallow the click that follows.
@@ -138,7 +97,7 @@ export function AppsGrid({
     holdTimer.current = window.setTimeout(() => {
       held.current = true;
       cancel();
-      onContext(app);
+      onContext(app, { x: sx, y: sy });
     }, 450);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -190,7 +149,7 @@ export function AppsGrid({
             label={app.title}
             icon={<AppIcon app={app} />}
             onPointerDown={startHold(app)}
-            onContextMenu={(e) => { e.preventDefault(); onContext(app); }}
+            onContextMenu={(e) => { e.preventDefault(); onContext(app, { x: e.clientX, y: e.clientY }); }}
             onClick={() => { if (held.current) { held.current = false; return; } onLaunch(app); }}
           />
         );

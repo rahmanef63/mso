@@ -4,7 +4,7 @@ import type { Rect, SnapZone } from "./types";
 // stateful store. Window coords are relative to the desktop surface, which
 // already starts below the menu bar at top:TOPBAR (we DON'T add TOPBAR again).
 
-export const TOPBAR = 30;
+export const TOPBAR = 34;
 export const DOCK_RESERVE = 92;
 export const GAP = 8;
 

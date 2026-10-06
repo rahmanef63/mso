@@ -1,5 +1,7 @@
 "use client";
 
+import "./macos-shell.css";
+
 // The macOS chrome — menu bar, desktop surface + window layer, dock, launcher,
 // Mission Control. Split out of desktop.tsx so it can be React.lazy()'d in
 // register-shells.tsx: it used to sit in the same module as Surface, which put
@@ -30,6 +32,7 @@ import { Slot } from "../../../registry/feature-registry";
 import { useShellAppearance } from "../../../registry/capabilities";
 import { ForceQuitDialog } from "../../../features/force-quit/force-quit";
 import { DesktopIcons, useDesktopMarquee } from "../../../features/desktop-icons";
+import { TOPBAR } from "../../../lib/store-geometry";
 import { cn } from "@/lib/utils";
 
 export function DesktopChrome() {
@@ -59,7 +62,8 @@ export function DesktopChrome() {
     <>
       <MenuBar />
       <section
-        className={cn("absolute inset-x-0 bottom-0 top-[30px] z-[10]", interactive && "pointer-events-none [&>*]:pointer-events-auto")}
+        style={{ top: TOPBAR }}
+        className={cn("absolute inset-x-0 bottom-0 z-[10]", interactive && "pointer-events-none [&>*]:pointer-events-auto")}
         // Open the desktop menu for any right-click NOT inside a window. Icons +
         // widgets stopPropagation their own menus (never reach here); windows are
         // excluded via [data-window]. The old `target===currentTarget` guard

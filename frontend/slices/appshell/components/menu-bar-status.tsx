@@ -16,12 +16,12 @@ export function StatusCluster() {
   const unread = useNotifications().some((n) => !n.read);
 
   return (
-    <div className="ml-auto flex items-center gap-0.5 text-muted-foreground">
+    <div className="macos-status ml-auto flex shrink-0 items-center gap-0.5">
       <span data-slot="system-status-host" data-status-placement="menu-bar" className="flex items-center">
         <Slot region="systemStatus" />
       </span>
       {cpu != null && (
-        <span className="flex items-center gap-1 rounded-md px-2 py-0.5 tabular-nums">
+        <span data-slot="macos-cpu" className="flex items-center gap-1 rounded-md px-2 py-0.5 tabular-nums">
           <Activity className="size-3.5" />
           {cpu}%
         </span>

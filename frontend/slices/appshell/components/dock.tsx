@@ -29,7 +29,7 @@ const MIN_ICON = 22; // shrink floor — past it the row scrolls instead
 // feature, i.e. dozens of extra slots. Past the floor even shrinking can't fit the
 // row, so it scrolls; magnification is off there (it assumes an unscrolled row).
 export function dockFit(vw: number, count: number, seps: number, max: number, magnify: boolean) {
-  const reserve = magnify ? Math.round(max * 0.6) : 0; // hover growth headroom
+  const reserve = magnify ? Math.round(max * 2.2) : 0; // reserve the full magnification pool
   const room = vw - 32 - GAP * (count - 1) - SEP_W * seps - reserve;
   const fit = Math.floor(room / Math.max(1, count - seps));
   const cramped = fit < MIN_ICON;
@@ -175,7 +175,7 @@ export function Dock({ onMissionControl }: { onMissionControl?: () => void }) {
           ref={rowRef}
           onPointerMove={(e) => { mouseX.current = e.clientX; schedule(); }}
           onPointerLeave={() => { mouseX.current = null; schedule(); }}
-          className={`glass pointer-events-auto flex items-end rounded-[22px] border border-white/40 px-2.5 py-2 shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_18px_50px_-10px_rgba(0,0,0,0.5)] dark:border-white/10 ${cramped ? "w-max" : ""}`}
+          className={`macos-dock glass pointer-events-auto flex items-end rounded-[22px] border border-white/40 px-2.5 py-2 shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_18px_50px_-10px_rgba(0,0,0,0.5)] dark:border-white/10 ${cramped ? "w-max" : ""}`}
           style={{ background: "var(--dock-bg)", gap: GAP }}
         >
           {slots.map((s, i) => {

@@ -45,6 +45,7 @@ vi.mock("@/lib/host/limits-api", () => ({
 vi.mock("@/lib/mcp/capability-runtime", () => ({
   msoCapabilityRuntime: { list: () => [], invoke: vi.fn(async () => ({ content: [] })) },
 }));
+vi.mock("@/lib/agent/local-agent-standby", () => ({ ensureLocalAgentStandbyRuntime: vi.fn(async () => {}) }));
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
 vi.mock("@/lib/mcp/client-profile", () => ({

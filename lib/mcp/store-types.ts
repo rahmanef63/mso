@@ -1,3 +1,4 @@
+import type { TenantCredentialBinding } from "@/lib/tenancy/types";
 import type { Scope } from "./scope";
 import type { McpToolProfile } from "./tool-contract";
 
@@ -9,6 +10,7 @@ export interface McpClient {
 }
 
 export interface McpCode {
+  tenantBinding?: Readonly<TenantCredentialBinding>;
   clientId: string;
   redirectUri: string;
   codeChallenge: string;
@@ -20,6 +22,9 @@ export interface McpCode {
 }
 
 export interface McpToken {
+  tenantBinding?: Readonly<TenantCredentialBinding>;
+  /** Deprecated marker: subject-only credentials are rejected, never automatically upgraded. */
+  tenantSubject?: string;
   label: string;
   clientId: string;
   scope: Scope;
@@ -35,6 +40,7 @@ export interface McpToken {
 }
 
 export interface McpRefreshToken {
+  tenantBinding?: Readonly<TenantCredentialBinding>;
   grantId: string;
   clientId: string;
   scope: Scope;

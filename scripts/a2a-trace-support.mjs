@@ -66,23 +66,40 @@ async function statePath(id) {
 }
 
 const STATE_LIMITS = { runId: 80, agent: 48, project: 240, sessionId: 120, sessionLabel: 120, workflowId: 120, status: 24, startedAt: 40, updatedAt: 40, lastFingerprint: 600 };
+function stateIdentifier(value) {
+  if (typeof value !== "string" || !/^[a-zA-Z0-9_-]{1,120}$/.test(value)) fail("invalid A2A trace identifiers");
+  return value;
+}
 function checkState(state) {
-  if (!state || state.version !== 1 || typeof state.runId !== "string" || state.runId !== validRunId(state.runId)) fail("invalid A2A trace state");
-  if (!/^[a-zA-Z0-9_-]{1,120}$/.test(state.sessionId) || !/^[a-zA-Z0-9_-]{1,120}$/.test(state.workflowId)) fail("invalid A2A trace identifiers");
-  if (!["active", "attached", "finished", "failed", "cancelled"].includes(state.status)) fail("invalid A2A trace status");
-  for (const [key, value] of Object.entries(state)) {
-    if (key === "version") continue;
-    if (key === "lastEventMs") { if (!Number.isSafeInteger(value) || value < 0) fail("invalid A2A trace timestamp"); continue; }
-    if (!Object.hasOwn(STATE_LIMITS, key) || (value !== undefined && (typeof value !== "string" || value.length > STATE_LIMITS[key]))) fail("invalid A2A trace field: " + key);
+  if (!state || typeof state !== "object" || Array.isArray(state)) fail("invalid A2A trace state");
+  const fields = Object.getOwnPropertyDescriptors(state);
+  if (Object.values(fields).some((field) => !Object.hasOwn(field, "value"))) fail("invalid A2A trace accessor");
+  const runId = fields.runId?.value, status = fields.status?.value;
+  if (fields.version?.value !== 1 || typeof runId !== "string" || runId !== validRunId(runId)) fail("invalid A2A trace state");
+  if (!["active", "attached", "finished", "failed", "cancelled"].includes(status)) fail("invalid A2A trace status");
+  const snapshot = {
+    version: 1, runId, status,
+    sessionId: stateIdentifier(fields.sessionId?.value),
+    workflowId: stateIdentifier(fields.workflowId?.value),
+  };
+  for (const [key, field] of Object.entries(fields)) {
+    if (Object.hasOwn(snapshot, key)) continue;
+    const value = field.value;
+    if (key === "lastEventMs") {
+      if (!Number.isSafeInteger(value) || value < 0) fail("invalid A2A trace timestamp");
+    } else if (!Object.hasOwn(STATE_LIMITS, key) || (value !== undefined && (typeof value !== "string" || value.length > STATE_LIMITS[key]))) fail("invalid A2A trace field: " + key);
+    snapshot[key] = value;
   }
-  return state;
+  return snapshot;
 }
 
 export async function saveState(state) {
-  checkState(state);
-  const file = await statePath(state.runId);
+  const snapshot = checkState(state);
+  const body = JSON.stringify(snapshot, null, 2) + "\n";
+  if (Buffer.byteLength(body, "utf8") > 8192) fail("invalid A2A trace state size");
+  const file = await statePath(snapshot.runId);
   const temp = file + "." + process.pid + "." + Date.now() + ".tmp";
-  await fs.writeFile(temp, JSON.stringify(state, null, 2) + "\n", { mode: 0o600, flag: "wx" });
+  await fs.writeFile(temp, body, { mode: 0o600, flag: "wx" });
   await fs.rename(temp, file);
 }
 

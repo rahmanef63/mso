@@ -4,6 +4,31 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-06
+
+**Added**
+
+- integrate verified MSO shell and tenant changes
+
+**Fixed**
+
+- `deps` update source-map-js to patched 1.2.2
+- `agent` preserve overlapping standby wakeups
+
+**Docs**
+
+- reconcile reviewed 9Router app-host proposal
+
+## 2026-10-05
+
+**Chores**
+
+- `deps-dev` bump simple-icons
+
+**CI**
+
+- preserve strict audit and require native audit and shell journeys
+
 ## 2026-10-04
 
 **Added**

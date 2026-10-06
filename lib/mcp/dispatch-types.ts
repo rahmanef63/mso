@@ -1,3 +1,4 @@
+import type { TenantContext } from "@/lib/tenancy/authority";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import type { McpToolProfile } from "./tool-contract";
 
@@ -19,6 +20,7 @@ export interface RpcRequest {
 }
 
 export interface McpAgentContext {
+  tenantContext?: TenantContext;
   principal?: string;
   sessionId?: string;
   toolProfile?: McpToolProfile;

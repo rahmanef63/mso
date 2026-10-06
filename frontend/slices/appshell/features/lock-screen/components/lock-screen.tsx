@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Lock } from "lucide-react";
+import { useActiveShell } from "../../../registry/shells";
+import { IosLockScreen } from "./ios-lock-screen";
 import { autoLockMinutes, lock, requestUnlock, useLocked } from "../../../lib/lock";
 
 // Fullscreen privacy curtain: blurred backdrop, big clock, click/key unlocks
@@ -28,7 +30,9 @@ export function LockScreen() {
     };
   }, []);
 
-  return locked ? <LockCurtain /> : null;
+  const shell = useActiveShell();
+  if (!locked) return null;
+  return shell.id === "ios" ? <IosLockScreen /> : <LockCurtain />;
 }
 
 function LockCurtain() {

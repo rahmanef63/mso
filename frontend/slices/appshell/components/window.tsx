@@ -84,6 +84,8 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
       <div
         ref={ref}
         data-window
+        data-window-chrome={variant}
+        data-focused={focused}
         data-app={win.app}
         className={cn(
           "win-geo absolute flex flex-col overflow-hidden border border-border bg-card shadow-[var(--shadow-win)]",
@@ -97,7 +99,7 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
         onAnimationEnd={(e) => {
           // Finalize the deferred store action once the exit animation ends.
           if (e.animationName === "winClose") closeWindow(id);
-          else if (e.animationName === "winMin") minimizeWindow(id);
+          else if (e.animationName === "winMin") { setPhase("in"); minimizeWindow(id); }
         }}
       >
         {isWin ? (
@@ -125,21 +127,20 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
           </div>
         ) : (
           <div
-            className="glass flex h-[38px] shrink-0 cursor-grab items-center gap-2 border-b border-border px-3 font-[family-name:var(--shell-font)] active:cursor-grabbing"
-            style={{ background: "var(--window-head)" }}
+            className="macos-titlebar flex h-[52px] shrink-0 cursor-grab items-center gap-3 pl-3 pr-[18px] font-[family-name:var(--shell-font)] active:cursor-grabbing"
             onPointerDown={onBarDown}
             onDoubleClick={() => toggleMaximize(id)}
             onContextMenu={ctx.open}
           >
             <TrafficLights
+              focused={focused}
               onClose={beginClose}
               onMinimize={beginMinimize}
               onMaximize={() => toggleMaximize(id)}
             />
-            <div className="pointer-events-none flex-1 truncate text-center text-[13px] font-semibold text-muted-foreground">
+            <div className="macos-window-title pointer-events-none flex-1 truncate text-[13px] font-semibold">
               {title}
             </div>
-            <div className="min-w-[54px]" />
           </div>
         )}
 

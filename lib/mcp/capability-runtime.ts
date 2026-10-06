@@ -33,6 +33,7 @@ export const msoCapabilityRuntime: CapabilityRuntime = {
       scope: input.scope,
       actor: input.actor,
       context: {
+        tenantContext: input.tenantContext,
         principal: input.principal,
         sessionId: input.sessionId,
         ...(input.workflowActor ? { workflowActorOverride: input.workflowActor } : {}),

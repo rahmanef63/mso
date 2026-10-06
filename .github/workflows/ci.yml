@@ -60,11 +60,11 @@ jobs:
       - name: Repository checks
         run: bun run check
 
-      # Raw `bun audit --ignore` cannot scope by lockfile path or expiry.
-      # scripts/audit-exceptions.mjs allows only GHSA-vfj7-8cjw-p6xm while
-      # bun.lock's braces edge is exactly the dev ESLint chain, until 2026-12-03.
       - name: Audit dependencies
         run: bun run audit:strict
+
+      - name: Audit dependencies with native Bun
+        run: bun audit --audit-level=high
 
       - name: Audit locked native build tool
         run: npm audit --prefix scripts/install/node-gyp --omit=dev --audit-level=high
@@ -83,6 +83,12 @@ jobs:
 
       - name: Required browser journeys
         run: bun run e2e:release
+
+      - name: macOS chrome and accessibility journeys
+        run: node scripts/e2e/macos-figma.mjs
+
+      - name: iOS lock privacy and accessibility journeys
+        run: node scripts/e2e/ios-lock.mjs
 
       - name: Deferred shell performance journeys
         run: node scripts/e2e/bundle-performance.mjs

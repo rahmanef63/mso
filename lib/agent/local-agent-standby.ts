@@ -20,7 +20,7 @@ import type { LocalAgentStandbyRecord } from "./local-agent-types";
 
 const runtimeId = `standby:${process.pid}:${randomUUID()}`;
 const subscriptions = new Map<string, () => void>();
-const inFlightSessions = new Set<string>();
+const inFlightSessions = new Map<string, { rerun: boolean; promise: Promise<void> }>();
 let runtimeCapabilities: CapabilityRuntime | null = null;
 let reconcilePromise: Promise<void> | null = null;
 
@@ -63,39 +63,48 @@ export async function drainStandbySession(
   principal: string,
   sessionId: string,
 ): Promise<void> {
-  if (!runtimeCapabilities) return;
+  const capabilities = runtimeCapabilities;
+  if (!capabilities) return;
   const initial = await getLocalAgentStandbyRecord(principal, sessionId).catch(() => null);
   if (!initial?.armed) return;
   const key = executionKey(initial);
-  if (inFlightSessions.has(key)) return;
-  inFlightSessions.add(key);
-  try {
-    for (let processed = 0; processed < 100; processed += 1) {
-      const record = await getLocalAgentStandbyRecord(principal, sessionId);
-      if (!record?.armed) break;
-      const validation = await validateRecord(record);
-      if (!validation.valid) {
-        await blockLocalAgentStandby(principal, sessionId, validation.reason);
-        removeSubscription(sessionId);
-        break;
-      }
-      const [next] = await listLocalAgentExecutableInbox(principal, sessionId, 1);
-      if (!next) break;
-      const result = await executeLocalAgentStandbyMessage({
-        record,
-        message: next,
-        capabilities: runtimeCapabilities,
-        runtimeId,
-      });
-      if (result.fatal) {
-        removeSubscription(sessionId);
-        break;
-      }
-      if (!result.advanced) break;
-    }
-  } finally {
-    inFlightSessions.delete(key);
+  const active = inFlightSessions.get(key);
+  if (active) {
+    active.rerun = true;
+    return active.promise;
   }
+  const flight = { rerun: false, promise: Promise.resolve() };
+  inFlightSessions.set(key, flight);
+  flight.promise = (async () => {
+    try {
+      do {
+        flight.rerun = false;
+        for (let processed = 0; processed < 100; processed += 1) {
+          const record = await getLocalAgentStandbyRecord(principal, sessionId);
+          if (!record?.armed) break;
+          const validation = await validateRecord(record);
+          if (!validation.valid) {
+            await blockLocalAgentStandby(principal, sessionId, validation.reason);
+            removeSubscription(sessionId);
+            break;
+          }
+          const [next] = await listLocalAgentExecutableInbox(principal, sessionId, 1);
+          if (!next) break;
+          const result = await executeLocalAgentStandbyMessage({
+            record, message: next, capabilities, runtimeId,
+          });
+          if (result.fatal) {
+            removeSubscription(sessionId);
+            break;
+          }
+          if (!result.advanced) break;
+        }
+      } while (flight.rerun && inFlightSessions.get(key) === flight);
+    } finally {
+      if (inFlightSessions.get(key) === flight) inFlightSessions.delete(key);
+    }
+  })();
+  return flight.promise;
 }
 
 export async function ensureLocalAgentStandbyRuntime(

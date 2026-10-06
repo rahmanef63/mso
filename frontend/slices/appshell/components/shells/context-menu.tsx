@@ -183,11 +183,11 @@ export function ContextMenu({ pos, items, onClose }: { pos: Pos; items: MenuItem
   // Clamp on all four edges (Math.max lower-bounds so a click near the bottom/right
   // of a small viewport can't push the menu offscreen). Per-row height is variant-
   // aware so the bottom clamp reserves enough for the taller touch rows.
-  const x = Math.max(8, Math.min(pos.x, window.innerWidth - 220));
+  const x = Math.max(8, Math.min(pos.x, window.innerWidth - m.width - 8));
   const y = Math.max(8, Math.min(pos.y, window.innerHeight - items.length * m.rowH - 12));
   const open = sub && items[sub.i]?.type === "submenu" ? (items[sub.i] as Extract<MenuItem, { type: "submenu" }>) : null;
   const sp = sub && open
-    ? submenuPos(sub.row, subSize ?? { w: 220, h: open.items.length * m.rowH + 8 }, { w: window.innerWidth, h: window.innerHeight })
+    ? submenuPos(sub.row, subSize ?? { w: m.width, h: open.items.length * m.rowH + 8 }, { w: window.innerWidth, h: window.innerHeight })
     : null;
 
   return createPortal(
@@ -200,7 +200,7 @@ export function ContextMenu({ pos, items, onClose }: { pos: Pos; items: MenuItem
         ref={menuRef}
         role="menu"
         onMouseLeave={leaveSub}
-        className={cn(PANEL, "z-[1201]", m.radius, m.motion)}
+        className={cn(PANEL, "z-[1201]", m.radius, m.chrome, m.motion)}
         style={{ left: x, top: y }}
       >
         <MenuRows items={items} m={m} onClose={onClose} sub={{ open: sub?.i ?? null, onOpen: openSub, onLeave: leaveSub }} />

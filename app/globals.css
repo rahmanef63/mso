@@ -371,6 +371,20 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
+/* iOS 27 home-screen widget placeholders. The kit paints these purple so the
+   size (small, medium, large, extra large) reads before a real widget does.
+   Scoped to the iOS shell so the macOS widget stack stays on its own cards. */
+[data-shell="ios"] [data-slot="ios-widget-placeholder"] {
+  background: #6e56cf;
+}
+
+/* Two-tone focus stays visible across light and dark wallpaper regions. */
+.ios-lock-focus:focus-visible {
+  outline: 2px solid Canvas;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px CanvasText;
+}
+
 /* iOS Settings grouped-list body. The shell-settings primitives render the SAME
    markup in every shell; the iOS type scale + borderless-card-on-grouped-page
    look lives here (scoped) so the portable slice stays brand/shell-free.

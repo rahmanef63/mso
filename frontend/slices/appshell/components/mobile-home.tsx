@@ -1,18 +1,20 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AppDescriptor } from "../lib/types";
-import { AppIcon } from "./app-icon";
 import { Slot } from "../registry/feature-registry";
 import { MobileAppLibrary } from "./mobile-app-library";
-import { AppActionSheet, AppsGrid, useHomePages } from "./mobile-home-parts";
+import { AppsGrid, useHomePages } from "./mobile-home-parts";
 import { ShellContextMenu, useShellContextMenu } from "./shells/context-menu";
+import { IosHomeChrome } from "./shells/ios/ios-home-chrome";
+import { IosQuickActions } from "./shells/ios/ios-quick-actions";
+import { IOS_WIDGET_HOMES, IosWidgetHome } from "./shells/ios/ios-widget-home";
+import { lock } from "../lib/lock";
 
-// Paged iPhone home: [Today widgets] · [App grid ×N] · [App Library]. The dock,
-// page dots and home-indicator persist across pages. The app grid is N pages of
-// 24 (iPhone's 6×4), not one vertical scroller — see mobile-home-parts.
+// Paged iPhone home: [Today widgets] · [App grid ×N] · [App Library]. Page dots,
+// the search pill and the icon dock persist. The app grid is N pages of 24
+// (iPhone's 6×4) — see mobile-home-parts.
 export function MobileHome({
   apps,
   dockApps,
@@ -34,10 +36,14 @@ export function MobileHome({
 }) {
   const pagerRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(1); // 0 widgets · 1…N apps · N+1 library
-  const [ctxApp, setCtxApp] = useState<AppDescriptor | null>(null); // long-press sheet
+  const [hidden, setHidden] = useState<string[]>([]);
+  const [ctxApp, setCtxApp] = useState<{ app: AppDescriptor; x: number; y: number } | null>(null);
   const menu = useShellContextMenu("ios", "mobile"); // home background long-press menu
-  const gridPages = useHomePages(apps);
-  const pageCount = gridPages.length + 2; // + Today + App Library
+  const visible = apps.filter((app) => !hidden.includes(app.id));
+  const gridPages = useHomePages(visible);
+  // Today, plain icon pages, one home per widget size, then the App Library.
+  const widgetStart = gridPages.length + 1;
+  const pageCount = widgetStart + IOS_WIDGET_HOMES.length + 1;
 
   // Open on the app grid (the middle page), like iPhone's default home.
   useLayoutEffect(() => {
@@ -47,7 +53,9 @@ export function MobileHome({
 
   const onScroll = () => {
     const el = pagerRef.current;
-    if (el) setPage(Math.round(el.scrollLeft / el.clientWidth));
+    if (!el) return;
+    const next = Math.round(el.scrollLeft / el.clientWidth);
+    setPage(next);
   };
 
   // Swipe DOWN from the top safe-area: LEFT half → Notification Center,
@@ -90,14 +98,14 @@ export function MobileHome({
           This 2.25rem is ON TOP of --sai-top, which globals.css floors at 2.75rem
           for data-shell="ios" — they ADD, so iOS starts the pager 80px down even in
           a browser reporting no inset. Read that before "reclaiming" space here:
-          80px + 34px of dots + a 100px dock block + a 36px indicator = 250px, and
+          80px + 34px of dots + the search pill and icon dock + a 36px indicator, and
           what is left is what caps the home icon (60px at 844 tall, 45.5 at 667). */}
       <div
+        data-slot="ios-top-gesture"
         className="shrink-0 [touch-action:none]"
         style={{ height: "calc(2.25rem + var(--sai-top))" }}
         onPointerDown={onTopPointerDown}
       />
-
       <div
         ref={pagerRef}
         onScroll={onScroll}
@@ -106,13 +114,28 @@ export function MobileHome({
         <Page active={page === 0}>
           {/* Today keeps its OWN scroller — a widget stack is genuinely taller than
               the page. The app pages deliberately do not scroll (see AppsGrid). */}
-          <div className="h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div
+            className="h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             <Slot region="today" />
           </div>
         </Page>
         {gridPages.map((tiles, i) => (
           <Page key={tiles[0]?.key ?? `home-${i}`} active={page === i + 1}>
-            <AppsGrid tiles={tiles} onLaunch={onLaunch} onSearch={onSearch} onContext={setCtxApp} />
+            <AppsGrid tiles={tiles} onLaunch={onLaunch} onSearch={onSearch} onContext={(app, point) => setCtxApp({ app, ...point })} />
+          </Page>
+        ))}
+        {IOS_WIDGET_HOMES.map((widget, i) => (
+          <Page key={widget.size} active={page === widgetStart + i}>
+            <IosWidgetHome
+              apps={visible}
+              size={widget.size}
+              title={widget.title}
+              span={widget.span}
+              slots={widget.slots}
+              onLaunch={onLaunch}
+              onContext={(app, point) => setCtxApp({ app, ...point })}
+            />
           </Page>
         ))}
         <Page active={page === pageCount - 1}>
@@ -138,25 +161,19 @@ export function MobileHome({
         ))}
       </div>
 
-      {dockApps.length > 0 && (
-        <div
-          className="glass mx-3 mb-3.5 flex justify-around rounded-[30px] border border-white/15 px-3.5 py-3"
-          style={{ background: "var(--glass-bar)", boxShadow: "inset 0 0.5px 0 var(--glass-hi), 0 12px 34px rgba(0,0,0,0.30)" }}
-        >
-          {dockApps.map((app) => (
-            <Button key={app.id} type="button" variant="ghost" size="icon" aria-label={app.title} onClick={() => onLaunch(app)} className="h-auto w-auto hover:bg-transparent size-[60px] p-0">
-              <AppIcon app={app} />
-            </Button>
-          ))}
-        </div>
-      )}
+      <IosHomeChrome dockApps={dockApps} onLaunch={onLaunch} onSearch={onSearch} />
 
       {indicator}
 
       {ctxApp && (
-        <AppActionSheet
-          app={ctxApp}
-          onOpen={() => { setCtxApp(null); onLaunch(ctxApp); }}
+        <IosQuickActions
+          app={ctxApp.app}
+          point={ctxApp}
+          onOpen={() => onLaunch(ctxApp.app)}
+          onRemove={() => setHidden((ids) => ids.includes(ctxApp.app.id) ? ids : [...ids, ctxApp.app.id])}
+          onLock={lock}
+          onEditHome={() => pagerRef.current?.scrollTo({ left: 0, behavior: "smooth" })}
+          onSearch={onSearch}
           onClose={() => setCtxApp(null)}
         />
       )}

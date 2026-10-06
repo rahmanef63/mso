@@ -15,16 +15,39 @@ export function ManagedAppsCatalog({ query }: { query: string }) {
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/v1/managed-apps", { cache: "no-store", signal: controller.signal }).then(async response => {
-      if (!response.ok) throw new Error("Could not load installable apps.");
-      const data = await response.json() as { apps: ManagedAppView[] };
-      setApps(data.apps); setError("");
-    }).catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load apps."); });
+    const loadApps = async () => {
+      try {
+        const response = await fetch("/api/v1/managed-apps", { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error("Could not load installable apps.");
+        const data = await response.json() as { apps: ManagedAppView[] };
+        setApps(data.apps);
+        setError("");
+      } catch (reason) {
+        if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load apps.");
+      }
+    };
+
+    void loadApps();
     void fetch("/api/v1/app-catalog", { cache: "no-store", signal: controller.signal }).then(async response => {
       if (!response.ok) throw new Error("Catalog unavailable.");
       setCatalog(await response.json() as CatalogState);
     }).catch(() => { if (!controller.signal.aborted) setCatalog({ status: "unavailable", entries: [] }); });
-    return () => controller.abort();
+
+    // Installing a managed app happens in a separate MSO window. The App Store can
+    // remain mounted behind it, so a mount-only read leaves the card saying "Not
+    // installed" even after the server is running. Refresh only on user-return
+    // signals; no background polling is needed for this catalog surface.
+    const refreshVisible = () => {
+      if (!document.hidden) void loadApps();
+    };
+    document.addEventListener("visibilitychange", refreshVisible);
+    window.addEventListener("focus", refreshVisible);
+
+    return () => {
+      controller.abort();
+      document.removeEventListener("visibilitychange", refreshVisible);
+      window.removeEventListener("focus", refreshVisible);
+    };
   }, []);
 
   const managedIds = useMemo(() => catalog?.entries.filter(entry => entry.kind === "managed").map(entry => entry.id) ?? [], [catalog]);

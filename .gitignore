@@ -49,3 +49,6 @@ __pycache__/
 # Local integration-transfer artifacts (never commit personal exports)
 *.integration-bundle.json
 *.integration-bundle.enc.json
+
+# Isolated fake HOME for tenancy regression tests; never stage generated state.
+.tenant-test-home/
