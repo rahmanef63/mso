@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `deps` update sharp override for librsvg security patch
 - `deps` update source-map-js to patched 1.2.2
 - `agent` preserve overlapping standby wakeups
 
