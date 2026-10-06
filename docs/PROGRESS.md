@@ -1,3 +1,9 @@
+## 2026-10-06: Preserve overlapping standby wakeups
+
+The PR integration exposed a dropped-wakeup race in local-agent standby: a drain requested while another pass was reading an empty mailbox returned immediately, so a newly invalid workflow or arriving authorized message could remain unprocessed. Concurrent drains now share one completion promise and request a fresh validated pass. Cleanup happens inside the runner's own finalization step, without a microtask window that could discard a late join. Per-pass bounds, sequential message execution, claim checks and fatal blocking remain intact.
+
+Three deferred-promise regressions reproduce the empty-snapshot and finalization boundaries without timer delays; each failed the relevant earlier implementation. The existing stale-workflow and sequential execution tests remain unchanged. Models-catalog tests also prove that denied owner authorization returns 401 before either ordinary catalog or OAuth-account access, for Codex, regular and empty provider selectors. Focused checks and full local coverage passed 4,041 tests across 673 files; final publication checks and the separately identified dependency advisory remain pending.
+
 ## 2026-10-05: Reconcile reviewed shell and tenant candidates
 
 CI keeps the strict dependency-audit wrapper, including its timeout, malformed-report checks and redacted diagnostics, and adds the native Bun high/critical audit as a separate required step. Both run after removal of the vulnerable dependency chain and its exception files. Workflow permissions remain read-only. A contract test prevents either audit from becoming optional.

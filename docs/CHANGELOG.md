@@ -4,38 +4,25 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
-## 2026-10-05
+## 2026-10-06
 
 **Added**
 
-- `shell` import reviewed macOS chrome and security candidate
-- `tenancy` compose scoped durable memory runtime
-- `tenancy` pin credential generations across OAuth lifecycle
-- `tenancy` add atomic durable registry and memory adapter
-- `tenancy` add disabled identity and scoped read seam
+- integrate verified MSO shell and tenant changes
 
 **Fixed**
 
-- `ci` retain executable verification entrypoint
-- `managed-apps` refresh install state on return
+- `agent` preserve overlapping standby wakeups
 
-**Tests**
-
-- `shell` wait for settled desktop geometry before switching
-- `tenancy` keep persistent route mock fully parseable
-- `ci` cover both shell journeys in build isolation fixture
-- `tenancy` verify claim corruption and document rollout gates
+## 2026-10-05
 
 **Chores**
 
 - `deps-dev` bump simple-icons
-- `lint` ignore linked worktrees
 
 **CI**
 
-- preserve strict auditing before the native dependency check
-- verify both shell candidates in isolated builds
-- gate combined macOS and iOS release journeys
+- preserve strict audit and require native audit and shell journeys
 
 ## 2026-10-04
 
@@ -45,37 +32,15 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `shell` retain focus contrast with screen light enabled
-- `shell` preserve focus contrast within CSS budget
-- `shell` reuse accessible focus token within CSS budget
-- `shell` make iOS lock privacy-safe and keyboard accessible
 - `appearance` version immutable default wallpaper URLs
-- `shell` match complete lock weather locale subtags
 - `appearance` refine default 27 desktop wallpapers
 - `security` clear unfixed dependency and Semgrep audit gates
-- `shell` use Semibold for the iOS lock time
-- `shell` shrink iOS widgets and paint glass fills
-- `shell` tighten the lock date and lighten the time
-- `shell` build the iOS lock screen on the shell wallpaper
 
 **Chores**
 
 - `deps` bump the actions-minor-patch group with 3 updates
 - `deps` bump the production-minor-patch group with 5 updates
 - `deps-dev` bump the test-toolchain group with 2 updates
-
-## 2026-10-03
-
-**Added**
-
-- `shell` restyle iPhone and iPad tab bars as iOS 27 glass capsules
-
-**Fixed**
-
-- `shell` correct lock date tracking and cover the home
-- `shell` match iOS Large type styles and touch sizes
-- `shell` place each widget size on its own home screen
-- `shell` match the iOS 27 home screen frames
 
 ## 2026-10-02
 

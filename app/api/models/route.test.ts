@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { requireSession } from "@/lib/auth/require-session";
 
 const listModels = vi.fn();
 const readOAuthBundle = vi.fn();
@@ -20,6 +21,7 @@ vi.mock("@/lib/ai/oauth/codex", () => ({
 
 describe("/api/models dynamic pricing and provider mapping", () => {
   beforeEach(() => {
+    vi.mocked(requireSession).mockReset().mockResolvedValue(true);
     listModels.mockReset().mockResolvedValue([
       {
         ref: "zhipuai/glm-free",
@@ -70,5 +72,19 @@ describe("/api/models dynamic pricing and provider mapping", () => {
     const res = await GET(new NextRequest("http://localhost/api/models?provider=glm&free=1"));
     const body = await res.json();
     expect(body.models.map((m: { id: string }) => m.id)).toEqual(["glm-free"]);
+  });
+
+  it.each(["openai-codex", "glm", ""])("requires an owner before any provider access (%s)", async (provider) => {
+    vi.mocked(requireSession).mockResolvedValue(false);
+    const { GET } = await import("./route");
+    const res = await GET(new NextRequest(`http://localhost/api/models?provider=${provider}&free=1`));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Unauthorized" });
+    expect(requireSession).toHaveBeenCalledWith("owner");
+    expect(listModels).not.toHaveBeenCalled();
+    expect(readOAuthBundle).not.toHaveBeenCalled();
+    expect(writeOAuthBundle).not.toHaveBeenCalled();
+    expect(ensureFreshCodex).not.toHaveBeenCalled();
+    expect(codexModels).not.toHaveBeenCalled();
   });
 });
