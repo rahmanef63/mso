@@ -162,7 +162,7 @@ export async function zipStream(
   // descriptor check makes the invariant explicit and race-free.
   let handle: Awaited<ReturnType<typeof fsp.open>> | undefined;
   try {
-    handle = await fsp.open(out, constants.O_RDONLY | constants.O_NOFOLLOW);
+    handle = await fsp.open(/* turbopackIgnore: true */ out, constants.O_RDONLY | constants.O_NOFOLLOW);
     const outStat = await handle.stat();
     if (!outStat.isFile() || outStat.size > ZIP_MAX_OUTPUT_BYTES) {
       throw new HostError("Generated archive exceeds the 600 MiB output limit");
