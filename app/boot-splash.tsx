@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { Loader2 } from "lucide-react";
 const subscribe = () => () => {};
 
 export function BootSplash() {
@@ -12,7 +13,7 @@ export function BootSplash() {
       placeItems: "center", pointerEvents: "none",
       background: "var(--mso-boot-background, linear-gradient(145deg, #d3c5bd 0%, #d9dce7 56%, #b7c8dc 100%))",
     }}>
-      <div className="mso-boot-spinner" />
+      <Loader2 className="size-6 text-white" />
     </div>
   );
 }

@@ -14,7 +14,6 @@ import { matches, type Command } from "../lib";
 import { loadRecents, pushRecent } from "../history";
 import { ResultList } from "./spotlight-results";
 
-// Mount per open so query and selection reset together.
 export function Spotlight() {
   const open = useSpotlightOpen();
   return open ? <SpotlightPanel /> : null;
@@ -172,10 +171,11 @@ function SpotlightPanel() {
     >
       <div
         className={cn(
-          "spotlight-panel w-full overflow-hidden rounded-2xl border border-border text-foreground shadow-2xl",
+          "glass w-full overflow-hidden rounded-2xl border border-border text-foreground shadow-2xl",
           ios ? "max-w-[calc(100%_-_1.5rem)]" : "max-w-xl",
         )}
         onClick={(e) => e.stopPropagation()}
+        style={{ background: "color-mix(in srgb, var(--surface) 55%, var(--glass-panel) 45%)" }}
       >
         {/* iOS: input becomes a systemFill pill with a leading search glyph. */}
         <div className={cn("flex items-center", ios && "m-3 gap-2 rounded-xl bg-[var(--fill)] px-3")}>
@@ -193,7 +193,7 @@ function SpotlightPanel() {
             onKeyDown={onKey}
             placeholder="Search apps, folders, actions…"
             className={cn(
-              "w-full bg-transparent text-base text-foreground outline-none placeholder:text-foreground/55",
+              "w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground",
               ios ? "py-2.5" : "px-5 py-4",
             )}
           />

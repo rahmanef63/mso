@@ -233,31 +233,10 @@ body {
   touch-action: manipulation;
 }
 
-.mso-boot-spinner {
-  width: 24px; height: 24px;
-  border: 2px solid rgba(255,255,255,.9); border-top-color: transparent;
-  border-radius: 50%; animation: mso-boot-spin .8s linear infinite;
-}
-@keyframes mso-boot-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .mso-boot-spinner { animation: none; } }
-
 /* glass helper — applied alongside theme tokens, never raw hex in components */
 .glass {
   -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);
   backdrop-filter: blur(var(--blur)) saturate(180%);
-}
-
-/* Spotlight panel (UX-03): blur PLUS an opaque-enough fill so light-theme text
-   clears the wallpaper. Scoped — do not change global .glass (bars/menus). */
-.spotlight-panel {
-  background: var(--glass-panel);
-  -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);
-  backdrop-filter: blur(var(--blur)) saturate(180%);
-}
-[data-theme="light"] .spotlight-panel {
-  /* Stronger mix toward solid surface so muted body text approaches ~4.5:1
-     over aurora wallpaper (glass-panel alone still washes at 0.78 alpha). */
-  background: color-mix(in srgb, var(--surface) 55%, var(--glass-panel) 45%);
 }
 
 /* Wallpapers — per-shell native backdrops. Each key paints its delivered MSO

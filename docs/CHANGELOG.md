@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `ux` reuse existing loading and glass styles within the shell budget
 - `ux` stack install notice above the update badge without overlap
 - `build` keep guarded host runtime paths out of asset tracing
 - `security` close resource and launcher gaps and repair gates
