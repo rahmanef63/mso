@@ -13,6 +13,25 @@ export interface OpenAiProvidedFile {
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 25_000_000;
+const MAX_IMAGE_IMPORT_WAITERS = 8;
+type ImageImportGate = { active: boolean; waiters: Array<() => void> };
+const imageGate = ((globalThis as typeof globalThis & { __msoImageImportGate?: ImageImportGate }).__msoImageImportGate ??= { active: false, waiters: [] });
+
+async function acquireImageImportSlot(): Promise<() => void> {
+  if (!imageGate.active) imageGate.active = true;
+  else {
+    if (imageGate.waiters.length >= MAX_IMAGE_IMPORT_WAITERS) throw new HostError("too many image imports are already queued");
+    await new Promise<void>((resolve) => imageGate.waiters.push(resolve));
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const next = imageGate.waiters.shift();
+    if (next) next();
+    else imageGate.active = false;
+  };
+}
 const SUPPORTED_MIME = new Set(["image/png", "image/webp", "image/jpeg", "application/json", "application/zip"]);
 const WIRE_MIME = new Set([...SUPPORTED_MIME, "application/octet-stream"]);
 const CHATGPT_AZURE_FILE_HOST = /^oaisdmntpr[a-z0-9]{2,40}\.blob\.core\.windows\.net$/;
@@ -148,14 +167,19 @@ export async function importOpenAiProvidedFile(opts: {
 }) {
   const file = providedFile(opts.file), url = trustedDownloadUrl(file.download_url, opts.allowChatGptAzureFamily === true), mimeType = declaredMime(file);
   if (typeof file.size === "number" && (!Number.isFinite(file.size) || file.size < 0 || file.size > MAX_FILE_BYTES)) throw new HostError("file exceeds the 20 MiB MCP import limit");
-  const response = await fetchTrustedFile(url, opts.allowChatGptAzureFamily === true);
-  if (!response.ok) throw new HostError(`OpenAI file download failed (${response.status})`);
-  const wireMime = responseMime(response);
-  if (wireMime && wireMime !== "application/octet-stream" && wireMime !== mimeType) throw new HostError(`response file type ${wireMime} does not match ${mimeType}`);
-  const data = await readBoundedBody(response);
-  if (!(await validateBody(data, mimeType))) throw new HostError(`file content does not match ${mimeType}`);
-  const fallbackExt = [...EXTENSION_MIME.entries()].find(([, mime]) => mime === mimeType)?.[0] || ".bin";
-  const filename = safeFilename(opts.filename, file.file_name || file.name || `${file.file_id}${fallbackExt}`, mimeType);
-  const stored = await uploadOneGuarded({ dest: opts.dest, filename, data, conflict: opts.conflict, expectedSha256: opts.expectedSha256 });
-  return { ok: true as const, fileId: file.file_id, mimeType, bytes: data.byteLength, ...stored };
+  const release = mimeType.startsWith("image/") ? await acquireImageImportSlot() : null;
+  try {
+    const response = await fetchTrustedFile(url, opts.allowChatGptAzureFamily === true);
+    if (!response.ok) throw new HostError(`OpenAI file download failed (${response.status})`);
+    const wireMime = responseMime(response);
+    if (wireMime && wireMime !== "application/octet-stream" && wireMime !== mimeType) throw new HostError(`response file type ${wireMime} does not match ${mimeType}`);
+    const data = await readBoundedBody(response);
+    if (!(await validateBody(data, mimeType))) throw new HostError(`file content does not match ${mimeType}`);
+    const fallbackExt = [...EXTENSION_MIME.entries()].find(([, mime]) => mime === mimeType)?.[0] || ".bin";
+    const filename = safeFilename(opts.filename, file.file_name || file.name || `${file.file_id}${fallbackExt}`, mimeType);
+    const stored = await uploadOneGuarded({ dest: opts.dest, filename, data, conflict: opts.conflict, expectedSha256: opts.expectedSha256 });
+    return { ok: true as const, fileId: file.file_id, mimeType, bytes: data.byteLength, ...stored };
+  } finally {
+    release?.();
+  }
 }

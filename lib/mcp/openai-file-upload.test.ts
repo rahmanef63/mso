@@ -82,3 +82,22 @@ describe("ChatGPT upload trust and validation", () => {
     expect(uploadOneGuarded).not.toHaveBeenCalled();
   });
 });
+
+
+describe("image import resource gate", () => {
+  it("serializes image downloads before raster decode", async () => {
+    let active = 0, peak = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      active += 1; peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      active -= 1;
+      return new Response(new Uint8Array(PNG), { status: 200, headers: { "content-type": "image/png" } });
+    }));
+    await Promise.all([
+      run({ mime_type: "image/png", file_id: "one" }),
+      run({ mime_type: "image/png", file_id: "two" }),
+      run({ mime_type: "image/png", file_id: "three" }),
+    ]);
+    expect(peak).toBe(1);
+  });
+});
