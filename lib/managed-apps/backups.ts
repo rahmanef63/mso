@@ -19,6 +19,43 @@ import type { ManagedAppBackup } from "./update-types";
  *  backup dir (1.1G for Hermes), which a backup has no business duplicating. */
 export const BACKUP_SKIPPED_DIRS = ["node_modules", ".venv", "venv", "__pycache__", ".git", ".cache", "backups"] as const;
 const SKIPPED = new Set<string>(BACKUP_SKIPPED_DIRS);
+const BACKUP_MAX_BYTES = 512 * 1024 * 1024;
+const BACKUP_MAX_FILES = 100_000;
+const BACKUP_SCAN_TIMEOUT_MS = 5_000;
+const BACKUP_RETAIN = 3;
+const MANUAL_BACKUP_MIN_INTERVAL_MS = 60_000;
+const BACKUP_FREE_RESERVE_BYTES = 128 * 1024 * 1024;
+
+async function estimateBackupSource(source: string): Promise<{ files: number; bytes: number }> {
+  const deadline = Date.now() + BACKUP_SCAN_TIMEOUT_MS;
+  const stack = [source];
+  let files = 0, bytes = 0;
+  while (stack.length) {
+    if (Date.now() > deadline) throw new Error("backup preflight exceeded its time limit");
+    const entry = stack.pop()!;
+    const stat = await fs.lstat(entry);
+    if (stat.isSymbolicLink()) continue;
+    if (stat.isDirectory()) {
+      if (entry !== source && SKIPPED.has(path.basename(entry))) continue;
+      for (const child of await fs.readdir(entry)) stack.push(path.join(entry, child));
+      continue;
+    }
+    if (!stat.isFile()) continue;
+    files += 1;
+    bytes += stat.size;
+    if (files > BACKUP_MAX_FILES) throw new Error("backup source exceeds the 100000 file limit");
+    if (bytes > BACKUP_MAX_BYTES) throw new Error("backup source exceeds the 512 MiB state limit");
+  }
+  return { files, bytes };
+}
+
+async function pruneOldBackups(id: ManagedAppId): Promise<void> {
+  const names = (await fs.readdir(backupsRoot(id)).catch(() => [] as string[]))
+    .filter(isManagedAppBackupId).sort().reverse();
+  for (const name of names.slice(BACKUP_RETAIN)) {
+    await fs.rm(path.join(backupsRoot(id), name), { recursive: true, force: true });
+  }
+}
 
 /** The stamp `createBackup` mints: `toISOString()` with `:` and `.` swapped for
  *  `-`. It is a URL segment and a filename, so nothing that fails this regex is
@@ -42,9 +79,19 @@ export function backupsRoot(id: ManagedAppId): string {
 
 export async function createBackup(definition: ManagedAppDefinition, reason: ManagedAppBackup["reason"]): Promise<ManagedAppBackup> {
   const source = stateDirFor(definition);
+  const existing = await listBackups(definition.id);
+  if (reason === "manual" && existing[0] && Date.now() - Date.parse(existing[0].createdAt) < MANUAL_BACKUP_MIN_INTERVAL_MS) {
+    throw new Error("manual backups are limited to one per minute");
+  }
+  const estimate = await estimateBackupSource(source);
   const id = new Date().toISOString().replace(/[:.]/g, "-");
   const target = path.join(backupsRoot(definition.id), id);
   await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+  const disk = await fs.statfs(path.dirname(target));
+  const free = Number(disk.bavail) * Number(disk.bsize);
+  if (!Number.isFinite(free) || free < estimate.bytes + BACKUP_FREE_RESERVE_BYTES) {
+    throw new Error("insufficient free space for managed-app backup");
+  }
   const skipped = { symlinks: 0, dirs: 0 };
   let files = 0;
   let bytes = 0;
@@ -87,6 +134,7 @@ export async function createBackup(definition: ManagedAppDefinition, reason: Man
   // What was left out is part of what the backup IS — a restore that silently
   // lacks node_modules is only safe if you knew it never had them.
   await fs.writeFile(path.join(target, "manifest.json"), JSON.stringify(manifest), { mode: 0o600 });
+  await pruneOldBackups(definition.id);
   return manifest;
 }
 
