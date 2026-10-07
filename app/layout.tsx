@@ -5,6 +5,7 @@ import { GeistMono } from "./mono-font";
 import { RegisterSW } from "./register-sw";
 import { InstallPrompt } from "./install-prompt";
 import "./globals.css";
+import { BootSplash } from "./boot-splash";
 import { publicMsoOrigin } from "@/lib/mcp/ui-config";
 
 export function generateMetadata(): Metadata {
@@ -88,9 +89,10 @@ export default async function RootLayout({
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html:
-              'try{var t=JSON.parse(localStorage.getItem("mso:tweaks"));if(t&&t.theme)document.documentElement.dataset.theme=t.theme;}catch(e){}',
+              'try{var t=JSON.parse(localStorage.getItem("mso:tweaks"));if(t&&t.theme)document.documentElement.dataset.theme=t.theme;if(t&&t.theme==="dark")document.documentElement.style.setProperty("--mso-boot-background","linear-gradient(145deg,#161629 0%,#10152c 58%,#0b1223 100%)");}catch(e){}',
           }}
         />
+        <BootSplash />
         {children}
         <RegisterSW />
         <InstallPrompt />

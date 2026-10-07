@@ -63,13 +63,18 @@ function GatedOS({ children }: { children: ReactNode }) {
 
 function Splash() {
   const { tweaks } = useAppearance();
+  // Always paint a wallpaper-ish surface under the spinner so session loading
+  // never shows the blank grey body (UX-02). Prefer the user's wallpaper token;
+  // fall back to aurora gradient via wp-aurora.
+  const wp = tweaks.wallpaper === "auto" ? "aurora" : tweaks.wallpaper;
   return (
-    <div className="relative grid h-dvh w-screen place-items-center">
+    <div className="relative grid h-dvh w-screen place-items-center bg-[var(--surface)]">
       <div
-        className={cn(!tweaks.wallpaperStyle && `wp-${tweaks.wallpaper === "auto" ? "aurora" : tweaks.wallpaper}`, "absolute inset-0 -z-10 bg-cover bg-center")}
+        className={cn(!tweaks.wallpaperStyle && `wp-${wp}`, "absolute inset-0 -z-10 bg-cover bg-center")}
         style={tweaks.wallpaperStyle}
+        aria-hidden
       />
-      <Loader2 className="size-6 animate-spin text-white drop-shadow" />
+      <Loader2 className="size-6 animate-spin text-white drop-shadow" aria-label="Loading" />
     </div>
   );
 }

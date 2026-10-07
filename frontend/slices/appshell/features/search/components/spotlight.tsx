@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,8 +14,6 @@ import { matches, type Command } from "../lib";
 import { loadRecents, pushRecent } from "../history";
 import { ResultList } from "./spotlight-results";
 
-// The panel MOUNTS per open (and unmounts on close), so query/selection state
-// starts fresh every time without effect-driven resets (set-state-in-effect).
 export function Spotlight() {
   const open = useSpotlightOpen();
   return open ? <SpotlightPanel /> : null;
@@ -29,18 +26,20 @@ function SpotlightPanel() {
   const { theme, setTheme } = useShellAppearance();
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
-  // Read MRU once per open (panel mounts on open), so recents refresh each time.
   const [recents] = useState(loadRecents);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Ignore backdrop dismiss for the opening gesture (hot-corner / first click race).
+  const dismissReady = useRef(false);
   const LISTBOX_ID = "spotlight-listbox";
   const ios = useActiveShell().id === "ios"; // iOS = top-anchored full-width search over the wallpaper
 
-  // Debounced folder search under ~/projects (live) — opens Files at the hit.
-  // Results are state, but "no query → no hits" is derived below (stale hits
-  // stay visible during the debounce, matching the old behaviour).
+  // Keep prior folder results visible during the debounce.
   const [found, setFound] = useState<{ key: string; hits: SearchHit[]; error?: string } | null>(null);
   const folderHits = useMemo(() => (q.trim() ? (found?.hits ?? []) : []), [q, found]);
-  const searchError = q.trim() && found?.key === q.trim() ? found.error : undefined;
+  const trimmed = q.trim();
+  const searchError = trimmed && found?.key === trimmed ? found.error : undefined;
+  // Do not report no matches until the folder query settles.
+  const folderPending = Boolean(trimmed && found?.key !== trimmed);
   useEffect(() => {
     const query = q.trim();
     if (!query) return;
@@ -48,9 +47,6 @@ function SpotlightPanel() {
     const t = setTimeout(() => {
       search(query)
         .then((h) => alive && setFound({ key: query, hits: h }))
-        // Keep the reason. Reporting a dead host API as "No matches" is a lie the
-        // user cannot act on — an expired session looks exactly like an empty
-        // folder. Files does this right (use-files.ts toasts the real message).
         .catch((e: unknown) => {
           const msg = e instanceof Error ? e.message : String(e);
           if (alive) setFound({ key: query, hits: [], error: msg });
@@ -81,7 +77,6 @@ function SpotlightPanel() {
         run: () => setTheme(theme === "dark" ? "light" : "dark"),
       },
     ];
-    // Registry-contributed commands (apps/features/shells register at runtime).
     const registered: Command[] = dynamic.map((c) => ({
       id: c.id,
       label: c.label,
@@ -94,8 +89,6 @@ function SpotlightPanel() {
 
   const results = useMemo(() => {
     let base = commands.filter((c) => matches(q, c.keywords ? `${c.label} ${c.keywords}` : c.label));
-    // Empty query → float recently-run commands to the top (recency order).
-    // Array.sort is stable, so non-recent commands keep their catalog order.
     if (!q.trim() && recents.length) {
       const rank = new Map(recents.map((id, i) => [id, i]));
       base = [...base].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
@@ -109,22 +102,36 @@ function SpotlightPanel() {
     return [...base, ...folderCmds];
   }, [commands, q, folderHits, recents]);
 
-  // Focus the input after the open transition paints (mount = open), and on
-  // close return focus to whatever was focused before — so keyboard/AT users
-  // aren't dumped at the top of the document when Spotlight dismisses.
+  // Retry focus after deferred mount; restore the opener on close.
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    const id = requestAnimationFrame(() => inputRef.current?.focus());
+    let cancelled = false;
+    const focus = () => {
+      if (!cancelled) inputRef.current?.focus();
+    };
+    const id1 = requestAnimationFrame(() => {
+      focus();
+      requestAnimationFrame(focus);
+    });
+    const id2 = window.setTimeout(focus, 50);
+    const ready = window.setTimeout(() => {
+      dismissReady.current = true;
+    }, 180);
     return () => {
-      cancelAnimationFrame(id);
+      cancelled = true;
+      cancelAnimationFrame(id1);
+      window.clearTimeout(id2);
+      window.clearTimeout(ready);
       prev?.focus?.();
     };
   }, []);
-
-  // Clamp the selection in render when results shrink — no clamp effect.
   const selIdx = Math.min(sel, Math.max(0, results.length - 1));
 
   const close = () => setSpotlightOpen(false);
+  const onBackdrop = () => {
+    if (!dismissReady.current) return;
+    close();
+  };
   const runAt = (i: number) => {
     const cmd = results[i];
     if (!cmd) return;
@@ -148,20 +155,27 @@ function SpotlightPanel() {
     }
   };
 
+  const emptyMessage = searchError
+    ? `Pencarian gagal: ${searchError}`
+    : folderPending
+      ? "Searching…"
+      : `No matches for “${q}”.`;
+
   return (
     <div
       className={cn(
         "absolute inset-0 z-[var(--z-spotlight)] flex items-start justify-center bg-black/20",
         ios ? "pt-[calc(var(--sai-top)_+_0.5rem)]" : "pt-[18vh]",
       )}
-      onClick={close}
+      onClick={onBackdrop}
     >
       <div
         className={cn(
-          "glass w-full overflow-hidden rounded-2xl border border-border shadow-2xl",
+          "glass w-full overflow-hidden rounded-2xl border border-border text-foreground shadow-2xl",
           ios ? "max-w-[calc(100%_-_1.5rem)]" : "max-w-xl",
         )}
         onClick={(e) => e.stopPropagation()}
+        style={{ background: "color-mix(in srgb, var(--surface) 55%, var(--glass-panel) 45%)" }}
       >
         {/* iOS: input becomes a systemFill pill with a leading search glyph. */}
         <div className={cn("flex items-center", ios && "m-3 gap-2 rounded-xl bg-[var(--fill)] px-3")}>
@@ -178,7 +192,10 @@ function SpotlightPanel() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
             placeholder="Search apps, folders, actions…"
-            className={cn("w-full bg-transparent text-base outline-none placeholder:text-muted-foreground", ios ? "py-2.5" : "px-5 py-4")}
+            className={cn(
+              "w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground",
+              ios ? "py-2.5" : "px-5 py-4",
+            )}
           />
         </div>
         {results.length > 0 && (
@@ -186,17 +203,17 @@ function SpotlightPanel() {
         )}
         {results.length === 0 && (
           <p
-            role={searchError ? "alert" : undefined}
+            role={searchError ? "alert" : folderPending ? "status" : undefined}
+            aria-live={folderPending ? "polite" : undefined}
             className={cn(
               "border-t border-border px-5 py-4 text-sm",
-              searchError ? "text-destructive" : "text-muted-foreground",
+              searchError ? "text-destructive" : "text-foreground/70",
             )}
           >
-            {searchError ? `Pencarian gagal: ${searchError}` : `No matches for “${q}”.`}
+            {emptyMessage}
           </p>
         )}
       </div>
     </div>
   );
 }
-

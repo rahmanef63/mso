@@ -1,3 +1,11 @@
+## 2026-10-08: Preserve heartbeat configuration across cron working directories
+
+The final audit reproduced a cron check silently becoming disabled when installation used a caller-relative env file. The shared heartbeat entry point now anchors that path to the installation working directory before validating it, preserving symlink rejection. A regression executes the generated cron command from HOME and confirms the enabled health check still runs.
+
+## 2026-10-08: Make shell startup and Spotlight feedback reliable
+
+The boot splash now removes itself on hydration on every route, including the standalone Integrations and OAuth pages, and uses the saved theme before hydration. Spotlight reports pending folder searches and retries focus after its deferred mount while retaining first-open lazy loading. Its foreground and placeholder colors remain readable over the desktop wallpaper. The update badge uses the Settings public entry point and sits below the separate install prompt. The release journey checks that the standalone Integrations page has no remaining boot overlay and that install/update notices do not overlap at desktop and 320px mobile widths.
+
 ## 2026-10-08: Complete the scan hardening audit and repair verification
 
 The three Codex Security Cloud scans overlap across authority, credentials, ingress, resource ceilings and installation provenance. The security branch now includes webhook authentication, distinct PAT principals, refresh-family replay revocation, explicit exec authority for loopback discovery, immutable managed-app update targets, provider environment SecretRefs, proven gateway ownership, bounded audit tails, backup retention and pinned NodeSource bootstrap bytes.

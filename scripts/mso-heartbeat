@@ -4,6 +4,7 @@ set -euo pipefail
 umask 077
 ROOT="${MSO_GATEWAY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ENVF="${MSO_GATEWAY_ENV:-$ROOT/.env.local}"
+[[ "$ENVF" = /* ]] || ENVF="$PWD/$ENVF"
 gateway_fail() { echo "mso heartbeat: $*" >&2; exit 1; }
 . "$ROOT/scripts/lib/gateway-config.sh"
 if [ "$ENVF" != /dev/null ] && { [ -e "$ENVF" ] || [ -L "$ENVF" ]; }; then

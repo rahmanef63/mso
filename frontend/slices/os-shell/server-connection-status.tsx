@@ -22,9 +22,13 @@ function ServerConnectionStatus() {
   const live = status === "in" && tweaks.server.mode === "live";
   const mobile = shell.surface === "mobile";
   const windows = shell.id === "windows";
+  // Signed-out on a live host is a mock showcase — not the NEXT_PUBLIC_OS_DEMO
+  // build. Saying "Demo" here confuses ops (UX-01 labeling clarity).
   const label = live
     ? `${mobile ? "Live" : "Live server"} · ${role ?? "viewer"}`
-    : mobile ? "Demo" : "Demo · Mock data only";
+    : status === "out"
+      ? (mobile ? "Mock" : "Mock data only")
+      : (mobile ? "Mock" : "Mock · Not live");
 
   return (
     <div

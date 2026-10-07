@@ -12,6 +12,7 @@ import { releaseFixture } from "./release-fixture.mjs";
 import { camoufoxConnectionJourney } from "./camoufox-connection.mjs";
 import { memoryBackupHistoryJourney } from "./memory-backup-history.mjs";
 import { aiProviderSwitchJourney } from "./ai-provider-switch.mjs";
+import { shellNoticesJourney } from "./shell-notices.mjs";
 
 execFileSync(process.execPath, ["scripts/e2e/shell-apps.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/mcp-page.mjs"], { stdio: "inherit" });
@@ -29,6 +30,7 @@ try {
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.goto(fixture.base + "/integrations");
+    await expect(page.locator("#mso-boot-splash")).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Integrations sections", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "GitHub", exact: true, level: 2 })).toBeVisible();
     if (viewport.width < 600) {await page.getByRole("button", { name: "Integrations sections", exact: true }).click();await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name:"GitHub", exact:true }).click();}
@@ -90,6 +92,7 @@ try {
   await page.locator('input[type="password"]').fill(fixture.password);
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
   await expect(page).toHaveURL(fixture.base + "/integrations");
+  await shellNoticesJourney(page, fixture);
   await expect(page.getByRole("group", { name: "Credential owner" }).getByRole("button")).toContainText("fixture");
   await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name: "AI Providers", exact: true }).click();
   await expect(page.getByRole("heading", { name: "AI Providers", exact: true })).toBeVisible();
