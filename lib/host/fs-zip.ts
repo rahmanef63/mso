@@ -92,13 +92,14 @@ export async function zipStream(
   for (const n of exclude) assertSafeName(n);
   if (zipGate.__msoZipActive) throw new HostError("Another archive is already being generated");
   zipGate.__msoZipActive = true;
+  let tmpDir: string;
   try {
     await assertArchiveBudget(real, names, exclude);
+    tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "os-zip-"));
   } catch (error) {
     zipGate.__msoZipActive = false;
     throw error;
   }
-  const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "os-zip-"));
   const out = path.join(tmpDir, "archive.zip");
   // `-y` = store symlinks AS links, never follow. Without it `zip -r` archives a
   // link's TARGET content, escaping the realpath/credential bounds checked above
@@ -167,13 +168,14 @@ export async function zipStream(
       throw new HostError("Generated archive exceeds the 600 MiB output limit");
     }
 
-    zipGate.__msoZipActive = false;
     // ponytail: staged on disk, not streamed as zip runs — correctness over the
     // buffer-free ideal, since a piped zip won't extract. Opened, then unlinked
     // BEFORE the stream is handed back: the open fd keeps bytes readable while the
     // directory entry is already gone, so abandoned responses cannot strand /tmp.
     await fsp.rm(tmpDir, { recursive: true, force: true });
     const stream = handle.createReadStream({ autoClose: true });
+    const timer = setTimeout(() => stream.destroy(), ZIP_PROCESS_TIMEOUT_MS).unref();
+    stream.once("close", () => { clearTimeout(timer); zipGate.__msoZipActive = false; });
     handle = undefined; // stream now owns the descriptor
     return stream;
   } catch (error) {

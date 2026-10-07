@@ -1,8 +1,9 @@
 import path from "path";
 import os from "os";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, truncateSync, writeFileSync } from "fs";
+import { chmodSync, mkdirSync, mkdtempSync, promises as fsp, readdirSync, realpathSync, rmSync, truncateSync, writeFileSync } from "fs";
 import type { Readable } from "stream";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { once } from "node:events";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { appSecretExcludes, assertSafeName, zipStream } from "./fs-zip";
 
 describe("assertSafeName", () => {
@@ -78,6 +79,13 @@ describe("zipStream against the real zip binary", () => {
     expect(names).toContain("keep.txt");
     expect(names).toContain("proj/src.txt");
   });
+  it("releases admission when temporary directory creation fails", async () => {
+    const temporary = vi.spyOn(fsp, "mkdtemp").mockRejectedValueOnce(new Error("disk unavailable"));
+    try {
+      await expect(zipStream(base, ["keep.txt"])).rejects.toThrow(/disk unavailable/);
+      expect(entries(await read(await zipStream(base, ["keep.txt"])))).toContain("keep.txt");
+    } finally { temporary.mockRestore(); }
+  });
 
   it("force-strips nested loose private keys from recursive archives", async () => {
     const dir = path.join(base, "secrets-fixture");
@@ -119,10 +127,12 @@ describe("zipStream against the real zip binary", () => {
     const before = stale();
     const abandoned = await zipStream(base, ["keep.txt"]);
     expect(stale()).toBe(before);
+    await expect(zipStream(base, ["keep.txt"])).rejects.toThrow(/already/);
+    abandoned.destroy();
+    await once(abandoned, "close");
     const drained = await read(await zipStream(base, ["keep.txt"]));
     expect(entries(drained)).toContain("keep.txt"); // unlinked bytes still readable
     expect(stale()).toBe(before);
-    abandoned.destroy();
   });
 });
 
@@ -132,6 +142,7 @@ describe("zip resource ceilings", () => {
     const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), "mso-zip-budget-")));
     process.env.OS_FS_READ_ROOTS = root;
     const huge = path.join(root, "huge.bin");
+    writeFileSync(huge, "");
     truncateSync(huge, 513 * 1024 * 1024);
     try {
       await expect(zipStream(root, ["huge.bin"])).rejects.toThrow(/512 MiB input limit/);

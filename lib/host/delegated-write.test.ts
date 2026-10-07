@@ -19,4 +19,10 @@ describe("delegated write control-plane guard", () => {
   it("allows ordinary project content", async () => {
     await expect(assertDelegatedWritePath(path.join(os.tmpdir(), "project", "src", "index.ts"))).resolves.toBeUndefined();
   });
+  it("blocks CLI launchers used by managed-app probes", async () => {
+    for (const dir of [".local/bin", ".bun/bin", ".hermes", ".openclaw"]) {
+      await expect(assertDelegatedWritePath(path.join(os.homedir(), dir, "hermes"))).rejects.toThrow(/control-plane/);
+    }
+    await expect(assertDelegatedWritePath(path.join(os.homedir(), ".local"))).rejects.toThrow(/control-plane/);
+  });
 });

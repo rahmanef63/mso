@@ -3,32 +3,17 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 #
-# Idempotent: re-running updates the checkout, rebuilds, and restarts the
-# service. The bootstrap never needs stdin, so curl|bash stays safe. After a
-# FRESH install it uses /dev/tty (when present) for guided onboarding; CI/headless
-# installs never hang and can run `mso onboard` later. Existing .env.local is preserved.
+# Idempotent update; preserves .env.local. Fresh interactive installs use /dev/tty.
 set -Eeuo pipefail
 
-# ---- config: env override > flag > default ----
 CANONICAL_REPO_URL="https://github.com/rahmanef63/mso.git"
 REPO_URL="${MSO_REPO:-$CANONICAL_REPO_URL}"
 DIR="${MSO_DIR:-$HOME/mso}"
 DIR_EXPLICIT=0
 REF="${MSO_REF:-main}"
 PORT="${MSO_PORT:-4005}"
-# Address the server listens on. Loopback by DEFAULT, for two reasons that point
-# the same way:
-#   1. It cannot log in otherwise. sessionCookieAttrs() sets `secure: true`
-#      (lib/auth/session-cookie.ts), and a browser only accepts a Secure cookie
-#      over plain http on a trustworthy origin — localhost / 127.0.0.1 / ::1. So
-#      http://<lan-or-public-ip>:PORT returns 200 on login and then silently
-#      drops the cookie: an endless login loop. A 0.0.0.0 bind buys no working
-#      access it did not already have.
-#   2. It is a shell. An authenticated session runs commands as this user, and a
-#      fresh VPS has ufw installed but disabled — so the old default published
-#      that shell to the whole internet about two minutes into a curl|bash.
-# Reach it over an SSH tunnel, `tailscale serve`, or a reverse proxy on this host
-# (all three land the browser on a trustworthy origin, so the cookie sticks).
+# Loopback protects the host shell and supports Secure session cookies over HTTP.
+# Remote access uses SSH, tailscale serve or a trusted HTTPS reverse proxy.
 BIND="${MSO_BIND:-127.0.0.1}"
 SERVICE="mso.service"
 DO_SERVICE=1

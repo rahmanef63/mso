@@ -117,10 +117,11 @@ export async function createBackup(definition: ManagedAppDefinition, reason: Man
       if (stat.isFile()) {
         files += 1;
         bytes += stat.size;
+        if (files > BACKUP_MAX_FILES || bytes > BACKUP_MAX_BYTES) throw new Error("backup changed beyond the 512 MiB/100000 file limit");
       }
       return true;
     },
-  });
+  }).catch(async error => { await fs.rm(target, { recursive: true, force: true }); throw error; });
   const manifest: ManagedAppBackup = {
     id,
     applicationId: definition.id,

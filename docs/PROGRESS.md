@@ -1,3 +1,11 @@
+## 2026-10-08: Complete the scan hardening audit and repair verification
+
+The three Codex Security Cloud scans overlap across authority, credentials, ingress, resource ceilings and installation provenance. The security branch now includes webhook authentication, distinct PAT principals, refresh-family replay revocation, explicit exec authority for loopback discovery, immutable managed-app update targets, provider environment SecretRefs, proven gateway ownership, bounded audit tails, backup retention and pinned NodeSource bootstrap bytes.
+
+Independent verification additionally found that archive admission ended before its unlinked output descriptor closed, temporary-directory failure could strand admission, and delegated write could replace user-local launchers or their parent directories. The shared guards now cover those paths and managed-runtime trees; archive admission lasts until stream closure with a bounded lifetime. Backups recheck file/byte limits during copying and remove incomplete snapshots on failure. Installer bootstrap checksums were refreshed after the core hardening. Gateway test launchers now emit valid JavaScript, and the equivalent listener-port comparison parses correctly under strict Semgrep. OAuth and workflow fixtures explicitly exercise replay revocation and live approved-device authority.
+
+These are source and verification changes. Production deployment and scan closure require the verified main revision and live runtime evidence; local tests alone do not establish either.
+
 ## 2026-10-07: Harden delegated workflow, ingress and credential boundaries
 
 Two repository security scans (October 2 and October 7) exposed overlapping authority and ingress gaps. Project dotenv files are now credential material everywhere, recursive archives exclude them, exact-loopback A2A is opt-in, and pre-auth A2A traffic cannot evict authenticated rate-limit state. Project ingress requires bounded framing and forwards only protocol headers, not cockpit cookies or Authorization.

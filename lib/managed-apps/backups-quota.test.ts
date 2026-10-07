@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ManagedAppDefinition } from "./types";
 import { createBackup, listBackups } from "./backups";
+vi.mock("server-only", () => ({}));
 
 const roots: string[] = [];
 function definition(root: string): ManagedAppDefinition {
@@ -15,6 +16,20 @@ afterEach(async () => {
 });
 
 describe("managed-app backup quotas", () => {
+  it("rejects growth after preflight and removes the incomplete snapshot", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-backup-growth-")); roots.push(root);
+    vi.spyOn(os, "homedir").mockReturnValue(root);
+    await fs.mkdir(path.join(root, "state"));
+    await fs.writeFile(path.join(root, "state", "config.json"), "{}");
+    const copy = fs.cp;
+    vi.spyOn(fs, "cp").mockImplementationOnce(async (source, target, options) => {
+      const huge = await fs.open(path.join(root, "state", "huge.bin"), "w");
+      try { await huge.truncate(513 * 1024 * 1024); } finally { await huge.close(); }
+      return copy(source, target, options);
+    });
+    await expect(createBackup(definition(root), "pre-update")).rejects.toThrow(/backup changed/);
+    expect(await listBackups("openclaw")).toEqual([]);
+  });
   it("rate-limits manual snapshots", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-backup-quota-")); roots.push(root);
     vi.spyOn(os, "homedir").mockReturnValue(root);

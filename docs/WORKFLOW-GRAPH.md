@@ -14,6 +14,8 @@ It is additive: existing deterministic project flows, RASMIC scripts and learned
 
 Graphs, versions, variables and execution receipts are private per authenticated principal. Source and builtin templates contain no operator-specific user, credential, path or seeded workflow.
 
+Delegated write authority excludes the live MSO checkout, Git control files, user-systemd units, user-local CLI launchers, Hermes/OpenClaw runtime trees and parent directories that could replace them. These control-plane mutations require exec authority; canonical symlink targets are checked as well.
+
 ## Node catalog
 
 ### Triggers

@@ -130,7 +130,14 @@ describe("mutable upstream updates fail closed", () => {
   });
 
   it("still permits the reviewed 9Router update path", async () => {
-    await expect(startUpdate("9router")).rejects.not.toThrow(/immutable artifact target and digest/);
+    await recorder("9router");
+    await fs.mkdir(path.join(home, ".9router"));
+    const catalog = await import("./catalog");
+    const definition = catalog.getManagedAppDefinition("9router");
+    vi.spyOn(catalog, "getManagedAppDefinition").mockReturnValue({ ...definition, command: path.join(bin, "9router") });
+    const job = await settle(await startUpdate("9router"));
+    expect(job.status).toBe("succeeded");
+    expect(await recorded("9router")).toEqual(["update", "--yes"]);
   });
 });
 

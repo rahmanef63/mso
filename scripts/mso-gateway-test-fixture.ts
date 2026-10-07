@@ -61,7 +61,7 @@ export function fixture() {
 if (process.argv.includes('--version')) { console.log('cloudflared version fixture'); process.exit(0); }
 if (process.env.OS_SESSION_SECRET || process.env.OS_LOGIN_PASSWORD) require('fs').writeFileSync(process.env.HOME + '/cloudflared-secret-env', 'leaked');
 if (process.argv.includes('--url')) {
-  require('fs').appendFileSync(process.env.HOME + '/gateway-fake-starts', 'start\n');
+  require('fs').appendFileSync(process.env.HOME + '/gateway-fake-starts', 'start\\n');
   console.error('INF https://mso-gateway-fixture.trycloudflare.com');
 }
 process.on('SIGTERM', () => process.exit(0));

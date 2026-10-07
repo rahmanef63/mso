@@ -34,15 +34,15 @@ function containsGitControl(target: string): boolean {
 }
 
 export async function assertDelegatedWritePath(raw: string): Promise<void> {
+  const requested = absolute(raw);
   const target = await canonicalProspective(raw);
-  const app = appDir();
-  const systemdUser = path.join(os.homedir(), ".config", "systemd", "user");
+  const controls = [appDir(), ...[".config/systemd/user", ".local/bin", ".bun/bin", ".hermes", ".openclaw"].map(dir => path.join(os.homedir(), dir))];
+  const canonical = await Promise.all(controls.map(canonicalProspective));
   if (
-    target === app ||
-    isUnderRoot(target, app) ||
     containsGitControl(target) ||
-    target === systemdUser ||
-    isUnderRoot(target, systemdUser)
+    containsGitControl(requested) ||
+    [...controls, ...canonical].some(control =>
+      [requested, target].some(candidate => isUnderRoot(candidate, control) || isUnderRoot(control, candidate)))
   ) {
     throw new HostError("write scope cannot modify executable control-plane inputs; exec authority required");
   }

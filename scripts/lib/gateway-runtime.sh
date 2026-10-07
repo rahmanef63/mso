@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runtime/state lifecycle used by the public tunnel and local `mso web` fallback.
 
-GATEWAY_EXPECTED_VERSION="$(node -p "require('$ROOT/package.json').version")" || gateway_fail "cannot read MSO version"
+GATEWAY_EXPECTED_VERSION="$(node -p 'require(process.argv[1]).version' "$ROOT/package.json")" || gateway_fail "cannot read MSO version"
 
 gateway_runtime_from_state() {
   local state="$1" identity owned instance stored_env
@@ -42,7 +42,7 @@ NODE
       set -- $line; [ "$#" -ge 10 ] || continue
       addr="${2:-}"; state="${4:-}"
       [ "$state" = 0A ] || continue
-      case "$addr" in *:"$hex") inode="${10:-}"; [ -n "$inode" ] && break 2;; esac
+      if [[ "$addr" = *:"$hex" ]]; then inode="${10:-}"; [ -n "$inode" ] && break 2; fi
     done <"$file"
   done
   [[ "$inode" =~ ^[0-9]+$ ]] || return 1

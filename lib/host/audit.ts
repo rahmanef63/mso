@@ -1,11 +1,6 @@
 // Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
-// SERVER-ONLY. Append-only audit trail for privileged actions (shell exec, file
-// mutations, cleanup runs, auth events). Single-owner tool that can run shell
-// commands MUST keep a tamper-evident record — if something goes wrong, this is
-// the only forensic trail. JSONL, one event per line, flushed best-effort.
-//
-// Location: $OS_AUDIT_LOG, else ~/.mso/audit.log. Reads are NOT audited
-// (bounded + high-volume); only state-changing actions are.
+// SERVER-ONLY. Bounded best-effort JSONL trail for privileged mutations.
+// Location: $OS_AUDIT_LOG, else ~/.mso/audit.log; reads are not audited.
 import { constants, promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -42,10 +37,7 @@ function trunc(s: string | undefined, max = 512): string | undefined {
   return s.length > max ? s.slice(0, max) + "…" : s;
 }
 
-// Clamp meta values defensively: a caller could pass an unbounded string (a
-// user-supplied URL, a stack-trace fragment), and one bloated meta would
-// torpedo the whole forensic line. Scalars pass through; strings cap at 256;
-// anything else is dropped (the type already forbids it, but defense in depth).
+// Keep caller-supplied metadata bounded and scalar-only.
 function clampMeta(
   meta: Record<string, string | number | boolean> | undefined,
 ): Record<string, string | number | boolean> | undefined {
@@ -102,10 +94,7 @@ export async function readAuditTail(opts?: {
     .reverse();
 }
 
-// Internal: serialize writes onto a single chained promise so bursty parallel
-// callers land in submission order. The chain NEVER rejects (each link
-// swallows + logs its own failure), otherwise one bad write would poison every
-// subsequent audit call for the lifetime of the process.
+// Preserve submission order; a failed write must not poison later writes.
 let _writeChain: Promise<void> = Promise.resolve();
 const AUDIT_MAX_BYTES = 8 * 1024 * 1024;
 const AUDIT_READ_TAIL_BYTES = 256 * 1024;
@@ -163,11 +152,7 @@ async function copyHandle(source: Awaited<ReturnType<typeof fs.open>>, dest: Awa
 }
 
 async function writeLine(line: string): Promise<void> {
-  // A test run must never append to the OWNER's forensic trail. This is not
-  // hypothetical: on 2026-08-10 two `mcp.denied` lines from lib/mcp/dispatch.test.ts
-  // landed in a real ~/.mso/audit.log, because that suite exercises the dispatcher
-  // and the dispatcher audits. audit.test.ts always stubs OS_AUDIT_LOG at a temp
-  // path, so this only silences the callers that forgot to.
+  // Tests require an explicit synthetic trail; never append to the owner's log.
   if (process.env.VITEST && !process.env.OS_AUDIT_LOG) return;
   const file = auditPath();
   let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
@@ -206,10 +191,7 @@ async function writeLine(line: string): Promise<void> {
   }
 }
 
-// Append an audit entry. Returns a promise that resolves AFTER this entry's
-// write completes (or fails — failures are swallowed; the trail is best-effort
-// and must never break the caller). Callers may fire-and-forget the returned
-// promise; ordering across concurrent callers is preserved via _writeChain.
+// Resolves after the best-effort write; failures never break the caller.
 export function audit(entry: AuditEntry): Promise<void> {
   if (!allowRateLimitAudit(entry.action)) return Promise.resolve();
   // Drop `meta` from the serialized line when it's empty so existing greps that
