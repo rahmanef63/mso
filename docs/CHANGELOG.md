@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `heartbeat` use parseable multiline shell case statements
 - `build` keep guarded host runtime paths out of asset tracing
 - `security` close resource and launcher gaps and repair gates
 - `security` inspect ZIP output through pinned descriptor

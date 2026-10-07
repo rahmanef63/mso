@@ -11,10 +11,16 @@ if [ "$ENVF" != /dev/null ] && { [ -e "$ENVF" ] || [ -L "$ENVF" ]; }; then
   set -a; . "$ENVF"; set +a
 fi
 ACTION="${1:-once}"
-case "$ACTION" in once|install-cron|remove-cron) ;; *) gateway_fail 'usage: mso heartbeat [once|install-cron|remove-cron]' ;; esac
+case "$ACTION" in
+  once|install-cron|remove-cron) ;;
+  *) gateway_fail 'usage: mso heartbeat [once|install-cron|remove-cron]' ;;
+esac
 [ "$#" -le 1 ] || gateway_fail 'unexpected arguments'
 ENABLED="${OS_HEARTBEAT_ENABLED:-0}"
-case "$ENABLED" in 0|1) ;; *) gateway_fail 'OS_HEARTBEAT_ENABLED must be 0 or 1' ;; esac
+case "$ENABLED" in
+  0|1) ;;
+  *) gateway_fail 'OS_HEARTBEAT_ENABLED must be 0 or 1' ;;
+esac
 if [ "$ENABLED" != 1 ] && [ "$ACTION" != remove-cron ]; then
   echo 'heartbeat: disabled (OS_HEARTBEAT_ENABLED=0)'; exit 0
 fi
