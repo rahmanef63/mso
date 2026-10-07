@@ -8,7 +8,7 @@ function streamRequest(chunks: string[], headers: Record<string, string> = {}, c
 }
 describe("bounded public request bodies", () => {
   it("counts actual bytes when length is absent or falsely small", async () => {
-    for (const headers of [{}, {"content-length":"1"}]) await expect(readRequestText(streamRequest(["12", "345"], headers), 4)).rejects.toMatchObject({status: 413});
+    for (const headers of [{}, {"content-length":"1"}] as Record<string, string>[]) await expect(readRequestText(streamRequest(["12", "345"], headers), 4)).rejects.toMatchObject({status: 413});
   });
   it("rejects declared oversized bodies before reading", async () => {
     await expect(readRequestText(streamRequest([], {"content-length":"9999"}), 16)).rejects.toMatchObject({status: 413});

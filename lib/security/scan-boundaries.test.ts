@@ -18,7 +18,7 @@ describe("security scan boundary regressions", () => {
     vi.stubEnv("OS_A2A_ALLOW_LOOPBACK", "");
     expect(() => assertA2AUrl("http://127.0.0.1:4555/card")).toThrow(/disabled/);
   });
-  it.each([{}, { "transfer-encoding": "chunked", "content-length": "2" }])("does not forward unbounded project ingress", (extra) => {
+  it.each([{}, { "transfer-encoding": "chunked", "content-length": "2" }] as Record<string, string>[])("does not forward unbounded project ingress", (extra) => {
     const routes = JSON.stringify([{app: "hermes", method: "POST", path: "/webhook", target: "http://127.0.0.1:8644/webhook", auth: "hmac-v2-json"}]);
     const req = new Request("https://hermes.example/webhook", {method: "POST", body: "{}", headers: {
       "content-type": "application/json", "x-webhook-timestamp": String(Math.floor(Date.now()/1000)),

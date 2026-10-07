@@ -33,3 +33,7 @@ d73f8a16ef1f1971350c0c1f9b1f7885358b650a:lib/channels/schema.test.ts:discord-cli
 837aff008dac31e97ceec583ce12e658dbe3f2e4:lib/channels/schema.test.ts:discord-client-id:18
 29d881c9e2f123fcc30f1136f43f79ac8a305f0d:lib/channels/schema.test.ts:discord-client-id:18
 ac5d08fba5d053f14704ac36d8e1af759f9caff4:lib/channels/schema.test.ts:discord-client-id:18
+
+# Reviewed synthetic webhook-secret unit-test fixture on the preserved parallel security branch.
+# Exact historical fingerprint only; no provider credential or network call.
+d51e1a56826562a61e704a07560764c67da4924c:lib/workflow/variables.test.ts:generic-api-key:10
