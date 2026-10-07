@@ -20,7 +20,7 @@ Graphs, versions, variables and execution receipts are private per authenticated
 
 - `manual` — UI/CLI/MCP run
 - `schedule` — interval or five-field cron, with IANA timezone support
-- `webhook` — GET/POST/PUT/PATCH/DELETE server endpoint; optional bearer token from a private secret variable
+- `webhook` — GET/POST/PUT/PATCH/DELETE server endpoint; requires a bearer token from a private secret variable
 
 Trigger nodes must be roots. Activating a workflow enables its server-side schedule/webhook behavior; drafts remain inert. Stored graphs are data rather than durable privilege grants: execution rechecks the live device role and deployment scope, and unattended stored non-web principals fail closed instead of acquiring fresh exec authority.
 
@@ -30,7 +30,7 @@ Webhook endpoint:
 /api/v1/workflows/webhook/<graphId>/<nodeId>
 ```
 
-`responseMode=onReceived` returns a run id immediately. `responseMode=lastNode` waits for bounded execution and returns only the explicit output-node result.
+`responseMode=onReceived` returns a run id immediately. `responseMode=lastNode` waits for bounded execution and returns only the explicit output-node result. Active webhooks fail closed unless `authVariable` names a secret-marked string of at least 16 characters; unauthenticated lookup traffic is rate-limited before graph discovery and cannot consume the authenticated execution bucket.
 
 ### Flow control
 
