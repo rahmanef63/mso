@@ -1,3 +1,11 @@
+## 2026-10-07: Harden delegated workflow, ingress and credential boundaries
+
+Two repository security scans (October 2 and October 7) exposed overlapping authority and ingress gaps. Project dotenv files are now credential material everywhere, recursive archives exclude them, exact-loopback A2A is opt-in, and pre-auth A2A traffic cannot evict authenticated rate-limit state. Project ingress requires bounded framing and forwards only protocol headers, not cockpit cookies or Authorization.
+
+Workflow Graph execution now treats stored definitions as data rather than grants: live web-device role and deployment scope are rechecked before execution, Operator authority caps at write, unattended stored non-web principals fail closed, error workflows carry ancestry, and typed/short secret variables are redacted from receipts. Public JSON/form readers used by login, OAuth, Discord and setup enforce actual byte ceilings and deadlines before parsing; login admission is reserved before password comparison so a distributed source cannot continue the password oracle past the global budget. OAuth consent now describes the real breadth of write authority.
+
+Regression coverage was added for these boundaries. This entry does not claim closure of the remaining archive-size, backup-retention, audit-growth, installer-supply-chain, OpenClaw argv, workflow-webhook authentication, or write-to-control-plane findings; those require separate verified changes.
+
 ## 2026-10-06: Patch source-map-js and retain the 9Router proposal
 
 Hosted Verify and OSV identified GHSA-68fv-2mgg-jv7q in the locked source-map-js 1.2.1 dependency. The targeted update resolves it to the patched 1.2.2 without changing package ranges, audit policy or existing dependency patches. A fresh frozen install loads the native PTY module, and both strict and native Bun audits are clean. Full combined-head repository, build, browser and security verification remains required before integration.
