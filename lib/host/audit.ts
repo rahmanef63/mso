@@ -118,7 +118,7 @@ function allowRateLimitAudit(action: AuditAction): boolean {
 async function readBoundedTail(file: string): Promise<string> {
   let handle;
   try {
-    handle = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+    handle = await fs.open(/* turbopackIgnore: true */ file, constants.O_RDONLY | constants.O_NOFOLLOW);
     const stat = await handle.stat();
     if (!stat.isFile()) return "";
     const size = Math.min(stat.size, AUDIT_READ_TAIL_BYTES);

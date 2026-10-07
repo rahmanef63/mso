@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `build` keep guarded host runtime paths out of asset tracing
 - `security` close resource and launcher gaps and repair gates
 - `security` inspect ZIP output through pinned descriptor
 - `ci` close gateway typing and audit file races
@@ -15,6 +16,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `security` bound managed-app backup retention
 - `security` bound audit growth and tail reads
 - `security` bind gateway tunnels to proven local runtime
+- `ux` Spotlight contrast, cold-load splash, and safe P2 polish
 - `security` fail closed on mutable managed-app updates
 - `security` keep OpenClaw provider keys out of argv
 - `security` serialize managed-app lifecycle cross-process

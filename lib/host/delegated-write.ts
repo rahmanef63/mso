@@ -8,7 +8,7 @@ import { isUnderRoot } from "./path-roots";
 function absolute(raw: string): string {
   if (raw === "~") return os.homedir();
   if (raw.startsWith("~/")) return path.join(os.homedir(), raw.slice(2));
-  return path.resolve(raw);
+  return path.resolve(/* turbopackIgnore: true */ raw);
 }
 
 async function canonicalProspective(raw: string): Promise<string> {
@@ -16,7 +16,7 @@ async function canonicalProspective(raw: string): Promise<string> {
   let probe = target;
   for (;;) {
     try {
-      const real = await fs.realpath(probe);
+      const real = await fs.realpath(/* turbopackIgnore: true */ probe);
       const remainder = path.relative(probe, target);
       return remainder ? path.join(real, remainder) : real;
     } catch (error) {
