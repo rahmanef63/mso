@@ -16,7 +16,7 @@
 // only NARROW the archive (never widen access), so they're low-risk, but each is
 // still a safe basename.
 import { spawn } from "child_process";
-import { promises as fsp } from "fs";
+import { constants, promises as fsp } from "fs";
 import os from "os";
 import path from "path";
 import type { Readable } from "stream";
@@ -155,25 +155,32 @@ export async function zipStream(
     zipGate.__msoZipActive = false;
     throw e;
   }
-  const outStat = await fsp.stat(out).catch(() => null);
-  if (!outStat || outStat.size > ZIP_MAX_OUTPUT_BYTES) {
+  // Open first with O_NOFOLLOW, then inspect that exact descriptor. A path-level
+  // stat followed by open is a TOCTOU race and was correctly flagged by CodeQL.
+  // The private mkdtemp directory already narrows the attack surface, but the
+  // descriptor check makes the invariant explicit and race-free.
+  let handle: Awaited<ReturnType<typeof fsp.open>> | undefined;
+  try {
+    handle = await fsp.open(out, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const outStat = await handle.stat();
+    if (!outStat.isFile() || outStat.size > ZIP_MAX_OUTPUT_BYTES) {
+      throw new HostError("Generated archive exceeds the 600 MiB output limit");
+    }
+
+    zipGate.__msoZipActive = false;
+    // ponytail: staged on disk, not streamed as zip runs — correctness over the
+    // buffer-free ideal, since a piped zip won't extract. Opened, then unlinked
+    // BEFORE the stream is handed back: the open fd keeps bytes readable while the
+    // directory entry is already gone, so abandoned responses cannot strand /tmp.
+    await fsp.rm(tmpDir, { recursive: true, force: true });
+    const stream = handle.createReadStream({ autoClose: true });
+    handle = undefined; // stream now owns the descriptor
+    return stream;
+  } catch (error) {
+    await handle?.close().catch(() => undefined);
     await fsp.rm(tmpDir, { recursive: true, force: true });
     zipGate.__msoZipActive = false;
-    throw new HostError("Generated archive exceeds the 600 MiB output limit");
+    if (error instanceof HostError) throw error;
+    throw new HostError("Generated archive is unavailable");
   }
-  zipGate.__msoZipActive = false;
-  // ponytail: staged on disk, not streamed as zip runs — correctness over the
-  // buffer-free ideal, since a piped zip won't extract. The ceiling is DISK, not
-  // latency: the excludes bound what goes IN, they do not bound the total, so N
-  // concurrent archives of a big tree cost N copies of it in /tmp (the /fs/zip rate
-  // limit is the only thing holding that down). Switch to a streaming-zip lib if
-  // that bites.
-  // Opened, then unlinked BEFORE the stream is handed back: the open fd keeps the
-  // bytes readable while the directory entry is already gone, so the tmpdir cannot
-  // outlive this call under any exit path — including a request abandoned before
-  // the body is consumed, which fires neither `close` nor `error` and used to
-  // strand the directory. The handle closes itself when the stream ends.
-  const handle = await fsp.open(out, "r");
-  await fsp.rm(tmpDir, { recursive: true, force: true });
-  return handle.createReadStream({ autoClose: true });
 }
