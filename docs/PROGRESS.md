@@ -14,6 +14,12 @@ Workflow Graph execution now treats stored definitions as data rather than grant
 
 Regression coverage was added for these boundaries. This entry does not claim closure of the remaining archive-size, backup-retention, audit-growth, installer-supply-chain, OpenClaw argv, workflow-webhook authentication, or write-to-control-plane findings; those require separate verified changes.
 
+## 2026-10-06: Optional one-shot fallback heartbeat
+
+A named connector can remain alive while its public connection is unavailable. The opt-in `mso heartbeat` checks structured gateway local/public identity and recovers only MSO-owned fallback processes through the existing lifecycle. It is disabled unless `OS_HEARTBEAT_ENABLED=1`, needs an explicit validated named-gateway recipe before stopping a managed connector, and leaves external supervisors report-only. An idempotent optional cron installer schedules 30-minute and cron-startup checks without adding a monitoring daemon or replacing unrelated cron entries. Private scoped locks prevent overlapping recovery and status retains no credentials. Platform startup and workspace suspension remain host responsibilities.
+
+Focused regressions cover disabled behavior, consecutive failures, public health, managed recipe preflight, external ownership, malformed observations, private env files, local fallback recovery and cron preservation. This is a PR candidate; no production installation or main branch is changed.
+
 ## 2026-10-06: Patch source-map-js and retain the 9Router proposal
 
 Hosted Verify and OSV identified GHSA-68fv-2mgg-jv7q in the locked source-map-js 1.2.1 dependency. The targeted update resolves it to the patched 1.2.2 without changing package ranges, audit policy or existing dependency patches. A fresh frozen install loads the native PTY module, and both strict and native Bun audits are clean. Full combined-head repository, build, browser and security verification remains required before integration.

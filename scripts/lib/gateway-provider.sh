@@ -51,6 +51,15 @@ gateway_provider_parse_start_args() {
   gateway_parse_start_args "$@"
 }
 
+# Read-only preflight before an optional recovery caller stops a managed route.
+gateway_provider_validate_start_recipe() {
+  gateway_provider_parse_start_args start "$@"
+  case "$(gateway_provider_family "$GATEWAY_SELECTED_PROVIDER")" in
+    cloudflare) gateway_validate_named_tunnel ;;
+    *) gateway_fail "provider does not support a named recovery recipe" ;;
+  esac
+}
+
 gateway_provider_start_locked() {
   local active observed state ownership provider rc
   provider="${GATEWAY_SELECTED_PROVIDER:-$(gateway_provider_default)}"

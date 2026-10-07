@@ -100,7 +100,7 @@ mso_cli_main() {
   case "$cmd" in
     version|--version|-V|-v|ls|cat|raw|share|usage|search|project-candidates|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|cleanup|status|health|doctor)
       mso_cmd_host "$cmd" "$@" ;;
-    agent|chat|model|setup|onboard|provider|providers|integrations|channels|flow|workflow|gateway|web|camoufox|apps|mapp|term)
+    agent|chat|model|setup|onboard|provider|providers|integrations|channels|flow|workflow|gateway|heartbeat|web|camoufox|apps|mapp|term)
       mso_cmd_runtime "$cmd" "$@" ;;
     ai|cockpit|threads|agent-sessions|agents|org|a2a|memory|memory-graph|config|prefs|federation|models|jev|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;
