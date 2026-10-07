@@ -9,7 +9,7 @@ It is additive: existing deterministic project flows, RASMIC scripts and learned
 - **Workflow Graph** owns automation topology, triggers, flow control, node configuration, execution history and graph versions.
 - **Project registry** resolves canonical projects and real server paths at runtime. Portable graph definitions store ids/hints, never installation-specific absolute paths.
 - **Integrations** own credentials and provider connections. Graphs store connection references only.
-- **Private workflow variables** provide runtime values through `{"$var":"KEY"}`. Secret variables are never returned by list APIs and exact secret values are redacted from execution receipts.
+- **Private workflow variables** provide runtime values through `{"$var":"KEY"}`. Secret variables are never returned by list APIs; short strings, scalar values and structured secret leaves are redacted from execution receipts.
 - **Git** remains code SSOT; project knowledge/memory remain their existing SSOTs.
 
 Graphs, versions, variables and execution receipts are private per authenticated principal. Source and builtin templates contain no operator-specific user, credential, path or seeded workflow.
@@ -22,7 +22,7 @@ Graphs, versions, variables and execution receipts are private per authenticated
 - `schedule` — interval or five-field cron, with IANA timezone support
 - `webhook` — GET/POST/PUT/PATCH/DELETE server endpoint; optional bearer token from a private secret variable
 
-Trigger nodes must be roots. Activating a workflow enables its server-side schedule/webhook behavior; drafts remain inert.
+Trigger nodes must be roots. Activating a workflow enables its server-side schedule/webhook behavior; drafts remain inert. Stored graphs are data rather than durable privilege grants: execution rechecks the live device role and deployment scope, and unattended stored non-web principals fail closed instead of acquiring fresh exec authority.
 
 Webhook endpoint:
 
