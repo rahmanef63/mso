@@ -49,6 +49,10 @@ SERVICE_ATTEMPTED=0
 # immutable Git commit and verified before execution. Update both values together.
 BUN_BOOTSTRAP_COMMIT="0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
 BUN_BOOTSTRAP_SHA256="bab8acfb046aac8c72407bdcce903957665d655d7acaa3e11c7c4616beae68dd"
+# NodeSource's convenience URL is mutable. Pin the reviewed setup script by
+# repository commit and byte digest before giving it root authority.
+NODESOURCE_SETUP_COMMIT="c6e581b0d24e5d043476ddb947d70e6fe10e83c9"
+NODESOURCE_SETUP_SHA256="575583bbac2fccc0b5edd0dbc03e222d9f9dc8d724da996d22754d6411104fd1"
 
 # ---- pretty output (tty + NO_COLOR aware) ----
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -253,8 +257,19 @@ ensure_node() {
     die "this Node release is not supported; select Node 22.12+, 24.x or 26+. The installer will not downgrade a newer runtime."
   fi
   if command -v apt-get >/dev/null 2>&1; then
-    info "installing Node 22 via NodeSource…"
-    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo_do -E bash -
+    info "installing Node 22 via pinned NodeSource bootstrap…"
+    command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required to verify the NodeSource bootstrap."
+    local setup actual url
+    setup="$(mktemp)"
+    url="https://raw.githubusercontent.com/nodesource/distributions/$NODESOURCE_SETUP_COMMIT/scripts/deb/setup_22.x"
+    curl -fsSL "$url" -o "$setup" || { rm -f "$setup"; die "NodeSource bootstrap download failed."; }
+    actual="$(sha256sum "$setup" | awk '{print $1}')"
+    [ "$actual" = "$NODESOURCE_SETUP_SHA256" ] || {
+      rm -f "$setup"
+      die "NodeSource bootstrap integrity check failed."
+    }
+    sudo_do -E bash "$setup" || { rm -f "$setup"; die "NodeSource bootstrap failed."; }
+    rm -f "$setup"
     sudo_do apt-get install -y -qq nodejs
   else
     die "install Node 22.12+, 24.x or 26+ (22 recommended) from https://nodejs.org or your distro, then re-run."
