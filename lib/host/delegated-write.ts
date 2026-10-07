@@ -36,7 +36,7 @@ function containsGitControl(target: string): boolean {
 export async function assertDelegatedWritePath(raw: string): Promise<void> {
   const requested = absolute(raw);
   const target = await canonicalProspective(raw);
-  const controls = [appDir(), ...[".config/systemd/user", ".local/bin", ".bun/bin", ".hermes", ".openclaw"].map(dir => path.join(os.homedir(), dir))];
+  const controls = [appDir(), ...[".config/systemd/user", ".local/bin", ".bun/bin", ".hermes", ".openclaw"].map(dir => path.join(/* turbopackIgnore: true */ os.homedir(), dir))];
   const canonical = await Promise.all(controls.map(canonicalProspective));
   if (
     containsGitControl(target) ||
