@@ -44,7 +44,7 @@ else cat >"$HOME/table"; fi
       localHealth: healthy ? "healthy" : "unhealthy", publicHealth: healthy ? "healthy" : "unhealthy", public: null }));
   }
   state();
-  const run = (args: string[] = [], extra = {}) => spawnSync("bash", [path.join(root, "scripts/mso-heartbeat"), ...args], { env: { ...env, ...extra }, encoding: "utf8" });
+  const run = (args: string[] = [], extra = {}, cwd?: string) => spawnSync("bash", [path.join(root, "scripts/mso-heartbeat"), ...args], { env: { ...env, ...extra }, cwd, encoding: "utf8" });
   const actions = () => fs.existsSync(path.join(home, "actions")) ? fs.readFileSync(path.join(home, "actions"), "utf8") : "";
   return { home, root, config, envFile, observation, env, state, run, actions };
 }
@@ -143,6 +143,15 @@ describe("optional one-shot heartbeat", () => {
     fs.writeFileSync(path.join(f.home, "bin/crontab"), "#!/bin/bash\necho 'permission denied' >&2\nexit 1\n", { mode: 0o700 });
     expect(f.run(["install-cron"]).status).toBe(1);
     expect(fs.readFileSync(path.join(f.home, "table"), "utf8")).toContain("/unrelated/job");
+  });
+  it("preserves a caller-relative env file when cron starts from HOME", () => {
+    const f = fixture(); f.state("mso", true);
+    fs.writeFileSync(f.envFile, "OS_HEARTBEAT_ENABLED=1\n");
+    expect(f.run(["install-cron"], { MSO_GATEWAY_ENV: ".env.local", OS_HEARTBEAT_ENABLED: "0" }, f.root).status).toBe(0);
+    const line = fs.readFileSync(path.join(f.home, "table"), "utf8").split("\n")[0];
+    const command = line.replace(/^\S+ \S+ \S+ \S+ \S+ /, "").replace(/ # mso-heartbeat:.*$/, "").replace(/\\%/g, "%").replace(" >/dev/null", "");
+    const result = spawnSync("sh", ["-c", command], { cwd: f.home, env: { ...f.env, MSO_GATEWAY_ROOT: "", OS_HEARTBEAT_ENABLED: "0" }, encoding: "utf8" });
+    expect(result.status).toBe(0); expect(result.stdout).toContain("healthy");
   });
   it("does not install cron while disabled or with an invalid interval", () => {
     const f = fixture(); expect(f.run(["install-cron"], { OS_HEARTBEAT_ENABLED: "0" }).status).toBe(0);

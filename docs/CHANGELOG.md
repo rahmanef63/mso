@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `heartbeat` preserve relative env paths in cron
 - `ux` reuse existing loading and glass styles within the shell budget
 - `heartbeat` use parseable multiline shell case statements
 - `ux` stack install notice above the update badge without overlap
