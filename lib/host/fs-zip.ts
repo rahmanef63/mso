@@ -21,7 +21,44 @@ import os from "os";
 import path from "path";
 import type { Readable } from "stream";
 import { HostError } from "./host-error";
-import { appDir, looseCredentialExcludes, resolveReadable, sensitiveExcludes } from "./paths";
+import { appDir, isCredentialPath, looseCredentialExcludes, resolveReadable, sensitiveExcludes } from "./paths";
+
+const ZIP_MAX_INPUT_BYTES = 512 * 1024 * 1024;
+const ZIP_MAX_OUTPUT_BYTES = 600 * 1024 * 1024;
+const ZIP_MAX_FILES = 50_000;
+const ZIP_SCAN_TIMEOUT_MS = 5_000;
+const ZIP_PROCESS_TIMEOUT_MS = 60_000;
+const zipGate = (globalThis as typeof globalThis & { __msoZipActive?: boolean });
+
+async function assertArchiveBudget(realBase: string, names: string[], exclude: string[]): Promise<void> {
+  const excluded = new Set(exclude);
+  const deadline = Date.now() + ZIP_SCAN_TIMEOUT_MS;
+  let files = 0, bytes = 0;
+  const stack = names.map((name) => path.join(realBase, name));
+  while (stack.length) {
+    if (Date.now() > deadline) throw new HostError("Archive preflight exceeded its time limit");
+    const current = stack.pop()!;
+    if (excluded.has(path.basename(current)) || isCredentialPath(current)) continue;
+    let stat: import("node:fs").Stats;
+    try { stat = await fsp.lstat(current); } catch { continue; }
+    if (stat.isSymbolicLink()) {
+      files += 1; bytes += stat.size;
+    } else if (stat.isDirectory()) {
+      let children: string[];
+      try { children = await fsp.readdir(current); } catch { continue; }
+      for (const child of children) stack.push(path.join(current, child));
+    } else if (stat.isFile()) {
+      files += 1; bytes += stat.size;
+    }
+    if (files > ZIP_MAX_FILES) throw new HostError("Archive selection exceeds the 50000 file limit");
+    if (bytes > ZIP_MAX_INPUT_BYTES) throw new HostError("Archive selection exceeds the 512 MiB input limit");
+  }
+  const statfs = await fsp.statfs(os.tmpdir());
+  const free = Number(statfs.bavail) * Number(statfs.bsize);
+  if (!Number.isFinite(free) || free < bytes + 64 * 1024 * 1024) {
+    throw new HostError("Insufficient temporary disk space for archive generation");
+  }
+}
 
 // A selectable item is a single basename in the listed dir — never a path. Reject
 // separators/traversal/NUL so a name can't escape `base` (defense-in-depth; the
@@ -52,6 +89,15 @@ export async function zipStream(
     assertSafeName(n);
     await resolveReadable(path.join(real, n)); // realpath + read-root + credential gate
   }
+  for (const n of exclude) assertSafeName(n);
+  if (zipGate.__msoZipActive) throw new HostError("Another archive is already being generated");
+  zipGate.__msoZipActive = true;
+  try {
+    await assertArchiveBudget(real, names, exclude);
+  } catch (error) {
+    zipGate.__msoZipActive = false;
+    throw error;
+  }
   const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "os-zip-"));
   const out = path.join(tmpDir, "archive.zip");
   // `-y` = store symlinks AS links, never follow. Without it `zip -r` archives a
@@ -60,7 +106,8 @@ export async function zipStream(
   const args = ["-r", "-y", "-q", out, ...names.map((n) => `./${n}`)];
   const patterns: string[] = [];
   for (const name of exclude) {
-    assertSafeName(name); // a dir basename, never a raw pattern from the client
+    // already validated before preflight; keep the comment here because patterns
+    // remain intentionally derived only from basenames, never raw client globs.
     // BOTH forms are needed. Info-ZIP `*` spans `/`, so `*/name/*` drops the dir at
     // any depth BELOW the archive root — but it cannot match at the root itself,
     // where the entry is `name/…` with nothing before the slash. Selecting
@@ -91,8 +138,12 @@ export async function zipStream(
   try {
     await new Promise<void>((resolve, reject) => {
       const child = spawn("zip", args, { cwd: real, stdio: "ignore" });
-      child.on("error", reject); // missing binary / spawn fail
+      let timedOut = false;
+      const timer = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, ZIP_PROCESS_TIMEOUT_MS);
+      child.on("error", (error) => { clearTimeout(timer); reject(error); }); // missing binary / spawn fail
       child.on("close", (code) => {
+        clearTimeout(timer);
+        if (timedOut) return reject(new HostError("Archive generation exceeded the 60 second limit"));
         if (code === 0 || code === PARTIAL_OK) return resolve();
         if (code === NOTHING_TO_DO)
           return reject(new HostError("Nothing to archive: everything selected was excluded"));
@@ -101,8 +152,16 @@ export async function zipStream(
     });
   } catch (e) {
     await fsp.rm(tmpDir, { recursive: true, force: true });
+    zipGate.__msoZipActive = false;
     throw e;
   }
+  const outStat = await fsp.stat(out).catch(() => null);
+  if (!outStat || outStat.size > ZIP_MAX_OUTPUT_BYTES) {
+    await fsp.rm(tmpDir, { recursive: true, force: true });
+    zipGate.__msoZipActive = false;
+    throw new HostError("Generated archive exceeds the 600 MiB output limit");
+  }
+  zipGate.__msoZipActive = false;
   // ponytail: staged on disk, not streamed as zip runs — correctness over the
   // buffer-free ideal, since a piped zip won't extract. The ceiling is DISK, not
   // latency: the excludes bound what goes IN, they do not bound the total, so N

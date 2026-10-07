@@ -1,6 +1,6 @@
 import path from "path";
 import os from "os";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, truncateSync, writeFileSync } from "fs";
 import type { Readable } from "stream";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { appSecretExcludes, assertSafeName, zipStream } from "./fs-zip";
@@ -123,5 +123,20 @@ describe("zipStream against the real zip binary", () => {
     expect(entries(drained)).toContain("keep.txt"); // unlinked bytes still readable
     expect(stale()).toBe(before);
     abandoned.destroy();
+  });
+});
+
+
+describe("zip resource ceilings", () => {
+  it("rejects an oversized selection during preflight without staging it", async () => {
+    const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), "mso-zip-budget-")));
+    process.env.OS_FS_READ_ROOTS = root;
+    const huge = path.join(root, "huge.bin");
+    truncateSync(huge, 513 * 1024 * 1024);
+    try {
+      await expect(zipStream(root, ["huge.bin"])).rejects.toThrow(/512 MiB input limit/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
