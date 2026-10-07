@@ -28,6 +28,21 @@ const CHECK_CACHE_MS = 60_000;
 
 const cache = new Map<ManagedAppId, ManagedAppUpdateStatus>();
 
+function safeCapabilities(id: ManagedAppId, capabilities = updateAdapter(id).capabilities) {
+  if (id === "9router") return capabilities;
+  // Hermes/OpenClaw upstream update commands fetch mutable branch/channel/tag
+  // content and execute it before MSO can verify repository-owned bytes. Until
+  // a reviewed release artifact + digest is committed, discovery stays enabled
+  // but apply/channel/dry-run update execution fails closed.
+  return { ...capabilities, apply: false, dryRun: false, channel: false };
+}
+
+function assertVerifiedUpdatePath(id: ManagedAppId): void {
+  if (id !== "9router") {
+    throw new Error(`${id} automated update is disabled until a reviewed immutable artifact target and digest are committed`);
+  }
+}
+
 /** Absolute path to the app's CLI. Resolved rather than trusted to PATH so the
  *  argv the job records is the exact binary that ran, and a missing CLI fails
  *  here with a readable message instead of as a child-process ENOENT. */
@@ -59,7 +74,7 @@ function unavailable(id: ManagedAppId, error: string): ManagedAppUpdateStatus {
     // the omission cannot read as one: a rollback is `restore.ts` copying files
     // in-process, so it needs no CLI and stays available precisely when a
     // broken install makes it most useful.
-    capabilities: { ...capabilities, check: false, apply: false, dryRun: false, channel: false, uninstall: false, rollback: true },
+    capabilities: { ...safeCapabilities(id, capabilities), check: false, apply: false, dryRun: false, channel: false, uninstall: false, rollback: true },
     checkedAt: new Date().toISOString(),
     error,
   };
@@ -77,7 +92,7 @@ export function cachedUpdateStatus(id: ManagedAppId): ManagedAppUpdateStatus {
   return {
     applicationId: id, currentVersion: null, latestVersion: null, updateAvailable: null, detail: null,
     channel: { value: null, kind: null, available: [], switchable: false, reason: null },
-    installKind: null, capabilities: updateAdapter(id).capabilities, checkedAt: null, error: null,
+    installKind: null, capabilities: safeCapabilities(id), checkedAt: null, error: null,
   };
 }
 
@@ -96,7 +111,7 @@ export async function checkUpdate(id: ManagedAppId, force = false): Promise<Mana
   let status: ManagedAppUpdateStatus;
   try {
     const probe = await adapter.probe(await resolveProgram(getManagedAppDefinition(id).command));
-    status = { applicationId: id, ...probe, capabilities: adapter.capabilities, checkedAt: new Date().toISOString() };
+    status = { applicationId: id, ...probe, capabilities: safeCapabilities(id, adapter.capabilities), checkedAt: new Date().toISOString() };
   } catch (error) {
     status = unavailable(id, message(error));
   }
@@ -142,6 +157,7 @@ async function snapshot(definition: ManagedAppDefinition, reason: ManagedAppBack
 /** Update, or preview one. `dryRun` skips the backup on purpose: a preview
  *  writes nothing, and copying 366 MB to predict a no-op is theatre. */
 export async function startUpdate(id: ManagedAppId, options: ManagedAppUpdateOptions = {}): Promise<ManagedAppJob> {
+  assertVerifiedUpdatePath(id);
   const definition = getManagedAppDefinition(id);
   const argv = updateAdapter(id).updateArgv(await resolveProgram(definition.command), options);
   return startManagedAppJob({
@@ -160,6 +176,7 @@ export async function startUpdate(id: ManagedAppId, options: ManagedAppUpdateOpt
 export async function setChannel(id: ManagedAppId, channel: string): Promise<ManagedAppJob> {
   const adapter = updateAdapter(id);
   if (!adapter.capabilities.channel) throw new Error(`channel switching is not supported for ${id}`);
+  assertVerifiedUpdatePath(id);
   return startUpdate(id, { channel: assertChannel(channel) });
 }
 
@@ -206,7 +223,8 @@ export async function startRollback(id: ManagedAppId, backupId: string, pin?: st
   // which auto-stashes the very files the restore just wrote back (update-cli.ts)
   // — a rollback that quietly undoes itself and still reports success.
   if (pin && !adapter.pin) throw new Error(`pinning a version during a rollback is not supported for ${id}: its pin switches the git checkout, which would stash the restored files`);
-  const argv = pin && adapter.pin ? [await resolveProgram(getManagedAppDefinition(id).command), "update", "--yes", ...adapter.pin(pin)] : [];
+  if (pin) throw new Error(`pinning during rollback is disabled until ${id} has a reviewed immutable artifact target and digest`);
+  const argv: string[] = [];
   return startManagedAppJob({
     applicationId: id,
     kind: "restore",
