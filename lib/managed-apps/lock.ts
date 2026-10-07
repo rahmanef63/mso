@@ -1,4 +1,7 @@
 import "server-only";
+import os from "node:os";
+import path from "node:path";
+import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import type { ManagedAppId } from "./types";
 
 // THE per-app operation lock — the one manager.ts has always taken around
@@ -41,4 +44,24 @@ export function releaseOperation(id: ManagedAppId): void {
 /** The label the holder passed (an action name or a job kind), else undefined. */
 export function activeOperation(id: ManagedAppId): string | undefined {
   return active.get(id);
+}
+
+
+function durableOperationPath(id: ManagedAppId): string {
+  return path.join(os.homedir(), ".mso", "managed-app-operations", `${id}.operation`);
+}
+
+/** Serialize the cross-process decision to start an app operation. Direct
+ * lifecycle calls hold this lease for the operation; background jobs hold it
+ * until their durable queued/running record exists, then that record becomes
+ * the cross-process claim. */
+export async function withManagedAppOperationLease<T>(id: ManagedAppId, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await withSecurityStoreLock(durableOperationPath(id), fn, { busyTimeoutMs: 250 });
+  } catch (error) {
+    if (error instanceof Error && /security store is busy/.test(error.message)) {
+      throw new Error("another operation is already running");
+    }
+    throw error;
+  }
 }

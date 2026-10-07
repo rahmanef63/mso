@@ -11,6 +11,7 @@ vi.mock("server-only", () => ({}));
 const { startManagedAppJob, readManagedAppJob, listManagedAppJobs } = await import("./jobs");
 const { MANAGED_APP_JOB_LOG_CAP, liveRecord } = await import("./job-runner");
 const { performManagedAppAction } = await import("./manager");
+const { withManagedAppOperationLease } = await import("./lock");
 import type { ManagedAppJob } from "./types";
 
 let home: string;
@@ -214,5 +215,20 @@ describe("what never reaches a shell, and what never spawns", () => {
     const [latest] = await listManagedAppJobs("hermes");
     expect(latest.id).toBe(job.id);
     expect(latest).not.toHaveProperty("log"); // history rows carry no transcript
+  });
+});
+
+
+describe("cross-process managed-app operation lease", () => {
+  it("refuses a second contender while the durable lease is held", async () => {
+    let entered!: () => void, release!: () => void;
+    const inside = new Promise<void>((resolve) => { entered = resolve; });
+    const hold = new Promise<void>((resolve) => { release = resolve; });
+    const first = withManagedAppOperationLease("hermes", async () => { entered(); await hold; });
+    await inside;
+    await expect(withManagedAppOperationLease("hermes", async () => undefined)).rejects.toThrow("another operation is already running");
+    release();
+    await first;
+    await expect(withManagedAppOperationLease("hermes", async () => "ok")).resolves.toBe("ok");
   });
 });

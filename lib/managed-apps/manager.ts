@@ -3,8 +3,9 @@ import os from "node:os";
 import { createBackup } from "./backups";
 import { getManagedAppDefinition, listManagedAppDefinitions } from "./catalog";
 import { dockerUsable, requireDocker, runDocker } from "./docker";
-import { acquireOperation, activeOperation, releaseOperation } from "./lock";
+import { acquireOperation, activeOperation, releaseOperation, withManagedAppOperationLease } from "./lock";
 import { redact } from "./redact";
+import { listJobRecords } from "./job-store";
 import { commandExists, resolveCommand, runProgram } from "./runner";
 import { userBusEnv, userBusUnavailable } from "./user-bus";
 import type { ManagedAppAction, ManagedAppDefinition, ManagedAppId, ManagedAppLogs, ManagedAppView } from "./types";
@@ -209,21 +210,22 @@ async function runLifecycle(installation: Installation, action: "start" | "stop"
 }
 
 export async function performManagedAppAction(id: ManagedAppId, action: ManagedAppAction): Promise<ManagedAppView> {
-  // Taken before detection now, and shared with the job layer (lock.ts), so a
-  // 30-minute update and a `restart` can never interleave on the same app.
-  if (!acquireOperation(id, action)) throw new Error("another operation is already running");
-  try {
-    const definition = getManagedAppDefinition(id);
-    const installation = await detect(definition);
-    if (!actionsFor(installation).includes(action)) throw new Error("operation unsupported for detected installation type");
-    if (action === "backup") await createBackup(definition, "manual");
-    else await runLifecycle(installation, action);
-  } finally {
-    releaseOperation(id);
-    // The action may have installed/upgraded the binary — drop the cached version
-    // so the view returned below reports the new one, not a stale ≤60 s reading.
-    versionCache.delete(id);
-  }
+  await withManagedAppOperationLease(id, async () => {
+    if ((await listJobRecords(id)).some((job) => job.status === "queued" || job.status === "running")) {
+      throw new Error("another operation is already running");
+    }
+    if (!acquireOperation(id, action)) throw new Error("another operation is already running");
+    try {
+      const definition = getManagedAppDefinition(id);
+      const installation = await detect(definition);
+      if (!actionsFor(installation).includes(action)) throw new Error("operation unsupported for detected installation type");
+      if (action === "backup") await createBackup(definition, "manual");
+      else await runLifecycle(installation, action);
+    } finally {
+      releaseOperation(id);
+      versionCache.delete(id);
+    }
+  });
   return getManagedApp(id);
 }
 
