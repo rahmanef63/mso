@@ -6,7 +6,8 @@ import { homeDir, isUnderRoot } from "./path-roots";
 // off-limits to the FS API. Reading .env.local would leak OS_SESSION_SECRET —
 // turning one stolen session into the ability to mint cookies forever — and
 // ~/.mso holds the device allowlist, BYOK key and browser profile (cookies).
-// Other projects' .env files stay readable (session = owner, their call).
+// Viewer sessions and read-scope clients are not owners: project dotenv files
+// have the same credential boundary, independent of the checkout running MSO.
 const APP_DIR = (() => {
   try {
     return realpathSync(process.cwd());
@@ -93,7 +94,7 @@ export function isCredentialPath(real: string): boolean {
   // accounts). Their basename/extension is the reliable marker outside fixed ~/ paths.
   if (PRIVATE_KEY_NAMES.has(base) && process.env.OS_FS_ALLOW_SENSITIVE !== "1") return true;
   if (base.toLowerCase().endsWith(".pem")) return true;
-  return isAppSecret(real);
+  return isAppSecret(real) || (base.startsWith(".env") && base !== ".env.example");
 }
 
 // `zip -r` validates the selected top-level names, then walks descendants itself.
@@ -105,6 +106,6 @@ export function looseCredentialExcludes(): string[] {
     : PRIVATE_KEY_BASENAMES.flatMap((name) => [name, `*/${name}`]);
   // *.pem has historically been a hard credential boundary, independent of the
   // SENSITIVE_HOME escape hatch; keep that contract while extending id_* safely.
-  return ["*.pem", ...privateNames];
+  return ["*.pem", ".env*", "*/.env*", ...privateNames];
 }
 

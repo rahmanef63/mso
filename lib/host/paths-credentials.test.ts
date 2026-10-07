@@ -112,7 +112,7 @@ describe("recursive credential guard", () => {
     vi.stubEnv("HOME", fakeHome);
     vi.stubEnv("OS_FS_ALLOW_SENSITIVE", "1");
     expect(sensitiveExcludes(fakeHome)).toEqual([]);
-    expect(looseCredentialExcludes()).toEqual(["*.pem"]);
+    expect(looseCredentialExcludes()).toEqual(["*.pem", ".env*", "*/.env*"]);
     expect(isCredentialPath(path.join(fakeHome, "safe", "id_rsa"))).toBe(false);
     expect(isCredentialPath(path.join(fakeHome, "safe", "deploy.pem"))).toBe(true);
     expect(() => assertNoSensitiveDescendants(parent)).not.toThrow();
