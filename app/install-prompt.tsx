@@ -40,7 +40,7 @@ export function InstallPrompt() {
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 z-[var(--z-spotlight)] flex justify-center px-4" style={{ bottom: "calc(5.5rem + var(--sai-bottom, 0px))" }}>
+    <div data-slot="pwa-install-prompt" className="pointer-events-none fixed inset-x-0 z-[var(--z-spotlight)] flex justify-center px-4" style={{ bottom: "calc(8.5rem + var(--sai-bottom, 0px))" }}>
       <div className="glass pointer-events-auto flex items-center gap-2 rounded-2xl border border-border bg-card/90 px-3 py-2 shadow-[var(--shadow-win)]">
         <Download className="size-4 shrink-0 text-primary" />
         <span className="text-sm">Install Manef Shell OS as an app</span>

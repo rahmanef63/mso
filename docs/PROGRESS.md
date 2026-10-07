@@ -1,6 +1,6 @@
 ## 2026-10-08: Make shell startup and Spotlight feedback reliable
 
-The boot splash now removes itself on hydration on every route, including the standalone Integrations and OAuth pages, and uses the saved theme before hydration. Spotlight reports pending folder searches and retries focus after its deferred mount while retaining first-open lazy loading. Its foreground and placeholder colors remain readable over the desktop wallpaper. The update badge uses the Settings public entry point and sits above the separate install prompt. The release journey checks that the standalone Integrations page has no remaining boot overlay.
+The boot splash now removes itself on hydration on every route, including the standalone Integrations and OAuth pages, and uses the saved theme before hydration. Spotlight reports pending folder searches and retries focus after its deferred mount while retaining first-open lazy loading. Its foreground and placeholder colors remain readable over the desktop wallpaper. The update badge uses the Settings public entry point and sits below the separate install prompt. The release journey checks that the standalone Integrations page has no remaining boot overlay and that install/update notices do not overlap at desktop and 320px mobile widths.
 
 ## 2026-10-08: Complete the scan hardening audit and repair verification
 
