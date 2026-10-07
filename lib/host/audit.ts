@@ -6,7 +6,7 @@
 //
 // Location: $OS_AUDIT_LOG, else ~/.mso/audit.log. Reads are NOT audited
 // (bounded + high-volume); only state-changing actions are.
-import { promises as fs } from "fs";
+import { constants, promises as fs } from "fs";
 import os from "os";
 import path from "path";
 
@@ -79,7 +79,7 @@ export async function readAuditTail(opts?: {
   limit?: number;
 }): Promise<AuditRecord[]> {
   const { prefix, limit = 100 } = opts ?? {};
-  const raw = await fs.readFile(/* turbopackIgnore: true */ auditPath(), "utf8").catch(() => "");
+  const raw = await readBoundedTail(auditPath()).catch(() => "");
   return raw
     .split("\n")
     .filter(Boolean)
@@ -98,7 +98,7 @@ export async function readAuditTail(opts?: {
         (!prefix || e.action.startsWith(prefix)),
       ),
     )
-    .slice(-limit)
+    .slice(-Math.max(1, Math.min(500, Math.trunc(limit) || 100)))
     .reverse();
 }
 
@@ -107,6 +107,48 @@ export async function readAuditTail(opts?: {
 // swallows + logs its own failure), otherwise one bad write would poison every
 // subsequent audit call for the lifetime of the process.
 let _writeChain: Promise<void> = Promise.resolve();
+const AUDIT_MAX_BYTES = 8 * 1024 * 1024;
+const AUDIT_READ_TAIL_BYTES = 256 * 1024;
+const RATELIMIT_AUDIT_MAX = 60;
+const RATELIMIT_AUDIT_WINDOW_MS = 60_000;
+let ratelimitWindow = 0;
+let ratelimitEntries = 0;
+
+function allowRateLimitAudit(action: AuditAction): boolean {
+  if (action !== "auth.ratelimited") return true;
+  const now = Date.now();
+  if (now - ratelimitWindow >= RATELIMIT_AUDIT_WINDOW_MS) {
+    ratelimitWindow = now;
+    ratelimitEntries = 0;
+  }
+  if (ratelimitEntries >= RATELIMIT_AUDIT_MAX) return false;
+  ratelimitEntries += 1;
+  return true;
+}
+
+async function readBoundedTail(file: string): Promise<string> {
+  let handle;
+  try {
+    handle = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const stat = await handle.stat();
+    if (!stat.isFile()) return "";
+    const size = Math.min(stat.size, AUDIT_READ_TAIL_BYTES);
+    const offset = Math.max(0, stat.size - size);
+    const buffer = Buffer.alloc(size);
+    const { bytesRead } = await handle.read(buffer, 0, size, offset);
+    let text = buffer.subarray(0, bytesRead).toString("utf8");
+    if (offset > 0) {
+      const newline = text.indexOf("\n");
+      text = newline >= 0 ? text.slice(newline + 1) : "";
+    }
+    return text;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
+    throw error;
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+}
 
 async function writeLine(line: string): Promise<void> {
   // A test run must never append to the OWNER's forensic trail. This is not
@@ -118,7 +160,18 @@ async function writeLine(line: string): Promise<void> {
   const file = auditPath();
   try {
     await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-    await fs.appendFile(file, line, { mode: 0o600 });
+    const stat = await fs.lstat(file).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    if (stat && (!stat.isFile() || stat.isSymbolicLink())) throw new Error("audit log must be a regular file");
+    if (stat && stat.size + Buffer.byteLength(line) > AUDIT_MAX_BYTES) {
+      const rotated = file + ".1";
+      await fs.rm(rotated, { force: true });
+      await fs.rename(file, rotated);
+    }
+    const handle = await fs.open(file, constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
+    try { await handle.writeFile(line); } finally { await handle.close(); }
   } catch (e) {
     console.error("[audit] write failed:", e instanceof Error ? e.message : e);
   }
@@ -129,6 +182,7 @@ async function writeLine(line: string): Promise<void> {
 // and must never break the caller). Callers may fire-and-forget the returned
 // promise; ordering across concurrent callers is preserved via _writeChain.
 export function audit(entry: AuditEntry): Promise<void> {
+  if (!allowRateLimitAudit(entry.action)) return Promise.resolve();
   // Drop `meta` from the serialized line when it's empty so existing greps that
   // assume a fixed-shape record don't suddenly see `"meta":{}` everywhere.
   const clamped = clampMeta(entry.meta);
