@@ -27,6 +27,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `security` require authenticated workflow webhooks
 - `security` block delegated writes to control plane
 
+**Tests**
+
+- `lock` wait for the privacy curtain keyboard listener before unlocking
+
 ## 2026-10-07
 
 **Fixed**

@@ -138,6 +138,8 @@ try {
       await page.keyboard.press("Enter");
       await expect(page.getByText("Click to unlock", { exact: true })).toBeVisible();
       await expect(page.locator('[data-slot="ios-lock"]')).toHaveCount(0);
+      // LockCurtain attaches after one frame so the palette Enter cannot unlock it.
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await page.keyboard.press("Space");
       await expect(page.getByText("Click to unlock", { exact: true })).toHaveCount(0);
       expect(errors).toEqual([]);
