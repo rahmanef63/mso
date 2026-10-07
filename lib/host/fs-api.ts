@@ -7,4 +7,5 @@ export { parseMultipart, boundaryFromContentType, UploadTooLargeError } from "./
 export type { MultipartPart } from "./multipart";
 export { sha256Text, utf8Bytes } from "./hash";
 export { writeFileGuarded } from "./guarded-write";
+export { assertDelegatedWritePath } from "./delegated-write";
 export { readFileBytes } from "./fs-read-bytes";

@@ -13,11 +13,10 @@ const resolver =
   (answers: Array<{ address: string; family: number }>) => async () =>
     answers;
 
-describe("A2A loopback-only default", () => {
-  it("allows exact HTTP loopback by default", () => {
-    expect(
-      assertA2AUrl("http://127.0.0.1:4555/.well-known/agent-card.json").hostname,
-    ).toBe("127.0.0.1");
+describe("A2A explicit loopback opt-in", () => {
+  it("blocks exact HTTP loopback unless explicitly enabled", () => {
+    vi.stubEnv(A2A_ALLOW_LOOPBACK_ENV, "");
+    expect(() => assertA2AUrl("http://127.0.0.1:4555/.well-known/agent-card.json")).toThrow(/disabled/);
   });
 
   it("supports an explicit kill switch", () => {

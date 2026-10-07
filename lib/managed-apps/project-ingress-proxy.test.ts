@@ -21,6 +21,7 @@ function req(path: string, signature = "a".repeat(64)) {
       host: "hermes.mso.example.com",
       "sec-fetch-site": "cross-site",
       "content-type": "application/json",
+      "content-length": "2",
       "x-webhook-timestamp": String(Math.floor(Date.now() / 1000)),
       "x-webhook-signature-v2": signature,
     },

@@ -15,6 +15,7 @@ function request(path: string, headers: Record<string, string> = {}) {
     method: "POST",
     headers: {
       "content-type": "application/json",
+      "content-length": "2",
       "x-webhook-timestamp": String(Math.floor(Date.now() / 1000)),
       "x-webhook-signature-v2": "a".repeat(64),
       ...headers,

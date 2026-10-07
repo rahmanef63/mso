@@ -27,7 +27,7 @@ import {
   upstreamSocketHeaders,
 } from "@/lib/managed-apps/proxy-headers";
 import { getManagedAppDefinition } from "@/lib/managed-apps/catalog";
-import { projectIngressDecision } from "@/lib/managed-apps/project-ingress";
+import { projectIngressDecision, projectIngressHeaders } from "@/lib/managed-apps/project-ingress";
 import { verifySession } from "@/lib/auth/session";
 import { configuredSessionCookieScope } from "@/lib/auth/session-cookie";
 import { currentSessionPolicy, getApprovedDevice } from "@/lib/auth/device-store";
@@ -232,7 +232,7 @@ export async function proxy(request: NextRequest) {
   const ingress = projectIngressDecision(request, managedApp, pathname);
   if (ingress.matched) {
     if (!ingress.target) return blocked();
-    return NextResponse.rewrite(new URL(ingress.target));
+    return NextResponse.rewrite(new URL(ingress.target), { request: { headers: projectIngressHeaders(request.headers) } });
   }
 
   // A host inside the app namespace that is NOT an app (a new `X.mso.example.com`

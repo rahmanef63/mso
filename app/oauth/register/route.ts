@@ -1,3 +1,4 @@
+import { readRequestJson, RequestBodyError } from "@/lib/security/request-body";
 import { registerClient } from "@/lib/mcp/store";
 import { isAllowedRedirect } from "@/lib/mcp/pkce";
 import { mcpEnabled } from "@/lib/mcp/scope";
@@ -32,9 +33,9 @@ export async function POST(req: Request) {
 
   let body: { redirect_uris?: unknown; client_name?: unknown };
   try {
-    body = await req.json();
-  } catch {
-    return bad("invalid_request", "body must be JSON");
+    body = await readRequestJson(req, 16 * 1024);
+  } catch (error) {
+    return bad("invalid_request", "body must be bounded JSON", error instanceof RequestBodyError ? error.status : 400);
   }
 
   if (!Array.isArray(body.redirect_uris) || body.redirect_uris.length === 0) {

@@ -64,10 +64,11 @@ function plausibleHmacV2Json(request: Request, route: ProjectIngressRoute): bool
   if (!Number.isInteger(seconds) || Math.abs(Math.floor(Date.now() / 1000) - seconds) > 300) return false;
   if (!/^[0-9a-f]{64}$/i.test(request.headers.get("x-webhook-signature-v2") ?? "")) return false;
   const lengthHeader = request.headers.get("content-length");
-  if (lengthHeader) {
-    const length = Number(lengthHeader);
-    if (!Number.isFinite(length) || length < 0 || length > route.maxBodyBytes) return false;
-  }
+  // The rewrite cannot replace a streaming body. Require a bounded HTTP framing
+  // contract; chunked or missing-length requests must use a bounded route instead.
+  if (!lengthHeader || !/^\d{1,10}$/.test(lengthHeader) || request.headers.has("transfer-encoding")) return false;
+  const length = Number(lengthHeader);
+  if (!Number.isSafeInteger(length) || length < 1 || length > route.maxBodyBytes) return false;
   return true;
 }
 
@@ -83,4 +84,14 @@ export function projectIngressDecision(
   );
   if (!route) return { matched: false };
   return plausibleHmacV2Json(request, route) ? { matched: true, target: route.target } : { matched: true };
+}
+
+/** Machine callbacks receive only their own protocol headers, never cockpit credentials. */
+export function projectIngressHeaders(incoming: Headers): Headers {
+  const out = new Headers();
+  for (const name of ["content-type", "content-length", "x-webhook-timestamp", "x-webhook-signature-v2", "x-request-id"]) {
+    const value = incoming.get(name);
+    if (value !== null) out.set(name, value);
+  }
+  return out;
 }

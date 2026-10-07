@@ -127,6 +127,7 @@ gateway_cmd_start_locked() {
   gateway_runtime_from_state "$state"
   gateway_start_runtime_if_needed
   gateway_assert_port_loopback_only
+  gateway_assert_managed_runtime_trusted
   LOCAL_HEALTH_IDENTITY="$(gateway_health_url_identity "$LOCAL_URL" "${RUNTIME_INSTANCE_ID:-}")" \
     || { gateway_cleanup_failed_start; gateway_fail "selected local runtime did not return a stable MSO health identity"; }
   TUNNEL_IDENTITY=null; GATEWAY_PUBLIC_URL="${GATEWAY_PUBLIC_URL:-}"

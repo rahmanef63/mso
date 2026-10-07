@@ -1,3 +1,4 @@
+import { requireWorkflowScope, workflowExecutionContext } from "./graph-authority";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { capabilityReportedFailure } from "@/lib/capabilities/result-outcome";
@@ -32,6 +33,7 @@ function resultData(result: unknown): unknown {
   try { return JSON.parse(text); } catch { return { text }; }
 }
 async function callTool(name: string, args: Record<string, unknown>, context: CapabilityRunContext, resolve: Resolver): Promise<unknown> {
+  context = await workflowExecutionContext(context);
   const tool = resolve(name); if (!tool) throw new Error(`workflow tool unavailable: ${name}`);
   const outcome = await executeCapabilityCall({ tool, args, scope: context.scope, actor: context.actor, context });
   if (outcome.kind !== "success") throw new Error(outcome.message); return resultData(outcome.result);
@@ -58,6 +60,10 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
   const runtime = { input: graphInput, trigger: run.trigger, nodes: Object.fromEntries(Object.entries(outputs).map(([id, output]) => [id, { output }])), graph: { id: graph.id, name: graph.name, metadata: graph.metadata } };
   const principal = context.principal ?? context.actor; if (!principal) throw new Error("workflow node requires principal");
   const config = bindWorkflowValue(node.config, runtime, await workflowVariableValues(principal)) as Record<string, unknown>;
+  context = await workflowExecutionContext(context);
+  if (node.type === "channel_send") requireWorkflowScope(context, "exec");
+  if (node.type === "data_table" && ["insert", "update", "delete"].includes(String(config.mode))) requireWorkflowScope(context, "write");
+  if (node.type === "cache" && ["set", "get_or_set", "delete"].includes(String(config.mode))) requireWorkflowScope(context, "write");
   const project = typeof config.project === "string" ? config.project : graph.metadata.project;
   if (["manual", "schedule", "webhook", "channel_trigger"].includes(node.type)) return { output: graphInput, log: `${node.type} trigger accepted.` };
   if (node.type === "project") return { output: await resolvedProject(config.project ?? project), log: "Canonical project resolved at runtime." };

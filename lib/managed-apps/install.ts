@@ -97,9 +97,9 @@ export async function startInstall(id: ManagedAppId, options: InstallOptions = {
     if (!provider.apps.includes(id)) throw new Error(`${provider.label} is not supported by this application`);
     assertKeyShape(key);
     env.MSO_INSTALL_PROVIDER = provider.id;
-    // Both hand-offs at once: the name the CLI reads on its own (Hermes takes it
-    // straight from here and never sees a flag), and the generic pair the install
-    // script uses to build OpenClaw's flag.
+    // The provider's documented environment variable is inherited only by the
+    // installer child. Hermes reads it directly; OpenClaw stores an env SecretRef.
+    // The generic MSO key remains for Hermes' private .env persistence path.
     env.MSO_INSTALL_API_KEY = key;
     env[provider.envVar] = key;
   }

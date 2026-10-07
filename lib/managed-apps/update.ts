@@ -11,11 +11,7 @@ import type { ManagedAppDefinition, ManagedAppId, ManagedAppJob } from "./types"
 import { assertChannel, updateAdapter, UNINSTALL_PREVIEW_FLAG } from "./update-cli";
 import type { ManagedAppBackup, ManagedAppUpdateOptions, ManagedAppUpdateStatus } from "./update-types";
 
-// The update service. Four destructive flows, one shape: validate, take a
-// backup INSIDE the operation, then hand a validated argv array to the job
-// layer. INSTALL is not one of them — both installers are interactive
-// (`hermes setup`, `openclaw update wizard`), so MSO reports the command for a
-// human to run and never fakes it (`capabilities.installCommand`).
+// Validate, snapshot inside the operation, then submit guarded fixed argv.
 
 /** OpenClaw's own per-STEP timeout is 1800 s and a run has several steps, so a
  *  30-minute wall clock would kill a healthy update mid-step. An hour is the
@@ -28,14 +24,24 @@ const CHECK_CACHE_MS = 60_000;
 
 const cache = new Map<ManagedAppId, ManagedAppUpdateStatus>();
 
-/** Absolute path to the app's CLI. Resolved rather than trusted to PATH so the
- *  argv the job records is the exact binary that ran, and a missing CLI fails
- *  here with a readable message instead of as a child-process ENOENT. */
+function safeCapabilities(id: ManagedAppId, capabilities = updateAdapter(id).capabilities) {
+  if (id === "9router") return capabilities;
+  // Hermes/OpenClaw upstream update commands fetch mutable branch/channel/tag
+  // content and execute it before MSO can verify repository-owned bytes. Until
+  // a reviewed release artifact + digest is committed, discovery stays enabled
+  // but apply/channel/dry-run update execution fails closed.
+  return { ...capabilities, apply: false, dryRun: false, channel: false };
+}
+
+function assertVerifiedUpdatePath(id: ManagedAppId): void {
+  if (id !== "9router") {
+    throw new Error(`${id} automated update is disabled until a reviewed immutable artifact target and digest are committed`);
+  }
+}
+
+/** Resolve the exact CLI or fail before creating a job. */
 async function resolveProgram(command: string): Promise<string> {
-  // Shared with detection (runner.ts) rather than a second `which` of its own:
-  // under systemd the unit's PATH has no ~/.local/bin, so a bare `which` reported
-  // "hermes is not installed" for an installed Hermes and disabled the whole
-  // update centre — the same fault that made the app read as absent.
+  // Share detection's fallback for user-local CLIs outside systemd PATH.
   const resolved = await resolveCommand(command);
   if (!resolved || !path.isAbsolute(resolved)) throw new Error(`${command} is not installed`);
   return resolved;
@@ -53,13 +59,8 @@ function unavailable(id: ManagedAppId, error: string): ManagedAppUpdateStatus {
     detail: null,
     channel: { value: null, kind: null, available: [], switchable: false, reason: null },
     installKind: null,
-    // Nothing that needs the CLI can be driven right now; `installCommand`
-    // survives because it is exactly what the operator needs when the answer is
-    // "not installed". `rollback` is the deliberate exception, spelled out so
-    // the omission cannot read as one: a rollback is `restore.ts` copying files
-    // in-process, so it needs no CLI and stays available precisely when a
-    // broken install makes it most useful.
-    capabilities: { ...capabilities, check: false, apply: false, dryRun: false, channel: false, uninstall: false, rollback: true },
+    // File-based rollback survives a missing CLI; execution controls do not.
+    capabilities: { ...safeCapabilities(id, capabilities), check: false, apply: false, dryRun: false, channel: false, uninstall: false, rollback: true },
     checkedAt: new Date().toISOString(),
     error,
   };
@@ -77,7 +78,7 @@ export function cachedUpdateStatus(id: ManagedAppId): ManagedAppUpdateStatus {
   return {
     applicationId: id, currentVersion: null, latestVersion: null, updateAvailable: null, detail: null,
     channel: { value: null, kind: null, available: [], switchable: false, reason: null },
-    installKind: null, capabilities: updateAdapter(id).capabilities, checkedAt: null, error: null,
+    installKind: null, capabilities: safeCapabilities(id), checkedAt: null, error: null,
   };
 }
 
@@ -96,7 +97,7 @@ export async function checkUpdate(id: ManagedAppId, force = false): Promise<Mana
   let status: ManagedAppUpdateStatus;
   try {
     const probe = await adapter.probe(await resolveProgram(getManagedAppDefinition(id).command));
-    status = { applicationId: id, ...probe, capabilities: adapter.capabilities, checkedAt: new Date().toISOString() };
+    status = { applicationId: id, ...probe, capabilities: safeCapabilities(id, adapter.capabilities), checkedAt: new Date().toISOString() };
   } catch (error) {
     status = unavailable(id, message(error));
   }
@@ -142,6 +143,7 @@ async function snapshot(definition: ManagedAppDefinition, reason: ManagedAppBack
 /** Update, or preview one. `dryRun` skips the backup on purpose: a preview
  *  writes nothing, and copying 366 MB to predict a no-op is theatre. */
 export async function startUpdate(id: ManagedAppId, options: ManagedAppUpdateOptions = {}): Promise<ManagedAppJob> {
+  assertVerifiedUpdatePath(id);
   const definition = getManagedAppDefinition(id);
   const argv = updateAdapter(id).updateArgv(await resolveProgram(definition.command), options);
   return startManagedAppJob({
@@ -153,13 +155,11 @@ export async function startUpdate(id: ManagedAppId, options: ManagedAppUpdateOpt
   });
 }
 
-/** OpenClaw only. Upstream persists a channel ONLY after a successful core
- *  update (`--channel` is a flag on `update`, not a setting), and MSO will not
- *  write into ~/.openclaw itself — so switching a channel IS an update run,
- *  backup and all. The returned job is a normal update job. */
+/** A channel switch executes an update, so it needs the same immutable target. */
 export async function setChannel(id: ManagedAppId, channel: string): Promise<ManagedAppJob> {
   const adapter = updateAdapter(id);
   if (!adapter.capabilities.channel) throw new Error(`channel switching is not supported for ${id}`);
+  assertVerifiedUpdatePath(id);
   return startUpdate(id, { channel: assertChannel(channel) });
 }
 
@@ -206,7 +206,8 @@ export async function startRollback(id: ManagedAppId, backupId: string, pin?: st
   // which auto-stashes the very files the restore just wrote back (update-cli.ts)
   // — a rollback that quietly undoes itself and still reports success.
   if (pin && !adapter.pin) throw new Error(`pinning a version during a rollback is not supported for ${id}: its pin switches the git checkout, which would stash the restored files`);
-  const argv = pin && adapter.pin ? [await resolveProgram(getManagedAppDefinition(id).command), "update", "--yes", ...adapter.pin(pin)] : [];
+  if (pin) throw new Error(`pinning during rollback is disabled until ${id} has a reviewed immutable artifact target and digest`);
+  const argv: string[] = [];
   return startManagedAppJob({
     applicationId: id,
     kind: "restore",
