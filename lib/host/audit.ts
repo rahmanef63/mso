@@ -150,6 +150,18 @@ async function readBoundedTail(file: string): Promise<string> {
   }
 }
 
+async function copyHandle(source: Awaited<ReturnType<typeof fs.open>>, dest: Awaited<ReturnType<typeof fs.open>>, bytes: number): Promise<void> {
+  const buffer = Buffer.allocUnsafe(64 * 1024);
+  let position = 0;
+  while (position < bytes) {
+    const length = Math.min(buffer.length, bytes - position);
+    const { bytesRead } = await source.read(buffer, 0, length, position);
+    if (!bytesRead) break;
+    await dest.write(buffer, 0, bytesRead, null);
+    position += bytesRead;
+  }
+}
+
 async function writeLine(line: string): Promise<void> {
   // A test run must never append to the OWNER's forensic trail. This is not
   // hypothetical: on 2026-08-10 two `mcp.denied` lines from lib/mcp/dispatch.test.ts
@@ -158,22 +170,39 @@ async function writeLine(line: string): Promise<void> {
   // path, so this only silences the callers that forgot to.
   if (process.env.VITEST && !process.env.OS_AUDIT_LOG) return;
   const file = auditPath();
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
     await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-    const stat = await fs.lstat(file).catch((error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") return null;
-      throw error;
-    });
-    if (stat && (!stat.isFile() || stat.isSymbolicLink())) throw new Error("audit log must be a regular file");
-    if (stat && stat.size + Buffer.byteLength(line) > AUDIT_MAX_BYTES) {
+    handle = await fs.open(
+      /* turbopackIgnore: true */ file,
+      constants.O_RDWR | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW,
+      0o600,
+    );
+    const stat = await handle.stat();
+    if (!stat.isFile()) throw new Error("audit log must be a regular file");
+
+    if (stat.size + Buffer.byteLength(line) > AUDIT_MAX_BYTES) {
       const rotated = file + ".1";
-      await fs.rm(rotated, { force: true });
-      await fs.rename(file, rotated);
+      let rotatedHandle: Awaited<ReturnType<typeof fs.open>> | undefined;
+      try {
+        rotatedHandle = await fs.open(
+          /* turbopackIgnore: true */ rotated,
+          constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW,
+          0o600,
+        );
+        await copyHandle(handle, rotatedHandle, stat.size);
+        await rotatedHandle.sync();
+      } finally {
+        await rotatedHandle?.close().catch(() => undefined);
+      }
+      await handle.truncate(0);
     }
-    const handle = await fs.open(file, constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
-    try { await handle.writeFile(line); } finally { await handle.close(); }
+
+    await handle.writeFile(line);
   } catch (e) {
     console.error("[audit] write failed:", e instanceof Error ? e.message : e);
+  } finally {
+    await handle?.close().catch(() => undefined);
   }
 }
 
