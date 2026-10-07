@@ -217,3 +217,14 @@ describe("the provider table and the install script agree", () => {
     expect(script).not.toMatch(/\bread -[rp]\b/);
   });
 });
+
+
+describe("OpenClaw provider secrets stay out of child argv", () => {
+  const script = readFileSync(path.join(process.cwd(), "scripts", "managed-app-install"), "utf8");
+  it("uses provider env SecretRefs instead of provider key flags", () => {
+    const openclaw = script.slice(script.indexOf("install_openclaw() {"), script.indexOf("openclaw_bin() {"));
+    expect(openclaw).toContain("--secret-input-mode ref");
+    expect(openclaw).not.toMatch(/--(?:anthropic|openai|openrouter|gemini|groq|xai|deepseek)-api-key/);
+    expect(openclaw).not.toContain('"$KEY"');
+  });
+});
