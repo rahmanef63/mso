@@ -17,7 +17,7 @@ import { createAppApp } from "@/features/create-app";
 import { systemMonitorApp } from "@/features/system-monitor";
 import { assistantApp } from "@/features/assistant";
 import { hermesApp, nineRouterApp, openclawApp } from "@/features/managed-apps";
-import { osSettingsApp } from "@/features/os-settings";
+import { osSettingsApp, updateShellBadgeFeature } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
 import { integrationsApp } from "@/features/integrations";
@@ -28,7 +28,6 @@ import { organizationApp } from "@/features/organization";
 import { memoryGraphApp } from "@/features/memory-graph";
 import { cloudflareApp, dokployApp } from "@/features/infrastructure";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
-import { updateShellBadgeFeature } from "@/features/os-settings/components/update-shell-badge";
 import { serverConnectionStatusFeature } from "./server-connection-status";
 import { APP_MARKS } from "./brand-marks";
 

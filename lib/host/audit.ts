@@ -1,12 +1,7 @@
 // Host-owned runtime data is not a build asset; tracing exclusions preserve runtime guards.
-// SERVER-ONLY. Append-only audit trail for privileged actions (shell exec, file
-// mutations, cleanup runs, auth events). Single-owner tool that can run shell
-// commands MUST keep a tamper-evident record — if something goes wrong, this is
-// the only forensic trail. JSONL, one event per line, flushed best-effort.
-//
-// Location: $OS_AUDIT_LOG, else ~/.mso/audit.log. Reads are NOT audited
-// (bounded + high-volume); only state-changing actions are.
-import { promises as fs } from "fs";
+// SERVER-ONLY. Bounded best-effort JSONL trail for privileged mutations.
+// Location: $OS_AUDIT_LOG, else ~/.mso/audit.log; reads are not audited.
+import { constants, promises as fs } from "fs";
 import os from "os";
 import path from "path";
 
@@ -42,10 +37,7 @@ function trunc(s: string | undefined, max = 512): string | undefined {
   return s.length > max ? s.slice(0, max) + "…" : s;
 }
 
-// Clamp meta values defensively: a caller could pass an unbounded string (a
-// user-supplied URL, a stack-trace fragment), and one bloated meta would
-// torpedo the whole forensic line. Scalars pass through; strings cap at 256;
-// anything else is dropped (the type already forbids it, but defense in depth).
+// Keep caller-supplied metadata bounded and scalar-only.
 function clampMeta(
   meta: Record<string, string | number | boolean> | undefined,
 ): Record<string, string | number | boolean> | undefined {
@@ -79,7 +71,7 @@ export async function readAuditTail(opts?: {
   limit?: number;
 }): Promise<AuditRecord[]> {
   const { prefix, limit = 100 } = opts ?? {};
-  const raw = await fs.readFile(/* turbopackIgnore: true */ auditPath(), "utf8").catch(() => "");
+  const raw = await readBoundedTail(auditPath()).catch(() => "");
   return raw
     .split("\n")
     .filter(Boolean)
@@ -98,37 +90,110 @@ export async function readAuditTail(opts?: {
         (!prefix || e.action.startsWith(prefix)),
       ),
     )
-    .slice(-limit)
+    .slice(-Math.max(1, Math.min(500, Math.trunc(limit) || 100)))
     .reverse();
 }
 
-// Internal: serialize writes onto a single chained promise so bursty parallel
-// callers land in submission order. The chain NEVER rejects (each link
-// swallows + logs its own failure), otherwise one bad write would poison every
-// subsequent audit call for the lifetime of the process.
+// Preserve submission order; a failed write must not poison later writes.
 let _writeChain: Promise<void> = Promise.resolve();
+const AUDIT_MAX_BYTES = 8 * 1024 * 1024;
+const AUDIT_READ_TAIL_BYTES = 256 * 1024;
+const RATELIMIT_AUDIT_MAX = 60;
+const RATELIMIT_AUDIT_WINDOW_MS = 60_000;
+let ratelimitWindow = 0;
+let ratelimitEntries = 0;
 
-async function writeLine(line: string): Promise<void> {
-  // A test run must never append to the OWNER's forensic trail. This is not
-  // hypothetical: on 2026-08-10 two `mcp.denied` lines from lib/mcp/dispatch.test.ts
-  // landed in a real ~/.mso/audit.log, because that suite exercises the dispatcher
-  // and the dispatcher audits. audit.test.ts always stubs OS_AUDIT_LOG at a temp
-  // path, so this only silences the callers that forgot to.
-  if (process.env.VITEST && !process.env.OS_AUDIT_LOG) return;
-  const file = auditPath();
+function allowRateLimitAudit(action: AuditAction): boolean {
+  if (action !== "auth.ratelimited") return true;
+  const now = Date.now();
+  if (now - ratelimitWindow >= RATELIMIT_AUDIT_WINDOW_MS) {
+    ratelimitWindow = now;
+    ratelimitEntries = 0;
+  }
+  if (ratelimitEntries >= RATELIMIT_AUDIT_MAX) return false;
+  ratelimitEntries += 1;
+  return true;
+}
+
+async function readBoundedTail(file: string): Promise<string> {
+  let handle;
   try {
-    await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-    await fs.appendFile(file, line, { mode: 0o600 });
-  } catch (e) {
-    console.error("[audit] write failed:", e instanceof Error ? e.message : e);
+    handle = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const stat = await handle.stat();
+    if (!stat.isFile()) return "";
+    const size = Math.min(stat.size, AUDIT_READ_TAIL_BYTES);
+    const offset = Math.max(0, stat.size - size);
+    const buffer = Buffer.alloc(size);
+    const { bytesRead } = await handle.read(buffer, 0, size, offset);
+    let text = buffer.subarray(0, bytesRead).toString("utf8");
+    if (offset > 0) {
+      const newline = text.indexOf("\n");
+      text = newline >= 0 ? text.slice(newline + 1) : "";
+    }
+    return text;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
+    throw error;
+  } finally {
+    await handle?.close().catch(() => undefined);
   }
 }
 
-// Append an audit entry. Returns a promise that resolves AFTER this entry's
-// write completes (or fails — failures are swallowed; the trail is best-effort
-// and must never break the caller). Callers may fire-and-forget the returned
-// promise; ordering across concurrent callers is preserved via _writeChain.
+async function copyHandle(source: Awaited<ReturnType<typeof fs.open>>, dest: Awaited<ReturnType<typeof fs.open>>, bytes: number): Promise<void> {
+  const buffer = Buffer.allocUnsafe(64 * 1024);
+  let position = 0;
+  while (position < bytes) {
+    const length = Math.min(buffer.length, bytes - position);
+    const { bytesRead } = await source.read(buffer, 0, length, position);
+    if (!bytesRead) break;
+    await dest.write(buffer, 0, bytesRead, null);
+    position += bytesRead;
+  }
+}
+
+async function writeLine(line: string): Promise<void> {
+  // Tests require an explicit synthetic trail; never append to the owner's log.
+  if (process.env.VITEST && !process.env.OS_AUDIT_LOG) return;
+  const file = auditPath();
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
+    handle = await fs.open(
+      /* turbopackIgnore: true */ file,
+      constants.O_RDWR | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW,
+      0o600,
+    );
+    const stat = await handle.stat();
+    if (!stat.isFile()) throw new Error("audit log must be a regular file");
+
+    if (stat.size + Buffer.byteLength(line) > AUDIT_MAX_BYTES) {
+      const rotated = file + ".1";
+      let rotatedHandle: Awaited<ReturnType<typeof fs.open>> | undefined;
+      try {
+        rotatedHandle = await fs.open(
+          /* turbopackIgnore: true */ rotated,
+          constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW,
+          0o600,
+        );
+        await copyHandle(handle, rotatedHandle, stat.size);
+        await rotatedHandle.sync();
+      } finally {
+        await rotatedHandle?.close().catch(() => undefined);
+      }
+      await handle.truncate(0);
+    }
+
+    await handle.writeFile(line);
+  } catch (e) {
+    console.error("[audit] write failed:", e instanceof Error ? e.message : e);
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+}
+
+// Resolves after the best-effort write; failures never break the caller.
 export function audit(entry: AuditEntry): Promise<void> {
+  if (!allowRateLimitAudit(entry.action)) return Promise.resolve();
   // Drop `meta` from the serialized line when it's empty so existing greps that
   // assume a fixed-shape record don't suddenly see `"meta":{}` everywhere.
   const clamped = clampMeta(entry.meta);

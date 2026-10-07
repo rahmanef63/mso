@@ -15,8 +15,7 @@ import { matches, type Command } from "../lib";
 import { loadRecents, pushRecent } from "../history";
 import { ResultList } from "./spotlight-results";
 
-// The panel MOUNTS per open (and unmounts on close), so query/selection state
-// starts fresh every time without effect-driven resets (set-state-in-effect).
+// Mount per open so query and selection reset together.
 export function Spotlight() {
   const open = useSpotlightOpen();
   return open ? <SpotlightPanel /> : null;
@@ -29,7 +28,6 @@ function SpotlightPanel() {
   const { theme, setTheme } = useShellAppearance();
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
-  // Read MRU once per open (panel mounts on open), so recents refresh each time.
   const [recents] = useState(loadRecents);
   const inputRef = useRef<HTMLInputElement>(null);
   // Ignore backdrop dismiss for the opening gesture (hot-corner / first click race).
@@ -37,16 +35,12 @@ function SpotlightPanel() {
   const LISTBOX_ID = "spotlight-listbox";
   const ios = useActiveShell().id === "ios"; // iOS = top-anchored full-width search over the wallpaper
 
-  // Debounced folder search under ~/projects (live) — opens Files at the hit.
-  // Results are state, but "no query → no hits" is derived below (stale hits
-  // stay visible during the debounce, matching the old behaviour).
+  // Keep prior folder results visible during the debounce.
   const [found, setFound] = useState<{ key: string; hits: SearchHit[]; error?: string } | null>(null);
   const folderHits = useMemo(() => (q.trim() ? (found?.hits ?? []) : []), [q, found]);
   const trimmed = q.trim();
   const searchError = trimmed && found?.key === trimmed ? found.error : undefined;
-  // Pending while a non-empty query has not yet settled on matching folder hits
-  // (debounce + in-flight). Commands may already match; empty-command + pending
-  // must not flash "No matches" (UX-05).
+  // Do not report no matches until the folder query settles.
   const folderPending = Boolean(trimmed && found?.key !== trimmed);
   useEffect(() => {
     const query = q.trim();
@@ -55,9 +49,6 @@ function SpotlightPanel() {
     const t = setTimeout(() => {
       search(query)
         .then((h) => alive && setFound({ key: query, hits: h }))
-        // Keep the reason. Reporting a dead host API as "No matches" is a lie the
-        // user cannot act on — an expired session looks exactly like an empty
-        // folder. Files does this right (use-files.ts toasts the real message).
         .catch((e: unknown) => {
           const msg = e instanceof Error ? e.message : String(e);
           if (alive) setFound({ key: query, hits: [], error: msg });
@@ -88,7 +79,6 @@ function SpotlightPanel() {
         run: () => setTheme(theme === "dark" ? "light" : "dark"),
       },
     ];
-    // Registry-contributed commands (apps/features/shells register at runtime).
     const registered: Command[] = dynamic.map((c) => ({
       id: c.id,
       label: c.label,
@@ -101,8 +91,6 @@ function SpotlightPanel() {
 
   const results = useMemo(() => {
     let base = commands.filter((c) => matches(q, c.keywords ? `${c.label} ${c.keywords}` : c.label));
-    // Empty query → float recently-run commands to the top (recency order).
-    // Array.sort is stable, so non-recent commands keep their catalog order.
     if (!q.trim() && recents.length) {
       const rank = new Map(recents.map((id, i) => [id, i]));
       base = [...base].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
@@ -116,10 +104,7 @@ function SpotlightPanel() {
     return [...base, ...folderCmds];
   }, [commands, q, folderHits, recents]);
 
-  // Focus the input after the open transition paints (mount = open), and on
-  // close return focus to whatever was focused before — so keyboard/AT users
-  // aren't dumped at the top of the document when Spotlight dismisses.
-  // Double rAF + short timeout covers deferred-chunk mount (UX-04).
+  // Retry focus after deferred mount; restore the opener on close.
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     let cancelled = false;
@@ -142,8 +127,6 @@ function SpotlightPanel() {
       prev?.focus?.();
     };
   }, []);
-
-  // Clamp the selection in render when results shrink — no clamp effect.
   const selIdx = Math.min(sel, Math.max(0, results.length - 1));
 
   const close = () => setSpotlightOpen(false);

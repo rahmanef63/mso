@@ -3,32 +3,17 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 #
-# Idempotent: re-running updates the checkout, rebuilds, and restarts the
-# service. The bootstrap never needs stdin, so curl|bash stays safe. After a
-# FRESH install it uses /dev/tty (when present) for guided onboarding; CI/headless
-# installs never hang and can run `mso onboard` later. Existing .env.local is preserved.
+# Idempotent update; preserves .env.local. Fresh interactive installs use /dev/tty.
 set -Eeuo pipefail
 
-# ---- config: env override > flag > default ----
 CANONICAL_REPO_URL="https://github.com/rahmanef63/mso.git"
 REPO_URL="${MSO_REPO:-$CANONICAL_REPO_URL}"
 DIR="${MSO_DIR:-$HOME/mso}"
 DIR_EXPLICIT=0
 REF="${MSO_REF:-main}"
 PORT="${MSO_PORT:-4005}"
-# Address the server listens on. Loopback by DEFAULT, for two reasons that point
-# the same way:
-#   1. It cannot log in otherwise. sessionCookieAttrs() sets `secure: true`
-#      (lib/auth/session-cookie.ts), and a browser only accepts a Secure cookie
-#      over plain http on a trustworthy origin — localhost / 127.0.0.1 / ::1. So
-#      http://<lan-or-public-ip>:PORT returns 200 on login and then silently
-#      drops the cookie: an endless login loop. A 0.0.0.0 bind buys no working
-#      access it did not already have.
-#   2. It is a shell. An authenticated session runs commands as this user, and a
-#      fresh VPS has ufw installed but disabled — so the old default published
-#      that shell to the whole internet about two minutes into a curl|bash.
-# Reach it over an SSH tunnel, `tailscale serve`, or a reverse proxy on this host
-# (all three land the browser on a trustworthy origin, so the cookie sticks).
+# Loopback protects the host shell and supports Secure session cookies over HTTP.
+# Remote access uses SSH, tailscale serve or a trusted HTTPS reverse proxy.
 BIND="${MSO_BIND:-127.0.0.1}"
 SERVICE="mso.service"
 DO_SERVICE=1
@@ -49,6 +34,10 @@ SERVICE_ATTEMPTED=0
 # immutable Git commit and verified before execution. Update both values together.
 BUN_BOOTSTRAP_COMMIT="0d9b296af33f2b851fcbf4df3e9ec89751734ba4"
 BUN_BOOTSTRAP_SHA256="bab8acfb046aac8c72407bdcce903957665d655d7acaa3e11c7c4616beae68dd"
+# NodeSource's convenience URL is mutable. Pin the reviewed setup script by
+# repository commit and byte digest before giving it root authority.
+NODESOURCE_SETUP_COMMIT="c6e581b0d24e5d043476ddb947d70e6fe10e83c9"
+NODESOURCE_SETUP_SHA256="575583bbac2fccc0b5edd0dbc03e222d9f9dc8d724da996d22754d6411104fd1"
 
 # ---- pretty output (tty + NO_COLOR aware) ----
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -253,8 +242,19 @@ ensure_node() {
     die "this Node release is not supported; select Node 22.12+, 24.x or 26+. The installer will not downgrade a newer runtime."
   fi
   if command -v apt-get >/dev/null 2>&1; then
-    info "installing Node 22 via NodeSource…"
-    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo_do -E bash -
+    info "installing Node 22 via pinned NodeSource bootstrap…"
+    command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required to verify the NodeSource bootstrap."
+    local setup actual url
+    setup="$(mktemp)"
+    url="https://raw.githubusercontent.com/nodesource/distributions/$NODESOURCE_SETUP_COMMIT/scripts/deb/setup_22.x"
+    curl -fsSL "$url" -o "$setup" || { rm -f "$setup"; die "NodeSource bootstrap download failed."; }
+    actual="$(sha256sum "$setup" | awk '{print $1}')"
+    [ "$actual" = "$NODESOURCE_SETUP_SHA256" ] || {
+      rm -f "$setup"
+      die "NodeSource bootstrap integrity check failed."
+    }
+    sudo_do -E bash "$setup" || { rm -f "$setup"; die "NodeSource bootstrap failed."; }
+    rm -f "$setup"
     sudo_do apt-get install -y -qq nodejs
   else
     die "install Node 22.12+, 24.x or 26+ (22 recommended) from https://nodejs.org or your distro, then re-run."

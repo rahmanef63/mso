@@ -7,7 +7,7 @@ import type { McpStore } from "./store-types";
 
 const STORE_PATH = expandOwnerStorePath(process.env.OS_MCP_STORE ?? path.join(os.homedir(), ".mso", "mcp.json"));
 const MAX_CLIENTS = 64;
-const empty = (): McpStore => ({ clients: {}, codes: {}, tokens: {}, refreshTokens: {} });
+const empty = (): McpStore => ({ clients: {}, codes: {}, tokens: {}, refreshTokens: {}, spentRefreshTokens: {} });
 
 export async function readMcpStore(): Promise<McpStore> {
   let raw: string;
@@ -23,6 +23,7 @@ export async function readMcpStore(): Promise<McpStore> {
     codes: parsed.codes ?? {},
     tokens: parsed.tokens ?? {},
     refreshTokens: parsed.refreshTokens ?? {},
+    spentRefreshTokens: parsed.spentRefreshTokens ?? {},
   };
 }
 
@@ -49,6 +50,9 @@ export function sweepMcpStore(store: McpStore): McpStore {
   }
   for (const [key, value] of Object.entries(store.refreshTokens)) {
     if (value.expiresAt < now || value.revokedAt) delete store.refreshTokens[key];
+  }
+  for (const [key, value] of Object.entries(store.spentRefreshTokens)) {
+    if (value.expiresAt < now) delete store.spentRefreshTokens[key];
   }
   return store;
 }

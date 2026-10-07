@@ -11,10 +11,10 @@ umask 077
 
 RAW_BASE="${MSO_INSTALL_RAW_BASE:-https://raw.githubusercontent.com/rahmanef63/mso/main/scripts}"
 CORE_URL="${MSO_INSTALL_CORE_URL:-https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install-core.sh}"
-CORE_SHA256="d56a6ed0f1330e53d18d796caf272ac47a1b1abc0ee86c92b4eff5cd2a5bb206"
+CORE_SHA256="d796e29308685f21dcccb3ab72a2e39fde698fdf3f33170940335977e5dee46d"
 CORE_EOF='# MSO_INSTALLER_CORE_EOF'
 MACOS_SHA256="668ec3c8bbf3ee36dc2ae70952c3ba43c6f73ebc3acd6956fa4be2f65a076bfe"
-TERMUX_SHA256="12a979b6ef9a8dc62253e059e612cd1f6201014b7a4c20f5a6dc3d46d0436f10"
+TERMUX_SHA256="eb634d1ec3d5aec0bea6e34243b4b8664ecb2af0df0fd30df196b4a89b0f96f0"
 TMP_INSTALLER=''
 TMP_PLATFORM=''
 

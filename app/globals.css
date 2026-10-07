@@ -233,6 +233,14 @@ body {
   touch-action: manipulation;
 }
 
+.mso-boot-spinner {
+  width: 24px; height: 24px;
+  border: 2px solid rgba(255,255,255,.9); border-top-color: transparent;
+  border-radius: 50%; animation: mso-boot-spin .8s linear infinite;
+}
+@keyframes mso-boot-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .mso-boot-spinner { animation: none; } }
+
 /* glass helper — applied alongside theme tokens, never raw hex in components */
 .glass {
   -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);

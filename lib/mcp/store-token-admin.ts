@@ -71,7 +71,7 @@ export function mintPatToken(input: {
     const ttlDays = typeof input.ttlDays === "number" && input.ttlDays > 0 ? input.ttlDays : 0;
     const expiresAt = ttlDays > 0 ? now + ttlDays * 24 * 60 * 60 * 1000 : 0;
     const label = input.label.trim().slice(0, 80) || "Personal Access Token";
-    const tokenRec: McpToken = { label, clientId: "manual:pat", scope: input.scope, createdAt: now, expiresAt };
+    const tokenRec: McpToken = { label, clientId: "manual:pat:" + randomUUID().replaceAll("-", "").slice(0, 24), scope: input.scope, createdAt: now, expiresAt };
     const hash = sha256hex(rawToken);
     store.tokens[hash] = tokenRec;
     await write(store);

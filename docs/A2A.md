@@ -128,7 +128,7 @@ See [Local Agents](./LOCAL-AGENTS.md) for lifecycle (`ready` / `idle` / `busy` /
 
 Durable Local Agent standby does **not** create a second orchestration engine. Once a structured local request is safely claimed, MSO executes it through the same bounded durable-session/A2A task machinery already used by `local_agent_request`; only the host-local mailbox/listener/claim layer is new. Public A2A keeps its own standard authenticated task lifecycle and trust boundary, but both paths converge on the existing bounded agent execution semantics rather than duplicating a model runtime.
 
-The older `mso a2a local ...` and loopback virtual-card helpers remain as compatibility/protocol-testing surfaces for one-shot local delegation. They are not the native live-session transport. `OS_A2A_ALLOW_LOOPBACK=0` can disable those legacy A2A-over-loopback paths without disabling Local Agents.
+The older `mso a2a local ...` and loopback virtual-card helpers remain as compatibility/protocol-testing surfaces for one-shot local delegation. They are not the native live-session transport. `OS_A2A_ALLOW_LOOPBACK=1` explicitly enables those legacy A2A-over-loopback paths for trusted same-host agents; Local Agents do not require it.
 
 ## Outbound peers and credentials
 

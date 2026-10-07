@@ -5,6 +5,7 @@ import { GeistMono } from "./mono-font";
 import { RegisterSW } from "./register-sw";
 import { InstallPrompt } from "./install-prompt";
 import "./globals.css";
+import { BootSplash } from "./boot-splash";
 import { publicMsoOrigin } from "@/lib/mcp/ui-config";
 
 export function generateMetadata(): Metadata {
@@ -88,41 +89,10 @@ export default async function RootLayout({
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html:
-              'try{var t=JSON.parse(localStorage.getItem("mso:tweaks"));if(t&&t.theme)document.documentElement.dataset.theme=t.theme;var s=document.getElementById("mso-boot-splash");if(s&&t&&t.theme==="dark")s.style.background="linear-gradient(145deg,#161629 0%,#10152c 58%,#0b1223 100%)";}catch(e){}',
+              'try{var t=JSON.parse(localStorage.getItem("mso:tweaks"));if(t&&t.theme)document.documentElement.dataset.theme=t.theme;if(t&&t.theme==="dark")document.documentElement.style.setProperty("--mso-boot-background","linear-gradient(145deg,#161629 0%,#10152c 58%,#0b1223 100%)");}catch(e){}',
           }}
         />
-        {/* Pre-paint boot splash (UX-02): wallpaper gradient + spinner so cold
-            load is not blank grey while JS/CSS hydrate. Removed by OsRoot. */}
-        <div
-          id="mso-boot-splash"
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 2147483000,
-            display: "grid",
-            placeItems: "center",
-            background:
-              "linear-gradient(145deg, #d3c5bd 0%, #d9dce7 56%, #b7c8dc 100%)",
-            pointerEvents: "none",
-          }}
-        >
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              border: "2px solid rgba(255,255,255,0.9)",
-              borderTopColor: "transparent",
-              borderRadius: "50%",
-              animation: "mso-boot-spin 0.8s linear infinite",
-            }}
-          />
-          <style
-            dangerouslySetInnerHTML={{
-              __html: "@keyframes mso-boot-spin{to{transform:rotate(360deg)}}",
-            }}
-          />
-        </div>
+        <BootSplash />
         {children}
         <RegisterSW />
         <InstallPrompt />

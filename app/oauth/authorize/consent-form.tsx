@@ -8,7 +8,7 @@ import { defaultConsentScope, type Scope } from "@/lib/mcp/scope";
 
 const TIERS: { value: Scope; label: string; blurb: string }[] = [
   { value: "read", label: "Read only", blurb: "List and read files, disk usage, CPU/memory, processes, installed apps." },
-  { value: "write", label: "Read + write files", blurb: "Everything above, plus create, overwrite, move, copy and delete files." },
+  { value: "write", label: "Read + change settings and files", blurb: "Everything above, plus create, overwrite, move, copy and delete files; change workflows, agent identities, integration connections, project MCP bindings and infrastructure settings such as DNS. This is not file-only access." },
   { value: "exec", label: "Full shell", blurb: "Everything above, plus run any shell command as you, and power the browser session." },
 ];
 

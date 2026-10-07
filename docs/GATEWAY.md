@@ -106,7 +106,9 @@ evidence to name the provider. MSO does not guess provider ownership from a host
 
 ## Public health and deployment identity
 
-Process existence is not public readiness. MSO probes the configured public origin at:
+Process existence is not public readiness. A managed tunnel start also refuses to forward an already-bound loopback port unless that listener is either an MSO-owned fallback runtime or is proven by socket inode + cgroup + working-directory evidence to belong to this checkout's active `mso.service`. A health-shaped HTTP response alone is not runtime identity.
+
+MSO probes the configured public origin at:
 
 ```text
 https://<public-origin>/api/health

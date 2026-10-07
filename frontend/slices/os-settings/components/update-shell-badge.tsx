@@ -36,14 +36,14 @@ function UpdateShellBadge() {
   return (
     <div
       className="pointer-events-none fixed inset-x-0 z-[var(--z-spotlight)] flex justify-center px-4"
-      style={{ bottom: "calc(5.5rem + var(--sai-bottom, 0px))" }}
+      style={{ bottom: "calc(8.5rem + var(--sai-bottom, 0px))" }}
       data-slot="shell-update-badge"
     >
       <Button
         type="button"
         variant="secondary"
         className="pointer-events-auto h-auto gap-2 rounded-2xl border border-border bg-card/95 px-3 py-2 text-sm shadow-[var(--shadow-win)] backdrop-blur"
-        aria-label="New MSO version available — open Settings Updates"
+        aria-label="New MSO version available — open Settings"
         onClick={() => openWindow("os-settings", "Settings")}
       >
         <ArrowDownToLine className="size-4 shrink-0 text-primary" />

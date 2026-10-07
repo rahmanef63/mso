@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runtime/state lifecycle used by the public tunnel and local `mso web` fallback.
 
-GATEWAY_EXPECTED_VERSION="$(node -p "require('$ROOT/package.json').version")" || gateway_fail "cannot read MSO version"
+GATEWAY_EXPECTED_VERSION="$(node -p 'require(process.argv[1]).version' "$ROOT/package.json")" || gateway_fail "cannot read MSO version"
 
 gateway_runtime_from_state() {
   local state="$1" identity owned instance stored_env
@@ -18,6 +18,50 @@ gateway_runtime_from_state() {
       RUNTIME_IDENTITY="$identity"; RUNTIME_INSTANCE_ID="$instance"; RUNTIME_OWNED=true
     fi
   fi
+}
+gateway_service_owns_local_listener() {
+  local port hex file line addr state inode cgroup pid fd link working tcp tcp6
+  command -v systemctl >/dev/null 2>&1 || return 1
+  systemctl is-active --quiet mso.service 2>/dev/null || return 1
+  working="$(systemctl show -p WorkingDirectory --value mso.service 2>/dev/null || true)"
+  [ -n "$working" ] && [ "$(readlink -f -- "$working" 2>/dev/null || true)" = "$GATEWAY_CANONICAL_ROOT" ] || return 1
+  cgroup="$(systemctl show -p ControlGroup --value mso.service 2>/dev/null || true)"
+  [ -n "$cgroup" ] && [ -r "/sys/fs/cgroup$cgroup/cgroup.procs" ] || return 1
+  port="$(node - "$LOCAL_URL" <<'NODE'
+const u=new URL(process.argv[2]); process.stdout.write(u.port);
+NODE
+)"
+  [[ "$port" =~ ^[0-9]{1,5}$ ]] || return 1
+  printf -v hex '%04X' "$port"
+  tcp="${MSO_GATEWAY_PROC_NET_TCP:-/proc/net/tcp}"
+  tcp6="${MSO_GATEWAY_PROC_NET_TCP6:-/proc/net/tcp6}"
+  inode=''
+  for file in "$tcp" "$tcp6"; do
+    [ -r "$file" ] || continue
+    while read -r line; do
+      set -- $line; [ "$#" -ge 10 ] || continue
+      addr="${2:-}"; state="${4:-}"
+      [ "$state" = 0A ] || continue
+      if [[ "$addr" = *:"$hex" ]]; then inode="${10:-}"; [ -n "$inode" ] && break 2; fi
+    done <"$file"
+  done
+  [[ "$inode" =~ ^[0-9]+$ ]] || return 1
+  while read -r pid; do
+    [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 1 ] || continue
+    [ "$(stat -c '%u' "/proc/$pid" 2>/dev/null || true)" = "$(id -u)" ] || continue
+    [ "$(readlink -f -- "/proc/$pid/cwd" 2>/dev/null || true)" = "$GATEWAY_CANONICAL_ROOT" ] || continue
+    for fd in "/proc/$pid"/fd/*; do
+      link="$(readlink "$fd" 2>/dev/null || true)"
+      [ "$link" = "socket:[$inode]" ] && return 0
+    done
+  done <"/sys/fs/cgroup$cgroup/cgroup.procs"
+  return 1
+}
+
+gateway_assert_managed_runtime_trusted() {
+  [ "$RUNTIME_OWNED" = true ] && return 0
+  if [ "${NODE_ENV:-}" = test ] && [ -n "${MSO_GATEWAY_CURL:-}" ] && [ -n "${MSO_GATEWAY_PROC_NET_TCP:-}" ]; then return 0; fi
+  gateway_service_owns_local_listener || gateway_fail "refusing managed tunnel: healthy loopback listener is not proven to belong to this checkout's mso.service"
 }
 gateway_start_runtime_if_needed() {
   local next host port pid identity instance node_exe current_exe i parent_ticks gate

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { clientIp } from "./route";
 
 // clientIp() is the rate-limit key. Behind multi-hop proxies (Cloudflare →
@@ -72,7 +72,7 @@ describe("clientIp — XFF trusted-proxy hops", () => {
 // incremented BEFORE the per-IP gate and unconditionally, so a single flooding IP
 // burned the process-wide budget and locked every other caller out of the cockpit —
 // unauthenticated, from the internet, for as long as the flood ran.
-describe("rate limiting cannot be turned into a lockout of everyone else", () => {
+describe("login admission budgets", () => {
   const SECRET = "s".repeat(48);
   const PASSWORD = "correct-horse-battery";
   const device = "d".repeat(32);
@@ -94,11 +94,10 @@ describe("rate limiting cannot be turned into a lockout of everyone else", () =>
     return (await import("./route")).POST;
   }
 
-  const post = (ip: string, password: string) =>
-    ({
-      headers: { get: (k: string) => (k.toLowerCase() === "x-forwarded-for" ? ip : null) },
-      json: async () => ({ password, deviceId: device, deviceLabel: "test" }),
-    }) as unknown as NextRequest;
+  const post = (ip: string, password: string) => new NextRequest("https://mso.example/api/auth/login", {
+    method: "POST", headers: {"x-forwarded-for": ip, "content-type": "application/json"},
+    body: JSON.stringify({password, deviceId: device, deviceLabel: "test"}),
+  });
 
   it("keeps serving a different IP after one IP exhausts its own budget", async () => {
     const POST = await loadRoute();
@@ -116,19 +115,15 @@ describe("rate limiting cannot be turned into a lockout of everyone else", () =>
     expect(owner.status).toBe(403);
   });
 
-  it("keeps serving the owner after a DISTRIBUTED flood fills the process-wide budget", async () => {
+  it("exhausts the distributed budget before parsing or testing another password", async () => {
     const POST = await loadRoute();
-    // The variant the single-IP reorder did NOT fix: six fresh addresses, each
-    // staying inside its own 5/min allowance, together spend the whole 30/min
-    // process-wide budget. No per-IP gate ever fires, so under the old code every
-    // one of those 30 charged the global counter and the owner's CORRECT password
-    // from a seventh address came back 429 — an unauthenticated lockout of prod.
     for (let ip = 0; ip < 6; ip++) {
-      for (let i = 0; i < 5; i++) await POST(post(`198.51.100.${ip}`, "wrong"));
+      for (let i = 0; i < 5; i++) expect((await POST(post(`198.51.100.${ip}`, "wrong"))).status).toBe(401);
     }
-    const owner = await POST(post("203.0.113.7", PASSWORD));
-    expect(owner.status).not.toBe(429);
-    expect(owner.status).toBe(403); // device_pending = the password was accepted
+    const request = post("203.0.113.7", PASSWORD);
+    const reader = vi.spyOn(request.body!, "getReader");
+    expect((await POST(request)).status).toBe(429);
+    expect(reader).not.toHaveBeenCalled();
   });
 
   it("still blocks a single IP past its own allowance", async () => {

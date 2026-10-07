@@ -94,7 +94,7 @@
   ],
   "overrides": {
     "postcss": "^8.5.10",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "nanoid": "^3.3.18",
     "js-yaml": "^4.3.2",
     "micromatch": "npm:picomatch@2.3.2"
