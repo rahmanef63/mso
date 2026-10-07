@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { isManagedAppId } from "./catalog";
 import { cancelJob, launchJob, liveRecord, liveRecords } from "./job-runner";
 import { isManagedAppJobId, listJobRecords, readJobRecord } from "./job-store";
-import { acquireOperation } from "./lock";
+import { acquireOperation, releaseOperation, withManagedAppOperationLease } from "./lock";
 import { MANAGED_APP_JOB_KINDS } from "./types";
 import type { ManagedAppId, ManagedAppJob, ManagedAppJobSummary, StartManagedAppJobOptions } from "./types";
 
@@ -69,33 +69,34 @@ export async function startManagedAppJob(options: StartManagedAppJobOptions): Pr
   if (!isManagedAppId(applicationId)) throw new Error("unknown managed application");
   if (!(MANAGED_APP_JOB_KINDS as readonly string[]).includes(kind)) throw new Error("unsupported managed application job");
   const argv = normaliseArgv(options.argv);
-  // Durable half of the lock. A second mso process on the same $HOME (a dev
-  // server on :3000) has its own in-memory Map and would happily start a second
-  // `hermes update` on the same git checkout; only the records are shared.
-  // Jobs whose owner is gone were already reconciled away by listJobRecords().
-  if ((await listJobRecords(applicationId)).some(blocking)) throw new Error("another operation is already running");
-  // In-process half: the SAME lock manager.ts takes for start/stop/restart/
-  // backup, so a job and a lifecycle action can never overlap either.
-  if (!acquireOperation(applicationId, kind)) throw new Error("another operation is already running");
-  const now = new Date().toISOString();
-  const record: ManagedAppJob = {
-    id: randomBytes(12).toString("hex"),
-    applicationId,
-    kind,
-    argv,
-    status: "queued",
-    startedAt: now,
-    endedAt: null,
-    exitCode: null,
-    error: null,
-    log: "",
-    logOffset: 0,
-    runnerId: RUNNER_ID,
-    serverPid: process.pid,
-    updatedAt: now,
-  };
-  await launchJob(record, options); // resolves once the id is durable
-  return snapshot(record, 0);
+  return withManagedAppOperationLease(applicationId, async () => {
+    if ((await listJobRecords(applicationId)).some(blocking)) throw new Error("another operation is already running");
+    if (!acquireOperation(applicationId, kind)) throw new Error("another operation is already running");
+    const now = new Date().toISOString();
+    const record: ManagedAppJob = {
+      id: randomBytes(12).toString("hex"),
+      applicationId,
+      kind,
+      argv,
+      status: "queued",
+      startedAt: now,
+      endedAt: null,
+      exitCode: null,
+      error: null,
+      log: "",
+      logOffset: 0,
+      runnerId: RUNNER_ID,
+      serverPid: process.pid,
+      updatedAt: now,
+    };
+    try {
+      await launchJob(record, options); // return only after the cross-process claim is durable
+    } catch (error) {
+      releaseOperation(applicationId);
+      throw error;
+    }
+    return snapshot(record, 0);
+  });
 }
 
 /** Poll read. `since` = the previous reply's `logOffset`, so `log` holds only

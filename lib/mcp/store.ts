@@ -132,11 +132,30 @@ export function rotateOAuthGrant(input: {
   return mutate(async () => {
     const store = sweep(await read());
     const oldHash = sha256hex(captured.oldRefreshToken);
+    const spent = store.spentRefreshTokens[oldHash];
+    if (spent) {
+      if (spent.clientId !== captured.clientId || spent.resource !== captured.resource) return null;
+      const now = Date.now();
+      for (const token of Object.values(store.tokens)) {
+        if (token.grantId === spent.grantId && !token.revokedAt) token.revokedAt = now;
+      }
+      for (const refresh of Object.values(store.refreshTokens)) {
+        if (refresh.grantId === spent.grantId && !refresh.revokedAt) refresh.revokedAt = now;
+      }
+      await write(store);
+      return null;
+    }
     const rec = store.refreshTokens[oldHash];
     if (!rec || rec.revokedAt || rec.expiresAt < Date.now() || rec.clientId !== captured.clientId || rec.resource !== captured.resource) return null;
     try { await authorizeMcpTenantGrant(rec); } catch (error) { if (error instanceof TenantDenied) return null; throw error; }
     const tenant = tenantCredentialFields(rec);
     delete store.refreshTokens[oldHash];
+    store.spentRefreshTokens[oldHash] = {
+      grantId: rec.grantId,
+      clientId: rec.clientId,
+      resource: rec.resource,
+      expiresAt: rec.expiresAt,
+    };
     const now = Date.now();
     store.tokens[sha256hex(captured.accessToken)] = {
       ...tenant,

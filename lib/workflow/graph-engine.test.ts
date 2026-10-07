@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import type { CapabilityTool } from "@/lib/capabilities/tool";
 
+vi.mock("@/lib/auth/device-store", () => ({ getApprovedDevice: async () => ({ role: "owner" }) }));
 vi.mock("@/lib/capabilities/execute", () => ({ executeCapabilityCall: async ({ tool, args, context }: { tool: CapabilityTool; args: Record<string, unknown>; context: never }) => {
   try { return { kind: "success", result: await tool.run(args, context) }; } catch (error) { return { kind: "error", message: error instanceof Error ? error.message : String(error) }; }
 } }));
@@ -178,12 +179,12 @@ describe("workflow graph engine", () => {
   });
 
   it("accepts secret-shaped runtime input but redacts it from persisted trigger receipts", async () => {
-    const graph = await createWorkflowGraph("graph-owner", { name: "Runtime input", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
+    const graph = await createWorkflowGraph("web:aaaaaaaaaaaaaaaa", { name: "Runtime input", description: "", status: "draft", inputs: {}, metadata: {}, nodes: [
       { id: "start-runtime", name: "Webhook", type: "webhook", position: { x: 0, y: 0 }, config: {} },
       { id: "runtime-out", name: "Out", type: "output", position: { x: 100, y: 0 }, config: { value: { ok: true } } },
     ], edges: [{ id: "runtime-e", source: "start-runtime", target: "runtime-out" }] });
-    const started = await startWorkflowGraph(graph, { headers: { authorization: "Bearer abc" }, body: { token: "incoming-token", safe: "visible" } }, "runtime-secret-input", context, () => undefined, "graph-owner", { type: "webhook", nodeId: "start-runtime", receivedAt: new Date().toISOString() });
-    const done = await workflowGraphRunStatus("graph-owner", started.id, 5000), receipt = JSON.stringify(done);
+    const started = await startWorkflowGraph(graph, { headers: { authorization: "Bearer abc" }, body: { token: "incoming-token", safe: "visible" } }, "runtime-secret-input", {...context, principal: "web:aaaaaaaaaaaaaaaa", actor: "web:aaaaaaaaaaaaaaaa"}, () => undefined, "web:aaaaaaaaaaaaaaaa", { type: "webhook", nodeId: "start-runtime", receivedAt: new Date().toISOString() });
+    const done = await workflowGraphRunStatus("web:aaaaaaaaaaaaaaaa", started.id, 5000), receipt = JSON.stringify(done);
     expect(done.state).toBe("completed");
     expect(receipt).not.toContain("Bearer abc"); expect(receipt).not.toContain("incoming-token"); expect(receipt).toContain("[REDACTED]"); expect(receipt).toContain("visible");
   });

@@ -182,3 +182,28 @@ describe("test-run guard", () => {
     expect(after).not.toContain(marker);
   });
 });
+
+
+describe("bounded audit storage", () => {
+  it("suppresses auth rate-limit amplification after the bounded window budget", async () => {
+    for (let i = 0; i < 100; i++) await audit({ action: "auth.ratelimited", ip: "203.0.113.1", ok: false });
+    const rows = await readLines();
+    expect(rows.length).toBeLessThanOrEqual(60);
+  });
+
+  it("reads only a bounded tail even when older log bytes are large", async () => {
+    const old = JSON.stringify({ ts: "old", action: "exec.run", detail: "x".repeat(1000) }) + "\n";
+    await fs.writeFile(logFile, old.repeat(400));
+    await audit({ action: "fs.write", detail: "newest" });
+    const rows = await readAuditTail({ limit: 5 });
+    expect(rows[0]?.detail).toBe("newest");
+    expect(rows.length).toBeLessThanOrEqual(5);
+  });
+
+  it("rotates an oversized current log before appending", async () => {
+    await fs.writeFile(logFile, Buffer.alloc(8 * 1024 * 1024, 0x20));
+    await audit({ action: "exec.run", detail: "after-rotation" });
+    expect((await fs.stat(logFile)).size).toBeLessThan(4096);
+    expect((await fs.stat(logFile + ".1")).size).toBe(8 * 1024 * 1024);
+  });
+});

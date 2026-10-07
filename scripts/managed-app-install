@@ -8,13 +8,10 @@
 # control where they can be read and diffed, and keeps the argv that ends up in the
 # persisted job record down to two elements.
 #
-# SECRETS. The provider key arrives in the ENVIRONMENT and never in this script's
-# argv, because mso stores a job's argv in the job record and writes it to the
-# audit log (app/api/v1/managed-apps/[id]/install/route.ts). Where an upstream CLI
-# has no env path, the key is re-exported to it as a flag: that argv belongs to a
-# transient child of this box, visible in `ps` only to the uid that could read the
-# resulting config file anyway, and it is never persisted. It is not passed to
-# anything else, and it is not echoed.
+# SECRETS. Provider keys arrive in the ENVIRONMENT and never in argv. Hermes reads
+# its provider env directly. OpenClaw non-interactive onboarding uses its reviewed
+# environment SecretRef mode, so the transient child also never exposes provider
+# keys through /proc/<pid>/cmdline. Keys are never echoed or persisted in MSO jobs.
 #
 # Everything here must be NON-INTERACTIVE. The job layer gives its child no stdin
 # (JOB_STDIO), so a prompt does not hang — it gets EOF and the install dies
@@ -535,20 +532,20 @@ install_openclaw() {
 
   local -a auth=(--auth-choice skip)
   if [ -n "$KEY" ]; then
-    # OpenClaw's onboard takes the key as a flag. Env would be tidier, but a key
-    # that silently fails to register leaves an "installed" app that cannot answer
-    # a single prompt — the exact opposite of one-click. See the SECRETS note.
+    # The provider-specific environment variable was already exported by MSO.
+    # OpenClaw's non-interactive SecretRef mode validates it and stores only the
+    # env reference. No provider key is copied into this process's argv.
     case "$PROVIDER" in
-    anthropic) auth=(--auth-choice apiKey --anthropic-api-key "$KEY") ;;
-    openai) auth=(--auth-choice openai-api-key --openai-api-key "$KEY") ;;
-    openrouter) auth=(--auth-choice openrouter-api-key --openrouter-api-key "$KEY") ;;
-    google) auth=(--auth-choice gemini-api-key --gemini-api-key "$KEY") ;;
-    groq) auth=(--auth-choice groq-api-key --groq-api-key "$KEY") ;;
-    xai) auth=(--auth-choice xai-api-key --xai-api-key "$KEY") ;;
-    deepseek) auth=(--auth-choice deepseek-api-key --deepseek-api-key "$KEY") ;;
+    anthropic) auth=(--auth-choice apiKey --secret-input-mode ref) ;;
+    openai) auth=(--auth-choice openai-api-key --secret-input-mode ref) ;;
+    openrouter) auth=(--auth-choice openrouter-api-key --secret-input-mode ref) ;;
+    google) auth=(--auth-choice gemini-api-key --secret-input-mode ref) ;;
+    groq) auth=(--auth-choice groq-api-key --secret-input-mode ref) ;;
+    xai) auth=(--auth-choice xai-api-key --secret-input-mode ref) ;;
+    deepseek) auth=(--auth-choice deepseek-api-key --secret-input-mode ref) ;;
     *)
-      echo "unknown provider '$PROVIDER' — installing without one" >&2
-      auth=(--auth-choice skip)
+      echo "unknown provider '$PROVIDER' — refusing credentialed install" >&2
+      return 1
       ;;
     esac
   fi

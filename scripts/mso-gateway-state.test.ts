@@ -97,3 +97,15 @@ describe("gateway provider-neutral state model", () => {
     expect(out.stderr).toContain("refusing to create a duplicate");
   });
 });
+
+
+describe("managed tunnel local-runtime provenance", () => {
+  it("refuses a health-shaped loopback listener with no owned or service process proof", () => {
+    const f = fixture();
+    const env: NodeJS.ProcessEnv = { ...f.baseEnv, NODE_ENV: "production" };
+    const out = spawnSync(GATEWAY, ["start"], { encoding: "utf8", env });
+    expect(out.status).not.toBe(0);
+    expect(out.stderr).toContain("not proven to belong to this checkout's mso.service");
+    expect(fs.existsSync(f.startFile)).toBe(false);
+  });
+});

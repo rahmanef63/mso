@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Install/remove only this checkout's cron entries; do not start/install cron itself.
+heartbeat_cron_quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 heartbeat_cron() {
   local action="$1" minutes="${OS_HEARTBEAT_INTERVAL_MINUTES:-30}" schedule marker old entry cron_path
   command -v crontab >/dev/null || gateway_fail 'crontab is unavailable; use the host supervisor to schedule heartbeat'
@@ -16,7 +17,8 @@ heartbeat_cron() {
   old="$(printf '%s\n' "$old" | grep -Fv -- "$marker" || true)"
   if [ "$action" = install-cron ]; then
     cron_path="$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
-    printf -v entry 'env PATH=%q MSO_GATEWAY_ENV=%q /bin/bash %q once >/dev/null' "$cron_path" "$ENVF" "$ROOT/scripts/mso-heartbeat"
+    # Cron's command shell is POSIX sh; Bash %q can emit unsupported $'...' syntax.
+    printf -v entry 'env PATH=%s MSO_GATEWAY_ENV=%s /bin/bash %s once >/dev/null' "$(heartbeat_cron_quote "$cron_path")" "$(heartbeat_cron_quote "$ENVF")" "$(heartbeat_cron_quote "$ROOT/scripts/mso-heartbeat")"
     # Cron interprets percent even inside shell quotes. Escape it after shell quoting.
     entry="${entry//%/\\%}"
     { [ -z "$old" ] || printf '%s\n' "$old"; printf '%s %s %s\n' "$schedule" "$entry" "$marker"; printf '@reboot %s %s\n' "$entry" "$marker"; } | crontab -

@@ -1,3 +1,4 @@
+import { isA2ALoopbackUrl } from "@/lib/a2a/network";
 import { createHash } from "node:crypto";
 import { cancelA2ATask, discoverA2AAgent, getA2ATask, handoffA2A, listA2AAgents, registerA2AAgent, removeA2AAgent, resolveA2AAgent, sendA2AMessage } from "@/lib/a2a";
 import type { A2ADiscoveredAgent, A2ARegisteredAgent } from "@/lib/a2a";
@@ -30,10 +31,14 @@ export const A2A_TOOLS: McpTool[] = [
   },
   {
     name: "a2a_agent_discover",
-    description: "Discover and validate a public A2A v1 Agent Card using the standard /.well-known/agent-card.json path. Only public HTTPS endpoints are allowed; private/loopback targets and DNS rebinding are blocked.",
+    description: "Discover and validate an A2A v1 Agent Card. Public HTTPS discovery is read-scoped; exact loopback HTTP additionally requires exec authority and the host opt-in. Private/LAN targets and DNS rebinding are blocked.",
     scope: "read", annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true }, limit: { key: "a2a.discovery", max: 20, windowMs: 60_000 },
     inputSchema: S({ url: { type: "string", description: "Public agent origin or direct Agent Card URL." } }, ["url"]),
-    run: async (a) => cardSummary(await discoverA2AAgent(str(a, "url"))),
+    run: async (a, context) => {
+      const url = str(a, "url");
+      if (isA2ALoopbackUrl(url) && context.scope !== "exec") throw new Error("A2A loopback discovery requires exec authority");
+      return cardSummary(await discoverA2AAgent(url));
+    },
   },
   {
     name: "a2a_agent_register",

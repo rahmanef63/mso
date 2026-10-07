@@ -1,3 +1,4 @@
+import { readRequestJson, readRequestText, RequestBodyError } from "@/lib/security/request-body";
 import { TenantDenied } from "@/lib/tenancy/authority";
 import { consumeCode, OAUTH_ACCESS_TOKEN_TTL_MS, rotateOAuthGrant, storeOAuthGrant } from "@/lib/mcp/store";
 import { verifyPkce, randomToken } from "@/lib/mcp/pkce";
@@ -10,16 +11,22 @@ export const dynamic = "force-dynamic";
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store", Pragma: "no-cache" } });
 
 async function params(req: Request): Promise<Record<string, string>> {
-  const p: Record<string, string> = {}, ct = req.headers.get("content-type") ?? "";
-  if (ct.includes("application/json")) Object.assign(p, await req.json().catch(() => ({})));
-  else { const form = await req.formData().catch(() => null); if (form) for (const [k, v] of form.entries()) p[k] = String(v); }
-  return p;
+  const ct = req.headers.get("content-type")?.split(";")[0].trim();
+  if (ct === "application/json") {
+    const body = await readRequestJson(req, 16 * 1024);
+    if (Object.values(body).some(value => typeof value !== "string")) throw new RequestBodyError(400, "invalid_request");
+    return body as Record<string, string>;
+  }
+  if (ct !== "application/x-www-form-urlencoded") throw new RequestBodyError(415, "unsupported_content_type");
+  return Object.fromEntries(new URLSearchParams(await readRequestText(req, 16 * 1024)));
 }
 
 export async function POST(req: Request) {
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
   if (rateLimitedUntrusted(`mcp:token:${clientIp(req)}`, 30, 60_000)) return json({ error: "rate_limited" }, 429);
-  const p = await params(req), expectedResource = `${publicOrigin(req)}/mcp`;
+  let p: Record<string, string>;
+  try { p = await params(req); } catch (error) { return json({ error: "invalid_request" }, error instanceof RequestBodyError ? error.status : 400); }
+  const expectedResource = `${publicOrigin(req)}/mcp`;
 
   if (p.grant_type === "refresh_token") {
     if (!p.refresh_token || !p.client_id) return json({ error: "invalid_request" }, 400);

@@ -31,7 +31,7 @@ function cleanHost(url: URL): string {
 }
 
 export function a2aLoopbackEnabled(): boolean {
-  return process.env[A2A_ALLOW_LOOPBACK_ENV] !== "0";
+  return process.env[A2A_ALLOW_LOOPBACK_ENV] === "1";
 }
 
 export function isExactA2ALoopbackHost(host: string): boolean {

@@ -43,6 +43,7 @@ export function fixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mso-gateway-"));
   onTestFinished(() => cleanupGatewayFixture(dir));
   const bin = path.join(dir, "bin"), state = path.join(dir, "state"), envFile = path.join(dir, ".env.local");
+  const startFile = path.join(dir, "gateway-fake-starts");
   fs.mkdirSync(bin, { mode: 0o700 });
   fs.writeFileSync(envFile, "OS_SESSION_SECRET=fixture-only-not-a-real-secret\n", { mode: 0o600 });
 
@@ -59,7 +60,10 @@ export function fixture() {
     `#!/usr/bin/env node
 if (process.argv.includes('--version')) { console.log('cloudflared version fixture'); process.exit(0); }
 if (process.env.OS_SESSION_SECRET || process.env.OS_LOGIN_PASSWORD) require('fs').writeFileSync(process.env.HOME + '/cloudflared-secret-env', 'leaked');
-if (process.argv.includes('--url')) console.error('INF https://mso-gateway-fixture.trycloudflare.com');
+if (process.argv.includes('--url')) {
+  require('fs').appendFileSync(process.env.HOME + '/gateway-fake-starts', 'start\\n');
+  console.error('INF https://mso-gateway-fixture.trycloudflare.com');
+}
 process.on('SIGTERM', () => process.exit(0));
 setInterval(() => {}, 1000);
 `,
@@ -69,7 +73,7 @@ setInterval(() => {}, 1000);
   const procTcp = path.join(dir, "proc-tcp"), procTcp6 = path.join(dir, "proc-tcp6");
   fs.writeFileSync(procTcp, "  sl  local_address rem_address   st\n");
   fs.writeFileSync(procTcp6, "  sl  local_address rem_address   st\n");
-  const baseEnv = {
+  const baseEnv: NodeJS.ProcessEnv = {
     ...process.env,
     HOME: dir,
     MSO_GATEWAY_ROOT: ROOT,
@@ -82,7 +86,7 @@ setInterval(() => {}, 1000);
     MSO_GATEWAY_PROC_NET_TCP: procTcp,
     MSO_GATEWAY_PROC_NET_TCP6: procTcp6,
   };
-  return { dir, bin, state, envFile, curl, cloudflared, baseEnv };
+  return { dir, bin, state, envFile, curl, cloudflared, startFile, baseEnv };
 }
 
 export function runGateway(args: string[], env: NodeJS.ProcessEnv) {

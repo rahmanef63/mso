@@ -1,0 +1,30 @@
+import { getApprovedDevice } from "@/lib/auth/device-store";
+import { allows, scopeRank, type Scope } from "@/lib/capabilities/scope";
+import type { CapabilityRunContext } from "@/lib/capabilities/tool";
+import { configuredCapabilityCeiling } from "@/lib/capabilities/scope-policy";
+import type { WorkflowGraphRun } from "@/lib/contracts/workflow-graph";
+
+/** Stored graphs are data, not grants. Recheck device authority for every action. */
+export async function workflowExecutionContext(
+  context: CapabilityRunContext,
+  trigger?: WorkflowGraphRun["trigger"],
+): Promise<CapabilityRunContext> {
+  const principal = context.principal ?? context.actor;
+  if (!principal) throw new Error("workflow requires an authenticated principal");
+  const unattended = trigger && ["schedule", "webhook", "channel"].includes(trigger.type);
+  if (unattended && !principal.startsWith("web:")) {
+    throw new Error("unattended workflow requires a live approved device; stored client names are not execution grants");
+  }
+  let ceiling = configuredCapabilityCeiling();
+  if (principal.startsWith("web:")) {
+    const device = await getApprovedDevice(principal.slice(4));
+    if (!device || device.role === "viewer") throw new Error("workflow device is revoked or lacks operator authority");
+    const roleScope: Scope = device.role === "owner" ? "exec" : "write";
+    if (scopeRank(roleScope) < scopeRank(ceiling)) ceiling = roleScope;
+  }
+  return { ...context, scope: scopeRank(context.scope) < scopeRank(ceiling) ? context.scope : ceiling };
+}
+
+export function requireWorkflowScope(context: CapabilityRunContext, required: Scope): void {
+  if (!allows(context.scope, required)) throw new Error(`workflow requires ${required} authority`);
+}

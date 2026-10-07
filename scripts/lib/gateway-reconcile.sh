@@ -20,6 +20,7 @@ gateway_reconcile_active_tunnel() {
   gateway_runtime_from_state "$state"
   gateway_start_runtime_if_needed
   gateway_assert_port_loopback_only
+  gateway_assert_managed_runtime_trusted
   LOCAL_HEALTH_IDENTITY="$(gateway_health_url_identity "$LOCAL_URL" "${RUNTIME_INSTANCE_ID:-}")" \
     || { gateway_reconcile_runtime_rollback; gateway_fail "active tunnel has no verified local MSO runtime"; }
   if ! gateway_provider_probe_public "$provider"; then

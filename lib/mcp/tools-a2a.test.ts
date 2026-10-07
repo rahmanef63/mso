@@ -67,3 +67,25 @@ describe("MCP A2A tools", () => {
     expect(JSON.stringify(mocks.send.mock.calls[0])).not.toContain("hidden-session");
   });
 });
+
+
+describe("A2A discovery network authority", () => {
+  it("keeps public HTTPS discovery readable but requires exec for loopback HTTP", async () => {
+    mocks.discover.mockResolvedValue(peer);
+    const tool = byName.get("a2a_agent_discover")!;
+    await expect(tool.run({ url: "https://peer.example" }, {
+      principal: "mcp-client:test", scope: "read", actor: "test",
+    })).resolves.toMatchObject({ name: "Peer" });
+    expect(mocks.discover).toHaveBeenCalledWith("https://peer.example");
+
+    mocks.discover.mockClear();
+    await expect(tool.run({ url: "http://127.0.0.1:4555/card" }, {
+      principal: "mcp-client:test", scope: "read", actor: "test",
+    })).rejects.toThrow(/requires exec/);
+    expect(mocks.discover).not.toHaveBeenCalled();
+
+    await expect(tool.run({ url: "http://127.0.0.1:4555/card" }, {
+      principal: "mcp-client:test", scope: "exec", actor: "test",
+    })).resolves.toMatchObject({ name: "Peer" });
+  });
+});

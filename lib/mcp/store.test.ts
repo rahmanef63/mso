@@ -186,8 +186,9 @@ describe("OAuth refresh grants", () => {
 
     const rotated = await store.rotateOAuthGrant({ oldRefreshToken: "refresh-one", accessToken: "access-two", refreshToken: "refresh-two", label: "oauth", clientId: "chatgpt-client", resource: "https://mso.example/mcp" });
     expect(rotated).toMatchObject({ grantId: "grant-one", scope: "exec", offlineAccess: true });
-    expect(await store.rotateOAuthGrant({ oldRefreshToken: "refresh-one", accessToken: "replay", refreshToken: "replay-r", label: "oauth", clientId: "chatgpt-client", resource: "https://mso.example/mcp" })).toBeNull();
     expect(await store.validateToken("access-two")).toMatchObject({ grantId: "grant-one", profile: "chatgpt" });
+    expect(await store.rotateOAuthGrant({ oldRefreshToken: "refresh-one", accessToken: "replay", refreshToken: "replay-r", label: "oauth", clientId: "chatgpt-client", resource: "https://mso.example/mcp" })).toBeNull();
+    expect(await store.validateToken("access-two")).toBeNull();
   });
 
   it("binds refresh to client/resource and revoking one access token kills the grant family", async () => {

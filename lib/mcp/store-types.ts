@@ -52,11 +52,19 @@ export interface McpRefreshToken {
   revokedAt?: number;
 }
 
+export interface McpSpentRefreshToken {
+  grantId: string;
+  clientId: string;
+  resource: string;
+  expiresAt: number;
+}
+
 export interface McpStore {
   clients: Record<string, McpClient>;
   codes: Record<string, McpCode>;
   tokens: Record<string, McpToken>;
   refreshTokens: Record<string, McpRefreshToken>;
+  spentRefreshTokens: Record<string, McpSpentRefreshToken>;
 }
 
 export interface TokenView extends McpToken {

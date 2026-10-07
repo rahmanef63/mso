@@ -94,7 +94,7 @@ describe("checkUpdate normalises two CLIs that agree on nothing", () => {
     // carrying a commit count dressed up as one.
     expect(status.latestVersion).toBeNull();
     expect(status.channel).toMatchObject({ value: "main", kind: "branch", switchable: false, available: [] });
-    expect(status.capabilities).toMatchObject({ channel: false, dryRun: false, apply: true });
+    expect(status.capabilities).toMatchObject({ channel: false, dryRun: false, apply: false });
   });
 
   it("reads OpenClaw's JSON into the same shape", async () => {
@@ -106,7 +106,7 @@ describe("checkUpdate normalises two CLIs that agree on nothing", () => {
     expect(status.updateAvailable).toBe(true);
     expect(status.channel).toMatchObject({ value: "stable", kind: "channel", switchable: true });
     expect(status.channel.available).toEqual(["stable", "extended-stable", "beta", "dev"]);
-    expect(status.capabilities).toMatchObject({ channel: true, dryRun: true });
+    expect(status.capabilities).toMatchObject({ channel: false, dryRun: false, apply: false });
   });
 
   it("answers 'not installed' with the command to run, and offers nothing to click", async () => {
@@ -120,49 +120,24 @@ describe("checkUpdate normalises two CLIs that agree on nothing", () => {
   });
 });
 
-describe("a backup gates the update it is protecting", () => {
-  it("snapshots the state dir first, then runs the update", async () => {
-    await recorder("hermes");
-    const job = await settle(await startUpdate("hermes"));
+describe("mutable upstream updates fail closed", () => {
+  it.each(["hermes", "openclaw"] as const)("refuses %s apply before any job or backup exists", async (id) => {
+    await recorder(id);
+    await expect(startUpdate(id)).rejects.toThrow(/immutable artifact target and digest/);
+    expect(await recorded(id)).toEqual([]);
+    expect(await listManagedAppJobs(id)).toEqual([]);
+    expect(await listBackups(id)).toEqual([]);
+  });
 
+  it("still permits the reviewed 9Router update path", async () => {
+    await recorder("9router");
+    await fs.mkdir(path.join(home, ".9router"));
+    const catalog = await import("./catalog");
+    const definition = catalog.getManagedAppDefinition("9router");
+    vi.spyOn(catalog, "getManagedAppDefinition").mockReturnValue({ ...definition, command: path.join(bin, "9router") });
+    const job = await settle(await startUpdate("9router"));
     expect(job.status).toBe("succeeded");
-    expect(await recorded("hermes")).toEqual(["update", "--yes"]);
-    const [backup] = await listBackups("hermes");
-    expect(backup.reason).toBe("pre-update");
-    expect(backup.files).toBe(1);
-    expect(await fs.readFile(path.join(home, ".mso", "backups", "hermes", backup.id, "config.yaml"), "utf8")).toBe("state: kept\n");
-    // Order is visible in the transcript: the backup lines land before the
-    // child's first byte because `prepare` runs before anything spawns.
-    expect(job.log.indexOf("pre-update backup")).toBeLessThan(job.log.indexOf("done"));
-    expect(job.log).toContain("not in the backup");
-  });
-
-  it("aborts the update when the backup fails, without spawning anything", async () => {
-    await recorder("hermes");
-    await fs.rm(path.join(home, ".hermes"), { recursive: true }); // nothing to copy
-    const job = await settle(await startUpdate("hermes"));
-
-    expect(job.status).toBe("failed");
-    expect(job.error).toContain("pre-update backup failed, nothing was run");
-    expect(job.exitCode).toBeNull();
-    expect(await recorded("hermes")).toEqual([]); // the CLI was never invoked
-  });
-
-  // The UI polls a job to a terminal status and then starts the next operation
-  // (backup then update, restore then pin). That sequence used to lose a race
-  // with the job record's own flush and fail with a lock error nobody held.
-  it("lets the next operation start the instant the previous one reads as finished", async () => {
-    await recorder("openclaw");
-    for (let i = 0; i < 8; i += 1) await settle(await startUpdate("openclaw", { dryRun: true }));
-  });
-
-  it("skips the backup for a dry run, which writes nothing to snapshot", async () => {
-    await recorder("openclaw");
-    const job = await settle(await startUpdate("openclaw", { dryRun: true }));
-
-    expect(job.status).toBe("succeeded");
-    expect(await recorded("openclaw")).toEqual(["update", "--yes", "--dry-run", "--json"]);
-    expect(await listBackups("openclaw")).toEqual([]);
+    expect(await recorded("9router")).toEqual(["update", "--yes"]);
   });
 });
 
@@ -200,19 +175,16 @@ describe("uninstall needs the operator to type the app id", () => {
 });
 
 describe("channel switching", () => {
-  it("is an update run for OpenClaw, because upstream persists it no other way", async () => {
+  it("does not execute OpenClaw's mutable channel updater", async () => {
     await recorder("openclaw");
-    const job = await settle(await setChannel("openclaw", "beta"));
-
-    expect(await recorded("openclaw")).toEqual(["update", "--yes", "--channel", "beta"]);
-    expect(job.kind).toBe("update");
-    expect((await listBackups("openclaw"))[0]?.reason).toBe("pre-update");
+    await expect(setChannel("openclaw", "beta")).rejects.toThrow(/immutable artifact target and digest/);
+    expect(await recorded("openclaw")).toEqual([]);
   });
 
-  it("is refused for Hermes, whose --branch rewrites a working tree instead", async () => {
+  it("is refused for Hermes and invalid OpenClaw channels", async () => {
     await recorder("hermes");
     await expect(setChannel("hermes", "beta")).rejects.toThrow("channel switching is not supported for hermes");
-    await expect(setChannel("openclaw", "nightly")).rejects.toThrow("unsupported update channel");
+    await expect(setChannel("openclaw", "nightly")).rejects.toThrow(/immutable artifact target and digest|unsupported update channel/);
     expect(await recorded("hermes")).toEqual([]);
   });
 });
@@ -243,12 +215,8 @@ describe("a rollback never undoes its own restore", () => {
     // OpenClaw's pin reinstalls an npm package and never touches the state dir
     // the restore just wrote, so the two compose and the pin stays offered.
     await recorder("openclaw");
-    const pinned = await startRollback("openclaw", "2026-07-25T10-11-12-345Z", "2026.7.1-2");
-    expect(pinned.argv.slice(1)).toEqual(["update", "--yes", "--tag", "2026.7.1-2"]);
-    await settle(pinned);
-    // Both jobs name a snapshot that does not exist, so `prepare` fails and the
-    // pin never spawns (the restore's own probes may still have) — the argv is
-    // what this test is about.
+    await expect(startRollback("openclaw", "2026-07-25T10-11-12-345Z", "2026.7.1-2"))
+      .rejects.toThrow(/immutable artifact target and digest/);
     expect(await recorded("openclaw")).not.toContain("update");
   });
 });
@@ -299,7 +267,7 @@ describe("reading the status never probes", () => {
     expect(cold.checkedAt).toBeNull(); // "nobody has asked yet" — not a version
     expect(cold.currentVersion).toBeNull();
     // What the app supports is still declared, so the panel can render controls.
-    expect(cold.capabilities).toMatchObject({ check: true, apply: true, uninstall: true });
+    expect(cold.capabilities).toMatchObject({ check: true, apply: false, channel: false, dryRun: false, uninstall: true });
     // THE point: a read spawns nothing. `hermes update --check` git-fetches the
     // operator's own checkout twice, and this verb sits outside the CSRF gate,
     // reachable from every sibling origin that shares the session cookie.

@@ -9,7 +9,7 @@ const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach(root => fs.rmSync(root, { recursive: true, force: true })));
 function fixture() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "mso-heartbeat-")); roots.push(home);
-  const root = path.join(home, "repo with spaces %"), bin = path.join(home, "bin");
+  const root = path.join(home, "repo with spaces % ' café\t"), bin = path.join(home, "bin");
   fs.mkdirSync(path.join(root, "scripts/lib"), { recursive: true, mode: 0o700 });
   fs.mkdirSync(bin, { mode: 0o700 });
   for (const file of ["gateway-config.sh", "gateway-common.sh", "private-state.sh", "heartbeat-cron.sh", "gateway-provider.sh", "gateway-tool.sh", "gateway-tunnel.sh", "gateway-cloudflare-edge.sh"])
@@ -131,11 +131,11 @@ describe("optional one-shot heartbeat", () => {
     const result = spawnSync("flock", [lock, "bash", path.join(f.root, "scripts/mso-heartbeat")], { env: f.env, encoding: "utf8" });
     expect(result.status).toBe(0); expect(result.stdout).toContain("already running"); expect(f.actions()).toBe("");
   });
-  it("runs the installed cron command correctly with spaces and percent in paths", () => {
+  it("runs cron under POSIX sh with quoted, Unicode, tab and percent paths", () => {
     const f = fixture(); f.state("mso", true); expect(f.run(["install-cron"]).status).toBe(0);
     const line = fs.readFileSync(path.join(f.home, "table"), "utf8").split("\n")[0];
     const command = line.replace(/^\S+ \S+ \S+ \S+ \S+ /, "").replace(/ # mso-heartbeat:.*$/, "").replace(/\\%/g, "%");
-    const result = spawnSync("bash", ["-c", command], { env: { ...f.env, MSO_GATEWAY_ROOT: "" }, encoding: "utf8" });
+    const result = spawnSync("sh", ["-c", command], { env: { ...f.env, MSO_GATEWAY_ROOT: "" }, encoding: "utf8" });
     expect(result.stderr).toBe(""); expect(result.status).toBe(0); expect(f.actions()).toBe("");
   });
   it("does not overwrite crontab when reading it fails", () => {

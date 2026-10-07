@@ -102,7 +102,7 @@ describe("actual OAuth store with synthetic tenant grants", () => {
     const results = await Promise.all([rotate("fixture-refresh", "one"), rotate("fixture-refresh", "two")]);
     expect(results.filter(Boolean)).toHaveLength(1);
     const replacements = await Promise.all(["fixture-access-one", "fixture-access-two"].map(store.validateToken));
-    expect(replacements.filter(Boolean)).toHaveLength(1);
+    expect(replacements.filter(Boolean)).toHaveLength(0); // replay revokes the winning grant family
   });
   it("never acquires a tenant marker added after an unbound queued call", async () => {
     enabled = false;

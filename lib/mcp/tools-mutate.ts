@@ -1,11 +1,11 @@
 import { sessionArtifactEnvironment } from "@/lib/agent/artifact-session";
 import { cancelExecJob, getExecJob, runCommand, startExecJob } from "@/lib/host/exec-api";
-import { copy, makeDir, move, remove, writeFileGuarded } from "@/lib/host/fs-api";
+import { assertDelegatedWritePath, copy, makeDir, move, remove, writeFileGuarded } from "@/lib/host/fs-api";
 import { resolveProjectHint, runProjectFunction } from "@/lib/host/projects-api";
 import { importOpenAiProvidedFile } from "./openai-file-upload";
 import { type McpTool, opt, PATH_P, S, str } from "./tool-kit";
 import { requireWorkflowExecCwd, requireWorkflowMutationPath, requireWorkflowProjectTarget } from "./workflow-workspace-guard";
-// Write/exec tools carry audit descriptors; the dispatcher records the route-independent trail.
+async function requireDelegatedPath(context: Parameters<McpTool["run"]>[1], target: string) { if (context.scope !== "exec") await assertDelegatedWritePath(target); }
 export const MUTATE_TOOLS: McpTool[] = [
   {
     name: "fs_write",
@@ -23,6 +23,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     run: async (a, context) => {
       const target = str(a, "path");
       await requireWorkflowMutationPath(context, target);
+      await requireDelegatedPath(context, target);
       return { ok: true, ...(await writeFileGuarded({
         path: target,
         content: typeof a.content === "string" ? a.content : "",
@@ -62,6 +63,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     run: async (a, context) => {
       const dest = str(a, "dest");
       await requireWorkflowMutationPath(context, dest);
+      await requireDelegatedPath(context, dest);
       return importOpenAiProvidedFile({
         file: a.file, dest, filename: opt(a, "filename"),
         conflict: opt(a, "conflict") as "error" | "rename" | "replace" | undefined,
@@ -77,7 +79,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     scope: "write",
     annotations: { idempotentHint: true },
     inputSchema: S(PATH_P, ["path"]),
-    run: async (a, context) => { const target = str(a, "path"); await requireWorkflowMutationPath(context, target); await makeDir(target); return { ok: true, path: a.path }; },
+    run: async (a, context) => { const target = str(a, "path"); await requireWorkflowMutationPath(context, target); await requireDelegatedPath(context, target); await makeDir(target); return { ok: true, path: a.path }; },
   },
   {
     name: "fs_move",
@@ -86,7 +88,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     description: "Move or rename a file or directory. Refuses when the source holds credential paths.",
     scope: "write",
     inputSchema: S({ from: { type: "string" }, to: { type: "string" } }, ["from", "to"]),
-    run: async (a, context) => { const from = str(a, "from"), to = str(a, "to"); await requireWorkflowMutationPath(context, from); await requireWorkflowMutationPath(context, to); await move(from, to); return { ok: true }; },
+    run: async (a, context) => { const from = str(a, "from"), to = str(a, "to"); await requireWorkflowMutationPath(context, from); await requireWorkflowMutationPath(context, to); await requireDelegatedPath(context, from); await requireDelegatedPath(context, to); await move(from, to); return { ok: true }; },
   },
   {
     name: "fs_copy",
@@ -95,7 +97,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     description: "Copy a file or directory. The cockpit's own secrets are skipped rather than duplicated.",
     scope: "write",
     inputSchema: S({ from: { type: "string" }, to: { type: "string" } }, ["from", "to"]),
-    run: async (a, context) => { const from = str(a, "from"), to = str(a, "to"); await requireWorkflowMutationPath(context, to); await copy(from, to); return { ok: true }; },
+    run: async (a, context) => { const from = str(a, "from"), to = str(a, "to"); await requireWorkflowMutationPath(context, to); await requireDelegatedPath(context, to); await copy(from, to); return { ok: true }; },
   },
   {
     name: "fs_delete",
@@ -105,9 +107,8 @@ export const MUTATE_TOOLS: McpTool[] = [
     scope: "write",
     annotations: { destructiveHint: true },
     inputSchema: S(PATH_P, ["path"]),
-    run: async (a, context) => { const target = str(a, "path"); await requireWorkflowMutationPath(context, target); await remove(target); return { ok: true, path: a.path }; },
+    run: async (a, context) => { const target = str(a, "path"); await requireWorkflowMutationPath(context, target); await requireDelegatedPath(context, target); await remove(target); return { ok: true, path: a.path }; },
   },
-
   {
     name: "project_function_call",
     limit: { key: "projects.function", max: 60, windowMs: 60_000 },

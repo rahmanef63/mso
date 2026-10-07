@@ -4,6 +4,41 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-08
+
+**Fixed**
+
+- `build` keep guarded host runtime paths out of asset tracing
+- `security` close resource and launcher gaps and repair gates
+- `security` inspect ZIP output through pinned descriptor
+- `ci` close gateway typing and audit file races
+- `security` pin NodeSource bootstrap bytes
+- `security` bound managed-app backup retention
+- `security` bound audit growth and tail reads
+- `security` bind gateway tunnels to proven local runtime
+- `security` fail closed on mutable managed-app updates
+- `security` keep OpenClaw provider keys out of argv
+- `security` serialize managed-app lifecycle cross-process
+- `security` bound archive generation resources
+- `security` serialize bounded image imports
+- `security` require exec for A2A loopback discovery
+- `security` isolate PAT principals and revoke refresh replay
+- `ci` clear typecheck, OSV, and reviewed history gates
+- `security` require authenticated workflow webhooks
+- `security` block delegated writes to control plane
+
+## 2026-10-07
+
+**Fixed**
+
+- `security` bound public ingress bodies
+- `security` enforce live workflow authority
+- `security` harden credential and A2A boundaries
+
+**Docs**
+
+- `security` record scan hardening boundaries
+
 ## 2026-10-06
 
 **Added**

@@ -1,5 +1,5 @@
 import { audit } from "@/lib/host/audit-api";
-import { rateLimited } from "@/lib/host/limits-api";
+import { rateLimited, rateLimitedUntrusted } from "@/lib/host/limits-api";
 import { clientIp } from "@/lib/host/request-ip";
 import { resolveAgentSessionOwnerRef } from "@/lib/agent/session-query";
 import type { AgentSession } from "@/lib/agent/session-types";
@@ -33,7 +33,7 @@ export async function handleA2ARequest(req: Request, capabilities: CapabilityRun
     return a2aJson({ error: "not_found" }, 404);
   if (req.method !== "POST")
     return a2aJson({ error: "method_not_allowed" }, 405, { allow: "POST" });
-  if (rateLimited(`a2a.inbound.ip:${clientIp(req)}`, 120, 60_000))
+  if (rateLimitedUntrusted(`a2a.inbound.ip:${clientIp(req)}`, 120, 60_000))
     return a2aJson({ error: "rate_limited" }, 429, { "retry-after": "60" });
   const profile = await authenticateA2ARequest(req);
   if (!profile) return a2aUnauthorized();

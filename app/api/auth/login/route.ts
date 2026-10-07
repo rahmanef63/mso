@@ -1,3 +1,4 @@
+import { readRequestJson, RequestBodyError } from "@/lib/security/request-body";
 import { NextRequest, NextResponse } from "next/server";
 import { constantTimeEq, MAX_COMPARE_BYTES, MIN_SECRET_LEN, signSession, type SessionPayload } from "@/lib/auth/session";
 import { SESSION_COOKIE } from "@/lib/auth/require-session";
@@ -50,24 +51,10 @@ export function clientIp(req: NextRequest): string {
   return req.headers.get("x-real-ip") ?? "127.0.0.1";
 }
 
-// ORDER MATTERS, and getting it wrong was an unauthenticated lockout of the owner.
-// The global counter used to increment FIRST and unconditionally — including for
-// requests the per-IP limiter was already rejecting. So one IP, past its 5/min, kept
-// burning the process-wide 30/min budget, and every OTHER caller — the owner, from a
-// different address, with the correct password — got 429 for as long as the flood
-// continued. No credential required, from the public internet, indefinitely.
-//
-// Now the per-IP gate runs first and an already-blocked IP returns without touching
-// the global budget, so the process-wide cap only ever counts attempts that were
-// actually going to reach the password compare.
-//
-// That reorder killed the single-IP variant but not the distributed one: six fresh
-// IPs spending 5 attempts each still filled the 30/min process-wide budget here, and
-// the owner's CORRECT password from a seventh address then got 429. So the global
-// budget is no longer charged on the way in at all — it is charged below, only by an
-// attempt that actually failed the password compare. A correct password can never be
-// rejected by it, while the distributed brute-force cap is unchanged (30 wrong
-// passwords per minute process-wide, on top of the per-IP 5/min).
+// Per-IP rejection never charges the global budget. Admission is reserved before
+// body reads/password comparison so distributed requests cannot keep testing guesses.
+// Exhaustion temporarily rejects all unauthenticated attempts; an already-approved
+// session or the local CLI remains the recovery path, not a password oracle.
 function rateLimited(ip: string): boolean {
   const now = Date.now();
   if (now - globalWindowStart > WINDOW_MS) {
@@ -82,6 +69,9 @@ function rateLimited(ip: string): boolean {
   const entry = rateLimitMap.get(ip);
   const live = entry && now <= entry.reset_at;
   if (live && entry.count >= MAX_ATTEMPTS) return true;
+
+  if (globalAttempts >= GLOBAL_MAX_ATTEMPTS) return true;
+  globalAttempts += 1;
 
   if (!live) {
     rateLimitMap.set(ip, { count: 1, reset_at: now + WINDOW_MS });
@@ -114,11 +104,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Too many attempts, try again later" }, { status: 429 });
   }
 
-  let body: { password?: string; deviceId?: string; deviceLabel?: string };
+  let body: Record<string, unknown>;
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    body = await readRequestJson(req, 16 * 1024);
+  } catch (error) {
+    return NextResponse.json({ error: "Invalid request body" }, { status: error instanceof RequestBodyError ? error.status : 400 });
   }
 
   const { password: provided, deviceId } = body;
@@ -137,12 +127,6 @@ export async function POST(req: NextRequest) {
   // Length-safe fixed-width comparison; no reusable password hash is created.
   if (!constantTimeEq(password, provided)) {
     audit({ action: "auth.denied", actor: deviceId, ip, ok: false, detail: "bad password" });
-    // Charge the process-wide budget HERE, not in rateLimited(), so only a genuinely
-    // wrong password can exhaust it. See the note above rateLimited().
-    if (++globalAttempts > GLOBAL_MAX_ATTEMPTS) {
-      audit({ action: "auth.ratelimited", ip, ok: false, detail: "global" });
-      return NextResponse.json({ error: "Too many attempts, try again later" }, { status: 429 });
-    }
     return NextResponse.json({ error: "bad_password" }, { status: 401 });
   }
 
