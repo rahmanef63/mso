@@ -32,6 +32,8 @@ function SpotlightPanel() {
   // Read MRU once per open (panel mounts on open), so recents refresh each time.
   const [recents] = useState(loadRecents);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Ignore backdrop dismiss for the opening gesture (hot-corner / first click race).
+  const dismissReady = useRef(false);
   const LISTBOX_ID = "spotlight-listbox";
   const ios = useActiveShell().id === "ios"; // iOS = top-anchored full-width search over the wallpaper
 
@@ -40,7 +42,12 @@ function SpotlightPanel() {
   // stay visible during the debounce, matching the old behaviour).
   const [found, setFound] = useState<{ key: string; hits: SearchHit[]; error?: string } | null>(null);
   const folderHits = useMemo(() => (q.trim() ? (found?.hits ?? []) : []), [q, found]);
-  const searchError = q.trim() && found?.key === q.trim() ? found.error : undefined;
+  const trimmed = q.trim();
+  const searchError = trimmed && found?.key === trimmed ? found.error : undefined;
+  // Pending while a non-empty query has not yet settled on matching folder hits
+  // (debounce + in-flight). Commands may already match; empty-command + pending
+  // must not flash "No matches" (UX-05).
+  const folderPending = Boolean(trimmed && found?.key !== trimmed);
   useEffect(() => {
     const query = q.trim();
     if (!query) return;
@@ -112,11 +119,26 @@ function SpotlightPanel() {
   // Focus the input after the open transition paints (mount = open), and on
   // close return focus to whatever was focused before — so keyboard/AT users
   // aren't dumped at the top of the document when Spotlight dismisses.
+  // Double rAF + short timeout covers deferred-chunk mount (UX-04).
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    const id = requestAnimationFrame(() => inputRef.current?.focus());
+    let cancelled = false;
+    const focus = () => {
+      if (!cancelled) inputRef.current?.focus();
+    };
+    const id1 = requestAnimationFrame(() => {
+      focus();
+      requestAnimationFrame(focus);
+    });
+    const id2 = window.setTimeout(focus, 50);
+    const ready = window.setTimeout(() => {
+      dismissReady.current = true;
+    }, 180);
     return () => {
-      cancelAnimationFrame(id);
+      cancelled = true;
+      cancelAnimationFrame(id1);
+      window.clearTimeout(id2);
+      window.clearTimeout(ready);
       prev?.focus?.();
     };
   }, []);
@@ -125,6 +147,10 @@ function SpotlightPanel() {
   const selIdx = Math.min(sel, Math.max(0, results.length - 1));
 
   const close = () => setSpotlightOpen(false);
+  const onBackdrop = () => {
+    if (!dismissReady.current) return;
+    close();
+  };
   const runAt = (i: number) => {
     const cmd = results[i];
     if (!cmd) return;
@@ -148,17 +174,23 @@ function SpotlightPanel() {
     }
   };
 
+  const emptyMessage = searchError
+    ? `Pencarian gagal: ${searchError}`
+    : folderPending
+      ? "Searching…"
+      : `No matches for “${q}”.`;
+
   return (
     <div
       className={cn(
         "absolute inset-0 z-[var(--z-spotlight)] flex items-start justify-center bg-black/20",
         ios ? "pt-[calc(var(--sai-top)_+_0.5rem)]" : "pt-[18vh]",
       )}
-      onClick={close}
+      onClick={onBackdrop}
     >
       <div
         className={cn(
-          "glass w-full overflow-hidden rounded-2xl border border-border shadow-2xl",
+          "spotlight-panel w-full overflow-hidden rounded-2xl border border-border text-foreground shadow-2xl",
           ios ? "max-w-[calc(100%_-_1.5rem)]" : "max-w-xl",
         )}
         onClick={(e) => e.stopPropagation()}
@@ -178,7 +210,10 @@ function SpotlightPanel() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
             placeholder="Search apps, folders, actions…"
-            className={cn("w-full bg-transparent text-base outline-none placeholder:text-muted-foreground", ios ? "py-2.5" : "px-5 py-4")}
+            className={cn(
+              "w-full bg-transparent text-base text-foreground outline-none placeholder:text-foreground/55",
+              ios ? "py-2.5" : "px-5 py-4",
+            )}
           />
         </div>
         {results.length > 0 && (
@@ -186,17 +221,17 @@ function SpotlightPanel() {
         )}
         {results.length === 0 && (
           <p
-            role={searchError ? "alert" : undefined}
+            role={searchError ? "alert" : folderPending ? "status" : undefined}
+            aria-live={folderPending ? "polite" : undefined}
             className={cn(
               "border-t border-border px-5 py-4 text-sm",
-              searchError ? "text-destructive" : "text-muted-foreground",
+              searchError ? "text-destructive" : "text-foreground/70",
             )}
           >
-            {searchError ? `Pencarian gagal: ${searchError}` : `No matches for “${q}”.`}
+            {emptyMessage}
           </p>
         )}
       </div>
     </div>
   );
 }
-

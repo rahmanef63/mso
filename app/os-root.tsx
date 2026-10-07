@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { AppShell, type ShellManifest } from "@/features/appshell";
 import {
   A11yCommands,
@@ -54,6 +54,10 @@ function ConnectedShell() {
   return <ShellAppsProvider active={status === "in" && role === "owner"}><Shell /></ShellAppsProvider>;
 }
 
+function dismissBootSplash() {
+  document.getElementById("mso-boot-splash")?.remove();
+}
+
 export function OsRoot({
   initialStatus,
   initialRole,
@@ -61,6 +65,10 @@ export function OsRoot({
   initialStatus?: SessionStatus;
   initialRole?: DeviceRole | null;
 }) {
+  // Drop the pre-paint boot splash once the client shell tree mounts (UX-02).
+  useEffect(() => {
+    dismissBootSplash();
+  }, []);
   return (
     <AppearanceProvider>
       <QuicklinksProvider>
