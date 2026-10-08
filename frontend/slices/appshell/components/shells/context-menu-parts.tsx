@@ -68,7 +68,7 @@ function RowBody({ m, icon: Icon, label, trailing }: { m: MenuMetrics; icon?: Lu
         // edge aligned even when a row has no icon (Fluent rows).
         <span className="flex size-4 shrink-0 items-center justify-center">{Icon && <Icon className={cn("size-4", GLYPH)} />}</span>
       ) : (
-        Icon && <Icon className={cn(m.iconSize, GLYPH)} />
+        Icon && <Icon className={cn(m.iconSize, m.isMac ? "shrink-0" : GLYPH)} />
       )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {trailing}
@@ -106,7 +106,7 @@ export function SubPanel({ item, m, onClose, pos, panelRef, onEnter, onLeave }: 
 }
 
 export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: MenuMetrics; onClose: () => void; sub?: SubControl }) {
-  const text = m.isMac ? "text-inherit" : "text-foreground/90";
+  const text = m.isMac ? undefined : "text-foreground/90";
   return (
     <>
       {items.map((it, i) => {

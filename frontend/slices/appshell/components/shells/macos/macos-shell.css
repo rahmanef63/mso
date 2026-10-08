@@ -57,7 +57,6 @@
   font-size: inherit;
   font-weight: inherit;
 }
-.macos-menu [role^="menuitem"] svg { color: inherit; }
 .macos-menu [role^="menuitem"]:is(:focus, :hover):not(:disabled, [data-disabled]) {
   color: #fff;
   background: #0062e6;

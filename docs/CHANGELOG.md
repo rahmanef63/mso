@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `appshell` inherit macOS menu colors without extra CSS
 - `appshell` align macOS menu symbol colors
 - `macos` unify shared menu glass material
 - `macos` unify shared menu typography with Figma reference
