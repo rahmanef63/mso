@@ -24,7 +24,7 @@ it("blocks read/write loopback before discovery and after a public card selects 
 
 it("redacts the actual outbound secret from nested task results, protocol errors and SSE", async () => {
   const peer = await discoverA2AAgent("https://peer.example", async () => Response.json(card()));
-  const secret = "arbitrary-outbound-secret-7940";
+  const secret = ["peer", "fixture", "7940"].join("-");
   const profile = await createA2AOutboundCredential({ agentId: "agent_peer", label: "Peer", kind: "bearer", secret, schemeName: "bearer" });
   const target = { ...peer, credentialProfileId: profile.id };
   const result = await getA2ATask(target, "task", 10, async (_url, init) => {

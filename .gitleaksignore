@@ -37,3 +37,7 @@ ac5d08fba5d053f14704ac36d8e1af759f9caff4:lib/channels/schema.test.ts:discord-cli
 # Reviewed synthetic webhook-secret unit-test fixture on the preserved parallel security branch.
 # Exact historical fingerprint only; no provider credential or network call.
 d51e1a56826562a61e704a07560764c67da4924c:lib/workflow/variables.test.ts:generic-api-key:10
+
+# Reviewed A2A redaction fixture: synthetic text with all outbound requests mocked.
+# Current source constructs the fixture; retain only the exact original historical match.
+aff0713f4630404be63127c9ce733baa78d9003c:lib/a2a/client-security.test.ts:generic-api-key:27
