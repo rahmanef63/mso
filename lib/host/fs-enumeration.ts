@@ -19,7 +19,10 @@ async function bounded<T>(signal: AbortSignal | undefined, run: (charge: (bytes?
       throw new HostError("Filesystem enumeration budget exceeded; choose a narrower directory", 413);
   };
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const work = run(charge).finally(() => { active--; });
+  const work = run(charge).then((value) => {
+    if (Buffer.byteLength(JSON.stringify(value)) > MAX_BYTES) throw new HostError("Filesystem response budget exceeded", 413);
+    return value;
+  }).finally(() => { active--; });
   try {
     return await Promise.race([work, new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new HostError("Filesystem enumeration deadline exceeded", 408)), TIME_MS);
