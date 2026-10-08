@@ -117,11 +117,10 @@ describe("the 8-hex collision pair stays distinct on every surface", () => {
     expect(only.skills[0].description).toContain("bravo");
   });
 
-  it("skills_read on the SECOND id returns the SECOND project's instructions", async () => {
-    const result = await run("skills_read", { name: `${idB()}/deploy` }) as { content: string; project: { id: string } };
-    expect(result.project.id).toBe(idB());
-    expect(result.content).toContain("bravo");
-    expect(result.content).not.toContain("alpha");
+  it("skills_read refuses repository instructions even for an exact project id", async () => {
+    const result = await run("skills_read", { name: `${idB()}/deploy` }) as { instructionsWithheld: boolean; trust: string; content?: string; project: { id: string } };
+    expect(result).toMatchObject({ trust: "untrusted", instructionsWithheld: true, project: { id: idB() } });
+    expect(result.content).toBeUndefined();
   });
 
   it("skills_read refuses the ambiguous bare name and offers both exact ids", async () => {
@@ -132,10 +131,11 @@ describe("the 8-hex collision pair stays distinct on every surface", () => {
   it("skills_search surfaces both, each carrying its own project id", async () => {
     // Identity is independent of the scanner deadline, covered by catalog deadline tests.
     const now = Date.now(); vi.spyOn(Date, "now").mockReturnValue(now);
-    const { hits } = await searchSkillMemory("deploy the widget service");
+    const { hits } = await searchSkillMemory("deploy the widget service", { includeUntrusted: true });
     const deploys = hits.filter((h) => h.kind === "skill" && h.id.endsWith("/deploy"));
     expect(deploys.map((h) => h.id).sort()).toEqual([`${idA()}/deploy`, `${idB()}/deploy`].sort());
     expect(deploys.find((h) => h.id === `${idB()}/deploy`)?.project?.id).toBe(idB());
+    expect(deploys.every((h) => h.trust === "untrusted")).toBe(true);
   });
 
   it("workflow_start resolves the SECOND project from its exact id, not the first", async () => {

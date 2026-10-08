@@ -2,57 +2,21 @@
 // roots (browse), mutations follow WRITE roots (see paths.ts). Returns the
 // os-rr shapes directly so route handlers are thin.
 import { promises as fs, constants as fsConstants, createReadStream, type ReadStream } from "fs";
-import path from "path";
-import type { FsList, FsUsage } from "@/lib/os-api/types";
+import { randomUUID } from "node:crypto";
+import type { FsUsage } from "@/lib/os-api/types";
 import { HostError } from "./host-error";
-import { projectAliasTarget } from "./project-aliases";
 import {
   appSecretCopyFilter,
   assertNoAppSecretDescendants,
   assertNoCredentialDescendants,
   assertNoSensitiveDescendants,
   assertNotRoot,
-  isSensitivePath,
   resolveReadable,
-  resolveRoots,
   safeMkdirPath,
   safeWritePath,
 } from "./paths";
 
-export async function listDir(requested: string, includeHidden = true): Promise<FsList> {
-  const real = await resolveReadable(requested || "~");
-  const stat = await fs.stat(real);
-  if (!stat.isDirectory()) throw new HostError("Not a directory");
-
-  const raw = await fs.readdir(real, { withFileTypes: true });
-  const entries = raw
-    .filter((e) => includeHidden || !e.name.startsWith("."))
-    // Sensitive credential dirs don't even appear in listings (they're also
-    // unreadable via resolveReadable — this just removes the temptation).
-    .filter((e) => !isSensitivePath(path.join(real, e.name)))
-    .map((e) => {
-      const isDir = e.isDirectory() || e.isSymbolicLink();
-      return {
-        name: e.name,
-        kind: isDir ? ("dir" as const) : ("file" as const),
-        size: 0, // per-entry stat skipped for speed (matches prior agent behavior)
-        ext: e.name.includes(".") ? e.name.split(".").pop() : undefined,
-      };
-    })
-    .sort((a, b) => (a.kind !== b.kind ? (a.kind === "dir" ? -1 : 1) : a.name.localeCompare(b.name)));
-
-  const parentCandidate = path.dirname(real);
-  let parent: string | null = null;
-  if (parentCandidate !== real) {
-    try {
-      await resolveReadable(parentCandidate);
-      parent = parentCandidate;
-    } catch {
-      parent = null;
-    }
-  }
-  return { path: real, entries, roots: resolveRoots(), parent };
-}
+export { listDir, searchFs } from "./fs-enumeration";
 
 export async function readFile(requested: string): Promise<string> {
   const p = await resolveReadable(requested);
@@ -74,9 +38,10 @@ export async function readFile(requested: string): Promise<string> {
 export async function writeFile(requested: string, content: string): Promise<void> {
   const p = await safeWritePath(requested, false);
   await assertNotRoot(p);
-  const tmp = `${p}.tmp-${process.pid}`;
-  await fs.writeFile(tmp, content ?? "", { mode: 0o644 });
-  await fs.rename(tmp, p);
+  const tmp = `${p}.tmp-${randomUUID()}`;
+  const handle = await fs.open(tmp, fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_NOFOLLOW, 0o600);
+  try { await handle.writeFile(content ?? ""); await handle.close(); await fs.rename(tmp, p); }
+  finally { await handle.close().catch(() => undefined); await fs.unlink(tmp).catch(() => undefined); }
 }
 
 export async function makeDir(requested: string): Promise<void> {
@@ -120,49 +85,6 @@ export async function copy(from: string, to: string): Promise<void> {
   // Skip the cockpit's own .env* rather than refuse the copy — on the default
   // roots APP_DIR sits under ~/projects, so refusing would block copying it.
   await fs.cp(src, dest, { recursive: true, filter: appSecretCopyFilter(src) });
-}
-
-// Folder name search under a READ-root dir (default ~/projects). Depth/result
-// bounded; skips heavy/noise dirs so it stays snappy on a real projects tree.
-const SEARCH_SKIP = new Set([
-  "node_modules", ".git", ".next", "dist", "build", ".cache", "vendor", ".pnpm-store", ".turbo",
-]);
-
-export async function searchFs(
-  query: string,
-  opts: { root?: string; max?: number; maxDepth?: number } = {},
-): Promise<{ name: string; path: string; kind: "dir" }[]> {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const root = await resolveReadable(opts.root ?? "~/projects"); // jailed to read roots
-  const max = opts.max ?? 30;
-  const maxDepth = opts.maxDepth ?? 6;
-  const out: { name: string; path: string; kind: "dir" }[] = [];
-  const alias = projectAliasTarget(query);
-  if (alias) {
-    const candidate = await resolveReadable(path.join(root, alias)).catch(() => null);
-    if (candidate && (await fs.stat(candidate).catch(() => null))?.isDirectory())
-      return [{ name: alias, path: candidate, kind: "dir" }];
-  }
-
-  async function walk(dir: string, depth: number): Promise<void> {
-    if (out.length >= max || depth > maxDepth) return;
-    let ents: import("fs").Dirent[];
-    try {
-      ents = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of ents) {
-      if (out.length >= max) return;
-      if (!e.isDirectory()) continue;
-      const hitPath = path.join(dir, e.name);
-      if (e.name.toLowerCase().includes(q) && !out.some((hit) => hit.path === hitPath)) out.push({ name: e.name, path: hitPath, kind: "dir" });
-      if (!SEARCH_SKIP.has(e.name) && !e.name.startsWith(".")) await walk(path.join(dir, e.name), depth + 1);
-    }
-  }
-  await walk(root, 0);
-  return out;
 }
 
 export async function usage(requested: string): Promise<FsUsage> {

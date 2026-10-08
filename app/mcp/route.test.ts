@@ -167,6 +167,7 @@ describe("/mcp request boundary", () => {
     expect(hash).not.toContain(rawConversation);
     expect(mocks.dispatch).toHaveBeenCalledWith(body, "read", `mcp:${token.hash.slice(0, 16)}`, {
       principal: `mcp-client:${token.clientId}`,
+      authorizationGrant: expect.objectContaining({ kind: "mcp", id: token.hash, fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) }),
       sessionId: "20260901_100000_aabbccdd",
       toolProfile: "chatgpt",
       trustedOpenAiFileParams: true,

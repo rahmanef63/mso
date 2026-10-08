@@ -1,3 +1,4 @@
+import type { AuthorizationGrant } from "@/lib/capabilities/authorization-grant";
 import type { TenantContext } from "@/lib/tenancy/authority";
 import type { AuditAction } from "@/lib/contracts/audit";
 import type { CapabilityRuntime } from "./runtime";
@@ -60,6 +61,7 @@ export interface CapabilityRunContext {
   tenantContext?: TenantContext;
   actor?: string;
   principal?: string;
+  authorizationGrant?: AuthorizationGrant;
   sessionId?: string;
   scope: Scope;
   workflowId?: string;

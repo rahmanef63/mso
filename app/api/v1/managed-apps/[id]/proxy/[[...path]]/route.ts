@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
 import { getManagedAppDefinition, isManagedAppId } from "@/lib/managed-apps/catalog";
+import { managedAppUpstream } from "@/lib/managed-apps/upstream-target";
 import {
   MANAGED_APP_HOST_HEADER,
   cockpitOrigin,
@@ -110,10 +111,9 @@ async function proxy(req: Request, context: { params: Promise<{ id: string; path
     return fail(req, "service workers are not proxied", 404);
   }
   const definition = getManagedAppDefinition(params.id);
-  const base = new URL(definition.dashboardUrl);
-  if (base.protocol !== "http:" || !["127.0.0.1", "localhost", "::1"].includes(base.hostname)) {
-    return fail(req, "upstream target is not loopback", 502);
-  }
+  let base: URL;
+  try { base = managedAppUpstream(definition.dashboardUrl); }
+  catch { return fail(req, "upstream target is not loopback", 502); }
   const target = new URL(`/${segments.map(encodeURIComponent).join("/")}`, base);
   target.search = new URL(req.url).search;
   const headers = buildUpstreamHeaders(req, base, params.id, "");

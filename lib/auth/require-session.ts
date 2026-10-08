@@ -1,3 +1,4 @@
+import { deviceSessionValid } from "./live-session";
 import { cookies } from "next/headers";
 import { configuredSessionCookieScope } from "./session-cookie";
 import { verifySession, type SessionPayload } from "./session";
@@ -28,7 +29,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
     const session = verifySession(value, secret());
     if (!session?.device_id || session.cookie_scope !== policy.scope || session.cookie_epoch !== policy.epoch) continue;
     const device = await getApprovedDevice(session.device_id);
-    if (!device) continue;
+    if (!deviceSessionValid(session, device)) continue;
     return { session, device, role: device.role };
   }
   return null;

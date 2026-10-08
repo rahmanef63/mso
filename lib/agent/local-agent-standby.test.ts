@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   arm,
-  capabilities,
+  authorizationGrant,
   cleanupStandbyFixture,
   completedTask,
   directory,
@@ -61,6 +61,7 @@ describe("server-native durable local-agent standby execution", () => {
       intent: "request",
       requiresUserRelay: true,
       executionAuthorized: true,
+      authorizationGrant,
     });
     expect(sent.status).toBe("accepted_for_standby");
     const reply = await eventually(() =>
@@ -71,7 +72,7 @@ describe("server-native durable local-agent standby execution", () => {
       owner,
       worker.id,
       "perform one bounded task",
-      capabilities,
+      expect.objectContaining({ invoke: expect.any(Function) }),
       undefined,
       { workflowId, workflowActor, fixedWorkflow: true },
     );
@@ -109,6 +110,7 @@ describe("server-native durable local-agent standby execution", () => {
       text: "deduplicate me",
       intent: "request",
       executionAuthorized: true,
+      authorizationGrant,
     });
     events.publishLocalAgentStandbyMessage(worker.id, sent.message);
     events.publishLocalAgentStandbyMessage(worker.id, sent.message);
@@ -145,6 +147,7 @@ describe("server-native durable local-agent standby execution", () => {
       text: "first",
       intent: "request",
       executionAuthorized: true,
+      authorizationGrant,
     });
     await eventually(async () => mocks.handoff.mock.calls.length === 1 ? true : null);
     const second = await messaging.sendLocalAgentMessage({
@@ -154,6 +157,7 @@ describe("server-native durable local-agent standby execution", () => {
       text: "second",
       intent: "request",
       executionAuthorized: true,
+      authorizationGrant,
     });
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(mocks.handoff).toHaveBeenCalledTimes(1);

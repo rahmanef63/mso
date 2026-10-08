@@ -110,7 +110,7 @@ describe("/api/v1/agent-tools", () => {
       expect.objectContaining({ method: "tools/call", params: { name: "write_tool", arguments: { name: "x" } } }),
       "exec",
       "cli:dev-owner",
-      { principal: "cli:dev-owner", sessionId: "mso_test_session" },
+      { principal: "cli:dev-owner", sessionId: "mso_test_session", authorizationGrant: { kind: "device", session: { device_id: "dev-owner" } } },
     );
   });
 });

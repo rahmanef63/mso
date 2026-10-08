@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { discoverA2AAgent } from "./client";
+import type { Scope } from "@/lib/capabilities/scope";
 import { getA2AOutboundCredential } from "./credentials";
 import type { A2ADiscoveredAgent, A2ARegisteredAgent } from "./types";
 
@@ -87,8 +88,9 @@ export async function listA2AAgents(): Promise<A2ARegisteredAgent[]> {
 export async function registerA2AAgent(
   source: string,
   requestedAlias?: string,
+  scope: Scope = "read",
 ): Promise<A2ARegisteredAgent> {
-  const discovered = await discoverA2AAgent(source);
+  const discovered = await discoverA2AAgent(source, undefined, scope);
   const now = new Date().toISOString();
   const id = idFor(discovered.cardUrl);
   return withSecurityStoreLock(A2A_STORE_PATH, async () => {
@@ -175,10 +177,11 @@ export async function setA2AAgentCredential(
 
 export async function resolveA2AAgent(
   ref: string,
+  scope: Scope = "read",
 ): Promise<A2ADiscoveredAgent> {
   const raw = String(ref || "").trim();
   if (!raw) throw new Error("A2A target is required");
-  if (/^https?:\/\//i.test(raw)) return discoverA2AAgent(raw);
+  if (/^https?:\/\//i.test(raw)) return discoverA2AAgent(raw, undefined, scope);
   const q = raw.toLowerCase();
   const agents = await listA2AAgents();
   const exact = agents.filter(
@@ -195,7 +198,7 @@ export async function resolveA2AAgent(
     throw new Error(
       `A2A target is ambiguous: ${exact.map((row) => row.alias).join(", ")}`,
     );
-  const discovered = await discoverA2AAgent(exact[0].cardUrl);
+  const discovered = await discoverA2AAgent(exact[0].cardUrl, undefined, scope);
   return {
     ...discovered,
     ...(exact[0].credentialProfileId

@@ -1,3 +1,4 @@
+import type { AuthorizationGrant } from "@/lib/capabilities/authorization-grant";
 import type { TenantContext } from "@/lib/tenancy/authority";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import type { McpToolProfile } from "./tool-contract";
@@ -22,6 +23,7 @@ export interface RpcRequest {
 export interface McpAgentContext {
   tenantContext?: TenantContext;
   principal?: string;
+  authorizationGrant?: AuthorizationGrant;
   sessionId?: string;
   toolProfile?: McpToolProfile;
   trustedOpenAiFileParams?: boolean;

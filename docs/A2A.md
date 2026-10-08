@@ -17,6 +17,8 @@ A remote agent is a separate trust domain. MSO keeps that boundary explicit:
 
 - Agent discovery uses `/.well-known/agent-card.json` and accepts only public **HTTPS** Agent Card/interface URLs.
 - Outbound HTTP reuses MSO's SSRF guard: public-address validation, DNS re-resolution with resolved-IP pinning, redirect refusal, and rejection of loopback/private/link-local/metadata targets.
+- Exact-loopback discovery additionally requires the current caller to hold `exec` authority at card discovery, selected-interface resolution, refresh and credential materialization, even when the deployment enables loopback transport.
+- Outbound authentication values are removed from returned JSON/SSE keys and values, protocol errors and transport errors if a peer reflects them.
 - Remote JSON responses and SSE events are bounded. Normal message text is limited to 24 KiB.
 - `~/.mso/private/a2a-agents.json` stores sanitized public Agent Card metadata and a local credential-profile pointer, never a secret.
 - Outbound credential secrets live separately in `~/.mso/private/a2a-credentials.json` under owner-only `0700/0600` storage. List/state APIs return summaries only.
@@ -116,7 +118,7 @@ A2A is a **transport boundary**, not MSO's visual orchestration graph and not it
 - **Organization** owns stable unit/seat identity, reporting lines, and the pointer from a seat to its current Project Agent, Local Agent, or remote A2A executor.
 - **A2A** owns discovery, authentication, message/task lifecycle, streaming, cancellation, and the remote trust boundary.
 
-A Workflow `agent` node may target an `orgSeatId`. If that seat currently maps to an A2A peer, runtime resolution reaches the existing `a2a_handoff` path; changing the concrete peer later does not rewrite the workflow. Likewise, a saved Session workflow can be called through Execute Workflow or bounded Repeat Until without turning A2A itself into a loop engine. This separation keeps transport credentials and remote task state out of portable workflow definitions and organization metadata.
+A Workflow `agent` node may target an `orgSeatId`. If that seat currently maps to an A2A peer, runtime resolution reaches the existing `a2a_handoff` path; the saved graph pins the reviewed seat target digest. Changing a shared execution target requires `exec`; a graph whose target later changes refuses dispatch until explicitly reviewed and saved again. Legacy seat-bound graphs without a digest also require review and resave. Likewise, a saved Session workflow can be called through Execute Workflow or bounded Repeat Until without turning A2A itself into a loop engine. This separation keeps transport credentials and remote task state out of portable workflow definitions and organization metadata.
 
 See [Workflow Graph](./WORKFLOW-GRAPH.md) and [Organization](./ORGANIZATION.md).
 

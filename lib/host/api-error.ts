@@ -12,7 +12,7 @@ export function apiError(
   fallback: { status?: number; error?: string } = {},
 ): NextResponse {
   if (e instanceof HostError)
-    return NextResponse.json({ error: e.message }, { status: 400 });
+    return NextResponse.json({ error: e.message }, { status: e.status });
   // A missing path or a permission denial is a fact about the REQUEST, not a
   // server fault. They used to fall through to 500, which sends a client (and a
   // reader of the logs) hunting a broken server when the file simply is not there

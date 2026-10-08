@@ -17,9 +17,9 @@ function payload(deviceId: string, now: number, ttlMs: number): SessionPayload {
   };
 }
 
-export function createCamoufoxViewerTicket(deviceId: string, secret: string, now = Date.now()): string {
+export function createCamoufoxViewerTicket(deviceId: string, secret: string, now = Date.now(), issuedAt = now): string {
   if (secret.length < MIN_SECRET_LEN) throw new Error("viewer signing secret is not configured");
-  return signSession(payload(deviceId, now, CAMOUFOX_VIEWER_TICKET_TTL_MS), ticketSecret(secret));
+  return signSession({ ...payload(deviceId, now, CAMOUFOX_VIEWER_TICKET_TTL_MS), issued_at: issuedAt }, ticketSecret(secret));
 }
 
 export function verifyCamoufoxViewerTicket(token: string, secret: string): SessionPayload | null {
@@ -27,9 +27,9 @@ export function verifyCamoufoxViewerTicket(token: string, secret: string): Sessi
   return verifySession(token, ticketSecret(secret));
 }
 
-export function createCamoufoxViewerCookie(deviceId: string, secret: string, now = Date.now()): string {
+export function createCamoufoxViewerCookie(deviceId: string, secret: string, now = Date.now(), issuedAt = now): string {
   if (secret.length < MIN_SECRET_LEN) throw new Error("viewer signing secret is not configured");
-  return signSession(payload(deviceId, now, CAMOUFOX_VIEWER_COOKIE_TTL_MS), cookieSecret(secret));
+  return signSession({ ...payload(deviceId, now, CAMOUFOX_VIEWER_COOKIE_TTL_MS), issued_at: issuedAt }, cookieSecret(secret));
 }
 
 export function verifyCamoufoxViewerCookie(token: string, secret: string): SessionPayload | null {

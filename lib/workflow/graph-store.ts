@@ -1,3 +1,4 @@
+import { organizationTargetDigest, resolveOrganizationSeat } from "@/lib/agent/organization-runtime";
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -80,8 +81,20 @@ export async function getWorkflowGraph(principal: string, id: string): Promise<W
   return (await listWorkflowGraphs(principal)).find((graph) => graph.id === id) ?? null;
 }
 
+async function bindOrganizationTargets(definition: WorkflowGraphDefinition): Promise<WorkflowGraphDefinition> {
+  for (const node of definition.nodes) {
+    delete node.config.orgTargetDigest;
+    if (node.type === "agent" && typeof node.config.orgSeatId === "string" && node.config.orgSeatId) {
+      const seat = await resolveOrganizationSeat(node.config.orgSeatId);
+      node.config.orgSeatId = seat.id;
+      node.config.orgTargetDigest = organizationTargetDigest(seat);
+    }
+  }
+  return definition;
+}
+
 export async function createWorkflowGraph(principal: string, raw: unknown, reason: WorkflowGraphVersionReason = "create", options: { remember?: boolean } = {}): Promise<WorkflowGraph> {
-  const owner = workflowGraphOwner(principal), definition = parseWorkflowGraphDefinition(raw);
+  const owner = workflowGraphOwner(principal), definition = await bindOrganizationTargets(parseWorkflowGraphDefinition(raw));
   const graph = await withGraphLock(owner, async () => {
     const store = await readWorkflowGraphStore(owner, principal);
     if (store.graphs.length >= MAX_GRAPHS) throw new Error("private workflow graph limit reached");
@@ -94,7 +107,7 @@ export async function createWorkflowGraph(principal: string, raw: unknown, reaso
 }
 
 export async function updateWorkflowGraph(principal: string, id: string, expectedRevision: string, raw: unknown, reason: WorkflowGraphVersionReason = "update", options: { remember?: boolean } = {}): Promise<WorkflowGraph> {
-  const owner = workflowGraphOwner(principal), definition = parseWorkflowGraphDefinition(raw);
+  const owner = workflowGraphOwner(principal), definition = await bindOrganizationTargets(parseWorkflowGraphDefinition(raw));
   const graph = await withGraphLock(owner, async () => {
     const store = await readWorkflowGraphStore(owner, principal), index = store.graphs.findIndex((graph) => graph.id === id);
     if (index < 0) throw new Error("workflow graph not found");

@@ -102,7 +102,7 @@ describe("workflow_start bootstrap", () => {
     ]));
   });
 
-  it("searches skills from EVERY project, not just the one the workflow names", async () => {
+  it("does not promote repository-owned instructions into trusted workflow guidance", async () => {
     const start = LEARNING_TOOLS.find((tool) => tool.name === "workflow_start")!;
     const result = await start.run({
       intent: "harvest and verify the orchard dataset export",
@@ -110,12 +110,8 @@ describe("workflow_start bootstrap", () => {
     }, { actor: "mcp:global-skills", scope: "write" as const }) as {
       search: { hits: Array<{ kind: string; id: string; name: string; trust?: string; project?: { name: string } }> };
     };
-    expect(result.search.hits).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        kind: "skill", id: await siblingSkillId(), name: "orchard-harvest",
-        trust: "local", project: expect.objectContaining({ name: "orchard", path: sibling }),
-      }),
-    ]));
+    const siblingId = await siblingSkillId();
+    expect(result.search.hits.some((hit) => hit.id === siblingId)).toBe(false);
   });
 
   it("tells the client when the discovery scan was incomplete", async () => {

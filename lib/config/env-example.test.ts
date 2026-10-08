@@ -48,6 +48,7 @@ const NOT_A_KNOB: Record<string, string> = {
   E2E_DEMO: "desktop browser harness only: preview has no authentication; never production configuration",
   E2E_CAPTURE_ONLY: "desktop browser harness only: capture baseline before native behavior assertions",
   CHROME_PATH: "MCP Page browser contract harness executable override, not production configuration",
+  MSO_SOCKET_POLICY_SECRET: "generated fresh by the production process; never an operator knob",
   E2E_PASSWORD: "test harness",
   E2E_DEVICE: "test harness",
   E2E_HEADED: "test harness",

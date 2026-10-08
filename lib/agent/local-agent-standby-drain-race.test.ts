@@ -29,7 +29,7 @@ vi.mock("./local-agent-standby-store", () => ({
 }));
 
 const standby = await import("./local-agent-standby");
-const capabilities = { list: () => [], invoke: vi.fn(async () => ({ content: [] })) };
+const capabilities = { authorize: async () => true, list: () => [], invoke: vi.fn(async () => ({ content: [] })) };
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -42,6 +42,7 @@ beforeEach(async () => {
   mocks.active = true;
   mocks.record = {
     principal: "owner", principalHash: "owner-hash", sessionId: "worker",
+    authorizationGrant: { kind: "mcp", id: "a".repeat(64), fingerprint: "fixture", resource: "https://fixture.example/mcp" },
     workflowActor: "owner:worker", workflowId: "workflow", armed: true, state: "waiting",
     armedAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z",
   };

@@ -237,7 +237,7 @@ Skill candidates contain only deterministic redacted tool guidance. Project-func
 
 `tool_forge_evaluate` re-checks the current tool catalog/scope and runs 1–8 executable fixtures only in the dedicated cached Docker sandbox. The sandbox uses no network, a read-only root and project mount, all Linux capabilities dropped, `no-new-privileges`, non-root execution, and CPU/memory/PID limits. `bun run forge:sandbox` provisions the labelled local image from the host's already-trusted Node binary and shared libraries; evaluation never pulls from a registry and records the exact image ID plus project source SHA-256.
 
-`tool_forge_promote` is exec-scope and requires literal confirmation `PROMOTE <candidate_id>`. Promotion immediately re-runs evaluation, rejects candidate/target/toolset/source/image drift, never overwrites an existing Skill/function, writes atomically, and verifies the resulting project capability. A promoted project function still requires normal `project_function_call` exec scope and approval.
+`tool_forge_promote` is exec-scope and requires literal confirmation `PROMOTE <candidate_id>`. Promotion immediately re-runs evaluation, rejects candidate/target/toolset/source/image drift, never overwrites an existing Skill/function, writes atomically, and verifies the resulting project capability. A promoted project Skill remains repository-controlled and untrusted until the operator reviews and copies it to the external operator skill root. A promoted project function still requires normal `project_function_call` exec scope and approval.
 
 ## Opt-in project MCP/function capabilities
 
@@ -421,11 +421,12 @@ already at its cap; a path hint may not leave it.
 
 `skills_list` merges the global roots with the per-project roots of every project:
 `.mso/skills`, `.claude/skills`, `.hermes/skills`, `.agents/skills`, `.codex/skills`.
-A project skill becomes `local` only when all three hold: the skill directory realpaths
-back *inside* its project; the directory and its `SKILL.md` are owned by MSO's uid; and
-`SKILL.md` is a regular file, not a symlink. Otherwise it is cataloged `untrusted` —
-metadata visible, instructions withheld until the operator reviews it and moves it into
-`~/.mso/skills`. The generic HOME agent roots keep their existing untrusted behaviour.
+Project roots are repository-controlled input and are always cataloged `untrusted`,
+with metadata visible and instructions withheld. Same-uid ownership does not establish
+operator review. The directory must still resolve inside its project and `SKILL.md`
+must be a regular non-symlink file to enter the catalog. The operator can explicitly
+review and copy instructions into the separate `~/.mso/skills` root. Generic HOME
+agent roots retain their existing untrusted behaviour.
 
 The `SKILL.md` reader is `O_NOFOLLOW` **at the supplied path**, not at a canonicalized
 substitute. It previously realpath'd first and opened the *target*, so a
@@ -742,7 +743,7 @@ lib/host/project-roots.ts  every configured project container + bounded enumerat
 lib/host/project-meta.ts   symlink-refusing package.json / .git readers
 lib/host/guarded-write.ts optimistic SHA-256 file overwrite guard
 lib/skills/catalog.ts      global + per-project SKILL.md roots, ids and provenance
-lib/skills/project-skills.ts per-project roots and their earned-trust checks
+lib/skills/project-skills.ts per-project roots and their containment checks
 lib/skills/semantic.ts    local hybrid embedding/search primitives
 lib/skills/search.ts      unified skill/tool/recipe ranking
 lib/skills/memory.ts      migrated multi-run exact-id workflow and recipe store

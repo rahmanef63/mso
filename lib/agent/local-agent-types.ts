@@ -1,3 +1,4 @@
+import type { AuthorizationGrant } from "@/lib/capabilities/authorization-grant";
 import type { AgentSessionSource, AgentSessionTitleSource } from "./session-types";
 
 export type LocalAgentPresenceState = "ready" | "idle" | "busy" | "ended";
@@ -18,6 +19,8 @@ export type LocalAgentMessageExecutionState = "pending" | "claimed" | "completed
 export interface LocalAgentMessageExecution {
   requested: true;
   authorized: boolean;
+  authorizationGrant?: AuthorizationGrant;
+  authorizationArguments?: Record<string, unknown>;
   state: LocalAgentMessageExecutionState;
   attempts?: number;
   claimedBy?: string;
@@ -32,6 +35,8 @@ export interface LocalAgentStandbyRecord {
   principal: string;
   sessionId: string;
   workflowActor: string;
+  authorizationGrant?: AuthorizationGrant;
+  authorizationArguments?: Record<string, unknown>;
   workflowId: string;
   armed: boolean;
   state: LocalAgentStandbyState;

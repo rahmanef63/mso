@@ -14,7 +14,7 @@ async function loadProxy() {
   vi.stubEnv("OS_SESSION_SECRET", SECRET);
   vi.stubEnv("NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE", "{id}.mso.example.com");
   vi.stubEnv("OPENCLAW_DASHBOARD_URL", "http://127.0.0.1:18789");
-  return (await import("../proxy")).proxy;
+  return (await import("../lib/managed-apps/socket-policy")).socketPolicy;
 }
 
 function upgrade(cookieEpoch: string) {
@@ -31,7 +31,7 @@ function upgrade(cookieEpoch: string) {
 describe("proxy session policy epoch", () => {
   it("rejects a retained token from an older generation of the same scope", async () => {
     const proxy = await loadProxy();
-    expect((await proxy(upgrade("epoch-9999999999999999"))).status).toBe(404);
-    expect((await proxy(upgrade(EPOCH))).headers.get("x-middleware-rewrite")).toBe("http://127.0.0.1:18789/chat");
+    expect(await proxy(upgrade("epoch-9999999999999999"))).toBeNull();
+    expect((await proxy(upgrade(EPOCH)))?.target).toBe("http://127.0.0.1:18789/chat");
   });
 });

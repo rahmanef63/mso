@@ -14,8 +14,8 @@ describe("mso active tunnel runtime recovery", () => {
     fs.copyFileSync(path.join(ROOT, "package.json"), path.join(root, "package.json"));
     fs.mkdirSync(path.join(root, ".next"), { recursive: true }); fs.writeFileSync(path.join(root, ".next/BUILD_ID"), "fixture\n");
     fs.mkdirSync(path.join(root, "node_modules/next/dist/bin"), { recursive: true });
-    fs.writeFileSync(path.join(root, "node_modules/next/dist/bin/next"), `
-const http=require('http'); const args=process.argv.slice(2); const port=Number(args[args.indexOf('--port')+1]);
+    fs.writeFileSync(path.join(root, "scripts/server.mjs"), `
+import http from 'node:http'; const args=process.argv.slice(2); const port=Number(args[args.indexOf('--port')+1]);
 http.createServer((req,res)=>{res.setHeader('content-type','application/json');res.end(JSON.stringify({status:'ok',buildId:'recovered-build',runtimeInstanceId:process.env.MSO_RUNTIME_INSTANCE_ID,version:${JSON.stringify(VERSION)}}));}).listen(port,'127.0.0.1');
 process.on('SIGTERM',()=>process.exit(0));
 `);

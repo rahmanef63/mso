@@ -71,7 +71,9 @@ export function isSensitivePath(real: string): boolean {
   const h = homeDir();
   return SENSITIVE_HOME.some((n) => {
     const p = path.join(h, n);
-    return real === p || isUnderRoot(real, p);
+    let canonical = p;
+    try { canonical = realpathSync.native(p); } catch { /* Missing sensitive root. */ }
+    return isUnderRoot(real, p) || isUnderRoot(real, canonical);
   });
 }
 
@@ -88,7 +90,10 @@ export function isAppSecret(real: string): boolean {
 export function isCredentialPath(real: string): boolean {
   const store = path.join(homeDir(), ".mso");
   if (real === store || isUnderRoot(real, store)) return true;
+  try { if (isUnderRoot(real, realpathSync.native(store))) return true; } catch { /* No store yet. */ }
   if (isSensitivePath(real)) return true;
+  const names = path.resolve(real).split(path.sep);
+  if (names.some((name) => name.startsWith(".env") && name !== ".env.example")) return true;
   const base = path.basename(real);
   // Private keys land anywhere (heredoc dumps, deploy keys, downloaded service
   // accounts). Their basename/extension is the reliable marker outside fixed ~/ paths.

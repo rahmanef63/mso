@@ -1,6 +1,7 @@
 import { directConnectionValues, integrationSnapshot, resolveIntegration } from "@/lib/infra/connection-service";
 import { IntegrationError } from "@/lib/infra/identity";
 import { ChannelError } from "./errors";
+import { rateLimited } from "@/lib/host/rate-limit";
 import { channelProvider, listChannelProviders } from "./registry";
 import { parseChannelPatch } from "./schema";
 import {
@@ -119,6 +120,7 @@ export async function receiveTelegram(id: string, raw: unknown, suppliedSecret: 
   const credential = await values(channel);
   if (!credential.webhookSecret) throw new ChannelError("telegram_webhook_secret_required", 503);
   if (!verifyTelegramSecret(credential, suppliedSecret)) throw new ChannelError("invalid_webhook_signature", 401);
+  if (rateLimited(`channel-authenticated:${id}`, 120, 60_000)) throw new ChannelError("rate_limited", 429);
   return normalizeTelegramUpdate(raw);
 }
 
@@ -134,6 +136,7 @@ export async function receiveDiscord(
   const credential = await values(channel);
   if (!credential.publicKey) throw new ChannelError("discord_public_key_required", 503);
   if (!verifyDiscordSignature(credential, timestamp, signature, bodyText)) throw new ChannelError("invalid_webhook_signature", 401);
+  if (rateLimited(`channel-authenticated:${id}`, 120, 60_000)) throw new ChannelError("rate_limited", 429);
   let raw: unknown;
   try { raw = JSON.parse(bodyText); } catch { throw new ChannelError("invalid_discord_interaction"); }
   if (!discordApplicationMatches(credential, raw)) throw new ChannelError("discord_application_mismatch", 401);

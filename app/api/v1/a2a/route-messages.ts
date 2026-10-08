@@ -77,7 +77,7 @@ export async function handleA2AMessageAction(
         { error: "target_and_message_required" },
         { status: 400 },
       );
-    const peer = await resolveA2AAgent(target);
+    const peer = await resolveA2AAgent(target, "exec");
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -123,7 +123,7 @@ export async function handleA2AMessageAction(
         { status: 400 },
       );
     const response = await sendA2AMessage(
-      await resolveA2AAgent(target),
+      await resolveA2AAgent(target, "exec"),
       message,
       {
         contextId:
@@ -144,7 +144,7 @@ export async function handleA2AMessageAction(
         { error: "target_and_taskId_required" },
         { status: 400 },
       );
-    const response = await cancelA2ATask(await resolveA2AAgent(target), taskId);
+    const response = await cancelA2ATask(await resolveA2AAgent(target, "exec"), taskId);
     void audit({
       action: "a2a.cancel",
       actor,
@@ -163,7 +163,7 @@ export async function handleA2AMessageAction(
         { status: 400 },
       );
     const result = await handoffA2A(
-      await resolveA2AAgent(target),
+      await resolveA2AAgent(target, "exec"),
       objective,
       typeof body.context === "string" ? body.context : undefined,
       {

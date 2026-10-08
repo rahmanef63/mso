@@ -1,3 +1,4 @@
+import { invalidateDeviceSessions } from "@/lib/auth/device-store";
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, getSessionActor } from "@/lib/auth/require-session";
 import { hostOnlyClearHeader, sessionCookieAttrs } from "@/lib/auth/session-cookie";
@@ -6,7 +7,9 @@ import { audit } from "@/lib/host/audit-api";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  audit({ action: "auth.logout", actor: await getSessionActor(), ok: true });
+  const actor = await getSessionActor();
+  if (actor) await invalidateDeviceSessions(actor);
+  audit({ action: "auth.logout", actor, ok: true });
   const res = NextResponse.json({ success: true });
   // Same attributes as login, Max-Age=0 — a clear only matches a cookie with the
   // same Domain, so the two paths must read the same config or logout silently

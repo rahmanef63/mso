@@ -1,4 +1,3 @@
-import { isA2ALoopbackUrl } from "@/lib/a2a/network";
 import { createHash } from "node:crypto";
 import { cancelA2ATask, discoverA2AAgent, getA2ATask, handoffA2A, listA2AAgents, registerA2AAgent, removeA2AAgent, resolveA2AAgent, sendA2AMessage } from "@/lib/a2a";
 import type { A2ADiscoveredAgent, A2ARegisteredAgent } from "@/lib/a2a";
@@ -20,7 +19,7 @@ function cardSummary(row: A2ADiscoveredAgent | A2ARegisteredAgent) {
     skills: card.skills.map((skill) => ({ id: skill.id, name: skill.name, description: skill.description, tags: skill.tags })),
   };
 }
-async function target(ref: string) { return resolveA2AAgent(ref); }
+async function target(ref: string, scope: "read" | "write" | "exec") { return resolveA2AAgent(ref, scope); }
 
 export const A2A_TOOLS: McpTool[] = [
   {
@@ -36,8 +35,7 @@ export const A2A_TOOLS: McpTool[] = [
     inputSchema: S({ url: { type: "string", description: "Public agent origin or direct Agent Card URL." } }, ["url"]),
     run: async (a, context) => {
       const url = str(a, "url");
-      if (isA2ALoopbackUrl(url) && context.scope !== "exec") throw new Error("A2A loopback discovery requires exec authority");
-      return cardSummary(await discoverA2AAgent(url));
+      return cardSummary(await discoverA2AAgent(url, undefined, context.scope));
     },
   },
   {
@@ -45,7 +43,7 @@ export const A2A_TOOLS: McpTool[] = [
     description: "Register or refresh one public A2A v1 agent in MSO's private host registry. This stores the Agent Card and alias only; credentials are deliberately unsupported in this phase.",
     scope: "write", annotations: { openWorldHint: true }, limit: { key: "a2a.registry", max: 20, windowMs: 60_000 }, audit: { action: "a2a.registry", targetArg: "url" },
     inputSchema: S({ url: { type: "string", description: "Public agent origin or direct Agent Card URL." }, alias: { type: "string", description: "Optional local alias (lowercase letters/digits/._-)." } }, ["url"]),
-    run: async (a) => cardSummary(await registerA2AAgent(str(a, "url"), optionalString(a, "alias"))),
+    run: async (a, context) => cardSummary(await registerA2AAgent(str(a, "url"), optionalString(a, "alias"), context.scope)),
   },
   {
     name: "a2a_agent_remove",
@@ -64,8 +62,8 @@ export const A2A_TOOLS: McpTool[] = [
       context_id: { type: "string", description: "Optional A2A contextId supplied by that remote agent." }, task_id: { type: "string", description: "Optional A2A taskId to continue." },
       return_immediately: { type: "boolean", description: "Default true: return the task quickly instead of blocking for completion." },
     }, ["target", "message"]),
-    run: async (a) => {
-      const agent = await target(str(a, "target")); const result = await sendA2AMessage(agent, str(a, "message"), {
+    run: async (a, context) => {
+      const agent = await target(str(a, "target"), context.scope); const result = await sendA2AMessage(agent, str(a, "message"), {
         contextId: optionalString(a, "context_id"), taskId: optionalString(a, "task_id"), returnImmediately: a.return_immediately !== false,
       }); return { agent: cardSummary(agent), response: result };
     },
@@ -76,14 +74,14 @@ export const A2A_TOOLS: McpTool[] = [
     scope: "read", annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true }, limit: { key: "a2a.task", max: 60, windowMs: 60_000 },
     result: { maxTextBytes: 64 * 1024, overflowHint: "A2A task response was compacted; request less history." },
     inputSchema: S({ target: { type: "string" }, task_id: { type: "string" }, history_length: { type: "number", description: "0-100, default 10." } }, ["target", "task_id"]),
-    run: async (a) => getA2ATask(await target(str(a, "target")), str(a, "task_id"), Math.max(0, Math.min(100, Number(a.history_length) || 10))),
+    run: async (a, context) => getA2ATask(await target(str(a, "target"), context.scope), str(a, "task_id"), Math.max(0, Math.min(100, Number(a.history_length) || 10))),
   },
   {
     name: "a2a_task_cancel",
     description: "Request cancellation of one in-progress A2A v1 task. The remote agent remains authoritative about whether cancellation is allowed.",
     scope: "exec", annotations: { destructiveHint: true, openWorldHint: true }, limit: { key: "a2a.cancel", max: 30, windowMs: 60_000 }, audit: { action: "a2a.cancel", targetArg: "task_id" },
     inputSchema: S({ target: { type: "string" }, task_id: { type: "string" } }, ["target", "task_id"]),
-    run: async (a) => cancelA2ATask(await target(str(a, "target")), str(a, "task_id")),
+    run: async (a, context) => cancelA2ATask(await target(str(a, "target"), context.scope), str(a, "task_id")),
   },
   {
     name: "a2a_handoff",
@@ -96,7 +94,7 @@ export const A2A_TOOLS: McpTool[] = [
       return_immediately: { type: "boolean", description: "Default true." },
     }, ["target", "objective"]),
     run: async (a, context) => {
-      const agent = await target(str(a, "target"));
+      const agent = await target(str(a, "target"), context.scope);
       const result = await handoffA2A(agent, str(a, "objective"), optionalString(a, "context"), {
         returnImmediately: a.return_immediately !== false, sourceSessionHash: anonymousHash(context.sessionId), sourceWorkflowHash: anonymousHash(context.workflowId),
       });

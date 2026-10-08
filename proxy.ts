@@ -26,13 +26,7 @@ import {
   proxyPrefix,
   upstreamSocketHeaders,
 } from "@/lib/managed-apps/proxy-headers";
-import { getManagedAppDefinition } from "@/lib/managed-apps/catalog";
 import { projectIngressDecision, projectIngressHeaders } from "@/lib/managed-apps/project-ingress";
-import { verifySession } from "@/lib/auth/session";
-import { configuredSessionCookieScope } from "@/lib/auth/session-cookie";
-import { currentSessionPolicy, getApprovedDevice } from "@/lib/auth/device-store";
-import { roleAtLeast, type DeviceRole } from "@/lib/auth/roles";
-import { IS_DEMO } from "@/lib/demo";
 import { camoufoxViewerCsp, isCamoufoxViewerHost } from "@/lib/camoufox/origin";
 import {
   camoufoxViewerAuthorized,
@@ -49,7 +43,6 @@ const WEBSOCKET_UPGRADE = /(?:^|,)\s*websocket\s*(?:,|$)/i;
 
 // Mirrors SESSION_COOKIE in lib/auth/require-session.ts. Not imported from there:
 // that module pulls in next/headers, which middleware cannot use.
-const SESSION_COOKIE = "session";
 
 // Only loopback. dashboardUrl comes from HERMES_DASHBOARD_URL / OPENCLAW_DASHBOARD_URL,
 // and the upgrade hop below is the one place a rewrite leaves this server — an env
@@ -61,28 +54,6 @@ const LOOPBACK_HOST =
 // serves it). Loopback-checked at the rewrite, same as the managed-app dashboards.
 const CAMOUFOX_NOVNC_URL =
   process.env.CAMOUFOX_NOVNC_URL ?? "http://127.0.0.1:6080";
-
-// The same read require-session.ts does, minus next/headers: verify EVERY `session=`
-// cookie and accept the first that both holds up and is still an approved device.
-// Cookies are not isolated by port or path (RFC 6265 §8.5), so document.cookie on the
-// same host can add a second one that sorts ahead of the real one; checking only the
-// first would let a forged value decide. Revocation is re-checked here too — a valid
-// HMAC alone must not outlive the device being removed.
-async function hasApprovedSession(
-  request: NextRequest,
-  minimumRole: DeviceRole = "viewer",
-): Promise<boolean> {
-  if (IS_DEMO) return false;
-  const secret = process.env.OS_SESSION_SECRET ?? "";
-  const policy = await currentSessionPolicy(configuredSessionCookieScope());
-  for (const { value } of request.cookies.getAll(SESSION_COOKIE)) {
-    const payload = verifySession(value, secret);
-    if (!payload?.device_id || payload.cookie_scope !== policy.scope || payload.cookie_epoch !== policy.epoch) continue;
-    const device = await getApprovedDevice(payload.device_id);
-    if (device && roleAtLeast(device.role, minimumRole)) return true;
-  }
-  return false;
-}
 
 // Paths the matcher used to exclude. A matcher cannot exclude by HOST and /_next/*
 // must be blockable on an app host, so they reach middleware now and are waved
@@ -186,6 +157,7 @@ export async function proxy(request: NextRequest) {
   // operator obtains a 60-second ticket on the cockpit, carries it only in the URL
   // fragment, and exchanges it here for a host-only HttpOnly viewer cookie.
   if (isCamoufoxViewerHost(host)) {
+    if (WEBSOCKET_UPGRADE.test(request.headers.get("upgrade") ?? "")) return notFound();
     const viewerGate = await gateCamoufoxViewer(request, pathname);
     if (!camoufoxViewerAuthorized(viewerGate)) return viewerGate;
     if (request.method !== "GET" && request.method !== "HEAD") return notFound();
@@ -253,37 +225,9 @@ export async function proxy(request: NextRequest) {
     if (pathname === "/_next" || pathname.startsWith("/_next/"))
       return notFound();
 
-    // A WebSocket upgrade. A route handler cannot service one — which is why every
-    // OpenClaw panel sat dead and its windows opened on a terminal instead — but a
-    // rewrite is not always internal: when the destination origin differs from the
-    // one Next derived for this request, Next PROXIES it, and its proxy carries the
-    // upgrade (101 + both pipes). That is the same fork the comment below relies on
-    // to keep the ordinary rewrite internal; here we want the other side of it.
-    //
-    // The upgrade never reaches the proxy route, so the route's verifyAuth() never
-    // runs and NOTHING below this line protects the socket. Hence the session check
-    // right here: without it this is an unauthenticated relay from the public
-    // internet into the agent's gateway.
-    //
-    // The head is the same for both apps, and that took a wrong turn to establish:
-    // Hermes and OpenClaw do want opposite things, but neither difference survives as
-    // a header. See upstreamSocketHeaders for what was tried and why it was reverted.
-    // What genuinely differs between them is READINESS, and that already lives per-app
-    // in feature-cli.ts. The query string is passed verbatim — Hermes' `?ticket=` is
-    // that socket's entire credential.
-    if (WEBSOCKET_UPGRADE.test(request.headers.get("upgrade") ?? "")) {
-      if (!(await hasApprovedSession(request, "operator"))) return notFound();
-      const base = new URL(getManagedAppDefinition(managedApp).dashboardUrl);
-      if (!LOOPBACK_HOST.test(base.hostname)) return notFound();
-      return NextResponse.rewrite(
-        new URL(`${pathname}${request.nextUrl.search}`, base),
-        {
-          request: {
-            headers: upstreamSocketHeaders(request.headers, managedApp, base),
-          },
-        },
-      );
-    }
+    // The production server owns upgrades and validates live authority in both
+    // directions. Stock Next rewrites cannot revoke an already-open socket.
+    if (WEBSOCKET_UPGRADE.test(request.headers.get("upgrade") ?? "")) return notFound();
 
     const headers = new Headers(request.headers);
     // set(), not append(): this overwrites whatever copy the client sent.
@@ -343,6 +287,7 @@ export async function proxy(request: NextRequest) {
     MUTATING.has(request.method) &&
     isApi &&
     !isMachineProtocol &&
+    pathname !== "/api/internal/socket-policy" &&
     !isWorkflowWebhook &&
     pathname !== "/api/integrations/setup" &&
     crossOriginMutation(request)

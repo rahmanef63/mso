@@ -2,7 +2,7 @@ import { forgeTargetHash } from "./target-hash";
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { projectSkillTrust } from "@/lib/skills/project-skills";
+import { projectSkillReadable } from "@/lib/skills/project-skills";
 import { readProjectFunctionsManifest } from "@/lib/host/project-function-manifest";
 import { forgeCandidateHash } from "./evaluate";
 import { validateForgeCommand } from "./sandbox";
@@ -38,9 +38,8 @@ async function promoteSkill(candidate: ForgeCandidate): Promise<ForgePromotion> 
   const file = path.join(dir, "SKILL.md");
   try {
     await fs.writeFile(file, candidate.skill!.content, { mode: 0o600, flag: "wx" });
-    const trust = await projectSkillTrust(dir, candidate.projectPath);
-    if (trust !== "local") throw new Error(`promoted Skill did not earn local trust (${trust})`);
-    return { at: new Date().toISOString(), path: file, verification: "projectSkillTrust=local" };
+    if (!await projectSkillReadable(dir, candidate.projectPath)) throw new Error("promoted Skill failed project containment/shape checks");
+    return { at: new Date().toISOString(), path: file, verification: "project-contained; untrusted until operator review" };
   } catch (error) {
     await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined); throw error;
   }

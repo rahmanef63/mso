@@ -45,6 +45,15 @@ function useRoots(read: string, write: string) {
 }
 
 describe("writeFile (atomic write inside WRITE roots)", () => {
+  it("never follows the old predictable temporary symlink", async () => {
+    useRoots(readRoot, writeRoot);
+    const target = path.join(writeRoot, "scan-write.txt");
+    const victim = path.join(outside, "scan-victim.txt");
+    writeFileSync(victim, "untouched");
+    symlinkSync(victim, `${target}.tmp-${process.pid}`);
+    await writeFile(target, "safe");
+    expect(readFileSync(victim, "utf8")).toBe("untouched");
+  });
   it("writes a new file inside the write root", async () => {
     useRoots(readRoot, writeRoot);
     const target = path.join(writeRoot, "fresh.txt");

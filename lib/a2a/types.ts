@@ -42,6 +42,7 @@ export type A2AAgentCard = {
 };
 
 export type A2ADiscoveredAgent = {
+  authorityScope?: "read" | "write" | "exec";
   cardUrl: string;
   card: A2AAgentCard;
   selectedInterface: A2AAgentInterface;

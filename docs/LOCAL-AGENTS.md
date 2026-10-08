@@ -154,6 +154,14 @@ Payloads are limited to **16 KiB**, known secret-shaped values are redacted befo
 
 Receiving a local message grants no capability. Standby state is control-plane metadata, not authorization. A request is auto-executable only when its durable mailbox metadata was created by an `exec`-scoped caller; a `write` caller may enqueue the same structured request but cannot authorize execution. `notify` and `reply` never wake the model worker. The bounded durable-session worker still uses the target session's normal capability/scope enforcement and receives only the explicit objective plus saved safe session context.
 
+Standby persists a server-created authorization reference, never the raw bearer. Both
+the arming credential and each executable request's credential are revalidated before
+claim/dispatch and before every capability call: current scope, token expiry/revocation,
+resource binding, profile, tool allowlist and argument constraints all still apply.
+Browser grants also recheck the live approved owner device, session generation and
+expiry. Recovery never promotes an old `authorized: true` flag into authority; legacy
+records without a live reference are blocked and must be armed again.
+
 Standby uses one active command per session. A durable message claim plus a session execution lease prevents event/restart races from creating overlapping workers. On crash, an expired claim can be recovered idempotently; MSO promises at-most-one **active** execution, not impossible-to-prove exactly-once external side effects after a process dies between an external mutation and its completion marker. `workflow_finish` and `workflow_cancel` disarm the matching standby record, and every dispatch revalidates the exact workflow before model execution.
 
 ## MCP tools

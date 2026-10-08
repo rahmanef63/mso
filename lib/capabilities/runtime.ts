@@ -1,3 +1,4 @@
+import type { AuthorizationGrant } from "@/lib/capabilities/authorization-grant";
 import type { TenantContext } from "@/lib/tenancy/authority";
 import type { Scope } from "./scope";
 
@@ -18,6 +19,7 @@ export interface CapabilityInvocation {
   scope: Scope;
   actor?: string;
   principal?: string;
+  authorizationGrant?: AuthorizationGrant;
   sessionId?: string;
   /** Optional fixed workflow context used by durable delegated workers. */
   workflowId?: string;
@@ -30,6 +32,7 @@ export interface CapabilityInvocationResult {
 }
 
 export interface CapabilityRuntime {
+  authorize?(grant: AuthorizationGrant, principal: string, name?: string, args?: Record<string, unknown>): Promise<boolean>;
   list(scope: Scope): CapabilityDescriptor[];
   invoke(input: CapabilityInvocation): Promise<CapabilityInvocationResult>;
 }

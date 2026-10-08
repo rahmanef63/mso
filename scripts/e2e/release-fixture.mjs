@@ -69,7 +69,7 @@ export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
   await new Promise(resolve => reservation.close(resolve));
   const base = `http://localhost:${port}`;
   env.OS_PUBLIC_ORIGIN = base;
-  const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", String(port)], { env, stdio: ["ignore", "pipe", "pipe"] });
+  const server = spawn(process.execPath, ["scripts/server.mjs", "--hostname", "127.0.0.1", "--port", String(port)], { env, stdio: ["ignore", "pipe", "pipe"] });
   let logs = "";
   const capture = chunk => { logs = (logs + chunk.toString()).slice(-8000); };
   server.stdout.on("data", capture); server.stderr.on("data", capture);

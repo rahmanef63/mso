@@ -64,7 +64,8 @@ describe("eval-gated Tool Forge", () => {
     const evaluated = { ...candidate, state: "evaluated" as const, evaluation };
     const promotion = await promoteForgeCandidate(evaluated);
     const skillDir = path.dirname(promotion.path);
-    expect(await projectSkillTrust(skillDir, project)).toBe("local");
+    expect(await projectSkillTrust(skillDir, project)).toBe("untrusted");
+    expect(promotion.verification).toContain("operator review");
     await expect(promoteForgeCandidate(evaluated)).rejects.toThrow(/overwrite an existing Skill/i);
   });
 

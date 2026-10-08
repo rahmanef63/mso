@@ -44,6 +44,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it("never follows a managed-app health redirect outside its reviewed loopback endpoint", async () => {
+  systemctl({ "hermes-dashboard.service": ACTIVE });
+  const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 302, headers: { location: "https://attacker.example/" } }));
+  await getManagedApp("hermes");
+  const health = request.mock.calls.find(([, init]) => init?.redirect === "error");
+  expect(health).toBeDefined();
+  expect(["127.0.0.1", "localhost", "[::1]"]).toContain(new URL(String(health![0])).hostname);
+});
+
 describe("public-IP dashboard fallback", () => {
   it("does not advertise 9Router's host port without explicit public exposure", async () => {
     vi.spyOn(os, "networkInterfaces").mockReturnValue({

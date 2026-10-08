@@ -1,3 +1,4 @@
+import { authorizeDurableGrant } from "./durable-grant";
 import { allows } from "@/lib/capabilities/scope";
 import { executeCapabilityCall } from "@/lib/capabilities/execute";
 import { boundedResultText } from "@/lib/capabilities/result-budget";
@@ -14,6 +15,7 @@ function successResult(toolName: string, result: unknown): CapabilityInvocationR
 
 /** Concrete MSO catalog composed once; MCP/A2A/subagents are adapters over it. */
 export const msoCapabilityRuntime: CapabilityRuntime = {
+  authorize: authorizeDurableGrant,
   list(scope) {
     return TOOLS.filter((tool) => allows(scope, tool.scope)).map((tool) => ({
       name: tool.name,
@@ -23,6 +25,7 @@ export const msoCapabilityRuntime: CapabilityRuntime = {
     }));
   },
   async invoke(input) {
+    if (input.authorizationGrant && (!input.principal || !await authorizeDurableGrant(input.authorizationGrant, input.principal, input.name, input.args))) return { content: [{ type: "text", text: "error: durable execution grant is revoked, expired or does not allow this tool" }], isError: true };
     const tool = TOOLS_BY_NAME.get(input.name);
     if (!tool) return { content: [{ type: "text", text: `error: unknown tool: ${input.name}` }], isError: true };
     const args = { ...(input.args ?? {}) };
@@ -35,6 +38,7 @@ export const msoCapabilityRuntime: CapabilityRuntime = {
       context: {
         tenantContext: input.tenantContext,
         principal: input.principal,
+        authorizationGrant: input.authorizationGrant,
         sessionId: input.sessionId,
         ...(input.workflowActor ? { workflowActorOverride: input.workflowActor } : {}),
         capabilities: msoCapabilityRuntime,

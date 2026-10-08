@@ -6,6 +6,7 @@ import { rateLimited } from "@/lib/host/limits-api";
 import { listSystemServices, servicePower } from "@/lib/host/services";
 import { getSessionActor } from "@/lib/auth/require-session";
 import type { ServiceAction, ServiceScope } from "@/lib/os-api/types";
+import { readRequestJson, RequestBodyError } from "@/lib/security/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,13 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  let body: { scope?: ServiceScope; unit?: string; action?: ServiceAction };
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: "invalid request body" }, { status: 400 }); }
   const actor = await getSessionActor();
   if (rateLimited(`sys-service-action:${actor ?? "unknown"}`, 12, 60_000)) {
     return NextResponse.json({ error: "too many service actions" }, { status: 429 });
   }
+  let body: { scope?: ServiceScope; unit?: string; action?: ServiceAction };
+  try { body = await readRequestJson(req, 4096); }
+  catch (error) { return NextResponse.json({ error: "invalid request body" }, { status: error instanceof RequestBodyError ? error.status : 400 }); }
   try {
     const service = await servicePower(body.scope as ServiceScope, body.unit as string, body.action as ServiceAction);
     await audit({

@@ -9,6 +9,8 @@ process.env.OS_LOCAL_AGENT_PRESENCE_STORE = path.join(root, "presence.json");
 process.env.OS_LOCAL_AGENT_MESSAGE_STORE = path.join(root, "messages.json");
 process.env.OS_LOCAL_AGENT_STANDBY_STORE = path.join(root, "standby.json");
 process.env.OS_A2A_TASK_STORE = path.join(root, "tasks.json");
+process.env.OS_MCP_STORE = path.join(root, "mcp.json");
+process.env.OS_MCP_MAX_SCOPE = "exec";
 process.env.OS_LOCAL_AGENT_LEASE_MS = "15000";
 process.env.NEXT_PUBLIC_OS_DEMO = "0";
 
@@ -38,7 +40,14 @@ export const owner = "mcp-client:standby-owner";
 export const other = "mcp-client:foreign";
 export const workflowActor = "mcp:standby-owner";
 export const workflowId = "11111111-1111-4111-8111-111111111111";
+const tokenStore = await import("@/lib/mcp/store");
+export const token = "standby-fixture-token-" + root;
+await tokenStore.storeToken(token, { label: "standby fixture", clientId: "standby-owner", scope: "exec" });
+const credential = (await tokenStore.validateToken(token))!;
+const grants = await import("@/lib/mcp/durable-grant");
+export const authorizationGrant = grants.mcpAuthorizationGrant(credential, "https://fixture.example/mcp");
 export const capabilities = {
+  authorize: grants.authorizeDurableGrant,
   list: () => [],
   invoke: vi.fn(async () => ({ content: [] })),
 };
@@ -80,6 +89,7 @@ export async function arm(workerId: string) {
     workflowActor,
     workflowId,
     capabilities,
+    authorizationGrant,
   });
 }
 

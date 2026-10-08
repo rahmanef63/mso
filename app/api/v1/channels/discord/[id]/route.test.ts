@@ -12,7 +12,7 @@ vi.mock("@/lib/channels", () => {
 });
 
 const { POST } = await import("./route");
-const request = () => new NextRequest("https://mso.example.test/api/v1/channels/discord/channel-2", {
+const request = () => new NextRequest("https://mso.example.test/api/v1/channels/discord/22222222-2222-4222-8222-222222222222", {
   method: "POST",
   headers: { "content-type": "application/json", "x-signature-timestamp": "1", "x-signature-ed25519": "aa".repeat(64) },
   body: JSON.stringify({ id: "1", type: 2 }),
@@ -28,14 +28,14 @@ beforeEach(() => {
 describe("Discord interactions route", () => {
   it("returns Discord PONG without starting a workflow", async () => {
     mocks.receive.mockResolvedValue({ event: null, ping: true });
-    const response = await POST(request(), { params: Promise.resolve({ id: "channel-2" }) });
+    const response = await POST(request(), { params: Promise.resolve({ id: "22222222-2222-4222-8222-222222222222" }) });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ type: 1 });
     expect(mocks.dispatch).not.toHaveBeenCalled();
   });
 
   it("dispatches verified non-PING interactions", async () => {
-    const response = await POST(request(), { params: Promise.resolve({ id: "channel-2" }) });
+    const response = await POST(request(), { params: Promise.resolve({ id: "22222222-2222-4222-8222-222222222222" }) });
     expect(response.status).toBe(200);
     expect(mocks.dispatch).toHaveBeenCalledTimes(1);
     await expect(response.json()).resolves.toMatchObject({ type: 4 });
