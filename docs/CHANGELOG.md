@@ -46,6 +46,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `macos` measure menu width after opening animation
 - `security` distinguish synthetic A2A redaction fixture
 - `security` verify production sockets and preserve bounded project scans
 - `lock` wait for the privacy curtain keyboard listener before unlocking
