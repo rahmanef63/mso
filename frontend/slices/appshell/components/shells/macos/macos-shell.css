@@ -80,10 +80,11 @@
   background: var(--mac-window);
   border-bottom: .5px solid var(--mac-divider);
   color: var(--mac-title);
+  line-height: 15px;
 }
 .macos-light {
   background: var(--mac-light);
-  box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .35);
+  box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .45);
 }
 [data-focused="false"] .macos-light { background: var(--mac-inactive-light); }
 .macos-light-button:hover .macos-light,

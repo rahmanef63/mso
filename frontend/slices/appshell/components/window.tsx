@@ -138,7 +138,7 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
               onMinimize={beginMinimize}
               onMaximize={() => toggleMaximize(id)}
             />
-            <div className="macos-window-title pointer-events-none flex-1 truncate text-[13px] font-semibold">
+            <div className="macos-window-title pointer-events-none flex-1 truncate text-[13px] font-bold">
               {title}
             </div>
           </div>

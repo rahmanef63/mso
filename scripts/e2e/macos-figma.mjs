@@ -14,6 +14,7 @@ const browser = await chromium.launch({ headless: true });
 const results = [];
 const screenshots = [];
 let page;
+const titleStyle = el => { const s = getComputedStyle(el); return [s.fontSize, s.fontWeight, s.lineHeight]; };
 async function shot(name) {
   const file = path.join(dir, name + ".png");
   await page.screenshot({ path: file });
@@ -57,6 +58,8 @@ try {
     expect(await win.evaluate(el => getComputedStyle(el).borderRadius)).toBe("16px");
     for (const b of await win.locator(".macos-light-button").all()) expect((await b.boundingBox()).width).toBe(24);
     expect((await win.locator(".macos-light").first().boundingBox()).width).toBe(14);
+    expect(await win.locator(".macos-window-title").evaluate(titleStyle)).toEqual(["13px", "700", "15px"]);
+    expect(await win.locator(".macos-light").first().evaluate(el => getComputedStyle(el).boxShadow)).toContain("rgba(0, 0, 0, 0.45)");
   });
   await expect(page.getByText(/Loading settings/)).toHaveCount(0);
   await shot("light-window");
@@ -105,6 +108,7 @@ try {
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await shot("dark-window");
   await check("settled dark settings content contrast", async () => {
+    expect(await win.locator(".macos-window-title").evaluate(titleStyle)).toEqual(["13px", "700", "15px"]);
     const axe = await new AxeBuilder({ page }).include('[data-window][data-app="os-settings"]').withRules(["color-contrast"]).analyze();
     expect(axe.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) }))).toEqual([]);
   });
