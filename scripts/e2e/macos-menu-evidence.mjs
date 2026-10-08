@@ -11,15 +11,20 @@ async function menuChrome(menu) {
   expect(material.filter).toContain("saturate(1.8)");
   expect(material.edge).toBe(material.mode === "dark" ? "rgba(255, 255, 255, 0.18)" : "rgba(255, 255, 255, 0.35)");
   expect(material.shadow).toContain("inset");
+  await expect.poll(() => menu.locator('[role^="menuitem"]').evaluateAll(items =>
+    items.every(item => [...item.querySelectorAll("svg")].every(svg => getComputedStyle(svg).color === getComputedStyle(item).color))
+  )).toBe(true);
   const rows = await menu.locator('[role^="menuitem"]').evaluateAll(items => items.map(item => {
     const style = getComputedStyle(item);
-    return { size: style.fontSize, weight: style.fontWeight, family: style.fontFamily };
+    return { size: style.fontSize, weight: style.fontWeight, family: style.fontFamily, color: style.color,
+      symbols: [...item.querySelectorAll("svg")].map(svg => getComputedStyle(svg).color) };
   }));
   expect(rows.length).toBeGreaterThan(0);
   for (const row of rows) {
     expect(row.size).toBe("13px");
     expect(row.weight).toBe("500");
     expect(row.family).toContain("SF Pro Text");
+    for (const symbol of row.symbols) expect(symbol).toBe(row.color);
   }
 }
 
@@ -49,6 +54,23 @@ export async function menuEvidence({ page, check, shot }, theme) {
       await page.keyboard.press("Escape");
       await expect(menu).toHaveCount(0);
       expect(axe.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target) }))).toEqual([]);
+    });
+    await check(theme + " widget selection and destructive symbol colors", async () => {
+      await page.locator('[data-slot="widget-card"]').filter({ hasText: "CPU" }).click({ button: "right" });
+      const menu = page.locator('.macos-menu[role="menu"]');
+      await expect(menu).toBeVisible();
+      await page.mouse.move(750, 50);
+      await page.keyboard.press("ArrowDown");
+      await menuChrome(menu);
+      const selected = menu.getByRole("menuitem", { name: "Medium", exact: true });
+      await expect(selected.locator("svg.lucide-check")).toBeVisible();
+      const danger = menu.getByRole("menuitem", { name: "Remove widget", exact: true });
+      await expect(danger).toHaveClass(/text-destructive-text/);
+      expect(await danger.evaluate(el => getComputedStyle(el).color)).not.toBe(await menu.evaluate(el => getComputedStyle(el).color));
+      const normal = menu.getByRole("menuitem", { name: "Large", exact: true });
+      expect(await normal.evaluate(el => getComputedStyle(el).color)).toBe(await menu.evaluate(el => getComputedStyle(el).color));
+      await shot(theme + "-widget-menu");
+      await page.keyboard.press("Escape");
     });
     await check(theme + " open menu WCAG A/AA", async () => {
       await page.locator(".macos-menubar").getByRole("button", { name: "View", exact: true }).click();

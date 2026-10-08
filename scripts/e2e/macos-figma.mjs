@@ -28,6 +28,7 @@ try {
   await context.addInitScript(() => {
     localStorage.setItem("mso:onboarding:v1", "done");
     localStorage.setItem("sv:shell", JSON.stringify({ desktop: "macos", mobile: "ios" }));
+    localStorage.setItem("mso:desktop-widgets", JSON.stringify({ on: true, enabled: ["cpu"], sizes: { cpu: "m" }, positions: {} }));
   });
   page = await context.newPage();
   const errors = [];

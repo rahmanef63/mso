@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `appshell` align macOS menu symbol colors
 - `macos` unify shared menu glass material
 - `macos` unify shared menu typography with Figma reference
 - `fs` cap the complete enumeration response

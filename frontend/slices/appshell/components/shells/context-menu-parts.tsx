@@ -106,6 +106,7 @@ export function SubPanel({ item, m, onClose, pos, panelRef, onEnter, onLeave }: 
 }
 
 export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: MenuMetrics; onClose: () => void; sub?: SubControl }) {
+  const text = m.isMac ? "text-inherit" : "text-foreground/90";
   return (
     <>
       {items.map((it, i) => {
@@ -124,7 +125,7 @@ export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: Men
               disabled={it.disabled || !sub}
               onClick={(e) => sub?.onOpen(i, e.currentTarget.getBoundingClientRect(), { toggle: true })}
               onMouseEnter={(e) => !m.tap && sub?.onOpen(i, e.currentTarget.getBoundingClientRect())}
-              className={cn(ROW, "text-foreground/90", m.item, m.tap && "min-h-11", sub?.open === i && "bg-accent")}
+              className={cn(ROW, text, m.item, m.tap && "min-h-11", sub?.open === i && "bg-accent")}
             >
               <RowBody m={m} icon={it.icon} label={it.label} trailing={<ChevronRight className="size-4 shrink-0 opacity-60" />} />
             </button>
@@ -138,7 +139,7 @@ export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: Men
             disabled={it.disabled}
             onClick={() => { it.onClick(); onClose(); }}
             onMouseEnter={() => !m.tap && sub?.onLeave()}
-            className={cn(ROW, it.danger ? "text-destructive-text" : "text-foreground/90", m.item, m.tap && "min-h-11")}
+            className={cn(ROW, it.danger ? "text-destructive-text" : text, m.item, m.tap && "min-h-11")}
           >
             <RowBody
               m={m}
