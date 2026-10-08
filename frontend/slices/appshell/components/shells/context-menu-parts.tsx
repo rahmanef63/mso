@@ -3,6 +3,7 @@
    the submenu panel (context-menu.tsx owns position, state and keyboard). Split
    out so both files stay small; nothing here holds state. */
 import { cn } from "@/lib/utils";
+import { MACOS_MENU } from "../../design/macos/metrics";
 import { Check, ChevronRight, type LucideIcon } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import type { MenuItem } from "../../lib/context-menu";
@@ -32,13 +33,13 @@ export function menuMetrics(shell: string) {
   return {
     isWin,
     isMac,
-    width: isMac ? 244 : 220,
+    width: isMac ? MACOS_MENU.width : 220,
     chrome: isMac ? "macos-menu" : "",
     isTouch,
     /** No hover on a coarse pointer → submenus open on TAP instead. */
     tap: isTouch || coarse,
-    rowH: isTouch || coarse ? 44 : isWin ? 34 : isMac ? 24 : 30,
-    item: isWin ? "h-[34px] rounded-[4px]" : isTouch ? "min-h-11 rounded-lg py-2.5 text-[15px]" : isMac ? "h-6 rounded-lg py-0" : "rounded-md py-1",
+    rowH: isTouch || coarse ? 44 : isWin ? 34 : isMac ? MACOS_MENU.rowHeight : 30,
+    item: isWin ? "h-[34px] rounded-[4px]" : isTouch ? "min-h-11 rounded-lg py-2.5 text-[15px]" : isMac ? "rounded-lg py-0" : "rounded-md py-1",
     motion: isWin ? "fade-in-0 slide-in-from-top-2 duration-150" : "fade-in zoom-in-95 duration-100",
     radius: isWin ? "rounded-lg" : isTouch ? "rounded-2xl" : "rounded-xl",
     iconSize: isTouch ? "size-[18px]" : "size-4",
@@ -98,7 +99,7 @@ export function SubPanel({ item, m, onClose, pos, panelRef, onEnter, onLeave }: 
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       className={cn(PANEL, "z-[1202]", m.radius, m.chrome, m.motion)}
-      style={{ left: pos.x, top: pos.y }}
+      style={{ left: pos.x, top: pos.y, width: m.isMac ? m.width : undefined }}
     >
       <MenuRows items={item.items} m={m} onClose={onClose} />
     </div>
@@ -107,6 +108,7 @@ export function SubPanel({ item, m, onClose, pos, panelRef, onEnter, onLeave }: 
 
 export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: MenuMetrics; onClose: () => void; sub?: SubControl }) {
   const text = m.isMac ? undefined : "text-foreground/90";
+  const style = m.isMac ? { height: m.rowH } : undefined;
   return (
     <>
       {items.map((it, i) => {
@@ -125,6 +127,7 @@ export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: Men
               disabled={it.disabled || !sub}
               onClick={(e) => sub?.onOpen(i, e.currentTarget.getBoundingClientRect(), { toggle: true })}
               onMouseEnter={(e) => !m.tap && sub?.onOpen(i, e.currentTarget.getBoundingClientRect())}
+              style={style}
               className={cn(ROW, text, m.item, m.tap && "min-h-11", sub?.open === i && "bg-accent")}
             >
               <RowBody m={m} icon={it.icon} label={it.label} trailing={<ChevronRight className="size-4 shrink-0 opacity-60" />} />
@@ -139,6 +142,7 @@ export function MenuRows({ items, m, onClose, sub }: { items: MenuItem[]; m: Men
             disabled={it.disabled}
             onClick={() => { it.onClick(); onClose(); }}
             onMouseEnter={() => !m.tap && sub?.onLeave()}
+            style={style}
             className={cn(ROW, it.danger ? "text-destructive-text" : text, m.item, m.tap && "min-h-11")}
           >
             <RowBody

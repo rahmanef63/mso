@@ -2,9 +2,11 @@
    browser; here we cover the PURE metrics + the a11y invariants the submenu
    depends on (source-level, like window-preview.test.tsx). */
 import { readFileSync } from "node:fs";
+import { createElement, createRef } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SUBMENU_ID, menuMetrics } from "./context-menu-parts";
+import { SUBMENU_ID, SubPanel, menuMetrics } from "./context-menu-parts";
 
 const src = readFileSync(resolve(__dirname, "context-menu-parts.tsx"), "utf8");
 
@@ -30,6 +32,17 @@ describe("menuMetrics", () => {
     expect(menuMetrics("windows").radius).toBe("rounded-lg");
     expect(menuMetrics("ios").item).toContain("min-h-11");
   });
+});
+
+it("renders changed menu geometry without separate CSS dimensions", () => {
+  const m = { ...menuMetrics("macos"), width: 320, rowH: 36 };
+  const html = renderToStaticMarkup(createElement(SubPanel, {
+    item: { type: "submenu", label: "Sizing", items: [{ label: "Example", onClick: () => {} }] },
+    m, onClose: () => {}, pos: { x: 8, y: 8 }, panelRef: createRef<HTMLDivElement>(),
+    onEnter: () => {}, onLeave: () => {},
+  }));
+  expect(html).toContain("width:320px");
+  expect(html).toContain("height:36px");
 });
 
 describe("submenu a11y invariants", () => {

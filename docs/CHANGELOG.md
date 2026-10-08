@@ -41,6 +41,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Changed**
 
+- `macos` centralize shared chrome geometry and typography
 - `security` keep authority fixes within architecture line limits
 
 **Tests**

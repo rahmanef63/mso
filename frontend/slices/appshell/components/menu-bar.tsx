@@ -35,7 +35,7 @@ export function MenuBar() {
 
   return (
     <header
-      className="macos-menubar absolute inset-x-0 top-0 z-[900] flex items-center gap-1 px-2.5 text-[13px] font-medium font-[family-name:var(--shell-font)]"
+      className="macos-menubar absolute inset-x-0 top-0 z-[900] flex items-center gap-1 px-2.5 font-[family-name:var(--shell-font)]"
       style={{ height: TOPBAR }}
     >
       <div className="flex min-w-0 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

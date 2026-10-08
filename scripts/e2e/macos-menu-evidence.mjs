@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 async function menuChrome(menu) {
   await expect(menu).toHaveAttribute("data-shell-id", "macos");
+  expect((await menu.boundingBox()).width).toBe(244);
   const material = await menu.evaluate(el => {
     const style = getComputedStyle(el);
     return { mode: document.documentElement.dataset.theme, filter: style.backdropFilter, edge: style.borderColor, shadow: style.boxShadow };

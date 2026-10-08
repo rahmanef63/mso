@@ -202,7 +202,7 @@ export function ContextMenu({ pos, items, onClose }: { pos: Pos; items: MenuItem
         data-shell-id={m.isMac ? "macos" : undefined}
         onMouseLeave={leaveSub}
         className={cn(PANEL, "z-[1201]", m.radius, m.chrome, m.motion)}
-        style={{ left: x, top: y }}
+        style={{ left: x, top: y, width: m.isMac ? m.width : undefined }}
       >
         <MenuRows items={items} m={m} onClose={onClose} sub={{ open: sub?.i ?? null, onOpen: openSub, onLeave: leaveSub }} />
       </div>

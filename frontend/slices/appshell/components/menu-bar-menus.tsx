@@ -1,6 +1,7 @@
 "use client";
 /* Menu-bar dropdown menus + shared <Menu> trigger (split from menu-bar.tsx). */
 import { Fragment } from "react";
+import { MACOS_MENU } from "../design/macos/metrics";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -188,7 +189,7 @@ export function Menu(props: { label: string; bold?: boolean; children: React.Rea
       >
         {props.label}
       </DropdownMenuTrigger>
-      <DropdownMenuContent data-shell-id="macos" align="start" sideOffset={5} className="macos-menu rounded-xl">
+      <DropdownMenuContent data-shell-id="macos" align="start" sideOffset={5} className="macos-menu rounded-xl" style={{ width: MACOS_MENU.width }}>
         {props.children}
       </DropdownMenuContent>
     </DropdownMenu>

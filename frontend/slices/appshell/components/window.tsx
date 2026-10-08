@@ -127,7 +127,7 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
           </div>
         ) : (
           <div
-            className="macos-titlebar flex h-[52px] shrink-0 cursor-grab items-center gap-3 pl-3 pr-[18px] font-[family-name:var(--shell-font)] active:cursor-grabbing"
+            className="macos-titlebar flex shrink-0 cursor-grab items-center gap-3 pl-3 pr-[18px] font-[family-name:var(--shell-font)] active:cursor-grabbing"
             onPointerDown={onBarDown}
             onDoubleClick={() => toggleMaximize(id)}
             onContextMenu={ctx.open}
@@ -138,7 +138,7 @@ export const Window = memo(function Window({ id, variant = "macos" }: { id: WinI
               onMinimize={beginMinimize}
               onMaximize={() => toggleMaximize(id)}
             />
-            <div className="macos-window-title pointer-events-none flex-1 truncate text-[13px] font-bold">
+            <div className="macos-window-title pointer-events-none flex-1 truncate">
               {title}
             </div>
           </div>

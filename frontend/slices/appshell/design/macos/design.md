@@ -13,6 +13,7 @@ Source: [macOS 27 Examples](https://www.figma.com/design/f3ivRnEohVvr87qszwuQiw/
 - Browser inspection of the composed window Title `4376:55456` confirms SF Pro Bold 13px with a 15px line height. The shared macOS title uses that weight/rhythm. Close and Minimize properties confirm 14px circles and a 0.5px inner black stroke at 45%; existing colors and 24px hit areas remain authoritative. Windows keeps its separate caption branch.
 - Existing Radix controls, shell store, app registry and docking interactions remain authoritative.
 - The Examples page has no dock specimen. Preserve existing artwork; reserve the full hover-growth pool so controls stay reachable.
+- SSOT: `metrics.ts` owns numeric menu width/row height for position estimates, context/submenu rows and menu-bar dropdowns. CSS owns the shared chrome font size, semantic weights, titlebar heights, palette and materials; components carry layout/action classes and inherit those values. Equal numbers for unrelated roles are not automatically one token.
 - macOS CSS loads with its lazy shell component. No global palette replacement or extra design dependency.
 - Do not import PR103's unrelated iOS/chat modifications or unconditional Force Quit styling.
 
