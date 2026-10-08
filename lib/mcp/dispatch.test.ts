@@ -71,20 +71,23 @@ describe("protocol", () => {
     });
   });
 
-  it("answers ping and initialized", async () => {
+  it("answers ping, initialized and roots/list_changed", async () => {
     expect(await dispatch({ id: 2, method: "ping" }, "read")).toMatchObject({ result: {} });
     expect(await dispatch({ id: 3, method: "notifications/initialized" }, "read")).toMatchObject({ result: {} });
+    expect(await dispatch({ id: 4, method: "notifications/roots/list_changed" }, "read")).toMatchObject({ result: {} });
   });
 
   it("returns a JSON-RPC error for an unknown method", async () => {
-    const r = await dispatch({ id: 4, method: "tools/nope" }, "read");
+    const r = await dispatch({ id: 5, method: "tools/nope" }, "read");
     expect((r.error as { code: number }).code).toBe(-32601);
   });
 
   it("recognises notifications, which must be acked without a body", () => {
     expect(isNotification({ jsonrpc: "2.0", method: "notifications/cancelled" })).toBe(true);
+    expect(isNotification({ jsonrpc: "2.0", method: "notifications/roots/list_changed" })).toBe(true);
     expect(isNotification({ jsonrpc: "2.0", id: 1, method: "tools/list" })).toBe(false);
     expect(isNotification({ jsonrpc: "2.0", id: 1, method: "notifications/initialized" })).toBe(false);
+    expect(isNotification({ jsonrpc: "2.0", id: 1, method: "notifications/roots/list_changed" })).toBe(false);
   });
 });
 

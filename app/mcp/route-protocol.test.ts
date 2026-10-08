@@ -112,4 +112,31 @@ describe("/mcp protocol boundary", () => {
     expect(res.status).toBe(405);
     expect(res.headers.get("allow")).toBe("POST");
   });
+
+  it("acknowledges modern notifications/roots/list_changed without per-request metadata and returns 202", async () => {
+    mocks.validateToken.mockResolvedValueOnce({ hash: "4".repeat(64), scope: "read", clientId: "client-agy-roots", label: "AGY roots" });
+    const { POST } = await import("./route");
+    const res = await POST(request(JSON.stringify({
+      jsonrpc: "2.0",
+      method: "notifications/roots/list_changed",
+    }), {
+      "MCP-Protocol-Version": "2026-07-28",
+    }));
+    expect(res.status).toBe(202);
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges modern notifications/roots/list_changed with empty params object", async () => {
+    mocks.validateToken.mockResolvedValueOnce({ hash: "5".repeat(64), scope: "read", clientId: "client-agy-roots-params", label: "AGY roots params" });
+    const { POST } = await import("./route");
+    const res = await POST(request(JSON.stringify({
+      jsonrpc: "2.0",
+      method: "notifications/roots/list_changed",
+      params: {},
+    }), {
+      "MCP-Protocol-Version": "2026-07-28",
+    }));
+    expect(res.status).toBe(202);
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
 });

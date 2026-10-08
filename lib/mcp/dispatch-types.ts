@@ -20,6 +20,11 @@ export interface RpcRequest {
   };
 }
 
+export function isNotification(body: unknown): boolean {
+  const b = body as RpcRequest | null;
+  return b?.id == null && String(b?.method ?? "").startsWith("notifications/");
+}
+
 export interface McpAgentContext {
   tenantContext?: TenantContext;
   principal?: string;

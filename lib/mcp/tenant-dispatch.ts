@@ -32,7 +32,8 @@ export async function dispatchTenantRpc(req: RpcRequest, scope: Scope, actor: st
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: "mso", version: MCP_SERVER_VERSION }, instructions: INSTRUCTIONS });
     case "ping":
-    case "notifications/initialized": return rpcOk(id, {});
+    case "notifications/initialized":
+    case "notifications/roots/list_changed": return rpcOk(id, {});
     case "tools/list": return rpcOk(id, { tools: visible.map(tool => toolDescriptor(tool, profile)), cacheScope: "private", ttlMs: 0 });
     case "resources/list": return rpcOk(id, { resources: [] });
     case "resources/templates/list": return rpcOk(id, { resourceTemplates: [] });

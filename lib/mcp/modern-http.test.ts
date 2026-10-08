@@ -32,4 +32,37 @@ describe("modern MCP HTTP", () => {
     expect(modernMcpResult({ result: { structuredContent: {} } }, "1", "tools/call").result).not.toHaveProperty("ttlMs");
     expect(modernMcpResult({ result: { structuredContent: {} } }, "1", "tools/call").result).not.toHaveProperty("cacheScope");
   });
+
+  it("allows modern notifications like roots/list_changed without per-request metadata while preserving strict request checks", () => {
+    // AGY 1.3.1 sends MCP-Protocol-Version: 2026-07-28 without Mcp-Method / Mcp-Name and without params._meta
+    const notifyReq = new Request("https://mso.test/mcp", {
+      method: "POST",
+      headers: { "MCP-Protocol-Version": "2026-07-28" },
+    });
+    const notifyBody = { jsonrpc: "2.0", method: "notifications/roots/list_changed" };
+    expect(validateMcpRequest(notifyReq, notifyBody)).toEqual({ modern: true });
+    expect(validateMcpRequest(notifyReq, { ...notifyBody, params: {} })).toEqual({ modern: true });
+
+    // Other notifications like initialized also pass without _meta
+    expect(validateMcpRequest(notifyReq, { jsonrpc: "2.0", method: "notifications/initialized" })).toEqual({ modern: true });
+
+    // If a request has an id, it is not a notification and must supply modern _meta and headers
+    expect(validateMcpRequest(notifyReq, { ...notifyBody, id: 1 }).error).toMatchObject({
+      error: { code: -32602 },
+    });
+
+    // Requests like tools/call still require full modern metadata
+    expect(validateMcpRequest(notifyReq, { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "weather" } }).error).toMatchObject({
+      error: { code: -32602 },
+    });
+
+    // Unsupported MCP-Protocol-Version is still rejected even for notifications
+    const unsupportedReq = new Request("https://mso.test/mcp", {
+      method: "POST",
+      headers: { "MCP-Protocol-Version": "2099-01-01" },
+    });
+    expect(validateMcpRequest(unsupportedReq, notifyBody).error).toMatchObject({
+      error: { code: -32022 },
+    });
+  });
 });

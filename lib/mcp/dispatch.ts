@@ -15,10 +15,7 @@ export type { McpAgentContext, RpcRequest } from "./dispatch-types";
 export const UNAUTHORIZED = -32001;
 export const RATE_LIMITED = -32029;
 
-export function isNotification(body: unknown): boolean {
-  const b = body as RpcRequest | null;
-  return b?.id == null && String(b?.method ?? "").startsWith("notifications/");
-}
+export { isNotification } from "./dispatch-types";
 
 const toolAllowed = (name: string, allowedTools?: readonly string[]) => !allowedTools || allowedTools.includes(name);
 const visibleTools = (scope: Scope, profile: McpToolProfile = "full", allowedTools?: readonly string[]) =>
@@ -95,6 +92,7 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, ag
       });
     }
     case "notifications/initialized":
+    case "notifications/roots/list_changed":
     case "ping": return rpcOk(id, {});
     case "tools/list": {
       const profile = agentContext?.toolProfile ?? "full";

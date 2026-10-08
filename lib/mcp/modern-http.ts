@@ -1,5 +1,5 @@
 import { MCP_PROTOCOL_LATEST, MCP_PROTOCOLS } from "./protocol";
-import type { RpcRequest } from "./dispatch-types";
+import { isNotification, type RpcRequest } from "./dispatch-types";
 const VERSION = "io.modelcontextprotocol/protocolVersion";
 const CAPABILITIES = "io.modelcontextprotocol/clientCapabilities";
 const object = (v: unknown): v is Record<string, unknown> => Boolean(v && typeof v === "object" && !Array.isArray(v));
@@ -21,6 +21,7 @@ export function validateMcpRequest(req: Request, body: unknown): { modern: boole
   if (header && !(MCP_PROTOCOLS as readonly string[]).includes(header) && rpc.method !== "initialize") return fail(-32022, "unsupported MCP protocol version", { supported: [...MCP_PROTOCOLS], requested: header });
   if (version !== undefined && !(MCP_PROTOCOLS as readonly unknown[]).includes(version)) return fail(-32022, "unsupported MCP protocol version", { supported: [...MCP_PROTOCOLS], requested: version });
   if (!modern) return { modern: false };
+  if (isNotification(rpc)) return { modern: true };
   if (rpc.jsonrpc !== "2.0" || typeof version !== "string" || !object(meta?.[CAPABILITIES])) return fail(-32602, "modern requests require protocolVersion and clientCapabilities in params._meta");
   if (version !== header || req.headers.get("Mcp-Method") !== rpc.method) return fail(-32020, "MCP protocol/method header does not match the request body");
   const name = rpc.method === "resources/read" ? rpc.params?.uri : ["tools/call", "prompts/get"].includes(rpc.method) ? rpc.params?.name : undefined;
