@@ -3,7 +3,7 @@ import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { desktopMenu, menuEvidence } from "./macos-menu-evidence.mjs";
+import { desktopMenu, menuEvidence, reducedMenuEvidence } from "./macos-menu-evidence.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
 
 process.umask(0o077);
@@ -186,6 +186,7 @@ try {
     await expect(page.locator(".macos-menubar")).toBeVisible();
     await menuEvidence({ page, check, shot }, "returned-macos");
   });
+  await reducedMenuEvidence({ browser, base: fixture.base, check });
   await check("no uncaught browser errors", async () => expect(errors).toEqual([]));
 } finally {
   await writeFile(path.join(dir, "report.json"), JSON.stringify({ results, screenshots }, null, 2));

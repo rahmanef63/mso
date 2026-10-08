@@ -1,8 +1,16 @@
 import { expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-async function menuTypography(menu) {
+async function menuChrome(menu) {
   await expect(menu).toHaveAttribute("data-shell-id", "macos");
+  const material = await menu.evaluate(el => {
+    const style = getComputedStyle(el);
+    return { mode: document.documentElement.dataset.theme, filter: style.backdropFilter, edge: style.borderColor, shadow: style.boxShadow };
+  });
+  expect(material.filter).toContain("blur(");
+  expect(material.filter).toContain("saturate(1.8)");
+  expect(material.edge).toBe(material.mode === "dark" ? "rgba(255, 255, 255, 0.18)" : "rgba(255, 255, 255, 0.35)");
+  expect(material.shadow).toContain("inset");
   const rows = await menu.locator('[role^="menuitem"]').evaluateAll(items => items.map(item => {
     const style = getComputedStyle(item);
     return { size: style.fontSize, weight: style.fontWeight, family: style.fontFamily };
@@ -24,7 +32,7 @@ export async function menuEvidence({ page, check, shot }, theme) {
       await page.mouse.click(1504, 160, { button: "right" });
       const menu = page.locator('.macos-menu[role="menu"]');
       await expect(menu).toBeVisible();
-      await menuTypography(menu);
+      await menuChrome(menu);
       await expect.poll(async () => (await menu.boundingBox()).width).toBe(244);
       const box = await menu.boundingBox();
       expect(box.width).toBe(244);
@@ -46,7 +54,7 @@ export async function menuEvidence({ page, check, shot }, theme) {
       await page.locator(".macos-menubar").getByRole("button", { name: "View", exact: true }).click();
       const menu = page.locator(".macos-menu");
       await expect(menu).toBeVisible();
-      await menuTypography(menu);
+      await menuChrome(menu);
       expect(await menu.evaluate(el => getComputedStyle(el).borderRadius)).toBe("12px");
       const axe = await new AxeBuilder({ page }).include(".macos-menu").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
       await page.keyboard.press("Escape");
@@ -76,4 +84,30 @@ export async function desktopMenu(page, itemName) {
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: itemName, exact: true })).toBeVisible();
   return menu;
+}
+
+export async function reducedMenuEvidence({ browser, base, check }) {
+  await check("reduced glass disables supported macOS menu filters", async () => {
+    const context = await browser.newContext({ viewport: { width: 1512, height: 982 } });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem("mso:onboarding:v1", "done");
+        localStorage.setItem("sv:shell", JSON.stringify({ desktop: "macos", mobile: "ios" }));
+        localStorage.setItem("mso:tweaks", JSON.stringify({ reduceGlass: true }));
+      });
+      const page = await context.newPage();
+      await page.goto(base);
+      await expect(page.locator("html")).toHaveClass(/reduce-glass/);
+      const contextMenu = await desktopMenu(page, "View as Windows");
+      const filters = el => {
+        const style = getComputedStyle(el);
+        return [style.backdropFilter, CSS.supports("-webkit-backdrop-filter", "blur(1px)")
+          ? style.getPropertyValue("-webkit-backdrop-filter") : "unsupported"];
+      };
+      expect(await contextMenu.evaluate(filters)).toEqual(["none", expect.stringMatching(/^(none|unsupported)$/)]);
+      await page.keyboard.press("Escape");
+      await page.locator(".macos-menubar").getByRole("button", { name: "View", exact: true }).click();
+      expect(await page.locator(".macos-menu").evaluate(filters)).toEqual(["none", expect.stringMatching(/^(none|unsupported)$/)]);
+    } finally { await context.close(); }
+  });
 }

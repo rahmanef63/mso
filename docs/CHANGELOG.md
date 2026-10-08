@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `macos` unify shared menu glass material
 - `macos` unify shared menu typography with Figma reference
 - `fs` cap the complete enumeration response
 - `security` revalidate durable authority and bound follow-up scan paths

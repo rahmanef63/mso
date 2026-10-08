@@ -1,12 +1,14 @@
-import { afterAll, expect, it } from "vitest";
+import { afterAll, expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 const root = await mkdtemp(path.join(os.tmpdir(), "mso-enumeration-"));
-process.env.OS_FS_READ_ROOTS = root;
+// Keep credential-root resolution inside the synthetic fixture, not the operator home.
+vi.stubEnv("HOME", root);
+vi.stubEnv("OS_FS_READ_ROOTS", root);
 const { listDir, searchFs } = await import("./fs-enumeration");
-afterAll(async () => { delete process.env.OS_FS_READ_ROOTS; await rm(root, { recursive: true, force: true }); });
+afterAll(async () => { vi.unstubAllEnvs(); await rm(root, { recursive: true, force: true }); });
 
 it("bounds oversized listings, sparse searches and concurrent work, releasing admission after failure", async () => {
   const large = path.join(root, "large"); await mkdir(large);
