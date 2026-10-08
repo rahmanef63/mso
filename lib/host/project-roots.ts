@@ -18,6 +18,7 @@
 //      could never advance: every call rebuilt the same capped prefix.
 import { promises as fs } from "fs";
 import path from "path";
+import { credentialRoots } from "./path-credentials";
 import { validateProjectChild } from "./project-candidate";
 import { encodeCursor } from "./project-cursor";
 import {
@@ -52,6 +53,8 @@ async function walkContainer(
   deadlineAt: number,
   budget: number,
 ): Promise<Walk> {
+  // One bounded metadata walk shares its alias snapshot; actual file reads revalidate paths.
+  const protectedPaths = credentialRoots();
   const dirs: string[] = [];
   let consumed = skipEntries;
   let seen = 0;
@@ -76,7 +79,7 @@ async function walkContainer(
       if (containerPaths.has(full)) skipped += 1;
       else if (!entry.isDirectory() || entry.name.startsWith(".")) skipped += 1;
       else {
-        const candidate = await validateProjectChild(container, entry.name);
+        const candidate = await validateProjectChild(container, entry.name, protectedPaths);
         if (candidate.ok) dirs.push(candidate.path);
         else skipped += 1;
       }

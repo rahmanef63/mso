@@ -26,7 +26,7 @@ const currentUid = (): number | undefined => (typeof process.getuid === "functio
 
 /** A single path component: real, visible, not a link, owned by us. `parent` is already
  *  validated (or is the container), so this never re-walks the whole prefix. */
-async function validateComponent(parent: string, name: string): Promise<CandidateResult> {
+async function validateComponent(parent: string, name: string, credentialPaths?: string[]): Promise<CandidateResult> {
   if (!name || name === "." || name === ".." || name.includes("/") || name.includes("\\")) return { ok: false, reason: "escape" };
   if (name.startsWith(".")) return { ok: false, reason: "hidden" };
   const full = path.join(parent, name);
@@ -39,7 +39,7 @@ async function validateComponent(parent: string, name: string): Promise<Candidat
     if (!stat.isDirectory()) return { ok: false, reason: "not-directory" };
     const uid = currentUid();
     if (uid !== undefined && stat.uid !== uid) return { ok: false, reason: "uid" };
-    if (isCredentialPath(full)) return { ok: false, reason: "credential" };
+    if (isCredentialPath(full, credentialPaths)) return { ok: false, reason: "credential" };
     return { ok: true, path: full };
   }
 }
@@ -48,8 +48,8 @@ async function validateComponent(parent: string, name: string): Promise<Candidat
  * ONE direct child of a container — the enumeration case and the exact-name/alias probe.
  * A final realpath check catches a swap between lstat and here.
  */
-export async function validateProjectChild(container: ProjectContainer, name: string): Promise<CandidateResult> {
-  const component = await validateComponent(container.path, name);
+export async function validateProjectChild(container: ProjectContainer, name: string, credentialPaths?: string[]): Promise<CandidateResult> {
+  const component = await validateComponent(container.path, name, credentialPaths);
   if (!component.ok) return component;
   const real = await fs.realpath(/* turbopackIgnore: true */ component.path).catch(() => null);
   if (real !== component.path || !isUnderRoot(real, container.path)) return { ok: false, reason: "escape" };

@@ -35,6 +35,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `security` verify production sockets and preserve bounded project scans
 - `lock` wait for the privacy curtain keyboard listener before unlocking
 
 ## 2026-10-07

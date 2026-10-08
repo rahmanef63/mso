@@ -14,6 +14,7 @@ import { memoryBackupHistoryJourney } from "./memory-backup-history.mjs";
 import { aiProviderSwitchJourney } from "./ai-provider-switch.mjs";
 import { shellNoticesJourney } from "./shell-notices.mjs";
 
+execFileSync(process.execPath, ["scripts/e2e/socket-authority.mjs"], { stdio: "inherit", timeout: 30000 });
 execFileSync(process.execPath, ["scripts/e2e/shell-apps.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/mcp-page.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/workflow-embeds.mjs"], { stdio: "inherit" });
