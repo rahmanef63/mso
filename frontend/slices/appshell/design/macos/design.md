@@ -5,7 +5,8 @@ Source: [macOS 27 Examples](https://www.figma.com/design/f3ivRnEohVvr87qszwuQiw/
 ## Component selection
 - Reference nodes: menus 4440:8154/8155, windows 4440:8164/8165, unified titlebar 4440:8159.
 - Candidate A 5cdad278 supplies 34px bar geometry, solid 52px titlebar, 16px windows, 14px traffic lights inside 24px targets, and focus-dependent shadows.
-- PR103 candidate B 5efbe7ea supplies the direction for semibold/heavy bar labels, focus-stable 12px menus, 24px fine-pointer context rows and translucent menu material.
+- PR103 candidate B 5efbe7ea supplies the direction for semibold/heavy bar labels, 24px fine-pointer context rows and translucent menu material.
+- Browser inspection of Examples/Menubar `4370:42756` confirms SF Pro Medium 13px labels and shortcut symbols. The shared `.macos-menu` rule owns size/weight for menu-bar, context and submenu rows; portaled panels use the existing `data-shell-id` font stack instead of a separate system-ui override. Platform font fallback remains intentional where SF Pro is unavailable.
 - Combined menus retain A's readable shortcut text and selection contrast. Coarse-pointer rows remain at least 44px; Windows and Dashboard metrics retain their existing values.
 - Existing Radix controls, shell store, app registry and docking interactions remain authoritative.
 - The Examples page has no dock specimen. Preserve existing artwork; reserve the full hover-growth pool so controls stay reachable.

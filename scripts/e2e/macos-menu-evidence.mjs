@@ -1,6 +1,20 @@
 import { expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+async function menuTypography(menu) {
+  await expect(menu).toHaveAttribute("data-shell-id", "macos");
+  const rows = await menu.locator('[role^="menuitem"]').evaluateAll(items => items.map(item => {
+    const style = getComputedStyle(item);
+    return { size: style.fontSize, weight: style.fontWeight, family: style.fontFamily };
+  }));
+  expect(rows.length).toBeGreaterThan(0);
+  for (const row of rows) {
+    expect(row.size).toBe("13px");
+    expect(row.weight).toBe("500");
+    expect(row.family).toContain("SF Pro Text");
+  }
+}
+
 export async function menuEvidence({ page, check, shot }, theme) {
     await check(theme + " chrome WCAG A/AA", async () => {
       const axe = await new AxeBuilder({ page }).include(".macos-menubar").include(".macos-titlebar").include(".macos-dock").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
@@ -10,6 +24,7 @@ export async function menuEvidence({ page, check, shot }, theme) {
       await page.mouse.click(1504, 160, { button: "right" });
       const menu = page.locator('.macos-menu[role="menu"]');
       await expect(menu).toBeVisible();
+      await menuTypography(menu);
       await expect.poll(async () => (await menu.boundingBox()).width).toBe(244);
       const box = await menu.boundingBox();
       expect(box.width).toBe(244);
@@ -31,6 +46,7 @@ export async function menuEvidence({ page, check, shot }, theme) {
       await page.locator(".macos-menubar").getByRole("button", { name: "View", exact: true }).click();
       const menu = page.locator(".macos-menu");
       await expect(menu).toBeVisible();
+      await menuTypography(menu);
       expect(await menu.evaluate(el => getComputedStyle(el).borderRadius)).toBe("12px");
       const axe = await new AxeBuilder({ page }).include(".macos-menu").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
       await page.keyboard.press("Escape");

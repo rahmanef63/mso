@@ -94,6 +94,7 @@ export function SubPanel({ item, m, onClose, pos, panelRef, onEnter, onLeave }: 
       id={SUBMENU_ID}
       role="menu"
       aria-label={item.label}
+      data-shell-id={m.isMac ? "macos" : undefined}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       className={cn(PANEL, "z-[1202]", m.radius, m.chrome, m.motion)}

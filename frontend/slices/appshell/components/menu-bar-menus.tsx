@@ -188,7 +188,7 @@ export function Menu(props: { label: string; bold?: boolean; children: React.Rea
       >
         {props.label}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={5} className="macos-menu rounded-xl">
+      <DropdownMenuContent data-shell-id="macos" align="start" sideOffset={5} className="macos-menu rounded-xl">
         {props.children}
       </DropdownMenuContent>
     </DropdownMenu>
