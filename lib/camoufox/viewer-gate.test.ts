@@ -153,8 +153,6 @@ describe("the Camoufox split-origin VNC bridge", () => {
   it("maps an approved sibling viewer to loopback noVNC and strips credentials upstream", async () => {
     const proxy = await load();
     const res = await proxy(vnc(viewerCookie(), CAMOUFOX_VIEWER_PUBLIC_PREFIX + "/websockify", {
-      upgrade: "websocket",
-      connection: "Upgrade",
       authorization: "Bearer must-not-leak",
     }));
     const target = new URL(rewriteOf(res)!);

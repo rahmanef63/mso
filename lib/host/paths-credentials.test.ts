@@ -108,6 +108,21 @@ describe("recursive credential guard", () => {
     rmSync(outside, { recursive: true, force: true });
   });
 
+  it("denies canonical aliases of protected MSO state even with the sensitive escape hatch", () => {
+    vi.stubEnv("HOME", fakeHome);
+    const target = path.join(fakeHome, "safe", "protected-alias");
+    const protectedPath = path.join(fakeHome, ".mso");
+    mkdirSync(target);
+    symlinkSync(target, protectedPath, process.platform === "win32" ? "junction" : "dir");
+    try {
+      expect(isCredentialPath(path.join(target, "auth.json"))).toBe(true);
+      expect(sensitiveExcludes(fakeHome)).toContain("safe/protected-alias/*");
+      vi.stubEnv("OS_FS_ALLOW_SENSITIVE", "1");
+      expect(isCredentialPath(path.join(target, "auth.json"))).toBe(true);
+      expect(sensitiveExcludes(fakeHome)).toContain("safe/protected-alias/*");
+    } finally { rmSync(protectedPath); rmSync(target, { recursive: true }); }
+  });
+
   it("honours the OS_FS_ALLOW_SENSITIVE escape hatch", () => {
     vi.stubEnv("HOME", fakeHome);
     vi.stubEnv("OS_FS_ALLOW_SENSITIVE", "1");

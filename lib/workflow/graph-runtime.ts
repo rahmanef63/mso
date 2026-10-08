@@ -11,7 +11,7 @@ import { graphObject } from "./graph-schema";
 import { bindLoopItem, bindWorkflowValue } from "./graph-bindings";
 import { executeFlowNode, workflowItems, type FlowNodeResult } from "./graph-flow-nodes";
 import { workflowVariableValues } from "./variables";
-import { organizationLocalAgentPrincipal, resolveOrganizationSeat } from "@/lib/agent/organization-runtime";
+import { organizationLocalAgentPrincipal, organizationTargetDigest, resolveOrganizationSeat } from "@/lib/agent/organization-runtime";
 import { workflowCacheDelete, workflowCacheGet, workflowCacheSet } from "./cache-store";
 import { deleteWorkflowDataTableRow, getWorkflowDataTable, listWorkflowDataTables, upsertWorkflowDataTableRow } from "./data-table-store";
 import { repeatWorkflow, runWorkflowGraphChild } from "./graph-repeat";
@@ -170,6 +170,7 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
     if (typeof config.message !== "string" || !config.message.trim()) throw new Error("agent node requires message");
     if (typeof config.orgSeatId === "string" && config.orgSeatId) {
       const seat = await resolveOrganizationSeat(config.orgSeatId), target = seat.target;
+      if (config.orgTargetDigest !== organizationTargetDigest(seat)) throw new Error("organization execution binding changed; review and save the workflow before running it");
       if (seat.state !== "active" || seat.seatMode === "inactive") throw new Error(`organization seat ${seat.title} is not active`);
       if (target.kind === "project-agent") { const args: Record<string, unknown> = { project: target.project, message: config.message, wait: config.wait !== false, plan_mode: Boolean(config.plan_mode), max_scope: ["read", "write", "exec"].includes(String(config.max_scope)) ? config.max_scope : "write" }; if (context.workflowId) args.workflow_id = context.workflowId; return { output: await callTool("project_agent_run", args, context, resolve), log: `Organization seat ${seat.title} routed to project agent.` }; }
       if (target.kind === "local-agent") return { output: await callTool("local_agent_request", { target: target.ref, objective: config.message, ...(context.workflowId ? { workflow_id: context.workflowId } : {}) }, { ...context, principal: organizationLocalAgentPrincipal(principal) }, resolve), log: `Organization seat ${seat.title} routed to local agent.` };

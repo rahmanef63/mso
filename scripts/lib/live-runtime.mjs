@@ -11,6 +11,7 @@ function runtimeCommand(comm, cmdline) {
   return (
     /\bnext-server\b/i.test(text) ||
     /node_modules\/next\/dist\/bin\/next\s+start\b/i.test(text) ||
+    /scripts\/server\.mjs(?:\s|$)/i.test(text) ||
     /\b(?:npm|bun|pnpm)\s+run\s+start(?:\s|$)/i.test(text) ||
     /\byarn\s+start(?:\s|$)/i.test(text)
   );

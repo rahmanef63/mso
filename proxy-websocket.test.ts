@@ -1,7 +1,4 @@
-// The WebSocket branch of proxy.ts, split out of proxy.test.ts to stay under the
-// 220-line rule. It is the one path where MIDDLEWARE, not a route handler, is all
-// that stands between the public internet and an agent gateway: the upgrade never
-// reaches the proxy route, so that route's verifyAuth() never runs.
+// Socket authorization policy; live forwarding is exercised in socket-lifetime.test.ts.
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { signSession } from "./lib/auth/session";
@@ -18,7 +15,7 @@ vi.mock("@/lib/auth/device-store", () => ({
 async function loadProxy(template: string) {
   vi.resetModules();
   vi.stubEnv("NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE", template);
-  return (await import("./proxy")).proxy;
+  return (await import("./lib/managed-apps/socket-policy")).socketPolicy;
 }
 
 /** As it arrives from Traefik: passHostHeader:true, so Host is the public name. */
@@ -28,7 +25,8 @@ function req(host: string, path: string, headers: Record<string, string> = {}): 
   return new NextRequest(`https://${host}${path}`, { headers: h });
 }
 
-const rewriteOf = (res: Response) => res.headers.get("x-middleware-rewrite");
+type Decision = Awaited<ReturnType<typeof import("./lib/managed-apps/socket-policy").socketPolicy>>;
+const rewriteOf = (res: Decision) => res?.target ?? null;
 
 // A Next route handler cannot service an Upgrade, so before this the OpenClaw
 // dashboard's gateway socket had nowhere to land and every one of its feature
@@ -69,27 +67,27 @@ describe("WebSocket upgrade on an app host", () => {
   it("requires operator or owner for a managed-app upgrade", async () => {
     const proxy = await load();
     approved.role = "viewer";
-    expect((await proxy(upgradeReq("openclaw.mso.example.com", "/chat", session()))).status).toBe(404);
+    expect(await proxy(upgradeReq("openclaw.mso.example.com", "/chat", session()))).toBeNull();
     approved.role = "operator";
     expect(rewriteOf(await proxy(upgradeReq("openclaw.mso.example.com", "/chat", session())))).toBe(`${GATEWAY}/chat`);
   });
 
   it("rejects a still-valid HMAC minted under a previous cookie scope", async () =>
-    expect((await (await load())(upgradeReq("openclaw.mso.example.com", "/chat", session("domain:mso.example.com")))).status).toBe(404));
+    expect(await (await load())(upgradeReq("openclaw.mso.example.com", "/chat", session("domain:mso.example.com")))).toBeNull());
 
   it("refuses an upgrade carrying no session — nothing downstream would have", async () => {
     const proxy = await load();
     const res = await proxy(upgradeReq("openclaw.mso.example.com"));
-    expect(res.status).toBe(404);
+    expect(res).toBeNull();
     expect(rewriteOf(res)).toBeNull();
   });
 
   it("refuses a forged cookie, and a real one whose device was revoked", async () => {
     const proxy = await load();
-    expect((await proxy(upgradeReq("openclaw.mso.example.com", "/", "not-a-real-cookie"))).status).toBe(404);
+    expect(await proxy(upgradeReq("openclaw.mso.example.com", "/", "not-a-real-cookie"))).toBeNull();
     // Valid HMAC is not enough: revoking a device must kill its live sockets too.
     approved.value = false;
-    expect((await proxy(upgradeReq("openclaw.mso.example.com", "/", session()))).status).toBe(404);
+    expect(await proxy(upgradeReq("openclaw.mso.example.com", "/", session()))).toBeNull();
   });
 
   it("refuses to relay off-box when the gateway env points somewhere public", async () => {
@@ -97,7 +95,7 @@ describe("WebSocket upgrade on an app host", () => {
     vi.stubEnv("OS_SESSION_SECRET", SECRET);
     approved.value = true;
     const proxy = await loadProxy(TEMPLATE);
-    expect((await proxy(upgradeReq("openclaw.mso.example.com", "/", session()))).status).toBe(404);
+    expect(await proxy(upgradeReq("openclaw.mso.example.com", "/", session()))).toBeNull();
   });
 
   it("leaves the cockpit host alone — the branch is app-hosts only", async () => {
@@ -108,12 +106,9 @@ describe("WebSocket upgrade on an app host", () => {
     expect(rewriteOf(res)).toBeNull();
   });
 
-  it("does not fire for an ordinary request that merely mentions upgrade", async () => {
-    const proxy = await load();
-    const res = await proxy(
-      req("openclaw.mso.example.com", "/chat", { upgrade: "h2c", cookie: `session=${session()}` }),
-    );
-    expect(rewriteOf(res)).toContain("/api/v1/managed-apps/openclaw/proxy");
+  it("leaves ordinary requests to the HTTP proxy", async () => {
+    const policy = await load();
+    expect(await policy(req("openclaw.mso.example.com", "/chat", { upgrade: "h2c", cookie: `session=${session()}` }))).toBeNull();
   });
 });
 
@@ -140,7 +135,7 @@ describe("per-app upgrade adapters", () => {
       "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https",
       ...extra,
     }));
-    const header = (name: string) => res.headers.get(`x-middleware-request-${name}`);
+    const header = (name: string) => res?.headers[name] ?? null;
     return { rewrite: rewriteOf(res), header };
   }
 

@@ -112,12 +112,12 @@ afterAll(async () => {
 describe("registered same-host A2A over exact loopback", () => {
   it("discovers/registers a virtual session card and handoffs without a manual credential", async () => {
     const cardUrl = `${origin}/.well-known/agent-card.json?session=bece`;
-    const registered = await registerA2AAgent(cardUrl, "bece");
+    const registered = await registerA2AAgent(cardUrl, "bece", "exec");
     expect(registered.alias).toBe("bece");
     expect(registered.cardUrl).toBe(cardUrl);
     expect(registered.credentialProfileId).toBeUndefined();
 
-    const agent = await resolveA2AAgent("bece");
+    const agent = await resolveA2AAgent("bece", "exec");
     const result = await handoffA2A(
       agent,
       "review the current work",

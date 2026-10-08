@@ -9,6 +9,7 @@ import {
 import { replyLocalAgentMessage } from "./local-agent-messaging";
 import {
   acquireLocalAgentStandbyExecution,
+  blockLocalAgentStandby,
   getLocalAgentStandbyRecord,
   releaseLocalAgentStandbyExecution,
   updateLocalAgentStandbyTask,
@@ -109,6 +110,10 @@ export async function executeLocalAgentStandbyMessage(input: {
   runtimeId: string;
 }): Promise<{ advanced: boolean; fatal: boolean }> {
   const { record, message, capabilities } = input;
+  if (!record.authorizationGrant || !capabilities.authorize || !await capabilities.authorize(record.authorizationGrant, record.principal, "local_agent_standby", record.authorizationArguments ?? { mode: "listen" })) {
+    await blockLocalAgentStandby(record.principal, record.sessionId, "standby execution grant is revoked or expired");
+    return { advanced: false, fatal: true };
+  }
   const claimant = `${input.runtimeId}:${randomUUID()}`;
   const slot = await acquireLocalAgentStandbyExecution({
     principal: record.principal,
@@ -136,6 +141,10 @@ export async function executeLocalAgentStandbyMessage(input: {
   }
 
   try {
+    if (!claimed.execution?.authorizationGrant || !await capabilities.authorize(claimed.execution.authorizationGrant, record.principal, "local_agent_message_send", claimed.execution.authorizationArguments)) {
+      await finishExecution({ record, claimed, claimant, state: "failed", error: "request execution grant is revoked or expired" });
+      return { advanced: true, fatal: false };
+    }
     const fresh = await getLocalAgentStandbyRecord(record.principal, record.sessionId);
     if (!fresh?.armed || fresh.workflowId !== record.workflowId)
       throw new Error("standby workflow is no longer active");
@@ -146,7 +155,15 @@ export async function executeLocalAgentStandbyMessage(input: {
       record.principal,
       record.sessionId,
       claimed.text,
-      capabilities,
+      {
+        list: (scope) => capabilities.list(scope),
+        async invoke(call) {
+          const current = await getLocalAgentStandbyRecord(record.principal, record.sessionId);
+          if (!current?.armed || current.workflowId !== record.workflowId || JSON.stringify(current.authorizationGrant) !== JSON.stringify(record.authorizationGrant)) return { content: [{ type: "text", text: "error: standby execution is no longer authorized" }], isError: true };
+          if (!await capabilities.authorize!(record.authorizationGrant!, record.principal, call.name, call.args) || !await capabilities.authorize!(claimed.execution!.authorizationGrant!, record.principal, call.name, call.args)) return { content: [{ type: "text", text: "error: durable execution grant is revoked or does not allow this capability" }], isError: true };
+          return capabilities.invoke({ ...call, principal: record.principal, authorizationGrant: record.authorizationGrant });
+        },
+      },
       undefined,
       {
         workflowId: fresh.workflowId,

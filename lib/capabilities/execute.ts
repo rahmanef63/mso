@@ -133,6 +133,7 @@ export async function executeCapabilityCall(input: {
       allowedTools: context?.allowedTools,
       toolArgumentConstraints: context?.toolArgumentConstraints,
       capabilities: context?.capabilities,
+      authorizationGrant: context?.authorizationGrant,
       toolProfile: context?.toolProfile,
       trustedOpenAiFileParams: context?.trustedOpenAiFileParams,
     });

@@ -1,4 +1,4 @@
-import { existsSync, promises as fs, readdirSync } from "fs";
+import { existsSync, promises as fs, readdirSync, realpathSync } from "fs";
 import path from "path";
 import { HostError } from "./host-error";
 import { appDir, isAppSecret, isCredentialPath, SENSITIVE_HOME } from "./path-credentials";
@@ -25,10 +25,10 @@ function appSecretsUnder(realBase: string): string[] {
 // explicitly. Filtered by existence so the callers never refuse (or exclude) over
 // a path that isn't on this box.
 function sensitiveUnder(realBase: string): string[] {
-  if (process.env.OS_FS_ALLOW_SENSITIVE === "1") return [];
   const h = homeDir();
-  return [...SENSITIVE_HOME, ".mso"]
+  return [...(process.env.OS_FS_ALLOW_SENSITIVE === "1" ? [] : SENSITIVE_HOME), ".mso"]
     .map((n) => path.join(h, n))
+    .flatMap((p) => { try { return [p, realpathSync(p)]; } catch { return [p]; } })
     .filter((p) => p !== realBase && isUnderRoot(p, realBase) && existsSync(p));
 }
 

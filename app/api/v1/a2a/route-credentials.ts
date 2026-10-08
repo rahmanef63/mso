@@ -29,6 +29,7 @@ export async function handleA2ACredentialAction(
     const agent = await registerA2AAgent(
       url,
       typeof body.alias === "string" ? body.alias : undefined,
+      "exec",
     );
     void audit({
       action: "a2a.registry",

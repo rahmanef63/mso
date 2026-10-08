@@ -1,3 +1,4 @@
+import type { AuthorizationGrant } from "@/lib/capabilities/authorization-grant";
 import { randomUUID } from "node:crypto";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import { activeWorkflowForActor } from "@/lib/workflow";
@@ -50,7 +51,9 @@ function installSubscription(record: LocalAgentStandbyRecord): void {
 
 async function validateRecord(
   record: LocalAgentStandbyRecord,
+  capabilities: CapabilityRuntime,
 ): Promise<{ valid: true } | { valid: false; reason: string }> {
+  if (!record.authorizationGrant || !capabilities.authorize || !await capabilities.authorize(record.authorizationGrant, record.principal, "local_agent_standby", record.authorizationArguments ?? { mode: "listen" })) return { valid: false, reason: "standby execution grant is revoked, expired or unavailable" };
   const session = await getAgentSession(record.principal, record.sessionId).catch(() => null);
   if (!session) return { valid: false, reason: "standby session no longer exists" };
   const workflow = await activeWorkflowForActor(record.workflowActor, record.workflowId)
@@ -81,8 +84,9 @@ export async function drainStandbySession(
         flight.rerun = false;
         for (let processed = 0; processed < 100; processed += 1) {
           const record = await getLocalAgentStandbyRecord(principal, sessionId);
+          if (inFlightSessions.get(key) !== flight) break;
           if (!record?.armed) break;
-          const validation = await validateRecord(record);
+          const validation = await validateRecord(record, capabilities);
           if (!validation.valid) {
             await blockLocalAgentStandby(principal, sessionId, validation.reason);
             removeSubscription(sessionId);
@@ -130,8 +134,11 @@ export async function armLocalAgentStandby(input: {
   sessionId: string;
   workflowActor: string;
   workflowId: string;
+  authorizationGrant?: AuthorizationGrant;
+  authorizationArguments?: Record<string, unknown>;
   capabilities: CapabilityRuntime;
 }) {
+  if (!input.authorizationGrant || !input.capabilities.authorize || !await input.capabilities.authorize(input.authorizationGrant, input.principal, "local_agent_standby", input.authorizationArguments ?? { mode: "listen" })) throw new Error("standby requires a live exec authorization grant");
   if (!await activeWorkflowForActor(input.workflowActor, input.workflowId))
     throw new Error("workflow_id was not found for this MSO session");
   runtimeCapabilities = input.capabilities;

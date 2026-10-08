@@ -1,3 +1,11 @@
+## 2026-10-08: Close follow-up scan authority and resource gaps
+
+The latest scan of main `40e30906` reported 14 remaining issues. Exact-loopback A2A now carries the current caller's exec authority across discovery, selected interfaces and credential materialization; reflected outbound secrets are removed from JSON, SSE and errors. Project skill ownership no longer promotes repository instructions into trusted guidance. Organization seat targets require exec changes and saved graphs pin their reviewed target digest. Durable standby retains live credential references and rechecks both request and worker grants, including per-capability constraints, after recovery.
+
+Production socket forwarding owns live device checks in both directions and while idle; logout invalidates viewer tickets/cookies and cockpit sessions durably, and terminal streams stop on owner-authority loss. Health probes refuse redirects. Webhook admission uses a fixed global pre-auth budget independent of attacker-controlled IDs/source-map churn. Filesystem guards check lexical paths and protected canonical aliases; writes use random exclusive no-follow temporary descriptors. Enumeration streams within entry/time/response/concurrency ceilings, and service actions limit bytes before parsing.
+
+Regression checks exercise real token stores, sockets, terminal streams, aliases and queued/recovered execution. No gate budgets were raised and no dependency was added. Cloud findings remain tied to the scanned historical revision until separate reassessment; repository checks do not establish production deployment.
+
 ## 2026-10-08: Preserve heartbeat configuration across cron working directories
 
 The final audit reproduced a cron check silently becoming disabled when installation used a caller-relative env file. The shared heartbeat entry point now anchors that path to the installation working directory before validating it, preserving symlink rejection. A regression executes the generated cron command from HOME and confirms the enabled health check still runs.

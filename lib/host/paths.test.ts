@@ -61,6 +61,13 @@ describe("isUnderRoot", () => {
 });
 
 describe("resolveReadable bounds", () => {
+  it("rejects a credential name before resolving its symlink", async () => {
+    useRoots(readRoot, writeRoot);
+    const link = path.join(writeRoot, ".env.scan");
+    symlinkSync(path.join(writeRoot, "wfile.txt"), link);
+    await expect(resolveReadable(link)).rejects.toThrow(/credential/i);
+    await expect(safeWritePath(link, true)).rejects.toThrow(/credential/i);
+  });
   it("resolves a path inside the read root", async () => {
     useRoots(readRoot, writeRoot);
     await expect(resolveReadable(path.join(readRoot, "inside.txt"))).resolves.toBe(

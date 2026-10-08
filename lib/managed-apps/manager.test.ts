@@ -1,6 +1,4 @@
-// The two defects this covers were both live in a shipped build, and both were
-// invisible without a test: detection could not tell a stopped unit from a
-// non-existent one, and backup refused every real install.
+// Regressions: stopped versus missing service detection, and backups of real installs.
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -13,8 +11,7 @@ vi.mock("./runner", () => ({
   resolveCommand: vi.fn().mockResolvedValue(null),
   requireProgram: vi.fn(),
 }));
-// Stubbed so these tests describe MSO's behaviour rather than whether the machine
-// running them happens to have a user bus.
+// Stub the host user bus so service behavior is deterministic.
 vi.mock("./user-bus", () => ({
   userBusEnv: vi.fn(() => ({ XDG_RUNTIME_DIR: "/run/user/1000" })),
   userBusUnavailable: vi.fn(() => false),
@@ -40,8 +37,15 @@ function systemctl(byUnit: Record<string, { code: number; stdout: string; stderr
   });
 }
 
-afterEach(() => {
-  vi.restoreAllMocks();
+afterEach(() => { vi.restoreAllMocks(); });
+
+it("never follows a managed-app health redirect outside its reviewed loopback endpoint", async () => {
+  systemctl({ "hermes-dashboard.service": ACTIVE });
+  const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 302, headers: { location: "https://attacker.example/" } }));
+  await getManagedApp("hermes");
+  const health = request.mock.calls.find(([, init]) => init?.redirect === "error");
+  expect(health).toBeDefined();
+  expect(["127.0.0.1", "localhost", "[::1]"]).toContain(new URL(String(health![0])).hostname);
 });
 
 describe("public-IP dashboard fallback", () => {
@@ -201,15 +205,14 @@ describe("backup copies a real install instead of refusing it", () => {
 
     expect(await fs.readFile(path.join(backup, "openclaw.json"), "utf8")).toBe("{}");
     expect(await fs.readFile(path.join(backup, "agents", "one.md"), "utf8")).toBe("agent");
-    // The symlink out of the app is neither followed (no /etc/passwd bytes) nor
-    // recreated (a restore would then write outside the tree).
+    // Escaping symlinks are neither followed nor recreated during restore.
     await expect(fs.lstat(path.join(backup, "escape"))).rejects.toThrow();
     await expect(fs.lstat(path.join(backup, "node_modules"))).rejects.toThrow();
     await expect(fs.lstat(path.join(backup, "backups"))).rejects.toThrow();
 
     const manifest = JSON.parse(await fs.readFile(path.join(backup, "manifest.json"), "utf8"));
     expect(manifest.applicationId).toBe("openclaw");
-    // node_modules is skipped as a DIR, so the link inside it is never reached.
+    // Skipping node_modules also skips its nested link.
     expect(manifest.skipped).toMatchObject({ symlinks: 1, dirs: 2 });
     expect(manifest.skipped.dirNames).toContain("node_modules");
   });

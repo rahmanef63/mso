@@ -69,13 +69,10 @@ afterAll(async () => {
 });
 
 describe("skills_read reads the exact catalog id only", () => {
-  it("returns instructions for a trusted project skill", async () => {
-    const result = await run("skills_read", { name: await skillId(widgetA, "widget-deploy") }) as
-      { content: string; project: { name: string }; trust: string };
-    expect(result.trust).toBe("local");
-    expect(result.project.name).toBe("widget");
-    expect(result.content).toContain("# widget-deploy");
-    expect(result.content).toContain("root A");
+  it("withholds repository-controlled project instructions pending operator review", async () => {
+    const result = await run("skills_read", { name: await skillId(widgetA, "widget-deploy") }) as { content?: string };
+    expect(result).toMatchObject({ trust: "untrusted", instructionsWithheld: true });
+    expect(result.content).toBeUndefined();
   });
 
   it("returns instructions for an official global skill", async () => {

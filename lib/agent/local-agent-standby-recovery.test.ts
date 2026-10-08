@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   arm,
+  authorizationGrant,
   capabilities,
   cleanupStandbyFixture,
   events,
@@ -15,6 +16,7 @@ import {
   resetStandbyRuntime,
   standby,
   standbyStore,
+  token,
   workflowActor,
   workflowId,
 } from "./local-agent-standby-test-fixture";
@@ -37,6 +39,7 @@ describe("durable local-agent standby recovery and security", () => {
       text: "survive restart",
       intent: "request",
       executionAuthorized: true,
+      authorizationGrant,
     });
     expect(sent.status).toBe("accepted_for_standby");
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -59,6 +62,7 @@ describe("durable local-agent standby recovery and security", () => {
       text: "FYI only",
       intent: "notify",
       executionAuthorized: true,
+      authorizationGrant,
     });
     const writeOnly = await messaging.sendLocalAgentMessage({
       principal: owner,
@@ -94,6 +98,7 @@ describe("durable local-agent standby recovery and security", () => {
       text: "do not auto execute",
       intent: "request",
       executionAuthorized: true,
+      authorizationGrant,
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(afterStop.status).not.toBe("accepted_for_standby");
@@ -120,5 +125,17 @@ describe("durable local-agent standby recovery and security", () => {
       workflowActor,
       workflowId,
     })).rejects.toThrow(/session not found/i);
+  });
+
+  it("blocks recovered standby before claiming queued work after its durable token is revoked", async () => {
+    const { coordinator, worker } = await pair();
+    await arm(worker.id); standby.resetLocalAgentStandbyRuntimeForTest();
+    const sent = await messaging.sendLocalAgentMessage({ principal: owner, senderSessionId: coordinator.id, target: worker.id, text: "queued before restart", intent: "request", executionAuthorized: true, authorizationGrant });
+    const credentials = await import("@/lib/mcp/store");
+    await credentials.revokeToken((await credentials.validateToken(token))!.hash);
+    await standby.ensureLocalAgentStandbyRuntime(capabilities);
+    const blocked = await eventually(async () => { const row = await standbyStore.getLocalAgentStandbyRecord(owner, worker.id); return row?.state === "blocked" ? row : null; });
+    expect(blocked.armed).toBe(false); expect(mocks.handoff).not.toHaveBeenCalled();
+    expect((await mailbox.getLocalAgentInboxMessage(owner, worker.id, sent.message.id))?.execution?.state).toBe("pending");
   });
 });

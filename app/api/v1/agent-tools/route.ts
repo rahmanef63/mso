@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     { id: "cli-call", method: "tools/call", params: { name, arguments: body.input ?? {} } },
     scope,
     principal,
-    { principal, sessionId },
+    { principal, sessionId, authorizationGrant: { kind: "device", session: context.session } },
   );
   const result = (rpc.result ?? {}) as { content?: Array<{ type?: string; text?: string }>; isError?: boolean };
   if ((rpc as { error?: unknown }).error) return NextResponse.json(rpc, { status: 400 });

@@ -71,8 +71,8 @@ gateway_start_runtime_if_needed() {
     return 0
   fi
 
-  next="$ROOT/node_modules/next/dist/bin/next"
-  [ -f "$next" ] || gateway_fail "MSO runtime is down and Next is missing; run: mso update"
+  next="$ROOT/scripts/server.mjs"
+  [ -f "$next" ] || gateway_fail "MSO runtime is down and the production entry point is missing; run: mso update"
   [ -f "$ROOT/.next/BUILD_ID" ] || gateway_fail "MSO runtime is down and no production build exists; run: mso update"
   IFS=$'\t' read -r host port < <(gateway_loopback_host_port)
   [ "$host" = "127.0.0.1" ] || [ "$host" = "localhost" ] \
@@ -88,7 +88,7 @@ gateway_start_runtime_if_needed() {
   (
     cd "$ROOT" || exit 1
     nohup /bin/bash "$ROOT/scripts/lib/gateway-held-child.sh" "$$" "$parent_ticks" "$gate" \
-      env MSO_RUNTIME_INSTANCE_ID="$instance" node "$next" start --hostname 127.0.0.1 --port "$port" \
+      env MSO_RUNTIME_INSTANCE_ID="$instance" node "$next" --hostname 127.0.0.1 --port "$port" \
       >>"$RUNTIME_LOG" 2>&1 &
     printf '%s\n' "$!"
   ) >"$STATE_ROOT/.runtime-pid.$$"

@@ -66,7 +66,7 @@ export async function handleA2AGet(req: NextRequest, actor: string) {
       return NextResponse.json({ error: "too_many_requests" }, { status: 429 });
     const url = req.nextUrl.searchParams.get("url") || "";
     return url
-      ? NextResponse.json(await discoverA2AAgent(url))
+      ? NextResponse.json(await discoverA2AAgent(url, undefined, "exec"))
       : NextResponse.json({ error: "url_required" }, { status: 400 });
   }
   if (action === "task") {
@@ -87,7 +87,7 @@ export async function handleA2AGet(req: NextRequest, actor: string) {
         { status: 400 },
       );
     return NextResponse.json(
-      await getA2ATask(await resolveA2AAgent(target), taskId, historyLength),
+      await getA2ATask(await resolveA2AAgent(target, "exec"), taskId, historyLength),
     );
   }
   return NextResponse.json({ error: "unknown_action" }, { status: 400 });

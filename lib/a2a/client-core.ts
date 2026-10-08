@@ -2,6 +2,8 @@ import { a2aCredentialHeaders, getA2AOutboundCredential } from "./credentials";
 import { validateStoredA2ACredentialBinding } from "./credential-scheme";
 import { getOrCreateA2ALocalBearer, isOwnA2ALoopbackUrl } from "./local-auth";
 import { a2aNetworkFetch, assertA2AUrl } from "./network";
+import { assertA2ADestinationAuthority } from "./destination-authority";
+import { a2aResponseRedactor } from "./response-redaction";
 export { assertA2AUrl } from "./network";
 import type {
   A2AAgentInterface,
@@ -80,15 +82,18 @@ export async function fetchA2AJson(
   fetchImpl: A2AFetchLike,
 ): Promise<unknown> {
   const safe = assertA2AUrl(url).toString();
-  const response = await fetchImpl(safe, {
-    ...init,
-    redirect: "error",
-    signal: init.signal ?? AbortSignal.timeout(A2A_TIMEOUT_MS),
-  });
-  const body = await boundedA2AJson(response);
-  if (!response.ok)
-    throw new Error(`A2A endpoint returned HTTP ${response.status}`);
-  return body;
+  const redact = a2aResponseRedactor(Object.fromEntries([...new Headers(init.headers)].filter(([key]) => !["content-type", "accept", "a2a-version"].includes(key))));
+  try {
+    const response = await fetchImpl(safe, {
+      ...init,
+      redirect: "error",
+      signal: init.signal ?? AbortSignal.timeout(A2A_TIMEOUT_MS),
+    });
+    const body = await boundedA2AJson(response);
+    if (!response.ok)
+      throw new Error(`A2A endpoint returned HTTP ${response.status}`);
+    return redact(body);
+  } catch (error) { throw new Error(String(redact(error instanceof Error ? error.message : String(error)))); }
 }
 
 export function assertA2AMessage(value: string): string {
@@ -135,6 +140,8 @@ export function a2aHeaders(
 export async function a2aAuthorizationHeaders(
   target: A2ADiscoveredAgent,
 ): Promise<Record<string, string>> {
+  assertA2ADestinationAuthority(target.cardUrl, target.authorityScope);
+  assertA2ADestinationAuthority(target.selectedInterface.url, target.authorityScope);
   const localScheme = target.card.securitySchemes?.msoLocal;
   if (
     isOwnA2ALoopbackUrl(target.selectedInterface.url) &&

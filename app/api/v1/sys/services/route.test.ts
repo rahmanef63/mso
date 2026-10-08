@@ -27,6 +27,14 @@ beforeEach(() => {
 });
 
 describe("system service API", () => {
+  it("rejects oversized action bodies without reading them", async () => {
+    const { POST } = await import("./route");
+    const request = new Request("https://mso.example/api/v1/sys/services", { method: "POST", headers: { "content-length": "1000000" }, body: "{}" });
+    const parse = vi.spyOn(request, "json");
+    expect((await POST(request)).status).toBe(413);
+    expect(parse).not.toHaveBeenCalled();
+    expect(mocks.power).not.toHaveBeenCalled();
+  });
   it("returns bounded inventory through the viewer policy", async () => {
     const { GET } = await import("./route");
     const request = new Request("https://mso.example/api/v1/sys/services");

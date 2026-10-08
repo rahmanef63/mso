@@ -8,6 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `fs` cap the complete enumeration response
+- `security` revalidate durable authority and bound follow-up scan paths
 - `heartbeat` preserve relative env paths in cron
 - `ux` reuse existing loading and glass styles within the shell budget
 - `heartbeat` use parseable multiline shell case statements
@@ -32,8 +34,14 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `security` require authenticated workflow webhooks
 - `security` block delegated writes to control plane
 
+**Changed**
+
+- `security` keep authority fixes within architecture line limits
+
 **Tests**
 
+- `security` distinguish synthetic A2A redaction fixture
+- `security` verify production sockets and preserve bounded project scans
 - `lock` wait for the privacy curtain keyboard listener before unlocking
 
 ## 2026-10-07

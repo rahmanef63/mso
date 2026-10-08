@@ -1,3 +1,4 @@
+import { mcpAuthorizationGrant } from "@/lib/mcp/durable-grant";
 import { TENANT_MEMORY_TOOLS } from "@/lib/tenancy/memory-tools";
 import { tenantPreviewEnabled } from "@/lib/tenancy/mode";
 import { resolveMcpTenant, tenantRuntimeConfigurationPresent } from "@/lib/tenancy/runtime";
@@ -109,6 +110,7 @@ export async function POST(req: Request) {
   void touchToken(token.hash).catch(() => {});
   const actor = `mcp:${token.hash.slice(0, 16)}`;
   const agentContext = {
+    authorizationGrant: mcpAuthorizationGrant(token, expectedResource),
     principal,
     ...(resolved.agentSessionId ? { sessionId: resolved.agentSessionId } : {}),
     toolProfile,

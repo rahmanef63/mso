@@ -75,6 +75,7 @@ export async function resolveReadable(requested: string): Promise<string> {
   else if (requested.startsWith("~/")) absolute = path.join(h, requested.slice(2));
   else absolute = path.resolve(requested);
   const normalized = path.resolve(absolute);
+  assertNotCredential(normalized);
   const configured = lexicalRoots(readRootList());
 
   // Keep each filesystem sink inside the SAFE branch of CodeQL's documented
@@ -114,6 +115,7 @@ export async function safeMkdirPath(requested: string): Promise<string> {
   else if (requested.startsWith("~/")) absolute = path.join(h, requested.slice(2));
   else absolute = path.resolve(requested);
   const normalized = path.resolve(absolute);
+  assertNotCredential(normalized);
   const configured = lexicalRoots(writeRootList());
 
   for (const root of configured) {
@@ -125,6 +127,7 @@ export async function safeMkdirPath(requested: string): Promise<string> {
       try {
         const realAncestor = await fs.realpath(ancestor);
         if (!isUnderRoot(realAncestor, realRoot)) throw new HostError("Path outside writable roots");
+        assertNotCredential(path.join(realAncestor, path.relative(ancestor, normalized)));
         break;
       } catch (error) {
         if (error instanceof HostError) throw error;
@@ -148,6 +151,7 @@ export async function safeWritePath(requested: string, mustExist: boolean): Prom
   else if (requested.startsWith("~/")) absolute = path.join(h, requested.slice(2));
   else absolute = path.resolve(requested);
   const normalized = path.resolve(absolute);
+  assertNotCredential(normalized);
   const configured = lexicalRoots(writeRootList());
   const lexicalTarget = mustExist ? normalized : path.dirname(normalized);
 

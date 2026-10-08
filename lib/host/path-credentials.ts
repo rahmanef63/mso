@@ -71,7 +71,9 @@ export function isSensitivePath(real: string): boolean {
   const h = homeDir();
   return SENSITIVE_HOME.some((n) => {
     const p = path.join(h, n);
-    return real === p || isUnderRoot(real, p);
+    let canonical = p;
+    try { canonical = realpathSync.native(p); } catch { /* Missing sensitive root. */ }
+    return isUnderRoot(real, p) || isUnderRoot(real, canonical);
   });
 }
 
@@ -85,10 +87,18 @@ export function isAppSecret(real: string): boolean {
 /** Exported for the project/skill enumerators: they walk directory TREES the
  *  per-path resolvers never see, and must drop a credential directory themselves
  *  rather than discover it one `resolveReadable` too late. */
-export function isCredentialPath(real: string): boolean {
-  const store = path.join(homeDir(), ".mso");
-  if (real === store || isUnderRoot(real, store)) return true;
-  if (isSensitivePath(real)) return true;
+export function credentialRoots(): string[] {
+  const names = process.env.OS_FS_ALLOW_SENSITIVE === "1" ? [".mso"] : [".mso", ...SENSITIVE_HOME];
+  return names.flatMap((name) => {
+    const lexical = path.join(homeDir(), name);
+    try { return [lexical, realpathSync.native(lexical)]; } catch { return [lexical]; }
+  });
+}
+
+export function isCredentialPath(real: string, roots = credentialRoots()): boolean {
+  if (roots.some((root) => isUnderRoot(real, root))) return true;
+  const names = path.resolve(real).split(path.sep);
+  if (names.some((name) => name.startsWith(".env") && name !== ".env.example")) return true;
   const base = path.basename(real);
   // Private keys land anywhere (heredoc dumps, deploy keys, downloaded service
   // accounts). Their basename/extension is the reliable marker outside fixed ~/ paths.

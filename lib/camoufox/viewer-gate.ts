@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { deviceSessionValid } from "@/lib/auth/live-session";
 import { getApprovedDevice } from "@/lib/auth/device-store";
 import { roleAtLeast } from "@/lib/auth/roles";
 import { camoufoxViewerCsp } from "./origin";
@@ -39,7 +40,7 @@ async function approvedDevice(token: string, kind: "ticket" | "cookie"): Promise
     : verifyCamoufoxViewerCookie(token, secret);
   if (!payload?.device_id) return null;
   const device = await getApprovedDevice(payload.device_id);
-  return device && roleAtLeast(device.role, "operator") ? payload.device_id : null;
+  return deviceSessionValid(payload, device) && device && roleAtLeast(device.role, "operator") ? payload.device_id : null;
 }
 
 async function hasViewerSession(request: NextRequest): Promise<boolean> {
@@ -113,7 +114,7 @@ async function exchangeTicket(request: NextRequest) {
   const response = new NextResponse(null, { status: 204 });
   response.cookies.set(
     CAMOUFOX_VIEWER_COOKIE,
-    createCamoufoxViewerCookie(deviceId, process.env.OS_SESSION_SECRET ?? ""),
+    createCamoufoxViewerCookie(deviceId, process.env.OS_SESSION_SECRET ?? "", Date.now(), verifyCamoufoxViewerTicket(match[1], process.env.OS_SESSION_SECRET ?? "")!.issued_at),
     {
       httpOnly: true,
       secure: true,

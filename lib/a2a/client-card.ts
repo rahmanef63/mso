@@ -4,6 +4,8 @@ import type {
   A2ADiscoveredAgent,
   A2ASecurityScheme,
 } from "./types";
+import type { Scope } from "@/lib/capabilities/scope";
+import { assertA2ADestinationAuthority } from "./destination-authority";
 import {
   a2aObject,
   a2aTransport,
@@ -214,7 +216,9 @@ export function selectA2AInterface(card: A2AAgentCard): A2AAgentInterface {
 export async function discoverA2AAgent(
   source: string,
   fetchImpl: A2AFetchLike = a2aTransport,
+  scope: Scope = "read",
 ): Promise<A2ADiscoveredAgent> {
+  assertA2ADestinationAuthority(source, scope);
   const cardUrl = a2aAgentCardUrl(source);
   const raw = await fetchA2AJson(
     cardUrl,
@@ -222,5 +226,7 @@ export async function discoverA2AAgent(
     fetchImpl,
   );
   const card = normalizeA2AAgentCard(raw);
-  return { cardUrl, card, selectedInterface: selectA2AInterface(card) };
+  const selectedInterface = selectA2AInterface(card);
+  assertA2ADestinationAuthority(selectedInterface.url, scope);
+  return { cardUrl, card, selectedInterface, authorityScope: scope };
 }

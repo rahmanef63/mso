@@ -5,10 +5,7 @@ import os from "os";
 import path from "path";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import {
-  DeviceRoleError,
-  isDeviceRole,
-  storedDeviceRole,
-  type DeviceRole,
+  DeviceRoleError, isDeviceRole, storedDeviceRole, type DeviceRole,
 } from "./roles";
 
 // Server-side device allowlist, implemented for the VPS control plane. The login
@@ -21,6 +18,7 @@ export interface ApprovedDevice {
   label: string;
   approvedAt: number;
   lastSeen?: number;
+  sessionsRevokedAt?: number;
   role: DeviceRole;
 }
 
@@ -72,6 +70,7 @@ function normalizeApproved(raw: unknown): Record<string, ApprovedDevice> {
     out[id] = {
       label: typeof row.label === "string" && row.label ? row.label.slice(0, 80) : "approved device",
       approvedAt: finiteTime(row.approvedAt, 0),
+      ...(typeof row.sessionsRevokedAt === "number" && Number.isFinite(row.sessionsRevokedAt) ? { sessionsRevokedAt: row.sessionsRevokedAt } : {}),
       ...(typeof row.lastSeen === "number" && Number.isFinite(row.lastSeen) ? { lastSeen: row.lastSeen } : {}),
       // Stores written before delegated roles had no role field. Preserve their
       // historical full access, while malformed future values fail down to viewer.
@@ -175,9 +174,17 @@ export async function getApprovedDevice(deviceId: string): Promise<ApprovedDevic
   return store.approved[deviceId] ?? null;
 }
 
-export async function isApproved(deviceId: string): Promise<boolean> {
-  return (await getApprovedDevice(deviceId)) !== null;
+export function invalidateDeviceSessions(deviceId: string): Promise<void> {
+  return mutate(async () => {
+    const store = await read();
+    if (store.approved[deviceId]) {
+      store.approved[deviceId].sessionsRevokedAt = Date.now();
+      await write(store);
+    }
+  });
 }
+
+export async function isApproved(deviceId: string): Promise<boolean> { return (await getApprovedDevice(deviceId)) !== null; }
 
 /** Mark an approved device as just-seen (best effort). */
 export function touchApproved(deviceId: string): Promise<void> {

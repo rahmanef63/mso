@@ -1,3 +1,4 @@
+import type { AuthorizationGrant } from "@/lib/capabilities/authorization-grant";
 import { randomUUID } from "node:crypto";
 import { redactText } from "@/lib/security/redact-text";
 import { getAgentSession } from "./session-store";
@@ -72,6 +73,8 @@ export async function sendLocalAgentMessage(input: {
   requiresUserRelay?: boolean;
   requireActiveTarget?: boolean;
   executionAuthorized?: boolean;
+  authorizationGrant?: AuthorizationGrant;
+  authorizationArguments?: Record<string, unknown>;
 }): Promise<{
   status: LocalAgentDeliveryStatus;
   targetStatus: LocalAgentTarget["status"];
@@ -96,7 +99,7 @@ export async function sendLocalAgentMessage(input: {
   // Auto execution is encoded explicitly at persistence time. A write-scope
   // caller can enqueue a request but can never turn standby into an exec grant.
   const executionRequested = intent === "request";
-  const executionAuthorized = executionRequested && input.executionAuthorized === true;
+  const executionAuthorized = executionRequested && input.executionAuthorized === true && !!input.authorizationGrant;
   const standbyAccepted = executionAuthorized && target.standbyArmed && target.standbyState !== "blocked";
   const busy = target.status === "busy" || target.standbyState === "working";
   let message = await enqueueLocalAgentMessage({
@@ -115,6 +118,7 @@ export async function sendLocalAgentMessage(input: {
       execution: {
         requested: true,
         authorized: executionAuthorized,
+        ...(executionAuthorized ? { authorizationGrant: input.authorizationGrant, authorizationArguments: input.authorizationArguments ?? { target: input.target, message: input.text, intent: input.intent ?? "notify", ...(input.kind ? { kind: input.kind } : {}) } } : {}),
         state: "pending",
         attempts: 0,
       },

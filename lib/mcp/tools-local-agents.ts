@@ -68,6 +68,8 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
         principal: current.principal,
         sessionId: current.sessionId,
         workflowActor: context.workflowActor,
+        authorizationGrant: context.authorizationGrant,
+        authorizationArguments: a,
         workflowId: context.workflowId,
         capabilities: context.capabilities,
       });
@@ -98,6 +100,8 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
         intent: typeof a.intent === "string" ? a.intent : undefined,
         requiresUserRelay: a.requires_user_relay === true,
         executionAuthorized: context.scope === "exec",
+        authorizationGrant: context.authorizationGrant,
+        authorizationArguments: a,
       });
     },
   },

@@ -43,7 +43,7 @@ describe("per-project skill discovery", () => {
 
     const rows = await catalog(app, home, [one, two]);
     expect(rows.map((r) => `${r.id}:${r.trust}`).sort()).toEqual(
-      [`${idFor(one, "ship")}:local`, `${idFor(two, "audit")}:local`].sort());
+      [`${idFor(one, "ship")}:untrusted`, `${idFor(two, "audit")}:untrusted`].sort());
     expect(rows[0]).toMatchObject({ name: "ship", source: "project", project: { name: "one", path: one } });
   });
 
@@ -121,14 +121,14 @@ describe("project skill trust is earned, not assumed", () => {
     await expect(projectSkillTrust(dir, proj)).resolves.toBe("untrusted");
   });
 
-  it("trusts a contained, owner-owned, regular-file skill", async () => {
+  it("withholds repository instructions even for a contained, owner-owned regular file", async () => {
     const workspace = await temp();
     const proj = path.join(workspace, "one");
     const dir = await skill(path.join(proj, ".hermes/skills"), "patrol", "hermes patrol");
-    await expect(projectSkillTrust(dir, proj)).resolves.toBe("local");
+    await expect(projectSkillTrust(dir, proj)).resolves.toBe("untrusted");
   });
 
-  it("keeps the generic HOME agent roots untrusted even though project roots are promoted", async () => {
+  it("keeps the generic HOME agent roots untrusted alongside project roots", async () => {
     const app = await temp();
     const home = await temp();
     await skill(path.join(home, ".claude/skills"), "wander", "discovered in home");

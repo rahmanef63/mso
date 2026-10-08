@@ -129,7 +129,7 @@ describe("skills_list spans global and project roots", () => {
     expect(ids).toContain("mso"); // official, from this repo's claude-skills/
     expect(ids).toContain(deployA);
     expect(skills.find((s) => s.id === deployA)).toMatchObject({
-      trust: "local", instructionsReadable: true, project: { name: "widget" },
+      trust: "untrusted", instructionsReadable: false, project: { name: "widget" },
     });
     expect(scan).toHaveProperty("truncated");
   });

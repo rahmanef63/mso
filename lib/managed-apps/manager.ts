@@ -1,5 +1,6 @@
 import "server-only";
 import os from "node:os";
+import { managedAppUpstream } from "./upstream-target";
 import { createBackup } from "./backups";
 import { getManagedAppDefinition, listManagedAppDefinitions } from "./catalog";
 import { dockerUsable, requireDocker, runDocker } from "./docker";
@@ -67,7 +68,11 @@ async function running(installation: Installation): Promise<boolean> {
 
 async function health(definition: ManagedAppDefinition): Promise<boolean | null> {
   try {
-    const response = await fetch(`${definition.dashboardUrl.replace(/\/$/, "")}${definition.healthPath ?? "/health"}`, { cache: "no-store", signal: AbortSignal.timeout(4_000) });
+    const base = managedAppUpstream(definition.dashboardUrl);
+    const target = new URL(definition.healthPath ?? "/health", base);
+    if (target.origin !== base.origin) return null;
+    const response = await fetch(target, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(4_000) });
+    await response.body?.cancel();
     return response.ok;
   } catch {
     return null;

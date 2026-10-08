@@ -45,7 +45,7 @@ describe("MCP A2A tools", () => {
     const out = await tool!.run({ target: "peer", objective: "research", context: "facts only" }, {
       principal: "mcp-client:test", sessionId, workflowId, scope: "exec", actor: "test",
     });
-    expect(mocks.resolve).toHaveBeenCalledWith("peer");
+    expect(mocks.resolve).toHaveBeenCalledWith("peer", "exec");
     expect(mocks.handoff).toHaveBeenCalledWith(peer, "research", "facts only", expect.objectContaining({
       sourceSessionHash: expect.stringMatching(/^[a-f0-9]{24}$/),
       sourceWorkflowHash: expect.stringMatching(/^[a-f0-9]{24}$/),
@@ -70,22 +70,23 @@ describe("MCP A2A tools", () => {
 
 
 describe("A2A discovery network authority", () => {
-  it("keeps public HTTPS discovery readable but requires exec for loopback HTTP", async () => {
+  it("forwards caller authority into shared discovery for public and loopback targets", async () => {
     mocks.discover.mockResolvedValue(peer);
     const tool = byName.get("a2a_agent_discover")!;
     await expect(tool.run({ url: "https://peer.example" }, {
       principal: "mcp-client:test", scope: "read", actor: "test",
     })).resolves.toMatchObject({ name: "Peer" });
-    expect(mocks.discover).toHaveBeenCalledWith("https://peer.example");
+    expect(mocks.discover).toHaveBeenCalledWith("https://peer.example", undefined, "read");
 
     mocks.discover.mockClear();
     await expect(tool.run({ url: "http://127.0.0.1:4555/card" }, {
       principal: "mcp-client:test", scope: "read", actor: "test",
-    })).rejects.toThrow(/requires exec/);
-    expect(mocks.discover).not.toHaveBeenCalled();
+    })).resolves.toMatchObject({ name: "Peer" });
+    expect(mocks.discover).toHaveBeenCalledWith("http://127.0.0.1:4555/card", undefined, "read");
 
     await expect(tool.run({ url: "http://127.0.0.1:4555/card" }, {
       principal: "mcp-client:test", scope: "exec", actor: "test",
     })).resolves.toMatchObject({ name: "Peer" });
+    expect(mocks.discover).toHaveBeenLastCalledWith("http://127.0.0.1:4555/card", undefined, "exec");
   });
 });

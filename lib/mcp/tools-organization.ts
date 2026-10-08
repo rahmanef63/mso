@@ -25,11 +25,11 @@ export const ORGANIZATION_TOOLS: McpTool[] = [
     run: async (a, context) => {
       const action = str(a, "action"), revision = str(a, "expected_revision"), data = a.data && typeof a.data === "object" && !Array.isArray(a.data) ? a.data as Record<string, unknown> : {};
       if (action === "unit_upsert") return { chart: await upsertOrganizationUnit(revision, data) };
-      if (action === "seat_upsert") return { chart: await upsertOrganizationSeat(revision, data) };
+      if (action === "seat_upsert") return { chart: await upsertOrganizationSeat(revision, data, context.scope) };
       if (action === "unit_delete") return { chart: await deleteOrganizationUnit(revision, str(a, "id")) };
       if (action === "seat_delete") return { chart: await deleteOrganizationSeat(revision, str(a, "id")) };
       if (isOrganizationFlowAction(action)) return { chart: await mutateOrganizationFlow(revision, action, data, { principal: context.principal }) };
-      if (action === "replace") return { chart: await replaceOrganization(revision, data as never) };
+      if (action === "replace") return { chart: await replaceOrganization(revision, data as never, context.scope) };
       throw new Error("unsupported organization action");
     },
   },

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "bash scripts/build-safe.sh",
-    "start": "next start",
+    "start": "node scripts/server.mjs",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/check-test-toolchain.mjs && vitest run",

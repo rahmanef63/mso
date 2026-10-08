@@ -139,6 +139,7 @@ describe("bin/mso", () => {
       // Internal transport between scripts/mso-agent.mjs and the authenticated
       // server-side MCP catalog. It is not a user-facing CLI verb by design.
       "/api/v1/agent-tools",
+      "POST /api/internal/socket-policy", // Private Node-to-Next policy RPC, authenticated by a fresh per-process secret.
     ];
 
     // The CLI writes each call as `jget "/path"` / `jpost "/path"` / `jdel "/path"`,

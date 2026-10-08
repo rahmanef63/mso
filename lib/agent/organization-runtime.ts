@@ -1,7 +1,12 @@
+import { createHash } from "node:crypto";
 import type { OrganizationSeat, OrganizationSeatRuntime } from "@/lib/contracts/organization";
 import { listA2AAgents } from "@/lib/a2a";
 import { listLocalAgents } from "./local-agent-directory";
 import { getOrganizationChart } from "./organization-store";
+
+export function organizationTargetDigest(seat: OrganizationSeat): string {
+  return createHash("sha256").update(JSON.stringify({ id: seat.id, target: seat.target })).digest("hex");
+}
 
 export function organizationLocalAgentPrincipal(principal: string): string { return principal.startsWith("web:") ? `cli:${principal.slice(4)}` : principal; }
 

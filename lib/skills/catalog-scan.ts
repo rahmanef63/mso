@@ -7,7 +7,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { readBoundedRegularFile } from "@/lib/host/bounded-read";
 import { SKILL_FILE, SKILL_SCAN_LIMITS, type ProjectRef, type SkillInfo, type SkillSource, type SkillTrust } from "./catalog-types";
-import { projectSkillTrust } from "./project-skills";
+import { projectSkillTrust, projectSkillReadable } from "./project-skills";
 import { readSkillContract } from "./skill-contract";
 
 export type RootSpec = {
@@ -31,7 +31,7 @@ export type RootSpec = {
  * SKILL.md is untrusted content we decline rather than truncate.
  *
  * Parent containment is a SEPARATE concern and belongs to the caller (`scanRoot` for the
- * root, `projectSkillTrust` for a project): canonicalizing the parent here would drag the
+ * root, `projectSkillReadable` for a project): canonicalizing the parent here would drag the
  * final component through `realpath` again and reopen exactly this hole.
  */
 export async function readSkillFile(file: string): Promise<string | null> {
@@ -114,13 +114,13 @@ export async function scanRoot(
       processed += 1;
 
       // Never follow a directory symlink into an attacker-controlled tree. For project
-      // skills, containment/ownership/shape are established BEFORE SKILL.md is opened.
+      // skills, containment/shape are established BEFORE SKILL.md is opened.
       if (entry.isDirectory()) {
         const dir = path.join(spec.path, entry.name);
         let trust = spec.trust;
         if (spec.project) {
           trust = await projectSkillTrust(dir, spec.project.path);
-          if (trust !== "local") { consumed = seen; continue; }
+          if (!await projectSkillReadable(dir, spec.project.path)) { consumed = seen; continue; }
         }
         const md = await readSkillFile(path.join(dir, SKILL_FILE));
         if (md !== null) {

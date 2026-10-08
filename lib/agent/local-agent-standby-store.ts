@@ -1,3 +1,4 @@
+import type { AuthorizationGrant } from "@/lib/capabilities/authorization-grant";
 import { getAgentSession } from "./session-store";
 import { principalHash } from "./session-files";
 import {
@@ -9,7 +10,6 @@ import {
 import type { LocalAgentStandbyRecord } from "./local-agent-types";
 
 const DEFAULT_EXECUTION_LEASE_MS = 15 * 60_000;
-
 export { standbyRecordView } from "./local-agent-standby-storage";
 
 export async function listLocalAgentStandbyRecords(
@@ -41,6 +41,8 @@ export async function armLocalAgentStandbyRecord(input: {
   principal: string;
   sessionId: string;
   workflowActor: string;
+  authorizationGrant?: AuthorizationGrant;
+  authorizationArguments?: Record<string, unknown>;
   workflowId: string;
   now?: number;
 }): Promise<LocalAgentStandbyRecord> {
@@ -59,6 +61,8 @@ export async function armLocalAgentStandbyRecord(input: {
       principal: input.principal,
       sessionId: input.sessionId,
       workflowActor: input.workflowActor,
+      ...(input.authorizationGrant ? { authorizationGrant: input.authorizationGrant } : {}),
+      authorizationArguments: input.authorizationArguments ?? { mode: "listen" },
       workflowId: input.workflowId,
       armed: true,
       state: "waiting",

@@ -27,6 +27,20 @@ flowchart LR
   P --> N
 ```
 
+## Live proxy authority
+
+Production starts through `node scripts/server.mjs` (also used by `bun start` and the
+gateway runtime). The public Node server owns WebSocket upgrades and forwards normal
+HTTP to Next on a private loopback socket. Its private, process-secret policy endpoint
+reuses the same live device/session checks as HTTP. Managed dashboards and Camoufox
+revalidate before both socket directions deliver data and every second while idle.
+Logout, device revocation/demotion, expiry or session-policy rotation closes access.
+The process caps active proxy sockets at 32 and refuses redirects/off-loopback targets.
+The stock development server refuses these upgrades; use the production entry point
+for authenticated dashboard/viewer sockets. Terminal event streams similarly recheck
+owner authority before delivery and while idle, closing their PTY on authority loss.
+Managed-app health probes refuse redirects rather than follow them away from loopback.
+
 ## 1. Current application model
 
 | App | MSO-managed runtime | Internal dashboard upstream | Direct browser access | State directory |

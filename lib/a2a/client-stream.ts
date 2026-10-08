@@ -18,10 +18,12 @@ import {
   type A2AFetchLike,
 } from "./client-core";
 import { a2aSendParams } from "./client-ops";
+import { a2aResponseRedactor } from "./response-redaction";
 
 async function* a2aSseEvents(
   response: Response,
   binding: A2AStandardBinding,
+  redact: (value: unknown) => unknown,
 ): AsyncGenerator<unknown> {
   if (!response.ok || !response.body)
     throw new Error(`A2A streaming endpoint returned HTTP ${response.status}`);
@@ -53,7 +55,7 @@ async function* a2aSseEvents(
           );
         let parsed: unknown;
         try {
-          parsed = JSON.parse(data);
+          parsed = redact(JSON.parse(data));
         } catch {
           throw new Error("A2A streaming endpoint returned invalid SSE JSON");
         }
@@ -95,33 +97,38 @@ export async function* sendA2AStreamingMessage(
     a2aSendParams(target, message, options),
   );
   const signal = a2aStreamSignal(options.signal);
-  let response: Response;
-  if (binding === "JSONRPC") {
-    response = await fetchImpl(assertA2AUrl(iface.url).toString(), {
-      method: "POST",
-      redirect: "error",
-      signal,
-      headers: a2aHeaders(iface, "application/json", auth, "text/event-stream"),
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: randomUUID(),
-        method: "SendStreamingMessage",
-        params,
-      }),
-    });
-  } else {
-    response = await fetchImpl(a2aRestOperationUrl(iface, "message:stream"), {
-      method: "POST",
-      redirect: "error",
-      signal,
-      headers: a2aHeaders(
-        iface,
-        "application/a2a+json",
-        auth,
-        "text/event-stream",
-      ),
-      body: JSON.stringify(params),
-    });
+  const redact = a2aResponseRedactor(auth);
+  try {
+    let response: Response;
+    if (binding === "JSONRPC") {
+      response = await fetchImpl(assertA2AUrl(iface.url).toString(), {
+        method: "POST",
+        redirect: "error",
+        signal,
+        headers: a2aHeaders(iface, "application/json", auth, "text/event-stream"),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: randomUUID(),
+          method: "SendStreamingMessage",
+          params,
+        }),
+      });
+    } else {
+      response = await fetchImpl(a2aRestOperationUrl(iface, "message:stream"), {
+        method: "POST",
+        redirect: "error",
+        signal,
+        headers: a2aHeaders(
+          iface,
+          "application/a2a+json",
+          auth,
+          "text/event-stream",
+        ),
+        body: JSON.stringify(params),
+      });
+    }
+    yield* a2aSseEvents(response, binding, redact);
+  } catch (error) {
+    throw new Error(String(redact(error instanceof Error ? error.message : String(error))));
   }
-  yield* a2aSseEvents(response, binding);
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
-import { getSessionActor } from "@/lib/auth/require-session";
-import { attachPty, hasPty } from "@/lib/host/terminal-api";
+import { getSessionContext } from "@/lib/auth/require-session";
+import { liveSessionAuthorized } from "@/lib/auth/live-authorization";
+import { attachPty, closePty, hasPty } from "@/lib/host/terminal-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ export async function GET(req: Request) {
   if (!(await verifyAuth(req)))
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const actor = await getSessionActor();
+  const context = await getSessionContext();
+  const actor = context?.session.device_id;
   if (!actor) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const id = new URL(req.url).searchParams.get("id") ?? "";
   if (!id || !hasPty(id, actor))
@@ -29,13 +31,17 @@ export async function GET(req: Request) {
   const enc = new TextEncoder();
   let detach: (() => void) | null = null;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
+  let authorityTimer: ReturnType<typeof setInterval> | null = null;
   let closed = false;
+  let pendingBytes = 0;
+  let delivery = Promise.resolve();
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const cleanup = () => {
         closed = true;
         if (heartbeat) clearInterval(heartbeat);
+        if (authorityTimer) clearInterval(authorityTimer);
         detach?.();
       };
       const send = (s: string) => {
@@ -55,13 +61,28 @@ export async function GET(req: Request) {
           /* already closed */
         }
       };
+      const authorized = async () => {
+        const valid = await liveSessionAuthorized(context!.session, "owner").catch(() => false);
+        if (!valid && !closed) {
+          end();
+          try { closePty(id, actor); } catch { /* Already reaped. */ }
+        }
+        return valid && !closed;
+      };
+      const deliver = (frame: string, finish = false) => {
+        pendingBytes += Buffer.byteLength(frame);
+        // ponytail: cap queued output at 256 KiB; reconnect replays the PTY buffer.
+        if (pendingBytes > 256 * 1024) { end(); return; }
+        delivery = delivery.then(async () => {
+          if (await authorized()) { send(frame); if (finish) end(); }
+        }).finally(() => { pendingBytes -= Buffer.byteLength(frame); });
+      };
       try {
         detach = attachPty(id, actor, from, {
           onData: (chunk, off) =>
-            send(`id: ${off}\nevent: data\ndata: ${Buffer.from(chunk, "utf8").toString("base64")}\n\n`),
+            deliver(`id: ${off}\nevent: data\ndata: ${Buffer.from(chunk, "utf8").toString("base64")}\n\n`),
           onExit: (code) => {
-            send(`event: exit\ndata: ${code}\n\n`);
-            end();
+            deliver(`event: exit\ndata: ${code}\n\n`, true);
           },
         });
       } catch {
@@ -71,11 +92,13 @@ export async function GET(req: Request) {
         return;
       }
       if (!closed) heartbeat = setInterval(() => send(`: ping\n\n`), HEARTBEAT_MS);
+      if (!closed) authorityTimer = setInterval(() => { void authorized(); }, 1000);
       req.signal.addEventListener("abort", cleanup, { once: true });
     },
     cancel() {
       closed = true;
       if (heartbeat) clearInterval(heartbeat);
+      if (authorityTimer) clearInterval(authorityTimer);
       detach?.();
     },
   });
