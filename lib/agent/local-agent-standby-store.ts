@@ -10,7 +10,6 @@ import {
 import type { LocalAgentStandbyRecord } from "./local-agent-types";
 
 const DEFAULT_EXECUTION_LEASE_MS = 15 * 60_000;
-
 export { standbyRecordView } from "./local-agent-standby-storage";
 
 export async function listLocalAgentStandbyRecords(

@@ -33,6 +33,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `security` require authenticated workflow webhooks
 - `security` block delegated writes to control plane
 
+**Changed**
+
+- `security` keep authority fixes within architecture line limits
+
 **Tests**
 
 - `security` verify production sockets and preserve bounded project scans
