@@ -24,7 +24,7 @@ describe("workflow receipt identity and creation authority", () => {
     let release!: () => void;
     const pending = new Promise<void>(resolve => { release = resolve; });
     let entered = false;
-    const tool: CapabilityTool = { name: "fixture_wait", description: "fixture", scope: "read", inputSchema: { type: "object" }, run: async () => { entered = true; await pending; return "fixture-private-output"; } };
+    const tool: CapabilityTool = { name: "fixture_wait", description: "fixture", scope: "read", inputSchema: { type: "object", properties: {} }, run: async () => { entered = true; await pending; return "fixture-private-output"; } };
     const saved = await graph("Waited");
     saved.nodes[1] = { ...saved.nodes[1], type: "tool", config: { tool: tool.name, args: {} } };
     const started = await startWorkflowGraph(saved, {}, "waited-key", context, () => tool);
