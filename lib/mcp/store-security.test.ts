@@ -18,6 +18,38 @@ afterEach(() => vi.restoreAllMocks());
 
 
 describe("durable MCP credential isolation", () => {
+  it("reads the size-checked descriptor when the store pathname is replaced", async () => {
+    const state = await import("./store-state");
+    await state.commitMcpStore({ clients: { original: { name: "fixture", redirectUris: [], createdAt: Date.now() } }, codes: {}, tokens: {}, refreshTokens: {}, spentRefreshTokens: {} });
+    const open = fs.open.bind(fs);
+    vi.spyOn(fs, "open").mockImplementation(async (...args: Parameters<typeof fs.open>) => {
+      const handle = await open(...args);
+      if (args[0] === process.env.OS_MCP_STORE) {
+        await fs.rename(process.env.OS_MCP_STORE!, path.join(DIR, "previous.json"));
+        await fs.writeFile(process.env.OS_MCP_STORE!, "x".repeat(4 * 1024 * 1024 + 1), { mode: 0o600 });
+      }
+      return handle;
+    });
+    expect(Object.keys((await state.readMcpStore()).clients)).toEqual(["original"]);
+  });
+  it("rejects growth after the descriptor size check without reading an unbounded body", async () => {
+    const state = await import("./store-state");
+    await state.commitMcpStore(await state.readMcpStore());
+    const open = fs.open.bind(fs);
+    vi.spyOn(fs, "open").mockImplementation(async (...args: Parameters<typeof fs.open>) => {
+      const handle = await open(...args);
+      if (args[0] === process.env.OS_MCP_STORE) {
+        const stat = handle.stat.bind(handle);
+        vi.spyOn(handle, "stat").mockImplementationOnce(async () => {
+          const before = await stat();
+          await fs.appendFile(process.env.OS_MCP_STORE!, "x".repeat(4 * 1024 * 1024));
+          return before;
+        });
+      }
+      return handle;
+    });
+    await expect(state.readMcpStore()).rejects.toThrow(/changed while reading/);
+  });
   it("bounds many rotations, prunes expired access, preserves absolute expiry and rate limits the authenticated family", async () => {
     const clock = vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
     await store.storeOAuthGrant({ accessToken: "a0", refreshToken: "r0", clientId: "bounded", label: "fixture", scope: "exec", resource: "https://fixture.invalid/mcp", grantId: "bounded" });

@@ -25,6 +25,29 @@ vi.mock("@/lib/models", () => ({ resolveModel: vi.fn() }));
 vi.mock("@/lib/host/ssrf", () => ({ safeProviderFetch: vi.fn() }));
 
 describe("/api/models/test OpenAI Codex OAuth", () => {
+  it("requires Owner before reading configuration or sending an inference request", async () => {
+    const { requireSession } = await import("@/lib/auth/require-session");
+    vi.mocked(requireSession).mockResolvedValueOnce(false);
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const { POST } = await import("./route");
+    expect((await POST()).status).toBe(401);
+    expect(requireSession).toHaveBeenCalledWith("owner");
+    expect(resolveModelRef).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
+  });
+  it("sends only the selected model and static ping through the custom-provider guard", async () => {
+    resolveModelRef.mockResolvedValue("fixture/model");
+    const { selectedCustomConn } = await import("@/lib/config/store");
+    vi.mocked(selectedCustomConn).mockResolvedValueOnce({ baseUrl: "https://fixture.invalid/v1" });
+    const { resolveModel } = await import("@/lib/models");
+    vi.mocked(resolveModel).mockResolvedValue({ protocol: "openai", baseUrl: "https://fixture.invalid/v1", apiKey: "synthetic", provider: "fixture", model: "model", privateFileData: "must stay local" } as never);
+    const { safeProviderFetch } = await import("@/lib/host/ssrf");
+    vi.mocked(safeProviderFetch).mockResolvedValueOnce(new Response());
+    const { POST } = await import("./route");
+    expect((await (await POST()).json()).ok).toBe(true);
+    const [url, request] = vi.mocked(safeProviderFetch).mock.calls.at(-1)!;
+    expect(url).toBe("https://fixture.invalid/v1/chat/completions");
+    expect(JSON.parse(request!.body as string)).toEqual({ model: "model", max_tokens: 1, messages: [{ role: "user", content: "ping" }] });
+  });
   it("bounds custom-provider error bodies and applies a deadline before fetching", async () => {
     resolveModelRef.mockResolvedValue("fixture/model");
     const { resolveModel } = await import("@/lib/models");

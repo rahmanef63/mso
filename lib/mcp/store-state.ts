@@ -1,6 +1,6 @@
 import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
-import { promises as fs } from "node:fs";
+import { constants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { McpStore } from "./store-types";
@@ -12,13 +12,25 @@ const empty = (): McpStore => ({ clients: {}, codes: {}, tokens: {}, refreshToke
 
 export async function readMcpStore(): Promise<McpStore> {
   let raw: string;
+  let handle: Awaited<ReturnType<typeof fs.open>> | undefined;
   try {
-    if ((await fs.stat(STORE_PATH)).size > MAX_STORE_BYTES) throw new Error("MCP credential store size limit reached");
-    raw = await fs.readFile(STORE_PATH, "utf8");
+    handle = await fs.open(STORE_PATH, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const before = await handle.stat();
+    if (!before.isFile() || before.size > MAX_STORE_BYTES) throw new Error("MCP credential store size limit reached");
+    const bytes = Buffer.alloc(before.size + 1);
+    let used = 0;
+    while (used < bytes.length) {
+      const { bytesRead } = await handle.read(bytes, used, bytes.length - used, used);
+      if (!bytesRead) break;
+      used += bytesRead;
+    }
+    const after = await handle.stat();
+    if (used !== before.size || after.size !== before.size || after.mtimeMs !== before.mtimeMs) throw new Error("MCP credential store changed while reading");
+    raw = bytes.subarray(0, used).toString("utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return empty();
     throw error;
-  }
+  } finally { await handle?.close(); }
   const parsed = JSON.parse(raw) as Partial<McpStore>;
   return {
     clients: parsed.clients ?? {},

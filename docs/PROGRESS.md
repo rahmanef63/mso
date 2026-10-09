@@ -1,3 +1,9 @@
+## 2026-10-09: Pin the bounded MCP store read and review the inference-test alert
+
+Post-release CodeQL found a check/reopen race in the new store byte limit. The reader now opens once with no-follow/nonblocking flags, checks and reads that descriptor into a size-bounded buffer, rejects growth/content changes and closes it on every path. Real-file regressions replace the pathname after open and grow the file after the size check. Atomic replacement still permits reading the original consistent snapshot.
+
+CodeQL alert #159 traces the selected model name from config.json into the Owner-only inference test's `model` field. That transmission is intentional: the request has a static ping, one-token budget, registry-selected built-in endpoint or the existing custom-provider SSRF guard, and no arbitrary file payload. It repeats the previously reviewed alert #22. Regression tests prove the Owner boundary and exact custom-provider request body. Only this specific false positive is reviewed; scanners, rules, inventory enforcement and real findings remain enabled.
+
 ## 2026-10-09: Close the eight findings from the independent security rescan
 
 The completed rescan of `dac56bdf` found six Medium and two Low issues, with no High findings. Named MCP integrations now reuse the private endpoint-bound transport and recursive credential redaction rather than embedding bearer headers in an unbound server. OAuth consent accepts only server-generated registered client identities and their exact callbacks, preventing manual/pruned client IDs from aliasing another principal. The obsolete manual Client ID guidance is removed; clients must register and reconnect for new consent. The browser proof also exposed the consent grid's minimum-content width overflowing a 390px viewport; its card now permits shrinking, retaining readable content and the desktop/mobile reflow assertion.
