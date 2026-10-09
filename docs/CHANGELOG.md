@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `security` protect public admission and OAuth registration trust
 
+**Tests**
+
+- `auth` isolate default proxy policy from host configuration
+
 ## 2026-10-09
 
 **Added**

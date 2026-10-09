@@ -15,6 +15,7 @@ function reqWith(headers: Record<string, string>): NextRequest {
 
 beforeEach(() => {
   vi.unstubAllEnvs();
+  vi.stubEnv("OS_TRUSTED_PROXY_HOPS", undefined);
 });
 
 afterEach(() => {
