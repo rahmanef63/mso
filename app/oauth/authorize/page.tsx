@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main id="main-content" className="grid min-h-dvh place-items-center bg-background p-4">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">{children}</div>
+      <div className="min-w-0 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">{children}</div>
     </main>
   );
 }

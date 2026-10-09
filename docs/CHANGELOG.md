@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `oauth` keep registered consent within narrow viewports
 - `security` enforce live delegated grants and bound provider and OAuth state
 - `security` close remaining repository scan trust boundaries
 
