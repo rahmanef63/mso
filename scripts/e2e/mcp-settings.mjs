@@ -142,6 +142,10 @@ export async function oauthRegistrationJourney(page, fixture) {
   const callback = fixture.base + "/oauth-fixture-callback", verifier = "v".repeat(43);
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const consent = (clientId, redirectUri = callback) => fixture.base + "/oauth/authorize?" + new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, code_challenge: challenge, code_challenge_method: "S256", resource: fixture.base + "/mcp", state: "fixture-state", scope: "read" });
+  // The synthetic OAuth client must receive the callback instead of mounting the MSO shell.
+  const receiveCallback = route => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>OAuth fixture callback</title>" });
+  await page.route(callback + "?*", receiveCallback);
+  try {
   for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await page.goto(consent("chatgpt-mso", "https://attacker.invalid/callback"));
@@ -170,4 +174,5 @@ export async function oauthRegistrationJourney(page, fixture) {
     await expect(page.getByRole("button", { name: "Allow", exact: true })).toHaveCount(0);
   }
   console.log("PASS actual OAuth registered consent/exchange and manual/pruned callback denial on desktop/mobile");
+  } finally { await page.unroute(callback + "?*", receiveCallback); }
 }

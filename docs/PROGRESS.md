@@ -1,3 +1,7 @@
+## 2026-10-10: Give the OAuth browser fixture its own callback receiver
+
+GitHub's required browser journey reached the synthetic OAuth callback and then mounted the catch-all MSO shell, which rewrote that unknown client path to the previously focused Settings window before the URL assertion. The fixture now supplies a bounded HTML callback receiver and removes it after testing. Actual registration, exact callback validation, PKCE exchange, state, pruned/manual-client refusal and desktop/mobile checks remain unchanged; production routes and security gates are not relaxed.
+
 ## 2026-10-09: Reuse MSO login for reviewed private applications
 
 The bootstrap JavaScript is static: the login destination lives in percent-encoded HTML data, never code construction. A hostile app identifier cannot change the script or escape its data attribute; regression coverage executes the no-ticket redirect with hostile metadata.
