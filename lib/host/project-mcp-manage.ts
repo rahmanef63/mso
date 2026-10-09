@@ -1,8 +1,9 @@
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { readBoundedRegularFile } from "./bounded-read";
-import { resolveReadable } from "./paths";
-import { writeFileGuarded, sha256Text } from "./fs-api";
+import { constants, promises as fs } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { resolveReadable, safeWritePath } from "./paths";
+import { sha256Text } from "./hash";
+import { descriptorPath, pinDirectory, readBoundedBytes } from "./fs-descriptors";
 import { readProjectMcpServers, publicProjectMcpServers } from "./project-mcp-config";
 import { normalizeMcpEndpoint } from "@/lib/infra/mcp-policy";
 import { BUILT_IN_PLUGINS } from "@/lib/plugins/manifest";
@@ -11,15 +12,31 @@ import { directConnectionValues } from "@/lib/infra/connection-service";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 
 const object = (v: unknown): v is Record<string, unknown> => Boolean(v && typeof v === "object" && !Array.isArray(v));
+// Only this dedicated manager accesses the fixed credential-bearing manifest basename.
+async function manifestText(file: string): Promise<string | null> {
+  const handle = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return null; throw error; });
+  if (!handle) return null;
+  try {
+    const before = await handle.stat();
+    if (!before.isFile() || before.size > 64 * 1024) throw new Error("unsafe or oversized project MCP manifest");
+    const raw = (await readBoundedBytes(handle, 64 * 1024)).toString("utf8");
+    const after = await handle.stat();
+    if (after.size !== before.size || after.mtimeMs !== before.mtimeMs) throw new Error("MCP manifest changed while reading");
+    return raw;
+  } finally { await handle.close(); }
+}
 async function manifest(projectPath: string) {
   const file = path.join(projectPath, ".mcp.json");
   const stat = await fs.lstat(file).catch((e: NodeJS.ErrnoException) => { if (e.code === "ENOENT") return null; throw e; });
   if (!stat) return { file, data: { mcpServers: {} } as Record<string, unknown>, revision: "new" };
   if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("unsafe project MCP manifest");
-  await resolveReadable(file);
-  const raw = await readBoundedRegularFile(file, 64 * 1024);
-  if (raw === null) throw new Error("MCP manifest exceeds 64 KiB");
-  const data: unknown = JSON.parse(raw);
+  const held = await pinDirectory(await resolveReadable(projectPath), false);
+  let raw: string | null;
+  try { raw = await manifestText(`/proc/self/fd/${held.handle.fd}/.mcp.json`); await descriptorPath(held.handle, false); }
+  finally { await held.handle.close(); }
+  if (raw === null) throw new Error("MCP manifest disappeared; inspect before editing");
+  let data: unknown;
+  try { data = JSON.parse(raw); } catch { throw new Error("invalid MCP manifest JSON"); }
   if (!object(data)) throw new Error("invalid MCP manifest");
   if (data.mcpServers !== undefined && data.servers !== undefined) throw new Error("ambiguous MCP manifest; keep one servers key");
   if (!object(data.mcpServers ?? data.servers ?? {})) throw new Error("invalid MCP servers");
@@ -67,7 +84,19 @@ export async function manageProjectMcp(projectPath: string, input: { action: "up
     if (Object.keys(servers).length > 16) throw new Error("project MCP limit is 16 servers");
     const content = JSON.stringify({ ...stored.data, [key]: servers }, null, 2) + "\n";
     if (Buffer.byteLength(content) > 64 * 1024) throw new Error("MCP manifest exceeds 64 KiB");
-    const result = await writeFileGuarded({ path: stored.file, content, ...(stored.revision === "new" ? {} : { expectedSha256: stored.revision }) });
+    const held = await pinDirectory(await safeWritePath(projectPath, true), true);
+    const destination = `/proc/self/fd/${held.handle.fd}/.mcp.json`, temporary = `${destination}.${randomUUID()}.tmp`;
+    let handle;
+    try {
+      await descriptorPath(held.handle, false);
+      const current = await manifestText(destination);
+      if ((current === null ? "new" : sha256Text(current)) !== stored.revision) throw new Error("MCP revision changed; inspect before editing");
+      handle = await fs.open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+      await handle.writeFile(content, "utf8"); await handle.close(); handle = undefined;
+      await descriptorPath(held.handle, true);
+      await fs.rename(temporary, destination);
+    } finally { await handle?.close(); await fs.unlink(temporary).catch(() => undefined); await held.handle.close(); }
+    const result = { sha256: sha256Text(content) };
     return { action: input.action, server: input.server, revision: result.sha256, next: input.action === "delete"
       ? "Removed only from the selected project; other projects and Integrations credentials are unchanged."
       : "Installed only in the selected project; use project_mcp_tools for discovery evidence." };

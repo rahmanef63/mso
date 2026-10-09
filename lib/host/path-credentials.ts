@@ -102,7 +102,7 @@ export function isCredentialPath(real: string, roots = credentialRoots()): boole
   if (roots.some((root) => isUnderRoot(real, root))) return true;
   const names = path.resolve(real).split(path.sep);
   if (names.some((name) => name.startsWith(".env") && name !== ".env.example")) return true;
-  if (names.some((name) => [".mcp.json", ".npmrc", ".pypirc", ".netrc"].includes(name))) return true;
+  if (names.some((name) => [".mcp.json", ".npmrc", ".pypirc", ".netrc"].some((credential) => name === credential || name.startsWith(credential + ".")))) return true;
   const base = path.basename(real);
   // Private keys land anywhere (heredoc dumps, deploy keys, downloaded service
   // accounts). Their basename/extension is the reliable marker outside fixed ~/ paths.
@@ -120,6 +120,6 @@ export function looseCredentialExcludes(): string[] {
     : PRIVATE_KEY_BASENAMES.flatMap((name) => [name, `*/${name}`]);
   // *.pem has historically been a hard credential boundary, independent of the
   // SENSITIVE_HOME escape hatch; keep that contract while extending id_* safely.
-  return ["*.pem", ".env*", "*/.env*", ...[".mcp.json", ".npmrc", ".pypirc", ".netrc"].flatMap((name) => [name, `*/${name}`]), ...privateNames];
+  return ["*.pem", ".env*", "*/.env*", ...[".mcp.json", ".npmrc", ".pypirc", ".netrc"].flatMap((name) => [name, `*/${name}`, `${name}.*`, `*/${name}.*`]), ...privateNames];
 }
 

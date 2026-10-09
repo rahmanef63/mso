@@ -6,6 +6,25 @@ vi.mock("@/lib/infra/connection-service", () => ({ directConnectionValues: async
   ? { endpoint: "https://site.batonly.site/mcp", accessToken: "batonly-private-value" }
   : { endpoint: "https://example.test/mcp", accessToken: "private-value" } }));
 let root = "";
+it("preserves private literal configuration only through the dedicated manager", async () => {
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-mcp-literals-"));
+  vi.stubEnv("OS_FS_WRITE_ROOTS", root); vi.stubEnv("OS_FS_READ_ROOTS", root); vi.resetModules();
+  const file = path.join(root, ".mcp.json"), secret = "fixture-private-literal";
+  await fs.writeFile(file, JSON.stringify({ mcpServers: { private: { command: "node", env: { ACCESS_TOKEN: secret } } } }), { mode: 0o600 });
+  const { inspectProjectMcp, manageProjectMcp } = await import("./project-mcp-manage");
+  const inventory = await inspectProjectMcp(root);
+  expect(JSON.stringify(inventory)).not.toContain(secret);
+  await manageProjectMcp(root, { action: "upsert", server: "public", revision: inventory.revision, url: "https://example.test/mcp" });
+  expect(await fs.readFile(file, "utf8")).toContain(secret);
+  const { readFile } = await import("./fs");
+  await expect(readFile(file)).rejects.toThrow(/credential/);
+  const temporary = file + ".fixture.tmp"; await fs.writeFile(temporary, secret);
+  await expect(readFile(temporary)).rejects.toThrow(/credential/);
+  await fs.writeFile(file, '{"mcpServers":"' + secret);
+  await expect(inspectProjectMcp(root)).rejects.toThrow("invalid MCP manifest JSON");
+  await fs.unlink(file); await fs.symlink(temporary, file);
+  await expect(inspectProjectMcp(root)).rejects.toThrow("unsafe project MCP manifest");
+});
 afterEach(async () => { vi.unstubAllEnvs(); if (root) await fs.rm(root, { recursive: true, force: true }); });
 it("preserves existing servers, refuses stale revisions and stores only private connection references", async () => {
   root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-mcp-manage-"));
