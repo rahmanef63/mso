@@ -83,11 +83,11 @@ export function VaultScreen() {
         <span className="text-xs text-muted-foreground">{snapshot.notes.length} notes{snapshot.truncated ? " · partial" : ""}</span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col @min-[560px]:flex-row">
-        <aside className="flex max-h-52 min-h-0 flex-col border-b @min-[560px]:max-h-none @min-[560px]:w-64 @min-[560px]:shrink-0 @min-[560px]:border-r @min-[560px]:border-b-0">
+        <aside className="flex max-h-48 min-h-0 shrink-0 flex-col border-b @min-[560px]:max-h-none @min-[560px]:w-64">
           <div className="p-2"><Input aria-label="Search vault notes" placeholder="Search notes" value={filter} onChange={e => setFilter(e.target.value)} /></div>
           <div className="min-h-0 flex-1 overflow-auto">{notes.map(n => <button key={n.path} type="button" aria-pressed={note?.path === n.path} className={`block w-full border-b px-3 py-2 text-left text-sm hover:bg-muted ${note?.path === n.path ? "bg-muted" : ""}`} onClick={() => void select(n.path)}><span className="block truncate">{n.title}</span><span className="text-xs text-muted-foreground">{n.kind}</span></button>)}</div>
         </aside>
-        <article className="min-h-0 min-w-0 flex-1 overflow-auto p-4">
+        <article className="min-h-0 min-w-0 flex-1 overflow-auto p-4 @min-[560px]:border-l">
           {noteBusy ? <p className="text-sm text-muted-foreground">Loading note…</p> : note ? <><p className="mb-4 break-all text-xs text-muted-foreground">Source: {selected?.source}</p><NotePreview content={note.content} /></> : <p className="text-sm text-muted-foreground">Select a note to see agent roles, project updates or recorded progress.</p>}
         </article>
       </div>

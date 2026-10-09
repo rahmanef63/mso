@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `agent-vault` reuse shared styles within the shell bundle budget
 - `security` pin bounded MCP store reads to one descriptor
 - `oauth` keep registered consent within narrow viewports
 - `security` enforce live delegated grants and bound provider and OAuth state
