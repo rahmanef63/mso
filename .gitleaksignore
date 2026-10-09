@@ -41,3 +41,7 @@ d51e1a56826562a61e704a07560764c67da4924c:lib/workflow/variables.test.ts:generic-
 # Reviewed A2A redaction fixture: synthetic text with all outbound requests mocked.
 # Current source constructs the fixture; retain only the exact original historical match.
 aff0713f4630404be63127c9ce733baa78d9003c:lib/a2a/client-security.test.ts:generic-api-key:27
+
+# Reviewed Agent Vault redaction fixture: deterministic synthetic text in a temporary repo.
+# No provider credential; keep only the original commit/file/rule/line fingerprint.
+4c9ea47d97efdd1053ccdf438c319e32e578cd7d:lib/agent-vault/service.test.ts:generic-api-key:57

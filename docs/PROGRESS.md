@@ -1,3 +1,7 @@
+## 2026-10-09: Preserve security regressions without synthetic scanner noise
+
+Post-release GitHub checks found two test-only matches. The growing-file regression now changes bytes through the already-open descriptor, preserving the actual-byte limit assertion without introducing a pathname check/reopen race in its fixture. Agent Vault constructs its deterministic redaction fixture from pieces; the original historical Gitleaks fingerprint is narrowly recorded after verifying every reachable commit. No production credential, scanner rule or release gate is excluded.
+
 ## 2026-10-09: Keep live-grant revocation tests independent of host load
 
 The release lane rejected an epoch-revocation fixture before its first action: a fresh one-second grant can expire while the shared host is busy. Pin the fixture clock and advance it only for the dedicated expiry case. Every actual revocation, demotion, logout, epoch and expiry assertion remains active; production authorization and release gates are unchanged.

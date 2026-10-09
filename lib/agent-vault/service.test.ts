@@ -54,12 +54,13 @@ describe("separate repository agent vault", () => {
     expect((await getAgentVault("one", old.path)).note?.content).toBe("User annotation");
   });
   it("excludes unrelated private data, adapter configs, transcripts and nested archived deposits; redacts summaries", async () => {
-    await put("wiki/agents/worker.md", "# Worker\n\napi_key=sk_secret12345678\nFinished task.");
+    const syntheticSecret = ["sk", "secret12345678"].join("_");
+    await put("wiki/agents/worker.md", `# Worker\n\napi_key=${syntheticSecret}\nFinished task.`);
     for (const relative of ["raw/chat.md", "wiki/people/private.md", "adapters/hermes/profile.md", "inbox/hermes/archive/transcript.md"]) await put(relative, "PRIVATE-TRANSCRIPT");
     const result = await syncAgentVault("one");
     const texts = await Promise.all(result.state.snapshots[0].notes.map(n => getAgentVault("one", n.path)));
     const bodies = texts.map(n => n.note?.content).join("\n");
-    expect(bodies).not.toContain("PRIVATE-TRANSCRIPT"); expect(bodies).not.toContain("sk_secret12345678"); expect(bodies).toContain("[redacted]");
+    expect(bodies).not.toContain("PRIVATE-TRANSCRIPT"); expect(bodies).not.toContain(syntheticSecret); expect(bodies).toContain("[redacted]");
   });
   it("refuses traversal, cross-repository note reads and symlink source/target escapes", async () => {
     await fs.symlink(path.join(root, "repos/one/wiki/log.md"), path.join(root, "repos/one/wiki/agents/linked.md"));

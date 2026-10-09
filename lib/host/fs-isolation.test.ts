@@ -55,9 +55,9 @@ it("rejects virtual filesystem bytes even when aliased beneath an ordinary root"
 });
 it("bounds bytes actually read rather than trusting prior metadata", async () => {
   const file = path.join(root, "growing"); await fs.writeFile(file, "a");
-  const handle = await fs.open(file, "r");
+  const handle = await fs.open(file, "r+");
   try {
-    expect((await handle.stat()).size).toBe(1); await fs.appendFile(file, "bcdef");
+    expect((await handle.stat()).size).toBe(1); await handle.write("bcdef", 1, "utf8");
     await expect(readBoundedBytes(handle, 4)).rejects.toThrow(/large|limit/);
   } finally { await handle.close(); }
 });
