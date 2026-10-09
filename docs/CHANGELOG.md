@@ -21,6 +21,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `security` exercise managed app authorization on its actual host
 - `workflow` pin grant fixture time during revocation checks
 - `security` run app cookie proof in the browser release lane
 

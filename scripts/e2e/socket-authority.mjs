@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { createServer, request } from "node:http";
 import { connect } from "node:net";
 import { once } from "node:events";
 import { releaseFixture } from "./release-fixture.mjs";
@@ -26,9 +26,13 @@ try {
   const ticketResponse = await fetch(fixture.base + "/api/v1/managed-apps/hermes/session", { headers: { cookie } });
   assert.equal(ticketResponse.status, 200);
   const authorization = await ticketResponse.json();
-  const exchange = await fetch(fixture.base + "/__mso_app_auth", { method: "POST", headers: { host: new URL(authorization.origin).host, origin: authorization.origin, authorization: "Bearer " + authorization.ticket } });
-  assert.equal(exchange.status, 204);
-  const appCookie = exchange.headers.get("set-cookie").split(";")[0];
+  // Node fetch ignores Host; use HTTP request to exercise the actual app-host gate.
+  const exchange = await new Promise((resolve, reject) => {
+    const hop = request(fixture.base + "/__mso_app_auth", { method: "POST", headers: { host: new URL(authorization.origin).host, origin: authorization.origin, authorization: "Bearer " + authorization.ticket } }, response => { response.resume(); resolve(response); });
+    hop.once("error", reject); hop.end();
+  });
+  assert.equal(exchange.statusCode, 204);
+  const appCookie = exchange.headers["set-cookie"][0].split(";")[0];
   assert.match(appCookie, /^__Host-mso-managed-app=/);
   assert.equal((await fetch(fixture.base + "/api/v1/exec/run", { method: "POST", headers: { cookie: appCookie, origin: fixture.base, "content-type": "application/json" }, body: JSON.stringify({ command: "true" }) })).status, 401);
   assert.equal((await fetch(fixture.base + "/api/internal/socket-policy", { method: "POST" })).status, 404);
