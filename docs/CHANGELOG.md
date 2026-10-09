@@ -24,6 +24,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `workflow` pin grant fixture time during revocation checks
 - `security` run app cookie proof in the browser release lane
 
+**Docs**
+
+- `security` document legacy cookie cleanup configuration
+
 ## 2026-10-08
 
 **Fixed**
