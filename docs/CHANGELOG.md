@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `security` close remaining repository scan trust boundaries
 
+**Tests**
+
+- `security` run app cookie proof in the browser release lane
+
 ## 2026-10-08
 
 **Fixed**

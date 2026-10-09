@@ -1,3 +1,7 @@
+## 2026-10-09: Keep the cookie browser proof in the mandatory browser release lane
+
+The GitHub Verify job found that the new cookie proof needed Chromium before the unit/coverage lane installed a browser. The same unskipped proof now runs through the mandatory release browser configuration, after the existing Playwright preparation step. It still tests sibling Domain/path cookie injection in both insertion orders using the production helpers. Core verification remains usable on a fresh host; no runtime authorization, scanner gate, dependency or test assertion was relaxed.
+
 ## 2026-10-09: Close the seven remaining repository-scan trust boundaries
 
 The October 8 scan at `fe9d66ed` identified seven separate gaps. Workflow Operator grants now intersect caller tool/argument restrictions with reviewed bounded app actions and recheck the live role per node; both directories reflect the effective authority. A2A applies the live deployment ceiling at dispatch, every model round and every tool call. Fresh installs fetch the exact requested branch/tag/commit and stop on failure, with verified bootstrap hashes refreshed.

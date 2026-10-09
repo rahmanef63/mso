@@ -1,6 +1,6 @@
 import { chromium } from "@playwright/test";
 import { expect, it } from "vitest";
-import { cookiePrefix, rewriteSetCookie, upstreamCookieHeader } from "./proxy-headers";
+import { cookiePrefix, rewriteSetCookie, upstreamCookieHeader } from "../../lib/managed-apps/proxy-headers";
 
 it("the browser rejects sibling Domain/path shadows in either insertion order", async () => {
   const browser = await chromium.launch({headless: true});
