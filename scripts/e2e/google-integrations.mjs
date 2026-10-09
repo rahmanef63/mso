@@ -46,8 +46,11 @@ try {
   check(await page.getByRole("button", { name: "Connect with Google", exact: true }).isVisible(), "Native Google connect action is visible");
   check(await page.getByRole("textbox", { name: /Project API key/ }).count() === 0, "No Composio project-key prompt in native Google connection");
   await page.getByRole("combobox", { name: "Google OAuth app", exact: true }).selectOption("app");
+  const priorConnect = await page.getByRole("button", { name: "Connect with Google", exact: true }).elementHandle();
   await page.getByRole("button", { name: "Use selected app", exact: true }).click();
   await expect.poll(() => requests.some(r => r.operation === "google.bind" && r.arguments?.appConnection === "app")).toBe(true);
+  // Binding refreshes the card; a request receipt alone does not mean that UI has settled.
+  await priorConnect.waitForElementState("hidden");
   check(true, "App binding uses the existing generic integration executor");
   await page.getByRole("button", { name: "Connect with Google", exact: true }).click();
   const consent = page.getByRole("link", { name: "Continue to Google", exact: true }); await expect(consent).toBeVisible();

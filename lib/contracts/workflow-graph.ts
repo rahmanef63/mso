@@ -88,6 +88,9 @@ export type WorkflowGraphRun = {
   graphName: string;
   idempotencyKey: string;
   fingerprint: string;
+  /** Missing on legacy receipts: treat their outputs as exec-only. */
+  executionScope?: "read" | "write" | "exec";
+  executionRole?: "operator" | "owner";
   state: "running" | "completed" | "completed_with_errors" | "failed" | "interrupted";
   startedAt: string;
   updatedAt: string;

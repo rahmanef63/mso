@@ -33,6 +33,9 @@ export const SENSITIVE_HOME = [
   ".bash_history", ".zsh_history", ".python_history", ".mysql_history",
   // cloud / infra credentials
   ".aws", ".config/gcloud", ".kube", ".docker", ".config/rclone",
+  ".terraform.d", ".terraformrc", ".pypirc", ".config/pypoetry", ".config/doctl", ".azure",
+  ".mozilla", ".config/google-chrome", ".config/chromium", ".config/BraveSoftware",
+  ".config/microsoft-edge", ".cache/camoufox",
   ".git-credentials", ".netrc", ".config/git/credentials",
   // AI/dev-tool + OS keyring credentials (account tokens = full account access)
   ".claude", ".claude.json", ".config/gh", ".config/anthropic", ".local/share/keyrings",
@@ -99,6 +102,7 @@ export function isCredentialPath(real: string, roots = credentialRoots()): boole
   if (roots.some((root) => isUnderRoot(real, root))) return true;
   const names = path.resolve(real).split(path.sep);
   if (names.some((name) => name.startsWith(".env") && name !== ".env.example")) return true;
+  if (names.some((name) => [".mcp.json", ".npmrc", ".pypirc", ".netrc"].includes(name))) return true;
   const base = path.basename(real);
   // Private keys land anywhere (heredoc dumps, deploy keys, downloaded service
   // accounts). Their basename/extension is the reliable marker outside fixed ~/ paths.
@@ -116,6 +120,6 @@ export function looseCredentialExcludes(): string[] {
     : PRIVATE_KEY_BASENAMES.flatMap((name) => [name, `*/${name}`]);
   // *.pem has historically been a hard credential boundary, independent of the
   // SENSITIVE_HOME escape hatch; keep that contract while extending id_* safely.
-  return ["*.pem", ".env*", "*/.env*", ...privateNames];
+  return ["*.pem", ".env*", "*/.env*", ...[".mcp.json", ".npmrc", ".pypirc", ".netrc"].flatMap((name) => [name, `*/${name}`]), ...privateNames];
 }
 

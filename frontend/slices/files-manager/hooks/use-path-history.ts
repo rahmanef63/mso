@@ -9,6 +9,11 @@ export function usePathHistory(start: string) {
   const [history, setHistory] = useState<string[]>([start]);
   const [cursor, setCursor] = useState(0);
 
+  const replaceCurrent = useCallback((next: string) => {
+    setPath(next);
+    setHistory((items) => items.map((item, index) => index === cursor ? next : item));
+  }, [cursor]);
+
   const navigate = useCallback(
     (next: string) => {
       setHistory((h) => {
@@ -34,6 +39,7 @@ export function usePathHistory(start: string) {
   return {
     path,
     navigate,
+    replaceCurrent,
     goBack,
     goForward,
     canBack: cursor > 0,

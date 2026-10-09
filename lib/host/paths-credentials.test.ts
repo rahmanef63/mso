@@ -37,6 +37,16 @@ afterAll(() => rmSync(base, { recursive: true, force: true }));
 afterEach(() => vi.unstubAllEnvs());
 
 describe("recursive credential guard", () => {
+  it("blocks optional provider/browser stores and secret-bearing project configs", () => {
+    vi.stubEnv("HOME", fakeHome);
+    for (const name of [".terraform.d/credentials.tfrc.json", ".pypirc", ".config/pypoetry/auth.toml", ".config/doctl/config.yaml", ".azure/accessTokens.json", ".mozilla/firefox/profile/cookies.sqlite", ".config/google-chrome/Default/Cookies", ".config/chromium/Default/Cookies"]) {
+      expect(isCredentialPath(path.join(fakeHome, name)), name).toBe(true);
+    }
+    for (const name of [".mcp.json", ".npmrc", ".pypirc", ".netrc"]) {
+      expect(isCredentialPath(path.join(fakeHome, "safe", "project", name)), name).toBe(true);
+      expect(looseCredentialExcludes()).toContain(`*/${name}`);
+    }
+  });
   it("blocks the agent credential stores added to the denylist", () => {
     vi.stubEnv("HOME", fakeHome);
     expect(isSensitivePath(path.join(fakeHome, ".codex"))).toBe(true);
@@ -127,7 +137,8 @@ describe("recursive credential guard", () => {
     vi.stubEnv("HOME", fakeHome);
     vi.stubEnv("OS_FS_ALLOW_SENSITIVE", "1");
     expect(sensitiveExcludes(fakeHome)).toEqual([]);
-    expect(looseCredentialExcludes()).toEqual(["*.pem", ".env*", "*/.env*"]);
+    expect(looseCredentialExcludes()).toEqual(expect.arrayContaining(["*.pem", ".env*", "*/.env*", ".mcp.json", "*/.mcp.json"]));
+    expect(looseCredentialExcludes()).not.toContain("id_rsa");
     expect(isCredentialPath(path.join(fakeHome, "safe", "id_rsa"))).toBe(false);
     expect(isCredentialPath(path.join(fakeHome, "safe", "deploy.pem"))).toBe(true);
     expect(() => assertNoSensitiveDescendants(parent)).not.toThrow();

@@ -196,15 +196,16 @@ function labelFor(p: string): string {
   return path.basename(p) || p;
 }
 
-// Sidebar jump-points: Home + Projects, plus any extra read roots (e.g. "/").
+// Sidebar jump-points must stay inside the configured read roots.
 export function resolveRoots(): FsRoot[] {
   const h = homeDir();
+  const configured = readRootList();
   const base: FsRoot[] = [
     { label: "Home", path: h },
     { label: "Projects", path: path.join(h, "projects") },
   ];
-  const extra = readRootList()
+  const extra = configured
     .filter((p) => p !== h && p !== path.join(h, "projects"))
     .map((p) => ({ label: labelFor(p), path: p }));
-  return [...base, ...extra];
+  return [...base.filter((entry) => configured.some((root) => isUnderRoot(entry.path, root))), ...extra];
 }

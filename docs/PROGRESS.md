@@ -1,3 +1,15 @@
+## 2026-10-10: Close the five findings from the 34b69798 cloud scan
+
+Read roots default to the checkout and projects, not the whole home. Shared filesystem guards refuse additional Terraform, PyPI, Poetry, doctl, Azure and browser credential stores, plus raw project MCP/registry credentials. The dedicated project MCP inventory remains redacted. File Manager's initial listing selects an allowed root and canonicalizes its history; the sidebar no longer advertises disallowed Home paths. Explicit Owner root overrides remain available and subject to credential guards.
+
+Workflow receipt identity includes graph and trigger node as well as principal/key. Matching legacy receipts retain their IDs; sibling graphs cannot reserve each other's namespace. Input/revision collisions still fail. Receipts retain creation scope and device role: status, waited status, stop, retry and idempotent replay recheck current authority. Owner-era receipts remain Owner-only after demotion even if their execution used a lower scope; legacy receipts require Owner/exec. Viewer inventory remains metadata-only.
+
+Camoufox no longer selects an arbitrary executable from mutable cache. Repository pins bind the official Linux x86_64/arm64 archive checksums and complete installed file-tree digests for v156.0.1-beta.36. The installer verifies before extracting into private versioned runtime state; each launch verifies browser files/libraries, ownership, permissions and regular-file boundaries before touching authenticated profiles. Existing profiles/session snapshots remain intact; the optional service requires a reviewed installation.
+
+Managed-app logs redact the entire Authorization value, including Basic, Digest and quoted headers. Persisted job records are scrubbed on write and historical records again on read, while ordinary update output stays readable. Regression fixtures cover credential denial through actual HTTP/MCP handlers, receipt collisions/demotion/revocation and legacy compatibility, browser artifact tamper/ownership/symlinks/special files, and current/historical log redaction.
+
+The synthetic Google UI fixture waits for bind's replacement card before starting consent; receiving a bind request alone did not mean its reload had completed. Existing Google actions/assertions remain intact. Independent verification of the final released commit remains required.
+
 ## 2026-10-10: Give the OAuth browser fixture its own callback receiver
 
 GitHub's required browser journey reached the synthetic OAuth callback and then mounted the catch-all MSO shell, which rewrote that unknown client path to the previously focused Settings window before the URL assertion. The fixture now supplies a bounded HTML callback receiver and removes it after testing. Actual registration, exact callback validation, PKCE exchange, state, pruned/manual-client refusal and desktop/mobile checks remain unchanged; production routes and security gates are not relaxed.

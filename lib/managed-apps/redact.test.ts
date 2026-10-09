@@ -30,6 +30,17 @@ const TRANSCRIPT = [
 ];
 
 describe("secrets that reached a persisted transcript before this widened", () => {
+  it("removes complete authorization values for Basic, Digest and quoted header dumps", () => {
+    for (const line of ["Authorization: Basic dXNlcjpwYXNz", "authorization=basic dXNlcjpwYXNz; status=401", '"Authorization": "Basic dXNlcjpwYXNz", "status": 401', "Authorization: Digest username=alice, response=secret", "Proxy-Authorization: Basic dXNlcjpwYXNz"]) {
+      const value = redact(line);
+      expect(value).toContain("[redacted]");
+      expect(value).not.toContain("dXNlcjpwYXNz");
+      expect(value).not.toContain("secret");
+      expect(value).not.toContain("alice");
+      expect(redact(value)).toBe(value);
+    }
+    expect(JSON.parse(redact('{"Authorization":"Basic dXNlcjpwYXNz","status":401}'))).toEqual({ Authorization: "[redacted]", status: 401 });
+  });
   const cases: Array<[string, string, string]> = [
     [
       "a bare PAT in a git error, with no key=value beside it",

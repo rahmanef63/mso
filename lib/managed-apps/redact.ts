@@ -64,9 +64,10 @@ const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]*:\/\/)([^\s/:@]+):([^\s/@]+)@/gi;
  *  through the regex. */
 export function redact(line: string): string {
   return line
+    .replace(/\b(authorization["']?\s*[:=]\s*)("(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^\r\n;\]}]+)/gi, (match, prefix: string, value: string) => value === "[redacted" ? match : `${prefix}${value.startsWith('"') || value.startsWith("'") ? value[0] + "[redacted]" + value[0] : "[redacted]"}`)
     .replace(/\bbearer\s+[^\s,;]+/gi, "Bearer [redacted]")
     .replace(URL_CREDENTIALS, "$1$2:[redacted]@")
-    .replace(SECRET, "$1$2[redacted]")
+    .replace(SECRET, (match, key: string, separator: string, value: string) => value === "[redacted" ? match : `${key}${separator}[redacted]`)
     .replace(SECRET_VALUE, "[redacted]")
     .slice(0, 8192);
 }

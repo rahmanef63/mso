@@ -14,6 +14,13 @@ It is additive: existing deterministic project flows, RASMIC scripts and learned
 
 Graphs, versions, variables and execution receipts are private per authenticated principal. Source and builtin templates contain no operator-specific user, credential, path or seeded workflow.
 
+Idempotency keys are scoped to the principal, graph and trigger node; reusing a key with different
+input or revision still fails. Legacy receipt IDs remain addressable and are reused only for the
+same graph/trigger. Detailed receipts require their creation scope and device role on every
+status, waited response, stop, retry and idempotent replay. Owner-era receipts stay Owner-only
+after demotion, including runs made with a lower scope; legacy receipts require Owner/exec.
+Viewer execution history remains metadata-only and never returns node outputs or logs.
+
 Delegated write authority excludes the live MSO checkout, Git control files, user-systemd units, user-local CLI launchers, Hermes/OpenClaw runtime trees and parent directories that could replace them. These control-plane mutations require exec authority; canonical symlink targets are checked as well.
 
 ## Node catalog

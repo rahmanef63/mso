@@ -13,7 +13,7 @@ const g=globalThis as typeof globalThis&{__msoWorkflowScheduler?:ReturnType<type
 function key(parts:string[]){return `trigger:${createHash("sha256").update(parts.join(":" )).digest("hex").slice(0,48)}`;}
 type Resolver=(name:string)=>CapabilityTool|undefined;
 async function runScheduled(principal:string,owner:string,graph:Awaited<ReturnType<typeof listWorkflowGraphTriggerSources>>[number]["graph"],node:WorkflowGraphNode,bucket:string,resolve:Resolver,capabilities?:CapabilityRuntime){
- const idempotency=key([graph.id,node.id,bucket]);if(await readWorkflowGraphRun(owner,workflowGraphRunId(owner,idempotency)))return;
+ const idempotency=key([graph.id,node.id,bucket]);if(await readWorkflowGraphRun(owner,workflowGraphRunId(owner,idempotency,graph.id,node.id)))return;
  const session=await createAgentSession(principal,"cli",{title:`Schedule: ${graph.name}`,titleSource:"auto"});
  const context={principal,actor:principal,sessionId:session.id,scope:"exec" as const,...(capabilities?{capabilities}:{})};
  await startWorkflowGraph(graph,{trigger:{type:"schedule",nodeId:node.id,bucket,at:new Date().toISOString()}},idempotency,context,resolve,principal,{type:"schedule",nodeId:node.id,receivedAt:new Date().toISOString()});

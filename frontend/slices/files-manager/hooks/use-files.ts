@@ -24,6 +24,7 @@ export function useFiles(initialPath?: string) {
   const api = useOsApi();
   const nav = usePathHistory(initialPath || "~");
   const { path } = nav;
+  const { replaceCurrent } = nav;
   // Listing keyed by the request that produced it: when path/reload move on the
   // stale result stops matching and `entries` derives back to null (loading) —
   // no synchronous setState reset in the effect (react-hooks/set-state-in-effect).
@@ -52,6 +53,7 @@ export function useFiles(initialPath?: string) {
       .list(path)
       .then((res) => {
         if (!alive) return;
+        if ((!path || path === "~") && res.path !== path) replaceCurrent(res.path);
         setListing({ key: loadKey, entries: res.entries });
         if (res.roots?.length) setRoots(res.roots);
       })
@@ -72,7 +74,7 @@ export function useFiles(initialPath?: string) {
     return () => {
       alive = false;
     };
-  }, [api, path, loadKey]);
+  }, [api, path, loadKey, replaceCurrent]);
 
   useEffect(() => {
     let alive = true;

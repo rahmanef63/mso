@@ -22,7 +22,7 @@ function rootsFromEnv(name: string, fallback: string[]): string[] {
 
 export function readRootList(): string[] {
   const h = homeDir();
-  return rootsFromEnv("OS_FS_READ_ROOTS", [h, path.join(h, "projects")]);
+  return rootsFromEnv("OS_FS_READ_ROOTS", [process.cwd(), path.join(h, "projects")]);
 }
 
 export function writeRootList(): string[] {

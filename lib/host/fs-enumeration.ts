@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { FsList } from "@/lib/os-api/types";
 import { HostError } from "./host-error";
-import { isCredentialPath, resolveReadable, resolveRoots } from "./paths";
+import { homeDir, isUnderRoot, readRootList, isCredentialPath, resolveReadable, resolveRoots } from "./paths";
 import { projectAliasTarget } from "./project-aliases";
 import { descriptorPath, pinDirectory } from "./fs-descriptors";
 
@@ -34,7 +34,9 @@ async function bounded<T>(signal: AbortSignal | undefined, run: (charge: (bytes?
 export async function listDir(requested: string, includeHidden = true, signal?: AbortSignal): Promise<FsList> {
   return bounded(signal, async (charge) => {
     charge();
-    const held = await pinDirectory(await resolveReadable(requested || "~"), false);
+    const roots = readRootList();
+    const start = (!requested || requested === "~") && !roots.some((root) => isUnderRoot(homeDir(), root)) ? roots[0] : requested || "~";
+    const held = await pinDirectory(await resolveReadable(start), false);
     try {
       const real = await descriptorPath(held.handle, false);
       const entries: FsList["entries"] = [];

@@ -54,6 +54,16 @@ function record(over: Partial<ManagedAppJob> = {}): ManagedAppJob {
 }
 
 describe("job ids are filenames, so they are validated as filenames", () => {
+  it("redacts Basic credentials in persisted records and legacy transcript reads", async () => {
+    const raw = record({ log: "Authorization: Basic dXNlcjpwYXNz\nordinary output", error: "Authorization: Basic dXNlcjpwYXNz" });
+    await writeJobRecord(raw);
+    const file = path.join(home, ".mso", "managed-app-jobs", `${raw.id}.json`);
+    expect(await fs.readFile(file, "utf8")).not.toContain("dXNlcjpwYXNz");
+    await fs.writeFile(file, JSON.stringify(raw), { mode: 0o600 });
+    expect(JSON.stringify(await readJobRecord(raw.id))).not.toContain("dXNlcjpwYXNz");
+    expect((await readJobRecord(raw.id))?.log).toContain("ordinary output");
+    expect(JSON.stringify(await listJobRecords())).not.toContain("dXNlcjpwYXNz");
+  });
   it("accepts only 24 lowercase hex chars", () => {
     expect(isManagedAppJobId(randomBytes(12).toString("hex"))).toBe(true);
     expect(isManagedAppJobId("../../../.ssh/id_ed25519")).toBe(false);

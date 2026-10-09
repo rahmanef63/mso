@@ -1,0 +1,18 @@
+{
+  "version": "v156.0.1-beta.36",
+  "source": "https://github.com/daijro/camoufox/releases/tag/v156.0.1-beta.36",
+  "linux": {
+    "x86_64": {
+      "filename": "camoufox-156.0.1-beta.36-lin.x86_64.zip",
+      "url": "https://github.com/daijro/camoufox/releases/download/v156.0.1-beta.36/camoufox-156.0.1-beta.36-lin.x86_64.zip",
+      "archiveSha256": "72637885ee67c93466ad377831c647192f8f08fb5c6fd9279de1320b49dd2b53",
+      "treeSha256": "25c143c4b71cbc8501ee51db8019d1a7f558ef4035be3cc2ca84ea1c4be4c6aa"
+    },
+    "arm64": {
+      "filename": "camoufox-156.0.1-beta.36-lin.arm64.zip",
+      "url": "https://github.com/daijro/camoufox/releases/download/v156.0.1-beta.36/camoufox-156.0.1-beta.36-lin.arm64.zip",
+      "archiveSha256": "8b5fd083721c807ee2a752265683482477105052fa0e21739388b527ae067c15",
+      "treeSha256": "d59fe9fbce275c71e0628d9c8e335c379d55f995c8ac63ae48143b2fcc25d49b"
+    }
+  }
+}

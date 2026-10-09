@@ -400,16 +400,20 @@ allowlist and its roles intact.
 
 ## 4. Filesystem roots
 
-Defaults allow the owner's home/project area. Override deliberately:
+Read defaults cover the running checkout and `~/projects`, not the whole home. File Manager
+opens the first allowed read root when Home is outside that boundary. Write defaults remain
+the owner's home/project area. Override deliberately:
 
 ```dotenv
-OS_FS_READ_ROOTS=~:~/projects
+OS_FS_READ_ROOTS=/path/to/project:~/projects
 OS_FS_WRITE_ROOTS=~:~/projects
 ```
 
 `OS_FS_READ_ROOTS=/` permits broad **read** browsing subject to the process user's Unix
 permissions, but write roots should stay narrow. The credential denylist still blocks MSO's
-private state, `.env*`, SSH/GPG paths and other sensitive-home material.
+private state, `.env*`, SSH/GPG, Terraform/PyPI/Poetry/doctl/Azure and browser credential
+stores. Raw project `.mcp.json`, `.npmrc`, `.pypirc` and `.netrc` are denied; use the redacted
+MCP integration inventory for project connection metadata.
 
 ## 5. Service model
 
@@ -458,9 +462,17 @@ and binary overrides are documented in `.env.example`; normal installations shou
 ## 6. Optional Browser app — Camoufox
 
 The current Browser app is **Camoufox**, not the retired Playwright browser daemon. Host dependencies
-include `xvfb`, `x11vnc`, `novnc`, `matchbox-window-manager`, and `websockify`; install the Camoufox
-browser through its isolated Python venv/official fetch path rather than committing browser
-binaries into MSO. `scripts/camoufox-vnc-service` launches:
+include `xvfb`, `x11vnc`, `novnc`, `matchbox-window-manager`, `websockify` and Python 3.
+Run `python3 scripts/camoufox-artifact.py install` from the canonical checkout as the service
+user. The repository pins Linux x86_64/arm64 release `v156.0.1-beta.36`, its official archive
+SHA-256 and the complete installed file-tree digest in `scripts/camoufox-artifact.json`.
+Installation verifies the archive before extracting into a private versioned directory under
+`~/.mso/private/camoufox/`; it leaves profiles and session backups intact. Every launch verifies
+all browser files and libraries, ownership, private permissions and absence of symlinks or
+special files. Mutable cache discovery is removed; `CAMOUFOX_BROWSER` may only name the pinned
+installed executable. A missing or modified installation fails before opening the profile.
+Update both reviewed archive and tree pins deliberately for a future browser release.
+`scripts/camoufox-vnc-service` launches:
 
 ```text
 Xvfb -> matchbox window manager -> Camoufox -> x11vnc -> websockify/noVNC

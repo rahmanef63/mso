@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` bind receipts to authority and pin browser artifacts
 - `security` keep connected app bootstrap code static
 - `security` protect public admission and OAuth registration trust
 

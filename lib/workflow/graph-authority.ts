@@ -1,4 +1,5 @@
 import { getApprovedDevice } from "@/lib/auth/device-store";
+import { roleAtLeast } from "@/lib/auth/roles";
 import { liveCapabilityContext } from "@/lib/capabilities/live-authority";
 import { allows, scopeRank, type Scope } from "@/lib/capabilities/scope";
 import type { CapabilityRunContext } from "@/lib/capabilities/tool";
@@ -39,4 +40,18 @@ export async function workflowExecutionContext(
 
 export function requireWorkflowScope(context: CapabilityRunContext, required: Scope): void {
   if (!allows(context.scope, required)) throw new Error(`workflow requires ${required} authority`);
+}
+
+/** Receipt ownership survives demotion; access to its original authority does not. */
+export async function requireWorkflowReceiptAuthority(principal: string, run: WorkflowGraphRun, scope: Scope = "exec"): Promise<void> {
+  let ceiling = configuredCapabilityCeiling();
+  if (principal.startsWith("web:")) {
+    const device = await getApprovedDevice(principal.slice(4));
+    if (!device) throw new Error("workflow receipt device is revoked");
+    if (!roleAtLeast(device.role, run.executionRole ?? "owner")) throw new Error("workflow receipt requires its original execution authority");
+    const roleScope: Scope = device.role === "owner" ? "exec" : device.role === "operator" ? "write" : "read";
+    if (scopeRank(roleScope) < scopeRank(ceiling)) ceiling = roleScope;
+  }
+  const effective = scopeRank(scope) < scopeRank(ceiling) ? scope : ceiling;
+  if (!allows(effective, run.executionScope ?? "exec")) throw new Error("workflow receipt requires its original execution authority");
 }

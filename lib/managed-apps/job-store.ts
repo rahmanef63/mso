@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { ManagedAppId, ManagedAppJob } from "./types";
+import { redact } from "./redact";
 
 // Durable half of the job layer: one JSON file per job under
 // ~/.mso/managed-app-jobs/ (0700 dir, 0600 files, tmp+rename), matching how
@@ -64,7 +65,7 @@ export async function writeJobRecord(record: ManagedAppJob): Promise<void> {
   // pid in the tmp name: two mso processes sharing $HOME must not collide on
   // one another's partial write.
   const tmp = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(record), { encoding: "utf8", mode: 0o600 });
+  await fs.writeFile(tmp, JSON.stringify({ ...record, log: record.log.split(/\r?\n/).map(redact).join("\n"), error: record.error ? redact(record.error) : record.error }), { encoding: "utf8", mode: 0o600 });
   await fs.rename(tmp, file);
 }
 
@@ -72,7 +73,7 @@ async function parse(file: string): Promise<ManagedAppJob | null> {
   try {
     const record = JSON.parse(await fs.readFile(file, "utf8")) as ManagedAppJob;
     const shaped = isManagedAppJobId(record?.id) && typeof record.status === "string" && typeof record.updatedAt === "string";
-    return shaped ? { ...record, argv: Array.isArray(record.argv) ? record.argv : [] } : null;
+    return shaped ? { ...record, argv: Array.isArray(record.argv) ? record.argv : [], log: typeof record.log === "string" ? record.log.split(/\r?\n/).map(redact).join("\n") : "", error: record.error ? redact(record.error) : record.error } : null;
   } catch {
     return null; // missing, half-written or hand-edited: not a job
   }
