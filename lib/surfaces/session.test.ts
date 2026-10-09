@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { runInNewContext } from "node:vm";
 import { createShellAppCredential, verifyShellAppCredential, sessionApps, shellAppSession, SHELL_APP_COOKIE, shellAppUpstreamHeaders } from "./session";
 import { gateShellApp } from "./session-gate";
 import { shellAppSocketPolicy } from "./socket-policy";
@@ -80,7 +81,21 @@ describe("isolated connected-app sessions", () => {
     expect((await gateShellApp(request("/", "", { "sec-fetch-dest": "iframe" }), app))?.status).toBe(200);
     expect((await gateShellApp(request("/api/websockets", ""), app))?.status).toBe(401);
     const script = await gateShellApp(request("/__mso_app_bootstrap.js", ""), app);
-    expect(await script!.text()).toContain("returnTo");
+    expect(await script!.text()).toContain("document.body.dataset.msoLogin");
+  });
+  it("keeps app identifiers in encoded HTML data rather than generated JavaScript", async () => {
+    const hostile = { ...app, id: 'x"><script>globalThis.injected=true</script>' };
+    const html = await (await gateShellApp(request("/", "", { "sec-fetch-dest": "iframe" }), hostile))!.text();
+    const value = /data-mso-login="([^"]+)"/.exec(html)![1];
+    expect(html).not.toContain(hostile.id);
+    const javascript = await (await gateShellApp(request("/__mso_app_bootstrap.js", ""), hostile))!.text();
+    expect(javascript).toBe(await (await gateShellApp(request("/__mso_app_bootstrap.js", ""), app))!.text());
+    const replace = vi.fn(), context = { URLSearchParams, decodeURIComponent, history: { replaceState: vi.fn() }, location: { hash: "", pathname: "/", search: "", replace }, document: { body: { dataset: { msoLogin: value }, textContent: "" } }, injected: false };
+    await runInNewContext(javascript, context);
+    expect(context.injected).toBe(false);
+    const target = new URL(replace.mock.calls[0][0]);
+    expect(target.origin).toBe("https://cockpit.example.test");
+    expect(target.searchParams.get("returnTo")).toBe(`/api/v1/shell-apps/${encodeURIComponent(hostile.id)}/session?redirect=1`);
   });
   it("authorizes sockets with app credentials and stops authorizing after revocation or demotion", async () => {
     const req = request("/api/websockets", token(), { origin: app.origin, upgrade: "websocket" });
