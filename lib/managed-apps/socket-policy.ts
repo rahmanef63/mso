@@ -12,6 +12,7 @@ import { getManagedAppDefinition } from "./catalog";
 import { managedAppUpstream } from "./upstream-target";
 import { upstreamSocketHeaders } from "./proxy-headers";
 import { IS_DEMO } from "@/lib/demo";
+import { shellAppSocketPolicy } from "@/lib/surfaces/socket-policy";
 
 export async function socketPolicy(request: NextRequest) {
   if (IS_DEMO || request.method !== "GET") return null;
@@ -19,7 +20,7 @@ export async function socketPolicy(request: NextRequest) {
   if (origin) { try { if (new URL(origin).host !== host) return null; } catch { return null; } }
   if (!/(?:^|,)\s*websocket\s*(?:,|$)/i.test(request.headers.get("upgrade") ?? "")) return null;
   const viewer = isCamoufoxViewerHost(host), app = managedAppIdForHost(host);
-  if (!viewer && !app) return null;
+  if (!viewer && !app) return shellAppSocketPolicy(request);
   const secret = process.env.OS_SESSION_SECRET ?? "";
   let identity: string | undefined;
   for (const { value } of request.cookies.getAll(viewer ? CAMOUFOX_VIEWER_COOKIE : MANAGED_APP_SESSION_COOKIE)) {

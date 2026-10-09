@@ -74,12 +74,23 @@ function parseApp(entry: unknown, seen: Set<string>): SurfaceApp | null {
   if (row.project !== undefined && !project) return null;
   if (row.placements !== undefined && (!Array.isArray(row.placements) || row.placements.some((value) => value !== "workflows" && value !== "n8n" && value !== "mcp-page" && value !== "shell"))) return null;
   const placements = row.placements === undefined ? undefined : [...new Set(row.placements)] as SurfacePlacement[];
+  let sessionUpstream: string | undefined;
+  if (row.sessionUpstream !== undefined) {
+    try {
+      const target = new URL(String(row.sessionUpstream));
+      if (!shellOnly || renderer !== "iframe" || !origin.startsWith("https://") || target.protocol !== "http:" ||
+          !["127.0.0.1", "localhost", "[::1]"].includes(target.hostname) || !target.port ||
+          target.username || target.password || target.pathname !== "/" || target.search || target.hash) return null;
+      sessionUpstream = target.origin;
+    } catch { return null; }
+  }
   seen.add(id);
   const reason = boundedText(row.reason);
   return {
     id, title, description: boundedText(row.description) ?? "", origin, startPath, renderer,
     presentation: presentation as SurfacePresentation, environment: environment as SurfaceEnvironment,
     ...(placements ? { placements } : {}), ...(project ? { project } : {}), ...(sandbox !== undefined ? { sandbox } : {}), ...(externalAuthPath ? { externalAuthPath } : {}), ...(reason ? { reason } : {}),
+    ...(sessionUpstream ? { sessionUpstream } : {}),
   };
 }
 

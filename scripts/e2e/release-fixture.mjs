@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 import { createHash, randomUUID, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 
-export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
+export async function releaseFixture({ live = false, surfaceApps = [], publicOrigin } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), "mso-release-e2e-"));
   let providerStatus = 200;
   const provider = createServer((req, res) => {
@@ -72,7 +72,7 @@ export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
   const port = reservation.address().port;
   await new Promise(resolve => reservation.close(resolve));
   const base = `http://localhost:${port}`;
-  env.OS_PUBLIC_ORIGIN = base;
+  env.OS_PUBLIC_ORIGIN = publicOrigin ?? base;
   const server = spawn(process.execPath, ["scripts/server.mjs", "--hostname", "127.0.0.1", "--port", String(port)], { env, stdio: ["ignore", "pipe", "pipe"] });
   let logs = "";
   const capture = chunk => { logs = (logs + chunk.toString()).slice(-8000); };

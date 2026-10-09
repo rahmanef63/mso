@@ -1,3 +1,9 @@
+## 2026-10-09: Reuse MSO login for reviewed private applications
+
+The Vault window previously used a separate Basic login even after the Owner signed into MSO. Reviewed shell-only loopback applications can now opt into an isolated MSO-derived session through private registry state. The existing browser session supplies a short-lived, exact-origin ticket; its app exchanges that fragment-only ticket for a host-only cookie without sharing the cockpit cookie or password. Normal external connections keep their own authentication and portable manifests cannot grant this mode.
+
+Every app HTTP request requires the current Owner role and durable device/session generation. WebSockets use the existing continuously authorized server relay, so demotion, logout, revocation and expiry stop both directions rather than authorizing only the initial upgrade. App cookies cannot authenticate cockpit APIs, upstream requests strip all MSO credentials, and duplicate hosts/off-box targets fail closed. The derived cookie retains the parent expiry independently of the one-minute ticket. Regression coverage checks purpose/origin separation, expiry, role changes, cookie stripping, proxy routing and production HTTP/socket handoff with synthetic stores. Instance ingress, domain and vault data remain outside source.
+
 ## 2026-10-09: Preserve security regressions without synthetic scanner noise
 
 Post-release GitHub checks found two test-only matches. The growing-file regression now changes bytes through the already-open descriptor, preserving the actual-byte limit assertion without introducing a pathname check/reopen race in its fixture. Agent Vault constructs its deterministic redaction fixture from pieces; the original historical Gitleaks fingerprint is narrowly recorded after verifying every reachable commit. No production credential, scanner rule or release gate is excluded.

@@ -128,6 +128,7 @@ describe("bin/mso", () => {
       "POST /api/integrations/google/start",
       "GET /api/integrations/google/callback",
       "GET /api/sw",
+      "GET /api/v1/shell-apps/[id]/session", // Browser-only, origin-bound handoff into a reviewed app; no credential-returning CLI verb.
       "POST /api/v1/channels/telegram/[id]", // Provider callback: requires Telegram webhook signature, not a user CLI action.
       "POST /api/v1/channels/discord/[id]", // Provider callback: requires Discord Ed25519 signature, not a user CLI action.
       "/api/v1/managed-apps/[id]/proxy/[[...path]]",

@@ -35,6 +35,9 @@ import {
 } from "@/lib/camoufox/viewer-gate";
 import { applyPrivatePageCachePolicy } from "@/lib/auth/page-cache";
 import { gateManagedApp } from "@/lib/managed-apps/session";
+import { sessionAppForHost, shellAppTarget, shellAppUpstreamHeaders } from "@/lib/surfaces/session";
+import { gateShellApp, shellAppResponseHeaders } from "@/lib/surfaces/session-gate";
+import { IS_DEMO } from "@/lib/demo";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -155,6 +158,19 @@ export async function proxy(request: NextRequest) {
   // lie (claiming an app host while on the cockpit) only restricts the request.
   const host = request.headers.get("host") ?? request.nextUrl.host;
   const managedApp = managedAppIdForHost(host);
+  const sessionApp = !IS_DEMO && await sessionAppForHost(host);
+  if (sessionApp && !managedApp && !isCamoufoxViewerHost(host)) {
+    if (WEBSOCKET_UPGRADE.test(request.headers.get("upgrade") ?? "")) return notFound();
+    if (pathname === "/_next" || pathname.startsWith("/_next/")) return notFound();
+    if (MUTATING.has(request.method) && request.headers.get("origin") !== sessionApp.origin) return blocked();
+    const gate = await gateShellApp(request, sessionApp);
+    if (gate) return gate;
+    const result = NextResponse.rewrite(shellAppTarget(sessionApp, request.nextUrl), {
+      request: { headers: shellAppUpstreamHeaders(request.headers, sessionApp) },
+    });
+    for (const [name, value] of Object.entries(shellAppResponseHeaders())) result.headers.set(name, value);
+    return result;
+  }
 
   // noVNC gets one reserved split-origin host. The cockpit session cookie is
   // intentionally NOT shared with a sibling viewer hostname. Instead, an authenticated

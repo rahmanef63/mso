@@ -6,7 +6,15 @@ MSO is the shell and control surface. Connected applications run in their own se
 
 Open App Store → Apps. Managed applications use the existing reviewed Hermes, OpenClaw and 9Router setup panels and their host preflight checks. For an already running external or custom tool, select Connect app, enter its name, stable ID and address, and choose an embedded window or separate tab. Entries persist on the server and appear in the shell without a rebuild. Edit updates the connection; Disconnect removes only the shell entry.
 
-A subdomain is optional. HTTPS addresses can be embedded when the application permits framing. HTTP addresses open in a separate tab. Applications retain their own login. Addresses sharing the MSO session-cookie scope are rejected, including the same hostname on another port. Query strings, URL credentials and fragments are rejected; enter secrets only through the application's trusted setup flow.
+A subdomain is optional. HTTPS addresses can be embedded when the application permits framing. HTTP addresses open in a separate tab. Ordinary external applications retain their own login; reviewed loopback services can opt into MSO sessions as described below. Addresses sharing the MSO session-cookie scope are rejected, including the same hostname on another port. Query strings, URL credentials and fragments are rejected; enter secrets only through the application's trusted setup flow.
+
+## MSO sessions for reviewed loopback services
+
+An operator may add `sessionUpstream` to a shell-only entry in the private surface registry, for example `"sessionUpstream": "http://127.0.0.1:9131"`. This accepts only a concrete HTTP loopback port and an isolated HTTPS application origin. A portable manifest or ordinary connection form cannot enable this mode. The public app view exposes `msoSession: true` and keeps the upstream address private. Metadata edits preserve the setting; changing the public origin removes it and requires fresh operator review.
+
+Point that app's HTTPS ingress at the MSO server with the application's exact public Host and Origin preserved. MSO gates every app path before proxying to its reviewed loopback service. Its bootstrap navigates through the MSO login route, which immediately redirects an already authenticated browser; there is no second password prompt. Owner-only `GET /api/v1/shell-apps/[id]/session` gives a 60-second, origin- and purpose-bound ticket in a URL fragment. The app exchanges it at `/__mso_app_auth` for a Secure, HttpOnly, SameSite=Strict, host-only cookie. This derived session lasts at most two hours and never outlives the parent session. Cockpit cookies and authorization are stripped before the service sees a request.
+
+The HTTP and WebSocket gates require a current Owner device, original session generation and live approval. Logout, device revocation, expiry and role demotion invalidate subsequent requests and close existing sockets through MSO's continuously authorized relay. The app host cannot serve cockpit APIs or framework assets. A TLS proxy must preserve WebSocket upgrades and the app's derived cookie; it must strip any cockpit cookie and must not cache authenticated responses. Backends, selected vaults, operator domains and user data remain installation state outside portable MSO source.
 
 ## Current API and lifecycle
 

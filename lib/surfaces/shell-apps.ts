@@ -34,7 +34,8 @@ function definition(value: unknown): ShellAppDefinition {
 function view(app: SurfaceApp, requestOrigin: string): ShellAppView {
   const url = new URL(app.startPath, app.origin).href;
   const def: ShellAppDefinition = { id: app.id, title: app.title, description: app.description, url, mode: app.renderer === "iframe" ? "embed" : "tab" };
-  const base = { id: app.id, title: app.title, description: app.description, origin: app.origin, sandbox: SANDBOX, definition: def };
+  const base = { id: app.id, title: app.title, description: app.description, origin: app.origin, sandbox: SANDBOX, definition: def,
+    ...(app.sessionUpstream ? { msoSession: true } : {}) };
   if (blocked(app.origin, requestOrigin)) return { ...base, renderer: "remote", blocked: true, reason: "This address shares MSO's session cookie scope. Use a separate host address." };
   const insecure = new URL(app.origin).protocol !== "https:";
   return { ...base, url, renderer: insecure ? "remote" : app.renderer,
@@ -82,7 +83,10 @@ export async function manageShellApp(input: Record<string, unknown>, requestOrig
     if (!adding && matches.length !== 1) throw new SurfaceConfigError("app_not_found_or_ambiguous", 409);
     if (matches.some(entry => !Array.isArray(entry.placements) || entry.placements.length !== 1 || entry.placements[0] !== "shell")) throw new SurfaceConfigError("app_owned_by_another_surface", 409);
     if (removing) return entries.filter(entry => entry.id !== id);
-    return adding ? [...entries, { ...row!, ...(manifest ? { manifest } : {}) }] : entries.map(entry => entry.id === id ? { ...row!, ...(entry.manifest ? { manifest: entry.manifest } : {}) } : entry);
+    return adding ? [...entries, { ...row!, ...(manifest ? { manifest } : {}) }] : entries.map(entry => entry.id === id ? {
+      ...row!, ...(entry.manifest ? { manifest: entry.manifest } : {}),
+      ...(entry.origin === row!.origin && entry.sessionUpstream ? { sessionUpstream: entry.sessionUpstream } : {}),
+    } : entry);
   });
   return { ...result, id, schemaVersion: 1 };
 }

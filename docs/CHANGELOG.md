@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `apps` reuse MSO sessions for private connected apps
 - `agent-vault` isolate repository progress in private Obsidian vaults
 
 **Fixed**

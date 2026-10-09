@@ -19,6 +19,18 @@ beforeEach(async () => {
 afterEach(async () => { vi.unstubAllEnvs(); await fs.rm(dir, { recursive: true, force: true }); });
 
 describe("server-owned connected applications", () => {
+  it("exposes the MSO login mode without disclosing the loopback target and preserves it on metadata edits", async () => {
+    await save();
+    const entries = JSON.parse(await fs.readFile(file, "utf8"));
+    entries[0].sessionUpstream = "http://127.0.0.1:9131";
+    await fs.writeFile(file, JSON.stringify(entries), { mode: 0o600 });
+    expect((await shellAppSettings(origin)).apps[0]).toMatchObject({ msoSession: true });
+    expect(JSON.stringify(await shellAppSettings(origin))).not.toContain("127.0.0.1");
+    await save({ title: "Renamed" }, "update");
+    expect((await configuredSurfaceApps())[0].sessionUpstream).toBe("http://127.0.0.1:9131");
+    await save({ url: "https://replacement.example.test/" }, "update");
+    expect((await configuredSurfaceApps())[0].sessionUpstream).toBeUndefined();
+  });
   it("persists a reviewed embed, edits it by revision and disconnects only its metadata", async () => {
     const before = await shellAppSettings(origin);
     await save();
