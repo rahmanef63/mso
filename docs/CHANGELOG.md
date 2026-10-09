@@ -15,6 +15,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `managed-apps` wait for durable job finalization before cleanup
 - `workflows` complete waited receipt fixture schema
 - `oauth` receive consent callbacks outside the shell
 - `security` exercise webhook admission with explicit proxy trust

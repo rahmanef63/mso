@@ -21,6 +21,7 @@ delete process.env.OPENCLAW_HOME;
 
 const { checkUpdate, setChannel, startRollback, startUninstall, startUpdate } = await import("./update");
 const { readManagedAppJob, listManagedAppJobs } = await import("./jobs");
+const { liveRecord } = await import("./job-runner");
 const { listBackups } = await import("./backups");
 
 let home: string;
@@ -67,7 +68,8 @@ async function settle(job: ManagedAppJob): Promise<ManagedAppJob> {
   expect(job.argv[0] ?? bin).toContain(bin);
   for (let i = 0; i < 400; i += 1) {
     const current = await readManagedAppJob(job.id);
-    if (current && current.status !== "queued" && current.status !== "running") return current;
+    // Finish the durable flush before the fixture changes or deletes its temporary home.
+    if (current && current.status !== "queued" && current.status !== "running" && !liveRecord(job.id)) return current;
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
   throw new Error("job never reached a terminal status");
