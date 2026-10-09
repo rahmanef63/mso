@@ -21,6 +21,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `security` assert oversized admission before body transfer
 - `security` preserve regressions without synthetic scanner matches
 - `security` exercise managed app authorization on its actual host
 - `workflow` pin grant fixture time during revocation checks

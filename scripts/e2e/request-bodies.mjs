@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import { Readable } from "node:stream";
+import { request } from "node:http";
 import { releaseFixture } from "./release-fixture.mjs";
 
 const fixture = await releaseFixture();
@@ -9,8 +10,13 @@ try {
   const baseline = await rss(); let peak = baseline;
   const sample = setInterval(() => { void rss().then(value => { peak = Math.max(peak, value); }).catch(() => {}); }, 20);
   try {
-    const oversized = await fetch(fixture.base + "/api/auth/login", { method: "POST", body: Buffer.alloc(2 * 1024 * 1024) });
-    assert.equal(oversized.status, 413);
+    // The public gate rejects Content-Length before consuming bytes; do not race its connection close with a fetch writer.
+    const oversized = await new Promise((resolve, reject) => {
+      const req = request(fixture.base + "/api/auth/login", { method: "POST", headers: { "content-length": String(2 * 1024 * 1024) } }, response => { response.resume(); resolve(response.statusCode); });
+      req.once("error", reject); req.setTimeout(15_000, () => req.destroy(new Error("oversized admission timed out")));
+      req.flushHeaders();
+    });
+    assert.equal(oversized, 413);
     const login = await fetch(fixture.base + "/api/auth/login", { method: "POST", headers: { "content-type": "application/json", origin: fixture.base }, body: JSON.stringify({ password: fixture.password, deviceId: fixture.device }) });
     assert.equal(login.status, 200); const cookie = login.headers.get("set-cookie").split(";")[0];
     const concurrent = await Promise.all(Array.from({ length: 8 }, () => fetch(fixture.base + "/api/auth/login", { method: "POST", headers: { origin: fixture.base }, body: Buffer.alloc(900 * 1024) })));
