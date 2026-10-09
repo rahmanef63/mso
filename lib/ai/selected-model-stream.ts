@@ -15,6 +15,7 @@ import { ensureFreshCodex } from "@/lib/ai/oauth/codex";
 import { streamCodex } from "@/lib/ai/codex-stream";
 import { streamOpenAI, type OaMsg, type OaTool } from "@/lib/ai/openai-stream";
 import { anthropicDonePayload } from "@/lib/ai/usage";
+import { boundedProviderFetch, PROVIDER_TIMEOUT_MS } from "./provider-response";
 
 export type SelectedModelEvent = "delta" | "tool_use" | "done";
 export type SelectedModelEmit = (
@@ -132,7 +133,8 @@ export async function streamPreparedSelectedModel(opts: {
   signal: AbortSignal;
   emit: SelectedModelEmit;
 }): Promise<void> {
-  const { prepared, messages, tools, system, signal, emit } = opts;
+  const { prepared, messages, tools, system, emit } = opts;
+  const signal = AbortSignal.any([opts.signal, AbortSignal.timeout(PROVIDER_TIMEOUT_MS)]);
   if (prepared.kind === "codex") {
     await streamCodex({
       bundle: prepared.bundle,
@@ -161,7 +163,7 @@ export async function streamPreparedSelectedModel(opts: {
   const anthropic = new Anthropic({
     apiKey: prepared.resolved.apiKey,
     baseURL: prepared.resolved.baseUrl,
-    ...(prepared.customProvider ? { fetch: safeProviderFetch } : {}),
+    fetch: boundedProviderFetch(prepared.customProvider ? safeProviderFetch : fetch),
   });
   const ai = anthropic.messages.stream(
     {

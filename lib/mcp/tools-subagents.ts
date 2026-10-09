@@ -31,6 +31,7 @@ export const SUBAGENT_TOOLS: McpTool[] = [{
       timeoutMs: Number(a.timeout_ms) || undefined,
       explicitContext: typeof a.context === "string" ? a.context : undefined,
       capabilities: context.capabilities,
+      authority: context,
     });
   },
 }];

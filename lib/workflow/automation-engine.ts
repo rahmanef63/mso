@@ -1,4 +1,5 @@
 import { capabilityReportedFailure } from "@/lib/capabilities/result-outcome";
+import { liveCapabilityContext } from "@/lib/capabilities/live-authority";
 import { randomUUID } from "node:crypto";
 import { executeCapabilityCall } from "@/lib/capabilities/execute";
 import { isCapabilityDirectResult, type CapabilityRunContext, type CapabilityTool } from "@/lib/capabilities/tool";
@@ -40,7 +41,8 @@ async function execute(run: FlowRun, flow: AutomationFlow, input: Record<string,
       run.steps.push(row); run.updatedAt = new Date().toISOString(); await writeFlowRun(run);
       const started = Date.now();
       try {
-        const outcome = await executeCapabilityCall({ tool, args, scope: context.scope, actor: context.actor, context });
+        const live = await liveCapabilityContext(context, tool.name, args);
+        const outcome = await executeCapabilityCall({ tool, args, scope: live.scope, actor: live.actor, context: live });
         if (outcome.kind !== "success") throw new Error(outcome.message);
         const data = resultData(outcome.result);
         if (step.expect && canonical(flowValue(data, step.expect.path)) !== canonical(step.expect.equals)) throw new Error("flow expectation failed: " + step.expect.path);

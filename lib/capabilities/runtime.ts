@@ -13,6 +13,9 @@ export interface CapabilityDescriptor {
 }
 
 export interface CapabilityInvocation {
+  allowedTools?: readonly string[];
+  toolArgumentConstraints?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
+  toolProfile?: "full" | "chatgpt";
   tenantContext?: TenantContext;
   name: string;
   args?: Record<string, unknown>;
@@ -33,6 +36,6 @@ export interface CapabilityInvocationResult {
 
 export interface CapabilityRuntime {
   authorize?(grant: AuthorizationGrant, principal: string, name?: string, args?: Record<string, unknown>): Promise<boolean>;
-  list(scope: Scope): CapabilityDescriptor[];
+  list(scope: Scope, context?: Pick<CapabilityInvocation, "allowedTools" | "toolProfile">): CapabilityDescriptor[];
   invoke(input: CapabilityInvocation): Promise<CapabilityInvocationResult>;
 }

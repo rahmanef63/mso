@@ -4,6 +4,7 @@ import path from "node:path";
 import { chmod } from "node:fs/promises";
 import { expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { createHash } from "node:crypto";
 
 async function capture(page, name) {
   if (!process.env.MSO_SCREENSHOT_DIR) return;
@@ -135,4 +136,38 @@ export async function settingsAccessibilityJourney(page, base) {
   await page.goto(base + "/settings?section=theme");
   await expect(page.getByRole("switch", { name: "High contrast", exact: true })).toBeVisible();
   await expect(page.getByRole("group", { name: "Text size", exact: true }).getByRole("button", { pressed: true })).toHaveCount(1);
+}
+
+export async function oauthRegistrationJourney(page, fixture) {
+  const callback = fixture.base + "/oauth-fixture-callback", verifier = "v".repeat(43);
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
+  const consent = (clientId, redirectUri = callback) => fixture.base + "/oauth/authorize?" + new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, code_challenge: challenge, code_challenge_method: "S256", resource: fixture.base + "/mcp", state: "fixture-state", scope: "read" });
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto(consent("chatgpt-mso", "https://attacker.invalid/callback"));
+    await expect(page.getByRole("heading", { name: "Cannot connect this client" })).toBeVisible();
+    await expect(page.getByText("This client must register before requesting authorization.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Allow", exact: true })).toHaveCount(0);
+    const registration = await page.request.post(fixture.base + "/oauth/register", { data: { client_name: "Security fixture", redirect_uris: [callback] } });
+    expect(registration.status()).toBe(201);
+    const { client_id: clientId } = await registration.json(); expect(clientId).toMatch(/^mcpc_/);
+    await page.goto(consent(clientId, "https://attacker.invalid/callback"));
+    await expect(page.getByText("That redirect target is not registered for this client.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Allow", exact: true })).toHaveCount(0);
+    await page.goto(consent(clientId));
+    await expect(page.getByRole("heading", { name: "Connect Security fixture to your VPS" })).toBeVisible();
+    await page.getByRole("radio", { name: /^Read only/ }).check();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.getByRole("button", { name: "Allow", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp("/oauth-fixture-callback\\?code="));
+    const url = new URL(page.url()); expect(url.searchParams.get("state")).toBe("fixture-state");
+    const exchanged = await page.request.post(fixture.base + "/oauth/token", { form: { grant_type: "authorization_code", code: url.searchParams.get("code"), code_verifier: verifier, client_id: clientId, redirect_uri: callback, resource: fixture.base + "/mcp" } });
+    expect(exchanged.status()).toBe(200); expect((await exchanged.json()).token_type).toBe("Bearer");
+    // Replacing the isolated test store simulates a pruned registration, never owner data.
+    await fixture.seedMcp();
+    await page.goto(consent(clientId));
+    await expect(page.getByText("This client must register before requesting authorization.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Allow", exact: true })).toHaveCount(0);
+  }
+  console.log("PASS actual OAuth registered consent/exchange and manual/pruned callback denial on desktop/mobile");
 }

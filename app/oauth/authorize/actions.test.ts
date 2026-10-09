@@ -77,4 +77,16 @@ describe("OAuth consent approval", () => {
     await expect(approve(form())).resolves.toEqual({ ok: false, error: "Not signed in." });
     expect(mocks.storeCode).not.toHaveBeenCalled();
   });
+
+  it.each(["chatgpt-mso", "mcpc_pruned", "manual:pat:another-owner"])("rejects unregistered principal %s even with an HTTPS callback", async (id) => {
+    mocks.getClient.mockResolvedValue(null);
+    const data = form("https://attacker.example/callback"); data.set("client_id", id);
+    expect(await approve(data)).toMatchObject({ ok: false, error: expect.stringContaining("register") });
+    expect(mocks.storeCode).not.toHaveBeenCalled();
+  });
+
+  it("does not authorize a registered client at another callback", async () => {
+    expect(await approve(form("https://attacker.example/callback"))).toMatchObject({ ok: false });
+    expect(mocks.storeCode).not.toHaveBeenCalled();
+  });
 });

@@ -27,6 +27,16 @@ const { runInboundA2AAgent } = await import("./inbound-agent");
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
 describe("inbound A2A model boundary", () => {
+  it.each(["workflow_start", "workflow_finish", "workflow_cancel", "local_agent_standby"])("denies direct model emission of hidden fixed-workflow tool %s", async (name) => {
+    const runtime = { ...capabilities, list: () => [{ name, description: "hidden", scope: "write" as const, inputSchema: { type: "object" as const, properties: {} } }] };
+    let turn = 0;
+    mocks.stream.mockImplementation(async ({ tools, emit }) => {
+      expect(tools).toEqual([]);
+      if (!turn++) emit("tool_use", { id: "attack", name, input: {} }); else emit("delta", "done");
+    });
+    const result = await runInboundA2AAgent({ prompt: "run", scope: "exec", principal: "standby", taskId: "fixed", signal: new AbortController().signal, capabilities: runtime, executionContext: { fixedWorkflow: true, workflowId: "fixed" } });
+    expect(result.toolCalls).toEqual([{ name, ok: false }]); expect(mocks.invoke).not.toHaveBeenCalled();
+  });
   it("rechecks a lowered deployment ceiling after the model selects an exec tool", async () => {
     vi.stubEnv("OS_MCP_MAX_SCOPE", "exec");
     let turn = 0;

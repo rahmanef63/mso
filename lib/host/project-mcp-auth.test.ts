@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ values: { endpoint: "https://app.example/mcp", accessToken: "private-downstream-token", allowedTools: "read_project" } as Record<string, string>, calls: [] as Record<string, unknown>[], paging: "", discoverStatus: 400 }));
-vi.mock("@/lib/infra/connection-service", () => ({ directConnectionValues: vi.fn(async () => state.values) }));
+vi.mock("@/lib/infra/connection-service", () => ({ directConnectionValues: vi.fn(async () => state.values), resolveIntegration: async () => ({ user: "owner", id: "assistant" }) }));
 vi.mock("./ssrf", () => ({ safeProviderFetch: vi.fn(async (_url, init) => {
   const payload = JSON.parse(init.body);
   state.calls.push({ ...payload, auth: new Headers(init.headers).get("authorization") });
@@ -14,18 +14,37 @@ vi.mock("./ssrf", () => ({ safeProviderFetch: vi.fn(async (_url, init) => {
   }
   if (state.values.accessToken === "revoked-token-value") return new Response("private error", { status: 401 });
   const result = payload.method === "initialize" ? { protocolVersion: "2025-11-25", capabilities: { tools: {} } }
-    : payload.method === "tools/list" ? { tools: [{ name: "read_project", inputSchema: { type: "object" } }, { name: "delete_project", inputSchema: { type: "object" } }] }
-    : { content: [{ type: "text", text: "echo private-downstream-token" }], structuredContent: { "private-downstream-token": "echoed key" } };
+    : payload.method === "tools/list" ? { tools: [{ name: "read_project", description: "private-downstream-token", inputSchema: { type: "object", properties: { "private-downstream-token": { description: "private-downstream-token" } } }, _meta: { "private-downstream-token": "private-downstream-token" } }, { name: "delete_project", inputSchema: { type: "object" } }] }
+    : { content: [{ type: "text", text: "echo private-downstream-token" }], structuredContent: { "private-downstream-token": "echoed key" }, _meta: { nested: ["private-downstream-token"] } };
   return new Response(JSON.stringify({ jsonrpc: "2.0", id: payload.id, result }), { headers: { "content-type": "application/json" } });
 }) }));
 import { callMcpServerTool, listMcpServerTools } from "./project-mcp-client";
 import { normalizeMcpEndpoint, parseMcpToolAllowlist } from "@/lib/infra/mcp-policy";
 import type { ProjectMcpServer } from "./project-mcp-config";
+import { callNamedMcpConnectionTool, listNamedMcpConnectionTools } from "@/lib/infra/mcp-connection";
 const server: ProjectMcpServer = { name: "app", transport: "http", url: "https://app.example/mcp", headers: {}, oauthConfigured: false, integration: { user: "owner", connection: "assistant" } };
 
 beforeEach(() => { state.calls = []; state.paging = ""; state.discoverStatus = 400; state.values = { endpoint: "https://app.example/mcp", accessToken: "private-downstream-token", allowedTools: "read_project" }; });
 
 describe("private modular MCP connection", () => {
+  it("uses the same private binding and recursive redaction for named integrations", async () => {
+    const tools = await listNamedMcpConnectionTools({ user: "owner", connection: "assistant" });
+    const result = await callNamedMcpConnectionTool({ user: "owner", connection: "assistant" }, "read_project", {});
+    expect(JSON.stringify({ tools, result })).not.toContain("private-downstream-token");
+    expect(JSON.stringify({ tools, result })).toContain("[redacted]");
+    expect(state.calls.filter((row) => row.method === "tools/call")).toHaveLength(1);
+    expect(state.calls.every((row) => row.auth === "Bearer private-downstream-token")).toBe(true);
+  });
+  it("redacts reflected RPC errors from the named integration path", async () => {
+    const { safeProviderFetch } = await import("./ssrf");
+    vi.mocked(safeProviderFetch).mockImplementationOnce(async (_url, init) => {
+      const payload = JSON.parse(String(init?.body));
+      return Response.json({ jsonrpc: "2.0", id: payload.id, error: { code: -1, message: "private-downstream-token" } });
+    });
+    const request = callNamedMcpConnectionTool({ user: "owner", connection: "assistant" }, "read_project", {});
+    await expect(request).rejects.toThrow(/redacted/);
+    await expect(request).rejects.not.toThrow(/private-downstream-token/);
+  });
   it("falls back from HTTP 200 method-not-found when the private token is verified", async () => {
     state.discoverStatus = 200;
     const url = "https://app.example/mcp/http200";

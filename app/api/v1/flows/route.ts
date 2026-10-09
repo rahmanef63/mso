@@ -7,6 +7,7 @@ import { flowStatus } from "@/lib/workflow/automation-engine";
 import { executeCapabilityCall } from "@/lib/capabilities/execute";
 import { maxScope } from "@/lib/mcp/scope";
 import { TOOLS_BY_NAME } from "@/lib/mcp/tools";
+import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "no-store, private" };
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     const principal = "cli:" + auth.session.device_id;
     const session = await createAgentSession(principal, "cli", { title: "Automation: " + String(args.flow ?? ""), titleSource: "auto" });
     const outcome = await executeCapabilityCall({ tool: TOOLS_BY_NAME.get(name)!, args: { ...args, ...(action === "run" ? {} : { action }) },
-      actor: principal, scope: maxScope(), context: { principal, sessionId: session.id } });
+      actor: principal, scope: maxScope(), context: { principal, sessionId: session.id, authorizationGrant: { kind: "device", session: auth.session }, capabilities: msoCapabilityRuntime } });
     if (outcome.kind !== "success") throw new Error(outcome.message);
     return NextResponse.json(outcome.result, { headers });
   } catch (e) { return fail(e); }

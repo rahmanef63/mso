@@ -6,6 +6,7 @@ import { resolveModel } from "@/lib/models";
 import { safeProviderFetch } from "@/lib/host/ssrf";
 import { codexModels, ensureFreshCodex } from "@/lib/ai/oauth/codex";
 import { streamCodex } from "@/lib/ai/codex-stream";
+import { boundedProviderFetch, providerErrorText } from "@/lib/ai/provider-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,22 +61,25 @@ export async function POST() {
   }
 
   try {
+    const signal = AbortSignal.timeout(30_000);
     if (resolved.protocol === "anthropic") {
       const a = new Anthropic({
         apiKey: resolved.apiKey, baseURL: resolved.baseUrl,
-        ...(customProvider ? { fetch: safeProviderFetch } : {}),
+        fetch: boundedProviderFetch(customProvider ? safeProviderFetch : fetch),
       });
-      await a.messages.create({ model: resolved.model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] });
+      await a.messages.create({ model: resolved.model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] }, { signal });
     } else {
       const r = await (customProvider ? safeProviderFetch : fetch)(`${resolved.baseUrl}/chat/completions`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${resolved.apiKey}` },
         body: JSON.stringify({ model: resolved.model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] }),
+        signal,
       });
       if (!r.ok) {
-        const t = await r.text().catch(() => "");
+        const t = await providerErrorText(r, signal, 140).catch(() => "");
         return NextResponse.json({ ok: false, error: `HTTP ${r.status}${t ? `: ${t.slice(0, 140)}` : ""}` });
       }
+      await r.body?.cancel();
     }
     return NextResponse.json({ ok: true, provider: resolved.provider, model: resolved.model });
   } catch (e) {

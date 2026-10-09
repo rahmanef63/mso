@@ -1,4 +1,5 @@
 import { requireWorkflowScope, workflowExecutionContext } from "./graph-authority";
+import { liveCapabilityContext } from "@/lib/capabilities/live-authority";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { capabilityReportedFailure } from "@/lib/capabilities/result-outcome";
@@ -35,6 +36,7 @@ function resultData(result: unknown): unknown {
 async function callTool(name: string, args: Record<string, unknown>, context: CapabilityRunContext, resolve: Resolver): Promise<unknown> {
   context = await workflowExecutionContext(context);
   const tool = resolve(name); if (!tool) throw new Error(`workflow tool unavailable: ${name}`);
+  context = await liveCapabilityContext(context, name, args);
   const outcome = await executeCapabilityCall({ tool, args, scope: context.scope, actor: context.actor, context });
   if (outcome.kind !== "success") throw new Error(outcome.message); return resultData(outcome.result);
 }

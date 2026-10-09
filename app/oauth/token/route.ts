@@ -1,6 +1,6 @@
 import { readRequestJson, readRequestText, RequestBodyError } from "@/lib/security/request-body";
 import { TenantDenied } from "@/lib/tenancy/authority";
-import { consumeCode, OAUTH_ACCESS_TOKEN_TTL_MS, rotateOAuthGrant, storeOAuthGrant } from "@/lib/mcp/store";
+import { consumeCode, OAUTH_ACCESS_TOKEN_TTL_MS, rotateOAuthGrant, storeOAuthGrant, OAuthRefreshRateLimit } from "@/lib/mcp/store";
 import { verifyPkce, randomToken } from "@/lib/mcp/pkce";
 import { mcpEnabled, oauthScopeString } from "@/lib/mcp/scope";
 import { clientIp, publicOrigin } from "@/lib/mcp/origin";
@@ -33,7 +33,9 @@ export async function POST(req: Request) {
     const resource = p.resource || expectedResource;
     if (resource !== expectedResource) return json({ error: "invalid_target" }, 400);
     const access = randomToken("mso_mcp_"), refresh = randomToken("mso_refresh_");
-    const rec = await rotateOAuthGrant({ oldRefreshToken: p.refresh_token, accessToken: access, refreshToken: refresh, label: `oauth · ${p.client_id.slice(0, 14)}`, clientId: p.client_id, resource });
+    let rec;
+    try { rec = await rotateOAuthGrant({ oldRefreshToken: p.refresh_token, accessToken: access, refreshToken: refresh, label: `oauth · ${p.client_id.slice(0, 14)}`, clientId: p.client_id, resource }); }
+    catch (error) { if (error instanceof OAuthRefreshRateLimit) return json({ error: "rate_limited" }, 429); throw error; }
     if (!rec) return json({ error: "invalid_grant" }, 400);
     return json({ access_token: access, token_type: "Bearer", refresh_token: refresh, expires_in: Math.floor(OAUTH_ACCESS_TOKEN_TTL_MS / 1000), scope: oauthScopeString(rec.scope, rec.offlineAccess === true) });
   }

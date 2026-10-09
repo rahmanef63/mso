@@ -2,15 +2,16 @@ import { callMcpServerTool, listMcpServerTools } from "@/lib/host/project-mcp-cl
 import type { ProjectMcpServer } from "@/lib/host/project-mcp-config";
 import { IntegrationError, type ConnectionSelector } from "./identity";
 import { normalizeMcpEndpoint, parseMcpToolAllowlist } from "./mcp-policy";
-import { directConnectionValues } from "./connection-service";
+import { directConnectionValues, resolveIntegration } from "./connection-service";
 
-function serverFrom(values: Record<string, string>): ProjectMcpServer {
+function serverFrom(values: Record<string, string>, integration: { user: string; connection: string }): ProjectMcpServer {
   if (!values.endpoint || !values.accessToken) throw new IntegrationError("required_fields_missing");
   return {
     name: "integration-mcp",
     transport: "http",
     url: normalizeMcpEndpoint(values.endpoint),
-    headers: { Authorization: `Bearer ${values.accessToken}` },
+    headers: {},
+    integration,
     oauthConfigured: false,
   };
 }
@@ -22,14 +23,18 @@ function allowedTool(values: Record<string, string>, tool: string): void {
 }
 
 export async function listNamedMcpConnectionTools(selector: ConnectionSelector) {
+  const selected = await resolveIntegration("mcp", selector);
+  selector = { user: selected.user, connection: selected.id };
   const values = await directConnectionValues("mcp", selector);
-  const tools = await listMcpServerTools(serverFrom(values));
+  const tools = await listMcpServerTools(serverFrom(values, { user: selected.user, connection: selected.id }));
   const allowed = parseMcpToolAllowlist(values.allowedTools);
   return allowed ? tools.filter((tool) => allowed.includes(tool.name)) : tools;
 }
 
 export async function callNamedMcpConnectionTool(selector: ConnectionSelector, tool: string, args: Record<string, unknown>) {
+  const selected = await resolveIntegration("mcp", selector);
+  selector = { user: selected.user, connection: selected.id };
   const values = await directConnectionValues("mcp", selector);
   allowedTool(values, tool);
-  return callMcpServerTool(serverFrom(values), tool, args);
+  return callMcpServerTool(serverFrom(values, { user: selected.user, connection: selected.id }), tool, args);
 }

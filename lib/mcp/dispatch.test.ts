@@ -164,7 +164,7 @@ describe("local agent request dispatch", () => {
     const r = await dispatch(call("local_agent_request", { target: "milo", objective: "inspect this" }), "exec", "tester", context);
     expect(r.error).toBeUndefined();
     expect(localSessionMock.handoffOwnerLocalSession).toHaveBeenCalledWith(
-      context.principal, "milo", "inspect this", capabilities, context.sessionId,
+      context.principal, "milo", "inspect this", capabilities, context.sessionId, { authority: expect.objectContaining({ principal: context.principal, sessionId: context.sessionId, scope: "exec" }) },
     );
     expect(JSON.stringify(r.result)).toContain("worker result");
   });

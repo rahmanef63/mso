@@ -50,7 +50,9 @@ describe("named MCP integration execution", () => {
     const [server, name] = call.mock.calls[0]!;
     expect(name).toBe("jev_decide");
     expect(server.url).toBe("https://www.jevai.org/api/mcp");
-    expect(server.headers.Authorization).toBe("Bearer opaque-private-token-123456");
+    expect(server.headers).toEqual({});
+    expect(server.integration).toEqual({ user: "owner", connection: "jev" });
+    expect(JSON.stringify(server)).not.toContain("opaque-private-token-123456");
 
     await expect(callNamedMcpConnectionTool({ user: "owner", connection: "jev" }, "other", {})).rejects.toMatchObject({ code: "mcp_tool_not_allowed" });
   });

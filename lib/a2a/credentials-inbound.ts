@@ -1,4 +1,5 @@
 import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
+import { abortA2AProfileTasks } from "./task-active";
 import {
   createHash,
   randomBytes,
@@ -47,6 +48,11 @@ export async function listA2AInboundTokens(): Promise<
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+export async function getA2AInboundProfile(id: string): Promise<A2AInboundTokenSummary | null> {
+  const row = (await readStore()).tokens.find((token) => token.id === id);
+  return row ? summary(row) : null;
+}
+
 export async function createA2AInboundToken(
   label: string,
   scope: Scope | string = "read",
@@ -87,8 +93,10 @@ export async function removeA2AInboundToken(id: string): Promise<boolean> {
     const store = await readStore();
     const before = store.tokens.length;
     store.tokens = store.tokens.filter((row) => row.id !== query);
-    if (store.tokens.length !== before)
+    if (store.tokens.length !== before) {
       await writeA2APrivateStore(A2A_INBOUND_TOKEN_STORE_PATH, store);
+      abortA2AProfileTasks(query);
+    }
     return store.tokens.length !== before;
   });
 }

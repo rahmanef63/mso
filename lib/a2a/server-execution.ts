@@ -1,6 +1,9 @@
 import { audit } from "@/lib/host/audit-api";
 import type { AgentSession } from "@/lib/agent/session-types";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
+import type { CapabilityRunContext } from "@/lib/capabilities/tool";
+import { scopeRank } from "@/lib/capabilities/scope";
+import { getA2AInboundProfile } from "./credentials-inbound";
 import type { A2AAuthenticatedProfile } from "./server-protocol";
 import { runInboundA2AAgent } from "./inbound-agent";
 import {
@@ -20,6 +23,7 @@ import {
 import { a2aRpcOk, type A2ARpcId } from "./server-protocol";
 
 export interface A2AExecutionContext {
+  authority?: CapabilityRunContext;
   workflowId?: string;
   workflowActor?: string;
   fixedWorkflow?: boolean;
@@ -35,7 +39,7 @@ export async function executeInboundA2ATask(
 ): Promise<A2ATaskRecord> {
   const principal = task.principal;
   const controller = new AbortController();
-  registerA2AActiveTask(task.id, controller);
+  registerA2AActiveTask(task.id, controller, profile.local ? undefined : profile.id);
   let pendingDelta = "";
   let sentArtifact = false;
   try {
@@ -59,7 +63,14 @@ export async function executeInboundA2ATask(
       signal: controller.signal,
       capabilities,
       executionContext,
+      async liveScope() {
+        if (profile.local) return profile.scope;
+        const current = await getA2AInboundProfile(profile.id);
+        if (!current) throw new Error("A2A authorization revoked");
+        return scopeRank(current.scope) < scopeRank(profile.scope) ? current.scope : profile.scope;
+      },
       onDelta(chunk) {
+        if (controller.signal.aborted) return;
         if (pendingDelta) {
           publishA2AEvent(
             task.id,

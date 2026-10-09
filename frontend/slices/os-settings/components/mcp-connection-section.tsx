@@ -41,9 +41,8 @@ export function McpConnectionSection({ origin }: { origin: string }) {
           <McpCopyField label="Dynamic registration" value={endpoints.register} />
           <McpCopyField label="Protected-resource metadata" value={endpoints.protectedResource} />
           <McpCopyField label="Authorization-server metadata" value={endpoints.authorizationServer} />
-          <McpCopyField label="Public client ID (manual fallback)" value="chatgpt-mso" />
         </div>
-        <p className="mt-3 text-sm text-muted-foreground">OAuth authorization code with PKCE S256. No client secret. OAuth access tokens last one hour and renew through rotating refresh tokens, which expire after 90 days. Reconnect if renewal fails or access is revoked.</p>
+        <p className="mt-3 text-sm text-muted-foreground">Register your app and its callback URL at the dynamic registration endpoint to obtain a unique Client ID. OAuth uses PKCE S256 without a client secret. Access tokens last one hour; refresh grants expire 90 days after authorization. Reconnect if renewal fails or access is revoked.</p>
       </details>
     </SettingsBlock>
   </div>;

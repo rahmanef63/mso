@@ -57,4 +57,12 @@ describe("live workflow execution authority", () => {
   it("never synthesizes unattended authority from an MCP client name", async () => {
     await expect(workflowExecutionContext({...context, principal: "mcp:client"}, {type: "schedule", receivedAt: "now"})).rejects.toThrow(/not execution grants/);
   });
+  it("requires the initiating signed grant while a device remains approved", async () => {
+    mocks.device.mockResolvedValue({ role: "owner" });
+    const authorize = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const signed = { ...context, authorizationGrant: { kind: "device" as const, session: { device_id: "aaaaaaaaaaaaaaaa" } as never }, capabilities: { authorize, list: () => [], invoke: vi.fn() } };
+    expect((await workflowExecutionContext(signed)).scope).toBe("exec");
+    await expect(workflowExecutionContext(signed)).rejects.toThrow(/authorization/);
+    expect(authorize).toHaveBeenCalledWith(signed.authorizationGrant, context.principal, undefined, undefined);
+  });
 });

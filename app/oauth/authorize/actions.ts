@@ -5,7 +5,6 @@ import { headers } from "next/headers";
 import { getClient, storeCode, CODE_TTL_MS } from "@/lib/mcp/store";
 import { randomToken, isAllowedRedirect } from "@/lib/mcp/pkce";
 import { parseScope, clampScope, mcpEnabled, type Scope } from "@/lib/mcp/scope";
-import { detectMcpToolProfile } from "@/lib/mcp/client-profile";
 
 export type ApprovalResult =
   | { ok: false; error: string }
@@ -49,11 +48,9 @@ export async function approve(form: FormData): Promise<ApprovalResult> {
   if (!expectedIssuer || issuer !== expectedIssuer || resource !== `${expectedIssuer}/mcp`) return { ok: false, error: "OAuth resource/issuer mismatch." };
 
   const client = await getClient(clientId);
-  // A manually configured client may not have a DCR record. That compatibility path
-  // is allowed — the redirect_uri is still https-checked above and the
-  // code is still bound to this exact client_id + redirect_uri at exchange. What
-  // is NOT allowed is a REGISTERED client redirecting somewhere it never declared.
-  if (client && !client.redirectUris.includes(redirectUri)) {
+  // Only server-generated registrations own durable client principals.
+  if (!client) return { ok: false, error: "This client must register before requesting authorization." };
+  if (!client.redirectUris.includes(redirectUri)) {
     return { ok: false, error: "That redirect target is not registered for this client." };
   }
 
@@ -64,7 +61,7 @@ export async function approve(form: FormData): Promise<ApprovalResult> {
     codeChallenge: challenge,
     scope,
     resource,
-    profile: client?.profile ?? detectMcpToolProfile({ clientId, name: client?.name, redirectUris: client?.redirectUris ?? [redirectUri] }),
+    profile: client.profile,
     offlineAccess,
     expiresAt: Date.now() + CODE_TTL_MS,
   });

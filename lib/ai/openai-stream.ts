@@ -1,4 +1,5 @@
 import { chatCompletionsProviderUsage } from "./provider-usage.mjs";
+import { providerErrorText, PROVIDER_MAX_BYTES, PROVIDER_TIMEOUT_MS } from "./provider-response";
 // OpenAI-protocol streaming adapter for /api/assistant. Every provider in the
 // @rahmanef/models registry except Anthropic speaks the OpenAI Chat Completions
 // wire (POST {baseUrl}/chat/completions, `data: {choices:[{delta}]}` SSE lines
@@ -88,7 +89,8 @@ export async function streamOpenAI(opts: {
   emit: (event: "delta" | "tool_use" | "done", data: unknown) => void;
   fetchImpl?: typeof fetch;
 }): Promise<void> {
-  const { resolved, messages, tools, system, signal, emit } = opts;
+  const { resolved, messages, tools, system, emit } = opts;
+  const signal = AbortSignal.any([opts.signal, AbortSignal.timeout(PROVIDER_TIMEOUT_MS)]);
   const fetchImpl = opts.fetchImpl ?? fetch;
   if (signal.aborted) return;
 
@@ -104,7 +106,7 @@ export async function streamOpenAI(opts: {
     signal,
   });
   if (!res.ok || !res.body) {
-    const detail = await res.text().catch(() => "");
+    const detail = await providerErrorText(res, signal).catch(() => "");
     throw new Error(`${resolved.provider} HTTP ${res.status}${detail ? `: ${detail.slice(0, 300)}` : ""}`);
   }
 
@@ -115,15 +117,24 @@ export async function streamOpenAI(opts: {
   const calls = new Map<number, { id: string; name: string; args: string }>();
   let finish: string | null = null;
   let usage: ReturnType<typeof chatCompletionsProviderUsage> = null;
+  let bytes = 0, events = 0, textBytes = 0, argumentBytes = 0;
+  const abort = () => { void reader.cancel(signal.reason).catch(() => undefined); };
+  signal.addEventListener("abort", abort, { once: true });
 
+  try {
   reading: while (true) {
-    if (signal.aborted) { await reader.cancel().catch(() => {}); return; }
+    if (signal.aborted) { if (opts.signal.aborted) return; throw signal.reason; }
     const { done, value } = await reader.read();
+    if (signal.aborted) { if (opts.signal.aborted) return; throw signal.reason; }
     if (done) break;
+    bytes += value.byteLength;
+    if (bytes > PROVIDER_MAX_BYTES) throw new Error("provider response exceeds byte budget");
     buf += dec.decode(value, { stream: true });
     const lines = buf.split("\n");
     buf = lines.pop() ?? ""; // keep the trailing partial line
+    if (Buffer.byteLength(buf) > 256 * 1024) throw new Error("provider SSE record exceeds budget");
     for (const raw of lines) {
+      if (++events > 16_384 || Buffer.byteLength(raw) > 256 * 1024) throw new Error("provider SSE event budget exceeded");
       const line = raw.trim();
       if (!line.startsWith("data:")) continue; // skip blank lines / SSE comments
       const data = line.slice(5).trim();
@@ -134,13 +145,24 @@ export async function streamOpenAI(opts: {
       if (chunk.usage) usage = chatCompletionsProviderUsage(chunk.usage);
       const choice = chunk.choices?.[0];
       if (!choice) continue;
-      if (choice.delta?.content) emit("delta", choice.delta.content);
+      if (choice.delta?.content) {
+        if (typeof choice.delta.content !== "string") throw new Error("invalid provider content");
+        textBytes += Buffer.byteLength(choice.delta.content);
+        if (textBytes > 1024 * 1024) throw new Error("provider text budget exceeded");
+        emit("delta", choice.delta.content);
+      }
       for (const tc of choice.delta?.tool_calls ?? []) {
         const idx = tc.index ?? 0;
         const cur = calls.get(idx) ?? { id: "", name: "", args: "" };
         if (tc.id) cur.id = tc.id;
         if (tc.function?.name) cur.name = tc.function.name;
-        if (tc.function?.arguments) cur.args += tc.function.arguments;
+        if (tc.function?.arguments) {
+          if (typeof tc.function.arguments !== "string") throw new Error("invalid provider tool arguments");
+          argumentBytes += Buffer.byteLength(tc.function.arguments);
+          if (argumentBytes > 256 * 1024) throw new Error("provider tool argument budget exceeded");
+          cur.args += tc.function.arguments;
+        }
+        if (!calls.has(idx) && calls.size >= 64) throw new Error("provider tool call budget exceeded");
         calls.set(idx, cur);
       }
       if (choice.finish_reason) finish = choice.finish_reason;
@@ -153,4 +175,8 @@ export async function streamOpenAI(opts: {
     emit("tool_use", { id: c.id || `call_${c.name}`, name: c.name, input });
   }
   emit("done", { stopReason: toStopReason(finish), ...(usage ? { usage } : {}) });
+  } finally {
+    signal.removeEventListener("abort", abort);
+    await reader.cancel().catch(() => undefined); reader.releaseLock();
+  }
 }

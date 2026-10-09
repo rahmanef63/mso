@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -17,8 +17,25 @@ const flow = parseFlow({ id: "echo", description: "Echo two steps", inputs: { na
   { id: "second", tool: "project_mcp_call", arguments: { server: "fixture", tool: "echo", arguments: { previous: { $ref: "steps.first.echo" } } }, expect: { path: "ok", equals: true } },
 ] });
 afterAll(() => rm(directory, { recursive: true, force: true }));
+afterEach(() => vi.unstubAllEnvs());
 
 describe("reusable project flows", () => {
+  it.each(["revocation", "constraint", "ceiling"])("stops later steps after live %s changes", async (reason) => {
+    let valid = true, calls = 0;
+    const authorize = vi.fn(async (_grant, _principal, _name, args) => valid && (reason !== "constraint" || !args.arguments?.previous));
+    const capabilities = { authorize, list: () => [], invoke: vi.fn() };
+    const authority = { ...context, principal: "mcp-client:flow", capabilities,
+      authorizationGrant: { kind: "mcp" as const, id: "a".repeat(64), fingerprint: "fixture", resource: "https://fixture.invalid/mcp" } };
+    const tool: CapabilityTool = { name: "project_mcp_call", scope: "exec", description: "fixture", inputSchema: { type: "object", properties: {} }, run: async () => {
+      calls++; if (reason === "ceiling") vi.stubEnv("OS_MCP_MAX_SCOPE", "read"); else if (reason !== "constraint") valid = false;
+      return { ok: true, echo: "hello" };
+    } };
+    // The fixture adapter enforces the effective scope returned by the real engine.
+    if (reason === "ceiling") capabilities.authorize = vi.fn(async () => process.env.OS_MCP_MAX_SCOPE !== "read");
+    const started = await startFlow(flow, "project-a", { name: "hello" }, "live-" + reason, authority, () => tool);
+    const done = await flowStatus(started.id, authority, 5000);
+    expect(done.state).toBe("failed"); expect(calls).toBe(1);
+  });
   it("runs ordered references once, binds project, rejects replay changes and isolates owners", async () => {
     const calls: Record<string, unknown>[] = [];
     const tool: CapabilityTool = { name: "project_mcp_call", scope: "exec", description: "fixture", inputSchema: { type: "object", properties: {} },

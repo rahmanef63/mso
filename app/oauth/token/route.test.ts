@@ -1,7 +1,7 @@
 import { TenantDenied } from "@/lib/tenancy/authority";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ consumeCode: vi.fn(), storeGrant: vi.fn(), rotate: vi.fn(), random: vi.fn(), verify: vi.fn(() => true), limited: vi.fn(() => false) }));
-vi.mock("@/lib/mcp/store", () => ({ consumeCode: mocks.consumeCode, storeOAuthGrant: mocks.storeGrant, rotateOAuthGrant: mocks.rotate, OAUTH_ACCESS_TOKEN_TTL_MS: 3_600_000 }));
+vi.mock("@/lib/mcp/store", () => ({ consumeCode: mocks.consumeCode, storeOAuthGrant: mocks.storeGrant, rotateOAuthGrant: mocks.rotate, OAUTH_ACCESS_TOKEN_TTL_MS: 3_600_000, OAuthRefreshRateLimit: class extends Error {} }));
 vi.mock("@/lib/mcp/pkce", () => ({ verifyPkce: mocks.verify, randomToken: mocks.random }));
 vi.mock("@/lib/mcp/scope", () => ({ mcpEnabled: () => true, oauthScopeString: (scope: string, offline = false) => `${scope}${offline ? " offline_access" : ""}` }));
 vi.mock("@/lib/mcp/origin", () => ({ clientIp: () => "127.0.0.1", publicOrigin: () => "https://mso.example.test" }));
@@ -11,6 +11,14 @@ const post = (body: Record<string, string>) => new Request("https://mso.example.
 
 describe("OAuth token endpoint", () => {
   beforeEach(() => { vi.clearAllMocks(); mocks.random.mockImplementation((prefix: string) => `${prefix}${mocks.random.mock.calls.length}`); mocks.verify.mockReturnValue(true); mocks.storeGrant.mockReset(); });
+  it("returns 429 for family rotation limits regardless of forwarded IPs", async () => {
+    const { OAuthRefreshRateLimit } = await import("@/lib/mcp/store");
+    mocks.rotate.mockRejectedValueOnce(new OAuthRefreshRateLimit("limited"));
+    const request = post({ grant_type: "refresh_token", refresh_token: "fixture", client_id: "fixture" });
+    request.headers.set("x-forwarded-for", "203.0.113.45");
+    const response = await POST(request);
+    expect(response.status).toBe(429); expect(await response.json()).toEqual({ error: "rate_limited" });
+  });
 
   it("exchanges an authorization code into resource-bound access + refresh credentials", async () => {
     mocks.consumeCode.mockResolvedValue({ clientId: "chatgpt", redirectUri: "https://chatgpt.com/cb", codeChallenge: "challenge", scope: "exec", resource: "https://mso.example.test/mcp", profile: "chatgpt", offlineAccess: true });

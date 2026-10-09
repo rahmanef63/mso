@@ -50,7 +50,9 @@ describe("actual OAuth store with synthetic tenant grants", () => {
     expect((await store.validateToken("fixture-access"))?.tenantBinding).toEqual(stamp);
     expect((await rotate())?.tenantBinding).toEqual(stamp);
     expect((await store.validateToken("fixture-access-two"))?.tenantBinding).toEqual(stamp);
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 30_001);
     expect((await rotate("fixture-refresh-two", "three"))?.tenantBinding).toEqual(stamp);
+    clock.mockRestore();
     const disk = JSON.parse(await fs.readFile(root + "/synthetic-mcp.json", "utf8"));
     expect(disk.refreshTokens[sha256hex("fixture-refresh-three")].tenantBinding).toEqual(stamp);
     expect(await fs.readFile(root + "/synthetic-mcp.json", "utf8")).not.toContain("fixture-access-three");

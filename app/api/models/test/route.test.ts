@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const resolveModelRef = vi.fn();
 const readOAuthBundle = vi.fn();
@@ -6,6 +6,7 @@ const writeOAuthBundle = vi.fn();
 const codexModels = vi.fn();
 const ensureFreshCodex = vi.fn();
 const streamCodex = vi.fn();
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: vi.fn(async () => true) }));
 vi.mock("@/lib/config/store", () => ({
@@ -24,6 +25,29 @@ vi.mock("@/lib/models", () => ({ resolveModel: vi.fn() }));
 vi.mock("@/lib/host/ssrf", () => ({ safeProviderFetch: vi.fn() }));
 
 describe("/api/models/test OpenAI Codex OAuth", () => {
+  it("bounds custom-provider error bodies and applies a deadline before fetching", async () => {
+    resolveModelRef.mockResolvedValue("fixture/model");
+    const { resolveModel } = await import("@/lib/models");
+    vi.mocked(resolveModel).mockResolvedValue({ protocol: "openai", baseUrl: "https://fixture.invalid/v1", apiKey: "synthetic", provider: "fixture", model: "model" } as never);
+    const cancel = vi.fn();
+    const fetch = vi.fn(async (_url, init) => {
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      return new Response(new ReadableStream({ pull(controller) { controller.enqueue(new TextEncoder().encode("denied ".repeat(1000))); }, cancel }), { status: 401 });
+    });
+    vi.stubGlobal("fetch", fetch);
+    const { POST } = await import("./route");
+    const response = await (await POST()).json();
+    expect(response.ok).toBe(false); expect(response.error.length).toBeLessThan(160); expect(cancel).toHaveBeenCalled();
+  });
+  it("releases an unused successful connection-test response body", async () => {
+    resolveModelRef.mockResolvedValue("fixture/model");
+    const { resolveModel } = await import("@/lib/models");
+    vi.mocked(resolveModel).mockResolvedValue({ protocol: "openai", baseUrl: "https://fixture.invalid/v1", apiKey: "synthetic", provider: "fixture", model: "model" } as never);
+    const cancel = vi.fn();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(new ReadableStream({ cancel }))));
+    const { POST } = await import("./route");
+    expect((await (await POST()).json()).ok).toBe(true); expect(cancel).toHaveBeenCalled();
+  });
   beforeEach(() => {
     resolveModelRef.mockReset().mockResolvedValue("openai-codex/gpt-5.6-sol");
     const bundle = { kind: "oauth", access: "x", expires: Date.now() + 999999 };

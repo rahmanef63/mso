@@ -5,6 +5,7 @@ import { boundedResultText } from "@/lib/capabilities/result-budget";
 import { isCapabilityDirectResult } from "@/lib/capabilities/tool";
 import type { CapabilityInvocationResult, CapabilityRuntime } from "@/lib/capabilities/runtime";
 import { TOOLS, TOOLS_BY_NAME } from "./tools";
+import { toolAllowedForProfile } from "./tool-contract";
 
 function successResult(toolName: string, result: unknown): CapabilityInvocationResult {
   if (isCapabilityDirectResult(result))
@@ -16,8 +17,8 @@ function successResult(toolName: string, result: unknown): CapabilityInvocationR
 /** Concrete MSO catalog composed once; MCP/A2A/subagents are adapters over it. */
 export const msoCapabilityRuntime: CapabilityRuntime = {
   authorize: authorizeDurableGrant,
-  list(scope) {
-    return TOOLS.filter((tool) => allows(scope, tool.scope)).map((tool) => ({
+  list(scope, context) {
+    return TOOLS.filter((tool) => allows(scope, tool.scope) && (!context?.allowedTools || context.allowedTools.includes(tool.name)) && toolAllowedForProfile(tool.name, context?.toolProfile ?? "full")).map((tool) => ({
       name: tool.name,
       description: tool.description,
       scope: tool.scope,
@@ -39,6 +40,9 @@ export const msoCapabilityRuntime: CapabilityRuntime = {
         tenantContext: input.tenantContext,
         principal: input.principal,
         authorizationGrant: input.authorizationGrant,
+        allowedTools: input.allowedTools,
+        toolArgumentConstraints: input.toolArgumentConstraints,
+        toolProfile: input.toolProfile,
         sessionId: input.sessionId,
         ...(input.workflowActor ? { workflowActorOverride: input.workflowActor } : {}),
         capabilities: msoCapabilityRuntime,

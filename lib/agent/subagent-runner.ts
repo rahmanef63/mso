@@ -4,6 +4,8 @@ import { prepareSelectedModel, streamPreparedSelectedModel } from "@/lib/ai/sele
 import type { OaMsg, OaTool, OaToolUse } from "@/lib/ai/openai-stream";
 import { allows, parseScope, type Scope } from "@/lib/capabilities/scope";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
+import type { CapabilityRunContext } from "@/lib/capabilities/tool";
+import { liveCapabilityContext } from "@/lib/capabilities/live-authority";
 
 const MAX_RESULT_BYTES = 64 * 1024;
 const DEFAULT_TURNS = 6;
@@ -60,6 +62,7 @@ export async function runSessionSubagent(input: {
   timeoutMs?: number;
   explicitContext?: string;
   capabilities: CapabilityRuntime;
+  authority?: CapabilityRunContext;
 }) {
   const parent = await getAgentSession(input.principal, input.parentSessionId);
   if (!parent) throw new Error("parent MSO Agent session not found");
@@ -71,8 +74,8 @@ export async function runSessionSubagent(input: {
   const maxTurns = Math.max(1, Math.min(maxTurnsLimit(), Math.trunc(input.maxTurns || DEFAULT_TURNS)));
   const timeoutMs = Math.max(1_000, Math.min(MAX_TIMEOUT_MS, Math.trunc(input.timeoutMs || DEFAULT_TIMEOUT_MS)));
   const subagentId = `subagent_${randomUUID()}`;
-  const toolDefs = input.capabilities.list(maxScope).filter((tool) => allows(maxScope, tool.scope) && allowedTool(tool.name));
-  const tools: OaTool[] = toolDefs.map((tool) => ({ name: tool.name, description: tool.description, input_schema: tool.inputSchema }));
+  const authority = { ...input.authority, principal: input.principal, scope: maxScope, capabilities: input.capabilities };
+  const toolDefs = (context: CapabilityRunContext) => input.capabilities.list(context.scope, context).filter((tool) => allows(context.scope, tool.scope) && allowedTool(tool.name) && (!context.allowedTools || context.allowedTools.includes(tool.name)));
   const prepared = await prepareSelectedModel();
   const messages: OaMsg[] = [{ role: "user", text: objective }];
   const toolCalls: Array<{ name: string; ok: boolean }> = [];
@@ -81,6 +84,8 @@ export async function runSessionSubagent(input: {
   let finalText = "";
   try {
     for (let round = 1; round <= maxTurns; round += 1) {
+      const live = await liveCapabilityContext(authority);
+      const tools: OaTool[] = toolDefs(live).map((tool) => ({ name: tool.name, description: tool.description, input_schema: tool.inputSchema }));
       let text = "";
       const uses: OaToolUse[] = [];
       await streamPreparedSelectedModel({
@@ -92,19 +97,22 @@ export async function runSessionSubagent(input: {
           else if (event === "tool_use") uses.push(data as OaToolUse);
         },
       });
+      await liveCapabilityContext(authority);
+      if (controller.signal.aborted) throw controller.signal.reason;
       if (text) finalText = bounded(text);
       messages.push({ role: "assistant", text, toolUses: uses });
       if (!uses.length) return { subagentId, name, status: "completed" as const, text: finalText.trim(), rounds: round, toolCalls, maxScope };
       const results: { id: string; content: string; isError?: boolean }[] = [];
       for (const call of uses) {
-        const tool = toolDefs.find((entry) => entry.name === call.name);
+        const current = await liveCapabilityContext(authority, call.name, call.input ?? {});
+        const tool = toolDefs(current).find((entry) => entry.name === call.name);
         if (!tool) {
           results.push({ id: call.id, content: "error: tool unavailable to this subagent", isError: true });
           toolCalls.push({ name: call.name, ok: false });
           continue;
         }
         const invoked = await input.capabilities.invoke({
-          name: call.name, args: call.input ?? {}, scope: maxScope,
+          ...current, name: call.name, args: call.input ?? {},
           actor: `${input.principal}#${subagentId}`, principal: input.principal,
         });
         const outcome = resultText({ result: invoked });

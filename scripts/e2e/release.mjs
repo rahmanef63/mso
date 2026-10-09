@@ -3,7 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { chromium, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { mcpOwnerJourneys, mcpPublicJourney, settingsAccessibilityJourney } from "./mcp-settings.mjs";
+import { mcpOwnerJourneys, mcpPublicJourney, oauthRegistrationJourney, settingsAccessibilityJourney } from "./mcp-settings.mjs";
 import { automationJourney } from "./automation.mjs";
 import { organizationJourney } from "./organization.mjs";
 import { workflowCanvasJourney } from "./workflow-canvas.mjs";
@@ -141,6 +141,7 @@ try {
   expect((await call("/api/v1/fs/list?path=" + encodeURIComponent(fixture.dir))).status).toBe(200);
   await camoufoxConnectionJourney(page, fixture);
   await mcpOwnerJourneys(page, fixture);
+  await oauthRegistrationJourney(page, fixture);
   await automationJourney(page, fixture);
   await organizationJourney(page, fixture);
   await workflowCanvasJourney(page, fixture);

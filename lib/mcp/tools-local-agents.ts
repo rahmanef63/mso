@@ -119,7 +119,7 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
     run: async (a, context) => {
       const current = sessionContext(context);
       if (!context.capabilities) throw new Error("capability runtime unavailable for local-agent delegation");
-      const result = await handoffOwnerLocalSession(current.principal, str(a, "target"), str(a, "objective"), context.capabilities, current.sessionId);
+      const result = await handoffOwnerLocalSession(current.principal, str(a, "target"), str(a, "objective"), context.capabilities, current.sessionId, { authority: context });
       return { mode: "durable_session_worker", ...result };
     },
   },

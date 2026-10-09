@@ -40,6 +40,7 @@ export interface McpToken {
 }
 
 export interface McpRefreshToken {
+  lastRotatedAt?: number;
   tenantBinding?: Readonly<TenantCredentialBinding>;
   grantId: string;
   clientId: string;

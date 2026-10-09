@@ -1,4 +1,5 @@
 import { getApprovedDevice } from "@/lib/auth/device-store";
+import { liveCapabilityContext } from "@/lib/capabilities/live-authority";
 import { allows, scopeRank, type Scope } from "@/lib/capabilities/scope";
 import type { CapabilityRunContext } from "@/lib/capabilities/tool";
 import { configuredCapabilityCeiling } from "@/lib/capabilities/scope-policy";
@@ -9,6 +10,7 @@ export async function workflowExecutionContext(
   context: CapabilityRunContext,
   trigger?: WorkflowGraphRun["trigger"],
 ): Promise<CapabilityRunContext> {
+  context = await liveCapabilityContext(context);
   const principal = context.principal ?? context.actor;
   if (!principal) throw new Error("workflow requires an authenticated principal");
   const unattended = trigger && ["schedule", "webhook", "channel"].includes(trigger.type);

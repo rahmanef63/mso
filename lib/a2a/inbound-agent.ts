@@ -1,6 +1,7 @@
 import { allows, type Scope } from "@/lib/capabilities/scope";
-import { clampScope } from "@/lib/capabilities/scope-policy";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
+import type { CapabilityRunContext } from "@/lib/capabilities/tool";
+import { liveCapabilityContext } from "@/lib/capabilities/live-authority";
 import {
   prepareSelectedModel,
   streamPreparedSelectedModel,
@@ -90,15 +91,12 @@ function sessionHistory(session?: AgentSession): OaMsg[] {
   return out;
 }
 
-function modelTools(runtime: CapabilityRuntime, scope: Scope, fixedWorkflow = false): OaTool[] {
-  return runtime.list(scope).filter(
+function effectiveTools(runtime: CapabilityRuntime, context: CapabilityRunContext, fixedWorkflow = false) {
+  const scope = context.scope;
+  return runtime.list(scope, context).filter(
     (tool) => allows(scope, tool.scope) && !EXTERNAL_TOOL_DENY.has(tool.name) &&
-      !(fixedWorkflow && FIXED_WORKFLOW_DENY.has(tool.name)),
-  ).map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    input_schema: tool.inputSchema,
-  }));
+      !(fixedWorkflow && FIXED_WORKFLOW_DENY.has(tool.name)) && (!context.allowedTools || context.allowedTools.includes(tool.name)),
+  );
 }
 
 function bounded(value: string, max = MAX_RESULT_BYTES): string {
@@ -132,7 +130,8 @@ export async function runInboundA2AAgent(input: {
   signal: AbortSignal;
   onDelta?: (text: string) => void | Promise<void>;
   capabilities: CapabilityRuntime;
-  executionContext?: { workflowId?: string; workflowActor?: string; fixedWorkflow?: boolean };
+  liveScope?: () => Promise<Scope>;
+  executionContext?: { authority?: CapabilityRunContext; workflowId?: string; workflowActor?: string; fixedWorkflow?: boolean };
 }): Promise<{
   text: string;
   rounds: number;
@@ -145,14 +144,17 @@ export async function runInboundA2AAgent(input: {
   ];
   const toolCalls: Array<{ name: string; ok: boolean }> = [];
   let output = "";
+  const live = async (name?: string, args?: Record<string, unknown>) => liveCapabilityContext({
+    ...input.executionContext?.authority,
+    principal: input.executionContext?.authority?.principal ?? input.principal,
+    scope: await input.liveScope?.() ?? input.scope,
+    capabilities: input.capabilities,
+  }, name, args);
 
   for (let round = 1; round <= MAX_ROUNDS; round += 1) {
-    const scope = clampScope(input.scope);
-    const tools = modelTools(input.capabilities, scope, input.executionContext?.fixedWorkflow === true);
-    if (input.signal.aborted)
-      throw input.signal.reason instanceof Error
-        ? input.signal.reason
-        : new Error("A2A task canceled");
+    const context = await live(), scope = context.scope;
+    const tools: OaTool[] = effectiveTools(input.capabilities, context, input.executionContext?.fixedWorkflow === true).map((tool) => ({ name: tool.name, description: tool.description, input_schema: tool.inputSchema }));
+    if (input.signal.aborted) throw input.signal.reason ?? new Error("A2A task canceled");
     let text = "";
     const uses: OaToolUse[] = [];
     await streamPreparedSelectedModel({
@@ -170,39 +172,35 @@ export async function runInboundA2AAgent(input: {
         } else if (event === "tool_use") uses.push(data as OaToolUse);
       },
     });
+    await live();
+    if (input.signal.aborted) throw input.signal.reason ?? new Error("A2A task canceled");
     output = bounded(output + text, MAX_OUTPUT_BYTES);
     messages.push({ role: "assistant", text, toolUses: uses });
     if (!uses.length) return { text: output.trim(), rounds: round, toolCalls };
 
     const results: { id: string; content: string; isError?: boolean }[] = [];
     for (const call of uses) {
-      const effectiveScope = clampScope(input.scope);
-      const tool = input.capabilities.list(effectiveScope).find((entry) => entry.name === call.name);
-      if (!tool || EXTERNAL_TOOL_DENY.has(call.name) || !allows(effectiveScope, tool.scope)) {
-        results.push({
-          id: call.id,
-          content: "error: tool is unavailable to this A2A credential",
-          isError: true,
-        });
+      const current = await live(call.name, call.input ?? {}), effectiveScope = current.scope;
+      if (input.signal.aborted) throw input.signal.reason ?? new Error("A2A task canceled");
+      const tool = effectiveTools(input.capabilities, current, input.executionContext?.fixedWorkflow === true).find((entry) => entry.name === call.name);
+      if (!tool) {
+        results.push({ id: call.id, content: "error: tool is unavailable to this A2A credential", isError: true });
         toolCalls.push({ name: call.name, ok: false });
         continue;
       }
       const invoked = await input.capabilities.invoke({
+        ...(input.executionContext?.authority ? { ...current } : {}),
         name: call.name,
         args: call.input ?? {},
         scope: effectiveScope,
         actor: input.principal,
-        principal: input.principal,
+        principal: current.principal,
         sessionId: input.taskId,
         ...(input.executionContext?.workflowId ? { workflowId: input.executionContext.workflowId } : {}),
         ...(input.executionContext?.workflowActor ? { workflowActor: input.executionContext.workflowActor } : {}),
       });
       const result = toolResultText(invoked);
-      results.push({
-        id: call.id,
-        content: result.content,
-        ...(result.isError ? { isError: true } : {}),
-      });
+      results.push({ id: call.id, content: result.content, ...(result.isError ? { isError: true } : {}) });
       toolCalls.push({ name: call.name, ok: !result.isError });
     }
     messages.push({ role: "tool", results });

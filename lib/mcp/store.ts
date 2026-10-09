@@ -22,6 +22,7 @@ export const CODE_TTL_MS = 60_000;
 export const TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export const OAUTH_ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000;
 export const REFRESH_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+export class OAuthRefreshRateLimit extends Error {}
 
 export function registerClient(name: string, redirectUris: string[]): Promise<string> {
   return mutate(async () => {
@@ -41,7 +42,8 @@ export function registerClient(name: string, redirectUris: string[]): Promise<st
 }
 
 export async function getClient(clientId: string): Promise<McpClient | null> {
-  return (await read()).clients[clientId] ?? null;
+  const clients = (await read()).clients;
+  return Object.hasOwn(clients, clientId) ? clients[clientId] : null;
 }
 
 export function storeCode(code: string, rec: McpCode): Promise<void> {
@@ -148,6 +150,8 @@ export function rotateOAuthGrant(input: {
     const rec = store.refreshTokens[oldHash];
     if (!rec || rec.revokedAt || rec.expiresAt < Date.now() || rec.clientId !== captured.clientId || rec.resource !== captured.resource) return null;
     try { await authorizeMcpTenantGrant(rec); } catch (error) { if (error instanceof TenantDenied) return null; throw error; }
+    const now = Date.now();
+    if (rec.lastRotatedAt !== undefined && now - rec.lastRotatedAt < 30_000) throw new OAuthRefreshRateLimit("refresh grant rate limited");
     const tenant = tenantCredentialFields(rec);
     delete store.refreshTokens[oldHash];
     store.spentRefreshTokens[oldHash] = {
@@ -156,7 +160,6 @@ export function rotateOAuthGrant(input: {
       resource: rec.resource,
       expiresAt: rec.expiresAt,
     };
-    const now = Date.now();
     store.tokens[sha256hex(captured.accessToken)] = {
       ...tenant,
       label: captured.label,
@@ -171,7 +174,8 @@ export function rotateOAuthGrant(input: {
     store.refreshTokens[sha256hex(captured.refreshToken)] = {
       ...rec, ...tenant,
       createdAt: now,
-      expiresAt: now + REFRESH_TOKEN_TTL_MS,
+      lastRotatedAt: now,
+      expiresAt: rec.expiresAt,
     };
     await write(store);
     return rec;
