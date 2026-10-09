@@ -6,6 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { mcpOwnerJourneys, mcpPublicJourney, oauthRegistrationJourney, settingsAccessibilityJourney } from "./mcp-settings.mjs";
 import { automationJourney } from "./automation.mjs";
 import { organizationJourney } from "./organization.mjs";
+import { agentVaultJourney } from "./agent-vault.mjs";
 import { workflowCanvasJourney } from "./workflow-canvas.mjs";
 import { storeExtensionsJourney } from "./store-extensions.mjs";
 import { releaseFixture } from "./release-fixture.mjs";
@@ -93,6 +94,8 @@ try {
   await page.locator('input[type="password"]').fill(fixture.password);
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
   await expect(page).toHaveURL(fixture.base + "/integrations");
+  await agentVaultJourney(page, fixture);
+  await page.goto(fixture.base + "/integrations");
   await shellNoticesJourney(page, fixture);
   await expect(page.getByRole("group", { name: "Credential owner" }).getByRole("button")).toContainText("fixture");
   await page.getByRole("navigation", { name: "Integrations sections", exact: true }).getByRole("button", { name: "AI Providers", exact: true }).click();

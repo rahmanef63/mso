@@ -26,6 +26,7 @@ import { workflowsApp } from "@/features/workflows";
 import { n8nApp } from "@/features/n8n";
 import { organizationApp } from "@/features/organization";
 import { memoryGraphApp } from "@/features/memory-graph";
+import { agentVaultApp } from "@/features/agent-vault";
 import { cloudflareApp, dokployApp } from "@/features/infrastructure";
 import { themeQuickPickerFeature } from "./theme-quick-picker";
 import { serverConnectionStatusFeature } from "./server-connection-status";
@@ -84,6 +85,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   // only app that explains what they are looking at and how to get their own.
   withSlug(withArtwork(docsApp), "docs"),
   pin(withSlug(withArtwork(osSettingsApp), "settings")),
+  withSlug(agentVaultApp, "agent-vault"),
   withSlug(withArtwork(quicklinksApp), "links"),
   withSlug(withArtwork(createAppApp), "create"),
 ];

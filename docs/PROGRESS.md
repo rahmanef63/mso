@@ -1,3 +1,12 @@
+## 2026-10-09: Separate repository agent progress from portable MSO code
+
+The owner asked for an Obsidian feature whose data reflects repository agents rather than personal starter notes. Agent Vault now provides a lazy native app, owner-only API, CLI and paired read/write MCP/Alfa capabilities over one guarded host implementation. Portable source contains no installation identity or user notes; source selection lives in private environment/browser state and each logical repository gets an independent data directory outside both source checkouts.
+
+Bounded capture projects canonical agent/project pages, progress logs, platform inbox summaries, compact repo memory and recent commit metadata. Content digests deduplicate unchanged captures, published snapshots preserve history and user annotations, and metadata commits only after note writes. The existing private-store lock serializes capture for a repository across server processes. Raw transcripts, adapter state and owner recall are excluded; text is redacted and collection limits stay visible. Snapshots describe recorded evidence, never live agent or deployment health.
+
+Regressions cover repo isolation, source preservation, corrupt manifests, secret/transcript exclusion, path/symlink refusal, private permissions, owner access and scope/audit parity. Synthetic browser journeys exercise note reads, changed/old snapshots, search, mobile reflow and live role revocation. The fixed snapshot ceiling refuses further capture without deleting history; no automatic schedule or native desktop launch is added to the portable feature. Agent Vault follows Settings in the mobile catalog so existing first-page apps stay reachable. Compact ChatGPT one-line descriptions use a smaller character cap to admit the two tools within the existing scanner budget, retaining all names, schemas, scopes and permission checks.
+
+
 ## 2026-10-09: Pin the bounded MCP store read and review the inference-test alert
 
 Post-release CodeQL found a check/reopen race in the new store byte limit. The reader now opens once with no-follow/nonblocking flags, checks and reads that descriptor into a size-bounded buffer, rejects growth/content changes and closes it on every path. Real-file regressions replace the pathname after open and grow the file after the size check. Atomic replacement still permits reading the original consistent snapshot.

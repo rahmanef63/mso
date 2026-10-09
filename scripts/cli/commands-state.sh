@@ -184,6 +184,13 @@ case "$cmd" in
       rm)   jdel "/api/memory?id=$(enc "${2:?id}")" ;;
       *) die "usage: mso $U_memory" ;;
     esac ;;
+  agent-vault)
+    case "${1:-show}" in
+      show) jget "/api/v1/agent-vault${2:+?project=$(enc "$2")}" ;;
+      sync) jpost "/api/v1/agent-vault" "$(jq -n --arg p "${2:-}" 'if $p == "" then {} else {project:$p} end')" ;;
+      read) jget "/api/v1/agent-vault?project=$(enc "${2:?project}")&note=$(enc "${3:?note-path}")" ;;
+      *) die "usage: mso $U_agent_vault" ;;
+    esac ;;
   memory-graph)
     if [ -n "${1-}" ]; then jget "/api/v1/memory-graph?project=$(enc "$1")";
     else jget "/api/v1/memory-graph"; fi ;;

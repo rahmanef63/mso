@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-10-09
 
+**Added**
+
+- `agent-vault` isolate repository progress in private Obsidian vaults
+
 **Fixed**
 
 - `security` pin bounded MCP store reads to one descriptor

@@ -1,3 +1,4 @@
+import { AGENT_VAULT_HOST_TOOLS } from "./catalog-agent-vault";
 import { clip, num, obj, str } from "./schema";
 import { MUTATE_TOOLS } from "./catalog-mutate";
 import { SKILL_TOOLS } from "./catalog-skills";
@@ -203,4 +204,4 @@ const READ_TOOLS: HostTool[] = [
 ];
 
 // The catalog the rest of the app sees: read tools then mutate tools, one array.
-export const HOST_TOOLS: HostTool[] = [...READ_TOOLS, ...MUTATE_TOOLS];
+export const HOST_TOOLS: HostTool[] = [...READ_TOOLS, ...MUTATE_TOOLS, ...AGENT_VAULT_HOST_TOOLS];

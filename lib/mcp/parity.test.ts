@@ -226,6 +226,8 @@ describe("MCP rate limits mirror the routes", () => {
       "project.knowledge": 30,
       "organization.read": 60,
       "organization.write": 40,
+      "agent.vault.read": 60,
+      "agent.vault.sync": 10,
     };
     for (const t of TOOLS) {
       if (!t.limit) continue;

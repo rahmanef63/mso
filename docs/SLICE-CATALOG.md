@@ -3,15 +3,16 @@
 > **Current reference.** Counts are checked against the directory tree by
 > `scripts/check-docs.mjs`; the directory remains the final authority.
 
-<!-- slice-catalog: slices=29 appshell-features=10 -->
+<!-- slice-catalog: slices=30 appshell-features=10 -->
 
 Every application is a vertical slice under `frontend/slices/`. Host-facing slices use the
 shared API/host seam rather than reaching arbitrary Node host APIs from client code.
 
-## Slices (29)
+## Slices (30)
 
 | Slug | Purpose |
 |---|---|
+| `agent-vault` | Separate private repository agent-progress snapshots in an Obsidian-compatible Markdown vault |
 | `app-store` | App Store / app discovery surface |
 | `appshell` | Generic desktop/mobile shell framework |
 | `assistant` | Alfa assistant, agents/playbooks and tool activity |

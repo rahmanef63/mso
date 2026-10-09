@@ -47,6 +47,7 @@ U_org="org flow-custom-nodes|flow-nodes-move|flow-update|flow-replace|flow-node-
 U_a2a="a2a list|state|sessions|spawn <source-session> <objective> [title]|inbox <session>|discover <url>|add <url> [alias]|rm <target>|send <target> <message> [--wait]|stream <target> <message>|task <target> <taskId> [history]|cancel <target> <taskId>|handoff <target> <objective> [context] [--wait]|local sessions|local handoff <session> <objective>|local spawn <sourceSession> <objective> [title]|local inbox <session>|trace <start|progress|plan|action|evidence|blocker|result|handoff|status|context|attach|finish|cancel|list> [...]|auth list [target]|auth add <target> [label] [bearer|api-key|oauth2]|auth use <target> <credentialId|none>|auth rm <credentialId>|inbound list|inbound create [label] [read|write|exec]|inbound rm <tokenId>"
 U_memory="memory list|add <text>|rm <id>"
 U_memory_graph="memory-graph [project]"
+U_agent_vault="agent-vault show|sync [project]|read <project> <note-path>"
 U_config="config show|set <json>|key <provider>|style <off|caveman|ponytail>|rm <provider>"
 U_prefs="prefs show|set <json>"
 U_federation="federation status"
@@ -102,7 +103,7 @@ mso_cli_main() {
       mso_cmd_host "$cmd" "$@" ;;
     agent|chat|model|setup|onboard|provider|providers|integrations|channels|flow|workflow|gateway|heartbeat|web|camoufox|apps|mapp|term)
       mso_cmd_runtime "$cmd" "$@" ;;
-    ai|cockpit|threads|agent-sessions|agents|org|a2a|memory|memory-graph|config|prefs|federation|models|jev|skills|changelog|stock)
+    ai|cockpit|threads|agent-sessions|agents|org|a2a|memory|memory-graph|agent-vault|config|prefs|federation|models|jev|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;
     devices|device|approve|revoke|oauth|mcp|audit|whoami|login|logout|service|build|deploy|update|reset|uninstall|crud|api|completion)
       mso_cmd_admin "$cmd" "$@" ;;

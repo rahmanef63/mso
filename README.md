@@ -20,7 +20,7 @@
 |---|---|
 | **Understand a project** | Project context, trusted skills and task-specific tool discovery. |
 | **Do the work** | Real PTY, bounded file tools, service controls and explicit approvals. |
-| **Pick up where you left off** | Durable sessions, local memory, workflow evidence and agent handoffs. |
+| **Pick up where you left off** | Durable sessions, local memory, workflow evidence, agent handoffs and [separate repo progress vaults](./docs/AGENT-VAULT.md). |
 | **Build server-native workflows** | Server-native n8n-core workflow parity: schedule/webhook triggers, branching/loops/subflows, retries/error paths, versions/history, private variables, integrations, per-node logs, and automatic private learning. |
 
 **One runtime, three ways in:** use desktop/mobile windows, stay in your terminal, or connect an MCP client.

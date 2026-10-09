@@ -34,6 +34,9 @@ export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
   const fixtureProject = path.join(dir, "projects", "fixture-project");
   await mkdir(fixtureProject, { recursive: true });
   await writeFile(path.join(fixtureProject, "package.json"), JSON.stringify({ name: "fixture-project", version: "1.0.0", private: true }), { mode: 0o600 });
+  await mkdir(path.join(fixtureProject, "wiki", "agents"), { recursive: true, mode: 0o700 });
+  await writeFile(path.join(fixtureProject, "wiki", "agents", "worker.md"), "# Fixture worker\n\nResponsible for verifying fixture tasks.\n", { mode: 0o600 });
+  await writeFile(path.join(fixtureProject, "wiki", "log.md"), "# Fixture progress\n\nFirst verified repository update.\n", { mode: 0o600 });
   await writeFile(path.join(dir, "infra.json"), JSON.stringify({
     version: 2, instanceId: randomUUID(), defaultUser: "fixture", bindings: [],
     users: { fixture: { id: "fixture", uid: randomUUID(), label: "Release fixture", defaults: { convex: "local" },
@@ -54,6 +57,7 @@ export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
     OS_CONFIG_STORE: path.join(dir, "config.json"), OS_PREFS_PATH: path.join(dir, "prefs.json"),
     OS_AUDIT_LOG: path.join(dir, "audit.jsonl"), OS_LOGIN_PASSWORD: password,
     OS_SESSION_SECRET: randomBytes(32).toString("hex"), OS_FS_READ_ROOTS: dir, OS_FS_WRITE_ROOTS: dir,
+    OS_AGENT_VAULT_ROOT: path.join(dir, "vault-data"), OS_AGENT_VAULT_PROJECT: fixtureProject,
     MSO_SKILL_INSTALL_ROOT: path.join(dir, "skills"), OS_MCP_ENABLED: "1", NEXT_PUBLIC_OS_DEMO: "0", NEXT_TELEMETRY_DISABLED: "1",
   });
   const mcpToken = randomBytes(32).toString("hex");
@@ -92,6 +96,6 @@ export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
     const setAiConfig = async config => {
       await writeFile(env.OS_CONFIG_STORE, JSON.stringify(config, null, 2), { mode: 0o600 });
     };
-    return { dir, base, device, password, setRole, seedMcp, mcpToken, setAiConfig, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
+    return { dir, base, device, password, vaultProject: fixtureProject, setRole, seedMcp, mcpToken, setAiConfig, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
   } catch (error) { await close(); throw error; }
 }
