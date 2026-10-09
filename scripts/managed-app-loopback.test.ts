@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+vi.mock("@/lib/managed-apps/session", () => ({ gateManagedApp: vi.fn(async () => null) }));
 
 const TEMPLATE = "{id}.mso.example.com";
 const HERMES = "/api/v1/managed-apps/hermes/proxy";

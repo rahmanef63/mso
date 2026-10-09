@@ -70,7 +70,7 @@ export const A2A_TOOLS: McpTool[] = [
   },
   {
     name: "a2a_task_get",
-    description: "Read the latest state of a task previously returned by an A2A v1 agent. This is the A2A status/poll operation.",
+    description: "Read the latest state of an A2A v1 task. Public peers are read-scoped; registered peers using stored credentials require exec authority.",
     scope: "read", annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true }, limit: { key: "a2a.task", max: 60, windowMs: 60_000 },
     result: { maxTextBytes: 64 * 1024, overflowHint: "A2A task response was compacted; request less history." },
     inputSchema: S({ target: { type: "string" }, task_id: { type: "string" }, history_length: { type: "number", description: "0-100, default 10." } }, ["target", "task_id"]),

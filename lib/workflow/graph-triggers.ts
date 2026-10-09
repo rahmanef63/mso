@@ -7,6 +7,7 @@ import { listWorkflowGraphTriggerSources } from "./graph-store";
 import { scheduleBucket } from "./schedule";
 import { startWorkflowGraph, workflowGraphRunId } from "./graph-engine";
 import { readWorkflowGraphRun } from "./graph-run-store";
+import { getApprovedDevice } from "@/lib/auth/device-store";
 
 const g=globalThis as typeof globalThis&{__msoWorkflowScheduler?:ReturnType<typeof setInterval>;__msoWorkflowSchedulerBusy?:boolean};
 function key(parts:string[]){return `trigger:${createHash("sha256").update(parts.join(":" )).digest("hex").slice(0,48)}`;}
@@ -21,4 +22,23 @@ export async function tickWorkflowScheduler(resolve:Resolver,now=new Date(),capa
 export function startWorkflowScheduler(resolve:Resolver,capabilities?:CapabilityRuntime){if(process.env.NODE_ENV==="test"||g.__msoWorkflowScheduler)return;void tickWorkflowScheduler(resolve,new Date(),capabilities);g.__msoWorkflowScheduler=setInterval(()=>void tickWorkflowScheduler(resolve,new Date(),capabilities),15_000);g.__msoWorkflowScheduler.unref();}
 export async function findActiveWebhookSource(graphId:string,nodeId:string){for(const source of await listWorkflowGraphTriggerSources()){if(source.graph.id!==graphId)continue;const node=source.graph.nodes.find((row)=>row.id===nodeId&&row.type==="webhook"&&!row.disabled);if(node)return{...source,node};}return null;}
 
-export async function findActiveChannelSource(graphId:string,channelId:string){for(const source of await listWorkflowGraphTriggerSources()){if(source.graph.id!==graphId)continue;const nodes=source.graph.nodes.filter((row)=>row.type==="channel_trigger"&&!row.disabled),node=nodes.find((row)=>row.config.channelId===channelId)??nodes.find((row)=>!row.config.channelId);if(node)return{...source,node};}return null;}
+type ChannelBinding = { owner: string; nodeId: string; revision: string };
+export async function reviewedChannelBinding(graphId: string, channelId: string): Promise<ChannelBinding> {
+ const matches = [];
+ for (const source of await listWorkflowGraphTriggerSources()) {
+  if (source.graph.id !== graphId || !source.principal.startsWith("web:") || (await getApprovedDevice(source.principal.slice(4)))?.role !== "owner") continue;
+  const nodes = source.graph.nodes.filter((node) => node.type === "channel_trigger" && !node.disabled && (!node.config.channelId || node.config.channelId === channelId));
+  for (const node of nodes) matches.push({ owner: source.owner, nodeId: node.id, revision: source.graph.revision });
+ }
+ if (matches.length !== 1) throw new Error("Choose one unambiguous Owner channel trigger before saving");
+ return matches[0];
+}
+export async function findActiveChannelSource(graphId: string, channelId: string, binding?: ChannelBinding) {
+ if (!binding) return null;
+ for (const source of await listWorkflowGraphTriggerSources()) {
+  if (source.graph.id !== graphId || source.owner !== binding.owner || source.graph.revision !== binding.revision) continue;
+  const node = source.graph.nodes.find((row) => row.id === binding.nodeId && row.type === "channel_trigger" && !row.disabled && (!row.config.channelId || row.config.channelId === channelId));
+  if (node) return { ...source, node };
+ }
+ return null;
+}

@@ -7,6 +7,8 @@ import { startWorkflowGraph } from "@/lib/workflow/graph-engine";
 import { ChannelError } from "./errors";
 import { channelById, recordChannelActivity } from "./store";
 import type { ChannelInboundEvent } from "./types";
+import { admitChannelEvent } from "./event-admission";
+import { createHash } from "node:crypto";
 
 export type ChannelWorkflowRuntime = {
   scope: Scope;
@@ -31,8 +33,9 @@ export async function dispatchChannelInbound(
   await recordChannelActivity(channelId);
   if (!channel.workflowId) return { workflow: null };
 
-  const source = await findActiveChannelSource(channel.workflowId, channel.id);
+  const source = await findActiveChannelSource(channel.workflowId, channel.id, channel.workflowBinding);
   if (!source) throw new ChannelError("channel_workflow_trigger_not_found", 409);
+  if (!await admitChannelEvent(channelId, event.eventId)) return { workflow: null, duplicate: true };
 
   const session = await createAgentSession(source.principal, "cli", {
     title: "Channel: " + channel.name,
@@ -45,7 +48,7 @@ export async function dispatchChannelInbound(
     scope: runtime.scope,
     ...(runtime.capabilities ? { capabilities: runtime.capabilities } : {}),
   } as const;
-  const idempotency = ["channel", channel.id, event.eventId].join(":").slice(0, 128);
+  const idempotency = "channel:" + createHash("sha256").update(JSON.stringify([channel.id, event.eventId])).digest("hex");
   const run = await startWorkflowGraph(
     source.graph,
     workflowInput(channel, event),

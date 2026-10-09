@@ -10,7 +10,7 @@ type CatalogModule = typeof import("@/lib/managed-apps/catalog");
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MANAGED_APP_HOST_HEADER } from "@/lib/managed-apps/origin";
 
-vi.mock("@/lib/agent/server", () => ({ verifyAuth: vi.fn(async () => true) }));
+vi.mock("@/lib/managed-apps/session", () => ({ managedAppSession: vi.fn(async () => ({ device_id: "test" })) }));
 
 const dashboardUrl = { current: "http://127.0.0.1:9119" };
 vi.mock("@/lib/managed-apps/catalog", async () => {

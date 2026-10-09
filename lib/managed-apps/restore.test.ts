@@ -11,7 +11,7 @@ vi.mock("server-only", () => ({}));
 // The app must be stopped, and asking systemd about it in a unit test would be
 // asking about the real host's units.
 const mocks = vi.hoisted(() => ({ state: { value: "stopped" } }));
-vi.mock("./manager", () => ({ getManagedApp: async () => ({ state: mocks.state.value, name: "Hermes" }) }));
+vi.mock("./manager", () => ({ getManagedApp: async () => ({ state: mocks.state.value, name: "Hermes" }), assertManagedAppStopped: vi.fn().mockResolvedValue(undefined) }));
 
 delete process.env.HERMES_HOME;
 
@@ -84,11 +84,18 @@ describe("what restore refuses before a byte moves", () => {
   });
 
   it("refuses while the app is running rather than stopping it", async () => {
-    const backup = await createBackup(definition(), "manual");
+    const backup = await createBackup(definition(), "manual", async () => {});
     for (const live of ["running", "starting", "unhealthy"]) {
       mocks.state.value = live;
       await expect(restore(backup.id)).rejects.toThrow(`is ${live}; stop it before restoring`);
     }
+  });
+
+  it("refuses before overwriting when a service restarts during the safety backup", async () => {
+    const backup = await createBackup(definition(), "manual", async () => {});
+    await fs.writeFile(path.join(state, "config.yaml"), "current state");
+    await expect(restoreManagedAppBackup("hermes", backup.id, text => { if (text.includes("current state saved")) mocks.state.value = "running"; })).rejects.toThrow(/stop it/);
+    expect(await fs.readFile(path.join(state, "config.yaml"), "utf8")).toBe("current state");
   });
 
   it("refuses to write through a symlink that points out of the state dir", async () => {
@@ -109,7 +116,7 @@ describe("what restore refuses before a byte moves", () => {
     // part snapshot, part itself, and the message said only "refusing".
     const outside = path.join(home, "outside.txt");
     await fs.writeFile(outside, "untouched");
-    const backup = await createBackup(definition(), "manual");
+    const backup = await createBackup(definition(), "manual", async () => {});
     // A file in the snapshot whose counterpart in the state dir became a link.
     await fs.writeFile(path.join(home, ".mso", "backups", "hermes", backup.id, "token.txt"), "would follow the link");
     await fs.symlink(outside, path.join(state, "token.txt"));
@@ -130,7 +137,7 @@ describe("what restore refuses before a byte moves", () => {
     // the snapshot has a directory writes every file under it somewhere else.
     const elsewhere = path.join(home, "elsewhere");
     await fs.mkdir(elsewhere);
-    const backup = await createBackup(definition(), "manual");
+    const backup = await createBackup(definition(), "manual", async () => {});
     await fs.rm(path.join(state, "sessions"), { recursive: true, force: true });
     await fs.symlink(elsewhere, path.join(state, "sessions"));
 
@@ -140,7 +147,7 @@ describe("what restore refuses before a byte moves", () => {
 
   it("leaves no safety backup behind when it refuses", async () => {
     mocks.state.value = "running";
-    const backup = await createBackup(definition(), "manual");
+    const backup = await createBackup(definition(), "manual", async () => {});
     await expect(restore(backup.id)).rejects.toThrow();
     expect((await listBackups("hermes")).map((entry) => entry.reason)).toEqual(["manual"]);
   });
@@ -148,7 +155,7 @@ describe("what restore refuses before a byte moves", () => {
 
 describe("what a restore actually does", () => {
   it("overwrites the snapshot's files, keeps the current state as an undo, and says what it could not bring back", async () => {
-    const backup = await createBackup(definition(), "manual");
+    const backup = await createBackup(definition(), "manual", async () => {});
     await fs.writeFile(path.join(state, "config.yaml"), "version: 2\n");
     await fs.writeFile(path.join(state, "added-later.txt"), "new");
     await fs.writeFile(path.join(state, "node_modules", "pkg", "index.js"), "rebuilt");
@@ -177,7 +184,7 @@ describe("what a restore actually does", () => {
   });
 
   it("never copies its own manifest into the application's state dir", async () => {
-    const backup = await createBackup(definition(), "manual");
+    const backup = await createBackup(definition(), "manual", async () => {});
     await restore(backup.id);
     await expect(fs.stat(path.join(state, "manifest.json"))).rejects.toThrow();
   });
@@ -188,7 +195,7 @@ describe("what a restore actually does", () => {
     // by the time anyone wants it back, the directory it names is gone. This
     // used to refuse with "the application state directory does not exist" —
     // the one backup the UI calls the operator's only way back, unrestorable.
-    const backup = await createBackup(definition(), "pre-uninstall");
+    const backup = await createBackup(definition(), "pre-uninstall", async () => {});
     await fs.rm(state, { recursive: true, force: true });
 
     const result = await restore(backup.id);
@@ -211,7 +218,7 @@ describe("what a restore actually does", () => {
     const freshCatalog = await import("./catalog");
     await fs.mkdir(path.join(home, "nowhere", "hermes"), { recursive: true });
     await fs.writeFile(path.join(home, "nowhere", "hermes", "config.yaml"), "version: 1\n");
-    const backup = await freshBackups.createBackup(freshCatalog.getManagedAppDefinition("hermes"), "pre-uninstall");
+    const backup = await freshBackups.createBackup(freshCatalog.getManagedAppDefinition("hermes"), "pre-uninstall", async () => {});
     await fs.rm(path.join(home, "nowhere"), { recursive: true, force: true });
 
     await expect(fresh.restoreManagedAppBackup("hermes", backup.id, append)).rejects.toThrow("so is its parent");
@@ -244,7 +251,7 @@ describe("what a restore actually does", () => {
   });
 
   it("refuses when the state dir is itself a symlink", async () => {
-    const backup = await createBackup(definition(), "manual");
+    const backup = await createBackup(definition(), "manual", async () => {});
     const elsewhere = path.join(home, "moved-hermes");
     await fs.rename(state, elsewhere);
     await fs.symlink(elsewhere, state);

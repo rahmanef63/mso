@@ -185,6 +185,11 @@ Snapshots live under:
 They may contain credentials and should be protected like the app's original state. The
 snapshot directory is private and its manifest is `0600`.
 
+Stop every app service before taking a snapshot, updating or restoring. MSO checks all
+catalog units in both systemd scopes and all discovered containers under the operation
+lease; an external restart detected during the copy aborts it and removes the incomplete
+snapshot. A restore reports its safety snapshot if copying had already begun.
+
 Snapshots skip symlinks and recursively exclude reinstallable/cache trees such as
 `node_modules`, `.venv`, `venv`, `__pycache__`, `.git`, `.cache`, and nested `backups`.
 The manifest records the app, original source path, reason, file/byte counts and exclusions.

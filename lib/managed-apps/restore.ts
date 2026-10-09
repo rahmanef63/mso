@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { BACKUP_SKIPPED_DIRS, backupsRoot, createBackup, isManagedAppBackupId, readBackupManifest, stateDirFor } from "./backups";
 import { getManagedAppDefinition } from "./catalog";
-import { getManagedApp } from "./manager";
+import { getManagedApp, assertManagedAppStopped } from "./manager";
 import type { ManagedAppDefinition, ManagedAppId } from "./types";
 import type { ManagedAppRestoreResult } from "./update-types";
 
@@ -55,6 +55,7 @@ async function assertStopped(id: ManagedAppId): Promise<void> {
   // then would copy a snapshot over the live state of a running application.
   if (view.diagnostic) throw new Error(`cannot confirm ${view.name} is stopped — refusing to restore. ${view.diagnostic}`);
   if (RESTORE_BLOCKING_STATES.has(view.state)) throw new Error(`${view.name} is ${view.state}; stop it before restoring a backup`);
+  await assertManagedAppStopped(id);
 }
 
 /** The state dir is GONE — the normal case for the restore that matters most:
@@ -158,18 +159,21 @@ export async function restoreManagedAppBackup(id: ManagedAppId, backupId: string
 
   // The undo. Taken AFTER the gates so a refused restore does not litter, and
   // before the first write so the current state is always recoverable.
-  const safety = await createBackup(definition, "pre-restore");
+  const safety = await createBackup(definition, "pre-restore", () => assertStopped(id));
   append(`[mso] current state saved as ${safety.id} (${safety.files ?? "?"} files) before overwriting\n`);
+  await assertStopped(id);
 
   const manifestFile = path.join(dir, "manifest.json");
   let filesRestored = 0;
   let bytesRestored = 0;
+  let checkedAt = 0;
   try {
     await fs.cp(dir, target, {
       recursive: true,
       force: true,
       preserveTimestamps: true,
       filter: async (from, to) => {
+        if (Date.now() - checkedAt >= 1000) { await assertStopped(id); checkedAt = Date.now(); }
         if (from === manifestFile) return false; // ours, not the app's
         const entry = await fs.lstat(from);
         // A snapshot contains no symlinks by construction; one that appeared

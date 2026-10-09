@@ -4,6 +4,7 @@ import { ChannelError } from "./errors";
 import { rateLimited } from "@/lib/host/rate-limit";
 import { channelProvider, listChannelProviders } from "./registry";
 import { parseChannelPatch } from "./schema";
+import { reviewedChannelBinding } from "@/lib/workflow/graph-triggers";
 import {
   channelById,
   createChannel,
@@ -72,14 +73,14 @@ async function assertCredentialRef(input: ReturnType<typeof parseChannelPatch>) 
 export async function createChannelConfig(raw: Record<string, unknown>) {
   const parsed = parseChannelPatch(raw);
   await assertCredentialRef(parsed);
-  return createChannel(raw);
+  return createChannel(raw, parsed.workflowId ? await reviewedChannelBinding(parsed.workflowId, "") : undefined);
 }
 
 export async function updateChannelConfig(id: string, expectedRevision: number, raw: Record<string, unknown>) {
   const previous = await channelById(id);
   const parsed = parseChannelPatch(raw, previous);
   await assertCredentialRef(parsed);
-  return updateChannel(id, expectedRevision, raw);
+  return updateChannel(id, expectedRevision, raw, raw.workflowId !== undefined && parsed.workflowId ? await reviewedChannelBinding(parsed.workflowId, id) : undefined);
 }
 
 export const deleteChannelConfig = deleteChannel;

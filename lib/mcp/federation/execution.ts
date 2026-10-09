@@ -1,6 +1,8 @@
 import { executeCapabilityCall } from "@/lib/capabilities/execute";
 import { validateFederationArguments, FEDERATION_WORKER_ID } from "@/lib/federation/security";
 import { executeSiCoderFederation } from "@/lib/federation/si-coder-runtime";
+import { consumeFederationApproval } from "@/lib/federation/local-approval";
+import { resolveProjectHint } from "@/lib/host/projects-api";
 import { msoCapabilityRuntime } from "../capability-runtime";
 import { TOOLS_BY_NAME } from "../tools";
 import { BATON_SERVER, type FederationRequest } from "./types";
@@ -24,6 +26,14 @@ export async function executeMsoFederation(request: FederationRequest) {
   }
   if (recursiveMsoRequest(request.operation, args)) {
     throw new Error("recursive Batonly project MCP federation is not allowed");
+  }
+  // shortcut: durable federation jobs/delegation stay closed until they propagate a revocable local grant.
+  if (["exec_job_start", "agent_subagent_run", "local_agent_request", "project_agent_run", "a2a_agent_spawn", "workflow_graph_run", "flow_run"].includes(tool.name)) throw new Error("federation durable delegation requires a propagated local grant");
+  const projectPath = await consumeFederationApproval(request);
+  if (typeof args.project === "string" && (await resolveProjectHint(args.project))?.path !== projectPath) throw new Error("federation project argument differs from the approved project");
+  if (["exec_run", "exec_job_start"].includes(tool.name)) {
+    if (args.cwd !== undefined && args.cwd !== projectPath) throw new Error("federation cwd differs from the approved project");
+    args.cwd = projectPath;
   }
 
   const outcome = await executeCapabilityCall({
@@ -50,6 +60,8 @@ export async function executeFederationRequest(request: FederationRequest, cwd =
     ? executeMsoFederation({ ...request, arguments: args })
     : executeSiCoderFederation({
         cwd,
+        id: request.id,
+        projectId: request.projectId,
         operation: request.operation,
         arguments: args,
         scope: request.scope,

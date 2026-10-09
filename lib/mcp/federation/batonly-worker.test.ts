@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/federation/local-approval", () => ({ consumeFederationApproval: vi.fn(async () => "/reviewed-project") }));
 vi.mock("@/lib/federation/si-coder-runtime", () => ({
   inspectSiCoderFederationRuntime: vi.fn(async () => ({
     version: "0.9.8",

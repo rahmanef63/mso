@@ -13,18 +13,14 @@ import type { ManagedAppAction, ManagedAppDefinition, ManagedAppId, ManagedAppLo
 
 interface Installation {
   type: "systemd" | "docker" | "package" | "not-installed";
-  serviceName?: string;
-  containerName?: string;
+  serviceName?: string; serviceNames?: string[];
+  containerName?: string; containerNames?: string[];
 }
 
 // `is-active` cannot tell "this unit is stopped" from "this unit does not exist":
-// on systemd 255 an unknown unit prints `inactive` with rc 4 and an empty stderr,
-// so the old text match never fired and the FIRST configured name always won the
-// detection. Real consequence: OpenClaw's catalog listed a non-existent
-// `openclaw.service` first, so its card read "stopped" and start/stop/restart 409'd
-// while its gateway was serving. `show -p LoadState` distinguishes them, and one
-// call returns both facts.
-async function systemdState(service: string): Promise<"active" | "inactive" | "missing"> {
+// `show -p LoadState` distinguishes absent units from installed stopped units.
+async function systemdState(service: string, strict = false): Promise<"active" | "inactive" | "missing"> {
+  let present = false;
   for (const scope of [["--user"], []]) {
     // The user scope needs a bus address. mso.service is a SYSTEM unit with
     // `User=`, which inherits no login session and therefore no
@@ -35,33 +31,38 @@ async function systemdState(service: string): Promise<"active" | "inactive" | "m
     const result = await runProgram("systemctl", [...scope, "show", "-p", "LoadState", "-p", "ActiveState", service], 10_000, env);
     // Non-zero here is no systemctl at all, or no user bus — not an answer about
     // the unit, so try the next scope rather than concluding anything.
-    if (result.code !== 0) continue;
+    if (result.code !== 0) { if (strict) throw new Error("Cannot confirm all managed-app service states"); continue; }
     const load = /LoadState=(\S+)/.exec(result.stdout)?.[1];
     if (!load || load === "not-found") continue;
-    return /ActiveState=active/.test(result.stdout) ? "active" : "inactive";
+    present = true;
+    if (/ActiveState=(?:active|activating|deactivating|reloading)\b/.test(result.stdout)) return "active";
   }
-  return "missing";
+  return present ? "inactive" : "missing";
 }
 
-async function detect(definition: ManagedAppDefinition): Promise<Installation> {
+async function detect(definition: ManagedAppDefinition, strict = false): Promise<Installation> {
+  const serviceNames: string[] = [];
   for (const serviceName of definition.serviceNames) {
-    if (await systemdState(serviceName) !== "missing") return { type: "systemd", serviceName };
+    if (await systemdState(serviceName, strict) !== "missing") serviceNames.push(serviceName);
   }
+  let containerNames: string[] = [];
   if (await dockerUsable()) {
     const result = await runDocker(["ps", "-a", "--format", "{{.Names}}"], 10_000);
+    if (result.code !== 0) throw new Error("Cannot confirm managed-app container inventory");
     const names = new Set(result.stdout.split(/\r?\n/).map((name) => name.trim()));
-    const containerName = definition.containerNames.find((name) => names.has(name));
-    if (containerName) return { type: "docker", containerName };
-  }
+    containerNames = definition.containerNames.filter((name) => names.has(name));
+  } else if (strict && await commandExists("docker")) throw new Error("Cannot confirm managed-app Docker state");
+  if (serviceNames.length || containerNames.length) return { type: serviceNames.length ? "systemd" : "docker", ...(serviceNames.length ? { serviceName: serviceNames[0], serviceNames } : {}), ...(containerNames.length ? { containerName: containerNames[0], containerNames } : {}) };
   if (definition.commandProvesInstall !== false && await commandExists(definition.command)) return { type: "package" };
   return { type: "not-installed" };
 }
 
-async function running(installation: Installation): Promise<boolean> {
-  if (installation.type === "systemd" && installation.serviceName) return (await systemdState(installation.serviceName)) === "active";
-  if (installation.type === "docker" && installation.containerName) {
-    const result = await runDocker(["inspect", "--format", "{{.State.Running}}", installation.containerName], 10_000);
-    return result.code === 0 && result.stdout.trim() === "true";
+async function running(installation: Installation, strict = false): Promise<boolean> {
+  if (installation.serviceNames && (await Promise.all(installation.serviceNames.map(name => systemdState(name, strict)))).some((state) => state === "active")) return true;
+  for (const containerName of installation.containerNames ?? []) {
+    const result = await runDocker(["inspect", "--format", "{{.State.Running}}", containerName], 10_000);
+    if (result.code !== 0 || !["true", "false"].includes(result.stdout.trim())) throw new Error("Cannot confirm managed-app container state");
+    if (result.stdout.trim() === "true") return true;
   }
   return false;
 }
@@ -193,14 +194,26 @@ export async function listManagedApps(): Promise<ManagedAppView[]> {
   return views;
 }
 
+export async function assertManagedAppStopped(id: ManagedAppId): Promise<void> {
+  if (await running(await detect(getManagedAppDefinition(id), true), true)) throw new Error("Cannot confirm app is stopped; stop all app services before backup or restore");
+}
+
 async function runLifecycle(installation: Installation, action: "start" | "stop" | "restart"): Promise<void> {
+  if (installation.serviceNames || installation.containerNames) {
+    for (const serviceName of installation.serviceNames ?? []) await runLifecycle({ type: "systemd", serviceName }, action);
+    for (const containerName of installation.containerNames ?? []) await runLifecycle({ type: "docker", containerName }, action);
+    if (action === "stop" && await running(installation)) throw new Error("A managed-app service is still active after stop");
+    return;
+  }
   if (installation.type === "systemd" && installation.serviceName) {
     let lastError = "";
+    let succeeded = false;
     for (const args of [["--user", action, installation.serviceName], [action, installation.serviceName]]) {
       const result = await runProgram("systemctl", args, 30_000, args[0] === "--user" ? userBusEnv() : undefined);
-      if (result.code === 0) return;
+      if (result.code === 0) succeeded = true;
       lastError = result.stderr.trim() || result.stdout.trim() || `systemctl exited ${result.code}`;
     }
+    if (succeeded) return;
     // Falling through to the generic throw below reported every one of these as
     // "operation unsupported for detected installation type" — served as a 409,
     // and flatly untrue: the installation type was detected fine, systemctl just
@@ -224,7 +237,7 @@ export async function performManagedAppAction(id: ManagedAppId, action: ManagedA
       const definition = getManagedAppDefinition(id);
       const installation = await detect(definition);
       if (!actionsFor(installation).includes(action)) throw new Error("operation unsupported for detected installation type");
-      if (action === "backup") await createBackup(definition, "manual");
+      if (action === "backup") await createBackup(definition, "manual", () => assertManagedAppStopped(id));
       else await runLifecycle(installation, action);
     } finally {
       releaseOperation(id);

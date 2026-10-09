@@ -5,6 +5,7 @@ import { callMcpServerTool, listMcpServerTools } from "@/lib/host/project-mcp-cl
 import type { ProjectMcpServer } from "@/lib/host/project-mcp-config";
 import { inspectScInstallation } from "@/lib/host/sc-installation.mjs";
 import { validateFederationArguments } from "./security";
+import { consumeFederationApproval } from "./local-approval";
 
 export type FederationExecutionScope = "read" | "write" | "exec";
 
@@ -100,6 +101,8 @@ export async function inspectSiCoderFederationRuntime(cwd: string) {
 }
 
 export async function executeSiCoderFederation(input: {
+  id: string;
+  projectId: string;
   cwd: string;
   operation: string;
   arguments: Record<string, unknown>;
@@ -111,7 +114,8 @@ export async function executeSiCoderFederation(input: {
   if (input.scope !== expectedScope) throw new Error(`SI-Coder scope mismatch: request=${input.scope}, runtime=${expectedScope}`);
   if (expectedScope !== "read" && !input.confirmed) throw new Error("SI-Coder write/exec federation requires explicit confirmation");
 
-  const server = await standaloneServer(input.cwd);
+  const projectPath = await consumeFederationApproval({ ...input, source: "si-coder" });
+  const server = await standaloneServer(projectPath);
   const tools = await listMcpServerTools(server);
   const tool = tools.find((candidate) => candidate.name === input.operation);
   if (!tool) throw new Error(`unknown SI-Coder federation function: ${input.operation}`);

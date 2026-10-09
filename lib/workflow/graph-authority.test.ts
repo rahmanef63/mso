@@ -39,14 +39,14 @@ describe("live workflow execution authority", () => {
     expect(() => requireWorkflowScope(effective, "exec")).toThrow();
   });
   it("rechecks demotion and revocation without cached grants", async () => {
-    mocks.device.mockResolvedValueOnce({role: "owner"}).mockResolvedValueOnce({role: "operator"}).mockResolvedValueOnce(null);
+    mocks.device.mockResolvedValueOnce({role: "owner"}).mockResolvedValueOnce({role: "owner"}).mockResolvedValueOnce({role: "operator"}).mockResolvedValueOnce({role: "operator"}).mockResolvedValueOnce(null);
     expect((await workflowExecutionContext(context)).scope).toBe("exec");
     expect((await workflowExecutionContext(context)).scope).toBe("write");
     await expect(workflowExecutionContext(context)).rejects.toThrow(/revoked/);
   });
   it("does not revive Viewer execution", async () => {
     mocks.device.mockResolvedValue({role: "viewer"});
-    await expect(workflowExecutionContext(context)).rejects.toThrow(/operator/);
+    await expect(workflowExecutionContext(context)).rejects.toThrow(/revoked|operator/);
   });
   it("preserves caller and deployment ceilings", async () => {
     mocks.device.mockResolvedValue({role: "owner"});

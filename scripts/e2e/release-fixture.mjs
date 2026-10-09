@@ -96,6 +96,6 @@ export async function releaseFixture({ live = false, surfaceApps = [] } = {}) {
     const setAiConfig = async config => {
       await writeFile(env.OS_CONFIG_STORE, JSON.stringify(config, null, 2), { mode: 0o600 });
     };
-    return { dir, base, device, password, vaultProject: fixtureProject, setRole, seedMcp, mcpToken, setAiConfig, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
+    return { dir, base, device, password, pid: server.pid, vaultProject: fixtureProject, setRole, seedMcp, mcpToken, setAiConfig, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
   } catch (error) { await close(); throw error; }
 }

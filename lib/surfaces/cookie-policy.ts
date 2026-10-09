@@ -1,5 +1,3 @@
-import { sessionCookieDomain } from "@/lib/auth/session-cookie";
-
 /** A different origin is not enough: cookies are domain scoped, never port scoped.
  * Registry review is presentation approval, not permission to receive MSO credentials. */
 export function externalSurfaceSharesSession(origin: string, cockpitOrigins: string[]): boolean {
@@ -12,6 +10,5 @@ export function externalSurfaceSharesSession(origin: string, cockpitOrigins: str
   // Exact cockpit navigation is allowed; consumers still refuse to frame it.
   if (cockpits.some(url => url.origin === target.origin)) return false;
   if (cockpits.some(url => hostname(url) === hostname(target))) return true;
-  // Reuse the actual validated cookie-domain authority, including legacy leading dots.
-  return sessionCookieDomain(new Request(target, { headers: { host: hostname(target) } })) !== undefined;
+  return false;
 }

@@ -198,6 +198,7 @@ export async function resolveA2AAgent(
     throw new Error(
       `A2A target is ambiguous: ${exact.map((row) => row.alias).join(", ")}`,
     );
+  if (exact[0].credentialProfileId && scope !== "exec") throw new Error("Stored A2A credentials require exec authority");
   const discovered = await discoverA2AAgent(exact[0].cardUrl, undefined, scope);
   return {
     ...discovered,

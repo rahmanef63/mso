@@ -65,7 +65,7 @@ describe("workflow organization seat routing", () => {
     const context = { principal: "web:aabbccddeeff00112233445566778899", actor: "web:aabbccddeeff00112233445566778899", sessionId: "session", scope: "exec" as const };
     const started = await engine.startWorkflowGraph(graph, {}, "org-local-once", context, (name) => name === tool.name ? tool : undefined);
     const done = await engine.workflowGraphRunStatus("web:aabbccddeeff00112233445566778899", started.id, 5000);
-    expect(done.state).toBe("completed"); expect(seenPrincipal).toBe("cli:aabbccddeeff00112233445566778899");
+    expect(done.state).toBe("completed"); expect(seenPrincipal).toBe(context.principal);
   });
 
 });

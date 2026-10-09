@@ -11,6 +11,7 @@ import { HostError } from "./host-error";
 import { homeDir, isUnderRoot, resolveWriteRoots } from "./paths";
 import { childEnv } from "./child-env";
 import { matchDestructive } from "./destructive-patterns";
+import { isolatedCwd } from "./fs-isolation";
 
 const TIMEOUT_MS = 30_000;
 const MAX_OUTPUT = 1_000_000; // 1 MiB per stream
@@ -33,7 +34,7 @@ export function destructiveReason(cmd: string): string | null {
 // Shared by one-shot commands, async jobs and PTYs. Only omitted cwd defaults.
 export async function resolveCwd(requested?: string): Promise<string> {
   const home = homeDir();
-  if (requested === undefined) return home;
+  if (requested === undefined) return isolatedCwd(home);
   if (typeof requested !== "string" || !requested.trim()) throw new HostError("Working directory must not be empty");
   const absolute = requested === "~" ? home : requested.startsWith("~/")
     ? path.join(home, requested.slice(2))
@@ -47,7 +48,7 @@ export async function resolveCwd(requested?: string): Promise<string> {
   }
   const roots = await resolveWriteRoots();
   if (!roots.some((r) => isUnderRoot(real, r))) throw new HostError("Working directory is outside writable roots");
-  return real;
+  return isolatedCwd(real);
 }
 
 export async function runCommand(cmd: string, cwd?: string, artifactEnv: Record<string, string> = {}): Promise<ExecResult> {

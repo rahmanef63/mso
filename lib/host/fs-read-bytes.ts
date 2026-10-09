@@ -1,4 +1,4 @@
-import { openReadableHandle } from "./fs-descriptors";
+import { openReadableHandle, readBoundedBytes } from "./fs-descriptors";
 import { HostError } from "./host-error";
 import { resolveReadable } from "./paths";
 
@@ -13,7 +13,7 @@ export async function readFileBytes(requested: string, maxBytes = 10 * 1024 * 10
     if (!Number.isFinite(maxBytes) || maxBytes < 1 || stat.size > maxBytes) {
       throw new HostError(`File too large to export (max ${Math.floor(maxBytes / (1024 * 1024))} MiB)`);
     }
-    return await handle.readFile();
+    return await readBoundedBytes(handle, maxBytes);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ELOOP") throw new HostError("Refusing symlink file");
     throw error;

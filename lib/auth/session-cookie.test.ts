@@ -27,7 +27,7 @@ describe("configuredSessionCookieScope", () => {
     delete process.env.OS_SESSION_COOKIE_DOMAIN;
     expect(configuredSessionCookieScope()).toBe("host");
     process.env.OS_SESSION_COOKIE_DOMAIN = " .MSO.Example.com ";
-    expect(configuredSessionCookieScope()).toBe("domain:mso.example.com");
+    expect(configuredSessionCookieScope()).toBe("host");
     process.env.OS_SESSION_COOKIE_DOMAIN = "bad; Domain=evil.test";
     expect(configuredSessionCookieScope()).toBe("host");
   });

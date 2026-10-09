@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ManagedAppJob } from "./types";
 
 vi.mock("server-only", () => ({}));
+vi.mock("./manager", () => ({ assertManagedAppStopped: vi.fn().mockResolvedValue(undefined) }));
 
 // The catalog reads HERMES_HOME at module load and it MOVES the backup source.
 // Cleared before the dynamic import below so a set env var cannot point a test

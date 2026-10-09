@@ -2,6 +2,7 @@ import next from "next";
 import { createServer, request as httpRequest } from "node:http";
 import { randomBytes } from "node:crypto";
 import { attachSocketProxy } from "./server-sockets.mjs";
+import { requestBodyLimit } from "./server-body-policy.mjs";
 
 const args = process.argv.slice(2);
 const argument = (name, fallback) => args.includes(name) ? args[args.indexOf(name) + 1] : fallback;
@@ -15,14 +16,28 @@ await app.prepare();
 internal.on("request", app.getRequestHandler());
 await new Promise((resolve) => internal.listen(0, "127.0.0.1", resolve));
 const internalOrigin = `http://127.0.0.1:${internal.address().port}`;
+let activeBodies = 0;
 // Next owns HTTP on a private socket; only our public server receives upgrades.
 const server = createServer((incoming, outgoing) => {
+  const limit = requestBodyLimit(incoming.url);
+  const hasBody = Number(incoming.headers["content-length"] ?? 0) > 0 || incoming.headers["transfer-encoding"];
+  const reject = (status) => { outgoing.once("finish", () => incoming.destroy()); outgoing.writeHead(status, { connection: "close" }); outgoing.end(); };
+  if (Number(incoming.headers["content-length"] ?? 0) > limit) return reject(413);
+  if (hasBody && activeBodies >= 32) return reject(429);
+  if (hasBody) { activeBodies++; outgoing.once("close", () => { activeBodies--; }); }
   const hop = httpRequest({ hostname: "127.0.0.1", port: internal.address().port, path: incoming.url, method: incoming.method, headers: incoming.headers }, (response) => {
     outgoing.writeHead(response.statusCode, response.headers); response.pipe(outgoing);
   });
   hop.once("error", () => { if (!outgoing.headersSent) outgoing.writeHead(502); outgoing.end(); });
   incoming.once("aborted", () => hop.destroy());
   outgoing.once("close", () => hop.destroy());
+  let size = 0;
+  incoming.on("data", chunk => {
+    size += chunk.length;
+    if (size <= limit) return;
+    incoming.unpipe(hop); hop.destroy();
+    if (!outgoing.headersSent) reject(413); else outgoing.destroy();
+  });
   incoming.pipe(hop);
 });
 const closeSockets = attachSocketProxy(server, async (request) => {

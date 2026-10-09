@@ -7,7 +7,7 @@ type CatalogModule = typeof import("@/lib/managed-apps/catalog");
 // proxy-containment.test.ts.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/agent/server", () => ({ verifyAuth: vi.fn(async () => true) }));
+vi.mock("@/lib/managed-apps/session", () => ({ managedAppSession: vi.fn(async () => ({ device_id: "test" })) }));
 
 const dashboardUrl = { current: "http://127.0.0.1:9119" };
 vi.mock("@/lib/managed-apps/catalog", async () => {
@@ -51,8 +51,8 @@ beforeEach(async () => {
   vi.resetModules();
   dashboardUrl.current = "http://127.0.0.1:9119";
   fetchMock.mockReset();
-  const { verifyAuth } = await import("@/lib/agent/server");
-  vi.mocked(verifyAuth).mockResolvedValue(true);
+  const { managedAppSession } = await import("@/lib/managed-apps/session");
+  vi.mocked(managedAppSession).mockResolvedValue({ device_id: "test" } as never);
 });
 
 describe("managed-app proxy cookie isolation", () => {
@@ -205,8 +205,8 @@ describe("managed-app proxy cookie isolation", () => {
 
 describe("managed-app proxy guards", () => {
   it("returns 401 and never calls the upstream without a session", async () => {
-    const { verifyAuth } = await import("@/lib/agent/server");
-    vi.mocked(verifyAuth).mockResolvedValueOnce(false);
+    const { managedAppSession } = await import("@/lib/managed-apps/session");
+    vi.mocked(managedAppSession).mockResolvedValueOnce(null);
     const { GET } = await import("./[id]/proxy/[[...path]]/route");
     const res = await GET(req("chat", { headers: { cookie: "__Host-mapp_hermes_session=x" } }), ctx(["chat"]));
     expect(res.status).toBe(401);
@@ -220,15 +220,15 @@ describe("managed-app proxy guards", () => {
   // 401 here is most often a session issued before OS_SESSION_COOKIE_DOMAIN was set —
   // host-only, so never sent to this host — which no status code can convey.
   it("renders a failure as a page for the frame and as JSON for the upstream's fetch", async () => {
-    const { verifyAuth } = await import("@/lib/agent/server");
+    const { managedAppSession } = await import("@/lib/managed-apps/session");
     const { GET } = await import("./[id]/proxy/[[...path]]/route");
 
-    vi.mocked(verifyAuth).mockResolvedValueOnce(false);
+    vi.mocked(managedAppSession).mockResolvedValueOnce(null);
     const framed = await GET(req("chat", { headers: { "sec-fetch-dest": "iframe" } }), ctx(["chat"]));
     expect(framed.headers.get("content-type")).toContain("text/html");
     expect(await framed.text()).toContain("sign in again");
 
-    vi.mocked(verifyAuth).mockResolvedValueOnce(false);
+    vi.mocked(managedAppSession).mockResolvedValueOnce(null);
     const xhr = await GET(req("api/status", { headers: { "sec-fetch-dest": "empty" } }), ctx(["api", "status"]));
     expect(xhr.headers.get("content-type")).toContain("application/json");
     expect(await xhr.json()).toEqual({ error: "unauthorized" });

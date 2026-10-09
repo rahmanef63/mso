@@ -3,6 +3,7 @@
 // only on stdin. No shell, no interpolation, credential-scrubbed environment.
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import { childEnv } from "./child-env";
+import { isolatedCwd } from "./fs-isolation";
 import { PROJECT_FUNCTIONS_REL, readProjectFunctionsManifest, type ProjectFunction } from "./project-function-manifest";
 
 const MAX_INPUT_BYTES = 128 * 1024;
@@ -54,9 +55,10 @@ export async function runProjectFunction(
   const payload = JSON.stringify(input);
   if (Buffer.byteLength(payload) > MAX_INPUT_BYTES) throw new Error(`project function input exceeds ${MAX_INPUT_BYTES} bytes`);
 
+  const cwd = await isolatedCwd(projectPath);
   return new Promise((resolve) => {
     const child = spawn(definition.command[0], definition.command.slice(1), {
-      cwd: projectPath,
+      cwd,
       env: { ...childEnv(), MSO_PROJECT_FUNCTION: definition.name } as unknown as NodeJS.ProcessEnv,
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],

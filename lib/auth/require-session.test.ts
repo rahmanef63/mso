@@ -58,7 +58,7 @@ describe("getSession with a shadowed cookie", () => {
   });
 
 
-  it("never revives a retained token when cookie scope changes away and later returns", async () => {
+  it("never revives legacy Domain tokens even when the obsolete setting returns", async () => {
     const { getSession } = await import("./require-session");
     process.env.OS_SESSION_COOKIE_DOMAIN = "example.com";
     policy.scope = "domain:example.com"; policy.generation = 1;
@@ -67,13 +67,14 @@ describe("getSession with a shadowed cookie", () => {
       cookie_scope: "domain:example.com", cookie_epoch: epoch(),
     }, SECRET);
     jar.push({ name: "session", value: retained });
-    expect(await getSession()).toMatchObject({ device_id: "dev-1" });
-
+    expect(await getSession()).toBeNull();
     delete process.env.OS_SESSION_COOKIE_DOMAIN;
     expect(await getSession()).toBeNull();
     process.env.OS_SESSION_COOKIE_DOMAIN = "example.com";
     expect(await getSession()).toBeNull();
-    expect(policy.generation).toBe(3);
+    expect(policy.generation).toBe(2);
+    jar.push({ name: "session", value: valid() });
+    expect(await getSession()).toMatchObject({ device_id: "dev-1" });
   });
   it("rechecks the live device role for every authorization decision", async () => {
     const { getSessionContext, requireSession } = await import("./require-session");

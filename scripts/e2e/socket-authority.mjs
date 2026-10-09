@@ -23,12 +23,20 @@ try {
   const response = await fetch(fixture.base + "/api/auth/login", { method: "POST", headers: { "content-type": "application/json", origin: fixture.base }, body: JSON.stringify({ password: fixture.password, deviceId: fixture.device }) });
   assert.equal(response.status, 200);
   const cookie = response.headers.get("set-cookie").split(";")[0];
+  const ticketResponse = await fetch(fixture.base + "/api/v1/managed-apps/hermes/session", { headers: { cookie } });
+  assert.equal(ticketResponse.status, 200);
+  const authorization = await ticketResponse.json();
+  const exchange = await fetch(fixture.base + "/__mso_app_auth", { method: "POST", headers: { host: new URL(authorization.origin).host, origin: authorization.origin, authorization: "Bearer " + authorization.ticket } });
+  assert.equal(exchange.status, 204);
+  const appCookie = exchange.headers.get("set-cookie").split(";")[0];
+  assert.match(appCookie, /^__Host-mso-managed-app=/);
+  assert.equal((await fetch(fixture.base + "/api/v1/exec/run", { method: "POST", headers: { cookie: appCookie, origin: fixture.base, "content-type": "application/json" }, body: JSON.stringify({ command: "true" }) })).status, 401);
   assert.equal((await fetch(fixture.base + "/api/internal/socket-policy", { method: "POST" })).status, 404);
   async function open() {
     const client = connect(Number(new URL(fixture.base).port), "127.0.0.1"); sockets.add(client);
     client.on("error", () => {});
     const first = Promise.race([once(client, "data").then(([data]) => data.toString()), once(client, "close").then(() => "")]);
-    client.write(`GET /socket HTTP/1.1\r\nHost: hermes.mso.example.com\r\nOrigin: http://hermes.mso.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nCookie: ${cookie}\r\nAuthorization: must-not-forward\r\n\r\n`);
+    client.write(`GET /socket HTTP/1.1\r\nHost: hermes.mso.example.com\r\nOrigin: http://hermes.mso.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nCookie: ${appCookie}\r\nAuthorization: must-not-forward\r\n\r\n`);
     return { client, handshake: await first };
   }
   const { client, handshake } = await open(); assert.match(handshake, /101 Switching Protocols/);

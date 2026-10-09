@@ -5,6 +5,7 @@ import { createBackup, isManagedAppBackupId, stateDirFor } from "./backups";
 import { getManagedAppDefinition } from "./catalog";
 import { startManagedAppJob } from "./jobs";
 import { activeOperation } from "./lock";
+import { assertManagedAppStopped } from "./manager";
 import { restoreManagedAppBackup } from "./restore";
 import { resolveCommand, runProgram } from "./runner";
 import type { ManagedAppDefinition, ManagedAppId, ManagedAppJob } from "./types";
@@ -127,7 +128,7 @@ async function snapshot(definition: ManagedAppDefinition, reason: ManagedAppBack
   }
   let backup: ManagedAppBackup;
   try {
-    backup = await createBackup(definition, reason);
+    backup = await createBackup(definition, reason, () => assertManagedAppStopped(definition.id));
   } catch (error) {
     throw new Error(`${reason} backup failed, nothing was run: ${message(error)}`);
   }

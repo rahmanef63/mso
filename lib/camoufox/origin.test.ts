@@ -46,13 +46,13 @@ describe("Camoufox split origin", () => {
     expect(mod.isCamoufoxViewerHost("browser.example.net:443")).toBe(true);
   });
 
-  it("refuses explicit viewer origins that can receive the cockpit Domain cookie", async () => {
+  it("refuses the cockpit origin while allowing separately authenticated subdomains", async () => {
     for (const value of [
       "https://camoufox.mso.example.com",
       "https://mso.example.com",
     ]) {
       const mod = await load("{id}.mso.example.com", "https://mso.example.com", value);
-      expect(mod.camoufoxViewerOrigin()).toBe("https://camoufox.example.com");
+      expect(mod.camoufoxViewerOrigin()).toBe(value === "https://mso.example.com" ? "https://camoufox.example.com" : value);
       vi.unstubAllEnvs();
     }
   });
@@ -70,14 +70,14 @@ describe("Camoufox split origin", () => {
     }
   });
 
-  it("fails closed when a broad two-label Domain cookie leaves no safe automatic sibling", async () => {
+  it("ignores the obsolete broad Domain setting when deriving the isolated sibling", async () => {
     const mod = await load(
       "{id}.mso.example.com",
       "https://mso.example.com",
       "",
       "example.com",
     );
-    expect(mod.camoufoxViewerOrigin()).toBeNull();
+    expect(mod.camoufoxViewerOrigin()).toBe("https://camoufox.example.com");
     expect(mod.isCamoufoxViewerHost("camoufox.mso.example.com")).toBe(false);
   });
 

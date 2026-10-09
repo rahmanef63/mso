@@ -7,11 +7,15 @@ describe("discord channel adapter", () => {
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
     const spki = publicKey.export({ format: "der", type: "spki" });
     const publicKeyHex = Buffer.from(spki).subarray(-32).toString("hex");
-    const timestamp = "1700000000";
+    const timestamp = String(Math.floor(Date.now() / 1000));
     const body = JSON.stringify({ id: "123456789012345678", application_id: "111111111111111111", type: 1 });
     const signature = sign(null, Buffer.from(timestamp + body), privateKey).toString("hex");
     expect(verifyDiscordSignature({ publicKey: publicKeyHex }, timestamp, signature, body)).toBe(true);
     expect(verifyDiscordSignature({ publicKey: publicKeyHex }, timestamp, signature, body + "x")).toBe(false);
+    for (const offset of [-3600, 3600]) {
+      const stale = String(Math.floor(Date.now() / 1000) + offset);
+      expect(verifyDiscordSignature({ publicKey: publicKeyHex }, stale, sign(null, Buffer.from(stale + body), privateKey).toString("hex"), body)).toBe(false);
+    }
   });
 
   it("normalizes commands to the shared inbound event contract", () => {

@@ -8,6 +8,12 @@ const { LOCAL_AGENT_TOOLS } = await import("./tools-local-agents");
 const local = new Map(LOCAL_AGENT_TOOLS.map((tool) => [tool.name, tool]));
 
 describe("native local session agent MCP tools", () => {
+  it("uses the Organization storage alias while retaining the web authority", async () => {
+    const { handoffOwnerLocalSession } = await import("@/lib/a2a/local-session");
+    const context = { principal: "web:device", sessionId: "parent", scope: "exec" as const, capabilities: { list: () => [], invoke: vi.fn() } };
+    await local.get("local_agent_request")!.run({ target: "target", objective: "inspect" }, context);
+    expect(handoffOwnerLocalSession).toHaveBeenCalledWith("cli:device", "target", "inspect", context.capabilities, "parent", { authority: context });
+  });
   it("carries the initiating grant and restrictions into on-demand workers", async () => {
     const { handoffOwnerLocalSession } = await import("@/lib/a2a/local-session");
     const context = { principal: "mcp-client:fixture", sessionId: "parent", scope: "exec" as const, authorizationGrant: { kind: "mcp" as const, id: "a".repeat(64), resource: "https://fixture.invalid/mcp", fingerprint: "fixture" }, allowedTools: ["local_agent_request", "project_get"], toolArgumentConstraints: { project_get: { project: ["reviewed"] } }, capabilities: { list: () => [], invoke: vi.fn() } };

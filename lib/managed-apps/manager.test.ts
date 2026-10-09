@@ -196,7 +196,7 @@ describe("backup copies a real install instead of refusing it", () => {
   });
 
   it("skips symlinks and vendor trees, keeps the state, and records what it left out", async () => {
-    systemctl({ "openclaw-gateway.service": ACTIVE });
+    systemctl({ "openclaw-gateway.service": STOPPED });
     await performManagedAppAction("openclaw", "backup");
 
     const root = path.join(home, ".mso", "backups", "openclaw");

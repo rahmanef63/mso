@@ -13,6 +13,7 @@ import { activityTarget, newActivityId, recordCapabilityActivity } from "./activ
 import { recipeActor, workflowActor, type CapabilityAgentContext } from "./actors";
 import { capabilityRateLimited } from "./rate-limit";
 import { flowFields, recordAgentEvent, sessionDetail, workflowFromResult } from "./execution-support";
+import { withIsolatedFilesystem } from "@/lib/host/fs-api";
 
 export interface CapabilityExecutionContext extends CapabilityAgentContext {
   capabilities?: CapabilityRuntime;
@@ -121,7 +122,10 @@ export async function executeCapabilityCall(input: {
     if (titleHint && context?.principal && context.sessionId && !["agent_session_current", "workflow_status", "agent_subagent_run"].includes(name))
       await maybeAutoTitleAgentSession(context.principal, context.sessionId, titleHint).catch(() => undefined);
 
-    const result = await tool.run(args, {
+    const needsIsolation = !lifecycle && tool.scope !== "read" && activeWorkflow?.orchestration?.isolation === "isolated-worktree";
+    const isolatedRoot = needsIsolation ? activeWorkflow?.orchestration?.workspacePath : undefined;
+    if (needsIsolation && !isolatedRoot) throw new Error("isolated workflow has no verified workspace");
+    const result = await withIsolatedFilesystem(isolatedRoot, () => tool.run(args, {
       actor,
       principal: context?.principal,
       tenantContext: context?.tenantContext,
@@ -136,7 +140,7 @@ export async function executeCapabilityCall(input: {
       authorizationGrant: context?.authorizationGrant,
       toolProfile: context?.toolProfile,
       trustedOpenAiFileParams: context?.trustedOpenAiFileParams,
-    });
+    }));
     const reportedFailure = capabilityReportedFailure(result) || trail?.outcome?.(result)?.ok === false;
     const completedState = reportedFailure ? "failed" : "completed";
     if (trail) {

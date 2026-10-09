@@ -34,6 +34,7 @@ import {
   gateCamoufoxViewer,
 } from "@/lib/camoufox/viewer-gate";
 import { applyPrivatePageCachePolicy } from "@/lib/auth/page-cache";
+import { gateManagedApp } from "@/lib/managed-apps/session";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -140,6 +141,9 @@ function contentSecurityPolicy(nonce: string): string {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && Number(contentLength) > 1024 * 1024)
+    return NextResponse.json({ error: "request_too_large" }, { status: 413 });
 
   // Which app host this is, if any. The HOST header is authoritative and
   // x-forwarded-host is deliberately NOT consulted here: Traefik routes on Host
@@ -228,6 +232,8 @@ export async function proxy(request: NextRequest) {
     // The production server owns upgrades and validates live authority in both
     // directions. Stock Next rewrites cannot revoke an already-open socket.
     if (WEBSOCKET_UPGRADE.test(request.headers.get("upgrade") ?? "")) return notFound();
+    const gate = await gateManagedApp(request, managedApp);
+    if (gate) return gate;
 
     const headers = new Headers(request.headers);
     // set(), not append(): this overwrites whatever copy the client sent.
@@ -330,5 +336,5 @@ export async function proxy(request: NextRequest) {
 // a path middleware never sees — a Traefik-level block is not available. The
 // cockpit short-circuits those in MATCHER_EXCLUDED above.
 export const config = {
-  matcher: ["/(.*)"],
+  matcher: ["/((?!api/v1/fs/upload$).*)"],
 };

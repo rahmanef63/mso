@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { verifySession } from "@/lib/auth/session";
 import { liveSessionAuthorized } from "@/lib/auth/live-authorization";
+import { MANAGED_APP_SESSION_COOKIE, verifyManagedAppSession } from "./session";
 import { CAMOUFOX_VIEWER_COOKIE, verifyCamoufoxViewerCookie } from "@/lib/camoufox/viewer-auth";
 import { getApprovedDevice } from "@/lib/auth/device-store";
 import { deviceSessionValid } from "@/lib/auth/live-session";
@@ -22,8 +22,8 @@ export async function socketPolicy(request: NextRequest) {
   if (!viewer && !app) return null;
   const secret = process.env.OS_SESSION_SECRET ?? "";
   let identity: string | undefined;
-  for (const { value } of request.cookies.getAll(viewer ? CAMOUFOX_VIEWER_COOKIE : "session")) {
-    const session = viewer ? verifyCamoufoxViewerCookie(value, secret) : verifySession(value, secret);
+  for (const { value } of request.cookies.getAll(viewer ? CAMOUFOX_VIEWER_COOKIE : MANAGED_APP_SESSION_COOKIE)) {
+    const session = viewer ? verifyCamoufoxViewerCookie(value, secret) : verifyManagedAppSession(app!, value, secret);
     if (!session?.device_id) continue;
     if (viewer) {
       const device = await getApprovedDevice(session.device_id);

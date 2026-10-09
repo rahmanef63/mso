@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { signSession } from "../lib/auth/session";
+import { createManagedAppCookie } from "../lib/managed-apps/session";
+vi.hoisted(() => { process.env.NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE = "{id}.mso.example.com"; });
 
 const SECRET = "e".repeat(48);
 const EPOCH = "epoch-0000000000000000";
@@ -19,12 +20,12 @@ async function loadProxy() {
 
 function upgrade(cookieEpoch: string) {
   const now = Date.now();
-  const token = signSession({
+  const token = createManagedAppCookie("openclaw", {
     issued_at: now, expires_at: now + 60_000, device_id: "dev-1",
     cookie_scope: "host", cookie_epoch: cookieEpoch,
   }, SECRET);
   return new NextRequest("https://openclaw.mso.example.com/chat", {
-    headers: { host: "openclaw.mso.example.com", upgrade: "websocket", connection: "Upgrade", cookie: `session=${token}` },
+    headers: { host: "openclaw.mso.example.com", upgrade: "websocket", connection: "Upgrade", cookie: `__Host-mso-managed-app=${token}` },
   });
 }
 

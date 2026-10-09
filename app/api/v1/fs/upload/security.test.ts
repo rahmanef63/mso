@@ -1,0 +1,30 @@
+import { NextRequest } from "next/server";
+import { beforeEach, expect, it, vi } from "vitest";
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), parse: vi.fn() }));
+vi.mock("@/lib/agent/server", () => ({ verifyAuth: mocks.auth }));
+vi.mock("@/lib/auth/require-session", () => ({ getSessionActor: async () => "test-owner" }));
+vi.mock("@/lib/host/audit-api", () => ({ audit: vi.fn() }));
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: () => false }));
+vi.mock("@/lib/host/fs-api", () => ({ boundaryFromContentType: () => "boundary", parseMultipart: mocks.parse, resolveUploadDest: vi.fn(), streamFileInto: vi.fn(), UploadTooLargeError: class extends Error {} }));
+beforeEach(() => { vi.resetModules(); mocks.auth.mockReset().mockResolvedValue(false); mocks.parse.mockReset(); vi.stubEnv("NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE", "{id}.mso.example.com"); });
+const request = (host = "mso.example.com", site = "same-origin") => new NextRequest(`https://${host}/api/v1/fs/upload`, { method: "POST", headers: { host, "sec-fetch-site": site, "content-type": "multipart/form-data; boundary=boundary" }, body: "untouched" });
+it("rejects unauthenticated, app-host and cross-origin uploads before parsing any body", async () => {
+  const { POST } = await import("./route");
+  expect((await POST(request())).status).toBe(401);
+  mocks.auth.mockResolvedValue(true);
+  expect((await POST(request("hermes.mso.example.com"))).status).toBe(404);
+  expect((await POST(request("mso.example.com", "same-site"))).status).toBe(403);
+  expect(mocks.parse).not.toHaveBeenCalled();
+});
+it("admits only four concurrent streams and releases slots after completion", async () => {
+  mocks.auth.mockResolvedValue(true);
+  let release!: () => void; const wait = new Promise<void>(resolve => { release = resolve; });
+  mocks.parse.mockImplementation(async function* () { await wait; });
+  const { POST } = await import("./route");
+  const pending = Array.from({ length: 8 }, () => POST(request()));
+  const blocked = await Promise.race(pending);
+  expect(blocked.status).toBe(429); release();
+  const statuses = (await Promise.all(pending)).map(result => result.status);
+  expect(statuses.filter(status => status === 429)).toHaveLength(4);
+  expect((await POST(request())).status).toBe(400);
+});

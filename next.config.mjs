@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { PROXY_BODY_LIMIT } from "./scripts/server-body-policy.mjs";
 
 // Build id baked into the client bundle so a redeploy can be detected.
 const BUILD_ID =
@@ -83,11 +84,9 @@ const nextConfig = {
         }
       : {}),
     // proxy.ts clones request bodies; the default clone cap is 10MB, which
-    // silently truncated large /api/v1/fs/upload payloads. Raise it so big
-    // media uploads land intact (proxy* is the Next 16 name of the option).
-    // Kept just above the upload route's 200 MiB running cap (which streams to
-    // disk and returns 413 past it) so the route — not the proxy — owns rejection.
-    proxyClientMaxBodySize: "256mb",
+    // The authenticated upload route bypasses cloning and streams its own 200 MiB cap.
+    // Public middleware requests keep a small aggregate buffer ceiling.
+    proxyClientMaxBodySize: PROXY_BODY_LIMIT,
     // Tree-shake heavy icon/radix barrels — keeps the OS shell bundle lean.
     optimizePackageImports: [
       "lucide-react",

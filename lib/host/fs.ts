@@ -4,7 +4,7 @@
 import { promises as fs, constants as fsConstants, type ReadStream } from "fs";
 import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
-import { openReadableHandle, pinDirectory } from "./fs-descriptors";
+import { openReadableHandle, pinDirectory, readBoundedBytes } from "./fs-descriptors";
 import { copyPinned, removePinned } from "./fs-recursive";
 import { randomUUID } from "node:crypto";
 import type { FsUsage } from "@/lib/os-api/types";
@@ -29,7 +29,7 @@ export async function readFile(requested: string): Promise<string> {
     const stat = await handle.stat();
     if (!stat.isFile()) throw new HostError(stat.isDirectory() ? "Is a directory" : "Not a regular file");
     if (stat.size > 5_000_000) throw new HostError("File too large to read (max 5 MiB)");
-    return await handle.readFile("utf8");
+    return (await readBoundedBytes(handle, 5_000_000)).toString("utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ELOOP") throw new HostError("Refusing symlink file");
     throw error;

@@ -74,7 +74,7 @@ export async function runSessionSubagent(input: {
   const maxTurns = Math.max(1, Math.min(maxTurnsLimit(), Math.trunc(input.maxTurns || DEFAULT_TURNS)));
   const timeoutMs = Math.max(1_000, Math.min(MAX_TIMEOUT_MS, Math.trunc(input.timeoutMs || DEFAULT_TIMEOUT_MS)));
   const subagentId = `subagent_${randomUUID()}`;
-  const authority = { ...input.authority, principal: input.principal, scope: maxScope, capabilities: input.capabilities };
+  const authority = { ...input.authority, principal: input.authority?.principal ?? input.principal, scope: maxScope, capabilities: input.capabilities };
   const toolDefs = (context: CapabilityRunContext) => input.capabilities.list(context.scope, context).filter((tool) => allows(context.scope, tool.scope) && allowedTool(tool.name) && (!context.allowedTools || context.allowedTools.includes(tool.name)));
   const prepared = await prepareSelectedModel();
   const messages: OaMsg[] = [{ role: "user", text: objective }];
@@ -113,7 +113,7 @@ export async function runSessionSubagent(input: {
         }
         const invoked = await input.capabilities.invoke({
           ...current, name: call.name, args: call.input ?? {},
-          actor: `${input.principal}#${subagentId}`, principal: input.principal,
+          actor: `${input.principal}#${subagentId}`, principal: current.principal,
         });
         const outcome = resultText({ result: invoked });
         results.push({ id: call.id, content: outcome.content, ...(outcome.isError ? { isError: true } : {}) });

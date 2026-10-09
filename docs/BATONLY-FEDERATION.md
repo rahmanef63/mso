@@ -34,8 +34,27 @@ For `source=mso`:
 3. Require Batonly's request scope to equal the tool's declared scope.
 4. Require explicit confirmation for every write/exec operation.
 5. Refuse recursive `project_mcp_call` back into the Baton MCP.
-6. Execute through `executeCapabilityCall` with principal `batonly-federation`, preserving required args, rate limits, workflow correlation, activity and audit.
-7. Sanitize/bound the result before returning it to Baton.
+6. Consume an exact, one-use local Owner approval; remote scope and confirmation are only request data.
+7. Execute through `executeCapabilityCall` with principal `batonly-federation`, preserving required args, rate limits, workflow correlation, activity and audit.
+8. Sanitize/bound the result before returning it to Baton.
+
+## Local Owner approval
+
+Both sources deny execution by default. An Owner using the trusted local terminal must review the entire request and resolve its `projectId` to an exact local project. Approval is a private entry in `~/.mso/private/federation-approvals.json` (directory 0700, file 0600, owned by the MSO Unix user), keyed by the request's exact `id`:
+
+```json
+{
+  "reviewed-request-id": {
+    "principal": "batonly-federation",
+    "requestDigest": "sha256-of-the-exact-reviewed-request",
+    "expiresAt": 0
+  }
+}
+```
+
+Compute `requestDigest` with the exported `federationRequestDigest(request)` from `lib/federation/local-approval.ts`, using the reviewed `id`, `projectId`, `source` (`mso` or `si-coder`), `operation`, `scope` and `arguments`. Set `expiresAt` to a future Unix timestamp in milliseconds, at most 24 hours away; zero in the example intentionally grants nothing. Make updates atomically under `withSecurityStoreLock` using the same private path. Do not copy a remote digest without reviewing the corresponding arguments. Removing an unused entry revokes it; changing any reviewed field requires a new approval. MSO persists `usedAt` before dispatch, so retries and concurrent replays cannot reuse the entry.
+
+MSO project arguments and execution directories must match the approved local project. Durable jobs and agent/workflow delegation are unavailable through federation until they can carry and revalidate the local grant. Local approval does not override the deployment capability ceiling or credential filters. Never keep this approval file in a project or accept it from Baton.
 
 ## SI-Coder execution
 

@@ -1,33 +1,5 @@
-// Attributes of the `session` cookie, in ONE place so the SET (login) and CLEAR
-// (logout) paths cannot drift. A cookie cleared without the same Domain leaves
-// the original alive in the jar — a logout that does not log out.
-//
-// Default (OS_SESSION_COOKIE_DOMAIN unset) = host-only, exactly as before: no
-// Domain attribute, so the cookie goes back only to the host that set it. That
-// stays the default for dev, demo and the rollback path.
-//
-// Setting it widens the cookie to a domain AND every subdomain of it. The only
-// reason to do that is the split-origin managed-app hosts (`hermes.os.…`,
-// `openclaw.os.…`) — separate ORIGINS served by this same process, so the
-// framed dashboard's requests are authenticated by the same session. It is one
-// half of a pair with NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE + the middleware
-// host gating; without that gating the session reaches every host under the
-// domain and each one exposes the full cockpit API. See .env.example.
-//
-// Deliberately NOT named `__Host-session`: that prefix forbids Domain outright
-// (the browser rejects such a Set-Cookie), so the prefix and this env var are
-// mutually exclusive. Renaming the cookie to a `__Host-` prefix means deleting
-// this module and the split-origin cookie plan with it.
-//
-// SameSite stays "strict" and the cross-origin iframe does NOT need it loosened:
-// SameSite is evaluated per SITE — scheme + registrable domain — not per origin.
-// `mso.example.com` and `hermes.mso.example.com` share the registrable domain
-// `example.com` on the same scheme, so the frame's navigation and every
-// subresource it fetches are same-site (RFC 6265bis §5.2); for a nested document
-// the "site for cookies" is non-null when the top-level document and every
-// ancestor are same-site with it, which holds here. Cross-ORIGIN (what the
-// window.top opacity needs) is not cross-SITE (what SameSite gates). Only moving
-// an app host to a different registrable domain would force a change.
+// Cockpit sessions are always host-only. The legacy Domain is retained only
+// for logout cleanup; policy scope changes invalidate previously widened tokens.
 
 /** One DNS label: 1-63 chars, alphanumeric, inner hyphens allowed. */
 const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -64,6 +36,11 @@ function requestHostname(req: Request): string {
  * Changing the cookie Domain invalidates existing signed sessions, including a
  * broader Domain cookie the browser may retain until its original expiry. */
 export function configuredSessionCookieScope(): string {
+  return "host";
+}
+
+// Retained only to clear cookies issued before host-only authorization.
+function legacySessionCookieScope(): string {
   const raw = process.env.OS_SESSION_COOKIE_DOMAIN?.trim().toLowerCase() ?? "";
   const domain = raw.startsWith(".") ? raw.slice(1) : raw;
   return isCookieDomain(domain) ? `domain:${domain}` : "host";
@@ -71,7 +48,7 @@ export function configuredSessionCookieScope(): string {
 
 /** The validated Domain for this request, or undefined for host-only. */
 export function sessionCookieDomain(req: Request): string | undefined {
-  const scope = configuredSessionCookieScope();
+  const scope = legacySessionCookieScope();
   if (!scope.startsWith("domain:")) return undefined;
   const domain = scope.slice("domain:".length);
   const host = requestHostname(req);
@@ -89,7 +66,7 @@ export type SessionCookieAttrs = {
 
 /** Attributes for both writing (maxAge = lifetime) and clearing (maxAge = 0). */
 export function sessionCookieAttrs(req: Request, maxAge: number): SessionCookieAttrs {
-  const domain = sessionCookieDomain(req);
+  const domain = maxAge === 0 ? sessionCookieDomain(req) : undefined;
   return {
     httpOnly: true,
     secure: true,

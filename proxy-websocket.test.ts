@@ -1,7 +1,8 @@
 // Socket authorization policy; live forwarding is exercised in socket-lifetime.test.ts.
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { signSession } from "./lib/auth/session";
+import { createManagedAppCookie } from "./lib/managed-apps/session";
+vi.hoisted(() => { process.env.NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE = "{id}.mso.example.com"; });
 
 const approved = vi.hoisted(() => ({ value: true, role: "owner" as "viewer" | "operator" | "owner" }));
 vi.mock("@/lib/auth/device-store", () => ({
@@ -40,12 +41,12 @@ describe("WebSocket upgrade on an app host", () => {
   /** A real signed cookie — the branch verifies the HMAC, so a placeholder won't do. */
   function session(cookieScope = "host"): string {
     const now = Date.now();
-    return signSession({ issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: cookieScope, cookie_epoch: "epoch-0000000000000000" }, SECRET);
+    return createManagedAppCookie("openclaw", { issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: cookieScope, cookie_epoch: "epoch-0000000000000000" }, SECRET);
   }
 
   function upgradeReq(host: string, path = "/", cookie?: string) {
     const headers: Record<string, string> = { upgrade: "websocket", connection: "Upgrade" };
-    if (cookie) headers.cookie = `session=${cookie}`;
+    if (cookie) headers.cookie = `__Host-mso-managed-app=${cookie}`;
     return req(host, path, headers);
   }
 
@@ -118,9 +119,9 @@ describe("WebSocket upgrade on an app host", () => {
 describe("per-app upgrade adapters", () => {
   const SECRET = "y".repeat(48);
 
-  function signed(): string {
+  function signed(host: string): string {
     const now = Date.now();
-    return signSession({ issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: "host", cookie_epoch: "epoch-0000000000000000" }, SECRET);
+    return createManagedAppCookie(host.startsWith("hermes.") ? "hermes" : "openclaw", { issued_at: now, expires_at: now + 3_600_000, device_id: "dev-1", cookie_scope: "host", cookie_epoch: "epoch-0000000000000000" }, SECRET);
   }
 
   async function upstream(host: string, path: string, extra: Record<string, string> = {}) {
@@ -131,7 +132,7 @@ describe("per-app upgrade adapters", () => {
     const proxy = await loadProxy(TEMPLATE);
     const res = await proxy(req(host, path, {
       upgrade: "websocket", connection: "Upgrade",
-      cookie: `session=${signed()}`, origin: `https://${host}`,
+      cookie: `__Host-mso-managed-app=${signed(host)}`, origin: `https://${host}`,
       "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https",
       ...extra,
     }));

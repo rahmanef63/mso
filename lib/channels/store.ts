@@ -29,6 +29,7 @@ function validateState(value: unknown): ChannelState {
     return {
       id: row.id,
       ...parsed,
+      ...(row.workflowBinding ? { workflowBinding: validBinding(row.workflowBinding) } : {}),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       ...(row.lastCheck ? { lastCheck: row.lastCheck } : {}),
@@ -85,16 +86,21 @@ async function mutate<T>(fn: (state: ChannelState) => T | Promise<T>, bumpRevisi
   });
 }
 
-export async function createChannel(raw: Record<string, unknown>) {
+function validBinding(binding: NonNullable<ChannelRecord["workflowBinding"]>) {
+  if (!/^[a-f0-9]{64}$/.test(binding.owner) || !/^[A-Za-z0-9_.:-]{1,96}$/.test(binding.nodeId) || !/^[a-f0-9]{64}$/.test(binding.revision)) throw new ChannelError("invalid_workflow_binding");
+  return binding;
+}
+
+export async function createChannel(raw: Record<string, unknown>, binding?: ChannelRecord["workflowBinding"]) {
   return mutate((state) => {
     const now = new Date().toISOString();
-    const row: ChannelRecord = { id: randomUUID(), ...parseChannelPatch(raw), createdAt: now, updatedAt: now };
+    const row: ChannelRecord = { id: randomUUID(), ...parseChannelPatch(raw), ...(binding ? { workflowBinding: validBinding(binding) } : {}), createdAt: now, updatedAt: now };
     state.channels.push(row);
     return structuredClone(row);
   });
 }
 
-export async function updateChannel(id: string, expectedRevision: number, raw: Record<string, unknown>) {
+export async function updateChannel(id: string, expectedRevision: number, raw: Record<string, unknown>, binding?: ChannelRecord["workflowBinding"]) {
   return mutate((state) => {
     if (state.revision !== expectedRevision) throw new ChannelError("channel_revision_changed", 409);
     const index = state.channels.findIndex((row) => row.id === id);
@@ -107,6 +113,7 @@ export async function updateChannel(id: string, expectedRevision: number, raw: R
       createdAt: previous.createdAt,
       updatedAt: new Date().toISOString(),
     };
+    if (raw.workflowId !== undefined) { delete row.workflowBinding; if (binding) row.workflowBinding = validBinding(binding); }
     state.channels[index] = row;
     return structuredClone(row);
   });

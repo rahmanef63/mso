@@ -77,7 +77,8 @@ export function backupsRoot(id: ManagedAppId): string {
   return path.join(os.homedir(), ".mso", "backups", id);
 }
 
-export async function createBackup(definition: ManagedAppDefinition, reason: ManagedAppBackup["reason"]): Promise<ManagedAppBackup> {
+export async function createBackup(definition: ManagedAppDefinition, reason: ManagedAppBackup["reason"], assertQuiescent: () => Promise<void>): Promise<ManagedAppBackup> {
+  await assertQuiescent();
   const source = stateDirFor(definition);
   const existing = await listBackups(definition.id);
   if (reason === "manual" && existing[0] && Date.now() - Date.parse(existing[0].createdAt) < MANUAL_BACKUP_MIN_INTERVAL_MS) {
@@ -95,6 +96,7 @@ export async function createBackup(definition: ManagedAppDefinition, reason: Man
   const skipped = { symlinks: 0, dirs: 0 };
   let files = 0;
   let bytes = 0;
+  let checkedAt = 0;
   await fs.cp(source, target, {
     recursive: true,
     preserveTimestamps: true,
@@ -105,6 +107,7 @@ export async function createBackup(definition: ManagedAppDefinition, reason: Man
     // whole backup over them — which is what this used to do — meant the
     // feature never once ran.
     filter: async (entry) => {
+      if (Date.now() - checkedAt >= 1000) { await assertQuiescent(); checkedAt = Date.now(); }
       if (SKIPPED.has(path.basename(entry))) {
         skipped.dirs += 1;
         return false;
@@ -121,7 +124,7 @@ export async function createBackup(definition: ManagedAppDefinition, reason: Man
       }
       return true;
     },
-  }).catch(async error => { await fs.rm(target, { recursive: true, force: true }); throw error; });
+  }).then(assertQuiescent).catch(async error => { await fs.rm(target, { recursive: true, force: true }); throw error; });
   const manifest: ManagedAppBackup = {
     id,
     applicationId: definition.id,

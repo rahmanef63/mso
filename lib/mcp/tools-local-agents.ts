@@ -1,4 +1,5 @@
 import { listLocalAgents } from "@/lib/agent/local-agent-directory";
+import { organizationLocalAgentPrincipal } from "@/lib/agent/organization-runtime";
 import { updateLocalAgentMessageState } from "@/lib/agent/local-agent-mailbox";
 import { replyLocalAgentMessage, sendLocalAgentMessage, waitForLocalAgentInbox, waitForLocalAgentReply } from "@/lib/agent/local-agent-messaging";
 import {
@@ -119,7 +120,7 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
     run: async (a, context) => {
       const current = sessionContext(context);
       if (!context.capabilities) throw new Error("capability runtime unavailable for local-agent delegation");
-      const result = await handoffOwnerLocalSession(current.principal, str(a, "target"), str(a, "objective"), context.capabilities, current.sessionId, { authority: context });
+      const result = await handoffOwnerLocalSession(organizationLocalAgentPrincipal(current.principal), str(a, "target"), str(a, "objective"), context.capabilities, current.sessionId, { authority: context });
       return { mode: "durable_session_worker", ...result };
     },
   },

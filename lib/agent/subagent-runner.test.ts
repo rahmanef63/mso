@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const stream = vi.fn();
 const dispatch = vi.fn();
+const device = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/auth/device-store", () => ({ getApprovedDevice: device }));
 vi.mock("./session-store", () => ({
   getAgentSession: vi.fn(async () => ({ id: "session-a", cwd: "/srv/project", title: "parent", history: [{ role: "user", text: "TOP SECRET PARENT TRANSCRIPT" }], memorySnapshot: { user: "TOP SECRET MEMORY" } })),
 }));
@@ -24,6 +26,16 @@ const { runSessionSubagent } = await import("./subagent-runner");
 
 describe("same-session subagent runner", () => {
   beforeEach(() => { stream.mockReset(); dispatch.mockReset(); });
+  it.each([null, { role: "operator" }])("stops after original Owner authority changes during a model round: %j", async changed => {
+    device.mockResolvedValue({ role: "owner" });
+    stream.mockImplementationOnce(async ({ emit }) => {
+      device.mockResolvedValue(changed);
+      emit("tool_use", { id: "write", name: "fs_write", input: {} });
+    });
+    await expect(runSessionSubagent({ principal: "cli:device", parentSessionId: "session-a", objective: "inspect", maxScope: "exec", capabilities, authority: { principal: "web:device", scope: "exec" } })).rejects.toThrow(/revoked|demoted/);
+    expect(stream).toHaveBeenCalledTimes(1); expect(dispatch).not.toHaveBeenCalled();
+    expect(device).toHaveBeenCalledWith("device");
+  });
 
   it("uses isolated context, read scope by default, and returns only final result", async () => {
     let seenTools: string[] = [], firstPayload = "";

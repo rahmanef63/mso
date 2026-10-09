@@ -9,3 +9,4 @@ export { sha256Text, utf8Bytes } from "./hash";
 export { writeFileGuarded } from "./guarded-write";
 export { assertDelegatedWritePath } from "./delegated-write";
 export { readFileBytes } from "./fs-read-bytes";
+export { withIsolatedFilesystem } from "./fs-isolation";

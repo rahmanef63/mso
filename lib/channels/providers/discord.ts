@@ -43,6 +43,7 @@ export async function sendDiscordText(values: Record<string, string>, target: st
 export function verifyDiscordSignature(values: Record<string, string>, timestamp: string | null, signature: string | null, body: string) {
   const keyHex = values.publicKey;
   if (!keyHex || !PUBLIC_KEY.test(keyHex) || !timestamp || !signature || !/^[0-9a-f]{128}$/i.test(signature)) return false;
+  if (!/^[0-9]{10,11}$/.test(timestamp) || Math.abs(Date.now() - Number(timestamp) * 1000) > 5 * 60 * 1000) return false;
   try {
     const key = createPublicKey({ key: Buffer.concat([SPKI_ED25519_PREFIX, Buffer.from(keyHex, "hex")]), format: "der", type: "spki" });
     return verify(null, Buffer.from(timestamp + body), key, Buffer.from(signature, "hex"));

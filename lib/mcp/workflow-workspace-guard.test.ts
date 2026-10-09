@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetWorkflowStoreCache, startWorkflow } from "@/lib/workflow";
-import { requireWorkflowExecCwd, requireWorkflowMutationPath } from "./workflow-workspace-guard";
+import { requireWorkflowExecCwd, requireWorkflowMutationPath, requireWorkflowProjectTarget } from "./workflow-workspace-guard";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -30,6 +30,13 @@ async function isolatedFixture() {
 }
 
 describe("workflow source workspace guard", () => {
+  it("rejects symlinked mutation, execution and project targets inside the worktree", async () => {
+    const { project, workspace, context } = await isolatedFixture();
+    const link = path.join(workspace, "escape"); await fs.symlink(project, link);
+    await expect(requireWorkflowMutationPath(context, path.join(link, "new.ts"))).rejects.toThrow(/symlinks/);
+    await expect(requireWorkflowExecCwd(context, link)).rejects.toThrow(/symlinks/);
+    await expect(requireWorkflowProjectTarget(context, link)).rejects.toThrow(/symlinks/);
+  });
   it("allows mutation in the task worktree and rejects canonical/host writes", async () => {
     const { project, workspace, context } = await isolatedFixture();
     await expect(requireWorkflowMutationPath(context, path.join(workspace, "src/a.ts"))).resolves.toBeUndefined();

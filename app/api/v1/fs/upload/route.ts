@@ -6,6 +6,7 @@ import { apiError, invalidRequest } from "@/lib/host/request-api";
 import { audit } from "@/lib/host/audit-api";
 import { boundaryFromContentType, parseMultipart, resolveUploadDest, streamFileInto, UploadTooLargeError } from "@/lib/host/fs-api";
 import { rateLimited } from "@/lib/host/limits-api";
+import { managedAppIdForHost, isUnclaimedAppNamespaceHost } from "@/lib/managed-apps/origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,15 +17,34 @@ const FS_UPLOAD_WINDOW_MS = 60_000;
 
 // Total request cap, enforced as a RUNNING counter across all parts BEFORE
 // buffering past it (the body never lands fully in RAM — each part streams to a
-// temp file). Sits below next.config `proxyClientMaxBodySize` (256mb).
+// temp file). This authenticated route bypasses proxy body cloning.
 const MAX_TOTAL = 200 * 1024 * 1024; // 200 MiB
+let activeUploads = 0;
 
 // POST multipart/form-data {dest, file[]} → stream each file (binary-safe) into
 // dest within WRITE roots. Each `file` part's filename carries its relPath, so
 // dropped folders keep their structure. The client sends `dest` first.
 export async function POST(req: Request) {
+  const host = req.headers.get("host") ?? new URL(req.url).host;
+  if (managedAppIdForHost(host) || isUnclaimedAppNamespaceHost(host))
+    return new NextResponse("Not Found", { status: 404 });
+  const site = req.headers.get("sec-fetch-site");
+  const origin = req.headers.get("origin");
+  if (site && site !== "same-origin" && site !== "none")
+    return NextResponse.json({ error: "cross_origin_blocked" }, { status: 403 });
+  if (origin) {
+    try { if (new URL(origin).host !== host) return NextResponse.json({ error: "cross_origin_blocked" }, { status: 403 }); }
+    catch { return NextResponse.json({ error: "cross_origin_blocked" }, { status: 403 }); }
+  }
   if (!(await verifyAuth(req)))
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (activeUploads >= 4) return NextResponse.json({ error: "uploads_busy" }, { status: 429 });
+  activeUploads++;
+  try { return await streamUpload(req); }
+  finally { activeUploads--; }
+}
+
+async function streamUpload(req: Request) {
 
   const actor = await getSessionActor();
   if (rateLimited(`fs.upload:${actor ?? "anon"}`, FS_UPLOAD_MAX, FS_UPLOAD_WINDOW_MS)) {

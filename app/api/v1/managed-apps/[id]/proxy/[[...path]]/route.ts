@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/agent/server";
+import { managedAppSession } from "@/lib/managed-apps/session";
 import { getManagedAppDefinition, isManagedAppId } from "@/lib/managed-apps/catalog";
 import { managedAppUpstream } from "@/lib/managed-apps/upstream-target";
 import {
@@ -76,7 +76,6 @@ async function readBody(req: Request, limit: number): Promise<ArrayBuffer | null
 }
 
 async function proxy(req: Request, context: { params: Promise<{ id: string; path?: string[] }> }) {
-  if (!(await verifyAuth(req))) return fail(req, "unauthorized", 401);
   const params = await context.params;
   if (!isManagedAppId(params.id)) return fail(req, "unknown managed application", 404);
   // The dashboard is served from its OWN host and nowhere else. The middleware
@@ -94,6 +93,7 @@ async function proxy(req: Request, context: { params: Promise<{ id: string; path
   // fall back to the CLI view and to opening the app in a browser of the user's own.
   if (!splitOriginEnabled()) return fail(req, "managed application dashboards are not served on this origin", 404);
   if (req.headers.get(MANAGED_APP_HOST_HEADER) !== params.id) return fail(req, "not found", 404);
+  if (!(await managedAppSession(req, params.id))) return fail(req, "unauthorized", 401);
   const appOrigin = managedAppOrigin(params.id);
   if (!appOrigin) return fail(req, "managed application origin is unavailable", 500);
   // On the app's own host the app IS the origin root — cookies at Path=/, Locations

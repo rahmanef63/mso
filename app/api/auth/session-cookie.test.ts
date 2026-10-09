@@ -81,9 +81,9 @@ describe("session cookie on the wire — OS_SESSION_COOKIE_DOMAIN set", () => {
     process.env.OS_SESSION_COOKIE_DOMAIN = "mso.example.com";
   });
 
-  it("login widens to the domain, keeping every other attribute", async () => {
+  it("login stays host-only even with a legacy Domain configured", async () => {
     const [cookie] = await login();
-    expect(cookie).toContain("Domain=mso.example.com");
+    expect(cookie.toLowerCase()).not.toContain("domain=");
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("Secure");
     expect(cookie.toLowerCase()).toContain("samesite=strict");

@@ -10,7 +10,6 @@ export async function workflowExecutionContext(
   context: CapabilityRunContext,
   trigger?: WorkflowGraphRun["trigger"],
 ): Promise<CapabilityRunContext> {
-  context = await liveCapabilityContext(context);
   const principal = context.principal ?? context.actor;
   if (!principal) throw new Error("workflow requires an authenticated principal");
   const unattended = trigger && ["schedule", "webhook", "channel"].includes(trigger.type);
@@ -35,7 +34,7 @@ export async function workflowExecutionContext(
       toolArgumentConstraints = { ...toolArgumentConstraints, apps_power: { ...toolArgumentConstraints?.apps_power, action: prior ? actions.filter((action) => prior.includes(action)) : actions } };
     }
   }
-  return { ...context, allowedTools, toolArgumentConstraints, scope: scopeRank(context.scope) < scopeRank(ceiling) ? context.scope : ceiling };
+  return liveCapabilityContext({ ...context, allowedTools, toolArgumentConstraints, scope: scopeRank(context.scope) < scopeRank(ceiling) ? context.scope : ceiling });
 }
 
 export function requireWorkflowScope(context: CapabilityRunContext, required: Scope): void {

@@ -51,6 +51,13 @@ it("stores registered public Agent Cards in a private atomic registry", async ()
   );
   expect(registered.alias).toBe("research");
   expect(await store.listA2AAgents()).toHaveLength(1);
+  const registry = JSON.parse(await fs.readFile(process.env.OS_A2A_STORE, "utf8"));
+  registry.agents[0].credentialProfileId = "stored-owner-credential";
+  await fs.writeFile(process.env.OS_A2A_STORE, JSON.stringify(registry), { mode: 0o600 });
+  vi.mocked(client.discoverA2AAgent).mockClear();
+  for (const scope of ["read", "write"] as const) await expect(store.resolveA2AAgent("research", scope)).rejects.toThrow(/exec authority/);
+  expect(client.discoverA2AAgent).not.toHaveBeenCalled();
+  expect((await store.resolveA2AAgent("research", "exec")).credentialProfileId).toBe("stored-owner-credential");
   const stat = await fs.stat(process.env.OS_A2A_STORE);
   expect(stat.mode & 0o777).toBe(0o600);
   expect(

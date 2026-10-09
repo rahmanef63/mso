@@ -18,7 +18,7 @@ describe("channel provider verification", () => {
     const { privateKey, publicKey } = generateKeyPairSync("ed25519");
     const der = publicKey.export({ format: "der", type: "spki" });
     const publicKeyHex = Buffer.from(der).subarray(-32).toString("hex");
-    const timestamp = "1727000000";
+    const timestamp = String(Math.floor(Date.now() / 1000));
     const body = JSON.stringify({ id: "123456789012345678", type: 2, application_id: "222222222222222222", channel_id: "333333333333333333", data: { name: "ask" }, member: { user: { id: "444444444444444444" } } });
     const signature = sign(null, Buffer.from(timestamp + body), privateKey).toString("hex");
 

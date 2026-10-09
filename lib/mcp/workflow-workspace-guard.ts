@@ -2,6 +2,7 @@ import type { CapabilityRunContext } from "@/lib/capabilities/tool";
 import { activeWorkflowForActor } from "@/lib/workflow";
 import os from "node:os";
 import path from "node:path";
+import { promises as fs } from "node:fs";
 
 function absolute(value: string): string {
   if (value === "~") return os.homedir();
@@ -12,6 +13,17 @@ function absolute(value: string): string {
 function inside(root: string, candidate: string): boolean {
   const rel = path.relative(root, candidate);
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+async function canonicalWorkspaceTarget(root: string, target: string): Promise<void> {
+  const canonicalRoot = await fs.realpath(root);
+  let current = root;
+  for (const part of path.relative(root, target).split(path.sep).filter(Boolean)) {
+    current = path.join(current, part);
+    const stat = await fs.lstat(current).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return null; throw error; });
+    if (!stat) break;
+    if (stat.isSymbolicLink() || !inside(canonicalRoot, await fs.realpath(current))) throw new Error("source-isolated workflow cannot traverse workspace symlinks");
+  }
 }
 
 async function isolatedWorkspace(context: CapabilityRunContext) {
@@ -36,6 +48,7 @@ export async function requireWorkflowMutationPath(context: CapabilityRunContext,
   if (!inside(isolated.workspace, target)) {
     throw new Error(`workflow ${isolated.workflowId} is source-isolated; mutate only inside ${isolated.workspace}`);
   }
+  await canonicalWorkspaceTarget(isolated.workspace, target);
 }
 
 /** Shell is the widest authority surface. During isolated source work it must
@@ -49,6 +62,7 @@ export async function requireWorkflowExecCwd(context: CapabilityRunContext, rawC
   if (!inside(isolated.workspace, cwd)) {
     throw new Error(`workflow ${isolated.workflowId} is source-isolated; exec cwd must stay inside ${isolated.workspace}`);
   }
+  await canonicalWorkspaceTarget(isolated.workspace, cwd);
 }
 
 export async function requireWorkflowProjectTarget(context: CapabilityRunContext, projectPath: string): Promise<void> {
@@ -57,4 +71,5 @@ export async function requireWorkflowProjectTarget(context: CapabilityRunContext
   if (!inside(isolated.workspace, absolute(projectPath))) {
     throw new Error(`workflow ${isolated.workflowId} is source-isolated; project execution must target ${isolated.workspace}`);
   }
+  await canonicalWorkspaceTarget(isolated.workspace, absolute(projectPath));
 }

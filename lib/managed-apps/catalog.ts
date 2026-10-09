@@ -21,8 +21,8 @@ const definitions = {
     // creates hermes-gateway.service, and scripts/managed-app-install writes
     // hermes-dashboard.service itself because upstream ships no installer for it.
     // Dashboard stays FIRST and that ordering is load-bearing — it is the unit serving
-    // dashboardUrl below, so it is what start/stop must act on and what "is there
-    // anything to frame" must read. The gateway is messaging plumbing (Telegram,
+    // dashboardUrl below, so it remains the primary log/health surface; lifecycle
+    // and quiescence checks cover every installed unit/container. The gateway is messaging plumbing (Telegram,
     // Discord, WhatsApp) and binds nothing on 9119; ranking it first would report a
     // healthy Hermes while the iframe showed a connection refused.
     serviceNames: ["hermes-dashboard.service", "hermes-gateway.service", "hermes.service"],
@@ -39,8 +39,7 @@ const definitions = {
     name: "OpenClaw",
     description: "OpenClaw runtime and control surface",
     command: "openclaw",
-    // Live unit first: `openclaw.service` does not exist on this host, and detection
-    // stops at the first name whose LoadState is not `not-found`.
+    // Live unit first for log display; lifecycle/quiescence includes every installed name.
     serviceNames: ["openclaw-gateway.service", "openclaw.service"],
     containerNames: ["openclaw", "openclaw-gateway"],
     dashboardUrl: process.env.OPENCLAW_DASHBOARD_URL ?? "http://127.0.0.1:18789",

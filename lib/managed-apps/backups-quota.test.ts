@@ -16,6 +16,14 @@ afterEach(async () => {
 });
 
 describe("managed-app backup quotas", () => {
+  it("removes a snapshot if an app restarts while copying", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-backup-restart-")); roots.push(root);
+    vi.spyOn(os, "homedir").mockReturnValue(root);
+    await fs.mkdir(path.join(root, "state")); await fs.writeFile(path.join(root, "state", "config.json"), "{}");
+    const guard = vi.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockRejectedValue(new Error("gateway restarted"));
+    await expect(createBackup(definition(root), "pre-update", guard)).rejects.toThrow(/restarted/);
+    expect(await listBackups("openclaw")).toEqual([]);
+  });
   it("rejects growth after preflight and removes the incomplete snapshot", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "mso-backup-growth-")); roots.push(root);
     vi.spyOn(os, "homedir").mockReturnValue(root);
@@ -27,7 +35,7 @@ describe("managed-app backup quotas", () => {
       try { await huge.truncate(513 * 1024 * 1024); } finally { await huge.close(); }
       return copy(source, target, options);
     });
-    await expect(createBackup(definition(root), "pre-update")).rejects.toThrow(/backup changed/);
+    await expect(createBackup(definition(root), "pre-update", async () => {})).rejects.toThrow(/backup changed/);
     expect(await listBackups("openclaw")).toEqual([]);
   });
   it("rate-limits manual snapshots", async () => {
@@ -35,8 +43,8 @@ describe("managed-app backup quotas", () => {
     vi.spyOn(os, "homedir").mockReturnValue(root);
     await fs.mkdir(path.join(root, "state"), { recursive: true });
     await fs.writeFile(path.join(root, "state", "config.json"), "{}");
-    await createBackup(definition(root), "manual");
-    await expect(createBackup(definition(root), "manual")).rejects.toThrow(/one per minute/);
+    await createBackup(definition(root), "manual", async () => {});
+    await expect(createBackup(definition(root), "manual", async () => {})).rejects.toThrow(/one per minute/);
   });
 
   it("rejects a state tree larger than the per-backup ceiling before copying", async () => {
@@ -46,7 +54,7 @@ describe("managed-app backup quotas", () => {
     const huge = path.join(root, "state", "huge.bin");
     const handle = await fs.open(huge, "w");
     try { await handle.truncate(513 * 1024 * 1024); } finally { await handle.close(); }
-    await expect(createBackup(definition(root), "pre-update")).rejects.toThrow(/512 MiB state limit/);
+    await expect(createBackup(definition(root), "pre-update", async () => {})).rejects.toThrow(/512 MiB state limit/);
     expect(await listBackups("openclaw")).toEqual([]);
   });
 });
