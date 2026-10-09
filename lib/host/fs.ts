@@ -1,12 +1,15 @@
 // SERVER-ONLY. Host filesystem ops behind /api/v1/fs/*. Reads follow READ
 // roots (browse), mutations follow WRITE roots (see paths.ts). Returns the
 // os-rr shapes directly so route handlers are thin.
-import { promises as fs, constants as fsConstants, createReadStream, type ReadStream } from "fs";
+import { promises as fs, constants as fsConstants, type ReadStream } from "fs";
+import type { FileHandle } from "node:fs/promises";
+import path from "node:path";
+import { openReadableHandle, pinDirectory } from "./fs-descriptors";
+import { copyPinned, removePinned } from "./fs-recursive";
 import { randomUUID } from "node:crypto";
 import type { FsUsage } from "@/lib/os-api/types";
 import { HostError } from "./host-error";
 import {
-  appSecretCopyFilter,
   assertNoAppSecretDescendants,
   assertNoCredentialDescendants,
   assertNoSensitiveDescendants,
@@ -22,7 +25,7 @@ export async function readFile(requested: string): Promise<string> {
   const p = await resolveReadable(requested);
   let handle;
   try {
-    handle = await fs.open(p, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await openReadableHandle(p);
     const stat = await handle.stat();
     if (!stat.isFile()) throw new HostError(stat.isDirectory() ? "Is a directory" : "Not a regular file");
     if (stat.size > 5_000_000) throw new HostError("File too large to read (max 5 MiB)");
@@ -38,22 +41,29 @@ export async function readFile(requested: string): Promise<string> {
 export async function writeFile(requested: string, content: string): Promise<void> {
   const p = await safeWritePath(requested, false);
   await assertNotRoot(p);
-  const tmp = `${p}.tmp-${randomUUID()}`;
-  const handle = await fs.open(tmp, fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_NOFOLLOW, 0o600);
-  try { await handle.writeFile(content ?? ""); await handle.close(); await fs.rename(tmp, p); }
-  finally { await handle.close().catch(() => undefined); await fs.unlink(tmp).catch(() => undefined); }
+  const parent = await pinDirectory(path.dirname(p), true);
+  let handle, tmp: string | undefined;
+  try {
+    tmp = await parent.child(`${path.basename(p)}.tmp-${randomUUID()}`);
+    handle = await fs.open(tmp, fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_NOFOLLOW, 0o600);
+    await handle.writeFile(content ?? ""); await handle.close();
+    await fs.rename(tmp, await parent.child(path.basename(p)));
+  } finally { await handle?.close().catch(() => undefined); if (tmp) await fs.unlink(tmp).catch(() => undefined); await parent.handle.close(); }
 }
 
 export async function makeDir(requested: string): Promise<void> {
   const p = await safeMkdirPath(requested);
-  await fs.mkdir(p, { recursive: true });
+  const dir = await pinDirectory(p, true, true);
+  await dir.handle.close();
 }
 
 export async function remove(requested: string): Promise<void> {
   const p = await safeWritePath(requested, true);
   await assertNotRoot(p);
   await assertNoCredentialDescendants(p);
-  await fs.rm(p, { recursive: true, force: true });
+  const parent = await pinDirectory(path.dirname(p), true);
+  try { await removePinned(await parent.child(path.basename(p))); }
+  finally { await parent.handle.close(); }
 }
 
 export async function move(from: string, to: string): Promise<void> {
@@ -63,16 +73,18 @@ export async function move(from: string, to: string): Promise<void> {
   assertNoAppSecretDescendants(src); // the cockpit's own .env* under a parent
   await assertNoCredentialDescendants(src); // loose id_* / *.pem anywhere below
   const dest = await safeWritePath(to, false);
+  const sourceParent = await pinDirectory(path.dirname(src), true);
+  let destParent;
   try {
-    await fs.rename(src, dest);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "EXDEV") {
-      await fs.cp(src, dest, { recursive: true });
-      await fs.rm(src, { recursive: true, force: true });
-    } else {
-      throw err;
+    destParent = await pinDirectory(path.dirname(dest), true);
+    const source = await sourceParent.child(path.basename(src)), target = await destParent.child(path.basename(dest));
+    try { await fs.rename(source, target); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+      await copyPinned(source, target);
+      await removePinned(await sourceParent.child(path.basename(src)));
     }
-  }
+  } finally { await sourceParent.handle.close(); await destParent?.handle.close(); }
 }
 
 export async function copy(from: string, to: string): Promise<void> {
@@ -84,7 +96,13 @@ export async function copy(from: string, to: string): Promise<void> {
   const dest = await safeWritePath(to, false);
   // Skip the cockpit's own .env* rather than refuse the copy — on the default
   // roots APP_DIR sits under ~/projects, so refusing would block copying it.
-  await fs.cp(src, dest, { recursive: true, filter: appSecretCopyFilter(src) });
+  if (dest === src || dest.startsWith(src + path.sep)) throw new HostError("Cannot copy a directory into itself");
+  const sourceParent = await pinDirectory(path.dirname(src), true);
+  let destParent;
+  try {
+    destParent = await pinDirectory(path.dirname(dest), true);
+    await copyPinned(await sourceParent.child(path.basename(src)), await destParent.child(path.basename(dest)));
+  } finally { await sourceParent.handle.close(); await destParent?.handle.close(); }
 }
 
 export async function usage(requested: string): Promise<FsUsage> {
@@ -125,14 +143,17 @@ export function mimeFor(p: string): string {
 // Resolve + stat a readable file (within READ roots) for byte streaming.
 export async function statReadable(
   requested: string,
-): Promise<{ path: string; size: number; mime: string }> {
+): Promise<{ path: string; size: number; mime: string; handle: FileHandle }> {
   const p = await resolveReadable(requested);
-  const st = await fs.stat(p);
-  if (st.isDirectory()) throw new HostError("Is a directory");
-  return { path: p, size: st.size, mime: mimeFor(p) };
+  const handle = await openReadableHandle(p);
+  try {
+    const st = await handle.stat();
+    if (!st.isFile()) throw new HostError(st.isDirectory() ? "Is a directory" : "Not a regular file");
+    return { path: p, size: st.size, mime: mimeFor(p), handle };
+  } catch (error) { await handle.close(); throw error; }
 }
 
-// Node read stream for a (pre-resolved) path, optionally a byte range.
-export function fileStream(p: string, start?: number, end?: number): ReadStream {
-  return start !== undefined ? createReadStream(p, { start, end }) : createReadStream(p);
+// Transfer the verified handle to the stream, optionally for a byte range.
+export function fileStream(handle: FileHandle, start?: number, end?: number): ReadStream {
+  return handle.createReadStream({ autoClose: true, ...(start !== undefined ? { start, end } : {}) });
 }

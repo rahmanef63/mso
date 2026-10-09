@@ -1,4 +1,5 @@
 import { allows, type Scope } from "@/lib/capabilities/scope";
+import { clampScope } from "@/lib/capabilities/scope-policy";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import {
   prepareSelectedModel,
@@ -7,9 +8,7 @@ import {
 import type { OaMsg, OaTool, OaToolUse } from "@/lib/ai/openai-stream";
 import type { AgentSession } from "@/lib/agent/session-types";
 import { buildMemoryContext } from "@/lib/agent/memory-context.mjs";
-const MAX_ROUNDS = 10;
-const MAX_RESULT_BYTES = 64 * 1024;
-const MAX_OUTPUT_BYTES = 64 * 1024;
+const MAX_ROUNDS = 10, MAX_RESULT_BYTES = 64 * 1024, MAX_OUTPUT_BYTES = 64 * 1024;
 const FIXED_WORKFLOW_DENY = new Set(["workflow_start", "workflow_finish", "workflow_cancel", "local_agent_standby"]);
 const EXTERNAL_TOOL_DENY = new Set([
   "agent_session_current",
@@ -140,7 +139,6 @@ export async function runInboundA2AAgent(input: {
   toolCalls: Array<{ name: string; ok: boolean }>;
 }> {
   const prepared = await prepareSelectedModel();
-  const tools = modelTools(input.capabilities, input.scope, input.executionContext?.fixedWorkflow === true);
   const messages: OaMsg[] = [
     ...sessionHistory(input.session),
     { role: "user", text: input.prompt },
@@ -149,6 +147,8 @@ export async function runInboundA2AAgent(input: {
   let output = "";
 
   for (let round = 1; round <= MAX_ROUNDS; round += 1) {
+    const scope = clampScope(input.scope);
+    const tools = modelTools(input.capabilities, scope, input.executionContext?.fixedWorkflow === true);
     if (input.signal.aborted)
       throw input.signal.reason instanceof Error
         ? input.signal.reason
@@ -159,7 +159,7 @@ export async function runInboundA2AAgent(input: {
       prepared,
       messages,
       tools,
-      system: inboundSystem(input.scope, input.session, input.prompt),
+      system: inboundSystem(scope, input.session, input.prompt),
       signal: input.signal,
       emit(event, data) {
         if (event === "delta") {
@@ -176,8 +176,9 @@ export async function runInboundA2AAgent(input: {
 
     const results: { id: string; content: string; isError?: boolean }[] = [];
     for (const call of uses) {
-      const tool = input.capabilities.list(input.scope).find((entry) => entry.name === call.name);
-      if (!tool || EXTERNAL_TOOL_DENY.has(call.name) || !allows(input.scope, tool.scope)) {
+      const effectiveScope = clampScope(input.scope);
+      const tool = input.capabilities.list(effectiveScope).find((entry) => entry.name === call.name);
+      if (!tool || EXTERNAL_TOOL_DENY.has(call.name) || !allows(effectiveScope, tool.scope)) {
         results.push({
           id: call.id,
           content: "error: tool is unavailable to this A2A credential",
@@ -189,7 +190,7 @@ export async function runInboundA2AAgent(input: {
       const invoked = await input.capabilities.invoke({
         name: call.name,
         args: call.input ?? {},
-        scope: input.scope,
+        scope: effectiveScope,
         actor: input.principal,
         principal: input.principal,
         sessionId: input.taskId,

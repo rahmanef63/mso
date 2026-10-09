@@ -7,9 +7,29 @@ import {
   isServiceWorkerPath,
   proxyPrefix,
   rewriteLocation,
+  rewriteSetCookie,
+  upstreamCookieHeader,
+  cookiePrefix,
 } from "./proxy-headers";
 
 const PREFIX = proxyPrefix("hermes");
+
+describe("host-bound app cookies", () => {
+  it("forces host-only Secure root cookies while preserving JS-readable CSRF cookies", () => {
+    expect(rewriteSetCookie("csrf=value; Domain=.mso.example.com; Path=/login; SameSite=None; Max-Age=60", "hermes", true, ""))
+      .toBe("__Host-mapp_hermes_csrf=value; Max-Age=60; Path=/; SameSite=Lax; Secure");
+    expect(rewriteSetCookie("session=s; HttpOnly", "hermes", true, "")).toContain("HttpOnly");
+    expect(rewriteSetCookie("session=s", "hermes", false, "")).toBeNull();
+    expect(rewriteSetCookie("session=s", "hermes", true, PREFIX)).toBeNull();
+  });
+  it.each(["real; __Host-mapp_hermes_session=shadow", "shadow; __Host-mapp_hermes_session=real"])("rejects duplicate session cookies regardless of path ordering: %s", (value) => {
+    expect(upstreamCookieHeader(`__Host-mapp_hermes_session=${value}`, cookiePrefix("hermes"))).toBeNull();
+  });
+  it("rejects legacy/domain cookie names and sibling namespaces", () => {
+    expect(upstreamCookieHeader("mapp_hermes_session=shadow; __Host-mapp_openclaw_session=sibling", cookiePrefix("hermes"))).toBeNull();
+    expect(upstreamCookieHeader("mapp_hermes_session=shadow; __Host-mapp_hermes_session=real", cookiePrefix("hermes"))).toBe("session=real");
+  });
+});
 
 describe("buildUpstreamHeaders", () => {
   const base = new URL("http://127.0.0.1:9119");
@@ -37,7 +57,7 @@ describe("buildUpstreamHeaders", () => {
 
   it("keeps the cockpit session cookie on this side of the boundary", () => {
     const out = buildUpstreamHeaders(
-      withHeaders({ cookie: "session=cockpit; mapp_hermes_hermes_session_at=upstream" }),
+      withHeaders({ cookie: "session=cockpit; __Host-mapp_hermes_hermes_session_at=upstream" }),
       base,
       "hermes",
     );

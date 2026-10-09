@@ -4,6 +4,7 @@ import { clientIp } from "@/lib/host/request-ip";
 import { resolveAgentSessionOwnerRef } from "@/lib/agent/session-query";
 import type { AgentSession } from "@/lib/agent/session-types";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
+import { clampScope } from "@/lib/capabilities/scope-policy";
 import { a2aInboundOriginForRequest } from "./inbound-config";
 import {
   cancelA2AActiveTask,
@@ -37,6 +38,7 @@ export async function handleA2ARequest(req: Request, capabilities: CapabilityRun
     return a2aJson({ error: "rate_limited" }, 429, { "retry-after": "60" });
   const profile = await authenticateA2ARequest(req);
   if (!profile) return a2aUnauthorized();
+  profile.scope = clampScope(profile.scope);
   if (rateLimited(`a2a.inbound.token:${profile.id}`, 60, 60_000))
     return a2aJson({ error: "rate_limited" }, 429, { "retry-after": "60" });
 

@@ -16,13 +16,24 @@ export async function workflowExecutionContext(
     throw new Error("unattended workflow requires a live approved device; stored client names are not execution grants");
   }
   let ceiling = configuredCapabilityCeiling();
+  let allowedTools = context.allowedTools;
+  let toolArgumentConstraints = context.toolArgumentConstraints;
   if (principal.startsWith("web:")) {
     const device = await getApprovedDevice(principal.slice(4));
     if (!device || device.role === "viewer") throw new Error("workflow device is revoked or lacks operator authority");
     const roleScope: Scope = device.role === "owner" ? "exec" : "write";
     if (scopeRank(roleScope) < scopeRank(ceiling)) ceiling = roleScope;
+    if (device.role === "operator") {
+      // New write tools default to Owner until their bounded Operator parity is reviewed.
+      const permitted = [...(context.capabilities?.list("read") ?? []).filter((tool) => tool.scope === "read").map((tool) => tool.name), "apps_power"];
+      const priorTools = allowedTools;
+      allowedTools = priorTools ? permitted.filter((name) => priorTools.includes(name)) : permitted;
+      const actions = ["start", "stop", "restart", "backup"];
+      const prior = toolArgumentConstraints?.apps_power?.action;
+      toolArgumentConstraints = { ...toolArgumentConstraints, apps_power: { ...toolArgumentConstraints?.apps_power, action: prior ? actions.filter((action) => prior.includes(action)) : actions } };
+    }
   }
-  return { ...context, scope: scopeRank(context.scope) < scopeRank(ceiling) ? context.scope : ceiling };
+  return { ...context, allowedTools, toolArgumentConstraints, scope: scopeRank(context.scope) < scopeRank(ceiling) ? context.scope : ceiling };
 }
 
 export function requireWorkflowScope(context: CapabilityRunContext, required: Scope): void {

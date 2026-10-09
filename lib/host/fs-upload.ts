@@ -3,12 +3,12 @@
 // enforces the SAME credential/sensitive denylist + realpath-bounds as
 // writeFile/move/copy (so an upload can't write ~/.ssh/authorized_keys or escape
 // the dest through a symlinked subdir). Split out of fs.ts for single responsibility.
-import { promises as fs, createWriteStream } from "fs";
+import { promises as fs } from "fs";
 import { randomBytes } from "crypto";
-import { once } from "events";
 import path from "path";
 import { HostError } from "./host-error";
 import { assertUploadTarget, safeWritePath } from "./paths";
+import { pinDirectory, type PinnedDirectory } from "./fs-descriptors";
 
 const MAX_UPLOAD = 100 * 1024 * 1024; // 100 MiB per file
 
@@ -35,19 +35,22 @@ export async function uploadInto(
       failed.push(relPath);
       continue;
     }
-    const tmp = privateTempPath(full);
+    let parent: PinnedDirectory | undefined, tmp: string | undefined;
     try {
-      await fs.mkdir(path.dirname(full), { recursive: true, mode: 0o700 });
-      await assertUploadTarget(full, destReal); // parent may have appeared since the first check
+      parent = await pinDirectory(path.dirname(full), true, true);
+      const target = await parent.child(path.basename(full));
+      tmp = privateTempPath(target);
       await fs.writeFile(tmp, data, { mode: 0o600, flag: "wx" });
       await fs.chmod(tmp, 0o644);
-      if (options.overwrite === false) await fs.link(tmp, full);
-      else await fs.rename(tmp, full);
+      const destination = await parent.child(path.basename(full));
+      if (options.overwrite === false) await fs.link(tmp, destination);
+      else await fs.rename(tmp, destination);
       written++;
     } catch {
       failed.push(relPath);
     } finally {
-      await fs.rm(tmp, { force: true }).catch(() => {});
+      if (tmp) await fs.rm(tmp, { force: true }).catch(() => {});
+      await parent?.handle.close();
     }
   }
   return { written, failed };
@@ -59,6 +62,8 @@ export async function uploadInto(
 export async function resolveUploadDest(dest: string): Promise<string> {
   const destReal = await safeWritePath(dest, true);
   if (!(await fs.stat(destReal)).isDirectory()) throw new HostError("Destination is not a directory");
+  const held = await pinDirectory(destReal, true);
+  await held.handle.close();
   return destReal;
 }
 
@@ -83,35 +88,31 @@ export async function streamFileInto(
     return "bad-path";
   }
 
-  await fs.mkdir(path.dirname(full), { recursive: true, mode: 0o700 });
-  try { await assertUploadTarget(full, destReal); }
+  let parent: PinnedDirectory;
+  try { parent = await pinDirectory(path.dirname(full), true, true); }
   catch { await drain(body); return "bad-path"; }
-  const tmp = privateTempPath(full);
-  const out = createWriteStream(tmp, { mode: 0o600, flags: "wx" });
-  let bytes = 0;
-  let tooLarge = false;
+  let tmp: string | undefined, handle: Awaited<ReturnType<typeof fs.open>> | undefined;
+  let bytes = 0, tooLarge = false, failed = false;
   try {
-    // ONE pass over the body iterator: keep consuming after the cap is hit so the
-    // remaining bytes drain (parser advances), but stop writing to disk.
+    tmp = privateTempPath(await parent.child(path.basename(full)));
+    try { handle = await fs.open(/* turbopackIgnore: true */ tmp, "wx", 0o600); } catch { failed = true; }
     for await (const chunk of body) {
-      if (tooLarge) continue; // drain-only past the cap
+      if (tooLarge || failed) continue;
       bytes += chunk.byteLength;
       if (bytes > MAX_UPLOAD) { tooLarge = true; continue; }
-      if (!out.write(chunk)) await once(out, "drain");
+      try { await handle!.writeFile(chunk); } catch { failed = true; }
     }
-    await new Promise<void>((res, rej) => out.end((err?: Error | null) => (err ? rej(err) : res())));
-  } catch {
-    out.destroy();
-    await fs.rm(tmp, { force: true });
-    throw new HostError("Failed to write upload");
+    if (tooLarge) return "too-large";
+    if (failed) throw new HostError("Failed to write upload");
+    await handle!.chmod(0o644);
+    await handle!.close(); handle = undefined;
+    await fs.rename(tmp, await parent.child(path.basename(full)));
+    return "ok";
+  } finally {
+    await handle?.close().catch(() => undefined);
+    if (tmp) await fs.rm(tmp, { force: true }).catch(() => undefined);
+    await parent.handle.close();
   }
-  if (tooLarge) {
-    await fs.rm(tmp, { force: true });
-    return "too-large";
-  }
-  await fs.chmod(tmp, 0o644);
-  await fs.rename(tmp, full);
-  return "ok";
 }
 
 function privateTempPath(full: string): string {

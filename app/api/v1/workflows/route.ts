@@ -19,6 +19,7 @@ import { listWorkflowGraphVersions, readWorkflowGraphVersion } from "@/lib/workf
 import { resolveWorkflowGraphNodeTarget } from "@/lib/workflow/graph-target";
 import { deleteWorkflowVariable, listWorkflowVariables, setWorkflowVariable } from "@/lib/workflow/variables";
 import { workflowNodeCatalog } from "@/lib/workflow/node-catalog";
+import { workflowExecutionContext } from "@/lib/workflow/graph-authority";
 import { workflowTemplate, workflowTemplates } from "@/lib/workflow/templates";
 import { suggestWorkflowGraph } from "@/lib/workflow/ai-assist";
 import { workflowMatchesQuery } from "@/lib/workflow/search";
@@ -34,7 +35,8 @@ function definition(graph:NonNullable<Awaited<ReturnType<typeof getWorkflowGraph
 export async function GET(req:NextRequest){const q=req.nextUrl.searchParams,minimum=(q.has("variables")||q.has("data_tables")||q.has("data_table"))?"operator":"viewer",session=await auth(minimum);if(!session)return fail("unauthorized",401);try{
  if(q.get("owner_view")==="1"){if(session.context.role!=="owner")return fail("owner_required",403);return NextResponse.json(await discoverOwnerGraphs(session.context.role,session.principal,Number(q.get("owner_offset"))||0),{headers});}
  if(q.get("directory")==="1"){
-  const query=(q.get("q")??"").toLowerCase().trim(),tools=msoCapabilityRuntime.list(maxScope()).filter((tool)=>!query||`${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query)).slice(0,150);
+  const authority=session.context.role==="viewer"?{scope:"read" as const,allowedTools:undefined}:await workflowExecutionContext({principal:session.principal,scope:maxScope(),capabilities:msoCapabilityRuntime});
+  const query=(q.get("q")??"").toLowerCase().trim(),tools=msoCapabilityRuntime.list(authority.scope).filter((tool)=>(!authority.allowedTools||authority.allowedTools.includes(tool.name))&&(!query||`${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query))).slice(0,150);
   const operator=roleAtLeast(session.context.role,"operator");
   const [graphs,sessions,projectResult,skillResult]=await Promise.all([listWorkflowGraphs(session.principal),listAgentSessions(session.principal,50),operator?listProjects({query:query||undefined,limit:100}):Promise.resolve(null),operator?catalogSkillsDetailed():Promise.resolve(null)]);
   const projects=projectResult?.projects.map((row)=>({id:row.id,name:row.name,...(row.packageName?{packageName:row.packageName}:{}),...(row.packageVersion?{packageVersion:row.packageVersion}:{}),...(row.git?.branch?{branch:row.git.branch}:{}),...(row.git?.head?{head:row.git.head}:{})}))??[];

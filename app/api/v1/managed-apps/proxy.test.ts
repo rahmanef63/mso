@@ -38,7 +38,7 @@ const ctx = (path: string[]) => ({ params: Promise.resolve({ id: "hermes", path 
 function req(path: string, init: RequestInit = {}): Request {
   const headers = new Headers(init.headers);
   if (!headers.has(HOST_HEADER)) headers.set(HOST_HEADER, "hermes");
-  return new Request(`http://localhost${PREFIX}/${path}`, { ...init, headers });
+  return new Request(`https://hermes.mso.example.com${PREFIX}/${path}`, { ...init, headers });
 }
 
 /** Headers of the single upstream fetch the route performed. */
@@ -62,7 +62,7 @@ describe("managed-app proxy cookie isolation", () => {
     await GET(
       req("chat", {
         headers: {
-          cookie: "session=mso-secret; mso-device=deadbeef; mapp_hermes_session=upstream-sid",
+          cookie: "session=mso-secret; mso-device=deadbeef; __Host-mapp_hermes_session=upstream-sid",
           origin: "http://localhost",
           referer: "https://hermes.mso.example.com/login?next=%2Fchat",
         },
@@ -86,7 +86,7 @@ describe("managed-app proxy cookie isolation", () => {
     expect(sentHeaders().has("cookie")).toBe(false);
   });
 
-  it("namespaces upstream set-cookie and pins it to the proxy path", async () => {
+  it("namespaces upstream set-cookie and pins it to the app host", async () => {
     const upstream = new Response("ok", { status: 200 });
     upstream.headers.append(
       "set-cookie",
@@ -96,15 +96,14 @@ describe("managed-app proxy cookie isolation", () => {
     const { GET } = await import("./[id]/proxy/[[...path]]/route");
     const res = await GET(req("chat"), ctx(["chat"]));
     const cookie = res.headers.getSetCookie()[0];
-    expect(cookie).toContain("mapp_hermes_session=abc123");
+    expect(cookie).toContain("__Host-mapp_hermes_session=abc123");
     // Root-mounted on the app host: the app owns "/" there, so that is the scope.
     expect(cookie).toContain("Path=/");
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("Max-Age=3600");
     expect(cookie).toContain("SameSite=Lax");
     expect(cookie).not.toContain("Domain");
-    // Plain http hop: a Secure cookie would be dropped by the browser.
-    expect(cookie).not.toContain("Secure");
+    expect(cookie).toContain("Secure");
     expect(res.headers.get("x-managed-app")).toBe("hermes");
   });
 
@@ -140,8 +139,8 @@ describe("managed-app proxy cookie isolation", () => {
     expect(res.headers.get("location")).not.toMatch(/^https?:\/\//);
     const cookies = res.headers.getSetCookie();
     expect(cookies).toHaveLength(2);
-    expect(cookies[0]).toContain("mapp_hermes_session=sid1");
-    expect(cookies[1]).toContain("mapp_hermes_csrftoken=tok2");
+    expect(cookies[0]).toContain("__Host-mapp_hermes_session=sid1");
+    expect(cookies[1]).toContain("__Host-mapp_hermes_csrftoken=tok2");
     expect(cookies.every((cookie) => cookie.includes("Path=/"))).toBe(true);
     // The urlencoded body reaches the upstream untouched.
     const init = fetchMock.mock.calls[0][1];
@@ -209,7 +208,7 @@ describe("managed-app proxy guards", () => {
     const { verifyAuth } = await import("@/lib/agent/server");
     vi.mocked(verifyAuth).mockResolvedValueOnce(false);
     const { GET } = await import("./[id]/proxy/[[...path]]/route");
-    const res = await GET(req("chat", { headers: { cookie: "mapp_hermes_session=x" } }), ctx(["chat"]));
+    const res = await GET(req("chat", { headers: { cookie: "__Host-mapp_hermes_session=x" } }), ctx(["chat"]));
     expect(res.status).toBe(401);
     expect(fetchMock).not.toHaveBeenCalled();
     // Without frame-ancestors, next.config's X-Frame-Options: DENY makes the browser

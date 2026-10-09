@@ -134,7 +134,7 @@ async function executeNode(node: WorkflowGraphNode, run: WorkflowGraphRun, graph
   if (node.type === "directory") {
     const source = typeof config.source === "string" ? config.source : "tools", query = String(config.query ?? "").toLowerCase().trim();
     if (source === "tools") {
-      const tools = context.capabilities?.list(context.scope) ?? [];
+      const tools = (context.capabilities?.list(context.scope) ?? []).filter((tool) => !context.allowedTools || context.allowedTools.includes(tool.name));
       return { output: { tools: tools.filter((tool) => !query || `${tool.name} ${tool.description} ${tool.scope}`.toLowerCase().includes(query)).slice(0, Math.max(1, Math.min(100, Number(config.limit) || 50))) }, log: "MSO capability directory queried." };
     }
     if (source === "workflows") { const { listWorkflowGraphs } = await import("./graph-store"); const rows = await listWorkflowGraphs(principal); return { output: { workflows: rows.filter((row) => !query || `${row.name} ${row.description} ${(row.metadata.tags ?? []).join(" ")}`.toLowerCase().includes(query)).map((row) => ({ id: row.id, name: row.name, status: row.status, updatedAt: row.updatedAt, nodes: row.nodes.length })) }, log: "Workflow directory queried." }; }

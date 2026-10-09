@@ -21,6 +21,7 @@ import os from "os";
 import path from "path";
 import type { Readable } from "stream";
 import { HostError } from "./host-error";
+import { snapshotArchive } from "./fs-archive-snapshot";
 import { appDir, isCredentialPath, looseCredentialExcludes, resolveReadable, sensitiveExcludes } from "./paths";
 
 const ZIP_MAX_INPUT_BYTES = 512 * 1024 * 1024;
@@ -55,7 +56,7 @@ async function assertArchiveBudget(realBase: string, names: string[], exclude: s
   }
   const statfs = await fsp.statfs(os.tmpdir());
   const free = Number(statfs.bavail) * Number(statfs.bsize);
-  if (!Number.isFinite(free) || free < bytes + 64 * 1024 * 1024) {
+  if (!Number.isFinite(free) || free < bytes * 2 + 64 * 1024 * 1024) {
     throw new HostError("Insufficient temporary disk space for archive generation");
   }
 }
@@ -92,11 +93,16 @@ export async function zipStream(
   for (const n of exclude) assertSafeName(n);
   if (zipGate.__msoZipActive) throw new HostError("Another archive is already being generated");
   zipGate.__msoZipActive = true;
-  let tmpDir: string;
+  let tmpDir = "";
+  let snapshot = "";
   try {
     await assertArchiveBudget(real, names, exclude);
     tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), "os-zip-"));
+    snapshot = path.join(tmpDir, "snapshot");
+    await fsp.mkdir(snapshot, {mode: 0o700});
+    await snapshotArchive(real, names, exclude, snapshot);
   } catch (error) {
+    if (tmpDir) await fsp.rm(tmpDir, {recursive: true, force: true});
     zipGate.__msoZipActive = false;
     throw error;
   }
@@ -138,7 +144,7 @@ export async function zipStream(
   const NOTHING_TO_DO = 12;
   try {
     await new Promise<void>((resolve, reject) => {
-      const child = spawn("zip", args, { cwd: real, stdio: "ignore" });
+      const child = spawn("zip", args, { cwd: snapshot, stdio: "ignore" });
       let timedOut = false;
       const timer = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, ZIP_PROCESS_TIMEOUT_MS);
       child.on("error", (error) => { clearTimeout(timer); reject(error); }); // missing binary / spawn fail

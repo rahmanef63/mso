@@ -28,6 +28,6 @@ export async function GET(req: Request) {
       scopes_supported: ["read", "write", "exec", "offline_access"],
       bearer_methods_supported: ["header"],
     },
-    { headers: { ...PUBLIC_CORS, "cache-control": "public, max-age=3600" } },
+    { headers: { ...PUBLIC_CORS, "cache-control": "no-store" } },
   );
 }

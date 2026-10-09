@@ -86,6 +86,11 @@ describe("zipStream against the real zip binary", () => {
       expect(entries(await read(await zipStream(base, ["keep.txt"])))).toContain("keep.txt");
     } finally { temporary.mockRestore(); }
   });
+  it("reserves disk space for both the private snapshot and generated archive", async () => {
+    const capacity = vi.spyOn(fsp, "statfs").mockResolvedValueOnce({bavail: 64 * 1024 * 1024 + 6, bsize: 1} as never);
+    try {await expect(zipStream(base, ["keep.txt"])).rejects.toThrow(/temporary disk space/);}
+    finally {capacity.mockRestore();}
+  });
 
   it("force-strips nested loose private keys from recursive archives", async () => {
     const dir = path.join(base, "secrets-fixture");

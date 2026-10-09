@@ -20,7 +20,7 @@ describe("installer Git remote authority", () => {
     expect(core).toContain('GIT_TERMINAL_PROMPT=0');
     expect(core).toContain('GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -oBatchMode=yes}"');
     expect(core).toContain('install_git_noninteractive git -C "$DIR" fetch --quiet origin "$REF"');
-    expect(core).toContain('install_git_noninteractive git clone --quiet --branch "$REF" "$REPO_URL" "$DIR"');
+    expect(core).toContain('install_git_noninteractive git clone --quiet --no-checkout "$REPO_URL" "$DIR"');
   });
 
   it("converts canonical SSH clone requests to public HTTPS but leaves noncanonical URLs outside that rewrite", () => {

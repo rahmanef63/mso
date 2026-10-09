@@ -3,8 +3,7 @@
 // way a connector fails with "MCP server does not implement OAuth".
 //
 // Precedence mirrors lib/managed-apps/proxy-headers: OS_PUBLIC_ORIGIN is
-// deployment-owned and wins; the real Host header comes next; X-Forwarded-Host is
-// client-settable and is consulted LAST.
+// deployment-owned and wins; otherwise use actual authority, never forwarded headers.
 
 function normalizedConfiguredOrigin(): string | null {
   const explicit = process.env.OS_PUBLIC_ORIGIN?.trim() ||
@@ -102,30 +101,16 @@ export function mcpCorsHeaders(req: Request): Record<string, string> {
 }
 
 export function getBaseUrl(req: Request): string {
-  const explicit = process.env.OS_PUBLIC_ORIGIN?.trim() ||
-                   process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-                   process.env.APP_URL?.trim();
-  if (explicit) {
-    try {
-      return new URL(explicit).origin;
-    } catch {
-      // Misconfigured value — fall through to header resolution
-    }
-  }
-
+  const explicit = normalizedConfiguredOrigin();
+  if (explicit) return explicit;
   const url = new URL(req.url);
-  const forwardedHost = req.headers.get("x-forwarded-host")?.split(",")[0].trim();
-  const host = forwardedHost || req.headers.get("host")?.trim() || url.host || "localhost:3000";
-  const hostname = host.split(":")[0];
-  const isLoopback = isLoopbackHostname(hostname);
-
-  const forwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0].trim();
-  const proto = forwardedProto || (isLoopback ? "http" : url.protocol ? url.protocol.replace(":", "") : "https");
-
+  const host = req.headers.get("host")?.trim() || url.host;
   try {
-    return new URL(`${proto}://${host}`).origin;
+    const actual = new URL(`${url.protocol}//${host}`);
+    if (!["http:", "https:"].includes(actual.protocol) || actual.username || actual.password) throw new Error("invalid origin");
+    return actual.origin;
   } catch {
-    return `${proto}://${host}`;
+    return url.origin;
   }
 }
 

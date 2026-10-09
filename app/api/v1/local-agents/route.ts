@@ -7,12 +7,11 @@ import { listLocalAgents } from "@/lib/agent/local-agent-directory";
 import { endLocalAgentPresence, touchLocalAgentPresence } from "@/lib/agent/local-agent-presence";
 import { listLocalAgentInbox, updateLocalAgentMessageState } from "@/lib/agent/local-agent-mailbox";
 import { flushLocalAgentQueue, replyLocalAgentMessage, sendLocalAgentMessage } from "@/lib/agent/local-agent-messaging";
-import { subscribeLocalAgentMessages } from "@/lib/agent/local-agent-events";
+import { localAgentStream } from "@/lib/agent/local-agent-stream";
 import type { LocalAgentPresenceState } from "@/lib/agent/local-agent-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const SSE_HEARTBEAT_MS = 15_000;
 const MAX_POST_BODY_BYTES = 128 * 1024;
 
 class LocalAgentBodyTooLarge extends Error {}
@@ -37,11 +36,11 @@ async function readBoundedBody(req: Request): Promise<Record<string, unknown>> {
   return value as Record<string, unknown>;
 }
 
-async function ownerPrincipal(): Promise<{ principal: string; actor: string } | null> {
+async function ownerPrincipal(): Promise<{ principal: string; actor: string; session: import("@/lib/auth/session").SessionPayload } | null> {
   const context = await getSessionContext();
   if (context?.role !== "owner") return null;
   const actor = context.session.device_id || "owner";
-  return { principal: `cli:${actor}`, actor };
+  return { principal: `cli:${actor}`, actor, session: context.session };
 }
 
 async function requireCliSession(principal: string, id: string) {
@@ -71,54 +70,7 @@ export async function GET(req: NextRequest) {
     if (url.searchParams.get("stream") === "1") {
       if (!sessionId) return NextResponse.json({ error: "session_required" }, { status: 400 });
       await requireCliSession(owner.principal, sessionId);
-      const encoder = new TextEncoder();
-      let unsubscribe = () => {};
-      let heartbeat: ReturnType<typeof setInterval> | null = null;
-      let closed = false;
-      const stream = new ReadableStream<Uint8Array>({
-        async start(controller) {
-          const send = (event: string, value: unknown) => {
-            if (closed) return;
-            try {
-              controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(value)}\n\n`));
-            } catch {
-              closed = true;
-            }
-          };
-          // Subscribe before replaying the durable backlog so a send racing stream setup
-          // can be duplicated (client dedupes by message id) but can never be missed.
-          unsubscribe = subscribeLocalAgentMessages(sessionId, (message) => send("message", message));
-          const backlog = await listLocalAgentInbox(owner.principal, sessionId, { limit: 200 });
-          const pendingIds = backlog.filter((row) => row.state !== "read").map((row) => row.id);
-          if (pendingIds.length)
-            await updateLocalAgentMessageState(owner.principal, sessionId, pendingIds, "delivered");
-          for (const row of backlog) send("message", { ...row, state: row.state === "read" ? "read" : "delivered" });
-          heartbeat = setInterval(() => {
-            if (!closed) {
-              try { controller.enqueue(encoder.encode(": ping\n\n")); }
-              catch { closed = true; }
-            }
-          }, SSE_HEARTBEAT_MS);
-          req.signal.addEventListener("abort", () => {
-            closed = true;
-            unsubscribe();
-            if (heartbeat) clearInterval(heartbeat);
-          }, { once: true });
-        },
-        cancel() {
-          closed = true;
-          unsubscribe();
-          if (heartbeat) clearInterval(heartbeat);
-        },
-      });
-      return new Response(stream, {
-        headers: {
-          "content-type": "text/event-stream; charset=utf-8",
-          "cache-control": "no-cache, no-transform",
-          "x-accel-buffering": "no",
-          connection: "keep-alive",
-        },
-      });
+      return localAgentStream(owner.principal, sessionId, owner.session, req.signal);
     }
 
     if (url.searchParams.get("inbox") === "1") {

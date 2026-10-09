@@ -4,6 +4,7 @@ import type { FsList } from "@/lib/os-api/types";
 import { HostError } from "./host-error";
 import { isCredentialPath, resolveReadable, resolveRoots } from "./paths";
 import { projectAliasTarget } from "./project-aliases";
+import { descriptorPath, pinDirectory } from "./fs-descriptors";
 
 const MAX_ENTRIES = 10_000, MAX_BYTES = 256 * 1024, TIME_MS = 5_000;
 let active = 0;
@@ -33,21 +34,24 @@ async function bounded<T>(signal: AbortSignal | undefined, run: (charge: (bytes?
 export async function listDir(requested: string, includeHidden = true, signal?: AbortSignal): Promise<FsList> {
   return bounded(signal, async (charge) => {
     charge();
-    const real = await resolveReadable(requested || "~");
-    const entries: FsList["entries"] = [];
-    const dir = await fs.opendir(real);
-    for await (const e of dir) {
-      charge();
-      if ((!includeHidden && e.name.startsWith(".")) || isCredentialPath(path.join(real, e.name))) continue;
-      const entry = { name: e.name, kind: e.isDirectory() || e.isSymbolicLink() ? "dir" as const : "file" as const, size: 0, ext: e.name.includes(".") ? e.name.split(".").pop() : undefined };
-      charge(Buffer.byteLength(JSON.stringify(entry)));
-      if (entries.length >= 1000) throw new HostError("Directory exceeds 1000 entries; choose a narrower directory", 413);
-      entries.push(entry);
-    }
-    entries.sort((a, b) => a.kind !== b.kind ? (a.kind === "dir" ? -1 : 1) : a.name.localeCompare(b.name));
-    const candidate = path.dirname(real);
-    const parent = candidate === real ? null : await resolveReadable(candidate).catch(() => null);
-    return { path: real, entries, roots: resolveRoots(), parent };
+    const held = await pinDirectory(await resolveReadable(requested || "~"), false);
+    try {
+      const real = await descriptorPath(held.handle, false);
+      const entries: FsList["entries"] = [];
+      const dir = await fs.opendir(`/proc/self/fd/${held.handle.fd}`);
+      for await (const e of dir) {
+        charge();
+        if ((!includeHidden && e.name.startsWith(".")) || isCredentialPath(path.join(real, e.name))) continue;
+        const entry = { name: e.name, kind: e.isDirectory() || e.isSymbolicLink() ? "dir" as const : "file" as const, size: 0, ext: e.name.includes(".") ? e.name.split(".").pop() : undefined };
+        charge(Buffer.byteLength(JSON.stringify(entry)));
+        if (entries.length >= 1000) throw new HostError("Directory exceeds 1000 entries; choose a narrower directory", 413);
+        entries.push(entry);
+      }
+      entries.sort((a, b) => a.kind !== b.kind ? (a.kind === "dir" ? -1 : 1) : a.name.localeCompare(b.name));
+      const candidate = path.dirname(real);
+      const parent = candidate === real ? null : await resolveReadable(candidate).catch(() => null);
+      return { path: real, entries, roots: resolveRoots(), parent };
+    } finally { await held.handle.close(); }
   });
 }
 
@@ -71,20 +75,25 @@ export async function searchFs(query: string, opts: { root?: string; max?: numbe
       charge();
       const authorizedPath = await resolveReadable(dirPath).catch(() => null);
       if (!authorizedPath) return;
-      const dir = await fs.opendir(authorizedPath).catch(() => null);
-      if (!dir) return;
-      for await (const e of dir) {
-        charge();
-        if (out.length >= max) return;
-        const hitPath = path.join(authorizedPath, e.name);
-        if (!e.isDirectory() || isCredentialPath(hitPath)) continue;
-        if (e.name.toLowerCase().includes(q)) {
-          const hit = { name: e.name, path: hitPath, kind: "dir" as const };
-          charge(Buffer.byteLength(JSON.stringify(hit)));
-          out.push(hit);
+      const held = await pinDirectory(authorizedPath, false).catch(() => null);
+      if (!held) return;
+      try {
+        const real = await descriptorPath(held.handle, false);
+        const dir = await fs.opendir(`/proc/self/fd/${held.handle.fd}`).catch(() => null);
+        if (!dir) return;
+        for await (const e of dir) {
+          charge();
+          if (out.length >= max) return;
+          const hitPath = path.join(real, e.name);
+          if (!e.isDirectory() || isCredentialPath(hitPath)) continue;
+          if (e.name.toLowerCase().includes(q)) {
+            const hit = { name: e.name, path: hitPath, kind: "dir" as const };
+            charge(Buffer.byteLength(JSON.stringify(hit)));
+            out.push(hit);
+          }
+          if (!SEARCH_SKIP.has(e.name) && !e.name.startsWith(".")) await walk(hitPath, depth + 1);
         }
-        if (!SEARCH_SKIP.has(e.name) && !e.name.startsWith(".")) await walk(hitPath, depth + 1);
-      }
+      } finally { await held.handle.close(); }
     }
     await walk(root, 0);
     return out;

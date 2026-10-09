@@ -7,6 +7,8 @@ import {
   rmSync,
   symlinkSync,
   writeFileSync,
+  promises as fs,
+  readlinkSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -166,6 +168,38 @@ describe("remove", () => {
 });
 
 describe("recursive credential mutation guard", () => {
+  it("copies nested files and symlinks while retaining the symlink target", async () => {
+    useRoots(readRoot, writeRoot);
+    const source = path.join(writeRoot, "copy-source"), dest = path.join(writeRoot, "copy-result");
+    mkdirSync(path.join(source, "nested"), {recursive: true});
+    writeFileSync(path.join(source, "nested", "text.txt"), "payload");
+    symlinkSync("nested/text.txt", path.join(source, "alias"));
+    await copy(source, dest);
+    expect(readFileSync(path.join(dest, "nested", "text.txt"), "utf8")).toBe("payload");
+    expect(readFileSync(path.join(dest, "alias"), "utf8")).toBe("payload");
+    expect(readlinkSync(path.join(dest, "alias"))).toBe(path.join(source, "nested", "text.txt"));
+    await remove(dest);
+    expect(existsSync(dest)).toBe(false);
+    expect(readFileSync(path.join(source, "nested", "text.txt"), "utf8")).toBe("payload");
+  });
+  it("refuses a symlink directory destination without copying into its outside target", async () => {
+    useRoots(readRoot, writeRoot);
+    const source = path.join(writeRoot, "copy-dir"), dest = path.join(writeRoot, "copy-link");
+    mkdirSync(source); writeFileSync(path.join(source, "fresh.txt"), "payload"); symlinkSync(outside, dest);
+    await expect(copy(source, dest)).rejects.toThrow();
+    expect(existsSync(path.join(outside, "fresh.txt"))).toBe(false);
+  });
+  it.each([false, true])("keeps cross-device move source until the copy commits (copy failure=%s)", async (failure) => {
+    useRoots(readRoot, writeRoot);
+    const source = path.join(writeRoot, `cross-src-${failure}.txt`), dest = path.join(writeRoot, `cross-dst-${failure}.txt`);
+    writeFileSync(source, "payload");
+    const rename = vi.spyOn(fs, "rename").mockRejectedValueOnce(Object.assign(new Error("cross-device"), {code: "EXDEV"}));
+    if (failure) rename.mockRejectedValueOnce(Object.assign(new Error("copy failed"), {code: "EACCES"}));
+    try {
+      if (failure) {await expect(move(source, dest)).rejects.toThrow("copy failed"); expect(readFileSync(source, "utf8")).toBe("payload"); expect(existsSync(dest)).toBe(false);}
+      else {await move(source, dest); expect(existsSync(source)).toBe(false); expect(readFileSync(dest, "utf8")).toBe("payload");}
+    } finally {rename.mockRestore();}
+  });
   it("refuses copy, move, and delete when a nested loose credential exists", async () => {
     useRoots(readRoot, writeRoot);
     const source = path.join(writeRoot, "credential-tree");

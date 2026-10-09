@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # mso (Manef Shell OS) installer core — fetched and verified by scripts/install.sh.
-#
 #   curl -fsSL https://raw.githubusercontent.com/rahmanef63/mso/main/scripts/install.sh | bash
 #
 # Idempotent update; preserves .env.local. Fresh interactive installs use /dev/tty.
 set -Eeuo pipefail
-
 CANONICAL_REPO_URL="https://github.com/rahmanef63/mso.git"
 REPO_URL="${MSO_REPO:-$CANONICAL_REPO_URL}"
 DIR="${MSO_DIR:-$HOME/mso}"
@@ -432,18 +430,20 @@ if [ -d "$DIR/.git" ]; then
 else
   if install_repo_is_canonical_url "$REPO_URL"; then REPO_URL="$CANONICAL_REPO_URL"; fi
   info "cloning $REPO_URL → $DIR"
-  install_git_noninteractive git clone --quiet --branch "$REF" "$REPO_URL" "$DIR" 2>/dev/null || install_git_noninteractive git clone --quiet "$REPO_URL" "$DIR"
+  install_git_noninteractive git clone --quiet --no-checkout "$REPO_URL" "$DIR" || die "could not clone repository"
+  install_git_noninteractive git -C "$DIR" fetch --quiet origin "$REF" || die "could not fetch requested ref $REF"
+  target_commit="$(git -C "$DIR" rev-parse --verify 'FETCH_HEAD^{commit}')" || die "could not resolve requested ref $REF"
+  git -C "$DIR" checkout --quiet --detach "$target_commit" || die "could not check out requested ref $REF"
+  [ "$(git -C "$DIR" rev-parse HEAD)" = "$target_commit" ] || die "checkout does not match requested ref $REF"
 fi
 cd "$DIR"
 # ---- post-checkout phases ----
-# Fresh installs have the requested checkout now, so the rest of the installer is
-# split into bounded repo-owned phases without adding bootstrap downloads.
+# Run repo-owned phases only from the verified requested checkout.
 for phase in cli runtime-build service finalize; do
   module="$DIR/scripts/install/$phase.sh"
   [ -f "$module" ] || die "installer phase missing from checkout: $module"
   # shellcheck source=/dev/null
   . "$module"
 done
-
 INSTALL_PHASE=complete
 # MSO_INSTALLER_CORE_EOF

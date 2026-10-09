@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-09
+
+**Fixed**
+
+- `security` close remaining repository scan trust boundaries
+
 ## 2026-10-08
 
 **Fixed**

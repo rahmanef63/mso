@@ -1,9 +1,10 @@
 import { createHash, randomUUID } from "crypto";
-import { promises as fs, constants as fsConstants } from "fs";
+import { promises as fs } from "fs";
 import path from "path";
 import { HostError } from "./host-error";
 import { assertUploadTarget } from "./paths";
 import { resolveUploadDest } from "./fs-upload";
+import { openReadableHandle, pinDirectory } from "./fs-descriptors";
 
 export type UploadConflictPolicy = "error" | "rename" | "replace";
 export type GuardedUploadResult = {
@@ -27,7 +28,7 @@ function safeName(name: string): string {
 async function existingHash(full: string): Promise<string | null> {
   let handle;
   try {
-    handle = await fs.open(full, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await openReadableHandle(full, true);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     if ((error as NodeJS.ErrnoException).code === "ELOOP") throw new HostError("Refusing symlink file");
@@ -87,34 +88,36 @@ export async function uploadOneGuarded(input: {
   conflict?: UploadConflictPolicy; expectedSha256?: string;
 }): Promise<GuardedUploadResult> {
   const destReal = await resolveUploadDest(input.dest), filename = safeName(input.filename);
-  const full = path.join(destReal, filename), sha256 = hash(input.data), policy = input.conflict ?? "error";
-  await assertUploadTarget(full, destReal);
-  await fs.mkdir(path.dirname(full), { recursive: true, mode: 0o700 });
-  await assertUploadTarget(full, destReal);
+  const logicalFull = path.join(destReal, filename), sha256 = hash(input.data), policy = input.conflict ?? "error";
+  await assertUploadTarget(logicalFull, destReal);
+  const parent = await pinDirectory(destReal, true);
+  try {
+    const full = await parent.child(filename);
 
-  let previous = await existingHash(full);
-  if (previous === null) {
-    if (policy === "replace") throw new HostError("replace requires an existing destination and expected_sha256");
-    if (await createExclusive(full, input.data)) return { path: full, filename, status: "created", sha256 };
-    previous = await existingHash(full);
-  }
-  if (previous === sha256) return { path: full, filename, status: "unchanged", sha256, previousSha256: previous };
-  if (policy === "error") throw new HostError("destination already exists with different content; choose rename or guarded replace");
+    let previous = await existingHash(full);
+    if (previous === null) {
+      if (policy === "replace") throw new HostError("replace requires an existing destination and expected_sha256");
+      if (await createExclusive(await parent.child(filename), input.data)) return { path: logicalFull, filename, status: "created", sha256 };
+      previous = await existingHash(full);
+    }
+    if (previous === sha256) return { path: logicalFull, filename, status: "unchanged", sha256, previousSha256: previous };
+    if (policy === "error") throw new HostError("destination already exists with different content; choose rename or guarded replace");
 
-  if (policy === "rename") {
-    const alternate = renamed(filename, sha256), alternateFull = path.join(/*turbopackIgnore: true*/ destReal, alternate);
-    await assertUploadTarget(alternateFull, destReal);
-    const alternateHash = await existingHash(alternateFull);
-    if (alternateHash === sha256) return { path: alternateFull, filename: alternate, status: "unchanged", sha256, previousSha256: alternateHash };
-    if (alternateHash !== null || !(await createExclusive(alternateFull, input.data))) throw new HostError("deterministic renamed destination already exists with different content");
-    return { path: alternateFull, filename: alternate, status: "renamed", sha256, previousSha256: previous ?? undefined };
-  }
+    if (policy === "rename") {
+      const alternate = renamed(filename, sha256), alternateFull = await parent.child(alternate), logicalAlternate = path.join(/* turbopackIgnore: true */ destReal, alternate);
+      await assertUploadTarget(logicalAlternate, destReal);
+      const alternateHash = await existingHash(alternateFull);
+      if (alternateHash === sha256) return { path: logicalAlternate, filename: alternate, status: "unchanged", sha256, previousSha256: alternateHash };
+      if (alternateHash !== null || !(await createExclusive(await parent.child(alternate), input.data))) throw new HostError("deterministic renamed destination already exists with different content");
+      return { path: logicalAlternate, filename: alternate, status: "renamed", sha256, previousSha256: previous ?? undefined };
+    }
 
-  const expected = input.expectedSha256?.toLowerCase();
-  if (!expected || !SHA_RE.test(expected)) throw new HostError("replace requires expected_sha256 from a prior read/export");
-  if (previous !== expected) throw new HostError("destination changed since inspection; refresh its SHA-256 before replacing");
-  const rechecked = await existingHash(full);
-  if (rechecked !== expected) throw new HostError("destination changed during replacement; retry only after a fresh read/export");
-  await replaceAtomic(full, input.data);
-  return { path: full, filename, status: "replaced", sha256, previousSha256: previous ?? undefined };
+    const expected = input.expectedSha256?.toLowerCase();
+    if (!expected || !SHA_RE.test(expected)) throw new HostError("replace requires expected_sha256 from a prior read/export");
+    if (previous !== expected) throw new HostError("destination changed since inspection; refresh its SHA-256 before replacing");
+    const rechecked = await existingHash(full);
+    if (rechecked !== expected) throw new HostError("destination changed during replacement; retry only after a fresh read/export");
+    await replaceAtomic(await parent.child(filename), input.data);
+    return { path: logicalFull, filename, status: "replaced", sha256, previousSha256: previous ?? undefined };
+  } finally { await parent.handle.close(); }
 }

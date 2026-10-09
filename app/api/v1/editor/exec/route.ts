@@ -39,7 +39,7 @@ async function docFromImagePath(path: string, name?: string): Promise<{ doc: Doc
   const info = await statReadable(path);
   const end = Math.min(info.size - 1, 262143);
   const chunks: Buffer[] = [];
-  for await (const c of fileStream(info.path, 0, end)) chunks.push(c as Buffer);
+  for await (const c of fileStream(info.handle, 0, Math.max(0, end))) chunks.push(c as Buffer);
   const { width, height, fallback } = imageSize(Buffer.concat(chunks));
   return { doc: buildDocFromImage(rawUrl(info.path), { name, width, height }), fallback };
 }

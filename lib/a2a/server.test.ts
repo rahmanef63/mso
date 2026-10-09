@@ -1,8 +1,7 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-
 const root = mkdtempSync(path.join(os.tmpdir(), "mso-a2a-server-"));
 process.env.OS_A2A_CREDENTIAL_STORE = path.join(root, "outbound.json");
 process.env.OS_A2A_INBOUND_TOKEN_STORE = path.join(root, "inbound.json");
@@ -10,7 +9,6 @@ process.env.OS_A2A_TASK_STORE = path.join(root, "tasks.json");
 process.env.OS_A2A_INBOUND_ENABLED = "1";
 process.env.OS_PUBLIC_ORIGIN = "https://mso.example.test";
 process.env.NEXT_PUBLIC_OS_DEMO = "0";
-
 const runner = vi.hoisted(() => vi.fn());
 vi.mock("./inbound-agent", () => ({ runInboundA2AAgent: runner }));
 const { createA2AInboundToken } = await import("./credentials");
@@ -19,8 +17,8 @@ const { handleA2ARequest } = await import("./server");
 const { inboundAgentCard } = await import("./inbound-config");
 const capabilities = { list: () => [], invoke: vi.fn(async () => ({ content: [] })) };
 const handle = (req: Request) => handleA2ARequest(req, capabilities);
-
 afterAll(() => rmSync(root, { recursive: true, force: true }));
+afterEach(() => vi.unstubAllEnvs());
 
 const rpc = (token: string | null, body: object) =>
   new Request("https://mso.example.test/a2a/v1", {
@@ -33,6 +31,13 @@ const rpc = (token: string | null, body: object) =>
   });
 
 describe("authenticated inbound A2A server", () => {
+  it.each(["SendMessage", "SendStreamingMessage"])("clamps exec credentials before %s task dispatch", async (method) => {
+    const { token } = await createA2AInboundToken(`clamp-${method}`, "exec");
+    vi.stubEnv("OS_MCP_MAX_SCOPE", "read");
+    runner.mockImplementationOnce(async ({ scope }) => { expect(scope).toBe("read"); return { text: "bounded", rounds: 1, toolCalls: [] }; });
+    const response = await handle(rpc(token, { jsonrpc: "2.0", id: method, method, params: { message: { messageId: method, role: "ROLE_USER", parts: [{ text: "inspect", mediaType: "text/plain" }] } } }));
+    expect(await response.text()).toContain('"mso.scope":"read"');
+  });
   it("advertises a secured v1 JSONRPC Agent Card only on the configured HTTPS origin", () => {
     const card = inboundAgentCard();
     expect(card.supportedInterfaces[0]).toEqual({

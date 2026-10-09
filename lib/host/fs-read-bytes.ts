@@ -1,4 +1,4 @@
-import { promises as fs, constants as fsConstants } from "fs";
+import { openReadableHandle } from "./fs-descriptors";
 import { HostError } from "./host-error";
 import { resolveReadable } from "./paths";
 
@@ -7,7 +7,7 @@ export async function readFileBytes(requested: string, maxBytes = 10 * 1024 * 10
   const p = await resolveReadable(requested);
   let handle;
   try {
-    handle = await fs.open(p, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    handle = await openReadableHandle(p);
     const stat = await handle.stat();
     if (!stat.isFile()) throw new HostError(stat.isDirectory() ? "Is a directory" : "Not a regular file");
     if (!Number.isFinite(maxBytes) || maxBytes < 1 || stat.size > maxBytes) {

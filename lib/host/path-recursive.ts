@@ -3,6 +3,7 @@ import path from "path";
 import { HostError } from "./host-error";
 import { appDir, isAppSecret, isCredentialPath, SENSITIVE_HOME } from "./path-credentials";
 import { homeDir, isUnderRoot } from "./path-roots";
+import { descriptorPath, pinDirectory } from "./fs-descriptors";
 
 /** The app's own secrets sitting UNDER `realBase` — empty when APP_DIR is not a
  *  descendant, or holds no secrets. The per-path gate is exact-or-under, so a
@@ -66,27 +67,30 @@ export async function assertNoCredentialDescendants(
   const rootStat = await fs.lstat(realBase).catch(() => null);
   if (!rootStat?.isDirectory()) return;
 
-  const stack = [realBase];
-  while (stack.length) {
-    const dir = stack.pop()!;
-    let entries: import("fs").Dirent[];
+  async function inspect(dir: string): Promise<void> {
+    const pinned = await pinDirectory(dir, true);
     try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch (error) {
-      throw new HostError(`Refusing recursive mutation: cannot inspect ${path.relative(realBase, dir) || "."}`);
-    }
-    for (const entry of entries) {
-      const child = path.join(dir, entry.name);
-      const credential = isCredentialPath(child);
-      const ignoredAppSecret = options.ignoreAppSecrets === true && isAppSecret(child);
-      if (credential && !ignoredAppSecret) {
-        throw new HostError(
-          `Refusing: this directory contains a credential path (${path.relative(realBase, child)})`,
-        );
+      const real = await descriptorPath(pinned.handle, true);
+      let entries: import("fs").Dirent[];
+      try {
+        entries = await fs.readdir(`/proc/self/fd/${pinned.handle.fd}`, { withFileTypes: true });
+      } catch (error) {
+        throw new HostError(`Refusing recursive mutation: cannot inspect ${path.relative(realBase, dir) || "."}`);
       }
-      if (entry.isDirectory()) stack.push(child);
-    }
+      for (const entry of entries) {
+        const child = path.join(real, entry.name);
+        const credential = isCredentialPath(child);
+        const ignoredAppSecret = options.ignoreAppSecrets === true && isAppSecret(child);
+        if (credential && !ignoredAppSecret) {
+          throw new HostError(
+            `Refusing: this directory contains a credential path (${path.relative(realBase, child)})`,
+          );
+        }
+        if (entry.isDirectory()) await inspect(await pinned.child(entry.name));
+      }
+    } finally { await pinned.handle.close(); }
   }
+  await inspect(realBase);
 }
 
 // The app's own `.env*` needed the narrower fix the ~/ list can't give: on the

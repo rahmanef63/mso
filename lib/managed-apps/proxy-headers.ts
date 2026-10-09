@@ -1,10 +1,8 @@
 // Header plumbing for the managed-app reverse proxy (the [[...path]] route).
 // Lives here so the cookie-isolation rules are unit-testable without Next.
 //
-// Cookie model: every cookie crossing the boundary is namespaced per app AND
-// pinned to that app's proxy path. An upstream (Hermes, OpenClaw) therefore can
-// neither read nor overwrite the mso `session` cookie — which is unprefixed
-// and Path=/ — nor a sibling managed app's cookies.
+// App cookies require HTTPS split origins and the browser-enforced __Host- prefix.
+// A sibling cannot inject a Domain cookie that shadows another app's session.
 
 // `authorization` is deliberately NOT forwarded and `www-authenticate` is
 // deliberately NOT returned: together they turn the proxy into a credential
@@ -60,7 +58,7 @@ const RESPONSE_HEADERS = [
 // hermes.mso.example.com — and Hermes' own cookies are `hermes_session_at` /
 // `_rt` / `_provider` / `_pkce` / `hermes_sso_attempt`, any of which could just as
 // easily have been called `session` (OpenClaw sets none at all today).
-export const cookiePrefix = (id: string): string => `mapp_${id}_`;
+export const cookiePrefix = (id: string): string => `__Host-mapp_${id}_`;
 
 // Where the app is mounted on the COCKPIT origin. Every helper below takes the
 // mount prefix as an optional argument defaulting to this, because on the app's
@@ -72,12 +70,16 @@ export const proxyPrefix = (id: string): string => `/api/v1/managed-apps/${id}/p
 // names. Anything else (`session`, `mso-device`, …) never leaves the host.
 export function upstreamCookieHeader(raw: string | null, prefix: string): string | null {
   if (!raw) return null;
+  if (!prefix.startsWith("__Host-")) return null;
   const out: string[] = [];
+  const names = new Set<string>();
   for (const part of raw.split(";")) {
     const eq = part.indexOf("=");
     if (eq < 1) continue;
     const name = part.slice(0, eq).trim();
     if (!name.startsWith(prefix) || name.length === prefix.length) continue;
+    if (names.has(name)) return null;
+    names.add(name);
     out.push(`${name.slice(prefix.length)}=${part.slice(eq + 1).trim()}`);
   }
   return out.length ? out.join("; ") : null;
@@ -165,11 +167,10 @@ export function readSetCookies(headers: Headers): string[] {
   return single ? [single] : [];
 }
 
-// Upstream → browser: namespace the name, pin Path to this app's proxy prefix,
-// drop Domain. HttpOnly and Max-Age/Expires are kept as the upstream sent them
-// (some dashboards read their own CSRF cookie from JS); SameSite is forced to
-// Lax — the proxy is same-origin with the OS, so the iframe still sends it.
+// Host-only cookies always use Secure and Path=/; insecure/path-mounted cookies
+// fail closed. Preserve HttpOnly/expiry as sent so JS-readable CSRF cookies work.
 export function rewriteSetCookie(value: string, id: string, secure: boolean, prefix = proxyPrefix(id)): string | null {
+  if (!secure || prefix !== "") return null;
   const semi = value.indexOf(";");
   const pair = (semi === -1 ? value : value.slice(0, semi)).trim();
   const eq = pair.indexOf("=");
@@ -178,8 +179,7 @@ export function rewriteSetCookie(value: string, id: string, secure: boolean, pre
     .split(";")
     .map((attr) => attr.trim())
     .filter((attr) => attr && !/^(path|domain|samesite|secure)\b/i.test(attr));
-  attrs.push(`Path=${prefix || "/"}`, "SameSite=Lax");
-  if (secure) attrs.push("Secure");
+  attrs.push("Path=/", "SameSite=Lax", "Secure");
   return [`${cookiePrefix(id)}${pair}`, ...attrs].join("; ");
 }
 

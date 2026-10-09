@@ -99,7 +99,7 @@ describe("the cockpit-origin URL stops answering", () => {
     fetchMock.mockResolvedValueOnce(new Response("ok", { status: 200 }));
     const { GET } = await route();
     await GET(
-      appReq("chat", { headers: { cookie: "session=mso-secret; mapp_hermes_session=upstream-sid" } }),
+      appReq("chat", { headers: { cookie: "session=mso-secret; __Host-mapp_hermes_session=upstream-sid" } }),
       ctx(["chat"]),
     );
     expect((fetchMock.mock.calls[0][1].headers as Headers).get("cookie")).toBe("session=upstream-sid");

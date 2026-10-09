@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   prepare: vi.fn(async () => ({
@@ -24,8 +24,26 @@ const capabilities = {
 };
 
 const { runInboundA2AAgent } = await import("./inbound-agent");
+afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
 describe("inbound A2A model boundary", () => {
+  it("rechecks a lowered deployment ceiling after the model selects an exec tool", async () => {
+    vi.stubEnv("OS_MCP_MAX_SCOPE", "exec");
+    let turn = 0;
+    mocks.stream.mockImplementation(async ({ tools, emit }) => {
+      if (turn++ === 0) {
+        expect(tools.map((tool: { name: string }) => tool.name)).toContain("exec_run");
+        vi.stubEnv("OS_MCP_MAX_SCOPE", "read");
+        emit("tool_use", { id: "denied", name: "exec_run", input: {} });
+      } else {
+        expect(tools.map((tool: { name: string }) => tool.name)).not.toContain("exec_run");
+        emit("delta", "denied safely");
+      }
+    });
+    const result = await runInboundA2AAgent({ prompt: "run", scope: "exec", principal: "a2a:test", taskId: "lowered", signal: new AbortController().signal, capabilities });
+    expect(result.text).toBe("denied safely");
+    expect(mocks.invoke).not.toHaveBeenCalled();
+  });
   it("hides owner memory and higher-scope tools while isolating workflows by task session", async () => {
     let turn = 0;
     mocks.stream.mockImplementation(async ({ tools, system, emit }) => {

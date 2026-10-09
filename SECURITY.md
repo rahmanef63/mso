@@ -82,6 +82,25 @@ and a credential denylist. MSO's own private state, `.env*`, SSH/GPG material an
 sensitive-home paths are hidden/refused unless the supervised sensitive-path escape hatch is
 explicitly enabled.
 
+Linux/WSL file reads validate the opened descriptor; raw downloads stream that same handle.
+Mutations and recursive walks hold directory descriptors, so exchanged ancestor paths cannot
+redirect an authorized operation. Uploads retain their directory handle until commit; ZIP reads
+build a bounded private snapshot before the external archiver runs. Configure resolved absolute
+roots: a root replaced with a symlink does not grant access to its new target. These guards fail
+closed without Linux `/proc` descriptor support; official macOS/Termux installs use a Linux guest.
+
+Workflow graphs recheck the live device before every action. Operator graphs can read and perform
+only reviewed managed-app start/stop/restart/backup actions; generic writes, installation, provider
+configuration and new write capabilities require Owner. The tool directory follows the same policy.
+Inbound A2A clamps token scope to the current deployment ceiling at dispatch, each model round and
+each tool invocation. Local-agent message streams retain the signed session and stop before another
+delivery or within one second while idle after revocation, demotion, logout, expiry or cookie-policy rotation.
+
+Managed-app cookies use host-only `__Host-` names, `Secure` and `Path=/` on HTTPS app origins.
+Legacy and duplicate names are refused, so existing app logins may need to be renewed after an update.
+OAuth discovery ignores forwarded authority, prefers the configured public origin and uses `no-store`.
+Fresh installation fetches and verifies the requested Git ref and fails instead of using the default branch.
+
 `exec.run` / MCP `exec_run` runs as the MSO Linux user. The destructive-command matcher is a
 short accident tripwire, not a sandbox. Interactive Terminal PTYs are even more direct: raw
 keystrokes cannot be reliably parsed into commands, so authentication and PTY session

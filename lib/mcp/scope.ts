@@ -1,7 +1,8 @@
 import { configuredCapabilityCeiling } from "@/lib/capabilities/scope-policy";
 // MCP-specific policy layered on the transport-neutral capability scope.
 export { SCOPES, allows, parseScope, type Scope } from "@/lib/capabilities/scope";
-import { scopeRank, type Scope } from "@/lib/capabilities/scope";
+import { type Scope } from "@/lib/capabilities/scope";
+export { clampScope } from "@/lib/capabilities/scope-policy";
 
 /** OAuth scope strings are cumulative so a standards-compliant host can see that an exec token also satisfies read/write tool schemes. */
 export function oauthScopeString(scope: Scope, offline = false): string {
@@ -17,11 +18,6 @@ export function mcpEnabled(): boolean {
 
 export function maxScope(): Scope {
   return configuredCapabilityCeiling();
-}
-
-export function clampScope(asked: Scope): Scope {
-  const ceiling = maxScope();
-  return scopeRank(asked) > scopeRank(ceiling) ? ceiling : asked;
 }
 
 export function defaultConsentScope(ceiling: Scope): Scope { return ceiling; }

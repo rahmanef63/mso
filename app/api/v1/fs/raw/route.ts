@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const path = new URL(req.url).searchParams.get("path") ?? "";
   if (!path) return NextResponse.json({ error: "path required" }, { status: 400 });
 
-  let info: { path: string; size: number; mime: string };
+  let info: Awaited<ReturnType<typeof statReadable>>;
   try {
     info = await statReadable(path);
   } catch (e) {
@@ -46,12 +46,13 @@ export async function GET(req: Request) {
     if (Number.isNaN(start)) start = 0;
     if (Number.isNaN(end) || end >= info.size) end = info.size - 1;
     if (start > end || start >= info.size) {
+      await info.handle.close();
       return new Response(null, {
         status: 416,
         headers: { "content-range": `bytes */${info.size}` },
       });
     }
-    return new Response(toWeb(fileStream(info.path, start, end)), {
+    return new Response(toWeb(fileStream(info.handle, start, end)), {
       status: 206,
       headers: {
         ...base,
@@ -61,7 +62,7 @@ export async function GET(req: Request) {
     });
   }
 
-  return new Response(toWeb(fileStream(info.path)), {
+  return new Response(toWeb(fileStream(info.handle)), {
     status: 200,
     headers: { ...base, "content-length": String(info.size) },
   });
