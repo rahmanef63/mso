@@ -20,6 +20,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `workflow` pin grant fixture time during revocation checks
 - `security` run app cookie proof in the browser release lane
 
 ## 2026-10-08

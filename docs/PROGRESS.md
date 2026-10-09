@@ -1,3 +1,7 @@
+## 2026-10-09: Keep live-grant revocation tests independent of host load
+
+The release lane rejected an epoch-revocation fixture before its first action: a fresh one-second grant can expire while the shared host is busy. Pin the fixture clock and advance it only for the dedicated expiry case. Every actual revocation, demotion, logout, epoch and expiry assertion remains active; production authorization and release gates are unchanged.
+
 ## 2026-10-09: Separate repository agent progress from portable MSO code
 
 The owner asked for an Obsidian feature whose data reflects repository agents rather than personal starter notes. Agent Vault now provides a lazy native app, owner-only API, CLI and paired read/write MCP/Alfa capabilities over one guarded host implementation. Portable source contains no installation identity or user notes; source selection lives in private environment/browser state and each logical repository gets an independent data directory outside both source checkouts.

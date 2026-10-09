@@ -27,6 +27,9 @@ beforeEach(async () => {
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 afterAll(async () => { delete process.env.OS_DEVICE_STORE; delete process.env.OS_AGENT_SESSIONS_DIR; delete process.env.OS_MCP_STORE; await rm(root, { recursive: true, force: true }); });
 it.each(["revocation", "demotion", "logout", "epoch", "expiry"])("stops browser flow actions after actual device %s", async (reason) => {
+  // Pin grant time: expiry is changed explicitly below, independent of host load.
+  const now = Date.now();
+  vi.spyOn(Date, "now").mockReturnValue(now);
   const policy = await devices.currentSessionPolicy(configuredSessionCookieScope());
   const context = { principal: "cli:" + id, sessionId: "fixture-session", scope: "exec" as const,
     authorizationGrant: { kind: "device" as const, session: { device_id: id, issued_at: Date.now(), expires_at: Date.now() + 1000, cookie_scope: policy.scope, cookie_epoch: policy.epoch } },
