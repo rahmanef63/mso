@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `security` exercise webhook admission with explicit proxy trust
 - `auth` isolate default proxy policy from host configuration
 
 ## 2026-10-09
