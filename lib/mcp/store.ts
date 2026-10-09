@@ -10,7 +10,7 @@ import { detectMcpToolProfile } from "./client-profile";
 import {
   commitMcpStore as write,
   mutateMcpStore as mutate,
-  pruneUnreferencedClients,
+  assertMcpClientCapacity,
   readMcpStore as read,
   sweepMcpStore as sweep,
 } from "./store-state";
@@ -27,7 +27,7 @@ export class OAuthRefreshRateLimit extends Error {}
 export function registerClient(name: string, redirectUris: string[]): Promise<string> {
   return mutate(async () => {
     const store = sweep(await read());
-    pruneUnreferencedClients(store);
+    assertMcpClientCapacity(store);
     const clientId = "mcpc_" + randomUUID().replaceAll("-", "").slice(0, 24);
     const cleanName = name.slice(0, 80) || "MCP Client";
     store.clients[clientId] = {
@@ -42,7 +42,7 @@ export function registerClient(name: string, redirectUris: string[]): Promise<st
 }
 
 export async function getClient(clientId: string): Promise<McpClient | null> {
-  const clients = (await read()).clients;
+  const clients = sweep(await read()).clients;
   return Object.hasOwn(clients, clientId) ? clients[clientId] : null;
 }
 

@@ -18,6 +18,19 @@ afterEach(() => vi.restoreAllMocks());
 
 
 describe("durable MCP credential isolation", () => {
+  it("protects pending consent at capacity and expires only unreferenced registrations", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1_920_000_000_000);
+    const pending = await store.registerClient("pending", ["https://fixture.invalid/callback"]);
+    for (let i = 1; i < 64; i++) await store.registerClient("other", ["https://fixture.invalid/callback"]);
+    await expect(store.registerClient("overflow", ["https://fixture.invalid/callback"])).rejects.toThrow(/registration capacity/);
+    expect(await store.getClient(pending)).toMatchObject({ name: "pending" });
+    await store.storeCode("pending-code", { clientId: pending, redirectUri: "https://fixture.invalid/callback", codeChallenge: "fixture", scope: "read", expiresAt: Date.now() + 7_200_000 });
+    clock.mockReturnValue(1_920_003_600_001);
+    const replacement = await store.registerClient("new", ["https://fixture.invalid/callback"]);
+    expect(await store.getClient(replacement)).not.toBeNull();
+    expect(await store.getClient(pending)).not.toBeNull();
+    expect(await store.consumeCode("pending-code")).toMatchObject({ clientId: pending });
+  });
   it("reads the size-checked descriptor when the store pathname is replaced", async () => {
     const state = await import("./store-state");
     await state.commitMcpStore({ clients: { original: { name: "fixture", redirectUris: [], createdAt: Date.now() } }, codes: {}, tokens: {}, refreshTokens: {}, spentRefreshTokens: {} });

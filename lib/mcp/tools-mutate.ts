@@ -35,7 +35,7 @@ export const MUTATE_TOOLS: McpTool[] = [
     name: "fs_upload_file",
     limit: { key: "fs.upload", max: 20, windowMs: 60_000 },
     audit: { action: "fs.upload" as const, targetArg: "dest" },
-    description: "Import one ChatGPT conversation/generated PNG, WebP, JPEG, JSON or ZIP file through openai/fileParams. MSO validates OAuth-bound temporary URL provenance, type, size and content before writing inside OS_FS_WRITE_ROOTS. Verified ChatGPT callbacks may use rotating Azure file hosts; generic MCP clients require exact allowlisting. Same bytes are idempotent; different existing bytes fail by default. conflict=rename is deterministic; conflict=replace requires expected_sha256.",
+    description: "Import one ChatGPT conversation/generated PNG, WebP, JPEG, JSON or ZIP file through openai/fileParams. MSO validates temporary URL host, type, size and content before writing inside OS_FS_WRITE_ROOTS. All Azure file hosts require exact Owner allowlisting; DCR metadata never grants host trust. Same bytes are idempotent; different existing bytes fail by default. conflict=rename is deterministic; conflict=replace requires expected_sha256.",
     scope: "write",
     annotations: { destructiveHint: true, openWorldHint: true, idempotentHint: true },
     actionContract: { phase: "mutate", target: "artifact-ingress", sourceOfTruth: "provider", validators: ["openai-file-provenance", "content-type", "content-size", "content-structure", "destination-policy"], verify: ["fs_read"], confirmation: "contextual", concurrency: "hash", presentation: "structured" },
@@ -67,7 +67,7 @@ export const MUTATE_TOOLS: McpTool[] = [
       return importOpenAiProvidedFile({
         file: a.file, dest, filename: opt(a, "filename"),
         conflict: opt(a, "conflict") as "error" | "rename" | "replace" | undefined,
-        expectedSha256: opt(a, "expected_sha256"), allowChatGptAzureFamily: context.trustedOpenAiFileParams === true,
+        expectedSha256: opt(a, "expected_sha256"),
       });
     },
   },

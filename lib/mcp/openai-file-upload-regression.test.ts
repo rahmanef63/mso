@@ -39,10 +39,12 @@ describe("ChatGPT transfer regression boundaries", () => {
     await expect(call({ download_url: "https://oaisdmntprseasia.blob.core.windows.net/file.png", mime_type: "image/png" })).rejects.toThrow(/invalid Azure Blob hostname/i);
   });
 
-  it("allows the rotating Azure family only when OAuth provenance marks ChatGPT fileParams", async () => {
+  it("requires exact Azure host configuration regardless of self-declared provider metadata", async () => {
     const file = { download_url: "https://oaisdmntprindiasocentral.blob.core.windows.net/file.png", file_id: "file_test", file_name: "file.png", mime_type: "image/png" };
     await expect(importOpenAiProvidedFile({ file, dest: "/home/example/generated-files" })).rejects.toThrow(/host is not allowed/i);
-    await expect(importOpenAiProvidedFile({ file, dest: "/home/example/generated-files", allowChatGptAzureFamily: true })).resolves.toMatchObject({ mimeType: "image/png" });
+    expect(fetch).not.toHaveBeenCalled();
+    process.env.OS_MCP_OPENAI_FILE_HOSTS = "oaisdmntprindiasocentral.blob.core.windows.net";
+    await expect(importOpenAiProvidedFile({ file, dest: "/home/example/generated-files" })).resolves.toMatchObject({ mimeType: "image/png" });
   });
 
   it("rejects redirects to untrusted hosts", async () => {

@@ -27,7 +27,7 @@ vi.mock("@/lib/host/limits-api", () => ({ rateLimited: mocks.rateLimited, rateLi
 vi.mock("@/lib/mcp/capability-runtime", () => ({ msoCapabilityRuntime: { list: () => [], invoke: vi.fn(async () => ({ content: [] })) } }));
 vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}), MCP_SERVER_VERSION: "1.15.4" }));
-vi.mock("@/lib/mcp/client-profile", () => ({ detectMcpToolProfile: () => "full", isTrustedOpenAiFileParamsClient: () => false }));
+vi.mock("@/lib/mcp/client-profile", () => ({ detectMcpToolProfile: () => "full" }));
 
 vi.mock("@/lib/mcp/tool-contract", () => ({ visibleToolsForProfile: () => [] }));
 vi.mock("@/lib/agent/session-store", () => ({ findOrCreateAgentSessionForConversation: vi.fn() }));

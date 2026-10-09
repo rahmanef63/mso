@@ -22,10 +22,10 @@ afterEach(() => {
 });
 
 describe("clientIp — XFF trusted-proxy hops", () => {
-  it("1 hop (default) → last XFF entry", () => {
+  it("ignores forwarding headers unless proxy trust is explicitly configured", () => {
     expect(
       clientIp(reqWith({ "x-forwarded-for": "1.1.1.1, 2.2.2.2, 3.3.3.3" })),
-    ).toBe("3.3.3.3");
+    ).toBe("unknown");
   });
 
   it("OS_TRUSTED_PROXY_HOPS=2 → second from last", () => {
@@ -42,29 +42,34 @@ describe("clientIp — XFF trusted-proxy hops", () => {
     ).toBe("1.1.1.1");
   });
 
-  it("hops exceed chain length → clamps to leftmost", () => {
+  it("rejects a chain shorter than the configured trusted hops", () => {
     vi.stubEnv("OS_TRUSTED_PROXY_HOPS", "9");
     expect(clientIp(reqWith({ "x-forwarded-for": "1.1.1.1, 2.2.2.2" }))).toBe(
-      "1.1.1.1",
+      "unknown",
     );
   });
 
-  it("invalid env value falls back to 1", () => {
+  it("invalid env value fails closed", () => {
     vi.stubEnv("OS_TRUSTED_PROXY_HOPS", "not-a-number");
     expect(
       clientIp(reqWith({ "x-forwarded-for": "1.1.1.1, 2.2.2.2" })),
-    ).toBe("2.2.2.2");
+    ).toBe("unknown");
   });
 
-  it("no XFF → falls back to x-real-ip then loopback", () => {
-    expect(clientIp(reqWith({ "x-real-ip": "5.5.5.5" }))).toBe("5.5.5.5");
-    expect(clientIp(reqWith({}))).toBe("127.0.0.1");
+  it("does not trust x-real-ip or invent a loopback identity", () => {
+    expect(clientIp(reqWith({ "x-real-ip": "5.5.5.5" }))).toBe("unknown");
+    expect(clientIp(reqWith({}))).toBe("unknown");
   });
 
-  it("ignores empty XFF entries from trailing commas", () => {
+  it("rejects empty, non-IP, fractional or oversized proxy attribution", () => {
+    vi.stubEnv("OS_TRUSTED_PROXY_HOPS", "1");
     expect(clientIp(reqWith({ "x-forwarded-for": "1.1.1.1,," }))).toBe(
-      "1.1.1.1",
+      "unknown",
     );
+    expect(clientIp(reqWith({ "x-forwarded-for": "attacker" }))).toBe("unknown");
+    expect(clientIp(reqWith({ "x-forwarded-for": "1".repeat(4097) }))).toBe("unknown");
+    vi.stubEnv("OS_TRUSTED_PROXY_HOPS", "1.5");
+    expect(clientIp(reqWith({ "x-forwarded-for": "1.1.1.1, 2.2.2.2" }))).toBe("unknown");
   });
 });
 
@@ -83,6 +88,7 @@ describe("login admission budgets", () => {
     vi.stubEnv("OS_SESSION_SECRET", SECRET);
     vi.stubEnv("OS_LOGIN_PASSWORD", PASSWORD);
     vi.stubEnv("NEXT_PUBLIC_OS_DEMO", "0");
+    vi.stubEnv("OS_TRUSTED_PROXY_HOPS", "1");
     vi.doMock("@/lib/auth/device-store", async (orig) => ({
       ...(await orig<Record<string, unknown>>()),
       currentSessionPolicy: async (scope: string) => ({ scope, epoch: "epoch-0000000000000000", changedAt: 1 }),

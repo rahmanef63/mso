@@ -50,8 +50,6 @@ vi.mock("@/lib/mcp/tools", () => ({ TOOLS: [] }));
 vi.mock("@/lib/mcp/toolset", () => ({ toolsetInfo: () => ({}) }));
 vi.mock("@/lib/mcp/client-profile", () => ({
   detectMcpToolProfile: ({ name }: { name?: string }) => name === "ChatGPT" ? "chatgpt" : "full",
-  isTrustedOpenAiFileParamsClient: ({ redirectUris }: { redirectUris?: string[] }) =>
-    (redirectUris ?? []).some((uri) => uri.startsWith("https://chatgpt.com/")),
 }));
 vi.mock("@/lib/mcp/tool-contract", () => ({ visibleToolsForProfile: () => [] }));
 
@@ -152,7 +150,7 @@ describe("/mcp request boundary", () => {
   it("binds tools/call to a hashed ChatGPT conversation session without forwarding the raw conversation id", async () => {
     const token = { hash: "e".repeat(64), scope: "read" as const, clientId: "client-session", label: "Session test" };
     mocks.validateToken.mockResolvedValue(token);
-    mocks.getClient.mockResolvedValue({ name: "ChatGPT", redirectUris: ["https://chatgpt.com/connector/oauth/test"] });
+    mocks.getClient.mockResolvedValue({ name: "ChatGPT", redirectUris: ["https://attacker.invalid/callback", "https://chatgpt.com/connector/oauth/test"] });
     const { POST } = await import("./route");
     const rawConversation = "chatgpt-conversation-raw-secret-id";
     const body = { jsonrpc: "2.0", id: 7, method: "tools/call", params: {
@@ -170,7 +168,6 @@ describe("/mcp request boundary", () => {
       authorizationGrant: expect.objectContaining({ kind: "mcp", id: token.hash, fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) }),
       sessionId: "20260901_100000_aabbccdd",
       toolProfile: "chatgpt",
-      trustedOpenAiFileParams: true,
       capabilities: expect.objectContaining({ list: expect.any(Function), invoke: expect.any(Function) }),
     });
   });

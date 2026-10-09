@@ -87,6 +87,10 @@ export function sweepMcpStore(store: McpStore): McpStore {
     const keys = families.get(token.grantId) ?? []; keys.push(key); families.set(token.grantId, keys);
     if (keys.length > 256) delete store.spentRefreshTokens[keys.shift()!];
   }
+  const referenced = referencedClientIds(store);
+  for (const [id, client] of Object.entries(store.clients)) {
+    if (!referenced.has(id) && client.createdAt + 3_600_000 < now) delete store.clients[id];
+  }
   return store;
 }
 
@@ -99,15 +103,8 @@ function referencedClientIds(store: McpStore): Set<string> {
   ].filter(Boolean));
 }
 
-export function pruneUnreferencedClients(store: McpStore): void {
-  const ids = Object.keys(store.clients);
-  if (ids.length < MAX_CLIENTS) return;
-  const referenced = referencedClientIds(store);
-  const removable = ids
-    .filter((id) => !referenced.has(id))
-    .sort((a, b) => store.clients[a].createdAt - store.clients[b].createdAt);
-  const removeCount = Math.min(removable.length, ids.length - MAX_CLIENTS + 1);
-  for (const id of removable.slice(0, removeCount)) delete store.clients[id];
+export function assertMcpClientCapacity(store: McpStore): void {
+  if (Object.keys(store.clients).length >= MAX_CLIENTS) throw new Error("MCP client registration capacity reached");
 }
 
 export async function commitMcpStore(store: McpStore): Promise<void> {

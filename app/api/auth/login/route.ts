@@ -6,6 +6,8 @@ import { configuredSessionCookieScope, sessionCookieAttrs } from "@/lib/auth/ses
 import { currentSessionPolicy, isApproved, isValidDeviceId, recordPending, touchApproved } from "@/lib/auth/device-store";
 import { audit } from "@/lib/host/audit-api";
 import { IS_DEMO } from "@/lib/demo";
+import { clientIp } from "@/lib/host/request-ip";
+export { clientIp } from "@/lib/host/request-ip";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,31 +27,6 @@ let globalWindowStart = Date.now();
 let globalAttempts = 0;
 
 // Exported for tests — module-private otherwise.
-export function clientIp(req: NextRequest): string {
-  // x-forwarded-for is a comma-separated trail; the leftmost entries are
-  // client-supplied and spoofable. The first hop WE trust is N from the end,
-  // where N = number of reverse proxies in front of this app (Cloudflare →
-  // nginx → app = 2). Default 1 = direct proxy. Direct access with a forged
-  // header still spoofs this, so :4005 must stay firewalled behind the proxy;
-  // the global limiter caps brute force anyway.
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) {
-    const hops = xff
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (hops.length > 0) {
-      const parsed = Number(process.env.OS_TRUSTED_PROXY_HOPS ?? "1");
-      const trustedN = Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
-      // trustedN=1 → last hop (current behavior). trustedN=2 → second from last.
-      // Clamp to the start of the list if N exceeds the chain length.
-      const idx = Math.max(0, hops.length - trustedN);
-      const hop = hops[idx];
-      if (hop) return hop;
-    }
-  }
-  return req.headers.get("x-real-ip") ?? "127.0.0.1";
-}
 
 // Per-IP rejection never charges the global budget. Admission is reserved before
 // body reads/password comparison so distributed requests cannot keep testing guesses.

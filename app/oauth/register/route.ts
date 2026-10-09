@@ -3,7 +3,7 @@ import { registerClient } from "@/lib/mcp/store";
 import { isAllowedRedirect } from "@/lib/mcp/pkce";
 import { mcpEnabled } from "@/lib/mcp/scope";
 import { clientIp } from "@/lib/mcp/origin";
-import { rateLimitedUntrusted } from "@/lib/host/limits-api";
+import { rateLimited, rateLimitedUntrusted } from "@/lib/host/limits-api";
 
 // RFC 7591 Dynamic Client Registration. Open by design and safe to be: a
 // registered client is INERT until the owner approves it on the consent page and
@@ -27,7 +27,7 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
   if (!mcpEnabled()) return new Response("Not Found", { status: 404 });
-  if (rateLimitedUntrusted(`mcp:dcr:${clientIp(req)}`, 10, 3_600_000)) {
+  if (rateLimitedUntrusted(`mcp:dcr:${clientIp(req)}`, 10, 3_600_000) || rateLimited("mcp:dcr:admission", 40, 3_600_000)) {
     return Response.json({ error: "rate_limited" }, { status: 429, headers: { ...DCR_CORS, "Retry-After": "3600" } });
   }
 
@@ -48,7 +48,12 @@ export async function POST(req: Request) {
   if (uris.length > 8) return bad("invalid_client_metadata", "at most 8 redirect_uris");
 
   const name = typeof body.client_name === "string" ? body.client_name : "MCP Client";
-  const clientId = await registerClient(name, uris);
+  let clientId: string;
+  try { clientId = await registerClient(name, uris); }
+  catch (error) {
+    if (error instanceof Error && error.message === "MCP client registration capacity reached") return bad("temporarily_unavailable", "Pending registrations are protected; retry after capacity expires.", 503);
+    throw error;
+  }
   return Response.json(
     {
       client_id: clientId,

@@ -596,11 +596,11 @@ body incrementally with a hard **20 MiB** ceiling even when `Content-Length` is 
 The declared/inferred MIME must be in that five-format matrix; generic octet-stream may be used on
 the wire but cannot bypass the declared matrix. PNG/JPEG/WebP magic bytes, JSON UTF-8 + syntax,
 and ZIP signatures are validated before the normal credential/path jail writes into
-`OS_FS_WRITE_ROOTS`. `*.oaiusercontent.com` is trusted directly. For an OAuth client whose
-registered callback is owned by `chatgpt.com`, the `openai/fileParams` bridge may also follow the
-rotating `oaisdmntpr<region>.blob.core.windows.net` family used by ChatGPT temporary downloads.
-That family exception is never granted from a self-declared client name alone; generic MCP clients
-still need exact Azure hosts in `OS_MCP_OPENAI_FILE_HOSTS`. Raster files must also fully decode through bounded Sharp validation; magic bytes alone are insufficient. ZIP input requires a valid end-of-central-directory structure. The final write uses exclusive temporary files and atomic filesystem operations and never executes transferred bytes. Same bytes are idempotent; different existing bytes fail by default. `conflict=rename` uses a deterministic content-hash filename, while `conflict=replace` requires the current `expected_sha256`, so stale overwrites fail.
+`OS_FS_WRITE_ROOTS`. `*.oaiusercontent.com` is trusted directly. Every Azure hostname,
+including rotating ChatGPT download hosts, requires an exact Owner entry in
+`OS_MCP_OPENAI_FILE_HOSTS`. DCR client names and callbacks are self-declared and never
+confer provider identity or download trust. Each redirect is checked against the same allowlist.
+Raster files must also fully decode through bounded Sharp validation; magic bytes alone are insufficient. ZIP input requires a valid end-of-central-directory structure. The final write uses exclusive temporary files and atomic filesystem operations and never executes transferred bytes. Same bytes are idempotent; different existing bytes fail by default. `conflict=rename` uses a deterministic content-hash filename, while `conflict=replace` requires the current `expected_sha256`, so stale overwrites fail.
 
 **`fs_export_file`** is the read-side counterpart for one original file up to **10 MiB**. It uses
 the same `OS_FS_READ_ROOTS`, realpath and credential denylist as other reads, reads with

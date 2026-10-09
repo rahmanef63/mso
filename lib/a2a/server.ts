@@ -34,7 +34,7 @@ export async function handleA2ARequest(req: Request, capabilities: CapabilityRun
     return a2aJson({ error: "not_found" }, 404);
   if (req.method !== "POST")
     return a2aJson({ error: "method_not_allowed" }, 405, { allow: "POST" });
-  if (rateLimitedUntrusted(`a2a.inbound.ip:${clientIp(req)}`, 120, 60_000))
+  if (rateLimitedUntrusted(`a2a.inbound.ip:${clientIp(req)}`, 120, 60_000) || rateLimited("a2a.inbound.admission", 600, 60_000))
     return a2aJson({ error: "rate_limited" }, 429, { "retry-after": "60" });
   const profile = await authenticateA2ARequest(req);
   if (!profile) return a2aUnauthorized();

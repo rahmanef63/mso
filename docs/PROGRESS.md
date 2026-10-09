@@ -4,6 +4,12 @@ The Vault window previously used a separate Basic login even after the Owner sig
 
 Every app HTTP request requires the current Owner role and durable device/session generation. WebSockets use the existing continuously authorized server relay, so demotion, logout, revocation and expiry stop both directions rather than authorizing only the initial upgrade. App cookies cannot authenticate cockpit APIs, upstream requests strip all MSO credentials, and duplicate hosts/off-box targets fail closed. The derived cookie retains the parent expiry independently of the one-minute ticket. Regression coverage checks purpose/origin separation, expiry, role changes, cookie stripping, proxy routing and production HTTP/socket handoff with synthetic stores. Instance ingress, domain and vault data remain outside source.
 
+## 2026-10-09: Close the three findings from the 0af3e570 cloud scan
+
+Public IP attribution ignores all forwarding headers by default. An explicit trusted proxy hop count selects a validated IP from the right only behind a firewalled origin; invalid or insufficient chains fail closed. Login shares the same helper. Fixed global admission budgets protect inbound A2A authentication and OAuth registration even when source keys rotate or the untrusted limiter pool churns.
+
+Pending OAuth registrations remain intact at the 64-client capacity: excess admission fails rather than evicting consent state. Only unreferenced registrations older than one hour expire; live codes, access and refresh grants retain their clients. DCR metadata never establishes provider identity or file-host trust. All Azure downloads and redirects require an exact Owner allowlist entry, including rotating ChatGPT hosts; direct oaiusercontent downloads remain supported. Independent cloud verification remains required after release.
+
 ## 2026-10-09: Preserve security regressions without synthetic scanner noise
 
 Post-release GitHub checks found two test-only matches. The growing-file regression now changes bytes through the already-open descriptor, preserving the actual-byte limit assertion without introducing a pathname check/reopen race in its fixture. Agent Vault constructs its deterministic redaction fixture from pieces; the original historical Gitleaks fingerprint is narrowly recorded after verifying every reachable commit. No production credential, scanner rule or release gate is excluded.

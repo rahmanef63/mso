@@ -8,14 +8,9 @@ function isChatGptHost(host: string): boolean {
   return host === "chatgpt.com" || host.endsWith(".chatgpt.com");
 }
 
-export function isTrustedOpenAiFileParamsClient(input: { clientId?: string; redirectUris?: string[] }): boolean {
-  const clientHost = hostOf(input.clientId ?? "");
-  const redirectHosts = (input.redirectUris ?? []).map(hostOf);
-  return isChatGptHost(clientHost) || redirectHosts.some(isChatGptHost);
-}
-
 export function detectMcpToolProfile(input: { clientId?: string; name?: string; redirectUris?: string[] }): McpToolProfile {
   const name = (input.name ?? "").toLowerCase();
-  if (name.includes("chatgpt") || name === "openai" || isTrustedOpenAiFileParamsClient(input)) return "chatgpt";
+  // Display/catalog hints never establish provider identity or download authority.
+  if (name.includes("chatgpt") || name === "openai" || isChatGptHost(hostOf(input.clientId ?? "")) || (input.redirectUris ?? []).some(uri => isChatGptHost(hostOf(uri)))) return "chatgpt";
   return "full";
 }

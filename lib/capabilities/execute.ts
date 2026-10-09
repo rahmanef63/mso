@@ -139,7 +139,6 @@ export async function executeCapabilityCall(input: {
       capabilities: context?.capabilities,
       authorizationGrant: context?.authorizationGrant,
       toolProfile: context?.toolProfile,
-      trustedOpenAiFileParams: context?.trustedOpenAiFileParams,
     }));
     const reportedFailure = capabilityReportedFailure(result) || trail?.outcome?.(result)?.ok === false;
     const completedState = reportedFailure ? "failed" : "completed";

@@ -37,7 +37,7 @@ function limit(buckets: Map<string, Bucket>, key: string, max: number, windowMs:
   return false;
 }
 
-// Authenticated/session/bearer/owner-action limits. Never call this with a raw
+// Authenticated/session/bearer/owner-action and fixed global admission limits. Never call this with a raw
 // unauthenticated IP key; use rateLimitedUntrusted for those.
 export function rateLimited(key: string, max: number, windowMs: number): boolean {
   return limit(privilegedBuckets, key, max, windowMs);
