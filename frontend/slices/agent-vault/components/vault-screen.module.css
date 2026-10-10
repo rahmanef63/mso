@@ -1,0 +1,6 @@
+/* Pane width, including small desktop windows; loaded with the native Vault. */
+@container (min-width: 560px) {
+  .navigation { display: flex; width: 16rem; }
+  .reader { display: flex; }
+  .back { display: none; }
+}

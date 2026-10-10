@@ -27,10 +27,10 @@ async function loadGraph(root: string, project: string): Promise<MemoryGraphDocu
   return body as MemoryGraphDocument;
 }
 
-export function MemoryGraphScreen() {
-  const [root, setRoot] = useState(() => stored(ROOT_KEY));
-  const [project, setProject] = useState(() => stored(PROJECT_KEY));
-  const [applied, setApplied] = useState(() => ({ root: stored(ROOT_KEY), project: stored(PROJECT_KEY), nonce: 0 }));
+export function MemoryGraphScreen({ initialRoot, initialProject }: { initialRoot?: string; initialProject?: string } = {}) {
+  const [root, setRoot] = useState(() => initialRoot ?? stored(ROOT_KEY));
+  const [project, setProject] = useState(() => initialProject ?? stored(PROJECT_KEY));
+  const [applied, setApplied] = useState(() => ({ root: initialRoot ?? stored(ROOT_KEY), project: initialProject ?? stored(PROJECT_KEY), nonce: 0 }));
   const [layout, setLayout] = useState<GraphLayoutName>("web");
   const [local, setLocal] = useState(false);
   const [depth, setDepth] = useState(2);

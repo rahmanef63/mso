@@ -24,6 +24,7 @@ for the exact scope, privacy boundaries and remaining limits.
 - **Local** keeps the selected node and its neighbourhood. Hops are 1–4. With nothing selected, the highest-degree node is the centre.
 - **Ghosts**, **Tags**, and **Orphans** toggle those nodes. Group chips hide a color group.
 - Click a node to select it. Click it again, double-click it, or press **Open** to open a note that has a file path in Code.
+- Agent Vault opens Memory with its selected snapshot directory and repository as explicit window context. This does not change the saved default root. Vault backlinks reuse this owner-only projection on demand, without loading the graph renderer in the note reader.
 - Drag the background to pan. Scroll to zoom.
 
 The scan is capped (notes, depth, directories, project records) and may report that it truncated. Excerpts are redacted for obvious secrets. The route is owner-only; Viewer and Operator are refused.

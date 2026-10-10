@@ -48,7 +48,7 @@ export function useEditor() {
           // otherwise a clean/reopened buffer must follow the file, or it shows
           // stale text and a later Save overwrites the newer host file.
           setBuffers((b) => {
-            const hadEdits = path in b && b[path] !== disk[path];
+            const hadEdits = path in b && b[path] !== (disk[path] ?? "");
             return hadEdits ? b : { ...b, [path]: content };
           });
           setDisk((d) => ({ ...d, [path]: content }));
@@ -76,7 +76,9 @@ export function useEditor() {
           // baseline at read time) or absent; otherwise keep the user's edits
           // and just refresh the disk baseline.
           setBuffers((b) => {
-            const hasEdits = path in b && b[path] !== disk[path];
+            // A first-open empty buffer has no disk entry yet. It is clean,
+            // so adopt the host file; preserve actual keystrokes made while reading.
+            const hasEdits = path in b && b[path] !== (disk[path] ?? "");
             return hasEdits ? b : { ...b, [path]: content };
           });
           setDisk((d) => ({ ...d, [path]: content }));
@@ -144,7 +146,7 @@ export function useEditor() {
   );
 
   const value = active != null ? (buffers[active] ?? "") : "";
-  const dirty = active != null && buffers[active] !== disk[active];
+  const dirty = active != null && buffers[active] !== (disk[active] ?? "");
 
   return {
     tabs,

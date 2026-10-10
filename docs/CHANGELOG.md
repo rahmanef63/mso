@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-10-10
 
+**Added**
+
+- `vault` read agent knowledge natively in MSO
+
 **Fixed**
 
 - `mcp` retain scanner limits and document mailbox parity
