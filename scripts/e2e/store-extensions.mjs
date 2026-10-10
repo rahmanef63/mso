@@ -42,7 +42,7 @@ export async function storeExtensionsJourney(page, fixture) {
   const script = path.join(fixture.dir, ".mso-host-mcp/fixture.mjs");
   await writeFile(script, `import readline from 'node:readline';readline.createInterface({input:process.stdin}).on('line',l=>{const m=JSON.parse(l);if(!m.id)return;const result=m.method==='initialize'?{protocolVersion:m.params.protocolVersion,capabilities:{tools:{}},serverInfo:{name:'fixture',version:'1'}}:{tools:[{name:'fixture_read',inputSchema:{type:'object',properties:{}}}]};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`);
   await writeFile(manifest, JSON.stringify({ mcpServers: { fixture: { command: process.execPath, args: [script] } } }));
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.getByRole("tabpanel", { name: "MCP", exact: true }).getByRole("button", { name: "Refresh", exact: true }).click();
   const dynamic = await card(page, "fixture");
   await dynamic.getByRole("button", { name: "Check tools", exact: true }).click();
   await expect(dynamic.getByText("fixture_read", { exact: true })).toBeVisible();

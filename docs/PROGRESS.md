@@ -10,6 +10,8 @@ The personal-note journey also exposed a Code hydration bug: the initial empty b
 
 A follow-up parse experiment found quadratic work on long unfinished bracket sequences. Inline links now stop at nested bracket/parenthesis delimiters, retaining unfinished Markdown as literal text instead of repeatedly scanning the remaining note. Large malformed-note regressions preserve text and keep links inert; the reader remains dependency-free and bounded by the existing note limit.
 
+The release fixture scopes extension refresh to its MCP tab panel: the shell window also exposes a Refresh action, so a page-wide selector was ambiguous. Discovery and its actual file-backed assertions remain mandatory.
+
 ## 2026-10-10: Close the eight findings from the 1acc1424 cloud scan
 
 Candidate indexes use canonical credential guards during walking, seeding, cache reuse and preview reads; version 2 invalidates older caches. Git diffs use NUL-delimited filename metadata and literal pathspecs, omit protected patches/renames and redact recognizable credentials while retaining file statistics and ordinary source.
