@@ -2,11 +2,7 @@ import { listLocalAgents } from "@/lib/agent/local-agent-directory";
 import { organizationLocalAgentPrincipal } from "@/lib/agent/organization-runtime";
 import { updateLocalAgentMessageState } from "@/lib/agent/local-agent-mailbox";
 import { replyLocalAgentMessage, sendLocalAgentMessage, waitForLocalAgentInbox, waitForLocalAgentReply } from "@/lib/agent/local-agent-messaging";
-import {
-  armLocalAgentStandby,
-  ensureLocalAgentStandbyRuntime,
-  stopLocalAgentStandby,
-} from "@/lib/agent/local-agent-standby";
+import { armLocalAgentStandby, ensureLocalAgentStandbyRuntime, stopLocalAgentStandby } from "@/lib/agent/local-agent-standby";
 import { handoffOwnerLocalSession } from "@/lib/a2a/local-session";
 import { type McpRunContext, type McpTool, S, str } from "./tool-kit";
 import { liveCapabilityContext } from "@/lib/capabilities/live-authority";
