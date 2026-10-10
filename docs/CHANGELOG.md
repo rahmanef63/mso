@@ -23,6 +23,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `security` exercise webhook admission with explicit proxy trust
 - `auth` isolate default proxy policy from host configuration
 
+**Other**
+
+- `mcp` keep local agent tools within architecture limit
+
 ## 2026-10-09
 
 **Added**
