@@ -1,3 +1,15 @@
+## 2026-10-10: Close the three Medium findings from the 5a271a38 scan
+
+Project workers now receive the exact initiating authority in both waited and detached execution. The shared runner requires that context, rejects scope escalation and combines parent cancellation with its own timeout. Real credential-store regressions cover child catalog/argument restrictions, token revoke/expiry, deployment changes and detached workers; parent cancellation also reaches model streaming.
+
+Viewer raw-file responses admit four active streams per device and sixteen per process before opening a descriptor. Responses are capped at 32 MiB; larger files require ranges, oversized ranges are clipped and suffix seeking remains available. The Web stream queues at most 64 KiB, closes after ten idle seconds or sixty total seconds, and releases admission on descriptor closure, abort or cancellation.
+
+MCP file resources claim read allowance under the existing cross-process security-store lock before allocating bytes. Failed reads never refund or resurrect claims. Four active reads per principal and eight per process bound allocation; saturation becomes HTTP 429 and the MCP rate-limit error. Ownership, session binding, expiry and integrity checks remain intact. Concurrent and saturation regressions cover exhaustion, cleanup and admission before file loading. Documentation also removes stale shared-cookie guidance and describes the existing audit rotation.
+
+## 2026-10-10: Refresh workflow receipts after fast completion
+
+Required CI exposed a status race: the first disk read captured a running receipt, then completion removed the pending promise while the authority check yielded. Positive-wait status requests now reread the receipt even when no pending promise remains. Wait limits, ownership, original execution authority and final live-authority checks remain intact. A deterministic regression reproduces the stale snapshot and fails before the shared fix; HTTP, MCP, webhook and repeat callers inherit the correction.
+
 ## 2026-10-10: Replace desktop streaming with a native repository knowledge view
 
 The owner found the streamed Obsidian desktop slow and unsuitable for mobile, and requested a KISS implementation built on Organization and Memory. Agent Vault now reads the same separate private Markdown snapshots directly in MSO. Metadata loads first, note bodies load only on selection, and local title/type/source search adds no typing requests. Mobile navigation gives the list and reader their own full pane, with an explicit return action; desktop retains a sidebar. Capture history remains recorded repository evidence rather than live agent/deployment status.

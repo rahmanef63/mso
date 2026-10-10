@@ -271,7 +271,7 @@ default. 9Router can expose `http://<public-ip>:20128` only when the operator ex
 the only browser-facing surface.
 
 Embedded vendor dashboards are optional. A split-origin deployment opts in by setting
-`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN`, giving each embedded
+`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE`, giving each embedded
 dashboard its own hostname while the same MSO process proxies its loopback upstream. There
 is no supported same-origin dashboard mode.
 

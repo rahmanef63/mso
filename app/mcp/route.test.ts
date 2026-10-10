@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   validateToken: vi.fn(),
   touchToken: vi.fn(async () => {}),
   getClient: vi.fn(),
-  dispatch: vi.fn(async () => ({ jsonrpc: "2.0", id: 1, result: {} })),
+  dispatch: vi.fn(async (): Promise<Record<string, unknown>> => ({ jsonrpc: "2.0", id: 1, result: {} })),
   clampScope: vi.fn((scope: "read" | "write" | "exec") => scope),
   rateLimited: vi.fn(() => false),
   rateLimitedUntrusted: vi.fn(() => false),
@@ -68,6 +68,14 @@ function request(body: BodyInit, headers: Record<string, string> = {}) {
 }
 
 describe("/mcp request boundary", () => {
+  it("returns HTTP 429 when file resource admission is saturated", async () => {
+    mocks.validateToken.mockResolvedValue({ hash: "bounded", scope: "read", label: "read fixture" });
+    mocks.dispatch.mockResolvedValueOnce({ jsonrpc: "2.0", id: 1, error: { code: -32002, message: "file reads busy" } });
+    const { POST } = await import("./route");
+    const response = await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "resources/read", params: { uri: "mso-file:///fixture" } })));
+    expect(response.status).toBe(429);
+    expect((await response.json()).error.message).toBe("file reads busy");
+  });
   beforeEach(() => {
     mocks.validateToken.mockReset();
     mocks.touchToken.mockClear();

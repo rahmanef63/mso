@@ -10,16 +10,29 @@ vi.mock("@/lib/auth/device-store", () => ({ getApprovedDevice: async () => role 
 import { createWorkflowGraph, workflowGraphOwner } from "./graph-store";
 import { requestWorkflowGraphStop, startWorkflowGraph, workflowGraphRunStatus } from "./graph-engine";
 import { listWorkflowGraphRuns, readWorkflowGraphRun, writeWorkflowGraphRun } from "./graph-run-store";
+import * as runStore from "./graph-run-store";
 import { requireWorkflowReceiptAuthority } from "./graph-authority";
 const principal = "web:11223344556677889900aabbccddeeff";
 const context = { principal, actor: principal, sessionId: "fixture", scope: "exec" as const };
 let dir: string;
 beforeEach(async () => { dir = await mkdtemp(path.join(os.tmpdir(), "mso-receipt-boundary-")); role = "owner"; vi.stubEnv("OS_AGENT_SESSIONS_DIR", dir); vi.stubEnv("OS_MCP_MAX_SCOPE", "exec"); });
-afterEach(async () => { vi.unstubAllEnvs(); await rm(dir, { recursive: true, force: true }); });
+afterEach(async () => { vi.restoreAllMocks(); vi.unstubAllEnvs(); await rm(dir, { recursive: true, force: true }); });
 async function graph(name: string) {
   return createWorkflowGraph(principal, { name, description: "", status: "draft", inputs: {}, metadata: {}, nodes: [{ id: "start", name: "Start", type: "manual", position: { x: 0, y: 0 }, config: {} }, { id: "out", name: "Result", type: "output", position: { x: 100, y: 0 }, config: { value: "fixture-private-output" } }], edges: [{ id: "edge", source: "start", target: "out" }] });
 }
 describe("workflow receipt identity and creation authority", () => {
+  it("refreshes a running snapshot after its execution has already finished", async () => {
+    const started = await startWorkflowGraph(await graph("Fast completion"), {}, "fast-key", context, () => undefined);
+    const runtime = globalThis as typeof globalThis & { msoGraphPending?: Map<string, Promise<void>> };
+    await runtime.msoGraphPending?.get(started.id);
+    const completed = (await readWorkflowGraphRun(workflowGraphOwner(principal), started.id))!;
+    expect(completed.state).toBe("completed");
+    expect(runtime.msoGraphPending?.has(started.id)).toBe(false);
+    // A file read can capture the running receipt just before authority checking yields.
+    const read = vi.spyOn(runStore, "readWorkflowGraphRun").mockResolvedValueOnce({ ...completed, state: "running" });
+    expect((await workflowGraphRunStatus(principal, started.id, 5000)).state).toBe("completed");
+    expect(read).toHaveBeenCalledTimes(2);
+  });
   it("rechecks authority after a waited execution finishes", async () => {
     let release!: () => void;
     const pending = new Promise<void>(resolve => { release = resolve; });

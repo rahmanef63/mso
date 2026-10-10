@@ -62,7 +62,7 @@ export async function runSessionSubagent(input: {
   timeoutMs?: number;
   explicitContext?: string;
   capabilities: CapabilityRuntime;
-  authority?: CapabilityRunContext;
+  authority: CapabilityRunContext;
 }) {
   const parent = await getAgentSession(input.principal, input.parentSessionId);
   if (!parent) throw new Error("parent MSO Agent session not found");
@@ -71,16 +71,19 @@ export async function runSessionSubagent(input: {
   if (Buffer.byteLength(objective, "utf8") > 24 * 1024) throw new Error("subagent objective must be 24 KiB or smaller");
   const name = String(input.name || "worker").trim().replace(/[\r\n\t]+/g, " ").slice(0, 60) || "worker";
   const maxScope = parseScope(input.maxScope || "read");
+  if (!allows(input.authority.scope, maxScope)) throw new Error("subagent scope exceeds initiating authority");
   const maxTurns = Math.max(1, Math.min(maxTurnsLimit(), Math.trunc(input.maxTurns || DEFAULT_TURNS)));
   const timeoutMs = Math.max(1_000, Math.min(MAX_TIMEOUT_MS, Math.trunc(input.timeoutMs || DEFAULT_TIMEOUT_MS)));
   const subagentId = `subagent_${randomUUID()}`;
-  const authority = { ...input.authority, principal: input.authority?.principal ?? input.principal, scope: maxScope, capabilities: input.capabilities };
+  const authority = { ...input.authority, principal: input.authority.principal ?? input.principal, scope: maxScope, capabilities: input.capabilities };
   const toolDefs = (context: CapabilityRunContext) => input.capabilities.list(context.scope, context).filter((tool) => allows(context.scope, tool.scope) && allowedTool(tool.name) && (!context.allowedTools || context.allowedTools.includes(tool.name)));
   const prepared = await prepareSelectedModel();
   const messages: OaMsg[] = [{ role: "user", text: objective }];
   const toolCalls: Array<{ name: string; ok: boolean }> = [];
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new Error("subagent timeout")), timeoutMs);
+  const signal = AbortSignal.any([controller.signal, ...(authority.signal ? [authority.signal] : [])]);
+  authority.signal = signal;
   let finalText = "";
   try {
     for (let round = 1; round <= maxTurns; round += 1) {
@@ -91,7 +94,7 @@ export async function runSessionSubagent(input: {
       await streamPreparedSelectedModel({
         prepared, messages, tools,
         system: systemPrompt({ name, objective, cwd: parent.cwd, maxScope, explicitContext: input.explicitContext }),
-        signal: controller.signal,
+        signal,
         emit(event, data) {
           if (event === "delta") text += String(data ?? "");
           else if (event === "tool_use") uses.push(data as OaToolUse);

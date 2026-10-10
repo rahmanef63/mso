@@ -5,14 +5,19 @@ import path from "node:path";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 const stream = vi.hoisted(() => vi.fn());
 vi.mock("./session-store", () => ({ getAgentSession: async () => ({ id: "parent", cwd: "/fixture" }) }));
+vi.mock("@/lib/mcp/tools-project-shared", () => ({ selectedProject: async () => ({ id: "fixture", name: "Fixture", path: "/fixture" }) }));
+vi.mock("@/lib/mcp/workflow-workspace-guard", () => ({ requireWorkflowProjectTarget: async () => undefined }));
 vi.mock("@/lib/ai/selected-model-stream", () => ({ prepareSelectedModel: async () => ({}), streamPreparedSelectedModel: stream }));
 const root = await mkdtemp(path.join(os.tmpdir(), "mso-worker-grant-"));
 process.env.OS_MCP_STORE = path.join(root, "mcp.json");
+process.env.OS_PROJECT_AGENT_TASKS_DIR = path.join(root, "tasks");
 const store = await import("@/lib/mcp/store");
 const state = await import("@/lib/mcp/store-state");
 const { mcpAuthorizationGrant, authorizeDurableGrant } = await import("@/lib/mcp/durable-grant");
 const { runSessionSubagent } = await import("./subagent-runner");
 const { runInboundA2AAgent } = await import("@/lib/a2a/inbound-agent");
+const { PROJECT_RUNTIME_TOOLS } = await import("@/lib/mcp/tools-project-runtime");
+const { getProjectAgentTask } = await import("./project-agent-task-store");
 const invoke = vi.fn(async () => ({ content: [{ type: "text" as const, text: "ok" }] }));
 const capabilities: CapabilityRuntime = { authorize: authorizeDurableGrant, invoke, list: () => [
   { name: "project_get", scope: "read", description: "read", inputSchema: { type: "object", properties: {} } },
@@ -20,7 +25,7 @@ const capabilities: CapabilityRuntime = { authorize: authorizeDurableGrant, invo
 ] };
 beforeEach(() => { stream.mockReset(); invoke.mockClear(); vi.stubEnv("OS_MCP_MAX_SCOPE", "exec"); });
 afterEach(() => vi.unstubAllEnvs());
-afterAll(async () => { delete process.env.OS_MCP_STORE; await rm(root, { recursive: true, force: true }); });
+afterAll(async () => { delete process.env.OS_MCP_STORE; delete process.env.OS_PROJECT_AGENT_TASKS_DIR; await rm(root, { recursive: true, force: true }); });
 async function authority() {
   await store.storeToken("worker", { label: "fixture", clientId: "worker", scope: "exec", allowedTools: ["project_get"], toolArgumentConstraints: { project_get: { project: ["approved"] } } });
   const token = (await store.validateToken("worker"))!;
@@ -29,6 +34,15 @@ async function authority() {
 const workers = {
   subagent: async (context: Awaited<ReturnType<typeof authority>>) => runSessionSubagent({ principal: context.principal, parentSessionId: "parent", objective: "inspect", maxScope: "exec", capabilities, authority: context }),
   local: async (context: Awaited<ReturnType<typeof authority>>) => runInboundA2AAgent({ prompt: "inspect", principal: "a2a:local:target", scope: "exec", taskId: "task", signal: new AbortController().signal, capabilities, executionContext: { authority: context } }),
+  ...Object.fromEntries([true, false].map(wait => [`project wait=${wait}`, async (context: Awaited<ReturnType<typeof authority>>) => {
+    const output = await PROJECT_RUNTIME_TOOLS.find(tool => tool.name === "project_agent_run")!.run(
+      { project: "fixture", message: "inspect", max_scope: "exec", wait }, { ...context, sessionId: "parent" },
+    ) as { message_id: string };
+    let task = await getProjectAgentTask(context.principal, output.message_id);
+    await vi.waitFor(async () => { task = await getProjectAgentTask(context.principal, output.message_id); expect(task?.status).not.toBe("in_progress"); });
+    if (task?.status === "failed") throw new Error(task.error);
+    return task;
+  }])),
 };
 describe.each(Object.entries(workers))("%s live initiating authority", (_name, run) => {
   it("intersects the catalog and preserves the exact grant and argument restrictions", async () => {

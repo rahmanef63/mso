@@ -136,7 +136,8 @@ export async function POST(req: Request) {
     if (isWait && !await liveAuthorization().then(()=>true,()=>false)) return unauthorized("invalid, revoked or expired MCP token");
     const result = await dispatch(rpc, effectiveScope, actor, {...agentContext,signal:wait?.signal ?? req.signal});
     if (isWait && !await liveAuthorization().then(()=>true,()=>false)) return unauthorized("invalid, revoked or expired MCP token");
-    return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION, rpc.method) : result, { status: wire.modern && (result.error as { code?: number } | undefined)?.code === -32601 ? 404 : 200, headers });
+    const code = (result.error as { code?: number } | undefined)?.code;
+    return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION, rpc.method) : result, { status: code === RATE_LIMITED ? 429 : wire.modern && code === -32601 ? 404 : 200, headers });
   } finally {wait?.release();}
 }
 

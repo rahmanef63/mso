@@ -5,6 +5,7 @@ import { MCP_APP_MIME_TYPE, MCP_UI_EXTENSION, MCP_UI_EXTENSION_CAPABILITY, listU
 import { MCP_SKILLS_EXTENSION, getMcpSkill, listMcpSkills, readMcpSkillResource } from "./skills-extension";
 import { dispatchToolCall } from "./dispatch-tools";
 import { readMcpFileResource } from "./file-transfer-resource";
+import { ReadBusyError } from "@/lib/read-admission";
 import { toolDescriptor, visibleToolsForProfile, type McpToolProfile } from "./tool-contract";
 import { MCP_PROTOCOL_LATEST, MCP_PROTOCOLS, negotiateMcpProtocol } from "./protocol";
 import { mcpInstructions } from "./instructions";
@@ -129,7 +130,7 @@ export async function dispatch(req: RpcRequest, scope: Scope, actor?: string, ag
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         activityFinish(activity, "resources.read", scope, actor, "failed", uri, message);
-        return rpcFail(id, -32602, message);
+        return rpcFail(id, error instanceof ReadBusyError ? RATE_LIMITED : -32602, message);
       }
       try {
         const skillResource = await readMcpSkillResource(uri);

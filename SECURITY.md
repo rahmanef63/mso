@@ -194,8 +194,8 @@ Vendor dashboards require `allow-same-origin` to function. Running that JavaScri
 cockpit origin would give it the owner's browser realm/session. MSO therefore has no
 supported same-origin dashboard mode.
 
-The safe default is **no embedded vendor dashboard**. To embed dashboards, set both
-`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and `OS_SESSION_COOKIE_DOMAIN` and give each app a
+The safe default is **no embedded vendor dashboard**. To embed dashboards, set
+`NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE` and give each app a
 separate hostname, for example:
 
 ```text
@@ -236,6 +236,11 @@ app identity, state path and symlink collisions before writing, then creates an 
 
 ## In scope
 
+Authenticated raw-file responses allow four concurrent streams per device and sixteen
+per process. Each response is capped at 32 MiB; larger files require bounded byte ranges.
+Streams close after ten idle seconds or sixty total seconds, and cancellation closes
+the pinned descriptor. Saturation returns HTTP 429 before opening the file.
+
 - auth/session/device-approval or role-escalation bypass;
 - practical login rate-limit defeat;
 - filesystem-jail or credential-denylist escape;
@@ -268,6 +273,6 @@ app identity, state path and symlink collisions before writing, then creates an 
 - rotate provider credentials from Settings → AI or the corresponding environment source;
 - rotate managed-app credentials if a state snapshot containing them was exposed.
 
-`~/.mso/audit.log` is append-oriented local forensic data and can grow. Use normal host log
-retention/rotation and inspect it before sharing because paths and command context can be
+`~/.mso/audit.log` is append-oriented local forensic data, rotated at 8 MiB. Inspect it
+before sharing because paths and command context can be
 sensitive.

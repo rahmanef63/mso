@@ -2,12 +2,15 @@ import { createHash, randomBytes } from "crypto";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
+import { withSecurityStoreLock } from "@/lib/security-store-lock";
+import { readAdmission } from "@/lib/read-admission";
 
 const VERSION = 1 as const;
 const MAX_BYTES = 10 * 1024 * 1024;
 const DEFAULT_TTL_MS = 15 * 60_000;
 const DEFAULT_READS = 5;
 const ID_RE = /^[a-f0-9]{48}$/;
+const admitRead = readAdmission(4, 8);
 
 type Entry = {
   version: typeof VERSION; id: string; file: string; filename: string; mimeType: string;
@@ -85,26 +88,32 @@ export async function readMcpFileResource(uri: string, principal?: string, sessi
   const id = idFromUri(uri);
   if (!id) return null;
   if (!principal || !sessionId) throw new Error("authenticated MCP principal and session required for file resource");
-  let entry: Entry;
-  try { entry = await readEntry(id); } catch { throw new Error("unknown or expired file resource"); }
-  if (entry.ownerHash !== ownerHash(principal, sessionId)) throw new Error("unknown or expired file resource");
-  if (entry.expiresAt <= Date.now() || entry.readsLeft <= 0) {
-    await remove(id).catch(() => undefined);
-    throw new Error("unknown or expired file resource");
-  }
-  let data: Buffer;
-  try { data = await fs.readFile(dataPath(id)); } catch {
-    await remove(id).catch(() => undefined);
-    throw new Error("unknown or expired file resource");
-  }
-  const actual = createHash("sha256").update(data).digest("hex");
-  if (data.length !== entry.bytes || actual !== entry.sha256) {
-    await remove(id).catch(() => undefined);
-    throw new Error("file resource integrity check failed");
-  }
-  entry.readsLeft -= 1;
-  if (entry.readsLeft <= 0) await remove(id);
-  else await writeEntry(entry);
-  const { ownerHash: _owner, file: _file, version: _version, ...safe } = entry;
-  return { ...safe, uri: uriOf(id), data };
+  const release = admitRead(principal);
+  try {
+    return await withSecurityStoreLock(metaPath(id), async () => {
+      let entry: Entry;
+      try { entry = await readEntry(id); } catch { throw new Error("unknown or expired file resource"); }
+      if (entry.ownerHash !== ownerHash(principal, sessionId)) throw new Error("unknown or expired file resource");
+      if (entry.expiresAt <= Date.now() || entry.readsLeft <= 0) {
+        await remove(id).catch(() => undefined);
+        throw new Error("unknown or expired file resource");
+      }
+      // Claim before allocating bytes; a failed read consumes the claim and never resurrects it.
+      entry.readsLeft -= 1;
+      await writeEntry(entry);
+      let data: Buffer;
+      try { data = await fs.readFile(dataPath(id)); } catch {
+        await remove(id).catch(() => undefined);
+        throw new Error("unknown or expired file resource");
+      }
+      const actual = createHash("sha256").update(data).digest("hex");
+      if (data.length !== entry.bytes || actual !== entry.sha256) {
+        await remove(id).catch(() => undefined);
+        throw new Error("file resource integrity check failed");
+      }
+      if (entry.readsLeft <= 0) await remove(id);
+      const { ownerHash: _owner, file: _file, version: _version, ...safe } = entry;
+      return { ...safe, uri: uriOf(id), data };
+    });
+  } finally { release(); }
 }

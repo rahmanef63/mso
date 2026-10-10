@@ -98,7 +98,7 @@ export const PROJECT_RUNTIME_TOOLS: McpTool[] = [
             objective: `${mode}\nSelected project: ${project.path}\nUser task: ${message}`, maxScope: requested,
             maxTurns: typeof a.max_turns === "number" ? a.max_turns : undefined, timeoutMs: typeof a.timeout_ms === "number" ? a.timeout_ms : undefined,
             explicitContext: `Project id=${project.id}; path=${project.path}. Stay focused on this project.`,
-            capabilities,
+            capabilities, authority: context,
           });
           return updateProjectAgentTask(context.principal!, task.id, {
             status: result.status,

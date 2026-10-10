@@ -26,6 +26,19 @@ const { runSessionSubagent } = await import("./subagent-runner");
 
 describe("same-session subagent runner", () => {
   beforeEach(() => { stream.mockReset(); dispatch.mockReset(); });
+  it("cancels model streaming when the initiating task signal is aborted", async () => {
+    const controller = new AbortController();
+    stream.mockImplementationOnce(async ({ signal }) => {
+      expect(signal.aborted).toBe(false);
+      controller.abort(new Error("parent task revoked"));
+      expect(signal.aborted).toBe(true);
+      throw signal.reason;
+    });
+    await expect(runSessionSubagent({ principal: "mcp-client:x", parentSessionId: "session-a", objective: "inspect", capabilities,
+      authority: { principal: "mcp-client:x", scope: "read", signal: controller.signal },
+    })).rejects.toThrow(/revoked/);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
   it.each([null, { role: "operator" }])("stops after original Owner authority changes during a model round: %j", async changed => {
     device.mockResolvedValue({ role: "owner" });
     stream.mockImplementationOnce(async ({ emit }) => {
@@ -45,7 +58,7 @@ describe("same-session subagent runner", () => {
       opts.emit("tool_use", { id: "tool-1", name: "fs_read", input: {} });
     }).mockImplementationOnce(async ({ emit }) => emit("delta", "review complete"));
     dispatch.mockResolvedValue({ content: [{ type: "text", text: "file data" }] });
-    const result = await runSessionSubagent({ principal: "mcp-client:x", parentSessionId: "session-a", objective: "review auth", capabilities });
+    const result = await runSessionSubagent({ principal: "mcp-client:x", parentSessionId: "session-a", objective: "review auth", capabilities, authority: { principal: "mcp-client:x", scope: "read" } });
     expect(seenTools).toEqual(["fs_read"]);
     expect(result).toMatchObject({ status: "completed", text: "review complete", rounds: 2, maxScope: "read" });
     expect(result.toolCalls).toEqual([{ name: "fs_read", ok: true }]);
@@ -58,7 +71,7 @@ describe("same-session subagent runner", () => {
   it("never exposes local-agent or recursive subagent tools even with exec scope", async () => {
     let names: string[] = [];
     stream.mockImplementationOnce(async ({ tools, emit }) => { names = tools.map((tool: { name: string }) => tool.name); emit("delta", "done"); });
-    const result = await runSessionSubagent({ principal: "mcp-client:x", parentSessionId: "session-a", objective: "inspect", maxScope: "exec", capabilities });
+    const result = await runSessionSubagent({ principal: "mcp-client:x", parentSessionId: "session-a", objective: "inspect", maxScope: "exec", capabilities, authority: { principal: "mcp-client:x", scope: "exec" } });
     expect(names).toContain("fs_read");
     expect(names).toContain("fs_write");
     expect(names).not.toContain("local_agent_message_send");
