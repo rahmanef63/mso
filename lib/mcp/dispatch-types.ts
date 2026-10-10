@@ -21,6 +21,8 @@ export interface RpcRequest {
 }
 
 export interface McpAgentContext {
+  signal?:AbortSignal;
+  liveAuthorization?:()=>Promise<void>;
   tenantContext?: TenantContext;
   principal?: string;
   authorizationGrant?: AuthorizationGrant;

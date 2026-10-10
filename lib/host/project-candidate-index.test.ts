@@ -79,4 +79,23 @@ describe("project candidate index", () => {
     expect(JSON.stringify(reused)).not.toContain("workflow-extra.ts");
     expect(JSON.stringify(reused)).not.toContain("SECRET=");
   });
+
+  it("excludes canonical credential paths from fresh, cached and seeded searches", async () => {
+    const project = await resetProject();
+    const protectedPaths = [".mcp.json", ".netrc", ".mcp.json.backup.tmp", "nested/.netrc.old", "nested/.env.local", "nested/id_ed25519", "nested/key.pem"];
+    for (const file of protectedPaths) {
+      await fs.mkdir(path.dirname(path.join(project,file)), {recursive:true});
+      await fs.writeFile(path.join(project,file), "needle private-fixture-value\n");
+    }
+    await fs.writeFile(path.join(project,"needle.txt"), "needle public text\n");
+    for (const reuseOnly of [false,true]) {
+      const result = await searchProjectCandidateIndex({projectPath:project,query:"needle .mcp.json .netrc",revision:"protected",seedPaths:protectedPaths.concat("needle.txt"),reuseOnly,limit:40});
+      expect(JSON.stringify(result)).not.toContain("private-fixture-value");
+      expect(result.candidates.map(row=>row.path)).not.toEqual(expect.arrayContaining(protectedPaths));
+      expect(result.matches).toContainEqual({path:"needle.txt",line:1,preview:"needle public text"});
+    }
+    const cached = await searchProjectCandidateIndex({projectPath:project,query:".mcp.json needle",revision:"protected",limit:40});
+    expect(cached.rebuilt).toBe(false);
+    expect(cached.candidates.some(row=>protectedPaths.includes(row.path))).toBe(false);
+  });
 });

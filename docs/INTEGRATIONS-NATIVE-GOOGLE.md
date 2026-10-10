@@ -4,6 +4,8 @@ MSO owns the provider connection, consent lifecycle and bounded API dispatch. Co
 
 ## One identity model
 
+Pending consent retains the initiating session's issue time and expiry. The callback checks the current device approval, role, cookie epoch and logout boundary before exchanging the code and again before saving tokens. Logout or reapproval invalidates unfinished consent; restart authorization from the current session. Older pending records without an issue time fail closed.
+
 Credential owner → provider → named connection → source/authentication stays the existing MSO Integrations model. App configuration and a user's authorization are different records:
 
 - `google-oauth-app` / direct / `oauth-app`: the installation's Google Web application client ID and secret, entered only through the existing private setup form. Saving validates configuration format, not account access.

@@ -26,6 +26,10 @@ demo mode also forces MCP off. Existing installs keep their current `.env.local`
 
 ## Settings navigation
 
+`agent_session_open` requires write scope because it can create, rename and relocate a durable session. Read tokens use their automatically conversation-bound session and `agent_session_current`. `local_agent_inbox` never acknowledges messages; its legacy `acknowledge:true` argument is rejected. Use write-scoped `local_agent_inbox_acknowledge` with exact message IDs. These mailbox/session operations are MCP-only conversation capabilities, not host file APIs. Refresh cached client actions after a toolset signature change; existing tokens retain their original scope.
+
+Foreground inbox/reply waits recheck the live bearer before reading and returning private data, and close on revocation, expiry or disconnect. Candidate previews apply the same credential-path policy as file reads, including cached/seeded entries. Project diffs keep per-file statistics but omit credential patches (including protected renames) and scrub recognizable secret values in ordinary source.
+
 Settings → MCP separates **Access MSO** (external clients → MSO), **MSO Access** (host connections plus exact-project plugin installation), and **Sessions** (activity and handover). Under MSO Access, **Project plugins** lists SI-Coder and Batonly as available catalog entries. They are not installed into a fresh project, are never inherited from a parent/sibling project, and require an explicit project-scoped install. Registry declarations alone do not install code or configure credentials.
 
 Credential-dependent work follows one rule: **inspect MSO Integrations first**. Resolve the exact project/context → credential owner → provider → named connection before asking for setup. Reuse an existing explicit connection when it matches; refuse ambiguity instead of guessing. Secret values enter only private Integrations setup/export surfaces, never ordinary chat or MCP tool arguments.

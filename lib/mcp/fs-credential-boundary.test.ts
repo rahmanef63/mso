@@ -4,21 +4,36 @@ import os from "node:os";
 import path from "node:path";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/demo", () => ({ IS_DEMO: false }));
-vi.mock("@/lib/auth/require-session", () => ({ requireSession: async (role: string) => role === "viewer" }));
+vi.mock("@/lib/auth/require-session", () => ({ requireSession: async (role: string) => role === "viewer", getSessionContext: async () => ({ role: "viewer", session: { device_id: "candidate-viewer" } }) }));
 import { GET } from "@/app/api/v1/fs/read/route";
 import { READ_TOOLS } from "./tools-read";
 import { publicProjectMcpServers, readProjectMcpServers } from "@/lib/host/project-mcp-config";
 import { listDir } from "@/lib/host/fs-enumeration";
+import { GET as candidateGet } from "@/app/api/v1/projects/candidates/route";
+import { DISCOVERY_TOOLS } from "./tools-discovery";
 let home: string;
 beforeEach(async () => {
   home = await mkdtemp(path.join(os.tmpdir(), "mso-credential-read-"));
   vi.spyOn(os, "homedir").mockReturnValue(home);
   vi.stubEnv("OS_FS_READ_ROOTS", home);
   vi.stubEnv("OS_FS_ALLOW_SENSITIVE", undefined);
+  vi.stubEnv("MSO_CANDIDATE_INDEX_DIR", path.join(home,"candidate-cache"));
 });
 afterEach(async () => { vi.restoreAllMocks(); vi.unstubAllEnvs(); await rm(home, { recursive: true, force: true }); });
 const fsRead = READ_TOOLS.find(tool => tool.name === "fs_read")!;
 describe("Viewer HTTP and read-scope MCP credential boundary", () => {
+  it("keeps credentials out of both candidate preview transports on fresh and cached requests", async () => {
+    const project = path.join(home,"projects","candidate"); await mkdir(project,{recursive:true});
+    for (const file of [".mcp.json",".netrc",".mcp.json.bak",".env.local","key.pem"]) await writeFile(path.join(project,file),"needle PRIVATE_CANDIDATE\n");
+    await writeFile(path.join(project,"needle.txt"),"needle public source\n");
+    const tool = DISCOVERY_TOOLS.find(row=>row.name==="project_candidate_search")!;
+    for (let attempt=0; attempt<2; attempt++) {
+      const response = await candidateGet(new Request("http://localhost/api/v1/projects/candidates?"+new URLSearchParams({project,q:"needle .mcp.json .netrc",limit:"40"})));
+      expect(response.status).toBe(200);
+      const http = await response.text(), mcp = JSON.stringify(await tool.run({project,query:"needle .mcp.json .netrc",limit:40},{scope:"read"}));
+      for (const output of [http,mcp]) { expect(output).not.toContain("PRIVATE_CANDIDATE"); expect(output).toContain("needle public source"); }
+    }
+  });
   it("opens only an allowed root and omits the disallowed Home jump point", async () => {
     const project = path.join(home, "projects", "app");
     await mkdir(project, { recursive: true }); await writeFile(path.join(project, "README.md"), "public-project");

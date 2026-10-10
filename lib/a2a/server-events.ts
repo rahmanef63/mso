@@ -3,6 +3,17 @@ import type { A2ATaskRecord } from "./tasks";
 export type A2AStreamResponse = Record<string, unknown>;
 type Listener = (event: A2AStreamResponse) => void;
 const listeners = new Map<string, Set<Listener>>();
+const streams = new Map<() => void, string>();
+
+export function registerA2AStream(profileId: string, close: () => void): (() => void) | null {
+  if (streams.size >= 64 || [...streams.values()].filter(id=>id===profileId).length >= 8) return null;
+  streams.set(close,profileId);
+  return () => { streams.delete(close); };
+}
+
+export function closeA2AProfileStreams(profileId: string): void {
+  for (const [close,id] of streams) if (id===profileId) close();
+}
 
 export function publishA2AEvent(taskId: string, event: A2AStreamResponse) {
   for (const listener of listeners.get(taskId) ?? []) {

@@ -60,6 +60,35 @@ describe("project experience host helpers", () => {
     await expect(readProjectKnowledge(project)).rejects.toThrow(/regular non-symlink/i);
   });
 
+  it("suppresses protected Git patches in staged and historical diffs and redacts ordinary-file credentials", async () => {
+    const repo = path.join(root,"private-diff");
+    await mkdir(repo);
+    const git = (args:string[]) => execFileSync("git",args,{cwd:repo,encoding:"utf8"}).trim();
+    git(["init","-b","main"]); git(["config","user.email","test@example.com"]); git(["config","user.name","MSO Test"]);
+    await writeFile(path.join(repo,"public.txt"),"public before\n");
+    git(["add","."]); git(["commit","-m","before"]);
+    const names = [".mcp.json",".netrc",".mcp.json.fixture.tmp",".env.local","private.pem","odd\tdir/.netrc"];
+    for (const name of names) {
+      await mkdir(path.dirname(path.join(repo,name)),{recursive:true});
+      await writeFile(path.join(repo,name),"private-fixture-value\n");
+    }
+    await writeFile(path.join(repo,"public.txt"),"public after\nAPI_TOKEN=synthetic-private-token\n");
+    git(["add","."]);
+    const staged = await projectGitDiff(repo,{staged:true});
+    expect(staged.unifiedDiff).not.toContain("private-fixture-value");
+    expect(staged.unifiedDiff).not.toContain("synthetic-private-token");
+    expect(staged.unifiedDiff).toContain("+public after");
+    expect(staged.files.find(row=>row.file===".mcp.json")).toMatchObject({redacted:true});
+    git(["commit","-m","private changes"]);
+    const sha = git(["rev-parse","HEAD"]);
+    const historic = await projectGitDiff(repo,{sha});
+    expect(historic.unifiedDiff).toBe(staged.unifiedDiff);
+    git(["mv",".mcp.json","safe-name.json"]);
+    const renamed = await projectGitDiff(repo,{staged:true});
+    expect(renamed.files.find(row=>row.file==="safe-name.json")).toMatchObject({redacted:true,previousFile:".mcp.json"});
+    expect(renamed.unifiedDiff).not.toContain("private-fixture-value");
+  });
+
   it("refuses a symlinked knowledge directory inside readable roots", async () => {
     const outside = path.join(root, "other-project");
     await mkdir(outside);

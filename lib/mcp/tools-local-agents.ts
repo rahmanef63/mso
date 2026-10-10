@@ -9,12 +9,19 @@ import {
 } from "@/lib/agent/local-agent-standby";
 import { handoffOwnerLocalSession } from "@/lib/a2a/local-session";
 import { type McpRunContext, type McpTool, S, str } from "./tool-kit";
+import { liveCapabilityContext } from "@/lib/capabilities/live-authority";
 
 function sessionContext(context: McpRunContext): { principal: string; sessionId: string } {
   if (!context.principal || !context.sessionId)
     throw new Error("this tool call has no conversation-bound MSO session");
   return { principal: context.principal, sessionId: context.sessionId };
 }
+
+const waitAuthority = (context:McpRunContext,name:string,args:Record<string,unknown>) => async () => {
+  context.signal?.throwIfAborted();
+  if (context.liveAuthorization) await context.liveAuthorization();
+  else if (context.authorizationGrant) await liveCapabilityContext(context,name,args);
+};
 
 export const LOCAL_AGENT_TOOLS: McpTool[] = [
   {
@@ -141,6 +148,8 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
         senderSessionId: current.sessionId,
         requestMessageId: str(a, "request_message_id"),
         timeoutMs: a.timeout_ms === undefined ? undefined : Number(a.timeout_ms),
+        signal:context.signal,
+        authorize:waitAuthority(context,"local_agent_request_wait",a),
       });
     },
   },
@@ -175,21 +184,36 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
     inputSchema: S({
       include_read: { type: "boolean" },
       limit: { type: "number", description: "1-200, default 100." },
-      acknowledge: { type: "boolean", description: "When true, mark returned messages read after retrieval." },
+      acknowledge: { type: "boolean", description: "Deprecated. true is rejected; use local_agent_inbox_acknowledge with write scope." },
       wait_ms: { type: "number", minimum: 0, maximum: 20000, description: "Optional foreground receive wait in milliseconds. Default 0 preserves immediate inbox reads; max 20000." },
     }),
     run: async (a, context) => {
       const current = sessionContext(context);
+      if (a.acknowledge === true) throw new Error("Use local_agent_inbox_acknowledge with write scope");
       const messages = await waitForLocalAgentInbox({
         principal: current.principal,
         sessionId: current.sessionId,
         includeRead: a.include_read === true,
         limit: Number(a.limit) || 100,
         waitMs: a.wait_ms === undefined ? 0 : Number(a.wait_ms),
+        signal:context.signal,
+        authorize:waitAuthority(context,"local_agent_inbox",a),
       });
-      if (a.acknowledge === true && messages.length)
-        await updateLocalAgentMessageState(current.principal, current.sessionId, messages.map((row) => row.id), "read");
       return messages;
+    },
+  },
+  {
+    name:"local_agent_inbox_acknowledge",
+    description:"Mark exact messages in this conversation's inbox read. Requires write scope; read local_agent_inbox first and pass its exact message ids.",
+    scope:"write",
+    annotations:{readOnlyHint:false,idempotentHint:true,destructiveHint:false},
+    audit:{action:"agent.message"},
+    limit:{key:"local-agent.read",max:120,windowMs:60_000},
+    inputSchema:S({message_ids:{type:"array",minItems:1,maxItems:200,items:{type:"string",pattern:"^localmsg_"}}},["message_ids"]),
+    run:async (a,context) => {
+      const current=sessionContext(context);
+      if (!Array.isArray(a.message_ids) || !a.message_ids.length || a.message_ids.length>200 || a.message_ids.some(id=>typeof id!=="string" || !/^localmsg_[a-zA-Z0-9_-]+$/.test(id))) throw new Error("Exact local message ids required");
+      return updateLocalAgentMessageState(current.principal,current.sessionId,a.message_ids,"read");
     },
   },
 ];

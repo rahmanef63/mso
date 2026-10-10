@@ -14,12 +14,12 @@ it("invalidates derived viewer cookies and tickets durably at logout and after r
   const id = "a".repeat(32), secret = "s".repeat(32);
   await devices.approveDevice(id); await devices.approveDevice("b".repeat(32));
   const issued = Date.now();
-  const ticket = verifyCamoufoxViewerTicket(createCamoufoxViewerTicket(id, secret, issued, issued), secret)!;
-  const cookie = verifyCamoufoxViewerCookie(createCamoufoxViewerCookie(id, secret, Date.now(), ticket.issued_at), secret)!;
+  const ticket = verifyCamoufoxViewerTicket(createCamoufoxViewerTicket({device_id:id,issued_at:issued,expires_at:issued+3_600_000}, secret, issued), secret)!;
+  const cookie = verifyCamoufoxViewerCookie(createCamoufoxViewerCookie(ticket, secret), secret)!;
   expect(deviceSessionValid(cookie, await devices.getApprovedDevice(id))).toBe(true);
   await devices.invalidateDeviceSessions(id);
   expect(deviceSessionValid(cookie, await devices.getApprovedDevice(id))).toBe(false);
-  const replay = verifyCamoufoxViewerCookie(createCamoufoxViewerCookie(id, secret, Date.now(), ticket.issued_at), secret)!;
+  const replay = verifyCamoufoxViewerCookie(createCamoufoxViewerCookie(ticket, secret), secret)!;
   expect(deviceSessionValid(replay, await devices.getApprovedDevice(id))).toBe(false);
   await devices.revokeDevice(id); await devices.approveDevice(id);
   expect(deviceSessionValid(cookie, await devices.getApprovedDevice(id))).toBe(false);

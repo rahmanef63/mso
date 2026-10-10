@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.16.0 version=2026.10.09.1 tools=117 read=59 write=35 exec=23 -->
+<!-- mcp-toolset: server=1.17.0 version=2026.10.10.1 tools=118 read=58 write=37 exec=23 -->
 
 | Fact | Current source value |
 |---|---:|
-| MCP server | `1.16.0` |
-| Toolset | `2026.10.09.1` |
-| Toolset changed at | `2026-10-09T14:00:00+00:00` |
-| Transport tools | **119** |
-| Model/operator tools | **117** |
-| Read | **59** |
-| Write | **35** |
+| MCP server | `1.17.0` |
+| Toolset | `2026.10.10.1` |
+| Toolset changed at | `2026-10-10T07:40:00+00:00` |
+| Transport tools | **120** |
+| Model/operator tools | **118** |
+| Read | **58** |
+| Write | **37** |
 | Exec | **23** |
 | App-only bridges | **2** |
 
-### Read (59)
+### Read (58)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -28,7 +28,6 @@
 - `agent_session_action_resolve`
 - `agent_session_current`
 - `agent_session_flow`
-- `agent_session_open`
 - `agent_session_resume`
 - `agent_sessions_list`
 - `apps_list`
@@ -80,13 +79,14 @@
 - `tool_forge_candidates`
 - `vps_status`
 
-### Write (35)
+### Write (37)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
 - `agent_memory_forget`
 - `agent_memory_remember`
 - `agent_session_note`
+- `agent_session_open`
 - `agent_session_rename`
 - `apps_power`
 - `cloudflare_dns_upsert`
@@ -102,6 +102,7 @@
 - `hostinger_dns_upsert`
 - `integration_manage`
 - `integration_setup_open`
+- `local_agent_inbox_acknowledge`
 - `local_agent_message_send`
 - `local_agent_reply`
 - `organization_manage`
@@ -151,20 +152,20 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.16.0 version=2026.10.09.1 tools=117 read=59 write=35 exec=23 app-only=2 total=119 -->
+<!-- mcp-chatgpt-profile: server=1.17.0 version=2026.10.10.1 tools=118 read=58 write=37 exec=23 app-only=2 total=120 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **119** |
-| ChatGPT model/operator tools | **117** |
-| Read | **59** |
-| Write | **35** |
+| ChatGPT transport tools | **120** |
+| ChatGPT model/operator tools | **118** |
+| Read | **58** |
+| Write | **37** |
 | Exec | **23** |
 | App-only bridges | **2** |
 
-### ChatGPT read (59)
+### ChatGPT read (58)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -174,7 +175,6 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `agent_session_action_resolve`
 - `agent_session_current`
 - `agent_session_flow`
-- `agent_session_open`
 - `agent_session_resume`
 - `agent_sessions_list`
 - `apps_list`
@@ -226,13 +226,14 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `tool_forge_candidates`
 - `vps_status`
 
-### ChatGPT write (35)
+### ChatGPT write (37)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
 - `agent_memory_forget`
 - `agent_memory_remember`
 - `agent_session_note`
+- `agent_session_open`
 - `agent_session_rename`
 - `apps_power`
 - `cloudflare_dns_upsert`
@@ -248,6 +249,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `hostinger_dns_upsert`
 - `integration_manage`
 - `integration_setup_open`
+- `local_agent_inbox_acknowledge`
 - `local_agent_message_send`
 - `local_agent_reply`
 - `organization_manage`

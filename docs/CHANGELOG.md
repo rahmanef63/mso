@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `security` close credential sinks and revoke pending sessions
 - `mcp` preserve managed configuration behind credential guards
 - `security` bind receipts to authority and pin browser artifacts
 - `security` keep connected app bootstrap code static

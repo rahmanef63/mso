@@ -1,6 +1,6 @@
 /** Server-only OAuth grants live in the existing owner integration store, never a transfer DTO. */
 export type GoogleProvider = "google-search-console" | "google-analytics";
-export type GoogleActor = { deviceId: string; cookieScope: string; cookieEpoch: string; sessionExpiresAt: number };
+export type GoogleActor = { deviceId: string; cookieScope: string; cookieEpoch: string; sessionIssuedAt: number; sessionExpiresAt: number };
 export type GoogleGrant = {
   appConnection: string; appUid: string; appRevision: number; redirectUri: string;
   subject: string; email: string; scopes: string[];

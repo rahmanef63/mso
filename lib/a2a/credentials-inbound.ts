@@ -1,5 +1,6 @@
 import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
 import { abortA2AProfileTasks } from "./task-active";
+import { closeA2AProfileStreams } from "./server-events";
 import {
   createHash,
   randomBytes,
@@ -96,6 +97,7 @@ export async function removeA2AInboundToken(id: string): Promise<boolean> {
     if (store.tokens.length !== before) {
       await writeA2APrivateStore(A2A_INBOUND_TOKEN_STORE_PATH, store);
       abortA2AProfileTasks(query);
+      closeA2AProfileStreams(query);
     }
     return store.tokens.length !== before;
   });

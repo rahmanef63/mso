@@ -32,7 +32,7 @@ function notFound() {
   return response;
 }
 
-async function approvedDevice(token: string, kind: "ticket" | "cookie"): Promise<string | null> {
+async function approvedDevice(token: string, kind: "ticket" | "cookie") {
   if (IS_DEMO) return null;
   const secret = process.env.OS_SESSION_SECRET ?? "";
   const payload = kind === "ticket"
@@ -40,7 +40,7 @@ async function approvedDevice(token: string, kind: "ticket" | "cookie"): Promise
     : verifyCamoufoxViewerCookie(token, secret);
   if (!payload?.device_id) return null;
   const device = await getApprovedDevice(payload.device_id);
-  return deviceSessionValid(payload, device) && device && roleAtLeast(device.role, "operator") ? payload.device_id : null;
+  return deviceSessionValid(payload, device) && device && roleAtLeast(device.role, "operator") ? payload : null;
 }
 
 async function hasViewerSession(request: NextRequest): Promise<boolean> {
@@ -108,19 +108,19 @@ async function exchangeTicket(request: NextRequest) {
   if (request.method !== "POST") return notFound();
   const match = /^Bearer ([A-Za-z0-9._-]{20,4096})$/.exec(request.headers.get("authorization") ?? "");
   if (!match) return notFound();
-  const deviceId = await approvedDevice(match[1], "ticket");
-  if (!deviceId) return notFound();
+  const session = await approvedDevice(match[1], "ticket");
+  if (!session) return notFound();
 
   const response = new NextResponse(null, { status: 204 });
   response.cookies.set(
     CAMOUFOX_VIEWER_COOKIE,
-    createCamoufoxViewerCookie(deviceId, process.env.OS_SESSION_SECRET ?? "", Date.now(), verifyCamoufoxViewerTicket(match[1], process.env.OS_SESSION_SECRET ?? "")!.issued_at),
+    createCamoufoxViewerCookie(session, process.env.OS_SESSION_SECRET ?? ""),
     {
       httpOnly: true,
       secure: true,
       sameSite: "strict",
       path: "/",
-      maxAge: Math.floor(CAMOUFOX_VIEWER_COOKIE_TTL_MS / 1000),
+      maxAge:Math.max(0,Math.floor((Math.min(session.parent_expires_at,Date.now()+CAMOUFOX_VIEWER_COOKIE_TTL_MS)-Date.now())/1000)),
     },
   );
   noStore(response.headers);

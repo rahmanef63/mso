@@ -72,7 +72,7 @@ describe("/mcp request boundary", () => {
     mocks.validateToken.mockReset();
     mocks.touchToken.mockClear();
     mocks.getClient.mockReset().mockResolvedValue(null);
-    mocks.dispatch.mockClear();
+    mocks.dispatch.mockReset().mockResolvedValue({ jsonrpc: "2.0", id: 1, result: {} });
     mocks.clampScope.mockClear();
     mocks.rateLimited.mockClear().mockReturnValue(false);
     mocks.rateLimitedUntrusted.mockClear().mockReturnValue(false);
@@ -81,6 +81,14 @@ describe("/mcp request boundary", () => {
     mocks.findOrCreateAgentSessionForConversation.mockReset().mockResolvedValue({ id: "20260901_100000_aabbccdd", source: "mcp" });
   });
   afterEach(() => vi.unstubAllEnvs());
+  it.each(["local_agent_inbox", "local_agent_request_wait"])("rechecks bearer authorization before returning %s output", async name => {
+    const token = { hash: "d".repeat(64), scope: "read" as const, clientId: "client-wait", label: "Wait" };
+    mocks.validateToken.mockResolvedValueOnce(token).mockResolvedValueOnce(token).mockResolvedValueOnce(null);
+    mocks.dispatch.mockResolvedValueOnce({ jsonrpc: "2.0", id: 1, result: { private: "PRIVATE_LATE_RESULT" } } as never);
+    const { POST } = await import("./route");
+    const result = await POST(request(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name } })));
+    expect(result.status).toBe(401); expect(await result.text()).not.toContain("PRIVATE_LATE_RESULT");
+  });
 
 
 
@@ -165,6 +173,8 @@ describe("/mcp request boundary", () => {
     expect(hash).not.toContain(rawConversation);
     expect(mocks.dispatch).toHaveBeenCalledWith(body, "read", `mcp:${token.hash.slice(0, 16)}`, {
       principal: `mcp-client:${token.clientId}`,
+      liveAuthorization: expect.any(Function),
+      signal: expect.any(AbortSignal),
       authorizationGrant: expect.objectContaining({ kind: "mcp", id: token.hash, fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) }),
       sessionId: "20260901_100000_aabbccdd",
       toolProfile: "chatgpt",

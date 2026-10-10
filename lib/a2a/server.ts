@@ -86,7 +86,7 @@ export async function handleA2ARequest(req: Request, capabilities: CapabilityRun
         targetSession?.id,
       );
       if (method === "SendStreamingMessage")
-        return a2aSseResponse(id, task, profile, capabilities, parsed.prompt, targetSession);
+        return a2aSseResponse(id, task, profile, capabilities, parsed.prompt, targetSession, req.signal);
       if (parsed.returnImmediately) {
         void executeInboundA2ATask(task, profile, parsed.prompt, targetSession, capabilities);
         return a2aJson(a2aRpcOk(id, { task: taskPublicView(task) }));
@@ -147,7 +147,7 @@ export async function handleA2ARequest(req: Request, capabilities: CapabilityRun
         (row) => row.id === taskId,
       );
       return full
-        ? a2aSseResponse(id, full, profile, capabilities, undefined, targetSession)
+        ? a2aSseResponse(id, full, profile, capabilities, undefined, targetSession, req.signal)
         : a2aJson(a2aRpcError(id, -32001, "Task not found"));
     }
     return a2aJson(a2aRpcError(id, -32601, "Method not found"));

@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { readBoundedRegularFile } from "./bounded-read";
+import { isCredentialPath } from "./path-credentials";
+import { redactText } from "@/lib/security/redact-text";
 import { candidateEntriesFromSeed, loadCandidateIndex, type CandidateEntry } from "./project-candidate-index-cache";
 
 const MAX_CONTENT_BYTES = 128 * 1024;
@@ -65,8 +67,10 @@ async function contentMatches(projectPath: string, candidates: ProjectCandidate[
   for (const candidate of candidates) {
     if (matches.length >= MAX_MATCHES) break;
     const absolute = path.resolve(root, candidate.path);
+    if (isCredentialPath(absolute)) continue;
     const real = await fs.realpath(absolute).catch(() => "");
     if (!real || (real !== root && !real.startsWith(root + path.sep))) continue;
+    if (isCredentialPath(real)) continue;
     const content = await readBoundedRegularFile(real, MAX_CONTENT_BYTES);
     if (content == null || content.includes("\u0000")) continue;
     const lines = content.split(/\r?\n/);
@@ -74,7 +78,7 @@ async function contentMatches(projectPath: string, candidates: ProjectCandidate[
     for (let index = 0; index < lines.length && perFile < 3 && matches.length < MAX_MATCHES; index += 1) {
       const lower = lines[index].toLowerCase();
       if (!tokens.some((token) => lower.includes(token))) continue;
-      const preview = lines[index].trim().replace(/\s+/g, " ").slice(0, 220);
+      const preview = redactText(lines[index].trim().replace(/\s+/g, " "), 220);
       if (!preview) continue;
       matches.push({ path: candidate.path, line: index + 1, preview });
       perFile += 1;
@@ -107,11 +111,12 @@ export async function searchProjectCandidateIndex(input: {
   const reuseOnly = input.reuseOnly === true;
   const seeded = input.seedPaths?.length ? await candidateEntriesFromSeed(input.projectPath, input.seedPaths) : [];
   const loaded = reuseOnly
-    ? { index: { version: 1 as const, projectRoot: await fs.realpath(input.projectPath), revision: input.revision, entries: seeded, directories: [], truncated: false, truncationReasons: [], createdAt: new Date().toISOString() }, rebuilt: false }
+    ? { index: { version: 2 as const, projectRoot: await fs.realpath(input.projectPath), revision: input.revision, entries: seeded, directories: [], truncated: false, truncationReasons: [], createdAt: new Date().toISOString() }, rebuilt: false }
     : await loadCandidateIndex(input.projectPath, input.revision);
   const source = reuseOnly ? seeded : loaded.index.entries;
   const tokens = queryTokens(query);
   const ranked = source
+    .filter((entry) => !isCredentialPath(path.resolve(input.projectPath, entry.path)))
     .map((entry) => ({ ...entry, score: rank(entry, tokens) }))
     .filter((entry) => reuseOnly || tokens.length === 0 || entry.score > 0)
     .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));

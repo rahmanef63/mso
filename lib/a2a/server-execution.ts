@@ -8,8 +8,8 @@ import type { A2AAuthenticatedProfile } from "./server-protocol";
 import { runInboundA2AAgent } from "./inbound-agent";
 import {
   registerA2AActiveTask,
+  getA2ATaskForPrincipal,
   releaseA2AActiveTask,
-  taskPublicView,
   updateA2ATask,
   type A2ATaskRecord,
 } from "./tasks";
@@ -18,9 +18,10 @@ import {
   a2aStatusUpdate,
   publishA2AEvent,
   subscribeA2AEvent,
+  registerA2AStream,
   type A2AStreamResponse,
 } from "./server-events";
-import { a2aRpcOk, type A2ARpcId } from "./server-protocol";
+import { A2A_TERMINAL_STATES, a2aRpcOk, type A2ARpcId } from "./server-protocol";
 
 export interface A2AExecutionContext {
   authority?: CapabilityRunContext;
@@ -133,45 +134,60 @@ export function a2aSseResponse(
   capabilities: CapabilityRuntime,
   prompt?: string,
   session?: AgentSession,
+  signal?: AbortSignal,
 ): Response {
   const encoder = new TextEncoder();
   let closed = false;
   let unsubscribe: () => void = () => {};
+  let close: () => void = () => {};
+  const release = registerA2AStream(profile.id, () => close());
+  if (!release) return new Response(JSON.stringify({error:"stream_limit"}), {status:429,headers:{"content-type":"application/json","retry-after":"60"}});
   const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
+    async start(controller) {
+      const timer = setTimeout(()=>close(),5*60_000);
+      timer.unref?.();
+      close = () => {
+        if (closed) return;
+        closed = true;
+        clearTimeout(timer);
+        unsubscribe();
+        release();
+        signal?.removeEventListener("abort",close);
+        try { controller.close(); } catch { /* Disconnected client. */ }
+      };
+      signal?.addEventListener("abort",close,{once:true});
+      if (signal?.aborted) { close(); return; }
       const emit = (result: A2AStreamResponse) => {
         if (closed) return;
         try {
+          if (controller.desiredSize !== null && controller.desiredSize <= 0) { close(); return; }
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify(a2aRpcOk(id, result))}\n\n`),
           );
-        } catch {
-          closed = true;
-        }
+        } catch { close(); }
+        const status = (result.statusUpdate as {status?:{state?:string}} | undefined)?.status ?? (result.task as {status?:{state?:string}} | undefined)?.status;
+        if (status && A2A_TERMINAL_STATES.has(String(status.state))) close();
       };
-      emit({ task: taskPublicView(task) });
-      unsubscribe = subscribeA2AEvent(task.id, emit);
+      try {
+        if (!profile.local && !await getA2AInboundProfile(profile.id)) { close(); return; }
+        if (closed) return;
+        unsubscribe = subscribeA2AEvent(task.id,emit);
+        const current = await getA2ATaskForPrincipal(task.id,task.principal,10);
+        if (closed) return;
+        if (!current) { close(); return; }
+        emit({task:current});
+      } catch { close(); return; }
+      if (closed) return;
       if (prompt !== undefined) {
         void executeInboundA2ATask(task, profile, prompt, session, capabilities).finally(
-          () => {
-            unsubscribe();
-            if (!closed) {
-              closed = true;
-              try {
-                controller.close();
-              } catch {
-                // Client disconnected after task completion.
-              }
-            }
-          },
+          () => close(),
         );
       }
     },
     cancel() {
-      closed = true;
-      unsubscribe(); // Task intentionally continues independently of this stream.
+      close(); // Task intentionally continues independently of this stream.
     },
-  });
+  }, {highWaterMark:16});
   return new Response(stream, {
     headers: {
       "content-type": "text/event-stream; charset=utf-8",

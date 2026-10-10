@@ -1,7 +1,8 @@
 import type { UpdateStatus } from "@/lib/host/self-update";
 
 export async function readStatus(check: boolean): Promise<UpdateStatus> {
-  const res = await fetch(`/api/v1/sys/update${check ? "" : "?check=0"}`, {
+  const res = await fetch("/api/v1/sys/update", {
+    ...(check ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "check" }) } : {}),
     cache: "no-store",
     signal: AbortSignal.timeout(55_000),
   });

@@ -8,6 +8,7 @@ process.env.OS_MCP_STORE = path.join(DIR, "mcp.json");
 
 const store = await import("./store");
 const { sha256hex } = await import("./pkce");
+const { registerMcpTokenWait } = await import("./token-waits");
 
 beforeEach(async () => {
   await fs.rm(DIR, { recursive: true, force: true });
@@ -69,7 +70,9 @@ describe("tokens", () => {
   it("stops validating the instant a token is revoked — this IS the kill switch", async () => {
     await mint("tok-revoke");
     const listed = (await store.listTokens())[0];
+    const wait = registerMcpTokenWait(sha256hex("tok-revoke"));
     expect(await store.revokeToken(listed.id)).toBe(true);
+    expect(wait.signal.aborted).toBe(true); wait.release();
     expect(await store.validateToken("tok-revoke")).toBeNull();
     expect(await store.revokeToken(listed.id)).toBe(false); // already dead
   });
@@ -78,7 +81,9 @@ describe("tokens", () => {
     await mint("a");
     await mint("b");
     await mint("c");
+    const waits = ["a","b","c"].map(raw => registerMcpTokenWait(sha256hex(raw)));
     expect(await store.revokeAllTokens()).toBe(3);
+    for (const wait of waits) { expect(wait.signal.aborted).toBe(true); wait.release(); }
     expect(await store.validateToken("b")).toBeNull();
     expect(await store.revokeAllTokens()).toBe(0);
   });

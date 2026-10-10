@@ -23,6 +23,8 @@ vi.mock("@/lib/host/self-update", () => ({
 }));
 
 const auditMock = vi.fn();
+const limited = vi.hoisted(() => ({ value: false }));
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: () => limited.value }));
 vi.mock("@/lib/host/audit-api", () => ({
   audit: (...args: unknown[]) => auditMock(...args),
 }));
@@ -57,6 +59,8 @@ const post = (body: unknown) =>
 
 beforeEach(() => {
   authed.current = true;
+  limited.value = false;
+  vi.stubEnv("OS_PUBLIC_ORIGIN", "http://localhost");
   getStatus.mockReset().mockResolvedValue(status());
   startUpdate.mockReset().mockResolvedValue(status({ running: true }));
   auditMock.mockReset();
@@ -72,13 +76,28 @@ describe("/api/v1/sys/update", () => {
     expect(startUpdate).not.toHaveBeenCalled();
   });
 
-  it("asks the remote by default, and skips it for the poller", async () => {
+  it("never fetches the remote on GET, even with a legacy check flag", async () => {
     await GET(get());
-    expect(getStatus).toHaveBeenLastCalledWith(true);
+    expect(getStatus).toHaveBeenLastCalledWith(false);
+    await GET(get("http://localhost/api/v1/sys/update?check=1"));
+    expect(getStatus).toHaveBeenLastCalledWith(false);
     // `?check=0` is what the panel polls with WHILE an update runs — a git fetch
     // every 3s during a build is pure noise.
     await GET(get("http://localhost/api/v1/sys/update?check=0"));
     expect(getStatus).toHaveBeenLastCalledWith(false);
+  });
+  it("requires an explicit same-origin POST and limits remote refreshes", async () => {
+    for (const origin of [null, "http://evil.test"]) {
+      const req = post({ action: "check" }); if (origin) req.headers.set("origin", origin);
+      expect((await POST(req)).status).toBe(403);
+    }
+    expect(getStatus).not.toHaveBeenCalled(); expect(startUpdate).not.toHaveBeenCalled();
+    const request = () => { const req = post({ action: "check" }); req.headers.set("origin", "http://localhost"); return req; };
+    expect((await POST(request())).status).toBe(200);
+    expect(getStatus).toHaveBeenCalledWith(true); expect(startUpdate).not.toHaveBeenCalled();
+    expect(auditMock).toHaveBeenCalledWith(expect.objectContaining({ action: "sys.update", target: "check", ok: true }));
+    getStatus.mockClear(); limited.value = true;
+    expect((await POST(request())).status).toBe(429); expect(getStatus).not.toHaveBeenCalled();
   });
 
   it("passes rebuildOnly through only when it is exactly true", async () => {

@@ -44,6 +44,36 @@ beforeAll(async () => {
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe("two-way Local Agent MCP receive", () => {
+  it("keeps read tokens from acknowledging messages or changing session metadata", async () => {
+    const c = await store.createAgentSession(principal, "mcp", { title: "Read boundary", titleSource: "manual" });
+    const inboxContext = { principal, sessionId: c.id };
+    const receive = dispatch(call("local_agent_inbox", { wait_ms: 10000 }), "read", "mcp:c", inboxContext);
+    await waitForSubscriber(c.id);
+    await dispatch(call("local_agent_message_send", { target: c.name, message: "ACK_BOUNDARY" }), "write", "mcp:a", { principal, sessionId: a.id });
+    const inbox = textResult<Array<{id:string}>>(await receive);
+    expect(inbox).toHaveLength(1);
+    const legacy = await dispatch(call("local_agent_inbox", { acknowledge: true }), "read", "mcp:c", inboxContext);
+    expect(JSON.stringify(legacy)).toContain("local_agent_inbox_acknowledge");
+    const denied = await dispatch(call("local_agent_inbox_acknowledge", { message_ids: [inbox[0].id] }), "read", "mcp:c", inboxContext);
+    expect(denied.result).toMatchObject({isError:true});
+    expect(textResult<unknown[]>(await dispatch(call("local_agent_inbox"), "read", "mcp:c", inboxContext))).toHaveLength(1);
+    const opened = await dispatch(call("agent_session_open", { conversation_key: "read-boundary", title: "Changed" }), "read", "mcp:c", inboxContext);
+    expect(opened.result).toMatchObject({isError:true});
+    const acknowledged = await dispatch(call("local_agent_inbox_acknowledge", { message_ids: [inbox[0].id] }), "write", "mcp:c", inboxContext);
+    expect(acknowledged.error).toBeUndefined();
+    expect(textResult<unknown[]>(await dispatch(call("local_agent_inbox"), "read", "mcp:c", inboxContext))).toEqual([]);
+  });
+  it.each(["revoked", "disconnected"])("closes a %s inbox wait before serializing later private messages", async kind => {
+    const c = await store.createAgentSession(principal, "mcp", { title: "Revocation boundary", titleSource: "manual" });
+    const controller = new AbortController(); let authorized = true;
+    const liveAuthorization = async () => { if (!authorized) throw new Error("authorization revoked"); };
+    const receive = dispatch(call("local_agent_inbox", { wait_ms: 10000 }), "read", "mcp:c", { principal, sessionId: c.id, signal: controller.signal, liveAuthorization });
+    await waitForSubscriber(c.id);
+    if (kind === "revoked") authorized = false; else controller.abort(new Error("disconnected"));
+    await dispatch(call("local_agent_message_send", { target: c.name, message: "PRIVATE_AFTER_REVOCATION" }), "write", "mcp:a", { principal, sessionId: a.id });
+    expect(JSON.stringify(await receive)).not.toContain("PRIVATE_AFTER_REVOCATION");
+    expect(events.localAgentSubscriberCount(c.id)).toBe(0);
+  });
   it("keeps each foreground inbox receivable and wakes both ChatGPT-style sessions without spawning a worker", async () => {
     const contextA = { principal, sessionId: a.id };
     const contextB = { principal, sessionId: b.id };
@@ -90,5 +120,21 @@ describe("two-way Local Agent MCP receive", () => {
     expect(subscribe).not.toHaveBeenCalled();
     subscribe.mockRestore();
     expect(Array.isArray(textResult<unknown[]>(response))).toBe(true);
+  });
+  it("discards a correlated private reply after wait authorization expires", async () => {
+    const sender = await store.createAgentSession(principal,"mcp",{title:"Wait sender",titleSource:"manual"});
+    const receiver = await store.createAgentSession(principal,"mcp",{title:"Wait receiver",titleSource:"manual"});
+    const receiverContext = {principal,sessionId:receiver.id}, senderContext = {principal,sessionId:sender.id};
+    const inbox = dispatch(call("local_agent_inbox",{wait_ms:10000}),"read","mcp:receiver",receiverContext);
+    await waitForSubscriber(receiver.id);
+    await dispatch(call("local_agent_message_send",{target:receiver.name,message:"REQUEST",intent:"request"}),"write","mcp:sender",senderContext);
+    const message = textResult<Array<{id:string}>>(await inbox)[0];
+    let live=true, entered=false;
+    const waiting = dispatch(call("local_agent_request_wait",{request_message_id:message.id,timeout_ms:10000}),"read","mcp:sender",{...senderContext,liveAuthorization:async()=>{entered=true;if(!live)throw new Error("expired");}});
+    while (!entered) await new Promise(resolve=>setTimeout(resolve,1));
+    live=false;
+    await dispatch(call("local_agent_reply",{reply_to_message_id:message.id,message:"PRIVATE_EXPIRED_REPLY"}),"write","mcp:receiver",receiverContext);
+    const result = await waiting;
+    expect(result.result).toMatchObject({isError:true}); expect(JSON.stringify(result)).not.toContain("PRIVATE_EXPIRED_REPLY");
   });
 });

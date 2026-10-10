@@ -1,4 +1,5 @@
 import { mcpAuthorizationGrant } from "@/lib/mcp/durable-grant";
+import { registerMcpTokenWait } from "@/lib/mcp/token-waits";
 import { TENANT_MEMORY_TOOLS } from "@/lib/tenancy/memory-tools";
 import { tenantPreviewEnabled } from "@/lib/tenancy/mode";
 import { resolveMcpTenant, tenantRuntimeConfigurationPresent } from "@/lib/tenancy/runtime";
@@ -108,8 +109,16 @@ export async function POST(req: Request) {
 
   void touchToken(token.hash).catch(() => {});
   const actor = `mcp:${token.hash.slice(0, 16)}`;
+  const grant=mcpAuthorizationGrant(token,expectedResource);
+  const liveAuthorization=async () => {
+    req.signal.throwIfAborted();
+    const current=await validateToken(bearer);
+    if (!current || mcpAuthorizationGrant(current,expectedResource).fingerprint !== grant.fingerprint) throw new Error("MCP authorization revoked, expired or changed");
+  };
   const agentContext = {
-    authorizationGrant: mcpAuthorizationGrant(token, expectedResource),
+    authorizationGrant: grant,
+    liveAuthorization,
+    signal:req.signal,
     principal,
     ...(resolved.agentSessionId ? { sessionId: resolved.agentSessionId } : {}),
     toolProfile,
@@ -121,8 +130,14 @@ export async function POST(req: Request) {
   // persisted control-plane state and schedules eligible work; it never keeps
   // the current MCP request open for model execution.
   await ensureLocalAgentStandbyRuntime(msoCapabilityRuntime).catch(() => undefined);
-  const result = await dispatch(rpc, effectiveScope, actor, agentContext);
-  return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION, rpc.method) : result, { status: wire.modern && (result.error as { code?: number } | undefined)?.code === -32601 ? 404 : 200, headers });
+  const isWait=rpc.method==="tools/call" && ["local_agent_inbox","local_agent_request_wait"].includes(rpc.params?.name ?? "");
+  const wait=isWait ? registerMcpTokenWait(token.hash,req.signal) : undefined;
+  try {
+    if (isWait && !await liveAuthorization().then(()=>true,()=>false)) return unauthorized("invalid, revoked or expired MCP token");
+    const result = await dispatch(rpc, effectiveScope, actor, {...agentContext,signal:wait?.signal ?? req.signal});
+    if (isWait && !await liveAuthorization().then(()=>true,()=>false)) return unauthorized("invalid, revoked or expired MCP token");
+    return Response.json(wire.modern ? modernMcpResult(result, MCP_SERVER_VERSION, rpc.method) : result, { status: wire.modern && (result.error as { code?: number } | undefined)?.code === -32601 ? 404 : 200, headers });
+  } finally {wait?.release();}
 }
 
 export async function GET(req: Request) {

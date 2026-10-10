@@ -4,6 +4,8 @@ MSO implements **A2A v1** beside MCP. MCP remains the host tool/data control pla
 
 The implementation has four independent pieces:
 
+Inbound task streams close at terminal state, credential revocation, client disconnect or a five-minute deadline. Admission is bounded to eight streams per profile and sixty-four per process; queued events are bounded too. Resubscribe with valid credentials for a still-running task after the deadline. Revocation closes existing streams as well as refusing new requests.
+
 1. **Outbound discovery/registry** — discover public HTTPS Agent Cards and keep sanitized peer metadata locally.
 2. **Outbound credentials + client** — attach a private API-key, Bearer, or OAuth2 access-token profile to a peer and call it over JSON-RPC or HTTP+JSON.
 3. **Streaming** — use A2A v1 `SendStreamingMessage` / SSE and keep task lifetime independent from an individual stream connection.

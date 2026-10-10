@@ -34,3 +34,20 @@ it("refuses cockpit cookies, wrong-origin exchange and unauthenticated subresour
   expect((await auth.gateManagedApp(request, "hermes"))?.status).toBe(401);
   expect((await auth.gateManagedApp(new NextRequest("https://hermes.mso.example.com/__mso_app_auth", { method: "POST", headers: { origin: "https://mso.example.com" } }), "hermes"))?.status).toBe(403);
 });
+
+it("does not extend the cockpit deadline when redeeming a ticket for an HTTP cookie", async () => {
+  const auth=await import("./session");
+  vi.useFakeTimers({toFake:["Date"]});
+  try {
+    const now=Date.now(), session={...payload(),expires_at:now+45_000};
+    const ticket=auth.createManagedAppTicket("hermes",session,secret);
+    vi.setSystemTime(now+15_000);
+    const exchange=await auth.gateManagedApp(new NextRequest("https://hermes.mso.example.com/__mso_app_auth",{method:"POST",headers:{origin:"https://hermes.mso.example.com",authorization:"Bearer "+ticket}}),"hermes");
+    expect(exchange?.status).toBe(204);
+    const cookie=exchange!.headers.getSetCookie()[0].split(";")[0];
+    const request=new Request("https://hermes.mso.example.com/",{headers:{cookie}});
+    expect(await auth.managedAppSession(request,"hermes")).toMatchObject({issued_at:now,expires_at:now+45_000,parent_expires_at:now+45_000});
+    vi.setSystemTime(now+45_001);
+    expect(await auth.managedAppSession(request,"hermes")).toBeNull();
+  } finally {vi.useRealTimers();}
+});

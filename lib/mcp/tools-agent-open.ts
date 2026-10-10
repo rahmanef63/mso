@@ -5,10 +5,11 @@ import { resolveProjectHint } from "@/lib/host/projects-api";
 import { type McpTool, S, str } from "./tool-kit";
 
 export const AGENT_OPEN_TOOLS: McpTool[] = [{
-  name: "agent_session_open", title: "Open Agent Session", scope: "read",
+  name: "agent_session_open", title: "Open Agent Session", scope: "write",
   description: "Bootstrap an MSO application session for any AI provider. Reuse a unique conversation_key per conversation; this is metadata, never a secret. Send returned session.id as params._meta[mso/sessionId] or Mso-Session-Id on later calls. Optional exact project binds its working directory. The session is isolated to the authenticated principal.",
   chatgptDescription: "Open/resume a provider-neutral session using a stable conversation_key. Send session.id as _meta[mso/sessionId] on later calls.",
-  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false, idempotentHint: true },
+  audit: {action:"agent.session"},
   limit: { key: "agent.session.open", max: 20, windowMs: 60_000 },
   inputSchema: S({
     conversation_key: { type: "string", minLength: 1, maxLength: 256, description: "Optional stable identifier for this conversation. If omitted, a fresh session key is generated." },

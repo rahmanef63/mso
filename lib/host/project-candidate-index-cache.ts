@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { constants, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { isCredentialPath } from "./path-credentials";
 
-const INDEX_VERSION = 1;
+const INDEX_VERSION = 2;
 const MAX_INDEX_ENTRIES = 8_000;
 const MAX_DIRS = 2_500;
 const MAX_DEPTH = 14;
@@ -11,7 +12,7 @@ const MAX_DEPTH = 14;
 export type CandidateKind = "path" | "skill";
 export type CandidateEntry = { path: string; kind: CandidateKind; size: number };
 export type CandidateIndex = {
-  version: 1;
+  version: 2;
   projectRoot: string;
   revision: string;
   entries: CandidateEntry[];
@@ -40,7 +41,8 @@ function cacheFile(projectPath: string): string {
   return path.join(cacheRoot(), `${key}.json`);
 }
 
-function ignoredFile(name: string, rel: string): boolean {
+function ignoredFile(name: string, rel: string, root: string): boolean {
+  if (isCredentialPath(path.resolve(root, rel))) return true;
   const lower = name.toLowerCase();
   if (/^\.env(?:\.|$)/i.test(name)) return true;
   if ([".npmrc", ".pypirc", "id_rsa", "id_ed25519", "cookies.json", "credentials.json", "auth.json"].includes(lower)) return true;
@@ -98,11 +100,11 @@ async function buildIndex(projectPath: string, revision: string): Promise<Candid
       const rel = relDir ? `${relDir}/${dirent.name}` : dirent.name;
       const absolute = path.join(dir, dirent.name);
       if (dirent.isDirectory()) {
-        if (!allowedDir(dirent.name, rel)) continue;
+        if (!allowedDir(dirent.name, rel) || isCredentialPath(absolute)) continue;
         await walk(absolute, rel, depth + 1);
         continue;
       }
-      if (!dirent.isFile() || ignoredFile(dirent.name, rel)) continue;
+      if (!dirent.isFile() || ignoredFile(dirent.name, rel, root)) continue;
       const stat = await fs.stat(absolute).catch(() => null);
       if (!stat?.isFile()) continue;
       entries.push({ path: rel.replace(/\\/g, "/"), kind: dirent.name === "SKILL.md" ? "skill" : "path", size: stat.size });
@@ -160,10 +162,11 @@ export async function candidateEntriesFromSeed(projectPath: string, seedPaths: s
   const out: CandidateEntry[] = [];
   for (const relRaw of seedPaths.slice(0, 64)) {
     const rel = relRaw.replace(/\\/g, "/").replace(/^\.\//, "");
-    if (!rel || rel.startsWith("../") || path.isAbsolute(rel) || ignoredFile(path.basename(rel), rel)) continue;
+    if (!rel || rel.startsWith("../") || path.isAbsolute(rel) || ignoredFile(path.basename(rel), rel, root)) continue;
     const absolute = path.resolve(root, rel);
     const real = await fs.realpath(absolute).catch(() => "");
     if (!real || (real !== root && !real.startsWith(root + path.sep))) continue;
+    if (isCredentialPath(real)) continue;
     const handle = await fs.open(real, constants.O_RDONLY | constants.O_NOFOLLOW).catch(() => null);
     if (!handle) continue;
     try {

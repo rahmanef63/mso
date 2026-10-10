@@ -53,11 +53,11 @@ describe("the Camoufox split-origin VNC bridge", () => {
   }
 
   function viewerCookie(): string {
-    return createCamoufoxViewerCookie(DEVICE, SECRET);
+    return createCamoufoxViewerCookie({device_id:DEVICE,issued_at:Date.now(),expires_at:Date.now()+3_600_000}, SECRET);
   }
 
   function viewerTicket(now = Date.now()): string {
-    return createCamoufoxViewerTicket(DEVICE, SECRET, now);
+    return createCamoufoxViewerTicket({device_id:DEVICE,issued_at:now,expires_at:now+3_600_000}, SECRET, now);
   }
 
   async function load(novnc = NOVNC) {

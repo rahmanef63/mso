@@ -8,9 +8,10 @@ const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]*:\/\/)([^\s/:@]+):([^\s/@]+)@/gi;
 
 export function redactText(value: string, max = Number.POSITIVE_INFINITY): string {
   return value
+    .replace(/\b(authorization["']?\s*[:=]\s*)("(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^\r\n;\]}]+)/gi, (match, prefix: string, credential: string) => credential === "[redacted" ? match : `${prefix}${credential.startsWith('"') || credential.startsWith("'") ? credential[0] + "[redacted]" + credential[0] : "[redacted]"}`)
     .replace(/\bbearer\s+[^\s,;]+/gi, "Bearer [redacted]")
     .replace(URL_CREDENTIALS, "$1$2:[redacted]@")
-    .replace(SECRET, "$1$2[redacted]")
+    .replace(SECRET, (match, key: string, separator: string, credential: string) => credential === "[redacted" ? match : `${key}${separator}[redacted]`)
     .replace(SECRET_VALUE, "[redacted]")
     .slice(0, max);
 }

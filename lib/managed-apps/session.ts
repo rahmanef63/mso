@@ -7,19 +7,27 @@ import type { ManagedAppId } from "./types";
 export const MANAGED_APP_SESSION_COOKIE = "__Host-mso-managed-app";
 const TICKET_TTL = 60_000;
 const COOKIE_TTL = 2 * 60 * 60 * 1000;
+type ManagedSession = SessionPayload & {parent_expires_at:number};
 function key(id: ManagedAppId, kind: "ticket" | "cookie", secret: string): string {
   const origin = managedAppOrigin(id);
   if (!origin || secret.length < MIN_SECRET_LEN) throw new Error("managed application authorization is unavailable");
   return `managed-app:${origin}:${kind}:${secret}`;
 }
 export function createManagedAppTicket(id: ManagedAppId, session: SessionPayload, secret: string, now = Date.now()): string {
-  return signSession({ ...session, expires_at: Math.min(session.expires_at, now + TICKET_TTL) }, key(id, "ticket", secret));
+  const parentExpiry = (session as Partial<ManagedSession>).parent_expires_at ?? session.expires_at;
+  const payload: ManagedSession = { ...session, parent_expires_at:parentExpiry, expires_at: Math.min(parentExpiry, now + TICKET_TTL) };
+  return signSession(payload, key(id, "ticket", secret));
 }
-export function createManagedAppCookie(id: ManagedAppId, session: SessionPayload, secret: string): string {
-  return signSession({ ...session, expires_at: Date.now() + COOKIE_TTL }, key(id, "cookie", secret));
+export function createManagedAppCookie(id: ManagedAppId, session: SessionPayload, secret: string, now=Date.now()): string {
+  const parentExpiry = (session as Partial<ManagedSession>).parent_expires_at ?? session.expires_at;
+  const payload: ManagedSession = { ...session, parent_expires_at:parentExpiry, expires_at:Math.min(parentExpiry,now + COOKIE_TTL) };
+  return signSession(payload, key(id, "cookie", secret));
 }
-export function verifyManagedAppSession(id: ManagedAppId, token: string, secret: string, kind: "ticket" | "cookie" = "cookie"): SessionPayload | null {
-  try { return verifySession(token, key(id, kind, secret)); } catch { return null; }
+export function verifyManagedAppSession(id: ManagedAppId, token: string, secret: string, kind: "ticket" | "cookie" = "cookie"): ManagedSession | null {
+  try {
+    const session = verifySession(token,key(id,kind,secret)) as ManagedSession|null;
+    return session && Number.isFinite(session.parent_expires_at) && session.parent_expires_at >= session.expires_at ? session : null;
+  } catch { return null; }
 }
 export async function managedAppSession(request: Request, id: ManagedAppId): Promise<SessionPayload | null> {
   const secret = process.env.OS_SESSION_SECRET ?? "";
@@ -52,7 +60,7 @@ export async function gateManagedApp(request: NextRequest, id: ManagedAppId): Pr
     const session = token ? verifyManagedAppSession(id, token, secret, "ticket") : null;
     if (!session || !await liveSessionAuthorized(session, "operator")) return response(null, 401);
     const result = response(null, 204);
-    result.cookies.set(MANAGED_APP_SESSION_COOKIE, createManagedAppCookie(id, session, secret), { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge: COOKIE_TTL / 1000 });
+    result.cookies.set(MANAGED_APP_SESSION_COOKIE, createManagedAppCookie(id, session, secret), { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge:Math.max(0,Math.floor((Math.min(session.parent_expires_at,Date.now()+COOKIE_TTL)-Date.now())/1000)) });
     return result;
   }
   if (await managedAppSession(request, id)) return null;

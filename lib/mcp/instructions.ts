@@ -68,5 +68,6 @@ export function mcpInstructions(scope: Scope, profile: McpToolProfile = "full", 
   const projectBoundary = profile === "chatgpt"
     ? " Project-owned MCP tools never join this catalog: use project_mcp_tools then project_mcp_call."
     : "";
-  return `${startup}${projectBoundary} Call agent_session_open for provider-neutral sessions, then send params._meta[mso/sessionId]. Use flow_catalog to inspect required inputs before flow_run; flow_status waits for completion. Session/workflow state is isolated per conversation. Prefer bounded tools and exec_job_start for long builds. Never expose hidden transcripts, credentials, or private chain-of-thought.`;
+  const session = scope === "read" ? "Read agent_session_current for your conversation-bound session; agent_session_open and inbox acknowledgement require write scope." : "Call agent_session_open for provider-neutral sessions, then send params._meta[mso/sessionId]. Acknowledge inbox messages with local_agent_inbox_acknowledge.";
+  return `${startup}${projectBoundary} ${session} Use flow_catalog to inspect required inputs before flow_run; flow_status waits for completion. Session/workflow state is isolated per conversation. Prefer bounded tools and exec_job_start for long builds. Never expose hidden transcripts, credentials, or private chain-of-thought.`;
 }

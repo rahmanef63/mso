@@ -40,6 +40,8 @@ export const msoCapabilityRuntime: CapabilityRuntime = {
         tenantContext: input.tenantContext,
         principal: input.principal,
         authorizationGrant: input.authorizationGrant,
+        signal: input.signal,
+        liveAuthorization: input.liveAuthorization,
         allowedTools: input.allowedTools,
         toolArgumentConstraints: input.toolArgumentConstraints,
         toolProfile: input.toolProfile,

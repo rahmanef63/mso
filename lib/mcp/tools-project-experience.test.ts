@@ -38,6 +38,21 @@ const tool = (name: string) => {
 };
 
 describe("Lovable-inspired MSO project surfaces", () => {
+  it("redacts credential diffs in MCP text and structured output while preserving ordinary source", async () => {
+    await writeFile(path.join(project,".mcp.json"), "PRIVATE_PATCH_MCP");
+    await writeFile(path.join(project,".netrc"), "PRIVATE_PATCH_NETRC");
+    await writeFile(path.join(project,"normal.txt"), "ordinary source\nAuthorization: Basic cHJpdmF0ZTpwYXNz\n");
+    execFileSync("git",["add",".mcp.json",".netrc","normal.txt"],{cwd:project});
+    const { dispatch } = await import("./dispatch");
+    const output = await dispatch({jsonrpc:"2.0",id:1,method:"tools/call",params:{name:"project_diff",arguments:{project,staged:true}}},"read");
+    const serialized = JSON.stringify(output);
+    expect(serialized).not.toMatch(/PRIVATE_PATCH_MCP|PRIVATE_PATCH_NETRC|cHJpdmF0ZTpwYXNz/);
+    expect(serialized).toContain("ordinary source"); expect(serialized).toContain('redacted');
+    const result = output.result as {structuredContent:Record<string,unknown>};
+    expect(result.structuredContent).not.toHaveProperty("unifiedDiff");
+    execFileSync("git",["reset","--quiet"],{cwd:project});
+    for (const name of [".mcp.json",".netrc","normal.txt"]) await rm(path.join(project,name));
+  });
   it("project_get returns a canonical safe snapshot and project_diff keeps raw diff out of widget structured content", async () => {
     const got = await tool("project_get").run({ project }, { scope: "read" }) as Record<string, unknown>;
     expect(got).toMatchObject({ project: { name: "widget" }, package: { name: "widget", version: "2.0.0" }, database: { detected: false } });

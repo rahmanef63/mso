@@ -2,21 +2,19 @@ import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/agent/server";
 import { apiError, readJson } from "@/lib/host/request-api";
 import { audit } from "@/lib/host/audit-api";
+import { rateLimited } from "@/lib/host/limits-api";
 import { getUpdateStatus, startUpdate } from "@/lib/host/self-update";
 
 export const dynamic = "force-dynamic";
-// The GET runs `git fetch`, and the POST hands off to systemd-run. Neither is a
-// static thing and both need the host, so this is Node, never the edge.
+// Status reads and explicit update actions require the host runtime.
 export const runtime = "nodejs";
 
 // GET /sys/update → what version is running, what is on origin/main, and the log of
-// the last run. `?check=0` skips the network round trip, which is what the panel
-// polls with while an update is in flight.
+// the last run. Reads never fetch or modify the repository.
 export async function GET(req: Request) {
   if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   try {
-    const check = new URL(req.url).searchParams.get("check") !== "0";
-    return NextResponse.json(await getUpdateStatus(check));
+    return NextResponse.json(await getUpdateStatus(false));
   } catch (e) {
     return apiError("sys/update", e);
   }
@@ -29,7 +27,15 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   try {
-    const body = (await readJson(req).catch(() => ({}))) as { rebuildOnly?: unknown };
+    const body = (await readJson(req).catch(() => ({}))) as { rebuildOnly?: unknown; action?: unknown };
+    if (body.action === "check") {
+      const origin = new URL(process.env.OS_PUBLIC_ORIGIN || req.url).origin;
+      if (req.headers.get("origin") !== origin) return NextResponse.json({ error: "same_origin_required" }, { status: 403 });
+      if (rateLimited("sys-update-check", 6, 60_000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+      const status = await getUpdateStatus(true);
+      audit({ action: "sys.update", target: "check", ok: true });
+      return NextResponse.json(status);
+    }
     const rebuildOnly = body.rebuildOnly === true;
     const status = await startUpdate(rebuildOnly);
     audit({

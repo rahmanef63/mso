@@ -3,6 +3,7 @@ import { sha256hex } from "./pkce";
 import type { Scope } from "./scope";
 import { commitMcpStore as write, mutateMcpStore as mutate, readMcpStore as read, sweepMcpStore as sweep } from "./store-state";
 import type { McpToken, TokenView } from "./store-types";
+import { abortMcpTokenWaits } from "./token-waits";
 
 export async function listTokens(): Promise<TokenView[]> {
   const store = await read();
@@ -36,6 +37,7 @@ export function revokeToken(id: string): Promise<boolean> {
       }
     }
     await write(store);
+    for (const [hash,token] of Object.entries(store.tokens)) if (token.revokedAt) abortMcpTokenWaits(hash);
     return true;
   });
 }
@@ -55,6 +57,7 @@ export function revokeAllTokens(): Promise<number> {
       if (!token.revokedAt) token.revokedAt = now;
     }
     if (count || Object.keys(store.refreshTokens).length) await write(store);
+    for (const [hash,token] of Object.entries(store.tokens)) if (token.revokedAt) abortMcpTokenWaits(hash);
     return count;
   });
 }

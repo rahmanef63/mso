@@ -40,7 +40,7 @@ export async function GET() {
   if (!viewerOrigin || secret.length < 32) {
     return NextResponse.json({ error: "viewer_unconfigured" }, { status: 503 });
   }
-  const viewerTicket = createCamoufoxViewerTicket(context.session.device_id, secret, Date.now(), context.session.issued_at);
+  const viewerTicket = createCamoufoxViewerTicket(context.session, secret);
 
   const password = (await fs.readFile(/* turbopackIgnore: true */ PASSWD_FILE, "utf8").catch(() => "")).trim();
   // Absent file = the operator has not set one. Say so plainly rather than 500 — the

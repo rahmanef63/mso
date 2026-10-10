@@ -58,6 +58,8 @@ export type CapabilityActionContract = {
 };
 
 export interface CapabilityRunContext {
+  signal?:AbortSignal;
+  liveAuthorization?:()=>Promise<void>;
   tenantContext?: TenantContext;
   actor?: string;
   principal?: string;

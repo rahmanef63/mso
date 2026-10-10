@@ -15,15 +15,19 @@ export async function waitForLocalAgentInbox(input: {
   includeRead?: boolean;
   limit?: number;
   waitMs?: number;
+  signal?:AbortSignal;
+  authorize?:()=>Promise<void>;
 }): Promise<LocalAgentMessageView[]> {
   const limit = Math.max(1, Math.min(200, Math.trunc(input.limit ?? 100)));
   const waitMs = Number.isFinite(input.waitMs)
     ? Math.max(0, Math.min(MAX_LOCAL_AGENT_INBOX_WAIT_MS, Math.trunc(input.waitMs ?? 0)))
     : 0;
-  const read = () => listLocalAgentInbox(input.principal, input.sessionId, {
-    includeRead: input.includeRead === true,
-    limit,
-  });
+  const read = async () => {
+    input.signal?.throwIfAborted(); await input.authorize?.();
+    const messages=await listLocalAgentInbox(input.principal,input.sessionId,{includeRead:input.includeRead===true,limit});
+    input.signal?.throwIfAborted(); await input.authorize?.();
+    return messages;
+  };
   const initial = await read();
   if (initial.length || waitMs === 0) return initial;
 
@@ -31,15 +35,29 @@ export async function waitForLocalAgentInbox(input: {
   const signalled = new Promise<void>((resolve) => { wake = resolve; });
   const unsubscribe = subscribeLocalAgentMessages(input.sessionId, () => wake());
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let authorizationTimer: ReturnType<typeof setInterval> | undefined;
+  let abort=()=>{};
   try {
     // Close the read→subscribe race; durable mailbox remains authoritative.
     const afterSubscribe = await read();
     if (afterSubscribe.length) return afterSubscribe;
     const timedOut = new Promise<void>((resolve) => { timer = setTimeout(resolve, waitMs); });
-    await Promise.race([signalled, timedOut]);
-    return read();
+    const revoked=new Promise<never>((_resolve,reject)=>{
+      abort=()=>reject(input.signal?.reason ?? new Error("Local-agent wait aborted"));
+      input.signal?.addEventListener("abort",abort,{once:true});
+      if (input.signal?.aborted) abort();
+      let checking=false;
+      if(input.authorize) authorizationTimer=setInterval(()=>{
+        if(checking) return;
+        checking=true; void input.authorize!().catch(reject).finally(()=>{checking=false;});
+      },100);
+    });
+    await Promise.race([signalled, timedOut,revoked]);
+    return await read();
   } finally {
     if (timer) clearTimeout(timer);
+    if (authorizationTimer) clearInterval(authorizationTimer);
+    input.signal?.removeEventListener("abort",abort);
     unsubscribe();
   }
 }
@@ -49,7 +67,10 @@ export async function waitForLocalAgentReply(input: {
   senderSessionId: string;
   requestMessageId: string;
   timeoutMs?: number;
+  signal?:AbortSignal;
+  authorize?:()=>Promise<void>;
 }) {
+  input.signal?.throwIfAborted(); await input.authorize?.();
   const request = await getLocalAgentSentMessage(
     input.principal,
     input.senderSessionId,
@@ -60,10 +81,12 @@ export async function waitForLocalAgentReply(input: {
   const timeoutMs = Math.max(0, Math.min(30_000, Math.trunc(input.timeoutMs ?? 5_000)));
   const startedAt = Date.now();
   while (true) {
+    input.signal?.throwIfAborted(); await input.authorize?.();
     const reply = await findLocalAgentReply(input.principal, input.senderSessionId, request.id);
     const target = (await listLocalAgents(input.principal, { includeOffline: true }))
       .find((row) => row.id === request.targetSessionId) ?? null;
     const elapsedMs = Date.now() - startedAt;
+    input.signal?.throwIfAborted(); await input.authorize?.();
     if (reply) return { state: "replied" as const, elapsedMs, request, reply, target };
     if (target && !target.actionable && ["offline", "ended"].includes(target.status))
       return { state: "target_offline" as const, elapsedMs, request, reply: null, target };

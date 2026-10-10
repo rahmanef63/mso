@@ -15,7 +15,7 @@ Use for repeated provider API operations, project MCP chains, and declared proje
 
 ## Fast route
 
-1. Call `agent_session_open` once with a stable conversation key, unless this conversation already has a session. Carry returned `mso/sessionId` in request metadata.
+1. With write/exec scope, call `agent_session_open` once with a stable conversation key, unless this conversation already has a session. Carry returned `mso/sessionId` in request metadata. Read tokens use the automatically conversation-bound session and `agent_session_current`; they cannot create, rename, relocate or acknowledge a session's messages.
 2. Call `flow_catalog` with the exact project. Inspect the selected flow to get its input schema, ordered steps and scope.
 3. Reuse an existing flow. For a new repeated pattern, inspect the provider operation or paged `project_mcp_tools` schema first; save a versioned definition with `flow_manage` and the catalog revision.
 4. Call `flow_run` with project, flow, nonsecret input and a unique logical operation key.

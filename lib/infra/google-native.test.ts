@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-const security = vi.hoisted(() => ({ role: "owner", epoch: "test-cookie-epoch-123456789" }));
-vi.mock("@/lib/auth/device-store", () => ({ currentSessionPolicy: async () => ({ epoch: security.epoch }), getApprovedDevice: async () => ({ role: security.role }) }));
+const security = vi.hoisted(() => ({ role: "owner", epoch: "test-cookie-epoch-123456789", revokedAt: undefined as number | undefined }));
+vi.mock("@/lib/auth/device-store", () => ({ currentSessionPolicy: async () => ({ epoch: security.epoch }), getApprovedDevice: async () => ({ role: security.role, approvedAt: 1, sessionsRevokedAt: security.revokedAt }) }));
 vi.mock("@/lib/auth/session-cookie", () => ({ configuredSessionCookieScope: () => "host" }));
 let root: string;
 let storage: typeof import("./connection-storage"), service: typeof import("./connection-service"), flow: typeof import("./google-oauth-flow"), native: typeof import("./google-native");
 const selector = { user: "test-owner", connection: "search" };
-const actor = () => ({ deviceId: "test-device", cookieScope: "host", cookieEpoch: security.epoch, sessionExpiresAt: Date.now() + 600000 });
+const actor = () => ({ deviceId: "test-device", cookieScope: "host", cookieEpoch: security.epoch, sessionIssuedAt: Date.now(), sessionExpiresAt: Date.now() + 600000 });
 const tokenResponse = () => ({ access_token: "TEST_ACCESS_NOT_REAL_123456", refresh_token: "TEST_REFRESH_NOT_REAL_123456", token_type: "Bearer", expires_in: 3600, scope: "openid email https://www.googleapis.com/auth/webmasters.readonly" });
 const accountResponse = () => ({ sub: "test-user-123", email: "owner@example.test", email_verified: true });
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
@@ -23,6 +23,7 @@ beforeEach(async () => {
   vi.resetModules(); vi.stubEnv("OS_INFRA_STORE", path.join(root, "infra.json")); vi.stubEnv("OS_PUBLIC_ORIGIN", "https://mso.example.test");
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("No real network in this test")));
   security.role = "owner"; security.epoch = "test-cookie-epoch-123456789";
+  security.revokedAt = undefined;
   storage = await import("./connection-storage"); service = await import("./connection-service"); flow = await import("./google-oauth-flow"); native = await import("./google-native");
   await storage.mutateIntegrationState(d => {
     d.users[selector.user] = { id: selector.user, uid: "owner-uid", label: "Test owner", connections: {}, defaults: {} }; d.defaultUser = selector.user;
@@ -69,13 +70,23 @@ describe("native Google lifecycle — isolated store, mocked Google", () => {
     await expect(flow.completeGoogleAuthorization(next.state, next.binding, "TEST_CODE_2")).rejects.toThrow("account_changed_disconnect_first");
     expect((await service.resolveIntegration("google-search-console", selector)).google?.account?.email).toBe("owner@example.test");
   });
-  it.each(["expired", "rotated-app", "role-revoked", "epoch-revoked"])("rejects a %s flow before token exchange", async kind => {
+  it.each(["expired", "rotated-app", "role-revoked", "epoch-revoked", "logged-out"])("rejects a %s flow before token exchange", async kind => {
     const start = await begin();
     if (kind === "expired") await storage.mutateIntegrationState(d => { d.users[selector.user].connections["google-search-console"].search.googlePending!.expiresAt = 1; });
     if (kind === "rotated-app") await storage.mutateIntegrationState(d => { d.users[selector.user].connections["google-oauth-app"].app.revision++; });
     if (kind === "role-revoked") security.role = "operator";
     if (kind === "epoch-revoked") security.epoch = "another-cookie-epoch-123456";
+    if (kind === "logged-out") security.revokedAt = Date.now();
     await expect(flow.completeGoogleAuthorization(start.state, start.binding, "TEST_CODE")).rejects.toThrow(); expect(fetch).not.toHaveBeenCalled();
+  });
+  it("does not persist a grant when logout happens during token exchange", async () => {
+    const start = await begin();
+    vi.mocked(fetch).mockResolvedValueOnce(response(tokenResponse())).mockImplementationOnce(async () => {
+      security.revokedAt = Date.now(); return response(accountResponse());
+    });
+    await expect(flow.completeGoogleAuthorization(start.state, start.binding, "TEST_CODE")).rejects.toThrow("expired_or_invalid");
+    const connection = (await storage.readIntegrationState()).users[selector.user].connections["google-search-console"].search;
+    expect(connection.googleOAuth).toBeUndefined(); expect(connection.googlePending).toBeUndefined();
   });
   it("denial consumes the authorization without losing an older grant", async () => {
     await authorize(); const next = await begin();

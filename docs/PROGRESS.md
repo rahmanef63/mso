@@ -1,3 +1,13 @@
+## 2026-10-10: Close the eight findings from the 1acc1424 cloud scan
+
+Candidate indexes use canonical credential guards during walking, seeding, cache reuse and preview reads; version 2 invalidates older caches. Git diffs use NUL-delimited filename metadata and literal pathspecs, omit protected patches/renames and redact recognizable credentials while retaining file statistics and ordinary source.
+
+A2A SSE closes on terminal task state, profile revocation, disconnect and a five-minute deadline, with eight streams per profile, sixty-four globally and bounded queued events. Application and Camoufox child cookies retain the original session issue time and expiry independently of their short-lived tickets; HTTP and continuous WebSocket authority share those boundaries.
+
+Durable session opening now requires write scope. Inbox reads reject acknowledgement; the dedicated write-scoped acknowledgement tool preserves normal receiver behavior. MCP waits carry request cancellation, recheck live token authority and discard results after revocation. Token administration cancels registered waits after durable revocation. The changed toolset signature requires downstream client action refresh; no existing token gains privileges.
+
+Update status GET is cache-only; explicit remote checking uses a same-origin, rate-limited, audited POST. Google consent binds issue time and verifies durable logout both before exchange and inside token persistence. Regression tests cover both HTTP/MCP credential sinks, protected Git renames, terminal/revoked/cancelled streams, child expiry, read/write separation, late private results and logout during consent. Independent verification of the released commit remains required.
+
 ## 2026-10-10: Close the five findings from the 34b69798 cloud scan
 
 Read roots default to the checkout and projects, not the whole home. Shared filesystem guards refuse additional Terraform, PyPI, Poetry, doctl, Azure and browser credential stores, plus raw project MCP/registry credentials. The dedicated project MCP inventory remains redacted. File Manager's initial listing selects an allowed root and canonicalizes its history; the sidebar no longer advertises disallowed Home paths. Explicit Owner root overrides remain available and subject to credential guards.

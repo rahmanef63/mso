@@ -7,7 +7,7 @@ vi.mock("@/lib/host/audit-api", () => ({ audit: mocks.audit }));
 import { POST } from "@/app/api/integrations/google/start/route";
 import { GET } from "@/app/api/integrations/google/callback/route";
 const origin = "https://mso.example.test";
-const actor = { role: "owner", session: { device_id: "test-device", cookie_scope: "host", cookie_epoch: "test-epoch-123456789", expires_at: 9999999999999 } };
+const actor = { role: "owner", session: { device_id: "test-device", cookie_scope: "host", cookie_epoch: "test-epoch-123456789", issued_at: 1000, expires_at: 9999999999999 } };
 beforeEach(() => {
   vi.clearAllMocks(); vi.stubEnv("OS_PUBLIC_ORIGIN", origin);
   mocks.context.mockResolvedValue(actor);
@@ -28,6 +28,7 @@ describe("native OAuth HTTP boundary", () => {
   it("sets a host-only finite HttpOnly/Secure/Lax binding without changing the main session cookie", async () => {
     const result = await POST(request()), cookie = result.headers.get("set-cookie")!;
     expect(result.status).toBe(200); expect(cookie).toContain("__Host-mso-google-test=");
+    expect(mocks.begin).toHaveBeenCalledWith("google-search-console", { user: "test-owner", connection: "search" }, expect.objectContaining({ sessionIssuedAt: 1000 }));
     for (const attr of ["HttpOnly", "Secure", "SameSite=lax", "Max-Age=600", "Path=/"]) expect(cookie).toContain(attr);
     expect(cookie).not.toContain("Domain="); expect(cookie).not.toContain("session=");
     expect(result.headers.get("cache-control")).toContain("no-store");

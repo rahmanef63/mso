@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     if (Object.keys(body).some(k => !["user", "provider", "connection"].includes(k)) || !isGoogleProvider(String(body.provider))) throw new IntegrationError("invalid_google_request");
     const user = identity(body.user, "user"), connection = identity(body.connection, "connection"), provider = String(body.provider);
     if (!isGoogleProvider(provider)) throw new IntegrationError("invalid_google_request");
-    const flow = await beginGoogleAuthorization(provider, { user, connection }, { deviceId: ctx.session.device_id, cookieScope: ctx.session.cookie_scope, cookieEpoch: ctx.session.cookie_epoch, sessionExpiresAt: ctx.session.expires_at });
+    const flow = await beginGoogleAuthorization(provider, { user, connection }, { deviceId: ctx.session.device_id, cookieScope: ctx.session.cookie_scope, cookieEpoch: ctx.session.cookie_epoch, sessionIssuedAt: ctx.session.issued_at, sessionExpiresAt: ctx.session.expires_at });
     const response = NextResponse.json({ authorizationUrl: flow.authorizationUrl, expiresIn: flow.expiresIn }, { headers });
     response.cookies.set(flow.cookieName, flow.binding, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: flow.expiresIn });
     void audit({ action: "infra.write", actor: ctx.session.device_id, target: `${user}/${provider}/${connection}`, ok: true, detail: "google.authorization.start" });

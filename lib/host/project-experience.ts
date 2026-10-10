@@ -5,6 +5,8 @@ import path from "node:path";
 import { BOUNDED_READ, readBoundedRegularFile } from "./bounded-read";
 import { resolveReadable } from "./paths";
 import { childEnv } from "./child-env";
+import { isCredentialPath } from "./path-credentials";
+import { redactText } from "@/lib/security/redact-text";
 
 const GIT_TIMEOUT_MS = 8_000;
 const GIT_MAX_BYTES = 256 * 1024;
@@ -84,23 +86,31 @@ export async function projectGitDiff(projectPath: string, options: { sha?: strin
   const sha = options.sha ? requireSha(options.sha, "sha") : undefined;
   const baseSha = options.baseSha ? requireSha(options.baseSha, "base_sha") : undefined;
   const range = sha ? (baseSha ? `${baseSha}..${sha}` : `${sha}^..${sha}`) : undefined;
-  const diffArgs = ["diff", "--no-ext-diff", "--unified=3"];
-  const statArgs = ["diff", "--no-ext-diff", "--numstat"];
+  const diffArgs = ["diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--unified=3"];
+  const statArgs = ["diff", "--no-ext-diff", "--no-textconv", "--find-renames", "--numstat", "-z"];
   if (!range && options.staged) { diffArgs.push("--cached"); statArgs.push("--cached"); }
   if (range) { diffArgs.push(range); statArgs.push(range); }
-  const [diff, stats] = await Promise.all([git(projectPath, diffArgs, 512 * 1024), git(projectPath, statArgs, 128 * 1024)]);
-  if (diff.code !== 0) throw new Error((diff.stderr || diff.stdout).trim().slice(0, 400) || "git diff failed");
+  const stats = await git(projectPath, statArgs, 128 * 1024);
   if (stats.code !== 0) throw new Error((stats.stderr || stats.stdout).trim().slice(0, 400) || "git diff --numstat failed");
-  const files = stats.stdout.split("\n").filter(Boolean).slice(0, 200).map((line) => {
-    const [added = "0", deleted = "0", file = ""] = line.split("\t");
-    return { file, added: added === "-" ? null : Number(added), deleted: deleted === "-" ? null : Number(deleted) };
-  });
+  const records = stats.stdout.split("\0");
+  const files: Array<{file:string; previousFile?:string; added:number|null; deleted:number|null; redacted?:boolean}> = [];
+  for (let index=0; index<records.length && records[index] && files.length<200; index+=1) {
+    const [added="0",deleted="0",...name] = records[index].split("\t");
+    const previousFile = name.join("\t") ? undefined : records[++index];
+    const file = previousFile === undefined ? name.join("\t") : records[++index];
+    if (!file) throw new Error("Invalid Git diff path metadata");
+    const redacted = [file,previousFile].some(value=>value !== undefined && isCredentialPath(path.resolve(projectPath,value)));
+    files.push({file,...(previousFile ? {previousFile} : {}),added:added==="-"?null:Number(added),deleted:deleted==="-"?null:Number(deleted),...(redacted?{redacted:true}:{})});
+  }
+  const readableFiles = files.filter((file) => !file.redacted);
+  const diff = readableFiles.length ? await git(projectPath, [...diffArgs, "--", ...readableFiles.flatMap(({file,previousFile}) => (previousFile?[previousFile,file]:[file]).map(name=>`:(literal)${name}`))], 512 * 1024) : { code: 0, stdout: "", stderr: "" };
+  if (diff.code !== 0) throw new Error(redactText((diff.stderr || diff.stdout).trim(), 400) || "git diff failed");
   const additions = files.reduce((sum, row) => sum + (row.added ?? 0), 0);
   const deletions = files.reduce((sum, row) => sum + (row.deleted ?? 0), 0);
   return {
     mode: range ? "commit" : options.staged ? "staged" : "working-tree",
     ...(sha ? { sha } : {}), ...(baseSha ? { baseSha } : {}),
-    files, summary: { files: files.length, additions, deletions }, unifiedDiff: diff.stdout,
+    files, summary: { files: files.length, additions, deletions }, unifiedDiff: redactText(diff.stdout),
   };
 }
 

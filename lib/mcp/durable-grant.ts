@@ -13,7 +13,7 @@ function fingerprint(token: McpToken): string {
   return createHash("sha256").update(JSON.stringify(authority)).digest("hex");
 }
 
-export function mcpAuthorizationGrant(token: McpToken & { hash: string }, resource: string): AuthorizationGrant {
+export function mcpAuthorizationGrant(token: McpToken & { hash: string }, resource: string): Extract<AuthorizationGrant, { kind: "mcp" }> {
   const { hash, ...authority } = token;
   return { kind: "mcp", id: hash, resource, fingerprint: fingerprint(authority) };
 }

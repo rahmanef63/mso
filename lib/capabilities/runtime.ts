@@ -23,6 +23,8 @@ export interface CapabilityInvocation {
   actor?: string;
   principal?: string;
   authorizationGrant?: AuthorizationGrant;
+  signal?: AbortSignal;
+  liveAuthorization?: () => Promise<void>;
   sessionId?: string;
   /** Optional fixed workflow context used by durable delegated workers. */
   workflowId?: string;

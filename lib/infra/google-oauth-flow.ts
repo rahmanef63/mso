@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { currentSessionPolicy, getApprovedDevice } from "@/lib/auth/device-store";
 import { configuredSessionCookieScope } from "@/lib/auth/session-cookie";
+import { deviceSessionValid } from "@/lib/auth/live-session";
 import { mutateIntegrationState } from "./connection-storage";
 import { assertNotBusy, IntegrationError, type ConnectionSelector } from "./identity";
 import { googleTarget, googleApp } from "./google-native-state";
@@ -15,7 +16,7 @@ const invalid = () => new IntegrationError("google_authorization_expired_or_inva
 export async function assertGoogleActor(actor: GoogleActor) {
   if (!actor.deviceId || actor.sessionExpiresAt <= Date.now() || actor.cookieScope !== configuredSessionCookieScope()) throw invalid();
   const policy = await currentSessionPolicy(actor.cookieScope), device = await getApprovedDevice(actor.deviceId);
-  if (policy.epoch !== actor.cookieEpoch || device?.role !== "owner") throw invalid();
+  if (policy.epoch !== actor.cookieEpoch || device?.role !== "owner" || !deviceSessionValid({ device_id: actor.deviceId, issued_at: actor.sessionIssuedAt, expires_at: actor.sessionExpiresAt, cookie_scope: actor.cookieScope, cookie_epoch: actor.cookieEpoch }, device)) throw invalid();
 }
 export async function beginGoogleAuthorization(provider: GoogleProvider, selection: ConnectionSelector, actor: GoogleActor) {
   await assertGoogleActor(actor);
@@ -59,8 +60,8 @@ export async function completeGoogleAuthorization(state: string, binding: string
     if (denied) throw new IntegrationError("google_consent_denied", 403);
     const tokens = await exchangeGoogleCode(lease.app.values, lease.provider, code!, pending.verifier);
     if (lease.c.googleOAuth?.subject && lease.c.googleOAuth.subject !== tokens.subject) throw new IntegrationError("google_account_changed_disconnect_first", 409);
-    await assertGoogleActor(pending.actor);
-    await mutateIntegrationState(d => {
+    await mutateIntegrationState(async d => {
+      await assertGoogleActor(pending.actor);
       const { c, app } = pinGoogle(d, lease);
       if (pending.expiresAt <= Date.now() || pending.redirectUri !== googleRedirectUri()) throw invalid();
       c.googleOAuth = { ...tokens, appConnection: app.id, appUid: app.uid, appRevision: app.revision, redirectUri: pending.redirectUri, state: "connected", updatedAt: Date.now() };

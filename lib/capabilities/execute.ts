@@ -126,6 +126,8 @@ export async function executeCapabilityCall(input: {
     const isolatedRoot = needsIsolation ? activeWorkflow?.orchestration?.workspacePath : undefined;
     if (needsIsolation && !isolatedRoot) throw new Error("isolated workflow has no verified workspace");
     const result = await withIsolatedFilesystem(isolatedRoot, () => tool.run(args, {
+      signal:context?.signal,
+      liveAuthorization:context?.liveAuthorization,
       actor,
       principal: context?.principal,
       tenantContext: context?.tenantContext,
