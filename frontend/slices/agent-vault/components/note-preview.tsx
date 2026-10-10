@@ -3,7 +3,7 @@ import { Fragment, memo, type ReactNode } from "react";
 import { safeExternalLink } from "../lib/note-links";
 
 type Props = { content: string; resolve?: (target: string, wiki: boolean) => string | undefined; onOpen?: (path: string) => void };
-const INLINE = /(!?\[\[[^\]\n]+\]\]|!?\[[^\]\n]*\]\([^\s)]+\)|`[^`\n]+`|\*\*[^*\n]+\*\*)/g;
+const INLINE = /(!?\[\[[^\[\]\n]+\]\]|!?\[[^\[\]\n]*\]\([^\s()\[\]]+\)|`[^`\n]+`|\*\*[^*\n]+\*\*)/g;
 
 /** Inert Markdown reader. HTML/embeds stay text; only reviewed note/web links activate. */
 export const NotePreview = memo(function NotePreview({ content, resolve, onOpen }: Props) {

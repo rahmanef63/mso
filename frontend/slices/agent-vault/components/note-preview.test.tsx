@@ -16,4 +16,11 @@ describe("native Markdown reader", () => {
     expect(html).toContain("&lt;script&gt;");
     for (const tag of ["<script", "<iframe", "<img", "<a "]) expect(html).not.toContain(tag);
   });
+  it("preserves large unfinished links as inert text", () => {
+    for (const content of ["[".repeat(48 * 1024), "[unfinished](".repeat(4096)]) {
+      const html = renderToStaticMarkup(<NotePreview content={content} />);
+      expect(html).toContain(content);
+      expect(html).not.toContain("<button"); expect(html).not.toContain("<a ");
+    }
+  });
 });

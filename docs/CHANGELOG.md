@@ -19,6 +19,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `security` keep connected app bootstrap code static
 - `security` protect public admission and OAuth registration trust
 
+**Faster**
+
+- `vault` bound unfinished Markdown link matching
+
 **Tests**
 
 - `managed-apps` wait for durable job finalization before cleanup

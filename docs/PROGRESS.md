@@ -8,6 +8,8 @@ Regression coverage exercises safe/ambiguous/path-bounded link resolution and in
 
 The personal-note journey also exposed a Code hydration bug: the initial empty buffer was compared with an absent disk entry and misclassified as unsaved, refusing the first host read. Treat the absent baseline as empty while retaining actual edits made during an in-flight read. The real editor/browser save journey verifies initial content and the written result. Host note editing respects the selected Live adapter; mock mode offers clear guidance instead of creating a note that its editor cannot read.
 
+A follow-up parse experiment found quadratic work on long unfinished bracket sequences. Inline links now stop at nested bracket/parenthesis delimiters, retaining unfinished Markdown as literal text instead of repeatedly scanning the remaining note. Large malformed-note regressions preserve text and keep links inert; the reader remains dependency-free and bounded by the existing note limit.
+
 ## 2026-10-10: Close the eight findings from the 1acc1424 cloud scan
 
 Candidate indexes use canonical credential guards during walking, seeding, cache reuse and preview reads; version 2 invalidates older caches. Git diffs use NUL-delimited filename metadata and literal pathspecs, omit protected patches/renames and redact recognizable credentials while retaining file statistics and ordinary source.
