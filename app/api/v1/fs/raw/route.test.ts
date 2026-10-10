@@ -7,7 +7,7 @@ const handles: FileHandle[] = [], responses: Response[] = [];
 vi.mock("@/lib/agent/server", () => ({ verifyAuth: async () => true }));
 vi.mock("@/lib/auth/require-session", () => ({ getSessionActor: async () => actor }));
 vi.mock("@/lib/host/fs-api", async importOriginal => {
-  const original = await importOriginal<typeof import("@/lib/host/fs-api")>();
+  const original = await importOriginal() as typeof import("@/lib/host/fs-api");
   return { ...original, statReadable: async (name: string) => {
     const info = await original.statReadable(name); handles.push(info.handle); return info;
   } };

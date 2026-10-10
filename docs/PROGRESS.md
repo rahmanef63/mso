@@ -1,3 +1,7 @@
+## 2026-10-10: Keep the raw-stream fixture fully visible to security scanning
+
+Semgrep's pinned parser rejected the inline import type inside the mock loader's generic call. The fixture now applies the same module type to the awaited import result. All thirteen real-file stream tests and strict scanner coverage remain required; no rule or file is excluded.
+
 ## 2026-10-10: Close the three Medium findings from the 5a271a38 scan
 
 Project workers now receive the exact initiating authority in both waited and detached execution. The shared runner requires that context, rejects scope escalation and combines parent cancellation with its own timeout. Real credential-store regressions cover child catalog/argument restrictions, token revoke/expiry, deployment changes and detached workers; parent cancellation also reaches model streaming.

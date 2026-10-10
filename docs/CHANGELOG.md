@@ -26,6 +26,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `security` keep raw stream fixture fully parseable
 - `e2e` scope MCP refresh to its tab panel
 - `managed-apps` wait for durable job finalization before cleanup
 - `workflows` complete waited receipt fixture schema
