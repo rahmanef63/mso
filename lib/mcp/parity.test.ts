@@ -82,6 +82,7 @@ const MCP_ONLY: Record<string, string> = {
   "local.agents.list": "native Local Agents address durable CLI/MCP AgentSession principals; Alfa browser threads use a separate thread lifecycle and do not own a compatible durable session receiver",
   "local.agent.message.send": "same durable-session boundary; adding this to Alfa without first unifying its browser-thread identity would let one UI thread claim another principal's local receiver",
   "local.agent.inbox": "the inbox is keyed to the exact durable AgentSession principal/id; Alfa currently has a separate owner-thread store rather than that receiver identity",
+  "local.agent.inbox.acknowledge": "acknowledgement changes the exact durable AgentSession mailbox; Alfa browser threads do not own that receiver identity",
   "a2a.agents.list": "A2A is an external-agent interoperability surface for MCP/terminal agents; in-shell Alfa has no remote-agent registry yet",
   "a2a.agent.discover": "public Agent Card discovery is intentionally available to the MCP/terminal agent harness and does not expose owner UI state",
   "a2a.agent.register": "remote A2A registry mutation inherits MCP write approval/audit semantics; Alfa has no matching registry surface",

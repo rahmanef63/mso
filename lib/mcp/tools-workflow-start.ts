@@ -19,7 +19,7 @@ import { prepareWorkflowStartWorkspace, startWorkflowWithWorkspace, workflowWork
 export const WORKFLOW_START_TOOL: McpTool = {
     name: "workflow_start",
     description: "First call for multi-step work: resolve project context, search trusted skills/recipes/graphs, and return workflow_id. Carry that exact id on later steps. Read official skill mso-agent-bootstrap when learning the MSO map.",
-    chatgptDescription: "First call for multi-step work; keep workflow_id.",
+    chatgptDescription: "First call for multi-step work",
     scope: "write",
     annotations: { idempotentHint: false },
     outputSchema: WORKFLOW_START_OUTPUT,

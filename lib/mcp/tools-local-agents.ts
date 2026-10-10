@@ -133,6 +133,7 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
   },
   {
     name: "local_agent_request_wait",
+    chatgptDescription: "Wait up to 30s for this session's exact correlated request reply; never resends or starts work.",
     description: "Wait a bounded foreground interval for the correlated reply to one exact request previously sent by this session. Returns replied, target_offline, consumer_absent, or timeout with current receiver/standby observability. This never starts a background loop and never resends the request.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
@@ -177,6 +178,7 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
   },
   {
     name: "local_agent_inbox",
+    chatgptDescription: "Read this session's unread messages; wait_ms receives for up to 20s. Reply via local_agent_reply; acknowledge via write-scoped local_agent_inbox_acknowledge.",
     description: "Read durable local-agent messages for this exact session. With wait_ms > 0, keep this foreground MCP call open for a bounded interval and return as soon as a peer message arrives; this legacy receiver remains separate from server-native standby. Each item carries explicit intent/correlation metadata. If intent=request, answer it with local_agent_reply. By default only unread items are returned.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
@@ -204,6 +206,7 @@ export const LOCAL_AGENT_TOOLS: McpTool[] = [
   },
   {
     name:"local_agent_inbox_acknowledge",
+    chatgptDescription:"Mark exact inbox message_ids read for this session; requires write scope.",
     description:"Mark exact messages in this conversation's inbox read. Requires write scope; read local_agent_inbox first and pass its exact message ids.",
     scope:"write",
     annotations:{readOnlyHint:false,idempotentHint:true,destructiveHint:false},
