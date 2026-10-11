@@ -5,7 +5,7 @@ import { FolderGit2, ShieldCheck, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useAlfaBusy, useAlfaMessages, sendToAlfa, alfaReady, stopAlfa, type AlfaContext } from "../lib/alfa";
-import { useApps } from "../lib/registry";
+import { useAppCatalog } from "../lib/registry";
 import { openWindow } from "../lib/store";
 import { ChatComposer } from "./chat-composer";
 import { AlfaRunProgress } from "./alfa-run-progress";
@@ -33,7 +33,7 @@ function legacyMessageTime(id: string): number | undefined {
 export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder?: string }) {
   const messages = useAlfaMessages();
   const busy = useAlfaBusy();
-  const apps = useApps();
+  const apps = useAppCatalog();
   const bottom = useRef<HTMLDivElement>(null);
   const project = useAlfaProjectContext();
   const approvals = useAlfaApprovalCount();

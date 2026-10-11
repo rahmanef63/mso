@@ -60,7 +60,7 @@
             "frontend/slices/files-manager/app.tsx",
             "frontend/slices/os-terminal/components/pty-terminal.tsx",
             "frontend/slices/workflows/app.tsx",
-            "frontend/slices/organization/app.tsx",
+            "frontend/slices/agent-vault/app.tsx",
             "frontend/slices/appshell/responsive/responsive-provider.tsx"
           ]
         },

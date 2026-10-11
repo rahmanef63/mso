@@ -14,7 +14,7 @@ describe("shared VPS plugin installation UX", () => {
   it("has distinct Apps MCP and Skills tabs backed by the shared slice", () => {
     expect(store).toContain('"@/features/extensions"'); expect(registry).toContain('"@/features/extensions"');
     for (const label of ["Apps", "MCP", "Skills"]) expect(store).toContain(`label: "${label}"`);
-    expect(store).toContain("<AppsPanel />");
+    expect(store).toMatch(/tab === "apps" \? <AppsPanel\b/);
   });
   it("uses real server state and revisions rather than browser installation flags", () => {
     expect(hook).toContain('"/api/v1/project-mcp"'); expect(hook).toContain("snapshot.revision"); expect(hook).not.toContain("localStorage");

@@ -1,3 +1,4 @@
+import { installFixtureApps } from "./release-fixture.mjs";
 import { expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -112,6 +113,7 @@ export async function desktopMenu(page, itemName) {
 export async function reducedMenuEvidence({ browser, base, check }) {
   await check("reduced glass disables supported macOS menu filters", async () => {
     const context = await browser.newContext({ viewport: { width: 1512, height: 982 } });
+    await installFixtureApps(context);
     try {
       await context.addInitScript(() => {
         localStorage.setItem("mso:onboarding:v1", "done");

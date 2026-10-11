@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { useWindowOrder, useWindow } from "../../hooks/use-shell";
-import { useApps } from "../../lib/registry";
+import { useAppCatalog } from "../../lib/registry";
 import { focusWindow, restoreWindow, closeWindow } from "../../lib/store";
 import { AppIcon } from "../app-icon";
 
@@ -53,7 +53,7 @@ export function WindowOverview({ onClose, label = "Mission Control" }: { onClose
 
 function OverviewCard({ id, onReveal }: { id: string; onReveal: () => void }) {
   const win = useWindow(id);
-  const apps = useApps();
+  const apps = useAppCatalog();
   if (!win) return null;
   const app = apps.find((a) => a.id === win.app);
   return (

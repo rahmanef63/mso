@@ -87,7 +87,7 @@ network timings or an LCP/INP benchmark. Actual selected-shell and feature-drive
 lazy downloads are checked separately in the browser. Font limits apply to
 preloaded files, not to fonts subsequently needed by visible monospace text.
 
-Keep app descriptors cheap. Organization retains its public `OrganizationView`
+Keep app descriptors cheap. The unified knowledge feature retains its public `OrganizationView`
 through a lazy facade; its graph engine and shared canvas stylesheet must not be
 reachable eagerly from the shell manifest. Settings navigation/access checks stay
 eager, but section bodies load only after selection and their existing role gate.

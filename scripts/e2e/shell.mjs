@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { installFixtureApps } from "./release-fixture.mjs";
 // Browser e2e for the shell. THE detector this repo did not have.
 //
 // Every bug found in the 2026-08-10 audits was found by READING code — an
@@ -87,6 +88,7 @@ async function session(browser, { width, height, label, touch = width < 768, exp
     hasTouch: touch,
     isMobile: touch,
   });
+  await installFixtureApps(ctx);
   const errors = [];
   ctx.on("console", (m) => {
     if (m.type() !== "error") return;

@@ -25,7 +25,7 @@ export function WindowContent({ app, payload, winId }: { app: string; payload?: 
   const Comp = loaded?.key === app ? loaded.Comp : null;
 
   useEffect(() => {
-    if (!descriptor) return;
+    if (!descriptor || descriptor.installed === false || Comp) return;
     let alive = true;
     descriptor
       .load()
@@ -42,7 +42,7 @@ export function WindowContent({ app, payload, winId }: { app: string; payload?: 
     return () => {
       alive = false;
     };
-  }, [descriptor, app]);
+  }, [descriptor, app, Comp]);
 
   if (!descriptor) {
     return (
@@ -54,6 +54,16 @@ export function WindowContent({ app, payload, winId }: { app: string; payload?: 
         </div>
       </div>
     );
+  }
+
+  // A menu removal in another tab must not discard an already-open draft.
+  if (descriptor.installed === false && !Comp) {
+    return <div className="grid h-full place-items-center p-6 text-center text-sm">
+      <div className="space-y-3"><p>{descriptor.title} is not installed.</p>
+        <p className="text-muted-foreground">Install it in the App Store to use it in every shell.</p>
+        {descriptor.install && <Button onClick={descriptor.install}>Open App Store</Button>}
+      </div>
+    </div>;
   }
 
   if (!Comp && failed === app) {

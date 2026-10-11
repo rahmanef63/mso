@@ -5,6 +5,7 @@ export async function shellNoticesJourney(page, fixture) {
   await page.route(status, route => route.fulfill({ json: { behind: 1, remoteChecked: true, pendingBuild: false } }));
   for (const viewport of [{ width: 1280, height: 900 }, { width: 320, height: 844 }]) {
     await page.setViewportSize(viewport);
+    await page.evaluate(() => sessionStorage.removeItem("mso:update-badge:v1"));
     await page.goto(fixture.base);
     await expect(page.locator('[data-slot="shell-update-badge"]')).toBeVisible();
     await page.evaluate(() => window.dispatchEvent(new Event("beforeinstallprompt", { cancelable: true })));

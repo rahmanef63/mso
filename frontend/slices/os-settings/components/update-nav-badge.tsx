@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/features/auth";
 import { IS_DEMO } from "@/lib/demo";
-import { hasAvailableUpdate, readStatus } from "./update-status-client";
+import { readBadgeStatus } from "./update-status-client";
 
 export function UpdateNavBadge() {
   const { status, role } = useSession();
@@ -13,9 +13,9 @@ export function UpdateNavBadge() {
   useEffect(() => {
     if (IS_DEMO || status !== "in" || role !== "owner") return;
     let alive = true;
-    readStatus(true)
+    readBadgeStatus()
       .then((next) => {
-        if (alive) setAvailable(hasAvailableUpdate(next));
+        if (alive) setAvailable(next);
       })
       .catch(() => {
         if (alive) setAvailable(false);

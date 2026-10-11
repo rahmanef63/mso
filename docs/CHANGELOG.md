@@ -4,6 +4,89 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-12
+
+**Fixed**
+
+- `menu` keep fresh shortcuts empty and preserve saved links
+- start hydrated installed deep links before shell artwork
+- defer covered Android Home artwork on deep links
+
+**Tests**
+
+- retain cross-tab observer through Store reload
+
+## 2026-10-11
+
+**Fixed**
+
+- `shell` skip telemetry reads during document replacement
+- `store` keep the default filter visible on phones
+- `shell` retain routes and drafts outside launch menus
+- `store` retain runtime app state across menu changes
+- `store` preserve open drafts on shared menu removal
+- `store` keep navigation list semantics valid
+- `store` share essential app installs across shells
+- `vault` reveal a readable graph node on pane resize
+- `vault` keep graph labels readable and avoid desktop subtree filters
+- `agent-vault` keep separated graph labels compact
+- `agent-vault` separate graph labels after layout
+- `appshell` omit closed launcher image candidates
+- `appshell` hide closed launcher from native image loading
+- `agent-vault` prioritize interactive requests over artwork
+- `vault` declare shared presentation setter dependency
+- `vault` preserve editor space and shared note selection
+- `vault` keep landscape reader space with shared view navigation
+- `vault` share personal metadata across knowledge views
+
+**Faster**
+
+- `vault` prioritize actual reads over decorative downloads
+- `vault` warm shared views on deliberate intent
+- `appshell` remove redundant dock shadow filters
+- `vault` keep index transfer timing while compressing note reads
+- `vault` compress private state and note responses
+- `dock` compress dense-screen built-in artwork
+- `shell` defer covered home and launcher artwork
+- `vault` load dense artwork efficiently without eager precache
+- `shell` reduce dense artwork transfer contention
+- `shell` retain single-source artwork above DPR three
+- `shell` size dense-screen artwork for cold mobile reads
+- `shell` include built-in dock artwork in low priority
+- `shell` give app artwork low fetch priority
+- `shell` avoid duplicate artwork on dense screens
+- `shell` select artwork by rendered width
+
+**Changed**
+
+- `vault` share knowledge model and presentations
+
+**Tests**
+
+- install optional apps explicitly in legacy and anonymous journeys
+- observe active document fetch completion before Store navigation
+- isolate Store requests from stale cache events
+- settle MSO requests before Store navigation
+- `store` separate settled flows from raw navigation diagnostics
+- `store` use actual runtime catalog controls
+- `store` verify reviewed runtime installs with generated content
+- `store` use isolated WebKit runtime when provided
+- `vault` type the request fixture directly
+- `vault` assert initial readable graph content
+- `appshell` verify unmounted launcher and opening focus
+- `vault` scope workflow directory project assertion
+- `vault` enter source editor from unified organization view
+- `vault` move organization contract test with shared feature
+- `vault` cover identity encoding for a tiny note
+- `shell` expect iOS artwork only after returning Home
+- `shell` verify covered artwork resumes on Home and Launchpad
+- `shell` target dock artwork during magnification
+
+**Other**
+
+- Revert "fix(shell): skip telemetry reads during document replacement"
+- `dock` remove redundant picture lint directives
+
 ## 2026-10-10
 
 **Added**
@@ -12,6 +95,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `settings` bound automatic update checks per browser tab
 - `security` preserve worker grants and bound file reads
 - `mcp` retain scanner limits and document mailbox parity
 - `security` close credential sinks and revoke pending sessions
@@ -22,10 +106,17 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Faster**
 
+- `vault` serve smaller public artwork on standard-density screens
+- `vault` start deep-linked app alongside its shell
+- `vault` prioritize opened apps over shell artwork
+- `vault` avoid downloading inactive shell artwork
 - `vault` bound unfinished Markdown link matching
 
 **Tests**
 
+- `vault` check decoded source selection across pixel densities
+- `preview` verify honest status in isolated builds
+- isolate release data and repair desktop Settings acceptance
 - `security` keep raw stream fixture fully parseable
 - `e2e` scope MCP refresh to its tab panel
 - `managed-apps` wait for durable job finalization before cleanup
@@ -36,6 +127,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Other**
 
+- Fix native Vault tables, landscape reading and keyboard focus
 - `mcp` keep local agent tools within architecture limit
 
 ## 2026-10-09

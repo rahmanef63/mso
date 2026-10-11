@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { AppIcon } from "@/features/appshell";
 import type { SystemEntry } from "../lib/system-catalog";
 
 // A built-in app / shell feature row — same chrome + Install/Installed/Uninstall
@@ -20,23 +21,16 @@ export function SystemCard({
   installed: boolean;
   onToggle: (entry: SystemEntry) => void;
 }) {
-  const Icon = entry.icon;
   const [hover, setHover] = useState(false);
   const locked = entry.required;
 
   return (
-    <Card
+    <Card role="article" aria-label={`${entry.title} ${entry.kind}`}
       className="flex gap-3 p-3.5"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div
-        className="relative grid size-12 shrink-0 place-items-center rounded-xl text-white shadow-sm"
-        style={{ background: entry.gradient }}
-      >
-        <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-xl bg-white/20" />
-        <Icon className="relative size-6" />
-      </div>
+      <div className="size-12 shrink-0"><AppIcon app={entry} /></div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-start justify-between gap-2">

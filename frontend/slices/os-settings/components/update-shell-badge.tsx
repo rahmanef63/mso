@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { defineFeature, openWindow } from "@/features/appshell";
 import { useSession } from "@/features/auth";
 import { IS_DEMO } from "@/lib/demo";
-import { hasAvailableUpdate, readStatus } from "./update-status-client";
+import { readBadgeStatus } from "./update-status-client";
 
 /**
  * Shell-level "new version" affordance (UX-10) — dock-adjacent, not buried in
@@ -19,9 +19,9 @@ function UpdateShellBadge() {
   useEffect(() => {
     if (IS_DEMO || status !== "in" || role !== "owner") return;
     let alive = true;
-    readStatus(true)
+    readBadgeStatus()
       .then((next) => {
-        if (alive) setAvailable(hasAvailableUpdate(next));
+        if (alive) setAvailable(next);
       })
       .catch(() => {
         if (alive) setAvailable(false);

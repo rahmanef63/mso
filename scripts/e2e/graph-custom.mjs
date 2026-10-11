@@ -3,12 +3,13 @@
 import { chromium, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture, installFixtureApps } from "./release-fixture.mjs";
 const fixture = await releaseFixture({ live: true });
 let browser;
 try {
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+    await installFixtureApps(context);
   await context.addInitScript((device) => { localStorage.setItem("mso.device.id", device); localStorage.setItem("mso:onboarding:v1", "done"); }, fixture.device);
   const response = await fetch(fixture.base + "/api/auth/login", { method: "POST", headers: { "content-type": "application/json", origin: fixture.base }, body: JSON.stringify({ password: fixture.password, deviceId: fixture.device }) });
   expect(response.ok).toBe(true);
@@ -17,14 +18,14 @@ try {
   await context.addCookies([{ name: "session", value: cookie, url: fixture.base, httpOnly: true, sameSite: "Lax" }]);
   const page = await context.newPage(), errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto(fixture.base + "/organization");
+  await page.goto(fixture.base + "/organization"); await page.getByRole("button",{name:"Edit organization",exact:true}).click();
   const api = (route, body) => page.evaluate(async ([route, body]) => { const r = await fetch(route, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}); return { status: r.status, body: await r.json() }; }, [route, body]);
   let chart = (await api("/api/v1/organization")).body.chart;
   const orgNodes = ["a", "b", "c"].map((id, i) => ({ id, title: `Project ${id.toUpperCase()}`, kind: "project", status: "unconfirmed", summary: "Synthetic context", notes: "Preserve source notes", position: { x: i * 330, y: i === 1 ? 210 : 0 } }));
   const orgEdges = [{ id: "a-b", source: "a", target: "b", label: "supports" }, { id: "b-c", source: "b", target: "c", label: "continues" }];
   const created = await api("/api/v1/organization", { action: "unit_upsert", expected_revision: chart.revision, unit: { id: "custom-test", key: "custom-test", name: "Custom Test", kind: "team", projectFlow: { version: 1, title: "Context", notes: "Source", nodes: orgNodes, edges: orgEdges } } });
   expect(created.status).toBe(200);
-  const openOrg = async () => { await page.goto(fixture.base + "/organization"); const directory = page.locator('[data-slot="organization-unit-directory"]'); await expect(directory).toBeVisible(); await directory.getByRole("button", { name: /Custom Test/ }).click(); await expect(page.locator('[data-slot="organization-project-flow"]')).toBeVisible(); };
+  const openOrg = async () => { await page.goto(fixture.base + "/organization"); await page.getByRole("button",{name:"Edit organization",exact:true}).click(); const directory = page.locator('[data-slot="organization-unit-directory"]'); await expect(directory).toBeVisible(); await directory.getByRole("button", { name: /Custom Test/ }).click(); await expect(page.locator('[data-slot="organization-project-flow"]')).toBeVisible(); };
   await openOrg();
   const orgCanvas = page.getByRole("application", { name: "Organization project flow canvas", exact: true });
   const select = async (canvas, ids) => { for (const id of ids) await canvas.locator(`[data-id="${id}"]`).click({ modifiers: ["Control"] }); await expect(page.locator('[data-slot="graph-custom-controls"]')).toContainText(`${ids.length} selected`); };

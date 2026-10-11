@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { useUrlHome } from "../../../hooks/use-url-home";
 import { LayoutDashboard, Home, Search } from "lucide-react";
 import { useBrand } from "../../../registry/brand";
-import { useApps } from "../../../lib/registry";
+import { useApps, useAppCatalog } from "../../../lib/registry";
 import { useWindowOrder, useFocused, useWindow, useWindowsMap } from "../../../hooks/use-shell";
 import { shellStore, openWindow, minimizeWindow, focusApp, closeWindow } from "../../../lib/store";
 import { WindowContent } from "../../window-content";
@@ -26,6 +26,7 @@ import { DashboardHome, NavItem, SidebarLabel } from "./dashboard-parts";
 function DashboardShell() {
   const brand = useBrand();
   const allApps = useApps();
+  const catalog = useAppCatalog();
   const apps = allApps.filter((a) => !a.noDock);
   const [q, setQ] = useState("");
   const menu = useShellContextMenu("dashboard");
@@ -39,7 +40,7 @@ function DashboardShell() {
   // store), anything else shows Home. User gestures override, keyed to the
   // pathname they were made at, so the derivation wins again when the URL
   // actually changes — no effect-driven setState.
-  const { home, setHome } = useUrlHome(allApps);
+  const { home, setHome } = useUrlHome(catalog);
 
   // The pane shows the FOCUSED window — fall back to the newest non-minimized
   // one (`order` is append-only and doesn't track focus).

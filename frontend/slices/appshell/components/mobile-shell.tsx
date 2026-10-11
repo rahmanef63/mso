@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useUrlHome } from "../hooks/use-url-home";
 import { cn } from "@/lib/utils";
-import { useApps } from "../lib/registry";
+import { useApps, useAppCatalog } from "../lib/registry";
 import { useWindowOrder, useFocused, useWindow } from "../hooks/use-shell";
 import { shellStore, openWindow, focusApp, minimizeWindow, restoreWindow, toggleSpotlight, toggleInspector } from "../lib/store";
 import { HomeIndicator } from "./home-indicator";
@@ -21,6 +21,7 @@ import { IosFeatureHeader } from "./shells/ios/ios-feature-header";
 // Reuses the same store (open/minimize/focus) so state matches the desktop.
 export function MobileShell() {
   const apps = useApps();
+  const catalog = useAppCatalog();
   const order = useWindowOrder();
   const focused = useFocused();
   const [switcher, setSwitcher] = useState(false);
@@ -45,7 +46,7 @@ export function MobileShell() {
   // effect-driven setState (react-hooks/set-state-in-effect). Gated like
   // UrlSync (manifest.routing): opted out, the URL never names an app, so the
   // grid-first default + gesture overrides behave exactly as before.
-  const { home, setHome } = useUrlHome(apps);
+  const { home, setHome } = useUrlHome(catalog);
 
   // The visible app is the FOCUSED window (front-most) — fall back to the newest
   // non-minimized one. `order` is append-only and doesn't track focus.
@@ -55,7 +56,7 @@ export function MobileShell() {
       : ([...order].reverse().find((id) => !shellStore.getWindow(id)?.minimized) ?? null);
   const top = useWindow(topId ?? "__none__"); // reactive: re-renders on the active window's own payload/title changes
   const showApp = !home && top;
-  const activeApp = top ? apps.find((a) => a.id === top.app) : null;
+  const activeApp = top ? catalog.find((a) => a.id === top.app) : null;
   const mobileNav = useMobileNavigationInfo(activeApp?.id);
 
   // SSOT navigation: open / resume bring a window to the front; home minimises.

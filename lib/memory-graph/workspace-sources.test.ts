@@ -8,7 +8,7 @@ import { workspaceSources } from "./workspace-sources";
 const project = { id: "root/mso", name: "mso", path: "/projects/mso" };
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.chart.mockResolvedValue({ units: [{ id: "org", name: "Office", projectFlow: { nodes: [{ id: "project", title: "MSO", status: "active", summary: "Context", projectRef: project.id }], edges: [] } }] });
+  mocks.chart.mockResolvedValue({ seats: [], units: [{ id: "org", name: "Office", projectFlow: { nodes: [{ id: "project", title: "MSO", status: "active", summary: "Context", projectRef: project.id }], edges: [] } }] });
   mocks.discovery.mockResolvedValue({ graphs: [{ id: "graph", owner: "a".repeat(64), name: "Saved workflow", status: "draft", nodeCount: 2, originPrincipal: "mcp-client:one", project: project.path }], scan: { warnings: [], ownersScanned: 1, totalOwners: 1 } });
   mocks.recipes.mockResolvedValue([{ id: "recipe", actor: "mcp-client:one", intent: "Saved recipe", successes: 1, attempts: 1, project: project.path }]);
   mocks.memory.mockResolvedValue({ records: [{ record: { id: "private", key: "workflow:key", kind: "procedural", document: "MEMORY.md", sensitivity: "private", value: "DO NOT EXPOSE PRIVATE VALUE" } }] });
@@ -20,6 +20,17 @@ describe("owner second-brain source projection", () => {
     expect(result.links.some(link => link.targetId === `project:${project.id}`)).toBe(true);
     expect(result.nodes.some(node => node.targetApp === "organization")).toBe(true);
     expect(JSON.stringify(result)).not.toContain("DO NOT EXPOSE PRIVATE VALUE");
+  });
+  it("uses source unit/seat identities and scoped reporting edges in the same document",async()=>{
+    mocks.chart.mockResolvedValue({units:[{id:"generated-unit",name:"Generated unit",projectFlow:{nodes:[],edges:[]}}],seats:[
+      {id:"generated-parent",unitId:"generated-unit",name:"Generated parent",title:"QA",role:"lead",seatMode:"permanent",target:{kind:"project-agent",project:project.id}},
+      {id:"generated-child",unitId:"generated-unit",name:"Generated child",title:"QA",role:"worker",seatMode:"on_demand",reportsToSeatId:"generated-parent",target:{kind:"project-agent",project:project.id}},
+      {id:"other-project",unitId:"generated-unit",name:"Excluded",title:"QA",role:"worker",seatMode:"permanent",target:{kind:"project-agent",project:"other"}},
+    ]});
+    const result=await workspaceSources("owner","web:test",[project],true);
+    expect(result.nodes.filter(node=>node.group==="Organization")).toHaveLength(3);
+    expect(result.links).toContainEqual({source:"organization:generated-unit:seat:generated-parent",targetId:"organization:generated-unit:seat:generated-child",kind:"related"});
+    expect(JSON.stringify(result)).not.toContain("other-project");
   });
   it("does not mix unscoped actor memories into a selected project and reports truncation", async () => {
     mocks.discovery.mockResolvedValue({ graphs: [], scan: { warnings: [], nextOwnerOffset: 4, totalOwners: 8, ownersScanned: 4 } });

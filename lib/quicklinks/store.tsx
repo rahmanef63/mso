@@ -20,23 +20,8 @@ export type Quicklink = { id: string; title: string; url: string };
 
 const KEY = "mso:quicklinks";
 
-// STATIC FALLBACK — not the owner's links, and deliberately not personal.
-//
-// Quicklinks are whoever-owns-this-instance's own shortcuts, so they belong in
-// that owner's DATA (`~/.mso/prefs.json`, synced through /api/prefs), not in a
-// repo other people install. Hardcoding real accounts here shipped the
-// maintainer's Instagram to every stranger's install; hardcoding the project's
-// own docs (what was here before that) made a personal shortcut rail into a
-// second, worse copy of the Docs app.
-//
-// So this is only what renders when there is no owner data to render: a fresh
-// install, a signed-out visitor (whose /api/prefs GET 401s), or a prefs file that
-// is missing or corrupt. One project-neutral link — enough that the rail is
-// visibly a rail rather than looking broken, and true for anyone who installs MSO.
-// Everything else the owner adds in Settings → Quicklink.
-const DEFAULTS: Quicklink[] = [
-  { id: "mso", title: "MSO on GitHub", url: "https://github.com/rahmanef63/mso" },
-];
+// Fresh menus contain only essential apps; cached and server shortcuts restore as before.
+const DEFAULTS: Quicklink[] = [];
 
 type Ctx = {
   items: Quicklink[];

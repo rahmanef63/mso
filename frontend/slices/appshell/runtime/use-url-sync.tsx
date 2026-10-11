@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { openWindow, focusApp, shellStore } from "../lib/store";
 import { useFocused, useWindow } from "../hooks/use-shell";
@@ -67,11 +67,25 @@ export function UrlSync({ apps }: { apps: AppDescriptor[] }) {
   const pathnameRef = useRef(pathname);
   const booted = useRef(false);
   const prevApp = useRef<string | null>(null);
+  const priorTarget = useRef<{ id: string; installed: boolean } | null>(null);
   // Latest-ref mirror; declared BEFORE the sync effects so it commits first
   // each render cycle (effects run in declaration order).
   useEffect(() => {
     pathnameRef.current = pathname;
   });
+
+  // Persisted installation arrives after hydration; begin its code before lazy artwork paints.
+  useLayoutEffect(() => {
+    const target = urlToApp(apps, pathname);
+    if (!target) return;
+    const installed = target.app.installed !== false;
+    const prior = priorTarget.current;
+    priorTarget.current = { id: target.app.id, installed };
+    const becameInstalled = prior?.id === target.app.id && !prior.installed && installed;
+    if (installed && (target.app.id !== visibleAppId() || becameInstalled)) {
+      void target.app.load().catch(() => undefined); // WindowContent owns load-error recovery.
+    }
+  }, [pathname, apps]);
 
   // State → URL. push on app change (so back/forward walks focus history),
   // replace on same-app path tweaks AND on dismiss (visibleApp null → "/",

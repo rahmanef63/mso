@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { AppShell, type ShellManifest } from "@/features/appshell";
+import { AppShell, openWindow, type ShellManifest } from "@/features/appshell";
 import {
   A11yCommands,
   TOPSIDE_BRAND,
@@ -17,17 +17,18 @@ import "@/features/os-shell/integrations";
 
 import { AuthGate, SessionProvider, useSession, type DeviceRole, type SessionStatus } from "@/features/auth";
 import { appAllowedForRole } from "@/lib/auth/app-access";
-import { useInstalledApps, useDisabledIds, useExternalApps, ShellAppsProvider } from "@/features/app-store";
+import { useRuntimeApps, useEnabledOverrides, isAppEnabled, useExternalApps, ShellAppsProvider } from "@/features/app-store";
 
 function Shell() {
-  const dynamic = useInstalledApps();
+  const dynamic = useRuntimeApps();
   const external = useExternalApps();
-  const disabled = useDisabledIds();
+  const enabled = useEnabledOverrides();
   const { status, role } = useSession();
   const manifest: ShellManifest = useMemo(() => {
-    const off = new Set(disabled);
+    const builtins = BUILTIN_APPS.map(app => ({ ...app, installed: isAppEnabled(app.id, enabled),
+      install: () => openWindow("app-store", "App Store", { w: 820, h: 600 }, { appId: app.id }) }));
     const reserved = new Set([...BUILTIN_APPS, ...external].map(app => app.id));
-    const all = [...BUILTIN_APPS, ...external, ...dynamic.filter(app => !reserved.has(app.id))].filter((app) => !off.has(app.id));
+    const all = [...builtins, ...external, ...dynamic.filter(app => !reserved.has(app.id))].filter(app => app.install || enabled[app.id] !== false);
     // Signed-out is the unrestricted mock showcase. A live delegated session sees
     // only apps its role can actually use; unknown runtime apps fail closed for
     // non-owners because their host contract cannot be inferred safely.
@@ -41,11 +42,11 @@ function Shell() {
     return {
       brand: TOPSIDE_BRAND,
       apps: ordered,
-      features: TOPSIDE_FEATURES.filter((feature) => !off.has(feature.id)),
+      features: TOPSIDE_FEATURES.filter((feature) => enabled[feature.id] !== false),
       persistKey: TOPSIDE_PERSIST_KEY,
       capabilities: topsideCapabilities,
     };
-  }, [dynamic, external, disabled, status, role]);
+  }, [dynamic, external, enabled, status, role]);
   return <AppShell manifest={manifest} />;
 }
 

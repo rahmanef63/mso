@@ -90,7 +90,7 @@ export function MobileHome({
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col" inert={inactive} aria-hidden={inactive} onContextMenu={onHomeContext}>
+    <div className={cn("absolute inset-0 flex flex-col", inactive && "[&_.shell-platform-mark_img]:hidden")} inert={inactive} aria-hidden={inactive} onContextMenu={onHomeContext}>
       {/* Top safe-area spacer: reserves the notch / Dynamic-Island zone (a real
           phone's hardware lives here) and owns the swipe-down gesture →
           Notification Center (left half) / Control Center (right half).

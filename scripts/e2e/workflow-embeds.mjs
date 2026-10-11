@@ -2,7 +2,7 @@
 import { chromium, expect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { releaseFixture } from './release-fixture.mjs';
+import { releaseFixture, installFixtureApps } from './release-fixture.mjs';
 
 const app = {
   id: 'n8n',
@@ -23,6 +23,7 @@ let browser;
 try {
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await installFixtureApps(context);
   await context.addInitScript(device => {
     if (window !== window.top) return;
     localStorage.setItem('mso.device.id', device);

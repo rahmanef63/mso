@@ -59,9 +59,4 @@ describe("quicklinks fallback", () => {
     // Four GitHub file URLs used to seed here; they belong in the Docs app.
     expect(defaults).not.toContain("/blob/main/");
   });
-
-  it("still renders something, so an empty rail reads as empty and not broken", () => {
-    expect(defaults.match(/url:/g)?.length).toBe(1);
-    expect(defaults).toContain("https://github.com/rahmanef63/mso");
-  });
 });

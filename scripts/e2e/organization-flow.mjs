@@ -3,13 +3,14 @@
 import { chromium, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture, installFixtureApps } from "./release-fixture.mjs";
 
 const fixture = await releaseFixture({ live: true });
 let browser;
 try {
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await installFixtureApps(context);
   await context.addInitScript(device => { localStorage.setItem("mso.device.id", device); localStorage.setItem("mso:onboarding:v1", "done"); }, fixture.device);
   const login = await fetch(fixture.base + "/api/auth/login", { method: "POST", headers: { "content-type": "application/json", origin: fixture.base }, body: JSON.stringify({ password: fixture.password, deviceId: fixture.device, deviceLabel: "Organization flow fixture" }) });
   expect(login.ok).toBe(true);
@@ -18,7 +19,7 @@ try {
   await context.addCookies([{ name: "session", value: cookie, url: fixture.base, httpOnly: true, sameSite: "Lax" }]);
   const page = await context.newPage(), errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto(fixture.base + "/organization");
+  await page.goto(fixture.base + "/organization"); await page.getByRole("button",{name:"Edit organization",exact:true}).click();
   const call = async (body) => page.evaluate(async (body) => {
     const response = await fetch("/api/v1/organization", body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
     return { status: response.status, body: await response.json() };
@@ -29,7 +30,7 @@ try {
     expect(result.status).toBe(200); chart = result.body.chart;
   }
   const open = async () => {
-    await page.goto(fixture.base + "/organization");
+    await page.goto(fixture.base + "/organization"); await page.getByRole("button",{name:"Edit organization",exact:true}).click();
     const directory = page.locator('[data-slot="organization-unit-directory"]');
     await expect(directory).toBeVisible();
     const card = directory.getByRole("button", { name: /Flow Workspace/ });
@@ -161,8 +162,8 @@ try {
     const focusedNodes = denseCanvas.locator(".react-flow__node");
     await expect.poll(async () => focusedNodes.count()).toBeGreaterThan(0);
     expect(await focusedNodes.count()).toBeLessThan(36);
-    const focusedBox = await focusedNodes.first().boundingBox();
-    expect(focusedBox?.width ?? 0).toBeGreaterThan(viewport.width < 700 ? 120 : 145);
+    console.log("DENSE_LAYOUT",JSON.stringify({viewport,nodes:await focusedNodes.count(),canvas:await denseCanvas.boundingBox(),window:await page.locator('[data-window]').last().boundingBox().catch(()=>null),feature:await feature.boundingBox(),node:await focusedNodes.first().boundingBox()}));
+    await expect.poll(async () => (await focusedNodes.first().boundingBox())?.width ?? 0).toBeGreaterThan(viewport.width < 700 ? 120 : 145);
 
     if (process.env.MSO_SCREENSHOT_DIR) {
       await mkdir(process.env.MSO_SCREENSHOT_DIR, { recursive: true });

@@ -35,6 +35,7 @@ export async function organizationJourney(page, fixture) {
   expect(response.status).toBe(200);
 
   await page.goto(fixture.base + "/organization");
+  await page.getByRole("button", {name:"Edit organization",exact:true}).click();
   const unitDirectory = page.locator('[data-slot="organization-unit-directory"]');
   await expect(unitDirectory).toBeVisible();
   await expect(unitDirectory.getByRole("button", { name: /E2E Holding/ })).toBeVisible();
@@ -53,6 +54,7 @@ export async function organizationJourney(page, fixture) {
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport);
     await page.goto(fixture.base + "/organization");
+  await page.getByRole("button", {name:"Edit organization",exact:true}).click();
     const feature = page.locator('[data-slot="organization-feature"]');
     await expect(feature).toBeVisible();
     expect(await feature.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
@@ -66,6 +68,7 @@ export async function organizationJourney(page, fixture) {
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(fixture.base + "/organization");
+  await page.getByRole("button", {name:"Edit organization",exact:true}).click();
 
   await page.locator('[data-slot="organization-unit-directory"]').getByRole("button", { name: /E2E Product/ }).click();
   await page.getByRole("button", { name: "Seats", exact: true }).click();

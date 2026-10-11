@@ -22,12 +22,20 @@ export async function workspaceSources(role: string, principal: string, projects
   try {
     const chart = await getOrganizationChart();
     if (chart.units.length > 12) truncated = true;
+    const seatIds = new Map<string, string>();
     for (const unit of chart.units.slice(0, 12)) {
       const candidates = (unit.projectFlow?.nodes ?? []).filter(node => allowed(node.projectRef));
-      if (filtered && !candidates.length) continue;
+      const seats = chart.seats.filter(seat => seat.unitId === unit.id && allowed(seat.target.kind === "project-agent" ? seat.target.project : undefined));
+      if (filtered && !candidates.length && !seats.length) continue;
       const hub = `organization:${unit.id}`;
       add({ id: hub, title: redactText(unit.name, 80), kind: "folder", group: "Organization", targetApp: "organization" });
-      if (candidates.length > 12) truncated = true;
+      if (candidates.length > 12 || seats.length > 12) truncated = true;
+      for (const seat of seats.slice(0, 12)) {
+        const id = `${hub}:seat:${seat.id}`;
+        if (!add({id, title:redactText(`${seat.name} · ${seat.title}`,80), kind:"agent", group:"Organization", targetApp:"organization", excerpt:redactText(`${seat.role} · ${seat.seatMode}`,160)})) break;
+        seatIds.set(seat.id,id); links.push({source:hub,targetId:id,kind:"contains"});
+        if (seat.target.kind === "project-agent") linkProject(id,seat.target.project);
+      }
       const visible = new Set<string>();
       for (const node of candidates.slice(0, 12)) {
         const id = `${hub}:${node.id}`;
@@ -35,6 +43,14 @@ export async function workspaceSources(role: string, principal: string, projects
         visible.add(node.id); links.push({ source: hub, targetId: id, kind: "contains" }); linkProject(id, node.projectRef);
       }
       for (const edge of unit.projectFlow?.edges ?? []) if (visible.has(edge.source) && visible.has(edge.target)) links.push({ source: `${hub}:${edge.source}`, targetId: `${hub}:${edge.target}`, kind: "related" });
+    }
+    for (const unit of chart.units.slice(0,12)) {
+      const id = `organization:${unit.id}`, parent = `organization:${unit.parentUnitId}`;
+      if (unit.parentUnitId && nodes.some(node=>node.id===id) && nodes.some(node=>node.id===parent)) links.push({source:parent,targetId:id,kind:"contains"});
+    }
+    for (const seat of chart.seats) {
+      const id=seatIds.get(seat.id), parent=seatIds.get(seat.reportsToSeatId??"");
+      if (id && parent) links.push({source:parent,targetId:id,kind:"related"});
     }
   } catch { warnings.push("Organization metadata could not be loaded"); }
   try {

@@ -6,6 +6,14 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
 describe("intent-only app warming", () => {
+  it("warms a named-export view module without mounting or fetching its data", async () => {
+    const mount = vi.fn();
+    const target = {load: vi.fn(async () => ({GraphView: mount}))};
+    createIntentPrefetch(() => ({})).schedule(target, "keyboard");
+    await vi.runAllTimersAsync();
+    expect(target.load).toHaveBeenCalledTimes(1);
+    expect(mount).not.toHaveBeenCalled();
+  });
   it("waits for deliberate intent, then warms once", async () => {
     const target = app(); const prefetch = createIntentPrefetch(() => ({}));
     prefetch.schedule(target);

@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 
 // Runtime app registry — apps created via Create App or installed from the App
 // Store. Persisted to localStorage (per-browser) — no backend table needed. A tiny external store so app-store, create-app, and
-// the shell's useInstalledApps all read the same reactive list.
+// the shell's useRuntimeApps all read the same reactive list.
 
 export type AppRow = {
   appId: string;
@@ -49,10 +49,18 @@ function commit(next: AppRow[]) {
   subs.forEach((f) => f());
 }
 
+function changed(event: StorageEvent) {
+  if (event.key !== KEY && event.key !== null) return;
+  rows = load();
+  subs.forEach(f => f());
+}
+
 function subscribe(cb: () => void) {
+  if (subs.size === 0) window.addEventListener("storage", changed);
   subs.add(cb);
   return () => {
     subs.delete(cb);
+    if (subs.size === 0) window.removeEventListener("storage", changed);
   };
 }
 

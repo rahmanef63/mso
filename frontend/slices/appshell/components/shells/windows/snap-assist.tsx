@@ -7,7 +7,7 @@
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { useWindowOrder } from "../../../hooks/use-shell";
-import { useApps } from "../../../lib/registry";
+import { useAppCatalog } from "../../../lib/registry";
 import { onSnap, snapWindow, restoreWindow, shellStore } from "../../../lib/store";
 import { snapRect } from "../../../lib/store-geometry";
 import { AppIcon } from "../../app-icon";
@@ -15,7 +15,7 @@ import type { SnapZone } from "../../../lib/types";
 
 export function SnapAssist() {
   const order = useWindowOrder();
-  const apps = useApps();
+  const apps = useAppCatalog();
   // The half to fill + the id that triggered (excluded from candidates). null = hidden.
   const [state, setState] = useState<{ fill: SnapZone; from: string } | null>(null);
   const suppress = useRef(false); // ignore the pulse our own pick fires
@@ -78,7 +78,7 @@ export function SnapAssist() {
   );
 }
 
-function Candidate({ id, app, onPick }: { id: string; app: ReturnType<typeof useApps>; onPick: () => void }) {
+function Candidate({ id, app, onPick }: { id: string; app: ReturnType<typeof useAppCatalog>; onPick: () => void }) {
   const win = shellStore.getWindow(id);
   if (!win) return null;
   const a = app.find((x) => x.id === win.app);

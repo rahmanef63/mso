@@ -3,16 +3,16 @@
 // Raster app artwork is intentionally WebP. Toolbar/menu/control glyphs stay
 // vector (Lucide), while app icons are allowed to carry richer platform-specific
 // illustration. macOS and Windows do NOT share the same art direction: the shell
-// chooses the correct image through data-shell CSS. Mobile intentionally reuses
+// chooses one image through the active-shell context. Mobile intentionally reuses
 // those families: iOS = macOS artwork, Android = Windows artwork.
-import type { AppIconComponent } from "@/features/appshell";
+import { useActiveShell, type AppIconComponent } from "@/features/appshell";
 
 /** An official third-party brand mark is shell-invariant by definition. */
 function officialMark(src: string): AppIconComponent {
   const Mark: AppIconComponent = ({ className: cls }) => (
     // Small fixed local brand asset; image optimization adds no value here.
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" aria-hidden className={cls ?? "size-full object-contain"} draggable={false} decoding="async" />
+    <img src={src} alt="" aria-hidden className={cls ?? "size-full object-contain"} draggable={false} decoding="async" fetchPriority="low" />
   );
   Mark.displayName = `OfficialArtwork(${src})`;
   return Mark;
@@ -21,15 +21,19 @@ function officialMark(src: string): AppIconComponent {
 /** One app identity with distinct native-looking artwork per desktop shell. */
 function platformMark(fallback: string, macos: string, windows: string): AppIconComponent {
   const Mark: AppIconComponent = ({ className: cls }) => {
+    const { id } = useActiveShell();
+    // Let the browser match artwork to its rendered width, including dock magnification.
+    const src = id === "macos" || id === "ios" ? macos : id === "windows" || id === "android" ? windows : fallback;
+    const width = src === fallback ? 192 : 256;
     const size = cls ?? "size-full";
     return (
       <span className={`shell-platform-mark relative block ${size}`} aria-hidden>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={fallback} alt="" className="shell-artwork shell-artwork-default" draggable={false} decoding="async" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={macos} alt="" className="shell-artwork shell-artwork-macos" draggable={false} decoding="async" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={windows} alt="" className="shell-artwork shell-artwork-windows" draggable={false} decoding="async" />
+        <picture>
+          {/* Dense screens share full-resolution art; AVIF reduces bytes with a WebP fallback. */}
+          {width === 256 && <source media="(resolution > 2dppx)" type="image/avif" srcSet={src.replace(".webp", ".avif")} />}
+          <source media="(resolution > 2dppx)" srcSet={src} />
+          <img src={src} srcSet={`${src.replace(".webp", "-128.webp")} 128w, ${src} ${width}w`} sizes="auto, 256px" width={width} height={width} loading="lazy" alt="" className="shell-artwork" draggable={false} decoding="async" fetchPriority="low" />
+        </picture>
       </span>
     );
   };
@@ -90,6 +94,7 @@ export const APP_MARKS: Record<string, AppIconComponent> = {
     "/app-icons/windows/docs.webp",
   ),
   hermes: officialMark("/brand/official/hermes.webp"),
+  n8n: officialMark("/brand/official/n8n.svg"),
   openclaw: officialMark("/brand/official/openclaw.webp"),
   "9router": officialMark("/brand/official/9router.webp"),
 };

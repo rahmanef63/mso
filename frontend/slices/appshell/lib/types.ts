@@ -71,6 +71,10 @@ export type AppDescriptor = {
   /** URL slug for deep-linking (`/files`); falls back to `id` when unset. */
   slug?: string;
   title: string;
+  /** Catalog entries remain addressable; only installed apps appear in menus. */
+  installed?: boolean;
+  /** Open the consumer's installation surface without loading the app. */
+  install?: () => void;
   /** Optional native app names; ids, routes and window state remain shared. */
   shellTitles?: Partial<Record<"macos" | "windows", string>>;
   /** Any glyph component taking the props <AppIcon> passes. A LucideIcon satisfies

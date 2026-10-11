@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { BUILTIN_APPS } from "@/features/os-shell";
 import { channelsApp } from "./index";
 
 describe("Channels shell feature", () => {
@@ -7,7 +8,7 @@ describe("Channels shell feature", () => {
     expect(channelsApp.id).toBe("channels");
     expect(channelsApp.noDock).not.toBe(true);
     expect(readFileSync("frontend/slices/os-shell/shell.manifest.ts", "utf8")).toContain('pin(withSlug(channelsApp, "channels"))');
-    expect(readFileSync("frontend/slices/app-store/lib/system-catalog.ts", "utf8")).toContain('id: "channels", title: "Channels", kind: "app"');
+    expect(BUILTIN_APPS.find(app => app.id === "channels")).toMatchObject({ id: "channels", title: "Channels" });
   });
 
   it("keeps bot secrets in Integrations and exposes test/send/workflow controls", () => {

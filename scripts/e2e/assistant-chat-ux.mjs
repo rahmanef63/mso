@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { chromium, expect } from "@playwright/test";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture, installFixtureApps } from "./release-fixture.mjs";
 
 const fixture = await releaseFixture();
 let browser;
@@ -15,6 +15,7 @@ try {
   browser = await chromium.launch({ headless: true });
   for (const viewport of [{ width: 1363, height: 936 }, { width: 390, height: 844 }]) {
     const context = await browser.newContext({ viewport, hasTouch: viewport.width < 768 });
+    await installFixtureApps(context);
     await context.addCookies([{ name: "session", value: cookie, url: fixture.base }]);
     await context.addInitScript((device) => {
       localStorage.setItem("mso.device.id", device);

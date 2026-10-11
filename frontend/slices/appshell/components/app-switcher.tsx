@@ -6,14 +6,14 @@
    to the page — best-effort preventDefault. Desktop chrome; render once. */
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useApps } from "../lib/registry";
+import { useAppCatalog } from "../lib/registry";
 import { useWindowOrder } from "../hooks/use-shell";
 import { shellStore, focusApp } from "../lib/store";
 import { AppIcon } from "./app-icon";
 import type { AppDescriptor } from "../lib/types";
 
 export function AppSwitcher() {
-  const apps = useApps();
+  const apps = useAppCatalog();
   const order = useWindowOrder();
   const [idx, setIdx] = useState<number | null>(null); // null = closed
 

@@ -4,7 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { desktopMenu, menuEvidence, reducedMenuEvidence } from "./macos-menu-evidence.mjs";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture, installFixtureApps } from "./release-fixture.mjs";
 
 process.umask(0o077);
 const dir = path.resolve(process.env.MSO_SCREENSHOT_DIR || "zz-macos-qa");
@@ -26,6 +26,7 @@ async function check(name, run) {
 }
 try {
   const context = await browser.newContext({ viewport: { width: 1512, height: 982 } });
+    await installFixtureApps(context);
   await context.addInitScript(() => {
     localStorage.setItem("mso:onboarding:v1", "done");
     localStorage.setItem("sv:shell", JSON.stringify({ desktop: "macos", mobile: "ios" }));
@@ -166,6 +167,7 @@ try {
   });
   await check("coarse-pointer desktop preserves 44px context targets", async () => {
     const touch = await browser.newContext({ viewport: { width: 1512, height: 982 }, hasTouch: true });
+    await installFixtureApps(touch);
     await touch.addInitScript(() => localStorage.setItem("mso:onboarding:v1", "done"));
     const p = await touch.newPage();
     await p.goto(fixture.base);

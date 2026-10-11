@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // Public synthetic browser proof for the native shell window, without live accounts.
 import { chromium, expect } from "@playwright/test";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture, installFixtureApps } from "./release-fixture.mjs";
 const fixture = await releaseFixture();
 const browser = await chromium.launch({ headless: true });
 try {
   for (const viewport of [{ width: 1363, height: 936 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
     const context = await browser.newContext({ viewport });
+    await installFixtureApps(context);
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));

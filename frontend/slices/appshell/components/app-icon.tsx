@@ -12,7 +12,7 @@ export function AppIcon({
   app,
   className,
 }: {
-  app: AppDescriptor;
+  app: Pick<AppDescriptor, "id" | "icon" | "iconFill" | "gradient">;
   className?: string;
 }) {
   const Icon = app.icon;

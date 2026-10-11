@@ -1,8 +1,16 @@
+import { installFixtureApps } from "./release-fixture.mjs";
 import { expect } from "@playwright/test";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 export async function agentVaultJourney(page, fixture) {
+  expect(fixture.vaultProject.startsWith(fixture.dir + path.sep)).toBe(true);
+  // Git evidence is generated inside the same private project, never borrowed.
+  const git = (...args) => promisify(execFile)("git", ["-C", fixture.vaultProject, ...args]);
+  await git("init", "-q"); await git("add", ".");
+  await git("-c", "user.name=QA Fixture", "-c", "user.email=qa@example.invalid", "-c", "commit.gpgsign=false", "commit", "-qm", "Synthetic QA repository history");
   let connectionReads = 0;
   const countReads = request => { if (request.url().includes("/api/v1/memory-graph")) connectionReads++; };
   page.on("request", countReads);
@@ -16,16 +24,25 @@ export async function agentVaultJourney(page, fixture) {
   const state = await page.evaluate(async () => (await (await fetch("/api/v1/agent-vault")).json()).state);
   expect(state.root.startsWith(path.join(fixture.dir, "vault-data"))).toBe(true);
   expect(state.root.startsWith(fixture.vaultProject + path.sep)).toBe(false);
+  await page.getByRole("button", { name: /^Repository changes/ }).click();
+  await expect(page.getByRole("region", { name: "Note reader" })).toContainText("Synthetic QA repository history");
+  expect(state.snapshots[0].warnings).not.toContain("Git history unavailable");
   const previous = state.current;
   expect(connectionReads).toBe(0);
+  await page.getByRole("button", { name: /^Fixture worker/ }).click();
   await page.getByRole("button", { name: "Backlinks", exact: true }).click();
   const backlinks = page.getByRole("region", { name: "Note backlinks" });
   await expect(backlinks.getByRole("button", { name: "Agent progress", exact: true })).toBeVisible();
   expect(connectionReads).toBe(1);
   await backlinks.getByRole("button", { name: "Agent progress", exact: true }).click();
   const reader = page.getByRole("region", { name: "Note reader" });
-  await reader.getByRole("button", { name: "Fixture worker", exact: true }).click();
+  await reader.getByRole("button", { name: "Fixture worker", exact: true }).press("Enter");
   await expect(page.getByRole("heading", { name: "Fixture worker", exact: true })).toBeVisible();
+  await expect(reader.locator("article")).toBeFocused();
+  await page.keyboard.press("Tab");
+  expect(await reader.evaluate(el => el.contains(document.activeElement))).toBe(true);
+  await expect(reader.getByRole("columnheader", { name: "Field", exact: true })).toBeVisible();
+  await expect(reader.getByRole("cell", { name: "synthetic", exact: true })).toBeVisible();
   expect(connectionReads).toBe(1);
   await writeFile(path.join(fixture.vaultProject, "wiki/log.md"), "# Fixture progress\n\nSecond verified repository update.\n", { mode: 0o600 });
   await page.getByRole("button", { name: "Refresh snapshot", exact: true }).click();
@@ -36,6 +53,44 @@ export async function agentVaultJourney(page, fixture) {
   await page.getByRole("button", { name: /^Fixture progress/ }).click();
   await expect(page.getByText("First verified repository update.", { exact: true })).toBeVisible();
   expect(await readFile(path.join(fixture.vaultProject, "wiki/log.md"), "utf8")).toContain("Second verified");
+  const views=page.getByRole("navigation",{name:"Knowledge views"});
+  await views.getByRole("button",{name:"Memory",exact:true}).click();
+  const relationView=page.locator('[data-slot="workspace-graph-view"]');
+  const workerNode=relationView.getByRole("button",{name:"Fixture worker",exact:true});
+  await expect(workerNode).toBeVisible();
+  const graphSvg = relationView.getByRole("application", { name: "Memory graph" });
+  await expect.poll(() => graphSvg.evaluate(svg => {
+    const pane = svg.parentElement.getBoundingClientRect();
+    return [...svg.querySelectorAll("text")].some(text => {
+      const label = text.getBoundingClientRect();
+      return label.x >= pane.x && label.right <= pane.right && label.y >= pane.y + 44 && label.bottom <= pane.bottom;
+    });
+  })).toBe(true);
+  const labelSize = () => graphSvg.evaluate(svg => Math.min(...[...svg.querySelectorAll("text")].map(text => parseFloat(getComputedStyle(text).fontSize) * text.getScreenCTM().a)));
+  expect(await labelSize()).toBeGreaterThanOrEqual(11.9);
+  await relationView.getByRole("button", { name: "Zoom in graph", exact: true }).click();
+  expect(await labelSize()).toBeGreaterThanOrEqual(14);
+  await relationView.getByRole("button", { name: "Reset zoom", exact: true }).click();
+  await workerNode.focus();
+  const label = await workerNode.locator("text").boundingBox(), viewport = await graphSvg.locator("..").boundingBox();
+  expect(label.x).toBeGreaterThanOrEqual(viewport.x - 1);
+  expect(label.x + label.width).toBeLessThanOrEqual(viewport.x + viewport.width + 1);
+  const identity=await workerNode.getAttribute("data-node-id");
+  const modelRoot=await page.locator('[data-slot="knowledge-workspace"]').getAttribute("data-model-root");
+  expect(modelRoot).toBe(`${state.root}/Snapshots/${previous}`);
+  const loadedConnections=connectionReads;
+  await views.getByRole("button",{name:"Organization",exact:true}).click();
+  await expect(page.getByLabel("Knowledge structure")).toBeVisible();
+  const structureNode=page.locator('[data-node-id]').filter({hasText:"Fixture worker"});
+  await expect(structureNode).toHaveCount(1);
+  expect(await structureNode.getAttribute("data-node-id")).toBe(identity);
+  expect(connectionReads).toBe(loadedConnections);
+  await structureNode.press("Enter");
+  await structureNode.press("Enter");
+  await expect(page.getByRole("heading",{name:"Fixture worker",exact:true})).toBeVisible();
+  expect(await page.locator('[data-slot="knowledge-workspace"]').getAttribute("data-model-root")).toBe(modelRoot);
+  await expect(reader.locator("article")).toBeFocused();
+
   await page.getByLabel("Search vault notes", { exact: true }).fill("worker");
   await expect(page.getByRole("button", { name: /^Fixture worker/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Fixture progress/ })).toHaveCount(0);
@@ -62,6 +117,22 @@ export async function agentVaultJourney(page, fixture) {
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => readFile(personalFile, "utf8")).toContain("Saved in the native editor.");
   await writeFile(prefsFile, savedPrefs, { mode: 0o600 });
+  await page.goto(fixture.base + "/agent-vault");
+  await views.getByRole("button",{name:"Organization",exact:true}).click();
+  const personalIdentity=`personal:${path.basename(personalFile)}`;
+  await expect(page.locator(`[data-node-id="${personalIdentity}"]`)).toBeVisible();
+  await views.getByRole("button",{name:"Memory",exact:true}).click();
+  await expect(page.locator(`[data-node-id="${personalIdentity}"]`)).toBeVisible();
+  await views.getByRole("button",{name:"Vault",exact:true}).click();
+  await page.getByRole("button",{name:"Personal notes",exact:true}).click();
+  await expect(page.getByLabel("New note title",{exact:true})).toBeVisible();
+  await views.getByRole("button",{name:"Memory",exact:true}).click();
+  await page.locator('[data-slot="workspace-graph-view"]').getByRole("button",{name:"Fixture worker",exact:true}).press("Enter");
+  await expect(page.getByText("Responsible for verifying fixture tasks.",{exact:true})).toBeVisible();
+  await expect(reader.locator("article")).toBeFocused();
+  await page.getByRole("button",{name:"Refresh snapshot",exact:true}).click();
+  await expect.poll(()=>readFile(personalFile,"utf8")).toContain("Saved in the native editor.");
+
   for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport);
     await page.goto(fixture.base + "/agent-vault");
@@ -69,7 +140,10 @@ export async function agentVaultJourney(page, fixture) {
     await page.getByRole("button", { name: /^Fixture worker/ }).click();
     await expect(page.getByRole("heading", { name: "Fixture worker", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    if (viewport.width < 640) {
+    const articleBox = await reader.locator("article").boundingBox();
+    expect(articleBox.width).toBeGreaterThan(viewport.width - 80);
+    expect(articleBox.height).toBeGreaterThan(viewport.height * 0.35);
+    {
       await expect(page.getByRole("complementary", { name: "Vault navigation" })).toBeHidden();
       await page.getByRole("button", { name: "Back to notes", exact: true }).click();
       await expect(page.getByLabel("Search vault notes", { exact: true })).toBeVisible();
@@ -83,6 +157,16 @@ export async function agentVaultJourney(page, fixture) {
   });
   expect(denied).toEqual([403, 403]);
   await fixture.setRole("owner");
+  const publicContext = await page.context().browser().newContext();
+  await installFixtureApps(publicContext, ["agent-vault"]);
+  try {
+    const publicPage = await publicContext.newPage();
+    await publicPage.goto(fixture.base + "/agent-vault");
+    await expect(publicPage.getByText("Owner access is required to open private repository notes.", { exact: true })).toBeVisible();
+    expect(await publicPage.evaluate(async () => (await fetch("/api/v1/agent-vault")).status)).toBe(401);
+    const publicText = await publicPage.locator("body").innerText();
+    expect(publicText).not.toContain("Fixture worker"); expect(publicText).not.toContain(fixture.vaultProject);
+  } finally { await publicContext.close(); }
   page.off("request", countReads);
   await page.setViewportSize({ width: 1280, height: 900 });
 }

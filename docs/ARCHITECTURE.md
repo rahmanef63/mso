@@ -56,6 +56,16 @@ under `~/.mso/` plus the independent state directories owned by managed applicat
 Window layout and several shell preferences are browser-local or synchronized through the
 existing preference store.
 
+Native app menus default to Files/Finder, Camoufox, Terminal, App Store, Alfa, Hermes and
+Settings. Optional apps are installed from the shared App Store catalog. All five shells
+read one browser-local installation record; switching presentation does not fork app data.
+Install/removal propagates to open tabs of the same origin and survives reload. Legacy
+opt-outs and custom/runtime apps are retained; removing a menu does not uninstall a host
+service or delete app files. The generic registry keeps role-allowed catalog entries
+addressable while menus list installed entries only. Uninstalled deep links open a Store
+prompt without loading the app bundle. Cross-device native-menu synchronization is not
+part of this browser-local contract; connected app records remain server-owned.
+
 ### Gateway lifecycle boundary
 
 **MSO Gateway is deployment-agnostic, supervisor-agnostic, and provider-agnostic by design.** The core classifies local/public/provider/process health plus ownership and supervisor independently; provider-specific launch details remain adapters. A verified public route with no MSO-owned provider process is `external-running`, not `stopped`, and external processes are never auto-adopted or mutated. Cloudflare remains the current managed/default adapter rather than a core architecture assumption. See [`docs/GATEWAY.md`](./GATEWAY.md) for state semantics, provider capabilities, systemd/s6/container/Kubernetes examples and the foreground-supervision decision.
@@ -350,6 +360,8 @@ Inbound channel events may dispatch into the existing Workflow Graph engine thro
 
 ## Memory graph
 
-Agent Vault (`/agent-vault`) is a native reader for private repository snapshots. It loads metadata first and one note per selection, searches titles/types/source paths locally, and uses container queries for side-by-side desktop versus single-panel mobile navigation. Its inert Markdown reader resolves links only to published snapshot notes; HTML and resource embeds remain text. Backlinks reuse the existing owner-only Memory projection on demand, and opening Memory passes the selected snapshot root explicitly. Organization remains the authority for team/agent structure. Personal Markdown under each vault's `Notes/` directory uses the existing guarded Files API and Code editor; generated snapshot metadata and source repositories are unaffected. No additional service, database, polling loop or Markdown dependency is required.
+Agent Vault, Memory and Organization are three presentations of one native knowledge feature in `frontend/slices/agent-vault/`. Existing `/agent-vault`, `/memory`, `/organization` routes and app identities remain compatibility entries. One node/edge document carries snapshot note identities, containment, source references and Memory's bounded workspace links. Vault uses its note projection, Memory uses the relation canvas, and Organization uses the directory/layered structure over that same document. Link hydration is lazy and reused by backlinks and both graph views; opening the reader still transfers metadata and one selected note. Selection of an older capture scopes every presentation to that snapshot. Repository captures remain recorded evidence, not real-time agent status. Organization's existing guarded source editor (also embedded in Assistant) remains available via Edit organization; closing it refreshes the common projection. This is a shared view model, not a migration of private source files or backend ownership. Personal Markdown still uses Files and Code.
 
 `frontend/slices/memory-graph/` is the owner-only Memory app at `/memory` (`mso memory-graph`). It draws vault markdown, project `.mso/KNOWLEDGE.md`, repo-local `.agent` memory, the signed-in device's typed agent memory, and assistant memories. Unresolved `[[wikilinks]]` are ghost nodes. Web, radial, and layered layouts plus a local hop neighbourhood are client-side. This surface is inspired by open-silong's memory graph (MIT) and does not depend on Obsidian or Convex. It is not the Workflow session graph. See [`MEMORY-GRAPH.md`](./MEMORY-GRAPH.md).
+
+Personal Markdown metadata also hydrates the same workspace model through the existing guarded Files API, on demand. Vault lists and both graph/structure views share its IDs and paths; Code continues to edit the original file. No data migration or startup body fetch is needed.

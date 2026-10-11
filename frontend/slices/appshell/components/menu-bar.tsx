@@ -6,7 +6,7 @@ import {
   DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu";
 import { TOPBAR } from "../lib/store-geometry";
-import { useApps } from "../lib/registry";
+import { useAppCatalog } from "../lib/registry";
 import { useBrand } from "../registry/brand";
 import { useFocused } from "../hooks/use-shell";
 import { shellStore, openWindow, closeWindow, toggleMaximize, minimizeWindow } from "../lib/store";
@@ -16,7 +16,7 @@ import { useInspectorInfo } from "../lib/inspector";
 
 // macOS-style menu bar: logo · app menus · right status cluster (sys + clock).
 export function MenuBar() {
-  const apps = useApps();
+  const apps = useAppCatalog();
   const brand = useBrand();
   const signOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});

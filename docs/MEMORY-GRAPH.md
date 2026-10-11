@@ -1,17 +1,17 @@
 # Memory graph
 
-Owner-only knowledge graph inside the MSO shell. Open it from Launchpad or Spotlight as **Memory**, at `/memory`, or with `mso memory-graph [project]`.
+Owner-only relation presentation of the shared Agent Vault knowledge feature. Vault, Memory and Organization consume one node/edge document and retain their existing routes. Open it from Launchpad or Spotlight as **Memory**, at `/memory`, or with `mso memory-graph [project]`.
 
 The graph is built on the server by `GET /api/v1/memory-graph` and rendered in the browser. It does not use Convex, and it does not require Obsidian. Layout ideas — web (force), radial rings, layered hop columns, a local neighbourhood, ghost nodes for unresolved `[[wikilinks]]`, and folder/group color — follow [open-silong](https://github.com/rahmanef63/open-silong) `frontend/slices/memory-graph` (MIT). The implementation is MSO-native.
 
-This is separate from the Workflow session graph. The pinned Memory app also
+This is separate from the Workflow session graph. The shared feature also
 projects bounded owner-only Organization, saved workflow and learned-recipe
 metadata with links back to their source apps. See [Memory safety](./MEMORY-SAFETY.md)
 for the exact scope, privacy boundaries and remaining limits.
 
 ## What becomes a node
 
-- Markdown notes under an optional vault directory. Set `OS_MEMORY_GRAPH_ROOT`, or type a path in the app. The path must pass the normal read-root jail. `~/vault` is on the sensitive-home denylist; `~/notes` or `~/obsidian/vault` are usable when they sit inside `OS_FS_READ_ROOTS`.
+- Markdown notes under an optional vault directory. Set `OS_MEMORY_GRAPH_ROOT`, or pass an explicit root when launching Memory. The path must pass the normal read-root jail. `~/vault` is on the sensitive-home denylist; `~/notes` or `~/obsidian/vault` are usable when they sit inside `OS_FS_READ_ROOTS`.
 - `.mso/KNOWLEDGE.md` and a bounded set of repo-local `.agent` memory records for a named project. With no vault and no project, the scan includes up to four discovered projects.
 - Typed agent memory for the signed-in device (`cli:<device id>`, the same principal Alfa Cockpit uses). Private and restricted claims show as “Private memory”.
 - Assistant memories from the owner memory store.

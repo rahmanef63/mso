@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { cn } from "@/lib/utils";
 import { registerCommands } from "../../lib/commands";
 import { useWindow, useWindowOrder } from "../../hooks/use-shell";
-import { useApps } from "../../lib/registry";
+import { useAppCatalog } from "../../lib/registry";
 import { closeWindow } from "../../lib/store";
 import { AppIcon } from "../../components/app-icon";
 
@@ -110,7 +110,7 @@ function ForceQuitRow({
   onQuit: () => void;
 }) {
   const win = useWindow(id);
-  const apps = useApps();
+  const apps = useAppCatalog();
   if (!win) return null;
   const app = apps.find((a) => a.id === win.app);
   return (

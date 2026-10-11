@@ -35,7 +35,7 @@ export async function releaseFixture({ live = false, surfaceApps = [], publicOri
   await mkdir(fixtureProject, { recursive: true });
   await writeFile(path.join(fixtureProject, "package.json"), JSON.stringify({ name: "fixture-project", version: "1.0.0", private: true }), { mode: 0o600 });
   await mkdir(path.join(fixtureProject, "wiki", "agents"), { recursive: true, mode: 0o700 });
-  await writeFile(path.join(fixtureProject, "wiki", "agents", "worker.md"), "# Fixture worker\n\nResponsible for verifying fixture tasks.\n", { mode: 0o600 });
+  await writeFile(path.join(fixtureProject, "wiki", "agents", "worker.md"), "# Fixture worker\n\nResponsible for verifying fixture tasks.\n\n| Field | Value |\n|---|---|\n| Fixture mode | `synthetic` |\n| Test scope | **isolated** |\n", { mode: 0o600 });
   await writeFile(path.join(fixtureProject, "wiki", "log.md"), "# Fixture progress\n\nFirst verified repository update.\n", { mode: 0o600 });
   await writeFile(path.join(dir, "infra.json"), JSON.stringify({
     version: 2, instanceId: randomUUID(), defaultUser: "fixture", bindings: [],
@@ -49,6 +49,10 @@ export async function releaseFixture({ live = false, surfaceApps = [], publicOri
   const surfaceRegistry = path.join(dir, "surface-apps.json");
   await writeFile(surfaceRegistry, JSON.stringify(surfaceApps), { mode: 0o600 });
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(OS_|MSO_|NEXT_PUBLIC_)/.test(key)));
+  // Defaults must resolve inside the fixture, never the operator's home/XDG stores.
+  const home = path.join(dir, "home");
+  await mkdir(home, { mode: 0o700 });
+  Object.assign(env, { HOME: home, XDG_CACHE_HOME: path.join(home, ".cache"), XDG_CONFIG_HOME: path.join(home, ".config"), XDG_DATA_HOME: path.join(home, ".local", "share") });
   const example = await readFile(path.join(process.cwd(), ".env.example"), "utf8");
   for (const [, key] of example.matchAll(/\b((?:OS|MSO)_[A-Z_]*(?:STORE|PATH|DIR|LOG))=/g)) env[key] = path.join(dir, key.toLowerCase());
   Object.assign(env, {
@@ -98,4 +102,13 @@ export async function releaseFixture({ live = false, surfaceApps = [], publicOri
     };
     return { dir, base, device, password, pid: server.pid, vaultProject: fixtureProject, setRole, seedMcp, mcpToken, setAiConfig, seedSessions: () => seedSessionMonitor(env), revokeProvider: () => { providerStatus = 401; }, close };
   } catch (error) { await close(); throw error; }
+}
+
+// Existing release journeys model a workspace with these native apps installed.
+// Fresh seven-app defaults and real Store installs are covered separately.
+export async function installFixtureApps(context, ids = ["code-editor", "claude-code", "media-studio", "reel-editor", "media-viewer", "system-monitor", "openclaw", "9router", "integrations", "channels", "workflows", "n8n", "memory-graph", "organization", "dokploy", "cloudflare", "docs", "agent-vault", "quicklinks", "create-app"]) {
+  await context.addInitScript(ids => {
+    if (window !== window.top || !["http:", "https:"].includes(location.protocol) || localStorage.getItem("mso:enabled:v1") !== null) return;
+    localStorage.setItem("mso:enabled:v1", JSON.stringify(Object.fromEntries(ids.map(id => [id, true]))));
+  }, ids);
 }

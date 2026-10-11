@@ -9,9 +9,8 @@ import { NextResponse } from "next/server";
 // never JS chunks/HTML, so a redeploy can't strand a stale chunk.
 const BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID || "dev";
 
-// Small illustrated app icons are pre-cached with the shell so the dock/taskbar
-// never flashes from an empty tile on a fresh PWA launch. 19 × 192px WebP is
-// currently under 80 KB total; controls still use vector glyphs and are not here.
+// Only bootstrap icons/manifest are pre-cached; artwork is cached on first use.
+const BOOTSTRAP_ASSETS = ["/icon.svg", "/icon-maskable.svg", "/manifest.webmanifest"];
 const APP_ICON_ASSETS = [
   "assistant", "camoufox", "claude", "code", "create", "docs", "files",
   "hermes", "launchpad", "links", "mission-control", "monitor", "openclaw",
@@ -31,6 +30,13 @@ const PLATFORM_APP_ICON_ASSETS = [
   `/app-icons/windows/${name}.webp`,
 ]);
 
+const FIRST_PARTY_PLATFORM_ASSETS = PLATFORM_APP_ICON_ASSETS.filter((asset) => !/\/(?:camoufox|hermes|openclaw)\.webp$/.test(asset));
+const RESPONSIVE_ICON_ASSETS = [
+  "/app-icons/launchpad.avif", "/app-icons/mission-control.avif",
+  ...FIRST_PARTY_PLATFORM_ASSETS.flatMap((asset) => [asset.replace(".webp", "-128.webp"), asset.replace(".webp", ".avif")]),
+  ...APP_ICON_ASSETS.filter((asset) => !/\/(?:camoufox|hermes|openclaw|launchpad|mission-control)\.webp$/.test(asset)).map((asset) => asset.replace(".webp", "-128.webp")),
+];
+
 const SW = `// mso service worker — build ${BUILD_ID}
 const CACHE = "mso-${BUILD_ID}";
 // The two names here until 2026-07-30 were "/icon-192.png" and "/icon-512.png", which
@@ -38,7 +44,7 @@ const CACHE = "mso-${BUILD_ID}";
 // catch-all answers an unknown path with the app HTML and a 200, so addAll() did not
 // throw; it quietly cached the HTML shell under two icon URLs, which is exactly what
 // the comment above promises this never does.
-const ASSETS = ${JSON.stringify(["/icon.svg", "/icon-maskable.svg", "/manifest.webmanifest", ...APP_ICON_ASSETS, ...PLATFORM_APP_ICON_ASSETS, ...OFFICIAL_BRAND_ICON_ASSETS])};
+const ASSETS = ${JSON.stringify([...BOOTSTRAP_ASSETS, ...APP_ICON_ASSETS, ...PLATFORM_APP_ICON_ASSETS, ...RESPONSIVE_ICON_ASSETS, ...OFFICIAL_BRAND_ICON_ASSETS])};
 self.addEventListener("install", (e) => {
   // Do NOT skipWaiting here. Auto-activating skipped the "waiting" state, so the
   // client's "new version" toast (which needs reg.waiting) never showed and the
@@ -46,7 +52,7 @@ self.addEventListener("install", (e) => {
   // PWAs. Now the new SW sits in waiting → client toasts → user taps Reload →
   // SKIP_WAITING message (below) activates it → controllerchange reload. The
   // first-ever install (no old SW controlling clients) still activates at once.
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(${JSON.stringify(BOOTSTRAP_ASSETS)}).catch(() => {})));
 });
 self.addEventListener("message", (e) => {
   if (e.data && e.data.type === "SKIP_WAITING") self.skipWaiting();

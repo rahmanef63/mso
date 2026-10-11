@@ -127,7 +127,7 @@ export function DockIcon({
           // a blank link. The HoverPanel that carries app.title is `invisible`,
           // i.e. out of the a11y tree. PlainIcon (below) already did this.
           aria-label={running ? `${app.title} (running)` : app.title}
-          className={cn("relative block size-full", !app.iconFill && "drop-shadow-[0_6px_10px_rgba(0,0,0,0.3)]")}
+          className="relative block size-full"
         >
           <AppIcon app={app} />
           {running && (
@@ -154,7 +154,7 @@ export function PlainIcon({
     <div ref={slotRef} className={cn(`relative shrink-0 ${SLOT_TRANS}`)} style={{ width: base, height: base }}>
       <div ref={zoneRef} className={cn(`group absolute inset-x-0 bottom-0 ${ZONE_TRANS}`)} style={{ height: base }}>
         <HoverPanel><span className="text-[12.5px] font-medium">{label}</span></HoverPanel>
-        <Button type="button" variant="ghost" onClick={onClick} aria-label={label} className="h-auto p-0 font-normal hover:bg-transparent relative block size-full drop-shadow-[0_6px_10px_rgba(0,0,0,0.3)]">
+        <Button type="button" variant="ghost" onClick={onClick} aria-label={label} className="h-auto p-0 font-normal hover:bg-transparent relative block size-full">
           {children}
         </Button>
       </div>

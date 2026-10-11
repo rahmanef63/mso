@@ -3,7 +3,7 @@ import sharp from "sharp";
 import { chromium, expect as assertion } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture, installFixtureApps } from "./release-fixture.mjs";
 
 process.umask(0o077);
 const expect = assertion.configure({ timeout: 15000 });
@@ -66,6 +66,7 @@ try {
   for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }]) {
     for (const theme of ["light", "dark"]) {
       const context = await browser.newContext({ viewport, hasTouch: true, reducedMotion: "reduce", colorScheme: theme });
+    await installFixtureApps(context);
       const external = [];
       await context.route("**/*", async route => {
         const url = new URL(route.request().url());

@@ -26,6 +26,7 @@ try {
     await page.goto(fixture.base + "/login?returnTo=%2Fstore");
     await page.locator('input[type="password"]').fill(fixture.password);
     await page.getByRole("button", { name: "Unlock", exact: true }).click();
+    await page.getByRole("tab", { name: "Connections", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Apps on your host" })).toBeVisible();
     await page.getByRole("button", { name: "Connect app", exact: true }).click();
     const form = page.getByRole("dialog");
@@ -53,6 +54,7 @@ try {
     expect((await iframe.boundingBox()).height).toBeGreaterThan(120);
     expect(JSON.parse(await readFile(path.join(fixture.dir, "surface-apps.json"), "utf8"))[0].id).toBe("fixture-tool");
     await page.goto(fixture.base + "/store");
+    await page.getByRole("tab", { name: "Connections", exact: true }).click();
     await card.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("dialog").getByLabel("App URL", { exact: true }).fill("http://192.0.2.10:5678/");
     await page.getByRole("button", { name: "Save changes", exact: true }).click();
@@ -61,6 +63,7 @@ try {
     await expect(page.getByRole("link", { name: "Open Fixture tool", exact: true })).toHaveAttribute("href", "http://192.0.2.10:5678/");
     await expect(iframe).toHaveCount(0);
     await page.goto(fixture.base + "/store");
+    await page.getByRole("tab", { name: "Connections", exact: true }).click();
     await card.getByRole("button", { name: "Disconnect", exact: true }).click();
     await expect(page.getByText("This removes its shell entry. The application keeps running and its data is untouched.")).toBeVisible();
     const disconnected = page.waitForResponse(response => response.url().endsWith("/api/v1/shell-apps") && response.request().method() === "POST");
@@ -91,6 +94,7 @@ try {
     const imported = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Imported tool", exact: true }) });
     await expect(imported).toContainText("Fixture developer (self-declared)");
     await page.reload();
+    await page.getByRole("tab", { name: "Connections", exact: true }).click();
     await expect(imported).toBeVisible();
     const row = JSON.parse(await readFile(path.join(fixture.dir, "surface-apps.json"), "utf8"))[0];
     expect(row.id).toBe("imported-instance"); expect(row.manifest).toEqual(manifest);
@@ -101,6 +105,7 @@ try {
     await imported.getByRole("button", { name: "Open", exact: true }).click();
     await expect(page.frameLocator('iframe[title="Imported tool application"]').getByRole("heading", { name: "Custom tool" })).toBeVisible();
     await page.goto(fixture.base + "/store");
+    await page.getByRole("tab", { name: "Connections", exact: true }).click();
     await imported.getByRole("button", { name: "Disconnect", exact: true }).click();
     await form.getByRole("button", { name: "Disconnect", exact: true }).click();
     await expect(form).toHaveCount(0); await expect(imported).toHaveCount(0);

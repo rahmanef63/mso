@@ -9,7 +9,7 @@ import { organizationJourney } from "./organization.mjs";
 import { agentVaultJourney } from "./agent-vault.mjs";
 import { workflowCanvasJourney } from "./workflow-canvas.mjs";
 import { storeExtensionsJourney } from "./store-extensions.mjs";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture, installFixtureApps } from "./release-fixture.mjs";
 import { camoufoxConnectionJourney } from "./camoufox-connection.mjs";
 import { memoryBackupHistoryJourney } from "./memory-backup-history.mjs";
 import { aiProviderSwitchJourney } from "./ai-provider-switch.mjs";
@@ -22,6 +22,7 @@ execFileSync(process.execPath, ["scripts/e2e/mcp-page.mjs"], { stdio: "inherit" 
 execFileSync(process.execPath, ["scripts/e2e/workflow-embeds.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/organization-flow.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/graph-custom.mjs"], { stdio: "inherit" });
+execFileSync(process.execPath, ["scripts/e2e/store-installations.mjs"], { stdio: "inherit" });
 const fixture = await releaseFixture();
 let browser;
 try {
@@ -29,6 +30,7 @@ try {
   browser = await chromium.launch({ headless: true });
   for (const viewport of [{ width: 1363, height: 936 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
     const context = await browser.newContext({ viewport });
+    await installFixtureApps(context);
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
@@ -86,6 +88,7 @@ try {
     console.log(`PASS public guides, login entry, launcher and reflow ${viewport.width}x${viewport.height}`);
   }
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await installFixtureApps(context);
   await context.addInitScript(device => {
     localStorage.setItem("mso.device.id", device);
     localStorage.setItem("mso:onboarding:v1", "done");
@@ -143,6 +146,8 @@ try {
   expect(exec.status).toBe(200); expect(exec.body.cwd).toBe(fixture.dir);
   expect((await call("/api/v1/exec/run", { cmd: "exit 0", cwd: fixture.dir + "/missing" })).status).not.toBe(200);
   expect((await call("/api/v1/fs/list?path=" + encodeURIComponent(fixture.dir))).status).toBe(200);
+  const home = await call("/api/v1/fs/list?path=~");
+  expect(home.status).toBe(200); expect(home.body.path).toBe(fixture.dir + "/home");
   await camoufoxConnectionJourney(page, fixture);
   await mcpOwnerJourneys(page, fixture);
   await oauthRegistrationJourney(page, fixture);

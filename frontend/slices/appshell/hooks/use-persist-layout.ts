@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { shellStore, hydrateBoot, serialize, retileSnapped } from "../lib/store";
-import { useApps } from "../lib/registry";
+import { useAppCatalog } from "../lib/registry";
 import { useShellConfig } from "../registry/shell-config";
 import type { PersistedWindow } from "../lib/types";
 
@@ -18,10 +18,10 @@ import type { PersistedWindow } from "../lib/types";
 // deep-link window open + focused on top of the restored layout.
 export function usePersistLayout() {
   const { persistKey } = useShellConfig();
-  const apps = useApps();
+  const apps = useAppCatalog();
   const ready = useRef(false);
   // Multi-instance app ids let hydrateBoot dedupe single-instance apps only.
-  // Frozen in a ref: useApps() returns a fresh array every render, and the app
+  // Frozen in a ref: useAppCatalog() returns a fresh array every render, and the app
   // list is static per manifest — the hydrate effect must not re-run on it.
   const multiApps = useRef(new Set(apps.filter((a) => a.multi).map((a) => a.id)));
 

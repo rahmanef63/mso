@@ -13,7 +13,7 @@ import type { MenuItem } from "@/features/appshell";
 
 // One app row in the store grid. Icon comes from the shared glyph map so it
 // matches the dock/launchpad icon once installed. The Get button flips the
-// Convex row to installed=true; once installed it becomes an Uninstall toggle
+// shared registry row to installed=true; once installed it becomes an Uninstall toggle
 // (hover-revealed) — live state is driven by the merged catalog prop.
 export function StoreAppCard({
   app,

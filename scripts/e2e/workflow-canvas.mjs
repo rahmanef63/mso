@@ -114,7 +114,7 @@ export async function workflowCanvasJourney(page, fixture) {
   await expect(page.getByPlaceholder("Search tools…")).toBeVisible();
   await expect(page.getByText("agent_memory_search", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "projects", exact: true }).click();
-  await expect(page.getByText("fixture-project", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot="workflows-feature"]').getByText("fixture-project", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "skills", exact: true }).click();
   await expect(page.getByText("No matching skills.", { exact: true })).toBeHidden();
   await page.getByRole("button", { name: "Builder", exact: true }).click();

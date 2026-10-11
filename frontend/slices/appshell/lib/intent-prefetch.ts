@@ -1,6 +1,6 @@
 import type { AppDescriptor } from "./types";
 
-type PrefetchApp = Pick<AppDescriptor, "load" | "prefetch">;
+type PrefetchApp = Pick<AppDescriptor, "prefetch" | "installed"> & {load: () => Promise<unknown>};
 export type PrefetchEnvironment = { hidden?: boolean; online?: boolean; saveData?: boolean; effectiveType?: string };
 export const PREFETCH_INTENT_MS = 250;
 const warmed = new WeakSet<PrefetchApp["load"]>();
@@ -24,7 +24,7 @@ export function createIntentPrefetch(environment = browserEnvironment) {
   const cancel = () => { if (timer !== undefined) clearTimeout(timer); timer = undefined; };
   const schedule = (app: PrefetchApp, pointerType = "mouse") => {
     cancel();
-    if (pointerType === "touch" || app.prefetch === "never" || !canIntentPrefetch(environment())) return;
+    if (app.installed === false || pointerType === "touch" || app.prefetch === "never" || !canIntentPrefetch(environment())) return;
     timer = setTimeout(() => {
       timer = undefined;
       if (!canIntentPrefetch(environment()) || warmed.has(app.load) || pending.has(app.load)) return;

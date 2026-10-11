@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, Sparkles, Store } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { AppFrame, useContainer, useActiveShell, useContextZone, openWindow } from "@/features/appshell";
+import { AppFrame, useContainer, useActiveShell, useContextZone, openWindow, useAppCatalog } from "@/features/appshell";
 import type { MenuItem } from "@/features/appshell";
 import { UninstallConfirm } from "./uninstall-confirm";
 import { usePublishInspector } from "../lib/host";
@@ -17,18 +17,15 @@ import { FeaturedCard } from "./featured-card";
 import { StoreAppCard } from "./store-app-card";
 import { SystemCard } from "./system-card";
 import { FEATURED_ID, mergeCatalog } from "../lib/store-catalog";
-import { SYSTEM_CATALOG } from "../lib/system-catalog";
+import { SYSTEM_FEATURES, type SystemEntry } from "../lib/system-catalog";
 import { useApps } from "../lib/apps-store";
-import { useDisabledIds } from "../lib/enabled-store";
+import { useEnabledOverrides, isAppEnabled } from "../lib/enabled-store";
 import { useStoreInstall } from "../lib/use-store-install";
 
-// Default export so os-shell can lazy-load it as a window app. Installing an app
-// flips its localStorage row (useInstalledApps surfaces it in the dock/launchpad).
-// The "Apps"/"Features" sections instead toggle the built-in apps + shell features
-// on/off (enabled-store) — os-root filters the manifest by the disabled set.
-export default function AppStore({ systemOnly = false }: { systemOnly?: boolean }) {
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<StoreFilter>(systemOnly ? "Apps" : "Featured");
+// All shell presentations share this catalog and installation state.
+export default function AppsPanel({ initialQuery = "" }: { initialQuery?: string }) {
+  const [query, setQuery] = useState(initialQuery);
+  const [filter, setFilter] = useState<StoreFilter>("Apps");
   // Store-level zone: a right-click anywhere in the grid gets this, and a
   // right-click ON a card merges the card's items ABOVE it (nested).
   const storeZone = useContextZone((): MenuItem[] => [
@@ -45,8 +42,10 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
   const mobile = activeShell.surface === "mobile";
 
   const rows = useApps();
-  const disabled = useDisabledIds();
-  const off = useMemo(() => new Set(disabled), [disabled]);
+  const enabled = useEnabledOverrides();
+  const apps = useAppCatalog();
+  const systemCatalog = useMemo<SystemEntry[]>(() => [...apps.filter(app => app.install).map(app => ({ ...app,
+    kind: "app" as const, desc: `Open ${app.title} in your workspace.`, required: app.id === "app-store" })), ...SYSTEM_FEATURES], [apps]);
   const isSystem = filter === "Apps" || filter === "Features";
 
   // Merge curated catalog with live install state from localStorage.
@@ -54,7 +53,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
   const featured = catalog.find((a) => a.appId === FEATURED_ID) ?? catalog[0];
 
   // Install state machine + destructive confirm gates (uninstall = needs prompt).
-  const install = useStoreInstall(off);
+  const install = useStoreInstall(enabled);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -70,16 +69,17 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
   const systemList = useMemo(() => {
     const q = query.trim().toLowerCase();
     const kind = filter === "Features" ? "feature" : "app";
-    return SYSTEM_CATALOG.filter(
+    return systemCatalog.filter(
       (e) =>
         e.kind === kind &&
         (!q || e.title.toLowerCase().includes(q) || e.desc.toLowerCase().includes(q)),
     );
-  }, [filter, query]);
+  }, [filter, query, systemCatalog]);
 
   const count = isSystem ? systemList.length : list.length;
   const noun = isSystem ? (filter === "Features" ? "feature" : "app") : "app";
-  const installedCount = catalog.filter((a) => a.installed).length;
+  const installedCount = apps.length ? apps.filter(app => app.installed !== false).length : catalog.filter(a => a.installed).length;
+  const uninstalledCount = systemCatalog.filter(e => e.kind === "app" && !isAppEnabled(e.id, enabled)).length;
 
   // Surface store state to the shell AI Inspector.
   usePublishInspector(
@@ -89,17 +89,17 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
       props: [
         { label: "Installed", value: String(installedCount) },
         { label: "Catalog", value: String(catalog.length) },
-        { label: "Uninstalled", value: String(disabled.length) },
+        { label: "Uninstalled", value: String(uninstalledCount) },
       ],
-      context: `App store, ${installedCount} installed, ${disabled.length} uninstalled`,
+      context: `App store, ${installedCount} installed, ${uninstalledCount} uninstalled`,
       suggestions: ["Suggest an app", "What's installed?"],
     },
-    [installedCount, catalog.length, disabled.length],
+    [installedCount, catalog.length, uninstalledCount],
   );
 
   return (
     <div ref={paneRef} className="flex h-full">
-      {!compact && <StoreSidebar systemOnly={systemOnly} value={filter} onChange={setFilter} />}
+      {!compact && <StoreSidebar value={filter} onChange={setFilter} />}
 
       <AppFrame
         className="min-w-0 flex-1"
@@ -122,7 +122,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
                 className={ios ? "h-9 border-0 bg-[var(--fill)] pl-8" : "h-9 pl-8"}
               />
             </div>
-            {compact && <StoreFilterChips systemOnly={systemOnly} value={filter} onChange={setFilter} />}
+            {compact && <StoreFilterChips value={filter} onChange={setFilter} />}
           </header>
         }
       >
@@ -132,15 +132,14 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
               <>
                 <p className="mb-3 text-xs text-muted-foreground">
                   Optional {filter === "Features" ? "system features" : "apps"} — install to add
-                  them, uninstall to remove. Uninstalled items vanish from the dock, Launchpad,
-                  and Spotlight.
+                  them to every shell in this browser. Removing a menu keeps your files and services.
                 </p>
                 <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-3 @7xl:grid-cols-4">
                   {systemList.map((e) => (
                     <SystemCard
                       key={e.id}
                       entry={e}
-                      installed={!off.has(e.id)}
+                      installed={e.kind === "app" ? isAppEnabled(e.id, enabled) : enabled[e.id] !== false}
                       onToggle={install.toggleSystem}
                     />
                   ))}

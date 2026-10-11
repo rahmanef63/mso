@@ -17,7 +17,6 @@ export function TouchList({
   const { pointer } = useResponsive();
   return (
     <div
-      role="list"
       className={cn(
         "flex flex-col",
         pointer === "coarse" && "[&>*]:min-h-11",

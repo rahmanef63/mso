@@ -3,7 +3,8 @@
 import { useCallback, useState } from "react";
 
 import { setInstalled } from "./apps-store";
-import { setEnabled } from "./enabled-store";
+import { setEnabled, isAppEnabled, type EnabledOverrides } from "./enabled-store";
+import { shellStore, closeWindow, focusWindow } from "@/features/appshell";
 import type { CatalogApp } from "./store-catalog";
 import type { SystemEntry } from "./system-catalog";
 
@@ -12,7 +13,7 @@ import type { SystemEntry } from "./system-catalog";
 // that's the destructive path we gate behind a confirm. Install is instant.
 // Returns the toggles cards bind to, the busy id (per-card spinner), the
 // pending entries (drive the dialogs), and the confirm callbacks.
-export function useStoreInstall(off: Set<string>) {
+export function useStoreInstall(enabled: EnabledOverrides) {
   const [pendingApp, setPendingApp] = useState<CatalogApp | null>(null);
   const [pendingSystem, setPendingSystem] = useState<SystemEntry | null>(null);
 
@@ -38,12 +39,12 @@ export function useStoreInstall(off: Set<string>) {
 
   const toggleSystem = useCallback(
     (e: SystemEntry) => {
-      const currentlyInstalled = !off.has(e.id);
+      const currentlyInstalled = e.kind === "app" ? isAppEnabled(e.id, enabled) : enabled[e.id] !== false;
       // Confirm before disabling, instant on re-enable (not destructive).
       if (currentlyInstalled) setPendingSystem(e);
       else setEnabled(e.id, true);
     },
-    [off],
+    [enabled],
   );
 
   const confirmUninstallApp = useCallback(() => {
@@ -52,6 +53,12 @@ export function useStoreInstall(off: Set<string>) {
   }, [doInstall, pendingApp]);
 
   const confirmUninstallSystem = useCallback(() => {
+    if (pendingSystem?.kind === "app") {
+      const windows = shellStore.getOrder().filter(id => shellStore.getWindow(id)?.app === pendingSystem.id);
+      windows.forEach(id => closeWindow(id));
+      const blocked = windows.find(id => shellStore.getWindow(id));
+      if (blocked) { focusWindow(blocked); setPendingSystem(null); return; }
+    }
     if (pendingSystem) setEnabled(pendingSystem.id, false);
     setPendingSystem(null);
   }, [pendingSystem]);

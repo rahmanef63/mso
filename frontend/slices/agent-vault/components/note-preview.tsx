@@ -5,6 +5,19 @@ import { safeExternalLink } from "../lib/note-links";
 type Props = { content: string; resolve?: (target: string, wiki: boolean) => string | undefined; onOpen?: (path: string) => void };
 const INLINE = /(!?\[\[[^\[\]\n]+\]\]|!?\[[^\[\]\n]*\]\([^\s()\[\]]+\)|`[^`\n]+`|\*\*[^*\n]+\*\*)/g;
 
+function tableCells(line: string): string[] {
+  const text = line.trim(), cells = [""];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\\" && i + 1 < text.length) {
+      cells[cells.length - 1] += text[i + 1] === "|" ? "|" : text[i] + text[i + 1]; i++;
+    } else if (text[i] === "|") cells.push("");
+    else cells[cells.length - 1] += text[i];
+  }
+  if (text.startsWith("|")) cells.shift();
+  if (cells.length > 1 && cells[cells.length - 1] === "") cells.pop();
+  return cells.map(cell => cell.trim());
+}
+
 /** Inert Markdown reader. HTML/embeds stay text; only reviewed note/web links activate. */
 export const NotePreview = memo(function NotePreview({ content, resolve, onOpen }: Props) {
   function inline(text: string): ReactNode {
@@ -24,6 +37,11 @@ export const NotePreview = memo(function NotePreview({ content, resolve, onOpen 
   }
   const lines = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "").split(/\r?\n/);
   const blocks: ReactNode[] = [];
+  const tableAt = (index: number) => {
+    if (!lines[index]?.includes("|") || !lines[index + 1]?.includes("|")) return false;
+    const header = tableCells(lines[index]), separator = tableCells(lines[index + 1]);
+    return header.length === separator.length && separator.every(cell => /^:?-{3,}:?$/.test(cell));
+  };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i], key = i;
     if (!line.trim()) continue;
@@ -32,6 +50,15 @@ export const NotePreview = memo(function NotePreview({ content, resolve, onOpen 
       const code: string[] = [];
       while (++i < lines.length && !lines[i].trim().startsWith(fence[1])) code.push(lines[i]);
       blocks.push(<pre key={key} className="max-w-full overflow-x-auto rounded-lg bg-muted p-3 text-xs"><code>{code.join("\n")}</code></pre>); continue;
+    }
+    if (tableAt(i)) {
+      const header = tableCells(line), separator = tableCells(lines[++i]), rows: string[][] = [];
+      while (i + 1 < lines.length && lines[i + 1].trim() && lines[i + 1].includes("|")) rows.push(tableCells(lines[++i]));
+      const alignment = (column: number) => separator[column].endsWith(":") ? (separator[column].startsWith(":") ? "center" : "right") : "left";
+      blocks.push(<div key={key} className="max-w-full overflow-x-auto"><table className="w-full border-collapse text-sm">
+        <thead><tr>{header.map((cell, column) => <th key={column} scope="col" className="border bg-muted px-3 py-2 font-semibold" style={{ textAlign: alignment(column) }}>{inline(cell)}</th>)}</tr></thead>
+        <tbody>{rows.map((row, index) => <tr key={index}>{header.map((_, column) => <td key={column} className="border px-3 py-2" style={{ textAlign: alignment(column) }}>{inline(row[column] || "")}</td>)}</tr>)}</tbody>
+      </table></div>); continue;
     }
     const heading = line.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
@@ -48,7 +75,7 @@ export const NotePreview = memo(function NotePreview({ content, resolve, onOpen 
     if (line.startsWith(">")) { blocks.push(<blockquote key={key} className="border-l pl-3 text-muted-foreground">{inline(line.replace(/^>\s?/, ""))}</blockquote>); continue; }
     if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)) { blocks.push(<hr key={key} />); continue; }
     const paragraph = [line];
-    while (i + 1 < lines.length && lines[i + 1].trim() && !/^(?:#{1,6}\s|>|\s*[-*+]\s|\s*\d+\.\s|\s*```|\s*~~~)/.test(lines[i + 1])) paragraph.push(lines[++i]);
+    while (i + 1 < lines.length && lines[i + 1].trim() && !tableAt(i + 1) && !/^(?:#{1,6}\s|>|\s*[-*+]\s|\s*\d+\.\s|\s*```|\s*~~~)/.test(lines[i + 1])) paragraph.push(lines[++i]);
     blocks.push(<p key={key} className="whitespace-pre-wrap">{inline(paragraph.join("\n"))}</p>);
   }
   return <div className="space-y-4 text-sm leading-relaxed [overflow-wrap:anywhere]">{blocks}</div>;

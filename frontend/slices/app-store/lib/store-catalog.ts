@@ -1,7 +1,7 @@
 // Curated demo catalog for the App Store slice. Pure data — no React.
 // Each entry carries the full metadata an install needs; installing flips the
 // persisted row to installed=true (and the app then appears in the host's
-// launcher via useInstalledApps). `glyph` is a key the shell
+// launcher via useRuntimeApps). `glyph` is a key the shell
 // resolves through lib/glyph.ts (grid|code|globe|image|music|gauge|folder|cloud).
 
 export type StoreCategory = "Productivity" | "Media" | "Dev" | "System";
@@ -104,8 +104,8 @@ type CatalogRow = {
   installed: boolean;
 };
 
-// Merge the curated catalog with the live `listAll` rows so install state is
-// reflected. Convex rows win on `installed`; rows that exist only in Convex
+// Merge the curated catalog with the live runtime rows so install state is
+// reflected. Persisted rows win on `installed`; rows that exist only in the runtime registry
 // (e.g. custom apps) are ignored here — the store curates its own catalog.
 export function mergeCatalog(
   rows: ReadonlyArray<CatalogRow> | undefined,

@@ -114,7 +114,7 @@ function IconButton({ icon, selected }: { icon: DesktopIcon; selected: boolean }
           menu.open(e);
         }}
       >
-        <span className="grid size-11 place-items-center drop-shadow">
+        <span className="grid size-11 place-items-center">
           {icon.kind === "app" && app ? (
             <AppIcon app={app} />
           ) : (
@@ -123,7 +123,7 @@ function IconButton({ icon, selected }: { icon: DesktopIcon; selected: boolean }
             </span>
           )}
         </span>
-        <span className="line-clamp-2 w-full text-[11px] font-medium text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
+        <span className="line-clamp-2 w-full text-[11px] font-medium text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]">
           {label}
         </span>
       </button>

@@ -34,11 +34,9 @@ const SYSTEM_ICON: Record<"Apps" | "Features", LucideIcon> = {
 export function StoreSidebar({
   value,
   onChange,
-  systemOnly = false,
 }: {
   value: StoreFilter;
   onChange: (f: StoreFilter) => void;
-  systemOnly?: boolean;
 }) {
   const item = (f: StoreFilter, Icon: LucideIcon) => (
     <Button
@@ -60,14 +58,14 @@ export function StoreSidebar({
 
   return (
     <aside className="flex w-40 shrink-0 flex-col gap-0.5 border-r border-border bg-secondary/30 p-2">
-      {!systemOnly && <><div className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+      <><div className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
         <Compass className="size-3.5" /> Discover
       </div>
       <TouchList className="gap-0.5">
         {FILTERS.map((f) =>
           item(f, f === "Featured" ? Compass : glyphIcon(FILTER_GLYPH[f as StoreCategory])),
         )}
-      </TouchList></>}
+      </TouchList></>
 
       <div className="mt-2 flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
         <LayoutGrid className="size-3.5" /> System
@@ -84,15 +82,13 @@ export function StoreSidebar({
 export function StoreFilterChips({
   value,
   onChange,
-  systemOnly = false,
 }: {
   value: StoreFilter;
   onChange: (f: StoreFilter) => void;
-  systemOnly?: boolean;
 }) {
   return (
     <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
-      {[...(systemOnly ? [] : FILTERS), ...SYSTEM_FILTERS].map((f) => (
+      {[...SYSTEM_FILTERS, ...FILTERS].map((f) => (
         <Button
           key={f}
           type="button"

@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useUrlHome } from "../../../hooks/use-url-home";
 import { Search } from "lucide-react";
-import { useApps } from "../../../lib/registry";
+import { useApps, useAppCatalog } from "../../../lib/registry";
 import { usePullDown } from "../../../hooks/use-pull-down";
 import { useWindowOrder, useFocused, useWindow } from "../../../hooks/use-shell";
 import { shellStore, openWindow, focusApp, minimizeWindow, restoreWindow, toggleSpotlight, toggleInspector } from "../../../lib/store";
@@ -34,6 +34,7 @@ import { AndroidFeatureHeader } from "./android-feature-header";
 
 function AndroidShell() {
   const apps = useApps();
+  const catalog = useAppCatalog();
   const responsive = useResponsive();
   const showSystemNav = responsive.vw >= 768; // only the desktop PhoneFrame preview draws fake Android system buttons
   const order = useWindowOrder();
@@ -47,7 +48,7 @@ function AndroidShell() {
   // URL → surface (same derivation as the iOS shell): a pathname naming an app slug
   // shows the app pane (UrlSync opens/focuses its window); user gestures override,
   // keyed to the pathname made at — deep links AND back/forward, no effect setState.
-  const { home, setHome } = useUrlHome(apps);
+  const { home, setHome } = useUrlHome(catalog);
 
   const dockable = useMemo(() => apps.filter((a) => !a.noDock), [apps]);
   const pinned = useMemo(() => dockable.filter((a) => a.pinned), [dockable]);
@@ -57,7 +58,7 @@ function AndroidShell() {
       : ([...order].reverse().find((id) => !shellStore.getWindow(id)?.minimized) ?? null);
   const top = useWindow(topId ?? "__none__"); // reactive: re-renders on the active window's own payload/title changes
   const showApp = !home && !!top;
-  const activeApp = top ? apps.find((a) => a.id === top.app) : null;
+  const activeApp = top ? catalog.find((a) => a.id === top.app) : null;
   const mobileNav = useMobileNavigationInfo(activeApp?.id);
 
   const launch = useCallback(
@@ -149,7 +150,7 @@ function AndroidShell() {
         {/* HOME (always mounted; app overlays it — inert while covered so its
             grid + NavBar drop out of tab/AT order under the z-20 app layer).
             Pull down → Control Center; clock+date live on the wallpaper. */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-1" inert={showApp} aria-hidden={showApp} onPointerDown={pullDown} onContextMenu={onHomeContext} style={{ paddingTop: "var(--sai-top, 0px)", paddingBottom: showSystemNav ? undefined : "var(--sai-bottom)" }}>
+        <div className={`flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-1 ${!home ? "[&_.shell-platform-mark_img]:hidden" : ""}`} inert={!home} aria-hidden={!home} onPointerDown={pullDown} onContextMenu={onHomeContext} style={{ paddingTop: "var(--sai-top, 0px)", paddingBottom: showSystemNav ? undefined : "var(--sai-bottom)" }}>
           {/* Same reason as the app labels: the clock sits on the wallpaper, so it
               needs its own light-on-dark treatment rather than the theme foreground. */}
           {/* `[&_div]:text-white/80` targets Clock mode="date", which hard-codes

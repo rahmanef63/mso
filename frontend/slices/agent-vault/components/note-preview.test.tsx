@@ -23,4 +23,25 @@ describe("native Markdown reader", () => {
       expect(html).not.toContain("<button"); expect(html).not.toContain("<a ");
     }
   });
+  it("renders GFM tables with alignment, inline formatting and inert source content", () => {
+    const content = "Intro\nField | Value | State\n:--- | :---: | ---:\nFixture | `synthetic` | **isolated**\n<script> | [[Worker\\|Task]] | [Run](javascript:alert)\nshort | row\nextra | cells | stay | bounded\n\nAfter";
+    const html = renderToStaticMarkup(<NotePreview content={content} resolve={target => target === "Worker" ? "worker.md" : undefined} onOpen={() => {}} />);
+    expect(html).toContain("<table"); expect(html).toContain('<th scope="col"');
+    expect(html).toContain('text-align:center'); expect(html).toContain('text-align:right');
+    expect(html).toContain("<strong>isolated</strong>"); expect(html).toContain("&lt;script&gt;");
+    expect(html).toContain(">Task</button>"); expect(html).not.toContain("<script"); expect(html).not.toContain("<a ");
+    expect((html.match(/<td /g) || []).length).toBe(12); expect(html).not.toContain("bounded");
+    expect(html).toContain(">Intro</p>"); expect(html).toContain(">After</p>");
+  });
+  it("keeps invalid tables and fenced tables as literal text", () => {
+    for (const content of ["| Field | Value |\n|---|\n|one|two|", "| Field | Value |\n|oops|---|", "```\n| Field | Value |\n|---|---|\n```", "|".repeat(48 * 1024) + "\n|no separator|"]) {
+      const html = renderToStaticMarkup(<NotePreview content={content} />);
+      expect(html).not.toContain("<table"); expect(html).toContain("|");
+    }
+  });
+  it("keeps escaped pipes within table cells", () => {
+    const html = renderToStaticMarkup(<NotePreview content={"| Field | Value |\n|---|---|\n| pipe | `a\\|b` |\n| slash | \\\\ |"} />);
+    expect((html.match(/<td /g) || []).length).toBe(4); expect(html).toContain(">a|b</code>");
+  });
+
 });

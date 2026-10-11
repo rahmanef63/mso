@@ -19,7 +19,7 @@
 // the shell renders for signed-out visitors too (backed by mocks) — a run that
 // quietly tested fakes would report green forever.
 import { chromium } from "@playwright/test";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture, installFixtureApps } from "./release-fixture.mjs";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, copyFileSync } from "node:fs";
 import path from "node:path";
@@ -47,7 +47,7 @@ function fixtures() {
   writeFileSync(path.join(DIR, "sample.png"), Buffer.from(PNG_B64, "base64"));
   writeFileSync(path.join(DIR, "logo.svg"), '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#10ac84"/></svg>');
   writeFileSync(path.join(DIR, "notes.md"), "# Preview test\n\nThis file checks the **Markdown** renderer.\n\n- one\n- two\n");
-  writeFileSync(path.join(DIR, "rows.csv"), 'name,role\nRahman,owner\nClaude,"assistant, occasionally wrong"\n');
+  writeFileSync(path.join(DIR, "rows.csv"), 'name,role\nFixture owner,owner\nFixture assistant,"test, fixture"\n');
   // The script tag is the point: it must NOT run inside the sandboxed frame.
   writeFileSync(path.join(DIR, "page.html"), "<!doctype html><html><body><h1>HTML renders sandboxed</h1><script>document.body.innerHTML+='SCRIPT RAN'</script></body></html>");
   writeFileSync(path.join(DIR, "server.log"), "boot ok\nlistening on 4005\n");
@@ -98,6 +98,7 @@ const run = async () => {
     hasTouch: MOBILE,
     isMobile: MOBILE,
   });
+    await installFixtureApps(ctx);
   const errors = [];
   ctx.on("console", (m) => {
     const t = m.text();
@@ -184,7 +185,7 @@ const run = async () => {
   await open("rows.csv");
   win = scope(page, "rows.csv");
   check((await win.locator("table tr").count()) >= 3, "CSV rendered as a table");
-  check(/assistant, occasionally wrong/.test(await win.innerText()), "CSV quoted field kept its comma");
+  check(/test, fixture/.test(await win.innerText()), "CSV quoted field kept its comma");
 
   await open("page.html");
   const frame = scope(page, "page.html").locator("iframe");
@@ -209,10 +210,10 @@ const run = async () => {
   await page.waitForTimeout(3500);
   const settings = await (MOBILE ? page.locator("#main-content") : page.locator("[data-window]").last()).innerText();
   check(/Software update/i.test(settings), "Settings → Update MSO shows the update panel");
-  check(/Up to date|available|build is pending/i.test(settings), "Update panel reported a state");
+  check(/Up to date|available|build is pending|Update status not verified/i.test(settings), "Update panel reported a state");
   const update = await page.evaluate(async () => (await fetch("/api/v1/sys/update?check=0")).json());
   if (update.supported === false) {
-    check(typeof update.reason === "string" && settings.includes(update.reason), "Isolated fixture explains why self-update is unavailable");
+    check(update.remoteChecked === false && settings.includes("Update status not verified") && typeof update.reason === "string" && settings.includes(update.reason), "Isolated fixture explains why self-update is unavailable");
     check(!/Update to .* and restart/.test(settings), "Isolated fixture offers no deployment action");
   } else check(/Release notes and docs/i.test(settings), "Release notes + docs row present");
 

@@ -9,13 +9,13 @@ export async function vaultRequest(project: string, signal: AbortSignal, sync = 
   if (note) params.set("note", note);
   const response = await fetch(`/api/v1/agent-vault?${params}`, sync ? {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(project.trim() ? { project: project.trim() } : {}), signal,
-  } : { cache: "no-store", signal });
+  } : { cache: "no-store", signal, priority: "high" });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
   return result as AgentVaultView;
 }
 
-export function useVault() {
+export function useVault(initialProject?: string, initialRoot?: string) {
   const [project, setProject] = useState("");
   const [state, setState] = useState<AgentVaultState | null>(null);
   const [snapshotId, setSnapshotId] = useState("");
@@ -24,10 +24,10 @@ export function useVault() {
   const [busy, setBusy] = useState(true), [noteBusy, setNoteBusy] = useState(false), [error, setError] = useState("");
   const loading = useRef<AbortController | null>(null), reading = useRef<AbortController | null>(null);
 
-  const apply = useCallback((result: AgentVaultView) => {
-    setState(result.state); setSnapshotId(result.state.current || "");
+  const apply = useCallback((result: AgentVaultView, initial = false) => {
+    setState(result.state); setSnapshotId(initial ? result.state.snapshots.find(item => `${result.state.root}/Snapshots/${item.id}` === initialRoot)?.id || result.state.current || "" : result.state.current || "");
     setProject(result.state.project.path); localStorage.setItem(KEY, result.state.project.path);
-  }, []);
+  }, [initialRoot]);
 
   const load = useCallback(async (hint: string, sync = false) => {
     loading.current?.abort(); reading.current?.abort();
@@ -44,13 +44,13 @@ export function useVault() {
 
   useEffect(() => {
     const controller = new AbortController(); loading.current = controller;
-    void vaultRequest(localStorage.getItem(KEY) || "", controller.signal).then(result => {
-      if (!controller.signal.aborted) apply(result);
+    void vaultRequest(initialProject || localStorage.getItem(KEY) || "", controller.signal).then(result => {
+      if (!controller.signal.aborted) apply(result, true);
     }).catch(cause => {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not load vault");
     }).finally(() => { if (!controller.signal.aborted) setBusy(false); });
     return () => { controller.abort(); loading.current?.abort(); reading.current?.abort(); };
-  }, [apply]);
+  }, [apply, initialProject]);
 
   const select = useCallback(async (path: string) => {
     if (!state || busy) return;

@@ -1,4 +1,4 @@
-// Memory-graph contract shared by the owner API and the Memory app.
+// Node/edge contract shared by the owner API and the native knowledge workspace.
 // Node/edge ideas (ghosts, wikilinks, groups) follow rahmanef63/open-silong
 // frontend/slices/memory-graph (MIT). This file is an MSO-native shape.
 

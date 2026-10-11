@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useIntentPrefetch } from "../hooks/use-intent-prefetch";
 import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useApps } from "../lib/registry";
 import { useLauncherOpen } from "../hooks/use-shell";
 import { openWindow, setLauncherOpen } from "../lib/store";
@@ -13,10 +12,8 @@ import { AppIcon } from "./app-icon";
 import { QuicklinkIcon } from "./quicklink-icon";
 
 // Launchpad — full-screen blurred app grid with a live filter (real-Launchpad).
-// Derived from the registry. While closed it is `inert` + aria-hidden: the
-// grid's ~20 links would otherwise stay in tab/AT order under the desktop
-// (opacity-0 alone does not remove them). z-8400 keeps it under the clipboard
-// overlay (8500) — overlays opened on top of Launchpad must win.
+// Closed Launchpad has no DOM: hidden picture sources still fetched in WebKit.
+// z-8400 keeps it under the clipboard overlay (8500).
 export function AppLauncher() {
   const open = useLauncherOpen();
   const prefetch = useIntentPrefetch(open);
@@ -40,14 +37,11 @@ export function AppLauncher() {
   const appList = needle ? apps.filter((a) => a.title.toLowerCase().includes(needle)) : apps;
   const linkList = needle ? links.filter((l) => l.title.toLowerCase().includes(needle)) : links;
 
+  if (!open) return null;
+
   return (
     <div
-      className={cn(
-        "glass absolute inset-0 z-[var(--z-launcher)] flex flex-col items-center justify-center bg-black/30 transition-opacity",
-        open ? "opacity-100" : "pointer-events-none opacity-0",
-      )}
-      inert={!open}
-      aria-hidden={!open}
+      className="glass absolute inset-0 z-[var(--z-launcher)] flex flex-col items-center justify-center bg-black/30"
       onClick={() => setLauncherOpen(false)}
     >
       <div

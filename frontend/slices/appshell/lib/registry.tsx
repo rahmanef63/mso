@@ -20,10 +20,15 @@ export function AppRegistryProvider({
   );
 }
 
-export function useApps(): AppDescriptor[] {
+export function useAppCatalog(): AppDescriptor[] {
   const map = useContext(RegistryContext);
   const { id } = useActiveShell();
   return useMemo(() => Array.from(map.values(), (app) => ({ ...app, title: (id === "macos" || id === "windows" ? app.shellTitles?.[id] : undefined) ?? app.title })), [map, id]);
+}
+
+export function useApps(): AppDescriptor[] {
+  const catalog = useAppCatalog();
+  return useMemo(() => catalog.filter(app => app.installed !== false), [catalog]);
 }
 
 export function useApp(id: string): AppDescriptor | undefined {

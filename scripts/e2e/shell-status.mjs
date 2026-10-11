@@ -2,7 +2,7 @@
 // Public synthetic proof that connection mode lives in each shell's native chrome.
 import assert from "node:assert/strict";
 import { chromium, expect } from "@playwright/test";
-import { releaseFixture } from "./release-fixture.mjs";
+import { releaseFixture, installFixtureApps } from "./release-fixture.mjs";
 
 const fixture = await releaseFixture();
 let browser;
@@ -17,6 +17,7 @@ try {
   ];
   for (const test of cases) {
     const context = await browser.newContext({ viewport: test.viewport });
+    await installFixtureApps(context);
     await context.addInitScript(({ id, surface }) => {
       localStorage.setItem("sv:shell", JSON.stringify({
         desktop: surface === "desktop" ? id : "macos",
