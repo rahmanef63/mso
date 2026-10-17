@@ -23,6 +23,7 @@ verbs() {
 # you're wrong.
 U_camoufox="camoufox status|start|stop|session"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
+U_domain="domain status|setup --user <user> --connection <cloudflare-connection> [--origin <https://host>] [--template <{id}.host>] [--zone <name|id>] [--tunnel <UUID>] [--local <http://loopback:port>] [--manual] [--apply]|ensure <id> [--apply]|doctor <id>|repair-env [--apply]|restore [--apply]"
 U_doctor="doctor [--fix]"
 U_flow="flow list|inspect <id> [--project <project>]|run <id> --input <JSON|@file> --key <id> [--wait]|status <run-id> [--wait]|save|delete <id> --revision <revision> [--input <JSON|@file>]"
 U_workflow="workflow list|embeds|embed-save --input <JSON|@file>|show <id>|create --input <JSON|@file>|save <id> --revision <revision> --input <JSON|@file>|clone <id>|delete <id> --revision <revision>|run <id> --input <JSON|@file> --key <id> [--wait]|status <run-id> [--wait]|runs <id>|versions <id>|restore <id> --revision <current> --version <saved>|catalog [--query q]|templates|template <id>|variables|variable-set <KEY> --input <JSON> [--secret]|variable-delete <KEY>|ai --prompt <text>"
@@ -32,7 +33,7 @@ U_agent_groups="agent-groups list|show <id>|create --input <JSON|@file>|save <id
 U_provider="provider list|show <id>|setup <provider> <user> <connection>|set <id>|rm <id>|doctor [id]|projects|zones"
 U_model="model [current|list [provider]|set <provider> <model>|set <provider/model>|<model-or-ref>]"
 U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo] | agent --oneshot <prompt> [--json] [--approve-scope read|write|exec]"
-U_mapp="mapp catalog|shell-list|shell-save <JSON|@file>|list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
+U_mapp="mapp enable <id> [install-key=value...]|start|stop|restart <id>|catalog|shell-list|shell-save <JSON|@file>|list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
 U_service="service status|start|stop|restart|logs [n]"
@@ -81,6 +82,7 @@ mso_cli_unknown() {
 }
 
 mso_cli_main() {
+  if [ "${1-}" = domain ] && { [ "${2-}" = help ] || [ "${2-}" = --help ] || [ "${2-}" = -h ]; }; then mso_cmd_runtime domain help; return; fi
   if [ $# -ge 2 ]; then
     case "$2" in
       -h|--help|help)
@@ -102,7 +104,7 @@ mso_cli_main() {
   case "$cmd" in
     version|--version|-V|-v|ls|cat|raw|share|usage|search|project-candidates|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|cleanup|status|health|doctor)
       mso_cmd_host "$cmd" "$@" ;;
-    agent|chat|model|setup|onboard|provider|providers|integrations|channels|agent-groups|flow|workflow|gateway|heartbeat|web|camoufox|apps|mapp|term)
+    agent|chat|model|setup|onboard|provider|providers|integrations|channels|agent-groups|flow|workflow|gateway|domain|heartbeat|web|camoufox|apps|mapp|term)
       mso_cmd_runtime "$cmd" "$@" ;;
     ai|cockpit|threads|agent-sessions|agents|org|a2a|memory|memory-graph|agent-vault|config|prefs|federation|models|jev|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;

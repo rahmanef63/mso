@@ -47,7 +47,7 @@ Managed-app health probes refuse redirects rather than follow them away from loo
 |---|---|---|---|---|
 | Hermes | user systemd (`hermes-dashboard.service`, `hermes-gateway.service`) or pinned Docker fallback | `127.0.0.1:9119` by default | none by default | `~/.hermes` or `HERMES_HOME` |
 | OpenClaw | user systemd (`openclaw-gateway.service`) | `127.0.0.1:18789` by default | none by default | `~/.openclaw` |
-| 9Router | Docker container `9router` | `127.0.0.1:20128` by default | `http://<public-ip>:20128` when the host has a global IPv4 | `~/.9router` mounted at `/app/data` |
+| 9Router | Docker container `9router` | `127.0.0.1:20128` by default | none by default; public-IP access requires explicit `NINE_ROUTER_EXPOSE_PUBLIC=1` | `~/.9router` mounted at `/app/data` |
 
 Detection reads systemd first, then Docker/package evidence. If MSO cannot reach the user
 systemd bus, it reports that uncertainty instead of silently treating a running app as
@@ -81,9 +81,8 @@ Opening a managed app first detects it:
 The app surface can switch between **UI** and **CLI** where a UI is available. Hermes and
 OpenClaw use their safe split-origin embedded dashboard when configured. 9Router follows the
 same rule: **a configured application domain is the primary in-shell UI**. Its Docker runtime
-also publishes port `20128`, so MSO advertises the direct
-separate-origin URL and opens it in a dedicated browser tab. This requires no domain, DNS
-provider, wildcard record, or TLS configuration.
+publishes port `20128` on loopback by default. Only an explicit public-exposure choice allows
+MSO to advertise a direct separate-origin URL and open it in a dedicated browser tab.
 
 When no domain is configured, MSO intentionally does not iframe `http://<public-ip>:20128` inside an HTTPS cockpit: browsers
 block that as mixed content. It also does not proxy a vendor SPA under the cockpit origin,
@@ -139,8 +138,10 @@ same persisted job layer used for updates.
 A domain is **not an install prerequisite** for lifecycle management. 9Router's dashboard is
 loopback-only after install unless a configured URL/split-origin host exists or the operator
 explicitly sets `NINE_ROUTER_EXPOSE_PUBLIC=1`. Domain-provider integrations
-(Cloudflare, Hostinger, etc.) are a separate optional concern and are not called by the
-managed-app installer.
+(Cloudflare initially) are optional. After a successful install/update job, and after
+start/restart actions, saved automatic domain settings trigger reconciliation. DNS failures
+are reported separately from application success. See [`MANAGED-DOMAINS.md`](./MANAGED-DOMAINS.md)
+for one-time setup, `mso mapp enable 9router`, status and recovery.
 
 An optional model-provider API key can be supplied to app installers that support it. Keys
 are passed through the child environment rather than persisted job argv/transcripts.
@@ -241,13 +242,15 @@ split-origin decision:
 
 ```dotenv
 NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE={id}.mso.example.com
-OS_SESSION_COOKIE_DOMAIN=.mso.example.com
 OS_PUBLIC_ORIGIN=https://mso.example.com
 ```
 
 Then provision DNS/TLS only for managed-app hostnames you actually use (for the current
 catalog: `hermes`, `openclaw`, and optionally `9router`). Each hostname is rewritten
 exclusively into that app's proxy; cockpit pages/API/static chunks are not served there.
+`mso domain setup` persists these settings and activates automatic provisioning after the
+required deployment. App-bound tickets exchange for host-only app cookies;
+`OS_SESSION_COOKIE_DOMAIN` is obsolete and must not be widened for this flow.
 
 ```mermaid
 flowchart LR
@@ -265,9 +268,8 @@ shared the cockpit origin, it would share the owner's browser realm/session. A s
 hostname makes `window.top` cross-origin. There is no supported same-origin dashboard
 fallback.
 
-Never map an arbitrary wildcard hostname to MSO under the session-cookie domain. Provision
-only explicit names you intend to serve. Setting the cookie domain without the matching host
-gating widens where the session credential is sent.
+Provision only explicit names you intend to serve. Unknown app namespace hosts are refused.
+The cockpit session stays host-only; app authorization rechecks live device authority.
 
 ## 10. 9Router distribution and ownership
 
@@ -296,7 +298,7 @@ the real secret verification.
 
 - app says "not installed" but you know it exists → check systemd-user visibility/detection
   evidence before rerunning an installer;
-- 9Router is healthy but its configured `*.mso...` host fails → diagnose DNS/TLS/session-cookie state; the runtime remains healthy and the explicitly enabled direct public-IP UI is the fallback;
+- 9Router is healthy but its configured app host fails → run `mso domain doctor 9router`; inspect DNS, tunnel, app-host activation and HTTPS separately;
 - 9Router UI button has no public URL → `NINE_ROUTER_EXPOSE_PUBLIC` is unset/false (the safe
   default), or the explicitly exposed host has no routable address on a local interface;
 - dashboard frame missing but service is healthy → split-origin embedding may be absent by

@@ -4,7 +4,9 @@
 future changes do not confuse its upstream npm CLI, Docker runtime, public access, and
 optional MSO dashboard proxy.
 
-For the proposed default owner experience and the security conditions for using MSO as the sole browser login gate, see [`9ROUTER-MSO-APPHOST-RFC.md`](./9ROUTER-MSO-APPHOST-RFC.md).
+For automatic DNS, tunnel ingress, HTTPS checks and recovery, see
+[`MANAGED-DOMAINS.md`](./MANAGED-DOMAINS.md). The older
+[`9ROUTER-MSO-APPHOST-RFC.md`](./9ROUTER-MSO-APPHOST-RFC.md) remains historical design context.
 
 ## Distribution choice
 
@@ -54,16 +56,19 @@ public-IP URL is only the fallback for installations without a domain. An HTTP p
 is not put in an HTTPS iframe because browsers block mixed content; in that fallback case MSO
 opens the direct UI as a separate origin.
 
-A custom domain is optional. Hostinger/Cloudflare automation may later configure DNS/TLS,
-but it is not part of install health and must never be assumed to exist. If a domain already
+A custom domain is optional. Saved Cloudflare domain settings now reconcile DNS and tunnel
+ingress after install/update/start/restart; readiness requires verified public HTTPS and
+MSO authorization. Domain failures remain separate from runtime health. If a domain already
 exists, set it explicitly instead of generating another hostname:
 
 ```dotenv
 NINE_ROUTER_PUBLIC_URL=https://9-router.example.com
 ```
 
-Source precedence is: explicit HTTPS `NINE_ROUTER_PUBLIC_URL` → MSO split-origin host →
-direct `IP:20128` **only when `NINE_ROUTER_EXPOSE_PUBLIC=1`**. An explicit HTTPS app domain is framed directly because it is already a
+The managed-app API advertises a verified generated domain when available, followed by an
+explicit `NINE_ROUTER_PUBLIC_URL` or direct `IP:20128` **only when
+`NINE_ROUTER_EXPOSE_PUBLIC=1`**. The feature's existing explicit HTTPS app URL remains an
+embedding override because it is already a
 separate origin; this also preserves the application's own origin-scoped browser session.
 
 ## Split-origin embedding when a domain is configured
@@ -72,12 +77,13 @@ When the deployment already has a domain, use the same explicit split-origin con
 
 ```dotenv
 NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE={id}.mso.example.com
-OS_SESSION_COOKIE_DOMAIN=.mso.example.com
 OS_PUBLIC_ORIGIN=https://mso.example.com
 ```
 
-Create only the explicit `9router.mso.example.com` DNS/TLS route and re-authenticate so the
-widened session cookie is actually issued. When this route exists, MSO prefers it over the
+Use `mso domain setup` once, deploy the template, then `mso mapp enable 9router`.
+Only the exact `9router.mso.example.com` DNS/TLS route is provisioned. Opening the app from
+MSO exchanges a short-lived app-bound ticket for a host-only app cookie. The cockpit cookie
+is never widened; `OS_SESSION_COOKIE_DOMAIN` is obsolete. MSO prefers a configured app host over the
 public-IP fallback and renders the dashboard in-shell. A failing domain must still not make the
 running 9Router runtime appear unavailable.
 
@@ -131,11 +137,10 @@ prove an upstream cloud firewall permits arbitrary external clients.
 
 ## Failure map
 
-- **Old standalone domain works, new `9router.mso...` does not**: 9Router itself is likely
-  fine. Check direct public-IP access first. The new name is an MSO split-origin concern
-  (DNS/TLS + cookie domain + re-login), not an application-health dependency.
-- **`401` only on the split-origin host**: verify the MSO session cookie was re-issued with
-  the configured cookie domain; a curl without an authenticated cookie will also get 401.
+- **Old standalone domain works, new `9router.mso...` does not**: run
+  `mso domain doctor 9router`; the DNS/tunnel/HTTPS diagnosis is separate from application health.
+- **`401` on an anonymous split-origin request**: expected. Open the application from MSO
+  to exchange a fresh app ticket; cockpit cookies do not authorize the app hostname.
 - **`/health` says 404**: expected endpoint is `/api/health`.
 - **npm update fails with ownership errors after Docker use**: do not mix npm-owned runtime
   updates with the Docker-managed `~/.9router` server state. Keep Docker as the VPS owner.

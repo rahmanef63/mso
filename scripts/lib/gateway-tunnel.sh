@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Cloudflare tunnel start path. The application port always remains loopback-only.
+GATEWAY_NAMED_CONFIG_HELPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/gateway-named-config.mjs"
 
 gateway_parse_start_args() {
   GATEWAY_CONFIG=""; GATEWAY_TUNNEL=""; GATEWAY_MODE=temporary; GATEWAY_PROVIDER=cloudflare-quick
@@ -14,35 +15,7 @@ gateway_parse_start_args() {
 }
 
 gateway_validate_named_config() {
-  node - "$ROOT" "$GATEWAY_CONFIG" "$GATEWAY_PUBLIC_URL" "$LOCAL_URL" <<'NODE'
-const fs = require('fs');
-const path = require('path');
-const [root, file, publicOrigin, localOrigin] = process.argv.slice(2);
-let YAML;
-try { YAML = require(path.join(root, 'node_modules/yaml')); } catch { process.exit(10); }
-let cfg;
-try { cfg = YAML.parse(fs.readFileSync(file, 'utf8')); } catch { process.exit(11); }
-if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) process.exit(12);
-const ingress = cfg.ingress;
-if (!Array.isArray(ingress) || ingress.length !== 2) process.exit(13);
-const publicHost = new URL(publicOrigin).hostname.toLowerCase();
-const local = new URL(localOrigin);
-const loopback = (host) => host === 'localhost' || host === '::1' || host === '[::1]' || /^127(?:\.\d{1,3}){3}$/.test(host);
-const first = ingress[0], last = ingress[1];
-if (!first || typeof first !== 'object' || String(first.hostname || '').toLowerCase() !== publicHost) process.exit(14);
-let service;
-try { service = new URL(String(first.service || '')); } catch { process.exit(15); }
-if (service.protocol !== 'http:' || !loopback(service.hostname) || service.port !== local.port || service.pathname !== '/' || service.search || service.hash) process.exit(16);
-if (!last || typeof last !== 'object' || Object.keys(last).some((k) => k !== 'service') || last.service !== 'http_status:404') process.exit(17);
-const rawCred = cfg['credentials-file'];
-if (typeof rawCred !== 'string' || !rawCred.trim()) process.exit(18);
-let cred = rawCred.trim();
-if (cred.startsWith('~/')) cred = path.join(process.env.HOME || '', cred.slice(2));
-if (!path.isAbsolute(cred)) cred = path.resolve(path.dirname(file), cred);
-let st;
-try { st = fs.lstatSync(cred); } catch { process.exit(19); }
-if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.getuid() || (st.mode & 0o077) !== 0) process.exit(20);
-NODE
+  node "$GATEWAY_NAMED_CONFIG_HELPER" "$ROOT" "$GATEWAY_CONFIG" "$GATEWAY_PUBLIC_URL" "$LOCAL_URL" "${NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE:-}"
 }
 
 gateway_validate_named_tunnel() {

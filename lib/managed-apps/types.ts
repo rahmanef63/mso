@@ -1,3 +1,5 @@
+import type { ManagedDomainRecord } from "@/lib/contracts/managed-domains";
+
 export const MANAGED_APP_IDS = ["hermes", "openclaw", "9router"] as const;
 export type ManagedAppId = (typeof MANAGED_APP_IDS)[number];
 
@@ -61,6 +63,9 @@ export interface ManagedAppView {
    *  application domain when present, otherwise a public-IP:port fallback. null for
    *  loopback-only apps/hosts. This is never the trusted internal health target. */
   publicDashboardUrl: string | null;
+  /** Durable DNS/route/HTTPS progress; application health is reported separately. */
+  domain?: ManagedDomainRecord | null;
+  domainDiagnostic?: string | null;
   supportedActions: ManagedAppAction[];
   /** Why this reading may be wrong, when MSO knows that it might be.
    *

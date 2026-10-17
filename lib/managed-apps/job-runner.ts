@@ -1,5 +1,6 @@
 import "server-only";
 import { auditJobCompletion } from "./job-audit";
+import { appendDomainProvisioning } from "./domain-lifecycle";
 import { spawnJobChild } from "./job-child";
 import { pruneJobRecords, writeJobRecord } from "./job-store";
 import { releaseOperation } from "./lock";
@@ -156,13 +157,23 @@ async function run(rt: Runtime, options: StartManagedAppJobOptions): Promise<voi
     rt.dirty = true;
     if (options.prepare) await options.prepare((text) => append(rt, text));
     if (rt.record.argv.length) {
+      let succeeded = false;
+      let childExit: number | null = null;
       await spawnJobChild(rt.record.argv, options, {
         append: (text) => append(rt, text),
-        finish: (status, exitCode, error) => finish(rt, status, exitCode, error),
+        finish: (status, exitCode, error) => {
+          if (status === "succeeded" && ["install", "update"].includes(rt.record.kind)) { succeeded = true; childExit = exitCode; }
+          else finish(rt, status, exitCode, error);
+        },
         register: (terminate) => {
           rt.terminate = terminate;
         },
       });
+      if (succeeded) {
+        rt.terminate = undefined;
+        await appendDomainProvisioning(rt.record.applicationId, text => append(rt, text));
+        finish(rt, "succeeded", childExit, null);
+      }
     } else finish(rt, "succeeded", null, null); // prepare-only job (an in-process restore)
   } catch (error) {
     finish(rt, "failed", null, error instanceof Error ? error.message : String(error));

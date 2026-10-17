@@ -42,28 +42,29 @@ export async function managedAppSession(request: Request, id: ManagedAppId): Pro
 }
 
 const SCRIPT = "(async()=>{const p=new URLSearchParams(location.hash.slice(1));const t=p.get('app_ticket');p.delete('app_ticket');history.replaceState(null,'',location.pathname+location.search+(p.toString()?'#'+p.toString():''));if(!t){document.body.textContent='Open this application from MSO to authorize it.';return;}const r=await fetch('/__mso_app_auth',{method:'POST',headers:{authorization:'Bearer '+t},credentials:'include',cache:'no-store'});if(!r.ok){document.body.textContent='Application authorization failed. Reopen it from MSO.';return;}location.reload();})().catch(()=>{document.body.textContent='Application authorization failed.';});";
-function response(body: string | null, status: number, contentType = "text/plain; charset=utf-8") {
+function response(id: ManagedAppId, body: string | null, status: number, contentType = "text/plain; charset=utf-8") {
   return new NextResponse(body, { status, headers: {
     "content-type": contentType, "cache-control": "no-store, no-transform",
     "cdn-cache-control": "no-store", "cloudflare-cdn-cache-control": "no-store",
     "referrer-policy": "no-referrer", "x-content-type-options": "nosniff",
+    "x-mso-managed-app": id,
     "content-security-policy": `default-src 'none'; script-src 'self'; connect-src 'self'; frame-ancestors ${cockpitOrigin() ?? "'none'"}`,
   } });
 }
 // An app receives a purpose- and origin-bound credential, never the cockpit cookie.
 export async function gateManagedApp(request: NextRequest, id: ManagedAppId): Promise<NextResponse | null> {
-  if (request.nextUrl.pathname === "/__mso_app_bootstrap.js") return request.method === "GET" ? response(SCRIPT, 200, "application/javascript; charset=utf-8") : response(null, 404);
+  if (request.nextUrl.pathname === "/__mso_app_bootstrap.js") return request.method === "GET" ? response(id, SCRIPT, 200, "application/javascript; charset=utf-8") : response(id, null, 404);
   if (request.nextUrl.pathname === "/__mso_app_auth") {
-    if (request.method !== "POST" || request.headers.get("origin") !== managedAppOrigin(id)) return response(null, 403);
+    if (request.method !== "POST" || request.headers.get("origin") !== managedAppOrigin(id)) return response(id, null, 403);
     const token = /^Bearer ([A-Za-z0-9._-]{20,4096})$/.exec(request.headers.get("authorization") ?? "")?.[1];
     const secret = process.env.OS_SESSION_SECRET ?? "";
     const session = token ? verifyManagedAppSession(id, token, secret, "ticket") : null;
-    if (!session || !await liveSessionAuthorized(session, "operator")) return response(null, 401);
-    const result = response(null, 204);
+    if (!session || !await liveSessionAuthorized(session, "operator")) return response(id, null, 401);
+    const result = response(id, null, 204);
     result.cookies.set(MANAGED_APP_SESSION_COOKIE, createManagedAppCookie(id, session, secret), { httpOnly: true, secure: true, sameSite: "strict", path: "/", maxAge:Math.max(0,Math.floor((Math.min(session.parent_expires_at,Date.now()+COOKIE_TTL)-Date.now())/1000)) });
     return result;
   }
   if (await managedAppSession(request, id)) return null;
-  if (request.method !== "GET" || request.headers.get("sec-fetch-dest") !== "iframe" && request.headers.get("sec-fetch-dest") !== "document") return response(null, 401);
-  return response('<!doctype html><meta charset="utf-8"><title>MSO application authorization</title><body><p>Authorizing application...</p><script src="/__mso_app_bootstrap.js" defer></script></body>', 200, "text/html; charset=utf-8");
+  if (request.method !== "GET" || request.headers.get("sec-fetch-dest") !== "iframe" && request.headers.get("sec-fetch-dest") !== "document") return response(id, null, 401);
+  return response(id, '<!doctype html><meta charset="utf-8"><title>MSO application authorization</title><body><p>Authorizing application...</p><script src="/__mso_app_bootstrap.js" defer></script></body>', 200, "text/html; charset=utf-8");
 }

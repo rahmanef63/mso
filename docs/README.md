@@ -65,6 +65,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`PLUGIN-REFERENCE-MATRIX.md`](./PLUGIN-REFERENCE-MATRIX.md) | Living cross-plugin architecture matrix, audit decisions and candidate generic primitives |
 | [`CONNECTED-APPS.md`](./CONNECTED-APPS.md) | Server-persisted external app connections, dynamic shell windows and lifecycle boundaries |
 | [`MANAGED-APPS.md`](./MANAGED-APPS.md) | Hermes/OpenClaw/9Router lifecycle, jobs, backup/restore and dashboard access boundary |
+| [`MANAGED-DOMAINS.md`](./MANAGED-DOMAINS.md) | Automatic app DNS/tunnel routes, named Integrations, HTTPS verification and durable setup recovery |
 | [`HERMES-INTEGRATION.md`](./HERMES-INTEGRATION.md) | Hermes-specific integration behaviour |
 | [`OPENCLAW-INTEGRATION.md`](./OPENCLAW-INTEGRATION.md) | OpenClaw-specific integration behaviour |
 | [`9ROUTER-INTEGRATION.md`](./9ROUTER-INTEGRATION.md) | 9Router immutable Docker ownership, loopback default and explicit dashboard exposure |
@@ -81,7 +82,6 @@ evidence and review freshness. The repository quality gate runs both automatical
 
 | Document | Status |
 |---|---|
-| [`9ROUTER-MSO-APPHOST-RFC.md`](./9ROUTER-MSO-APPHOST-RFC.md) | Proposed MSO-protected 9Router app host, single-login boundary and migration criteria; implementation remains pending |
 | [`EXTERNAL-FEATURE-CONTRACT.md`](./EXTERNAL-FEATURE-CONTRACT.md) | v1 target contract for modular shell/external features; implementation status is explicit |
 | [`TENANT-PREVIEW.md`](./TENANT-PREVIEW.md) | Disabled identity and scoped-memory runtime; live activation and full production isolation remain unimplemented |
 | [`TENANT-PERSISTENCE.md`](./TENANT-PERSISTENCE.md) | Source-only durable registry, scoped memory and audit; transactions, recovery limits and operational gates |
@@ -106,6 +106,7 @@ source comments. They are **not current implementation contracts**.
 | Document | Status |
 |---|---|
 | [`EXTERNAL-FEATURE-AUDIT-2026-09-27.md`](./EXTERNAL-FEATURE-AUDIT-2026-09-27.md) | Registry/manifest/embed source audit at 330d0cb4; migration phases remain pending |
+| [`9ROUTER-MSO-APPHOST-RFC.md`](./9ROUTER-MSO-APPHOST-RFC.md) | Historical app-host proposal; current setup/authentication contract is in MANAGED-DOMAINS and MANAGED-APPS |
 | [`AUDIT-2026-08-24.md`](./AUDIT-2026-08-24.md) | Fable/Ultracode + dynamic security audit at its named commit; includes reproduced findings and release remediation |
 | [`AUDIT-2026-06-11.md`](./AUDIT-2026-06-11.md) | Archived audit at its named date; later fixes changed many findings |
 | [`SHELL-FIDELITY-PLAN.md`](./SHELL-FIDELITY-PLAN.md) | Historical design backlog/baseline; current shell design lives in code + architecture |

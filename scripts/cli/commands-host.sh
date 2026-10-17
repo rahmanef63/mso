@@ -110,15 +110,11 @@ case "$cmd" in
       printf '  ok    public origin (%s)\n' "$OS_PUBLIC_ORIGIN"
     fi
 
-    # Not a chk with a pass/fail: serving NO managed-app dashboards is supported.
-    tpl="${NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE-}"; dom="${OS_SESSION_COOKIE_DOMAIN-}"
-    if [ -n "$tpl" ] && [ -n "$dom" ]; then
-      echo "  ok    app dashboards ($tpl) — after changing this, REBUILD and sign in again"
-    elif [ -z "$tpl$dom" ]; then
-      echo "  --    app dashboards    (off: no app host — managed-app windows open on the CLI view)"
+    tpl="${NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE-}"
+    if [ -n "$tpl" ]; then
+      echo "  ok    app dashboards ($tpl) — host-only app sessions; REBUILD after changing the template"
     else
-      printf '  FAIL  app dashboards — set BOTH NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE and OS_SESSION_COOKIE_DOMAIN, or neither\n'
-      fails=$((fails+1))
+      echo "  --    app dashboards    (off: no app host — managed-app windows open on the CLI view)"
     fi
 
     local_runtime=0

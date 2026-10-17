@@ -7,6 +7,8 @@ umask 077
 ROOT="${MSO_GATEWAY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 ENVF="${MSO_GATEWAY_ENV:-$ROOT/.env.local}"
 LOCAL_URL_OVERRIDE="${MSO_GATEWAY_LOCAL_URL:-}"
+GATEWAY_APP_EXPECT_PUBLIC="${MSO_GATEWAY_EXPECT_PUBLIC_ORIGIN:-}"
+GATEWAY_APP_EXPECT_TEMPLATE="${MSO_GATEWAY_EXPECT_APP_HOST_TEMPLATE:-}"
 LOCAL_URL=""
 STATE_ROOT_OVERRIDE="${MSO_GATEWAY_STATE_DIR:-}"
 UPDATE_STATE_DIR_REQUESTED="${MSO_UPDATE_STATE_DIR:-$HOME/.mso/private/update-state}"
@@ -105,6 +107,7 @@ case "${1:-status}" in
   doctor) gateway_cmd_doctor ;;
   install) gateway_provider_install ;;
   domain) shift; gateway_cmd_domain "$@" ;;
+  app-route) shift; . "$ROOT/scripts/lib/gateway-app-route.sh"; gateway_cmd_app_route "$@" ;;
   web) gateway_cmd_web "$@" ;;
   local-start) gateway_with_lock gateway_with_runtime_shared gateway_cmd_local_start_locked ;; # internal: onboard/web/update fallback
   runtime-assert-update-safe) gateway_with_lock gateway_cmd_runtime_assert_update_safe_locked ;; # internal: read-only offline-build preflight

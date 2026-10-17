@@ -1,9 +1,10 @@
 import "server-only";
 import os from "node:os";
-import { managedAppUpstream } from "./upstream-target";
+import { managedAppHealth } from "./health";
 import { createBackup } from "./backups";
 import { getManagedAppDefinition, listManagedAppDefinitions } from "./catalog";
 import { dockerUsable, requireDocker, runDocker } from "./docker";
+import { provisionDomainAfterStart, readManagedDomainView } from "./domain-lifecycle";
 import { acquireOperation, activeOperation, releaseOperation, withManagedAppOperationLease } from "./lock";
 import { redact } from "./redact";
 import { listJobRecords } from "./job-store";
@@ -65,19 +66,6 @@ async function running(installation: Installation, strict = false): Promise<bool
     if (result.stdout.trim() === "true") return true;
   }
   return false;
-}
-
-async function health(definition: ManagedAppDefinition): Promise<boolean | null> {
-  try {
-    const base = managedAppUpstream(definition.dashboardUrl);
-    const target = new URL(definition.healthPath ?? "/health", base);
-    if (target.origin !== base.origin) return null;
-    const response = await fetch(target, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(4_000) });
-    await response.body?.cancel();
-    return response.ok;
-  } catch {
-    return null;
-  }
 }
 
 /** Globally-routable IPv4 only. Private/CGNAT/link-local addresses are useful for
@@ -153,7 +141,7 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
   const definition = getManagedAppDefinition(id);
   const installation = await detect(definition);
   const isRunning = await running(installation);
-  const isHealthy = isRunning ? await health(definition) : null;
+  const isHealthy = isRunning ? await managedAppHealth(definition) : null;
   const operation = activeOperation(id);
   const state = operation === "start"
     ? "starting"
@@ -165,6 +153,7 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
           ? "running"
           : "stopped";
   const dockerInstallAvailable = definition.installBackends.includes("docker") && installation.type === "not-installed" && await dockerUsable();
+  const domainView = await readManagedDomainView(id);
   return {
     id,
     name: definition.name,
@@ -175,7 +164,8 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
     healthy: isHealthy,
     version: await version(definition),
     dashboardAvailable: isRunning && isHealthy !== false,
-    publicDashboardUrl: directDashboardUrl(definition),
+    publicDashboardUrl: domainView.domain?.phase === "ready" ? `https://${domainView.domain.hostname}` : directDashboardUrl(definition),
+    ...domainView,
     supportedActions: actionsFor(installation),
     // Only ever attached to a NEGATIVE reading. An app detected as present has
     // been seen, and nothing about the bus can make that observation wrong.
@@ -244,7 +234,9 @@ export async function performManagedAppAction(id: ManagedAppId, action: ManagedA
       versionCache.delete(id);
     }
   });
-  return getManagedApp(id);
+  const domain = action === "start" || action === "restart" ? await provisionDomainAfterStart(id) : null;
+  const view = await getManagedApp(id);
+  return domain?.domainDiagnostic ? { ...view, domainDiagnostic: domain.domainDiagnostic } : view;
 }
 
 export async function getManagedAppLogs(id: ManagedAppId): Promise<ManagedAppLogs> {

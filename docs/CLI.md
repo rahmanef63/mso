@@ -97,6 +97,7 @@ Commands:
   provider *           Infrastructure credentials: list | set | rm | doctor
   providers *          Alias for provider
   gateway *             Secure public HTTPS tunnel: start | status | url | stop | doctor | install | domain
+  domain *              Automatic app subdomains: setup | status | ensure | doctor | repair-env | restore
   heartbeat [once|install-cron|remove-cron]  Optional fallback health/recovery
   web                   Open the MSO browser UI (active gateway first, else loopback)
 

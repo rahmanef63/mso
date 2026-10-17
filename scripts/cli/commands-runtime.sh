@@ -18,6 +18,7 @@ case "$cmd" in
 
   # ── local/public gateway + browser launcher ───────────────────────────────
   gateway) local_url="$(gateway_local_url)"; MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$local_url" "$ROOT/scripts/mso-gateway" "$@" ;;
+  domain) source "$ROOT/scripts/cli/domains.sh"; run_domains "$@" ;;
   heartbeat) MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" "$ROOT/scripts/mso-heartbeat" "$@" ;;
   web)     local_url="$(gateway_local_url)"; MSO_GATEWAY_ROOT="$ROOT" MSO_GATEWAY_ENV="$ENVF" MSO_GATEWAY_LOCAL_URL="$local_url" "$ROOT/scripts/mso-gateway" web "$@" ;;
 
@@ -34,6 +35,7 @@ case "$cmd" in
   # ── managed apps (hermes, openclaw…) ─────────────────────────────────────
   apps) jget "/api/v1/apps" ;;
   mapp)
+    source "$ROOT/scripts/cli/managed-apps.sh"
     sub="${1:-list}"; shift || true
     case "$sub" in
       catalog) jget "/api/v1/app-catalog" ;;
@@ -48,6 +50,8 @@ case "$cmd" in
       # Cached result only. The live probe is `update <id> check` (POST), gated.
       pending) jget "/api/v1/managed-apps/$(enc "${1:?id}")/update" ;;
       install) jpost "/api/v1/managed-apps/$(enc "${1:?id}")/install" "$(kv_args "${@:2}")" ;;
+      enable) mso_mapp_enable "$@" ;;
+      start|stop|restart) mso_mapp_lifecycle "$sub" "$@" ;;
       update)  jpost "/api/v1/managed-apps/$(enc "${1:?id}")/update"  "$(kv_args "${@:2}")" ;;
       # start|stop|restart|backup — MANAGED_APP_ACTIONS in lib/managed-apps/types.ts.
       power)   [ -n "${2-}" ] || die "usage: mso mapp power <id> <start|stop|restart|backup>"

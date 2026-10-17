@@ -1,6 +1,6 @@
 # 9Router default MSO app-host: design note
 
-Status: proposal for the implementation agent. This note records an observed deployment failure mode and the security contract the default 9Router setup should converge on. It deliberately does not change production routing or authentication by itself.
+Status: historical proposal, retained as design evidence. Current automatic DNS/tunnel setup and recovery are documented in [MANAGED-DOMAINS.md](./MANAGED-DOMAINS.md); current authentication is in [MANAGED-APPS.md](./MANAGED-APPS.md). The cookie-domain expansion discussed below is obsolete: applications now exchange an app-bound ticket for a host-only app cookie. This note is not an instruction to widen cockpit cookies or migrate an existing public deployment.
 
 ## Problem observed
 
