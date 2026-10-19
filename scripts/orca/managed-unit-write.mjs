@@ -6,7 +6,7 @@
 
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises'
+import { chmod, link, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { promisify } from 'node:util'
 import { redactSensitiveText } from './bounded-proc.mjs'
@@ -21,9 +21,30 @@ export async function writeUnitAtomic(unitPath, text, { inspect = inspectExistin
   try {
     await writeFile(tmp, text, { mode: 0o644, flag: 'wx' })
     // Re-run the ownership guard immediately before publishing: a foreign unit
-    // that appeared while we staged must never be clobbered by the rename.
-    await inspect({ unitPath })
-    await rename(tmp, unitPath)
+    // that appeared while we staged must never be clobbered. `inspect` throws on
+    // a foreign/non-regular/other-owner unit and returns 'absent' when nothing
+    // is there yet.
+    const existing = await inspect({ unitPath })
+    if (existing.state === 'managed') {
+      // Same-owner replacement of a unit we generated. `rename` is atomic; the
+      // last-instant window between `inspect` and `rename` is inherent at equal
+      // privilege (same-UID installers can always race), so it is documented
+      // here rather than hidden.
+      await rename(tmp, unitPath)
+    } else {
+      // Absent: publish exclusively. `link` fails with EEXIST instead of
+      // overwriting a foreign unit created in the last instant, so the race
+      // cannot silently replace someone else's unit. The temp inode is unlinked.
+      try {
+        await link(tmp, unitPath)
+      } catch (err) {
+        if (err?.code === 'EEXIST') {
+          throw new Error(`refusing to overwrite a unit that appeared during install: ${unitPath}`)
+        }
+        throw err
+      }
+      await rm(tmp, { force: true })
+    }
     // Explicit: the unit is generated, contains no secret, and a restrictive
     // shell umask must not make its mode environment-dependent.
     await chmod(unitPath, 0o644)
@@ -34,16 +55,19 @@ export async function writeUnitAtomic(unitPath, text, { inspect = inspectExistin
   return unitPath
 }
 
-export async function defaultSystemctl({ args, env, bus }) {
+export async function defaultSystemctl({ args, env, bus, allowFailure = false }) {
   try {
     const result = await execFileAsync('systemctl', ['--user', ...args], {
       timeout: 30_000,
       maxBuffer: 64 * 1024,
       env: bus ? { ...env, ...bus } : env
     })
-    return { stdout: String(result.stdout ?? ''), stderr: String(result.stderr ?? '') }
+    return { code: 0, stdout: String(result.stdout ?? ''), stderr: String(result.stderr ?? '') }
   } catch (err) {
     const detail = redactSensitiveText(String(err?.stderr || err?.stdout || err?.message || 'systemctl failed'))
+    // Rollback calls are best-effort: report the failure instead of throwing so
+    // the caller can record it and still restore the rest of the prior state.
+    if (allowFailure) return { code: 1, stdout: '', stderr: detail.slice(0, 300) }
     throw new Error(`systemctl --user ${args.join(' ')} failed: ${detail.slice(0, 300)}`)
   }
 }

@@ -37,6 +37,12 @@ import {
   serviceConfigPath
 } from './managed-paths.mjs'
 import { probeOrcaWebClient, readManagedOrcaStatus } from './managed-status.mjs'
+import {
+  assertNoPartialInstall,
+  capturePriorManagedState,
+  rollbackFirstInstall,
+  writePartialInstall
+} from './managed-rollback.mjs'
 import { defaultSystemctl, sleep, waitForReady, writeUnitAtomic } from './managed-unit-write.mjs'
 import { writePrivateFile } from './private-store.mjs'
 import { preparePinnedRelease } from './release.mjs'
@@ -61,6 +67,7 @@ export async function installManagedOrca({
   userBus = defaultUserBusEnvironment,
   portProbe = assertPortFree,
   systemctl = defaultSystemctl,
+  writePrivate = writePrivateFile,
   readStatus = readManagedOrcaStatus,
   probeWeb = probeOrcaWebClient,
   wait = sleep,
@@ -105,6 +112,10 @@ export async function installManagedOrca({
     throw new Error('HOME must be an absolute path without control characters')
   }
 
+  // A previous attempt that could not roll back left an explicit marker. Never
+  // adopt a half-installed service: refuse and name what to inspect first.
+  await assertNoPartialInstall(root)
+
   assertManagedRootFitsUnixSocket(root)
   const bus = await assertUserSystemdBus({ env, probe: userBus })
   await portProbe({ port: fixedPort, host: '127.0.0.1' })
@@ -133,56 +144,75 @@ export async function installManagedOrca({
     installedAt: now()
   }
 
-  // Private config first: it contains no pairing material and is the only
-  // non-unit file the runtime needs to identify its release.
-  await writePrivateFile(serviceConfigPath(root), config, { root })
-  await writeUnitAtomic(unitPath, unit)
+  // Capture the prior owned state before we touch anything so a failed first
+  // install can be rolled back to it (or to nothing) instead of leaving a
+  // half-installed, restarting service behind.
+  const prior = await capturePriorManagedState({ root, unitState: existing.state, unitText: existing.text })
+  const created = { config: false, unit: false, receipt: false }
 
-  await systemctl({ args: ['daemon-reload'], env, bus })
-  await systemctl({ args: ['enable', '--now', SERVICE_NAME], env, bus })
+  try {
+    // Private config first: it contains no pairing material and is the only
+    // non-unit file the runtime needs to identify its release.
+    await writePrivate(serviceConfigPath(root), config, { root })
+    created.config = true
+    await writeUnitAtomic(unitPath, unit)
+    created.unit = true
 
-  const ready = await waitForReady({
-    root,
-    port: fixedPort,
-    advertisedEndpoint: advertised,
-    timeoutMs,
-    pollMs,
-    readStatus,
-    probeWeb,
-    wait
-  })
+    await systemctl({ args: ['daemon-reload'], env, bus })
+    await systemctl({ args: ['enable', '--now', SERVICE_NAME], env, bus })
 
-  const receipt = {
-    schemaVersion: 1,
-    applicationId: MANAGED_APP_ID,
-    version: ORCA_VERSION,
-    runtimeId: ready.runtimeId,
-    releaseRoot: config.release.releaseRoot,
-    releaseContentId: config.release.contentId,
-    boundEndpoint: config.boundEndpoint,
-    advertisedEndpoint: advertised,
-    unitPath,
-    serviceConfig: serviceConfigPath(root),
-    installedAt: config.installedAt,
-    readyAt: ready.readyAt ?? now()
+    const ready = await waitForReady({
+      root,
+      port: fixedPort,
+      advertisedEndpoint: advertised,
+      timeoutMs,
+      pollMs,
+      readStatus,
+      probeWeb,
+      wait
+    })
+
+    const receipt = {
+      schemaVersion: 1,
+      applicationId: MANAGED_APP_ID,
+      version: ORCA_VERSION,
+      runtimeId: ready.runtimeId,
+      releaseRoot: config.release.releaseRoot,
+      releaseContentId: config.release.contentId,
+      boundEndpoint: config.boundEndpoint,
+      advertisedEndpoint: advertised,
+      unitPath,
+      serviceConfig: serviceConfigPath(root),
+      installedAt: config.installedAt,
+      readyAt: ready.readyAt ?? now()
+    }
+    await writePrivate(installReceiptPath(root), receipt, { root })
+    created.receipt = true
+
+    return {
+      dryRun: false,
+      managedRoot: root,
+      unitPath,
+      unit,
+      config,
+      receipt,
+      runtimeId: ready.runtimeId,
+      boundEndpoint: ready.boundEndpoint,
+      advertisedEndpoint: ready.advertisedEndpoint
+    }
+  } catch (err) {
+    // Bounded owned rollback. If it cannot finish cleanly, record an explicit
+    // partial-install marker so a rerun refuses instead of adopting a half state.
+    const outcome = await rollbackFirstInstall({ root, unitPath, prior, created, systemctl, env, bus })
+    if (!outcome.complete) {
+      await writePartialInstall(root, {
+        reason: err?.message ?? String(err),
+        failures: outcome.failures,
+        now
+      }).catch(() => {})
+    }
+    throw err
   }
-  await writePrivateFile(installReceiptPath(root), receipt, { root })
-
-  return {
-    dryRun: false,
-    managedRoot: root,
-    unitPath,
-    unit,
-    config,
-    receipt,
-    runtimeId: ready.runtimeId,
-    boundEndpoint: ready.boundEndpoint,
-    advertisedEndpoint: ready.advertisedEndpoint
-  }
-}
-
-function isAbsolutePath(value) {
-  return value.startsWith('/')
 }
 
 // Re-exported so existing callers/tests keep one import point.

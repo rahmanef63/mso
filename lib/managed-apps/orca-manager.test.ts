@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 vi.mock("server-only", () => ({}));
 vi.mock("./runner", () => ({
@@ -13,13 +16,12 @@ vi.mock("./user-bus", () => ({
 }));
 vi.mock("./orca-readiness", () => ({ getOrcaReadiness: vi.fn() }));
 
-const { runProgram, commandExists } = await import("./runner");
+const { runProgram } = await import("./runner");
 const { getOrcaReadiness } = await import("./orca-readiness");
-const { getManagedApp } = await import("./manager");
+const { getManagedApp, performManagedAppAction } = await import("./manager");
 const { getManagedAppDefinition } = await import("./catalog");
 
-// Orca health is the bridge's fail-closed live reading, so a unit that is merely
-// `active` is not enough: the readiness identity must also verify.
+const ADAPTER = getManagedAppDefinition("orca").command;
 const READY = {
   available: true as const,
   pairingUrl: "orca://pair?code=private",
@@ -29,85 +31,127 @@ const READY = {
   boundEndpoint: "ws://127.0.0.1:6769",
   advertisedEndpoint: "wss://orca.mso.example.com",
 };
+const ACTIVE = "LoadState=loaded\nActiveState=active\n";
+const STOPPED = "LoadState=loaded\nActiveState=inactive\n";
+const NOT_FOUND = "LoadState=not-found\nActiveState=inactive\n";
+type Result = { code: number; stdout: string; stderr: string };
+const ok = (stdout = ""): Result => ({ code: 0, stdout, stderr: "" });
 
-const ok = (stdout: string) => ({ code: 0, stdout, stderr: "" });
-const NOT_FOUND = ok("LoadState=not-found\nActiveState=inactive\n");
-const ACTIVE = ok("LoadState=loaded\nActiveState=active\n");
-const STOPPED = ok("LoadState=loaded\nActiveState=inactive\n");
+let home = "";
+const root = () => path.join(home, ".local", "share", "mso", "orca");
+const unitPath = () => path.join(home, ".config", "systemd", "user", "mso-orca.service");
 
-function mockSystemctl(byUnit: Record<string, { code: number; stdout: string; stderr: string }>) {
+async function writeOwnedUnit() {
+  await mkdir(path.dirname(unitPath()), { recursive: true });
+  await writeFile(
+    unitPath(),
+    `# mso-managed-app: orca\n[Service]\nExecStart="/usr/bin/node" "/repo/scripts/orca/cli.mjs" "run" --managed-root ${root()} --port 6769\n`,
+    { mode: 0o644 },
+  );
+}
+const writeReceipt = () => writeFile(path.join(root(), "managed-install.json"), "{}", { mode: 0o600 });
+
+/** user/system scope unit stdout + adapter `--version` outcome, per test. */
+function programs({ user = NOT_FOUND, system = NOT_FOUND, adapter }: { user?: Result | string; system?: Result | string; adapter?: Result }) {
+  const asResult = (v: Result | string): Result => (typeof v === "string" ? ok(v) : v);
   vi.mocked(runProgram).mockImplementation(async (command: string, args: readonly string[]) => {
-    if (command === "systemctl" && args.includes("show")) {
-      const unit = args[args.length - 1];
-      return byUnit[unit] ?? NOT_FOUND;
+    if (command === "systemctl") {
+      if (args.includes("show")) return args[0] === "--user" ? asResult(user) : asResult(system);
+      // A real user-bus outage fails every `--user` call, not just `show`.
+      return args[0] === "--user" ? asResult(user) : asResult(system);
     }
-    return ok("");
+    if (command === ADAPTER) return adapter ?? { code: 1, stdout: "", stderr: "not installed" };
+    return ok();
   });
 }
+const callLog = () => vi.mocked(runProgram).mock.calls as Array<[string, string[]]>;
+const lifecycleCalls = () => callLog().filter(([c, a]) => c === "systemctl" && !a.includes("show"));
 
-describe("Orca catalog & manager installation contracts", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+beforeEach(async () => {
+  home = await mkdtemp(path.join(tmpdir(), "orca-mgr-"));
+  process.env.HOME = home;
+  delete process.env.ORCA_HOME;
+  await mkdir(root(), { recursive: true, mode: 0o700 });
+  vi.mocked(runProgram).mockReset();
+  vi.mocked(getOrcaReadiness).mockReset();
+});
+afterEach(async () => {
+  vi.restoreAllMocks();
+  await rm(home, { recursive: true, force: true });
+});
 
-  it("does NOT consider orca installed even if orca binary exists on PATH", async () => {
-    mockSystemctl({});
-    vi.mocked(commandExists).mockImplementation(async (cmd: string) => {
-      return cmd === "orca-ide" || cmd === "scripts/managed-app-orca";
-    });
-
+describe("Orca manager ownership", () => {
+  it("refuses an unrelated same-name SYSTEM unit instead of calling it installed", async () => {
+    programs({ user: NOT_FOUND, system: ACTIVE });
     const view = await getManagedApp("orca");
+    expect(view.installed).toBe(false);
     expect(view.state).toBe("not-installed");
     expect(view.supportedActions).toEqual([]);
+    expect(view.diagnostic).toMatch(/did not create|foreign/i);
+
+    await expect(performManagedAppAction("orca", "stop")).rejects.toThrow(/did not create|foreign/i);
+    expect(lifecycleCalls()).toEqual([]);
   });
 
-  it("does NOT count Docker container as installed for Orca (no generic docker detection)", async () => {
-    mockSystemctl({});
-    vi.mocked(commandExists).mockImplementation(async (cmd: string) => cmd === "docker");
-    vi.mocked(runProgram).mockImplementation(async (command: string, args: readonly string[]) => {
-      if (command === "systemctl") return NOT_FOUND;
-      if (command === "docker" && args[0] === "ps") return ok("orca\n");
-      if (command === "docker" && args[0] === "inspect") return ok("true\n");
-      return ok("");
-    });
-
-    const view = await getManagedApp("orca");
-    expect(view.state).toBe("not-installed");
+  it("does not treat a Docker container or a PATH binary as an Orca install", async () => {
+    programs({});
+    await expect(getManagedApp("orca")).resolves.toMatchObject({ state: "not-installed" });
+    expect(lifecycleCalls()).toEqual([]);
   });
 
-  it("detects running state when mso-orca.service is active and readiness verifies", async () => {
-    mockSystemctl({ "mso-orca.service": ACTIVE });
-    vi.mocked(getOrcaReadiness).mockResolvedValue(READY);
-    const view = await getManagedApp("orca");
-    expect(view.state).toBe("running");
-    expect(view.supportedActions).toContain("stop");
-    expect(view.supportedActions).toContain("restart");
+  it("requires a verified install receipt: missing and invalid both stay not-installed", async () => {
+    await writeOwnedUnit();
+    programs({ user: ACTIVE });
+    expect((await getManagedApp("orca")).diagnostic).toMatch(/install receipt/i);
+
+    await writeReceipt();
+    programs({ user: ACTIVE, adapter: { code: 1, stdout: "", stderr: "not installed" } });
+    expect((await getManagedApp("orca")).diagnostic).toMatch(/install receipt/i);
   });
 
-  it("detects stopped state when mso-orca.service is loaded but inactive", async () => {
-    mockSystemctl({ "mso-orca.service": STOPPED });
+  it("reports a stopped MSO-owned USER unit (verified receipt) as stopped, not running", async () => {
+    await writeOwnedUnit();
+    await writeReceipt();
+    programs({ user: STOPPED, adapter: ok("1.4.230\n") });
     const view = await getManagedApp("orca");
+    expect(view.installed).toBe(true);
     expect(view.state).toBe("stopped");
     expect(view.supportedActions).toContain("start");
   });
 
-  it("uses the fail-closed bridge readiness reading for Orca health, not a static fetch", async () => {
-    mockSystemctl({ "mso-orca.service": ACTIVE });
-
-    const def = getManagedAppDefinition("orca");
-    expect(def.dashboardUrl).toMatch(/6769/);
-    expect(def.healthPath).toBe("/web-index.html");
-
+  it("reports a running MSO-owned USER unit as running only when readiness verifies", async () => {
+    await writeOwnedUnit();
+    await writeReceipt();
+    programs({ user: ACTIVE, adapter: ok("1.4.230\n") });
     vi.mocked(getOrcaReadiness).mockResolvedValue(READY);
-    const view = await getManagedApp("orca");
-    expect(view.healthy).toBe(true);
-    expect(getOrcaReadiness).toHaveBeenCalled();
+    expect(await getManagedApp("orca")).toMatchObject({ state: "running", healthy: true });
+  });
 
-    // A runtime whose identity does not verify reads unhealthy while the unit
-    // stays active — a bare HTTP 200 is never accepted as ownership.
-    vi.mocked(getOrcaReadiness).mockResolvedValue({ available: false, reason: "not_ready" });
-    const degraded = await getManagedApp("orca");
-    expect(degraded.state).toBe("unhealthy");
-    expect(degraded.healthy).toBe(false);
+  it("uses the exact USER unit argv for actions and never the system scope", async () => {
+    await writeOwnedUnit();
+    await writeReceipt();
+    programs({ user: ACTIVE, adapter: ok("1.4.230\n") });
+    await performManagedAppAction("orca", "stop");
+    const stops = lifecycleCalls().filter(([, a]) => a.includes("stop"));
+    expect(stops.length).toBeGreaterThan(0);
+    for (const [, args] of stops) expect(args).toEqual(["--user", "stop", "mso-orca.service"]);
+    expect(callLog().some(([c, a]) => c === "systemctl" && a[0] === "stop")).toBe(false);
+  });
+
+  it("keeps a user-bus outage user-scope only: refuses without touching the system unit", async () => {
+    await writeOwnedUnit();
+    await writeReceipt();
+    programs({ user: { code: 1, stdout: "", stderr: "Failed to connect to bus" }, system: ACTIVE, adapter: ok("1.4.230\n") });
+    const view = await getManagedApp("orca");
+    expect(view.installed).toBe(true);
+
+    await expect(performManagedAppAction("orca", "start")).rejects.toThrow(/systemctl --user start/);
+    expect(callLog().some(([c, a]) => c === "systemctl" && a[0] === "start")).toBe(false);
+  });
+
+  it("leaves generic apps on the generic detection path", async () => {
+    programs({ system: ACTIVE });
+    const hermes = await getManagedApp("hermes");
+    expect(hermes.installed).toBe(true);
   });
 });

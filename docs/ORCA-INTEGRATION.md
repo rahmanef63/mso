@@ -1,8 +1,10 @@
 # Orca Web Integration Architecture & Security Contracts
 
 Status: **local development candidate** on the task branch. Not merged, released, or
-deployed. No real Orca runtime, browser journey, or upstream install has been executed as
-part of this worktree — installer/lifecycle remain owned by a separate runtime slice.
+deployed, and not claimed live: no real Orca runtime, browser journey, or upstream install has
+been executed as part of this worktree. The MSO-owned installer/adapter, the pinned-release
+lifecycle, and the manager ownership rule below are implemented and covered by dry-run/unit
+fixtures; the live service install remains the operator's explicit action.
 
 Target: Orca IDE v1.4.230, Node-only headless `orcad` server.
 
@@ -106,8 +108,21 @@ does not delete upstream rows.
 - **CSP**: `worker-src` limited to the app root plus `blob:`; `script-src` allows
   `'wasm-unsafe-eval'` (never `'unsafe-eval'`).
 - **WebSocket upgrade**: exact same-origin HTTPS `Origin` matching the configured Orca host.
-- **Lifecycle**: install/update/uninstall/desktop-control remain disabled (`installBackends: []`,
-  `commandProvesInstall: false`). Pairing offers claiming desktop control are refused.
+- **Lifecycle**: install is offered only through MSO's own managed installer
+  (`installBackends: ["user-systemd"]`); update/uninstall/desktop-control remain disabled and
+  `commandProvesInstall: false`. Pairing offers claiming desktop control are refused.
+- **Manager ownership (fail closed)**: the manager treats Orca as installed ONLY when the exact
+  USER unit `~/.config/systemd/user/mso-orca.service` is a regular, owner-owned file (no
+  symlink) carrying MSO's marker + fixed `scripts/orca/cli.mjs run --managed-root …` argv AND a
+  verified install receipt (`managed-install.json`, rehashed through the adapter). A same-name
+  SYSTEM unit, a wrong-scope unit, or a missing/invalid receipt is `not-installed` with a
+  diagnostic; start/stop/restart/logs act on the user unit only and never fall through to a
+  foreign system unit.
+- **First-install rollback**: a first install that fails after writing the unit stops only the
+  exact unit MSO created, restores/removes the prior owned config/unit/receipt, and — if that
+  rollback cannot finish — leaves an explicit `partial-install.json` marker so the next install
+  refuses rather than adopt a half state. An absent unit is published with an exclusive
+  hardlink, so a foreign unit created at the last instant is never overwritten.
 - **Not verified here**: pinned installer execution, live browser/worker/WASM journey, and
   end-to-end runtime start are out of this slice and must be proven with real artifacts before
   any "verified" claim.

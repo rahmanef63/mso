@@ -8,15 +8,10 @@ import { provisionDomainAfterStart, readManagedDomainView } from "./domain-lifec
 import { acquireOperation, activeOperation, releaseOperation, withManagedAppOperationLease } from "./lock";
 import { redact } from "./redact";
 import { listJobRecords } from "./job-store";
+import { detectOrca, userUnitState, type ManagedInstallation } from "./orca-installation";
 import { commandExists, resolveCommand, runProgram } from "./runner";
 import { userBusEnv, userBusUnavailable } from "./user-bus";
 import type { ManagedAppAction, ManagedAppDefinition, ManagedAppId, ManagedAppLogs, ManagedAppView } from "./types";
-
-interface Installation {
-  type: "systemd" | "docker" | "package" | "not-installed";
-  serviceName?: string; serviceNames?: string[];
-  containerName?: string; containerNames?: string[];
-}
 
 // `is-active` cannot tell "this unit is stopped" from "this unit does not exist":
 // `show -p LoadState` distinguishes absent units from installed stopped units.
@@ -41,7 +36,11 @@ async function systemdState(service: string, strict = false): Promise<"active" |
   return present ? "inactive" : "missing";
 }
 
-async function detect(definition: ManagedAppDefinition, strict = false): Promise<Installation> {
+async function detect(definition: ManagedAppDefinition, strict = false): Promise<ManagedInstallation> {
+  // Orca is MSO-owned state: only the exact owned USER unit plus a verified
+  // install receipt counts, in a single scope. The generic path below cannot
+  // prove either, so it must never run for Orca.
+  if (definition.id === "orca") return detectOrca({ adapterPath: definition.command });
   const serviceNames: string[] = [];
   for (const serviceName of definition.serviceNames) {
     if (await systemdState(serviceName, strict) !== "missing") serviceNames.push(serviceName);
@@ -58,7 +57,9 @@ async function detect(definition: ManagedAppDefinition, strict = false): Promise
   return { type: "not-installed" };
 }
 
-async function running(installation: Installation, strict = false): Promise<boolean> {
+async function running(installation: ManagedInstallation, strict = false): Promise<boolean> {
+  // Owned Orca: user scope only. A system unit of the same name is never ours.
+  if (installation.owned && installation.serviceName) return (await userUnitState(installation.serviceName)) === "active";
   if (installation.serviceNames && (await Promise.all(installation.serviceNames.map(name => systemdState(name, strict)))).some((state) => state === "active")) return true;
   for (const containerName of installation.containerNames ?? []) {
     const result = await runDocker(["inspect", "--format", "{{.State.Running}}", containerName], 10_000);
@@ -131,7 +132,7 @@ async function version(definition: ManagedAppDefinition): Promise<string | null>
   return value;
 }
 
-function actionsFor(installation: Installation): ManagedAppAction[] {
+function actionsFor(installation: ManagedInstallation): ManagedAppAction[] {
   if (installation.type === "systemd" || installation.type === "docker") return ["start", "stop", "restart", "backup"];
   if (installation.type === "package") return ["backup"];
   return [];
@@ -170,11 +171,12 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
     // Only ever attached to a NEGATIVE reading. An app detected as present has
     // been seen, and nothing about the bus can make that observation wrong.
     diagnostic:
-      installation.type === "not-installed" && userBusUnavailable()
+      installation.diagnostic ??
+      (installation.type === "not-installed" && userBusUnavailable()
         ? dockerInstallAvailable
           ? null
           : "MSO cannot reach this user's systemd bus, so it cannot see user services. On a systemd host enable user linger and provide XDG_RUNTIME_DIR; on a systemd-less/container host use a supported Docker runtime."
-        : null,
+        : null),
   };
 }
 
@@ -188,7 +190,17 @@ export async function assertManagedAppStopped(id: ManagedAppId): Promise<void> {
   if (await running(await detect(getManagedAppDefinition(id), true), true)) throw new Error("Cannot confirm app is stopped; stop all app services before backup or restore");
 }
 
-async function runLifecycle(installation: Installation, action: "start" | "stop" | "restart"): Promise<void> {
+async function runLifecycle(installation: ManagedInstallation, action: "start" | "stop" | "restart"): Promise<void> {
+  // Owned Orca runs as a USER unit under MSO's control. Act on exactly that unit
+  // and never fall through to a same-name system unit.
+  if (installation.owned && installation.serviceName) {
+    const result = await runProgram("systemctl", ["--user", action, installation.serviceName], 30_000, userBusEnv());
+    if (result.code !== 0) {
+      const detail = result.stderr.trim() || result.stdout.trim() || `systemctl exited ${result.code}`;
+      throw new Error(`systemctl --user ${action} ${installation.serviceName} failed: ${detail.slice(0, 300)}`);
+    }
+    return;
+  }
   if (installation.serviceNames || installation.containerNames) {
     for (const serviceName of installation.serviceNames ?? []) await runLifecycle({ type: "systemd", serviceName }, action);
     for (const containerName of installation.containerNames ?? []) await runLifecycle({ type: "docker", containerName }, action);
@@ -226,7 +238,7 @@ export async function performManagedAppAction(id: ManagedAppId, action: ManagedA
     try {
       const definition = getManagedAppDefinition(id);
       const installation = await detect(definition);
-      if (!actionsFor(installation).includes(action)) throw new Error("operation unsupported for detected installation type");
+      if (!actionsFor(installation).includes(action)) throw new Error(installation.diagnostic ?? "operation unsupported for detected installation type");
       if (action === "backup") await createBackup(definition, "manual", () => assertManagedAppStopped(id));
       else await runLifecycle(installation, action);
     } finally {
@@ -245,7 +257,8 @@ export async function getManagedAppLogs(id: ManagedAppId): Promise<ManagedAppLog
   let result = null;
   if (installation.type === "systemd" && installation.serviceName) {
     result = await runProgram("journalctl", ["--user", "-u", installation.serviceName, "-n", "100", "--no-pager", "-o", "short-iso"], 15_000);
-    if (result.code !== 0) result = await runProgram("journalctl", ["-u", installation.serviceName, "-n", "100", "--no-pager", "-o", "short-iso"], 15_000);
+    // Owned Orca logs are user-scope only: a system fallback could read a foreign unit.
+    if (result.code !== 0 && !installation.owned) result = await runProgram("journalctl", ["-u", installation.serviceName, "-n", "100", "--no-pager", "-o", "short-iso"], 15_000);
   } else if (installation.type === "docker" && installation.containerName) {
     result = await runDocker(["logs", "--tail", "100", installation.containerName], 15_000);
   }
