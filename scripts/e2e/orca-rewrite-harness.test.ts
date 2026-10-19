@@ -7,8 +7,10 @@ vi.hoisted(() => {
   process.env.OS_PUBLIC_ORIGIN = "https://mso.example.com";
 });
 
+import type { ChildProcess } from "node:child_process";
 import { rm } from "node:fs/promises";
 import http from "node:http";
+import net from "node:net";
 import { getOrcaReadiness } from "../../lib/managed-apps/orca-readiness";
 import { createFixtureDirectory, seedOrcaRuntime } from "./orca-rewrite-harness.mjs";
 
@@ -58,12 +60,17 @@ describe("orca-rewrite-harness built-server fixture", () => {
     const root = await createFixtureDirectory("mso-orca-test-port-");
     cleanupDirs.push(root);
 
-    const runtime = await seedOrcaRuntime(root, { wrongPort: 65432 });
+    const server = net.createServer();
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const wrongPort = (server.address() as net.AddressInfo).port;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+
+    const runtime = await seedOrcaRuntime(root, { wrongPort });
     try {
       const env: NodeJS.ProcessEnv = {
         NODE_ENV: "test",
         ORCA_HOME: root,
-        ORCA_DASHBOARD_URL: "http://127.0.0.1:65432",
+        ORCA_DASHBOARD_URL: `http://127.0.0.1:${wrongPort}`,
       };
       const readiness = await getOrcaReadiness({ env });
       expect(readiness.available).toBe(false);
@@ -73,6 +80,27 @@ describe("orca-rewrite-harness built-server fixture", () => {
     } finally {
       await runtime.close();
     }
+  });
+
+  it("cleans up child process when receipt write fails", async () => {
+    const root = await createFixtureDirectory("mso-orca-test-fail-");
+    cleanupDirs.push(root);
+
+    let pid: number | undefined;
+    await expect(
+      seedOrcaRuntime(root, {
+        onSpawn(child: ChildProcess) {
+          pid = child.pid;
+        },
+        writeReceipt: async () => {
+          throw new Error("fixture receipt failure");
+        },
+      }),
+    ).rejects.toThrow("fixture receipt failure");
+
+    expect(pid).toBeDefined();
+    expect(pid).toBeGreaterThan(1);
+    expect(() => process.kill(pid!, 0)).toThrow();
   });
 
   it("proves fixture child owns actual upstream listener with same PID and handles requests", async () => {

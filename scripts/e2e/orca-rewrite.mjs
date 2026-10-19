@@ -33,8 +33,7 @@ const diagDir = await createFixtureDirectory("mso-orca-rewrite-diag-");
 const diagFile = path.join(diagDir, "rewrite-diagnostics.log");
 
 process.env.ORCA_HOME = orcaRoot;
-const runtime = await seedOrcaRuntime(orcaRoot);
-process.env.ORCA_DASHBOARD_URL = runtime.url;
+let runtime;
 
 let phase = "startup";
 let serverLog = ""; // Bounded, redacted tail only.
@@ -55,10 +54,13 @@ const hop = (pathname, { host, headers = {}, method = "GET" } = {}) =>
   });
 
 const dumpDiagnostics = createDiagnostics({
-  file: diagFile, getPhase: () => phase, hits: runtime.hits, getLog: () => serverLog,
+  file: diagFile, getPhase: () => phase, hits: () => runtime?.hits ?? [], getLog: () => serverLog,
 });
 
 try {
+  runtime = await seedOrcaRuntime(orcaRoot);
+  process.env.ORCA_DASHBOARD_URL = runtime.url;
+
   fixture = await releaseFixture({
     publicOrigin: COCKPIT,
     onLog: (stream, text) => { serverLog = (serverLog + `[${stream}] ${text}`).slice(-8000); },
@@ -131,6 +133,7 @@ try {
   assert.equal(forged.status, 404, "a forged marker on the cockpit origin must 404");
 
   // Every upstream byte was fetched directly on loopback, never via the public Host.
+  await runtime.waitForHits(2);
   assert.equal(runtime.hits.length, 2, "the upstream is fetched once per authenticated app-host request");
   assert.ok(runtime.hits.every((hit) => /^127\.0\.0\.1:/.test(hit.host)), "upstream Host is loopback");
 

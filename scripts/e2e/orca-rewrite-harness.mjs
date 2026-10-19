@@ -13,6 +13,7 @@ import { chmod, copyFile, mkdir, mkdtemp, readFile, writeFile } from "node:fs/pr
 import { once } from "node:events";
 import os from "node:os";
 import path from "node:path";
+import { SERVER_SOURCE } from "./orca-rewrite-server-source.mjs";
 
 export const COCKPIT = "https://cockpit.example.test";
 export const APP_HOST = "orca.mso.example.com";
@@ -28,40 +29,12 @@ export const redact = (text) => String(text)
   .replace(/orca:\/\/pair#[A-Za-z0-9_-]+/gi, "orca://pair#<redacted>")
   .replace(/((?:cookie|authorization|set-cookie)"?\s*[:=]\s*"?)[^\n"]+/gi, "$1<redacted>");
 
-/** Create temporary fixture directory under Hermes scratch task root when configured, or os.tmpdir(). */
+/** Create temporary fixture directory under os.tmpdir(). */
 export async function createFixtureDirectory(prefix = "mso-orca-rewrite-") {
-  const baseDir = process.env.HERMES_SCRATCH_TASK_ROOT || os.tmpdir();
-  const dir = await mkdtemp(path.join(baseDir, prefix));
+  const dir = await mkdtemp(path.join(os.tmpdir(), prefix));
   await chmod(dir, 0o700);
   return dir;
 }
-
-const SERVER_SOURCE = `// Fake Orca upstream listener child. Explicitly NOT real Orca acceptance.
-const http = require("node:http");
-const server = http.createServer((req, res) => {
-  if (process.send) process.send({ type: "hit", hit: { url: req.url || "", host: req.headers.host || "" } });
-  if ((req.url || "").split("?")[0] === "/web-index.html") {
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end("<!doctype html><title>Orca fixture</title>orca-fixture-upstream\\n");
-    return;
-  }
-  res.writeHead(404, { "content-type": "text/plain" });
-  res.end("upstream: no such path\\n");
-});
-server.listen(0, "127.0.0.1", () => {
-  const a = server.address();
-  if (process.send) process.send({ type: "listening", port: typeof a === "object" && a ? a.port : 0 });
-});
-function shutdown() {
-  server.closeAllConnections?.();
-  server.close(() => process.exit(0));
-  setTimeout(() => process.exit(0), 1000).unref();
-}
-process.on("message", (m) => { if (m === "close" || m?.type === "close") shutdown(); });
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
-setInterval(() => {}, 1 << 30);
-`;
 
 /** Create the MSO-owned Orca root the readiness bridge verifies.
  *  The spawned child process itself creates and owns the HTTP upstream listener,
