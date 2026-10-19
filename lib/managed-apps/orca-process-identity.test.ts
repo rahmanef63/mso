@@ -10,8 +10,10 @@ import {
   parseOrcaRuntimeReceipt,
   parseProcStatStartTicks,
   readLinuxProcessSnapshot,
+  readProcessSnapshot,
   receiptPathsAreContained,
   verifyOrcaProcessIdentity,
+  type OrcaProcReads,
   type OrcaProcessSnapshot,
   type OrcaRuntimeReceipt,
 } from "./orca-process-identity";
@@ -87,6 +89,27 @@ describe("parseOrcaRuntimeReceipt", () => {
   });
 });
 
+describe("readProcessSnapshot PID-reuse guard", () => {
+  const statLine = (start: string) => `1 (node) ${["S", ...Array(18).fill("0"), start].join(" ")}`;
+  const reads = (starts: string[]): OrcaProcReads => {
+    let index = 0;
+    return {
+      stat: async () => statLine(starts[Math.min(index++, starts.length - 1)]),
+      uid: async () => 1000,
+      exe: async () => "/owned/node",
+      argv: async () => ["/owned/node", "/owned/server.js"],
+    };
+  };
+
+  it("rejects a PID whose start ticks changed between snapshot and confirmation", async () => {
+    expect(await readProcessSnapshot(77, reads(["100", "200"]))).toBeNull();
+  });
+
+  it("accepts a stable start time across the same two reads", async () => {
+    expect(await readProcessSnapshot(77, reads(["100", "100"]))).toMatchObject({ pid: 77, startTicks: "100" });
+  });
+});
+
 describe("receipt containment and process identity", () => {
   it("enforces root/profile/release containment", () => {
     expect(receiptPathsAreContained(validReceipt, root)).toBe(true);
@@ -104,6 +127,14 @@ describe("receipt containment and process identity", () => {
     expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ uid: 0 }), root)).toBe(false);
     expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ exe: "/usr/bin/node" }), root)).toBe(false);
     expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: ["/usr/bin/node", "other.js"] }), root)).toBe(false);
+  });
+
+  it("requires the exact server entry at argv[1], not merely somewhere in argv", () => {
+    const nodeBinary = validReceipt.nodeBinary;
+    expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: [nodeBinary, validReceipt.serverEntry, "--json"] }), root)).toBe(true);
+    expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: [nodeBinary, "/tmp/other.js", validReceipt.serverEntry] }), root)).toBe(false);
+    expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: [nodeBinary, validReceipt.serverEntry] }), root)).toBe(true);
+    expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: [nodeBinary] }), root)).toBe(false);
   });
 
   it("refuses a missing or relative argv[0] before any normalization", () => {

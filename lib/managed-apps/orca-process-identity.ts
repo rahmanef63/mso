@@ -1,27 +1,23 @@
 import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import {
+  parseProcStatStartTicks,
+  defaultProcReads,
+  readProcessSnapshot,
+  readLinuxProcessSnapshot,
+  type OrcaProcessSnapshot,
+  type OrcaProcessReader,
+  type OrcaProcReads,
+} from "./orca-process-reader";
 
-/**
- * Kernel-level proof that the process named in the runtime-identity receipt is the
- * exact owned node process MSO launched — not just "a live PID".
- *
- * Reads only /proc/PID/stat (comm-aware field 22), /proc/PID (owner uid), /proc/PID/exe
- * and /proc/PID/cmdline. Never /proc/PID/environ or credentials. Any read failure
- * (ENOENT, EPERM, hidepid) returns null: no proof ⇒ the bridge stays unavailable.
- */
-export interface OrcaProcessSnapshot {
-  pid: number;
-  /** /proc/PID/stat field 22 — start time in clock ticks; changes on PID reuse. */
-  startTicks: string;
-  uid: number;
-  /** Canonical executable from /proc/PID/exe, `" (deleted)"` suffix stripped. */
-  exe: string;
-  /** /proc/PID/cmdline split on NUL, empty entries dropped. */
-  argv: string[];
-}
-
-export type OrcaProcessReader = (pid: number) => Promise<OrcaProcessSnapshot | null>;
+export type { OrcaProcessSnapshot, OrcaProcessReader, OrcaProcReads };
+export {
+  parseProcStatStartTicks,
+  defaultProcReads,
+  readProcessSnapshot,
+  readLinuxProcessSnapshot,
+};
 
 export interface OrcaRuntimeReceipt {
   schemaVersion: 1;
@@ -36,35 +32,6 @@ export interface OrcaRuntimeReceipt {
   advertisedEndpoint: string;
   readyAt: string;
 }
-
-/** Field 22 (`starttime`) of /proc/PID/stat. `comm` (field 2) is wrapped in
- *  parentheses and may itself contain spaces and `)` — parse from the LAST `)`. */
-export function parseProcStatStartTicks(stat: string): string | null {
-  const close = stat.lastIndexOf(")");
-  if (close < 0) return null;
-  const rest = stat.slice(close + 1).trim().split(/\s+/);
-  const value = rest[19];
-  return value && /^\d+$/.test(value) ? value : null;
-}
-
-export const readLinuxProcessSnapshot: OrcaProcessReader = async (pid) => {
-  if (!Number.isInteger(pid) || pid <= 1) return null;
-  try {
-    const [stat, dirStat, exeLink, cmdline] = await Promise.all([
-      fs.readFile(`/proc/${pid}/stat`, "utf-8"),
-      fs.stat(`/proc/${pid}`),
-      fs.readlink(`/proc/${pid}/exe`),
-      fs.readFile(`/proc/${pid}/cmdline`),
-    ]);
-    const startTicks = parseProcStatStartTicks(stat);
-    if (!startTicks) return null;
-    const argv = cmdline.toString("utf-8").split("\0").filter((argument) => argument.length > 0);
-    if (argv.length === 0) return null;
-    return { pid, startTicks, uid: dirStat.uid, exe: exeLink.replace(/ \(deleted\)$/, ""), argv };
-  } catch {
-    return null;
-  }
-};
 
 function absolutePath(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 && !value.includes("\0") && path.isAbsolute(value) ? value : null;
@@ -121,6 +88,36 @@ export function receiptPathsAreContained(receipt: OrcaRuntimeReceipt, managedRoo
   return true;
 }
 
+/** Lexical containment is not enough: a symlink inside `releases/` can still
+ *  resolve to a foreign script. Resolve the receipt entry, the launched argv[1],
+ *  the node binary, and the profile once, then require the real targets to remain
+ *  inside the managed root/release slot and entry/argv to be the same file. */
+export async function verifyOrcaCanonicalIdentity(
+  receipt: OrcaRuntimeReceipt,
+  snapshot: OrcaProcessSnapshot | null,
+  managedRoot: string,
+): Promise<boolean> {
+  if (!snapshot || !receiptPathsAreContained(receipt, managedRoot)) return false;
+  const argv1 = snapshot.argv[1];
+  if (typeof argv1 !== "string" || !path.isAbsolute(argv1)) return false;
+  try {
+    const rootReal = await fs.realpath(managedRoot);
+    const [entryReal, argvReal, nodeReal, userReal] = await Promise.all([
+      fs.realpath(receipt.serverEntry),
+      fs.realpath(argv1),
+      fs.realpath(receipt.nodeBinary),
+      fs.realpath(receipt.userData),
+    ]);
+    return isStrictlyInside(rootReal, entryReal) &&
+      isStrictlyInside(path.join(rootReal, "releases"), entryReal) &&
+      entryReal === argvReal &&
+      isStrictlyInside(rootReal, nodeReal) &&
+      userReal === path.join(rootReal, "runtime", "user-data");
+  } catch {
+    return false;
+  }
+}
+
 /** PID, start time, owner UID, executable, and server script must all match. A
  *  reused or foreign PID that merely happens to be alive is refused. */
 export function verifyOrcaProcessIdentity(
@@ -143,6 +140,10 @@ export function verifyOrcaProcessIdentity(
   const argv0 = snapshot.argv[0];
   if (typeof argv0 !== "string" || !path.isAbsolute(argv0)) return false;
   if (path.normalize(argv0) !== expectedExe) return false;
-  if (!snapshot.argv.includes(receipt.serverEntry)) return false;
+  // The launched shape is `node <serverEntry> --bind ...`; an entry that appears
+  // anywhere else in argv is not proof of what this process was started to run.
+  const argv1 = snapshot.argv[1];
+  if (typeof argv1 !== "string" || !path.isAbsolute(argv1)) return false;
+  if (path.resolve(argv1) !== path.resolve(receipt.serverEntry)) return false;
   return true;
 }

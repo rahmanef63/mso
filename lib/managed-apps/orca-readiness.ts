@@ -16,8 +16,10 @@ import {
   readLinuxProcessSnapshot,
   receiptPathsAreContained,
   verifyOrcaProcessIdentity,
+  verifyOrcaCanonicalIdentity,
   type OrcaProcessReader,
 } from "./orca-process-identity";
+import { verifyOrcaListenerBinding, type OrcaListenerBindingResult } from "./orca-runtime-binding";
 
 export interface OrcaReadinessSuccess {
   available: true;
@@ -25,6 +27,10 @@ export interface OrcaReadinessSuccess {
   webClientUrl: string;
   runtimeId: string;
   serverPid: number;
+  /** Kernel start ticks for `serverPid`; present on verified readiness. */
+  startTicks?: string;
+  /** LISTEN socket inode bound to `serverPid`; present on verified readiness. */
+  listenerInode?: string;
   boundEndpoint: string;
   advertisedEndpoint: string;
 }
@@ -33,9 +39,16 @@ export interface OrcaReadinessUnavailable {
   reason: string;
 }
 export type OrcaReadinessResult = OrcaReadinessSuccess | OrcaReadinessUnavailable;
+export interface OrcaBindingInput {
+  pid: number;
+  startTicks: string;
+  boundEndpoint: string;
+}
+export type OrcaBindingReader = (input: OrcaBindingInput) => Promise<OrcaListenerBindingResult>;
 export interface OrcaReadinessDeps {
   env?: NodeJS.ProcessEnv;
   readProcess?: OrcaProcessReader;
+  readBinding?: OrcaBindingReader;
 }
 
 const ORCA_VERSION = "1.4.230";
@@ -45,6 +58,21 @@ const DEFAULT_MANAGED_PORT = 6769;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
 const deny = (reason: string): OrcaReadinessUnavailable => ({ available: false, reason });
+
+/** The verified bound endpoint's literal numeric loopback listener must be owned by
+ *  the receipt PID. A named host (`localhost`) is never resolved as a fallback. */
+const defaultBindingReader: OrcaBindingReader = async ({ pid, startTicks, boundEndpoint }) => {
+  let url: URL;
+  try {
+    url = new URL(boundEndpoint);
+  } catch {
+    return { ok: false, reason: "bound_endpoint_invalid" };
+  }
+  if (url.protocol !== "ws:" || url.username || url.password) {
+    return { ok: false, reason: "bound_endpoint_invalid" };
+  }
+  return verifyOrcaListenerBinding({ pid, startTicks, host: url.hostname, port: Number(url.port) });
+};
 
 /** Managed port comes from config (default 6769), never a hardcoded user-port block. */
 export function orcaManagedPort(env: Record<string, string | undefined> = process.env): number {
@@ -157,7 +185,8 @@ export async function getOrcaReadiness(deps: OrcaReadinessDeps = {}): Promise<Or
 
   const statusRead = await readOrcaPrivateFile(root, "private-status.json");
   if (!statusRead.ok) return deny(statusRead.reason === "missing" ? "status_file_missing" : "status_file_insecure");
-  const parsed = await parseOrcaPrivateStatus(statusRead.text, origin, orcaManagedPort(env));
+  const managedPort = orcaManagedPort(env);
+  const parsed = await parseOrcaPrivateStatus(statusRead.text, origin, managedPort);
   if (!parsed.available) return parsed;
 
   // The runtime-identity receipt is MANDATORY: a readiness file alone is not ownership proof.
@@ -176,6 +205,23 @@ export async function getOrcaReadiness(deps: OrcaReadinessDeps = {}): Promise<Or
   const snapshot = await readProcess(receipt.serverPid);
   if (!snapshot) return deny("process_identity_unavailable");
   if (!verifyOrcaProcessIdentity(receipt, snapshot, root)) return deny("process_identity_mismatch");
+  if (!await verifyOrcaCanonicalIdentity(receipt, snapshot, root)) return deny("process_identity_mismatch");
 
-  return parsed;
+  const readBinding = deps.readBinding ?? defaultBindingReader;
+  const binding = await readBinding({
+    pid: snapshot.pid,
+    startTicks: snapshot.startTicks,
+    boundEndpoint: parsed.boundEndpoint,
+  });
+  if (!binding.ok) return deny(binding.reason);
+
+  // The listener proof has its own process checks, but readiness must not return a
+  // stale composite: re-read the exact process (exe, argv, uid, canonical entry) and
+  // require the same start ticks before claiming the runtime.
+  const confirmed = await readProcess(receipt.serverPid);
+  if (!confirmed || confirmed.startTicks !== snapshot.startTicks) return deny("process_identity_unavailable");
+  if (!verifyOrcaProcessIdentity(receipt, confirmed, root)) return deny("process_identity_mismatch");
+  if (!await verifyOrcaCanonicalIdentity(receipt, confirmed, root)) return deny("process_identity_mismatch");
+
+  return { ...parsed, startTicks: confirmed.startTicks, listenerInode: binding.binding.inode };
 }

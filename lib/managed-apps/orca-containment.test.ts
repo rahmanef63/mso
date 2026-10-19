@@ -1,4 +1,7 @@
-import { describe, expect, it, afterAll } from "vitest";
+import { describe, expect, it, afterAll, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -92,7 +95,6 @@ describe("Orca WebSocket upgrade Origin validation", () => {
   it("permits Orca WS upgrade only with exact same-origin HTTPS Origin", async () => {
     const ownerId = "o".repeat(32);
     await devices.approveDevice(ownerId, "owner", "owner");
-
     const id = "d".repeat(32);
     await devices.approveDevice(id, "operator", "operator");
     const issued = Date.now();
@@ -116,10 +118,22 @@ describe("Orca WebSocket upgrade Origin validation", () => {
         authorization: "bearer-token-should-be-stripped",
       },
     });
+    const ready = {
+      available: true as const,
+      pairingUrl: "orca://pair?code=fixture",
+      webClientUrl: "https://orca.mso.example.com/web-index.html",
+      runtimeId: "rt_fixture",
+      serverPid: 4242,
+      startTicks: "99887766",
+      listenerInode: "12345",
+      boundEndpoint: "ws://127.0.0.1:6769",
+      advertisedEndpoint: "wss://orca.mso.example.com",
+    };
+    const deps = { getOrcaReadiness: async () => ready };
 
-    const decision = await socketPolicy(valid);
+    const decision = await socketPolicy(valid, deps);
     expect(decision).not.toBeNull();
-    expect(decision?.identity).toBe(id);
+    expect(JSON.parse(decision!.identity!)).toMatchObject({ device: id, runtimeId: "rt_fixture" });
     expect(decision?.target).toContain("orca-client=web");
     expect(decision?.headers.cookie).toBeUndefined();
     expect(decision?.headers.authorization).toBeUndefined();

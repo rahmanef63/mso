@@ -2,10 +2,10 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { chmod, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { getOrcaReadiness } from "./orca-readiness";
+import { getOrcaReadiness, type OrcaReadinessDeps } from "./orca-readiness";
 import { buildOrcaWebClientUrl } from "./orca-pairing";
 import type { OrcaProcessReader, OrcaProcessSnapshot } from "./orca-process-identity";
 
@@ -46,6 +46,15 @@ describe("getOrcaReadiness filesystem and process identity gate", () => {
   let root: string;
   const snapshots = new Map<number, OrcaProcessSnapshot>();
   const reader: OrcaProcessReader = async (pid) => snapshots.get(pid) ?? null;
+  const binding = async () => ({
+    ok: true as const,
+    binding: { family: "ipv4" as const, address: "127.0.0.1", port: 6769, inode: "424242" },
+  });
+  const deps = (over: OrcaReadinessDeps = {}): OrcaReadinessDeps => ({
+    readProcess: reader,
+    readBinding: binding,
+    ...over,
+  });
 
   function validReceipt(over: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -82,6 +91,12 @@ describe("getOrcaReadiness filesystem and process identity gate", () => {
   beforeEach(async () => {
     root = await mkdtemp(path.join(os.tmpdir(), "mso-orca-readiness-"));
     await chmod(root, 0o700);
+    // The canonical identity proof resolves these receipt paths, so they must exist.
+    await mkdir(path.join(root, "runtimes", "node-24.21.0", "bin"), { recursive: true });
+    await writeFile(path.join(root, "runtimes", "node-24.21.0", "bin", "node"), "", { mode: 0o755 });
+    await mkdir(path.join(root, "releases", "1.4.230"), { recursive: true });
+    await writeFile(path.join(root, "releases", "1.4.230", "orcad-server.js"), "", { mode: 0o600 });
+    await mkdir(path.join(root, "runtime", "user-data"), { recursive: true });
     process.env.ORCA_HOME = root;
     snapshots.clear();
     snapshots.set(4242, snapshot());
@@ -95,65 +110,91 @@ describe("getOrcaReadiness filesystem and process identity gate", () => {
   it("returns available only with a valid status, valid receipt, and matching owned process", async () => {
     await writeStatus(statusPayload());
     await writeReceipt(validReceipt());
-    const res = await getOrcaReadiness({ readProcess: reader });
+    const res = await getOrcaReadiness(deps());
     expect(res.available).toBe(true);
-    if (res.available) expect(res.webClientUrl).toBe(buildOrcaWebClientUrl(ORIGIN, pairingUrl()));
+    if (res.available) {
+      expect(res.webClientUrl).toBe(buildOrcaWebClientUrl(ORIGIN, pairingUrl()));
+      expect(res.startTicks).toBe("99887766");
+    }
+  });
+
+  it("rejects a release entry that symlinks to a foreign script", async () => {
+    const entry = path.join(root, "releases", "1.4.230", "orcad-server.js");
+    const foreign = path.join(root, "foreign.js");
+    await writeFile(foreign, "", { mode: 0o600 });
+    await rm(entry);
+    await symlink(foreign, entry);
+    await writeStatus(statusPayload());
+    await writeReceipt(validReceipt());
+    expect(await getOrcaReadiness(deps())).toMatchObject({
+      available: false,
+      reason: "process_identity_mismatch",
+    });
+  });
+
+  it("denies when the owned process does not own the exact LISTEN socket", async () => {
+    await writeStatus(statusPayload());
+    await writeReceipt(validReceipt());
+    const res = await getOrcaReadiness(deps({
+      readBinding: async () => ({ ok: false, reason: "listener_not_owned_by_process" }),
+    }));
+    expect(res).toMatchObject({ available: false, reason: "listener_not_owned_by_process" });
   });
 
   it("fails with a clear reason when ORCA_HOME is invalid (no silent fallback)", async () => {
     process.env.ORCA_HOME = "relative/orca";
-    await expect(getOrcaReadiness({ readProcess: reader })).resolves.toMatchObject({ available: false, reason: "managed_root_invalid" });
+    await expect(getOrcaReadiness(deps())).resolves.toMatchObject({ available: false, reason: "managed_root_invalid" });
     process.env.ORCA_HOME = root;
   });
 
   it("denies a missing or insecure status file", async () => {
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "status_file_missing" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "status_file_missing" });
     await writeStatus({});
     await chmod(path.join(root, "private-status.json"), 0o644);
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "status_file_insecure" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "status_file_insecure" });
   });
 
   it("requires a mandatory secure runtime-identity.json (never optional)", async () => {
     await writeStatus(statusPayload());
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "runtime_identity_missing" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "runtime_identity_missing" });
     await writeReceipt(validReceipt());
     await chmod(path.join(root, "runtime-identity.json"), 0o644);
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "runtime_identity_insecure" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "runtime_identity_insecure" });
   });
 
   it("rejects a receipt that does not match the status or the managed root", async () => {
     await writeStatus(statusPayload());
     await writeReceipt(validReceipt({ runtimeId: "rt_other" }));
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "runtime_identity_mismatch" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "runtime_identity_mismatch" });
     await writeReceipt(validReceipt({ serverEntry: "/tmp/orcad-server.js" }));
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "runtime_identity_mismatch" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "runtime_identity_mismatch" });
     await writeReceipt(validReceipt({ advertisedEndpoint: "wss://evil.example.com" }));
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "runtime_identity_mismatch" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "runtime_identity_mismatch" });
   });
 
   it("denies when the process identity cannot be read, or is reused/foreign/mismatched", async () => {
     await writeStatus(statusPayload());
     await writeReceipt(validReceipt());
     snapshots.clear();
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "process_identity_unavailable" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "process_identity_unavailable" });
     snapshots.set(4242, snapshot({ startTicks: "1" }));
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "process_identity_mismatch" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "process_identity_mismatch" });
     snapshots.set(4242, snapshot({ exe: "/usr/bin/node" }));
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "process_identity_mismatch" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "process_identity_mismatch" });
   });
 
   it("binds receipt.serverPid to status.health.pid", async () => {
     await writeStatus(statusPayload());
     await writeReceipt(validReceipt({ serverPid: 5555 }));
     snapshots.set(5555, snapshot({ pid: 5555 }));
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "runtime_identity_mismatch" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "runtime_identity_mismatch" });
   });
 
   it("fails closed on a symlinked status file", async () => {
     const target = path.join(root, "real-status.json");
     await writeFile(target, JSON.stringify(statusPayload()), { mode: 0o600 });
     await symlink(target, path.join(root, "private-status.json"));
-    expect(await getOrcaReadiness({ readProcess: reader })).toMatchObject({ available: false, reason: "status_file_insecure" });
+    expect(await getOrcaReadiness(deps())).toMatchObject({ available: false, reason: "status_file_insecure" });
   });
 
   it("ignores the test runner's own PID as an Orca identity", async () => {
@@ -169,6 +210,6 @@ describe("getOrcaReadiness filesystem and process identity gate", () => {
       exe: process.execPath,
       argv: [process.execPath, receipt.serverEntry as string, "--json"],
     });
-    expect(await getOrcaReadiness({ readProcess: runnerReader })).toMatchObject({ available: false, reason: "process_identity_mismatch" });
+    expect(await getOrcaReadiness(deps({ readProcess: runnerReader }))).toMatchObject({ available: false, reason: "process_identity_mismatch" });
   });
 });

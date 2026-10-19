@@ -1,4 +1,6 @@
 import { afterAll, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

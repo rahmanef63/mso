@@ -2,6 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import vm from "node:vm";
 import { NextRequest } from "next/server";
 
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/managed-apps/orca-readiness", () => ({
+  getOrcaReadiness: vi.fn(async () => ({
+    available: true,
+    pairingUrl: "orca://pair?code=fixture",
+    webClientUrl: "https://orca.mso.example.com/web-index.html",
+    runtimeId: "rt_fixture",
+    serverPid: 4242,
+    startTicks: "123456",
+    boundEndpoint: "ws://127.0.0.1:6769",
+    advertisedEndpoint: "wss://orca.mso.example.com",
+  })),
+}));
+
 vi.hoisted(() => {
   process.env.NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE = "{id}.mso.example.com";
   process.env.OS_PUBLIC_ORIGIN = "https://mso.example.com";
