@@ -10,8 +10,10 @@ const orca = vi.hoisted(() => ({
   mode: "fake" as "fake" | "real",
   fake: { available: true, pairingUrl: "orca://pair?code=abc", webClientUrl: "https://orca.mso.example.com/web-index.html#pairing=abc", runtimeId: "rt_1", serverPid: 4242, boundEndpoint: "ws://127.0.0.1:6769", advertisedEndpoint: "wss://orca.mso.example.com" },
 }));
+type OrcaReadinessModule = typeof import("@/lib/managed-apps/orca-readiness");
+
 vi.mock("@/lib/managed-apps/orca-readiness", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/managed-apps/orca-readiness")>();
+  const actual = (await importOriginal()) as OrcaReadinessModule;
   return {
     ...actual,
     getOrcaReadiness: async (deps?: Parameters<typeof actual.getOrcaReadiness>[0]) =>

@@ -11,8 +11,10 @@ import { gateManagedApp } from "./session";
 import { MANAGED_APP_HOST_HEADER } from "./origin";
 
 const sessionMock = vi.fn();
+type ManagedAppSessionModule = typeof import("@/lib/managed-apps/session");
+
 vi.mock("@/lib/managed-apps/session", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/managed-apps/session")>();
+  const actual = (await importOriginal()) as ManagedAppSessionModule;
   return {
     ...actual,
     managedAppSession: (req: Request, id: string) => sessionMock(req, id),
