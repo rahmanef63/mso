@@ -16,6 +16,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `managed-apps` keep the app-host rewrite internal under a loopback hostname
+- `proxy` keep nextUrl's exact origin for the managed-app rewrite
 - `orca` reject a non-absolute argv[0] without cwd resolution
 - `managed-apps` load the server-only Orca bridge lazily in shared health
 - `orca` reject a unit reached through any symlinked ancestor
