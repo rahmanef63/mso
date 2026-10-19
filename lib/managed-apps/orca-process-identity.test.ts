@@ -105,6 +105,18 @@ describe("receipt containment and process identity", () => {
     expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ exe: "/usr/bin/node" }), root)).toBe(false);
     expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: ["/usr/bin/node", "other.js"] }), root)).toBe(false);
   });
+
+  it("refuses a missing or relative argv[0] before any normalization", () => {
+    // The exact node binary must be named by an absolute argv[0]; a missing or
+    // relative value is refused instead of being resolved against the cwd.
+    expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: [] }), root)).toBe(false);
+    expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: [undefined as unknown as string, validReceipt.serverEntry] }), root)).toBe(false);
+    expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: ["node", validReceipt.serverEntry] }), root)).toBe(false);
+    expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: ["./node", validReceipt.serverEntry] }), root)).toBe(false);
+    // An absolute, non-canonical argv[0] is normalized and matches the node binary.
+    const dotted = `${root}/runtimes/node-24.21.0/bin/../bin/node`;
+    expect(verifyOrcaProcessIdentity(validReceipt, snapshot({ argv: [dotted, validReceipt.serverEntry, "--json"] }), root)).toBe(true);
+  });
 });
 
 describe("actual disposable same-task node process", () => {

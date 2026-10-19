@@ -137,7 +137,12 @@ export function verifyOrcaProcessIdentity(
   const expectedExe = path.resolve(receipt.nodeBinary);
   const actualExe = path.resolve(snapshot.exe.replace(/ \(deleted\)$/, ""));
   if (actualExe !== expectedExe) return false;
-  if (path.resolve(snapshot.argv[0] ?? "") !== expectedExe) return false;
+  // argv[0] must be the exact node binary. Reject a missing or relative argv[0]
+  // BEFORE normalizing: `path.resolve` on an empty/relative value would consult
+  // the cwd and make the bundler trace the whole project.
+  const argv0 = snapshot.argv[0];
+  if (typeof argv0 !== "string" || !path.isAbsolute(argv0)) return false;
+  if (path.normalize(argv0) !== expectedExe) return false;
   if (!snapshot.argv.includes(receipt.serverEntry)) return false;
   return true;
 }
