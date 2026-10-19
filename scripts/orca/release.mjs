@@ -164,7 +164,7 @@ export async function preparePinnedRelease({
     })
     await copyVerifiedFile({
       sourcePath: nodeBinary,
-      destination: join(stagingRoot, 'node', 'bin', 'node'),
+      destination: join(stagingRoot, identity.node.executablePath),
       expectedSha256: identity.node.executableSha256,
       mode: 0o700
     })

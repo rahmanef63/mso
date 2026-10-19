@@ -6,7 +6,7 @@ import { mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promis
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { ORCA_VERSION, SUPPORTED_TARGET } from './constants.mjs'
-import { getReleaseContentId, getReleaseIdentity } from './release-identity.mjs'
+import { getReleaseContentId, getReleaseIdentity, nodeRuntimeRelativePath } from './release-identity.mjs'
 import { buildReceipt, verifyInstalledRelease } from './release-receipt.mjs'
 import { copyVerifiedFile, copyWebTree, readPrivateJson, verifyWebTree, writePrivateJson } from './release-tree.mjs'
 import { readAsarEntry } from './asar-license.mjs'
@@ -48,7 +48,19 @@ describe('release identity & receipt', () => {
     assert.equal(identity.target, SUPPORTED_TARGET)
     assert.equal(identity.sourceCommit.length, 40)
     assert.equal(identity.licenses.length, 2)
+    assert.equal(
+      identity.node.executablePath,
+      `runtimes/node-${identity.node.executableSha256}/bin/node`
+    )
+    assert.equal(identity.runtimeLayout.slotRelativePath, '../runtimes')
     assert.equal(Object.isFrozen(identity), true)
+  })
+
+  it('names the sibling runtime path the upstream .runtime-node contract expects', () => {
+    const sha = 'a'.repeat(64)
+    assert.equal(nodeRuntimeRelativePath(sha), `runtimes/node-${sha}/bin/node`)
+    // Intentional layout bump: the previous packaged-release content id must not be reused.
+    assert.notEqual(getReleaseContentId(), 'db813ed170845dbe')
   })
 
   it('builds a receipt consistent with the identity', () => {
@@ -57,8 +69,9 @@ describe('release identity & receipt', () => {
     const slot = { treeSha256: sha256(`a.js\0${'a'.repeat(64)}\n`), fullVersion: `${ORCA_VERSION}+abc`, files }
     const web = { treeSha256: 'b'.repeat(64), fileCount: 1, totalBytes: 3, files: { 'index.html': 'c'.repeat(64) } }
     const receipt = buildReceipt({ identity, slot, web })
-    assert.equal(receipt.schemaVersion, 1)
+    assert.equal(receipt.schemaVersion, 2)
     assert.equal(receipt.release.contentId, identity.contentId)
+    assert.equal(receipt.node.executablePath, identity.node.executablePath)
     assert.equal(receipt.slot.fileCount, 1)
     assert.equal(receipt.web.fileCount, 1)
     assert.equal(typeof receipt.createdAt, 'string')
@@ -73,7 +86,7 @@ describe('release identity & receipt', () => {
         verifyInstalledRelease({ releaseRoot, identity: getReleaseIdentity() }),
         /layout is not exact/i
       )
-      for (const name of ['licenses', 'node', 'slot', 'web']) {
+      for (const name of ['licenses', 'runtimes', 'slot', 'web']) {
         await mkdir(join(releaseRoot, name), { recursive: true, mode: 0o700 })
       }
       await mkdir(join(releaseRoot, 'receipt.json'), { recursive: true, mode: 0o700 })

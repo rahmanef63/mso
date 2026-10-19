@@ -1,11 +1,10 @@
 /**
  * Orca release artifact (.deb) acquisition and data-only extraction.
  *
- * The fixed published .deb digest is the trust anchor. Every acquisition
- * re-verifies the file, reads package identity with `dpkg-deb -f`, and extracts
- * into a fresh private staging directory with `dpkg-deb -x` (data only: no
- * maintainer scripts, apt, root, or GUI execution). Existing directories are
- * never trusted by existence and never overwritten.
+ * The fixed published .deb digest is the trust anchor. Every acquisition re-verifies the
+ * file, reads package identity with `dpkg-deb -f`, and extracts into a fresh private
+ * staging directory with `dpkg-deb -x` (data only: no maintainer scripts, apt, root,
+ * graphical execution) and never trusts or overwrites an existing directory.
  */
 
 import { randomUUID } from 'node:crypto'
@@ -132,9 +131,6 @@ async function assertRequiredSource(extractDir, debSha256, control) {
     throw new Error(`app.asar checksum mismatch: expected ${ORCA_APP_ASAR_SHA256}, got ${asarSha256}`)
   }
   return {
-    templateDir,
-    webDir,
-    appAsarPath,
     appAsarSize: asarStat.size,
     debSha256,
     debSize: ORCA_DEB_SIZE,

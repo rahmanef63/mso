@@ -15,17 +15,18 @@ import { verifySlotIntegrity } from './materializer.mjs'
 import { readPrivateJson, verifyWebTree } from './release-tree.mjs'
 import { assertNoSymlinkAncestors, assertOwnedRegularFile, isSafeRelativePath } from './safe-paths.mjs'
 
-export const RELEASE_LAYOUT = Object.freeze(['licenses', 'node', 'receipt.json', 'slot', 'web'])
+export const RELEASE_LAYOUT = Object.freeze(['licenses', 'receipt.json', 'runtimes', 'slot', 'web'])
 
 export function buildReceipt({ identity, slot, web }) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     release: {
       contentId: identity.contentId,
       version: identity.version,
       orcadVersion: identity.orcadVersion,
       target: identity.target,
-      sourceCommit: identity.sourceCommit
+      sourceCommit: identity.sourceCommit,
+      runtimeLayout: identity.runtimeLayout
     },
     deb: identity.deb,
     node: identity.node,
@@ -53,13 +54,16 @@ function slotTreeSha256(files) {
 }
 
 function assertReceipt(receipt, identity) {
-  if (!receipt || receipt.schemaVersion !== 1) throw new Error('Receipt schema is not version 1')
+  if (!receipt || receipt.schemaVersion !== 2) throw new Error('Receipt schema is not version 2')
   const release = receipt.release
   if (!release || release.contentId !== identity.contentId) {
     throw new Error('Receipt content id does not match the pinned release')
   }
   if (release.version !== identity.version || release.sourceCommit !== identity.sourceCommit) {
     throw new Error('Receipt release identity does not match the pins')
+  }
+  if (receipt.node?.executablePath !== identity.node.executablePath) {
+    throw new Error('Receipt Node runtime path does not match the pinned sibling layout')
   }
   if (receipt.slot?.fileCount !== Object.keys(receipt.slot?.files ?? {}).length) {
     throw new Error('Receipt slot file count is inconsistent')
@@ -103,7 +107,16 @@ export async function verifyInstalledRelease({ releaseRoot, identity }) {
     throw new Error('Installed web bundle failed rehash verification')
   }
 
-  const nodeBinary = join(releaseRoot, 'node', 'bin', 'node')
+  if (!isSafeRelativePath(identity.node.executablePath)) {
+    throw new Error(`Unsafe Node runtime path: ${identity.node.executablePath}`)
+  }
+  const runtimesDir = join(releaseRoot, 'runtimes')
+  const runtimeEntries = (await readdir(runtimesDir)).sort()
+  const expectedRuntimeDir = `node-${identity.node.executableSha256}`
+  if (runtimeEntries.length !== 1 || runtimeEntries[0] !== expectedRuntimeDir) {
+    throw new Error(`Release runtimes layout is not exact: ${runtimeEntries.join(', ')}`)
+  }
+  const nodeBinary = join(releaseRoot, identity.node.executablePath)
   const nodeStat = await assertOwnedRegularFile(nodeBinary)
   if ((nodeStat.mode & 0o100) === 0) throw new Error('Installed Node executable is not executable')
   if ((await fileSha256(nodeBinary)) !== identity.node.executableSha256) {

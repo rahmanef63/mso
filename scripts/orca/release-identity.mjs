@@ -25,12 +25,20 @@ import {
 } from './constants.mjs'
 
 export const RELEASE_CONTENT_ID_LENGTH = 16
+export const RELEASE_RUNTIME_DIRNAME = 'runtimes'
+export const RELEASE_RUNTIME_DIR_PREFIX = 'node-'
+
+/** Upstream slot-relative runtime: `<slot>/../runtimes/node-<exeSha>/bin/node`. */
+export function nodeRuntimeRelativePath(executableSha256) {
+  return `${RELEASE_RUNTIME_DIRNAME}/${RELEASE_RUNTIME_DIR_PREFIX}${executableSha256}/bin/node`
+}
 
 export function getReleaseContentId() {
   return createHash('sha256')
     .update(
       [
-        'mso-orca-release-v1',
+        'mso-orca-release-v2',
+        'runtimes/node-<executableSha256>/bin/node',
         ORCA_VERSION,
         ORCAD_VERSION,
         ORCA_SOURCE_COMMIT,
@@ -51,12 +59,17 @@ export function getReleaseContentId() {
 
 export function getReleaseIdentity() {
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: 2,
     version: ORCA_VERSION,
     orcadVersion: ORCAD_VERSION,
     target: SUPPORTED_TARGET,
     sourceCommit: ORCA_SOURCE_COMMIT,
     contentId: getReleaseContentId(),
+    runtimeLayout: {
+      dirname: RELEASE_RUNTIME_DIRNAME,
+      dirPrefix: RELEASE_RUNTIME_DIR_PREFIX,
+      slotRelativePath: `../${RELEASE_RUNTIME_DIRNAME}`
+    },
     deb: {
       url: ORCA_DEB_URL,
       sha256: ORCA_DEB_SHA256,
@@ -70,7 +83,7 @@ export function getReleaseIdentity() {
       archiveSha256: PINNED_NODE.archiveSha256,
       archiveSize: PINNED_NODE.archiveSize,
       executableSha256: PINNED_NODE.executableSha256,
-      executablePath: 'node/bin/node'
+      executablePath: nodeRuntimeRelativePath(PINNED_NODE.executableSha256)
     },
     licenses: [
       { path: 'licenses/LICENSE', sha256: ORCA_LICENSE_SHA256, size: ORCA_LICENSE_SIZE },
