@@ -48,8 +48,9 @@ export function resolveOrcaManagedRoot(
   // Never manage the filesystem root or the owner home itself.
   if (normalized === path.sep || normalized === resolvedHome) return invalid;
   // Never reuse the operator's personal Orca state, including any subtree.
-  for (const personal of [".orca", ".orca-remote"]) {
-    const prefix = path.join(resolvedHome, personal);
+  const personalOrca = path.join(resolvedHome, ".orca");
+  const personalOrcaRemote = path.join(resolvedHome, ".orca-remote");
+  for (const prefix of [personalOrca, personalOrcaRemote]) {
     if (normalized === prefix || normalized.startsWith(`${prefix}${path.sep}`)) return invalid;
   }
   return { ok: true, root: normalized };
