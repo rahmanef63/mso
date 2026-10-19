@@ -52,7 +52,7 @@ function fail(message: string): never { process.stderr.write(`mso domain: ${reda
 function emit(value: unknown) { process.stdout.write(JSON.stringify(value, null, 2) + "\n"); }
 function str(key: string) { return typeof options[key] === "string" ? options[key] as string : undefined; }
 function selectedApp(): ManagedAppId {
-  if (!(MANAGED_APP_IDS as readonly string[]).includes(appId ?? "")) fail("choose hermes, openclaw or 9router");
+  if (!(MANAGED_APP_IDS as readonly string[]).includes(appId ?? "")) fail(`choose ${MANAGED_APP_IDS.join(", ")}`);
   return appId as ManagedAppId;
 }
 function envFile() { return path.resolve(process.env.MSO_DOMAIN_ENV ?? path.join(process.cwd(), ".env.local")); }

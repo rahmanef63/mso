@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 import { createHash, randomUUID, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 
-export async function releaseFixture({ live = false, surfaceApps = [], publicOrigin } = {}) {
+export async function releaseFixture({ live = false, surfaceApps = [], publicOrigin, onLog } = {}) {
   const dir = await mkdtemp(path.join(tmpdir(), "mso-release-e2e-"));
   let providerStatus = 200;
   const provider = createServer((req, res) => {
@@ -77,6 +77,9 @@ export async function releaseFixture({ live = false, surfaceApps = [], publicOri
   let logs = "";
   const capture = chunk => { logs = (logs + chunk.toString()).slice(-8000); };
   server.stdout.on("data", capture); server.stderr.on("data", capture);
+  // Narrow optional sink for diagnostics; absent by default so every existing caller
+  // is byte-for-byte unchanged.
+  if (onLog) { server.stdout.on("data", c => onLog("stdout", c.toString())); server.stderr.on("data", c => onLog("stderr", c.toString())); }
   const close = async () => {
     server.kill("SIGTERM");
     await Promise.race([new Promise(resolve => server.once("exit", resolve)), new Promise(resolve => setTimeout(resolve, 3000))]);

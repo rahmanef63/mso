@@ -1,19 +1,21 @@
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { getManagedAppDefinition, isManagedAppId, listManagedAppDefinitions } from "./catalog";
 import { MANAGED_APP_ACTIONS } from "./types";
 
 describe("managed app catalog", () => {
-  it("uses one shared catalog for exactly Hermes, OpenClaw and 9Router", () => {
+  it("uses one shared catalog for Hermes, OpenClaw, 9Router and Orca", () => {
     const definitions = listManagedAppDefinitions();
-    expect(definitions.map((item) => item.id)).toEqual(["hermes", "openclaw", "9router"]);
-    expect(new Set(definitions.map((item) => item.id)).size).toBe(3);
+    expect(definitions.map((item) => item.id)).toEqual(["hermes", "openclaw", "9router", "orca"]);
+    expect(new Set(definitions.map((item) => item.id)).size).toBe(4);
   });
 
   it("rejects arbitrary application ids and commands", () => {
     expect(isManagedAppId("hermes")).toBe(true);
     expect(isManagedAppId("openclaw")).toBe(true);
     expect(isManagedAppId("9router")).toBe(true);
+    expect(isManagedAppId("orca")).toBe(true);
     expect(isManagedAppId("hermes;rm -rf /")).toBe(false);
     expect(MANAGED_APP_ACTIONS).toEqual(["start", "stop", "restart", "backup"]);
   });
@@ -36,6 +38,18 @@ describe("managed app catalog", () => {
     expect(source).toContain('-p "$BIND:$PORT:$PORT"');
     expect(source).not.toContain('-p "$PORT:$PORT"');
     expect(getManagedAppDefinition("9router").publicPort).toBeUndefined();
+  });
+
+  it("wires Orca to the repo-owned adapter and the systemd user backend", () => {
+    const orca = getManagedAppDefinition("orca");
+    // The reviewed adapter ships in this repo, so its presence must not count as
+    // an install; the exact unit + a verified receipt do.
+    expect(orca.installBackends).toEqual(["user-systemd"]);
+    expect(orca.command).toBe(path.join(process.cwd(), "scripts", "managed-app-orca"));
+    expect(orca.commandProvesInstall).toBe(false);
+    expect(orca.serviceNames).toEqual(["mso-orca.service"]);
+    // The managed root is MSO-owned state, never the operator's personal ~/.orca.
+    expect(orca.homeDir).toMatch(/mso[/\\]orca$/);
   });
 
 });

@@ -7,7 +7,7 @@ import { deviceSessionValid } from "@/lib/auth/live-session";
 import { roleAtLeast } from "@/lib/auth/roles";
 import { isCamoufoxViewerHost } from "@/lib/camoufox/origin";
 import { camoufoxViewerUpstreamPath } from "@/lib/camoufox/viewer-gate";
-import { managedAppIdForHost } from "./origin";
+import { managedAppIdForHost, managedAppOrigin } from "./origin";
 import { getManagedAppDefinition } from "./catalog";
 import { managedAppUpstream } from "./upstream-target";
 import { upstreamSocketHeaders } from "./proxy-headers";
@@ -21,6 +21,12 @@ export async function socketPolicy(request: NextRequest) {
   if (!/(?:^|,)\s*websocket\s*(?:,|$)/i.test(request.headers.get("upgrade") ?? "")) return null;
   const viewer = isCamoufoxViewerHost(host), app = managedAppIdForHost(host);
   if (!viewer && !app) return shellAppSocketPolicy(request);
+  if (app === "orca") {
+    if (!origin || origin === "null") return null;
+    const expected = managedAppOrigin("orca");
+    if (!expected) return null;
+    try { if (new URL(origin).origin.toLowerCase() !== expected.toLowerCase()) return null; } catch { return null; }
+  }
   const secret = process.env.OS_SESSION_SECRET ?? "";
   let identity: string | undefined;
   for (const { value } of request.cookies.getAll(viewer ? CAMOUFOX_VIEWER_COOKIE : MANAGED_APP_SESSION_COOKIE)) {

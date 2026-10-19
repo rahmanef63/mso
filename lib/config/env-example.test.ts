@@ -42,6 +42,24 @@ const NOT_A_KNOB: Record<string, string> = {
   // systemd's, read by instrumentation for the watchdog handshake.
   NOTIFY_SOCKET: "systemd's",
   WATCHDOG_USEC: "systemd's",
+  // Orca lifecycle test fixtures. scripts/orca/fixtures/*.mjs are disposable
+  // stand-ins for the real server, daemon, and CLI; these select fake behavior.
+  FAKE_ADVERTISED: "Orca test fixture only: fake server's advertised pairing endpoint",
+  FAKE_CLI_LOG: "Orca test fixture only: fixture CLI invocation log path",
+  FAKE_CLI_MODE: "Orca test fixture only: fixture CLI behavior selector",
+  FAKE_CLI_TOKEN: "Orca test fixture only: fixture CLI echo token",
+  FAKE_CRASH_DELAY_MS: "Orca test fixture only: fake server's delayed-crash timing",
+  FAKE_DAEMON_DELAY_MS: "Orca test fixture only: fake daemon's pid-record delay",
+  FAKE_DAEMON_ENTRY: "Orca test fixture only: fake server's daemon entry path",
+  FAKE_MODE: "Orca test fixture only: fake server scenario selector",
+  FAKE_READY_DELAY_MS: "Orca test fixture only: fake server's delay before readiness output",
+  // Private installer handoff. lib/managed-apps/install.ts derives these from
+  // operator-facing install options and passes them to the install scripts.
+  MSO_INSTALL_APP_ORIGIN: "private MSO installer-to-app handoff for the configured split app origin; not an operator knob",
+  MSO_INSTALL_GATEWAY_BIND: "private MSO installer-to-app handoff for the validated gateway bind mode; not an operator knob",
+  // Private Orca runtime environment. scripts/orca/env.mjs writes this into the
+  // isolated child env so the runtime uses the scratch user-data directory.
+  ORCA_USER_DATA: "private isolated Orca runtime env set by scripts/orca/env.mjs; not a deployment knob",
   // Test + tooling only, never part of a deployment.
   E2E_BASE_URL: "test harness",
   MSO_SCREENSHOT_DIR: "injected per-session artifact staging path for browser tooling; never persistent app configuration",

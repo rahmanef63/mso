@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, normalize, sep } from "node:path";
 import { MANAGED_APP_IDS, type ManagedAppDefinition, type ManagedAppId } from "./types";
 
 /** Env overrides are hand-written, so a leading `~` is expected — `join()` alone would
@@ -8,6 +8,20 @@ export function expandHome(value: string | undefined): string {
   if (!value) return "";
   if (value === "~") return homedir();
   return value.startsWith("~/") ? join(homedir(), value.slice(2)) : value;
+}
+
+/** Orca's managed root is MSO-owned state (`~/.local/share/mso/orca`), never the
+ *  operator's personal `~/.orca`. Mirrors the bridge (`orca-private-fs.ts`) so
+ *  backup/restore reads the same directory the runtime writes; an invalid
+ *  ORCA_HOME override falls back to the portable default here, while the bridge
+ *  itself fails closed on it. */
+function orcaManagedRoot(): string {
+  const fallback = join(homedir(), ".local", "share", "mso", "orca");
+  const raw = process.env.ORCA_HOME;
+  if (!raw || raw.trim() === "" || raw.includes("\0") || !isAbsolute(raw)) return fallback;
+  const normalized = normalize(raw);
+  if (normalized !== raw || normalized.split(sep).includes("..")) return fallback;
+  return normalized;
 }
 
 const definitions = {
@@ -68,6 +82,25 @@ const definitions = {
     publicUrl: process.env.NINE_ROUTER_PUBLIC_URL,
     stateDirName: ".9router",
     gradient: "linear-gradient(160deg,#0ea5e9,#2563eb)",
+  },
+  orca: {
+    id: "orca",
+    // Orca is installed as the MSO-owned `mso-orca.service` user unit from the
+    // pinned web/Node release (linux x64 glibc). It is not a Docker app.
+    installBackends: ["user-systemd"],
+    name: "Orca",
+    description: "Orca web workspace and coding environment",
+    // The lifecycle/update adapter ships in THIS repo, so its presence proves
+    // nothing; only the exact unit plus a verified install receipt count.
+    command: join(process.cwd(), "scripts", "managed-app-orca"),
+    commandProvesInstall: false,
+    serviceNames: ["mso-orca.service"],
+    containerNames: [],
+    dashboardUrl: process.env.ORCA_DASHBOARD_URL ?? "http://127.0.0.1:6769",
+    healthPath: "/web-index.html",
+    stateDirName: "orca",
+    homeDir: orcaManagedRoot(),
+    gradient: "linear-gradient(160deg,#0284c7,#1e3a8a)",
   },
 } as const satisfies Record<ManagedAppId, ManagedAppDefinition>;
 

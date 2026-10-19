@@ -20,8 +20,8 @@ mso_mapp_enable() {
   local id="${1:?application ID required}" response job
   shift
   case "$id" in
-    hermes|openclaw|9router) ;;
-    *) die "choose hermes, openclaw or 9router" ;;
+    hermes|openclaw|9router|orca) ;;
+    *) die "choose hermes, openclaw, 9router or orca" ;;
   esac
   response="$(jget "/api/v1/managed-apps/$(enc "$id")")"
   if ! jq -e '.app.installed == true' <<<"$response" >/dev/null; then

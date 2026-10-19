@@ -17,7 +17,10 @@ describe("delegated write control-plane guard", () => {
     await expect(assertDelegatedWritePath(path.join(os.homedir(), ".config/systemd/user/evil.service"))).rejects.toThrow(/control-plane/);
   });
   it("allows ordinary project content", async () => {
-    await expect(assertDelegatedWritePath(path.join(os.tmpdir(), "project", "src", "index.ts"))).resolves.toBeUndefined();
+    // Positive fixture: a prospective path in the real projects root, never created.
+    // os.tmpdir() is not portable here — under Hermes it lives inside ~/.hermes,
+    // which is a protected control-plane input, so that path belongs to the negative cases.
+    await expect(assertDelegatedWritePath(path.join(os.homedir(), "projects", "mso-delegated-write-fixture", "src", "index.ts"))).resolves.toBeUndefined();
   });
   it("blocks CLI launchers used by managed-app probes", async () => {
     for (const dir of [".local/bin", ".bun/bin", ".hermes", ".openclaw"]) {

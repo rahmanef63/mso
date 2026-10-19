@@ -31,7 +31,7 @@ const INSTALL_SCRIPT = path.join(process.cwd(), "scripts", "managed-app-install"
 /** Hermes fetches uv, a Python, Node and ffmpeg before it does anything of its
  *  own, so it needs a budget several times OpenClaw's `npm i -g`. Both stay
  *  under the job layer's 1 h ceiling. */
-const INSTALL_TIMEOUT_MS: Record<ManagedAppId, number> = { hermes: 2_700_000, openclaw: 900_000, "9router": 900_000 };
+const INSTALL_TIMEOUT_MS: Record<ManagedAppId, number> = { hermes: 2_700_000, openclaw: 900_000, "9router": 900_000, orca: 900_000 };
 
 /** A key is never inspected beyond this: it is opaque upstream credential
  *  material, so the only questions worth asking are "could it break the
@@ -53,6 +53,17 @@ export interface InstallOptions {
 
 const BINDS = new Set(["loopback", "lan", "tailnet", "auto"]);
 
+/** Orca's pinned release is linux-x64-glibc only, so the support gate must prove
+ *  glibc rather than assume it. `process.report` is Node's own reading. */
+function hostUsesGlibc(): boolean {
+  try {
+    const report = process.report?.getReport() as { header?: { glibcVersionRuntime?: string } } | undefined;
+    return typeof report?.header?.glibcVersionRuntime === "string";
+  } catch {
+    return false;
+  }
+}
+
 /** Start an install job. Refuses when the app is already installed: the upstream
  *  installers are re-runnable, but "install" arriving at a live app is a UI bug
  *  or a stale page, and re-running one restarts services under whoever is using
@@ -63,6 +74,8 @@ export async function startInstall(id: ManagedAppId, options: InstallOptions = {
   if (view.installed) throw new Error(`${definition.name} is already installed — use Update instead`);
   const support = managedAppInstallSupport(definition, {
     platform: process.platform,
+    arch: process.arch,
+    glibc: hostUsesGlibc(),
     userSystemd: !userBusUnavailable(),
     docker: definition.installBackends.includes("docker") && await dockerUsable(),
   });
@@ -81,16 +94,28 @@ export async function startInstall(id: ManagedAppId, options: InstallOptions = {
   const env: Record<string, string> = {};
   const bind = options.bind ?? "loopback";
   if (!BINDS.has(bind)) throw new Error("unsupported gateway bind mode");
+  // Orca's browser client is only ever framed through the split-origin proxy, so
+  // a non-loopback bind would expose the runtime directly. Refuse it explicitly
+  // even though sibling installers accept LAN/tailnet binds.
+  if (id === "orca" && bind !== "loopback") throw new Error("Orca install supports loopback only; refusing a non-loopback bind");
   env.MSO_INSTALL_GATEWAY_BIND = bind;
+
+  const key = options.apiKey?.trim();
+  // Orca ships no provider configuration and stores no API key; a key would only
+  // be silently dropped, so refuse rather than claim a configured install.
+  if (id === "orca" && (key || options.provider)) throw new Error("Orca does not accept a provider or API key");
 
   // Where MSO will frame this app. OpenClaw's Control UI keeps its own origin
   // allowlist and rejects the socket before it opens otherwise — a healthy gateway
-  // that the dashboard cannot talk to. Absent in single-origin deployments, where
-  // the frame is same-origin with the cockpit and there is nothing to allow.
+  // that the dashboard cannot talk to. Orca needs the same origin: the managed
+  // runtime advertises exactly this WSS endpoint, and there is NO same-origin
+  // fallback, so an install without it cannot produce a usable browser session.
   const appOrigin = managedAppOrigin(id);
+  if (id === "orca" && !appOrigin) {
+    throw new Error("Orca install requires a configured split app origin (NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE); refusing to install a runtime the browser cannot reach");
+  }
   if (appOrigin) env.MSO_INSTALL_APP_ORIGIN = appOrigin;
 
-  const key = options.apiKey?.trim();
   if (key) {
     const provider = findProvider(options.provider);
     if (!provider) throw new Error("unsupported provider");

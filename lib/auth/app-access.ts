@@ -14,6 +14,7 @@ const OPERATOR_APPS = new Set([
   "hermes",
   "openclaw",
   "9router",
+  "orca",
 ]);
 
 /** Unknown/runtime apps fail closed for delegated devices until explicitly classified. */

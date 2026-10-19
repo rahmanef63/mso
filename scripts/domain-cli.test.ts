@@ -27,6 +27,15 @@ it("rejects incomplete/unknown/credential arguments before any setup write", asy
   }
   expect(await fs.stat(path.join(directory, "domains.json")).catch(() => null)).toBeNull();
 });
+it("loads the shared domain CLI graph without the Next-only server-only marker", () => {
+  // The Orca bridge is server-only; the shared health module must reach it lazily
+  // so this Bun graph never tries to resolve the Next bundler alias `server-only`.
+  for (const args of [["status"], ["help"]]) {
+    const result = run(...args);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).not.toMatch(/server-only/i);
+  }
+});
 it("prints a usable help contract and returns attention for an unconfigured ensure", () => {
   const help = run("help");
   expect(help.status, help.stderr).toBe(0);
