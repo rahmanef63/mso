@@ -10,8 +10,16 @@ const hostname = argument("--hostname", process.env.HOSTNAME ?? "0.0.0.0");
 const port = Number(argument("--port", process.env.PORT ?? "3000"));
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("invalid runtime port");
 process.env.MSO_SOCKET_POLICY_SECRET = randomBytes(32).toString("hex");
+// Next builds the internal request origin (`initUrl`) from this hostname, and that origin
+// decides whether a middleware rewrite is internal or external. Next's NextURL canonicalizes
+// a bare loopback IP to `localhost` (next-url.js REGEX_LOCALHOST_HOSTNAME), so handing Next
+// the raw address makes `initUrl` (127.0.0.1) disagree with the middleware's `nextUrl`
+// (localhost) and every managed-app internal rewrite is misclassified as EXTERNAL and
+// self-proxied over TLS (EPROTO/500). Pass the canonical loopback name Next itself uses
+// while we keep binding the public socket to the real address below.
+const nextHostname = /^(?:127(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d?\d)){3}|\[::1\]|::1|localhost)$/.test(hostname) ? "localhost" : hostname;
 const internal = createServer();
-const app = next({ dev: false, hostname, port, httpServer: internal });
+const app = next({ dev: false, hostname: nextHostname, port, httpServer: internal });
 await app.prepare();
 internal.on("request", app.getRequestHandler());
 await new Promise((resolve) => internal.listen(0, "127.0.0.1", resolve));
