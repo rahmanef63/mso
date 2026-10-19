@@ -81,7 +81,6 @@ export async function installManagedOrca({
   const fixedPort = assertPersistentPort(port)
   const advertised = assertConfiguredAdvertisedEndpoint(advertisedEndpoint)
   const unitPath = orcaServiceUnitPath({ home })
-  const existing = await inspectExistingUnit({ unitPath })
   const unit = renderOrcaServiceUnit({
     hostNode,
     cliScript,
@@ -89,6 +88,7 @@ export async function installManagedOrca({
     port: fixedPort,
     advertisedEndpoint: advertised
   })
+  const existing = await inspectExistingUnit({ unitPath, expectedUnit: unit })
   const plannedConfig = buildPlannedConfig({ root, unitPath, fixedPort, advertised })
 
   if (dryRun) {

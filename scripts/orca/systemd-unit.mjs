@@ -18,6 +18,7 @@ import { DEFAULT_PORT } from './constants.mjs'
 import { SERVICE_NAME, UNIT_IDENTITY_MARKER } from './managed-paths.mjs'
 import { assertConfiguredAdvertisedEndpoint, assertPersistentPort } from './supervision.mjs'
 import { renderUnitText, systemdQuote } from './unit-render.mjs'
+import { readOwnedUnitFile } from './unit-read.mjs'
 
 export { systemdQuote }
 
@@ -67,16 +68,33 @@ export function renderOrcaServiceUnit({
 }
 
 /**
- * A unit may be replaced only when this adapter's exact identity is present.
+ * A unit may be replaced only when this adapter's exact identity is present and,
+ * when expectedUnit or expectedConfig is provided, matches byte-for-byte.
+ * Extraneous directives, foreign ExecStart, ExecStartPre/Post hooks, and
+ * wrapper scripts are rejected.
  */
-export function isManagedOrcaUnit(text) {
+export function isManagedOrcaUnit(text, expectedUnit = null) {
   if (typeof text !== 'string') return false
-  const lines = text.split(/\r?\n/)
-  return (
-    lines.includes(UNIT_IDENTITY_MARKER) &&
-    /^ExecStart=.*\/scripts\/orca\/cli\.mjs(?:["\s])/m.test(text) &&
-    /--managed-root/.test(text)
-  )
+  if (typeof expectedUnit === 'string') {
+    return text === expectedUnit
+  }
+  if (expectedUnit && typeof expectedUnit === 'object') {
+    return text === renderOrcaServiceUnit(expectedUnit)
+  }
+  if (!text.startsWith(`${UNIT_IDENTITY_MARKER}\n`)) return false
+  if (/^ExecStart(?:Pre|Post)=/m.test(text)) return false
+  if (/^EnvironmentFile=/m.test(text)) return false
+
+  const execLine = text.match(/^ExecStart=(.+)$/m)
+  if (!execLine) return false
+  const exec = execLine[1]
+
+  if (!exec.includes('--managed-root')) return false
+
+  const validExec = /^("?(?:[^"\\]|\\.)*node"?) ("?(?:[^"\\]|\\.)*\/scripts\/orca\/cli\.mjs"?) "run"/m.test(exec)
+  if (!validExec) return false
+
+  return true
 }
 
 /**
@@ -111,21 +129,36 @@ async function assertNoSymlinkUnitPath(unitPath) {
  */
 export async function inspectExistingUnit({
   unitPath,
-  read = (path) => readFile(path, 'utf8'),
+  expectedUnit,
+  expectedConfig,
+  read,
   uid = typeof process.getuid === 'function' ? process.getuid() : null
 } = {}) {
   assertAbsoluteClean(unitPath, 'unit path')
   await assertNoSymlinkUnitPath(unitPath)
+
+  let targetExpected = expectedUnit
+  if (!targetExpected && expectedConfig) {
+    targetExpected = renderOrcaServiceUnit(expectedConfig)
+  }
+
   try {
-    const info = await lstat(unitPath)
-    if (!info.isFile() || info.isSymbolicLink()) {
-      throw new Error(`refusing a non-regular unit: ${unitPath}`)
+    let text
+    if (typeof read === 'function') {
+      const info = await lstat(unitPath)
+      if (!info.isFile() || info.isSymbolicLink()) {
+        throw new Error(`refusing a non-regular unit: ${unitPath}`)
+      }
+      if (uid !== null && info.uid !== uid) {
+        throw new Error(`refusing a unit not owned by this user: ${unitPath}`)
+      }
+      text = await read(unitPath)
+    } else {
+      text = await readOwnedUnitFile(unitPath, uid)
+      if (text === null) return { state: 'absent', text: null }
     }
-    if (uid !== null && info.uid !== uid) {
-      throw new Error(`refusing a unit not owned by this user: ${unitPath}`)
-    }
-    const text = await read(unitPath)
-    if (!isManagedOrcaUnit(text)) {
+
+    if (!isManagedOrcaUnit(text, targetExpected)) {
       throw new Error(`refusing to overwrite an existing foreign unit: ${unitPath}`)
     }
     return { state: 'managed', text }
