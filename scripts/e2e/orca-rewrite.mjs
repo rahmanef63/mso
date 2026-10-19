@@ -11,26 +11,33 @@
 // The engine computes `initUrl` from the launcher's hostname while its NextURL canonicalizes
 // a bare loopback IP to `localhost`, so `scripts/server.mjs` must hand Next the canonical
 // loopback name; the app-host branch must in turn rewrite to `request.nextUrl.origin`
-// exactly. Both halves are exercised here. Harness (fake upstream, synthetic readiness
-// root, redacting diagnostics) lives in ./orca-rewrite-harness.mjs.
+// exactly. Both halves are exercised here. Harness (fake upstream child listener,
+// synthetic readiness root, redacting diagnostics) lives in ./orca-rewrite-harness.mjs.
 import assert from "node:assert/strict";
-import { createServer, request } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
-import os from "node:os";
+import { request } from "node:http";
+import { rm } from "node:fs/promises";
 import path from "node:path";
 import { releaseFixture } from "./release-fixture.mjs";
-import { APP_HOST, APP_ORIGIN, COCKPIT, createDiagnostics, seedOrcaRuntime, startOrcaUpstream } from "./orca-rewrite-harness.mjs";
+import {
+  APP_HOST,
+  APP_ORIGIN,
+  COCKPIT,
+  createDiagnostics,
+  createFixtureDirectory,
+  seedOrcaRuntime,
+} from "./orca-rewrite-harness.mjs";
 
-const upstream = await startOrcaUpstream();
-const orcaRoot = await mkdtemp(path.join(os.tmpdir(), "mso-orca-rewrite-fixture-"));
+const orcaRoot = await createFixtureDirectory("mso-orca-rewrite-fixture-");
 // Diagnostics go to a private scratch dir, never into the worktree/repo tree.
-const diagDir = await mkdtemp(path.join(os.tmpdir(), "mso-orca-rewrite-diag-"));
+const diagDir = await createFixtureDirectory("mso-orca-rewrite-diag-");
 const diagFile = path.join(diagDir, "rewrite-diagnostics.log");
+
 process.env.ORCA_HOME = orcaRoot;
-process.env.ORCA_DASHBOARD_URL = upstream.url;
+const runtime = await seedOrcaRuntime(orcaRoot);
+process.env.ORCA_DASHBOARD_URL = runtime.url;
+
 let phase = "startup";
 let serverLog = ""; // Bounded, redacted tail only.
-let runtime;
 let fixture;
 let ok = false;
 
@@ -48,11 +55,10 @@ const hop = (pathname, { host, headers = {}, method = "GET" } = {}) =>
   });
 
 const dumpDiagnostics = createDiagnostics({
-  file: diagFile, getPhase: () => phase, hits: upstream.hits, getLog: () => serverLog,
+  file: diagFile, getPhase: () => phase, hits: runtime.hits, getLog: () => serverLog,
 });
 
 try {
-  runtime = await seedOrcaRuntime(orcaRoot, upstream.port);
   fixture = await releaseFixture({
     publicOrigin: COCKPIT,
     onLog: (stream, text) => { serverLog = (serverLog + `[${stream}] ${text}`).slice(-8000); },
@@ -125,18 +131,17 @@ try {
   assert.equal(forged.status, 404, "a forged marker on the cockpit origin must 404");
 
   // Every upstream byte was fetched directly on loopback, never via the public Host.
-  assert.equal(upstream.hits.length, 2, "the upstream is fetched once per authenticated app-host request");
-  assert.ok(upstream.hits.every((hit) => /^127\.0\.0\.1:/.test(hit.host)), "upstream Host is loopback");
+  assert.equal(runtime.hits.length, 2, "the upstream is fetched once per authenticated app-host request");
+  assert.ok(runtime.hits.every((hit) => /^127\.0\.0\.1:/.test(hit.host)), "upstream Host is loopback");
 
   console.log("orca-rewrite: PASS " + JSON.stringify({
     https: httpsIndex.status, http: httpIndex.status, unauthed: unauthed.status,
-    bootstrap: bootstrap.status, forged: forged.status, upstreamHits: upstream.hits.length,
+    bootstrap: bootstrap.status, forged: forged.status, upstreamHits: runtime.hits.length,
   }));
   ok = true;
 } finally {
   if (fixture) await fixture.close();
-  runtime?.kill();
-  await upstream.close();
+  if (runtime) await runtime.close();
   await rm(orcaRoot, { recursive: true, force: true });
   // Keep the redacted diagnostic when it matters; drop it on pass so runs stay clean.
   if (ok) await rm(diagDir, { recursive: true, force: true });
