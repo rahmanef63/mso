@@ -1,3 +1,17 @@
+## 2026-10-19: Orca web integration Checkpoint 3 (local development candidate)
+
+Local development candidate on `feat/orca-web-20261019`. This is an in-progress worktree candidate, not merged to main, not released, and not deployed.
+
+**Scope implemented:**
+- Verified bootstrap JavaScript execution inside an isolated VM browser DOM sandbox (`lib/managed-apps/orca-bootstrap.test.ts`), proving credential exchange, pairing fragment preservation in the hash, ticket removal, and error handling without query parameter leakage.
+- Enforced arbitrary-path `Sec-Fetch-Dest: serviceworker` rejection at the reverse proxy boundary without upstream invocation, and verified that dedicated/shared workers are forwarded only under live Operator authentication.
+- Server-only Orca private readiness parser and bridge (`lib/managed-apps/orca-readiness.ts`), strictly enforcing fixed managed root (`~/.local/share/mso/orca` or `ORCA_HOME`), 0700/0600 file modes, 64KB size limit, no symlinks, process liveness check, version 1.4.230 check, port 6769 loopback bind, live terminal daemon state, and pairing offer invariants.
+- Upstream pairing offer decoder and validator (`lib/managed-apps/orca-pairing.ts`) conforming to Orca v1.4.230 schema, validating same-origin WSS endpoint, runtime scope, and absence of desktop-control grants.
+- Session route bridge (`app/api/v1/managed-apps/[id]/session/route.ts`) returning safe pairing payload `{ origin, ticket, pairingUrl, webClientUrl, runtimeId }` exclusively for live Operator sessions with `Cache-Control: no-store`; rejecting unauthenticated or Viewer callers with 401 and unavailable Orca instances with 503.
+- Orca UI component and state tests (`frontend/slices/managed-apps/orca-ui.test.tsx`), validating initial loading presentation, disabled installer when `installBackends` is empty, fragment resolution without query secrets, and rejection of Viewer roles without credential leakage.
+- Catalog configuration updated to repo-owned adapter path `scripts/managed-app-orca` with `commandProvesInstall: false`, service `mso-orca.service`, no generic container detection, default port 6769, health path `/web-index.html`, and state dir `orca`.
+- Added portable documentation `docs/ORCA-INTEGRATION.md`.
+
 ## 2026-10-18: MSO deep QA stopped at the user's request
 
 Work and active QA were stopped on 18 October 2026 at the user's explicit request. This is a progress checkpoint directly on main, not a release of the development candidate. Resume implementation, validation or deployment only after a new user instruction.

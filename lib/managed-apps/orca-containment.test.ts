@@ -193,20 +193,3 @@ describe("Orca WebSocket upgrade Origin validation", () => {
     expect(hermesDecision?.identity).toBe(freshId);
   });
 });
-
-describe("Bootstrap pairing fragment preservation", () => {
-  it("preserves an existing pairing fragment while removing app_ticket without leaking secrets", () => {
-    // Simulate what the bootstrap client script does on the iframe URL
-    const originalHash = "#pairing=enc_v1_pairing_secret_key&app_ticket=temp_ticket_xyz";
-    const p = new URLSearchParams(originalHash.slice(1));
-    const ticket = p.get("app_ticket");
-    expect(ticket).toBe("temp_ticket_xyz");
-
-    p.delete("app_ticket");
-    const remainingHash = p.toString() ? "#" + p.toString() : "";
-    expect(remainingHash).toBe("#pairing=enc_v1_pairing_secret_key");
-    expect(remainingHash).not.toContain("app_ticket");
-    // Ensure pairing token stays in fragment and never converted to query param
-    expect(remainingHash.startsWith("#pairing=")).toBe(true);
-  });
-});

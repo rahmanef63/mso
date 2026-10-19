@@ -7,6 +7,23 @@ import { Terminal } from "@/features/os-terminal";
 import type { ManagedAppFeature } from "@/lib/managed-apps/types";
 import { cliCommand, dashboardSurfaceSource, featureSource } from "./feature-cli";
 
+export async function resolveAuthorizedFrameUrl(
+  response: Response,
+  embeddedSource: string,
+): Promise<{ source: string; url: string }> {
+  if (!response.ok) throw new Error("authorization failed");
+  const data = await response.json();
+  const expectedOrigin = new URL(embeddedSource).origin;
+  if (data.origin !== expectedOrigin || typeof data.ticket !== "string") throw new Error("authorization origin mismatch");
+  const targetSource = typeof data.webClientUrl === "string" && data.webClientUrl ? data.webClientUrl : embeddedSource;
+  const url = new URL(targetSource);
+  if (url.origin !== expectedOrigin) throw new Error("authorization origin mismatch");
+  const fragment = new URLSearchParams(url.hash.slice(1));
+  fragment.set("app_ticket", data.ticket);
+  url.hash = fragment.toString();
+  return { source: embeddedSource, url: url.toString() };
+}
+
 export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { feature: ManagedAppFeature; publicDashboardUrl?: string | null }) {
   const embeddedSource = featureSource(feature);
   const surface = dashboardSurfaceSource(embeddedSource, publicDashboardUrl);
@@ -26,15 +43,10 @@ export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { 
   useEffect(() => {
     if (surface.kind !== "embedded" || !embeddedSource) return;
     const controller = new AbortController();
-    void fetch(`/api/v1/managed-apps/${feature.applicationId}/session`, { cache: "no-store", signal: controller.signal }).then(async response => {
-      if (!response.ok) throw new Error("authorization failed");
-      const data = await response.json();
-      const url = new URL(embeddedSource);
-      if (url.origin !== data.origin || typeof data.ticket !== "string") throw new Error("authorization origin mismatch");
-      const fragment = new URLSearchParams(url.hash.slice(1));
-      fragment.set("app_ticket", data.ticket); url.hash = fragment.toString();
-      setAuthorization({ source: embeddedSource, url: url.toString() }); setAuthorizationError(false);
-    }).catch(() => { if (!controller.signal.aborted) setAuthorizationError(true); });
+    void fetch(`/api/v1/managed-apps/${feature.applicationId}/session`, { cache: "no-store", signal: controller.signal })
+      .then((res) => resolveAuthorizedFrameUrl(res, embeddedSource))
+      .then((auth) => { setAuthorization(auth); setAuthorizationError(false); })
+      .catch(() => { if (!controller.signal.aborted) setAuthorizationError(true); });
     return () => controller.abort();
   }, [embeddedSource, feature.applicationId, generation, surface.kind]);
   const authorizedSource = authorization?.source === embeddedSource ? authorization.url : null;

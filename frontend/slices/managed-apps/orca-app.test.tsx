@@ -27,9 +27,13 @@ describe("Orca checkpoint 1 identity and presentation", () => {
     const orcaDef = defs.find((d) => d.id === "orca");
     expect(orcaDef).toBeDefined();
     expect(orcaDef?.name).toBe("Orca");
-    expect(orcaDef?.command).toBe("orca-ide");
-    expect(orcaDef?.dashboardUrl).toMatch(/6768/);
-    expect(orcaDef?.stateDirName).toBe(".orca");
+    expect(orcaDef?.command).toBe("scripts/managed-app-orca");
+    expect(orcaDef?.commandProvesInstall).toBe(false);
+    expect(orcaDef?.serviceNames).toEqual(["mso-orca.service"]);
+    expect(orcaDef?.containerNames).toEqual([]);
+    expect(orcaDef?.dashboardUrl).toMatch(/6769/);
+    expect(orcaDef?.healthPath).toBe("/web-index.html");
+    expect(orcaDef?.stateDirName).toBe("orca");
     expect(orcaDef?.installBackends).toEqual([]);
     expect(getManagedAppDefinition("orca" as any)).toEqual(orcaDef);
   });

@@ -92,7 +92,7 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     installNote: "Orca installer is not available yet. Waiting for verified upstream packaging and runtime contract.",
     uninstallCommand: "",
     uninstallEffect: "Orca uninstaller is not available yet.",
-    stateDir: "~/.orca",
+    stateDir: "~/.local/share/mso/orca",
   },
 };
 

@@ -19,7 +19,7 @@ export function dashboardFeature(id: ManagedAppId, title: string): ManagedAppFea
 export function cliCommand(feature: ManagedAppFeature): string {
   if (feature.applicationId === "hermes") return "hermes";
   if (feature.applicationId === "9router") return "docker logs --tail 80 9router";
-  if (feature.applicationId === "orca") return "journalctl --user -u orca.service -n 80";
+  if (feature.applicationId === "orca") return "journalctl --user -u mso-orca.service -n 80";
   return `${feature.applicationId} status`;
 }
 
