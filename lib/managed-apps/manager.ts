@@ -8,7 +8,7 @@ import { provisionDomainAfterStart, readManagedDomainView } from "./domain-lifec
 import { acquireOperation, activeOperation, releaseOperation, withManagedAppOperationLease } from "./lock";
 import { redact } from "./redact";
 import { listJobRecords } from "./job-store";
-import { detectOrca, orcaUnknownDiagnostic, type ManagedInstallation } from "./orca-installation";
+import { detectOrca, detectOwnedOrcaForStop, orcaUnknownDiagnostic, ORCA_SERVICE, type ManagedInstallation } from "./orca-installation";
 import { commandExists, resolveCommand, runProgram } from "./runner";
 import { managedRunState, running, systemdState } from "./service-state";
 import { userBusEnv, userBusUnavailable } from "./user-bus";
@@ -115,21 +115,23 @@ function actionsFor(installation: ManagedInstallation): ManagedAppAction[] {
 export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
   const definition = getManagedAppDefinition(id);
   const installation = await detect(definition);
-  const runState = await managedRunState(installation);
+  let runState = await managedRunState(installation);
+  let stopOnlyOwned = false;
+  if (id === "orca" && installation.type === "not-installed") {
+    const stopInstall = await detectOwnedOrcaForStop();
+    if (stopInstall.owned) {
+      stopOnlyOwned = true;
+      runState = await managedRunState(stopInstall);
+    }
+  }
   const isRunning = runState === "running";
-  const isHealthy = isRunning ? await managedAppHealth(definition) : null;
+  const isHealthy = isRunning && !stopOnlyOwned ? await managedAppHealth(definition) : null;
   const operation = activeOperation(id);
   const state = operation === "start"
     ? "starting"
-    : installation.type === "not-installed"
+    : installation.type === "not-installed" && !stopOnlyOwned
       ? "not-installed"
-      : runState === "unknown"
-        ? "error"
-        : isHealthy === false
-          ? "unhealthy"
-          : isRunning
-            ? "running"
-            : "stopped";
+      : runState === "unknown" ? "error" : isHealthy === false ? "unhealthy" : isRunning ? "running" : "stopped";
   const dockerInstallAvailable = definition.installBackends.includes("docker") && installation.type === "not-installed" && await dockerUsable();
   const domainView = await readManagedDomainView(id);
   return {
@@ -141,20 +143,18 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
     state,
     healthy: isHealthy,
     version: await version(definition),
-    dashboardAvailable: isRunning && isHealthy !== false,
+    dashboardAvailable: isRunning && isHealthy !== false && !stopOnlyOwned,
     publicDashboardUrl: domainView.domain?.phase === "ready" ? `https://${domainView.domain.hostname}` : directDashboardUrl(definition),
     ...domainView,
-    supportedActions: actionsFor(installation),
+    supportedActions: stopOnlyOwned ? ["stop"] : actionsFor(installation),
     // Only ever attached to a NEGATIVE reading. An app detected as present has
     // been seen, and nothing about the bus can make that observation wrong.
     diagnostic:
       installation.diagnostic ??
-      (runState === "unknown" && installation.serviceName
-        ? orcaUnknownDiagnostic(installation.serviceName)
+      (runState === "unknown" && (installation.serviceName ?? (stopOnlyOwned ? ORCA_SERVICE : undefined))
+        ? orcaUnknownDiagnostic(installation.serviceName ?? ORCA_SERVICE)
         : installation.type === "not-installed" && userBusUnavailable()
-          ? dockerInstallAvailable
-            ? null
-            : "MSO cannot reach this user's systemd bus, so it cannot see user services. On a systemd host enable user linger and provide XDG_RUNTIME_DIR; on a systemd-less/container host use a supported Docker runtime."
+          ? dockerInstallAvailable ? null : "MSO cannot reach this user's systemd bus, so it cannot see user services. On a systemd host enable user linger and provide XDG_RUNTIME_DIR; on a systemd-less/container host use a supported Docker runtime."
           : null),
   };
 }
@@ -216,8 +216,11 @@ export async function performManagedAppAction(id: ManagedAppId, action: ManagedA
     if (!acquireOperation(id, action)) throw new Error("another operation is already running");
     try {
       const definition = getManagedAppDefinition(id);
-      const installation = await detect(definition, id === "orca");
-      if (!actionsFor(installation).includes(action)) throw new Error(installation.diagnostic ?? "operation unsupported for detected installation type");
+      const isOrcaStop = id === "orca" && action === "stop";
+      const installation = isOrcaStop ? await detectOwnedOrcaForStop() : await detect(definition, id === "orca");
+      if (isOrcaStop ? (!installation.owned || installation.type === "not-installed") : !actionsFor(installation).includes(action)) {
+        throw new Error(installation.diagnostic ?? "operation unsupported for detected installation type");
+      }
       if (action === "backup") await createBackup(definition, "manual", () => assertManagedAppStopped(id));
       else await runLifecycle(installation, action);
     } finally {

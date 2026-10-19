@@ -163,3 +163,34 @@ export async function detectOrca({ env = process.env, home = os.homedir(), adapt
           : null;
   return { type: "not-installed", diagnostic };
 }
+
+export interface OrcaStopDetectionDeps {
+  env?: NodeJS.ProcessEnv;
+  home?: string;
+}
+
+/**
+ * Narrow ownership proof for stop containment ONLY.
+ * Verifies exact USER unit and trusted launcher config without requiring release integrity,
+ * allowing an operator to safely stop/contain a running daemon even when the release is corrupt.
+ */
+export async function detectOwnedOrcaForStop({
+  env = process.env,
+  home = os.homedir(),
+}: OrcaStopDetectionDeps = {}): Promise<ManagedInstallation> {
+  const rootResult = resolveOrcaManagedRoot(env);
+  const root = rootResult.ok ? rootResult.root : null;
+  const proof = root !== null ? await orcaUnitProof(orcaUserUnitPath(home), root) : "not-owned";
+  if (proof === "owned") {
+    return { type: "systemd", serviceName: ORCA_SERVICE, serviceNames: [ORCA_SERVICE], owned: true };
+  }
+
+  const diagnostic = !rootResult.ok
+    ? "Orca's managed root (ORCA_HOME) is invalid, so no mso-orca.service can be treated as MSO-installed."
+    : proof === "reinstall-required"
+      ? "mso-orca.service was installed by an older MSO release that did not record its launcher identity; reinstall Orca with this MSO version to manage it."
+      : (await sameNamePresent(ORCA_SERVICE))
+        ? "A mso-orca.service exists that MSO did not create (foreign unit or wrong scope); refusing to manage it."
+        : null;
+  return { type: "not-installed", diagnostic };
+}
