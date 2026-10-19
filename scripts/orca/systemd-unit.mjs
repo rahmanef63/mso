@@ -121,6 +121,12 @@ export function isManagedOrcaUnit(text) {
 /**
  * Refuse a symlinked unit or a symlinked ancestor before reading or writing: a
  * symlink could redirect the write into the operator's own Orca state.
+ *
+ * EVERY ancestor from the unit up to the filesystem root is inspected, including
+ * components above the nearest existing directory. Stopping at the first path
+ * that exists (as an earlier version did) accepted an existing regular unit, or a
+ * missing leaf, reached through a symlinked parent. `lstat` never follows a link
+ * and never opens or reads the target, so a FIFO ancestor cannot block.
  */
 async function assertNoSymlinkUnitPath(unitPath) {
   let current = unitPath
@@ -129,10 +135,7 @@ async function assertNoSymlinkUnitPath(unitPath) {
       if (err.code === 'ENOENT') return null
       throw err
     })
-    if (info) {
-      if (info.isSymbolicLink()) throw new Error(`refusing a symlinked unit path: ${current}`)
-      return
-    }
+    if (info?.isSymbolicLink()) throw new Error(`refusing a symlinked unit path: ${current}`)
     const parent = dirname(current)
     if (parent === current) return
     current = parent
