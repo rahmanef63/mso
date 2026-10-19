@@ -102,29 +102,34 @@ async function sameNamePresent(service: string): Promise<boolean> {
   return false;
 }
 
-// Rehashing the whole release on every poll is unbounded work. Cache the verified
-// version against the receipt file's identity: a rewrite/replace (tamper) changes
-// the key and forces a fresh adapter verification.
-let receiptCache: { root: string; key: string; version: string | null } | null = null;
+const RECEIPT_CACHE_TTL_MS = 30_000;
 
-async function verifiedInstallVersion(root: string, adapterPath: string): Promise<string | null> {
+// Rehashing the whole release on every poll is unbounded work. Cache the verified
+// version against the receipt file's identity and security metadata: a rewrite/replace (tamper)
+// changes the key and forces a fresh adapter verification. Read status cache max 30s.
+let receiptCache: { root: string; key: string; version: string | null; cachedAt: number } | null = null;
+
+async function verifiedInstallVersion(root: string, adapterPath: string, fresh = false): Promise<string | null> {
   const receiptPath = path.join(root, INSTALL_RECEIPT);
   let key: string;
   try {
     const info = await fs.lstat(receiptPath);
     if (info.isSymbolicLink() || !info.isFile()) return null;
     if (!ownerUidMatches(info.uid)) return null;
-    key = `${info.ino}:${info.size}:${info.mtimeMs}`;
+    if ((info.mode & 0o077) !== 0) return null;
+    key = `${adapterPath}:${info.uid}:${info.mode}:${info.ctimeMs}:${info.ino}:${info.size}:${info.mtimeMs}`;
   } catch {
     return null;
   }
-  if (receiptCache && receiptCache.root === root && receiptCache.key === key) return receiptCache.version;
+  if (!fresh && receiptCache && receiptCache.root === root && receiptCache.key === key && Date.now() - receiptCache.cachedAt < RECEIPT_CACHE_TTL_MS) {
+    return receiptCache.version;
+  }
   const result = await runProgram(adapterPath, ["--version"], VERSION_TIMEOUT_MS, { ORCA_HOME: root });
   const printed = result.code === 0 ? result.stdout.trim().split(/\r?\n/)[0] : "";
   // The adapter prints the pinned version only for a release it rehashed and
   // validated; any other non-empty string is not proof.
   const version = printed === EXPECTED_ORCA_VERSION ? printed : null;
-  receiptCache = { root, key, version };
+  receiptCache = { root, key, version, cachedAt: Date.now() };
   return version;
 }
 
@@ -133,14 +138,15 @@ export interface OrcaDetectionDeps {
   home?: string;
   /** This repo's `scripts/managed-app-orca`, invoked with the fixed `--version` argv. */
   adapterPath: string;
+  freshVerification?: boolean;
 }
 
-export async function detectOrca({ env = process.env, home = os.homedir(), adapterPath }: OrcaDetectionDeps): Promise<ManagedInstallation> {
+export async function detectOrca({ env = process.env, home = os.homedir(), adapterPath, freshVerification = false }: OrcaDetectionDeps): Promise<ManagedInstallation> {
   const rootResult = resolveOrcaManagedRoot(env);
   const root = rootResult.ok ? rootResult.root : null;
   const proof = root !== null ? await orcaUnitProof(orcaUserUnitPath(home), root) : "not-owned";
   const unitIsOurs = proof === "owned";
-  const version = root !== null ? await verifiedInstallVersion(root, adapterPath) : null;
+  const version = root !== null ? await verifiedInstallVersion(root, adapterPath, freshVerification) : null;
 
   if (unitIsOurs && version) {
     return { type: "systemd", serviceName: ORCA_SERVICE, serviceNames: [ORCA_SERVICE], owned: true };

@@ -11,8 +11,10 @@ vi.mock("./user-bus", () => ({
   userBusEnv: vi.fn(() => ({ XDG_RUNTIME_DIR: "/run/user/1000" })),
   userBusUnavailable: vi.fn(() => false),
 }));
+type OrcaInstallationModule = typeof import("./orca-installation");
+
 vi.mock("./orca-installation", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./orca-installation")>();
+  const actual = (await importOriginal()) as OrcaInstallationModule;
   return {
     ...actual,
     detectOrca: vi.fn(),

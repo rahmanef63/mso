@@ -21,7 +21,7 @@ async function detect(definition: ManagedAppDefinition, strict = false): Promise
   // Strict check must fail closed when Orca is not installed or has ambiguous/stale state,
   // as absence cannot be proven without an owned stopped unit.
   if (definition.id === "orca") {
-    const result = await detectOrca({ adapterPath: definition.command });
+    const result = await detectOrca({ adapterPath: definition.command, freshVerification: strict });
     if (strict && result.type === "not-installed") {
       throw new Error(result.diagnostic ?? "Cannot confirm Orca is stopped: install state cannot prove absence");
     }
@@ -216,7 +216,7 @@ export async function performManagedAppAction(id: ManagedAppId, action: ManagedA
     if (!acquireOperation(id, action)) throw new Error("another operation is already running");
     try {
       const definition = getManagedAppDefinition(id);
-      const installation = await detect(definition);
+      const installation = await detect(definition, id === "orca");
       if (!actionsFor(installation).includes(action)) throw new Error(installation.diagnostic ?? "operation unsupported for detected installation type");
       if (action === "backup") await createBackup(definition, "manual", () => assertManagedAppStopped(id));
       else await runLifecycle(installation, action);
