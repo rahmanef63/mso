@@ -1,9 +1,10 @@
 // Test fixture: disposable stand-in for orcad-server.
-// Emits a real readiness line and spawns a real detached daemon child, so the
-// launcher's owned-child cleanup and identity checks are exercised for real.
+// Emits a real readiness line and spawns a real detached daemon that creates a
+// canonical socket and pid record, so owned-child cleanup is exercised for real.
 import { spawn } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const args = process.argv.slice(2)
 const value = (name, fallback) => {
@@ -15,11 +16,11 @@ const bind = value('--bind', '127.0.0.1')
 const port = Number(value('--port', '0'))
 const mode = process.env.FAKE_MODE || 'normal'
 const userData = process.env.ORCA_USER_DATA
-const daemonEntry = process.env.FAKE_DAEMON_ENTRY
-const advertised = process.env.FAKE_ADVERTISED || `ws://${bind}:${port}`
+const daemonEntry = process.env.FAKE_DAEMON_ENTRY || join(dirname(fileURLToPath(import.meta.url)), 'daemon-entry.js')
+const advertised = value('--pairing-address', process.env.FAKE_ADVERTISED || `ws://${bind}:${port}`)
 
 let daemonPid = 0
-if (mode !== 'exit' && mode !== 'no-daemon' && daemonEntry && userData) {
+if (mode !== 'exit' && mode !== 'no-daemon' && userData) {
   const daemonDir = join(userData, 'daemon')
   const socketPath = join(daemonDir, 'daemon-v49.sock')
   const pidPath = join(daemonDir, 'daemon-v49.pid')
@@ -31,7 +32,9 @@ if (mode !== 'exit' && mode !== 'no-daemon' && daemonEntry && userData) {
   })
   daemon.unref()
   daemonPid = daemon.pid
-  writeFileSync(pidPath, `${daemonPid}\n`, { mode: 0o600 })
+  writeFileSync(join(userData, 'fake-pids.json'), JSON.stringify({ serverPid: process.pid, daemonPid }), {
+    mode: 0o600
+  })
 }
 
 if (mode === 'ignore-term') process.on('SIGTERM', () => {})
@@ -45,7 +48,8 @@ if (mode === 'stderr-flood') {
   process.stderr.write(`pairing failed: orca://pair?code=SECRET_PAIRING_CODE\n${'x'.repeat(300000)}`)
 }
 
-if (mode !== 'silent' && mode !== 'stderr-flood') {
+function emitReadiness() {
+  if (mode === 'silent' || mode === 'stderr-flood') return
   const pid = mode === 'forged-pid' ? 999999 : process.pid
   const reportedDaemonPid = mode === 'daemon-forged-pid' ? 999999 : daemonPid
   const version = mode === 'wrong-version' ? '0.0.0-orcad' : '1.4.230'
@@ -79,6 +83,13 @@ if (mode !== 'silent' && mode !== 'stderr-flood') {
     }
   }
   process.stdout.write(`${JSON.stringify(payload)}\n`)
+}
+
+const readyDelayMs = mode === 'delayed-ready' ? Number(process.env.FAKE_READY_DELAY_MS || '1200') : 0
+setTimeout(emitReadiness, readyDelayMs)
+
+if (mode === 'crash-after-ready') {
+  setTimeout(() => process.exit(42), readyDelayMs + Number(process.env.FAKE_CRASH_DELAY_MS || '300')).unref()
 }
 
 if (mode === 'stdout-flood') {

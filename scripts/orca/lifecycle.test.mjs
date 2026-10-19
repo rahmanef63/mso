@@ -1,91 +1,11 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, rm, stat, readdir } from 'node:fs/promises'
-import { createServer } from 'node:net'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { launchOrcadServer } from './lifecycle.mjs'
 import { readProcessIdentity } from './proc-identity.mjs'
-import { ensureIsolatedDirectories, createIsolatedEnv } from './env.mjs'
-
-const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url))
-const FAKE_SERVER = join(FIXTURES, 'fake-orcad-server.mjs')
-const DAEMON_ENTRY = join(FIXTURES, 'hold-child.mjs')
-const NODE = process.execPath
-
-function alive(pid) {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function waitGone(pid, timeoutMs = 4000) {
-  const start = Date.now()
-  while (Date.now() - start < timeoutMs) {
-    if (!alive(pid)) return true
-    await new Promise((r) => setTimeout(r, 50))
-  }
-  return !alive(pid)
-}
-
-async function freePort() {
-  return new Promise((resolve, reject) => {
-    const server = createServer()
-    server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address()
-      server.close(() => resolve(port))
-    })
-  })
-}
-
-async function makeRoot() {
-  const root = await mkdtemp(join(tmpdir(), 'orca-lifecycle-'))
-  await ensureIsolatedDirectories(root)
-  return root
-}
-
-async function launch(root, extra = {}) {
-  const port = extra.port ?? (await freePort())
-  const env = {
-    ...createIsolatedEnv({ scratchDir: root }),
-    FAKE_DAEMON_ENTRY: DAEMON_ENTRY,
-    FAKE_ADVERTISED: `ws://127.0.0.1:${port}`,
-    ...(extra.env || {})
-  }
-  return launchOrcadServer({
-    nodeBinary: NODE,
-    slotDir: FIXTURES,
-    serverEntry: FAKE_SERVER,
-    daemonEntryPath: DAEMON_ENTRY,
-    options: {
-      bind: '127.0.0.1',
-      port,
-      allowLoopbackAdvertised: true,
-      ...(extra.options || {})
-    },
-    env,
-    managedRoot: root,
-    privateStatusPath: extra.privateStatusPath ?? join(root, 'private-status.json'),
-    runtimeIdentityPath: extra.runtimeIdentityPath ?? join(root, 'runtime-identity.json'),
-    timeoutMs: extra.timeoutMs ?? extra.options?.timeoutMs ?? 5000
-  })
-}
-
-async function recordedDaemonPid(root) {
-  const dir = join(root, 'runtime', 'user-data', 'daemon')
-  const files = await readdir(dir).catch(() => [])
-  const pidFile = files.find((f) => /^daemon-v\d+\.pid$/.test(f))
-  if (!pidFile) return null
-  const pid = Number((await readFile(join(dir, pidFile), 'utf8')).trim())
-  return Number.isInteger(pid) && pid > 1 ? pid : null
-}
+import { DAEMON_ENTRY, NODE, launch, makeRoot, recordedDaemonPid, waitGone } from './lifecycle-test-helpers.mjs'
 
 describe('supervised launch, owned identity, and scoped teardown', () => {
   it('launches a real child, publishes private receipts, and stops both owned processes', async () => {
@@ -116,41 +36,6 @@ describe('supervised launch, owned identity, and scoped teardown', () => {
       assert.equal(await waitGone(daemonPid), true)
     } finally {
       await instance.stop({ cleanDaemon: true, timeoutMs: 2000 }).catch(() => {})
-      await rm(root, { recursive: true, force: true })
-    }
-  })
-
-  it('preserves the daemon for a persistent run and only stops the server', async () => {
-    const root = await makeRoot()
-    const instance = await launch(root)
-    const daemonPid = instance.daemonIdentity.pid
-    try {
-      const result = await instance.stop({ cleanDaemon: false, timeoutMs: 4000 })
-      assert.equal(result.exited, true)
-      assert.equal(result.daemonExited, false)
-      assert.equal(await waitGone(instance.child.pid), true)
-      assert.equal(alive(daemonPid), true)
-    } finally {
-      try { process.kill(daemonPid, 'SIGKILL') } catch {}
-      await rm(root, { recursive: true, force: true })
-    }
-  })
-
-  it('is idempotent and never signals a stale daemon identity', async () => {
-    const root = await makeRoot()
-    const instance = await launch(root)
-    const daemonPid = instance.daemonIdentity.pid
-    try {
-      instance.daemonIdentity.startTicks = '1'
-      const result = await instance.stop({ cleanDaemon: true, timeoutMs: 1000 })
-      assert.equal(result.exited, true)
-      assert.equal(result.daemonExited, false)
-      assert.equal(alive(daemonPid), true)
-
-      const again = await instance.stop({ cleanDaemon: true, timeoutMs: 1000 })
-      assert.equal(again.exited, true)
-    } finally {
-      try { process.kill(daemonPid, 'SIGKILL') } catch {}
       await rm(root, { recursive: true, force: true })
     }
   })

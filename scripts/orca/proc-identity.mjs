@@ -56,7 +56,7 @@ async function readExe(pid) {
   }
 }
 
-/** Full identity snapshot, or null when the process is gone. */
+/** Full identity snapshot, or null when the process is gone or its PID was reused mid-read. */
 export async function readProcessIdentity(pid) {
   if (!Number.isInteger(pid) || pid <= 1) return null
   let raw
@@ -70,6 +70,15 @@ export async function readProcessIdentity(pid) {
   const owner = await readUid(pid)
   if (!owner) return null
   const [argv, exe] = await Promise.all([readArgv(pid), readExe(pid)])
+  // Re-read the kernel start time after the multi-file snapshot: a reused PID
+  // must not combine fields from two different processes.
+  let confirm
+  try {
+    confirm = parseProcStat(await readFile(`${PROC}/${pid}/stat`, 'utf8'))
+  } catch {
+    return null
+  }
+  if (!confirm || confirm.startTicks !== parsed.startTicks) return null
   return {
     pid,
     comm: parsed.comm,
@@ -138,12 +147,12 @@ export async function waitForProcessIdentity(pid, expected = {}, { attempts = 40
   return null
 }
 
-/** True once the exact identity is gone (dead or the PID was reused). */
+/** True once the exact identity is gone (dead, zombie, or the PID was reused). */
 export async function waitForProcessExit(identity, { timeoutMs = 5000, pollMs = 50 } = {}) {
   const start = Date.now()
   for (;;) {
     const actual = await readProcessIdentity(identity.pid)
-    if (!actual || actual.startTicks !== identity.startTicks) return true
+    if (!actual || actual.state === 'Z' || actual.startTicks !== identity.startTicks) return true
     if (Date.now() - start >= timeoutMs) return false
     await new Promise((r) => setTimeout(r, pollMs))
   }
@@ -152,6 +161,8 @@ export async function waitForProcessExit(identity, { timeoutMs = 5000, pollMs = 
 /**
  * Signal only after re-verifying kernel identity. Never signals a stale,
  * reused, or foreign PID; returns explicit failure instead of pretending.
+ * Linux has no pidfd here, so a verify-then-kill window remains; start ticks
+ * make reuse detectable before/after signalling but cannot eliminate the race.
  */
 export async function terminateVerifiedProcess(
   identity,

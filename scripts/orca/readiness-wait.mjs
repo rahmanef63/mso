@@ -6,10 +6,11 @@
 import { createBoundedLineReader } from './bounded-stream.mjs'
 import { redactSensitiveText } from './bounded-proc.mjs'
 
-export function waitForReadiness({ child, timeoutMs, stderrSink }) {
+export function waitForReadiness({ child, timeoutMs, stderrSink, signal }) {
   return new Promise((resolve, reject) => {
     let settled = false
     let reader = null
+    let abortListener = null
     const stderrTail = () => redactSensitiveText(stderrSink.text()).slice(-2048)
     const timer = setTimeout(() => {
       finish(
@@ -22,6 +23,7 @@ export function waitForReadiness({ child, timeoutMs, stderrSink }) {
       clearTimeout(timer)
       child.removeListener('error', onError)
       child.removeListener('exit', onExit)
+      if (signal && abortListener) signal.removeEventListener('abort', abortListener)
     }
     const finish = (err, value) => {
       if (settled) return
@@ -33,8 +35,22 @@ export function waitForReadiness({ child, timeoutMs, stderrSink }) {
       } else resolve(value)
     }
     const onError = (err) => finish(new Error(`failed to spawn orcad-server: ${err.message}`))
-    const onExit = (code, signal) =>
-      finish(new Error(`orcad-server exited prematurely (code ${code}, signal ${signal}): ${stderrTail()}`))
+    const onExit = (code, exitSignal) =>
+      finish(
+        new Error(`orcad-server exited prematurely (code ${code}, signal ${exitSignal}): ${stderrTail()}`)
+      )
+
+    if (signal) {
+      abortListener = () => {
+        const reason = signal.reason instanceof Error ? signal.reason.message : 'startup cancelled'
+        finish(new Error(reason))
+      }
+      if (signal.aborted) {
+        abortListener()
+        return
+      }
+      signal.addEventListener('abort', abortListener, { once: true })
+    }
 
     reader = createBoundedLineReader(child.stdout, {
       onLine: (line) => {
