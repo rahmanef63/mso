@@ -1,69 +1,113 @@
 # Orca Web Integration Architecture & Security Contracts
 
-Status: **Local Development Candidate** (Not shipped to main or deployed)  
-Target Version: Orca IDE v1.4.230 (Node-only headless `orcad` daemon)
+Status: **local development candidate** on the task branch. Not merged, released, or
+deployed. No real Orca runtime, browser journey, or upstream install has been executed as
+part of this worktree — installer/lifecycle remain owned by a separate runtime slice.
+
+Target: Orca IDE v1.4.230, Node-only headless `orcad` server.
 
 ---
 
-## 1. Split-Origin Architecture Requirement
+## 1. Split-origin requirement
 
-MSO embeds vendor web dashboards strictly through dedicated subdomains/hosts (e.g. `orca.mso.example.com`) defined by `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE="{id}.mso.example.com"`:
+MSO embeds vendor web dashboards strictly through dedicated subdomains/hosts (e.g.
+`orca.mso.example.com`) defined by `NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE="{id}.mso.example.com"`:
 
-- **Cross-Origin Boundary**: The iframe runs with `allow-same-origin` so the Orca web client can use its own cookies, IndexedDB, and Web Workers. Because it runs on a separate host from the cockpit (`mso.example.com`), `window.top` is opaque and cannot call `/api/v1/exec` or access MSO session cookies.
-- **No Same-Origin Fallback**: Deployments without a host template disable iframe embedding; MSO falls back to the CLI terminal view.
-- **CSP Frame-Ancestors**: The proxy injects `frame-ancestors https://mso.example.com`, preventing third-party clickjacking or embedding outside the MSO cockpit.
+- **Cross-origin boundary**: the iframe runs with `allow-same-origin` so the Orca web
+  client can use its own cookies, IndexedDB, and Web Workers. Because it runs on a host
+  separate from the cockpit, `window.top` is opaque and `/api/v1/exec` does not exist on
+  that origin.
+- **No same-origin fallback**: a deployment without a host template disables iframe
+  embedding; MSO falls back to the CLI view. There is deliberately no path-on-cockpit mode.
 
----
+## 2. Shared operator workspace & terminal semantics
 
-## 2. Shared Operator Workspace & Terminal Semantics
+Per `PAIRING-DECISION.md`:
 
-As documented in `PAIRING-DECISION.md`:
-- **Single Unix Principal**: MSO runs as a dedicated Unix user on the host. All MSO Operators share access to the running `orcad` workspace and terminals.
-- **Upstream Authorization Gap**: Orca v1.4.230 does not support per-device revocation or multi-tenant access control at the RPC layer.
-- **Outer Gate Enforcement**: Security relies on the outer MSO gate:
-  - Live authorization requires `operator` or `owner` role.
-  - Active WebSocket connections are monitored with an idle/re-check timer against the MSO device store.
-  - Viewer role devices and revoked sessions are denied access at the HTTP proxy and WebSocket upgrade boundaries.
+- **Single Unix principal**: all MSO Operators share the one running `orcad` workspace and
+  terminals.
+- **Upstream authorization gap**: Orca v1.4.230 has no per-device revocation or multi-tenant
+  RPC authorization. MSO does not invent one.
+- **Outer gate**: HTTP and WebSocket access require a live Operator/Owner role and an active
+  MSO device session; active sockets are re-authorized on the existing chunk/idle timer.
+  Viewer or revoked devices are denied at the proxy and upgrade boundaries. Retaining an
+  upstream key does not bypass the MSO gate. This is **not** upstream row deletion and is not
+  a per-device upstream grant surface.
 
----
+## 3. Runtime readiness (fail closed)
 
-## 3. Node-Only Headless Daemon (`orcad`)
+`getOrcaReadiness()` is unavailable unless **all** of the following hold. There is no static
+fallback and no "live PID" shortcut.
 
-- **No Electron / Display Server**: Orca is run purely via Node 24.21.0 invoking the upstream `orcad` server entrypoint.
-- **Loopback Bind**: The daemon listens strictly on `127.0.0.1:6769`. It must never bind to `0.0.0.0` or a public network interface.
-- **Static Asset Serving**: Static web client files are served from `/web-index.html` and associated assets.
+- `private-status.json` carries the exact tag `type: "orca_server_ready"`, `schemaVersion: 1`,
+  a non-empty `runtimeId`, `health.buildVersion === "1.4.230"`, `health.nodeVersion === "24.21.0"`,
+  `health.nodeAbi === "137"`, a positive `health.pid`, and a live terminal daemon
+  (`state: "live"`, `ownsFreshSessions: true`, `selfTest.ok: true`). An `artifactVersion`
+  field can never override the real `health.buildVersion`.
+- The bound endpoint is `ws://127.0.0.1:<managed-port>` — loopback, no credentials, path,
+  query, or fragment. The managed port comes from config (default 6769); the user's existing
+  6768 listener is never adopted.
+- The advertised endpoint is the exact configured WSS origin with no credentials, path,
+  query, or fragment.
+- Pairing is available with an **explicit** `scope: "runtime"` and a valid offer (section 6).
 
----
+## 4. Private state root and identity receipt
 
-## 4. Port 6769 & Collision Isolation
+- Managed root is MSO-owned state: `~/.local/share/mso/orca`, or a clean absolute `ORCA_HOME`.
+  An invalid `ORCA_HOME` fails the bridge closed; it never falls back to the owner's personal
+  `~/.orca`/`~/.orca-remote`.
+- `private-status.json` is 0600 under a 0700 owner directory. Reads reject symlinked ancestors
+  and symlinked leaves, open `O_NOFOLLOW`, bound the size before any byte moves, and re-check
+  file identity after reading.
+- `runtime-identity.json` is **mandatory** (schema 1): `runtimeId`, `version`, `serverPid`,
+  `serverStartTicks`, `nodeBinary`, `serverEntry`, `userData`, `boundEndpoint`,
+  `advertisedEndpoint`, `readyAt`. Its paths must be contained in the managed root
+  (release slot under `releases/`, profile at `runtime/user-data`).
 
-- **Port Allocation**: Managed Orca uses port **6769** (configurable via `ORCA_DASHBOARD_URL`).
-- **Collision Avoidance**: Default port 6768 is avoided to prevent collisions with user-owned desktop instances or background processes running out of `~/.orca` or `~/.orca-remote`.
-- **Private Managed State**: MSO stores managed state and private status in `~/.local/share/mso/orca` (or `ORCA_HOME`), isolating it from the user's personal configuration.
+## 5. Process identity
 
----
+The receipt's `serverPid` must equal `private-status.health.pid` and resolve to the exact
+owned kernel process. Verification reads only `/proc/PID/stat` (field 22 start time,
+comm-safe parsing), `/proc/PID` owner UID, `/proc/PID/exe`, and `/proc/PID/cmdline` — **never**
+`/proc/PID/environ` or credentials. PID, start ticks, UID, canonical executable, and server
+script argv must all match. A missing, reused, foreign, unreadable, or EPERM process yields
+`unavailable`, never a blessing.
 
-## 5. Bootstrap Credentials & Pairing Flow
+## 6. Pairing offer and delivery
 
-1. **Session Endpoint**: Authenticated Operators query `GET /api/v1/managed-apps/orca/session` (`Cache-Control: no-store`).
-2. **Private Readiness Verification**: The server verifies `private-status.json` (version 1.4.230, port 6769, live terminal daemon, process PID, valid pairing offer).
-3. **Fragment-Based Delivery**:
-   - The client URL contains `#pairing=<token>&app_ticket=<ticket>`.
-   - Secrets are never placed in URL query parameters or server logs.
-4. **Ticket Exchange**:
-   - The bootstrap script sends `POST /__mso_app_auth` with `Authorization: Bearer <ticket>`.
-   - Upon successful verification, an HttpOnly Secure `__Host-mso-managed-app` cookie is minted.
-   - The ticket is stripped from `window.location.hash`, preserving the `#pairing=<token>` fragment.
-   - The page reloads, allowing Orca's web client to initialize with the pairing token while using the authenticated session cookie.
+- The offer must be scope `runtime`, bound to the **exact** configured WSS origin (no relay,
+  no userinfo/path/query/fragment), with well-formed token/key material. Absent scope (the
+  upstream legacy/mobile shape), relay offers, and any grant claim are refused. Upstream does
+  not encode grants in this offer, so MSO cannot and does not certify upstream permissions.
+- MSO constructs the one frameable URL itself:
+  `https://<app-origin>/web-index.html#pairing=<encodeURIComponent(pairingUrl)>`. An
+  upstream-provided `webClientUrl` is never trusted. The credential lives in the fragment
+  only — never a query, a log, or a cookie.
+- Non-Orca managed apps never accept a server-supplied navigation URL; a `webClientUrl` on
+  another app's response is refused.
 
----
+## 7. Session route and UI
 
-## 6. Containment & Unsupported Capabilities
+`GET /api/v1/managed-apps/[id]/session` returns `no-store` always. Non-Operator/Viewer/
+unauthenticated callers get 401; a missing split origin gets 404; an unavailable Orca gets
+503 with a safe reason enum and no pairing/ticket material. The client aborts a stale in-flight
+authorization and invalidates prior authorization before resolving, so a revoked or refreshed
+session cannot remount an old frame. A revoked MSO session fails at the live proxy; the client
+does not delete upstream rows.
 
-- **Desktop Automation**: Disabled (`grantDesktopControl: false`, `grants: []`). The RPC permission `desktop-control` is not granted.
-- **Service Workers**: Rejected at proxy boundary (`Sec-Fetch-Dest: serviceworker` returns 404 regardless of path or extension).
-- **CSP**:
-  - `worker-src`: Restricted to exact app root plus `blob:`.
-  - `script-src`: Grants `'wasm-unsafe-eval'` for Orca WebAssembly modules; strictly forbids `'unsafe-eval'`.
-- **WebSocket Upgrade**: Requires exact same-origin HTTPS `Origin` header matching `https://orca.mso.example.com`.
-- **Lifecycle & Updates**: Automated install, update, and rollback remain disabled (`installBackends: []`, `commandProvesInstall: false`) pending verified packaging in subsequent checkpoints.
+> The Managed Apps panel's `healthy` flag still reflects static HTTP reachability of
+> `/web-index.html`. That is a liveness hint only. Browser pairing is gated by the full
+> readiness/identity check above, not by that flag.
+
+## 8. Containment & unsupported capabilities
+
+- **Service workers**: rejected at the proxy boundary (`Sec-Fetch-Dest: serviceworker` → 404,
+  any path).
+- **CSP**: `worker-src` limited to the app root plus `blob:`; `script-src` allows
+  `'wasm-unsafe-eval'` (never `'unsafe-eval'`).
+- **WebSocket upgrade**: exact same-origin HTTPS `Origin` matching the configured Orca host.
+- **Lifecycle**: install/update/uninstall/desktop-control remain disabled (`installBackends: []`,
+  `commandProvesInstall: false`). Pairing offers claiming desktop control are refused.
+- **Not verified here**: pinned installer execution, live browser/worker/WASM journey, and
+  end-to-end runtime start are out of this slice and must be proven with real artifacts before
+  any "verified" claim.

@@ -1,193 +1,181 @@
 /**
  * Server-only Orca private readiness parser and bridge.
- * Reads private-status.json exclusively from the fixed managed root.
- * Validates version 1.4.230, port 6769 loopback, terminal daemon health,
- * process liveness, and pairing invariants.
+ *
+ * Fail-closed: the bridge is available ONLY when the upstream `orca_server_ready`
+ * readiness tag, the MSO runtime-identity receipt, and the actual owned kernel
+ * process all agree. Any missing, stale, reused, foreign, or unreadable identity
+ * denies. No fallback to a static asset check, a bare live PID, or a personal
+ * `~/.orca` profile.
  */
-import { promises as fs } from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import "server-only";
 import { managedAppOrigin } from "./origin";
-import { validateOrcaPairingUrl } from "./orca-pairing";
+import { buildOrcaWebClientUrl, validateOrcaPairingUrl } from "./orca-pairing";
+import { readOrcaPrivateFile, resolveOrcaManagedRoot } from "./orca-private-fs";
+import {
+  parseOrcaRuntimeReceipt,
+  readLinuxProcessSnapshot,
+  receiptPathsAreContained,
+  verifyOrcaProcessIdentity,
+  type OrcaProcessReader,
+} from "./orca-process-identity";
 
 export interface OrcaReadinessSuccess {
   available: true;
   pairingUrl: string;
-  webClientUrl: string | null;
+  webClientUrl: string;
   runtimeId: string;
+  serverPid: number;
+  boundEndpoint: string;
+  advertisedEndpoint: string;
 }
-
 export interface OrcaReadinessUnavailable {
   available: false;
   reason: string;
 }
-
 export type OrcaReadinessResult = OrcaReadinessSuccess | OrcaReadinessUnavailable;
+export interface OrcaReadinessDeps {
+  env?: NodeJS.ProcessEnv;
+  readProcess?: OrcaProcessReader;
+}
 
-export function getOrcaManagedRoot(): string {
-  const custom = process.env.ORCA_HOME?.trim();
-  if (custom && path.isAbsolute(custom) && !custom.includes("..")) {
-    return path.normalize(custom);
+const ORCA_VERSION = "1.4.230";
+const ORCA_NODE_VERSION = "24.21.0";
+const ORCA_NODE_ABI = "137";
+const DEFAULT_MANAGED_PORT = 6769;
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+
+const deny = (reason: string): OrcaReadinessUnavailable => ({ available: false, reason });
+
+/** Managed port comes from config (default 6769), never a hardcoded user-port block. */
+export function orcaManagedPort(env: Record<string, string | undefined> = process.env): number {
+  const raw = env.ORCA_DASHBOARD_URL;
+  if (raw) {
+    try {
+      const url = new URL(raw);
+      const port = Number(url.port || (url.protocol === "https:" ? 443 : url.protocol === "http:" ? 80 : NaN));
+      if (Number.isInteger(port) && port > 0 && port <= 65535) return port;
+    } catch {
+      /* fall through to the default */
+    }
   }
-  return path.join(os.homedir(), ".local", "share", "mso", "orca");
+  return DEFAULT_MANAGED_PORT;
 }
 
-export function getOrcaPrivateStatusPath(): string {
-  return path.join(getOrcaManagedRoot(), "private-status.json");
-}
-
-export function getOrcaRuntimeIdentityPath(): string {
-  return path.join(getOrcaManagedRoot(), "runtime-identity.json");
-}
-
-async function verifyStatusFileSecurity(rootPath: string, filePath: string): Promise<boolean> {
+function parseLoopbackWs(value: unknown, managedPort: number): "ok" | "malformed" | "non_loopback" | "bad_port" {
+  if (typeof value !== "string") return "malformed";
+  let url: URL;
   try {
-    const rootStat = await fs.lstat(rootPath);
-    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) return false;
-    if ((rootStat.mode & 0o077) !== 0) return false;
-    if (typeof process.getuid === "function" && rootStat.uid !== process.getuid()) return false;
-
-    const fileStat = await fs.lstat(filePath);
-    if (!fileStat.isFile() || fileStat.isSymbolicLink()) return false;
-    if ((fileStat.mode & 0o077) !== 0) return false;
-    if (typeof process.getuid === "function" && fileStat.uid !== process.getuid()) return false;
-    if (fileStat.size > 65536) return false;
-
-    return true;
+    url = new URL(value);
   } catch {
-    return false;
+    return "malformed";
   }
+  if (url.protocol !== "ws:" || url.username || url.password) return "malformed";
+  if ((url.pathname !== "" && url.pathname !== "/") || url.search || url.hash) return "malformed";
+  if (!LOOPBACK_HOSTS.has(url.hostname.toLowerCase())) return "non_loopback";
+  if (Number(url.port) !== managedPort) return "bad_port";
+  return "ok";
 }
 
-function checkProcessRunning(pid: number): boolean {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
+function advertisedMatches(value: unknown, origin: string): "ok" | "malformed" | "mismatch" {
+  if (typeof value !== "string") return "malformed";
+  let url: URL;
   try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code;
-    return code === "EPERM"; // Process exists with distinct credentials
+    url = new URL(value);
+  } catch {
+    return "malformed";
   }
+  if (url.protocol !== "wss:" || url.username || url.password) return "mismatch";
+  if ((url.pathname !== "" && url.pathname !== "/") || url.search || url.hash) return "mismatch";
+  const expected = `${new URL(origin).host.toLowerCase()}`;
+  return url.host.toLowerCase() === expected ? "ok" : "mismatch";
 }
 
-export async function parseOrcaPrivateStatus(content: string, origin: string): Promise<OrcaReadinessResult> {
+export async function parseOrcaPrivateStatus(
+  content: string,
+  origin: string,
+  managedPort: number = orcaManagedPort(),
+): Promise<OrcaReadinessResult> {
   let data: Record<string, any>;
   try {
-    data = JSON.parse(content);
+    const parsed = JSON.parse(content);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return deny("invalid_json");
+    data = parsed as Record<string, any>;
   } catch {
-    return { available: false, reason: "invalid_json" };
+    return deny("invalid_json");
   }
 
-  // 1. Artifact version 1.4.230 check
-  const version = data.artifactVersion ?? data.health?.buildVersion;
-  if (version !== "1.4.230") return { available: false, reason: "incompatible_version" };
+  if (data.type !== "orca_server_ready") return deny("unexpected_status_type");
+  if (data.schemaVersion !== 1) return deny("unsupported_status_schema");
+  if (typeof data.runtimeId !== "string" || !data.runtimeId.trim()) return deny("missing_runtime_id");
 
-  // 2. Bound endpoint must be loopback on port 6769
-  if (typeof data.boundEndpoint !== "string") return { available: false, reason: "missing_bound_endpoint" };
-  try {
-    const bound = new URL(data.boundEndpoint);
-    if (bound.hostname !== "127.0.0.1" && bound.hostname !== "localhost") {
-      return { available: false, reason: "non_loopback_bound_endpoint" };
-    }
-    if (bound.port !== "6769") return { available: false, reason: "unexpected_bound_port" };
-  } catch {
-    return { available: false, reason: "malformed_bound_endpoint" };
-  }
-
-  // 3. Advertised endpoint must match configured Orca WSS origin
-  if (typeof data.advertisedEndpoint !== "string") return { available: false, reason: "missing_advertised_endpoint" };
-  try {
-    const adv = new URL(data.advertisedEndpoint);
-    const expectedAdv = origin.replace(/^https:/i, "wss:").replace(/^http:/i, "ws:").toLowerCase();
-    if (adv.origin.toLowerCase() !== expectedAdv) return { available: false, reason: "advertised_origin_mismatch" };
-  } catch {
-    return { available: false, reason: "malformed_advertised_endpoint" };
-  }
-
-  // 4. Runtime ID
-  if (typeof data.runtimeId !== "string" || !data.runtimeId.trim()) {
-    return { available: false, reason: "missing_runtime_id" };
-  }
-
-  // 5. Health & terminal daemon checks
   const health = data.health;
-  if (!health || typeof health.pid !== "number") return { available: false, reason: "missing_health_pid" };
-  if (!checkProcessRunning(health.pid)) return { available: false, reason: "process_dead" };
-
-  const td = health.terminalDaemon;
-  if (!td || td.state !== "live" || td.ownsFreshSessions !== true || td.selfTest?.ok !== true) {
-    return { available: false, reason: "terminal_daemon_unhealthy" };
+  if (!health || typeof health !== "object") return deny("incompatible_version");
+  // The REAL health buildVersion is authoritative; `artifactVersion` never overrides it.
+  if (health.buildVersion !== ORCA_VERSION) return deny("incompatible_version");
+  if (String(health.nodeVersion) !== ORCA_NODE_VERSION) return deny("incompatible_node_version");
+  if (String(health.nodeAbi) !== ORCA_NODE_ABI) return deny("incompatible_node_abi");
+  if (!Number.isInteger(health.pid) || health.pid <= 1) return deny("missing_health_pid");
+  const daemon = health.terminalDaemon;
+  if (!daemon || daemon.state !== "live" || daemon.ownsFreshSessions !== true || daemon.selfTest?.ok !== true) {
+    return deny("terminal_daemon_unhealthy");
   }
 
-  // 6. Pairing readiness validation
+  const bound = parseLoopbackWs(data.boundEndpoint, managedPort);
+  if (bound === "malformed") return deny("malformed_bound_endpoint");
+  if (bound === "non_loopback") return deny("non_loopback_bound_endpoint");
+  if (bound === "bad_port") return deny("unexpected_bound_port");
+
+  if (data.advertisedEndpoint === undefined) return deny("missing_advertised_endpoint");
+  const advertised = advertisedMatches(data.advertisedEndpoint, origin);
+  if (advertised === "malformed") return deny("malformed_advertised_endpoint");
+  if (advertised === "mismatch") return deny("advertised_origin_mismatch");
+
   const pairing = data.pairing;
-  if (!pairing || pairing.available !== true || pairing.scope !== "runtime") {
-    return { available: false, reason: "pairing_unavailable" };
-  }
-  if (typeof pairing.url !== "string") return { available: false, reason: "missing_pairing_url" };
-
-  const validatedOffer = validateOrcaPairingUrl(pairing.url, origin);
-  if (!validatedOffer) return { available: false, reason: "invalid_pairing_offer" };
-
-  let webClientUrl: string | null = null;
-  if (typeof pairing.webClientUrl === "string" && pairing.webClientUrl) {
-    try {
-      const parsedWeb = new URL(pairing.webClientUrl);
-      if (parsedWeb.origin.toLowerCase() === origin.toLowerCase()) {
-        webClientUrl = pairing.webClientUrl;
-      }
-    } catch {
-      webClientUrl = null;
-    }
-  }
+  if (!pairing || pairing.available !== true || pairing.scope !== "runtime") return deny("pairing_unavailable");
+  if (typeof pairing.url !== "string") return deny("missing_pairing_url");
+  if (!validateOrcaPairingUrl(pairing.url, origin)) return deny("invalid_pairing_offer");
 
   return {
     available: true,
     pairingUrl: pairing.url,
-    webClientUrl,
+    webClientUrl: buildOrcaWebClientUrl(origin, pairing.url),
     runtimeId: data.runtimeId,
+    serverPid: health.pid,
+    boundEndpoint: data.boundEndpoint,
+    advertisedEndpoint: data.advertisedEndpoint,
   };
 }
 
-export async function getOrcaReadiness(): Promise<OrcaReadinessResult> {
+export async function getOrcaReadiness(deps: OrcaReadinessDeps = {}): Promise<OrcaReadinessResult> {
   const origin = managedAppOrigin("orca");
-  if (!origin) return { available: false, reason: "origin_unavailable" };
+  if (!origin) return deny("origin_unavailable");
+  const env = deps.env ?? process.env;
 
-  const root = getOrcaManagedRoot();
-  const statusFile = getOrcaPrivateStatusPath();
+  const rootResult = resolveOrcaManagedRoot(env);
+  if (!rootResult.ok) return deny("managed_root_invalid");
+  const root = rootResult.root;
 
-  const secure = await verifyStatusFileSecurity(root, statusFile);
-  if (!secure) return { available: false, reason: "status_file_insecure_or_missing" };
+  const statusRead = await readOrcaPrivateFile(root, "private-status.json");
+  if (!statusRead.ok) return deny(statusRead.reason === "missing" ? "status_file_missing" : "status_file_insecure");
+  const parsed = await parseOrcaPrivateStatus(statusRead.text, origin, orcaManagedPort(env));
+  if (!parsed.available) return parsed;
 
-  let result: OrcaReadinessResult;
-  try {
-    const raw = await fs.readFile(statusFile, "utf-8");
-    result = await parseOrcaPrivateStatus(raw, origin);
-  } catch {
-    return { available: false, reason: "read_failed" };
+  // The runtime-identity receipt is MANDATORY: a readiness file alone is not ownership proof.
+  const identityRead = await readOrcaPrivateFile(root, "runtime-identity.json");
+  if (!identityRead.ok) return deny(identityRead.reason === "missing" ? "runtime_identity_missing" : "runtime_identity_insecure");
+  const receipt = parseOrcaRuntimeReceipt(identityRead.text);
+  if (!receipt) return deny("runtime_identity_invalid");
+  if (!receiptPathsAreContained(receipt, root)) return deny("runtime_identity_mismatch");
+  if (receipt.runtimeId !== parsed.runtimeId || receipt.version !== ORCA_VERSION) return deny("runtime_identity_mismatch");
+  if (receipt.serverPid !== parsed.serverPid) return deny("runtime_identity_mismatch");
+  if (receipt.boundEndpoint !== parsed.boundEndpoint || receipt.advertisedEndpoint !== parsed.advertisedEndpoint) {
+    return deny("runtime_identity_mismatch");
   }
 
-  if (!result.available) return result;
+  const readProcess = deps.readProcess ?? readLinuxProcessSnapshot;
+  const snapshot = await readProcess(receipt.serverPid);
+  if (!snapshot) return deny("process_identity_unavailable");
+  if (!verifyOrcaProcessIdentity(receipt, snapshot, root)) return deny("process_identity_mismatch");
 
-  const identityFile = getOrcaRuntimeIdentityPath();
-  try {
-    await fs.access(identityFile);
-    const idSecure = await verifyStatusFileSecurity(root, identityFile);
-    if (!idSecure) return { available: false, reason: "runtime_identity_insecure" };
-    const idData = JSON.parse(await fs.readFile(identityFile, "utf-8"));
-    if (
-      idData.schemaVersion !== 1 ||
-      idData.version !== "1.4.230" ||
-      idData.runtimeId !== result.runtimeId ||
-      typeof idData.serverPid !== "number" ||
-      !checkProcessRunning(idData.serverPid)
-    ) {
-      return { available: false, reason: "runtime_identity_mismatch" };
-    }
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code;
-    if (code !== "ENOENT") return { available: false, reason: "runtime_identity_insecure" };
-  }
-
-  return result;
+  return parsed;
 }

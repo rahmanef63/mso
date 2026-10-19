@@ -1,3 +1,33 @@
+## 2026-10-19: Orca bridge corrective checkpoint (local development candidate)
+
+Local candidate on `feat/orca-web-20261019`. Not merged, released, or deployed. This pass fixes
+fail-open defects in the earlier Checkpoint 3 readiness/pairing/session/UI bridge; the runtime
+installer/lifecycle slice (`scripts/orca`) is owned separately and untouched here.
+
+- **Readiness is now fail closed** (`lib/managed-apps/orca-readiness.ts`): requires the exact
+  `orca_server_ready` schema-1 tag, `health.buildVersion` 1.4.230 (an `artifactVersion` cannot
+  override it), pinned Node 24.21.0 ABI 137, live terminal daemon, `ws` loopback bound endpoint
+  on the managed port, exact configured `wss` advertised endpoint, and explicit runtime pairing.
+- **Mandatory identity receipt + process identity** (`lib/managed-apps/orca-process-identity.ts`):
+  `runtime-identity.json` is required; PID/startTicks/UID/exe/cmdline must match via `/proc`
+  (never environ). Missing/reused/foreign/unreadable/EPERM identity denies. A real disposable
+  same-task node process is exercised in tests; the test runner's PID is refused.
+- **Symlink-proof bounded private reads** (`lib/managed-apps/orca-private-fs.ts`): rejects
+  symlinked ancestors/leaves, opens `O_NOFOLLOW`, bounds size before reading, re-checks identity,
+  and never touches the owner's personal `~/.orca`. Invalid `ORCA_HOME` fails closed instead of
+  silently falling back.
+- **Strict pairing + canonical web client** (`lib/managed-apps/orca-pairing.ts`): explicit
+  runtime scope only, exact trusted WSS endpoint with no relay/userinfo/path/query, and a
+  server-constructed `…/web-index.html#pairing=<encoded>` fragment. Upstream grants are not
+  certified; arbitrary `webClientUrl` is never trusted.
+- **Session route** returns `no-store` on every outcome and 503 with a safe reason when readiness
+  is missing (`app/api/v1/managed-apps/[id]/session/route.test.ts`).
+- **UI authorization pipeline** (`frontend/slices/managed-apps/app-authorization.ts`,
+  `feature-app.tsx`): Orca-only URL override, stale-request abort, prior-authorization
+  invalidation; tested with real `Response`/`AbortController`.
+- **Honest docs**: `docs/ORCA-INTEGRATION.md` corrected and classified in `docs/README.md`;
+  no real browser/runtime/install verification is claimed.
+
 ## 2026-10-19: Orca web integration Checkpoint 3 (local development candidate)
 
 Local development candidate on `feat/orca-web-20261019`. This is an in-progress worktree candidate, not merged to main, not released, and not deployed.

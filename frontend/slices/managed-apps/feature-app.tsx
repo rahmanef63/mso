@@ -5,24 +5,8 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import type { AppProps } from "@/features/appshell";
 import { Terminal } from "@/features/os-terminal";
 import type { ManagedAppFeature } from "@/lib/managed-apps/types";
+import { requestAuthorizedFrame, selectAuthorizedFrame } from "./app-authorization";
 import { cliCommand, dashboardSurfaceSource, featureSource } from "./feature-cli";
-
-export async function resolveAuthorizedFrameUrl(
-  response: Response,
-  embeddedSource: string,
-): Promise<{ source: string; url: string }> {
-  if (!response.ok) throw new Error("authorization failed");
-  const data = await response.json();
-  const expectedOrigin = new URL(embeddedSource).origin;
-  if (data.origin !== expectedOrigin || typeof data.ticket !== "string") throw new Error("authorization origin mismatch");
-  const targetSource = typeof data.webClientUrl === "string" && data.webClientUrl ? data.webClientUrl : embeddedSource;
-  const url = new URL(targetSource);
-  if (url.origin !== expectedOrigin) throw new Error("authorization origin mismatch");
-  const fragment = new URLSearchParams(url.hash.slice(1));
-  fragment.set("app_ticket", data.ticket);
-  url.hash = fragment.toString();
-  return { source: embeddedSource, url: url.toString() };
-}
 
 export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { feature: ManagedAppFeature; publicDashboardUrl?: string | null }) {
   const embeddedSource = featureSource(feature);
@@ -35,21 +19,24 @@ export function ManagedFeatureApp({ feature, publicDashboardUrl }: AppProps & { 
   // not iframe an http:// public IP inside an https:// cockpit (mixed content), and we
   // never fall back to a same-origin vendor iframe.
   const [generation, setGeneration] = useState(0);
-  const [authorization, setAuthorization] = useState<{ source: string; url: string } | null>(null);
-  const [authorizationError, setAuthorizationError] = useState(false);
+  // Result is keyed by generation so a refresh/remount invalidates the previous
+  // authorization by derivation — no synchronous setState in the effect, and a
+  // stale in-flight response can never re-mount the old frame.
+  const [authState, setAuthState] = useState<{ generation: number; auth: { source: string; url: string } | null; error: boolean }>({ generation: -1, auth: null, error: false });
   const [view, setView] = useState<"ui" | "cli">(() => (uiAvailable ? "ui" : "cli"));
 
   const reload = useCallback(() => setGeneration((value) => value + 1), []);
   useEffect(() => {
     if (surface.kind !== "embedded" || !embeddedSource) return;
     const controller = new AbortController();
-    void fetch(`/api/v1/managed-apps/${feature.applicationId}/session`, { cache: "no-store", signal: controller.signal })
-      .then((res) => resolveAuthorizedFrameUrl(res, embeddedSource))
-      .then((auth) => { setAuthorization(auth); setAuthorizationError(false); })
-      .catch(() => { if (!controller.signal.aborted) setAuthorizationError(true); });
+    void requestAuthorizedFrame(feature.applicationId, embeddedSource, controller.signal)
+      .then((auth) => { if (!controller.signal.aborted) setAuthState({ generation, auth, error: false }); })
+      .catch(() => { if (!controller.signal.aborted) setAuthState({ generation, auth: null, error: true }); });
     return () => controller.abort();
   }, [embeddedSource, feature.applicationId, generation, surface.kind]);
-  const authorizedSource = authorization?.source === embeddedSource ? authorization.url : null;
+  const current = embeddedSource ? selectAuthorizedFrame(authState, generation, embeddedSource) : { url: null, error: false };
+  const authorizedSource = current.url;
+  const authorizationError = current.error;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">

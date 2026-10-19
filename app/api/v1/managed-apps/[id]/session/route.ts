@@ -8,18 +8,19 @@ import { getOrcaReadiness } from "@/lib/managed-apps/orca-readiness";
 import { IS_DEMO } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
+const NO_STORE = { "cache-control": "no-store" } as const;
 export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSessionContext();
-  if (IS_DEMO || !session || !roleAtLeast(session.role, "operator")) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (IS_DEMO || !session || !roleAtLeast(session.role, "operator")) return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: NO_STORE });
   const { id } = await context.params;
-  if (!isManagedAppId(id) || !managedAppOrigin(id)) return NextResponse.json({ error: "unavailable" }, { status: 404 });
+  if (!isManagedAppId(id) || !managedAppOrigin(id)) return NextResponse.json({ error: "unavailable" }, { status: 404, headers: NO_STORE });
   const origin = managedAppOrigin(id)!;
   const ticket = createManagedAppTicket(id, session.session, process.env.OS_SESSION_SECRET ?? "");
 
   if (id === "orca") {
     const readiness = await getOrcaReadiness();
     if (!readiness.available) {
-      return NextResponse.json({ error: "unavailable", reason: readiness.reason }, { status: 503, headers: { "cache-control": "no-store" } });
+      return NextResponse.json({ error: "unavailable", reason: readiness.reason }, { status: 503, headers: NO_STORE });
     }
     return NextResponse.json({
       origin,
@@ -27,8 +28,8 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
       pairingUrl: readiness.pairingUrl,
       webClientUrl: readiness.webClientUrl,
       runtimeId: readiness.runtimeId,
-    }, { headers: { "cache-control": "no-store" } });
+    }, { headers: NO_STORE });
   }
 
-  return NextResponse.json({ origin, ticket }, { headers: { "cache-control": "no-store" } });
+  return NextResponse.json({ origin, ticket }, { headers: NO_STORE });
 }
