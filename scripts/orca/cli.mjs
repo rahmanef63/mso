@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 /**
- * Orca runtime CLI helper: materialization, isolated execution, and health proof.
+ * Hardened Orca runtime CLI helper: materialization, isolated execution, and health proof.
  */
 
 import { existsSync } from 'node:fs'
-import { copyFile, chmod, mkdir, rm, symlink } from 'node:fs/promises'
-import { spawn } from 'node:child_process'
+import { copyFile, chmod, mkdir, symlink } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import {
   DEFAULT_BIND,
@@ -20,46 +19,59 @@ import { ensureIsolatedDirectories, createIsolatedEnv } from './env.mjs'
 import { fetchAndMaterializeNodeRuntime } from './node-runtime.mjs'
 import { materializeOrcadSlot } from './materializer.mjs'
 import { launchOrcadServer } from './launcher.mjs'
+import { acquireAndExtractDeb } from './artifact-source.mjs'
+import { initScratchGitRepo, verifyRealTerminalEcho } from './terminal-proof.mjs'
 
-const DEFAULT_TEMPLATE = '/home/antinrml/.hermes/cache/scratch/orca-upstream-probe/deb-amd64/opt/Orca/resources/orcad-template'
-const DEFAULT_WEB = '/home/antinrml/.hermes/cache/scratch/orca-upstream-probe/deb-amd64/opt/Orca/resources/app.asar.unpacked/out/web'
-const DEFAULT_SCRATCH = '/home/antinrml/.hermes/cache/scratch/orca-runtime-proof-20261019'
-
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const args = { command: argv[2] || 'help' }
   for (let i = 3; i < argv.length; i += 1) {
-    if (argv[i] === '--template') args.template = argv[++i]
+    if (argv[i] === '--deb') args.deb = argv[++i]
+    else if (argv[i] === '--template') args.template = argv[++i]
     else if (argv[i] === '--web') args.web = argv[++i]
     else if (argv[i] === '--scratch') args.scratch = argv[++i]
     else if (argv[i] === '--port') args.port = Number(argv[++i])
     else if (argv[i] === '--bind') args.bind = argv[++i]
+    else if (argv[i] === '--allow-download') args.allowDownload = true
   }
   return args
 }
 
 export async function prepareSlotAndRuntime({
-  templateDir = DEFAULT_TEMPLATE,
-  scratchDir = DEFAULT_SCRATCH
+  debPath,
+  templateDir,
+  webDir,
+  scratchDir,
+  allowDownload = false
 } = {}) {
+  if (!scratchDir) throw new Error('--scratch directory is required')
   await ensureIsolatedDirectories(scratchDir)
+
+  let resolvedTemplate = templateDir
+  let resolvedWeb = webDir
+
+  if (!resolvedTemplate || !resolvedWeb) {
+    const extractDir = join(scratchDir, 'upstream-extracted')
+    const extracted = await acquireAndExtractDeb({ debPath, extractDir, allowDownload })
+    resolvedTemplate = extracted.templateDir
+    resolvedWeb = extracted.webDir
+  }
+
   const slotsRoot = join(scratchDir, 'slots', SUPPORTED_TARGET)
   const runtimesRoot = join(scratchDir, 'slots', SUPPORTED_TARGET, ORCAD_RUNTIMES_DIRNAME)
 
-  // 1. Fetch & verify pinned Node
   const nodeBinary = await fetchAndMaterializeNodeRuntime({
     target: SUPPORTED_TARGET,
-    runtimesDir: runtimesRoot
+    runtimesDir: runtimesRoot,
+    allowDownload
   })
 
-  // 2. Materialize orcad template
   const tempSlotDir = join(slotsRoot, 'active')
   const { slotDir, fullVersion } = await materializeOrcadSlot({
-    templateDir,
+    templateDir: resolvedTemplate,
     outputSlotDir: tempSlotDir,
     target: SUPPORTED_TARGET
   })
 
-  // 3. Ensure expected relative runtime link exists from slotDir
   const slotExpectedNode = join(
     slotDir,
     '..',
@@ -69,7 +81,7 @@ export async function prepareSlotAndRuntime({
   )
 
   if (!existsSync(slotExpectedNode)) {
-    await mkdir(dirname(slotExpectedNode), { recursive: true })
+    await mkdir(dirname(slotExpectedNode), { recursive: true, mode: 0o700 })
     try {
       await symlink(nodeBinary, slotExpectedNode)
     } catch {
@@ -78,18 +90,22 @@ export async function prepareSlotAndRuntime({
     }
   }
 
-  return { slotDir, nodeBinary, fullVersion }
+  return { slotDir, nodeBinary, fullVersion, templateDir: resolvedTemplate, webDir: resolvedWeb }
 }
 
 export async function runSmokeProof({
-  templateDir = DEFAULT_TEMPLATE,
-  webDir = DEFAULT_WEB,
-  scratchDir = DEFAULT_SCRATCH,
+  debPath,
+  templateDir,
+  webDir,
+  scratchDir,
   port = DEFAULT_PORT,
-  bind = DEFAULT_BIND
+  bind = DEFAULT_BIND,
+  allowDownload = false
 } = {}) {
+  if (!scratchDir) throw new Error('--scratch directory is required')
   console.log(`[orca-cli] Preparing slot and pinned Node in ${scratchDir}...`)
-  const { slotDir, nodeBinary, fullVersion } = await prepareSlotAndRuntime({ templateDir, scratchDir })
+  const prepared = await prepareSlotAndRuntime({ debPath, templateDir, webDir, scratchDir, allowDownload })
+  const { slotDir, nodeBinary, fullVersion, webDir: actualWebDir } = prepared
   console.log(`[orca-cli] Slot materialized: ${slotDir} (${fullVersion})`)
   console.log(`[orca-cli] Node runtime verified: ${nodeBinary}`)
 
@@ -100,86 +116,75 @@ export async function runSmokeProof({
   const instance = await launchOrcadServer({
     nodeBinary,
     slotDir,
-    options: { bind, port, webClientRoot: webDir },
+    options: { bind, port, webClientRoot: actualWebDir },
     env,
     timeoutMs: 30000,
     privateStatusPath
   })
 
-  console.log('[orca-cli] Received orca_server_ready!')
-  console.log('[orca-cli] Safe metadata:', JSON.stringify(instance.redacted, null, 2))
+  try {
+    console.log('[orca-cli] Received orca_server_ready!')
+    console.log('[orca-cli] Safe metadata:', JSON.stringify(instance.redacted, null, 2))
 
-  // Probe static web client
-  const endpoint = instance.readyPayload.boundEndpoint || instance.readyPayload.endpoint
-  let actualPort = port
-  if (endpoint) {
-    const match = /:(\d+)$/.exec(endpoint)
-    if (match) actualPort = Number(match[1])
-  }
-  const webUrl = `http://${bind}:${actualPort}/web-index.html`
-  console.log(`[orca-cli] Probing web client at ${webUrl}...`)
-  const resp = await fetch(webUrl)
-  console.log(`[orca-cli] Web client status: ${resp.status} ${resp.statusText}, Content-Type: ${resp.headers.get('content-type')}`)
-  if (!resp.ok) {
-    throw new Error(`Web client probe failed: HTTP ${resp.status}`)
-  }
-  const html = await resp.text()
-  if (!html.includes('<title>Orca Web</title>')) {
-    throw new Error('Web client response did not contain expected title: <title>Orca Web</title>')
-  }
-  console.log('[orca-cli] Web client HTML verification PASSED')
+    const endpoint = instance.readyPayload.boundEndpoint || instance.readyPayload.endpoint
+    let actualPort = port
+    if (endpoint) {
+      const match = /:(\d+)$/.exec(endpoint)
+      if (match) actualPort = Number(match[1])
+    }
+    const webUrl = `http://${bind}:${actualPort}/web-index.html`
+    console.log(`[orca-cli] Probing web client at ${webUrl}...`)
+    const resp = await fetch(webUrl)
+    console.log(`[orca-cli] Web client status: ${resp.status} ${resp.statusText}`)
+    if (!resp.ok) throw new Error(`Web client probe failed: HTTP ${resp.status}`)
+    const html = await resp.text()
+    if (!html.includes('<title>Orca Web</title>')) {
+      throw new Error('Web client HTML did not contain <title>Orca Web</title>')
+    }
+    console.log('[orca-cli] Web client probe PASSED')
 
-  // Probe RPC status via CLI using in-memory pairing URL
-  if (instance.readyPayload.pairing?.url) {
-    console.log('[orca-cli] Probing local RPC via CLI status...')
+    if (!instance.readyPayload.pairing?.url) throw new Error('Missing pairing URL in readiness payload')
+
     const cliPath = join(slotDir, 'out', 'cli', 'index.js')
     const cliEnv = { ...env, ORCA_PAIRING_CODE: instance.readyPayload.pairing.url }
-    const cliProcess = spawn(nodeBinary, [cliPath, 'status', '--json'], { env: cliEnv, stdio: ['ignore', 'pipe', 'pipe'] })
-    const outChunks = []
-    cliProcess.stdout.on('data', (d) => outChunks.push(d))
-    await new Promise((resolve) => cliProcess.on('close', resolve))
-    const cliOut = Buffer.concat(outChunks).toString('utf8').trim()
-    try {
-      const statusJson = JSON.parse(cliOut)
-      console.log(`[orca-cli] CLI status response received: runtimeId=${statusJson.runtimeId || statusJson.runtime?.id || 'ok'}`)
+    const testRepo = await initScratchGitRepo(join(scratchDir, 'proof-repo'))
+    const echoToken = `ORCA_ECHO_PASSED_${Date.now()}`
 
-      // Harmless terminal probe via CLI
-      console.log('[orca-cli] Testing terminal list probe via CLI RPC...')
-      const termProcess = spawn(nodeBinary, [cliPath, 'terminal', 'list', '--json'], { env: cliEnv, stdio: ['ignore', 'pipe', 'pipe'] })
-      const termChunks = []
-      termProcess.stdout.on('data', (d) => termChunks.push(d))
-      await new Promise((resolve) => termProcess.on('close', resolve))
-      const termOut = Buffer.concat(termChunks).toString('utf8').trim()
-      console.log(`[orca-cli] Terminal list RPC response: ${termOut}`)
-    } catch {
-      console.log('[orca-cli] CLI status completed.')
-    }
+    console.log(`[orca-cli] Executing real PTY terminal echo roundtrip with token: ${echoToken}...`)
+    await verifyRealTerminalEcho({ nodeBinary, cliPath, cliEnv, testRepo, echoToken })
+    console.log('[orca-cli] Real PTY echo verification PASSED')
+
+    return { fullVersion, redacted: instance.redacted, echoTokenVerified: true }
+  } finally {
+    console.log('[orca-cli] Stopping server and terminal daemon...')
+    await instance.stop()
+    console.log('[orca-cli] Server stopped cleanly.')
   }
-
-  console.log('[orca-cli] Teardown: Stopping server and terminal daemon...')
-  await instance.stop()
-  console.log('[orca-cli] Server stopped cleanly.')
-  return { fullVersion, redacted: instance.redacted }
 }
 
 async function main() {
   const args = parseArgs(process.argv)
   if (args.command === 'materialize') {
     const res = await prepareSlotAndRuntime({
+      debPath: args.deb,
       templateDir: args.template,
-      scratchDir: args.scratch
+      webDir: args.web,
+      scratchDir: args.scratch,
+      allowDownload: args.allowDownload
     })
     console.log(JSON.stringify(res, null, 2))
   } else if (args.command === 'smoke' || args.command === 'run') {
     await runSmokeProof({
+      debPath: args.deb,
       templateDir: args.template,
       webDir: args.web,
       scratchDir: args.scratch,
       port: args.port,
-      bind: args.bind
+      bind: args.bind,
+      allowDownload: args.allowDownload
     })
   } else {
-    console.log('Usage: node scripts/orca/cli.mjs [materialize|smoke] [--template <dir>] [--web <dir>] [--scratch <dir>] [--port <port>] [--bind <ip>]')
+    console.log('Usage: node scripts/orca/cli.mjs [materialize|smoke] --scratch <dir> [--deb <path>] [--template <dir>] [--web <dir>] [--port <port>] [--bind <ip>] [--allow-download]')
   }
 }
 

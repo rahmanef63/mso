@@ -1,14 +1,15 @@
 /**
  * Isolated process environment for Orca runtime execution.
+ * Enforces strict allowlist of system variables, stripping all injection/preload/credential vectors.
  * Fences HOME, XDG, user-data, and temporary directories to scratch.
- * Strips DISPLAY and provider credentials.
+ * Note: Scratch directory fencing is process isolation, not an OS sandbox (no container/chroot).
  */
 
-import { mkdir } from 'node:fs/promises'
+import { lstat, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { ORCA_VERSION } from './constants.mjs'
 
-const SECRET_KEY_PATTERN = /(?:KEY|TOKEN|SECRET|AUTH|COOKIE|PASSWORD|CREDENTIAL|PRIVATE)/i
-const DISPLAY_VARS = ['DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY', 'MIR_SOCKET']
+const ALLOWLISTED_PARENT_KEYS = ['LANG', 'LC_ALL', 'LC_CTYPE', 'TERM']
 
 export function createIsolatedEnv({ scratchDir, baseEnv = process.env } = {}) {
   if (!scratchDir) {
@@ -17,20 +18,21 @@ export function createIsolatedEnv({ scratchDir, baseEnv = process.env } = {}) {
 
   const env = {}
 
-  // Copy safe base environment variables
-  for (const [key, value] of Object.entries(baseEnv)) {
-    if (DISPLAY_VARS.includes(key)) continue
-    if (SECRET_KEY_PATTERN.test(key)) continue
-    // Filter user's specific dotfile or credential configs
-    if (key.startsWith('npm_') || key.startsWith('CARGO_')) continue
-    env[key] = value
+  // Inherit ONLY explicitly allowlisted non-sensitive parent vars
+  for (const key of ALLOWLISTED_PARENT_KEYS) {
+    if (baseEnv[key] !== undefined) {
+      env[key] = baseEnv[key]
+    }
   }
 
-  // Set explicit isolated directories under scratch
+  // Fenced directories under scratch
   const isolatedHome = join(scratchDir, 'home')
   const isolatedUserData = join(scratchDir, 'user-data')
   const isolatedTmp = join(scratchDir, 'tmp')
 
+  env.PATH = '/usr/local/bin:/usr/bin:/bin'
+  env.SHELL = '/bin/bash'
+  env.HISTFILE = join(isolatedHome, '.bash_history')
   env.HOME = isolatedHome
   env.ORCA_USER_DATA = isolatedUserData
   env.ORCA_USER_DATA_PATH = isolatedUserData
@@ -44,17 +46,21 @@ export function createIsolatedEnv({ scratchDir, baseEnv = process.env } = {}) {
   env.DO_NOT_TRACK = '1'
   env.ORCA_TELEMETRY_DISABLED = '1'
   env.ORCA_DIAGNOSTICS_DISABLED = '1'
-  env.ORCA_VERSION = '1.4.230'
-
-  // Standard POSIX shell
-  if (!env.SHELL) {
-    env.SHELL = '/bin/bash'
-  }
+  env.ORCA_VERSION = ORCA_VERSION
 
   return env
 }
 
 export async function ensureIsolatedDirectories(scratchDir) {
+  try {
+    const s = await lstat(scratchDir)
+    if (s.isSymbolicLink()) {
+      throw new Error(`Refusing symlink scratch directory: ${scratchDir}`)
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err
+  }
+
   const dirs = [
     scratchDir,
     join(scratchDir, 'home'),
@@ -64,11 +70,17 @@ export async function ensureIsolatedDirectories(scratchDir) {
     join(scratchDir, 'home', '.cache'),
     join(scratchDir, 'user-data'),
     join(scratchDir, 'tmp'),
-    join(scratchDir, 'runtimes'),
-    join(scratchDir, 'slots')
+    join(scratchDir, 'slots'),
+    join(scratchDir, 'runtimes')
   ]
 
   for (const d of dirs) {
+    try {
+      const s = await lstat(d)
+      if (s.isSymbolicLink()) throw new Error(`Refusing symlink directory: ${d}`)
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err
+    }
     await mkdir(d, { recursive: true, mode: 0o700 })
   }
 }

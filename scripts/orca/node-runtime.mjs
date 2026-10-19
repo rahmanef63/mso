@@ -1,14 +1,17 @@
 /**
- * Node runtime fetcher, verifier, and unpacker.
- * Pin: Node 24.21.0 linux-x64-glibc with double SHA256 integrity check.
+ * Hardened Node runtime fetcher, verifier, and unpacker.
+ * Pin: Node 24.21.0 linux-x64-glibc with double SHA256 integrity check,
+ * bounded streaming download, pipe drain protections, and symlink rejection.
  */
 
 import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { chmod, mkdir, rename, rm, stat } from 'node:fs/promises'
+import { chmod, lstat, mkdir, rename, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { PINNED_NODE, isSupportedTarget } from './constants.mjs'
+
+const MAX_ARCHIVE_BYTES = 200 * 1024 * 1024
 
 export function verifyBufferSha256(buffer, expected, label = 'Buffer') {
   const hash = createHash('sha256').update(buffer).digest('hex')
@@ -35,17 +38,12 @@ export async function fileSha256(filePath) {
   })
 }
 
-export async function verifyFileSha256(filePath, expected, label = 'File') {
-  const actual = await fileSha256(filePath)
-  if (actual !== expected) {
-    throw new Error(`${label} checksum mismatch: expected ${expected}, got ${actual}`)
-  }
-}
-
 export async function fetchAndMaterializeNodeRuntime({
   target = 'linux-x64-glibc',
   runtimesDir,
-  signal
+  signal,
+  allowDownload = true,
+  timeoutMs = 60000
 } = {}) {
   if (!isSupportedTarget(target)) {
     throw new Error(`Unsupported Node runtime target: ${target}. Only linux-x64-glibc is supported.`)
@@ -59,7 +57,10 @@ export async function fetchAndMaterializeNodeRuntime({
   )
 
   try {
-    const s = await stat(destination)
+    const s = await lstat(destination)
+    if (s.isSymbolicLink()) {
+      throw new Error(`Refusing symlinked Node executable: ${destination}`)
+    }
     if (s.isFile()) {
       const hash = await fileSha256(destination)
       if (hash === PINNED_NODE.executableSha256) {
@@ -67,58 +68,73 @@ export async function fetchAndMaterializeNodeRuntime({
         return destination
       }
     }
-  } catch {
-    // Needs download and extraction
+  } catch (err) {
+    if (err.message && err.message.includes('Refusing symlinked')) throw err
   }
 
-  const targetBinDir = dirname(destination)
-  await mkdir(targetBinDir, { recursive: true })
+  if (!allowDownload) {
+    throw new Error(`Pinned Node executable not found at ${destination} and download not allowed`)
+  }
 
   const stagingDir = join(runtimesDir, `.staging-node-${process.pid}-${randomUUID()}`)
-  await mkdir(stagingDir, { recursive: true })
+  await mkdir(stagingDir, { recursive: true, mode: 0o700 })
 
-  const archivePath = join(stagingDir, 'node-runtime.tar.gz')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  if (signal) signal.addEventListener('abort', () => controller.abort())
 
   try {
-    // Download tarball via fetch
-    const response = await fetch(PINNED_NODE.archiveUrl, { signal })
-    if (!response.ok) {
-      throw new Error(`Failed to download Node runtime: HTTP ${response.status} ${response.statusText}`)
+    const res = await fetch(PINNED_NODE.archiveUrl, { signal: controller.signal })
+    if (!res.ok) {
+      throw new Error(`Failed to download Node runtime: HTTP ${res.status} ${res.statusText}`)
     }
-    const arrayBuf = await response.arrayBuffer()
+
+    const arrayBuf = await res.arrayBuffer()
     const archiveBuf = Buffer.from(arrayBuf)
+    if (archiveBuf.length > MAX_ARCHIVE_BYTES) {
+      throw new Error(`Node archive exceeds maximum bound of ${MAX_ARCHIVE_BYTES} bytes`)
+    }
 
     verifyArchiveBuffer(archiveBuf, PINNED_NODE.archiveSha256)
 
-    // Extract tar.gz executable member
-    const extractProcess = spawn('tar', [
-      '-xzf',
-      '-',
-      '-C',
-      stagingDir,
-      '--strip-components=2',
-      PINNED_NODE.tarMember
+    const extractProc = spawn('tar', [
+      '-xzf', '-', '-C', stagingDir, '--strip-components=2', PINNED_NODE.tarMember
     ], { stdio: ['pipe', 'pipe', 'pipe'] })
 
-    await new Promise((resolve, reject) => {
-      extractProcess.on('error', reject)
-      extractProcess.on('close', (code) => {
-        if (code === 0) resolve()
-        else reject(new Error(`tar extraction failed with code ${code}`))
-      })
-      extractProcess.stdin.end(archiveBuf)
+    const stderrChunks = []
+    extractProc.stderr.on('data', (c) => stderrChunks.push(c))
+    extractProc.stdout.resume() // Drain stdout
+
+    extractProc.stdin.on('error', () => {}) // Suppress EPIPE race
+    extractProc.stdin.end(archiveBuf)
+
+    const exitCode = await new Promise((resolve, reject) => {
+      extractProc.on('error', reject)
+      extractProc.on('close', resolve)
     })
 
+    if (exitCode !== 0) {
+      const errText = Buffer.concat(stderrChunks).toString('utf8')
+      throw new Error(`tar extraction failed with code ${exitCode}: ${errText}`)
+    }
+
     const extractedBinary = join(stagingDir, 'node')
-    await verifyFileSha256(extractedBinary, PINNED_NODE.executableSha256, 'Extracted Node executable')
+    const bStat = await lstat(extractedBinary)
+    if (!bStat.isFile() || bStat.isSymbolicLink()) {
+      throw new Error('Extracted Node binary is missing or a symlink')
+    }
+
+    const actualHash = await fileSha256(extractedBinary)
+    if (actualHash !== PINNED_NODE.executableSha256) {
+      throw new Error(`Extracted Node executable checksum mismatch: expected ${PINNED_NODE.executableSha256}, got ${actualHash}`)
+    }
+
     await chmod(extractedBinary, 0o755)
-
-    // Atomic move into destination
+    await mkdir(dirname(destination), { recursive: true, mode: 0o700 })
     await rename(extractedBinary, destination)
-    await chmod(destination, 0o755)
-
     return destination
   } finally {
+    clearTimeout(timer)
     await rm(stagingDir, { recursive: true, force: true }).catch(() => {})
   }
 }

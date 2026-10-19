@@ -1,5 +1,9 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { join } from 'node:path'
+import { mkdir, writeFile, symlink, rm } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { tmpdir } from 'node:os'
 import {
   SUPPORTED_TARGET,
   PINNED_NODE,
@@ -7,7 +11,11 @@ import {
   ORCA_VERSION,
   isSupportedTarget
 } from './constants.mjs'
-import { verifyExecutableBuffer, verifyArchiveBuffer } from './node-runtime.mjs'
+import {
+  verifyExecutableBuffer,
+  verifyArchiveBuffer,
+  fetchAndMaterializeNodeRuntime
+} from './node-runtime.mjs'
 
 describe('node-runtime pin & verification', () => {
   it('pins Node 24.21.0 linux-x64-glibc', () => {
@@ -47,9 +55,7 @@ describe('node-runtime pin & verification', () => {
       () => {
         verifyExecutableBuffer(fakeExecutable, PINNED_NODE.executableSha256)
       },
-      {
-        message: /checksum mismatch/i
-      }
+      { message: /checksum mismatch/i }
     )
   })
 
@@ -59,9 +65,30 @@ describe('node-runtime pin & verification', () => {
       () => {
         verifyArchiveBuffer(fakeArchive, PINNED_NODE.archiveSha256)
       },
-      {
-        message: /checksum mismatch/i
-      }
+      { message: /checksum mismatch/i }
     )
+  })
+
+  it('rejects symlink destination in runtimesDir', async () => {
+    const testDir = join(tmpdir(), `test-runtime-${randomUUID()}`)
+    const binDir = join(testDir, `node-${PINNED_NODE.executableSha256}`, 'bin')
+    await mkdir(binDir, { recursive: true })
+    const targetFile = join(testDir, 'real-bin')
+    await writeFile(targetFile, 'content')
+    const symlinkBin = join(binDir, 'node')
+    await symlink(targetFile, symlinkBin)
+
+    await assert.rejects(
+      async () => {
+        await fetchAndMaterializeNodeRuntime({
+          target: 'linux-x64-glibc',
+          runtimesDir: testDir,
+          allowDownload: false
+        })
+      },
+      { message: /symlink/i }
+    )
+
+    await rm(testDir, { recursive: true, force: true })
   })
 })

@@ -20,8 +20,13 @@ export const PINNED_NODE = Object.freeze({
 export const ORCAD_VERSION = '0.1.0'
 export const ORCA_VERSION = '1.4.230'
 
-export const DEFAULT_PORT = 6768
+export const DEFAULT_PORT = 6769
+export const OCCUPIED_SYSTEM_PORT = 6768
 export const DEFAULT_BIND = '127.0.0.1'
+
+export const ORCA_DEB_URL = 'https://github.com/stablyai/orca/releases/download/v1.4.230/orca-ide_1.4.230_amd64.deb'
+export const ORCA_DEB_SHA256 = '7758be00e6564c14e5793b6a61ffe1bb0e84749583d76013a129454835788e24'
+export const ORCA_DEB_SIZE = 209670608
 
 export const ORCAD_SERVER_TARGET_FILENAME = '.server-target'
 export const ORCAD_NODE_RUNTIME_MARKER_FILENAME = '.runtime-node'
