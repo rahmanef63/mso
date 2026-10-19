@@ -202,4 +202,3 @@ describe('bounded first-install rollback', () => {
     }
   })
 })
-
