@@ -31,6 +31,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `agent` synchronize the concurrent session-turn lease test
 - `host` keep delegated-write positive fixture out of protected TMPDIR
 - `orca` avoid generic calls the pinned scanner cannot parse
 - `config` exempt Orca fixture and private handoff env vars
