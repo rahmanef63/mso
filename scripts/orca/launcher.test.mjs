@@ -1,226 +1,213 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
-import { mkdir, writeFile, symlink, rm } from 'node:fs/promises'
+import { mkdir, writeFile, symlink, rm, readdir, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import {
   validateLauncherArgs,
   validateServerReadiness,
   redactServerReadiness,
-  parseDaemonPid,
-  writePrivateStatusFile
+  createRuntimeIdentity,
+  ensureManagedRoot,
+  writePrivateFile,
+  parseDaemonPid
 } from './launcher.mjs'
 
-describe('launcher options, readiness validation & redaction', () => {
-  it('validates launcher options correctly and rejects malformed/non-loopback/occupied IPs', () => {
-    assert.doesNotThrow(() => {
-      validateLauncherArgs({
-        bind: '127.0.0.1',
-        port: 6769
-      })
-    })
+const READY = {
+  type: 'orca_server_ready',
+  schemaVersion: 1,
+  runtimeId: 'runtime-abc',
+  boundEndpoint: 'ws://127.0.0.1:6769',
+  advertisedEndpoint: 'wss://orca.example.ts.net',
+  pairing: { available: true, url: 'orca://pair?code=SECRET', endpoint: 'ws://127.0.0.1:6769' },
+  health: {
+    buildVersion: '1.4.230',
+    nodeVersion: '24.21.0',
+    nodeAbi: '137',
+    pid: 12345,
+    terminalDaemon: {
+      state: 'live',
+      ownsFreshSessions: true,
+      pid: 12346,
+      entryPath: '/slot/daemon-entry.js',
+      selfTest: { ok: true, verdict: 'healthy' }
+    }
+  }
+}
 
-    assert.doesNotThrow(() => {
-      validateLauncherArgs({
-        bind: '127.0.0.2',
-        port: 0
-      })
-    })
+const clone = (v) => JSON.parse(JSON.stringify(v))
+const opts = (extra = {}) => ({
+  expectedChildPid: 12345,
+  bind: '127.0.0.1',
+  port: 6769,
+  allowLoopbackAdvertised: false,
+  ...extra
+})
 
-    // Rejects occupied system port 6768
-    assert.throws(
-      () => {
-        validateLauncherArgs({
-          bind: '127.0.0.1',
-          port: 6768
-        })
-      },
-      { message: /occupied/i }
-    )
-
-    // Rejects malformed bind IP like 127.evil
-    assert.throws(
-      () => {
-        validateLauncherArgs({
-          bind: '127.evil.com',
-          port: 6769
-        })
-      },
-      { message: /valid IP address/i }
-    )
-
-    // Rejects non-loopback IP
-    assert.throws(
-      () => {
-        validateLauncherArgs({
-          bind: '0.0.0.0',
-          port: 6769
-        })
-      },
-      { message: /loopback/i }
-    )
+describe('launcher argument and readiness validation', () => {
+  it('accepts loopback binds and rejects malformed, non-loopback, and out-of-range values', () => {
+    assert.doesNotThrow(() => validateLauncherArgs({ bind: '127.0.0.1', port: 6769 }))
+    assert.doesNotThrow(() => validateLauncherArgs({ bind: '127.0.0.2', port: 0 }))
+    assert.doesNotThrow(() => validateLauncherArgs({ bind: '::1', port: 6769 }))
+    assert.throws(() => validateLauncherArgs({ bind: '127.evil.com', port: 6769 }), /valid IP/i)
+    assert.throws(() => validateLauncherArgs({ bind: '0.0.0.0', port: 6769 }), /loopback/i)
+    assert.throws(() => validateLauncherArgs({ bind: '127.0.0.1', port: 70000 }), /0-65535|port/i)
+    assert.throws(() => validateLauncherArgs({ bind: '127.0.0.1', port: -1 }), /port/i)
+    assert.throws(() => validateLauncherArgs({ bind: '127.0.0.1', port: '6769x' }), /port/i)
   })
 
-  it('validates valid server readiness payload matching childPid', () => {
-    const validPayload = {
-      type: 'orca_server_ready',
-      schemaVersion: 1,
-      runtimeId: 'rt-123',
-      endpoint: 'ws://127.0.0.1:6769',
-      boundEndpoint: 'ws://127.0.0.1:6769',
-      advertisedEndpoint: 'ws://127.0.0.1:6769',
-      managedWslCliReconciliation: 'settled',
-      pairing: {
-        available: true,
-        url: 'orca://pair#bearerToken12345',
-        endpoint: 'ws://127.0.0.1:6769',
-        deviceId: 'dev-1',
-        webClientUrl: 'http://127.0.0.1:6769/?token=secretToken',
-        scope: 'runtime',
-        qr: null
-      },
-      health: {
-        buildHash: 'hash123',
-        buildVersion: '1.4.230',
-        nodeVersion: '24.21.0',
-        nodeAbi: '137',
-        platform: 'linux',
-        arch: 'x64',
-        pid: 12345,
-        terminalDaemon: {
-          state: 'live',
-          ownsFreshSessions: true,
-          pid: 12346,
-          buildVersion: '1.4.230',
-          entryPath: '/slot/daemon-entry.js',
-          protocolVersion: 1,
-          cgroupUnit: null,
-          selfTest: {
-            ok: true,
-            coverage: 'pty-spawn',
-            verdict: 'healthy',
-            durationMs: 42
-          }
-        }
-      }
-    }
-
-    assert.doesNotThrow(() => {
-      validateServerReadiness(validPayload, { expectedChildPid: 12345 })
-    })
+  it('does not hardcode a host port claim: a configured port is only rejected by the kernel', () => {
+    // Any literal port is structurally valid; real occupancy is enforced at bind time.
+    assert.doesNotThrow(() => validateLauncherArgs({ bind: '127.0.0.1', port: 6768 }))
   })
 
-  it('rejects forged childPid in readiness payload', () => {
-    const forgedPayload = {
-      type: 'orca_server_ready',
-      schemaVersion: 1,
-      health: {
-        buildVersion: '1.4.230',
-        nodeVersion: '24.21.0',
-        pid: 999999, // Forged PID
-        terminalDaemon: {
-          state: 'live',
-          ownsFreshSessions: true,
-          selfTest: { ok: true }
-        }
-      }
-    }
+  it('accepts a fully consistent readiness payload', () => {
+    assert.doesNotThrow(() => validateServerReadiness(READY, opts()))
+  })
 
+  it('rejects forged pid, wrong version, wrong ABI, dead daemon, and forged daemon pid', () => {
+    const forged = clone(READY)
+    forged.health.pid = 999999
+    assert.throws(() => validateServerReadiness(forged, opts()), /PID mismatch/i)
+
+    const old = clone(READY)
+    old.health.buildVersion = '0.0.0-orcad'
+    assert.throws(() => validateServerReadiness(old, opts()), /buildVersion mismatch/i)
+
+    const abi = clone(READY)
+    abi.health.nodeAbi = '127'
+    assert.throws(() => validateServerReadiness(abi, opts()), /ABI/i)
+
+    const down = clone(READY)
+    down.health.terminalDaemon.state = 'down'
+    assert.throws(() => validateServerReadiness(down, opts()), /daemon/i)
+
+    const noSelfTest = clone(READY)
+    noSelfTest.health.terminalDaemon.selfTest = { ok: false, verdict: 'failed' }
+    assert.throws(() => validateServerReadiness(noSelfTest, opts()), /selfTest/i)
+
+    const noDaemonPid = clone(READY)
+    noDaemonPid.health.terminalDaemon.pid = 0
+    assert.throws(() => validateServerReadiness(noDaemonPid, opts()), /daemon/i)
+  })
+
+  it('rejects endpoints that do not match the requested loopback bind and port', () => {
+    const wrongHost = clone(READY)
+    wrongHost.boundEndpoint = 'ws://10.0.0.5:6769'
+    assert.throws(() => validateServerReadiness(wrongHost, opts()), /bound endpoint/i)
+
+    const wrongPort = clone(READY)
+    wrongPort.boundEndpoint = 'ws://127.0.0.1:7777'
+    assert.throws(() => validateServerReadiness(wrongPort, opts()), /bound endpoint/i)
+
+    const advertisedMismatch = clone(READY)
+    advertisedMismatch.advertisedEndpoint = 'wss://other.example'
     assert.throws(
-      () => {
-        validateServerReadiness(forgedPayload, { expectedChildPid: 12345 })
-      },
-      { message: /PID mismatch/i }
+      () => validateServerReadiness(advertisedMismatch, opts({ advertisedEndpoint: 'wss://orca.example.ts.net' })),
+      /advertised endpoint/i
     )
+
+    const plainLoopback = clone(READY)
+    plainLoopback.advertisedEndpoint = 'ws://127.0.0.1:6769'
+    assert.throws(() => validateServerReadiness(plainLoopback, opts({ allowLoopbackAdvertised: false })), /advertised endpoint/i)
+    assert.doesNotThrow(() => validateServerReadiness(plainLoopback, opts({ allowLoopbackAdvertised: true })))
+
+    const badRuntime = clone(READY)
+    badRuntime.runtimeId = ''
+    assert.throws(() => validateServerReadiness(badRuntime, opts()), /runtimeId/i)
   })
 
-  it('rejects 0.0.0-orcad and requires exact 1.4.230', () => {
-    const oldPayload = {
-      type: 'orca_server_ready',
-      schemaVersion: 1,
-      health: {
-        buildVersion: '0.0.0-orcad',
-        nodeVersion: '24.21.0',
-        pid: 12345,
-        terminalDaemon: {
-          state: 'live',
-          ownsFreshSessions: true,
-          selfTest: { ok: true }
-        }
-      }
-    }
-
-    assert.throws(
-      () => {
-        validateServerReadiness(oldPayload, { expectedChildPid: 12345 })
-      },
-      { message: /buildVersion mismatch/i }
-    )
-  })
-
-  it('redacts sensitive bearer URLs from safe status metadata', () => {
-    const payload = {
-      type: 'orca_server_ready',
-      schemaVersion: 1,
-      runtimeId: 'rt-123',
-      boundEndpoint: 'ws://127.0.0.1:6769',
-      pairing: {
-        available: true,
-        url: 'orca://pair#SECRET_BEARER_TOKEN',
-        webClientUrl: 'http://127.0.0.1:6769/?token=SECRET_WEB_TOKEN',
-        scope: 'runtime'
-      },
-      health: {
-        pid: 1234,
-        buildVersion: '1.4.230',
-        terminalDaemon: {
-          pid: 1235,
-          state: 'live',
-          selfTest: { ok: true }
-        }
-      }
-    }
-
-    const redacted = redactServerReadiness(payload)
+  it('redacts every bearer/pairing field from safe metadata', () => {
+    const redacted = redactServerReadiness(READY)
     const serialized = JSON.stringify(redacted)
-
-    assert.equal(serialized.includes('SECRET_BEARER_TOKEN'), false)
-    assert.equal(serialized.includes('SECRET_WEB_TOKEN'), false)
+    assert.equal(serialized.includes('SECRET'), false)
     assert.equal(redacted.pairingAvailable, true)
+    assert.equal(redacted.serverPid, 12345)
+    assert.equal(redacted.daemonPid, 12346)
     assert.equal(redacted.boundEndpoint, 'ws://127.0.0.1:6769')
-    assert.equal(redacted.serverPid, 1234)
-    assert.equal(redacted.daemonPid, 1235)
+    assert.equal(redacted.version, '1.4.230')
   })
 
-  it('writes private status file with 0600 mode and rejects symlinks', async () => {
-    const testDir = join(tmpdir(), `test-status-${randomUUID()}`)
-    await mkdir(testDir, { recursive: true, mode: 0o700 })
-    const statusFile = join(testDir, 'status.json')
+  it('builds a schema-1 identity receipt from the owned child, not from health alone', () => {
+    const receipt = createRuntimeIdentity({
+      readyPayload: READY,
+      serverIdentity: { pid: 12345, startTicks: '555' },
+      nodeBinary: '/slot/runtimes/node/bin/node',
+      serverEntry: '/slot/orcad-server.js',
+      userData: '/root/runtime/user-data',
+      boundEndpoint: 'ws://127.0.0.1:6769',
+      advertisedEndpoint: 'wss://orca.example.ts.net',
+      readyAt: '2026-10-19T00:00:00.000Z'
+    })
+    assert.deepEqual(Object.keys(receipt).sort(), [
+      'advertisedEndpoint',
+      'boundEndpoint',
+      'nodeBinary',
+      'readyAt',
+      'runtimeId',
+      'schemaVersion',
+      'serverEntry',
+      'serverPid',
+      'serverStartTicks',
+      'userData',
+      'version'
+    ])
+    assert.equal(receipt.schemaVersion, 1)
+    assert.equal(receipt.serverPid, 12345)
+    assert.equal(receipt.serverStartTicks, '555')
+    assert.equal(receipt.version, '1.4.230')
+  })
+})
 
-    await writePrivateStatusFile(statusFile, { test: 'ok' })
+describe('managed root publication safety', () => {
+  it('creates a 0700 owned root and refuses symlinked ancestors or loose modes', async () => {
+    const base = join(tmpdir(), `orca-root-${randomUUID()}`)
+    await mkdir(base, { recursive: true, mode: 0o700 })
+    const root = join(base, 'managed')
+    await ensureManagedRoot(root)
+    assert.equal((await stat(root)).mode & 0o777, 0o700)
 
-    const { stat } = await import('node:fs/promises')
-    const s = await stat(statusFile)
-    assert.equal(s.mode & 0o777, 0o600)
+    const loose = join(base, 'loose')
+    await mkdir(loose, { mode: 0o755 })
+    await ensureManagedRoot(loose)
+    assert.equal((await stat(loose)).mode & 0o777, 0o700)
 
-    // Reject writing through symlink
-    const linkFile = join(testDir, 'link-status.json')
-    await symlink(statusFile, linkFile)
-    await assert.rejects(
-      async () => {
-        await writePrivateStatusFile(linkFile, { test: 'fail' })
-      },
-      { message: /symlink/i }
-    )
+    const link = join(base, 'link')
+    await symlink(root, link)
+    await assert.rejects(() => ensureManagedRoot(link), /symlink/i)
 
-    await rm(testDir, { recursive: true, force: true })
+    const nested = join(link, 'child')
+    await assert.rejects(() => ensureManagedRoot(nested), /symlink/i)
+
+    await rm(base, { recursive: true, force: true })
   })
 
-  it('parses daemon pid from file content', () => {
+  it('writes private files atomically at 0600 with no temp residue', async () => {
+    const base = join(tmpdir(), `orca-write-${randomUUID()}`)
+    await ensureManagedRoot(base)
+    const file = join(base, 'private-status.json')
+    await writePrivateFile(file, { ok: true }, { root: base })
+    assert.equal((await stat(file)).mode & 0o777, 0o600)
+    assert.deepEqual(await readdir(base), ['private-status.json'])
+
+    await assert.rejects(() => writePrivateFile(join(base, '..', 'escape.json'), { ok: true }, { root: base }), /outside/i)
+
+    const linkTarget = join(base, 'target.json')
+    await writeFile(linkTarget, '{}', { mode: 0o600 })
+    const link = join(base, 'link.json')
+    await symlink(linkTarget, link)
+    await assert.rejects(() => writePrivateFile(link, { ok: true }, { root: base }), /symlink/i)
+    assert.deepEqual((await readdir(base)).sort(), ['link.json', 'private-status.json', 'target.json'])
+
+    await rm(base, { recursive: true, force: true })
+  })
+
+  it('parses daemon pid records and rejects garbage', () => {
     assert.equal(parseDaemonPid('12345\n'), 12345)
     assert.equal(parseDaemonPid(JSON.stringify({ pid: 54321 })), 54321)
     assert.equal(parseDaemonPid(''), null)
     assert.equal(parseDaemonPid('not-a-number'), null)
+    assert.equal(parseDaemonPid('0'), null)
   })
 })

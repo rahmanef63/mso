@@ -1,196 +1,139 @@
 #!/usr/bin/env node
 /**
- * Hardened Orca runtime CLI helper: materialization, isolated execution, and health proof.
+ * Hardened Orca runtime CLI: strict argument parsing, release preparation,
+ * disposable smoke proof (PTY echo), and a real persistent supervised run.
  */
 
-import { existsSync } from 'node:fs'
-import { copyFile, chmod, mkdir, symlink } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import {
-  DEFAULT_BIND,
-  DEFAULT_PORT,
-  PINNED_NODE,
-  SUPPORTED_TARGET,
-  ORCAD_RUNTIMES_DIRNAME,
-  ORCAD_NODE_RUNTIME_DIR_PREFIX,
-  ORCAD_NODE_RUNTIME_POSIX_EXECUTABLE
-} from './constants.mjs'
-import { ensureIsolatedDirectories, createIsolatedEnv } from './env.mjs'
-import { fetchAndMaterializeNodeRuntime } from './node-runtime.mjs'
-import { materializeOrcadSlot } from './materializer.mjs'
-import { launchOrcadServer } from './launcher.mjs'
-import { acquireAndExtractDeb } from './artifact-source.mjs'
-import { initScratchGitRepo, verifyRealTerminalEcho } from './terminal-proof.mjs'
+import { prepareRelease } from './lifecycle-release.mjs'
+import { runSmokeProof } from './smoke.mjs'
+import { runSupervisedRuntime } from './supervision.mjs'
+import { redactSensitiveText } from './bounded-proc.mjs'
+
+const COMMANDS = new Set(['materialize', 'smoke', 'run', 'help'])
+
+const VALUE_FLAGS = new Map([
+  ['--managed-root', 'managedRoot'],
+  ['--port', 'port'],
+  ['--bind', 'bind'],
+  ['--advertised-endpoint', 'advertisedEndpoint'],
+  ['--deb', 'deb'],
+  ['--template', 'template'],
+  ['--web', 'web']
+])
+
+const BOOLEAN_FLAGS = new Map([['--allow-download', 'allowDownload']])
+
+const USAGE = `Usage: node scripts/orca/cli.mjs <command> --managed-root <dir> [flags]
+
+Commands:
+  materialize  Prepare and verify the release slot + pinned Node runtime.
+  smoke        Disposable loopback launch, web probe, and real PTY echo proof.
+               Cleans the task-owned server and terminal daemon.
+  run          Persistent supervised server on a fixed port; stays until
+               SIGINT/SIGTERM and preserves the terminal daemon.
+  help         Show this message.
+
+Flags:
+  --managed-root <dir>          Absolute MSO-owned state root (required).
+  --port <n>                    Port 1-65535 for run; 0 is smoke-only.
+  --bind <ip>                   Loopback bind address (default 127.0.0.1).
+  --advertised-endpoint <url>   Configured public wss URL (required for run).
+  --deb <path>                  Verified Orca .deb when not using template/web.
+  --template <dir>              Extracted orcad-template directory.
+  --web <dir>                   Extracted Orca web client directory.
+  --allow-download              Permit the pinned deb/Node download.
+`
 
 export function parseArgs(argv) {
-  const args = { command: argv[2] || 'help' }
+  if (!Array.isArray(argv) || argv.length < 2) throw new Error('invalid argv')
+  const command = argv[2] ?? 'help'
+  if (command.startsWith('-')) throw new Error(`missing command before ${command}`)
+  if (!COMMANDS.has(command)) throw new Error(`unknown command: ${command}`)
+
+  const args = { command }
+  const seen = new Set()
   for (let i = 3; i < argv.length; i += 1) {
-    if (argv[i] === '--deb') args.deb = argv[++i]
-    else if (argv[i] === '--template') args.template = argv[++i]
-    else if (argv[i] === '--web') args.web = argv[++i]
-    else if (argv[i] === '--scratch') args.scratch = argv[++i]
-    else if (argv[i] === '--port') args.port = Number(argv[++i])
-    else if (argv[i] === '--bind') args.bind = argv[++i]
-    else if (argv[i] === '--allow-download') args.allowDownload = true
+    const token = argv[i]
+    if (!token.startsWith('--')) throw new Error(`unexpected argument: ${token}`)
+    if (seen.has(token)) throw new Error(`duplicate flag: ${token}`)
+    seen.add(token)
+
+    if (BOOLEAN_FLAGS.has(token)) {
+      args[BOOLEAN_FLAGS.get(token)] = true
+      continue
+    }
+    if (!VALUE_FLAGS.has(token)) throw new Error(`unknown flag: ${token}`)
+    const value = argv[i + 1]
+    if (value === undefined || value.startsWith('--')) throw new Error(`missing value for ${token}`)
+    i += 1
+    if (token === '--port') {
+      if (!/^\d+$/.test(value)) throw new Error(`port must be an integer, got: ${value}`)
+      args.port = Number(value)
+    } else {
+      args[VALUE_FLAGS.get(token)] = value
+    }
   }
   return args
 }
 
-export async function prepareSlotAndRuntime({
-  debPath,
-  templateDir,
-  webDir,
-  scratchDir,
-  allowDownload = false
-} = {}) {
-  if (!scratchDir) throw new Error('--scratch directory is required')
-  await ensureIsolatedDirectories(scratchDir)
-
-  let resolvedTemplate = templateDir
-  let resolvedWeb = webDir
-
-  if (!resolvedTemplate || !resolvedWeb) {
-    const extractDir = join(scratchDir, 'upstream-extracted')
-    const extracted = await acquireAndExtractDeb({ debPath, extractDir, allowDownload })
-    resolvedTemplate = extracted.templateDir
-    resolvedWeb = extracted.webDir
-  }
-
-  const slotsRoot = join(scratchDir, 'slots', SUPPORTED_TARGET)
-  const runtimesRoot = join(scratchDir, 'slots', SUPPORTED_TARGET, ORCAD_RUNTIMES_DIRNAME)
-
-  const nodeBinary = await fetchAndMaterializeNodeRuntime({
-    target: SUPPORTED_TARGET,
-    runtimesDir: runtimesRoot,
-    allowDownload
-  })
-
-  const tempSlotDir = join(slotsRoot, 'active')
-  const { slotDir, fullVersion } = await materializeOrcadSlot({
-    templateDir: resolvedTemplate,
-    outputSlotDir: tempSlotDir,
-    target: SUPPORTED_TARGET
-  })
-
-  const slotExpectedNode = join(
-    slotDir,
-    '..',
-    ORCAD_RUNTIMES_DIRNAME,
-    `${ORCAD_NODE_RUNTIME_DIR_PREFIX}${PINNED_NODE.executableSha256}`,
-    ...ORCAD_NODE_RUNTIME_POSIX_EXECUTABLE.split('/')
-  )
-
-  if (!existsSync(slotExpectedNode)) {
-    await mkdir(dirname(slotExpectedNode), { recursive: true, mode: 0o700 })
-    try {
-      await symlink(nodeBinary, slotExpectedNode)
-    } catch {
-      await copyFile(nodeBinary, slotExpectedNode)
-      await chmod(slotExpectedNode, 0o755)
-    }
-  }
-
-  return { slotDir, nodeBinary, fullVersion, templateDir: resolvedTemplate, webDir: resolvedWeb }
+function requireManagedRoot(args) {
+  if (!args.managedRoot) throw new Error(`${args.command} requires --managed-root <dir>`)
+  return args.managedRoot
 }
 
-export async function runSmokeProof({
-  debPath,
-  templateDir,
-  webDir,
-  scratchDir,
-  port = DEFAULT_PORT,
-  bind = DEFAULT_BIND,
-  allowDownload = false
-} = {}) {
-  if (!scratchDir) throw new Error('--scratch directory is required')
-  console.log(`[orca-cli] Preparing slot and pinned Node in ${scratchDir}...`)
-  const prepared = await prepareSlotAndRuntime({ debPath, templateDir, webDir, scratchDir, allowDownload })
-  const { slotDir, nodeBinary, fullVersion, webDir: actualWebDir } = prepared
-  console.log(`[orca-cli] Slot materialized: ${slotDir} (${fullVersion})`)
-  console.log(`[orca-cli] Node runtime verified: ${nodeBinary}`)
+export async function main(argv, { log = console } = {}) {
+  const args = parseArgs(argv)
+  if (args.command === 'help') {
+    log.log(USAGE.trimEnd())
+    return { command: 'help' }
+  }
 
-  const env = createIsolatedEnv({ scratchDir })
-  const privateStatusPath = join(scratchDir, 'private-status.json')
-
-  console.log(`[orca-cli] Launching orcad-server on ${bind}:${port}...`)
-  const instance = await launchOrcadServer({
-    nodeBinary,
-    slotDir,
-    options: { bind, port, webClientRoot: actualWebDir },
-    env,
-    timeoutMs: 30000,
-    privateStatusPath
+  const managedRoot = requireManagedRoot(args)
+  const release = await prepareRelease({
+    debPath: args.deb,
+    templateDir: args.template,
+    webDir: args.web,
+    managedRoot,
+    allowDownload: args.allowDownload === true
   })
 
-  try {
-    console.log('[orca-cli] Received orca_server_ready!')
-    console.log('[orca-cli] Safe metadata:', JSON.stringify(instance.redacted, null, 2))
-
-    const endpoint = instance.readyPayload.boundEndpoint || instance.readyPayload.endpoint
-    let actualPort = port
-    if (endpoint) {
-      const match = /:(\d+)$/.exec(endpoint)
-      if (match) actualPort = Number(match[1])
-    }
-    const webUrl = `http://${bind}:${actualPort}/web-index.html`
-    console.log(`[orca-cli] Probing web client at ${webUrl}...`)
-    const resp = await fetch(webUrl)
-    console.log(`[orca-cli] Web client status: ${resp.status} ${resp.statusText}`)
-    if (!resp.ok) throw new Error(`Web client probe failed: HTTP ${resp.status}`)
-    const html = await resp.text()
-    if (!html.includes('<title>Orca Web</title>')) {
-      throw new Error('Web client HTML did not contain <title>Orca Web</title>')
-    }
-    console.log('[orca-cli] Web client probe PASSED')
-
-    if (!instance.readyPayload.pairing?.url) throw new Error('Missing pairing URL in readiness payload')
-
-    const cliPath = join(slotDir, 'out', 'cli', 'index.js')
-    const cliEnv = { ...env, ORCA_PAIRING_CODE: instance.readyPayload.pairing.url }
-    const testRepo = await initScratchGitRepo(join(scratchDir, 'proof-repo'))
-    const echoToken = `ORCA_ECHO_PASSED_${Date.now()}`
-
-    console.log(`[orca-cli] Executing real PTY terminal echo roundtrip with token: ${echoToken}...`)
-    await verifyRealTerminalEcho({ nodeBinary, cliPath, cliEnv, testRepo, echoToken })
-    console.log('[orca-cli] Real PTY echo verification PASSED')
-
-    return { fullVersion, redacted: instance.redacted, echoTokenVerified: true }
-  } finally {
-    console.log('[orca-cli] Stopping server and terminal daemon...')
-    await instance.stop()
-    console.log('[orca-cli] Server stopped cleanly.')
-  }
-}
-
-async function main() {
-  const args = parseArgs(process.argv)
   if (args.command === 'materialize') {
-    const res = await prepareSlotAndRuntime({
-      debPath: args.deb,
-      templateDir: args.template,
-      webDir: args.web,
-      scratchDir: args.scratch,
-      allowDownload: args.allowDownload
-    })
-    console.log(JSON.stringify(res, null, 2))
-  } else if (args.command === 'smoke' || args.command === 'run') {
-    await runSmokeProof({
-      debPath: args.deb,
-      templateDir: args.template,
-      webDir: args.web,
-      scratchDir: args.scratch,
-      port: args.port,
-      bind: args.bind,
-      allowDownload: args.allowDownload
-    })
-  } else {
-    console.log('Usage: node scripts/orca/cli.mjs [materialize|smoke] --scratch <dir> [--deb <path>] [--template <dir>] [--web <dir>] [--port <port>] [--bind <ip>] [--allow-download]')
+    log.log(JSON.stringify({
+      version: release.version,
+      slotDir: release.slotDir,
+      nodeBinary: release.nodeBinary,
+      webDir: release.webDir
+    }, null, 2))
+    return { command: 'materialize', release }
   }
+
+  if (args.command === 'smoke') {
+    const result = await runSmokeProof({
+      release,
+      managedRoot,
+      port: args.port ?? 0,
+      bind: args.bind,
+      advertisedEndpoint: args.advertisedEndpoint,
+      log
+    })
+    log.log(`[orca-cli] Smoke proof PASSED (${result.version})`)
+    return { command: 'smoke', release, result }
+  }
+
+  const result = await runSupervisedRuntime({
+    release,
+    managedRoot,
+    port: args.port,
+    bind: args.bind,
+    advertisedEndpoint: args.advertisedEndpoint,
+    log
+  })
+  return { command: 'run', release, result }
 }
 
 if (process.argv[1] && process.argv[1].endsWith('cli.mjs')) {
-  main().catch((err) => {
-    console.error('[orca-cli] Fatal error:', err)
-    process.exit(1)
+  main(process.argv).catch((err) => {
+    console.error(`[orca-cli] Fatal error: ${redactSensitiveText(err.message)}`)
+    process.exitCode = 1
   })
 }
