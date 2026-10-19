@@ -1,10 +1,13 @@
 import "server-only";
-import { constants, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { isOwnedOrcaUnit, ownerUidMatches, readOrcaUnitText } from "./orca-unit-proof";
 import { resolveOrcaManagedRoot } from "./orca-private-fs";
 import { runProgram } from "./runner";
 import { userBusEnv } from "./user-bus";
+
+export { ORCA_UNIT_MARKER } from "./orca-unit-proof";
 
 /**
  * MSO-owned Orca installation ownership.
@@ -39,11 +42,9 @@ export type ManagedInstallation = {
 };
 
 export const ORCA_SERVICE = "mso-orca.service";
-export const ORCA_UNIT_MARKER = "# mso-managed-app: orca";
 /** Mirrors `scripts/orca/constants.mjs` `ORCA_VERSION`; a receipt must match it. */
 export const EXPECTED_ORCA_VERSION = "1.4.230";
 const INSTALL_RECEIPT = "managed-install.json";
-const UNIT_MAX_BYTES = 32 * 1024;
 const VERSION_TIMEOUT_MS = 20_000;
 
 export function orcaUserUnitPath(home: string = os.homedir()): string {
@@ -55,87 +56,10 @@ export function canonicalOrcaCliPath(cwd: string = process.cwd()): string {
   return path.join(cwd, "scripts", "orca", "cli.mjs");
 }
 
-/** Mirrors `systemdQuote` in scripts/orca/systemd-unit.mjs (no mjs import from TS). */
-function systemdQuote(value: string): string {
-  const escaped = value
-    .replace(/%/g, "%%")
-    .replace(/\$/g, () => "$$")
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"');
-  return `"${escaped}"`;
-}
-
-/**
- * Exact generated ownership: the marker, plus an `ExecStart` that names this
- * repo's canonical CLI and the RESOLVED managed root. A marker alone would accept
- * a unit pointed at a foreign CLI or another root.
- */
-export function isOwnedOrcaUnit(text: string, root: string, cliScript: string = canonicalOrcaCliPath()): boolean {
-  const lines = text.split(/\r?\n/);
-  if (!lines.includes(ORCA_UNIT_MARKER)) return false;
-  const exec = lines.find((line) => line.startsWith("ExecStart="));
-  if (!exec) return false;
-  return exec.includes(systemdQuote(cliScript)) && exec.includes(systemdQuote(root)) && exec.includes("--managed-root");
-}
-
-function uidMatches(uid: number): boolean {
-  return typeof process.getuid !== "function" || uid === process.getuid();
-}
-
-/**
- * Bounded, symlink-proof read of the unit file. A `realpath` mismatch on the
- * containing directory means a symlinked ancestor; the leaf is opened
- * `O_NOFOLLOW` through the pinned directory fd and the cap is enforced from
- * `fstat` before any byte moves.
- */
-async function readUnitBounded(unitPath: string): Promise<string | null> {
-  const dir = path.dirname(unitPath);
-  let canonicalDir: string;
-  try {
-    canonicalDir = await fs.realpath(dir);
-  } catch {
-    return null;
-  }
-  if (canonicalDir !== path.resolve(dir)) return null;
-  let directory;
-  try {
-    directory = await fs.open(canonicalDir, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
-  } catch {
-    return null;
-  }
-  try {
-    const dirStat = await directory.stat();
-    if (!dirStat.isDirectory() || !uidMatches(dirStat.uid)) return null;
-    let handle;
-    try {
-      handle = await fs.open(`/proc/self/fd/${directory.fd}/${path.basename(unitPath)}`, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-    } catch {
-      return null;
-    }
-    try {
-      const before = await handle.stat();
-      if (!before.isFile() || !uidMatches(before.uid) || before.size > UNIT_MAX_BYTES) return null;
-      const buffer = Buffer.alloc(Number(before.size));
-      let offset = 0;
-      while (offset < buffer.length) {
-        const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, offset);
-        if (!bytesRead) return null;
-        offset += bytesRead;
-      }
-      const after = await handle.stat();
-      if (after.size !== before.size || after.ino !== before.ino || after.mtimeMs !== before.mtimeMs) return null;
-      return buffer.toString("utf-8");
-    } finally {
-      await handle.close();
-    }
-  } finally {
-    await directory.close();
-  }
-}
-
+/** Exact generated ownership, read bounded/symlink-proof via `orca-unit-proof`. */
 async function ownedUserUnit(unitPath: string, root: string): Promise<boolean> {
-  const text = await readUnitBounded(unitPath);
-  return text !== null && isOwnedOrcaUnit(text, root);
+  const text = await readOrcaUnitText(unitPath);
+  return text !== null && isOwnedOrcaUnit(text, root, canonicalOrcaCliPath());
 }
 
 /**
@@ -148,6 +72,22 @@ export async function userUnitState(service: string = ORCA_SERVICE): Promise<"ac
   const load = /LoadState=(\S+)/.exec(result.stdout)?.[1];
   if (!load || load === "not-found") return "missing";
   return /ActiveState=(?:active|activating|deactivating|reloading)\b/.test(result.stdout) ? "active" : "inactive";
+}
+
+export type OrcaRunState = "running" | "stopped" | "unknown";
+
+/** User-scope only. A `--user` bus outage (`unavailable`) or an owned unit systemd
+ *  does not load (`missing`) is `unknown`: never silently equal to `stopped`. */
+export async function orcaRunState(service: string = ORCA_SERVICE): Promise<OrcaRunState> {
+  const state = await userUnitState(service);
+  if (state === "active") return "running";
+  if (state === "inactive") return "stopped";
+  return "unknown";
+}
+
+/** Attached to a view whose owned unit state MSO could not confirm. */
+export function orcaUnknownDiagnostic(service: string): string {
+  return `Cannot confirm whether ${service} is running: its user-scope systemd state is unknown (no user systemd bus, or the unit is not loaded). It is not reported as stopped.`;
 }
 
 /** A same-name unit that exists in either scope — used only to explain a refusal. */
@@ -171,7 +111,7 @@ async function verifiedInstallVersion(root: string, adapterPath: string): Promis
   try {
     const info = await fs.lstat(receiptPath);
     if (info.isSymbolicLink() || !info.isFile()) return null;
-    if (!uidMatches(info.uid)) return null;
+    if (!ownerUidMatches(info.uid)) return null;
     key = `${info.ino}:${info.size}:${info.mtimeMs}`;
   } catch {
     return null;

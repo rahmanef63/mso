@@ -8,33 +8,11 @@ import { provisionDomainAfterStart, readManagedDomainView } from "./domain-lifec
 import { acquireOperation, activeOperation, releaseOperation, withManagedAppOperationLease } from "./lock";
 import { redact } from "./redact";
 import { listJobRecords } from "./job-store";
-import { detectOrca, userUnitState, type ManagedInstallation } from "./orca-installation";
+import { detectOrca, orcaUnknownDiagnostic, type ManagedInstallation } from "./orca-installation";
 import { commandExists, resolveCommand, runProgram } from "./runner";
+import { managedRunState, running, systemdState } from "./service-state";
 import { userBusEnv, userBusUnavailable } from "./user-bus";
 import type { ManagedAppAction, ManagedAppDefinition, ManagedAppId, ManagedAppLogs, ManagedAppView } from "./types";
-
-// `is-active` cannot tell "this unit is stopped" from "this unit does not exist":
-// `show -p LoadState` distinguishes absent units from installed stopped units.
-async function systemdState(service: string, strict = false): Promise<"active" | "inactive" | "missing"> {
-  let present = false;
-  for (const scope of [["--user"], []]) {
-    // The user scope needs a bus address. mso.service is a SYSTEM unit with
-    // `User=`, which inherits no login session and therefore no
-    // XDG_RUNTIME_DIR, so without this every `--user` probe below answered
-    // "Failed to connect to bus: No medium found" and the whole scope was
-    // silently skipped — the app then looked absent no matter what was running.
-    const env = scope.length ? userBusEnv() : undefined;
-    const result = await runProgram("systemctl", [...scope, "show", "-p", "LoadState", "-p", "ActiveState", service], 10_000, env);
-    // Non-zero here is no systemctl at all, or no user bus — not an answer about
-    // the unit, so try the next scope rather than concluding anything.
-    if (result.code !== 0) { if (strict) throw new Error("Cannot confirm all managed-app service states"); continue; }
-    const load = /LoadState=(\S+)/.exec(result.stdout)?.[1];
-    if (!load || load === "not-found") continue;
-    present = true;
-    if (/ActiveState=(?:active|activating|deactivating|reloading)\b/.test(result.stdout)) return "active";
-  }
-  return present ? "inactive" : "missing";
-}
 
 async function detect(definition: ManagedAppDefinition, strict = false): Promise<ManagedInstallation> {
   // Orca is MSO-owned state: only the exact owned USER unit plus a verified
@@ -55,18 +33,6 @@ async function detect(definition: ManagedAppDefinition, strict = false): Promise
   if (serviceNames.length || containerNames.length) return { type: serviceNames.length ? "systemd" : "docker", ...(serviceNames.length ? { serviceName: serviceNames[0], serviceNames } : {}), ...(containerNames.length ? { containerName: containerNames[0], containerNames } : {}) };
   if (definition.commandProvesInstall !== false && await commandExists(definition.command)) return { type: "package" };
   return { type: "not-installed" };
-}
-
-async function running(installation: ManagedInstallation, strict = false): Promise<boolean> {
-  // Owned Orca: user scope only. A system unit of the same name is never ours.
-  if (installation.owned && installation.serviceName) return (await userUnitState(installation.serviceName)) === "active";
-  if (installation.serviceNames && (await Promise.all(installation.serviceNames.map(name => systemdState(name, strict)))).some((state) => state === "active")) return true;
-  for (const containerName of installation.containerNames ?? []) {
-    const result = await runDocker(["inspect", "--format", "{{.State.Running}}", containerName], 10_000);
-    if (result.code !== 0 || !["true", "false"].includes(result.stdout.trim())) throw new Error("Cannot confirm managed-app container state");
-    if (result.stdout.trim() === "true") return true;
-  }
-  return false;
 }
 
 /** Globally-routable IPv4 only. Private/CGNAT/link-local addresses are useful for
@@ -141,18 +107,21 @@ function actionsFor(installation: ManagedInstallation): ManagedAppAction[] {
 export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
   const definition = getManagedAppDefinition(id);
   const installation = await detect(definition);
-  const isRunning = await running(installation);
+  const runState = await managedRunState(installation);
+  const isRunning = runState === "running";
   const isHealthy = isRunning ? await managedAppHealth(definition) : null;
   const operation = activeOperation(id);
   const state = operation === "start"
     ? "starting"
     : installation.type === "not-installed"
       ? "not-installed"
-      : isHealthy === false
-        ? "unhealthy"
-        : isRunning
-          ? "running"
-          : "stopped";
+      : runState === "unknown"
+        ? "error"
+        : isHealthy === false
+          ? "unhealthy"
+          : isRunning
+            ? "running"
+            : "stopped";
   const dockerInstallAvailable = definition.installBackends.includes("docker") && installation.type === "not-installed" && await dockerUsable();
   const domainView = await readManagedDomainView(id);
   return {
@@ -172,11 +141,13 @@ export async function getManagedApp(id: ManagedAppId): Promise<ManagedAppView> {
     // been seen, and nothing about the bus can make that observation wrong.
     diagnostic:
       installation.diagnostic ??
-      (installation.type === "not-installed" && userBusUnavailable()
-        ? dockerInstallAvailable
-          ? null
-          : "MSO cannot reach this user's systemd bus, so it cannot see user services. On a systemd host enable user linger and provide XDG_RUNTIME_DIR; on a systemd-less/container host use a supported Docker runtime."
-        : null),
+      (runState === "unknown" && installation.serviceName
+        ? orcaUnknownDiagnostic(installation.serviceName)
+        : installation.type === "not-installed" && userBusUnavailable()
+          ? dockerInstallAvailable
+            ? null
+            : "MSO cannot reach this user's systemd bus, so it cannot see user services. On a systemd host enable user linger and provide XDG_RUNTIME_DIR; on a systemd-less/container host use a supported Docker runtime."
+          : null),
   };
 }
 
