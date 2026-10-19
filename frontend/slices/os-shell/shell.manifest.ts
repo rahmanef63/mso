@@ -16,7 +16,7 @@ import { appStoreApp } from "@/features/app-store";
 import { createAppApp } from "@/features/create-app";
 import { systemMonitorApp } from "@/features/system-monitor";
 import { assistantApp } from "@/features/assistant";
-import { hermesApp, nineRouterApp, openclawApp } from "@/features/managed-apps";
+import { hermesApp, nineRouterApp, openclawApp, orcaApp } from "@/features/managed-apps";
 import { osSettingsApp, updateShellBadgeFeature } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
@@ -90,6 +90,7 @@ export const BUILTIN_APPS: AppDescriptor[] = [
   withSlug(withArtwork(agentGroupApp), "agent-groups"),
   withSlug(withArtwork(quicklinksApp), "links"),
   withSlug(withArtwork(createAppApp), "create"),
+  withSlug(withArtwork(orcaApp), "orca"),
 ];
 
 // Shell features — the generic brand-free set now lives INSIDE the appshell

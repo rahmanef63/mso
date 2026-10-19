@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bot, FileText, Loader2, Play, RefreshCw, Save, SlidersHorizontal, Square, Workflow, type LucideIcon } from "lucide-react";
+import { FileText, Loader2, Play, RefreshCw, Save, SlidersHorizontal, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ManagedAppAction, ManagedAppId, ManagedAppView } from "@/lib/managed-apps/types";
+import { AppMark, MANAGED_APP_ICONS as ICON, MANAGED_APP_NAMES as NAME } from "./app-meta";
 import { dashboardFeature } from "./feature-cli";
 import { ManagedFeatureApp } from "./feature-app";
 import { Hero, InstallSurface, UpdateCentrePanel } from "./update-panel";
@@ -83,30 +84,9 @@ export function NineRouterApp() {
   return <ManagedAppsSurface focus="9router" />;
 }
 
-const NAME: Record<ManagedAppId, string> = { hermes: "Hermes", openclaw: "OpenClaw", "9router": "9Router" };
-
-const MARK: Record<ManagedAppId, { Icon?: LucideIcon; tone?: string; artwork?: string }> = {
-  hermes: { Icon: Bot, tone: "text-violet-400" },
-  openclaw: { Icon: Workflow, tone: "text-orange-400" },
-  "9router": { artwork: "/brand/official/9router.webp" },
-};
-
-function AppMark({ id, className }: { id: ManagedAppId; className?: string }) {
-  const mark = MARK[id];
-  if (mark.artwork) {
-    // Official upstream artwork; keep it identical across every shell and Details card.
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={mark.artwork} alt="" aria-hidden className={`${className ?? "size-4"} object-contain`} draggable={false} />;
-  }
-  const Icon = mark.Icon!;
-  return <Icon className={`${className ?? "size-4"} ${mark.tone ?? ""}`} />;
+export function OrcaApp() {
+  return <ManagedAppsSurface focus="orca" />;
 }
-
-const ICON: Record<ManagedAppId, React.ReactNode> = {
-  hermes: <AppMark id="hermes" />,
-  openclaw: <AppMark id="openclaw" />,
-  "9router": <AppMark id="9router" />,
-};
 
 /** ONE surface, and what it shows is the thing itself: the app's own dashboard when the
  *  app is there, and an install button when it is not. There used to be a

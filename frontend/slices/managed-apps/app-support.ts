@@ -82,6 +82,18 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
       "Stops and removes the container. The image and ~/.9router data (providers, keys, stats) stay, so a reinstall comes back configured.",
     stateDir: "~/.9router",
   },
+  orca: {
+    dryRun: false,
+    rollbackPin: false,
+    pinLabel: "Version",
+    pinHint: "Orca update and rollback are not available pending verified adapter.",
+    pinPlaceholder: "",
+    installCommand: "",
+    installNote: "Orca installer is not available yet. Waiting for verified upstream packaging and runtime contract.",
+    uninstallCommand: "",
+    uninstallEffect: "Orca uninstaller is not available yet.",
+    stateDir: "~/.orca",
+  },
 };
 
 export const supportFor = (id: ManagedAppId): AppSupport => SUPPORT[id];

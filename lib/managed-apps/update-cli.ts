@@ -193,6 +193,22 @@ const ADAPTERS: Record<ManagedAppId, UpdateAdapter> = {
     uninstallArgv: (program, dryRun) => [program, "uninstall", "--yes", ...(dryRun ? [UNINSTALL_PREVIEW_FLAG] : [])],
     probe: probe9Router,
   },
+  orca: {
+    capabilities: {
+      check: false,
+      apply: false,
+      dryRun: false,
+      channel: false,
+      rollback: false,
+      uninstall: false,
+      installCommand: null,
+      uninstallCommand: null,
+    },
+    pin: null,
+    updateArgv: () => reject("update", "orca"),
+    uninstallArgv: () => reject("uninstall", "orca"),
+    probe: async () => reject("update probing", "orca"),
+  },
 };
 
 export function updateAdapter(id: ManagedAppId): UpdateAdapter {

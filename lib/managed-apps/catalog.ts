@@ -69,6 +69,18 @@ const definitions = {
     stateDirName: ".9router",
     gradient: "linear-gradient(160deg,#0ea5e9,#2563eb)",
   },
+  orca: {
+    id: "orca",
+    installBackends: [],
+    name: "Orca",
+    description: "Orca web workspace and coding environment",
+    command: "orca-ide",
+    serviceNames: ["orca.service"],
+    containerNames: ["orca"],
+    dashboardUrl: process.env.ORCA_DASHBOARD_URL ?? "http://127.0.0.1:6768",
+    stateDirName: ".orca",
+    gradient: "linear-gradient(160deg,#0284c7,#1e3a8a)",
+  },
 } as const satisfies Record<ManagedAppId, ManagedAppDefinition>;
 
 export function isManagedAppId(value: string): value is ManagedAppId {

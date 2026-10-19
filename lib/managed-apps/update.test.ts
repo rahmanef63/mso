@@ -142,6 +142,10 @@ describe("mutable upstream updates fail closed", () => {
     expect(job.status).toBe("succeeded");
     expect(await recorded("9router")).toEqual(["update", "--yes"]);
   });
+
+  it("refuses orca update before any reviewed immutable target is committed", async () => {
+    await expect(startUpdate("orca")).rejects.toThrow("orca automated update is disabled until a reviewed immutable artifact target and digest are committed");
+  });
 });
 
 describe("uninstall needs the operator to type the app id", () => {

@@ -12,8 +12,6 @@ import type { ManagedAppDefinition, ManagedAppId, ManagedAppJob } from "./types"
 import { assertChannel, updateAdapter, UNINSTALL_PREVIEW_FLAG } from "./update-cli";
 import type { ManagedAppBackup, ManagedAppUpdateOptions, ManagedAppUpdateStatus } from "./update-types";
 
-// Validate, snapshot inside the operation, then submit guarded fixed argv.
-
 /** OpenClaw's own per-STEP timeout is 1800 s and a run has several steps, so a
  *  30-minute wall clock would kill a healthy update mid-step. An hour is the
  *  job layer's ceiling; upstream's own step timeout fires long before it. */
@@ -61,7 +59,7 @@ function unavailable(id: ManagedAppId, error: string): ManagedAppUpdateStatus {
     channel: { value: null, kind: null, available: [], switchable: false, reason: null },
     installKind: null,
     // File-based rollback survives a missing CLI; execution controls do not.
-    capabilities: { ...safeCapabilities(id, capabilities), check: false, apply: false, dryRun: false, channel: false, uninstall: false, rollback: true },
+    capabilities: { ...safeCapabilities(id, capabilities), check: false, apply: false, dryRun: false, channel: false, uninstall: false, rollback: capabilities.rollback ? true : false },
     checkedAt: new Date().toISOString(),
     error,
   };
@@ -203,6 +201,7 @@ export async function startUninstall(id: ManagedAppId, confirmation: unknown, dr
 export async function startRollback(id: ManagedAppId, backupId: string, pin?: string): Promise<ManagedAppJob> {
   if (!isManagedAppBackupId(backupId)) throw new Error("unknown backup");
   const adapter = updateAdapter(id);
+  if (!adapter.capabilities.rollback) throw new Error(`rollback is not supported for ${id}`);
   // Refused rather than silently dropped: for Hermes the pin IS a branch switch,
   // which auto-stashes the very files the restore just wrote back (update-cli.ts)
   // — a rollback that quietly undoes itself and still reports success.

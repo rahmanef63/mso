@@ -177,3 +177,17 @@ describe("the 9Router wrapper argv", () => {
     expect(updateAdapter("9router").pin).toBeNull();
   });
 });
+
+describe("the Orca unverified adapter scaffolding", () => {
+  it("rejects update, uninstall and probe until verified adapter exists", async () => {
+    const adapter = updateAdapter("orca");
+    expect(adapter.capabilities.check).toBe(false);
+    expect(adapter.capabilities.apply).toBe(false);
+    expect(adapter.capabilities.uninstall).toBe(false);
+    expect(adapter.capabilities.rollback).toBe(false);
+    expect(adapter.pin).toBeNull();
+    expect(() => adapter.updateArgv("orca-ide", {})).toThrow("update is not supported for orca");
+    expect(() => adapter.uninstallArgv("orca-ide", false)).toThrow("uninstall is not supported for orca");
+    await expect(adapter.probe("orca-ide")).rejects.toThrow("update probing is not supported for orca");
+  });
+});

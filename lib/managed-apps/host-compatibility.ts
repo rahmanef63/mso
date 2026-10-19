@@ -24,6 +24,9 @@ export function managedAppInstallSupport(
     if (backend === "user-systemd" && host.userSystemd) return { supported: true, backend, reason: null };
     if (backend === "docker" && host.docker) return { supported: true, backend, reason: null };
   }
+  if (definition.installBackends.length === 0) {
+    return { supported: false, backend: null, reason: `${definition.name} installer is not available yet.` };
+  }
   const required = definition.installBackends.includes("user-systemd")
     ? definition.installBackends.includes("docker") ? "a working user systemd bus or Docker daemon" : "a working user systemd bus"
     : "a working Docker daemon";

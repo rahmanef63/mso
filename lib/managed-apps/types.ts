@@ -1,6 +1,6 @@
 import type { ManagedDomainRecord } from "@/lib/contracts/managed-domains";
 
-export const MANAGED_APP_IDS = ["hermes", "openclaw", "9router"] as const;
+export const MANAGED_APP_IDS = ["hermes", "openclaw", "9router", "orca"] as const;
 export type ManagedAppId = (typeof MANAGED_APP_IDS)[number];
 
 export const MANAGED_APP_ACTIONS = ["start", "stop", "restart", "backup"] as const;

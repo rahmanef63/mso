@@ -22,6 +22,13 @@ describe("managed app install compatibility", () => {
     expect(managedAppInstallSupport(getManagedAppDefinition("9router"), host(true, false)).supported).toBe(false);
   });
 
+  it("reports unsupported for apps without any reviewed install backend", () => {
+    const result = managedAppInstallSupport(getManagedAppDefinition("orca"), host(true, true));
+    expect(result.supported).toBe(false);
+    expect(result.backend).toBeNull();
+    expect(result.reason).toBe("Orca installer is not available yet.");
+  });
+
   it("requires a Linux runtime even when a daemon is reported by the host", () => {
     expect(managedAppInstallSupport(getManagedAppDefinition("hermes"), {
       platform: "darwin", userSystemd: true, docker: true,

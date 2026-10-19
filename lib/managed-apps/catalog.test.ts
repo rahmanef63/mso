@@ -4,16 +4,17 @@ import { getManagedAppDefinition, isManagedAppId, listManagedAppDefinitions } fr
 import { MANAGED_APP_ACTIONS } from "./types";
 
 describe("managed app catalog", () => {
-  it("uses one shared catalog for exactly Hermes, OpenClaw and 9Router", () => {
+  it("uses one shared catalog for Hermes, OpenClaw, 9Router and Orca", () => {
     const definitions = listManagedAppDefinitions();
-    expect(definitions.map((item) => item.id)).toEqual(["hermes", "openclaw", "9router"]);
-    expect(new Set(definitions.map((item) => item.id)).size).toBe(3);
+    expect(definitions.map((item) => item.id)).toEqual(["hermes", "openclaw", "9router", "orca"]);
+    expect(new Set(definitions.map((item) => item.id)).size).toBe(4);
   });
 
   it("rejects arbitrary application ids and commands", () => {
     expect(isManagedAppId("hermes")).toBe(true);
     expect(isManagedAppId("openclaw")).toBe(true);
     expect(isManagedAppId("9router")).toBe(true);
+    expect(isManagedAppId("orca")).toBe(true);
     expect(isManagedAppId("hermes;rm -rf /")).toBe(false);
     expect(MANAGED_APP_ACTIONS).toEqual(["start", "stop", "restart", "backup"]);
   });
