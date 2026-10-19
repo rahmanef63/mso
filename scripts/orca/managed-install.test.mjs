@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { getReleaseContentId, getReleaseIdentity } from './release-identity.mjs'
 import {
   assertPortFree,
@@ -83,10 +84,12 @@ describe('managed Orca install adapter', () => {
     const d = await makeDirs()
     try {
       const calls = []
+      const hostNode = join(d.base, 'host-node')
       const result = await installManagedOrca({
         managedRoot: d.root,
         home: d.home,
         advertisedEndpoint: 'wss://orca.mso.example.com',
+        hostNode,
         prepare: async (input) => {
           assert.equal(input.installRoot, d.root)
           assert.equal(input.allowDownload, true)
@@ -116,6 +119,9 @@ describe('managed Orca install adapter', () => {
       const config = JSON.parse(await readFile(configPath, 'utf8'))
       const receipt = JSON.parse(await readFile(receiptPath, 'utf8'))
       assert.equal(config.release.contentId, getReleaseContentId())
+      assert.equal(config.hostNode, hostNode)
+      assert.equal(config.cliScript, fileURLToPath(new URL('./cli.mjs', import.meta.url)))
+      assert.notEqual(config.hostNode, config.release.nodeBinary)
       assert.equal(config.advertisedEndpoint, 'wss://orca.mso.example.com')
       assert.equal(config.boundEndpoint, 'ws://127.0.0.1:6769')
       assert.equal(receipt.runtimeId, 'runtime-fixture')

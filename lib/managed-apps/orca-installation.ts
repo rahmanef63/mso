@@ -2,7 +2,7 @@ import "server-only";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { isOwnedOrcaUnit, ownerUidMatches, readOrcaUnitText } from "./orca-unit-proof";
+import { ownerUidMatches, proveOwnedOrcaUnit, readOrcaUnitText, type OrcaUnitProof } from "./orca-unit-proof";
 import { resolveOrcaManagedRoot } from "./orca-private-fs";
 import { runProgram } from "./runner";
 import { userBusEnv } from "./user-bus";
@@ -56,10 +56,12 @@ export function canonicalOrcaCliPath(cwd: string = process.cwd()): string {
   return path.join(cwd, "scripts", "orca", "cli.mjs");
 }
 
-/** Exact generated ownership, read bounded/symlink-proof via `orca-unit-proof`. */
-async function ownedUserUnit(unitPath: string, root: string): Promise<boolean> {
+/** Exact generated ownership, read bounded/symlink-proof via `orca-unit-files`.
+ *  `reinstall-required` is an old MSO unit whose receipt predates the recorded
+ *  launcher identity: it is never silently adopted. */
+async function orcaUnitProof(unitPath: string, root: string): Promise<OrcaUnitProof> {
   const text = await readOrcaUnitText(unitPath);
-  return text !== null && isOwnedOrcaUnit(text, root, canonicalOrcaCliPath());
+  return text === null ? "not-owned" : proveOwnedOrcaUnit(text, root, canonicalOrcaCliPath());
 }
 
 /**
@@ -136,7 +138,8 @@ export interface OrcaDetectionDeps {
 export async function detectOrca({ env = process.env, home = os.homedir(), adapterPath }: OrcaDetectionDeps): Promise<ManagedInstallation> {
   const rootResult = resolveOrcaManagedRoot(env);
   const root = rootResult.ok ? rootResult.root : null;
-  const unitIsOurs = root !== null && (await ownedUserUnit(orcaUserUnitPath(home), root));
+  const proof = root !== null ? await orcaUnitProof(orcaUserUnitPath(home), root) : "not-owned";
+  const unitIsOurs = proof === "owned";
   const version = root !== null ? await verifiedInstallVersion(root, adapterPath) : null;
 
   if (unitIsOurs && version) {
@@ -145,10 +148,12 @@ export async function detectOrca({ env = process.env, home = os.homedir(), adapt
 
   const diagnostic = !rootResult.ok
     ? "Orca's managed root (ORCA_HOME) is invalid, so no mso-orca.service can be treated as MSO-installed."
-    : unitIsOurs && !version
-      ? "mso-orca.service is MSO-owned but has no verified install receipt; refusing to manage it."
-      : (await sameNamePresent(ORCA_SERVICE))
-        ? "A mso-orca.service exists that MSO did not create (foreign unit or wrong scope); refusing to manage it."
-        : null;
+    : proof === "reinstall-required"
+      ? "mso-orca.service was installed by an older MSO release that did not record its launcher identity; reinstall Orca with this MSO version to manage it."
+      : unitIsOurs && !version
+        ? "mso-orca.service is MSO-owned but has no verified install receipt; refusing to manage it."
+        : (await sameNamePresent(ORCA_SERVICE))
+          ? "A mso-orca.service exists that MSO did not create (foreign unit or wrong scope); refusing to manage it."
+          : null;
   return { type: "not-installed", diagnostic };
 }

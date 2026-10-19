@@ -117,7 +117,7 @@ export async function installManagedOrca({
     }),
     root
   )
-  const config = buildServiceConfig({ plannedConfig, prepared, installedAt: now() })
+  const config = buildServiceConfig({ plannedConfig, prepared, installedAt: now(), hostNode, cliScript })
 
   // Capture the prior owned state before we touch anything so a failed first
   // install can be rolled back to it (or to nothing) instead of leaving a

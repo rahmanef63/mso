@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -20,16 +20,15 @@ const { runProgram } = await import("./runner");
 const { getOrcaReadiness } = await import("./orca-readiness");
 const { getManagedApp, performManagedAppAction } = await import("./manager");
 const { getManagedAppDefinition } = await import("./catalog");
+const { renderOrcaServiceUnit } = (await import("../../scripts/orca/systemd-unit.mjs")) as {
+  renderOrcaServiceUnit: (options: Record<string, unknown>) => string;
+};
+const { buildPlannedConfig, buildServiceConfig } = await import("../../scripts/orca/managed-config.mjs");
 
 const ADAPTER = getManagedAppDefinition("orca").command;
 const READY = {
-  available: true as const,
-  pairingUrl: "orca://pair?code=private",
-  webClientUrl: "http://127.0.0.1:6769/web-index.html",
-  runtimeId: "runtime-abc",
-  serverPid: 4242,
-  boundEndpoint: "ws://127.0.0.1:6769",
-  advertisedEndpoint: "wss://orca.mso.example.com",
+  available: true as const, pairingUrl: "orca://pair?code=private", webClientUrl: "http://127.0.0.1:6769/web-index.html",
+  runtimeId: "runtime-abc", serverPid: 4242, boundEndpoint: "ws://127.0.0.1:6769", advertisedEndpoint: "wss://orca.mso.example.com",
 };
 const ACTIVE = "LoadState=loaded\nActiveState=active\n";
 const STOPPED = "LoadState=loaded\nActiveState=inactive\n";
@@ -40,16 +39,38 @@ const ok = (stdout = ""): Result => ({ code: 0, stdout, stderr: "" });
 let home = "";
 const root = () => path.join(home, ".local", "share", "mso", "orca");
 const unitPath = () => path.join(home, ".config", "systemd", "user", "mso-orca.service");
+const hostNode = () => path.join(home, "bin", "host-node");
+const releaseNode = () => path.join(home, "release", "node");
 
-// The exact unit `renderOrcaServiceUnit` writes: this repo's canonical CLI and
-// the resolved managed root, systemd-quoted.
+// The exact unit `renderOrcaServiceUnit` writes for this repo's canonical CLI
+// and the resolved managed root. The launcher node is the host node the
+// installer actually rendered, deliberately DIFFERENT from release.nodeBinary.
 const CLI = path.join(process.cwd(), "scripts", "orca", "cli.mjs");
+const ADVERTISED = "wss://orca.mso.example.com";
 function unitText({ cli = CLI, managedRoot = root() } = {}) {
-  return `# mso-managed-app: orca\n[Service]\nExecStart="/usr/bin/node" "${cli}" "run" "--managed-root" "${managedRoot}" "--port" "6769"\n`;
+  return renderOrcaServiceUnit({
+    hostNode: hostNode(),
+    cliScript: cli,
+    managedRoot,
+    port: 6769,
+    advertisedEndpoint: ADVERTISED,
+  });
 }
+const configFor = () =>
+  buildServiceConfig({
+    plannedConfig: buildPlannedConfig({ root: root(), unitPath: unitPath(), fixedPort: 6769, advertised: ADVERTISED }),
+    prepared: {
+      releaseRoot: path.join(root(), "r"), slotDir: path.join(root(), "r", "slot"), webDir: path.join(root(), "r", "web"),
+      nodeBinary: releaseNode(), receiptPath: path.join(root(), "r", "receipt.json"), receipt: { release: { contentId: "fixture" } },
+    },
+    installedAt: "2026-01-01T00:00:00.000Z",
+    hostNode: hostNode(),
+    cliScript: CLI,
+  });
 async function writeOwnedUnit(overrides = {}) {
   await mkdir(path.dirname(unitPath()), { recursive: true });
   await writeFile(unitPath(), unitText(overrides), { mode: 0o644 });
+  await writeFile(path.join(root(), "managed-service.json"), JSON.stringify(configFor()), { mode: 0o600 });
 }
 const writeReceipt = () => writeFile(path.join(root(), "managed-install.json"), "{}", { mode: 0o600 });
 
@@ -74,6 +95,12 @@ beforeEach(async () => {
   process.env.HOME = home;
   delete process.env.ORCA_HOME;
   await mkdir(root(), { recursive: true, mode: 0o700 });
+  await mkdir(path.dirname(hostNode()), { recursive: true, mode: 0o700 });
+  await mkdir(path.dirname(releaseNode()), { recursive: true, mode: 0o700 });
+  await writeFile(hostNode(), "#!/bin/sh\n", { mode: 0o755 });
+  await writeFile(releaseNode(), "#!/bin/sh\n", { mode: 0o755 });
+  await chmod(hostNode(), 0o755);
+  await chmod(releaseNode(), 0o755);
   vi.mocked(runProgram).mockReset();
   vi.mocked(getOrcaReadiness).mockReset();
 });

@@ -27,9 +27,20 @@ export function buildPlannedConfig({ root, unitPath, fixedPort, advertised }) {
   }
 }
 
-export function buildServiceConfig({ plannedConfig, prepared, installedAt }) {
+export function buildServiceConfig({ plannedConfig, prepared, installedAt, hostNode, cliScript }) {
+  if (typeof hostNode !== 'string' || hostNode.length === 0) {
+    throw new Error('managed service config requires the exact launcher hostNode')
+  }
+  if (typeof cliScript !== 'string' || cliScript.length === 0) {
+    throw new Error('managed service config requires the canonical cliScript')
+  }
   return {
     ...plannedConfig,
+    // The consumer must be able to reproduce the exact ExecStart. Persist the
+    // launcher host node (NOT release.nodeBinary, the pinned child runtime) and
+    // the canonical CLI the installer actually rendered.
+    hostNode,
+    cliScript,
     release: {
       releaseRoot: prepared.releaseRoot,
       slotDir: prepared.slotDir,
