@@ -2,11 +2,10 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { getReleaseContentId, getReleaseIdentity } from './release-identity.mjs'
 import { installManagedOrca } from './managed-install.mjs'
-import { writeUnitAtomic } from './managed-unit-write.mjs'
-import { UNIT_IDENTITY_MARKER, orcaServiceUnitPath } from './managed-paths.mjs'
+import { orcaServiceUnitPath } from './managed-paths.mjs'
 
 const RELEASE_ID = getReleaseContentId()
 const NODE_REL = getReleaseIdentity().node.executablePath
@@ -32,9 +31,6 @@ function fakeRelease(root) {
     receipt: { release: { contentId: RELEASE_ID } }
   }
 }
-
-const managedText = (root) =>
-  `${UNIT_IDENTITY_MARKER}\n[Service]\nExecStart="/usr/bin/node" "/repo/scripts/orca/cli.mjs" "run" --managed-root ${root} --port 6769\n`
 
 const exists = async (path) => {
   try {
@@ -119,9 +115,10 @@ describe('bounded first-install rollback', () => {
     }
   })
 
-  it('records an explicit partial marker and refuses a rerun when rollback cannot finish', async () => {
+  it('keeps the owned unit and config and records a partial marker when the stop returns a nonzero code', async () => {
     const d = await makeDirs()
     try {
+      const unitPath = orcaServiceUnitPath({ home: d.home })
       await assert.rejects(
         () =>
           installManagedOrca({
@@ -131,10 +128,9 @@ describe('bounded first-install rollback', () => {
             prepare: async () => fakeRelease(d.root),
             userBus: async () => ({ XDG_RUNTIME_DIR: '/run/user/1000' }),
             portProbe: async () => {},
-            systemctl: async ({ args }) => {
-              if (args[0] === 'disable') throw new Error('stop refused')
-              return { code: 0, stdout: '', stderr: '' }
-            },
+            // Production `defaultSystemctl` reports the exit code instead of
+            // throwing; a refused stop must be a FAILURE, not a silent success.
+            systemctl: async ({ args }) => (args[0] === 'disable' ? { code: 1, stdout: '', stderr: 'stop refused' } : { code: 0, stdout: '', stderr: '' }),
             readStatus: async () => ({ available: false, reason: 'server_process_dead' }),
             probeWeb: async () => ({ available: false, reason: 'web_unreachable' }),
             wait: async () => {},
@@ -143,10 +139,13 @@ describe('bounded first-install rollback', () => {
           }),
         /did not become ready/
       )
+      // A confirmed-stop failure must NOT remove the unit or its config.
+      assert.equal(await exists(unitPath), true)
+      assert.equal(await exists(join(d.root, 'managed-service.json')), true)
       const marker = join(d.root, 'partial-install.json')
       assert.equal(await exists(marker), true)
       const parsed = JSON.parse(await readFile(marker, 'utf8'))
-      assert.match(parsed.failures.join('\n'), /stop created unit/)
+      assert.match(parsed.failures.join('\n'), /stop created unit failed \(exit 1\)/)
 
       // A rerun refuses instead of adopting the half state.
       await assert.rejects(
@@ -163,43 +162,44 @@ describe('bounded first-install rollback', () => {
       await d.cleanup()
     }
   })
-})
 
-describe('atomic absent-unit publish', () => {
-  it('refuses to clobber a foreign unit that appears at the last instant', async () => {
+  it('preserves a foreign unit that replaced ours before rollback', async () => {
     const d = await makeDirs()
     try {
       const unitPath = orcaServiceUnitPath({ home: d.home })
-      await mkdir(dirname(unitPath), { recursive: true })
+      const calls = []
       await assert.rejects(
         () =>
-          writeUnitAtomic(unitPath, managedText(d.root), {
-            inspect: async () => {
+          installManagedOrca({
+            managedRoot: d.root,
+            home: d.home,
+            advertisedEndpoint: 'wss://orca.mso.example.com',
+            prepare: async () => fakeRelease(d.root),
+            userBus: async () => ({ XDG_RUNTIME_DIR: '/run/user/1000' }),
+            portProbe: async () => {},
+            systemctl: async (opts) => {
+              calls.push(opts.args.join(' '))
+              return { code: 0, stdout: '', stderr: '' }
+            },
+            readStatus: async () => {
+              // A foreign unit appears where ours was, then readiness never arrives.
               await writeFile(unitPath, FOREIGN)
-              return { state: 'absent', text: null }
-            }
+              return { available: false, reason: 'server_process_dead' }
+            },
+            probeWeb: async () => ({ available: false, reason: 'web_unreachable' }),
+            wait: async () => {},
+            timeoutMs: 1,
+            pollMs: 1
           }),
-        /appeared during install/
+        /did not become ready/
       )
+      // The foreign unit is preserved and never disabled/removed.
       assert.equal(await readFile(unitPath, 'utf8'), FOREIGN)
-    } finally {
-      await d.cleanup()
-    }
-  })
-
-  it('publishes an absent unit at 0644 and replaces only its own managed unit', async () => {
-    const d = await makeDirs()
-    try {
-      const unitPath = orcaServiceUnitPath({ home: d.home })
-      await writeUnitAtomic(unitPath, managedText(d.root))
-      assert.equal((await lstat(unitPath)).mode & 0o777, 0o644)
-      assert.equal(await readFile(unitPath, 'utf8'), managedText(d.root))
-
-      const updated = managedText(d.root).replace('--port 6769', '--port 6770')
-      await writeUnitAtomic(unitPath, updated)
-      assert.equal(await readFile(unitPath, 'utf8'), updated)
+      assert.equal(calls.some((c) => c.startsWith('disable')), false)
+      assert.equal(await exists(join(d.root, 'partial-install.json')), true)
     } finally {
       await d.cleanup()
     }
   })
 })
+

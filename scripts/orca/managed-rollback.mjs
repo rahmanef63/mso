@@ -22,6 +22,7 @@ import {
   serviceConfigPath
 } from './managed-paths.mjs'
 import { readPrivateJson, writePrivateFile } from './private-store.mjs'
+import { inspectExistingUnit } from './systemd-unit.mjs'
 import { writeUnitAtomic } from './managed-unit-write.mjs'
 
 const PARTIAL_MARKER = 'partial-install.json'
@@ -66,14 +67,14 @@ async function restorePrivate(path, entry, root) {
 
 /**
  * Best-effort, bounded. Returns `{ complete, failures }`: `complete === false`
- * means a rollback step failed and the caller must record a partial-install
- * marker rather than pretend the failure was clean.
+ * means a rollback step failed (or the owned unit was not safely stopped) and the
+ * caller must record a partial-install marker rather than pretend it was clean.
  *
- * `created` says which files THIS attempt actually wrote, so rollback never
- * touches a prior file it did not replace and never removes a unit it did not
- * create.
+ * `created` says which files THIS attempt actually wrote. `unitText` is the exact
+ * unit text this attempt wrote, so a revalidation can confirm the on-disk unit is
+ * still ours before we stop or remove it.
  */
-export async function rollbackFirstInstall({ root, unitPath, prior, created, systemctl, env, bus }) {
+export async function rollbackFirstInstall({ root, unitPath, prior, created, unitText, systemctl, env, bus }) {
   const failures = []
   const attempt = async (label, fn) => {
     try {
@@ -82,35 +83,71 @@ export async function rollbackFirstInstall({ root, unitPath, prior, created, sys
       failures.push(`${label}: ${err?.message ?? String(err)}`.slice(0, 300))
     }
   }
-
-  if (prior.unitState === 'absent' && created.unit) {
-    // We created the unit: stop exactly it (best-effort) before removing files,
-    // so a restart cannot race the cleanup. A foreign unit never reaches here.
-    await attempt('stop created unit', () =>
-      systemctl({ args: ['disable', '--now', SERVICE_NAME], env, bus, allowFailure: true })
-    )
+  // A systemctl call is a FAILURE when it RETURNS a nonzero code, not only when
+  // it throws: the production `defaultSystemctl` reports `{code}` instead of
+  // throwing with `allowFailure: true`. Ignoring the code silently "succeeded" a
+  // refused stop.
+  const control = async (label, args) => {
+    try {
+      const result = await systemctl({ args, env, bus, allowFailure: true })
+      if (result?.code) {
+        failures.push(`${label} failed (exit ${result.code}): ${String(result.stderr ?? '').slice(0, 200)}`)
+        return false
+      }
+      return true
+    } catch (err) {
+      failures.push(`${label}: ${err?.message ?? String(err)}`.slice(0, 300))
+      return false
+    }
   }
-
-  if (created.config) {
-    await attempt('restore managed service config', () => restorePrivate(serviceConfigPath(root), prior.config, root))
-  }
-  if (created.receipt) {
-    await attempt('restore install receipt', () => restorePrivate(installReceiptPath(root), prior.receipt, root))
-  }
-  if (created.unit) {
-    await attempt('restore unit', async () => {
-      if (prior.unitState === 'absent') await rm(unitPath, { force: true })
-      else await writeUnitAtomic(unitPath, prior.unitText)
-    })
-    if (prior.unitState === 'managed') {
-      // A previously-owned unit was replaced; reload so the restored text is what
-      // a later `start`/`stop` acts on. Best-effort only.
-      await attempt('reload restored unit', () =>
-        systemctl({ args: ['daemon-reload'], env, bus, allowFailure: true })
-      )
+  const restore = async () => {
+    if (created.config) {
+      await attempt('restore managed service config', () => restorePrivate(serviceConfigPath(root), prior.config, root))
+    }
+    if (created.receipt) {
+      await attempt('restore install receipt', () => restorePrivate(installReceiptPath(root), prior.receipt, root))
     }
   }
 
+  if (!created.unit) {
+    // The unit was never written; only the config and/or receipt could exist.
+    await restore()
+    return { complete: failures.length === 0, failures }
+  }
+
+  // Revalidate that the on-disk unit is still the exact one this attempt wrote.
+  let ownUnit = false
+  try {
+    const current = await inspectExistingUnit({ unitPath })
+    ownUnit = current.state === 'managed' && (unitText === undefined || current.text === unitText)
+  } catch {
+    ownUnit = false
+  }
+  if (!ownUnit) {
+    // A foreign unit replaced ours: keep it, restore/remove only what we wrote.
+    await restore()
+    failures.push('the on-disk unit is no longer the MSO-owned unit this attempt wrote; left untouched')
+    return { complete: false, failures }
+  }
+
+  if (prior.unitState === 'absent') {
+    if (!(await control('stop created unit', ['disable', '--now', SERVICE_NAME]))) {
+      // The owned unit may still be running. Keep the unit AND its config as
+      // evidence and let the partial marker force an explicit clean-up: removing
+      // a unit while its server may still be running is worse than a marked
+      // leftover.
+      return { complete: false, failures }
+    }
+    await restore()
+    await attempt('remove created unit', () => rm(unitPath, { force: true }))
+    await control('reload after remove', ['daemon-reload'])
+    return { complete: failures.length === 0, failures }
+  }
+
+  // prior.unitState === 'managed': we replaced an already-owned unit.
+  await restore()
+  await attempt('restore unit', () => writeUnitAtomic(unitPath, prior.unitText))
+  await control('reload restored unit', ['daemon-reload'])
   return { complete: failures.length === 0, failures }
 }
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -41,13 +41,15 @@ let home = "";
 const root = () => path.join(home, ".local", "share", "mso", "orca");
 const unitPath = () => path.join(home, ".config", "systemd", "user", "mso-orca.service");
 
-async function writeOwnedUnit() {
+// The exact unit `renderOrcaServiceUnit` writes: this repo's canonical CLI and
+// the resolved managed root, systemd-quoted.
+const CLI = path.join(process.cwd(), "scripts", "orca", "cli.mjs");
+function unitText({ cli = CLI, managedRoot = root() } = {}) {
+  return `# mso-managed-app: orca\n[Service]\nExecStart="/usr/bin/node" "${cli}" "run" "--managed-root" "${managedRoot}" "--port" "6769"\n`;
+}
+async function writeOwnedUnit(overrides = {}) {
   await mkdir(path.dirname(unitPath()), { recursive: true });
-  await writeFile(
-    unitPath(),
-    `# mso-managed-app: orca\n[Service]\nExecStart="/usr/bin/node" "/repo/scripts/orca/cli.mjs" "run" --managed-root ${root()} --port 6769\n`,
-    { mode: 0o644 },
-  );
+  await writeFile(unitPath(), unitText(overrides), { mode: 0o644 });
 }
 const writeReceipt = () => writeFile(path.join(root(), "managed-install.json"), "{}", { mode: 0o600 });
 
@@ -153,5 +155,38 @@ describe("Orca manager ownership", () => {
     programs({ system: ACTIVE });
     const hermes = await getManagedApp("hermes");
     expect(hermes.installed).toBe(true);
+  });
+
+  it("refuses a unit reached through a symlinked ancestor", async () => {
+    const real = path.join(home, "realconfig");
+    await mkdir(path.join(real, "systemd", "user"), { recursive: true });
+    await writeFile(path.join(real, "systemd", "user", "mso-orca.service"), unitText(), { mode: 0o644 });
+    await symlink(real, path.join(home, ".config"));
+    await writeReceipt();
+    programs({ user: ACTIVE, adapter: ok("1.4.230\n") });
+    const view = await getManagedApp("orca");
+    expect(view.installed).toBe(false);
+    expect(view.state).toBe("not-installed");
+    expect(view.supportedActions).toEqual([]);
+  });
+
+  it("refuses a unit whose marker regex alone matches but points at another root or CLI", async () => {
+    await writeOwnedUnit({ managedRoot: path.join(home, "other-root") });
+    await writeReceipt();
+    programs({ user: ACTIVE, adapter: ok("1.4.230\n") });
+    expect((await getManagedApp("orca")).installed).toBe(false);
+
+    await writeOwnedUnit({ cli: "/tmp/evil/cli.mjs" });
+    programs({ user: ACTIVE, adapter: ok("1.4.230\n") });
+    expect((await getManagedApp("orca")).installed).toBe(false);
+  });
+
+  it("refuses a receipt whose adapter version is not the pinned one", async () => {
+    await writeOwnedUnit();
+    await writeReceipt();
+    programs({ user: ACTIVE, adapter: ok("1.9.9\n") });
+    const view = await getManagedApp("orca");
+    expect(view.installed).toBe(false);
+    expect(view.diagnostic).toMatch(/install receipt/i);
   });
 });

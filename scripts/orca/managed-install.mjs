@@ -15,8 +15,9 @@
 
 import { isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DEFAULT_PORT, ORCA_VERSION } from './constants.mjs'
+import { DEFAULT_PORT } from './constants.mjs'
 import { ensureIsolatedDirectories } from './env.mjs'
+import { buildInstallReceipt, buildPlannedConfig, buildServiceConfig } from './managed-config.mjs'
 import {
   assertPreparedRelease,
   assertPortFree,
@@ -26,10 +27,8 @@ import {
 } from './managed-preflight.mjs'
 import {
   INSTALL_RECEIPT_FILENAME,
-  MANAGED_APP_ID,
   SERVICE_CONFIG_FILENAME,
   SERVICE_NAME,
-  UNIT_IDENTITY_MARKER,
   assertManagedRootFitsUnixSocket,
   installReceiptPath,
   orcaServiceUnitPath,
@@ -83,7 +82,6 @@ export async function installManagedOrca({
   const advertised = assertConfiguredAdvertisedEndpoint(advertisedEndpoint)
   const unitPath = orcaServiceUnitPath({ home })
   const existing = await inspectExistingUnit({ unitPath })
-
   const unit = renderOrcaServiceUnit({
     hostNode,
     cliScript,
@@ -91,18 +89,7 @@ export async function installManagedOrca({
     port: fixedPort,
     advertisedEndpoint: advertised
   })
-
-  const plannedConfig = {
-    schemaVersion: 1,
-    applicationId: MANAGED_APP_ID,
-    version: ORCA_VERSION,
-    unitIdentity: UNIT_IDENTITY_MARKER,
-    boundEndpoint: `ws://127.0.0.1:${fixedPort}`,
-    advertisedEndpoint: advertised,
-    port: fixedPort,
-    managedRoot: root,
-    unitPath
-  }
+  const plannedConfig = buildPlannedConfig({ root, unitPath, fixedPort, advertised })
 
   if (dryRun) {
     return { dryRun: true, managedRoot: root, unitPath, unit, config: plannedConfig, existingUnit: existing.state }
@@ -130,19 +117,7 @@ export async function installManagedOrca({
     }),
     root
   )
-
-  const config = {
-    ...plannedConfig,
-    release: {
-      releaseRoot: prepared.releaseRoot,
-      slotDir: prepared.slotDir,
-      webDir: prepared.webDir,
-      nodeBinary: prepared.nodeBinary,
-      receiptPath: prepared.receiptPath,
-      contentId: prepared.receipt.release.contentId
-    },
-    installedAt: now()
-  }
+  const config = buildServiceConfig({ plannedConfig, prepared, installedAt: now() })
 
   // Capture the prior owned state before we touch anything so a failed first
   // install can be rolled back to it (or to nothing) instead of leaving a
@@ -171,21 +146,14 @@ export async function installManagedOrca({
       probeWeb,
       wait
     })
-
-    const receipt = {
-      schemaVersion: 1,
-      applicationId: MANAGED_APP_ID,
-      version: ORCA_VERSION,
-      runtimeId: ready.runtimeId,
-      releaseRoot: config.release.releaseRoot,
-      releaseContentId: config.release.contentId,
-      boundEndpoint: config.boundEndpoint,
-      advertisedEndpoint: advertised,
+    const receipt = buildInstallReceipt({
+      root,
+      config,
       unitPath,
-      serviceConfig: serviceConfigPath(root),
-      installedAt: config.installedAt,
+      advertised,
+      ready,
       readyAt: ready.readyAt ?? now()
-    }
+    })
     await writePrivate(installReceiptPath(root), receipt, { root })
     created.receipt = true
 
@@ -203,7 +171,7 @@ export async function installManagedOrca({
   } catch (err) {
     // Bounded owned rollback. If it cannot finish cleanly, record an explicit
     // partial-install marker so a rerun refuses instead of adopting a half state.
-    const outcome = await rollbackFirstInstall({ root, unitPath, prior, created, systemctl, env, bus })
+    const outcome = await rollbackFirstInstall({ root, unitPath, prior, created, unitText: unit, systemctl, env, bus })
     if (!outcome.complete) {
       await writePartialInstall(root, {
         reason: err?.message ?? String(err),
