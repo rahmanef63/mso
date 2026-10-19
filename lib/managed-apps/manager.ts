@@ -18,7 +18,15 @@ async function detect(definition: ManagedAppDefinition, strict = false): Promise
   // Orca is MSO-owned state: only the exact owned USER unit plus a verified
   // install receipt counts, in a single scope. The generic path below cannot
   // prove either, so it must never run for Orca.
-  if (definition.id === "orca") return detectOrca({ adapterPath: definition.command });
+  // Strict check must fail closed when Orca is not installed or has ambiguous/stale state,
+  // as absence cannot be proven without an owned stopped unit.
+  if (definition.id === "orca") {
+    const result = await detectOrca({ adapterPath: definition.command });
+    if (strict && result.type === "not-installed") {
+      throw new Error(result.diagnostic ?? "Cannot confirm Orca is stopped: install state cannot prove absence");
+    }
+    return result;
+  }
   const serviceNames: string[] = [];
   for (const serviceName of definition.serviceNames) {
     if (await systemdState(serviceName, strict) !== "missing") serviceNames.push(serviceName);
