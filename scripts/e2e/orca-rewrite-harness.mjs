@@ -28,15 +28,12 @@ export const redact = (text) => String(text)
   .replace(/orca:\/\/pair#[A-Za-z0-9_-]+/gi, "orca://pair#<redacted>")
   .replace(/((?:cookie|authorization|set-cookie)"?\s*[:=]\s*"?)[^\n"]+/gi, "$1<redacted>");
 
-/** Create temporary fixture directory under Hermes scratch task root when available. */
+/** Create temporary fixture directory under Hermes scratch task root when configured, or os.tmpdir(). */
 export async function createFixtureDirectory(prefix = "mso-orca-rewrite-") {
-  const scratchBase = process.env.HERMES_SCRATCH_TASK_ROOT || "/home/antinrml/.hermes/cache/scratch/antigravity";
-  try {
-    await mkdir(scratchBase, { recursive: true, mode: 0o700 });
-    return await mkdtemp(path.join(scratchBase, prefix));
-  } catch {
-    return await mkdtemp(path.join(os.tmpdir(), prefix));
-  }
+  const baseDir = process.env.HERMES_SCRATCH_TASK_ROOT || os.tmpdir();
+  const dir = await mkdtemp(path.join(baseDir, prefix));
+  await chmod(dir, 0o700);
+  return dir;
 }
 
 const SERVER_SOURCE = `// Fake Orca upstream listener child. Explicitly NOT real Orca acceptance.
@@ -86,57 +83,13 @@ export async function seedOrcaRuntime(root, options = {}) {
   await writeFile(serverEntry, SERVER_SOURCE, { mode: 0o600 });
 
   const hits = [];
+  const hitListeners = new Set();
   const child = spawn(nodeBinary, [serverEntry], {
     stdio: ["ignore", "ignore", "ignore", "ipc"], env: { NODE_ENV: "test" },
   });
-
-  let upstreamPort = 0;
-  await new Promise((resolve, reject) => {
-    child.on("message", (msg) => {
-      if (typeof msg === "object" && msg !== null) {
-        if (msg.type === "listening") { upstreamPort = Number(msg.port); resolve(upstreamPort); }
-        else if (msg.type === "hit" && msg.hit) hits.push({ url: String(msg.hit.url), host: String(msg.hit.host) });
-      }
-    });
-    child.once("error", reject);
-    child.once("exit", (code, sig) => reject(new Error(`child exited before listening (code=${code}, sig=${sig})`)));
-  });
-
-  const pid = child.pid;
-  let startTicks = "";
-  for (let i = 0; i < 100 && !startTicks; i++) {
-    try {
-      const stat = await readFile(`/proc/${pid}/stat`, "utf8");
-      const rest = stat.slice(stat.lastIndexOf(")") + 1).trim().split(/\s+/);
-      if (rest[19] && /^\d+$/.test(rest[19])) startTicks = rest[19];
-    } catch { /* waiting for proc stat */ }
-    if (!startTicks) await new Promise((resolve) => setTimeout(resolve, 20));
+  if (typeof opts.onSpawn === "function") {
+    try { opts.onSpawn(child); } catch { /* caller callback error */ }
   }
-  if (!startTicks) throw new Error("could not read start ticks for fixture runtime process");
-
-  const receiptPid = opts.wrongPid ? (typeof opts.wrongPid === "number" ? opts.wrongPid : pid + 999999) : pid;
-  const receiptPort = opts.wrongPort ? (typeof opts.wrongPort === "number" ? opts.wrongPort : upstreamPort + 1) : upstreamPort;
-  const pairingCode = Buffer.from(JSON.stringify({
-    v: 2, scope: "runtime", endpoint: `wss://${APP_HOST}`,
-    deviceToken: "fixture-device-token", publicKeyB64: "Zml4dHVyZS1rZXk",
-  })).toString("base64url");
-  const boundEndpoint = `ws://127.0.0.1:${receiptPort}`;
-
-  await writeFile(path.join(root, "private-status.json"), JSON.stringify({
-    type: "orca_server_ready", schemaVersion: 1, runtimeId: RUNTIME_ID,
-    health: {
-      buildVersion: ORCA_VERSION, nodeVersion: "24.21.0", nodeAbi: 137, pid: receiptPid,
-      terminalDaemon: { state: "live", ownsFreshSessions: true, selfTest: { ok: true } },
-    },
-    boundEndpoint, advertisedEndpoint: `wss://${APP_HOST}`,
-    pairing: { available: true, scope: "runtime", url: `orca://pair#${pairingCode}` },
-  }), { mode: 0o600 });
-
-  await writeFile(path.join(root, "runtime-identity.json"), JSON.stringify({
-    schemaVersion: 1, runtimeId: RUNTIME_ID, version: ORCA_VERSION,
-    serverPid: receiptPid, serverStartTicks: startTicks,
-    nodeBinary, serverEntry, userData, boundEndpoint, advertisedEndpoint: `wss://${APP_HOST}`, readyAt: new Date().toISOString(),
-  }), { mode: 0o600 });
 
   let closed = false;
   const close = async () => {
@@ -151,7 +104,96 @@ export async function seedOrcaRuntime(root, options = {}) {
     }
   };
 
-  return { pid, port: upstreamPort, url: `http://127.0.0.1:${upstreamPort}`, hits, close, kill: close };
+  const waitForHits = async (expectedCount, timeoutMs = 2000) => {
+    if (hits.length >= expectedCount) return hits;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => { cleanup(); resolve(hits); }, timeoutMs);
+      timer.unref?.();
+      const onHit = () => { if (hits.length >= expectedCount) { cleanup(); resolve(hits); } };
+      const cleanup = () => { clearTimeout(timer); hitListeners.delete(onHit); };
+      hitListeners.add(onHit);
+    });
+  };
+
+  try {
+    let upstreamPort = 0;
+    await new Promise((resolve, reject) => {
+      let resolved = false;
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("timeout waiting for fixture runtime IPC listening"));
+      }, 5000);
+      timer.unref?.();
+      const onMsg = (msg) => {
+        if (typeof msg === "object" && msg !== null) {
+          if (msg.type === "listening" && !resolved) {
+            upstreamPort = Number(msg.port);
+            resolved = true;
+            cleanup();
+            resolve(upstreamPort);
+          } else if (msg.type === "hit" && msg.hit) {
+            hits.push({ url: String(msg.hit.url), host: String(msg.hit.host) });
+            for (const listener of hitListeners) listener();
+          }
+        }
+      };
+      const onErr = (err) => { cleanup(); reject(err); };
+      const onExit = (code, sig) => {
+        cleanup();
+        reject(new Error(`child exited before listening (code=${code}, sig=${sig})`));
+      };
+      function cleanup() {
+        clearTimeout(timer);
+        child.removeListener("error", onErr);
+        child.removeListener("exit", onExit);
+      }
+      child.on("message", onMsg);
+      child.once("error", onErr);
+      child.once("exit", onExit);
+    });
+
+    const pid = child.pid;
+    let startTicks = "";
+    for (let i = 0; i < 100 && !startTicks; i++) {
+      try {
+        const stat = await readFile(`/proc/${pid}/stat`, "utf8");
+        const rest = stat.slice(stat.lastIndexOf(")") + 1).trim().split(/\s+/);
+        if (rest[19] && /^\d+$/.test(rest[19])) startTicks = rest[19];
+      } catch { /* waiting for proc stat */ }
+      if (!startTicks) await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    if (!startTicks) throw new Error("could not read start ticks for fixture runtime process");
+
+    const receiptPid = opts.wrongPid ? (typeof opts.wrongPid === "number" ? opts.wrongPid : pid + 999999) : pid;
+    const receiptPort = opts.wrongPort ? (typeof opts.wrongPort === "number" ? opts.wrongPort : upstreamPort + 1) : upstreamPort;
+    const pairingCode = Buffer.from(JSON.stringify({
+      v: 2, scope: "runtime", endpoint: `wss://${APP_HOST}`,
+      deviceToken: "fixture-device-token", publicKeyB64: "Zml4dHVyZS1rZXk",
+    })).toString("base64url");
+    const boundEndpoint = `ws://127.0.0.1:${receiptPort}`;
+    const writeReceipt = typeof opts.writeReceipt === "function" ? opts.writeReceipt : writeFile;
+
+    await writeReceipt(path.join(root, "private-status.json"), JSON.stringify({
+      type: "orca_server_ready", schemaVersion: 1, runtimeId: RUNTIME_ID,
+      health: {
+        buildVersion: ORCA_VERSION, nodeVersion: "24.21.0", nodeAbi: 137, pid: receiptPid,
+        terminalDaemon: { state: "live", ownsFreshSessions: true, selfTest: { ok: true } },
+      },
+      boundEndpoint, advertisedEndpoint: `wss://${APP_HOST}`,
+      pairing: { available: true, scope: "runtime", url: `orca://pair#${pairingCode}` },
+    }), { mode: 0o600 });
+
+    await writeReceipt(path.join(root, "runtime-identity.json"), JSON.stringify({
+      schemaVersion: 1, runtimeId: RUNTIME_ID, version: ORCA_VERSION,
+      serverPid: receiptPid, serverStartTicks: startTicks,
+      nodeBinary, serverEntry, userData, boundEndpoint, advertisedEndpoint: `wss://${APP_HOST}`, readyAt: new Date().toISOString(),
+    }), { mode: 0o600 });
+
+    return { pid, port: upstreamPort, url: `http://127.0.0.1:${upstreamPort}`, hits, waitForHits, close, kill: close };
+  } catch (err) {
+    await close();
+    throw err;
+  }
 }
 
 /** Backward-compatible alias for starting fake Orca upstream fixture. */
@@ -165,16 +207,21 @@ export async function startOrcaUpstream(existingRoot) {
  *  diagnosable without leaking cookies/tickets/pairing codes. */
 export function createDiagnostics({ file, getPhase, hits, getLog }) {
   return function dump(label, res) {
+    const safeHits = typeof hits === "function" ? hits() : (Array.isArray(hits) ? hits : []);
+    const safePhase = typeof getPhase === "function" ? getPhase() : String(getPhase ?? "");
+    const safeLog = redact(typeof getLog === "function" ? getLog() : String(getLog ?? "")).slice(-4000);
+    const targetFile = typeof file === "function" ? file() : file;
     const safe = {
-      phase: getPhase(), label, status: res.status,
-      headerNames: Object.keys(res.headers).sort(),
-      body: redact(res.text).slice(0, 400),
-      upstreamHits: hits.length,
-      upstreamHosts: hits.slice(-5).map((hit) => hit.host),
+      phase: safePhase, label, status: res?.status,
+      headerNames: res?.headers && typeof res.headers === "object" ? Object.keys(res.headers).sort() : [],
+      body: redact(res?.text ?? "").slice(0, 400),
+      upstreamHits: safeHits.length,
+      upstreamHosts: safeHits.slice(-5).map((hit) => hit.host),
     };
-    const log = redact(getLog()).slice(-4000);
-    try { writeFileSync(file, `phase=${getPhase()}\n${JSON.stringify(safe, null, 2)}\n--- mso server log (redacted, tail) ---\n${log}\n`, { mode: 0o600 }); } catch { /* diagnostics are best-effort */ }
+    if (targetFile) {
+      try { writeFileSync(targetFile, `phase=${safePhase}\n${JSON.stringify(safe, null, 2)}\n--- mso server log (redacted, tail) ---\n${safeLog}\n`, { mode: 0o600 }); } catch { /* diagnostics are best-effort */ }
+    }
     console.error("DIAG " + label + " " + JSON.stringify(safe));
-    console.error("DIAG mso server log (redacted, tail):\n" + log);
+    console.error("DIAG mso server log (redacted, tail):\n" + safeLog);
   };
 }
