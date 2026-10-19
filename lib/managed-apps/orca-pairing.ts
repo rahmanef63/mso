@@ -101,10 +101,11 @@ export function validateOrcaPairingUrl(url: string, expectedOrigin: string): Val
   if (raw.scope !== "runtime") return null;
   // Relay offers never route through MSO's own split origin.
   if ("relay" in raw || "relayUrl" in raw) return null;
-  // Upstream does not encode grants in this offer, so any grant claim is refused
-  // rather than trusted; desktop control is refused explicitly for the record.
-  if (Array.isArray(raw.grants) && raw.grants.length > 0) return null;
-  if (raw.grantDesktopControl === true || raw.desktopControl === true) return null;
+  // Upstream does not encode grants in this offer, so a grant claim is refused
+  // rather than trusted. Refuse PROPERTY PRESENCE, not truthiness: `false`,
+  // `null`, an empty array, a string, or an object is still an unverifiable
+  // claim about authority, and desktop control is refused for the record too.
+  if ("grants" in raw || "desktopControl" in raw || "grantDesktopControl" in raw) return null;
 
   if (typeof raw.endpoint !== "string" || !endpointMatchesExpected(raw.endpoint, expectedWs)) return null;
   if (typeof raw.deviceToken !== "string" || !TOKEN_PATTERN.test(raw.deviceToken)) return null;

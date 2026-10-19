@@ -16,28 +16,41 @@ import path from "node:path";
  */
 export const ORCA_PRIVATE_MAX_BYTES = 64 * 1024;
 const PRIVATE_FILES = new Set(["private-status.json", "runtime-identity.json"]);
+const CONTROL = /[\0\r\n]/;
 
 export type ManagedRootResult = { ok: true; root: string } | { ok: false; reason: "managed_root_invalid" };
 export type PrivateReadResult = { ok: true; text: string } | { ok: false; reason: "missing" | "insecure" };
 
 /** Portable default is MSO-managed state, never the owner's personal `~/.orca`. */
-export function defaultOrcaManagedRoot(): string {
-  return path.join(os.homedir(), ".local", "share", "mso", "orca");
+export function defaultOrcaManagedRoot(home: string = os.homedir()): string {
+  return path.join(home, ".local", "share", "mso", "orca");
 }
 
-/** Resolve ORCA_HOME strictly: an invalid override fails the bridge instead of
- *  silently falling back to the owner's default directory. */
-export function resolveOrcaManagedRoot(env: Record<string, string | undefined> = process.env): ManagedRootResult {
+/** Resolve ORCA_HOME strictly, with the same policy as `scripts/orca/managed-paths.mjs`:
+ *  an invalid override fails the bridge instead of silently falling back to the
+ *  owner's default directory. `home` is injectable for parity tests only. */
+export function resolveOrcaManagedRoot(
+  env: Record<string, string | undefined> = process.env,
+  home: string = os.homedir(),
+): ManagedRootResult {
+  const invalid: ManagedRootResult = { ok: false, reason: "managed_root_invalid" };
   const raw = env.ORCA_HOME;
-  if (raw === undefined) return { ok: true, root: defaultOrcaManagedRoot() };
+  if (raw === undefined) return { ok: true, root: defaultOrcaManagedRoot(home) };
   // A SET but empty/relative/dirty override is a misconfiguration, not "unset":
   // fail the bridge clearly instead of falling back to the owner's default.
-  if (raw.trim() === "" || raw.includes("\0") || !path.isAbsolute(raw)) return { ok: false, reason: "managed_root_invalid" };
+  if (typeof raw !== "string" || raw.trim() === "" || CONTROL.test(raw) || !path.isAbsolute(raw)) return invalid;
   const normalized = path.normalize(raw);
-  if (normalized !== raw || normalized.split(path.sep).includes("..")) return { ok: false, reason: "managed_root_invalid" };
-  const personalOrca = path.join(os.homedir(), ".orca");
-  if (normalized === personalOrca || normalized.startsWith(`${personalOrca}${path.sep}`)) {
-    return { ok: false, reason: "managed_root_invalid" };
+  // A trailing slash, `//`, or a `.`/`..` segment changes the canonical spelling;
+  // refuse it instead of quietly rewriting the operator's config.
+  if (normalized !== raw || (raw.length > 1 && raw.endsWith(path.sep))) return invalid;
+  if (normalized.split(/[\\/]/).includes("..")) return invalid;
+  const resolvedHome = path.normalize(home);
+  // Never manage the filesystem root or the owner home itself.
+  if (normalized === path.sep || normalized === resolvedHome) return invalid;
+  // Never reuse the operator's personal Orca state, including any subtree.
+  for (const personal of [".orca", ".orca-remote"]) {
+    const prefix = path.join(resolvedHome, personal);
+    if (normalized === prefix || normalized.startsWith(`${prefix}${path.sep}`)) return invalid;
   }
   return { ok: true, root: normalized };
 }
