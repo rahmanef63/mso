@@ -196,6 +196,43 @@ describe('materializer filesystem behavior', () => {
     }
   })
 
+  it('derives fullVersion from the upstream raw-byte artifact identity (independent oracle)', async () => {
+    const root = await scratch('version-oracle')
+    try {
+      const { templateDir } = await buildTemplate(root)
+      const result = await materializeOrcadSlot({
+        templateDir,
+        outputSlotDir: join(root, 'slot'),
+        target: SUPPORTED_TARGET
+      })
+
+      // Independent oracle: replicate orcad-artifact-identity.ts here (raw byte
+      // concatenation in orcadArtifactFilenames order) without calling the
+      // production order helper, then compare.
+      const watcherEntry = 'node_modules/@parcel/watcher/index.js'
+      const manifestName = 'out/mobile-web/manifest.json'
+      const [serverTarget, runtimeMarker, watcherNative, ptyNative, ripgrep] = ORCAD_TARGET_FILES
+      const order = []
+      for (const name of ORCAD_COMMON_FILES) {
+        if (name === watcherEntry) order.push(serverTarget, runtimeMarker, name, watcherNative)
+        else if (name === manifestName) order.push(name, ptyNative, ripgrep)
+        else order.push(name)
+      }
+      order.push(...mobileNames().sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)))
+
+      const hash = createHash('sha256')
+      for (const name of order) hash.update(await readFile(join(result.slotDir, name)))
+      const digest = hash.digest('hex')
+
+      assert.equal(result.artifactSha256, digest)
+      assert.equal(result.fullVersion, `${ORCAD_VERSION}+${digest.slice(0, 12)}`)
+      // The upstream version must not be the internal tree digest.
+      assert.notEqual(result.fullVersion, `${ORCAD_VERSION}+${result.treeSha256.slice(0, 12)}`)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('refuses a tampered existing slot instead of overwriting it', async () => {
     const root = await scratch('tamper')
     try {

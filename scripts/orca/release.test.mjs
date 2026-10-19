@@ -59,19 +59,26 @@ describe('release identity & receipt', () => {
   it('names the sibling runtime path the upstream .runtime-node contract expects', () => {
     const sha = 'a'.repeat(64)
     assert.equal(nodeRuntimeRelativePath(sha), `runtimes/node-${sha}/bin/node`)
-    // Intentional layout bump: the previous packaged-release content id must not be reused.
+    // Intentional layout/identity bumps: earlier packaged-release content ids must not be reused.
     assert.notEqual(getReleaseContentId(), 'db813ed170845dbe')
+    assert.notEqual(getReleaseContentId(), '1cc972057c04eea1')
   })
 
   it('builds a receipt consistent with the identity', () => {
     const identity = getReleaseIdentity()
     const files = { 'a.js': 'a'.repeat(64) }
-    const slot = { treeSha256: sha256(`a.js\0${'a'.repeat(64)}\n`), fullVersion: `${ORCA_VERSION}+abc`, files }
+    const slot = {
+      treeSha256: sha256(`a.js\0${'a'.repeat(64)}\n`),
+      artifactSha256: 'd'.repeat(64),
+      fullVersion: `${ORCA_VERSION}+${'d'.repeat(12)}`,
+      files
+    }
     const web = { treeSha256: 'b'.repeat(64), fileCount: 1, totalBytes: 3, files: { 'index.html': 'c'.repeat(64) } }
     const receipt = buildReceipt({ identity, slot, web })
-    assert.equal(receipt.schemaVersion, 2)
+    assert.equal(receipt.schemaVersion, 3)
     assert.equal(receipt.release.contentId, identity.contentId)
     assert.equal(receipt.node.executablePath, identity.node.executablePath)
+    assert.equal(receipt.slot.artifactSha256, slot.artifactSha256)
     assert.equal(receipt.slot.fileCount, 1)
     assert.equal(receipt.web.fileCount, 1)
     assert.equal(typeof receipt.createdAt, 'string')

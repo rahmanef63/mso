@@ -1,13 +1,11 @@
 /**
- * Slot materialization from an already verified Orca template directory.
- *
- * This low-level function has a documented precondition: the caller has
- * authenticated the source (pinned .deb digest and fresh extraction). It still
- * enforces the full per-file contract, symlink/ownership/path safety, a
- * destination TOCTOU re-hash, and immutable publish-or-refuse semantics.
+ * Slot materialization from an already verified Orca template directory: the
+ * full per-file contract, symlink/ownership/path safety, a destination TOCTOU
+ * re-hash, the upstream raw-byte artifact identity, and publish-or-refuse.
  */
 
 import { createHash, randomUUID } from 'node:crypto'
+import { createReadStream } from 'node:fs'
 import { copyFile, chmod, lstat, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import {
@@ -23,6 +21,7 @@ import {
 import { fileSha256 } from './node-runtime.mjs'
 import {
   getSlotArtifactFilenames,
+  getUpstreamArtifactOrder,
   verifyManifestSchema,
   verifyTargetMarkers
 } from './slot-manifest.mjs'
@@ -38,9 +37,7 @@ export { getSlotArtifactFilenames, verifyManifestSchema, verifyTargetMarkers }
 const MAX_MANIFEST_BYTES = 1024 * 1024
 const EXECUTABLE_SLOT_FILES = new Set(['ripgrep/linux-x64/rg'])
 
-export function isSafePathSegment(relPath) {
-  return isSafeRelativePath(relPath)
-}
+export const isSafePathSegment = isSafeRelativePath
 
 async function assertRealDir(dir, label) {
   await assertNoSymlinkAncestors(dir)
@@ -155,12 +152,17 @@ export async function materializeOrcadSlot({
     throw new Error(`Slot file contract mismatch: expected ${ORCAD_SLOT_FILE_COUNT}, got ${fileMap.size}`)
   }
   const treeSha256 = slotTreeSha256(filenames, fileMap)
-  const fullVersion = `${ORCAD_VERSION}+${treeSha256.slice(0, 12)}`
+  const artifactHash = createHash('sha256')
+  for (const name of getUpstreamArtifactOrder(filenames)) {
+    for await (const chunk of createReadStream(fileMap.get(name).sourcePath)) artifactHash.update(chunk)
+  }
+  const artifactSha256 = artifactHash.digest('hex')
+  const fullVersion = `${ORCAD_VERSION}+${artifactSha256.slice(0, 12)}`
   const files = filesObject(fileMap)
 
   if (await lstatOrNull(outputSlotDir)) {
     if (await verifySlotIntegrity(outputSlotDir, fileMap, { expectedVersion: fullVersion, exactFileSet: true })) {
-      return { slotDir: outputSlotDir, fullVersion, treeSha256, files, reused: true }
+      return { slotDir: outputSlotDir, fullVersion, treeSha256, artifactSha256, files, reused: true }
     }
     throw new Error(`Refusing to overwrite an existing non-matching slot: ${outputSlotDir}`)
   }
@@ -188,7 +190,7 @@ export async function materializeOrcadSlot({
       throw new Error(`Refusing to overwrite a slot created concurrently: ${outputSlotDir}`)
     }
     await rename(stagingDir, outputSlotDir)
-    return { slotDir: outputSlotDir, fullVersion, treeSha256, files, reused: false }
+    return { slotDir: outputSlotDir, fullVersion, treeSha256, artifactSha256, files, reused: false }
   } finally {
     await rm(stagingDir, { recursive: true, force: true }).catch(() => {})
   }

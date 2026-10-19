@@ -37,8 +37,9 @@ export function getReleaseContentId() {
   return createHash('sha256')
     .update(
       [
-        'mso-orca-release-v2',
+        'mso-orca-release-v3',
         'runtimes/node-<executableSha256>/bin/node',
+        'slot-version:sha256-raw-bytes-orcadArtifactFilenames-order',
         ORCA_VERSION,
         ORCAD_VERSION,
         ORCA_SOURCE_COMMIT,
@@ -59,7 +60,7 @@ export function getReleaseContentId() {
 
 export function getReleaseIdentity() {
   return Object.freeze({
-    schemaVersion: 2,
+    schemaVersion: 3,
     version: ORCA_VERSION,
     orcadVersion: ORCAD_VERSION,
     target: SUPPORTED_TARGET,

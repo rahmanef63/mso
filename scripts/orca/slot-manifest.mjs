@@ -20,6 +20,11 @@ import { isSafeRelativePath } from './safe-paths.mjs'
 const SHA256_RE = /^[a-f0-9]{64}$/
 const MOBILE_PREFIX = 'out/mobile-web/'
 const MANIFEST_NAME = 'out/mobile-web/manifest.json'
+const WATCHER_ENTRY_NAME = 'node_modules/@parcel/watcher/index.js'
+
+function compareCodeUnits(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0
+}
 
 function isPlainObject(value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
@@ -74,7 +79,35 @@ function assertExactSet(actual, expected, label) {
 function mobileAssets(manifest) {
   return Object.keys(manifest.commonSha256)
     .filter((name) => name.startsWith(MOBILE_PREFIX) && name !== MANIFEST_NAME)
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    .sort(compareCodeUnits)
+}
+
+/**
+ * Upstream artifact identity order (`orcadArtifactFilenames` in
+ * src/shared/orcad-artifacts.ts): the common artifacts with the three
+ * target-only common positions interleaved where upstream lists them, then the
+ * native PTY and ripgrep artifacts, then the sorted mobile page assets.
+ * `filenames` is the slot's file set; the result is a permutation of it.
+ */
+export function getUpstreamArtifactOrder(filenames) {
+  const [serverTarget, runtimeMarker, watcherNative, ptyNative, ripgrep] = ORCAD_TARGET_FILES
+  const mobile = filenames
+    .filter((name) => name.startsWith(MOBILE_PREFIX) && name !== MANIFEST_NAME)
+    .sort(compareCodeUnits)
+  const order = []
+  for (const name of ORCAD_COMMON_FILES) {
+    if (name === WATCHER_ENTRY_NAME) order.push(serverTarget, runtimeMarker, name, watcherNative)
+    else if (name === MANIFEST_NAME) order.push(name, ptyNative, ripgrep)
+    else order.push(name)
+  }
+  order.push(...mobile)
+  const expected = new Set(filenames)
+  const isPermutation =
+    order.length === filenames.length &&
+    new Set(order).size === order.length &&
+    order.every((name) => expected.has(name))
+  if (!isPermutation) throw new Error('Upstream artifact order is not a permutation of the slot files')
+  return order
 }
 
 export function getSlotArtifactFilenames(target, manifest) {

@@ -19,7 +19,7 @@ export const RELEASE_LAYOUT = Object.freeze(['licenses', 'receipt.json', 'runtim
 
 export function buildReceipt({ identity, slot, web }) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     release: {
       contentId: identity.contentId,
       version: identity.version,
@@ -32,6 +32,7 @@ export function buildReceipt({ identity, slot, web }) {
     node: identity.node,
     slot: {
       treeSha256: slot.treeSha256,
+      artifactSha256: slot.artifactSha256,
       fullVersion: slot.fullVersion,
       fileCount: Object.keys(slot.files).length,
       files: slot.files
@@ -54,7 +55,7 @@ function slotTreeSha256(files) {
 }
 
 function assertReceipt(receipt, identity) {
-  if (!receipt || receipt.schemaVersion !== 2) throw new Error('Receipt schema is not version 2')
+  if (!receipt || receipt.schemaVersion !== 3) throw new Error('Receipt schema is not version 3')
   const release = receipt.release
   if (!release || release.contentId !== identity.contentId) {
     throw new Error('Receipt content id does not match the pinned release')
@@ -70,6 +71,13 @@ function assertReceipt(receipt, identity) {
   }
   if (slotTreeSha256(receipt.slot.files) !== receipt.slot.treeSha256) {
     throw new Error('Receipt slot tree digest is inconsistent')
+  }
+  // Upstream `.version` is the first 12 hex chars of the raw-byte artifact hash.
+  if (
+    typeof receipt.slot.artifactSha256 !== 'string' ||
+    receipt.slot.fullVersion !== `${identity.orcadVersion}+${receipt.slot.artifactSha256.slice(0, 12)}`
+  ) {
+    throw new Error('Receipt slot version is not the upstream raw-byte artifact identity')
   }
 }
 
