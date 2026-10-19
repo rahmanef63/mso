@@ -160,6 +160,28 @@ describe("Orca stop containment despite corrupt release", () => {
     await expect(assertManagedAppStopped("orca")).rejects.toThrow(/install receipt|cannot prove absence/i);
   });
 
+  it("direct stop with corrupt release invalidates stale verification cache and reflects integrity failure", async () => {
+    await writeOwnedFixture();
+
+    // 1. Prime valid status
+    const initialView = await getManagedApp("orca");
+    expect(initialView.installed).toBe(true);
+    expect(initialView.state).toBe("running");
+
+    // 2. Corrupt release / checksum failure
+    adapterResult = { code: 1, stdout: "", stderr: "checksum mismatch / corrupt release" };
+
+    // 3. Direct stop without failed start/restart/backup beforehand
+    const stopView = await performManagedAppAction("orca", "stop");
+
+    // 4. Assert exact owned user stop once, installed false, integrity diagnostic, supportedActions exactly ['stop'], no start/restart side effects
+    expect(lifecycleCalls()).toEqual([["systemctl", ["--user", "stop", "mso-orca.service"]]]);
+    expect(stopView.installed).toBe(false);
+    expect(stopView.state).toBe("stopped");
+    expect(stopView.diagnostic).toMatch(/install receipt/i);
+    expect(stopView.supportedActions).toEqual(["stop"]);
+  });
+
   it("foreign unit denies stop and never invokes systemctl stop", async () => {
     await writeOwnedFixture();
     // Tamper unit with foreign content (missing MSO marker)

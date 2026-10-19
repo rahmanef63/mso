@@ -8,7 +8,7 @@ import { provisionDomainAfterStart, readManagedDomainView } from "./domain-lifec
 import { acquireOperation, activeOperation, releaseOperation, withManagedAppOperationLease } from "./lock";
 import { redact } from "./redact";
 import { listJobRecords } from "./job-store";
-import { detectOrca, detectOwnedOrcaForStop, orcaUnknownDiagnostic, ORCA_SERVICE, type ManagedInstallation } from "./orca-installation";
+import { detectOrca, detectOwnedOrcaForStop, invalidateOrcaIntegrityCache, orcaUnknownDiagnostic, ORCA_SERVICE, type ManagedInstallation } from "./orca-installation";
 import { commandExists, resolveCommand, runProgram } from "./runner";
 import { managedRunState, running, systemdState } from "./service-state";
 import { userBusEnv, userBusUnavailable } from "./user-bus";
@@ -226,6 +226,7 @@ export async function performManagedAppAction(id: ManagedAppId, action: ManagedA
     } finally {
       releaseOperation(id);
       versionCache.delete(id);
+      if (id === "orca") invalidateOrcaIntegrityCache();
     }
   });
   const domain = action === "start" || action === "restart" ? await provisionDomainAfterStart(id) : null;

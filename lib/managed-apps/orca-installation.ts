@@ -109,6 +109,10 @@ const RECEIPT_CACHE_TTL_MS = 30_000;
 // changes the key and forces a fresh adapter verification. Read status cache max 30s.
 let receiptCache: { root: string; key: string; version: string | null; cachedAt: number } | null = null;
 
+export function invalidateOrcaIntegrityCache(): void {
+  receiptCache = null;
+}
+
 async function verifiedInstallVersion(root: string, adapterPath: string, fresh = false): Promise<string | null> {
   const receiptPath = path.join(root, INSTALL_RECEIPT);
   let key: string;
