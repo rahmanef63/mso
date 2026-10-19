@@ -7,7 +7,6 @@ vi.hoisted(() => {
 import { renderToStaticMarkup } from "react-dom/server";
 import { getManagedAppDefinition } from "@/lib/managed-apps/catalog";
 import { supportFor } from "./app-support";
-import { installApp } from "./update-api";
 import { requestAuthorizedFrame, resolveAuthorizedFrame, selectAuthorizedFrame } from "./app-authorization";
 import { ManagedFeatureApp } from "./feature-app";
 import { OrcaApp } from "./app";
@@ -26,21 +25,15 @@ describe("Orca UI state and installer availability", () => {
     expect(html).toContain("Detecting Orca");
   });
 
-  it("keeps the installer unavailable until a real verified adapter exists", async () => {
+  it("exposes the real verified installer adapter while update/uninstall stay unsupported", () => {
     const def = getManagedAppDefinition("orca");
-    expect(def.installBackends).toEqual([]);
+    expect(def.installBackends).toEqual(["user-systemd"]);
     const support = supportFor("orca");
-    expect(support.installCommand).toBe("");
-    expect(support.installNote).toContain("Waiting for verified upstream packaging");
+    expect(support.installCommand).toContain("scripts/managed-app-install orca");
+    expect(support.installNote).toMatch(/mso-orca\.service/);
     expect(support.stateDir).toBe("~/.local/share/mso/orca");
-
-    vi.stubGlobal("fetch", vi.fn(async () => ({
-      ok: false,
-      status: 400,
-      json: async () => ({ error: "Installation is not supported for orca on this host" }),
-    })));
-    await expect(installApp("orca")).rejects.toThrow("Installation is not supported for orca on this host");
-    vi.unstubAllGlobals();
+    expect(support.uninstallCommand).toBe("");
+    expect(support.uninstallEffect).toMatch(/not available/i);
   });
 });
 

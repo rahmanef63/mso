@@ -86,12 +86,13 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     dryRun: false,
     rollbackPin: false,
     pinLabel: "Version",
-    pinHint: "Orca update and rollback are not available pending verified adapter.",
+    pinHint: "Orca update and rollback are not available yet; only the pinned 1.4.230 web runtime installs.",
     pinPlaceholder: "",
-    installCommand: "",
-    installNote: "Orca installer is not available yet. Waiting for verified upstream packaging and runtime contract.",
+    installCommand: "bash scripts/managed-app-install orca install",
+    installNote:
+      "MSO verifies and installs the pinned Orca 1.4.230 web/Node release into ~/.local/share/mso/orca and starts the MSO-owned mso-orca.service user unit on loopback. It takes no provider key, and it requires a configured split app origin (NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE) so the browser can frame it — there is no same-origin fallback.",
     uninstallCommand: "",
-    uninstallEffect: "Orca uninstaller is not available yet.",
+    uninstallEffect: "Orca uninstall is not available yet.",
     stateDir: "~/.local/share/mso/orca",
   },
 };

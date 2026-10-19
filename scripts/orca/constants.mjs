@@ -83,12 +83,6 @@ export const ORCA_THIRD_PARTY_NOTICES_URL =
   'https://raw.githubusercontent.com/stablyai/orca/b2879bd5aaac5d27c101ccf4171faa25d9f0bb1e/docs/site/THIRD_PARTY_NOTICES.md'
 export const ORCA_THIRD_PARTY_NOTICES_RELATIVE_PATH = 'docs/site/THIRD_PARTY_NOTICES.md'
 
-/**
- * @deprecated Hardcoded host fact kept only because the sibling-owned launcher
- * still imports it. Acquisition/lifecycle must not treat it as port policy.
- */
-export const OCCUPIED_SYSTEM_PORT = 6768
-
 /** Packaged Electron app.asar inside the verified .deb; used for MIT LICENSE. */
 export const ORCA_APP_ASAR_PATH = 'opt/Orca/resources/app.asar'
 export const ORCA_APP_ASAR_SHA256 =

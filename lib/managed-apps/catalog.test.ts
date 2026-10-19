@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { getManagedAppDefinition, isManagedAppId, listManagedAppDefinitions } from "./catalog";
 import { MANAGED_APP_ACTIONS } from "./types";
@@ -37,6 +38,18 @@ describe("managed app catalog", () => {
     expect(source).toContain('-p "$BIND:$PORT:$PORT"');
     expect(source).not.toContain('-p "$PORT:$PORT"');
     expect(getManagedAppDefinition("9router").publicPort).toBeUndefined();
+  });
+
+  it("wires Orca to the repo-owned adapter and the systemd user backend", () => {
+    const orca = getManagedAppDefinition("orca");
+    // The reviewed adapter ships in this repo, so its presence must not count as
+    // an install; the exact unit + a verified receipt do.
+    expect(orca.installBackends).toEqual(["user-systemd"]);
+    expect(orca.command).toBe(path.join(process.cwd(), "scripts", "managed-app-orca"));
+    expect(orca.commandProvesInstall).toBe(false);
+    expect(orca.serviceNames).toEqual(["mso-orca.service"]);
+    // The managed root is MSO-owned state, never the operator's personal ~/.orca.
+    expect(orca.homeDir).toMatch(/mso[/\\]orca$/);
   });
 
 });

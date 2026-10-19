@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Hardened Orca runtime CLI: strict argument parsing, release preparation,
- * disposable smoke proof (PTY echo), and a real persistent supervised run.
+ * Hardened Orca runtime CLI: strict argument parsing, pinned-release
+ * preparation, disposable smoke proof (PTY echo), and a real persistent
+ * supervised run. There is no unchecked `--template`/`--web` bypass.
  */
 
 import { prepareRelease } from './lifecycle-release.mjs'
 import { runSmokeProof } from './smoke.mjs'
 import { runSupervisedRuntime } from './supervision.mjs'
+import { assertConfiguredAdvertisedEndpoint, assertPersistentPort } from './supervision.mjs'
 import { redactSensitiveText } from './bounded-proc.mjs'
 
 const COMMANDS = new Set(['materialize', 'smoke', 'run', 'help'])
@@ -16,9 +18,7 @@ const VALUE_FLAGS = new Map([
   ['--port', 'port'],
   ['--bind', 'bind'],
   ['--advertised-endpoint', 'advertisedEndpoint'],
-  ['--deb', 'deb'],
-  ['--template', 'template'],
-  ['--web', 'web']
+  ['--deb', 'deb']
 ])
 
 const BOOLEAN_FLAGS = new Map([['--allow-download', 'allowDownload']])
@@ -26,11 +26,11 @@ const BOOLEAN_FLAGS = new Map([['--allow-download', 'allowDownload']])
 const USAGE = `Usage: node scripts/orca/cli.mjs <command> --managed-root <dir> [flags]
 
 Commands:
-  materialize  Prepare and verify the release slot + pinned Node runtime.
+  materialize  Prepare and verify the pinned release slot + Node runtime.
   smoke        Disposable loopback launch, web probe, and real PTY echo proof.
                Cleans the task-owned server and terminal daemon.
-  run          Persistent supervised server on a fixed port; stays until
-               SIGINT/SIGTERM and preserves the terminal daemon.
+  run          Persistent supervised server on a fixed port; stays alive until
+               the server dies or SIGINT/SIGTERM, then preserves the daemon.
   help         Show this message.
 
 Flags:
@@ -38,9 +38,7 @@ Flags:
   --port <n>                    Port 1-65535 for run; 0 is smoke-only.
   --bind <ip>                   Loopback bind address (default 127.0.0.1).
   --advertised-endpoint <url>   Configured public wss URL (required for run).
-  --deb <path>                  Verified Orca .deb when not using template/web.
-  --template <dir>              Extracted orcad-template directory.
-  --web <dir>                   Extracted Orca web client directory.
+  --deb <path>                  Already-verified Orca .deb for acquisition.
   --allow-download              Permit the pinned deb/Node download.
 `
 
@@ -89,17 +87,23 @@ export async function main(argv, { log = console } = {}) {
   }
 
   const managedRoot = requireManagedRoot(args)
+  // Validate the run-only configuration BEFORE acquisition: a bad advertised
+  // endpoint must not trigger a download or rehash first.
+  if (args.command === 'run') {
+    assertPersistentPort(args.port)
+    assertConfiguredAdvertisedEndpoint(args.advertisedEndpoint)
+  }
+
   const release = await prepareRelease({
-    debPath: args.deb,
-    templateDir: args.template,
-    webDir: args.web,
     managedRoot,
+    debPath: args.deb,
     allowDownload: args.allowDownload === true
   })
 
   if (args.command === 'materialize') {
     log.log(JSON.stringify({
       version: release.version,
+      releaseRoot: release.releaseRoot,
       slotDir: release.slotDir,
       nodeBinary: release.nodeBinary,
       webDir: release.webDir

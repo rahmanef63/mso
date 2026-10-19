@@ -11,10 +11,24 @@ vi.mock("./user-bus", () => ({
   userBusEnv: vi.fn(() => ({ XDG_RUNTIME_DIR: "/run/user/1000" })),
   userBusUnavailable: vi.fn(() => false),
 }));
+vi.mock("./orca-readiness", () => ({ getOrcaReadiness: vi.fn() }));
 
 const { runProgram, commandExists } = await import("./runner");
+const { getOrcaReadiness } = await import("./orca-readiness");
 const { getManagedApp } = await import("./manager");
 const { getManagedAppDefinition } = await import("./catalog");
+
+// Orca health is the bridge's fail-closed live reading, so a unit that is merely
+// `active` is not enough: the readiness identity must also verify.
+const READY = {
+  available: true as const,
+  pairingUrl: "orca://pair?code=private",
+  webClientUrl: "http://127.0.0.1:6769/web-index.html",
+  runtimeId: "runtime-abc",
+  serverPid: 4242,
+  boundEndpoint: "ws://127.0.0.1:6769",
+  advertisedEndpoint: "wss://orca.mso.example.com",
+};
 
 const ok = (stdout: string) => ({ code: 0, stdout, stderr: "" });
 const NOT_FOUND = ok("LoadState=not-found\nActiveState=inactive\n");
@@ -61,8 +75,9 @@ describe("Orca catalog & manager installation contracts", () => {
     expect(view.state).toBe("not-installed");
   });
 
-  it("detects running state when mso-orca.service is active", async () => {
+  it("detects running state when mso-orca.service is active and readiness verifies", async () => {
     mockSystemctl({ "mso-orca.service": ACTIVE });
+    vi.mocked(getOrcaReadiness).mockResolvedValue(READY);
     const view = await getManagedApp("orca");
     expect(view.state).toBe("running");
     expect(view.supportedActions).toContain("stop");
@@ -76,21 +91,23 @@ describe("Orca catalog & manager installation contracts", () => {
     expect(view.supportedActions).toContain("start");
   });
 
-  it("targets port 6769 and /web-index.html for static reachability check", async () => {
+  it("uses the fail-closed bridge readiness reading for Orca health, not a static fetch", async () => {
     mockSystemctl({ "mso-orca.service": ACTIVE });
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response("<!doctype html>", { status: 200 }),
-    );
 
     const def = getManagedAppDefinition("orca");
     expect(def.dashboardUrl).toMatch(/6769/);
     expect(def.healthPath).toBe("/web-index.html");
 
+    vi.mocked(getOrcaReadiness).mockResolvedValue(READY);
     const view = await getManagedApp("orca");
     expect(view.healthy).toBe(true);
+    expect(getOrcaReadiness).toHaveBeenCalled();
 
-    const healthCall = fetchSpy.mock.calls.find(([url]) => String(url).includes("6769"));
-    expect(healthCall).toBeDefined();
-    expect(String(healthCall![0])).toContain(":6769/web-index.html");
+    // A runtime whose identity does not verify reads unhealthy while the unit
+    // stays active — a bare HTTP 200 is never accepted as ownership.
+    vi.mocked(getOrcaReadiness).mockResolvedValue({ available: false, reason: "not_ready" });
+    const degraded = await getManagedApp("orca");
+    expect(degraded.state).toBe("unhealthy");
+    expect(degraded.healthy).toBe(false);
   });
 });

@@ -10,7 +10,7 @@ describe('strict CLI argument parsing', () => {
     const res = parseArgs(argv(
       'smoke', '--managed-root', '/srv/orca', '--port', '6769', '--bind', '127.0.0.1',
       '--advertised-endpoint', 'wss://orca.example.test', '--deb', '/tmp/orca.deb',
-      '--template', '/tmp/template', '--web', '/tmp/web', '--allow-download'
+      '--allow-download'
     ))
     assert.equal(res.command, 'smoke')
     assert.equal(res.managedRoot, '/srv/orca')
@@ -18,8 +18,6 @@ describe('strict CLI argument parsing', () => {
     assert.equal(res.bind, '127.0.0.1')
     assert.equal(res.advertisedEndpoint, 'wss://orca.example.test')
     assert.equal(res.deb, '/tmp/orca.deb')
-    assert.equal(res.template, '/tmp/template')
-    assert.equal(res.web, '/tmp/web')
     assert.equal(res.allowDownload, true)
     assert.equal(parseArgs(['node', 'cli.mjs']).command, 'help')
   })
@@ -33,6 +31,15 @@ describe('strict CLI argument parsing', () => {
     assert.throws(() => parseArgs(argv('smoke', '--managed-root', '/srv', '--port', '6769x')), /port must be an integer/i)
     assert.throws(() => parseArgs(argv('launch')), /unknown command/i)
     assert.throws(() => parseArgs(['node', 'cli.mjs', '--managed-root', '/srv']), /missing command/i)
+  })
+
+  it('has no unchecked template/web acquisition bypass', () => {
+    for (const flag of ['--template', '--web']) {
+      assert.throws(
+        () => parseArgs(argv('materialize', '--managed-root', '/srv', flag, '/tmp/upstream')),
+        /unknown flag/i
+      )
+    }
   })
 
   it('requires --managed-root before running a command', async () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("server-only", () => ({}));
@@ -15,7 +16,6 @@ import { appAllowedForRole } from "@/lib/auth/app-access";
 import { managedAppHost, managedAppOrigin, managedAppIdForHost } from "@/lib/managed-apps/origin";
 import { updateAdapter } from "@/lib/managed-apps/update-cli";
 import { managedAppInstallSupport } from "@/lib/managed-apps/host-compatibility";
-import { startInstall } from "@/lib/managed-apps/install";
 import { orcaApp } from "./index";
 import { OrcaApp } from "./app";
 
@@ -27,14 +27,14 @@ describe("Orca checkpoint 1 identity and presentation", () => {
     const orcaDef = defs.find((d) => d.id === "orca");
     expect(orcaDef).toBeDefined();
     expect(orcaDef?.name).toBe("Orca");
-    expect(orcaDef?.command).toBe("scripts/managed-app-orca");
+    expect(orcaDef?.command).toBe(join(process.cwd(), "scripts", "managed-app-orca"));
     expect(orcaDef?.commandProvesInstall).toBe(false);
     expect(orcaDef?.serviceNames).toEqual(["mso-orca.service"]);
     expect(orcaDef?.containerNames).toEqual([]);
     expect(orcaDef?.dashboardUrl).toMatch(/6769/);
     expect(orcaDef?.healthPath).toBe("/web-index.html");
     expect(orcaDef?.stateDirName).toBe("orca");
-    expect(orcaDef?.installBackends).toEqual([]);
+    expect(orcaDef?.installBackends).toEqual(["user-systemd"]);
     expect(getManagedAppDefinition("orca" as any)).toEqual(orcaDef);
   });
 
@@ -79,11 +79,24 @@ describe("Orca checkpoint 1 identity and presentation", () => {
     expect(managedAppIdForHost("unknown.mso.example.com")).toBeNull();
   });
 
-  it("fails unsupported install and update operations clearly without fake success", async () => {
+  it("requires a proven x64 glibc host to install while update/uninstall stay unsupported", async () => {
     const def = getManagedAppDefinition("orca" as any);
-    const installSupport = managedAppInstallSupport(def, { platform: "linux", userSystemd: true, docker: true });
-    expect(installSupport.supported).toBe(false);
-    expect(installSupport.reason).toMatch(/not available|unsupported/i);
+
+    // The pinned release is linux-x64-glibc only: an unproven host fails closed
+    // with a specific reason instead of promising an install that cannot run.
+    const unproven = managedAppInstallSupport(def, { platform: "linux", userSystemd: true, docker: true });
+    expect(unproven.supported).toBe(false);
+    expect(unproven.reason).toMatch(/x64|glibc/i);
+
+    const proven = managedAppInstallSupport(def, {
+      platform: "linux",
+      arch: "x64",
+      glibc: true,
+      userSystemd: true,
+      docker: true,
+    });
+    expect(proven.supported).toBe(true);
+    expect(proven.backend).toBe("user-systemd");
 
     const adapter = updateAdapter("orca" as any);
     expect(adapter.capabilities.check).toBe(false);
@@ -92,7 +105,6 @@ describe("Orca checkpoint 1 identity and presentation", () => {
     expect(adapter.capabilities.rollback).toBe(false);
     expect(() => adapter.updateArgv("orca-ide", {})).toThrow(/not supported for orca/);
     expect(() => adapter.uninstallArgv("orca-ide", false)).toThrow(/not supported for orca/);
-    await expect(startInstall("orca")).rejects.toThrow("Orca installer is not available yet.");
   });
 
   it("exports OrcaApp component and renders initial loading presentation", () => {

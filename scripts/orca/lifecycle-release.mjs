@@ -1,85 +1,86 @@
 /**
- * Prepare an immutable Orca release slot plus the pinned Node runtime.
- * The caller supplies either an already-extracted template/web pair or a
- * verified deb; downloads stay disabled unless explicitly allowed.
+ * MSO's release-preparation wrapper.
+ *
+ * There is exactly one acquisition path: the reviewed `preparePinnedRelease`
+ * API in release.mjs, which verifies the pinned .deb digest, extracts a
+ * data-only slot, pins Node, and publishes an immutable release. This wrapper
+ * adds only managed-root isolation and a defensive shape check; it deliberately
+ * has no `--template`/`--web` bypass, so production cannot be pointed at
+ * unreviewed upstream bytes.
  */
 
-import { existsSync } from 'node:fs'
-import { copyFile, chmod, mkdir, symlink } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import {
-  PINNED_NODE,
-  SUPPORTED_TARGET,
-  ORCAD_RUNTIMES_DIRNAME,
-  ORCAD_NODE_RUNTIME_DIR_PREFIX,
-  ORCAD_NODE_RUNTIME_POSIX_EXECUTABLE
-} from './constants.mjs'
+import { isAbsolute, relative } from 'node:path'
+import { ORCA_VERSION } from './constants.mjs'
 import { ensureIsolatedDirectories } from './env.mjs'
-import { fetchAndMaterializeNodeRuntime } from './node-runtime.mjs'
-import { materializeOrcadSlot } from './materializer.mjs'
-import { acquireAndExtractDeb } from './artifact-source.mjs'
+import { getReleaseContentId } from './release-identity.mjs'
+import { preparePinnedRelease } from './release.mjs'
 
-export async function prepareRelease({
-  debPath,
-  templateDir,
-  webDir,
-  managedRoot,
-  allowDownload = false,
-  signal
-} = {}) {
-  if (!managedRoot) throw new Error('managedRoot is required')
-  await ensureIsolatedDirectories(managedRoot)
+function insideOrEqual(root, candidate) {
+  if (typeof candidate !== 'string' || !isAbsolute(candidate)) return false
+  return candidate === root || candidate.startsWith(`${root}/`)
+}
 
-  let resolvedTemplate = templateDir
-  let resolvedWeb = webDir
-  if (!resolvedTemplate || !resolvedWeb) {
-    const extracted = await acquireAndExtractDeb({
-      debPath,
-      extractDir: join(managedRoot, 'upstream-extracted'),
-      allowDownload,
-      signal
-    })
-    resolvedTemplate = extracted.templateDir
-    resolvedWeb = extracted.webDir
-  }
+function inside(root, candidate) {
+  if (typeof candidate !== 'string' || !isAbsolute(candidate)) return false
+  const rel = relative(root, candidate)
+  return rel.length > 0 && !rel.startsWith('..') && !isAbsolute(rel)
+}
 
-  const slotsRoot = join(managedRoot, 'slots', SUPPORTED_TARGET)
-  const runtimesRoot = join(slotsRoot, ORCAD_RUNTIMES_DIRNAME)
-  const nodeBinary = await fetchAndMaterializeNodeRuntime({
-    target: SUPPORTED_TARGET,
-    runtimesDir: runtimesRoot,
-    allowDownload
-  })
-
-  const { slotDir, fullVersion } = await materializeOrcadSlot({
-    templateDir: resolvedTemplate,
-    outputSlotDir: join(slotsRoot, 'active'),
-    target: SUPPORTED_TARGET
-  })
-
-  const slotExpectedNode = join(
-    slotDir,
-    '..',
-    ORCAD_RUNTIMES_DIRNAME,
-    `${ORCAD_NODE_RUNTIME_DIR_PREFIX}${PINNED_NODE.executableSha256}`,
-    ...ORCAD_NODE_RUNTIME_POSIX_EXECUTABLE.split('/')
-  )
-  if (!existsSync(slotExpectedNode)) {
-    await mkdir(dirname(slotExpectedNode), { recursive: true, mode: 0o700 })
-    try {
-      await symlink(nodeBinary, slotExpectedNode)
-    } catch {
-      await copyFile(nodeBinary, slotExpectedNode)
-      await chmod(slotExpectedNode, 0o755)
+function assertPreparedRelease(prepared, managedRoot) {
+  if (!prepared || typeof prepared !== 'object') throw new Error('preparePinnedRelease returned no release')
+  for (const key of ['releaseRoot', 'slotDir', 'nodeBinary', 'webDir', 'receiptPath']) {
+    if (typeof prepared[key] !== 'string' || !isAbsolute(prepared[key])) {
+      throw new Error(`prepared release ${key} must be an absolute path`)
     }
   }
-
-  return {
-    releaseRoot: managedRoot,
-    slotDir,
-    nodeBinary,
-    version: fullVersion,
-    templateDir: resolvedTemplate,
-    webDir: resolvedWeb
+  if (!insideOrEqual(managedRoot, prepared.releaseRoot)) {
+    throw new Error('prepared release is outside the managed root')
   }
+  for (const key of ['slotDir', 'nodeBinary', 'webDir', 'receiptPath']) {
+    if (!inside(prepared.releaseRoot, prepared[key])) {
+      throw new Error(`prepared release ${key} is outside the immutable release root`)
+    }
+  }
+  if (prepared.version !== ORCA_VERSION) {
+    throw new Error(`prepared release version mismatch: expected ${ORCA_VERSION}, got ${prepared.version}`)
+  }
+  if (prepared.receipt?.release?.contentId !== getReleaseContentId()) {
+    throw new Error('prepared release receipt content id does not match the pinned release')
+  }
+  return {
+    releaseRoot: prepared.releaseRoot,
+    slotDir: prepared.slotDir,
+    nodeBinary: prepared.nodeBinary,
+    webDir: prepared.webDir,
+    receiptPath: prepared.receiptPath,
+    receipt: prepared.receipt,
+    version: prepared.version
+  }
+}
+
+/**
+ * @param allowDownload explicit opt-in. Default false: an already-installed
+ *   release is reused after a full rehash and a missing one fails clearly
+ *   instead of silently reaching the network.
+ */
+export async function prepareRelease({
+  managedRoot,
+  verifiedDebCache,
+  debPath,
+  allowDownload = false,
+  signal,
+  prepare = preparePinnedRelease
+} = {}) {
+  if (typeof managedRoot !== 'string' || !isAbsolute(managedRoot)) {
+    throw new Error('managedRoot must be an absolute path')
+  }
+  await ensureIsolatedDirectories(managedRoot)
+  const verified = verifiedDebCache ?? debPath
+  const prepared = await prepare({
+    installRoot: managedRoot,
+    ...(verified ? { verifiedDebCache: verified } : {}),
+    allowDownload: allowDownload === true,
+    signal
+  })
+  return assertPreparedRelease(prepared, managedRoot)
 }
