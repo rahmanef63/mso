@@ -13,7 +13,7 @@ import { errorPage, wantsErrorPage } from "@/lib/managed-apps/proxy-error-page";
 import {
   buildUpstreamHeaders,
   isSecureRequest,
-  isServiceWorkerPath,
+  isServiceWorkerRequest,
   pickResponseHeaders,
   readSetCookies,
   rewriteLocation,
@@ -107,7 +107,7 @@ async function proxy(req: Request, context: { params: Promise<{ id: string; path
   }
   // A service worker registered from proxied bytes installs on the MSO origin
   // and keeps serving after the window closes. Never hand one to the browser.
-  if (isServiceWorkerPath(segments)) {
+  if (isServiceWorkerRequest(segments, req.headers.get("sec-fetch-dest"))) {
     return fail(req, "service workers are not proxied", 404);
   }
   const definition = getManagedAppDefinition(params.id);
@@ -146,6 +146,7 @@ async function proxy(req: Request, context: { params: Promise<{ id: string; path
       // browser refuses to display it at all.
       contentSecurityPolicy(prefixUrl, upstream.headers.get("content-security-policy"), {
         cockpitOrigin: cockpitOrigin(),
+        appId: params.id,
       }),
     );
     if (upstream.status >= 300 && upstream.status < 400) {
