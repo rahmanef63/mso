@@ -35,7 +35,16 @@ try {
     await page.mouse.wheel(0, 1000);
     await expect(form.getByRole("button", { name: "Connect app", exact: true })).toBeInViewport({ ratio: 1 });
     await form.getByRole("button", { name: "Connect app", exact: true }).click();
-    await expect(form).toHaveCount(0);
+    // A connected app with no name is reachable only by an address, so the flow
+    // offers the domain step instead of closing. The drawer closes on its own
+    // Close button (or a dismiss), never automatically.
+    const domain = page.getByRole("dialog");
+    await expect(domain.getByRole("heading", { name: "Domain for Fixture tool", exact: true })).toBeVisible();
+    await expect(domain.getByLabel("Hostname", { exact: true })).toHaveValue("tool.example.test");
+    await expect(domain.getByText("Open directly by IP and port instead", { exact: true })).toBeVisible();
+    await expect(domain.getByText("An HTTP address is never loaded inside MSO.")).toBeVisible();
+    await domain.locator("form").getByRole("button", { name: "Close", exact: true }).click();
+    await expect(domain).toHaveCount(0);
     const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Fixture tool", exact: true }) });
     await expect(card).toBeVisible();
     await card.getByRole("button", { name: "Open", exact: true }).click();
@@ -56,7 +65,11 @@ try {
     await card.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("dialog").getByLabel("App URL", { exact: true }).fill("http://192.0.2.10:5678/");
     await page.getByRole("button", { name: "Save changes", exact: true }).click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    // A save also lands on the domain step; dismiss it, the edit is already stored.
+    const savedDomain = page.getByRole("dialog");
+    await expect(savedDomain.getByRole("heading", { name: "Domain for Fixture tool", exact: true })).toBeVisible();
+    await savedDomain.locator("form").getByRole("button", { name: "Close", exact: true }).click();
+    await expect(savedDomain).toHaveCount(0);
     await card.getByRole("button", { name: "Open", exact: true }).click();
     await expect(page.getByRole("link", { name: "Open Fixture tool", exact: true })).toHaveAttribute("href", "http://192.0.2.10:5678/");
     await expect(iframe).toHaveCount(0);
@@ -87,7 +100,13 @@ try {
     await form.locator("form").hover(); await page.mouse.wheel(0, 1200);
     await expect(form.getByRole("button", { name: "Connect app", exact: true })).toBeInViewport({ ratio: 1 });
     await form.getByRole("button", { name: "Connect app", exact: true }).click();
-    await expect(form).toHaveCount(0);
+    const importedDomain = page.getByRole("dialog");
+    await expect(importedDomain.getByRole("heading", { name: "Domain for Imported tool", exact: true })).toBeVisible();
+    await expect(importedDomain.getByLabel("Hostname", { exact: true })).toHaveValue("tool.example.test");
+    await expect(importedDomain.getByText("Open directly by IP and port instead", { exact: true })).toBeVisible();
+    await expect(importedDomain.getByText("An HTTP address is never loaded inside MSO.")).toBeVisible();
+    await importedDomain.locator("form").getByRole("button", { name: "Close", exact: true }).click();
+    await expect(importedDomain).toHaveCount(0);
     const imported = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Imported tool", exact: true }) });
     await expect(imported).toContainText("Fixture developer (self-declared)");
     await page.reload();
