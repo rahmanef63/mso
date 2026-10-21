@@ -78,4 +78,24 @@ describe("task-owned project worktrees", () => {
     })).resolves.toBe(true);
     await expect(fs.lstat(workspace.workspacePath)).rejects.toMatchObject({ code: "ENOENT" });
   });
+
+  it("creates the workspace owner-private even under a group-writable umask", async () => {
+    // A host with umask 0002 used to yield a 0775 workspace. Every security store
+    // pinned inside it then refused the parent as group-writable, so `bun run verify`
+    // failed locally on tests that CI (umask 0022) passed.
+    const { repo } = repoFixture();
+    const previous = process.umask(0o002);
+    let workspace;
+    try {
+      workspace = await prepareProjectWorktree(repo);
+    } finally {
+      process.umask(previous);
+    }
+    const mode = (await fs.stat(workspace.workspacePath)).mode & 0o777;
+    expect(mode & 0o022).toBe(0);
+    expect(mode).toBe(0o700);
+    // The contents still belong to git, so the tree must stay usable.
+    expect(execFileSync("git", ["status", "--porcelain"], { cwd: workspace.workspacePath, encoding: "utf8" }).trim()).toBe("");
+    await expect(fs.readFile(path.join(workspace.workspacePath, "README.md"), "utf8")).resolves.toBe("fixture\n");
+  });
 });
