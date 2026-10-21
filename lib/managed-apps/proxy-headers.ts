@@ -10,13 +10,8 @@
 // mso origin and then preemptively attach that Authorization header to other
 // mso paths, which we would forward onward.
 const REQUEST_HEADERS = [
-  "accept",
-  "accept-language",
-  "content-type",
-  "range",
-  "if-none-match",
-  "if-modified-since",
-  "x-requested-with",
+  "accept", "accept-language", "content-type", "range",
+  "if-none-match", "if-modified-since", "x-requested-with",
 ];
 
 // Per-app additions to the list above. Kept separate because each entry IS one
@@ -43,14 +38,8 @@ const APP_REQUEST_HEADERS: Record<string, readonly string[]> = {
 // upstream policy is not echoed but it is not ignored either — proxy-csp.ts
 // intersects it into ours, so its hardening survives without its frame rules.
 const RESPONSE_HEADERS = [
-  "content-type",
-  "cache-control",
-  "etag",
-  "last-modified",
-  "content-range",
-  "accept-ranges",
-  "content-disposition",
-  "vary",
+  "content-type", "cache-control", "etag", "last-modified",
+  "content-range", "accept-ranges", "content-disposition", "vary",
 ];
 
 // Cookie NAMESPACE, not a path. Load-bearing on an app host too: the cockpit
@@ -244,6 +233,11 @@ const SERVICE_WORKER_SCRIPTS = new Set(["sw.js", "service-worker.js", "servicewo
 export function isServiceWorkerPath(segments: string[]): boolean {
   const last = segments.at(-1);
   return last !== undefined && SERVICE_WORKER_SCRIPTS.has(last.toLowerCase());
+}
+
+export function isServiceWorkerRequest(segments: string[], secFetchDest?: string | null): boolean {
+  if (secFetchDest?.trim().toLowerCase() === "serviceworker") return true;
+  return isServiceWorkerPath(segments);
 }
 
 // The policy itself lives in proxy-csp.ts: building it needs node:crypto (it pins

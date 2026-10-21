@@ -7,6 +7,8 @@ type CatalogModule = typeof import("@/lib/managed-apps/catalog");
 // proxy-containment.test.ts.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("@/lib/managed-apps/session", () => ({ managedAppSession: vi.fn(async () => ({ device_id: "test" })) }));
 
 const dashboardUrl = { current: "http://127.0.0.1:9119" };

@@ -125,7 +125,14 @@ describe("durable session turn runner", () => {
     const turn1Pending = new Promise((resolve) => {
       resolveTurn1 = resolve;
     });
-    mockHandoff.mockImplementationOnce(() => turn1Pending);
+    let signalHandoffEntered!: () => void;
+    const handoffEntered = new Promise<void>((resolve) => {
+      signalHandoffEntered = resolve;
+    });
+    mockHandoff.mockImplementationOnce(() => {
+      signalHandoffEntered();
+      return turn1Pending;
+    });
 
     const turn1Promise = runDurableSessionTurn({
       principal: "principal:alice",
@@ -134,19 +141,32 @@ describe("durable session turn runner", () => {
       capabilities,
     });
 
-    const turn2Promise = runDurableSessionTurn({
-      principal: "principal:alice",
-      sessionRef: session.id,
-      objective: "turn 2 objective",
-      capabilities,
-    });
+    // Deterministic: the handoff is the only point after `acquireSessionTurnLease`,
+    // so waiting for turn 1 to ENTER it proves turn 1 holds the lease before the
+    // contender starts. Without this barrier the two turns race after their
+    // `resolveAgentSessionRef` awaits and the contender can win instead — leaving
+    // turn 2 pending and turn 1's rejection unhandled.
+    await handoffEntered;
 
-    await expect(turn2Promise).rejects.toThrow(/already in progress/);
+    try {
+      await expect(
+        runDurableSessionTurn({
+          principal: "principal:alice",
+          sessionRef: session.id,
+          objective: "turn 2 objective",
+          capabilities,
+        }),
+      ).rejects.toThrow(/already in progress/);
+    } finally {
+      // Release turn 1 even if the rejection assertion above fails, so its pending
+      // turn (and any unhandled rejection it would otherwise strand) is not left
+      // behind for the next test.
+      resolveTurn1({
+        session,
+        task: { artifacts: [{ parts: [{ text: "turn 1 result" }] }] },
+      });
+    }
 
-    resolveTurn1({
-      session,
-      task: { artifacts: [{ parts: [{ text: "turn 1 result" }] }] },
-    });
     const turn1Result = await turn1Promise;
     expect(turn1Result.text).toBe("turn 1 result");
 

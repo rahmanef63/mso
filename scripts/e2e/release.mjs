@@ -23,6 +23,7 @@ execFileSync(process.execPath, ["scripts/e2e/workflow-embeds.mjs"], { stdio: "in
 execFileSync(process.execPath, ["scripts/e2e/organization-flow.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/graph-custom.mjs"], { stdio: "inherit" });
 execFileSync(process.execPath, ["scripts/e2e/nakama-slices.mjs"], { stdio: "inherit" });
+execFileSync(process.execPath, ["scripts/e2e/orca-rewrite.mjs"], { stdio: "inherit", timeout: 120000 });
 const fixture = await releaseFixture();
 let browser;
 try {

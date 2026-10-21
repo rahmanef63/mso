@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# MSO's lifecycle adapter entry for the Orca web runtime. `lib/managed-apps`
+# drives every managed app through one adapter contract (--version / check /
+# status / install / update / uninstall); the reviewed implementation lives in
+# scripts/orca/managed-app-orca.mjs so it can be unit-tested directly.
+#
+# This wrapper only locates the implementation. It consumes no request value:
+# argv is exactly what the job layer spawned, and the fixed app id arrives as
+# $1. Nothing here reads the operator's ~/.orca state or port 6768.
+set -euo pipefail
+umask 077
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec node "$SCRIPT_DIR/orca/managed-app-orca.mjs" "$@"

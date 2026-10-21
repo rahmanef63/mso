@@ -10,10 +10,11 @@ import {
 } from "@/lib/managed-apps/origin";
 import { contentSecurityPolicy } from "@/lib/managed-apps/proxy-csp";
 import { errorPage, wantsErrorPage } from "@/lib/managed-apps/proxy-error-page";
+import { getOrcaReadiness } from "@/lib/managed-apps/orca-readiness";
 import {
   buildUpstreamHeaders,
   isSecureRequest,
-  isServiceWorkerPath,
+  isServiceWorkerRequest,
   pickResponseHeaders,
   readSetCookies,
   rewriteLocation,
@@ -107,13 +108,39 @@ async function proxy(req: Request, context: { params: Promise<{ id: string; path
   }
   // A service worker registered from proxied bytes installs on the MSO origin
   // and keeps serving after the window closes. Never hand one to the browser.
-  if (isServiceWorkerPath(segments)) {
+  if (isServiceWorkerRequest(segments, req.headers.get("sec-fetch-dest"))) {
     return fail(req, "service workers are not proxied", 404);
   }
   const definition = getManagedAppDefinition(params.id);
   let base: URL;
-  try { base = managedAppUpstream(definition.dashboardUrl); }
-  catch { return fail(req, "upstream target is not loopback", 502); }
+  if (params.id === "orca") {
+    // A valid app cookie proves WHO is asking, not WHICH runtime owns the endpoint.
+    // Re-verify the runtime on every request so a stopped, replaced, or port-taken-over
+    // Orca denies immediately instead of proxying to whoever now owns the configured port.
+    // A bridge read failure is an unavailable runtime, never an unhandled route throw.
+    let readiness: Awaited<ReturnType<typeof getOrcaReadiness>>;
+    try {
+      readiness = await getOrcaReadiness();
+    } catch {
+      return fail(req, "managed application runtime is unavailable", 503);
+    }
+    if (!readiness.available || !readiness.startTicks) {
+      return fail(req, "managed application runtime is unavailable", 503);
+    }
+    try {
+      base = new URL(readiness.boundEndpoint);
+      if (base.protocol !== "ws:" || base.username || base.password) throw new Error("invalid bound endpoint");
+      base.protocol = "http:";
+      base.pathname = "/";
+      base.search = "";
+      base.hash = "";
+    } catch {
+      return fail(req, "managed application upstream unavailable", 502);
+    }
+  } else {
+    try { base = managedAppUpstream(definition.dashboardUrl); }
+    catch { return fail(req, "upstream target is not loopback", 502); }
+  }
   const target = new URL(`/${segments.map(encodeURIComponent).join("/")}`, base);
   target.search = new URL(req.url).search;
   const headers = buildUpstreamHeaders(req, base, params.id, "");
@@ -146,6 +173,7 @@ async function proxy(req: Request, context: { params: Promise<{ id: string; path
       // browser refuses to display it at all.
       contentSecurityPolicy(prefixUrl, upstream.headers.get("content-security-policy"), {
         cockpitOrigin: cockpitOrigin(),
+        appId: params.id,
       }),
     );
     if (upstream.status >= 300 && upstream.status < 400) {

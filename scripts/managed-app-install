@@ -50,9 +50,9 @@ APP_ORIGIN="${MSO_INSTALL_APP_ORIGIN:-}"
 log() { printf '\n=== %s\n' "$*"; }
 
 case "$APP" in
-hermes | openclaw | 9router) ;;
+hermes | openclaw | 9router | orca) ;;
 *)
-  echo "usage: managed-app-install <hermes|openclaw|9router>" >&2
+  echo "usage: managed-app-install <hermes|openclaw|9router|orca>" >&2
   exit 2
   ;;
 esac
@@ -63,6 +63,15 @@ esac
 # off to the Docker adapter and stop here.
 if [ "$APP" = "9router" ]; then
   exec "$(dirname "$0")/managed-app-9router" install
+fi
+
+# Orca is the MSO-owned web/Node runtime installed as `mso-orca.service`. Its
+# adapter verifies the pinned release, the user bus (without enabling linger or
+# any other access change), the fixed loopback port and the configured split
+# origin itself, so it must NOT run through the Hermes/OpenClaw preflight below
+# (which calls `loginctl enable-linger`). Dispatch before it and stop here.
+if [ "$APP" = "orca" ]; then
+  exec "$(dirname "$0")/managed-app-orca" install
 fi
 
 # Both apps are installed as systemd USER units, and `systemctl --user` finds the

@@ -8,10 +8,14 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `shell-apps` provision public domains for shell apps
+- `app-store` converge install and connect on one domain step
+- `infra` add managed domain provider abstraction
 - `infra` add Linear provider and route Composio key kinds by header
 
 **Fixed**
 
+- `app-domain` wire the real provider module and single-source the domain contract
 - `deps` pin vite 8.2.4 to clear GHSA-587h-7wmj-h5pm
 
 ## 2026-10-20

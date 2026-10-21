@@ -1,17 +1,13 @@
 // The containment policy the managed-app proxy puts on the iframe, and the merge
 // that keeps the upstream's own hardening instead of replacing it with ours.
-//
 // Ours is the only policy the browser sees: the response allowlist in
 // proxy-headers.ts never copies the upstream `content-security-policy` (it carries
 // `frame-ancestors 'none'`, which would un-frame the app). Dropping it wholesale
 // also threw away real hardening — live OpenClaw pins its two inline scripts by
 // sha256 and grants no 'unsafe-inline' at all — so the upstream policy is now
 // INTERSECTED into ours per directive: a source survives only if BOTH policies
-// allow it, and the emitted directive is the tighter of the two. Hermes sends no
-// policy, so for Hermes the result is ours, unchanged.
-//
-// Server-only (it pins the injected shim by hash, via node:crypto).
-// proxy-headers.ts must not import it.
+// allow it, and the emitted directive is the tighter of the two.
+// Server-only (pins injected shim by hash via node:crypto). proxy-headers.ts must not import it.
 
 type Policy = Map<string, string[]>;
 
@@ -27,6 +23,8 @@ export interface PolicyMount {
    *  because a frame that will not display is a visible failure while a guessed
    *  framer is a silent invitation. */
   cockpitOrigin?: string | null;
+  /** App ID for app-scoped capability adjustments (e.g. wasm-unsafe-eval for Orca). */
+  appId?: string | null;
 }
 
 // Containment for the iframe: it runs on the mso origin with
@@ -77,14 +75,15 @@ function frameAncestors(mount: PolicyMount): string[] {
 const socketOrigin = (url: string): string => url.replace(/^https:/i, "wss:").replace(/^http:/i, "ws:");
 
 function ourPolicy(prefixUrl: string, mount: PolicyMount): Policy {
+  const isOrca = mount.appId === "orca";
   return new Map([
     ["default-src", [prefixUrl]],
-    ["script-src", [prefixUrl, "'unsafe-inline'", "blob:"]],
+    ["script-src", isOrca ? [prefixUrl, "'unsafe-inline'", "blob:", "'wasm-unsafe-eval'"] : [prefixUrl, "'unsafe-inline'", "blob:"]],
     ["style-src", [prefixUrl, "'unsafe-inline'"]],
     ["img-src", [prefixUrl, "data:", "blob:"]],
     ["font-src", [prefixUrl, "data:", "https:"]],
     ["media-src", [prefixUrl, "data:", "blob:"]],
-    ["worker-src", ["blob:"]],
+    ["worker-src", isOrca ? [prefixUrl, "blob:"] : ["blob:"]],
     ["connect-src", [prefixUrl, socketOrigin(prefixUrl), "data:", "blob:"]],
     ["frame-src", [prefixUrl]],
     ["form-action", [prefixUrl]],
@@ -105,15 +104,8 @@ const oursWin = (name: string): boolean => name === "frame-ancestors";
 // `default-src 'self'` constrains our frame-src too. form-action/base-uri/
 // frame-ancestors never fall back: an upstream that omits them constrains nothing.
 const FALLS_BACK = new Set([
-  "script-src",
-  "style-src",
-  "img-src",
-  "font-src",
-  "media-src",
-  "connect-src",
-  "worker-src",
-  "frame-src",
-  "object-src",
+  "script-src", "style-src", "img-src", "font-src", "media-src",
+  "connect-src", "worker-src", "frame-src", "object-src",
 ]);
 
 // Where an upstream-declared external host is honoured rather than blocked: the

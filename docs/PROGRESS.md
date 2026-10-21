@@ -18,6 +18,50 @@ module raises itself. `lib/contracts/app-domain.ts` is the single server-side sp
 provider union and record shape; the browser copy in
 `frontend/slices/app-store/lib/app-domain.ts` mirrors it and a parity test fails on drift.
 
+## 2026-10-19: Orca bridge corrective checkpoint (local development candidate)
+
+Local candidate on `feat/orca-web-20261019`. Not merged, released, or deployed. This pass fixes
+fail-open defects in the earlier Checkpoint 3 readiness/pairing/session/UI bridge; the runtime
+installer/lifecycle slice (`scripts/orca`) is owned separately and untouched here.
+
+- **Readiness is now fail closed** (`lib/managed-apps/orca-readiness.ts`): requires the exact
+  `orca_server_ready` schema-1 tag, `health.buildVersion` 1.4.230 (an `artifactVersion` cannot
+  override it), pinned Node 24.21.0 ABI 137, live terminal daemon, `ws` loopback bound endpoint
+  on the managed port, exact configured `wss` advertised endpoint, and explicit runtime pairing.
+- **Mandatory identity receipt + process identity** (`lib/managed-apps/orca-process-identity.ts`):
+  `runtime-identity.json` is required; PID/startTicks/UID/exe/cmdline must match via `/proc`
+  (never environ). Missing/reused/foreign/unreadable/EPERM identity denies. A real disposable
+  same-task node process is exercised in tests; the test runner's PID is refused.
+- **Symlink-proof bounded private reads** (`lib/managed-apps/orca-private-fs.ts`): rejects
+  symlinked ancestors/leaves, opens `O_NOFOLLOW`, bounds size before reading, re-checks identity,
+  and never touches the owner's personal `~/.orca`. Invalid `ORCA_HOME` fails closed instead of
+  silently falling back.
+- **Strict pairing + canonical web client** (`lib/managed-apps/orca-pairing.ts`): explicit
+  runtime scope only, exact trusted WSS endpoint with no relay/userinfo/path/query, and a
+  server-constructed `…/web-index.html#pairing=<encoded>` fragment. Upstream grants are not
+  certified; arbitrary `webClientUrl` is never trusted.
+- **Session route** returns `no-store` on every outcome and 503 with a safe reason when readiness
+  is missing (`app/api/v1/managed-apps/[id]/session/route.test.ts`).
+- **UI authorization pipeline** (`frontend/slices/managed-apps/app-authorization.ts`,
+  `feature-app.tsx`): Orca-only URL override, stale-request abort, prior-authorization
+  invalidation; tested with real `Response`/`AbortController`.
+- **Honest docs**: `docs/ORCA-INTEGRATION.md` corrected and classified in `docs/README.md`;
+  no real browser/runtime/install verification is claimed.
+
+## 2026-10-19: Orca web integration Checkpoint 3 (local development candidate)
+
+Local development candidate on `feat/orca-web-20261019`. This is an in-progress worktree candidate, not merged to main, not released, and not deployed.
+
+**Scope implemented:**
+- Verified bootstrap JavaScript execution inside an isolated VM browser DOM sandbox (`lib/managed-apps/orca-bootstrap.test.ts`), proving credential exchange, pairing fragment preservation in the hash, ticket removal, and error handling without query parameter leakage.
+- Enforced arbitrary-path `Sec-Fetch-Dest: serviceworker` rejection at the reverse proxy boundary without upstream invocation, and verified that dedicated/shared workers are forwarded only under live Operator authentication.
+- Server-only Orca private readiness parser and bridge (`lib/managed-apps/orca-readiness.ts`), strictly enforcing fixed managed root (`~/.local/share/mso/orca` or `ORCA_HOME`), 0700/0600 file modes, 64KB size limit, no symlinks, process liveness check, version 1.4.230 check, port 6769 loopback bind, live terminal daemon state, and pairing offer invariants.
+- Upstream pairing offer decoder and validator (`lib/managed-apps/orca-pairing.ts`) conforming to Orca v1.4.230 schema, validating same-origin WSS endpoint, runtime scope, and absence of desktop-control grants.
+- Session route bridge (`app/api/v1/managed-apps/[id]/session/route.ts`) returning safe pairing payload `{ origin, ticket, pairingUrl, webClientUrl, runtimeId }` exclusively for live Operator sessions with `Cache-Control: no-store`; rejecting unauthenticated or Viewer callers with 401 and unavailable Orca instances with 503.
+- Orca UI component and state tests (`frontend/slices/managed-apps/orca-ui.test.tsx`), validating initial loading presentation, disabled installer when `installBackends` is empty, fragment resolution without query secrets, and rejection of Viewer roles without credential leakage.
+- Catalog configuration updated to repo-owned adapter path `scripts/managed-app-orca` with `commandProvesInstall: false`, service `mso-orca.service`, no generic container detection, default port 6769, health path `/web-index.html`, and state dir `orca`.
+- Added portable documentation `docs/ORCA-INTEGRATION.md`.
+
 ## 2026-10-18: MSO deep QA stopped at the user's request
 
 Work and active QA were stopped on 18 October 2026 at the user's explicit request. This is a progress checkpoint directly on main, not a release of the development candidate. Resume implementation, validation or deployment only after a new user instruction.

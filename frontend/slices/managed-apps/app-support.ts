@@ -82,6 +82,19 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
       "Stops and removes the container. The image and ~/.9router data (providers, keys, stats) stay, so a reinstall comes back configured.",
     stateDir: "~/.9router",
   },
+  orca: {
+    dryRun: false,
+    rollbackPin: false,
+    pinLabel: "Version",
+    pinHint: "Orca update and rollback are not available yet; only the pinned 1.4.230 web runtime installs.",
+    pinPlaceholder: "",
+    installCommand: "bash scripts/managed-app-install orca install",
+    installNote:
+      "MSO verifies and installs the pinned Orca 1.4.230 web/Node release into ~/.local/share/mso/orca and starts the MSO-owned mso-orca.service user unit on loopback. It takes no provider key, and it requires a configured split app origin (NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE) so the browser can frame it — there is no same-origin fallback.",
+    uninstallCommand: "",
+    uninstallEffect: "Orca uninstall is not available yet.",
+    stateDir: "~/.local/share/mso/orca",
+  },
 };
 
 export const supportFor = (id: ManagedAppId): AppSupport => SUPPORT[id];

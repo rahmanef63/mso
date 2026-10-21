@@ -6,13 +6,13 @@ describe("role-aware app catalog", () => {
     for (const id of ["files-manager", "system-monitor", "media-viewer", "quicklinks", "docs", "os-settings"]) {
       expect(appAllowedForRole(id, "viewer"), id).toBe(true);
     }
-    for (const id of ["os-terminal", "code-editor", "assistant", "hermes", "camoufox-browser"]) {
+    for (const id of ["os-terminal", "code-editor", "assistant", "hermes", "camoufox-browser", "orca"]) {
       expect(appAllowedForRole(id, "viewer"), id).toBe(false);
     }
   });
 
   it("adds only bounded operational apps for Operator", () => {
-    for (const id of ["camoufox-browser", "hermes", "openclaw", "9router"]) {
+    for (const id of ["camoufox-browser", "hermes", "openclaw", "9router", "orca"]) {
       expect(appAllowedForRole(id, "operator"), id).toBe(true);
     }
     for (const id of ["os-terminal", "code-editor", "assistant", "app-store", "create-app"]) {
