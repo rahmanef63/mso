@@ -1,8 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
-import { mkdir, writeFile, symlink, rm, readdir, stat } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { mkdir, mkdtemp, writeFile, symlink, rm, readdir, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import {
   validateLauncherArgs,
@@ -162,8 +161,7 @@ describe('launcher argument and readiness validation', () => {
 
 describe('managed root publication safety', () => {
   it('creates a 0700 owned root and refuses symlinked ancestors or loose modes', async () => {
-    const base = join(tmpdir(), `orca-root-${randomUUID()}`)
-    await mkdir(base, { recursive: true, mode: 0o700 })
+    const base = await mkdtemp(join(tmpdir(), 'orca-root-'))
     const root = join(base, 'managed')
     await ensureManagedRoot(root)
     assert.equal((await stat(root)).mode & 0o777, 0o700)
@@ -184,7 +182,7 @@ describe('managed root publication safety', () => {
   })
 
   it('writes private files atomically at 0600 with no temp residue', async () => {
-    const base = join(tmpdir(), `orca-write-${randomUUID()}`)
+    const base = await mkdtemp(join(tmpdir(), 'orca-write-'))
     await ensureManagedRoot(base)
     const file = join(base, 'private-status.json')
     await writePrivateFile(file, { ok: true }, { root: base })

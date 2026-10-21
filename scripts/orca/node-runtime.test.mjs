@@ -1,8 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
-import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import {
   SUPPORTED_TARGET,
@@ -19,9 +18,9 @@ import {
 } from './node-runtime.mjs'
 
 async function scratch(name) {
-  const dir = join(tmpdir(), `orca-node-${name}-${randomUUID()}`)
-  await mkdir(dir, { recursive: true, mode: 0o700 })
-  return dir
+  // mkdtemp atomically creates an owner-only (0700) directory, so the shared
+  // temp root never holds a predictable name.
+  return mkdtemp(join(tmpdir(), `orca-node-${name}-`))
 }
 
 describe('node-runtime pin & verification', () => {
@@ -59,7 +58,7 @@ describe('node-runtime pin & verification', () => {
     const root = await scratch('hash')
     try {
       const file = join(root, 'data.bin')
-      await writeFile(file, 'hello orca')
+      await writeFile(file, 'hello orca', { mode: 0o600 })
       const expected = '7fd0dd3b7c8f1f9b1c0d3c9d8d5e6f5f5b2c1c8f8b8b8b8b8b8b8b8b8b8b8b8b'
       assert.equal((await fileSha256(file)).length, 64)
       assert.notEqual(await fileSha256(file), expected)
@@ -74,7 +73,7 @@ describe('node-runtime pin & verification', () => {
       const binDir = join(root, `node-${PINNED_NODE.executableSha256}`, 'bin')
       await mkdir(binDir, { recursive: true })
       const real = join(root, 'real-bin')
-      await writeFile(real, 'content')
+      await writeFile(real, 'content', { mode: 0o600 })
       await symlink(real, join(binDir, 'node'))
       await assert.rejects(
         fetchAndMaterializeNodeRuntime({ runtimesDir: root, allowDownload: false }),

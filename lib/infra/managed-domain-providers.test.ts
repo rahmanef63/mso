@@ -12,7 +12,13 @@ const request = vi.fn();
 vi.mock("./store", () => ({ readInfraProvider }));
 vi.mock("./cloudflare", () => ({ listCloudflareZones, upsertCloudflareDns, inspectCloudflareDns }));
 vi.mock("./hostinger", () => ({ upsertHostingerDns, readHostingerZone }));
-vi.mock("./http", async (importOriginal) => ({ ...(await importOriginal<typeof import("./http")>()), request }));
+// The cast sits on its own const, not on the awaited call: Semgrep's TypeScript
+// parser cannot read a generic type argument on `await importOriginal<...>()`,
+// and `--strict` turns that parse warning into a failed scan despite 0 findings.
+vi.mock("./http", async (importOriginal) => {
+  const actual = await importOriginal() as typeof import("./http");
+  return { ...actual, request };
+});
 
 const { domainProviderCapabilities, ensureDomainRecords, inspectDomainRecords } = await import("./managed-domain-providers");
 const TOKEN = "synthetic-provider-token-0000000001";

@@ -1,8 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
-import { chmod, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import {
   assertContained,
@@ -16,9 +15,7 @@ import {
 } from './safe-paths.mjs'
 
 async function scratch(name) {
-  const dir = join(tmpdir(), `orca-safe-${name}-${randomUUID()}`)
-  await mkdir(dir, { recursive: true, mode: 0o700 })
-  return dir
+  return mkdtemp(join(tmpdir(), `orca-safe-${name}-`))
 }
 
 describe('safe-paths filesystem guards', () => {
@@ -27,7 +24,7 @@ describe('safe-paths filesystem guards', () => {
     try {
       const realDir = join(root, 'real')
       await mkdir(realDir, { mode: 0o700 })
-      await writeFile(join(realDir, 'file.txt'), 'x')
+      await writeFile(join(realDir, 'file.txt'), 'x', { mode: 0o600 })
       await symlink(realDir, join(root, 'link-dir'))
       await symlink(join(realDir, 'file.txt'), join(root, 'link-file'))
 
@@ -54,7 +51,7 @@ describe('safe-paths filesystem guards', () => {
     const root = await scratch('file-ancestor')
     try {
       const file = join(root, 'plain')
-      await writeFile(file, 'x')
+      await writeFile(file, 'x', { mode: 0o600 })
       await assert.rejects(assertNoSymlinkAncestors(join(file, 'child')), /directory/i)
     } finally {
       await rm(root, { recursive: true, force: true })
@@ -83,7 +80,7 @@ describe('safe-paths filesystem guards', () => {
     const root = await scratch('regular')
     try {
       const real = join(root, 'real.bin')
-      await writeFile(real, 'payload')
+      await writeFile(real, 'payload', { mode: 0o600 })
       await assert.doesNotReject(assertOwnedRegularFile(real))
 
       const link = join(root, 'link.bin')
@@ -103,8 +100,7 @@ describe('safe-paths filesystem guards', () => {
       await assert.rejects(resolveUnderRoot(root, '/abs'), /unsafe/i)
       await assert.rejects(resolveUnderRoot(root, 'a/../../escape'), /unsafe/i)
 
-      const outside = join(tmpdir(), `orca-outside-${randomUUID()}`)
-      await mkdir(outside, { mode: 0o700 })
+      const outside = await mkdtemp(join(tmpdir(), 'orca-outside-'))
       try {
         await assert.rejects(assertContained(root, outside), /outside/i)
       } finally {

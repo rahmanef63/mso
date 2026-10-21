@@ -2,8 +2,9 @@
  * Private managed-root publication: 0700 root, no symlink ancestors, bounded
  * 0600 receipts, and transactional status/identity pair publication.
  */
+import { constants } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { chmod, link, lstat, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { chmod, link, lstat, mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
 const MAX_PRIVATE_BYTES = 64 * 1024
 
@@ -30,10 +31,8 @@ export async function ensureManagedRoot(root) {
       throw new Error(`managed root is not owned by this user: ${current}`)
     }
   }
-  const final = await lstat(abs)
-  if ((final.mode & 0o077) !== 0) await chmod(abs, 0o700)
-  const tightened = await lstat(abs)
-  if ((tightened.mode & 0o077) !== 0) throw new Error(`managed root permissions are not 0700: ${abs}`)
+  if (((await lstat(abs)).mode & 0o077) !== 0) await chmod(abs, 0o700)
+  if (((await lstat(abs)).mode & 0o077) !== 0) throw new Error(`managed root permissions are not 0700: ${abs}`)
   return abs
 }
 
@@ -62,18 +61,28 @@ async function readPrivateRaw(filePath, { root, maxBytes = MAX_PRIVATE_BYTES } =
   const absFile = resolve(filePath)
   contained(absRoot, absFile)
   await assertPrivateAncestors(absRoot, absFile)
-  let info
+  // One descriptor both inspects and reads: the bytes returned are the bytes the
+  // stat described, so nothing can be swapped in between. O_NOFOLLOW makes a
+  // symlinked receipt fail at open time instead of being followed.
+  let handle
   try {
-    info = await lstat(absFile)
+    handle = await open(absFile, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
   } catch (err) {
     if (err.code === 'ENOENT') return null
+    if (err.code === 'ELOOP') throw new Error(`private file is not a regular file: ${absFile}`)
     throw err
   }
-  if (info.isSymbolicLink() || !info.isFile()) throw new Error(`private file is not a regular file: ${absFile}`)
-  if ((info.mode & 0o077) !== 0) throw new Error(`private file permissions are not 0600: ${absFile}`)
-  if (info.uid !== process.getuid()) throw new Error(`private file is not owned by this user: ${absFile}`)
-  if (info.size > maxBytes) throw new Error(`private file exceeds ${maxBytes} bytes: ${absFile}`)
-  return { absFile, raw: await readFile(absFile, 'utf8') }
+  try {
+    const info = await handle.stat()
+    const problem = !info.isFile() ? 'is not a regular file'
+      : (info.mode & 0o077) !== 0 ? 'permissions are not 0600'
+      : info.uid !== process.getuid() ? 'is not owned by this user'
+      : info.size > maxBytes ? `exceeds ${maxBytes} bytes` : null
+    if (problem) throw new Error(`private file ${problem}: ${absFile}`)
+    return { absFile, raw: await handle.readFile('utf8') }
+  } finally {
+    await handle.close().catch(() => {})
+  }
 }
 
 export async function readPrivateJson(filePath, options = {}) {
@@ -88,10 +97,7 @@ export async function writePrivateFile(filePath, data, { root } = {}) {
   const absFile = resolve(filePath)
   contained(absRoot, absFile)
   await ensureManagedRoot(dirname(absFile))
-  const existing = await lstat(absFile).catch((err) => {
-    if (err.code === 'ENOENT') return null
-    throw err
-  })
+  const existing = await lstat(absFile).catch((err) => { if (err.code !== 'ENOENT') throw err; return null })
   if (existing && (existing.isSymbolicLink() || !existing.isFile())) {
     throw new Error(`refusing non-regular or symlink private file: ${absFile}`)
   }
@@ -109,8 +115,7 @@ export async function writePrivateFile(filePath, data, { root } = {}) {
 
 /**
  * Publish a receipt pair as one transaction. Both files are staged before any
- * rename; a later failure restores only entries whose bytes still equal ours,
- * so a concurrent runtime's replacement is never deleted.
+ * rename; a later failure restores only entries whose bytes still equal ours.
  */
 export async function publishPrivatePair({ root, entries, renameImpl = rename } = {}) {
   const absRoot = await ensureManagedRoot(root)
@@ -174,8 +179,7 @@ async function restoreQuarantine(quarantine, absFile) {
 
 /**
  * Remove only receipts that still parse and match this runtime's predicate.
- * Each candidate is atomically renamed aside, inspected, then either deleted
- * or restored, so a receipt replaced by another runtime is never deleted.
+ * Each candidate is renamed aside, inspected, then deleted or restored.
  */
 export async function clearPrivatePairIfMatch({ root, matches = [] } = {}) {
   const absRoot = await ensureManagedRoot(root)
@@ -196,11 +200,7 @@ export async function clearPrivatePairIfMatch({ root, matches = [] } = {}) {
       const current = await readPrivateRaw(quarantine, { root: absRoot })
       if (current) {
         let parsed
-        try {
-          parsed = JSON.parse(current.raw)
-        } catch {
-          parsed = undefined
-        }
+        try { parsed = JSON.parse(current.raw) } catch { parsed = undefined }
         matchesOwn = Boolean(parsed && match.predicate(parsed))
       }
     } catch (err) {

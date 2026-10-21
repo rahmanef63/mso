@@ -1,20 +1,20 @@
-import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 export const sha256 = (text) => createHash('sha256').update(text).digest('hex')
 
 export async function scratch(name) {
-  const dir = join(tmpdir(), `orca-rel-${name}-${randomUUID()}`)
-  await mkdir(dir, { recursive: true, mode: 0o700 })
-  return dir
+  // mkdtemp atomically creates an owner-only (0700) directory, so the shared
+  // temp root never holds a predictable name.
+  return mkdtemp(join(tmpdir(), `orca-rel-${name}-`))
 }
 
 export async function writeFileAt(root, rel, content) {
   const filePath = join(root, rel)
   await mkdir(join(filePath, '..'), { recursive: true })
-  await writeFile(filePath, content)
+  await writeFile(filePath, content, { mode: 0o600 })
   return filePath
 }
 

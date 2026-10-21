@@ -6,9 +6,10 @@
  * verified against the pinned SHA-256 and written with a private mode.
  */
 
+import { constants } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { open, writeFile } from 'node:fs/promises'
-import { assertNoSymlinkAncestors, assertOwnedRegularFile, isSafeRelativePath } from './safe-paths.mjs'
+import { assertNoSymlinkAncestors, isSafeRelativePath } from './safe-paths.mjs'
 
 const MAX_HEADER_BYTES = 16 * 1024 * 1024
 const MAX_ENTRY_BYTES = 4 * 1024 * 1024
@@ -24,9 +25,16 @@ export async function readAsarEntry({
   maxBytes = MAX_ENTRY_BYTES
 } = {}) {
   if (!isSafeRelativePath(entryName)) throw new Error(`Unsafe asar entry name: ${entryName}`)
-  const archiveStat = await assertOwnedRegularFile(asarPath)
-  const handle = await open(asarPath, 'r')
+  await assertNoSymlinkAncestors(asarPath)
+  // O_NOFOLLOW closes the check-then-open window: the archive that is read is the
+  // inode the descriptor refers to, and the descriptor is what we validate below.
+  const handle = await open(asarPath, constants.O_RDONLY | constants.O_NOFOLLOW, 0o600)
   try {
+    const archiveStat = await handle.stat()
+    if (!archiveStat.isFile()) throw new Error(`Expected a regular file: ${asarPath}`)
+    if (typeof process.getuid === 'function' && archiveStat.uid !== process.getuid()) {
+      throw new Error(`File is not owned by the current user: ${asarPath}`)
+    }
     const head = Buffer.alloc(16)
     await handle.read(head, 0, head.length, 0)
     if (head.readUInt32LE(0) !== 4) throw new Error('Unsupported asar header')

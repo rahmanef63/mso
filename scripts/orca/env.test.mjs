@@ -1,8 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
-import { mkdir, symlink, rm, stat, writeFile } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { mkdir, mkdtemp, symlink, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { createIsolatedEnv, ensureIsolatedDirectories, assertSafeScratchRoot } from './env.mjs'
 
@@ -56,8 +55,7 @@ describe('isolated environment with strict allowlist', () => {
   })
 
   it('rejects symlinked scratch roots and symlinked ancestors', async () => {
-    const testDir = join(tmpdir(), `orca-scratch-${randomUUID()}`)
-    await mkdir(testDir, { recursive: true })
+    const testDir = await mkdtemp(join(tmpdir(), 'orca-scratch-'))
     const realDir = join(testDir, 'real')
     await mkdir(realDir, { mode: 0o700 })
     const link = join(testDir, 'link-scratch')
@@ -71,8 +69,7 @@ describe('isolated environment with strict allowlist', () => {
   })
 
   it('refuses git worktree roots and credential/user-state paths', async () => {
-    const testDir = join(tmpdir(), `orca-scratch-git-${randomUUID()}`)
-    await mkdir(testDir, { recursive: true, mode: 0o700 })
+    const testDir = await mkdtemp(join(tmpdir(), 'orca-scratch-git-'))
     await mkdir(join(testDir, '.git'))
     assert.throws(() => assertSafeScratchRoot(testDir), /git worktree/i)
 
@@ -85,7 +82,7 @@ describe('isolated environment with strict allowlist', () => {
   })
 
   it('creates the private runtime tree at 0700 and tightens loose existing dirs', async () => {
-    const root = join(tmpdir(), `orca-scratch-tree-${randomUUID()}`)
+    const root = join(await mkdtemp(join(tmpdir(), 'orca-scratch-tree-')), 'root')
     try {
       await ensureIsolatedDirectories(root)
       for (const dir of ['', 'runtime', 'runtime/home', 'runtime/user-data', 'runtime/tmp']) {
@@ -96,7 +93,7 @@ describe('isolated environment with strict allowlist', () => {
       await import('node:fs/promises').then((fs) => fs.chmod(loose, 0o755))
       await ensureIsolatedDirectories(root)
       assert.equal((await stat(loose)).mode & 0o777, 0o700)
-      await writeFile(join(loose, 'probe.txt'), 'ok')
+      await writeFile(join(loose, 'probe.txt'), 'ok', { mode: 0o600 })
     } finally {
       await rm(root, { recursive: true, force: true })
     }

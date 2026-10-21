@@ -21,7 +21,7 @@ describe('release tree helpers', () => {
       assert.equal(web.totalBytes, 'root'.length + 'app'.length)
       assert.equal(await verifyWebTree({ dir: web.dir, expected: web }), true)
 
-      await writeFile(join(web.dir, 'index.html'), 'tampered')
+      await writeFile(join(web.dir, 'index.html'), 'tampered', { mode: 0o600 })
       assert.equal(await verifyWebTree({ dir: web.dir, expected: web }), false)
     } finally {
       await rm(root, { recursive: true, force: true })
@@ -33,7 +33,7 @@ describe('release tree helpers', () => {
     try {
       const source = join(root, 'source')
       await mkdir(source, { recursive: true, mode: 0o700 })
-      await writeFile(join(source, 'real.js'), 'x')
+      await writeFile(join(source, 'real.js'), 'x', { mode: 0o600 })
       await symlink(join(source, 'real.js'), join(source, 'link.js'))
       await assert.rejects(
         copyWebTree({ sourceDir: source, destDir: join(root, 'web') }),
@@ -48,7 +48,7 @@ describe('release tree helpers', () => {
     const root = await scratch('copy')
     try {
       const source = join(root, 'source.bin')
-      await writeFile(source, 'payload')
+      await writeFile(source, 'payload', { mode: 0o600 })
       const digest = sha256('payload')
       const dest = join(root, 'dest.bin')
       const copied = await copyVerifiedFile({ sourcePath: source, destination: dest, expectedSha256: digest })
@@ -118,7 +118,7 @@ describe('preparePinnedRelease guards', () => {
       const installRoot = join(root, 'install')
       const releaseRoot = join(installRoot, 'releases', `${ORCA_VERSION}+${getReleaseContentId()}`)
       await mkdir(releaseRoot, { recursive: true, mode: 0o700 })
-      await writeFile(join(releaseRoot, 'receipt.json'), 'junk')
+      await writeFile(join(releaseRoot, 'receipt.json'), 'junk', { mode: 0o600 })
       await assert.rejects(
         preparePinnedRelease({ installRoot, allowDownload: false }),
         /refusing to replace existing release/i
@@ -136,7 +136,7 @@ describe('preparePinnedRelease guards', () => {
     try {
       const installRoot = join(root, 'install')
       const real = join(root, 'real.deb')
-      await writeFile(real, 'not-the-deb')
+      await writeFile(real, 'not-the-deb', { mode: 0o600 })
       const link = join(root, 'link.deb')
       await symlink(real, link)
       await assert.rejects(

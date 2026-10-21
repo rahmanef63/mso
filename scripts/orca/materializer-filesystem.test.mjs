@@ -21,7 +21,7 @@ describe('materializer filesystem behavior', () => {
       const { templateDir } = await buildTemplate(root)
       const sentinel = join(root, 'out', 'user-state.txt')
       await mkdir(join(root, 'out'), { recursive: true, mode: 0o700 })
-      await writeFile(sentinel, 'keep me')
+      await writeFile(sentinel, 'keep me', { mode: 0o600 })
 
       const result = await materializeOrcadSlot({
         templateDir,
@@ -98,7 +98,7 @@ describe('materializer filesystem behavior', () => {
       const outputSlotDir = join(root, 'slot')
       const first = await materializeOrcadSlot({ templateDir, outputSlotDir, target: SUPPORTED_TARGET })
       const victim = join(first.slotDir, 'orcad-server.js')
-      await writeFile(victim, 'tampered')
+      await writeFile(victim, 'tampered', { mode: 0o600 })
       await assert.rejects(
         materializeOrcadSlot({ templateDir, outputSlotDir, target: SUPPORTED_TARGET }),
         /refusing to overwrite/i
@@ -115,7 +115,7 @@ describe('materializer filesystem behavior', () => {
       const { templateDir } = await buildTemplate(root)
       const outputSlotDir = join(root, 'torn')
       await mkdir(outputSlotDir, { recursive: true, mode: 0o700 })
-      await writeFile(join(outputSlotDir, ORCAD_VERSION_FILENAME), `${ORCAD_VERSION}+torn\n`)
+      await writeFile(join(outputSlotDir, ORCAD_VERSION_FILENAME), `${ORCAD_VERSION}+torn\n`, { mode: 0o600 })
       await assert.rejects(
         materializeOrcadSlot({ templateDir, outputSlotDir, target: SUPPORTED_TARGET }),
         /refusing to overwrite/i
@@ -144,7 +144,7 @@ describe('materializer filesystem behavior', () => {
       const saved = await readFile(realFile)
       await rm(realFile)
       const target = join(root, 'elsewhere.js')
-      await writeFile(target, saved)
+      await writeFile(target, saved, { mode: 0o600 })
       await symlink(target, realFile)
       await assert.rejects(
         materializeOrcadSlot({

@@ -1,16 +1,15 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
-import { mkdir, rm, symlink, writeFile } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { ORCA_DEB_SHA256, ORCA_DEB_SIZE, ORCA_DEB_URL } from './constants.mjs'
 import { acquireAndExtractDeb, verifyDebHash } from './artifact-source.mjs'
 
+// mkdtemp creates the directory 0700 atomically, so no predictable name is
+// ever created in the shared temp root.
 async function scratch(name) {
-  const dir = join(tmpdir(), `orca-deb-${name}-${randomUUID()}`)
-  await mkdir(dir, { recursive: true, mode: 0o700 })
-  return dir
+  return mkdtemp(join(tmpdir(), `orca-deb-${name}-`))
 }
 
 describe('artifact-source deb verification & extraction', () => {
@@ -24,7 +23,7 @@ describe('artifact-source deb verification & extraction', () => {
     const root = await scratch('corrupt')
     try {
       const fakeDeb = join(root, 'fake.deb')
-      await writeFile(fakeDeb, 'corrupt deb content')
+      await writeFile(fakeDeb, 'corrupt deb content', { mode: 0o600 })
       await assert.rejects(verifyDebHash(fakeDeb), /mismatch/i)
       await assert.rejects(
         acquireAndExtractDeb({ debPath: fakeDeb, extractDir: join(root, 'extracted') }),
@@ -39,7 +38,7 @@ describe('artifact-source deb verification & extraction', () => {
     const root = await scratch('symlink')
     try {
       const real = join(root, 'real.deb')
-      await writeFile(real, 'content')
+      await writeFile(real, 'content', { mode: 0o600 })
       const link = join(root, 'link.deb')
       await symlink(real, link)
       await assert.rejects(verifyDebHash(link), /symlink/i)

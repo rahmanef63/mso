@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto'
-import { mkdir } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -45,7 +44,5 @@ export function redirectFor(location, status = 302) {
 }
 
 export async function scratch(name) {
-  const dir = join(tmpdir(), `orca-download-${name}-${randomUUID()}`)
-  await mkdir(dir, { recursive: true, mode: 0o700 })
-  return dir
+  return mkdtemp(join(tmpdir(), `orca-download-${name}-`))
 }
