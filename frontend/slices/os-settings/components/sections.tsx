@@ -26,7 +26,7 @@ const CleanupSection = dynamic(() => import("./cleanup-section").then((module) =
 const McpSection = dynamic(() => import("./mcp-section").then((module) => module.McpSection), { loading: loadingSection });
 const MemorySection = dynamic(() => import("./memory-section").then((module) => module.MemorySection), { loading: loadingSection });
 const QuicklinksSection = dynamic(() => import("./quicklinks-section").then((module) => module.QuicklinksSection), { loading: loadingSection });
-const ServerSection = dynamic(() => import("./server-section").then((module) => module.ServerSection), { loading: loadingSection });
+const DevicesHostCard = dynamic(() => import("./devices-host-card").then((module) => module.DevicesHostCard), { loading: loadingSection });
 const ThemeSection = dynamic(() => import("./theme-section").then((module) => module.ThemeSection), { loading: loadingSection });
 const UpdateSection = dynamic(() => import("./update-section").then((module) => module.UpdateSection), { loading: loadingSection });
 
@@ -89,6 +89,10 @@ export function SettingsSectionBody({ id, onOpen }: { id: SectionId; onOpen?: (i
     case "devices":
       return (
         <div className="space-y-4 sm:space-y-5">
+          {/* Which machine am I talking to, then who may talk to it. One section
+              because both answer the same question — the Server section used to be
+              separate and duplicated the sign-in/session vocabulary. */}
+          <DevicesHostCard />
           <SettingsSection icon={<Lock />} title="Auto-Lock">
             <AutoLockRow />
           </SettingsSection>
@@ -103,8 +107,6 @@ export function SettingsSectionBody({ id, onOpen }: { id: SectionId; onOpen?: (i
           </SettingsSection>
         </div>
       );
-    case "server":
-      return <ServerSection />;
     case "cleanup":
       return <CleanupSection />;
     case "backup":

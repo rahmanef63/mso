@@ -1,3 +1,23 @@
+## 2026-10-21: Shell-app domain provisioning (phase 1, worker B)
+
+New `lib/surfaces/app-domain-provision.ts` provisions a public hostname for a shell-app entry:
+loopback probe → DNS write → route → verify, persisting every phase in an owner-only
+`~/.mso/private/shell-app-domains.json` (0600/0700, `O_NOFOLLOW`, uid-checked, locked) so a failed
+run resumes at the phase it reached instead of restarting from `pending`. Hostnames equal to,
+domain-matching, or containing the cockpit name, names inside `OS_SESSION_COOKIE_DOMAIN`, and
+anything `externalSurfaceSharesSession` blocks are rejected with a precise error — never
+substituted. Owner-only `POST`/`GET /api/v1/shell-apps/[id]/domain` mirror the existing shell-app
+gate order, rate limit, `Cache-Control: no-store, private` and audit trail. New CLI verbs
+`mso mapp shell-domain <id>` and `mso mapp shell-domain-save <id> <JSON|@file>` keep every route
+reachable from a shell.
+
+Contract 1 is `lib/infra/managed-domain-providers.ts`; provisioning imports its three boundary
+functions directly, so there is no injection seam in the shipped composition root. The genuine
+`provider_unavailable` case is a configured provider with no stored credentials, which that
+module raises itself. `lib/contracts/app-domain.ts` is the single server-side spelling of the
+provider union and record shape; the browser copy in
+`frontend/slices/app-store/lib/app-domain.ts` mirrors it and a parity test fails on drift.
+
 ## 2026-10-21: `mso ai` shows the reply text, not the SSE frames
 
 `mso ai` sent the right OaMsg `text` after #133, but it still printed the raw response body, so an owner read `event: delta` / `data: "…"` frames instead of an answer. `scripts/mso-sse-text.mjs` now consumes that stream: `delta` frames become stdout text, an `error` frame fails the turn with a non-zero exit, unknown events stay silent, and a non-SSE or empty body can no longer pass as a successful empty answer. The verb pipes through the reader; the entrypoint header, generated `docs/CLI.md` and the runtime help all say so.
@@ -5,6 +25,8 @@
 Coverage pins both halves of the boundary instead of only the memory helper: `app/api/assistant/normalize-content.test.ts` asserts the route turns an OpenAI-shaped `{content}` into `{text}` before recall and the streamer, and keeps streaming when neither shape carries a prompt; `scripts/mso-ai-cli-contract.test.ts` asserts the verb posts `text` and renders through the reader; `scripts/mso-sse-text.test.ts` covers delta concatenation, JSON escapes, CRLF framing, unknown events, error frames and non-SSE or empty bodies.
 
 Evidence at the committed candidate: 13/13 targeted tests, `tsc --noEmit`, `eslint . --max-warnings=0`, architecture (entrypoint 203/220), cycles, docs and generated-CLI-docs checks all PASS; a live one-turn call through the worktree CLI printed a multi-line reply and exited 0. `bun run pr:local` and `bun run pr:security` are BLOCKED on this host (no `zip`, no Docker, no browser fixtures), so the PR stays Draft until hosted checks supply that evidence.
+provider union and record shape; the browser copy in
+`frontend/slices/app-store/lib/app-domain.ts` mirrors it and a parity test fails on drift.
 
 ## 2026-10-21: Shell-app domain provisioning (phase 1, worker B)
 

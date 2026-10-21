@@ -4,10 +4,11 @@ import { selectConnection, IntegrationError, assertNotBusy, type ConnectionSelec
 import { composioDefinition, nativeDefinition } from "./connection-registry";
 import { summaryIn } from "./connection-service";
 import { request, obj } from "./http";
-import { composioAuthHeader } from "./composio";
+import { composioAuthHeader, composioConnectKey } from "./composio";
 const BASE="https://backend.composio.dev/api/v3.1";
 async function api(values:Record<string,string>,endpoint:string,body?:unknown){
-  const auth=composioAuthHeader(values);if(!auth)throw new IntegrationError("composio_project_key_required",409);
+  let auth;try{auth=composioAuthHeader(values);}catch(e){throw new IntegrationError("composio_connect_key_wrong_provider",409);}
+  if(!auth)throw new IntegrationError("composio_project_key_required",409);
   let result;try{result=await request(BASE+endpoint,{method:body===undefined?"GET":"POST",headers:{...auth.header,accept:"application/json","content-type":"application/json"},...(body===undefined?{}:{body:JSON.stringify(body)})});}catch{throw new IntegrationError("composio_unreachable",502);}
   if(!result.ok)throw new IntegrationError(`composio_http_${result.status}`,502);return obj(result.body);
 }
@@ -17,6 +18,7 @@ async function context(provider:string,selection:ConnectionSelector,brokerId?:st
   if(c.source!=="composio")throw new IntegrationError("composio_source_required");
   const broker=selectConnection(d,"composio",{user:r.user,connection:brokerId??c.external?.brokerConnection,source:"direct",authMethod:"project"}).connection;
   if(!broker.values.apiKey&&!broker.values.orgApiKey)throw new IntegrationError("composio_project_key_required",409);
+  if(composioConnectKey(broker.values.apiKey)||composioConnectKey(broker.values.orgApiKey))throw new IntegrationError("composio_connect_key_wrong_provider",409);
   return{d,r,c,broker,definition:composioDefinition(provider)!};
 }
 async function authorizeUnlocked(provider:string,selection:ConnectionSelector,options:{authConfigId?:string;brokerConnection?:string;createManaged?:boolean}={}){

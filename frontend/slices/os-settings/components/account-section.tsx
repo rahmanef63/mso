@@ -15,8 +15,7 @@ export function AccountSection({ onOpen }: { onOpen: (id: SectionId) => void }) 
     <div className="space-y-4 sm:space-y-5">
       <AccountProfileCard status={status} role={role} />
       <AccountPasswordCard status={status} role={role} />
-      <SettingsSection icon={<ShieldCheck />} title="Also in Account" footnote="Devices and About live here. They are not separate Settings sections.">
-        <SettingsActionRow label="Devices" onClick={() => onOpen("devices")} trailing={<ChevronRight className="size-4" aria-hidden />} />
+      <SettingsSection icon={<ShieldCheck />} title="Also in Account" footnote="About lives here. Devices and Server are their own section.">
         <SettingsActionRow label="About" onClick={() => { setPage("overview"); onOpen("about"); }} trailing={<ChevronRight className="size-4" aria-hidden />} />
       </SettingsSection>
     </div>

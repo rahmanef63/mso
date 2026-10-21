@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, BookOpen, RefreshCw, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { FormDrawer } from "@/features/appshell";
 import { SettingsActionRow, SettingsSection } from "@/features/shell-settings";
 import { IS_DEMO } from "@/lib/demo";
 import type { UpdateStatus } from "@/lib/host/self-update";
-import { UpdateNotes } from "./update-notes";
+import { UpdateNotesDrawer } from "./update-notes-drawer";
 import { UpdateStatusCard, UpdateStatusSkeleton, UpdateStatusUnavailable } from "./update-status-card";
+import { UpdateStatusUnsupported } from "./update-status-unsupported";
 import { readStatus } from "./update-status-client";
 
 const POLL_MS = 3_000;
@@ -92,29 +91,42 @@ export function UpdateSection() {
   };
 
   if (IS_DEMO) return null;
-  if (!info && !checking) {
-    return (
-      <SettingsSection icon={<ArrowDownToLine />} title="Software update">
-        <UpdateStatusUnavailable error={error} onRetry={() => {
-          setChecking(true);
-          void refresh(true).finally(() => setChecking(false));
-        }} />
-      </SettingsSection>
-    );
-  }
-  if (!info && checking) {
+  const retry = () => {
+    setChecking(true);
+    void refresh(true).finally(() => setChecking(false));
+  };
+
+  if (!info) {
     return (
       <SettingsSection
         icon={<ArrowDownToLine />}
         title="Software update"
-        footnote="Checking the running build, checkout and update service."
+        footnote={checking ? "Checking the running build, checkout and update service." : undefined}
       >
-        <UpdateStatusSkeleton />
+        {checking ? <UpdateStatusSkeleton /> : <UpdateStatusUnavailable error={error} onRetry={retry} />}
       </SettingsSection>
     );
   }
 
-  if (!info) return null;
+  // A refusal is not an empty page. The host says exactly why this checkout
+  // cannot update itself (wrong branch, dirty tree, no service unit); showing
+  // the status card with zero actions made that look like a missing button.
+  if (info.supported === false) {
+    return (
+      <SettingsSection
+        icon={<ArrowDownToLine />}
+        title="Software update"
+        footnote="This host can still update from a terminal: mso update"
+      >
+        <UpdateStatusUnsupported
+          reason={info.reason ?? "This deployment cannot update itself."}
+          info={info}
+          onRetry={retry}
+        />
+      </SettingsSection>
+    );
+  }
+
   const ahead = info.ahead ?? 0;
   const behind = info.behind ?? 0;
   const running = info.running ?? false;
@@ -130,11 +142,7 @@ export function UpdateSection() {
     <SettingsSection
       icon={<ArrowDownToLine />}
       title="Software update"
-      footnote={
-        info.supported === false
-          ? (info.reason ?? undefined)
-          : "Pulls origin/main, verifies compile and mandatory browser journeys out-of-tree, then builds and restarts. The running build is not replaced until those checks pass."
-      }
+      footnote="Pulls origin/main, verifies compile and mandatory browser journeys out-of-tree, then builds and restarts. The running build is not replaced until those checks pass."
     >
       <UpdateStatusCard
         info={info}
@@ -144,7 +152,7 @@ export function UpdateSection() {
         finished={finished}
       />
 
-      {behind > 0 && ahead === 0 && info.supported !== false && (
+      {behind > 0 && ahead === 0 && (
         <SettingsActionRow
           label={
             running
@@ -176,13 +184,10 @@ export function UpdateSection() {
           label="Check again"
           icon={<Search />}
           busy={checking}
-          onClick={() => {
-            setChecking(true);
-            void refresh(true).finally(() => setChecking(false));
-          }}
+          onClick={retry}
         />
       )}
-      {info.supported !== false && behind === 0 && (
+      {behind === 0 && (
         <SettingsActionRow
           label={
             pending
@@ -196,23 +201,12 @@ export function UpdateSection() {
         />
       )}
 
-      <FormDrawer open={notes} onOpenChange={setNotes} size="lg">
-        <FormDrawer.Header>
-          <FormDrawer.Title>
-            {behind > 0 ? `What's in this update (${behind})` : "Release notes"}
-          </FormDrawer.Title>
-          <FormDrawer.Description>
-            Incoming commits first, then everything already shipped to this
-            deployment.
-          </FormDrawer.Description>
-        </FormDrawer.Header>
-        <UpdateNotes commits={info.commits ?? []} />
-        <FormDrawer.Footer>
-          <Button type="button" variant="ghost" onClick={() => setNotes(false)}>
-            Close
-          </Button>
-        </FormDrawer.Footer>
-      </FormDrawer>
+      <UpdateNotesDrawer
+        open={notes}
+        onOpenChange={setNotes}
+        behind={behind}
+        commits={info.commits ?? []}
+      />
     </SettingsSection>
   );
 }

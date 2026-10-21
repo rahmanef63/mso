@@ -7,7 +7,6 @@ import {
   Paintbrush,
   Palette,
   Plug,
-  Server,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -24,7 +23,6 @@ export type SectionId =
   | "mcp"
   | "a2a"
   | "devices"
-  | "server"
   | "cleanup"
   | "backup"
   | "updates"
@@ -45,7 +43,7 @@ type SectionFields = Omit<SettingsSectionMeta, "id">;
 const CATALOG: Record<SectionId, SectionFields> = {
   account: {
     label: "Account",
-    blurb: "Name, icon, password, devices, and about",
+    blurb: "Name, icon, password, and about",
     icon: UserRound,
     color: "var(--primary)",
     group: "personalization",
@@ -94,15 +92,8 @@ const CATALOG: Record<SectionId, SectionFields> = {
   },
   devices: {
     label: "Devices",
-    blurb: "Approved browsers and sessions",
+    blurb: "This server, approved browsers, and auto-lock",
     icon: ShieldCheck,
-    color: "var(--primary)",
-    group: "system",
-  },
-  server: {
-    label: "Server",
-    blurb: "Mock or live host data",
-    icon: Server,
     color: "var(--primary)",
     group: "system",
   },
@@ -144,22 +135,29 @@ const NAV_ORDER: readonly SectionId[] = [
   "quicklinks",
   "mcp",
   "a2a",
-  "server",
+  "devices",
   "cleanup",
   "backup",
   "updates",
 ];
 
 const SEARCH_EXTRA: Partial<Record<SectionId, string>> = {
-  account: "devices approved browsers sessions about system info reset rename password icon",
+  account: "name icon rename password about system info reset",
+  devices: "server ssh live mock target host vps approved browsers sessions auto-lock sign in",
   updates: "version versions update updates software release new build latest",
+};
+
+/** Old deep links that must keep working after sections merge or move. */
+const SECTION_ALIASES: Readonly<Record<string, SectionId>> = {
+  server: "devices",
+  // `about` stays a nested Account page, but the bare link still resolves.
 };
 
 function meta(id: SectionId): SettingsSectionMeta {
   return { id, ...CATALOG[id] };
 }
 
-/** Top-level Settings navigation. Devices and About are opened from Account. */
+/** Top-level Settings navigation. About stays nested inside Account. */
 export const SECTIONS: ReadonlyArray<SettingsSectionMeta> = NAV_ORDER.map(meta);
 
 export function settingsSection(id: SectionId): SettingsSectionMeta {
@@ -167,16 +165,17 @@ export function settingsSection(id: SectionId): SettingsSectionMeta {
 }
 
 export function sectionFromSearch(value: string | null): SectionId | undefined {
-  if (value === "devices" || value === "about") return value;
-  return SECTIONS.find((section) => section.id === value)?.id;
+  if (value === "about") return value;
+  const resolved = value ? (SECTION_ALIASES[value] ?? value) : null;
+  return SECTIONS.find((section) => section.id === resolved)?.id;
 }
 
 export function settingsNavActive(id: SectionId, active: SectionId): boolean {
-  return id === active || (id === "account" && (active === "devices" || active === "about"));
+  return id === active || (id === "account" && active === "about");
 }
 
 export function settingsBackTarget(active: SectionId): SectionId | null {
-  return active === "devices" || active === "about" ? "account" : null;
+  return active === "about" ? "account" : null;
 }
 
 export function filterSettingsSections(query: string): ReadonlyArray<SettingsSectionMeta> {

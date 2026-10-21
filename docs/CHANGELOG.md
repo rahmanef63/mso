@@ -6,6 +6,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-10-22
 
+**Added**
+
+- one-click install and connect converge on a shared shell-app domain step (#136)
+- `settings` explain update refusals, merge Server into Devices (#135)
+
 **Fixed**
 
 - `orca` create temp fixtures privately and pin file reads to one descriptor

@@ -11,10 +11,10 @@ import {
   updateServerTarget,
   useAppearance,
   type ServerTarget,
-  type SshServerTarget,
 } from "@/lib/appearance";
-import { useOsApi, ResponsiveDialog } from "@/features/appshell";
-import { useSession, LoginCard } from "@/features/auth";
+import { isSsh, kindLabel, targetSubtitle } from "../lib/host-target-label";
+import { useOsApi } from "@/features/appshell";
+import { useSession } from "@/features/auth";
 import { IS_DEMO } from "@/lib/demo";
 import {
   SettingsSection,
@@ -22,30 +22,16 @@ import {
   SettingsValueRow,
   SettingsActionRow,
 } from "@/features/shell-settings";
+import { DevicesSignInDialog } from "./devices-sign-in-dialog";
 import { StatusChip, type TestState } from "./status-chip";
 
 function targetIcon(target: ServerTarget) {
   return target.kind === "ssh" ? <Laptop className="size-4" /> : <Server className="size-4" />;
 }
 
-function targetSubtitle(target: ServerTarget): string {
-  if (target.kind === "mock") return "Safe demo data; no host access.";
-  if (target.kind === "local") return "Same-origin MSO host API on this VPS.";
-  return target.host ? `SSH over Tailscale: ${target.user ? `${target.user}@` : ""}${target.host}` : "Configure a Tailscale SSH host.";
-}
-
-// Friendly kind label — never the raw enum ("ssh"/"mock").
-function kindLabel(target: ServerTarget): string {
-  if (target.kind === "local") return "Live";
-  if (target.kind === "mock") return "Mock";
-  return "SSH — not connected";
-}
-
-function isSsh(target: ServerTarget): target is SshServerTarget {
-  return target.kind === "ssh";
-}
-
-export function ServerSection() {
+/** Host target, session and connection test — the "which machine am I talking to"
+ *  half of the merged Devices section. Rendered inside Devices, never on its own. */
+export function DevicesHostCard() {
   const { tweaks, setServer } = useAppearance();
   const { status, refresh, signOut } = useSession();
   const api = useOsApi();
@@ -212,14 +198,11 @@ export function ServerSection() {
         </SettingsSection>
       )}
 
-      <ResponsiveDialog open={loginFor !== null} onOpenChange={(o) => { if (!o) setLoginFor(null); }} size="sm">
-        <ResponsiveDialog.Header>
-          <ResponsiveDialog.Title>Sign in</ResponsiveDialog.Title>
-        </ResponsiveDialog.Header>
-        <ResponsiveDialog.Body>
-          <LoginCard onAuthed={onLoginSuccess} />
-        </ResponsiveDialog.Body>
-      </ResponsiveDialog>
+      <DevicesSignInDialog
+        open={loginFor !== null}
+        onOpenChange={(o) => { if (!o) setLoginFor(null); }}
+        onAuthed={onLoginSuccess}
+      />
     </div>
   );
 }
