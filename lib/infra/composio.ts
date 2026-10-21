@@ -5,16 +5,28 @@ import { request } from "./http";
 const API = "https://backend.composio.dev/api/v3.1";
 
 /**
- * Composio has four key kinds and each needs its own header. Project and scoped
- * project keys use x-api-key; organization keys use x-org-api-key; a user key
- * (uak_..., written by `composio login`) uses x-user-api-key. Sending a user key
- * as x-api-key is rejected with 401, which used to make every save fail.
+ * Composio keys live on two different products and only one of them is this
+ * provider. Platform keys (ak_ project, uak_ user from `composio login`, org
+ * keys) authenticate against backend.composio.dev/api/v3.1. A ck_ Connect
+ * consumer key belongs to the Connect MCP product at connect.composio.dev/mcp
+ * and is rejected by every Platform route with 401, so storing it here can
+ * never work. Connect MCP keys belong in the Project MCP provider, which speaks
+ * streamable HTTP and already accepts them.
  */
+export function composioConnectKey(value: string | undefined): boolean {
+  return Boolean(value?.trim().startsWith("ck_"));
+}
+
+export const COMPOSIO_CONNECT_KEY_MESSAGE =
+  "Composio Connect key (ck_…) is not a Platform key. Use Integrations → Project MCP with https://connect.composio.dev/mcp. Platform keys start ak_ or uak_.";
+
 export function composioAuthHeader(values: InfraProviderValues): { header: Record<string, string>; kind: "organization" | "user" | "project" } | null {
   const orgKey = values.orgApiKey?.trim();
+  if (composioConnectKey(orgKey)) throw new Error(COMPOSIO_CONNECT_KEY_MESSAGE);
   if (orgKey) return { header: { "x-org-api-key": orgKey }, kind: "organization" };
   const key = values.apiKey?.trim();
   if (!key) return null;
+  if (composioConnectKey(key)) throw new Error(COMPOSIO_CONNECT_KEY_MESSAGE);
   if (key.startsWith("uak_")) return { header: { "x-user-api-key": key }, kind: "user" };
   return { header: { "x-api-key": key }, kind: "project" };
 }

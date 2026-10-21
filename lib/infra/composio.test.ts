@@ -29,3 +29,11 @@ describe("composio credential routing", () => {
     await expect(doctorComposio({ apiKey: "uak_synthetic_user_key" })).rejects.toThrow("Composio rejected this user key (401)");
   });
 });
+
+describe("composio connect consumer keys", () => {
+  it("refuses a ck_ Connect key instead of sending it to the Platform API", () => {
+    expect(() => composioAuthHeader({ apiKey: "ck_consumer_key" })).toThrow(/Project MCP/);
+    expect(() => composioAuthHeader({ orgApiKey: "ck_consumer_key" })).toThrow(/Project MCP/);
+    expect(() => composioAuthHeader({ apiKey: "ak_project" })).not.toThrow();
+  });
+});
