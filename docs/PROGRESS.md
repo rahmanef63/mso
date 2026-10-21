@@ -1,3 +1,11 @@
+## 2026-10-21: `mso ai` shows the reply text, not the SSE frames
+
+`mso ai` sent the right OaMsg `text` after #133, but it still printed the raw response body, so an owner read `event: delta` / `data: "…"` frames instead of an answer. `scripts/mso-sse-text.mjs` now consumes that stream: `delta` frames become stdout text, an `error` frame fails the turn with a non-zero exit, unknown events stay silent, and a non-SSE or empty body can no longer pass as a successful empty answer. The verb pipes through the reader; the entrypoint header, generated `docs/CLI.md` and the runtime help all say so.
+
+Coverage pins both halves of the boundary instead of only the memory helper: `app/api/assistant/normalize-content.test.ts` asserts the route turns an OpenAI-shaped `{content}` into `{text}` before recall and the streamer, and keeps streaming when neither shape carries a prompt; `scripts/mso-ai-cli-contract.test.ts` asserts the verb posts `text` and renders through the reader; `scripts/mso-sse-text.test.ts` covers delta concatenation, JSON escapes, CRLF framing, unknown events, error frames and non-SSE or empty bodies.
+
+Evidence at the committed candidate: 13/13 targeted tests, `tsc --noEmit`, `eslint . --max-warnings=0`, architecture (entrypoint 203/220), cycles, docs and generated-CLI-docs checks all PASS; a live one-turn call through the worktree CLI printed a multi-line reply and exited 0. `bun run pr:local` and `bun run pr:security` are BLOCKED on this host (no `zip`, no Docker, no browser fixtures), so the PR stays Draft until hosted checks supply that evidence.
+
 ## 2026-10-21: Shell-app domain provisioning (phase 1, worker B)
 
 New `lib/surfaces/app-domain-provision.ts` provisions a public hostname for a shell-app entry:

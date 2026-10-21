@@ -70,7 +70,7 @@
 #   term *               Interactive PTY sessions (open | input | resize | stream | close)
 #
 #  AI + state
-#   ai <prompt…>         One turn with the assistant
+#   ai <prompt…>         One turn with the assistant; prints the reply text
 #   cockpit [project]    Alfa/MSO runtime context; search with `cockpit search <query>`
 #   threads *            Conversation history: list | show | save | rename | rm
 #   agent-sessions *     Durable MSO Agent sessions: list | show | create

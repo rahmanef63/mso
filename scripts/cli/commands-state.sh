@@ -8,7 +8,10 @@ mso_cmd_state() {
   local cmd="$1"; shift || true
 case "$cmd" in
   # ── assistant / state ────────────────────────────────────────────────────
-  ai) jpost "/api/assistant" "$(jq -n --arg m "$*" '{messages:[{role:"user",text:$m}]}')" ;;
+  # OaMsg carries the prompt as `text`; the reply arrives as SSE, so the reader turns
+  # the delta frames into the answer (and a failed turn into a non-zero exit).
+  ai) jpost "/api/assistant" "$(jq -n --arg m "$*" '{messages:[{role:"user",text:$m}]}')" \
+        | node "$ROOT/scripts/mso-sse-text.mjs" ;;
   cockpit)
     case "${1:-show}" in
       show)
