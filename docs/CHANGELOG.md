@@ -23,6 +23,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `e2e` target close button inside form to disambiguate drawer close
 - `e2e` align shell-apps E2E with converged domain step
 
 ## 2026-10-20
