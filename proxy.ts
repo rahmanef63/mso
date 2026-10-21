@@ -37,6 +37,7 @@ import { applyPrivatePageCachePolicy } from "@/lib/auth/page-cache";
 import { gateManagedApp } from "@/lib/managed-apps/session";
 import { sessionAppForHost, shellAppTarget, shellAppUpstreamHeaders } from "@/lib/surfaces/session";
 import { gateShellApp, shellAppResponseHeaders } from "@/lib/surfaces/session-gate";
+import { requestBodyLimit } from "@/scripts/server-body-policy.mjs";
 import { IS_DEMO } from "@/lib/demo";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -145,7 +146,7 @@ function contentSecurityPolicy(nonce: string): string {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const contentLength = request.headers.get("content-length");
-  if (contentLength && Number(contentLength) > 1024 * 1024)
+  if (contentLength && Number(contentLength) > requestBodyLimit(pathname))
     return NextResponse.json({ error: "request_too_large" }, { status: 413 });
 
   // Which app host this is, if any. The HOST header is authoritative and
@@ -352,5 +353,10 @@ export async function proxy(request: NextRequest) {
 // a path middleware never sees — a Traefik-level block is not available. The
 // cockpit short-circuits those in MATCHER_EXCLUDED above.
 export const config = {
-  matcher: ["/((?!api/v1/fs/upload$).*)"],
+  // Routes that stream their own bounded body skip the clone middleware entirely.
+  // Written out literally: a matcher is a compile-time string, so deriving it from
+  // BODY_CLONE_BYPASS at runtime only looked equivalent while being impossible to
+  // review (and the first escaped version silently failed to match). The policy test
+  // asserts that this list and BODY_CLONE_BYPASS stay in sync.
+  matcher: ["/((?!api/v1/fs/upload$|api/auth/account/icon$).*)"],
 };

@@ -269,3 +269,30 @@ describe("cockpit document cache boundary", () => {
     expect((res.headers.get("vary") ?? "").toLowerCase()).toContain("cookie");
   });
 });
+
+describe("request body ceiling", () => {
+  /** The ceiling used to be a flat 1 MiB in the proxy, so the owner icon upload
+   *  (8 MiB route cap) could never receive a phone photo: middleware returned 413
+   *  before the route ran. The limit is now per-path, and a positive list means a
+   *  new sibling route is not silently widened. */
+  async function bodyStatus(path: string, bytes: number) {
+    const proxy = await loadProxy(TEMPLATE);
+    return (await proxy(req("mso.example.com", path, {
+      method: "POST",
+      headers: { "content-length": String(bytes) },
+    }))).status;
+  }
+
+  it("rejects an ordinary route above 1 MiB", async () => {
+    expect(await bodyStatus("/api/auth/account", 1025 * 1024)).toBe(413);
+  });
+
+  it("lets the owner icon upload reach its own 8 MiB cap", async () => {
+    expect(await bodyStatus("/api/auth/account/icon", 2 * 1024 * 1024)).not.toBe(413);
+    expect(await bodyStatus("/api/auth/account/icon", 9 * 1024 * 1024)).toBe(413);
+  });
+
+  it("does not widen a sibling path", async () => {
+    expect(await bodyStatus("/api/auth/account/iconx", 2 * 1024 * 1024)).toBe(413);
+  });
+});
