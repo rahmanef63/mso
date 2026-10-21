@@ -20,6 +20,8 @@ trap cleanup EXIT HUP INT TERM
 exec >>"$LOG" 2>&1
 printf '[%s] == detached offline update\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+# The wrapper receives only fixed argv; the channel comes from the same preference
+# file the Settings panel wrote before it launched this job (mso-update reads it).
 case "${1:-}" in
   "") /bin/bash "$ROOT/scripts/mso-update" ;;
   --rebuild-only) /bin/bash "$ROOT/scripts/mso-update" --rebuild ;;

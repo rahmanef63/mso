@@ -4,21 +4,29 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-22
+
+**Added**
+
+- one-click install and connect converge on a shared shell-app domain step (#136)
+- `settings` explain update refusals, merge Server into Devices (#135)
+
 ## 2026-10-21
 
 **Added**
 
-- `app-store` converge install and connect on one domain step
-- `shell-apps` provision public domains for shell apps
-- `infra` add managed domain provider abstraction
 - `cli` print the mso ai reply text instead of SSE frames
 - `infra` add Linear provider and route Composio key kinds by header
 
 **Fixed**
 
-- `composio` refuse Connect consumer keys on the Platform provider
-- `app-domain` wire the real provider module and single-source the domain contract
+- `proxy` let the owner icon upload reach its own 8 MiB cap
+- `host` make agent worktrees owner-private regardless of umask
 - `deps` pin vite 8.2.4 to clear GHSA-587h-7wmj-h5pm
+
+**Build**
+
+- `deps` make sharp a direct dependency and add @phosphor-icons/react
 
 ## 2026-10-20
 
@@ -1500,24 +1508,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - record external MCP consumer compatibility
 - `readme` the update button, and what Preview actually opens
 - plain http to an IP cannot complete a login — say so where it matters
-
-## 2026-08-11
-
-**Added**
-
-- `ship` one command that changelogs, pushes, rebuilds and verifies
-- `shells` Windows/iOS/Android to their 2026 specs, plus a backup for local state
-
-**Fixed**
-
-- `ship` amend on retry, and collapse a repeated subject in the changelog
-- `ai` Codex DOES do tool calling — implement it instead of announcing it cannot
-- `pwa,chat` notch clearance, a doubled iOS inset, and an assistant that was lying
-
-**Tests**
-
-- `e2e` a browser that actually loads the page — and the three bugs it found
-
-**Docs**
-
-- `progress` log the shell-spec pass, the springs, and the backup

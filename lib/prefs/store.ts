@@ -4,11 +4,13 @@ import os from "os";
 import path from "path";
 import type { Tweaks } from "@/lib/appearance";
 import type { Quicklink } from "@/lib/quicklinks";
+import type { PrefUpdates } from "./updates";
 
-// Cross-device prefs (appearance tweaks + quicklinks), mirroring lib/config/store:
-// a host JSON file (chmod 600) read/written server-side only, atomic tmp+rename.
-// `wallpaperStyle` is computed client-side from `wallpaperImage` (parseImage →
-// withWallpaperStyle), so it is never persisted — the route strips it.
+// Cross-device prefs (appearance tweaks + quicklinks + update automation),
+// mirroring lib/config/store: a host JSON file (chmod 600) read/written
+// server-side only, atomic tmp+rename. `wallpaperStyle` is computed client-side
+// from `wallpaperImage` (parseImage → withWallpaperStyle), so it is never
+// persisted — the route strips it.
 
 /** Persisted tweaks: everything except the computed CSS style object. */
 export type PrefTweaks = Omit<Tweaks, "wallpaperStyle">;
@@ -16,6 +18,10 @@ export type PrefTweaks = Omit<Tweaks, "wallpaperStyle">;
 export interface OsPrefs {
   tweaks?: PrefTweaks;
   quicklinks?: Quicklink[];
+  /** Owner-only automation settings. Runtime outcomes are NOT stored here — the
+   *  updater writes ~/.mso/auto-update-state.json so a client can never forge a
+   *  "last result", and the two writers never lose each other's section. */
+  updates?: PrefUpdates;
   updatedAt?: number;
 }
 

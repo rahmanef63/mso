@@ -2,6 +2,7 @@
 
 import { Compass, Heart, Leaf, Shield, Sparkles, Star, UserRound, Zap, type LucideIcon } from "lucide-react";
 import type { AccountIcon, AccountPreset } from "@/lib/auth/account-profile-model";
+import { DynamicIcon } from "@/features/icon-picker";
 import { cn } from "@/lib/utils";
 
 const PRESET_ICON: Record<AccountPreset, LucideIcon> = {
@@ -15,6 +16,20 @@ const PRESET_ICON: Record<AccountPreset, LucideIcon> = {
   compass: Compass,
 };
 
+/** The picker stores emoji as a bare glyph (`🎯`, `🎯?c=0b6e99`) but the account store
+ *  requires the explicit `emoji:` namespace (see LIBRARY_ICON in
+ *  lib/auth/account-profile.ts). These two functions are the only translation point. */
+export function libraryValueFromPicker(value: string): string {
+  if (!value) return value;
+  if (value.startsWith("lucide:") || value.startsWith("phosphor:") || value.startsWith("emoji:")) return value;
+  return `emoji:${value}`;
+}
+
+export function pickerValueFromLibrary(value: string | null): string | null {
+  if (!value) return null;
+  return value.startsWith("emoji:") ? value.slice("emoji:".length) : value;
+}
+
 export function AccountAvatar({ icon, className }: { icon: AccountIcon; className?: string }) {
   if (icon.type === "image") {
     // Owner-uploaded data URLs are authenticated bytes, not optimizer inputs.
@@ -23,6 +38,15 @@ export function AccountAvatar({ icon, className }: { icon: AccountIcon; classNam
       <img src={icon.src} alt="" className={cn("size-16 rounded-full object-cover", className)} />
     );
   }
+  if (icon.type === "library") {
+    return (
+      <span className={cn("grid size-16 place-items-center rounded-full bg-primary text-primary-foreground", className)}>
+        {/* forceNative: an account avatar must not fetch a glyph from a CDN. */}
+        <DynamicIcon value={pickerValueFromLibrary(icon.value)} size={32} forceNative />
+      </span>
+    );
+  }
+  // Stored `preset` icons predate the picker; they must keep rendering.
   const Icon = PRESET_ICON[icon.id];
   return (
     <span className={cn("grid size-16 place-items-center rounded-full bg-primary text-primary-foreground", className)}>

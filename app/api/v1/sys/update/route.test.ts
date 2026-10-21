@@ -102,12 +102,24 @@ describe("/api/v1/sys/update", () => {
 
   it("passes rebuildOnly through only when it is exactly true", async () => {
     await POST(post({ rebuildOnly: true }));
-    expect(startUpdate).toHaveBeenLastCalledWith(true);
+    expect(startUpdate).toHaveBeenLastCalledWith(true, undefined);
     // A truthy string from a hand-rolled client must not silently mean "rebuild".
     await POST(post({ rebuildOnly: "yes" }));
-    expect(startUpdate).toHaveBeenLastCalledWith(false);
+    expect(startUpdate).toHaveBeenLastCalledWith(false, undefined);
     await POST(post({}));
-    expect(startUpdate).toHaveBeenLastCalledWith(false);
+    expect(startUpdate).toHaveBeenLastCalledWith(false, undefined);
+  });
+
+  it("accepts only the channel enum and ignores anything ref-shaped", async () => {
+    await POST(post({ channel: "main" }));
+    expect(startUpdate).toHaveBeenLastCalledWith(false, "main");
+    await POST(post({ channel: "stable" }));
+    expect(startUpdate).toHaveBeenLastCalledWith(false, "stable");
+    // A ref, a tag or a command is not a channel: fall back to the stored pref.
+    for (const channel of ["origin/main", "v1.2.3", "main --force", "--rebuild-only", 3, null]) {
+      await POST(post({ channel }));
+      expect(startUpdate).toHaveBeenLastCalledWith(false, undefined);
+    }
   });
 
   it("surfaces a refusal as its sentence, not as a 500", async () => {

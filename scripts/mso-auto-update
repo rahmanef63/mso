@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Entry point of the nightly timer unit (mso-auto-update.service).
+#
+# It asks the TypeScript pre-flight whether THIS night may run unattended. The
+# pre-flight is where every refusal lives (unsupported checkout, dirty tree, an
+# update already in flight, two consecutive failed builds, incoming commits that
+# touch the updater) — see lib/host/update-decision.ts. This script only executes
+# the decision and records the outcome for the panel.
+#
+#   pre-flight refuses → SKIP <reason>, exit 0 (a correct decision is not a unit
+#                        failure, and a failed unit would stop the next night too)
+#   pre-flight agrees  → the same lifecycle Settings uses, then record ok/failed
+set -uo pipefail
+umask 077
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
+cd "$ROOT" || exit 1
+export PATH="$HOME/.bun/bin:$HOME/.local/bin:$PATH"
+export NO_COLOR=1 TERM=dumb
+
+preflight="$(bun "$ROOT/scripts/self-update-auto.ts" 2>&1)" || {
+  printf 'auto update: pre-flight failed\n%s\n' "$preflight" >&2
+  exit 1
+}
+printf '%s\n' "$preflight"
+case "$preflight" in
+  RUN\ *) ;;
+  SKIP\ *) exit 0 ;;
+  *) printf 'auto update: pre-flight printed no decision; refusing\n' >&2; exit 1 ;;
+esac
+
+channel="$(printf '%s\n' "$preflight" | sed -n 's/^MSO_AUTO_CHANNEL=//p' | tail -1)"
+case "$channel" in
+  stable|main) ;;
+  *) printf 'auto update: pre-flight produced no valid channel; refusing\n' >&2; exit 1 ;;
+esac
+# The commit the pre-flight INSPECTED (it checked which files those commits touch).
+# self-update.sh refuses when the resolved target has moved since, so a tag pushed
+# between the decision and the build can never be applied unreviewed.
+target="$(printf '%s\n' "$preflight" | sed -n 's/^MSO_AUTO_TARGET_SHA=//p' | tail -1)"
+case "$target" in
+  ????????????????????????????????????????) ;;
+  *) printf 'auto update: pre-flight produced no target commit; refusing\n' >&2; exit 1 ;;
+esac
+export MSO_AUTO_TARGET_SHA="$target"
+
+# A human starting an update is already refused by the pre-flight; this lock is the
+# second half of the same rule, because both entry points share it.
+if ! /bin/bash "$ROOT/scripts/mso-service-update" "--channel=$channel"; then
+  bun "$ROOT/scripts/self-update-auto.ts" --record failed >/dev/null 2>&1 || true
+  printf 'auto update: the update did not finish; see %s\n' "${MSO_UPDATE_LOG:-$HOME/.mso/self-update.log}" >&2
+  exit 1
+fi
+bun "$ROOT/scripts/self-update-auto.ts" --record ok >/dev/null 2>&1 || true
+printf 'AUTO UPDATE OK\n'

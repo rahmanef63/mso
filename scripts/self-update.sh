@@ -37,17 +37,26 @@ die()  { printf '\n[%s] FAILED: %s\n' "$(date -Is)" "$*"; printf 'the running MS
 
 REBUILD_ONLY=0
 SHIP_FINALIZE=0
-case "${1:-}" in
-  "") ;;
-  --rebuild-only) REBUILD_ONLY=1 ;;
-  --ship-finalize) REBUILD_ONLY=1; SHIP_FINALIZE=1 ;;
-  *) die "unknown mode: ${1:-}" ;;
-esac
+CHANNEL=main
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --rebuild-only) REBUILD_ONLY=1 ;;
+    --ship-finalize) REBUILD_ONLY=1; SHIP_FINALIZE=1 ;;
+    # The ONLY channel input: a two-word enum. The ref is resolved below from the
+    # repository itself, so no caller can point an unattended restart elsewhere.
+    --channel=stable) CHANNEL=stable ;;
+    --channel=main) CHANNEL=main ;;
+    *) die "unknown mode: ${1:-}" ;;
+  esac
+  shift
+done
 
-step "self-update starting (rebuild-only=$REBUILD_ONLY, ship-finalize=$SHIP_FINALIZE)"
+step "self-update starting (rebuild-only=$REBUILD_ONLY, ship-finalize=$SHIP_FINALIZE, channel=$CHANNEL)"
 HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 [ -n "$HEAD_SHA" ] || die "could not read checkout HEAD"
 CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
+# Both channels still require the branch checkout: a tag checkout is not requested,
+# and a detached HEAD cannot be fast-forwarded by the next release.
 [ "$CURRENT_BRANCH" = main ] || die "updates require checkout to be on main (current: ${CURRENT_BRANCH:-detached HEAD})"
 printf 'at %s\n' "${HEAD_SHA:0:7}"
 
@@ -66,21 +75,53 @@ if [ "$SHIP_FINALIZE" -eq 1 ]; then
 fi
 
 if [ "$REBUILD_ONLY" -eq 0 ]; then
-  step "fetching origin/main"
-  update_git_fetch_origin "$ROOT" main || die "could not reach the remote"
-  step "verifying remote authority / fast-forwarding"
-  read -r RELATION AHEAD_COUNT BEHIND_COUNT < <(update_git_relation "$ROOT") \
-    || die "could not compare checkout with origin/main"
+  # Fetch BEFORE resolving: a release tag pushed since the last run is exactly what
+  # the stable channel is supposed to notice. `--tags` also fills the tag list for a
+  # later channel switch without a second network round trip.
+  step "fetching origin/main and release tags"
+  update_git_fetch_origin "$ROOT" main --tags || die "could not reach the remote"
+
+  step "resolving $CHANNEL channel target"
+  TARGET="$(update_git_resolve_target "$ROOT" "$CHANNEL")" \
+    || die "could not resolve the $CHANNEL channel target"
+  # Re-validate at the use site. The ref came from this repository, but it becomes
+  # argv on the next line, so the allowlist is applied exactly where it is consumed.
+  case "$TARGET" in
+    origin/main) ;;
+    *) printf '%s\n' "$TARGET" | grep -Eq '^v?[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$' \
+         || die "resolved update target is not an allowed ref: $TARGET" ;;
+  esac
+  # The unattended path pins the commit its pre-flight inspected, because that is
+  # the only run where nobody read the incoming diff before it was applied.
+  if [ -n "${MSO_AUTO_TARGET_SHA:-}" ]; then
+    [[ "$MSO_AUTO_TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] \
+      || die "MSO_AUTO_TARGET_SHA must be a full 40-character commit sha"
+    [ "$(git rev-parse "$TARGET^{commit}" 2>/dev/null || true)" = "$MSO_AUTO_TARGET_SHA" ] \
+      || die "the $CHANNEL target moved after the pre-flight decision; refusing an unattended build of an unreviewed commit"
+  fi
+
+  step "verifying remote authority / fast-forwarding to $TARGET"
+  read -r RELATION AHEAD_COUNT BEHIND_COUNT < <(update_git_relation_to "$ROOT" "$TARGET") \
+    || die "could not compare checkout with $TARGET"
   case "$RELATION" in
     exact) ;;
-    behind) git merge --ff-only origin/main || die "cannot fast-forward — the checkout has diverged from origin/main" ;;
-    ahead) die "local main is ahead of origin/main by $AHEAD_COUNT commit(s); refusing to deploy unpushed code" ;;
-    diverged) die "local main has diverged from origin/main (ahead $AHEAD_COUNT, behind $BEHIND_COUNT)" ;;
+    ahead) die "local main is ahead of $TARGET by $AHEAD_COUNT commit(s); refusing to deploy unpushed code" ;;
+    diverged)
+      # A tag that is not an ancestor of HEAD is a release line the checkout left
+      # behind. Deploying it would mean force-moving history, which an unattended
+      # run must never do.
+      git merge-base --is-ancestor HEAD "$TARGET" \
+        || die "HEAD is not an ancestor of $TARGET; reconcile first (mso update reconcile) instead of force-checking out a release"
+      die "local main has diverged from $TARGET (ahead $AHEAD_COUNT, behind $BEHIND_COUNT); reconcile first" ;;
+    behind)
+      git merge-base --is-ancestor HEAD "$TARGET" \
+        || die "HEAD is not an ancestor of $TARGET; reconcile first (mso update reconcile) instead of force-checking out a release"
+      git merge --ff-only "$TARGET" || die "cannot fast-forward to $TARGET" ;;
     *) die "unknown Git authority state" ;;
   esac
-  read -r RELATION AHEAD_COUNT BEHIND_COUNT < <(update_git_relation "$ROOT") \
-    || die "could not re-check origin/main after fast-forward"
-  [ "$RELATION" = exact ] || die "checkout does not exactly match origin/main after update"
+  read -r RELATION AHEAD_COUNT BEHIND_COUNT < <(update_git_relation_to "$ROOT" "$TARGET") \
+    || die "could not re-check $TARGET after fast-forward"
+  [ "$RELATION" = exact ] || die "checkout does not exactly match $TARGET after update"
   git log -1 --format='now at %h — %s'
 
   step "installing dependencies"

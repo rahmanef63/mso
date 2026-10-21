@@ -21,6 +21,10 @@ fi
 exit 8
 SC
 chmod +x "$FAKE";ln -s "$FAKE" "$LINK"
+# `chmod +x` yields 0775 under a group-writable umask (0002 on some hosts), and
+# sc-installation.mjs rightly refuses a group-writable binary. The fixture must be
+# an owner-private install like a real one, not a reflection of the invoking shell.
+chmod 755 "$FAKE"
 export MSO_SC_BIN="$LINK" FAKE_SC_SOURCE="$SRC"
 die(){ printf '%s\n' "$*" >&2;exit 2; }
 tty_ok(){ return 1; }

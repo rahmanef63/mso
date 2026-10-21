@@ -102,7 +102,13 @@ describe("mso offline update dispatch", () => {
   it("keeps `mso update run` as a local compatibility alias", () => {
     const cli = fs.readFileSync(path.join(ROOT, "scripts/cli/commands-admin.sh"), "utf8");
     const updater = fs.readFileSync(path.join(ROOT, "scripts/mso-update"), "utf8");
-    expect(cli).toMatch(/update\).*scripts\/mso-update/);
+    const updateCase = /update\)([\s\S]*?)\n    esac ;;/.exec(cli)?.[1] ?? "";
+    expect(updateCase).not.toBe("");
+    // `mso update` still hands off to scripts/mso-update; the settings subcommands
+    // intentionally do NOT, because they share the module the Settings toggle uses.
+    expect(updateCase).toMatch(/scripts\/mso-update/);
+    expect(updateCase).toMatch(/--auto/);
+    expect(updateCase).toMatch(/--channel/);
     expect(updater).toMatch(/case "\$\{1:-run\}" in/);
     expect(updater).toMatch(/run\) case/);
   });

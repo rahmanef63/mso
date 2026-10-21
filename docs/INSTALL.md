@@ -621,6 +621,47 @@ mso update            # preferred: update safely even if :4005 is down
 mso update log
 ```
 
+#### Update channel
+
+`mso update --channel stable|main` (or Settings → About → Updates) chooses what an update
+compares against. The channel is a **two-word enum**; no ref, tag, path or command is ever
+accepted from a client or stored verbatim, and the updater resolves the Git target itself:
+
+- `stable` (default) → the highest `vX.Y.Z` release tag reachable from `origin/main`.
+- `main` → rolling `origin/main`, unchanged from earlier releases.
+
+Because release tags can lag `package.json`, a checkout that is already past the newest tag
+reports up to date on the stable channel **instead of** silently following `main`. The only
+exception is a repository with no release tag at all; the status line then says
+`no release tag exists yet` and the target is `origin/main`. Both channels still require the
+checkout to be on branch `main`, and both still fast-forward only: if `HEAD` is not an
+ancestor of the resolved target, the update refuses with "reconcile first" rather than
+force-checking out a release.
+
+#### Unattended updates (opt-in, off by default)
+
+```bash
+mso update --auto on    # install + enable the user timer and record the preference
+mso update --auto off   # disable and delete the timer, then clear the preference
+mso update status       # channel, real timer state, last unattended attempt
+```
+
+Enabling writes `~/.mso/prefs.json` (`updates.auto`) **and** installs
+`~/.config/systemd/user/mso-auto-update.{service,timer}` in the owner's user manager — no sudo,
+the same manager the manual update uses. The timer runs `*-*-* 04:30:00` with
+`RandomizedDelaySec=25m` and `Persistent=true`. Turning it on is refused outright when the host
+cannot host a safe restart (wrong branch, no `mso.service` restart policy, no user manager), so
+the panel can never show "on" for a scheduler that does not exist; it also reads the real unit
+state, so a manually deleted timer reads "off".
+
+An unattended run refuses, and records the reason in `~/.mso/auto-update-state.json`, when the
+checkout is unsupported, dirty, has local commits ahead, already has an update running, when the
+previous **two** builds failed in a row, or when the incoming commits touch the updater itself
+(`lib/host/self-update*.ts`, `lib/host/update-*.ts`, `scripts/mso-service-update`,
+`scripts/self-update.sh`, `scripts/self-update-auto.ts`, `scripts/mso-auto-update`). Those last
+ones are applied by a human from a terminal. The pre-flight pins the commit it inspected, and
+`scripts/self-update.sh` refuses if the target moved before the build started.
+
 MSO has two explicitly labeled version domains: the app/package version shown in Settings → Account → About and the independently versioned CLI contract shown by `mso --version`. The Git commit/build remains update authority. If commits changed without a CLI bump, status says `N new commits on mso CLI X` rather than rendering `X -> X`.
 
 The updater verifies the incoming checkout/build before replacing the service. Re-running the installer on an existing checkout acquires the same checkout-scoped transaction lock **before** Git fetch/checkout mutation and hands that open lock FD to the post-checkout runtime lifecycle, so installer, `mso update`, and `mso deploy` cannot mutate one checkout concurrently. The lock primitive is carried by the verified installer payload itself, so older MSO checkouts that predate the current private-state helper remain upgradeable in place. A normal `mso update` treats fetched `origin/main` as the release authority: after any fast-forward, local `main` must equal that remote commit exactly. A clean branch that is locally ahead or diverged is refused before dependency/build mutation instead of deploying unpushed code. `mso update status` reports that state explicitly; `mso update reconcile` makes recovery explicit and lossless by preserving the previous HEAD on a timestamped local `rescue/mso-update-*` branch before resetting clean `main` to fetched `origin/main`. `mso update --rebuild` is different by design: it rebuilds the already-selected clean checkout without changing Git history. With an active

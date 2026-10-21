@@ -12,6 +12,10 @@ import {
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/;
+// Picker values: emoji glyph (1..8 non-space chars), lucide:Name, phosphor:Name,
+// and an optional `?c=<6-digit hex>` tint. Charset-only names mean `__proto__`
+// and friends cannot survive; the length cap bounds the rest.
+const LIBRARY_ICON = /^(emoji:[^\s]{1,8}|lucide:[A-Za-z0-9]+|phosphor:[A-Za-z0-9]+)(\?c=[0-9a-fA-F]{6})?$/;
 
 export class AccountProfileError extends Error {
   constructor(readonly code: "corrupt" | "invalid") {
@@ -94,8 +98,18 @@ function imageIcon(value: unknown): AccountIcon | null {
   return { type: "image", src: prefix + encodeBase64(bytes) };
 }
 
+/** Icon-picker value. The picker emits raw glyphs for emoji, so the stored
+ *  form is `emoji:<glyph>` for those and `lucide:`/`phosphor:` as-is. */
+function libraryIcon(value: unknown): AccountIcon | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  if (row.type !== "library" || typeof row.value !== "string") return null;
+  if (row.value.length > 96 || !LIBRARY_ICON.test(row.value)) return null;
+  return { type: "library", value: row.value };
+}
+
 export function cleanAccountIcon(value: unknown): AccountIcon | null {
-  return presetIcon(value) ?? imageIcon(value);
+  return presetIcon(value) ?? libraryIcon(value) ?? imageIcon(value);
 }
 
 function parseProfile(raw: string): AccountProfile {

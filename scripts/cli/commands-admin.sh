@@ -87,7 +87,24 @@ case "$cmd" in
   # The same self-update Settings → Update MSO drives, so both surfaces get the same
   # preflight and the same transient-unit handoff (a build spawned from the service
   # would be killed by the restart it performs).
-  update) local_url="$(gateway_local_url)"; MSO_UPDATE_ROOT="$ROOT" MSO_UPDATE_LOCAL_URL="$local_url" "$ROOT/scripts/mso-update" "$@" ;;
+  # `--auto` / `--channel` are SETTINGS, not a run: they go to the same authority the
+  # Settings toggle uses. Keeping them out of scripts/mso-update means a value can
+  # never be mistaken for a target ref.
+  update)
+    case "${1-}" in
+      --auto)
+        case "${2-}" in
+          on|off) bun "$ROOT/scripts/mso-update-automation.ts" auto "${2}" ;;
+          *) die "usage: mso update --auto on|off" ;;
+        esac ;;
+      --channel)
+        case "${2-}" in
+          stable|main) bun "$ROOT/scripts/mso-update-automation.ts" channel "${2}" ;;
+          *) die "usage: mso update --channel stable|main" ;;
+        esac ;;
+      *)
+        local_url="$(gateway_local_url)"; MSO_UPDATE_ROOT="$ROOT" MSO_UPDATE_LOCAL_URL="$local_url" "$ROOT/scripts/mso-update" "$@" ;;
+    esac ;;
 
   # ── editor-document CRUD (one pattern, all editor features) ──────────────
   crud)
