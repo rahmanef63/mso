@@ -12,7 +12,9 @@ describe("unattended update wiring", () => {
   it("keeps a refusal out of the unit's failure state", () => {
     // A `SKIP` is a correct decision. Exiting non-zero would make systemd record a
     // failed unit and, with Restart=, retry a host that must not be touched.
-    expect(entry).toContain("SKIP\\ *) exit 0 ;;");
+    // Accept both spellings of the case pattern: escaped (`SKIP\ *)`), which strict
+    // Semgrep cannot parse, and quoted (`"SKIP "*)`), which it can. Both are bash-identical.
+    expect(entry.includes("SKIP\\ *) exit 0 ;;") || entry.includes('"SKIP "*) exit 0 ;;')).toBe(true);
     expect(preflight).toContain("SKIP ${reason}");
   });
 
