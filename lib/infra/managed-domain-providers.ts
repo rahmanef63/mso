@@ -3,27 +3,14 @@ import { inspectCloudflareDns, listCloudflareZones, upsertCloudflareDns } from "
 import { readHostingerZone, upsertHostingerDns } from "./hostinger";
 import { readInfraProvider } from "./store";
 import { HOST_RE, obj, request } from "./http";
+import type { AppDomainTarget, DomainProviderCapability, DomainProviderId } from "@/lib/contracts/app-domain";
 import { redactText } from "@/lib/security/redact-text";
-
-export type DomainProviderId = "cloudflare" | "hostinger" | "dokploy" | "custom";
-
-export type DomainProviderCapability = {
-  id: DomainProviderId;
-  /** Provider can create/update an A record pointing at a public IPv4. */
-  aRecord: boolean;
-  /** Provider can create/update a CNAME. */
-  cname: boolean;
-  /** Provider can create/update a TXT challenge record (ownership proof). */
-  txt: boolean;
-  /** Provider owns the ingress (proxy/tunnel), so no separate route step is needed. */
-  ingress: boolean;
-};
 
 export type DomainRecordRequest = {
   provider: DomainProviderId;
   zoneName: string;
   hostnames: string[];
-  target: { kind: "ipv4"; value: string } | { kind: "cname"; value: string };
+  target: AppDomainTarget;
 };
 
 export type DomainRecordResult = {

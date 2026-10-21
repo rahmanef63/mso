@@ -1,10 +1,12 @@
 // Shared domain-step logic for both shell-app entry paths (install + connect).
-// The server contract lives in lib/infra/managed-domain-providers.ts and
-// lib/surfaces/app-domain-provision.ts; those modules are server-only (node:net,
-// fs, provider credentials), so the browser mirrors the two response shapes and
-// the capability table here. Keep this file in step with that contract — never
-// add a field the server does not return.
-export type DomainProviderId = "cloudflare" | "hostinger" | "dokploy" | "custom";
+// MIRROR — source of truth: `lib/contracts/app-domain.ts`. The browser may not
+// import that module (it is server-side), so `DomainProviderId`,
+// `DomainProviderCapability`, `AppDomainPhase`, `AppDomainTarget` and
+// `AppDomainRecord` are restated here with the SAME field names and SAME union
+// members. `app-domain-parity.test.ts` fails when they drift; never add a field
+// the server does not return.
+export const DOMAIN_PROVIDER_IDS = ["cloudflare", "hostinger", "dokploy", "custom"] as const;
+export type DomainProviderId = (typeof DOMAIN_PROVIDER_IDS)[number];
 export type DomainProviderCapability = {
   id: DomainProviderId;
   aRecord: boolean;
@@ -12,7 +14,7 @@ export type DomainProviderCapability = {
   txt: boolean;
   ingress: boolean;
 };
-export type DomainTarget = { kind: "ipv4"; value: string } | { kind: "cname"; value: string };
+export type AppDomainTarget = { kind: "ipv4"; value: string } | { kind: "cname"; value: string };
 export type AppDomainPhase = "pending" | "dns-ready" | "route-ready" | "ready" | "blocked";
 export type AppDomainRecord = {
   appId: string;
@@ -26,8 +28,6 @@ export type AppDomainRecord = {
   verifiedAt?: number;
   updatedAt: number;
 };
-
-export const DOMAIN_PROVIDER_IDS: readonly DomainProviderId[] = ["cloudflare", "hostinger", "dokploy", "custom"];
 
 // `custom` is not "cannot write": it means the operator writes the record. It
 // stays selectable and the step prints what to create; marking it incapable
@@ -54,7 +54,7 @@ export function providerBlockReason(id: DomainProviderId, recordType: "A" | "CNA
     : `${providerLabel(id)} cannot create ${recordType} records.`;
 }
 
-export function targetFor(value: string): DomainTarget | null {
+export function targetFor(value: string): AppDomainTarget | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   const octets = trimmed.split(".");

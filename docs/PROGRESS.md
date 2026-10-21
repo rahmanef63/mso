@@ -12,12 +12,11 @@ gate order, rate limit, `Cache-Control: no-store, private` and audit trail. New 
 reachable from a shell.
 
 Contract 1 is `lib/infra/managed-domain-providers.ts`; provisioning imports its three boundary
-functions (capabilities, ensure, inspect) directly, so the shipped composition root has no
-injection seam. The genuine `provider_unavailable` case is a configured provider with no stored
-credentials, which that module raises itself. `lib/contracts/app-domain.ts` is the single
-server-side spelling of the provider union and record shape; the browser copy in
-`frontend/slices/app-store/lib/app-domain.ts` mirrors it because it cannot import server modules,
-and a parity test fails on drift.
+functions directly, so there is no injection seam in the shipped composition root. The genuine
+`provider_unavailable` case is a configured provider with no stored credentials, which that
+module raises itself. `lib/contracts/app-domain.ts` is the single server-side spelling of the
+provider union and record shape; the browser copy in
+`frontend/slices/app-store/lib/app-domain.ts` mirrors it and a parity test fails on drift.
 
 ## 2026-10-21: `mso ai` shows the reply text, not the SSE frames
 
@@ -26,6 +25,8 @@ and a parity test fails on drift.
 Coverage pins both halves of the boundary instead of only the memory helper: `app/api/assistant/normalize-content.test.ts` asserts the route turns an OpenAI-shaped `{content}` into `{text}` before recall and the streamer, and keeps streaming when neither shape carries a prompt; `scripts/mso-ai-cli-contract.test.ts` asserts the verb posts `text` and renders through the reader; `scripts/mso-sse-text.test.ts` covers delta concatenation, JSON escapes, CRLF framing, unknown events, error frames and non-SSE or empty bodies.
 
 Evidence at the committed candidate: 13/13 targeted tests, `tsc --noEmit`, `eslint . --max-warnings=0`, architecture (entrypoint 203/220), cycles, docs and generated-CLI-docs checks all PASS; a live one-turn call through the worktree CLI printed a multi-line reply and exited 0. `bun run pr:local` and `bun run pr:security` are BLOCKED on this host (no `zip`, no Docker, no browser fixtures), so the PR stays Draft until hosted checks supply that evidence.
+provider union and record shape; the browser copy in
+`frontend/slices/app-store/lib/app-domain.ts` mirrors it and a parity test fails on drift.
 
 ## 2026-10-18: MSO deep QA stopped at the user's request
 
