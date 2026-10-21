@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `cli` print the mso ai reply text instead of SSE frames
 - `shell-apps` provision public domains for shell apps
 - `app-store` converge install and connect on one domain step
 - `infra` add managed domain provider abstraction
