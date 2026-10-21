@@ -1,3 +1,20 @@
+## 2026-10-21: Shell-app domain provisioning (phase 1, worker B)
+
+New `lib/surfaces/app-domain-provision.ts` provisions a public hostname for a shell-app entry:
+loopback probe → DNS write → route → verify, persisting every phase in an owner-only
+`~/.mso/private/shell-app-domains.json` (0600/0700, `O_NOFOLLOW`, uid-checked, locked) so a failed
+run resumes at the phase it reached instead of restarting from `pending`. Hostnames equal to,
+domain-matching, or containing the cockpit name, names inside `OS_SESSION_COOKIE_DOMAIN`, and
+anything `externalSurfaceSharesSession` blocks are rejected with a precise error — never
+substituted. Owner-only `POST`/`GET /api/v1/shell-apps/[id]/domain` mirror the existing shell-app
+gate order, rate limit, `Cache-Control: no-store, private` and audit trail. New CLI verbs
+`mso mapp shell-domain <id>` and `mso mapp shell-domain-save <id> <JSON|@file>` keep every route
+reachable from a shell.
+
+Contract 1 (`lib/infra/managed-domain-providers.ts`) is owned by a separate worker; until it
+merges, `lib/surfaces/app-domain-providers.ts` holds the only reference to it as a type-only seam
+and an un-injected process fails closed with `provider_unavailable`.
+
 ## 2026-10-18: MSO deep QA stopped at the user's request
 
 Work and active QA were stopped on 18 October 2026 at the user's explicit request. This is a progress checkpoint directly on main, not a release of the development candidate. Resume implementation, validation or deployment only after a new user instruction.
