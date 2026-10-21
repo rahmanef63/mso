@@ -84,6 +84,12 @@ export async function prepareProjectWorktree(projectPath: string): Promise<Prepa
   if (await fs.lstat(workspacePath).catch(() => null)) throw new HostError("Generated agent worktree path already exists");
 
   await git(canonicalPath, ["worktree", "add", "--no-track", "-b", branch, workspacePath, baseCommit]);
+  // `git worktree add` creates the directory with the process umask, so a host
+  // running umask 0002 produces a group-writable workspace. Everything downstream
+  // that pins a security store inside the worktree then refuses it as unsafe, which
+  // made a local gate run fail on the same tests CI passed. The workspace is this
+  // owner's private scratch tree, so it gets the same mode as the root above.
+  await fs.chmod(/* turbopackIgnore: true */ workspacePath, 0o700);
   const workspaceReal = await fs.realpath(workspacePath).catch(() => null);
   if (!workspaceReal || workspaceReal !== workspacePath) throw new HostError("Created worktree could not be verified");
   const [workspaceTop, workspaceHead, workspaceStatus] = await Promise.all([

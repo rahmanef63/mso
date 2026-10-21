@@ -7,6 +7,9 @@ export type AccountPreset = (typeof ACCOUNT_PRESETS)[number];
 
 export type AccountIcon =
   | { type: "preset"; id: AccountPreset }
+  // Emoji/lucide/phosphor value from the icon-picker slice, e.g. "lucide:Star"
+  // or "phosphor:Shield?c=0b6e99". Validated in account-profile.ts.
+  | { type: "library"; value: string }
   | { type: "image"; src: string };
 
 export type AccountProfile = {

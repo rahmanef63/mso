@@ -19,6 +19,20 @@ export default defineConfig({
   test: {
     // Shell/systemd lifecycle fixtures can exceed Vitest's 5s default under the full parallel gate.
     testTimeout: 15_000,
+    // Cache transformed modules INSIDE THIS CHECKOUT, not in the shared
+    // `node_modules/.vitest-cache`.
+    //
+    // Agent worktrees symlink `node_modules` to this canonical checkout (so every
+    // worktree reuses one install). Vitest's default cache path resolves through that
+    // symlink, so two gates running at once — a worktree's pre-push and this repo's —
+    // share one cache directory and race on rmdir:
+    //
+    //   Error: ENOTEMPTY: directory not empty, rmdir '.../node_modules/.vitest-cache'
+    //
+    // That failed a push three times with a message that looked like a code problem.
+    // Keying the cache by checkout root makes concurrent gates independent; the cache
+    // is still reused within one checkout.
+    fsModuleCachePath: path.join(root, "node_modules", ".vitest-cache", path.basename(root)),
     // `zz-*` is the agreed scratch prefix: agent/debug harnesses that must never
     // run in CI, never be committed, and never break a push. Also excluded from
     // tsconfig and gitignored — three places, because a leftover has broken this

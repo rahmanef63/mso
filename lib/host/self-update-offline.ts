@@ -7,7 +7,8 @@ import path from "node:path";
  * systemd-less hosts still need the updater to outlive the web process it
  * replaces. `setsid -f` creates a detached process group; the wrapper redirects
  * its stdio immediately, then runs the same guarded `mso update` path used from a
- * terminal. The API still exposes only one boolean: normal update vs rebuild.
+ * terminal. The API still exposes only one boolean: normal update vs rebuild. The
+ * wrapper reads the channel from the same preference file the panel writes.
  */
 export function offlineUpdateArgs(root: string, rebuildOnly = false): string[] {
   return [

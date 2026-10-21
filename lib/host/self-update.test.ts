@@ -79,6 +79,27 @@ describe("updateUnitArgs", () => {
     const args = updateUnitArgs("/srv/mso", "/tmp/update.log", true);
     expect(args.at(-1)).toBe("--rebuild-only");
   });
+
+  it("passes the channel as one of exactly two fixed flags — never a ref", () => {
+    expect(updateUnitArgs("/srv/mso", "/tmp/log", false, "stable")).toContain("--channel=stable");
+    expect(updateUnitArgs("/srv/mso", "/tmp/log", false, "main")).toContain("--channel=main");
+    // Both knobs, together: the channel flag and the rebuild boolean, nothing else.
+    expect(updateUnitArgs("/srv/mso", "/tmp/log", true, "main").slice(-2)).toEqual(["--channel=main", "--rebuild-only"]);
+  });
+
+  it("cannot be turned into a command injection by any request-shaped string", () => {
+    // The channel parameter is a TypeScript union, but a hand-rolled HTTP body is not
+    // typed: whatever reaches this function must still yield the safe default.
+    const hostile = ["origin/main", "refs/heads/main; rm -rf /", "$(id)", "--unit=evil", "\n--property=User=root"] as unknown as "main"[];
+    for (const channel of hostile) {
+      const argv = updateUnitArgs("/srv/mso", "/tmp/log", false, channel).join(" ");
+      expect(argv).toContain("--channel=stable");
+      expect(argv).not.toContain("rm -rf");
+      expect(argv).not.toContain("$(id)");
+      expect(argv).not.toContain("--unit=evil");
+      expect(argv).not.toContain("User=root");
+    }
+  });
 });
 
 describe("offlineUpdateArgs", () => {

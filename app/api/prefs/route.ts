@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { readPrefs, writePrefs, type OsPrefs } from "@/lib/prefs/store";
+import { sanitizeUpdatesPatch } from "@/lib/prefs/updates";
+import { applyAutomation } from "@/lib/host/update-automation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Cross-device prefs sync (appearance tweaks + quicklinks). GET → stored prefs;
-// POST → partial section merge. Session-gated; mirrors /api/config exactly.
+// Cross-device prefs sync (appearance tweaks + quicklinks + update automation).
+// GET → stored prefs; POST → partial section merge. Session-gated; mirrors
+// /api/config exactly.
 
 export async function GET() {
   if (!(await requireSession())) {
@@ -21,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (!(await requireSession("owner"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  let body: { tweaks?: Record<string, unknown>; quicklinks?: unknown };
+  let body: { tweaks?: Record<string, unknown>; quicklinks?: unknown; updates?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -36,9 +39,28 @@ export async function POST(req: NextRequest) {
   if (Array.isArray(body.quicklinks)) {
     patch.quicklinks = body.quicklinks as OsPrefs["quicklinks"];
   }
-  if (!patch.tweaks && !patch.quicklinks) {
+  // `updates` is the one section that is not just a file write: enabling it must
+  // install the timer. It goes through the same authority as the CLI and the
+  // Settings toggle, so a POST here can never leave `auto:true` with no unit.
+  let updates: ReturnType<typeof sanitizeUpdatesPatch> | null = null;
+  if (body.updates !== undefined) {
+    updates = sanitizeUpdatesPatch(body.updates);
+    if (!updates.ok) return NextResponse.json({ error: updates.error }, { status: 400 });
+  }
+  if (!patch.tweaks && !patch.quicklinks && !updates) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
-  await writePrefs(patch);
+  // Automation FIRST: enabling it can be refused by the host, and a refusal must not
+  // leave the appearance section half-applied. It writes its own section through the
+  // same serialized store, so the two writes cannot clobber each other.
+  if (updates?.ok) {
+    try {
+      await applyAutomation(updates.patch, { root: process.cwd() });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "could not apply update automation";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+  if (patch.tweaks || patch.quicklinks) await writePrefs(patch);
   return NextResponse.json({ ok: true });
 }

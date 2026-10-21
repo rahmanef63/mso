@@ -140,6 +140,14 @@ describe("bin/mso", () => {
       // Passwords stay in OS_LOGIN_PASSWORD and must not be placed on a shell argv.
       "/api/auth/account",
       "/api/auth/password",
+      // The upload endpoint is the browser's half of Settings → Account: it converts an
+      // image to WebP/ICO and stores it. The CLI has no image pipeline and no verb that
+      // would justify one; `mso` never needs to upload an avatar over argv.
+      "/api/auth/account/icon",
+      // The update-automation route exists for the Settings card. `mso update --auto`
+      // and `--channel` call the SAME lib/host/update-automation module directly, so a
+      // CLI verb over HTTP would be a second, drifting implementation of "enabled".
+      "/api/v1/sys/update/automation",
       // Internal transport between scripts/mso-agent.mjs and the authenticated
       // server-side MCP catalog. It is not a user-facing CLI verb by design.
       "/api/v1/agent-tools",

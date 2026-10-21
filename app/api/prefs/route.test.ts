@@ -5,14 +5,17 @@ const mocks = vi.hoisted(() => ({
   requireSession: vi.fn(async () => true),
   readPrefs: vi.fn(async () => ({ quicklinks: [] })),
   writePrefs: vi.fn(async () => ({ quicklinks: [], updatedAt: 1 })),
+  applyAutomation: vi.fn(async () => ({ prefs: { auto: true, channel: "stable" } })),
 }));
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: mocks.requireSession }));
 vi.mock("@/lib/prefs/store", () => ({ readPrefs: mocks.readPrefs, writePrefs: mocks.writePrefs }));
+vi.mock("@/lib/host/update-automation", () => ({ applyAutomation: mocks.applyAutomation }));
 
 beforeEach(() => {
   mocks.requireSession.mockReset().mockResolvedValue(true);
   mocks.readPrefs.mockClear();
   mocks.writePrefs.mockClear();
+  mocks.applyAutomation.mockClear();
 });
 
 describe("shared preferences role boundary", () => {
@@ -43,5 +46,30 @@ describe("shared preferences role boundary", () => {
     });
     expect((await POST(request)).status).toBe(401);
     expect(mocks.writePrefs).not.toHaveBeenCalled();
+    expect(mocks.applyAutomation).not.toHaveBeenCalled();
+  });
+
+  it("routes the updates section through the automation authority, not a bare file write", async () => {
+    const { POST } = await import("./route");
+    const request = new NextRequest("https://mso.example/api/prefs", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ updates: { auto: true, channel: "main" } }),
+    });
+    expect((await POST(request)).status).toBe(200);
+    expect(mocks.applyAutomation).toHaveBeenCalledWith({ auto: true, channel: "main" }, expect.objectContaining({ root: expect.any(String) }));
+    // Enabling must not be persisted as raw prefs behind the authority's back.
+    expect(mocks.writePrefs).not.toHaveBeenCalled();
+  });
+
+  it("rejects an updates patch that could mean anything else", async () => {
+    const { POST } = await import("./route");
+    for (const updates of [{ auto: true, ref: "origin/main" }, { channel: "nightly" }, { auto: "yes" }]) {
+      const request = new NextRequest("https://mso.example/api/prefs", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ updates }),
+      });
+      expect((await POST(request)).status).toBe(400);
+    }
+    expect(mocks.applyAutomation).not.toHaveBeenCalled();
   });
 });

@@ -61,6 +61,45 @@ describe("account profile", () => {
     expect(await readAccountProfile()).toEqual(DEFAULT_ACCOUNT_PROFILE);
   });
 
+  it("stores library icons from the picker and rejects anything outside the allowlist", async () => {
+    const accepted = [
+      "emoji:🦊",
+      "emoji:👨‍👩‍👧",
+      "lucide:Star",
+      "lucide:FileText",
+      "phosphor:ShieldCheck?c=0b6e99",
+      "emoji:🎯?c=F59E0B",
+    ];
+    for (const value of accepted) {
+      await writeAccountProfile({ icon: { type: "library", value } });
+      expect(await readAccountProfile()).toMatchObject({ icon: { type: "library", value } });
+    }
+    // Old stores still load: preset and image icons keep working beside it.
+    await writeAccountProfile({ icon: { type: "preset", id: "leaf" } });
+    expect(await readAccountProfile()).toMatchObject({ icon: { type: "preset", id: "leaf" } });
+    await writeAccountProfile({ icon: { type: "image", src: png } });
+    expect(await readAccountProfile()).toMatchObject({ icon: { type: "image", src: png } });
+
+    const rejected = [
+      "lucide:__proto__",
+      "lucide:Star?c=12345",
+      "lucide:Star?c=0b6e99&x=1",
+      "lucide:../etc/passwd",
+      "phosphor:<script>",
+      "emoji:",
+      "emoji:two words",
+      "javascript:alert(1)",
+      "lucide:Star?c=0b6e99\n",
+      "x".repeat(97),
+    ];
+    for (const value of rejected) {
+      await expect(writeAccountProfile({ icon: { type: "library", value } })).rejects.toMatchObject({ code: "invalid" });
+    }
+    const before = await readAccountProfile();
+    await expect(writeAccountProfile({ icon: { type: "library", value: { $ne: null } } })).rejects.toMatchObject({ code: "invalid" });
+    expect(await readAccountProfile()).toEqual(before);
+  });
+
   it("fails closed on a corrupt profile instead of replacing it", async () => {
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(file, "{", "utf8");

@@ -39,6 +39,9 @@ const NOT_A_KNOB: Record<string, string> = {
   PATH: "standard executable search path inherited by the lifecycle test harness",
   HOME: "the OS's",
   XDG_RUNTIME_DIR: "set by logind, or by the unit — see lib/managed-apps/user-bus.ts",
+  // Standard XDG base directory. Read only as the default parent of the update timer
+  // units; MSO_SYSTEMD_USER_DIR is the documented override.
+  XDG_CONFIG_HOME: "standard XDG base-directory convention; MSO_SYSTEMD_USER_DIR overrides its use",
   // systemd's, read by instrumentation for the watchdog handshake.
   NOTIFY_SOCKET: "systemd's",
   WATCHDOG_USEC: "systemd's",

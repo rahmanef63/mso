@@ -23,13 +23,48 @@ GATEWAY="$ROOT/scripts/mso-gateway"
 fail() { printf 'mso update: %s\n' "$*" >&2; exit 1; }
 git_root() { [ "$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || true)" = "$ROOT" ]; }
 current_version() { sed -n 's/^VERSION="\([^"]*\)".*/\1/p' "$ROOT/bin/mso" | head -1; }
-remote_version() { git -C "$ROOT" show origin/main:bin/mso 2>/dev/null | sed -n 's/^VERSION="\([^"]*\)".*/\1/p' | head -1; }
+remote_version() { git -C "$ROOT" show "${1:-origin/main}:bin/mso" 2>/dev/null | sed -n 's/^VERSION="\([^"]*\)".*/\1/p' | head -1; }
 require_checkout() {
   git_root || fail "$ROOT is not a Git checkout; reinstall from the official repository"
   [ "$(git -C "$ROOT" branch --show-current)" = main ] || fail "updates require the installed checkout to be on main"
   [ -z "$(git -C "$ROOT" status --porcelain)" ] || fail "checkout has local changes; refusing to overwrite them"
 }
-fetch_main() { update_git_fetch_origin "$ROOT" main || fail "could not reach origin/main"; }
+fetch_main() { update_git_fetch_origin "$ROOT" main --tags || fail "could not reach origin/main"; }
+
+# The owner's channel. Precedence: the caller's resolved enum (the detached offline
+# wrapper passes the same value the API chose) → the prefs file the Settings panel
+# writes → the documented default. Only the two-word enum is ever accepted.
+configured_channel() {
+  local raw
+  raw="${MSO_UPDATE_CHANNEL:-$(jq -r '.updates.channel // "stable"' "${OS_PREFS_PATH:-$HOME/.mso/prefs.json}" 2>/dev/null || printf 'stable')}"
+  case "$raw" in
+    main) printf 'main' ;;
+    *) printf 'stable' ;;
+  esac
+}
+
+# Clear the unattended failure streak after a manual attempt. Failure is ignored: the
+# state file is evidence for the panel, never a precondition for updating by hand.
+clear_automation_pause() {
+  local module="$ROOT/scripts/mso-update-automation.ts"
+  if [ -f "$module" ] && command -v bun >/dev/null 2>&1; then
+    bun "$module" resume >/dev/null 2>&1 || true
+  fi
+}
+
+# Relation of HEAD to a channel target. A checkout PAST its release tag is normal,
+# not "unpushed local work", so `ahead` only counts when the release has something to
+# apply. Mirrors stableRelationAhead() in lib/host/self-update-channel.ts.
+read_relation() {
+  local target="$1" relation ahead behind
+  read -r relation ahead behind < <(update_git_relation_to "$ROOT" "$target") || return 1
+  if [ "$target" != origin/main ] && [ "$behind" -eq 0 ]; then
+    ahead=0
+    [ "$relation" = ahead ] && relation=exact
+  fi
+  printf '%s %s %s\n' "$relation" "$ahead" "$behind"
+}
+
 service_is_active() {
   # Containers/Codespaces often ship the systemctl binary without systemd as PID 1.
   # A read-only probe must classify that as "no active service" without leaking
@@ -67,17 +102,21 @@ require_service_checkout() {
     || fail "active mso.service belongs to $canonical_service, not this checkout $canonical_root; run update from the service checkout"
 }
 print_status() {
-  local relation ahead n local_v remote_v head receipt=''
+  local relation ahead n local_v remote_v head receipt='' channel target target_note=''
   require_checkout; fetch_main
-  read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
-  local_v="$(current_version)"; remote_v="$(remote_version)"; head="$(git -C "$ROOT" rev-parse HEAD)"
+  channel="$(configured_channel)"
+  target="$(update_git_resolve_target "$ROOT" "$channel")" || fail "could not resolve the $channel channel target"
+  read -r relation ahead n < <(read_relation "$target") || fail "could not compare HEAD with $target"
+  target_note="$(update_channel_note "$channel" "$target" "$UPDATE_TARGET_FALLBACK")"
+  local_v="$(current_version)"; remote_v="$(remote_version "$target")"; head="$(git -C "$ROOT" rev-parse HEAD)"
+  printf 'channel: %s%s\n' "$channel" "$target_note"
   if [ "$relation" = ahead ]; then
-    printf 'local main is ahead of origin/main by %s commit%s; refusing to deploy unpushed code.\n' "$ahead" "$([ "$ahead" = 1 ] || printf s)"
+    printf 'local main is ahead of %s by %s commit%s; refusing to deploy unpushed code.\n' "$target" "$ahead" "$([ "$ahead" = 1 ] || printf s)"
     printf 'run: mso update reconcile  # preserves current HEAD on a rescue branch first\n'
     return
   fi
   if [ "$relation" = diverged ]; then
-    printf 'local main has diverged from origin/main (ahead %s, behind %s); refusing update.\n' "$ahead" "$n"
+    printf 'local main has diverged from %s (ahead %s, behind %s); refusing update.\n' "$target" "$ahead" "$n"
     printf 'run: mso update reconcile  # preserves current HEAD on a rescue branch first\n'
     return
   fi
@@ -87,7 +126,7 @@ print_status() {
     else
       printf 'update available: mso CLI %s -> %s (%s commit%s)\n' "${local_v:-unknown}" "${remote_v:-newer}" "$n" "$([ "$n" = 1 ] || printf s)"
     fi
-    git -C "$ROOT" log --format='  %h  %s' -5 HEAD..origin/main
+    git -C "$ROOT" log --format='  %h  %s' -5 "HEAD..$target"
     printf 'run: mso update\n'
     return
   fi
@@ -195,23 +234,30 @@ notice() {
 }
 
 offline_build_locked() {
-  local rebuild_only="$1" n head receipt=''
+  local rebuild_only="$1" n head receipt='' channel target
   require_checkout
   service_is_active && fail "mso.service became active while waiting for the offline update lock; rerun mso update"
   init_update_state
   if [ "$rebuild_only" != 1 ]; then
     local relation ahead
+    channel="$(configured_channel)"
     fetch_main
-    read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
+    target="$(update_git_resolve_target "$ROOT" "$channel")" || fail "could not resolve the $channel channel target"
+    read -r relation ahead n < <(read_relation "$target") || fail "could not compare HEAD with $target"
     case "$relation" in
       exact) ;;
-      behind) git -C "$ROOT" merge --ff-only origin/main || fail "cannot fast-forward to origin/main" ;;
-      ahead) fail "local main is ahead of origin/main by $ahead commit(s); run: mso update reconcile" ;;
-      diverged) fail "local main has diverged from origin/main (ahead $ahead, behind $n); run: mso update reconcile" ;;
+      behind)
+        # A fast-forward only. A release tag that is not reachable from HEAD means
+        # the checkout left that release line; reconciling is a human decision.
+        git -C "$ROOT" merge-base --is-ancestor HEAD "$target" \
+          || fail "HEAD is not an ancestor of $target; run: mso update reconcile"
+        git -C "$ROOT" merge --ff-only "$target" || fail "cannot fast-forward to $target" ;;
+      ahead) fail "local main is ahead of $target by $ahead commit(s); run: mso update reconcile" ;;
+      diverged) fail "local main has diverged from $target (ahead $ahead, behind $n); run: mso update reconcile" ;;
       *) fail "unknown Git authority state" ;;
     esac
-    read -r relation ahead n < <(update_git_relation "$ROOT") || fail "could not re-check origin/main after fast-forward"
-    [ "$relation" = exact ] || fail "checkout does not exactly match origin/main after update; refusing deployment"
+    read -r relation ahead n < <(read_relation "$target") || fail "could not re-check $target after fast-forward"
+    [ "$relation" = exact ] || fail "checkout does not exactly match $target after update; refusing deployment"
   fi
   head="$(git -C "$ROOT" rev-parse HEAD)"
   if [ -e "$DEPLOY_RECEIPT" ] || [ -L "$DEPLOY_RECEIPT" ]; then receipt="$(read_receipt)"; fi
@@ -249,9 +295,11 @@ offline_build() {
 }
 
 service_source_matches_runtime() {
-  local relation ahead behind head running_sha
+  local relation ahead behind head running_sha channel target
+  channel="$(configured_channel)"
   fetch_main
-  read -r relation ahead behind < <(update_git_relation "$ROOT") || fail "could not compare HEAD with origin/main"
+  target="$(update_git_resolve_target "$ROOT" "$channel")" || fail "could not resolve the $channel channel target"
+  read -r relation ahead behind < <(read_relation "$target") || fail "could not compare HEAD with $target"
   [ "$relation" = exact ] || return 1
   head="$(git -C "$ROOT" rev-parse HEAD)"
   running_sha="$(service_build_sha 2>/dev/null || true)"
@@ -301,9 +349,14 @@ wait_for_service_update() {
 }
 
 run_update() {
-  local rebuild_only="$1" arg=""
+  local rebuild_only="$1" arg="" channel
   require_checkout
+  channel="$(configured_channel)"
   [ "$rebuild_only" != 1 ] || arg="--rebuild-only"
+  # A manual run is the operator's answer to the unattended pause. Clear the streak
+  # BEFORE handing off, because the transient unit replaces this process tree on
+  # success — and because the gate's own refusal text tells the operator to do this.
+  clear_automation_pause
   if service_is_active; then
     require_service_checkout
     if [ "$rebuild_only" != 1 ] && service_source_matches_runtime; then
@@ -315,8 +368,11 @@ run_update() {
       if update_unit_active; then
         printf 'an MSO update is already running.\n'
       else
+        # The channel is the stored enum, never a ref: self-update.sh resolves the
+        # actual target and re-validates it at the point of use.
         systemd-run --user --collect --unit=mso-self-update --property=TimeoutStartSec=3600 \
-          "--property=WorkingDirectory=$ROOT" "--setenv=MSO_UPDATE_LOG=$LOG" /bin/bash "$ROOT/scripts/mso-service-update" $arg >/dev/null
+          "--property=WorkingDirectory=$ROOT" "--setenv=MSO_UPDATE_LOG=$LOG" /bin/bash "$ROOT/scripts/mso-service-update" \
+          $arg "--channel=$channel" >/dev/null
       fi
       if [ -t 1 ]; then
         wait_for_service_update
@@ -330,16 +386,28 @@ run_update() {
   else offline_build "$rebuild_only"; fi
 }
 
+# Unattended-update settings, from the SAME authority the Settings toggle and the
+# nightly timer use. Skipped (with one neutral line) when this checkout predates the
+# automation module, so `mso update status` stays useful in older fixtures/installs.
+print_automation() {
+  local module="$ROOT/scripts/mso-update-automation.ts"
+  if [ -f "$module" ] && command -v bun >/dev/null 2>&1; then
+    bun "$module" status --brief 2>/dev/null || printf 'automatic updates   state unavailable\n'
+  else
+    printf 'automatic updates   not configured in this checkout\n'
+  fi
+}
+
 case "${1:-run}" in
   notice) notice ;;
-  status|check) print_status ;;
+  status|check) print_status; print_automation ;;
   reconcile) reconcile_checkout ;;
   log) [ -f "$LOG" ] && tail -n "${2:-80}" "$LOG" || printf 'no update log yet: %s\n' "$LOG" ;;
   run) case "${2-}" in
     "" ) run_update 0 ;;
     --rebuild|--rebuild-only) run_update 1 ;;
-    *) fail "usage: mso update [--rebuild] | status | reconcile | log" ;;
+    *) fail "usage: mso update [--rebuild] | status | reconcile | log | --auto on|off | --channel stable|main" ;;
   esac ;;
   --rebuild|--rebuild-only) run_update 1 ;;
-  *) fail "usage: mso update [--rebuild] | status | reconcile | log" ;;
+  *) fail "usage: mso update [--rebuild] | status | reconcile | log | --auto on|off | --channel stable|main" ;;
 esac

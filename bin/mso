@@ -107,7 +107,10 @@
 #   service *            status | start | stop | restart | logs
 #   build                Compile HEAD out-of-tree (safe against the live checkout)
 #   deploy               Rebuild active service with runtime quiesce/restore
-#   update [--rebuild]   Update from origin/main safely; works even when the web runtime is down
+#   update [--rebuild]   Update safely from the configured channel; works even when the web runtime is down
+#   update --auto on|off Enable/disable the nightly unattended update timer
+#   update --channel stable|main  Follow release tags (stable) or rolling main
+#   update status        Show the channel, timer state and last unattended attempt
 #   update reconcile     Preserve a local-only/diverged HEAD, then sync main to origin/main
 #
 #   reset [--scope config|all]  Preview local factory reset; explicit token required to apply

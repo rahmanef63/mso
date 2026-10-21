@@ -5,6 +5,7 @@ import { ArrowDownToLine, BookOpen, RefreshCw, Search } from "lucide-react";
 import { SettingsActionRow, SettingsSection } from "@/features/shell-settings";
 import { IS_DEMO } from "@/lib/demo";
 import type { UpdateStatus } from "@/lib/host/self-update";
+import { UpdateAutomationCard } from "./update-automation-card";
 import { UpdateNotesDrawer } from "./update-notes-drawer";
 import { UpdateStatusCard, UpdateStatusSkeleton, UpdateStatusUnavailable } from "./update-status-card";
 import { UpdateStatusUnsupported } from "./update-status-unsupported";
@@ -151,6 +152,10 @@ export function UpdateSection() {
         error={error}
         finished={finished}
       />
+
+      {/* Opt-in nightly updates. Rendered inside the same SettingsSection because it
+          reads as settings rows, not as a second card. */}
+      <UpdateAutomationCard />
 
       {behind > 0 && ahead === 0 && (
         <SettingsActionRow
