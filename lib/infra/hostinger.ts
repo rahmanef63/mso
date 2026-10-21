@@ -30,6 +30,15 @@ async function rootFor(fullDomain: string, token: string): Promise<{ root: strin
   return { root: roots[0], name: fullDomain === roots[0] ? "@" : fullDomain.slice(0, -(roots[0].length + 1)) };
 }
 
+/** Read-only zone view for a hostname MSO may edit: portfolio apex, local record name and rows. */
+export async function readHostingerZone(fullDomain: string, token: string): Promise<{ root: string; name: string; url: string; rows: Record<string, unknown>[] }> {
+  const { root, name } = await rootFor(fullDomain, token);
+  const url = `${API}/dns/v1/zones/${encodeURIComponent(root)}`;
+  const zone = await request(url, { headers: headers(token) });
+  if (!zone.ok || !Array.isArray(zone.body)) throw new Error(`Hostinger zone HTTP ${zone.status}`);
+  return { root, name, url, rows: zone.body.map((row) => ({ ...obj(row) })) };
+}
+
 export async function upsertHostingerDns(input: { name: string; type: string; content: string; ttl?: number }): Promise<{ action: string; name: string; type: string }> {
   const values = await readInfraProvider("hostinger");
   if (!values.apiToken) throw new Error("Hostinger is not configured; run `mso provider set hostinger`");
@@ -40,12 +49,8 @@ export async function upsertHostingerDns(input: { name: string; type: string; co
   if (type === "A" && isIP(content) !== 4) throw new Error("A record content must be an IPv4 address");
   if (type === "CNAME" && !HOST_RE.test(content.replace(/\.$/, ""))) throw new Error("CNAME content must be a hostname");
   if (input.ttl !== undefined && (!Number.isInteger(input.ttl) || input.ttl < 60 || input.ttl > 2147483647)) throw new Error("Hostinger TTL must be an integer from 60 to 2147483647");
-  const { root, name } = await rootFor(fullDomain, values.apiToken);
-  const url = `${API}/dns/v1/zones/${encodeURIComponent(root)}`;
+  const { name, url, rows } = await readHostingerZone(fullDomain, values.apiToken);
   const auth = headers(values.apiToken);
-  const zone = await request(url, { headers: auth });
-  if (!zone.ok || !Array.isArray(zone.body)) throw new Error(`Hostinger zone HTTP ${zone.status}`);
-  const rows = zone.body.map((row) => ({ ...obj(row) }));
   const exact = rows.filter((row) => String(row.name ?? "") === name && String(row.type ?? "").toUpperCase() === type);
   if (exact.length > 1) throw new Error(`refusing ambiguous Hostinger DNS change: ${exact.length} ${type} rows exist for ${fullDomain}`);
   const conflicts = rows.filter((row) => String(row.name ?? "") === name && ((type === "CNAME" && ["A", "AAAA"].includes(String(row.type ?? "").toUpperCase())) || (["A", "AAAA"].includes(type) && String(row.type ?? "").toUpperCase() === "CNAME")));
