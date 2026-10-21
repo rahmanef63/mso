@@ -13,10 +13,35 @@ import { managedAppUpstream } from "./upstream-target";
 import { upstreamSocketHeaders } from "./proxy-headers";
 import { IS_DEMO } from "@/lib/demo";
 import { shellAppSocketPolicy } from "@/lib/surfaces/socket-policy";
-import { getOrcaReadiness as readOrcaReadiness } from "./orca-readiness";
+import type { OrcaReadiness } from "./orca-readiness";
 
 export interface SocketPolicyDeps {
-  getOrcaReadiness?: typeof readOrcaReadiness;
+  getOrcaReadiness?: () => Promise<OrcaReadiness>;
+}
+
+async function defaultOrcaReadiness(): Promise<OrcaReadiness> {
+  try {
+    const { getOrcaReadiness } = await import("./orca-readiness");
+    return await getOrcaReadiness();
+  } catch {
+    return {
+      available: false,
+      reason: "bridge_unavailable",
+      readinessPath: "",
+      receiptPath: "",
+      socketPath: "",
+      boundEndpoint: "",
+      advertisedEndpoint: "",
+      serverPid: null,
+      runtimeId: null,
+      buildVersion: null,
+      startTicks: null,
+      listenerInode: null,
+      managedPort: null,
+      checkedAt: 0,
+      pairing: null,
+    };
+  }
 }
 
 export async function socketPolicy(request: NextRequest, deps: SocketPolicyDeps = {}) {
@@ -54,7 +79,7 @@ export async function socketPolicy(request: NextRequest, deps: SocketPolicyDeps 
       // the session proves WHO, not that the owned runtime still owns the endpoint.
       // The identity also binds device to the exact runtime/PID/start ticks/inode so a
       // same-device runtime swap changes identity and closes the live socket.
-      const readiness = await (deps.getOrcaReadiness ?? readOrcaReadiness)();
+      const readiness = await (deps.getOrcaReadiness ?? defaultOrcaReadiness)();
       if (!readiness.available || !readiness.runtimeId || !readiness.startTicks) return null;
       socketIdentity = JSON.stringify({
         device: identity,
