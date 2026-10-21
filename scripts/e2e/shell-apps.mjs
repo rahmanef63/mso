@@ -36,7 +36,7 @@ try {
     await expect(form.getByRole("button", { name: "Connect app", exact: true })).toBeInViewport({ ratio: 1 });
     await form.getByRole("button", { name: "Connect app", exact: true }).click();
     await expect(page.getByRole("dialog").getByRole("heading", { name: "Domain for Fixture tool" })).toBeVisible();
-    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("dialog").locator("form").getByRole("button", { name: "Close", exact: true }).click();
     await expect(form).toHaveCount(0);
     const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Fixture tool", exact: true }) });
     await expect(card).toBeVisible();
@@ -90,7 +90,7 @@ try {
     await expect(form.getByRole("button", { name: "Connect app", exact: true })).toBeInViewport({ ratio: 1 });
     await form.getByRole("button", { name: "Connect app", exact: true }).click();
     await expect(page.getByRole("dialog").getByRole("heading", { name: "Domain for Imported tool" })).toBeVisible();
-    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("dialog").locator("form").getByRole("button", { name: "Close", exact: true }).click();
     await expect(form).toHaveCount(0);
     const imported = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Imported tool", exact: true }) });
     await expect(imported).toContainText("Fixture developer (self-declared)");
