@@ -1,3 +1,24 @@
+## 2026-10-21: Shell-app domain provisioning (phase 1, worker B)
+
+New `lib/surfaces/app-domain-provision.ts` provisions a public hostname for a shell-app entry:
+loopback probe → DNS write → route → verify, persisting every phase in an owner-only
+`~/.mso/private/shell-app-domains.json` (0600/0700, `O_NOFOLLOW`, uid-checked, locked) so a failed
+run resumes at the phase it reached instead of restarting from `pending`. Hostnames equal to,
+domain-matching, or containing the cockpit name, names inside `OS_SESSION_COOKIE_DOMAIN`, and
+anything `externalSurfaceSharesSession` blocks are rejected with a precise error — never
+substituted. Owner-only `POST`/`GET /api/v1/shell-apps/[id]/domain` mirror the existing shell-app
+gate order, rate limit, `Cache-Control: no-store, private` and audit trail. New CLI verbs
+`mso mapp shell-domain <id>` and `mso mapp shell-domain-save <id> <JSON|@file>` keep every route
+reachable from a shell.
+
+Contract 1 is `lib/infra/managed-domain-providers.ts`; provisioning imports its three boundary
+functions (capabilities, ensure, inspect) directly, so the shipped composition root has no
+injection seam. The genuine `provider_unavailable` case is a configured provider with no stored
+credentials, which that module raises itself. `lib/contracts/app-domain.ts` is the single
+server-side spelling of the provider union and record shape; the browser copy in
+`frontend/slices/app-store/lib/app-domain.ts` mirrors it because it cannot import server modules,
+and a parity test fails on drift.
+
 ## 2026-10-21: `mso ai` shows the reply text, not the SSE frames
 
 `mso ai` sent the right OaMsg `text` after #133, but it still printed the raw response body, so an owner read `event: delta` / `data: "…"` frames instead of an answer. `scripts/mso-sse-text.mjs` now consumes that stream: `delta` frames become stdout text, an `error` frame fails the turn with a non-zero exit, unknown events stay silent, and a non-SSE or empty body can no longer pass as a successful empty answer. The verb pipes through the reader; the entrypoint header, generated `docs/CLI.md` and the runtime help all say so.

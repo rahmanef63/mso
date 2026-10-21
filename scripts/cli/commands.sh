@@ -32,7 +32,7 @@ U_agent_groups="agent-groups list|show <id>|create --input <JSON|@file>|save <id
 U_provider="provider list|show <id>|setup <provider> <user> <connection>|set <id>|rm <id>|doctor [id]|projects|zones"
 U_model="model [current|list [provider]|set <provider> <model>|set <provider/model>|<model-or-ref>]"
 U_agent="agent [--continue|-c|--resume|-r <latest|index|id|title>|--yolo|-yolo] | agent --oneshot <prompt> [--json] [--approve-scope read|write|exec]"
-U_mapp="mapp enable <id> [install-key=value...]|start|stop|restart <id>|catalog|shell-list|shell-save <JSON|@file>|list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
+U_mapp="mapp enable <id> [install-key=value...]|start|stop|restart <id>|catalog|shell-list|shell-save <JSON|@file>|shell-domain <id>|shell-domain-save <id> <JSON|@file>|list|show|logs|backups|jobs|job <id> <jobId>|pending <id>|install|update|power <id> <act>|cancel <id> <jobId>"
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
 U_service="service status|start|stop|restart|logs [n]"
