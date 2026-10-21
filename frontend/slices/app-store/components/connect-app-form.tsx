@@ -8,19 +8,29 @@ import { Switch } from "@/components/ui/switch";
 import type { ConnectedAppManifest } from "@/lib/contracts/connected-app-manifest";
 import type { ShellAppDefinition } from "@/lib/contracts/shell-app";
 import { useShellApps } from "../lib/shell-apps";
+import { hostnameFromUrl } from "../lib/app-domain";
+import { AppDomainStep } from "./app-domain-step";
 
 export function ConnectAppForm({ existing, manifest, onClose }: { existing?: ShellAppDefinition; manifest?: ConnectedAppManifest; onClose: () => void }) {
   const prefix = useId(), { mutate } = useShellApps();
   const [app, setApp] = useState<ShellAppDefinition>(existing ?? { id: manifest?.id ?? "", title: manifest?.title ?? "", description: manifest?.description ?? "", url: "", mode: manifest?.presentation ?? "embed" });
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  // Set once the registry accepted the app. The flow does NOT close here: a
+  // connected app with no name is reachable only by an address, so the SAME
+  // domain step the Install path uses is offered next. Skipping it is one click.
+  const [connected, setConnected] = useState<{ id: string; title: string; url: string } | null>(null);
   const change = (key: keyof ShellAppDefinition, value: string) => setApp(current => ({ ...current, [key]: value }));
   const submit = async (event: FormEvent) => {
     event.preventDefault(); if (busy) return;
     setBusy(true); setError("");
-    try { await mutate(manifest ? { action: "import", manifest, binding: { id: app.id, url: app.url, mode: app.mode } } : { action: existing ? "update" : "add", app }); onClose(); }
+    try {
+      await mutate(manifest ? { action: "import", manifest, binding: { id: app.id, url: app.url, mode: app.mode } } : { action: existing ? "update" : "add", app });
+      setConnected({ id: app.id, title: app.title, url: app.url });
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Could not connect app."); }
     finally { setBusy(false); }
   };
+  if (connected) return <AppDomainStep appId={connected.id} appTitle={connected.title} defaultHostname={hostnameFromUrl(connected.url)} appAddress={connected.url} onDone={onClose}/>;
   return <FormDrawer open onOpenChange={open => { if (!open && !busy) onClose(); }} size="md">
     <FormDrawer.Header><FormDrawer.Title>{existing ? "Edit connected app" : "Connect a running app"}</FormDrawer.Title><FormDrawer.Description>Add your own tool or an existing service to this shell. The application keeps running on its host.</FormDrawer.Description></FormDrawer.Header>
     <form onSubmit={submit} className="min-h-0 space-y-4 overflow-y-auto px-4 pb-4">

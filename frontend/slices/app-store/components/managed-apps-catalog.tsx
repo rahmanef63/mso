@@ -1,10 +1,12 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { openWindow } from "@/features/appshell";
 import type { AppCatalogEntry } from "@/lib/contracts/app-catalog";
 import type { ManagedAppView } from "@/lib/managed-apps/types";
 import { Button } from "@/components/ui/button";
 import { ConnectAppForm } from "./connect-app-form";
+import { AppDomainStep } from "./app-domain-step";
+import { hostnameFromUrl } from "../lib/app-domain";
 
 type CatalogState = { status: "remote" | "stale" | "unavailable"; entries: AppCatalogEntry[] };
 
@@ -12,7 +14,12 @@ export function ManagedAppsCatalog({ query }: { query: string }) {
   const [apps, setApps] = useState<ManagedAppView[]>([]);
   const [catalog, setCatalog] = useState<CatalogState | null>(null);
   const [selected, setSelected] = useState<Extract<AppCatalogEntry, { kind: "connected" }> | null>(null);
+  const [domainFor, setDomainFor] = useState<{ id: string; title: string; address: string | null } | null>(null);
   const [error, setError] = useState("");
+  // Set the moment the operator asks to set an app up. Install runs in its own
+  // MSO window; when this catalog next reads the host and finds that app
+  // installed, the domain step is offered — the same step the connect path uses.
+  const awaiting = useRef<{ id: string; title: string } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     const loadApps = async () => {
@@ -22,6 +29,12 @@ export function ManagedAppsCatalog({ query }: { query: string }) {
         const data = await response.json() as { apps: ManagedAppView[] };
         setApps(data.apps);
         setError("");
+        const pending = awaiting.current;
+        const installed = pending ? data.apps.find(app => app.id === pending.id) : undefined;
+        if (pending && installed?.installed) {
+          awaiting.current = null;
+          setDomainFor({ id: installed.id, title: pending.title, address: installed.publicDashboardUrl });
+        }
       } catch (reason) {
         if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Could not load apps.");
       }
@@ -68,7 +81,13 @@ export function ManagedAppsCatalog({ query }: { query: string }) {
       <h4 className="font-medium">{app.name}</h4><p className="text-xs text-muted-foreground">{app.installed ? app.state : "Not installed"}</p>
       <p className="text-sm text-muted-foreground">{app.description}</p>
       {app.diagnostic && <p className="text-xs text-muted-foreground">{app.diagnostic}</p>}
-      <Button size="sm" variant="outline" onClick={() => openWindow(app.id, app.name)}>{app.installed ? "Open and manage" : "Set up"}</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={() => {
+          if (!app.installed) awaiting.current = { id: app.id, title: app.name };
+          openWindow(app.id, app.name);
+        }}>{app.installed ? "Open and manage" : "Set up"}</Button>
+        {app.installed && <Button size="sm" variant="ghost" onClick={() => setDomainFor({ id: app.id, title: app.name, address: app.publicDashboardUrl })}>Add domain</Button>}
+      </div>
     </article>)}</div>
     {connected.length > 0 && <div className="space-y-3">
       <h3 className="font-medium">Connect a running tool</h3>
@@ -81,5 +100,6 @@ export function ManagedAppsCatalog({ query }: { query: string }) {
     </div>}
     <p className="text-xs text-muted-foreground">Managed setup uses the reviewed installer and checks this host. Connected tools keep their own service and sign-in; a domain is optional.</p>
     {selected && <ConnectAppForm manifest={selected.manifest} onClose={() => setSelected(null)}/>}
+    {domainFor && <AppDomainStep appId={domainFor.id} appTitle={domainFor.title} defaultHostname={hostnameFromUrl(domainFor.address)} appAddress={domainFor.address} onDone={() => setDomainFor(null)}/>}
   </section>;
 }
