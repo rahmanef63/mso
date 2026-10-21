@@ -11,9 +11,12 @@ gate order, rate limit, `Cache-Control: no-store, private` and audit trail. New 
 `mso mapp shell-domain <id>` and `mso mapp shell-domain-save <id> <JSON|@file>` keep every route
 reachable from a shell.
 
-Contract 1 (`lib/infra/managed-domain-providers.ts`) is owned by a separate worker; until it
-merges, `lib/surfaces/app-domain-providers.ts` holds the only reference to it as a type-only seam
-and an un-injected process fails closed with `provider_unavailable`.
+Contract 1 is `lib/infra/managed-domain-providers.ts`; provisioning imports its three boundary
+functions directly, so there is no injection seam in the shipped composition root. The genuine
+`provider_unavailable` case is a configured provider with no stored credentials, which that
+module raises itself. `lib/contracts/app-domain.ts` is the single server-side spelling of the
+provider union and record shape; the browser copy in
+`frontend/slices/app-store/lib/app-domain.ts` mirrors it and a parity test fails on drift.
 
 ## 2026-10-18: MSO deep QA stopped at the user's request
 

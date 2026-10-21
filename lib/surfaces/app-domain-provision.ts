@@ -1,19 +1,18 @@
 import { isIP } from "node:net";
 import { sessionCookieDomain } from "@/lib/auth/session-cookie";
-import type { AppDomainErrorCode, AppDomainRecord, AppDomainTarget, EnsureShellAppDomainInput } from "@/lib/contracts/app-domain";
+import { DOMAIN_PROVIDER_IDS, type AppDomainErrorCode, type AppDomainRecord, type AppDomainTarget, type EnsureShellAppDomainInput } from "@/lib/contracts/app-domain";
 import type { SurfaceApp } from "@/lib/contracts/surface-app";
+import { domainProviderCapabilities, ensureDomainRecords, inspectDomainRecords } from "@/lib/infra/managed-domain-providers";
 import { redactText } from "@/lib/security/redact-text";
 import { configuredSurfaceApps } from "./config";
 import { externalSurfaceSharesSession } from "./cookie-policy";
 import { isHostname, readAppDomainState, mutateAppDomainState, withAppDomainOperation } from "./app-domain-store";
-import { domainProviders } from "./app-domain-providers";
 
 export type { AppDomainErrorCode, AppDomainPhase, AppDomainRecord, AppDomainTarget, DomainProviderId } from "@/lib/contracts/app-domain";
 export class AppDomainError extends Error {
   constructor(readonly code: AppDomainErrorCode, readonly status: 400 | 404 | 409 | 503, message: string) { super(message); this.name = "AppDomainError"; }
 }
 const ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-const PROVIDERS = new Set(["cloudflare", "hostinger", "dokploy", "custom"]);
 const LOOPBACK = ["127.0.0.1", "localhost", "[::1]"];
 
 function cockpitHostnames(): string[] {
@@ -88,11 +87,9 @@ async function probeLocal(origin: string, hostname: string, appId: string): Prom
  */
 export async function ensureShellAppDomain(appId: string, input: EnsureShellAppDomainInput): Promise<AppDomainRecord> {
   const hostname = assertHostname(input.hostname), target = assertTarget(input.target);
-  if (!PROVIDERS.has(String(input.provider))) throw new AppDomainError("unsupported_provider", 400, `unknown domain provider: ${String(input.provider)}`);
+  if (!(DOMAIN_PROVIDER_IDS as readonly string[]).includes(String(input.provider))) throw new AppDomainError("unsupported_provider", 400, `unknown domain provider: ${String(input.provider)}`);
   const app = await shellApp(appId), localOrigin = localOriginOf(app), zoneName = zoneFor(hostname, input.zoneName);
-  const providers = domainProviders();
-  if (!providers) throw new AppDomainError("provider_unavailable", 503, "domain provider module is unavailable in this build");
-  const capability = providers.domainProviderCapabilities(input.provider);
+  const capability = domainProviderCapabilities(input.provider);
   if (input.provider !== "custom") {
     if (target.kind === "ipv4" && !capability.aRecord) throw new AppDomainError("unsupported_provider", 400, `${input.provider} cannot write A records`);
     if (target.kind === "cname" && !capability.cname) throw new AppDomainError("unsupported_provider", 400, `${input.provider} cannot write CNAME records`);
@@ -118,7 +115,7 @@ export async function ensureShellAppDomain(appId: string, input: EnsureShellAppD
       if (!previous?.dnsAction || !resuming) {
         await persist({ phase: "pending", localOrigin });
         await probeLocal(localOrigin, hostname, appId);
-        const dns = await providers.ensureDomainRecords(request);
+        const dns = await ensureDomainRecords(request);
         await persist({ phase: "dns-ready", dnsAction: dns.action, localOrigin });
         if (input.provider === "custom") {
           throw new Error(`operator-maintained DNS: create ${target.kind === "ipv4" ? "A" : "CNAME"} ${hostname} -> ${target.value}, then switch to a writable provider so MSO can verify it`);
@@ -126,7 +123,7 @@ export async function ensureShellAppDomain(appId: string, input: EnsureShellAppD
       }
       // The loopback proxy route was proved by the probe above; only dokploy adds its own ingress.
       await persist({ phase: "route-ready", routeAction: current.routeAction ?? "unchanged", localOrigin });
-      const verified = await providers.inspectDomainRecords(request);
+      const verified = await inspectDomainRecords(request);
       if (verified !== "unchanged") throw new Error(`DNS verification pending for ${hostname}: provider reports ${verified}; retry once propagation completes`);
       await persist({ phase: "ready", verifiedAt: Date.now() });
     } catch (error) {
