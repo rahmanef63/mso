@@ -4,6 +4,16 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-22
+
+**Fixed**
+
+- `orca` create temp fixtures privately and pin file reads to one descriptor
+
+**Chores**
+
+- `security` allowlist the reviewed Orca env fixture by exact line
+
 ## 2026-10-21
 
 **Added**
@@ -1569,24 +1579,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - record external MCP consumer compatibility
 - `readme` the update button, and what Preview actually opens
 - plain http to an IP cannot complete a login — say so where it matters
-
-## 2026-08-11
-
-**Added**
-
-- `ship` one command that changelogs, pushes, rebuilds and verifies
-- `shells` Windows/iOS/Android to their 2026 specs, plus a backup for local state
-
-**Fixed**
-
-- `ship` amend on retry, and collapse a repeated subject in the changelog
-- `ai` Codex DOES do tool calling — implement it instead of announcing it cannot
-- `pwa,chat` notch clearance, a doubled iOS inset, and an assistant that was lying
-
-**Tests**
-
-- `e2e` a browser that actually loads the page — and the three bugs it found
-
-**Docs**
-
-- `progress` log the shell-spec pass, the springs, and the backup
