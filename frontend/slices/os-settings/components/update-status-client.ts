@@ -16,3 +16,17 @@ export function hasAvailableUpdate(status: Pick<UpdateStatus, "behind" | "pendin
   return status.pendingBuild === true || (status.remoteChecked === true && status.behind > 0);
 }
 
+/** Which host-side remedy the refusal text points at, or `null` when the operator
+ *  cannot fix it from a shell either (no git checkout, no service unit). */
+export function updateRefusalRemedy(reason: string | null | undefined): "branch" | "dirty" | null {
+  const text = reason ?? "";
+  if (text.includes("on main")) return "branch";
+  if (text.includes("uncommitted changes")) return "dirty";
+  return null;
+}
+
+export const REFUSAL_COMMANDS: Record<"branch" | "dirty", string> = {
+  branch: "cd /path/to/mso\ngit checkout main\ngit pull --ff-only origin main\nmso update --rebuild",
+  dirty: "cd /path/to/mso\ngit status\ngit stash   # or commit\ngit pull --ff-only origin main\nmso update --rebuild",
+};
+
