@@ -24,8 +24,8 @@ preflight="$(bun "$ROOT/scripts/self-update-auto.ts" 2>&1)" || {
 }
 printf '%s\n' "$preflight"
 case "$preflight" in
-  RUN\ *) ;;
-  SKIP\ *) exit 0 ;;
+  "RUN "*) ;;
+  "SKIP "*) exit 0 ;;
   *) printf 'auto update: pre-flight printed no decision; refusing\n' >&2; exit 1 ;;
 esac
 
