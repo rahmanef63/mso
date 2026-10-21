@@ -25,7 +25,11 @@ export function ConnectAppForm({ existing, manifest, onClose }: { existing?: She
     setBusy(true); setError("");
     try {
       await mutate(manifest ? { action: "import", manifest, binding: { id: app.id, url: app.url, mode: app.mode } } : { action: existing ? "update" : "add", app });
-      setConnected({ id: app.id, title: app.title, url: app.url });
+      if (existing) {
+        onClose();
+      } else {
+        setConnected({ id: app.id, title: app.title, url: app.url });
+      }
     }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Could not connect app."); }
     finally { setBusy(false); }
