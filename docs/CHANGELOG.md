@@ -21,6 +21,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `app-domain` wire the real provider module and single-source the domain contract
 - `deps` pin vite 8.2.4 to clear GHSA-587h-7wmj-h5pm
 
+**Tests**
+
+- `e2e` align shell-apps E2E with converged domain step
+
 ## 2026-10-20
 
 **Fixed**
