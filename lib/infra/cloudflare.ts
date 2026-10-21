@@ -59,6 +59,26 @@ function validateDns(name: string, type: string, content: string): void {
   if (type === "CNAME" && !HOST_RE.test(content.replace(/\.$/, ""))) throw new Error("CNAME content must be a hostname");
 }
 
+/** Read-only lookup of the exact records a write would touch; ambiguity is an error, never first-match. */
+export async function inspectCloudflareDns(input: { name: string; type: string }): Promise<Array<{ id: string; name: string; type: string; content: string; ttl: number; proxied: boolean }>> {
+  const name = input.name.trim().replace(/\.$/, "").toLowerCase();
+  const { exact } = await exactCloudflareRecords(await zoneFor(name), name, input.type.trim().toUpperCase());
+  return exact.map((row) => ({
+    id: String(row.id ?? ""), name: String(row.name ?? ""), type: String(row.type ?? ""),
+    content: String(row.content ?? ""), ttl: Number(row.ttl), proxied: Boolean(row.proxied),
+  }));
+}
+
+async function exactCloudflareRecords(zone: { id: string; token: string }, name: string, type: string) {
+  const base = `${API}/zones/${encodeURIComponent(zone.id)}/dns_records`;
+  const find = await request(`${base}?type=${encodeURIComponent(type)}&name.exact=${encodeURIComponent(name)}`, { headers: headers(zone.token) });
+  const found = parsed(find.body);
+  if (!find.ok || !found.success || !Array.isArray(found.result)) throw new Error(`Cloudflare record lookup HTTP ${find.status}`);
+  const exact = found.result.map(obj).filter((r) => String(r.name ?? "").toLowerCase() === name && String(r.type ?? "").toUpperCase() === type);
+  if (exact.length > 1) throw new Error(`refusing ambiguous DNS change: ${exact.length} ${type} records already exist for ${name}`);
+  return { base, exact };
+}
+
 export async function upsertCloudflareDns(input: { name: string; type: string; content: string; proxied?: boolean; ttl?: number }): Promise<{ action: string; id: string; name: string; type: string }> {
   const name = input.name.trim().replace(/\.$/, "").toLowerCase();
   const type = input.type.trim().toUpperCase();
@@ -66,12 +86,7 @@ export async function upsertCloudflareDns(input: { name: string; type: string; c
   validateDns(name, type, content);
   if (input.ttl !== undefined && (!Number.isInteger(input.ttl) || input.ttl !== 1 && (input.ttl < 60 || input.ttl > 86400))) throw new Error("Cloudflare TTL must be 1 (auto) or 60-86400");
   const zone = await zoneFor(name);
-  const base = `${API}/zones/${encodeURIComponent(zone.id)}/dns_records`;
-  const find = await request(`${base}?type=${encodeURIComponent(type)}&name.exact=${encodeURIComponent(name)}`, { headers: headers(zone.token) });
-  const found = parsed(find.body);
-  if (!find.ok || !found.success || !Array.isArray(found.result)) throw new Error(`Cloudflare record lookup HTTP ${find.status}`);
-  const exact = found.result.map(obj).filter((r) => String(r.name ?? "").toLowerCase() === name && String(r.type ?? "").toUpperCase() === type);
-  if (exact.length > 1) throw new Error(`refusing ambiguous DNS change: ${exact.length} ${type} records already exist for ${name}`);
+  const { base, exact } = await exactCloudflareRecords(zone, name, type);
   const proxied = ["A", "AAAA", "CNAME"].includes(type) ? input.proxied === true : undefined;
   const payload = { type, name, content, ttl: proxied ? 1 : input.ttl ?? 1, ...(proxied === undefined ? {} : { proxied }) };
   if (exact.length === 1) {
