@@ -13,18 +13,20 @@ import { managedAppUpstream } from "./upstream-target";
 import { upstreamSocketHeaders } from "./proxy-headers";
 import { IS_DEMO } from "@/lib/demo";
 import { shellAppSocketPolicy } from "@/lib/surfaces/socket-policy";
-import { deny, type OrcaReadinessResult } from "./orca-readiness-parse";
+import type { OrcaReadinessResult } from "./orca-readiness-parse";
 
 export interface SocketPolicyDeps {
   getOrcaReadiness?: () => Promise<OrcaReadinessResult>;
 }
+
+const denyUnavailable = (reason: string): OrcaReadinessResult => ({ available: false, reason });
 
 async function defaultOrcaReadiness(): Promise<OrcaReadinessResult> {
   try {
     const { getOrcaReadiness } = await import("./orca-readiness");
     return await getOrcaReadiness();
   } catch {
-    return deny("bridge_unavailable");
+    return denyUnavailable("bridge_unavailable");
   }
 }
 
