@@ -8,11 +8,16 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `app-store` converge install and connect on one domain step
+- `shell-apps` provision public domains for shell apps
+- `infra` add managed domain provider abstraction
 - `cli` print the mso ai reply text instead of SSE frames
 - `infra` add Linear provider and route Composio key kinds by header
 
 **Fixed**
 
+- `composio` refuse Connect consumer keys on the Platform provider
+- `app-domain` wire the real provider module and single-source the domain contract
 - `deps` pin vite 8.2.4 to clear GHSA-587h-7wmj-h5pm
 
 ## 2026-10-20
