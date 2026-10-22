@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "./mono-font";
 import { RegisterSW } from "./register-sw";
-import { InstallPrompt } from "./install-prompt";
 import "./globals.css";
 import { BootSplash } from "./boot-splash";
 import { publicMsoOrigin } from "@/lib/mcp/ui-config";
@@ -95,7 +94,6 @@ export default async function RootLayout({
         <BootSplash />
         {children}
         <RegisterSW />
-        <InstallPrompt />
       </body>
     </html>
   );
