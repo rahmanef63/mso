@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
-import { composioAuthHeader, composioKeyKind, doctorComposio } from "./composio";
+import { COMPOSIO_CONNECT_KEY_MESSAGE, composioAuthHeader, composioKeyKind, doctorComposio } from "./composio";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -32,9 +32,10 @@ describe("composio credential routing", () => {
 
 describe("composio connect consumer keys", () => {
   it("refuses a ck_ Connect key instead of sending it to the Platform API", () => {
-    expect(() => composioAuthHeader({ apiKey: "ck_consumer_key" })).toThrow(/Project MCP/);
-    expect(() => composioAuthHeader({ orgApiKey: "ck_consumer_key" })).toThrow(/Project MCP/);
+    expect(() => composioAuthHeader({ apiKey: "ck_consumer_key" })).toThrow(/Connect key works for Composio Connect tool access/);
+    expect(() => composioAuthHeader({ orgApiKey: "ck_consumer_key" })).toThrow(/cannot authorize Platform connected accounts/);
     expect(() => composioAuthHeader({ apiKey: "ak_project" })).not.toThrow();
+    expect(COMPOSIO_CONNECT_KEY_MESSAGE).not.toMatch(/Project MCP/);
   });
 
   it("reports the key kind for a form without exposing the value", () => {

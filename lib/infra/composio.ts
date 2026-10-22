@@ -6,20 +6,20 @@ export const COMPOSIO_API_BASE = "https://backend.composio.dev/api/v3.1";
 const API = COMPOSIO_API_BASE;
 
 /**
- * Composio keys live on two different products and only one of them is this
- * provider. Platform keys (ak_ project, uak_ user from `composio login`, org
- * keys) authenticate against backend.composio.dev/api/v3.1. A ck_ Connect
- * consumer key belongs to the Connect MCP product at connect.composio.dev/mcp
- * and is rejected by every Platform route with 401, so storing it here can
- * never work. Connect MCP keys belong in the Project MCP provider, which speaks
- * streamable HTTP and already accepts them.
+ * Composio keys live on two different products. Platform keys (ak_ project,
+ * uak_ user from `composio login`, org keys) authenticate against
+ * backend.composio.dev/api/v3.1. A ck_ Connect consumer key belongs to the
+ * Connect MCP product at connect.composio.dev/mcp: it works for Connect tool
+ * access (`composio.tools.list` / `composio.tool` through lib/infra/composio-connect.ts)
+ * and it cannot authorize Platform connected accounts, which stay on the three
+ * Platform header kinds below.
  */
 export function composioConnectKey(value: string | undefined): boolean {
   return Boolean(value?.trim().startsWith("ck_"));
 }
 
 export const COMPOSIO_CONNECT_KEY_MESSAGE =
-  "Composio Connect key (ck_…) is not a Platform key. Use Integrations → Project MCP with https://connect.composio.dev/mcp. Platform keys start ak_ or uak_.";
+  "Composio Connect key (ck_…). A Connect key works for Composio Connect tool access and cannot authorize Platform connected accounts. Platform keys start ak_ (project) or uak_ (user).";
 
 export function composioAuthHeader(values: InfraProviderValues): { header: Record<string, string>; kind: "organization" | "user" | "project" } | null {
   const orgKey = values.orgApiKey?.trim();

@@ -1,8 +1,10 @@
 import { isGoogleProvider, GOOGLE_APP_PROVIDER, googlePublicOrigin } from "./google-native-config";
 import { bindGoogleApp, disconnectGoogle, runNativeGoogle, nativeGoogleStatus, googleOperations } from "./google-native";
 import { integrationManage } from "./connection-manage";
-import { integrationQuery, withIntegrationSelection, resolveIntegration } from "./connection-service";
+import { integrationQuery, withIntegrationSelection, resolveIntegration, directConnectionValues } from "./connection-service";
 import { authorizeIntegration, composioConnectionCall } from "./connection-external";
+import { composioKeyKind } from "./composio";
+import { callComposioConnectTool, listComposioConnectTools } from "./composio-connect";
 import { IntegrationError, identity, metadataOnly, type ConnectionSelector } from "./identity";
 import { importConvexCliPersonalConnection } from "./convex-cli-import";
 import { listConvexCustomDomains, ensureConvexCustomDomain, getConvexCanonicalUrls, setConvexCanonicalUrl, getConvexEnvPresence, deployConvexCloudProject, importConvexCloudSnapshot } from "./convex-cloud";
@@ -52,7 +54,7 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     if(operation==="google.disconnect"||operation==="google.operations.list"){if(Object.keys(body).length)throw new IntegrationError("invalid_tool_arguments");return operation==="google.disconnect"?disconnectGoogle(provider,selection):{operations:googleOperations(provider)}}
     return runNativeGoogle(provider,selection,operation,body);
   }
-  if(operation==="composio.tool")return composioConnectionCall(provider,selection,String(a.tool),args as Record<string,unknown>);
+  if(operation==="composio.tool"||operation==="composio.tools.list")return composioOperation(provider,selection,operation,String(a.tool),args as Record<string,unknown>);
   const verbs:Record<string,{provider:string;fields:string[];run:()=>Promise<unknown>}>= {
     "dokploy.projects.list":{provider:"dokploy",fields:[],run:()=>listDokployProjects()},
     "dokploy.applications.list":{provider:"dokploy",fields:["projectId"],run:()=>listDokployApplications(String((args as Record<string,unknown>).projectId))},
@@ -92,3 +94,30 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
   return withIntegrationSelection(selection,async()=>({identity:route,result:await verb.run()}));
 }
 export const queryIntegrationAction=(input:Record<string,unknown>)=>integrationQuery(safeActionInput(input));
+
+/**
+ * One branch for both Composio operations so the key-kind routing cannot drift.
+ * Connect uses the stored provider credential directly (no connection selector,
+ * like doctorComposio); Platform keeps its existing /connected_accounts path.
+ */
+async function composioOperation(provider:string,selection:ConnectionSelector,operation:string,tool:string,args:Record<string,unknown>){
+  // Read the stored Composio credential for the same credential owner, the way
+  // doctorComposio reads it: no connection selector, no endpoint from the caller.
+  // A store that cannot resolve a Composio row for this owner falls through to the
+  // Platform path unchanged, which raises its own existing error.
+  let values:Record<string,string>|undefined;
+  try{values=await directConnectionValues("composio",{user:selection.user});}catch{values=undefined;}
+  if(values){
+    const kind=composioKeyKind(values);
+    if(kind==="connect"){
+      // Connect tools run under the Connect account; only the composio provider owns that surface.
+      if(provider!=="composio")throw new IntegrationError("provider_operation_mismatch");
+      return operation==="composio.tools.list"?listComposioConnectTools(values):callComposioConnectTool(values,tool,args);
+    }
+    if(kind===null)throw new IntegrationError("composio_project_key_required",409);
+    // Platform discovery is per connected account and never was this operation: refuse it clearly.
+    if(operation==="composio.tools.list")throw new IntegrationError("composio_tools_list_requires_connect_key",409);
+  }
+  return composioConnectionCall(provider,selection,tool,args);
+}
+

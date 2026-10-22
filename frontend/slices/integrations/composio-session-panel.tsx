@@ -4,7 +4,31 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const SESSION_PATH = "/api/v1/integrations/composio/session";
+const EXECUTE_PATH = "/api/v1/integrations";
 type KeyKind = "organization" | "user" | "project" | "connect" | null;
+type ConnectTool = { name: string; description: string };
+
+/**
+ * Connect keys run under the Connect account, so only bounded tool discovery is
+ * offered. The credential owner and connection come from the same snapshot the
+ * manager uses; the key itself never leaves the server.
+ */
+async function listConnectTools(): Promise<ConnectTool[]> {
+  const query = await fetch("/api/v1/integrations?view=snapshot", { headers: { accept: "application/json" }, cache: "no-store" });
+  const snapshot = await query.json().catch(() => ({}));
+  if (!query.ok) throw new Error(String(snapshot.error ?? "composio_connect_tools_failed"));
+  const connection = (Array.isArray(snapshot.connections) ? snapshot.connections : [])
+    .find((row: { provider?: string; id?: string }) => row?.provider === "composio" && typeof row.id === "string");
+  if (!snapshot.user || !connection) throw new Error("Configure a Composio connection under this credential owner first.");
+  const response = await fetch(EXECUTE_PATH, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mode: "execute", user: snapshot.user, provider: "composio", connection: connection.id, operation: "composio.tools.list", confirm: true }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(String(body.error ?? "composio_connect_tools_failed"));
+  return (Array.isArray(body?.tools) ? body.tools as ConnectTool[] : []).filter(tool => typeof tool?.name === "string");
+}
 
 /**
  * Composio agent session, shown for a Platform key only. The session credential
@@ -16,6 +40,7 @@ export function ComposioSessionPanel() {
   const [mcpUrl, setMcpUrl] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [tools, setTools] = useState<ConnectTool[] | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -47,14 +72,32 @@ export function ComposioSessionPanel() {
     } finally { setBusy(false); }
   }, []);
 
+  const loadTools = useCallback(async () => {
+    setBusy(true);
+    setStatus("Listing Composio Connect tools…");
+    try {
+      setTools(await listConnectTools());
+      setStatus("");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "The Connect tool list could not be loaded.");
+    } finally { setBusy(false); }
+  }, []);
+
   if (kind === undefined) return null;
   if (kind === "connect") {
     return (
-      <section className="border-b p-3" aria-label="Composio Connect key">
-        <p className="text-sm text-muted-foreground">
-          This is a Composio Connect consumer key (ck_…). It belongs to Project MCP with the endpoint
-          https://connect.composio.dev/mcp, and cannot create a per-user agent session.
+      <section className="border-b p-3" aria-label="Composio Connect">
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm">Composio Connect</p>
+          <Button variant="secondary" disabled={busy} onClick={() => void loadTools()}>List tools</Button>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Connect tools run under the Composio Connect account and cannot create a per-user agent session.
         </p>
+        {tools && (
+          <ul className="mt-2 text-sm">{tools.map(tool => <li key={tool.name}>{tool.name}</li>)}</ul>
+        )}
+        {status && <p role="status" className="mt-2 text-sm text-muted-foreground">{status}</p>}
       </section>
     );
   }
