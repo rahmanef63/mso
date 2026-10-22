@@ -24,15 +24,35 @@ export function profileRevision(raw: unknown, zero = false): number {
 }
 export function parseProfileConfig(input: unknown): AgentProfileConfig {
   const raw = profileObject(input);
-  profileFields(raw, ["name", "avatar", "instructions", "model", "runtime", "tools"]);
-  if (raw.runtime !== "mso-readonly") throw new AgentProfileError("profile_runtime_unsupported", 422);
+  profileFields(raw, ["name", "avatar", "instructions", "model", "runtime", "tools", "acp"]);
+  // `mso-readonly` stays accepted verbatim; `acp-cli` hands the turn to an installed
+  // agent CLI over the Agent Client Protocol. Anything else is still unsupported.
+  if (raw.runtime !== "mso-readonly" && raw.runtime !== "acp-cli") throw new AgentProfileError("profile_runtime_unsupported", 422);
+  // An ACP profile must name its driver: the runtime cannot guess which CLI to drive.
+  if (raw.runtime === "acp-cli" && raw.acp === undefined) throw new AgentProfileError("profile_acp_required", 422);
+  const acp = raw.runtime === "acp-cli" ? parseProfileAcp(raw.acp) : undefined;
+  if (acp === undefined && raw.acp !== undefined) throw new AgentProfileError("unsupported_profile_field");
   const model = profileObject(raw.model); profileFields(model, ["provider", "model"]);
   const provider = profileText(model.provider, "provider", 64), modelId = profileText(model.model, "model", 200);
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(provider) || ["constructor", "prototype"].includes(provider) || /\s/.test(modelId)) throw new AgentProfileError("invalid_profile_model");
   if (!Array.isArray(raw.tools) || raw.tools.length > PROFILE_READ_TOOLS.length || new Set(raw.tools).size !== raw.tools.length) throw new AgentProfileError("invalid_profile_tools");
   if (raw.tools.some((name) => !(PROFILE_READ_TOOLS as readonly unknown[]).includes(name))) throw new AgentProfileError("profile_tool_unsupported", 422);
+  // An ACP agent owns its own tools; MSO must not also promise saved read tools.
+  if (acp && raw.tools.length) throw new AgentProfileError("profile_tool_unsupported", 422);
   return { name: profileText(raw.name, "name", 80), avatar: profileText(raw.avatar ?? "", "avatar", 8, true),
-    instructions: profileText(raw.instructions ?? "", "instructions", 4000, true), runtime: "mso-readonly", model: { provider, model: modelId }, tools: [...raw.tools] };
+    instructions: profileText(raw.instructions ?? "", "instructions", 4000, true),
+    runtime: acp ? "acp-cli" : "mso-readonly", model: { provider, model: modelId }, tools: [...raw.tools],
+    ...(acp ? { acp } : {}) };
+}
+function parseProfileAcp(input: unknown): NonNullable<AgentProfileConfig["acp"]> {
+  const raw = profileObject(input);
+  profileFields(raw, ["driver", "instance"]);
+  const driver = profileText(raw.driver, "acp_driver", 64);
+  if (!/^[a-z][a-z0-9-]{0,63}$/.test(driver)) throw new AgentProfileError("invalid_profile_acp_driver");
+  if (raw.instance === undefined) return { driver };
+  const instance = profileText(raw.instance, "acp_instance", 80);
+  if (!/^acp_[A-Za-z0-9_-]{1,72}$/.test(instance)) throw new AgentProfileError("invalid_profile_acp_instance");
+  return { driver, instance };
 }
 export function emptyProfileStore(): AgentProfileStore { return { version: 1, revision: 0, defaultProfileId: null, profiles: [] }; }
 export function validateProfileStore(input: unknown, owner: string): AgentProfileStore {

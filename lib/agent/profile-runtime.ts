@@ -8,6 +8,8 @@ import { createAgentSession, updateAgentSessionHistory, appendAgentSessionEvent 
 import { AgentProfileError, profileFields, profileObject, profilePrincipal, profileRevision, profileText } from "./profile-schema";
 import { requireAgentProfile } from "./profile-store";
 import { runBoundedAgent } from "./bounded-runner";
+import { runAcpAgentProfile } from "./acp-runtime";
+import type { AcpInstance } from "./acp-drivers";
 
 export function profileRuntimeAuthority(session: SessionPayload, profile: AgentProfile, capabilities: CapabilityRuntime, options: { signal?: AbortSignal; sessionId?: string } = {}) {
   if (!session.device_id) throw new AgentProfileError("profile_owner_unsupported", 403);
@@ -37,7 +39,7 @@ export function profileRuntimeAuthority(session: SessionPayload, profile: AgentP
   return { runtime, context, liveAuthorization };
 }
 
-export async function runAgentProfile(input: { session: SessionPayload; body: unknown; capabilities: CapabilityRuntime; signal: AbortSignal }): Promise<AgentProfileRunResult> {
+export async function runAgentProfile(input: { session: SessionPayload; body: unknown; capabilities: CapabilityRuntime; signal: AbortSignal; resolveAcpInstance?: (driver: string) => AcpInstance | undefined }): Promise<AgentProfileRunResult> {
   if (!input.session.device_id) throw new AgentProfileError("profile_owner_unsupported", 403);
   const body = profileObject(input.body); profileFields(body, ["profileId", "profileRevision", "prompt"]);
   const principal = profilePrincipal(`web:${input.session.device_id}`), revision = profileRevision(body.profileRevision);
@@ -46,6 +48,13 @@ export async function runAgentProfile(input: { session: SessionPayload; body: un
   input.signal.throwIfAborted();
   if (!await liveSessionAuthorized(input.session, "owner")) throw new AgentProfileError("profile_owner_session_revoked", 403);
   const profile = await requireAgentProfile(principal, id, revision);
+  // `acp-cli` hands the turn to an installed agent CLI and owns its own, longer bound.
+  // The `mso-readonly` path below keeps its unchanged 60s bound.
+  if (profile.config.runtime === "acp-cli") {
+    const authority = profileRuntimeAuthority(input.session, profile, input.capabilities, { signal: input.signal });
+    return runAcpAgentProfile({ profile, prompt, principal, signal: input.signal, liveAuthorization: authority.liveAuthorization,
+      ...(input.resolveAcpInstance ? { resolveInstance: input.resolveAcpInstance } : {}) });
+  }
   const controller = new AbortController(), timeout = setTimeout(() => controller.abort(new AgentProfileError("profile_run_timeout", 504)), 60_000);
   const signal = AbortSignal.any([input.signal, controller.signal]);
   let runId: string | undefined;

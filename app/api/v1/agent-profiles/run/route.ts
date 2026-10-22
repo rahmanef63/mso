@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
 import { readRequestJson, RequestBodyError } from "@/lib/security/request-body";
+import { redactText } from "@/lib/security/redact-text";
 import { rateLimited } from "@/lib/host/limits-api";
 import { msoCapabilityRuntime } from "@/lib/mcp/capability-runtime";
 import { SelectedModelConfigError } from "@/lib/ai/selected-model-stream";
 import { AgentProfileError } from "@/lib/agent/profile-schema";
+import { AcpError } from "@/lib/agent/acp-client";
 import { runAgentProfile } from "@/lib/agent/profile-runtime";
 
 export const runtime = "nodejs";
@@ -28,6 +30,7 @@ export async function POST(req: Request) {
     const result = await runAgentProfile({ session: context.session, body, capabilities: msoCapabilityRuntime, signal: req.signal });
     return NextResponse.json(result, { headers });
   } catch (error) {
+    if (error instanceof AcpError) return fail(redactText(error.message, 300), error.status);
     if (error instanceof AgentProfileError || error instanceof RequestBodyError || error instanceof SelectedModelConfigError) return fail(error.message, error.status);
     return fail(req.signal.aborted ? "profile_run_cancelled" : "profile_run_failed", req.signal.aborted ? 499 : 502);
   } finally { if (admitted) active.delete(device); }
