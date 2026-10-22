@@ -122,10 +122,11 @@ export async function getUpdateStatus(fetchRemote = true, channel?: UpdateChanne
   const reason = await automaticUpdateReason(execRunner);
   const ahead = facts.ahead;
   const dirty = facts.dirty;
-  // READ-ONLY preflight, and only in the two states where it can change the answer.
-  // `git merge-tree --write-tree` computes the merge in memory: no index, worktree
-  // or HEAD write, so this GET route still never mutates the repository.
-  const conflict = dirty || ahead > 0
+  // READ-ONLY preflight, and only in the two states the operator can be in by
+  // choice. `git merge-tree --write-tree` computes the merge in memory: no index,
+  // worktree or HEAD write, so this GET route still never mutates the repository.
+  const diverged = ahead > 0 && facts.behind > 0;
+  const conflict = dirty || diverged
     ? await preflightUpdateConflicts({ targetRef: facts.targetRef, runner: (args) => git(args) })
     : null;
   return {

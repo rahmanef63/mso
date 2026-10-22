@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const fixture = vi.hoisted(() => ({ branch: "main", fetchFails: false, noGit: false, behind: 13, tags: "", targetSha: "7cffd11", dirty: false }));
+const fixture = vi.hoisted(() => ({ branch: "main", fetchFails: false, noGit: false, behind: 13, tags: "", targetSha: "7cffd11", dirty: false, ahead: 0 }));
 vi.mock("server-only", () => ({}));
 vi.mock("node:fs", () => ({ promises: { readFile: vi.fn(async () => "") } }));
 vi.mock("@/lib/prefs/store", () => ({ readPrefs: vi.fn(async () => ({})) }));
@@ -19,7 +19,7 @@ vi.mock("node:child_process", () => ({
     else if (key === "rev-parse --verify origin/main^{commit}") output = fixture.targetSha;
     else if (key === "tag --merged origin/main --list v*") output = fixture.tags;
     else if (args[0] === "fetch") code = fixture.fetchFails ? 1 : 0;
-    else if (args[0] === "rev-list") output = `0\t${fixture.behind}`;
+    else if (args[0] === "rev-list") output = `${fixture.ahead}\t${fixture.behind}`;
     else if (key === "status --porcelain") output = fixture.dirty ? "M base.txt" : "";
     else if (args[0] === "merge-base") output = "abc1234def567890abc1234def567890abc12345";
     else if (key === "diff --name-only HEAD") output = fixture.dirty ? "base.txt" : "";
@@ -36,7 +36,7 @@ const { getUpdateStatus, blockingReason } = await import("./self-update");
 beforeEach(() => {
   fixture.branch = "main"; fixture.fetchFails = false; fixture.noGit = false;
   fixture.behind = 13; fixture.tags = ""; fixture.targetSha = "7cffd11";
-  fixture.dirty = false;
+  fixture.dirty = false; fixture.ahead = 0;
 });
 
 describe("version discovery independent of restart mechanism", () => {
@@ -72,6 +72,13 @@ describe("conflict preflight in the status payload", () => {
     const result = await getUpdateStatus(false, "main");
     expect(result.dirty).toBe(true);
     expect(result.conflict).toMatchObject({ conflicted: [], carried: ["base.txt"], overlap: [], safe: true });
+  });
+
+  it("also preflights a diverged main, not just a dirty tree", async () => {
+    fixture.ahead = 2;
+    const result = await getUpdateStatus(false, "main");
+    expect(result).toMatchObject({ ahead: 2, behind: 13 });
+    expect(result.conflict).toMatchObject({ safe: true });
   });
 
   it("omits the report entirely on a clean, non-diverged checkout", async () => {
