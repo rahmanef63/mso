@@ -100,11 +100,87 @@ describe("account profile", () => {
     expect(await readAccountProfile()).toEqual(before);
   });
 
+  it("rebuilds the stored icon from validated primitives so client bytes never reach the file unchanged", async () => {
+    // Same 16 decoded bytes, but the last base64 digit carries non-zero unused
+    // bits: a legal encoding that is NOT the canonical one. The store must hold
+    // the re-encoded value, never the request string.
+    const canonicalB64 = png.split(",")[1]!;
+    const nonCanonicalB64 = `${canonicalB64.slice(0, 21)}B==`;
+    expect(nonCanonicalB64).not.toBe(canonicalB64);
+    expect(Buffer.from(nonCanonicalB64, "base64").equals(Buffer.from(canonicalB64, "base64"))).toBe(true);
+    const nonCanonicalUrl = `data:image/png;base64,${nonCanonicalB64}`;
+    await writeAccountProfile({ icon: { type: "image", src: nonCanonicalUrl } });
+    const raw = await fs.readFile(file, "utf8");
+    expect(raw).not.toContain(nonCanonicalUrl);
+    expect(JSON.parse(raw)).toEqual({ name: "Owner", icon: { type: "image", src: png } });
+    // A declared kind that contradicts the validated magic is refused outright and
+    // leaves the previously published store untouched.
+    const mismatched = dataUrl("gif", [...Buffer.from(canonicalB64, "base64")]);
+    await expect(writeAccountProfile({ icon: { type: "image", src: mismatched } })).rejects.toMatchObject({ code: "invalid" });
+    expect(await fs.readFile(file, "utf8")).toBe(raw);
+  });
+
+  it("parses a store file written before the library icon type existed", async () => {
+    // Byte-for-byte shape produced by the first release (preset icon only).
+    await fs.mkdir(dir, { recursive: true });
+    const legacy = JSON.stringify({ name: "Legacy Owner", icon: { type: "preset", id: "star" } });
+    await fs.writeFile(file, legacy, { encoding: "utf8", mode: 0o600 });
+    expect(await readAccountProfile()).toEqual({ name: "Legacy Owner", icon: { type: "preset", id: "star" } });
+    // A pre-library image store also still loads.
+    await fs.writeFile(file, JSON.stringify({ name: "Legacy Owner", icon: { type: "image", src: png } }), { encoding: "utf8", mode: 0o600 });
+    expect(await readAccountProfile()).toEqual({ name: "Legacy Owner", icon: { type: "image", src: png } });
+    expect(await fs.readFile(file, "utf8")).toContain('"type":"image"');
+  });
+
   it("fails closed on a corrupt profile instead of replacing it", async () => {
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(file, "{", "utf8");
     await expect(readAccountProfile()).rejects.toMatchObject({ code: "corrupt" });
     await expect(writeAccountProfile({ name: "Rahman" })).rejects.toMatchObject({ code: "corrupt" });
     expect(await fs.readFile(file, "utf8")).toBe("{");
+  });
+
+  it("stages through an unpredictable exclusive temp file and publishes mode 0600", async () => {
+    // Predictable staging path (the old `${file}.${pid}.tmp`) is pre-planted as a
+    // canary: the write must never truncate it and must never follow it.
+    const legacyTmp = `${file}.${process.pid}.tmp`;
+    const canary = "planted-by-someone-else";
+    await fs.writeFile(legacyTmp, canary, { encoding: "utf8", mode: 0o600 });
+    await writeAccountProfile({ name: "Rahman" });
+    expect(await fs.readFile(legacyTmp, "utf8")).toBe(canary);
+    expect(await readAccountProfile()).toMatchObject({ name: "Rahman" });
+    // One open handle carries both the mode assertion and the content read, so
+    // the test never stats a path and then reads that path again.
+    const handle = await fs.open(file, "r");
+    let published: string;
+    try {
+      expect((await handle.stat()).mode & 0o777).toBe(0o600);
+      published = await handle.readFile("utf8");
+    } finally {
+      await handle.close();
+    }
+    expect(published).not.toBe(canary);
+    expect(JSON.parse(published)).toMatchObject({ name: "Rahman" });
+    // No staging leftovers: the only sibling is the pre-planted canary.
+    expect((await fs.readdir(dir)).sort()).toEqual(["account.json", `${path.basename(file)}.${process.pid}.tmp`]);
+  });
+
+  it("serializes concurrent writes so the store is never torn", async () => {
+    await writeAccountProfile({ name: "First" });
+    const results = await Promise.all([
+      writeAccountProfile({ name: "Second", icon: { type: "preset", id: "star" } }),
+      writeAccountProfile({ name: "Third", icon: { type: "preset", id: "leaf" } }),
+    ]);
+    expect(results).toHaveLength(2);
+    const onDisk = JSON.parse(await fs.readFile(file, "utf8")) as { name: string; icon: unknown };
+    const valid = [
+      { name: "Second", icon: { type: "preset", id: "star" } },
+      { name: "Third", icon: { type: "preset", id: "leaf" } },
+    ];
+    expect(valid).toContainEqual(onDisk);
+    expect(await readAccountProfile()).toEqual(onDisk);
+    expect((await fs.stat(file)).mode & 0o777).toBe(0o600);
+    // Every concurrent write published atomically: no temp siblings survive.
+    expect((await fs.readdir(dir)).sort()).toEqual(["account.json"]);
   });
 });

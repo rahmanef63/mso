@@ -42,6 +42,13 @@ const NOT_A_KNOB: Record<string, string> = {
   // Standard XDG base directory. Read only as the default parent of the update timer
   // units; MSO_SYSTEMD_USER_DIR is the documented override.
   XDG_CONFIG_HOME: "standard XDG base-directory convention; MSO_SYSTEMD_USER_DIR overrides its use",
+  // scripts/audit.mjs seams, not app configuration: the audit contract tests shorten
+  // the bounded registry probe and relocate its receipt so they never touch the cache.
+  MSO_AUDIT_TIMEOUT_MS: "scripts/audit.mjs registry probe ceiling; test seam",
+  MSO_AUDIT_ATTEMPTS: "scripts/audit.mjs registry probe retry count; test seam",
+  MSO_AUDIT_BACKOFF_MS: "scripts/audit.mjs registry probe backoff; test seam",
+  MSO_AUDIT_BUDGET_MS: "scripts/audit.mjs registry probe total budget; test seam",
+  MSO_AUDIT_RECEIPT: "scripts/audit.mjs receipt path; test seam, not user configuration",
   // systemd's, read by instrumentation for the watchdog handshake.
   NOTIFY_SOCKET: "systemd's",
   WATCHDOG_USEC: "systemd's",

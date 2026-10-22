@@ -31,10 +31,13 @@ describe("single MSO release lifecycle authority", () => {
   });
   it("bounds the tolerant local dependency audit so pre-push cannot hold the remote connection indefinitely", () => {
     const audit = read("scripts/audit.mjs");
-    expect(audit).toContain('const AUDIT_TIMEOUT_MS = 15_000;');
-    expect(audit).toContain('timeout: AUDIT_TIMEOUT_MS');
+    expect(audit).toContain('num(process.env.MSO_AUDIT_TIMEOUT_MS, 30_000)');
+    expect(audit).toContain('num(process.env.MSO_AUDIT_BUDGET_MS, 90_000)');
+    expect(audit).toContain('num(process.env.MSO_AUDIT_ATTEMPTS, 3)');
+    expect(audit).toContain('timeout: Math.min(AUDIT_TIMEOUT_MS, remaining)');
     expect(audit).toContain('res.error?.code === "ETIMEDOUT"');
-    expect(audit).toContain('registry timed out after');
+    expect(audit).toContain('registry unreachable');
+    expect(audit).toContain('advisories');
     expect(audit).toContain('process.exit(0)');
   });
 

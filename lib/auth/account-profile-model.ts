@@ -22,7 +22,10 @@ export const DEFAULT_ACCOUNT_PROFILE: AccountProfile = {
   icon: { type: "preset", id: "user" },
 };
 
-function copyCodeUnits(value: string): string {
+/** Identity on already-validated input, but returns a fresh string built one
+ *  bounded code unit at a time, so a stored value never holds a reference to the
+ *  request payload. Shared with `libraryIcon` in account-profile.ts. */
+export function copyCodeUnits(value: string): string {
   let name = "";
   for (let i = 0; i < value.length; i++) name += String.fromCharCode(value.charCodeAt(i));
   return name;

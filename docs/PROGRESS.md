@@ -1,3 +1,61 @@
+## 2026-10-22: CodeQL follow-up — the taint, not the temp path
+
+The previous entry closed the symlink/TOCTOU concern but not `js/http-to-file-access`: the icon
+value still descended from the request into `JSON.stringify` at the write sink. Two honest fixes,
+verified against CodeQL 2.27.3 locally with the same two queries CI runs.
+
+**`js/http-to-file-access` (`lib/auth/account-profile.ts`).** Option 2: the JSON shape is
+unchanged, and the value written is now rebuilt rather than carried. `libraryIcon` validates with
+`LIBRARY_ICON`, then reconstructs `prefix + tint` from the validated capture groups via
+`copyCodeUnits` (now exported from `account-profile-model.ts`) instead of returning `row.value`.
+`imageIcon` already rebuilt `src` from a validated kind prefix plus a fresh `encodeBase64` of a
+copied `Buffer`; the library branch was the one still holding request text. CodeQL reports zero
+results for both `js/http-to-file-access` and `js/file-system-race` on a database built from this
+tree. No suppression comment, no dismissal, no `.github/codeql` filter, no format change.
+
+**`js/file-system-race` (`lib/auth/account-profile.test.ts`).** The staging test used
+`fs.stat(file)` and then `fs.readFile(file)` on the same path. It now opens one read handle and
+takes both the mode from `handle.stat()` and the content from `handle.readFile()`, so there is no
+check-then-use pair on a path. The canary is still asserted byte-identical, the published store
+still parses to the expected profile, the mode is still `0o600`, and the only sibling is the
+pre-planted canary.
+
+**Backward compatibility.** No on-disk format change. Two tests cover old files explicitly:
+`parses a store file written before the library icon type existed` writes a preset-only JSON and an
+image `data:` JSON directly and asserts both still parse; `rebuilds the stored icon from validated
+primitives so client bytes never reach the file unchanged` proves a non-canonical base64 URL is
+stored in its re-encoded form and a kind/magic mismatch is refused with the old bytes untouched.
+
+**Evidence.** `typecheck` 0, `lint` 0, targeted vitest 9/9 (exit 0), `coverage` 836 files /
+5389 tests (exit 0), `check-architecture.mjs` exit 0, `audit:strict` exit 0 printing
+`clean at high/critical`, local CodeQL result count 0.
+
+## 2026-10-22: CI-green fixes — unpredictable atomic profile writes and a bounded, honest registry probe
+
+Two independent failures on `main` (c54422e4), both fixed at the authoritative layer.
+
+**CodeQL #190 — js/http-to-file-access at `lib/auth/account-profile.ts:149`.** `persist()` staged
+the profile at `${file}.${pid}.tmp` and used a non-exclusive `writeFile`, so a pre-planted file or
+symlink at that predictable path could be followed and truncated with client-derived icon bytes.
+The staging name now carries `randomBytes(8)` and the write passes `flag: "wx"` (exclusive create,
+fails instead of following), keeping `mode: 0o600`, the `0o700` mkdir and the atomic `rename`
+publish. A write/publication failure unlinks the temp path best-effort and rethrows as
+`AccountProfileError("invalid")`; `readAccountProfile`/`cleanAccountIcon` and the image allowlist
+are unchanged. This matches the pattern already used by `lib/host/fs-upload.ts`,
+`lib/host/fs-upload-guarded.ts` and `scripts/orca/private-store.mjs`. Regression tests prove the
+old predictable path is never truncated, the store is 0600, no staging siblings survive, and
+concurrent `writeAccountProfile` calls serialize to one untorn profile.
+
+**Verify — `audit: registry timed out after 15s; INCOMPLETE (strict gate failed)`.** The gate is
+`scripts/audit.mjs` (wired as `audit:strict` for CI, `scripts/gates.sh`, `pr-preflight.sh`, and
+`security-ultimate.sh`). Its single 15-second probe turned a cold-runner handshake into a red
+build with no vulnerability to report. It is now 30s per attempt, 3 attempts (first + 2 retries)
+with 2s/4s backoff inside a 90s total budget — worst case still far inside the 30-minute job.
+Exhausting the budget fails closed with `registry unreachable (...)`, which cannot be read as
+"advisories found". A silent registry may reuse prior evidence only when a receipt for this exact
+`bun.lock` digest is under 7 days old; otherwise the job stays red. Exit-code contract is intact
+(0 clean, 1 advisories, 2 incomplete).
+
 ## 2026-10-22: Updates check the merge before refusing, and the foundation boundary is written down
 
 A dirty or diverged checkout used to get a bare refusal, leaving a user who simply wanted the
@@ -2233,7 +2291,7 @@ both standard MCP and legacy ChatGPT host paths. Toolset: `2026.09.05.1`.
 - **Public-sharing security and maintenance audit (2026-09-05):** app `0.2.2` keeps the independently versioned CLI/MCP contracts unchanged. Release and assurance dependency audits now fail closed on unavailable, malformed or incomplete evidence; local developer skips are explicitly labelled, registry diagnostics do not expose raw URLs, and skipped optional scanners cannot produce an unconditional assurance PASS. Removed the dormant Convex deploy tail, fixed shared Git-hook installation and out-of-tree dependency copying for linked worktrees, and added functional regression tests. README now leads with a readable install/features/security overview and collapsible reference detail, preserving generated comparison evidence and public-alpha limits. `test:features` runs each test area in a separate process and distinguishes PASS/PARTIAL/SKIPPED/FAIL. The Forge Docker sandbox and synthetic credential-path fixture activate previously skipped security checks without using real secrets; CI now provisions the same bounded fixtures. Onboarding tests derive the app version from `package.json`; the browser suite follows the actual Activity & Runs UI, checks infrastructure deep-links, and never echoes session-cookie diagnostics. Full-history scanning now requests merge diffs explicitly in CI and the assurance runner; independent scanner outputs remain private; no genuine historical secret was identified by the configured scan, so shared history was not rewritten. Live-service deployment and remote CI status require separate exact-revision evidence and are not inferred from local tests.
 - **Rahmanef-aligned MCP widget palette / Block + Page v2 (2026-09-04):** MCP server `1.10.0` / toolset `2026.09.04.7` moves the two canonical ChatGPT resources to `ui://mso/block-v2.html` and `ui://mso/page-v2.html` so hosts do not reuse the old purple CSS cache key. Block and Page now share one visual-token source aligned with `rahmanef.com`: light `#f4f4f7` / `#1c1c1f`, dark `#1b1b20` / `#f2f2f5`, accent `#1f6df0`, Plus Jakarta Sans display copy, Inter body copy, fine separators, and editorial foreground/background primary-action inversion. ChatGPT theme changes propagate through `window.openai.theme` with a color-scheme fallback. Block/Page v1 and the earlier workflow/surface URIs remain readable but unlisted compatibility aliases; the headless workflow and two-surface/security contracts are unchanged.
 - **Headless workflows + two-surface MCP UI contract (2026-09-04):** MCP server `1.10.0` / toolset `2026.09.04.6` removes the automatic UI binding from `workflow_start`: orchestration, collision checks, tracing, evidence, and learning continue in the background without consuming the answer with a progress card. ChatGPT now has exactly two canonical MCP App resources: `ui://mso/block-v1.html` through `render_mso_block` for compact validation/action/CRUD input-output, and `ui://mso/page-v1.html` through `render_mso_page` for native operator views plus reviewed development/preview/production embeds. Block buttons send a user-approved follow-up and never execute mutations inside the widget, preserving normal scope, approval, audit, and workflow boundaries. The prior workflow/surface URIs remain non-advertised read aliases, while `workflow_status` and `render_mso_surface` remain app-only compatibility shims for cached clients. The ChatGPT transport profile is 66 tools: 64 model-visible actions (35 read / 17 write / 12 exec) plus two app-only shims; the full catalog is 90. Only Block and Page advertise a resource URI.
-- **Local release audit timeout hardening (2026-09-04):** the tolerant pre-push dependency audit now caps `bun audit --json` at 15 seconds. A registry timeout is reported and skipped only in the local gate, matching its existing network-tolerant policy; CI remains the fail-closed dependency-audit authority. This prevents a slow registry request from holding GitHub's pre-push SSH session open for minutes and failing the otherwise-green release with a transport/SIGPIPE-style exit.
+- **Local release audit timeout hardening (2026-09-04):** the tolerant pre-push dependency audit now caps `bun audit --json` at 15 seconds. A registry timeout is reported and skipped only in the local gate, matching its existing network-tolerant policy; CI remains the fail-closed dependency-audit authority. This prevents a slow registry request from holding GitHub's pre-push SSH session open for minutes and failing the otherwise-green release with a transport/SIGPIPE-style exit. **Superseded 2026-10-22:** the cap is now 30s per attempt with 3 attempts and a 90s total budget, because a single 15s probe made cold CI runners fail with INCOMPLETE despite finding no advisory. See `scripts/audit.mjs`.
 - **MCP Apps CSP metadata dedup / Surface v5 (2026-09-04):** MCP server `1.9.4` / toolset `2026.09.04.5` moves all standard widget CSP fields to the preferred `_meta.ui.csp` surface and leaves legacy `openai/widgetCSP` with only `redirect_domains` for `Open in MSO`. Workflow/Surface resources are cache-busted to `workflow-progress-v3` and `surface-v5`; the reviewed Play Together iframe remains exact-origin under `/embed`, so one external-iframe review advisory is expected from `ui.csp.frameDomains`. Scanner-facing Surface metadata explicitly names `/apps/play-together` and has a regression guard against cross-scope app examples.
 - **MCP Apps presentation unification / Surface v4 (2026-09-04):** MCP server `1.9.3` / toolset `2026.09.04.4` retires the specialized `project-status-v2`, `project-diff-v2`, and `vps-status-v2` resources. `project_get`, `project_diff`, and `vps_status` are pure data tools again; `ui://mso/surface-v4.html` is the only general-purpose UI and uses the portable MCP Apps `tools/call` bridge for native monitor/project/diff views. `workflow-progress-v2` remains intentionally separate for live workflow polling. Play Together keeps the exact `game.example.com/embed` frame boundary, so the external-iframe review advisory remains expected only for the universal Surface.
 - **Cognitive Runtime claim audit / public evidence boundary (2026-09-04):** revalidated source/main/origin and loopback/public production on the latest concurrent baseline, then reran the deterministic Cognitive Runtime/memory gates: routing recall 100%, active-schema reduction 96.6%, typed memory 8/8, P9 6/6 at 200 corrections, P10 lifecycle 8/8, lexical/local-semantic 4/6 vs 3/6, and bounded graph fixture 3/3. Raw P6/P7/P8 artifacts were independently re-hashed and their aggregate arithmetic recomputed; the canonical P7 two-run artifact is `mso-p7-repeat-full-2x9.json` (`a0c12961...`), not the similarly named older `mso-p7-repeat-full-2runs.json`. Canonical P7+P8 yields 5/5 perfect full runs for both MSO and Hermes and the documented 74.7% token / 12.8% average-latency / 34.1% p50 observed deltas on that exact nine-scenario matched corpus. P4/P5 exact tables are downgraded to historical release-reported metrics because this audit could not independently recover raw artifacts matching those exact values. README now removes the stale 29-tool ChatGPT count, removes the unsupported "most complete" positioning superlative, and states explicit no-universal-superiority/no-cost/no-cache/no-OpenClaw boundaries. Tool Forge executable evaluation is documented as fail-closed until its explicit local Docker sandbox image is provisioned; that image was absent during this audit.

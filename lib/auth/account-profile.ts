@@ -1,9 +1,11 @@
 import { expandOwnerStorePath } from "@/lib/owner-store-path.js";
+import { randomBytes } from "node:crypto";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
 import {
   cleanAccountName,
+  copyCodeUnits,
   DEFAULT_ACCOUNT_PROFILE,
   presetIcon,
   type AccountIcon,
@@ -99,13 +101,22 @@ function imageIcon(value: unknown): AccountIcon | null {
 }
 
 /** Icon-picker value. The picker emits raw glyphs for emoji, so the stored
- *  form is `emoji:<glyph>` for those and `lucide:`/`phosphor:` as-is. */
+ *  form is `emoji:<glyph>` for those and `lucide:`/`phosphor:` as-is.
+ *
+ *  The stored string is REBUILT from the validated capture groups with
+ *  `copyCodeUnits`, never carried over from the request: the value that reaches
+ *  the store is a fresh string bounded by `LIBRARY_ICON` (one namespace prefix,
+ *  a charset-only name, and an optional 6-digit hex tint). This is the same
+ *  bounded-rebuild discipline `cleanAccountName` uses for the display name. */
 function libraryIcon(value: unknown): AccountIcon | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
   if (row.type !== "library" || typeof row.value !== "string") return null;
-  if (row.value.length > 96 || !LIBRARY_ICON.test(row.value)) return null;
-  return { type: "library", value: row.value };
+  if (row.value.length > 96) return null;
+  const match = LIBRARY_ICON.exec(row.value);
+  if (!match?.[1]) return null;
+  const tint = match[2] ? copyCodeUnits(match[2]) : "";
+  return { type: "library", value: copyCodeUnits(match[1]) + tint };
 }
 
 export function cleanAccountIcon(value: unknown): AccountIcon | null {
@@ -145,9 +156,18 @@ async function persist(profile: AccountProfile): Promise<void> {
   if (!name || !icon) throw new AccountProfileError("invalid");
   const file = storePath();
   await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
-  const tmp = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify({ name, icon }), { encoding: "utf8", mode: 0o600 });
-  await fs.rename(tmp, file);
+  // Unpredictable sibling name + exclusive create: a pre-planted file or symlink at
+  // the staging path must make the write fail, never be followed or truncated.
+  const tmp = `${file}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`;
+  try {
+    await fs.writeFile(tmp, JSON.stringify({ name, icon }), { encoding: "utf8", mode: 0o600, flag: "wx" });
+    await fs.rename(tmp, file);
+  } catch {
+    await fs.rm(tmp, { force: true }).catch(() => undefined);
+    // Write/publication failure is an invalid write, not a corrupt store: the old
+    // bytes (if any) are untouched because the rename never happened.
+    throw new AccountProfileError("invalid");
+  }
 }
 
 export async function writeAccountProfile(patch: { name?: unknown; icon?: unknown }): Promise<AccountProfile> {
