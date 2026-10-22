@@ -5,6 +5,7 @@
 // This module is deliberately free of `server-only` and `@/` imports: the timer's
 // pre-flight (scripts/self-update-auto.ts) runs it under bun, outside Next.
 import type { UpdateChannel } from "../prefs/updates";
+import type { UpdateConflictReport } from "./update-conflict";
 
 export interface UpdateCommit {
   sha: string;
@@ -42,6 +43,9 @@ export interface UpdateStatus {
   target?: string;
   /** Stable found no release tag at all and is tracking rolling main — said out loud. */
   targetFallback?: boolean;
+  /** Read-only merge preflight, present only when the checkout is dirty or diverged.
+   *  Absent means "not investigated", never "safe". */
+  conflict?: UpdateConflictReport;
 }
 
 /** `<sha>\x1f<subject>\x1f<iso date>` per line — a separator no subject can contain. */
@@ -73,22 +77,57 @@ export function updateBranchReason(branch: string): string | null {
  * build that fails halfway through with the live `.next` already deleted.
  */
 export function blockingReason(status: UpdateStatus, rebuildOnly: boolean): string | null {
+  return updateRefusal(status, rebuildOnly).reason;
+}
+
+/** A refusal plus — for the two states a user can actually be in by choice, a dirty
+ *  tree and a diverged main — the read-only preflight that names the files. The
+ *  `reason` string is unchanged for every existing caller; `conflict` is extra. */
+export type UpdateRefusal = {
+  reason: string | null;
+  /** Only when the checkout is dirty or diverged AND a preflight ran. */
+  conflict: UpdateConflictReport | null;
+};
+
+const NAME_LIMIT = 8;
+
+function names(files: readonly string[]): string {
+  const shown = files.slice(0, NAME_LIMIT).join(", ");
+  return files.length > NAME_LIMIT ? `${shown} (+${files.length - NAME_LIMIT} more)` : shown;
+}
+
+export function updateRefusal(status: UpdateStatus, rebuildOnly: boolean): UpdateRefusal {
   const target = status.target ?? "origin/main";
-  if (!status.supported) return status.reason ?? "this deployment cannot update itself";
-  if (status.running) return "an update is already running";
+  if (!status.supported) return { reason: status.reason ?? "this deployment cannot update itself", conflict: null };
+  if (status.running) return { reason: "an update is already running", conflict: null };
+  const conflict = status.conflict ?? null;
   if (status.dirty) {
-    return "the checkout has uncommitted changes — commit or stash them on the host first, a fast-forward would refuse anyway";
+    // Same sentence and same leading words as before (the Settings panel keys its
+    // "dirty" remedy off "uncommitted changes"), now followed by what the preflight
+    // actually found: either the exact colliding files or what carries over.
+    const base = "the checkout has uncommitted changes — commit or stash them on the host first, a fast-forward would refuse anyway";
+    if (!conflict) return { reason: base, conflict };
+    const detail = conflict.safe
+      ? `; a read-only preflight found no conflict, so these changes would carry over cleanly: ${names(conflict.carried) || "none"}`
+      : `; a read-only preflight found conflicts in: ${names(conflict.conflicted.length ? conflict.conflicted : conflict.overlap)}`;
+    return { reason: `${base}${detail}`, conflict };
   }
   if (!rebuildOnly && status.ahead > 0) {
-    return status.behind > 0
-      ? `local main has diverged from ${target} (ahead ${status.ahead}, behind ${status.behind}); reconcile it before updating`
-      : `local main is ahead of ${target} by ${status.ahead} commit(s); push or reconcile it before updating`;
+    const detail = conflict && !conflict.safe
+      ? `; files behind the divergence: ${names(conflict.conflicted.length ? conflict.conflicted : conflict.overlap)}`
+      : "";
+    return {
+      reason: status.behind > 0
+        ? `local main has diverged from ${target} (ahead ${status.ahead}, behind ${status.behind}); reconcile it before updating${detail}`
+        : `local main is ahead of ${target} by ${status.ahead} commit(s); push or reconcile it before updating`,
+      conflict,
+    };
   }
   // `pendingBuild` is a reason to run even with nothing to pull: the checkout
   // already holds code the running process was not built from, and refusing with
   // "already up to date" would be describing the wrong thing as up to date.
-  if (!rebuildOnly && status.behind === 0 && !status.pendingBuild) return "already up to date";
-  return null;
+  if (!rebuildOnly && status.behind === 0 && !status.pendingBuild) return { reason: "already up to date", conflict: null };
+  return { reason: null, conflict: null };
 }
 
 /** Files whose unattended replacement can strand the host: the updater itself, its

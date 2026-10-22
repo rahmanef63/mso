@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const fixture = vi.hoisted(() => ({ branch: "main", fetchFails: false, noGit: false, behind: 13, tags: "", targetSha: "7cffd11" }));
+const fixture = vi.hoisted(() => ({ branch: "main", fetchFails: false, noGit: false, behind: 13, tags: "", targetSha: "7cffd11", dirty: false }));
 vi.mock("server-only", () => ({}));
 vi.mock("node:fs", () => ({ promises: { readFile: vi.fn(async () => "") } }));
 vi.mock("@/lib/prefs/store", () => ({ readPrefs: vi.fn(async () => ({})) }));
@@ -20,7 +20,12 @@ vi.mock("node:child_process", () => ({
     else if (key === "tag --merged origin/main --list v*") output = fixture.tags;
     else if (args[0] === "fetch") code = fixture.fetchFails ? 1 : 0;
     else if (args[0] === "rev-list") output = `0\t${fixture.behind}`;
-    else if (args[0] === "diff") output = "app/page.tsx";
+    else if (key === "status --porcelain") output = fixture.dirty ? "M base.txt" : "";
+    else if (args[0] === "merge-base") output = "abc1234def567890abc1234def567890abc12345";
+    else if (key === "diff --name-only HEAD") output = fixture.dirty ? "base.txt" : "";
+    else if (args[0] === "diff" && args.length === 4) output = args[3] === "HEAD" ? "" : "app/page.tsx";
+    else if (args[0] === "ls-files") output = "";
+    else if (args[0] === "merge-tree") { output = "2".repeat(40); code = 0; }
     else if (key === "log -1 --format=%s") output = "installed build";
     else if (args[0] === "log" && fixture.behind) output = "7cffd11\x1flatest update\x1f2026-09-12";
     done(code ? { code } : null, output, "");
@@ -31,6 +36,7 @@ const { getUpdateStatus, blockingReason } = await import("./self-update");
 beforeEach(() => {
   fixture.branch = "main"; fixture.fetchFails = false; fixture.noGit = false;
   fixture.behind = 13; fixture.tags = ""; fixture.targetSha = "7cffd11";
+  fixture.dirty = false;
 });
 
 describe("version discovery independent of restart mechanism", () => {
@@ -57,6 +63,30 @@ describe("version discovery independent of restart mechanism", () => {
   it("keeps an archive deployment explicitly unknown", async () => {
     fixture.noGit = true;
     expect(await getUpdateStatus(true, "main")).toMatchObject({ current: "unknown", remoteChecked: false, supported: false });
+  });
+});
+
+describe("conflict preflight in the status payload", () => {
+  it("adds a read-only conflict report when the checkout is dirty", async () => {
+    fixture.dirty = true;
+    const result = await getUpdateStatus(false, "main");
+    expect(result.dirty).toBe(true);
+    expect(result.conflict).toMatchObject({ conflicted: [], carried: ["base.txt"], overlap: [], safe: true });
+  });
+
+  it("omits the report entirely on a clean, non-diverged checkout", async () => {
+    const result = await getUpdateStatus(false, "main");
+    expect(result.conflict).toBeUndefined();
+  });
+
+  it("refusal stays a string, and the structured report rides alongside it", async () => {
+    fixture.dirty = true;
+    const result = await getUpdateStatus(false, "main");
+    const refusal = blockingReason(result, false);
+    expect(typeof refusal).toBe("string");
+    expect(refusal).toContain("uncommitted changes");
+    expect(refusal).toContain("carry over cleanly");
+    expect(result.conflict?.safe).toBe(true);
   });
 });
 

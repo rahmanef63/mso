@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoUpdateGate, parseCommits, touchesUpdater, type AutoGateFacts } from "./update-decision";
+import { autoUpdateGate, blockingReason, parseCommits, touchesUpdater, updateRefusal, type AutoGateFacts, type UpdateStatus } from "./update-decision";
 
 const facts = (over: Partial<AutoGateFacts> = {}): AutoGateFacts => ({
   auto: true,
@@ -83,6 +83,47 @@ describe("autoUpdateGate", () => {
   it("names the rolling fallback when no release tag exists yet", () => {
     const gate = autoUpdateGate(facts({ behind: 0, target: "origin/main (no release tag exists yet)", targetFallback: true }));
     expect(gate.run === false && gate.reason).toContain("no release tag exists yet");
+  });
+});
+
+const status = (over: Partial<UpdateStatus> = {}): UpdateStatus => ({
+  supported: true, reason: null, current: "abc1234", currentSubject: "feat: something",
+  buildSha: "abc1234", pendingBuild: false, ahead: 0, behind: 3, commits: [], dirty: false,
+  running: false, remoteChecked: true, log: "", target: "origin/main", ...over,
+});
+
+describe("updateRefusal", () => {
+  it("keeps the reason string and stays backward compatible with blockingReason", () => {
+    expect(blockingReason(status(), false)).toBeNull();
+    expect(blockingReason(status({ dirty: true }), false)).toContain("uncommitted changes");
+  });
+
+  it("rides a structured conflict report alongside the unchanged dirty reason", () => {
+    const conflict = {
+      conflicted: [], carried: ["config/local.json"], overlap: [], safe: true, detail: "no merge conflicts",
+    };
+    const refusal = updateRefusal(status({ dirty: true, conflict }), false);
+    expect(refusal.reason).toContain("uncommitted changes");
+    expect(refusal.reason).toContain("carry over cleanly");
+    expect(refusal.reason).toContain("config/local.json");
+    expect(refusal.conflict).toBe(conflict);
+  });
+
+  it("names the conflicting files when the preflight says the update would collide", () => {
+    const conflict = {
+      conflicted: ["app/layout.tsx"], carried: ["app/layout.tsx"], overlap: ["app/layout.tsx"], safe: false, detail: "",
+    };
+    expect(updateRefusal(status({ dirty: true, conflict }), false).reason).toContain("app/layout.tsx");
+  });
+
+  it("carries the report on a diverged refusal and leaves clean states without one", () => {
+    const conflict = {
+      conflicted: ["lib/host/self-update.ts"], carried: [], overlap: [], safe: false, detail: "",
+    };
+    const diverged = updateRefusal(status({ ahead: 2, behind: 3, conflict }), false);
+    expect(diverged.reason).toContain("diverged");
+    expect(diverged.reason).toContain("lib/host/self-update.ts");
+    expect(updateRefusal(status(), false)).toEqual({ reason: null, conflict: null });
   });
 });
 

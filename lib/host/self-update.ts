@@ -5,7 +5,8 @@ import path from "node:path";
 import { HostError } from "./host-error";
 import { offlineUpdateArgs, offlineUpdateRunning } from "./self-update-offline";
 import { prepareUpdateOrigin, updateGitEnv } from "./update-remote-authority";
-import { blockingReason, parseCommits, updateBranchReason, type UpdateStatus } from "./update-decision";
+import { blockingReason, parseCommits, updateBranchReason, updateRefusal, type UpdateStatus } from "./update-decision";
+import { preflightUpdateConflicts } from "./update-conflict";
 import { fetchArgs } from "./self-update-channel";
 import type { UpdateChannel } from "@/lib/prefs/updates";
 import { collectUpdateFacts } from "./update-facts";
@@ -39,7 +40,10 @@ import {
 // (scripts/self-update-auto.ts) must refuse on exactly the same facts.
 
 export type { UpdateCommit, UpdateStatus } from "./update-decision";
-export { blockingReason, parseCommits, updateBranchReason };
+export { blockingReason, parseCommits, updateBranchReason, updateRefusal };
+export type { UpdateRefusal } from "./update-decision";
+export { updateConflictPrompt, preflightUpdateConflicts } from "./update-conflict";
+export type { UpdateConflictReport } from "./update-conflict";
 export { AUTO_UPDATE_UNIT, SELF_UPDATE_UNIT };
 export type { UpdateChannel };
 
@@ -116,6 +120,14 @@ export async function getUpdateStatus(fetchRemote = true, channel?: UpdateChanne
   }
 
   const reason = await automaticUpdateReason(execRunner);
+  const ahead = facts.ahead;
+  const dirty = facts.dirty;
+  // READ-ONLY preflight, and only in the two states where it can change the answer.
+  // `git merge-tree --write-tree` computes the merge in memory: no index, worktree
+  // or HEAD write, so this GET route still never mutates the repository.
+  const conflict = dirty || ahead > 0
+    ? await preflightUpdateConflicts({ targetRef: facts.targetRef, runner: (args) => git(args) })
+    : null;
   return {
     ...base,
     supported: reason === null,
@@ -126,16 +138,17 @@ export async function getUpdateStatus(fetchRemote = true, channel?: UpdateChanne
     // Only when we know both: a build with no sha baked in (an archive export, a
     // dev server) must not be reported as permanently stale.
     pendingBuild: Boolean(buildSha) && facts.head !== "unknown" && !buildSha.startsWith(facts.head) && !facts.head.startsWith(buildSha),
-    ahead: facts.ahead,
+    ahead,
     behind: facts.behind,
     commits: facts.commits,
-    dirty: facts.dirty,
+    dirty,
     running,
     remoteChecked: facts.remoteChecked,
     log,
     channel: effective,
     target: facts.targetLabel,
     targetFallback: facts.targetFallback,
+    ...(conflict ? { conflict } : {}),
   };
 }
 

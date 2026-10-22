@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsBlock } from "@/features/shell-settings";
 import type { UpdateStatus } from "@/lib/host/self-update";
+import { UpdateConflictCard } from "./update-conflict-card";
 
 const OK_MARKER = "UPDATE OK";
 
@@ -138,6 +139,13 @@ export function UpdateStatusCard({
           Local main has {ahead} unpushed commit{ahead > 1 ? "s" : ""}; normal
           update is blocked until it is pushed or reconciled.
         </p>
+      )}
+      {info.conflict && (info.dirty || info.ahead > 0) && (
+        <UpdateConflictCard
+          conflict={info.conflict}
+          target={info.target ?? "origin/main"}
+          current={info.current || "unknown"}
+        />
       )}
       {!info.remoteChecked && !running && (
         <p className="text-[11px] leading-relaxed text-amber-500">
