@@ -43,6 +43,20 @@ export function composioKeyKind(values: InfraProviderValues): "organization" | "
 
 export async function doctorComposio(candidate?: InfraProviderValues): Promise<string | null> {
   const values = candidate ?? await readInfraProvider("composio");
+  // Detect the Connect kind before composioAuthHeader, which correctly refuses it:
+  // a ck_ key is a Connect MCP credential, so reach at the MCP endpoint is the proof.
+  // Lazy imports keep this module cycle-free (composio-connect imports composio).
+  if (composioKeyKind(values) === "connect") {
+    const { listComposioConnectTools } = await import("./composio-connect");
+    try {
+      const { tools } = await listComposioConnectTools(values);
+      return `Composio Connect key accepted; ${tools.length} tool(s) available. Connect keys cannot authorize Platform connected accounts.`;
+    } catch (error) {
+      const { redactComposioMessage } = await import("./composio-session-contract");
+      const detail = redactComposioMessage(error instanceof Error ? error.message : "composio_connect_validation_failed", [values.apiKey, values.orgApiKey]);
+      throw new Error(`${/\b40[13]\b/.test(detail) ? "Composio rejected this Connect key" : "Composio Connect validation failed"}: ${detail}`);
+    }
+  }
   const auth = composioAuthHeader(values);
   if (!auth) return null;
   // Session-info proves the key kind and works for all three kinds; tool listing
