@@ -131,11 +131,17 @@ describe("composio session persistence", () => {
     vi.stubGlobal("fetch", fetchMock);
     await mod.composioSessionForUser({ values: { apiKey: "ak_project_synthetic" }, user: "lara" });
 
-    const file = await fs.stat(storeFile);
-    expect(file.mode & 0o777).toBe(0o600);
+    // One handle: the mode we assert and the bytes we read are the same object.
+    const handle = await fs.open(storeFile, "r");
+    try {
+      const file = await handle.stat();
+      expect(file.mode & 0o777).toBe(0o600);
+      expect(await handle.readFile("utf8")).toContain("ak_returned_credential_value");
+    } finally {
+      await handle.close();
+    }
     const dir = await fs.stat(path.dirname(storeFile));
     expect(dir.mode & 0o777).toBe(0o700);
-    expect((await fs.readFile(storeFile, "utf8"))).toContain("ak_returned_credential_value");
 
     // A second MSO user cannot read it: any permissive mode is refused when reading.
     await fs.chmod(storeFile, 0o644);
