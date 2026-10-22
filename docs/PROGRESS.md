@@ -1,3 +1,28 @@
+## 2026-10-22: Updates check the merge before refusing, and the foundation boundary is written down
+
+A dirty or diverged checkout used to get a bare refusal, leaving a user who simply wanted the
+newest MSO with a stash-or-nothing choice. `lib/host/update-conflict.ts` now runs a READ-ONLY
+preflight with `git merge-tree --write-tree --name-only --no-messages HEAD <target>` (git 2.43):
+that computes the merge in memory, so no index, worktree, stash or HEAD is touched, and only
+throwaway tree objects land in `.git/objects`. It reports `conflicted` (what git cannot merge),
+`carried` (the user's committed + uncommitted + untracked files since the merge base) and
+`overlap` (carried ∩ incoming). `safe` requires a clean merge-tree exit AND no overlap, because
+merge-tree reads commits and cannot prove anything about uncommitted work.
+
+`blockingReason` keeps its `string | null` contract; the new `updateRefusal` returns the same
+sentence plus `conflict`, so `UpdateStatus.conflict` reaches Settings only when the checkout is
+dirty or diverged and `GET /sys/update` stays a read. Settings renders the exact file list and
+copies `updateConflictPrompt()` — a plain-text instruction that names the target/current commit
+and every path, tells an agent to preserve `~/.mso` and local commits, and forbids
+`git push --force`, `git reset --hard` and deleting user files. `docs/ARCHITECTURE.md` now states
+the foundation-vs-user-customizations boundary the user requires, with the before-not-after rule.
+
+Coverage: 9 real-git tests in `lib/host/update-conflict.test.ts` (mkdtemp 0700 fixture) prove the
+three preflight states, the no-mutation invariant (HEAD, `status --porcelain`, `ls-files`,
+`stash list` identical before/after) and prompt contents, plus extended decision/status tests.
+The custom PWA install pill is gone (`app/install-prompt.tsx` deleted); `RegisterSW`, the
+manifest and the service worker are untouched, so installability stays a browser-menu action.
+
 ## 2026-10-21: Shell-app domain provisioning (phase 1, worker B)
 
 New `lib/surfaces/app-domain-provision.ts` provisions a public hostname for a shell-app entry:

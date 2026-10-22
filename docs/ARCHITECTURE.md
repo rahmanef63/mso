@@ -333,6 +333,51 @@ future archaeology task.
 
 Each MSO connector/server scope owns its own Page app catalog. Core MSO Page code must not import project identities or trusted frame origins from another server scope. Portable source ships with an empty external-app catalog. An installation may opt into reviewed apps through the bounded owner-local `~/.mso/surface-apps.json` registry (or an explicit `MSO_SURFACE_APPS_JSON` override); MSO re-reads the registry when the Page resource is read and validates each exact HTTPS origin, approved start-path prefix, renderer, sandbox, and presentation before it can enter Page CSP. The dedicated widget origin is installation-derived from `OS_MCP_UI_ORIGIN` / `OS_PUBLIC_ORIGIN`. The Block resource has no frame domains.
 
+## Foundation vs user customizations
+
+An update must never silently disturb a user's own work on their MSO. This section
+describes the boundary that already exists; it does not create directories or a new
+extension mechanism.
+
+**MSO foundation — owned by the updater, replaced wholesale by `git pull`:**
+
+| Path | What it is |
+|---|---|
+| `app/` | Next.js routes, OAuth endpoints, public install surface |
+| `lib/` | Host, auth, MCP, infra and managed-app authorities |
+| `components/` | Shared UI primitives used by every slice |
+| `scripts/` | Install, release gates, service/updater helpers, terminal agent |
+| `frontend/slices/` core | The shipped slices (`appshell`, `os-shell`, `os-settings`, …) and their contracts |
+| `schemas/` | Versioned JSON schemas for portable bundles |
+| `templates/` | Shipped app / skill-flow templates |
+
+A user edit inside these paths is replaced by the next update. That is intended for
+foundation code, and it is exactly why the update path must name such a file before it
+is replaced (below).
+
+**User extension points — an update must never clobber these silently:**
+
+- **Per-user private state under `~/.mso`** — preferences, credential/integration
+  connections, workflow persistence, update state and logs. It lives outside the
+  checkout, so `git pull` cannot reach it and no update step may move it into the repo.
+- **Their own worktree branches** — `agent/*` worktrees under `~/.cache/mso-worktrees`
+  and any branch the user created. An update moves `main`; it does not rewrite, prune,
+  merge or delete another branch.
+- **Local commits they carry** — commits on `main` that are not on the target. MSO
+  refuses to fast-forward over them and reports ahead/behind instead.
+
+Custom *features* are therefore expressed either as state under `~/.mso` (never
+overwritten) or as local commits/branches (never overwritten, only reported). A
+customization made by editing foundation files directly is carried but not protected:
+it is precisely what the preflight has to surface.
+
+**The rule:** an update that would touch a user-modified file must name that file
+BEFORE updating, never after. `lib/host/update-conflict.ts` implements the read-only
+preflight (`git merge-tree`, no index/worktree/HEAD write) that produces the list,
+`UpdateStatus.conflict` carries it to Settings, and `updateConflictPrompt()` hands the
+operator a paste-ready instruction when files actually conflict. Reporting after a
+failed build describes damage instead of preventing it.
+
 ## Server-native workflow graph
 
 ## Organization and agent routing
