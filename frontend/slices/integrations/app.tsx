@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { syncIntegrationFrameTokens } from "./frame-theme";
+import { ComposioSessionPanel } from "./composio-session-panel";
 
 /** Preserve transfer/setup deep links without putting private capabilities in React state. */
 export function managerLocation(search: string, hash = "") {
@@ -46,6 +47,7 @@ export default function IntegrationsApp() {
         </p>
         {status === "error" && <Button variant="secondary" onClick={() => { setStatus("loading"); setRetry(n => n + 1); }}>Retry</Button>}
       </div>}
+      <ComposioSessionPanel />
       <iframe ref={frame} title="MSO native Integrations manager" className="min-h-0 w-full flex-1 border-0"
         referrerPolicy="no-referrer" onLoad={() => { if (frame.current?.getAttribute("src")) { syncIntegrationFrameTokens(frame.current); setStatus("ready"); } }}
         onError={() => setStatus("error")} />

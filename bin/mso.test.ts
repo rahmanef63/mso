@@ -122,6 +122,8 @@ describe("bin/mso", () => {
     // `mso oauth <provider> start|poll` covers it.
     const browserOnly = [
       "POST /api/v1/integrations/transfer", // File/passphrase input belongs to the authenticated browser, opened by mso integrations transfer.
+      // Per-owner Composio session (both methods); its MCP headers are the credential.
+      "/api/v1/integrations/composio/session",
       // Credential input is delegated to a write-only browser capability; the
       // named CLI setup verb opens that form without placing keys in shell/tool JSON.
       "POST /api/integrations/setup",

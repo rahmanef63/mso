@@ -2,7 +2,8 @@ import type { InfraProviderValues } from "./types";
 import { readInfraProvider } from "./store";
 import { request } from "./http";
 
-const API = "https://backend.composio.dev/api/v3.1";
+export const COMPOSIO_API_BASE = "https://backend.composio.dev/api/v3.1";
+const API = COMPOSIO_API_BASE;
 
 /**
  * Composio keys live on two different products and only one of them is this
@@ -29,6 +30,15 @@ export function composioAuthHeader(values: InfraProviderValues): { header: Recor
   if (composioConnectKey(key)) throw new Error(COMPOSIO_CONNECT_KEY_MESSAGE);
   if (key.startsWith("uak_")) return { header: { "x-user-api-key": key }, kind: "user" };
   return { header: { "x-api-key": key }, kind: "project" };
+}
+
+/** Which Platform key kind is stored. Safe for a UI: it never touches the key value. */
+export function composioKeyKind(values: InfraProviderValues): "organization" | "user" | "project" | "connect" | null {
+  if (composioConnectKey(values.orgApiKey) || composioConnectKey(values.apiKey)) return "connect";
+  if (values.orgApiKey?.trim()) return "organization";
+  const key = values.apiKey?.trim();
+  if (!key) return null;
+  return key.startsWith("uak_") ? "user" : "project";
 }
 
 export async function doctorComposio(candidate?: InfraProviderValues): Promise<string | null> {

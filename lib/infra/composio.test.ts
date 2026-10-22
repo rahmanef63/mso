@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
-import { composioAuthHeader, doctorComposio } from "./composio";
+import { composioAuthHeader, composioKeyKind, doctorComposio } from "./composio";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -35,5 +35,13 @@ describe("composio connect consumer keys", () => {
     expect(() => composioAuthHeader({ apiKey: "ck_consumer_key" })).toThrow(/Project MCP/);
     expect(() => composioAuthHeader({ orgApiKey: "ck_consumer_key" })).toThrow(/Project MCP/);
     expect(() => composioAuthHeader({ apiKey: "ak_project" })).not.toThrow();
+  });
+
+  it("reports the key kind for a form without exposing the value", () => {
+    expect(composioKeyKind({ apiKey: "ak_project" })).toBe("project");
+    expect(composioKeyKind({ apiKey: "uak_user" })).toBe("user");
+    expect(composioKeyKind({ orgApiKey: "org_admin" })).toBe("organization");
+    expect(composioKeyKind({ apiKey: "ck_consumer_key" })).toBe("connect");
+    expect(composioKeyKind({})).toBeNull();
   });
 });
