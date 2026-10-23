@@ -6,8 +6,27 @@ import { randomUUID } from "node:crypto";
 import { mutateIntegrationState } from "./connection-storage";
 import { createConnectionIn, summaryIn } from "./connection-service";
 import { IntegrationError, identity, connectionLabel, canonicalFolder, selectConnection, metadataOnly, assertNotBusy, type ConnectionSource } from "./identity";
-export const INTEGRATION_ACTIONS=["variable.set","variable.delete","user.create","user.rename","user.duplicate","user.delete","user.default","folder.map","folder.unmap","connection.create","connection.rename","connection.default","connection.delete","connection.share","connection.duplicate","connection.unshare","credential.delete"] as const;
+import { createDemoCredential, listDemoCredentials, getDemoCredential, updateDemoCredential, deleteDemoCredential } from "./demo-credentials";
+// Demo logins are agent-created, workspace-scoped throwaways, not API keys: they are
+// CRUD'd through this same manager so an agent needs no second surface.
+export const DEMO_ACTIONS=["demo.create","demo.list","demo.get","demo.update","demo.delete"] as const;
+const DEMO_FIELDS:Record<string,string[]>={"demo.create":["cwd","email","password","label","site","notes"],"demo.list":["cwd"],"demo.get":["cwd","id"],"demo.update":["cwd","id","email","password","label","site","notes"],"demo.delete":["cwd","id"]};
+/** The password is a real secret, so these actions run BEFORE metadataOnly: every
+ *  other action keeps rejecting secret-shaped keys. */
+export async function runDemoAction(action:string,input:Record<string,unknown>){
+  const allowed=DEMO_FIELDS[action];if(!allowed)throw new IntegrationError("invalid_management_fields");
+  if(Object.keys(input).some(k=>!["action","confirm",...allowed].includes(k)))throw new IntegrationError("invalid_management_fields");
+  if(action!=="demo.list"&&action!=="demo.get"&&input.confirm!==true)throw new IntegrationError("confirmation_required",403);
+  if(action==="demo.create")return createDemoCredential(input);
+  if(action==="demo.list")return listDemoCredentials(input);
+  if(action==="demo.get")return getDemoCredential(input);
+  if(action==="demo.update")return updateDemoCredential(input);
+  return deleteDemoCredential(input);
+}
+export const INTEGRATION_ACTIONS=["variable.set","variable.delete","user.create","user.rename","user.duplicate","user.delete","user.default","folder.map","folder.unmap","connection.create","connection.rename","connection.default","connection.delete","connection.share","connection.duplicate","connection.unshare","credential.delete",...DEMO_ACTIONS] as const;
 export async function integrationManage(input:Record<string,unknown>){
+  const requested=String(input.action);
+  if((DEMO_ACTIONS as readonly string[]).includes(requested))return runDemoAction(requested,input);
   metadataOnly(input);if(input.confirm!==true)throw new IntegrationError("confirmation_required",403);
   const shapes:Record<string,string[]>={
     "variable.set":["key","user","provider","connection"],"variable.delete":["key"],

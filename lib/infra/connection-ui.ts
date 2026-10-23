@@ -36,6 +36,21 @@ function mountConnectionManager(root,catalog,bridge,initial={}){
   function showTransfer(){navMode="transfer";activateNav(navMode);setSidebar(false);if(bridge.mountTransfer)bridge.mountTransfer(detail,()=>{navMode="provider";activateNav(navMode);drawProvider()});else if(bridge.openTransfer)bridge.openTransfer();else bridge.openTransferBrowser?.()}
   function showProjectMcp(){navMode="project-mcp";activateNav(navMode);setSidebar(false);mountProjectMcpForm(detail,bridge,snapshot,user,status,()=>{navMode="provider";activateNav(navMode);drawProvider()},{n,b,input})}
   function showVariables(){navMode="variables";activateNav(navMode);setSidebar(false);variables()}
+  function showDemoUsers(){navMode="demo-users";activateNav(navMode);setSidebar(false);void demoUsers()}
+  // Reveal is a human action: it is the one request that may carry a stored secret,
+  // and the server audits every attempt. Never called on panel load.
+  async function reveal(body){const r=await fetch("/api/v1/integrations",{method:"POST",credentials:"same-origin",cache:"no-store",referrerPolicy:"no-referrer",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:"reveal",...body})});const data=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(data.error||"reveal_failed"),{code:data.error});return data}
+  // Masked value + eye toggle + copy. The value is fetched only when the human asks,
+  // re-masks on toggle-off and after a timeout.
+  function secretControl(body,label){
+    const wrap=n("span",undefined,"identity-secret"),shown=n("code","••••••••","identity-secret-value"),note=n("small","","identity-muted");let value=null,timer;
+    const clear=()=>{value=null;shown.textContent="••••••••";eye.textContent="Reveal";note.textContent="";clearTimeout(timer)};
+    const fetchValue=async()=>{if(value!==null)return value;const data=await reveal(body);if(typeof data.value!=="string")throw new Error("reveal_failed");value=data.value;return value};
+    const eye=b("Reveal",async()=>{if(value!==null){clear();return}try{const next=await fetchValue();shown.textContent=next;eye.textContent="Hide";note.textContent="Revealed — this read is logged.";timer=setTimeout(clear,30000)}catch(e){clear();status.textContent=textError(e)}},"identity-secret-toggle");
+    const copy=b("Copy",async()=>{try{await navigator.clipboard.writeText(await fetchValue());note.textContent="Copied — this read is logged.";timer=setTimeout(clear,30000)}catch(e){status.textContent=textError(e)}},"identity-secret-copy");
+    eye.setAttribute("aria-label","Reveal "+label);copy.setAttribute("aria-label","Copy "+label);
+    wrap.append(shown,eye,copy,note);return wrap;
+  }
   function showAiProviders(){navMode="ai-providers";activateNav(navMode);setSidebar(false);void aiProviders()}
   function selectProvider(p){provider=p;navMode="provider";remember();activateNav(navMode);setSidebar(false);drawProvider()}
   function draw(){
@@ -55,11 +70,12 @@ function mountConnectionManager(root,catalog,bridge,initial={}){
       ["owners","Credential owners",showProfiles],
       ["ai-providers","AI Providers",showAiProviders],
       ["variables","Variables",showVariables],
+      ["demo-users","Demo users",showDemoUsers],
       ["routing","Project routing",showBindings],
       ["transfer","Transfer & backup",showTransfer],
       ["project-mcp","Add project MCP",showProjectMcp],
     ];
-    for(const [mode,label,fn] of management){const item=b(label,fn,"integration-nav-item integration-nav-utility");if((mode==="owners"||mode==="routing")&&!bridge.manage)item.disabled=true;if(mode==="transfer"&&!bridge.openTransfer&&!bridge.openTransferBrowser)item.disabled=true;if(mode==="project-mcp"&&!bridge.projectMcp)item.disabled=true;navButtons.push({mode,provider:null,button:item});manageGroup.append(item)}
+    for(const [mode,label,fn] of management){const item=b(label,fn,"integration-nav-item integration-nav-utility");if((mode==="owners"||mode==="routing")&&!bridge.manage)item.disabled=true;if(mode==="demo-users"&&(!bridge.manage||!bridge.execute))item.disabled=true;if(mode==="transfer"&&!bridge.openTransfer&&!bridge.openTransferBrowser)item.disabled=true;if(mode==="project-mcp"&&!bridge.projectMcp)item.disabled=true;navButtons.push({mode,provider:null,button:item});manageGroup.append(item)}
     nav.append(connectionGroup,manageGroup);sidebarPanel.append(nav);
     const sidebarFooter=n("div",undefined,"integration-sidebar-footer"),refresh=b("Refresh",reload);sidebarFooter.append(refresh);sidebarPanel.append(sidebarFooter);
     search.addEventListener("input",()=>{const q=search.value.trim().toLowerCase();for(const entry of navButtons){if(entry.mode!=="provider")continue;const p=catalog.find(row=>row.id===entry.provider);entry.button.hidden=Boolean(q)&&!(p.title+" "+p.id).toLowerCase().includes(q)}});
@@ -69,7 +85,7 @@ function mountConnectionManager(root,catalog,bridge,initial={}){
     detail=n("section",undefined,"identity-detail integration-settings-detail");status=n("p",undefined,"identity-feedback");status.setAttribute("role","status");status.setAttribute("aria-live","polite");content.append(detail,status);
     shell.append(sidebarPanel,sidebarBackdrop,content);root.append(shell);container=shell;
     activateNav(navMode);
-    if(navMode==="owners")profiles();else if(navMode==="variables")variables();else if(navMode==="ai-providers")void aiProviders();else if(navMode==="routing")bindings();else if(navMode==="project-mcp")showProjectMcp();else drawProvider();
+    if(navMode==="owners")profiles();else if(navMode==="variables")variables();else if(navMode==="demo-users")void demoUsers();else if(navMode==="ai-providers")void aiProviders();else if(navMode==="routing")bindings();else if(navMode==="project-mcp")showProjectMcp();else drawProvider();
   }
   function confirmation(title,id,fn){detail.replaceChildren(n("h2",title),n("p","This changes only the selected identity. Type “"+id+"” to confirm."));const value=input("Confirmation");detail.append(value.label,b("Confirm",()=>{if(value.input.value!==id){status.textContent="Confirmation does not match.";return}void fn()},"danger"),b("Cancel",()=>{navMode="provider";activateNav(navMode);drawProvider()}));}
   function profiles(){
@@ -102,6 +118,31 @@ function mountConnectionManager(root,catalog,bridge,initial={}){
     providerSelect.addEventListener("change",fillConnections);fillConnections();key.input.addEventListener("input",()=>key.input.value=key.input.value.toUpperCase().replace(/[^A-Z0-9_]/g,"").slice(0,64));
     const fields=n("div",undefined,"identity-fields");fields.append(key.label,providerLabel,connectionLabel);editor.append(fields);
     const save=b("Save variable",()=>{if(!key.input.value||!connectionSelect.value){status.textContent="Choose a variable name and named connection.";return}void change({action:"variable.set",key:key.input.value,user,provider:providerSelect.value,connection:connectionSelect.value})},"primary");save.disabled=!bridge.manage;editor.append(save);detail.append(editor);
+  }
+  async function demoUsers(){
+    detail.replaceChildren(n("h2","Demo users"),n("p","Throwaway logins the agent may create to test a site in this project. Scoped by the project folder’s credential binding; passwords are never listed, only revealed on demand."));
+    const bindings=Array.isArray(snapshot.bindings)?snapshot.bindings:[];
+    if(!bindings.length){detail.append(n("p","Bind a project folder to a credential owner under Project routing first.","identity-muted"));return}
+    const folder=n("select"),folderLabel=n("label","Project folder");folderLabel.append(folder);
+    for(const binding of bindings){const o=n("option",binding.path);o.value=binding.path;folder.append(o)}
+    if(initial.cwd&&bindings.some(b=>b.path===initial.cwd))folder.value=initial.cwd;
+    detail.append(folderLabel);
+    const cards=n("div");detail.append(cards);
+    const emailInput=input("Demo email","","email"),passwordInput=input("Password","","password"),labelInput=input("Label (optional)"),siteInput=input("Site / URL (optional)"),notesInput=input("Notes (optional)");
+    passwordInput.input.autocomplete="new-password";
+    const create=b("Create demo user",async()=>{try{status.textContent="Saving demo user…";await bridge.execute({operation:"demo.create",confirm:true,arguments:{cwd:folder.value,email:emailInput.input.value,password:passwordInput.input.value,label:labelInput.input.value||undefined,site:siteInput.input.value||undefined,notes:notesInput.input.value||undefined}});passwordInput.input.value="";status.textContent="Demo user saved.";await demoUsers()}catch(e){status.textContent=textError(e)}},"primary");
+    create.disabled=!bridge.manage;
+    const editor=n("div",undefined,"connection-card");editor.append(n("h3","New demo user"),emailInput.label,passwordInput.label,labelInput.label,siteInput.label,notesInput.label,create);detail.append(editor);
+    const list=async()=>{try{const out=await bridge.execute({operation:"demo.list",arguments:{cwd:folder.value}}),rows=Array.isArray(out.demoUsers)?out.demoUsers:[];cards.replaceChildren();
+      if(!rows.length){cards.append(n("p","No demo users for this project yet.","identity-muted"));return}
+      for(const row of rows){const card=n("article",undefined,"connection-card"),top=n("header",undefined,"connection-heading"),copy=n("div");copy.append(n("h3",row.label||row.email),n("small",row.email+(row.site?" · "+row.site:"")));top.append(copy,n("span","Demo user","connection-state"));card.append(top);
+        const creds=n("div",undefined,"identity-credential-status"),emailLine=n("div"),emailCopy=b("Copy email",async()=>{try{await navigator.clipboard.writeText(row.email);status.textContent="Email copied."}catch(e){status.textContent=textError(e)}});emailLine.append(n("span","Email"),n("span",row.email,"credential-field-state"),emailCopy);creds.append(emailLine);
+        const passwordLine=n("div");passwordLine.append(n("span","Password"),secretControl({demoId:row.id,key:"password",cwd:folder.value},"demo password"));creds.append(passwordLine);
+        if(row.notes)card.append(n("p",row.notes,"identity-muted"));
+        card.append(creds);
+        const actions=n("div",undefined,"identity-actions"),del=b("Delete",()=>confirmation("Delete demo user",row.id,async()=>{try{await bridge.execute({operation:"demo.delete",confirm:true,arguments:{cwd:folder.value,id:row.id}});await demoUsers()}catch(e){status.textContent=textError(e)}}),"danger");del.disabled=!bridge.manage;actions.append(del);card.append(actions);cards.append(card)}
+    }catch(e){status.textContent=textError(e)}};
+    folder.addEventListener("change",()=>void list());await list();
   }
   async function aiProviders(){
     detail.replaceChildren(n("h2","AI Providers"),n("p","Configure Alfa’s active model provider here. This view uses the same AI runtime/config store as Settings; it does not create another credential registry."));
@@ -139,7 +180,7 @@ function mountConnectionManager(root,catalog,bridge,initial={}){
       const open=b(c.source==="direct"?(c.fields.some(f=>f.stored)?"Update credentials":"Finish setup"):"Authorize",()=>{if(c.source==="direct")void bridge.openSetup({user,provider:provider.id,connection:c.id}).catch(e=>status.textContent=textError(e));else external(c)});open.disabled=!bridge.manage;if(!c.sharedFrom)actions.append(open);
       const verify=b("Verify",async()=>{try{status.textContent="Checking selected connection…";const result=await bridge.execute({user,provider:provider.id,connection:c.id,operation:"verify"});await reload();status.textContent=(result.ok===true?"Verified: ":"Status: ")+result.detail}catch(e){status.textContent=textError(e)}});verify.disabled=!bridge.execute;actions.append(verify);
       const rename=b("Rename",()=>{detail.replaceChildren(n("h2","Rename connection"));const name=input("Label",c.label);detail.append(name.label,b("Save label",()=>change({action:"connection.rename",user,provider:provider.id,connection:c.id,label:name.input.value})),b("Cancel",()=>{navMode="provider";activateNav(navMode);drawProvider()}))});rename.disabled=!bridge.manage;secondary.append(rename);
-      if(c.sharedFrom){card.append(n("p","Read-only shared backing: "+c.sharedFrom.user+" / "+c.sharedFrom.connection,"identity-muted"));}else if(c.source==="direct"){const fields=n("div",undefined,"identity-credential-status");for(const f of c.fields){const line=n("div");line.append(n("span",f.label));const fieldState=n("span",f.stored?"Stored":"Missing","credential-field-state");fieldState.dataset.stored=String(f.stored);line.append(fieldState);if(f.stored){const remove=b("Remove",()=>confirmation("Remove credential field",f.key,()=>change({action:"credential.delete",user,provider:provider.id,connection:c.id,key:f.key})),"danger");remove.disabled=!bridge.manage;line.append(remove)}fields.append(line)}card.append(fields);if(c.fields.some(f=>f.stored)){const clear=b("Clear credentials",()=>confirmation("Clear this connection's credential fields",c.id,()=>change({action:"credential.delete",user,provider:provider.id,connection:c.id})),"danger");clear.disabled=!bridge.manage;secondary.append(clear)}}
+      if(c.sharedFrom){card.append(n("p","Read-only shared backing: "+c.sharedFrom.user+" / "+c.sharedFrom.connection,"identity-muted"));}else if(c.source==="direct"){const fields=n("div",undefined,"identity-credential-status");for(const f of c.fields){const line=n("div");line.append(n("span",f.label));const fieldState=n("span",f.stored?"Stored":"Missing","credential-field-state");fieldState.dataset.stored=String(f.stored);line.append(fieldState);if(f.stored){line.append(secretControl({user,provider:provider.id,connection:c.id,key:f.key},f.label));const remove=b("Remove",()=>confirmation("Remove credential field",f.key,()=>change({action:"credential.delete",user,provider:provider.id,connection:c.id,key:f.key})),"danger");remove.disabled=!bridge.manage;line.append(remove)}fields.append(line)}card.append(fields);if(c.fields.some(f=>f.stored)){const clear=b("Clear credentials",()=>confirmation("Clear this connection's credential fields",c.id,()=>change({action:"credential.delete",user,provider:provider.id,connection:c.id})),"danger");clear.disabled=!bridge.manage;secondary.append(clear)}}
       if(!c.isDefault){const def=b("Make default",()=>change({action:"connection.default",user,provider:provider.id,connection:c.id}));def.disabled=!bridge.manage;secondary.append(def)}
       if(c.sharedFrom){const unshare=b("Unshare",()=>confirmation("Remove shared alias",c.id,()=>change({action:"connection.unshare",user,provider:provider.id,connection:c.id})),"danger");unshare.disabled=!bridge.manage;secondary.append(unshare)}else{if(c.source==="direct"&&!provider.nativeGoogle){const share=b("Share linked access",()=>shareConnection(c));share.disabled=!bridge.manage;secondary.append(share)}const duplicate=b("Copy to another owner",()=>copyConnection(c));duplicate.disabled=!bridge.manage;secondary.append(duplicate)}
       if(!c.sharedFrom){const del=b("Delete",()=>confirmation("Delete named connection",c.id,()=>change({action:"connection.delete",user,provider:provider.id,connection:c.id})),"danger");del.disabled=!bridge.manage;secondary.append(del);}actions.append(more);card.append(actions);if(c.lastCheck)card.append(n("small","Last checked "+new Date(c.lastCheck.checkedAt).toLocaleString()+" · "+stateLabel(c)));else if(c.verifiedAt)card.append(n("small","Last verified "+new Date(c.verifiedAt).toLocaleString()));detail.append(card);

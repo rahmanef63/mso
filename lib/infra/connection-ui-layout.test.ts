@@ -24,8 +24,7 @@ it("keeps transfer inside the selected detail pane when the browser bridge suppo
 });
 
 it("keeps AI Providers on the existing AI config/runtime SSOT and browser-only credential bridge", () => {
-  expect(() => new Function(CONNECTION_MANAGER_SCRIPT)).not.toThrow();
-  expect(CONNECTION_MANAGER_SCRIPT).toContain("same AI runtime/config store as Settings");
+  expect(() => new Function(CONNECTION_MANAGER_SCRIPT)).not.toThrow();  expect(CONNECTION_MANAGER_SCRIPT).toContain("same AI runtime/config store as Settings");
   expect(CONNECTION_MANAGER_SCRIPT).toContain("Integration Variables");
   expect(CONNECTION_MANAGER_SCRIPT).toContain("~typesafe/jev-latest");
   expect(CONNECTION_MANAGER_SCRIPT).toContain("same OpenRouter key managed here and in Settings");
@@ -44,4 +43,19 @@ it("keeps AI Providers on the existing AI config/runtime SSOT and browser-only c
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiTest=()=>json("/api/models/test"');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiOauth=body=>json("/api/oauth/openai"');
   expect(INTEGRATION_BROWSER_SCRIPT).toContain('bridge.aiRemove=provider=>json("/api/config?provider="');
+});
+
+it("exposes the demo-user panel and a reveal-only secret control", () => {
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('["demo-users","Demo users",showDemoUsers]');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('operation:"demo.create"');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('operation:"demo.list"');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('operation:"demo.delete"');
+  // Reveal is fetched on demand only: one mode, no value carried on panel load.
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('"/api/v1/integrations"');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('mode:"reveal"');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('navigator.clipboard.writeText');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('"Revealed — this read is logged."');
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('setTimeout(clear,30000)');
+  // The demo password is masked until asked for, exactly like a stored key.
+  expect(CONNECTION_MANAGER_SCRIPT).toContain('secretControl({demoId:row.id,key:"password"');
 });

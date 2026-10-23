@@ -14,7 +14,11 @@ import { callNamedMcpConnectionTool, listNamedMcpConnectionTools } from "./mcp-c
 export const safeActionInput=(input:Record<string,unknown>)=>Object.fromEntries(Object.entries(input).filter(([key])=>key!=="workflow_id"));
 export const selectionFrom=(a:Record<string,unknown>):ConnectionSelector=>({user:typeof a.user==="string"?a.user:undefined,connection:typeof a.connection==="string"?a.connection:undefined,cwd:typeof a.cwd==="string"?a.cwd:undefined});
 export async function manageIntegrationAction(raw:Record<string,unknown>){
-  const a=safeActionInput(raw);metadataOnly(a);
+  const a=safeActionInput(raw);
+  // demo.* carries a real password, so it must bypass metadataOnly; the allowlisted
+  // handler still rejects any other action that ships a secret-shaped key.
+  if(String(a.action).startsWith("demo."))return integrationManage(a);
+  metadataOnly(a);
   if(a.action==="connection.import-convex-cli"){
     if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
     if(Object.keys(a).some(k=>!["action","confirm","user","provider","connection"].includes(k)))throw new IntegrationError("invalid_management_fields");
@@ -34,6 +38,14 @@ export async function manageIntegrationAction(raw:Record<string,unknown>){
 }
 export async function executeIntegrationAction(raw:Record<string,unknown>){
   const a=safeActionInput(raw),operation=String(a.operation);
+  // Demo login CRUD is agent-side: no provider/connection, but a real cwd resolved by
+  // folder binding. It runs before metadataOnly because the password IS the payload.
+  if(operation.startsWith("demo.")){
+    if(Object.keys(a).some(k=>!["user","provider","connection","operation","arguments","tool","confirm"].includes(k)))throw new IntegrationError("invalid_execution_fields");
+    const demoArgs=a.arguments;if(!demoArgs||typeof demoArgs!=="object"||Array.isArray(demoArgs))throw new IntegrationError("invalid_tool_arguments");
+    // Spread first so the operation itself and the confirmation flag cannot be overridden.
+    return integrationManage({...demoArgs as Record<string,unknown>,action:operation,confirm:a.confirm===true});
+  }
   if(operation==="dokploy.application.publicEnv.upsert"){
     const {arguments:operationArgs,...meta}=a;metadataOnly(meta);
     const args=operationArgs;if(!args||typeof args!=="object"||Array.isArray(args))throw new IntegrationError("invalid_tool_arguments");
