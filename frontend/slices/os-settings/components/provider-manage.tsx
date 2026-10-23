@@ -28,11 +28,19 @@ export function ProviderManage({
       </SettingsBlock>
 
       <SettingsBlock>
-        <Button variant="ghost" size="sm" className="text-muted-foreground [@media(pointer:coarse)]:min-h-[44px]" onClick={() => setShowAdd((s) => !s)}>
-          <Plus className="size-3.5" /> Add custom provider
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={showAdd}
+          aria-controls="custom-provider-form"
+          className="text-muted-foreground [@media(pointer:coarse)]:min-h-[44px]"
+          onClick={() => setShowAdd((s) => !s)}
+        >
+          <Plus className={`size-3.5 transition-transform ${showAdd ? "rotate-45" : ""}`} />
+          {showAdd ? "Close custom provider form" : "Add custom provider"}
         </Button>
-        {showAdd && (
-          <div className="mt-2">
+        {showAdd ? (
+          <div id="custom-provider-form" className="mt-2">
             <CustomProviderForm
               onAdded={() => {
                 setShowAdd(false);
@@ -40,6 +48,11 @@ export function ProviderManage({
               }}
             />
           </div>
+        ) : (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Any OpenAI-compatible or Anthropic-Messages endpoint — paste its base URL and key,
+            then Discover to pull in the model ids it serves.
+          </p>
         )}
       </SettingsBlock>
 

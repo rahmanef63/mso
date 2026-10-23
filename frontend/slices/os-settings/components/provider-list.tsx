@@ -51,6 +51,11 @@ export function ProviderList({
           {p.id === selected && (
             <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[11px] text-primary">active</span>
           )}
+          {p.kind === "custom" && (
+            <span className="text-[11px] text-muted-foreground">
+              {p.models?.length ? `${p.models.length} model${p.models.length === 1 ? "" : "s"}` : "no models yet"}
+            </span>
+          )}
           <span className="ml-auto truncate text-xs text-muted-foreground">{p.baseUrl || p.masked}</span>
           <Button
             size="icon"
