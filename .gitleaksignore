@@ -49,3 +49,9 @@ aff0713f4630404be63127c9ce733baa78d9003c:lib/a2a/client-security.test.ts:generic
 # Reviewed Orca env fixture: synthetic placeholder string in a test, no live credential
 # and no provider request. Present only in history reachable from another open branch.
 2b153d9ec2fe55d17799805c9e8284bbef787669:scripts/orca/env.test.mjs:generic-api-key:15
+
+# Reviewed Convex provider/linker fixtures on agent/152-convex-provider: placeholder
+# strings (pat_synthetic_*/synthetic_*) asserted only against in-memory state, no network.
+# Exact commit/file/rule fingerprints, not path or rule suppression.
+ab663bb5ea26be4fb3e4f640e7224c46c23fa7f7:lib/infra/connection-registry.test.ts:generic-api-key:43
+ab663bb5ea26be4fb3e4f640e7224c46c23fa7f7:lib/infra/convex-migrate.test.ts:generic-api-key:149

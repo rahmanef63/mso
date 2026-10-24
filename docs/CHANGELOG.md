@@ -11,6 +11,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `install` bump vendored node-gyp lock undici 6.29.0 -> 6.29.1
 - `deps` bump zod past GHSA-mrhx-c7xc-m3w5 (>=4.6.6)
 
+**Chores**
+
+- `security` allowlist reviewed Convex 152 fixtures reachable from other open branch
+
 ## 2026-10-23
 
 **Added**
