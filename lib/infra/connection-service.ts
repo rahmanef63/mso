@@ -6,6 +6,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { connectionCatalog, connectionMethod, connectionSummary, nativeDefinition } from "./connection-registry";
 import { readIntegrationState, mutateIntegrationState } from "./connection-storage";
 import { IntegrationError, identity, connectionLabel, selectConnection, resolveUser, folderBinding, metadataOnly, assertNotBusy, resolveSharedConnection, type ConnectionSelector, type IntegrationState, type IntegrationConnection, type ConnectionSource } from "./identity";
+import { projectKey } from "./convex-project-link";
 import { normalizeInfraValues, isInfraProviderId } from "./catalog";
 const CONTEXT=new AsyncLocalStorage<{selector:ConnectionSelector; pinned:Map<string,Record<string,string>>}>();
 export function withIntegrationSelection<T>(selector:ConnectionSelector,fn:()=>T){return CONTEXT.run({selector,pinned:new Map()},fn);}
@@ -60,11 +61,55 @@ export async function saveConnectionValues(provider:string,selector:ConnectionSe
     return summaryIn(state,r.user,c);
   });
 }
+/**
+ * Per-project view over the SAME store. A connection carries zero or more project
+ * associations, so "one deployment, several projects" is representable without a
+ * duplicate row. No `kind` filter: cloud and self-hosted rows come back together.
+ *
+ * `state` keeps "the deployment is down" (`deployment-unreachable`) apart from "the
+ * credential was rejected" (`credential-rejected`) — different operator fixes.
+ */
+export type ProjectProviderState = "linked-healthy" | "deployment-unreachable" | "credential-rejected" | "unverified";
+export type ProjectProviderRow = {
+  user: string; provider: string; connection: string; label: string;
+  kind: "cloud" | "self-hosted" | null; scope: string; state: ProjectProviderState;
+  projects: string[]; projectCount: number; verifiedAt: number | null;
+};
+const deploymentKind=(provider:string):ProjectProviderRow["kind"]=>provider==="convex-cloud"?"cloud":provider==="convex"?"self-hosted":null;
+const healthOf=(state:string):ProjectProviderState=>state==="verified"?"linked-healthy":state==="unavailable"?"deployment-unreachable":state==="invalid"?"credential-rejected":"unverified";
+const isProjectKey=(value:unknown):value is string=>{try{projectKey(value);return true;}catch{return false;}};
+export async function projectProviderQuery(input:{project?:string;selector?:ConnectionSelector}={}){
+  const state=await readIntegrationState(),project=input.project;
+  const users=input.selector?.user?[identity(input.selector.user,"user")]:Object.keys(state.users);
+  const rows:ProjectProviderRow[]=users.filter(u=>Object.hasOwn(state.users,u)).flatMap(user=>
+    Object.values(state.users[user].connections).flatMap(connections=>
+      Object.values(connections).map(c=>{
+        // The store validator does not own this additive field, so re-validate here:
+        // a hand-edited or foreign state file cannot smuggle an arbitrary string out.
+        const summary=summaryIn(state,user,c),projects=[...new Set((c.projects??[]).filter(isProjectKey))].sort();
+        return{user,provider:c.provider,connection:c.id,label:summary.label,kind:deploymentKind(c.provider),scope:c.scope,state:healthOf(String(summary.state)),projects,projectCount:projects.length,verifiedAt:c.verifiedAt??null};
+      })
+    )
+  ).filter(row=>!project||row.projects.includes(project));
+  return{...(project?{project}:{}),providers:rows.sort((a,b)=>a.provider.localeCompare(b.provider)||a.connection.localeCompare(b.connection))};
+}
+/** Idempotent association write; the linker decides, this only stores. */
+export async function setConnectionProjects(userInput:string,provider:string,connectionId:string,projects:string[]){
+  const want=[...new Set(projects.map(projectKey))].sort();
+  return mutateIntegrationState(state=>{
+    const user=identity(userInput,"user"),r=selectConnection(state,provider,{user,connection:identity(connectionId,"connection")});
+    if(r.connection.sharedFrom)throw new IntegrationError("shared_alias_readonly",409);
+    const previous=[...(r.connection.projects??[])].sort();
+    if(JSON.stringify(previous)!==JSON.stringify(want)){r.connection.projects=want;r.connection.updatedAt=Date.now();}
+    return{user,provider,connection:r.connection.id,projects:want,changed:JSON.stringify(previous)!==JSON.stringify(want)};
+  });
+}
 export async function integrationQuery(input:Record<string,unknown>){
-  metadataOnly(input);const allowed=["view","user","provider","connection","cwd","source","authMethod"];
+  metadataOnly(input);const allowed=["view","user","provider","connection","cwd","source","authMethod","project"];
   if(Object.keys(input).some(k=>!allowed.includes(k)))throw new IntegrationError("invalid_query_fields");
   const selection=input as ConnectionSelector,view=input.view??"snapshot";
   if(view==="catalog")return{catalog:connectionCatalog()};
+  if(view==="projects")return projectProviderQuery({project:input.project===undefined?undefined:projectKey(input.project),selector:selection});
   if(view==="resolve")return resolveIntegration(identity(input.provider,"provider"),selection);
   if(view==="request"){
     const provider=identity(input.provider,"provider");const catalog=connectionCatalog().find(p=>p.id===provider);if(!catalog)throw new IntegrationError("unknown_provider",404);

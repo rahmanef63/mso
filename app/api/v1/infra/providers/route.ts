@@ -1,5 +1,7 @@
-import { withIntegrationSelection } from "@/lib/infra/connection-service";
+import { withIntegrationSelection, projectProviderQuery } from "@/lib/infra/connection-service";
 import { selectionFrom } from "@/lib/infra/connection-dispatch";
+import { projectKey } from "@/lib/infra/convex-project-link";
+import { rateLimited } from "@/lib/host/limits-api";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth/require-session";
 import { audit } from "@/lib/host/audit-api";
@@ -8,15 +10,29 @@ import { INFRA_PROVIDER_IDS, isInfraProviderId, readInfraProvider, removeInfraPr
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const headers = { "Cache-Control": "no-store, private", "Pragma": "no-cache", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" };
+
 async function ownerContext() {
   const context = await getSessionContext();
   return context?.role === "owner" ? context : null;
 }
 
 export async function GET(req:NextRequest) {
-  if (!(await ownerContext())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const providers = await withIntegrationSelection(selectionFrom(Object.fromEntries(req.nextUrl.searchParams)),()=>Promise.all(INFRA_PROVIDER_IDS.map(async (id) => summarizeInfraProvider(id, await readInfraProvider(id)))));
-  return NextResponse.json({ providers });
+  const context = await ownerContext();
+  if (!context) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers });
+  if (rateLimited(`infra.providers:${context.session.device_id ?? "unknown"}`, 60, 60_000))
+    return NextResponse.json({ error: "rate_limited" }, { status: 429, headers });
+  const params = Object.fromEntries(req.nextUrl.searchParams);
+  const query = params.project;
+  if (query !== undefined) {
+    // Per-project view: cloud and self-hosted rows together, credentials never included.
+    let project: string;
+    try { project = projectKey(query); } catch { return NextResponse.json({ error: "invalid_project_id" }, { status: 400, headers }); }
+    const view = await withIntegrationSelection(selectionFrom(params),()=>projectProviderQuery({ project, selector: selectionFrom(params) }));
+    return NextResponse.json(view, { headers });
+  }
+  const providers = await withIntegrationSelection(selectionFrom(params),()=>Promise.all(INFRA_PROVIDER_IDS.map(async (id) => summarizeInfraProvider(id, await readInfraProvider(id)))));
+  return NextResponse.json({ providers }, { headers });
 }
 
 export async function POST(req: NextRequest) {

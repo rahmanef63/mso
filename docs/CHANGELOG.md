@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-10-27
 
+**Added**
+
+- `infra` collapse Convex into one provider with a real self-hosted kind
+
 **Build**
 
 - `deps` bump the actions-minor-patch group with 3 updates (#159)
@@ -28,7 +32,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `infra` collapse Convex into one provider with a real self-hosted kind
+- `infra` deterministic Convex project linker and per-project provider view
 
 **Fixed**
 
