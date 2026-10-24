@@ -4,6 +4,26 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-24
+
+**Fixed**
+
+- `install` bump vendored node-gyp lock undici 6.29.0 -> 6.29.1
+- `deps` bump zod past GHSA-mrhx-c7xc-m3w5 (>=4.6.6)
+
+## 2026-10-23
+
+**Added**
+
+- `integrations` workspace-scoped demo logins and on-demand secret reveal (#150)
+- `composio` route ck_ Connect keys to connect.composio.dev/mcp (#146)
+
+**Fixed**
+
+- `settings` bounded provider picker, auto-discovery, honest model switching (#151)
+- `infra` validate Composio Connect keys at the Connect MCP endpoint (#148)
+- `deps` bump next 16.4.0 -> 16.4.2 for unauthenticated RCE advisories (#147)
+
 ## 2026-10-22
 
 **Added**
@@ -1475,51 +1495,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `icons` use native macOS and Windows artwork
 - `update` remove passwordless sudo requirement
 - use official agent logos
-
-## 2026-08-18
-
-**Added**
-
-- finish native platform icon set
-- harden skills and refresh platform icons
-
-**Fixed**
-
-- use transparent feature icon artwork
-
-## 2026-08-17
-
-**Added**
-
-- `settings` render the changelog as records in a scroll area, not injected markdown
-- `update` a Check again row, so a release that lands while the panel is open is visible
-- `files` long-press opens the context menu, so Preview is reachable on a phone
-- `update` tell the running build from the checkout, so a pending rebuild is visible
-- `settings,preview` update MSO from the app, and preview the formats a real disk has
-
-**Fixed**
-
-- `security` shell rc files hold API tokens — the credential denylist now says so
-- `changelog` a regeneration commit must not appear in the file it regenerates
-- `deps` pin nanoid >=3.3.18 — the audit gate has been failing on main
-- `managed-apps` say why a dashboard is missing instead of silently opening a terminal
-- `install` write the uid out — %U resolves to 0 for a User=<name> system unit
-- `managed-apps` fail closed on an unreadable bus, and stop a retry eating the live venv
-- `managed-apps` one-click install died, and installed apps read as "not installed", under systemd
-- `install` bind loopback by default, and restart the service on re-run
-
-**Changed**
-
-- one download helper, one path helper, and gates for the drifts they hid
-
-**Tests**
-
-- `e2e` a committed browser check for Preview and the update panel
-- `preview` one anchor the e2e can read on both surfaces
-
-**Docs**
-
-- `progress` record the codebase audit — what was duplicated, drifted, undefended
-- record external MCP consumer compatibility
-- `readme` the update button, and what Preview actually opens
-- plain http to an IP cannot complete a login — say so where it matters
