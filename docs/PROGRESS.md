@@ -1,3 +1,33 @@
+## 2026-10-25: Agent transcript — one live row per turn, and owner-owned turn budgets
+
+The interactive Agent printed an `Agent work` divider for every model round and a separate row
+for every tool call, so a ten-round turn produced ten headers plus one row per call and pushed the
+conversation off the screen. Progress now renders on a single live row below the transcript
+(`⠹ fs_search · 3/7 tools · 12s`), repainted in place with the composer's own cursor primitives,
+with one `Agent work` section per turn, a spinner while the first token is in flight, and a compact
+receipt at the end (`3 tools · all ok · 8s`). Async Local Agent traffic suspends and repaints the
+row, so a foreign write never lands inside it. Non-TTY stdout keeps the previous discrete lines, so
+pipes, CI and the PTY smoke harness never receive cursor control.
+
+The hard caps that ended work with `turn limit reached` are now owner settings instead of code
+constants: `OS_AGENT_MAX_ROUNDS` (10 -> 1000 rounds per interactive turn),
+`OS_ASSISTANT_MAX_TURNS`, `OS_SUBAGENT_ABSOLUTE_MAX_TURNS`, `OS_SUBAGENT_DEFAULT_TURNS`,
+`OS_SUBAGENT_MAX_TIMEOUT_MS`, `OS_AGENT_PROFILE_MAX_TURNS` and
+`OS_AGENT_PROFILE_MAX_TOOL_CALLS`. Defaults are the historical values, so behaviour only moves
+where an operator sets the knob, and `intEnv` is exported from `session-policy` instead of copied
+per caller.
+
+A settings follow-up rides along: `UpdateSection.start()` marked the run as "seen running" before
+the POST resolved, so a refused update was still graded from the log and a previous attempt's
+`UPDATE OK` produced a success banner for an update that never ran. The flag is now set only after
+a started response.
+
+**Evidence.** `typecheck` 0, `lint` 0, `check-cycles` 2138 files / 0 cycles, `check-architecture`
+exit 0 at 43/43 files-over-220, `check-docs` current, `gen-comparison --check` current,
+`check-contrast` 0 fail, full vitest **852 files / 5535 tests passed**. A real PTY run of
+`mso --yolo agent` produced one `Agent work` section, 736 in-place repaints and the receipt
+`3 tools · all ok · 8s`.
+
 ## 2026-10-22: CodeQL follow-up — the taint, not the temp path
 
 The previous entry closed the symlink/TOCTOU concern but not `js/http-to-file-access`: the icon

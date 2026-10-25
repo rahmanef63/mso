@@ -14,6 +14,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `settings` only grade an update after the request actually starts
 
+**Docs**
+
+- `progress` record the agent live-row and turn-budget change
+
 ## 2026-10-24
 
 **Fixed**
