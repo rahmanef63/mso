@@ -10,7 +10,7 @@ const DEFAULT_COMPACT_TOKENS = 700_000;
 const DEFAULT_RECENT_TOKENS = 140_000;
 const GENERIC_TITLES = /^(MSO Agent session|ChatGPT\/MCP|ChatGPT session|MCP legacy session)/i;
 
-function intEnv(name: string, fallback: number, min: number, max: number): number {
+export function intEnv(name: string, fallback: number, min: number, max: number): number {
   const value = Number(process.env[name]);
   return Number.isFinite(value) ? Math.max(min, Math.min(max, Math.trunc(value))) : fallback;
 }

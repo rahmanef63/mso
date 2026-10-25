@@ -49,8 +49,8 @@ Inside the child:
 
 - default `max_scope` is `read`;
 - requested scope cannot exceed the parent caller scope;
-- max model/tool rounds default to 6; the server policy `OS_SUBAGENT_MAX_TURNS` defaults to 12 and may be raised up to the absolute cap of 48;
-- timeout defaults to 60 seconds and caps at 120 seconds;
+- max model/tool rounds default to `OS_SUBAGENT_DEFAULT_TURNS` (6); the server policy `OS_SUBAGENT_MAX_TURNS` defaults to 12 and may be raised up to `OS_SUBAGENT_ABSOLUTE_MAX_TURNS` (48);
+- timeout defaults to 60 seconds and caps at `OS_SUBAGENT_MAX_TIMEOUT_MS` (120 seconds);
 - result text is bounded to 64 KiB;
 - recursive `agent_subagent_run` is unavailable;
 - `agent_session_*`, `agent_memory_*`, `local_agent_*`, and `a2a_*` tools are unavailable.

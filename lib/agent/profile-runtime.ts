@@ -10,6 +10,7 @@ import { requireAgentProfile } from "./profile-store";
 import { runBoundedAgent } from "./bounded-runner";
 import { runAcpAgentProfile } from "./acp-runtime";
 import type { AcpInstance } from "./acp-drivers";
+import { intEnv } from "./session-policy";
 
 export function profileRuntimeAuthority(session: SessionPayload, profile: AgentProfile, capabilities: CapabilityRuntime, options: { signal?: AbortSignal; sessionId?: string } = {}) {
   if (!session.device_id) throw new AgentProfileError("profile_owner_unsupported", 403);
@@ -70,7 +71,9 @@ export async function runAgentProfile(input: { session: SessionPayload; body: un
     const result = await runBoundedAgent({ prepared, objective: prompt,
       system: `You are MSO saved profile ${profile.config.name}. Work on the requested read task. Only the saved read tools may run. Do not claim to change files or run commands. No earlier chat or owner memory is included.\n${profile.config.instructions}`,
       capabilities: authority.runtime, authority: authority.context, actor: principal,
-      tools: context => authority.runtime.list(context.scope, context), maxTurns: 6, maxToolCalls: 16, signal });
+      tools: context => authority.runtime.list(context.scope, context),
+      maxTurns: intEnv("OS_AGENT_PROFILE_MAX_TURNS", 6, 1, 10_000),
+      maxToolCalls: intEnv("OS_AGENT_PROFILE_MAX_TOOL_CALLS", 16, 1, 100_000), signal });
     await updateAgentSessionHistory(principal, runId, result.messages);
     await appendAgentSessionEvent(principal, runId, { kind: "note", state: result.status, detail: `Profile ${profile.id}, revision ${profile.revision}` });
     await authority.liveAuthorization();

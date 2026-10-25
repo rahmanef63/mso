@@ -1,6 +1,7 @@
 import readline from "node:readline";
 import { wordLeftIndex, wordRightIndex } from "./mso-agent-editing.mjs";
 import process from "node:process";
+import { resumeActiveActivity, suspendActiveActivity } from "./mso-agent-activity.mjs";
 
 import {
   chars, clamp, CLEAR_LINE, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, CURSOR_UP, eraseComposerRows, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width,
@@ -91,12 +92,16 @@ export class AgentComposer {
       };
       const notify = (text) => {
         if (settled) return false;
+        // An in-flight turn may own a live activity row on this same row slot; clear
+        // it so async traffic never lands inside the row, then repaint it after.
+        suspendActiveActivity();
         erase();
         output.write(`${String(text ?? "").replace(/\r/g, "")}\r\n`);
         const separatorRow = separatorText();
         if (separatorRow) output.write(`${separatorRow}\r\n`);
         reservedRows = 0;
         render();
+        resumeActiveActivity();
         return true;
       };
       this._cancelCurrent = cancel;

@@ -1,5 +1,6 @@
 import { streamAgentTurn, type AgentMsg, type AiTool, type ProviderUsage } from "./stream";
 import { addProviderUsage } from "./provider-usage.mjs";
+import { intEnv } from "@/lib/agent/session-policy";
 
 // Generic tool-execution contract. `invoke` runs one tool call and returns a
 // short, model-readable outcome; where the side-effect happens (a client store,
@@ -33,7 +34,7 @@ export async function runToolAgent(
   tools: AiTool[],
   invoke: (call: ToolInvocation) => Promise<ToolOutcome>,
   ev: AgentEvents,
-  maxTurns = 8,
+  maxTurns = intEnv("OS_ASSISTANT_MAX_TURNS", 8, 1, 10_000),
   system?: string,
   signal?: AbortSignal,
 ): Promise<AgentLoopResult> {

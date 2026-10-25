@@ -3,6 +3,7 @@ import { canonicalAgentApproval } from "../lib/agent/approval.mjs";
 import { requestExactToolApproval } from "./mso-agent-approval-ui.mjs";
 import { AgentMutationUncertainError, isAgentApiError, isRecoverableInteractionError, recoverableErrorLines, recoverableHistoryRow, recoverableTurnState } from "./mso-agent-errors.mjs";
 import { printSection, sectionDivider } from "./mso-agent-layout.mjs";
+import { AgentActivity, activityText, formatDuration } from "./mso-agent-activity.mjs";
 import { beginSkillInvocation, endSkillInvocation } from "./mso-agent-skills.mjs";
 import { isAbortError } from "./mso-agent-interrupt.mjs";
 import { approvesTool } from "./mso-agent-permissions.mjs";
@@ -19,11 +20,21 @@ function lazyAssistantOutput(session, options = {}) {
     write(value) {
       if (!opened) {
         opened = true;
+        options.activity?.clear();
         printSection("assistant", { detail: `@${session?.agentSession?.name || "agent"}`, colors: C });
       }
       return process.stdout.write(String(value ?? ""));
     },
   };
+}
+
+/** Rounds (stream → tools → stream) one turn may run. The historical cap was a
+ * hard-coded 10; now `OS_AGENT_MAX_ROUNDS` (default 1000 = no practical cap). */
+export function agentRoundLimit() {
+  const configured = Number(process.env.OS_AGENT_MAX_ROUNDS);
+  return Number.isFinite(configured) && configured > 0
+    ? Math.trunc(configured)
+    : 1000;
 }
 
 export async function executeTool(rl, tool, call, agentSession, permission = "ask", signal = undefined, onInterrupt = null, options = {}) {
@@ -53,10 +64,14 @@ export async function executeTool(rl, tool, call, agentSession, permission = "as
       throw error;
     }
   } else if (needsApprovalDigest && !options.quiet && !options.approvalScope) {
-    console.log(`${C.c}${C.bold}[${tool.scope}]${C.reset} ${tool.name}`);
+    if (options.activity) options.activity.label(tool);
+    else console.log(`${C.c}${C.bold}[${tool.scope}]${C.reset} ${tool.name}`);
   }
   if (!approved) return { ok: false, result: "denied by user" };
-  if (!options.quiet) process.stdout.write(`${C.dim}  ↳ ${tool.name}…${C.reset}`);
+  if (!options.quiet) {
+    if (options.activity) options.activity.toolStart(tool);
+    else process.stdout.write(`${C.dim}  ↳ ${tool.name}…${C.reset}`);
+  }
   const request = options.apiRequest || api;
   try {
     const input = approval ? approval.payload.input : (call.input || {});
@@ -70,12 +85,18 @@ export async function executeTool(rl, tool, call, agentSession, permission = "as
       }),
       signal,
     });
-    if (!options.quiet) process.stdout.write(`\r${C.c}  ✓ ${tool.name}${C.reset}\n`);
+    if (!options.quiet) {
+      if (options.activity) options.activity.toolEnd(tool, true);
+      else process.stdout.write(`\r${C.c}  ✓ ${tool.name}${C.reset}\n`);
+    }
     if (!out.ok) return { ok: false, result: out.result || "tool failed" };
     return { ok: true, result: String(out.result ?? "ok") };
   } catch (error) {
     if (signal?.aborted || isAbortError(error)) throw error;
-    if (!options.quiet) process.stdout.write(`\r${C.err}  ✗ ${tool.name}${C.reset}\n`);
+    if (!options.quiet) {
+      if (options.activity) options.activity.toolEnd(tool, false);
+      else process.stdout.write(`\r${C.err}  ✗ ${tool.name}${C.reset}\n`);
+    }
     if (tool.scope !== "read" && isAgentApiError(error)) throw new AgentMutationUncertainError(tool.name, error);
     return { ok: false, result: (error instanceof Error ? error.message : String(error)).slice(0, 2000) };
   }
@@ -86,15 +107,29 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
   const historyCheckpoint = Math.max(0, session.history.length - 1);
   const calls = [];
   let finalText = "", rounds = 0;
+  const agentName = session?.agentSession?.name || "agent";
+  const activity = options.quiet
+    ? null
+    : (options.activity || new AgentActivity({
+      output: options.output || process.stdout,
+      colors: C,
+      now: options.now,
+      animate: options.animate,
+    })).begin();
+  const roundLimit = agentRoundLimit();
   beginSkillInvocation(session, skillContext, C);
   const turnStream = options.streamTurn || streamTurn;
   const toolExecutor = options.executeTool || executeTool;
+  const toolOptions = { ...options, activity };
+  let workSectionPrinted = false;
   try {
-    for (let turn = 0; turn < 10; turn++) {
+    for (let turn = 0; turn < roundLimit; turn++) {
       rounds = turn + 1;
+      // Live row while the first token is in flight: a provider wait reads as work.
+      activity?.waiting("thinking");
       const result = await turnStream(
         session.history, session.state.tools, session.agentSession, skillContext, signal,
-        session.state.modelMeta?.context, lazyAssistantOutput(session, options),
+        session.state.modelMeta?.context, lazyAssistantOutput(session, toolOptions),
       );
       // The current model round has consumed all prior read-tool payloads that were
       // still inside its projected context. Persist only bounded replay envelopes
@@ -106,19 +141,29 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
       session.lastRouting = result.routing || null;
       session.lastElapsedMs = Date.now() - startedAt;
       session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
-      if (!result.toolUses.length) return { text: finalText, calls, rounds, usage: session.usage, elapsedMs: session.lastElapsedMs };
-      if (!options.quiet) printSection("work", { detail: `@${session?.agentSession?.name || "agent"}`, colors: C });
+      if (!result.toolUses.length) {
+        activity?.finish(completedReceipt(calls, session.lastElapsedMs));
+        return { text: finalText, calls, rounds, usage: session.usage, elapsedMs: session.lastElapsedMs };
+      }
+      activity?.clear();
+      // One `Agent work` section per turn; the live row below carries tool progress.
+      if (!options.quiet && !workSectionPrinted) {
+        workSectionPrinted = true;
+        printSection("work", { detail: `@${agentName}`, colors: C });
+      }
+      activity?.setToolTotal(result.toolUses.length);
       const results = [];
       for (const call of result.toolUses) {
         const tool = session.state.tools.find((row) => row.name === call.name);
         const outcome = await toolExecutor(rl, tool, call, session.agentSession, session.permission, signal, onInterrupt, {
-          ...options, approvalState: options.approvalState || session,
+          ...toolOptions, approvalState: options.approvalState || session,
         });
         calls.push({ name: call.name, scope: tool?.scope || "unknown", ok: outcome.ok });
         results.push({ id: call.id, content: outcome.result, isError: !outcome.ok });
       }
       session.history.push({ role: "tool", results });
     }
+    activity?.finish(completedReceipt(calls, session.lastElapsedMs));
     if (!options.quiet) console.log(`${C.warn}turn limit reached; ask to continue if needed.${C.reset}`);
     return { text: finalText, calls, rounds, usage: session.usage, elapsedMs: session.lastElapsedMs, turnLimitReached: true };
   } catch (error) {
@@ -126,8 +171,22 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
     else if (error && typeof error === "object" && !error.turnJournal) error.turnJournal = { calls: [...calls] };
     throw error;
   } finally {
+    activity?.stop();
     endSkillInvocation(session, skillContext);
   }
+}
+
+/** Compact per-turn receipt replacing the rows each tool used to claim. */
+function completedReceipt(calls, elapsedMs) {
+  const rows = Array.isArray(calls) ? calls : [];
+  if (!rows.length) return "";
+  const ok = rows.filter((row) => row.ok).length;
+  const failed = rows.length - ok;
+  return activityText([
+    `${rows.length} tool${rows.length === 1 ? "" : "s"}`,
+    failed ? `${failed} failed` : "all ok",
+    formatDuration(elapsedMs || 0),
+  ]);
 }
 
 export function renderInteractionFailure(error, session, journal = {}, colors = C, print = console.log) {

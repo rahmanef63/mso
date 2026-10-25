@@ -87,6 +87,15 @@ by full-width `Assistant`, `Agent work`, `Local agent`, and `Error` dividers. Re
 never auto-repeat an uncertain write/exec mutation; verify target state before retrying a mutation whose outcome
 is reported as `uncertain`.
 
+Inside `Agent work` the progress is one live row, not one row per tool: every round of a single request stays in
+the same section, and the tools that ran are repainted in place (`⠹ fs_search  ·  3/7 tools  ·  12s`) on a single
+terminal line, with the turn's model wait shown as a spinner in that same row. The turn ends with one compact
+receipt (`7 tools  ·  all ok  ·  1m12s`). The exchange is driven by the same cursor primitives the composer uses;
+when stdout is not a TTY (piped output, CI, the PTY smoke harness) nothing is animated and each tool keeps its
+own discrete `[scope] name` / `↳ name…` / `✓ name` line, so log consumers never receive cursor control. An async
+Local Agent event redraws above the draft as before — the live row is suspended around that write. The round
+budget for one interactive turn is `OS_AGENT_MAX_ROUNDS` (default 1000).
+
 ## 2. One tool catalog, two transports
 
 `scripts/mso-agent.mjs` does not invent a second host-tool implementation. It asks the

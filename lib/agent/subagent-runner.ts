@@ -5,17 +5,30 @@ import { allows, parseScope, type Scope } from "@/lib/capabilities/scope";
 import type { CapabilityRuntime } from "@/lib/capabilities/runtime";
 import type { CapabilityRunContext } from "@/lib/capabilities/tool";
 import { runBoundedAgent, type BoundedAgentProgress } from "./bounded-runner";
+import { intEnv } from "./session-policy";
 
 const DEFAULT_TURNS = 6;
 const ABSOLUTE_MAX_TURNS = 48;
+// Owner-tunable ceilings (historical defaults preserved). `OS_SUBAGENT_MAX_TURNS`
+// still caps one invocation; the absolute ceiling and the timeout budget can be
+// raised for long delegated runs.
 function maxTurnsLimit(): number {
   const configured = Number(process.env.OS_SUBAGENT_MAX_TURNS);
   return Number.isFinite(configured)
-    ? Math.max(1, Math.min(ABSOLUTE_MAX_TURNS, Math.trunc(configured)))
-    : 12;
+    ? Math.max(1, Math.min(absoluteMaxTurns(), Math.trunc(configured)))
+    : Math.min(12, absoluteMaxTurns());
+}
+function absoluteMaxTurns(): number {
+  return intEnv("OS_SUBAGENT_ABSOLUTE_MAX_TURNS", ABSOLUTE_MAX_TURNS, 1, 10_000);
+}
+function defaultTurns(): number {
+  return Math.min(absoluteMaxTurns(), intEnv("OS_SUBAGENT_DEFAULT_TURNS", DEFAULT_TURNS, 1, 10_000));
 }
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_TIMEOUT_MS = 120_000;
+function maxTimeoutMs(): number {
+  return intEnv("OS_SUBAGENT_MAX_TIMEOUT_MS", MAX_TIMEOUT_MS, 1_000, 7_200_000);
+}
 const DENY_PREFIXES = ["agent_session_", "agent_memory_", "local_agent_", "a2a_"];
 const DENY_EXACT = new Set(["agent_subagent_run", "project_agent_run"]);
 function allowedTool(name: string): boolean {
@@ -53,8 +66,8 @@ export async function runSessionSubagent(input: {
   const name = String(input.name || "worker").trim().replace(/[\r\n\t]+/g, " ").slice(0, 60) || "worker";
   const maxScope = parseScope(input.maxScope || "read");
   if (!allows(input.authority.scope, maxScope)) throw new Error("subagent scope exceeds initiating authority");
-  const maxTurns = Math.max(1, Math.min(maxTurnsLimit(), Math.trunc(input.maxTurns || DEFAULT_TURNS)));
-  const timeoutMs = Math.max(1_000, Math.min(MAX_TIMEOUT_MS, Math.trunc(input.timeoutMs || DEFAULT_TIMEOUT_MS)));
+  const maxTurns = Math.max(1, Math.min(maxTurnsLimit(), Math.trunc(input.maxTurns || defaultTurns())));
+  const timeoutMs = Math.max(1_000, Math.min(maxTimeoutMs(), Math.trunc(input.timeoutMs || DEFAULT_TIMEOUT_MS)));
   const subagentId = `subagent_${randomUUID()}`;
   const authority = { ...input.authority, principal: input.authority.principal ?? input.principal, scope: maxScope, capabilities: input.capabilities };
   const toolDefs = (context: CapabilityRunContext) => input.capabilities.list(context.scope, context).filter(tool => allows(context.scope, tool.scope) && allowedTool(tool.name) && (!context.allowedTools || context.allowedTools.includes(tool.name)));
