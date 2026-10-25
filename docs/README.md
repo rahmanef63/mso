@@ -36,6 +36,8 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`AGENT-VAULT.md`](./AGENT-VAULT.md) | Separate private repository agent-progress vaults, source/data boundaries and Obsidian use |
 | [`MEMORY-SAFETY.md`](./MEMORY-SAFETY.md) | Session-source preservation, owner cleanup previews, local memory backups, learning/discovery visibility and remaining limits |
 | [`COMPARISON.md`](./COMPARISON.md) | Generated product comparison methodology, evidence and notes |
+| [`references/README.md`](./references/README.md) | One file per upstream project MSO studies or pins: license, pin, what was used and what was not copied |
+| [`LICENSE-HISTORY.md`](./LICENSE-HISTORY.md) | Current PolyForm Noncommercial license, the permanent prior MIT grant, and open contribution questions |
 | [`COMPETITIVE-ROADMAP.md`](./COMPETITIVE-ROADMAP.md) | Executed comparison plan, deliberate specialist boundaries and next investments |
 | [`INSTALL.md`](./INSTALL.md) | Owner installation, TLS, updates, backup and uninstall |
 | [`PLATFORMS.md`](./PLATFORMS.md) | Linux/macOS/Windows/Android/iOS support modes and machine adapters |

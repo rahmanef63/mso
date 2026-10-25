@@ -4,7 +4,9 @@ let cache: PresetRegistry | null = null;
 let pending: Promise<PresetRegistry> | null = null;
 
 /** Lazy-load the bundled tweakcn registry (~240KB JSON code-splits into its
- *  own chunk — fetched only when the Theme section mounts or a preset boots). */
+ *  own chunk — fetched only when the Theme section mounts or a preset boots).
+ *  The registry content mirrors jnsahaj/tweakcn (Apache-2.0); see
+ *  docs/references/tweakcn.md. MSO ships no tweakcn code. */
 export async function loadPresetRegistry(): Promise<PresetRegistry> {
   if (cache) return cache;
   if (pending) return pending;

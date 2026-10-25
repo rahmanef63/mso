@@ -8,15 +8,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `agent` one live activity row and env-tunable turn budgets
-
-**Fixed**
-
-- `settings` only grade an update after the request actually starts
+- `agent` one live activity row and env-tunable turn budgets (#154)
 
 **Docs**
 
-- `progress` record the agent live-row and turn-budget change
+- `license` switch to PolyForm Noncommercial and add per-repo references
 
 ## 2026-10-24
 

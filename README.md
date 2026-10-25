@@ -116,4 +116,4 @@ Successful analysis jobs are not proof of zero open alerts; the security badge a
 [Product comparison, evidence and limitations](docs/COMPARISON.md) · reviewed 2026-09-17.
 <!-- comparison:end -->
 
-[MIT license](./LICENSE) · [Detailed workspace guide](./docs/reference/WORKSPACE-GUIDE.md)
+[PolyForm Noncommercial 1.0.0](./LICENSE) · [Commercial exception available](./LICENSE-EXCEPTION.md) · [Third-party notices](./LICENSES/THIRD-PARTY-NOTICES.md) · [Detailed workspace guide](./docs/reference/WORKSPACE-GUIDE.md)

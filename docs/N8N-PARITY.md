@@ -8,6 +8,12 @@ page the source of truth for MSO.
 This document maps the core self-hosted n8n capability areas to their MSO-native
 counterparts. The goal is capability coverage, not pixel-for-pixel or API-for-API cloning.
 
+n8n is licensed under the **Sustainable Use License (fair-code)**, not an OSI license.
+MSO bundles no n8n code, source, node definitions or image; the optional n8n window
+renders an operator-supplied instance in a frame. See
+[`references/n8n.md`](./references/n8n.md) before considering any bundling or hosted
+resale.
+
 | n8n capability area | Native MSO surface | MSO implementation |
 |---|---|---|
 | Workflow list/search | Workflows | Searchable workflow library with status, project, folder, node and tag filters |
