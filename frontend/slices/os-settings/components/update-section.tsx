@@ -74,7 +74,7 @@ export function UpdateSection() {
     setBusy(true);
     setError(null);
     postRunRemoteCheck.current = false;
-    setSawRunning(true);
+    setSawRunning(false);
     try {
       const res = await fetch("/api/v1/sys/update", {
         method: "POST",
@@ -83,7 +83,12 @@ export function UpdateSection() {
       });
       const body = (await res.json()) as UpdateStatus & { error?: string };
       if (!res.ok) setError(body.error ?? `update refused (${res.status})`);
-      else setInfo(body);
+      else {
+        setInfo(body);
+        // Only a started update may be graded from the log: a refusal leaves the
+        // previous attempt's UPDATE OK in place and would report stale success.
+        setSawRunning(true);
+      }
     } catch {
       setError("could not reach the host");
     } finally {
