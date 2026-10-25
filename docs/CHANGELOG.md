@@ -4,16 +4,21 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-25
+
+**Added**
+
+- `agent` one live activity row and env-tunable turn budgets
+
+**Fixed**
+
+- `settings` only grade an update after the request actually starts
+
 ## 2026-10-24
 
 **Fixed**
 
-- `install` bump vendored node-gyp lock undici 6.29.0 -> 6.29.1
-- `deps` bump zod past GHSA-mrhx-c7xc-m3w5 (>=4.6.6)
-
-**Chores**
-
-- `security` allowlist reviewed Convex 152 fixtures reachable from other open branch
+- `deps` clear undici + zod advisories blocking every merge (#153)
 
 ## 2026-10-23
 
@@ -1481,21 +1486,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `mcp` allow ChatGPT Australia file storage
 - `mcp` allow ChatGPT regional file storage
 - `mcp` report rejected file host safely
-
-## 2026-08-19
-
-**Added**
-
-- enable image generation and full access defaults
-- `mcp` isolate workflows and standardize skill flows
-- `mcp` streamline bootstrap and workflow visibility
-- add semantic skill memory and workflow recipes
-- add secure temporary screenshot links
-- add MCP screenshots and live activity
-
-**Fixed**
-
-- `oauth` force visible ChatGPT callback
-- `icons` use native macOS and Windows artwork
-- `update` remove passwordless sudo requirement
-- use official agent logos
