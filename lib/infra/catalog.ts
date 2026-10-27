@@ -1,7 +1,7 @@
 import { GOOGLE_PROVIDERS, GOOGLE_APP_PROVIDER, isGoogleProvider, normalizeGoogleConfig } from "./google-native-config";
 import { normalizeMcpEndpoint, parseMcpToolAllowlist } from "./mcp-policy";
 import { ADDITIONAL_PROVIDERS, type AdditionalProviderId } from "./additional-providers";
-import { INFRA_PROVIDER_IDS, type InfraProviderDefinition, type InfraProviderId, type InfraProviderValues } from "./types";
+import { CONVEX_DEPLOYMENT_KINDS, CONVEX_LEGACY_PROVIDER_ID, INFRA_PROVIDER_IDS, type ConvexDeploymentKind, type InfraProviderDefinition, type InfraProviderId, type InfraProviderValues } from "./types";
 
 const additional = Object.fromEntries(Object.entries(ADDITIONAL_PROVIDERS).map(([id, value]) => [id, { ...value, fields: value.fields.map(f => ({ ...f })) }])) as Record<AdditionalProviderId, InfraProviderDefinition>;
 const google = Object.fromEntries(GOOGLE_PROVIDERS.map(p => [p.id, p])) as Record<"google-oauth-app" | "google-search-console" | "google-analytics", InfraProviderDefinition>;
@@ -54,7 +54,55 @@ const definitions: Record<InfraProviderId, InfraProviderDefinition> = {
 };
 
 export const isInfraProviderId = (value: string): value is InfraProviderId =>
-  (INFRA_PROVIDER_IDS as readonly string[]).includes(value);
+  (INFRA_PROVIDER_IDS as readonly string[]).includes(value) || value === CONVEX_LEGACY_PROVIDER_ID;
+
+/**
+ * The ONE place the retired `convex-cloud` id becomes `convex`. Every read path
+ * (store lookup, dispatch, registry, summaries) funnels through here, so a stored
+ * `connections["convex-cloud"]` row and a legacy `providers["convex-cloud"]` row
+ * keep resolving after the collapse. Write paths never produce the alias.
+ */
+export const canonicalProviderId = (value: string): string =>
+  value === CONVEX_LEGACY_PROVIDER_ID ? "convex" : value;
+/** Same mapping, but narrows to InfraProviderId and rejects unknown ids. */
+export const resolveProviderId = (value: string): InfraProviderId | null => {
+  const id = canonicalProviderId(value);
+  return isInfraProviderId(id) ? id : null;
+};
+
+/**
+ * A stored connection's deployment kind, at READ time. A legacy row has no
+ * `deploymentKind`: presence of `apiUrl` means self-hosted, anything else means
+ * cloud. Unknown stored values degrade to cloud — never a third kind, and never a
+ * throw on a list response. Write paths reject unknown values in
+ * `normalizeInfraValues`, which is where the explicit enum check lives.
+ */
+export function convexDeploymentKind(values: Record<string, string>): ConvexDeploymentKind {
+  const declared = values.deploymentKind;
+  if (declared === "self-hosted" || declared === "cloud") return declared;
+  return values.apiUrl ? "self-hosted" : "cloud";
+}
+export function isConvexDeploymentKind(value: unknown): value is ConvexDeploymentKind {
+  return typeof value === "string" && (CONVEX_DEPLOYMENT_KINDS as readonly string[]).includes(value);
+}
+
+/** Secret keys a Convex connection may carry. Values move between THESE keys only. */
+export const CONVEX_SECRET_KEYS = ["personalToken", "deployKey", "adminKey"] as const;
+const CONVEX_PUBLIC_KEYS = ["deploymentName", "apiUrl"] as const;
+
+/**
+ * The exact value projection used when a legacy `convex-cloud` row becomes a
+ * `convex` row: declared secret keys keep their values, declared non-secret keys
+ * keep theirs, and `deploymentKind` is derived from the credential SHAPE. No
+ * value is ever copied into a field that is not already a schema field.
+ */
+export function convexMigratedValues(values: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const key of CONVEX_SECRET_KEYS) if (values[key]) out[key] = values[key];
+  for (const key of CONVEX_PUBLIC_KEYS) if (values[key]) out[key] = values[key];
+  out.deploymentKind = values.apiUrl ? "self-hosted" : "cloud";
+  return out;
+}
 
 export const getInfraProviderDefinition = (id: InfraProviderId): InfraProviderDefinition => definitions[id];
 export const listInfraProviderDefinitions = (): InfraProviderDefinition[] => INFRA_PROVIDER_IDS.map((id) => definitions[id]);
@@ -62,8 +110,10 @@ export const listInfraProviderDefinitions = (): InfraProviderDefinition[] => INF
 const IPV4_RE = /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$/;
 const HEX32_RE = /^[0-9a-f]{32}$/i;
 
-export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, unknown>): InfraProviderValues {
-  const def = definitions[id];
+export function normalizeInfraValues(id: InfraProviderId | string, raw: Record<string, unknown>): InfraProviderValues {
+  const provider = resolveProviderId(id);
+  if (!provider) throw new Error("unknown infrastructure provider");
+  const def = definitions[provider];
   const allowed = new Set(def.fields.map((field) => field.key));
   const out: InfraProviderValues = {};
   for (const [key, value] of Object.entries(raw)) {
@@ -72,7 +122,7 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
     if (clean.length > 4096 || /[\x00-\x1f\x7f]/.test(clean)) throw new Error("Invalid integration field format");
     if (clean) out[key] = clean;
   }
-  if (id === "dokploy" && out.apiUrl) {
+  if (provider === "dokploy" && out.apiUrl) {
     let parsed: URL;
     try { parsed = new URL(out.apiUrl); } catch { throw new Error("Dokploy API URL must be an absolute http(s) URL"); }
     if (parsed.username || parsed.password) throw new Error("Dokploy API URL must not contain credentials");
@@ -88,54 +138,61 @@ export function normalizeInfraValues(id: InfraProviderId, raw: Record<string, un
     if (out.apiKey && out.apiKey.length < 20) throw new Error("Dokploy API key is too short");
     if (out.publicIp && !IPV4_RE.test(out.publicIp)) throw new Error("Dokploy publicIp must be a valid IPv4 address");
   }
-  if (id === "cloudflare") {
+  if (provider === "cloudflare") {
     if (out.apiToken && out.apiToken.length < 24) throw new Error("Cloudflare API token is too short");
     if (out.zoneId && !HEX32_RE.test(out.zoneId)) throw new Error("Cloudflare zoneId must be 32 hexadecimal characters");
     if (out.accountId && out.accountId.length < 16) throw new Error("Cloudflare accountId is too short");
   }
-  if (id === "composio") {
+  if (provider === "composio") {
     for (const value of Object.values(out)) if (value.length < 16 || value.length > 4096 || /[\s\x00-\x1f\x7f]/.test(value)) throw new Error("Composio keys must be opaque single-line values (16–4096 characters)");
   }
-  if (id === "convex-cloud" && out.deploymentName && !/^[a-z0-9][a-z0-9-]{1,62}$/.test(out.deploymentName)) throw new Error("Invalid deployment name");
-  if (id === "convex" && out.apiUrl) {
-    let url: URL; try { url = new URL(out.apiUrl); } catch { throw new Error("Invalid deployment URL"); }
-    if (url.username || url.password || url.search || url.hash || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))) throw new Error("Invalid deployment URL");
+  if (provider === "convex") {
+    // One provider, both shapes. deploymentKind is a closed enum and never a
+    // credential; reject anything else rather than inferring a third value.
+    // Field-level only: normalizeInfraValues sees partial updates (a single
+    // rotated key), so cross-field shape coherence belongs to the doctor.
+    if (out.deploymentKind !== undefined && !isConvexDeploymentKind(out.deploymentKind)) throw new Error("Convex deploymentKind must be cloud or self-hosted");
+    if (out.deploymentName && !/^[a-z0-9][a-z0-9-]{1,62}$/.test(out.deploymentName)) throw new Error("Invalid deployment name");
+    if (out.apiUrl) {
+      let url: URL; try { url = new URL(out.apiUrl); } catch { throw new Error("Invalid deployment URL"); }
+      if (url.username || url.password || url.search || url.hash || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))) throw new Error("Invalid deployment URL");
+    }
   }
-  if (id === "mcp") {
+  if (provider === "mcp") {
     if (out.endpoint) out.endpoint = normalizeMcpEndpoint(out.endpoint);
     if (out.accessToken && (out.accessToken.length < 16 || /\s/.test(out.accessToken))) throw new Error("MCP token must be an opaque single-line value");
     parseMcpToolAllowlist(out.allowedTools);
   }
-  if (id === "telegram") {
+  if (provider === "telegram") {
     if (out.botToken && !/^\d{5,16}:[A-Za-z0-9_-]{20,}$/.test(out.botToken)) throw new Error("Telegram bot token format is invalid");
     if (out.webhookSecret && !/^[A-Za-z0-9_-]{1,256}$/.test(out.webhookSecret)) throw new Error("Telegram webhook secret must use only letters, digits, underscore or hyphen");
   }
-  if (id === "discord") {
+  if (provider === "discord") {
     if (out.botToken && (out.botToken.length < 24 || out.botToken.length > 256 || /[\s\x00-\x1f\x7f]/.test(out.botToken))) throw new Error("Discord bot token format is invalid");
     if (out.applicationId && !/^\d{15,22}$/.test(out.applicationId)) throw new Error("Discord applicationId must be a snowflake");
     if (out.publicKey && !/^[0-9a-f]{64}$/i.test(out.publicKey)) throw new Error("Discord publicKey must be 64 hexadecimal characters");
   }
-  if (id === "doku") {
+  if (provider === "doku") {
     for(const key of ["environment","paymentEnvironment"])if(out[key]&&!["sandbox","production"].includes(out[key]))throw new Error("DOKU environment must be sandbox or production");
     for(const key of ["paymentClientId","mcpClientId"])if(out[key]&&(out[key].length<3||out[key].length>256||/[\s\x00-\x1f\x7f]/.test(out[key])))throw new Error("DOKU Client ID must be an opaque single-line value");
     for(const key of ["paymentSecretKey","mcpApiKey"])if(out[key]&&(out[key].length<8||/[\s\x00-\x1f\x7f]/.test(out[key])))throw new Error("DOKU secret/API key must be an opaque single-line value");
   }
-  if (id === "openai-app") {
+  if (provider === "openai-app") {
     if (out.appId) {
       const normalized = out.appId.startsWith("plugin_asdk_app_") ? out.appId.slice("plugin_".length) : out.appId;
       if (normalized.startsWith("asdk_app_v_") || !/^asdk_app_[A-Za-z0-9][A-Za-z0-9_-]*$/.test(normalized)) throw new Error("OpenAI App ID must be canonical asdk_app_… or browser URL form plugin_asdk_app_…");
       out.appId = normalized;
     }
   }
-  if (id === "hostinger") {
+  if (provider === "hostinger") {
     if (out.apiToken && out.apiToken.length < 24) throw new Error("Hostinger API token is too short");
     if (out.mailApiToken && out.mailApiToken.length < 24) throw new Error("Hostinger Mail API token is too short");
     if (out.mailOrderId && !/^[A-Za-z0-9._-]{3,128}$/.test(out.mailOrderId)) throw new Error("Invalid Hostinger Mail order ID");
   }
-  if (id === "linear") {
+  if (provider === "linear") {
     // Personal API keys are opaque single-line values; the doctor proves the rest.
     if (out.apiKey && (out.apiKey.length < 20 || out.apiKey.length > 4096 || /[\s\x00-\x1f\x7f]/.test(out.apiKey))) throw new Error("Linear API key must be an opaque single-line value (20–4096 characters)");
   }
-  if (id === GOOGLE_APP_PROVIDER || isGoogleProvider(id)) return normalizeGoogleConfig(id, out);
+  if (provider === GOOGLE_APP_PROVIDER || isGoogleProvider(id)) return normalizeGoogleConfig(id, out);
   return out;
 }

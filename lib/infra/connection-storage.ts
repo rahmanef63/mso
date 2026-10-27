@@ -7,7 +7,7 @@ import path from "node:path";
 import os from "node:os";
 import { withSecurityStoreLock } from "@/lib/security-store-lock";
 import { connectionMethod, legacyMethod } from "./connection-registry";
-import { isInfraProviderId } from "./catalog";
+import { canonicalProviderId, isInfraProviderId } from "./catalog";
 import { emptyIntegrationState, IntegrationError, identity, type IntegrationState, type IntegrationConnection } from "./identity";
 export const INFRA_STORE_PATH=expandOwnerStorePath(process.env.OS_INFRA_STORE??path.join(os.homedir(),".mso","private","infra-providers.json"));
 const MAX=1024*1024;
@@ -34,8 +34,8 @@ function projected(raw:Record<string,unknown>|undefined):IntegrationState{
   const profile={id:"legacy",uid:"legacy",label:"Existing MSO credentials",defaults:{} as Record<string,string>,connections:{} as Record<string,Record<string,IntegrationConnection>>};
   for(const [provider,v] of Object.entries(providers)){
     if(!isInfraProviderId(provider)||!v||typeof v!=="object"||Array.isArray(v)||Object.values(v).some(x=>typeof x!=="string"))throw new IntegrationError("legacy_migration_requires_review");
-    const values=v as Record<string,string>;const selected=legacyMethod(provider,values);
-    const methods=provider==="composio"?[...(values.apiKey?["project"]:[]),...(values.orgApiKey?["organization"]:[])]:provider==="convex-cloud"?[...(values.personalToken?["personal"]:[]),...(values.deployKey||values.deploymentName?["deployment"]:[])]:provider==="doku"?[...(values.paymentClientId||values.paymentSecretKey?["payment"]:[]),...(values.mcpClientId||values.mcpApiKey?["mcp"]:[])]:["direct"];
+    const values=v as Record<string,string>;const selected=legacyMethod(provider,values),convex=canonicalProviderId(provider)==="convex";
+    const methods=provider==="composio"?[...(values.apiKey?["project"]:[]),...(values.orgApiKey?["organization"]:[])]:convex?[...(values.apiUrl?["admin"]:[]),...(values.personalToken?["personal"]:[]),...(values.deployKey||values.deploymentName?["deployment"]:[])]:provider==="doku"?[...(values.paymentClientId||values.paymentSecretKey?["payment"]:[]),...(values.mcpClientId||values.mcpApiKey?["mcp"]:[])]:["direct"];
     if(!methods.length)methods.push(selected);
     profile.connections[provider]={};
     for(const method of methods){const def=connectionMethod(provider,"direct",method),id=methods.length===1?"default":method;
@@ -51,6 +51,7 @@ async function write(d:IntegrationState){
   const temp=`${INFRA_STORE_PATH}.${randomUUID()}.tmp`;try{await fs.writeFile(temp,text,{mode:0o600,flag:"wx"});await fs.rename(temp,INFRA_STORE_PATH);}finally{await fs.unlink(temp).catch(()=>{});}
 }
 export async function readIntegrationState(){return projected((await readRaw())?.raw);}
+
 export async function mutateIntegrationState<T>(fn:(d:IntegrationState)=>T|Promise<T>):Promise<T>{
   return withSecurityStoreLock(INFRA_STORE_PATH,async()=>{const previous=await readRaw(),d=projected(previous?.raw);const out=await fn(d);
     if(previous&&previous.raw.version!==2){

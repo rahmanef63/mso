@@ -1,11 +1,33 @@
 import { GOOGLE_APP_PROVIDER, isGoogleProvider, googleGuidance } from "./google-native-config";
 import { ADDITIONAL_GUIDANCE, type AdditionalProviderId } from "./additional-providers";
-import { getInfraProviderDefinition } from "./catalog";
-import type { InfraProviderId } from "./types";
+import { getInfraProviderDefinition, resolveProviderId } from "./catalog";
+import type { InfraProviderId, InfraProviderRef } from "./types";
 
-export const SETUP_METHOD_IDS = ["direct", "project", "organization", "personal", "deployment", "mail", "payment", "mcp", "oauth-app", "oauth2"] as const;
+export const SETUP_METHOD_IDS = ["direct", "project", "organization", "personal", "deployment", "admin", "mail", "payment", "mcp", "oauth-app", "oauth2"] as const;
 export type SetupMethod = typeof SETUP_METHOD_IDS[number];
-export function setupFields(provider: InfraProviderId, method: SetupMethod) {
+/** One Convex product, two credential shapes; every pre-collapse method id survives. */
+const CONVEX_FIELD_KEYS: Record<string, string[] | null> = {
+  personal: ["personalToken"],
+  deployment: ["deployKey", "deploymentName"],
+  admin: ["apiUrl", "adminKey"],
+  direct: null, // pre-collapse self-hosted rows keep their declared requirements
+};
+function convexFields(provider: InfraProviderId, method: SetupMethod) {
+  if (!(method in CONVEX_FIELD_KEYS)) throw new Error("Choose a Convex personal token, deployment key or self-hosted admin key");
+  const keys = CONVEX_FIELD_KEYS[method];
+  // Method fields stay CREDENTIAL fields only. `deploymentKind` is a non-secret
+  // routing fact on the provider definition; it is not asked for per method and is
+  // inferred from the shape the operator actually supplies.
+  return getInfraProviderDefinition(provider).fields
+    .filter(f => keys === null || keys.includes(f.key))
+    .map(f => ({ ...f, required: keys === null ? f.required : true }));
+}
+export function setupFields(provider: InfraProviderRef, method: SetupMethod) {
+  const canonical = resolveProviderId(provider);
+  if (!canonical) throw new Error("Unsupported authentication method");
+  return fieldsFor(canonical, method);
+}
+function fieldsFor(provider: InfraProviderId, method: SetupMethod) {
   if (provider === GOOGLE_APP_PROVIDER || isGoogleProvider(provider)) {
     if (method !== (provider === GOOGLE_APP_PROVIDER ? "oauth-app" : "oauth2")) throw new Error("Unsupported Google authentication method");
     return getInfraProviderDefinition(provider).fields;
@@ -20,11 +42,7 @@ export function setupFields(provider: InfraProviderId, method: SetupMethod) {
     const keys = method === "payment" ? ["paymentClientId", "paymentSecretKey", "paymentEnvironment"] : ["mcpClientId", "mcpApiKey", "environment"];
     return getInfraProviderDefinition(provider).fields.filter(f => keys.includes(f.key)).map(f => ({ ...f, required: true }));
   }
-  if (provider === "convex-cloud") {
-    if (!["personal", "deployment"].includes(method)) throw new Error("Choose a Convex personal token or deployment key");
-    const keys = method === "personal" ? ["personalToken"] : ["deployKey", "deploymentName"];
-    return getInfraProviderDefinition(provider).fields.filter(f => keys.includes(f.key)).map(f => ({ ...f, required: true }));
-  }
+  if (provider === "convex") return convexFields(provider, method);
   if (provider === "composio") {
     if (!["project", "organization"].includes(method)) throw new Error("Choose a Composio project/user or organization key");
     return getInfraProviderDefinition(provider).fields.filter(f => f.key === (method === "project" ? "apiKey" : "orgApiKey")).map(f => ({ ...f, required: true }));
@@ -32,25 +50,31 @@ export function setupFields(provider: InfraProviderId, method: SetupMethod) {
   if (method !== "direct") throw new Error("Unsupported authentication method");
   return getInfraProviderDefinition(provider).fields;
 }
-export function setupMethod(provider: InfraProviderId, method?: string): SetupMethod {
-  const value = method ?? (provider === GOOGLE_APP_PROVIDER ? "oauth-app" : isGoogleProvider(provider) ? "oauth2" : provider === "composio" ? "project" : provider === "convex-cloud" ? "personal" : provider === "doku" ? "mcp" : "direct");
+export function setupMethod(provider: InfraProviderRef, method?: string): SetupMethod {
+  const canonical = resolveProviderId(provider) ?? throwUnsupported();
+  const value = method ?? (canonical === GOOGLE_APP_PROVIDER ? "oauth-app" : isGoogleProvider(canonical) ? "oauth2" : canonical === "composio" ? "project" : canonical === "convex" ? "personal" : canonical === "doku" ? "mcp" : "direct");
   if (!(SETUP_METHOD_IDS as readonly string[]).includes(value)) throw new Error("Unsupported authentication method");
-  setupFields(provider, value as SetupMethod);
+  fieldsFor(canonical, value as SetupMethod);
   return value as SetupMethod;
 }
-export function setupMethods(provider: InfraProviderId): Array<{id: SetupMethod; label: string}> {
-  if (provider === GOOGLE_APP_PROVIDER) return [{ id: "oauth-app", label: "Google OAuth app (configuration only)" }];
-  if (isGoogleProvider(provider)) return [{ id: "oauth2", label: "Native Google OAuth · read-only" }];
-  if (provider === "hostinger") return [{ id: "direct", label: "Account API token" }, { id: "mail", label: "Scoped Mail API token" }];
-  if (provider === "composio") return [{ id: "project", label: "Project API key" }, { id: "organization", label: "Organization API key" }];
-  if (provider === "convex-cloud") return [{ id: "personal", label: "Personal access token" }, { id: "deployment", label: "Deployment key" }];
-  if (provider === "doku") return [{id:"payment",label:"Payment REST · Client ID + Secret Key"},{id:"mcp",label:"MCP · Client ID + API Key"}];
+const throwUnsupported = (): never => { throw new Error("Unsupported authentication method"); };
+export function setupMethods(provider: InfraProviderRef): Array<{id: SetupMethod; label: string}> {
+  const canonical = resolveProviderId(provider) ?? throwUnsupported();
+  const id = canonical;
+  if (id === GOOGLE_APP_PROVIDER) return [{ id: "oauth-app", label: "Google OAuth app (configuration only)" }];
+  if (isGoogleProvider(id)) return [{ id: "oauth2", label: "Native Google OAuth · read-only" }];
+  if (id === "hostinger") return [{ id: "direct", label: "Account API token" }, { id: "mail", label: "Scoped Mail API token" }];
+  if (id === "composio") return [{ id: "project", label: "Project API key" }, { id: "organization", label: "Organization API key" }];
+  if (id === "convex") return [{ id: "personal", label: "Convex Cloud · personal access token" }, { id: "deployment", label: "Convex Cloud · deployment key" }, { id: "admin", label: "Self-hosted · deployment URL + admin key" }];
+  if (id === "doku") return [{id:"payment",label:"Payment REST · Client ID + Secret Key"},{id:"mcp",label:"MCP · Client ID + API Key"}];
   return [{ id: "direct", label: "Direct credential" }];
 }
-export function setupGuidance(provider: InfraProviderId, method: SetupMethod) {
-  if (provider === GOOGLE_APP_PROVIDER || isGoogleProvider(provider)) return googleGuidance(provider);
-  if(provider==="doku")return method==="payment"?{url:"https://dashboard.doku.com/bo/developer/api-keys",reference:"https://developers.doku.com/get-started-with-doku-api/signature-component/non-snap/signature-component-from-request-header",steps:["Open DOKU Back Office → Developer → API Keys.","Use Client ID + Secret Key for the signed Non-SNAP payment API; the API Key is not a substitute for the HMAC Secret Key.","Choose sandbox first unless this project is explicitly approved for live payments.","Enter credentials only in this private setup form. MSO verifies them with a signed read-only status lookup before saving."]}:{url:"https://developers.doku.com/accept-payments/doku-mcp-server",reference:"https://developers.doku.com/accept-payments/doku-mcp-server",steps:["Open DOKU's official MCP Server guide and choose Sandbox first unless this project is explicitly approved for production payments.","Use the DOKU MCP Client ID + MCP API Key; do not substitute the Payment REST Secret Key.","Enter them only in this private setup form; do not paste them into chat, Baton notes, RR, Git, or project MCP JSON.","MSO calls the fixed official DOKU MCP endpoint with a read-only MCP initialize request before saving the connection."]};
-  if (provider in ADDITIONAL_GUIDANCE) return ADDITIONAL_GUIDANCE[provider as AdditionalProviderId];
+export function setupGuidance(provider: InfraProviderRef, method: SetupMethod) {
+  const canonical = resolveProviderId(provider) ?? throwUnsupported();
+  const id = canonical;
+  if (id === GOOGLE_APP_PROVIDER || isGoogleProvider(id)) return googleGuidance(id);
+  if(id==="doku")return method==="payment"?{url:"https://dashboard.doku.com/bo/developer/api-keys",reference:"https://developers.doku.com/get-started-with-doku-api/signature-component/non-snap/signature-component-from-request-header",steps:["Open DOKU Back Office → Developer → API Keys.","Use Client ID + Secret Key for the signed Non-SNAP payment API; the API Key is not a substitute for the HMAC Secret Key.","Choose sandbox first unless this project is explicitly approved for live payments.","Enter credentials only in this private setup form. MSO verifies them with a signed read-only status lookup before saving."]}:{url:"https://developers.doku.com/accept-payments/doku-mcp-server",reference:"https://developers.doku.com/accept-payments/doku-mcp-server",steps:["Open DOKU's official MCP Server guide and choose Sandbox first unless this project is explicitly approved for production payments.","Use the DOKU MCP Client ID + MCP API Key; do not substitute the Payment REST Secret Key.","Enter them only in this private setup form; do not paste them into chat, Baton notes, RR, Git, or project MCP JSON.","MSO calls the fixed official DOKU MCP endpoint with a read-only MCP initialize request before saving the connection."]};
+  if (id in ADDITIONAL_GUIDANCE) return ADDITIONAL_GUIDANCE[id as AdditionalProviderId];
   const guides = {
     composio: {
       url: "https://platform.composio.dev",
