@@ -20,7 +20,6 @@ export const DEPLOYMENT_ENV_KEYS = [
   "VITE_CONVEX_URL",
 ] as const;
 
-const ENV_FILES = [".env.local", ".env"];
 const MAX_ENV_BYTES = 64 * 1024;
 const ASSIGNMENT = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/;
 const KNOWN = new Set<string>(DEPLOYMENT_ENV_KEYS);
@@ -126,13 +125,20 @@ export type ProjectConvexUsage = { convexDirectory: boolean; identifiers: Deploy
 /** Reads `convex/` presence and the identifier env files. Bounded, symlink-safe, no secrets retained. */
 export async function readProjectConvexUsage(folder: string): Promise<ProjectConvexUsage> {
   const identifiers: DeploymentIdentifiers = { deploymentNames: [], origins: [] };
-  const directory = await fs.lstat(path.resolve(folder)).catch(() => null);
+  const base = path.resolve(folder);
+  const directory = await fs.lstat(base).catch(() => null);
   if (!directory?.isDirectory()) return { convexDirectory: false, identifiers };
-  const convexDir = await fs.lstat(path.join(path.resolve(folder), "convex")).catch(() => null);
-  for (const name of ENV_FILES) {
-    const text = await readBoundedRegularFile(path.join(path.resolve(folder), name), MAX_ENV_BYTES);
-    if (text) merge(identifiers, deploymentIdentifiers(text));
-  }
+  const convexDir = await fs.lstat(path.join(base, "convex")).catch(() => null);
+  // Both read sites name their file with a LITERAL, never a loop variable. Turbopack
+  // traces `fs` calls in an App Route's module graph; a path segment arriving from an
+  // iteration made the base "dynamic", so it fell back to tracing the whole project
+  // ("Dynamic filesystem access causes tracing of the whole project") and the release
+  // gate — where any build warning is a failure — rejected the build. `base` itself is
+  // fine: it only ever gains fixed segments below it.
+  for (const text of [
+    await readBoundedRegularFile(path.join(base, ".env.local"), MAX_ENV_BYTES),
+    await readBoundedRegularFile(path.join(base, ".env"), MAX_ENV_BYTES),
+  ]) if (text) merge(identifiers, deploymentIdentifiers(text));
   return { convexDirectory: Boolean(convexDir?.isDirectory()), identifiers };
 }
 
