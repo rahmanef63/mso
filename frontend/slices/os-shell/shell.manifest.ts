@@ -17,7 +17,7 @@ import { createAppApp } from "@/features/create-app";
 import { systemMonitorApp } from "@/features/system-monitor";
 import { assistantApp } from "@/features/assistant";
 import { hermesApp, nineRouterApp, openclawApp, orcaApp } from "@/features/managed-apps";
-import { osSettingsApp, updateShellBadgeFeature } from "@/features/os-settings";
+import { osSettingsApp } from "@/features/os-settings";
 import { quicklinksApp } from "@/features/quicklinks";
 import { docsApp } from "@/features/docs";
 import { integrationsApp } from "@/features/integrations";
@@ -99,5 +99,6 @@ export const BUILTIN_APPS: AppDescriptor[] = [
 // mounts into a named slot (overlay/rightPanel/notifications/topPill/
 // controlCenter/today), so a feature absent from the array just doesn't render.
 // Settings stays the `os-settings` app (its own slice). mso adds one consumer
-// features: theme-preset switcher in the menu-bar status cluster + shell update badge (UX-10).
-export const TOPSIDE_FEATURES: FeatureDescriptor[] = [...DEFAULT_FEATURES, serverConnectionStatusFeature, themeQuickPickerFeature, updateShellBadgeFeature];
+// feature: the theme-preset switcher in the menu-bar status cluster. Update
+// notices are not a shell feature; they live only in Settings.
+export const TOPSIDE_FEATURES: FeatureDescriptor[] = [...DEFAULT_FEATURES, serverConnectionStatusFeature, themeQuickPickerFeature];

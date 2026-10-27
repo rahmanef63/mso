@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
 // Serve the service worker dynamically so its bytes change every deploy: the
-// CACHE name (and header comment) embed the build id. A static public/sw.js is
-// byte-identical across deploys, so the browser never sees an "update" and the
-// "new version → reload" toast never fires (it only ever showed once, during a
-// cache-name bump). With the id baked in, each deploy is a new SW → updatefound
-// → waiting → toast (see app/register-sw.tsx). Caches ONLY icons + manifest;
-// never JS chunks/HTML, so a redeploy can't strand a stale chunk.
+// CACHE name (and header comment) embed the build id. With the id baked in, each
+// deploy is a genuinely new SW, so the browser installs it, it lands in waiting,
+// and it takes over when the user reloads or the browser retires the old worker.
+// Nothing prompts: the worker intentionally never self-activates and there is no
+// client cue (app/register-sw.tsx only registers it; Settings shows the update).
+// Caches ONLY icons + manifest; never JS chunks/HTML, so a redeploy can't strand
+// a stale chunk.
 const BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID || "dev";
 
 // Small illustrated app icons are pre-cached with the shell so the dock/taskbar
@@ -40,12 +41,10 @@ const CACHE = "mso-${BUILD_ID}";
 // the comment above promises this never does.
 const ASSETS = ${JSON.stringify(["/icon.svg", "/icon-maskable.svg", "/manifest.webmanifest", ...APP_ICON_ASSETS, ...PLATFORM_APP_ICON_ASSETS, ...OFFICIAL_BRAND_ICON_ASSETS])};
 self.addEventListener("install", (e) => {
-  // Do NOT skipWaiting here. Auto-activating skipped the "waiting" state, so the
-  // client's "new version" toast (which needs reg.waiting) never showed and the
-  // update relied on a silent controllerchange reload that did not fire on mobile
-  // PWAs. Now the new SW sits in waiting → client toasts → user taps Reload →
-  // SKIP_WAITING message (below) activates it → controllerchange reload. The
-  // first-ever install (no old SW controlling clients) still activates at once.
+  // Do NOT skipWaiting here, and nothing on the client sends SKIP_WAITING either.
+  // The new worker stays in waiting until the browser retires the old one (all
+  // tabs closed) or the user reloads, so a deploy never swaps assets mid-session.
+  // The update itself is surfaced only in Settings, which reads the release tag.
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})));
 });
 self.addEventListener("message", (e) => {
