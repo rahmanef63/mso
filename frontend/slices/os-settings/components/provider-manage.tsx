@@ -50,7 +50,7 @@ export function ProviderManage({
           </div>
         ) : (
           <p className="mt-1 text-xs text-muted-foreground">
-            Any OpenAI-compatible or Anthropic-Messages endpoint — paste its base URL and key,
+            Any OpenAI-compatible or Anthropic-Messages endpoint: paste its base URL and key,
             then Discover to pull in the model ids it serves.
           </p>
         )}

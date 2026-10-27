@@ -15,7 +15,7 @@ export function targetSubtitle(target: ServerTarget): string {
 export function kindLabel(target: ServerTarget): string {
   if (target.kind === "local") return "Live";
   if (target.kind === "mock") return "Mock";
-  return "SSH — not connected";
+  return "SSH: not connected";
 }
 
 export function isSsh(target: ServerTarget): target is SshServerTarget {

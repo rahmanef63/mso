@@ -16,7 +16,7 @@ type Reply = { ok?: boolean; models?: DiscoveredModel[]; error?: string };
 // base URL, a rejected key, and a reachable endpoint with no models need
 // different fixes. Exported so the messages are testable and stay distinct.
 export const DISCOVERY_MESSAGES: Record<DiscoveryFailure, string> = {
-  "invalid-url": "That endpoint URL isn’t usable — use a full https:// base URL (e.g. https://host/v1) that the server can reach.",
+  "invalid-url": "That endpoint URL isn’t usable. Use a full https:// base URL (e.g. https://host/v1) that the server can reach.",
   auth: "That endpoint rejected the API key (401/403). Check the key, then retry Discover.",
   empty: "The endpoint answered but listed no models. Type the ids by hand or paste JSON instead.",
 };
@@ -103,7 +103,7 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
       const list = body.models ?? [];
       setFound(list);
       setModels(modelFieldFromDiscovered(list));
-      toast(`Discovered ${list.length} model${list.length === 1 ? "" : "s"} — all selected`);
+      toast(`Discovered ${list.length} model${list.length === 1 ? "" : "s"}, all selected`);
     } catch {
       if (!signal.aborted) setFailure("invalid-url");
     } finally {
@@ -161,7 +161,7 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Custom endpoint — OpenAI-compatible or Anthropic Messages</span>
+        <span>Custom endpoint: OpenAI-compatible or Anthropic Messages</span>
         <Button type="button" variant="ghost" className={`${ghost} text-primary`} onClick={() => setMode(mode === "fields" ? "json" : "fields")}>
           {mode === "fields" ? "paste JSON" : "use fields"}
         </Button>
@@ -181,7 +181,7 @@ export function CustomProviderForm({ onAdded }: { onAdded: () => void }) {
           <Input disabled={busy} aria-label="Base URL" placeholder="https://host/v1" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} />
           <Input disabled={busy} aria-label="API key" type="password" placeholder="API key" value={key} onChange={(e) => setKey(e.target.value)} />
           <div className="flex items-center gap-2">
-            <Input disabled={busy} aria-label="Models" placeholder="models — comma/newline, e.g. minimax-m3, gpt-4o" value={models} onChange={(e) => setModels(e.target.value)} className="flex-1" />
+            <Input disabled={busy} aria-label="Models" placeholder="models: comma/newline, e.g. minimax-m3, gpt-4o" value={models} onChange={(e) => setModels(e.target.value)} className="flex-1" />
             <Button type="button" variant="outline" size="sm" className="[@media(pointer:coarse)]:min-h-[44px]" disabled={busy || scanning || !baseURL || !key} onClick={() => start(baseURL, key, protocol)}>
               {scanning ? "Discovering…" : "Discover models"}
             </Button>

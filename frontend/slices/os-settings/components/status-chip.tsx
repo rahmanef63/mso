@@ -17,8 +17,8 @@ export function StatusChip({ test }: { test: TestState }) {
     test.state === "testing"
       ? "Testing…"
       : ok
-        ? `Connected — ${test.msg}`
-        : `Failed — ${test.msg}`;
+        ? `Connected: ${test.msg}`
+        : `Failed: ${test.msg}`;
   return (
     <span className="flex min-w-0 items-center gap-2 text-[12px] font-semibold">
       <span

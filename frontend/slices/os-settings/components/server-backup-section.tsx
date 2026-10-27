@@ -26,7 +26,7 @@ export function ServerBackupSection() {
     <SettingsActionRow label="Preview server memory sources" icon={<Search />} busy={busy === "preview"} disabled={busy !== null} onClick={() => void perform("preview", async () => setPreview(await request<Preview>()))} />
     {preview ? <>
       <SettingsValueRow label="Available files" value={`${preview.scan.files} · ${size(preview.scan.bytes)}`} />
-      <SettingsValueRow label="Scope" value={preview.scan.truncated || preview.sourceDiscoveryTruncated ? "Partial scan — not a complete backup" : "Bounded allowlisted sources"} />
+      <SettingsValueRow label="Scope" value={preview.scan.truncated || preview.sourceDiscoveryTruncated ? "Partial scan: not a complete backup" : "Bounded allowlisted sources"} />
       <SettingsValueRow label="Missing / rejected / excluded" value={`${preview.scan.missing} / ${preview.scan.rejected} / ${preview.scan.excluded}`} />
       <SettingsActionRow label="Create local memory snapshot" icon={<DatabaseBackup />} busy={busy === "create"} disabled={busy !== null || preview.scan.files === 0} onClick={() => void perform("create", async () => { setVerification(null); setSnapshot(await request<MemoryBackupSummary>({ action: "create", confirm: true })); })} />
     </> : null}

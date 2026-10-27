@@ -122,7 +122,7 @@ export function AiSection() {
         }),
       });
       if (!r.ok) {
-        toast(r.status === 401 ? "Session expired — sign in again" : "Couldn’t save AI config", { tone: "error" });
+        toast(r.status === 401 ? "Session expired. Sign in again." : "Couldn’t save AI config", { tone: "error" });
         return;
       }
       setKey("");
@@ -178,7 +178,7 @@ export function AiSection() {
       </SettingsRow>
       {isOAuth ? (
         <SettingsRow label="Auth">
-          <span className="text-sm text-muted-foreground">Signed in via OAuth — no key needed</span>
+          <span className="text-sm text-muted-foreground">Signed in via OAuth, no key needed</span>
         </SettingsRow>
       ) : (
         <SettingsRow label={`${isCustom ? provider : providerLabel} key`}>

@@ -106,7 +106,7 @@ export function A2APeerSettings({
               >
                 {state.agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>
-                    {agent.alias} — {agent.card.name}
+                    {agent.alias}: {agent.card.name}
                   </option>
                 ))}
               </select>

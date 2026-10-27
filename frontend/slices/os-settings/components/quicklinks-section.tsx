@@ -37,7 +37,7 @@ export function QuicklinksSection() {
       >
         {items.length === 0 && (
           <SettingsBlock>
-            <p className="text-xs text-muted-foreground">No quicklinks yet — add one below.</p>
+            <p className="text-xs text-muted-foreground">No quicklinks yet. Add one below.</p>
           </SettingsBlock>
         )}
         {items.map((ql, i) => {

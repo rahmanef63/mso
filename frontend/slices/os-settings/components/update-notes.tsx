@@ -20,9 +20,9 @@ import { ChangelogView } from "./changelog-view";
 const REPO = "https://github.com/rahmanef63/mso";
 
 const DOCS: [string, string][] = [
-  ["README — what MSO is, and the security model", `${REPO}#readme`],
+  ["README: what MSO is, and the security model", `${REPO}#readme`],
   ["Full changelog", `${REPO}/blob/main/docs/CHANGELOG.md`],
-  ["Progress log — why each change happened", `${REPO}/blob/main/docs/PROGRESS.md`],
+  ["Progress log: why each change happened", `${REPO}/blob/main/docs/PROGRESS.md`],
   ["CLI reference", `${REPO}/blob/main/docs/CLI.md`],
 ];
 
