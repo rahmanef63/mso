@@ -12,6 +12,22 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `copy` replace em dashes in frontend/slices/os-settings user-visible strings
+- `copy` replace em dashes in app-store user-visible strings
+- `copy` replace em dashes in channels user-visible strings
+- `copy` replace em dashes in frontend/slices/code-editor user-visible strings
+- `copy` replace em dashes in extensions user-visible strings
+- `copy` replace em dashes in image-picker user-visible strings
+- `copy` replace em dashes in media-viewer user-visible strings
+- `copy` replace em dashes in os-terminal user-visible strings
+- `copy` replace em dashes in agent-group user-visible strings
+- `copy` replace em dashes in files-manager user-visible strings
+- `copy` replace em dashes in image-editor user-visible strings
+- `copy` replace em dashes in frontend/slices/managed-apps user-visible strings
+- `copy` replace em dashes in frontend/slices/assistant user-visible strings
+- `copy` replace em dashes in reel-editor user-visible strings
+- `copy` replace em dashes in frontend/slices/appshell user-visible strings
+- `update` one Settings cue, no toast and no floating badge (#161)
 - `build` keep Convex project linking out of Turbopack's traced filesystem
 
 **Tests**
