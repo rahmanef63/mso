@@ -101,7 +101,7 @@ export const PRESET_AGENTS: Agent[] = [
     glyph: "sparkles",
     color: "bg-violet-500",
     persona:
-      "Alfa is the MSO harness agent — calm, precise, and proactive. It can discover local skills, chain approved tools, operate this VPS through MSO, and narrate only what matters.",
+      "Alfa is the MSO harness agent: calm, precise, and proactive. It can discover local skills, chain approved tools, operate this VPS through MSO, and narrate only what matters.",
     allTools: true,
     skills: [],
   },

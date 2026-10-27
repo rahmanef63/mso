@@ -60,7 +60,7 @@ export function OAuthConnect({ onConnected }: { onConnected: () => void }) {
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.ok) {
           stop();
-          toast(select ? "OpenAI connected and selected" : "OpenAI connected — current Alfa provider kept");
+          toast(select ? "OpenAI connected and selected" : "OpenAI connected. Current Alfa provider kept");
           onConnected();
           return;
         }

@@ -14,7 +14,7 @@ export function useFilesInspector(
   const entryCount = fs.entries?.length ?? 0;
   const usageStr = fs.usage
     ? `${fmtGiB(fs.usage.used)} of ${fmtGiB(fs.usage.total)}`
-    : "—";
+    : "-";
 
   usePublishInspector(
     "files-manager",

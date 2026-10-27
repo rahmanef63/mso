@@ -65,10 +65,10 @@ export function AlfaCockpitDialog({
           ) : null}
           {selected ? (
             <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
-              <div><span className="text-muted-foreground">Branch</span><p className="truncate font-medium">{selected.git.branch || "—"}</p></div>
-              <div><span className="text-muted-foreground">Tree</span><p className="font-medium">{selected.git.clean === true ? "clean" : selected.git.clean === false ? "changed" : "—"}</p></div>
-              <div><span className="text-muted-foreground">HEAD</span><p className="truncate font-mono">{selected.git.head?.sha?.slice(0, 10) || "—"}</p></div>
-              <div><span className="text-muted-foreground">Package</span><p className="truncate font-medium">{selected.package?.name || "—"}</p></div>
+              <div><span className="text-muted-foreground">Branch</span><p className="truncate font-medium">{selected.git.branch || "unknown"}</p></div>
+              <div><span className="text-muted-foreground">Tree</span><p className="font-medium">{selected.git.clean === true ? "clean" : selected.git.clean === false ? "changed" : "unknown"}</p></div>
+              <div><span className="text-muted-foreground">HEAD</span><p className="truncate font-mono">{selected.git.head?.sha?.slice(0, 10) || "unknown"}</p></div>
+              <div><span className="text-muted-foreground">Package</span><p className="truncate font-medium">{selected.package?.name || "unknown"}</p></div>
               <div><span className="text-muted-foreground">Knowledge</span><p className="font-medium">{selected.knowledge?.exists ? "available" : "none"}</p></div>
               <div><span className="text-muted-foreground">Integrations</span><p className="font-medium">{projectMcp} MCP · {selected.database?.detected ? "DB" : "no DB"}</p></div>
             </div>

@@ -35,7 +35,7 @@ export function ClipTabAudio({
       >
         Audio
       </Header>
-      <Field label={`Volume — ${Math.round((clip.mute ? 0 : clip.vol ?? 1) * 100)}%`}>
+      <Field label={`Volume: ${Math.round((clip.mute ? 0 : clip.vol ?? 1) * 100)}%`}>
         <Slider
           min={0}
           max={100}
@@ -44,10 +44,10 @@ export function ClipTabAudio({
           onChange={(e) => onChange({ vol: Number(e.target.value) / 100 })}
         />
       </Field>
-      <Field label={`Fade in — ${((clip.fadeIn ?? 0) / comp.fps).toFixed(2)}s`}>
+      <Field label={`Fade in: ${((clip.fadeIn ?? 0) / comp.fps).toFixed(2)}s`}>
         <Slider min={0} max={clip.len} value={clip.fadeIn ?? 0} onChange={(e) => onChange({ fadeIn: Number(e.target.value) })} />
       </Field>
-      <Field label={`Fade out — ${((clip.fadeOut ?? 0) / comp.fps).toFixed(2)}s`}>
+      <Field label={`Fade out: ${((clip.fadeOut ?? 0) / comp.fps).toFixed(2)}s`}>
         <Slider min={0} max={clip.len} value={clip.fadeOut ?? 0} onChange={(e) => onChange({ fadeOut: Number(e.target.value) })} />
       </Field>
       <Button

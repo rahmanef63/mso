@@ -64,7 +64,7 @@ export default function Assistant({ payload }: AppProps) {
 
   // Surface Alfa's own library state to the shell AI Inspector. Called above the
   // early return so it runs unconditionally.
-  const agentName = store.activeAgent?.name ?? "—";
+  const agentName = store.activeAgent?.name ?? "no agent";
   usePublishInspector(
     "assistant",
     {

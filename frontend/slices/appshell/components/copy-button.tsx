@@ -41,7 +41,7 @@ export function CopyButton({
       // old helper silently swallowed.
       await navigator.clipboard.writeText(value);
     } catch {
-      toast("Couldn't copy — select the text and copy manually");
+      toast("Couldn't copy. Select the text and copy manually.");
       return;
     }
     if (history) recordClip(value);

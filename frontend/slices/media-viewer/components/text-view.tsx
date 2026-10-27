@@ -101,7 +101,7 @@ export function TextView({ path, name, kind }: { path: string; name: string; kin
             {source ? "Rendered" : "Source"}
           </Button>
           {kind === "html" && !source && (
-            <span className="truncate text-[11px] text-muted-foreground">Sandboxed — scripts and relative assets are off</span>
+            <span className="truncate text-[11px] text-muted-foreground">Sandboxed. Scripts and relative assets are off.</span>
           )}
         </div>
       )}
@@ -143,7 +143,7 @@ export function TextView({ path, name, kind }: { path: string; name: string; kin
 
       {truncated && (
         <p className="shrink-0 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
-          Showing the first {Math.round(MAX_BYTES / 1024)} KB — open it in the Code Editor for the whole file.
+          Showing the first {Math.round(MAX_BYTES / 1024)} KB. Open it in the Code Editor for the whole file.
         </p>
       )}
     </div>

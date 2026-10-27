@@ -123,7 +123,7 @@ export function jobReducer(state: JobState, event: JobEvent): JobState {
       };
     }
     case "vanished":
-      return { ...state, phase: "failed", error: "the job record is gone — it was pruned, or never written" };
+      return { ...state, phase: "failed", error: "the job record is gone: it was pruned, or never written" };
     case "rejected":
       return { ...state, phase: "failed", error: event.message, exitCode: null };
     case "reset":
@@ -149,6 +149,6 @@ export function statusLine(state: JobState): string {
     case "failed":
       return `${label} failed${state.error ? `: ${state.error}` : ""}.`;
     case "interrupted":
-      return `${label} was interrupted — the cockpit restarted while it ran, so nothing watched it finish. It may be half-applied: check the version below before retrying.`;
+      return `${label} was interrupted: the cockpit restarted while it ran, so nothing watched it finish. It may be half-applied: check the version below before retrying.`;
   }
 }

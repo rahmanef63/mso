@@ -89,9 +89,9 @@ export function AgentGroupEditor({
           <Input value={name} maxLength={120} placeholder="Council" onChange={(event) => setName(event.target.value)}/></label>
         <label className="block space-y-1.5"><span className="text-xs font-medium">Rounds</span>
           <select className={selectClass} value={maxRounds} onChange={(event) => setMaxRounds(Number(event.target.value))}>
-            <option value={1}>1 — opening statements</option>
-            <option value={2}>2 — open + respond</option>
-            <option value={3}>3 — open + respond + close</option>
+            <option value={1}>1: opening statements</option>
+            <option value={2}>2: open + respond</option>
+            <option value={3}>3: open + respond + close</option>
           </select></label>
       </div>
 
@@ -125,7 +125,7 @@ export function AgentGroupEditor({
       </label>
 
       <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
-        Telegram bot tokens stay in Integrations. Pick one or more Telegram connections — each agent posts as its own bot.
+        Telegram bot tokens stay in Integrations. Pick one or more Telegram connections. Each agent posts as its own bot.
       </div>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </FormDrawer.Body>

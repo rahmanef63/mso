@@ -145,7 +145,7 @@ export function parseLocalState(text: string, rule: KeyRule = MSO_LOCAL_STATE): 
   if (b.schema !== LOCAL_STATE_SCHEMA) {
     return {
       ok: false,
-      error: `Backup schema ${String(b.schema)} — this build only understands ${LOCAL_STATE_SCHEMA}. Update MSO, then import again.`,
+      error: `Backup schema ${String(b.schema)}. This build only understands ${LOCAL_STATE_SCHEMA}. Update MSO, then import again.`,
     };
   }
   // Both are rendered verbatim in the confirm dialog; unchecked, a hand-edited file makes it read "MSO [object Object] … Invalid Date".

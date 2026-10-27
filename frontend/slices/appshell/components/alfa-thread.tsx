@@ -84,7 +84,7 @@ export function AlfaThread({ ctx, placeholder }: { ctx: AlfaContext; placeholder
             <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
               {ctx.subject ? (
                 <>
-                  Ask Alfa about <strong>{ctx.subject}</strong>. She sees this app&apos;s state — and
+                  Ask Alfa about <strong>{ctx.subject}</strong>. She sees this app&apos;s state, and
                   this is the same conversation as the Assistant app.
                 </>
               ) : (

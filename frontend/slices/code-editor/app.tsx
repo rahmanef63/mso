@@ -69,7 +69,7 @@ export default function CodeEditor({ payload, winId }: AppProps) {
     {
       subject: ed.active ? baseName(ed.active) : "No file open",
       props: [
-        { label: "File", value: ed.active ?? "—" },
+        { label: "File", value: ed.active ?? "No file" },
         { label: "Language", value: lang },
         { label: "Lines", value: String(lineCount) },
         { label: "Unsaved", value: ed.dirty ? "yes" : "no" },

@@ -49,7 +49,7 @@ export const adjustCommands: EditorCommand[] = [
   {
     name: "adjust.addLayer",
     description:
-      "Add an ADJUSTMENT layer — a content-less layer that filters everything below it. Set its adjustments with adjust.set targeting the new layer.",
+      "Add an ADJUSTMENT layer: a content-less layer that filters everything below it. Set its adjustments with adjust.set targeting the new layer.",
     parameters: obj({ name: str("Layer name (default 'Adjustment')") }),
     run: (ctx, a) => {
       // Adjustment layers are created via the normal layer path so the editor

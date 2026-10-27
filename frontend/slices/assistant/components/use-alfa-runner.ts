@@ -39,7 +39,7 @@ export function useAlfaRunner(
       // scoped inspector chat did — and tag it so the shared thread can show the
       // cross-feature trail.
       const grounded = ctx.subject
-        ? `[Context — the user is in the ${ctx.subject} app.${ctx.context ? ` ${ctx.context}` : ""}] ${text}`
+        ? `[Context: the user is in the ${ctx.subject} app.${ctx.context ? ` ${ctx.context}` : ""}] ${text}`
         : text;
       await sendRef.current(grounded, ctx.appId);
     });

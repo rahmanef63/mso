@@ -95,7 +95,7 @@ export function AgentGroupCard({
     </header>
 
     <div className="space-y-3 p-4">
-      <Textarea value={topic} rows={2} maxLength={4000} placeholder="Discussion topic — e.g. Should we ship the new onboarding?" onChange={(event) => setTopic(event.target.value)}/>
+      <Textarea value={topic} rows={2} maxLength={4000} placeholder="Discussion topic (e.g. Should we ship the new onboarding?)" onChange={(event) => setTopic(event.target.value)}/>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" disabled={Boolean(busy) || !topic.trim() || !row.enabled} onClick={() => void start()}>
           <Play className="mr-2 size-3"/>{busy === "run" ? "Starting…" : "Start discussion"}

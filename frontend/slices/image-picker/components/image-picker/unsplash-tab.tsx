@@ -35,7 +35,7 @@ export function UnsplashTab({ onSelect, defaultQuery }: { onSelect: (c: ImageVal
       try {
         const res = await fetch(`/api/v1/stock/search?q=${encodeURIComponent(query)}`, { signal: ctl.signal });
         if (!res.ok)
-          throw new Error(res.status === 401 ? "Sign in to search stock photos" : "Search failed — try again");
+          throw new Error(res.status === 401 ? "Sign in to search stock photos" : "Search failed. Try again");
         const data = (await res.json()) as { results?: StockResult[] };
         if (!ctl.signal.aborted) setResults(data.results ?? []);
       } catch (e) {
@@ -68,7 +68,7 @@ export function UnsplashTab({ onSelect, defaultQuery }: { onSelect: (c: ImageVal
       </div>
       {err && <p className="text-xs text-destructive">{err}</p>}
       {!results && !err && (
-        <p className="text-[11px] text-muted-foreground">Curated landscapes — type above for live search.</p>
+        <p className="text-[11px] text-muted-foreground">Curated landscapes. Type above for live search.</p>
       )}
       {results?.length === 0 && !busy && (
         <p className="text-xs text-muted-foreground">No results for &ldquo;{q.trim()}&rdquo;.</p>

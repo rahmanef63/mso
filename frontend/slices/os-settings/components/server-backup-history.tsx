@@ -6,10 +6,10 @@ import type { MemoryBackupHistory, MemoryBackupHistoryItem, MemoryBackupSummary 
 import { requestBackup } from "./server-backup-request";
 
 export function backupHistoryLabel(item: MemoryBackupHistoryItem): string {
-  if (item.status === "unreadable") return "Snapshot metadata unreadable — not an empty backup";
+  if (item.status === "unreadable") return "Snapshot metadata unreadable: not an empty backup";
   const coverage = item.snapshot.state === "partial" ? "Partial snapshot" : "Captured allowlist complete";
   const integrity = item.integrity === "verified-at-recorded-time" ? `Integrity recorded ${item.verifiedAt}`
-    : item.integrity === "receipt-invalid" ? "Invalid integrity receipt — recheck required" : "No saved integrity receipt";
+    : item.integrity === "receipt-invalid" ? "Invalid integrity receipt, recheck required" : "No saved integrity receipt";
   return `${coverage} · ${item.snapshot.scan.files} files · ${integrity}`;
 }
 export function ServerBackupHistory({ disabled, onSelect }: { disabled: boolean; onSelect: (snapshot: MemoryBackupSummary) => void }) {
@@ -29,7 +29,7 @@ export function ServerBackupHistory({ disabled, onSelect }: { disabled: boolean;
   };
   return <>
     <SettingsActionRow label={page ? "Refresh saved server snapshots" : "Load saved server snapshots"} icon={<RefreshCw />} busy={busy} disabled={disabled || busy} onClick={() => void load()} />
-    {page && items.length === 0 && !error ? <SettingsValueRow label="Saved snapshots" value={page.nextOffset === null ? "No saved snapshots" : "No snapshots in this page — load more"} /> : null}
+    {page && items.length === 0 && !error ? <SettingsValueRow label="Saved snapshots" value={page.nextOffset === null ? "No saved snapshots" : "No snapshots in this page. Load more"} /> : null}
     {items.map(item => item.status === "readable"
       ? <Fragment key={item.id}>
         <SettingsActionRow label={`${item.snapshot.createdAt} · ${item.id.slice(0, 8)}`} icon={<Archive />} disabled={disabled || busy} onClick={() => onSelect(item.snapshot)} />

@@ -51,7 +51,7 @@ export function RuntimeApp({ manifest, payload }: { manifest?: AppManifest } & A
           </div>
           <div className="flex justify-between gap-3">
             <dt className="text-muted-foreground">entry</dt>
-            <dd className="truncate font-mono">{m.entry || "—"}</dd>
+            <dd className="truncate font-mono">{m.entry || "-"}</dd>
           </div>
         </dl>
         {isUrl(m.entry) && (

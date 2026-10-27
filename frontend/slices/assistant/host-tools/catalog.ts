@@ -25,7 +25,7 @@ const READ_TOOLS: HostTool[] = [
     group: "files",
     label: "List",
     effect: "read",
-    description: "List a directory's entries (name, file/dir kind). Inspect before writing or moving. Sizes are NOT reported — do not infer that a file is empty.",
+    description: "List a directory's entries (name, file/dir kind). Inspect before writing or moving. Sizes are NOT reported; do not infer that a file is empty.",
     parameters: obj({ "path!": str("Absolute path or ~/… path, e.g. ~/projects") }),
     run: async (api, a) => {
       const r = await api.fs.list(String(a.path));
@@ -120,13 +120,13 @@ const READ_TOOLS: HostTool[] = [
     label: "List apps",
     effect: "read",
     description:
-      "List the managed applications on this VPS (hermes, openclaw) with whether each is installed and running. This is NOT the mso app list (Files, Terminal, …) — those are UI windows with no server state; use app.open for those.",
+      "List the managed applications on this VPS (hermes, openclaw) with whether each is installed and running. This is NOT the mso app list (Files, Terminal, …); those are UI windows with no server state. Use app.open for those.",
     parameters: obj({}),
     run: async (api) => {
       const apps = await api.apps.list();
       if (!apps.length) return "no managed applications on this host";
       return apps
-        .map((x) => `${x.name} (${x.id}) — ${x.installed ? (x.running ? "running" : "installed, stopped") : "not installed"}`)
+        .map((x) => `${x.name} (${x.id}): ${x.installed ? (x.running ? "running" : "installed, stopped") : "not installed"}`)
         .join("\n");
     },
   },
@@ -136,7 +136,7 @@ const READ_TOOLS: HostTool[] = [
     label: "App logs",
     effect: "read",
     description:
-      "Recent log output for a managed application. USE THIS to answer 'why is hermes down' — it reads the journal and changes nothing, where the same question through exec.run needs a command the user must approve. Call apps.list first for the ids.",
+      "Recent log output for a managed application. USE THIS to answer 'why is hermes down': it reads the journal and changes nothing, where the same question through exec.run needs a command the user must approve. Call apps.list first for the ids.",
     parameters: obj({ "id!": str("Managed app id from apps.list, e.g. hermes") }),
     run: async (api, a) => {
       const r = await api.apps.logs(String(a.id));
@@ -150,7 +150,7 @@ const READ_TOOLS: HostTool[] = [
     label: "Browser status",
     effect: "read",
     description:
-      "Whether the Camoufox browser session (a real Firefox on a headless display) is installed and running. The viewer URL and its one-time VNC password are NOT returned — that profile holds live logins, so the user opens it from Settings themselves.",
+      "Whether the Camoufox browser session (a real Firefox on a headless display) is installed and running. The viewer URL and its one-time VNC password are NOT returned; that profile holds live logins, so the user opens it from Settings themselves.",
     parameters: obj({}),
     run: async (api) => {
       const s = await api.browser.status();
@@ -174,7 +174,7 @@ const READ_TOOLS: HostTool[] = [
     label: "Open app",
     effect: "read",
     description:
-      "Open an MSO app window (files, browser, code, monitor, settings, assistant, hermes, openclaw, studio, reel, viewer, store, create, links). Use this to take the user to the app you are talking about instead of describing where it is. Terminals are not on this list on purpose — ask the user to open one.",
+      "Open an MSO app window (files, browser, code, monitor, settings, assistant, hermes, openclaw, studio, reel, viewer, store, create, links). Use this to take the user to the app you are talking about instead of describing where it is. Terminals are not on this list on purpose; ask the user to open one.",
     parameters: obj({
       "app!": str("App id or slug, e.g. files, browser, terminal, monitor"),
       path: str("Optional payload for apps that accept one, e.g. a directory for files"),
@@ -194,7 +194,7 @@ const READ_TOOLS: HostTool[] = [
       // resolve identically.
       const target = runtime.apps.find((a) => (a.slug ?? a.id) === app || a.id === app);
       if (!target) throw new Error(`unknown app "${app}"`);
-      if (SHELL_APPS.has(target.id)) throw new Error(`"${app}" starts a shell on the host — open it yourself`);
+      if (SHELL_APPS.has(target.id)) throw new Error(`"${app}" starts a shell on the host. Open it yourself`);
 
       openWindow(target.id, target.title, target.defaultSize, path ? { path } : undefined);
       return `opened ${target.title}${path ? ` at ${path}` : ""}`;

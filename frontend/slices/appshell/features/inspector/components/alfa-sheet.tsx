@@ -30,7 +30,7 @@ export function AlfaSheet() {
   const subject = app?.title ?? appId ?? "MSO";
 
   return (
-    <div className="absolute inset-0 z-[60] flex flex-col justify-end" role="dialog" aria-label={`Alfa — ${subject}`}>
+    <div className="absolute inset-0 z-[60] flex flex-col justify-end" role="dialog" aria-label={`Alfa: ${subject}`}>
       {/* Tap-away closes; the sheet itself stops propagation by sitting above it. */}
       <button
         type="button"

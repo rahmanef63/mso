@@ -41,7 +41,7 @@ export function ControlCenterTiles({ onClose, onAssistant }: { onClose: () => vo
       <Tile
         icon={focus ? MoonStar : Bell}
         label="Focus"
-        value={focus ? "On — toasts to log" : "Off"}
+        value={focus ? "On: toasts to log" : "Off"}
         on={focus}
         onClick={toggleFocusMode}
       />
