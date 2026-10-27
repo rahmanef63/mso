@@ -49,7 +49,7 @@ function SampleGallery() {
       subject: file.name,
       props: [
         { label: "Type", value: file.kind },
-        { label: file.dims ? "Dimensions" : "Info", value: file.meta ?? "—" },
+        { label: file.dims ? "Dimensions" : "Info", value: file.meta ?? "-" },
         { label: "Source", value: "sample" },
       ],
       actions,
