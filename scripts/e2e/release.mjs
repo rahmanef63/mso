@@ -127,7 +127,7 @@ try {
   expect(rawDownload.suggestedFilename()).toMatch(/\.env$/);
   await expect(page.locator('.portable-transfer [role="status"]')).toContainText("one-time export grant is now invalid");
   await page.getByRole("button", { name: "← Connections", exact: true }).click();
-  await page.getByRole("button", { name: /^Self-hosted Convex(?: 1)?$/ }).click();
+  await page.getByRole("button", { name: /^Convex$/ }).click();
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   await expect(page.locator(".connection-state")).toHaveText("Verified");
   await expect(page.getByRole("status")).toContainText("Verified: authenticated");
@@ -135,7 +135,7 @@ try {
   await page.getByRole("button", { name: "Verify", exact: true }).click();
   await expect(page.locator(".connection-state")).toHaveText("Access rejected");
   await page.reload();
-  await page.getByRole("button", { name: /^Self-hosted Convex(?: 1)?$/ }).click();
+  await page.getByRole("button", { name: /^Convex$/ }).click();
   await expect(page.locator(".connection-state")).toHaveText("Access rejected");
   const call = (route, body) => page.evaluate(async ([route, body]) => {
     const res = await fetch(route, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
