@@ -43,7 +43,7 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     rollbackPin: false,
     pinLabel: "Branch",
     pinHint:
-      "Hermes has no version pin. `update --branch NAME` switches the checkout and auto-stashes local changes — and a restore leaves ~/.hermes dirty against an unchanged HEAD, so it would stash the files just restored. Switch the branch from the Update tab afterwards if you meant to move the code.",
+      "Hermes has no version pin. `update --branch NAME` switches the checkout and auto-stashes local changes, and a restore leaves ~/.hermes dirty against an unchanged HEAD, so it would stash the files just restored. Switch the branch from the Update tab afterwards if you meant to move the code.",
     pinPlaceholder: "main",
     installCommand: "bash scripts/managed-app-install hermes install",
     installNote:
@@ -90,7 +90,7 @@ const SUPPORT: Record<ManagedAppId, AppSupport> = {
     pinPlaceholder: "",
     installCommand: "bash scripts/managed-app-install orca install",
     installNote:
-      "MSO verifies and installs the pinned Orca 1.4.230 web/Node release into ~/.local/share/mso/orca and starts the MSO-owned mso-orca.service user unit on loopback. It takes no provider key, and it requires a configured split app origin (NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE) so the browser can frame it — there is no same-origin fallback.",
+      "MSO verifies and installs the pinned Orca 1.4.230 web/Node release into ~/.local/share/mso/orca and starts the MSO-owned mso-orca.service user unit on loopback. It takes no provider key, and it requires a configured split app origin (NEXT_PUBLIC_MANAGED_APP_HOST_TEMPLATE) so the browser can frame it: there is no same-origin fallback.",
     uninstallCommand: "",
     uninstallEffect: "Orca uninstall is not available yet.",
     stateDir: "~/.local/share/mso/orca",
@@ -110,7 +110,7 @@ export function fmtBytes(bytes: number | null): string {
 
 /** ISO → local, or the raw string when it is not a date we can parse. */
 export function fmtStamp(value: string | null): string {
-  if (!value) return "—";
+  if (!value) return "unknown";
   const at = new Date(value);
   return Number.isNaN(at.getTime()) ? value : at.toLocaleString();
 }

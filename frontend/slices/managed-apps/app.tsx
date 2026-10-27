@@ -167,7 +167,7 @@ function ManagedAppsSurface({ focus }: { focus: ManagedAppId }) {
               {state.busy === `${focus}:start` ? `Starting ${focus}…` : `Start ${focus}`}
             </Button>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Installed on the server{app.version ? ` (${app.version})` : ""}, but not running — so there is nothing to show
+              Installed on the server{app.version ? ` (${app.version})` : ""}, but not running, so there is nothing to show
               yet. Its own dashboard appears here once the service is up. Logs, update and uninstall are under Details.
             </p>
           </Hero>
@@ -216,7 +216,7 @@ function ManagedCard({ app, busy, onAction, onChanged }: { app: ManagedAppView; 
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
         <div><dt className="text-muted-foreground">Installation</dt><dd className="font-medium">{app.installationType}</dd></div>
-        <div><dt className="text-muted-foreground">Version</dt><dd className="truncate font-medium">{app.version ?? "—"}</dd></div>
+        <div><dt className="text-muted-foreground">Version</dt><dd className="truncate font-medium">{app.version ?? "unknown"}</dd></div>
         <div><dt className="text-muted-foreground">Health</dt><dd className="font-medium">{app.healthy === null ? "unknown" : app.healthy ? "healthy" : "unhealthy"}</dd></div>
         <div><dt className="text-muted-foreground">Isolation</dt><dd className="font-medium">independent</dd></div>
       </dl>

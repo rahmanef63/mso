@@ -42,7 +42,7 @@ export function UninstallPanel({ appId, centre }: { appId: ManagedAppId; centre:
       </div>
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        A snapshot of {support.stateDir} is taken first, in the same operation — if that backup fails,
+        A snapshot of {support.stateDir} is taken first, in the same operation. If that backup fails,
         nothing is removed. MSO can reinstall the app afterwards, but a fresh install is a fresh install:
         the snapshot is the only thing that brings back this one&apos;s credentials, pairings and history.
       </p>
@@ -97,7 +97,7 @@ export function UninstallPanel({ appId, centre }: { appId: ManagedAppId; centre:
         </div>
       ) : (
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          This build will not run the uninstall for you — it needs answers MSO cannot give. Run the
+          This build will not run the uninstall for you; it needs answers MSO cannot give. Run the
           command above in a terminal on the host.
         </p>
       )}
