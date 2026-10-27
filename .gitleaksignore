@@ -55,3 +55,10 @@ aff0713f4630404be63127c9ce733baa78d9003c:lib/a2a/client-security.test.ts:generic
 # Exact commit/file/rule fingerprints, not path or rule suppression.
 ab663bb5ea26be4fb3e4f640e7224c46c23fa7f7:lib/infra/connection-registry.test.ts:generic-api-key:43
 ab663bb5ea26be4fb3e4f640e7224c46c23fa7f7:lib/infra/convex-migrate.test.ts:generic-api-key:149
+# Immutable commits that already carry the retired fixture literal. The source no longer
+# contains it any more, so rebases cannot mint new fingerprints; these cover only the
+# pre-existing commits still reachable on agent/152-convex and the PR #160 merge ref.
+1c323375d11dc3a31b9269047a417641715ee146:lib/infra/connection-registry.test.ts:generic-api-key:43
+1c323375d11dc3a31b9269047a417641715ee146:lib/infra/convex-migrate.test.ts:generic-api-key:149
+1b38855e6bd1c0c15de2246bf7b77600758fdccc:lib/infra/connection-registry.test.ts:generic-api-key:43
+1b38855e6bd1c0c15de2246bf7b77600758fdccc:lib/infra/convex-migrate.test.ts:generic-api-key:149

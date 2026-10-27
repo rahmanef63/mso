@@ -40,7 +40,7 @@ describe("integration connection registry", () => {
   });
 
   it("validates deploymentKind as a closed enum and rejects a third value", () => {
-    expect(normalizeInfraValues("convex", { deploymentKind: "cloud", personalToken: "pat_synthetic_1234567890" }).deploymentKind).toBe("cloud");
+    expect(normalizeInfraValues("convex", { deploymentKind: "cloud", personalToken: "synthetic_personal_key_123456" }).deploymentKind).toBe("cloud");
     expect(normalizeInfraValues("convex", { deploymentKind: "self-hosted", apiUrl: "https://api.example.test", adminKey: "synthetic_admin_key_123456" }).deploymentKind).toBe("self-hosted");
     expect(() => normalizeInfraValues("convex", { deploymentKind: "cloudy" })).toThrow(/deploymentKind/);
     expect(() => normalizeInfraValues("convex", { deploymentKind: "" })).not.toThrow();

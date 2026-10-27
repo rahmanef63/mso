@@ -146,7 +146,7 @@ describe("convex forward migration", () => {
         prod: {
           id: "prod", uid: "uid-existing", label: "Existing", provider: "convex", source: "direct",
           authMethod: "deployment", scope: "deployment", revision: 1,
-          values: { deployKey: "synthetic_existing_key_1234567890", deploymentName: "other-deployment" },
+          values: { deployKey: "synthetic_existing_key", deploymentName: "other-deployment" },
           createdAt: 5, updatedAt: 6,
         },
       };

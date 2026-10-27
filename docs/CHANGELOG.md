@@ -10,6 +10,15 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `infra` collapse Convex into one provider with a real self-hosted kind
 
+**Fixed**
+
+- `build` keep Convex project linking out of Turbopack's traced filesystem
+
+**Tests**
+
+- `infra` make Convex fixtures unambiguously synthetic for the secret scanner
+- `e2e` select the collapsed Convex card in the release journey
+
 **Build**
 
 - `deps` bump the actions-minor-patch group with 3 updates (#159)
