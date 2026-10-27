@@ -120,7 +120,7 @@ export function ChannelEditor({
       </Field>
       <Field label="Inbound workflow">
         <select className={selectClass} value={workflowId} onChange={(event) => setWorkflowId(event.target.value)}>
-          <option value="">Receive only — no workflow</option>
+          <option value="">Receive only (no workflow)</option>
           {workflows.map((workflow) => <option key={workflow.id} value={workflow.id}>{workflow.name}</option>)}
         </select>
       </Field>
