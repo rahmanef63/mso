@@ -131,7 +131,7 @@ export default function AppStore({ systemOnly = false }: { systemOnly?: boolean 
             {isSystem ? (
               <>
                 <p className="mb-3 text-xs text-muted-foreground">
-                  Optional {filter === "Features" ? "system features" : "apps"} — install to add
+                  Optional {filter === "Features" ? "system features" : "apps"}: install to add
                   them, uninstall to remove. Uninstalled items vanish from the dock, Launchpad,
                   and Spotlight.
                 </p>
