@@ -28,7 +28,7 @@ export function StatusBar({
 
   return (
     <footer className="flex min-h-6 shrink-0 items-center gap-3.5 border-t border-[#2a2a30] bg-[#16161a] px-3.5 [padding-bottom:var(--sai-bottom)] font-mono text-[11px] text-[#7d8590]">
-      <span className="truncate">{path ?? "—"}</span>
+      <span className="truncate">{path ?? "No file"}</span>
       {path ? (
         <>
           <span className="ml-auto">

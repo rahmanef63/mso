@@ -5,14 +5,14 @@
 export const SEED_FILES: Record<string, string> = {
   "/readme.md":
     "# Manef Shell OS\n\nA mobile-friendly visual shell for a Linux server you own.\n\n" +
-    "- **Files** — manage your storage\n- **Code** — this editor\n" +
-    "- **Alfa** — BYOK AI assistance inside the browser workspace\n\n" +
+    "- **Files**: manage your storage\n- **Code**: this editor\n" +
+    "- **Alfa**: BYOK AI assistance inside the browser workspace\n\n" +
     "Connect a VPS in Settings → Server to go live.\n",
   "/Documents/roadmap.md":
     "# Roadmap\n\n## Now\n- [x] Browser shell\n- [x] Code editor\n\n" +
     "## Next\n- [ ] Live VPS daemon\n- [ ] Collaborative editing\n",
   "/Projects/hello.ts":
-    '// hello.ts — sample slice\nimport { greet } from "./greet";\n\n' +
+    '// hello.ts: sample slice\nimport { greet } from "./greet";\n\n' +
     "type User = { id: number; name: string };\n\n" +
     "export function welcome(user: User): string {\n" +
     "  const msg = greet(user.name); // friendly hello\n" +
@@ -28,7 +28,7 @@ export const SEED_FILES: Record<string, string> = {
     "  return (\n" +
     '    <div style={{ fontFamily: "system-ui", padding: 24 }}>\n' +
     "      <h1>Hello from esm.sh 👋</h1>\n" +
-    "      <p>Imports load straight from the CDN — no install, no node_modules.</p>\n" +
+    "      <p>Imports load straight from the CDN, no install, no node_modules.</p>\n" +
     '      <button onClick={() => setN((c) => c + 1)} style={{ fontSize: 18, padding: "8px 16px" }}>\n' +
     "        Clicked {n} times\n" +
     "      </button>\n" +
