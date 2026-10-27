@@ -194,7 +194,7 @@ export function FileItem({
           <span className="truncate">{entry.name}</span>
         )}
       </span>
-      <span className="tabular-nums opacity-70">{entry.kind === "dir" ? "—" : fmtSize(entry.size)}</span>
+      <span className="tabular-nums opacity-70">{entry.kind === "dir" ? "-" : fmtSize(entry.size)}</span>
       <span className="truncate opacity-70 @max-[430px]:hidden">
         {entry.kind === "dir" ? "Folder" : (entry.ext ?? "").toUpperCase() || "File"}
       </span>

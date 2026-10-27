@@ -119,11 +119,11 @@ export function FilesFooter({
     <>
       {!isMobile && selectedEntry && <FileDetails entry={selectedEntry} dir={fs.path} />}
       <div className="flex items-center gap-3 px-3 pt-1.5 text-[11px] text-muted-foreground [padding-bottom:calc(0.375rem+var(--sai-bottom))]">
-        <span>{orderedLen !== null ? `${orderedLen} items` : "—"}</span>
+        <span>{orderedLen !== null ? `${orderedLen} items` : "-"}</span>
         {selectedCount > 0 && <span>{selectedCount} selected</span>}
         {fs.clip && (
           <span className="ml-auto">
-            {fs.clip.names.length} {fs.clip.mode === "cut" ? "cut" : "copied"} — {shell === "windows" ? "Ctrl" : "⌘"}V to paste
+            {fs.clip.names.length} {fs.clip.mode === "cut" ? "cut" : "copied"}: {shell === "windows" ? "Ctrl" : "⌘"}V to paste
           </span>
         )}
       </div>
