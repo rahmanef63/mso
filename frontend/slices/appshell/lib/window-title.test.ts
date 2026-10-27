@@ -14,9 +14,9 @@ describe("window-title sync", () => {
 
   it("follows the focused window with the brand suffix", () => {
     openWindow("files", "Files");
-    expect(document.title).toBe("Files — Brand");
+    expect(document.title).toBe("Files: Brand");
     openWindow("settings", "Settings");
-    expect(document.title).toBe("Settings — Brand");
+    expect(document.title).toBe("Settings: Brand");
   });
 
   it("restores the captured base title when nothing is focused", () => {

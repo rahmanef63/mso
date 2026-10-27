@@ -83,7 +83,7 @@ export function SnapLayoutsMenu({ id, onClose }: { id: WinId; onClose: () => voi
               key={zone}
               type="button"
               variant="ghost"
-              aria-label={`${label} — ${zone}`}
+              aria-label={`${label}: ${zone}`}
               title={label}
               // Stop the press from bubbling to the title bar's drag handler.
               onPointerDown={(e) => e.stopPropagation()}

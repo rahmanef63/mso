@@ -21,7 +21,7 @@ function apply() {
     document.title = base;
     return;
   }
-  document.title = suffix && win.title !== suffix ? `${win.title} — ${suffix}` : win.title;
+  document.title = suffix && win.title !== suffix ? `${win.title}: ${suffix}` : win.title;
 }
 
 export function configureWindowTitle(opts: { suffix?: string }) {

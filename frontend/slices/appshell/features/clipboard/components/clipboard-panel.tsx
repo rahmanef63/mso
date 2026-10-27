@@ -31,7 +31,7 @@ export function ClipboardPanel() {
         <ul className="min-h-0 flex-1 overflow-y-auto border-t border-border p-2">
           {list.length === 0 && (
             <li className="px-3 py-4 text-sm text-muted-foreground">
-              {clips.length === 0 ? "Nothing copied yet — ⌘C anywhere in the OS lands here." : "No matches."}
+              {clips.length === 0 ? "Nothing copied yet. ⌘C anywhere in the OS lands here." : "No matches."}
             </li>
           )}
           {list.map((c) => (
