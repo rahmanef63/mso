@@ -59,7 +59,7 @@ export function ClipTabText({ clip, onChange }: { clip: Clip; onChange: (patch: 
       <Field label="Font">
         <BtnRow options={FONTS.map((f) => ({ v: f.v, label: <span style={{ fontFamily: f.css }}>{f.label}</span> }))} value={ts.font ?? "sans"} onPick={(font) => set({ font })} />
       </Field>
-      <Field label={`Size — ${Math.round((ts.size ?? 1) * 100)}%`}>
+      <Field label={`Size: ${Math.round((ts.size ?? 1) * 100)}%`}>
         <Slider min={50} max={200} value={Math.round((ts.size ?? 1) * 100)} onChange={(e) => set({ size: Number(e.target.value) / 100 })} />
       </Field>
 
@@ -82,7 +82,7 @@ export function ClipTabText({ clip, onChange }: { clip: Clip; onChange: (patch: 
         </Field>
       </div>
       {ts.stroke && (
-        <Field label={`Stroke width — ${Math.round((ts.strokeW ?? 0.08) * 100)}`}>
+        <Field label={`Stroke width: ${Math.round((ts.strokeW ?? 0.08) * 100)}`}>
           <Slider min={2} max={20} value={Math.round((ts.strokeW ?? 0.08) * 100)} onChange={(e) => set({ strokeW: Number(e.target.value) / 100 })} />
         </Field>
       )}

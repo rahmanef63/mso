@@ -171,7 +171,7 @@ export function MenuBar(p: MenuBarProps) {
 
       <Menu label="Help">
         <DropdownMenuItem onSelect={() => toast(shortcuts)}>Keyboard shortcuts</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => toast("Video Editor — render reels on your VPS")}>
+        <DropdownMenuItem onSelect={() => toast("Video Editor: render reels on your VPS")}>
           About Video Editor
         </DropdownMenuItem>
       </Menu>
