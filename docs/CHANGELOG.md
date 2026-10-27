@@ -4,17 +4,44 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-27
+
+**Added**
+
+- `infra` collapse Convex into one provider with a real self-hosted kind
+
+**Fixed**
+
+- `build` keep Convex project linking out of Turbopack's traced filesystem
+
+**Tests**
+
+- `infra` make Convex fixtures unambiguously synthetic for the secret scanner
+- `e2e` select the collapsed Convex card in the release journey
+
+**Build**
+
+- `deps` bump the actions-minor-patch group with 3 updates (#159)
+- `deps` bump the production-minor-patch group with 16 updates (#157)
+- `deps-dev` bump the test-toolchain group with 2 updates (#156)
+
+## 2026-10-26
+
+**Docs**
+
+- `license` switch to PolyForm Noncommercial and add per-repo references (#155)
+
 ## 2026-10-25
 
 **Added**
 
 - `agent` one live activity row and env-tunable turn budgets (#154)
 
-**Docs**
-
-- `license` switch to PolyForm Noncommercial and add per-repo references
-
 ## 2026-10-24
+
+**Added**
+
+- `infra` deterministic Convex project linker and per-project provider view
 
 **Fixed**
 
@@ -1460,29 +1487,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `responsive` harden mobile and landscape layouts
 - `git` isolate push-gate test repositories
 - `settings` improve MCP UI and activity scrolling
-
-## 2026-08-21
-
-**Added**
-
-- `projects` add opt-in function capabilities
-
-## 2026-08-20
-
-**Added**
-
-- `mcp` global project/skill discovery, drop image generation
-- `mcp` import ChatGPT generated files
-- `mcp` add provider-backed image generation
-
-**Fixed**
-
-- `mcp` lossless scan continuation and exact-id project resolution
-- `mcp` one project validator, dirent budgets, resumable caps
-- `mcp` contain, bound and uniquely identify project discovery
-- `mcp` make ChatGPT file imports region agnostic
-- `mcp` allow ChatGPT India South Central file storage
-- `mcp` allow ChatGPT New Zealand file storage
-- `mcp` allow ChatGPT Australia file storage
-- `mcp` allow ChatGPT regional file storage
-- `mcp` report rejected file host safely

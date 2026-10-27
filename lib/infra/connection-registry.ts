@@ -1,8 +1,20 @@
 import { GOOGLE_READ_OPERATIONS } from "./google-api-catalog";
 import { isGoogleProvider, GOOGLE_APP_PROVIDER, googleRedirectUri, googlePublicOrigin } from "./google-native-config";
-import { listInfraProviderDefinitions, getInfraProviderDefinition, isInfraProviderId } from "./catalog";
+import { canonicalProviderId, convexDeploymentKind, listInfraProviderDefinitions, getInfraProviderDefinition, resolveProviderId } from "./catalog";
 import { setupFields, setupGuidance, setupMethods, type SetupMethod } from "./setup-guidance";
 import { IntegrationError, type ConnectionSource, type IntegrationConnection } from "./identity";
+/** Convex keeps every pre-collapse method id; `admin` is the self-hosted shape. */
+const CONVEX_METHODS = ["personal", "deployment", "admin"] as const;
+/**
+ * The stored method id for a values bag, used by the legacy projection and
+ * credential deletion. Inference matches `convexDeploymentKind`: an `apiUrl`
+ * means the self-hosted (`admin`) shape even on a row that predates the field.
+ */
+export function convexMethod(values: Record<string, string>): SetupMethod {
+  if (convexDeploymentKind(values) === "self-hosted") return "admin";
+  return values.deployKey || values.deploymentName ? "deployment" : "personal";
+}
+export const convexMethods = () => [...CONVEX_METHODS];
 const COMPOSIO: Record<string, {toolkit:string; managed:boolean; methods:string[]}> = {
   github:{toolkit:"github",managed:true,methods:["oauth2"]}, vercel:{toolkit:"vercel",managed:false,methods:["oauth2","api-key"]},
   cloudflare:{toolkit:"cloudflare",managed:false,methods:["api-key"]}, resend:{toolkit:"resend",managed:false,methods:["api-key"]},
@@ -14,19 +26,28 @@ const NATIVE: Record<string,{url:string;reference:string}> = {
   supabase:{url:"https://mcp.supabase.com/mcp",reference:"https://supabase.com/docs/guides/getting-started/mcp"},
 };
 export function providerDefinition(provider:string) {
-  if (!isInfraProviderId(provider)) throw new IntegrationError("unknown_provider",404);
-  return getInfraProviderDefinition(provider);
+  const id = resolveProviderId(provider);
+  if (!id) throw new IntegrationError("unknown_provider",404);
+  return getInfraProviderDefinition(id);
 }
 export function connectionMethods(provider:string, source:ConnectionSource) {
-  const p=providerDefinition(provider);
-  if(source==="direct") return setupMethods(p.id).map(m=>({id:m.id as string,label:provider==="github"?"Personal access token fallback":m.label,scope:provider===GOOGLE_APP_PROVIDER?"client-configuration":isGoogleProvider(provider)?"read-only-account":provider==="convex-cloud"?(m.id==="deployment"?"deployment":"account"):provider==="composio"?m.id:provider==="dokploy"?"server":provider==="hostinger"&&m.id==="mail"?"mail-order":provider==="doku"?"merchant":"account",fields:setupFields(p.id,m.id),guidance:setupGuidance(p.id,m.id)}));
+  const p=providerDefinition(provider), id=p.id;
+  if(source==="direct") return setupMethods(p.id).map(m=>({id:m.id as string,label:provider==="github"?"Personal access token fallback":m.label,scope:id===GOOGLE_APP_PROVIDER?"client-configuration":isGoogleProvider(id)?"read-only-account":id==="convex"?(m.id==="admin"?"self-hosted":m.id==="deployment"?"deployment":"account"):id==="composio"?m.id:id==="dokploy"?"server":id==="hostinger"&&m.id==="mail"?"mail-order":id==="doku"?"merchant":"account",fields:setupFields(p.id,m.id),guidance:setupGuidance(p.id,m.id)}));
   if(source==="composio" && COMPOSIO[provider]) return COMPOSIO[provider].methods.map(id=>({id,label:id==="oauth2"?"OAuth2":"Hosted API key",scope:"account",fields:[],guidance:{url:"https://platform.composio.dev",reference:`https://docs.composio.dev/toolkits/${COMPOSIO[provider].toolkit}`,steps:["Configure a Composio project key under this same credential user.","Choose a matching authentication configuration for this provider and method.","Open the hosted authorization link. Enter credentials only on the provider/Composio page.","Return and refresh status. MSO stores routing identifiers, not provider OAuth tokens."]}}));
   if(source==="native-mcp" && NATIVE[provider])return[{id:"provider-oauth",label:"Provider-owned MCP / OAuth",scope:"account",fields:[],guidance:{url:NATIVE[provider].reference,reference:NATIVE[provider].reference,steps:["Connect the provider-owned MCP server in your client.","Complete authorization in that provider's browser flow.","Use this named MSO connection to identify the intended provider route; the authenticated MCP session remains client-owned.","MSO does not copy provider access/refresh tokens or silently fall back to a local key."]}}];
   throw new IntegrationError("unsupported_connection_source");
 }
 export function connectionMethod(provider:string,source:ConnectionSource,method?:string){
-  const methods=connectionMethods(provider,source), selected=method?methods.find(m=>m.id===method):methods[0];
-  if(!selected)throw new IntegrationError("unsupported_auth_method");return selected;
+  // A caller may still hold the retired convex id; resolve it before any lookup.
+  const canonical=canonicalProviderId(provider), methods=connectionMethods(canonical,source);
+  const selected=method?methods.find(m=>m.id===method):methods[0];
+  if(selected)return selected;
+  // A store written before the collapse recorded the self-hosted Convex row as
+  // authMethod "direct". Keep that stored id readable WITHOUT advertising a fourth
+  // method in the picker — setupMethods stays the advertised list.
+  if(canonical==="convex"&&source==="direct"&&method==="direct")
+    return {id:"direct",label:"Self-hosted Convex (legacy) direct credential",scope:"self-hosted",fields:setupFields(canonical,"direct"),guidance:setupGuidance(canonical,"direct")};
+  throw new IntegrationError("unsupported_auth_method");
 }
 export function connectionSources(provider:string){
   const oauthFirst = provider === "github";
@@ -46,7 +67,7 @@ export function connectionSummary(user:string,c:IntegrationConnection,isDefault=
 export const composioDefinition=(provider:string)=>COMPOSIO[provider];
 export const nativeDefinition=(provider:string)=>NATIVE[provider];
 export function legacyMethod(provider:string,values:Record<string,string>):SetupMethod {
-  return provider==="composio"?(values.orgApiKey?"organization":"project"):provider==="convex-cloud"?(values.deployKey?"deployment":"personal"):provider==="doku"?(values.paymentClientId||values.paymentSecretKey?"payment":"mcp"):"direct";
+  return provider==="composio"?(values.orgApiKey?"organization":"project"):canonicalProviderId(provider)==="convex"?convexMethod(values):provider==="doku"?(values.paymentClientId||values.paymentSecretKey?"payment":"mcp"):"direct";
 }
 
 function googleCatalogInfo(provider:string){

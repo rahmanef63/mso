@@ -1,46 +1,12 @@
 import { listMcpServerTools } from "@/lib/host/project-mcp-client";
 import { normalizeMcpEndpoint, parseMcpToolAllowlist } from "./mcp-policy";
-import { safeProviderFetch } from "@/lib/host/ssrf";
 import { obj, request, TIMEOUT_MS } from "./http";
+import { canonicalProviderId } from "./catalog";
+import { doctorConvex } from "./convex-doctor";
 import { doctorDoku } from "./doku-doctor";
 
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
-
-function present(value: string | undefined): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-/** A bounded SSRF-safe transport for an explicitly configured Convex endpoint. */
-function convexFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const requestInput = new Request(input, { ...init, redirect: "error" });
-  const host = new URL(requestInput.url).hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (LOOPBACK_HOSTS.has(host)) return fetch(requestInput);
-  return safeProviderFetch(requestInput);
-}
-
-function selfHostedAdminKeyCheckUrl(rawUrl: string): string {
-  let url: URL;
-  try {
-    url = new URL(rawUrl.trim());
-  } catch {
-    throw new Error("Convex invalid deployment URL");
-  }
-  if (url.username || url.password || url.search || url.hash) throw new Error("Convex invalid deployment URL");
-  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && LOOPBACK_HOSTS.has(host))) {
-    throw new Error("Convex invalid deployment URL");
-  }
-  url.pathname = "/api/check_admin_key";
-  return url.toString();
-}
-
-function cloudDeploymentInfoUrl(name: string): string {
-  const clean = name.trim().toLowerCase();
-  // Deployment names are hostname labels, not URLs. This keeps the request fixed
-  // to Convex Cloud and avoids accepting an attacker-controlled authority.
-  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(clean)) throw new Error("Convex Cloud invalid deployment name");
-  return `https://${clean}.convex.cloud/api/v1/deployment_info`;
-}
+const present = (value: string | undefined): value is string =>
+  typeof value === "string" && value.trim().length > 0;
 
 async function checked(provider: string, url: string, headers: HeadersInit, fetchImpl?: typeof fetch): Promise<Awaited<ReturnType<typeof request>>> {
   let response;
@@ -49,7 +15,6 @@ async function checked(provider: string, url: string, headers: HeadersInit, fetc
   if (!response.ok) throw new Error(`${provider} HTTP ${response.status}`);
   return response;
 }
-
 
 function countRows(body: unknown): number {
   if (Array.isArray(body)) return body.length;
@@ -64,7 +29,9 @@ function countRows(body: unknown): number {
  * checked endpoint, not every permission needed by a later operation.
  */
 export async function doctorAdditionalProvider(id: string, values: Record<string, string>): Promise<string | null> {
-  switch (id) {
+  // `convex-cloud` is the pre-collapse id; it resolves to the one Convex doctor.
+  const provider = canonicalProviderId(id);
+  switch (provider) {
     case "mcp": {
       if (!present(values.endpoint) || !present(values.accessToken)) return null;
       const url = normalizeMcpEndpoint(values.endpoint);
@@ -177,26 +144,9 @@ export async function doctorAdditionalProvider(id: string, values: Record<string
     }
     case "doku":
       return doctorDoku(values);
-    case "convex-cloud": {
-      const deployKey = values.deployKey;
-      const deploymentName = values.deploymentName;
-      if (present(deployKey) || present(deploymentName)) {
-        if (!present(deployKey) || !present(deploymentName)) return null;
-        await checked("Convex Cloud", cloudDeploymentInfoUrl(deploymentName), { authorization: `Convex ${deployKey}`, accept: "application/json" });
-        return "authenticated; deployment access verified";
-      }
-      // The official OpenAPI explicitly declares PAT authentication here.
-      // Discard token inventory immediately; only authentication status escapes.
-      if (present(values.personalToken)) {
-        await checked("Convex Cloud", "https://api.convex.dev/v1/list_personal_access_tokens?limit=1", { authorization: `Bearer ${values.personalToken}`, accept: "application/json" });
-        return "personal access token authenticated; account read access verified";
-      }
-      return null;
-    }
     case "convex": {
-      if (!present(values.apiUrl) || !present(values.adminKey)) return null;
-      await checked("Convex", selfHostedAdminKeyCheckUrl(values.apiUrl), { authorization: `Convex ${values.adminKey}`, accept: "application/json" }, convexFetch);
-      return "authenticated; deployment access verified";
+      // One provider, two shapes. Read the kind from the values, not from the id.
+      return doctorConvex(values);
     }
     default:
       throw new Error("unknown additional provider");

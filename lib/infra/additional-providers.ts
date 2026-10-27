@@ -44,25 +44,20 @@ export const ADDITIONAL_PROVIDERS = {
     feature: false,
     fields: [{ key: "teamId", label: "Team ID", secret: false, required: false, description: "Optional connection-specific configuration; retained during JSON transfer." }, { key: "apiKey", label: "API token", secret: true, required: true, description: "A Vercel API token. Access is limited by the token owner and any team permissions." }],
   },
-  "convex-cloud": {
-    id: "convex-cloud",
-    title: "Convex Cloud",
-    description: "Store a Convex Cloud personal token or verify a deployment key for a named deployment.",
+  convex: {
+    id: "convex",
+    title: "Convex",
+    description: "One Convex provider for both deployment kinds: Convex Cloud (personal token or deployment key) and self-hosted (deployment URL + admin key).",
     feature: false,
     fields: [
+      // Non-secret routing fact, never a credential. Legacy rows omit it and are
+      // inferred from apiUrl at read time (catalog.convexDeploymentKind).
+      { key: "deploymentKind", label: "Deployment kind", secret: false, required: false, placeholder: "cloud", description: "cloud or self-hosted. Optional and non-secret: it is inferred as self-hosted when a deployment URL is stored, cloud otherwise." },
       { key: "personalToken", label: "Personal access token", secret: true, required: false, description: "Convex Cloud personal access token. Validated through the PAT-authenticated read-only account endpoint." },
       { key: "deployKey", label: "Deployment key", secret: true, required: false, description: "Convex deployment key used with the deployment name below." },
       { key: "deploymentName", label: "Deployment name", secret: false, required: false, description: "Convex deployment hostname prefix. Required together with a deployment key; method-specific requirements are enforced by the UI." },
-    ],
-  },
-  convex: {
-    id: "convex",
-    title: "Self-hosted Convex",
-    description: "Verify a self-hosted Convex deployment using its admin key.",
-    feature: false,
-    fields: [
-      { key: "apiUrl", label: "Deployment URL", secret: false, required: true, description: "HTTPS deployment URL; HTTP is allowed only for a loopback deployment on this VPS." },
-      { key: "adminKey", label: "Admin key", secret: true, required: true, description: "Convex admin key for this deployment." },
+      { key: "apiUrl", label: "Self-hosted deployment URL", secret: false, required: false, description: "HTTPS deployment URL; HTTP is allowed only for a loopback deployment on this VPS." },
+      { key: "adminKey", label: "Self-hosted admin key", secret: true, required: false, description: "Convex admin key for this deployment." },
     ],
   },
   resend: {
@@ -187,8 +182,7 @@ export const ADDITIONAL_GUIDANCE = {
   mcp: { url: "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization", reference: "https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization", steps: ["Sign in to the target application's account that the assistant should use.", "Create a dedicated expiring MCP token with the least required scope. For Baton: Settings → External access → MCP → Advanced token management.", "Enter the exact MCP URL and token only in this private MSO form. Set an optional exact tool allowlist.", "Bind the project MCP declaration to this named MSO user/connection; MSO verifies tool discovery, while the downstream server enforces its token identity and live project roles."] },
   github: { url: "https://github.com/settings/personal-access-tokens/new", reference: "https://docs.github.com/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens", steps: ["Prefer GitHub OAuth from the Integrations connection source picker. Use this manual token path only when an explicit direct fallback is required.", "Open GitHub fine-grained token settings while signed in to the intended account.", "Set an expiry and grant only the intended repositories and minimum permissions. Use a classic token only when the required operation cannot be expressed with a fine-grained token.", "Copy the token once into this private form. This connection never substitutes for an OAuth/provider-MCP identity and organization policy can still limit access."] },
   vercel: { url: "https://vercel.com/account/tokens", reference: "https://vercel.com/docs/rest-api#creating-an-access-token", steps: ["Open Account Settings → Tokens in Vercel.", "Create a token with an expiry appropriate for this integration.", "Use the account or team that owns the intended Vercel resources.", "Copy the token into this form; its permissions are determined by that account or team membership."] },
-  "convex-cloud": { url: "https://dashboard.convex.dev", reference: "https://docs.convex.dev/management-api", steps: ["Open the Convex dashboard for the intended account or deployment.", "Create the personal access token or deployment key appropriate to the operation you intend to perform.", "For a deployment key, also enter its exact deployment name.", "Copy the credential once and keep it scoped to the minimum needed access."] },
-  convex: { url: "https://docs.convex.dev/self-hosting", reference: "https://docs.convex.dev/self-hosting", steps: ["Open the administration settings for your self-hosted Convex deployment.", "Generate an admin key using the official self-hosting instructions; never use a cloud project key for a different deployment.", "Enter the deployment's HTTPS URL; loopback HTTP is only suitable for a deployment on this VPS.", "Copy the admin key into this form and restrict network access to the deployment." ] },
+  convex: { url: "https://docs.convex.dev/self-hosting", reference: "https://docs.convex.dev/self-hosting", steps: ["Choose the deployment kind first: a Convex Cloud deployment (personal access token or deployment key + name) or a self-hosted deployment (URL + admin key).", "For Convex Cloud, open the dashboard for the intended account or deployment and copy the personal access token or deployment key.", "For a self-hosted deployment, open its administration settings and generate an admin key using the official self-hosting instructions; never reuse a cloud project key for a different deployment.", "Enter the deployment's HTTPS URL (loopback HTTP is only suitable for a deployment on this VPS) and copy the credential once, scoped to the minimum needed access."] },
   resend: { url: "https://resend.com/api-keys", reference: "https://resend.com/docs/dashboard/api-keys/introduction", steps: ["Open API Keys in the Resend dashboard.", "Create a key for the intended environment.", "Choose Full access only when domain management is required. Sending-only keys cannot pass the domain-list check.", "Copy the key once; verified domains and account policy still control sending access."] },
   stripe: { url: "https://dashboard.stripe.com/apikeys", reference: "https://docs.stripe.com/keys", steps: ["Open Developers → API keys in the intended Stripe account.", "Use a restricted key when its available permissions cover the integration.", "Confirm whether you are using test or live mode before copying the secret key.", "Copy the key once and rotate it promptly if it is exposed."] },
   clerk: { url: "https://dashboard.clerk.com", reference: "https://clerk.com/docs/guides/development/api-keys", steps: ["Open the intended Clerk instance in the Clerk dashboard.", "Find its secret key in the API Keys or Developers settings.", "Keep the key server-side and limit access to the intended instance.", "Copy it into this form; this check only confirms Backend API authentication."] },

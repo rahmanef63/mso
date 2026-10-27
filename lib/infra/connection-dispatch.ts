@@ -8,8 +8,9 @@ import { callComposioConnectTool, listComposioConnectTools } from "./composio-co
 import { IntegrationError, identity, metadataOnly, type ConnectionSelector } from "./identity";
 import { importConvexCliPersonalConnection } from "./convex-cli-import";
 import { listConvexCustomDomains, ensureConvexCustomDomain, getConvexCanonicalUrls, setConvexCanonicalUrl, getConvexEnvPresence, deployConvexCloudProject, importConvexCloudSnapshot } from "./convex-cloud";
+import { CONVEX_OPERATION_SUPPORT } from "./types";
 import { doctorInfraProvider, ensureDokployProject, listDokployApplications, listDokployDeployments, readDokployDeploymentLogs, listDokployGitProviders, listDokployGithubRepositories, ensureDokployGithubApplication, ensureDokployApplicationDomain, recoverDokployPublicGithubToHttpsGit, deployDokployApplication, configureDokployDockerfileBuild, listDokployProjects, listCloudflareZones, upsertCloudflareDns, upsertDokployPublicBuildEnv, upsertHostingerDns, listHostingerMailOrders, getHostingerMailPlan, listHostingerMail, listHostingerMailLogs, mutateHostingerMail } from "./clients";
-import { isInfraProviderId } from "./catalog";
+import { isInfraProviderId, canonicalProviderId, resolveProviderId, convexDeploymentKind } from "./catalog";
 import { callNamedMcpConnectionTool, listNamedMcpConnectionTools } from "./mcp-connection";
 export const safeActionInput=(input:Record<string,unknown>)=>Object.fromEntries(Object.entries(input).filter(([key])=>key!=="workflow_id"));
 export const selectionFrom=(a:Record<string,unknown>):ConnectionSelector=>({user:typeof a.user==="string"?a.user:undefined,connection:typeof a.connection==="string"?a.connection:undefined,cwd:typeof a.cwd==="string"?a.cwd:undefined});
@@ -22,7 +23,7 @@ export async function manageIntegrationAction(raw:Record<string,unknown>){
   if(a.action==="connection.import-convex-cli"){
     if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
     if(Object.keys(a).some(k=>!["action","confirm","user","provider","connection"].includes(k)))throw new IntegrationError("invalid_management_fields");
-    if(a.provider!=="convex-cloud")throw new IntegrationError("provider_operation_mismatch");
+    if(a.provider!=="convex"&&a.provider!=="convex-cloud")throw new IntegrationError("provider_operation_mismatch");
     return importConvexCliPersonalConnection(selectionFrom(a));
   }
   if(a.action==="connection.authorize"&&isGoogleProvider(String(a.provider))){
@@ -53,10 +54,11 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
   }else metadataOnly(a);
   if(Object.keys(a).some(k=>!["user","provider","connection","operation","arguments","tool","confirm"].includes(k)))throw new IntegrationError("invalid_execution_fields");
   const user=identity(a.user,"user"),provider=identity(a.provider,"provider"),connection=identity(a.connection,"connection"),selection={user,connection};
+  const canonical=canonicalProviderId(provider);
   const route=await resolveIntegration(provider,selection);
   if(operation==="route")return route;
   if(operation==="verify"&&(isGoogleProvider(provider)||provider===GOOGLE_APP_PROVIDER))return nativeGoogleStatus(provider,selection);
-  if(operation==="verify")return withIntegrationSelection(selection,()=>{if(!isInfraProviderId(provider))throw new IntegrationError("unknown_provider");return doctorInfraProvider(provider);});
+  if(operation==="verify")return withIntegrationSelection(selection,()=>{if(!isInfraProviderId(provider))throw new IntegrationError("unknown_provider");return doctorInfraProvider(resolveProviderId(provider)!);});
   if(a.confirm!==true)throw new IntegrationError("confirmation_required",403);
   const args=a.arguments??{};if(!args||typeof args!=="object"||Array.isArray(args))throw new IntegrationError("invalid_tool_arguments");
   if(isGoogleProvider(provider)){
@@ -81,13 +83,13 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     "dokploy.dockerfile":{provider:"dokploy",fields:["applicationId","dockerfile","dockerContextPath"],run:()=>configureDokployDockerfileBuild(args as {applicationId:string;dockerfile?:string;dockerContextPath?:string})},
     "dokploy.application.publicEnv.upsert":{provider:"dokploy",fields:["applicationId","key","value","redeploy"],run:()=>upsertDokployPublicBuildEnv(args as {applicationId:string;key:string;value:string;redeploy?:boolean})},
     "dokploy.project.ensure":{provider:"dokploy",fields:["name"],run:()=>ensureDokployProject(String((args as Record<string,unknown>).name))},
-    "convex.customDomains.list":{provider:"convex-cloud",fields:["deploymentName"],run:()=>listConvexCustomDomains(String((args as Record<string,unknown>).deploymentName))},
-    "convex.customDomain.ensure":{provider:"convex-cloud",fields:["deploymentName","domain","requestDestination"],run:()=>ensureConvexCustomDomain(args as {deploymentName:string;domain:string;requestDestination:"convexCloud"|"convexSite"})},
-    "convex.canonical.get":{provider:"convex-cloud",fields:["deploymentName"],run:()=>getConvexCanonicalUrls(String((args as Record<string,unknown>).deploymentName))},
-    "convex.env.presence":{provider:"convex-cloud",fields:["deploymentName","names"],run:()=>getConvexEnvPresence(args as {deploymentName:string;names:string[]})},
-    "convex.canonical.set":{provider:"convex-cloud",fields:["deploymentName","requestDestination","url"],run:()=>setConvexCanonicalUrl(args as {deploymentName:string;requestDestination:"convexCloud"|"convexSite";url?:string|null})},
-    "convex.project.deploy":{provider:"convex-cloud",fields:["deploymentName","projectPath"],run:()=>deployConvexCloudProject(args as {deploymentName:string;projectPath:string})},
-    "convex.snapshot.import":{provider:"convex-cloud",fields:["deploymentName","projectPath","snapshotPath","mode"],run:()=>importConvexCloudSnapshot(args as {deploymentName:string;projectPath:string;snapshotPath:string;mode:"replace-all"|"append"})},
+    "convex.customDomains.list":{provider:"convex",fields:["deploymentName"],run:()=>listConvexCustomDomains(String((args as Record<string,unknown>).deploymentName))},
+    "convex.customDomain.ensure":{provider:"convex",fields:["deploymentName","domain","requestDestination"],run:()=>ensureConvexCustomDomain(args as {deploymentName:string;domain:string;requestDestination:"convexCloud"|"convexSite"})},
+    "convex.canonical.get":{provider:"convex",fields:["deploymentName"],run:()=>getConvexCanonicalUrls(String((args as Record<string,unknown>).deploymentName))},
+    "convex.env.presence":{provider:"convex",fields:["deploymentName","names"],run:()=>getConvexEnvPresence(args as {deploymentName:string;names:string[]})},
+    "convex.canonical.set":{provider:"convex",fields:["deploymentName","requestDestination","url"],run:()=>setConvexCanonicalUrl(args as {deploymentName:string;requestDestination:"convexCloud"|"convexSite";url?:string|null})},
+    "convex.project.deploy":{provider:"convex",fields:["deploymentName","projectPath"],run:()=>deployConvexCloudProject(args as {deploymentName:string;projectPath:string})},
+    "convex.snapshot.import":{provider:"convex",fields:["deploymentName","projectPath","snapshotPath","mode"],run:()=>importConvexCloudSnapshot(args as {deploymentName:string;projectPath:string;snapshotPath:string;mode:"replace-all"|"append"})},
     "cloudflare.zones.list":{provider:"cloudflare",fields:[],run:()=>listCloudflareZones()},
     "cloudflare.dns.upsert":{provider:"cloudflare",fields:["name","type","content","ttl","proxied"],run:()=>upsertCloudflareDns(args as Parameters<typeof upsertCloudflareDns>[0])},
     "hostinger.dns.upsert":{provider:"hostinger",fields:["name","type","content","ttl"],run:()=>upsertHostingerDns(args as Parameters<typeof upsertHostingerDns>[0])},
@@ -100,9 +102,24 @@ export async function executeIntegrationAction(raw:Record<string,unknown>){
     "mcp.tool":{provider:"mcp",fields:["name","arguments"],run:()=>callNamedMcpConnectionTool(selection,String((args as Record<string,unknown>).name??""),((args as Record<string,unknown>).arguments&&typeof (args as Record<string,unknown>).arguments==="object"&&!Array.isArray((args as Record<string,unknown>).arguments)?(args as Record<string,unknown>).arguments:{} ) as Record<string,unknown>)},
 
   };
-  const verb=verbs[operation];if(!verb||verb.provider!==provider)throw new IntegrationError("provider_operation_mismatch");
+  const verb=verbs[operation];if(!verb||verb.provider!==canonical)throw new IntegrationError("provider_operation_mismatch");
   if(route.source!=="direct")throw new IntegrationError("external_source_requires_own_executor",409);
   if(Object.keys(args).some(k=>!verb.fields.includes(k)))throw new IntegrationError("invalid_tool_arguments");
+  // Self-hosted Convex shares the provider id but not every operation. Refuse the
+  // ones CONVEX_OPERATION_SUPPORT marks unsupported for this kind by NAME instead
+  // of letting the runner fail obscurely or the operation disappear as a 404.
+  if(canonical==="convex"){
+    const support=CONVEX_OPERATION_SUPPORT.find(row=>row.operation===operation);
+    if(support){
+      const kind=convexDeploymentKind(await directConnectionValues(canonical,selection));
+      const availability=kind==="self-hosted"?support.selfHosted:support.cloud;
+      if(availability!=="supported"){
+        const error=new IntegrationError("convex_operation_unsupported_for_kind",409);
+        Object.assign(error,{operation,deploymentKind:kind,reason:support.reason??null});
+        throw error;
+      }
+    }
+  }
   return withIntegrationSelection(selection,async()=>({identity:route,result:await verb.run()}));
 }
 export const queryIntegrationAction=(input:Record<string,unknown>)=>integrationQuery(safeActionInput(input));

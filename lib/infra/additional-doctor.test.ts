@@ -99,6 +99,25 @@ describe("additional native credential providers", () => {
     await expect(result).rejects.toThrow("Convex HTTP 403");
     await expect(result).rejects.not.toThrow(KEY);
   });
+  it("distinguishes an unreachable self-hosted deployment from a rejected admin key", async () => {
+    // curl exit 35: the TCP/TLS connection produced no HTTP response at all.
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    const unreachable = doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210", adminKey: KEY });
+    await expect(unreachable).rejects.toThrow(/unreachable.*no HTTP response/i);
+    await expect(unreachable).rejects.not.toThrow(KEY);
+    // Reachable, but the deployment rejected the key.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 401 })));
+    const rejected = doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210", adminKey: KEY });
+    await expect(rejected).rejects.toThrow(/admin key rejected/i);
+    await expect(rejected).rejects.toThrow("Convex HTTP 401");
+    await expect(rejected).rejects.not.toThrow(KEY);
+    // The two operator actions must not collapse into one message.
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    const first = await doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210", adminKey: KEY }).catch((error: Error) => error.message);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 403 })));
+    const second = await doctorAdditionalProvider("convex", { apiUrl: "http://localhost:3210", adminKey: KEY }).catch((error: Error) => error.message);
+    expect(first).not.toBe(second);
+  });
   it("rejects arbitrary Convex targets before sending any key", async () => {
     const mock = vi.fn(); vi.stubGlobal("fetch", mock);
     for (const apiUrl of ["http://169.254.169.254/", "https://owner:password@evil.invalid", "https://example.com/?credential=x"])
