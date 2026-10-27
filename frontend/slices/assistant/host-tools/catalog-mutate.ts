@@ -11,7 +11,7 @@ export const MUTATE_TOOLS: HostTool[] = [
     group: "files",
     label: "Write",
     effect: "mutate",
-    description: "Create or OVERWRITE a text file with the given contents. Overwrite is silent — read first if unsure.",
+    description: "Create or OVERWRITE a text file with the given contents. Overwrite is silent; read first if unsure.",
     parameters: obj({ "path!": str("Absolute file path"), "content!": str("Full new file contents") }),
     run: async (api, a) => {
       const content = String(a.content ?? "");
@@ -74,7 +74,7 @@ export const MUTATE_TOOLS: HostTool[] = [
     effect: "mutate",
     description:
       "Save the exact displayed text as durable cross-session memory. It may be recalled into future chats and sent to whichever AI provider the owner selects later, so every new memory requires explicit approval.",
-    parameters: obj({ "text!": str("The exact durable fact to remember — one concise sentence") }),
+    parameters: obj({ "text!": str("The exact durable fact to remember: one concise sentence") }),
     run: async (_api, a) => {
       const text = String(a.text ?? "").trim();
       if (!text) return "nothing to remember (empty text)";
@@ -112,7 +112,7 @@ export const MUTATE_TOOLS: HostTool[] = [
     label: "Start/stop app",
     effect: "mutate",
     description:
-      "Start, stop, restart or back up a managed application (hermes, openclaw). Bounded to those apps and those four verbs — this exists so restarting a daemon does not require exec.run, which the destructive-command filter refuses for systemctl anyway. Check apps.list or apps.logs first.",
+      "Start, stop, restart or back up a managed application (hermes, openclaw). Bounded to those apps and those four verbs. This exists so restarting a daemon does not require exec.run, which the destructive-command filter refuses for systemctl anyway. Check apps.list or apps.logs first.",
     parameters: obj({
       "id!": str("Managed app id from apps.list, e.g. hermes"),
       "action!": str("start | stop | restart | backup"),
@@ -120,7 +120,7 @@ export const MUTATE_TOOLS: HostTool[] = [
     run: async (api, a) => {
       const action = String(a.action);
       if (!["start", "stop", "restart", "backup"].includes(action))
-        return `unknown action "${action}" — use start, stop, restart or backup`;
+        return `unknown action "${action}". Use start, stop, restart or backup`;
       const r = await api.apps.power(String(a.id), action as "start" | "stop" | "restart" | "backup");
       return `${r.name}: ${r.running ? "running" : "stopped"} (after ${action})`;
     },

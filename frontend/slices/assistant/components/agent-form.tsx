@@ -59,7 +59,7 @@ export function AgentForm({
       <Field label="Color">
         <ColorPick value={color} onChange={setColor} options={AGENT_COLORS} />
       </Field>
-      <Field label="Persona" hint="Voice & behaviour — sent as system context on every turn, so edits and agent switches apply to the next reply.">
+      <Field label="Persona" hint="Voice & behaviour, sent as system context on every turn, so edits and agent switches apply to the next reply.">
         <Textarea
           value={persona}
           onChange={(e) => setPersona(e.target.value)}

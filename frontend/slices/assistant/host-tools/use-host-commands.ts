@@ -78,7 +78,7 @@ export function useHostCommands(ui: HostToolUi): {
         if (denied.current.has(sig)) {
           ui.updateCard(id, { status: "denied", result: "Auto-denied (already declined this exact call)." });
           recordAlfaTool(id, name, "denied", "auto-denied", Date.now() - startedAt);
-          return { ok: false, result: "Auto-denied: the user already declined this exact call. Stop retrying it — propose an alternative or ask." };
+          return { ok: false, result: "Auto-denied: the user already declined this exact call. Stop retrying it. Propose an alternative or ask." };
         }
         if (!danger && hasAlfaApproval(name, args, scope)) return execute();
         const { approve, remember } = await ui.requestApproval(id);

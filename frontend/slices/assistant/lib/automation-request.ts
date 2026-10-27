@@ -4,7 +4,7 @@ import type { Automation } from "./types";
 export function composeAutomationRequest(auto: Automation, agentName: string): string {
   const lines = auto.steps.map((step, index) => {
     const tool = toolById(step.tool);
-    const context = step.argText ? ` — requested args/context: ${step.argText}` : "";
+    const context = step.argText ? `: requested args/context: ${step.argText}` : "";
     return `${index + 1}. ${step.tool}${tool?.name ? ` (${tool.name})` : ""}${context}`;
   });
   return [

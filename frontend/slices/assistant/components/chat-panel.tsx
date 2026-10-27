@@ -169,7 +169,7 @@ export function ChatPanel({
       const modeNote =
         api.mode === "live"
           ? " You are in LIVE mode on a production VPS; tool actions are real."
-          : " You are in MOCK mode: fs, exec and sys tools are simulated (no real VPS). The skills.* and memory.* tools are NOT simulated — they read and write real host state even here.";
+          : " You are in MOCK mode: fs, exec and sys tools are simulated (no real VPS). The skills.* and memory.* tools are NOT simulated; they read and write real host state even here.";
       const runId = beginAlfaRun(text);
       const stateId = alfaRunState()?.id;
       setAlfaOperation("Requesting response");
@@ -246,8 +246,8 @@ export function ChatPanel({
         )}
       >
         {api.mode === "live"
-          ? "● LIVE — Alfa acts on your real VPS; every change needs your approval"
-          : "MOCK — actions are simulated (switch to Live in Settings → Server)"}
+          ? "● LIVE: Alfa acts on your real VPS; every change needs your approval"
+          : "MOCK: actions are simulated (switch to Live in Settings → Server)"}
       </div>
       {messages.length === 0 ? (
         <div className="flex-1 overflow-y-auto">

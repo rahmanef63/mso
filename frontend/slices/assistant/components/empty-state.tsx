@@ -20,7 +20,7 @@ export function EmptyState({
       <div className="space-y-1">
         <h2 className="text-base font-semibold">Ask Alfa</h2>
         <p className="text-sm text-muted-foreground">
-          Your VPS copilot — describe a task and Alfa lays out the commands.
+          Your VPS copilot: describe a task and Alfa lays out the commands.
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-2">

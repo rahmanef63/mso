@@ -70,7 +70,7 @@ export function AutomationForm({
           <GlyphTile glyph={glyph} color={color} size={60} />
           <span className="font-semibold">{name}</span>
           <span className="text-[11px] text-muted-foreground">
-            {steps.length} steps · {agent?.name ?? "—"}
+            {steps.length} steps · {agent?.name ?? "no agent"}
           </span>
         </div>
       }
@@ -104,7 +104,7 @@ export function AutomationForm({
         <div className="flex flex-col gap-2">
           {steps.length === 0 ? (
             <div className="px-0.5 py-1.5 text-xs text-muted-foreground">
-              No steps yet — add one below.
+              No steps yet. Add one below.
             </div>
           ) : null}
           {steps.map((s, i) => {
