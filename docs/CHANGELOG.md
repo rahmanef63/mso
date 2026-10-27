@@ -32,6 +32,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `e2e` match the colon-form copy after the antislop pass
 - `infra` make Convex fixtures unambiguously synthetic for the secret scanner
 - `e2e` select the collapsed Convex card in the release journey
 

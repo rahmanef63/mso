@@ -39,7 +39,7 @@ export async function memoryBackupHistoryJourney(page, fixture) {
       await page.getByRole("button", { name: "Load saved server snapshots", exact: true }).click();
       await expect(page.getByText(/Partial snapshot · 2 files · No saved integrity receipt/)).toBeVisible();
       await page.getByRole("button", { name: "Load more saved snapshots", exact: true }).click();
-      await expect(page.getByText(/Snapshot metadata unreadable — not an empty backup/)).toBeVisible();
+      await expect(page.getByText(/Snapshot metadata unreadable: not an empty backup/)).toBeVisible();
       expect(queries.some(q => q.offset === "12" && q.revision === revision)).toBe(true);
       await page.getByRole("button", { name: `${snapshot.createdAt} · ${id.slice(0, 8)}`, exact: true }).click();
       expect(posts).toHaveLength(0);
