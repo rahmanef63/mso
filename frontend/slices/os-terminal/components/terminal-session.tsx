@@ -41,7 +41,7 @@ export function TerminalSession({ initialCommand, initialCwd }: TerminalSessionP
           style={{ color: "#fff", background: "#a14545" }}
         >
           <span className="min-w-0 flex-1 truncate">
-            PTY unavailable: {ptyError} — basic exec mode
+            PTY unavailable: {ptyError} (basic exec mode)
           </span>
           <button
             onClick={() => setPtyError(null)}
