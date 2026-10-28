@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Faster**
 
+- `shell` take hidden app artwork off the layout and paint path
 - close two eager leaks, cancel the island plan, budget from arithmetic
 - `app-store` load RuntimeApp lazily so vaul leaves the first-load chunk
 
