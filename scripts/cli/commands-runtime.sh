@@ -6,6 +6,8 @@ mso_cmd_runtime() {
   local cmd="$1"; shift || true
 case "$cmd" in
   agent|chat) run_agent "$@" ;;
+  run) run_agent_run "$@" ;;
+  session) run_agent_session "$@" ;;
   model) run_model_setup "$@" ;;
   setup) run_onboard "${1-}" ;;
   onboard) run_onboard "${1-}" ;;

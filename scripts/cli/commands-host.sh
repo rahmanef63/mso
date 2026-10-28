@@ -42,7 +42,15 @@ case "$cmd" in
 
   # ── host ─────────────────────────────────────────────────────────────────
   exec)   jpost "/api/v1/exec/run" "$(jq -n --arg c "$*" '{cmd:$c}')" ;;
-  stats)  jget "/api/v1/sys/stats" ;;
+  stats)
+    # `stats` alone is live host truth (CPU/mem/disk). The agent ledger lives behind
+    # --usage/--days/--models, matching what opencode calls `stats --cost/--models`.
+    case "${1-}" in
+      --usage|--days|--models) run_agent_stats "$@" ;;
+      --json) jget "/api/v1/sys/stats" | jq . ;;
+      "") jget "/api/v1/sys/stats" ;;
+      *) die "usage: mso $U_stats" ;;
+    esac ;;
   ps)     jget "/api/v1/sys/processes" ;;
   units)
     data=$(jget "/api/v1/sys/services")
@@ -68,12 +76,25 @@ case "$cmd" in
   # Layer-by-layer, cheapest first, so the FIRST failure names the real cause
   # instead of the symptom three layers up ("login failed" when node is missing).
   doctor)
+    format="prose"
     fix=0
-    case "${1-}" in
-      "") ;;
-      --fix) fix=1 ;;
-      *) die "usage: mso $U_doctor" ;;
-    esac
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --json) format="json" ;;
+        --fix) fix=1 ;;
+        *) die "usage: mso $U_doctor" ;;
+      esac
+      shift
+    done
+    if [ "$format" = "json" ] && [ "$fix" = 1 ]; then
+      echo "doctor --json is read-only; run \`mso doctor --fix\` for repairs" >&2
+      exit 2
+    fi
+    if [ "$format" = "json" ]; then
+      # shellcheck source=doctor-json.sh
+      source "${ROOT:-.}/scripts/cli/doctor-json.sh"
+      mso_doctor_json
+    fi
     fails=0
     chk() { if eval "$2" >/dev/null 2>&1; then printf '  ok    %s\n' "$1"; else printf '  FAIL  %s — %s\n' "$1" "$3"; fails=$((fails+1)); fi; }
     fixed() { printf '  FIXED %s\n' "$1"; }

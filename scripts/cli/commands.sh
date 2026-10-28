@@ -23,7 +23,8 @@ verbs() {
 U_camoufox="camoufox status|start|stop|session"
 U_gateway="gateway start [--config <cloudflared.yml> --tunnel <name|uuid>]|stop|status|url|doctor|install|domain show|set <https://host>|clear"
 U_domain="domain status|setup --user <user> --connection <cloudflare-connection> [--origin <https://host>] [--template <{id}.host>] [--zone <name|id>] [--tunnel <UUID>] [--local <http://loopback:port>] [--manual] [--apply]|ensure <id> [--apply]|doctor <id>|repair-env [--apply]|restore [--apply]"
-U_doctor="doctor [--fix]"
+U_doctor="doctor [--fix] [--json]"
+U_pair="pair [--json]"
 U_flow="flow list|inspect <id> [--project <project>]|run <id> --input <JSON|@file> --key <id> [--wait]|status <run-id> [--wait]|save|delete <id> --revision <revision> [--input <JSON|@file>]"
 U_workflow="workflow list|embeds|embed-save --input <JSON|@file>|show <id>|create --input <JSON|@file>|save <id> --revision <revision> --input <JSON|@file>|clone <id>|delete <id> --revision <revision>|run <id> --input <JSON|@file> --key <id> [--wait]|status <run-id> [--wait]|runs <id>|versions <id>|restore <id> --revision <current> --version <saved>|catalog [--query q]|templates|template <id>|variables|variable-set <KEY> --input <JSON> [--secret]|variable-delete <KEY>|ai --prompt <text>"
 U_integrations="integrations [interactive]|transfer|status|users|catalog|connections [user] [provider]|which [folder]|request|resolve <user> <provider> [connection]|create-user <id> [label]|create-connection <user> <provider> <id> <source> <auth>|manage <JSON>|setup|verify <user> <provider> <connection>|hostinger-mail-orders|hostinger-mail-list|hostinger-mail-logs|execute <JSON>"
@@ -36,6 +37,9 @@ U_mapp="mapp enable <id> [install-key=value...]|start|stop|restart <id>|catalog|
 U_term="term open [cwd] [cols] [rows]|input <id> <text>|resize <id> <cols> <rows>|stream <id>|close <id>"
 U_device="device list|pending|approve <id> [label] [--role viewer|operator|owner]|role <id> <role>|revoke <id>|revoke all --yes"
 U_service="service status|start|stop|restart|logs [n]"
+U_stats="stats [--json] | stats --usage [--days N] [--json] [--models]"
+U_run="run <prompt…> [--json] [--file <path>] [--thinking] [--approve-scope read|write|exec] [--continue|-c|--resume <ref>]"
+U_session="session list [limit]|show [id|name|latest]|export [id|name|latest] [--out <file>]|import <file|-> [--title <title>]"
 U_unit="unit logs <system|user> <unit> [limit]|start|stop|restart <system|user> <unit>"
 U_reset="reset [--scope config|all] [--json] [--apply --confirm <preview-token>]"
 U_uninstall="uninstall [--purge] [--remove-code] [--service name.service] [--json] [--apply --confirm <preview-token>]"
@@ -58,7 +62,10 @@ U_jev="jev status|decide <model.route|failure.triage|recipe.promote> [JSON|@file
 U_skills="skills list|read <id>|search <query…>|available|info <id>|install <id…> [-y] [--force]|remove <id…> [-y]|store list|store install|remove <id> <revision>"
 U_mcp="mcp project <JSON>|list|pat <label> [read|write|exec] [ttlDays]|activity [n]|service-token --label <label> --client-id <id> --scope <read|write|exec> --tools <name,name> [--constraints-json <json>]|revoke <id>|revoke all"
 U_oauth="oauth <provider> start|poll   OAuth currently: openai (ChatGPT Codex)"
+U_completion="completion [bash|zsh|fish|sh]"
 # Command families are sourced here so bin/mso remains only bootstrap + entrypoint.
+# shellcheck source=agent-run.sh
+source "$ROOT/scripts/cli/agent-run.sh"
 # shellcheck source=commands-host.sh
 source "$ROOT/scripts/cli/commands-host.sh"
 # shellcheck source=commands-runtime.sh
@@ -104,11 +111,11 @@ mso_cli_main() {
   case "$cmd" in
     version|--version|-V|-v|ls|cat|raw|share|usage|search|project-candidates|write|mkdir|rm|mv|cp|zip|upload|exec|stats|ps|units|unit|packages|cleanup|status|health|doctor)
       mso_cmd_host "$cmd" "$@" ;;
-    agent|chat|model|setup|onboard|provider|providers|integrations|channels|agent-groups|flow|workflow|gateway|domain|heartbeat|web|camoufox|apps|mapp|term)
+    agent|chat|model|setup|onboard|provider|providers|integrations|channels|agent-groups|flow|workflow|gateway|domain|heartbeat|web|camoufox|apps|mapp|term|run|session)
       mso_cmd_runtime "$cmd" "$@" ;;
     ai|cockpit|threads|agent-sessions|agent-profiles|agents|org|a2a|memory|memory-graph|agent-vault|config|prefs|federation|models|jev|skills|changelog|stock)
       mso_cmd_state "$cmd" "$@" ;;
-    devices|device|approve|revoke|oauth|mcp|audit|whoami|login|logout|passwd|service|build|deploy|update|reset|uninstall|crud|api|completion)
+    devices|device|approve|revoke|oauth|mcp|audit|whoami|login|logout|passwd|service|build|deploy|update|reset|uninstall|crud|api|completion|pair)
       mso_cmd_admin "$cmd" "$@" ;;
     help|-h|--help) usage; exit 0 ;;
     *) mso_cli_unknown "$cmd" ;;
