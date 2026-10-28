@@ -32,6 +32,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `progress` record the perf gate and the numbers it retracted
 
+**Chores**
+
+- `gates` re-add the 12-gate runner and regenerate the changelog
+
 ## 2026-10-28
 
 **Added**
