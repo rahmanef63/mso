@@ -6,6 +6,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-10-29
 
+**Added**
+
+- `tui` close the opencode TUI gap on the seams MSO already owns
+
 **Docs**
 
 - `progress` record the perf gate and the numbers it retracted
