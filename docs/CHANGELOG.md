@@ -6,15 +6,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 ## 2026-10-28
 
-**Fixed**
-
-- `design` keep snap assist inside the R-10 glass dose cap
-
 **Docs**
 
-- `design` audit glassmorphism per screen against antislop R-10
-- `design` transcribe the existing MSO design direction
-- `agents` point every coding agent at the antislop filter
+- `agents` use a placeholder host in the knowledge refresh
+- `agents` refresh AGENTS.md and add .mso/KNOWLEDGE.md for #154-#162
+- `antislop` design direction, agent pointer, and the R-10 glass audit (#163)
 
 ## 2026-10-27
 
