@@ -446,8 +446,27 @@ of the measured options, cheapest first:
 3. **Cut shell mount cost.** Profile and reduce component initialization inside
    `frontend/slices/appshell/components/desktop.tsx` and the eager slice registry during
    `#main-content` hydration (mount ~2.6-3.0 s → LCP ~3.2-4.2 s).
-   *Measurement support:* Supported by the CPU throttle control (−644 ms at 1× CPU vs
-   4× CPU). Main-thread execution after JS arrival accounts for 0.4-1.1 s before LCP.
+   *Measurement support:* Measured 2026-10-29 (`bun run perf:tasks` + CDP trace analysis,
+   Slow 4G + 4× CPU). Between FCP and LCP there is ~800–950 ms of main-thread execution
+   split across two phases. Pre-mount (FCP → mount ~2.6 s): ~220 ms React 19 runtime
+   bootstrap (`2uq1r5nfrxpmw.js`), ~195 ms eager slice registry and manifests evaluation
+   (`3vzf2l_pzsqlz.js`: Alfa tools, quicklinks, appearance presets, 29 app descriptors),
+   and ~100–140 ms initial skeleton hydration. Mount → LCP (~2.6 → 3.3–4.0 s): the lazy
+   `macos-shell` chunk (45 KB raw / ~14 KB gzip, `1mmmz82o-7zp9.js`) is fetched and
+   evaluated, then a 260 ms long task renders `DesktopChrome` (~145 ms React component
+   tree, 74 ms UpdateLayoutTree, 40 ms Layout), finishing with ~25–40 ms Paint to the
+   menu-bar `SPAN` LCP element. Suspects rejected by measurement: `Wallpaper` execution is
+   <2 ms (CSS backdrop loads asynchronously, off the main thread); icon artwork decode is
+   0 ms (async WebP decodes; desktop LCP is text).
+   The shell-chunk fetch is *already* concurrent with mount, not serial after it: measured
+   request start 2573 ms against mount 2591 ms, response end 2869 ms. Prefetching it from
+   inside the app therefore buys nothing — verified, not assumed. Buying anything back
+   would require starting the fetch before hydration, which in turn requires knowing the
+   surface at SSR time, which is exactly the thing that causes the macOS/iOS hydration
+   mismatch. That circularity, not the byte count, is why this lever is structural. It
+   could be broken by preloading both shell chunks from the server (≈+14 KB gzip for
+   everyone to save ~0.3 s for two thirds of visitors), which trades against §3 item 1 and
+   should be decided as a product call, not folded in as an optimization.
 4. **Migrate a slice (Phase 3).** If in-tree budget and mount optimizations leave LCP
    > 2.5 s, a framework migration is the only remaining lever that removes ~230 KB of
    `react-dom` runtime and Next router overhead from the first-load critical path.
@@ -523,7 +542,18 @@ Bun; `next` still on Node; build time unchanged or better.
 The largest durable win and the cheapest real work, because 96 % of `lib/` needs nothing.
 
 - Formalize the boundary: `lib/` exports plain request/response types; nothing in `lib/`
-  may import `next/*`. Two files violate this today — remove them.
+  may import `next/*`. **Done 2026-10-29** for the static-import half: the seven files that
+  imported `next/server` or `next/headers` now use the web-standard `Request`/`Response`,
+  and `grep -rn 'from "next/' lib` (non-test) is 0. `NextResponse.cookies.set` became an
+  explicit `Set-Cookie` header in three files, with the same attributes and the same
+  `base64url` payloads, so no encoding change. One honest exception remains:
+  `lib/auth/require-session.ts` still reaches Next through a *dynamic* `import("next/headers")`
+  inside the default `nextSessionCookieReader`, because `cookies()` is request-scoped framework
+  plumbing with no web-standard equivalent in place. It is a two-line seam with a default
+  parameter, so all 54 call sites are untouched and a SvelteKit adapter can pass its own reader;
+  moving the adapter out of `lib/` entirely is 54 mechanical edits and was deliberately not done
+  here. The exit criterion below is therefore "no *static* `next/*` import in `lib/`" — a grep for
+  `from "next/"` does not see `import(...)` and would give a false green.
 - Convert the 117 `route.ts` handlers into thin adapters: one shared
   `NextRequest → { request, ctx }` shim, all logic in `lib/`. Handlers become 3–5 lines.
   (`NextResponse` 744 usages, `NextRequest` 122 — the shim is the whole job.)
@@ -531,8 +561,8 @@ The largest durable win and the cheapest real work, because 96 % of `lib/` needs
   SvelteKit `+server.ts` later without edits.
 - Keep `proxy.ts` as-is; it is ported in Phase 6, not here.
 
-Exit criteria: zero `next/*` imports in `lib/`; every route handler ≤ 15 LOC; ratchets
-unchanged; full suite green.
+Exit criteria: no static `next/*` import in `lib/` (met); every route handler ≤ 15 LOC;
+ratchets unchanged; full suite green.
 
 Value even if the migration dies here: the backend becomes portable and testable without
 a framework. Worth doing on its own.

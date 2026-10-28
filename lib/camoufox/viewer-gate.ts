@@ -1,4 +1,3 @@
-import { NextResponse, type NextRequest } from "next/server";
 import { deviceSessionValid } from "@/lib/auth/live-session";
 import { getApprovedDevice } from "@/lib/auth/device-store";
 import { roleAtLeast } from "@/lib/auth/roles";
@@ -14,7 +13,7 @@ import { IS_DEMO } from "@/lib/demo";
 import { CAMOUFOX_VIEWER_ENTRY_PATH, CAMOUFOX_VIEWER_PUBLIC_PREFIX } from "./viewer-path";
 
 const AUTHORIZED = Symbol("camoufox-viewer-authorized");
-export type CamoufoxViewerGateResult = typeof AUTHORIZED | NextResponse;
+export type CamoufoxViewerGateResult = typeof AUTHORIZED | Response;
 
 
 function noStore(headers: Headers): void {
@@ -24,7 +23,7 @@ function noStore(headers: Headers): void {
 }
 
 function notFound() {
-  const response = new NextResponse("Not Found", {
+  const response = new Response("Not Found", {
     status: 404,
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
@@ -43,9 +42,21 @@ async function approvedDevice(token: string, kind: "ticket" | "cookie") {
   return deviceSessionValid(payload, device) && device && roleAtLeast(device.role, "operator") ? payload : null;
 }
 
-async function hasViewerSession(request: NextRequest): Promise<boolean> {
-  for (const { value } of request.cookies.getAll(CAMOUFOX_VIEWER_COOKIE)) {
-    if (await approvedDevice(value, "cookie")) return true;
+async function hasViewerSession(request: Request): Promise<boolean> {
+  const cookieHeader = request.headers.get("cookie");
+  if (cookieHeader) {
+    for (const part of cookieHeader.split(";")) {
+      const [name, ...rest] = part.trim().split("=");
+      if (name === CAMOUFOX_VIEWER_COOKIE) {
+        if (await approvedDevice(rest.join("="), "cookie")) return true;
+      }
+    }
+  }
+  const reqWithCookies = request as { cookies?: { getAll?: (n: string) => Array<{ value: string }> } };
+  if (typeof reqWithCookies.cookies?.getAll === "function") {
+    for (const { value } of reqWithCookies.cookies.getAll(CAMOUFOX_VIEWER_COOKIE)) {
+      if (await approvedDevice(value, "cookie")) return true;
+    }
   }
   return false;
 }
@@ -72,7 +83,7 @@ const BOOTSTRAP_JS = [
 ].join("");
 
 function bootstrap(method: string) {
-  const response = new NextResponse(method === "HEAD" ? null : BOOTSTRAP_HTML, {
+  const response = new Response(method === "HEAD" ? null : BOOTSTRAP_HTML, {
     status: 200,
     headers: {
       "content-type": "text/html; charset=utf-8",
@@ -91,7 +102,7 @@ function bootstrap(method: string) {
 }
 
 function bootstrapScript() {
-  const response = new NextResponse(BOOTSTRAP_JS, {
+  const response = new Response(BOOTSTRAP_JS, {
     status: 200,
     headers: {
       "content-type": "application/javascript; charset=utf-8",
@@ -104,25 +115,21 @@ function bootstrapScript() {
   return response;
 }
 
-async function exchangeTicket(request: NextRequest) {
+async function exchangeTicket(request: Request) {
   if (request.method !== "POST") return notFound();
   const match = /^Bearer ([A-Za-z0-9._-]{20,4096})$/.exec(request.headers.get("authorization") ?? "");
   if (!match) return notFound();
   const session = await approvedDevice(match[1], "ticket");
   if (!session) return notFound();
 
-  const response = new NextResponse(null, { status: 204 });
-  response.cookies.set(
-    CAMOUFOX_VIEWER_COOKIE,
-    createCamoufoxViewerCookie(session, process.env.OS_SESSION_SECRET ?? ""),
-    {
-      httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-      path: "/",
-      maxAge:Math.max(0,Math.floor((Math.min(session.parent_expires_at,Date.now()+CAMOUFOX_VIEWER_COOKIE_TTL_MS)-Date.now())/1000)),
+  const maxAge = Math.max(0, Math.floor((Math.min(session.parent_expires_at, Date.now() + CAMOUFOX_VIEWER_COOKIE_TTL_MS) - Date.now()) / 1000));
+  const cookie = createCamoufoxViewerCookie(session, process.env.OS_SESSION_SECRET ?? "");
+  const response = new Response(null, {
+    status: 204,
+    headers: {
+      "set-cookie": `${CAMOUFOX_VIEWER_COOKIE}=${cookie}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=strict`,
     },
-  );
+  });
   noStore(response.headers);
   return response;
 }
@@ -133,7 +140,7 @@ async function exchangeTicket(request: NextRequest) {
  * exist. The returned symbol means the caller may proxy a read-only noVNC request.
  */
 export async function gateCamoufoxViewer(
-  request: NextRequest,
+  request: Request,
   pathname: string,
 ): Promise<CamoufoxViewerGateResult> {
   if (pathname === "/__viewer_bootstrap.js") {
@@ -147,7 +154,7 @@ export async function gateCamoufoxViewer(
   ) {
     const redirect = new URL(request.url);
     redirect.pathname = CAMOUFOX_VIEWER_ENTRY_PATH;
-    return NextResponse.redirect(redirect, 307);
+    return Response.redirect(redirect, 307);
   }
 
   const inViewerNamespace =

@@ -90,6 +90,7 @@ const nextConfig = {
     // Tree-shake heavy icon/radix barrels — keeps the OS shell bundle lean.
     optimizePackageImports: [
       "lucide-react",
+      "@phosphor-icons/react",
       "@radix-ui/react-dialog",
       "@radix-ui/react-dropdown-menu",
       "@radix-ui/react-tooltip",

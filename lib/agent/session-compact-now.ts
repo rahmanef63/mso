@@ -6,7 +6,6 @@ import { appendSemanticSessionEvent } from "./session-semantic";
 import { archiveAgentSession, pruneAgentSessionArchives } from "./session-archive";
 import { requireOwned } from "./session-record";
 import { artifactLocation } from "./artifact-paths";
-import { NextResponse } from "next/server";
 import type { AgentSession, AgentSessionEvent } from "./session-types";
 
 export interface CompactAgentSessionReport {
@@ -114,15 +113,15 @@ export async function compactAgentSessionNow(
 export async function compactAgentSessionRouteHandler(
   principal: string,
   rawId?: string,
-): Promise<NextResponse> {
+): Promise<Response> {
   const id = String(rawId || "").trim();
   if (!id)
-    return NextResponse.json(
+    return Response.json(
       { error: "id_required" },
       { status: 400 },
     );
   const result = await compactAgentSessionNow(principal, id, "manual");
-  return NextResponse.json({
+  return Response.json({
     session: { ...result.session, artifacts: artifactLocation(result.session) },
     archived: result.archived,
     archiveReason: result.archiveReason,
