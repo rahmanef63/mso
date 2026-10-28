@@ -27,7 +27,10 @@ async function runOneShot(opts) {
     permission: "ask", pendingApproval: null,
   };
   session.history.push({ role: "user", text: opts.prompt });
-  const result = await agentRound(null, session, null, undefined, null, { quiet: true, approvalScope: opts.approvalScope, thinking: opts.thinking });
+  // `--thinking` is a REPORTING flag only: the stream exposes reasoning token counts,
+  // not reasoning text, so nothing here changes the turn. Passing `thinking` into
+  // agentRound would be dead config, so the flag is consumed in the payload below.
+  const result = await agentRound(null, session, null, undefined, null, { quiet: true, approvalScope: opts.approvalScope });
   await persistSession(session);
   const payload = {
     ok: true, sessionId: session.agentSession.id,
