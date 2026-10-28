@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server";
+import { json } from "@/lib/api/route";
 import { verifyAuth } from "@/lib/agent/server";
 import { listManagedApps } from "@/lib/managed-apps/manager";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await verifyAuth(req))) return json({ error: "unauthorized" }, 401);
   try {
-    return NextResponse.json({ apps: await listManagedApps() });
+    return json({ apps: await listManagedApps() });
   } catch {
-    return NextResponse.json({ error: "managed applications unavailable" }, { status: 503 });
+    return json({ error: "managed applications unavailable" }, 503);
   }
 }

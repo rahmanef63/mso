@@ -1,0 +1,157 @@
+import { json } from "@/lib/api/route";
+import { managedAppSession } from "@/lib/managed-apps/session";
+import { getManagedAppDefinition, isManagedAppId } from "@/lib/managed-apps/catalog";
+import { managedAppUpstream } from "@/lib/managed-apps/upstream-target";
+import {
+  MANAGED_APP_HOST_HEADER,
+  cockpitOrigin,
+  managedAppOrigin,
+  splitOriginEnabled,
+} from "@/lib/managed-apps/origin";
+import { contentSecurityPolicy } from "@/lib/managed-apps/proxy-csp";
+import { errorPage, wantsErrorPage } from "@/lib/managed-apps/proxy-error-page";
+import { getOrcaReadiness } from "@/lib/managed-apps/orca-readiness";
+import {
+  buildUpstreamHeaders,
+  isSecureRequest,
+  isServiceWorkerRequest,
+  pickResponseHeaders,
+  readSetCookies,
+  rewriteLocation,
+  rewriteSetCookie,
+} from "@/lib/managed-apps/proxy-headers";
+
+const BODY_LIMIT = 1_000_000;
+
+function failAncestors(): string {
+  const cockpit = splitOriginEnabled() ? cockpitOrigin() : null;
+  return cockpit ? `'self' ${cockpit}` : "'self'";
+}
+
+const fail = (req: Request, error: string, status: number) => {
+  const headers: Record<string, string> = {
+    "content-security-policy": `default-src 'none'; frame-ancestors ${failAncestors()}`,
+  };
+  if (!wantsErrorPage(req)) return json({ error }, { status, headers });
+  headers["content-type"] = "text/html; charset=utf-8";
+  return new Response(errorPage(error, status), { status, headers });
+};
+
+async function readBody(req: Request, limit: number): Promise<ArrayBuffer | null> {
+  const reader = req.body?.getReader();
+  if (!reader) return new ArrayBuffer(0);
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      void reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new Blob(chunks as BlobPart[]).arrayBuffer();
+}
+
+export async function proxyManagedApp(
+  req: Request,
+  context: { params: Promise<{ id: string; path?: string[] }> },
+): Promise<Response> {
+  const params = await context.params;
+  if (!isManagedAppId(params.id)) return fail(req, "unknown managed application", 404);
+  if (!splitOriginEnabled()) return fail(req, "managed application dashboards are not served on this origin", 404);
+  if (req.headers.get(MANAGED_APP_HOST_HEADER) !== params.id) return fail(req, "not found", 404);
+  if (!(await managedAppSession(req, params.id))) return fail(req, "unauthorized", 401);
+  const appOrigin = managedAppOrigin(params.id);
+  if (!appOrigin) return fail(req, "managed application origin is unavailable", 500);
+
+  const prefixUrl = `${appOrigin}/`;
+  const segments = params.path ?? [];
+  if (segments.some((segment) => !segment || segment === "." || segment === ".." || segment.includes("\\") || segment.includes("\0"))) {
+    return fail(req, "invalid upstream path", 400);
+  }
+  if (isServiceWorkerRequest(segments, req.headers.get("sec-fetch-dest"))) {
+    return fail(req, "service workers are not proxied", 404);
+  }
+  const definition = getManagedAppDefinition(params.id);
+  let base: URL;
+  if (params.id === "orca") {
+    let readiness: Awaited<ReturnType<typeof getOrcaReadiness>>;
+    try {
+      readiness = await getOrcaReadiness();
+    } catch {
+      return fail(req, "managed application runtime is unavailable", 503);
+    }
+    if (!readiness.available || !readiness.startTicks) {
+      return fail(req, "managed application runtime is unavailable", 503);
+    }
+    try {
+      base = new URL(readiness.boundEndpoint);
+      if (base.protocol !== "ws:" || base.username || base.password) throw new Error("invalid bound endpoint");
+      base.protocol = "http:";
+      base.pathname = "/";
+      base.search = "";
+      base.hash = "";
+    } catch {
+      return fail(req, "managed application upstream unavailable", 502);
+    }
+  } else {
+    try {
+      base = managedAppUpstream(definition.dashboardUrl);
+    } catch {
+      return fail(req, "upstream target is not loopback", 502);
+    }
+  }
+  const target = new URL(`/${segments.map(encodeURIComponent).join("/")}`, base);
+  target.search = new URL(req.url).search;
+  const headers = buildUpstreamHeaders(req, base, params.id, "");
+  let body: ArrayBuffer | undefined;
+  if (!["GET", "HEAD"].includes(req.method)) {
+    const length = Number(req.headers.get("content-length") ?? "0");
+    if (length > BODY_LIMIT) return fail(req, "upstream request body too large", 413);
+    const read = await readBody(req, BODY_LIMIT);
+    if (read === null) return fail(req, "upstream request body too large", 413);
+    body = read;
+  }
+  try {
+    const upstream = await fetch(target, {
+      method: req.method,
+      headers,
+      body,
+      redirect: "manual",
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+    });
+    const secure = isSecureRequest(req);
+    const cookies = readSetCookies(upstream.headers)
+      .map((raw) => rewriteSetCookie(raw, params.id, secure, ""))
+      .filter((value): value is string => value !== null);
+    const responseHeaders = pickResponseHeaders(upstream.headers);
+    for (const cookie of cookies) responseHeaders.append("set-cookie", cookie);
+    responseHeaders.set("x-managed-app", params.id);
+    responseHeaders.set(
+      "content-security-policy",
+      contentSecurityPolicy(prefixUrl, upstream.headers.get("content-security-policy"), {
+        cockpitOrigin: cockpitOrigin(),
+        appId: params.id,
+      }),
+    );
+    if (upstream.status >= 300 && upstream.status < 400) {
+      const location = upstream.headers.get("location");
+      if (location) {
+        const rewritten = rewriteLocation(location, target, base, params.id, "");
+        if (rewritten === null) {
+          void upstream.body?.cancel();
+          return fail(req, "upstream redirect leaves the managed application", 502);
+        }
+        responseHeaders.set("location", rewritten);
+        return new Response(null, { status: upstream.status, headers: responseHeaders });
+      }
+    }
+    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+  } catch {
+    return fail(req, "managed application upstream unavailable", 502);
+  }
+}

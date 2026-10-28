@@ -1,0 +1,82 @@
+import { NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
+import { requireSession } from "@/lib/auth/require-session";
+import { resolveModelRef, hostCredentialStore, selectedCustomConn, readOAuthBundle, writeOAuthBundle } from "@/lib/config/store";
+import { resolveModel } from "@/lib/models";
+import { safeProviderFetch } from "@/lib/host/ssrf";
+import { codexModels, ensureFreshCodex } from "@/lib/ai/oauth/codex";
+import { streamCodex } from "@/lib/ai/codex-stream";
+import { boundedProviderFetch, providerErrorText } from "@/lib/ai/provider-response";
+
+export async function handlePostTest(): Promise<Response> {
+  if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const selectedRef = await resolveModelRef();
+  if (selectedRef.startsWith("openai-codex/")) {
+    const selectedModel = selectedRef.slice("openai-codex/".length);
+    try {
+      const stored = await readOAuthBundle("openai-codex");
+      if (!stored) return NextResponse.json({ ok: false, error: "OpenAI ChatGPT OAuth is not connected" });
+      const fresh = await ensureFreshCodex(stored);
+      if (fresh !== stored) await writeOAuthBundle("openai-codex", fresh);
+      const models = await codexModels(fresh);
+      if (!models.includes(selectedModel)) {
+        return NextResponse.json({ ok: false, error: `model ${selectedModel} is not available for this ChatGPT account` });
+      }
+      let text = "";
+      let completed = false;
+      await streamCodex({
+        bundle: fresh, model: selectedModel, messages: [{ role: "user", text: "Reply with OK only." }],
+        system: "You are checking inference readiness. Reply with OK only.", signal: AbortSignal.timeout(30_000),
+        emit: (event, data) => {
+          if (event === "delta" && typeof data === "string") text += data;
+          if (event === "done") completed = true;
+        },
+      });
+      if (!completed || !text.trim()) return NextResponse.json({ ok: false, error: "OpenAI ChatGPT returned no completed reply" });
+      return NextResponse.json({ ok: true, provider: "openai-codex", model: selectedModel });
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: (e as Error).message });
+    }
+  }
+
+  let resolved;
+  let customProvider = false;
+  try {
+    const custom = await selectedCustomConn();
+    customProvider = Boolean(custom);
+    resolved = await resolveModel(selectedRef, {
+      store: hostCredentialStore(),
+      baseUrl: custom?.baseUrl,
+      protocol: custom?.protocol,
+    });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: (e as Error).message });
+  }
+
+  try {
+    const signal = AbortSignal.timeout(30_000);
+    if (resolved.protocol === "anthropic") {
+      const a = new Anthropic({
+        apiKey: resolved.apiKey, baseURL: resolved.baseUrl,
+        fetch: boundedProviderFetch(customProvider ? safeProviderFetch : fetch),
+      });
+      await a.messages.create({ model: resolved.model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] }, { signal });
+    } else {
+      const r = await (customProvider ? safeProviderFetch : fetch)(`${resolved.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${resolved.apiKey}` },
+        body: JSON.stringify({ model: resolved.model, max_tokens: 1, messages: [{ role: "user", content: "ping" }] }),
+        signal,
+      });
+      if (!r.ok) {
+        const t = await providerErrorText(r, signal, 140).catch(() => "");
+        return NextResponse.json({ ok: false, error: `HTTP ${r.status}${t ? `: ${t.slice(0, 140)}` : ""}` });
+      }
+      await r.body?.cancel();
+    }
+    return NextResponse.json({ ok: true, provider: resolved.provider, model: resolved.model });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: (e as Error).message });
+  }
+}

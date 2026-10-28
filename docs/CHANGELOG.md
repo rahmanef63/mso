@@ -13,12 +13,13 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Faster**
 
-- `shell` take hidden app artwork off the layout and paint path
+- `shell` take hidden app artwork off the layout and paint path (#167)
 - close two eager leaks, cancel the island plan, budget from arithmetic
 - `app-store` load RuntimeApp lazily so vaul leaves the first-load chunk
 
 **Changed**
 
+- `api` every route handler is a thin adapter, and lib is next-free
 - `lib` drop static next/* imports, plus three measured perf findings
 
 **Docs**

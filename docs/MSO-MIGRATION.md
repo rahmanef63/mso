@@ -355,6 +355,35 @@ path.**
 
 ### 2.1 Svelte / SvelteKit
 
+#### Measured framework floor (2026-10-29)
+
+The hybrid-island numbers in §4 are not the migration's numbers: an island adds a runtime next
+to React, a swap replaces it. The floor was therefore measured directly, from a minimal
+SvelteKit build in `/tmp` (no dependency added to this repo), per-file gzip summed the way a
+browser actually downloads it, then confirmed in a browser at Slow 4G + 4x CPU:
+
+| Part | SvelteKit | Next + React |
+|---|---|---|
+| UI runtime | Svelte 5 runes/DOM, 14.94 KB gzip | `react-dom` 73.6 KB |
+| Router + client engine | 14.81 KB gzip | Next client 44.2 + `next/navigation` 8.2 = 52.4 KB |
+| Root/preload/registry/entry | 3.32 KB gzip | turbopack 4.4 + next-isr 2.3 = 6.7 KB |
+| **Framework floor** | **33.07 KB gzip** | **132.70 KB gzip** |
+
+The whole client bundle of the minimal app is 36.90 KB gzip; a realistic page with a nested
+layout, a 50-row fetch-driven list, filtering and a re-fetch button added **4.43 KB gzip**, and
+the browser measured 35.16 KB first-load JS for the minimal page and 36.57 KB for that page —
+i.e. the per-file arithmetic was honest to within 1.7 KB.
+
+**Arithmetic that matters.** Framework floor falls 132.70 → 33.07 KB gzip, a **99.63 KB (75 %)
+reduction in framework tax**. Holding app code at today's 145.5 KB gzip, MSO's first-load would
+land at **178.6 KB gzip instead of 278.2 KB** — a 35.8 % cut before any template-savings.
+
+That last figure is the honest bound, not a forecast: Svelte's app code is new code, not the
+same 145.5 KB. Svelte should shrink it (no `createElement` calls, runes compile inline instead
+of hook closures, `bind:` instead of handler boilerplate) but it could grow if the shell ends up
+as many tiny presentational leaves, each compiling to imperative DOM instructions. A defensible
+planning range is app code 115–130 KB gzip, so total **148–163 KB gzip**, roughly −40 to −46 %.
+
 Delivers:
 - ~180–230 KB gzip less first-load JS (`react-dom` 230 KB raw + Next router runtime).
   Realistic post-migration initial: 281 KB gzip → **~90–110 KB gzip**.
@@ -455,6 +484,12 @@ of the measured options, cheapest first:
    projected at 15–20 KiB and 8–12 KiB, and the measured total is **2.8 KiB**. Both fixes
    are still correct — they remove work every visitor paid for — but neither moves the
    21 % figure, and neither is an LCP win: 2.8 KiB is ~1.4 % of a 200 KB critical path.
+
+   The same measurement that makes 250 KiB hard in-tree makes it trivial after a swap:
+   the SvelteKit floor measured in §2.1 is 33.07 KiB gzip, so a swapped shell would need
+   app code ≤ 217 KiB to stay under 250 — more headroom than today's 145.5 KiB uses. The
+   250/256 KiB target is therefore not a stretch goal at all once React and Next are gone;
+   it is in-tree that it is out of reach, because 132.7 KiB of the budget is framework.
    *Measurement support:* Supported directly by the network throttle control
    (−1,516 ms when unthrottled). The last JS byte arrival (2.9-3.1 s) gates mount and
    LCP; every kilobyte cut from the eager download shortens the critical path.
@@ -791,7 +826,7 @@ plus thin SSR. Do not attempt before Phase 2 lands.
 | + Phase 1 (Bun tooling) | +2–4 days | none | dev velocity; `bun install` portability |
 | + Phase 2 (portable core) | +2–3 weeks | none | maintainability, framework freedom |
 | ~~+ Phase 3 (one island)~~ | ~~+3–4 weeks~~ | — | **cancelled by measurement**: a Svelte 5 island costs 15.75 KiB gzip of second runtime against a 1.64 KiB React chunk |
-| Full Svelte (all phases) | **6–9 months solo** | medium | LCP 3.2–4.2 → ~2.5–2.9 s, initial JS −60 %, TBT 164 → ~70–95 ms |
+| Full Svelte (all phases) | **6–9 months solo** | medium | framework floor 132.7 → **33.07 KB gzip measured**; first-load 278.2 → **148–163 KB gzip** projected; TBT 164 → ~70–95 ms; LCP should follow the JS cut but is not yet measured on a real swap |
 | Rust rewrite of shell + server | **> 1 year** | high | nothing user-visible |
 
 The single honest sentence: **TBT is already at the post-migration target, but LCP is

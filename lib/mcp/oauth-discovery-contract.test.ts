@@ -2,13 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const AUTHORIZATION_SERVER = fs.readFileSync(
-  path.join(__dirname, "../../app/.well-known/oauth-authorization-server/route.ts"),
-  "utf8",
+const readSource = (relPath: string) => {
+  const file = path.join(__dirname, relPath);
+  const handler = file.replace(/route\.ts$/, "handler.ts");
+  return fs.existsSync(handler) ? fs.readFileSync(handler, "utf8") : fs.readFileSync(file, "utf8");
+};
+
+const AUTHORIZATION_SERVER = readSource(
+  "../../app/.well-known/oauth-authorization-server/route.ts",
 );
-const PROTECTED_RESOURCE = fs.readFileSync(
-  path.join(__dirname, "../../app/.well-known/oauth-protected-resource/route.ts"),
-  "utf8",
+const PROTECTED_RESOURCE = readSource(
+  "../../app/.well-known/oauth-protected-resource/route.ts",
 );
 
 const EXPECTED_SCOPES = '["read", "write", "exec", "offline_access"]';
