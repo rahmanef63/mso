@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "note": "Timing numbers drift with host load, so this file only enforces a 2x blowup against scripts/perf-baseline.json. Bundle bytes are already gated deterministically by scripts/check-bundle.mjs (gzip, from build output, no browser); enforcing a browser-measured byte count here would be both redundant and flaky, since it counts every JS chunk the shell fetched during the window including deferred ones. targets are the post-migration goal from docs/MSO-MIGRATION.md and are printed, never enforced.",
+  "enforce": {
+    "tbtMsBlowupFactor": 2.0
+  },
+  "targets": {
+    "initialGzipBytes": 256000,
+    "tbtMs": 150,
+    "lcpMs": 2500
+  },
+  "targetsEnforced": false
+}

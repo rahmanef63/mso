@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "note": "Committed measured baseline for the catch-all shell, Slow 4G + 4x CPU, commit 1c74603 (2026-10-28). Values are the median of 3 runs against the synthetic releaseFixture (the path CI takes); the first run of a session is discarded as warm-up because a cold page cache inflates TBT by ~2x. Observed spread across the stable runs: desktop TBT 150-184 ms, mobile 99-148 ms, LCP 3.02-3.22 s, so host load moves these by roughly +/-25%. Only the 2x blowup guard reads them, which is why they are allowed to be approximate; bundle bytes are gated deterministically elsewhere (check-bundle.mjs). Regenerate with: node scripts/perf-probe.mjs --json. TBT here is the standard definition: sum over long tasks of max(0, duration - 50ms), NOT the raw sum of task durations.",
+  "commit": "1c74603",
+  "profile": {
+    "name": "cold-slow4g-4xcpu",
+    "latencyMs": 150,
+    "downlinkKbps": 1600,
+    "uplinkKbps": 750,
+    "cpuRate": 4
+  },
+  "runs": [
+    {
+      "label": "desktop",
+      "viewport": { "width": 1440, "height": 900 },
+      "fcpMs": 1180,
+      "lcpMs": 3222,
+      "tbtMs": 164,
+      "cls": 0.001,
+      "longTasks": 4,
+      "maxLongTaskMs": 128,
+      "firstLoadJsBytes": 964362,
+      "firstLoadJsFiles": 21,
+      "domNodes": 870
+    },
+    {
+      "label": "mobile",
+      "viewport": { "width": 390, "height": 844 },
+      "fcpMs": 1166,
+      "lcpMs": 3054,
+      "tbtMs": 132,
+      "cls": 0,
+      "longTasks": 4,
+      "maxLongTaskMs": 126,
+      "firstLoadJsBytes": 947790,
+      "firstLoadJsFiles": 21,
+      "domNodes": 1165
+    }
+  ]
+}

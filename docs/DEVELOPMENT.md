@@ -80,6 +80,31 @@ browser journey checks all five shells, absence of graph/editor/terminal/ONNX
 runtime chunks on cold startup, delayed first-open/close/reopen Search, eager
 clipboard capture, and retained Inspector tab state. It uses synthetic stores.
 
+### Perceived-performance measurement
+
+Bundle bytes are deterministic; the numbers a person actually feels are not, so
+they live in a separate, deliberately weaker gate.
+
+| Command | What it does | Gates a push |
+|---|---|---|
+| `bun run perf:probe` | Cold load at 4G + 4× CPU against a synthetic fixture (or `--base=`), writes `perf-report.json` | no |
+| `bun run perf:check` | Enforces `scripts/perf-budget.json` against a report | **yes** |
+| `bun run perf:tasks` | CDP-trace attribution of every long task to the script that owns it | no |
+| `bun run perf:apps` | Per-app open latency, fetched chunks and long tasks caused | no |
+
+`perf:check` fails hard on first-load JS bytes and on a missing measurement — a
+silent zero is how a perf gate dies. Timings only fail on a 2× blowup against
+`scripts/perf-baseline.json`, because this box also serves production and a
+wall-clock gate that flakes gets muted. Targets in that budget file
+(`tbtMs 150`, `lcpMs 2500`, `initialGzipBytes 256000`) are the post-migration goal
+from `docs/MSO-MIGRATION.md`; they are printed as advisory and never enforced,
+since holding today's Next build to a Svelte target would just make the gate
+permanently red.
+
+Regenerate the baseline with `node scripts/perf-probe.mjs --json` and commit the
+runs. Do that deliberately after a real improvement, not to silence a failure.
+
+
 The report deduplicates eager catch-all entry chunks plus the framework runtime.
 It lists `nomodule` polyfills separately: charging them to modern browsers would
 overstate first-load bytes. Gzip/Brotli values are compression estimates, not

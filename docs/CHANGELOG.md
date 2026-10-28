@@ -8,24 +8,13 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `cli` close the opencode parity gap on run/session/stats/pair/doctor --json/completion
-
-**Changed**
-
-- `agent` drop the inert thinking option from the one-shot turn
-
-**Tests**
-
-- `cli` keep offline-update and private-state fixtures in sync with the new CLI slices
+- `perf` phase 0 perceived-performance gate and migration baseline
+- `cli` close the opencode parity gap on run/session/stats/pair/doctor --json/completion (#165)
 
 **Docs**
 
 - `agents` refresh AGENTS.md and add .mso/KNOWLEDGE.md for #154-#162 (#164)
 - `antislop` design direction, agent pointer, and the R-10 glass audit (#163)
-
-**Other**
-
-- `cli` drop em dashes from the new copy (antislop R-02)
 
 ## 2026-10-27
 

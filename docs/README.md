@@ -119,6 +119,7 @@ source comments. They are **not current implementation contracts**.
 | [`SHELL-FIDELITY-PLAN.md`](./SHELL-FIDELITY-PLAN.md) | Historical design backlog/baseline; current shell design lives in code + architecture |
 | [`DRAWER-MENU-BYOK-PLAN.md`](./DRAWER-MENU-BYOK-PLAN.md) | Historical implementation plan; phases A–C and OpenAI Codex D1 shipped; remaining ideas are not promises |
 | [`OS-SETTINGS-ICON-UPDATE-DEVICE-PLAN.md`](./OS-SETTINGS-ICON-UPDATE-DEVICE-PLAN.md) | **Open plan, not implemented**: auto-update opt-in, stable channel, Devices/Server merge, account icon picker, upload→WebP/ICO pipeline |
+| [`MSO-MIGRATION.md`](./MSO-MIGRATION.md) | **Open plan, not implemented**: measured baseline plus phased Next→Svelte/Bun/Rust migration with a decision gate before any rewrite |
 
 ## Marketing/demo collateral
 
