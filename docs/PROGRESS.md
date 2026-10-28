@@ -1,3 +1,61 @@
+## 2026-10-29: Perceived-performance gate, and the migration numbers it retracted
+
+Before this, the only performance claims in the repo were bundle bytes from build output and a
+browser journey that asserted *absence* of heavy engines. Neither could answer "did it get
+slower", so a Next → Svelte/Bun/Rust proposal was resting on opinions. `docs/MSO-MIGRATION.md`
+recorded a baseline for it; then the gate that was supposed to make that baseline reproducible
+measured the page properly and contradicted it.
+
+Five numbers in the first pass were wrong, and each one had a failure mode worth keeping:
+
+- The throttle was set to 200 kbps down, which is Lighthouse's **Slow 3G**, not Slow 4G. At that
+  rate the ~900 KB shell needs ~37 s to arrive, so the run measured the network and reported an
+  FCP of 7.6 s.
+- The wait selector was `#main-content`, which exists in the server-rendered skeleton. The run
+  therefore scored an 82-node pre-hydration frame and called it the shell.
+- `data-shell` is `macos` on desktop and `ios` on mobile; a hardcoded `macos` made the mobile run
+  wait until timeout.
+- LCP lands ~3 s in, so a "settle when nothing changed for 1 s" loop exited at ~1.2 s and reported
+  `lcpMs: null`.
+- **TBT was reported as the raw sum of long-task durations.** TBT is
+  `Σ max(0, duration − 50 ms)`. The corrected numbers are roughly a third of the retracted ones.
+
+Recorded honestly: the earlier claim of desktop 443 ms / mobile 553 ms TBT was not a
+measurement, it was an arithmetic error. Slow 4G + 4× CPU gives **164 ms desktop / 132 ms
+mobile**, against the 150 ms target the migration was supposed to reach. Desktop is within
+10 % of it and mobile already beats it — before any migration. Attribution puts ~280 ms of
+~355 ms of long-task self time on the `react-dom` chunk, but TBT that low means most of that work
+overlaps idle rather than blocking input. What is actually still slow is **LCP 3.1 s**, and that
+is first paint (CSS + the wallpaper artwork), which a framework swap does not change.
+`docs/MSO-MIGRATION.md` §3 now sequences the cheap LCP work ahead of any rewrite, and its gate
+criterion gates LCP instead of TBT.
+
+Three more traps the gate had to absorb, all found by running it rather than reasoning about it:
+a first cold load per session pays disk-cache misses for the whole shell and measured TBT 418 ms
+against 164 ms warm, so one warm-up boot is discarded or CI flakes on every fresh runner; a null
+`tbtMs` must be a **violation**, not a skip, because a painted shell with no attributable long
+task means the probe broke, and passing it turns the gate off exactly when instrumentation
+fails; and browser-measured first-load bytes must not be gated a second time, because they count
+deferred chunks and move, while `check-bundle.mjs` already gates gzip bytes deterministically
+from build output.
+
+Shipped: `perf-probe` (cold load, Slow 4G + 4× CPU), `check-perf` (the gate), `perf-longtasks`
+(CDP trace → long task → owning script), `perf-app-open` (per-app open cost), plus
+`lib/perf-report` (parse/check/format, 23 tests), `lib/trace-longtasks` (pure attribution,
+testable without a browser) and `lib/browser-metrics` (one place for the TBT formula, the
+shell-ready selector and the throttle profile). `check-perf` gates a 2× TBT blowup against
+`scripts/perf-baseline.json` and fails on a missing measurement; the 150 ms / 2.5 s targets are
+printed as advisory so the gate is not permanently red.
+
+**Evidence.** `typecheck` 0, `lint` 0, `check-cycles` 2145 files / 0 cycles, `check-architecture`
+exit 0 at 43/43 files-over-220, `check-docs` current, `check-contrast` 0 fail LIGHT+DARK,
+`check-instance-literals` 3278 files, `audit --strict` clean at high/critical, full vitest
+**862 files / 5633 tests passed**, out-of-tree build plus every mandatory release journey
+passed. Median of 3 fixtures runs at `1c74603`: desktop FCP 1180 / LCP 3222 / TBT 164 / 870 DOM
+nodes / 942 KB first-load JS; mobile FCP 1166 / LCP 3054 / TBT 132 / 1165 DOM / 926 KB.
+Per-app open at 4× CPU: Image Editor ~550–600 ms and ~600 ms of long task, Video Editor
+~450–470 ms and ~300 ms, System Monitor ~230 ms, Terminal ~190 ms.
+
 ## 2026-10-25: Agent transcript — one live row per turn, and owner-owned turn budgets
 
 The interactive Agent printed an `Agent work` divider for every model round and a separate row

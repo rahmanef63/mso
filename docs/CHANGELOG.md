@@ -4,6 +4,12 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-29
+
+**Docs**
+
+- `progress` record the perf gate and the numbers it retracted
+
 ## 2026-10-28
 
 **Added**
@@ -1471,23 +1477,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `managed-apps` embed 9router existing domain
 - `managed-apps` make 9router public-ip first
 - harden security state and credential guards
-
-## 2026-08-23
-
-**Added**
-
-- add interactive onboarding and skill market
-- complete terminal and mobile app surfaces
-
-**Fixed**
-
-- `android` clear notch in app drawer
-- `mobile` stabilize widgets back and viewport
-
-**Changed**
-
-- `ui` separate shell design systems
-
-**Docs**
-
-- refresh architecture and ChatGPT MCP guide
