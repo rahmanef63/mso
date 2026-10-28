@@ -41,8 +41,8 @@ Before adding another adapter/facade/barrel, read [`docs/ARCHITECTURE.md`](./doc
 
 MSO has **two separate hosts**. Do not conflate them:
 
-- **Grok box cache** (`mso-grok.rahmanef.com`) and the **laptop/WSL live cockpit** (`mso.rahmanef.com`) have different passwords, approved devices, builds, and tunnels.
-- Never retarget the `mso.rahmanef.com` tunnel or change the laptop live instance from box work unless Rahman asks.
+- **Grok box cache** and the **laptop/WSL live cockpit** are different deployments, each with its own operator host (portable docs use `mso-grok.example.com` and `mso.example.com`), passwords, approved devices, builds, and tunnels.
+- Never retarget the laptop cockpit tunnel or change that live instance from box work unless Rahman asks.
 - Current tunnel IDs, store paths, and ports are volatile: read `.mso/KNOWLEDGE.md`. Do not hard-code guessed host facts into new docs.
 
 ## Repository and worktree policy

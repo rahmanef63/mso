@@ -14,8 +14,8 @@ Short durable facts for fleet agents. Routing/policy lives in `AGENTS.md` and `C
 
 ## Dual hosts (do not conflate)
 
-- **Grok box cache:** https://mso-grok.rahmanef.com → `/home/box/mso` on `:4005`, store `/home/box/.mso`, tunnel `809d494c`.
-- **Laptop/WSL live cockpit:** historically https://mso.rahmanef.com (tunnel `8ed1ad29`). Agents must **not** change that tunnel or instance unless Rahman asks.
+- **Grok box cache:** its own public host (portable docs use `mso-grok.example.com`; the real name lives in operator config) → `/home/box/mso` on `:4005`, store `/home/box/.mso`, tunnel `809d494c`.
+- **Laptop/WSL live cockpit:** historically the operator's own cockpit host (portable docs use `mso.example.com`), tunnel `8ed1ad29`. Agents must **not** change that tunnel or instance unless Rahman asks.
 
 Passwords, approved devices, and builds are **not** shared across hosts.
 
