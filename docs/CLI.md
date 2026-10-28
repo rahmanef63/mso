@@ -145,7 +145,7 @@ Commands:
 
  Agent run  (scriptable, non-interactive)
   run <prompt…>        One autonomous turn, same loop as `agent`; --json, --file, --thinking
-  session *            list | show | export | import — session records without a TUI
+  session *            list | show | export | import session records without a TUI
   stats --usage        Token + compaction ledger for agent sessions (no cost: not recorded)
 
  Service  (local systemd)

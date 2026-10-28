@@ -7,7 +7,7 @@
 # `mso agent` uses, so a scripted run cannot drift from what a human gets.
 # shellcheck disable=SC2154
 
-# `mso run "…"` — non-interactive twin of `mso agent`. Each flag is validated here
+# `mso run "…"`: non-interactive twin of `mso agent`. Each flag is validated here
 # because a mistyped scope must fail before any provider call is paid for; the
 # attached-file limits themselves stay in the agent's one-shot parser.
 run_agent_run() {
@@ -107,7 +107,7 @@ run_agent_session() {
   esac
 }
 
-# `mso stats --usage` — what opencode's `stats --cost/--models` gives, from the
+# `mso stats --usage`: what opencode's `stats --cost/--models` gives, from the
 # records MSO already stores: per-session estimated tokens, compaction, archives.
 run_agent_stats() {
   json=0; days=0; models=0
@@ -142,6 +142,6 @@ run_agent_stats() {
   if [ "$models" = 1 ]; then
     # Per-model cost is not recorded per session yet; name the gap, do not invent it.
     echo
-    echo "per-model cost: not recorded — sessions store estimated tokens, not provider/model attribution."
+    echo "per-model cost: not recorded. Sessions store estimated tokens, not provider/model attribution."
   fi
 }

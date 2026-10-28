@@ -23,6 +23,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `agents` refresh AGENTS.md and add .mso/KNOWLEDGE.md for #154-#162 (#164)
 - `antislop` design direction, agent pointer, and the R-10 glass audit (#163)
 
+**Other**
+
+- `cli` drop em dashes from the new copy (antislop R-02)
+
 ## 2026-10-27
 
 **Added**

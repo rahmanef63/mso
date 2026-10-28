@@ -83,7 +83,7 @@ mso_pair() {
   local signed_status="not signed in"
   [ "$signed_in" = "true" ] && signed_status="signed in"
 
-  echo "Loopback:       $loopback_url (browser login requires HTTPS or localhost — never plain http://<server-ip>)"
+  echo "Loopback:       $loopback_url (browser login requires HTTPS or localhost, never plain http://<server-ip>)"
   echo "Public origin:  $public_display"
   echo "CLI device:     $dev_id ($signed_status)"
   echo "Pending:        $pending_count"
