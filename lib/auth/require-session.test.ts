@@ -35,6 +35,14 @@ beforeEach(() => {
   delete process.env.OS_SESSION_COOKIE_DOMAIN;
 });
 
+// The framework cookie read is registered by instrumentation.ts in production. The test
+// does the same thing through the same seam, which is also the proof the seam works.
+const { registerSessionCookieReader } = await import("./require-session");
+registerSessionCookieReader(async () => {
+  const { cookies } = await import("next/headers");
+  return (await cookies()).getAll("session");
+});
+
 describe("getSession with a shadowed cookie", () => {
   it("accepts the real session even when a forged one sorts first", async () => {
     const { getSession } = await import("./require-session");

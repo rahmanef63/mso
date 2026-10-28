@@ -13,7 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `api` restore the provider name in the models catalog, and drop three new em dashes
+- `api` restore the models provider name the route extraction dropped (#168)
 - `build` restore the turbopackIgnore annotation the route extraction dropped
 
 **Faster**
@@ -24,6 +24,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Changed**
 
+- `auth` register the session cookie reader from the framework entry, so lib is next-free
 - `api` every route handler is a thin adapter, and lib is next-free
 - `lib` drop static next/* imports, plus three measured perf findings
 

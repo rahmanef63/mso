@@ -18,6 +18,7 @@ vi.mock("@/lib/auth/device-store", () => ({
 // constant; only its next/headers dependency (needs a request scope) is stubbed.
 vi.mock("next/headers", () => ({ cookies: async () => ({ getAll: () => [] }) }));
 
+
 const DEVICE = "a".repeat(32);
 const PASSWORD = "correct-horse";
 
@@ -36,6 +37,7 @@ async function login(host = "mso.example.com"): Promise<string[]> {
 }
 
 async function logout(host = "mso.example.com"): Promise<string[]> {
+  await registerCookieReader();
   const { POST } = await import("./logout/route");
   const res = await POST(new Request("http://internal/api/auth/logout", { method: "POST", headers: { host } }));
   return res.headers.getSetCookie();
@@ -49,6 +51,17 @@ beforeEach(() => {
   // suite stays well under it.
   vi.resetModules();
 });
+
+// `lib/` no longer imports next/headers; instrumentation.ts registers the reader at boot.
+// Registration must happen AFTER vi.resetModules(), which is why it lives here and not at
+// module scope, and it exercises the same seam production uses.
+async function registerCookieReader(): Promise<void> {
+  const { registerSessionCookieReader } = await import("@/lib/auth/require-session");
+  registerSessionCookieReader(async () => {
+    const { cookies } = await import("next/headers");
+    return (await cookies()).getAll("session");
+  });
+}
 
 afterEach(() => {
   delete process.env.OS_SESSION_COOKIE_DOMAIN;
