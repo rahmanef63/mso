@@ -15,6 +15,7 @@ import { composerFooter, composerPrompt, composerSeparator } from "./mso-agent-l
 import { agentRound, executeTool, renderInteractionFailure, runInteractiveRound } from "./mso-agent-turn.mjs";
 import { pathToFileURL } from "node:url";
 import { createQueue, dequeue } from "./mso-agent-queue.mjs";
+import { pendingImageBlock } from "./mso-agent-image.mjs";
 
 async function runOneShot(opts) {
   const requested = resumeArg(process.argv.slice(2));
@@ -172,7 +173,12 @@ async function main() {
         continue;
       }
       if (await handleLocalAgentMentionInput(session, line, C)) continue;
-      session.history.push({ role: "user", text: line });
+      // Attached images belong to the NEXT prompt only. Format them into the user
+      // message once, then clear, so a stale image can never ride along silently.
+      const images = Array.isArray(session.pendingImages) ? session.pendingImages : [];
+      const imageBlock = images.length ? pendingImageBlock(images) : "";
+      session.history.push({ role: "user", text: imageBlock ? `${imageBlock}${line}` : line });
+      if (images.length) session.pendingImages = [];
       const skillContext = session.pendingSkill;
       session.pendingSkill = null;
       await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);

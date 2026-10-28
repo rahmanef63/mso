@@ -76,4 +76,17 @@ describe("MSO Agent image", () => {
     expect(block).toContain("/artifacts/b.jpg");
     expect(block).toContain("------------------------");
   });
+
+  // Regression: /image used to upload and then strand the file in session.pendingImages,
+  // because the prompt loop never read it. The block must reach the user message.
+  it("the prompt loop prepends pending images and clears them", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "scripts/mso-agent.mjs"), "utf8");
+    // The block is built from session.pendingImages and folded into the history row.
+    expect(source).toMatch(/pendingImageBlock\(images\)/);
+    expect(source).toMatch(/role: "user", text: imageBlock \?/);
+    // The list is cleared in the same breath, so an image cannot ride along twice.
+    expect(source).toMatch(/session\.pendingImages = \[\]/);
+    // And the import is real, not a dead reference.
+    expect(source).toMatch(/import \{ pendingImageBlock \} from "\.\/mso-agent-image\.mjs"/);
+  });
 });

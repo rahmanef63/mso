@@ -22,7 +22,7 @@ unless a phase explicitly pays for it.
 | # | Item | Seam | Status |
 |---|---|---|---|
 | P0-1 | `/export [ref] [--out f]` in the TUI | `mso session export` (already shipped) | shipped |
-| P0-2 | `/share` authenticated temporary link for the transcript | `createTempShare` + `/api/v1/temp-share/[id]` | shipped |
+| P0-2 | `/share` authenticated temporary link for the transcript | `createTempShare` has NO HTTP creation route, only `GET`/`HEAD` on `/api/v1/temp-share/[id]` | REFUSED (prints the missing seam instead of faking a link) |
 | P0-3 | `/compact` manual compaction | `updateAgentSessionHistory` → `compactIfNeeded` (needs a real trigger action, not a client-side lie) | shipped |
 | P0-4 | Reasoning surface: per-turn `reasoningTokens` in the transcript and a `/reasoning` toggle | `usage.reasoningTokens` already recorded by provider streams | shipped |
 | P0-5 | `/queue [list|clear]` follow-up queue for this session | local queue in session state, reuses `agentRound` | shipped |
@@ -41,9 +41,9 @@ unless a phase explicitly pays for it.
 | # | Item | Seam | Status |
 |---|---|---|---|
 | P1-1 | Diff viewer panel from artifact revisions | `GET /api/v1/agent-sessions?view=artifact&action_ref=…` already returns `diff.unifiedDiff` | shipped |
-| P1-2 | `/stash` prompt stash (one slot, list/pop) | composer state | shipped |
+| P1-2 | `/stash` prompt stash (20 slots, LIFO pop) | per-process state; `pop` PRINTS the text because the composer has no prefill seam | shipped with stated limit |
 | P1-3 | `/diff [action_ref]` binds P1-1 to the last write tool call | session events | shipped |
-| P1-4 | `/image <path>` attach a local image to the next prompt | `/api/v1/fs/upload` + prompt blocks | shipped |
+| P1-4 | `/image <path>` attach a local image to the next prompt | `/api/v1/fs/upload`, block prepended to the next user message then cleared | shipped |
 | P1-5 | `/files` read-only file tree of cwd (bounded) | `/api/v1/fs/list` | shipped |
 
 ### Phase 1 shipped evidence

@@ -35,7 +35,7 @@ const BUILTIN_SLASH_ITEMS = [
   },
   {
     text: "/share",
-    meta: "Create temporary link for the current session transcript",
+    meta: "Temporary link is unavailable: server exposes download only, no creation route",
     kind: "command",
   },
   {
@@ -125,7 +125,7 @@ const BUILTIN_SLASH_ITEMS = [
   },
   {
     text: "/stash",
-    meta: "Park the prompt you were typing, pop it back later",
+    meta: "Park a prompt (20 slots), pop prints it back to the terminal",
     kind: "command",
   },
   {
