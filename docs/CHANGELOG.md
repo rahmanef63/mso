@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `cli` close the opencode parity gap on run/session/stats/pair/doctor --json/completion
 
+**Changed**
+
+- `agent` drop the inert thinking option from the one-shot turn
+
 **Tests**
 
 - `cli` keep offline-update and private-state fixtures in sync with the new CLI slices
