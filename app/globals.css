@@ -323,7 +323,9 @@ body {
 .shell-platform-mark {
   border-radius: inherit;
 }
-.shell-artwork-macos, .shell-artwork-windows { display: none; }
+/* Markup keeps all three variants (the shell family is hydration-only knowledge, so
+   SSR choosing would mismatch); the losers stay out of layout and paint. */
+.shell-artwork-macos, .shell-artwork-windows { display: none; content-visibility: hidden; }
 [data-shell="macos"] .shell-artwork-default,
 [data-shell="ios"] .shell-artwork-default,
 [data-shell="windows"] .shell-artwork-default,
