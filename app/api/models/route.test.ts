@@ -78,6 +78,20 @@ describe("/api/models dynamic pricing and provider mapping", () => {
     expect(body.models.map((m: { id: string }) => m.id)).toEqual(["glm-free"]);
   });
 
+  // Regression: the route extraction turned `provider: runtimeProvider` into the
+  // shorthand `provider`, so an unfiltered catalog reported every model as null.
+  it("names each model's real provider when no provider filter is passed", async () => {
+    const { GET } = await import("./route");
+    const res = await GET(new NextRequest("http://localhost/api/models"));
+    const body = await res.json();
+    const rows = body.models.filter((m: { id: string }) => m.id === "glm-free");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.provider).toBe("zhipuai");
+      expect(row.ref).toBe("zhipuai/glm-free");
+    }
+  });
+
   it("returns a custom provider's declared ids instead of an empty catalog", async () => {
     readConfig.mockResolvedValue({
       customProviders: { "my-llm": { baseUrl: "https://gw.example/v1", models: ["b", "a"] } },

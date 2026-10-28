@@ -13,6 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `api` restore the provider name in the models catalog, and drop three new em dashes
 - `build` restore the turbopackIgnore annotation the route extraction dropped
 
 **Faster**

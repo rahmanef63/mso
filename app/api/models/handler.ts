@@ -69,7 +69,9 @@ export async function handleGetModels(req: NextRequest): Promise<Response> {
         const runtimeProvider = provider || m.provider;
         return {
           ref: `${runtimeProvider}/${id}`,
-          provider,
+          // `provider` alone is null when the caller passes no ?provider= filter; the
+          // catalog must still name each model's real provider.
+          provider: runtimeProvider,
           id,
           name: m.name,
           context: m.limit?.context,

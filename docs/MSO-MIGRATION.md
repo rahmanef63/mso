@@ -371,12 +371,12 @@ browser actually downloads it, then confirmed in a browser at Slow 4G + 4x CPU:
 
 The whole client bundle of the minimal app is 36.90 KB gzip; a realistic page with a nested
 layout, a 50-row fetch-driven list, filtering and a re-fetch button added **4.43 KB gzip**, and
-the browser measured 35.16 KB first-load JS for the minimal page and 36.57 KB for that page —
+the browser measured 35.16 KB first-load JS for the minimal page and 36.57 KB for that page,
 i.e. the per-file arithmetic was honest to within 1.7 KB.
 
 **Arithmetic that matters.** Framework floor falls 132.70 → 33.07 KB gzip, a **99.63 KB (75 %)
 reduction in framework tax**. Holding app code at today's 145.5 KB gzip, MSO's first-load would
-land at **178.6 KB gzip instead of 278.2 KB** — a 35.8 % cut before any template-savings.
+land at **178.6 KB gzip instead of 278.2 KB**, a 35.8 % cut before any template-savings.
 
 That last figure is the honest bound, not a forecast: Svelte's app code is new code, not the
 same 145.5 KB. Svelte should shrink it (no `createElement` calls, runes compile inline instead
@@ -487,7 +487,7 @@ of the measured options, cheapest first:
 
    The same measurement that makes 250 KiB hard in-tree makes it trivial after a swap:
    the SvelteKit floor measured in §2.1 is 33.07 KiB gzip, so a swapped shell would need
-   app code ≤ 217 KiB to stay under 250 — more headroom than today's 145.5 KiB uses. The
+   app code ≤ 217 KiB to stay under 250, more headroom than today's 145.5 KiB uses. The
    250/256 KiB target is therefore not a stretch goal at all once React and Next are gone;
    it is in-tree that it is out of reach, because 132.7 KiB of the budget is framework.
    *Measurement support:* Supported directly by the network throttle control
