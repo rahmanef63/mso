@@ -83,7 +83,7 @@ Commands:
   memory-backup *      Local memory snapshot: preview | history | create | verify (memory-backup --help)
   status               Public service status (no session needed)
   health               Is this CLI's session valid?
-  doctor [--fix]       Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues
+  doctor [--fix|--json]  Check deps, HTTPS/login origin, service, session, device; --fix repairs safe local issues, --json is read-only
   agent [--continue|--resume <query>|--yolo|-yolo]  Interactive MSO Agent; --oneshot <prompt> for autonomous non-TTY runs
   chat                 Alias for agent
   model [ref]          Select active model from a connected provider
@@ -143,6 +143,11 @@ Commands:
   login                Force a fresh login
   logout               Drop the session (server-side + local jar)
 
+ Agent run  (scriptable, non-interactive)
+  run <prompt…>        One autonomous turn, same loop as `agent`; --json, --file, --thinking
+  session *            list | show | export | import session records without a TUI
+  stats --usage        Token + compaction ledger for agent sessions (no cost: not recorded)
+
  Service  (local systemd)
   service *            status | start | stop | restart | logs
   build                Compile HEAD out-of-tree (safe against the live checkout)
@@ -160,7 +165,8 @@ Commands:
  Escape hatches
   crud *               Generic resource CRUD, incl. editor documents
   api *                Call ANY endpoint directly
-  completion [shell]   Print a shell completion script (bash|zsh)
+  completion [shell]   Completion script for bash/zsh/fish (verbs + subcommands); sh gets the bare verb list
+  pair [--json]        Loopback/public origin, this CLI's device, pending approvals, next command
   version              Show version
 
 Examples:

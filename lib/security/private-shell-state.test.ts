@@ -11,6 +11,7 @@ const CLI_MODULES = [
   "scripts/cli/runtime.sh", "scripts/cli/service.sh", "scripts/cli/transport.sh", "scripts/cli/onboarding.sh", "scripts/cli/onboarding-ai.sh",
   "scripts/cli/commands.sh", "scripts/cli/commands-host.sh", "scripts/cli/commands-runtime.sh",
   "scripts/cli/commands-state.sh", "scripts/cli/config-command.sh", "scripts/cli/commands-admin.sh",
+  "scripts/cli/agent-run.sh", "scripts/cli/completion.sh", "scripts/cli/pair.sh", "scripts/cli/doctor-json.sh",
 ].map((rel) => path.join(ROOT, rel));
 const EDITOR = path.join(ROOT, "claude-skills/mso-image-editor/image-editor.sh");
 const ULTIMATE = path.join(ROOT, "scripts/security-ultimate.sh");

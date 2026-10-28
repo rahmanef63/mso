@@ -27,6 +27,9 @@ async function runOneShot(opts) {
     permission: "ask", pendingApproval: null,
   };
   session.history.push({ role: "user", text: opts.prompt });
+  // `--thinking` is a REPORTING flag only: the stream exposes reasoning token counts,
+  // not reasoning text, so nothing here changes the turn. Passing `thinking` into
+  // agentRound would be dead config, so the flag is consumed in the payload below.
   const result = await agentRound(null, session, null, undefined, null, { quiet: true, approvalScope: opts.approvalScope });
   await persistSession(session);
   const payload = {
@@ -34,6 +37,12 @@ async function runOneShot(opts) {
     model: `${s.config?.provider || ""}/${s.config?.model || ""}`.replace(/^\//, ""),
     approvalScope: opts.approvalScope, text: result?.text || "", rounds: result?.rounds || 0,
     toolCalls: result?.calls || [], usage: result?.usage || session.usage, routing: session.lastRouting, elapsedMs: result?.elapsedMs || session.lastElapsedMs,
+    // Prove what was actually attached instead of leaving --file unverifiable.
+    ...(opts.files?.length ? { files: opts.files } : {}),
+    // `--thinking` surfaces the reasoning ACCOUNTING the provider really reported.
+    // Streams capture reasoning tokens, not reasoning text, so claiming a reasoning
+    // block here would be invented output.
+    ...(opts.thinking ? { thinking: true, reasoningTokens: (result?.usage ?? session.usage)?.reasoningTokens ?? null } : {}),
     ...(result?.turnLimitReached ? { turnLimitReached: true } : {}),
   };
   if (opts.json) process.stdout.write(`${JSON.stringify(payload)}\n`);
