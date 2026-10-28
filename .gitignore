@@ -21,7 +21,10 @@ os-browser/*
 !os-browser/package.json
 !os-browser/package-lock.json
 convex-backend/
-.mso/
+# Runtime/orchestration under .mso/ stays local (must not dirty update).
+# Fleet durable knowledge is the exception and is tracked.
+.mso/**
+!.mso/KNOWLEDGE.md
 # RASMIC repo-local orchestration memory/evidence is runtime state. It must survive
 # locally but must not make the MSO source checkout dirty and block `mso update`.
 .agent/

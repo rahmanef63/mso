@@ -4,6 +4,8 @@
 before changing MSO. This file gives non-Claude agents the minimum routing needed to avoid
 re-discovering the same failure patterns.
 
+Volatile host, ownership, and freshness facts live in [`.mso/KNOWLEDGE.md`](./.mso/KNOWLEDGE.md).
+
 ## Systematic implementation default
 
 For debugging, integrations, refactors, deployments, and MCP work, use this loop:
@@ -34,6 +36,15 @@ For debugging, integrations, refactors, deployments, and MCP work, use this loop
 
 Before adding another adapter/facade/barrel, read [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) and run `node scripts/check-architecture.mjs`. The architecture policy is ratcheted: transports share `lib/capabilities`, cross-layer DTOs live in `lib/contracts`, host calls use narrow `lib/host/*-api.ts`, generic apps use AppShell directly, and workflow persistence belongs to `lib/workflow`. Do not raise a ratchet just to make a change pass. Exact MCP catalog facts are generated with `node scripts/gen-mcp-catalog.mjs`; never hand-copy the current tool list into reference docs.
 
+
+## Hosts / dual-instance
+
+MSO has **two separate hosts**. Do not conflate them:
+
+- **Grok box cache** (`mso-grok.rahmanef.com`) and the **laptop/WSL live cockpit** (`mso.rahmanef.com`) have different passwords, approved devices, builds, and tunnels.
+- Never retarget the `mso.rahmanef.com` tunnel or change the laptop live instance from box work unless Rahman asks.
+- Current tunnel IDs, store paths, and ports are volatile: read `.mso/KNOWLEDGE.md`. Do not hard-code guessed host facts into new docs.
+
 ## Repository and worktree policy
 
 - The repository root resolved by `git rev-parse --show-toplevel` on `main` is the **canonical MSO checkout and release SSOT for this installation**.
@@ -50,6 +61,16 @@ Before adding another adapter/facade/barrel, read [`docs/ARCHITECTURE.md`](./doc
   `main` (or intentionally retained as non-release work).
 - Demo/review runtimes may have hidden internal checkouts, but they do not become a second source
   of truth and must not be presented as another MSO project.
+
+
+## Agent-work coding path (Rahman laptop / fleet)
+
+When coding on Rahman's laptop for fleet work:
+
+- Work **only** under `~/agent-work/mso/` (separate clone). Never edit `~/projects/**` or the live WSL MSO checkout.
+- Prefer `opencode2 --auto` inside that clone. Do **not** use Cursor cloud agents (Rahman 2026-10-22).
+- Local commits are OK. Push, PR, and merge need Rahman GO in his own words (agent-relayed OK does not count).
+- This install's parallel coding/review worktrees under `~/.cache/mso-worktrees/` remain valid; they are not a substitute for the fleet `~/agent-work/mso/` path on the laptop.
 
 ## Install and update requests
 
@@ -74,6 +95,28 @@ Do not declare an MCP change complete until that full contract is verified.
 Agents *using* MSO over MCP start from [`docs/AGENT-BOOTSTRAP.md`](./docs/AGENT-BOOTSTRAP.md)
 and official skill `mso-agent-bootstrap`, not by jumping to `exec_run`.
 
+
+
+## Integrations / Convex
+
+- There is **one** Convex provider with a **project dimension** (#160 / closes #152).
+- Do **not** reintroduce dual `convex` / `convex-cloud` cards, dual registry rows, or operations that 404 on self-hosted Convex.
+- Provider UI and infra code must treat cloud vs self-hosted as a dimension of one provider, not two providers.
+
+## Composio Connect
+
+- Composio Connect API keys (`ck_…`) route to `connect.composio.dev/mcp` (#146 / #148).
+- Validate Connect keys at the Connect MCP endpoint; do not assume the older platform MCP host for `ck_` keys.
+
+## Agent UI
+
+- One live agent activity row per turn; turn budgets are env-tunable (#154).
+- Settings update cue is a **single in-Settings signal** (Updates nav badge + Software update section). Do not bring back a new-version toast or dock-adjacent floating badge (#161).
+- User-visible copy must **not** use em dashes (U+2014). Antislop R-02 is a hard gate (#162).
+
+## License
+
+- The repository is under **PolyForm Noncommercial** (#155). Read `LICENSE` before reintroducing or asserting any other license claim in docs, UI, or packaging.
 
 ## Cognitive-runtime work
 
