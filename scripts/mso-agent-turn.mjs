@@ -3,15 +3,17 @@ import { canonicalAgentApproval } from "../lib/agent/approval.mjs";
 import { requestExactToolApproval } from "./mso-agent-approval-ui.mjs";
 import { AgentMutationUncertainError, isAgentApiError, isRecoverableInteractionError, recoverableErrorLines, recoverableHistoryRow, recoverableTurnState } from "./mso-agent-errors.mjs";
 import { printSection, sectionDivider } from "./mso-agent-layout.mjs";
-import { AgentActivity, activityText, formatDuration } from "./mso-agent-activity.mjs";
+import { AgentActivity } from "./mso-agent-activity.mjs";
 import { beginSkillInvocation, endSkillInvocation } from "./mso-agent-skills.mjs";
 import { isAbortError } from "./mso-agent-interrupt.mjs";
 import { approvesTool } from "./mso-agent-permissions.mjs";
 import { api, C, streamTurn } from "./mso-agent-runtime.mjs";
+import { completedReceipt } from "./mso-agent-ui.mjs";
 import { compactConsumedReadToolResults } from "./mso-agent-context.mjs";
 import { persistSession } from "./mso-agent-session-ui.mjs";
 import { addUsage } from "./mso-agent-status.mjs";
 import { oneShotApproves } from "./mso-agent-oneshot.mjs";
+import { reasoningLine } from "./mso-agent-reasoning.mjs";
 
 function lazyAssistantOutput(session, options = {}) {
   if (options.quiet) return null;
@@ -140,6 +142,10 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
       session.usage = addUsage(session.usage, result.usage);
       session.lastRouting = result.routing || null;
       session.lastElapsedMs = Date.now() - startedAt;
+      if (!options.quiet && session.showReasoning !== false) {
+        const line = reasoningLine(result.usage);
+        if (line) console.log(`${C.dim}${line}${C.reset}`);
+      }
       session.history.push({ role: "assistant", text: result.text, toolUses: result.toolUses });
       if (!result.toolUses.length) {
         activity?.finish(completedReceipt(calls, session.lastElapsedMs));
@@ -174,19 +180,6 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
     activity?.stop();
     endSkillInvocation(session, skillContext);
   }
-}
-
-/** Compact per-turn receipt replacing the rows each tool used to claim. */
-function completedReceipt(calls, elapsedMs) {
-  const rows = Array.isArray(calls) ? calls : [];
-  if (!rows.length) return "";
-  const ok = rows.filter((row) => row.ok).length;
-  const failed = rows.length - ok;
-  return activityText([
-    `${rows.length} tool${rows.length === 1 ? "" : "s"}`,
-    failed ? `${failed} failed` : "all ok",
-    formatDuration(elapsedMs || 0),
-  ]);
 }
 
 export function renderInteractionFailure(error, session, journal = {}, colors = C, print = console.log) {

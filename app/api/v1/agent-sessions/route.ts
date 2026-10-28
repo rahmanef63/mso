@@ -10,6 +10,7 @@ import {
   updateAgentSessionHistory,
   updateAgentSessionLocation,
 } from "@/lib/agent/session-store";
+import { compactAgentSessionRouteHandler } from "@/lib/agent/session-compact-now";
 import { pruneAgentSessionArchives } from "@/lib/agent/session-archive";
 import { sessionWorkflowDraftDefinition } from "@/lib/agent/session-workflow-draft";
 import { resolveHistoricalSessionArtifactForOwner } from "@/lib/agent/session-artifact-resolver";
@@ -208,6 +209,7 @@ export async function POST(req: NextRequest) {
       const graph = await createWorkflowGraph(`web:${context.session.device_id}`, definition, "create", { remember: true });
       return NextResponse.json({ graph }, { headers: { "Cache-Control": "private, no-store" } });
     }
+    if (body.action === "compact") return await compactAgentSessionRouteHandler(principal, body.id || body.ref);
     if (body.action === "prune-archives")
       return NextResponse.json(await pruneAgentSessionArchives());
     return NextResponse.json({ error: "unknown_action" }, { status: 400 });

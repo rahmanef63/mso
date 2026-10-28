@@ -1,14 +1,24 @@
 import process from "node:process";
+import { activityText, formatDuration } from "./mso-agent-activity.mjs";
+import {
+  applyTheme,
+  C,
+  colorEnabled,
+  currentThemeName,
+  THEME_NAMES,
+  themeNames,
+  THEMES,
+} from "./mso-agent-theme.mjs";
 
-const color = process.stdout.isTTY && !process.env.NO_COLOR;
-export const C = {
-  reset: color ? "\x1b[0m" : "", bold: color ? "\x1b[1m" : "", dim: color ? "\x1b[2m" : "",
-  blue: color ? "\x1b[38;2;58;160;255m" : "", cyan: color ? "\x1b[38;2;52;211;153m" : "",
-  warn: color ? "\x1b[38;2;245;158;11m" : "", err: color ? "\x1b[38;2;239;68;68m" : "",
+export {
+  applyTheme,
+  C,
+  colorEnabled,
+  currentThemeName,
+  THEME_NAMES,
+  themeNames,
+  THEMES,
 };
-C.a = C.blue;
-C.b = C.blue;
-C.c = C.cyan;
 
 export const MSO_TITLE_ART = [
   "   ████████████",
@@ -25,15 +35,40 @@ export const MSO_TITLE_ART = [
   "                                                       ── MSO Agent ──",
 ];
 
-// Exact True Color ANSI sequence requested for the hybrid MSO Agent banner.
-export const MSO_TITLE_COLORS = color ? [
-  "\x1b[38;2;155;81;224m", "\x1b[38;2;155;81;224m",
-  "\x1b[38;2;112;111;245m", "\x1b[38;2;112;111;245m",
-  "\x1b[38;2;69;142;255m", "\x1b[38;2;69;142;255m",
-  "\x1b[38;2;45;184;255m", "\x1b[38;2;45;184;255m",
-  "\x1b[38;2;34;211;206m", "\x1b[38;2;34;211;206m",
-  "\x1b[38;2;46;229;157m", "\x1b[38;2;46;229;157m",
-] : MSO_TITLE_ART.map(() => "");
+export function titleColors() {
+  if (!colorEnabled()) return MSO_TITLE_ART.map(() => "");
+  const theme = currentThemeName();
+  if (theme === "light") {
+    return [
+      "\x1b[38;2;76;29;149m", "\x1b[38;2;76;29;149m", "\x1b[38;2;46;44;168m", "\x1b[38;2;46;44;168m",
+      "\x1b[38;2;21;94;183m", "\x1b[38;2;21;94;183m", "\x1b[38;2;10;110;168m", "\x1b[38;2;10;110;168m",
+      "\x1b[38;2;13;122;112m", "\x1b[38;2;13;122;112m", "\x1b[38;2;13;122;86m", "\x1b[38;2;13;122;86m",
+    ];
+  }
+  if (theme === "mono") return MSO_TITLE_ART.map(() => "");
+  return [
+    "\x1b[38;2;155;81;224m", "\x1b[38;2;155;81;224m", "\x1b[38;2;112;111;245m", "\x1b[38;2;112;111;245m",
+    "\x1b[38;2;69;142;255m", "\x1b[38;2;69;142;255m", "\x1b[38;2;45;184;255m", "\x1b[38;2;45;184;255m",
+    "\x1b[38;2;34;211;206m", "\x1b[38;2;34;211;206m", "\x1b[38;2;46;229;157m", "\x1b[38;2;46;229;157m",
+  ];
+}
+
+// The gradient is decoration, not semantics. It follows the theme so a light
+// terminal does not get a near-white banner on white.
+export const MSO_TITLE_COLORS = titleColors();
+
+/** Compact per-turn receipt replacing the rows each tool used to claim. */
+export function completedReceipt(calls, elapsedMs) {
+  const rows = Array.isArray(calls) ? calls : [];
+  if (!rows.length) return "";
+  const ok = rows.filter((row) => row.ok).length;
+  const failed = rows.length - ok;
+  return activityText([
+    `${rows.length} tool${rows.length === 1 ? "" : "s"}`,
+    failed ? `${failed} failed` : "all ok",
+    formatDuration(elapsedMs || 0),
+  ]);
+}
 
 function plain(value) { return String(value ?? "").replace(/\x1b\[[0-9;]*m/g, ""); }
 function width(value) { return [...plain(value)].length; }
@@ -106,7 +141,8 @@ export function printAgentBanner(s, agentSession, { base, version }) {
   const inner = totalWidth - 2;
   const titleArtWidth = Math.max(...MSO_TITLE_ART.map(width));
   if (totalWidth >= titleArtWidth) {
-    MSO_TITLE_ART.forEach((line, index) => console.log(`${MSO_TITLE_COLORS[index]}${C.bold}${line}${C.reset}`));
+    const colors = titleColors();
+    MSO_TITLE_ART.forEach((line, index) => console.log(`${colors[index]}${C.bold}${line}${C.reset}`));
   } else console.log(`${C.blue}${C.bold}── MSO Agent ──${C.reset}`);
   console.log();
 
@@ -131,6 +167,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
       fit(`${byScope.read} read · ${byScope.write} write · ${byScope.exec} exec`, leftWidth),
       fit("write/exec approval-gated", leftWidth), "", `${C.bold}Infrastructure${C.reset}`,
       fit(`${infra.ready.length}/${infra.total} ready`, leftWidth),
+      // Product-facing setup is /integrations: runCli(["integrations", ...args])
       fit(infra.ready.length ? infra.ready.join(" · ") : "run /integrations to connect", leftWidth),
     ];
     const right = [`${C.bold}Available Tools${C.reset}`];
