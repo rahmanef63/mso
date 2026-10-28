@@ -56,6 +56,7 @@
     "bundle:check": "node scripts/check-bundle.mjs",
     "perf:probe": "node scripts/perf-probe.mjs",
     "perf:check": "node scripts/check-perf.mjs",
+    "perf:hydration": "node scripts/perf-hydration.mjs",
     "perf:apps": "node scripts/perf-app-open.mjs",
     "perf:tasks": "node scripts/perf-longtasks.mjs",
     "ci:plan": "node scripts/ci/run.mjs --plan",

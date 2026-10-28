@@ -87,19 +87,27 @@ they live in a separate, deliberately weaker gate.
 
 | Command | What it does | Gates a push |
 |---|---|---|
-| `bun run perf:probe` | Cold load at 4G + 4× CPU against a synthetic fixture (or `--base=`), writes `perf-report.json` | no |
+| `bun run perf:probe` | Cold load at Slow 4G + 4× CPU against a synthetic fixture (or `--base=`), writes `perf-report.json` | no |
 | `bun run perf:check` | Enforces `scripts/perf-budget.json` against a report | **yes** |
+| `bun run perf:hydration` | Mark chain: FCP → last JS byte → shell mount → first paint of icons → LCP | no |
 | `bun run perf:tasks` | CDP-trace attribution of every long task to the script that owns it | no |
 | `bun run perf:apps` | Per-app open latency, fetched chunks and long tasks caused | no |
 
-`perf:check` fails hard on first-load JS bytes and on a missing measurement — a
-silent zero is how a perf gate dies. Timings only fail on a 2× blowup against
-`scripts/perf-baseline.json`, because this box also serves production and a
-wall-clock gate that flakes gets muted. Targets in that budget file
-(`tbtMs 150`, `lcpMs 2500`, `initialGzipBytes 256000`) are the post-migration goal
-from `docs/MSO-MIGRATION.md`; they are printed as advisory and never enforced,
-since holding today's Next build to a Svelte target would just make the gate
-permanently red.
+`perf:hydration` is the one that answers "what actually gates LCP". Reading it off the
+LCP element tag does not work: an element that ends up largest can be painted arbitrarily
+late by JavaScript, so `SPAN` or `IMG` says nothing about the cause. On this shell the
+chain is decisive — FCP ~1.2 s, mount ~2.6-2.9 s, LCP ~3.2-4.0 s — which means LCP is
+gated by downloading and executing ~940 KB of first-load JS, not by first paint.
+
+`perf:check` fails hard on a **missing** measurement — a silent zero is how a perf gate
+dies — and on a 2× TBT blowup against `scripts/perf-baseline.json`, because this box also
+serves production and a wall-clock gate that flakes gets muted. Bundle bytes are
+deliberately *not* re-gated here: `check-bundle.mjs` already gates gzip bytes
+deterministically from build output, while a browser-measured byte count includes deferred
+chunks and moves. Targets in the budget file (`tbtMs 150`, `lcpMs 2500`,
+`initialGzipBytes 256000`) are the post-migration goal from `docs/MSO-MIGRATION.md`; they
+are printed as advisory and never enforced, since holding today's Next build to a Svelte
+target would just make the gate permanently red.
 
 Regenerate the baseline with `node scripts/perf-probe.mjs --json` and commit the
 runs. Do that deliberately after a real improvement, not to silence a failure.

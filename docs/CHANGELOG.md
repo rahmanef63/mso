@@ -8,15 +8,11 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` close the opencode TUI gap on the seams MSO already owns
-
-**Fixed**
-
-- `tui` actually attach uploaded images, and stop overclaiming /share and /stash
+- `perf` hydration mark chain, and the LCP conclusion it overturns
+- `tui` close the opencode TUI gap on the seams MSO already owns (#166)
 
 **Docs**
 
-- `env` document MSO_AGENT_THEME, which the TUI now reads
 - `progress` record the perf gate and the numbers it retracted
 
 ## 2026-10-28

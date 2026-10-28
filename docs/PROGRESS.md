@@ -56,6 +56,22 @@ nodes / 942 KB first-load JS; mobile FCP 1166 / LCP 3054 / TBT 132 / 1165 DOM / 
 Per-app open at 4× CPU: Image Editor ~550–600 ms and ~600 ms of long task, Video Editor
 ~450–470 ms and ~300 ms, System Monitor ~230 ms, Terminal ~190 ms.
 
+Follow-up the same day, because the gate contradicted the doc it was built for: the entry
+above concluded that a framework swap could not help, on the belief that LCP was set by
+first paint. `bun run perf:hydration` disproved that. The shell mounts client-side by design
+(`appshell/components/desktop.tsx`: the surface depends on `innerWidth`, `localStorage` and
+the wallpaper pref, so SSR would guess macOS and a phone would hydrate iOS), so SSR paints a
+82-node skeleton and the real shell arrives only after ~940 KB of JS executes. The mark chain
+is FCP ~1.2 s → last JS byte ~2.9–3.1 s → mount ~2.6–2.9 s → icons ~3.2–3.9 s → LCP
+~3.2–4.0 s. Throttle controls separate the levers: Slow 4G at 1× CPU saves 644 ms and no
+network limit saves 1516 ms, so network dominates and CPU is real but secondary. LCP is
+therefore hydration-bound, i.e. gated by exactly the bundle a migration shrinks, and
+`docs/MSO-MIGRATION.md` §3 now gates on LCP instead of TBT with LCP 3.2–4.0 → ~2.5–2.9 s as
+the realistic migration win. The lesson recorded in §6: reading the gate off the LCP element
+tag is wrong, because the element that ends up largest can be painted arbitrarily late by
+JavaScript.
+
+
 ## 2026-10-25: Agent transcript — one live row per turn, and owner-owned turn budgets
 
 The interactive Agent printed an `Agent work` divider for every model round and a separate row

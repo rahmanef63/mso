@@ -142,8 +142,16 @@ time. The 5-minute build is the Playwright release gate.**
 | `vitest run lib/mcp` | 6.14 s wall, 20 files |
 | `bun test lib/mcp` | 5.99 s wall, **243 pass / 98 fail / 23 errors** |
 
-Vitest itself reports: 858 workers spawned at ~122 ms each, `isolate:false` would save
-~6.84 s (16 %). That is available today without any framework change.
+Vitest itself reports: 858 workers spawned at ~122 ms each, and estimates that
+`isolate:false` "would save ~6.84 s (16 %)". **That estimate is wrong for this suite and is
+retracted here.** Measured 2026-10-29: full suite `isolate:true` is 42.6 s green; with
+`isolate:false` + `pool:"threads"` it is 65.9 s (**54.5 % slower**) and 52 files / 161 tests
+fail. Excluding the breakers exposed new cascade failures on every re-run (52 → 24 → 12 → 11,
+ending in 45 s timer timeouts), and even after excluding ~110 files the run still failed
+non-deterministically on cross-thread mock leakage. The suite shares process singletons —
+`process.env`, `window`, `localStorage`, `globalThis.fetch`, the approved-device registry,
+A2A token store, standby worker state, fetch interceptors, systemctl mocks — so a module
+registry shared across files is not a safe default here. Per-file isolation stays.
 
 Bun's runner is ~1.1 s faster on the same 85-file subset and does not run the suite as
 written. Observed blockers: `vi.mock("server-only", …)`, jsdom environment, `localStorage`
@@ -232,6 +240,12 @@ Two earlier numbers in this document were wrong and are corrected here:
   definition is the sum of `max(0, duration − 50 ms)` per long task. The corrected
   number is roughly a third of the old one.
 
+A third assertion in this document was wrong and is retracted here:
+
+- The document asserted that LCP is set by first paint (CSS + wallpaper) and therefore
+  framework-neutral. That was disproved by measurement on 2026-10-29
+  (`bun run perf:hydration`). LCP is hydration-bound.
+
 | Metric | Desktop 1440×900 | Mobile 390×844 |
 |---|---|---|
 | FCP | 1,180 ms | 1,166 ms |
@@ -248,6 +262,53 @@ TBT to 418 ms against 164 ms warm, a 2.5× error that would have failed the gate
 fresh runner. Observed spread across stable runs: desktop TBT 150–184 ms, mobile
 69–148 ms, LCP 2.98–3.22 s. Host load moves these by ±25 %, which is why the gate
 enforces a 2× blowup rather than an absolute cap.
+
+Hydration mark chain (`bun run perf:hydration`, desktop 1440×900, Slow 4G + 4× CPU).
+Two representative runs, plus the spread across all runs on this host:
+
+```
+                          run A    run B    observed range (11 runs)
+  FCP                     1208 ms  1180 ms  1160-1440 ms
+  last JS arrival         3078 ms  2921 ms  2850-3320 ms
+  shell mounted           2792 ms  2654 ms  2570-3040 ms   (#main-content gains data-shell)
+  icons painted           3839 ms  3790 ms  3200-4120 ms
+  LCP                     3932 ms  3884 ms  3170-4220 ms   (element: SPAN menu-bar label)
+```
+
+Mobile measures the same shape with an `IMG` (app-icon artwork) as the LCP element:
+LCP 3400-3808 ms, mounted 2713-2923 ms, last JS 2905-3095 ms.
+
+Median desktop LCP across those 11 runs is ~3.8 s. Quote the range, not a point value:
+a 1 s spread on the same commit is host load, not a regression.
+
+The spread is run-to-run variance, not instrumentation overhead: the same load measured
+with no observers at all produced 3724 / 3768 ms, with a per-frame `requestAnimationFrame`
+poller 3676 / 3208 ms, and with a 100 ms interval poller 3172 / 3248 ms. The §1.5 table
+above reports the median of a separate 3-run batch (3,222 ms desktop), which sits inside
+that same range — the numbers are the same measurement seen at different times, not a
+contradiction, and treating any single figure as exact would be wrong.
+
+What is stable across every run is the *shape*: LCP lands ~2.0-2.8 s after FCP and
+~0.4-1.0 s after the last JS byte arrives, and mount itself lands ~1.5-1.6 s after FCP.
+Controls that isolate the levers:
+
+```
+throttle            LCP
+Slow4G + 4x CPU     3884-4004 ms
+Slow4G + 1x CPU     3108 ms          (-644 ms: CPU is a real lever)
+no limit + 4x CPU   2236 ms          (-1516 ms: network is the bigger lever)
+```
+
+Network is the bigger lever; CPU is real but smaller.
+
+Cause: from `frontend/slices/appshell/components/desktop.tsx` (~line 84), the shell
+renders **only after mount** by deliberate design — the surface depends on
+`window.innerWidth`, `localStorage sv:shell`, and the wallpaper pref, so SSR guesses
+macOS and a phone hydrates iOS. SSR therefore paints a skeleton (`#main-content` with no
+`data-shell`, 82 DOM nodes) and the real shell arrives after ~942 KB of first-load JS is
+downloaded and executed.
+
+LCP is therefore **hydration-bound**, i.e. gated by ~942 KB of first-load JS.
 
 Same page, unthrottled local, cold cache:
 
@@ -279,13 +340,13 @@ Image Editor and Video Editor each pull editor chunks and pay 300–600 ms of ma
 time — those two are the per-slice measurement that matters, and they are also the two
 places where a framework swap would show up first.
 
-**Conclusion: server and in-shell navigation are already good. The remaining
-user-visible cost is LCP ~3.1 s on throttled mobile; TBT is 164 ms desktop / 132 ms
-mobile, i.e. already at or near the 150 ms post-migration target, before any migration.**
-
-That last fact materially changes §3: the Svelte case can no longer be "TBT 443 → 150",
-because TBT is effectively there already. What is left to buy is **LCP**, and LCP on this
-shell is dominated by first paint (CSS + wallpaper art), not by the JS bundle.
+**Conclusion: server and in-shell navigation are already good. TBT is 164 ms desktop /
+132 ms mobile, i.e. already at or near the 150 ms post-migration target before any
+migration. But the earlier conclusion that LCP is paint-bound was wrong: LCP is 3.2-4.2 s
+on throttled desktop and is hydration-bound, gated by ~942 KB of first-load JS. The
+primary lever is network (−1,516 ms unthrottled), with CPU as a secondary lever (−644 ms
+at 1× CPU). A framework swap that cuts first-load JS directly attacks the LCP critical
+path.**
 
 
 ---
@@ -297,6 +358,10 @@ shell is dominated by first paint (CSS + wallpaper art), not by the JS bundle.
 Delivers:
 - ~180–230 KB gzip less first-load JS (`react-dom` 230 KB raw + Next router runtime).
   Realistic post-migration initial: 281 KB gzip → **~90–110 KB gzip**.
+- Direct LCP cut: LCP 3.2-4.2 s is gated by 942 KB first-load JS; removing ~230 KB of
+  `react-dom` plus the Next router is a direct cut into the LCP critical path, so a
+  3.2–4.2 s → ~2.5–2.9 s is the realistic expectation, and it is now the primary
+  argument for the migration rather than a bundle-aesthetics one.
 - Less main-thread work at startup. Measured attribution (`bun run perf:tasks`) puts
   ~280 ms of ~355 ms total long-task self time on the `react-dom` chunk — so removing
   it removes real work, but TBT is already 164 ms, which means most of that 280 ms
@@ -310,9 +375,6 @@ Delivers:
 Does not deliver:
 - Build time (§1.1: compile is 2.7 % of the build).
 - Server RSS: SvelteKit SSR is still Node/Bun. It does not shrink the 110 MB process.
-- The LCP win that would matter most. LCP is 3.1 s and is set by first paint — CSS and
-  the wallpaper artwork — not by the JS bundle. A Svelte rewrite keeps both. Expect
-  maybe 200–400 ms, not 1 s.
 - Anything for `lib/`: 96 % of it is already portable, so rewriting it is pure cost.
 
 Costs:
@@ -361,41 +423,50 @@ entire failure surface.
 
 ## 3. Decision gate — do this before any rewrite
 
-**The gate now fails on its own terms.** §1.5 measures TBT at 164 ms desktop / 132 ms
-mobile, against a post-migration target of 150 ms. Desktop is within 10 % of the number
-the Svelte rewrite was going to buy; mobile already beats it. The remaining user-visible
-cost is LCP 3.1 s, and LCP is set by first paint (CSS + wallpaper artwork), which a
-framework swap does not change.
+**The gate now reopens on measured grounds.** The earlier claim that LCP was set by
+first paint (CSS + wallpaper artwork) and therefore framework-neutral is disproved.
+With LCP at 3.2-4.2 s across runs (landing 2.0-3.0 s after FCP and 0.4-1.1 s after the last
+JS byte arrives), LCP is hydration-bound to the ~942 KB first-load JS bundle.
 
-So the honest sequencing is: fix LCP cheaply first, then re-decide.
+LCP cannot be painted away. Therefore, "fix LCP cheaply first" becomes an ordered list
+of the measured options, cheapest first:
 
-Cheaper fixes, in the order the measurements say to do them:
+1. **Shrink the eager graph (bundle budget 300 → 250 KB gzip).** Lower
+   `scripts/bundle-budget.json` initial ceiling from 300 KB gzip to 250 KB (actual is
+   281 KB) and prune eager slice dependencies.
+   *Measurement support:* Supported directly by the network throttle control
+   (−1,516 ms when unthrottled). The last JS byte arrival (2.9-3.1 s) gates mount and
+   LCP; every kilobyte cut from the eager download shortens the critical path.
+2. **Keep the wallpaper art off the LCP critical path.** Ensure wallpaper fetch does
+   not contend with first-load JS or trigger late layout shifts on mobile
+   (`IMG.shell-artwork` was measured as LCP on mobile), using a CSS placeholder/gradient.
+   *Measurement support:* Speculative for desktop (where the measured LCP element is a
+   `SPAN` menu-bar label painted after JS hydration, not the image), but
+   prevents bandwidth contention on constrained mobile connections.
+3. **Cut shell mount cost.** Profile and reduce component initialization inside
+   `frontend/slices/appshell/components/desktop.tsx` and the eager slice registry during
+   `#main-content` hydration (mount ~2.6-3.0 s → LCP ~3.2-4.2 s).
+   *Measurement support:* Supported by the CPU throttle control (−644 ms at 1× CPU vs
+   4× CPU). Main-thread execution after JS arrival accounts for 0.4-1.1 s before LCP.
+4. **Migrate a slice (Phase 3).** If in-tree budget and mount optimizations leave LCP
+   > 2.5 s, a framework migration is the only remaining lever that removes ~230 KB of
+   `react-dom` runtime and Next router overhead from the first-load critical path.
+   *Measurement support:* Supported by both network and CPU controls. Phase 3 is now
+   the honest test of a real win (LCP 3.2–4.2 → ~2.5–2.9 s) instead of a
+   bundle-aesthetics exercise.
 
-1. **Attack LCP, which is the real number.** 3.1 s to largest paint on Slow 4G with a
-   1,168 ms FCP means ~2 s is spent after first paint on the element that ends up
-   largest — measured as an `IMG.shell-artwork` on mobile. Concretely: check whether the
-   wallpaper is fetched at full resolution for the viewport, whether it is in the
-   critical path of first paint, and whether a CSS gradient placeholder would let the
-   real art arrive after paint without being the LCP element. This is the single
-   highest-value piece of work available and it requires no migration.
-2. **Tighten the eager shell budget.** `scripts/bundle-budget.json` allows 300 KB gzip
-   initial; actual is 281 KB. The ceiling is not doing any work. Lower it to 250 KB and
-   fix what breaks. (Same for entry: 151.5 KB actual against a 160 KB ceiling.)
-3. **Attribute and shrink the 4 long tasks.** `bun run perf:tasks` already attributes
-   them: ~280 ms of 355 ms of self time is the `react-dom` chunk. Since TBT is only
-   164 ms, that work mostly overlaps idle time — so the win here is smaller than the
-   raw attribution suggests. Do not spend a quarter on it after LCP is fixed.
-4. **Turn on vitest `isolate:false` where safe.** 6.84 s of the 41.4 s is worker startup.
-   Pure dev-loop win, zero user risk.
+(`isolate:false` was considered as an independent dev-loop win and rejected: measured 54.5 %
+slower with 161 failing tests; see §1.2.)
 
 Gate criteria to proceed past §3 — all three required:
 
-- LCP on Slow 4G + 4× CPU is still > 2.5 s after (1) and (2), **and**
-- a named slice proves Svelte parity in a real browser at equal-or-better LCP, **and**
+- LCP on Slow 4G + 4× CPU is still > 2.5 s after (1), (2), and (3), **and**
+- a named slice proves Svelte parity in a real browser at equal-or-better LCP (targeting
+  the ~2.5–2.9 s window), **and**
 - build time is addressed separately (it is an E2E problem, not a framework problem).
 
-Note what is *not* in that list any more: TBT. Gating on it would be gating on a number
-the current build already meets.
+Note what is *not* in that list: TBT. Gating on it would be gating on a number the
+current build already meets.
 
 ---
 
@@ -441,7 +512,8 @@ of 3 runs committed as baseline.
   already pass under Bun.
 - Fix the install portability blocker: `node-pty` prebuild or a Bun-compatible
   postinstall. Until that is fixed, Bun is a dev convenience, not a stack choice.
-- Optional and independent: `isolate:false` for vitest.
+- Not on the table: `isolate:false` for vitest. Measured 54.5 % slower with 161 failing
+  tests (§1.2); per-file isolation stays.
 
 Exit criteria: `bun install` succeeds from a clean clone; all `scripts/*` green under
 Bun; `next` still on Node; build time unchanged or better.
@@ -530,20 +602,22 @@ plus thin SSR. Do not attempt before Phase 2 lands.
 | Path | Engineering | Risk to live users | Measured upside |
 |---|---|---|---|
 | Phase 0 (done) | 1 day | none | makes everything else falsifiable |
-| **LCP fix (§3 item 1), no migration** | **2–5 days** | low | **the actual user-visible win** |
+| **In-tree budget & mount tuning (§3 items 1–3)** | **2–5 days** | low | initial JS −30 KB gzip; shaves ~200–400 ms LCP |
 | + Phase 1 (Bun tooling) | +2–4 days | none | dev velocity; `bun install` portability |
 | + Phase 2 (portable core) | +2–3 weeks | none | maintainability, framework freedom |
 | + Phase 3 (one island) | +3–4 weeks | low, flag-gated | proves or disproves the whole thesis |
-| Full Svelte (all phases) | **6–9 months solo** | medium | initial JS −60 %, TBT 164 → ~70–95 ms |
+| Full Svelte (all phases) | **6–9 months solo** | medium | LCP 3.2–4.2 → ~2.5–2.9 s, initial JS −60 %, TBT 164 → ~70–95 ms |
 | Rust rewrite of shell + server | **> 1 year** | high | nothing user-visible |
 
-The single honest sentence: **TBT is already at the post-migration target; the number
-still worth fixing is LCP, it is a few days of work, and it needs no migration at all.**
+The single honest sentence: **TBT is already at the post-migration target, but LCP is
+3.2–4.2 s and hydration-bound to 942 KB of first-load JS; in-tree budget and mount fixes can
+chip away at it, but cutting the runtime via migration is the primary path to ~2.5 s.**
 
-After the LCP fix, Phases 1–2 are still worth doing on their own merits (maintainability,
-`bun install` portability, a framework-free backend). Phase 3 remains the honest test of
-the Svelte thesis, but its expected payoff has shrunk from "TBT −70 %" to "bundle bytes
-−60 % with TBT already fine", which is a maintenance argument, not a speed argument.
+After in-tree budget and mount tuning, Phases 1–2 are still worth doing on their own
+merits (maintainability, `bun install` portability, a framework-free backend). Phase 3
+becomes the honest test of whether a real slice shrinks first-load JS and brings LCP
+toward the ~2.5 s target in a real browser, turning what looked like a bundle-aesthetics
+exercise into a measurable user speed win.
 
 
 ---
@@ -558,6 +632,7 @@ Perceived performance and per-app cost:
 
 ```
 bun run perf:probe --base=http://127.0.0.1:4005      # table to stderr
+bun run perf:hydration --base=http://127.0.0.1:4005  # hydration mark chain (FCP, last JS, mounted, icons, LCP)
 node scripts/perf-probe.mjs --json > /tmp/perf.json   # machine-readable
 bun run perf:check --report=/tmp/perf.json            # enforce budget
 bun run perf:tasks --base=http://127.0.0.1:4005 --min-ms=40
@@ -590,3 +665,7 @@ wrong number first:
 - LCP arrives ~3 s in. A "settle when nothing changes for 1 s" loop exits too early and
   reports `lcpMs: null`.
 - TBT is `Σ max(0, duration − 50)`, not the raw sum of long-task durations.
+- **Retracted again:** concluding that LCP was paint-bound from a single LCP element tag
+  (`SPAN`/`IMG`) is wrong — the element that ends up largest can be painted late by JS,
+  so the element identity says nothing about what gates it; measure the mark chain
+  (`perf:hydration`) instead.
