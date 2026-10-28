@@ -11,6 +11,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `perf` hydration mark chain, and the LCP conclusion it overturns
 - `tui` close the opencode TUI gap on the seams MSO already owns (#166)
 
+**Faster**
+
+- `app-store` load RuntimeApp lazily so vaul leaves the first-load chunk
+
 **Changed**
 
 - `lib` drop static next/* imports, plus three measured perf findings
