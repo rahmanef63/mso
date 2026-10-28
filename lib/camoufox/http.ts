@@ -68,7 +68,10 @@ export async function handleGetCamoufoxSession(): Promise<Response> {
   }
   const viewerTicket = createCamoufoxViewerTicket(context.session, secret);
 
-  const password = (await fs.readFile(PASSWD_FILE, "utf8").catch(() => "")).trim();
+  // `turbopackIgnore` is load-bearing, not a comment: PASSWD_FILE comes from the
+  // environment, so Turbopack cannot resolve it statically and would otherwise trace
+  // the whole project (which the release gate treats as a build warning = failure).
+  const password = (await fs.readFile(/* turbopackIgnore: true */ PASSWD_FILE, "utf8").catch(() => "")).trim();
   if (!password) {
     return Response.json({
       password: null,

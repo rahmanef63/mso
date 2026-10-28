@@ -2,17 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const readSource = (relPath: string) => {
-  const file = path.join(__dirname, relPath);
-  const handler = file.replace(/route\.ts$/, "handler.ts");
-  return fs.existsSync(handler) ? fs.readFileSync(handler, "utf8") : fs.readFileSync(file, "utf8");
-};
-
-const AUTHORIZATION_SERVER = readSource(
-  "../../app/.well-known/oauth-authorization-server/route.ts",
+// Literal paths, not a helper: `path.join(__dirname, someVariable)` is dynamic
+// filesystem access, and Turbopack responds to that by tracing the whole project,
+// which fails the release gate as a build warning. When a route body moves to a
+// colocated handler.ts, point the literal at that file.
+const AUTHORIZATION_SERVER = fs.readFileSync(
+  path.join(__dirname, "../../app/.well-known/oauth-authorization-server/handler.ts"),
+  "utf8",
 );
-const PROTECTED_RESOURCE = readSource(
-  "../../app/.well-known/oauth-protected-resource/route.ts",
+const PROTECTED_RESOURCE = fs.readFileSync(
+  path.join(__dirname, "../../app/.well-known/oauth-protected-resource/handler.ts"),
+  "utf8",
 );
 
 const EXPECTED_SCOPES = '["read", "write", "exec", "offline_access"]';

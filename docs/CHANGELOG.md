@@ -11,6 +11,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `perf` hydration mark chain, and the LCP conclusion it overturns
 - `tui` close the opencode TUI gap on the seams MSO already owns (#166)
 
+**Fixed**
+
+- `build` restore the turbopackIgnore annotation the route extraction dropped
+
 **Faster**
 
 - `shell` take hidden app artwork off the layout and paint path (#167)
