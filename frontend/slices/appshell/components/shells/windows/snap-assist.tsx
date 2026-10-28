@@ -57,7 +57,7 @@ export function SnapAssist() {
 
   return (
     <div
-      className="absolute inset-0 z-[55] bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-150"
+      className="absolute inset-0 z-[55] bg-black/30 animate-in fade-in duration-150"
       onClick={() => setState(null)}
     >
       <div

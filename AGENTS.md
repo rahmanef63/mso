@@ -137,3 +137,28 @@ Run validation with `umask 077`: security fixtures must create private files/dir
 Follow `CLAUDE.md`: update `docs/PROGRESS.md`, run the relevant gates, and ship through
 `bun run ship "<conventional commit>"`. Do not replace the repository's release path with a
 bare push.
+
+<!-- antislop:start -->
+## antislop
+
+UI, copy, people, mobile layout, and code-comment work is filtered by antislop before it ships.
+
+- Core filter, read first: `antislop` skill
+- UI and visual: `antislop-ui`
+- Copy and text: `antislop-copywriting`
+- People, contrast, keyboard: `antislop-human`
+- Mobile and responsive: `antislop-layoutmobile`
+- Code comments: `antislop-code`
+
+Hard gates that already apply to this repo, so a review will reject a change that breaks them:
+
+- No em dash in user-visible strings. Comments and docs are out of scope.
+- No fabricated numbers, testimonials, or security claims.
+- Every interactive element has real behaviour; no dead controls.
+- Text meets WCAG AA contrast; the repo gate is `node scripts/check-contrast.mjs`.
+- Both shipped themes must work.
+
+Design direction lives in `DESIGN.md`. Read it before any UI work. If it is absent, say so and treat the result as a draft without direction.
+
+If a rule and a task conflict, name the rule and ask. Do not silently override either one.
+<!-- antislop:end -->
