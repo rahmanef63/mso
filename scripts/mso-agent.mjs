@@ -14,6 +14,8 @@ import { LocalAgentBridge, handleLocalAgentMentionInput, runForegroundSubagent }
 import { composerFooter, composerPrompt, composerSeparator } from "./mso-agent-layout.mjs";
 import { agentRound, executeTool, renderInteractionFailure, runInteractiveRound } from "./mso-agent-turn.mjs";
 import { pathToFileURL } from "node:url";
+import { createQueue, dequeue } from "./mso-agent-queue.mjs";
+import { pendingImageBlock } from "./mso-agent-image.mjs";
 
 async function runOneShot(opts) {
   const requested = resumeArg(process.argv.slice(2));
@@ -76,6 +78,8 @@ async function main() {
     titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
     usage: { apiCalls: 0 }, lastRouting: null, lastElapsedMs: 0,
     statusBar: restartUi.statusBar ?? true, permission: forcedPermission, pendingApproval: null,
+    // Ephemeral queue: held only in memory for this TUI process and not persisted to server state.
+    queue: createQueue(),
   };
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C }); syncPromptHistory(rl, session);
   let inboundRequestQueued = false;
@@ -91,6 +95,31 @@ async function main() {
   });
   await localBridge.start();
   const interrupts = new AgentInterruptManager({ output: process.stdout, colors: C });
+  let lastTurnInterrupted = false;
+  const originalBeginTurn = interrupts.beginTurn.bind(interrupts);
+  interrupts.beginTurn = () => {
+    const signal = originalBeginTurn();
+    lastTurnInterrupted = false;
+    signal.addEventListener("abort", () => {
+      lastTurnInterrupted = true;
+    }, { once: true });
+    return signal;
+  };
+  const originalInterruptCurrent = interrupts.interruptCurrent.bind(interrupts);
+  interrupts.interruptCurrent = () => {
+    lastTurnInterrupted = true;
+    return originalInterruptCurrent();
+  };
+  const drainQueue = async () => {
+    while (!interrupts.exitRequested && !lastTurnInterrupted) {
+      const nextPrompt = dequeue(session.queue);
+      if (!nextPrompt) break;
+      session.history.push({ role: "user", text: nextPrompt });
+      const skillContext = session.pendingSkill;
+      session.pendingSkill = null;
+      await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
+    }
+  };
   const onSigint = () => {
     const action = interrupts.handleSigint();
     // External child TUIs can restore the shared terminal to cooked mode. In that
@@ -131,6 +160,10 @@ async function main() {
           if (result === "exit") break;
           if (result === "restart") { restartRequested = true; break; }
           if (result === "refresh") await localBridge.syncSession();
+          if (result === "drain") {
+            lastTurnInterrupted = false;
+            await drainQueue();
+          }
           if (result === "unknown") console.log("unknown command; /help lists commands.");
         } catch (error) {
           renderInteractionFailure(error, session, {}, C);
@@ -140,11 +173,17 @@ async function main() {
         continue;
       }
       if (await handleLocalAgentMentionInput(session, line, C)) continue;
-      session.history.push({ role: "user", text: line });
+      // Attached images belong to the NEXT prompt only. Format them into the user
+      // message once, then clear, so a stale image can never ride along silently.
+      const images = Array.isArray(session.pendingImages) ? session.pendingImages : [];
+      const imageBlock = images.length ? pendingImageBlock(images) : "";
+      session.history.push({ role: "user", text: imageBlock ? `${imageBlock}${line}` : line });
+      if (images.length) session.pendingImages = [];
       const skillContext = session.pendingSkill;
       session.pendingSkill = null;
       await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
       if (interrupts.exitRequested) break;
+      if (!lastTurnInterrupted) await drainQueue();
     }
   } finally {
     process.off("SIGINT", onSigint);

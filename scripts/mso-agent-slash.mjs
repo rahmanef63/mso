@@ -29,6 +29,16 @@ const BUILTIN_SLASH_ITEMS = [
   { text: "/rename", meta: "Rename the short @agent handle", kind: "command" },
   { text: "/title", meta: "Rename the session title/description", kind: "command" },
   {
+    text: "/export",
+    meta: "Export session transcript to stdout or a file",
+    kind: "command",
+  },
+  {
+    text: "/share",
+    meta: "Temporary link is unavailable: server exposes download only, no creation route",
+    kind: "command",
+  },
+  {
     text: "/status",
     meta: "Show model, auth, context, tokens, session",
     kind: "command",
@@ -44,8 +54,28 @@ const BUILTIN_SLASH_ITEMS = [
     kind: "command",
   },
   {
+    text: "/diff",
+    meta: "Show unified diff of an earlier modified file",
+    kind: "command",
+  },
+  {
+    text: "/compact",
+    meta: "Force context compaction and archive recent history",
+    kind: "command",
+  },
+  {
     text: "/statusbar",
     meta: "Toggle the compact dynamic status line",
+    kind: "command",
+  },
+  {
+    text: "/reasoning",
+    meta: "Toggle per-turn reasoning metrics in the transcript",
+    kind: "command",
+  },
+  {
+    text: "/theme",
+    meta: "Choose UI theme (dark, light, mono)",
     kind: "command",
   },
   { text: "/setup", meta: "Run full MSO onboarding", kind: "command" },
@@ -56,6 +86,7 @@ const BUILTIN_SLASH_ITEMS = [
   },
   { text: "/doctor", meta: "Run MSO diagnostics", kind: "command" },
   { text: "/tools", meta: "List available agent tools", kind: "command" },
+  { text: "/files", meta: "Bounded read-only directory view of cwd or path", kind: "command" },
   {
     text: "/agents",
     meta: "List live local session agents + registered remote A2A peers",
@@ -85,6 +116,21 @@ const BUILTIN_SLASH_ITEMS = [
   {
     text: "/skill",
     meta: "Select a skill by exact catalog id",
+    kind: "command",
+  },
+  {
+    text: "/queue",
+    meta: "Queue follow-up prompts; list, run, or clear pending items",
+    kind: "command",
+  },
+  {
+    text: "/stash",
+    meta: "Park a prompt (20 slots), pop prints it back to the terminal",
+    kind: "command",
+  },
+  {
+    text: "/image",
+    meta: "Attach a local image file to the next prompt",
     kind: "command",
   },
   { text: "/clear", meta: "Clear this session conversation", kind: "command" },
