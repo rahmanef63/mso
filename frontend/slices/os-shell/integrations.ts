@@ -23,7 +23,7 @@ import {
 // also fired a /api/skills read (90 files, ~600 KB off disk) on every page load.
 registerAlfaLoader(async () => {
   const { installAlfaSources } = await import("@/features/assistant");
-  installAlfaSources();
+  await installAlfaSources();
 });
 
 // Unlock = the signed session cookie is still valid. A dead session falls

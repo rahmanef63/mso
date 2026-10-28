@@ -431,9 +431,30 @@ JS byte arrives), LCP is hydration-bound to the ~942 KB first-load JS bundle.
 LCP cannot be painted away. Therefore, "fix LCP cheaply first" becomes an ordered list
 of the measured options, cheapest first:
 
-1. **Shrink the eager graph (bundle budget 300 → 250 KB gzip).** Lower
-   `scripts/bundle-budget.json` initial ceiling from 300 KB gzip to 250 KB (actual is
-   281 KB) and prune eager slice dependencies.
+1. **Shrink the eager graph and lock the measured baseline (250/256 KiB is post-migration).**
+   The earlier assumption that lowering `scripts/bundle-budget.json` to 250/256 KiB gzip
+   is a quick in-tree first move is disproved by the measured framework floor. Next.js
+   and React runtime chunks alone account for **132.7 KiB gzip** of the first-load
+   bundle (react-dom 73.6, Next client 44.2, next/navigation 8.2, turbopack 4.4,
+   next-isr 2.3 = 53 % of a 250 KiB target). App code is currently 148.3 KiB gzip
+   (281.0 KiB initial − 132.7 KiB floor). Reaching a 250 KiB ceiling would require app
+   code ≤ 117.3 KiB — a **21 % cut** ((148.3 − 117.3) / 148.3 = 20.9 %) that cannot be
+   achieved by routine app trimming while retaining the React shell and its eager
+   dependencies. The 250/256 KiB target is therefore an advisory post-migration goal,
+   not an in-tree quick fix.
+   In-tree, the ceiling in `scripts/bundle-budget.json` is tightened arithmetically from
+   measured parts rather than left at an inert 300 KiB round number: 132,670 B framework
+   floor plus 155,048 B app entry with 2.0 % headroom (3,101 B) sets the entry ceiling to
+   158,149 B and initial ceiling to 290,819 B gzip.
+   Two eager-graph leaks were then closed and measured with an out-of-tree build:
+   `use-installed-apps.ts` no longer imports `RuntimeApp` statically, and the `assistant`
+   barrel no longer re-exports `installAlfaSources` (which pulled `HOST_TOOLS`). Result:
+   initial **281.0 → 278.2 KiB gzip** (−2.8), entry 151.4 → 148.6 (−2.8), app code
+   148.3 → 145.5 KiB.
+   That is worth stating plainly because it corrects an estimate: the two leaks were
+   projected at 15–20 KiB and 8–12 KiB, and the measured total is **2.8 KiB**. Both fixes
+   are still correct — they remove work every visitor paid for — but neither moves the
+   21 % figure, and neither is an LCP win: 2.8 KiB is ~1.4 % of a 200 KB critical path.
    *Measurement support:* Supported directly by the network throttle control
    (−1,516 ms when unthrottled). The last JS byte arrival (2.9-3.1 s) gates mount and
    LCP; every kilobyte cut from the eager download shortens the critical path.
@@ -569,13 +590,18 @@ a framework. Worth doing on its own.
 
 ### Phase 3 — One low-risk slice as a Svelte island (3–4 weeks)
 
-Pick from the bottom of the risk table in §0. `quicklinks` (83 LOC) is too small to prove
-anything; `n8n` (128 LOC, 2/4 appshell imports, separate surface and embed) is the
-right first target, with `infrastructure` (130 LOC) as second.
+Phase 3 is the single proof-of-mechanism island, not a full migration phase. Its sole
+purpose is to verify that a compiled Svelte component mounts inside the running React
+shell without regressing shell TBT, bundle budget, or the 132.7 KB framework runtime
+floor.
+
+Pick from the decoupled leaf slices in §0: `quicklinks` (83 LOC) is too small to prove
+anything; `n8n` (128 LOC, 2/4 appshell imports, prefetch: "never", separate embed
+surface) is the primary target, with `infrastructure` (130 LOC, 1/2) as second.
 
 Method (strangler, no shell rewrite):
 - Build the Svelte component as a static island bundle (Vite lib mode), mount it inside
-  the existing React shell at exactly one route.
+  the existing React shell at exactly one route/window.
 - The React shell keeps ownership of window chrome, auth, cookies, deep links.
 - Ship behind the existing URL. No new origin, no new host header.
 - Gate on Phase 0 metrics: the island must not regress shell TBT or first-load bytes.
@@ -587,13 +613,142 @@ better.
 **If one island is not clearly better after 2 weeks, stop the migration here** and keep
 the Phase 2 portable core. That is a good outcome, not a failure.
 
+#### Spike result (2026-10-29): a hybrid island is the wrong shape
+
+Before spending the 3-4 weeks above, the mechanism was measured in a throwaway `/tmp` build
+(no dependency was added to this repo). Standalone ESM bundle, fully self-contained runtime,
+gzip:
+
+| Build | Svelte 5.57 | Svelte 4.2 | In-tree React equivalent |
+|---|---|---|---|
+| hello world | 15.75 KiB | 2.06 KiB | — |
+| n8n-shaped component (list + button + fetch state) | 18.21 KiB | 3.80 KiB | **1.64 KiB** (`.next` chunk `0w0yqd71b0eao.js`) |
+
+The React figure is small only because React is already resident — the shell paid for it once.
+A Svelte island pays for its runtime *again*, next to React, and that is the whole problem:
+
+- Svelte 5's runtime is **15.75 KiB gzip** of baseline before any component code. On Slow 4G
+  that is ~85 ms of extra transfer, plus 20-35 ms of parse and signal-graph init at 4× CPU,
+  before the island's first paint. Against a 1.64 KiB React chunk, a Svelte 5 island is a
+  regression on every axis that Phase 3 was supposed to improve.
+- Svelte 4 is small enough (2.06 KiB) that an island is not absurd, but porting to a
+  previous major version to make a spike look good is not a plan.
+- Mounting without restructuring the host means React hydrates `WindowContent`, commits the
+  container, runs an effect, and only then instantiates Svelte — a double-mount penalty, plus
+  every shell interaction (`openWindow`, session role, theme) crossing a framework boundary.
+
+**Conclusion: do not build hybrid islands.** The honest integration point is
+`AppDescriptor.load` in a slice's `index.ts`, and it should be used once — during the Phase 5
+shell swap — not before. Islands were the plan's cheap early test; measurement says the test
+would cost a second runtime to prove a point the framework floor already proves. Phase 3 is
+therefore reclassified: its budget moves into Phase 5, and the gate to proceed is LCP as
+described in §3, not an island.
+
 ### Phase 4 — Slice by slice (ongoing, ~1 slice / 2–3 weeks)
 
-- Order by the §0 risk table, cheapest independent slices first.
-- `os-settings` (8,915 LOC, `"use client"` in 76/78 files, zero appshell imports) is the
-  real test: pure UI, heavy Radix, no data logic.
-- One slice at a time, each behind a flag, each measured, each reversible.
-- Freeze new React slice work only when > 50 % of `frontend/slices` bytes are Svelte.
+The earlier LOC-based ordering heuristic ("smallest slices first", with `os-settings` as the
+test) is replaced with an empirical cost-density rule.
+
+#### Ordering rule and constraints
+
+1. **Framework runtime floor constraint:** The Next/React client runtime imposes an immovable
+   floor of **132.7 KB gzip** (react-dom 73.6 KB, Next client 44.2 KB, next/navigation 8.2 KB,
+   turbopack 4.4 KB, next-isr 2.3 KB). In a hybrid React shell, this floor remains in memory
+   regardless of how many slices are ported. Therefore, a slice migration's byte win is bounded
+   strictly by what that slice adds, and its user-visible win is bounded by the main-thread
+   execution time it removes during window open or interaction.
+2. **The rule:** **Highest main-thread execution cost per LOC** (`ms long task / kLOC` at 4× CPU
+   throttle), tie-broken by **lowest `@/features/appshell` coupling** (fewer imports). Slices with
+   measured performance data (§1.5) take priority over unmeasured estimates.
+3. **Appshell exclusion:** `appshell` is 20,028 LOC, defines the window host and slot registry,
+   and cannot be migrated slice-by-slice. It is reserved exclusively for the Phase 5 shell swap.
+
+#### Measured vs. unmeasured data
+
+Nine slices carry numbers from `bun run perf:apps` at 4x CPU: `image-editor` (1161 ms long
+task), `system-monitor` (455), `workflows` (369), `reel-editor` (362), `code-editor` (302),
+`organization` (264), `docs` (239), `memory-graph` (169), `os-terminal` (142). The figure for
+each is the maximum of two runs, because the same slice varied by 2-4x between consecutive runs
+on this host.
+
+The remaining slices have **no number and no estimate**. They are unmeasured, and this document
+does not guess: an invented ordering is worse than an unfinished one, because it reads as
+evidence. Profile a slice with `bun run perf:apps --apps="<dock label>"` before its branch starts.
+
+#### The two honest first slices
+
+1. **First slice: `system-monitor` (759 LOC, 4/14 appshell imports).**
+   - *Metric:* 455 ms measured long task (max of 2 runs) / 0.759 kLOC.
+   - *Justification:* It has the highest execution cost per line of code. Unlike static forms, it
+     runs a continuous reactive loop (polling system metrics, driving SVG charts, updating DOM).
+     At 759 LOC, the blast radius is tightly constrained. It proves that Svelte's reactive bindings
+     and compile-time reactivity eliminate React re-render churn in a live window, providing quick,
+     low-risk validation of real runtime benefits.
+2. **Second slice: `image-editor` (6,966 LOC, 0 appshell imports).**
+   - *Metric:* 1161 ms measured long task (max of 2 runs) / 6.966 kLOC = **166.7 ms/kLOC**.
+   - *Justification:* Zero coupling to `@/features/appshell` (completely decoupled strangler seam).
+     It carries the single worst measured main-thread cost in the product: 1161 ms of long task
+     and 790 ms to window-visible across the same session, with 8 chunks pulled on open (§1.5
+     measured 550-600 ms and ~600 ms before the harness was re-run; both are inside the same
+     order of magnitude). Porting it attacks the largest user-visible delay immediately after
+     `system-monitor` proves the island architecture.
+
+#### Proving ground verdict: `os-settings` is OVERTURNED
+
+The previous claim that `os-settings` (8,915 LOC, 0 appshell imports) is "the real test" is
+**overturned by measurement**:
+- `os-settings` is a collection of static form controls, preference toggles and Radix wrappers.
+  It is **unmeasured** — it has no dock icon, so `perf:apps` cannot open it by label and no
+  number exists. The earlier "<25 ms" figure was an estimate and has been withdrawn.
+- Because the 132.7 KB gzip framework floor remains loaded during Phase 4, migrating 8,915 LOC
+  of form inputs yields virtually zero measurable user-speed improvement. Spending months porting
+  nearly 9,000 lines of low-cost form code before touching performance bottlenecks is high risk
+  with zero user-visible payoff.
+- **What replaced it:** **`image-editor` (6,966 LOC, 0 appshell imports)** is the true proving
+  ground. Like `os-settings`, it has zero appshell coupling. Unlike `os-settings`, it carries a
+  measured 1161 ms long task (max of 2 runs) and an 8-chunk download cascade. It contains canvas state, image
+  manipulation, and heavy WebAssembly/worker bridges (`@imgly/background-removal`). If Svelte
+  cannot cut into that 1161 ms freeze in `image-editor`, the performance thesis of the entire
+  migration fails. If it succeeds, users gain ~300–400 ms of main-thread responsiveness immediately.
+
+#### Ranked Phase 4 migration table
+
+Ordering rule: **measured main-thread long-task cost**, tie-broken by fewer
+`@/features/appshell` imports. Only rows marked *measured* carry numbers from
+`bun run perf:apps`; the rest are **unmeasured** and carry no figure, because a fabricated
+millisecond value in a table is indistinguishable from a measurement once it is written down.
+Measure a slice with `bun run perf:apps --apps="<label>"` before scheduling it.
+
+Caution on the measured rows: `perf:apps` is a single-shot local diagnostic and its long-task
+total moves a lot between runs on this host. Two consecutive runs of the same set gave
+`Docs 112 / 71`, `Organization 195 / 163`, `Memory 129 / 78`, `Code 302 / 194`,
+`Workflows 369 / 158`, `System Monitor 455 / 100` ms. Treat one figure as an order of magnitude,
+not a rank-deciding constant; re-derive this table once the harness reports a median.
+
+| Slice | LOC (§0) | Appshell imports (§0) | Long task, max of 2 runs (4× CPU) | Basis |
+|---|---|---|---|---|
+| `image-editor` | 6,966 | 0 | 1161 ms | measured |
+| `system-monitor` | 759 | 4/14 | 455 ms | measured |
+| `workflows` | 1,734 | 0 | 369 ms | measured |
+| `video-editor` (`reel-editor`) | 6,539 | 3/62 | 362 ms | measured |
+| `code-editor` | 1,782 | 0 | 302 ms | measured |
+| `organization` | 889 | 2 | 264 ms | measured |
+| `docs` | 220 | 3/4 | 239 ms | measured |
+| `memory-graph` | 536 | 3/9 | 169 ms | measured |
+| `os-terminal` | 1,482 | 4/15 | 142 ms | measured |
+| `n8n`, `quicklinks` | 128, 83 | 2/4, 2/3 | not measurable (no dock icon) | — |
+| `app-store`, `assistant`, `files-manager`, `icon-picker`, `managed-apps`, `os-settings`, `media-viewer`, `auth`, `os-shell`, remaining (§0) | — | — | — | unmeasured |
+
+Do not rank by ms/kLOC here. Two slices show why: `docs` (220 LOC) and the smallest slices have
+a denominator so small that run-to-run variance swamps the ratio, so a high ratio reflects a
+small denominator rather than a big win. Choose by the absolute long-task column; use coupling
+only to break ties between slices of similar size.
+
+*(Note: `appshell` at 20,028 LOC is omitted here; it is the shell swapped in Phase 5.)*
+
+Execution rules:
+- One slice at a time, each behind a feature flag, each measured with `perf:apps`, each reversible.
+- Freeze new React slice development only when > 50 % of `frontend/slices` bytes are Svelte.
 
 Exit criteria: > 60 % of slice bytes are Svelte, `appshell` is the only large React
 surface left, and no slice has regressed its Phase 0 baseline.
@@ -632,10 +787,10 @@ plus thin SSR. Do not attempt before Phase 2 lands.
 | Path | Engineering | Risk to live users | Measured upside |
 |---|---|---|---|
 | Phase 0 (done) | 1 day | none | makes everything else falsifiable |
-| **In-tree budget & mount tuning (§3 items 1–3)** | **2–5 days** | low | initial JS −30 KB gzip; shaves ~200–400 ms LCP |
+| **In-tree budget & mount tuning (§3 items 1–3)** | **2–5 days** | low | measured **−2.8 KiB gzip** from both eager leaks; LCP effect not yet detectable above the 3.2–4.2 s noise band |
 | + Phase 1 (Bun tooling) | +2–4 days | none | dev velocity; `bun install` portability |
 | + Phase 2 (portable core) | +2–3 weeks | none | maintainability, framework freedom |
-| + Phase 3 (one island) | +3–4 weeks | low, flag-gated | proves or disproves the whole thesis |
+| ~~+ Phase 3 (one island)~~ | ~~+3–4 weeks~~ | — | **cancelled by measurement**: a Svelte 5 island costs 15.75 KiB gzip of second runtime against a 1.64 KiB React chunk |
 | Full Svelte (all phases) | **6–9 months solo** | medium | LCP 3.2–4.2 → ~2.5–2.9 s, initial JS −60 %, TBT 164 → ~70–95 ms |
 | Rust rewrite of shell + server | **> 1 year** | high | nothing user-visible |
 
@@ -644,9 +799,10 @@ The single honest sentence: **TBT is already at the post-migration target, but L
 chip away at it, but cutting the runtime via migration is the primary path to ~2.5 s.**
 
 After in-tree budget and mount tuning, Phases 1–2 are still worth doing on their own
-merits (maintainability, `bun install` portability, a framework-free backend). Phase 3
-becomes the honest test of whether a real slice shrinks first-load JS and brings LCP
-toward the ~2.5 s target in a real browser, turning what looked like a bundle-aesthetics
+merits (maintainability, `bun install` portability, a framework-free backend). Phase 3 was
+the honest test of whether a slice could shrink first-load JS in a running shell; the spike
+answered it negatively, so that budget moves to Phase 5. Phase 5 becomes the honest test of
+whether the full swap brings LCP toward the ~2.5 s target, turning what looked like a bundle-aesthetics
 exercise into a measurable user speed win.
 
 

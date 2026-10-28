@@ -1,4 +1,9 @@
 {
-  "gzipBytes": { "initial": 307200, "entry": 163840, "css": 30720 },
-  "preloadedFontBytes": 81920
+  "note": "Derived arithmetically from measured production build on 2026-10-29. Framework floor is 132,670 B gzip (react-dom 73,603 + Next client 44,229 + next/navigation 8,167 + turbopack 4,390 + next-isr 2,281). App code entry is 155,048 B gzip; +2.0% headroom (3,101 B) sets entry ceiling to 158,149 B. Initial ceiling is framework floor + entry ceiling = 290,819 B gzip (+3,101 B / 1.08% headroom over 287,718 B actual). Preloaded font is 69,652 B raw; +2.0% headroom (1,393 B) sets preloadedFontBytes to 71,045 B. CSS is 30,705 B gzip; +2.0% headroom (614 B) sets CSS ceiling to 31,319 B.",
+  "gzipBytes": {
+    "initial": 290819,
+    "entry": 158149,
+    "css": 31319
+  },
+  "preloadedFontBytes": 71045
 }
