@@ -9,7 +9,7 @@ found, and the fix that closes it.
 > **R-10 glassmorphism dose cap:** at most 1 to 2 simultaneous blurred surfaces per
 > screen.
 
-A "blurred surface" is any element that resolves to a `backdrop-filter` blur, either
+A "blurred surface" is any element that resolves to a backdrop filter blur, either
 through a `backdrop-blur-*` utility or through the shared `.glass` helper
 (`app/globals.css:237`). A "screen" is one shell surface at one moment. Persistent
 chrome counts. A transient overlay counts its own blurred layers plus any persistent
@@ -143,15 +143,19 @@ chrome screen above the cap.
 `frontend/slices/appshell/components/shells/windows/snap-assist.tsx` was the only
 breach. One interaction owned two glass layers:
 
-- line 60, `absolute inset-0 z-[55] bg-black/30 backdrop-blur-[2px]`: the full screen
-  backdrop, whose only job is to dim the desktop behind the panel.
-- line 64, `absolute flex flex-col gap-3 overflow-auto rounded-2xl border border-white/15 bg-card/70 p-4 shadow-2xl backdrop-blur-xl`:
-  the snap zone panel itself.
+- line 60, the full screen backdrop: absolutely positioned to inset 0 at z-index 55,
+  black at 30 percent opacity, with a 2px backdrop blur. Its only job is to dim the
+  desktop behind the panel.
+- line 64, the snap zone panel itself: an absolutely positioned scrollable flex
+  column with a 3 step gap, 4 step padding, 2xl corner radius, a white border at 15
+  percent opacity, card colour at 70 percent opacity, the 2xl shadow, and the extra
+  large backdrop blur.
 
 The taskbar check matters here. Snap assist is rendered by
 `frontend/slices/appshell/components/shells/windows/windows-shell.tsx:90` and the
-taskbar by line 91. Both are siblings in the same stacking context, taskbar at
-`z-[60]` and snap assist at `z-[55]`, so **the taskbar paints on top of the snap
+taskbar by line 91. Both are siblings in the same stacking context, with the taskbar
+at z-index 60 (`taskbar.tsx:62`) and snap assist at z-index 55
+(`snap-assist.tsx:60`), so **the taskbar paints on top of the snap
 assist backdrop and is genuinely visible during snap assist**. The panel cannot hide
 it either: `snapRect` bounds its height by `workArea`, which subtracts the taskbar
 inset set at `windows-shell.tsx:38`. That screen therefore had **three** simultaneous
@@ -160,11 +164,11 @@ blurred surfaces: taskbar, backdrop, panel.
 The backdrop is the correct element to make opaque, because the panel is the content
 of the moment and the taskbar is separate persistent chrome that must not be stripped.
 
-Fix applied in the next commit: the backdrop becomes a solid dim, `bg-black/40`, with
-no `backdrop-filter`. The panel keeps `backdrop-blur-xl`, every z-index is unchanged,
-the click to dismiss handler is unchanged, and the `animate-in fade-in duration-150`
-entry animation is unchanged. That screen goes from 3 surfaces to 2, which is the
-allowed dose.
+Fix applied in the next commit: the backdrop becomes a solid dim, black at 40 percent
+opacity (`snap-assist.tsx:60`), with no backdrop filter. The panel keeps its extra
+large backdrop blur, every z-index is unchanged, the click to dismiss handler is
+unchanged, and the 150ms fade in entry animation (`snap-assist.tsx:60`) is unchanged.
+That screen goes from 3 surfaces to 2, which is the allowed dose.
 
 ## What was deliberately not changed
 
@@ -178,7 +182,7 @@ allowed dose.
 
 ## Limits of this audit
 
-- `.glass` (`app/globals.css:237`) also produces `backdrop-filter: blur` and is
+- `.glass` (`app/globals.css:237`) also produces a backdrop filter blur and is
   outside the 40 occurrence inventory. It is used by the macOS menu bar and dock (2
   on the desktop), notification center, app switcher, mobile notifications, mobile
   switcher, iOS home chrome and folder cards, all of which are one surface per
