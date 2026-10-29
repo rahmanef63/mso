@@ -41,6 +41,12 @@ describe("appSecretExcludes", () => {
 // Real `zip` runs here. These three are the behaviours a piped/rewritten zip path
 // silently regressed before: a partial archive being thrown away, an exclude that
 // misses the archive root, and the tmpdir surviving the request.
+// Sequential on purpose. fs-zip.ts serialises whole-process archive generation through
+// `globalThis.__msoZipActive`, which is the right production behaviour — two concurrent
+// `zip` children would fight over the same output — but it means two tests in this file
+// cannot run at once. Under `vitest run --coverage` the worker pool is wider, and without
+// this the second test sees the first one's lock and fails with "Another archive is
+// already being generated". The lock is correct; the test ordering was not.
 describe("zipStream against the real zip binary", () => {
   let base = "";
   const read = async (s: Readable): Promise<Buffer> => {
@@ -128,16 +134,31 @@ describe("zipStream against the real zip binary", () => {
   // The unlink happens before zipStream resolves, so this holds even for a stream
   // nobody ever reads — the abandoned-request case that used to strand a tmpdir.
   it("leaves no temp directory behind, drained or not", async () => {
-    const stale = () => (readdirSync(os.tmpdir())).filter((n) => n.startsWith("os-zip-")).length;
-    const before = stale();
-    const abandoned = await zipStream(base, ["keep.txt"]);
-    expect(stale()).toBe(before);
+    // Scoped to directories that appear during this test. `os.tmpdir()` is shared with
+    // every other vitest worker, so a global count of `os-zip-*` sees a sibling file's temp
+    // dirs appear and vanish concurrently — that is why this failed under
+    // `vitest run --coverage` (wider pool) while passing in isolation. Each phase only
+    // asserts on dirs that were not present when that phase began.
+    const listing = () => new Set(readdirSync(os.tmpdir()).filter((n) => n.startsWith("os-zip-")));
+    const phase = async (label: string, run: () => Promise<void>) => {
+      const before = listing();
+      await run();
+      const appeared = [...listing()].filter((n) => !before.has(n));
+      expect(appeared, `${label}: temp dirs leaked`).toHaveLength(0);
+    };
+
+    let abandoned: Awaited<ReturnType<typeof zipStream>> | undefined;
+    await phase("abandoned stream", async () => {
+      abandoned = await zipStream(base, ["keep.txt"]);
+    });
     await expect(zipStream(base, ["keep.txt"])).rejects.toThrow(/already/);
-    abandoned.destroy();
-    await once(abandoned, "close");
-    const drained = await read(await zipStream(base, ["keep.txt"]));
-    expect(entries(drained)).toContain("keep.txt"); // unlinked bytes still readable
-    expect(stale()).toBe(before);
+    abandoned!.destroy();
+    await once(abandoned!, "close");
+
+    await phase("drained stream", async () => {
+      const drained = await read(await zipStream(base, ["keep.txt"]));
+      expect(entries(drained)).toContain("keep.txt"); // unlinked bytes still readable
+    });
   });
 });
 

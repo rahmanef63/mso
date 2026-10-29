@@ -16,6 +16,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `gates` make the full local gate match CI, fixing three real defects it exposed
 - `perf` compare TBT only on the same machine, not just the same load
 - `shell, gates` restore the artwork reveal rule, and make the instance guard actually read files (#171)
 - `install` make bun install compile node-pty without a global node-gyp
