@@ -137,6 +137,7 @@
   "packageManager": "bun@1.4.2",
   "patchedDependencies": {
     "brace-expansion@5.0.12": "patches/brace-expansion@5.0.12.patch",
-    "fast-glob@3.3.1": "patches/fast-glob@3.3.1.patch"
+    "fast-glob@3.3.1": "patches/fast-glob@3.3.1.patch",
+    "node-pty@1.1.0": "patches/node-pty@1.1.0.patch"
   }
 }
