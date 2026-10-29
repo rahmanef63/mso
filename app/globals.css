@@ -331,9 +331,9 @@ body {
 [data-shell="windows"] .shell-artwork-default,
 [data-shell="android"] .shell-artwork-default { display: none; }
 [data-shell="macos"] .shell-artwork-macos,
-[data-shell="ios"] .shell-artwork-macos { display: block; }
+[data-shell="ios"] .shell-artwork-macos { display: block; content-visibility: visible; }
 [data-shell="windows"] .shell-artwork-windows,
-[data-shell="android"] .shell-artwork-windows { display: block; }
+[data-shell="android"] .shell-artwork-windows { display: block; content-visibility: visible; }
 
 /* ── iOS component parity (scoped to the iOS surface ONLY) ─────────────────
    Shared primitives (Switch, Segmented) carry accent-tinted states that suit
