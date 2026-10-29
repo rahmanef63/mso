@@ -13,7 +13,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `shell, gates` restore the artwork reveal rule, and make the instance guard actually read files
+- `shell, gates` restore the artwork reveal rule, and make the instance guard actually read files (#171)
 - `install` make bun install compile node-pty without a global node-gyp
 - `api` restore the models provider name the route extraction dropped (#169)
 - `api` restore the models provider name the route extraction dropped (#168)
