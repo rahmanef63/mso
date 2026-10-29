@@ -50,6 +50,9 @@ an interactive process cannot be driven.
 
 `/diff` renders the server's historical artifact diff. There is no preview of a pending edit.
 
+**Closed.** `fs_edit` now returns the diff it applied and accepts `dry_run: true`, and the TUI
+renders that diff under the `fs_edit` row. See `docs/AGENT-EDIT-PREVIEW.md`.
+
 ## What I will build, in this order
 
 | # | Item | Seam it uses | Why this order |
@@ -59,7 +62,8 @@ an interactive process cannot be driven.
 | 3 | `fs_glob` tool: path glob (`**/*.ts`) bounded by root | same leaf | cheap once grep exists |
 | 4 | `todo_write` tool: session-scoped checklist the TUI renders | session store | keeps long tasks honest |
 | 5 | Background subagent: `agent_subagent_start` + `agent_subagent_status` | existing subagent runner + `exec_job_*` lifecycle pattern | enables parallelism |
-| 6 | TUI: render todo list, and `fs_edit` preview | `mso-agent-layout.mjs` section helpers | visibility |
+| 6 | TUI: render the `fs_edit` diff, and `dry_run` on `fs_edit` itself | returned tool result, no extra round trip | visibility |
+| 7 | TUI: render the `todo_write` list | session state on the status row | not started |
 
 ## Non-negotiable constraints
 

@@ -1,7 +1,8 @@
 import { HostError } from "./host-error";
 import { readFile, statReadableMeta } from "./fs";
 import { writeFileGuarded } from "./guarded-write";
-import { utf8Bytes } from "./hash";
+import { sha256Text, utf8Bytes } from "./hash";
+import { editDiff } from "./fs-edit-diff";
 
 const MAX_READ_BYTES = 2 * 1024 * 1024; // 2 MiB
 const MAX_WRITE_BYTES = 8 * 1024 * 1024; // 8 MiB
@@ -12,6 +13,7 @@ export interface EditFileInput {
   newString: string;
   replaceAll?: boolean;
   expectedSha256?: string;
+  dryRun?: boolean;
 }
 
 export interface EditFileResult {
@@ -20,6 +22,11 @@ export interface EditFileResult {
   replacements: number;
   bytes: number;
   sha256: string;
+  written: boolean;
+  diff: string;
+  diffTruncated: boolean;
+  removedLines: number;
+  addedLines: number;
   previousSha256?: string;
 }
 
@@ -33,8 +40,20 @@ function countOccurrences(content: string, search: string): number {
   return count;
 }
 
+function checkExpectedSha(expectedSha256: string | undefined, currentContent: string): string | undefined {
+  if (!expectedSha256) return undefined;
+  if (!/^[a-f0-9]{64}$/i.test(expectedSha256)) {
+    throw new HostError("expected_sha256 must be a 64-character SHA-256 hex digest from fs_read");
+  }
+  const currentSha = sha256Text(currentContent);
+  if (currentSha.toLowerCase() !== expectedSha256.toLowerCase()) {
+    throw new HostError("File changed since fs_read; inspect it again before overwriting");
+  }
+  return currentSha;
+}
+
 export async function editFileGuarded(input: EditFileInput): Promise<EditFileResult> {
-  const { path, oldString, newString, replaceAll = false, expectedSha256 } = input;
+  const { path, oldString, newString, replaceAll = false, expectedSha256, dryRun = false } = input;
 
   if (oldString === "") {
     throw new HostError("old_string must not be empty");
@@ -74,6 +93,26 @@ export async function editFileGuarded(input: EditFileInput): Promise<EditFileRes
     throw new HostError(`Replacement would push file over limit (max ${MAX_WRITE_BYTES} bytes, resulting file is ${nextBytes} bytes)`);
   }
 
+  const previousSha256 = checkExpectedSha(expectedSha256, currentContent);
+
+  const diffResult = editDiff(currentContent, nextContent);
+
+  if (dryRun) {
+    return {
+      ok: true,
+      path,
+      replacements: occurrences,
+      bytes: nextBytes,
+      sha256: sha256Text(nextContent),
+      written: false,
+      diff: diffResult.diff,
+      diffTruncated: diffResult.truncated,
+      removedLines: diffResult.removed,
+      addedLines: diffResult.added,
+      ...(previousSha256 ? { previousSha256 } : {}),
+    };
+  }
+
   const writeResult = await writeFileGuarded({
     path,
     content: nextContent,
@@ -86,6 +125,11 @@ export async function editFileGuarded(input: EditFileInput): Promise<EditFileRes
     replacements: occurrences,
     bytes: writeResult.bytes,
     sha256: writeResult.sha256,
+    written: true,
+    diff: diffResult.diff,
+    diffTruncated: diffResult.truncated,
+    removedLines: diffResult.removed,
+    addedLines: diffResult.added,
     ...(writeResult.previousSha256 ? { previousSha256: writeResult.previousSha256 } : {}),
   };
 }
