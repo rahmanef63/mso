@@ -15,6 +15,7 @@ import { addUsage } from "./mso-agent-status.mjs";
 import { oneShotApproves } from "./mso-agent-oneshot.mjs";
 import { reasoningLine } from "./mso-agent-reasoning.mjs";
 import { parseEditResult, printEditDiff } from "./mso-agent-edit-diff.mjs";
+import { parseTodoCall, printTodoBlock, rememberTodos } from "./mso-agent-todos.mjs";
 
 function lazyAssistantOutput(session, options = {}) {
   if (options.quiet) return null;
@@ -92,6 +93,7 @@ export async function executeTool(rl, tool, call, agentSession, permission = "as
       if (options.activity) options.activity.toolEnd(tool, true);
       else process.stdout.write(`\r${C.c}  ✓ ${tool.name}${C.reset}\n`);
       if (tool.name === "fs_edit") printEditDiff(parseEditResult(out.result), { colors: C, activity: options.activity });
+      if (tool.name === "todo_write") printTodoBlock(rememberTodos(parseTodoCall(input, out.result)), { colors: C, activity: options.activity });
     }
     if (!out.ok) return { ok: false, result: out.result || "tool failed" };
     return { ok: true, result: String(out.result ?? "ok") };

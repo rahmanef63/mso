@@ -12,6 +12,7 @@ export const HELP_LINES = [
   "  /permission [mode]      choose ask | auto-write | yolo",
   "  /context                alias for /status",
   "  /diff [ref] [--full]    show diff viewer panel for artifact write action",
+  "  /todos [--all]          show session checklist from todo_write",
   "  /compact                force context compaction and archive history",
   "  /statusbar [on|off]     toggle compact dynamic status line",
   "  /reasoning [on|off]     toggle per-turn reasoning token metrics (/reasoning on|off)",

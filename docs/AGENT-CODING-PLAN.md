@@ -63,7 +63,7 @@ renders that diff under the `fs_edit` row. See `docs/AGENT-EDIT-PREVIEW.md`.
 | 4 | `todo_write` tool: session-scoped checklist the TUI renders | session store | keeps long tasks honest |
 | 5 | Background subagent: `agent_subagent_start` + `agent_subagent_status` | existing subagent runner + `exec_job_*` lifecycle pattern | enables parallelism |
 | 6 | TUI: render the `fs_edit` diff, and `dry_run` on `fs_edit` itself | returned tool result, no extra round trip | visibility |
-| 7 | TUI: render the `todo_write` list | session state on the status row | not started |
+| 7 | TUI: render the `todo_write` list, plus a status-row chip | the tool input and result, cached per session, cleared on /new and /resume | done |
 
 ## Non-negotiable constraints
 
