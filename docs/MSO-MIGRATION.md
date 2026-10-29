@@ -602,14 +602,19 @@ The largest durable win and the cheapest real work, because 96 % of `lib/` needs
   imported `next/server` or `next/headers` now use the web-standard `Request`/`Response`,
   and `grep -rn 'from "next/' lib` (non-test) is 0. `NextResponse.cookies.set` became an
   explicit `Set-Cookie` header in three files, with the same attributes and the same
-  `base64url` payloads, so no encoding change. One honest exception remains:
-  `lib/auth/require-session.ts` still reaches Next through a *dynamic* `import("next/headers")`
-  inside the default `nextSessionCookieReader`, because `cookies()` is request-scoped framework
-  plumbing with no web-standard equivalent in place. It is a two-line seam with a default
-  parameter, so all 54 call sites are untouched and a SvelteKit adapter can pass its own reader;
-  moving the adapter out of `lib/` entirely is 54 mechanical edits and was deliberately not done
-  here. The exit criterion below is therefore "no *static* `next/*` import in `lib/`" — a grep for
-  `from "next/"` does not see `import(...)` and would give a false green.
+  `base64url` payloads, so no encoding change.
+
+  **Done 2026-10-29 for the dynamic half too.** The one remaining exception was
+  `lib/auth/require-session.ts` reaching Next through a *dynamic* `import("next/headers")`
+  inside the default `nextSessionCookieReader`, because `cookies()` is request-scoped
+  framework plumbing. That reader now moved to the framework entry: `instrumentation.ts`
+  imports `next/headers` once at boot and calls `registerSessionCookieReader(...)`, while
+  `lib/auth` holds only a registered callback and a `defaultCookieReader()` that THROWS a
+  named error when nothing registered. Nothing is threaded through the 54 call sites, the
+  seam stays a default parameter, and a SvelteKit adapter can register its own reader the
+  same way. The failure mode is deliberate: an unregistered reader fails closed and loud,
+  never silently unauthenticated. The exit criterion is now a plain `next/*` grep in `lib/`,
+  which covers both static imports and `import(...)`.
 - Convert the 117 `route.ts` handlers into thin adapters: one shared
   `NextRequest → { request, ctx }` shim, all logic in `lib/`. Handlers become 3–5 lines.
   (`NextResponse` 744 usages, `NextRequest` 122 — the shim is the whole job.)

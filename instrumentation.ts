@@ -6,6 +6,15 @@ import type { Instrumentation } from "next";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // The only place that knows how Next exposes cookies. `lib/auth` stays framework-free
+    // and asks this registered reader, which keeps Phase 2's boundary honest. A failure
+    // here is NOT swallowed: without it every session read fails closed, and a silent
+    // catch would turn that into a confusing "not registered" error per request.
+    await import("next/headers").then(({ cookies }) =>
+      import("./lib/auth/require-session").then(({ registerSessionCookieReader, SESSION_COOKIE }) =>
+        registerSessionCookieReader(async () => (await cookies()).getAll(SESSION_COOKIE)),
+      ),
+    );
     // Warm durable agent-session maintenance before accepting requests. Backfilling
     // the conversation index once at boot keeps MCP lookup O(1) even on hosts with
     // thousands of old CLI sessions; archive retention remains best-effort.
