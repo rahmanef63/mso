@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `agent` surgical edit, content search, glob and a todo list
+- `agent` background subagents, so a parent can keep working in parallel
+- `agent` surgical edit, content search, glob and a todo list (#173)
 - `perf` hydration mark chain, and the LCP conclusion it overturns
 - `tui` close the opencode TUI gap on the seams MSO already owns (#166)
 
@@ -34,7 +35,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
-- `bench` capture the measured before-baseline for the Phase 4/5 comparison
 - `migration` Phase 5 edge-behaviour spike, verified with curl
 - `progress` record Phase 2 completion, the bun install fix and the Phase 6 no-go
 - `progress` record the perf gate and the numbers it retracted

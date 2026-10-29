@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.17.0 version=2026.10.18.3 tools=123 read=61 write=39 exec=23 -->
+<!-- mcp-toolset: server=1.17.0 version=2026.10.18.3 tools=126 read=62 write=39 exec=25 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.17.0` |
 | Toolset | `2026.10.18.3` |
 | Toolset changed at | `2026-10-18T13:24:00+00:00` |
-| Transport tools | **125** |
-| Model/operator tools | **123** |
-| Read | **61** |
+| Transport tools | **128** |
+| Model/operator tools | **126** |
+| Read | **62** |
 | Write | **39** |
-| Exec | **23** |
+| Exec | **25** |
 | App-only bridges | **2** |
 
-### Read (61)
+### Read (62)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -30,6 +30,7 @@
 - `agent_session_flow`
 - `agent_session_resume`
 - `agent_sessions_list`
+- `agent_subagent_status`
 - `apps_list`
 - `apps_logs`
 - `browser_status`
@@ -124,12 +125,14 @@
 - `workflow_finish`
 - `workflow_start`
 
-### Exec (23)
+### Exec (25)
 
 - `a2a_handoff`
 - `a2a_message_send`
 - `a2a_task_cancel`
+- `agent_subagent_cancel`
 - `agent_subagent_run`
+- `agent_subagent_start`
 - `browser_power`
 - `exec_job_cancel`
 - `exec_job_start`
@@ -157,20 +160,20 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.17.0 version=2026.10.18.3 tools=123 read=61 write=39 exec=23 app-only=2 total=125 -->
+<!-- mcp-chatgpt-profile: server=1.17.0 version=2026.10.18.3 tools=126 read=62 write=39 exec=25 app-only=2 total=128 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **125** |
-| ChatGPT model/operator tools | **123** |
-| Read | **61** |
+| ChatGPT transport tools | **128** |
+| ChatGPT model/operator tools | **126** |
+| Read | **62** |
 | Write | **39** |
-| Exec | **23** |
+| Exec | **25** |
 | App-only bridges | **2** |
 
-### ChatGPT read (61)
+### ChatGPT read (62)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -182,6 +185,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `agent_session_flow`
 - `agent_session_resume`
 - `agent_sessions_list`
+- `agent_subagent_status`
 - `apps_list`
 - `apps_logs`
 - `browser_status`
@@ -276,12 +280,14 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `workflow_finish`
 - `workflow_start`
 
-### ChatGPT exec (23)
+### ChatGPT exec (25)
 
 - `a2a_handoff`
 - `a2a_message_send`
 - `a2a_task_cancel`
+- `agent_subagent_cancel`
 - `agent_subagent_run`
+- `agent_subagent_start`
 - `browser_power`
 - `exec_job_cancel`
 - `exec_job_start`
