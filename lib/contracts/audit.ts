@@ -5,6 +5,7 @@ export type AuditAction =
   | "exec.job.start"
   | "exec.job.cancel"
   | "term.open"
+  | "term.write"
   | "term.close"
   | "fs.write"
   | "fs.delete"

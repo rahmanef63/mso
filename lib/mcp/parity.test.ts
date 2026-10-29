@@ -73,6 +73,7 @@ describe("MCP rate limits mirror the routes", () => {
     const ROUTE_LIMITS: Record<string, number> = {
       "fs.write": 120, "fs.edit": 120, "fs.mkdir": 120, "fs.move": 120, "fs.copy": 60,
       "fs.delete": 60, "fs.upload": 20, "exec": 60, "managed-app": 12, "camoufox": 12,
+      "term.open": 20,
     };
     const MCP_NATIVE_LIMITS: Record<string, number> = {
       "flow.run": 20, "flow.manage": 20, "workflow.graph": 20, "agent.session.open": 20, "project.mcp.manage": 20, "project.asset.attach": 20,

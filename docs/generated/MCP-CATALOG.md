@@ -4,18 +4,18 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.17.0 version=2026.10.18.3 tools=126 read=62 write=39 exec=25 -->
+<!-- mcp-toolset: server=1.17.0 version=2026.10.18.3 tools=127 read=62 write=39 exec=26 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.17.0` |
 | Toolset | `2026.10.18.3` |
 | Toolset changed at | `2026-10-18T13:24:00+00:00` |
-| Transport tools | **128** |
-| Model/operator tools | **126** |
+| Transport tools | **129** |
+| Model/operator tools | **127** |
 | Read | **62** |
 | Write | **39** |
-| Exec | **25** |
+| Exec | **26** |
 | App-only bridges | **2** |
 
 ### Read (62)
@@ -125,7 +125,7 @@
 - `workflow_finish`
 - `workflow_start`
 
-### Exec (25)
+### Exec (26)
 
 - `a2a_handoff`
 - `a2a_message_send`
@@ -149,6 +149,7 @@
 - `project_function_call`
 - `project_mcp_call`
 - `project_mcp_tools`
+- `pty_session`
 - `tool_forge_evaluate`
 - `tool_forge_promote`
 - `workflow_graph`
@@ -160,17 +161,17 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.17.0 version=2026.10.18.3 tools=126 read=62 write=39 exec=25 app-only=2 total=128 -->
+<!-- mcp-chatgpt-profile: server=1.17.0 version=2026.10.18.3 tools=127 read=62 write=39 exec=26 app-only=2 total=129 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **128** |
-| ChatGPT model/operator tools | **126** |
+| ChatGPT transport tools | **129** |
+| ChatGPT model/operator tools | **127** |
 | Read | **62** |
 | Write | **39** |
-| Exec | **25** |
+| Exec | **26** |
 | App-only bridges | **2** |
 
 ### ChatGPT read (62)
@@ -280,7 +281,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `workflow_finish`
 - `workflow_start`
 
-### ChatGPT exec (25)
+### ChatGPT exec (26)
 
 - `a2a_handoff`
 - `a2a_message_send`
@@ -304,6 +305,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `project_function_call`
 - `project_mcp_call`
 - `project_mcp_tools`
+- `pty_session`
 - `tool_forge_evaluate`
 - `tool_forge_promote`
 - `workflow_graph`
