@@ -7,8 +7,11 @@
 // boundary to inspect, and an interactive shell composes commands from
 // fragments (history, completion, editors) anyway. The gate is the same as
 // every /api/v1 route: signed session cookie + approved device. Session
-// open/close are audited (term.open / term.close); keystrokes are not
-// (high-volume, and the owner has a full shell by design).
+// open/close are audited (term.open / term.close). The browser terminal does
+// not audit keystrokes (high-volume, and the owner has a full shell by design),
+// but the AGENT-side pty_session tool does: it logs term.write per call, because
+// "opened a shell" and "typed a command into a shell" are different acts and
+// collapsing them would hide the second one from forensics.
 import { spawn } from "node-pty";
 import type { IPty } from "node-pty";
 import { createHash, randomBytes } from "crypto";

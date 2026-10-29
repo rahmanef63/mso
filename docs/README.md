@@ -32,6 +32,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`COGNITIVE-RUNTIME.md`](./COGNITIVE-RUNTIME.md) | Provider-neutral MCP/session/context/tool-routing runtime and benchmark contract |
 | [`AGENT-BOOTSTRAP.md`](./AGENT-BOOTSTRAP.md) | Canonical first-call sequence and capability-parity matrix across CLI, MCP, and Alfa |
 | [`AGENT-CODING-PLAN.md`](./AGENT-CODING-PLAN.md) | Audited coding-capability gaps in the MCP catalog, the four tools added to close them, and what stays out of scope |
+| [`AGENT-PTY-DESIGN.md`](./AGENT-PTY-DESIGN.md) | Why an agent-driven PTY is the highest-blast-radius tool in the catalog, and the bounds that keep it equal to exec_run |
 | [`RASMIC.md`](./RASMIC.md) | Risk-aware orchestration, repo-local memory/evidence, collision detection and recipe/script promotion |
 | [`MEMORY-GRAPH.md`](./MEMORY-GRAPH.md) | Owner Memory app: vault notes, project knowledge, agent memory, layouts and limits |
 | [`AGENT-VAULT.md`](./AGENT-VAULT.md) | Separate private repository agent-progress vaults, source/data boundaries and Obsidian use |

@@ -109,4 +109,5 @@ export const MCP_ONLY: Record<string, string> = {
   "render.mso.block": "the compact Block is a ChatGPT MCP Apps presentation target for validation/action/CRUD handoff; Alfa already has native forms and approval cards",
   "render.mso.page": "the full Page is a ChatGPT MCP Apps presentation target; Alfa already is an MSO presentation target and does not render another copy of itself",
   "render.mso.surface": "app-only compatibility alias for cached pre-Page widgets; Alfa has no reason to expose the retired presentation name",
+  "pty.session": "external coding agents need bounded interactive PTY sessions for interactive commands and long pipelines; in-shell Alfa already runs inside the native MSO terminal UI and does not need a headless pty tool",
 };
