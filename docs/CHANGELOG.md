@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `agent` surgical edit, content search, glob and a todo list
 - `perf` hydration mark chain, and the LCP conclusion it overturns
 - `tui` close the opencode TUI gap on the seams MSO already owns (#166)
 

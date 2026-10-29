@@ -4,21 +4,21 @@
 
 ## Full MSO catalog
 
-<!-- mcp-toolset: server=1.17.0 version=2026.10.18.3 tools=119 read=59 write=37 exec=23 -->
+<!-- mcp-toolset: server=1.17.0 version=2026.10.18.3 tools=123 read=61 write=39 exec=23 -->
 
 | Fact | Current source value |
 |---|---:|
 | MCP server | `1.17.0` |
 | Toolset | `2026.10.18.3` |
 | Toolset changed at | `2026-10-18T13:24:00+00:00` |
-| Transport tools | **121** |
-| Model/operator tools | **119** |
-| Read | **59** |
-| Write | **37** |
+| Transport tools | **125** |
+| Model/operator tools | **123** |
+| Read | **61** |
+| Write | **39** |
 | Exec | **23** |
 | App-only bridges | **2** |
 
-### Read (59)
+### Read (61)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -41,6 +41,8 @@
 - `flow_catalog`
 - `flow_status`
 - `fs_export_file`
+- `fs_glob`
+- `fs_grep`
 - `fs_list`
 - `fs_read`
 - `fs_search`
@@ -80,7 +82,7 @@
 - `tool_forge_candidates`
 - `vps_status`
 
-### Write (37)
+### Write (39)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -96,6 +98,7 @@
 - `flow_manage`
 - `fs_copy`
 - `fs_delete`
+- `fs_edit`
 - `fs_mkdir`
 - `fs_move`
 - `fs_upload_file`
@@ -115,6 +118,7 @@
 - `project_script_run`
 - `session_artifact_register`
 - `session_artifacts_cleanup`
+- `todo_write`
 - `tool_forge_propose`
 - `workflow_cancel`
 - `workflow_finish`
@@ -153,20 +157,20 @@
 
 ## ChatGPT model profile
 
-<!-- mcp-chatgpt-profile: server=1.17.0 version=2026.10.18.3 tools=119 read=59 write=37 exec=23 app-only=2 total=121 -->
+<!-- mcp-chatgpt-profile: server=1.17.0 version=2026.10.18.3 tools=123 read=61 write=39 exec=23 app-only=2 total=125 -->
 
 The ChatGPT profile automatically projects the complete MSO-owned generic model/operator catalog. OAuth scope is still enforced independently; app-only compatibility bridges stay app-only, and project-owned MCP tool names remain dynamic data behind the generic project bridge.
 
 | Fact | Current source value |
 |---|---:|
-| ChatGPT transport tools | **121** |
-| ChatGPT model/operator tools | **119** |
-| Read | **59** |
-| Write | **37** |
+| ChatGPT transport tools | **125** |
+| ChatGPT model/operator tools | **123** |
+| Read | **61** |
+| Write | **39** |
 | Exec | **23** |
 | App-only bridges | **2** |
 
-### ChatGPT read (59)
+### ChatGPT read (61)
 
 - `a2a_agent_discover`
 - `a2a_agents_list`
@@ -189,6 +193,8 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `flow_catalog`
 - `flow_status`
 - `fs_export_file`
+- `fs_glob`
+- `fs_grep`
 - `fs_list`
 - `fs_read`
 - `fs_search`
@@ -228,7 +234,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `tool_forge_candidates`
 - `vps_status`
 
-### ChatGPT write (37)
+### ChatGPT write (39)
 
 - `a2a_agent_register`
 - `a2a_agent_remove`
@@ -244,6 +250,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `flow_manage`
 - `fs_copy`
 - `fs_delete`
+- `fs_edit`
 - `fs_mkdir`
 - `fs_move`
 - `fs_upload_file`
@@ -263,6 +270,7 @@ The ChatGPT profile automatically projects the complete MSO-owned generic model/
 - `project_script_run`
 - `session_artifact_register`
 - `session_artifacts_cleanup`
+- `todo_write`
 - `tool_forge_propose`
 - `workflow_cancel`
 - `workflow_finish`
