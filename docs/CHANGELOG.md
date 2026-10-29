@@ -42,6 +42,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Chores**
 
+- `gates` restore the CI-parity runner lost in the rebase
 - `gates` re-add the 12-gate runner and regenerate the changelog
 
 ## 2026-10-28
