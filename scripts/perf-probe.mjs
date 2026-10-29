@@ -100,6 +100,11 @@ try {
       cpus: os.cpus().length,
       node: process.version.replace(/^v/, ""),
       totalMemMb: Math.round(os.totalmem() / 1024 / 1024),
+      // 1-minute load average at measurement time. Recorded because TBT moves with it:
+      // the committed baseline was taken on an idle box, and the same commit measured
+      // 138 ms at load ~1 and 794 ms at load ~13. Without this number a report cannot
+      // be compared to another report, or a regression told apart from a busy host.
+      loadAvg1: Number(os.loadavg()[0].toFixed(2)),
     },
     profile: { name: "cold-slow4g-4xcpu", latencyMs: SLOW_4G.latency, downlinkKbps: 1600, uplinkKbps: 750, cpuRate: 4 },
     runs,

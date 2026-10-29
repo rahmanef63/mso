@@ -1,8 +1,9 @@
 {
   "schemaVersion": 1,
-  "note": "Timing numbers drift with host load, so this file only enforces a 2x blowup against scripts/perf-baseline.json. Bundle bytes are already gated deterministically by scripts/check-bundle.mjs against scripts/bundle-budget.json (gzip, from build output, no browser); enforcing a browser-measured byte count here would be both redundant and flaky, since it counts every JS chunk the shell fetched during the window including deferred ones. targets (initialGzipBytes 256000, tbtMs 150, lcpMs 2500) are the advisory post-migration goals from docs/MSO-MIGRATION.md §3 and are printed, never enforced against today's build.",
+  "note": "Timing numbers drift with host load, so this file only enforces a 2x blowup against scripts/perf-baseline.json. Bundle bytes are already gated deterministically by scripts/check-bundle.mjs against scripts/bundle-budget.json (gzip, from build output, no browser); enforcing a browser-measured byte count here would be both redundant and flaky, since it counts every JS chunk the shell fetched during the window including deferred ones. targets (initialGzipBytes 256000, tbtMs 150, lcpMs 2500) are the advisory post-migration goals from docs/MSO-MIGRATION.md \u00a73 and are printed, never enforced against today's build. Timing comparison is additionally skipped when the host 1-minute load average exceeds enforce.maxLoadAvg1ForTiming, because the committed baseline was taken on an idle box and the same commit has measured 138 ms at load ~1 and 794 ms at load ~13. Byte checks are unaffected by load and always run.",
   "enforce": {
-    "tbtMsBlowupFactor": 2.0
+    "tbtMsBlowupFactor": 2.0,
+    "maxLoadAvg1ForTiming": 4
   },
   "targets": {
     "initialGzipBytes": 256000,

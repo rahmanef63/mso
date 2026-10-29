@@ -20,6 +20,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Faster**
 
+- `gate` run it in CI, and make the timing half load-aware
 - `shell` take hidden app artwork off the layout and paint path (#167)
 - close two eager leaks, cancel the island plan, budget from arithmetic
 - `app-store` load RuntimeApp lazily so vaul leaves the first-load chunk

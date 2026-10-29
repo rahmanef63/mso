@@ -49,8 +49,13 @@ export type PerfBudget = {
 export function parsePerfReport(json: unknown): PerfReport;
 export function summarize(report: PerfReport | { runs?: Array<Record<string, unknown>> } | string): PerfSummary[];
 export function perfViolations(
-  report: PerfReport | { runs?: Array<Record<string, unknown>> } | string,
+  report: PerfReport | { runs?: Array<Record<string, unknown>>; host?: { loadAvg1?: number } } | string,
   budget: PerfBudget | null | undefined,
   baseline?: PerfReport | { runs?: Array<Record<string, unknown>> } | Record<string, unknown> | null,
 ): string[];
 export function formatTable(report: PerfReport | { runs?: Array<Record<string, unknown>> } | string): string;
+
+export function timingSkipReason(
+  report: PerfReport | { runs?: Array<Record<string, unknown>>; host?: { loadAvg1?: number } } | string,
+  budget: PerfBudget | null | undefined,
+): string | null;

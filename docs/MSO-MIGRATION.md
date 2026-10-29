@@ -572,6 +572,16 @@ chunks and are noisy). It gates the 2× TBT blowup against the committed baselin
 fails on a *missing* TBT rather than passing it — a null measurement is an instrumentation
 failure, not a fast page.
 
+The TBT comparison is skipped when the host's 1-minute load average exceeds
+`enforce.maxLoadAvg1ForTiming`, and the skip prints its reason. That is not a loosening:
+TBT is wall-clock inside a browser, the baseline was taken on an idle box, and the same
+commit has measured **138 ms at load ~1 and 794 ms at load ~13** — a 6× swing no blowup
+factor can attribute honestly. Recording `host.loadAvg1` in every report is what makes two
+reports comparable at all, and a real regression on an idle host still fails (verified: an
+injected 900 ms desktop TBT exits 1 while a busy-host run exits 0 with the reason shown).
+
+CI runs this in the `verify` job, reusing the Chromium that job already installs.
+
 Phase 0 findings that changed the plan: §1.5 corrections (Slow 4G, not 200 kbps; TBT
 definition), and the resulting conclusion in §3 that TBT is already at target and LCP is
 the real number.
@@ -796,10 +806,108 @@ surface left, and no slice has regressed its Phase 0 baseline.
 ### Phase 5 — Shell swap (the only irreversible-feeling step)
 
 - Only after Phase 4 exit criteria.
-- SvelteKit takes over routing. The 4 pages + 1 layout are trivial; `appshell`
-  (20,028 LOC, registry with `SlotRegion`, `FeatureDescriptor`, `ShellManifest`) is the work.
+- SvelteKit takes over routing. The 4 pages + 1 layout are trivial; `appshell` (20,028 LOC) is the work.
 - Run both shells in parallel behind a host-level flag for at least one release cycle.
 - Rollback = flip the flag back to the Next image. No database change, no cookie change.
+
+#### 5.1 Appshell inventory: measured breakdown (2026-10-29)
+
+`frontend/slices/appshell/` contains 236 files totaling **20,028 LOC** (counted via `wc -l` on all `.ts` and `.tsx` files). The directory-by-directory inventory below enumerates the exact file counts, LOC, and React-specific constructs that a Svelte 5 / SvelteKit port must re-express:
+
+| Subdirectory | Files | LOC | `useState` | `useEffect` | `useMemo` | `useCallback` | `createContext` | `useSyncExternalStore` | `forwardRef` | Exported React types |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `components/` | 75 | 8,014 | 77 | 58 | 33 | 25 | 0 | 5 | 0 | 0 |
+| `design/` | 6 | 123 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `features/` | 53 | 3,712 | 43 | 28 | 6 | 0 | 0 | 12 | 0 | 0 |
+| `hooks/` | 8 | 453 | 6 | 8 | 0 | 5 | 0 | 9 | 0 | 0 |
+| `lib/` | 65 | 5,585 | 2 | 11 | 4 | 6 | 4 | 50 | 0 | 3 |
+| `primitives/` | 11 | 742 | 4 | 2 | 1 | 0 | 1 | 0 | 0 | 7 |
+| `provider/` | 1 | 70 | 0 | 2 | 2 | 0 | 0 | 0 | 0 | 0 |
+| `registry/` | 8 | 574 | 0 | 0 | 4 | 1 | 12 | 2 | 0 | 3 |
+| `responsive/` | 6 | 378 | 5 | 5 | 0 | 0 | 2 | 0 | 0 | 0 |
+| `runtime/` | 1 | 119 | 0 | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `(root)` | 2 | 258 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| **Total** | **236** | **20,028** | **137** | **118** | **50** | **37** | **19** | **78** | **0** | **13** |
+
+*Note: Exported React types enumerates exported types/interfaces containing `ReactNode` or `ComponentType` (`lib/types.ts`: `AppIconComponent`, `AppDescriptor`; `lib/wallpaper-registry.ts`: `WallpaperDescriptor`; `primitives/`: 5 dialog part props, `ResponsiveDialogProps`, `ToolbarItem`; `registry/`: `FeatureDescriptor`, `Brand`, `ShellDescriptor`). `forwardRef` is completely absent (0 occurrences).*
+
+##### Separation of portable logic vs. rewritten idiom
+
+- **Portable logic (~5,972 LOC, 29.8 % of appshell)**:
+  - **Algorithmic state engines & geometry in `lib/` (1,230 LOC)**: Pure functions with zero UI imports: `store-geometry.ts` (122 LOC, window cascade and tile math), `store-persist.ts` (106 LOC, layout hydration/serialization), `store-snap.ts` (61 LOC, edge snap physics), `store-state.ts` (84 LOC, external store container), `store.ts` (180 LOC, window mutation actions and focus transfer), `window-commands.ts` (74 LOC), `window-title.ts` (38 LOC), `local-state.ts` (200 LOC), `mentions.ts` (116 LOC), `profiles.ts` (101 LOC), `intent-prefetch.ts` (38 LOC), `download.ts` (38 LOC), and `alfa-sources.ts` (72 LOC).
+  - **Plain JS/TS external stores in `lib/` (~1,700 LOC)**: 21 modules (`badges.ts`, `clipboard.ts`, `toast.ts`, `activity.ts`, `commands.ts`, `lock.ts`, `spaces.ts`, `focus-mode.ts`, `dock-prefs.ts`, `wallpaper-prefs.ts`, `alfa*.ts`) maintain state in module-scoped variables and expose plain `subscribe(listener)` / snapshot getters. The underlying store mechanisms are framework-agnostic.
+  - **Pure unit tests in `lib/` (1,995 LOC across 24 test files)**: Direct Node/Vitest test suites verifying store logic, geometry calculations, snap zones, z-index stacking, and persistence without a DOM or React harness.
+  - **Design tokens & metrics in `design/` (114 LOC)**: 5 TS files (92 LOC) defining OS metric types and profiles, plus 1 test file (31 LOC).
+  - **Feature definitions & commands in `features/` (~547 LOC)**: Static feature descriptors, keyboard command lists, and widget data definitions across the 10 feature directories.
+  - **URL mapping pure functions in `runtime/` (58 LOC)**: `payloadPath`, `stateToUrl`, `urlToApp`, and `visibleAppId` in `use-url-sync.tsx`.
+  - **Configuration schemas & contracts in `registry/types.ts` and `(root)` (148 LOC)**: `SlotRegion`, `ShellManifest`, and `defaults.ts`.
+  - **Responsive breakpoint calculation in `responsive/` (~100 LOC)**: Geometry classification helpers and mobile policy tests.
+
+- **Idiom that must be rewritten (~14,056 LOC, 70.2 % of appshell)**:
+  - **Component presentation trees in `components/` (7,948 LOC)**: 61 TSX components (7,219 LOC) defining the 5 OS chromes (`components/shells/macos/`, `windows/`, `dashboard/`, `android/`, `mobile-shell.tsx`), window chrome, dock, menu bar, and switcher, along with 13 React component test files (729 LOC). In Svelte 5, these require conversion from JSX and hook lifecycles to `.svelte` templates with `$state`, `$derived`, and `$effect`.
+  - **Feature UI implementations in `features/` (3,165 LOC)**: 29 TSX files (2,894 LOC) across the 10 shell features (`clipboard`, `control-center`, `desktop-icons`, `force-quit`, `inspector`, `lock-screen`, `notifications`, `search`, `shortcut-help`, `widgets`) plus 7 component tests (271 LOC).
+  - **Responsive UI primitives in `primitives/` (742 LOC)**: 9 TSX files (691 LOC) and 2 tests (51 LOC) providing adaptive dialogs, app frame, master-detail view, and toolbar. Require translation to Svelte snippets (`{#snippet ...}`) and slot components.
+  - **React hook lifecycles in `hooks/` (453 LOC)**: 8 files (`use-shell.ts`, `use-window-drag.ts`, `use-swipe-close.ts`, `use-persist-layout.ts`, `use-pull-down.ts`, `use-overview-key.ts`, `use-url-home.ts`, `use-intent-prefetch.ts`). Svelte replacements use Svelte actions (`use:windowDrag`), Svelte 5 runes, or auto-subscribing stores.
+  - **React context and hook wrappers in `lib/` (~660 LOC)**: Hotkey listener hooks (`use-focused-hotkey.ts`, 160 LOC), viewport sync (`use-viewport-window.ts`, 123 LOC), context providers (`context-zone.tsx`, `host-api.tsx`, `registry.tsx`), and the 50 `useSyncExternalStore` hook wrappers.
+  - **Shell registry loaders and contexts in `registry/` (~420 LOC)**: `register-shells.tsx` (65 LOC, `React.lazy` imports), `capabilities.tsx` (167 LOC), `shells.tsx` active shell context (64 LOC), and feature registry/brand contexts.
+  - **Responsive context in `responsive/` (~278 LOC)**: `responsive-provider.tsx` (166 LOC) and hook wrappers.
+  - **URL sync lifecycle in `runtime/` (61 LOC)**: React effects syncing Next's `usePathname()` with History API pushState/replaceState in `use-url-sync.tsx`.
+  - **Top-level root provider in `provider/` (70 LOC)**: `app-shell.tsx` nesting 7 React context providers into a single DOM tree.
+  - **Barrel exports in `index.ts` (~120 LOC)**: Re-exporting React-specific hooks and components.
+
+#### 5.2 Load-bearing public surface verdicts
+
+| Surface | File | Verdict | Architectural rationale |
+|---|---|---|---|
+| `SlotRegion` | `registry/types.ts` | **Survives as-is** | A pure TypeScript union of 9 string literals (`"overlay"`, `"rightPanel"`, `"notifications"`, `"topPill"`, `"controlCenter"`, `"menuBarStatus"`, `"systemStatus"`, `"today"`, `"desktopWidgets"`). Has zero framework dependencies and defines the geometric extension zones of the desktop/mobile shells. |
+| `FeatureDescriptor` | `registry/types.ts` | **Thin adapter** | The pluggable feature architecture (`id`, `slots`, `provider`) is framework-neutral in design. However, its types explicitly couple to React (`ComponentType` for slots and `ComponentType<{ children: ReactNode }>` for the wrapping provider). Must be adapted to accept Svelte 5 component constructors / snippets. An adapter layer can map Svelte feature modules to the existing descriptor contract. |
+| `ShellManifest` | `registry/types.ts` | **Survives as-is** | The whole-project configuration schema (`brand`, `apps`, `features`, `persistKey`, `capabilities`) is plain JSON-compatible data. Aside from `Brand.logo` (which currently accepts `ReactNode` in addition to text/glyphs), the entire structure passes directly into a SvelteKit root layout or store. |
+| Shell Registry | `registry/shells.tsx` | **Thin adapter** | The shell metadata map, surface classification (`desktop` vs `mobile`), `localStorage` persistence (`sv:shell`), and `resolveShell` logic are vanilla TypeScript. Only the React context (`ActiveShellContext`, `ActiveShellProvider`) and `useSyncExternalStore` hook need replacement with a Svelte readable store and `setContext`/`getContext`. |
+| Shell Dynamic Loader | `registry/register-shells.tsx` | **Must be redesigned** | Registers the 5 OS chromes via `React.lazy(() => import(...))`, relying on React 18 `<Suspense fallback={null}>` inside `desktop.tsx` for chunk splitting. In SvelteKit, dynamic chunk loading must be redesigned around Vite code-splitting and Svelte dynamic component loaders (`{#await import(...) then { default: Shell }}<Shell />{/await}` or Svelte 5 snippets). Vite's chunk boundary configuration must be audited to prevent Rollup from hoisting shared UI dependencies into the initial bundle. |
+| Window Store | `lib/store.ts`, `lib/store-state.ts` | **Survives as-is** | The entire window manager is vanilla TypeScript. It manages mutable state in `M`, exposes a standard `subscribe(listener)` pattern with synchronous getters (`getWindow`, `getOrder`, `getFocused`), executes edge snap math in `store-snap.ts`, and serializes layouts in `store-persist.ts`. A thin 15-LOC adapter wrapping `subscribe` into a Svelte readable store (or Svelte 5 `$state` proxy) is all that is required. All 1,995 LOC of unit tests survive and run without modification. |
+
+#### 5.3 Size-weighted porting order & arithmetic estimate
+
+##### Throughput assumptions
+
+To move from an ungrounded guess to explicit arithmetic, the port is partitioned into 7 sequential categories. Throughput figures are **explicit assumptions** based on historical single-developer porting velocity for this codebase's complexity profile:
+- *Pure logic / store adaptation*: **250–350 LOC / day** (logic review, type adaptation, wiring Svelte store contracts, verifying existing unit tests).
+- *Standard UI translation (TSX to Svelte)*: **80–120 LOC / day** (re-expressing JSX templates, Tailwind classes, basic interaction bindings, and runes).
+- *High-complexity UI & gesture physics*: **50–75 LOC / day** (pointer-event drag engines, frame snap transitions, dynamic module loaders, cross-surface switching).
+- *Work month assumption*: **20 engineering days / month** (single full-time engineer).
+
+##### Arithmetic by category
+
+| Phase | Category & Scope | appshell LOC | Predominant work type | Assumed throughput | Estimated engineering days |
+|---|---|---|---|---|---|
+| **Step 1** | **Foundations & Window Store Core**<br>`lib/store*.ts`, `window-commands.ts`, `window-title.ts`, `design/`, `registry/types.ts`, existing unit tests | 5,200 | Pure logic migration, store adapter, Vitest suite validation | 250–350 LOC/day | 15–20 days |
+| **Step 2** | **Peripheral Reactive Stores**<br>21 external stores in `lib/` (`toast`, `clipboard`, `badges`, `activity`, `commands`, `lock`, `spaces`, `focus-mode`, `dock-prefs`, `alfa*`) | 2,400 | Plain JS state machines; convert `useSyncExternalStore` hooks to Svelte stores | 200–300 LOC/day | 10–14 days |
+| **Step 3** | **Registry, Responsive Engine & Primitives**<br>`registry/` contexts, `responsive/` harness, `primitives/` (`app-frame`, `responsive-dialog`, `master-detail`) | 1,700 | Svelte 5 `setContext`, snippet layouts, dialog state machines | 80–120 LOC/day | 15–21 days |
+| **Step 4** | **Window Chrome & Interaction Layer**<br>`components/window*.tsx`, `win-caption.tsx`, `traffic-lights.tsx`, `hooks/use-window-drag.ts`, error boundary | 2,500 | Complex pointer tracking, drag/resize physics, window content loader, Svelte 5 error boundary | 50–75 LOC/day | 33–50 days |
+| **Step 5** | **Shell Feature Extensions (10 features)**<br>`features/` (`clipboard`, `control-center`, `desktop-icons`, `force-quit`, `inspector`, `lock-screen`, `notifications`, `search`, `shortcut-help`, `widgets`) | 3,712 | Standard UI templates, command palette, widget cards, inspector tabs | 80–120 LOC/day | 31–46 days |
+| **Step 6** | **OS Chrome Shells (5 shells)**<br>`components/shells/macos/`, `windows/`, `dashboard/`, `android/`, `mobile-shell.tsx`, app switcher, launcher, context menus | 4,200 | Extensive UI templates, menus, taskbars, dock magnification, mobile page carousel | 70–100 LOC/day | 42–60 days |
+| **Step 7** | **Root Composition, URL Routing & Entry**<br>`provider/app-shell.tsx`, `runtime/use-url-sync.tsx`, deep link integration with SvelteKit `$page` store | 316 | SvelteKit router integration, bidirectional URL/window sync, boot sequence | 40–60 LOC/day | 5–8 days |
+| **Step 8** | **Release Verification & E2E Parity**<br>Cross-browser testing, Slow 4G + 4× CPU performance validation, bundle budget enforcement | — | Playwright test parity, mount timing validation, regression triage | — | 15–20 days |
+| **Total** | **Full Appshell Port** | **20,028** | — | — | **166–239 engineering days**<br>**(8.3–12.0 months solo)** |
+
+##### Arithmetic conclusion
+
+Holding app code to the measured 20,028 LOC:
+- At aggressive throughput (166 engineering days ÷ 20 days/month), the port requires **8.3 months solo**.
+- At conservative throughput with thorough interaction debugging (239 engineering days ÷ 20 days/month), the port requires **12.0 months solo**.
+- The prior estimate of "6–9 months solo" assumed pure component rewriting without accounting for the interaction depth of the window drag engine (133 LOC of pointer math) and the 5 distinct OS desktop/mobile chromes (4,200 LOC). **8–12 months solo** is the defensible, arithmetic-grounded range.
+
+#### 5.4 The two riskiest architectural components
+
+Code inspections confirm the two primary failure vectors for a shell swap:
+
+1. **Window store async app chunk resolution and crash isolation (`window-content.tsx`, `components/window-error-boundary.tsx`)**:
+   - *Code evidence*: In `frontend/slices/appshell/components/window-content.tsx` (lines 10–17), the loader explicitly avoids `React.lazy` and `<Suspense>` because window opens are triggered synchronously from the external store (`useSyncExternalStore`). A Suspense boundary suspending during a synchronous store tick can miss its retry notification, causing the resolved module to stall until an external re-render (such as a subsequent click) wakes it up. To guarantee instant display, `window-content.tsx` manages module resolution manually via `useState`/`useEffect` promises. Furthermore, lines 33–41 document that chunk failures must explicitly rethrow so that `register-sw.tsx` can intercept `unhandledrejection` and reload stale service-worker assets instead of leaving the user on a perpetual spinner. Finally, `WindowErrorBoundary` (`window-error-boundary.tsx`) is a React class error boundary ensuring a fatal exception inside one app pane does not unmount the entire desktop shell.
+   - *Porting risk*: Svelte dynamic component imports (`{#await descriptor.load()}`) must replicate this exact lifecycle: resolving asynchronously without dropping renders if the active space or focused window changes mid-flight. Svelte 5's newly introduced `<svelte:boundary>` (or an equivalent isolation harness) must be validated to confirm it catches per-window runtime panics cleanly and allows individual pane retry without leaking failure state to sibling windows.
+
+2. **Dynamic shell registry chunk splitting and surface leakage (`register-shells.tsx`, `components/desktop.tsx`)**:
+   - *Code evidence*: `frontend/slices/appshell/registry/register-shells.tsx` (lines 1–13) records an architectural regression: macOS and iOS chromes were originally imported eagerly inside `desktop.tsx`, which resulted in a single **267 KB first-load chunk** bundling both desktop and mobile chromes, plus all feature slots, to every user regardless of viewport. The current implementation isolates all 5 shells (`macos`, `ios`, `windows`, `android`, `dashboard`) behind separate `React.lazy` dynamic imports wrapped in `<Suspense fallback={null}>` in `desktop.tsx`, allowing the wallpaper to paint immediately while the specific OS chrome loads.
+   - *Porting risk*: In SvelteKit / Vite, dynamic `import(...)` calls generate separate Rollup chunks, but Vite's module graph analysis aggressively hovers shared dependencies into common vendor chunks unless strictly configured. Because desktop and mobile chromes share primitives (`dock-parts`, `menu-bar-menus`, `touch-list`, Lucide icons), a naive SvelteKit dynamic import structure risks hoisting shared chrome dependencies into the initial bundle, destroying the measured 33.07 KB framework floor. In addition, responsive surface switching (such as toggling mobile emulation in Settings or resizing past the 768 px threshold) must dynamically swap between the desktop and mobile chrome components without tearing window state, resetting input focus, or causing unstyled wallpaper flashes.
 
 Exit criteria: one full release cycle on SvelteKit with per-instance health green,
 `proxy.ts` still in front (host rewrite, CSP, CSRF unchanged), and TBT measured at the
