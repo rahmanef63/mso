@@ -27,8 +27,24 @@ for lib in "${LIBS[@]}"; do
 done
 mkdir -p "$ROOT/tmp" "$ROOT/workspace"
 chmod 1777 "$ROOT/tmp"
+# The script sets `umask 077` for the temp dir, and `install -D` inherits it, so the
+# image's /usr and /usr/bin end up `drwx------`. A container started with --cap-drop ALL
+# has no CAP_DAC_OVERRIDE, so even root cannot traverse a 0700 directory it does not own,
+# and `--user <host uid>` cannot either. Both of those failures surfaced as
+# "exec: /usr/bin/node: permission denied" and as EACCES on the mounted script. Normalise
+# the tree the way a real rootfs is: world-traversable directories, binaries 0755.
+find "$ROOT" -type d -exec chmod 0755 {} +
+# Directories only. A blanket `chmod 0644` over files would clear the executable bit on
+# the loader (lib64/ld-linux) and on every library install put at 0755, which surfaces as
+# `exec: /usr/bin/node: permission denied` — the ELF is fine, its interpreter is not. Every
+# file in this rootfs is a binary, so 0755 is correct for all of them.
 NODE_VERSION="$(node --version)"
-tar -C "$ROOT" -cf - . | docker import \
+# --owner=0 --group=0 is load-bearing, not tidiness. `install` copies as the invoking
+# user (uid 1000 here), and a rootfs imported with non-root ownership fails at container
+# init with `exec: "/usr/bin/node": permission denied` — the binary is present, executable
+# on the host, and still refused by runc. Normalising ownership to root is what makes the
+# imported rootfs a valid container image.
+tar -C "$ROOT" --owner=0 --group=0 -cf - . | docker import \
   --change 'ENTRYPOINT ["/usr/bin/node"]' \
   --change 'ENV PATH=/usr/bin' \
   --change 'LABEL org.mso.tool-forge.version="1"' \
