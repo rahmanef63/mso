@@ -75,7 +75,7 @@ try {
 
   // A skipped timing check must be visible, not silent: the whole point of the load gate
   // is that nobody mistakes a busy host for a clean result.
-  const skipped = timingSkipReason(report, budget);
+  const skipped = timingSkipReason(report, budget, baseline);
   if (skipped && !values.json) console.log(`perf: ${skipped}`);
 
   if (values["report-only"]) {

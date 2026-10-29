@@ -156,8 +156,14 @@ export function perfViolations(report, budget, baseline = null) {
   const reportLoad = data?.host?.loadAvg1;
   const loadComparable =
     !Number.isFinite(maxLoad) || !Number.isFinite(reportLoad) || reportLoad <= maxLoad;
+  // Same instrument check: a different core count is a different machine, and TBT is
+  // wall-clock. Comparing across it produces a failure that says nothing about the commit.
+  const baseCpus = Number(baseline?.host?.cpus);
+  const runCpus = Number(data?.host?.cpus);
+  const hostComparable =
+    !Number.isFinite(baseCpus) || !Number.isFinite(runCpus) || baseCpus === runCpus;
   const blowupFactor = budget?.enforce?.tbtMsBlowupFactor;
-  if (loadComparable && baseline && blowupFactor !== null && blowupFactor !== undefined && Number.isFinite(blowupFactor)) {
+  if (loadComparable && hostComparable && baseline && blowupFactor !== null && blowupFactor !== undefined && Number.isFinite(blowupFactor)) {
     for (const run of runs) {
       if (!run?.label) continue;
       const baseTbt = getBaselineTbt(baseline, run.label);

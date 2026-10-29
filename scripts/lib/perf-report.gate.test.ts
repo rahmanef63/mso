@@ -67,18 +67,35 @@ describe("timingSkipReason", () => {
   const budgetWithLoad = { ...sampleBudget, enforce: { ...sampleBudget.enforce, maxLoadAvg1ForTiming: 4 } };
 
   it("returns null when the host is idle enough to compare", () => {
-    expect(timingSkipReason(idleReport, budgetWithLoad)).toBeNull();
+    expect(timingSkipReason(idleReport, budgetWithLoad, null)).toBeNull();
   });
 
   it("explains the skip when load exceeds the budget ceiling", () => {
-    const reason = timingSkipReason(busyReport, budgetWithLoad);
+    const reason = timingSkipReason(busyReport, budgetWithLoad, null);
     expect(reason).toContain("9.5");
     expect(reason).toContain("idle host");
   });
 
   it("returns null when no ceiling or no measured load exists", () => {
-    expect(timingSkipReason(busyReport, sampleBudget)).toBeNull();
-    expect(timingSkipReason({ runs: [] }, budgetWithLoad)).toBeNull();
+    expect(timingSkipReason(busyReport, sampleBudget, null)).toBeNull();
+    expect(timingSkipReason({ runs: [] }, budgetWithLoad, null)).toBeNull();
+  });
+
+  it("skips the comparison when the runner has a different core count", () => {
+    // A 2-4 core GitHub runner and a 16-core workstation are different instruments for a
+    // wall-clock metric. CI measured 271-321 ms against a 164/132 ms baseline and failed,
+    // which said nothing about the commit.
+    const ciRun = { runs: [run({ tbtMs: 321 })], host: { cpus: 4, loadAvg1: 1.2 } };
+    const baseline16 = { host: { cpus: 16 }, runs: [{ label: "desktop", tbtMs: 146 }] };
+    expect(timingSkipReason(ciRun, sampleBudget, baseline16)).toContain("4 cpus");
+    expect(perfViolations(ciRun, sampleBudget, baseline16)).toEqual([]);
+  });
+
+  it("still compares when the core count matches", () => {
+    const sameHost = { runs: [run({ tbtMs: 900 })], host: { cpus: 16, loadAvg1: 1.2 } };
+    const baseline16 = { host: { cpus: 16 }, runs: [{ label: "desktop", tbtMs: 146 }] };
+    expect(timingSkipReason(sameHost, sampleBudget, baseline16)).toBeNull();
+    expect(perfViolations(sameHost, sampleBudget, baseline16)).toContain("desktop: tbtMs 900ms > 2x baseline 146ms");
   });
 
   it("still reports a real regression at idle, so the gate is not disarmed", () => {
