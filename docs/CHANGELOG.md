@@ -32,6 +32,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `migration` Phase 5 edge-behaviour spike, verified with curl
 - `progress` record Phase 2 completion, the bun install fix and the Phase 6 no-go
 - `progress` record the perf gate and the numbers it retracted
 

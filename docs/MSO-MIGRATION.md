@@ -909,6 +909,35 @@ Code inspections confirm the two primary failure vectors for a shell swap:
    - *Code evidence*: `frontend/slices/appshell/registry/register-shells.tsx` (lines 1–13) records an architectural regression: macOS and iOS chromes were originally imported eagerly inside `desktop.tsx`, which resulted in a single **267 KB first-load chunk** bundling both desktop and mobile chromes, plus all feature slots, to every user regardless of viewport. The current implementation isolates all 5 shells (`macos`, `ios`, `windows`, `android`, `dashboard`) behind separate `React.lazy` dynamic imports wrapped in `<Suspense fallback={null}>` in `desktop.tsx`, allowing the wallpaper to paint immediately while the specific OS chrome loads.
    - *Porting risk*: In SvelteKit / Vite, dynamic `import(...)` calls generate separate Rollup chunks, but Vite's module graph analysis aggressively hovers shared dependencies into common vendor chunks unless strictly configured. Because desktop and mobile chromes share primitives (`dock-parts`, `menu-bar-menus`, `touch-list`, Lucide icons), a naive SvelteKit dynamic import structure risks hoisting shared chrome dependencies into the initial bundle, destroying the measured 33.07 KB framework floor. In addition, responsive surface switching (such as toggling mobile emulation in Settings or resizing past the 768 px threshold) must dynamically swap between the desktop and mobile chrome components without tearing window state, resetting input focus, or causing unstyled wallpaper flashes.
 
+#### 5.3 Edge-behaviour spike: can SvelteKit do the three things the shell depends on
+
+Everything above is inventory. The open question was whether SvelteKit can serve the
+catch-all deep-link shell AND run the edge work `proxy.ts` does before a page renders. Built
+in `/tmp` (nothing added to this repo), production build behind `adapter-node`, verified with
+`curl` rather than assumed:
+
+| Job | Result | Evidence |
+|---|---|---|
+| Catch-all deep links (`/files`, `/code`, `/terminal` render different content, shell client-mounted) | works | distinct `x-nonce` per route, one `[...slug]/+page.svelte` with `ssr = false` |
+| Host-based managed-app rewrite | works | `Host: hermes.mso.example.com` → `{"app":"hermes","surface":"managed-app-proxy",...}` without a redirect |
+| Per-request CSP nonce | works, and matches | header `x-nonce` and the `nonce="..."` attribute inside the same response body are byte-identical (checked on one response, not across two — a per-request nonce differs by design) |
+| CSRF depth-2 on mutating requests | works | cross-origin `POST` → 403 `cross_origin_blocked`; same-origin `POST` → 200 |
+
+Client JS for that shell: **32.88 KiB gzip initial route** (84.24 KiB raw) across 11 chunks,
+against **910.2 KiB first-load** measured on the current shell. The framework-only part matches
+§2.1's 33.07 KiB, so the two measurements agree by independent routes.
+
+What does *not* survive unchanged, from reading `proxy.ts`'s 13 jobs against what was tested:
+jobs 1, 2, 6, 7, 8, 9, 11, 12, 13 have an obvious hook equivalent. Jobs **3, 4, 5 and 10 do
+not** — they rewrite to a *foreign* HTTP service (managed-app upstream, `x11vnc` on loopback,
+webhook targets), and SvelteKit's `resolve`/`reroute` only rewrite inside the app. Those would
+need an explicit streaming `fetch()` pipe or a Traefik route. That is a real port cost, not a
+detail: it is the managed-app proxy path, which is how three live products are served.
+
+So the swap is viable at the edge, with one concrete piece of work that has no framework
+equivalent. That is a better understood risk than it was before the spike, and it is still a
+port of the kind the inventory prices at 8.3-12.0 months.
+
 Exit criteria: one full release cycle on SvelteKit with per-instance health green,
 `proxy.ts` still in front (host rewrite, CSP, CSRF unchanged), and TBT measured at the
 §3 target.
