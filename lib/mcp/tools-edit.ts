@@ -12,7 +12,7 @@ export const EDIT_TOOLS: McpTool[] = [
     name: "fs_edit",
     limit: { key: "fs.edit", max: 120, windowMs: 60_000 },
     audit: { action: "fs.write" as const, targetArg: "path" },
-    description: "Edit a file by replacing exact old_string occurrences with new_string. Fails on zero matches or on multiple matches unless replace_all is true. Read first, pass its SHA-256 as expected_sha256 to refuse stale edits. Bounded to OS_FS_WRITE_ROOTS.",
+    description: "Edit a file by replacing exact old_string occurrences with new_string. Always returns a diff; dry_run previews without writing. Fails on zero matches or on multiple matches unless replace_all is true. Read first, pass its SHA-256 as expected_sha256 to refuse stale edits. Bounded to OS_FS_WRITE_ROOTS.",
     scope: "write",
     annotations: { idempotentHint: true },
     actionContract: { phase: "mutate", target: "filesystem-text", sourceOfTruth: "live", discover: ["fs_read"], validators: ["path-policy", "sha256-cas"], verify: ["fs_read"], confirmation: "contextual", concurrency: "hash", presentation: "structured" },
@@ -22,6 +22,7 @@ export const EDIT_TOOLS: McpTool[] = [
       new_string: { type: "string", description: "Replacement text." },
       replace_all: { type: "boolean", description: "Replace all occurrences when true. Default false requires exactly one match." },
       expected_sha256: { type: "string", description: "Optional SHA-256 returned by fs_read; refuse if the current file no longer matches." },
+      dry_run: { type: "boolean", description: "Preview only: run every check and return the diff and projected sha256 without writing." },
     }, ["path", "old_string", "new_string"]),
     run: async (a, context) => {
       const target = str(a, "path");
@@ -33,6 +34,7 @@ export const EDIT_TOOLS: McpTool[] = [
         newString: typeof a.new_string === "string" ? a.new_string : "",
         replaceAll: a.replace_all === true,
         expectedSha256: opt(a, "expected_sha256"),
+        dryRun: a.dry_run === true,
       });
     },
   },
