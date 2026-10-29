@@ -33,7 +33,11 @@ describe("ChatGPT full generic MCP profile", () => {
 
     const bytes = Buffer.byteLength(JSON.stringify(tools));
     if (process.env.MSO_PROFILE_METRICS === "1") console.info(`CHATGPT_PROFILE_METRICS tools=${tools.length} bytes=${bytes} roughTokens4=${Math.ceil(bytes/4)} maxToolBytes=${Math.max(...tools.map((tool)=>Buffer.byteLength(JSON.stringify(tool))))}`);
-    expect(bytes).toBeLessThan(92 * 1024);
+    // Ceiling raised 92 -> 100 KiB when four coding tools landed (fs_edit, fs_grep,
+    // fs_glob, todo_write). The alternative was to stop advertising tools to ChatGPT,
+    // which silently removes capability. The largest single descriptor is 2.8 KiB, so
+    // there is no fat left to trim: 125 tools at ~770 B average is the actual shape.
+    expect(bytes).toBeLessThan(100 * 1024);
     const start = tools.find((tool) => tool.name === "workflow_start") as { description?: string };
     expect(String(start?.description)).toMatch(/First call.*multi-step/i);
     const search = tools.find((tool) => tool.name === "skills_search") as { description?: string };
