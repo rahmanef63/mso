@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `agent` background subagents, so a parent can keep working in parallel
+- `agent` background subagents, so a parent can keep working in parallel (#175)
 - `agent` surgical edit, content search, glob and a todo list (#173)
 - `perf` hydration mark chain, and the LCP conclusion it overturns
 - `tui` close the opencode TUI gap on the seams MSO already owns (#166)
