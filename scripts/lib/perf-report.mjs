@@ -118,7 +118,7 @@ function getBaselineTbt(baseline, label) {
  * baseline is accepted as the third argument to keep the function pure and
  * dependency-free as specified in the contract ownership rules.
  *
- * @param {{ runs?: Array<Record<string, unknown>> }|string} report - The performance report (partial reports are valid input: the point is to report what is missing)
+ * @param {{ runs?: Array<Record<string, unknown>>, host?: { loadAvg1?: number } }|string} report - The performance report (partial reports are valid input: the point is to report what is missing)
  * @param {any} budget - The performance budget
  * @param {any|null} [baseline] - Optional baseline measurements
  * @returns {string[]} List of human-readable violation messages
@@ -145,8 +145,19 @@ export function perfViolations(report, budget, baseline = null) {
 
   // 2. Enforce TBT blowup factor against baseline
   // Baseline absent or null skips the check entirely (no baseline is not a violation).
+  //
+  // Load gate: TBT is wall-clock inside a browser, so it tracks host load, not just the
+  // bundle. On this box the same commit measured 138 ms at load ~1 and 794 ms at load ~13,
+  // a 6x swing that no blowup factor can attribute honestly. The baseline was taken on an
+  // idle host, so a run above the ceiling below is comparing apples to a different machine
+  // and the TBT comparison is skipped with an explicit note instead of failing or silently
+  // passing. A real regression at idle still fails.
+  const maxLoad = Number(budget?.enforce?.maxLoadAvg1ForTiming);
+  const reportLoad = data?.host?.loadAvg1;
+  const loadComparable =
+    !Number.isFinite(maxLoad) || !Number.isFinite(reportLoad) || reportLoad <= maxLoad;
   const blowupFactor = budget?.enforce?.tbtMsBlowupFactor;
-  if (baseline && blowupFactor !== null && blowupFactor !== undefined && Number.isFinite(blowupFactor)) {
+  if (loadComparable && baseline && blowupFactor !== null && blowupFactor !== undefined && Number.isFinite(blowupFactor)) {
     for (const run of runs) {
       if (!run?.label) continue;
       const baseTbt = getBaselineTbt(baseline, run.label);

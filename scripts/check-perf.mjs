@@ -12,6 +12,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import { parsePerfReport, summarize, perfViolations, formatTable } from "./lib/perf-report.mjs";
+import { timingSkipReason } from "./lib/perf-timing-load.mjs";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 
@@ -71,6 +72,11 @@ try {
       if (misses.length) console.log(`perf ${run.label}: above target — ${misses.join(", ")} (advisory)`);
     }
   }
+
+  // A skipped timing check must be visible, not silent: the whole point of the load gate
+  // is that nobody mistakes a busy host for a clean result.
+  const skipped = timingSkipReason(report, budget);
+  if (skipped && !values.json) console.log(`perf: ${skipped}`);
 
   if (values["report-only"]) {
     console.log("perf: report only, budget not enforced.");

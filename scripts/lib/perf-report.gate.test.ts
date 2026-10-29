@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatTable, perfViolations } from "./perf-report.mjs";
+import { timingSkipReason } from "./perf-timing-load.mjs";
 import { sampleBaseline, sampleBudget, validReport, validRunDesktop, validRunMobile } from "./perf-report.fixtures";
 
 const run = (overrides: Record<string, unknown>) => ({ ...validRunDesktop, ...overrides });
@@ -57,6 +58,33 @@ describe("perfViolations", () => {
     const budget = { ...sampleBudget, enforce: { ...sampleBudget.enforce, firstLoadJsBytes: { desktop: 900000 } } };
     const violations = perfViolations({ runs: [run({ firstLoadJsBytes: Number.NaN })] }, budget, sampleBaseline);
     expect(violations).toContain("desktop: missing measurement");
+  });
+});
+
+describe("timingSkipReason", () => {
+  const idleReport = { host: { loadAvg1: 1.2 }, runs: [validRunDesktop, validRunMobile] };
+  const busyReport = { host: { loadAvg1: 9.5 }, runs: [validRunDesktop, validRunMobile] };
+  const budgetWithLoad = { ...sampleBudget, enforce: { ...sampleBudget.enforce, maxLoadAvg1ForTiming: 4 } };
+
+  it("returns null when the host is idle enough to compare", () => {
+    expect(timingSkipReason(idleReport, budgetWithLoad)).toBeNull();
+  });
+
+  it("explains the skip when load exceeds the budget ceiling", () => {
+    const reason = timingSkipReason(busyReport, budgetWithLoad);
+    expect(reason).toContain("9.5");
+    expect(reason).toContain("idle host");
+  });
+
+  it("returns null when no ceiling or no measured load exists", () => {
+    expect(timingSkipReason(busyReport, sampleBudget)).toBeNull();
+    expect(timingSkipReason({ runs: [] }, budgetWithLoad)).toBeNull();
+  });
+
+  it("still reports a real regression at idle, so the gate is not disarmed", () => {
+    // At idle the comparison must run; skipping is only for an uncomparable host.
+    const violations = perfViolations({ runs: [run({ tbtMs: 900 })], host: { loadAvg1: 1 } }, sampleBudget, sampleBaseline);
+    expect(violations).toContain("desktop: tbtMs 900ms > 2x baseline 146ms");
   });
 });
 

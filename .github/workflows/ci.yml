@@ -93,6 +93,15 @@ jobs:
       - name: Deferred shell performance journeys
         run: node scripts/e2e/bundle-performance.mjs
 
+      - name: Perceived performance gate
+        # Enforces a 2x TBT blowup against scripts/perf-baseline.json, and skips that
+        # comparison when the runner's 1-minute load average exceeds the budget ceiling —
+        # the baseline was measured on an idle host and TBT is wall-clock, so a busy
+        # runner says nothing about the commit (the reason is printed, never silent).
+        # Byte limits are a separate, deterministic check: scripts/check-bundle.mjs.
+        # Without --base, perf-probe starts its own synthetic releaseFixture().
+        run: node scripts/check-perf.mjs
+
   native-host:
     name: Native host (${{ matrix.os }})
     if: github.event_name != 'schedule'

@@ -101,7 +101,10 @@ gated by downloading and executing ~940 KB of first-load JS, not by first paint.
 
 `perf:check` fails hard on a **missing** measurement — a silent zero is how a perf gate
 dies — and on a 2× TBT blowup against `scripts/perf-baseline.json`, because this box also
-serves production and a wall-clock gate that flakes gets muted. Bundle bytes are
+serves production and a wall-clock gate that flakes gets muted. The TBT comparison is
+skipped, with a printed reason, when the host 1-minute load average is above
+`enforce.maxLoadAvg1ForTiming`: the same commit measures 138 ms idle and 794 ms under load,
+and the baseline is an idle measurement. CI runs this in the `verify` job. Bundle bytes are
 deliberately *not* re-gated here: `check-bundle.mjs` already gates gzip bytes
 deterministically from build output, while a browser-measured byte count includes deferred
 chunks and moves. Targets in the budget file (`tbtMs 150`, `lcpMs 2500`,
