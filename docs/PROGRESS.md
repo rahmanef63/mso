@@ -1,3 +1,64 @@
+## 2026-10-29: Phase 2 finished, `bun install` fixed, and Phase 6 measured out of existence
+
+Three results, two of which were earned by measurement rather than assumed.
+
+**Phase 2 is done.** Every one of the 117 route handlers is now a thin adapter (median 40 LOC
+before, all ≤ 15 after, largest was 219), and `lib/` has zero static `next/*` imports — one
+documented dynamic `import("next/headers")` seam remains in `lib/auth/require-session.ts` because
+`cookies()` is request-scoped plumbing with no web-standard equivalent. Bodies moved to a
+colocated `handler.ts`, or to `lib/` only when they were already framework-free.
+
+Two regressions were caught before they reached main, and both are worth recording because the
+guards were the thing that caught them, not review:
+
+- Three workflow services first landed in `lib/` importing `@/lib/mcp/*`, which tripped
+  `nonMcpMcpImports` (7 / max 0). They moved back to `app/api/v1/workflows/` as `route-read.ts`
+  and friends, following the pattern `a2a` already used. A ratchet, not a reviewer, found a real
+  boundary violation.
+- Moving bodies into `lib/` carried `import { NextResponse } from "next/server"` with them, so
+  `lib next/*` went 0 → 23 immediately after Phase 2 had just achieved 0. All 23 were converted
+  to the web-standard `Response`; the count is back to 0 and grep-verified.
+
+One route test needed updating rather than the code: `scripts/mso-model-dx-contract.test.ts`
+asserted on request parsing by reading `app/api/config/route.ts`, and now reads `handler.ts`,
+which owns that logic. Behaviour was verified by diffing status/error strings per route and by
+probing a live fixture — every endpoint still answers with its original status and body,
+including the case where `/api/status` says `"Unauthorized"` while its neighbours say
+`"unauthorized"`. Seven routes deliberately keep bespoke auth because `requireOwner` would have
+changed their status code or check order.
+
+**`bun install` now works from a clean tree.** The blocker was real: `node-pty@1.1.0` ships no
+`linux-x64` prebuild (upstream excluded Linux deliberately), so a native build is required, and
+npm survives only because `@npmcli/run-script` injects its own `node-gyp-bin` into PATH. The
+compiler was never missing — calling npm's `node-gyp.js` directly builds `pty.node` fine. Fixed
+with a `patchedDependencies` patch that probes PATH first (so npm and a global `node-gyp` are
+untouched) then locates the node-gyp inside the host's npm. Proven in a throwaway copy with
+node-gyp absent: `bun install --frozen-lockfile` exits 0 and `require('node-pty')` loads under
+both node and bun. `npm install` was already broken here with `EOVERRIDE` before and after the
+patch, and this repo has no `package-lock.json`, so the npm path was never the flow.
+
+**Phase 6 (Rust sidecar) is a no-go, with arithmetic.** `proxy.ts` does string comparisons,
+header lookups, one URL parse and one UUID nonce — no disk IO, no network IO, no body parsing. It
+costs **15 µs** per document request and **2.5 µs** per API request, against a measured TTFB of
+9.7 ms and 3.6 ms. A Rust sidecar would have to sit in front of Next and pay a 200–500 µs
+loopback hop, so it would make every request **~0.3 ms slower**, add ~20 MB RSS next to a Next
+process that must stay running, double the deploy pipeline across three instances, and put the
+CSP nonce and split-origin rewrite parity at risk — where a one-byte divergence from what Next
+expects breaks hydration under `strict-dynamic`. The proxy belongs where it is.
+
+**Also fixed:** the release gate blocks a push on any Turbopack build warning, and one appeared
+after the route extraction — `lib/camoufox/http.ts` lost its `/* turbopackIgnore: true */`
+annotation, which is load-bearing rather than decorative: `PASSWD_FILE` comes from the
+environment, so without it Turbopack traces the whole project. Four other files still carried the
+annotation, so the convention existed and this one had simply fallen out of it.
+
+**Evidence.** `typecheck` 0, `lint` 0, `check-cycles` 2174 files / 0 cycles, `check-architecture`
+healthy at 43/43 with `nonMcpMcpImports` 0, `check-docs` current, `check-contrast` 0 fail,
+`check-instance-literals` 3411 files, `audit --strict` clean, full vitest
+**876 files / 5721 tests passed**, `verify-build.sh` exit 0 with all release browser journeys
+green. A 12-gate runner (`scripts/gates-12.sh`) now reports each check on one line so a push
+decision does not require reading an 1800-line log.
+
 ## 2026-10-29: Perceived-performance gate, and the migration numbers it retracted
 
 Before this, the only performance claims in the repo were bundle bytes from build output and a

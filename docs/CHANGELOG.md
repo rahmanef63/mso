@@ -13,6 +13,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `install` make bun install compile node-pty without a global node-gyp
+- `api` restore the models provider name the route extraction dropped (#169)
 - `api` restore the models provider name the route extraction dropped (#168)
 - `build` restore the turbopackIgnore annotation the route extraction dropped
 
@@ -24,13 +26,17 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Changed**
 
-- `auth` register the session cookie reader from the framework entry, so lib is next-free
 - `api` every route handler is a thin adapter, and lib is next-free
 - `lib` drop static next/* imports, plus three measured perf findings
 
 **Docs**
 
+- `progress` record Phase 2 completion, the bun install fix and the Phase 6 no-go
 - `progress` record the perf gate and the numbers it retracted
+
+**Chores**
+
+- `gates` re-add the 12-gate runner and regenerate the changelog
 
 ## 2026-10-28
 
