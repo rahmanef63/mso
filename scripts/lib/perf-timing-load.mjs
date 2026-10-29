@@ -19,9 +19,20 @@
  * @param {any} budget
  * @returns {string|null}
  */
-export function timingSkipReason(report, budget) {
+export function timingSkipReason(report, budget, baseline) {
+  const r = typeof report === "string" ? JSON.parse(report) : report;
+  const load = r?.host?.loadAvg1;
   const maxLoad = Number(budget?.enforce?.maxLoadAvg1ForTiming);
-  const load = (typeof report === "string" ? JSON.parse(report) : report)?.host?.loadAvg1;
-  if (!Number.isFinite(maxLoad) || !Number.isFinite(load) || load <= maxLoad) return null;
-  return `tbt not compared: host load1=${load} exceeds ${maxLoad}, and the committed baseline was measured on an idle host`;
+  if (Number.isFinite(maxLoad) && Number.isFinite(load) && load > maxLoad) {
+    return `tbt not compared: host load1=${load} exceeds ${maxLoad}, and the committed baseline was measured on an idle host`;
+  }
+  // Core count matters as much as load: TBT is wall-clock, so a 2-core CI runner and a
+  // 16-core workstation are different instruments. The baseline records the machine it
+  // was taken on; a run elsewhere is skipped rather than allowed to fail or pass.
+  const baseCpus = Number(baseline?.host?.cpus);
+  const runCpus = Number(r?.host?.cpus);
+  if (Number.isFinite(baseCpus) && Number.isFinite(runCpus) && baseCpus !== runCpus) {
+    return `tbt not compared: this host has ${runCpus} cpus, the committed baseline was taken on ${baseCpus}`;
+  }
+  return null;
 }
