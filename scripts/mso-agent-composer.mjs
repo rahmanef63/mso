@@ -4,7 +4,7 @@ import process from "node:process";
 import { resumeActiveActivity, suspendActiveActivity } from "./mso-agent-activity.mjs";
 import { getKeybinds, resolveKeybind } from "./mso-agent-keybinds.mjs";
 import { cursorHome, eraseFrame, frameHeight, withCursorHidden, writeFrame } from "./mso-agent-screen.mjs";
-import { chars, clamp, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width } from "./mso-agent-composer-ui.mjs";
+import { chars, clamp, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, footerLines, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width } from "./mso-agent-composer-ui.mjs";
 export { completionWindow, inputLayout, inputViewport, verticalCursor } from "./mso-agent-composer-ui.mjs";
 
 export class AgentComposer {
@@ -22,7 +22,6 @@ export class AgentComposer {
       let value = "", cursor = 0, selected = 0, reservedRows = 0, paintedLines = [], lastCursorRow = 0;
       let dismissed = false, historyIndex = null, draft = "", settled = false, verticalColumn = null;
       const promptText = () => String(typeof prompt === "function" ? prompt() : prompt);
-      const footerText = () => String(typeof footer === "function" ? footer() : (footer || ""));
       const separatorText = () => String(typeof separator === "function" ? separator() : (separator || ""));
       const wasRaw = Boolean(input.isRaw);
 
@@ -36,16 +35,16 @@ export class AgentComposer {
         const currentPrompt = promptText(), promptWidth = width(currentPrompt), items = matches();
         selected = items.length ? clamp(selected, 0, items.length - 1) : 0;
         const menu = menuLines(items, selected, output.columns, C, panelLabel);
-        const footerRow = footerText(), footerRows = footerRow ? 1 : 0;
+        const foot = footerLines(footer);
         const terminalRows = Math.max(8, Number(output.rows || 24));
-        const maxInputRows = Math.max(2, Math.min(12, terminalRows - menu.length - footerRows - 4, Math.floor(terminalRows * 0.32)));
+        const maxInputRows = Math.max(2, Math.min(12, terminalRows - menu.length - foot.length - 4, Math.floor(terminalRows * 0.32)));
         const layout = inputLayout(value, cursor, { columns: output.columns, rows: terminalRows, promptWidth, maxRows: maxInputRows });
         const continuation = " ".repeat(promptWidth);
         const lines = [
           `${currentPrompt}${layout.lines[0] || ""}`,
           ...layout.lines.slice(1).map((row) => `${continuation}${row}`),
           ...menu,
-          ...(footerRow ? [footerRow] : []),
+          ...foot,
         ];
         reserve(Math.max(0, frameHeight(lines) - 1));
         withCursorHidden(output, () => { paintedLines = writeFrame(output, paintedLines, lines); });

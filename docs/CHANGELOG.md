@@ -8,11 +8,12 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` a tab row and a footer that stay put, painted through the frame writer
 - `tui` a transcript model, because scrollback is the only transcript that exists (#187)
 
-**Docs**
+**Changed**
 
-- `tui` record milestone status in the renderer plan
+- `tui` paint the composer through a frame writer instead of appending (#189)
 
 ## 2026-10-30
 
@@ -24,7 +25,6 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Changed**
 
-- `tui` paint the composer through a frame writer instead of appending
 - `tui` share the cell and pane primitives instead of growing a second copy (#186)
 
 **Tests**

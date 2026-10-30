@@ -6,10 +6,12 @@ import {
   startNewSession,
   resumePicker,
 } from "./mso-agent-session-ui.mjs";
-import { api, state } from "./mso-agent-api.mjs";
+import { api, listCliSessions, state } from "./mso-agent-api.mjs";
 import { C } from "./mso-agent-runtime.mjs";
 import { clearTodos, formatTodoBlock, latestTodos } from "./mso-agent-todos.mjs";
 import { handleKeybindCommand } from "./mso-agent-keybinds.mjs";
+import { visibleSessionRows } from "./mso-agent-sessions.mjs";
+import { tabsToSwitch } from "./mso-agent-chrome.mjs";
 
 export async function handleTodos(ctx, args = []) {
   const { C: colors = C } = ctx;
@@ -26,12 +28,45 @@ export async function handleTodos(ctx, args = []) {
   return "handled";
 }
 
+export async function handleTabs(ctx, args = []) {
+  const { rl, session, C: colors = C } = ctx;
+  const rows = visibleSessionRows(await listCliSessions(20));
+  if (!args.length) {
+    if (!rows.length) {
+      console.log("No active sessions.");
+      return "handled";
+    }
+    console.log(`${colors.bold || ""}Sessions${colors.reset || ""}`);
+    rows.forEach((row, idx) => {
+      const isCurrent = String(row.id) === String(session?.agentSession?.id);
+      const mark = isCurrent ? `${colors.blue || ""}${colors.bold || ""}●${colors.reset || ""}` : " ";
+      const name = `@${row.name || "agent"}`;
+      const title = row.title || "MSO Agent session";
+      console.log(`  ${mark} ${idx + 1}. ${name} · ${title}${isCurrent ? " (current)" : ""}`);
+    });
+    return "handled";
+  }
+  const target = tabsToSwitch(rows, args);
+  if (!target) {
+    console.log(`could not resolve session: ${args.join(" ")}`);
+    return "handled";
+  }
+  // Reuses the existing resume path and clears cached todos so the status
+  // chip never reflects a different session after switching.
+  await resumeInto(rl, session, target.id);
+  clearTodos();
+  return "refresh";
+}
+
 export async function handleSessionCommand(ctx, cmd, args) {
   if (cmd === "/todos") {
     return handleTodos(ctx, args);
   }
   if (cmd === "/keybind" || cmd === "/keybinds") {
     return handleKeybindCommand(ctx, args);
+  }
+  if (cmd === "/tabs" || cmd === "/tab") {
+    return handleTabs(ctx, args);
   }
   const { rl, session, C: colors = C } = ctx;
   switch (cmd) {

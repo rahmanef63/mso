@@ -111,3 +111,12 @@ export function menuLines(items, selected, columns, C, panelLabel = "commands & 
   const bottom = `╰─${bottomText}${"─".repeat(Math.max(0, panelWidth - width(bottomText) - 3))}╯`;
   return [`${C.blue}${top}${C.reset}`, ...body, `${C.blue}${bottom}${C.reset}`];
 }
+
+// Normalizes footer input (string, array of strings, or supplier function) into clean rows.
+// Splits multi-line strings so writeFrame never receives embedded newlines that would cause scrollback.
+export function footerLines(footer) {
+  const raw = typeof footer === "function" ? footer() : footer;
+  if (!raw) return [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  return list.flatMap((row) => String(row ?? "").split(/\r?\n/)).filter(Boolean);
+}
