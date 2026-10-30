@@ -11,6 +11,22 @@ import { redact } from "@/lib/managed-apps/redact";
 import type { ManagedAppId, ManagedAppJob } from "@/lib/managed-apps/types";
 import { cachedUpdateStatus, checkUpdate, setChannel, startRollback, startUninstall, startUpdate } from "@/lib/managed-apps/update";
 
+
+// Same gate order as every other managed-app route: verifyAuth -> demo 403 ->
+// action allowlist -> rate limit -> the lib (which takes the operation lock) ->
+// audit. The allowlist moved ahead of the limiter only because the action now
+// chooses WHICH budget to spend; an action outside it still does no work.
+// The four destructive actions answer 202 + a job id and are polled at
+// /jobs/<id>; only `check` answers inline. GET is a cache read (see there).
+
+// READ-ONLY, and that is load-bearing: the CSRF gate in proxy.ts only covers
+// POST/PUT/PATCH/DELETE, and the session cookie is Domain=mso.example.com with
+// SameSite=Strict, so every sibling origin under the configured site (~100 on this
+// box) can make the browser send this GET. If it probed, that would be a blind
+// cross-origin trigger for `hermes update --check` — two git fetches inside the
+// operator's own checkout — from any of them. So it serves the cache and
+// nothing else; the probe is `POST {action:"check"}`, behind the gate.
+
 const ACTIONS = ["check", "apply", "channel", "rollback", "uninstall"] as const;
 type Action = (typeof ACTIONS)[number];
 

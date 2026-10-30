@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import pkg from "../../../package.json";
 import { IS_DEMO } from "@/lib/demo";
 
+
+// Public liveness probe — no auth. Used by systemd WatchdogSec / Dokploy /
+// uptime monitors. Cheap, never cached. Demo builds avoid exposing host uptime.
+
 export async function handleGetHealth(): Promise<Response> {
   if (IS_DEMO) {
     return NextResponse.json(

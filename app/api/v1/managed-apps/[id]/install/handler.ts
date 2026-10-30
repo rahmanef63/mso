@@ -10,6 +10,20 @@ import { startInstall } from "@/lib/managed-apps/install";
 import { rememberJobActor } from "@/lib/managed-apps/job-audit";
 import { redact } from "@/lib/managed-apps/redact";
 
+
+// Same gate order as every other managed-app route: verifyAuth -> demo 403 ->
+// rate limit -> the lib (which takes the operation lock) -> audit. Answers 202 +
+// a job id; the transcript is polled at /jobs/<id> like update's.
+//
+// This route is the one place in the managed-app surface that receives a
+// CREDENTIAL, so two things are deliberate and must stay that way:
+//   1. `apiKey` is handed to startInstall and nowhere else. It is not echoed in
+//      the response, not put in the audit meta, and not passed as a job argv —
+//      the argv IS persisted and IS audited (see the meta below, which prints
+//      it verbatim for every job).
+//   2. The audit line records THAT a provider was configured, never which key.
+//      `provider` is an allowlisted id, so it is safe to log; the key is not.
+
 export async function handlePostManagedAppInstall(req: Request, id: string): Promise<Response> {
   if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (IS_DEMO) return NextResponse.json({ error: "managed application actions are disabled in demo mode" }, { status: 403 });

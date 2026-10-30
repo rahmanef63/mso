@@ -7,6 +7,9 @@ import { getSessionContext } from "@/lib/auth/require-session";
 import { audit } from "@/lib/host/audit-api";
 import { INFRA_PROVIDER_IDS, isInfraProviderId, readInfraProvider, removeInfraProvider, setInfraProvider, summarizeInfraProvider } from "@/lib/infra";
 
+
+// Per-project view: cloud and self-hosted rows together, credentials never included.
+
 const headers = { "Cache-Control": "no-store, private", "Pragma": "no-cache", "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff" };
 
 async function ownerContext() {

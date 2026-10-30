@@ -5,6 +5,11 @@ import { mcpEnabled } from "@/lib/mcp/scope";
 import { clientIp } from "@/lib/mcp/origin";
 import { rateLimited, rateLimitedUntrusted } from "@/lib/host/limits-api";
 
+
+// RFC 7591 Dynamic Client Registration. Open by design and safe to be: a
+// registered client is INERT until the owner approves it on the consent page and
+// completes PKCE. All this records is a name and a redirect list.
+
 const DCR_CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",

@@ -4,6 +4,10 @@ import { admitChannelWebhook } from "@/lib/channels/webhook-admission";
 import { channelWorkflowRuntime } from "../../workflow-runtime";
 import { readSetupJson } from "@/lib/infra/setup-http";
 
+
+// 202 = acknowledged and intentionally not acted on (bot echo, or a group
+// message that is not an owner /discuss command). Telegram should not retry.
+
 export async function handlePostTelegram(req: NextRequest, id: string) {
   try {
     admitChannelWebhook(req, id);

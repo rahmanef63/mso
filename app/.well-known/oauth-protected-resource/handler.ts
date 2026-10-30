@@ -1,6 +1,12 @@
 import { publicOrigin } from "@/lib/mcp/origin";
 import { mcpEnabled } from "@/lib/mcp/scope";
 
+
+// RFC 9728 — tells an MCP client which authorization server protects /mcp.
+// This MUST be served from the same origin as the MCP URL: a client's first
+// discovery probe goes to the resource host, and mirroring it anywhere else is
+// what produces "MCP server does not implement OAuth" with no further detail.
+
 const PUBLIC_CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",

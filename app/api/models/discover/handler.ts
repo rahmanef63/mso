@@ -4,6 +4,14 @@ import { hostCredentialStore, readConfig, safeProviderId } from "@/lib/config/st
 import { discoverEndpointModels } from "@/lib/models/discover.js";
 import { assertSafeUrl } from "@/lib/host/ssrf";
 
+
+// List the model ids a custom endpoint actually serves, so it can be configured
+// without knowing them in advance. Owner-only. Two credential sources:
+//  • `provider` — an already-saved custom provider; the key comes from the host store.
+//  • `baseURL` + `apiKey` (+`protocol`) — while adding one, before it is saved.
+// A custom URL is SSRF-checked and fetched through the pinned transport, so DNS
+// cannot rebind at connect. The key is never returned, logged, or read back.
+
 type DiscoverBody = { provider?: string; baseURL?: string; apiKey?: string; protocol?: string };
 
 export async function handlePostDiscover(req: NextRequest): Promise<Response> {

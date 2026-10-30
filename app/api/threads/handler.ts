@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { listThreads, getThread, saveThread, deleteThread, renameThread, type ChatThread } from "@/lib/ai/threads";
 
+
+// Persistent Alfa chat threads (YAML files in ~/.mso/threads/). Session-gated.
+//   GET            → list summaries
+//   GET  ?id=<id>  → one full thread
+//   POST { id, title?, createdAt?, messages[], history[] } → save (create/update)
+//   DELETE ?id=<id> → remove
+//   PATCH { id, title } → rename thread
+
 const THREAD_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 export async function handleGetThreads(req: NextRequest): Promise<Response> {

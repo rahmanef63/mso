@@ -1,6 +1,12 @@
 import { publicOrigin } from "@/lib/mcp/origin";
 import { mcpEnabled } from "@/lib/mcp/scope";
 
+
+// RFC 8414 — authorization-server metadata. Public clients only (no secret),
+// PKCE S256 only; authorization_code + rotating refresh_token grants. Dynamic Client Registration is
+// advertised because Claude.ai, Cursor and mcp-remote all expect it; ChatGPT
+// uses a user-defined client and never touches /oauth/register.
+
 const PUBLIC_CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
