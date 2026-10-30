@@ -10,6 +10,7 @@ class FakeInput extends EventEmitter {
   setRawMode(value: boolean) { this.isRaw = value; }
 }
 class FakeOutput {
+    isTTY = true;
   columns = 96;
   chunks: string[] = [];
   write(value: string) { this.chunks.push(String(value)); return true; }

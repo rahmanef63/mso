@@ -583,6 +583,24 @@ those two, and mouse/scrollbar/splits are additive after M5.
 
 ## 8. Migration order, gates green after every step
 
+### Status, updated as milestones land
+
+| Milestone | Work | State | Evidence |
+|---|---|---|---|
+| M0 | This plan, classified in docs/README.md | DONE | PR #185, `2dfcda8` |
+| M1 | Shared cell primitives, `scripts/tui/cells.mjs` | DONE | PR #186, `5b45314`; layout.mjs 67 to 20 lines |
+| M2 | Transcript model, `scripts/mso-agent-transcript.mjs` | DONE | PR #187; reuses formatEditDiff, formatTodoBlock, formatDiffBody |
+| M3 | Frame writer, `scripts/mso-agent-screen.mjs`, inline mode | DONE | PR #189; composer 221 to 217 lines, ratchet 43 to 42 |
+| M4 | Chrome and tabs as a bottom block | IN PROGRESS | no alt screen yet, scrollback intact |
+| M5 | Alternate screen behind a flag, with teardown | NOT STARTED | irreversible step; waits for M4 |
+| M6 | Transcript viewport and scrollbar | NOT STARTED | needs M5 |
+| M7 | Mouse | NOT STARTED | needs the owner's selection policy |
+| M8 | Split panes, then flip the alt screen default | NOT STARTED | needs M6 and M7 |
+
+Adjacent work that landed while this plan was being executed, and belongs to the same goal:
+`feat/agent-jobs-view` (#183, `/jobs` for background subagents) and `feat/tui-keybinds` (#182,
+`~/.mso/keybinds.json`), which closed P2-3.
+
 M0. Documentation. This file, one classification row in `docs/README.md` (required by
 `scripts/check-docs.mjs:56-63`), a pointer from
 [TUI-PARITY-PLAN.md](./TUI-PARITY-PLAN.md):56-62, and

@@ -4,17 +4,27 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-31
+
+**Added**
+
+- `tui` a transcript model, because scrollback is the only transcript that exists (#187)
+
+**Docs**
+
+- `tui` record milestone status in the renderer plan
+
 ## 2026-10-30
 
 **Added**
 
-- `tui` a transcript model, because scrollback is the only transcript that exists
 - `agent` /jobs, so background subagents are visible instead of fire and forget (#183)
 - `tui` configurable keybinds, with the defaults kept byte-identical (#182)
 - `agent` show the todo checklist in the TUI and in the status row (#179)
 
 **Changed**
 
+- `tui` paint the composer through a frame writer instead of appending
 - `tui` share the cell and pane primitives instead of growing a second copy (#186)
 
 **Tests**
@@ -1505,25 +1515,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `deps-dev` bump the development-minor-patch group with 4 updates
 - `deps` bump the production-minor-patch group with 4 updates
 - `security` update Codex Security to 0.1.21
-
-## 2026-08-26
-
-**Added**
-
-- `mcp` add reverse-engineering implementation playbook
-
-**Fixed**
-
-- `security` split documentation scan scope
-- `security` bound Codex component scope
-- `security` use complete Codex component scans
-- `security` size Codex budget for full scan
-
-**Docs**
-
-- refresh changelog
-
-**Chores**
-
-- `security` add ultimate assurance suite
-- `security` add Codex Security scanning
