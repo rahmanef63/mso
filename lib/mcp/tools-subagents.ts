@@ -2,10 +2,11 @@ import { runSessionSubagent } from "@/lib/agent/subagent-runner";
 import {
   startSubagentJob,
   getSubagentJob,
+  listSubagentJobs,
   cancelSubagentJob,
 } from "@/lib/agent/subagent-jobs";
 import { allows, parseScope } from "./scope";
-import { type McpTool, S, str } from "./tool-kit";
+import { type McpTool, S, opt, str } from "./tool-kit";
 
 function validateSubagentDelegation(a: Record<string, unknown>, context: Parameters<McpTool["run"]>[1]) {
   if (!context.principal || !context.sessionId) throw new Error("subagent requires a conversation-bound MSO session");
@@ -64,15 +65,16 @@ export const SUBAGENT_TOOLS: McpTool[] = [
   },
   {
     name: "agent_subagent_status",
-    description: "Read status of one background subagent job owned by this client. Completed results are retained in-memory for 30 minutes after completion, after which status transitions to expired and result is discarded. Jobs disappear if the process restarts.",
+    description: "Read status of one background subagent job owned by this client, or list all recent jobs when job_id is omitted. Completed results are retained in-memory for 30 minutes after completion, after which status transitions to expired and result is discarded. Jobs disappear if the process restarts.",
     chatgptDescription: "Check background worker.",
     scope: "read",
     annotations: { readOnlyHint: true, idempotentHint: true },
     limit: { key: "exec.job.status", max: 120, windowMs: 60_000 },
-    inputSchema: S({ job_id: { type: "string", description: "Exact job id returned by agent_subagent_start." } }, ["job_id"]),
+    inputSchema: S({ job_id: { type: "string", description: "Optional job id returned by agent_subagent_start. If omitted, returns all recent background subagent jobs for this caller." } }),
     run: (a, context) => {
       if (!context.principal) throw new Error("subagent requires an authenticated MSO client");
-      return Promise.resolve(getSubagentJob(str(a, "job_id"), context.principal));
+      const id = opt(a, "job_id");
+      return Promise.resolve(id ? getSubagentJob(id, context.principal) : listSubagentJobs(context.principal));
     },
   },
   {

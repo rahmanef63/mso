@@ -16,6 +16,7 @@ import {
 } from "./mso-agent-cmd-parity.mjs";
 import { handleInspectCommand } from "./mso-agent-cmd-inspect.mjs";
 import { handleSessionCommand } from "./mso-agent-cmd-session.mjs";
+import { handleJobsCommand } from "./mso-agent-jobs.mjs";
 
 export { SHARE_UNAVAILABLE_MESSAGE, buildExportArgv };
 
@@ -93,6 +94,8 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
 
   const parityOutcome = await handleParityCommand(ctx, cmd, args);
   if (parityOutcome !== null) return parityOutcome;
+
+  if (cmd === "/jobs") return handleJobsCommand(ctx, args);
 
   switch (cmd) {
     case "/help":

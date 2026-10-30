@@ -8,12 +8,13 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` configurable keybinds, with the defaults kept byte-identical
+- `agent` /jobs, so background subagents are visible instead of fire and forget
+- `tui` configurable keybinds, with the defaults kept byte-identical (#182)
 - `agent` show the todo checklist in the TUI and in the status row (#179)
 
 **Changed**
 
-- `tui` share the cell and pane primitives instead of growing a second copy
+- `tui` share the cell and pane primitives instead of growing a second copy (#186)
 
 **Tests**
 
@@ -21,7 +22,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
-- `tui` add the retained renderer plan and classify it
+- `tui` plan the retained renderer, M0 (#185)
 - `migration` correct the "2.8x" claim that justified cancelling Phase 4
 - `bench` the after-side comparison, and a status header that was no longer true
 
