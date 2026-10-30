@@ -7,6 +7,7 @@ export type AuditAction =
   | "term.open"
   | "term.write"
   | "term.close"
+  | "fs.read"
   | "fs.write"
   | "fs.delete"
   | "fs.move"

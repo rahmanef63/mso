@@ -4,7 +4,13 @@ import os from "node:os";
 import path from "node:path";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/demo", () => ({ IS_DEMO: false }));
-vi.mock("@/lib/auth/require-session", () => ({ requireSession: async (role: string) => role === "viewer", getSessionContext: async () => ({ role: "viewer", session: { device_id: "candidate-viewer" } }) }));
+// fs/read now carries a rate limit like every other fs route. This suite is about the
+// credential boundary, not throttling, so the limiter is stubbed open and getSessionActor is
+// given an actor — otherwise ten back-to-back reads hit the real 60/min ceiling and the
+// refusals below would be indistinguishable from a 429.
+vi.mock("@/lib/host/limits-api", () => ({ rateLimited: () => false }));
+vi.mock("@/lib/host/audit-api", () => ({ audit: () => {} }));
+vi.mock("@/lib/auth/require-session", () => ({ requireSession: async (role: string) => role === "viewer", getSessionContext: async () => ({ role: "viewer", session: { device_id: "candidate-viewer" } }), getSessionActor: async () => "candidate-viewer" }));
 import { GET } from "@/app/api/v1/fs/read/route";
 import { READ_TOOLS } from "./tools-read";
 import { publicProjectMcpServers, readProjectMcpServers } from "@/lib/host/project-mcp-config";

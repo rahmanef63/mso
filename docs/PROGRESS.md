@@ -1,3 +1,64 @@
+## 2026-10-30: Svelte marginal-cost retraction, status-code contract, and the CI-parity gate
+
+Four findings where empirical measurement corrected assumptions and hardened safety boundaries.
+
+**The "2.8×" retraction and marginal component costs.** Phase 4 was originally cancelled on the
+claim that "one Svelte component costs 2.8× the whole React slice it replaces" (17.75 KiB vs.
+6.27 KiB). That comparison was flawed: it compared a Svelte build including the Svelte runtime
+against a React slice chunk that excluded the React runtime (which the shell had already paid for).
+Compiling the same component 1, 2, 3, 5, 9, and 10 times into a single bundle revealed the actual
+marginal cost: 17.74 / 17.75 / 17.80 / 17.86 / 17.96 / 17.99 KiB gzip. The Svelte runtime is
+~17.7 KiB paid once, and each additional component costs ~0.03 KiB (all nine system-monitor
+components together are ~17.96 KiB). Phase 4 remains cancelled, but for the correct architectural
+reason: in a hybrid shell, Svelte adds a second ~17.7 KiB runtime *beside* React without removing
+React's 132.7 KiB floor, producing a net +11.7 KiB regression even after the slice's own 6.27 KiB
+is removed. Phase 5 is completely unaffected: React is replaced rather than joined, swapping
+132.7 KiB out for 33.07 KiB in (−99.6 KiB net measured reduction).
+
+**The status-code contract and the cannot-fail harness bug.** Mechanical extraction of 107 route
+handlers left a critical gap: an audit confirmed current parity, but nothing prevented future
+refactors from accidentally dropping auth checks. `app/api/status-contract.test.ts` locked down a
+15-assertion contract across the 20 most dangerous routes where a dropped gate is an RCE (`exec/run`),
+arbitrary file write/delete (`fs/write`, `fs/delete`), secret leak (`agent-vault`, `fs/raw`), or role
+escalation (`mcp/tokens`, `auth/devices`). Writing it surfaced a dangerous harness bug: the mock
+`getSessionActor` always resolved to `"dev-1"` regardless of the auth flag. Deleting `verifyAuth`
+from `exec/run` still left the route treated as authenticated through the session actor, keeping the
+suite 14/14 green. Because a test that cannot fail is worse than no test (it is falsely cited as
+coverage), `getSessionActor` was rewired to follow the auth flag. Running mutation testing confirmed
+the fix: removing `verifyAuth` from `exec/run` produced 1 failed | 13 passed, and restoring it
+yielded 15 passed. (The suite also documents that `fs/raw` has two independent gates—`verifyAuth`
+and `getSessionActor`—so defence in depth holds even if either is dropped alone).
+
+**Comment restoration on mechanical routes.** The refactor that moved 107 route handler bodies
+passed all behavior audits, but stripped critical context: 55 routes lost their design rationale.
+Restored 33 security-and-visibility comment blocks across 28 files explaining why routes are public
+(e.g., `/api/health` as an unauthenticated systemd WatchdogSec and Dokploy liveness probe), why
+they are owner-only, or why they reside under specific paths (e.g., `/api/mcp/tokens` kept under
+`/api` for cookie auth and proxy depth-2 CSRF gating, and `/api/changelog` session-gated so
+unauthenticated visitors cannot enumerate deployment specifics). A naive first attempt split
+multi-line comments line-by-line, creating fragmented syntax errors; this was redone cleanly
+block-by-block.
+
+**Three defects surfaced by the CI-parity gate.** Aligning local validation with CI via
+`gates-12.sh full` ran `vitest run --coverage` and provisioned the Forge container sandbox,
+immediately revealing three latent bugs:
+- `provision-forge-sandbox.sh` built an unstartable image (`exec: /usr/bin/node: permission denied`)
+  from three compounded issues: `install` preserved the host uid 1000 ownership (fixed by tarring
+  with `--owner=0 --group=0`), `umask 077` created `/usr` and `/usr/bin` as `drwx------` which failed
+  under container `--cap-drop ALL` lacking `CAP_DAC_OVERRIDE` (fixed by normalizing directory modes
+  to `0755`), and a blanket file `chmod 0644` cleared the executable bit on `ld-linux` and dynamic
+  libraries (fixed by restricting permissions normalization to directories only, preserving 0755
+  on binaries).
+- `lib/host/fs-zip.test.ts` assumed `os.tmpdir()` was private and counted `os-zip-*` directories
+  globally. Under vitest's multi-worker coverage pool, concurrent test workers created and cleaned
+  temp directories simultaneously, causing spurious failures. The test was rewritten to scope
+  assertions strictly to directories appearing during its own measured execution phase.
+- Consequently, `bun run coverage` went from 3 failed to 0 failed across 882 files / 5,772 tests.
+
+**Evidence.** `typecheck` 0, `lint` 0, `check-cycles` 2174 files / 0 cycles, `check-architecture`
+healthy at 43/43, `check-docs` current, `gates-12.sh full` 17 passed / 0 failed / 0 skipped, full
+vitest **887 files / 5,826 tests passed**.
+
 ## 2026-10-29: Phase 2 finished, `bun install` fixed, and Phase 6 measured out of existence
 
 Three results, two of which were earned by measurement rather than assumed.

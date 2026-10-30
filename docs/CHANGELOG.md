@@ -8,12 +8,16 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` a tab row and a footer that stay put, painted through the frame writer
+- `tui` a tab row and a footer that stay put, painted through the frame writer (#191)
 - `tui` a transcript model, because scrollback is the only transcript that exists (#187)
 
 **Changed**
 
 - `tui` paint the composer through a frame writer instead of appending (#189)
+
+**Tests**
+
+- `api` cover 30 more routes, and close the one fs route with no rate limit
 
 ## 2026-10-30
 
