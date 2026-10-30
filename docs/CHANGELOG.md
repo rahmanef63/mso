@@ -8,12 +8,13 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` an alternate screen behind a flag, with teardown on every exit path
 - `tui` a tab row and a footer that stay put, painted through the frame writer (#191)
 - `tui` a transcript model, because scrollback is the only transcript that exists (#187)
 
 **Fixed**
 
-- `ci` apply the same parser workaround to the last two mock call sites
+- `ci` apply the same parser workaround to the last two mock call sites (#196)
 - `ci` stop the semgrep scan failing on a generic argument in a test mock (#195)
 
 **Changed**

@@ -16,6 +16,7 @@ import { agentRound, executeTool, renderInteractionFailure, runInteractiveRound 
 import { pathToFileURL } from "node:url";
 import { createQueue, dequeue } from "./mso-agent-queue.mjs";
 import { pendingImageBlock } from "./mso-agent-image.mjs";
+import { altScreenRequested, startAltScreen } from "./mso-agent-altscreen.mjs";
 import { visibleSessionRows } from "./mso-agent-sessions.mjs";
 import { chromeLines } from "./mso-agent-chrome.mjs";
 
@@ -63,80 +64,88 @@ async function main() {
     console.error("mso agent needs an interactive terminal. For autonomous one-shot use: mso agent --oneshot \"<prompt>\" [--json]");
     process.exit(2);
   }
-  const restartSessionId = restartSessionArg(argv);
-  const requested = restartSessionId ? null : resumeArg(argv);
-  const restartUi = consumeRestartUiState();
-  const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg))
-    ? "yolo"
-    : (permissionMode(restartUi.permission)?.id || "ask");
-  const [s, agentSession] = await Promise.all([state(), startupSession(requested, restartSessionId)]);
-  if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
-  printBanner(s, agentSession);
-  const session = {
-    state: s,
-    agentSession,
-    history: Array.isArray(agentSession.history) ? agentSession.history : [],
-    pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
-    titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
-    usage: { apiCalls: 0 }, lastRouting: null, lastElapsedMs: 0,
-    statusBar: restartUi.statusBar ?? true, permission: forcedPermission, pendingApproval: null,
-    // Ephemeral queue: held only in memory for this TUI process and not persisted to server state.
-    queue: createQueue(),
-  };
-  let recentSessions = session.agentSession ? [session.agentSession] : [];
-  const refreshSessions = () => { listCliSessions(20).then((rows) => { recentSessions = visibleSessionRows(rows); }).catch(() => {}); };
-  refreshSessions();
-  const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onToggleStatusBar: () => { session.statusBar = !session.statusBar; } }); syncPromptHistory(rl, session);
-  let inboundRequestQueued = false;
-  const localBridge = new LocalAgentBridge({
-    session,
-    composer: rl,
-    onRequest: () => {
-      // A local request otherwise only becomes model context on the next manual
-      // turn. Cancel the idle editor and let the main loop run it immediately.
-      inboundRequestQueued = true;
-      rl.cancelCurrent({ echo: false });
-    },
-  });
-  await localBridge.start();
-  const interrupts = new AgentInterruptManager({ output: process.stdout, colors: C });
-  let lastTurnInterrupted = false;
-  const originalBeginTurn = interrupts.beginTurn.bind(interrupts);
-  interrupts.beginTurn = () => {
-    const signal = originalBeginTurn();
-    lastTurnInterrupted = false;
-    signal.addEventListener("abort", () => {
-      lastTurnInterrupted = true;
-    }, { once: true });
-    return signal;
-  };
-  const originalInterruptCurrent = interrupts.interruptCurrent.bind(interrupts);
-  interrupts.interruptCurrent = () => {
-    lastTurnInterrupted = true;
-    return originalInterruptCurrent();
-  };
-  const drainQueue = async () => {
-    while (!interrupts.exitRequested && !lastTurnInterrupted) {
-      const nextPrompt = dequeue(session.queue);
-      if (!nextPrompt) break;
-      session.history.push({ role: "user", text: nextPrompt });
-      const skillContext = session.pendingSkill;
-      session.pendingSkill = null;
-      await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
-    }
-  };
-  const onSigint = () => {
-    const action = interrupts.handleSigint();
-    // External child TUIs can restore the shared terminal to cooked mode. In that
-    // state Ctrl+C arrives as SIGINT instead of a raw keypress, so wake whichever
-    // composer prompt is currently waiting instead of leaving it hung.
-    if (action === "exit") rl.cancelCurrent({ echo: true });
-    else if (action === "interrupt") rl.cancelCurrent({ echo: false });
-  };
-  process.on("SIGINT", onSigint);
-  const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd(), session);
-  let restartRequested = false;
+  const altScreen = altScreenRequested({ argv, env: process.env, isTTY: process.stdout.isTTY });
+  if (altScreen.requested && !altScreen.ok) {
+    console.warn(`${C.dim}mso agent: alternate screen not enabled (${altScreen.reason})${C.reset}`);
+  }
+  let screen = null; let session = null; let rl = null;
+  let localBridge = null; let onSigint = null; let restartRequested = false;
   try {
+    screen = startAltScreen({ requested: altScreen, output: process.stdout });
+    const restartSessionId = restartSessionArg(argv);
+    const requested = restartSessionId ? null : resumeArg(argv);
+    const restartUi = consumeRestartUiState();
+    const forcedPermission = argv.some((arg) => ["--yolo", "-yolo", "-y"].includes(arg))
+      ? "yolo"
+      : (permissionMode(restartUi.permission)?.id || "ask");
+    const [s, agentSession] = await Promise.all([state(), startupSession(requested, restartSessionId)]);
+    if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
+    printBanner(s, agentSession);
+    session = {
+      state: s,
+      agentSession,
+      history: Array.isArray(agentSession.history) ? agentSession.history : [],
+      pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
+      titleOverride: (requested || restartSessionId) ? (agentSession.title || null) : null,
+      usage: { apiCalls: 0 }, lastRouting: null, lastElapsedMs: 0,
+      statusBar: restartUi.statusBar ?? true, permission: forcedPermission, pendingApproval: null,
+      // Ephemeral queue: held only in memory for this TUI process and not persisted to server state.
+      queue: createQueue(),
+    };
+    let recentSessions = session.agentSession ? [session.agentSession] : [];
+    // Refreshed after a switch, not per keystroke: a tab row must not cost a network call per render.
+    const refreshSessions = () => { listCliSessions(20).then((rows) => { recentSessions = visibleSessionRows(rows); }).catch(() => {}); };
+    refreshSessions();
+    const chromeFooter = () => chromeLines({ session, sessions: recentSessions, activeId: session?.agentSession?.id, colors: C, width: process.stdout.columns, rows: process.stdout.rows });
+    rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onToggleStatusBar: () => { session.statusBar = !session.statusBar; } }); syncPromptHistory(rl, session);
+    let inboundRequestQueued = false;
+    localBridge = new LocalAgentBridge({
+      session,
+      composer: rl,
+      onRequest: () => {
+        // A local request otherwise only becomes model context on the next manual
+        // turn. Cancel the idle editor and let the main loop run it immediately.
+        inboundRequestQueued = true;
+        rl.cancelCurrent({ echo: false });
+      },
+    });
+    await localBridge.start();
+    const interrupts = new AgentInterruptManager({ output: process.stdout, colors: C });
+    let lastTurnInterrupted = false;
+    const originalBeginTurn = interrupts.beginTurn.bind(interrupts);
+    interrupts.beginTurn = () => {
+      const signal = originalBeginTurn();
+      lastTurnInterrupted = false;
+      signal.addEventListener("abort", () => {
+        lastTurnInterrupted = true;
+      }, { once: true });
+      return signal;
+    };
+    const originalInterruptCurrent = interrupts.interruptCurrent.bind(interrupts);
+    interrupts.interruptCurrent = () => {
+      lastTurnInterrupted = true;
+      return originalInterruptCurrent();
+    };
+    const drainQueue = async () => {
+      while (!interrupts.exitRequested && !lastTurnInterrupted) {
+        const nextPrompt = dequeue(session.queue);
+        if (!nextPrompt) break;
+        session.history.push({ role: "user", text: nextPrompt });
+        const skillContext = session.pendingSkill;
+        session.pendingSkill = null;
+        await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
+      }
+    };
+    onSigint = () => {
+      const action = interrupts.handleSigint();
+      // External child TUIs can restore the shared terminal to cooked mode. In that
+      // state Ctrl+C arrives as SIGINT instead of a raw keypress, so wake whichever
+      // composer prompt is currently waiting instead of leaving it hung.
+      if (action === "exit") rl.cancelCurrent({ echo: true });
+      else if (action === "interrupt") rl.cancelCurrent({ echo: false });
+    };
+    process.on("SIGINT", onSigint);
+    const completeSlash = (line) => slashCompletionItems(session.state.skills, line, process.cwd(), session);
     while (true) {
       if (interrupts.exitRequested) break;
       if (inboundRequestQueued) {
@@ -150,14 +159,7 @@ async function main() {
           complete: completeSlash,
           onTab: () => { session.permission = nextPermissionMode(session.permission).id; },
           separator: () => composerSeparator(session, C, process.stdout.columns),
-          footer: () => chromeLines({
-            session,
-            sessions: recentSessions,
-            activeId: session?.agentSession?.id,
-            colors: C,
-            width: process.stdout.columns,
-            rows: process.stdout.rows,
-          }),
+          footer: chromeFooter,
         });
         if (answer === null) {
           if (inboundRequestQueued) continue;
@@ -198,12 +200,13 @@ async function main() {
       if (!lastTurnInterrupted) await drainQueue();
     }
   } finally {
-    process.off("SIGINT", onSigint);
-    await persistSession(session).catch(() => undefined);
-    const sessionTitle = String(session.agentSession.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim().slice(0, 80);
-    if (!restartRequested) console.log(`${C.dim}session ${sessionTitle} · resume: mso --continue · switch: /sessions${C.reset}`);
-    await localBridge.close({ ended: !restartRequested }).catch(() => undefined);
-    rl.close();
+    if (onSigint) process.off("SIGINT", onSigint);
+    if (session) await persistSession(session).catch(() => undefined);
+    const sessionTitle = String(session?.agentSession?.title || "MSO Agent session").replace(/[\r\n\t]+/g, " ").trim().slice(0, 80);
+    if (!restartRequested && session) console.log(`${C.dim}session ${sessionTitle} · resume: mso --continue · switch: /sessions${C.reset}`);
+    if (localBridge) await localBridge.close({ ended: !restartRequested }).catch(() => undefined);
+    rl?.close();
+    screen?.dispose();
   }
   if (restartRequested) {
     console.log(`${C.dim}↻ refreshing Agent runtime · keeping ${session.agentSession.title || "current session"}${C.reset}`);

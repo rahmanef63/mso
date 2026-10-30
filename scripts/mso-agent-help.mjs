@@ -42,6 +42,7 @@ export const HELP_LINES = [
   "  /image <path>           attach a local image to the next prompt",
   "  /clear                  clear this session conversation",
   "  /exit, /quit            quit",
+  "  --altscreen             dev only: retain full terminal in alternate screen",
   "",
   "Keyboard",
   "  Ctrl+C                  clear input; empty prompt exits; active turn interrupts",
