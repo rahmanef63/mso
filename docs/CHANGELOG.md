@@ -13,7 +13,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
-- `ci` stop the semgrep scan failing on a generic argument in a test mock
+- `ci` apply the same parser workaround to the last two mock call sites
+- `ci` stop the semgrep scan failing on a generic argument in a test mock (#195)
 
 **Changed**
 

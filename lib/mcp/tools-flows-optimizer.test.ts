@@ -8,11 +8,11 @@ const f = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/workflow/graph-store", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/workflow/graph-store")>();
+  const actual = await importOriginal() as typeof import("@/lib/workflow/graph-store");
   return { ...actual, getWorkflowGraph: f.get, createWorkflowGraph: f.create };
 });
 vi.mock("@/lib/workflow/graph-optimizer", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/workflow/graph-optimizer")>();
+  const actual = await importOriginal() as typeof import("@/lib/workflow/graph-optimizer");
   return { ...actual, optimizeWorkflowGraph: f.optimize };
 });
 vi.mock("./tools", () => ({ TOOLS_BY_NAME: new Map() }));
