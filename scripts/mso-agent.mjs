@@ -81,7 +81,7 @@ async function main() {
     // Ephemeral queue: held only in memory for this TUI process and not persisted to server state.
     queue: createQueue(),
   };
-  const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C }); syncPromptHistory(rl, session);
+  const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onToggleStatusBar: () => { session.statusBar = !session.statusBar; } }); syncPromptHistory(rl, session);
   let inboundRequestQueued = false;
   const localBridge = new LocalAgentBridge({
     session,

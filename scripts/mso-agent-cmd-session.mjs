@@ -9,6 +9,7 @@ import {
 import { api, state } from "./mso-agent-api.mjs";
 import { C } from "./mso-agent-runtime.mjs";
 import { clearTodos, formatTodoBlock, latestTodos } from "./mso-agent-todos.mjs";
+import { handleKeybindCommand } from "./mso-agent-keybinds.mjs";
 
 export async function handleTodos(ctx, args = []) {
   const { C: colors = C } = ctx;
@@ -28,6 +29,9 @@ export async function handleTodos(ctx, args = []) {
 export async function handleSessionCommand(ctx, cmd, args) {
   if (cmd === "/todos") {
     return handleTodos(ctx, args);
+  }
+  if (cmd === "/keybind" || cmd === "/keybinds") {
+    return handleKeybindCommand(ctx, args);
   }
   const { rl, session, C: colors = C } = ctx;
   switch (cmd) {

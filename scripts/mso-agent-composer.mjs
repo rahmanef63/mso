@@ -2,6 +2,7 @@ import readline from "node:readline";
 import { wordLeftIndex, wordRightIndex } from "./mso-agent-editing.mjs";
 import process from "node:process";
 import { resumeActiveActivity, suspendActiveActivity } from "./mso-agent-activity.mjs";
+import { getKeybinds, resolveKeybind } from "./mso-agent-keybinds.mjs";
 
 import {
   chars, clamp, CLEAR_LINE, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, CURSOR_UP, eraseComposerRows, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width,
@@ -9,18 +10,14 @@ import {
 export { completionWindow, inputLayout, inputViewport, verticalCursor } from "./mso-agent-composer-ui.mjs";
 
 export class AgentComposer {
-  constructor({ input = process.stdin, output = process.stdout, colors }) {
-    this.input = input;
-    this.output = output;
-    this.C = colors;
-    this.history = [];
-    this.closed = false;
-    this._cancelCurrent = null;
-    this._notifyCurrent = null;
+  constructor({ input = process.stdin, output = process.stdout, colors, keybinds = null, onToggleStatusBar = null }) {
+    this.input = input; this.output = output; this.C = colors;
+    this.keybinds = keybinds; this.onToggleStatusBar = onToggleStatusBar;
+    this.history = []; this.closed = false; this._cancelCurrent = null; this._notifyCurrent = null;
     readline.emitKeypressEvents(this.input);
   }
 
-  async question(prompt, { complete = null, history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null } = {}) {
+  async question(prompt, { complete = null, history = true, onCancel = null, onTab = null, panelLabel = "commands & skills", selectOnEnter = false, escapeCancels = false, footer = null, separator = null, onToggleStatusBar = null } = {}) {
     if (this.closed) return null;
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
@@ -33,7 +30,7 @@ export class AgentComposer {
 
       const matches = () => dismissed || !complete ? [] : complete(value) || [];
       // Reserve physical rows only when the dropdown first grows. Selection changes then
-      // redraw with cursor movement only — no LF/CRLF — so ↑/↓ never create scrollback rows.
+      // redraw with cursor movement only -- no LF/CRLF -- so ↑/↓ never create scrollback rows.
       const reserve = (rows) => { reservedRows = reserveComposerRows(output, reservedRows, rows); };
       const erase = () => eraseComposerRows(output, reservedRows);
       const render = () => {
@@ -127,41 +124,30 @@ export class AgentComposer {
       const onResize = () => { if (!settled) render(); };
       const onKey = (str, key = {}) => {
         const items = matches();
-        if (key.ctrl && key.name === "c") {
-          if (value) return edit("", 0);
-          return cancel(true);
-        }
-        if (key.ctrl && key.name === "l") {
-          output.write(CLEAR_SCREEN); reservedRows = 0; return render();
-        }
-        if (key.name === "escape") {
+        const action = resolveKeybind(key, this.keybinds || getKeybinds());
+        if (action === "interrupt") return value ? edit("", 0) : cancel(true);
+        if (action === "clear_screen") { output.write(CLEAR_SCREEN); reservedRows = 0; return render(); }
+        if (action === "dismiss") {
           if (escapeCancels) return cancel(false);
           dismissed = true; selected = 0; return render();
+        }
+        if (action === "toggle_status_bar") {
+          const toggle = onToggleStatusBar || this.onToggleStatusBar;
+          if (typeof toggle === "function") toggle();
+          return render();
         }
         if (items.length && (key.name === "up" || key.name === "down")) {
           selected = (selected + (key.name === "up" ? -1 : 1) + items.length) % items.length;
           return render();
         }
-        if (key.name === "tab" && items.length) {
-          if (selectOnEnter) {
-            const item = items[selected];
-            return finish(item.value ?? item.text, true, item.label || item.text);
-          }
-          return apply(items[selected]);
+        // Tab is claimed only when there is something to complete, otherwise it falls through to
+        // the editing path exactly as it did before keybinds existed.
+        if (action === "complete" && (items.length || (!value && typeof onTab === "function"))) {
+          if (items.length) return selectOnEnter ? finish(items[selected].value ?? items[selected].text, true, items[selected].label || items[selected].text) : apply(items[selected]);
+          onTab(); dismissed = false; selected = 0; return render();
         }
-        if (key.name === "tab" && !value && typeof onTab === "function") {
-          onTab();
-          dismissed = false; selected = 0;
-          return render();
-        }
-        if (key.name === "return" || key.name === "enter") {
-          if (selectOnEnter && items[selected]) {
-            const item = items[selected];
-            return finish(item.value ?? item.text, true, item.label || item.text);
-          }
-          // Exact input wins even when another prefix match is highlighted first
-          // (`/model` vs `/models`). Enter submits what the user actually typed;
-          // Tab is the explicit "apply highlighted completion" key.
+        if (action === "submit") {
+          if (selectOnEnter && items[selected]) return finish(items[selected].value ?? items[selected].text, true, items[selected].label || items[selected].text);
           if (items.some((item) => item?.text === value)) return finish(value);
           if (items.length && items[selected]?.text) return apply(items[selected]);
           return finish(value);
@@ -172,8 +158,8 @@ export class AgentComposer {
           const moved = verticalCursor(value, cursor, layout.lineWidth, key.name === "up" ? -1 : 1, verticalColumn);
           if (moved.moved) { cursor = moved.cursor; verticalColumn = moved.column; return render(); }
         }
-        if ((key.name === "up" && !items.length) || (key.ctrl && key.name === "p")) return historyMove(-1);
-        if ((key.name === "down" && !items.length) || (key.ctrl && key.name === "n")) return historyMove(1);
+        if (action === "history_prev" || (key.name === "up" && !items.length)) return historyMove(-1);
+        if (action === "history_next" || (key.name === "down" && !items.length)) return historyMove(1);
         const row = chars(value);
         if (key.ctrl && key.name === "d") {
           if (!value) return finish(null, false);
