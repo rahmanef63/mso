@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `agent` show the todo checklist in the TUI and in the status row (#179)
 
+**Changed**
+
+- `tui` share the cell and pane primitives instead of growing a second copy
+
 **Tests**
 
 - `perf,api` prove the gate catches regressions, and restore the rationale the refactor dropped
