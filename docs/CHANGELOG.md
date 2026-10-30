@@ -12,6 +12,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `api` lock the status-code contract on the routes where a dropped gate is an RCE
 - `perf,api` prove the gate catches regressions, and restore the rationale the refactor dropped
 
 **Docs**
