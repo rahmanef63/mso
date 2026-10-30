@@ -5,17 +5,19 @@ import { AgentInterruptManager } from "./mso-agent-interrupt.mjs";
 import { slashCompletionItems } from "./mso-agent-slash.mjs";
 import { persistSession, restartSessionArg, resumeArg, startupSession, syncPromptHistory } from "./mso-agent-session-ui.mjs";
 import { C, printBanner } from "./mso-agent-runtime.mjs";
-import { state } from "./mso-agent-api.mjs";
+import { listCliSessions, state } from "./mso-agent-api.mjs";
 import { handleSlash } from "./mso-agent-commands.mjs";
 import { nextPermissionMode, permissionMode } from "./mso-agent-permissions.mjs";
 import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-lifecycle.mjs";
 import { oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
 import { LocalAgentBridge, handleLocalAgentMentionInput, runForegroundSubagent } from "./mso-agent-collaboration.mjs";
-import { composerFooter, composerPrompt, composerSeparator } from "./mso-agent-layout.mjs";
+import { composerPrompt, composerSeparator } from "./mso-agent-layout.mjs";
 import { agentRound, executeTool, renderInteractionFailure, runInteractiveRound } from "./mso-agent-turn.mjs";
 import { pathToFileURL } from "node:url";
 import { createQueue, dequeue } from "./mso-agent-queue.mjs";
 import { pendingImageBlock } from "./mso-agent-image.mjs";
+import { visibleSessionRows } from "./mso-agent-sessions.mjs";
+import { chromeLines } from "./mso-agent-chrome.mjs";
 
 async function runOneShot(opts) {
   const requested = resumeArg(process.argv.slice(2));
@@ -81,6 +83,9 @@ async function main() {
     // Ephemeral queue: held only in memory for this TUI process and not persisted to server state.
     queue: createQueue(),
   };
+  let recentSessions = session.agentSession ? [session.agentSession] : [];
+  const refreshSessions = () => { listCliSessions(20).then((rows) => { recentSessions = visibleSessionRows(rows); }).catch(() => {}); };
+  refreshSessions();
   const rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onToggleStatusBar: () => { session.statusBar = !session.statusBar; } }); syncPromptHistory(rl, session);
   let inboundRequestQueued = false;
   const localBridge = new LocalAgentBridge({
@@ -145,7 +150,14 @@ async function main() {
           complete: completeSlash,
           onTab: () => { session.permission = nextPermissionMode(session.permission).id; },
           separator: () => composerSeparator(session, C, process.stdout.columns),
-          footer: () => composerFooter(session, C, process.stdout.columns),
+          footer: () => chromeLines({
+            session,
+            sessions: recentSessions,
+            activeId: session?.agentSession?.id,
+            colors: C,
+            width: process.stdout.columns,
+            rows: process.stdout.rows,
+          }),
         });
         if (answer === null) {
           if (inboundRequestQueued) continue;
@@ -159,7 +171,7 @@ async function main() {
           const result = await handleSlash(rl, line, session, { runTurn: (skill) => runInteractiveRound(rl, session, skill, interrupts, localBridge), runSubagent: (input) => runForegroundSubagent({ rl, session, input, executeTool, colors: C }) });
           if (result === "exit") break;
           if (result === "restart") { restartRequested = true; break; }
-          if (result === "refresh") await localBridge.syncSession();
+          if (result === "refresh") { await localBridge.syncSession(); refreshSessions(); }
           if (result === "drain") {
             lastTurnInterrupted = false;
             await drainQueue();

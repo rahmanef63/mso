@@ -591,7 +591,7 @@ those two, and mouse/scrollbar/splits are additive after M5.
 | M1 | Shared cell primitives, `scripts/tui/cells.mjs` | DONE | PR #186, `5b45314`; layout.mjs 67 to 20 lines |
 | M2 | Transcript model, `scripts/mso-agent-transcript.mjs` | DONE | PR #187; reuses formatEditDiff, formatTodoBlock, formatDiffBody |
 | M3 | Frame writer, `scripts/mso-agent-screen.mjs`, inline mode | DONE | PR #189; composer 221 to 217 lines, ratchet 43 to 42 |
-| M4 | Chrome and tabs as a bottom block | IN PROGRESS | no alt screen yet, scrollback intact |
+| M4 | Chrome and tabs as a bottom block | DONE | PR #190; chromeLines and tabs switch; composer 216 lines |
 | M5 | Alternate screen behind a flag, with teardown | NOT STARTED | irreversible step; waits for M4 |
 | M6 | Transcript viewport and scrollbar | NOT STARTED | needs M5 |
 | M7 | Mouse | NOT STARTED | needs the owner's selection policy |
