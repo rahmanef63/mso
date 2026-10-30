@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `tui` a transcript model, because scrollback is the only transcript that exists (#187)
 
+**Docs**
+
+- `tui` record milestone status in the renderer plan
+
 ## 2026-10-30
 
 **Added**
@@ -20,6 +24,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Changed**
 
+- `tui` paint the composer through a frame writer instead of appending
 - `tui` share the cell and pane primitives instead of growing a second copy (#186)
 
 **Tests**
