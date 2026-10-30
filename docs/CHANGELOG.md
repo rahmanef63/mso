@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `agent` /jobs, so background subagents are visible instead of fire and forget
+- `tui` a transcript model, because scrollback is the only transcript that exists
+- `agent` /jobs, so background subagents are visible instead of fire and forget (#183)
 - `tui` configurable keybinds, with the defaults kept byte-identical (#182)
 - `agent` show the todo checklist in the TUI and in the status row (#179)
 
