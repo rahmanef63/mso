@@ -156,6 +156,31 @@ export function getSubagentJob(jobId: string, principal: string) {
   return publicJob(ownedJob(jobId, principal));
 }
 
+export function listSubagentJobs(principal: string, limit = MAX_RETAINED_JOBS, now = Date.now()) {
+  cleanup(now);
+  return [...jobs.values()]
+    .filter((j) => j.principal === principal)
+    .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))
+    .slice(0, Math.max(0, limit))
+    .map((job) => {
+      const isFinished = job.status !== "running" && Boolean(job.finishedAt);
+      const endMs = isFinished ? Date.parse(job.finishedAt!) : now;
+      const elapsedMs = Math.max(0, endMs - Date.parse(job.startedAt));
+      const resultPreview = job.status === "completed" && typeof job.result === "string"
+        ? job.result.slice(0, 120)
+        : undefined;
+      return {
+        jobId: job.jobId,
+        status: job.status,
+        name: job.name,
+        startedAt: job.startedAt,
+        ...(job.finishedAt ? { finishedAt: job.finishedAt } : {}),
+        elapsedMs,
+        ...(resultPreview !== undefined ? { resultPreview } : {}),
+      };
+    });
+}
+
 export function cancelSubagentJob(jobId: string, principal: string) {
   const job = ownedJob(jobId, principal);
   if (job.status === "running" && job.controller) {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   startSubagentJob,
   getSubagentJob,
+  listSubagentJobs,
   cancelSubagentJob,
   _resetSubagentJobsForTest,
   MAX_CONCURRENT_PER_PRINCIPAL,
@@ -124,5 +125,33 @@ describe("background subagent jobs", () => {
     expect(() => getSubagentJob(j1.jobId, "p-a")).toThrow("subagent job not found");
     expect(getSubagentJob(j2.jobId, "p-a").status).toBe("completed");
     expect(getSubagentJob(runningIds[0], "p-2").status).toBe("running");
+  });
+
+  it("9. listSubagentJobs isolates principals, orders newest first, caps list and truncates resultPreview", async () => {
+    const longText = "x".repeat(200);
+    const j1 = await startSubagentJob({ ...base, principal: "p-list", name: "first" }, vi.fn(async () => ok(longText)));
+    await new Promise((r) => setTimeout(r, 10));
+    const j2 = await startSubagentJob({ ...base, principal: "p-list", name: "second" }, vi.fn<SubagentRunnerFn>(() => new Promise(() => {})));
+    await startSubagentJob({ ...base, principal: "p-other", name: "other" }, vi.fn<SubagentRunnerFn>(() => new Promise(() => {})));
+
+    const list = listSubagentJobs("p-list");
+    expect(list.length).toBe(2);
+    expect(list[0].jobId).toBe(j2.jobId);
+    expect(list[0].status).toBe("running");
+    expect(list[0].resultPreview).toBeUndefined();
+    expect((list[0] as Record<string, unknown>).result).toBeUndefined();
+
+    expect(list[1].jobId).toBe(j1.jobId);
+    expect(list[1].status).toBe("completed");
+    expect(list[1].resultPreview).toBe("x".repeat(120));
+    expect((list[1] as Record<string, unknown>).result).toBeUndefined();
+
+    const capped = listSubagentJobs("p-list", 1);
+    expect(capped.length).toBe(1);
+    expect(capped[0].jobId).toBe(j2.jobId);
+
+    const otherList = listSubagentJobs("p-other");
+    expect(otherList.length).toBe(1);
+    expect(otherList[0].name).toBe("other");
   });
 });
