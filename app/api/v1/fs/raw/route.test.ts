@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, open, rm, writeFile, type FileHandle } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-let actor = "viewer";
+let actor = "viewer", authOk = true;
 const handles: FileHandle[] = [], responses: Response[] = [];
-vi.mock("@/lib/agent/server", () => ({ verifyAuth: async () => true }));
+vi.mock("@/lib/agent/server", () => ({ verifyAuth: async () => authOk }));
 vi.mock("@/lib/auth/require-session", () => ({ getSessionActor: async () => actor }));
 vi.mock("@/lib/host/fs-api", async importOriginal => {
   const original = await importOriginal() as typeof import("@/lib/host/fs-api");
@@ -15,7 +15,7 @@ vi.mock("@/lib/host/fs-api", async importOriginal => {
 import { GET } from "./route";
 let root: string, small: string, large: string;
 beforeEach(async () => {
-  actor = "viewer"; handles.length = 0; responses.length = 0;
+  actor = "viewer"; authOk = true; handles.length = 0; responses.length = 0;
   root = await mkdtemp(path.join(os.tmpdir(), "mso-raw-bounds-"));
   vi.stubEnv("OS_FS_READ_ROOTS", root);
   small = path.join(root, "small.txt"); large = path.join(root, "large.mp4");
@@ -33,6 +33,24 @@ async function get(name = small, range?: string, signal?: AbortSignal) {
   responses.push(response); return response;
 }
 describe("bounded Viewer raw file responses", () => {
+  it("returns 401 when unauthenticated and does not open descriptors", async () => {
+    authOk = false;
+    const response = await get();
+    expect(response.status).toBe(401);
+    expect(handles).toHaveLength(0);
+  });
+  it("refuses missing path parameter with 400", async () => {
+    const response = await GET(new Request("http://localhost/api/v1/fs/raw"));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "path required" });
+    expect(handles).toHaveLength(0);
+  });
+  it("refuses paths escaping the allowed roots", async () => {
+    const response = await get("/etc/passwd");
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Path outside readable roots" });
+    expect(handles).toHaveLength(0);
+  });
   it("closes empty-file descriptors before returning an empty body", async () => {
     await writeFile(small, "");
     const response = await get();

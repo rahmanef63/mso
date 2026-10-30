@@ -124,8 +124,13 @@ that assumed `os.tmpdir()` was private).
 3. **The gate is now trustworthy.** `gates-12.sh full` reports 17 passed / 0 failed / 0 skipped,
    matching the CI step set, and the perf gate is wired into CI.
 4. **The migration is not worth doing slice-by-slice.** Measured twice: an island costs 15.75 KiB
-   gzip against a 1.64 KiB React chunk, and one Svelte component costs 2.8× the whole React slice
-   it would replace.
+   gzip against a 1.64 KiB React chunk, and a hybrid shell adds a ~17.7 KiB runtime beside React
+   rather than replacing it. The earlier claim that "one Svelte component costs 2.8× the whole
+   React slice it replaces" was retracted in `docs/MSO-MIGRATION.md` §4.0 (which is authoritative):
+   that comparison was flawed because it measured a Svelte build including runtime against a React
+   chunk excluding runtime. Marginal Svelte component cost is negligible (~0.03 KiB per component,
+   17.74 → 17.99 KiB across 10 components), but adding a second runtime beside React yields a net
+   +11.7 KiB regression even after the slice's own 6.27 KiB leaves.
 
 So the accurate summary is that this work bought **portability and the ability to decide**, not
 speed. Whether to spend the remaining 8–12 months on Phase 5 is a product decision that these
