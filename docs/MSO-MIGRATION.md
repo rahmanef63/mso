@@ -10,7 +10,7 @@ Current state, 2026-10-30:
 | 1 Bun tooling | **shipped** — `bun install` builds `node-pty` via a committed patch |
 | 2 Portable core | **shipped** — 117/117 route handlers ≤ 15 LOC, `lib/` free of static `next/*` |
 | 3 Svelte island | **cancelled by measurement** — 15.75 KiB gzip for a hello-world island against a 1.64 KiB React chunk |
-| 4 Slice-by-slice | **cancelled by measurement** — one Svelte component costs 2.8× the whole React slice it replaces |
+| 4 Slice-by-slice | **cancelled by measurement** — a Svelte island adds a 17.7 KiB runtime on top of React's, and the marginal component cost is negligible so the runtime, not the code, is the whole cost |
 | 5 Shell swap | **not started** — the only remaining work, and the only place the measured win can arrive |
 | 6 Rust sidecar | **no-go by measurement** — the proxy costs 15 µs/request; a sidecar would add 200–500 µs |
 
