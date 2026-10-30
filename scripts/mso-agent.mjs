@@ -12,48 +12,15 @@ import { consumeRestartUiState, relaunchCurrentAgentSession } from "./mso-agent-
 import { oneShotHelp, parseOneShot } from "./mso-agent-oneshot.mjs";
 import { LocalAgentBridge, handleLocalAgentMentionInput, runForegroundSubagent } from "./mso-agent-collaboration.mjs";
 import { composerPrompt, composerSeparator } from "./mso-agent-layout.mjs";
-import { agentRound, executeTool, renderInteractionFailure, runInteractiveRound } from "./mso-agent-turn.mjs";
+import { executeTool, renderInteractionFailure, runInteractiveRound } from "./mso-agent-turn.mjs";
+import { runOneShot } from "./mso-agent-oneshot-run.mjs";
+import { mountScreenLoop } from "./mso-agent-screen-loop.mjs";
 import { pathToFileURL } from "node:url";
 import { createQueue, dequeue } from "./mso-agent-queue.mjs";
 import { pendingImageBlock } from "./mso-agent-image.mjs";
 import { altScreenRequested, startAltScreen } from "./mso-agent-altscreen.mjs";
 import { visibleSessionRows } from "./mso-agent-sessions.mjs";
 import { chromeLines } from "./mso-agent-chrome.mjs";
-
-async function runOneShot(opts) {
-  const requested = resumeArg(process.argv.slice(2));
-  const [s, agentSession] = await Promise.all([state(), startupSession(requested)]);
-  if (!agentSession || agentSession.source !== "cli") throw new Error("could not establish a CLI MSO Agent session");
-  const session = {
-    state: s, agentSession, history: Array.isArray(agentSession.history) ? agentSession.history : [],
-    pendingSkill: null, activeSkill: null, lastInvokedSkill: null,
-    titleOverride: requested ? (agentSession.title || null) : null,
-    usage: { apiCalls: 0 }, lastRouting: null, lastElapsedMs: 0, statusBar: false,
-    permission: "ask", pendingApproval: null,
-  };
-  session.history.push({ role: "user", text: opts.prompt });
-  // `--thinking` is a REPORTING flag only: the stream exposes reasoning token counts,
-  // not reasoning text, so nothing here changes the turn. Passing `thinking` into
-  // agentRound would be dead config, so the flag is consumed in the payload below.
-  const result = await agentRound(null, session, null, undefined, null, { quiet: true, approvalScope: opts.approvalScope });
-  await persistSession(session);
-  const payload = {
-    ok: true, sessionId: session.agentSession.id,
-    model: `${s.config?.provider || ""}/${s.config?.model || ""}`.replace(/^\//, ""),
-    approvalScope: opts.approvalScope, text: result?.text || "", rounds: result?.rounds || 0,
-    toolCalls: result?.calls || [], usage: result?.usage || session.usage, routing: session.lastRouting, elapsedMs: result?.elapsedMs || session.lastElapsedMs,
-    // Prove what was actually attached instead of leaving --file unverifiable.
-    ...(opts.files?.length ? { files: opts.files } : {}),
-    // `--thinking` surfaces the reasoning ACCOUNTING the provider really reported.
-    // Streams capture reasoning tokens, not reasoning text, so claiming a reasoning
-    // block here would be invented output.
-    ...(opts.thinking ? { thinking: true, reasoningTokens: (result?.usage ?? session.usage)?.reasoningTokens ?? null } : {}),
-    ...(result?.turnLimitReached ? { turnLimitReached: true } : {}),
-  };
-  if (opts.json) process.stdout.write(`${JSON.stringify(payload)}\n`);
-  else process.stdout.write(`${payload.text}${payload.text.endsWith("\n") || !payload.text ? "" : "\n"}`);
-}
-
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -97,7 +64,8 @@ async function main() {
     const refreshSessions = () => { listCliSessions(20).then((rows) => { recentSessions = visibleSessionRows(rows); }).catch(() => {}); };
     refreshSessions();
     const chromeFooter = () => chromeLines({ session, sessions: recentSessions, activeId: session?.agentSession?.id, colors: C, width: process.stdout.columns, rows: process.stdout.rows });
-    rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onToggleStatusBar: () => { session.statusBar = !session.statusBar; } }); syncPromptHistory(rl, session);
+    const screenLoop = mountScreenLoop({ session, enabled: altScreen.ok, output: process.stdout, input: process.stdin, colors: C, getSessions: () => recentSessions });
+    rl = new AgentComposer({ input: process.stdin, output: process.stdout, colors: C, onToggleStatusBar: () => { session.statusBar = !session.statusBar; screenLoop.paint(); } }); syncPromptHistory(rl, session);
     let inboundRequestQueued = false;
     localBridge = new LocalAgentBridge({
       session,
@@ -134,6 +102,7 @@ async function main() {
         const skillContext = session.pendingSkill;
         session.pendingSkill = null;
         await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
+        screenLoop.sync();
       }
     };
     onSigint = () => {
@@ -151,21 +120,26 @@ async function main() {
       if (inboundRequestQueued) {
         inboundRequestQueued = false;
         await runInteractiveRound(rl, session, null, interrupts, localBridge);
+        screenLoop.sync();
         continue;
       }
       let line = "";
       try {
+        screenLoop.paint();
         const answer = await rl.question(() => composerPrompt(session, C), {
           complete: completeSlash,
           onTab: () => { session.permission = nextPermissionMode(session.permission).id; },
-          separator: () => composerSeparator(session, C, process.stdout.columns),
-          footer: chromeFooter,
+          // The panel already draws the separator and the footer above the prompt, so drawing
+          // them twice would push the prompt off the reserved rows.
+          separator: () => (screenLoop.active ? "" : composerSeparator(session, C, process.stdout.columns)),
+          footer: () => (screenLoop.active ? "" : chromeFooter()),
         });
         if (answer === null) {
           if (inboundRequestQueued) continue;
           break;
         }
         line = answer.trim();
+        screenLoop.follow();
       } catch { break; }
       if (!line) continue;
       if (line.startsWith("/")) {
@@ -183,10 +157,11 @@ async function main() {
           renderInteractionFailure(error, session, {}, C);
           await persistSession(session).catch(() => undefined);
         }
+        screenLoop.sync();
         if (interrupts.exitRequested) break;
         continue;
       }
-      if (await handleLocalAgentMentionInput(session, line, C)) continue;
+      if (await handleLocalAgentMentionInput(session, line, C)) { screenLoop.sync(); continue; }
       // Attached images belong to the NEXT prompt only. Format them into the user
       // message once, then clear, so a stale image can never ride along silently.
       const images = Array.isArray(session.pendingImages) ? session.pendingImages : [];
@@ -195,7 +170,9 @@ async function main() {
       if (images.length) session.pendingImages = [];
       const skillContext = session.pendingSkill;
       session.pendingSkill = null;
+      screenLoop.sync();
       await runInteractiveRound(rl, session, skillContext, interrupts, localBridge);
+      screenLoop.sync();
       if (interrupts.exitRequested) break;
       if (!lastTurnInterrupted) await drainQueue();
     }
@@ -206,6 +183,7 @@ async function main() {
     if (!restartRequested && session) console.log(`${C.dim}session ${sessionTitle} · resume: mso --continue · switch: /sessions${C.reset}`);
     if (localBridge) await localBridge.close({ ended: !restartRequested }).catch(() => undefined);
     rl?.close();
+    screenLoop?.dispose();
     screen?.dispose();
   }
   if (restartRequested) {

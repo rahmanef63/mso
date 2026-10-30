@@ -593,7 +593,7 @@ those two, and mouse/scrollbar/splits are additive after M5.
 | M3 | Frame writer, `scripts/mso-agent-screen.mjs`, inline mode | DONE | PR #189; composer 221 to 217 lines, ratchet 43 to 42 |
 | M4 | Chrome and tabs as a bottom block | DONE | PR #191; chromeLines and tabs switch; composer 216 lines |
 | M5 | Alternate screen behind a flag, with teardown | DONE | PR #192; default off; teardown on exit, signals, execve, spawnSync |
-| M6 | Transcript viewport and scrollbar | NOT STARTED | needs M5 |
+| M6 | Transcript viewport and scrollbar | DONE | PR #193; 2000-line cap, follow mode, PgUp/PgDn/Ctrl+G/End, entrypoint 218 to 196 lines |
 | M7 | Mouse | NOT STARTED | needs the owner's selection policy |
 | M8 | Split panes, then flip the alt screen default | NOT STARTED | needs M6 and M7 |
 
