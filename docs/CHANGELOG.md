@@ -17,6 +17,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Tests**
 
+- `api` every route now has a test — 117 of 117
 - `api` cover 30 more routes, and close the one fs route with no rate limit
 
 ## 2026-10-30
