@@ -55,11 +55,15 @@ unless a phase explicitly pays for it.
 
 ## Phase 2: large, needs decisions
 
+The renderer half of Phase 2 is planned in detail in
+[TUI-RENDERER-PLAN.md](./TUI-RENDERER-PLAN.md), including why the alternate screen
+cannot come before a transcript model exists.
+
 | # | Item | Why it is large | Status |
 |---|---|---|---|
 | P2-1 | Session tabs | Needs alt-screen; without it tabs corrupt scrollback | NOT DONE (deferred) |
 | P2-2 | Mouse, panels, scrollbar, split | Requires a retained-mode renderer (OpenTUI/blessed/ink) | NOT DONE (deferred) |
-| P2-3 | Configurable keybinds | Needs a keymap loader + conflict detection | NOT DONE (deferred) |
+| P2-3 | Configurable keybinds | Keymap loader, conflict detection, `~/.mso/keybinds.json` | DONE (PR #182) |
 
 ## Deliberately refused
 

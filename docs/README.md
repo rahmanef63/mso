@@ -62,6 +62,7 @@ evidence and review freshness. The repository quality gate runs both automatical
 | [`NAKAMA-PARITY.md`](./NAKAMA-PARITY.md) | Frozen Nakama scope, current implementation mappings and candidate evidence limits |
 | [`N8N-PARITY.md`](./N8N-PARITY.md) | Core n8n capability map across native Workflows, Organization, Integrations and the dedicated external n8n workspace |
 | [`TUI-PARITY-PLAN.md`](./TUI-PARITY-PLAN.md) | MSO Agent TUI parity program: per-item status, the server seam each item uses, and the items deliberately refused |
+| [`TUI-RENDERER-PLAN.md`](./TUI-RENDERER-PLAN.md) | What the TUI is today, why a retained renderer is the only path to panels and tabs, and the M0 to M8 order that keeps every gate green |
 | [`ORGANIZATION.md`](./ORGANIZATION.md) | Owner-private organization units, seats, reporting lines, live agent bindings, and workflow routing references |
 | [`MCP-HOW-TO.md`](./MCP-HOW-TO.md) | Bahasa Indonesia onboarding: client connection, prompts, workflow, project MCP and troubleshooting |
 | [`MCP.md`](./MCP.md) | MCP/OAuth internals and full external-tool security model |
