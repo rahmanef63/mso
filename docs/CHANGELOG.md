@@ -10,6 +10,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `agent` show the todo checklist in the TUI and in the status row (#179)
 
+**Docs**
+
+- `bench` the after-side comparison, and a status header that was no longer true
+
 ## 2026-10-29
 
 **Added**
