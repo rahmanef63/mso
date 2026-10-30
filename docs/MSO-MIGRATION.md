@@ -1,11 +1,28 @@
 # MSO migration plan — Svelte / Bun / Rust
 
-Status: **open plan, not implemented.** Measurement-first. Nothing here is approved to
-start until §3 gate is signed off with fresh numbers from the target host.
+Status: **measurement complete, migration largely decided away.** This header said "open plan,
+not implemented" on 2026-10-28; it is wrong now and was rewritten rather than left to mislead.
+Current state, 2026-10-30:
 
-Baseline commit: `1c74603` (2026-10-27), app `0.2.23`.
+| Phase | State |
+|---|---|
+| 0 Instrumentation | **shipped** — five perf scripts, gate running in CI |
+| 1 Bun tooling | **shipped** — `bun install` builds `node-pty` via a committed patch |
+| 2 Portable core | **shipped** — 117/117 route handlers ≤ 15 LOC, `lib/` free of static `next/*` |
+| 3 Svelte island | **cancelled by measurement** — 15.75 KiB gzip for a hello-world island against a 1.64 KiB React chunk |
+| 4 Slice-by-slice | **cancelled by measurement** — one Svelte component costs 2.8× the whole React slice it replaces |
+| 5 Shell swap | **not started** — the only remaining work, and the only place the measured win can arrive |
+| 6 Rust sidecar | **no-go by measurement** — the proxy costs 15 µs/request; a sidecar would add 200–500 µs |
+
+The honest summary of two days of work: the backend is portable and the gate is real, while the
+UI migration is not worth doing slice-by-slice and remains unproven as a whole. What has shipped
+is the ability to decide with numbers instead of intuitions — including the number that argues
+against the migration.
+
+Baseline commit for the "before" numbers in `docs/BENCH-BEFORE.md`: `062fe18` (2026-10-29).
+Original baseline this document was written against: `1c74603` (2026-10-27), app `0.2.23`.
 Measurement host: ASUS laptop, WSL Ubuntu, node `26.7.0`, bun `1.4.2`, Next `16.4.2`.
-Measured: 2026-10-28.
+Measured: 2026-10-28 to 2026-10-30.
 
 Live instances that must stay green during any phase: three of them — the local laptop
 instance, a second host running the same build, and the VPS instance that is treated as

@@ -125,6 +125,7 @@ source comments. They are **not current implementation contracts**.
 | [`OS-SETTINGS-ICON-UPDATE-DEVICE-PLAN.md`](./OS-SETTINGS-ICON-UPDATE-DEVICE-PLAN.md) | **Open plan, not implemented**: auto-update opt-in, stable channel, Devices/Server merge, account icon picker, upload→WebP/ICO pipeline |
 | [`MSO-MIGRATION.md`](./MSO-MIGRATION.md) | **Open plan, not implemented**: measured baseline plus phased Next→Svelte/Bun/Rust migration with a decision gate before any rewrite |
 | [`BENCH-BEFORE.md`](./BENCH-BEFORE.md) | **Measured baseline, 2026-10-29**: bundle, LCP/TBT, hydration chain, per-app open cost and code surface, captured on an idle host as the "before" side of the Phase 4/5 comparison |
+| [`BENCH-AFTER.md`](./BENCH-AFTER.md) | **Measured comparison, 2026-10-30**: the same eight measures two days later, side by side, including the deltas that are zero and the ones inside the noise band |
 | [`MIGRATION-GATE-PLAN.md`](./MIGRATION-GATE-PLAN.md) | Executed migration-gate work: which §3 items landed with measurements, which were blocked and why, and the `lib/` framework-import debt |
 
 ## Marketing/demo collateral
