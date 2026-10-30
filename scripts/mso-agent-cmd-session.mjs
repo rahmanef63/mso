@@ -8,12 +8,32 @@ import {
 } from "./mso-agent-session-ui.mjs";
 import { api, state } from "./mso-agent-api.mjs";
 import { C } from "./mso-agent-runtime.mjs";
+import { clearTodos, formatTodoBlock, latestTodos } from "./mso-agent-todos.mjs";
+
+export async function handleTodos(ctx, args = []) {
+  const { C: colors = C } = ctx;
+  const state = latestTodos();
+  if (!state || (!state.items?.length && !state.summary)) {
+    console.log("no todo list in this session yet: the agent writes one with todo_write");
+    return "handled";
+  }
+  const showAll = args.includes("--all");
+  const maxItems = showAll ? Number.POSITIVE_INFINITY : 12;
+  const block = formatTodoBlock(state, { colors, maxItems });
+  if (block) console.log(block);
+  else console.log("no todo list in this session yet: the agent writes one with todo_write");
+  return "handled";
+}
 
 export async function handleSessionCommand(ctx, cmd, args) {
+  if (cmd === "/todos") {
+    return handleTodos(ctx, args);
+  }
   const { rl, session, C: colors = C } = ctx;
   switch (cmd) {
     case "/new":
       await startNewSession(rl, session, args.join(" "));
+      clearTodos();
       session.state = await state();
       return "refresh";
     case "/restart":
@@ -23,6 +43,7 @@ export async function handleSessionCommand(ctx, cmd, args) {
     case "/resume":
       if (!args.length) await resumePicker(rl, session);
       else await resumeInto(rl, session, args.join(" "));
+      clearTodos();
       return "refresh";
     case "/rename": {
       const name = args.join(" ").trim();
@@ -71,6 +92,7 @@ export async function handleSessionCommand(ctx, cmd, args) {
       return "handled";
     }
     case "/clear":
+      clearTodos();
       Object.assign(session, {
         history: [],
         pendingSkill: null,

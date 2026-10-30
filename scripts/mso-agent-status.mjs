@@ -2,6 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { projectHistoryForModel } from "./mso-agent-context.mjs";
 import { addProviderUsage } from "../lib/ai/provider-usage.mjs";
+import { todoStatusChip } from "./mso-agent-todos.mjs";
 
 function compactNumber(value) {
   const n = Number(value || 0);
@@ -78,6 +79,7 @@ export function statusParts(session, cwd = process.cwd()) {
       : ((usage.inputTokens ?? 0) > 0 || (usage.outputTokens ?? 0) > 0) ? `tokens ${compactNumber(usage.inputTokens)}in/${compactNumber(usage.outputTokens)}out` : null,
     routing?.activeTools != null ? `route ${routing.routeIds?.join("+") || (routing.fallbackUsed ? "fallback" : "direct")} · tools ${routing.activeTools}/${routing.fullTools}` : null,
     `turns ${turns}`,
+    todoStatusChip(),
     elapsed > 0 ? `${(elapsed / 1000).toFixed(elapsed >= 10_000 ? 0 : 1)}s` : null,
     `@${sessionName}`,
     `session ${sessionTitle}`,

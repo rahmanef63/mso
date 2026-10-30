@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `agent` fs_edit reports the diff it applied and can preview without writing
+- `agent` show the todo checklist in the TUI and in the status row
+- `agent` fs_edit reports the diff it applied and can preview without writing (#178)
 - `agent` a bounded pty_session tool, so an agent can drive an interactive process (#176)
 - `agent` background subagents, so a parent can keep working in parallel (#175)
 - `agent` surgical edit, content search, glob and a todo list (#173)
