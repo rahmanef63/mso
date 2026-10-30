@@ -31,6 +31,7 @@ describe("MSO Agent interactive composer primitives", () => {
       setRawMode(value: boolean) { this.isRaw = value; }
     }
     class FakeOutput {
+    isTTY = true;
       columns = 88;
       chunks: string[] = [];
       write(value: string) { this.chunks.push(String(value)); return true; }

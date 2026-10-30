@@ -3,10 +3,8 @@ import { wordLeftIndex, wordRightIndex } from "./mso-agent-editing.mjs";
 import process from "node:process";
 import { resumeActiveActivity, suspendActiveActivity } from "./mso-agent-activity.mjs";
 import { getKeybinds, resolveKeybind } from "./mso-agent-keybinds.mjs";
-
-import {
-  chars, clamp, CLEAR_LINE, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, CURSOR_UP, eraseComposerRows, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width,
-} from "./mso-agent-composer-ui.mjs";
+import { cursorHome, eraseFrame, frameHeight, withCursorHidden, writeFrame } from "./mso-agent-screen.mjs";
+import { chars, clamp, CLEAR_SCREEN, completionWindow, CURSOR_DOWN, CURSOR_RIGHT, inputLayout, inputViewport, menuLines, reserveComposerRows, verticalCursor, width } from "./mso-agent-composer-ui.mjs";
 export { completionWindow, inputLayout, inputViewport, verticalCursor } from "./mso-agent-composer-ui.mjs";
 
 export class AgentComposer {
@@ -21,7 +19,7 @@ export class AgentComposer {
     if (this.closed) return null;
     const input = this.input, output = this.output, C = this.C;
     return new Promise((resolve) => {
-      let value = "", cursor = 0, selected = 0, reservedRows = 0;
+      let value = "", cursor = 0, selected = 0, reservedRows = 0, paintedLines = [], lastCursorRow = 0;
       let dismissed = false, historyIndex = null, draft = "", settled = false, verticalColumn = null;
       const promptText = () => String(typeof prompt === "function" ? prompt() : prompt);
       const footerText = () => String(typeof footer === "function" ? footer() : (footer || ""));
@@ -29,33 +27,31 @@ export class AgentComposer {
       const wasRaw = Boolean(input.isRaw);
 
       const matches = () => dismissed || !complete ? [] : complete(value) || [];
-      // Reserve physical rows only when the dropdown first grows. Selection changes then
-      // redraw with cursor movement only -- no LF/CRLF -- so ↑/↓ never create scrollback rows.
+      // Reserve physical rows only when the frame grows. Redraws diff row-by-row in place
+      // without emitting LF/CRLF, keeping terminal scrollback clean.
       const reserve = (rows) => { reservedRows = reserveComposerRows(output, reservedRows, rows); };
-      const erase = () => eraseComposerRows(output, reservedRows);
+      const erase = () => { cursorHome(output, lastCursorRow); eraseFrame(output, paintedLines); paintedLines = []; lastCursorRow = 0; reservedRows = 0; };
       const render = () => {
-        const currentPrompt = promptText();
-        const promptWidth = width(currentPrompt);
-        const items = matches();
+        cursorHome(output, lastCursorRow);
+        const currentPrompt = promptText(), promptWidth = width(currentPrompt), items = matches();
         selected = items.length ? clamp(selected, 0, items.length - 1) : 0;
         const menu = menuLines(items, selected, output.columns, C, panelLabel);
-        const footerRow = footerText();
-        const footerRows = footerRow ? 1 : 0;
+        const footerRow = footerText(), footerRows = footerRow ? 1 : 0;
         const terminalRows = Math.max(8, Number(output.rows || 24));
         const maxInputRows = Math.max(2, Math.min(12, terminalRows - menu.length - footerRows - 4, Math.floor(terminalRows * 0.32)));
         const layout = inputLayout(value, cursor, { columns: output.columns, rows: terminalRows, promptWidth, maxRows: maxInputRows });
-        const inputExtraRows = Math.max(0, layout.lines.length - 1);
-        const below = inputExtraRows + menu.length + footerRows;
-        reserve(below);
-        erase();
         const continuation = " ".repeat(promptWidth);
-        output.write(`${currentPrompt}${layout.lines[0] || ""}`);
-        for (const row of layout.lines.slice(1)) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${continuation}${row}`);
-        for (const row of menu) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${row}`);
-        if (footerRow) output.write(`${CURSOR_DOWN(1)}\r${CLEAR_LINE}${footerRow}`);
-        const backUp = menu.length + footerRows + (layout.lines.length - 1 - layout.cursorRow);
-        if (backUp) output.write(CURSOR_UP(backUp));
+        const lines = [
+          `${currentPrompt}${layout.lines[0] || ""}`,
+          ...layout.lines.slice(1).map((row) => `${continuation}${row}`),
+          ...menu,
+          ...(footerRow ? [footerRow] : []),
+        ];
+        reserve(Math.max(0, frameHeight(lines) - 1));
+        withCursorHidden(output, () => { paintedLines = writeFrame(output, paintedLines, lines); });
+        if (layout.cursorRow) output.write(CURSOR_DOWN(layout.cursorRow));
         output.write(`\r${CURSOR_RIGHT(promptWidth + layout.cursorCol)}`);
+        lastCursorRow = layout.cursorRow;
       };
       const cleanup = () => {
         input.off("keypress", onKey);
@@ -126,7 +122,7 @@ export class AgentComposer {
         const items = matches();
         const action = resolveKeybind(key, this.keybinds || getKeybinds());
         if (action === "interrupt") return value ? edit("", 0) : cancel(true);
-        if (action === "clear_screen") { output.write(CLEAR_SCREEN); reservedRows = 0; return render(); }
+        if (action === "clear_screen") { output.write(CLEAR_SCREEN); reservedRows = 0; paintedLines = []; lastCursorRow = 0; return render(); }
         if (action === "dismiss") {
           if (escapeCancels) return cancel(false);
           dismissed = true; selected = 0; return render();
