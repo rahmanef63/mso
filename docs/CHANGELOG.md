@@ -11,6 +11,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `tui` a tab row and a footer that stay put, painted through the frame writer (#191)
 - `tui` a transcript model, because scrollback is the only transcript that exists (#187)
 
+**Fixed**
+
+- `ci` stop the semgrep scan failing on a generic argument in a test mock
+
 **Changed**
 
 - `tui` paint the composer through a frame writer instead of appending (#189)

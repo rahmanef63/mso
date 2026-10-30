@@ -18,7 +18,9 @@ vi.mock("@/lib/auth/require-session", () => ({
   getSessionContext: mocks.sessionContext,
 }));
 vi.mock("@/lib/infra/setup-capability", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/infra/setup-capability")>();
+  // Cast on its own const: Semgrep's TypeScript parser cannot read a generic argument on
+  // `await importOriginal<...>()`, and `--strict` fails the whole scan over it despite 0 findings.
+  const actual = await importOriginal() as typeof import("@/lib/infra/setup-capability");
   return {
     ...actual,
     openIntegrationSetup: mocks.openIntegrationSetup,
