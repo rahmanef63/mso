@@ -16,6 +16,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `tui` add the retained renderer plan and classify it
 - `migration` correct the "2.8x" claim that justified cancelling Phase 4
 - `bench` the after-side comparison, and a status header that was no longer true
 
