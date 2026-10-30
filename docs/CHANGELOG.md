@@ -4,11 +4,16 @@
 Newest first. `docs/PROGRESS.md` is the source of truth for *why* a change was made;
 this is the *what*, and it is what Settings → Account → About shows as “What's new”.
 
+## 2026-10-30
+
+**Added**
+
+- `agent` show the todo checklist in the TUI and in the status row (#179)
+
 ## 2026-10-29
 
 **Added**
 
-- `agent` show the todo checklist in the TUI and in the status row
 - `agent` fs_edit reports the diff it applied and can preview without writing (#178)
 - `agent` a bounded pty_session tool, so an agent can drive an interactive process (#176)
 - `agent` background subagents, so a parent can keep working in parallel (#175)
@@ -1504,15 +1509,3 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `security` add ultimate assurance suite
 - `security` add Codex Security scanning
-
-## 2026-08-24
-
-**Added**
-
-- `managed-apps` add 9Router as a one-click managed app
-
-**Fixed**
-
-- `managed-apps` embed 9router existing domain
-- `managed-apps` make 9router public-ip first
-- harden security state and credential guards
