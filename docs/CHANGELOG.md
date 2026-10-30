@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
+- `tui` configurable keybinds, with the defaults kept byte-identical
 - `agent` show the todo checklist in the TUI and in the status row (#179)
 
 **Tests**
