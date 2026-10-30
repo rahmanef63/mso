@@ -17,6 +17,12 @@ import { PROVIDERS } from "@/lib/models";
 import { defaultModelFor } from "@/lib/models/defaults";
 import { resolveSafeProviderEndpoint } from "@/lib/host/ssrf";
 
+
+// GET → masked config + the list of connected providers (built-in-with-key +
+// custom). POST → set a built-in provider/model/key, OR add a custom provider.
+// DELETE ?provider=slug → forget a provider (its key + custom wiring). Session-gated;
+// raw keys never leave the server.
+
 const mask = (k: string) => (k ? `${k.slice(0, 6)}…${k.slice(-4)}` : "");
 
 type CustomBody = { name?: string; baseURL?: string; baseUrl?: string; apiKey?: string; protocol?: string; models?: string[] };

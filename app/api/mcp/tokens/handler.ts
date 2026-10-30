@@ -7,6 +7,11 @@ import { toolsetInfo } from "@/lib/mcp/toolset";
 import { publicOrigin } from "@/lib/mcp/origin";
 import { getRuntimeIdentity } from "@/lib/host/system-api";
 
+
+// Token management for Settings → MCP. Under /api on purpose: this one IS
+// cookie-authenticated and DOES want the depth-2 CSRF gate in proxy.ts, unlike
+// /mcp itself.
+
 export async function handleGetTokens(req: Request): Promise<Response> {
   if (!(await verifyAuth(req, "owner"))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   return NextResponse.json({ enabled: mcpEnabled(), maxScope: maxScope(), origin: publicOrigin(req), toolset: toolsetInfo(TOOLS), tokens: await listTokens(), targetIdentity: getRuntimeIdentity() });

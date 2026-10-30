@@ -4,6 +4,11 @@ import { readPrefs, writePrefs, type OsPrefs } from "@/lib/prefs/store";
 import { sanitizeUpdatesPatch } from "@/lib/prefs/updates";
 import { applyAutomation } from "@/lib/host/update-automation";
 
+
+// Cross-device prefs sync (appearance tweaks + quicklinks + update automation).
+// GET → stored prefs; POST → partial section merge. Session-gated; mirrors
+// /api/config exactly.
+
 export async function handleGetPrefs(): Promise<Response> {
   if (!(await requireSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

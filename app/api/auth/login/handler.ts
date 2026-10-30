@@ -8,6 +8,17 @@ import { audit } from "@/lib/host/audit-api";
 import { IS_DEMO } from "@/lib/demo";
 import { clientIp } from "@/lib/host/request-ip";
 
+
+// Password + device-approval login, implemented for the VPS control plane.
+//   gate 1 = shared password (OS_LOGIN_PASSWORD)
+//   gate 2 = device id pre-approved in the device store
+// Correct password on an un-approved device → recorded pending, 403, NO cookie.
+
+// Per-IP rejection never charges the global budget. Admission is reserved before
+// body reads/password comparison so distributed requests cannot keep testing guesses.
+// Exhaustion temporarily rejects all unauthenticated attempts; an already-approved
+// session or the local CLI remains the recovery path, not a password oracle.
+
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 60_000;
 const MAX_TRACKED_IPS = 1024;

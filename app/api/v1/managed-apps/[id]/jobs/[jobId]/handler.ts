@@ -8,6 +8,21 @@ import { isManagedAppId } from "@/lib/managed-apps/catalog";
 import { auditJobCompletion } from "@/lib/managed-apps/job-audit";
 import { cancelManagedAppJob, readManagedAppJob } from "@/lib/managed-apps/jobs";
 
+
+// A job id from another app must 404 here, not leak that app's transcript
+// into a window the operator opened for this one.
+
+// The way out of a wedged operation. A job holds the app's lock until it reaches
+// a terminal status, so anything that leaves one running — a leaked grandchild
+// keeping the pipes open past its own reaper, a CLI that hangs below its timeout —
+// makes every later start/stop/restart/update/backup on that app answer 409. The
+// only other cure is restarting mso, which is precisely what an operator must
+// not do mid-update. It cannot end a healthy job by accident: the exact 24-hex id
+// AND its owning app are required, the outcome is always `failed` and never
+// `succeeded`, and cancelManagedAppJob refuses (false, never throws) while the job
+// is still inside its mandatory pre-flight backup — abandoning that copy is the
+// outcome the backup exists to prevent.
+
 export async function handleGetManagedAppJob(req: Request, id: string, jobId: string): Promise<Response> {
   if (!(await verifyAuth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (!isManagedAppId(id)) return NextResponse.json({ error: "unknown managed application" }, { status: 404 });

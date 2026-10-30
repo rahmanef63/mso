@@ -3,6 +3,10 @@ import { verifyAuth } from "@/lib/agent/server";
 import { apiError } from "@/lib/host/request-api";
 import { fileStream, statReadable, readFile, writeFile } from "@/lib/host/fs-api";
 import {
+
+// In-place file edit, atomic server-side. If the file EXISTS it must be a
+// valid doc (never clobber a non-doc file); only a MISSING file is seeded.
+
   blankDoc,
   buildDocFromImage,
   imageSize,

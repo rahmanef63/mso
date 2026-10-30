@@ -4,6 +4,13 @@ import { writeConfig, writeOAuthBundle } from "@/lib/config/store";
 import { codexStart, codexPoll, codexModels, CODEX } from "@/lib/ai/oauth/codex";
 import { setFlow, getFlow, clearFlow } from "@/lib/ai/oauth/flow-state";
 
+
+// OAuth "sign in with…" for subscription providers. POST { action:"start"|"poll" }.
+// Only OpenAI (Codex device-code) is wired today; others return not-supported.
+// Session-gated; the token bundle lands in the 0600 host config file.
+// Connecting credentials is intentionally separate from choosing the active runtime:
+// callers must send select:true on the successful poll to switch Alfa immediately.
+
 export async function handlePostOAuth(req: NextRequest, ctx: { params: Promise<{ provider: string }> }): Promise<Response> {
   if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { provider } = await ctx.params;

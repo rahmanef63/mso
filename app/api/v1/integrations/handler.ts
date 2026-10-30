@@ -7,6 +7,14 @@ import { DemoCredentialError, revealSecret } from "@/lib/infra/demo-credentials"
 import { IntegrationError } from "@/lib/infra/identity";
 import { audit } from "@/lib/host/audit-api";
 
+
+// Reveal is the only mode whose body carries a stored secret value, so it gets its
+// own stricter headers. Nothing else in this route may return one.
+
+// Reveal is deliberately NOT a manage/execute action: those are exposed to the
+// agent as MCP tools, and a reveal is a human action. It also re-checks live
+// authorization, because a cached owner claim is not proof the device still is one.
+
 const headers = { "Cache-Control": "no-store, private", "Referrer-Policy": "no-referrer" };
 const revealHeaders = { "Cache-Control": "private, no-store", "Pragma": "no-cache", "Referrer-Policy": "no-referrer" };
 

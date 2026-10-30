@@ -12,6 +12,13 @@ import { contentSecurityPolicy } from "@/lib/managed-apps/proxy-csp";
 import { errorPage, wantsErrorPage } from "@/lib/managed-apps/proxy-error-page";
 import { getOrcaReadiness } from "@/lib/managed-apps/orca-readiness";
 import {
+
+// A login POST answers 302 + Set-Cookie, so the cookies must ride the
+// rewritten redirect too — not just plain 2xx bodies.
+
+// The frame is CROSS-origin, so frame-ancestors must name the cockpit or the
+// browser refuses to display it at all.
+
   buildUpstreamHeaders,
   isSecureRequest,
   isServiceWorkerRequest,

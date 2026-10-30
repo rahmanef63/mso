@@ -8,6 +8,11 @@ import { codexModels, ensureFreshCodex } from "@/lib/ai/oauth/codex";
 import { streamCodex } from "@/lib/ai/codex-stream";
 import { boundedProviderFetch, providerErrorText } from "@/lib/ai/provider-response";
 
+
+// Minimal inference validation of the SELECTED provider's key + endpoint. Session-gated POST.
+// Returns { ok:true } or { ok:false, error } (HTTP 200 either way — a failed key is
+// a normal UX outcome, not a server error). Mirrors models-rahmanef-com testCredential.
+
 export async function handlePostTest(): Promise<Response> {
   if (!(await requireSession("owner"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
