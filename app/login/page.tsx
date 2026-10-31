@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ServerLoginPage } from "@/features/auth";
+import { ServerLoginPage } from "@/features/auth/panels";
 import { getSessionContext } from "@/lib/auth/require-session";
 import { safeReturnPath } from "@/lib/auth/return-path";
 import { IS_DEMO } from "@/lib/demo";

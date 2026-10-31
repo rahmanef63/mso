@@ -3,16 +3,12 @@
 import { createElement, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, LayoutGrid, Trash2 } from "lucide-react";
 import { ContextMenu, useContextMenu } from "../../../components/shells/context-menu";
-import { registerCommands } from "../../../lib/commands";
-import { registerContextMenu, type MenuItem } from "../../../lib/context-menu";
-import { toast } from "../../../lib/toast";
+import type { MenuItem } from "../../../lib/context-menu";
 import { cn } from "@/lib/utils";
 import {
-  getWidgetState,
   setPickerOpen,
   setWidgetPos,
   setWidgetSize,
-  setWidgetsOn,
   toggleWidget,
   useWidgetState,
   type WidgetPos,
@@ -25,31 +21,6 @@ import { WidgetPicker } from "./widget-picker";
 // layer (behind windows). Drag a widget to move it; right-click sets its size or
 // removes it. Layout + membership live in the widget-registry store; the
 // WidgetPicker (live-preview gallery) edits membership.
-
-registerCommands("desktop-widgets", [
-  {
-    id: "widgets:desktop",
-    label: "Toggle desktop widgets",
-    hint: "Widgets",
-    keywords: "glance dashboard wallpaper stats",
-    run: () => {
-      const next = !getWidgetState().on;
-      setWidgetsOn(next);
-      toast(next ? "Desktop widgets on" : "Desktop widgets off");
-    },
-  },
-  {
-    id: "widgets:configure",
-    label: "Configure desktop widgets",
-    hint: "Widgets",
-    keywords: "desktop widget picker add remove reorder",
-    run: () => setPickerOpen(true),
-  },
-]);
-
-registerContextMenu("macos", () => [
-  { label: "Desktop widgets…", icon: LayoutGrid, onClick: () => setPickerOpen(true) },
-]);
 
 const SIZE_W: Record<WidgetSize, string> = { s: "w-44", m: "w-60", l: "w-72" };
 const SIZE_PX: Record<WidgetSize, number> = { s: 176, m: 240, l: 288 };

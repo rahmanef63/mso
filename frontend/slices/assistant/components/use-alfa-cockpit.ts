@@ -5,7 +5,7 @@ import {
   setAlfaProjectContext,
   setAlfaSelectedProject,
   useAlfaSelectedProject,
-} from "@/features/appshell";
+} from "@/features/appshell/alfa";
 import type { AlfaCockpitData } from "../lib/cockpit-types";
 
 function publishProjectContext(data: AlfaCockpitData | null) {

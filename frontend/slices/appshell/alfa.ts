@@ -1,0 +1,14 @@
+export { AlfaThread } from "./components/alfa-thread";
+export { ChatComposer } from "./components/chat-composer";
+export * from "./lib/mentions";
+export * from "./lib/alfa";
+export * from "./lib/alfa-run-state";
+export * from "./lib/alfa-approval-policy";
+export { AlfaApprovalGrants } from "./components/alfa-approval-grants";
+export { AlfaRunProgress } from "./components/alfa-run-progress";
+export * from "./lib/alfa-sources";
+export * from "./lib/alfa-approvals";
+export * from "./lib/alfa-work-context";
+export { MessageBubble } from "./components/message-bubble";
+export type { ChatMessage, ToolCard } from "./components/message-bubble";
+export { ApprovalCard } from "./components/approval-card";

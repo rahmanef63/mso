@@ -3,8 +3,16 @@
 import { useMemo, useRef } from "react";
 import { matchDestructive, useOsApi } from "../lib/host";
 import type { AiTool, ToolInvocation, ToolOutcome } from "../lib/host";
-import { useApps, type ToolCard } from "@/features/appshell";
-import { alfaRunState, alfaProjectContext, alfaApprovalScope, alfaApprovalKey, hasAlfaApproval, rememberAlfaApproval } from "@/features/appshell";
+import { useApps } from "@/features/appshell";
+import {
+  type ToolCard,
+  alfaRunState,
+  alfaProjectContext,
+  alfaApprovalScope,
+  alfaApprovalKey,
+  hasAlfaApproval,
+  rememberAlfaApproval,
+} from "@/features/appshell/alfa";
 import { findHostTool, HOST_AI_TOOLS } from "./registry";
 import { recordAlfaTool } from "../lib/alfa-activity";
 

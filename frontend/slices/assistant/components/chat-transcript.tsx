@@ -1,6 +1,6 @@
 "use client";
 
-import { ApprovalCard, MessageBubble, type ChatMessage } from "@/features/appshell";
+import { ApprovalCard, MessageBubble, type ChatMessage } from "@/features/appshell/alfa";
 
 function legacyMessageTime(id: string): number | undefined {
   const match = /^m(\d+)-/.exec(id);

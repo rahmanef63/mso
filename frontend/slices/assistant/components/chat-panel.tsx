@@ -11,26 +11,19 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { errText } from "./error-text";
+import { useActiveShell } from "@/features/appshell";
 import {
-  updateAlfa,
-  useActiveShell,
-  useAlfaMessages,
-  awaitAlfaApproval,
-  resolveAlfaApproval,
-  clearAlfaApprovals,
-  useAlfaBusy,
-  sendToAlfa,
-  ChatComposer,
-  type AlfaMessage
-} from "@/features/appshell";
-import { AlfaRunProgress, AlfaApprovalGrants, alfaRunState, setAlfaOperation, pulseAlfaRun, recordAlfaRunActivity, endAlfaRunState, stopAlfaRunState } from "@/features/appshell";
+  updateAlfa, useAlfaMessages, awaitAlfaApproval, resolveAlfaApproval, clearAlfaApprovals,
+  useAlfaBusy, sendToAlfa, ChatComposer, type AlfaMessage, AlfaRunProgress, AlfaApprovalGrants,
+  alfaRunState, setAlfaOperation, pulseAlfaRun, recordAlfaRunActivity, endAlfaRunState,
+  stopAlfaRunState, type ChatMessage, type ToolCard, alfaProjectContext,
+} from "@/features/appshell/alfa";
 import { runToolAgent, useOsApi, type AgentMsg } from "../lib/host";
 import type { Agent, Automation } from "../lib/types";
 import { activeAgent } from "../lib/store";
 import { composeSystem } from "../lib/agent-request";
 import { composeAutomationRequest } from "../lib/automation-request";
 import { useHostCommands, type HostToolUi } from "../host-tools/use-host-commands";
-import { type ChatMessage, type ToolCard } from "@/features/appshell";
 import { ChatTranscript } from "./chat-transcript";
 import { TurnUsage } from "./turn-usage";
 import { useTurnUsage } from "./use-turn-usage";
@@ -39,7 +32,6 @@ import { EmptyState } from "./empty-state";
 import { useThreadPersistence } from "./use-thread-persistence";
 import { useAlfaRunner } from "./use-alfa-runner";
 import { beginAlfaRun, finishAlfaRun } from "../lib/alfa-activity";
-import { alfaProjectContext } from "@/features/appshell";
 
 const SUGGESTED = ["Show system stats", "List ~/projects", "Create notes.txt in ~/projects with a TODO"];
 
