@@ -124,7 +124,8 @@ source comments. They are **not current implementation contracts**.
 | [`SHELL-FIDELITY-PLAN.md`](./SHELL-FIDELITY-PLAN.md) | Historical design backlog/baseline; current shell design lives in code + architecture |
 | [`DRAWER-MENU-BYOK-PLAN.md`](./DRAWER-MENU-BYOK-PLAN.md) | Historical implementation plan; phases A–C and OpenAI Codex D1 shipped; remaining ideas are not promises |
 | [`OS-SETTINGS-ICON-UPDATE-DEVICE-PLAN.md`](./OS-SETTINGS-ICON-UPDATE-DEVICE-PLAN.md) | **Open plan, not implemented**: auto-update opt-in, stable channel, Devices/Server merge, account icon picker, upload→WebP/ICO pipeline |
-| [`MSO-MIGRATION.md`](./MSO-MIGRATION.md) | **Open plan, not implemented**: measured baseline plus phased Next→Svelte/Bun/Rust migration with a decision gate before any rewrite |
+| [`HANDOVER.md`](./HANDOVER.md) | **Start here for a new session**: current repo state, what shipped, what was cancelled and why, the numbers that decide things, and the traps that cost time |
+| [`MSO-MIGRATION.md`](./MSO-MIGRATION.md) | Phased Next→Svelte/Bun/Rust plan with its phase table: 0/1/2 shipped, 3/4 cancelled by measurement, 6 no-go, 5 not started. Authoritative over BENCH-AFTER.md |
 | [`BENCH-BEFORE.md`](./BENCH-BEFORE.md) | **Measured baseline, 2026-10-29**: bundle, LCP/TBT, hydration chain, per-app open cost and code surface, captured on an idle host as the "before" side of the Phase 4/5 comparison |
 | [`BENCH-AFTER.md`](./BENCH-AFTER.md) | **Measured comparison, 2026-10-30**: the same eight measures two days later, side by side, including the deltas that are zero and the ones inside the noise band |
 | [`MIGRATION-GATE-PLAN.md`](./MIGRATION-GATE-PLAN.md) | Executed migration-gate work: which §3 items landed with measurements, which were blocked and why, and the `lib/` framework-import debt |
