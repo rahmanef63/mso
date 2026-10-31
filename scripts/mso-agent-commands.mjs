@@ -18,6 +18,7 @@ import {
 import { handleInspectCommand } from "./mso-agent-cmd-inspect.mjs";
 import { handleSessionCommand } from "./mso-agent-cmd-session.mjs";
 import { handleJobsCommand } from "./mso-agent-jobs.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 export { SHARE_UNAVAILABLE_MESSAGE, buildExportArgv };
 
@@ -50,9 +51,10 @@ async function selectSlashSkill(rl, session, requested, prompt, runTurn) {
   const scope = loaded.project?.name
     ? `project ${loaded.project.name}`
     : "global";
+  const { print } = createPrinter({ session, colors: C });
   if (!prompt.trim()) {
     session.pendingSkill = loaded;
-    console.log(
+    print(
       `${C.warn}${C.bold}◆ /${loaded.name} queued${C.reset}${C.dim} · next message · ${scope}${C.reset}`,
     );
     return "handled";
@@ -78,6 +80,7 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
   const local = await handleLocalCommand(cmd, args, session, { runCli, runSubagent });
   if (local) return local;
 
+  const printer = createPrinter({ session, colors: C });
   const ctx = {
     rl,
     session,
@@ -87,6 +90,7 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
     api,
     state,
     C,
+    printer,
   };
 
   const sessionOutcome = await handleSessionCommand(ctx, cmd, args);
@@ -102,11 +106,11 @@ export async function handleSlash(rl, line, session, { runTurn, runSubagent }) {
 
   switch (cmd) {
     case "/help":
-      printHelp();
+      printHelp({ session });
       return "handled";
     case "/skill":
       if (!args[0]) {
-        console.log("usage: /skill <name-or-exact-id> [prompt]");
+        printer.print("usage: /skill <name-or-exact-id> [prompt]");
         return "handled";
       }
       return selectSlashSkill(

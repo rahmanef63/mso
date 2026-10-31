@@ -1,5 +1,6 @@
 import { api, C } from "./mso-agent-runtime.mjs";
 import { executeTool } from "./mso-agent-turn.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 export function formatElapsed(ms) {
   if (typeof ms !== "number" || Number.isNaN(ms) || ms <= 0) return "0s";
@@ -113,14 +114,16 @@ export function formatJobDetail(job, { colors = {}, now = Date.now() } = {}) {
   return lines.join("\n");
 }
 
-export function printJobs(jobs, { colors, maxItems, print = console.log, now } = {}) {
+export function printJobs(jobs, { colors, maxItems, print, now, session } = {}) {
   const formatted = formatJobsBlock(jobs, { colors, maxItems, now });
-  print(formatted);
+  const doPrint = print || createPrinter({ session, colors }).printBlock;
+  doPrint(formatted);
   return formatted;
 }
 
 export async function handleJobsCommand(ctx, args = []) {
   const { api: request = api, session, rl, C: colors = C } = ctx;
+  const { print, printBlock } = createPrinter(ctx);
   const sessionId = session?.agentSession?.id;
   const subcommand = args[0];
 
@@ -134,7 +137,7 @@ export async function handleJobsCommand(ctx, args = []) {
         console.error(`${colors.err || ""}${out?.result || "could not list subagent jobs"}${colors.reset || ""}`);
         return "handled";
       }
-      printJobs(parseJobsResult(out.result), { colors });
+      printJobs(parseJobsResult(out.result), { colors, print: printBlock, session });
     } catch (err) {
       console.error(`${colors.err || ""}${err instanceof Error ? err.message : String(err)}${colors.reset || ""}`);
     }
@@ -143,16 +146,16 @@ export async function handleJobsCommand(ctx, args = []) {
 
   if (subcommand === "cancel") {
     const jobId = args[1]?.trim();
-    if (!jobId) { console.log("usage: /jobs cancel <id>"); return "handled"; }
-    if (!sessionId) { console.log("cannot cancel: active agent session required for tool approval"); return "handled"; }
+    if (!jobId) { print("usage: /jobs cancel <id>"); return "handled"; }
+    if (!sessionId) { print("cannot cancel: active agent session required for tool approval"); return "handled"; }
     try {
       const tool = session?.state?.tools?.find((t) => t.name === "agent_subagent_cancel") || { name: "agent_subagent_cancel", scope: "exec" };
       const call = { id: `slash_cancel_${Date.now()}`, name: "agent_subagent_cancel", input: { job_id: jobId } };
       const outcome = await executeTool(rl, tool, call, session.agentSession, session.permission, undefined, null, { approvalState: session });
-      if (!outcome?.ok) { console.log(outcome?.result || "cancel failed"); return "handled"; }
+      if (!outcome?.ok) { print(outcome?.result || "cancel failed"); return "handled"; }
       const job = parseJobResult(outcome.result);
-      if (job) console.log(formatJobDetail(job, { colors }));
-      else console.log(outcome.result || "job cancelled");
+      if (job) printBlock(formatJobDetail(job, { colors }));
+      else print(outcome.result || "job cancelled");
     } catch (err) {
       console.error(`${colors.err || ""}${err instanceof Error ? err.message : String(err)}${colors.reset || ""}`);
     }
@@ -170,8 +173,8 @@ export async function handleJobsCommand(ctx, args = []) {
       return "handled";
     }
     const job = parseJobResult(out.result);
-    if (job) console.log(formatJobDetail(job, { colors }));
-    else console.log(out.result || `job ${jobId} not found`);
+    if (job) printBlock(formatJobDetail(job, { colors }));
+    else print(out.result || `job ${jobId} not found`);
   } catch (err) {
     console.error(`${colors.err || ""}${err instanceof Error ? err.message : String(err)}${colors.reset || ""}`);
   }

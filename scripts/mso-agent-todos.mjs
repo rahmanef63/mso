@@ -1,5 +1,6 @@
 import process from "node:process";
 import { fit } from "./mso-agent-ui.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 const VALID_STATUSES = new Set(["pending", "in_progress", "completed"]);
 
@@ -176,15 +177,16 @@ export function todoStatusChip(state = cachedTodos) {
 /**
  * Print the formatted todo block via a designated sink.
  */
-export function printTodoBlock(state, { colors, maxItems, print = console.log, activity } = {}) {
+export function printTodoBlock(state, { colors, maxItems, print, activity, session } = {}) {
   const formatted = formatTodoBlock(state, { colors, maxItems });
   if (!formatted) return false;
+  const doPrint = print || createPrinter({ session, colors }).printBlock;
   if (activity?.live) {
     activity.clear();
     const tone = colors?.c || colors?.cyan || "";
     const reset = colors?.reset || "";
-    print(`${tone}  ✓ todo_write${reset}`);
+    doPrint(`${tone}  ✓ todo_write${reset}`);
   }
-  print(formatted);
+  doPrint(formatted);
   return true;
 }

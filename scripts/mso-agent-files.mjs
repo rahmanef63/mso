@@ -5,6 +5,7 @@ import { api } from "./mso-agent-api.mjs";
 import { C, fit } from "./mso-agent-ui.mjs";
 import { AgentApiError, safeErrorSummary } from "./mso-agent-errors.mjs";
 import { sectionDivider } from "./mso-agent-layout.mjs";
+import { createPrinter } from "./mso-agent-print.mjs";
 
 // Terminal height minus header, divider, and prompt margin, clamped [5, 60].
 export function computeRows(terminalRows = 24) {
@@ -124,7 +125,7 @@ export function formatEntries(entries, { columns = 80, rows = 60, path = "", col
 // Bounded read-only view of target or working directory.
 export async function handleFilesCommand(args = [], session = null, options = {}) {
   const callApi = options.apiFn || api;
-  const print = options.print || console.log;
+  const print = options.print || createPrinter({ session, colors: C }).printBlock;
   const printErr = options.printErr || console.error;
   const rawTarget = args.join(" ").trim();
   const targetPath = expandPath(rawTarget);

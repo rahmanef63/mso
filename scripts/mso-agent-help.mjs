@@ -1,3 +1,5 @@
+import { createPrinter } from "./mso-agent-print.mjs";
+
 export const HELP_LINES = [
   "  /help                   show slash commands and keyboard shortcuts",
   "  /new [title]            create and switch to a fresh durable session",
@@ -58,6 +60,7 @@ export const HELP_LINES = [
 
 export const HELP_TEXT = HELP_LINES.join("\n");
 
-export function printHelp() {
-  console.log(HELP_TEXT);
+export function printHelp(options = {}) {
+  const printer = createPrinter(options);
+  printer.printBlock(HELP_TEXT);
 }
