@@ -21,6 +21,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `dev` regenerate the changelog before the commit, not after the gate
 - `progress` correct why CI looks silent on a feature branch
 
 ## 2026-10-31
