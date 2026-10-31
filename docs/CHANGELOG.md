@@ -14,6 +14,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 - `docs` regenerate the changelog after the date rolled over
 
+**Docs**
+
+- `gates` the green full run, and the parallel-run trap
+
 ## 2026-10-31
 
 **Added**
