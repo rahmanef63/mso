@@ -595,31 +595,33 @@ those two, and mouse/scrollbar/splits are additive after M5.
 | M5 | Alternate screen behind a flag, with teardown | DONE | PR #192; default off; teardown on exit, signals, execve, spawnSync |
 | M6 | Transcript viewport and scrollbar | DONE | PR #193; 2000-line cap, follow mode, PgUp/PgDn/Ctrl+G/End, entrypoint 218 to 196 lines |
 | M7 | Mouse | DONE | SGR 1000/1006 extended mode, wheel scrolls viewport, tab clicks switch session |
-| M8 | Split panes, then flip the alt screen default | PARTIAL | PR #198; right-hand pane for todos, diff, files. Default flip NOT done, blockers in 8.1 |
+| M8 | Split panes, then flip the alt screen default | DONE | PR #198 the pane; default flipped here, inline is now the opt out (`--no-altscreen`) |
 
-### 8.1 What remains before the alternate screen can be the default
+### 8.1 The default is now the panel
 
-The pane landed and the flag works, but the default is still `off`. That is not caution about the
-renderer, which is now complete. It is that a great deal of the TUI still prints instead of painting:
+The four blockers are closed and the alternate screen is the default:
 
-1. **26 modules print with `console.log`** under `scripts/mso-agent*.mjs` and
-   `scripts/mso-agent-cmd-*.mjs` (help, inspect, parity, jobs, todos, files, diff, edit diff,
-   approval UI, mentions, skills, status, layout). In the alternate screen a `console.log` writes at
-   the cursor, which is inside the frame the loop owns, so the next repaint fights it and a line can
-   survive in the wrong row. They need one print sink that appends to the viewport in panel mode and
-   prints as before in inline mode.
-2. **DONE** - **The composer reports its row count dynamically**: `AgentComposer` exposes its current
-   painted row count via an `onRows(rows)` callback and `rowCount()` method. `mountScreenLoop` starts
-   at `PROMPT_ROWS = 3` and updates its reservation dynamically from reported rows, clamped between
-   3 and terminalRows / 4. Verified in `scripts/mso-agent-composer-rows.test.ts`.
-3. **Prompts and foreground subagents take over the composer area** (`promptApproval` in
-   `scripts/mso-agent-approval-ui.mjs`, `runForegroundSubagent`). They are line oriented, so in panel
-   mode they would need to be painted into the viewport and answered through the same key path.
-4. **Turn-level failures bypass the stream sink**: `renderInteractionFailure` writes directly, so an
-   error raised mid-turn would land outside the frame.
+1. **Print sink**, `scripts/mso-agent-print.mjs`, installed by the screen loop as `session.printSink`
+   and consumed by every command module. One whole release was lost here: #202 added the router and
+   migrated twelve modules, but nothing installed the sink, so it fell through to `console.log` every
+   time and looked correct in the diff. #206 installed it.
+2. **Composer height**, reported through `onRows` and reserved exactly, capped at terminal rows minus
+   four rather than a quarter of the terminal, which on a 12 row terminal was 3 and made the fix
+   inert in the case it existed for.
+3. **Approval prompts** suspend the panel, and suspension **leaves the alternate screen**. Detaching
+   the sink alone was not enough: the prompt was painted into the buffer and the next repaint erased
+   it, so the user answered a question that had vanished.
+4. **Mid-turn writes** go through `turnPrinter`, including the activity row, which is forced to
+   discrete lines in panel mode because a live spinner row draws at the cursor inside the frame.
 
-Until those four are done, `--altscreen` stays a development switch, and `--oneshot`, non-TTY and CI
-remain excluded by `altScreenRequested` regardless of the flag.
+The startup banner moved into the transcript for the same reason: it was printed before the first
+frame and that frame erased it. The entrypoint captures it through an injectable print and the loop
+prepends it to every render, trimmed to its last four lines in panel mode because the full banner is
+31 lines and would occupy most of a 30 row viewport.
+
+Inline mode is now the opt out, not the default: `--no-altscreen` or `MSO_ALT_SCREEN=0`. Non-TTY, CI
+and `--oneshot` are still refused regardless, and an explicit opt out is silent rather than merely
+inactive.
 
 Adjacent work that landed while this plan was being executed, and belongs to the same goal:
 `feat/agent-jobs-view` (#183, `/jobs` for background subagents) and `feat/tui-keybinds` (#182,

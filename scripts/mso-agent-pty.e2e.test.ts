@@ -58,8 +58,10 @@ function spawnAgentPty(serverUrl: string, cols = 100, rows = 30) {
     ...process.env, HOME: tempHome, TERM: "xterm-256color",
     MSO_AGENT_BASE: serverUrl, MSO_AGENT_ORIGIN: serverUrl, MSO_AGENT_CLI: "mso", MSO_AGENT_VERSION: "1.13.1",
   };
-  delete env.CI; // Alt screen refuses execution in CI environment.
-  const child = pty.spawn(process.execPath, [path.join(__dirname, "mso-agent.mjs"), "--altscreen"], {
+  // The panel is the default; CI still has to be cleared because altScreenRequested refuses there
+  // by design, and this suite runs under CI on a normal day.
+  delete env.CI;
+  const child = pty.spawn(process.execPath, [path.join(__dirname, "mso-agent.mjs")], {
     cols, rows, cwd: __dirname, env: env as Record<string, string>,
   });
   return {
