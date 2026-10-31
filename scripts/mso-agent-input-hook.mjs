@@ -6,7 +6,8 @@ import { parseMouseChunk } from "./mso-agent-mouse.mjs";
 // nothing else, so the screen loop stays under the line ratchet.
 export function installInputHook({ input, onKey, onMouse }) {
   const originalEmit = input.emit;
-  if (typeof originalEmit !== "function") return { dispose() {} };
+  if (typeof originalEmit !== "function") return { dispose() {}, setEnabled() {} };
+  let enabled = true;
 
   const consumeMouse = (payload) => {
     const events = parseMouseChunk(payload);
@@ -16,6 +17,9 @@ export function installInputHook({ input, onKey, onMouse }) {
   };
 
   input.emit = function patchedEmit(event, ...args) {
+    // A suspension hands the terminal to a line oriented prompt, so the panel must stop consuming
+    // keys and mouse sequences until it comes back, or the prompt would silently lose them.
+    if (!enabled) return Reflect.apply(originalEmit, this, [event, ...args]);
     if (event === "data" && args[0]) {
       const chunk = typeof args[0] === "string" ? args[0] : (args[0] instanceof Buffer ? args[0].toString("utf8") : "");
       if (chunk.includes("\x1b[<")) {
@@ -37,6 +41,7 @@ export function installInputHook({ input, onKey, onMouse }) {
   };
 
   return {
+    setEnabled(next) { enabled = next; },
     dispose() {
       input.emit = originalEmit;
     },

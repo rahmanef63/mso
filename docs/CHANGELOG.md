@@ -8,7 +8,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` mid-turn writes go into the panel, and prompts suspend it instead of fighting it
+- `tui` a suspended panel really leaves the alternate screen, so an approval is readable
+- `tui` mid-turn writes go into the panel, and prompts suspend it instead of fighting it (#204)
 - `tui` the composer reports its height, so the panel stops guessing how much to reserve (#203)
 - `tui` one print sink, so command output lands in the panel instead of on top of it (#202)
 - `tui` a right-hand side pane for todos, the last diff and changed files (#198)
