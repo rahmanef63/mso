@@ -11,6 +11,10 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 - `ci` run every security scanner as the runner's uid, not root
 - `deps` one minimatch, the patched one, via the existing override block
 
+**Faster**
+
+- `baseline` regenerate on an idle host, which the old one was not
+
 ## 2026-10-31
 
 **Added**
