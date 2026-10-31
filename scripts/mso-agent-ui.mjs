@@ -136,15 +136,15 @@ function panelTitle(title, inner) {
   return `┌${rule("─", before)}${label}${rule("─", remaining - before)}┐`;
 }
 
-export function printAgentBanner(s, agentSession, { base, version }) {
+export function printAgentBanner(s, agentSession, { base, version, print = (line = "") => console.log(line) }) {
   const totalWidth = terminalWidth();
   const inner = totalWidth - 2;
   const titleArtWidth = Math.max(...MSO_TITLE_ART.map(width));
   if (totalWidth >= titleArtWidth) {
     const colors = titleColors();
-    MSO_TITLE_ART.forEach((line, index) => console.log(`${colors[index]}${C.bold}${line}${C.reset}`));
-  } else console.log(`${C.blue}${C.bold}── MSO Agent ──${C.reset}`);
-  console.log();
+    MSO_TITLE_ART.forEach((line, index) => print(`${colors[index]}${C.bold}${line}${C.reset}`));
+  } else print(`${C.blue}${C.bold}── MSO Agent ──${C.reset}`);
+  print();
 
   const byScope = { read: 0, write: 0, exec: 0 };
   for (const tool of s.tools) byScope[tool.scope] = (byScope[tool.scope] || 0) + 1;
@@ -156,7 +156,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
   const sessionName = `@${agentSession?.name || "agent"}`;
   const title = fit(`MSO Agent${version ? ` v${version}` : ""} · ${sessionName} · ${sessionTitle}`, inner - 2);
 
-  console.log(panelTitle(title, inner));
+  print(panelTitle(title, inner));
   if (totalWidth >= 94) {
     const gap = 4;
     const leftWidth = Math.max(30, Math.floor((inner - gap) * 0.37));
@@ -175,7 +175,7 @@ export function printAgentBanner(s, agentSession, { base, version }) {
     right.push("", `${C.bold}Available Skills${C.reset}`);
     for (const row of skills) right.push(kv(row.label, row.value, rightWidth));
     const rows = Math.max(left.length, right.length);
-    for (let i = 0; i < rows; i++) console.log(panelLine(left[i] || "", right[i] || "", leftWidth, rightWidth, gap));
+    for (let i = 0; i < rows; i++) print(panelLine(left[i] || "", right[i] || "", leftWidth, rightWidth, gap));
   } else {
     const lines = [
       `${C.bold}Runtime${C.reset}`, kv("model", model, inner), kv("name", sessionName, inner), kv("session", sessionTitle, inner), kv("endpoint", base, inner), "",
@@ -184,10 +184,10 @@ export function printAgentBanner(s, agentSession, { base, version }) {
       `${C.bold}Capabilities${C.reset}`, `${byScope.read} read · ${byScope.write} write · ${byScope.exec} exec · write/exec approval-gated`,
       `${C.bold}Infrastructure${C.reset}`, `${infra.ready.length}/${infra.total} ready · ${infra.ready.length ? infra.ready.join(" · ") : "run /integrations to connect"}`,
     ];
-    for (const line of lines) console.log(panelSingle(line, inner));
+    for (const line of lines) print(panelSingle(line, inner));
   }
-  console.log(`└${rule("─", inner)}┘`);
-  console.log(`${C.dim}${s.tools.length} tools · ${countSkills(s.skills)} skills · /skills · /<skill> · /help${C.reset}`);
-  console.log();
-  console.log(`${C.bold}Welcome to MSO Agent!${C.reset} Type your message or /help for commands.`);
+  print(`└${rule("─", inner)}┘`);
+  print(`${C.dim}${s.tools.length} tools · ${countSkills(s.skills)} skills · /skills · /<skill> · /help${C.reset}`);
+  print();
+  print(`${C.bold}Welcome to MSO Agent!${C.reset} Type your message or /help for commands.`);
 }

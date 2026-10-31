@@ -8,6 +8,7 @@ import { transcriptLines } from "./mso-agent-transcript.mjs";
 import { appendStream, commitStream, createViewport, handleViewportKey, resetFollow, setLines } from "./mso-agent-viewport.mjs";
 import { renderViewport } from "./mso-agent-viewport-render.mjs";
 import { paneLines, paneWidth } from "./mso-agent-pane.mjs";
+import { withPreamble } from "./mso-agent-banner-lines.mjs";
 import { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
 
@@ -24,6 +25,7 @@ export { clampPromptRows, PROMPT_ROWS } from "./mso-agent-composer-ui.mjs";
  *   colors?: any,
  *   getSessions?: () => Array<any>,
  *   onTabClick?: (sessionId: string) => void | Promise<void>,
+ *   preamble?: (() => Array<string> | null) | null,
  * }} options
  */
 export function mountScreenLoop({
@@ -35,6 +37,7 @@ export function mountScreenLoop({
   getSessions = () => [],
   onTabClick,
   composer = null,
+  preamble = null,
 } = {}) {
   if (!enabled || !session) {
     return {
@@ -114,7 +117,7 @@ export function mountScreenLoop({
 
   const sync = () => {
     commitStream(viewport);
-    setLines(viewport, transcriptLines(session, { colors, width: geometry().transWidth }));
+    setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth })));
     paint();
   };
 
@@ -176,7 +179,7 @@ export function mountScreenLoop({
     onMouse: (event) => dispatchMouse(event),
   });
 
-  setLines(viewport, transcriptLines(session, { colors, width: geometry().transWidth }));
+  setLines(viewport, withPreamble(preamble?.() ?? null, transcriptLines(session, { colors, width: geometry().transWidth })));
   paint();
 
   const loop = {

@@ -16,7 +16,7 @@ import { oneShotApproves } from "./mso-agent-oneshot.mjs";
 import { reasoningLine } from "./mso-agent-reasoning.mjs";
 import { parseEditResult, printEditDiff } from "./mso-agent-edit-diff.mjs";
 import { parseTodoCall, printTodoBlock, rememberTodos } from "./mso-agent-todos.mjs";
-import { turnPrinter } from "./mso-agent-turn-print.mjs";
+import { turnActivity, turnPrinter } from "./mso-agent-turn-print.mjs";
 
 function lazyAssistantOutput(session, options = {}) {
   if (options.quiet) return null;
@@ -115,14 +115,7 @@ export async function agentRound(rl, session, skillContext = null, signal = unde
   const calls = [];
   let finalText = "", rounds = 0;
   const agentName = session?.agentSession?.name || "agent";
-  const activity = options.quiet
-    ? null
-    : (options.activity || new AgentActivity({
-      output: options.output || process.stdout,
-      colors: C,
-      now: options.now,
-      animate: options.animate,
-    })).begin();
+  const activity = options.quiet ? null : turnActivity({ session, options, Activity: AgentActivity, fallbackColors: C });
   const roundLimit = agentRoundLimit();
   beginSkillInvocation(session, skillContext, C);
   const print = options.print || turnPrinter(session);
