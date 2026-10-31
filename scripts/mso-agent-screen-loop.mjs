@@ -1,7 +1,8 @@
 import process from "node:process";
 import { chromeLines, tabAtPoint } from "./mso-agent-chrome.mjs";
 import { composerSeparator } from "./mso-agent-layout.mjs";
-import { disableMouse, enableMouse, handleMouse, parseMouseChunk } from "./mso-agent-mouse.mjs";
+import { disableMouse, enableMouse, handleMouse } from "./mso-agent-mouse.mjs";
+import { installInputHook } from "./mso-agent-input-hook.mjs";
 import { writeFrame } from "./mso-agent-screen.mjs";
 import { transcriptLines } from "./mso-agent-transcript.mjs";
 import { appendStream, commitStream, createViewport, handleViewportKey, resetFollow, setLines } from "./mso-agent-viewport.mjs";
@@ -37,12 +38,16 @@ export function mountScreenLoop({
 } = {}) {
   if (!enabled || !session) {
     return {
-      active: false, session: null,
-      paint() {}, sync() {}, suspend() {}, resume() {}, follow() {}, dispose() {},
-      // Geometry and the row reservation stay callable with the panel off, so the entrypoint wires
-      // them unconditionally instead of branching on whether the flag is set.
+      active: false,
+      session: null,
+      paint() {},
+      sync() {},
+      suspend() {},
+      resume() {},
+      follow() {},
       geometry() { return { cols: 80, rows: 24, panel: [], viewRows: 0, tabRowY: 0, pWidth: 0, transWidth: 80, kind: null, promptRows: PROMPT_ROWS }; },
       setPromptRows() {},
+      dispose() {},
     };
   }
 
@@ -51,19 +56,18 @@ export function mountScreenLoop({
   const onTeardown = () => { disableMouse(output); };
   const detach = (target, event, listener) => {
     if (typeof target?.off === "function") target.off(event, listener);
-    else target?.removeListener?.(event, listener);
+    else if (typeof target?.removeListener === "function") target.removeListener(event, listener);
   };
   ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => process.on?.(sig, onTeardown));
 
   const viewport = createViewport({ rows: output.rows || 24 });
   let painted = [];
-  let keysPatched = false;
-  let originalEmit = null;
   let promptReservation = PROMPT_ROWS;
+  let savedSink = null;
 
   const setPromptRows = (rows) => {
-    // When the composer reports its painted row count, clamp it so the panel
-    // never jumps on erase (0) and never gets pushed off screen by tall drafts.
+    // When the composer reports its painted row count, clamp it so the panel never jumps on erase
+    // and never gets pushed off screen by a tall draft.
     const termRows = Math.max(6, Number(output.rows) || 24);
     const clamped = clampPromptRows(rows, termRows);
     if (clamped !== promptReservation) {
@@ -76,9 +80,7 @@ export function mountScreenLoop({
     if (typeof composer.onRows === "function") composer.onRows(setPromptRows);
     else composer.onRows = setPromptRows;
   }
-  if (session) {
-    session.onComposerRows = setPromptRows;
-  }
+  session.onComposerRows = setPromptRows;
 
   const geometry = (reservation = promptReservation) => {
     const cols = Math.max(20, Number(output.columns) || 80);
@@ -125,22 +127,10 @@ export function mountScreenLoop({
     },
   };
 
-  let savedSink = null;
-  const suspend = () => {
-    if (session?.streamSink) {
-      savedSink = session.streamSink;
-      delete session.streamSink;
-    }
+  const onResize = () => {
+    viewport.rows = output.rows || 24;
+    sync();
   };
-  const resume = () => {
-    if (savedSink && session) {
-      session.streamSink = savedSink;
-      savedSink = null;
-    }
-    paint();
-  };
-
-  const onResize = () => { viewport.rows = output.rows || 24; sync(); };
   output.on?.("resize", onResize);
 
   const dispatchMouse = (event) => {
@@ -163,42 +153,31 @@ export function mountScreenLoop({
     return false;
   };
 
-  // readline emits keypress on stdin, and the composer is one of its listeners. Intercepting emit
-  // is the only way to consume keys and mouse sequences before the composer acts on them without
-  // growing the composer, which sits at its line ceiling.
-  originalEmit = input.emit;
-  if (typeof originalEmit === "function") {
-    keysPatched = true;
-    input.emit = function patchedEmit(event, ...args) {
-      if (event === "data" && args[0]) {
-        const chunk = typeof args[0] === "string" ? args[0] : (args[0] instanceof Buffer ? args[0].toString("utf8") : "");
-        if (chunk.includes("\x1b[<")) {
-          const events = parseMouseChunk(chunk);
-          if (events.length > 0) {
-            for (const ev of events) dispatchMouse(ev);
-            const stripped = chunk.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
-            if (!stripped) return true;
-            args[0] = typeof args[0] === "string" ? stripped : Buffer.from(stripped, "utf8");
-          }
-        }
-      }
-      if (event === "keypress") {
-        const seq = args[1]?.sequence || (typeof args[0] === "string" ? args[0] : "");
-        if (typeof seq === "string" && seq.startsWith("\x1b[<")) {
-          const events = parseMouseChunk(seq);
-          if (events.length > 0) {
-            for (const ev of events) dispatchMouse(ev);
-            return true;
-          }
-        }
-        if (args[1] && handleViewportKey(viewport, args[1], { rows: geometry().viewRows })) {
-          paint();
-          return true;
-        }
-      }
-      return Reflect.apply(originalEmit, this, [event, ...args]);
-    };
-  }
+  // A line oriented prompt needs the terminal to itself, so the sink is detached for the duration
+  // and the panel repaints afterwards. Building an in-panel input mode would mean a second
+  // implementation of the composer's key handling.
+  const suspend = () => {
+    if (!session.streamSink) return;
+    savedSink = session.streamSink;
+    delete session.streamSink;
+  };
+  const resume = () => {
+    if (savedSink) {
+      session.streamSink = savedSink;
+      savedSink = null;
+    }
+    paint();
+  };
+
+  const hook = installInputHook({
+    input,
+    onKey: (key) => {
+      if (!handleViewportKey(viewport, key, { rows: geometry().viewRows })) return false;
+      paint();
+      return true;
+    },
+    onMouse: (event) => dispatchMouse(event),
+  });
 
   setLines(viewport, transcriptLines(session, { colors, width: geometry().transWidth }));
   paint();
@@ -216,16 +195,18 @@ export function mountScreenLoop({
     dispose() {
       ["exit", "SIGINT", "SIGTERM", "SIGHUP"].forEach((sig) => detach(process, sig, onTeardown));
       output.off?.("resize", onResize);
-      if (keysPatched) input.emit = originalEmit;
+      hook.dispose();
       disableMouse(output);
       if (session.streamSink) delete session.streamSink;
       if (session.onComposerRows) delete session.onComposerRows;
-      if (session.screenLoop === loop) delete session.screenLoop;
+      if (session.screenLoop) delete session.screenLoop;
       // The panel owns the whole screen, so the inline transcript is repainted once on the way out
       // instead of leaving the alternate buffer's last frame on screen.
       painted = [];
     },
   };
+  // An approval raised deep inside a tool call has to find the panel without a new parameter
+  // threaded through every layer, so the loop announces itself on the session. dispose clears it.
   session.screenLoop = loop;
   return loop;
 }
