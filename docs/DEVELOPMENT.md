@@ -179,6 +179,27 @@ TypeScript 7. Remove an ignore only after the isolated candidate passes typechec
 checks, and the out-of-tree production build. This is a compatibility hold, not a permanent version
 pin and not an exemption from Dependabot security updates.
 
+### Security scanners run as your own uid, never as root
+
+Every `docker run` in `.github/workflows/security-core.yml` and any local reproduction of one needs
+`--user "$(id -u):$(id -g)"`. This is not tidiness.
+
+This repository is a **partial clone** (`blob:none` in `.git/config`). Run gitleaks as root against
+a read-write mount and its `git` sees missing blobs, decides the repo is corrupt, promisor-fetches
+during the scan, and rewrites refs and logs — as root. Observed once: 67 files under `.git` became
+root-owned, `git commit` then failed with `unable to append to '.git/logs/HEAD': Permission denied`,
+and `sudo` here needs an interactive password.
+
+Recovery, without sudo, when it does happen:
+
+```
+docker run --rm -v "$PWD/.git:/g" alpine chown -R "$(id -u):$(id -g)" /g
+git fsck --no-progress --connectivity-only   # dangling commits are normal; errors are not
+```
+
+Prefer `:ro` on the mount for scanners that only read, and `--network=none` for gitleaks, which
+never needs the network once the clone is complete.
+
 ## Deploy — and the build hazard ⚠️
 
 mso deploys via **systemd on the VPS**, not `git push` (no webhook, no Dokploy/
