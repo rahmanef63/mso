@@ -8,6 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Fixed**
 
+- `ci` run every security scanner as the runner's uid, not root
 - `deps` one minimatch, the patched one, via the existing override block
 
 ## 2026-10-31
