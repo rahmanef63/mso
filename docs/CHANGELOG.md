@@ -8,7 +8,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Added**
 
-- `tui` install the print sink the last change forgot, and migrate the modules that still print
+- `tui` install the print sink the last change forgot, and migrate the modules that still print (#206)
 - `tui` a suspended panel really leaves the alternate screen, so an approval is readable (#205)
 - `tui` mid-turn writes go into the panel, and prompts suspend it instead of fighting it (#204)
 - `tui` the composer reports its height, so the panel stops guessing how much to reserve (#203)
@@ -37,6 +37,7 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
+- `tui` a handover for the panel track, so a pause costs nothing
 - handover for the next session, plus the entry this session was missing
 - `tui` name the four things between here and an alternate screen default (#199)
 
