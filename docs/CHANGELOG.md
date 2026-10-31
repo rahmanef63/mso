@@ -31,7 +31,8 @@ this is the *what*, and it is what Settings → Account → About shows as “Wh
 
 **Docs**
 
-- `tui` name the four things between here and an alternate screen default
+- handover for the next session, plus the entry this session was missing
+- `tui` name the four things between here and an alternate screen default (#199)
 
 ## 2026-10-30
 

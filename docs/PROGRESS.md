@@ -1,3 +1,61 @@
+## 2026-10-31: every route has a test, and the workflow conflict that made each PR slow
+
+Route test coverage went from **59 of 117 to 117 of 117**. No route in the repository is
+untested. Tests went 5,844 -> 6,194; statements 53.23 -> 53.79, branches 50.01 -> 50.46,
+lines 56.93 -> 57.6. Test files 873 -> 953.
+
+**How it was split.** Six parallel batches on disjoint paths, each with a contract rather than
+"add tests":
+
+| Batch | The assertion that matters |
+|---|---|
+| `.well-known` + `a2a` | these are public **by design** — the test proves they stay public and keep the exact keys MCP clients read. A well-meaning "harden this" would break every client |
+| public probes | `internal/socket-policy` must return **404 specifically** when its secret is wrong or short; it hides its own existence, so encoding 401 would be the wrong contract |
+| integrations | Google start is owner-gated and must carry a `state` param; callback must reject a mismatched host and malformed state |
+| misc v1 | `federation/status` and `app-catalog` differ — 401 `unauthorized` vs 403 `owner_required` — and that difference **is** the contract |
+| sys + camoufox | `camoufox/session` returns 503 `viewer_unconfigured` on a short secret; managed-apps jobs distinguish unknown-app from unknown-job with separate keys |
+| fs + auth | `auth/me` is the probe the shell boots on, so a wrong answer breaks start-up; `auth/logout` must clear cookies and not 500 when there was no session |
+
+**`app/api/skills`, the last one, has the most interesting branch in the router.** A bare skill
+name matching several projects returns **409 `ambiguous`** with candidates — not 404, and not a
+guess — because returning one project's instructions under another project's name is the bug
+that branch exists to prevent. Mutation-tested: replacing the 409 with a guess fails the
+assertion, restoring returns 8/8.
+
+**A real gap closed earlier in the same push:** `fs/read` was the only fs route with no rate
+limit while every sibling was throttled. It now carries 60/min plus an audit entry, and
+`fs.read` joined the `AuditAction` union. That required fixing `lib/mcp/fs-credential-boundary.test.ts`,
+which drives the route to prove the credential boundary — with the limiter live, ten
+back-to-back reads would have returned 429 and a refusal would have been indistinguishable
+from throttling. The limiter is stubbed open there, and the suite was re-verified to still
+bite: disabling `isCredentialPath` gives 12 failed | 1 passed.
+
+**Every file was mutation-tested.** Removing the guard a test covers had to make it fail:
+`verifyAuth` deleted from a handler yields 200 instead of 401, `rateLimited` removed yields 200
+instead of 429, `IS_DEMO` removed yields 202 instead of 403, the manager route returning 500
+fails its 200 assertion. This discipline exists because a cannot-fail test shipped earlier in
+this work — `getSessionActor` always resolved, so deleting `exec/run`'s gate left the suite
+14/14 green — and was counted as coverage.
+
+**Workflow fix.** `.gitattributes` now marks `docs/CHANGELOG.md` as `merge=ours`. It is derived
+from git history and rewritten wholesale on regeneration, so two branches that both regenerate
+it always conflict textually even though neither is wrong, and the only correct resolution is to
+regenerate — which the changelog gate enforces anyway. That single file cost three rebases on
+one PR this session. The attribute is inert until a clone runs `git config merge.ours.driver
+true`, so an unconfigured clone still conflicts rather than silently merging.
+
+**Findings recorded rather than papered over.** `fs` routes do no path validation at the route
+layer — roots-escape enforcement lives entirely in the host primitives, which throw `HostError`
+and surface as 400. That is a legitimate design, but it means those route tests prove the
+delegation exists, not that containment is correct. Three `infra` routes collapse a wrong-role
+caller into 401 rather than 403, and `infra/setup` returns 403 even when completely
+unauthenticated — inconsistent with every other route, but pre-existing, so documented in the
+test rather than changed here.
+
+**Evidence.** `typecheck` 0, `lint` 0, `check-architecture` healthy at 42/43 (improved from
+43/43), `check-docs` current, full vitest **953 files / 6,194 tests passed**, coverage
+53.79 / 50.46 / 42.64 / 57.6.
+
 ## 2026-10-30: Svelte marginal-cost retraction, status-code contract, and the CI-parity gate
 
 Four findings where empirical measurement corrected assumptions and hardened safety boundaries.
